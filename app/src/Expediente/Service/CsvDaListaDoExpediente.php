@@ -14,6 +14,9 @@ use App\Pasta\Entity\Pasta;
  * com acento certo), quebra CRLF. Os textos são os da tela: o cliente é o identificador da pasta, a
  * prioridade e a situação com os rótulos do desenho, os réus juntos por " / ". Metas não entra, como no
  * desenho. NUP sempre entra, primeiro.
+ *
+ * Pasta oculta pelo cadeado para quem exporta (spec pasta-cadeado D1) sai só com o número e o cliente, como
+ * a linha dela na tela: as outras colunas ficam vazias.
  */
 final class CsvDaListaDoExpediente
 {
@@ -46,8 +49,9 @@ final class CsvDaListaDoExpediente
      * @param Pasta[]                $pastas
      * @param string[]               $colunas chaves de COLUNAS; desconhecidas são ignoradas
      * @param array<int, string[]>   $reusPorPasta
+     * @param array<int, true>       $ocultas      ids das pastas ocultas pelo cadeado para quem exporta
      */
-    public function gerar(array $pastas, array $colunas, array $reusPorPasta): string
+    public function gerar(array $pastas, array $colunas, array $reusPorPasta, array $ocultas = []): string
     {
         $ks = array_values(array_filter(
             array_keys(self::COLUNAS),
@@ -58,7 +62,9 @@ final class CsvDaListaDoExpediente
         $linhas = [implode(';', array_map(static fn (string $k): string => self::COLUNAS[$k], $ks))];
         foreach ($pastas as $pasta) {
             $linhas[] = implode(';', array_map(
-                fn (string $k): string => '"' . str_replace('"', '""', self::semFormula($this->valor($pasta, $k, $reusPorPasta))) . '"',
+                fn (string $k): string => '"' . str_replace('"', '""', self::semFormula(
+                    isset($ocultas[(int) $pasta->getId()]) && !in_array($k, ['nup', 'cliente'], true) ? '' : $this->valor($pasta, $k, $reusPorPasta),
+                )) . '"',
                 $ks,
             ));
         }

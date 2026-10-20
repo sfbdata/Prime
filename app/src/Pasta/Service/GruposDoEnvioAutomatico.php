@@ -10,6 +10,7 @@ use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\ChavesDoEnvioAutomatico;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Repository\CadeadoDaPastaRepository;
 use App\Pasta\Repository\PastaRepository;
 
 /**
@@ -21,7 +22,8 @@ use App\Pasta\Repository\PastaRepository;
  *
  * Bloqueios (D7, decisão do orquestrador a confirmar com o dono: menos e-mail é o lado seguro), valem
  * na captação e no resumo: fica de fora a publicação de processo com o monitoramento pausado ou
- * baixado, e a pasta que não está ativa (arquivada, cancelada, suspensa) ou está trancada.
+ * baixado, e a pasta que não está ativa (arquivada, cancelada, suspensa) ou tem cadeado (spec pasta-cadeado:
+ * o cadeado substitui a tranca antiga).
  */
 final class GruposDoEnvioAutomatico
 {
@@ -29,6 +31,7 @@ final class GruposDoEnvioAutomatico
         private readonly PastaRepository $pastas,
         private readonly EmailsDoClienteDaPasta $emails,
         private readonly EnvioAutomaticoDoClienteRepository $automaticos,
+        private readonly CadeadoDaPastaRepository $cadeados,
     ) {
     }
 
@@ -49,9 +52,10 @@ final class GruposDoEnvioAutomatico
         }
 
         $processoIds = array_map(static fn (PublicacaoDjen $p): int => (int) $p->getProcesso()?->getId(), $publicacoes);
+        $comCadeado = array_flip($this->cadeados->idsDasPastasComCadeado($tenant));
         $grupos = [];
         foreach (AgrupadorDoAvisoDoPush::agrupar($this->pastas->listarVinculosDePastasVivasDosProcessos($tenant, $processoIds), $publicacoes) as $grupo) {
-            $cliente = self::pastaLiberada($grupo['pasta']) ? $this->emails->cliente($grupo['pasta'], $tenant) : null;
+            $cliente = self::pastaLiberada($grupo['pasta'], $comCadeado) ? $this->emails->cliente($grupo['pasta'], $tenant) : null;
             if ($cliente !== null) {
                 $grupos[] = ['pasta' => $grupo['pasta'], 'cliente' => $cliente, 'publicacoes' => $grupo['publicacoes']];
             }
@@ -69,9 +73,13 @@ final class GruposDoEnvioAutomatico
         return $processo !== null && $processo->monitoramentoAtivo() && $processo->getDataBaixa() === null;
     }
 
-    /** D7: pasta ativa e destrancada. */
-    private static function pastaLiberada(Pasta $pasta): bool
+    /**
+     * D7: pasta ativa e sem cadeado (spec pasta-cadeado: o cadeado substitui a tranca antiga).
+     *
+     * @param array<int, int> $comCadeado ids das pastas com cadeado do escritório, como chaves
+     */
+    private static function pastaLiberada(Pasta $pasta, array $comCadeado): bool
     {
-        return $pasta->getSituacao() === Pasta::SITUACAO_ATIVA && !$pasta->estaTrancada();
+        return $pasta->getSituacao() === Pasta::SITUACAO_ATIVA && !isset($comCadeado[(int) $pasta->getId()]);
     }
 }

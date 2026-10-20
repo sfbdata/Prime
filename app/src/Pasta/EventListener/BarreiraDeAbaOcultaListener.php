@@ -6,10 +6,10 @@ namespace App\Pasta\EventListener;
 
 use App\Entity\Auth\User;
 use App\Pasta\Attribute\PastaPelaFilha;
-use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Service\PastaDaRota;
 use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,10 +26,10 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * Ocultar aba é barreira de servidor, não só tela (spec pasta-ocultar-aba D3 e §4): para quem a aba
  * está oculta nesta pasta, as rotas daquela aba respondem 403.
  *
- * O alcance é o `MAPA` (nome de rota, ou prefixo terminado em `*`, para a aba). A pasta sai do mesmo
- * lugar que o `PastaSomenteLeituraListener` a procura: os argumentos já resolvidos (`Pasta` ou filha
- * com `getPasta()`), o `#[PastaPelaFilha]` ou o `#[PastaPorId]`. Pasta de outro escritório passa
- * reto: a própria action responde o 404 dela, sem que a barreira revele nada.
+ * O alcance é o `MAPA` (nome de rota, ou prefixo terminado em `*`, para a aba). A pasta sai do
+ * `PastaDaRota`, o mesmo resolvedor da lápide e do cadeado (spec pasta-cadeado §3): os argumentos já
+ * resolvidos (`Pasta` ou filha com `getPasta()`), o `#[PastaPelaFilha]` ou o `#[PastaPorId]`. Pasta de
+ * outro escritório passa reto: a própria action responde o 404 dela, sem que a barreira revele nada.
  *
  * O `BarreiraDeAbaOcultaMapaTest` confere o mapa contra o roteador: todo nome ou prefixo casa com ao
  * menos uma rota, e toda rota alcançada tem de onde tirar a pasta.
@@ -77,6 +77,7 @@ final class BarreiraDeAbaOcultaListener
         private readonly TenantContext $tenantContext,
         private readonly EntityManagerInterface $em,
         private readonly Security $security,
+        private readonly PastaDaRota $pastaDaRota,
     ) {
     }
 
@@ -108,14 +109,15 @@ final class BarreiraDeAbaOcultaListener
             return;
         }
 
-        $pasta = $this->pastaDaRequisicao($event, $request);
-        if ($pasta === null) {
+        $daRota = $this->pastaDaRota->resolver($event);
+        if ($daRota === null || !$this->pastaDaRota->ehDoEscritorioDaSessao($daRota->pasta)) {
             return;
         }
+        $pasta = $daRota->pasta;
 
         $resposta = $this->visibilidade->ocultaPara($pasta, $aba, $user)
             ? $this->recusa($request, $aba)
-            : $this->recusaDoContrato($event, $request, $pasta, $user);
+            : $this->recusaDoContrato($event, $request, $pasta, $user, $daRota->filha);
         if ($resposta !== null) {
             $event->setController(static fn (): Response => $resposta);
             $event->setArguments([]);
@@ -126,9 +128,9 @@ final class BarreiraDeAbaOcultaListener
      * O contrato de honorários por id (ver, baixar, editar…) com o Financeiro oculto: 404, como se não
      * existisse (regra `VisibilidadeDasAbasDaPasta::documentoVisivel`).
      */
-    private function recusaDoContrato(ControllerArgumentsEvent $event, Request $request, Pasta $pasta, User $user): ?Response
+    private function recusaDoContrato(ControllerArgumentsEvent $event, Request $request, Pasta $pasta, User $user, ?object $filha): ?Response
     {
-        $documento = $this->documentoDaRequisicao($event, $request);
+        $documento = $filha instanceof PastaDocumento ? $filha : $this->documentoDaRequisicao($event, $request);
         if ($documento === null) {
             return null;
         }
@@ -154,81 +156,6 @@ final class BarreiraDeAbaOcultaListener
                 $doc = $this->em->getRepository(PastaDocumento::class)->findOneBy(['id' => (int) $id, 'tenant' => $this->tenantContext->getCurrentTenant()]);
 
                 return $doc instanceof PastaDocumento ? $doc : null;
-            }
-        }
-
-        return null;
-    }
-
-    /** A pasta da requisição, só se for do escritório da sessão. */
-    private function pastaDaRequisicao(ControllerArgumentsEvent $event, Request $request): ?Pasta
-    {
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if ($tenant === null) {
-            return null;
-        }
-
-        $pasta = $this->pastaDosArgumentos($event->getArguments())
-            ?? $this->pastaPelaFilhaDeclarada($event, $request)
-            ?? $this->pastaPorIdDeclarado($event, $request);
-
-        return $pasta !== null && $pasta->getTenant() === $tenant ? $pasta : null;
-    }
-
-    /** @param array<int, mixed> $argumentos */
-    private function pastaDosArgumentos(array $argumentos): ?Pasta
-    {
-        foreach ($argumentos as $argumento) {
-            if ($argumento instanceof Pasta) {
-                return $argumento;
-            }
-            if (is_object($argumento) && method_exists($argumento, 'getPasta')) {
-                $pasta = $argumento->getPasta();
-                if ($pasta instanceof Pasta) {
-                    return $pasta;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /** Mesma busca do `PastaSomenteLeituraListener`: a filha por id E escritório da sessão (guarda IDOR). */
-    private function pastaPelaFilhaDeclarada(ControllerArgumentsEvent $event, Request $request): ?Pasta
-    {
-        foreach ($event->getAttributes(PastaPelaFilha::class) as $declaracao) {
-            $id = $request->attributes->get($declaracao->argumento);
-            if (!is_numeric($id)) {
-                continue;
-            }
-
-            $filha = $this->em->getRepository($declaracao->entidade)->findOneBy([
-                'id'     => (int) $id,
-                'tenant' => $this->tenantContext->getCurrentTenant(),
-            ]);
-            $pasta = is_object($filha) && method_exists($filha, 'getPasta') ? $filha->getPasta() : null;
-            if ($pasta instanceof Pasta) {
-                return $pasta;
-            }
-        }
-
-        return null;
-    }
-
-    private function pastaPorIdDeclarado(ControllerArgumentsEvent $event, Request $request): ?Pasta
-    {
-        foreach ($event->getAttributes(PastaPorId::class) as $declaracao) {
-            $id = $request->attributes->get($declaracao->argumento);
-            if (!is_numeric($id)) {
-                continue;
-            }
-
-            $pasta = $this->em->getRepository(Pasta::class)->findOneBy([
-                'id'     => (int) $id,
-                'tenant' => $this->tenantContext->getCurrentTenant(),
-            ]);
-            if ($pasta instanceof Pasta) {
-                return $pasta;
             }
         }
 

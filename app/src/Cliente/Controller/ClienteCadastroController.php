@@ -22,6 +22,7 @@ use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Controller\PastaReuController;
 use App\Pasta\Repository\PastaRepository;
@@ -90,6 +91,7 @@ final class ClienteCadastroController extends AbstractController
      * para abrir; editá-la (e ela não estar excluída) para salvar.
      */
     #[Route('/pasta/{id}/cadastro/novo', name: 'pasta_cadastro_novo', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[PastaPorId('id')]
     public function novo(int $id, Request $request): Response
     {
         /** @var User $usuario */
@@ -144,6 +146,7 @@ final class ClienteCadastroController extends AbstractController
 
     /** Aviso ao sair do campo CPF/CNPJ no "Novo cliente": o documento já é de outro cadastro do escritório? */
     #[Route('/pasta/{id}/cadastro/novo/documento', name: 'pasta_cadastro_novo_documento', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[PastaPorId('id')]
     public function documentoNovo(int $id, Request $request): JsonResponse
     {
         /** @var User $usuario */

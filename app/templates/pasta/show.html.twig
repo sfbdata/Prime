@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="{{ asset('css/pasta-andamento.css') }}">
 {# Link externo do Push: menu da aba, modal e painel de acessos (pasta/_push_link_externo.html.twig). #}
 <link rel="stylesheet" href="{{ asset('css/pasta-push-link.css') }}">
+<link rel="stylesheet" href="{{ asset('css/pasta-cadeado.css') }}">
 {# Card "Pontos do relatório inicial" da aba Detalhes (pasta/_pontos_relatorio.html.twig). #}
 <link rel="stylesheet" href="{{ asset('css/pasta-pontos-relatorio.css') }}">
 {# Ocultar aba: ícone da regra na aba, modal "Ocultar aba" e o aviso sem aba (pasta/_abas_ocultas.html.twig). #}
@@ -52,6 +53,8 @@
        consulta o banco) e repassada aos parciais que oferecem ação de escrita — hoje o
        "Alertar" do ⋮ do prazo e o sino das Metas, que o servidor só aceita com edit. #}
     {% set podeEditarPasta = can_access_resource('pasta', pasta.id, 'edit') %}
+    {# Cadeado (spec pasta-cadeado): o estado para quem olha, montado uma vez e lido pelo cabeçalho, pela faixa e pelo modal. #}
+    {% set cad = cadeado_da_pasta(pasta) %}
 
     {# Abas ocultas (spec pasta-ocultar-aba §5): a aba que está oculta para quem vê não tem painel
        renderizado, e a primeira visível nasce ativa. `#push` na URL com o Push oculto não acha gatilho
@@ -523,6 +526,8 @@
 {% if 'push' not in abasOcultas %}
 {{ include('pasta/_push_link_externo.html.twig', {pasta: pasta, push: push, iaPermitida: analisesIa is not null}) }}
 {% endif %}
+{# Cadeado da pasta (spec pasta-cadeado §6): o modal de quem configura. Fora de .ps-page, como os outros modais. #}
+{{ include('pasta/_cadeado_modal.html.twig', {pasta: pasta, cad: cad}) }}
 {# Ocultar aba (spec pasta-ocultar-aba §5): menu do botão direito e modal "Ocultar aba", só para quem configura. #}
 {{ include('pasta/_abas_ocultas.html.twig', {pasta: pasta, abasDaPasta: abasDaPasta}) }}
 
@@ -4437,6 +4442,8 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-dialogos.js') }}"></script>
 {# Link externo do Push: menu da aba, modal e painel de acessos. Depois do pasta-dialogos.js (confirmarPs/avisarPs). #}
 <script src="{{ asset('js/pasta-push-link.js') }}"></script>
+<script src="{{ asset('js/pasta-cadeado.js') }}"></script>
+<script src="{{ asset('js/pasta-cadeado-pedidos.js') }}"></script>
 {# Ocultar aba: depois do pasta-push-link.js, porque injeta os itens no menu da aba Push (#pushLinkMenu). #}
 <script src="{{ asset('js/pasta-abas-ocultas.js') }}"></script>
 {# "Próximos prazos" (E12b): novo, editar, cumprir e excluir prazo ou audiência. #}
