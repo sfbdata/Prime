@@ -25,6 +25,15 @@
 - Sem recusa com motivo (a entidade não tem campo; fica de fora).
 - Edição mínima no `OabReviewController` e no template; nomes de rota mantidos quando possível.
 
+## Revisão de 20/10 (corrigido)
+- Paginação estável: desempate pelo id (o backfill do #65 grava o mesmo `criado_em`).
+- Toda pessoa com OAB no `User` passa a ter a principal: cadastro público, convite da plataforma e criar
+  escritório com OAB confirmada criam/espelham a principal pelo `EspelhoDaOabPrincipal` (antes só o Meu
+  Perfil criava sob demanda, e essas pessoas sumiam da fila).
+- Registrado: o Painel do Master conta pessoas pelo `User.oab*` e a fila conta inscrições (inclui
+  suplementares); números diferentes por desenho, não é defeito. Medir em produção, depois do deploy do #65,
+  quantos `user.oab_status IS NOT NULL` ficaram sem `inscricao_oab` (consulta pelo MCP `jusprime-prod`).
+
 ## Segurança
 - Só quem já acessa a tela hoje (`ROLE_SUPER_ADMIN`, conferir no controller) e CSRF nas ações, como hoje.
 - Id de inscrição inexistente: 404 (o UseCase lança `DomainException`).
