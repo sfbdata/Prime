@@ -1,6 +1,16 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.6.0"
+  data: "2026-10-20"
+  itens:
+    - "Na Agenda, clique com o botão direito num dia para acrescentar um feriado municipal ou uma suspensão do tribunal, ou para ocultar uma data que não vale no seu escritório. Isso muda só a Agenda: para contar no ponto, continue cadastrando em Feriados e Folgas."
+    - "A Agenda agora avisa na hora dos seus compromissos, audiências e prazos com horário, com um som diferente para cada tipo, em qualquer tela do BlueJus. Para testar, use \"Testar lembretes\" na lateral da Agenda."
+    - "Em qualquer tela do sistema, aperte Ctrl + K para buscar uma pasta pelo número, pelo nome ou CPF do cliente ou pelo número do processo, e abrir com Enter."
+    - "No Dashboard da equipe, as metas e pastas com cadeado que você não pode ver deixam de entrar nos números."
+    - "O prazo da meta passa a mostrar o mesmo \"vence hoje\" ou \"atrasado\" em todas as telas."
+    - "Dentro de uma pasta, aperte Ctrl + K para buscar outra pasta pelo número, pelo nome ou CPF do cliente ou pelo número do processo, e abrir com Enter."
+    - "O usuário primário do escritório define em quanto tempo sem uso a equipe aparece como ausente no painel de presença."
 - versao: "2.5.0"
   data: "2026-10-20"
   itens:
