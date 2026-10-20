@@ -209,7 +209,7 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         $externa = $crawler->filter('div.mp-painel[data-painel-aba="painel"] > div.mp-secao-externa[data-sec-externa="com"]');
         self::assertCount(1, $externa);
         self::assertSame('hidden', $externa->attr('hidden') === null ? null : 'hidden');
-        self::assertCount(1, $externa->filter('div.mc[data-mc] > section.mc-caixa'), 'o parcial do Comercial entra no ponto de entrada');
+        self::assertCount(1, $externa->filter('div.mc[data-mc] > section.mc-caixa[aria-labelledby="mc-auto-titulo"]'), 'o parcial do Comercial (Automações) entra no ponto de entrada');
     }
 
     #[TestDox('Aba Permissões (desenho 1.2): Master primário com cadeado, "Promover a Master" e 8 poderes; sem escritório, o select vem vazio')]
