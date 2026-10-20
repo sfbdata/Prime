@@ -18,7 +18,7 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
   texto saiu (chip forjado não existe mais); `ocultoPorPermissao` apagado no balão, na citação e na prévia.
 - **20/10, PR1, correção de segurança (bloqueante da revisão):** quem entrava no grupo depois do despacho (ou perdia
   o acesso à pasta) lia no histórico o título, o trecho do teor e o NUP. Agora a mensagem guarda a referência
-  (`despacho_pasta_id`, `despacho_tipo`; migration `Version20261021180000`) e toda leitura confere a pasta na hora
+  (`despacho_pasta_id`, `despacho_tipo`; migration `Version20261020129000`) e toda leitura confere a pasta na hora
   (`LeituraDasMensagens`); o contrato novo da `MensagemOutput` está em §4.1. Também: conversa sem ninguém que receba é
   recusada, e o registro do Financeiro pede o financeiro de quem envia e de quem recebe.
 

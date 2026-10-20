@@ -1,0 +1,15 @@
+{#
+    Lembretes da Agenda (desenho 09, bj-lembretes.js): cartão com som no horário, em qualquer tela logada.
+    Só para quem tem o módulo Agenda. O som só toca depois de a pessoa interagir com a página, e a
+    notificação do navegador só aparece se ela já tiver permitido (o pedido vem de um clique: "Testar
+    lembretes" ou "Salvar" na Agenda). Lógica em public/js/lembretes.js.
+#}
+{% if app.user and can_access_module('agenda') %}
+    <div id="bjLembretes" hidden
+         data-url-lembretes="{{ path('app_agenda_lembretes') }}"
+         data-url-agenda="{{ path('agenda_index') }}"
+         data-url-pasta="{{ path('pasta_show', {id: 0}) }}"
+         data-icone="{{ asset('icons/favicon-32x32.png') }}"></div>
+    <link rel="stylesheet" href="{{ asset('css/lembretes.css') }}">
+    <script src="{{ asset('js/lembretes.js') }}" defer></script>
+{% endif %}

@@ -11,6 +11,7 @@ use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Pasta\Entity\LinkExternoDoPush;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Repository\CadeadoDaPastaRepository;
 use App\Processo\Entity\Processo;
 use Symfony\Component\Routing\Generator\UrlGenerator;
 use Symfony\Component\Routing\RequestContext;
@@ -24,6 +25,25 @@ trait CriaLinkExternoTrait
 {
     private const AGORA = '2026-10-19 10:00:00';
     private const NUMERO = '07011345720258070007';
+
+    /** @var list<Pasta> pastas que o dublê do repositório de cadeados diz terem cadeado */
+    private array $pastasComCadeado = [];
+
+    /** A pasta passa a ter cadeado (qualquer modo): é o que desliga o link externo (spec pasta-cadeado D3). */
+    private function comCadeado(Pasta $pasta): Pasta
+    {
+        $this->pastasComCadeado[] = $pasta;
+
+        return $pasta;
+    }
+
+    private function cadeados(): CadeadoDaPastaRepository
+    {
+        $cadeados = $this->createStub(CadeadoDaPastaRepository::class);
+        $cadeados->method('existeNaPasta')->willReturnCallback(fn (Pasta $p): bool => in_array($p, $this->pastasComCadeado, true));
+
+        return $cadeados;
+    }
 
     private function agora(): \DateTimeImmutable
     {

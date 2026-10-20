@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Auditoria\Functional;
 
 use App\Controller\AuditLogController;
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;

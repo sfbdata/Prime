@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+{# Layout mínimo, sem menu nem sessão de escritório: a página "em preparação" é desenhada pelo guarda de
+   rota (App\Master\EventListener\BloqueioDeRecursoDesativado) antes do controller, e não pode depender
+   do que o base.html.twig monta (sidebar, notificações, contexto do escritório). #}
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>{% block title %}BlueJus{% endblock %} | BlueJus</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="bj-recurso-pagina">
+    {% block body %}{% endblock %}
+</body>
+</html>

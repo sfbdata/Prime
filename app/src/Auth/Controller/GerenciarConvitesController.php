@@ -12,6 +12,7 @@ use App\Auth\Service\ConviteMailer;
 use App\Auth\UseCase\CriarConviteEscritorioUseCase;
 use App\Auth\UseCase\ReenviarConviteUseCase;
 use App\Auth\UseCase\RevogarConviteUseCase;
+use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use App\Repository\TenantRoleRepository;
 use App\Service\PermissionChecker;
@@ -153,8 +154,13 @@ final class GerenciarConvitesController extends AbstractController
             throw $this->createNotFoundException('Convite não encontrado neste escritório.');
         }
 
+        $quem = $this->getUser();
+        if (!$quem instanceof User) {
+            throw $this->createAccessDeniedException();
+        }
+
         try {
-            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($token));
+            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($token, $quem));
 
             try {
                 $this->mailer->enviarConviteEscritorio($invitation);

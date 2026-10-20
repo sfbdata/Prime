@@ -109,7 +109,8 @@ Menu, Shift+F10, toque longo); a Agenda o usa. Os `prompt()` do protótipo viram
 2. Tela nova (V1 a V14, V18) com prazos das pastas, sem edição nova.
 3. Migration de `Evento` + modal novo (V15 a V17) + Avisar no Chat.
 4. Botão direito + `agenda_data_ajuste` (migration).
-5. Preferências de calendários (migration) + lembretes globais (V7).
+5. Lembretes globais (V7). As preferências de calendários ficam no navegador, como no desenho (sem migration).
+5b. Push com o navegador fechado (Service Worker e envio pelo servidor), prometido no `bj-lembretes.js`.
 6. Google: link de modelo; depois OAuth e sincronia (spec própria antes).
 
 ## 5. Convivência com o Ponto eletrônico (risco ALTO)
@@ -214,9 +215,9 @@ Estado contra o inventário da seção 1 (✓ feito · ◐ feito em parte, falta
 | V2 | 4 cartões e clique para Dia/Semana | ✓ |
 | V3 | Novo compromisso | ◐ abre o formulário antigo no dia; modal do desenho na entrega 3 |
 | V4 | Mini calendário | ✓ |
-| V5 | 10 calendários com marcação | ◐ lembrada no navegador; no servidor na entrega 5 |
+| V5 | 10 calendários com marcação | ✓ lembrada no navegador, como no desenho (o protótipo guarda em `localStorage`, `bj-agenda-v1-vis`); sem migration |
 | V6 | Feriados estaduais de: UF | ✓ |
-| V7 | TESTAR LEMBRETES | ✗ entrega 5 |
+| V7 | TESTAR LEMBRETES | ✓ (entrega 5, seção 15) |
 | V8 | GOOGLE AGENDA | ◐ painel e aviso "Disponível quando o servidor liberar a conexão"; ligação na entrega 6 |
 | V9 | Barra: Hoje, setas, título, busca, escopo, vistas | ✓ |
 | V10 | Faixa de aniversário, balão e confete | ✓ |
@@ -243,3 +244,199 @@ Conferência visual (19/10/2026, liberada pelo dono): demo da worktree na porta 
 `demo_agenda4b`, Playwright a 1280x900 e 390x844, desenho renderizado com dados equivalentes. Mês,
 Semana, Lista, detalhe, menu de botão direito, tema escuro e celular conferidos lado a lado; restam só
 os itens ◐/✗ da tabela acima.
+
+## 11. Entrega 3a: modal de criar e editar
+
+Na branch `agenda-modal`, empilhada sobre `agenda-nova` (#58). A tela continua em `/agenda/nova`; a
+troca da `/agenda` vem na 3b, junto com arrastar e soltar e concluir/cancelar (convenção D1: nada da
+agenda antiga sai antes de existir na nova).
+
+**Evento migrado para o domínio** (`App\Agenda\Entity\Evento`, decisão do subagente decisor: a regra
+da pasta legada manda migrar antes de evolução não trivial; precedente da Pasta, 11097f0e). Bloco
+`AppAgenda` no `doctrine.yaml`. Migration de **dados** `Version20261020122000`: troca
+`audit_log.entity_class` de `App\Entity\Agenda\Evento` para `App\Agenda\Entity\Evento` (112 linhas no
+banco de dev em 19/10/2026), para o histórico seguir no filtro da auditoria e no "Desfazer"; o down faz
+a troca inversa. O `audit_log` não tem hash nem encadeamento; só o nome da classe muda.
+
+**Campos novos** (migration `Version20261020122500`): `tipo` (enum `TipoDeCompromisso`: meus, aud,
+reun, prazo; nulo nos eventos antigos), `pasta_id` (FK anulável, `ON DELETE SET NULL`),
+`lembrete_minutos`, `avisados` (JSON com os ids avisados no Chat).
+
+**Regras** (`SalvarCompromissoUseCase`, `ExcluirCompromissoUseCase`, `AvisarNoChatUseCase`): editar e
+excluir exigem ver o compromisso (404) e ser o criador ou ter `admin.users.manage` (403), como na
+agenda antiga; fim depois do início; pasta pelo número, só do escritório e fora da lixeira; colegas e
+participantes só do escritório; cada colega é avisado uma vez, nunca quem avisa; participantes novos
+também recebem o aviso. O aviso vai pela `Notificacao` (sininho e avisos da Central), com link
+`/agenda/nova#ev=ev-<id>-<dia>`. Observações e local viram um campo só ("Local, link da reunião ou
+observações", como no desenho).
+
+**Estado contra a seção 1:** V3 ✓ (abre o modal); V11 e V12 ✓ (clique no dia ou na hora abre o modal
+já com o dia e a hora); V15 ✓ (Google Agenda, Avisar no Chat, Excluir e Editar; itens de pasta não
+têm "Avisar no Chat", porque o aviso grava no compromisso); V16 ✓; V17 ✓.
+
+Regras acrescentadas na revisão: o aviso cabe nos 255 caracteres da notificação (corta com "…");
+evento da agenda antiga editado no modal guarda a cor da legenda em toda edição (cor que não é de
+nenhum tipo é legenda; D1); quem não vê pastas não vê o campo e, ao editar, a pasta atual fica;
+participantes desligados continuam no compromisso (o modal só mostra os ativos, e tirá-los abriria um
+compromisso fechado para o escritório todo); compromisso de vários dias ou
+que passa da meia-noite guarda quantos dias dura (campo `dias`, com nota "Termina em ..." e o atalho "Terminar no mesmo dia");
+"Só eu" não avisa ninguém nem guarda avisados, e o detalhe não mostra "Avisar no Chat"; os textos de
+visibilidade dizem quem de fato vê ("Só os participantes e você veem"); o "Avisar no Chat" do detalhe
+é uma escolha explícita de cada colega, no lugar do `prompt()` do protótipo, que casava pedaços de nome
+e avisava gente demais (spec §3: os `prompt()` do protótipo viram modal); só colegas ativos são
+avisados ou viram participantes; "repetir até" antes do início é recusado; o número da pasta só sai na
+listagem para quem tem acesso às pastas; a busca da pasta aceita o número em minúsculas. Editar uma
+repetição avisa que vale para a série, e excluir pergunta "e todas as repetições?".
+
+Fica como está: 17 linhas do `audit_log` de dev guardam o nome antigo da classe dentro de
+`changes.association_events` (só exibição, via `entityRef`; filtro e Desfazer não usam).
+
+Diferenças conscientes: REPETIR/ATÉ e PARTICIPANTES no modal (agenda antiga, D1); a caixa
+"MENCIONAR · NOTIFICA NO CHAT I.A" com cargo e presença do protótipo vem do `bluejus-central.js`
+(componente global do desenho), não da Agenda: aqui vale a lista da própria Agenda (iniciais e nome);
+o aviso de lembrete "Você será lembrado com aviso e som" volta na entrega 5, com os lembretes.
+
+## 12. Entrega 3b: troca da /agenda e conferência da agenda antiga
+
+`/agenda` (rota `agenda_index`, usada pela barra lateral, pela aba e pelo "Voltar ao Calendário" das
+páginas antigas) passa a mostrar a tela nova; `/agenda/nova` continua para os links já enviados. Sai só
+o calendário FullCalendar (`AgendaController::index` e `templates/agenda/index.html.twig`). As demais
+rotas antigas ficam de pé. Novos: arrastar e soltar (`POST /agenda/compromissos/{id}/mover`) e
+Concluir, Cancelar compromisso e Reabrir (`POST /agenda/compromissos/{id}/status`; cancelar avisa os
+participantes com "O evento foi cancelado: <título>", como antes, cortado em 255 caracteres). Em
+compromisso que se repete, situação vale para a série, e a confirmação diz isso.
+
+Conferência item a item do inventário da agenda antiga (36 itens). Legenda: **Mantido** (a tela nova
+faz) · **De pé** (a página ou rota antiga continua) · **Substituído pelo desenho** (o 09 mostra outra
+coisa no mesmo lugar; decisão do coordenador em 19/10/2026).
+
+| # | Agenda antiga | Situação |
+|---|---|---|
+| 1 | Acesso com o módulo `agenda`; sem ele, aviso e volta ao início | Mantido (mesma mensagem e redirect) |
+| 2 | Cabeçalho "Agenda", "Ver Lista", "Novo Evento" | Mantido: título e "Novo compromisso" do desenho; "Ver Lista" vira o link "Lista completa, com eventos passados e filtros" no fim da visão LISTA, que leva à Lista antiga (De pé) |
+| 3 | Calendário mês, semana, dia, "Hoje", setas, "+N" | Mantido (grade do desenho, com Lista) |
+| 4 | Eventos e ocorrências de recorrentes; cancelado riscado | Mantido (cancelado riscado, concluído esmaecido) |
+| 5 | Regra de visibilidade | Mantido (`restringirAoVisivelPara`, a mesma) |
+| 6 | Modal de detalhes (título, descrição, início, fim, local, situação, criador, selo Recorrente) | Mantido no detalhe do desenho (local e descrição num campo; fim em outro dia; "Repete: ..."; situação quando concluído ou cancelado) |
+| 7 | Criar pelo clique na data | Mantido (e corrigido: a data clicada não se perde mais) |
+| 8 | Criar pelo modal (AJAX) | Mantido pelo modal do desenho; `/agenda/criar-ajax` De pé |
+| 9 | Campos: título, cor, descrição, início, duração, local, situação, dia inteiro, visibilidade, participantes, recorrência | Mantido: tipo no lugar da cor (desenho), fim no lugar da duração, local e descrição num campo; situação pelos botões do detalhe |
+| 10 | Página `/agenda/novo` | De pé |
+| 11 | Campos do formulário da página | De pé |
+| 12 | Editar (página) com a regra criador ou admin | Mantido no modal; `/agenda/{id}/editar` De pé |
+| 13 | Concluir (pelo campo situação) | Mantido: botão "Concluir" no detalhe (e "Reabrir") |
+| 14 | Cancelar e avisar os participantes | Mantido: "Cancelar compromisso" avisa como antes |
+| 15 | Excluir | Mantido no detalhe; rota antiga De pé |
+| 16 | Arrastar e soltar | Mantido: Mês troca o dia; Semana e Dia, dia e hora de meia em meia hora (como o FullCalendar), inclusive soltando sobre outro compromisso; arrastar um dia do meio de compromisso de vários dias desloca pela diferença; duração em segundos |
+| 17 | Redimensionar | Mantido pelo campo Fim do modal (sem arrastar a borda) |
+| 18 | Série não se arrasta | Mantido (agora também no servidor) |
+| 19 | Recorrência | Mantido (Repetir e Até no modal) |
+| 20 | Participantes e aviso ao criar | Mantido (aviso também aos participantes novos ao editar) |
+| 21 | Visibilidade "Somente para mim" | Mantido ("Só eu") |
+| 22 | Ver legendas de cor na lateral | Substituído pelo desenho (calendários com cor fixa) |
+| 23 | Editar legendas | Substituído pelo desenho; a cor dos eventos antigos fica, inclusive ao editar |
+| 24 | Salvar legendas | Substituído pelo desenho; `/agenda/legendas` De pé no servidor, sem tela |
+| 25-29 | Página Lista, filtros de situação, responsável e período, colunas e ações | De pé (o Dashboard aponta para ela; testes DASH-009 e SEC-016 seguem verdes) |
+| 30 | Página de detalhe `/agenda/{id}` | De pé (avisos antigos gravados no banco apontam para ela) |
+| 31 | Item Agenda na barra lateral | Mantido (`agenda_index`, agora a tela nova) |
+| 32 | Aba Agenda | Mantido |
+| 33 | Link do Dashboard para a Lista | De pé |
+| 34 | Avisos com link para o detalhe | De pé (novos avisos apontam para `/agenda#ev=...`) |
+| 35 | Outras referências às rotas antigas | Nenhuma quebrada. `agenda_criar_ajax` e `agenda_atualizar_datas` ficam sem chamador na tela (só o calendário antigo as usava), mas continuam no servidor, protegidas como antes: nada é removido nesta entrega |
+| 36 | Testes da agenda antiga | Verdes (nenhum dependia do calendário FullCalendar) |
+
+## 13. Entrega 4: ajustes de datas pelo botão direito
+
+Branch `agenda-ajustes`, empilhada sobre `agenda-troca` (#66). Itens do menu do desenho (dc L.217-224):
+"Ver detalhes", "Editar nome", "Ocultar da agenda" (ou "Excluir", na data acrescentada), "Acrescentar
+feriado ou data em dd/mm/aaaa", "Novo compromisso em ..." e "Restaurar datas do sistema" (quando há
+algo ocultado ou renomeado). Os `prompt()` do protótipo viram um formulário pequeno: nome, tipo
+(Nacional, Estadual, Tribunal, Comemorativa; o desenho começa em Tribunal) e fonte opcional.
+
+**Onde fica:** tabela `agenda_data_ajuste` (migration `Version20261020125000`), por escritório: vale para
+a Agenda de todo o escritório. Quem pode: a mesma permissão de Feriados e Folgas
+(`admin.tenant.settings.manage`, convenção D2); os demais veem só "Ver detalhes" e "Novo compromisso".
+Aniversários também podem ser ocultados ou renomeados (o desenho os trata como data do sistema).
+
+**O Ponto não muda.** Nenhum ajuste grava na tabela `feriado` nem mexe no cálculo da jornada. Um teste
+compara a tabela `feriado` inteira antes e depois de cada ajuste (acrescentar, renomear, ocultar um
+feriado que conta no ponto, restaurar, excluir a data acrescentada).
+
+**Para o usuário, o que significa ocultar:**
+- Ocultar um feriado na Agenda só tira o feriado da Agenda do escritório. Se ele está cadastrado em
+  Feriados e Folgas, **continua contando no ponto** como feriado; o aviso depois de ocultar diz isso
+  ("... removido da agenda. Restaure quando quiser. Ele continua contando no ponto.").
+- Acrescentar um feriado na Agenda (ex.: feriado municipal) **não** o faz contar no ponto: o formulário
+  avisa "Não muda o ponto: para contar como feriado na jornada, cadastre em Feriados e Folgas".
+- Renomear muda só o nome mostrado na Agenda.
+- "Restaurar datas do sistema" devolve as datas ocultadas e os nomes originais; as datas acrescentadas
+  ficam (somem uma a uma, por "Excluir").
+
+O detalhe das datas do sistema volta a dizer "Clique com o botão direito no dia para editar ou ocultar"
+(para quem pode ajustar), e mostra "Nome alterado pelo escritório" na data renomeada.
+
+Acertos da revisão: o detalhe de data que não conta no ponto traz o link "Cadastrar em Feriados e
+Folgas, para contar no ponto" (§5, regra 4; só para quem pode ajustar); "Restaurar" remove pelo
+EntityManager e entra na auditoria; índice único `(tenant_id, tipo, data_id)` contra ajuste duplicado em
+pedidos simultâneos; aniversário renomeado também mostra "Nome alterado pelo escritório".
+
+Diferenças conscientes do desenho: excluir uma data acrescentada avisa só "removido da agenda", sem
+"Restaure quando quiser" (o restaurar não traz de volta o que foi excluído; a frase do desenho seria
+falsa); "Editar nome" fecha sem aviso, como no desenho. Fica para depois: os ajustes do escritório são
+lidos inteiros a cada carga (o volume é pequeno; filtrar por período quando crescer).
+
+## 14. Pendências com outras frentes
+
+- **ColaboradoresAtribuiveis (#69, frente 7d):** quando entrar no master, o modal de compromisso
+  (participantes e avisados) passa a usar esse serviço no lugar de `findColaboradoresAtivosPorTenant`:
+  suspensos não aparecem para atribuição nova, e editar preserva quem já estava (hoje o
+  `SalvarCompromissoUseCase` já preserva os participantes desligados). Entra com teste de que editar
+  um compromisso com participante suspenso o mantém.
+- **Comercial e e-mails (desenho 05, Perfis):** lê as datas comemorativas do `CalendarioDoSistema`
+  (seção 9).
+
+## 15. Entrega 5: lembretes com som em qualquer tela
+
+Branch `agenda-lembretes`, empilhada sobre `agenda-ajustes` (#70). Adaptação do `bj-lembretes.js` do
+desenho: no horário, um cartão no canto (ícone, som próprio por tipo, rótulo "Em N min · às HH:MM",
+dica, "Ver na agenda" ou "Abrir pasta", "Lembrar em 10 min", dispensar) e a notificação do navegador.
+
+- **Onde aparece:** parcial `templates/layout/_globais/lembretes.html.twig` (ponto de inclusão da frente
+  menu-do-usuario; o `base.html.twig` não muda), só para quem está logado e tem o módulo Agenda. Carrega
+  `public/js/lembretes.js` e `public/css/lembretes.css`.
+- **De onde vem:** `GET /agenda/lembretes` (`ListarLembretesUseCase`), pedido ao abrir a página, a cada 5
+  minutos e quando a Agenda salva algo. Entram os compromissos da pessoa (que criou ou de que participa),
+  com horário, agendados, com o lembrete escolhido ou o padrão do tipo (Audiência 60, Reunião 10, Prazo e
+  Compromisso 15; "Sem lembrete" fica de fora), e, para quem vê pastas, os prazos e audiências abertos de
+  hoje com hora (60 min antes da audiência, 15 do prazo). Janela: avisos das próximas 24 h; o cartão
+  ainda aparece até 2 h depois do início.
+- **Respeito ao navegador:** o som só toca depois que a pessoa interage com a página (o áudio é liberado
+  no primeiro clique ou tecla); a notificação do sistema só aparece se a permissão já foi dada; o pedido
+  de permissão só sai de um clique ("Testar lembretes" ou "Salvar" na Agenda). Dispensados e adiados
+  ficam guardados no navegador (`localStorage`), por chave do lembrete. Com "reduzir movimento", os
+  cartões não animam.
+- **TESTAR LEMBRETES** na lateral (V7), entre os estados e o Google, como no desenho: Audiência, Reunião,
+  Prazo e Compromisso mostram o cartão de exemplo com o som do tipo.
+- Ao salvar compromisso com horário e lembrete, o aviso diz "Você será lembrado com aviso e som." (V16).
+- **Push com o navegador fechado: entrega 5b, própria.** O desenho promete: `bj-lembretes.js`, linha 3,
+  "Sistema real: o mesmo aviso chega por push (Service Worker) e o servidor dispara no horário mesmo com
+  o navegador fechado." (a tela 09 não fala disso). O sistema não tem Service Worker hoje. A 5b traz o
+  Service Worker, a inscrição de push por navegador (pedida por clique), o envio pelo servidor no horário
+  (agendador) e a mesma chave de lembrete, para o aviso não repetir quando a página também está aberta.
+  Orientação do coordenador (19/10/2026): o envio no horário sai pelo Messenger com o transporte que já
+  existe (`doctrine://`, `config/packages/messenger.yaml`), com `DelayStamp` até a hora do aviso, em vez
+  de cron novo; o dono só mantém o worker rodando. A chave VAPID (segredo) e o worker entram na lista de
+  materiais do dono, com passo a passo no PR. Avisar o coordenador antes de mexer em `composer.json`/`.lock`.
+- **Hora de parede:** o servidor manda início e aviso sem fuso (`AAAA-MM-DDTHH:MM:SS`), a mesma hora que a
+  Agenda mostra, e o navegador lê no fuso dele, como o `bj-lembretes.js` (`new Date(dia + 'T' + hora)`).
+  Quem está fora do horário de Brasília é avisado pela hora que vê na Agenda.
+- Quem não vê pastas não recebe o id da pasta no lembrete (nem o botão "Abrir pasta"), como na listagem.
+- **Cartão de teste:** "Abrir pasta" e "Ver na agenda" só fecham o cartão (a "Pasta 1180" do exemplo não
+  existe); no desenho eles navegavam. "Lembrar em 10 min" do teste também só fecha.
+- Os cartões entram e saem um a um (o leitor de tela não relê os antigos). Marcas de "adiar" vencidas há
+  mais de um dia são limpas.
+- **Para o smoke em celular (dono):** o som é liberado no primeiro toque (`pointerdown`, `touchend`) ou
+  tecla; no Safari do iOS não foi possível provar sem aparelho.
+- **Prazos de todos (decisão do coordenador, 19/10/2026):** prazos e audiências de hoje com hora tocam
+  para todo colaborador com acesso às pastas, como no desenho (que lê todas as pastas). Filtrar pelo
+  responsável depende de o responsável do prazo virar usuário (hoje é texto livre em `PastaPrazo`).

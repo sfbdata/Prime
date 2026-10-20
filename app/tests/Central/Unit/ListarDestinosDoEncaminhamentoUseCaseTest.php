@@ -133,7 +133,7 @@ final class ListarDestinosDoEncaminhamentoUseCaseTest extends TestCase
         );
         (new ListarDestinosDoEncaminhamentoUseCase(
             $this->acessoACentral([$this->eu, $this->bruno], $participantes),
-            $this->guarda($this->pasta, new \App\Pasta\Service\AcessoAPasta($checker), $participantes),
+            $this->guarda($this->pasta, new \App\Pasta\Service\AcessoAPasta((new \ReflectionClass(\App\Pasta\Service\NivelNoCadeado::class))->newInstanceWithoutConstructor(), $checker), $participantes),
             $participantes,
         ))->executar($this->eu, $this->tenant, 50);
 

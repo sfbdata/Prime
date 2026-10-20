@@ -65,7 +65,7 @@ final class LeituraDasMensagensTest extends TestCase
     {
         $repositorio = $this->createMock(PastaRepository::class);
         $repositorio->expects(self::never())->method('findOneBy');
-        $leitura = new LeituraDasMensagens($repositorio, new AcessoAPasta($this->createStub(PermissionChecker::class)), $this->createStub(VisibilidadeDoFinanceiroDaPasta::class));
+        $leitura = new LeituraDasMensagens($repositorio, new AcessoAPasta((new \ReflectionClass(\App\Pasta\Service\NivelNoCadeado::class))->newInstanceWithoutConstructor(), $this->createStub(PermissionChecker::class)), $this->createStub(VisibilidadeDoFinanceiroDaPasta::class));
 
         $saida = $leitura->umaParaLeitor($this->mensagem('oi, tudo bem?'), $this->bruno);
 
@@ -164,7 +164,7 @@ final class LeituraDasMensagensTest extends TestCase
         $repositorio->expects(self::exactly(2))->method('findOneBy')->willReturn($this->pasta);
         $checker = $this->createMock(PermissionChecker::class);
         $checker->expects(self::exactly(2))->method('canAccessResource')->willReturn(true);
-        $leitura = new LeituraDasMensagens($repositorio, new AcessoAPasta($checker), $this->createStub(VisibilidadeDoFinanceiroDaPasta::class));
+        $leitura = new LeituraDasMensagens($repositorio, new AcessoAPasta((new \ReflectionClass(\App\Pasta\Service\NivelNoCadeado::class))->newInstanceWithoutConstructor(), $checker), $this->createStub(VisibilidadeDoFinanceiroDaPasta::class));
         $mensagens = array_map(fn (int $i): Mensagem => $this->despacho(id: $i), range(1, 20));
 
         self::assertCount(20, $leitura->paraLeitor($mensagens, $this->bruno));

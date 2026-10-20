@@ -25,6 +25,7 @@ final readonly class DataDoSistemaOutput
     public const TIPO_TRIBUNAL          = 'tribunal';
     public const TIPO_ELEICAO           = 'eleicao';
     public const TIPO_ESCRITORIO        = 'escritorio';
+    public const TIPO_ACRESCENTADA      = 'acrescentada';
 
     public function __construct(
         public string $id,
@@ -36,7 +37,25 @@ final readonly class DataDoSistemaOutput
         public ?string $observacao = null,
         public ?string $uf = null,
         public bool $contaNoPonto = false,
+        public bool $editado = false,
     ) {
+    }
+
+    /** A mesma data com o nome dado pelo escritório (renome da Agenda). */
+    public function comTitulo(string $titulo): self
+    {
+        return new self(
+            $this->id,
+            $this->data,
+            $titulo,
+            $this->calendario,
+            $this->tipo,
+            $this->fonte,
+            $this->observacao,
+            $this->uf,
+            $this->contaNoPonto,
+            true,
+        );
     }
 
     public function comContaNoPonto(): self
@@ -67,6 +86,7 @@ final readonly class DataDoSistemaOutput
             'observacao'   => $this->observacao,
             'uf'           => $this->uf,
             'contaNoPonto' => $this->contaNoPonto,
+            'editado'      => $this->editado,
         ];
     }
 }
