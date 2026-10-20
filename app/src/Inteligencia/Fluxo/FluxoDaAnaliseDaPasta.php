@@ -13,6 +13,7 @@ use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Inteligencia\Prompt\PromptDoAgente;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Inteligencia\Service\InterpretadorDeRespostaDoAgente;
+use App\Inteligencia\Service\VisibilidadeDaAnaliseDaPasta;
 use App\Pasta\Entity\Pasta;
 
 /**
@@ -57,6 +58,9 @@ final class FluxoDaAnaliseDaPasta implements FluxoDeAnalise
 
         // A anterior é a do MESMO comando (sem comando, a do mesmo agente, como antes).
         $anterior = $this->analises->findUltimaConcluidaDoAlvo($tenant, $analise->getAlvoTipo(), $analise->getAlvoId(), TipoDeAnalise::AnalisePasta, $agente, $comando);
+        if ($anterior !== null && !self::podeVoltar($anterior, $analise)) {
+            $anterior = null;
+        }
         $analise->registrarContexto($contexto->hash, $contexto->resumo());
 
         // A resposta anterior volta ao provedor: passa pela máscara do montador (IA-033).
@@ -87,6 +91,24 @@ final class FluxoDaAnaliseDaPasta implements FluxoDeAnalise
         $ids = $analise->getContextoResumo()['documentosSelecionados'] ?? null;
 
         return \is_array($ids) ? array_values(array_filter($ids, 'is_int')) : null;
+    }
+
+    /**
+     * A anterior não leu nada que quem pede agora não pode ler: a feita por um colega com o Financeiro ou
+     * com uma aba que está oculta para quem pede não volta ao prompt (mesma regra do histórico do Perguntar).
+     */
+    private static function podeVoltar(AnaliseDeInteligencia $anterior, AnaliseDeInteligencia $atual): bool
+    {
+        if (self::leFinanceiro($anterior) && !self::leFinanceiro($atual)) {
+            return false;
+        }
+
+        return VisibilidadeDaAnaliseDaPasta::legivelCom($anterior, self::abasOcultasDo($atual));
+    }
+
+    private static function leFinanceiro(AnaliseDeInteligencia $analise): bool
+    {
+        return ($analise->getContextoResumo()['financeiro'] ?? false) === true;
     }
 
     public function motivoDeContextoVazio(): string

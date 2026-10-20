@@ -813,6 +813,28 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertStringNotContainsString('Prazos anteriores.', $texto);
     }
 
+    #[TestDox('agente: a anterior que leu o financeiro ou uma aba hoje oculta para quem pede NÃO volta ao provedor')]
+    public function testAnteriorQueLeuOQueQuemPedeNaoVeNaoVolta(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $comFinanceiro = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor, financeiro: true);
+        $this->concluirAnalise($comFinanceiro, 'Honorários de 30 por cento.');
+        $falso = new ProvedorFalso();
+        $falso->responderCom('{"resumo":"nova","texto":"x"}');
+
+        $semFinanceiro = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor, financeiro: false);
+        $this->handler($falso)($this->mensagem($semFinanceiro));
+        self::assertStringNotContainsString('Honorários de 30 por cento.', (string) $falso->ultimoPedido()?->textoDoUsuario());
+
+        $comPushOculto = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor, financeiro: true, abasOcultas: ['push']);
+        $this->handler($falso)($this->mensagem($comPushOculto));
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringNotContainsString('<analise_anterior>', $texto, 'a anterior do Gestor leu o Push');
+    }
+
     #[TestDox('IA-033: a análise anterior do Push volta ao provedor mascarada (CPF vira [CPF], CNJ intacto)')]
     public function testAnaliseAnteriorDoPushVoltaMascarada(): void
     {
