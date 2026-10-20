@@ -156,14 +156,26 @@ final class ClienteCadastroController extends AbstractController
         return $this->json(['existente' => $this->existenteVisivel((string) $request->query->get('doc', ''), null, $usuario, $tenant)]);
     }
 
-    private function renderJanela(Cliente $cliente, ?Pasta $pasta, User $usuario, Tenant $tenant, Request $request, bool $novo, bool $podeEditar): Response
+    /**
+     * Os clientes da pasta para o seletor de autores, numa ordem fixa: o principal primeiro, depois o nome e, no empate,
+     * o id. A coleção vem da tabela de ligação sem ordem, e o Postgres pode devolver os vínculos em qualquer ordem.
+     *
+     * @return list<array{id: int, nome: string, principal: bool}>
+     */
+    private static function autoresDaPasta(Pasta $pasta): array
     {
         $autores = [];
-        if ($pasta !== null) {
-            foreach ($pasta->getClientes() as $c) {
-                $autores[] = ['id' => (int) $c->getId(), 'nome' => $c->getNomeExibicao(), 'principal' => $pasta->getClientePrincipal() === $c];
-            }
+        foreach ($pasta->getClientes() as $c) {
+            $autores[] = ['id' => (int) $c->getId(), 'nome' => $c->getNomeExibicao(), 'principal' => $pasta->getClientePrincipal() === $c];
         }
+        usort($autores, static fn (array $a, array $b): int => [!$a['principal'], mb_strtolower($a['nome']), $a['id']] <=> [!$b['principal'], mb_strtolower($b['nome']), $b['id']]);
+
+        return $autores;
+    }
+
+    private function renderJanela(Cliente $cliente, ?Pasta $pasta, User $usuario, Tenant $tenant, Request $request, bool $novo, bool $podeEditar): Response
+    {
+        $autores = $pasta !== null ? self::autoresDaPasta($pasta) : [];
 
         return $this->render('cliente/_cadastro.html.twig', [
             'cliente'      => $cliente,

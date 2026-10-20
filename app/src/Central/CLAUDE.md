@@ -57,11 +57,28 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
     quem está on-line (só ids, status e minutos) para o selo do cabeçalho (`templates/menu_usuario/_presenca.html.twig`,
     `presenca-cabecalho.js`; spec `docs/specs/presenca-e-ponto-no-cabecalho.md`).
 
+13. **Encaminhar via Chat I.A (`docs/specs/encaminhar-via-chat-ia.md`).** O servidor relê o item
+    (`ItensEncaminhaveisDaPasta`, id + pasta + tenant explícitos; de fora = 404 `ItemEncaminhadoNaoEncontradoException`)
+    e monta título e resumo em texto puro com `@[` desarmado (`@ [`); a instrução não é desarmada (menção nela vale).
+    O cadeado da pasta vale para quem RECEBE (`AcessoAPasta::podeVer`): colega que não vê some de "Para quem?" e é
+    recusado (422); grupo com algum membro ativo que não vê fica travado com o motivo. A mensagem passa pelo
+    `EnviarMensagemUseCase` e sempre leva a linha "Pasta NUP" (os resumos por tipo não a repetem). "Urgente" gera
+    `Notificacao` `central_despacho` sem texto, com o link da conversa; a auditoria é uma linha manual
+    (`action = 'despacho'`, entidade Pasta) só com tipo, item_id, conversa_id e prioridade, nunca texto. Abrir a 1:1,
+    mensagem, avisos e auditoria numa transação só (`wrapInTransaction` do UseCase, flush dele). Pasta excluída = 404.
+    Conversa sem ninguém que receba é recusada (`todosVeem([])` é falso). Registro do Financeiro: quem envia e quem
+    recebe também passam por `VisibilidadeDoFinanceiroDaPasta::podeVer`.
+    **Na leitura:** a mensagem guarda a referência (`despacho_pasta_id`, `despacho_tipo`) e TODA saída do texto de
+    mensagem (`MensagemOutput`, `RespostaOutput`) nasce em `LeituraDasMensagens`, que confere a pasta para quem lê
+    naquela hora (memória só durante a leitura; pasta buscada com o escritório explícito). Não vê, pasta apagada ou
+    excluída: "Item de pasta sem acesso", sem a referência (`despacho` nulo, `ocultoPorPermissao`). Consulta nova que
+    devolva mensagem à tela passa por ela; nunca monte a saída com `Mensagem::getConteudo()` direto.
+
 ## Modelo
 
 `central_conversa` (individual: par ordenado `usuario_menor`/`usuario_maior`, único por escritório; grupo: par nulo,
 `nome` 1–60 e `administrador_id`) → `central_participante` (cursor `ultima_lida_id`, nunca recua; `marcada_nao_lida`
-à parte; `saiu_em`; `fixada`/`silenciada`/`arquivada` por pessoa; `limpa_ate_id` = "excluí até aqui", nunca recua) → `central_mensagem` (índices `(conversa_id, id)` e
+à parte; `saiu_em`; `fixada`/`silenciada`/`arquivada` por pessoa; `limpa_ate_id` = "excluí até aqui", nunca recua) → `central_mensagem` (despacho do Encaminhar: `despacho_pasta_id` e `despacho_tipo`, conferidos na leitura, regra 13; índices `(conversa_id, id)` e
 `(tenant_id, criada_em)` da janela do polling; `resposta_a_id` só da MESMA conversa; `sistema` = linha "Ana adicionou
 Bruno", montada pelo servidor). Não lida = mensagem de OUTRA pessoa, não de sistema, acima do cursor. Polling: id acima
 do cursor OU criada nos últimos 30 s (a tela descarta as vistas). As três tabelas estão na purga de escritório.
