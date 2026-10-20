@@ -10,6 +10,8 @@ use App\Entity\Tenant\TenantRole;
 use App\Pasta\DTO\ResumoSemProcesso;
 use App\Pasta\Entity\EnvioDoRelatorioSemProcesso;
 use App\Expediente\Controller\RelatorioDeProcessosController;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\UseCase\GerarRelatorioSemProcessoUseCase;
 use App\Pasta\Service\PastasVisiveisNoRelatorio;
@@ -130,6 +132,21 @@ final class RelatorioDeProcessosControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('1181', $daVera);
         self::assertStringNotContainsString('>1180<', $daVera);
         self::assertStringNotContainsString('rui responsável', mb_strtolower($daVera));
+    }
+
+    #[TestDox('Cadeado (spec pasta-cadeado D1): a pasta Oculta para quem lê sai do relatório; o primário continua vendo')]
+    public function testPastaOcultaPeloCadeadoSai(): void
+    {
+        $this->em()->persist(new CadeadoDaPasta($this->tenant, $this->p1180, ModoDoCadeado::Todos, $this->paula, new \DateTimeImmutable()));
+        $this->em()->flush();
+
+        $daControladoria = $this->abrir($this->carla);
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString('>1180<', $daControladoria);
+        self::assertStringNotContainsString('0701134-57.2025.8.07.0007', $daControladoria);
+        self::assertStringContainsString('>1181<', $daControladoria);
+
+        self::assertStringContainsString('>1180<', $this->abrir($this->paula));
     }
 
     #[TestDox('Sem o módulo Expediente: 403')]

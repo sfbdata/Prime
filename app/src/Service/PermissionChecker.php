@@ -177,6 +177,24 @@ class PermissionChecker
         return $action === AccessRequest::ACTION_VIEW ? $nivel->podeVer() : $nivel->podeEditar();
     }
 
+    /**
+     * Administrador do escritório: vínculo ativo com o perfil de sistema (o mesmo bypass das checagens
+     * acima), ou o super admin global. Quem vê todas as pastas no relatório de pastas sem processo
+     * (`PastasVisiveisNoRelatorio`); o cadeado é aplicado à parte, por `AcessoAPasta::idsOcultosPara`.
+     */
+    public function isAdministradorDoEscritorio(User $user, ?Tenant $tenant): bool
+    {
+        if ($this->isGlobalSuperAdmin($user)) {
+            return true;
+        }
+
+        if ($tenant === null) {
+            return false;
+        }
+
+        return $this->resolveUserTenant($user, $tenant)?->getTenantRole()?->isSystem() === true;
+    }
+
     private function isGlobalSuperAdmin(User $user): bool
     {
         return in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);

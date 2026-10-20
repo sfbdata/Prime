@@ -208,6 +208,7 @@ class PastaController extends AbstractController
         private readonly PastaPrazoRepository $pastaPrazoRepository,
         private readonly AndamentoDaPasta $andamentoDaPasta,
         private readonly DefinirSituacaoDaPastaUseCase $definirSituacao,
+        private readonly TelaDoCadeado $telaDoCadeado,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -323,7 +324,6 @@ class PastaController extends AbstractController
         PastaDocumentoFavoritoRepository $favoritosDeDocumento,
         VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         NotaTecnicaRepository $notaTecnicaRepository,
-        TelaDoCadeado $telaDoCadeado,
         VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
         MontarPainelDoPushUseCase $montarPainelDoPush,
     ): Response
@@ -332,10 +332,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($trancada = $this->telaDaPastaTrancada($pasta, $currentUser, $telaDoCadeado)) {
-            return $trancada;
-        }
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($redirect = $this->telaDaPastaTrancada($pasta, $currentUser) ?? $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $redirect;
         }
 
@@ -2676,16 +2673,16 @@ class PastaController extends AbstractController
      * a pasta de outro escritório e a pasta sem cadeado seguem o caminho de sempre (o
      * `denyResourceAccessUnlessGranted`, com o redirect, e o 404).
      */
-    private function telaDaPastaTrancada(Pasta $pasta, \App\Entity\Auth\User $pessoa, TelaDoCadeado $telaDoCadeado): ?Response
+    private function telaDaPastaTrancada(Pasta $pasta, \App\Entity\Auth\User $pessoa): ?Response
     {
         $tenant = $this->tenantContext->getCurrentTenant();
         if ($tenant === null || $pasta->getTenant() !== $tenant) {
             return null;
         }
 
-        $cadeado = $telaDoCadeado->montar($pasta, $pessoa, $tenant);
+        $cadeado = $this->telaDoCadeado->montar($pasta, $pessoa, $tenant);
 
-        return $telaDoCadeado->mostraATelaTrancada($pasta, $pessoa, $cadeado)
+        return $this->telaDoCadeado->mostraATelaTrancada($pasta, $pessoa, $cadeado)
             ? $this->render('pasta/trancada.html.twig', ['pasta' => $pasta, 'cad' => $cadeado])
             : null;
     }

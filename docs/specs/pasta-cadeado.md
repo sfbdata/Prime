@@ -38,7 +38,7 @@ própria pasta na linha, `data-csrf-pedir`); a rota antiga `expediente_pasta_ped
 
 **Decidido:** D3 foi confirmada pela coordenação em 20/10. Cadeado = restrição; ocultar aba = organização.
 
-**PR #120** (base master, migration `Version20261019230450`, depois da do #68). Depois do merge do #68: trazer o
+**PR #120** (base master, migration `Version20261020124000`, renomeada em 20/10 para ficar depois da última do master). Depois do merge do #68: trazer o
 master e adaptar o `BarreiraDeAbaOcultaListener` ao `PastaDaRota` (`BarreiraDeAbaOcultaMapaTest` verde).
 
 **Ordem de merge (coordenação, 20/10):** o #120 entra ANTES do #106 e do #151 (9b), que usam a rota antiga, a
