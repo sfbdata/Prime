@@ -113,6 +113,12 @@ Do desenho 07 (L111-161, L258-269), exatos, exceto onde o dono decidiu (sem "def
   barreira das rotas pelo escritório da URL (`BarreiraDoEscritorioInativoNaRota`, #155) tratar também a conta
   "suspensa a pedido" (Tenant ativo com pedido pendente). Hoje ela só barra o escritório inativo, e o admin com
   outro escritório na sessão ainda age pela URL sobre a conta suspensa a pedido.
+- Risco residual conhecido (aceito pelo coordenador, 20/10): um não-Master na rota antiga lê "sem pedido" no
+  mesmo instante em que um primário confirma o pedido. A conta entra em quarentena e o pedido fica pendente no
+  painel do Master, que o resolve reativando ou excluindo. Efeito só visual. Correção, no PR de acompanhamento
+  da barreira: `SELECT ... FOR UPDATE` no tenant nos dois caminhos (pedir a exclusão e a exclusão pela rota antiga).
+- Os testes do 409 provam o UPDATE condicional e o rollback no repositório. Pelo HTTP não dá para intercalar a
+  leitura com a decisão concorrente; o mapeamento para 409 nos quatro controllers foi conferido por leitura.
 
 ## Modelo (contrato com a b5)
 
