@@ -1,0 +1,94 @@
+{% extends 'base.html.twig' %}
+
+{#
+    Agenda nova. Desenho aprovado: docs/design/agenda-vs-18-10-26/09 - Agenda - VS 18.10.26.dc.html
+    (spec docs/specs/agenda-vs-18-10-26.md). O cabeçalho azul e a faixa de abas são a moldura do
+    sistema (base.html.twig).
+
+    O template monta só o esqueleto fixo; `equipe` alimenta o @colega do "Avisar no Chat". Cartões, mini calendário, calendários, grade, lista,
+    próximos feriados, detalhe e menu de botão direito são desenhados pelo public/js/agenda-nova.js
+    a partir de GET /agenda/datas e GET /agenda/compromissos. Rotas com {id} vão com o marcador 0,
+    trocado no JS pelo id real.
+#}
+
+{% block title %}Agenda · BlueJus{% endblock %}
+
+{% block body_class %}ag-body{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/agenda-nova.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="ag-page" id="agPagina"
+     data-url-datas="{{ path('app_agenda_datas') }}"
+     data-url-compromissos="{{ path('app_agenda_compromissos') }}"
+     data-eu="{{ eu|json_encode|e('html_attr') }}"
+     data-equipe="{{ equipe|json_encode|e('html_attr') }}"
+     data-pode-ver-pastas="{{ podeVerPastas ? '1' : '0' }}"
+     data-url-criar="{{ path('app_agenda_compromisso_criar') }}"
+     data-url-salvar="{{ path('app_agenda_compromisso_salvar', {id: 0}) }}"
+     data-url-excluir="{{ path('app_agenda_compromisso_excluir', {id: 0}) }}"
+     data-url-avisar="{{ path('app_agenda_compromisso_avisar', {id: 0}) }}"
+     data-url-mover="{{ path('app_agenda_compromisso_mover', {id: 0}) }}"
+     data-url-status="{{ path('app_agenda_compromisso_status', {id: 0}) }}"
+     data-url-pasta="{{ path('pasta_show', {id: 0}) }}"
+     data-url-lista="{{ path('agenda_lista') }}">
+
+    <div class="ag-topo">
+        <i class="bi bi-calendar3 ag-topo-icone" aria-hidden="true"></i>
+        <h1 class="ag-titulo">Agenda</h1>
+        <span class="ag-topo-vao"></span>
+        <div class="ag-resumo" id="agResumo"></div>
+    </div>
+
+    <div class="ag-corpo">
+        <aside class="ag-lado" data-screen-label="Calendários">
+            <div class="ag-lado-novo">
+                <button type="button" class="ag-btn-novo" id="agNovo"><i class="bi bi-plus-lg"></i>Novo compromisso</button>
+            </div>
+            <div class="ag-mini" id="agMini"></div>
+            <div class="ag-lado-rotulo">CALENDÁRIOS</div>
+            <div id="agCals"></div>
+            <div class="ag-ufs"><i class="bi bi-geo-alt"></i> Feriados estaduais de: <b id="agUfs">…</b><span class="ag-ufs-sub">pela lotação do Meu Perfil e pelo estado do escritório</span></div>
+            <div class="ag-lado-rotulo ag-lado-rotulo-sep">GOOGLE AGENDA</div>
+            <div class="ag-google">
+                <button type="button" class="ag-google-btn" id="agGoogle"><i class="bi bi-arrow-repeat"></i>Sincronizar com o Google Agenda</button>
+                <div class="ag-google-st"><i class="bi bi-circle-fill"></i>Disponível quando o servidor liberar a conexão</div>
+                <div class="ag-google-txt">Ao conectar sua conta Google, os compromissos ficam iguais nos dois lados: o que você criar, editar ou excluir aqui aparece no Google Agenda e vice-versa. Compromissos "Só eu" continuam particulares e os feriados do sistema não são enviados.</div>
+            </div>
+        </aside>
+
+        <div class="ag-direita">
+            <main class="ag-cal" data-screen-label="Calendário">
+                <div class="ag-barra">
+                    <button type="button" class="ag-hoje" id="agHoje">Hoje</button>
+                    <button type="button" class="ag-seta" id="agAnt" title="Anterior"><i class="bi bi-chevron-left"></i></button><button type="button" class="ag-seta" id="agProx" title="Próximo"><i class="bi bi-chevron-right"></i></button>
+                    <b class="ag-periodo" id="agPeriodo"></b>
+                    <label class="ag-busca"><i class="bi bi-search"></i><input type="search" id="agBusca" placeholder="Buscar na agenda" autocomplete="off"></label>
+                    <div class="ag-seg" id="agEscopos"></div>
+                    <div class="ag-seg ag-seg-vistas" id="agVistas"></div>
+                </div>
+                <div id="agAniv"></div>
+                <div id="agGrade" aria-live="polite"></div>
+            </main>
+            <section class="ag-pf" data-screen-label="Próximos feriados">
+                <div class="ag-pf-cab"><i class="bi bi-calendar-x"></i><b id="agPfTit">Próximos feriados</b><span>prazos que vencem em feriado passam para o próximo dia útil</span></div>
+                <div id="agPf"></div>
+            </section>
+        </div>
+    </div>
+
+    {# Camadas: o JS preenche e mostra. Dentro do .ag-page para herdar os tokens do tema. #}
+    <div id="agModal"></div>
+    <div id="agCtx"></div>
+    <div id="agPerg"></div>
+    <div id="agToast"></div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="{{ asset('js/agenda-nova.js') }}" defer></script>
+{% endblock %}

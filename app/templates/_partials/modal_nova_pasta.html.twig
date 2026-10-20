@@ -3,7 +3,7 @@
    arrasta, o próximo número (só informativo; o servidor numera de novo ao salvar), cliente obrigatório com
    sugestões e a ação liberada depois do cliente. O envio é o mesmo nas duas variantes (script abaixo). #}
 {% set desenho11 = desenho11 ?? false %}
-<div class="modal fade{{ desenho11 ? ' exp-nova' }}" id="modalNovaPasta" tabindex="-1" aria-labelledby="modalNovaPastaLabel" aria-hidden="true"
+<div class="modal fade{{ desenho11 ? ' exp-nova' }}"{% if desenho11 %} data-fica-na-lista="1"{% endif %} id="modalNovaPasta" tabindex="-1" aria-labelledby="modalNovaPastaLabel" aria-hidden="true"
      {% if desenho11 %}data-url-sugestoes="{{ path('expediente_nova_pasta_sugestoes') }}"{% endif %}>
     <div class="modal-dialog modal-dialog-centered" style="max-width:{{ desenho11 ? 'min(520px, calc(100vw - 32px))' : '480px' }};">
         <div class="modal-content">
@@ -107,6 +107,13 @@
         box.style.display = 'none';
     }
 
+    function fecharModais() {
+        [novaEl, avisoEl].forEach(function (m) {
+            var inst = m && window.bootstrap ? bootstrap.Modal.getInstance(m) : null;
+            if (inst) { inst.hide(); }
+        });
+    }
+
     // POST via fetch. O controller responde JSON {status: ok|duplicada|erro} quando é AJAX.
     // erroBox = onde mostrar a falha (tem de ser a modal VISÍVEL no momento do envio).
     function enviar(dados, erroBox) {
@@ -118,6 +125,14 @@
             return resp.json().catch(function () { return {}; });
         }).then(function (json) {
             if (json.status === 'ok' && json.redirect) {
+                // No Expediente (desenho 03, dc `salvarNovaFn`) a pasta nova entra na lista, que volta ao NUP do
+                // maior para o menor na página 1, com o aviso "Pasta N aberta para CLIENTE". Fora dele, abre a pasta.
+                if (novaEl && novaEl.getAttribute('data-fica-na-lista') === '1' && json.nup) {
+                    fecharModais();
+                    document.dispatchEvent(new CustomEvent('exp:pasta-criada', { detail: { nup: json.nup, cliente: json.cliente || '' } }));
+                    form.reset();
+                    return;
+                }
                 window.location = json.redirect;
                 return;
             }

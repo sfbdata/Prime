@@ -51,6 +51,13 @@ final class TermoAceiteListener
         'trabalho_externo_convite',
         'trabalho_externo_convite_criar_conta',
         'trabalho_externo_convite_aceitar',
+        // Descadastro de e-mail: link assinado aberto por quem pode nem ter conta (ou estar logado
+        // em outro escritório). Não depende de termo nem de escritório; a guarda é a assinatura.
+        'email_descadastro',
+        // Link externo do Push: página pública de terceiro, não depende de termo nem de escritório.
+        'push_compartilhado',
+        'push_compartilhado_codigo',
+        'push_compartilhado_renovacao',
     ];
 
     public function __construct(

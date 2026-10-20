@@ -155,6 +155,7 @@ trait CriaFixturesInteligenciaTrait
         Pasta $pasta,
         Agente $agente = Agente::Gestor,
         bool $financeiro = true,
+        array $abasOcultas = [],
     ): AnaliseDeInteligencia {
         $analise = new AnaliseDeInteligencia(
             tenant: $tenant,
@@ -164,7 +165,8 @@ trait CriaFixturesInteligenciaTrait
             alvoId: (int) $pasta->getId(),
             versaoDoPrompt: PromptDoAgente::VERSAO,
             contextoHash: hash('sha256', $agente->value . uniqid()),
-            contextoResumo: ['agente' => $agente->value, 'secoes' => [], 'omitidas' => [], 'total' => 0, 'processos' => [], 'financeiro' => $financeiro],
+            contextoResumo: ['agente' => $agente->value, 'secoes' => [], 'omitidas' => [], 'total' => 0, 'processos' => [], 'financeiro' => $financeiro]
+                + ($abasOcultas !== [] ? ['abasOcultas' => $abasOcultas] : []),
             agente: $agente,
         );
         $this->em()->persist($analise);

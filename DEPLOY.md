@@ -32,7 +32,9 @@ Campos obrigatórios:
 - `MAILER_DSN`
 - `DATAJUD_API_KEY`
 - `DEFAULT_URI` (URL base pública, ex: `https://grupojusprime.tech`)
-- `SYMFONY_TRUSTED_PROXIES` (ex: `private_ranges`)
+- `SYMFONY_TRUSTED_PROXIES=127.0.0.1` (exatamente assim. O nginx fala com o PHP por FastCGI e já entrega o IP real
+  em `REMOTE_ADDR`. **Não use `REMOTE_ADDR` nem `private_ranges`**: em FastCGI o `REMOTE_ADDR` é o próprio cliente, e
+  confiar nele deixa qualquer um forjar o IP no `X-Forwarded-For` e furar os limitadores por IP.)
 - `SYMFONY_TRUSTED_HOSTS` (regex do host, ex: `^grupojusprime\\.tech$`)
 
 3. Execute o deploy:
@@ -202,6 +204,14 @@ Roda **depois** do backup das 02:00, para que o dump da noite ainda contenha o e
 >
 > A carência de quarentena (padrão 365 dias) é configurável sem deploy via
 > `TENANT_CARENCIA_PURGA_DIAS` no `.env.prod`.
+
+### Resumo semanal ao cliente (crontab na VPS)
+
+Toda segunda-feira, às 8h de Brasília, manda aos clientes com o "Resumo semanal" ligado as movimentações da semana anterior (spec `docs/specs/push-envio-automatico.md` §3; se o relógio da VPS estiver em UTC, use `0 11 * * 1`; simule antes com `--dry-run`; configurar é do dono):
+
+```
+0 8 * * 1 docker exec jusprime_php_prod php bin/console app:push:resumo-semanal-cliente >> /var/log/jusprime-resumo-semanal-cliente.log 2>&1
+```
 
 ### Atualização de encargos de cobrança (crontab na VPS)
 

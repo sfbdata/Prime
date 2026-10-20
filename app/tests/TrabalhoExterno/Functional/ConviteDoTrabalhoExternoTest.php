@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\TrabalhoExterno\Functional;
 
+use App\Auth\UseCase\CriarConviteEscritorioUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -283,6 +284,29 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertSame(0, count($this->mensagensDeEmail()));
     }
 
+    #[TestDox('conta com o e-mail a confirmar não convida nem reenvia: 422 com o texto da recusa e nenhum e-mail')]
+    public function testEmailAConfirmarNaoConvidaNemReenvia(): void
+    {
+        [$client, $codigo, $master] = $this->demandaEmExecucao();
+        $this->convidar($client, $codigo, 'antes@test.com');
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        $id = $this->json($client)['demanda']['convites'][0]['id'];
+        $this->em()->find(User::class, $master->getId())?->marcarEmailAConfirmar(new \DateTimeImmutable('-1 hour'));
+        $this->em()->flush();
+
+        $resposta = $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/convites", ['nome' => 'X', 'email' => 'depois@test.com']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR, $resposta['mensagem']);
+        // O registro de e-mails do mailer é zerado a cada requisição: o que sobra é só o desta.
+        self::assertSame([], $this->mensagensDeEmail(), 'a recusa não manda e-mail');
+        self::assertNull($this->em()->getRepository(ConviteDemanda::class)->findOneBy(['email' => 'depois@test.com']));
+
+        $resposta = $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/convites/$id/reenviar");
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR, $resposta['mensagem']);
+        self::assertSame([], $this->mensagensDeEmail(), 'o reenvio recusado não manda e-mail');
+    }
+
     #[TestDox('A: o aviso "Abrir conversa" e as não lidas do convidado só contam o que ele pode ler no chat')]
     public function testAvisoENaoLidasRespeitamOCorteDoAceite(): void
     {
@@ -458,14 +482,14 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('#tePagina');
 
-        // Quem tem escritório E convite vigente: o destino de sempre (o Expediente), sem mudança.
+        // Quem tem escritório E convite vigente: o destino de sempre (o Expediente), pelo véu do login.
         $outroEscritorio = $this->criarTenant('Correspondente com escritório');
         $comEscritorio = $this->criarUsuario($outroEscritorio);
         $this->logarComTenant($client, $master, $central);
         $tokenComEscritorio = $this->convidar($client, $codigo, (string) $comEscritorio->getEmail());
         $this->aceitarLogado($client, $comEscritorio, $tokenComEscritorio);
         $this->entrarPeloFormulario($client, (string) $comEscritorio->getEmail(), 'senha123');
-        self::assertResponseRedirects('/expediente');
+        self::assertResponseRedirects('/login/entrando?para=/expediente');
 
         // Super admin sem escritório e com convite vigente: segue para o painel da plataforma.
         $admin = new User();
@@ -480,7 +504,7 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $tokenAdmin = $this->convidar($client, $codigo, (string) $admin->getEmail());
         $this->aceitarLogado($client, $admin, $tokenAdmin);
         $this->entrarPeloFormulario($client, (string) $admin->getEmail(), 'senha123');
-        self::assertResponseRedirects('/admin/platform');
+        self::assertResponseRedirects('/login/entrando?para=/admin/platform');
 
         // Convite revogado: sem convite vigente, volta ao caminho de sempre (selecionar escritório).
         $this->logarComTenant($client, $master, $central);
@@ -488,7 +512,7 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $id = $this->json($client)['demanda']['convites'][0]['id'];
         $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/convites/$id/revogar");
         $this->entrarPeloFormulario($client, 'entrada@test.com', 'senha-forte-1');
-        self::assertResponseRedirects('/escritorio/selecionar');
+        self::assertResponseRedirects('/login/entrando?para=/escritorio/selecionar');
     }
 
     #[TestDox('o login automático pelo "manter conectado" deixa a requisição do convidado seguir, sem redirecionar')]

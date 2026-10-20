@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Dashboard\Repository;
 
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
@@ -51,6 +51,7 @@ class MetricasExtrasDoDashboardRepository
             ->join('t.pasta', 'p')
             ->join('t.responsaveis', 'u')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // meta de pasta excluída (lápide) não conta, como nas colunas de metas
             ->andWhere('t.status = :emRevisao')
             ->setParameter('tenant', $tenant)
             ->setParameter('emRevisao', Tarefa::STATUS_EM_REVISAO)
@@ -81,6 +82,7 @@ class MetricasExtrasDoDashboardRepository
             ->join('t.pasta', 'p')
             ->join('t.responsaveis', 'u')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // meta de pasta excluída (lápide) não conta, como nas colunas de metas
             ->andWhere('t.status = :concluida')
             ->andWhere('t.dataConclusao IS NOT NULL')
             ->setParameter('tenant', $tenant)

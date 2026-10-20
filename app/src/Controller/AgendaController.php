@@ -2,7 +2,7 @@
 
 namespace App\Controller;
 
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Agenda\LegendaCor;
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
@@ -25,7 +25,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * AgendaController - Gerencia eventos do calendário.
  * 
  * Estrutura de rotas:
- * - GET  /agenda                  → Exibe calendário
+ * - GET  /agenda                  → tela nova (App\Agenda\Controller\AgendaNovaController, entrega 3b)
  * - GET  /agenda/lista            → Exibe lista de eventos
  * - GET  /agenda/eventos          → API JSON para FullCalendar
  * - GET  /agenda/novo             → Formulário de criação
@@ -48,29 +48,6 @@ class AgendaController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
     ) {
-    }
-
-    /**
-     * Exibe o calendário
-     */
-    #[Route('', name: 'agenda_index', methods: ['GET'])]
-    public function index(): Response
-    {
-        /** @var \App\Entity\Auth\User $currentUser */
-        $currentUser = $this->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'agenda')) {
-            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de agenda.');
-            return $this->redirectToRoute('homepage');
-        }
-
-        $usuarios = $this->userRepository->findColaboradoresAtivosPorTenant($tenant);
-        $legendas = $this->legendaCorRepository->findAllOrdered();
-        
-        return $this->render('agenda/index.html.twig', [
-            'usuarios' => $usuarios,
-            'legendas' => $legendas,
-        ]);
     }
 
     /**
@@ -231,7 +208,7 @@ class AgendaController extends AbstractController
             $em->flush();
 
             // Notificar participantes
-            foreach ($evento->getParticipantes() as $participante) {
+            foreach ($this->participantesAvisaveis($evento) as $participante) {
                 $this->notificacaoService->criarNotificacao(
                     $participante,
                     $evento->getTenant(),
@@ -294,7 +271,7 @@ class AgendaController extends AbstractController
             $em->flush();
 
             // Notificar participantes
-            foreach ($evento->getParticipantes() as $participante) {
+            foreach ($this->participantesAvisaveis($evento) as $participante) {
                 $this->notificacaoService->criarNotificacao(
                     $participante,
                     $evento->getTenant(),
@@ -425,7 +402,7 @@ class AgendaController extends AbstractController
             $em->flush();
 
             // Notificar participantes sobre cancelamento
-            foreach ($evento->getParticipantes() as $participante) {
+            foreach ($this->participantesAvisaveis($evento) as $participante) {
                 $this->notificacaoService->criarNotificacao(
                     $participante,
                     $evento->getTenant(),
@@ -578,5 +555,16 @@ class AgendaController extends AbstractController
         ], $legendas);
 
         return $this->json($legendasArray);
+    }
+
+    /**
+     * "Só eu" só a pessoa vê: os participantes não enxergam o compromisso, e o aviso (com o título) ainda
+     * iria para a auditoria pela Notificacao. Então "Só eu" não avisa ninguém.
+     *
+     * @return iterable<User>
+     */
+    private function participantesAvisaveis(Evento $evento): iterable
+    {
+        return Evento::VISIBILIDADE_SOMENTE_EU === $evento->getVisibilidade() ? [] : $evento->getParticipantes();
     }
 }

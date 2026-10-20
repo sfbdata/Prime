@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tenant\UseCase;
 
 use App\Entity\Tenant\Tenant;
+use App\Master\Service\RegraDosMasters;
 use App\Shared\Armazenamento\ArmazenamentoComPrefixo;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\CategoriaComIsolamentoFisico;
@@ -17,6 +18,7 @@ use App\Shared\Doctrine\Transacao\ConsultaDeDestinoDaTransacao;
 use App\Shared\Doctrine\Transacao\DestinoDaTransacao;
 use App\Tenant\DTO\PurgaEscritorioResultado;
 use App\Tenant\Exception\PurgaComDestinoIncerto;
+use App\Tenant\Exception\PurgaRecusada;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -106,6 +108,9 @@ final class PurgarEscritorioUseCase
         // NO ACTION — deleção explícita, ANTES da nota.
         ['nota_tecnica_versao', 'tenant_id = :tenant'],
         ['nota_tecnica', 'tenant_id = :tenant'],
+        // Previsões da Situação atual do Push (taxa de acertos): caem pela CASCADE do processo, mas
+        // a FK de tenant é NO ACTION; deleção explícita antes de apagar o processo e o tenant.
+        ['previsao_processual', 'tenant_id = :tenant'],
         // DJEN — publicações e OABs monitoradas (tenant_id direto; FKs a processo/oab_monitorada
         // são SET NULL, então não caem por cascata — precisam de deleção explícita).
         ['publicacao_djen', 'tenant_id = :tenant'],
@@ -117,6 +122,14 @@ final class PurgarEscritorioUseCase
         // FKs a "user" SET NULL; nada as referencia). Deleção explícita antes de apagar o tenant.
         ['inteligencia_analise', 'tenant_id = :tenant'],
         ['inteligencia_configuracao', 'tenant_id = :tenant'],
+        // Contribua — plano e limites de espaço do escritório (tenant_id direto; FK tenant NO ACTION, nada a
+        // referencia). O catálogo de planos e a configuração são globais e ficam.
+        ['contribua_espaco_do_escritorio', 'tenant_id = :tenant'],
+        // Contribua C2: sugestões, apoios informados e motivos anônimos (tenant_id direto; FKs a "user"
+        // SET NULL; nada as referencia).
+        ['contribua_sugestao', 'tenant_id = :tenant'],
+        ['contribua_apoio', 'tenant_id = :tenant'],
+        ['contribua_motivo_de_nao_apoiar', 'tenant_id = :tenant'],
         // Cobranças — movimentos financeiros (Etapa 3). Filhos antes do pai: a alocação referencia
         // pagamento E obrigação; pagamento/liquidação referenciam o caso (NO ACTION). Por isso vem
         // ANTES do bloco Etapa 2 (que apaga obrigação e caso).
@@ -175,6 +188,16 @@ final class PurgarEscritorioUseCase
         ['pasta_favorita', 'tenant_id = :tenant'],
         // Destaque de linha da Lista do Expediente (por usuário, E12): mesmo caso do favorito.
         ['pasta_destaque', 'tenant_id = :tenant'],
+        // Chaves do "Avisar quando chegar" do Push (por pasta): cairiam pela CASCADE de `pasta`, mas a FK
+        // de tenant é NO ACTION; deleção explícita aqui.
+        ['pasta_aviso_push', 'tenant_id = :tenant'],
+        // "Avisar cliente" do Push (P4c): o histórico de envios cai pela CASCADE de `pasta` e os e-mails do
+        // cliente pela de `cliente`, mas a FK de tenant das duas é NO ACTION; deleção explícita aqui.
+        ['envio_ao_cliente', 'tenant_id = :tenant'],
+        ['cliente_email', 'tenant_id = :tenant'],
+        // Chaves do envio automático ao cliente (P4d): cairiam pela CASCADE de `cliente`, mas a FK de
+        // tenant é NO ACTION; deleção explícita aqui.
+        ['cliente_envio_automatico', 'tenant_id = :tenant'],
         // Prazos e audiências da pasta (E12b): cairiam pela CASCADE de `pasta`; FK de tenant NO ACTION.
         ['pasta_prazo', 'tenant_id = :tenant'],
         // Andamento da pasta em fases (E12b): mesmo caso.
@@ -188,6 +211,12 @@ final class PurgarEscritorioUseCase
         // CASCADE de `pasta`, mas a FK de tenant é NO ACTION; o histórico de envios só tem a FK de tenant.
         ['pasta_decisao_sem_processo', 'tenant_id = :tenant'],
         ['relatorio_sem_processo_envio', 'tenant_id = :tenant'],
+        // Link externo do Push e seus acessos: cairiam pela CASCADE de `pasta`, mas as FKs de tenant
+        // são NO ACTION. Acesso antes do link (filho antes do pai).
+        ['push_link_externo_acesso', 'tenant_id = :tenant'],
+        ['push_link_externo', 'tenant_id = :tenant'],
+        // Abas ocultas da pasta (spec pasta-ocultar-aba §1): mesmo caso, CASCADE de `pasta` e FK de tenant NO ACTION.
+        ['pasta_aba_oculta', 'tenant_id = :tenant'],
         // Relatório de pastas paradas (spec pastas-paradas): o envio do mês cairia pela CASCADE de
         // tenant, mas a purga apaga explicitamente, como o histórico do relatório irmão.
         ['relatorio_pastas_paradas_envio', 'tenant_id = :tenant'],
@@ -206,6 +235,9 @@ final class PurgarEscritorioUseCase
         ['central_presenca', 'tenant_id = :tenant'],
         // Baixa de aviso na Central (F3): cai com a notificação (CASCADE), mas a FK de tenant é NO ACTION.
         ['central_aviso_resolvido', 'tenant_id = :tenant'],
+        // Descadastro de e-mail do escritório (Shared, "Não quero mais receber estes avisos"): FK de tenant
+        // NO ACTION e nada a referencia. Sai com o escritório: sem ele não há quem envie.
+        ['email_descadastro', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],
@@ -341,6 +373,7 @@ final class PurgarEscritorioUseCase
         private readonly ConsultaDeDestinoDaTransacao $consultaDeDestino,
         private readonly LoggerInterface $logger,
         private readonly int $carenciaPurgaDias,
+        private readonly RegraDosMasters $regraDosMasters,
     ) {
     }
 
@@ -366,6 +399,8 @@ final class PurgarEscritorioUseCase
             // Nenhuma linha nova do escritório entra daqui até o COMMIT (ver o docblock da classe).
             $conn->executeQuery('SELECT id FROM tenant WHERE id = :tenant FOR UPDATE', ['tenant' => $tenantId]);
             $conn->executeQuery('SELECT id FROM chamado WHERE tenant_id = :tenant FOR UPDATE', ['tenant' => $tenantId]);
+            // Com a linha travada, as guardas de novo sobre o BANCO: a conta pode ter sido recuperada depois de entrar na lista.
+            $this->garantirElegivelNoBanco($conn, $tenant);
 
             // Fase 0 — os arquivos, ANTES de apagar as linhas e dentro da mesma transação: é aqui
             // que se prova, pelos registros, que cada arquivo plano é só deste escritório.
@@ -550,25 +585,74 @@ final class PurgarEscritorioUseCase
 
     /**
      * Guarda de segurança: só purga escritório inativo (soft-deletado) cuja carência de
-     * quarentena já venceu. Impede purgar um escritório ativo ou ainda recuperável, mesmo
-     * se chamado por engano.
+     * quarentena já venceu, e nunca a conta do Master (spec perfis-1.2-contas C5). Impede purgar um
+     * escritório ativo ou ainda recuperável, mesmo se chamado por engano.
      */
     private function garantirElegivel(Tenant $tenant): void
     {
-        if ($tenant->isActive() !== false) {
-            throw new \LogicException('Só é possível purgar escritório inativo (soft-deletado).');
+        $this->exigirQuarentenaVencida($tenant->isActive(), $tenant->getExcluidoEm());
+        $this->exigirQueNaoEhContaDoMaster($tenant);
+    }
+
+    /**
+     * As mesmas guardas, RELIDAS do banco depois do `FOR UPDATE` (corrida com o Master): entre a lista
+     * do job e este ponto a conta pode ter sido recuperada da quarentena (`ReativarContaUseCase`) ou
+     * ter mudado de criador, ou o criador pode ter virado Master. Qualquer diferença aborta só esta conta,
+     * dentro da transação, sem apagar nada.
+     *
+     * A recusa ({@see PurgaRecusada}) sai como FAILURE no `app:purgar-dados-expirados` DE PROPÓSITO: conta
+     * em quarentena vencida que não pode ser purgada (recuperada no meio, ou do Master) precisa chegar ao
+     * dono como alerta, não sumir num log.
+     */
+    private function garantirElegivelNoBanco(Connection $conn, Tenant $tenant): void
+    {
+        // O "criador é Master?" também vem do banco (roles do criador agora), não do User em memória.
+        $linha = $conn->fetchAssociative(
+            'SELECT t.is_active, t.excluido_em, t.criado_por_id, COALESCE(u.roles::text LIKE :papel, FALSE) AS criador_master
+               FROM tenant t LEFT JOIN "user" u ON u.id = t.criado_por_id WHERE t.id = :tenant',
+            ['tenant' => $tenant->getId(), 'papel' => '%"' . RegraDosMasters::PAPEL_MASTER . '"%'],
+        );
+        if ($linha === false) {
+            throw new PurgaRecusada('Escritório não existe mais; nada a purgar.');
         }
 
-        $excluidoEm = $tenant->getExcluidoEm();
+        $this->exigirQuarentenaVencida((bool) $linha['is_active'], $linha['excluido_em'] !== null ? new \DateTimeImmutable((string) $linha['excluido_em']) : null);
+
+        $criadorNoBanco = $linha['criado_por_id'] !== null ? (int) $linha['criado_por_id'] : null;
+        if ($criadorNoBanco !== $tenant->getCriadoPor()?->getId()) {
+            throw new PurgaRecusada('O criador do escritório mudou depois da seleção para a purga; purga adiada.');
+        }
+
+        if ((bool) $linha['criador_master']) {
+            throw new PurgaRecusada('A conta do Master nunca é purgada.');
+        }
+
+        // O fallback (sem criador: Master com vínculo ativo) consulta o banco na mesma transação.
+        $this->exigirQueNaoEhContaDoMaster($tenant);
+    }
+
+    private function exigirQuarentenaVencida(?bool $ativo, ?\DateTimeImmutable $excluidoEm): void
+    {
+        if ($ativo !== false) {
+            throw new PurgaRecusada('Só é possível purgar escritório inativo (soft-deletado).');
+        }
 
         if ($excluidoEm === null) {
-            throw new \LogicException('Escritório inativo sem data de exclusão — não elegível à purga.');
+            throw new PurgaRecusada('Escritório inativo sem data de exclusão: não elegível à purga.');
         }
 
         $limite = new \DateTimeImmutable(sprintf('-%d days', $this->carenciaPurgaDias));
 
         if ($excluidoEm > $limite) {
-            throw new \LogicException('Escritório ainda dentro da carência de quarentena — não pode ser purgado.');
+            throw new PurgaRecusada('Escritório ainda dentro da carência de quarentena: não pode ser purgado.');
+        }
+    }
+
+    /** A purga nunca apaga a conta do Master: a mesma regra da C5, com o fallback do vínculo. */
+    private function exigirQueNaoEhContaDoMaster(Tenant $tenant): void
+    {
+        if ($this->regraDosMasters->ehContaDoMaster($tenant)) {
+            throw new PurgaRecusada('A conta do Master nunca é purgada.');
         }
     }
 

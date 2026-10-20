@@ -190,3 +190,156 @@ Use o mesmo projeto do Google Cloud do Google Drive (já tem tela de consentimen
 7. Enquanto o app estiver em modo **Teste**, só os e-mails em **Público-alvo** → **Usuários de teste**
    conseguem conectar. Para todos os escritórios, **Publicar app** (o escopo de Agenda pode pedir
    verificação do Google, que leva dias).
+
+## 9. Consumidores do calendário do sistema
+
+`App\Agenda\Service\CalendarioDoSistema::doPeriodo()` e `App\Agenda\UseCase\ListarDatasDoSistemaUseCase`
+são a **única fonte** de feriados, pontos facultativos e datas comemorativas fora do Ponto. Contrato
+público e estável (assinatura, campos de `DataDoSistemaOutput` e formato do id).
+- Agenda nova (`GET /agenda/datas`).
+- Perfis, seção "Comercial e e-mails" (desenho 05): campanhas por data comemorativa. Deve ler daqui,
+  não criar outra lista.
+
+## 10. Entrega 2: tela em /agenda/nova (conferência item a item)
+
+A tela nova fica em `/agenda/nova` (rota `agenda_nova`, fora do menu) até a entrega 3 trazer o modal
+de criação e edição; a `/agenda` antiga segue inteira. A aba "Agenda" da faixa de abas aponta para a
+antiga até a troca.
+
+Estado contra o inventário da seção 1 (✓ feito · ◐ feito em parte, falta na entrega indicada · ✗ falta):
+
+| # | Item | Estado |
+|---|---|---|
+| V1 | Aba AGENDA na faixa de abas | ✓ (Demandas e Trabalho Externo continuam: diferença registrada) |
+| V2 | 4 cartões e clique para Dia/Semana | ✓ |
+| V3 | Novo compromisso | ◐ abre o formulário antigo no dia; modal do desenho na entrega 3 |
+| V4 | Mini calendário | ✓ |
+| V5 | 10 calendários com marcação | ◐ lembrada no navegador; no servidor na entrega 5 |
+| V6 | Feriados estaduais de: UF | ✓ |
+| V7 | TESTAR LEMBRETES | ✗ entrega 5 |
+| V8 | GOOGLE AGENDA | ◐ painel e aviso "Disponível quando o servidor liberar a conexão"; ligação na entrega 6 |
+| V9 | Barra: Hoje, setas, título, busca, escopo, vistas | ✓ |
+| V10 | Faixa de aniversário, balão e confete | ✓ |
+| V11 | Mês | ◐ clique no vazio abre o formulário antigo (entrega 3) |
+| V12 | Dia e Semana | ◐ clique na hora abre o formulário antigo (entrega 3) |
+| V13 | Lista dos próximos 60 dias | ✓ |
+| V14 | Próximos feriados com PONTE | ✓ |
+| V15 | Detalhe | ◐ leitura e "Google Agenda" ✓; "Editar" abre o formulário antigo; "Avisar no Chat" e "Excluir" na entrega 3 |
+| V16 | Modal de edição | ✗ entrega 3 |
+| V17 | "Compartilhar com a equipe?" | ✗ entrega 3 |
+| V18 | Link `#ev=<id>` | ✓ (fora da faixa carregada, vai ao dia que o id traz; sem achar, avisa) |
+| Menu | Botão direito | ◐ "Abrir compromisso", "Ver detalhes" e "Novo compromisso em" ✓; acrescentar, editar nome, ocultar e restaurar na entrega 4 |
+
+Diferenças conscientes:
+- horário "09:00 às 10:00" no lugar de "09:00 – 10:00" na grade e na lista (regra do dono, sem
+  travessão; o detalhe do próprio desenho já usa "às");
+- o detalhe do feriado nacional mostra a fonte legal e se conta no ponto (seção 5);
+- "Próximos feriados" conta os dias pelo calendário: o desenho somava meio dia e mostrava "amanhã"
+  para o feriado de hoje e "em 15 dias" para um que cai em 14;
+- o texto "Clique com o botão direito no dia para editar ou ocultar" só volta na entrega 4;
+- o item do menu de botão direito com foco fica realçado (teclado); o desenho não tem teclado no menu.
+
+Conferência visual (19/10/2026, liberada pelo dono): demo da worktree na porta 8106 com banco isolado
+`demo_agenda4b`, Playwright a 1280x900 e 390x844, desenho renderizado com dados equivalentes. Mês,
+Semana, Lista, detalhe, menu de botão direito, tema escuro e celular conferidos lado a lado; restam só
+os itens ◐/✗ da tabela acima.
+
+## 11. Entrega 3a: modal de criar e editar
+
+Na branch `agenda-modal`, empilhada sobre `agenda-nova` (#58). A tela continua em `/agenda/nova`; a
+troca da `/agenda` vem na 3b, junto com arrastar e soltar e concluir/cancelar (convenção D1: nada da
+agenda antiga sai antes de existir na nova).
+
+**Evento migrado para o domínio** (`App\Agenda\Entity\Evento`, decisão do subagente decisor: a regra
+da pasta legada manda migrar antes de evolução não trivial; precedente da Pasta, 11097f0e). Bloco
+`AppAgenda` no `doctrine.yaml`. Migration de **dados** `Version20261020122000`: troca
+`audit_log.entity_class` de `App\Entity\Agenda\Evento` para `App\Agenda\Entity\Evento` (112 linhas no
+banco de dev em 19/10/2026), para o histórico seguir no filtro da auditoria e no "Desfazer"; o down faz
+a troca inversa. O `audit_log` não tem hash nem encadeamento; só o nome da classe muda.
+
+**Campos novos** (migration `Version20261020122500`): `tipo` (enum `TipoDeCompromisso`: meus, aud,
+reun, prazo; nulo nos eventos antigos), `pasta_id` (FK anulável, `ON DELETE SET NULL`),
+`lembrete_minutos`, `avisados` (JSON com os ids avisados no Chat).
+
+**Regras** (`SalvarCompromissoUseCase`, `ExcluirCompromissoUseCase`, `AvisarNoChatUseCase`): editar e
+excluir exigem ver o compromisso (404) e ser o criador ou ter `admin.users.manage` (403), como na
+agenda antiga; fim depois do início; pasta pelo número, só do escritório e fora da lixeira; colegas e
+participantes só do escritório; cada colega é avisado uma vez, nunca quem avisa; participantes novos
+também recebem o aviso. O aviso vai pela `Notificacao` (sininho e avisos da Central), com link
+`/agenda/nova#ev=ev-<id>-<dia>`. Observações e local viram um campo só ("Local, link da reunião ou
+observações", como no desenho).
+
+**Estado contra a seção 1:** V3 ✓ (abre o modal); V11 e V12 ✓ (clique no dia ou na hora abre o modal
+já com o dia e a hora); V15 ✓ (Google Agenda, Avisar no Chat, Excluir e Editar; itens de pasta não
+têm "Avisar no Chat", porque o aviso grava no compromisso); V16 ✓; V17 ✓.
+
+Regras acrescentadas na revisão: o aviso cabe nos 255 caracteres da notificação (corta com "…");
+evento da agenda antiga editado no modal guarda a cor da legenda em toda edição (cor que não é de
+nenhum tipo é legenda; D1); quem não vê pastas não vê o campo e, ao editar, a pasta atual fica;
+participantes desligados continuam no compromisso (o modal só mostra os ativos, e tirá-los abriria um
+compromisso fechado para o escritório todo); compromisso de vários dias ou
+que passa da meia-noite guarda quantos dias dura (campo `dias`, com nota "Termina em ..." e o atalho "Terminar no mesmo dia");
+"Só eu" não avisa ninguém nem guarda avisados, e o detalhe não mostra "Avisar no Chat"; os textos de
+visibilidade dizem quem de fato vê ("Só os participantes e você veem"); o "Avisar no Chat" do detalhe
+é uma escolha explícita de cada colega, no lugar do `prompt()` do protótipo, que casava pedaços de nome
+e avisava gente demais (spec §3: os `prompt()` do protótipo viram modal); só colegas ativos são
+avisados ou viram participantes; "repetir até" antes do início é recusado; o número da pasta só sai na
+listagem para quem tem acesso às pastas; a busca da pasta aceita o número em minúsculas. Editar uma
+repetição avisa que vale para a série, e excluir pergunta "e todas as repetições?".
+
+Fica como está: 17 linhas do `audit_log` de dev guardam o nome antigo da classe dentro de
+`changes.association_events` (só exibição, via `entityRef`; filtro e Desfazer não usam).
+
+Diferenças conscientes: REPETIR/ATÉ e PARTICIPANTES no modal (agenda antiga, D1); a caixa
+"MENCIONAR · NOTIFICA NO CHAT I.A" com cargo e presença do protótipo vem do `bluejus-central.js`
+(componente global do desenho), não da Agenda: aqui vale a lista da própria Agenda (iniciais e nome);
+o aviso de lembrete "Você será lembrado com aviso e som" volta na entrega 5, com os lembretes.
+
+## 12. Entrega 3b: troca da /agenda e conferência da agenda antiga
+
+`/agenda` (rota `agenda_index`, usada pela barra lateral, pela aba e pelo "Voltar ao Calendário" das
+páginas antigas) passa a mostrar a tela nova; `/agenda/nova` continua para os links já enviados. Sai só
+o calendário FullCalendar (`AgendaController::index` e `templates/agenda/index.html.twig`). As demais
+rotas antigas ficam de pé. Novos: arrastar e soltar (`POST /agenda/compromissos/{id}/mover`) e
+Concluir, Cancelar compromisso e Reabrir (`POST /agenda/compromissos/{id}/status`; cancelar avisa os
+participantes com "O evento foi cancelado: <título>", como antes, cortado em 255 caracteres). Em
+compromisso que se repete, situação vale para a série, e a confirmação diz isso.
+
+Conferência item a item do inventário da agenda antiga (36 itens). Legenda: **Mantido** (a tela nova
+faz) · **De pé** (a página ou rota antiga continua) · **Substituído pelo desenho** (o 09 mostra outra
+coisa no mesmo lugar; decisão do coordenador em 19/10/2026).
+
+| # | Agenda antiga | Situação |
+|---|---|---|
+| 1 | Acesso com o módulo `agenda`; sem ele, aviso e volta ao início | Mantido (mesma mensagem e redirect) |
+| 2 | Cabeçalho "Agenda", "Ver Lista", "Novo Evento" | Mantido: título e "Novo compromisso" do desenho; "Ver Lista" vira o link "Lista completa, com eventos passados e filtros" no fim da visão LISTA, que leva à Lista antiga (De pé) |
+| 3 | Calendário mês, semana, dia, "Hoje", setas, "+N" | Mantido (grade do desenho, com Lista) |
+| 4 | Eventos e ocorrências de recorrentes; cancelado riscado | Mantido (cancelado riscado, concluído esmaecido) |
+| 5 | Regra de visibilidade | Mantido (`restringirAoVisivelPara`, a mesma) |
+| 6 | Modal de detalhes (título, descrição, início, fim, local, situação, criador, selo Recorrente) | Mantido no detalhe do desenho (local e descrição num campo; fim em outro dia; "Repete: ..."; situação quando concluído ou cancelado) |
+| 7 | Criar pelo clique na data | Mantido (e corrigido: a data clicada não se perde mais) |
+| 8 | Criar pelo modal (AJAX) | Mantido pelo modal do desenho; `/agenda/criar-ajax` De pé |
+| 9 | Campos: título, cor, descrição, início, duração, local, situação, dia inteiro, visibilidade, participantes, recorrência | Mantido: tipo no lugar da cor (desenho), fim no lugar da duração, local e descrição num campo; situação pelos botões do detalhe |
+| 10 | Página `/agenda/novo` | De pé |
+| 11 | Campos do formulário da página | De pé |
+| 12 | Editar (página) com a regra criador ou admin | Mantido no modal; `/agenda/{id}/editar` De pé |
+| 13 | Concluir (pelo campo situação) | Mantido: botão "Concluir" no detalhe (e "Reabrir") |
+| 14 | Cancelar e avisar os participantes | Mantido: "Cancelar compromisso" avisa como antes |
+| 15 | Excluir | Mantido no detalhe; rota antiga De pé |
+| 16 | Arrastar e soltar | Mantido: Mês troca o dia; Semana e Dia, dia e hora de meia em meia hora (como o FullCalendar), inclusive soltando sobre outro compromisso; arrastar um dia do meio de compromisso de vários dias desloca pela diferença; duração em segundos |
+| 17 | Redimensionar | Mantido pelo campo Fim do modal (sem arrastar a borda) |
+| 18 | Série não se arrasta | Mantido (agora também no servidor) |
+| 19 | Recorrência | Mantido (Repetir e Até no modal) |
+| 20 | Participantes e aviso ao criar | Mantido (aviso também aos participantes novos ao editar) |
+| 21 | Visibilidade "Somente para mim" | Mantido ("Só eu") |
+| 22 | Ver legendas de cor na lateral | Substituído pelo desenho (calendários com cor fixa) |
+| 23 | Editar legendas | Substituído pelo desenho; a cor dos eventos antigos fica, inclusive ao editar |
+| 24 | Salvar legendas | Substituído pelo desenho; `/agenda/legendas` De pé no servidor, sem tela |
+| 25-29 | Página Lista, filtros de situação, responsável e período, colunas e ações | De pé (o Dashboard aponta para ela; testes DASH-009 e SEC-016 seguem verdes) |
+| 30 | Página de detalhe `/agenda/{id}` | De pé (avisos antigos gravados no banco apontam para ela) |
+| 31 | Item Agenda na barra lateral | Mantido (`agenda_index`, agora a tela nova) |
+| 32 | Aba Agenda | Mantido |
+| 33 | Link do Dashboard para a Lista | De pé |
+| 34 | Avisos com link para o detalhe | De pé (novos avisos apontam para `/agenda#ev=...`) |
+| 35 | Outras referências às rotas antigas | Nenhuma quebrada. `agenda_criar_ajax` e `agenda_atualizar_datas` ficam sem chamador na tela (só o calendário antigo as usava), mas continuam no servidor, protegidas como antes: nada é removido nesta entrega |
+| 36 | Testes da agenda antiga | Verdes (nenhum dependia do calendário FullCalendar) |

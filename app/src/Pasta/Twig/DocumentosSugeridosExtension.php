@@ -9,6 +9,7 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaChecklistItem;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Service\DeterminacoesDoJuizo;
+use App\Pasta\Service\FaseDoProcessoPeloPush;
 use App\Pasta\Service\SugestorDeDocumentos;
 use App\Service\Tenant\TenantContext;
 use Psr\Clock\ClockInterface;
@@ -39,6 +40,7 @@ final class DocumentosSugeridosExtension extends AbstractExtension
         private readonly TenantContext $tenantContext,
         private readonly DeterminacoesDoJuizo $determinacoes,
         private readonly ClockInterface $clock,
+        private readonly FaseDoProcessoPeloPush $faseDoPush,
     ) {
     }
 
@@ -101,6 +103,7 @@ final class DocumentosSugeridosExtension extends AbstractExtension
             $checklist,
             $this->determinacoes->daPasta($pasta, $tenant),
             $this->clock->now(),
+            $this->faseDoPush->daPasta($pasta, $tenant, $this->clock->now()),
         );
     }
 }

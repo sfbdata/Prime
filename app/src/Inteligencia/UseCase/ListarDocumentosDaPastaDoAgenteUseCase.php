@@ -10,9 +10,11 @@ use App\Entity\Tenant\Tenant;
 use App\Inteligencia\DTO\DocumentoDoAgenteOutput;
 use App\Inteligencia\DTO\DocumentosDaPastaDoAgenteOutput;
 use App\Inteligencia\Exception\PastaNaoEncontradaException;
+use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Exception\SemPermissaoParaVerPastaException;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Service\PermissionChecker;
 
 /**
@@ -28,6 +30,7 @@ final class ListarDocumentosDaPastaDoAgenteUseCase
         private readonly PastaRepository $pastaRepository,
         private readonly PastaDocumentoRepository $documentoRepository,
         private readonly PermissionChecker $permissionChecker,
+        private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
     ) {
     }
 
@@ -47,7 +50,12 @@ final class ListarDocumentosDaPastaDoAgenteUseCase
         return new DocumentosDaPastaDoAgenteOutput(
             pastaId: $pastaId,
             nup: $pasta->getNup(),
-            documentos: array_map(DocumentoDoAgenteOutput::fromEntity(...), $this->documentoRepository->findByPastaComSecao($pasta, $tenant)),
+            // Contrato de honorários some com o Financeiro oculto para quem pede (ocultar aba); a aba
+            // Documentos inteira oculta já é barrada na rota (`BarreiraDeAbaOcultaListener`).
+            documentos: array_map(DocumentoDoAgenteOutput::fromEntity(...), VisibilidadeDasAbasDaPasta::documentosVisiveis(
+                $this->documentoRepository->findByPastaComSecao($pasta, $tenant),
+                array_map(static fn (AbaDaPasta $a): string => $a->value, $this->visibilidadeDasAbas->abasOcultasPara($pasta, $usuario)),
+            )),
         );
     }
 }

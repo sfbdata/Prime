@@ -16,7 +16,8 @@
         data-url="{{ path('pasta_atualizar_responsavel', {id: pasta.id}) }}"
         data-csrf="{{ csrf_token('pasta_responsavel_' ~ pasta.id) }}"
         data-resp-id="{{ resp ? resp.id : '' }}"
-        title="{{ resp ? resp.fullName : 'Definir responsável' }}">
+        {# No Expediente a dica é a do desenho 03 (dc `respTip`), pelo sistema de dicas da lista; na pasta, o title. #}
+        {% if naPasta %}title="{{ resp ? resp.fullName : 'Definir responsável' }}"{% else %}data-tip="{{ resp ? resp.fullName ~ ' · clique para alterar' : 'Clique para atribuir um responsável' }}"{% endif %}>
     {% if resp %}
         {{ av.avatar(resp.fullName, fotos[resp.id]|default(null), 24) }}
         <span class="pasta-resp-nome">{{ resp.fullName }}</span>

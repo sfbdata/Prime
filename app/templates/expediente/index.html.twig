@@ -232,10 +232,13 @@ document.addEventListener('click', function (e) {
     var alvo = e.target.closest('.pasta-row-link[data-href]');
     if (!alvo) return;
     if (e.target.closest('button, a, form, input, select, .js-toggle-situacao')) return;
+    if (window.ExpMenu && window.ExpMenu.abertoNoToque && window.ExpMenu.abertoNoToque()) return;   // só fecha o menu (dc `abrir`)
     window.location.href = alvo.dataset.href;
 });
 
 /* ── Alternar situação da pasta por duplo-clique na badge ── */
+// O aviso da página (expediente-lista.js); o alert só se o script não carregou.
+function avisarOuAlertar(texto) { if (window.ExpAviso) { window.ExpAviso(texto); } else { alert(texto); } }
 document.addEventListener('dblclick', function (e) {
     var badge = e.target.closest('.js-toggle-situacao');
     if (!badge) return;
@@ -254,7 +257,7 @@ document.addEventListener('dblclick', function (e) {
     .then(function (res) {
         badge.dataset.ocupado = '';
         if (!res.ok || !res.data.sucesso) {
-            alert(res.data.erro || 'Erro ao alterar situação.');
+            avisarOuAlertar(res.data.erro || 'Não foi possível alterar a situação');
             return;
         }
         var eAtivo = res.data.novaSituacao === 'ativo';
@@ -265,7 +268,7 @@ document.addEventListener('dblclick', function (e) {
     })
     .catch(function () {
         badge.dataset.ocupado = '';
-        alert('Erro de comunicação com o servidor.');
+        avisarOuAlertar('Falha de conexão ao alterar a situação');
     });
 });
 
@@ -609,6 +612,18 @@ document.addEventListener('DOMContentLoaded', function () {
         box.innerHTML = html;
     }
 
+    /* Nova Pasta salva (modal_nova_pasta, desenho 03 dc `salvarNovaFn`): a lista volta ao NUP decrescente, página 1,
+       e avisa. Os filtros ficam como estão, como no desenho. */
+    document.addEventListener('exp:pasta-criada', function (e) {
+        var f = document.getElementById('formFiltrosPasta');
+        var ord = f && f.querySelector('[name="ordenar"]');
+        var dir = f && f.querySelector('[name="direcao"]');
+        if (ord) ord.value = 'nup';
+        if (dir) dir.value = 'desc';
+        recarregarResultadosPastas({ page: 1 });
+        avisarOuAlertar('Pasta ' + e.detail.nup + ' aberta para ' + e.detail.cliente);
+    });
+
     function recarregarResultadosPastas(extraParams) {
         var form = document.getElementById('formFiltrosPasta');
         if (!form) return;
@@ -735,7 +750,9 @@ document.addEventListener('DOMContentLoaded', function () {
             var f = document.getElementById('formFiltrosPasta');
             // Limpa só os filtros (busca + dropdowns + datas); a ordenação da tabela
             // é outra dimensão e é preservada (os hidden ordenar/direcao ficam intactos).
-            if (f) Array.prototype.filter.call(f.elements, function (el) { return el.matches('.js-pasta-busca, .js-pasta-filtro'); }).forEach(function (el) { el.value = ''; });
+            // A Situação da pasta também fica: o Limpar do desenho 03 zera busca, responsável, prioridade e datas
+            // (dc `limpar`); a Situação se troca no próprio filtro dela, e o ↻ do painel zera tudo.
+            if (f) Array.prototype.filter.call(f.elements, function (el) { return el.matches('.js-pasta-busca, .js-pasta-filtro') && el.name !== 'status'; }).forEach(function (el) { el.value = ''; });
             aplicarFiltrosPastas();
 
             return;

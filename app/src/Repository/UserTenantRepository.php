@@ -38,6 +38,31 @@ class UserTenantRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Contas FORA DO AR (isActive=false: suspensas ou em quarentena de exclusão) com que o usuário tem
+     * vínculo ativo. Base dos avisos da tela de seleção (spec perfis-1.2-contas C9 e C9b).
+     *
+     * @return list<array{nome: string, excluida: bool}>
+     */
+    public function contasForaDoArDoUsuario(User $user): array
+    {
+        $linhas = $this->createQueryBuilder('ut')
+            ->select('t.name AS nome', 't.excluidoEm AS excluidoEm')
+            ->join('ut.tenant', 't')
+            ->andWhere('ut.user = :user')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('t.isActive = false')
+            ->setParameter('user', $user)
+            ->orderBy('t.name')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_values(array_map(
+            static fn (array $l): array => ['nome' => (string) $l['nome'], 'excluida' => $l['excluidoEm'] !== null],
+            $linhas,
+        ));
+    }
+
     public function existeVinculoAtivo(User $user, Tenant $tenant): bool
     {
         return $this->createQueryBuilder('ut')
@@ -118,6 +143,31 @@ class UserTenantRepository extends ServiceEntityRepository
             ->leftJoin('ut.tenantRole', 'r')
             ->andWhere('ut.tenant = :tenant')
             ->andWhere('ut.isActive = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('u.fullName', 'ASC')
+            ->addOrderBy('u.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Vínculos ativos de contas ativas do escritório, com usuário, perfil, cargo e lotação já carregados
+     * (uma consulta, sem N+1), em ordem de nome. Base da lista "Ocultar aba" da pasta (spec
+     * pasta-ocultar-aba §2.4): a "função · setor" de cada pessoa é cargo · lotação.
+     *
+     * @return UserTenant[]
+     */
+    public function findAtivosComCargoELotacaoPorTenant(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('ut')
+            ->addSelect('u', 'r', 'c', 'l')
+            ->join('ut.user', 'u')
+            ->leftJoin('ut.tenantRole', 'r')
+            ->leftJoin('ut.cargo', 'c')
+            ->leftJoin('ut.lotacao', 'l')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('u.isActive = true')
             ->setParameter('tenant', $tenant)
             ->orderBy('u.fullName', 'ASC')
             ->addOrderBy('u.id', 'ASC')

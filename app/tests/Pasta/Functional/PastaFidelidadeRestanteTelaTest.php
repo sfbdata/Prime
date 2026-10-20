@@ -215,8 +215,8 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         // EDT-003 (dc L.6466) + C6-EDT-04 (dc L.5958): "Imprimir" fecha os extras — logo depois de
         // "Criar meta…" e antes do separador de Editar/Excluir —, com autor · data · tipo para a
         // linha da folha ("Atendimento" é o tipo do relatório de Detalhes no desenho).
-        $imprimir = $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-criar-meta + button.js-obs-imprimir[role="menuitem"]');
-        self::assertCount(1, $imprimir, '"Imprimir" vem logo depois de "Criar meta…"');
+        $imprimir = $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-criar-meta + .js-obs-enviar-chat + button.js-obs-imprimir[role="menuitem"]');
+        self::assertCount(1, $imprimir, '"Imprimir" vem depois de "Criar meta…" e "Enviar no Chat I.A" (dc L.6872)');
         self::assertCount(1, $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-imprimir + .ps-processo-menu-sep[role="separator"]'), 'e logo antes do separador');
         self::assertSame('Imprimir', trim($imprimir->text()));
         self::assertCount(1, $imprimir->filter('i.bi.bi-printer'));
