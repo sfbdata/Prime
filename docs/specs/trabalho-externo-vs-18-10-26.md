@@ -16,6 +16,7 @@
    Migration `Version20261019235800`.
 7. `trabalho-externo-painel-termo` (F3b-1, §4.9) → **PR #117 em rascunho**, base `trabalho-externo-engajamento`.
    Migration `Version20261019235900`.
+8. `trabalho-externo-campanha` (campanha do Master, §4.10) → em andamento, base `trabalho-externo-painel-termo`. Sem migration.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
 rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e classe), trocar a
@@ -761,6 +762,51 @@ depois das decisões de produto (enviadas ao coordenador em 19/10).
 - `POST /vagas-juridicas/cta` `vagas_publicas_cta` (204).
 - `index.html.twig`: `data-url-curriculos-painel`, `data-url-alertas-csv`; `vagas_publicas.html.twig`:
   `data-url-cta` no botão "Criar conta".
+
+## 4.10 Campanha por e-mail do Master (desenho 06, 19/10)
+
+Branch `trabalho-externo-campanha`, empilhada sobre `trabalho-externo-painel-termo` (#117). Risco
+**MÉDIO** (exporta e-mails). **Sem migration.** Aprovada pelo coordenador em 19/10.
+
+### Fiel ao desenho: monta, mostra e exporta; não envia
+Modal "Campanha por e-mail" (l.330 a 341; script l.940 a 957, 1082 a 1097, 1168, 1169), aberto pelo menu
+⋮ do Master ("Campanha por e-mail…", `bi-envelope-paper`, l.1265), pelo endereço `#camp=1` (l.1078) e pelo
+clique do KPI "ALERTAS POR E-MAIL" (l.1146; com campanha, o clique abre o modal em vez do CSV). Público
+"Candidatos" / "Escritórios" (l.1169), filtros "Todas as UFs" e "Todas as áreas", "ASSUNTO DO E-MAIL",
+resumo de destinatários e de vagas, a nota da l.338 (ferramenta externa e o marcador de descadastro),
+"PRÉVIA DO E-MAIL" em iframe. Rodapé (l.1097): "Fechar", "Lista de destinatários (CSV)", "Copiar HTML",
+"Baixar HTML do e-mail", com os toasts do desenho. **Sem botão "Enviar"** (o desenho não tem); ligar ao
+envio da 5d fica para quando houver contrato. O HTML é o `emailHTML` do desenho (tabelas, estilos inline),
+gerado no servidor por Twig, com o marcador `{{descadastrar}}` no rodapé para a ferramenta externa trocar,
+o link das vagas por um link público de vagas (F2c) com as vagas abertas filtradas.
+
+### Destinatários (regra num único lugar: `DestinatariosDaCampanha`)
+- **Candidatos**: currículos com aceite LGPD (filtros de UF e área). Os inscritos nos alertas (página
+  pública) **só entram com o e-mail confirmado** (double opt-in da 5d); até lá ficam de fora, e a tela
+  diz quantos e por quê ("N inscrito(s) nos alertas ficam de fora até confirmarem o e-mail."). **A
+  confirmar com o dono.**
+- **Escritórios**: e-mails dos ofertantes das vagas. **Fora até o dono decidir** ("e-mail dos ofertantes
+  em campanha, interesse legítimo B2B?"): o botão do público aparece desabilitado com a dica "a
+  confirmar". Uma regra só liga. **A confirmar com o dono.**
+- Sem duplicados (e-mail em minúsculas). Descadastro: quando o serviço da 0d entrar no master, quem se
+  descadastrou sai da lista (ponto de troca marcado no código).
+
+### Segurança e LGPD
+Só o Master (como o CSV de alertas, §4.9). Cada exportação (CSV, copiar HTML, baixar HTML) grava no log
+quem, quando, o público e a quantidade, **sem a lista**. CSV com proteção contra fórmula. Nada é gravado
+no banco.
+
+### Contrato (fixo)
+- `GET /trabalho-externo/api/campanha` `trabalho_externo_campanha` (`?pub=cand|esc&uf=&area=&assunto=`;
+  só Master): `{pub, publicos: [{k, rot, sub, ic, disponivel, dica?}], ufs, areas, assunto,
+  assuntoPadrao, destinatarios: n, deFora: [{n, motivo}], vagas: n, html, resumo}`.
+- `GET /trabalho-externo/campanha/destinatarios.csv` `trabalho_externo_campanha_csv` (mesmos parâmetros;
+  colunas do desenho: E-mail; Nome; Origem; UF).
+- `GET /trabalho-externo/campanha/email.html` `trabalho_externo_campanha_html` (attachment).
+- `POST /trabalho-externo/api/campanha/registro` `trabalho_externo_campanha_registro` (`{acao: copiar}`,
+  CSRF; só para o log do "Copiar HTML").
+- `index.html.twig`: `data-url-campanha`, `data-url-campanha-csv`, `data-url-campanha-html`,
+  `data-url-campanha-registro`.
 
 ## 5. Verificação
 
