@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="{{ asset('css/pasta-andamento.css') }}">
 {# Link externo do Push: menu da aba, modal e painel de acessos (pasta/_push_link_externo.html.twig). #}
 <link rel="stylesheet" href="{{ asset('css/pasta-push-link.css') }}">
+<link rel="stylesheet" href="{{ asset('css/pasta-presenca-autor.css') }}">
 
 {# O estilo do chip de responsável sobe para o <head>. Ele ficava no fim do
    <body>, a ~4.800 linhas de HTML do chip — e o chip agora abre a página, no
@@ -257,6 +258,7 @@
                                 {% include 'pasta/_push_processual.html.twig' with {
                                     pasta: pasta,
                                     push: push,
+                                    pushPainel: pushPainel,
                                     analisesIa: analisesIa,
                                     podeEditarPasta: podeEditarPasta,
                                 } only %}
@@ -3038,7 +3040,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const cartao = `
         <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="pasta-msg-${data.id}"
                  data-janela-ate="${Number(data.criadaEmEpoch) + {{ comentario_janela_minutos() }} * 60}"
-                 data-do-autor="1">
+                 data-do-autor="1" data-autor-id="{{ app.user ? app.user.id : '' }}">
             ${faixa}
             <span class="ps-anotacao-ponto" aria-hidden="true"></span>
             <span class="ps-anotacao-seta" aria-hidden="true"></span>
@@ -3435,6 +3437,13 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    /* O que vem do Datajud é texto de fora: escapado antes de entrar no HTML das linhas (P5d). */
+    function mpEsc(valor) {
+        return String(valor == null ? '' : valor).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
     /* ── Busca DataJud ── */
     document.getElementById('mp-btn-datajud').addEventListener('click', async function () {
         var numeroProcesso = document.getElementById('mp-numeroProcesso').value;
@@ -3490,11 +3499,11 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <option value="PROMOTOR" ${(parte.tipo||'')==='PROMOTOR'?'selected':''}>Promotor</option>
                             </select></div>
                         <div class="col-md-5"><label class="form-label">Nome</label>
-                            <input type="text" name="partes[${idx}][nome]" class="form-control" value="${parte.nome||''}" placeholder="Nome da parte"></div>
+                            <input type="text" name="partes[${idx}][nome]" class="form-control" value="${mpEsc(parte.nome)}" placeholder="Nome da parte"></div>
                         <div class="col-md-2"><label class="form-label">Documento</label>
-                            <input type="text" name="partes[${idx}][documento]" class="form-control" value="${parte.documento||''}" placeholder="CPF/CNPJ"></div>
+                            <input type="text" name="partes[${idx}][documento]" class="form-control" value="${mpEsc(parte.documento)}" placeholder="CPF/CNPJ"></div>
                         <div class="col-md-2"><label class="form-label">Papel</label>
-                            <input type="text" name="partes[${idx}][papel]" class="form-control" value="${parte.papel||''}" placeholder="Polo ativo/passivo"></div>
+                            <input type="text" name="partes[${idx}][papel]" class="form-control" value="${mpEsc(parte.papel)}" placeholder="Polo ativo/passivo"></div>
                     </div>
                     <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
                             style="display: ${partesList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
@@ -3509,13 +3518,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 movContainer.insertAdjacentHTML('beforeend', `<div class="mp-movimentacao-row card mb-2 p-3" style="position: relative;">
                     <div class="row g-2">
                         <div class="col-md-3"><label class="form-label">Data</label>
-                            <input type="date" name="movimentacoes[${idx}][dataMovimentacao]" class="form-control" value="${mov.dataMovimentacao||''}"></div>
+                            <input type="date" name="movimentacoes[${idx}][dataMovimentacao]" class="form-control" value="${mpEsc(mov.dataMovimentacao)}"></div>
                         <div class="col-md-4"><label class="form-label">Descrição</label>
-                            <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control" value="${mov.descricao||''}" placeholder="Descrição da movimentação"></div>
+                            <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control" value="${mpEsc(mov.descricao)}" placeholder="Descrição da movimentação"></div>
                         <div class="col-md-3"><label class="form-label">Tipo</label>
-                            <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control" value="${mov.tipo||''}" placeholder="Tipo de movimento"></div>
+                            <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control" value="${mpEsc(mov.tipo)}" placeholder="Tipo de movimento"></div>
                         <div class="col-md-2"><label class="form-label">Órgão</label>
-                            <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control" value="${mov.orgao||''}" placeholder="Órgão"></div>
+                            <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control" value="${mpEsc(mov.orgao)}" placeholder="Órgão"></div>
                     </div>
                     <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
                             style="display: ${movsList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
@@ -4388,4 +4397,8 @@ document.addEventListener('DOMContentLoaded', function () {
 {# Andamento da pasta em fases (E12b). #}
 <script src="{{ asset('js/pasta-andamento.js') }}"></script>
 <script src="{{ asset('js/cliente-cadastro.js') }}"></script>
+{# Presença do autor nos cartões (desenho 02, dc L1398): escuta o batimento da Central; `defer` porque a Central entra depois do bloco. #}
+<script src="{{ asset('js/pasta-presenca-autor.js') }}" defer></script>
+{# Selo "CPF duplicado" em todas as linhas depois de vincular/desvincular sem recarregar (desenho 02, dc L6527). #}
+<script src="{{ asset('js/pasta-clientes-duplicados.js') }}" defer></script>
 {% endblock %}

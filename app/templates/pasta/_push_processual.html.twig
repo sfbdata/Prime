@@ -26,6 +26,11 @@
 {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
 {% set pushPastaViva = not pasta.estaExcluida %}
 {% set pushPodeEscrever = pushPastaViva and podeEditarPasta %}
+{# Grade de duas colunas do desenho (dc L.6595 `pushAnim`: `minmax(0,1fr) minmax(0,300px)`, gap 16):
+   a lista à esquerda e, à direita, o cartão de Monitoramento e Situação atual (spec
+   push-painel-monitoramento §4; os cartões "Avisar quando chegar" e "Avisar cliente" chegam em
+   P4b/P4c). Em tela estreita a coluna desce para baixo da lista (pasta-push-painel.css). #}
+<div class="ps-push-grade">
 <section class="ps-card ps-push" data-aba="push">
     <div class="ps-card-cab ps-card-cab--faixa">
         <h2>Movimentações recebidas</h2>
@@ -304,6 +309,10 @@
         {% endif %}
     {% endif %}
 </section>
+{% if pushPainel is defined and pushPainel is not null %}
+    {% include 'pasta/_push_painel.html.twig' with {pasta: pasta, painel: pushPainel, podeEditarPasta: podeEditarPasta} only %}
+{% endif %}
+</div>
 {# Filtro, selo da aba, copiar ID, marcar (não) lida, criar tarefa a partir da publicação e o
    menu do botão direito no cartão. #}
 <script src="{{ asset('js/pasta-push.js') }}" defer></script>

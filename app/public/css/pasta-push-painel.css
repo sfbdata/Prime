@@ -1,0 +1,187 @@
+/* =============================================================================
+   pasta-push-painel.css: coluna direita da aba Push (spec push-painel-monitoramento §4).
+   Desenho: docs/design/claude-design-2026-10-05 (1)/02 - EXPEDIENTES 1.2.3.dc.html
+   Os estilos inline do desenho viram classes, cada regra com a linha de onde saiu ("dc L.N").
+
+   Tokens: no tema CLARO cada cor é o hex do desenho (os `--ps-*` que já valem o mesmo hex são
+   reusados; os demais nascem aqui como `--pp-*`). O ESCURO redefine os novos em cima do sistema
+   de cor do Bootstrap, como o pasta-show.css faz com os dele.
+   ============================================================================= */
+.ps-body,
+.ps-page {
+    --pp-sombra:          0 1px 2px rgba(16,42,58,.04);   /* dc L.2568 */
+    --pp-ponto-off:       #b8c4cc;                        /* dc L.5440 */
+    --pp-switch-off:      #cfd9e0;                        /* dc L.5415 */
+    --pp-switch-bola:     #fff;
+    --pp-switch-sombra:   0 1px 3px rgba(10,40,60,.3);
+    --pp-caixa:           #f4f8fb;                        /* dc L.2613 */
+    --pp-alerta-bg:       #fff7e6;                        /* dc L.2618 */
+    --pp-alerta-tx:       #7a4b00;
+    --pp-ok-bg:           #e4f4ea;                        /* dc L.5110 e L.5113 */
+    --pp-ok-tx:           #1e7b45;
+    --pp-atencao-bg:      #fff3dc;
+    --pp-atencao-tx:      #8a5a00;
+    --pp-buscar-bg:       #eef6fa;                        /* dc L.5444 */
+    --pp-buscar-tx:       #0b5f86;
+}
+
+[data-bs-theme="dark"] .ps-body,
+[data-bs-theme="dark"] .ps-page {
+    --pp-sombra:          none;
+    --pp-ponto-off:       var(--bs-secondary-color);
+    --pp-switch-off:      var(--bs-border-color);
+    --pp-switch-bola:     #fff;
+    --pp-switch-sombra:   0 1px 3px rgba(0,0,0,.5);
+    --pp-caixa:           var(--bs-secondary-bg);
+    --pp-alerta-bg:       rgba(200,149,42,.16);
+    --pp-alerta-tx:       #e9be6c;
+    --pp-ok-bg:           rgba(31,157,97,.16);
+    --pp-ok-tx:           #6ddaa2;
+    --pp-atencao-bg:      rgba(200,149,42,.16);
+    --pp-atencao-tx:      #e9be6c;
+    --pp-buscar-bg:       rgba(69,176,214,.16);
+    --pp-buscar-tx:       var(--ps-accent);
+}
+
+/* Grade da aba (dc L.6595 `pushAnim`). Em tela estreita, uma coluna: o painel desce para baixo
+   da lista (mesmo corte do `.ps-grade` das outras abas). */
+.ps-push-grade {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) minmax(0,300px);
+    gap: 16px;
+    align-items: start;
+}
+@media (max-width: 980px) {
+    .ps-push-grade { grid-template-columns: minmax(0,1fr); }
+}
+
+/* Coluna (dc L.2567) e cartão (dc L.2568). */
+.ps-push-coluna { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ps-push-painel {
+    background: var(--ps-card);
+    border: 1px solid var(--ps-border);
+    border-radius: 4px;
+    box-shadow: var(--pp-sombra);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Cabeçalho: ponto, título/subtítulo e switch (dc L.2569-2573). */
+.ps-push-painel-cab { display: flex; align-items: center; gap: 10px; }
+.ps-push-painel-ponto { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--pp-ponto-off); } /* dc L.5440 */
+.ps-push-painel-ponto.is-ativo { background: var(--ps-ok-dot); animation: ppMovBrilho 2.4s ease-in-out infinite; }
+.ps-push-painel-status { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.ps-push-painel-titulo { font-size: 13.5px; font-weight: 700; color: var(--ps-text); }
+.ps-push-painel-sub { font-size: 12px; color: var(--ps-muted); }
+
+/* Switch (dc L.5415 `sw`). Sem processo ou sem permissão: opacity .4 e cursor default (dc L.5441). */
+.ps-push-switch {
+    position: relative;
+    width: 34px;
+    height: 20px;
+    border-radius: 999px;
+    flex-shrink: 0;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: background .2s;
+    background: var(--pp-switch-off);
+}
+.ps-push-switch.is-on { background: var(--ps-accent); }
+.ps-push-switch:disabled { opacity: .4; cursor: default; }
+.ps-push-switch:focus-visible { outline: 2px solid var(--ps-accent); outline-offset: 2px; }
+.ps-push-switch-bola {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--pp-switch-bola);
+    box-shadow: var(--pp-switch-sombra);
+    transition: left .2s;
+}
+.ps-push-switch.is-on .ps-push-switch-bola { left: 16px; }
+
+/* Processo e última verificação (dc L.2574-2577). */
+.ps-push-painel-info { display: flex; flex-direction: column; gap: 7px; font-size: 12.5px; color: var(--ps-aba-text); }
+.ps-push-painel-linha { display: flex; gap: 8px; }
+.ps-push-painel-linha i { color: var(--ps-icone); }
+.ps-push-painel-processo { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* Selo "PRINCIPAL" à direita do número e os demais processos recuados por uma barra vertical
+   (desenho de 18/10, pelo print do dono: sem linha citável no 1.2.3; mesmo tom do chip da pasta). */
+/* Print do dono (desenho 18/10): "PRINCIPAL" é texto cinza em caixa alta, sem fundo. */
+.ps-push-painel-selo { flex-shrink: 0; align-self: center; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ps-muted); }
+.ps-push-apensado { display: flex; align-items: center; gap: 10px; margin-left: 6px; padding-left: 14px; border-left: 2px solid var(--ps-div-strong); }
+.ps-push-apensado-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ps-push-apensado-numero { overflow-wrap: anywhere; }
+.ps-push-apensado-sub { font-size: 11.5px; color: var(--ps-muted); }
+
+/* Situação atual (dc L.2602-2625). */
+.ps-push-sit { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--ps-div-strong); padding-top: 12px; }
+.ps-push-sit[hidden] { display: none; }
+.ps-push-sit-rotulo { display: flex; align-items: center; gap: 7px; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ps-label); } /* dc L.2604 */
+.ps-push-sit-rotulo i { font-size: 12px; color: var(--ps-icone); }
+.ps-push-sit-fase { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } /* dc L.2605 */
+.ps-push-sit-titulo { font-size: 14px; font-weight: 700; color: var(--ps-text); }
+/* Selo (dc L.5110 `statusSt`). */
+.ps-push-sit-selo { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; border-radius: 3px; white-space: nowrap; }
+.ps-push-sit-selo--encerrado { background: var(--ps-danger-bg); color: var(--ps-danger-text); }
+.ps-push-sit-selo--terminando { background: var(--pp-atencao-bg); color: var(--pp-atencao-tx); }
+.ps-push-sit-selo--andamento { background: var(--pp-ok-bg); color: var(--pp-ok-tx); }
+/* Campos (dc L.2606-2612). */
+.ps-push-sit-grade { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 5px 12px; font-size: 12.5px; }
+.ps-push-sit-k { color: var(--ps-muted); white-space: nowrap; }
+.ps-push-sit-v { color: var(--ps-text); }
+.ps-push-sit-v--forte { font-weight: 600; }
+.ps-push-sit-previsao { color: var(--pp-buscar-tx); font-weight: 700; cursor: help; }
+/* Próxima etapa provável (dc L.2613-2617). */
+.ps-push-sit-proxima { display: flex; flex-direction: column; gap: 6px; background: var(--pp-caixa); border-radius: 4px; padding: 10px 12px; }
+.ps-push-sit-posterior { font-size: 13px; font-weight: 700; color: var(--ps-text); }
+.ps-push-sit-conf { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11.5px; color: var(--ps-text-3); }
+.ps-push-sit-base { min-width: 0; overflow-wrap: anywhere; }
+/* Selo da confiança (dc L.5113 `confSt`). */
+.ps-push-sit-conf-selo { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 3px; }
+.ps-push-sit-conf-selo--alta { background: var(--pp-ok-bg); color: var(--pp-ok-tx); }
+.ps-push-sit-conf-selo--media { background: var(--pp-atencao-bg); color: var(--pp-atencao-tx); }
+.ps-push-sit-conf-selo--baixa { background: var(--ps-sit-arq-bg); color: var(--ps-sit-arq-tx); }
+/* Nota de alerta (dc L.2618) e rodapé (dc L.2619). */
+.ps-push-sit-nota { display: flex; gap: 7px; font-size: 12px; line-height: 1.45; color: var(--pp-alerta-tx); background: var(--pp-alerta-bg); border-radius: 4px; padding: 8px 10px; }
+.ps-push-sit-nota i { flex-shrink: 0; margin-top: 1px; }
+.ps-push-sit-rodape { font-size: 11px; line-height: 1.45; color: var(--ps-label); }
+
+/* Buscar agora (dc L.5444 `buscarSt`; ícone 13px, dc L.2621). Pausado: opacity .5 e cursor default. */
+.ps-push-buscar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 36px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--pp-buscar-tx);
+    background: var(--pp-buscar-bg);
+    cursor: pointer;
+}
+.ps-push-buscar i { font-size: 13px; }
+.ps-push-buscar:disabled { cursor: default; opacity: .5; }
+/* Rodando (dc L.5444: `cursor:default` enquanto busca; a opacidade só cai com o monitoramento pausado). */
+.ps-push-buscar.is-buscando:disabled { opacity: 1; }
+
+/* Retorno de erro do switch ou da busca (sem lastro no desenho: convenção do `.ps-ia-msg`). */
+.ps-push-painel-msg { margin: 0; font-size: 12px; line-height: 1.45; color: var(--ps-danger-text); }
+.ps-push-painel-msg[hidden] { display: none; }
+
+/* Brilho do ponto ativo (dc L.35) e o respeito ao movimento reduzido (dc L.36). */
+@keyframes ppMovBrilho {
+    0%, 100% { box-shadow: 0 0 4px rgba(31,157,97,.45); }
+    50% { box-shadow: 0 0 9px rgba(31,157,97,.8); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ps-push-painel-ponto.is-ativo { animation: none; }
+}
