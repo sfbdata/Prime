@@ -13,6 +13,7 @@
 5. `trabalho-externo-candidatura` (F2b, §4.6) → **PR #105 em rascunho**, base `trabalho-externo-curriculos`.
    Migration `Version20261019231700`.
 6. `trabalho-externo-engajamento` (F4, §4.7) → **PR #113 em rascunho**, base `trabalho-externo-candidatura`.
+7. `trabalho-externo-painel-termo` (F3b-1, §4.9) → em andamento, base `trabalho-externo-engajamento`.
    Migration `Version20261019235800`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
@@ -706,6 +707,48 @@ apoiador (f6, decisão de produto com o coordenador).
 | 4 | Avisos do Termo de Voluntariado | 1032, 1033 | F3b, pelo sino da F4 |
 | 5 | Currículo atualizado "aparece primeiro" | 839, 1021, 1059 | entra na F4: o banco ordena por `atualizadoEm` (como l.995 e 1006); RECEBIDO e "Novos na semana" seguem por `recebidoEm` |
 | 6 | Contratos de `bj-dica.js` e `bluejus-central.js` | 15, 17 | registrados acima |
+
+## 4.9 F3b-1: painel do Master e KPIs da página pública (desenho 06, 19/10)
+
+Branch `trabalho-externo-painel-termo`, empilhada sobre `trabalho-externo-engajamento` (#113). Risco
+**BAIXO** (leitura agregada, só Master; dois contadores anônimos). O Termo de Voluntariado é a F3b-2,
+depois das decisões de produto (enviadas ao coordenador em 19/10).
+
+### Tela (l.171 a 194, 887, 1120 a 1146; desenho manda)
+- Seletor **Painel/Lista** só do Master, padrão Painel; a Equipe segue com o aviso "Estatísticas
+  disponíveis só para o Master" e só a lista. Clicar num KPI ou numa barra vai para a Lista com o filtro.
+- **8 KPIs** com rótulos, ícones, cores, subtítulos e cliques do inventário, número animado (`_contar`,
+  900 ms, easeOutCubic, só quando o número muda). Bases coerentes (lacuna 2): "ativos" = status
+  diferente de arquivado em todos os KPIs de currículo. COM OAB conta e filtra adv e estOab (lacuna 1).
+  VOLUNTÁRIOS: "{n} termo(s) aceito(s) · {n} aguardando" fica 0/0 até a F3b-2 (último termo por
+  currículo). ALERTAS POR E-MAIL: inscritos de `InteressadoEmVagas`, visitas pelo link e cliques em
+  "criar conta" (abaixo); o clique, sem campanha (5d), segue o desenho: CSV `alertas-vagas-bluejus.csv`
+  (E-mail; UF; Áreas; Inscrito em; Origem) ou o toast "Ainda sem inscritos" / "Compartilhe vagas para
+  começar a captar e-mails.". VAGAS COMPARTILHADAS: soma de `divulgacoes`. OFERTAS COM TEMPO: % com
+  aceite e média do primeiro aceite da rodada.
+- **6 gráficos de barras** (top 8, "clique para filtrar", "Sem dados ainda.") com os cliques do desenho.
+- **Crescimento do banco de talentos**: séries, Mensal/Anual, ano ou "Todos os anos", curvas, tooltip,
+  vazio e resumo do desenho. Correções (lacuna 6): em "Todos os anos" a variação compara o ano atual com
+  o anterior; no Mensal do ano corrente compara com o mesmo período do ano anterior; sem séries ligadas
+  o resumo some.
+
+### KPIs da página pública
+- Contadores anônimos por dia, sem dado pessoal: **visitas pelo link** (cada GET de
+  `/vagas-juridicas/{token}` válido) e **cliques em "Criar conta"** na página pública (com e sem token),
+  por `POST /vagas-juridicas/cta` (sem sessão, limitador de taxa por IP, sem CSRF porque não grava
+  nada pessoal; `navigator.sendBeacon`). Robôs conhecidos (User-Agent) não contam.
+- Tabela `trabalho_externo_metrica_publica` (dia, link opcional, visitas, cliques), um registro por dia
+  e link, somado com UPSERT.
+
+### Contrato (fixo)
+- `GET /trabalho-externo/api/curriculos/painel` `trabalho_externo_curriculos_painel` (só Master; 403 para
+  os demais): `{kpis: [{k, rot, ic, cor, n, sub, ir: {mod, filtro?: {cf?, cs?, ca?, cu?, busca?}, vf?} |
+  {acao: "alertasCsv"}}], barras: [{tit, ic, cor?, itens: [{rot, n, cor?, ir}]}], crescimento: {cvs:
+  {"AAAA-MM": n}, cands: {...}, vols: {...}}, inscritos: n}`.
+- `GET /trabalho-externo/curriculos/alertas.csv` `trabalho_externo_alertas_csv` (só Master).
+- `POST /vagas-juridicas/cta` `vagas_publicas_cta` (204).
+- `index.html.twig`: `data-url-curriculos-painel`, `data-url-alertas-csv`; `vagas_publicas.html.twig`:
+  `data-url-cta` no botão "Criar conta".
 
 ## 5. Verificação
 
