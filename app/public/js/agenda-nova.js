@@ -42,6 +42,7 @@
         salvar: raiz.dataset.urlSalvar,
         excluir: raiz.dataset.urlExcluir,
         avisar: raiz.dataset.urlAvisar,
+        avisarPrazo: raiz.dataset.urlAvisarPrazo,
         mover: raiz.dataset.urlMover,
         status: raiz.dataset.urlStatus,
         pasta: raiz.dataset.urlPasta,
@@ -501,7 +502,8 @@
         if (DO_SISTEMA.includes(e.src)) { return fechar; }
         const google = '<a class="ag-mbtn" href="' + esc(googleUrl(e)) + '" target="_blank" rel="noopener"><i class="bi bi-google"></i>Google Agenda</a>';
         const det = (acao, rotulo, ic, classe) => '<button type="button" class="ag-mbtn' + classe + '" data-det="' + acao + '" data-ev="' + esc(e.id) + '"><i class="bi ' + ic + '"></i>' + rotulo + '</button>';
-        const avisarBtn = e.eventoId && !e.privado ? det('avisar', 'Avisar no Chat', 'bi-chat-dots', '') : '';
+        /* Desenho 09, L238: todo item que não é data do sistema, inclusive prazo e audiência de pasta. */
+        const avisarBtn = (e.eventoId && !e.privado) || prazoId(e) ? det('avisar', 'Avisar no Chat', 'bi-chat-dots', '') : '';
         if (e.src === 'meus' && e.editavel && e.eventoId) {
             const sit = (e.status === 'agendado' || !e.status ? det('concluir', 'Concluir', 'bi-check2-circle', '') : '')
                 + (e.status !== 'cancelado' ? det('cancelar', 'Cancelar compromisso', 'bi-x-circle', '') : '')
@@ -750,9 +752,16 @@
         rodape.innerHTML = '<button type="button" class="ag-mbtn" data-fechar><i class="bi bi-x"></i>Cancelar</button><button type="button" class="ag-mbtn is-pri is-fim" data-av-ok data-ev="' + esc(e.id) + '"' + (escolhaAviso.length ? '' : ' disabled') + '><i class="bi bi-chat-dots"></i>Avisar' + (escolhaAviso.length ? ' ' + escolhaAviso.length : '') + '</button>';
     }
 
+    /* Prazo de pasta vem com id "pz-<id do prazo>". */
+    function prazoId(e) {
+        const m = e.src === 'pasta' ? /^pz-(\d+)$/.exec(String(e.id)) : null;
+
+        return m ? m[1] : null;
+    }
+
     async function confirmarAviso(e) {
         try {
-            const r = await postar(comId(url.avisar, e.eventoId), { ids: escolhaAviso });
+            const r = await postar(prazoId(e) ? comId(url.avisarPrazo, prazoId(e)) : comId(url.avisar, e.eventoId), { ids: escolhaAviso });
             fecharModal();
             recarregarEm(s.ref);
             avisar(r.avisados ? r.avisados + ' pessoa(s) avisada(s) no Chat I.A.' : 'Essas pessoas já tinham sido avisadas.');

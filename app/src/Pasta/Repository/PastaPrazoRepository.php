@@ -118,4 +118,20 @@ class PastaPrazoRepository extends ServiceEntityRepository
 
         return $consulta->getQuery()->getResult();
     }
+
+    /** Um prazo do escritório, de pasta fora da lixeira (o "Avisar no Chat" da Agenda chega só com o id). */
+    public function doEscritorio(int $id, Tenant $tenant): ?PastaPrazo
+    {
+        return $this->createQueryBuilder('z')
+            ->addSelect('p')
+            ->join('z.pasta', 'p')
+            ->andWhere('z.id = :id')
+            ->andWhere('z.tenant = :tenant')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('id', $id)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 }

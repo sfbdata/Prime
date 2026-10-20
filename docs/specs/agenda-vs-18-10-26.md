@@ -22,6 +22,11 @@ O protótipo guarda tudo em `localStorage`; aqui tudo vai para o servidor, por e
 - Acertos finais (§17): itens 1-6 e 8; o 7 removido; `.ics` fora; botão "Abrir na agenda" não entra
   (o protótipo da Central de 05/10 descarta `acao`; o de 18/10 guarda em `ctx.acao` mas não desenha; fechado).
 
+**20/10 (coordenador):** pilha atualizada com o master (sete camadas, suítes verdes); divergências da a7
+(§18) na camada nova `agenda-desenho`, sobre a `agenda-acertos`. Pendentes com o dono: o Google (regras
+decididas pelo coordenador contra o desenho) e a faixa de abas no topo. Quando o #89 entrar: colaboradores
+atribuíveis no modal.
+
 **Contratos com outras sessões**
 - Lembretes pelo parcial `templates/layout/_globais/lembretes.html.twig` (ponto de inclusão da frente
   menu-do-usuario); `base.html.twig` não muda.
@@ -613,3 +618,22 @@ Conferência do desenho inteiro contra as entregas #58 a #78 e #81 (98 itens). O
   - Rótulo do cartão atualizado a cada 30 s ("Em 5 min" não fica parado depois de começar).
   - Acessibilidade (`role=region`, `role=alert`, `aria-label`) e tema escuro, convenção do sistema.
   - Push: som padrão do sistema operacional (o push não carrega o perfil de som).
+
+## 18. Divergências levantadas pela a7 (20/10/2026)
+
+Regra do dono: tudo o que está no desenho entra. Itens trazidos pelo coordenador (20/10/2026):
+
+- **Prazos cumpridos na grade** (L152): o desenho põe na Agenda todo prazo de pasta com data, sem filtrar
+  os cumpridos. A grade passa a usar `PastaPrazoRepository::doEscritorioNoPeriodo` (cumpridos ou não, pasta
+  fora da lixeira), e o cumprido vem com `status: concluido` (riscado na grade, "Concluído" no detalhe, como
+  o compromisso concluído). Os lembretes continuam com `abertosDoEscritorioNoPeriodo` (só os abertos). O
+  método novo já recebe `$pastasOcultas` (cadeado da pasta, #120, da b5): quem entrar por segundo liga o
+  `AcessoAPasta` nele. Os cartões do topo contam todo prazo da grade, como no desenho (L226-227).
+- **"Avisar no Chat" em todo item que não é data do sistema** (L238): já valia para compromisso de colega;
+  agora também para prazo e audiência de pasta (`POST /agenda/prazos/{id}/avisar`,
+  `AvisarPrazoNoChatUseCase`). O aviso vai pela Central, com o atalho para a pasta e o texto "📅 <nome>
+  marcou você em um prazo: <título> · <dia> · Pasta <NUP>". Só para quem vê as pastas (sem acesso, 404, como
+  o prazo, que nem aparece na grade). O prazo não guarda a lista "Avisados no Chat" (seria coluna nova na
+  pasta): avisar de novo avisa de novo.
+- **Ficam como estão** (coordenador, 20/10/2026): `.ics` e "Abrir na agenda" (sem botão no desenho),
+  Carnaval e Corpus Christi pela lei, e os ajustes de data que não mexem no Ponto.
