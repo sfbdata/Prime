@@ -220,6 +220,7 @@ final class CompromissoControllerTest extends JusPrimeWebTestCase
         $avisos = $this->em()->getRepository(Notificacao::class)->findBy(['usuario' => $colega]);
         self::assertCount(1, $avisos);
         self::assertSame('/pasta/' . $pasta->getId(), (string) $avisos[0]->getUrl());
+        self::assertSame('Agenda: Contestação · Pasta AV-0001', $avisos[0]->getTitulo());
         self::assertStringContainsString('um prazo: Contestação · sáb, 16/03 · Pasta AV-0001', (string) $avisos[0]->getMensagem());
     }
 

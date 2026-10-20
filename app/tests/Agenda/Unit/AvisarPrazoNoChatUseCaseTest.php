@@ -33,9 +33,9 @@ final class AvisarPrazoNoChatUseCaseTest extends TestCase
             $maria,
             self::anything(),
             self::anything(),
-            '📅 Samuel marcou você em uma audiência: Audiência · ter, 12/03 às 14:30 · Pasta AV-0001',
-            '/pasta/7',
             'Agenda: Audiência · Pasta AV-0001',
+            '/pasta/7',
+            '📅 Samuel marcou você em uma audiência: Audiência · ter, 12/03 às 14:30 · Pasta AV-0001',
         );
 
         $n = $this->sut($this->audiencia(), [$eu, $maria], $notificacoes)->executar(3, [1, 2, 99], $eu, new Tenant());

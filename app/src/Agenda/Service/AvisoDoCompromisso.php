@@ -60,7 +60,7 @@ final class AvisoDoCompromisso
             if ($pessoa->getId() === $quem->getId()) {
                 continue;
             }
-            $this->notificacoes->criarNotificacao($pessoa, $prazo->getTenant(), Notificacao::TIPO_EVENTO_CRIADO, $this->textoDoPrazo($prazo, $quem), $this->urls->generate('pasta_show', ['id' => $prazo->getPasta()->getId()]), $this->tituloDoPrazo($prazo));
+            $this->notificacoes->criarNotificacao($pessoa, $prazo->getTenant(), Notificacao::TIPO_EVENTO_CRIADO, $this->tituloDoPrazo($prazo), $this->urls->generate('pasta_show', ['id' => $prazo->getPasta()->getId()]), $this->textoDoPrazo($prazo, $quem));
             ++$n;
         }
 
