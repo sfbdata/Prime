@@ -15,7 +15,8 @@ use PHPUnit\Framework\TestCase;
  *
  * Ficam de fora, de propósito: pílula (999px, ou raio igual à metade da altura) de contador, etiqueta
  * e seletor que acompanha os filtros em pílula; a barra de rolagem; e os círculos (50%). Cobrança
- * (`cobrancas.css`, `pasta-arquivos.css`) tem desenho e token próprios e não entra aqui.
+ * (`cobrancas.css`, `pasta-arquivos.css`) e a Central (`central-flutuante.css`, guia de 6px no desenho) têm
+ * desenho próprio e não entram aqui.
  */
 #[CoversNothing]
 final class CantosAte4pxTelasLegadasTest extends TestCase
@@ -46,7 +47,6 @@ final class CantosAte4pxTelasLegadasTest extends TestCase
             'templates/termo/aceite.html.twig',
             'templates/admin/platform/_base_platform.html.twig',
             'templates/legal/politica_privacidade.html.twig',
-            'public/css/central-flutuante.css',
         ] as $arquivo) {
             yield $arquivo => [$arquivo];
         }
