@@ -252,12 +252,12 @@ agenda antiga sai antes de existir na nova).
 
 **Evento migrado para o domínio** (`App\Agenda\Entity\Evento`, decisão do subagente decisor: a regra
 da pasta legada manda migrar antes de evolução não trivial; precedente da Pasta, 11097f0e). Bloco
-`AppAgenda` no `doctrine.yaml`. Migration de **dados** `Version20261020110500`: troca
+`AppAgenda` no `doctrine.yaml`. Migration de **dados** `Version20261020122000`: troca
 `audit_log.entity_class` de `App\Entity\Agenda\Evento` para `App\Agenda\Entity\Evento` (112 linhas no
 banco de dev em 19/10/2026), para o histórico seguir no filtro da auditoria e no "Desfazer"; o down faz
 a troca inversa. O `audit_log` não tem hash nem encadeamento; só o nome da classe muda.
 
-**Campos novos** (migration `Version20261020111000`): `tipo` (enum `TipoDeCompromisso`: meus, aud,
+**Campos novos** (migration `Version20261020122500`): `tipo` (enum `TipoDeCompromisso`: meus, aud,
 reun, prazo; nulo nos eventos antigos), `pasta_id` (FK anulável, `ON DELETE SET NULL`),
 `lembrete_minutos`, `avisados` (JSON com os ids avisados no Chat).
 

@@ -14,7 +14,7 @@ use Doctrine\Migrations\AbstractMigration;
  * da classe muda; ação, autor, data e alterações ficam como estão. O down faz a troca inversa.
  * Spec: docs/specs/agenda-vs-18-10-26.md, entrega 3.
  */
-final class Version20261020110500 extends AbstractMigration
+final class Version20261020122000 extends AbstractMigration
 {
     private const ANTIGA = 'App\Entity\Agenda\Evento';
     private const NOVA = 'App\Agenda\Entity\Evento';

@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * todas anuláveis ou com padrão; os eventos existentes não mudam (sem tipo, o calendário continua
  * saindo da legenda de cor). Spec: docs/specs/agenda-vs-18-10-26.md.
  */
-final class Version20261020111000 extends AbstractMigration
+final class Version20261020122500 extends AbstractMigration
 {
     public function getDescription(): string
     {

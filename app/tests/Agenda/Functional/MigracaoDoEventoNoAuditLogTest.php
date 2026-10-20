@@ -13,20 +13,20 @@ use App\Repository\AuditLogRepository;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
 use Doctrine\ORM\EntityManagerInterface;
-use DoctrineMigrations\Version20261020110500;
+use DoctrineMigrations\Version20261020122000;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 // A pasta migrations/ não entra no autoload do Composer.
-require_once dirname(__DIR__, 3) . '/migrations/Version20261020110500.php';
+require_once dirname(__DIR__, 3) . '/migrations/Version20261020122000.php';
 
 /**
  * O Evento saiu de App\Entity\Agenda para App\Agenda\Entity. A migration de dados troca o nome da
  * classe no audit_log, e o histórico antigo continua no filtro da auditoria e no "Desfazer".
  */
-#[CoversClass(Version20261020110500::class)]
+#[CoversClass(Version20261020122000::class)]
 final class MigracaoDoEventoNoAuditLogTest extends KernelTestCase
 {
     private const ANTIGA = 'App\Entity\Agenda\Evento';
@@ -73,7 +73,7 @@ final class MigracaoDoEventoNoAuditLogTest extends KernelTestCase
     {
         $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
         /** @var AbstractMigration $migration */
-        $migration = new Version20261020110500($conexao, new NullLogger());
+        $migration = new Version20261020122000($conexao, new NullLogger());
         $migration->{$direcao}(new Schema());
         foreach ($migration->getSql() as $query) {
             $conexao->executeStatement($query->getStatement(), $query->getParameters());
