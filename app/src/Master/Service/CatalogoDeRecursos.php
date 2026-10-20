@@ -64,7 +64,7 @@ final class CatalogoDeRecursos
         'peticionar'  => ['pasta_peticionar'],
         'novidades'   => ['novidades_'],
         'assistente'  => ['inteligencia_agente'],
-        // Push compartilhado: a página pública /p/{endereco} e a API da pasta que gera, renova e revoga os links.
+        // Push compartilhado: a página pública /p/{endereco} e a API da pasta que gera e renova os links (revogar fica sempre aberto, abaixo).
         'pushpub'     => ['push_compartilhado', 'pasta_push_links_'],
         // Vagas públicas (frente trabalho-externo-vagas-publicas): a página pública, o link curto e o "compartilhar".
         // Prefixos mais longos que o `trabalho_externo_` da chave `trabalho`: vence o mais específico (chaveDaRota).
@@ -87,6 +87,9 @@ final class CatalogoDeRecursos
         'trabalho_externo_convite_aceitar',
         // Webhook do banco (Contribua): pagamento confirmado não pode ser recusado por uma tela desligada.
         'contribua_webhook_cora',
+        // Revogar o link externo do Push: tirar acesso nunca pode ficar travado por uma tela desligada.
+        // Gerar e renovar seguem a chave `pushpub`.
+        'pasta_push_links_revogar',
     ];
 
     /** @return list<string> as 18 chaves, na ordem da primeira aparição. */

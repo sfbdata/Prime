@@ -6,6 +6,7 @@ namespace App\Pasta\Controller;
 
 use App\Entity\Auth\User;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
+use App\Master\Service\RecursosDoSistema;
 use App\Pasta\Entity\LinkExternoDoPush;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\LinkExternoDoPushException;
@@ -81,9 +82,17 @@ final class PastaLinkExternoController extends AbstractController
     }
 
     #[Route('/{linkId}/revogar', name: 'pasta_push_links_revogar', requirements: ['linkId' => '\d+'], methods: ['POST'])]
-    public function revogar(Pasta $pasta, int $linkId, Request $request, RevogarLinkExternoDoPushUseCase $revogar): JsonResponse
+    public function revogar(Pasta $pasta, int $linkId, Request $request, RevogarLinkExternoDoPushUseCase $revogar, RecursosDoSistema $recursos): JsonResponse
     {
-        return $this->operarNoLink($pasta, $linkId, $request, static fn (LinkExternoDoPush $l, User $u) => $revogar->executar($l, $u));
+        $resposta = $this->operarNoLink($pasta, $linkId, $request, static fn (LinkExternoDoPush $l, User $u) => $revogar->executar($l, $u));
+
+        // Com a tela `pushpub` desligada o revogar segue aberto (tirar acesso nunca trava), mas não pode servir
+        // de leitura link por link: só a confirmação, sem endereço, código, acessos nem pedido de renovação.
+        if ($resposta->isSuccessful() && !$recursos->visivel('pushpub')) {
+            return $this->json(['ok' => true, 'id' => $linkId, 'revogado' => true]);
+        }
+
+        return $resposta;
     }
 
     #[Route('/{linkId}/renovar', name: 'pasta_push_links_renovar', requirements: ['linkId' => '\d+'], methods: ['POST'])]
