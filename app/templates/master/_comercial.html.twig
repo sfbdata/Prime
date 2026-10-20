@@ -1,0 +1,32 @@
+{# Seção "Comercial e e-mails" do /master (desenho 05 VS 18.10.26, L.222-287; spec docs/specs/comercial-e-emails.md).
+   Incluída pelo painel.html.twig num <div data-sec-externa="com"> (contrato do #56): o painel.js só mostra a sub-aba
+   com este parcial presente, e avisa a troca de seção pelo evento `mp:secao`. Traz o próprio <link> e <script>
+   (a CSP do /master aceita 'self', sem inline). Os dados vêm por JSON quando a seção abre.
+   Fatia 1a: só o bloco "Automações"; campanhas, descadastrados, monitoramento, indicações e datas vêm nas seguintes. #}
+<link rel="stylesheet" href="{{ asset('css/master-comercial.css') }}">
+<div class="mc" data-mc
+     data-url-automacoes="{{ path('master_comercial_automacoes') }}"
+     data-url-alterar="{{ path('master_comercial_automacao', {chave: 'xchavex'}) }}"
+     data-url-simular="{{ path('master_comercial_simular') }}"
+     data-url-previa="{{ path('master_comercial_previa', {chave: 'xchavex'}) }}"
+     data-token="{{ csrf_token('master_comercial') }}">
+    <section class="mc-caixa" aria-labelledby="mc-auto-titulo">
+        <div class="mc-cabeca">
+            <i class="bi bi-lightning-charge mc-cabeca-ic" aria-hidden="true"></i>
+            <b class="mc-cabeca-titulo" id="mc-auto-titulo">Automações</b>
+            <span class="mc-cabeca-sub">e-mails enviados sozinhos a cada cadastro e confirmação</span>
+            <button type="button" class="mc-botao" data-mc-simular><i class="bi bi-play-circle" aria-hidden="true"></i>Simular novo cadastro</button>
+        </div>
+        <div class="mc-msg" data-mc-msg role="status" hidden></div>
+        <div class="mc-autos" data-mc-autos aria-busy="true"></div>
+        <div class="mc-fila">
+            <div class="mc-fila-titulo">ÚLTIMOS DISPAROS</div>
+            <div data-mc-fila></div>
+        </div>
+        <div class="mc-previa" data-mc-previa hidden>
+            <div class="mc-previa-cabeca"><b data-mc-previa-titulo></b><button type="button" class="mc-botao" data-mc-previa-fechar aria-label="Fechar a prévia"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+            <iframe class="mc-previa-quadro" data-mc-previa-quadro title="Prévia do e-mail" sandbox></iframe>
+        </div>
+    </section>
+</div>
+<script src="{{ asset('js/master/comercial.js') }}"></script>

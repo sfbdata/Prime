@@ -125,6 +125,17 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         ConviteDemanda::class,
         ConfiguracaoCentral::class,
 
+        // Comercial e e-mails (docs/specs/comercial-e-emails.md §3): dado do Master, de escopo plataforma, que cruza
+        // escritórios (envios, consentimentos, automações, ciclo da conta, varredura). O escritório, quando há, é uma
+        // coluna nullable (null = plataforma) escrita à mão em cada consulta SQL; o filtro de tenant esconderia o que
+        // o Master precisa ver e quebraria o envio pelo worker, que roda sem sessão.
+        \App\Comercial\Entity\EnvioDeEmail::class,
+        \App\Comercial\Entity\ConteudoDoEnvio::class,
+        \App\Comercial\Entity\FatoDeConsentimento::class,
+        \App\Comercial\Entity\ConfirmacaoDeEndereco::class,
+        \App\Comercial\Entity\AutomacaoDeEmail::class,
+        \App\Comercial\Entity\CicloDaConta::class,
+        \App\Comercial\Entity\VarreduraComercial::class,
         // Marca da varredura do push da Agenda (entrega 5b): uma linha só, global, que garante uma cadeia
         // única de envio para todos os escritórios. Não guarda dado de escritório nenhum.
         \App\Agenda\Entity\VarreduraDePush::class,
@@ -150,7 +161,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 22 → 26 com a tela de entrada do desenho 10 (19/10/2026): ConfirmacaoEmail, CienciaPolitica, AjusteEntrada e
     // MensagemSuporte são anteriores a qualquer escritório (identidade do User e a tela de entrada única); justificado acima.
     // 26 → 27 com a marca global da varredura do push da Agenda (19/10/2026), justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 27;
+    // 27 → 34 com o Comercial e e-mails (19/10/2026): dado do Master, de escopo plataforma (envios, consentimentos,
+    // automações, ciclo da conta e varredura), justificado acima.
+    private const MAX_FORA_DO_ESCOPO = 34;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

@@ -5,16 +5,20 @@ declare(strict_types=1);
 namespace App\Auth\UseCase;
 
 use App\Auth\DTO\AceitarConviteEscritorioSemContaInput;
+use App\Auth\Event\ConviteDeEscritorioAceito;
+use App\Entity\Auth\Invitation;
 use App\Auth\Service\DadosDaContaDoConvite;
 use App\Auth\Service\VagaNoEscritorio;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
 use App\Termo\DTO\RegistrarAceiteTermoInput;
 use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
 use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 final class AceitarConviteEscritorioSemContaUseCase
@@ -26,6 +30,7 @@ final class AceitarConviteEscritorioSemContaUseCase
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly RegistrarAceiteTermoUseCase $registrarAceite,
         private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly EventDispatcherInterface $eventos,
         private readonly VagaNoEscritorio $vagaNoEscritorio,
     ) {}
 
@@ -96,7 +101,18 @@ final class AceitarConviteEscritorioSemContaUseCase
             userAgent: $input->userAgent,
             tenant: $tenant,
         ));
+        $this->avisarAceite($invitation, $user, $tenant);
 
         return $user;
+    }
+
+    /** Depois do último flush: as boas-vindas do Comercial (comercial-e-emails.md §3.5). */
+    private function avisarAceite(Invitation $invitation, User $user, Tenant $tenant): void
+    {
+        $this->eventos->dispatch(new ConviteDeEscritorioAceito(
+            (int) $user->getId(),
+            (int) $tenant->getId(),
+            $invitation->getTenantRole()?->isSystem() === true,
+        ));
     }
 }

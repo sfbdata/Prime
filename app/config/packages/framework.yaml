@@ -103,6 +103,13 @@ framework:
             policy: fixed_window
             limit: 1
             interval: '1 minute'
+        # Comercial e e-mails (spec comercial-e-emails §3.8): pixel de abertura (/e/a/) e link rastreado (/e/c/),
+        # chave = IP. Enquanto SYMFONY_TRUSTED_PROXIES não estiver confirmado na VPS, o IP é o do nginx e o
+        # limite vale como teto global; 600 por minuto não atrapalha a leitura de uma campanha e põe teto no laço.
+        comercial_rastreio:
+            policy: sliding_window
+            limit: 600
+            interval: '1 minute'
 
     # Note that the session will be started ONLY if you read or write from it.
     session: true
