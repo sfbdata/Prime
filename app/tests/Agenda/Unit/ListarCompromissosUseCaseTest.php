@@ -96,7 +96,7 @@ final class ListarCompromissosUseCaseTest extends TestCase
         ]);
         $sut = new ListarCompromissosUseCase($this->eventos([]), new OcorrenciasDoEvento(), $this->createStub(PastaPrazoRepository::class), $perfis, $this->legendas([]), $ajustes);
 
-        $itens = $sut->executar(new Tenant(), new User(), new \DateTimeImmutable('2030-03-01'), new \DateTimeImmutable('2030-03-31'), false, false);
+        $itens = $sut->executar(new Tenant(), new User(), new \DateTimeImmutable('2030-03-01'), new \DateTimeImmutable('2030-03-31'), false, false, false);
 
         self::assertSame(['aniv-8-2030-03-12'], array_map(static fn (C $c): string => $c->id, $itens));
         self::assertSame('Parabéns, Bruno!', $itens[0]->titulo);
@@ -110,7 +110,7 @@ final class ListarCompromissosUseCaseTest extends TestCase
         $perfis->method('aniversariantesDoEscritorio')->willReturn([['id' => 7, 'nome' => 'Ana Paula Reis', 'nascimento' => new \DateTimeImmutable('1992-02-29')]]);
         $sut = new ListarCompromissosUseCase($this->eventos([]), new OcorrenciasDoEvento(), $this->createStub(PastaPrazoRepository::class), $perfis, $this->legendas([]), $this->createStub(AjusteDeDataRepository::class));
 
-        $itens = $sut->executar(new Tenant(), new User(), new \DateTimeImmutable('2030-02-01'), new \DateTimeImmutable('2030-03-31'), false, false);
+        $itens = $sut->executar(new Tenant(), new User(), new \DateTimeImmutable('2030-02-01'), new \DateTimeImmutable('2030-03-31'), false, false, false);
 
         self::assertSame('2030-02-28', $itens[0]->data);
         self::assertSame('🎂 Aniversário de Ana Paula', $itens[0]->titulo);
@@ -128,7 +128,7 @@ final class ListarCompromissosUseCaseTest extends TestCase
         $perfis->method('aniversariantesDoEscritorio')->willReturn([]);
         $sut = new ListarCompromissosUseCase($this->eventos($eventos), new OcorrenciasDoEvento(), $this->createStub(PastaPrazoRepository::class), $perfis, $this->legendas($legendas), $this->createStub(AjusteDeDataRepository::class));
 
-        return $sut->executar(new Tenant(), new User(), new \DateTimeImmutable('2030-03-01'), new \DateTimeImmutable('2030-03-31'), false, false);
+        return $sut->executar(new Tenant(), new User(), new \DateTimeImmutable('2030-03-01'), new \DateTimeImmutable('2030-03-31'), false, false, false);
     }
 
     /** @param list<Evento> $eventos */

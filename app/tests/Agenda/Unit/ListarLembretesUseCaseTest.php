@@ -38,7 +38,7 @@ final class ListarLembretesUseCaseTest extends TestCase
             $this->evento(7, 'Antigo sem tipo', '2030-03-10 09:00'),
         ];
 
-        $itens = $this->sut($eventos)->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), false);
+        $itens = $this->sut($eventos)->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), false, false);
         $porTitulo = array_column(array_map(static fn (L $l): array => $l->toArray(), $itens), null, 'titulo');
 
         self::assertSame(['Antigo sem tipo', 'Escolhido', 'Audiência padrão'], array_column(array_map(static fn (L $l): array => $l->toArray(), $itens), 'titulo'));
@@ -58,26 +58,28 @@ final class ListarLembretesUseCaseTest extends TestCase
             $this->evento(3, 'Começou faz 6 horas', '2030-03-10 02:00'),
         ];
 
-        $itens = $this->sut($eventos)->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), false);
+        $itens = $this->sut($eventos)->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), false, false);
 
         self::assertSame(['Amanhã cedo'], array_map(static fn (L $l): string => $l->titulo, $itens));
     }
 
-    #[TestDox('Prazos de hoje com hora: audiência 60 min antes, prazo 15; sem hora fica de fora; só com acesso às pastas')]
+    #[TestDox('Prazos de hoje com hora: audiência 60 min antes, prazo 15; sem hora fica de fora; só com Ver prazos na agenda')]
     public function testPrazos(): void
     {
         $pasta = (new Pasta())->setNup('1180');
         (new \ReflectionProperty(Pasta::class, 'id'))->setValue($pasta, 9);
         $prazos = [$this->prazo($pasta, PastaPrazo::TIPO_AUDIENCIA, 'Conciliação', '14:30', 'Maria'), $this->prazo($pasta, PastaPrazo::TIPO_PRAZO, 'Contestação', '18:00', null), $this->prazo($pasta, PastaPrazo::TIPO_PRAZO, 'Sem hora', null, null)];
 
-        $itens = $this->sut([], $prazos)->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), true);
-        $sem = $this->sut([], $prazos)->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), false);
+        $itens = $this->sut([], $prazos)->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), true, true);
+        $semPastas = $this->sut([], $prazos)->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), false, true);
+        $sem = $this->sut([], $prazos)->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), false, false);
 
         self::assertSame(['Audiência · Pasta 1180', 'Contestação · Pasta 1180'], array_map(static fn (L $l): string => $l->titulo, $itens));
         self::assertSame(['2030-03-10T13:30:00', '2030-03-10T17:45:00'], array_map(static fn (L $l): string => $l->aviso, $itens));
         self::assertSame(['aud', 'prazo'], array_map(static fn (L $l): string => $l->tipo, $itens));
         self::assertSame('Responsável: Maria', $itens[0]->observacao);
         self::assertSame(9, $itens[0]->pastaId);
+        self::assertNull($semPastas[0]->pastaId, 'sem o módulo Pastas, sem o atalho para a pasta');
         self::assertSame([], $sem, 'sem acesso às pastas, nenhum prazo');
     }
 
@@ -88,7 +90,7 @@ final class ListarLembretesUseCaseTest extends TestCase
         (new \ReflectionProperty(Pasta::class, 'id'))->setValue($pasta, 9);
         $diario = $this->evento(1, 'Diário', '2030-03-01 09:00')->setPasta($pasta)->setRecorrente(true)->setTipoRecorrencia('diario')->setLembreteMinutos(60);
 
-        $itens = $this->sut([$diario])->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), false);
+        $itens = $this->sut([$diario])->executar(new Tenant(), new User(), new \DateTimeImmutable(self::AGORA), false, false);
 
         self::assertSame(['ag:1:2030-03-10T09:00', 'ag:1:2030-03-11T09:00'], array_map(static fn (L $l): string => $l->k, $itens));
         self::assertNull($itens[0]->pastaId);
