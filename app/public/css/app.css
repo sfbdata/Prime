@@ -529,3 +529,49 @@ html[data-bs-theme="dark"] .table-light {
     color: var(--bs-secondary-color);
     font-weight: 600;
 }
+/* ── Telas e recursos ligados e desligados pelo Master (spec docs/specs/perfis-1.2-telas-e-recursos.md) ──
+   R6: item desligado que o Master continua vendo (recurso_marca) e a faixa vermelha fixa da tela desligada.
+   R5: página "em preparação" (templates/recurso/em_preparacao.html.twig). */
+.bj-recurso-off { opacity: .45; outline: 1px dashed #c0392b; outline-offset: -2px; }
+/* Faixa do Master e página "em preparação": medidas do bj-recursos.js do desenho 05 Perfis 1.2 (guardaTela). */
+.bj-recurso-faixa { position: fixed; z-index: 2147483100; left: 50%; top: 8px; transform: translateX(-50%); background: #c0392b; color: #fff;
+  font: bold 12.5px Arial, Helvetica, sans-serif; padding: 7px 14px; border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.2); }
+.bj-recurso-pagina { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;
+  background: #f3f6f8; color: #12242f; font-family: Arial, Helvetica, sans-serif; }
+.bj-recurso-preparo { max-width: 440px; text-align: center; background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 30px 26px;
+  box-shadow: 0 10px 30px rgba(18,36,47,.08); }
+.bj-recurso-preparo-icone { width: 62px; height: 62px; margin: 0 auto 12px; border-radius: 50%; background: #e5f1f7; color: #0a6fa0;
+  display: flex; align-items: center; justify-content: center; font-size: 28px; }
+.bj-recurso-preparo-titulo { font-size: 19px; font-weight: bold; margin: 0 0 6px; line-height: normal; }
+.bj-recurso-preparo-texto { font-size: 14px; color: #4a6373; line-height: 1.55; }
+.bj-recurso-preparo-previsao { font-size: 12.5px; color: #7a8e9b; }
+.bj-recurso-preparo-voltar { display: inline-flex; align-items: center; gap: 7px; margin-top: 18px; height: 38px; padding: 0 16px; border-radius: 3px;
+  background: #0a6fa0; color: #fff; font-weight: bold; font-size: 14px; text-decoration: none; }
+.bj-recurso-preparo-voltar:hover { background: #0a6fa0; color: #fff; text-decoration: none; }
+
+/* ===== Animações reduzidas (Guia visual → "Animações") =====
+   A opção vale para o sistema inteiro: o base.html.twig põe `jp-sem-anim` no <html> pela preferência
+   do usuário (`animacoes_reduzidas()`), e quem pede movimento reduzido no sistema operacional ganha o
+   mesmo. Tudo fica instantâneo, e os laços infinitos param no 1º ciclo (a regra do Dashboard). */
+html.jp-sem-anim *,
+html.jp-sem-anim *::before,
+html.jp-sem-anim *::after {
+    animation-duration: .01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: .01ms !important;
+        animation-delay: 0s !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        transition-delay: 0s !important;
+        scroll-behavior: auto !important;
+    }
+}

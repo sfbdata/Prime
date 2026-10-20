@@ -70,7 +70,7 @@ final class PastaPushProcessualTest extends JusPrimeWebTestCase
 
         // Filho DIRETO: "existe na página" não distingue painel no lugar certo de painel solto.
         self::assertSame(1, $crawler->filter('#pastaTabsContent > #push')->count());
-        self::assertSame(1, $crawler->filter('#push > .ps-push')->count());
+        self::assertSame(1, $crawler->filter('#push > .ps-push-grade > .ps-push')->count());
     }
 
     #[TestDox('Publicação AVULSA cujo número casa com o processo da pasta aparece — o caso dos 8 de produção')]
