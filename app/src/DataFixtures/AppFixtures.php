@@ -3,7 +3,7 @@
 namespace App\DataFixtures;
 
 use App\Entity\Tenant\Tenant;
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Cliente\Entity\ClientePF;

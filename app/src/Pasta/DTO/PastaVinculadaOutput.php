@@ -26,7 +26,17 @@ final class PastaVinculadaOutput
         public readonly bool $excluida,
         public readonly ?\DateTimeImmutable $excluidaEm,
         public readonly ?\DateTimeImmutable $vinculadoEm,
+        public readonly bool $oculta = false,
     ) {
+    }
+
+    /**
+     * A mesma pasta, como quem está `Oculto` no cadeado dela a vê (spec pasta-cadeado D1): o número, o
+     * cliente e o cadeado; sem a ação.
+     */
+    public function oculta(): self
+    {
+        return new self($this->id, $this->rotulo, $this->nomeCliente, null, $this->situacao, $this->principal, $this->excluida, $this->excluidaEm, $this->vinculadoEm, true);
     }
 
     /**

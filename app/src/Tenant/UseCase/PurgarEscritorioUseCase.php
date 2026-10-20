@@ -191,6 +191,13 @@ final class PurgarEscritorioUseCase
         // Chaves do "Avisar quando chegar" do Push (por pasta): cairiam pela CASCADE de `pasta`, mas a FK
         // de tenant é NO ACTION; deleção explícita aqui.
         ['pasta_aviso_push', 'tenant_id = :tenant'],
+        // "Avisar cliente" do Push (P4c): o histórico de envios cai pela CASCADE de `pasta` e os e-mails do
+        // cliente pela de `cliente`, mas a FK de tenant das duas é NO ACTION; deleção explícita aqui.
+        ['envio_ao_cliente', 'tenant_id = :tenant'],
+        ['cliente_email', 'tenant_id = :tenant'],
+        // Chaves do envio automático ao cliente (P4d): cairiam pela CASCADE de `cliente`, mas a FK de
+        // tenant é NO ACTION; deleção explícita aqui.
+        ['cliente_envio_automatico', 'tenant_id = :tenant'],
         // Prazos e audiências da pasta (E12b): cairiam pela CASCADE de `pasta`; FK de tenant NO ACTION.
         ['pasta_prazo', 'tenant_id = :tenant'],
         // Andamento da pasta em fases (E12b): mesmo caso.
@@ -208,6 +215,11 @@ final class PurgarEscritorioUseCase
         // são NO ACTION. Acesso antes do link (filho antes do pai).
         ['push_link_externo_acesso', 'tenant_id = :tenant'],
         ['push_link_externo', 'tenant_id = :tenant'],
+        // Cadeado da pasta (spec pasta-cadeado): cairiam pela CASCADE de `pasta`, mas as FKs de tenant são NO
+        // ACTION. A lista de pessoas antes do cadeado (filho antes do pai); os pedidos de acesso à parte.
+        ['pasta_cadeado_acesso', 'tenant_id = :tenant'],
+        ['pasta_cadeado', 'tenant_id = :tenant'],
+        ['pasta_pedido_acesso', 'tenant_id = :tenant'],
         // Abas ocultas da pasta (spec pasta-ocultar-aba §1): mesmo caso, CASCADE de `pasta` e FK de tenant NO ACTION.
         ['pasta_aba_oculta', 'tenant_id = :tenant'],
         // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o

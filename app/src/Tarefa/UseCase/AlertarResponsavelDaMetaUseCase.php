@@ -75,6 +75,10 @@ final class AlertarResponsavelDaMetaUseCase
             throw new AlertaDeMetaRecusadoException('Só é possível alertar um responsável desta meta.');
         }
 
+        if (!$this->notificacaoService->veAPastaDaMeta($tarefa, $destinatario)) {
+            throw new AlertaDeMetaRecusadoException('Este responsável não vê a pasta da meta: o usuário primário restringiu o acesso a ela.');
+        }
+
         if ($destinatario === $remetente || $destinatario->getId() === $remetente->getId()) {
             throw new AlertaDeMetaRecusadoException('Você é responsável por esta meta; não é preciso alertar a si mesmo.');
         }

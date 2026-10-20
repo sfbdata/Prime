@@ -37,8 +37,10 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_PASTA_MENCAO_REGISTRO = 'pasta_mencao_registro';
     /** Alguém @mencionou o destinatário numa nota técnica de processo (escrita numa pasta). */
     public const TIPO_NOTA_TECNICA_MENCAO = 'nota_tecnica_mencao';
-    // Pedido de acesso a pasta trancada (Lista do Expediente, E12): vai para os administradores.
+    // Pedido de acesso a pasta com cadeado (spec pasta-cadeado K5): vai para cada primário ativo e o Master.
     public const TIPO_PASTA_PEDIDO_ACESSO = 'pasta_pedido_acesso';
+    /** Resposta ao pedido de acesso a uma pasta com cadeado (liberado ou recusado): vai para quem pediu. */
+    public const TIPO_PASTA_ACESSO_DECIDIDO = 'pasta_acesso_decidido';
     /** Alguém @mencionou o destinatário numa conversa da Central de Comunicação (sem o texto: é auditada). */
     public const TIPO_CENTRAL_MENCAO = 'central_mencao';
     /** Alguém adicionou o destinatário a um grupo da Central de Comunicação. */
@@ -222,6 +224,9 @@ class Notificacao implements Auditavel, TenantAware
             self::TIPO_SERVICEDESK_NOVO => 'bi-ticket-detailed text-primary',
             self::TIPO_SERVICEDESK_ATRIBUICAO => 'bi-person-check text-info',
             self::TIPO_DJEN_PUBLICACAO, self::TIPO_PUSH_PUBLICACAO_PASTA => 'bi-newspaper text-primary',
+            // Cadeado da pasta (desenho 02, `bi-lock`/`bi-unlock`): o pedido e a resposta.
+            self::TIPO_PASTA_PEDIDO_ACESSO => 'bi-lock text-primary',
+            self::TIPO_PASTA_ACESSO_DECIDIDO => 'bi-unlock text-primary',
             // Desenho (bluejus-central.js, tipo "direcionada"): `bi-person-check` em âmbar.
             self::TIPO_PASTA_RESPOSTA_REGISTRO => 'bi-person-check text-warning',
             // Desenho (bluejus-central.js, tipo "mencao"): `bi-at` em azul.

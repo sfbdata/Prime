@@ -91,6 +91,8 @@ final class PurgarDadosExpiradosCommandTest extends KernelTestCase
             expiraEm: new \DateTimeImmutable('-2 hours'),
             ip: '1.2.3.4',
             userAgent: 'UA',
+            // Fora das 24 h que a purga preserva para o teto diário do código de senha.
+            criadoEm: new \DateTimeImmutable('-26 hours'),
         );
         $this->em->persist($pedido);
         $this->em->flush();

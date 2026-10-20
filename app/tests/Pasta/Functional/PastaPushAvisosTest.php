@@ -117,7 +117,7 @@ final class PastaPushAvisosTest extends JusPrimeWebTestCase
 
         self::assertCount(1, $cartao);
         $coluna = $cartao->ancestors()->first()->children()->each(static fn (Crawler $no): string => (string) $no->attr('class'));
-        self::assertSame(['ps-push-painel', 'ps-push-avisos'], $coluna, 'monitoramento e depois os avisos');
+        self::assertSame(['ps-push-painel', 'ps-push-avisos', 'ps-push-cliente'], $coluna, 'monitoramento, os avisos e o Avisar cliente (P4c)');
         self::assertSame('Avisar quando chegar', $cartao->filter('.ps-push-avisos > .ps-push-avisos-titulo')->text());
         $chaves = $cartao->filter('.ps-push-avisos > button.ps-push-aviso[role="switch"]');
         self::assertSame(['Responsável da pasta', 'Por e-mail', 'Análise da BlueJus IA'], $chaves->each(static fn (Crawler $b): string => $b->filter('.ps-push-aviso-rotulo')->text()));

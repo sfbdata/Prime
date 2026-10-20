@@ -276,6 +276,7 @@
                     </a>
 
                     <div class="ps-pop-sep"></div>
+                    {{ include('pasta/_cadeado_menu.html.twig', {cad: cad is defined ? cad : cadeado_da_pasta(pasta)}) }}
                     <div class="ps-pop-secao">Preferências</div>
                     {# Desenho: `prefPasta('fav')` — estrela fixa, rótulo fixo e o interruptor
                        mostrando o estado. É do USUÁRIO: a pasta sobe para o topo da listagem do
@@ -345,7 +346,7 @@
        que vira o título quando não há cliente cadastrado — o estado real de quase
        todas as pastas. O ícone de pessoa não é clicável: a foto do cliente é função
        nova e botão sem função é mentira na tela. #}
-    <div class="ps-cab-cliente">
+    <div class="ps-cab-cliente" data-cad-ate="1">
         <span class="ps-cab-cliente-icone" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
         <div class="ps-cab-cliente-corpo">
             <div class="ps-cab-cliente-linha">
@@ -410,6 +411,12 @@
     </div>
 
 
+    {# Cadeado (spec pasta-cadeado; desenho 02 L1295-1297): a faixa de somente visualização e a dos pedidos
+       pendentes ficam DENTRO do cabeçalho, logo abaixo da linha do cliente e antes das fases. #}
+    {% set cadFaixa = cad is defined ? cad : cadeado_da_pasta(pasta) %}
+    {{ include('pasta/_cadeado_faixa.html.twig', {pasta: pasta, cad: cadFaixa}) }}
+    {{ include('pasta/_cadeado_pedidos.html.twig', {pasta: pasta, cad: cadFaixa}) }}
+
     {# ── Palco da linha do tempo (desenho 1.2.3: o carimbo da situação fica no MESMO bloco do andamento,
        à direita, e a linha do tempo reserva 150px para ele). A faixa "Processo vinculado · Ação ·
        Responsável · Cobrança" saiu do cabeçalho (regra do dono, 16/10, como o desenho): Responsável foi
@@ -455,6 +462,15 @@
                 <span class="ps-cab-selo-onda" aria-hidden="true"></span>
                 <span class="ps-cab-selo-aro" aria-hidden="true"></span>
                 <span class="ps-cab-selo-faixa"><i class="bi {{ sp.icone }}" aria-hidden="true"></i>{{ sp.texto }}</span>
+            </div>
+        {% endif %}
+        {# Selo do cadeado (desenho 02 L1300, `cd.seloEl`): só para quem configura, em pasta com cadeado; abre o
+           modal. Fica à esquerda do carimbo da situação quando ele existe (136px), como no desenho. #}
+        {% set cadSelo = cad is defined ? cad : cadeado_da_pasta(pasta) %}
+        {% if cadSelo and cadSelo.podeConfigurar and cadSelo.temCadeado %}
+            <div class="js-cadeado-abrir" role="button" tabindex="0" aria-label="Cadeado da pasta" title="{{ cadSelo.seloTitulo }}" data-cad-onda
+                 style="position:absolute;right:{{ pasta.situacao != 'ativo' ? 136 : 8 }}px;top:50%;transform:translateY(-50%);z-index:2;pointer-events:auto;cursor:pointer">
+                {{ include('pasta/_cadeado_icone.html.twig', {px: 64, ondas: true}) }}
             </div>
         {% endif %}
         {{ include('pasta/_andamento.html.twig') }}

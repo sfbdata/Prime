@@ -21,7 +21,9 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\CriarPastaDTO;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\UseCase\CriarPastaUseCase;
 
 /**
@@ -59,6 +61,7 @@ final class JudicializarCasoUseCase
         private readonly CriarPastaUseCase $criarPasta,
         private readonly ComporNomeDaPastaJudicial $comporNome,
         private readonly NormalizadorDePastaJudicial $normalizador,
+        private readonly ?AcessoAPasta $acessoAPasta = null,
     ) {
     }
 
@@ -86,6 +89,7 @@ final class JudicializarCasoUseCase
         $pasta = $input->ehModoCriar()
             ? $this->abrirPastaJudicial($caso, $tenant, $usuario)
             : $this->pastaExistenteDoTenant($input, $tenant);
+        $this->exigirQuePodeEditarPeloCadeado($pasta, $usuario);
 
         // As três ações valem nos DOIS caminhos (decisão do dono, 02/09). Vincular deixava a pasta
         // exatamente como o usuário a tinha digitado — sem cliente e com o nome de quem ele quis —,
@@ -120,6 +124,19 @@ final class JudicializarCasoUseCase
         );
 
         return $caso;
+    }
+
+    /**
+     * Cadeado (spec pasta-cadeado): vincular normaliza a pasta (nome, ação e cliente), então é escrita nela.
+     * Quem não edita a pasta pelo cadeado (Oculto ou só Visualizar) é recusado antes de qualquer gravação.
+     *
+     * @throws SemPermissaoParaEditarPastaException
+     */
+    private function exigirQuePodeEditarPeloCadeado(Pasta $pasta, User $usuario): void
+    {
+        if ($this->acessoAPasta !== null && !$this->acessoAPasta->nivel($usuario, $pasta)->podeEditar()) {
+            throw new SemPermissaoParaEditarPastaException('O usuário primário restringiu esta pasta: ela não pode ser vinculada por você.');
+        }
     }
 
     /**
