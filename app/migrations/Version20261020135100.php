@@ -18,7 +18,7 @@ use Doctrine\Migrations\AbstractMigration;
  * `trabalho_externo`. `escritorio_id` é CASCADE: a vaga do escritório some com ele; a da Central
  * (nula) fica.
  */
-final class Version20261020133100 extends AbstractMigration
+final class Version20261020135100 extends AbstractMigration
 {
     public function getDescription(): string
     {
