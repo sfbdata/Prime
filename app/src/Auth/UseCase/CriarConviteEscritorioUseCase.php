@@ -45,7 +45,7 @@ final class CriarConviteEscritorioUseCase
         $invitation = new Invitation(
             email: $email,
             token: bin2hex(random_bytes(32)),
-            type: 'office',
+            type: Invitation::TIPO_ESCRITORIO,
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
         $invitation->setFullName($input->fullName);

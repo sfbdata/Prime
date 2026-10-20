@@ -1,0 +1,148 @@
+# Painel lateral do Push, parte A: monitoramento, Buscar agora e Situação atual (P4a)
+
+## Estado da frente (sessão bluejus-0d; atualizado 19/10/2026)
+
+Releia esta seção antes de continuar se a sessão for compactada.
+
+**Pedido do dono (19/10):** implementar na íntegra o desenho das abas Processo e Push Processual (02 - EXPEDIENTES),
+mesmo que precise de frente nova.
+
+**PRs abertos e ordem de merge (fila de migrations do coordenador):**
+1. #55 `push-link-externo`: link externo do Push. Migration Version20261019183000. Entra depois do #52 (de outra
+   sessão); o #77 (trusted proxies, b5) também entra antes por mexer no framework.yaml.
+2. #68 `pasta-ocultar-aba`: EMPILHADO sobre o #55 (base push-link-externo). Migration Version20261019200000.
+3. #75 `relatorio-processos-controladoria`: base master. Migration Version20261019233000.
+4. #82 `push-painel-monitoramento` (P4a): base master. Migration Version20261019234500.
+5. P4b `push-avisar-quando-chegar`: em implementação, EMPILHADO sobre o #82.
+Depois de cada merge: trazer o origin/master para as branches que ficaram, testes, push. Renomear a migration para
+o timestamp do momento se o coordenador pedir.
+
+**Decisões do dono (19/10/2026):**
+- Controladoria = pessoas marcadas no escritório (só Master/primário marca).
+- Ocultar aba vale só na pasta; é para ORGANIZAR a pasta, não restringir acesso no sistema (módulo Push global,
+  links já criados e metas em /tarefas continuam).
+- Renovação do link externo por aviso no sino; link curto já ativo (sem "ativa com o domínio").
+- Envios automáticos ao cliente nascem DESLIGADOS (P4d).
+- Pausar monitoramento para só a busca por número; OAB continua; legenda "A busca pelo número do processo fica
+  parada; intimações pela OAB continuam chegando.".
+- (coordenador) Prazo da previsão conta da publicação (1º útil após a disponibilização), Lei 11.419 art. 4º e CPC
+  art. 224; e-mail com "não quero mais receber"; sem Controladoria envia e avisa o primário; remetente nao-responda@
+  com reply-to do responsável; P4e com OCR.
+
+**Contratos com outras sessões:**
+- security.yaml: cada rota pública em linha própria (f6 e a7 também acrescentam).
+- framework.yaml: limitadores em trechos próprios (#77, #55, #68, #82).
+- `email_descadastro` (Shared, P4b): interface pública reaproveitada pela a7 (vagas) e pela frente "Comercial e
+  e-mails".
+- user_tenant: a 7d põe `situacao`; o #75 põe `controladoria`. Colunas independentes.
+
+**Pendências com o dono:** chave "Análise da BlueJus IA" do P4b (padrão desligado, a confirmar); MAILER_DSN de
+produção pela Hostinger (SPF/DKIM); cron mensal do relatório (DEPLOY.md); SYMFONY_TRUSTED_PROXIES (achado ALTO,
+tratado no #77).
+
+**Próximo passo:** fechar o P4b (revisão, visual, PR); depois specs de P4c (e-mails do cliente + envio manual da
+Análise IA com CC), P4d (envio automático), P4e (arquivos + OCR + análise completa; trazer antes o PR da 4b por
+causa do composer). "Vincular apensado" e o filtro por processo esperam o zip completo do desenho de 18/10.
+
+
+Frente do painel lateral da aba Push Processual, dividida em P4a a P4e (aprovado pelo coordenador, 19/10/2026):
+P4a (esta) monitoramento + buscar agora + situação atual por regras; P4b avisar quando chegar (equipe);
+P4c e-mails do cliente + envio manual da Análise IA com CC da Controladoria; P4d envio automático ao cliente;
+P4e atualizar com arquivos (PDF/ZIP/DOCX + OCR) e análise completa do processo (12 etapas, relatório de 14 seções).
+
+Desenho: `docs/design/claude-design-2026-10-05 (1)/02 - EXPEDIENTES 1.2.3.dc.html` (checkout principal):
+coluna direita L2567-2628, grade `pushAnim` L6595 (`minmax(0,1fr) minmax(0,300px)`), `pushVals` L5409-5449,
+`previsaoProc` L5092-5117, `REGRAS_PROC` L5064-5078, `FERIADOS_NAC` L5079, `diaUtil`/`somaUteis`/`uteisAte`
+L5089-5091, taxa de acertos L5105-5109. Risco BAIXO.
+
+## 1. Monitoramento por processo
+
+- `Processo` ganha `monitoramentoPausadoEm` (null = ativo), `monitoramentoPausadoPor` (FK user, SET NULL) e
+  `ultimaVerificacaoEm` (quando o BlueJus consultou o DJEN por este número pela última vez; não confundir com
+  `dataAtualizacao`, que vem do DataJud).
+- A captação (`SincronizarPublicacoesDjenUseCase`, via `ProcessoRepository::listarNumerosAcompanhadosDoTenant`) pula
+  processos pausados e grava `ultimaVerificacaoEm` de cada número consultado com sucesso.
+- Cartão (L2568-2577): bolinha verde piscando/cinza; títulos e subtítulos exatos:
+  sem processo "Sem monitoramento"/"Vincule um processo"; ativo "Monitoramento ativo"/"Captura automática nos
+  diários e no PJe"; pausado "Monitoramento pausado"/"Novas movimentações não serão capturadas". Switch
+  (`role=switch`, aria-label "Monitoramento") do processo **principal**; linha "{nº} · {tribunal}"; linha
+  "Última verificação: hoje, HH:MM" / "ontem, HH:MM" / "dd/mm/aaaa, HH:MM" / "ainda não verificado".
+- `POST /pasta/{id}/push/monitoramento` (CSRF, EDIT na pasta) alterna. Pausar não apaga nada.
+
+## 2. Buscar agora
+
+- Botão "Buscar agora" (`bi-cloud-download`, título "Busca, lê e audita o processo: prazos, decursos, pendências e
+  próximos atos"); rodando: `bi-arrow-repeat` "Lendo o processo...". Desabilitado com monitoramento pausado.
+- `POST /pasta/{id}/push/buscar` (CSRF, VIEW na pasta): para cada processo da pasta não pausado, consulta o DJEN pelo
+  número (últimos 30 dias, mesma deduplicação e reconciliação da captação) e grava `ultimaVerificacaoEm`.
+  Limite: 1 busca por pasta a cada 60 s (429 "Aguarde um minuto para buscar de novo."). Respeita o limite do DJEN
+  (para e avisa). DataJud: fora deste PR (o mapper apaga e regrava movimentações; precisa de spec própria).
+- Resposta e aviso: "N movimentação(ões) nova(s)" ou "Nenhuma movimentação nova", e a página recarrega a aba.
+- As 12 etapas com barra de progresso são da leitura completa (P4e); aqui só o estado "Lendo o processo...".
+
+## 3. Situação atual (variante sem leitura, `previsaoProc`)
+
+`App\Processo\Service\PrevisaoProcessual` (porte fiel, testado com os casos do desenho):
+- Movimentações: as publicações DJEN dos processos da pasta (a mesma lista da aba), texto normalizado
+  (`tipoComunicacao + ' ' + teor` sem HTML, minúsculo, sem acento, até 5000 caracteres), mais recente primeiro.
+- `REGRAS_PROC` transcrita (13 regras, mesma ordem, mesmos textos de fase/quem/dias/base/próximo/post/confiança).
+  Ajustes de contexto L5097-5102: `exige contestacao`, classe "cumprimento de senten" rebaixa as regras de
+  conhecimento com a nota exata, "prazo de N dias" do texto vence `R.dias` com a nota exata.
+- Dias úteis: sábado, domingo, recesso 20/12 a 20/01 e os feriados nacionais (use os do `CalendarioDoSistema` de
+  âmbito nacional, que cobre os móveis de qualquer ano). Contagem `somaUteis` como L5089-5091 (o dia da
+  movimentação conta como publicação; começa no 1º dia útil seguinte). Tooltip da previsão com o texto exato do
+  desenho.
+- Campos e textos exatos L2605-2624 e L5110-5116 (selo "Prazo encerrado"/"Prazo terminando"/"Em andamento"/"Sem
+  prazo legal para a parte", "faltam N dias úteis", "(encerrado)", "Sem data", "PRÓXIMA ETAPA PROVÁVEL",
+  "Depende de ato do juízo", "Confiança X", "Base: … · histórico de N movimentações", nota de alerta, rodapé
+  "Previsão da I.A, não é ato oficial.").
+- Some com monitoramento pausado, sem processo ou sem movimentações (L5420).
+- Taxa de acertos: tabela `previsao_processual` (tenant, processo, chave da última movimentação, previsto,
+  conferida, acertou, em). Gravada no servidor quando a última movimentação muda (na montagem da aba, idempotente
+  por chave), comparando como L5105-5109. Texto "Previsões conferidas: X de Y acertaram" / "Ainda sem previsão
+  anterior para conferir".
+
+## 4. Tela
+
+- A aba Push passa à grade de duas colunas do desenho (L6595), com a coluna direita de 300 px contendo só o cartão
+  de Monitoramento/Situação atual neste PR (os cartões "Avisar quando chegar" e "Avisar cliente" chegam em P4b/P4c).
+  Em telas estreitas a coluna desce para baixo da lista.
+- Template `templates/pasta/_push_painel.html.twig`, CSS `public/css/pasta-push-painel.css`, JS
+  `public/js/pasta-push-painel.js` (vanilla, sem innerHTML com dado). Estilos inline do desenho portados 1:1 em
+  classes citando a linha.
+
+## 5. Fora deste PR
+
+Variante "com leitura completa" e "Ver análise completa" (P4e); DataJud no Buscar agora; apensados com switch
+próprio (o desenho não tem); filtro por processo (só no desenho de 18/10).
+
+## 6. Testes mínimos
+
+Unit: cada regra de `REGRAS_PROC` com um texto real, ajustes de contexto, contagem de dias úteis (feriado,
+recesso, virada de ano), selo de status, exemplo do desenho (Intimação 02/10/2026 → réplica, 26/10/2026, faltam 5
+em 19/10/2026, confiança Média com a nota da classe), taxa de acertos. Functional: alternar monitoramento (CSRF,
+sem EDIT 403, outro tenant 404), buscar agora (DJEN dublê, 429 no limite), captação pula pausado e grava a última
+verificação, cartão com os textos certos em cada estado, grade com filho direto.
+
+## 7. Decisões (registradas na implementação, 19/10/2026)
+
+- **Lista de processos no cartão** (pedido do coordenador, pelo print do desenho de 18/10): o principal na
+  primeira linha, com o selo "PRINCIPAL"; os demais processos da pasta recuados por uma barra, com a sublinha
+  "Apensado: {classe} · monitorado/pausado" e um switch próprio. O subtítulo ganha " · N processos" com mais de
+  um. `POST /pasta/{id}/push/monitoramento` recebe `processo` (id), que tem de ser desta pasta (senão 404).
+- **Quem mexeu**: `monitoramentoAlteradoPor`/`monitoramentoAlteradoEm` guardam quem pausou ou retomou por último;
+  pausado, o switch mostra "Pausado por X em dd/mm".
+- **Taxa de acertos por pasta**: `previsao_processual` tem `pasta_id` e UNIQUE (pasta, chave). O processo pode estar
+  em mais de uma pasta, cada uma com a sua lista; por processo, uma pasta conferiria a previsão da outra.
+- **Contagem do prazo segue a lei, não o protótipo (decidido pelo coordenador, 19/10/2026).** A data da
+  movimentação no DJEN é a DISPONIBILIZAÇÃO. A publicação é o 1º dia útil seguinte (Lei 11.419/2006, art. 4º,
+  § 3º; CPC, art. 224, § 2º) e o prazo começa no 1º dia útil depois da publicação (Lei 11.419, art. 4º, § 4º;
+  CPC, art. 224, § 3º). O desenho (`somaUteis` sobre a data da movimentação, L5090) pulava a publicação e errava
+  o fim em 1 dia útil: é erro de cálculo do protótipo, corrigido pela lei. Exemplo testado: disponibilizada em
+  02/10/2026, publicada em 05/10, 15 dias úteis terminam em 27/10/2026 (o desenho dava 26/10). O rótulo continua
+  "Previsão": é estimativa e não substitui o controle de prazos do advogado.
+- **Pausa e captação pela OAB: decidido pelo dono (19/10/2026).** Pausar para SÓ a busca pelo número do processo;
+  as intimações que chegam pela OAB monitorada continuam sendo captadas, para nenhum prazo se perder. A legenda do
+  estado pausado passa a ser "A busca pelo número do processo fica parada; intimações pela OAB continuam chegando.".
+  Desvio de texto do desenho (statusSub, L5437: "Novas movimentações não serão capturadas"), aprovado pelo dono com
+  esse fundamento.

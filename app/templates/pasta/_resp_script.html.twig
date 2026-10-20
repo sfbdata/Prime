@@ -27,19 +27,26 @@
         return '<span class="resp-avatar resp-avatar-ini" style="width:24px;height:24px;font-size:10px;">' + escResp(ini) + '</span>';
     }
 
+    /* Na pasta, o title; no Expediente, a dica do desenho 03 pelo sistema de dicas da lista (`data-tip`). */
+    function dica(chip, naPasta, noExpediente) {
+        if (chip.dataset.contexto === 'pasta') { chip.title = naPasta; return; }
+        chip.removeAttribute('title');
+        chip.setAttribute('data-tip', noExpediente);
+    }
+
     function renderChip(chip, userId, nome, fotoUrl) {
         chip.dataset.respId = userId || '';
         var html;
         if (userId) {
             html = avatarHtml(nome, fotoUrl) + '<span class="pasta-resp-nome">' + escResp(nome) + '</span>';
-            chip.title = nome;
+            dica(chip, nome, nome + ' · clique para alterar');
         } else {
             // PAS-013b: o chip vazio redesenhado é o MESMO que o _resp_chip monta no contexto
             // dele — na pasta `bi-person-dash` sem `.text-muted` (desenho); no Expediente como era.
             var naPasta = chip.dataset.contexto === 'pasta';
             html = '<span class="resp-avatar resp-avatar-vazio" style="width:24px;height:24px;"><i class="bi ' + (naPasta ? 'bi-person-dash' : 'bi-person') + '"></i></span>' +
                    '<span class="pasta-resp-nome' + (naPasta ? '' : ' text-muted') + '">Sem responsável</span>';
-            chip.title = 'Definir responsável';
+            dica(chip, 'Definir responsável', 'Clique para atribuir um responsável');
         }
         html += '<i class="bi bi-chevron-down pasta-resp-caret"></i>';
         chip.innerHTML = html;
@@ -207,7 +214,7 @@
                 return;
             }
 
-            if (!e.target.closest('#pastaRespMenu')) fecharMenu();
+            if (e.target.closest('.pasta-resp-fechar') || !e.target.closest('#pastaRespMenu')) fecharMenu();
         });
 
         document.addEventListener('input', function (e) {
