@@ -36,10 +36,16 @@ final class Version20261019130750 extends AbstractMigration
         $this->addSql(<<<'SQL'
             INSERT INTO inscricao_oab (user_id, numero, uf, tipo, status, nome_oficial, verificada_em, criado_em)
             SELECT u.id, TRIM(u.oab_numero), UPPER(TRIM(u.oab_uf)), 'principal', COALESCE(u.oab_status, 'nao_verificada'),
-                   u.oab_nome_oficial, u.oab_verificada_em, NOW()
+                   u.oab_nome_oficial, u.oab_verificada_em, :agora
               FROM "user" u
              WHERE COALESCE(TRIM(u.oab_numero), '') <> '' AND COALESCE(TRIM(u.oab_uf), '') <> ''
-            SQL);
+            SQL, ['agora' => $this->agora()]);
+    }
+
+    /** Hora local do PHP: o NOW() do Postgres está em UTC e o sistema grava hora de Brasília (3 h de diferença). */
+    private function agora(): string
+    {
+        return (new \DateTimeImmutable('now', new \DateTimeZone(date_default_timezone_get())))->format('Y-m-d H:i:s');
     }
 
     public function down(Schema $schema): void
