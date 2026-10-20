@@ -78,19 +78,19 @@ final class RotuloDeAuditoriaTest extends TestCase
     #[TestDox('Tela ou função ligada/desligada pelo Master vira "Desativou X" / "Reativou X" (spec perfis-1.2-telas-e-recursos R7)')]
     public function testRecursoDoSistema(): void
     {
-        $criado = RotuloDeAuditoria::traduzir('create', RecursoEstado::class, '{"diff":{"after":{"chave":"dashboard","ativo":false,"motivo":"Revisão ética","ate":"2026-10-25T00:00:00+00:00"}}}', 'dashboard');
+        $criado = RotuloDeAuditoria::traduzir('create', RecursoEstado::class, '{"diff":{"after":{"chave":"dashboard","ativo":false,"motivo":"Revisão ética","ate":"2026-10-25T00:00:00+00:00"}}}', recurso: 'dashboard');
         self::assertSame(['acao' => 'Desativou Dashboard', 'detalhe' => 'Motivo: Revisão ética · volta em 25/10/2026'], $criado);
 
         $semMotivo = RotuloDeAuditoria::traduzir('create', RecursoEstado::class, '{"diff":{"after":{"chave":"metas","ativo":false,"motivo":null,"ate":null}}}');
         self::assertSame(['acao' => 'Desativou Minhas Metas', 'detalhe' => 'Sem motivo informado'], $semMotivo, 'sem a chave da tabela, usa a do registro de criação');
 
-        $reativou = RotuloDeAuditoria::traduzir('update', RecursoEstado::class, '{"diff":{"changes":{"ativo":{"from":false,"to":true},"motivo":{"from":"x","to":null}}}}', 'contribua');
+        $reativou = RotuloDeAuditoria::traduzir('update', RecursoEstado::class, '{"diff":{"changes":{"ativo":{"from":false,"to":true},"motivo":{"from":"x","to":null}}}}', recurso: 'contribua');
         self::assertSame(['acao' => 'Reativou Contribua', 'detalhe' => 'Liberado para todos os usuários'], $reativou);
 
-        $desativou = RotuloDeAuditoria::traduzir('update', RecursoEstado::class, '{"diff":{"changes":{"ativo":{"from":true,"to":false},"motivo":{"from":null,"to":"Correção de falha"}}}}', 'peticionar');
+        $desativou = RotuloDeAuditoria::traduzir('update', RecursoEstado::class, '{"diff":{"changes":{"ativo":{"from":true,"to":false},"motivo":{"from":null,"to":"Correção de falha"}}}}', recurso: 'peticionar');
         self::assertSame(['acao' => 'Desativou Peticionar', 'detalhe' => 'Motivo: Correção de falha'], $desativou);
 
-        $semMotivoComHistorico = RotuloDeAuditoria::traduzir('update', RecursoEstado::class, '{"diff":{"changes":{"ativo":{"from":true,"to":false},"alteradoEm":{"from":"a","to":"b"}}}}', 'peticionar');
+        $semMotivoComHistorico = RotuloDeAuditoria::traduzir('update', RecursoEstado::class, '{"diff":{"changes":{"ativo":{"from":true,"to":false},"alteradoEm":{"from":"a","to":"b"}}}}', recurso: 'peticionar');
         self::assertSame('Sem motivo informado', $semMotivoComHistorico['detalhe'], 'saindo de ativo, motivo fora do diff continuou nulo');
     }
 }

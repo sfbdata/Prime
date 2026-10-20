@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\UseCase;
 
 use App\Auth\DTO\CriarConviteEscritorioInput;
+use App\Auth\Service\VagaNoEscritorio;
 use App\Entity\Auth\Invitation;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
@@ -20,6 +21,7 @@ final class CriarConviteEscritorioUseCase
         private readonly UserTenantRepository $userTenantRepository,
         private readonly EntityManagerInterface $em,
         private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly VagaNoEscritorio $vagaNoEscritorio,
     ) {}
 
     public function executar(CriarConviteEscritorioInput $input): Invitation
@@ -29,6 +31,9 @@ final class CriarConviteEscritorioUseCase
         if ($input->tenantRole->isSystem()) {
             $this->regraDosPrimarios->garantirQuePodeGerirPrimarios($input->criadoPor, $input->tenant);
         }
+
+        // Limite de usuários do plano ou do Master (P8): só com o bloqueio ligado.
+        $this->vagaNoEscritorio->exigir((int) $input->tenant->getId());
 
         $email = strtolower(trim($input->email));
 

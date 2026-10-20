@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Master\UseCase;
 
 use App\Master\Repository\PainelMasterRepository;
+use App\Contribua\Service\CatalogoDePlanos;
+use App\Contribua\Service\SituacaoDoEspaco;
 use App\Master\Service\RotuloDeAuditoria;
+use App\Master\Service\RotuloDeAuditoriaDoEspaco;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -24,6 +27,8 @@ final class ConsultarAuditoriaUseCase
     public function __construct(
         private readonly PainelMasterRepository $repositorio,
         private readonly ClockInterface $relogio,
+        private readonly SituacaoDoEspaco $situacaoDoEspaco,
+        private readonly CatalogoDePlanos $catalogo,
     ) {
     }
 
@@ -33,10 +38,12 @@ final class ConsultarAuditoriaUseCase
     public function executar(): array
     {
         $linhas = $this->repositorio->trilhaAdministrativa(self::LIMITE, $this->relogio->now()->modify(sprintf('-%d months', self::MESES)));
+        $planos = $this->planosDasContas($linhas);
 
         $registros = [];
         foreach ($linhas as $l) {
-            $rotulo = RotuloDeAuditoria::traduzir($l['acao'], $l['entidade'], $l['mudancas'], $l['recurso']);
+            $plano = RotuloDeAuditoriaDoEspaco::ehLimiteDaConta($l['entidade']) && $l['tenantId'] !== null ? ($planos[$l['tenantId']] ?? null) : null;
+            $rotulo = RotuloDeAuditoria::traduzir($l['acao'], $l['entidade'], $l['mudancas'], $plano, $l['recurso']);
             $registros[] = [
                 'quando'  => (new \DateTimeImmutable($l['criadoEm']))->format(\DATE_ATOM),
                 'quem'    => self::responsavel($l['responsavel'], $l['responsavelId']),
@@ -48,6 +55,41 @@ final class ConsultarAuditoriaUseCase
         }
 
         return ['registros' => $registros, 'limite' => self::LIMITE, 'meses' => self::MESES, 'truncado' => count($linhas) >= self::LIMITE];
+    }
+
+    /**
+     * Cota e limite de usuários de HOJE do plano de cada conta com linha de limite na trilha: o "anterior" da
+     * primeira mudança (o desenho mostra "10 GB → 12 GB"). Leitura pública da Contribua, em lote: os planos
+     * pelos retratos (`retratarVarios`, sem medir o uso) e os valores pelo catálogo, cada um lido uma vez.
+     *
+     * @param list<array{entidade: string, tenantId: ?int}> $linhas
+     *
+     * @return array<int, array{cotaGb: int, limiteUsuarios: ?int}>
+     */
+    private function planosDasContas(array $linhas): array
+    {
+        $contas = [];
+        foreach ($linhas as $l) {
+            if ($l['tenantId'] !== null && RotuloDeAuditoriaDoEspaco::ehLimiteDaConta($l['entidade'])) {
+                $contas[$l['tenantId']] = 0;
+            }
+        }
+        if ($contas === []) {
+            return [];
+        }
+
+        $catalogo = [];
+        foreach ($this->catalogo->todos() as $p) {
+            $catalogo[$p->codigo] = ['cotaGb' => $p->cotaGb, 'limiteUsuarios' => $p->limiteUsuarios];
+        }
+        $planos = [];
+        foreach ($this->situacaoDoEspaco->retratarVarios($contas) as $tenantId => $retrato) {
+            if (isset($catalogo[$retrato->planoCodigo])) {
+                $planos[$tenantId] = $catalogo[$retrato->planoCodigo];
+            }
+        }
+
+        return $planos;
     }
 
     /** Nome do responsável; sem nome, o número do usuário; sem ator, "Sistema". Nunca o e-mail. */
