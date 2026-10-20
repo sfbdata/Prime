@@ -124,6 +124,11 @@ services:
             # parâmetro opcional do `ArmazenamentoLocal` e o container quebraria na compilação.
             - '../src/Shared/Armazenamento/DiretorioTemporarioPrivado.php'
 
+    # A interface do armazenamento tem duas implementações (o disco e o decorador de cota do Contribua,
+    # que o envolve por #[AsDecorator]). Sem este alias o autowiring não sabe qual é a de baixo. O alias
+    # fica aqui, e não num atributo no backend, porque o núcleo não pode depender do Symfony (INV-8).
+    App\Shared\Armazenamento\ArmazenamentoDeArquivos: '@App\Shared\Armazenamento\ArmazenamentoLocal'
+
     # Backend de verificação de OAB: dormente (manual-first) enquanto não houver chave do
     # web service oficial. Trocar aqui quando houver backend real.
     App\Auth\Service\OabWebServiceClientInterface: '@App\Auth\Service\ClienteOabIndisponivel'

@@ -1,0 +1,6 @@
+/* Cadeado da pasta (spec pasta-cadeado, desenho 02 L65): as ondas do ícone. Os demais estilos do
+   cadeado são inline, copiados do desenho. */
+@keyframes cadOnda { 0% { opacity:0; transform:scale(.92); } 15% { opacity:.3; } 100% { opacity:0; transform:scale(1.75); border-width:.5px; } }
+@media (prefers-reduced-motion: reduce) {
+    [data-cad-onda] span { animation: none !important; }
+}

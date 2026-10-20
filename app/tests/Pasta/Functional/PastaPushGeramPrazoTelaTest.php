@@ -54,7 +54,7 @@ final class PastaPushGeramPrazoTelaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         foreach ($ids as $id => [$tipo, $marca]) {
-            $li = $crawler->filter(sprintf('#push > .ps-push > .ps-push-lista > .ps-push-item[data-push-id="%s"]', $id));
+            $li = $crawler->filter(sprintf('#push > .ps-push-grade > .ps-push > .ps-push-lista > .ps-push-item[data-push-id="%s"]', $id));
             self::assertCount(1, $li, $tipo);
             self::assertSame($marca, $li->attr('data-push-gera-prazo'), $tipo);
         }
@@ -77,9 +77,9 @@ final class PastaPushGeramPrazoTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
         self::assertResponseIsSuccessful();
 
-        self::assertCount(1, $crawler->filter('#push > .ps-push > .ps-card-cab > .ps-push-filtros > .ps-push-filtro[data-push-filtro="prazo"]'));
+        self::assertCount(1, $crawler->filter('#push > .ps-push-grade > .ps-push > .ps-card-cab > .ps-push-filtros > .ps-push-filtro[data-push-filtro="prazo"]'));
         self::assertCount(0, $crawler->filter('.ps-push-lista > .ps-push-item[data-push-gera-prazo="1"]'));
-        self::assertCount(1, $crawler->filter('#push > .ps-push > #push-vazio-filtro[hidden]'));
+        self::assertCount(1, $crawler->filter('#push > .ps-push-grade > .ps-push > #push-vazio-filtro[hidden]'));
     }
 
     #[TestDox('Item 9 + isolamento: Intimação de OUTRO escritório no mesmo número não entra na lista nem na marca')]
@@ -105,7 +105,7 @@ final class PastaPushGeramPrazoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('.ps-push-lista > .ps-push-item'));
         self::assertCount(0, $crawler->filter(sprintf('.ps-push-item[data-push-id="%s"]', $pubAlheia->getId())));
         self::assertCount(0, $crawler->filter('.ps-push-lista > .ps-push-item[data-push-gera-prazo="1"]'));
-        self::assertSame('1', trim($crawler->filter('#push > .ps-push > .ps-card-cab > .ps-contagem')->text()));
+        self::assertSame('1', trim($crawler->filter('#push > .ps-push-grade > .ps-push > .ps-card-cab > .ps-contagem')->text()));
     }
 
     #[TestDox('N1: a pílula do dia diz "5 out 2026"; data-push-dia segue dd/mm/aaaa para o JS')]

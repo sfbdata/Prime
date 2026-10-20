@@ -10,6 +10,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Pasta\DTO\PastaVinculadaOutput;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Service\NivelNoCadeado;
 use App\Pasta\Entity\PastaFavorita;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaPrazo;
@@ -50,8 +51,18 @@ class PastaRepository extends ServiceEntityRepository
      */
     public const FILTROS_EXPEDIENTE = ['resp10', 'findou', 'aud', 'prazo', 'metas', 'protocolar'];
 
-    public function __construct(ManagerRegistry $registry)
-    {
+    /**
+     * Filtros de ATRIBUTO da pasta (spec pasta-cadeado D1): com qualquer um deles, a pasta oculta pelo cadeado
+     * para quem consulta fica FORA do resultado, senão o filtro viraria oráculo ("a oculta tem audiência",
+     * "é do Fulano"). Número (`nup`), cliente (`cliente`) e a busca livre não estão aqui: a oculta continua
+     * casando por eles. O marcador também é atributo (ver `buildQbPorMarcador`).
+     */
+    private const FILTROS_DE_ATRIBUTO = ['responsavel', 'status', 'prioridade', 'criado_por', 'data_de', 'data_ate', 'expediente', 'acao'];
+
+    public function __construct(
+        ManagerRegistry $registry,
+        private readonly ?NivelNoCadeado $nivelNoCadeado = null,
+    ) {
         parent::__construct($registry, Pasta::class);
     }
 
@@ -128,8 +139,9 @@ class PastaRepository extends ServiceEntityRepository
         string $ordenar = '',
         string $direcao = 'desc',
         ?User $favoritosDe = null,
+        ?User $quemBusca = null,
     ): array {
-        $qb = $this->buildQbByFilters($filters, $tenant)->groupBy('p.id');
+        $qb = $this->buildQbByFilters($filters, $tenant, $quemBusca)->groupBy('p.id');
         $this->aplicarOrdenacao($qb, $ordenar, $direcao, $favoritosDe);
 
         return $qb
@@ -142,9 +154,9 @@ class PastaRepository extends ServiceEntityRepository
     /**
      * @param array<string, string> $filters
      */
-    public function countByFilters(array $filters, Tenant $tenant): int
+    public function countByFilters(array $filters, Tenant $tenant, ?User $quemBusca = null): int
     {
-        return (int) $this->buildQbByFilters($filters, $tenant)
+        return (int) $this->buildQbByFilters($filters, $tenant, $quemBusca)
             ->select('COUNT(DISTINCT p.id)')
             ->getQuery()
             ->getSingleScalarResult();
@@ -307,7 +319,7 @@ class PastaRepository extends ServiceEntityRepository
      *
      * @return list<array{id: int, texto: string}>
      */
-    public function buscarParaVinculo(string $termo, Tenant $tenant, int $limite = 20, array $idsExcluidos = []): array
+    public function buscarParaVinculo(string $termo, Tenant $tenant, int $limite = 20, array $idsExcluidos = [], ?User $quemBusca = null): array
     {
         $qb = $this->createQueryBuilder('p')
             ->select('p.id AS id', 'p.nup AS nup', 'p.nomeCliente AS nomeCliente', 'p.nomeAcao AS nomeAcao')
@@ -319,6 +331,10 @@ class PastaRepository extends ServiceEntityRepository
 
         if ($idsExcluidos !== []) {
             $qb->andWhere('p.id NOT IN (:idsExcluidos)')->setParameter('idsExcluidos', $idsExcluidos);
+        }
+        if ($quemBusca !== null) {
+            // Cadeado: vincular escreve na pasta, então só é oferecida a que a pessoa EDITA (não a oculta nem a de só visualizar).
+            $this->nivelNoCadeado?->restringirAoEditavel($qb, 'p', $quemBusca);
         }
 
         $termo = trim($termo);
@@ -360,9 +376,12 @@ class PastaRepository extends ServiceEntityRepository
      * lápide, pela mesma razão das listagens do acervo: sumir com ela esconde o vínculo que
      * de fato existe.
      *
+     * Com `quemVe`, a pasta oculta pelo cadeado para essa pessoa sai só com o número e o cliente
+     * (spec pasta-cadeado D1).
+     *
      * @return PastaVinculadaOutput[]
      */
-    public function listarVinculadasAoProcesso(Processo $processo, Tenant $tenant): array
+    public function listarVinculadasAoProcesso(Processo $processo, Tenant $tenant, ?User $quemVe = null): array
     {
         $linhas = $this->createQueryBuilder('p')
             ->select(
@@ -385,10 +404,13 @@ class PastaRepository extends ServiceEntityRepository
             ->getQuery()
             ->getArrayResult();
 
-        return array_map(
-            static fn (array $linha): PastaVinculadaOutput => PastaVinculadaOutput::fromRow($linha),
-            $linhas,
-        );
+        return array_map(function (array $linha) use ($tenant, $quemVe): PastaVinculadaOutput {
+            $pasta = PastaVinculadaOutput::fromRow($linha);
+            $oculta = $quemVe !== null && $this->nivelNoCadeado !== null
+                && !$this->nivelNoCadeado->nivelPorId($quemVe, $tenant, $pasta->id)->podeVer();
+
+            return $oculta ? $pasta->oculta() : $pasta;
+        }, $linhas);
     }
 
     /**
@@ -418,8 +440,9 @@ class PastaRepository extends ServiceEntityRepository
         string $ordenar = '',
         string $direcao = 'desc',
         ?User $favoritosDe = null,
+        ?User $quemBusca = null,
     ): array {
-        $qb = $this->buildQbPorMarcador([], $marcador, $tenant)->groupBy('p.id');
+        $qb = $this->buildQbPorMarcador([], $marcador, $tenant, $quemBusca)->groupBy('p.id');
         $this->aplicarOrdenacao($qb, $ordenar, $direcao, $favoritosDe);
 
         return $qb
@@ -429,9 +452,9 @@ class PastaRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    public function countPorMarcador(Marcador $marcador, Tenant $tenant): int
+    public function countPorMarcador(Marcador $marcador, Tenant $tenant, ?User $quemBusca = null): int
     {
-        return (int) $this->buildQbPorMarcador([], $marcador, $tenant)
+        return (int) $this->buildQbPorMarcador([], $marcador, $tenant, $quemBusca)
             ->select('COUNT(DISTINCT p.id)')
             ->getQuery()
             ->getSingleScalarResult();
@@ -450,8 +473,9 @@ class PastaRepository extends ServiceEntityRepository
         string $ordenar = '',
         string $direcao = 'desc',
         ?User $favoritosDe = null,
+        ?User $quemBusca = null,
     ): array {
-        $qb = $this->buildQbPorMarcador($filters, $marcador, $tenant)->groupBy('p.id');
+        $qb = $this->buildQbPorMarcador($filters, $marcador, $tenant, $quemBusca)->groupBy('p.id');
         $this->aplicarOrdenacao($qb, $ordenar, $direcao, $favoritosDe);
 
         return $qb
@@ -467,9 +491,10 @@ class PastaRepository extends ServiceEntityRepository
     public function countByFiltrosEMarcador(
         array $filters,
         Marcador $marcador,
-        Tenant $tenant
+        Tenant $tenant,
+        ?User $quemBusca = null,
     ): int {
-        return (int) $this->buildQbPorMarcador($filters, $marcador, $tenant)
+        return (int) $this->buildQbPorMarcador($filters, $marcador, $tenant, $quemBusca)
             ->select('COUNT(DISTINCT p.id)')
             ->getQuery()
             ->getSingleScalarResult();
@@ -510,16 +535,16 @@ class PastaRepository extends ServiceEntityRepository
     /**
      * @return array<int, int>  marcadorId => total
      */
-    public function countPorMarcadores(Tenant $tenant): array
+    public function countPorMarcadores(Tenant $tenant, ?User $quemBusca = null): array
     {
-        $rows = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p')
             ->select('m.id AS marcador_id, COUNT(p.id) AS total')
             ->join('p.marcadores', 'm')
             ->where('m.tenant = :tenant')
             ->setParameter('tenant', $tenant)
-            ->groupBy('m.id')
-            ->getQuery()
-            ->getArrayResult();
+            ->groupBy('m.id');
+        $this->soAsVisiveis($qb, $quemBusca);
+        $rows = $qb->getQuery()->getArrayResult();
 
         $counts = [];
         foreach ($rows as $row) {
@@ -535,16 +560,16 @@ class PastaRepository extends ServiceEntityRepository
      *
      * @return array<int, int> marcadorDeTopoId => total
      */
-    public function countPorMarcadoresDeTopoComFilhos(Tenant $tenant): array
+    public function countPorMarcadoresDeTopoComFilhos(Tenant $tenant, ?User $quemBusca = null): array
     {
-        $rows = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p')
             ->select('COALESCE(IDENTITY(m.pai), m.id) AS raiz, COUNT(DISTINCT p.id) AS total')
             ->join('p.marcadores', 'm')
             ->where('m.tenant = :tenant')
             ->setParameter('tenant', $tenant)
-            ->groupBy('raiz')
-            ->getQuery()
-            ->getArrayResult();
+            ->groupBy('raiz');
+        $this->soAsVisiveis($qb, $quemBusca);
+        $rows = $qb->getQuery()->getArrayResult();
 
         $counts = [];
         foreach ($rows as $row) {
@@ -665,6 +690,11 @@ class PastaRepository extends ServiceEntityRepository
             ->groupBy('c.id');
 
         $this->aplicarFiltrosDashboard($qb, $filtros, false);
+        // Cadeado: o número leva à lista "pastas criadas por X", que não mostra a oculta com esse filtro (D1).
+        $ocultas = $this->nivelNoCadeado?->idsDasPastasOcultasDeQuemEstaLogado() ?? [];
+        if ($ocultas !== []) {
+            $qb->andWhere('p.id NOT IN (:criadasOcultas)')->setParameter('criadasOcultas', $ocultas);
+        }
 
         $rows = $qb->getQuery()->getArrayResult();
 
@@ -707,13 +737,13 @@ class PastaRepository extends ServiceEntityRepository
     /**
      * @param array<string, string> $filters
      */
-    private function buildQbByFilters(array $filters, Tenant $tenant): QueryBuilder
+    private function buildQbByFilters(array $filters, Tenant $tenant, ?User $quemBusca = null): QueryBuilder
     {
         $qb = $this->createQueryBuilder('p')
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant);
 
-        $this->aplicarFiltrosPasta($qb, $filters);
+        $this->aplicarFiltrosPasta($qb, $filters, $quemBusca);
 
         return $qb;
     }
@@ -724,7 +754,8 @@ class PastaRepository extends ServiceEntityRepository
     private function buildQbPorMarcador(
         array $filters,
         Marcador $marcador,
-        Tenant $tenant
+        Tenant $tenant,
+        ?User $quemBusca = null,
     ): QueryBuilder {
         // Marcador de topo traz também as pastas dos submarcadores (desenho 1.1, dc `filtrados`, E12).
         $qb = $this->createQueryBuilder('p')
@@ -734,9 +765,31 @@ class PastaRepository extends ServiceEntityRepository
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant);
 
-        $this->aplicarFiltrosPasta($qb, $filters);
+        // O marcador é atributo: a pasta oculta para quem consulta não entra no painel dele (D1).
+        $this->soAsVisiveis($qb, $quemBusca);
+        $this->aplicarFiltrosPasta($qb, $filters, $quemBusca);
 
         return $qb;
+    }
+
+    /** Cadeado (spec pasta-cadeado D1): só as pastas que `quemBusca` vê. Sem `quemBusca`, nada muda. */
+    private function soAsVisiveis(QueryBuilder $qb, ?User $quemBusca): void
+    {
+        if ($quemBusca !== null) {
+            $this->nivelNoCadeado?->restringirAoVisivel($qb, 'p', $quemBusca);
+        }
+    }
+
+    /** @param array<string, string> $filters */
+    private static function temFiltroDeAtributo(array $filters): bool
+    {
+        foreach (self::FILTROS_DE_ATRIBUTO as $chave) {
+            if (trim((string) ($filters[$chave] ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -748,8 +801,11 @@ class PastaRepository extends ServiceEntityRepository
      *
      * @param array<string, string> $filters
      */
-    private function aplicarFiltrosPasta(QueryBuilder $qb, array $filters): void
+    private function aplicarFiltrosPasta(QueryBuilder $qb, array $filters, ?User $quemBusca = null): void
     {
+        if (self::temFiltroDeAtributo($filters)) {
+            $this->soAsVisiveis($qb, $quemBusca);
+        }
         if (!empty($filters['expediente']) && in_array($filters['expediente'], self::FILTROS_EXPEDIENTE, true)) {
             $this->aplicarFiltroDoExpediente($qb, (string) $filters['expediente']);
         }
@@ -844,20 +900,7 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         if (!empty($filters['busca'])) {
-            $qb->andWhere(
-                $qb->expr()->orX(
-                    'UNACCENT(LOWER(p.nup)) LIKE UNACCENT(:busca)',
-                    'UNACCENT(LOWER(p.nomeCliente)) LIKE UNACCENT(:busca)',
-                    self::existeCredorOuDevedorCasando('busca', acentoInsensivel: true),
-                    'UNACCENT(LOWER(p.nomeAcao)) LIKE UNACCENT(:busca)',
-                    'UNACCENT(LOWER(cpf.nomeCompleto)) LIKE UNACCENT(:busca)',
-                    'UNACCENT(LOWER(cpj.razaoSocial)) LIKE UNACCENT(:busca)',
-                    'UNACCENT(LOWER(proc.classeProcessual)) LIKE UNACCENT(:busca)',
-                    'UNACCENT(LOWER(proc.numeroProcesso)) LIKE UNACCENT(:busca)',
-                    'UNACCENT(LOWER(proc.assuntoProcessual)) LIKE UNACCENT(:busca)',
-                    self::existeReuCasando('busca'),
-                )
-            )->setParameter('busca', '%' . mb_strtolower($filters['busca']) . '%');
+            $this->aplicarBusca($qb, (string) $filters['busca'], $quemBusca);
         }
 
         if (!empty($filters['prioridade'])) {
@@ -879,6 +922,33 @@ class PastaRepository extends ServiceEntityRepository
             $qb->andWhere('p.dataAbertura <= :dataAte')
                ->setParameter('dataAte', $dataAte);
         }
+    }
+
+    /**
+     * A busca livre da Lista. Pasta OCULTA pelo cadeado para quem busca (spec pasta-cadeado D1) casa só
+     * pelo que a linha dela mostra: o número da pasta e o cliente (nome da pasta, cadastro, credor ou
+     * devedor). Ação, processo (número, classe, assunto) e réus só casam nas pastas que a pessoa vê. Sem
+     * `quemBusca` (consultas internas) ou para quem vê tudo (Master, primário), a busca é a de sempre.
+     */
+    private function aplicarBusca(QueryBuilder $qb, string $busca, ?User $quemBusca): void
+    {
+        $doQueVe = [
+            'UNACCENT(LOWER(p.nomeAcao)) LIKE UNACCENT(:busca)',
+            'UNACCENT(LOWER(proc.classeProcessual)) LIKE UNACCENT(:busca)',
+            'UNACCENT(LOWER(proc.numeroProcesso)) LIKE UNACCENT(:busca)',
+            'UNACCENT(LOWER(proc.assuntoProcessual)) LIKE UNACCENT(:busca)',
+            self::existeReuCasando('busca'),
+        ];
+        $visivel = $quemBusca !== null ? $this->nivelNoCadeado?->criterioDeVisivel($qb, 'p', $quemBusca) : null;
+
+        $qb->andWhere($qb->expr()->orX(
+            'UNACCENT(LOWER(p.nup)) LIKE UNACCENT(:busca)',
+            'UNACCENT(LOWER(p.nomeCliente)) LIKE UNACCENT(:busca)',
+            self::existeCredorOuDevedorCasando('busca', acentoInsensivel: true),
+            'UNACCENT(LOWER(cpf.nomeCompleto)) LIKE UNACCENT(:busca)',
+            'UNACCENT(LOWER(cpj.razaoSocial)) LIKE UNACCENT(:busca)',
+            $visivel === null ? $qb->expr()->orX(...$doQueVe) : $qb->expr()->andX($visivel, $qb->expr()->orX(...$doQueVe)),
+        ))->setParameter('busca', '%' . mb_strtolower($busca) . '%');
     }
 
     /**
@@ -989,11 +1059,11 @@ class PastaRepository extends ServiceEntityRepository
      *
      * @return array<string, int>
      */
-    public function contagensDosFiltrosDoExpediente(Tenant $tenant): array
+    public function contagensDosFiltrosDoExpediente(Tenant $tenant, ?User $quemBusca = null): array
     {
         $contagens = [];
         foreach (self::FILTROS_EXPEDIENTE as $filtro) {
-            $contagens[$filtro] = $this->countByFilters(['expediente' => $filtro], $tenant);
+            $contagens[$filtro] = $this->countByFilters(['expediente' => $filtro], $tenant, $quemBusca);
         }
 
         return $contagens;
@@ -1346,6 +1416,39 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Os vínculos pasta-processo dos processos informados, só das pastas VIVAS (sem lápide) do
+     * escritório, com a pasta junto: quem recebe o "Avisar quando chegar" do Push (spec
+     * push-avisar-quando-chegar §3). Presa ao escritório pelos dois lados e com o tenant explícito
+     * (roda no CLI, sem TenantFilter). Carrega o vínculo, e não a pasta com a coleção filtrada, para
+     * não deixar `getPastaProcessos()` parcial no EntityManager.
+     *
+     * @param list<int> $processoIds
+     *
+     * @return list<PastaProcesso>
+     */
+    public function listarVinculosDePastasVivasDosProcessos(Tenant $tenant, array $processoIds): array
+    {
+        if ($processoIds === []) {
+            return [];
+        }
+
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('pp', 'pa')
+            ->from(PastaProcesso::class, 'pp')
+            ->innerJoin('pp.pasta', 'pa')
+            ->innerJoin('pp.processo', 'proc')
+            ->andWhere('pa.tenant = :tenant')
+            ->andWhere('proc.tenant = :tenant')
+            ->andWhere('pa.excluidaEm IS NULL')
+            ->andWhere('proc.id IN (:processos)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('processos', array_values(array_unique($processoIds)))
+            ->orderBy('pa.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * "Média por CPF" da aba Financeiro: o ticket médio do cliente — a soma do
      * valor da causa de todas as pastas dele dividida pela quantidade dessas
      * pastas.
@@ -1518,5 +1621,39 @@ class PastaRepository extends ServiceEntityRepository
         foreach ($criteriosDoRamo as $criterio) {
             $qb->addOrderBy($criterio);
         }
+    }
+
+    /**
+     * As pastas ATIVAS e não excluídas do escritório para o relatório de pastas sem processo, com o
+     * responsável e os processos vinculados já carregados (o processo principal sai sem N+1).
+     * `$ids` nulo = todas; lista = só essas (o que o leitor pode ver).
+     *
+     * @param list<int>|null $ids
+     *
+     * @return list<Pasta>
+     */
+    public function ativasParaAnaliseSemProcesso(Tenant $tenant, ?array $ids = null): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $qb = $this->createQueryBuilder('p')
+            ->addSelect('r', 'pp', 'pr')
+            ->leftJoin('p.responsavel', 'r')
+            ->leftJoin('p.pastaProcessos', 'pp')
+            ->leftJoin('pp.processo', 'pr')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.situacao = :ativa')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ativa', Pasta::SITUACAO_ATIVA)
+            ->orderBy('p.id', 'ASC');
+
+        if ($ids !== null) {
+            $qb->andWhere('p.id IN (:ids)')->setParameter('ids', $ids);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 }

@@ -1,0 +1,64 @@
+/* =============================================================================
+   objeto-linha-menu.css — menu da linha da obrigação (aba Dívida do objeto).
+   Desenho: docs/design/redesign-19-10-26/Objeto 1A.dc.html (L214-224 e `omVals`, L578-592).
+   Carrega só na `cobranca_objeto_show`; o comportamento é do `js/objeto-linha-menu.js`.
+
+   O menu é `position: fixed` porque abre onde o cursor está (botão direito) ou sob o `⋯`, e
+   precisa escapar da grade da linha. Nenhum ancestral dele tem `transform`/`filter`, que
+   transformariam o `fixed` num bloco de contenção e o prenderiam dentro da linha.
+   ============================================================================= */
+
+.cob-obr-menu {
+    position: fixed; z-index: 1041;
+    width: 240px; padding: 5px;
+    background: var(--bs-body-bg, #fff);
+    border-radius: 4px;
+    box-shadow: 0 10px 30px rgba(16, 42, 58, .2);
+    text-align: left;
+}
+.cob-obr-menu[hidden] { display: none; }
+
+/* Camada transparente atrás do menu: absorve clique e botão direito fora dele (desenho L215). */
+.cob-obr-menu-camada { position: fixed; inset: 0; z-index: 1040; background: transparent; }
+.cob-obr-menu-camada[hidden] { display: none; }
+
+/* Título: a descrição da obrigação, numa linha, em caixa-alta discreta. */
+.cob-obr-menu-titulo {
+    padding: 6px 10px 5px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: #7b93a2;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.cob-obr-menu-item {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 7px 10px;
+    border: none; background: transparent; border-radius: 4px;
+    font-family: inherit; font-size: 13px; font-weight: 400; line-height: 1.35;
+    text-align: left; cursor: pointer;
+    color: var(--bs-body-color, #243845);
+}
+.cob-obr-menu-item .bi { font-size: 14px; width: 16px; text-align: center; flex-shrink: 0; }
+.cob-obr-menu-item:hover,
+.cob-obr-menu-item:focus-visible { background: #eef5fa; outline: none; }
+.cob-obr-menu-item.is-perigo { color: #a3232b; }
+.cob-obr-menu-item[aria-checked="true"] { font-weight: 600; }
+
+.cob-obr-menu-sep { height: 1px; background: #eef2f5; margin: 4px 8px; }
+
+[data-bs-theme="dark"] .cob-obr-menu { background: var(--bs-tertiary-bg); box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
+[data-bs-theme="dark"] .cob-obr-menu-titulo { color: var(--bs-secondary-color); }
+[data-bs-theme="dark"] .cob-obr-menu-item:hover,
+[data-bs-theme="dark"] .cob-obr-menu-item:focus-visible { background: rgba(255, 255, 255, .06); }
+[data-bs-theme="dark"] .cob-obr-menu-item.is-perigo { color: #f08a84; }
+[data-bs-theme="dark"] .cob-obr-menu-sep { background: var(--bs-border-color-translucent); }
+
+/* Aviso depois das ações locais (Copiado), no pé da tela como no desenho. */
+.cob-obr-aviso {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 1090;
+    padding: 9px 16px; border-radius: 4px;
+    background: #12242f; color: #fff;
+    font-size: 13px; font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+}
+.cob-obr-aviso[hidden] { display: none; }
