@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Agenda\Repository;
 
 use App\Agenda\Entity\Evento;
+use App\Agenda\Entity\LigacaoComGoogle;
 use App\Agenda\Enum\TipoDeCompromisso;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -69,6 +70,35 @@ class EventoDaAgendaRepository
         $this->eventos->restringirAoVisivelPara($qb, $visualizador);
 
         return $qb->getQuery()->getOneOrNullResult();
+    }
+
+    /**
+     * Compromissos que vão à agenda do escritório no Google da pessoa: os que ela criou (inclusive "Só eu") e
+     * aqueles de que participa (menos "Só eu" de outra pessoa). Entram os que ainda não acabaram (desde
+     * `desde`), os que se repetem e os antigos mudados depois de `mudouDesde` (nulo: nenhum antigo). Filtra o
+     * escritório à mão (roda no worker).
+     *
+     * @return list<Evento>
+     */
+    public function daPessoaParaOGoogle(Tenant $tenant, User $pessoa, \DateTimeImmutable $desde, ?\DateTimeImmutable $mudouDesde): array
+    {
+        $qb = $this->eventos->createQueryBuilder('e')
+            ->andWhere('e.tenant = :tenant')
+            ->andWhere('e.criador = :pessoa OR (:pessoa MEMBER OF e.participantes AND e.visibilidade <> :soEu)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pessoa', $pessoa)
+            ->setParameter('soEu', Evento::VISIBILIDADE_SOMENTE_EU)
+            ->setParameter('desde', $desde)
+            ->orderBy('e.id', 'ASC');
+        if (null === $mudouDesde) {
+            return $qb->andWhere('e.dataFim >= :desde OR e.recorrente = true')->getQuery()->getResult();
+        }
+
+        // Também o que ficou para reenviar (cópia mexida no Google), mesmo fora da janela.
+        return $qb->andWhere('e.dataFim >= :desde OR e.recorrente = true OR e.modificadoEm >= :mudou OR e.id IN (SELECT IDENTITY(l.evento) FROM ' . LigacaoComGoogle::class . ' l JOIN l.conexao lc WHERE lc.usuario = :pessoa AND l.tenant = :tenant AND l.hash IS NULL)')
+            ->setParameter('mudou', $mudouDesde)
+            ->getQuery()
+            ->getResult();
     }
 
     /**

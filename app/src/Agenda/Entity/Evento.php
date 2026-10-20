@@ -109,6 +109,14 @@ class Evento implements Auditavel, TenantAware, ConteudoParticular
     #[ORM\Column(type: 'json', options: ['default' => '[]'])]
     private array $avisados = [];
 
+    /**
+     * Nasceu na agenda do escritório no Google de quem o criou e veio pela sincronia (entrega 6): o detalhe
+     * mostra "Importado do Google Agenda." (desenho 09, L237). A ligação com o Google é por pessoa
+     * (`LigacaoComGoogle`), não fica aqui.
+     */
+    #[ORM\Column(name: 'importado_do_google', options: ['default' => false])]
+    private bool $importadoDoGoogle = false;
+
     public function __construct()
     {
         $this->criadoEm = new \DateTimeImmutable();
@@ -419,6 +427,18 @@ class Evento implements Auditavel, TenantAware, ConteudoParticular
         $this->avisados = [...$this->getAvisados(), ...$novos];
 
         return $novos;
+    }
+
+    public function isImportadoDoGoogle(): bool
+    {
+        return $this->importadoDoGoogle;
+    }
+
+    public function marcarImportadoDoGoogle(): self
+    {
+        $this->importadoDoGoogle = true;
+
+        return $this;
     }
 
     /** "Só eu" agora ou antes desta mudança: nos dois casos o conteúdo não vai para a auditoria. */
