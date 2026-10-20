@@ -59,6 +59,91 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         self::assertStringContainsString('/convite/' . $convite->getToken(), (string) $client->getResponse()->getContent());
     }
 
+    #[TestDox('"Meus convites" não mostra convite pendente de outro e-mail')]
+    public function testMeusConvitesNaoMostraConviteDeOutroEmail(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = (new User())->setEmail('eu_' . uniqid() . '@adv.com')->setFullName('Eu Mesma')->setPassword('x')->setRoles(['ROLE_USER']);
+        $em->persist($user);
+        $meu = (new Tenant())->setName('Meu escritório');
+        $em->persist($meu);
+        $em->persist(new UserTenant($user, $meu));
+        $em->flush();
+        $alheio = $this->convite(Invitation::TIPO_ESCRITORIO, 'outra_' . uniqid() . '@adv.com');
+        $this->logarComTenant($client, $user, $meu);
+
+        $client->request('GET', '/convites');
+
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString($alheio->getToken(), (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('Aceite de plataforma de ponta a ponta: cria a conta sem escritório e marca o convite como aceito')]
+    public function testAceiteDePlataformaCriaAConta(): void
+    {
+        $client = static::createClient();
+        $email = 'plataforma_' . uniqid() . '@adv.com';
+        $convite = $this->convite(Invitation::TIPO_PLATAFORMA, $email);
+
+        $this->aceitarPlataforma($client, $convite, senha: 'SenhaBoa123');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $user = $em->getRepository(User::class)->findOneBy(['email' => $email]);
+        self::assertNotNull($user, 'A conta tinha que nascer.');
+        self::assertSame('accepted', $em->getRepository(Invitation::class)->find($convite->getId())?->getStatus());
+    }
+
+    #[TestDox('Aceite de plataforma recusa senha curta enviada por POST direto (sem o required do navegador)')]
+    public function testAceiteDePlataformaRecusaSenhaCurta(): void
+    {
+        $client = static::createClient();
+        $email = 'curta_' . uniqid() . '@adv.com';
+        $convite = $this->convite(Invitation::TIPO_PLATAFORMA, $email);
+
+        $this->aceitarPlataforma($client, $convite, senha: 'a');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNull($em->getRepository(User::class)->findOneBy(['email' => $email]));
+        self::assertSame('pending', $em->getRepository(Invitation::class)->find($convite->getId())?->getStatus());
+    }
+
+    #[TestDox('Convite de escritório mandado para a rota de plataforma não cria conta nem é aceito')]
+    public function testConviteDeEscritorioNaRotaDePlataformaERecusado(): void
+    {
+        $client = static::createClient();
+        $email = 'escritorio_' . uniqid() . '@adv.com';
+        $convite = $this->convite(Invitation::TIPO_ESCRITORIO, $email);
+        // O CSRF é o mesmo nos dois formulários (convite_<token>): tira-se da página do próprio convite.
+        $crawler = $client->request('GET', '/convite/' . $convite->getToken());
+        $token = (string) $crawler->filter('form[method="post"] input[name="_token"]')->attr('value');
+
+        $client->request('POST', '/convite/' . $convite->getToken() . '/plataforma', [
+            '_token' => $token, 'full_name' => 'Pessoa Teste', 'senha' => 'SenhaBoa123',
+            'oab_numero' => '123456', 'oab_uf' => 'DF', 'aceite_termos' => '1',
+        ]);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNull($em->getRepository(User::class)->findOneBy(['email' => $email]));
+        self::assertSame('pending', $em->getRepository(Invitation::class)->find($convite->getId())?->getStatus());
+    }
+
+    private function aceitarPlataforma(\Symfony\Bundle\FrameworkBundle\KernelBrowser $client, Invitation $convite, string $senha): void
+    {
+        $crawler = $client->request('GET', '/convite/' . $convite->getToken());
+        $form = $crawler->filter('form[method="post"]')->form([
+            'full_name' => 'Pessoa Teste',
+            'senha' => $senha,
+            'oab_numero' => '123456',
+            'oab_uf' => 'DF',
+        ]);
+        $form['aceite_termos']->tick();
+        $client->submit($form);
+    }
+
     private function convite(string $tipo, string $email): Invitation
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);

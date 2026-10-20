@@ -48,6 +48,11 @@ final class AceitarConviteEscritorioSemContaUseCase
             throw new \DomainException('Já existe uma conta com este e-mail.');
         }
 
+        // O `required` do HTML não protege um POST direto: o mínimo do cadastro vale aqui também.
+        if (mb_strlen($input->senha) < AceitarConvitePlataformaUseCase::SENHA_MINIMA) {
+            throw new \InvalidArgumentException('A senha deve ter ao menos 8 caracteres.');
+        }
+
         $fullName = $input->fullName !== '' ? $input->fullName : $invitation->getFullName();
         if ($fullName === null || $fullName === '') {
             throw new \InvalidArgumentException('Nome completo é obrigatório.');
