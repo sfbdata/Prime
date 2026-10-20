@@ -8,6 +8,32 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.7.0] - 2026-10-20
+
+### Adicionado
+
+- Agenda: lembretes por push com o navegador fechado (Service Worker `sw-lembretes.js`, inscrição em `POST /agenda/push/inscrever`, varredura a cada minuto pelo Messenger sem cron, envio sem repetição); comando `app:agenda:push-varredura`; tabelas `agenda_push_inscricao`, `agenda_push_enviado` e `agenda_push_varredura`; dependência `minishlink/web-push`.
+- Master: seção "Comercial e e-mails", com o bloco "Automações" do desenho 05: ligar e desligar cada automação, escolher o atraso, "Simular novo cadastro", "Últimos disparos" (com o destinatário mascarado) e a prévia de cada modelo.
+- E-mails: envio pela fila própria do Comercial, com limite por minuto e por dia, rodapé legal em todo e-mail, link "Não quero mais receber" e cabeçalhos de descadastro em um clique.
+- E-mails: boas-vindas ao confirmar o cadastro e ao aceitar um convite, uma vez só por pessoa e escritório; dicas 7 dias depois (nascem desligadas).
+- LGPD: confirmação de endereço (double opt-in) reaproveitável por qualquer lista, com a prova do consentimento guardada; o rastreio de aberturas e cliques fica desligado até a Política de Privacidade citá-lo.
+- Explorador de documentos da pasta: o menu de um item ganha "Encaminhar via Chat I.A" (desenho 02, D:5071), logo depois de "Copiar caminho". Numa pasta do explorador encaminha a seção; num arquivo, o documento. Abre a tela "Despachar via Chat I.A" da Central. Só aparece com a Central na página e fora da pasta excluída.
+- "Encaminhar via Chat I.A" nos registros da pasta (desenho 02, D:1405, D:1936, D:2463, D:6305, D:6869 e D:6958): botão ↪ espelhado no cartão de registro das abas Dados, Detalhes e Financeiro, item no menu do registro (Dados e Financeiro, depois de Copiar texto), no ⋮ da observação de Detalhes (entre Copiar texto e Citar no novo registro) e no ⋮ do arquivo do Financeiro (depois de Copiar nome do arquivo). O clique dispara `bj-central:despachar` com `{pastaId, tipo, itemId}` (`public/js/pasta-encaminhar.js`); só aparece com a Central disponível e fora da pasta excluída.
+- "Encaminhar via Chat I.A" nas metas e nos prazos (desenho 02, D:3737 e D:6561): item no ⋮ da meta da aba Metas (depois de Editar nome, antes de Copiar link), no ⋮ do prazo do trilho "Próximos prazos" da aba Dados (logo depois de Ver nas metas; a meta vai como `meta`, o prazo registrado como `prazo`). O clique dispara `bj-central:despachar` com `{pastaId, tipo, itemId}`; só aparece com a Central disponível e fora da pasta excluída.
+- Minhas Metas: item "Encaminhar via Chat I.A" por último no ⋮ de cada cartão (R223). O clique dispara `bj-central:despachar` com a pasta e a meta; só aparece com a Central disponível e fora da pasta excluída.
+- Pasta, aba Metas: em "Responsáveis nas metas", cada pessoa vira um botão que abre a conversa 1:1 no Chat I.A (desenho 02, L.1686; `bj-central:conversar`). O resumo agrupa pelo usuário, não mais pelo nome.
+- Tela "Despachar via Chat I.A" na janela da Central (desenho BC:6218-6238): cartão do item relido pelo servidor (`GET /central/encaminhar/item`), instrução, prioridade Normal, Urgente ou Para hoje e "Para quem?" só com quem vê a pasta; ao escolher, envia, abre a conversa e avisa "Despachado para NOME.".
+- API da janela `window.BJCentral` (`abrir`, `despachar`, `conversar`) e os eventos `bj-central:despachar` e `bj-central:conversar`, onde o lançador flutuante está na página. Os itens de menu nas telas da pasta vêm nos próximos PRs.
+- Mensagem de despacho mostra o chip "Pasta N" (BC:6041), que abre a pasta, a partir da referência do servidor; despacho de pasta sem acesso aparece apagado como "Item de pasta sem acesso".
+
+### Corrigido
+
+- Login: o painel de contas do menu e os mapas do Master não viram mais destino depois de entrar; um quadro interno com a sessão vencida mostra a tela de login em vez de uma mensagem técnica.
+- Login: depois de entrar, o sistema só volta para uma página de verdade (Expediente, Agenda, pasta, Clientes, Cobrança e as demais telas); endereço de dados, download ou exportação leva à página inicial.
+- Login com várias abas abertas: um aviso automático de outra aba não apaga mais a página que a pessoa tentava abrir.
+- Sessão vencida: o sino de notificações e o alerta do ponto param de consultar o servidor até a pessoa entrar de novo.
+- Cadastro do cliente: o seletor de autores da pasta tem ordem fixa (o principal primeiro, depois o nome e, no empate, o id). Antes a ordem vinha da tabela de ligação sem ordenação e podia trocar entre aberturas, o que também deixava instável o teste `ClienteCadastroControllerTest::testAutores`.
+
 ## [2.6.0] - 2026-10-20
 
 ### Adicionado
@@ -365,7 +391,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.6.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.7.0...HEAD
+[2.7.0]: https://github.com/sfbdata/Prime/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/sfbdata/Prime/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/sfbdata/Prime/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/sfbdata/Prime/compare/v2.3.1...v2.4.0

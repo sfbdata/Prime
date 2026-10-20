@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Comercial\Service;
 
+use App\Comercial\Campanha\SanitizadorDeHtmlDeEmail;
+use App\Comercial\Envio\LayoutDoEmail;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
 use App\Legal\PoliticaPrivacidadeVigente;
@@ -23,6 +25,10 @@ use Twig\Environment;
  *
  * Rastreio ligado só com as duas chaves: `COMERCIAL_RASTREIO_LIGADO` e {@see PoliticaPrivacidadeVigente::CITA_RASTREIO_DE_EMAIL}
  * (a Política tem de citar o rastreio antes). O segundo parâmetro do construtor nasce da constante; os testes o trocam.
+ *
+ * Três layouts ({@see LayoutDoEmail}, §8.3): `padrao` (o miolo num `<td>`), `linhas` (o corpo já são as linhas da
+ * tabela, as campanhas em blocos e no modo simples) e `cru` (o HTML importado, sanitizado DE NOVO aqui, em toda
+ * montagem, sem o cabeçalho e com só o rodapé legal). O `{nome}` é trocado depois da sanitização, já escapado.
  */
 final class MontadorDeEmail
 {
@@ -32,6 +38,8 @@ final class MontadorDeEmail
     private const ROTA_POLITICA = 'legal_politica_privacidade';
     private const LOGO = '/images/logo/bluejus-white-transparent-nav.png';
 
+    private readonly SanitizadorDeHtmlDeEmail $sanitizador;
+
     public function __construct(
         private readonly Environment $twig,
         private readonly IdentidadeDeEmail $identidade,
@@ -40,7 +48,9 @@ final class MontadorDeEmail
         private readonly UriSigner $assinadorDeClique,
         private readonly bool $rastreioLigado,
         private readonly bool $politicaCitaRastreio = PoliticaPrivacidadeVigente::CITA_RASTREIO_DE_EMAIL,
+        ?SanitizadorDeHtmlDeEmail $sanitizador = null,
     ) {
+        $this->sanitizador = $sanitizador ?? new SanitizadorDeHtmlDeEmail();
     }
 
     /** @param string $token o token público do envio (pixel e clique) */
@@ -81,11 +91,13 @@ final class MontadorDeEmail
         $rastreia = $this->rastreia($m);
         $linkPolitica = $this->urls->generate(self::ROTA_POLITICA, [], UrlGeneratorInterface::ABSOLUTE_URL);
         $nome = self::primeiroNome($m->nome);
+        $corpo = $m->layout === LayoutDoEmail::Cru ? $this->sanitizador->sanitizar($m->corpoHtml) : $m->corpoHtml;
         $html = $this->twig->render(self::TEMPLATE, [
             'assunto' => $m->assunto,
             'selo' => $m->selo,
             'titulo' => $m->titulo === null ? null : str_replace('{nome}', $nome, $m->titulo),
-            'corpo' => str_replace('{nome}', htmlspecialchars($nome, ENT_QUOTES), $m->corpoHtml),
+            'corpo' => str_replace('{nome}', htmlspecialchars($nome, ENT_QUOTES), $corpo),
+            'layout' => $m->layout->value,
             'logo' => $this->base() . self::LOGO,
             'tipo' => $m->tipo->value,
             'escritorio' => $m->escopo === null ? null : (trim((string) $m->escopo->getName()) ?: 'o escritório'),

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Comercial\MessageHandler;
 
+use App\Comercial\Envio\LayoutDoEmail;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
 use App\Comercial\Message\EnviarEmail;
@@ -34,10 +35,15 @@ use Symfony\Component\Messenger\Stamp\DelayStamp;
 #[AsMessageHandler]
 final class EnviarEmailHandler
 {
-    /** Os transacionais do ciclo da conta respeitam só o limite por minuto (N6): nunca esperam o dia seguinte. */
-    public const ORIGENS_DO_CICLO_DA_CONTA = [
+    /**
+     * Respeitam só o limite por minuto, nunca o teto diário: os transacionais do ciclo da conta (N6, as boas-vindas
+     * nunca esperam o dia seguinte por causa de campanha) e o "Enviar teste" da campanha, que vai só ao Master logado
+     * (§8.4, com teto próprio de 10 por hora).
+     */
+    public const ORIGENS_ISENTAS_DO_TETO_DIARIO = [
         'automacao:cad', 'automacao:lemb', 'automacao:val', 'automacao:conv',
         'automacao:e90', 'automacao:e100', 'automacao:ped',
+        'teste_campanha',
     ];
 
     public function __construct(
@@ -110,7 +116,7 @@ final class EnviarEmailHandler
         if ($this->envios->contarEnviadosDesde($agora->modify('-60 seconds')) >= $this->enviosPorMinuto) {
             return $agora->modify('+60 seconds');
         }
-        if (\in_array($origem, self::ORIGENS_DO_CICLO_DA_CONTA, true)) {
+        if (\in_array($origem, self::ORIGENS_ISENTAS_DO_TETO_DIARIO, true)) {
             return null;
         }
         $hoje = $agora->setTime(0, 0);
@@ -165,6 +171,7 @@ final class EnviarEmailHandler
                 $envio['rastrear'],
                 $envio['nome_do_remetente'],
                 $envio['motivo_do_envio'],
+                LayoutDoEmail::tryFrom($envio['layout']) ?? LayoutDoEmail::Padrao,
             );
         } catch (\InvalidArgumentException) {
             return null;
