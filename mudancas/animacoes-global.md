@@ -1,5 +1,5 @@
 ---
-tipo: melhoria
+tipo: alteracao
 ---
 ## Changelog
 - A opção "Animações" do Guia visual (reduzidas) passa a valer no sistema inteiro: o `base.html.twig` põe `jp-sem-anim` no `<html>` pela preferência do usuário (`animacoes_reduzidas()`), e o `app.css` desliga transições e animações por ela.
