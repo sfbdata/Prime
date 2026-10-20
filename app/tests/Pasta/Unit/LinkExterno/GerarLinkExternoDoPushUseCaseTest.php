@@ -51,9 +51,9 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
 
         return new GerarLinkExternoDoPushUseCase(
             $this->links,
-            new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises),
+            new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises, $this->cadeados()),
             new GeradorDeEnderecoDoLinkExterno($this->links),
-            new MontadorDeLinksExternos($acessos, $this->urlGenerator(), new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class))),
+            new MontadorDeLinksExternos($acessos, $this->urlGenerator(), new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class), $this->cadeados())),
             new MockClock($this->agora()),
         );
     }
@@ -70,7 +70,7 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
         yield 'cancelada' => [static fn (self $t): Pasta => $t->pastaComProcesso($t->tenant())->setSituacao(Pasta::SITUACAO_CANCELADA), 'A pasta está cancelada: o link externo fica indisponível.'];
         yield 'excluída (lápide)' => [static fn (self $t): Pasta => $t->pastaComProcesso($t->tenant())->marcarExcluida($t->usuario(), $t->agora()), 'A pasta está cancelada: o link externo fica indisponível.'];
         yield 'arquivada' => [static fn (self $t): Pasta => $t->pastaComProcesso($t->tenant())->setSituacao(Pasta::SITUACAO_ARQUIVADA), 'A pasta está arquivada: reative para compartilhar o Push.'];
-        yield 'trancada' => [static fn (self $t): Pasta => $t->pastaComProcesso($t->tenant())->trancar($t->usuario(), $t->agora()), 'A pasta está trancada: o link externo fica indisponível.'];
+        yield 'trancada' => [static fn (self $t): Pasta => $t->comCadeado($t->pastaComProcesso($t->tenant())), 'A pasta está trancada: o link externo fica indisponível.'];
         yield 'processo em segredo de justiça' => [static function (self $t): Pasta {
             $processo = $t->processo($t->tenant());
             $processo->setNivelSigilo(1);
