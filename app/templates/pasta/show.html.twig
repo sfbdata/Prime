@@ -510,6 +510,8 @@
    drawer do histórico. Os eventos chegam por JSON (`pasta_timeline`). #}
 {{ include('pasta/_timeline_inteligente.html.twig', {pasta: pasta}) }}
 {{ include('pasta/_impressao_modal.html.twig', {pasta: pasta}) }}
+{# Prévia do relatório geral de processos (⋮ da aba Processo; spec relatorio-processos-controladoria). #}
+{{ include('expediente/_relatorio_processos_modal.html.twig') }}
 {# Link externo do Push Processual (spec push-link-externo §5): menu da aba Push, modal e painel de acessos.
    Com o Push oculto para quem vê, nada disso existe (spec pasta-ocultar-aba §5). #}
 {% if 'push' not in abasOcultas %}
