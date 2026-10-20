@@ -6,11 +6,10 @@ namespace App\Auth\Controller;
 
 use App\Auth\DTO\OabReviewOutput;
 use App\Auth\Enum\StatusOab;
-use App\Auth\UseCase\ConfirmarOabManualmenteUseCase;
-use App\Auth\UseCase\ReverterOabUseCase;
-use App\Auth\UseCase\VerificarOabUseCase;
-use App\Entity\Auth\User;
-use App\Repository\UserRepository;
+use App\Auth\Repository\InscricaoOabRepository;
+use App\Auth\UseCase\ConfirmarInscricaoOabUseCase;
+use App\Auth\UseCase\ReverterInscricaoOabUseCase;
+use App\Auth\UseCase\VerificarInscricaoOabUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,10 +17,12 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * Tela de revisão de OAB do super-admin (platform-level, fora de escritório). Lista usuários com OAB
- * (cross-tenant, identidade global), permite confirmar/reverter/re-verificar. As mudanças de `oabStatus`
- * são auditadas automaticamente (User é `Auditavel` → `AuditLogSubscriber` no flush). Enquanto a
- * verificação automática está dormente, "re-verificar" é no-op (mantém `nao_verificada`).
+ * Tela de revisão de OAB do super-admin (platform-level, fora de escritório). Lista as inscrições na OAB
+ * (principal e suplementares; cross-tenant, a inscrição é da pessoa) e permite confirmar/reverter/re-verificar
+ * cada uma pelo id da inscrição (spec docs/specs/oab-revisao-por-inscricao.md). Os UseCases mantêm o espelho
+ * User.oab* quando a inscrição é a principal; as mudanças são auditadas automaticamente (InscricaoOab e User são
+ * `Auditavel` → `AuditLogSubscriber` no flush). Enquanto a verificação automática está dormente, "re-verificar"
+ * devolve `nao_verificada`.
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 #[Route('/admin/platform/oab')]
@@ -39,10 +40,10 @@ final class OabReviewController extends AbstractController
     ];
 
     public function __construct(
-        private readonly UserRepository $userRepository,
-        private readonly ConfirmarOabManualmenteUseCase $confirmar,
-        private readonly ReverterOabUseCase $reverter,
-        private readonly VerificarOabUseCase $verificar,
+        private readonly InscricaoOabRepository $inscricoes,
+        private readonly ConfirmarInscricaoOabUseCase $confirmar,
+        private readonly ReverterInscricaoOabUseCase $reverter,
+        private readonly VerificarInscricaoOabUseCase $verificar,
     ) {
     }
 
@@ -58,11 +59,10 @@ final class OabReviewController extends AbstractController
         $pagina = max(1, $request->query->getInt('pagina', 1));
 
         $statuses = self::FILTROS[$statusAtual];
-        $total    = $this->userRepository->contarParaRevisaoOab($statuses, $busca);
-        $offset   = ($pagina - 1) * self::POR_PAGINA;
+        $total    = $this->inscricoes->contarParaRevisao($statuses, $busca);
 
-        $usuarios = $this->userRepository->buscarParaRevisaoOab($statuses, $busca, $offset, self::POR_PAGINA);
-        $itens    = array_map(OabReviewOutput::fromUser(...), $usuarios);
+        $inscricoes = $this->inscricoes->paraRevisao($statuses, $busca, $pagina, self::POR_PAGINA);
+        $itens      = array_map(OabReviewOutput::fromInscricao(...), $inscricoes);
 
         return $this->render('admin/platform/oab.html.twig', [
             'itens'        => $itens,
@@ -77,8 +77,8 @@ final class OabReviewController extends AbstractController
     #[Route('/{id}/confirmar', name: 'admin_platform_oab_confirmar', methods: ['POST'])]
     public function confirmarAcao(int $id, Request $request): Response
     {
-        $user = $this->resolverUsuario($id, $request, 'oab_confirmar_' . $id);
-        $this->confirmar->executar($user);
+        $this->validarCsrf($request, 'oab_confirmar_' . $id);
+        $this->executarOu404(fn () => $this->confirmar->executar($id));
         $this->addFlash('sucesso', 'OAB confirmada.');
 
         return $this->redirectParaLista($request);
@@ -87,7 +87,7 @@ final class OabReviewController extends AbstractController
     #[Route('/{id}/reverter', name: 'admin_platform_oab_reverter', methods: ['POST'])]
     public function reverterAcao(int $id, Request $request): Response
     {
-        $user    = $this->resolverUsuario($id, $request, 'oab_reverter_' . $id);
+        $this->validarCsrf($request, 'oab_reverter_' . $id);
         $destino = StatusOab::tryFrom((string) $request->request->get('destino'));
 
         if ($destino === null) {
@@ -97,7 +97,7 @@ final class OabReviewController extends AbstractController
         }
 
         try {
-            $this->reverter->executar($user, $destino);
+            $this->executarOu404(fn () => $this->reverter->executar($id, $destino));
             $this->addFlash('sucesso', 'OAB revertida.');
         } catch (\InvalidArgumentException $e) {
             $this->addFlash('erro', $e->getMessage());
@@ -109,30 +109,41 @@ final class OabReviewController extends AbstractController
     #[Route('/{id}/reverificar', name: 'admin_platform_oab_reverificar', methods: ['POST'])]
     public function reverificarAcao(int $id, Request $request): Response
     {
-        $user      = $this->resolverUsuario($id, $request, 'oab_reverificar_' . $id);
-        $resultado = $this->verificar->executar($user);
+        $this->validarCsrf($request, 'oab_reverificar_' . $id);
+        $inscricao = $this->executarOu404(fn () => $this->verificar->executar($id));
 
-        if ($resultado === null) {
-            $this->addFlash('erro', 'Usuário sem número de OAB para verificar.');
-        } else {
+        if ($inscricao->getStatus() === StatusOab::NaoVerificada) {
             $this->addFlash('info', 'Verificação executada. Backend automático indisponível, o status permanece não verificado.');
+        } else {
+            $this->addFlash('info', 'Verificação executada.');
         }
 
         return $this->redirectParaLista($request);
     }
 
-    private function resolverUsuario(int $id, Request $request, string $csrfId): User
+    private function validarCsrf(Request $request, string $csrfId): void
     {
         if (!$this->isCsrfTokenValid($csrfId, (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
+    }
 
-        $user = $this->userRepository->find($id);
-        if ($user === null) {
-            throw $this->createNotFoundException('Usuário não encontrado.');
+    /**
+     * Os UseCases lançam `DomainException` para inscrição inexistente: vira 404.
+     *
+     * @template T
+     *
+     * @param callable(): T $acao
+     *
+     * @return T
+     */
+    private function executarOu404(callable $acao): mixed
+    {
+        try {
+            return $acao();
+        } catch (\DomainException $e) {
+            throw $this->createNotFoundException('Inscrição não encontrada.', $e);
         }
-
-        return $user;
     }
 
     private function redirectParaLista(Request $request): Response

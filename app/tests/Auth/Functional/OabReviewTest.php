@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Auth\Functional;
 
 use App\Auth\Controller\OabReviewController;
+use App\Auth\Entity\InscricaoOab;
 use App\Auth\Enum\StatusOab;
+use App\Auth\Enum\TipoInscricaoOab;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -15,7 +17,13 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
+/**
+ * Fila de revisão de OAB do Master por inscrição (spec docs/specs/oab-revisao-por-inscricao.md): principal e
+ * suplementares, ações pelo id da inscrição. As listas filtram pelo e-mail do advogado do teste para não depender
+ * das inscrições que já existam no banco.
+ */
 #[CoversClass(OabReviewController::class)]
 final class OabReviewTest extends JusPrimeWebTestCase
 {
@@ -41,91 +49,291 @@ final class OabReviewTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    #[TestDox('Super-admin enxerga usuários de qualquer escritório (identidade global)')]
-    public function testSuperAdminVeUsuariosGlobais(): void
+    #[TestDox('Usuário comum recebe 403 também nas ações por inscrição, e a inscrição não muda')]
+    public function testNaoSuperAdminRecebe403NasAcoes(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $tenant = new Tenant();
+        $tenant->setName('Tenant OAB ' . uniqid());
+        $em->persist($tenant);
+        $comum = $this->criarUsuario(['ROLE_USER']);
+        $em->persist(new UserTenant($comum, $tenant));
+        $em->flush();
+
+        $adv = $this->criarAdvogado(StatusOab::NaoVerificada);
+        $sup = $this->adicionarSuplementar($adv, 'RJ', StatusOab::NaoVerificada);
+        $id  = (int) $sup->getId();
+
+        $this->logarComTenant($client, $comum, $tenant);
+        $client->request('POST', '/admin/platform/oab/' . $id . '/confirmar', ['_token' => 'TOKEN_oab_confirmar_' . $id]);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(StatusOab::NaoVerificada, $this->recarregarInscricao($id)->getStatus());
+    }
+
+    #[TestDox('Super-admin enxerga inscrições de usuários de qualquer escritório (identidade global)')]
+    public function testSuperAdminVeInscricoesGlobais(): void
     {
         $client = static::createClient();
         $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
 
-        $a = $this->criarUsuarioOab(StatusOab::NaoVerificada);
-        $b = $this->criarUsuarioOab(StatusOab::Divergente);
+        $a = $this->criarAdvogado(StatusOab::NaoVerificada);
+        $b = $this->criarAdvogado(StatusOab::Divergente);
 
-        $client->request('GET', '/admin/platform/oab');
-
-        self::assertResponseIsSuccessful();
-        $html = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString($a->getEmail(), $html);
-        self::assertStringContainsString($b->getEmail(), $html);
+        foreach ([$a, $b] as $adv) {
+            $client->request('GET', '/admin/platform/oab?status=todas&q=' . urlencode((string) $adv->getEmail()));
+            self::assertResponseIsSuccessful();
+            self::assertStringContainsString((string) $adv->getEmail(), (string) $client->getResponse()->getContent());
+        }
     }
 
-    #[TestDox('Confirmar muda o status para Confirmada e gera auditoria automática atribuída ao admin')]
-    public function testConfirmarMudaStatusEAudita(): void
+    #[TestDox('A lista mostra a principal e a suplementar do mesmo usuário, cada uma com o seu selo')]
+    public function testListaPrincipalESuplementarComSelo(): void
+    {
+        $client = static::createClient();
+        $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
+
+        $adv = $this->criarAdvogado(StatusOab::Confirmada, '11111', 'SP');
+        $this->adicionarSuplementar($adv, 'RJ', StatusOab::NaoVerificada, '22222');
+
+        $crawler = $client->request('GET', '/admin/platform/oab?status=todas&q=' . urlencode((string) $adv->getEmail()));
+
+        self::assertResponseIsSuccessful();
+        $linhas = $crawler->filter('table.platform-table tbody tr');
+        self::assertCount(2, $linhas);
+
+        $porNumero = [];
+        foreach ($linhas as $tr) {
+            $texto = (string) $tr->textContent;
+            self::assertStringContainsString((string) $adv->getEmail(), $texto);
+            self::assertStringContainsString('Fulano Advogado', $texto);
+            $porNumero[str_contains($texto, '11111/SP') ? 'principal' : 'suplementar'] = $texto;
+        }
+
+        self::assertStringContainsString('PRINCIPAL', $porNumero['principal']);
+        self::assertStringNotContainsString('SUPLEMENTAR', $porNumero['principal']);
+        self::assertStringContainsString('22222/RJ', $porNumero['suplementar']);
+        self::assertStringContainsString('SUPLEMENTAR', $porNumero['suplementar']);
+        self::assertSame(1, $crawler->filter('.oab-selo-tipo.text-bg-primary')->count());
+        self::assertSame(1, $crawler->filter('.oab-selo-tipo.text-bg-secondary')->count());
+        self::assertStringContainsString('2 inscrições', $crawler->filter('.platform-badge')->text());
+    }
+
+    #[TestDox('Os filtros separam as inscrições pela situação de cada uma')]
+    public function testFiltrosPorSituacaoDaInscricao(): void
+    {
+        $client = static::createClient();
+        $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
+
+        $adv = $this->criarAdvogado(StatusOab::Confirmada, '11111', 'SP');
+        $this->adicionarSuplementar($adv, 'RJ', StatusOab::Divergente, '22222');
+        $this->adicionarSuplementar($adv, 'MG', StatusOab::NaoVerificada, '33333');
+
+        $esperado = [
+            'pendentes'      => ['22222/RJ', '33333/MG'],
+            'nao_verificada' => ['33333/MG'],
+            'divergente'     => ['22222/RJ'],
+            'confirmada'     => ['11111/SP'],
+            'todas'          => ['11111/SP', '22222/RJ', '33333/MG'],
+        ];
+        $todos = ['11111/SP', '22222/RJ', '33333/MG'];
+
+        foreach ($esperado as $filtro => $numeros) {
+            $crawler = $client->request('GET', '/admin/platform/oab?status=' . $filtro . '&q=' . urlencode((string) $adv->getEmail()));
+            self::assertResponseIsSuccessful();
+            self::assertCount(\count($numeros), $crawler->filter('table.platform-table tbody tr .oab-selo-tipo'), 'filtro ' . $filtro);
+            $tabela = $crawler->filter('table.platform-table tbody')->text();
+            foreach ($todos as $numero) {
+                if (\in_array($numero, $numeros, true)) {
+                    self::assertStringContainsString($numero, $tabela, 'filtro ' . $filtro);
+                } else {
+                    self::assertStringNotContainsString($numero, $tabela, 'filtro ' . $filtro);
+                }
+            }
+        }
+    }
+
+    #[TestDox('A busca também acha a inscrição pelo número da suplementar')]
+    public function testBuscaPeloNumeroDaSuplementar(): void
+    {
+        $client = static::createClient();
+        $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
+
+        $numero = (string) random_int(700000, 799999);
+        $adv    = $this->criarAdvogado(StatusOab::NaoVerificada, '11111', 'SP');
+        $this->adicionarSuplementar($adv, 'RJ', StatusOab::NaoVerificada, $numero);
+
+        $crawler = $client->request('GET', '/admin/platform/oab?status=todas&q=' . $numero);
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('table.platform-table tbody tr .oab-selo-tipo'));
+        self::assertStringContainsString($numero . '/RJ', $crawler->filter('table.platform-table tbody')->text());
+    }
+
+    #[TestDox('Confirmar uma suplementar muda só ela: a principal e o espelho no usuário ficam como estavam; gera auditoria')]
+    public function testConfirmarSuplementarMudaSoEla(): void
     {
         $client = static::createClient();
         $admin  = $this->criarUsuario(['ROLE_SUPER_ADMIN']);
         $this->logar($client, $admin);
-        $alvo = $this->criarUsuarioOab(StatusOab::Divergente);
 
-        $crawler = $client->request('GET', '/admin/platform/oab');
-        $form    = $crawler->filter('form[action*="/confirmar"]')->form();
-        $client->submit($form);
+        $adv       = $this->criarAdvogado(StatusOab::NaoVerificada);
+        $principal = $this->principalDe($adv);
+        $sup       = $this->adicionarSuplementar($adv, 'RJ', StatusOab::NaoVerificada);
+        $supId     = (int) $sup->getId();
+
+        $crawler = $client->request('GET', '/admin/platform/oab?q=' . urlencode((string) $adv->getEmail()));
+        $client->submit($crawler->filter('form[action*="/' . $supId . '/confirmar"]')->form());
 
         self::assertResponseRedirects();
-        self::assertSame(StatusOab::Confirmada, $this->recarregar($alvo)->getOabStatus());
+        $depois = $this->recarregarInscricao($supId);
+        self::assertSame(StatusOab::Confirmada, $depois->getStatus());
+        self::assertNotNull($depois->getVerificadaEm());
+        self::assertSame(StatusOab::NaoVerificada, $this->recarregarInscricao((int) $principal->getId())->getStatus());
+        self::assertSame(StatusOab::NaoVerificada, $this->recarregarUsuario($adv)->getOabStatus());
 
-        // Auditoria automática: User é Auditavel → o AuditLogSubscriber registra a alteração de
-        // oabStatus no flush, com o super-admin logado como ator (quem/quando).
+        // Auditoria automática: InscricaoOab é Auditavel → o AuditLogSubscriber registra no flush, com o
+        // super-admin logado como ator (quem/quando).
         $em  = static::getContainer()->get(EntityManagerInterface::class);
         $log = $em->getRepository(AuditLog::class)->findOneBy([
-            'entityId'    => (string) $alvo->getId(),
+            'entityClass' => InscricaoOab::class,
+            'entityId'    => (string) $supId,
             'actorUserId' => $admin->getId(),
         ]);
         self::assertNotNull($log, 'a confirmação deve gerar auditoria automática atribuída ao super-admin');
         self::assertSame('update', $log->getAction());
     }
 
-    #[TestDox('Reverter uma OAB confirmada para Divergente (admin escolhe o destino)')]
-    public function testReverterParaDivergente(): void
+    #[TestDox('Confirmar a principal espelha a situação no usuário')]
+    public function testConfirmarPrincipalEspelhaNoUsuario(): void
     {
         $client = static::createClient();
         $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
-        $alvo = $this->criarUsuarioOab(StatusOab::Confirmada);
 
-        $crawler = $client->request('GET', '/admin/platform/oab?status=confirmada');
-        // Duas opções de reverter (nao_verificada, divergente); a segunda é "divergente".
-        $form = $crawler->filter('form[action*="/reverter"]')->eq(1)->form();
-        $client->submit($form);
+        $adv         = $this->criarAdvogado(StatusOab::Divergente);
+        $principalId = (int) $this->principalDe($adv)->getId();
+        $sup         = $this->adicionarSuplementar($adv, 'RJ', StatusOab::Divergente);
+
+        $crawler = $client->request('GET', '/admin/platform/oab?status=divergente&q=' . urlencode((string) $adv->getEmail()));
+        $client->submit($crawler->filter('form[action*="/' . $principalId . '/confirmar"]')->form());
 
         self::assertResponseRedirects();
-        self::assertSame(StatusOab::Divergente, $this->recarregar($alvo)->getOabStatus());
+        self::assertSame(StatusOab::Confirmada, $this->recarregarInscricao($principalId)->getStatus());
+        $usuario = $this->recarregarUsuario($adv);
+        self::assertSame(StatusOab::Confirmada, $usuario->getOabStatus());
+        self::assertNotNull($usuario->getOabVerificadaEm());
+        self::assertSame(StatusOab::Divergente, $this->recarregarInscricao((int) $sup->getId())->getStatus());
     }
 
-    #[TestDox('Re-verificar com backend dormente mantém NaoVerificada e mostra aviso')]
-    public function testReverificarDormente(): void
+    #[TestDox('Reverter uma suplementar confirmada para Divergente muda só ela')]
+    public function testReverterSuplementarParaDivergente(): void
     {
         $client = static::createClient();
         $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
-        $alvo = $this->criarUsuarioOab(StatusOab::NaoVerificada);
 
-        $crawler = $client->request('GET', '/admin/platform/oab');
-        $form    = $crawler->filter('form[action*="/reverificar"]')->form();
-        $client->submit($form);
+        $adv         = $this->criarAdvogado(StatusOab::Confirmada);
+        $principalId = (int) $this->principalDe($adv)->getId();
+        $supId       = (int) $this->adicionarSuplementar($adv, 'RJ', StatusOab::Confirmada)->getId();
+
+        $crawler = $client->request('GET', '/admin/platform/oab?status=confirmada&q=' . urlencode((string) $adv->getEmail()));
+        // Duas opções de reverter por inscrição (nao_verificada, divergente); a segunda é "divergente".
+        $client->submit($crawler->filter('form[action*="/' . $supId . '/reverter"]')->eq(1)->form());
 
         self::assertResponseRedirects();
-        self::assertSame(StatusOab::NaoVerificada, $this->recarregar($alvo)->getOabStatus());
+        self::assertSame(StatusOab::Divergente, $this->recarregarInscricao($supId)->getStatus());
+        self::assertSame(StatusOab::Confirmada, $this->recarregarInscricao($principalId)->getStatus());
+        self::assertSame(StatusOab::Confirmada, $this->recarregarUsuario($adv)->getOabStatus());
     }
 
-    #[TestDox('Confirmar com CSRF inválido → 403 e status inalterado')]
+    #[TestDox('Reverter a principal para Não verificada espelha no usuário')]
+    public function testReverterPrincipalEspelhaNoUsuario(): void
+    {
+        $client = static::createClient();
+        $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
+
+        $adv         = $this->criarAdvogado(StatusOab::Confirmada);
+        $principalId = (int) $this->principalDe($adv)->getId();
+
+        $crawler = $client->request('GET', '/admin/platform/oab?status=confirmada&q=' . urlencode((string) $adv->getEmail()));
+        $client->submit($crawler->filter('form[action*="/' . $principalId . '/reverter"]')->eq(0)->form());
+
+        self::assertResponseRedirects();
+        self::assertSame(StatusOab::NaoVerificada, $this->recarregarInscricao($principalId)->getStatus());
+        self::assertSame(StatusOab::NaoVerificada, $this->recarregarUsuario($adv)->getOabStatus());
+    }
+
+    #[TestDox('Re-verificar uma suplementar com backend dormente a deixa Não verificada e não mexe na principal')]
+    public function testReverificarSuplementarDormente(): void
+    {
+        $client = static::createClient();
+        $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
+
+        $adv         = $this->criarAdvogado(StatusOab::Divergente);
+        $principalId = (int) $this->principalDe($adv)->getId();
+        $supId       = (int) $this->adicionarSuplementar($adv, 'RJ', StatusOab::Divergente)->getId();
+
+        $crawler = $client->request('GET', '/admin/platform/oab?status=divergente&q=' . urlencode((string) $adv->getEmail()));
+        $client->submit($crawler->filter('form[action*="/' . $supId . '/reverificar"]')->form());
+
+        self::assertResponseRedirects();
+        self::assertSame(StatusOab::NaoVerificada, $this->recarregarInscricao($supId)->getStatus());
+        self::assertSame(StatusOab::Divergente, $this->recarregarInscricao($principalId)->getStatus());
+        self::assertSame(StatusOab::Divergente, $this->recarregarUsuario($adv)->getOabStatus());
+
+        $client->followRedirect();
+        self::assertSelectorTextContains('.alert-info', 'Backend automático indisponível');
+    }
+
+    #[TestDox('Confirmar com CSRF inválido → 403 e situação inalterada')]
     public function testCsrfInvalidoRecusa(): void
     {
         $client = static::createClient();
         $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
-        $alvo = $this->criarUsuarioOab(StatusOab::Divergente);
+        $adv   = $this->criarAdvogado(StatusOab::NaoVerificada);
+        $supId = (int) $this->adicionarSuplementar($adv, 'RJ', StatusOab::Divergente)->getId();
 
-        $client->request('POST', '/admin/platform/oab/' . $alvo->getId() . '/confirmar', ['_token' => 'forjado']);
+        $client->request('POST', '/admin/platform/oab/' . $supId . '/confirmar', ['_token' => 'forjado']);
 
         self::assertResponseStatusCodeSame(403);
-        self::assertSame(StatusOab::Divergente, $this->recarregar($alvo)->getOabStatus());
+        self::assertSame(StatusOab::Divergente, $this->recarregarInscricao($supId)->getStatus());
+    }
+
+    #[TestDox('Token CSRF de outra inscrição não vale (o id do token é por inscrição)')]
+    public function testCsrfDeOutraInscricaoRecusa(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
+        $adv         = $this->criarAdvogado(StatusOab::NaoVerificada);
+        $principalId = (int) $this->principalDe($adv)->getId();
+        $supId       = (int) $this->adicionarSuplementar($adv, 'RJ', StatusOab::NaoVerificada)->getId();
+
+        $client->request('POST', '/admin/platform/oab/' . $supId . '/confirmar', ['_token' => 'TOKEN_oab_confirmar_' . $principalId]);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(StatusOab::NaoVerificada, $this->recarregarInscricao($supId)->getStatus());
+    }
+
+    #[TestDox('Id de inscrição inexistente → 404 nas três ações')]
+    public function testIdInexistenteRecebe404(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
+        $client->disableReboot(); // três POST seguidos com o mesmo storage de CSRF trocado
+        $id = 2_000_000_000;
+
+        $client->request('POST', '/admin/platform/oab/' . $id . '/confirmar', ['_token' => 'TOKEN_oab_confirmar_' . $id]);
+        self::assertResponseStatusCodeSame(404);
+
+        $client->request('POST', '/admin/platform/oab/' . $id . '/reverter', ['_token' => 'TOKEN_oab_reverter_' . $id, 'destino' => 'divergente']);
+        self::assertResponseStatusCodeSame(404);
+
+        $client->request('POST', '/admin/platform/oab/' . $id . '/reverificar', ['_token' => 'TOKEN_oab_reverificar_' . $id]);
+        self::assertResponseStatusCodeSame(404);
     }
 
     // ----------------------------------------------------------------- helpers
@@ -134,6 +342,40 @@ final class OabReviewTest extends JusPrimeWebTestCase
     {
         $client->loginUser($user);
         $this->marcarTermosAceitos($client);
+    }
+
+    /**
+     * Tokens CSRF previsíveis (`TOKEN_<id>`) para montar POST sem passar pela tela (mesmo recurso do
+     * TarefaIsolamentoControllerTest).
+     */
+    private function instalarCsrfStorage(): void
+    {
+        $storage = new class implements ClearableTokenStorageInterface {
+            public function getToken(string $tokenId): string
+            {
+                return 'TOKEN_' . $tokenId;
+            }
+
+            public function setToken(string $tokenId, string $token): void
+            {
+            }
+
+            public function removeToken(string $tokenId): ?string
+            {
+                return null;
+            }
+
+            public function hasToken(string $tokenId): bool
+            {
+                return true;
+            }
+
+            public function clear(): void
+            {
+            }
+        };
+
+        static::getContainer()->set('security.csrf.token_storage', $storage);
     }
 
     /** @param list<string> $roles */
@@ -151,7 +393,8 @@ final class OabReviewTest extends JusPrimeWebTestCase
         return $user;
     }
 
-    private function criarUsuarioOab(StatusOab $status): User
+    /** Usuário com a inscrição principal (e o espelho User.oab* igual a ela). */
+    private function criarAdvogado(StatusOab $status, string $numero = '12345', string $uf = 'SP'): User
     {
         $em   = static::getContainer()->get(EntityManagerInterface::class);
         $user = new User();
@@ -159,21 +402,55 @@ final class OabReviewTest extends JusPrimeWebTestCase
         $user->setFullName('Fulano Advogado');
         $user->setRoles(['ROLE_USER']);
         $user->setIsActive(true);
-        $user->setOabNumero('12345');
-        $user->setOabUf('SP');
-        $user->setOabStatus($status);
         $em->persist($user);
+
+        $principal = new InscricaoOab($user, $numero, $uf, TipoInscricaoOab::Principal);
+        $principal->registrarVerificacao($status, null);
+        $principal->espelharNoUsuario();
+        $em->persist($principal);
         $em->flush();
 
         return $user;
     }
 
-    private function recarregar(User $user): User
+    private function adicionarSuplementar(User $user, string $uf, StatusOab $status, string $numero = '54321'): InscricaoOab
+    {
+        $em  = static::getContainer()->get(EntityManagerInterface::class);
+        $sup = new InscricaoOab($user, $numero, $uf, TipoInscricaoOab::Suplementar);
+        $sup->registrarVerificacao($status, null);
+        $em->persist($sup);
+        $em->flush();
+
+        return $sup;
+    }
+
+    private function principalDe(User $user): InscricaoOab
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $i  = $em->getRepository(InscricaoOab::class)->findOneBy(['usuario' => $user, 'tipo' => TipoInscricaoOab::Principal]);
+        self::assertNotNull($i);
+
+        return $i;
+    }
+
+    private function recarregarInscricao(int $id): InscricaoOab
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $i = $em->getRepository(InscricaoOab::class)->find($id);
+        self::assertNotNull($i);
+
+        return $i;
+    }
+
+    private function recarregarUsuario(User $user): User
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $id = $user->getId();
         $em->clear();
+        $u = $em->getRepository(User::class)->find($id);
+        self::assertNotNull($u);
 
-        return $em->getRepository(User::class)->find($id);
+        return $u;
     }
 }

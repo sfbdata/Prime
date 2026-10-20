@@ -8,7 +8,7 @@
         <h1 class="platform-title">Revisão de OAB</h1>
         <p class="platform-subtitle">Identidade global: advogados de todos os escritórios</p>
     </div>
-    <span class="platform-badge"><i class="bi bi-people-fill"></i> {{ total }} usuário{{ total == 1 ? '' : 's' }}</span>
+    <span class="platform-badge"><i class="bi bi-people-fill"></i> {{ total }} {{ total == 1 ? 'inscrição' : 'inscrições' }}</span>
 </div>
 
 {% for type, messages in app.flashes %}
@@ -64,7 +64,11 @@
                 <tr class="{{ s == 'divergente' ? 'platform-row-divergente' : '' }}">
                     <td class="ps-4 platform-name-strong">{{ item.nome }}</td>
                     <td class="text-secondary">{{ item.email }}</td>
-                    <td class="platform-oab-num">{% if item.oabNumero %}{{ item.oabNumero ~ '/' ~ item.oabUf }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</td>
+                    <td class="platform-oab-num">
+                        {{ item.oabNumero ~ '/' ~ item.oabUf }}
+                        {% set principal = item.tipo.value == 'principal' %}
+                        <span class="badge rounded-pill ms-1 oab-selo-tipo {{ principal ? 'text-bg-primary' : 'text-bg-secondary' }}"><i class="bi {{ principal ? 'bi-star-fill' : 'bi-diagram-2' }} me-1"></i>{{ principal ? 'PRINCIPAL' : 'SUPLEMENTAR' }}</span>
+                    </td>
                     <td>{% if (item.oabNomeOficial ?? null) is not null %}{{ item.oabNomeOficial }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</td>
                     <td>{% include '_oab_status.html.twig' with {status: item.oabStatus, size: 'sm'} only %}</td>
                     <td class="text-secondary">{{ item.oabVerificadaEm ? item.oabVerificadaEm|date('d/m/Y H:i') : 'Sem registro' }}</td>
@@ -115,7 +119,7 @@
                     <td colspan="7">
                         <div class="platform-empty">
                             <i class="bi bi-patch-check"></i>
-                            <div class="platform-empty-title">Nenhum usuário nesta fila</div>
+                            <div class="platform-empty-title">Nenhuma inscrição nesta fila</div>
                             <div>{{ busca ? 'Ajuste a busca ou troque o filtro.' : 'Tente outro filtro acima.' }}</div>
                         </div>
                     </td>
