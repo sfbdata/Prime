@@ -218,7 +218,8 @@ class ProcessoRepository extends ServiceEntityRepository
         string $direcao = 'desc',
         array $processosOcultos = [],
     ): array {
-        $qb = $this->buildQbFiltros($tenant, $filtros, $processosOcultos);
+        $qb = $this->buildQbFiltros($tenant, $filtros);
+        $this->semOsProcessosOcultos($qb, $processosOcultos);
         $this->aplicarOrdenacaoProcesso($qb, $ordenar, $direcao);
 
         return $qb
@@ -234,26 +235,32 @@ class ProcessoRepository extends ServiceEntityRepository
      */
     public function countByFiltros(Tenant $tenant, array $filtros, array $processosOcultos = []): int
     {
-        return (int) $this->buildQbFiltros($tenant, $filtros, $processosOcultos)
-            ->select('COUNT(p.id)')
-            ->getQuery()
-            ->getSingleScalarResult();
+        $qb = $this->buildQbFiltros($tenant, $filtros)->select('COUNT(p.id)');
+        $this->semOsProcessosOcultos($qb, $processosOcultos);
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Cadeado (spec pasta-cadeado K3): processo cujas pastas são todas ocultas para quem lista não entra.
+     *
+     * @param list<int> $processosOcultos
+     */
+    private function semOsProcessosOcultos(QueryBuilder $qb, array $processosOcultos): void
+    {
+        if ($processosOcultos !== []) {
+            $qb->andWhere('p.id NOT IN (:processosOcultos)')->setParameter('processosOcultos', $processosOcultos);
+        }
     }
 
     /**
      * @param array<string, string> $filtros
-     * @param list<int>             $processosOcultos
      */
-    private function buildQbFiltros(Tenant $tenant, array $filtros, array $processosOcultos = []): QueryBuilder
+    private function buildQbFiltros(Tenant $tenant, array $filtros): QueryBuilder
     {
         $qb = $this->createQueryBuilder('p')
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant);
-
-        // Cadeado (spec pasta-cadeado K3): processo cujas pastas são todas ocultas para quem lista não entra.
-        if ($processosOcultos !== []) {
-            $qb->andWhere('p.id NOT IN (:processosOcultos)')->setParameter('processosOcultos', $processosOcultos);
-        }
 
         $busca = trim((string) ($filtros['busca'] ?? ''));
         if ($busca !== '') {
