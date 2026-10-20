@@ -225,6 +225,9 @@ final class PurgarEscritorioUseCase
         ['pasta_pedido_acesso', 'tenant_id = :tenant'],
         // Abas ocultas da pasta (spec pasta-ocultar-aba §1): mesmo caso, CASCADE de `pasta` e FK de tenant NO ACTION.
         ['pasta_aba_oculta', 'tenant_id = :tenant'],
+        // Relatório de pastas paradas (spec pastas-paradas): o envio do mês cairia pela CASCADE de
+        // tenant, mas a purga apaga explicitamente, como o histórico do relatório irmão.
+        ['relatorio_pastas_paradas_envio', 'tenant_id = :tenant'],
         // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o
         // usuário não é apagado na purga e a de tenant é NO ACTION — sai aqui, explicitamente.
         ['preferencia_usuario', 'tenant_id = :tenant'],
