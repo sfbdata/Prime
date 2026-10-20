@@ -657,7 +657,10 @@ vaga, nunca o nome nem o contato do candidato. URL para a tela com `#vaga=`/`#cv
 | Mudança de status da candidatura (l.985, 1040) | o candidato | escritório gravado na candidatura |
 | Vaga nova ou reaberta na área (l.1012, 1107, 1160; lacuna 1) | externos com o aviso ligado, com área em comum ou sem currículo (como o desenho) | escritório gravado na preferência |
 
-Sem sede definida, ou sem escritório (Convidado avulso), o aviso não é criado. Tipos novos
+Sem sede definida, ou sem escritório, o aviso não é criado: o **Convidado avulso fica sem aviso no sino**
+(coordenador, 19/10; o desenho não mostra aviso próprio para ele). Os arquivos `Notificacao.php` e
+`TiposDeAvisoDaCentral.php` são disputados (5d, 0d, 9b, f6, 4b): constantes e entradas do Trabalho Externo
+num bloco próprio, com um comentário de uma linha, só acréscimos. Tipos novos
 `trabalho_externo_*` com grupo, rótulo, ícone e cor no `TiposDeAvisoDaCentral`. Um aviso por evento
 e destinatário, sem duplicar pendente da mesma URL.
 
