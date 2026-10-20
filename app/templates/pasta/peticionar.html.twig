@@ -184,11 +184,16 @@
     <div class="petic-preview" id="previewPanel">
 
         {# Barra do documento selecionado (desenho 07, L77-85): ícone, nome (duplo clique renomeia),
-           "tamanho · data", Baixar e Excluir. Preenchida pelo peticionar-documentos.js. #}
+           "tamanho · data" ("Texto · data" na peça de texto), Editar (só texto), Baixar e Excluir.
+           Preenchida pelo peticionar-documentos.js, que a leva para o topo do editor quando a peça
+           selecionada é de texto. #}
         <div class="petic-selbar" id="peticSelbar" hidden>
             <i class="bi petic-selbar-icone" aria-hidden="true"></i>
             <b class="petic-selbar-nome" title="Clique duas vezes para renomear"></b>
             <span class="petic-selbar-sub"></span>
+            {% if podeEditarPasta %}
+            <button type="button" class="petic-selbar-editar" data-acao="editar" title="Editar texto" hidden><i class="bi bi-pencil" aria-hidden="true"></i>Editar</button>
+            {% endif %}
             <button type="button" class="petic-selbar-btn" data-acao="baixar" title="Baixar" aria-label="Baixar"><i class="bi bi-download" aria-hidden="true"></i></button>
             {% if podeEditarPasta %}
             <button type="button" class="petic-selbar-btn petic-selbar-btn--excluir" data-acao="excluir" title="Excluir peça" aria-label="Excluir peça"><i class="bi bi-trash3" aria-hidden="true"></i></button>
@@ -899,6 +904,8 @@
     // ── Abrir em modo criação (novo documento) ────────────────────────────────
 
     async function executarAbrirNovoDocumento() {
+        // Documento novo: nenhuma linha fica selecionada (a barra do selecionado some).
+        document.querySelectorAll('.petic-tl-row.ativo').forEach(el => el.classList.remove('ativo'));
         modoEdicao        = false;
         currentDocId      = null;
         currentCsrfEditar = null;

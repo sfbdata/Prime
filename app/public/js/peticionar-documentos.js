@@ -5,8 +5,9 @@
  *    do .navtop-right (o layout não tem bloco no cabeçalho).
  *  - Menu da linha, pelo botão de três pontos e pelo botão direito (L54, L101-105, L161): Abrir,
  *    Renomear, Baixar, Classificar e Excluir (vai para a lixeira).
- *  - Barra do documento selecionado (L77-85): nome (duplo clique renomeia), "tamanho · data",
- *    Baixar e Excluir.
+ *  - Barra do documento selecionado (L77-85): nome (duplo clique renomeia), "tamanho · data"
+ *    ("Texto · data" e o botão Editar na peça de texto, com a barra no topo do editor), Baixar e
+ *    Excluir.
  *  - Soltar arquivos na lista para enviar (L47, L147), pela rota do "Adicionar peça", com o mesmo
  *    token, os mesmos formatos e a mesma categoria padrão do modal.
  *
@@ -79,9 +80,10 @@
         return Math.max(1, Math.round(n / 1024)) + ' KB';
     }
 
+    // Como a busca da lista: conta só as linhas visíveis (com a busca ativa, as que batem).
     function atualizarContagem() {
         const badge = document.getElementById('badgeCount');
-        if (badge) badge.textContent = String(linhas().length);
+        if (badge) badge.textContent = String(linhas().filter(function (r) { return r.style.display !== 'none'; }).length);
     }
 
     // Aviso do desenho (L166): faixa azul embaixo, some sozinha.
@@ -127,8 +129,12 @@
 
     const voltar = document.getElementById('peticVoltarPasta');
     if (voltar) {
+        // Logo antes do nome do usuário, como no desenho.
         const direita = document.querySelector('.navtop-right');
-        if (direita) direita.insertBefore(voltar, direita.firstChild);
+        if (direita) {
+            const usuario = direita.querySelector(':scope > .menu-usuario');
+            direita.insertBefore(voltar, usuario || null);
+        }
         voltar.hidden = false;
     }
 
@@ -345,9 +351,15 @@
     let renomeando = null;
 
     function renomear(row) {
-        if (ehTexto(row)) {
-            // A peça de texto abre no editor (sem a barra): o nome se edita na própria linha.
-            iniciarRenomear(row, row.querySelector('.petic-tl-titulo'));
+        // A peça de texto abre no editor, que carrega o conteúdo antes de aparecer: o campo só
+        // ganha foco depois disso (o mesmo caminho do selecionarItem da tela).
+        if (ehTexto(row) && !row.classList.contains('ativo') && typeof window.abrirEditorParaEditar === 'function') {
+            linhas().forEach(function (r) { r.classList.remove('ativo'); });
+            row.classList.add('ativo');
+            Promise.resolve(window.abrirEditorParaEditar(row)).then(function () {
+                atualizarBarra();
+                iniciarRenomear(row, barra.nome);
+            });
             return;
         }
         if (!row.classList.contains('ativo')) selecionar(row);
@@ -430,6 +442,11 @@
             trocarClasse(badge, cfg.corCategoria, cfg.corCategoria[categoria], 'text-bg-secondary');
         }
         trocarClasse(row.querySelector('.petic-tl-dot'), cfg.pontoCategoria, cfg.pontoCategoria[categoria], 'petic-tl-dot--secondary');
+        // A peça de texto aberta no editor: o selo de categoria dele acompanha.
+        if (ehTexto(row) && row.classList.contains('ativo')) {
+            const seloEditor = document.getElementById('editorCategoriaBadge');
+            if (seloEditor) seloEditor.textContent = row.dataset.categoriaLabel;
+        }
     }
 
     function excluir(row) {
@@ -469,28 +486,33 @@
     // ------------------------------------------- barra do selecionado (L77-85) ---
 
     const previewPanel = document.getElementById('previewPanel');
+    const editorPanel  = document.getElementById('editorPanel');
     const barraEl = document.getElementById('peticSelbar');
     const barra = barraEl ? {
         raiz:  barraEl,
         icone: barraEl.querySelector('.petic-selbar-icone'),
         nome:  barraEl.querySelector('.petic-selbar-nome'),
         sub:   barraEl.querySelector('.petic-selbar-sub'),
+        editar: barraEl.querySelector('[data-acao="editar"]'),
     } : null;
 
     function atualizarBarra() {
         if (!barra) return;
         const row = linhaAtiva();
-        // A peça de texto abre no editor, que tem a própria barra.
-        const mostra = !!row && !ehTexto(row);
-        barra.raiz.hidden = !mostra;
-        if (previewPanel) previewPanel.classList.toggle('petic-preview--com-barra', mostra);
-        if (!mostra) return;
+        const texto = !!row && ehTexto(row);
+        // A peça de texto abre no editor (no lugar do preview): a barra vai junto, no topo dele.
+        const casa = texto ? editorPanel : previewPanel;
+        if (casa && barra.raiz.parentElement !== casa) casa.insertBefore(barra.raiz, casa.firstChild);
+        barra.raiz.hidden = !row;
+        if (previewPanel) previewPanel.classList.toggle('petic-preview--com-barra', !!row && !texto);
+        if (barra.editar) barra.editar.hidden = !texto;
+        if (!row) return;
 
         const icRow = row.querySelector('.petic-doc-icone');
         barra.icone.className = 'bi petic-selbar-icone ' + (icRow ? Array.prototype.filter.call(icRow.classList, function (c) { return c.indexOf('bi-') === 0; }).join(' ') : '');
         barra.icone.style.color = icRow ? icRow.style.color : '';
         if (!(renomeando && renomeando.alvo === barra.nome)) barra.nome.textContent = row.dataset.titulo || '';
-        barra.sub.textContent = (row.dataset.tamanhoTexto || '') + ' · ' + (row.dataset.carregadoEm || '');
+        barra.sub.textContent = (texto ? 'Texto' : (row.dataset.tamanhoTexto || '')) + ' · ' + (row.dataset.carregadoEm || '');
     }
 
     if (barra) {
@@ -505,10 +527,20 @@
             if (!b || !row) return;
             if (b.dataset.acao === 'baixar') baixar(row);
             if (b.dataset.acao === 'excluir') excluir(row);
+            if (b.dataset.acao === 'editar') editarTexto(row);
         });
         // A seleção é da tela (classe "ativo" na linha): a barra acompanha qualquer troca.
         new MutationObserver(atualizarBarra).observe(tl, { subtree: true, attributes: true, attributeFilter: ['class'] });
         atualizarBarra();
+    }
+
+    // "Editar" (L81): a peça já abre no editor ao ser selecionada; o botão leva o cursor para o
+    // texto, ou reabre o editor se ele foi fechado.
+    function editarTexto(row) {
+        const aberto = editorPanel && editorPanel.style.display !== 'none';
+        const ed = window.tinymce ? window.tinymce.get('editorConteudo') : null;
+        if (aberto && ed) { ed.focus(); return; }
+        if (typeof window.abrirEditorParaEditar === 'function') window.abrirEditorParaEditar(row);
     }
 
     // ------------------------------------------- busca sem resultado (L57) ---
@@ -554,7 +586,8 @@
     let enviando = false;
 
     async function enviarArquivos(arquivos) {
-        if (enviando || !arquivos.length) return;
+        if (!arquivos.length) return;
+        if (enviando) { avisar('Aguarde o envio em andamento.'); return; }
         const regras = regrasDoModal();
         const recusados = arquivos.filter(function (f) { return regras.aceitos.length && regras.aceitos.indexOf(extensaoDe(f.name)) === -1; });
         const validos = arquivos.filter(function (f) { return recusados.indexOf(f) === -1; });
@@ -592,7 +625,18 @@
         }
     }
 
-    if (cfg.podeEditar && cfg.urlUpload) {
+    if (!cfg.podeEditar || !cfg.urlUpload) {
+        // Quem não pode enviar: o arquivo solto não é aberto pelo navegador (sairia da página),
+        // e a lista não se oferece como alvo.
+        lista.addEventListener('dragover', function (e) {
+            if (!temArquivos(e)) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'none';
+        });
+        lista.addEventListener('drop', function (e) {
+            if (temArquivos(e)) e.preventDefault();
+        });
+    } else {
         lista.addEventListener('dragover', function (e) {
             if (!temArquivos(e)) return;
             e.preventDefault();

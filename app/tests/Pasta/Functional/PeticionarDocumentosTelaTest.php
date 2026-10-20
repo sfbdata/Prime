@@ -31,6 +31,13 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(PeticionarController::class)]
 final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
 {
+    use CriaUsuarioComPermissoesTrait;
+
+    private function em(): EntityManagerInterface
+    {
+        return static::getContainer()->get(EntityManagerInterface::class);
+    }
+
     #[TestDox('"Voltar à pasta" aponta para a pasta, e a tela inclui o JS e o CSS do desenho 07')]
     public function testVoltarAPastaEAssets(): void
     {
@@ -144,6 +151,34 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $barra->filter('#peticSelbar > .petic-selbar-sub'));
         self::assertSame('Baixar', $barra->filter('#peticSelbar > button[data-acao="baixar"]')->attr('title'));
         self::assertSame('Excluir peça', $barra->filter('#peticSelbar > button[data-acao="excluir"]')->attr('title'));
+
+        // "Editar" (L81) é da peça de texto: nasce escondido e o JS o mostra quando ela é a selecionada.
+        $editar = $barra->filter('#peticSelbar > button.petic-selbar-editar[data-acao="editar"]');
+        self::assertCount(1, $editar);
+        self::assertSame('Editar', trim($editar->text()));
+        self::assertNotNull($editar->attr('hidden'));
+    }
+
+    #[TestDox('quem só pode VER: data-pode-editar="0", sem Excluir, sem Editar e sem token de envio por arrastar')]
+    public function testQuemSoVeNaoRecebeEscrita(): void
+    {
+        [$client, $pasta, $tenant] = $this->cenario();
+        $doc    = $this->documento($pasta, $tenant, 'contrato.pdf', 'application/pdf', 1024);
+        $leitor = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'modules.pastas.view']);
+        $this->logarComTenant($client, $leitor, $tenant);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+        self::assertResponseIsSuccessful();
+
+        // O JS lê esta chave para não montar Renomear, Classificar e Excluir no menu e para não
+        // oferecer a lista como alvo de arrastar (o drop é engolido sem envio).
+        self::assertSame('0', $crawler->filter('.petic-timeline > #timelineList')->attr('data-pode-editar'));
+        self::assertCount(0, $crawler->filter('#peticSelbar > button[data-acao="excluir"]'));
+        self::assertCount(0, $crawler->filter('#peticSelbar > button[data-acao="editar"]'));
+        // Ler continua: a linha, o menu (Abrir e Baixar) e o download.
+        $row = $this->linha($crawler, (int) $doc->getId());
+        self::assertCount(1, $row->filter('.petic-tl-row > .petic-tl-card > button.petic-doc-mais'));
+        self::assertCount(1, $crawler->filter('#peticSelbar > button[data-acao="baixar"]'));
     }
 
     #[TestDox('lista vazia mostra a dica do desenho')]

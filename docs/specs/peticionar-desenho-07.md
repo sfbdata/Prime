@@ -34,3 +34,10 @@ Fora agora: ordem manual (número e arrastar), seletor do processo de destino (d
 4. Onde guardar o processo de destino da peça (em cada peça ou na sessão); o seletor espera o #91 (apensados).
 5. Salvar o texto sozinho (autosalvamento do desenho) ou manter o "Salvar na pasta".
 6. Visualizador de DOCX/XLSX: escolher biblioteca ou conversão.
+7. Cor dos ícones por tipo: paleta do Guia visual (`arquivo_icone`, a mesma da aba Documentos) ou as cores do desenho 07
+   (PDF #c0392b, imagem #1e7b45). Hoje: a do Guia visual.
+8. O selo de categoria segue as cores atuais (o desenho usa cinza #5f7684); decide-se junto com o item 2.
+9. O nome exibido na linha passou de `titulo` para `nome_original` (o mesmo da aba Documentos e o que o Renomear grava):
+   documentos antigos podem aparecer com o nome do arquivo.
+10. Renomear a peça de texto pelo menu grava só o nome do arquivo; o título interno (lido, por exemplo, pela IA) só se
+    atualiza ao salvar no editor, como já acontece na aba Documentos.

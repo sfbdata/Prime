@@ -85,7 +85,7 @@
     color: #0a6fa0;
 }
 
-/* Campo de renomear (L80: na barra; na peça de texto, na própria linha) */
+/* Campo de renomear (L80), na barra do selecionado */
 .petic-renomear-input {
     flex: 1;
     min-width: 0;
@@ -96,10 +96,6 @@
     font: inherit;
     font-size: 14px;
     outline: none;
-}
-.petic-tl-card-top > .petic-renomear-input {
-    height: 26px;
-    font-size: 13px;
 }
 
 /* Lista vazia e busca sem resultado (L57-58) */
@@ -180,15 +176,21 @@
     top: 0;
     left: 0;
     right: 0;
+    z-index: 2;
+}
+/* Na peça de texto, a barra vai para o topo do editor (acima da barra dele). */
+#editorPanel > .petic-selbar {
+    flex: none;
+}
+.petic-selbar {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 10px 16px;
     background: #fff;
     border-bottom: 1px solid #dde5eb;
-    z-index: 2;
 }
-.petic-preview > .petic-selbar[hidden] { display: none; }
+.petic-selbar[hidden] { display: none; }
 .petic-selbar > .petic-selbar-icone { font-size: 18px; }
 .petic-selbar > .petic-selbar-nome {
     flex: 1;
@@ -203,6 +205,27 @@
     font-size: 12px;
     color: #7b93a2;
     white-space: nowrap;
+}
+.petic-selbar > .petic-selbar-editar {
+    height: 32px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 4px;
+    background: #e5f1f7;
+    color: #0a6fa0;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.petic-selbar > .petic-selbar-editar[hidden] { display: none; }
+.petic-selbar > .petic-selbar-editar:hover,
+.petic-selbar > .petic-selbar-editar:focus-visible {
+    background: #0a6fa0;
+    color: #fff;
 }
 .petic-selbar > .petic-selbar-btn {
     width: 32px;
