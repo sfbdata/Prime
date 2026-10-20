@@ -47,6 +47,13 @@ final class AuditavelCoberturaTest extends KernelTestCase
     // Entidades deliberadamente fora do escopo de Auditavel.
     // Toda entidade ausente desta lista E que não implemente Auditavel quebra o teste.
     private const NAO_AUDITAVEIS = [
+        // Contribua: motivo de ainda não apoiar. O desenho promete resposta ANÔNIMA; a trilha gravaria
+        // quem respondeu (actor do audit_log) e desfaria o anonimato.
+        \App\Contribua\Entity\MotivoDeNaoApoiar::class,
+        // Contribua: sugestão. O Master a atende a partir de outro escritório e o audit_log gravaria no
+        // escritório da sessão dele (vazamento entre trilhas). Volta quando houver o escopo de plataforma.
+        \App\Contribua\Entity\Sugestao::class,
+
         // Favorito de pasta: preferência pessoal de ordenação (estrela), sem efeito sobre o dado da
         // pasta. Auditar cada clique encheria o audit_log de ruído sem valor de prova.
         \App\Pasta\Entity\PastaFavorita::class,
@@ -62,6 +69,21 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Foto diária do estoque do Dashboard: dado DERIVADO de tarefa/pasta (contagens), regravado
         // pelo cron. Não é ato de ninguém e não prova nada — auditar só duplicaria números.
         \App\Dashboard\Entity\DashboardFoto::class,
+        // Previsão da Situação atual do Push (taxa de acertos, push-painel-monitoramento §3): dado DERIVADO
+        // das publicações, gravado pelo sistema ao montar a aba, sem ato de ninguém. Auditar só duplicaria
+        // a previsão; o processo dela já está fora da auditoria por decisão de produto.
+        \App\Processo\Entity\PrevisaoRegistrada::class,
+        // Descadastro de e-mail (push-avisar-quando-chegar D3): a própria linha é o registro do pedido (escritório,
+        // endereço, assunto, origem e quando), gravada por SQL na rota pública sem sessão (não há autor
+        // para auditar) e nunca editada. Auditar só duplicaria o endereço no audit_log.
+        \App\Shared\Email\Descadastro\Entity\EmailDescadastro::class,
+        // E-mails do cliente do "Avisar cliente" (push-avisar-cliente §1): dado pessoal que acompanha a decisão
+        // do Cliente (não auditado). Auditar copiaria cada endereço para o audit_log, onde ele ficaria mesmo
+        // depois de o escritório removê-lo; o cadastro já fica no histórico de envios da pasta.
+        \App\Cliente\Entity\ClienteEmail::class,
+        // Histórico de envios ao cliente (push-avisar-cliente §1): ele próprio é o registro do ato (quem, quando,
+        // para quem, com cópia), nunca editado, como o EventoHistorico. Auditar seria log de log.
+        \App\Pasta\Entity\EnvioAoCliente::class,
         // Versão anterior da nota técnica (M8/PMC-020, 07/10): ela MESMA é o histórico — só nasce (nunca
         // é editada) a cada edição da nota, que já é auditada. Auditar a versão duplicaria o texto.
         \App\Processo\Entity\NotaTecnicaVersao::class,
@@ -82,6 +104,13 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Presença na Central (F2, 16/10): batimento a cada 20 s por pessoa. É atividade, não dado de negócio; auditar
         // cada batimento inundaria o audit_log e exporia a rotina de cada um a quem administra.
         \App\Central\Entity\Presenca::class,
+        // Histórico do envio automático do relatório de pastas sem processo: a fotografia das contagens
+        // gravada pelo comando agendado. Dado derivado das pastas, não ato de uma pessoa (como a foto do
+        // Dashboard).
+        \App\Pasta\Entity\EnvioDoRelatorioSemProcesso::class,
+        // Decisão da equipe sobre pasta sem processo: gravada por upsert SQL (corrida no UNIQUE não pode
+        // derrubar a marcação), derivada do ato já auditado (a troca de `administrativa` na Pasta).
+        \App\Pasta\Entity\DecisaoSemProcessoDaPasta::class,
         // Baixa de aviso na Central (F3): preferência de leitura da pessoa, como "lida" no sino (que não é auditada).
         \App\Central\Entity\AvisoResolvido::class,
 
@@ -100,6 +129,16 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // (a senha mudou) já é auditado no próprio User, com o hash fora por IGNORED_FIELDS.
         // Auditar esta linha só espalharia IP/user agent para uma segunda tabela.
         RedefinicaoSenha::class,
+
+        // Tela de entrada do desenho 10 (spec login-desenho-10):
+        // - CienciaPolitica: registro append-only de ciência da Política, como o AceiteTermo, é a própria prova;
+        // - ConfirmacaoEmail: link efêmero (7 dias), sem tenant; o fato (e-mail confirmado) muda no próprio User;
+        // - AjusteEntrada: guarda quem alterou e quando (alterado_por, alterado_em); sem tenant;
+        // - MensagemSuporte: texto de visitante anônimo, sem tenant; ela própria é o registro.
+        \App\Termo\Entity\CienciaPolitica::class,
+        \App\Auth\Entity\ConfirmacaoEmail::class,
+        \App\Auth\Entity\AjusteEntrada::class,
+        \App\Auth\Entity\MensagemSuporte::class,
 
         // Domínios novos — auditoria não expandida nesta fatia (decisão de produto)
         UserProfile::class,

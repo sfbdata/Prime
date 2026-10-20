@@ -1,0 +1,25 @@
+{# ============================================================================
+   Faixa de somente visualização sob o cabeçalho da pasta (spec pasta-cadeado K4).
+
+   Somente visualização (desenho 02 L1295-1297, `cd.soVer`): quem está em `Visualizar`. "Pedir para
+      editar" envia o pedido; com pedido aguardando, "Pedido enviado". O servidor recusa toda escrita
+      (BarreiraDoCadeadoListener); os botões de escrita somem porque `can_access_resource(edit)` é falso.
+   Os pedidos de acesso pendentes, para quem configura, são um componente à parte:
+   pasta/_cadeado_pedidos.html.twig.
+
+   Contexto: `pasta`, `cad` (CadeadoNaTelaOutput).
+   ============================================================================ #}
+{% if cad and cad.soVer %}
+<div style="display:flex;align-items:center;gap:9px;margin:-12px 0 14px;padding:8px 12px;border-radius:4px;background:#eef5fa;color:#0b5f86;font-size:12.5px;font-weight:600" role="status"><i class="bi bi-lock-fill"></i><span style="flex:1;min-width:0">Pasta trancada pelo usuário primário: você pode visualizar, mas não alterar.</span>
+    {%- if cad.podePedir -%}
+        <form method="post" action="{{ path('pasta_acesso_pedir', {id: pasta.id}) }}" style="display:contents">
+            <input type="hidden" name="_token" value="{{ csrf_token('pasta_acesso_' ~ pasta.id) }}">
+            <input type="hidden" name="nivel" value="editar">
+            <button type="submit" data-cad-pedir="1" style="flex-shrink:0;height:28px;padding:0 12px;border:none;border-radius:4px;background:#0a7aad;color:#fff;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer"><i class="bi bi-send"></i> Pedir para editar</button>
+        </form>
+    {%- endif -%}
+    {%- if cad.aguardando -%}
+        <span style="flex-shrink:0;font-size:12px;font-weight:600"><i class="bi bi-hourglass-split"></i> Pedido enviado</span>
+    {%- endif -%}
+</div>
+{% endif %}

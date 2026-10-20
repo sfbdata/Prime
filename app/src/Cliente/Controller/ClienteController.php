@@ -13,6 +13,7 @@ use App\Cliente\Form\ClientePJType;
 use App\Cliente\Repository\ClienteRepository;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Entity\Permission\AccessRequest;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -20,6 +21,7 @@ use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
+use App\Shared\Http\NomeSeguroDeArquivo;
 use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -101,7 +103,7 @@ class ClienteController extends AbstractController
     ) {}
 
     #[Route('/{id}', name: 'cliente_show', methods: ['GET'])]
-    public function show(int $id): Response
+    public function show(int $id, AcessoAPasta $acessoAPasta): Response
     {
         $cliente = $this->clienteRepository->find($id);
 
@@ -120,6 +122,8 @@ class ClienteController extends AbstractController
         return $this->render('cliente/show.html.twig', [
             'cliente' => $cliente,
             'pastas' => $this->pastaRepository->findByCliente($cliente, $tenant),
+            // Cadeado (spec pasta-cadeado D1): da pasta oculta, só o número (sem a situação).
+            'pastasOcultas' => $tenant !== null ? array_flip($acessoAPasta->idsOcultosPara($currentUser, (int) $tenant->getId())) : [],
             'documentTypeOptions' => self::DOCUMENT_TYPES,
             'documentosPorTipo' => $this->groupDocumentsByType($cliente),
         ]);
@@ -420,7 +424,8 @@ class ClienteController extends AbstractController
 
         $descricao = trim((string) $request->request->get('descricao', ''));
         $numero    = trim((string) $request->request->get('numero', ''));
-        $nomeBase  = trim((string) $request->request->get('nomeBase', ''));
+        // Como o renomear da pasta: barra, contrabarra e controle saem (NomeSeguroDeArquivo).
+        $nomeBase  = NomeSeguroDeArquivo::sanear((string) $request->request->get('nomeBase', ''));
 
         $doc->setCategoria($categoria);
         $doc->setDescricao($descricao !== '' ? $descricao : null);

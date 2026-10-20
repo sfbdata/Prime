@@ -40,9 +40,12 @@
             {% endif %}
             {% set outros = pasta.pastaProcessos|filter(pp => pp.processo.id != proc.id) %}
             <div class="ps-cab-proc-acoes">
+                {# Sem o atalho com a aba Processo oculta para quem vê (ocultar aba). #}
+                {% if 'processo' not in abasOcultas|default([]) %}
                 <button type="button" class="ps-link-btn" data-ps-ir-aba="processo-tab" title="Ir à aba Processo">
                     <i class="bi bi-arrow-left-right"></i>trocar
                 </button>
+                {% endif %}
                 {# O sistema não tem "tipo de apenso": o chip conta os OUTROS processos
                    vinculados à pasta e abre a lista deles. #}
                 {% if outros|length > 0 %}

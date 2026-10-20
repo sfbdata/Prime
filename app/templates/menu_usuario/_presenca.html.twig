@@ -5,13 +5,21 @@
    os dados vêm do batimento da Central (evento bj-central:presenca) e de central_equipe. #}
 {% if central_disponivel() %}
     {% set tenantPresenca = current_tenant() %}
+    {# Atalho de ponto na sua linha (fase 2, ALTO): o critério de quem já vê o alerta de ponto (módulo e jornada), e
+       nunca na própria tela do ponto, onde o bloco "batidas de hoje" não relê nada e sugeriria a mesma batida. #}
+    {% set atalhoPonto = can_access_module('ponto') and app.user.jornadaColaborador is not null and app.request.attributes.get('_route') != 'ponto_index' %}
     <span class="presenca-cab" data-presenca-cabecalho
           data-url-equipe="{{ path('central_equipe') }}"
           data-chave="{{ tenantPresenca.id }}:{{ app.user.id }}"
-          data-eu-id="{{ app.user.id }}">
+          data-eu-id="{{ app.user.id }}"
+          {% if atalhoPonto %}data-ponto-estado="{{ path('ponto_estado_do_dia') }}" data-ponto-batida="{{ path('ponto_batida') }}" data-ponto-index="{{ path('ponto_index') }}"{% endif %}>
         <button type="button" class="presenca-cab-selo" data-presenca-selo hidden
                 aria-haspopup="dialog" aria-expanded="false" aria-label="Quem está on-line: 0">0</button>
     </span>
     <link rel="stylesheet" href="{{ asset('css/presenca-cabecalho.css') }}">
+    {% if atalhoPonto %}
+        <script src="{{ asset('js/ponto-batida.js') }}" defer></script>
+        <script src="{{ asset('js/presenca-ponto.js') }}" defer></script>
+    {% endif %}
     <script src="{{ asset('js/presenca-cabecalho.js') }}" defer></script>
 {% endif %}

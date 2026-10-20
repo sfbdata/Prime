@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Inteligencia\UseCase;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\DTO\FiltroDoAgenteInput;
 use App\Inteligencia\Exception\FiltroDoAgenteInvalidoException;
@@ -21,8 +22,8 @@ final class ContarPastasDoAgenteUseCase
     }
 
     /** @throws FiltroDoAgenteInvalidoException */
-    public function executar(FiltroDoAgenteInput $filtro, Tenant $tenant): int
+    public function executar(FiltroDoAgenteInput $filtro, Tenant $tenant, ?User $quem = null): int
     {
-        return $this->consulta->contar($filtro, $tenant);
+        return $this->consulta->contar($filtro, $tenant, $quem);
     }
 }

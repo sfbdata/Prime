@@ -12,6 +12,8 @@ on:
       - master
     paths:
       - .env.prod.example
+      - .github/workflows/ci.yml
+      - scripts/ci-dados-de-referencia.sql
       - app/config/services.yaml
       - app/src/Auth/Service/CadastroMailer.php
       - app/src/Auth/Service/ConviteMailer.php
@@ -134,6 +136,9 @@ jobs:
           # A cadeia historica de migrations pressupoe dados de um dump e nao e
           # compativel com banco vazio. Estes testes usam apenas o schema mapeado.
           php bin/console doctrine:schema:create --env=test
+          # O schema mapeado vem sem os dados de referência que só as migrations gravam
+          # (planos do Contribua): sem eles, convidar alguém dá 500.
+          php bin/console dbal:run-sql --env=test -- "$(cat ../scripts/ci-dados-de-referencia.sql)"
 
       - name: Validar configuracao Symfony
         run: |

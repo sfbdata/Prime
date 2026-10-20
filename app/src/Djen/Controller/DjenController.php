@@ -18,6 +18,7 @@ use App\Djen\UseCase\AlternarStatusOabMonitoradaUseCase;
 use App\Djen\UseCase\RemoverOabMonitoradaUseCase;
 use App\Djen\UseCase\SincronizarPublicacoesDjenUseCase;
 use App\Entity\Auth\User;
+use App\Pasta\Service\AcessoAPasta;
 use App\Entity\Tenant\Tenant;
 use App\Processo\Repository\ProcessoRepository;
 use App\Service\PermissionChecker;
@@ -58,6 +59,7 @@ final class DjenController extends AbstractController
         private readonly AlternarStatusOabMonitoradaUseCase $alternarOab,
         private readonly SincronizarPublicacoesDjenUseCase $sincronizar,
         private readonly ProcessoRepository $processoRepository,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
@@ -79,10 +81,11 @@ final class DjenController extends AbstractController
         ];
         $pagina = max(1, (int) $request->query->get('pagina', 1));
 
-        $total = $this->publicacaoRepository->countByFiltros($tenant, $filtros);
+        $ocultos = $this->numerosOcultos($tenant);
+        $total = $this->publicacaoRepository->countByFiltros($tenant, $filtros, $ocultos);
 
         return $this->render('djen/index.html.twig', [
-            'publicacoes' => $this->publicacaoRepository->listarItensDoTenant($tenant, $filtros, $pagina, self::POR_PAGINA),
+            'publicacoes' => $this->publicacaoRepository->listarItensDoTenant($tenant, $filtros, $pagina, self::POR_PAGINA, $ocultos),
             'filtros' => $filtros,
             'tribunais' => $this->publicacaoRepository->listarTribunaisDoTenant($tenant),
             'pagina' => $pagina,
@@ -224,7 +227,7 @@ final class DjenController extends AbstractController
         }
 
         $publicacao = $this->publicacaoRepository->findOneByIdDoTenant($id, $tenant);
-        if ($publicacao === null) {
+        if ($publicacao === null || in_array($publicacao->getNumeroProcesso(), $this->numerosOcultos($tenant), true)) {
             throw $this->createNotFoundException('Publicação não encontrada.');
         }
 
@@ -238,6 +241,19 @@ final class DjenController extends AbstractController
             'publicacao' => PublicacaoDjenOutput::fromEntity($publicacao, $formatadorTeor->formatar($publicacao->getTexto())),
             'voltarPara' => $this->destinoDeVolta($request),
         ]);
+    }
+
+    /**
+     * Cadeado (spec pasta-cadeado D3): processos das pastas ocultas para quem olha. O Push deles some da
+     * lista global e a publicação responde 404, como se não existisse.
+     *
+     * @return list<string>
+     */
+    private function numerosOcultos(Tenant $tenant): array
+    {
+        $user = $this->getUser();
+
+        return $user instanceof User ? $this->acessoAPasta->numerosDeProcessoOcultos($user, $tenant) : [];
     }
 
     /**
