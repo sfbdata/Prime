@@ -99,7 +99,6 @@ final class DestinoPosLogin
         'contribua_index',
         'app_sync_drive_conexao',
         // Escritório e usuários
-        'escritorio_contas',
         'escritorio_criar',
         'auth_gerenciar_convites',
         'app_tenant_index',
@@ -120,8 +119,6 @@ final class DestinoPosLogin
         'app_access_request_index',
         // Master e administração da plataforma
         'master_painel',
-        'master_mapa_brasil',
-        'master_mapa_mundo',
         'admin_platform_dashboard',
         'admin_platform_convite_index',
         'admin_platform_oab_index',

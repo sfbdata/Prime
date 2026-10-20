@@ -7,8 +7,10 @@ namespace App\Security;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\AuthenticationTrustResolverInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -41,6 +43,7 @@ final class SessaoVencidaEmPedidoDeDadosListener
         private readonly TokenStorageInterface $tokenStorage,
         #[Autowire(service: 'security.authentication.trust_resolver')]
         private readonly AuthenticationTrustResolverInterface $trustResolver,
+        private readonly UrlGeneratorInterface $urlGenerator,
     ) {
     }
 
@@ -62,7 +65,10 @@ final class SessaoVencidaEmPedidoDeDadosListener
             $this->tokenStorage->setToken(null);
         }
 
-        $event->setResponse(PedidoDeNavegacao::respostaDeSessaoVencida());
+        // Quadro interno: o login aparece no quadro, sem gravar o quadro como destino.
+        $event->setResponse(PedidoDeNavegacao::eQuadroInterno($request)
+            ? new RedirectResponse($this->urlGenerator->generate('app_login'))
+            : PedidoDeNavegacao::respostaDeSessaoVencida());
         $event->allowCustomResponseCode();
     }
 
