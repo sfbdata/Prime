@@ -66,7 +66,7 @@
 .mc-cp-cabeca { flex-wrap: nowrap; }
 .mc-cp-cabeca-ic { color: var(--mc-azul); font-size: 18px; }
 /* L.231: a grade em duas colunas (auto-fit, mínimo de 340 px) */
-.mc-cp-grade { padding: 16px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; align-items: start; }
+.mc-cp-grade { padding: 16px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 18px; align-items: start; }
 /* L.232 e L.249 */
 .mc-cp-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .mc-cp-lado { gap: 10px; }
