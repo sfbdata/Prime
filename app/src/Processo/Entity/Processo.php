@@ -123,6 +123,29 @@ class Processo implements TenantAware
     #[ORM\JoinColumn(nullable: false)]
     private ?Tenant $tenant = null;
 
+    /**
+     * Monitoramento do Push Processual (spec push-painel-monitoramento §1). `null` = ativo: a
+     * captação do DJEN consulta este número. Pausar não apaga nada, só tira o número da captação.
+     * É do PROCESSO, então vale para todas as pastas que o compartilham.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $monitoramentoPausadoEm = null;
+
+    /** Quem pausou ou retomou por último, e quando (retomar não apaga quem mexeu). */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'monitoramento_alterado_por_id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $monitoramentoAlteradoPor = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $monitoramentoAlteradoEm = null;
+
+    /**
+     * Quando o BlueJus consultou o DJEN por este número pela última vez, com sucesso. Não é o
+     * `dataAtualizacao`, que vem do DataJud.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $ultimaVerificacaoEm = null;
+
     public function __construct()
     {
         $this->documentos = new ArrayCollection();
@@ -599,4 +622,59 @@ class Processo implements TenantAware
         return $this;
     }
 
+    public function monitoramentoAtivo(): bool
+    {
+        return $this->monitoramentoPausadoEm === null;
+    }
+
+    public function pausarMonitoramento(User $por, \DateTimeImmutable $em): void
+    {
+        if (!$this->monitoramentoAtivo()) {
+            return;
+        }
+
+        $this->monitoramentoPausadoEm = $em;
+        $this->registrarAlteracaoDoMonitoramento($por, $em);
+    }
+
+    public function retomarMonitoramento(User $por, \DateTimeImmutable $em): void
+    {
+        if ($this->monitoramentoAtivo()) {
+            return;
+        }
+
+        $this->monitoramentoPausadoEm = null;
+        $this->registrarAlteracaoDoMonitoramento($por, $em);
+    }
+
+    public function getMonitoramentoPausadoEm(): ?\DateTimeImmutable
+    {
+        return $this->monitoramentoPausadoEm;
+    }
+
+    public function getMonitoramentoAlteradoPor(): ?User
+    {
+        return $this->monitoramentoAlteradoPor;
+    }
+
+    public function getMonitoramentoAlteradoEm(): ?\DateTimeImmutable
+    {
+        return $this->monitoramentoAlteradoEm;
+    }
+
+    private function registrarAlteracaoDoMonitoramento(User $por, \DateTimeImmutable $em): void
+    {
+        $this->monitoramentoAlteradoPor = $por;
+        $this->monitoramentoAlteradoEm  = $em;
+    }
+
+    public function getUltimaVerificacaoEm(): ?\DateTimeImmutable
+    {
+        return $this->ultimaVerificacaoEm;
+    }
+
+    public function registrarVerificacao(\DateTimeImmutable $em): void
+    {
+        $this->ultimaVerificacaoEm = $em;
+    }
 }

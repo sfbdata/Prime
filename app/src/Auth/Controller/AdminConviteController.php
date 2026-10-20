@@ -12,6 +12,7 @@ use App\Auth\Service\ConviteMailer;
 use App\Auth\UseCase\CriarConvitePlataformaUseCase;
 use App\Auth\UseCase\ReenviarConviteUseCase;
 use App\Auth\UseCase\RevogarConviteUseCase;
+use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -87,7 +88,7 @@ final class AdminConviteController extends AbstractController
 
         $invitation = $this->invitationRepository->encontrarPorToken($token);
 
-        if ($invitation === null || $invitation->getType() !== 'platform') {
+        if ($invitation === null || $invitation->getType() !== Invitation::TIPO_PLATAFORMA) {
             throw $this->createNotFoundException('Convite de plataforma não encontrado.');
         }
 
@@ -112,7 +113,7 @@ final class AdminConviteController extends AbstractController
 
         $invitation = $this->invitationRepository->encontrarPorToken($token);
 
-        if ($invitation === null || $invitation->getType() !== 'platform') {
+        if ($invitation === null || $invitation->getType() !== Invitation::TIPO_PLATAFORMA) {
             throw $this->createNotFoundException('Convite de plataforma não encontrado.');
         }
 

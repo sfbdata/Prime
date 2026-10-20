@@ -11,6 +11,7 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\InvitationRepository;
+use App\Tests\Auth\Doubles\VagaNoEscritorioDublada;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
@@ -24,6 +25,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(CriarConviteEscritorioUseCase::class)]
 final class CriarConviteEscritorioUseCaseTest extends TestCase
 {
+    use VagaNoEscritorioDublada;
+
     private InvitationRepository&MockObject $invitationRepo;
     private UserRepository&MockObject $userRepo;
     private UserTenantRepository&MockObject $userTenantRepo;
@@ -45,6 +48,7 @@ final class CriarConviteEscritorioUseCaseTest extends TestCase
             $this->userTenantRepo,
             $this->em,
             new RegraDosPrimarios($this->userTenantRepo),
+            $this->vagaNoEscritorio(),
         );
         $this->tenant    = new Tenant();
         $this->role      = new TenantRole();
@@ -187,5 +191,46 @@ final class CriarConviteEscritorioUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('persist');
 
         $this->useCase->executar($this->input('novo@escritorio.com'));
+    }
+
+    #[TestDox('limite de usuários (P8): com o bloqueio ligado e o Free (3) cheio, o convite é recusado com a mensagem')]
+    public function testLimiteDeUsuariosComBloqueioLigadoRecusa(): void
+    {
+        $this->em->expects($this->never())->method('persist');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Este escritório chegou ao limite de 3 usuários. Para convidar mais pessoas, amplie o plano ou fale com o suporte do BlueJus.');
+
+        $this->comVaga(bloqueioLigado: true, usuarios: 3)->executar($this->input('quarto@escritorio.com'));
+    }
+
+    #[TestDox('limite de usuários (P8): com o bloqueio ligado e vaga sobrando, o convite sai')]
+    public function testLimiteDeUsuariosComVagaAceita(): void
+    {
+        $this->userRepo->method('findOneBy')->willReturn(null);
+        $this->em->expects($this->once())->method('persist');
+
+        $this->comVaga(bloqueioLigado: true, usuarios: 2)->executar($this->input('terceiro@escritorio.com'));
+    }
+
+    #[TestDox('limite de usuários (P8): com o bloqueio desligado (padrão do deploy), nunca recusa')]
+    public function testLimiteDeUsuariosComBloqueioDesligadoNaoRecusa(): void
+    {
+        $this->userRepo->method('findOneBy')->willReturn(null);
+        $this->em->expects($this->once())->method('persist');
+
+        $this->comVaga(bloqueioLigado: false, usuarios: 10)->executar($this->input('decimo@escritorio.com'));
+    }
+
+    private function comVaga(bool $bloqueioLigado, int $usuarios): CriarConviteEscritorioUseCase
+    {
+        return new CriarConviteEscritorioUseCase(
+            $this->invitationRepo,
+            $this->userRepo,
+            $this->userTenantRepo,
+            $this->em,
+            new RegraDosPrimarios($this->userTenantRepo),
+            $this->vagaNoEscritorio($bloqueioLigado, $usuarios),
+        );
     }
 }

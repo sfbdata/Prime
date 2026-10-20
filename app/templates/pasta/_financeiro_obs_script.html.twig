@@ -173,7 +173,7 @@
 
         return `
             <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="financeiro-obs-${data.id}" data-obs-do-autor="1"
-                     data-janela-ate="${janelaAte}">
+                     data-janela-ate="${janelaAte}" data-autor-id="${esc(data.autorId ?? '')}">
                 ${faixa}
                 <span class="ps-anotacao-ponto" aria-hidden="true"></span>
                 <span class="ps-anotacao-seta" aria-hidden="true"></span>
