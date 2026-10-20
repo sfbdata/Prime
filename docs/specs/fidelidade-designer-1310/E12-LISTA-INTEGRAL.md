@@ -393,12 +393,12 @@ Pedido do dono (§16): histórico próprio do cadastro. Feito nesta branch.
 - Entrou: tabela própria `cliente_historico` (quando, quem, texto; some com o cliente por CASCADE e entra na purga),
   sem tornar o Cliente auditável (o audit_log poria CPF e RG em claro). O texto leva só rótulos de campo e o tipo do
   documento, nunca valores nem nome de arquivo (`HistoricoDoCliente`). Grava ao salvar a janela ("<quem> alterou
-  nome, CPF"), ao criar pela janela e pelo "Cadastrar cliente" antigo da pasta ("<quem> criou o cadastro"), na
-  ficha antiga `cliente_edit`, no contato da janela Detalhes do cliente, e ao anexar, editar ou remover documento
-  ("<quem> alterou documento de identificação", o verbo do desenho, uma linha por ação). Data "dd/mm/aaaa, hh:mm".
+  nome, CPF"), ao criar pela janela, pelo "Cadastrar cliente" antigo da pasta e pela judicialização da Cobrança
+  (`ResolvedorClienteDoResponsavel`, autor = quem judicializa; cliente reusado não ganha linha) ("<quem> criou o
+  cadastro"), na ficha antiga `cliente_edit`, no contato da janela Detalhes do cliente, e ao anexar, editar ou
+  remover documento ("<quem> alterou documento de identificação", o verbo do desenho, uma linha por ação). Data "dd/mm/aaaa, hh:mm".
   Aba Histórico como última aba (lista invertida, as 40 mais novas, vazio "Nenhuma alteração registrada ainda."),
   Pendências some nela, e a aba é relida depois de salvar. Sem ponto final nos textos, como o desenho.
 - Ficou fora: sugestão de IA aceita ou aplicada (L.3378-3401) e documento vinculado a partir do menu Documentos
-  (L.3387), que não existem no sistema. Lacuna registrada: o cliente criado pela Cobrança
-  (`ResolvedorClienteDoResponsavel`) não grava "criou o cadastro".
+  (L.3387), que não existem no sistema.
 
