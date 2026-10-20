@@ -6,6 +6,8 @@
   depois do #112. Risco **MÉDIO** (dado pessoal e identidade do cliente).
 - Fatia em andamento: **F-A** (só regras internas, sem fonte externa e sem IA).
 - F-B, F-C e F-D **esperam o dono** (D1 a D4 abaixo).
+- **Falta enviar** (sem internet desde 19/10, noite): `git push -u origin cliente-inteligencia-cadastral` e
+  abrir o PR em rascunho com base `cliente-historico` (#112). Commits só locais até lá.
 
 **Para o dono** (pacote "IA x regras", levado pelo coordenador em 19/10):
 - **D1. Rótulo "IA".** O desenho chama de IA o que é regra (l.3391, 3394, 3401, 3407). As regras 1 e 7 do
@@ -50,8 +52,8 @@ seria "OCR + extração por IA a cada upload".
 - **"Mesmo CPF com outro nome."** "\"<nome>\" em <origem>. Pode ser abreviação ou cadastro duplicado;
   confira antes de consolidar." Fontes internas, no mesmo escritório, comparando os **dígitos**:
   - outro cliente com o mesmo documento escrito de outro jeito ("006.462.251-70" e "00646225170") e nome
-    diferente: origem "outro cadastro de cliente"; com link para abrir só se o usuário pode vê-lo (mesma
-    regra do `existenteVisivel`);
+    diferente: origem "outro cadastro de cliente"; o nome só aparece para quem pode ver o outro cadastro;
+    para os demais, o alerta sai sem o nome (mesma regra do `existenteVisivel`);
   - pessoa da Cobrança com o mesmo CPF/CNPJ e nome diferente: origem "Cobranças", **só se o usuário tem
     acesso ao módulo de cobranças** (`PermissionChecker::canAccessModule`).
 - **"Identidade não confirmada"** depende da leitura dos documentos: fica para a F-B.
@@ -87,7 +89,7 @@ tempo da identidade (F-B, D1 e D3); "Atualizar sozinho" (F-C, D2); confirmação
 ## 3. Contrato
 - `GET /cliente/{id}/inteligencia-cadastral` `cliente_inteligencia_cadastral` (JSON; cliente do escritório
   e visível ao usuário, senão 404): `{on, titulo, subtitulo, alertas: [{tipo (homonimo|mesmoDocumento), ic,
-  negrito, texto, abrirUrl?}], encontrados: [{id, arquivo, categoria, categoriaRotulo, pasta, data,
+  negrito, texto}], encontrados: [{id, arquivo, categoria, categoriaRotulo, pasta, data,
   podeVincular}], nota}`.
 - `POST /cliente/{id}/inteligencia-cadastral/vincular/{documentoId}` `cliente_inteligencia_cadastral_vincular`
   (CSRF no header; edição do cliente e leitura da pasta; 404 se o documento não é de uma pasta do cliente).
