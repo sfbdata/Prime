@@ -11,6 +11,7 @@ use App\Pasta\Entity\CadeadoDaPasta;
 use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaProcesso;
+use App\Processo\Entity\Processo;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -119,25 +120,24 @@ class CadeadoDaPastaRepository extends ServiceEntityRepository
     }
 
     /**
-     * Os números (como gravados) dos processos vinculados às pastas com cadeado em que a pessoa NÃO está
-     * na lista de quem vê. Para as superfícies globais (Push global, spec pasta-cadeado D3). Quem configura
-     * é tratado antes, por quem chama.
+     * Os números (como gravados) destes processos: o Push global (spec pasta-cadeado D3) some com os
+     * processos que a pessoa não abre.
+     *
+     * @param list<int> $processoIds
      *
      * @return list<string>
      */
-    public function numerosDeProcessoOcultosPara(User $pessoa, Tenant $tenant): array
+    public function numerosDosProcessos(array $processoIds): array
     {
+        if ($processoIds === []) {
+            return [];
+        }
+
         $linhas = $this->getEntityManager()->createQueryBuilder()
-            ->select('DISTINCT pr.numeroProcesso AS numero')
-            ->from(PastaProcesso::class, 'pp')
-            ->join('pp.pasta', 'pa')
-            ->join('pp.processo', 'pr')
-            ->andWhere('pa.tenant = :tenant')
-            ->andWhere('EXISTS (SELECT c.id FROM ' . CadeadoDaPasta::class . ' c WHERE c.pasta = pa)')
-            ->andWhere('NOT EXISTS (SELECT a.id FROM ' . AcessoAPastaTrancada::class . ' a JOIN a.cadeado ca WHERE ca.pasta = pa AND ca.modo = :porPessoa AND a.pessoa = :pessoa)')
-            ->setParameter('tenant', $tenant)
-            ->setParameter('pessoa', $pessoa)
-            ->setParameter('porPessoa', ModoDoCadeado::PorPessoa)
+            ->select('pr.numeroProcesso AS numero')
+            ->from(Processo::class, 'pr')
+            ->andWhere('pr.id IN (:ids)')
+            ->setParameter('ids', $processoIds)
             ->getQuery()
             ->getScalarResult();
 

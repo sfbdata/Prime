@@ -313,7 +313,10 @@ class PastaRepository extends ServiceEntityRepository
         if ($idsExcluidos !== []) {
             $qb->andWhere('p.id NOT IN (:idsExcluidos)')->setParameter('idsExcluidos', $idsExcluidos);
         }
-        $this->soAsVisiveis($qb, $quemBusca); // cadeado: a pasta oculta para quem vincula não é oferecida
+        if ($quemBusca !== null) {
+            // Cadeado: vincular escreve na pasta, então só é oferecida a que a pessoa EDITA (não a oculta nem a de só visualizar).
+            $this->nivelNoCadeado?->restringirAoEditavel($qb, 'p', $quemBusca);
+        }
 
         $termo = trim($termo);
 
@@ -668,6 +671,11 @@ class PastaRepository extends ServiceEntityRepository
             ->groupBy('c.id');
 
         $this->aplicarFiltrosDashboard($qb, $filtros, false);
+        // Cadeado: o número leva à lista "pastas criadas por X", que não mostra a oculta com esse filtro (D1).
+        $ocultas = $this->nivelNoCadeado?->idsDasPastasOcultasDeQuemEstaLogado() ?? [];
+        if ($ocultas !== []) {
+            $qb->andWhere('p.id NOT IN (:criadasOcultas)')->setParameter('criadasOcultas', $ocultas);
+        }
 
         $rows = $qb->getQuery()->getArrayResult();
 

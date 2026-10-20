@@ -57,25 +57,43 @@ final class DecidirPedidoDeAcessoUseCase
         $agora  = $this->relogio->now();
         $nome   = (string) ($pedido->getSolicitante()->getFullName() ?? $pedido->getSolicitante()->getEmail());
 
-        $this->reservar($pedido, $decisao, $ator, $agora);
-        if ($decisao === self::RECUSAR) {
-            $pedido->recusar($ator, $agora);
-            $this->registro->registrar($pasta, $ator, 'cadeado', sprintf('Pedido de acesso de %s recusado', $nome));
-        } else {
-            $nivel = self::nivelDaDecisao($decisao);
-            $pedido->liberar($nivel, $ator, $agora);
-            $this->liberarNoCadeado($pedido, $nivel, $ator, $agora);
-            $this->registro->registrar($pasta, $ator, 'cadeado', sprintf('Acesso liberado para %s (%s)', $nome, $nivel->verbo()));
+        // Uma transação só: a reserva da decisão (UPDATE condicional), o cadeado, o histórico e o aviso. Se
+        // algo falhar, não sobra pedido decidido com o cadeado como estava. Transação pela conexão, e não
+        // `wrapInTransaction`, porque este fecha o EntityManager no erro, e a recusa da segunda decisão (422)
+        // é um caminho normal.
+        $conexao = $this->em->getConnection();
+        $conexao->beginTransaction();
+        try {
+            $this->reservar($pedido, $decisao, $ator, $agora);
+            $this->aplicarDecisao($pedido, $pasta, $ator, $agora, $decisao, $nome);
+            // `criarNotificacao` grava com flush: decisão, cadeado, histórico e aviso vão na mesma descarga.
+            $this->avisos->avisarDecisao($pedido);
+            $this->em->flush();
+            $conexao->commit();
+        } catch (\Throwable $e) {
+            $conexao->rollBack();
+            throw $e;
         }
-
-        // `criarNotificacao` grava com flush: decisão, cadeado, histórico e aviso vão na mesma descarga.
-        $this->avisos->avisarDecisao($pedido);
-        $this->em->flush();
         $this->acessoAPasta->esquecer();
 
         return new DecisaoDoPedidoOutput($this->estadoDoCadeado($pasta, $tenant), $decisao === self::RECUSAR
             ? 'Pedido recusado'
             : sprintf('Pasta %s liberada para %s', (string) $pasta->getNup(), self::primeiroNome($nome)));
+    }
+
+    private function aplicarDecisao(PedidoDeAcessoAPasta $pedido, Pasta $pasta, User $ator, \DateTimeImmutable $agora, string $decisao, string $nome): void
+    {
+        if ($decisao === self::RECUSAR) {
+            $pedido->recusar($ator, $agora);
+            $this->registro->registrar($pasta, $ator, 'cadeado', sprintf('Pedido de acesso de %s recusado', $nome));
+
+            return;
+        }
+
+        $nivel = self::nivelDaDecisao($decisao);
+        $pedido->liberar($nivel, $ator, $agora);
+        $this->liberarNoCadeado($pedido, $nivel, $ator, $agora);
+        $this->registro->registrar($pasta, $ator, 'cadeado', sprintf('Acesso liberado para %s (%s)', $nome, $nivel->verbo()));
     }
 
     private function carregar(int $pedidoId, Pasta $pasta, User $ator, Tenant $tenant): PedidoDeAcessoAPasta

@@ -173,6 +173,11 @@ configura os dois é o mesmo grupo (K1).
   primário e a faixa de decisão usam a frase do desenho sem o vocativo do chat ("{Nome} pediu acesso à Pasta
   N ({cliente}) às HH:MM, para {editar|visualizar}. Motivo: "…" A pasta está trancada por você. Quer
   liberar?"); depois de liberar, "Pasta N liberada para {primeiro nome}".
+- **Re-revisão (20/10):** o sino e "Ver todas" não mostram nem contam aviso ligado a pasta oculta (pela meta
+  ou pela URL `/pasta/{id}`), mesmo gravado antes do cadeado; a resposta ao pedido sempre sai. O Push global
+  esconde o processo só quando TODAS as pastas dele são ocultas (a regra do processo). O número do Dashboard de
+  "pastas criadas por X" não conta a oculta. A sugestão de vínculo da Cobrança só oferece pasta que a pessoa
+  edita. A decisão do pedido e o cadeado vão numa transação só.
 - **K6:** o histórico da pasta é o cartão do sistema no Registro ("Cadeado: …", `RegistroDoSistemaNaPasta`);
   a auditoria da conta vem das entidades auditáveis (`CadeadoDaPasta`, `AcessoAPastaTrancada`,
   `PedidoDeAcessoAPasta`).

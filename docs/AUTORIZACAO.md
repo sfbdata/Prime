@@ -518,15 +518,17 @@ Expediente pergunta ao `AcessoAPasta::podeConfigurar()`.
      `processo_show` e recusa no `canAccessResource` de `processo`, o que fecha também as notas
      técnicas) e some da lista de processos; com pelo menos uma pasta visível, abre, e a pasta oculta
      aparece nele só com o número, o cliente e o cadeado (K3);
-   - o Push global, as Minhas Metas (lista, abas, KPIs, trilho), as metas da equipe e a Agenda
-     (prazos e audiências da pasta) não mostram nem contam o que é dela; os avisos da meta não vão
-     para quem está oculto; qualquer cadeado desliga o link externo do Push (D3);
+   - as Minhas Metas (lista, abas, KPIs, trilho), as metas da equipe e a Agenda (prazos e audiências
+     da pasta) não mostram nem contam o que é dela; o Push global esconde o processo cujas pastas são
+     todas ocultas (a regra do processo); os avisos da meta não vão para quem está oculto, e o sino e
+     "Ver todas" não mostram nem contam aviso ligado a pasta oculta, mesmo antigo; qualquer cadeado
+     desliga o link externo do Push (D3);
    - a auditoria do escritório mostra sem o conteúdo e sem "desfazer" as linhas da pasta, das
      entidades dela (`App\Pasta\Entity\*`), da meta, da resposta da meta e das análises da BlueJus IA
      da pasta (D4);
    - a imagem embutida em peça dela é recusada (D5); pasta com cadeado sai do sync do Drive (D6);
-   - na Cobrança, a busca de pasta para judicializar não oferece a oculta, e vincular um caso a uma
-     pasta em que a pessoa não edita pelo cadeado é recusado.
+   - na Cobrança, a busca de pasta para judicializar só oferece pasta que a pessoa edita pelo cadeado,
+     e vincular um caso a uma pasta em que ela não edita é recusado.
 
 **Precedência com o "ocultar aba"** (#68): são dois eixos e os dois só subtraem. O cadeado é o teto da
 pasta inteira; a aba oculta é **organização** e tira abas dentro do que o cadeado permite. Com

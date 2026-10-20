@@ -222,10 +222,40 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
         $this->trancar($oculta, $primario);
         $repo = static::getContainer()->get(PastaRepository::class);
 
+        $soVer = $this->criarPasta($tenant, 'JOSE SO VISUALIZA');
+        $soVer->setNomeAcao('Monitória sigilosa');
+        $this->em()->flush();
+        $this->trancar($soVer, $primario, [[$ana, NivelDeAcesso::Visualizar]]);
         $ids = static fn (array $linhas): array => array_column($linhas, 'id');
+        self::assertNotContains((int) $soVer->getId(), $ids($repo->buscarParaVinculo('sigilosa', $tenant, 20, [], $ana)), 'só visualizar: vincular escreveria nela');
         self::assertNotContains((int) $oculta->getId(), $ids($repo->buscarParaVinculo('sigilosa', $tenant, 20, [], $ana)));
         self::assertNotContains((int) $oculta->getId(), $ids($repo->buscarParaVinculo('', $tenant, 20, [], $ana)));
         self::assertContains((int) $oculta->getId(), $ids($repo->buscarParaVinculo('sigilosa', $tenant, 20, [])), 'sem quem busca (uso interno), nada muda');
+    }
+
+    #[TestDox('Dashboard: o número de "pastas criadas por X" não conta a pasta oculta para quem olha, como a lista')]
+    public function testDashboardPastasCriadas(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $ana    = $this->criarColaborador($tenant);
+        $oculta = $this->criarPasta($tenant);
+        $livre  = $this->criarPasta($tenant);
+        $oculta->setCriadoPor($primario);
+        $livre->setCriadoPor($primario);
+        $this->em()->flush();
+        $this->trancar($oculta, $primario);
+
+        $container = static::getContainer();
+        $container->get('security.token_storage')->setToken(new \Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken($ana, 'main', $ana->getRoles()));
+        $sessao = new \Symfony\Component\HttpFoundation\Session\Session(new \Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage());
+        $sessao->set('current_tenant_id', $tenant->getId());
+        $requisicao = new \Symfony\Component\HttpFoundation\Request();
+        $requisicao->setSession($sessao);
+        $container->get('request_stack')->push($requisicao);
+
+        $contagem = $container->get(PastaRepository::class)->countCriadasPorCriador($tenant);
+
+        self::assertSame(1, $contagem[(int) $primario->getId()] ?? 0);
     }
 
     #[TestDox('D1 Lista e cliente: a pasta oculta não vaza prioridade nem situação')]
@@ -293,14 +323,26 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
 
     // ── D3 ─────────────────────────────────────────────────────────────
 
-    #[TestDox('D3 Push global: a publicação do processo da pasta oculta some da lista e responde 404')]
+    #[TestDox('D3 Push global: some só o Push do processo cujas pastas são todas ocultas (lista e 404); com uma pasta visível, segue')]
     public function testPushGlobal(): void
     {
         [$primario, $tenant] = $this->criarEscritorio();
         $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'modules.djen.view']);
         $oculta = $this->criarPasta($tenant);
         $this->vincularProcesso($oculta, '0700004-44.2026.8.07.0001');
+        // Processo em pasta oculta E em pasta visível: o Push dele continua (mesma regra do processo, K3).
+        $compartilhado = $this->vincularProcesso($oculta, '0700005-55.2026.8.07.0001');
+        $this->criarPasta($tenant, 'PEDRO LIVRE')->vincularProcesso($compartilhado);
+        $this->em()->flush();
         $this->trancar($oculta, $primario);
+        $visivel = new PublicacaoDjen();
+        $visivel->setTenant($tenant);
+        $visivel->setDjenId((string) random_int(100000, 999999));
+        $visivel->setNumeroProcesso('07000055520268070001');
+        $visivel->setSiglaTribunal('TJDFT');
+        $visivel->setTipoComunicacao('Intimação compartilhada');
+        $visivel->setDataDisponibilizacao(new \DateTimeImmutable('2026-10-10'));
+        $this->em()->persist($visivel);
         $publicacao = new PublicacaoDjen();
         $publicacao->setTenant($tenant);
         $publicacao->setDjenId((string) random_int(100000, 999999));
@@ -315,6 +357,7 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
         $this->client->request('GET', '/push-processual');
         self::assertResponseIsSuccessful();
         self::assertStringNotContainsString('Intimação sigilosa', (string) $this->client->getResponse()->getContent());
+        self::assertStringContainsString('Intimação compartilhada', (string) $this->client->getResponse()->getContent(), 'o processo com uma pasta visível segue no Push');
         $this->client->request('GET', '/push-processual/' . $publicacao->getId());
         self::assertResponseStatusCodeSame(404);
 
@@ -390,6 +433,53 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
         $html = (string) $this->client->getResponse()->getContent();
         self::assertStringContainsString('Meta equipe livre', $html);
         self::assertStringNotContainsString('Meta equipe trancada', $html);
+    }
+
+    #[TestDox('sino e Ver todas: aviso ligado a pasta trancada depois (menção, meta) some e não conta; a resposta ao pedido continua')]
+    public function testAvisosDaPastaOcultaSomemDoSino(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $ana    = $this->criarColaborador($tenant);
+        $oculta = $this->criarPasta($tenant);
+        $livre  = $this->criarPasta($tenant);
+        $meta = new Tarefa();
+        $meta->setTitulo('Meta da pasta trancada');
+        $meta->setDescricao('Descrição');
+        $meta->setPasta($oculta);
+        $meta->setTenant($tenant);
+        $meta->setCriadoPor($primario);
+        $this->em()->persist($meta);
+        $aviso = function (string $titulo, string $tipo, ?string $url, ?Tarefa $tarefa = null) use ($ana, $tenant): void {
+            $n = new \App\Entity\Notificacao();
+            $n->setUsuario($ana);
+            $n->setTenant($tenant);
+            $n->setTipo($tipo);
+            $n->setTitulo($titulo);
+            $n->setMensagem($titulo);
+            $n->setUrl($url);
+            $n->setTarefa($tarefa);
+            $this->em()->persist($n);
+        };
+        $aviso('MENCAO NA PASTA TRANCADA', \App\Entity\Notificacao::TIPO_PASTA_MENCAO_REGISTRO, '/pasta/' . $oculta->getId() . '#pasta-msg-1');
+        $aviso('META DA PASTA TRANCADA', \App\Entity\Notificacao::TIPO_TAREFA_CRIADA, null, $meta);
+        $aviso('MENCAO NA PASTA LIVRE', \App\Entity\Notificacao::TIPO_PASTA_MENCAO_REGISTRO, '/pasta/' . $livre->getId() . '#pasta-msg-2');
+        $aviso('RESPOSTA AO PEDIDO', \App\Entity\Notificacao::TIPO_PASTA_ACESSO_DECIDIDO, '/pasta/' . $oculta->getId());
+        $this->em()->flush();
+        // A menção e a meta foram gravadas antes; o cadeado vem depois.
+        $this->trancar($oculta, $primario);
+        $this->entrar($ana, $tenant);
+
+        $todas = (string) $this->client->request('GET', '/notificacoes')->html();
+        $this->client->request('GET', '/notificacoes/lista-dropdown');
+        $sino = json_decode((string) $this->client->getResponse()->getContent(), true);
+
+        foreach ([$todas, $sino['html']] as $tela) {
+            self::assertStringNotContainsString('MENCAO NA PASTA TRANCADA', $tela);
+            self::assertStringNotContainsString('META DA PASTA TRANCADA', $tela);
+            self::assertStringContainsString('MENCAO NA PASTA LIVRE', $tela);
+            self::assertStringContainsString('RESPOSTA AO PEDIDO', $tela);
+        }
+        self::assertSame(2, $sino['count'], 'os avisos da pasta oculta não contam como não lidos');
     }
 
     // ── D4 ─────────────────────────────────────────────────────────────

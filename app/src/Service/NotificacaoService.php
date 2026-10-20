@@ -38,6 +38,17 @@ class NotificacaoService
      * Cadeado (spec pasta-cadeado D3): quem está `Oculto` na pasta da meta não recebe aviso dela (o título
      * da meta já diria o que a pasta tem).
      */
+    /**
+     * As pastas ocultas pelo cadeado para o usuário no escritório da sessão: os avisos ligados a elas não
+     * aparecem nem contam no sino e em "Ver todas" (mesmo gravados antes do cadeado).
+     *
+     * @return list<int>
+     */
+    public function pastasOcultasDe(User $usuario): array
+    {
+        return $this->nivelNoCadeado?->idsDasPastasOcultasNaSessao($usuario) ?? [];
+    }
+
     public function veAPastaDaMeta(Tarefa $tarefa, User $usuario): bool
     {
         return $this->nivelNoCadeado?->nivel($usuario, $tarefa->getPasta())->podeVer() ?? true;
@@ -209,7 +220,7 @@ class NotificacaoService
      */
     public function getNotificacoesNaoLidas(User $usuario, ?string $categoria = null, int $limit = 10): array
     {
-        return $this->notificacaoRepository->findNaoLidasByUsuario($usuario, $categoria, $limit);
+        return $this->notificacaoRepository->findNaoLidasByUsuario($usuario, $categoria, $limit, $this->pastasOcultasDe($usuario));
     }
 
     /**
@@ -217,7 +228,7 @@ class NotificacaoService
      */
     public function contarNaoLidas(User $usuario, ?string $categoria = null): int
     {
-        return $this->notificacaoRepository->countNaoLidasByUsuario($usuario, $categoria);
+        return $this->notificacaoRepository->countNaoLidasByUsuario($usuario, $categoria, $this->pastasOcultasDe($usuario));
     }
 
     /**

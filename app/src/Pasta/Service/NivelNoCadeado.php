@@ -17,6 +17,7 @@ use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
 use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\QueryBuilder;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -58,6 +59,7 @@ final class NivelNoCadeado implements ResetInterface
         private readonly UserTenantRepository $userTenantRepository,
         private readonly RegraDosPrimarios $regraDosPrimarios,
         private readonly TenantContext $tenantContext,
+        private readonly ?Security $security = null,
     ) {
     }
 
@@ -189,6 +191,23 @@ final class NivelNoCadeado implements ResetInterface
      */
     public function criterioDeVisivel(QueryBuilder $qb, string $aliasPasta, User $pessoa): ?string
     {
+        return $this->criterio($qb, $aliasPasta, $pessoa, false);
+    }
+
+    /**
+     * As pastas em que a pessoa EDITA pelo cadeado (sem cadeado, ou `Editar` na lista): para quem vai escrever
+     * na pasta escolhida (a sugestão de vínculo da Cobrança). Master e primário: nada muda.
+     */
+    public function restringirAoEditavel(QueryBuilder $qb, string $aliasPasta, User $pessoa): void
+    {
+        $criterio = $this->criterio($qb, $aliasPasta, $pessoa, true);
+        if ($criterio !== null) {
+            $qb->andWhere($criterio);
+        }
+    }
+
+    private function criterio(QueryBuilder $qb, string $aliasPasta, User $pessoa, bool $soQuemEdita): ?string
+    {
         $tenant = $this->tenantContext->getCurrentTenant();
         if ($tenant !== null && $this->regraDosPrimarios->podeGerirPrimarios($pessoa, $tenant)) {
             return null;
@@ -200,21 +219,27 @@ final class NivelNoCadeado implements ResetInterface
         $n = ++$this->criterios;
         $qb->setParameter('cad_pessoa_' . $n, $pessoa)
             ->setParameter('cad_modo_' . $n, ModoDoCadeado::PorPessoa);
+        $doNivel = '';
+        if ($soQuemEdita) {
+            $qb->setParameter('cad_nivel_' . $n, NivelDeAcesso::Editar);
+            $doNivel = sprintf(' AND av%d.nivel = :cad_nivel_%d', $n, $n);
+        }
 
         return sprintf(
             '(NOT EXISTS (SELECT cv%1$d.id FROM %2$s cv%1$d WHERE cv%1$d.pasta = %3$s)'
             . ' OR EXISTS (SELECT av%1$d.id FROM %4$s av%1$d JOIN av%1$d.cadeado ca%1$d'
-            . ' WHERE ca%1$d.pasta = %3$s AND ca%1$d.modo = :cad_modo_%1$d AND av%1$d.pessoa = :cad_pessoa_%1$d))',
+            . ' WHERE ca%1$d.pasta = %3$s AND ca%1$d.modo = :cad_modo_%1$d AND av%1$d.pessoa = :cad_pessoa_%1$d%5$s))',
             $n,
             CadeadoDaPasta::class,
             $aliasPasta,
             AcessoAPastaTrancada::class,
+            $doNivel,
         );
     }
 
     /**
-     * Os processos (só os dígitos do número) das pastas ocultas para a pessoa: o Push global some com
-     * eles (D3). Master e primário: nada a esconder.
+     * Os processos (só os dígitos do número) que a pessoa não abre, isto é, cujas pastas são TODAS ocultas
+     * para ela (a mesma regra do processo, K3): o Push global some com eles (D3). Master e primário: nada.
      *
      * @return list<string>
      */
@@ -225,7 +250,7 @@ final class NivelNoCadeado implements ResetInterface
         }
 
         $digitos = [];
-        foreach ($this->cadeadoRepository->numerosDeProcessoOcultosPara($pessoa, $tenant) as $numero) {
+        foreach ($this->cadeadoRepository->numerosDosProcessos($this->idsDosProcessosOcultos($pessoa, $tenant)) as $numero) {
             $so = preg_replace('/\D/', '', $numero) ?? '';
             if ($so !== '') {
                 $digitos[$so] = true;
@@ -267,6 +292,27 @@ final class NivelNoCadeado implements ResetInterface
         }
 
         return in_array($processoId, $this->idsDosProcessosOcultos($pessoa, $vinculoAtivo->getTenant()), true);
+    }
+
+    /**
+     * As pastas ocultas para quem está logado, no escritório da sessão. Para as consultas que não recebem a
+     * pessoa (o número do Dashboard que leva a "pastas criadas por X"). Sem login ou sem escritório: nenhuma.
+     *
+     * @return list<int>
+     */
+    public function idsDasPastasOcultasDeQuemEstaLogado(): array
+    {
+        $pessoa = $this->security?->getUser();
+
+        return $pessoa instanceof User ? $this->idsDasPastasOcultasNaSessao($pessoa) : [];
+    }
+
+    /** @return list<int> o mesmo `idsDasPastasOcultas()`, no escritório da sessão (sem sessão: nenhuma) */
+    public function idsDasPastasOcultasNaSessao(User $pessoa): array
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        return $tenant !== null ? $this->idsDasPastasOcultas($pessoa, $tenant) : [];
     }
 
     /** @return list<int> o mesmo `idsDasPastasOcultas()`, para quem só tem o id do escritório */
