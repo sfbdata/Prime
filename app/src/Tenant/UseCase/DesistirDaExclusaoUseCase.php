@@ -36,6 +36,7 @@ final class DesistirDaExclusaoUseCase
         }
 
         $pedido->desistir($usuario, $this->relogio->now());
-        $this->pedidos->salvar($pedido, flush: true);
+        // Desistência e decisão do Master ao mesmo tempo: quem chega depois recebe 409 (gravarDecisaoSePendente).
+        $this->pedidos->gravarDecisaoSePendente($pedido, fn () => $this->pedidos->salvar($pedido, flush: true));
     }
 }

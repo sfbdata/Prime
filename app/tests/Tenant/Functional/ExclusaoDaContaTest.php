@@ -17,6 +17,9 @@ use App\Master\UseCase\ReativarContaUseCase;
 use App\Tenant\Controller\ExclusaoDaContaController;
 use App\Tenant\Entity\PedidoDeExclusaoDeConta;
 use App\Tenant\Enum\EstadoDoPedidoDeExclusao;
+use App\Tenant\Exception\PedidoDeExclusaoRecusado;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
+use App\Tenant\UseCase\ExcluirEscritorioUseCase;
 use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
 use App\Tenant\UseCase\PedirExclusaoDaContaUseCase;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
@@ -37,6 +40,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(PedirExclusaoDaContaUseCase::class)]
 #[CoversClass(BloqueioPorPedidoDeExclusao::class)]
 #[CoversClass(TenantContextValidatorListener::class)]
+#[CoversClass(ExcluirEscritorioUseCase::class)]
+#[CoversClass(PedidoDeExclusaoDeContaRepository::class)]
 final class ExclusaoDaContaTest extends JusPrimeWebTestCase
 {
     private KernelBrowser $client;
@@ -555,5 +560,114 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
         );
         self::assertSame(0, $contar($conta), 'nada da notificação do Master na trilha do cliente');
         self::assertGreaterThanOrEqual(1, $contar($contaDoMaster), 'a criação da notificação fica na conta do Master');
+    }
+
+    // ------------------------------------------------------------------------------------------------
+    // Revisão cruzada da b5 (itens 2, 4 e 5)
+    // ------------------------------------------------------------------------------------------------
+
+    #[TestDox('rota antiga escritorio_excluir com pedido pendente: quem não é Master é recusado, a conta segue ativa e o pedido pendente')]
+    public function testRotaAntigaRecusaQuemNaoEMaster(): void
+    {
+        $conta = $this->conta();
+        $outra = $this->conta();
+        $primario = $this->pessoa($conta, true);
+        $socio = $this->pessoa($conta, true);
+        $this->em->persist(new UserTenant($this->em->find(User::class, $socio->getId()), $this->em->find(Tenant::class, $outra->getId())));
+        $this->em->flush();
+        $this->suspenderAPedido($conta, $primario);
+
+        // Com o escritório B na sessão, a barreira do pedido (que olha a sessão) não segura a rota de A.
+        $this->logarComTenant($this->client, $socio, $outra);
+        $this->client->request('POST', '/escritorio/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_excluir_' . $conta->getId(), 'confirmar_nome' => $conta->getName()]);
+
+        self::assertResponseRedirects('/tenant/' . $conta->getId());
+        self::assertContains(
+            'Esta conta tem um pedido de exclusão aguardando a decisão do Master. Só o Master pode excluí-la agora.',
+            $this->client->getRequest()->getSession()->getFlashBag()->peek('danger'),
+        );
+        $pedido = $this->pedidoDe($conta);
+        self::assertSame(EstadoDoPedidoDeExclusao::Pendente, $pedido?->getEstado());
+        self::assertTrue($pedido?->getTenant()->isActive());
+        self::assertNull($pedido?->getTenant()->getExcluidoEm());
+    }
+
+    #[TestDox('decisão concorrente: o pedido lido como pendente e decidido por outro antes do COMMIT devolve 409 e não grava a conta')]
+    public function testDecisaoConcorrenteDevolve409(): void
+    {
+        $conta = $this->conta();
+        $primario = $this->pessoa($conta, true);
+        $master = $this->pessoa($this->conta(), true, ['ROLE_SUPER_ADMIN']);
+        $this->suspenderAPedido($conta, $primario);
+        $pedidos = static::getContainer()->get(PedidoDeExclusaoDeContaRepository::class);
+        $this->em->clear();
+        $pedido = $pedidos->pendenteDoEscritorio($this->em->find(Tenant::class, $conta->getId()));
+        self::assertNotNull($pedido);
+
+        // O primário desistiu entre a leitura do Master e a gravação dele.
+        $this->em->getConnection()->executeStatement("UPDATE pedido_exclusao_conta SET estado = 'desistida' WHERE id = :id", ['id' => $pedido->getId()]);
+
+        $pedido->marcarExcluida($this->em->find(User::class, $master->getId()));
+        $gravou = false;
+        try {
+            $pedidos->gravarDecisaoSePendente($pedido, function () use (&$gravou): void {
+                $gravou = true;
+            });
+            self::fail('a segunda decisão deveria ser recusada');
+        } catch (PedidoDeExclusaoRecusado $e) {
+            self::assertSame(409, $e->status);
+        }
+
+        self::assertFalse($gravou, 'quem perde não grava a conta');
+        self::assertSame(EstadoDoPedidoDeExclusao::Desistida, $this->pedidoDe($conta)?->getEstado(), 'vale a primeira decisão');
+    }
+
+    #[TestDox('desistir depois que o Master já decidiu: 409, e a decisão do Master fica')]
+    public function testDesistirDepoisDoMasterDevolve409(): void
+    {
+        $conta = $this->conta();
+        $primario = $this->pessoa($conta, true);
+        $this->suspenderAPedido($conta, $primario);
+        $pedido = $this->pedidoDe($conta);
+        self::assertNotNull($pedido);
+        $this->logarComTenant($this->client, $primario, $conta);
+
+        // A decisão do Master chega por outro processo entre a leitura e a gravação do primário: simulada
+        // trocando o estado no banco, sem o pedido sair de "pendente" para a leitura (a mesma linha lida antes).
+        $pedidos = static::getContainer()->get(PedidoDeExclusaoDeContaRepository::class);
+        $this->em->clear();
+        $lido = $pedidos->pendenteDoEscritorio($this->em->find(Tenant::class, $conta->getId()));
+        self::assertNotNull($lido);
+        $this->em->getConnection()->executeStatement("UPDATE pedido_exclusao_conta SET estado = 'reativada' WHERE id = :id", ['id' => $lido->getId()]);
+        $lido->desistir($this->em->find(User::class, $primario->getId()));
+
+        try {
+            $pedidos->gravarDecisaoSePendente($lido, fn () => $pedidos->salvar($lido, flush: true));
+            self::fail('a desistência depois da decisão do Master deveria ser recusada');
+        } catch (PedidoDeExclusaoRecusado $e) {
+            self::assertSame(409, $e->status);
+        }
+
+        self::assertSame(EstadoDoPedidoDeExclusao::Reativada, $this->pedidoDe($conta)?->getEstado());
+    }
+
+    #[TestDox('auditoria da rota antiga: a linha da conta excluída cai no escritório excluído, não no escritório da sessão do Master')]
+    public function testAuditoriaDaRotaAntigaNaContaExcluida(): void
+    {
+        $conta = $this->conta();
+        $primario = $this->pessoa($conta, true);
+        $contaDoMaster = $this->conta();
+        $master = $this->pessoa($contaDoMaster, true, ['ROLE_SUPER_ADMIN']);
+        $this->suspenderAPedido($conta, $primario);
+        $this->logarComTenant($this->client, $master, $contaDoMaster);
+
+        $this->client->request('POST', '/tenant/' . $conta->getId(), ['_token' => 'TOKEN_delete' . $conta->getId()]);
+
+        $linhas = $this->em->getConnection()->fetchAllAssociative(
+            "SELECT tenant_id FROM audit_log WHERE entity_class = :c AND entity_id = :id AND action = 'update'",
+            ['c' => Tenant::class, 'id' => (string) $conta->getId()],
+        );
+        self::assertNotSame([], $linhas, 'a exclusão da conta é auditada');
+        self::assertSame([(int) $conta->getId()], array_values(array_unique(array_map(static fn (array $l): int => (int) $l['tenant_id'], $linhas))));
     }
 }

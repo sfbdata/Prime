@@ -45,6 +45,7 @@ use App\Tenant\DTO\RemoverColaboradorInput;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
 use App\Tenant\Service\RegraDosPrimarios;
 use App\Tenant\UseCase\RemoverColaboradorDoEscritorioUseCase;
+use App\Tenant\Exception\PedidoDeExclusaoRecusado;
 use App\Tenant\UseCase\ExcluirEscritorioUseCase;
 use App\Tenant\UseCase\GerarCodigoFuncionario;
 use App\Service\InvitationService;
@@ -291,7 +292,14 @@ final class TenantController extends AbstractController
         if ($this->isCsrfTokenValid('delete'.$tenant->getId(), $request->request->get('_token'))) {
             $ator = $this->getUser();
             if ($ator instanceof User) {
-                $excluirEscritorio->executar($tenant, $ator);
+                try {
+                    $excluirEscritorio->executar($tenant, $ator);
+                } catch (PedidoDeExclusaoRecusado $e) {
+                    // Pedido decidido ao mesmo tempo pela desistência do primário (409).
+                    $this->addFlash('danger', $e->getMessage());
+
+                    return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);
+                }
             }
         }
 

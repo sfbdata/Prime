@@ -93,6 +93,23 @@ Do desenho 07 (L111-161, L258-269), exatos, exceto onde o dono decidiu (sem "def
   ao Master."
 - E-mail do código: assunto "Código para excluir a conta", válido por 15 minutos.
 
+## Revisão cruzada da b5 (20/10/2026, corrigida no PR)
+
+- **Índice de um pendente por conta mapeado.** `uniq_pedido_exclusao_conta_pendente` entra no mapeamento da
+  entidade (`UniqueConstraint` com `where`, como o `InscricaoOab`). Sem ele, o `schema:update --dump-sql` devolvia
+  `DROP INDEX` e o próximo `make:migration` apagaria a única defesa contra dois pedidos pendentes. Agora o dump
+  não toca a tabela.
+- **Rota antiga `escritorio_excluir` com pedido pendente: só o Master decide** (decisão do coordenador,
+  independente da E6). Quem não é Master é recusado (403, flash na tela da conta), mesmo com outro escritório
+  na sessão.
+- **Decisão concorrente.** Desistência do primário e decisão do Master ao mesmo tempo:
+  `PedidoDeExclusaoDeContaRepository::gravarDecisaoSePendente` faz `UPDATE ... WHERE estado = 'pendente'` na
+  mesma transação do flush da conta. Quem chega depois recebe **409** ("Este pedido de exclusão já foi decidido.
+  Recarregue a página.") e não grava nada.
+- **Auditoria da rota antiga** na conta excluída (`executarComoConta`), não no escritório da sessão.
+- **Falha no envio do código** vai para o log (antes, o `catch` engolia a causa).
+- Anotado, fora deste PR: `existePendente` em toda página (item 7).
+
 ## Modelo (contrato com a b5)
 
 - `App\Tenant\Entity\PedidoDeExclusaoDeConta` (`pedido_exclusao_conta`): tenant, pedidoPor (User), motivo ("{motivo}"

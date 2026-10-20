@@ -58,8 +58,16 @@ final class ReativarContaUseCase
         // Recuperar da quarentena (C4b): a exclusão é desfeita. Conta só suspensa já tem excluidoEm nulo.
         $conta->setExcluidoEm(null);
         // Pedido e conta mudam na mesma transação (o flush abaixo).
-        $pedido?->marcarReativada($input->ator);
-        $this->escopoDeAuditoria->executarComoConta((int) $conta->getId(), fn () => $this->contas->salvar($conta, flush: true));
+        $gravar = fn () => $this->escopoDeAuditoria->executarComoConta((int) $conta->getId(), fn () => $this->contas->salvar($conta, flush: true));
+        if ($pedido === null) {
+            $gravar();
+
+            return ContaAlteradaOutput::fromEntity($conta, $this->carenciaPurgaDias);
+        }
+
+        // Decisão e desistência do primário ao mesmo tempo: quem chega depois recebe 409.
+        $pedido->marcarReativada($input->ator);
+        $this->pedidos->gravarDecisaoSePendente($pedido, $gravar);
 
         return ContaAlteradaOutput::fromEntity($conta, $this->carenciaPurgaDias);
     }

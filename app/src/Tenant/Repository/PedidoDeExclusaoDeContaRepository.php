@@ -8,6 +8,7 @@ use App\Entity\Tenant\Tenant;
 use App\Tenant\DTO\PedidoDeExclusaoPendenteOutput;
 use App\Tenant\Entity\PedidoDeExclusaoDeConta;
 use App\Tenant\Enum\EstadoDoPedidoDeExclusao;
+use App\Tenant\Exception\PedidoDeExclusaoRecusado;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Query\ResultSetMappingBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -80,6 +81,43 @@ class PedidoDeExclusaoDeContaRepository extends ServiceEntityRepository
             criadoEm: new \DateTimeImmutable((string) $l['criado_em']),
             motivo: (string) $l['motivo'],
         ), $linhas);
+    }
+
+    /**
+     * Grava a decisão já aplicada no pedido (desistir, marcarReativada ou marcarExcluida) SÓ se ele ainda estiver
+     * pendente no banco, na mesma transação de `$gravar` (o flush da conta). A desistência do primário e a
+     * decisão do Master ao mesmo tempo: o UPDATE condicional serializa as duas (o segundo espera o lock da
+     * linha e, depois do COMMIT do primeiro, não acha mais `pendente`), e quem chega depois recebe 409.
+     *
+     * @throws PedidoDeExclusaoRecusado 409, quando o pedido já foi decidido
+     */
+    public function gravarDecisaoSePendente(PedidoDeExclusaoDeConta $pedido, callable $gravar): void
+    {
+        $conexao = $this->getEntityManager()->getConnection();
+        $conexao->beginTransaction();
+
+        try {
+            $linhas = $conexao->executeStatement(
+                'UPDATE pedido_exclusao_conta SET estado = :estado, decidido_por_id = :ator, decidido_em = :em WHERE id = :id AND estado = :pendente',
+                [
+                    'estado'   => $pedido->getEstado()->value,
+                    'ator'     => $pedido->getDecididoPor()?->getId(),
+                    'em'       => $pedido->getDecididoEm()?->format('Y-m-d H:i:s'),
+                    'id'       => $pedido->getId(),
+                    'pendente' => EstadoDoPedidoDeExclusao::Pendente->value,
+                ],
+            );
+            if ($linhas !== 1) {
+                throw new PedidoDeExclusaoRecusado('Este pedido de exclusão já foi decidido. Recarregue a página.', 409);
+            }
+
+            $gravar();
+            $conexao->commit();
+        } catch (\Throwable $e) {
+            $conexao->rollBack();
+
+            throw $e;
+        }
     }
 
     public function salvar(PedidoDeExclusaoDeConta $pedido, bool $flush = false): void

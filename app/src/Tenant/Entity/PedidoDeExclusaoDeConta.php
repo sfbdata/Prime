@@ -18,13 +18,15 @@ use Doctrine\ORM\Mapping as ORM;
  * TenantContextValidatorListener segura a equipe (só primários entram, no Meu Perfil). Quem decide é o
  * Master (painel, frente b5): reativar ou excluir (quarentena de 365 dias a partir da decisão).
  *
- * Um pendente por conta: índice único parcial na migration (`WHERE estado = 'pendente'`).
+ * Um pendente por conta: índice único parcial (`WHERE estado = 'pendente'`), na migration e no mapeamento.
  */
 #[ORM\Entity(repositoryClass: PedidoDeExclusaoDeContaRepository::class)]
 #[ORM\Table(name: 'pedido_exclusao_conta')]
 #[ORM\Index(name: 'idx_pedido_exclusao_conta_tenant', columns: ['tenant_id'])]
 #[ORM\Index(name: 'idx_pedido_exclusao_conta_pedido_por', columns: ['pedido_por_id'])]
 #[ORM\Index(name: 'idx_pedido_exclusao_conta_decidido_por', columns: ['decidido_por_id'])]
+// Um pendente por conta (índice único parcial da migration), mapeado para o schema:update não apagá-lo.
+#[ORM\UniqueConstraint(name: 'uniq_pedido_exclusao_conta_pendente', columns: ['tenant_id'], options: ['where' => "((estado)::text = 'pendente'::text)"])]
 class PedidoDeExclusaoDeConta implements TenantAware, Auditavel
 {
     #[ORM\Id]
