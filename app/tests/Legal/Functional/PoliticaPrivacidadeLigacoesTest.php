@@ -60,7 +60,7 @@ final class PoliticaPrivacidadeLigacoesTest extends JusPrimeWebTestCase
         $convite = new Invitation(
             email: 'convidado_' . uniqid() . '@adv.com',
             token: bin2hex(random_bytes(16)),
-            type: 'plataforma',
+            type: Invitation::TIPO_PLATAFORMA,
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
         $em->persist($convite);

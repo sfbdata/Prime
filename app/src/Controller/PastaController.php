@@ -300,6 +300,8 @@ class PastaController extends AbstractController
             return new JsonResponse([
                 'status'   => 'ok',
                 'redirect' => $this->generateUrl('pasta_show', ['id' => $pasta->getId()]),
+                'nup'      => $pasta->getNup(),   // o Expediente fica na lista e avisa (desenho 03, dc `salvarNovaFn`)
+                'cliente'  => mb_strtoupper((string) $pasta->getNomeCliente()),
             ]);
         }
 
