@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Agenda\Unit;
 
 use App\Agenda\DTO\CompromissoOutput as C;
+use App\Agenda\Repository\AjusteDeDataRepository;
 use App\Agenda\Repository\EventoDaAgendaRepository;
 use App\Agenda\Service\OcorrenciasDoEvento;
 use App\Agenda\UseCase\ListarCompromissosUseCase;
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Agenda\LegendaCor;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -30,6 +31,16 @@ final class ListarCompromissosUseCaseTest extends TestCase
         $itens = $this->executar([$this->evento('#123456'), $this->evento('#999999')], [$legenda]);
 
         self::assertSame([C::CAL_AUD, C::CAL_MEUS], array_map(static fn (C $c): string => $c->calendario, $itens));
+    }
+
+    #[TestDox('Compromisso que nasceu no Google sai marcado (detalhe: "Importado do Google Agenda."); o daqui, não')]
+    public function testImportadoDoGoogle(): void
+    {
+        $doGoogle = $this->evento(Evento::COR_AZUL)->marcarImportadoDoGoogle();
+
+        $itens = $this->executar([$doGoogle, $this->evento(Evento::COR_AZUL)], []);
+
+        self::assertSame([true, false], array_map(static fn (C $c): bool => $c->doGoogle, $itens));
     }
 
     #[TestDox('Sem legendas, vale a cor padrão do formulário antigo')]
@@ -70,12 +81,34 @@ final class ListarCompromissosUseCaseTest extends TestCase
         self::assertSame(['2030-03-01', '2030-03-02', '2030-03-03', '2030-03-04', '2030-03-05'], array_map(static fn (C $c): string => $c->data, $this->executar([$e], [])));
     }
 
+    #[TestDox('Aniversário ocultado some; renomeado troca o nome e marca "editado"')]
+    public function testAniversarioAjustado(): void
+    {
+        $perfis = $this->createStub(UserProfileRepository::class);
+        $perfis->method('aniversariantesDoEscritorio')->willReturn([
+            ['id' => 7, 'nome' => 'Ana Paula Reis', 'nascimento' => new \DateTimeImmutable('1992-03-10')],
+            ['id' => 8, 'nome' => 'Bruno Lima', 'nascimento' => new \DateTimeImmutable('1990-03-12')],
+        ]);
+        $ajustes = $this->createStub(AjusteDeDataRepository::class);
+        $ajustes->method('doEscritorio')->willReturn([
+            \App\Agenda\Entity\AjusteDeData::ocultar(new Tenant(), 'aniv-7-2030-03-10', new User()),
+            \App\Agenda\Entity\AjusteDeData::renomear(new Tenant(), 'aniv-8-2030-03-12', 'Parabéns, Bruno!', new User()),
+        ]);
+        $sut = new ListarCompromissosUseCase($this->eventos([]), new OcorrenciasDoEvento(), $this->createStub(PastaPrazoRepository::class), $perfis, $this->legendas([]), $ajustes);
+
+        $itens = $sut->executar(new Tenant(), new User(), new \DateTimeImmutable('2030-03-01'), new \DateTimeImmutable('2030-03-31'), false, false);
+
+        self::assertSame(['aniv-8-2030-03-12'], array_map(static fn (C $c): string => $c->id, $itens));
+        self::assertSame('Parabéns, Bruno!', $itens[0]->titulo);
+        self::assertTrue($itens[0]->editado);
+    }
+
     #[TestDox('Aniversário em 29/02 cai em 28/02 no ano que não é bissexto')]
     public function testAniversario2902(): void
     {
         $perfis = $this->createStub(UserProfileRepository::class);
         $perfis->method('aniversariantesDoEscritorio')->willReturn([['id' => 7, 'nome' => 'Ana Paula Reis', 'nascimento' => new \DateTimeImmutable('1992-02-29')]]);
-        $sut = new ListarCompromissosUseCase($this->eventos([]), new OcorrenciasDoEvento(), $this->createStub(PastaPrazoRepository::class), $perfis, $this->legendas([]));
+        $sut = new ListarCompromissosUseCase($this->eventos([]), new OcorrenciasDoEvento(), $this->createStub(PastaPrazoRepository::class), $perfis, $this->legendas([]), $this->createStub(AjusteDeDataRepository::class));
 
         $itens = $sut->executar(new Tenant(), new User(), new \DateTimeImmutable('2030-02-01'), new \DateTimeImmutable('2030-03-31'), false, false);
 
@@ -93,7 +126,7 @@ final class ListarCompromissosUseCaseTest extends TestCase
     {
         $perfis = $this->createStub(UserProfileRepository::class);
         $perfis->method('aniversariantesDoEscritorio')->willReturn([]);
-        $sut = new ListarCompromissosUseCase($this->eventos($eventos), new OcorrenciasDoEvento(), $this->createStub(PastaPrazoRepository::class), $perfis, $this->legendas($legendas));
+        $sut = new ListarCompromissosUseCase($this->eventos($eventos), new OcorrenciasDoEvento(), $this->createStub(PastaPrazoRepository::class), $perfis, $this->legendas($legendas), $this->createStub(AjusteDeDataRepository::class));
 
         return $sut->executar(new Tenant(), new User(), new \DateTimeImmutable('2030-03-01'), new \DateTimeImmutable('2030-03-31'), false, false);
     }

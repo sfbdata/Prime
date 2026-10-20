@@ -6,6 +6,7 @@ namespace App\Dashboard\Inteligencia;
 
 use App\Dashboard\DTO\DashboardOutput;
 use App\Dashboard\DTO\LinhaAdvogadoDashboardOutput;
+use App\Shared\Prazo\RegraDoPrazo;
 
 /**
  * Modo avançado do painel BlueJus Intelligence — porte de `analisarAvancado()` de
@@ -60,8 +61,8 @@ final class MotorAvancado
     // Alerta 3 — prazos próximos (L74) e cockpit (L207)
     public const PRAZOS_ATENCAO = 15;
 
-    /** Janela de "prazo próximo" do sistema (TarefaRepository::countPrazosProximosPorResponsavel). */
-    public const PRAZO_PROXIMO_DIAS = 7;
+    /** Janela de "prazo próximo" do sistema (RegraDoPrazo, a mesma da Pasta e das contagens do Dashboard). */
+    public const PRAZO_PROXIMO_DIAS = RegraDoPrazo::DIAS_PROXIMO;
 
     // Alerta 6 — pastas urgentes (L137)
     public const URGENTES_ATENCAO = 8;

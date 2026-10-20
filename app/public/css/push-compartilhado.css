@@ -1,0 +1,145 @@
+/*
+ * Página pública do link externo do Push Processual (/p/<endereco>).
+ * Porte 1:1 do desenho "Push Compartilhado.dc.html" ([PC]); cada bloco cita a linha de origem.
+ * Standalone: não usa o app.css nem o AdminLTE.
+ */
+
+/* [PC] 13-14 */
+.pc-corpo { margin: 0; background: #eef2f5; font-family: Arial, Helvetica, sans-serif; color: #12242f; }
+.pc-corpo a { color: #0a7aad; }
+.pc-corpo a:hover { color: #075f88; }
+
+/* [PC] 15 */
+@keyframes pcIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* [PC] 16-17: proteção contra seleção e arrasto */
+[data-seg] { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+[data-seg] img { -webkit-user-drag: none; pointer-events: none; }
+[data-seg] input, [data-seg] textarea { -webkit-user-select: text; user-select: text; }
+
+/* [PC] 18: impressão bloqueada */
+@media print {
+    body * { visibility: hidden !important; }
+    body::after { content: "Impressão bloqueada. Este andamento é de consulta exclusiva pelo link do escritório."; visibility: visible; position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font: 700 18px Arial, sans-serif; color: #12242f; }
+}
+
+/* [PC] 22 */
+.pc-pagina { min-height: 100vh; display: flex; flex-direction: column; }
+
+/* [PC] 23-24: cabeçalho e faixa gradiente */
+.pc-cabecalho { background: #fff; box-shadow: 0 1px 3px rgba(16, 42, 58, .12); }
+.pc-faixa { height: 4px; background: linear-gradient(90deg, #0a4f7a, #0a7aad, #0a4f7a); }
+
+/* [PC] 25-31: barra petróleo com logo, títulos e selo */
+.pc-barra { background: #0b5f86; color: #fff; }
+.pc-barra-in { max-width: 960px; margin: 0 auto; padding: 10px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.pc-logo { height: 26px; width: auto; display: block; }
+.pc-divisor { width: 1px; height: 22px; background: rgba(255, 255, 255, .35); }
+.pc-titulos { display: flex; flex-direction: column; line-height: 1.2; }
+.pc-titulo { font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.pc-subtitulo { font-size: 11.5px; opacity: .85; }
+.pc-mola { flex: 1; }
+.pc-selo { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 3px; background: rgba(255, 255, 255, .14); font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+
+/* [PC] 35-41: barra do advogado */
+.pc-adv { background: #eaf2f7; border-bottom: 1px solid #d3e1ea; }
+.pc-adv-in { max-width: 960px; margin: 0 auto; padding: 8px 20px; display: flex; align-items: center; gap: 8px 18px; flex-wrap: wrap; font-size: 12.5px; color: #23465c; }
+.pc-adv-nome { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: #0b4f6c; white-space: nowrap; }
+.pc-adv-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.pc-adv-esc { color: #5f7684; white-space: nowrap; }
+
+/* [PC] 46, 155-156: marca d'água (a imagem SVG vem no atributo style, montada no servidor) */
+.pc-marca { position: fixed; inset: 0; z-index: 2; pointer-events: none; background-repeat: repeat; }
+
+/* [PC] 47: véu "Conteúdo protegido" ao perder o foco */
+.pc-oculto { position: fixed; inset: 0; z-index: 50; background: rgba(238, 242, 245, .92); backdrop-filter: blur(14px); display: flex; align-items: center; justify-content: center; padding: 20px; text-align: center; }
+.pc-oculto[hidden] { display: none; }
+.pc-oculto-in { display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: 360px; }
+.pc-oculto-icone { font-size: 30px; color: #0b5f86; }
+.pc-oculto-titulo { font-size: 15px; font-weight: 700; color: #12242f; }
+.pc-oculto-texto { font-size: 13px; color: #5f7684; line-height: 1.5; }
+
+/* [PC] 48 */
+.pc-main { flex: 1; width: 100%; max-width: 960px; margin: 0 auto; padding: 22px 20px 40px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; position: relative; z-index: 1; }
+
+/* [PC] 50-53: cartão de erro (não encontrado, revogado, expirado) */
+.pc-erro { margin-top: 8vh; align-self: center; max-width: 440px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 24px; background: #fff; border-radius: 4px; box-shadow: 0 1px 3px rgba(16, 42, 58, .08); }
+.pc-erro-icone { font-size: 34px; color: #8aa0ad; }
+.pc-erro-titulo { font-size: 17px; font-weight: 700; }
+.pc-erro-texto { font-size: 13.5px; color: #5f7684; line-height: 1.5; }
+
+/* [PC] 55-58: pedido de renovação */
+.pc-renov { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 6px; text-align: left; }
+.pc-campo { height: 36px; padding: 0 10px; border: 1px solid #d3dde4; border-radius: 4px; font-family: inherit; font-size: 13.5px; outline: none; box-sizing: border-box; }
+.pc-campo--texto { height: auto; padding: 8px 10px; resize: vertical; }
+.pc-campo:focus { border-color: #0a7aad; box-shadow: 0 0 0 3px rgba(10, 122, 173, .14); }
+.pc-botao { height: 38px; border: none; border-radius: 4px; background: #0a7aad; color: #fff; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+
+/* [PC] 139, 144: caixa do pedido enviado / recusado */
+.pc-renov-status { display: flex; align-items: center; gap: 8px; margin-top: 4px; padding: 10px 12px; border-radius: 4px; font-size: 13px; font-weight: 600; text-align: left; line-height: 1.45; }
+.pc-renov-status--enviado { background: #eef5fa; color: #0b4f6c; }
+.pc-renov-status--recusado { background: #fdeceb; color: #a3232b; }
+
+/* [PC] 65-70: código de acesso */
+.pc-codigo { margin-top: 8vh; align-self: center; width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 12px; padding: 26px 24px; background: #fff; border-radius: 4px; box-shadow: 0 1px 3px rgba(16, 42, 58, .08); box-sizing: border-box; }
+.pc-codigo-cab { display: flex; align-items: center; gap: 10px; }
+.pc-codigo-icone { font-size: 22px; color: #0a7aad; }
+.pc-codigo-titulo { font-size: 16px; font-weight: 700; }
+.pc-codigo-texto { font-size: 13px; color: #5f7684; line-height: 1.5; }
+.pc-codigo-campo { height: 46px; padding: 0 12px; border: 1px solid #d3dde4; border-radius: 4px; font-family: inherit; font-size: 22px; letter-spacing: .3em; text-align: center; outline: none; }
+.pc-codigo-campo:focus { border-color: #0a7aad; box-shadow: 0 0 0 3px rgba(10, 122, 173, .14); }
+.pc-codigo-erro { font-size: 12.5px; font-weight: 600; color: #a3232b; }
+
+/* [PC] 74-77: cartão PROCESSO */
+.pc-processo { background: #fff; border-radius: 4px; box-shadow: 0 1px 3px rgba(16, 42, 58, .08); border-top: 3px solid #0b5f86; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; animation: pcIn .3s both; }
+.pc-rotulo { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6b8494; }
+.pc-numero { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pc-processo-dados { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: #4f6878; }
+.pc-processo-dados > span { white-space: nowrap; }
+
+/* [PC] 80-83: cartão de Análise IA */
+.pc-ia { background: #f6f3fc; border-radius: 4px; box-shadow: inset 0 0 0 1px #e2dbf3; padding: 14px 18px; display: flex; flex-direction: column; gap: 8px; animation: pcIn .3s both; }
+.pc-ia-cab { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pc-ia-rotulo { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #5b3fa8; }
+.pc-ia-aviso { font-size: 11.5px; color: #6f5fa0; }
+.pc-ia-resumo { font-size: 13.5px; line-height: 1.55; color: #2c2448; }
+.pc-ia-ponto { display: flex; gap: 8px; font-size: 13px; color: #3a3158; line-height: 1.45; }
+/* [PC] 152, 159: bolinha do ponto pelo tipo */
+.pc-ia-bola { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 6px; background: #2f7fc1; }
+.pc-ia-bola--prazo { background: #c0392b; }
+.pc-ia-bola--atencao { background: #d97a1e; }
+.pc-ia-bola--providencia { background: #d3a21f; }
+.pc-ia-bola--info { background: #2f7fc1; }
+.pc-ia-bola--ok { background: #1f9d61; }
+
+/* [PC] 86-94: movimentações recebidas */
+.pc-movs { background: #fff; border-radius: 4px; box-shadow: 0 1px 3px rgba(16, 42, 58, .08); overflow: hidden; animation: pcIn .35s both; }
+.pc-movs-cab { display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-bottom: 1px solid #eef2f5; }
+.pc-movs-titulo { font-size: 14px; font-weight: 700; }
+.pc-movs-qtd { height: 20px; min-width: 20px; padding: 0 7px; border-radius: 10px; background: #e3eff6; color: #0a6a96; font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
+.pc-mov { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; padding: 12px 18px; border-bottom: 1px solid #f1f4f6; }
+.pc-mov-quando { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
+.pc-mov-data { font-size: 13px; font-weight: 700; }
+.pc-mov-corpo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pc-mov-linha { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pc-mov-fonte { font-size: 12px; color: #6b8494; }
+.pc-mov-texto { font-size: 13.5px; line-height: 1.5; color: #243845; text-wrap: pretty; }
+.pc-movs-vazio { padding: 24px 18px; text-align: center; font-size: 13px; color: #6b8494; }
+
+/* [PC] 151, 153: etiqueta do tipo, cores do mapa COR */
+.pc-tag { height: 20px; padding: 0 8px; border-radius: 3px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; display: inline-flex; align-items: center; background: #eef2f5; color: #4f6878; }
+.pc-tag--vermelho { background: #fdeceb; color: #a3232b; }
+.pc-tag--ambar { background: #fdf1dc; color: #8a5a12; }
+.pc-tag--azul { background: #e3eff6; color: #0a6a96; }
+.pc-tag--cinza { background: #eef2f5; color: #4f6878; }
+
+/* [PC] 96: rodapé */
+.pc-rodape { margin: 4px 0 0; font-size: 12px; color: #6b8494; line-height: 1.5; text-align: center; }
+
+/* [PC] 99: aviso "Cópia e impressão bloqueadas" */
+.pc-aviso { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 60; display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 4px; background: #12242f; color: #fff; font-size: 13px; font-weight: 600; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }
+.pc-aviso[hidden] { display: none; }
+
+/* Faixa do Master na tela desligada (_recurso_faixa_master.html.twig): a página pública não carrega o app.css, mesmas medidas. */
+.bj-recurso-faixa { position: fixed; z-index: 2147483100; left: 50%; top: 8px; transform: translateX(-50%); background: #c0392b; color: #fff;
+  font: bold 12.5px Arial, Helvetica, sans-serif; padding: 7px 14px; border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.2); }

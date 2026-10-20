@@ -22,10 +22,14 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use App\Auth\Event\ConvitePlataformaAceito;
 
 #[CoversClass(AceitarConvitePlataformaUseCase::class)]
 final class AceitarConvitePlataformaUseCaseTest extends TestCase
 {
+    private EventDispatcher $eventos;
+
     private InvitationRepository&MockObject $invitationRepo;
     private UserRepository&MockObject $userRepo;
     private EntityManagerInterface&MockObject $em;
@@ -52,6 +56,7 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
             $registrarAceite,
             new ValidadorOab((new OabWebServiceClientFake())->indisponivel()),
             new EspelhoDaOabPrincipal($this->createStub(InscricaoOabRepository::class)),
+            $this->eventos = new EventDispatcher(),
         );
     }
 
@@ -84,8 +89,44 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
         );
     }
 
+    public function testConviteDeOutroTipoERecusadoSemGravar(): void
+    {
+        $invitation = new Invitation(email: 'advogado@example.com', token: 'tok123', type: Invitation::TIPO_ESCRITORIO, expiresAt: new \DateTimeImmutable('+24 hours'));
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        $this->em->expects($this->never())->method('persist');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Convite não encontrado.');
+
+        $this->useCase->executar($this->validInput());
+    }
+
+    public function testSenhaCurtaERecusadaSemGravar(): void
+    {
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($this->makeInvitation());
+        $this->em->expects($this->never())->method('persist');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('A senha deve ter ao menos 8 caracteres.');
+
+        $this->useCase->executar(new AceitarConvitePlataformaInput(token: 'tok123', fullName: 'Dr. Advogado', senha: 'curta', oabNumero: '12345', oabUf: 'SP', aceiteTermos: true, ip: '203.0.113.7'));
+    }
+
+    public function testNomeEmBrancoSemNomeNoConviteERecusado(): void
+    {
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($this->makeInvitation());
+        $this->em->expects($this->never())->method('persist');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Nome completo é obrigatório.');
+
+        $this->useCase->executar(new AceitarConvitePlataformaInput(token: 'tok123', fullName: '   ', senha: 'senha_segura', oabNumero: '12345', oabUf: 'SP', aceiteTermos: true, ip: '203.0.113.7'));
+    }
+
     public function testHappyPathOabValidoCriaUser(): void
     {
+        $capturados = [];
+        $this->eventos->addListener(ConvitePlataformaAceito::class, static function (object $e) use (&$capturados): void { $capturados[] = $e; });
         $invitation = $this->makeInvitation();
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
         $this->userRepo->method('findOneBy')->willReturn(null);
@@ -100,6 +141,7 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
         self::assertSame('SP', $resultado->getOabUf());
         self::assertSame('accepted', $invitation->getStatus());
         self::assertSame($resultado, $invitation->getAcceptedAsUser());
+        self::assertCount(1, $capturados);
     }
 
     public function testEmailVemDaInvitationNaoDoInput(): void

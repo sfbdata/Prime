@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\UseCase;
 
 use App\Auth\Enum\StatusOab;
+use App\Auth\Event\CadastroConfirmado;
 use App\Auth\Repository\CadastroPendenteRepository;
 use App\Auth\Service\EspelhoDaOabPrincipal;
 use App\Entity\Auth\User;
@@ -15,6 +16,7 @@ use App\Termo\DTO\RegistrarAceiteTermoInput;
 use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Passo 2 do auto-cadastro público: confirma o cadastro pelo token e cria, numa
@@ -30,6 +32,7 @@ final class ConfirmarCadastroUseCase
         private readonly TenantBootstrapService $bootstrap,
         private readonly RegistrarAceiteTermoUseCase $registrarAceite,
         private readonly EspelhoDaOabPrincipal $espelhoOab,
+        private readonly EventDispatcherInterface $eventos,
     ) {}
 
     public function executar(string $token): User
@@ -54,8 +57,9 @@ final class ConfirmarCadastroUseCase
             throw new \DomainException('Já existe uma conta com este e-mail.');
         }
 
+        $tenant = null;
         try {
-            return $this->em->wrapInTransaction(function () use ($cadastro): User {
+            $user = $this->em->wrapInTransaction(function () use ($cadastro, &$tenant): User {
                 $user = new User();
                 // Normaliza aqui também, e não só no Iniciar: cadastros pendentes gravados
                 // ANTES desta correção vivem até 24h e confirmariam com a caixa original.
@@ -102,5 +106,9 @@ final class ConfirmarCadastroUseCase
             // O UNIQUE de user.email protege o banco; aqui traduzimos para erro amigável (não 500).
             throw new \DomainException('Já existe uma conta com este e-mail.');
         }
+        // Depois do commit (fora do wrapInTransaction): as boas-vindas do Comercial (comercial-e-emails.md §3.5).
+        $this->eventos->dispatch(new CadastroConfirmado((int) $user->getId(), (int) $tenant?->getId()));
+
+        return $user;
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Tenant\Functional;
 
 use App\Entity\Tenant\Tenant;
+use App\Tenant\Exception\PurgaRecusada;
 use App\Tenant\UseCase\PurgarEscritorioUseCase;
 use App\Tests\Factory\Auth\UserFactory;
 use Doctrine\DBAL\Connection;
@@ -95,6 +96,28 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         self::assertSame(1, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM user_tenant WHERE user_id = :u AND tenant_id = :t', ['u' => $userId, 't' => $tenantB->getId()]), 'vínculo com B preservado');
     }
 
+    #[TestDox('Indicações sobrevivem à purga do escritório de origem: a origem vira nula e a atribuição pelo link fica')]
+    public function testIndicacaoSobreviveAPurga(): void
+    {
+        $quemIndicou = UserFactory::createOne()->getId();
+        $contaNova = UserFactory::createOne()->getId();
+        $tenant = $this->criarTenant(ativo: false, excluidoEm: '-400 days');
+        $this->semear((int) $tenant->getId(), $quemIndicou);
+        $sql = 'INSERT INTO indicacao (canal, criada_em, email, nome, indicado_por_id, tenant_origem_id, indicado_user_id, por_cadastro)'
+            . ' VALUES (:canal, :em, :email, NULL, :por, :origem, :indicado, :cadastro) RETURNING id';
+        $envio = (int) $this->conn->fetchOne($sql, ['canal' => 'email', 'em' => '2026-10-20 10:00:00', 'email' => 'ana@exemplo.com', 'por' => $quemIndicou, 'origem' => $tenant->getId(), 'indicado' => null, 'cadastro' => 'false']);
+        $atribuicao = (int) $this->conn->fetchOne($sql, ['canal' => 'link', 'em' => '2026-10-20 11:00:00', 'email' => null, 'por' => $quemIndicou, 'origem' => $tenant->getId(), 'indicado' => $contaNova, 'cadastro' => 'true']);
+
+        $this->sut->executar($tenant, dryRun: false);
+
+        $linhas = $this->conn->fetchAllAssociativeIndexed('SELECT id, tenant_origem_id, indicado_user_id, por_cadastro FROM indicacao WHERE id IN (:a, :b)', ['a' => $envio, 'b' => $atribuicao]);
+        self::assertCount(2, $linhas, 'a purga do escritório não apaga indicação');
+        self::assertNull($linhas[$envio]['tenant_origem_id']);
+        self::assertNull($linhas[$atribuicao]['tenant_origem_id']);
+        self::assertSame($contaNova, (int) $linhas[$atribuicao]['indicado_user_id'], 'a atribuição pelo link continua ligada à conta nova');
+        self::assertTrue((bool) $linhas[$atribuicao]['por_cadastro']);
+    }
+
     #[TestDox('Dry-run relata o que seria apagado sem apagar nada')]
     public function testDryRunNaoApaga(): void
     {
@@ -126,6 +149,77 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
 
         $this->expectException(\LogicException::class);
         $this->sut->executar($tenant, dryRun: false);
+    }
+
+    #[TestDox('Corrida: conta recuperada da quarentena DEPOIS de entrar na lista não é purgada (guarda relida após o FOR UPDATE)')]
+    public function testContaRecuperadaDepoisDaCargaNaoEhPurgada(): void
+    {
+        $tenant   = $this->criarTenant(ativo: false, excluidoEm: '-400 days');
+        $tenantId = (int) $tenant->getId();
+        $this->semear($tenantId, (int) UserFactory::createOne()->_real()->getId());
+        $antes = array_sum($this->contarPorTenant($tenantId));
+
+        // A entidade (a "lista do job") ainda diz quarentena vencida; o banco já foi recuperado pelo Master.
+        $this->conn->executeStatement('UPDATE tenant SET is_active = TRUE, excluido_em = NULL WHERE id = :t', ['t' => $tenantId]);
+
+        $this->assertPurgaRecusada($tenant, 'Só é possível purgar escritório inativo');
+        self::assertSame(1, $this->existeTenant($tenantId));
+        self::assertSame($antes, array_sum($this->contarPorTenant($tenantId)), 'nada foi apagado');
+    }
+
+    #[TestDox('Corrida: criador trocado no banco depois da carga adia a purga')]
+    public function testCriadorTrocadoAdiaAPurga(): void
+    {
+        $tenant   = $this->criarTenant(ativo: false, excluidoEm: '-400 days');
+        $tenantId = (int) $tenant->getId();
+        $outro    = UserFactory::createOne()->_real();
+        $this->conn->executeStatement('UPDATE tenant SET criado_por_id = :u WHERE id = :t', ['u' => $outro->getId(), 't' => $tenantId]);
+
+        $this->assertPurgaRecusada($tenant, 'O criador do escritório mudou');
+        self::assertSame(1, $this->existeTenant($tenantId));
+    }
+
+    #[TestDox('A purga nunca apaga a conta do Master: pelo criador e, sem criador, pelo Master com vínculo ativo (C5)')]
+    public function testNaoPurgaContaDoMaster(): void
+    {
+        $master = UserFactory::createOne(['roles' => ['ROLE_SUPER_ADMIN']])->_real();
+
+        $doCriador = $this->criarTenant(ativo: false, excluidoEm: '-400 days');
+        $doCriador->setCriadoPor($master);
+        $this->em->flush();
+        $this->assertPurgaRecusada($doCriador, 'A conta do Master nunca é purgada.');
+
+        $semCriador = $this->criarTenant(ativo: false, excluidoEm: '-400 days');
+        $this->ins('user_tenant', ['user_id' => $master->getId(), 'tenant_id' => $semCriador->getId(), 'is_active' => true, 'created_at' => '2020-01-01 00:00:00']);
+        $this->assertPurgaRecusada($semCriador, 'A conta do Master nunca é purgada.');
+
+        self::assertSame(1, $this->existeTenant((int) $doCriador->getId()));
+        self::assertSame(1, $this->existeTenant((int) $semCriador->getId()));
+    }
+
+    #[TestDox('Criador comum promovido a Master no banco depois da carga: não purga (roles relidos após o FOR UPDATE)')]
+    public function testCriadorPromovidoAMasterDepoisDaCargaNaoPurga(): void
+    {
+        $criador = UserFactory::createOne(['roles' => ['ROLE_USER']])->_real();
+        $tenant  = $this->criarTenant(ativo: false, excluidoEm: '-400 days');
+        $tenant->setCriadoPor($criador);
+        $this->em->flush();
+
+        // Em memória o criador continua comum; no banco, virou Master.
+        $this->conn->executeStatement('UPDATE "user" SET roles = :r WHERE id = :u', ['r' => '["ROLE_SUPER_ADMIN"]', 'u' => $criador->getId()]);
+
+        $this->assertPurgaRecusada($tenant, 'A conta do Master nunca é purgada.');
+        self::assertSame(1, $this->existeTenant((int) $tenant->getId()));
+    }
+
+    private function assertPurgaRecusada(Tenant $tenant, string $trecho): void
+    {
+        try {
+            $this->sut->executar($tenant, dryRun: false);
+            self::fail('a purga deveria ser recusada');
+        } catch (PurgaRecusada $e) {
+            self::assertStringContainsString($trecho, $e->getMessage());
+        }
     }
 
     #[TestDox('Guard anti-drift: tabela tenant-scoped fora da ordem aborta a purga (tenant preservado)')]

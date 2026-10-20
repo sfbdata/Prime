@@ -7,9 +7,11 @@ namespace App\Pasta\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\CriarPastaDTO;
+use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaChecklistItem;
 use App\Pasta\Repository\PastaChecklistItemRepository;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
@@ -54,6 +56,7 @@ final class DuplicarPastaUseCase
         private readonly EntityManagerInterface $em,
         private readonly CriarPastaUseCase $criarPasta,
         private readonly PastaChecklistItemRepository $checklistRepository,
+        private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
     ) {
     }
 
@@ -102,22 +105,30 @@ final class DuplicarPastaUseCase
             $nova->setResponsavel($origem->getResponsavel());
             $nova->setPrioridade($origem->getPrioridade());
 
-            $ordem = 1;
-            foreach ($this->checklistRepository->findByPasta($origem, $tenant) as $itemOrigem) {
-                $item = new PastaChecklistItem();
-                $item->setPasta($nova);
-                $item->setTenant($tenant);
-                $item->setTitulo($itemOrigem->getTitulo());
-                $item->setOrdem($ordem);
-                $item->setConcluido(false);
-
-                $this->em->persist($item);
-                ++$ordem;
+            // O checklist é da aba Documentos: com ela oculta para quem duplica, não vai (ocultar aba).
+            if (!$this->visibilidadeDasAbas->ocultaPara($origem, AbaDaPasta::Documentos, $duplicadoPor)) {
+                $this->copiarChecklist($origem, $nova, $tenant);
             }
 
             $this->em->flush();
 
             return $nova;
         });
+    }
+
+    private function copiarChecklist(Pasta $origem, Pasta $nova, Tenant $tenant): void
+    {
+        $ordem = 1;
+        foreach ($this->checklistRepository->findByPasta($origem, $tenant) as $itemOrigem) {
+            $item = new PastaChecklistItem();
+            $item->setPasta($nova);
+            $item->setTenant($tenant);
+            $item->setTitulo($itemOrigem->getTitulo());
+            $item->setOrdem($ordem);
+            $item->setConcluido(false);
+
+            $this->em->persist($item);
+            ++$ordem;
+        }
     }
 }

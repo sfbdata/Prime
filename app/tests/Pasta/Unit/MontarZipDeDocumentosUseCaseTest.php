@@ -239,6 +239,21 @@ final class MontarZipDeDocumentosUseCaseTest extends TestCase
         self::assertSame(1, $saida->arquivos);
     }
 
+    #[TestDox('Financeiro oculto para quem pede (ocultar aba): a subpasta escolhida não leva o contrato de honorários de dentro dela')]
+    public function testSubpastaNaoLevaContratoComFinanceiroOculto(): void
+    {
+        $a        = $this->secao('A', 10);
+        $peticao  = $this->documento('peticao.pdf', $a, 'p');
+        $contrato = $this->documento('contrato.pdf', $a, 'c');
+        $contrato->setCategoria(PastaDocumento::CATEGORIA_CONTRATO);
+        $this->arvore([$a], [$peticao, $contrato]);
+
+        $saida = $this->useCase->executar($this->pasta, [], [$a], $this->autor, $this->tenant, ['financeiro']);
+        $this->gerados[] = $saida->arquivo->caminho();
+
+        self::assertSame(['A/peticao.pdf', 'LEIA-ME.txt'], array_keys($this->entradasDoZip($saida->arquivo->caminho())));
+    }
+
     #[TestDox('acima de 500 arquivos: 422 (SelecaoAcimaDoTeto) ANTES de abrir qualquer arquivo e sem auditoria')]
     public function testTetoDeArquivos(): void
     {
