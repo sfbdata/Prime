@@ -20,7 +20,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Fila de migrations: depois da Version20261021120000 da 2a. Timestamp provisório, único entre as worktrees em 19/10;
  * renomear na vez. Escrita a partir do `schema:update --dump-sql` do mapeamento, só com as linhas desta fatia.
  */
-final class Version20261020129950 extends AbstractMigration
+final class Version20261020129990 extends AbstractMigration
 {
     public function getDescription(): string
     {
