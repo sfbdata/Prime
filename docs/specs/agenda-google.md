@@ -157,26 +157,35 @@ do sistema não são enviados.
   spec principal). URI de retorno: `https://<domínio>/agenda/google/retorno`.
 - Participantes e avisados não vão como convidados do Google (evita e-mail do Google para colegas).
 
-## 5. Testes
+## 5. Testes (modelo do dono de 20/10/2026)
 
-- **Unitários** (`CompromissoNoGoogleTest`, `GoogleAgendaUseCasesTest`): hora de parede com fuso; dia
-  inteiro com fim exclusivo; RRULE com UNTIL; cancelado nos dois sentidos; "Só eu" vira particular e o
-  Google nunca torna público; repetição não suportada fica só do Google; ida e volta não muda o resumo;
-  três estados do painel; reconectar troca a conta e recomeça.
-- **Integração** (`SincronizacaoComGoogleTest`, Google falso no `MockHttpClient` e banco de teste): traz
-  do Google sem devolver; leva ao Google com id nosso e só quando muda; 409 vira atualização (sem
-  duplicata); cancelado no Google fica aqui como "cancelado"; excluído aqui apaga lá; só o que a pessoa
-  criou; 410 recomeça; autorização revogada volta a "Não conectado"; trava por pessoa; cadeia única de
-  5 min.
-- **Funcional** (`GoogleAgendaControllerTest`): os três estados na tela; conectar com state, PKCE S256 e
-  escopo; volta de outro site vira a Agenda; state errado dá 403; token gravado cifrado; desconectar
-  revoga; sem Agenda, 403.
-- **Ponta a ponta com o Google real:** depois do cliente OAuth do dono.
+- **Unitários** (`CompromissoNoGoogleTest`, `GoogleAgendaUseCasesTest`, `ListarCompromissosUseCaseTest`): hora de
+  parede com fuso; dia inteiro com fim exclusivo; RRULE com UNTIL; cancelado nos dois sentidos; "Só eu" vira
+  particular e o Google nunca torna público; repetição não suportada fica só do Google; ida e volta não muda o
+  resumo; eco pelo resumo guardado na ligação; a cópia do participante leva o aviso de só leitura e o eco dela é
+  reconhecido; id nosso e convidados; três estados do painel; reconectar com outra conta zera a agenda;
+  desconectar mantém ou apaga a agenda e não revoga a conta ligada em outro escritório; "Importado do Google".
+- **Integração** (`SincronizacaoComGoogleTest`, Google falso com várias agendas no `MockHttpClient`): cria a agenda
+  do escritório e nunca toca a principal; criado no Google entra visível à equipe e importado; convidados da equipe
+  (cadastro ou conta ligada) viram participantes e o de fora é ignorado; leva ao Google com id nosso e só quando
+  muda; ligação perdida não duplica (409 vira atualização; id nosso volta religado, sem cópia); cópia do
+  participante, "Só eu" não vai a participante; cópia só leitura (mexida volta, apagada fica até mudar, quem sai
+  perde); cancelado no Google fica; excluído aqui apaga no criador e no participante; agenda apagada no Google é
+  recriada; 410 recomeça; autorização revogada; trava; cadeia de 5 min; eco não desfaz edição; mesma conta em dois
+  escritórios com agendas separadas; recusa não trava; sem acesso desconecta; tipos e convites.
+- **Funcional** (`GoogleAgendaControllerTest`): os três estados na tela; conectar com state, PKCE S256, o escopo
+  `openid email calendar.app.created` e o e-mail do cadastro como `login_hint`; volta de outro site vira a Agenda;
+  state errado dá 403; token gravado cifrado; mesma conta em outro escritório aceita; desconectar revoga, mantém a
+  agenda ou apaga quando pedido; sem Agenda, 403.
+- **Ponta a ponta com o Google real:** depois do cliente OAuth do dono (seção 6).
 
 ## 6. Material do dono
 
 1. Criar o cliente OAuth (seção 8 da spec principal). URI de retorno:
-   `https://<domínio de produção>/agenda/google/retorno`.
+   `https://<domínio de produção>/agenda/google/retorno`. Na "Tela de permissão OAuth", acrescentar os escopos
+   `openid`, `.../auth/userinfo.email` e `https://www.googleapis.com/auth/calendar.app.created` (não o
+   `calendar.events`). A classificação do `calendar.app.created` para a verificação do app aparece no próprio
+   console ao adicionar o escopo.
 2. No `.env.prod` do servidor: `GOOGLE_CALENDAR_OAUTH_CLIENT_ID` e `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET`.
    `SYNC_CRYPTO_KEY` já existe (é a do Drive) e cifra o token.
 3. Worker da fila `async` rodando (o mesmo da 5b). Depois do deploy, `php bin/console
