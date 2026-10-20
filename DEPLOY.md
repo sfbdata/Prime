@@ -188,6 +188,12 @@ Adicione a linha (executa todo dia às 02:00):
 
 > Substitua `/caminho/para/jusprime` pelo caminho real do projeto na VPS.
 
+### Comandos do console no container de produção
+
+O container `jusprime_php_prod` começa em `/var/www` (estágio de produção do `Dockerfile`), e o
+`bin/console` mora em `/var/www/app`. Por isso toda chamada do console nas crons abaixo leva
+`-w /var/www/app`; sem ele, o `docker exec` responde "Could not open input file: bin/console".
+
 ### Purga de dados expirados (crontab na VPS)
 
 Job diário que apaga cadastros pendentes expirados (senha_hash + PII) e faz o hard delete
@@ -196,11 +202,11 @@ Roda **depois** do backup das 02:00, para que o dump da noite ainda contenha o e
 (janela de recuperação). `--force` é obrigatório (cron não tem TTY para a confirmação).
 
 ```
-0 3 * * * docker exec jusprime_php_prod php bin/console app:purgar-dados-expirados --force >> /var/log/jusprime-purga.log 2>&1
+0 3 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:purgar-dados-expirados --force >> /var/log/jusprime-purga.log 2>&1
 ```
 
 > **Antes de agendar:** rode uma vez em simulação para conferir o que seria apagado —
-> `docker exec jusprime_php_prod php bin/console app:purgar-dados-expirados --dry-run`.
+> `docker exec -w /var/www/app jusprime_php_prod php bin/console app:purgar-dados-expirados --dry-run`.
 >
 > A carência de quarentena (padrão 365 dias) é configurável sem deploy via
 > `TENANT_CARENCIA_PURGA_DIAS` no `.env.prod`.
@@ -210,7 +216,7 @@ Roda **depois** do backup das 02:00, para que o dump da noite ainda contenha o e
 Toda segunda-feira, às 8h de Brasília, manda aos clientes com o "Resumo semanal" ligado as movimentações da semana anterior (spec `docs/specs/push-envio-automatico.md` §3; se o relógio da VPS estiver em UTC, use `0 11 * * 1`; simule antes com `--dry-run`; configurar é do dono):
 
 ```
-0 8 * * 1 docker exec jusprime_php_prod php bin/console app:push:resumo-semanal-cliente >> /var/log/jusprime-resumo-semanal-cliente.log 2>&1
+0 8 * * 1 docker exec -w /var/www/app jusprime_php_prod php bin/console app:push:resumo-semanal-cliente >> /var/log/jusprime-resumo-semanal-cliente.log 2>&1
 ```
 
 ### Atualização de encargos de cobrança (crontab na VPS)
@@ -224,11 +230,11 @@ Roda **depois** do backup das 02:00 e da purga das 03:00, para que o dump da noi
 estado anterior ao recálculo (janela de conferência) e para não disputar CPU com os dois.
 
 ```
-30 3 * * * docker exec jusprime_php_prod php bin/console app:cobranca:atualizar-encargos >> /var/log/jusprime-encargos.log 2>&1
+30 3 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:cobranca:atualizar-encargos >> /var/log/jusprime-encargos.log 2>&1
 ```
 
 > **Antes de agendar:** rode uma vez em simulação e confira o delta relatado —
-> `docker exec jusprime_php_prod php bin/console app:cobranca:atualizar-encargos --dry-run`.
+> `docker exec -w /var/www/app jusprime_php_prod php bin/console app:cobranca:atualizar-encargos --dry-run`.
 > O `--dry-run` calcula tudo e mostra o relatório sem gravar nada. Para amostrar um escritório
 > só: `--tenant=1 --limit=50`.
 >
@@ -265,13 +271,13 @@ histórico `relatorio_sem_processo_envio` trava a repetição). Nos outros dias 
 
 ```
 CRON_TZ=America/Sao_Paulo
-5 10 * * * docker exec jusprime_php_prod php bin/console app:pastas:relatorio-sem-processo >> /var/log/jusprime-relatorio-sem-processo.log 2>&1
+5 10 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:pastas:relatorio-sem-processo >> /var/log/jusprime-relatorio-sem-processo.log 2>&1
 ```
 
 > Se o cron da VPS não aceitar `CRON_TZ` e o relógio dela estiver em UTC, use `5 13 * * *`
 > (10h05 em Brasília, sem horário de verão).
 >
-> **Antes de agendar:** rode uma vez em simulação: `docker exec jusprime_php_prod php bin/console
+> **Antes de agendar:** rode uma vez em simulação: `docker exec -w /var/www/app jusprime_php_prod php bin/console
 > app:pastas:relatorio-sem-processo --dry-run` (conta os avisos e não grava nada). Para um escritório
 > só: `--tenant=1`.
 >
@@ -288,13 +294,13 @@ dos avisos e trava a repetição). Nos outros dias ele passa e não envia nada.
 
 ```
 CRON_TZ=America/Sao_Paulo
-15 10 * * * docker exec jusprime_php_prod php bin/console app:pastas:relatorio-pastas-paradas >> /var/log/jusprime-relatorio-pastas-paradas.log 2>&1
+15 10 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:pastas:relatorio-pastas-paradas >> /var/log/jusprime-relatorio-pastas-paradas.log 2>&1
 ```
 
 > Se o cron da VPS não aceitar `CRON_TZ` e o relógio dela estiver em UTC, use `15 13 * * *`
 > (10h15 em Brasília, sem horário de verão).
 >
-> **Antes de agendar:** rode uma vez em simulação: `docker exec jusprime_php_prod php bin/console
+> **Antes de agendar:** rode uma vez em simulação: `docker exec -w /var/www/app jusprime_php_prod php bin/console
 > app:pastas:relatorio-pastas-paradas --dry-run` (não grava nada). A simulação só conta as pastas
 > paradas e os avisos no dia do envio (primeira segunda-feira do mês, a partir das 10h); em outro dia,
 > só mostra o motivo de não enviar. Para um escritório só: `--tenant=1`.
