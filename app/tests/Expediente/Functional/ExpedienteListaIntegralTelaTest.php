@@ -11,6 +11,8 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Expediente\Controller\ExpedienteController;
 use App\Expediente\Entity\Marcador;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDestaque;
 use App\Processo\Entity\ParteProcesso;
@@ -102,7 +104,7 @@ final class ExpedienteListaIntegralTelaTest extends JusPrimeWebTestCase
     {
         [$user, $tenant] = $this->entrar();
         $pasta = $this->pasta($tenant, 'L1');
-        $pasta->trancar($user, new \DateTimeImmutable('2026-10-10'));
+        $this->em()->persist(new CadeadoDaPasta($tenant, $pasta, ModoDoCadeado::Todos, $user, new \DateTimeImmutable('2026-10-10')));
         $pasta->setSituacao(Pasta::SITUACAO_SUSPENSA);
         $proc = new Processo();
         $proc->setNumeroProcesso('0700000-00.2026.8.07.0001');
@@ -125,6 +127,7 @@ final class ExpedienteListaIntegralTelaTest extends JusPrimeWebTestCase
         $linha = $c->filter('#tabelaPastas tbody > tr.pasta-row-link[data-pasta-id="' . $pasta->getId() . '"]');
         self::assertCount(1, $linha);
         self::assertSame('1', $linha->attr('data-trancada'));
+        self::assertSame('0', $linha->attr('data-oculta'), 'quem configura nunca fica oculto');
         self::assertSame('verde', $linha->attr('data-dest'));
         self::assertStringContainsString('pasta trancada por Admin E12 em 10/10/2026', (string) $linha->filter('td[data-col="nup"] > i.js-cadeado')->attr('data-tip'));
         $reu = $linha->filter('td[data-col="reu"] > .exp-reu');

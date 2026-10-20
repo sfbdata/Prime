@@ -270,6 +270,7 @@
                     </a>
 
                     <div class="ps-pop-sep"></div>
+                    {{ include('pasta/_cadeado_menu.html.twig', {cad: cad is defined ? cad : cadeado_da_pasta(pasta)}) }}
                     <div class="ps-pop-secao">Preferências</div>
                     {# Desenho: `prefPasta('fav')` — estrela fixa, rótulo fixo e o interruptor
                        mostrando o estado. É do USUÁRIO: a pasta sobe para o topo da listagem do
@@ -449,6 +450,15 @@
                 <span class="ps-cab-selo-onda" aria-hidden="true"></span>
                 <span class="ps-cab-selo-aro" aria-hidden="true"></span>
                 <span class="ps-cab-selo-faixa"><i class="bi {{ sp.icone }}" aria-hidden="true"></i>{{ sp.texto }}</span>
+            </div>
+        {% endif %}
+        {# Selo do cadeado (desenho 02 L1300, `cd.seloEl`): só para quem configura, em pasta com cadeado; abre o
+           modal. Fica à esquerda do carimbo da situação quando ele existe (136px), como no desenho. #}
+        {% set cadSelo = cad is defined ? cad : cadeado_da_pasta(pasta) %}
+        {% if cadSelo and cadSelo.podeConfigurar and cadSelo.temCadeado %}
+            <div class="js-cadeado-abrir" role="button" tabindex="0" aria-label="Cadeado da pasta" title="{{ cadSelo.seloTitulo }}" data-cad-onda
+                 style="position:absolute;right:{{ pasta.situacao != 'ativo' ? 136 : 8 }}px;top:50%;transform:translateY(-50%);z-index:2;pointer-events:auto;cursor:pointer">
+                {{ include('pasta/_cadeado_icone.html.twig', {px: 64, ondas: true}) }}
             </div>
         {% endif %}
         {{ include('pasta/_andamento.html.twig') }}

@@ -207,9 +207,10 @@
         }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); });
     }
 
-    /* Pasta trancada aberta por quem não é administrador: a janela de sigilo (dc L.368-384) no lugar da pasta. */
-    function abrirOuAvisar(trancada, nup, pastaId, abrirDeFato) {
-        if (trancada && !souAdmin()) { mostrarSigilo(nup, pastaId); return; }
+    /* Pasta com cadeado em que quem olha está Oculto (data-oculta, spec pasta-cadeado §6): a janela de sigilo
+       (dc L.368-384) no lugar da pasta. Quem só visualiza abre a pasta normalmente. */
+    function abrirOuAvisar(oculta, nup, pastaId, abrirDeFato) {
+        if (oculta) { mostrarSigilo(nup, pastaId); return; }
         abrirDeFato();
     }
     function mostrarSigilo(nup, pastaId) {
@@ -230,7 +231,7 @@
             j.hidden = true;
             postar(j.getAttribute('data-url-pedir').replace('/0/', '/' + id + '/')).then(function (r) {
                 if (!r.ok) { avisar(r.j.erro || 'Não foi possível pedir acesso'); return; }
-                avisar(r.j.avisados > 0 ? 'Pedido de acesso enviado ao administrador do escritório' : 'Nenhum administrador ativo no escritório para receber o pedido');
+                avisar(r.j.avisados > 0 ? 'Pedido enviado ao usuário primário' : 'Nenhum usuário primário ativo no escritório para receber o pedido');
             }, function () { avisar('Falha de conexão ao pedir acesso'); });
         }
     });
@@ -240,8 +241,8 @@
     });
     /* Clique na linha, no cartão ou na linha simples de pasta trancada: antes do handler que navega. */
     document.addEventListener('click', function (e) {
-        var alvo = e.target.closest('#tabelaPastas tr.pasta-row-link[data-trancada="1"], .exp-simples-linha[data-trancada="1"], .exp-cartao[data-trancada="1"]');
-        if (!alvo || souAdmin()) { return; }
+        var alvo = e.target.closest('#tabelaPastas tr.pasta-row-link[data-oculta="1"], .exp-simples-linha[data-oculta="1"], .exp-cartao[data-oculta="1"]');
+        if (!alvo) { return; }
         if (e.target.closest('button, input, select, .js-toggle-situacao')) { return; }
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -375,6 +376,7 @@
         var nome = linha.getAttribute('data-nome') || '';
         var excluida = linha.classList.contains('pasta-excluida');
         var trancada = linha.getAttribute('data-trancada') === '1';
+        var oculta = linha.getAttribute('data-oculta') === '1';
         var pastaId = linha.getAttribute('data-pasta-id');
         var chip = linha.querySelector('.pasta-resp-chip');
         var marcar = linha.querySelector('.js-marc-pop');
@@ -384,8 +386,8 @@
 
         var lista = [];
         if (editando) { lista.push({ no: editorDoNome(linha, nup, nome, espelho) }); }
-        lista.push({ rotulo: 'Abrir pasta', icone: 'bi-folder2-open', acao: function () { abrirOuAvisar(trancada, nup, pastaId, function () { window.location.href = href; }); } });
-        lista.push({ rotulo: 'Abrir em nova aba', icone: 'bi-box-arrow-up-right', acao: function () { abrirOuAvisar(trancada, nup, pastaId, function () { window.open(href, '_blank', 'noopener'); }); } });
+        lista.push({ rotulo: 'Abrir pasta', icone: 'bi-folder2-open', acao: function () { abrirOuAvisar(oculta, nup, pastaId, function () { window.location.href = href; }); } });
+        lista.push({ rotulo: 'Abrir em nova aba', icone: 'bi-box-arrow-up-right', acao: function () { abrirOuAvisar(oculta, nup, pastaId, function () { window.open(href, '_blank', 'noopener'); }); } });
         if (!excluida) {
             // Nome montado pela cobrança (credor e devedor) não se edita, como na tela da pasta.
             if (linha.getAttribute('data-nome-editavel') === '0') {

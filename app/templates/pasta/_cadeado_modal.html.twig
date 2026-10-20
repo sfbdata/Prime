@@ -1,0 +1,73 @@
+{# ============================================================================
+   Modal "Cadeado da pasta N" (spec pasta-cadeado §6; desenho 02 L507-550, `cdVals`). Só para quem configura
+   (K1). Estrutura e estilos inline do desenho; os estilos que mudam com a escolha (modo ligado, nível
+   marcado) são aplicados pelo pasta-cadeado.js com as MESMAS regras do desenho (`modoSt`, `NIV`).
+
+   "Trancar" envia o formulário `pasta_cadeado_salvar` (modo + niveis[id]); "Remover cadeado", o
+   `pasta_cadeado_remover`. A grade começa como o `cdAbrir` do desenho: sem cadeado, todos em Editar.
+
+   Contexto: `pasta`, `cad` (CadeadoNaTelaOutput).
+   ============================================================================ #}
+{% if cad and cad.podeConfigurar %}
+<div id="psCadeadoModal" hidden data-modo-inicial="{{ cad.modo ?? 'por_pessoa' }}">
+<div class="js-cadeado-fundo" style="position:fixed;inset:0;z-index:2100;background:rgba(14,37,51,.38);display:flex;align-items:flex-start;justify-content:center;padding:6vh 12px;overflow-y:auto">
+    <div role="dialog" aria-modal="true" aria-label="Cadeado da pasta" style="width:100%;max-width:560px;background:#fff;border-radius:4px;box-shadow:0 24px 60px -20px rgba(10,40,60,.45);overflow:hidden;font-family:Arial,Helvetica,sans-serif">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:linear-gradient(180deg,#0d80a3,#0b6f8f);color:#fff">
+            <span style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-lock-fill" style="font-size:17px"></i></span>
+            <div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Cadeado da pasta {{ pasta.nup }}</div><div style="font-size:12px;color:#d7eef6">Exclusivo do usuário primário · vale para toda a equipe</div></div>
+            <button type="button" class="js-cadeado-fechar" aria-label="Fechar" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;border-radius:4px;background:transparent;color:#fff;cursor:pointer"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <form method="post" action="{{ path('pasta_cadeado_salvar', {id: pasta.id}) }}" class="js-cadeado-form">
+            <input type="hidden" name="_token" value="{{ csrf_token('pasta_cadeado_' ~ pasta.id) }}">
+            <input type="hidden" name="modo" value="{{ cad.modo ?? 'por_pessoa' }}" class="js-cadeado-modo">
+            <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    {% for m in [
+                        {id: 'por_pessoa', ic: 'bi bi-people', l: 'Escolher por pessoa', d: 'Defina quem oculta, visualiza ou edita'},
+                        {id: 'todos', ic: 'bi bi-shield-lock', l: 'Ocultar para todos', d: 'Só o nome do cliente e o CPF ficam visíveis'},
+                    ] %}
+                        <button type="button" class="js-cadeado-modo-opcao" data-modo="{{ m.id }}"><i class="{{ m.ic }}" style="font-size:17px"></i><span style="display:flex;flex-direction:column;gap:2px;text-align:left"><span style="font-size:13px;font-weight:700">{{ m.l }}</span><span style="font-size:11.5px;font-weight:400;opacity:.85;line-height:1.35">{{ m.d }}</span></span></button>
+                    {% endfor %}
+                </div>
+                <div class="js-cadeado-por-pessoa" style="display:flex;flex-direction:column;border-radius:4px;box-shadow:inset 0 0 0 1px #e1e8ed;overflow:hidden">
+                    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f5f8fa;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b8494"><span style="flex:1">Colaborador</span><span style="width:196px;display:flex;justify-content:space-between"><span>Ocultar</span><span>Visualizar</span><span>Editar</span></span></div>
+                    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid #eef2f5;background:#fbfcfd"><span style="flex:1;font-size:12.5px;font-weight:700;color:#34505f">Aplicar a todos</span><span style="width:196px;display:flex;justify-content:space-between">
+                        {%- for b in [{k: 'oculto', l: 'Ocultar'}, {k: 'visualizar', l: 'Visualizar'}, {k: 'editar', l: 'Editar'}] -%}
+                            <button type="button" class="js-cadeado-todos" data-nivel="{{ b.k }}" title="Marcar {{ b.l|lower }} para todos" style="width:56px;height:26px;border:none;border-radius:4px;background:#eef2f5;color:#4f6878;font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer">{{ b.l }}</button>
+                        {%- endfor -%}
+                    </span></div>
+                    <div style="max-height:46vh;overflow:auto">
+                        {% for u in cad.equipe %}
+                            <div class="js-cadeado-pessoa" data-id="{{ u.id }}" data-nivel="{{ u.nivel }}" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f1f4f6">
+                                <input type="hidden" name="niveis[{{ u.id }}]" value="{{ u.nivel }}" class="js-cadeado-nivel">
+                                <span style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:13px;font-weight:600;color:#1d3441;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ u.nome }}</span><span style="font-size:11.5px;color:#6b8494">{{ u.funcao }}</span></span>
+                                <span style="width:196px;display:flex;justify-content:space-between">
+                                    {%- for o in [{k: 'oculto', ic: 'bi bi-eye-slash', l: 'Ocultar'}, {k: 'visualizar', ic: 'bi bi-eye', l: 'Visualizar'}, {k: 'editar', ic: 'bi bi-pencil', l: 'Editar'}] -%}
+                                        <button type="button" class="js-cadeado-opcao" data-nivel="{{ o.k }}" aria-label="{{ o.l }} para {{ u.nome }}"><i class="{{ o.ic }}"></i></button>
+                                    {%- endfor -%}
+                                </span>
+                            </div>
+                        {% else %}
+                            <div style="padding:12px;font-size:12.5px;color:#6b8494">Não há colaboradores na equipe além do usuário primário.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="js-cadeado-todos-ocultos" style="display:flex;gap:9px;padding:10px 12px;border-radius:4px;background:#f4f2fb;color:#4a3d80;font-size:12.5px;line-height:1.5"><i class="bi bi-shield-lock-fill" style="flex-shrink:0;margin-top:1px"></i><span>Ninguém além do usuário primário verá a pasta. A equipe enxerga só o nome do cliente e o CPF; abas, documentos, processo, Push, financeiro e a BlueJus IA ficam bloqueados.</span></div>
+                <span class="js-cadeado-resumo" style="font-size:11.5px;color:#7b93a2;line-height:1.45"></span>
+            </div>
+        </form>
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid #eef2f5;background:#fafcfd">
+            {% if cad.temCadeado %}
+                <form method="post" action="{{ path('pasta_cadeado_remover', {id: pasta.id}) }}" style="display:contents">
+                    <input type="hidden" name="_token" value="{{ csrf_token('pasta_cadeado_' ~ pasta.id) }}">
+                    <button type="submit" style="height:34px;padding:0 12px;border:none;border-radius:4px;background:transparent;color:#a3232b;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer"><i class="bi bi-unlock"></i> Remover cadeado</button>
+                </form>
+            {% endif %}
+            <span style="flex:1"></span>
+            <button type="button" class="js-cadeado-fechar" style="height:34px;padding:0 14px;border:none;border-radius:4px;background:#eef2f5;color:#34505f;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
+            <button type="button" class="js-cadeado-trancar" style="height:34px;padding:0 16px;border:none;border-radius:4px;background:#0a7aad;color:#fff;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer"><i class="bi bi-lock-fill"></i> Trancar</button>
+        </div>
+    </div>
+</div>
+</div>
+{% endif %}

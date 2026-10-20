@@ -1,0 +1,10 @@
+{# Seção "Acesso · Primário" do ⋮ da pasta (desenho 02 L1235-1239): só para quem configura o cadeado (K1).
+   O item abre o modal "Cadeado da pasta N" (pasta/_cadeado_modal.html.twig); o selo diz Livre, Restrito ou
+   Todos com o estilo do desenho (`cd.menuTagSt`). Contexto: `cad` (CadeadoNaTelaOutput). #}
+{% if cad and cad.podeConfigurar %}
+<div class="ps-pop-secao">Acesso · Primário</div>
+<button type="button" class="ps-pop-item js-cadeado-abrir" role="menuitem" aria-haspopup="dialog" aria-controls="psCadeadoModal">
+    <i class="{{ cad.menuIcone }}" style="color:#0b5f86"></i><span style="flex:1">Cadeado</span><span class="js-cadeado-selo" style="{{ cad.menuSeloEstilo }}">{{ cad.selo }}</span>
+</button>
+<div class="ps-pop-sep"></div>
+{% endif %}

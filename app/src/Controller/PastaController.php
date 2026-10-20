@@ -10,6 +10,7 @@ use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Service\TelaDoCadeado;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
@@ -315,12 +316,16 @@ class PastaController extends AbstractController
         PastaDocumentoFavoritoRepository $favoritosDeDocumento,
         VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         NotaTecnicaRepository $notaTecnicaRepository,
+        TelaDoCadeado $telaDoCadeado,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
+        if ($trancada = $this->telaDaPastaTrancada($pasta, $currentUser, $telaDoCadeado)) {
+            return $trancada;
+        }
         if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $redirect;
         }
@@ -2652,4 +2657,21 @@ class PastaController extends AbstractController
         }
     }
 
+
+    /**
+     * Cadeado (spec pasta-cadeado K3): quem está `Oculto` numa pasta COM cadeado vê só o cabeçalho (cliente e
+     * CPF) e a tela "Pasta trancada", com o pedido de acesso. Pasta de outro escritório segue o caminho de
+     * sempre (o `denyResourceAccessUnlessGranted` e o 404); sem cadeado, nada muda.
+     */
+    private function telaDaPastaTrancada(Pasta $pasta, \App\Entity\Auth\User $pessoa, TelaDoCadeado $telaDoCadeado): ?Response
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || $pasta->getTenant() !== $tenant) {
+            return null;
+        }
+
+        $cadeado = $telaDoCadeado->montar($pasta, $pessoa, $tenant);
+
+        return $cadeado->oculto() ? $this->render('pasta/trancada.html.twig', ['pasta' => $pasta, 'cad' => $cadeado]) : null;
+    }
 }
