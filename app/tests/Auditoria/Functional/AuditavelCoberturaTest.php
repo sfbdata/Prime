@@ -239,6 +239,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\TrabalhoExterno\Entity\ContatoWhatsapp::class,
         \App\TrabalhoExterno\Entity\AvisoWhatsapp::class,
         \App\TrabalhoExterno\Entity\ConfiguracaoCentral::class,
+        // Marcações pessoais do Trabalho Externo (spec VS 18.10.26 §2): estrela, lixeira e favorita
+        // de UM usuário, como a LeituraDemanda. Não mudam nada para os outros; auditar seria ruído.
+        \App\TrabalhoExterno\Entity\MarcacaoDoUsuario::class,
+        \App\TrabalhoExterno\Entity\MarcacaoDeMensagem::class,
     ];
 
     private EntityManagerInterface $em;

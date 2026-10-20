@@ -231,6 +231,8 @@ final class PurgarEscritorioUseCase
         // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o
         // usuário não é apagado na purga e a de tenant é NO ACTION — sai aqui, explicitamente.
         ['preferencia_usuario', 'tenant_id = :tenant'],
+        // Meu Perfil: tipo de vínculo e datas do contrato da pessoa com este escritório.
+        ['vinculo_no_escritorio', 'tenant_id = :tenant'],
         // Foto diária do estoque do Dashboard (dado derivado, por usuário): FK de tenant NO ACTION,
         // nada a referencia — deleção explícita antes de apagar o tenant.
         ['dashboard_foto', 'tenant_id = :tenant'],
