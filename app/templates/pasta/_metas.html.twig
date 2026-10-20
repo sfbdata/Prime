@@ -354,11 +354,11 @@
                         <i class="bi bi-chat-dots ps-metas-pessoa-chat" aria-hidden="true"></i>
                     </button>
                 {% else %}
-                <div class="ps-metas-pessoa">
-                    <span class="ps-avatar ps-avatar--27 ps-avatar--neutro" aria-hidden="true">{{ p.iniciais }}</span>
-                    <span class="ps-metas-pessoa-nome" title="{{ p.nome }}">{{ p.nome }}</span>
-                    <span class="ps-metas-pessoa-n ps-num">{{ p.contagem }}</span>
-                </div>
+                    <div class="ps-metas-pessoa">
+                        <span class="ps-avatar ps-avatar--27 ps-avatar--neutro" aria-hidden="true">{{ p.iniciais }}</span>
+                        <span class="ps-metas-pessoa-nome" title="{{ p.nome }}">{{ p.nome }}</span>
+                        <span class="ps-metas-pessoa-n ps-num">{{ p.contagem }}</span>
+                    </div>
                 {% endif %}
             {% else %}
                 <div class="ps-metas-pessoas-vazio">Nenhuma meta com responsável.</div>

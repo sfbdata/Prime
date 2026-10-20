@@ -144,12 +144,6 @@ final readonly class PastaMetasResumoOutput
     }
 
     /**
-     * Ordem de criação na pasta: `dataCriacao`, desempate pelo id e, sem id (meta
-     * ainda não persistida), pela ordem da coleção.
-     *
-     * @return list<Tarefa>
-     */
-    /**
      * "Responsáveis nas metas" (dc L.1683-1692): quem responde por mais metas primeiro (empate: nome). Agrupa pela PESSOA
      * (o id), não pelo nome: dois colegas com o mesmo nome não viram um só, e o id é o que abre a conversa
      * (`BJCentral.conversar`, Encaminhar PR3).
@@ -181,6 +175,12 @@ final readonly class PastaMetasResumoOutput
         ], $lista);
     }
 
+    /**
+     * Ordem de criação na pasta: `dataCriacao`, desempate pelo id e, sem id (meta
+     * ainda não persistida), pela ordem da coleção.
+     *
+     * @return list<Tarefa>
+     */
     private static function emOrdemDeCriacao(Pasta $pasta): array
     {
         $itens = [];
