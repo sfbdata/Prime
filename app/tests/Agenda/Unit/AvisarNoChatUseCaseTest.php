@@ -26,9 +26,11 @@ final class AvisarNoChatUseCaseTest extends TestCase
     {
         $eu = $this->usuario(1, 'Samuel');
         $maria = $this->usuario(2, 'Maria');
-        $evento = (new Evento())->setCriador($eu)->setTenant(new Tenant());
+        $evento = (new Evento())->setCriador($eu)->setTenant(new Tenant())->setTitulo('Reunião de pauta');
         $notificacoes = $this->createMock(NotificacaoService::class);
-        $notificacoes->expects(self::once())->method('criarNotificacao')->with($maria);
+        // Como no desenho: o aviso tem título "Agenda: <título>" (4º argumento) e o texto com o resumo (6º, o
+        // corpo, na assinatura de NotificacaoService::criarNotificacao).
+        $notificacoes->expects(self::once())->method('criarNotificacao')->with($maria, self::anything(), self::anything(), 'Agenda: Reunião de pauta', self::anything(), self::stringContains('marcou você em um compromisso: Reunião de pauta'));
         $sut = $this->sut($evento, [$eu, $maria], $notificacoes);
 
         self::assertSame(1, $sut->executar(5, [2, 3, 99], $eu, new Tenant()));

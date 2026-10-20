@@ -42,6 +42,7 @@
         salvar: raiz.dataset.urlSalvar,
         excluir: raiz.dataset.urlExcluir,
         avisar: raiz.dataset.urlAvisar,
+        avisarPrazo: raiz.dataset.urlAvisarPrazo,
         mover: raiz.dataset.urlMover,
         status: raiz.dataset.urlStatus,
         pasta: raiz.dataset.urlPasta,
@@ -122,6 +123,7 @@
             const escopo = s.escopo;
             pedidos.push(umaVez('c' + escopo + de + ate, () => buscar(url.compromissos + '?de=' + de + '&ate=' + ate + '&escopo=' + escopo)).then(r => {
                 if (escopo !== s.escopo) { return; }
+                if (r.contagens) { s.contagens = r.contagens; }
                 r.itens.forEach(c => s.itens.set(c.id, c));
                 s.cobertoItens.push([de, ate]);
             }));
@@ -194,6 +196,7 @@
             privado: c.privado, status: c.status, eventoId: c.eventoId, pastaId: c.pastaId, pasta: c.pastaNup, nome: c.donoNome,
             tipo: c.tipo, lembreteMinutos: c.lembreteMinutos, avisados: c.avisados, participantes: c.participantes, repetir: c.repetir,
             repetirAte: c.repetirAte, editavel: c.editavel, inicioOriginal: c.inicioOriginal, fimOriginal: c.fimOriginal, recorrente: c.recorrente, editado: c.editado,
+            doGoogle: c.doGoogle,
         }));
 
         return L.sort((a, b) => (a.d + (a.dia ? '' : a.h1)).localeCompare(b.d + (b.dia ? '' : b.h1)));
@@ -220,7 +223,7 @@
 
     function chip(e, semHora) {
         const c = corDe(e);
-        return '<div class="ag-chip' + situacao(e) + '"' + arrastar(e) + ' data-ev="' + esc(e.id) + '" data-tip="' + esc(e.t + (e.dia ? '' : ' · ' + (e.h1 || ''))) + '"'
+        return '<div class="ag-chip' + situacao(e) + '"' + arrastar(e) + ' tabindex="0" role="button" data-ev="' + esc(e.id) + '" data-tip="' + esc(e.t + (e.dia ? '' : ' · ' + (e.h1 || ''))) + '" title="' + esc(e.t + (e.dia ? '' : ' · ' + (e.h1 || ''))) + '"'
             + ' style="border-left-color:' + c[1] + ';background:' + c[2] + ';">'
             + (semHora ? '' : '<b>' + esc(horaDe(e)) + '</b>') + '<span>' + esc(tituloNaTela(e)) + '</span></div>';
     }
@@ -295,9 +298,10 @@
     }
 
     function desenharCals() {
-        const meus = todos().filter(e => e.src === 'meus' && e.meu);
+        // Como no desenho: todos os compromissos meus daquele tipo, em qualquer data (vem do servidor).
+        const contagens = s.contagens || {};
         document.getElementById('agCals').innerHTML = Object.entries(CAL).map(([k, v]) => {
-            const n = ['meus', 'aud', 'reun', 'prazo'].includes(k) ? new Set(meus.filter(e => e.cal === k).map(e => e.eventoId)).size : 0;
+            const n = contagens[k] || 0;
             return '<button type="button" class="ag-cal-item" data-cal="' + k + '" aria-pressed="' + (s.V[k] === false ? 'false' : 'true') + '">'
                 + '<i class="bi ' + (s.V[k] === false ? 'bi-square' : 'bi-check-square-fill') + '" style="color:' + v[1] + ';"></i><span>' + esc(v[0]) + '</span><span class="ag-cal-n">' + (n || '') + '</span></button>';
         }).join('');
@@ -338,7 +342,7 @@
         const resto = L.filter(e => e !== fer);
         const aniv = L.some(e => e.cal === 'aniv');
         const cls = ['ag-cel', !dm ? 'is-fora' : (d.getDay() % 6 === 0 ? 'is-fds' : ''), ehHoje ? 'is-hoje' : ''].join(' ');
-        return '<div class="' + cls + '" data-dia="' + k + '">'
+        return '<div class="' + cls + '" data-dia="' + k + '" tabindex="0" role="button" aria-label="' + esc(brData(k)) + '">'
             + (aniv ? '<span class="ag-cel-balao" aria-hidden="true">🎈</span>' : '')
             + (aniv && ehHoje ? '<span class="ag-cel-confete" aria-hidden="true"></span>' : '')
             + '<div class="ag-cel-topo"><span class="ag-cel-n">' + d.getDate() + '</span>'
@@ -373,7 +377,7 @@
             const t0 = a * 60 + b;
             const t1 = e.h2 ? (([c, x]) => c * 60 + x)(e.h2.split(':').map(Number)) : t0 + 60;
             const c = corDe(e);
-            return '<div class="ag-bloco' + situacao(e) + '"' + arrastar(e) + ' data-ev="' + esc(e.id) + '" data-tip="' + esc(e.t) + '" style="top:' + Math.max(0, (t0 - H0 * 60) * 48 / 60) + 'px;height:' + Math.max(22, (t1 - t0) * 48 / 60 - 2) + 'px;border-left-color:' + c[1] + ';background:' + c[2] + ';">'
+            return '<div class="ag-bloco' + situacao(e) + '"' + arrastar(e) + ' data-ev="' + esc(e.id) + '" data-tip="' + esc(e.t) + '" title="' + esc(e.t + (e.dia ? '' : ' · ' + (e.h1 || ''))) + '" style="top:' + Math.max(0, (t0 - H0 * 60) * 48 / 60) + 'px;height:' + Math.max(22, (t1 - t0) * 48 / 60 - 2) + 'px;border-left-color:' + c[1] + ';background:' + c[2] + ';">'
                 + '<b>' + esc(horaDe(e)) + '</b>' + esc(tituloNaTela(e)) + '</div>';
         }).join('');
         const agora = new Date();
@@ -452,6 +456,7 @@
         if (e.src === 'com') { return 'Data comemorativa incluída pelo sistema.'; }
         if (e.src === 'trib') { return 'Data dos tribunais incluída pelo sistema.'; }
         if (e.src === 'aniv') { return 'Aniversário cadastrado no Meu Perfil.'; }
+        if (e.doGoogle) { return 'Importado do Google Agenda.'; }
         return 'Criado na agenda do BlueJus.';
     }
 
@@ -497,7 +502,8 @@
         if (DO_SISTEMA.includes(e.src)) { return fechar; }
         const google = '<a class="ag-mbtn" href="' + esc(googleUrl(e)) + '" target="_blank" rel="noopener"><i class="bi bi-google"></i>Google Agenda</a>';
         const det = (acao, rotulo, ic, classe) => '<button type="button" class="ag-mbtn' + classe + '" data-det="' + acao + '" data-ev="' + esc(e.id) + '"><i class="bi ' + ic + '"></i>' + rotulo + '</button>';
-        const avisarBtn = e.eventoId && !e.privado ? det('avisar', 'Avisar no Chat', 'bi-chat-dots', '') : '';
+        /* Desenho 09, L238: todo item que não é data do sistema, inclusive prazo e audiência de pasta. */
+        const avisarBtn = (e.eventoId && !e.privado) || prazoId(e) ? det('avisar', 'Avisar no Chat', 'bi-chat-dots', '') : '';
         if (e.src === 'meus' && e.editavel && e.eventoId) {
             const sit = (e.status === 'agendado' || !e.status ? det('concluir', 'Concluir', 'bi-check2-circle', '') : '')
                 + (e.status !== 'cancelado' ? det('cancelar', 'Cancelar compromisso', 'bi-x-circle', '') : '')
@@ -746,9 +752,16 @@
         rodape.innerHTML = '<button type="button" class="ag-mbtn" data-fechar><i class="bi bi-x"></i>Cancelar</button><button type="button" class="ag-mbtn is-pri is-fim" data-av-ok data-ev="' + esc(e.id) + '"' + (escolhaAviso.length ? '' : ' disabled') + '><i class="bi bi-chat-dots"></i>Avisar' + (escolhaAviso.length ? ' ' + escolhaAviso.length : '') + '</button>';
     }
 
+    /* Prazo de pasta vem com id "pz-<id do prazo>". */
+    function prazoId(e) {
+        const m = e.src === 'pasta' ? /^pz-(\d+)$/.exec(String(e.id)) : null;
+
+        return m ? m[1] : null;
+    }
+
     async function confirmarAviso(e) {
         try {
-            const r = await postar(comId(url.avisar, e.eventoId), { ids: escolhaAviso });
+            const r = await postar(prazoId(e) ? comId(url.avisarPrazo, prazoId(e)) : comId(url.avisar, e.eventoId), { ids: escolhaAviso });
             fecharModal();
             recarregarEm(s.ref);
             avisar(r.avisados ? r.avisados + ' pessoa(s) avisada(s) no Chat I.A.' : 'Essas pessoas já tinham sido avisadas.');
@@ -825,6 +838,8 @@
 
     function recarregarEm(ref) {
         dispatchEvent(new Event('bj-agenda:mudou'));
+        // Outras abas abertas também refazem os lembretes, como o `storage` do bj-lembretes.js do desenho.
+        try { localStorage.setItem('bj-agenda-mudou', String(Date.now())); } catch (e) { /* sem armazenamento */ }
         s.itens = new Map();
         s.cobertoItens = [];
         s.ref = ref;
@@ -906,6 +921,8 @@
         const alvo = sel => t.closest(sel);
         let a;
         if (alvo('[data-fechar]')) { fecharModal(); return; }
+        // Como no desenho (onClick=obsAuto): clicar no campo logo depois de um "@nome" reabre a lista.
+        if (f && t.matches && t.matches('#agModal [data-f="obs"]')) { lerArroba(t); return; }
         if (cliqueDoModal(t)) { return; }
         if (alvo('[data-ctx-fechar]')) { fecharMenu(); return; }
         if ((a = alvo('[data-ctx]'))) { acaoDoMenu(a.dataset.ctx); return; }
@@ -932,12 +949,59 @@
     raiz.addEventListener('contextmenu', ev => {
         const t = ev.target;
         if (t.closest('[data-ctx-fechar]')) { ev.preventDefault(); fecharMenu(); return; }
-        if (t.closest('#agModal, #agCtx')) { return; }
-        const cel = t.closest('[data-dia]');
-        if (!cel) { return; }
-        ev.preventDefault();
+        // Dentro do nosso menu (a tecla Menu do Windows chega no keyup, já com o foco nele): sem o menu do navegador.
+        if (t.closest('#agCtx')) { ev.preventDefault(); return; }
+        if (t.closest('#agModal')) { return; }
+        if (menuDoAlvo(t, ev.clientX, ev.clientY)) { ev.preventDefault(); }
+    });
+
+    /* O menu do desenho existe só no Mês: na célula, no chip e no rótulo do feriado. Pelo teclado (tecla
+       Menu, Shift+F10) o navegador não dá posição: o menu abre junto do elemento com foco. */
+    function menuDoAlvo(t, x, y) {
+        const cel = t.closest('.ag-cel[data-dia]');
+        if (!cel) { return false; }
         const marcado = t.closest('[data-ev]');
-        abrirMenu(ev.clientX, ev.clientY, cel.dataset.dia, marcado ? acharItem(marcado.dataset.ev) : null);
+        if (!x && !y) {
+            const r = (marcado || cel).getBoundingClientRect();
+            [x, y] = [r.left + 8, r.bottom - 4];
+        }
+        abrirMenu(x, y, cel.dataset.dia, marcado ? acharItem(marcado.dataset.ev) : null);
+        return true;
+    }
+
+    /* Teclado: Enter ou espaço no dia ou no compromisso faz o mesmo que o clique; Shift+F10 abre o menu. */
+    raiz.addEventListener('keydown', ev => {
+        const t = ev.target;
+        if (!t.matches || !t.matches('.ag-cel[data-dia], .ag-chip[data-ev]') || t.closest('#agModal, #agCtx')) { return; }
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); t.click(); return; }
+        if ((ev.key === 'F10' && ev.shiftKey) || ev.key === 'ContextMenu') { ev.preventDefault(); menuDoAlvo(t, 0, 0); }
+    });
+
+    /* Toque longo (iPhone: o Safari não dispara contextmenu). Meio segundo parado abre o menu; mexer o dedo
+       cancela; o clique que viria depois do toque longo não acontece. */
+    let toqueLongo = null;
+    const esquecerToque = () => { if (toqueLongo) { clearTimeout(toqueLongo.timer); } toqueLongo = null; };
+    raiz.addEventListener('touchstart', ev => {
+        esquecerToque();
+        const t = ev.target;
+        if (ev.touches.length !== 1 || !t.closest('.ag-cel[data-dia]') || t.closest('#agModal, #agCtx')) { return; }
+        const p = ev.touches[0];
+        const toque = { x: p.clientX, y: p.clientY, abriu: false };
+        toque.timer = setTimeout(() => { if (toqueLongo === toque && t.isConnected) { toque.abriu = menuDoAlvo(t, p.clientX, p.clientY); } }, 500);
+        toqueLongo = toque;
+    }, { passive: true });
+    raiz.addEventListener('touchmove', ev => {
+        if (!toqueLongo) { return; }
+        const p = ev.touches[0];
+        if (Math.abs(p.clientX - toqueLongo.x) > 10 || Math.abs(p.clientY - toqueLongo.y) > 10) { esquecerToque(); }
+    }, { passive: true });
+    // Gesto cancelado pelo sistema ou que virou arrastar (chips arrastáveis): não abre o menu.
+    raiz.addEventListener('touchcancel', esquecerToque);
+    raiz.addEventListener('dragstart', esquecerToque);
+    raiz.addEventListener('touchend', ev => {
+        if (!toqueLongo) { return; }
+        if (toqueLongo.abriu) { ev.preventDefault(); }
+        esquecerToque();
     });
 
     function acaoDoMenu(acao) {

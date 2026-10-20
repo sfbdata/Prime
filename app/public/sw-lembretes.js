@@ -17,6 +17,11 @@ self.addEventListener('push', evento => {
 self.addEventListener('notificationclick', evento => {
     evento.notification.close();
     const destino = new URL((evento.notification.data && evento.notification.data.url) || '/agenda', self.location.origin).href;
-    // Abre o destino numa janela; navigate() só vale para janela controlada por este Service Worker.
-    evento.waitUntil(self.clients.openWindow(destino));
+    // Se uma aba já está no destino (a Agenda, a pasta), foca ela; senão abre uma janela. Não leva uma aba
+    // aberta em outra tela para o destino: ela pode ter um formulário pela metade.
+    const caminho = new URL(destino).pathname;
+    evento.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(janelas => {
+        const noDestino = janelas.find(j => { const u = new URL(j.url); return u.origin === self.location.origin && u.pathname === caminho; });
+        return noDestino ? noDestino.focus() : self.clients.openWindow(destino);
+    }));
 });

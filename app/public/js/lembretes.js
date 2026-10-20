@@ -277,6 +277,7 @@
         setInterval(checar, 30000);
         relogioBusca = setInterval(buscar, 5 * 60000);
         addEventListener('bj-agenda:mudou', buscar);
+        addEventListener('storage', ev => { if (ev.key === 'bj-agenda-mudou') { buscar(); } });
     }
     if (document.readyState === 'loading') { addEventListener('DOMContentLoaded', () => setTimeout(iniciar, 1200)); }
     else { setTimeout(iniciar, 1200); }

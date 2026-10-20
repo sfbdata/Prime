@@ -6,6 +6,7 @@ namespace App\Tests\Agenda\Functional;
 
 use App\Agenda\Controller\AgendaNovaController;
 use App\Agenda\Entity\Evento;
+use App\Agenda\Enum\TipoDeCompromisso;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
@@ -89,7 +90,7 @@ final class AgendaNovaControllerTest extends JusPrimeWebTestCase
         self::assertSame('09:00', $itens[0]['h1']);
     }
 
-    #[TestDox('Prazos e audiências abertos das pastas entram; cumpridos e de pasta na lixeira não')]
+    #[TestDox('Prazos e audiências das pastas entram, os cumpridos como concluídos (desenho 09, L152); de pasta na lixeira não')]
     public function testPrazosDasPastas(): void
     {
         $client = static::createClient();
@@ -107,7 +108,9 @@ final class AgendaNovaControllerTest extends JusPrimeWebTestCase
         $itens = $this->itens($client, self::PERIODO);
         $porTitulo = array_column($itens, null, 'titulo');
 
-        self::assertSame(['Audiência · Pasta AG-0001', 'Contestação · Pasta AG-0001'], array_column($itens, 'titulo'));
+        self::assertSame(['Audiência · Pasta AG-0001', 'Contestação · Pasta AG-0001', 'Já cumprido · Pasta AG-0001'], array_column($itens, 'titulo'));
+        self::assertSame('concluido', $porTitulo['Já cumprido · Pasta AG-0001']['status']);
+        self::assertNull($porTitulo['Contestação · Pasta AG-0001']['status']);
         self::assertSame('aud', $porTitulo['Audiência · Pasta AG-0001']['calendario']);
         self::assertSame('14:30', $porTitulo['Audiência · Pasta AG-0001']['h1']);
         self::assertTrue($porTitulo['Contestação · Pasta AG-0001']['dia']);
@@ -127,6 +130,29 @@ final class AgendaNovaControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $so, $tenant);
 
         self::assertSame(['Meu atendimento'], array_column($this->itens($client, self::PERIODO), 'titulo'));
+    }
+
+    #[TestDox('Contagem da lateral: os meus de cada calendário em qualquer data, o antigo sem tipo pela cor como na grade, sem os de outra pessoa')]
+    public function testContagensDaLateral(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $eu = $this->criarUsuario($tenant, false, null, ['modules.agenda.view']);
+        $colega = $this->criarUsuario($tenant, false, null, ['modules.agenda.view']);
+        $this->criarEvento($tenant, $eu, 'Antigo azul', '2030-03-10 09:00', Evento::VISIBILIDADE_TODOS);
+        $this->criarEvento($tenant, $eu, 'Antigo fora do período', '2031-07-01 09:00', Evento::VISIBILIDADE_TODOS);
+        $this->criarEvento($tenant, $eu, 'Reunião nova', '2030-03-11 09:00', Evento::VISIBILIDADE_TODOS)->setTipo(TipoDeCompromisso::Reuniao);
+        $this->criarEvento($tenant, $eu, 'Meu particular', '2030-03-12 09:00', Evento::VISIBILIDADE_SOMENTE_EU)->setTipo(TipoDeCompromisso::Meus)->setCor(Evento::COR_ROXO);
+        $this->criarEvento($tenant, $colega, 'Do colega', '2030-03-10 10:00', Evento::VISIBILIDADE_TODOS)->setTipo(TipoDeCompromisso::Reuniao);
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+        $this->logarComTenant($client, $eu, $tenant);
+
+        $client->request('GET', self::PERIODO);
+        $r = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertSame(['meus' => 1, 'aud' => 2, 'reun' => 1, 'prazo' => 0], $r['contagens']);
+        $calendarioDoAntigo = array_column($r['itens'], 'calendario', 'titulo')['Antigo azul'];
+        self::assertSame('aud', $calendarioDoAntigo, 'na grade, o antigo azul também aparece em Audiências');
     }
 
     #[TestDox('"Para todos" com participantes só aparece para o criador e os participantes')]
