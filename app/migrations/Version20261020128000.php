@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * linha, id 1) e, no compromisso, o id no Google e o resumo do último envio. Colunas novas são nulas: os
  * compromissos existentes não mudam. Spec: docs/specs/agenda-google.md.
  */
-final class Version20261019180500 extends AbstractMigration
+final class Version20261020128000 extends AbstractMigration
 {
     public function getDescription(): string
     {
