@@ -433,6 +433,30 @@ final class ConversaDaPastaControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('reservada', $html);
     }
 
+    #[TestDox('rotas por id de escrita: um colega não exclui, não marca lida nem interna a pergunta de outra pessoa (404, nada muda)')]
+    public function testColegaNaoAgeNaPerguntaDeOutraPessoa(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant, $pasta] = $this->cenario($client);
+        $colega = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'modules.inteligencia.view'], 'colega');
+        $minha = $this->criarPergunta($tenant, $user, $pasta, 'Minha pergunta');
+        $this->concluirAnalise($minha->getAnalise(), 'Resposta.', [], null, 'Resposta minha.');
+        $analiseId = (int) $minha->getAnalise()->getId();
+        $this->logarComTenant($client, $colega, $tenant);
+
+        foreach (['excluir', 'lida', 'interna'] as $acao) {
+            $client->request('POST', "/pasta/{$pasta->getId()}/ia/analises/{$analiseId}/{$acao}", [
+                '_token' => 'TOKEN_inteligencia_analise_' . $analiseId,
+            ], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+            self::assertResponseStatusCodeSame(404, $acao);
+        }
+
+        self::assertSame(1, $this->contarNoBanco(
+            'SELECT count(*) FROM inteligencia_analise WHERE id = :id AND excluida_em IS NULL AND lida_em IS NULL AND interna_do_escritorio = true',
+            ['id' => $analiseId],
+        ), 'nem excluída, nem lida, nem com o cadeado trocado');
+    }
+
     #[TestDox('a conversa mostra só as últimas 20 perguntas da pessoa, em ordem cronológica')]
     public function testLimiteDaConversa(): void
     {

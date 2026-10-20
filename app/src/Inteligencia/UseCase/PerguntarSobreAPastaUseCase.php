@@ -7,6 +7,7 @@ namespace App\Inteligencia\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
+use App\Inteligencia\Contract\TravaDaConversa;
 use App\Inteligencia\DTO\AnaliseOutput;
 use App\Inteligencia\DTO\ContextoDaPasta;
 use App\Inteligencia\DTO\MensagemDaConversaOutput;
@@ -44,6 +45,8 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * recusada: a pergunta pode ser respondida com "Não encontrei informação suficiente".
  * Uma pergunta em andamento por pessoa e pasta: a segunda devolve a que está em andamento, com
  * aviso, sem criar nem gastar o limitador (`$antesDeCriar` só roda quando uma nova vai ser criada).
+ * A checagem, o limitador e a gravação rodam dentro da {@see TravaDaConversa} (trava consultiva do
+ * Postgres por escritório, pasta e pessoa): dois pedidos simultâneos não criam duas perguntas.
  * Pós-condição: análise `pendente` de tipo `pergunta_livre`, agente Gestor (o contexto mais amplo),
  * com `contexto_resumo.financeiro` e `abasOcultas` decididos AQUI, com sessão (o worker obedece),
  * a pergunta em `inteligencia_pergunta` e 1 mensagem no `async`.
@@ -69,15 +72,40 @@ final class PerguntarSobreAPastaUseCase
         private readonly PerguntaDaConversaRepository $perguntas,
         private readonly EnfileiradorDeAnalise $enfileirador,
         private readonly VisibilidadeDasAbasDaPasta $abas,
+        private readonly TravaDaConversa $trava,
     ) {
     }
 
     public function executar(PerguntarSobreAPastaInput $input, User $user, Tenant $tenant, ?callable $antesDeCriar = null): PerguntaEnviadaOutput
     {
         $pasta = $this->carregarPastaLiberada($input->pastaId, $user, $tenant);
+        [$pergunta, $nova] = $this->trava->emTransacaoTravada(
+            $tenant,
+            (int) $pasta->getId(),
+            $user,
+            fn (): array => $this->perguntaEmAndamentoOuNova($input->texto, $pasta, $user, $tenant, $antesDeCriar),
+        );
+        if (!$nova) {
+            return self::saida($pergunta, self::AVISO_EM_ANDAMENTO);
+        }
+
+        // Depois do commit: o worker não pode receber o id de uma linha que ainda não existe para ele.
+        $this->enfileirador->enfileirar($pergunta->getAnalise(), $tenant);
+
+        return self::saida($pergunta);
+    }
+
+    /**
+     * Dentro da trava da conversa (pessoa + pasta): a checagem "em andamento", o limitador e a gravação
+     * acontecem juntos, e um segundo pedido simultâneo espera e vê a pergunta deste.
+     *
+     * @return array{PerguntaDaConversa, bool} a pergunta e se ela foi criada agora
+     */
+    private function perguntaEmAndamentoOuNova(string $texto, Pasta $pasta, User $user, Tenant $tenant, ?callable $antesDeCriar): array
+    {
         $emAndamento = $this->perguntas->emAndamentoDaConversa($tenant, (int) $pasta->getId(), $user);
         if ($emAndamento !== null) {
-            return self::saida($emAndamento, self::AVISO_EM_ANDAMENTO);
+            return [$emAndamento, false];
         }
 
         $contexto = $this->contextoDa($pasta, $user, $tenant);
@@ -85,10 +113,7 @@ final class PerguntarSobreAPastaUseCase
             $antesDeCriar();
         }
 
-        $pergunta = $this->registrar($input->texto, $pasta, $contexto, $user, $tenant);
-        $this->enfileirador->enfileirar($pergunta->getAnalise(), $tenant);
-
-        return self::saida($pergunta);
+        return [$this->registrar($texto, $pasta, $contexto, $user, $tenant), true];
     }
 
     /** A pasta do escritório que quem pergunta pode ver, com a IA disponível para ele. */

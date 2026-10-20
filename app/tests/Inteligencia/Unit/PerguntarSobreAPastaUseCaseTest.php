@@ -47,6 +47,7 @@ use App\Tests\Inteligencia\Support\DefineId;
 use App\Tests\Inteligencia\Support\FonteDeDadosDaPastaFalsa;
 use App\Tests\Inteligencia\Support\FonteDeMovimentacoesFalsa;
 use App\Tests\Inteligencia\Support\ProvedorFalso;
+use App\Tests\Inteligencia\Support\TravaDaConversaEspia;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -85,6 +86,8 @@ final class PerguntarSobreAPastaUseCaseTest extends TestCase
 
     /** @var list<object> */
     private array $despachadas = [];
+
+    private TravaDaConversaEspia $trava;
 
     protected function setUp(): void
     {
@@ -128,6 +131,7 @@ final class PerguntarSobreAPastaUseCaseTest extends TestCase
         $this->movimentacoes->publicacoes = [$this->publicacao()];
         $this->despachadas = [];
         $this->regrasDeAba = [];
+        $this->trava = new TravaDaConversaEspia();
     }
 
     private function publicacao(): PublicacaoDjen
@@ -148,6 +152,7 @@ final class PerguntarSobreAPastaUseCaseTest extends TestCase
     /** @internal usado pelo dublê do bus */
     public function registrarDispatch(object $mensagem): void
     {
+        self::assertFalse($this->trava->dentro, 'a mensagem só sai depois do commit, fora da trava');
         $this->despachadas[] = $mensagem;
     }
 
@@ -185,6 +190,7 @@ final class PerguntarSobreAPastaUseCaseTest extends TestCase
             $this->perguntas,
             new EnfileiradorDeAnalise($this->analises, $bus, new NullLogger()),
             $this->visibilidadeDasAbas(),
+            $this->trava,
         );
     }
 
@@ -424,5 +430,61 @@ final class PerguntarSobreAPastaUseCaseTest extends TestCase
 
         self::assertCount(1, $salvas['perguntas']);
         self::assertCount(1, $this->despachadas);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Trava da conversa (concorrência)
+    // ---------------------------------------------------------------------------------------
+
+    #[TestDox('trava pedida por escritório, pasta e pessoa; checagem, limitador e gravação acontecem DENTRO dela')]
+    public function testTudoDentroDaTrava(): void
+    {
+        $this->perguntas->method('emAndamentoDaConversa')->willReturnCallback(function (): ?PerguntaDaConversa {
+            self::assertTrue($this->trava->dentro, 'a checagem de em andamento roda dentro da trava');
+
+            return null;
+        });
+        $this->analises->method('salvar')->willReturnCallback(function (AnaliseDeInteligencia $a): void {
+            self::assertTrue($this->trava->dentro);
+            DefineId::em($a, 555);
+        });
+        $this->perguntas->method('salvar')->willReturnCallback(function (PerguntaDaConversa $p): void {
+            self::assertTrue($this->trava->dentro, 'a gravação roda dentro da trava');
+            DefineId::em($p, 77);
+        });
+        $limitadorDentro = null;
+
+        $this->sut()->executar($this->input(), $this->user, $this->tenant, function () use (&$limitadorDentro): void {
+            $limitadorDentro = $this->trava->dentro;
+        });
+
+        self::assertSame([[42, self::PASTA_ID, 9]], $this->trava->pedidos);
+        self::assertTrue($limitadorDentro, 'o limitador roda dentro da trava');
+        self::assertCount(1, $this->despachadas);
+    }
+
+    #[TestDox('dois pedidos em sequência sob a trava: o segundo vê a pergunta do primeiro e devolve a mesma, sem criar nem gastar o limitador')]
+    public function testSegundoPedidoVeOPrimeiro(): void
+    {
+        $gravada = null;
+        $this->perguntas->method('emAndamentoDaConversa')->willReturnCallback(static function () use (&$gravada): ?PerguntaDaConversa {
+            return $gravada;
+        });
+        $this->analises->method('salvar')->willReturnCallback(static fn (AnaliseDeInteligencia $a) => DefineId::em($a, 555));
+        $this->perguntas->method('salvar')->willReturnCallback(static function (PerguntaDaConversa $p) use (&$gravada): void {
+            DefineId::em($p, 77);
+            $gravada = $p;
+        });
+        $limitador = $this->contador();
+
+        $primeira = $this->sut()->executar($this->input('Primeira'), $this->user, $this->tenant, $limitador);
+        $segunda = $this->sut()->executar($this->input('Segunda'), $this->user, $this->tenant, $limitador);
+
+        self::assertSame(77, $primeira->pergunta->perguntaId);
+        self::assertSame(77, $segunda->pergunta->perguntaId);
+        self::assertSame(PerguntarSobreAPastaUseCase::AVISO_EM_ANDAMENTO, $segunda->analise->aviso);
+        self::assertSame(1, $limitador->chamadas);
+        self::assertCount(1, $this->despachadas);
+        self::assertCount(2, $this->trava->pedidos);
     }
 }

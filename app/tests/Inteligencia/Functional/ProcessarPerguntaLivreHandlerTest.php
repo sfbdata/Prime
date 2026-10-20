@@ -209,6 +209,56 @@ final class ProcessarPerguntaLivreHandlerTest extends KernelTestCase
         self::assertStringNotContainsString('<conversa_anterior>', $texto);
     }
 
+    #[TestDox('histórico respeita as abas ocultas de agora: resposta que leu o Push, hoje oculto para quem pergunta, não volta')]
+    public function testHistoricoSemAbaOcultaAgora(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $this->concluida($this->criarPergunta($tenant, $user, $pasta, 'Saiu publicação nova?', abasOcultas: []), 'Saiu a intimação da sentença.');
+        $this->concluida($this->criarPergunta($tenant, $user, $pasta, 'E as metas?', abasOcultas: ['push']), 'Há duas metas abertas.');
+        $atual = $this->criarPergunta($tenant, $user, $pasta, 'E agora?', abasOcultas: ['push']);
+        $falso = new ProvedorFalso();
+        $falso->responderCom(self::resposta('Resposta.'));
+
+        $this->processar($falso, $atual);
+
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringNotContainsString('intimação da sentença', $texto, 'leu o Push, que agora está oculto');
+        self::assertStringNotContainsString('Saiu publicação nova?', $texto);
+        self::assertStringContainsString('• Advogado: E as metas?', $texto, 'a que não leu o Push continua no histórico');
+    }
+
+    #[TestDox('regressão do audit_log: a análise de agente (analise_pasta) continua gravando resumo e texto; só a pergunta_livre fica sem eles')]
+    public function testAuditLogSoEscondeAPerguntaLivre(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $doAgente = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta);
+        $pergunta = $this->criarPergunta($tenant, $user, $pasta, 'Pergunta da regressão');
+        $falso = new ProvedorFalso();
+        $falso->responderCom(self::resposta('TEXTO-DO-AGENTE completo.', 'RESUMO-DO-AGENTE.'));
+        $falso->responderCom(self::resposta('TEXTO-DA-PERGUNTA completo.', 'RESUMO-DA-PERGUNTA.'));
+
+        $this->handler($falso)(new ProcessarAnaliseDeInteligencia((int) $doAgente->getId(), (int) $tenant->getId()));
+        $this->processar($falso, $pergunta);
+
+        $trilha = fn (int $id): string => implode("\n", $this->em()->getConnection()->fetchFirstColumn(
+            'SELECT changes::text FROM audit_log WHERE entity_class = :classe AND entity_id = :id',
+            ['classe' => AnaliseDeInteligencia::class, 'id' => (string) $id],
+        ));
+        $doAgenteNaTrilha = $trilha((int) $doAgente->getId());
+        self::assertStringContainsString('RESUMO-DO-AGENTE', $doAgenteNaTrilha);
+        self::assertStringContainsString('TEXTO-DO-AGENTE', $doAgenteNaTrilha);
+        $daPerguntaNaTrilha = $trilha((int) $pergunta->getAnalise()->getId());
+        self::assertStringContainsString('concluida', $daPerguntaNaTrilha, 'a pergunta continua na trilha, com o status');
+        self::assertStringNotContainsString('RESUMO-DA-PERGUNTA', $daPerguntaNaTrilha);
+        self::assertStringNotContainsString('TEXTO-DA-PERGUNTA', $daPerguntaNaTrilha);
+    }
+
     #[TestDox('processo em segredo de justiça: falhou com "contexto bloqueado", sem chamar o provedor')]
     public function testSigiloFalhaSemChamarOProvedor(): void
     {

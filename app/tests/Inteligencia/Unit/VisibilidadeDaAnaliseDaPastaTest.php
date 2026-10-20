@@ -74,4 +74,34 @@ final class VisibilidadeDaAnaliseDaPastaTest extends TestCase
         self::assertFalse(VisibilidadeDaAnaliseDaPasta::legivelCom(self::analise(TipoDeAnalise::ResumoPush), ['push']));
         self::assertFalse(VisibilidadeDaAnaliseDaPasta::legivelCom(self::analise(TipoDeAnalise::PerguntaLivre), ['dados']), 'sem seção declarada: todas as abas');
     }
+
+    private static function visibilidadeSemAbaOculta(TestCase $teste): VisibilidadeDaAnaliseDaPasta
+    {
+        $regras = $teste->createStub(\App\Pasta\Repository\AbaOcultaDaPastaRepository::class);
+        $regras->method('daPasta')->willReturn([]);
+        $vinculos = $teste->createStub(\App\Repository\UserTenantRepository::class);
+        $primarios = new \App\Tenant\Service\RegraDosPrimarios($vinculos);
+
+        return new VisibilidadeDaAnaliseDaPasta(new \App\Pasta\Service\VisibilidadeDasAbasDaPasta($regras, $primarios, new \App\Pasta\Service\EquipeQuePodeTerAbaOculta($vinculos, $primarios)));
+    }
+
+    #[TestDox('podeLer da pergunta livre: só quem perguntou; outro leitor e solicitante nulo não leem; a análise de agente segue a regra das abas')]
+    public function testPodeLerPerguntaLivre(): void
+    {
+        $visibilidade = self::visibilidadeSemAbaOculta($this);
+        $pasta = new \App\Pasta\Entity\Pasta();
+        $autor = new \App\Entity\Auth\User();
+        \App\Tests\Inteligencia\Support\DefineId::em($autor, 9);
+        $colega = new \App\Entity\Auth\User();
+        \App\Tests\Inteligencia\Support\DefineId::em($colega, 10);
+        $resumo = ['financeiro' => false, 'abasOcultas' => []];
+        $pergunta = new AnaliseDeInteligencia(new Tenant(), $autor, TipoDeAnalise::PerguntaLivre, AnaliseDeInteligencia::ALVO_PASTA, 1, 'pergunta-v1', 'h', $resumo, Agente::Gestor);
+        $semSolicitante = new AnaliseDeInteligencia(new Tenant(), null, TipoDeAnalise::PerguntaLivre, AnaliseDeInteligencia::ALVO_PASTA, 1, 'pergunta-v1', 'h', $resumo, Agente::Gestor);
+        $doAgente = new AnaliseDeInteligencia(new Tenant(), $autor, TipoDeAnalise::AnalisePasta, AnaliseDeInteligencia::ALVO_PASTA, 1, 'agente-v1', 'h', $resumo, Agente::Gestor);
+
+        self::assertTrue($visibilidade->podeLer($pergunta, $pasta, $autor));
+        self::assertFalse($visibilidade->podeLer($pergunta, $pasta, $colega), 'colega não lê a conversa de outra pessoa');
+        self::assertFalse($visibilidade->podeLer($semSolicitante, $pasta, $colega), 'sem solicitante, ninguém lê');
+        self::assertTrue($visibilidade->podeLer($doAgente, $pasta, $colega), 'a análise de agente continua do escritório');
+    }
 }
