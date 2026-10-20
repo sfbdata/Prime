@@ -6,6 +6,7 @@ namespace App\Tests\Agenda\Functional;
 
 use App\Agenda\Controller\AgendaNovaController;
 use App\Agenda\Entity\Evento;
+use App\Agenda\Service\PermissoesDaAgenda;
 use App\Agenda\Enum\TipoDeCompromisso;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -130,6 +131,30 @@ final class AgendaNovaControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $so, $tenant);
 
         self::assertSame(['Meu atendimento'], array_column($this->itens($client, self::PERIODO), 'titulo'));
+    }
+
+    #[TestDox('Ver prazos na agenda é permissão própria: com Pastas e sem ela, sem prazos mas com a pasta do compromisso; com ela e sem Pastas, com prazos')]
+    public function testPermissaoVerPrazosSeparadaDePastas(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $soPastas = $this->criarUsuario($tenant, false, null, ['modules.agenda.view', 'modules.pastas.view']);
+        $soPrazos = $this->criarUsuario($tenant, false, null, ['modules.agenda.view', PermissoesDaAgenda::VER_PRAZOS]);
+        $pasta = PastaFactory::createOne(['tenant' => $tenant, 'nup' => 'AG-0004'])->_real();
+        $this->criarPrazo($tenant, $pasta, PastaPrazo::TIPO_PRAZO, 'Contestação', '2030-03-16', null, null);
+        $this->criarEvento($tenant, $soPastas, 'Reunião da pasta', '2030-03-10 09:00', Evento::VISIBILIDADE_TODOS)->setPasta($pasta);
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $this->logarComTenant($client, $soPastas, $tenant);
+        $comPastas = $this->itens($client, self::PERIODO);
+        $this->logarComTenant($client, $soPrazos, $tenant);
+        $comPrazos = $this->itens($client, self::PERIODO);
+
+        self::assertSame(['Reunião da pasta'], array_column($comPastas, 'titulo'));
+        self::assertSame($pasta->getId(), $comPastas[0]['pastaId'], 'a pasta do compromisso segue o módulo Pastas');
+        self::assertSame(['Reunião da pasta', 'Contestação · Pasta AG-0004'], array_column($comPrazos, 'titulo'));
+        self::assertNull($comPrazos[0]['pastaId'], 'sem o módulo Pastas, o compromisso não mostra a pasta');
+        self::assertNull($comPrazos[1]['pastaId'], 'nem o prazo leva o atalho para a pasta (daria 403)');
     }
 
     #[TestDox('Contagem da lateral: os meus de cada calendário em qualquer data, o antigo sem tipo pela cor como na grade, sem os de outra pessoa')]

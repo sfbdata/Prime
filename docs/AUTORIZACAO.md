@@ -16,7 +16,7 @@ O sistema tem quatro camadas de autorização, todas implementadas via
 |---|---|---|
 | **Módulos** | `modules.{x}.view` no TenantRole | Ativo |
 | **Admin** | `admin.{x}.{y}` no TenantRole | Ativo |
-| **Recursos-tipo** | `resources.{x}.{y}` no TenantRole | Código morto — definido, nunca chamado diretamente |
+| **Recursos-tipo** | `resources.{x}.{y}` no TenantRole | `canActOnResource` é código morto; alguns códigos são checados direto por `hasPermission` (ex.: `resources.agenda.ver_prazos`) |
 | **Recursos-item** | Tabela `resource_access` | Ativo |
 
 As três primeiras convergem no mesmo mecanismo de armazenamento: o
@@ -348,8 +348,12 @@ sobre item específico (show, edit, delete, upload, download).
 | `cliente` | ✅ view/edit/delete | ✅ 8+ chamadas em `ClienteController` |
 | `processo` | ✅ view/edit/delete | ✅ show/edit/delete em `ProcessoController` (l. 168/139/219, via `AccessRequest::RESOURCE_PROCESSO`) |
 
-Nenhum outro módulo (ponto, agenda, kanban, tarefas, servicedesk,
-expediente) tem permissões `resources.*` no catálogo.
+Fora desses três (e das capacidades de cobrança), só a Agenda tem uma permissão `resources.*`:
+`resources.agenda.ver_prazos` ("Ver prazos na agenda", 20/10/2026), checada direto por
+`PermissionChecker::hasPermission` em `App\Agenda\Service\PermissoesDaAgenda`. Ela decide se os prazos e
+audiências das pastas aparecem na Agenda (grade, lembretes, push e "Avisar no Chat"); o cadeado da pasta vale
+por cima. Nasceu concedida a todo perfil com `modules.pastas.view` e aos perfis de sistema
+(`Version20261020134100`). Ponto, kanban, tarefas, servicedesk e expediente não têm `resources.*` no catálogo.
 
 ### Entidade ResourceAccess
 
