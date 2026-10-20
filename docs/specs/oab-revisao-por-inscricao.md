@@ -35,6 +35,14 @@
   suplementares); números diferentes por desenho, não é defeito. Medir em produção, depois do deploy do #65,
   quantos `user.oab_status IS NOT NULL` ficaram sem `inscricao_oab` (consulta pelo MCP `jusprime-prod`).
 
+## Master trazido em 20/10 (depois do #65)
+- O cadastro público mudou no master (`CriarContaEEscritorioUseCase`, desenho 10): a conta nasce **sem OAB**, então
+  não há principal a criar ali; a OAB entra depois pelo Meu Perfil (#65), que cria a inscrição. O
+  `ConfirmarCadastroUseCase` ficou para os links pendentes de antes, e continua criando a principal (teste
+  `testCadastroPendenteCriaPrincipal`, sem o `IniciarCadastroPublicoUseCase`, que saiu do master).
+- O convite da plataforma e o confirmar cadastro ganharam o evento do Comercial no master: a principal segue
+  criada antes do flush, e o evento sai depois.
+
 ## Revisão cruzada do #143 (20/10, corrigido)
 - Confirmar e reverter amarram o que o Master viu: o form envia o número e a UF exibidos, e a ação recusa com
   o aviso "A inscrição mudou depois que a fila foi aberta. Confira de novo." se não baterem com o atual

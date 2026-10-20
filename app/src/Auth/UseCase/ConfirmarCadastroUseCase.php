@@ -35,6 +35,13 @@ final class ConfirmarCadastroUseCase
         private readonly EventDispatcherInterface $eventos,
     ) {}
 
+    /** A inscrição principal nasce junto (a fila de revisão do Master é por inscrição); o flush é o do caso de uso. */
+    private function persistirComAPrincipal(User $user): void
+    {
+        $this->em->persist($user);
+        $this->espelhoOab->garantirPrincipal($user);
+    }
+
     public function executar(string $token): User
     {
         $cadastro = $this->cadastroPendenteRepository->encontrarPorToken($token);
@@ -78,9 +85,7 @@ final class ConfirmarCadastroUseCase
                     $user->setOabVerificadaEm(new \DateTimeImmutable());
                 }
 
-                $this->em->persist($user);
-                // A inscrição principal nasce junto (fila de revisão do Master é por inscrição); o flush é o daqui.
-                $this->espelhoOab->garantirPrincipal($user);
+                $this->persistirComAPrincipal($user);
 
                 $tenant = new Tenant();
                 $tenant->setName($cadastro->getNomeEscritorio());

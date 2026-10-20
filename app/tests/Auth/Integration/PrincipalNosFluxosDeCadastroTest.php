@@ -5,15 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Auth\Integration;
 
 use App\Auth\DTO\AceitarConvitePlataformaInput;
-use App\Auth\DTO\IniciarCadastroPublicoInput;
 use App\Auth\Entity\InscricaoOab;
+use App\Auth\Entity\CadastroPendente;
 use App\Auth\Enum\StatusOab;
 use App\Auth\Enum\TipoInscricaoOab;
 use App\Auth\Repository\InscricaoOabRepository;
 use App\Auth\Service\EspelhoDaOabPrincipal;
 use App\Auth\UseCase\AceitarConvitePlataformaUseCase;
 use App\Auth\UseCase\ConfirmarCadastroUseCase;
-use App\Auth\UseCase\IniciarCadastroPublicoUseCase;
 use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Tenant\DTO\CriarEscritorioInput;
@@ -42,22 +41,31 @@ final class PrincipalNosFluxosDeCadastroTest extends KernelTestCase
         self::bootKernel();
     }
 
-    #[TestDox('Cadastro público com OAB: a principal nasce Pendente e aparece na fila')]
-    public function testCadastroPublicoCriaPrincipal(): void
+    #[TestDox('Link de cadastro pendente com OAB (fluxo antigo, ainda confirmado): a principal nasce Pendente e aparece na fila')]
+    public function testCadastroPendenteCriaPrincipal(): void
     {
-        $c = static::getContainer();
+        $c  = static::getContainer();
+        $em = $c->get(EntityManagerInterface::class);
 
-        $input                 = new IniciarCadastroPublicoInput();
-        $input->nomeCompleto   = 'Dra. Ana Souza';
-        $input->email          = 'ana' . uniqid() . '@adv.com';
-        $input->senha          = 'senha-forte-123';
-        $input->nomeEscritorio = 'Banca Souza';
-        $input->oabNumero      = '12345';
-        $input->oabUf          = 'SP';
-        $input->aceiteTermos   = true;
+        // O cadastro público novo (CriarContaEEscritorioUseCase) cria a conta sem OAB; os links pendentes de antes dele
+        // ainda são confirmados pelo ConfirmarCadastroUseCase, com a OAB do pedido.
+        $pendente = new CadastroPendente(
+            email: 'ana' . uniqid() . '@adv.com',
+            token: bin2hex(random_bytes(16)),
+            nomeCompleto: 'Dra. Ana Souza',
+            nomeEscritorio: 'Banca Souza',
+            oabNumero: '12345',
+            oabUf: 'SP',
+            senhaHash: 'hash-qualquer',
+            ip: '127.0.0.1',
+            expiresAt: new \DateTimeImmutable('+1 day'),
+            userAgent: 'ua-teste',
+        );
+        $pendente->setOabStatus(StatusOab::NaoVerificada);
+        $em->persist($pendente);
+        $em->flush();
 
-        $pendente = $c->get(IniciarCadastroPublicoUseCase::class)->executar($input, '127.0.0.1', 'ua-teste');
-        $user     = $c->get(ConfirmarCadastroUseCase::class)->executar($pendente->getToken());
+        $user = $c->get(ConfirmarCadastroUseCase::class)->executar($pendente->getToken());
 
         $this->assertNaFila($user, self::PENDENTES, '12345', 'SP', StatusOab::NaoVerificada);
     }
