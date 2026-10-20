@@ -15,7 +15,7 @@ final class CadeadoNaTelaOutput
 {
     /**
      * @param list<array{id: int, nome: string, funcao: string, nivel: string}>               $equipe
-     * @param list<array{id: int, nome: string, nivel: string, motivo: ?string, hora: string}> $pedidosPendentes
+     * @param list<array{id: int, texto: string}>                                              $pedidosPendentes
      */
     public function __construct(
         public readonly string $nivel,

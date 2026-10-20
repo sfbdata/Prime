@@ -7,6 +7,7 @@ namespace App\Pasta\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\CadeadoDaPastaOutput;
+use App\Pasta\DTO\DecisaoDoPedidoOutput;
 use App\Pasta\Entity\EstadoDoPedidoDeAcesso;
 use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
@@ -50,7 +51,7 @@ final class DecidirPedidoDeAcessoUseCase
     ) {
     }
 
-    public function executar(int $pedidoId, Pasta $pasta, User $ator, Tenant $tenant, string $decisao): CadeadoDaPastaOutput
+    public function executar(int $pedidoId, Pasta $pasta, User $ator, Tenant $tenant, string $decisao): DecisaoDoPedidoOutput
     {
         $pedido = $this->carregar($pedidoId, $pasta, $ator, $tenant);
         $agora  = $this->relogio->now();
@@ -72,7 +73,9 @@ final class DecidirPedidoDeAcessoUseCase
         $this->em->flush();
         $this->acessoAPasta->esquecer();
 
-        return $this->estadoDoCadeado($pasta, $tenant);
+        return new DecisaoDoPedidoOutput($this->estadoDoCadeado($pasta, $tenant), $decisao === self::RECUSAR
+            ? 'Pedido recusado'
+            : sprintf('Pasta %s liberada para %s', (string) $pasta->getNup(), self::primeiroNome($nome)));
     }
 
     private function carregar(int $pedidoId, Pasta $pasta, User $ator, Tenant $tenant): PedidoDeAcessoAPasta
@@ -118,6 +121,11 @@ final class DecidirPedidoDeAcessoUseCase
         if ($cadeado !== null) {
             $cadeado->liberar($pedido->getSolicitante(), $nivel, $ator, $agora);
         }
+    }
+
+    private static function primeiroNome(string $nome): string
+    {
+        return explode(' ', trim($nome))[0] ?: $nome;
     }
 
     private function estadoDoCadeado(Pasta $pasta, Tenant $tenant): CadeadoDaPastaOutput

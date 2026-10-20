@@ -86,9 +86,8 @@ final class PastaCadeadoController extends AbstractController
         return $this->acao($request, $pasta, 'pasta_cadeado_', function (User $ator, Tenant $tenant) use ($pasta, $pedidoId, $request): array {
             $decisao = (string) $request->request->get('decisao');
             $saida   = $this->decidir->executar($pedidoId, $pasta, $ator, $tenant, $decisao);
-            $aviso   = $decisao === DecidirPedidoDeAcessoUseCase::RECUSAR ? 'Pedido recusado' : 'Pasta ' . $pasta->getNup() . ' liberada';
 
-            return [$aviso, $saida->paraJson()];
+            return [$saida->aviso, $saida->cadeado->paraJson()];
         });
     }
 

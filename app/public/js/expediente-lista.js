@@ -232,7 +232,8 @@
             /* A rota do pedido é a da pasta (pasta_acesso_pedir), com o token da própria pasta, que vem na linha
                (`data-csrf-pedir`, só nas linhas ocultas). Erro: `{status: 'erro', erro, mensagem}`. */
             var linhaDoPedido = document.querySelector('[data-pasta-id="' + id + '"][data-csrf-pedir]');
-            var corpoDoPedido = new URLSearchParams({ nivel: 'editar', _token: linhaDoPedido ? linhaDoPedido.getAttribute('data-csrf-pedir') : '' });
+            /* Pede Visualizar, como o sigiloPedir do desenho 03 ('ver'); o "Pedir para editar" é o da faixa da pasta. */
+            var corpoDoPedido = new URLSearchParams({ nivel: 'visualizar', _token: linhaDoPedido ? linhaDoPedido.getAttribute('data-csrf-pedir') : '' });
             fetch(j.getAttribute('data-url-pedir').replace('/0/', '/' + id + '/'), {
                 method: 'POST',
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },

@@ -53,7 +53,8 @@
         </div>
     </header>
 
-    <div style="position:relative;min-height:440px">
+    {# O véu vai até o fim da página (sem faixa clara embaixo): o contêiner ocupa a altura da janela abaixo do cabeçalho. #}
+    <div style="position:relative;min-height:calc(100vh - 220px)">
         <div style="position:absolute;left:0;right:0;top:0;bottom:0;z-index:40;background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(234,238,241,.99) 220px);backdrop-filter:blur(6px);display:flex;justify-content:center;padding:28px 16px">
             <div style="position:sticky;top:90px;align-self:flex-start;max-width:440px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
                 <span data-cad-onda>{{ include('pasta/_cadeado_icone.html.twig', {px: 92, ondas: true}) }}</span>

@@ -32,15 +32,15 @@ final class AvisosDoCadeado
     /** Avisa cada primário ativo e cada Master com vínculo ativo no escritório, menos quem pediu. Devolve quantos. */
     public function avisarPedido(PedidoDeAcessoAPasta $pedido): int
     {
-        $titulo = self::cabe($this->textoDoPedido($pedido));
+        $titulo = self::cabe(self::fraseDoPedido($pedido, comMotivo: false));
+        $corpo  = self::fraseDoPedido($pedido, comMotivo: true);
         $url    = $this->urlDaPasta($pedido) . '#cadeado-pedidos';
         $avisados = 0;
         foreach ($this->quemDecide($pedido) as $quem) {
             $aviso = $this->notificacoes->criarNotificacao($quem, $pedido->getTenant(), Notificacao::TIPO_PASTA_PEDIDO_ACESSO, $titulo, $url);
-            // O motivo (até 300 caracteres) não cabe no título (255): vai no corpo, gravado pelo flush de quem chama.
-            if ($pedido->getMotivo() !== null) {
-                $aviso->setMensagem($titulo . ' Motivo: "' . $pedido->getMotivo() . '"');
-            }
+            // O motivo (até 300 caracteres) não cabe no título (255): a frase inteira vai no corpo, gravada
+            // pelo flush de quem chama.
+            $aviso->setMensagem($corpo);
             ++$avisados;
         }
 
@@ -58,18 +58,28 @@ final class AvisosDoCadeado
         $this->notificacoes->criarNotificacao($pedido->getSolicitante(), $pedido->getTenant(), Notificacao::TIPO_PASTA_ACESSO_DECIDIDO, self::cabe($texto), $this->urlDaPasta($pedido));
     }
 
-    private function textoDoPedido(PedidoDeAcessoAPasta $pedido): string
+    /**
+     * A frase do pedido, a do desenho (`pedirAcessoPasta`) sem o vocativo, que é do chat: "Ana pediu acesso à
+     * Pasta 1500 (Maria) às 10:00, para editar. Motivo: "…" A pasta está trancada por você. Quer liberar?".
+     * É a mesma no aviso do sino e na faixa de decisão.
+     */
+    public static function fraseDoPedido(PedidoDeAcessoAPasta $pedido, bool $comMotivo = true): string
     {
-        $cliente = $pedido->getPasta()->getClientePrincipal()?->getNomeExibicao() ?? $pedido->getPasta()->getNomeCliente();
-
-        return sprintf(
+        $pasta   = $pedido->getPasta();
+        $cliente = trim((string) ($pasta->getClientePrincipal()?->getNomeExibicao() ?? $pasta->getNomeCliente()));
+        $frase   = sprintf(
             '%s pediu acesso à Pasta %s%s às %s, para %s.',
             $pedido->getSolicitante()->getFullName() ?? $pedido->getSolicitante()->getEmail(),
-            (string) $pedido->getPasta()->getNup(),
-            $cliente !== null && trim($cliente) !== '' ? ' (' . trim($cliente) . ')' : '',
+            (string) $pasta->getNup(),
+            $cliente !== '' ? ' (' . $cliente . ')' : '',
             $pedido->getPedidoEm()->format('H:i'),
             $pedido->getNivelPedido()->verbo(),
         );
+        if ($comMotivo && $pedido->getMotivo() !== null) {
+            $frase .= ' Motivo: "' . $pedido->getMotivo() . '"';
+        }
+
+        return $frase . ' A pasta está trancada por você. Quer liberar?';
     }
 
     /** O título da notificação tem 255 caracteres; nome de cliente longo não pode derrubar o pedido. */

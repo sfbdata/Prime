@@ -846,9 +846,9 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
         $this->em()->persist(new CadeadoDaPasta($pasta->getTenant(), $pasta, ModoDoCadeado::Todos, $por, new \DateTimeImmutable()));
     }
 
-    /** O "Pedir acesso" da janela Pasta N protegida: a rota da pasta, com o token da própria pasta (data-csrf-pedir). */
+    /** O "Pedir acesso" da janela Pasta N protegida: a rota da pasta, nível Visualizar (desenho 03), com o token da própria pasta. */
     private function pedirPelaLista(Pasta $pasta): void
     {
-        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/acesso/pedidos', ['nivel' => 'editar', '_token' => 'TOKEN_pasta_acesso_' . $pasta->getId()]);
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/acesso/pedidos', ['nivel' => 'visualizar', '_token' => 'TOKEN_pasta_acesso_' . $pasta->getId()]);
     }
 }

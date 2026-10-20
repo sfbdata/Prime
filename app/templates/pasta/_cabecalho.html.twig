@@ -340,7 +340,7 @@
        que vira o título quando não há cliente cadastrado — o estado real de quase
        todas as pastas. O ícone de pessoa não é clicável: a foto do cliente é função
        nova e botão sem função é mentira na tela. #}
-    <div class="ps-cab-cliente">
+    <div class="ps-cab-cliente" data-cad-ate="1">
         <span class="ps-cab-cliente-icone" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
         <div class="ps-cab-cliente-corpo">
             <div class="ps-cab-cliente-linha">
@@ -404,6 +404,12 @@
         {% endif %}
     </div>
 
+
+    {# Cadeado (spec pasta-cadeado; desenho 02 L1295-1297): a faixa de somente visualização e a dos pedidos
+       pendentes ficam DENTRO do cabeçalho, logo abaixo da linha do cliente e antes das fases. #}
+    {% set cadFaixa = cad is defined ? cad : cadeado_da_pasta(pasta) %}
+    {{ include('pasta/_cadeado_faixa.html.twig', {pasta: pasta, cad: cadFaixa}) }}
+    {{ include('pasta/_cadeado_pedidos.html.twig', {pasta: pasta, cad: cadFaixa}) }}
 
     {# ── Palco da linha do tempo (desenho 1.2.3: o carimbo da situação fica no MESMO bloco do andamento,
        à direita, e a linha do tempo reserva 150px para ele). A faixa "Processo vinculado · Ação ·

@@ -90,15 +90,12 @@ final class TelaDoCadeado
         return $cadeado->getModo() === ModoDoCadeado::Todos ? NivelDeAcesso::Oculto : $cadeado->nivelDe($pessoa);
     }
 
-    /** @return list<array{id: int, nome: string, nivel: string, motivo: ?string, hora: string}> */
+    /** @return list<array{id: int, texto: string}> a frase é a mesma do aviso no sino */
     private function pendentes(Pasta $pasta): array
     {
         return array_map(static fn (PedidoDeAcessoAPasta $p): array => [
-            'id'     => (int) $p->getId(),
-            'nome'   => (string) ($p->getSolicitante()->getFullName() ?? $p->getSolicitante()->getEmail()),
-            'nivel'  => $p->getNivelPedido()->verbo(),
-            'motivo' => $p->getMotivo(),
-            'hora'   => $p->getPedidoEm()->format('d/m H:i'),
+            'id'    => (int) $p->getId(),
+            'texto' => AvisosDoCadeado::fraseDoPedido($p),
         ], $this->pedidos->pendentesDaPasta($pasta));
     }
 }

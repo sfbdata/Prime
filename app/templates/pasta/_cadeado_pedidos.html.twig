@@ -15,7 +15,7 @@
     {% for p in cad.pedidosPendentes %}
         <div class="js-cadeado-pedido" style="display:flex;align-items:center;flex-wrap:wrap;gap:9px;padding:8px 12px;border-radius:4px;background:#eef5fa;color:#0b5f86;font-size:12.5px;font-weight:600" role="status">
             <i class="bi bi-key"></i>
-            <span style="flex:1;min-width:0">{{ p.nome }} pediu acesso à pasta para {{ p.nivel }} ({{ p.hora }}).{% if p.motivo %} Motivo: "{{ p.motivo }}"{% endif %}</span>
+            <span style="flex:1;min-width:0">{{ p.texto }}</span>
             {% for d in [
                 {v: 'editar', l: 'Liberar para editar', st: 'background:#0a7aad;color:#fff'},
                 {v: 'visualizar', l: 'Liberar só visualizar', st: 'background:#e3f0f8;color:#0b5f86'},

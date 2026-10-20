@@ -251,7 +251,7 @@ final class UseCasesDoCadeadoTest extends TestCase
         self::assertCount(1, $this->pedidosGravados);
         self::assertSame([$this->primario, $outroPrimario], array_map(static fn (array $a): User => $a[0], $this->avisos));
         self::assertSame(Notificacao::TIPO_PASTA_PEDIDO_ACESSO, $this->avisos[0][1]);
-        self::assertSame('Ana Equipe pediu acesso à Pasta 1500 às 10:00, para editar.', $this->avisos[0][2]);
+        self::assertSame('Ana Equipe pediu acesso à Pasta 1500 às 10:00, para editar. A pasta está trancada por você. Quer liberar?', $this->avisos[0][2]);
     }
 
     #[TestDox('pedir de novo dentro de 24 h é recusado; depois de 24 h renova o mesmo pendente')]
@@ -314,7 +314,8 @@ final class UseCasesDoCadeadoTest extends TestCase
         self::assertSame(ModoDoCadeado::PorPessoa, $cadeado->getModo());
         self::assertSame(NivelDeAcesso::Visualizar, $cadeado->nivelDe($this->ana));
         self::assertSame(NivelDeAcesso::Oculto, $cadeado->nivelDe($this->bia));
-        self::assertSame(1, $estado->visualizam);
+        self::assertSame(1, $estado->cadeado->visualizam);
+        self::assertSame('Pasta 1500 liberada para Ana', $estado->aviso);
         self::assertSame(EstadoDoPedidoDeAcesso::LiberadoVisualizar, $this->pedidosGravados[0]->getEstado());
         self::assertSame([[$this->ana, Notificacao::TIPO_PASTA_ACESSO_DECIDIDO, 'O usuário primário liberou a Pasta 1500 para você visualizar.']], $this->avisos);
         self::assertSame('Cadeado: Acesso liberado para Ana Equipe (visualizar)', $this->ultimoHistorico());

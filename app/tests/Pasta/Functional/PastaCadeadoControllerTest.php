@@ -140,6 +140,7 @@ final class PastaCadeadoControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('Pasta trancada pelo usuário primário: você pode visualizar, mas não alterar.', $c->text());
+        self::assertCount(1, $c->filter('header.ps-cabecalho > div[role="status"] button[data-cad-pedir="1"]'), 'a faixa fica dentro do cabeçalho, logo abaixo do cliente');
         self::assertCount(1, $c->filter('button[data-cad-pedir="1"]'));
         self::assertCount(1, $c->filter('#psMenuAcoes'));
         self::assertCount(0, $c->filter('#psMenuAcoes [data-bs-target="#modalEditarPasta"]'), 'sem "Editar dados"');
@@ -368,6 +369,7 @@ final class PastaCadeadoControllerTest extends JusPrimeWebTestCase
 
         $avisos = $this->em()->getRepository(Notificacao::class)->findBy(['usuario' => $primario, 'tipo' => Notificacao::TIPO_PASTA_PEDIDO_ACESSO]);
         self::assertCount(1, $avisos);
+        self::assertStringEndsWith('Motivo: "preciso do contrato" A pasta está trancada por você. Quer liberar?', (string) $avisos[0]->getMensagem());
         self::assertStringContainsString('para editar', $avisos[0]->getTitulo());
         self::assertStringContainsString('Motivo: "preciso do contrato"', (string) $avisos[0]->getMensagem());
 
@@ -389,7 +391,9 @@ final class PastaCadeadoControllerTest extends JusPrimeWebTestCase
 
         $this->entrar($primario, $tenant);
         $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
-        self::assertStringContainsString('Ana Equipe pediu acesso à pasta para editar', $c->filter('#cadeado-pedidos')->text());
+        self::assertStringContainsString('Ana Equipe pediu acesso à Pasta ' . $pasta->getNup() . ' (MARIA DA SILVA) às ', $c->filter('#cadeado-pedidos')->text());
+        self::assertStringContainsString(', para editar. A pasta está trancada por você. Quer liberar?', $c->filter('#cadeado-pedidos')->text());
+        self::assertCount(1, $c->filter('header.ps-cabecalho > #cadeado-pedidos'), 'a faixa fica dentro do cabeçalho');
         $this->client->request('POST', '/pasta/' . $pasta->getId() . '/acesso/pedidos/' . $pedidoId . '/decidir', ['decisao' => 'editar', '_token' => 'TOKEN_pasta_cadeado_' . $pasta->getId()]);
         self::assertResponseRedirects('/pasta/' . $pasta->getId());
 
@@ -425,6 +429,7 @@ final class PastaCadeadoControllerTest extends JusPrimeWebTestCase
         $json = json_decode((string) $this->client->getResponse()->getContent(), true);
         self::assertSame('ok', $json['status']);
         self::assertSame('Restrito', $json['selo']);
+        self::assertSame('Pasta ' . $pasta->getNup() . ' liberada para Ana', $json['mensagem']);
 
         $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/acesso/pedidos/' . $pedidoId . '/decidir', ['decisao' => 'recusar', '_token' => 'TOKEN_pasta_cadeado_' . $pasta->getId()]);
         self::assertResponseStatusCodeSame(422);

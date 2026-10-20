@@ -167,6 +167,12 @@ configura os dois é o mesmo grupo (K1).
   quem está oculto na pasta da meta.
 - **pasta_show:** a tela trancada só aparece para quem veria a pasta se ela estivesse livre; os demais
   seguem o caminho antigo, com o redirect do pedido genérico, sem saber do cadeado.
+- **Verificação visual (20/10):** as faixas de somente visualização e de pedidos ficam dentro do cabeçalho,
+  logo abaixo do cliente (depois de `[data-cad-ate]`); o "Pedir acesso" da janela "Pasta N protegida" pede
+  Visualizar (o `sigiloPedir` do desenho 03), e o "Pedir para editar" da faixa pede Editar; o aviso ao
+  primário e a faixa de decisão usam a frase do desenho sem o vocativo do chat ("{Nome} pediu acesso à Pasta
+  N ({cliente}) às HH:MM, para {editar|visualizar}. Motivo: "…" A pasta está trancada por você. Quer
+  liberar?"); depois de liberar, "Pasta N liberada para {primeiro nome}".
 - **K6:** o histórico da pasta é o cartão do sistema no Registro ("Cadeado: …", `RegistroDoSistemaNaPasta`);
   a auditoria da conta vem das entidades auditáveis (`CadeadoDaPasta`, `AcessoAPastaTrancada`,
   `PedidoDeAcessoAPasta`).
