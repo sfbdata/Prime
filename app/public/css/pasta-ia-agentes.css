@@ -145,10 +145,12 @@
 .ps-cab-ia-nome { font-size: 14.5px; font-weight: 700; color: var(--ia-texto); }
 
 /* ── Drawer (dc L.843) ── */
+/* O desenho cobre a tela inteira, barra superior inclusive: o 95/96 do protótipo vira 1051/1052,
+   acima da barra fixa (app.css, 1050) e abaixo do modal do Bootstrap (1055), que abre por cima. */
 .ia-drawer-fundo {
     position: fixed;
     inset: 0;
-    z-index: 95;
+    z-index: 1051;
     background: var(--ia-fundo-escuro);
     animation: iaFade .25s ease both;
 }
@@ -158,7 +160,7 @@
     top: 0;
     right: 0;
     bottom: 0;
-    z-index: 96;
+    z-index: 1052;
     width: 460px;
     max-width: 100vw;
     display: flex;
