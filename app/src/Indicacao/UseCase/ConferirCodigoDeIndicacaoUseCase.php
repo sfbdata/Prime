@@ -8,7 +8,7 @@ use App\Indicacao\Repository\IndicacaoCodigoRepository;
 
 /**
  * O link curto `/i/{codigo}` (spec `indicar-bluejus.md`, comportamento 7): devolve o código normalizado se ele existe,
- * ou nulo. Quem guarda na sessão é o controller; a atribuição ao cadastro novo entra com o #101.
+ * ou nulo. Quem guarda na sessão é o controller; quem usa no cadastro novo é o {@see \App\Indicacao\EventListener\CadastroPeloLinkListener}.
  */
 final class ConferirCodigoDeIndicacaoUseCase
 {

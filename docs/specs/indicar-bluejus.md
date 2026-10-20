@@ -11,6 +11,9 @@
 - 19/10 noite: implementada (commits locais na branch `indicar-bluejus`); revisão aprovada com ressalvas, ressalvas corrigidas
   (corpo do e-mail sem texto do convidado, `/i/` com a mesma resposta para código válido e inválido, sem índice funcional,
   pausa idempotente sob corrida).
+- 20/10: cadastro pelo link curto (frente `indicacao-no-cadastro`, empilhada sobre esta). Decisão do coordenador (opção A): coluna
+  `indicacao.indicado_user_id` (migration `Version20261020129995`), ouvinte do `ContaCriadaPeloCadastro` no domínio Indicacao
+  (`CadastroPeloLinkListener` + `AtribuirCadastroPeloLinkUseCase`). Ver comportamento 7.
 
 ## O desenho
 
@@ -42,7 +45,9 @@ Domínio novo `App\Indicacao`. Tudo de plataforma (sem tenant); autorização de
 ## Modelo de dados (uma migration)
 
 - `indicacao`: `id`, `indicado_por_id` (User, CASCADE), `tenant_origem_id` (Tenant, SET NULL, só para mostrar o escritório),
-  `canal` (`email` | `whatsapp` | `link`), `email` NULL, `nome` NULL (só no canal e-mail), `criada_em`.
+  `canal` (`email` | `whatsapp` | `link`), `email` NULL, `nome` NULL (só no canal e-mail), `criada_em`,
+  `indicado_user_id` (User, SET NULL; só na atribuição do cadastro pelo link, comportamento 7) com índice único parcial
+  `WHERE indicado_user_id IS NOT NULL` (uma atribuição por conta nova).
   Índice `(indicado_por_id, criada_em)`. Sem índice em `lower(email)` (revisão A5): o e-mail já é gravado em minúsculas e
   nenhuma consulta o usaria.
 - `indicacao_codigo`: `user_id` PK, `codigo` varchar(12) único, aleatório (não derivado: hash seria adivinhável).
@@ -64,9 +69,20 @@ Domínio novo `App\Indicacao`. Tudo de plataforma (sem tenant); autorização de
    Sucesso: "Convite enviado para {email}. Obrigado por indicar o BlueJus!"
 5. **WhatsApp:** registra (canal whatsapp) e abre `wa.me/?text=` com o texto da caixa editável. "Mensagem aberta no WhatsApp."
 6. **Copiar link:** registra (canal link) e copia. "Link copiado."
-7. **Link curto** `/i/{codigo}`: rota pública; guarda o código na sessão e leva ao cadastro (`/cadastro`). A atribuição do código ao
-   cadastro novo entra quando o #101 estiver no master (o cadastro novo é dele).
-8. **"Viraram conta"**: contado na leitura: indicação por e-mail cujo e-mail (normalizado) tem conta criada DEPOIS da indicação.
+7. **Link curto** `/i/{codigo}`: rota pública; guarda o código na sessão e leva ao cadastro (`/cadastro`).
+   **Cadastro pelo link:** quando a conta nasce pelo "Criar minha conta" (#101, evento `ContaCriadaPeloCadastro`, depois do commit),
+   o ouvinte da Indicação lê o código da sessão, tira a chave da sessão (sempre que ela existe) e grava uma indicação de canal
+   `link` com `indicado_user_id` = a conta nova, sem e-mail, nome nem escritório de origem. Regras:
+   - só vale código existente de usuário ATIVO; a própria conta nova como dona do código é ignorada;
+   - uma vez por conta nova (o índice único, a conferência antes e `ON CONFLICT DO NOTHING`);
+   - a pausa (global ou da pessoa) não impede: ela trava o envio, e atribuir não envia nada;
+   - não é envio: fica fora dos limites, do alerta e das contagens de envio do painel (enviadas, últimas 24h, 30 dias, total,
+     última e o escritório mostrado); entra em "viraram conta"/"contas criadas" e em "SUAS INDICAÇÕES" (linha "link", sem dado
+     da pessoa nova, com "CONTA CRIADA");
+   - sem aviso a quem indicou; qualquer falha vai para o log e o cadastro nunca falha por causa da indicação.
+8. **"Viraram conta"**: contado na leitura: indicação por e-mail cujo e-mail (normalizado) tem conta criada DEPOIS da indicação,
+   ou atribuição do cadastro pelo link (comportamento 7). Cada conta conta uma vez (pelo id do usuário), mesmo indicada por e-mail
+   e atribuída pelo link, ou indicada por duas pessoas.
 9. **"SUAS INDICAÇÕES ({total})"**: as 8 mais recentes com "CONTA CRIADA" (pela regra 8) ou "ENVIADA". Vazio: "Nenhuma indicação ainda."
 10. **Alerta ao Master** "Disparo alto de convites": quando a contagem de 24h da pessoa CRUZA `alerta_24h` (antes < alerta <= depois),
     uma vez; grava `indicacao_alerta` e avisa os Masters no sino/Central (texto do desenho L126).
