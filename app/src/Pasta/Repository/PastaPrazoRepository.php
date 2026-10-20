@@ -57,13 +57,16 @@ class PastaPrazoRepository extends ServiceEntityRepository
 
     /**
      * Prazos e audiências não cumpridos do escritório no período, de pastas fora da lixeira, para
-     * a Agenda. Traz a pasta junto (a Agenda mostra o NUP e o link).
+     * a Agenda. Traz a pasta junto (a Agenda mostra o NUP e o link). `$pastasOcultas`: as pastas ocultas pelo
+     * cadeado para quem olha (spec pasta-cadeado D3) ficam de fora.
+     *
+     * @param list<int> $pastasOcultas
      *
      * @return list<PastaPrazo>
      */
-    public function abertosDoEscritorioNoPeriodo(Tenant $tenant, \DateTimeImmutable $de, \DateTimeImmutable $ate): array
+    public function abertosDoEscritorioNoPeriodo(Tenant $tenant, \DateTimeImmutable $de, \DateTimeImmutable $ate, array $pastasOcultas = []): array
     {
-        return $this->createQueryBuilder('z')
+        $qb = $this->createQueryBuilder('z')
             ->addSelect('p')
             ->join('z.pasta', 'p')
             ->andWhere('z.tenant = :tenant')
@@ -76,8 +79,11 @@ class PastaPrazoRepository extends ServiceEntityRepository
             ->setParameter('ate', $ate->setTime(0, 0))
             ->orderBy('z.data', 'ASC')
             ->addOrderBy('z.hora', 'ASC')
-            ->addOrderBy('z.id', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->addOrderBy('z.id', 'ASC');
+        if ($pastasOcultas !== []) {
+            $qb->andWhere('p.id NOT IN (:pastasOcultas)')->setParameter('pastasOcultas', $pastasOcultas);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 }

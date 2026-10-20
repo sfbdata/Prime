@@ -37,7 +37,7 @@ o timestamp do momento se o coordenador pedir.
   e-mails".
 - user_tenant: a 7d põe `situacao`; o #75 põe `controladoria`. Colunas independentes.
 
-**Pendências com o dono:** chave "Análise da BlueJus IA" do P4b (padrão desligado, a confirmar); MAILER_DSN de
+**Pendências com o dono:** MAILER_DSN de
 produção pela Hostinger (SPF/DKIM); cron mensal do relatório (DEPLOY.md); SYMFONY_TRUSTED_PROXIES (achado ALTO,
 tratado no #77).
 
@@ -54,15 +54,28 @@ L5447 (`avisos`). No protótipo as três chaves só mudam estado de tela; aqui g
 
 - D1 (coordenador, 19/10): as chaves valem POR PASTA. "Responsável da pasta" e "Por e-mail" nascem LIGADAS, como
   no desenho.
-- D2 (a confirmar com o dono): "Análise da BlueJus IA" nasce DESLIGADA (ligada geraria chamada de IA em toda
-  publicação nova de todas as pastas no dia do deploy). O padrão de cada chave fica numa única classe
-  (`App\Pasta\Service\PadroesDoAvisoDoPush`), com um comentário "a confirmar"; trocar é mudar uma constante.
+- D2 (decidido pelo dono, 19/10/2026): "Análise da BlueJus IA" nasce DESLIGADA e cada escritório liga por pasta.
+  Desvio do desenho aprovado (o desenho nasce com as três ligadas; a IA ligada geraria chamadas de IA em toda
+  publicação nova). "Responsável da pasta" e "Por e-mail" nascem ligadas, como no desenho. O padrão de cada chave
+  fica numa única classe (`App\Pasta\Service\PadroesDoAvisoDoPush`); trocar é mudar uma constante.
 - D3 (coordenador): todo e-mail leva "Não quero mais receber estes avisos". O descadastro é um serviço e uma tabela
   reaproveitáveis (`App\Shared\...\Descadastro`, tabela `email_descadastro`: tenant, email normalizado, assunto
   (`push_aviso_equipe`, futuro `push_cliente`…), em, origem), não presos ao Push; a frente "Comercial e e-mails"
   vai consolidar.
 - D4 (coordenador): remetente `MAILER_FROM` com o nome do escritório no nome de exibição e "Responder para" o
   responsável da pasta (aqui o destinatário já é o responsável: Responder para fica o próprio remetente padrão).
+- D5 (revisão, aceito pelo coordenador, 19/10): o e-mail do aviso sai SÍNCRONO (Symfony Mailer sem fila), também
+  quando a captação roda no botão "Sincronizar agora" do módulo e no "Buscar agora": cada pasta avisada soma o tempo
+  de um envio SMTP ao request. Falha de envio vai ao log e não derruba a captação. Fila para o e-mail fica para
+  quando o volume pedir.
+- D6 (revisão, 19/10): o POST das chaves manda o ESTADO DESEJADO (`ligado=1|0`), não "inverter"; a primeira gravação
+  cria a linha por INSERT idempotente (`ON CONFLICT (pasta_id) DO NOTHING`), sem 500 na corrida.
+- D7 (revisão, 19/10): processo sob segredo de justiça (`nivelSigilo > 0`): o sino (interno) segue igual; o e-mail
+  não leva tipo, data, órgão nem resumo, só "Movimentação em processo sob segredo de justiça. Abra a pasta para ver.".
+- D8 (revisão, 19/10): a chave da IA também trava quando o responsável da pasta não tem `modules.inteligencia.view`
+  ("O responsável da pasta não tem acesso à BlueJus IA."). A cota não trava a chave (decisão do dono; nasce desligada).
+- D9 (revisão, 19/10): no comando diário o aviso sai uma vez por escritório, no fim das duas fases; se a fase de
+  processos cair, as novas da fase de OABs ainda são avisadas.
 
 ## 1. Modelo
 

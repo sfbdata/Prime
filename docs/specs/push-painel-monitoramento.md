@@ -1,5 +1,50 @@
 # Painel lateral do Push, parte A: monitoramento, Buscar agora e Situação atual (P4a)
 
+## Estado da frente (sessão bluejus-0d; atualizado 19/10/2026)
+
+Releia esta seção antes de continuar se a sessão for compactada.
+
+**Pedido do dono (19/10):** implementar na íntegra o desenho das abas Processo e Push Processual (02 - EXPEDIENTES),
+mesmo que precise de frente nova.
+
+**PRs abertos e ordem de merge (fila de migrations do coordenador):**
+1. #55 `push-link-externo`: link externo do Push. Migration Version20261019183000. Entra depois do #52 (de outra
+   sessão); o #77 (trusted proxies, b5) também entra antes por mexer no framework.yaml.
+2. #68 `pasta-ocultar-aba`: EMPILHADO sobre o #55 (base push-link-externo). Migration Version20261019235520 (renomeada na vez dela: era 20261019200000).
+3. #75 `relatorio-processos-controladoria`: base master. Migration Version20261019233000.
+4. #82 `push-painel-monitoramento` (P4a): base master. Migration Version20261019234500.
+5. P4b `push-avisar-quando-chegar`: em implementação, EMPILHADO sobre o #82.
+Depois de cada merge: trazer o origin/master para as branches que ficaram, testes, push. Renomear a migration para
+o timestamp do momento se o coordenador pedir.
+
+**Decisões do dono (19/10/2026):**
+- Controladoria = pessoas marcadas no escritório (só Master/primário marca).
+- Ocultar aba vale só na pasta; é para ORGANIZAR a pasta, não restringir acesso no sistema (módulo Push global,
+  links já criados e metas em /tarefas continuam).
+- Renovação do link externo por aviso no sino; link curto já ativo (sem "ativa com o domínio").
+- Envios automáticos ao cliente nascem DESLIGADOS (P4d).
+- Pausar monitoramento para só a busca por número; OAB continua; legenda "A busca pelo número do processo fica
+  parada; intimações pela OAB continuam chegando.".
+- (coordenador) Prazo da previsão conta da publicação (1º útil após a disponibilização), Lei 11.419 art. 4º e CPC
+  art. 224; e-mail com "não quero mais receber"; sem Controladoria envia e avisa o primário; remetente nao-responda@
+  com reply-to do responsável; P4e com OCR.
+
+**Contratos com outras sessões:**
+- security.yaml: cada rota pública em linha própria (f6 e a7 também acrescentam).
+- framework.yaml: limitadores em trechos próprios (#77, #55, #68, #82).
+- `email_descadastro` (Shared, P4b): interface pública reaproveitada pela a7 (vagas) e pela frente "Comercial e
+  e-mails".
+- user_tenant: a 7d põe `situacao`; o #75 põe `controladoria`. Colunas independentes.
+
+**Pendências com o dono:** chave "Análise da BlueJus IA" do P4b (padrão desligado, a confirmar); MAILER_DSN de
+produção pela Hostinger (SPF/DKIM); cron mensal do relatório (DEPLOY.md); SYMFONY_TRUSTED_PROXIES (achado ALTO,
+tratado no #77).
+
+**Próximo passo:** fechar o P4b (revisão, visual, PR); depois specs de P4c (e-mails do cliente + envio manual da
+Análise IA com CC), P4d (envio automático), P4e (arquivos + OCR + análise completa; trazer antes o PR da 4b por
+causa do composer). "Vincular apensado" e o filtro por processo esperam o zip completo do desenho de 18/10.
+
+
 Frente do painel lateral da aba Push Processual, dividida em P4a a P4e (aprovado pelo coordenador, 19/10/2026):
 P4a (esta) monitoramento + buscar agora + situação atual por regras; P4b avisar quando chegar (equipe);
 P4c e-mails do cliente + envio manual da Análise IA com CC da Controladoria; P4d envio automático ao cliente;
@@ -96,6 +141,8 @@ verificação, cartão com os textos certos em cada estado, grade com filho dire
   o fim em 1 dia útil: é erro de cálculo do protótipo, corrigido pela lei. Exemplo testado: disponibilizada em
   02/10/2026, publicada em 05/10, 15 dias úteis terminam em 27/10/2026 (o desenho dava 26/10). O rótulo continua
   "Previsão": é estimativa e não substitui o controle de prazos do advogado.
-- **A confirmar com o dono: pausa e a captação pela OAB.** Pausar tira o número da captação POR NÚMERO. A captação
-  pela OAB monitorada continua trazendo publicações desse processo quando a OAB aparece nelas, e elas continuam
-  aparecendo na aba. Comportamento mantido até o dono decidir se a pausa também deve filtrar essas.
+- **Pausa e captação pela OAB: decidido pelo dono (19/10/2026).** Pausar para SÓ a busca pelo número do processo;
+  as intimações que chegam pela OAB monitorada continuam sendo captadas, para nenhum prazo se perder. A legenda do
+  estado pausado passa a ser "A busca pelo número do processo fica parada; intimações pela OAB continuam chegando.".
+  Desvio de texto do desenho (statusSub, L5437: "Novas movimentações não serão capturadas"), aprovado pelo dono com
+  esse fundamento.

@@ -158,16 +158,33 @@ final class SincronizarPublicacoesDjenUseCase
         // foi gravado, e sem isto a simulação contaria em dobro a publicação vinda pelas duas fontes.
         $vistosNesteRun = array_fill_keys($djenIdsJaCaptados, true);
 
-        $this->consultarProcessos($tenant, $this->numerosAcompanhados($tenant), $periodo, $dryRun, $vistosNesteRun, $resultado, true);
-        $this->concluir($tenant, $dryRun, $resultado);
-        $this->registrarVerificacoes($tenant, $dryRun, $resultado);
-        // Fim da execução do escritório no comando: UM aviso com as novas da fase de OABs (recebidas em
-        // `$djenIdsJaCaptados`) e as desta fase.
-        if (!$dryRun) {
-            $this->avisoDasNovas->avisar($tenant, array_values(array_unique([...$djenIdsJaCaptados, ...$resultado->getDjenIdsNovos()])));
+        try {
+            $this->consultarProcessos($tenant, $this->numerosAcompanhados($tenant), $periodo, $dryRun, $vistosNesteRun, $resultado, true);
+            $this->concluir($tenant, $dryRun, $resultado);
+            $this->registrarVerificacoes($tenant, $dryRun, $resultado);
+        } catch (\Throwable $e) {
+            // A 2ª fase caiu: as novas da 1ª (já gravadas) ainda são avisadas, uma vez; as desta fase
+            // podem nem ter chegado ao banco. O erro segue para o comando registrar.
+            $this->avisarFimDoEscritorio($tenant, $dryRun, $djenIdsJaCaptados);
+
+            throw $e;
         }
+        $this->avisarFimDoEscritorio($tenant, $dryRun, [...$djenIdsJaCaptados, ...$resultado->getDjenIdsNovos()]);
 
         return $resultado;
+    }
+
+    /**
+     * Fim da execução do escritório no comando: UM aviso com as novas da fase de OABs (recebidas em
+     * `$djenIdsJaCaptados`) e as da fase de processos.
+     *
+     * @param list<string> $djenIds
+     */
+    private function avisarFimDoEscritorio(Tenant $tenant, bool $dryRun, array $djenIds): void
+    {
+        if (!$dryRun) {
+            $this->avisoDasNovas->avisar($tenant, array_values(array_unique($djenIds)));
+        }
     }
 
     /**
