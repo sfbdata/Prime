@@ -27,9 +27,10 @@
        → confirmar). O desenho propõe um modal com 4 tipos; hoje existe UM tipo
        na tela e os outros três só como comando. Decisão do dono em 28/08: não
        mexer no caminho que grava dinheiro nesta fatia;
-     · o menu "⋮" do desenho ficou de fora: 3 dos seus 4 itens (espelho contábil,
-       exportar .xlsx, excluir carteira) não têm rota no sistema. Decisão do dono
-       na mesma conversa — volta quando as ações existirem.
+     · o menu "⋮" do desenho entrou em 19/10 SÓ com "Editar configuração" (abre o
+       mesmo #modalEditarConfiguracao do trilho). Os outros 3 itens (espelho contábil,
+       exportar .xlsx, excluir carteira) não têm rota no sistema: decisão do dono,
+       voltam quando as ações existirem.
 ============================================================================ #}
 {% block body %}
 {% set rotulo = carteira.rotuloObjeto|default('Objeto') %}
@@ -57,12 +58,28 @@
                         <i class="bi bi-upload"></i><span>Importar relatório</span>
                     </a>
                     {% endif %}
+                    {# ⋮ do desenho 1B (L75-84), só com o item que tem ação no sistema. O gate é o MESMO do
+                       modal (`forms.editarConfiguracao`, montado só para quem gerencia carteira): o botão
+                       nunca aponta para um modal que não foi renderizado. #}
+                    {% if forms.editarConfiguracao is defined %}
+                    <div class="dropdown cs-mais">
+                        <button type="button" class="cs-btn cs-btn-icone" data-bs-toggle="dropdown" data-bs-auto-close="true"
+                                aria-expanded="false" title="Mais ações" aria-label="Mais ações">
+                            <i class="bi bi-three-dots-vertical"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end cs-mais-menu">
+                            <button type="button" class="cs-mais-item" data-bs-toggle="modal" data-bs-target="#modalEditarConfiguracao">
+                                <i class="bi bi-sliders"></i><span>Editar configuração</span>
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
             <div class="cs-cab-corpo">
                 <div class="cs-cab-selos">
-                    <span class="cs-kicker">Carteira</span>
+                    <span class="cs-kicker">Carteira {{ carteira.id }}</span>
                     <span class="cs-cab-sep"></span>
                     <span class="cs-pill"><i class="bi bi-diagram-3"></i>{{ carteira.modoLabel }}</span>
                     <span class="cs-pill">
@@ -121,6 +138,14 @@
                                         'cadastro': 'Dados cadastrais'
                                     } %}
                                     {% set maisAntiga = carteira.dadosAtualizadosAte|date('Y-m-d H:i:s') %}
+                                    {# O TIPO da emissão mais antiga, para o rodapé dizer o que importar. Empate
+                                       fica com o primeiro na ordem da lista, que é a ordem em que o selo lê. #}
+                                    {% set tipoMaisAntigo = null %}
+                                    {% for tipo in ordemEmissao|merge(carteira.emissaoPorTipo|keys) %}
+                                        {% if tipoMaisAntigo is null and carteira.emissaoPorTipo[tipo] is defined and carteira.emissaoPorTipo[tipo]|date('Y-m-d H:i:s') == maisAntiga %}
+                                            {% set tipoMaisAntigo = tipo %}
+                                        {% endif %}
+                                    {% endfor %}
                                     {% for tipo in ordemEmissao %}
                                         {% if carteira.emissaoPorTipo[tipo] is defined %}
                                         <div class="cs-frescor-item">
@@ -139,9 +164,19 @@
                                         </div>
                                     {% endfor %}
                                 </div>
+                                {# Frase do desenho 1B (L118), com o relatório mais antigo no lugar do "cadastro"
+                                   fixo do protótipo. #}
+                                {% set importarQual = {
+                                    'inadimplencia': 'a inadimplência',
+                                    'acordos': 'os acordos detalhados',
+                                    'receitas': 'as receitas',
+                                    'cadastro': 'o cadastro'
+                                } %}
                                 <div class="cs-frescor-nota">
-                                    A carteira só está em dia até a emissão <strong>mais antiga</strong>: é ela, em
-                                    vermelho, que define a data do selo.
+                                    A carteira só está em dia até a emissão <strong>mais antiga</strong>.
+                                    {%- if tipoMaisAntigo is not null %}
+                                        Importe <span data-frescor-importar="{{ tipoMaisAntigo }}">{{ importarQual[tipoMaisAntigo] is defined ? importarQual[tipoMaisAntigo] : ('o relatório de ' ~ tipoMaisAntigo) }}</span> para fechar a defasagem.
+                                    {%- endif %}
                                 </div>
                             </div>
                         </div>
