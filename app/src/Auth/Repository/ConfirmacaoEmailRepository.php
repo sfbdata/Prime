@@ -59,6 +59,22 @@ class ConfirmacaoEmailRepository extends ServiceEntityRepository
     }
 
     /**
+     * Saiu algum link de confirmação para a conta desde `$desde` (cadastro, reenvio ou lembrete)? É o teto curto do
+     * botão "Reenviar o link de confirmação", e só o controller dele chama: a automação da 5d não passa por aqui.
+     */
+    public function houveEmissaoDesde(User $user, \DateTimeImmutable $desde): bool
+    {
+        return (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->where('c.user = :user')
+            ->andWhere('c.criadoEm >= :desde')
+            ->setParameter('user', $user)
+            ->setParameter('desde', $desde)
+            ->getQuery()
+            ->getSingleScalarResult() > 0;
+    }
+
+    /**
      * Confirma o e-mail da conta por outro caminho que não o link (o código da troca de senha), num UPDATE condicional
      * na conexão corrente: roda dentro da transação de quem chama. Só uma chamada ganha, inclusive contra o clique no
      * link ao mesmo tempo, e só quem ganhou despacha o EmailDaContaConfirmado.

@@ -172,6 +172,7 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/escritorio/convites');
 
         self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('.aviso-email-a-confirmar', 'conta confirmada não vê o aviso nem o botão de reenvio');
     }
 
     #[TestDox('POST criar com email novo cria convite de escritório')]
@@ -318,6 +319,9 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         self::assertEmailCount(0);
         $client->followRedirect();
         self::assertSelectorTextContains('.alert-erro', 'Confirme o seu e-mail para convidar pessoas.');
+        // Junto da recusa, o botão que reenvia o link de confirmação (POST com o CSRF próprio).
+        self::assertSelectorExists('.aviso-email-a-confirmar form[method="post"][action="/conta/confirmacao/reenviar"] input[name="_token"]');
+        self::assertSelectorTextContains('.aviso-email-a-confirmar button[type="submit"]', 'Reenviar o link de confirmação');
         $em->clear();
         self::assertNull($em->getRepository(Invitation::class)->findOneBy(['email' => $email]));
     }

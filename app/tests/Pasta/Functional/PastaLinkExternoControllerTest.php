@@ -113,7 +113,7 @@ final class PastaLinkExternoControllerTest extends JusPrimeWebTestCase
         self::assertSame(['erro' => 'Ainda não há movimentações para compartilhar.'], $this->corpo($client));
     }
 
-    #[TestDox('Gerar com o e-mail da conta a confirmar: 422 com o texto da recusa e nada gravado')]
+    #[TestDox('Gerar com o e-mail da conta a confirmar: 422 com o texto da recusa, a rota e o token do reenvio, e nada gravado')]
     public function testGerarComEmailAConfirmar(): void
     {
         $client = $this->cliente();
@@ -127,7 +127,10 @@ final class PastaLinkExternoControllerTest extends JusPrimeWebTestCase
         $client->request('POST', "/pasta/{$pasta->getId()}/push/links", ['_token' => 'TOKEN_pasta_push_link_' . $pasta->getId()]);
 
         self::assertResponseStatusCodeSame(422);
-        self::assertSame(['erro' => GerarLinkExternoDoPushUseCase::RECUSA_EMAIL_A_CONFIRMAR], $this->corpo($client));
+        $corpo = $this->corpo($client);
+        self::assertSame(GerarLinkExternoDoPushUseCase::RECUSA_EMAIL_A_CONFIRMAR, $corpo['erro']);
+        self::assertSame('/conta/confirmacao/reenviar', $corpo['confirmacao']['url']);
+        self::assertNotSame('', $corpo['confirmacao']['token']);
         self::assertSame(0, $this->em()->getRepository(LinkExternoDoPush::class)->count(['pasta' => $pasta->getId()]));
     }
 
