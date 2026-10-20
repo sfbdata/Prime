@@ -59,7 +59,9 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
 2. Aba oculta não restringe: item do Financeiro pode ir para quem tem o Financeiro oculto (aba oculta é organização).
 3. Grupo com algum membro que não vê a pasta: **o grupo inteiro fica fora**, com o motivo.
 4. v1 com o chip "Pasta N" que abre a pasta, como o desenho mostra. Sem link para o registro exato, sem migration.
-5. Quem perde o acesso depois mantém o texto já entregue.
+5. ~~Quem perde o acesso depois mantém o texto já entregue.~~ **Substituída (20/10, revisão cruzada da b5):** a
+   leitura confere a pasta na hora; quem não vê (inclusive quem entrou no grupo depois ou perdeu o acesso) lê "Item
+   de pasta sem acesso" (ressalva do dono na spec central-comunicacao-b; §3).
 6. **Segue o desenho:** prefixo com 🔴 e 🟠. "Urgente" gera aviso no sino de tipo novo `central_despacho`; "Para hoje" é só o prefixo.
 7. Auditoria só com tipo, item #id e destinatário #id, sem texto (regra 3 da Central).
 8. "Enviar no Chat I.A" (D:6872) **entra**, em fatia própria.
@@ -141,4 +143,5 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
 
 ## 5. Fora
 
-- Link para o registro exato e recheck na leitura (§2.4); entram com uma coluna `referencia` numa fase futura.
+- Link para o registro exato (§2.4). O recheck na leitura e a referência da pasta (`despacho_pasta_id`,
+  `despacho_tipo`) já entraram (20/10, §3).

@@ -76,7 +76,7 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
 
 `central_conversa` (individual: par ordenado `usuario_menor`/`usuario_maior`, único por escritório; grupo: par nulo,
 `nome` 1–60 e `administrador_id`) → `central_participante` (cursor `ultima_lida_id`, nunca recua; `marcada_nao_lida`
-à parte; `saiu_em`; `fixada`/`silenciada`/`arquivada` por pessoa; `limpa_ate_id` = "excluí até aqui", nunca recua) → `central_mensagem` (índices `(conversa_id, id)` e
+à parte; `saiu_em`; `fixada`/`silenciada`/`arquivada` por pessoa; `limpa_ate_id` = "excluí até aqui", nunca recua) → `central_mensagem` (despacho do Encaminhar: `despacho_pasta_id` e `despacho_tipo`, conferidos na leitura, regra 13; índices `(conversa_id, id)` e
 `(tenant_id, criada_em)` da janela do polling; `resposta_a_id` só da MESMA conversa; `sistema` = linha "Ana adicionou
 Bruno", montada pelo servidor). Não lida = mensagem de OUTRA pessoa, não de sistema, acima do cursor. Polling: id acima
 do cursor OU criada nos últimos 30 s (a tela descarta as vistas). As três tabelas estão na purga de escritório.
