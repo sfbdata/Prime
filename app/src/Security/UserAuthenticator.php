@@ -9,10 +9,12 @@ use App\Entity\Auth\User;
 use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Http\Authenticator\AbstractLoginFormAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\CsrfTokenBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\RememberMeBadge;
@@ -49,6 +51,42 @@ final class UserAuthenticator extends AbstractLoginFormAuthenticator
                 new RememberMeBadge(),
             ]
         );
+    }
+
+    /** Nome do firewall em security.yaml: a chave do `target_path` na sessão depende dele. */
+    private const FIREWALL = 'main';
+
+    /**
+     * Sem sessão, pedido de dados (o `fetch` do sino, XHR, quem pede JSON) recebe 401 em JSON e não vira destino
+     * do login. O `ExceptionListener` do Symfony grava o `target_path` ANTES de chamar este método, e só pula XHR
+     * com `X-Requested-With`: um `fetch` comum ficava gravado e, depois do login, a pessoa caía no JSON.
+     */
+    public function start(Request $request, ?AuthenticationException $authException = null): Response
+    {
+        if (!self::eNavegacao($request)) {
+            if ($request->hasSession()) {
+                $this->removeTargetPath($request->getSession(), self::FIREWALL);
+            }
+
+            return new JsonResponse(['erro' => 'Sua sessão terminou. Entre de novo.'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        return parent::start($request, $authException);
+    }
+
+    /**
+     * Navegação: abrir página ou enviar formulário (o POST vencido continua indo ao login; o Symfony não grava
+     * destino de POST). O navegador manda `Sec-Fetch-Mode: navigate` só nesses casos; sem esse cabeçalho
+     * (navegador antigo, teste), vale o `Accept`.
+     */
+    private static function eNavegacao(Request $request): bool
+    {
+        $modo = $request->headers->get('Sec-Fetch-Mode');
+        $accept = (string) $request->headers->get('Accept', '');
+
+        return !$request->isXmlHttpRequest()
+            && ($modo === null || $modo === 'navigate')
+            && !(str_contains($accept, 'application/json') && !str_contains($accept, 'text/html'));
     }
 
     protected function getLoginUrl(Request $request): string
