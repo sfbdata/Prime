@@ -33,19 +33,25 @@ class CobrancaPixDaContaRepository extends ServiceEntityRepository
         return null;
     }
 
-    /** Quantas cobranças desta forma (PIX ou boleto) a conta abriu desde `desde` (limite por dia; cada forma tem o seu). */
-    public function criadasDesde(Tenant $tenant, \DateTimeImmutable $desde, string $forma = CobrancaPixDaConta::FORMA_PIX): int
+    /**
+     * Quantas cobranças desta forma (PIX ou boleto) a conta abriu desde `desde` (limite por dia; cada forma tem o
+     * seu). Com `$valorCentavos`, só as daquele valor (o n-ésimo boleto do valor, na chave de idempotência).
+     */
+    public function criadasDesde(Tenant $tenant, \DateTimeImmutable $desde, string $forma = CobrancaPixDaConta::FORMA_PIX, ?int $valorCentavos = null): int
     {
-        return (int) $this->createQueryBuilder('c')
+        $qb = $this->createQueryBuilder('c')
             ->select('COUNT(c.id)')
             ->andWhere('c.tenant = :tenant')
             ->andWhere('c.forma = :forma')
             ->andWhere('c.criadaEm >= :desde')
             ->setParameter('tenant', $tenant)
             ->setParameter('forma', $forma)
-            ->setParameter('desde', $desde)
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->setParameter('desde', $desde);
+        if (null !== $valorCentavos) {
+            $qb->andWhere('c.valorCentavos = :valor')->setParameter('valor', $valorCentavos);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
     }
 
     /** O boleto aberto que a conta pediu hoje neste valor (um por escritório, valor e dia). Escritório filtrado à mão. */

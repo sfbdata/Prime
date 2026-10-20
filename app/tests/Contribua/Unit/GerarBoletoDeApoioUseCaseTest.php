@@ -29,6 +29,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 #[CoversClass(GerarBoletoDeApoioUseCase::class)]
 final class GerarBoletoDeApoioUseCaseTest extends TestCase
@@ -38,6 +39,7 @@ final class GerarBoletoDeApoioUseCaseTest extends TestCase
     private IntegracaoBancaria $integracao;
     private BancoFalsoDeBoleto $cora;
     private CobrancaPixDaContaRepository&MockObject $cobrancas;
+    private ArrayAdapter $cache;
     /** @var list<CobrancaPixDaConta> */
     private array $salvas = [];
     /** @var list<array{string, array<string, mixed>}> */
@@ -47,6 +49,7 @@ final class GerarBoletoDeApoioUseCaseTest extends TestCase
     {
         $this->integracao = self::integracao('cora', 'producao', true);
         $this->cora = new BancoFalsoDeBoleto();
+        $this->cache = new ArrayAdapter();
         $this->cobrancas = $this->createMock(CobrancaPixDaContaRepository::class);
         $this->cobrancas->method('comTravaDeBoleto')->willReturnCallback(static fn (Tenant $t, callable $acao): mixed => $acao());
         $this->cobrancas->method('salvar')->willReturnCallback(function (CobrancaPixDaConta $c): void {
@@ -84,10 +87,10 @@ final class GerarBoletoDeApoioUseCaseTest extends TestCase
         self::assertSame([], $this->salvas);
     }
 
-    #[TestDox('Falha da Cora: mensagem honesta, nenhuma linha gravada, documento fora do log; repetir usa a mesma chave e o mesmo código')]
+    #[TestDox('Falha da Cora: mensagem honesta, nenhuma linha gravada, documento e e-mail fora do log; passada a pausa, repetir usa a mesma chave e o mesmo código')]
     public function testFalhaERepeticao(): void
     {
-        $this->cora->falha = new FalhaNoBanco('A Cora respondeu 400: document 11222333000181 invalid.', 0, null, false);
+        $this->cora->falha = new FalhaNoBanco('A Cora respondeu 400: document 11222333000181 invalid, customer.email quem@escritorio.test invalid.', 0, null, false);
         try {
             $this->sut()->executar($this->quem(), 2000, self::CNPJ);
             self::fail('deveria falhar');
@@ -96,22 +99,58 @@ final class GerarBoletoDeApoioUseCaseTest extends TestCase
         }
         self::assertSame([], $this->salvas);
         self::assertStringNotContainsString(self::CNPJ, (string) json_encode($this->logs));
+        self::assertStringNotContainsString('quem@escritorio.test', (string) json_encode($this->logs));
+        self::assertStringContainsString('[e-mail]', (string) $this->logs[0][1]['motivo']);
+        self::assertStringContainsString('[número]', (string) $this->logs[0][1]['motivo']);
 
+        $this->cache->clear();
         $this->cora->falha = null;
         $this->sut()->executar($this->quem(), 2000, self::CNPJ);
         self::assertSame($this->cora->pedidos[0]->chaveDeIdempotencia, $this->cora->pedidos[1]->chaveDeIdempotencia);
         self::assertSame($this->cora->pedidos[0]->codigo, $this->cora->pedidos[1]->codigo);
     }
 
-    #[TestDox('Chave muda com o valor, o documento e o n-ésimo boleto do dia')]
+    #[TestDox('Falha da Cora liga a pausa do escritório: durante ela o pedido volta com a mesma mensagem, sem chamar a Cora nem abrir a trava')]
+    public function testPausa(): void
+    {
+        $this->cora->falha = new FalhaNoBanco('A Cora respondeu 500.');
+        try {
+            $this->sut()->executar($this->quem(), 2000, self::CNPJ);
+            self::fail('deveria falhar');
+        } catch (BoletoNaoGerado) {
+        }
+        $this->cora->falha = null;
+        $sut = $this->sutSemTrava();
+
+        try {
+            $sut->executar($this->quem(), 5000, self::CNPJ);
+            self::fail('em pausa');
+        } catch (BoletoNaoGerado $e) {
+            self::assertSame(BoletoNaoGerado::MENSAGEM, $e->getMessage());
+        }
+        self::assertCount(1, $this->cora->pedidos, 'em pausa, nem chama a Cora');
+    }
+
+    #[TestDox('Chave muda com o valor, o documento e o n-ésimo boleto do mesmo valor no dia; boleto de outro valor não muda a chave')]
     public function testChaveDerivada(): void
     {
+        $doMesmoValor = 0;
+        $total = 0;
+        $this->cobrancas->method('criadasDesde')->willReturnCallback(static function (Tenant $t, \DateTimeImmutable $d, string $forma, ?int $valor = null) use (&$doMesmoValor, &$total): int {
+            return null === $valor ? $total : $doMesmoValor;
+        });
         $this->sut()->executar($this->quem(), 2000, self::CNPJ);
         $this->sut()->executar($this->quem(), 5000, self::CNPJ);
         $this->sut()->executar($this->quem(), 2000, '52998224725');
+        $total = 3;
+        $this->sut()->executar($this->quem(), 2000, self::CNPJ);
+        $doMesmoValor = 1;
+        $this->sut()->executar($this->quem(), 2000, self::CNPJ);
 
         $chaves = array_map(static fn (PedidoDeBoleto $p): string => $p->chaveDeIdempotencia, $this->cora->pedidos);
-        self::assertCount(3, array_unique($chaves));
+        self::assertCount(3, array_unique(array_slice($chaves, 0, 3)));
+        self::assertSame($chaves[0], $chaves[3], 'boletos de outros valores no dia não mudam a chave');
+        self::assertNotSame($chaves[0], $chaves[4], 'o segundo boleto do mesmo valor tem outra chave');
     }
 
     #[TestDox('A fatura que a Cora devolveu pela chave e que já é nossa não vira outra linha')]
@@ -181,7 +220,16 @@ final class GerarBoletoDeApoioUseCaseTest extends TestCase
             }
         };
 
-        return new GerarBoletoDeApoioUseCase($repo, new BancosPix([$this->cora, new BancoSoPix()]), $this->cobrancas, $logger, 'segredo-de-teste');
+        return new GerarBoletoDeApoioUseCase($repo, new BancosPix([$this->cora, new BancoSoPix()]), $this->cobrancas, $logger, $this->cache, 'segredo-de-teste');
+    }
+
+    /** O mesmo caso de uso com um repositório que falha se a trava (a transação) for aberta. */
+    private function sutSemTrava(): GerarBoletoDeApoioUseCase
+    {
+        $this->cobrancas = $this->createMock(CobrancaPixDaContaRepository::class);
+        $this->cobrancas->expects(self::never())->method('comTravaDeBoleto');
+
+        return $this->sut();
     }
 
     private function quem(bool $master = false): Solicitante

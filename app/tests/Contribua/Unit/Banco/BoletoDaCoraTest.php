@@ -49,6 +49,9 @@ final class BoletoDaCoraTest extends TestCase
         self::assertSame('POST', $pedido['metodo']);
         self::assertSame('https://matls-clients.api.stage.cora.com.br/v2/invoices/', $pedido['url']);
         self::assertSame('5f0e4c1a-7b2d-4e8f-9a3c-1d2e3f4a5b6c', $this->cora->cabecalho($pedido['opcoes'], 'idempotency-key'));
+        foreach ($this->cora->pedidos as $chamada) {
+            self::assertEqualsWithDelta(20.0, $chamada['opcoes']['max_duration'], 0.001, 'teto de duração em toda chamada (token e boleto), além do timeout');
+        }
         self::assertSame([
             'code' => 'BJ000001-Babc123',
             'customer' => [

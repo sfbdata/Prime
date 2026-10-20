@@ -30,6 +30,8 @@ final class CoraFalsa
     public int $tokensEmitidos = 0;
     /** Boleto sem o Pix (conta sem chave Pix: `pix` vem nulo). */
     public bool $boletoSemPix = false;
+    /** @var array<string, int> id da cobrança => total pago (padrão 2000) */
+    public array $pagos = [];
 
     public function cliente(): MockHttpClient
     {
@@ -115,11 +117,12 @@ final class CoraFalsa
             return $this->json(['code' => 'not_found', 'message' => 'Invoice not found'], 404);
         }
         $pago = 'PAID' === $this->status[$id];
+        $valorPago = $this->pagos[$id] ?? 2000;
 
         return $this->json([
-            'id' => $id, 'status' => $this->status[$id], 'total_amount' => 2000, 'total_paid' => $pago ? 2000 : 0,
+            'id' => $id, 'status' => $this->status[$id], 'total_amount' => 2000, 'total_paid' => $pago ? $valorPago : 0,
             'occurrence_date' => $pago ? '2026-10-19' : null, 'code' => $this->codigos[$id] ?? null,
-            'payments' => $pago ? [['id' => 'fd13', 'status' => 'SUCCESS', 'total_paid' => 2000, 'method' => 'PIX']] : [],
+            'payments' => $pago ? [['id' => 'fd13', 'status' => 'SUCCESS', 'total_paid' => $valorPago, 'method' => 'PIX']] : [],
         ]);
     }
 

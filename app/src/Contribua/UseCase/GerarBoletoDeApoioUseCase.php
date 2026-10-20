@@ -17,6 +17,7 @@ use App\Contribua\Exception\BoletoNaoGerado;
 use App\Contribua\Repository\CobrancaPixDaContaRepository;
 use App\Contribua\Repository\IntegracaoBancariaRepository;
 use App\Shared\Service\DigitoVerificador;
+use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
@@ -29,10 +30,12 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  *   do escritório; vencimento em 3 dias corridos; sem multa e sem juros;
  * - um boleto aberto por escritório, valor e dia: pedir de novo devolve o mesmo, sem ir ao banco. A trava
  *   da conta serializa cliques simultâneos; a chave de idempotência e o código são derivados do pedido
- *   (escritório, valor, dia, documento, n-ésimo boleto do dia), então repetir depois de uma falha não cria
- *   outra fatura na Cora;
+ *   (escritório, valor, dia, documento, n-ésimo boleto daquele valor no dia), então repetir depois de uma
+ *   falha não cria outra fatura na Cora;
  * - a linha só é gravada depois de o banco responder: falha não deixa linha e vira uma mensagem honesta;
- * - o documento vai só para o banco: não é gravado nem vai para o log.
+ * - falha do banco pausa o boleto do escritório por 5 min (como a pausa do PIX dinâmico, mas por conta):
+ *   durante a pausa a resposta é a mesma mensagem, sem chamar o banco nem abrir transação;
+ * - o documento vai só para o banco: não é gravado nem vai para o log (nem o e-mail).
  * A confirmação é a da cobrança PIX (webhook, reconsulta e conciliação): fatura PAID confirma o apoio.
  */
 final class GerarBoletoDeApoioUseCase
@@ -40,12 +43,16 @@ final class GerarBoletoDeApoioUseCase
     public const DIAS_PARA_VENCER = 3;
     public const MAXIMO_POR_DIA = 5;
     public const MINIMO = 'O boleto tem valor mínimo de R$ 5,00.';
+    public const PAUSA_SEGUNDOS = 300;
+    private const CHAVE_PAUSA = 'contribua_boleto_em_pausa_';
 
     public function __construct(
         private readonly IntegracaoBancariaRepository $integracoes,
         private readonly BancosPix $bancos,
         private readonly CobrancaPixDaContaRepository $cobrancas,
         private readonly LoggerInterface $logger,
+        #[Autowire(service: 'cache.app')]
+        private readonly CacheItemPoolInterface $cache,
         #[Autowire('%kernel.secret%')]
         private readonly string $segredo,
     ) {
@@ -67,6 +74,9 @@ final class GerarBoletoDeApoioUseCase
         $banco = $this->bancoDoBoleto($quem) ?? throw new BoletoIndisponivel();
         $documento = DigitoVerificador::digitos($documento);
         self::validar($valorCentavos, $documento);
+        if ($this->cache->getItem(self::chaveDaPausa($quem))->isHit()) {
+            throw new BoletoNaoGerado();
+        }
         $boleto = $this->cobrancas->comTravaDeBoleto(
             $quem->escritorio,
             fn (): CobrancaPixDaConta => $this->doDiaOuNovo($quem, $banco, $valorCentavos, $documento),
@@ -110,7 +120,8 @@ final class GerarBoletoDeApoioUseCase
         if ($jaHoje >= self::MAXIMO_POR_DIA) {
             throw new \DomainException('Limite de boletos de hoje atingido. Use um boleto já gerado ou tente amanhã.');
         }
-        $pedido = $this->pedido($quem, $valorCentavos, $documento, $hoje, $jaHoje);
+        $doValor = $this->cobrancas->criadasDesde($quem->escritorio, $hoje, CobrancaPixDaConta::FORMA_BOLETO, $valorCentavos);
+        $pedido = $this->pedido($quem, $valorCentavos, $documento, $hoje, $doValor);
 
         return $this->emitir($quem, $banco, $pedido);
     }
@@ -139,8 +150,8 @@ final class GerarBoletoDeApoioUseCase
         try {
             $emitido = $banco->emitirBoleto($pedido);
         } catch (FalhaNoBanco $e) {
-            // Sem o documento no log: números longos do motivo do banco saem mascarados.
-            $this->logger->warning('Contribua: boleto não gerado no banco', ['conta' => $quem->numeroDaConta(), 'motivo' => preg_replace('/\d[\d.\/-]{9,}\d/', '[número]', $e->getMessage())]);
+            $this->logger->warning('Contribua: boleto não gerado no banco', ['conta' => $quem->numeroDaConta(), 'motivo' => self::semDadosPessoais($e->getMessage())]);
+            $this->cache->save($this->cache->getItem(self::chaveDaPausa($quem))->set(true)->expiresAfter(self::PAUSA_SEGUNDOS));
 
             throw new BoletoNaoGerado($e);
         }
@@ -153,6 +164,19 @@ final class GerarBoletoDeApoioUseCase
         $this->cobrancas->salvar($boleto);
 
         return $boleto;
+    }
+
+    /** O motivo do banco pode ecoar o pedido: e-mail e números longos (documento) saem mascarados. */
+    private static function semDadosPessoais(string $motivo): string
+    {
+        $semEmail = (string) preg_replace('/[^\s@"\'<>(),;:]+@[^\s@"\'<>(),;:]+/u', '[e-mail]', $motivo);
+
+        return (string) preg_replace('/\d[\d.\/-]{9,}\d/', '[número]', $semEmail);
+    }
+
+    private static function chaveDaPausa(Solicitante $quem): string
+    {
+        return self::CHAVE_PAUSA . $quem->tenantId();
     }
 
     /** 32 dígitos hexadecimais no formato UUID v4 (a Cora pede o Idempotency-Key assim). */

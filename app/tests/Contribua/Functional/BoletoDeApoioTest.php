@@ -7,6 +7,7 @@ namespace App\Tests\Contribua\Functional;
 use App\Contribua\Banco\CofreDeCertificado;
 use App\Contribua\Banco\Cora\ClienteCora;
 use App\Contribua\Controller\BoletoDeApoioController;
+use App\Contribua\Entity\Apoio;
 use App\Contribua\Message\ReconsultarCobrancaNoBanco;
 use App\Contribua\MessageHandler\ReconsultarCobrancaNoBancoHandler;
 use App\Contribua\Twig\BoletoRuntime;
@@ -63,6 +64,7 @@ final class BoletoDeApoioTest extends JusPrimeWebTestCase
         $this->escritorio = $this->tenant('A', self::CNPJ);
         $this->primario = $this->pessoa('primario', $this->escritorio, true);
         $this->master = $this->pessoa('master', $this->escritorio, false, ['ROLE_SUPER_ADMIN']);
+        static::getContainer()->get('cache.app')->deleteItem('contribua_boleto_em_pausa_' . $this->escritorio->getId());
     }
 
     #[TestDox('Gera o boleto: 200 com a linha digitável, o PDF, o vencimento e o Pix; pedir de novo devolve o mesmo, sem outra fatura na Cora')]
@@ -177,6 +179,28 @@ final class BoletoDeApoioTest extends JusPrimeWebTestCase
         self::assertSame(0, (int) $this->banco()->fetchOne('SELECT COUNT(*) FROM contribua_cobranca_pix WHERE tenant_id = :t', ['t' => $this->escritorio->getId()]));
     }
 
+    #[TestDox('Falha da Cora liga a pausa do escritório: o pedido seguinte volta 503 sem chamar a Cora; outro escritório não é pausado')]
+    public function testPausaDepoisDaFalha(): void
+    {
+        $this->conectar();
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        $this->cora->statusDaCriacao = 500;
+        $this->boleto(2000, self::CNPJ);
+        $this->cora->statusDaCriacao = null;
+        $antes = count($this->cora->pedidos);
+
+        $r = $this->boleto(5000, self::CNPJ);
+
+        self::assertResponseStatusCodeSame(503);
+        self::assertSame('Não foi possível gerar o boleto agora. Tente de novo em instantes.', $r['erro']);
+        self::assertCount($antes, $this->cora->pedidos, 'em pausa, nem chama a Cora');
+        $outro = $this->tenant('B', '52998224725');
+        $alguem = $this->pessoa('outro', $outro, true);
+        static::getContainer()->get('cache.app')->deleteItem('contribua_boleto_em_pausa_' . $outro->getId());
+        $this->logarComTenant($this->client, $alguem, $outro);
+        self::assertTrue($this->boleto(2000, '52998224725')['ok'], 'a pausa é por escritório');
+    }
+
     #[TestDox('Sem CSRF: 403; ambiente de testes: só o escritório do Master gera')]
     public function testCsrfESandbox(): void
     {
@@ -239,6 +263,43 @@ final class BoletoDeApoioTest extends JusPrimeWebTestCase
         $handler($mensagens[0]);
 
         self::assertSame(1, (int) $this->banco()->fetchOne('SELECT COUNT(*) FROM contribua_apoio WHERE tenant_id = :t AND id_cora = :i', ['t' => $this->escritorio->getId(), 'i' => $idCora]));
+    }
+
+    #[TestDox('Boleto vencido (LATE) não confirma; pago depois (PAID) confirma uma vez')]
+    public function testVencidoDepoisPago(): void
+    {
+        $idCora = $this->boletoPago();
+        $this->cora->status[$idCora] = 'LATE';
+        $comando = new CommandTester((new Application(static::$kernel))->find('app:contribua:conciliar'));
+
+        $comando->execute([]);
+        self::assertStringContainsString('0 apoio(s) confirmado(s)', $comando->getDisplay());
+        self::assertSame('aberta', $this->banco()->fetchOne('SELECT situacao FROM contribua_cobranca_pix WHERE id_no_banco = :i', ['i' => $idCora]));
+
+        $this->cora->status[$idCora] = 'PAID';
+        $comando->execute([]);
+        $comando->execute([]);
+
+        self::assertSame(1, (int) $this->banco()->fetchOne('SELECT COUNT(*) FROM contribua_apoio WHERE tenant_id = :t', ['t' => $this->escritorio->getId()]));
+    }
+
+    #[TestDox('Valor pago diferente do emitido: o apoio leva o valor pago, limitado ao teto do apoio')]
+    public function testValorPago(): void
+    {
+        $idCora = $this->boletoPago();
+        $this->cora->pagos[$idCora] = 2500;
+        $comando = new CommandTester((new Application(static::$kernel))->find('app:contribua:conciliar'));
+        $comando->execute([]);
+        self::assertSame(2500, (int) $this->banco()->fetchOne('SELECT valor_centavos FROM contribua_apoio WHERE id_cora = :i', ['i' => $idCora]));
+
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        self::assertTrue($this->boleto(5000, self::CNPJ)['ok']);
+        $segundo = (string) array_key_last($this->cora->status);
+        $this->cora->status[$segundo] = 'PAID';
+        $this->cora->pagos[$segundo] = Apoio::VALOR_MAXIMO_CENTAVOS * 2;
+        $comando->execute([]);
+
+        self::assertSame(Apoio::VALOR_MAXIMO_CENTAVOS, (int) $this->banco()->fetchOne('SELECT valor_centavos FROM contribua_apoio WHERE id_cora = :i', ['i' => $segundo]));
     }
 
     private function boletoPago(): string
