@@ -68,6 +68,8 @@ final class CatalogoDeRecursosTest extends TestCase
         yield 'página pública do push compartilhado' => ['push_compartilhado', 'pushpub'];
         yield 'código do push compartilhado' => ['push_compartilhado_codigo', 'pushpub'];
         yield 'gerar link externo do push na pasta' => ['pasta_push_links_gerar', 'pushpub'];
+        yield 'renovar link externo do push segue a chave' => ['pasta_push_links_renovar', 'pushpub'];
+        yield 'revogar link externo do push fica sempre aberto' => ['pasta_push_links_revogar', null];
         yield 'página pública de vagas é vagaspub, não trabalho' => ['trabalho_externo_vagas_publicas', 'vagaspub'];
         yield 'link curto de vagas é vagaspub' => ['trabalho_externo_vagas_link', 'vagaspub'];
         yield 'compartilhar vagas é vagaspub' => ['trabalho_externo_vagas_compartilhar', 'vagaspub'];

@@ -497,8 +497,9 @@
                         title="{{ aba.rotulo }}{% if pend %} · {{ pend.txt }}{% endif %}"
                         {#- Botão direito (ou Shift+F10 / tecla de menu) na aba Push abre o menu
                             "PUSH PROCESSUAL" do link externo ([EXP] L.1241 `onContextMenu`,
-                            `abaMenu` L.4409). Quem escuta é o pasta-push-link.js. #}
-                        {%- if aba.id == 'push' %} data-ppl-menu="pushLinkMenu" aria-keyshortcuts="Shift+F10"{% endif %}>
+                            `abaMenu` L.4409). Quem escuta é o pasta-push-link.js. Com a tela `pushpub`
+                            desligada o menu não existe, e a aba não o anuncia. #}
+                        {%- if aba.id == 'push' and recurso_visivel('pushpub') %} data-ppl-menu="pushLinkMenu" aria-keyshortcuts="Shift+F10"{% endif %}>
                     {# A barra some na aba ativa (CSS, pela classe `.active` que o
                        Bootstrap alterna): quem está olhando a aba já vê a pendência. #}
                     {% if pend %}<span class="ps-aba-pend" aria-hidden="true"></span>{% endif %}
