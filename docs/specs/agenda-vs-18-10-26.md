@@ -22,7 +22,9 @@ O protótipo guarda tudo em `localStorage`; aqui tudo vai para o servidor, por e
 - Acertos finais (§17): itens 1-6 e 8; o 7 removido; `.ics` fora; botão "Abrir na agenda" não entra
   (o protótipo da Central de 05/10 descarta `acao`; o de 18/10 guarda em `ctx.acao` mas não desenha; fechado).
 
-**20/10 (coordenador):** pilha atualizada com o master (sete camadas, suítes verdes); divergências da a7
+**20/10 (coordenador):** o #86 e o #162 saíram de cima do Google (modelo novo do dono para a sincronia,
+78a/78b) e foram para a branch `agenda-final`, cortada do master, por cherry-pick um a um; o
+"Importado do Google Agenda." e a spec do Google ficam com o #78. Pilha atualizada com o master (sete camadas, suítes verdes); divergências da a7
 (§18) na camada nova `agenda-desenho`, sobre a `agenda-acertos`. Pendentes com o dono: o Google (regras
 decididas pelo coordenador contra o desenho) e a faixa de abas no topo. Quando o #89 entrar: colaboradores
 atribuíveis no modal.
@@ -565,14 +567,17 @@ Conferência do desenho inteiro contra as entregas #58 a #78 e #81 (98 itens). O
 - **Dica ao passar o mouse** nos chips do Mês e nos blocos de Semana/Dia (desenho L76 e L87): `title` com
   título e hora. O desenho usa o balão do `bj-dica.js`; fora da Central vale a dica do navegador (decisão do
   dono, Fase A, 15/10, registrada em `public/js/central-dica.js`).
-- **"Importado do Google Agenda."** no detalhe (L237): compromisso com `google_id` que não é nosso
-  (`bjt<escritório>e<id>`), ou seja, nascido no Google (`CompromissoOutput::doGoogle`).
+- **"Importado do Google Agenda."** no detalhe (L237): compromisso nascido no Google
+  (`CompromissoOutput::doGoogle`). O campo e o texto do detalhe já estão aqui, sempre falsos; quem os
+  preenche é a sincronia, que volta no reescopo do Google (78a, modelo novo do dono, 20/10/2026).
 - **Contagem por calendário** (L196): todos os compromissos da pessoa de cada tipo, em qualquer data
   (`ContarMeusCompromissosUseCase`, devolvida em `contagens` com os compromissos), e não só os do período.
   O da agenda antiga, sem tipo, conta no calendário em que aparece na grade (pela cor da legenda), pela mesma
   regra (`CalendarioPelaCor`); no desenho não existe esse legado.
 - **Lista de @** reabre ao clicar no campo de observação (L118, `onClick=obsAuto`).
-- **Aviso do colega no Chat:** título "Agenda: <título>" e o texto com o resumo (L191). O botão "Abrir na
+- **Aviso do colega no Chat:** título "Agenda: <título>" e o texto com o resumo (L191). Na assinatura de
+  `NotificacaoService::criarNotificacao` (`$titulo`, `$url`, `$texto`), o título vai em 4º e o resumo em 6º;
+  até 20/10/2026 a Agenda os mandava trocados (o aviso saía com o resumo no título), corrigido aqui. O botão "Abrir na
   agenda" (`acao` em L192) **não aparece no protótipo da Central**: `notificar()` em
   `docs/design/claude-design-2026-10-05 (1)/bluejus-central.js:123-131` monta o aviso sem o campo `acao`, e
   nenhum trecho desenha botão de ação no aviso; lá, como no sistema, o clique no aviso leva ao link. A
