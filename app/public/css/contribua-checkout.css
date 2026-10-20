@@ -65,7 +65,8 @@
 .co-cartao-numero--invalido { border-color: var(--co-cartao-borda-invalida); }
 .co-cartao-numero > input { flex: 1; min-width: 0; border: none; outline: none; font: inherit; font-size: 15px; font-weight: normal; letter-spacing: .5px; color: #12242f; background: transparent; }
 .co-campo > input[data-cartao="nome"] { text-transform: uppercase; }
-.co-bandeira { height: 24px; min-width: 52px; box-sizing: border-box; padding: 0 8px; border-radius: 3px; font-size: 11px; font-weight: bold; letter-spacing: .5px; display: inline-flex; align-items: center; justify-content: center; animation: ctPop .2s ease both; }
+/* Desenho: min-width 52px + padding 0 8px em content-box (68px no total); aqui o Bootstrap põe border-box. */
+.co-bandeira { height: 24px; min-width: 68px; box-sizing: border-box; padding: 0 8px; border-radius: 3px; font-size: 11px; font-weight: bold; letter-spacing: .5px; display: inline-flex; align-items: center; justify-content: center; animation: ctPop .2s ease both; }
 .co-bandeira[hidden] { display: none; }
 .co-bandeira--visa { background: var(--co-bandeira-visa-fundo); color: var(--co-bandeira-visa-cor); font-style: italic; }
 .co-bandeira--mastercard { background: var(--co-bandeira-mastercard-fundo); color: var(--co-bandeira-mastercard-cor); }

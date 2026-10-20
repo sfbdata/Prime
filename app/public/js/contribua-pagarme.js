@@ -116,6 +116,8 @@
                 campo.value = mascara(campo.value);
             }
             campo.removeAttribute('aria-invalid');
+            // Como o desenho (onCNum etc. limpam coErro): o checkout apaga a mensagem quando a pessoa corrige.
+            campo.dispatchEvent(new CustomEvent('co-cartao-digitou', { bubbles: true }));
             if (depois) {
                 depois();
             }
@@ -239,8 +241,19 @@
         if (!resposta.ok || !dados.id) {
             throw new Error('O cartão não foi aceito. Confira os dados ou use outro cartão.');
         }
+        apagarNumeroECvv();
 
         return dados.id;
+    }
+
+    /* Com o token na mão, o número e o CVV não ficam mais na página (nem escondidos atrás do "Pagamento enviado"). */
+    function apagarNumeroECvv() {
+        ['numero', 'cvv'].forEach((nome) => {
+            const campo = raiz && raiz.querySelector('[data-cartao="' + nome + '"]');
+            if (campo) {
+                campo.value = '';
+            }
+        });
     }
 
     /* O Pagar.me não pede ação no navegador depois do token. */

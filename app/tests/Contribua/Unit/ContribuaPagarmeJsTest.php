@@ -187,4 +187,15 @@ final class ContribuaPagarmeJsTest extends TestCase
         self::assertStringContainsString('campo.dataset.cartao = nome;', $js);
         self::assertDoesNotMatchRegularExpression('/setAttribute\([^)]*(numero|cvv|validade)\.value/', $js);
     }
+
+    public function testDigitarApagaAMensagemEOTokenLimpaOCartao(): void
+    {
+        $modulo = (string) file_get_contents(__DIR__ . '/../../../public/js/contribua-pagarme.js');
+        $checkout = (string) file_get_contents(__DIR__ . '/../../../public/js/contribua-checkout.js');
+
+        self::assertStringContainsString("new CustomEvent('co-cartao-digitou', { bubbles: true })", $modulo);
+        self::assertStringContainsString("modal.addEventListener('co-cartao-digitou', () => erro(''));", $checkout);
+        self::assertMatchesRegularExpression('/apagarNumeroECvv\(\);\s*\n\s*return dados\.id;/', $modulo, 'o número e o CVV saem da página assim que o token chega');
+        self::assertStringContainsString("['numero', 'cvv'].forEach", $modulo);
+    }
 }

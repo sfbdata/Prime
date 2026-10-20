@@ -182,6 +182,8 @@
     }));
     $$('[data-fechar-checkout]', modal).forEach((b) => b.addEventListener('click', fechar));
     $('[data-co-pagar]', modal).addEventListener('click', pagar);
+    // Os campos do cartão montados pelo módulo (Pagar.me) avisam quando a pessoa digita: a mensagem some.
+    modal.addEventListener('co-cartao-digitou', () => erro(''));
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !modal.hidden) {
             fechar();
