@@ -205,9 +205,10 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         self::assertGreaterThanOrEqual(3, count($itens));
         self::assertSame('Copiar texto', trim($menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-copiar')->text()));
 
-        // EDT-009 (dc L.6460): ordem do desenho — Citar vem depois de Copiar texto, com o ícone de aspas.
-        $citar = $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-copiar + button.js-obs-citar[role="menuitem"]');
-        self::assertCount(1, $citar, '"Citar no novo registro" é o item logo depois de "Copiar texto"');
+        // EDT-009 (dc L.6460) + D:6869: ordem do desenho: Copiar texto, Encaminhar via Chat I.A (com a
+        // Central) e então Citar, com o ícone de aspas.
+        $citar = $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-copiar + .js-obs-encaminhar + button.js-obs-citar[role="menuitem"]');
+        self::assertCount(1, $citar, '"Citar no novo registro" vem logo depois de "Copiar texto" e "Encaminhar via Chat I.A"');
         self::assertSame('Citar no novo registro', trim($citar->text()));
         self::assertCount(1, $citar->filter('i.bi.bi-quote'));
 

@@ -76,6 +76,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         self::assertSame([
             'Responder',
             'Copiar texto',
+            'Encaminhar via Chat I.A',
             'Citar no novo registro',
             'Criar meta a partir deste registro',
             'Imprimir',
@@ -110,7 +111,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
         [$menu, $itens] = $this->menu($crawler, $obs);
-        self::assertSame(['Responder', 'Copiar texto', 'Citar no novo registro', 'Criar meta a partir deste registro', 'Imprimir', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
+        self::assertSame(['Responder', 'Copiar texto', 'Encaminhar via Chat I.A', 'Citar no novo registro', 'Criar meta a partir deste registro', 'Imprimir', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
         $bloqueados = $menu->filter('.ps-obs-menu > .ps-processo-menu-item[aria-disabled="true"]');
         self::assertCount(2, $bloqueados);
         self::assertCount(2, $bloqueados->filter('i.bi-lock'));
