@@ -3,6 +3,53 @@
 Risco **MÉDIO**: guarda, por pessoa, a autorização de acesso à agenda Google dela. Parte da spec
 `docs/specs/agenda-vs-18-10-26.md` (V8, seções 3 e 8). Base: entrega 5b (#76).
 
+## 0. Modelo novo do dono (20/10/2026): vale sobre tudo o que conflitar abaixo (78a)
+
+Decisões do dono, trazidas pelo coordenador em 20/10/2026:
+
+- **M1 Cancelado no Google:** fica no BlueJus como "cancelado", sem sumir (já era assim).
+- **M2 A conta é da pessoa:** cada pessoa conecta a própria conta Google, **qualquer uma**; o BlueJus sugere a
+  do e-mail do cadastro (`login_hint`). A mesma conta pode ser ligada em vários escritórios.
+- **M3 Agenda secundária por escritório:** ao conectar, o BlueJus cria na conta da pessoa uma agenda com o
+  nome do escritório e só trabalha nela. **A agenda principal (pessoal) não é lida nem escrita.** Escopo
+  `https://www.googleapis.com/auth/calendar.app.created` ("Make secondary Google calendars, and see, create,
+  change, and delete events on them"), mais `openid email` só para saber o e-mail da conta. Sai o
+  `calendar.events` (todas as agendas) e sai a regra "uma conta por escritório" (motivo dela era a agenda
+  pessoal).
+- **M4 Participantes:** o compromisso vai para a agenda do escritório de **cada participante** conectado,
+  além da do criador. "Só eu" vai só para a do criador. Só quem criou altera: a cópia do participante é
+  **só leitura** (decisão b): mudança feita nela no Google é desfeita na próxima sincronia; apagada lá, fica
+  apagada até o compromisso mudar aqui.
+- **M5 Criado no Google** (decisão a), na agenda do escritório: entra no BlueJus visível à **equipe**
+  (antes: "Só eu"), criado por quem é dono da conta. Participantes = convidados (`attendees`) cujo e-mail é de
+  alguém da equipe do escritório (o do cadastro **ou** o da conta Google conectada naquele escritório).
+  Convidado de fora é ignorado, e o e-mail dele não é guardado. Sem convidados, é só do criador. Nas
+  mudanças seguintes vindas do Google, convidado da equipe novo entra; ninguém sai por isso (o BlueJus não
+  manda convidados ao Google, para não disparar e-mail do Google aos colegas).
+- **M6 Desconectar** (decisão c): pergunta "Apagar também a agenda “<escritório>” do seu Google?", com "Não,
+  manter" marcado. Mantida, a agenda fica lá parada. A autorização só é revogada no Google se a mesma conta
+  não estiver ligada em outro escritório (revogar derruba a autorização inteira da conta para o BlueJus).
+- **M7 Prazos** (78b, PR próprio): prazos e audiências das pastas vão também à agenda do escritório de quem
+  tem a permissão de perfil "Ver prazos na agenda" (nasce ligada nos perfis que veem pastas).
+- **M8 Login com o Google** (futuro, não agora): a conexão da Agenda não depende do login; o OAuth da Agenda
+  fica no domínio Agenda, sem tocar o `Security`.
+
+**Modelo de dados (migration Version20261020129700, refeita, porque não chegou ao master):**
+- `agenda_google_conexao`: + `calendario_id` (a agenda do escritório na conta; nulo até criar). `conta` é o
+  e-mail vindo do `id_token`. Sem unicidade de conta entre escritórios.
+- `agenda_google_ligacao` (nova): conexão, compromisso (ou prazo, 78b), `google_id`, `hash` do último envio
+  (com o prefixo `x:` quando o Google recusou). Única por (conexão, compromisso) e por (conexão, google_id).
+  Apaga junto com a conexão ou o compromisso.
+- `evento.importado_do_google` (o "Importado do Google Agenda." do detalhe, L237). Saem `evento.google_id`
+  e `evento.google_hash`: a ligação passa a ser por pessoa.
+- `agenda_google_exclusao` e `agenda_google_varredura`: como antes.
+
+**Sincronia de uma conexão:** garante a agenda do escritório (cria se não houver; 404 numa chamada = sumiu,
+zera as ligações e recria na próxima volta); traz as mudanças dela (syncToken); apaga lá as exclusões
+pendentes; leva o que mudou dos compromissos de que a pessoa é criadora ou participante (o "Só eu" só ao
+criador) e apaga lá as cópias de compromissos em que ela deixou de ser participante. Id no Google continua
+`bjt<escritório>e<compromisso>`, o mesmo em todas as agendas (o id é único por agenda).
+
 ## 1. O que o desenho pede (09 - Agenda - VS 18.10.26, linhas 52-57 e 232-233)
 
 Painel **GOOGLE AGENDA** na lateral, três estados:

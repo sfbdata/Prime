@@ -6,16 +6,18 @@ namespace App\Agenda\UseCase;
 
 use App\Agenda\Entity\ConexaoGoogleAgenda;
 use App\Agenda\Entity\Evento;
+use App\Agenda\Entity\LigacaoComGoogle;
 use App\Agenda\Enum\TipoDeCompromisso;
+use App\Agenda\Exception\AgendaDoEscritorioSumiuException;
 use App\Agenda\Exception\AutorizacaoDoGoogleRecusadaException;
-use App\Agenda\Exception\EventoRecusadoPeloGoogleException;
 use App\Agenda\Exception\GoogleAgendaException;
 use App\Agenda\Exception\SyncTokenVencidoException;
 use App\Agenda\Infra\GoogleAgendaApi;
 use App\Agenda\Repository\ConexaoGoogleAgendaRepository;
-use App\Agenda\Repository\EventoDaAgendaRepository;
-use App\Agenda\Repository\ExclusaoNoGoogleRepository;
+use App\Agenda\Repository\LigacaoComGoogleRepository;
 use App\Agenda\Service\CompromissoNoGoogle;
+use App\Agenda\Service\LevarAoGoogle;
+use App\Agenda\Service\ParticipantesDoGoogle;
 use App\Agenda\Service\SilencioDaSincronia;
 use App\Service\PermissionChecker;
 use App\Sync\Service\CifradorDeSegredo;
@@ -23,29 +25,30 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * História: a pessoa conectou o Google Agenda e quer os compromissos iguais nos dois lados, sem fazer
- * nada. A cada 5 min (e logo depois de cada mudança na Agenda) o worker sincroniza a agenda dela:
- * 1. traz do Google o que mudou desde a última vez (syncToken); cancelado lá vira "cancelado" aqui, o
- *    registro fica; o que é novo entra como "Só eu". O eco do nosso próprio envio não sobrescreve nada
- *    (a pessoa pode ter editado aqui depois de enviar); mudança de verdade no Google vale (edição auditada);
- * 2. leva ao Google as exclusões pendentes e os compromissos que ela criou e mudaram desde o último envio.
- *    Um evento que o Google recusa fica de fora até mudar; os outros seguem.
- * Uma sincronia por pessoa de cada vez (trava no banco). Sem acesso à Agenda no escritório (saiu, perdeu a
- * permissão), a conexão é desfeita. Autorização revogada na conta Google: o painel volta a "Não conectado".
+ * História: a pessoa conectou o Google Agenda e quer os compromissos iguais nos dois lados, sem fazer nada
+ * (modelo do dono de 20/10/2026). A cada 5 min (e logo depois de cada mudança na Agenda) o worker sincroniza a
+ * agenda do escritório na conta dela, criada pelo BlueJus com o nome do escritório:
+ * 1. garante a agenda (cria se não houver; sumiu lá, cria outra e manda tudo de novo);
+ * 2. traz o que mudou nela (syncToken). Criado lá entra visível à equipe, com os convidados da equipe como
+ *    participantes; cancelado lá vira "cancelado" aqui, o registro fica. Na cópia de compromisso de outra
+ *    pessoa (só leitura), mudança feita lá é desfeita no próximo envio; apagada lá, fica apagada até mudar aqui;
+ * 3. leva ao Google as exclusões, o que mudou e tira as cópias que não valem mais (`LevarAoGoogle`).
+ * Uma sincronia por conexão de cada vez (trava no banco). Sem acesso à Agenda no escritório, a conexão é
+ * desfeita. Autorização revogada na conta Google: o painel volta a "Não conectado".
  */
 final class SincronizarGoogleAgendaUseCase
 {
     private const PRIMEIRA_VEZ = '-30 days';
-    private const RECUSADO = 'x:';
     /** Folga ao procurar compromissos antigos mudados desde a última sincronia (relógios e transações). */
     private const FOLGA = '-1 hour';
 
     public function __construct(
         private readonly ConexaoGoogleAgendaRepository $conexoes,
-        private readonly EventoDaAgendaRepository $eventos,
-        private readonly ExclusaoNoGoogleRepository $exclusoes,
+        private readonly LigacaoComGoogleRepository $ligacoes,
         private readonly GoogleAgendaApi $google,
         private readonly CompromissoNoGoogle $traducao,
+        private readonly LevarAoGoogle $levar,
+        private readonly ParticipantesDoGoogle $participantes,
         private readonly CifradorDeSegredo $cifrador,
         private readonly SilencioDaSincronia $silencio,
         private readonly PermissionChecker $permissoes,
@@ -55,7 +58,7 @@ final class SincronizarGoogleAgendaUseCase
     ) {
     }
 
-    /** @return array{trazidos: int, enviados: int, apagados: int}|null nulo: outra sincronia da pessoa está rodando */
+    /** @return array{trazidos: int, enviados: int, apagados: int}|null nulo: outra sincronia da conexão está rodando */
     public function executar(int $conexaoId, \DateTimeImmutable $agora): ?array
     {
         $nada = ['trazidos' => 0, 'enviados' => 0, 'apagados' => 0];
@@ -64,7 +67,7 @@ final class SincronizarGoogleAgendaUseCase
             return $nada;
         }
         if (!$this->permissoes->canAccessModule($conexao->getUsuario(), $conexao->getTenant(), 'agenda')) {
-            $this->desconectar->executar($conexao->getTenant(), $conexao->getUsuario());
+            $this->desconectar->executar($conexao->getTenant(), $conexao->getUsuario(), false);
 
             return $nada;
         }
@@ -80,15 +83,19 @@ final class SincronizarGoogleAgendaUseCase
     {
         try {
             return $this->silencio->durante(fn (): array => $this->sincronizar($conexao, $agora));
+        } catch (AgendaDoEscritorioSumiuException) {
+            $this->em->clear();
+            $this->agendaSumiu((int) $conexao->getId());
         } catch (AutorizacaoDoGoogleRecusadaException) {
             $conexao->falhou(ConexaoGoogleAgenda::ERRO_AUTORIZACAO);
+            $this->conexoes->salvar($conexao);
         } catch (GoogleAgendaException $e) {
             $conexao->falhou($e->getMessage());
+            $this->conexoes->salvar($conexao);
             $this->logger->warning('Google Agenda: sincronia falhou', ['conexao' => $conexao->getId(), 'motivo' => $e->getMessage()]);
         } finally {
             $this->conexoes->liberar((int) $conexao->getId());
         }
-        $this->conexoes->salvar($conexao);
 
         return null;
     }
@@ -97,14 +104,39 @@ final class SincronizarGoogleAgendaUseCase
     private function sincronizar(ConexaoGoogleAgenda $conexao, \DateTimeImmutable $agora): array
     {
         $acesso = $this->google->renovar($this->refreshToken($conexao));
+        $this->garantirAgenda($conexao, $acesso);
         $ultima = $conexao->getUltimaSincronia();
         [$trazidos, $syncToken] = $this->trazer($conexao, $acesso, $agora);
-        $apagados = $this->apagarPendentes($conexao, $acesso);
-        $enviados = $this->enviar($conexao, $acesso, $agora, $ultima?->modify(self::FOLGA));
+        $apagados = $this->levar->apagarPendentes($conexao, $acesso);
+        $enviados = $this->levar->enviar($conexao, $acesso, $agora, $ultima?->modify(self::FOLGA));
+        $apagados += $this->levar->tirarCopiasQueNaoValemMais($conexao, $acesso);
         $conexao->sincronizou($syncToken, $agora);
         $this->conexoes->salvar($conexao);
 
         return ['trazidos' => $trazidos, 'enviados' => $enviados, 'apagados' => $apagados];
+    }
+
+    /** Sem agenda do escritório na conta (primeira vez, ou sumiu lá): cria e manda tudo de novo. */
+    private function garantirAgenda(ConexaoGoogleAgenda $conexao, string $acesso): void
+    {
+        if (null !== $conexao->getCalendarioId()) {
+            return;
+        }
+        $conexao->agendaCriada($this->google->criarAgenda($acesso, (string) $conexao->getTenant()->getName()));
+        $this->ligacoes->esquecerDaConexao($conexao);
+        $this->conexoes->salvar($conexao);
+    }
+
+    /** A pessoa apagou a agenda do escritório no Google: a próxima volta cria outra e manda tudo de novo. */
+    private function agendaSumiu(int $conexaoId): void
+    {
+        $conexao = $this->conexoes->find($conexaoId);
+        if (null === $conexao) {
+            return;
+        }
+        $conexao->agendaSumiu();
+        $this->ligacoes->esquecerDaConexao($conexao);
+        $this->conexoes->salvar($conexao);
     }
 
     /** Token que não decifra (chave do servidor trocada): só conectando de novo. */
@@ -121,14 +153,20 @@ final class SincronizarGoogleAgendaUseCase
     private function trazer(ConexaoGoogleAgenda $conexao, string $acesso, \DateTimeImmutable $agora): array
     {
         $desde = $agora->modify(self::PRIMEIRA_VEZ);
+        $calendario = (string) $conexao->getCalendarioId();
         try {
-            $mudancas = $this->google->mudancas($acesso, $conexao->getSyncToken(), $desde);
+            $mudancas = $this->google->mudancas($acesso, $calendario, $conexao->getSyncToken(), $desde);
         } catch (SyncTokenVencidoException) {
             $conexao->recomecar();
-            $mudancas = $this->google->mudancas($acesso, null, $desde);
+            $mudancas = $this->google->mudancas($acesso, $calendario, null, $desde);
+        }
+        // O mesmo evento duas vezes na listagem: vale a última versão (uma ligação por evento).
+        $porId = [];
+        foreach ($mudancas['itens'] as $item) {
+            $porId[is_string($item['id'] ?? null) ? $item['id'] : ''] = $item;
         }
         $trazidos = 0;
-        foreach ($mudancas['itens'] as $item) {
+        foreach ($porId as $item) {
             $trazidos += $this->trazerUm($conexao, $item) ? 1 : 0;
         }
         $this->em->flush();
@@ -140,90 +178,103 @@ final class SincronizarGoogleAgendaUseCase
     private function trazerUm(ConexaoGoogleAgenda $conexao, array $item): bool
     {
         $id = is_string($item['id'] ?? null) ? $item['id'] : '';
-        if ('' === $id || $this->ignorar($conexao, $item, $id)) {
+        if ('' === $id || $this->traducao->ehOcorrenciaDeSerie($item) || $this->traducao->ehDeOutroTipo($item)) {
             return false;
         }
-        $evento = $this->eventos->doGoogle($conexao->getTenant(), $conexao->getUsuario(), $id);
-        if ((null === $evento && 'cancelled' === ($item['status'] ?? null)) || (null !== $evento && $this->traducao->ehEcoDoEnvio($item, $evento))) {
+        $ligacao = $this->ligacoes->daConexaoPeloGoogle($conexao, $id) ?? $this->religarIdNosso($conexao, $id);
+        if (null === $ligacao) {
+            return 'cancelled' !== ($item['status'] ?? null) && !$this->traducao->ehIdNosso($id) && $this->novoDoGoogle($conexao, $item, $id);
+        }
+        if ($ligacao->getEvento()->getCriador()?->getId() !== $conexao->getUsuario()->getId()) {
+            $this->mexeramNaCopia($ligacao, $item);
+
             return false;
         }
-        $evento ??= $this->novoDoGoogle($conexao);
+
+        return $this->mudouNoGoogle($conexao, $ligacao, $item);
+    }
+
+    /**
+     * Evento com id nosso (`bjt<escritório>e<compromisso>`) sem ligação (perdida): religa ao compromisso daqui,
+     * sem resumo guardado (vai de novo como está aqui), em vez de importar uma cópia. Compromisso que não existe
+     * mais (ou é de outro escritório) não volta.
+     */
+    private function religarIdNosso(ConexaoGoogleAgenda $conexao, string $id): ?LigacaoComGoogle
+    {
+        $eventoId = $this->traducao->compromissoDoId($id, (int) $conexao->getTenant()->getId());
+        $evento = null === $eventoId ? null : $this->em->find(Evento::class, $eventoId);
+        if (null === $evento || $evento->getTenant()?->getId() !== $conexao->getTenant()->getId()) {
+            return null;
+        }
+        $ligacao = new LigacaoComGoogle($conexao->getTenant(), $conexao, $evento, $id);
+        $this->ligacoes->salvar($ligacao);
+
+        return $ligacao;
+    }
+
+    /**
+     * Compromisso da própria pessoa mudado no Google (não é o eco do nosso envio): vale, como edição auditada.
+     *
+     * @param array<string, mixed> $item
+     */
+    private function mudouNoGoogle(ConexaoGoogleAgenda $conexao, LigacaoComGoogle $ligacao, array $item): bool
+    {
+        $evento = $ligacao->getEvento();
+        if ($this->traducao->ehEcoDoEnvio($item, $evento, $ligacao->getHash())) {
+            return false;
+        }
         $cabe = $this->traducao->aplicar($item, $evento) && !$this->traducao->soDeLeitura($item);
-        $evento->sincronizadoComGoogle($id, $cabe ? $this->traducao->resumo($evento) : CompromissoNoGoogle::SO_DO_GOOGLE);
+        foreach ($this->participantes->daEquipe($conexao->getTenant(), $this->traducao->emailsDosConvidados($item), $conexao->getUsuario()) as $colega) {
+            $evento->addParticipante($colega);
+        }
+        $ligacao->sincronizou($cabe ? $this->traducao->resumo($evento) : CompromissoNoGoogle::SO_DO_GOOGLE);
         $this->em->persist($evento);
 
         return true;
     }
 
     /**
-     * Fica de fora: ocorrência alterada de série, aniversário/local de trabalho/ausência, e id nosso de
-     * outro escritório (a mesma conta Google ligada em dois escritórios não mistura os dados deles).
+     * Cópia de compromisso de outra pessoa é só leitura (decisão b do dono): mexida lá, volta como aqui no
+     * próximo envio; apagada lá, fica apagada até o compromisso mudar aqui.
      *
      * @param array<string, mixed> $item
      */
-    private function ignorar(ConexaoGoogleAgenda $conexao, array $item, string $id): bool
+    private function mexeramNaCopia(LigacaoComGoogle $ligacao, array $item): void
     {
-        return $this->traducao->ehOcorrenciaDeSerie($item) || $this->traducao->ehDeOutroTipo($item)
-            || $this->traducao->ehDeOutroEscritorio($id, (int) $conexao->getTenant()->getId());
+        $evento = $ligacao->getEvento();
+        if ($this->traducao->ehEcoDoEnvio($item, $evento, $ligacao->getHash(), true)) {
+            return;
+        }
+        'cancelled' === ($item['status'] ?? null)
+            ? $ligacao->recusada($this->traducao->resumo($evento, true))
+            : $ligacao->esquecerEnvio();
     }
 
-    /** O que nasce no Google entra como compromisso pessoal e particular ("Só eu"). */
-    private function novoDoGoogle(ConexaoGoogleAgenda $conexao): Evento
+    /**
+     * Criado na agenda do escritório no Google: entra visível à equipe (decisão a do dono), criado pela dona da
+     * conta, com os convidados da equipe como participantes (o de fora é ignorado e não é guardado).
+     *
+     * @param array<string, mixed> $item
+     */
+    private function novoDoGoogle(ConexaoGoogleAgenda $conexao, array $item, string $id): bool
     {
-        return (new Evento())
+        $evento = (new Evento())
             ->setTenant($conexao->getTenant())
             ->setCriador($conexao->getUsuario())
             ->setTipo(TipoDeCompromisso::Meus)
             ->setCor(TipoDeCompromisso::Meus->cor())
-            ->setVisibilidade(Evento::VISIBILIDADE_SOMENTE_EU)
-            ->setStatus(Evento::STATUS_AGENDADO);
-    }
-
-    private function apagarPendentes(ConexaoGoogleAgenda $conexao, string $acesso): int
-    {
-        $pendentes = $this->exclusoes->pendentesDaPessoa($conexao->getUsuario(), $conexao->getTenant());
-        foreach ($pendentes as $exclusao) {
-            try {
-                $this->google->apagar($acesso, $exclusao->getGoogleId());
-            } catch (EventoRecusadoPeloGoogleException $e) {
-                $this->logger->info('Google Agenda: exclusão recusada, deixada de lado', ['motivo' => $e->getMessage()]);
-            }
-            $this->exclusoes->concluir($exclusao);
-            $this->em->flush();
+            ->setVisibilidade(Evento::VISIBILIDADE_TODOS)
+            ->setStatus(Evento::STATUS_AGENDADO)
+            ->marcarImportadoDoGoogle();
+        $cabe = $this->traducao->aplicar($item, $evento) && !$this->traducao->soDeLeitura($item);
+        foreach ($this->participantes->daEquipe($conexao->getTenant(), $this->traducao->emailsDosConvidados($item), $conexao->getUsuario()) as $colega) {
+            $evento->addParticipante($colega);
         }
+        $ligacao = new LigacaoComGoogle($conexao->getTenant(), $conexao, $evento, $id);
+        $ligacao->sincronizou($cabe ? $this->traducao->resumo($evento) : CompromissoNoGoogle::SO_DO_GOOGLE);
+        $this->em->persist($evento);
+        $this->ligacoes->salvar($ligacao);
 
-        return count($pendentes);
-    }
-
-    private function enviar(ConexaoGoogleAgenda $conexao, string $acesso, \DateTimeImmutable $agora, ?\DateTimeImmutable $mudouDesde): int
-    {
-        $enviados = 0;
-        foreach ($this->eventos->criadosPorParaOGoogle($conexao->getTenant(), $conexao->getUsuario(), $agora->modify(self::PRIMEIRA_VEZ), $mudouDesde) as $evento) {
-            $enviados += $this->enviarUm($acesso, $evento) ? 1 : 0;
-        }
-
-        return $enviados;
-    }
-
-    private function enviarUm(string $acesso, Evento $evento): bool
-    {
-        $resumo = $this->traducao->resumo($evento);
-        $guardado = $evento->getGoogleHash();
-        $nuncaFoi = null === $evento->getGoogleId();
-        if (in_array($guardado, [CompromissoNoGoogle::SO_DO_GOOGLE, $resumo, self::RECUSADO . $resumo], true)
-            || ($nuncaFoi && Evento::STATUS_CANCELADO === $evento->getStatus())) {
-            return false;
-        }
-        $id = $this->traducao->idPara($evento);
-        try {
-            $this->google->gravar($acesso, $id, $this->traducao->corpo($evento), !$nuncaFoi);
-            $evento->sincronizadoComGoogle($id, $resumo);
-        } catch (EventoRecusadoPeloGoogleException $e) {
-            $this->logger->info('Google Agenda: evento recusado, fica de fora até mudar', ['evento' => $evento->getId(), 'motivo' => $e->getMessage()]);
-            $evento->recusadoPeloGoogle(self::RECUSADO . $resumo);
-        }
-        $this->em->flush();
-
-        return null !== $evento->getGoogleId() && $resumo === $evento->getGoogleHash();
+        return true;
     }
 }

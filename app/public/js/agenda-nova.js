@@ -930,6 +930,8 @@
         if ((a = alvo('[data-testar]'))) { if (window.BJLembretes) { window.BJLembretes.permitir(); window.BJLembretes.testar(a.dataset.testar); } return; }
         if (alvo('#agGoogle')) { googleSincronizar(); return; }
         if (alvo('#agGoogleSair')) { googleDesconectar(); }
+        if (alvo('[data-google-sair="cancelar"]')) { document.getElementById('agPerg').innerHTML = ''; }
+        if (alvo('[data-google-sair="ok"]')) { confirmarDesconectar(); }
     });
 
     raiz.addEventListener('contextmenu', ev => {
@@ -1070,22 +1072,36 @@
         conectado: 'Google Agenda conectado. Os compromissos já estão sendo sincronizados.',
         cancelado: 'A conexão com o Google Agenda foi cancelada.',
         falhou: 'Não foi possível conectar ao Google Agenda. Tente de novo.',
-        outro_escritorio: 'Esta conta Google já está ligada à Agenda de outro escritório. Para proteger sua agenda pessoal, ela fica em um escritório só: use outra conta ou desconecte no outro escritório primeiro.',
     };
     function googleSincronizar() {
         const u = url.googleConectar;
         if (u) { location.href = u + (u.includes('?') ? '&' : '?') + 'volta=' + encodeURIComponent(location.href.split('#')[0]); return; }
         avisar('A sincronização com o Google Agenda será liberada assim que a conexão for configurada no servidor do BlueJus.');
     }
-    async function googleDesconectar() {
-        if (!window.confirm('Desconectar o Google Agenda? Os compromissos param de sincronizar; nada é apagado.')) { return; }
+    /* Desconectar (decisão do dono, 20/10/2026): pergunta se apaga também a agenda do escritório no Google,
+       com "Não, manter" marcado; mantida, ela fica lá parada. */
+    function googleDesconectar() {
+        const nome = esc(raiz.dataset.escritorio || 'do escritório');
+        document.getElementById('agPerg').innerHTML = '<div class="ag-perg-fundo"></div><div class="ag-modal-caixa ag-perg-caixa"><div class="ag-perg" role="dialog" aria-modal="true" aria-label="Desconectar o Google Agenda?">'
+            + '<div class="ag-perg-cab"><i class="bi bi-google"></i> Desconectar o Google Agenda?</div>'
+            + '<div class="ag-perg-txt">Os compromissos param de sincronizar. Apagar também a agenda “' + nome + '” do seu Google?</div>'
+            + '<div class="ag-perg-txt"><label><input type="radio" name="agGoogleAgenda" value="manter" checked> Não, manter</label><br>'
+            + '<label><input type="radio" name="agGoogleAgenda" value="apagar"> Sim, apagar a agenda “' + nome + '” do Google</label></div>'
+            + '<div class="ag-perg-rodape"><button type="button" class="ag-mbtn ag-perg-nao" data-google-sair="cancelar"><i class="bi bi-x"></i>Cancelar</button>'
+            + '<button type="button" class="ag-mbtn is-pri" data-google-sair="ok"><i class="bi bi-box-arrow-right"></i>Desconectar</button></div></div></div>';
+        const ok = document.querySelector('#agPerg [data-google-sair="ok"]');
+        if (ok) { ok.focus(); }
+    }
+    async function confirmarDesconectar() {
+        const apagar = !!document.querySelector('#agPerg input[name="agGoogleAgenda"][value="apagar"]:checked');
+        document.getElementById('agPerg').innerHTML = '';
         try {
-            await postar(url.googleDesconectar, {});
+            await postar(url.googleDesconectar, { apagarAgenda: apagar });
             location.reload();
         } catch (e) { avisar(e.message); }
     }
     function avisoDaVoltaDoGoogle() {
-        const m = location.hash.match(/google=(conectado|cancelado|falhou|outro_escritorio)/);
+        const m = location.hash.match(/google=(conectado|cancelado|falhou)/);
         if (!m) { return; }
         history.replaceState(null, '', location.pathname + location.search);
         avisar(AVISOS_GOOGLE[m[1]]);

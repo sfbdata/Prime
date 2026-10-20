@@ -42,7 +42,8 @@
      data-url-feriados="{{ path('app_feriado_index', {tenantId: tenantId}) }}"
      data-google="{{ google }}"
      data-url-google-conectar="{{ google != 'indisponivel' ? path('app_agenda_google_conectar') : '' }}"
-     data-url-google-desconectar="{{ path('app_agenda_google_desconectar') }}">
+     data-url-google-desconectar="{{ path('app_agenda_google_desconectar') }}"
+     data-escritorio="{{ escritorio }}">
 
     <div class="ag-topo">
         <i class="bi bi-calendar3 ag-topo-icone" aria-hidden="true"></i>

@@ -17,7 +17,6 @@ use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: EventoRepository::class)]
-#[ORM\Index(name: 'idx_evento_google_id', columns: ['google_id'])]
 #[ORM\HasLifecycleCallbacks]
 class Evento implements Auditavel, TenantAware, ConteudoParticular
 {
@@ -110,13 +109,13 @@ class Evento implements Auditavel, TenantAware, ConteudoParticular
     #[ORM\Column(type: 'json', options: ['default' => '[]'])]
     private array $avisados = [];
 
-    /** Id do evento no Google Agenda da pessoa que criou (entrega 6); nulo se nunca foi sincronizado. */
-    #[ORM\Column(name: 'google_id', length: 1024, nullable: true)]
-    private ?string $googleId = null;
-
-    /** Resumo do que foi sincronizado com o Google por último: muda o compromisso, muda o resumo, e ele vai. */
-    #[ORM\Column(name: 'google_hash', length: 80, nullable: true)]
-    private ?string $googleHash = null;
+    /**
+     * Nasceu na agenda do escritório no Google de quem o criou e veio pela sincronia (entrega 6): o detalhe
+     * mostra "Importado do Google Agenda." (desenho 09, L237). A ligação com o Google é por pessoa
+     * (`LigacaoComGoogle`), não fica aqui.
+     */
+    #[ORM\Column(name: 'importado_do_google', options: ['default' => false])]
+    private bool $importadoDoGoogle = false;
 
     public function __construct()
     {
@@ -430,29 +429,14 @@ class Evento implements Auditavel, TenantAware, ConteudoParticular
         return $novos;
     }
 
-    public function getGoogleId(): ?string
+    public function isImportadoDoGoogle(): bool
     {
-        return $this->googleId;
+        return $this->importadoDoGoogle;
     }
 
-    public function getGoogleHash(): ?string
+    public function marcarImportadoDoGoogle(): self
     {
-        return $this->googleHash;
-    }
-
-    /** O Google recusou esta versão (resumo com prefixo): não tenta de novo até o compromisso mudar. */
-    public function recusadoPeloGoogle(string $hashDaRecusa): self
-    {
-        $this->googleHash = $hashDaRecusa;
-
-        return $this;
-    }
-
-    /** Marca o compromisso como igual ao do Google (depois de enviar ou de trazer). */
-    public function sincronizadoComGoogle(string $googleId, string $hash): self
-    {
-        $this->googleId = $googleId;
-        $this->googleHash = $hash;
+        $this->importadoDoGoogle = true;
 
         return $this;
     }

@@ -56,11 +56,11 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
         self::assertSelectorExists('#agGoogleSair');
     }
 
-    #[TestDox('Conectar leva ao Google com state, PKCE S256, offline e o escopo de agenda; volta de outro site vira a Agenda')]
+    #[TestDox('Conectar leva ao Google com state, PKCE S256, offline, o escopo só das agendas que o BlueJus cria e o e-mail do cadastro como sugestão; volta de outro site vira a Agenda')]
     public function testConectarLevaAoGoogle(): void
     {
         $client = $this->cliente();
-        $this->entrar($client);
+        [$eu] = $this->entrar($client);
 
         $client->request('GET', '/agenda/google/conectar?volta=' . rawurlencode('https://mal.example/x'));
         $destino = (string) $client->getResponse()->headers->get('Location');
@@ -71,7 +71,8 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
         self::assertSame(43, strlen((string) $q['code_challenge']));
         self::assertSame(32, strlen((string) $q['state']));
         self::assertSame('offline', $q['access_type']);
-        self::assertSame(GoogleAgendaApi::ESCOPO, $q['scope']);
+        self::assertSame('openid email https://www.googleapis.com/auth/calendar.app.created', $q['scope']);
+        self::assertSame($eu->getEmail(), $q['login_hint'], 'sugere a conta do cadastro; a pessoa escolhe qualquer uma');
         self::assertStringEndsWith('/agenda/google/retorno', (string) $q['redirect_uri']);
 
         $client->request('GET', '/agenda/google/retorno?error=access_denied&state=' . $q['state']);
@@ -102,8 +103,8 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
         self::assertContains('POST /token', $this->google->pedidos);
     }
 
-    #[TestDox('A mesma conta Google já ligada em outro escritório é recusada, sem revogar a de lá: a agenda pessoal não vai para dois empregadores')]
-    public function testContaEmOutroEscritorio(): void
+    #[TestDox('A mesma conta Google pode ser ligada em outro escritório: cada um terá a sua agenda nela, e a de lá não é revogada')]
+    public function testMesmaContaEmOutroEscritorio(): void
     {
         $client = $this->cliente();
         [$eu, $tenant] = $this->entrar($client);
@@ -116,10 +117,24 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
 
         $client->request('GET', '/agenda/google/retorno?code=abc&state=' . $q['state']);
 
-        self::assertResponseRedirects('/agenda#google=outro_escritorio');
-        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM agenda_google_conexao WHERE tenant_id = :t', ['t' => $tenant->getId()]));
+        self::assertResponseRedirects('/agenda#google=conectado');
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM agenda_google_conexao WHERE tenant_id = :t', ['t' => $tenant->getId()]));
         self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM agenda_google_conexao WHERE tenant_id = :t', ['t' => $outro->getId()]));
         self::assertNotContains('POST /revoke', $this->google->pedidos);
+    }
+
+    #[TestDox('Desconectar pedindo para apagar a agenda do escritório: apaga lá também; sem pedir, ela fica')]
+    public function testDesconectarApagandoAAgenda(): void
+    {
+        $client = $this->cliente();
+        [$eu, $tenant] = $this->entrar($client);
+        $this->conectado($eu, $tenant);
+        $this->em()->getConnection()->executeStatement("UPDATE agenda_google_conexao SET calendario_id = 'agenda-do-escritorio' WHERE usuario_id = :u", ['u' => $eu->getId()]);
+
+        $client->request('POST', '/agenda/google/desconectar', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'], '{"apagarAgenda": true}');
+
+        self::assertResponseIsSuccessful();
+        self::assertContains('DELETE /calendar/v3/calendars/agenda-do-escritorio', $this->google->pedidos);
     }
 
     #[TestDox('Desconectar revoga no Google e apaga a conexão (LGPD, art. 8º, § 5º); sem Agenda, 403')]
@@ -138,6 +153,7 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertContains('POST /revoke', $this->google->pedidos);
+        self::assertSame([], array_filter($this->google->pedidos, static fn (string $p): bool => str_starts_with($p, 'DELETE /calendar')), 'sem pedir, a agenda do escritório fica no Google');
         self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM agenda_google_conexao WHERE usuario_id = :u', ['u' => $eu->getId()]));
 
         $this->logarComTenant($client, $semAgenda, $tenant);

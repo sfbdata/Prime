@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Agenda\UseCase;
 
+use App\Agenda\Entity\ConexaoGoogleAgenda;
+use App\Agenda\Exception\GoogleAgendaException;
 use App\Agenda\Infra\GoogleAgendaApi;
 use App\Agenda\Repository\ConexaoGoogleAgendaRepository;
 use App\Agenda\Repository\ExclusaoNoGoogleRepository;
@@ -13,9 +15,11 @@ use App\Sync\Service\CifradorDeSegredo;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * História: a pessoa revoga o consentimento (LGPD, art. 8º, § 5º) clicando em "Desconectar". A
- * autorização é revogada também na conta Google e a conexão é apagada daqui, com as exclusões pendentes.
- * Os compromissos já trazidos ficam na Agenda; nada é apagado no Google.
+ * História: a pessoa revoga o consentimento (LGPD, art. 8º, § 5º) clicando em "Desconectar" e responde se quer
+ * apagar também a agenda do escritório no Google dela ("Não, manter" vem marcado; decisão c do dono). Mantida,
+ * a agenda fica lá parada. A autorização é revogada no Google, a menos que a mesma conta esteja ligada em outro
+ * escritório (revogar derrubaria a de lá). A conexão sai daqui com as ligações e as exclusões pendentes. Os
+ * compromissos já trazidos ficam na Agenda.
  */
 final class DesconectarGoogleAgendaUseCase
 {
@@ -28,13 +32,19 @@ final class DesconectarGoogleAgendaUseCase
     ) {
     }
 
-    public function executar(Tenant $tenant, User $eu): void
+    public function executar(Tenant $tenant, User $eu, bool $apagarAgenda): void
     {
         $conexao = $this->conexoes->daPessoa($eu, $tenant);
         if (null === $conexao) {
             return;
         }
-        $this->revogarNoGoogle($conexao->getRefreshTokenCifrado());
+        $refresh = $this->refresh($conexao);
+        if ($apagarAgenda && null !== $refresh) {
+            $this->apagarAgenda($conexao, $refresh);
+        }
+        if (null !== $refresh && !$this->conexoes->contaLigadaEmOutraConexao($conexao)) {
+            $this->google->revogar($refresh);
+        }
         foreach ($this->exclusoes->pendentesDaPessoa($eu, $tenant) as $exclusao) {
             $this->exclusoes->concluir($exclusao);
         }
@@ -42,12 +52,26 @@ final class DesconectarGoogleAgendaUseCase
         $this->em->flush();
     }
 
-    private function revogarNoGoogle(string $cifrado): void
+    /** Token ilegível: não há o que revogar nem apagar lá; a conexão sai daqui mesmo assim. */
+    private function refresh(ConexaoGoogleAgenda $conexao): ?string
     {
         try {
-            $this->google->revogar($this->cifrador->decifrar($cifrado));
+            return $this->cifrador->decifrar($conexao->getRefreshTokenCifrado());
         } catch (\Throwable) {
-            // Token ilegível: não há o que revogar lá; a conexão sai daqui mesmo assim.
+            return null;
+        }
+    }
+
+    /** Falha no Google não impede desconectar aqui (a agenda fica lá, parada). */
+    private function apagarAgenda(ConexaoGoogleAgenda $conexao, string $refresh): void
+    {
+        $calendario = $conexao->getCalendarioId();
+        if (null === $calendario) {
+            return;
+        }
+        try {
+            $this->google->apagarAgenda($this->google->renovar($refresh), $calendario);
+        } catch (GoogleAgendaException) {
         }
     }
 }

@@ -8,6 +8,10 @@ use App\Agenda\Entity\ConexaoGoogleAgenda;
 use App\Agenda\Infra\GoogleAgendaApi;
 use App\Agenda\Repository\ConexaoGoogleAgendaRepository;
 use App\Agenda\Repository\EventoDaAgendaRepository;
+use App\Agenda\Repository\LigacaoComGoogleRepository;
+use App\Agenda\Service\LevarAoGoogle;
+use App\Agenda\Service\ParticipantesDoGoogle;
+use App\Repository\UserRepository;
 use App\Agenda\Repository\ExclusaoNoGoogleRepository;
 use App\Agenda\Repository\VarreduraDoGoogleRepository;
 use App\Agenda\Service\GarantirVarreduraDoGoogle;
@@ -55,10 +59,11 @@ final class GoogleAgendaUseCasesTest extends TestCase
         self::assertSame(EstadoDoGoogleAgendaUseCase::NAO_CONECTADO, $sut->executar(new Tenant(), new User()));
     }
 
-    #[TestDox('Conectar de novo (outra conta) substitui a autorização, cifrada, e recomeça a sincronia do zero; a primeira sincronia é pedida na hora')]
+    #[TestDox('Conectar de novo (outra conta) substitui a autorização, cifrada, com o e-mail do id_token, e recomeça do zero numa agenda nova; a primeira sincronia é pedida na hora')]
     public function testReconectar(): void
     {
         $existente = new ConexaoGoogleAgenda(new Tenant(), new User(), 'antigo', 'velha@gmail.com', 'UTC');
+        $existente->agendaCriada('agenda-velha');
         $existente->sincronizou('st-velho', new \DateTimeImmutable());
         $repo = $this->createStub(ConexaoGoogleAgendaRepository::class);
         $repo->method('daPessoa')->willReturn($existente);
@@ -69,28 +74,47 @@ final class GoogleAgendaUseCasesTest extends TestCase
         $cifrador = new CifradorDeSegredo(self::CHAVE);
         $garantir = new GarantirVarreduraDoGoogle($this->createStub(VarreduraDoGoogleRepository::class), $api, $this->createStub(MessageBusInterface::class));
 
-        (new ConectarGoogleAgendaUseCase($api, $repo, $cifrador, $bus, $garantir, $this->createStub(EventoDaAgendaRepository::class), $this->createStub(ExclusaoNoGoogleRepository::class)))->executar(new Tenant(), new User(), 'codigo', 'verificador', 'https://x/agenda/google/retorno');
+        (new ConectarGoogleAgendaUseCase($api, $repo, $cifrador, $bus, $garantir, $this->createStub(ExclusaoNoGoogleRepository::class), $this->createStub(LigacaoComGoogleRepository::class)))->executar(new Tenant(), new User(), 'codigo', 'verificador', 'https://x/agenda/google/retorno');
 
         self::assertSame('pessoa@gmail.com', $existente->getConta());
         self::assertNull($existente->getSyncToken());
+        self::assertNull($existente->getCalendarioId(), 'outra conta, outra agenda do escritório');
         self::assertSame('REFRESH-SECRETO', $cifrador->decifrar($existente->getRefreshTokenCifrado()));
     }
 
-    #[TestDox('Desconectar revoga no Google, descarta as exclusões pendentes e apaga a conexão; sem conexão, nada')]
+    #[TestDox('Desconectar revoga no Google e apaga a conexão; mantém a agenda do escritório lá, salvo se a pessoa pedir; sem conexão, nada')]
     public function testDesconectar(): void
+    {
+        foreach ([false => [], true => ['DELETE /calendar/v3/calendars/agenda-1']] as $apagar => $agenda) {
+            $falso = new GoogleFalso();
+            $conexao = new ConexaoGoogleAgenda(new Tenant(), new User(), (new CifradorDeSegredo(self::CHAVE))->cifrar('R'), 'p@gmail.com', 'UTC');
+            $conexao->agendaCriada('agenda-1');
+            $repo = $this->createStub(ConexaoGoogleAgendaRepository::class);
+            $repo->method('daPessoa')->willReturnOnConsecutiveCalls($conexao, null);
+            $em = $this->createMock(EntityManagerInterface::class);
+            $em->expects(self::once())->method('remove')->with($conexao);
+            $sut = new DesconectarGoogleAgendaUseCase($repo, $this->createStub(ExclusaoNoGoogleRepository::class), $falso->api(), new CifradorDeSegredo(self::CHAVE), $em);
+
+            $sut->executar(new Tenant(), new User(), (bool) $apagar);
+            $sut->executar(new Tenant(), new User(), (bool) $apagar);
+
+            $semToken = array_values(array_filter($falso->pedidos, static fn (string $p): bool => !str_ends_with($p, '/token')));
+            self::assertSame([...$agenda, 'POST /revoke'], $semToken);
+        }
+    }
+
+    #[TestDox('Desconectar não revoga a conta que continua ligada em outro escritório (derrubaria a de lá)')]
+    public function testDesconectarContaEmOutroEscritorio(): void
     {
         $falso = new GoogleFalso();
         $conexao = new ConexaoGoogleAgenda(new Tenant(), new User(), (new CifradorDeSegredo(self::CHAVE))->cifrar('R'), 'p@gmail.com', 'UTC');
         $repo = $this->createStub(ConexaoGoogleAgendaRepository::class);
-        $repo->method('daPessoa')->willReturnOnConsecutiveCalls($conexao, null);
-        $em = $this->createMock(EntityManagerInterface::class);
-        $em->expects(self::once())->method('remove')->with($conexao);
-        $sut = new DesconectarGoogleAgendaUseCase($repo, $this->createStub(ExclusaoNoGoogleRepository::class), $falso->api(), new CifradorDeSegredo(self::CHAVE), $em);
+        $repo->method('daPessoa')->willReturn($conexao);
+        $repo->method('contaLigadaEmOutraConexao')->willReturn(true);
 
-        $sut->executar(new Tenant(), new User());
-        $sut->executar(new Tenant(), new User());
+        (new DesconectarGoogleAgendaUseCase($repo, $this->createStub(ExclusaoNoGoogleRepository::class), $falso->api(), new CifradorDeSegredo(self::CHAVE), $this->createStub(EntityManagerInterface::class)))->executar(new Tenant(), new User(), false);
 
-        self::assertSame(['POST /revoke'], $falso->pedidos);
+        self::assertNotContains('POST /revoke', $falso->pedidos);
     }
 
     #[TestDox('Sincronia: com o Google desligado não faz nada; com a trava ocupada devolve nulo, sem chamar o Google')]
@@ -103,12 +127,15 @@ final class GoogleAgendaUseCasesTest extends TestCase
         $permissoes = $this->createStub(PermissionChecker::class);
         $permissoes->method('canAccessModule')->willReturn(true);
         $falso = new GoogleFalso();
+        $ligacoes = $this->createStub(LigacaoComGoogleRepository::class);
+        $em = $this->createStub(EntityManagerInterface::class);
         $montar = fn (GoogleAgendaApi $api): SincronizarGoogleAgendaUseCase => new SincronizarGoogleAgendaUseCase(
             $repo,
-            $this->createStub(EventoDaAgendaRepository::class),
-            $this->createStub(ExclusaoNoGoogleRepository::class),
+            $ligacoes,
             $api,
             new CompromissoNoGoogle(),
+            new LevarAoGoogle($api, new CompromissoNoGoogle(), $this->createStub(EventoDaAgendaRepository::class), $this->createStub(ExclusaoNoGoogleRepository::class), $ligacoes, $em, new NullLogger()),
+            new ParticipantesDoGoogle($this->createStub(UserRepository::class), $repo),
             new CifradorDeSegredo(self::CHAVE),
             new SilencioDaSincronia(),
             $permissoes,

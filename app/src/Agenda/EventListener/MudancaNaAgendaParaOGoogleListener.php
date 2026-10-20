@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Agenda\EventListener;
 
 use App\Agenda\Entity\Evento;
+use App\Entity\Auth\User;
 use App\Agenda\Infra\GoogleAgendaApi;
 use App\Agenda\Message\SincronizarGoogleDaPessoa;
 use App\Agenda\Service\SilencioDaSincronia;
@@ -18,9 +19,10 @@ use Symfony\Component\Messenger\Stamp\DelayStamp;
 
 /**
  * Compromisso criado, mudado ou excluído em qualquer tela (Agenda nova, antiga, desfazer da auditoria) =>
- * a agenda Google de quem o criou é sincronizada logo em seguida, se ela estiver conectada. A exclusão de
- * um compromisso que já está no Google fica anotada para a sincronia apagar lá. Anota no onFlush e age no
- * postFlush, depois de o banco aceitar (um flush que falha não apaga nada no Google).
+ * as agendas Google de quem o criou e dos participantes são sincronizadas logo em seguida, para quem estiver
+ * conectado. A exclusão de um compromisso que está na agenda do escritório de alguém fica anotada, por pessoa,
+ * para a sincronia apagar lá (a ligação some junto com o compromisso). Anota no onFlush e age no postFlush,
+ * depois de o banco aceitar (um flush que falha não apaga nada no Google).
  */
 #[AsDoctrineListener(event: Events::onFlush)]
 #[AsDoctrineListener(event: Events::postFlush)]
@@ -52,12 +54,18 @@ final class MudancaNaAgendaParaOGoogleListener
         $uow = $args->getObjectManager()->getUnitOfWork();
         foreach ([...$uow->getScheduledEntityInsertions(), ...$uow->getScheduledEntityUpdates()] as $entidade) {
             if ($entidade instanceof Evento) {
-                $this->anotarPessoa($entidade);
+                $this->anotarPessoas($entidade);
+            }
+        }
+        foreach ($uow->getScheduledCollectionUpdates() as $colecao) {
+            $dono = $colecao->getOwner();
+            if ($dono instanceof Evento) {
+                $this->anotarPessoas($dono, $colecao->getDeleteDiff());
             }
         }
         foreach ($uow->getScheduledEntityDeletions() as $entidade) {
-            if ($entidade instanceof Evento && $this->anotarPessoa($entidade) && null !== $entidade->getGoogleId()) {
-                $this->exclusoes[] = ['usuario' => (int) $entidade->getCriador()?->getId(), 'tenant' => (int) $entidade->getTenant()?->getId(), 'google' => $entidade->getGoogleId()];
+            if ($entidade instanceof Evento && null !== $entidade->getId()) {
+                $this->anotarExclusoes((int) $entidade->getId());
             }
         }
     }
@@ -82,16 +90,35 @@ final class MudancaNaAgendaParaOGoogleListener
         }
     }
 
-    private function anotarPessoa(Evento $evento): bool
+    /**
+     * O criador, os participantes e quem acabou de sair da lista (a cópia dele tem de sair do Google).
+     *
+     * @param array<mixed> $quemSaiu
+     */
+    private function anotarPessoas(Evento $evento, array $quemSaiu = []): void
     {
-        $usuario = $evento->getCriador()?->getId();
         $tenant = $evento->getTenant()?->getId();
-        if (null === $usuario || null === $tenant) {
-            return false;
+        if (null === $tenant) {
+            return;
         }
-        $this->pessoas[$usuario . ':' . $tenant] = ['usuario' => $usuario, 'tenant' => $tenant];
+        foreach ([$evento->getCriador(), ...$evento->getParticipantes()->toArray(), ...$quemSaiu] as $pessoa) {
+            $usuario = $pessoa instanceof User ? $pessoa->getId() : null;
+            if (null !== $usuario) {
+                $this->pessoas[$usuario . ':' . $tenant] = ['usuario' => $usuario, 'tenant' => $tenant];
+            }
+        }
+    }
 
-        return true;
+    /** Uma exclusão por agenda de pessoa em que o compromisso está. Em SQL: estamos dentro do ciclo de flush. */
+    private function anotarExclusoes(int $eventoId): void
+    {
+        foreach ($this->banco->fetchAllAssociative(
+            'SELECT c.usuario_id, c.tenant_id, l.google_id FROM agenda_google_ligacao l JOIN agenda_google_conexao c ON c.id = l.conexao_id WHERE l.evento_id = :e',
+            ['e' => $eventoId],
+        ) as $linha) {
+            $this->exclusoes[] = ['usuario' => (int) $linha['usuario_id'], 'tenant' => (int) $linha['tenant_id'], 'google' => (string) $linha['google_id']];
+            $this->pessoas[$linha['usuario_id'] . ':' . $linha['tenant_id']] = ['usuario' => (int) $linha['usuario_id'], 'tenant' => (int) $linha['tenant_id']];
+        }
     }
 
     /** Em SQL, sem passar pelo Doctrine: estamos dentro do ciclo de flush. */

@@ -120,9 +120,11 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Agenda\Entity\PushEnviado::class,
         \App\Agenda\Entity\VarreduraDePush::class,
         // Google Agenda (entrega 6): a conexão guarda a autorização cifrada e a marca técnica da sincronia,
-        // a exclusão pendente é fila de trabalho, e a marca da cadeia é técnica. O que vem do Google para os
-        // compromissos É auditado (edição do Evento pelo ORM).
+        // a ligação guarda o id do evento lá e o resumo do último envio, a exclusão pendente é fila de
+        // trabalho, e a marca da cadeia é técnica. O que vem do Google para os compromissos É auditado
+        // (edição do Evento pelo ORM).
         \App\Agenda\Entity\ConexaoGoogleAgenda::class,
+        \App\Agenda\Entity\LigacaoComGoogle::class,
         \App\Agenda\Entity\ExclusaoNoGoogle::class,
         \App\Agenda\Entity\VarreduraDoGoogle::class,
 

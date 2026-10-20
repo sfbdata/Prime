@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Agenda\Controller;
 
-use App\Agenda\Exception\ContaGoogleEmOutroEscritorioException;
 use App\Agenda\Exception\GoogleAgendaException;
 use App\Agenda\Infra\GoogleAgendaApi;
 use App\Agenda\UseCase\ConectarGoogleAgendaUseCase;
@@ -24,9 +23,11 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
- * Conexão da agenda Google da pessoa (entrega 6, spec docs/specs/agenda-google.md). OAuth no molde do
- * Drive: state na sessão conferido com hash_equals, mais PKCE S256. O resultado volta no fragmento
- * (`#google=conectado|cancelado|falhou|outro_escritorio`), que a tela da Agenda mostra no toast (o base consome os flashes).
+ * Conexão da conta Google da pessoa com a Agenda do escritório (entrega 6, modelo do dono de 20/10/2026, spec
+ * docs/specs/agenda-google.md). OAuth no molde do Drive: state na sessão conferido com hash_equals, mais PKCE
+ * S256; o e-mail do cadastro vai só como sugestão de conta. O resultado volta no fragmento
+ * (`#google=conectado|cancelado|falhou`), que a tela da Agenda mostra no toast (o base consome os flashes).
+ * Não depende do login do BlueJus: o "Entrar com o Google" é outra coisa.
  */
 final class GoogleAgendaController extends AbstractController
 {
@@ -47,7 +48,7 @@ final class GoogleAgendaController extends AbstractController
     #[Route('/agenda/google/conectar', name: 'app_agenda_google_conectar', methods: ['GET'])]
     public function iniciar(Request $request): RedirectResponse
     {
-        [, $tenant] = $this->exigirAgenda();
+        [$eu, $tenant] = $this->exigirAgenda();
         $volta = $this->voltaLocal($request->query->getString('volta'), $request->getHost());
         if (!$this->google->ligado()) {
             return $this->redirect($volta);
@@ -57,7 +58,7 @@ final class GoogleAgendaController extends AbstractController
         $request->getSession()->set(self::SESSAO, ['state' => $state, 'verificador' => $verificador, 'volta' => $volta, 'tenant' => $tenant->getId()]);
         $desafio = rtrim(strtr(base64_encode(hash('sha256', $verificador, true)), '+/', '-_'), '=');
 
-        return $this->redirect($this->google->urlDeAutorizacao($state, $desafio, $this->urlDeRetorno()));
+        return $this->redirect($this->google->urlDeAutorizacao($state, $desafio, $this->urlDeRetorno(), (string) $eu->getEmail()));
     }
 
     #[Route('/agenda/google/retorno', name: 'app_agenda_google_retorno', methods: ['GET'])]
@@ -78,8 +79,6 @@ final class GoogleAgendaController extends AbstractController
         }
         try {
             $this->conectar->executar($tenant, $eu, $request->query->getString('code'), (string) $guardado['verificador'], $this->urlDeRetorno());
-        } catch (ContaGoogleEmOutroEscritorioException) {
-            return $this->redirect($volta . '#google=outro_escritorio');
         } catch (GoogleAgendaException $e) {
             $this->logger->warning('Google Agenda: conexão falhou', ['motivo' => $e->getMessage()]);
 
@@ -89,12 +88,14 @@ final class GoogleAgendaController extends AbstractController
         return $this->redirect($volta . '#google=conectado');
     }
 
+    /** `{"apagarAgenda": true}` apaga também a agenda do escritório no Google; sem ele, ela fica lá parada. */
     #[Route('/agenda/google/desconectar', name: 'app_agenda_google_desconectar', methods: ['POST'])]
     public function sair(Request $request): JsonResponse
     {
         [$eu, $tenant] = $this->exigirAgenda();
         $this->validarCsrfAjax($request);
-        $this->desconectar->executar($tenant, $eu);
+        $corpo = '' === $request->getContent() ? [] : $request->toArray();
+        $this->desconectar->executar($tenant, $eu, true === ($corpo['apagarAgenda'] ?? false));
 
         return $this->json(['ok' => true]);
     }

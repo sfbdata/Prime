@@ -11,8 +11,10 @@ use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * A agenda Google de uma pessoa num escritório (entrega 6). Guarda só o refresh token, cifrado; o access
- * token vive na memória da sincronia. O `syncToken` do Google permite trazer só o que mudou.
+ * A conta Google de uma pessoa num escritório (entrega 6, modelo do dono de 20/10/2026). O BlueJus trabalha só
+ * na agenda secundária que criou nessa conta, com o nome do escritório (`calendarioId`); a agenda principal
+ * da pessoa não é lida. Guarda só o refresh token, cifrado; o access token vive na memória da sincronia. O
+ * `syncToken` do Google permite trazer só o que mudou nessa agenda.
  */
 #[ORM\Entity(repositoryClass: ConexaoGoogleAgendaRepository::class)]
 #[ORM\Table(name: 'agenda_google_conexao')]
@@ -25,6 +27,10 @@ class ConexaoGoogleAgenda implements TenantAware
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
+
+    /** A agenda do escritório na conta (criada pela sincronia; nula até lá ou depois de sumir no Google). */
+    #[ORM\Column(name: 'calendario_id', length: 1024, nullable: true)]
+    private ?string $calendarioId = null;
 
     #[ORM\Column(name: 'sync_token', type: 'text', nullable: true)]
     private ?string $syncToken = null;
@@ -58,9 +64,15 @@ class ConexaoGoogleAgenda implements TenantAware
         $this->conectadaEm = new \DateTimeImmutable();
     }
 
-    /** Reconectar (outra conta ou novo consentimento) recomeça a sincronia do zero. */
+    /**
+     * Reconectar renova a autorização. Com outra conta, a agenda do escritório é outra (criada de novo na conta
+     * nova); com a mesma, segue a mesma agenda. Nos dois casos a sincronia recomeça do zero.
+     */
     public function reconectar(string $refreshTokenCifrado, string $conta, string $fuso): void
     {
+        if (0 !== strcasecmp($this->conta, $conta)) {
+            $this->calendarioId = null;
+        }
         $this->refreshTokenCifrado = $refreshTokenCifrado;
         $this->conta = $conta;
         $this->fuso = $fuso;
@@ -84,6 +96,24 @@ class ConexaoGoogleAgenda implements TenantAware
     public function recomecar(): void
     {
         $this->syncToken = null;
+    }
+
+    public function agendaCriada(string $calendarioId): void
+    {
+        $this->calendarioId = $calendarioId;
+        $this->syncToken = null;
+    }
+
+    /** A agenda do escritório sumiu no Google (a pessoa apagou): a próxima sincronia cria outra. */
+    public function agendaSumiu(): void
+    {
+        $this->calendarioId = null;
+        $this->syncToken = null;
+    }
+
+    public function getCalendarioId(): ?string
+    {
+        return $this->calendarioId;
     }
 
     public function getId(): ?int

@@ -47,12 +47,34 @@ class ConexaoGoogleAgendaRepository extends ServiceEntityRepository
             ->getSingleColumnResult());
     }
 
-    /** A conta já está ligada em outro escritório? Em SQL: o filtro de escritório esconderia a outra conexão. */
-    public function contaEmOutroEscritorio(string $conta, Tenant $tenant): bool
+    /**
+     * As contas Google ligadas no escritório, para achar colegas entre os convidados de um evento do Google.
+     *
+     * @return array<string, int> e-mail (minúsculo) => id da pessoa
+     */
+    public function contasDoEscritorio(Tenant $tenant): array
+    {
+        $contas = [];
+        foreach ($this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT LOWER(conta) AS conta, usuario_id FROM agenda_google_conexao WHERE tenant_id = :t',
+            ['t' => $tenant->getId()],
+        ) as $linha) {
+            $contas[(string) $linha['conta']] = (int) $linha['usuario_id'];
+        }
+
+        return $contas;
+    }
+
+    /**
+     * A mesma conta Google ligada em outro escritório (por esta ou outra pessoa)? Revogar a autorização derruba a
+     * conta inteira para o BlueJus: o Desconectar só revoga quando não há. Em SQL: o filtro de escritório
+     * esconderia a outra conexão.
+     */
+    public function contaLigadaEmOutraConexao(ConexaoGoogleAgenda $conexao): bool
     {
         return false !== $this->getEntityManager()->getConnection()->fetchOne(
-            'SELECT 1 FROM agenda_google_conexao WHERE LOWER(conta) = LOWER(:conta) AND tenant_id <> :tenant',
-            ['conta' => $conta, 'tenant' => $tenant->getId()],
+            'SELECT 1 FROM agenda_google_conexao WHERE LOWER(conta) = LOWER(:conta) AND id <> :id',
+            ['conta' => $conexao->getConta(), 'id' => $conexao->getId()],
         );
     }
 

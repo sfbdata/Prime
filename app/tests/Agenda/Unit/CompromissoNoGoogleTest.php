@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Agenda\Unit;
 
 use App\Agenda\Entity\Evento;
+use App\Entity\Auth\User;
 use App\Agenda\Service\CompromissoNoGoogle;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -112,12 +113,36 @@ final class CompromissoNoGoogleTest extends TestCase
     {
         $e = $this->evento('2030-03-10 10:00', '2030-03-10 11:00');
         $corpo = $this->sut->corpo($e);
-        $e->sincronizadoComGoogle('g1', $this->sut->resumo($e));
+        $guardado = $this->sut->resumo($e);
         $e->setTitulo('Editado aqui depois');
 
-        self::assertTrue($this->sut->ehEcoDoEnvio($corpo, $e));
+        self::assertTrue($this->sut->ehEcoDoEnvio($corpo, $e, $guardado));
         self::assertSame('Editado aqui depois', $e->getTitulo(), 'a conferência não mexe no compromisso');
-        self::assertFalse($this->sut->ehEcoDoEnvio(['summary' => 'Mudou no Google'] + $corpo, $e));
+        self::assertFalse($this->sut->ehEcoDoEnvio(['summary' => 'Mudou no Google'] + $corpo, $e, $guardado));
+        self::assertFalse($this->sut->ehEcoDoEnvio($corpo, $e, null), 'sem envio guardado, não há eco');
+    }
+
+    #[TestDox('A cópia do participante leva o aviso de só leitura com o nome do dono, e o eco dela é reconhecido')]
+    public function testCopia(): void
+    {
+        $e = $this->evento('2030-03-10 10:00', '2030-03-10 11:00')->setDescricao('Levar a pauta')->setCriador((new User())->setFullName('Ana Souza'));
+        $corpo = $this->sut->corpo($e, true);
+
+        self::assertStringStartsWith('Compromisso de Ana Souza no BlueJus.', (string) $corpo['description']);
+        self::assertStringEndsWith('Levar a pauta', (string) $corpo['description']);
+        self::assertNotSame($this->sut->resumo($e), $this->sut->resumo($e, true));
+        self::assertTrue($this->sut->ehEcoDoEnvio($corpo, $e, $this->sut->resumo($e, true), true));
+        self::assertFalse($this->sut->ehEcoDoEnvio(['summary' => 'Mexi na cópia'] + $corpo, $e, $this->sut->resumo($e, true), true));
+    }
+
+    #[TestDox('Id nosso: só bjt<escritório>e<compromisso>, e o compromisso só sai para o mesmo escritório; convidados em minúsculas, sem a própria conta')]
+    public function testIdNossoEConvidados(): void
+    {
+        self::assertTrue($this->sut->ehIdNosso('bjt4e10'));
+        self::assertFalse($this->sut->ehIdNosso('abc123'));
+        self::assertSame(10, $this->sut->compromissoDoId('bjt4e10', 4));
+        self::assertNull($this->sut->compromissoDoId('bjt5e10', 4));
+        self::assertSame(['ana@x.com', 'b@y.com'], $this->sut->emailsDosConvidados(['attendees' => [['email' => ' Ana@X.com '], ['email' => 'b@y.com'], ['email' => 'ana@x.com'], ['email' => 'eu@g.com', 'self' => true], ['nome' => 'sem e-mail']]]));
     }
 
     #[TestDox('Ida e volta não muda o resumo: o que veio do Google não é devolvido a ele')]

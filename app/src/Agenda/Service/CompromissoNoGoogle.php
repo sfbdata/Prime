@@ -9,7 +9,8 @@ use App\Agenda\Entity\Evento;
 /**
  * Tradução entre o compromisso da Agenda e o evento do Google Agenda, nos dois sentidos (entrega 6).
  * A Agenda grava hora de parede de Brasília; o Google recebe a mesma hora com `timeZone`. Dia inteiro vai
- * com `date` e fim exclusivo. "Só eu" vai como `private`.
+ * com `date` e fim exclusivo. "Só eu" vai como `private`. A cópia que vai à agenda de um participante leva no
+ * começo da descrição quem é o dono e que ali é só leitura (modelo do dono de 20/10/2026, decisão b).
  */
 final class CompromissoNoGoogle
 {
@@ -24,18 +25,37 @@ final class CompromissoNoGoogle
     private const CHAVES_ACEITAS = ['FREQ', 'UNTIL', 'WKST', 'BYDAY', 'BYMONTHDAY', 'BYMONTH'];
     private const DIAS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 
-    /** Id nosso no Google (alfabeto base32hex: 0-9 e a-v): enviar duas vezes não cria dois eventos. */
+    /**
+     * Id nosso no Google (alfabeto base32hex: 0-9 e a-v): enviar duas vezes não cria dois eventos. O mesmo id
+     * em todas as agendas (o id é único por agenda).
+     */
     public function idPara(Evento $evento): string
     {
-        return $evento->getGoogleId() ?? 'bjt' . $evento->getTenant()?->getId() . 'e' . $evento->getId();
+        return 'bjt' . $evento->getTenant()?->getId() . 'e' . $evento->getId();
     }
 
-    /** @return array<string, mixed> o corpo do evento na API do Google */
-    public function corpo(Evento $evento): array
+    /** O id é um dos nossos (`bjt<escritório>e<compromisso>`)? */
+    public function ehIdNosso(string $googleId): bool
+    {
+        return 1 === preg_match('/^bjt\d+e\d+$/', $googleId);
+    }
+
+    /** O compromisso de um id nosso deste escritório; nulo se o id não é nosso ou é de outro escritório. */
+    public function compromissoDoId(string $googleId, int $tenantId): ?int
+    {
+        return 1 === preg_match('/^bjt(\d+)e(\d+)$/', $googleId, $m) && (int) $m[1] === $tenantId ? (int) $m[2] : null;
+    }
+
+    /**
+     * @param bool $copia vai à agenda de um participante (só leitura lá)
+     *
+     * @return array<string, mixed> o corpo do evento na API do Google
+     */
+    public function corpo(Evento $evento, bool $copia = false): array
     {
         $corpo = [
             'summary'     => $evento->getTitulo(),
-            'description' => (string) $evento->getDescricao(),
+            'description' => $this->descricao($evento, $copia),
             'location'    => (string) $evento->getLocal(),
             'status'      => Evento::STATUS_CANCELADO === $evento->getStatus() ? 'cancelled' : 'confirmed',
             'visibility'  => Evento::VISIBILIDADE_SOMENTE_EU === $evento->getVisibilidade() ? 'private' : 'default',
@@ -49,9 +69,9 @@ final class CompromissoNoGoogle
     }
 
     /** Resumo do que vai ao Google: mudou o resumo, o compromisso vai de novo. */
-    public function resumo(Evento $evento): string
+    public function resumo(Evento $evento, bool $copia = false): string
     {
-        return hash('sha256', (string) json_encode($this->corpo($evento)));
+        return hash('sha256', (string) json_encode($this->corpo($evento, $copia)));
     }
 
     /**
@@ -85,22 +105,25 @@ final class CompromissoNoGoogle
 
     /**
      * O item é o eco do nosso último envio (o Google não mudou nada desde então)? Aplica numa cópia e
-     * compara o resumo com o guardado. Eco não sobrescreve: a pessoa pode ter editado aqui depois do envio.
+     * compara o resumo com o guardado na ligação. Eco não sobrescreve: a pessoa pode ter editado aqui depois do
+     * envio. Na cópia do participante (`copia`), o aviso de só leitura sai da descrição antes de aplicar.
      *
      * @param array<string, mixed> $item
      */
-    public function ehEcoDoEnvio(array $item, Evento $evento): bool
+    public function ehEcoDoEnvio(array $item, Evento $evento, ?string $guardado, bool $copia = false): bool
     {
-        $guardado = $evento->getGoogleHash();
         if (null === $guardado || self::SO_DO_GOOGLE === $guardado) {
             return false;
         }
-        $copia = clone $evento;
-        // `aplicar` nunca torna público (proteção do "Só eu"); na cópia, a visibilidade é a que o Google
+        if ($copia) {
+            $item['description'] = $this->semAviso((string) ($item['description'] ?? ''), $evento);
+        }
+        $clone = clone $evento;
+        // `aplicar` nunca torna público (proteção do "Só eu"); no clone, a visibilidade é a que o Google
         // mostra, senão uma troca para "Só eu" feita aqui depois do envio esconderia o eco.
-        $copia->setVisibilidade('private' === ($item['visibility'] ?? null) ? Evento::VISIBILIDADE_SOMENTE_EU : Evento::VISIBILIDADE_TODOS);
+        $clone->setVisibilidade('private' === ($item['visibility'] ?? null) ? Evento::VISIBILIDADE_SOMENTE_EU : Evento::VISIBILIDADE_TODOS);
 
-        return $this->aplicar($item, $copia) && $this->resumo($copia) === $guardado;
+        return $this->aplicar($item, $clone) && $this->resumo($clone, $copia) === $guardado;
     }
 
     /**
@@ -126,10 +149,25 @@ final class CompromissoNoGoogle
         return isset($item['eventType']) && !in_array($item['eventType'], ['default', 'fromGmail'], true);
     }
 
-    /** Id nosso de outro escritório (`bjt<outro>e…`): a mesma conta Google ligada em dois escritórios. */
-    public function ehDeOutroEscritorio(string $googleId, int $tenantId): bool
+    /**
+     * E-mails dos convidados do evento (minúsculos), para achar quem é da equipe (modelo do dono, decisão a).
+     * O de fora não é guardado: só serve para casar com a equipe nesta chamada.
+     *
+     * @param array<string, mixed> $item
+     *
+     * @return list<string>
+     */
+    public function emailsDosConvidados(array $item): array
     {
-        return 1 === preg_match('/^bjt(\d+)e\d+$/', $googleId, $m) && (int) $m[1] !== $tenantId;
+        $emails = [];
+        foreach ((array) ($item['attendees'] ?? []) as $convidado) {
+            $email = is_array($convidado) && is_string($convidado['email'] ?? null) ? mb_strtolower(trim($convidado['email'])) : '';
+            if ('' !== $email && true !== ($convidado['self'] ?? false)) {
+                $emails[] = $email;
+            }
+        }
+
+        return array_values(array_unique($emails));
     }
 
     /**
@@ -140,6 +178,31 @@ final class CompromissoNoGoogle
     public function ehOcorrenciaDeSerie(array $item): bool
     {
         return isset($item['recurringEventId']);
+    }
+
+    private function semAviso(string $descricao, Evento $evento): string
+    {
+        $aviso = $this->avisoDaCopia($evento);
+
+        return str_starts_with($descricao, $aviso) ? ltrim(substr($descricao, strlen($aviso))) : $descricao;
+    }
+
+    /** A cópia do participante diz de quem é e que lá é só leitura (o que mudarem lá volta como aqui). */
+    private function descricao(Evento $evento, bool $copia): string
+    {
+        $descricao = (string) $evento->getDescricao();
+        if (!$copia) {
+            return $descricao;
+        }
+
+        return '' === $descricao ? $this->avisoDaCopia($evento) : $this->avisoDaCopia($evento) . "\n\n" . $descricao;
+    }
+
+    private function avisoDaCopia(Evento $evento): string
+    {
+        $dono = trim((string) $evento->getCriador()?->getFullName()) ?: 'um colega';
+
+        return 'Compromisso de ' . $dono . ' no BlueJus. Para mudar, peça a quem criou: o que for mudado aqui volta como está no BlueJus.';
     }
 
     /** @return array{start: array<string, string>, end: array<string, string>} */
