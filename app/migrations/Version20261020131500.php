@@ -15,7 +15,7 @@ use Doctrine\Migrations\AbstractMigration;
  * situação, o nome oficial e a data que já tinha. Donos confirmados sem número (backfill de 01/07) ficam sem
  * inscrição, como hoje. Os campos do User continuam e passam a ser a cópia da principal.
  */
-final class Version20261019130750 extends AbstractMigration
+final class Version20261020131500 extends AbstractMigration
 {
     public function getDescription(): string
     {
