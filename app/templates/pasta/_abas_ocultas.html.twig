@@ -1,0 +1,78 @@
+{# ============================================================================
+   Ocultar aba da pasta (spec docs/specs/pasta-ocultar-aba.md §5). Desenho [EXP]:
+   "02 - EXPEDIENTES 1.2.3.dc.html": menu da aba `abaMenu` L.4409-4419 (menu genérico `gm`
+   L.289-297), modal "Ocultar para…" L.262-279 (`abaVisVals` L.4420-4427).
+
+   Três peças, todas lidas pelo pasta-abas-ocultas.js:
+     1. `#paoRaiz`: para todos. Diz se quem vê configura; sem configurar, o botão direito numa aba
+        (fora a Push, que tem o menu do link externo) só mostra o aviso do desenho.
+     2. `#abaOcultaMenu`: o menu do botão direito, só para quem configura (Master ou primário). Os
+        itens dele também vão para o topo do menu da aba Push (`#pushLinkMenu`), sem duplicar menu.
+        Visual: o mesmo `gm` do desenho que o `#pushLinkMenu` já porta (classes `ppl-menu*`,
+        pasta-push-link.css).
+     3. `#paoModal`: a janela "Ocultar aba <Rótulo>". As linhas o JS monta a partir do
+        `<template id="paoLinhaModelo">`, só com textContent.
+
+   Contexto: `pasta`, `abasDaPasta` (App\Pasta\DTO\AbasDaPastaOutput ou null).
+   ============================================================================ #}
+{% set configura = abasDaPasta is not null and abasDaPasta.podeConfigurar %}
+<div id="paoRaiz" hidden
+     data-pode-configurar="{{ configura ? '1' : '0' }}"
+     {%- if configura %}
+     data-url-equipe="{{ path('pasta_aba_equipe', {id: pasta.id, aba: '__ABA__'}) }}"
+     data-url-ocultar-todos="{{ path('pasta_aba_ocultar_todos', {id: pasta.id, aba: '__ABA__'}) }}"
+     data-url-ocultar-para="{{ path('pasta_aba_ocultar_para', {id: pasta.id, aba: '__ABA__'}) }}"
+     data-url-mostrar="{{ path('pasta_aba_mostrar', {id: pasta.id, aba: '__ABA__'}) }}"
+     data-csrf="{{ csrf_token('pasta_aba_oculta_' ~ pasta.id) }}"
+     {%- endif %}></div>
+
+{% if configura %}
+    {# ── 2. Menu do botão direito ([EXP] `gm` L.289-297; itens L.4415-4417) ── #}
+    <div class="ppl-menu" id="abaOcultaMenu" role="menu" aria-labelledby="abaOcultaMenuTitulo" hidden>
+        <div class="ppl-menu-cab">
+            <span class="ppl-menu-titulo" id="abaOcultaMenuTitulo"></span>
+            <button type="button" class="ppl-menu-x js-pao-menu-fechar" title="Fechar (Esc)" aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+        </div>
+        <button type="button" class="ppl-menu-item js-pao-ocultar-todos" role="menuitem">
+            <i class="bi bi-eye-slash" aria-hidden="true"></i><span>Ocultar para toda a equipe</span>
+        </button>
+        <button type="button" class="ppl-menu-item js-pao-ocultar-para" role="menuitem" aria-haspopup="dialog" aria-controls="paoModal">
+            <i class="bi bi-people" aria-hidden="true"></i><span>Ocultar para…</span>
+        </button>
+        <button type="button" class="ppl-menu-item js-pao-mostrar" role="menuitem" hidden>
+            <i class="bi bi-eye" aria-hidden="true"></i><span>Mostrar para todos</span>
+        </button>
+    </div>
+
+    {# ── 3. Modal "Ocultar aba" ([EXP] L.262-279) ── #}
+    <div class="pao-fundo" id="paoModal" hidden>
+        <div class="pao-janela" role="dialog" aria-modal="true" aria-labelledby="paoTitulo">
+            <div class="pao-cab">
+                <i class="bi bi-eye-slash pao-cab-icone" aria-hidden="true"></i>
+                <div class="pao-cab-textos">
+                    <div class="pao-cab-titulo" id="paoTitulo">Ocultar aba</div>
+                    <div class="pao-cab-sub">Quem estiver marcado deixa de ver esta aba</div>
+                </div>
+                <button type="button" class="pao-cab-x js-pao-fechar" aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+            <button type="button" class="pao-todos js-pao-todos" role="checkbox" aria-checked="false" disabled>
+                <i class="bi bi-square pao-marca js-pao-todos-marca" aria-hidden="true"></i><span class="js-pao-todos-texto">Toda a equipe (0)</span>
+            </button>
+            <div class="pao-lista js-pao-lista" role="group" aria-label="Equipe">
+                <div class="pao-lista-aviso js-pao-carregando">Carregando…</div>
+                <div class="pao-lista-aviso js-pao-vazio" hidden>Ninguém da equipe para ocultar esta aba.</div>
+            </div>
+            <div class="pao-rodape">
+                <button type="button" class="pao-btn pao-btn--cancelar js-pao-fechar">Cancelar</button>
+                <button type="button" class="pao-btn pao-btn--salvar js-pao-salvar" disabled>Salvar</button>
+            </div>
+        </div>
+    </div>
+    <template id="paoLinhaModelo">
+        <button type="button" class="pao-linha" role="checkbox" aria-checked="false">
+            <i class="bi bi-square pao-marca" aria-hidden="true"></i>
+            <span class="pao-linha-textos"><span class="pao-linha-nome"></span><span class="pao-linha-funcao"></span></span>
+            <span class="pao-selo" hidden>OCULTA</span>
+        </button>
+    </template>
+{% endif %}
