@@ -9,7 +9,7 @@
 {% if i %}
 {% set estados = {off: ['Não conectado', 'is-off'], pend: ['Aguardando servidor', 'is-pend'], ok: ['Conectado', 'is-ok']} %}
 <link rel="stylesheet" href="{{ asset('css/contribua-cora.css') }}">
-<section class="cc-integ" data-screen-label="Integração bancária" data-cc-integracao
+<section id="integracao" class="cc-integ" data-screen-label="Integração bancária" data-cc-integracao
          data-url-salvar="{{ path('contribua_integracao_salvar') }}"
          data-url-certificado="{{ path('contribua_integracao_certificado') }}"
          data-url-testar="{{ path('contribua_integracao_testar') }}"

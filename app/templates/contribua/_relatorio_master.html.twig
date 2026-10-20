@@ -1,0 +1,65 @@
+{#
+    Relatório de contribuições no Painel do Master (desenho 08, L253: chave "rel" da Integração bancária, "Valores
+    recebidos por conta e por mês no Painel do Master"). O desenho não mostra o relatório: segue o visual do painel
+    (public/css/master.css: .mp-card, .mp-cab-cinza, .mp-vazio-linha), com o estilo próprio em
+    public/css/contribua-relatorio.css. Vem de RelatorioDeContribuicoesController, incluído no painel por render().
+    public/js/contribua-relatorio.js mostra o cartão só na seção "Visão geral" do painel.
+#}
+{% macro reais(centavos) %}R$ {{ (centavos / 100)|number_format(2, ',', '.') }}{% endmacro %}
+{% import _self as f %}
+<link rel="stylesheet" href="{{ asset('css/contribua-relatorio.css') }}">
+<section class="mp-card cr-relatorio" data-cr-relatorio aria-labelledby="crTitulo">
+    <div class="mp-cab-cinza">
+        <b id="crTitulo"><i class="bi bi-piggy-bank"></i> Contribuições<span>valores recebidos por conta e por mês</span></b>
+        {% if r.ligado and not r.semConfirmados %}
+            <span class="cr-total">Total geral <b data-cr-total>{{ f.reais(r.totalGeralCentavos) }}</b></span>
+        {% endif %}
+    </div>
+    {% if not r.ligado %}
+        <div class="cr-desligado" data-cr-desligado>
+            <i class="bi bi-toggle-off"></i>
+            {% if r.desligado == constant('App\\Contribua\\DTO\\RelatorioDeContribuicoes::SEM_INTEGRACAO') %}
+                <span>Relatório de contribuições desligado: a Integração bancária ainda não foi configurada.</span>
+            {% else %}
+                <span>Relatório de contribuições desligado na Integração bancária.</span>
+            {% endif %}
+            <a href="{{ path('contribua_index') }}#integracao">Abrir a Integração bancária</a>
+        </div>
+    {% elseif r.semConfirmados %}
+        <div class="mp-vazio-linha" data-cr-vazio>Nenhuma contribuição confirmada ainda.</div>
+        {% if r.informadoNosMeses > 0 %}
+            <div class="cr-informados">Informados, não confirmados (últimos 12 meses): <b>{{ f.reais(r.informadoNosMeses) }}</b></div>
+        {% endif %}
+    {% else %}
+        <div class="cr-corpo">
+            <div class="cr-rotulo">ÚLTIMOS 12 MESES · CONFIRMADOS <b>{{ f.reais(r.confirmadoNosMeses) }}</b></div>
+            <div class="cr-meses">
+                {% for m in r.meses %}
+                    <div class="cr-mes{{ m.confirmadoCentavos == 0 ? ' cr-mes-zero' }}" data-mes="{{ m.mes }}">
+                        <span class="cr-mes-barra"><i style="--h: {{ (m.confirmadoCentavos / r.maiorMes * 100)|round }}%"></i></span>
+                        <b>{{ f.reais(m.confirmadoCentavos) }}</b>
+                        <span class="cr-mes-rot">{{ m.rotulo }}</span>
+                        {% if m.informadoCentavos > 0 %}<span class="cr-mes-inf" title="Informados pelo escritório, não confirmados">+ {{ f.reais(m.informadoCentavos) }} informados</span>{% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+            {% if r.informadoNosMeses > 0 %}
+                <div class="cr-informados">Informados, não confirmados (últimos 12 meses): <b>{{ f.reais(r.informadoNosMeses) }}</b>. Não entram nos totais.</div>
+            {% endif %}
+            <table class="cr-tabela">
+                <thead><tr><th>Conta</th><th>Total confirmado</th><th>Apoios</th><th>Último apoio</th></tr></thead>
+                <tbody>
+                    {% for c in r.contas %}
+                        <tr>
+                            <td>{{ c.escritorio }}{% if c.excluido %} <span class="cr-tag-excluido">EXCLUÍDO</span>{% endif %}</td>
+                            <td>{{ f.reais(c.totalCentavos) }}</td>
+                            <td>{{ c.quantidade }}</td>
+                            <td>{{ c.ultimoApoio|date('d/m/Y') }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</section>
+<script src="{{ asset('js/contribua-relatorio.js') }}"></script>

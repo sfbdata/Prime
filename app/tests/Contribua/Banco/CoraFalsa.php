@@ -27,6 +27,8 @@ final class CoraFalsa
     public ?int $statusDaCriacao = null;
     public int $tokensExpirados = 0;
     public int $tokensEmitidos = 0;
+    /** `occurrence_date` da cobrança paga: só a data, ou data e hora com fuso. */
+    public string $dataDoPagamento = '2026-10-19';
 
     public function cliente(): MockHttpClient
     {
@@ -107,7 +109,7 @@ final class CoraFalsa
 
         return $this->json([
             'id' => $id, 'status' => $this->status[$id], 'total_amount' => 2000, 'total_paid' => $pago ? 2000 : 0,
-            'occurrence_date' => $pago ? '2026-10-19' : null, 'code' => $this->codigos[$id] ?? null,
+            'occurrence_date' => $pago ? $this->dataDoPagamento : null, 'code' => $this->codigos[$id] ?? null,
             'payments' => $pago ? [['id' => 'fd13', 'status' => 'SUCCESS', 'total_paid' => 2000, 'method' => 'PIX']] : [],
         ]);
     }
