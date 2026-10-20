@@ -129,7 +129,7 @@ final class SalvarCompromissoUseCaseTest extends TestCase
         $evento = (new Evento())->setCriador($this->eu)->setTenant($this->tenant);
         $this->eventos->method('visivelPara')->willReturn($evento);
         $this->notificacoes->expects(self::once())->method('criarNotificacao')
-            ->with($this->maria, $this->tenant, self::anything(), self::stringContains('Samuel marcou você em um compromisso: Audiência'), '/agenda#ev=ev--2030-03-10');
+            ->with($this->maria, $this->tenant, self::anything(), 'Agenda: Audiência', '/agenda#ev=ev--2030-03-10', self::stringContains('Samuel marcou você em um compromisso: Audiência'));
 
         $r1 = $this->sut()->executar($this->input(['avisados' => [1, 2, 99]]), 5, $this->eu, $this->tenant);
         $r2 = $this->sut()->executar($this->input(['avisados' => [1, 2]]), 5, $this->eu, $this->tenant);
@@ -146,7 +146,7 @@ final class SalvarCompromissoUseCaseTest extends TestCase
         $this->eventos->method('visivelPara')->willReturn($evento);
         $this->pastas->method('findDoEscritorioPorNup')->willReturn((new Pasta())->setNup('0001234-56.2026.8.02.0001'));
         $this->notificacoes->expects(self::once())->method('criarNotificacao')
-            ->with(self::anything(), self::anything(), self::anything(), self::callback(static fn (string $m): bool => mb_strlen($m) <= 255 && str_ends_with($m, '…')));
+            ->with(self::anything(), self::anything(), self::anything(), self::callback(static fn (string $t): bool => mb_strlen($t) <= 255), self::anything(), self::callback(static fn (string $m): bool => mb_strlen($m) <= 255 && str_ends_with($m, '…')));
 
         $this->sut()->executar($this->input(['titulo' => str_repeat('Título comprido ', 15), 'pasta' => '0001234-56.2026.8.02.0001', 'observacao' => str_repeat('x', 200), 'avisados' => [2]]), 5, $this->eu, $this->tenant);
     }
