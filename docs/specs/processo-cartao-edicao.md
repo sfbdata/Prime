@@ -34,6 +34,12 @@ Decisor imparcial (feature-review-agent, 19/10), confirmadas pelo coordenador:
   processo salvos.".
 - D6. A dica "Preencha apenas o que você confirmou nos autos. Campos vazios ficam como "Não informado"." fica literal.
 - D7. "Prioridade?" e o chip "Prioridade" ficam literais; não se ligam ao `PrioridadePasta`.
+- D8 (revisão, 19/10). Igual ao base é comparação EXATA, como o `JSON.stringify` do desenho (mudar só a caixa vira
+  manual), com a mesma limpeza de espaços dos dois lados (espaço duplo do Datajud não vira manual à toa). Salvar sem
+  mudar nada não grava nem deixa rastro. `dados_manuais_em` existe só quando há valor manual (liga a linha "Preenchido
+  manualmente em…"); limpar tudo volta ao estado sem edição, com a trilha no `audit_log`. O selo "manual" só aparece
+  quando o valor exibido é o manual (o "Sim" do tribunal vence um "Não" manual antigo, sem selo). Na faixa de cima,
+  Classe e Assunto mostram o manual quando há. O aviso conta só pastas fora da lápide.
 
 ## Tela
 
@@ -58,6 +64,11 @@ Decisor imparcial (feature-review-agent, 19/10), confirmadas pelo coordenador:
 - D4 (recusar "Não" manual quando o tribunal informou sigilo) e o texto novo do aviso de D5.
 - P5a (PJe/MNI e "Abrir no PJe") segue com o dono; este PR deixa a fonte plugável.
 - "Ação" na linha Classe · Tribunal · Situação (N:1732) é item do desenho fora desta frente (PMC-006).
+- O valor da causa manual fica no processo e se sobrepõe ao `Pasta.valorCausa` no cartão de todas as pastas com o
+  processo; quem edita é quem tem EDIT no processo (mesmo sem EDIT na pasta). A média por cliente e a IA continuam
+  lendo o `Pasta.valorCausa`.
+- A IA continua recebendo classe, órgão e assuntos do Datajud, não os manuais (só o sigilo manual vale para ela).
+  Levar os manuais ao prompt é frente própria (campo novo neutralizado, regra 5 do domínio Inteligencia).
 
 ## Testes mínimos
 

@@ -4535,7 +4535,8 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-processos .ps-btn--primario.ps-btn--caps:focus-visible { border-color: var(--ps-env-hv); background: var(--ps-env-hv); }
 /* Valor vazio do cartao: 13.5/500, italico, mais apagado (dc 2871). So no cartao
    de processo — a faixa do cabecalho tem o tom proprio (C8). */
-.ps-processos .ps-processo-valor.ps-dado--vazio { font-size: 13.5px; font-weight: 500; font-style: italic; color: var(--ps-vazio-italico); }
+.ps-processos .ps-processo-valor.ps-dado--vazio,
+.ps-processos .ps-processo-campo-valor.ps-dado--vazio { font-size: 13.5px; font-weight: 500; font-style: italic; color: var(--ps-vazio-italico); }
 
 /* ── Financeiro: vazio de Pagamentos em linha (auditoria 2 F5) ──
    "Nenhum lançamento. Use Adicionar pagamento." (dc 1920), abaixo do total zerado. */

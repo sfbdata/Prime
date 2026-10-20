@@ -685,8 +685,11 @@ class Processo implements TenantAware
         $this->gratuitaManual = $dados->gratuita;
         $this->tutelaManual = $dados->tutela;
         $this->prioridadeManual = $dados->prioridade;
-        $this->dadosManuaisEm = new \DateTimeImmutable();
-        $this->dadosManuaisPor = $por;
+        // `dados_manuais_em` existe só quando há valor manual: é o que liga a linha "Preenchido
+        // manualmente em…" do desenho. Limpar tudo volta ao estado sem edição (a trilha fica no audit_log).
+        $temAlgum = $dados->temAlgum();
+        $this->dadosManuaisEm = $temAlgum ? new \DateTimeImmutable() : null;
+        $this->dadosManuaisPor = $temAlgum ? $por : null;
     }
 
     public function getDadosManuaisEm(): ?\DateTimeImmutable

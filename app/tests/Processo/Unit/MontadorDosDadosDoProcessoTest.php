@@ -105,6 +105,7 @@ final class MontadorDosDadosDoProcessoTest extends TestCase
         $p->setNivelSigilo(5);
         $p->definirDadosManuais(new DadosManuaisDoProcesso(segredo: false), new User());
         self::assertTrue($this->campos($p)['segredo']['flag']);
+        self::assertFalse($this->campos($p)['segredo']['manual'], 'o exibido é o do tribunal: sem selo "manual"');
         self::assertTrue($p->emSegredoDeJustica());
 
         $publico = $this->processo();

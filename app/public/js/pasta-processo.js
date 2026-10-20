@@ -452,7 +452,9 @@
             });
         }).then(function (r) {
             if (!r.ok || r.dados.sucesso !== true || typeof r.dados.html !== 'string') {
-                avisar(typeof r.dados.erro === 'string' ? r.dados.erro : 'Não foi possível salvar os dados do processo.', 'erro');
+                // `erro` do controller; `mensagem` da recusa da pasta excluída (PastaSomenteLeituraListener).
+                var motivo = typeof r.dados.erro === 'string' ? r.dados.erro : (typeof r.dados.mensagem === 'string' ? r.dados.mensagem : '');
+                avisar(motivo || 'Não foi possível salvar os dados do processo.', 'erro');
                 if (salvar) { salvar.disabled = false; }
                 return;
             }

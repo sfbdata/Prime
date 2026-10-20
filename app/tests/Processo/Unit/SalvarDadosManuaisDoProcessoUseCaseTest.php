@@ -59,12 +59,12 @@ final class SalvarDadosManuaisDoProcessoUseCaseTest extends TestCase
         ], $flags), $usuario, new Tenant());
     }
 
-    #[TestDox('igual ao base (sem diferença de caixa) e vazio não viram manual; o diferente vira; a trilha leva antes e depois')]
+    #[TestDox('igual ao base e vazio não viram manual; o diferente vira; a trilha leva antes e depois')]
     public function testSoODiferenteViraManual(): void
     {
         $p = $this->processo();
         $pastas = $this->salvar($p, [
-            'classe' => 'procedimento comum cível',
+            'classe' => 'PROCEDIMENTO COMUM CÍVEL',
             'orgao' => '2ª Vara da Fazenda Pública do DF',
             'distribuicao' => '14/03/2025',
             'jurisdicao' => "  Brasília\u{200B} · Fórum  ",
@@ -92,6 +92,35 @@ final class SalvarDadosManuaisDoProcessoUseCaseTest extends TestCase
         self::assertSame('2ª Vara da Fazenda Pública do DF', $mudancas['dados_manuais']['to']['orgao'] ?? null);
         self::assertArrayHasKey('orgao', $mudancas['dados_manuais']['from']);
         self::assertNull($mudancas['dados_manuais']['from']['orgao']);
+    }
+
+    #[TestDox('comparação exata (desenho): mudar só a caixa vira manual; espaço duplo do Datajud não conta como diferença')]
+    public function testComparacaoExata(): void
+    {
+        $p = $this->processo();
+        $p->setOrgaoJulgador('1ª  VARA CÍVEL'); // espaço duplo vindo do tribunal
+        $this->salvar($p, ['classe' => 'Procedimento Comum Cível', 'orgao' => '1ª VARA CÍVEL']);
+
+        self::assertSame('Procedimento Comum Cível', $p->getDadosManuais()->classe);
+        self::assertNull($p->getDadosManuais()->orgao);
+    }
+
+    #[TestDox('salvar sem mudar nada não grava nem deixa rastro; limpar tudo volta ao estado sem edição (sem a data)')]
+    public function testNoOpELimpar(): void
+    {
+        $p = $this->processo();
+        $this->salvar($p, ['classe' => 'PROCEDIMENTO COMUM CÍVEL']);
+        self::assertNull($this->registro);
+        self::assertNull($p->getDadosManuaisEm());
+
+        $this->salvar($p, ['jurisdicao' => 'Brasília']);
+        self::assertNotNull($p->getDadosManuaisEm());
+        $this->registro = null;
+
+        $this->salvar($p, []);
+        self::assertNotNull($this->registro, 'limpar é mudança: fica na trilha');
+        self::assertNull($p->getDadosManuaisEm());
+        self::assertNull($p->getDadosManuaisPor());
     }
 
     #[TestDox('valor da causa igual ao da pasta não vira manual')]

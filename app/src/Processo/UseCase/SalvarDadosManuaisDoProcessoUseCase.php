@@ -40,8 +40,22 @@ final class SalvarDadosManuaisDoProcessoUseCase
 
     public function executar(Processo $processo, Pasta $pasta, DadosDoProcessoInput $input, User $user, Tenant $tenant): int
     {
-        $base = $this->montador->valoresBase($processo, $pasta);
+        $novo = $this->novosDados($input, $this->montador->valoresBase($processo, $pasta));
 
+        $antes = self::paraTrilha($processo->getDadosManuais());
+        // Salvar sem mudar nada não grava nem deixa rastro (o desenho regravaria só a hora).
+        if ($antes === self::paraTrilha($novo)) {
+            return $this->processos->contarPastasDoProcesso($processo, $tenant);
+        }
+        $processo->definirDadosManuais($novo, $user);
+        $this->processos->salvarComAuditoria($processo, self::registro($processo, $pasta, $user, $tenant, $antes, $novo));
+
+        return $this->processos->contarPastasDoProcesso($processo, $tenant);
+    }
+
+    /** O que vira manual: o preenchido e diferente do valor base (desenho `salvar`). */
+    private function novosDados(DadosDoProcessoInput $input, DadosManuaisDoProcesso $base): DadosManuaisDoProcesso
+    {
         $classe = self::texto($input->textos['classe'] ?? '');
         $jurisdicao = self::texto($input->textos['jurisdicao'] ?? '');
         $orgao = self::texto($input->textos['orgao'] ?? '');
@@ -54,7 +68,7 @@ final class SalvarDadosManuaisDoProcessoUseCase
             throw new DadosDoProcessoInvalidosException('O tribunal informou segredo de justiça neste processo. Mantenha "Sim" ou "Não informado".');
         }
 
-        $novo = new DadosManuaisDoProcesso(
+        return new DadosManuaisDoProcesso(
             classe: self::seDiferente($classe, $base->classe),
             assuntos: $assuntos !== null && !self::mesmaLista($assuntos, $base->assuntos) ? $assuntos : null,
             jurisdicao: self::seDiferente($jurisdicao, $base->jurisdicao),
@@ -67,11 +81,12 @@ final class SalvarDadosManuaisDoProcessoUseCase
             tutela: self::flagSeDiferente($flags['tutela'] ?? null, $base->tutela),
             prioridade: self::flagSeDiferente($flags['prioridade'] ?? null, $base->prioridade),
         );
+    }
 
-        $antes = self::paraTrilha($processo->getDadosManuais());
-        $processo->definirDadosManuais($novo, $user);
-
-        $registro = (new AuditLog())
+    /** @param array<string, mixed> $antes */
+    private static function registro(Processo $processo, Pasta $pasta, User $user, Tenant $tenant, array $antes, DadosManuaisDoProcesso $novo): AuditLog
+    {
+        return (new AuditLog())
             ->setAction('update')
             ->setEntityClass(Processo::class)
             ->setEntityId((string) $processo->getId())
@@ -82,10 +97,6 @@ final class SalvarDadosManuaisDoProcessoUseCase
                 'dados_manuais' => ['from' => $antes, 'to' => self::paraTrilha($novo)],
                 'pasta_id' => $pasta->getId(),
             ]);
-
-        $this->processos->salvarComAuditoria($processo, $registro);
-
-        return $this->processos->contarPastasDoProcesso($processo, $tenant);
     }
 
     /** Uma linha: controle, zero-width e bidi saem; espaços seguidos viram um. */
@@ -152,13 +163,19 @@ final class SalvarDadosManuaisDoProcessoUseCase
         return $inteiro . '.' . str_pad($centavos, 2, '0');
     }
 
+    /** Igual ao base = sem manual. Comparação exata (desenho: `JSON.stringify`), com a mesma limpeza dos dois lados. */
     private static function seDiferente(?string $valor, ?string $base): ?string
     {
-        if ($valor === null || ($base !== null && mb_strtolower($valor) === mb_strtolower($base))) {
+        if ($valor === null || ($base !== null && $valor === self::normalizar($base))) {
             return null;
         }
 
         return $valor;
+    }
+
+    private static function normalizar(string $texto): string
+    {
+        return trim((string) preg_replace('/\s+/u', ' ', (string) preg_replace('/[\p{Cc}\p{Cf}]/u', ' ', $texto)));
     }
 
     /**
@@ -167,7 +184,7 @@ final class SalvarDadosManuaisDoProcessoUseCase
      */
     private static function mesmaLista(array $lista, ?array $base): bool
     {
-        return $base !== null && array_map('mb_strtolower', $lista) === array_map('mb_strtolower', $base);
+        return $base !== null && $lista === array_map(self::normalizar(...), $base);
     }
 
     private static function mesmoValor(string $valor, ?string $base): bool

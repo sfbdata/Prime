@@ -82,17 +82,51 @@ final class MontadorDosDadosDoProcesso
 
     public function montar(Processo $processo, ?Pasta $pasta): DadosDoProcessoNoCartao
     {
-        $base = $this->valoresBase($processo, $pasta);
-        $manual = $processo->getDadosManuais();
+        [$campos, $efetivo] = $this->campos($this->valoresBase($processo, $pasta), $processo->getDadosManuais());
 
+        $marcas = [];
+        foreach (self::MARCAS as [$rotulo, $chave, $icone]) {
+            if ($efetivo[$chave] === true) {
+                $marcas[] = ['rotulo' => $rotulo, 'icone' => $icone];
+            }
+        }
+
+        $manualEm = $processo->getDadosManuaisEm();
+        $temIntegracao = $this->integracao->estaConfigurada();
+
+        return new DadosDoProcessoNoCartao(
+            campos: $campos,
+            resumo: [
+                ['rotulo' => 'Órgão julgador', 'valor' => self::exibir('orgao', $efetivo['orgao'])],
+                ['rotulo' => 'Valor da causa', 'valor' => self::exibir('valorCausa', $efetivo['valorCausa'])],
+                ['rotulo' => 'Última distribuição', 'valor' => self::exibir('distribuicao', $efetivo['distribuicao'])],
+            ],
+            marcas: $marcas,
+            fonteTexto: $manualEm !== null
+                ? 'Preenchido manualmente em ' . $manualEm->format('d/m/Y, H:i') . ($temIntegracao ? '' : ' · integração com o PJe não configurada')
+                : 'Integração com o PJe não configurada. Preencha manualmente.',
+            fonteIcone: $manualEm !== null ? 'bi-pencil-square' : 'bi-cloud-slash',
+            temIntegracao: $temIntegracao,
+        );
+    }
+
+    /**
+     * Os 11 campos com o valor efetivo e o selo, e o mapa chave → valor efetivo (para as marcas).
+     *
+     * @return array{0: list<array{chave: string, rotulo: string, tipo: string, placeholder: string, manual: bool, texto: ?string, itens: list<string>, flag: ?bool, formulario: string|bool|null}>, 1: array<string, mixed>}
+     */
+    private function campos(DadosManuaisDoProcesso $base, DadosManuaisDoProcesso $manual): array
+    {
         $efetivo = [];
         $campos = [];
         foreach (self::CAMPOS as [$chave, $rotulo, $tipo, $placeholder]) {
             $valorManual = $manual->{$chave};
             $valor = $valorManual ?? $base->{$chave};
-            // O "Sim" do tribunal vence o "Não" manual (o UseCase nem grava esse caso).
+            // O "Sim" do tribunal vence o "Não" manual (gravado antes de o tribunal informar o sigilo):
+            // o valor exibido é o do tribunal, então sem o selo "manual".
             if ($chave === 'segredo' && $base->segredo === true) {
                 $valor = true;
+                $valorManual = $valorManual === true ? true : null;
             }
             $efetivo[$chave] = $valor;
 
@@ -113,31 +147,7 @@ final class MontadorDosDadosDoProcesso
             ];
         }
 
-        $marcas = [];
-        foreach (self::MARCAS as [$rotulo, $chave, $icone]) {
-            if ($efetivo[$chave] === true) {
-                $marcas[] = ['rotulo' => $rotulo, 'icone' => $icone];
-            }
-        }
-
-        $manualEm = $processo->getDadosManuaisEm();
-        $comManual = $manualEm !== null && $manual->temAlgum();
-        $temIntegracao = $this->integracao->estaConfigurada();
-
-        return new DadosDoProcessoNoCartao(
-            campos: $campos,
-            resumo: [
-                ['rotulo' => 'Órgão julgador', 'valor' => self::exibir('orgao', $efetivo['orgao'])],
-                ['rotulo' => 'Valor da causa', 'valor' => self::exibir('valorCausa', $efetivo['valorCausa'])],
-                ['rotulo' => 'Última distribuição', 'valor' => self::exibir('distribuicao', $efetivo['distribuicao'])],
-            ],
-            marcas: $marcas,
-            fonteTexto: $comManual
-                ? 'Preenchido manualmente em ' . $manualEm->format('d/m/Y, H:i') . ($temIntegracao ? '' : ' · integração com o PJe não configurada')
-                : 'Integração com o PJe não configurada. Preencha manualmente.',
-            fonteIcone: $comManual ? 'bi-pencil-square' : 'bi-cloud-slash',
-            temIntegracao: $temIntegracao,
-        );
+        return [$campos, $efetivo];
     }
 
     /** Texto de tela de um valor de campo de texto (data dd/mm/aaaa, valor R$ 1.234,56). */

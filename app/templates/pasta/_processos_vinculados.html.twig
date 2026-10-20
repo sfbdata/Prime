@@ -287,12 +287,15 @@
                     <div class="ps-processo-dados">
                         <div class="ps-processo-dado">
                             <div class="ps-rotulo">Classe</div>
-                            <div class="ps-processo-valor{{ ef.classe.texto ? '' : ' ps-dado--vazio' }}">{{ ef.classe.texto ?: 'Não informada' }}</div>
+                            {# Classe na faixa: a manual, se houver; senão a do cadastro (sem o código, como sempre foi). #}
+                            {% set classeFaixa = ef.classe.manual ? ef.classe.texto : proc.classeProcessual %}
+                            <div class="ps-processo-valor{{ classeFaixa ? '' : ' ps-dado--vazio' }}">{{ classeFaixa ?: 'Não informada' }}</div>
                         </div>
-                        {% if proc.assuntoProcessual %}
+                        {% set assuntoFaixa = ef.assuntos.manual ? ef.assuntos.itens|join(', ') : proc.assuntoProcessual %}
+                        {% if assuntoFaixa %}
                             <div class="ps-processo-dado">
                                 <div class="ps-rotulo">Assunto</div>
-                                <div class="ps-processo-valor">{{ proc.assuntoProcessual }}</div>
+                                <div class="ps-processo-valor">{{ assuntoFaixa }}</div>
                             </div>
                         {% endif %}
                         <div class="ps-processo-dado">

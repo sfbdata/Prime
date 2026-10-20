@@ -6,8 +6,10 @@ namespace App\Processo\Controller;
 
 use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Processo\DTO\DadosDoProcessoInput;
+use App\Processo\Entity\Processo;
 use App\Processo\Exception\DadosDoProcessoInvalidosException;
 use App\Processo\Repository\ProcessoRepository;
 use App\Processo\UseCase\SalvarDadosManuaisDoProcessoUseCase;
@@ -52,23 +54,11 @@ final class DadosDoProcessoNoCartaoController extends AbstractController
         $tenant = $this->tenantContext->getCurrentTenant();
         $isXhr = $request->isXmlHttpRequest();
 
-        if ($tenant === null || $pasta->getTenant() !== $tenant) {
-            return $this->erro($pasta, $isXhr, 'Pasta não encontrada.', Response::HTTP_NOT_FOUND);
+        $processo = $this->processoEditavel($pasta, $processoId, $request, $usuario, $tenant, $isXhr);
+        if ($processo instanceof Response) {
+            return $processo;
         }
-        if (!$this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_VIEW)) {
-            return $this->erro($pasta, $isXhr, 'Sem permissão para ver esta pasta.', Response::HTTP_FORBIDDEN);
-        }
-        if (!$this->isCsrfTokenValid('processo_dados_' . $processoId, (string) $request->request->get('_token'))) {
-            return $this->erro($pasta, $isXhr, 'Token de segurança inválido.', Response::HTTP_FORBIDDEN);
-        }
-
-        $processo = $this->processos->findOneByIdDoTenant($processoId, $tenant);
-        if ($processo === null || !in_array($processo, $pasta->getProcessos(), true)) {
-            return $this->erro($pasta, $isXhr, 'Processo não encontrado nesta pasta.', Response::HTTP_NOT_FOUND);
-        }
-        if (!$this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_EDIT)) {
-            return $this->erro($pasta, $isXhr, 'Sem permissão para editar este processo.', Response::HTTP_FORBIDDEN);
-        }
+        \assert($tenant !== null);
 
         try {
             $pastas = $this->salvar->executar($processo, $pasta, DadosDoProcessoInput::fromRequest($request), $usuario, $tenant);
@@ -94,6 +84,30 @@ final class DadosDoProcessoNoCartaoController extends AbstractController
         $this->addFlash('success', $aviso);
 
         return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'processo']);
+    }
+
+    /** As guardas, na ordem do docblock da classe: o processo pronto para editar, ou a recusa. */
+    private function processoEditavel(Pasta $pasta, int $processoId, Request $request, User $usuario, ?Tenant $tenant, bool $isXhr): Processo|Response
+    {
+        if ($tenant === null || $pasta->getTenant() !== $tenant) {
+            return $this->erro($pasta, $isXhr, 'Pasta não encontrada.', Response::HTTP_NOT_FOUND);
+        }
+        if (!$this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_VIEW)) {
+            return $this->erro($pasta, $isXhr, 'Sem permissão para ver esta pasta.', Response::HTTP_FORBIDDEN);
+        }
+        if (!$this->isCsrfTokenValid('processo_dados_' . $processoId, (string) $request->request->get('_token'))) {
+            return $this->erro($pasta, $isXhr, 'Token de segurança inválido.', Response::HTTP_FORBIDDEN);
+        }
+
+        $processo = $this->processos->findOneByIdDoTenant($processoId, $tenant);
+        if ($processo === null || !in_array($processo, $pasta->getProcessos(), true)) {
+            return $this->erro($pasta, $isXhr, 'Processo não encontrado nesta pasta.', Response::HTTP_NOT_FOUND);
+        }
+        if (!$this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_EDIT)) {
+            return $this->erro($pasta, $isXhr, 'Sem permissão para editar este processo.', Response::HTTP_FORBIDDEN);
+        }
+
+        return $processo;
     }
 
     private function erro(Pasta $pasta, bool $isXhr, string $mensagem, int $status): Response

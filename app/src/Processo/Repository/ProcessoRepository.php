@@ -105,7 +105,7 @@ class ProcessoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Em quantas pastas do escritório este processo está vinculado (P5b: o aviso "Valem para todas
+     * Em quantas pastas vivas (fora da lápide) do escritório este processo está vinculado (P5b: o aviso "Valem para todas
      * as pastas com este processo"). Tenant explícito: não depende do filtro de sessão.
      */
     public function contarPastasDoProcesso(Processo $processo, Tenant $tenant): int
@@ -116,6 +116,7 @@ class ProcessoRepository extends ServiceEntityRepository
             ->join('pp.pasta', 'pa')
             ->andWhere('pp.processo = :processo')
             ->andWhere('pa.tenant = :tenant')
+            ->andWhere('pa.excluidaEm IS NULL')
             ->setParameter('processo', $processo)
             ->setParameter('tenant', $tenant)
             ->getQuery()
