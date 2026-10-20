@@ -1,6 +1,37 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.7.0"
+  data: "2026-10-20"
+  itens:
+    - "Os lembretes da Agenda agora chegam como notificação mesmo com o BlueJus fechado, desde que você tenha permitido as notificações no navegador."
+    - "Quem cria a conta ou entra numa equipe recebe um e-mail de boas-vindas com os primeiros passos."
+    - "Agora dá para encaminhar um registro ou um arquivo do Financeiro a um colega pelo Chat I.A, direto do cartão ou do menu."
+    - "Agora dá para encaminhar uma meta ou um prazo a um colega pelo Chat I.A, direto do menu da meta ou do prazo, na pasta."
+    - "Em Minhas Metas, o menu de cada meta agora tem \"Encaminhar via Chat I.A\", para mandar a meta a um colega."
+    - "Na aba Metas da pasta, clique num responsável para abrir a conversa com ele no chat."
+- versao: "2.6.0"
+  data: "2026-10-20"
+  itens:
+    - "Na Agenda, clique com o botão direito num dia para acrescentar um feriado municipal ou uma suspensão do tribunal, ou para ocultar uma data que não vale no seu escritório. Isso muda só a Agenda: para contar no ponto, continue cadastrando em Feriados e Folgas."
+    - "A Agenda agora avisa na hora dos seus compromissos, audiências e prazos com horário, com um som diferente para cada tipo, em qualquer tela do BlueJus. Para testar, use \"Testar lembretes\" na lateral da Agenda."
+    - "Em qualquer tela do sistema, aperte Ctrl + K para buscar uma pasta pelo número, pelo nome ou CPF do cliente ou pelo número do processo, e abrir com Enter."
+    - "No Dashboard da equipe, as metas e pastas com cadeado que você não pode ver deixam de entrar nos números."
+    - "O prazo da meta passa a mostrar o mesmo \"vence hoje\" ou \"atrasado\" em todas as telas."
+    - "Dentro de uma pasta, aperte Ctrl + K para buscar outra pasta pelo número, pelo nome ou CPF do cliente ou pelo número do processo, e abrir com Enter."
+    - "O usuário primário do escritório define em quanto tempo sem uso a equipe aparece como ausente no painel de presença."
+- versao: "2.5.0"
+  data: "2026-10-20"
+  itens:
+    - "A Agenda ganhou tela nova: feriados nacionais e do seu estado, recesso forense, datas comemorativas, aniversários da equipe e os prazos das pastas aparecem sozinhos no calendário."
+    - "Nova tela de entrada, com recuperação de senha por código e criação da conta e do escritório em um minuto."
+    - "O usuário primário agora pode trancar uma pasta para toda a equipe ou escolher, pessoa por pessoa, quem não vê, quem só visualiza e quem edita. Quem encontra a pasta trancada pode pedir acesso ao primário pela própria tela."
+    - "Agora dá para criar um marcador direto na janela Marcadores da pasta: digite o nome e clique em \"Criar marcador\"."
+    - "A aba Detalhes mostra quais pontos do relatório inicial já foram registrados e quais ainda faltam, e se atualiza assim que você registra uma observação."
+    - "Agora dá para bater o ponto de entrada e de saída direto pelo painel de quem está on-line, no avatar do topo."
+    - "Quem trabalha em mais de um escritório precisa registrar a saída num antes de registrar a entrada no outro, no mesmo dia."
+    - "Na aba Push da pasta, o cartão \"Avisar cliente\" guarda os e-mails do cliente, e a análise da BlueJus IA pode ser enviada a ele por e-mail depois de revisada, sempre com cópia para a Controladoria do escritório."
+    - "No cartão \"Avisar cliente\" da aba Push, o escritório pode ligar o envio automático ao cliente das novas movimentações, das audiências e intimações e de um resumo semanal toda segunda-feira, sempre com cópia para a Controladoria."
 - versao: "2.4.0"
   data: "2026-10-20"
   itens:

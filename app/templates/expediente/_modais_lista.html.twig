@@ -38,8 +38,8 @@
     </div>
 </div>
 
-{# Pasta trancada aberta por quem não é administrador (dc L.368-384) #}
-<div class="exp-modal-fundo" id="expSigilo" hidden data-url-pedir="{{ path('expediente_pasta_pedir_acesso', {id: 0}) }}">
+{# Pasta com cadeado aberta por quem está Oculto nela (dc L.368-384; spec pasta-cadeado §6) #}
+<div class="exp-modal-fundo" id="expSigilo" hidden data-url-pedir="{{ path('pasta_acesso_pedir', {id: 0}) }}">
     <div class="exp-modal exp-modal--sigilo" role="alertdialog" aria-modal="true" aria-labelledby="expSigiloTitulo" aria-describedby="expSigiloTexto">
         <div class="exp-modal-faixa"></div>
         <div class="exp-sigilo-corpo">

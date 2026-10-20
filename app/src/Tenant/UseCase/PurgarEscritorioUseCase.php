@@ -76,8 +76,11 @@ use Psr\Log\LoggerInterface;
  */
 final class PurgarEscritorioUseCase
 {
-    /** Tabelas com coluna tenant_id que NÃO são apagadas na purga (retidas por decisão de produto). */
-    private const TABELAS_RETIDAS = ['audit_log'];
+    /**
+     * Tabelas com coluna tenant_id que NÃO são apagadas na purga (retidas por decisão de produto).
+     * comercial_consentimento: prova de consentimento, 5 anos depois do término (Política L379); tenant_id sem FK.
+     */
+    private const TABELAS_RETIDAS = ['audit_log', 'comercial_consentimento'];
 
     /**
      * Ordem de deleção (do filho para o pai), verificada contra o grafo de FKs do banco.
@@ -215,6 +218,11 @@ final class PurgarEscritorioUseCase
         // são NO ACTION. Acesso antes do link (filho antes do pai).
         ['push_link_externo_acesso', 'tenant_id = :tenant'],
         ['push_link_externo', 'tenant_id = :tenant'],
+        // Cadeado da pasta (spec pasta-cadeado): cairiam pela CASCADE de `pasta`, mas as FKs de tenant são NO
+        // ACTION. A lista de pessoas antes do cadeado (filho antes do pai); os pedidos de acesso à parte.
+        ['pasta_cadeado_acesso', 'tenant_id = :tenant'],
+        ['pasta_cadeado', 'tenant_id = :tenant'],
+        ['pasta_pedido_acesso', 'tenant_id = :tenant'],
         // Abas ocultas da pasta (spec pasta-ocultar-aba §1): mesmo caso, CASCADE de `pasta` e FK de tenant NO ACTION.
         ['pasta_aba_oculta', 'tenant_id = :tenant'],
         // Relatório de pastas paradas (spec pastas-paradas): o envio do mês cairia pela CASCADE de
@@ -233,11 +241,18 @@ final class PurgarEscritorioUseCase
         ['central_conversa', 'tenant_id = :tenant'],
         // Presença na Central (F2): uma linha por vínculo, FK de tenant NO ACTION.
         ['central_presenca', 'tenant_id = :tenant'],
+        // Regra de ausência do escritório (presença, fase 3): uma linha por escritório, FK de tenant NO ACTION.
+        ['central_configuracao_presenca', 'tenant_id = :tenant'],
         // Baixa de aviso na Central (F3): cai com a notificação (CASCADE), mas a FK de tenant é NO ACTION.
         ['central_aviso_resolvido', 'tenant_id = :tenant'],
         // Descadastro de e-mail do escritório (Shared, "Não quero mais receber estes avisos"): FK de tenant
         // NO ACTION e nada a referencia. Sai com o escritório: sem ele não há quem envie.
         ['email_descadastro', 'tenant_id = :tenant'],
+        // Comercial (docs/specs/comercial-e-emails.md §3.2): o que um consumidor enviou com escopo deste escritório. FK
+        // de tenant NO ACTION; o conteúdo do envio cai junto (CASCADE). A prova de consentimento é retida (acima).
+        ['comercial_envio', 'tenant_id = :tenant'],
+        ['comercial_confirmacao_endereco', 'tenant_id = :tenant'],
+        ['comercial_ciclo_conta', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],
@@ -254,6 +269,11 @@ final class PurgarEscritorioUseCase
         ['trabalho_externo_demanda', 'tenant_id = :tenant'],
         ['marcador', 'tenant_id = :tenant'],
         ['legenda_cor', 'tenant_id = :tenant'],
+        // Agenda: ajustes do escritório nas datas do sistema (botão direito). FK de tenant CASCADE; explícito por convenção.
+        ['agenda_data_ajuste', 'tenant_id = :tenant'],
+        // Agenda (5b): inscrições de push e registro de envios. FKs de tenant CASCADE; explícito por convenção.
+        ['agenda_push_enviado', 'tenant_id = :tenant'],
+        ['agenda_push_inscricao', 'tenant_id = :tenant'],
         ['jornada_tenant', 'tenant_id = :tenant'],
         ['justificativa_ponto', 'tenant_id = :tenant'],
         ['registro_ponto', 'tenant_id = :tenant'],

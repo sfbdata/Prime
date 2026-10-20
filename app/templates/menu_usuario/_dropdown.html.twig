@@ -42,6 +42,10 @@
                 <span class="mu-item-dir">equipe</span>
             </a>
         {% endif %}
+        <button type="button" class="dropdown-item mu-item" role="menuitem" data-ind-abrir>
+            <i class="bi bi-megaphone"></i><span class="mu-item-texto"><span class="mu-item-titulo">Indicar o BlueJus</span></span>
+            <span class="mu-item-dir">nova conta</span>
+        </button>
         {% if current_tenant() %}
             <button type="button" class="dropdown-item mu-item" role="menuitem" data-mu-conta="trocar">
                 <i class="bi bi-arrow-left-right"></i><span class="mu-item-texto"><span class="mu-item-titulo">Trocar de conta</span></span>

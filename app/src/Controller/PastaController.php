@@ -11,6 +11,7 @@ use App\Cliente\Entity\ClientePJ;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Service\TelaDoCadeado;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
@@ -208,6 +209,7 @@ class PastaController extends AbstractController
         private readonly PastaPrazoRepository $pastaPrazoRepository,
         private readonly AndamentoDaPasta $andamentoDaPasta,
         private readonly DefinirSituacaoDaPastaUseCase $definirSituacao,
+        private readonly TelaDoCadeado $telaDoCadeado,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -331,7 +333,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($redirect = $this->telaDaPastaTrancada($pasta, $currentUser) ?? $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $redirect;
         }
 
@@ -2683,6 +2685,27 @@ class PastaController extends AbstractController
                 $pasta->addCliente($cliente);
             }
         }
+    }
+
+
+    /**
+     * Cadeado (spec pasta-cadeado K3): quem está `Oculto` numa pasta COM cadeado, e a veria se ela estivesse
+     * livre, vê só o cabeçalho (cliente e CPF) e a tela "Pasta trancada", com o pedido de acesso. Os demais,
+     * a pasta de outro escritório e a pasta sem cadeado seguem o caminho de sempre (o
+     * `denyResourceAccessUnlessGranted`, com o redirect, e o 404).
+     */
+    private function telaDaPastaTrancada(Pasta $pasta, \App\Entity\Auth\User $pessoa): ?Response
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || $pasta->getTenant() !== $tenant) {
+            return null;
+        }
+
+        $cadeado = $this->telaDoCadeado->montar($pasta, $pessoa, $tenant);
+
+        return $this->telaDoCadeado->mostraATelaTrancada($pasta, $pessoa, $cadeado)
+            ? $this->render('pasta/trancada.html.twig', ['pasta' => $pasta, 'cad' => $cadeado])
+            : null;
     }
 
     /**

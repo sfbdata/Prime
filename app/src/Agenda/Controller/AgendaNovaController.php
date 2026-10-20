@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Agenda\Controller;
 
 use App\Agenda\DTO\CompromissoOutput;
+use App\Agenda\DTO\LembreteOutput;
+use App\Agenda\Service\GarantirVarreduraDePush;
 use App\Agenda\UseCase\ListarCompromissosUseCase;
+use App\Agenda\UseCase\ListarLembretesUseCase;
 use App\Entity\Auth\User;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
@@ -31,6 +34,8 @@ final class AgendaNovaController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly UserRepository $usuarios,
+        private readonly ListarLembretesUseCase $listarLembretes,
+        private readonly GarantirVarreduraDePush $garantirPush,
     ) {
     }
 
@@ -50,6 +55,7 @@ final class AgendaNovaController extends AbstractController
         return $this->render('agenda/nova.html.twig', [
             'eu'     => ['id' => $user->getId(), 'nome' => $user->getFullName()],
             'podeVerPastas' => $this->permissionChecker->canAccessModule($user, $tenant, 'pastas'),
+            'tenantId'      => $tenant->getId(),
             'equipe' => array_map(
                 static fn (User $u): array => ['id' => $u->getId(), 'nome' => $u->getFullName()],
                 $this->usuarios->findColaboradoresAtivosPorTenant($tenant),
@@ -77,6 +83,24 @@ final class AgendaNovaController extends AbstractController
         $itens = $this->listarCompromissos->executar($tenant, $user, $de, $ate, $soMinha, $verPastas, $administra);
 
         return $this->json(['itens' => array_map(static fn (CompromissoOutput $c): array => $c->toArray(), $itens)]);
+    }
+
+    /** Lembretes das próximas horas, pedidos pelo lembretes.js em qualquer tela (parcial global). */
+    #[Route('/agenda/lembretes', name: 'app_agenda_lembretes', methods: ['GET'])]
+    public function lembretes(): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (null === $tenant || !$this->permissionChecker->canAccessModule($user, $tenant, 'agenda')) {
+            return $this->json(['erro' => 'Sem permissão'], 403);
+        }
+        $verPastas = $this->permissionChecker->canAccessModule($user, $tenant, 'pastas');
+        $itens = $this->listarLembretes->executar($tenant, $user, new \DateTimeImmutable(), $verPastas);
+        // Religa o push dos lembretes se o worker ficou parado (consulta barata; ver GarantirVarreduraDePush).
+        $this->garantirPush->garantir();
+
+        return $this->json(['itens' => array_map(static fn (LembreteOutput $l): array => $l->toArray(), $itens)]);
     }
 
     private function data(string $valor): ?\DateTimeImmutable

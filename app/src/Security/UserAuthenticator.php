@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Http\Authenticator\AbstractLoginFormAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\CsrfTokenBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\RememberMeBadge;
@@ -49,6 +50,20 @@ final class UserAuthenticator extends AbstractLoginFormAuthenticator
                 new RememberMeBadge(),
             ]
         );
+    }
+
+    /**
+     * Sem sessão, pedido de dados (o `fetch` do sino, XHR, quem pede JSON) recebe 401 em JSON. Quem responde
+     * primeiro é o `SessaoVencidaEmPedidoDeDadosListener`, antes do firewall gravar o destino; isto aqui é a rede
+     * de segurança. Não apaga o `target_path`: ele pode ser o destino que outra aba de navegação gravou.
+     */
+    public function start(Request $request, ?AuthenticationException $authException = null): Response
+    {
+        if (!PedidoDeNavegacao::eNavegacao($request)) {
+            return PedidoDeNavegacao::respostaDeSessaoVencida();
+        }
+
+        return parent::start($request, $authException);
     }
 
     protected function getLoginUrl(Request $request): string

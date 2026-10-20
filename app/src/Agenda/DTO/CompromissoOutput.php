@@ -53,6 +53,8 @@ final readonly class CompromissoOutput
         /** Dia e horário do evento (não da ocorrência), para o modal de edição. */
         public ?string $inicioOriginal = null,
         public ?string $fimOriginal = null,
+        /** Nome dado pelo escritório (aniversário renomeado pelo botão direito). */
+        public bool $editado = false,
     ) {
     }
 

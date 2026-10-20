@@ -41,10 +41,14 @@ security:
         - { path: ^/trabalho-externo/convite/, roles: PUBLIC_ACCESS }  # convite do Trabalho Externo (o aceite exige login; criar conta, não)
         - { path: ^/p/,               roles: PUBLIC_ACCESS }  # link externo do Push Processual (terceiro sem login, somente leitura)
         - { path: ^/cadastro,         roles: PUBLIC_ACCESS }  # auto-cadastro público (conta + escritório)
+        - { path: ^/i/,               roles: PUBLIC_ACCESS }  # link curto do Indicar o BlueJus: guarda o código e leva ao cadastro
         - { path: ^/senha,            roles: PUBLIC_ACCESS }  # recuperação de senha (quem esqueceu não consegue logar)
         - { path: ^/login,            roles: PUBLIC_ACCESS }
         - { path: ^/politica-de-privacidade, roles: PUBLIC_ACCESS }  # leitura pública: quem ainda não tem conta precisa ler
         - { path: ^/email/descadastro, roles: PUBLIC_ACCESS }  # "Não quero mais receber estes avisos": link assinado, sem login
+        - { path: ^/e/a/,             roles: PUBLIC_ACCESS }  # Comercial: pixel de abertura dos e-mails (sem login, sem sessão)
+        - { path: ^/e/c/,             roles: PUBLIC_ACCESS }  # Comercial: link rastreado dos e-mails (assinado; sem login)
+        - { path: ^/e/confirmar/,     roles: PUBLIC_ACCESS }  # Comercial: confirmação de endereço (double opt-in; GET mostra, POST grava)
 
         # A partir daqui: apenas usuário autenticado.
         # Autorização fina (o que pode fazer) é responsabilidade dos controllers

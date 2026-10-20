@@ -670,6 +670,29 @@
             if (ev.detail && ev.detail.texto) { avisar(ev.detail.texto); }
         });
 
+        // ── API da janela para o resto do sistema (window.BJCentral, BC:6645-6646; spec encaminhar-via-chat-ia §4.1) ──
+        // Só existe onde o lançador está na página. Só identificadores entram; o central.js relê tudo no servidor.
+        function abrirSeFechada() {
+            if (!ui.aberto) { abrir(); }
+        }
+        function despacharItem(item) {   /* despachar, BC:6645: abre a janela na tela "Despachar via Chat I.A" */
+            var d = item || {};
+            abrirSeFechada();
+            central.dispatchEvent(new CustomEvent('bj-central:janela-despachar', { detail: { pastaId: d.pastaId, tipo: d.tipo, itemId: d.itemId === undefined ? null : d.itemId } }));
+        }
+        function conversarCom(userId) {   /* conversar, BC:6646: abre a janela e vai para a 1:1 (si mesmo: só abre) */
+            abrirSeFechada();
+            central.dispatchEvent(new CustomEvent('bj-central:janela-conversar', { detail: { userId: userId } }));
+        }
+        window.BJCentral = {
+            abrir: abrirSeFechada,
+            despachar: despacharItem,
+            conversar: conversarCom
+        };
+        // Por evento, para quem carrega antes da janela ou não quer depender do global.
+        document.addEventListener('bj-central:despachar', function (ev) { despacharItem(ev.detail); });
+        document.addEventListener('bj-central:conversar', function (ev) { conversarCom(ev.detail && ev.detail.userId); });
+
         btnMinimizar.addEventListener('click', minimizar);
         btnMaximizar.addEventListener('click', alternarMaximizar);
         btnFechar.addEventListener('click', fechar);

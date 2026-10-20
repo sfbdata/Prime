@@ -31,12 +31,17 @@ final class MontagemDoRelatorioSemProcesso
     }
 
     /**
-     * @param list<int>|null $ids nulo = todas as pastas do escritório
+     * @param list<int>|null $ids     nulo = todas as pastas do escritório
+     * @param list<int>      $ocultas pastas Ocultas pelo cadeado para quem lê (spec pasta-cadeado D1): saem
      */
-    public function montar(Tenant $tenant, ?array $ids, bool $comHistorico, \DateTimeImmutable $hoje): RelatorioSemProcessoOutput
+    public function montar(Tenant $tenant, ?array $ids, bool $comHistorico, \DateTimeImmutable $hoje, array $ocultas = []): RelatorioSemProcessoOutput
     {
         $decisoes = $this->decisaoRepository->doEscritorio($tenant);
         $analises = $this->analisador->analisar($this->coletor->coletar($tenant, $ids), $decisoes, $hoje);
+        if ($ocultas !== []) {
+            $fora     = array_flip($ocultas);
+            $analises = array_values(array_filter($analises, static fn (AnaliseSemProcessoDaPasta $a): bool => !isset($fora[$a->pastaId])));
+        }
         usort($analises, static fn (AnaliseSemProcessoDaPasta $a, AnaliseSemProcessoDaPasta $b): int => strnatcmp($a->numero, $b->numero) ?: $a->pastaId <=> $b->pastaId);
 
         $historico = $comHistorico

@@ -46,6 +46,11 @@
         status: raiz.dataset.urlStatus,
         pasta: raiz.dataset.urlPasta,
         lista: raiz.dataset.urlLista,
+        acrescentar: raiz.dataset.urlAcrescentar,
+        renomear: raiz.dataset.urlRenomear,
+        ocultar: raiz.dataset.urlOcultar,
+        restaurar: raiz.dataset.urlRestaurar,
+        feriados: raiz.dataset.urlFeriados,
     };
     const lerJson = (texto, padrao) => { try { return JSON.parse(texto || ''); } catch (e) { return padrao; } };
     const eu = lerJson(raiz.dataset.eu, {});
@@ -107,6 +112,8 @@
         if (!coberto(s.cobertoDatas, de, ate)) {
             pedidos.push(umaVez('d' + de + ate, () => buscar(url.datas + '?de=' + de + '&ate=' + ate)).then(r => {
                 s.ufs = r.ufs;
+                s.podeAjustar = !!r.podeAjustar;
+                s.temAjustes = !!r.temAjustes;
                 r.datas.forEach(d => s.datas.set(d.id, d));
                 s.cobertoDatas.push([de, ate]);
             }));
@@ -179,14 +186,14 @@
         s.datas.forEach(d => L.push({
             id: d.id, d: d.data, t: d.titulo, cal: d.calendario, src: d.calendario, dia: true, h1: '', h2: '',
             obs: d.observacao || (d.fonte && d.calendario === 'fer' ? 'Fonte: ' + d.fonte + '.' : ''),
-            uf: d.uf, tipo: d.tipo, ponto: d.contaNoPonto,
+            uf: d.uf, tipo: d.tipo, ponto: d.contaNoPonto, editado: d.editado,
         }));
         s.itens.forEach(c => L.push({
             id: c.id, d: c.data, t: c.titulo, cal: c.calendario, src: c.origem === 'agenda' ? 'meus' : c.origem,
             dia: c.dia || !c.h1, h1: c.h1, h2: c.h2, obs: c.observacao || '', meu: c.meu, dono: c.donoNome,
             privado: c.privado, status: c.status, eventoId: c.eventoId, pastaId: c.pastaId, pasta: c.pastaNup, nome: c.donoNome,
             tipo: c.tipo, lembreteMinutos: c.lembreteMinutos, avisados: c.avisados, participantes: c.participantes, repetir: c.repetir,
-            repetirAte: c.repetirAte, editavel: c.editavel, inicioOriginal: c.inicioOriginal, fimOriginal: c.fimOriginal, recorrente: c.recorrente,
+            repetirAte: c.repetirAte, editavel: c.editavel, inicioOriginal: c.inicioOriginal, fimOriginal: c.fimOriginal, recorrente: c.recorrente, editado: c.editado,
         }));
 
         return L.sort((a, b) => (a.d + (a.dia ? '' : a.h1)).localeCompare(b.d + (b.dia ? '' : b.h1)));
@@ -427,7 +434,15 @@
     }
 
     function origemDe(e) {
+        const base = origemBase(e);
+        const editado = e.editado ? ' Nome alterado pelo escritório.' : '';
+        const dica = DO_SISTEMA.includes(e.src) && s.podeAjustar ? ' Clique com o botão direito no dia para editar ou ocultar.' : '';
+        return base + editado + dica;
+    }
+
+    function origemBase(e) {
         const ponto = e.ponto ? ' Conta como feriado no ponto.' : ' Não conta no ponto: para contar, cadastre em Feriados e Folgas.';
+        if (e.tipo === 'acrescentada') { return 'Incluído pelo escritório na Agenda. Não conta no ponto: para contar, cadastre em Feriados e Folgas.'; }
         if (e.src === 'pasta') { return 'Vem dos prazos e audiências registrados na pasta. Para alterar, edite na pasta.'; }
         if (e.src === 'fer' && e.tipo === 'escritorio') { return 'Feriado cadastrado pelo escritório em Feriados e Folgas. Conta como feriado no ponto.'; }
         if (e.src === 'fer' && e.tipo === 'ponto_facultativo') { return 'Ponto facultativo, já incluído pelo sistema.' + ponto; }
@@ -466,6 +481,9 @@
         if (e.obs) { linhas.push('<span class="ag-modal-obs">' + esc(e.obs) + '</span>'); }
         if ((e.avisados || []).length) { linhas.push('<span class="ag-modal-avisados"><i class="bi bi-chat-dots"></i>Avisados no Chat: ' + esc(nomesAvisados(e.avisados)) + '</span>'); }
         linhas.push('<div class="ag-modal-origem">' + esc(origemDe(e)) + '</div>');
+        if (s.podeAjustar && url.feriados && DO_SISTEMA.includes(e.src) && e.src !== 'aniv' && !e.ponto) {
+            linhas.push('<a class="ag-modal-feriados" href="' + esc(url.feriados) + '"><i class="bi bi-box-arrow-up-right"></i>Cadastrar em Feriados e Folgas, para contar no ponto</a>');
+        }
         document.getElementById('agModal').innerHTML = '<div class="ag-modal-fundo" data-fechar></div><div class="ag-modal-caixa"><div class="ag-modal" role="dialog" aria-modal="true" aria-label="Compromisso">'
             + '<div class="ag-modal-cab"><i class="bi bi-calendar-event"></i><b>Compromisso</b><button type="button" class="ag-modal-x" data-fechar title="Fechar"><i class="bi bi-x-lg"></i></button></div>'
             + '<div class="ag-modal-corpo">' + linhas.join('') + '</div>'
@@ -490,18 +508,24 @@
         return google + avisarBtn + fechar;
     }
 
-    function fecharModal() { document.getElementById('agModal').innerHTML = ''; document.getElementById('agPerg').innerHTML = ''; f = null; at = null; }
+    function fecharModal() { document.getElementById('agModal').innerHTML = ''; document.getElementById('agPerg').innerHTML = ''; f = null; at = null; formData = null; }
 
     /* ── Menu de botão direito ──────────────────────────────────────────── */
     function abrirMenu(x, y, dia, e) {
         const itens = [];
         if (e && !DO_SISTEMA.includes(e.src)) { itens.push(['Abrir compromisso', 'bi-box-arrow-up-right', 'abrir']); }
         if (e && DO_SISTEMA.includes(e.src)) { itens.push(['Ver detalhes', 'bi-info-circle', 'abrir']); }
+        if (e && DO_SISTEMA.includes(e.src) && s.podeAjustar) {
+            itens.push(['Editar nome', 'bi-pencil', 'renomear']);
+            itens.push(String(e.id).startsWith('x-') ? ['Excluir', 'bi-eye-slash', 'ocultar', 'perigo'] : ['Ocultar da agenda', 'bi-eye-slash', 'ocultar', 'perigo']);
+        }
+        if (s.podeAjustar) { itens.push(['Acrescentar feriado ou data em ' + brData(dia), 'bi-plus-lg', 'acrescentar']); }
         itens.push(['Novo compromisso em ' + brData(dia), 'bi-calendar-plus', 'novo']);
+        if (s.podeAjustar && s.temAjustes) { itens.push(['Restaurar datas do sistema', 'bi-arrow-counterclockwise', 'restaurar']); }
         const el = document.getElementById('agCtx');
-        el.innerHTML = '<div class="ag-ctx-fundo" data-ctx-fechar></div><div class="ag-ctx" role="menu" style="left:' + Math.min(x, innerWidth - 250) + 'px;top:' + Math.min(y, innerHeight - 160) + 'px;">'
+        el.innerHTML = '<div class="ag-ctx-fundo" data-ctx-fechar></div><div class="ag-ctx" role="menu" style="left:' + Math.min(x, innerWidth - 250) + 'px;top:' + Math.min(y, innerHeight - 260) + 'px;">'
             + '<div class="ag-ctx-tit">' + esc(e ? e.t : brData(dia)) + '</div>'
-            + itens.map(([r, ic, acao]) => '<button type="button" class="ag-ctx-item" role="menuitem" data-ctx="' + acao + '"><i class="bi ' + ic + '"></i>' + esc(r) + '</button>').join('') + '</div>';
+            + itens.map(([r, ic, acao, perigo]) => '<button type="button" class="ag-ctx-item' + (perigo ? ' is-perigo' : '') + '" role="menuitem" data-ctx="' + acao + '"><i class="bi ' + ic + '"></i>' + esc(r) + '</button>').join('') + '</div>';
         el.dataset.dia = dia;
         el.dataset.ev = e ? e.id : '';
         const primeiro = el.querySelector('.ag-ctx-item');
@@ -662,13 +686,15 @@
         if (!editId && s.escopo === 'minha' && !perguntado) { perguntarCompartilhar(); return; }
         const corpo = { titulo: f.t, tipo: f.tipo, data: f.d, diaInteiro: f.dia, inicio: f.h1, fim: f.h2, visibilidade: f.vis, pasta: f.pasta.trim(), lembreteMinutos: Number(f.lem), observacao: f.obs, avisados: f.avis, repetir: f.rep, repetirAte: f.rep ? f.repAte : '', participantes: f.part, dias: f.dias };
         try {
+            if (window.BJLembretes) { window.BJLembretes.permitir(); }
             const r = await postar(editId ? comId(url.salvar, editId) : url.criar, corpo);
             const serie = f.serie;
             fecharModal();
             f = { serie };
             recarregarEm(f.serie ? s.ref : dataDe(r.data));
             f = null;
-            avisar('Compromisso salvo.' + (r.avisados ? ' ' + r.avisados + ' pessoa(s) avisada(s) no Chat I.A.' : ''));
+            const lembra = !corpo.diaInteiro && corpo.inicio && corpo.lembreteMinutos !== 0;
+            avisar('Compromisso salvo.' + (lembra ? ' Você será lembrado com aviso e som.' : '') + (r.avisados ? ' ' + r.avisados + ' pessoa(s) avisada(s) no Chat I.A.' : ''));
         } catch (e) {
             desenharForm(e.message);
         }
@@ -798,6 +824,7 @@
     });
 
     function recarregarEm(ref) {
+        dispatchEvent(new Event('bj-agenda:mudou'));
         s.itens = new Map();
         s.cobertoItens = [];
         s.ref = ref;
@@ -848,6 +875,8 @@
         if ((a = t.closest('[data-f-part]'))) { const id = Number(a.dataset.fPart); f.part = f.part.includes(id) ? f.part.filter(x => x !== id) : f.part.concat(id); desenharForm(''); return true; }
         if (t.closest('[data-f-salvar]')) { salvar(false); return true; }
         if ((a = t.closest('[data-perg]'))) { responderPergunta(a.dataset.perg); return true; }
+        if ((a = t.closest('[data-dt-tipo]')) && formData) { formData.cal = a.dataset.dtTipo; document.querySelectorAll('#agModal [data-dt-tipo]').forEach(b => b.classList.toggle('is-on', b === a)); return true; }
+        if (t.closest('[data-dt-salvar]') && formData) { salvarData(); return true; }
         if ((a = t.closest('[data-av-p]'))) { const id = Number(a.dataset.avP); escolhaAviso = escolhaAviso.includes(id) ? escolhaAviso.filter(x => x !== id) : escolhaAviso.concat(id); const e = acharItem(a.dataset.ev); if (e) { desenharEscolhaAviso(e); } return true; }
         if ((a = t.closest('[data-av-ok]'))) { const e = acharItem(a.dataset.ev); if (e && escolhaAviso.length) { confirmarAviso(e); } return true; }
         if ((a = t.closest('[data-det]'))) { const e = acharItem(a.dataset.ev); if (e) { ({ editar, excluir: excluirItem, avisar: avisarItem, concluir: x => mudarSituacao(x, 'concluido'), cancelar: x => mudarSituacao(x, 'cancelado'), reabrir: x => mudarSituacao(x, 'agendado') })[a.dataset.det](e); } return true; }
@@ -896,6 +925,7 @@
         if (alvo('#agHoje')) { irPara(hoje0()); return; }
         if (alvo('#agAnt')) { navegar(-1); return; }
         if (alvo('#agProx')) { navegar(1); return; }
+        if ((a = alvo('[data-testar]'))) { if (window.BJLembretes) { window.BJLembretes.permitir(); window.BJLembretes.testar(a.dataset.testar); } return; }
         if (alvo('#agGoogle')) { avisar('A sincronização com o Google Agenda será liberada assim que a conexão for configurada no servidor do BlueJus.'); }
     });
 
@@ -917,6 +947,76 @@
         fecharMenu();
         if (acao === 'abrir' && e) { abrir(e); }
         if (acao === 'novo') { novoEm(dia); }
+        if (acao === 'acrescentar') { formDeData(dia, null); }
+        if (acao === 'renomear' && e) { formDeData(dia, e); }
+        if (acao === 'ocultar' && e) { ocultarData(e); }
+        if (acao === 'restaurar') { restaurarDatas(); }
+    }
+
+    /* ── Ajustes de datas do sistema (botão direito, entrega 4) ─────────── */
+    const TIPOS_DE_DATA = [['fer', 'Nacional'], ['est', 'Estadual'], ['trib', 'Tribunal'], ['com', 'Comemorativa']];
+    let formData = null;
+
+    function formDeData(dia, e) {
+        formData = { dia, e, cal: 'trib' };
+        const titulo = e ? 'Editar nome' : 'Acrescentar feriado ou data';
+        const tipos = e ? '' : '<div class="ag-f-rot-linha">TIPO</div><div class="ag-f-tipos">' + TIPOS_DE_DATA.map(([k, r]) => '<button type="button" class="ag-f-tipo' + (k === 'trib' ? ' is-on' : '') + '" data-dt-tipo="' + k + '"><span style="background:' + CAL[k][1] + ';"></span>' + r + '</button>').join('') + '</div>';
+        document.getElementById('agModal').innerHTML = '<div class="ag-modal-fundo" data-fechar></div><div class="ag-modal-caixa"><div class="ag-modal" role="dialog" aria-modal="true" aria-label="' + titulo + '">'
+            + '<div class="ag-modal-cab"><i class="bi bi-calendar-plus"></i><b>' + titulo + '</b><button type="button" class="ag-modal-x" data-fechar title="Fechar"><i class="bi bi-x-lg"></i></button></div>'
+            + '<div class="ag-modal-corpo ag-form"><span class="ag-f-nota"><i class="bi bi-calendar3"></i> ' + esc(brData(dia)) + '</span>'
+            + '<label class="ag-f-rot">NOME<input data-dt="titulo" maxlength="255" value="' + esc(e ? e.t : '') + '" placeholder="Ex.: Feriado municipal, Suspensão de expediente no TJ"></label>'
+            + tipos
+            + (e ? '' : '<label class="ag-f-rot">FONTE (OPCIONAL)<input data-dt="fonte" maxlength="255" placeholder="Portaria, lei ou link"></label>')
+            + '<span class="ag-f-nota"><i class="bi bi-info-circle"></i> Vale para a Agenda de todo o escritório. Não muda o ponto: para contar como feriado na jornada, cadastre em Feriados e Folgas.</span>'
+            + '<div class="ag-f-erro" id="agDtErro"></div></div>'
+            + '<div class="ag-modal-rodape"><button type="button" class="ag-mbtn" data-fechar><i class="bi bi-x"></i>Cancelar</button><button type="button" class="ag-mbtn is-pri is-fim" data-dt-salvar><i class="bi bi-check2"></i>' + (e ? 'Salvar' : 'Incluir') + '</button></div></div></div>';
+        const campo = document.querySelector('#agModal [data-dt="titulo"]');
+        if (campo) { campo.focus(); }
+    }
+
+    async function salvarData() {
+        const titulo = (document.querySelector('#agModal [data-dt="titulo"]') || {}).value || '';
+        const fonte = (document.querySelector('#agModal [data-dt="fonte"]') || {}).value || '';
+        const erro = document.getElementById('agDtErro');
+        if (!titulo.trim()) { erro.textContent = 'Informe o nome.'; return; }
+        try {
+            if (formData.e) {
+                await postar(url.renomear, { id: formData.e.id, titulo });
+            } else {
+                await postar(url.acrescentar, { data: formData.dia, titulo, calendario: formData.cal, fonte });
+            }
+            const dia = formData.dia;
+            const renomeou = !!formData.e;
+            fecharModal();
+            recarregarDatas();
+            if (!renomeou) { avisar('Incluído em ' + brData(dia) + '.'); }
+        } catch (x) { erro.textContent = x.message; }
+    }
+
+    async function ocultarData(e) {
+        try {
+            await postar(url.ocultar, { id: e.id });
+            recarregarDatas();
+            const acrescentada = String(e.id).startsWith('x-');
+            avisar('"' + e.t + '" removido da agenda.' + (acrescentada ? '' : ' Restaure quando quiser.') + (e.ponto ? ' Ele continua contando no ponto.' : ''));
+        } catch (x) { avisar(x.message); }
+    }
+
+    async function restaurarDatas() {
+        if (!confirm('Restaurar todos os feriados e datas que você ocultou ou editou?')) { return; }
+        try {
+            await postar(url.restaurar, {});
+            recarregarDatas();
+            avisar('Datas do sistema restauradas.');
+        } catch (x) { avisar(x.message); }
+    }
+
+    function recarregarDatas() {
+        s.datas = new Map();
+        s.cobertoDatas = [];
+        s.itens = new Map();
+        s.cobertoItens = [];
+        carregar();
     }
 
     function trocarEscopo(escopo) {

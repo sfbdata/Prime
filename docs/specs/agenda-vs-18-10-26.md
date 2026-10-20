@@ -109,7 +109,8 @@ Menu, Shift+F10, toque longo); a Agenda o usa. Os `prompt()` do protótipo viram
 2. Tela nova (V1 a V14, V18) com prazos das pastas, sem edição nova.
 3. Migration de `Evento` + modal novo (V15 a V17) + Avisar no Chat.
 4. Botão direito + `agenda_data_ajuste` (migration).
-5. Preferências de calendários (migration) + lembretes globais (V7).
+5. Lembretes globais (V7). As preferências de calendários ficam no navegador, como no desenho (sem migration).
+5b. Push com o navegador fechado (Service Worker e envio pelo servidor), prometido no `bj-lembretes.js`.
 6. Google: link de modelo; depois OAuth e sincronia (spec própria antes).
 
 ## 5. Convivência com o Ponto eletrônico (risco ALTO)
@@ -214,9 +215,9 @@ Estado contra o inventário da seção 1 (✓ feito · ◐ feito em parte, falta
 | V2 | 4 cartões e clique para Dia/Semana | ✓ |
 | V3 | Novo compromisso | ◐ abre o formulário antigo no dia; modal do desenho na entrega 3 |
 | V4 | Mini calendário | ✓ |
-| V5 | 10 calendários com marcação | ◐ lembrada no navegador; no servidor na entrega 5 |
+| V5 | 10 calendários com marcação | ✓ lembrada no navegador, como no desenho (o protótipo guarda em `localStorage`, `bj-agenda-v1-vis`); sem migration |
 | V6 | Feriados estaduais de: UF | ✓ |
-| V7 | TESTAR LEMBRETES | ✗ entrega 5 |
+| V7 | TESTAR LEMBRETES | ✓ (entrega 5, seção 15) |
 | V8 | GOOGLE AGENDA | ◐ painel e aviso "Disponível quando o servidor liberar a conexão"; ligação na entrega 6 |
 | V9 | Barra: Hoje, setas, título, busca, escopo, vistas | ✓ |
 | V10 | Faixa de aniversário, balão e confete | ✓ |
@@ -343,3 +344,162 @@ coisa no mesmo lugar; decisão do coordenador em 19/10/2026).
 | 34 | Avisos com link para o detalhe | De pé (novos avisos apontam para `/agenda#ev=...`) |
 | 35 | Outras referências às rotas antigas | Nenhuma quebrada. `agenda_criar_ajax` e `agenda_atualizar_datas` ficam sem chamador na tela (só o calendário antigo as usava), mas continuam no servidor, protegidas como antes: nada é removido nesta entrega |
 | 36 | Testes da agenda antiga | Verdes (nenhum dependia do calendário FullCalendar) |
+
+## 13. Entrega 4: ajustes de datas pelo botão direito
+
+Branch `agenda-ajustes`, empilhada sobre `agenda-troca` (#66). Itens do menu do desenho (dc L.217-224):
+"Ver detalhes", "Editar nome", "Ocultar da agenda" (ou "Excluir", na data acrescentada), "Acrescentar
+feriado ou data em dd/mm/aaaa", "Novo compromisso em ..." e "Restaurar datas do sistema" (quando há
+algo ocultado ou renomeado). Os `prompt()` do protótipo viram um formulário pequeno: nome, tipo
+(Nacional, Estadual, Tribunal, Comemorativa; o desenho começa em Tribunal) e fonte opcional.
+
+**Onde fica:** tabela `agenda_data_ajuste` (migration `Version20261020125000`), por escritório: vale para
+a Agenda de todo o escritório. Quem pode: a mesma permissão de Feriados e Folgas
+(`admin.tenant.settings.manage`, convenção D2); os demais veem só "Ver detalhes" e "Novo compromisso".
+Aniversários também podem ser ocultados ou renomeados (o desenho os trata como data do sistema).
+
+**O Ponto não muda.** Nenhum ajuste grava na tabela `feriado` nem mexe no cálculo da jornada. Um teste
+compara a tabela `feriado` inteira antes e depois de cada ajuste (acrescentar, renomear, ocultar um
+feriado que conta no ponto, restaurar, excluir a data acrescentada).
+
+**Para o usuário, o que significa ocultar:**
+- Ocultar um feriado na Agenda só tira o feriado da Agenda do escritório. Se ele está cadastrado em
+  Feriados e Folgas, **continua contando no ponto** como feriado; o aviso depois de ocultar diz isso
+  ("... removido da agenda. Restaure quando quiser. Ele continua contando no ponto.").
+- Acrescentar um feriado na Agenda (ex.: feriado municipal) **não** o faz contar no ponto: o formulário
+  avisa "Não muda o ponto: para contar como feriado na jornada, cadastre em Feriados e Folgas".
+- Renomear muda só o nome mostrado na Agenda.
+- "Restaurar datas do sistema" devolve as datas ocultadas e os nomes originais; as datas acrescentadas
+  ficam (somem uma a uma, por "Excluir").
+
+O detalhe das datas do sistema volta a dizer "Clique com o botão direito no dia para editar ou ocultar"
+(para quem pode ajustar), e mostra "Nome alterado pelo escritório" na data renomeada.
+
+Acertos da revisão: o detalhe de data que não conta no ponto traz o link "Cadastrar em Feriados e
+Folgas, para contar no ponto" (§5, regra 4; só para quem pode ajustar); "Restaurar" remove pelo
+EntityManager e entra na auditoria; índice único `(tenant_id, tipo, data_id)` contra ajuste duplicado em
+pedidos simultâneos; aniversário renomeado também mostra "Nome alterado pelo escritório".
+
+Diferenças conscientes do desenho: excluir uma data acrescentada avisa só "removido da agenda", sem
+"Restaure quando quiser" (o restaurar não traz de volta o que foi excluído; a frase do desenho seria
+falsa); "Editar nome" fecha sem aviso, como no desenho. Fica para depois: os ajustes do escritório são
+lidos inteiros a cada carga (o volume é pequeno; filtrar por período quando crescer).
+
+## 14. Pendências com outras frentes
+
+- **ColaboradoresAtribuiveis (#69, frente 7d):** quando entrar no master, o modal de compromisso
+  (participantes e avisados) passa a usar esse serviço no lugar de `findColaboradoresAtivosPorTenant`:
+  suspensos não aparecem para atribuição nova, e editar preserva quem já estava (hoje o
+  `SalvarCompromissoUseCase` já preserva os participantes desligados). Entra com teste de que editar
+  um compromisso com participante suspenso o mantém.
+- **Comercial e e-mails (desenho 05, Perfis):** lê as datas comemorativas do `CalendarioDoSistema`
+  (seção 9).
+
+## 15. Entrega 5: lembretes com som em qualquer tela
+
+Branch `agenda-lembretes`, empilhada sobre `agenda-ajustes` (#70). Adaptação do `bj-lembretes.js` do
+desenho: no horário, um cartão no canto (ícone, som próprio por tipo, rótulo "Em N min · às HH:MM",
+dica, "Ver na agenda" ou "Abrir pasta", "Lembrar em 10 min", dispensar) e a notificação do navegador.
+
+- **Onde aparece:** parcial `templates/layout/_globais/lembretes.html.twig` (ponto de inclusão da frente
+  menu-do-usuario; o `base.html.twig` não muda), só para quem está logado e tem o módulo Agenda. Carrega
+  `public/js/lembretes.js` e `public/css/lembretes.css`.
+- **De onde vem:** `GET /agenda/lembretes` (`ListarLembretesUseCase`), pedido ao abrir a página, a cada 5
+  minutos e quando a Agenda salva algo. Entram os compromissos da pessoa (que criou ou de que participa),
+  com horário, agendados, com o lembrete escolhido ou o padrão do tipo (Audiência 60, Reunião 10, Prazo e
+  Compromisso 15; "Sem lembrete" fica de fora), e, para quem vê pastas, os prazos e audiências abertos de
+  hoje com hora (60 min antes da audiência, 15 do prazo). Janela: avisos das próximas 24 h; o cartão
+  ainda aparece até 2 h depois do início.
+- **Respeito ao navegador:** o som só toca depois que a pessoa interage com a página (o áudio é liberado
+  no primeiro clique ou tecla); a notificação do sistema só aparece se a permissão já foi dada; o pedido
+  de permissão só sai de um clique ("Testar lembretes" ou "Salvar" na Agenda). Dispensados e adiados
+  ficam guardados no navegador (`localStorage`), por chave do lembrete. Com "reduzir movimento", os
+  cartões não animam.
+- **TESTAR LEMBRETES** na lateral (V7), entre os estados e o Google, como no desenho: Audiência, Reunião,
+  Prazo e Compromisso mostram o cartão de exemplo com o som do tipo.
+- Ao salvar compromisso com horário e lembrete, o aviso diz "Você será lembrado com aviso e som." (V16).
+- **Push com o navegador fechado: entrega 5b, própria.** O desenho promete: `bj-lembretes.js`, linha 3,
+  "Sistema real: o mesmo aviso chega por push (Service Worker) e o servidor dispara no horário mesmo com
+  o navegador fechado." (a tela 09 não fala disso). O sistema não tem Service Worker hoje. A 5b traz o
+  Service Worker, a inscrição de push por navegador (pedida por clique), o envio pelo servidor no horário
+  (agendador) e a mesma chave de lembrete, para o aviso não repetir quando a página também está aberta.
+  Orientação do coordenador (19/10/2026): o envio no horário sai pelo Messenger com o transporte que já
+  existe (`doctrine://`, `config/packages/messenger.yaml`), com `DelayStamp` até a hora do aviso, em vez
+  de cron novo; o dono só mantém o worker rodando. A chave VAPID (segredo) e o worker entram na lista de
+  materiais do dono, com passo a passo no PR. Avisar o coordenador antes de mexer em `composer.json`/`.lock`.
+- **Hora de parede:** o servidor manda início e aviso sem fuso (`AAAA-MM-DDTHH:MM:SS`), a mesma hora que a
+  Agenda mostra, e o navegador lê no fuso dele, como o `bj-lembretes.js` (`new Date(dia + 'T' + hora)`).
+  Quem está fora do horário de Brasília é avisado pela hora que vê na Agenda.
+- Quem não vê pastas não recebe o id da pasta no lembrete (nem o botão "Abrir pasta"), como na listagem.
+- **Cartão de teste:** "Abrir pasta" e "Ver na agenda" só fecham o cartão (a "Pasta 1180" do exemplo não
+  existe); no desenho eles navegavam. "Lembrar em 10 min" do teste também só fecha.
+- Os cartões entram e saem um a um (o leitor de tela não relê os antigos). Marcas de "adiar" vencidas há
+  mais de um dia são limpas.
+- **Para o smoke em celular (dono):** o som é liberado no primeiro toque (`pointerdown`, `touchend`) ou
+  tecla; no Safari do iOS não foi possível provar sem aparelho.
+- **Prazos de todos (decisão do coordenador, 19/10/2026):** prazos e audiências de hoje com hora tocam
+  para todo colaborador com acesso às pastas, como no desenho (que lê todas as pastas). Filtrar pelo
+  responsável depende de o responsável do prazo virar usuário (hoje é texto livre em `PastaPrazo`).
+
+## 16. Entrega 5b: push com o navegador fechado
+
+Cumpre a promessa do `bj-lembretes.js`, linha 3 (seção 15). Mesmos lembretes da tela, mesma chave.
+
+- **Inscrição (pedida por clique):** quando a permissão de notificação já foi dada (ou é dada em "Testar
+  lembretes"/"Salvar"), `public/js/lembretes.js` registra `public/sw-lembretes.js` (escopo `/`), pede a
+  chave pública em `GET /agenda/push/chave` e inscreve o navegador. A inscrição vai para
+  `POST /agenda/push/inscrever` (módulo agenda, CSRF) com o fuso do navegador (`Intl`). Uma linha por
+  navegador em `agenda_push_inscricao` (único pelo hash do endereço): se o navegador passa a outra pessoa
+  ou outro escritório, a linha muda de dono. `POST /agenda/push/cancelar` só apaga a da própria pessoa.
+  Sem chave VAPID configurada, a chave volta nula e nada se inscreve (o resto dos lembretes segue).
+- **O que se aceita:** endereço https de um serviço de push conhecido (`fcm.googleapis.com`,
+  `push.services.mozilla.com`, `push.apple.com`, `notify.windows.com` e subdomínios), para o servidor não
+  fazer POST em endereço qualquer; `p256dh` com 65 bytes começando em 0x04 e `auth` com 16 bytes. A
+  gravação é um upsert pelo hash do endereço (`ON CONFLICT`), porque o filtro de escritório esconderia a
+  linha de outro escritório.
+- **No navegador:** a inscrição feita com outra chave VAPID é refeita; a aba não repete o POST para a
+  mesma pessoa, o mesmo escritório e o mesmo endereço; ao confirmar o Sair, a navegação espera (no máximo
+  2 s) o cancelamento da inscrição desta pessoa em qualquer escritório (computador compartilhado), porque
+  depois do logout a sessão e o CSRF somem. Se o cancelamento não terminar em 2 s, a linha fica (melhor
+  esforço). Sessão que expira sem Sair deixa a inscrição até a próxima pessoa com
+  Agenda entrar naquele navegador.
+- **Envio (`VarrerLembretesDePushUseCase`):** a cada minuto, para cada pessoa ativa com inscrição e módulo
+  Agenda, calcula os lembretes com o `ListarLembretesUseCase` na **hora de parede do fuso guardado na
+  inscrição** e envia os que venceram (aviso já passou e o início foi há menos de 2 h). Título
+  "BlueJus · <título>", corpo "Às HH:MM · <observação>", `tag` = chave do lembrete (o sistema troca, em
+  vez de empilhar, o aviso de mesma chave), clique abre a Agenda no compromisso ou a pasta. TTL de 1 h,
+  urgência alta, cifra `aes128gcm` (a única do push da Apple), um envio por vez com tempo máximo de 5 s
+  (uma inscrição torta ou um serviço lento não derrubam nem seguram os outros). Inscrições que o serviço
+  dá por vencidas, recusadas por outra chave VAPID (401/403) ou com chave que não cifra são apagadas.
+  Escritório desativado e pessoa inativa não recebem.
+- **Nada se repete:** antes de enviar, o lembrete é reservado em `agenda_push_enviado` por
+  `INSERT ... ON CONFLICT (usuario_id, chave) DO NOTHING`; só quem reserva envia. Reservas com mais de 7
+  dias são limpas. A entrega é **no máximo uma vez**: se o serviço de push recusar, o aviso não sai de
+  novo (o cartão na página continua valendo). "Lembrar em 10 min" e "dispensar" ficam no navegador e não
+  mudam o push.
+- **Desvio da orientação (decisor técnico):** em vez de uma mensagem com `DelayStamp` até a hora de cada
+  aviso, uma **cadeia única** que se reagenda a cada 60 s. Motivo: compromisso editado, movido ou
+  apagado mudaria a hora já agendada; a varredura sempre lê o estado atual. Continua sem cron, no
+  transporte `async` (`doctrine://`) que já existe.
+- **Como a cadeia começa:** a primeira mensagem é enviada por `GarantirVarreduraDePush`, chamado na
+  inscrição de um navegador, a cada consulta de `GET /agenda/lembretes` (toda tela aberta, a cada 5 min)
+  e pelo comando `app:agenda:push-varredura` (para o deploy). Só despacha se a marca
+  `agenda_push_varredura.ultima_em` estiver nula ou com mais de 180 s.
+- **Uma só cadeia:** o handler reivindica a vez com
+  `UPDATE agenda_push_varredura SET ultima_em = agora WHERE id = 1 AND (ultima_em IS NULL OR ultima_em < agora - 45 s)`.
+  Quem não reivindica (mensagem duplicada) morre sem reagendar. Quem reivindica varre e, no `finally`,
+  despacha a próxima com `DelayStamp(60000)`.
+- **Como se recupera:** worker parado, mensagem perdida ou erro: a marca envelhece; passados 180 s, a
+  próxima consulta de lembretes de qualquer navegador aberto (ou o comando) religa. Com todos os
+  navegadores fechados e a cadeia morta, só o comando ou a próxima abertura religam.
+- **Tabelas novas** (`Version20261020129500`): `agenda_push_inscricao`, `agenda_push_enviado` e
+  `agenda_push_varredura` (linha única). As duas primeiras entram no expurgo do escritório.
+- **Chaves VAPID inválidas** (assunto que não é `mailto:`/`https://`, chave de tamanho errado) deixam o
+  push desligado, com erro no log, em vez de reservar lembretes e falhar.
+- **Material do dono:** chaves VAPID (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`) e o worker
+  da fila `async` rodando (já existe no `docker-compose.prod.yml`). Passo a passo no PR.
+- **Testes:** duas varreduras do mesmo minuto não duplicam; escritório desativado não recebe; chave
+  torta não derruba o lote; serviço desconhecido, http e chaves de tamanho errado são recusados; corte de
+  2 h; a cadeia não se bifurca e reagenda com 60 s;
+  desligado não envia; inscrição vencida é apagada; fuso do navegador (Manaus) muda a hora do aviso;
+  inscrever valida https e base64url; cancelar só a própria.

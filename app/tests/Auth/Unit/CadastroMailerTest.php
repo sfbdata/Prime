@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Auth\Unit;
 
 use App\Auth\Entity\CadastroPendente;
+use App\Auth\Event\ConfirmacaoDeCadastroEnviada;
 use App\Auth\Service\CadastroMailer;
 use App\Entity\Auth\User;
 use App\Shared\Email\IdentidadeDeEmail;
@@ -15,6 +16,7 @@ use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Twig\Environment;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 
 #[CoversClass(CadastroMailer::class)]
 final class CadastroMailerTest extends TestCase
@@ -48,9 +50,16 @@ final class CadastroMailerTest extends TestCase
             $twig,
             $urlGenerator,
             new IdentidadeDeEmail('BlueJus <nao-responda@bluejus.test>', 'infra@bluejus.test'),
+            $eventos = new EventDispatcher(),
         );
+        $capturados = [];
+        $eventos->addListener(ConfirmacaoDeCadastroEnviada::class, static function (ConfirmacaoDeCadastroEnviada $e) use (&$capturados, &$emailCapturado): void {
+            $capturados[] = [$e->email, $e->assunto, $emailCapturado !== null];
+        });
 
         $service->enviarConfirmacao($cadastro);
+
+        self::assertSame([['cadastro@bluejus.test', '[BlueJus] Confirme seu cadastro no BlueJus', true]], $capturados, 'o evento do Comercial sai uma vez, depois do send');
 
         self::assertInstanceOf(Email::class, $emailCapturado);
         self::assertSame('[BlueJus] Confirme seu cadastro no BlueJus', $emailCapturado->getSubject());
@@ -58,6 +67,30 @@ final class CadastroMailerTest extends TestCase
         self::assertSame('BlueJus', $emailCapturado->getFrom()[0]->getName());
         self::assertSame('infra@bluejus.test', $emailCapturado->getReplyTo()[0]->getAddress());
         self::assertSame('cadastro@bluejus.test', $emailCapturado->getTo()[0]->getAddress());
+    }
+
+    #[TestDox('Falha no envio: nenhum evento para o Comercial (o e-mail não saiu)')]
+    public function testFalhaNoEnvioNaoDespachaEvento(): void
+    {
+        $mailer = $this->createMock(MailerInterface::class);
+        $mailer->method('send')->willThrowException(new \Symfony\Component\Mailer\Exception\TransportException('fora do ar'));
+        $twig = $this->createMock(Environment::class);
+        $twig->method('render')->willReturn('<html>confirmação</html>');
+        $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+        $urlGenerator->method('generate')->willReturn('https://bluejus.test/cadastro/token');
+        $eventos = new EventDispatcher();
+        $capturados = 0;
+        $eventos->addListener(ConfirmacaoDeCadastroEnviada::class, static function () use (&$capturados): void {
+            ++$capturados;
+        });
+        $service = new CadastroMailer($mailer, $twig, $urlGenerator, new IdentidadeDeEmail('BlueJus <nao-responda@bluejus.test>', 'infra@bluejus.test'), $eventos);
+
+        try {
+            $service->enviarConfirmacao(new CadastroPendente('c@bluejus.test', str_repeat('b', 64), 'P', 'E', '1', 'SP', 'h', '127.0.0.1', new \DateTimeImmutable('+1 hour')));
+            self::fail('A falha do transporte deveria virar RuntimeException.');
+        } catch (\RuntimeException) {
+        }
+        self::assertSame(0, $capturados);
     }
 
     #[TestDox('Confirmação de e-mail da conta leva o token em claro no link absoluto de auth_cadastro_confirmar_email')]
@@ -83,6 +116,7 @@ final class CadastroMailerTest extends TestCase
             $twig,
             $urlGenerator,
             new IdentidadeDeEmail('BlueJus <nao-responda@bluejus.test>', 'infra@bluejus.test'),
+            new EventDispatcher(),
         );
 
         $service->enviarConfirmacaoDeEmail($user, 'tok');

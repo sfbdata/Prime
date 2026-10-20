@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="{{ asset('css/pasta-andamento.css') }}">
 {# Link externo do Push: menu da aba, modal e painel de acessos (pasta/_push_link_externo.html.twig). #}
 <link rel="stylesheet" href="{{ asset('css/pasta-push-link.css') }}">
+<link rel="stylesheet" href="{{ asset('css/pasta-cadeado.css') }}">
 {# Card "Pontos do relatório inicial" da aba Detalhes (pasta/_pontos_relatorio.html.twig). #}
 <link rel="stylesheet" href="{{ asset('css/pasta-pontos-relatorio.css') }}">
 {# Ocultar aba: ícone da regra na aba, modal "Ocultar aba" e o aviso sem aba (pasta/_abas_ocultas.html.twig). #}
@@ -52,6 +53,8 @@
        consulta o banco) e repassada aos parciais que oferecem ação de escrita — hoje o
        "Alertar" do ⋮ do prazo e o sino das Metas, que o servidor só aceita com edit. #}
     {% set podeEditarPasta = can_access_resource('pasta', pasta.id, 'edit') %}
+    {# Cadeado (spec pasta-cadeado): o estado para quem olha, montado uma vez e lido pelo cabeçalho, pela faixa e pelo modal. #}
+    {% set cad = cadeado_da_pasta(pasta) %}
 
     {# Abas ocultas (spec pasta-ocultar-aba §5): a aba que está oculta para quem vê não tem painel
        renderizado, e a primeira visível nasce ativa. `#push` na URL com o Push oculto não acha gatilho
@@ -523,6 +526,8 @@
 {% if 'push' not in abasOcultas %}
 {{ include('pasta/_push_link_externo.html.twig', {pasta: pasta, push: push, iaPermitida: analisesIa is not null}) }}
 {% endif %}
+{# Cadeado da pasta (spec pasta-cadeado §6): o modal de quem configura. Fora de .ps-page, como os outros modais. #}
+{{ include('pasta/_cadeado_modal.html.twig', {pasta: pasta, cad: cad}) }}
 {# Ocultar aba (spec pasta-ocultar-aba §5): menu do botão direito e modal "Ocultar aba", só para quem configura. #}
 {{ include('pasta/_abas_ocultas.html.twig', {pasta: pasta, abasDaPasta: abasDaPasta}) }}
 
@@ -2736,6 +2741,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const cartao = regAberto.cartao;
             if (item.classList.contains('js-reg-copiar')) { copiarTextoReg(item, cartao); return; }
             const seletor = item.classList.contains('js-reg-responder') ? '.btn-responder-msg-pasta'
+                : item.classList.contains('js-reg-encaminhar') ? ':scope > .ps-anotacao-topo > .js-encaminhar'
                 : item.classList.contains('js-reg-editar') ? '.ps-anotacao-acoes .btn-editar-msg-pasta'
                 : item.classList.contains('js-reg-excluir') ? '.ps-anotacao-acoes .btn-excluir-msg-pasta'
                 : null;
@@ -3079,6 +3085,19 @@ document.addEventListener('DOMContentLoaded', function () {
         const alvoId   = ehResposta ? data.respostaA : data.id;
         const alvoNome = ehResposta ? (data.respostaANome ?? '') : (data.autorNome ?? '');
 
+        /* "Encaminhar via Chat I.A" (D:1405): o id da pasta vem do atributo que o Twig põe na
+           lista (só com a Central e fora da lápide); o do registro é o número do servidor. */
+        const encaminharPasta = Number(list.dataset.encaminharPasta || 0);
+        const btnEncaminhar   = encaminharPasta
+            ? `<button type="button" class="ps-anotacao-acao ps-anotacao-acao--responder js-encaminhar"
+                        title="Encaminhar via Chat I.A" aria-label="Encaminhar via Chat I.A"
+                        data-encaminhar-pasta="${encaminharPasta}"
+                        data-encaminhar-tipo="registro_dados"
+                        data-encaminhar-id="${Number(data.id)}">
+                    <i class="bi bi-reply-fill" style="display:inline-block;transform:scaleX(-1)"></i>
+                </button>`
+            : '';
+
         /* Tem de sair a MESMA estrutura que o _dados_anotacoes.html.twig gera no
            servidor: se divergirem, o registro recém-enviado aparece com outra
            cara — defeito que só se vê depois de enviar, nunca ao abrir a tela. */
@@ -3116,6 +3135,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         data-resposta-nome="${esc(alvoNome || 'Autor desconhecido')}"${ehResposta ? ` data-resposta-autor-id="{{ app.user ? app.user.id : '' }}" data-resposta-autor-nome="${esc(data.autorNome ?? '')}"` : ''}>
                     <i class="bi bi-reply-fill"></i>
                 </button>
+                ${btnEncaminhar}
                 <span class="ps-anotacao-data ps-num" title="${dataHora}">${horaRotulo}</span>
                 <button type="button" class="ps-reg-menu-btn js-reg-menu" title="Mais ações do registro"
                         aria-label="Mais ações do registro" aria-haspopup="menu" aria-expanded="false"
@@ -4437,6 +4457,8 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-dialogos.js') }}"></script>
 {# Link externo do Push: menu da aba, modal e painel de acessos. Depois do pasta-dialogos.js (confirmarPs/avisarPs). #}
 <script src="{{ asset('js/pasta-push-link.js') }}"></script>
+<script src="{{ asset('js/pasta-cadeado.js') }}"></script>
+<script src="{{ asset('js/pasta-cadeado-pedidos.js') }}"></script>
 {# Ocultar aba: depois do pasta-push-link.js, porque injeta os itens no menu da aba Push (#pushLinkMenu). #}
 <script src="{{ asset('js/pasta-abas-ocultas.js') }}"></script>
 {# "Próximos prazos" (E12b): novo, editar, cumprir e excluir prazo ou audiência. #}
@@ -4448,4 +4470,6 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-presenca-autor.js') }}" defer></script>
 {# Selo "CPF duplicado" em todas as linhas depois de vincular/desvincular sem recarregar (desenho 02, dc L6527). #}
 <script src="{{ asset('js/pasta-clientes-duplicados.js') }}" defer></script>
+{# "Encaminhar via Chat I.A" (↪ dos registros e ⋮ do arquivo do Financeiro): dispara `bj-central:despachar`. #}
+<script src="{{ asset('js/pasta-encaminhar.js') }}"></script>
 {% endblock %}
