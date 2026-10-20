@@ -186,12 +186,13 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         self::assertStringContainsString("<i class=\"bi {{ naPasta ? 'bi-person-dash' : 'bi-person' }}\"></i>", self::ler('templates/pasta/_resp_chip.html.twig'));
     }
 
-    #[TestDox('AUD-29 (decisão do dono): de 901 a 1280px Cliente e Ação legíveis (piso 1262px) com a rolagem só dentro da tabela; até 900px, Cliente com 220px')]
+    #[TestDox('AUD-29 (decisão do dono, 19/10, segue o desenho 03): de 901 a 1280px saem Ação, Responsável e Metas e o Réu aparece (piso 742px); até 900px o <col> do Réu sai com a célula')]
     public function testResponsividade(): void
     {
         $css = self::css();
-        self::assertStringContainsString('@media (min-width: 901px) and (max-width: 1280px) { .exp-body #tabelaPastas { min-width: 1262px; } .exp-body #tabelaPastas [data-col="reu"] { display: none; } }', $css);
-        self::assertStringContainsString('@media (max-width: 900px) { .exp-body #tabelaPastas { min-width: 742px; }', $css);
+        self::assertStringContainsString('@media (min-width: 901px) and (max-width: 1280px) { .exp-body #tabelaPastas { min-width: 742px; } .exp-body #tabelaPastas col[data-col="cliente"] { width: 42.6% !important; } .exp-body #tabelaPastas col[data-col="reu"] { width: 32% !important; } .exp-body #tabelaPastas col[data-col="marc"] { width: 25.4% !important; } .exp-body #tabelaPastas [data-col="acao"], .exp-body #tabelaPastas [data-col="resp"], .exp-body #tabelaPastas [data-col="metas"] { display: none; } }', $css);
+        self::assertStringNotContainsString('[data-col="reu"] { display: none; }', $css, 'de 901 a 1280px o Réu fica (a decisão de 15/10 caiu)');
+        self::assertStringContainsString('@media (max-width: 900px) { .exp-body #tabelaPastas { min-width: 742px; } .exp-body #tabelaPastas col[data-col="reu"], .exp-body #tabelaPastas col[data-col="acao"],', $css);
     }
 
     #[TestDox('tema escuro: todo token novo da rodada tem par no escuro')]
