@@ -6,8 +6,7 @@
   depois do #112. Risco **MÉDIO** (dado pessoal e identidade do cliente).
 - Fatia em andamento: **F-A** (só regras internas, sem fonte externa e sem IA).
 - F-B, F-C e F-D **esperam o dono** (D1 a D4 abaixo).
-- **Falta enviar** (sem internet desde 19/10, noite): `git push -u origin cliente-inteligencia-cadastral` e
-  abrir o PR em rascunho com base `cliente-historico` (#112). Commits só locais até lá.
+- **PR em rascunho** (base `cliente-historico`, #112), migration `Version20261021150000`. Suíte completa OK (10509).
 
 **Para o dono** (pacote "IA x regras", levado pelo coordenador em 19/10):
 - **D1. Rótulo "IA".** O desenho chama de IA o que é regra (l.3391, 3394, 3401, 3407). As regras 1 e 7 do
