@@ -43,6 +43,13 @@ class UserTenant implements Auditavel
     #[ORM\Column(length: 20, enumType: SituacaoNaEquipe::class, options: ['default' => 'aprovado'])]
     private SituacaoNaEquipe $situacao = SituacaoNaEquipe::Aprovado;
 
+    /**
+     * Controladoria (spec relatorio-processos-controladoria, D1): a pessoa recebe o relatório mensal
+     * de pastas sem processo e a cópia dos avisos à Controladoria. Marcada na edição do vínculo.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $controladoria = false;
+
     #[ORM\ManyToOne(targetEntity: TenantRole::class, inversedBy: 'userTenants')]
     #[ORM\JoinColumn(nullable: true)]
     private ?TenantRole $tenantRole = null;
@@ -134,6 +141,14 @@ class UserTenant implements Auditavel
     }
 
     public function isActive(): bool { return $this->isActive; }
+
+    public function isControladoria(): bool { return $this->controladoria; }
+
+    public function setControladoria(bool $controladoria): static
+    {
+        $this->controladoria = $controladoria;
+        return $this;
+    }
 
     public function reativar(): void
     {

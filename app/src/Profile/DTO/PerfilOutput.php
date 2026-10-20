@@ -6,6 +6,8 @@ use App\Auth\Enum\StatusOab;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Profile\Entity\UserProfile;
+use App\Profile\Entity\VinculoNoEscritorio;
+use App\Profile\Enum\VinculoColaborador;
 
 final class PerfilOutput
 {
@@ -28,10 +30,17 @@ final class PerfilOutput
         public readonly ?StatusOab $oabStatus,
         public readonly ?string $oabNomeOficial,
         public readonly ?\DateTimeImmutable $oabVerificadaEm,
+        public readonly ?string $telefone = null,
+        public readonly VinculoColaborador $vinculo = VinculoColaborador::Clt,
+        public readonly ?\DateTimeImmutable $dataAdmissao = null,
+        public readonly ?\DateTimeImmutable $contratoInicio = null,
+        public readonly ?string $cnpj = null,
+        public readonly ?\DateTimeImmutable $revisadoEm = null,
     ) {
     }
 
-    public static function fromEntity(UserProfile $perfil, User $user, ?UserTenant $userTenant): self
+    /** Vínculo ausente vale como Empregado CLT (padrão do desenho 07). */
+    public static function fromEntity(UserProfile $perfil, User $user, ?UserTenant $userTenant, ?VinculoNoEscritorio $vinculo = null): self
     {
         $nomeCompleto = $perfil->getNomeCompleto();
         $nomeExibido = $nomeCompleto ?? $user->getFullName() ?? '';
@@ -55,6 +64,12 @@ final class PerfilOutput
             oabStatus: $user->getOabStatus(),
             oabNomeOficial: $user->getOabNomeOficial(),
             oabVerificadaEm: $user->getOabVerificadaEm(),
+            telefone: $perfil->getTelefone(),
+            vinculo: $vinculo?->getTipo() ?? VinculoColaborador::Clt,
+            dataAdmissao: $userTenant?->getDataAdmissao(),
+            contratoInicio: $vinculo?->getContratoInicio(),
+            cnpj: $vinculo?->getCnpj(),
+            revisadoEm: $perfil->getRevisadoEm(),
         );
     }
 

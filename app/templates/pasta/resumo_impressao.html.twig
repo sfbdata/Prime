@@ -162,7 +162,7 @@
                     </section>
                 {% endif %}
 
-                {% if resumo.processos|length > 0 %}
+                {% if resumo.comProcessos and resumo.processos|length > 0 %}
                     <section data-secao="processos">
                         <div class="rp-secao">Processos ({{ resumo.processos|length }})</div>
                         <table class="rp-tabela">
@@ -187,6 +187,7 @@
                     </section>
                 {% endif %}
 
+                {% if resumo.comMetas %}
                 <section data-secao="metas">
                     <div class="rp-secao">Metas abertas ({{ resumo.totalMetasAbertas }})</div>
                     {% if resumo.metasAbertas|length > 0 %}
@@ -210,6 +211,7 @@
                         <div class="rp-vazio">Nenhuma meta aberta.</div>
                     {% endif %}
                 </section>
+                {% endif %}
 
                 {% if resumo.movimentacoes|length > 0 %}
                     <section data-secao="movimentacoes">

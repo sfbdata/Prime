@@ -2,6 +2,9 @@
    trabalho-externo.js: a tela do módulo Trabalho Externo.
    Desenho aprovado: docs/design/trabalho-externo/06 - Trabalho Externo 1.0.dc.html
    (a lógica de tela é a do `renderVals()` da classe Component do protótipo).
+   Marcações pessoais e chat avançado: desenho "06 - Trabalho Externo - VS 18.10.26"
+   (spec docs/specs/trabalho-externo-vs-18-10-26.md §3); o que é provisório até o zip
+   está marcado assim no comentário de cada lista.
 
    O servidor decide tudo que é sensível (perfil, botões, recorte de privacidade,
    o que cada um vê); este arquivo só pinta e chama a API. Dado vindo do servidor
@@ -36,6 +39,23 @@
         ['arquivada', 'Arquivadas', ['arquivada']],
         ['rascunho', 'Rascunhos', ['rascunho']]
     ];
+    /**
+     * Chips das marcações pessoais depois dos grupos (desenho VS 18.10.26, `chips` do renderVals):
+     * estrela e importantes contam o que está fora da lixeira; a lixeira conta só o que está nela.
+     */
+    var EXTRAS = [
+        ['estrela', '★ Com estrela'],
+        ['imp', 'Importantes'],
+        ['lixeira', 'Lixeira']
+    ];
+    /** Importância nível 0 a 3 (`impIc`, `impCor`, `impBg` e `impTip` do desenho). */
+    var IMPORTANCIA = [
+        { bg: 'transparent', cor: '#c9d3da', ic: 'bi-chevron-right', rot: 'Pouca importância' },
+        { bg: 'transparent', cor: '#7aa7c2', ic: 'bi-chevron-right', rot: 'Importância moderada' },
+        { bg: 'transparent', cor: '#0a6fa0', ic: 'bi-chevron-double-right', rot: 'Importante' },
+        { bg: '#0a6fa0', cor: '#fff', ic: 'bi-chevron-double-right', rot: 'Muito importante' }
+    ];
+    var DESFAZER_MS = 8000;
     var ABAS = { resumo: 'Resumo', proposta: 'Proposta', exec: 'Execução', chat: 'Chat', hist: 'Histórico', whats: 'WhatsApp' };
     var OBRIGATORIOS = ['escritorio', 'email', 'advogado', 'oab', 'cidadeExecucao', 'descricao', 'prazoFinal'];
 
@@ -64,7 +84,11 @@
         nova: null,
         conf: null,
         cfgAberta: false,
-        toast: null
+        toast: null,
+        sel: [],
+        chatSel: [],
+        chatVis: 'todas',
+        chatUndo: null
     };
 
     /* ---------------------------------------------------------------- utilidades */
@@ -155,7 +179,10 @@
         anexar: function (c) { return comCodigo(D.urlAnexar, c); },
         documento: function (c, id) { return comCodigo(D.urlDocumento, c).replace(/\/0$/, '/' + id); },
         convites: function (c, resto) { return comCodigo(D.urlConvites, c) + resto; },
-        whatsapp: function (c, resto) { return comCodigo(D.urlWhatsapp, c).replace(/\/avisar-fase-atual$/, '') + resto; }
+        whatsapp: function (c, resto) { return comCodigo(D.urlWhatsapp, c).replace(/\/avisar-fase-atual$/, '') + resto; },
+        marcacoes: function () { return D.urlMarcacoes; },
+        marcacoesMsg: function (c) { return comCodigo(D.urlMensagensMarcacoes, c); },
+        apagarMsg: function (c, id) { return comCodigo(D.urlMensagemApagar, c).replace(/\/0\/apagar$/, '/' + id + '/apagar'); }
     };
 
     /* ---------------------------------------------------------------- HTTP */
@@ -268,6 +295,7 @@
             }
             S.painel = r.painel;
             S.grupo = 'todas';
+            S.sel = [];
             renderTudo();
             if (S.painel.avisoDeMensagem) {
                 var a = S.painel.avisoDeMensagem;
@@ -385,13 +413,36 @@
         return GRUPOS[0];
     }
 
-    function filtradas() {
-        var V = demandas(), G = grupoAtual(), q = S.busca.trim().toLowerCase(), solic = ehSolicitante();
-        return V.filter(function (d) {
-            if (G[2] && G[2].indexOf(d.situacao) < 0) {
+    function nivelDe(d) { return Math.max(0, Math.min(3, +((d.importancia || {}).nivel) || 0)); }
+    function importante(d) { return nivelDe(d) >= 2; }
+    function ehExtra(g) { return EXTRAS.some(function (x) { return x[0] === g; }); }
+
+    /** Fora da lixeira pessoal: é o que conta nos KPIs e nos chips de situação (spec VS 18.10.26 §3.3). */
+    function foraDaLixeira() { return demandas().filter(function (d) { return !d.lixeira; }); }
+
+    /** Lista de cada chip extra, sem a busca. Estrela e importantes seguem a regra de "Todas" para rascunho. */
+    function doExtra(g) {
+        if (g === 'lixeira') {
+            return demandas().filter(function (d) { return !!d.lixeira; });
+        }
+        var solic = ehSolicitante();
+        return foraDaLixeira().filter(function (d) {
+            if (d.situacao === 'rascunho' && !solic) {
                 return false;
             }
-            if (S.grupo === 'todas' && d.situacao === 'rascunho' && !solic) {
+            return g === 'estrela' ? !!d.estrela : importante(d);
+        });
+    }
+
+    function filtradas() {
+        var q = S.busca.trim().toLowerCase(), solic = ehSolicitante();
+        var extra = ehExtra(S.grupo), G = extra ? null : grupoAtual();
+        var V = extra ? doExtra(S.grupo) : foraDaLixeira();
+        return V.filter(function (d) {
+            if (G && G[2] && G[2].indexOf(d.situacao) < 0) {
+                return false;
+            }
+            if (G && S.grupo === 'todas' && d.situacao === 'rascunho' && !solic) {
                 return false;
             }
             if (!q) {
@@ -451,7 +502,7 @@
     /** O período afeta SÓ os KPIs (spec §5), pela data de criação. */
     function renderKpis() {
         var alvo = limpar($('teKpis'));
-        var VP = demandas().filter(noPeriodo);
+        var VP = foraDaLixeira().filter(noPeriodo);
         var abertas = VP.filter(function (d) { return FECHADAS.indexOf(d.situacao) < 0; });
         var conta = function (lista) { return VP.filter(function (d) { return lista.indexOf(d.situacao) >= 0; }).length; };
         [
@@ -461,7 +512,7 @@
             ['Prazo em até 3 dias', abertas.filter(function (d) { var n = diasAte(d); return n !== null && n <= 3; }).length, 'bi-alarm', '#a3232b', 'todas'],
             ['Concluídas', conta(['concluida']), 'bi-check2-all', '#1e7b45', 'concluida']
         ].forEach(function (k) {
-            alvo.appendChild(el('button', { type: 'button', class: 'te-kpi', onclick: function () { S.grupo = k[4]; renderChips(); renderLinhas(); } }, [
+            alvo.appendChild(el('button', { type: 'button', class: 'te-kpi', onclick: function () { irGrupo(k[4]); } }, [
                 ic(k[2], { color: k[3] }),
                 el('span', { class: 'te-kpi-textos' }, [el('b', { class: 'te-kpi-n', text: k[1] }), el('span', { class: 'te-kpi-rot', text: k[0] })])
             ]));
@@ -470,20 +521,36 @@
 
     function renderChips() {
         var alvo = limpar($('teChips'));
-        var V = demandas(), solic = ehSolicitante();
-        GRUPOS.filter(function (g) { return g[0] !== 'rascunho' || solic; }).forEach(function (g) {
-            var n = V.filter(function (d) { return !g[2] ? d.situacao !== 'rascunho' : g[2].indexOf(d.situacao) >= 0; }).length;
+        var V = foraDaLixeira(), solic = ehSolicitante();
+        var chip = function (chave, rot, n) {
             alvo.appendChild(el('button', {
                 type: 'button',
-                class: 'te-chip' + (S.grupo === g[0] ? ' is-ativo' : ''),
-                onclick: function () { S.grupo = g[0]; renderChips(); renderLinhas(); }
-            }, [g[1], el('span', { class: 'te-chip-n', text: n })]));
+                class: 'te-chip' + (S.grupo === chave ? ' is-ativo' : ''),
+                onclick: function () { irGrupo(chave); }
+            }, [rot, el('span', { class: 'te-chip-n', text: n })]));
+        };
+        GRUPOS.filter(function (g) { return g[0] !== 'rascunho' || solic; }).forEach(function (g) {
+            chip(g[0], g[1], V.filter(function (d) { return !g[2] ? d.situacao !== 'rascunho' : g[2].indexOf(d.situacao) >= 0; }).length);
         });
+        EXTRAS.forEach(function (x) { chip(x[0], x[1], doExtra(x[0]).length); });
+    }
+
+    /** Trocar de filtro limpa a seleção: a barra de lote muda de operações dentro e fora da lixeira. */
+    function irGrupo(g) {
+        S.grupo = g;
+        S.sel = [];
+        renderChips();
+        renderLinhas();
     }
 
     function renderLinhas() {
         var alvo = limpar($('teLinhas'));
         var L = filtradas();
+        // Só age sobre o que está à vista: a seleção perde o que saiu do filtro, da busca ou do painel.
+        var vistos = L.map(function (d) { return d.codigo; });
+        S.sel = S.sel.filter(function (c) { return vistos.indexOf(c) >= 0; });
+        renderCabSel(L);
+        renderLote();
         L.forEach(function (d) { alvo.appendChild(linha(d)); });
         if (!L.length) {
             var p = perfil(), txt;
@@ -500,6 +567,159 @@
         }
     }
 
+    function selecionada(codigo) { return S.sel.indexOf(codigo) >= 0; }
+
+    function alternarSel(codigo) {
+        S.sel = selecionada(codigo) ? S.sel.filter(function (c) { return c !== codigo; }) : S.sel.concat([codigo]);
+        renderLinhas();
+    }
+
+    /** Cabeçalho da coluna de marcação (desenho, linhas 130 a 133): selecionar todas, "Selecionar por" e Atualizar. */
+    function renderCabSel(L) {
+        var alvo = limpar($('teCabSel'));
+        if (!previa()) {
+            var todas = L.length > 0 && S.sel.length === L.length;
+            var icone = todas ? 'bi-check-square-fill' : S.sel.length ? 'bi-dash-square-fill' : 'bi-square';
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-sel-btn' + (S.sel.length ? ' is-on' : ''), title: 'Selecionar',
+                attrs: { 'aria-label': todas ? 'Limpar seleção' : 'Selecionar todas' },
+                onclick: function () {
+                    S.sel = todas ? [] : L.map(function (d) { return d.codigo; });
+                    renderLinhas();
+                }
+            }, ic(icone)));
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-sel-caret', title: 'Selecionar por', attrs: { 'aria-haspopup': 'menu' },
+                onclick: function (e) {
+                    var r = e.currentTarget.getBoundingClientRect();
+                    abrirMenuEspecial({ tipo: 'selpor' }, r.left - 30, r.bottom + 6, 180);
+                }
+            }, ic('bi-caret-down-fill')));
+        }
+        alvo.appendChild(el('button', {
+            type: 'button', class: 'te-sel-atualizar', title: 'Atualizar',
+            onclick: function () { recarregarPainel(); }
+        }, ic('bi-arrow-clockwise')));
+    }
+
+    /** "Selecionar por" (provisório até o zip, spec VS 18.10.26 §3.5): sempre dentro do filtro atual. */
+    var SEL_OPS = [
+        ['Todas', function () { return true; }],
+        ['Nenhuma', function () { return false; }],
+        ['Lidas', function (d) { return !(+d.naoLidas > 0); }],
+        ['Não lidas', function (d) { return +d.naoLidas > 0; }],
+        ['Com estrela', function (d) { return !!d.estrela; }],
+        ['Sem estrela', function (d) { return !d.estrela; }],
+        ['Importantes', importante]
+    ];
+
+    /**
+     * Barra de lote e aviso da lixeira (desenho, linhas 125 e 126; `loteAcoes` do renderVals). Um só
+     * botão de leitura (lida se alguma tem não lidas) e um de estrela (remover se todas já têm);
+     * importante e não importante aparecem sempre.
+     */
+    function renderLote() {
+        var alvo = limpar($('teLote'));
+        var naLixeira = S.grupo === 'lixeira';
+        if (S.sel.length && !previa()) {
+            var sel = demandas().filter(function (d) { return selecionada(d.codigo); });
+            var algumaNaoLida = sel.some(function (d) { return +d.naoLidas > 0; });
+            var todasEstrela = sel.length > 0 && sel.every(function (d) { return !!d.estrela; });
+            var acoes = naLixeira
+                ? [
+                    ['restaurar', 'Restaurar', 'bi-arrow-counterclockwise', null],
+                    ['definitivo', 'Excluir da minha lista definitivamente', 'bi-x-octagon', '#a3232b']
+                ]
+                : [
+                    ['lixeira', 'Mover para a lixeira', 'bi-trash', null],
+                    algumaNaoLida ? ['lida', 'Marcar como lida', 'bi-envelope-open', null] : ['naolida', 'Marcar como não lida', 'bi-envelope', null],
+                    todasEstrela ? ['semestrela', 'Remover estrela', 'bi-star-fill', '#e0a106'] : ['estrela', 'Adicionar estrela', 'bi-star', null],
+                    ['imp', 'Marcar como importante', 'bi-chevron-double-right', '#0a6fa0'],
+                    ['naoimp', 'Marcar como não importante', 'bi-chevron-right', null]
+                ];
+            var codigos = S.sel.slice();
+            alvo.appendChild(el('div', { class: 'te-lote', attrs: { role: 'toolbar', 'aria-label': 'Ações nas selecionadas' } }, [
+                el('b', { class: 'te-lote-n', text: S.sel.length + ' selecionada(s)' })
+            ].concat(acoes.map(function (a) {
+                return el('button', {
+                    type: 'button', class: 'te-lote-btn', title: a[1],
+                    style: a[3] ? { color: a[3] } : null,
+                    attrs: { 'data-tip': a[1], 'aria-label': a[1] },
+                    onclick: function () { lote(codigos, a[0]); }
+                }, ic(a[2]));
+            })).concat([
+                el('span', { class: 'te-espaco' }),
+                el('button', { type: 'button', class: 'te-lote-cancelar', text: 'Cancelar', onclick: function () { S.sel = []; renderLinhas(); } })
+            ])));
+        }
+        if (naLixeira) {
+            alvo.appendChild(el('div', { class: 'te-lix-aviso' }, [ic('bi-info-circle'), ' A lixeira é só sua: as demandas continuam para os outros participantes. Restaure quando quiser.']));
+        }
+    }
+
+    /* ---------------------------------------------------------------- marcações em lote */
+
+    /** Operações de `lote()` do desenho, gravadas pelo servidor só para o usuário logado. */
+    function lote(codigos, op) {
+        if (!codigos.length || previa()) {
+            return;
+        }
+        fecharMenu();
+        if (op === 'definitivo') {
+            var n = codigos.length;
+            abrirConf(null, {
+                k: '__definitivo__',
+                confirmacao: {
+                    titulo: 'Excluir definitivamente',
+                    texto: 'Excluir ' + (n === 1 ? 'esta demanda' : n + ' demandas') + ' da sua lista definitivamente? Ela continua existindo para os outros participantes.',
+                    botao: 'Excluir', motivo: false, perigo: true
+                },
+                executar: function () { return enviarLote(codigos, op); }
+            });
+            return;
+        }
+        enviarLote(codigos, op);
+    }
+
+    function enviarLote(codigos, op) {
+        fecharMenu();
+        return pedir('POST', ROTA.marcacoes(), { codigos: codigos, op: op }).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return r;
+            }
+            S.sel = [];
+            renderTudo();
+            mostrarDesfazer(r.texto, op === 'lixeira' ? function () { enviarLote(codigos, 'restaurar'); } : null);
+            recarregarPainel();
+            return r;
+        });
+    }
+
+    /* ---------------------------------------------------------------- aviso de desfazer (8 s) */
+
+    var temporizadorDesfazer = null;
+
+    /** Faixa escura do canto esquerdo (desenho, linha 127). "Desfazer" só aparece quando há o que desfazer. */
+    function mostrarDesfazer(texto, desfazer) {
+        clearTimeout(temporizadorDesfazer);
+        var alvo = limpar($('teDesfazer'));
+        if (vazio(texto)) {
+            return;
+        }
+        alvo.appendChild(el('div', { class: 'te-desfazer', attrs: { role: 'status' } }, [
+            el('span', { text: texto }),
+            desfazer ? el('button', { type: 'button', class: 'te-desfazer-btn', text: 'Desfazer', onclick: function () { fecharDesfazer(); desfazer(); } }) : null,
+            el('button', { type: 'button', class: 'te-desfazer-fechar', title: 'Fechar', onclick: fecharDesfazer }, ic('bi-x-lg'))
+        ]));
+        temporizadorDesfazer = setTimeout(fecharDesfazer, DESFAZER_MS);
+    }
+
+    function fecharDesfazer() {
+        clearTimeout(temporizadorDesfazer);
+        limpar($('teDesfazer'));
+    }
+
     function linha(d) {
         var n = diasAte(d), fech = !!d.fechada;
         var prazoTxt = fech ? 'encerrado' : n === null ? '' : n < 0 ? 'atrasada ' + (-n) + ' dia(s)' : n === 0 ? 'vence hoje' : 'em ' + n + ' dia(s)';
@@ -509,9 +729,10 @@
         var nl = +d.naoLidas || 0;
 
         var abrirMenu = function (x, y) { abrirMenuDe(d.codigo, d.situacao, d.botoes || [], x, y); };
+        var sel = selecionada(d.codigo);
 
         return el('div', {
-            class: 'te-grade te-linha' + (d.urgente && !fech ? ' is-urgente' : ''),
+            class: 'te-grade te-linha' + (d.urgente && !fech ? ' is-urgente' : '') + (sel ? ' is-sel' : '') + (nl > 0 ? ' is-naolida' : ''),
             onclick: function () {
                 if (d.situacao === 'rascunho' && ehSolicitante()) {
                     editarRascunho(d.codigo);
@@ -521,6 +742,7 @@
             },
             oncontextmenu: function (e) { e.preventDefault(); abrirMenu(e.clientX, e.clientY); }
         }, [
+            marcasDaLinha(d, sel),
             el('div', { class: 'te-l-id', text: d.codigo }),
             el('div', { class: 'te-l-serv' }, [el('div', { class: 'te-l-tipo', text: d.tipo }), el('div', { class: 'te-l-desc', text: d.descricao || '' })]),
             el('div', { class: 'te-l-rota' }, [
@@ -541,14 +763,54 @@
         ]);
     }
 
+    /**
+     * Coluna de marcação (desenho, linha 137): selecionar, estrela e importância. O clique nela não
+     * abre a demanda. Na prévia do Master toda escrita é negada: só o indicador de importância fica.
+     */
+    function marcasDaLinha(d, sel) {
+        var nv = nivelDe(d), I = IMPORTANCIA[nv];
+        var motivos = ((d.importancia || {}).motivos || []).join(', ');
+        var dica = I.rot + (motivos ? ': ' + motivos : '') + '. Clique para marcar ' + (nv >= 2 ? 'como não importante.' : 'como importante.');
+        var parar = function (fn) { return function (e) { e.stopPropagation(); if (fn) { fn(); } }; };
+        var pv = previa();
+
+        return el('div', { class: 'te-l-marca', onclick: parar(null) }, [
+            pv ? null : el('button', {
+                type: 'button', class: 'te-sel-btn' + (sel ? ' is-on' : ''), title: 'Selecionar',
+                attrs: { 'aria-pressed': sel ? 'true' : 'false' },
+                onclick: parar(function () { alternarSel(d.codigo); })
+            }, ic(sel ? 'bi-check-square-fill' : 'bi-square')),
+            el('button', {
+                type: 'button', class: 'te-estrela' + (d.estrela ? ' is-on' : ''), title: 'Estrela', disabled: pv,
+                attrs: { 'aria-pressed': d.estrela ? 'true' : 'false' },
+                onclick: parar(function () { lote([d.codigo], d.estrela ? 'semestrela' : 'estrela'); })
+            }, ic(d.estrela ? 'bi-star-fill' : 'bi-star')),
+            el('button', {
+                type: 'button', class: 'te-imp', title: dica, disabled: pv,
+                style: { background: I.bg, color: I.cor },
+                attrs: { 'data-tip': dica, 'aria-label': dica },
+                onclick: parar(function () { lote([d.codigo], nv >= 2 ? 'naoimp' : 'imp'); })
+            }, ic(I.ic))
+        ]);
+    }
+
     /* ---------------------------------------------------------------- menu de contexto */
 
     function abrirMenuDe(codigo, situacao, botoes, x, y) {
         S.menu = {
             codigo: codigo, situacao: situacao, botoes: botoes,
             x: Math.max(0, Math.min(x, window.innerWidth - 260)),
-            y: Math.max(0, Math.min(y, window.innerHeight - 360))
+            y: Math.max(0, Math.min(y, window.innerHeight - 460))
         };
+        renderMenu();
+    }
+
+    /** Menus que não são o da demanda: "Selecionar por" e o de uma mensagem do chat. */
+    function abrirMenuEspecial(m, x, y, largura) {
+        m.x = Math.max(0, Math.min(x, window.innerWidth - largura - 10));
+        m.y = Math.max(0, Math.min(y, window.innerHeight - 320));
+        m.largura = largura;
+        S.menu = m;
         renderMenu();
     }
 
@@ -567,6 +829,30 @@
         }
         var fechar = function (e) { e.preventDefault(); fecharMenu(); };
         var caixa = el('div', { class: 'te-menu', style: { left: m.x + 'px', top: m.y + 'px' } });
+        alvo.appendChild(el('div', { class: 'te-menu-fundo', onclick: fechar, oncontextmenu: fechar }));
+        if (m.tipo === 'selpor') {
+            caixa.style.width = m.largura + 'px';
+            SEL_OPS.forEach(function (o) {
+                caixa.appendChild(el('button', {
+                    type: 'button', class: 'te-menu-item', text: o[0],
+                    onclick: function () {
+                        fecharMenu();
+                        S.sel = filtradas().filter(o[1]).map(function (d) { return d.codigo; });
+                        renderLinhas();
+                    }
+                }));
+            });
+            alvo.appendChild(caixa);
+
+            return;
+        }
+        if (m.tipo === 'msg') {
+            caixa.style.width = m.largura + 'px';
+            menuDaMensagem(caixa, m.msg);
+            alvo.appendChild(caixa);
+
+            return;
+        }
         var base = [['abrir', 'Abrir demanda', 'bi-box-arrow-up-right'], ['chat', 'Abrir chat', 'bi-chat-dots']];
         if (m.situacao !== 'rascunho') {
             base.push(['hist', 'Histórico', 'bi-clock-history']);
@@ -584,7 +870,6 @@
                 onclick: function () { executar(m.codigo, b); }
             }, [ic(b.ic), b.rot]));
         });
-        alvo.appendChild(el('div', { class: 'te-menu-fundo', onclick: fechar, oncontextmenu: fechar }));
         alvo.appendChild(caixa);
     }
 
@@ -659,6 +944,7 @@
             if (!mesma) {
                 S.f = {};
                 S.erroProp = '';
+                limparChat();
             }
             montarDrawer();
             if (S.aba === 'chat') {
@@ -671,6 +957,7 @@
         S.aberta = null;
         S.dz = null;
         S.pctCodigo = null;
+        limparChat();
         limpar($('teDrawer'));
     }
 
@@ -950,6 +1237,10 @@
         if (dz.mostraConvites) {
             alvo.appendChild(el('div', { class: 'te-secao-rot te-conv-rot', text: 'PROFISSIONAIS CONVIDADOS' }));
             var convites = dz.convites || [];
+            var aviso = avisoEmailAConfirmar();
+            if (aviso && (dz.podeConvidar || convites.some(function (c) { return c.gerir; }))) {
+                alvo.appendChild(aviso);
+            }
             convites.forEach(function (c) {
                 alvo.appendChild(el('div', { class: 'te-conv' }, [
                     el('span', { class: 'te-conv-ini', text: c.ini }),
@@ -980,6 +1271,24 @@
                 alvo.appendChild(formularioDeConvite(dz));
             }
         }
+    }
+
+    /**
+     * Conta com o e-mail a confirmar não convida nem reenvia (o servidor recusa com 422). O template só põe os
+     * data-* quando é o caso; aqui vira o aviso com o botão "Reenviar o link de confirmação" (POST comum, volta com
+     * flash). Sem os data-*, nada.
+     */
+    function avisoEmailAConfirmar() {
+        if (!D.urlReenviarConfirmacao) {
+            return null;
+        }
+        return el('div', { class: 'te-caixa te-conv-confirmar' }, [
+            el('div', { class: 'te-conv-form-txt', text: D.recusaEmailAConfirmar || '' }),
+            el('form', { attrs: { method: 'post', action: D.urlReenviarConfirmacao } }, [
+                el('input', { type: 'hidden', name: '_token', value: D.csrfReenviarConfirmacao || '' }),
+                el('button', { type: 'submit', class: 'te-btn-contorno', text: 'Reenviar o link de confirmação' })
+            ])
+        ]);
     }
 
     function gerirConvite(codigo, c, operacao, botao) {
@@ -1061,21 +1370,338 @@
         });
     }
 
-    function abaChat(alvo, dz) {
-        var lista = el('div', { class: 'te-msgs' });
-        (dz.mensagens || []).forEach(function (m) {
-            var classe = 'te-msg' + (m.estilo === 'sistema' ? ' is-sistema' : '') + (m.meu && m.estilo !== 'sistema' ? ' is-meu' : '') + (m.estilo === 'interna' ? ' is-interna' : '');
-            lista.appendChild(el('div', { class: classe }, [
-                el('div', { class: 'te-msg-cab' }, [
-                    el('b', { style: { color: m.nomeCor }, text: m.de }),
-                    el('span', { text: m.em }),
-                    m.tipo ? el('span', { text: m.tipo }) : null
-                ]),
-                el('div', { class: 'te-msg-txt', text: m.txt })
-            ]));
+    /* ---------------------------------------------------------------- chat avançado (spec VS 18.10.26 §3.4) */
+
+    /** Filtros do chat e o texto de vazio de cada um (`chatFiltros` e `chatVazioTxt` do desenho). */
+    var CHAT_FILTROS = [
+        ['todas', 'Todas', 'bi-chat-left-text', 'Nenhuma mensagem nesta demanda.'],
+        ['fav', 'Favoritas', 'bi-star', 'Nenhuma mensagem favoritada. Use a estrela para guardar as importantes.'],
+        ['lix', 'Lixeira', 'bi-trash', 'A lixeira está vazia.']
+    ];
+    var temporizadorChatUndo = null;
+
+    function limparChat() {
+        clearTimeout(temporizadorChatUndo);
+        S.chatSel = [];
+        S.chatVis = 'todas';
+        S.chatUndo = null;
+    }
+
+    function mensagensVisiveis(dz) {
+        return (dz.mensagens || []).filter(function (m) {
+            if (S.chatVis === 'lix') {
+                return !!m.lixeira;
+            }
+            return !m.lixeira && (S.chatVis !== 'fav' || !!m.favorita);
         });
-        if (!(dz.mensagens || []).length) {
-            lista.appendChild(el('div', { class: 'te-msgs-vazio', text: 'Nenhuma mensagem nesta demanda.' }));
+    }
+
+    /** Redesenha só o corpo, guardando a rolagem (selecionar uma mensagem não pode jogar a conversa para o topo). */
+    function redesenharChat() {
+        var corpo = $('teDzCorpo');
+        if (!corpo || S.aba !== 'chat') {
+            return;
+        }
+        var topo = corpo.scrollTop;
+        renderCorpo();
+        corpo.scrollTop = topo;
+    }
+
+    /** Tira só a faixa de desfazer: redesenhar a aba tiraria o foco de quem está escrevendo. */
+    function fecharChatUndo() {
+        clearTimeout(temporizadorChatUndo);
+        S.chatUndo = null;
+        var faixa = document.querySelector('#teDzCorpo .te-chat-undo');
+        if (faixa) {
+            faixa.remove();
+        }
+    }
+
+    function chatSelecionada(id) { return S.chatSel.indexOf(id) >= 0; }
+
+    function alternarChatSel(id) {
+        S.chatSel = chatSelecionada(id) ? S.chatSel.filter(function (x) { return x !== id; }) : S.chatSel.concat([id]);
+        redesenharChat();
+    }
+
+    /** Operações de `_chatLote()` do desenho. "definitivo" confirma antes, com o texto do desenho. */
+    function chatLote(ids, op) {
+        if (!S.dz || !ids.length || previa()) {
+            return;
+        }
+        fecharMenu();
+        var codigo = S.dz.codigo;
+        if (op === 'definitivo') {
+            var n = ids.length;
+            abrirConf(codigo, {
+                k: '__definitivo_msg__',
+                confirmacao: {
+                    titulo: 'Excluir definitivamente',
+                    texto: n === 1 ? 'Excluir definitivamente esta mensagem? Não será possível recuperar.' : 'Excluir definitivamente ' + n + ' mensagens? Não será possível recuperar.',
+                    botao: 'Excluir', motivo: false, perigo: true
+                },
+                executar: function () { return enviarChatLote(codigo, ids, op); }
+            });
+            return;
+        }
+        enviarChatLote(codigo, ids, op);
+    }
+
+    /**
+     * Grava a operação. Com `aviso` (favoritar uma mensagem só, como o `tgFav` do desenho) mostra o
+     * aviso do canto e não mexe na seleção nem na faixa de desfazer.
+     */
+    function enviarChatLote(codigo, ids, op, aviso) {
+        return pedir('POST', ROTA.marcacoesMsg(codigo), { ids: ids, op: op }).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return r;
+            }
+            if (aviso) {
+                mostrarToast(aviso);
+                aplicarDemandaNoChat(r);
+                return r;
+            }
+            S.chatSel = [];
+            clearTimeout(temporizadorChatUndo);
+            // Como no desenho: excluir definitivamente não deixa aviso; só a lixeira pode ser desfeita.
+            S.chatUndo = op === 'definitivo' ? null : { txt: r.texto, codigo: codigo, ids: op === 'lixeira' ? ids : null };
+            if (S.chatUndo) {
+                temporizadorChatUndo = setTimeout(fecharChatUndo, DESFAZER_MS);
+            }
+            aplicarDemandaNoChat(r);
+            return r;
+        });
+    }
+
+    /** Estrela de uma mensagem (botão ou menu): alterna e avisa no canto, com os textos do desenho. */
+    function alternarFavorita(m) {
+        if (!S.dz || previa()) {
+            return;
+        }
+        fecharMenu();
+        var aviso = m.favorita
+            ? { tit: 'Removida das favoritas', txt: '', hora: '' }
+            : { tit: 'Mensagem favoritada', txt: 'Veja em Favoritas no topo do chat.', hora: '' };
+        enviarChatLote(S.dz.codigo, [m.id], m.favorita ? 'desfav' : 'fav', aviso);
+    }
+
+    function copiarTexto(m) {
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(m.txt || '');
+        }
+        mostrarToast({ tit: 'Texto copiado', txt: '', hora: '' });
+    }
+
+    /** Como aplicarDemanda, mas sem perder a rolagem da conversa. */
+    function aplicarDemandaNoChat(r) {
+        if (r.demanda && S.aberta === r.demanda.codigo) {
+            S.dz = r.demanda;
+            var vistos = mensagensVisiveis(S.dz).map(function (m) { return m.id; });
+            S.chatSel = S.chatSel.filter(function (id) { return vistos.indexOf(id) >= 0; });
+            renderCabecalho();
+            renderAbas();
+            redesenharChat();
+        }
+        recarregarPainel();
+    }
+
+    function apagarParaTodos(m) {
+        if (!S.dz || previa()) {
+            return;
+        }
+        fecharMenu();
+        var codigo = S.dz.codigo;
+        abrirConf(codigo, {
+            k: '__apagar_msg__',
+            confirmacao: {
+                titulo: 'Apagar para todos',
+                texto: 'Apagar esta mensagem? Ela some para todos e fica registrado que foi apagada.',
+                botao: 'Apagar para todos', motivo: false, perigo: true
+            },
+            executar: function () {
+                return pedir('POST', ROTA.apagarMsg(codigo, m.id)).then(function (r) {
+                    if (!r.ok) {
+                        toastErro(r.mensagem);
+                        return r;
+                    }
+                    aplicarDemandaNoChat(r);
+                    return r;
+                });
+            }
+        });
+    }
+
+    /**
+     * Menu de contexto de uma mensagem (`ctx` do desenho). Na lixeira: só restaurar e excluir. Fora:
+     * selecionar, favoritar e copiar (se não apagada), lixeira e apagar para todos; quando o servidor
+     * nega o apagar, mostra o motivo num item travado que só fecha o menu.
+     */
+    function menuDaMensagem(caixa, m) {
+        var item = function (rot, icone, acao, classe) {
+            caixa.appendChild(el('button', {
+                type: 'button', class: 'te-menu-item' + (classe ? ' ' + classe : ''),
+                onclick: function () { fecharMenu(); acao(); }
+            }, [ic(icone), rot]));
+        };
+        if (m.lixeira) {
+            caixa.appendChild(el('div', { class: 'te-menu-tit', text: 'Lixeira' }));
+            item('Restaurar', 'bi-arrow-counterclockwise', function () { chatLote([m.id], 'restaurar'); });
+            item('Excluir definitivamente', 'bi-x-octagon', function () { chatLote([m.id], 'definitivo'); }, 'is-perigo');
+            return;
+        }
+        caixa.appendChild(el('div', { class: 'te-menu-tit', text: m.de + ' · ' + m.em }));
+        var sel = chatSelecionada(m.id);
+        item(sel ? 'Desmarcar' : 'Selecionar', sel ? 'bi-check-square-fill' : 'bi-check-square', function () { alternarChatSel(m.id); });
+        if (!m.apagada) {
+            item(m.favorita ? 'Remover das favoritas' : 'Favoritar', m.favorita ? 'bi-star-fill' : 'bi-star', function () { alternarFavorita(m); });
+            item('Copiar texto', 'bi-clipboard', function () { copiarTexto(m); });
+        }
+        item('Mover para a lixeira', 'bi-trash', function () { chatLote([m.id], 'lixeira'); });
+        if (m.podeApagar) {
+            item('Apagar para todos', 'bi-trash-fill', function () { apagarParaTodos(m); }, 'is-perigo');
+        } else if (!vazio(m.apagarBloqueado)) {
+            item(m.apagarBloqueado, 'bi-lock', function () {}, 'is-travado');
+        }
+    }
+
+    /** Barra do chat (desenho, linhas 559 a 564): filtros, seleção, ações do lote, aviso e desfazer. */
+    function barraDoChat(alvo, dz, visiveis) {
+        var pv = previa(), noLix = S.chatVis === 'lix';
+        var barra = el('div', { class: 'te-chat-barra' });
+        barra.appendChild(el('div', { class: 'te-seg' }, CHAT_FILTROS.map(function (x) {
+            return el('button', {
+                type: 'button', class: 'te-seg-btn te-chat-filtro' + (S.chatVis === x[0] ? ' is-ativo' : ''),
+                attrs: { 'aria-pressed': S.chatVis === x[0] ? 'true' : 'false' },
+                onclick: function () { S.chatVis = x[0]; S.chatSel = []; redesenharChat(); }
+            }, [ic(x[2]), x[1]]);
+        })));
+
+        if (!pv && visiveis.length) {
+            var todas = S.chatSel.length === visiveis.length;
+            barra.appendChild(el('button', {
+                type: 'button', class: 'te-chat-todas', title: todas ? 'Limpar seleção' : 'Selecionar todas',
+                onclick: function () {
+                    S.chatSel = todas ? [] : visiveis.map(function (m) { return m.id; });
+                    redesenharChat();
+                }
+            }, ic(todas ? 'bi-check-square-fill' : S.chatSel.length ? 'bi-dash-square' : 'bi-check2-square')));
+        }
+
+        if (!pv && S.chatSel.length) {
+            var ids = S.chatSel.slice();
+            var grupo = el('div', { class: 'te-chat-sel' }, [
+                el('b', { class: 'te-chat-sel-n', text: ids.length + (ids.length === 1 ? ' selecionada' : ' selecionadas') })
+            ]);
+            if (noLix) {
+                grupo.appendChild(el('button', { type: 'button', class: 'te-chat-acao', onclick: function () { chatLote(ids, 'restaurar'); } }, [ic('bi-arrow-counterclockwise'), 'Restaurar']));
+                grupo.appendChild(el('button', { type: 'button', class: 'te-chat-acao is-perigo', onclick: function () { chatLote(ids, 'definitivo'); } }, [ic('bi-x-octagon'), 'Excluir definitivamente']));
+            } else {
+                grupo.appendChild(el('button', { type: 'button', class: 'te-chat-icone is-lixeira', title: 'Mover para a lixeira', onclick: function () { chatLote(ids, 'lixeira'); } }, ic('bi-trash')));
+                grupo.appendChild(el('button', { type: 'button', class: 'te-chat-icone is-fav', title: 'Favoritar', onclick: function () { chatLote(ids, 'fav'); } }, ic('bi-star')));
+            }
+            grupo.appendChild(el('button', { type: 'button', class: 'te-chat-cancelar', title: 'Cancelar seleção', onclick: function () { S.chatSel = []; redesenharChat(); } }, ic('bi-x-lg')));
+            barra.appendChild(grupo);
+        }
+
+        barra.appendChild(el('span', { class: 'te-espaco' }));
+        if (!pv && noLix && visiveis.length) {
+            barra.appendChild(el('button', {
+                type: 'button', class: 'te-chat-esvaziar', text: 'Esvaziar lixeira',
+                onclick: function () { chatLote(visiveis.map(function (m) { return m.id; }), 'definitivo'); }
+            }));
+        }
+        alvo.appendChild(barra);
+
+        if (noLix) {
+            alvo.appendChild(el('div', { class: 'te-lix-aviso' }, [ic('bi-info-circle'), ' As mensagens na lixeira são excluídas automaticamente depois de 30 dias. Elas somem só para você; os outros participantes continuam vendo.']));
+        }
+        var u = S.chatUndo;
+        if (u && u.codigo === dz.codigo) {
+            alvo.appendChild(el('div', { class: 'te-chat-undo', attrs: { role: 'status' } }, [
+                el('span', { class: 'te-flex1', text: u.txt }),
+                u.ids ? el('button', {
+                    type: 'button', class: 'te-desfazer-btn', text: 'Desfazer',
+                    onclick: function () {
+                        clearTimeout(temporizadorChatUndo);
+                        S.chatUndo = null;
+                        enviarChatLote(u.codigo, u.ids, 'restaurar');
+                    }
+                }) : null,
+                el('button', {
+                    type: 'button', class: 'te-desfazer-fechar', title: 'Fechar',
+                    onclick: fecharChatUndo
+                }, ic('bi-x-lg'))
+            ]));
+        }
+    }
+
+    function mensagemDoChat(m) {
+        var pv = previa(), sel = chatSelecionada(m.id);
+        var classe = 'te-msg' + (m.estilo === 'sistema' ? ' is-sistema' : '') + (m.meu && m.estilo !== 'sistema' ? ' is-meu' : '') + (m.estilo === 'interna' ? ' is-interna' : '') + (sel ? ' is-sel' : '');
+        var cab = el('div', { class: 'te-msg-cab' }, [
+            pv ? null : el('button', {
+                type: 'button', class: 'te-msg-sel' + (sel ? ' is-on' : ''), title: 'Selecionar',
+                attrs: { 'aria-pressed': sel ? 'true' : 'false' },
+                onclick: function () { alternarChatSel(m.id); }
+            }, ic(sel ? 'bi-check-square-fill' : 'bi-square')),
+            el('b', { style: { color: m.nomeCor }, text: m.de }),
+            el('span', { text: m.em }),
+            m.tipo ? el('span', { text: m.tipo }) : null,
+            m.favorita ? el('i', { class: 'bi bi-star-fill te-msg-fav', title: 'Favorita' }) : null,
+            el('span', { class: 'te-espaco' })
+        ]);
+        // Como o `acoes` do desenho: mensagem apagada ou na lixeira não tem ações na linha.
+        if (!pv && !m.lixeira && !m.apagada) {
+            cab.appendChild(el('span', { class: 'te-msg-acoes' + (m.favorita ? ' is-fav' : '') }, [
+                el('button', {
+                    type: 'button', class: 'te-msg-btn' + (m.favorita ? ' is-fav' : ''), title: m.favorita ? 'Remover das favoritas' : 'Favoritar',
+                    onclick: function () { alternarFavorita(m); }
+                }, ic(m.favorita ? 'bi-star-fill' : 'bi-star')),
+                el('button', {
+                    type: 'button', class: 'te-msg-btn', title: 'Mover para a lixeira',
+                    onclick: function () { chatLote([m.id], 'lixeira'); }
+                }, ic('bi-archive')),
+                m.podeApagar ? el('button', {
+                    type: 'button', class: 'te-msg-btn is-perigo', title: m.apagarDica || 'Apagar para todos',
+                    onclick: function () { apagarParaTodos(m); }
+                }, ic('bi-trash')) : null
+            ]));
+        }
+        if (!pv && m.lixeira) {
+            cab.appendChild(el('button', {
+                type: 'button', class: 'te-msg-restaurar',
+                onclick: function () { chatLote([m.id], 'restaurar'); }
+            }, [ic('bi-arrow-counterclockwise'), ' Restaurar']));
+        }
+
+        return el('div', {
+            class: classe,
+            oncontextmenu: function (e) {
+                if (pv) {
+                    return;
+                }
+                e.preventDefault();
+                abrirMenuEspecial({ tipo: 'msg', msg: m }, e.clientX, e.clientY, 230);
+            }
+        }, [
+            cab,
+            m.apagada
+                ? el('div', { class: 'te-msg-apagada' }, [ic('bi-slash-circle'), m.apagadaTxt || 'Mensagem apagada'])
+                : el('div', { class: 'te-msg-txt', text: m.txt })
+        ]);
+    }
+
+    function abaChat(alvo, dz) {
+        var visiveis = mensagensVisiveis(dz);
+        var vistos = visiveis.map(function (m) { return m.id; });
+        S.chatSel = S.chatSel.filter(function (id) { return vistos.indexOf(id) >= 0; });
+        barraDoChat(alvo, dz, visiveis);
+        var lista = el('div', { class: 'te-msgs' });
+        visiveis.forEach(function (m) { lista.appendChild(mensagemDoChat(m)); });
+        if (!visiveis.length) {
+            var f = CHAT_FILTROS.filter(function (x) { return x[0] === S.chatVis; })[0] || CHAT_FILTROS[0];
+            lista.appendChild(el('div', { class: 'te-msgs-vazio', text: f[3] }));
         }
         alvo.appendChild(lista);
 
@@ -1111,6 +1737,7 @@
                 return;
             }
             S.f.msg = '';
+            S.chatVis = 'todas';
             aplicarDemanda(r);
             var corpo = $('teDzCorpo');
             if (corpo && S.aba === 'chat') {
@@ -1710,6 +2337,19 @@
     $('teBusca').addEventListener('input', function (e) {
         S.busca = e.target.value;
         renderLinhas();
+    });
+
+    /** `_chatTecla()` do desenho: Delete ou # com mensagens selecionadas, fora de campo de texto. */
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Delete' && e.key !== '#') {
+            return;
+        }
+        var tag = (e.target && e.target.tagName) || '';
+        if (!S.aberta || S.aba !== 'chat' || !S.chatSel.length || S.conf || S.menu || S.nova || S.cfgAberta || S.hm || /INPUT|TEXTAREA|SELECT/.test(tag)) {
+            return;
+        }
+        e.preventDefault();
+        chatLote(S.chatSel.slice(), S.chatVis === 'lix' ? 'definitivo' : 'lixeira');
     });
 
     document.addEventListener('keydown', function (e) {

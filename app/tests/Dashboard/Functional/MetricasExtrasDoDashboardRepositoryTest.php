@@ -7,7 +7,7 @@ namespace App\Tests\Dashboard\Functional;
 use App\Dashboard\Preferencia\ColunasExtrasDoDashboard;
 use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tarefa\Tarefa;

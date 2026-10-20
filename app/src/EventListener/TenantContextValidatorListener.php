@@ -43,10 +43,23 @@ final class TenantContextValidatorListener
         'trabalho_externo_convite',
         'trabalho_externo_convite_criar_conta',
         'trabalho_externo_convite_aceitar',
+        // Descadastro de e-mail: link assinado aberto por quem pode nem ter conta (ou estar logado
+        // em outro escritório). Não depende de termo nem de escritório; a guarda é a assinatura.
+        'email_descadastro',
+        'comercial_confirmar_endereco',
+        'comercial_confirmar_endereco_gravar',
+        'comercial_rastreio_abertura',
+        'comercial_rastreio_clique',
         // Link externo do Push: página pública de terceiro, não depende de termo nem de escritório.
         'push_compartilhado',
         'push_compartilhado_codigo',
         'push_compartilhado_renovacao',
+        // Indicar o BlueJus (spec indicar-bluejus.md): o menu oferece a janela a todo logado, com ou sem
+        // escritório (o Convidado do Trabalho Externo também). O dado é da pessoa, sem tenant; o controller só
+        // usa o escritório da sessão com vínculo ativo, conferido por ele mesmo.
+        'indicacao_janela',
+        'indicacao_email',
+        'indicacao_canal',
     ];
 
     /**
