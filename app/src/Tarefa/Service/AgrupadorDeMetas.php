@@ -56,7 +56,7 @@ final class AgrupadorDeMetas
 
         return [
             new GrupoDeMetasOutput('atrasadas', 'Atrasadas', 'danger', $baldes['atrasadas']),
-            new GrupoDeMetasOutput('proximas', 'Próximos 7 dias', 'warn', $baldes['proximas']),
+            new GrupoDeMetasOutput('proximas', 'Vencem em 7 dias', 'warn', $baldes['proximas']),
             new GrupoDeMetasOutput('depois', 'Depois', 'cinza', $baldes['depois']),
             new GrupoDeMetasOutput('sem_prazo', 'Sem prazo', 'cinza', $baldes['sem_prazo']),
             new GrupoDeMetasOutput(
