@@ -84,7 +84,7 @@ relatório e o botão de baixar o PDF (tarja azul, logo, como o #75).
 
 - Comando `app:pastas:relatorio-pastas-paradas` (`--dry-run`, `--tenant`), lock próprio
   `jusprime-relatorio-pastas-paradas.lock`, mesmo molde do `RelatorioSemProcessoCommand`.
-- Cron diário às 10h15 com `CRON_TZ=America/Sao_Paulo` (linha no DEPLOY.md deste PR); o UseCase só envia na
+- Cron diário às 10h15 de Brasília, escrito em UTC (`15 13 * * *`, linha no DEPLOY.md); o UseCase só envia na
   primeira segunda-feira do mês, a partir das 10h, e uma vez por mês.
 - **Uma vez por mês**: tabela `relatorio_pastas_paradas_envio` (tenant, `mes` MM/AAAA, contagens, `em`),
   UNIQUE (tenant_id, mes), migration `Version20261020129996` (reservada pelo coordenador). A gravação vem
