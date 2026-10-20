@@ -121,7 +121,14 @@
         mcFiltro: '',
         mcSel: [],
         quase: null,
-        quaseUlt: -1
+        quaseUlt: -1,
+        // Visão externa, engajamento e avisos (spec VS 18.10.26 §4.7, fatia F4)
+        eng: null,
+        engIniciado: false,
+        engVisivel: false,
+        engAlertaEnviando: false,
+        bv: null,
+        dia: null
     };
 
     /* ---------------------------------------------------------------- utilidades */
@@ -245,7 +252,13 @@
         vagaCandidatura: function (c) { return String(D.urlVagaCandidatura || '').replace(MARCADOR_VAGA, encodeURIComponent(c)); },
         vagaEnviar: function (c) { return String(D.urlVagaEnviar || '').replace(MARCADOR_VAGA, encodeURIComponent(c)); },
         candidaturaStatus: function (id) { return String(D.urlCandidaturaStatus || '').replace(/\/0\/status$/, '/' + encodeURIComponent(id) + '/status'); },
-        candidaturasMarcacoes: function () { return String(D.urlCandidaturasMarcacoes || ''); }
+        candidaturasMarcacoes: function () { return String(D.urlCandidaturasMarcacoes || ''); },
+        // Engajamento (§4.7): a leitura aceita `?como=`; o aviso de vagas é escrita (nunca na prévia).
+        engajamento: function (q) {
+            var u = String(D.urlEngajamento || '');
+            return u ? comComo(u + (q ? (u.indexOf('?') >= 0 ? '&' : '?') + q : '')) : '';
+        },
+        vagasAlerta: function () { return String(D.urlVagasAlerta || ''); }
     };
 
     /* ---------------------------------------------------------------- HTTP */
@@ -357,6 +370,10 @@
         // O banco de currículos também: some a aba até a resposta no novo recorte.
         S.cv = null;
         S.cvSel = [];
+        // Engajamento (§4.7): banner, selos e avisos voltam no recorte do novo perfil.
+        S.eng = null;
+        fecharBoasVindas();
+        fecharLembrete();
         renderModulos();
         carregarVagas();
         carregarCurriculos();
@@ -409,7 +426,7 @@
         [['on', 'Disponível', 'bi-circle-fill'], ['rest', 'Disponível com restrições', 'bi-circle-half'], ['off', 'Temporariamente suspensa', 'bi-pause-circle']].forEach(function (o) {
             item(o[1], o[2], c.disponibilidade === o[0], function () { fecharHm(); gravarCfg({ disponibilidade: o[0] }); });
         });
-        // Configuração das vagas (desenho, l.1265). "Campanha por e-mail…" é da F4.
+        // Configuração das vagas (desenho, l.1265). "Campanha por e-mail…" fica fora da F4: depende da frente da 5d.
         if (veVagas() && vgMaster() && cfgVagas()) {
             sec('VAGAS E CURRÍCULOS');
             item('Ofertas, avisos e mensagens…', 'bi-sliders', false, function () { fecharHm(); abrirCfgVagas(); });
@@ -2421,7 +2438,7 @@
        (235 a 253), o detalhe `tmVaga` (285 a 300, sem a candidatura: F2b), a exclusão `tmDel`
        (371) e a configuração `tmCfgV` (363 a 369, aberta pelo menu do Master, l.1265). A lógica
        é a do `renderVals()` (l.979 a 1006, 1051, 1093 a 1118, 1156 a 1188). Candidatura e aceite
-       (F2b) moram no bloco CANDIDATURA, mais abaixo; a campanha (F4) fica de fora.
+       (F2b) moram no bloco CANDIDATURA, mais abaixo; a campanha por e-mail fica de fora (depende da 5d, fora da F4).
        ============================================================================= */
 
     /* ---------------------------------------------------------------- módulos: Demandas | Vagas */
@@ -2460,6 +2477,10 @@
 
     /** Selo da aba Vagas: os pedidos pendentes (interno, se houver), senão as abertas (l.1105). */
     function numeroDaAbaVagas() {
+        var cont = contadorDoEngajamento('vagas');
+        if (cont !== null) {
+            return cont;
+        }
         var pend = vagas().filter(function (v) { return v.situacao === 'pendente'; }).length;
         if (vgInterno() && pend > 0) {
             return pend;
@@ -2472,6 +2493,11 @@
      * com a tela bloqueada, nenhum painel aparece.
      */
     function renderModulos() {
+        renderAbasDeModulo();
+        renderEngajamento();
+    }
+
+    function renderAbasDeModulo() {
         var alvo = limpar($('teModulos'));
         var bloq = !!S.painel.bloqueio, mod = moduloAtual();
         $('teLiberado').hidden = bloq || mod !== 'demandas';
@@ -2534,6 +2560,7 @@
             renderTitulo();
             renderModulos();
             renderVagas();
+            agendarEngajamento();
             if (!S.vgVisitou && !previa() && r.vagas.veAba) {
                 S.vgVisitou = true;
                 pedir('POST', ROTA.vagasVisita(), {});
@@ -3404,6 +3431,7 @@
             }
             S.tlm = 'vaga';
             S.vgDet = r.vaga;
+            lembrarOferta(r.vaga);
             S.vf = null;
             S.vgDel = null;
             S.cvDoc = null;
@@ -3616,6 +3644,34 @@
         renderFormVaga();
     }
 
+    /** Modelo de requisitos por cargo (`MODELOS`, l.1068), textos do desenho. */
+    var MODELOS = {
+        'Advogado(a)': 'Atividades: acompanhamento processual, elaboração de peças, audiências e atendimento a clientes.\nRequisitos: OAB ativa, boa redação jurídica e organização com prazos.',
+        'Advogado(a) associado(a)': 'Atividades: condução de carteira de processos com autonomia, audiências e relacionamento com clientes.\nRequisitos: OAB ativa e experiência na área.',
+        'Correspondente': 'Atividades: diligências, protocolos, audiências e cópias de autos na comarca indicada.\nRequisitos: OAB ativa (para atos privativos) e disponibilidade na região.',
+        'Estagiário(a)': 'Atividades: pesquisa jurídica, apoio na elaboração de peças, acompanhamento processual e organização de documentos.\nRequisitos: cursando Direito, boa escrita e vontade de aprender.',
+        'Assistente jurídico': 'Atividades: organização de pastas, controle de prazos, protocolos e apoio à equipe.\nRequisitos: experiência com rotina de escritório e sistemas processuais.',
+        'Controladoria': 'Atividades: controle de prazos e publicações, distribuição de tarefas e relatórios.\nRequisitos: experiência em controladoria jurídica e organização.',
+        'Administrativo': 'Atividades: rotinas administrativas e financeiras do escritório, atendimento e agenda.\nRequisitos: organização e boa comunicação.'
+    };
+
+    /**
+     * `tfOn.cargo` (l.970): ao escolher o cargo, "Requisitos e atividades" recebe o modelo dele se estiver
+     * vazio ou ainda igual ao modelo do cargo anterior. O que a pessoa escreveu não é sobrescrito.
+     */
+    function aplicarModeloDoCargo(f, anterior) {
+        var modelo = Object.prototype.hasOwnProperty.call(MODELOS, f.cargo) ? MODELOS[f.cargo] : '';
+        var prev = Object.prototype.hasOwnProperty.call(MODELOS, anterior || '') ? MODELOS[anterior] : '';
+        var atual = String(f.requisitos || '');
+        if (!modelo || (atual.trim() && atual !== prev)) {
+            return;
+        }
+        f.requisitos = modelo;
+        if (S.tlm === 'form' && S.vf && S.vf.f === f) {
+            renderFormVaga();
+        }
+    }
+
     function rotuloVf(texto, controle, extra) {
         return el('label', { class: 'te-vf-rot' + (extra || '') }, [texto, controle]);
     }
@@ -3635,14 +3691,19 @@
         return el(tag, p);
     }
 
-    function selectVf(obj, k, ops, req) {
+    /** `aoMudar(anterior)`: depois de gravar a escolha (ex.: o modelo de requisitos do cargo). */
+    function selectVf(obj, k, ops, req, aoMudar) {
         return el('select', {
             class: 'te-vf-ctl' + (req && S.vf && S.vf.erro && vazio(obj[k]) ? ' is-erro' : ''),
             value: obj[k] || '',
             onchange: function (e) {
+                var anterior = obj[k];
                 obj[k] = e.target.value;
                 if (req && S.vf && S.vf.erro) {
                     e.target.classList.toggle('is-erro', vazio(obj[k]));
+                }
+                if (aoMudar) {
+                    aoMudar(anterior);
                 }
             }
         }, [el('option', { value: '', text: 'Selecione' })].concat((ops || []).map(function (o) { return el('option', { value: String(o), text: String(o) }); })));
@@ -3795,7 +3856,7 @@
 
         corpo.push(rotuloVf('TÍTULO DA VAGA *', ctlVf('input', f, 'titulo', { type: 'text', placeholder: 'Cargo e área da vaga' }, true)));
         corpo.push(el('div', { class: 'te-vf-grade' }, [
-            rotuloVf('CARGO *', selectVf(f, 'cargo', L.cargos, true)),
+            rotuloVf('CARGO *', selectVf(f, 'cargo', L.cargos, true, function (anterior) { aplicarModeloDoCargo(f, anterior); })),
             rotuloVf('CONTRATAÇÃO', selectVf(f, 'contratacao', L.contratacoes)),
             rotuloVf('MODALIDADE', selectVf(f, 'modalidade', L.modalidades))
         ]));
@@ -3959,7 +4020,8 @@
         }));
         modalVaga({
             icone: 'bi-sliders', titulo: 'Configurações de vagas e ofertas · Master', largura: '720px', corpo: corpo,
-            botoes: [botaoTlm('Concluir', 'bi-check2', 'pri', fecharTlm)]
+            // l.1099: "Ver exemplo de mensagem" abre o QUASE (como o `quase()`, só com as mensagens ligadas).
+            botoes: [botaoTlm('Ver exemplo de mensagem', 'bi-emoji-smile', '', verExemploDoQuase), botaoTlm('Concluir', 'bi-check2', 'pri', fecharTlm)]
         });
     }
 
@@ -4042,6 +4104,10 @@
 
     /** Selo da aba no interno: os currículos com situação "Novo" (`novosCv`, l.1105). O externo não tem selo. */
     function numeroDaAbaCv() {
+        var cont = contadorDoEngajamento('curriculos');
+        if (cont !== null) {
+            return cvInterno() ? cont : 0;
+        }
         return cvInterno() ? curriculos().filter(function (x) { return x.status === 'novo'; }).length : 0;
     }
 
@@ -4131,6 +4197,7 @@
             };
             renderModulos();
             renderCurriculos();
+            agendarEngajamento();
             if (aviso) {
                 mostrarToast({ tit: 'Lista atualizada', txt: '', hora: '' });
             }
@@ -5371,6 +5438,9 @@
             F.mudouArquivo = false;
             F.pendentes = {};
             var candidatou = !!F.candidatarA;
+            if (candidatou) {
+                esquecerOferta(F.candidatarA);
+            }
             F.candidatarA = null;
             fecharTlm();
             enviarPendentesCv(pendentes).then(function () { carregarCurriculos(); });
@@ -5804,6 +5874,10 @@
         }
         pedirCand('POST', ROTA.vagaCandidatura(codigo), {}).then(function (r) {
             candidatando[codigo] = false;
+            if (r.ok || r.quase) {
+                // Aceitou (ou já soube pelo QUASE): esta oferta não pede outro QUASE no recarregar.
+                esquecerOferta(codigo);
+            }
             if (r.ok) {
                 if (noDetalhe()) {
                     fecharTlm();
@@ -5856,12 +5930,18 @@
 
     /* ---------------------------------------------------------------- modal QUASE (l.392 a 400, 841) */
 
-    /** `quase()` (l.841): sorteia a frase, nunca a mesma da última vez. */
-    function abrirQuase() {
+    /**
+     * `quase()` (l.841): sorteia a frase, nunca a mesma da última vez. `op.semPreenchida` (oferta que
+     * expirou sem aceite dela, §4.7): tira as duas frases que falam de vaga preenchida
+     * ("Outro profissional aceitou primeiro", "Essa já foi preenchida").
+     */
+    function abrirQuase(op) {
+        var semPre = !!(op && op.semPreenchida);
+        var pode = QUASE.map(function (q, n) { return n; }).filter(function (n) { return !semPre || (n !== 0 && n !== 1); });
         var i;
         do {
-            i = Math.floor(Math.random() * QUASE.length);
-        } while (QUASE.length > 1 && i === S.quaseUlt);
+            i = pode[Math.floor(Math.random() * pode.length)];
+        } while (pode.length > 1 && i === S.quaseUlt);
         S.quaseUlt = i;
         S.quase = QUASE[i];
         renderQuase();
@@ -6117,6 +6197,647 @@
         });
     }
 
+    /* =============================================================================
+       VISÃO EXTERNA, ENGAJAMENTO E AVISOS (spec VS 18.10.26 §4.7, fatia F4)
+       Desenho "06 - Trabalho Externo - VS 18.10.26": abas e banner (l.85 a 96, 1013 a 1023, 1105 a
+       1107), boas-vindas pelo link (l.382 a 391, 1078, 1079, 1111), lembrete diário (l.404 a 422,
+       1054 a 1061, 1112), QUASE da oferta perdida (l.1012, 1069) e "Ver exemplo de mensagem" (l.1099).
+       O servidor monta tudo (`GET /api/engajamento`): saudação, chips, contadores, estado do aviso,
+       lembrete e boas-vindas. Fica no navegador só a conveniência por pessoa: a marca do lembrete do
+       dia e as ofertas abertas que a pessoa abriu. Na prévia do Master nada disso grava.
+       ============================================================================= */
+
+    var QS = new URLSearchParams(location.search);
+    var ORIGEM_LINK = QS.get('origem') === 'link';
+
+    /** Contador do selo (`contadores`); null enquanto o engajamento não chegou. */
+    function contadorDoEngajamento(k) {
+        var c = S.eng && S.eng.contadores;
+        return c && typeof c[k] === 'number' ? c[k] : null;
+    }
+
+    /** Quem usa o navegador: `data-eu-id` de #tePagina; na falta, o do lançador da Central. */
+    function euId() {
+        if (D.euId) {
+            return String(D.euId);
+        }
+        var n = document.querySelector('[data-eu-id]');
+        if (n && n.getAttribute('data-eu-id')) {
+            return n.getAttribute('data-eu-id');
+        }
+        // Sem o id na página: um resumo do nome, para não misturar duas pessoas no mesmo navegador.
+        var nome = String(perfil().nome || ''), h = 0;
+        for (var i = 0; i < nome.length; i++) {
+            h = ((h << 5) - h + nome.charCodeAt(i)) | 0;
+        }
+        return 'n' + (h >>> 0).toString(36);
+    }
+
+    function lerLocal(chave, padrao) {
+        try {
+            var v = JSON.parse(window.localStorage.getItem(chave));
+            return v === null || v === undefined ? padrao : v;
+        } catch (e) {
+            return padrao;
+        }
+    }
+
+    /** Escrita no navegador: nunca na prévia; sem localStorage (modo privado, cota), só não lembra. */
+    function gravarLocal(chave, valor) {
+        if (previa()) {
+            return;
+        }
+        try {
+            window.localStorage.setItem(chave, JSON.stringify(valor));
+        } catch (e) {
+            // Só não lembra.
+        }
+    }
+
+    /** Data (aaaa-mm-dd) e hora no horário de Brasília (lacuna 9 da §4.7). */
+    function hojeEmBrasilia() {
+        try {
+            return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+        } catch (e) {
+            return new Date().toISOString().slice(0, 10);
+        }
+    }
+
+    function horaEmBrasilia() {
+        try {
+            var h = +new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', hour: '2-digit', hourCycle: 'h23' }).format(new Date());
+            return isNaN(h) ? new Date().getHours() : h % 24;
+        } catch (e) {
+            return new Date().getHours();
+        }
+    }
+
+    function ehExterno() { return !perfil().interno; }
+
+    /* ---------------------------------------------------------------- carga */
+
+    var temporizadorEng = null;
+
+    /** Recarrega junto com as vagas e os currículos (as duas respostas chegam juntas: um pedido só). */
+    function agendarEngajamento() {
+        if (!S.engIniciado) {
+            return;
+        }
+        clearTimeout(temporizadorEng);
+        temporizadorEng = setTimeout(function () { carregarEngajamento(false); }, 150);
+    }
+
+    /**
+     * GET /api/engajamento no recorte do perfil (`?como=` na prévia). Na primeira carga vão os `vagas` e
+     * `cadastro` do link de boas-vindas. Falha não mostra erro: o banner só não aparece.
+     */
+    function carregarEngajamento(primeira) {
+        var como = S.como;
+        var q = [];
+        if (primeira && ORIGEM_LINK) {
+            var vid = String(QS.get('vagas') || '').split(',').filter(function (c) { return /^VG-\d{1,9}$/.test(c.trim()); }).map(function (c) { return c.trim(); });
+            if (vid.length) {
+                q.push('vagas=' + encodeURIComponent(vid.join(',')));
+            }
+            if (QS.get('cadastro') === '1') {
+                q.push('cadastro=1');
+            }
+        }
+        var perguntadas = ofertasAPerguntar();
+        if (perguntadas.length) {
+            q.push('ofertas=' + encodeURIComponent(perguntadas.join(',')));
+        }
+        var url = ROTA.engajamento(q.join('&'));
+        if (!url) {
+            return Promise.resolve(null);
+        }
+        return pedirCv('GET', url).then(function (r) {
+            if (como !== S.como || !r.ok) {
+                return null;
+            }
+            var E = r.engajamento && typeof r.engajamento === 'object' && !Array.isArray(r.engajamento) ? r.engajamento : r;
+            S.eng = E;
+            renderModulos();
+            conferirOfertasPerdidas(perguntadas, E.ofertas);
+            return E;
+        });
+    }
+
+    /* ---------------------------------------------------------------- banner (l.88 a 96) */
+
+    function caixaEng() {
+        var c = $('teEngajamento');
+        if (!c) {
+            c = el('div', { id: 'teEngajamento' });
+            var m = $('teModulos');
+            m.parentNode.insertBefore(c, m.nextSibling);
+        }
+        return c;
+    }
+
+    /** Só nas abas Vagas e Currículo (`engOn`, l.1106), com as abas visíveis e o engajamento carregado. */
+    function renderEngajamento() {
+        var alvo = limpar(caixaEng()), E = S.eng, B = E && E.banner;
+        var mostra = !!B && !S.painel.bloqueio && (veVagas() || veCv()) && moduloAtual() !== 'demandas';
+        if (!mostra) {
+            S.engVisivel = false;
+            return;
+        }
+        var entra = !S.engVisivel;
+        S.engVisivel = true;
+        var chips = Array.isArray(B.chips) ? B.chips : [];
+        var A = E.alerta || {};
+        var botaoAlerta = null;
+        if (A.disponivel) {
+            var pv = previa();
+            botaoAlerta = el('button', {
+                type: 'button', class: 'te-eng-alerta', disabled: pv || S.engAlertaEnviando,
+                title: pv ? 'Pré-visualização: somente leitura' : null,
+                onclick: alternarAlerta
+            }, [ic('bi-bell'), A.ligado ? 'Avisos de vagas ligados' : 'Avisar quando sair vaga da minha área', A.ligado ? ic('bi-check-circle-fill', { color: 'var(--te-eng-ok)' }) : null]);
+        }
+        alvo.appendChild(el('div', { class: 'te-eng' + (entra ? ' is-entra' : '') }, [
+            el('div', { class: 'te-eng-topo' }, [
+                el('div', { class: 'te-eng-textos' }, [
+                    el('div', { class: 'te-eng-sau', text: B.saudacao || '' }),
+                    el('div', { class: 'te-eng-sub', text: B.subtitulo || '' })
+                ]),
+                botaoAlerta
+            ]),
+            chips.length ? null : el('div', { class: 'te-eng-vazio', text: 'Tudo em dia por aqui.' }),
+            el('div', { class: 'te-eng-chips' }, chips.map(function (c) {
+                var temIr = !!(c && c.ir);
+                return el('button', {
+                    type: 'button', class: 'te-eng-chip' + (temIr ? '' : ' is-sem-ir'),
+                    onclick: function () { if (temIr) { irDoChip(c.ir); } }
+                }, [ic(c.ic || 'bi-dot', { color: c.cor || 'var(--te-azul)' }), c.txt || '', temIr ? el('i', { class: 'bi bi-chevron-right te-eng-seta' }) : null]);
+            }))
+        ]));
+    }
+
+    /** Chaves de módulo do servidor e dos endereços (`vag`/`vagas`, `cv`, `dem`/`demandas`). */
+    function moduloDaChave(k) {
+        return { vag: 'vagas', vagas: 'vagas', cv: 'cv', curriculos: 'cv', dem: 'demandas', demandas: 'demandas' }[String(k || '')] || null;
+    }
+
+    /** Vai à aba (e ao filtro dela), redesenhando se já estiver nela. */
+    function irPara(mod, filtro) {
+        var m = moduloDaChave(mod);
+        if (!m) {
+            return;
+        }
+        if (m === 'vagas' && filtro) {
+            S.vgFiltro = String(filtro);
+            S.vgSel = [];
+        }
+        if (m === 'cv' && filtro) {
+            S.cvFiltro = String(filtro);
+            S.cvSel = [];
+        }
+        if (m === moduloAtual()) {
+            if (m === 'vagas') {
+                renderVagas();
+            } else if (m === 'cv') {
+                renderCurriculos();
+            }
+            return;
+        }
+        irModulo(m);
+    }
+
+    /** Roda `fn` com a lista de currículos carregada (o formulário do externo precisa de `meu`). */
+    function comCurriculos(fn) {
+        if (S.cv) {
+            fn();
+        } else {
+            carregarCurriculos().then(function () { if (S.cv) { fn(); } });
+        }
+    }
+
+    /** O próprio currículo do externo (`editarCv`, l.987), na aba "Meu currículo". */
+    function abrirMeuFormCv() {
+        irPara('cv');
+        comCurriculos(function () { abrirFormCv(); });
+    }
+
+    /**
+     * "Publique a primeira vaga ou oferta com tempo" (`chipsI`, l.1020): o formulário da vaga com a oferta
+     * ligada, 15 minutos e 1 vaga, como o desenho (`{ oferta: true, dur: 15, qtd: 1 }`).
+     */
+    function abrirNovaOferta() {
+        irPara('vagas');
+        abrirFormVaga(null);
+        if (S.tlm === 'form' && S.vf) {
+            S.vf.f.oferta = true;
+            S.vf.f.duracaoDaOferta = 15;
+            S.vf.f.qtd = 1;
+            renderFormVaga();
+        }
+    }
+
+    /** `ir` do chip: `{mod, filtro?, acao?}`; `acao` "novaVaga" (a oferta da l.1020) e "editarCv" abrem os formulários. */
+    function irDoChip(ir) {
+        if (ir.acao === 'novaVaga') {
+            abrirNovaOferta();
+            return;
+        }
+        if (ir.acao === 'editarCv') {
+            abrirMeuFormCv();
+            return;
+        }
+        irPara(ir.mod, ir.filtro);
+    }
+
+    /** "Avisar quando sair vaga da minha área" (`alertaTg`, l.1107): a escolha é do usuário, no servidor. */
+    function alternarAlerta() {
+        var E = S.eng;
+        if (!E || !E.alerta || previa() || S.engAlertaEnviando || !ROTA.vagasAlerta()) {
+            return;
+        }
+        var ligar = !E.alerta.ligado;
+        S.engAlertaEnviando = true;
+        renderEngajamento();
+        pedirCv('POST', ROTA.vagasAlerta(), { ligado: ligar }).then(function (r) {
+            S.engAlertaEnviando = false;
+            if (!r.ok) {
+                renderEngajamento();
+                toastErro(r.mensagem);
+                return;
+            }
+            if (S.eng === E) {
+                E.alerta = r.alerta && typeof r.alerta === 'object' ? r.alerta : { disponivel: true, ligado: ligar };
+            }
+            renderEngajamento();
+            var on = !!(r.alerta ? r.alerta.ligado : ligar);
+            toastDoServidor(r.toast, on ? 'Avisos ligados' : 'Avisos desligados', on ? 'Você recebe um aviso assim que sair vaga ou oferta na sua área.' : '');
+        });
+    }
+
+    /* ---------------------------------------------------------------- boas-vindas pelo link (l.382 a 391) */
+
+    function caixaDe(id) {
+        var c = $(id);
+        if (!c) {
+            c = el('div', { id: id });
+            raiz.appendChild(c);
+        }
+        return c;
+    }
+
+    function abrirBoasVindas(bv) {
+        S.bv = bv;
+        renderBoasVindas();
+    }
+
+    function renderBoasVindas() {
+        var alvo = limpar(caixaDe('teBoasVindas')), B = S.bv;
+        if (!B) {
+            return;
+        }
+        var botao = B.botao || {};
+        alvo.appendChild(el('div', { class: 'te-eng-bv-fundo', onclick: fecharBoasVindas }));
+        alvo.appendChild(el('div', { class: 'te-eng-bv-pos' }, el('div', { class: 'te-eng-bv', attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-label': B.titulo || '' } }, [
+            el('div', { class: 'te-eng-bv-cab' }, [
+                el('span', { class: 'te-eng-bv-bola' }),
+                el('img', { class: 'te-eng-bv-simbolo', attrs: { src: D.urlSimbolo || '/images/logo/bluejus_simbolo.svg', alt: '' } }),
+                el('div', { class: 'te-eng-bv-tit', text: B.titulo || '' }),
+                el('div', { class: 'te-eng-bv-txt', text: B.texto || '' })
+            ]),
+            el('div', { class: 'te-eng-bv-corpo' }, (B.passos || []).map(function (p) {
+                return el('div', { class: 'te-eng-bv-passo' + (p.feito ? ' is-feito' : '') }, [ic(p.feito ? 'bi-check-circle-fill' : (p.ic || 'bi-circle')), p.rot || '']);
+            }).concat([
+                el('div', { class: 'te-eng-bv-botoes' }, [
+                    el('button', { type: 'button', class: 'te-eng-sec', text: 'Explorar primeiro', onclick: fecharBoasVindas }),
+                    vazio(botao.rot) ? null : el('button', { type: 'button', class: 'te-eng-pri', onclick: function () { irDasBoasVindas(botao); } }, [ic('bi-arrow-right-circle'), botao.rot])
+                ])
+            ]))
+        ])));
+    }
+
+    function fecharBoasVindas() {
+        S.bv = null;
+        var c = $('teBoasVindas');
+        if (c) {
+            limpar(c);
+        }
+    }
+
+    /**
+     * `bvIr` (l.1111): sem currículo, o formulário (o da candidatura quando há vaga indicada aberta);
+     * com currículo, a vaga indicada; senão as vagas abertas.
+     */
+    function irDasBoasVindas(b) {
+        fecharBoasVindas();
+        var codigo = typeof b.codigo === 'string' && /^VG-\d{1,9}$/.test(b.codigo) ? b.codigo : null;
+        if (b.acao === 'cadastrarCv') {
+            if (codigo) {
+                irPara('cv');
+                abrirFormDaCandidatura(codigo);
+            } else {
+                abrirMeuFormCv();
+            }
+        } else if (b.acao === 'abrirVaga' && codigo) {
+            irPara('vagas', 'aberta');
+            abrirVaga(codigo);
+        } else {
+            // "verVagas": a aba Vagas no filtro Abertas.
+            irPara('vagas', 'aberta');
+        }
+    }
+
+    /* ---------------------------------------------------------------- lembrete diário (l.404 a 422) */
+
+    /** Os quatro estados do lembrete (`dia`, l.1057 a 1060), com o que o servidor calculou. */
+    function textosDoLembrete(L) {
+        var pct = Math.max(0, Math.min(100, parseInt(L.pct, 10) || 0));
+        var faltas = Array.isArray(L.faltas) ? L.faltas : [];
+        var abertas = +L.vagasAbertas || 0;
+        if (L.estado === 'cadastrar') {
+            return { ic: 'bi-person-vcard', cor: '#0a6fa0', tit: 'Cadastre seu currículo para concorrer às vagas', txt: 'Os escritórios da rede BlueJus só recebem candidaturas de quem tem currículo cadastrado. Leva poucos minutos e você usa o mesmo currículo em todas as vagas.', btn: 'Cadastrar meu currículo', pct: null };
+        }
+        if (L.estado === 'completar') {
+            return { ic: 'bi-graph-up-arrow', cor: '#c76a12', tit: 'Seu currículo está ' + pct + '% completo', txt: 'Para concorrer em igualdade às vagas, mantenha o currículo atualizado. Falta: ' + faltas.slice(0, 3).join(', ') + (faltas.length > 3 ? ' e mais ' + (faltas.length - 3) : '') + '.', btn: 'Completar agora', pct: pct };
+        }
+        if (L.estado === 'revisar') {
+            return { ic: 'bi-arrow-repeat', cor: '#9a5b00', tit: 'Seu currículo não é atualizado há ' + (+L.dias || 0) + ' dias', txt: 'Currículos atualizados aparecem primeiro para os escritórios. Revise experiência, cargo pretendido e disponibilidade antes de concorrer.', btn: 'Revisar meu currículo', pct: null };
+        }
+        return { ic: 'bi-patch-check', cor: '#1e7b45', tit: 'Seu currículo está em dia', txt: abertas ? 'Há ' + abertas + ' vaga(s) aberta(s) agora. Seu currículo está pronto para você se candidatar.' : 'Ótimo! Assim que surgir uma vaga da sua área, você já pode se candidatar.', btn: abertas ? 'Ver vagas abertas' : '', pct: null };
+    }
+
+    /**
+     * Uma vez por dia pela data de Brasília (l.1055): a marca vai no navegador, por usuário, ao agendar.
+     * Nunca na prévia, para o interno nem na visita com boas-vindas.
+     */
+    function agendarLembrete() {
+        var L = S.eng && S.eng.lembrete;
+        if (!L || previa() || !ehExterno() || ORIGEM_LINK || S.bv) {
+            return;
+        }
+        var chave = 'bj-te-dia-' + euId(), hoje = hojeEmBrasilia();
+        if (lerLocal(chave, '') === hoje) {
+            return;
+        }
+        gravarLocal(chave, hoje);
+        setTimeout(function () {
+            if (previa() || S.bv) {
+                return;
+            }
+            S.dia = textosDoLembrete(L);
+            S.dia.estado = L.estado;
+            renderLembrete();
+        }, 900);
+    }
+
+    function renderLembrete() {
+        var alvo = limpar(caixaDe('teLembrete')), T = S.dia;
+        if (!T) {
+            return;
+        }
+        var h = horaEmBrasilia();
+        alvo.appendChild(el('div', { class: 'te-eng-dia-fundo', onclick: fecharLembrete }));
+        alvo.appendChild(el('div', { class: 'te-eng-dia-pos' }, el('div', {
+            class: 'te-eng-dia', style: { '--te-eng-dia-cor': T.cor },
+            attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-label': T.tit }
+        }, [
+            el('div', { class: 'te-eng-dia-faixa' }),
+            el('button', { type: 'button', class: 'te-eng-dia-fechar', title: 'Fechar', onclick: fecharLembrete }, ic('bi-x-lg')),
+            el('div', { class: 'te-eng-dia-corpo' }, [
+                el('span', { class: 'te-eng-dia-ic' }, ic(T.ic)),
+                el('div', { class: 'te-eng-dia-sau', text: (h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite') + '!' }),
+                el('div', { class: 'te-eng-dia-tit', text: T.tit }),
+                el('div', { class: 'te-eng-dia-txt', text: T.txt }),
+                T.pct !== null && T.pct < 100 ? el('div', { class: 'te-eng-dia-trilho' }, el('div', { class: 'te-eng-dia-barra', style: { width: T.pct + '%' } })) : null,
+                el('div', { class: 'te-eng-dia-botoes' }, [
+                    el('button', { type: 'button', class: 'te-eng-sec', text: 'Agora não', onclick: fecharLembrete }),
+                    T.btn ? el('button', { type: 'button', class: 'te-eng-pri', onclick: irDoLembrete }, [ic('bi-arrow-right-circle'), T.btn]) : null
+                ]),
+                el('div', { class: 'te-eng-dia-rodape', text: 'Este lembrete aparece uma vez por dia.' })
+            ])
+        ])));
+    }
+
+    function fecharLembrete() {
+        S.dia = null;
+        var c = $('teLembrete');
+        if (c) {
+            limpar(c);
+        }
+    }
+
+    /** `diaIr` (l.1061): currículo a cadastrar, completar ou revisar abre o formulário; em dia, as vagas. */
+    function irDoLembrete() {
+        var T = S.dia;
+        fecharLembrete();
+        if (T && T.estado !== 'emDia') {
+            abrirMeuFormCv();
+        } else {
+            irPara('vagas');
+        }
+    }
+
+    /* ---------------------------------------------------------------- QUASE da oferta perdida (l.1012, 1069) */
+
+    function chaveDasOfertas() { return 'bj-te-ofertas-' + euId(); }
+
+    function ofertaViva(v) { return !!(v && (v.vivo || (v.oferta && v.situacao === 'aberta'))); }
+    function jaFoiNela(v) { return !!(v && (v.jaFoi || v.minhaCandidatura || v.botaoExterno === 'enviada')); }
+
+    /** Guarda a oferta aberta que o externo abriu (sem candidatura dele e que não é dele). */
+    function lembrarOferta(v) {
+        if (previa() || vgInterno() || !ofertaViva(v) || jaFoiNela(v) || v.minha) {
+            return;
+        }
+        var o = lerLocal(chaveDasOfertas(), {});
+        if (!o || typeof o !== 'object') {
+            o = {};
+        }
+        if (!o[v.codigo]) {
+            o[v.codigo] = 1;
+            gravarLocal(chaveDasOfertas(), o);
+        }
+    }
+
+    function esquecerOferta(codigo) {
+        if (previa() || !codigo) {
+            return;
+        }
+        var o = lerLocal(chaveDasOfertas(), {});
+        if (o && typeof o === 'object' && o[codigo]) {
+            delete o[codigo];
+            gravarLocal(chaveDasOfertas(), o);
+        }
+    }
+
+    function lerOfertas() {
+        var o = lerLocal(chaveDasOfertas(), {});
+        return o && typeof o === 'object' && !Array.isArray(o) ? o : {};
+    }
+
+    /**
+     * Antes do GET do engajamento: soma as ofertas vistas na lista (`F(v.id).lida`, l.1069), esquece as
+     * que já têm candidatura da pessoa (ou são dela) e devolve os códigos a perguntar ao servidor
+     * (`?ofertas=`). As que seguem abertas na lista não precisam de pergunta.
+     */
+    function ofertasAPerguntar() {
+        if (previa() || !S.vg || vgInterno() || !ehExterno()) {
+            return [];
+        }
+        var o = lerOfertas(), mudou = false;
+        vagas().forEach(function (v) {
+            if (v.vista && ofertaViva(v) && !jaFoiNela(v) && !v.minha && !o[v.codigo]) {
+                o[v.codigo] = 1;
+                mudou = true;
+            }
+        });
+        var minhasVagas = minhas().map(function (a) { return a.codigoVaga; });
+        var perguntar = [];
+        Object.keys(o).forEach(function (codigo) {
+            var v = vagaDe(codigo);
+            if (!/^VG-\d{1,9}$/.test(codigo) || (v && (jaFoiNela(v) || v.minha)) || minhasVagas.indexOf(codigo) >= 0) {
+                delete o[codigo];
+                mudou = true;
+            } else if (!(v && ofertaViva(v))) {
+                perguntar.push(codigo);
+            }
+        });
+        if (mudou) {
+            gravarLocal(chaveDasOfertas(), o);
+        }
+        return perguntar.slice(0, 50);
+    }
+
+    /**
+     * Resposta `ofertas: {codigo: situacao}` do servidor para os códigos perguntados: preenchida mostra
+     * o QUASE com todas as frases; expirada, sem as duas de "preenchida"; pausada e encerrada (ou
+     * ausente da resposta) são esquecidas sem modal; aberta continua guardada. Uma vez só, com `motiv`.
+     */
+    function conferirOfertasPerdidas(perguntadas, situacoes) {
+        if (previa() || !perguntadas || !perguntadas.length) {
+            return;
+        }
+        var R = situacoes && typeof situacoes === 'object' ? situacoes : {};
+        var o = lerOfertas(), perdidas = [];
+        perguntadas.forEach(function (codigo) {
+            var sit = R[codigo];
+            if (sit === 'aberta') {
+                return;
+            }
+            if (!o[codigo]) {
+                return;
+            }
+            if (sit === 'preenchida' || sit === 'expirada') {
+                perdidas.push(sit);
+            }
+            delete o[codigo];
+        });
+        gravarLocal(chaveDasOfertas(), o);
+        if (perdidas.length && S.eng && S.eng.motiv && !S.quase) {
+            abrirQuase({ semPreenchida: perdidas.indexOf('preenchida') < 0 });
+        }
+    }
+
+    /** "Ver exemplo de mensagem" do modal de configuração (l.1099): o `quase()` só abre com as mensagens ligadas. */
+    function verExemploDoQuase() {
+        if ((cfgVagas() || {}).motiv) {
+            abrirQuase();
+        }
+    }
+
+    /* ---------------------------------------------------------------- endereços (#mod=, #vaga=, #cv=) */
+
+    /**
+     * `#mod=vagas|cv|dem` abre a aba; `#vaga=VG-n` a vaga; `#cv=CV-n` o currículo (interno) ou
+     * "Meu currículo" (externo). Usados pelos avisos do sino. O hash sai do endereço depois de usado.
+     * `inicial`: na carga a aba só é escolhida (as listas ainda vão chegar) e o item espera as listas.
+     */
+    function lerHash() {
+        var h = String(location.hash || '').replace(/^#/, '');
+        if (!h) {
+            return null;
+        }
+        var p = new URLSearchParams(h);
+        var r = { mod: moduloDaChave(p.get('mod')), vaga: p.get('vaga'), cv: p.get('cv') };
+        r.vaga = r.vaga && /^VG-\d{1,9}$/.test(r.vaga) ? r.vaga : null;
+        r.cv = r.cv && /^CV-\d{1,9}$/.test(r.cv) ? r.cv : null;
+        if (!r.mod && !r.vaga && !r.cv) {
+            return null;
+        }
+        try {
+            history.replaceState(null, '', location.pathname + location.search);
+        } catch (e) {
+            // Sem history: o hash fica, e o próximo hashchange com o mesmo valor não dispara.
+        }
+        return r;
+    }
+
+    function modDoHash(H) {
+        return H.mod || (H.vaga ? 'vagas' : H.cv ? 'cv' : null);
+    }
+
+    function abrirItemDoHash(H) {
+        if (H.vaga) {
+            abrirVaga(H.vaga);
+        } else if (H.cv && perfil().interno) {
+            abrirCv(H.cv);
+        }
+    }
+
+    function aplicarHash() {
+        var H = lerHash();
+        if (!H) {
+            return;
+        }
+        var m = modDoHash(H);
+        if (m) {
+            irPara(m);
+        }
+        abrirItemDoHash(H);
+    }
+
+    window.addEventListener('hashchange', aplicarHash);
+
+    /* ---------------------------------------------------------------- primeira carga */
+
+    /**
+     * Depois das listas e do primeiro engajamento: boas-vindas do link (externo), "Divulgar uma vaga na
+     * Central" com `divulgar=1`, o item do endereço e o lembrete do dia.
+     */
+    function depoisDaPrimeiraCarga(E, H) {
+        S.engIniciado = true;
+        if (H) {
+            abrirItemDoHash(H);
+        }
+        if (previa() || !ehExterno()) {
+            return;
+        }
+        if (QS.get('divulgar') === '1') {
+            if (S.vg && S.vg.podeDivulgar) {
+                irPara('vagas', 'aberta');
+                abrirFormVaga(null);
+            }
+            return;
+        }
+        if (ORIGEM_LINK && E && E.boasVindas) {
+            abrirBoasVindas(E.boasVindas);
+            return;
+        }
+        agendarLembrete();
+    }
+
+    function iniciarEngajamento() {
+        var H = lerHash();
+        if (H && modDoHash(H)) {
+            S.modulo = moduloDaChave(modDoHash(H));
+            salvarModulo(S.modulo);
+        } else if (ORIGEM_LINK && ehExterno()) {
+            // O link de vagas abre a aba Vagas no filtro Abertas (l.1078).
+            S.modulo = 'vagas';
+            S.vgFiltro = 'aberta';
+            salvarModulo('vagas');
+        }
+        return H;
+    }
+
     /* ---------------------------------------------------------------- aviso no canto */
 
     var temporizadorToast = null;
@@ -6193,6 +6914,10 @@
             fecharConf();
         } else if (S.quase) {
             fecharQuase();
+        } else if (S.bv) {
+            fecharBoasVindas();
+        } else if (S.dia) {
+            fecharLembrete();
         } else if (S.menu) {
             fecharMenu();
         } else if (S.tlm) {
@@ -6207,11 +6932,18 @@
     });
 
     S.modulo = moduloSalvo();
+    var hashInicial = iniciarEngajamento();
     renderTudo();
     // A aba Vagas só aparece depois que o servidor disser `veAba`; sem resposta, fica só Demandas.
+    // O engajamento (§4.7) vem depois das duas listas; dali em diante recarrega junto com elas.
     if (!S.painel.bloqueio) {
-        carregarVagas();
-        carregarCurriculos();
+        Promise.all([carregarVagas(), carregarCurriculos()]).then(function () {
+            return carregarEngajamento(true);
+        }).then(function (E) {
+            depoisDaPrimeiraCarga(E, hashInicial);
+        }, function () {
+            S.engIniciado = true;
+        });
     }
 
     if (S.painel.avisoDeMensagem) {
