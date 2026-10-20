@@ -245,6 +245,7 @@
         if (e.target.closest('button, input, select, .js-toggle-situacao')) { return; }
         e.preventDefault();
         e.stopImmediatePropagation();
+        if (window.ExpMenu.abertoNoToque()) { return; }   // com um menu aberto, o clique só o fecha (dc `abrir`)
         mostrarSigilo(alvo.getAttribute('data-nup'), alvo.getAttribute('data-pasta-id'));
     }, true);
 
@@ -487,6 +488,14 @@
 
     // E12: o trilho (expediente-trilho.js) usa o mesmo menu e o mesmo aviso.
     window.ExpMenu = { abrir: abrir, fechar: fechar, aberto: function () { return menu; } };
+
+    /* dc `abrir` da linha: com um menu aberto, o clique na linha só fecha o menu, não abre a pasta. A pergunta é
+       feita no mousedown (captura), antes de o próprio clique fechar o menu; o clique da linha lê a resposta. */
+    var menuAbertoNoToque = false;
+    document.addEventListener('mousedown', function () {
+        menuAbertoNoToque = !!(menu || document.querySelector('.exp-pop, #pastaRespMenu:not([hidden])'));
+    }, true);
+    window.ExpMenu.abertoNoToque = function () { return menuAbertoNoToque; };
     window.ExpCopiar = copiar;
     window.ExpAviso = avisar;
 }());
@@ -715,7 +724,8 @@
         if (!document.body.classList.contains('exp-body')) { return; }
         var alvo = e.target.closest && e.target.closest('[data-tip]');
         var menuAberto = window.ExpMenu && window.ExpMenu.aberto();
-        if (!alvo || (menuAberto && !menuAberto.contains(alvo)) || document.querySelector('.exp-pop')) { fecharDica(); return; }
+        // dc `_ov`: com um menu aberto (filtro, responsável da linha ou contexto), nenhuma dica fora dele.
+        if (!alvo || (menuAberto && !menuAberto.contains(alvo)) || document.querySelector('.exp-pop, #pastaRespMenu:not([hidden])')) { fecharDica(); return; }
         var t = alvo.getAttribute('data-tip');
         if (!t) { fecharDica(); return; }
         var texto = (alvo.textContent || '').replace(/\s+\d+x$/, '').replace(/\s+/g, ' ').trim();
