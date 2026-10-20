@@ -15,7 +15,7 @@ use Doctrine\ORM\Mapping as ORM;
  * demandas ativas, metas vencidas e prazos próximos ele tinha no fim do dia `referencia`.
  *
  * Por que existe: essas quatro colunas medem o que está aberto NUM INSTANTE (status/situação
- * de hoje, prazo relativo a agora) e não dá para reconstruir o passado — a meta concluída
+ * de hoje, prazo contado a partir do dia de hoje) e não dá para reconstruir o passado — a meta concluída
  * depois de uma data some da contagem antiga, e `dataConclusao` é nula no legado. A única
  * comparação honesta é fotografar daqui para frente (`app:dashboard:fotografar`) e comparar
  * com a foto da véspera do período (`data_de − 1 dia`). Sem foto, o painel não mostra
