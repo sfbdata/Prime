@@ -6,3 +6,4 @@ tipo: alteracao
 - Aceitar convite de demanda de escritório fora do ar é recusado com "Este convite não está mais disponível.".
 - Regra num lugar só: `App\Tenant\Service\SituacaoDaConta::foraDoAr`, consultada pelo `LocalizadorDeDemanda`, que marca o contexto do Convidado como só leitura. Sem migration.
 - Vagas: a vaga aberta de escritório fora do ar sai da lista e do detalhe de quem é de fora e recusa candidatura ("Vaga indisponível"). Quem já se candidatou continua abrindo a vaga por "Minhas candidaturas".
+- Avisos e entrada: o escritório fora do ar não recebe os avisos do Trabalho Externo, e quem tem vínculo com escritório fora do ar não é mandado direto ao Trabalho Externo depois do login: passa pela seleção de escritório e vê o aviso da conta.

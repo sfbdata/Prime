@@ -709,6 +709,36 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertNull($this->em()->getRepository(ConviteDemanda::class)->peloToken($token)?->getConvidado());
     }
 
+    #[TestDox('login de quem só tem escritório fora do ar e um convite: vai para a seleção de escritório e vê o aviso da conta')]
+    public function testEntradaComEscritorioForaDoArNaoDesvia(): void
+    {
+        [$client, $codigo, $master, $central] = $this->demandaEmExecucao();
+        $suspenso = $this->criarTenant('Escritório suspenso');
+        $pessoa = $this->criarUsuario($suspenso);
+        $this->logarComTenant($client, $master, $central);
+        $token = $this->convidar($client, $codigo, (string) $pessoa->getEmail());
+        $this->aceitarLogado($client, $pessoa, $token);
+        $this->colocarForaDoAr($suspenso, null);
+
+        $this->entrarPeloFormulario($client, (string) $pessoa->getEmail(), 'senha123');
+
+        self::assertResponseRedirects('/escritorio/selecionar');
+    }
+
+    #[TestDox('avisos à equipe: escritório fora do ar não recebe ninguém')]
+    public function testAvisosNaoSaemParaEscritorioForaDoAr(): void
+    {
+        static::createClient();
+        $escritorio = $this->criarTenant('Avisos');
+        $this->criarUsuario($escritorio);
+        $repositorio = static::getContainer()->get(\App\TrabalhoExterno\Repository\DestinatariosDosAvisosRepository::class);
+        self::assertCount(1, $repositorio->ativosDoEscritorio($escritorio), 'premissa: no ar, a equipe recebe');
+
+        $this->colocarForaDoAr($escritorio, null);
+
+        self::assertSame([], $repositorio->ativosDoEscritorio($escritorio));
+    }
+
     private function colocarForaDoAr(\App\Entity\Tenant\Tenant $escritorio, ?\DateTimeImmutable $excluidoEm, bool $reativar = false): void
     {
         $escritorio = $this->em()->find(\App\Entity\Tenant\Tenant::class, $escritorio->getId());
