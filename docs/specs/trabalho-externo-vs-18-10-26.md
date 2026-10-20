@@ -96,9 +96,10 @@ desenho, toda a Equipe vê); prazo de retenção do Termo de Voluntariado aceito
 é excluído (o termo fica ligado ao usuário). Decidir se "Salvar edição" e "Novo escritório" do bloco SOLICITANTE da
 Nova solicitação (06 l.640, 641) entram (§4.8).
 
-**Próximo passo**: F4 (§4.4), empilhada sobre o #105, com as notificações pelo sino da Central; depois
-externa (abas e banner) e os KPIs da página pública. Conferência final do 06 inteiro no fim, com a
-lista do que não tem dono. A F2d (§4.3) espera o PR da 5d.
+**Próximo passo** (coordenador, 19/10): terminar a F4 (§4.7) sobre o #105; depois a F3b (painel e
+Termo de Voluntariado, com os avisos do Termo pelo sino); depois os KPIs da página pública. Ao fim da
+F3b, combinar com a 5d (#99) o contrato da campanha de vagas por e-mail (consumidora da Comercial). A
+F2d espera a primeira das pilhas (#84 ou #99) entrar no master.
 
 
 Frente `trabalho-externo-vs1810`, base `origin/master` @ `1d3e664c` (v2.2.2). Continua a spec
