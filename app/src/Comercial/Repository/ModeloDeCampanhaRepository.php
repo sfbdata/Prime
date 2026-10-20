@@ -53,7 +53,7 @@ class ModeloDeCampanhaRepository extends ServiceEntityRepository
         });
     }
 
-    public function excluir(ModeloDeCampanha $modelo, User $por): void
+    public function remover(ModeloDeCampanha $modelo, User $por): void
     {
         $em = $this->getEntityManager();
         $id = (string) $modelo->getId();

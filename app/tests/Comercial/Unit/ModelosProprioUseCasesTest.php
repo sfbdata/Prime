@@ -144,7 +144,7 @@ final class ModelosProprioUseCasesTest extends TestCase
     {
         $modelo = new ModeloDeCampanha('Meu', 'bi-stars', 'blocos', $this->master, $this->relogio->now());
         $this->repositorio->method('porId')->willReturnMap([[3, $modelo], [4, null]]);
-        $this->repositorio->expects(self::once())->method('excluir')->with($modelo, $this->master);
+        $this->repositorio->expects(self::once())->method('remover')->with($modelo, $this->master);
         $excluir = new ExcluirModeloDeCampanhaUseCase($this->repositorio, new ModelosDeCampanha());
 
         $excluir->executar('3', $this->master);

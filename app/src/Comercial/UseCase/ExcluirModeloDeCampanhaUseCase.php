@@ -30,6 +30,6 @@ final class ExcluirModeloDeCampanhaUseCase
         if ($modelo === null) {
             throw new CampanhaRecusada('Modelo não encontrado.');
         }
-        $this->modelos->excluir($modelo, $por);
+        $this->modelos->remover($modelo, $por);
     }
 }
