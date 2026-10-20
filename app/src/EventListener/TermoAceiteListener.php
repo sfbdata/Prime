@@ -58,6 +58,10 @@ final class TermoAceiteListener
         'comercial_confirmar_endereco_gravar',
         'comercial_rastreio_abertura',
         'comercial_rastreio_clique',
+        // Link externo do Push: página pública de terceiro, não depende de termo nem de escritório.
+        'push_compartilhado',
+        'push_compartilhado_codigo',
+        'push_compartilhado_renovacao',
     ];
 
     public function __construct(

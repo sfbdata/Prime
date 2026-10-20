@@ -39,6 +39,7 @@ security:
         - { path: ^/invite$,          roles: ROLE_USER }       # redirect legado para auth_gerenciar_convites
         - { path: ^/convite,          roles: PUBLIC_ACCESS }  # aceite de convite
         - { path: ^/trabalho-externo/convite/, roles: PUBLIC_ACCESS }  # convite do Trabalho Externo (o aceite exige login; criar conta, não)
+        - { path: ^/p/,               roles: PUBLIC_ACCESS }  # link externo do Push Processual (terceiro sem login, somente leitura)
         - { path: ^/cadastro,         roles: PUBLIC_ACCESS }  # auto-cadastro público (conta + escritório)
         - { path: ^/senha,            roles: PUBLIC_ACCESS }  # recuperação de senha (quem esqueceu não consegue logar)
         - { path: ^/login,            roles: PUBLIC_ACCESS }
