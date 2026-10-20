@@ -117,7 +117,7 @@
         {% endif %}
         <a href="{{ path('pasta_peticionar', {id: pasta.id}) }}"
            target="_blank" rel="noopener"
-           class="ps-btn ps-btn--primario ps-btn--caps" title="Peticionar na pasta" aria-label="Peticionar na pasta">
+           class="ps-btn ps-btn--primario ps-btn--caps" title="Abrir a tela de peticionamento desta pasta (anexos e textos)" aria-label="Peticionar na pasta">
             <i class="bi bi-file-earmark-text"></i><span>Peticionar na pasta</span>
         </a>
     </div>
@@ -157,17 +157,10 @@
                 {# Editar no cartão: a guarda do `processo_edit` (EDIT no processo), nunca na lápide. #}
                 {% set podeEditarProcesso = not pasta.estaExcluida and can_access_resource('processo', proc.id, 'edit') %}
                 {% set edicaoId = 'psProcEdicao' ~ proc.id %}
-                {# Texto do "Copiar resumo" (desenho: procMenu), montado só com dado real: linha
-                   sem valor não entra. O JS junta as linhas com quebra. #}
-                {% set resumo = ['Processo ' ~ proc.numeroProcesso|numero_cnj] %}
-                {% if pasta.nomeAcao %}{% set resumo = resumo|merge(['Ação: ' ~ pasta.nomeAcao]) %}{% endif %}
-                {% if ef.classe.texto %}{% set resumo = resumo|merge(['Classe: ' ~ ef.classe.texto]) %}{% endif %}
-                {% if proc.siglaTribunal %}{% set resumo = resumo|merge(['Tribunal: ' ~ proc.siglaTribunal]) %}{% endif %}
-                {% if proc.situacaoProcesso %}{% set resumo = resumo|merge(['Situação: ' ~ proc.situacaoProcesso|situacao_processo]) %}{% endif %}
-                {% if ef.orgao.texto %}{% set resumo = resumo|merge(['Órgão julgador: ' ~ ef.orgao.texto]) %}{% endif %}
-                {% if distribuicao %}{% set resumo = resumo|merge(['Distribuição: ' ~ distribuicao]) %}{% endif %}
-                {% if valorCausa %}{% set resumo = resumo|merge(['Valor da causa: ' ~ valorCausa]) %}{% endif %}
-                {% set resumo = resumo|merge(['Pasta ' ~ (pasta.nup ?? ('#' ~ pasta.id)) ~ (pasta.nomeCliente ? ' · ' ~ pasta.nomeCliente : '')]) %}
+                {# Texto do "Copiar resumo", do "Compartilhar" e do "Imprimir resumo" (desenho, procMenu N:3059):
+                   as linhas do desenho com "Não informado" no que falta (P5d), da MESMA fonte do PDF do
+                   servidor (`ResumoDoProcesso`). O JS junta as linhas com quebra. #}
+                {% set resumo = resumo_do_processo(pasta, proc) %}
                 {# "Vinculado em" só quando a data é de verdade: a migration que criou a coluna
                    preencheu o legado com NOW() (52% dos vínculos no dev são desse minuto), e só
                    os vínculos feitos pela tela têm `vinculadoPor`. Sem ele, o rótulo neutro do
@@ -284,20 +277,22 @@
                     </div>
                     {# Só o que o cadastro tem (Datajud/manual). Campo vazio diz "Não informado",
                        como no desenho — nunca um valor inventado. #}
+                    {# Linha do desenho (N:1732-1750): Ação · Classe · Tribunal · Situação (P5d). "Ação": a da pasta
+                       no processo principal (`Pasta.nomeAcao`, a mesma do "Copiar resumo"); nos demais, ou sem
+                       ação na pasta, o assunto do processo (manual, se houver). #}
+                    {% set assuntoFaixa = ef.assuntos.manual ? ef.assuntos.itens|join(', ') : proc.assuntoProcessual %}
+                    {% set acaoFaixa = (ehPrincipal and pasta.nomeAcao) ? pasta.nomeAcao : assuntoFaixa %}
                     <div class="ps-processo-dados">
+                        <div class="ps-processo-dado" data-proc-campo="acao">
+                            <div class="ps-rotulo">Ação</div>
+                            <div class="ps-processo-valor{{ acaoFaixa ? '' : ' ps-dado--vazio' }}">{{ acaoFaixa ?: 'Não informada' }}</div>
+                        </div>
                         <div class="ps-processo-dado">
                             <div class="ps-rotulo">Classe</div>
                             {# Classe na faixa: a manual, se houver; senão a do cadastro (sem o código, como sempre foi). #}
                             {% set classeFaixa = ef.classe.manual ? ef.classe.texto : proc.classeProcessual %}
                             <div class="ps-processo-valor{{ classeFaixa ? '' : ' ps-dado--vazio' }}">{{ classeFaixa ?: 'Não informada' }}</div>
                         </div>
-                        {% set assuntoFaixa = ef.assuntos.manual ? ef.assuntos.itens|join(', ') : proc.assuntoProcessual %}
-                        {% if assuntoFaixa %}
-                            <div class="ps-processo-dado">
-                                <div class="ps-rotulo">Assunto</div>
-                                <div class="ps-processo-valor">{{ assuntoFaixa }}</div>
-                            </div>
-                        {% endif %}
                         <div class="ps-processo-dado">
                             <div class="ps-rotulo">Tribunal</div>
                             <div class="ps-processo-valor{{ proc.siglaTribunal ? '' : ' ps-dado--vazio' }}">{{ proc.siglaTribunal ?: 'Não informado' }}</div>

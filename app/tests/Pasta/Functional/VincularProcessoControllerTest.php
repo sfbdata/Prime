@@ -58,6 +58,83 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         self::assertSame($processo->getId(), $pastaFresca->getProcessoPrincipal()?->getId());
     }
 
+    #[TestDox('P5d: vincular escreve o cartão do sistema "processo N vinculado à pasta (ação · tribunal)." e desvincular, "processo N desvinculado da pasta."; vincular de novo não repete')]
+    public function testRegistroDoVincularEDesvincular(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot(); // o token falso de CSRF precisa valer nas três requisições
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $pasta->setNomeAcao('Cobrança de honorários');
+        $processo        = $this->criarProcesso($tenant, '11111111111111111111');
+        $processo->setSiglaTribunal('TJDFT');
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+        $this->autenticar($client, $user, $tenant);
+        $vincular = fn () => $client->request('POST', "/pasta/{$pasta->getId()}/processo/vincular", [
+            '_token' => $this->gerarCsrf('vincular_processo_' . $pasta->getId()),
+            'processo_id' => $processo->getId(),
+        ], [], self::XHR);
+
+        $vincular();
+        $vincular();
+        self::assertSame(
+            ['<p><strong>Processo:</strong> processo 1111111-11.1111.1.11.1111 vinculado à pasta (COBRANÇA DE HONORÁRIOS · TJDFT).</p>'],
+            $this->registros($pasta),
+            'o segundo vínculo é no-op e não repete o cartão',
+        );
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/processo/desvincular", [
+            '_token' => $this->gerarCsrf('pasta_desvincular_processo_' . $pasta->getId()),
+            'processo_id' => $processo->getId(),
+        ], [], self::XHR);
+        self::assertResponseIsSuccessful();
+        self::assertSame('<p><strong>Processo:</strong> processo 1111111-11.1111.1.11.1111 desvinculado da pasta.</p>', $this->registros($pasta)[1] ?? null);
+    }
+
+    #[TestDox('P5d: cadastro novo pela janela grava valor da causa, jurisdição e as flags como dados MANUAIS do processo')]
+    public function testCadastroNovoGravaDadosManuais(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->autenticar($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/processo/vincular", [
+            '_token' => $this->gerarCsrf('vincular_processo_' . $pasta->getId()),
+            'numeroProcesso' => '1234567-89.2024.1.23.4567',
+            'orgaoJulgador' => '2ª Vara Cível',
+            'situacaoProcesso' => 'TRANSITADO_EM_JULGADO',
+            'valorCausa' => 'R$ 48.750,00',
+            'jurisdicao' => 'Brasília',
+            'gratuita' => '1',
+            'segredo' => '0',
+            'tutela' => '',
+        ], [], self::XHR);
+
+        self::assertResponseIsSuccessful();
+        $linha = static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchAssociative(
+            "SELECT valor_causa_manual, jurisdicao_manual, gratuita_manual, segredo_manual, tutela_manual, orgao_manual, situacao_processo FROM processo WHERE numero_processo = '12345678920241234567' AND tenant_id = :t",
+            ['t' => $tenant->getId()],
+        );
+        self::assertNotFalse($linha);
+        self::assertSame('48750.00', $linha['valor_causa_manual']);
+        self::assertSame('Brasília', $linha['jurisdicao_manual']);
+        self::assertTrue($linha['gratuita_manual']);
+        self::assertFalse($linha['segredo_manual'], '"Não" sem sigilo informado vira manual');
+        self::assertNull($linha['tutela_manual'], '"Não informado" não grava');
+        self::assertNull($linha['orgao_manual'], 'os campos do cadastro (Datajud) não viram manuais');
+        self::assertSame('TRANSITADO_EM_JULGADO', $linha['situacao_processo']);
+    }
+
+    /** @return list<string> o conteúdo dos cartões do sistema "proc" da pasta, na ordem */
+    private function registros(Pasta $pasta): array
+    {
+        return array_map('strval', static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchFirstColumn(
+            "SELECT conteudo FROM pasta_mensagem WHERE pasta_id = :p AND sistema = 'proc' ORDER BY id",
+            ['p' => $pasta->getId()],
+        ));
+    }
+
     #[TestDox('Vincular por número inexistente cria o processo e o vincula')]
     public function testVincularNovoViaNumeroCriaProcesso(): void
     {

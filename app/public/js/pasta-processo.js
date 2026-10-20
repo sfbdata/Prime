@@ -39,6 +39,16 @@
         var icone  = botao.querySelector('i');
         if (rotulo) { rotulo.textContent = abrir ? 'Mostrar menos' : 'Ver todas as informações'; }
         if (icone)  { icone.className = 'bi ' + (abrir ? 'bi-chevron-up' : 'bi-chevron-down'); }
+
+        // O item do ⋮ acompanha o botão (desenho, procMenu: "Mostrar menos" com `bi-chevron-up`; P5d).
+        if (botao.id) {
+            document.querySelectorAll('.js-proc-alternar-menu[data-botao="#' + botao.id + '"]').forEach(function (item) {
+                var r = item.querySelector('span');
+                var i = item.querySelector('i');
+                if (r) { r.textContent = abrir ? 'Mostrar menos' : 'Ver todas as informações'; }
+                if (i) { i.className = 'bi ' + (abrir ? 'bi-chevron-up' : 'bi-card-list'); }
+            });
+        }
     }
 
     /* ── Menu ⋮ ─────────────────────────────────────────────────────────── */

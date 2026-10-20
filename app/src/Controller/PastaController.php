@@ -1251,7 +1251,7 @@ class PastaController extends AbstractController
             return $this->respostaErroProcesso($isXhr, 'Informe o número do processo.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $this->vincularProcessoUseCase->executar($pasta, $processo, $currentUser);
+        $this->vincularProcessoUseCase->executar($pasta, $processo, $currentUser, $processo->getId() === null ? \App\Processo\DTO\DadosDoProcessoInput::fromRequest($request) : null);
 
         if ($isXhr) {
             return $this->respostaProcessosVinculados($pasta);
@@ -1285,7 +1285,7 @@ class PastaController extends AbstractController
             return $this->respostaErroProcesso($isXhr, 'Processo não está vinculado a esta pasta.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $this->desvincularProcessoUseCase->executar($pasta, $processo);
+        $this->desvincularProcessoUseCase->executar($pasta, $processo, $currentUser);
 
         if ($isXhr) {
             return $this->respostaProcessosVinculados($pasta);

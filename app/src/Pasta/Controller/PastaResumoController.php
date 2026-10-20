@@ -22,7 +22,7 @@ use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
 use App\Pasta\Repository\PastaPagamentoRepository;
 use App\Pasta\Service\ConferenciaDeAnexosDoChecklist;
 use App\Processo\Entity\Processo;
-use App\Processo\Service\SituacaoProcessoRotulo;
+use App\Processo\Service\ResumoDoProcesso;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Twig\NumeroProcessoExtension;
@@ -83,6 +83,7 @@ final class PastaResumoController extends AbstractController
         private readonly PastaChecklistItemRepository $checklistRepository,
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         private readonly PastaObservacaoDetalhesRepository $observacaoDetalhesRepository,
+        private readonly ResumoDoProcesso $resumoDoProcesso,
         #[Autowire('%kernel.project_dir%')]
         private readonly string $projectDir,
     ) {
@@ -242,7 +243,7 @@ final class PastaResumoController extends AbstractController
             // Só na folha da observação: a entidade, para o autor · data · tipo e o texto.
             'registro'       => $registro,
             // Só na folha do processo: as linhas rótulo/valor do "Copiar resumo".
-            'linhasProcesso' => $processoAlvo !== null ? self::linhasDoProcesso($pasta, $processoAlvo) : [],
+            'linhasProcesso' => $processoAlvo !== null ? $this->resumoDoProcesso->linhas($pasta, $processoAlvo) : [],
         ];
     }
 
@@ -284,44 +285,6 @@ final class PastaResumoController extends AbstractController
         }
 
         throw $this->createNotFoundException('Processo não vinculado a esta pasta.');
-    }
-
-    /**
-     * As linhas do "Copiar resumo do processo" (`_processos_vinculados.html.twig`, `resumo`), na
-     * mesma ordem e com a mesma regra — linha sem valor não entra —, já partidas em rótulo e valor
-     * como a tabela que o pasta-processo.js monta para a prévia. A primeira e a última não têm
-     * valor: "Processo N" e "Pasta N · identificador".
-     *
-     * @return list<array{rotulo: string, valor: string}>
-     */
-    public static function linhasDoProcesso(Pasta $pasta, Processo $processo): array
-    {
-        $linhas = [['rotulo' => 'Processo ' . (new NumeroProcessoExtension())->numeroCnj($processo->getNumeroProcesso()), 'valor' => '']];
-        $valorCausa = $pasta->getValorCausa();
-
-        $campos = [
-            'Ação'           => $pasta->getNomeAcao(),
-            'Classe'         => $processo->getClasseProcessual(),
-            'Tribunal'       => $processo->getSiglaTribunal(),
-            'Situação'       => SituacaoProcessoRotulo::de($processo->getSituacaoProcesso()),
-            'Órgão julgador' => $processo->getOrgaoJulgador(),
-            'Distribuição'   => $processo->getDataDistribuicao()?->format('d/m/Y'),
-            // Zero é dado (como na tela); só o nulo some.
-            'Valor da causa' => $valorCausa !== null ? 'R$ ' . number_format((float) $valorCausa, 2, ',', '.') : null,
-        ];
-        foreach ($campos as $rotulo => $valor) {
-            if ($valor !== null && $valor !== '' && $valor !== '0') {
-                $linhas[] = ['rotulo' => $rotulo, 'valor' => (string) $valor];
-            }
-        }
-
-        $nomeCliente = $pasta->getNomeCliente();
-        $linhas[]    = [
-            'rotulo' => 'Pasta ' . ($pasta->getNup() ?? ('#' . $pasta->getId())) . ($nomeCliente !== null && $nomeCliente !== '' && $nomeCliente !== '0' ? ' · ' . $nomeCliente : ''),
-            'valor'  => '',
-        ];
-
-        return $linhas;
     }
 
     private function guarda(Pasta $pasta, User $usuario): Tenant
