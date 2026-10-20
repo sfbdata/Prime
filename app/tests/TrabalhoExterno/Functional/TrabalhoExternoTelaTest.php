@@ -109,6 +109,14 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
             'data-url-marcacoes' => '/trabalho-externo/api/demandas/marcacoes',
             'data-url-mensagens-marcacoes' => '/trabalho-externo/api/demandas/TE-0/mensagens/marcacoes',
             'data-url-mensagem-apagar' => '/trabalho-externo/api/demandas/TE-0/mensagens/0/apagar',
+            'data-url-vagas' => '/trabalho-externo/api/vagas',
+            'data-url-vaga' => '/trabalho-externo/api/vagas/VG-0',
+            'data-url-vaga-salvar' => '/trabalho-externo/api/vagas',
+            'data-url-vaga-acao' => '/trabalho-externo/api/vagas/VG-0/acoes/__acao__',
+            'data-url-vagas-marcacoes' => '/trabalho-externo/api/vagas/marcacoes',
+            'data-url-vaga-editar' => '/trabalho-externo/api/vagas/VG-0/editar',
+            'data-url-vaga-excluir' => '/trabalho-externo/api/vagas/VG-0/excluir',
+            'data-url-vagas-visita' => '/trabalho-externo/api/vagas/visita',
         ];
         foreach ($esperadas as $atributo => $url) {
             self::assertSame($url, $raiz->attr($atributo), $atributo);
@@ -146,7 +154,17 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
         );
         self::assertCount(1, $crawler->filter('#tePagina > #teLiberado > .te-tabela-caixa > .te-tabela > #teLinhas'));
 
-        foreach (['teMenu', 'teDrawer', 'teNova', 'teCfg', 'teConf', 'teToast', 'teDesfazer'] as $camada) {
+        // Abas de módulo (desenho VS 18.10.26, linhas 85–87) entre o bloqueio e as Demandas; a aba
+        // Vagas é irmã das Demandas e nasce escondida (o JS mostra se o servidor disser `veAba`).
+        self::assertCount(1, $crawler->filter('#tePagina > #teBloqueio + #teModulos + #teLiberado'));
+        self::assertCount(1, $crawler->filter('#tePagina > #teLiberado + #teVagas[hidden]'));
+        self::assertSame(
+            'Buscar vaga, cargo, área ou cidade',
+            $crawler->filter('#tePagina > #teVagas > .te-vg-barra > label.te-vg-busca > input#teVgBusca')->attr('placeholder'),
+        );
+        self::assertCount(1, $crawler->filter('#tePagina > #teVagas > .te-vg-barra + #teVgLote + #teVgVazio + #teVgGrade.te-vg-grade'));
+
+        foreach (['teMenu', 'teDrawer', 'teNova', 'teCfg', 'teConf', 'teToast', 'teDesfazer', 'teVagaModal'] as $camada) {
             self::assertCount(1, $crawler->filter("#tePagina > #{$camada}"), "camada {$camada} dentro do .te-page, para herdar os tokens do tema");
         }
     }

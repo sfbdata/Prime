@@ -39,6 +39,10 @@ class MarcacaoDoUsuario
     #[ORM\Column(options: ['default' => false])]
     private bool $naoLida = false;
 
+    /** Vaga, currículo ou candidatura "visto" (`lida` do `tlLote`, desenho l.1036): só por abrir ou marcar. */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $vista = false;
+
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $lixeiraEm = null;
 
@@ -63,13 +67,24 @@ class MarcacaoDoUsuario
             OperacaoDeMarcacao::Lixeira => $this->lixeiraEm = $agora,
             OperacaoDeMarcacao::Restaurar => $this->lixeiraEm = null,
             OperacaoDeMarcacao::Definitivo => $this->excluirDaLista($agora),
-            OperacaoDeMarcacao::Lida => $this->naoLida = false,
-            OperacaoDeMarcacao::NaoLida => $this->naoLida = true,
+            OperacaoDeMarcacao::Lida => $this->marcarVista(true),
+            OperacaoDeMarcacao::NaoLida => $this->marcarVista(false),
             OperacaoDeMarcacao::Estrela => $this->estrela = true,
             OperacaoDeMarcacao::SemEstrela => $this->estrela = false,
             OperacaoDeMarcacao::Importante => $this->importante = true,
             OperacaoDeMarcacao::NaoImportante => $this->importante = false,
         };
+    }
+
+    private function marcarVista(bool $vista): void
+    {
+        $this->vista = $vista;
+        $this->naoLida = !$vista;
+    }
+
+    public function isVista(): bool
+    {
+        return $this->vista;
     }
 
     private function excluirDaLista(\DateTimeImmutable $agora): void
