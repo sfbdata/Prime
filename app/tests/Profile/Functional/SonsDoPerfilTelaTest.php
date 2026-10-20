@@ -59,7 +59,7 @@ final class SonsDoPerfilTelaTest extends DashboardWebTestCase
         $this->assertScriptsCarregados($tela);
     }
 
-    #[TestDox('O perfil desligado não mexe na opção "Sons" do Dashboard: as duas valem juntas')]
+    #[TestDox('O perfil desligado não acrescenta a classe de som desligado do Dashboard: a opção "Sons" dele fica como estava')]
     public function testPerfilNaoMexeNoDashboardSons(): void
     {
         $client = static::createClient();
