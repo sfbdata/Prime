@@ -75,7 +75,16 @@ final class LevarPrazosAoGoogle
         if (null === $linha || null === $prazo || $this->traducao->resumoDoItem($item) === $linha->getHash()) {
             return;
         }
-        'cancelled' === ($item['status'] ?? null) ? $linha->apagadoLa($this->traducao->resumo($prazo)) : $linha->mexidoLa();
+        if ('cancelled' !== ($item['status'] ?? null)) {
+            $linha->mexidoLa();
+
+            return;
+        }
+        // Marca com o último envio (não com o prazo de agora): mudança feita aqui antes desta volta ainda vai.
+        $guardado = $linha->getHash();
+        if (null === $guardado || !str_starts_with($guardado, PrazoNoGoogle::APAGADO)) {
+            $linha->apagadoLa($guardado ?? $this->traducao->resumo($prazo));
+        }
     }
 
     public function ehIdDePrazo(string $googleId): bool

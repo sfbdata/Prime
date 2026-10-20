@@ -127,6 +127,66 @@ final class SincronizacaoDePrazosComGoogleTest extends KernelTestCase
         self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM agenda_google_prazo WHERE conexao_id = :c', ['c' => $conexao->getId()]));
     }
 
+    #[TestDox('Um escritório não vê o prazo do outro; um id de prazo de outro escritório vindo do Google não faz nada')]
+    public function testDoisEscritorios(): void
+    {
+        $meu = $this->escritorio();
+        $outro = $this->escritorio();
+        $eu = $this->pessoa($meu, ['modules.agenda.view', PermissoesDaAgenda::VER_PRAZOS]);
+        $doMeu = $this->prazo($meu, 'GP-8', PastaPrazo::TIPO_PRAZO, 'Apelação', '+2 days', null);
+        $doOutro = $this->prazo($outro, 'GP-9', PastaPrazo::TIPO_PRAZO, 'Embargos', '+2 days', null);
+        $conexao = $this->conectar($eu, $meu);
+        $this->sincronizar($conexao);
+        $agenda = $this->agendaDe($conexao);
+        $deFora = 'bjt' . $outro->getId() . 'p' . $doOutro->getId();
+        $this->google->paraTrazer[$agenda] = [['id' => $deFora, 'summary' => 'Embargos', 'start' => ['date' => '2030-01-01'], 'end' => ['date' => '2030-01-02']]];
+
+        $r = $this->sincronizar($conexao);
+
+        self::assertSame(['bjt' . $meu->getId() . 'p' . $doMeu->getId()], array_keys($this->eventosNaAgenda($conexao)));
+        self::assertSame(0, $r['trazidos']);
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM agenda_google_prazo WHERE conexao_id = :c', ['c' => $conexao->getId()]));
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM evento WHERE tenant_id IN (:a, :b)', ['a' => $meu->getId(), 'b' => $outro->getId()]));
+    }
+
+    #[TestDox('Pasta trancada depois do envio: o prazo sai da agenda de quem não a vê mais')]
+    public function testTrancadaDepois(): void
+    {
+        $tenant = $this->escritorio();
+        $eu = $this->pessoa($tenant, ['modules.agenda.view', PermissoesDaAgenda::VER_PRAZOS]);
+        $dono = $this->pessoa($tenant, [], true);
+        $prazo = $this->prazo($tenant, 'GP-10', PastaPrazo::TIPO_PRAZO, 'Réplica', '+2 days', null);
+        $conexao = $this->conectar($eu, $tenant);
+        $this->sincronizar($conexao);
+        self::assertCount(1, $this->eventosNaAgenda($conexao));
+
+        $this->trancar($this->em()->find(PastaPrazo::class, $prazo->getId())->getPasta(), $this->em()->find(User::class, $dono->getId()));
+        $r = $this->sincronizar($conexao);
+
+        self::assertSame(1, $r['apagados']);
+        self::assertSame([], $this->eventosNaAgenda($conexao));
+    }
+
+    #[TestDox('Apagado no Google e mudado aqui antes da sincronia: a mudança ainda vai')]
+    public function testApagadoLaEMudadoAqui(): void
+    {
+        $tenant = $this->escritorio();
+        $eu = $this->pessoa($tenant, ['modules.agenda.view', PermissoesDaAgenda::VER_PRAZOS]);
+        $prazo = $this->prazo($tenant, 'GP-11', PastaPrazo::TIPO_PRAZO, 'Contestação', '+5 days', null);
+        $conexao = $this->conectar($eu, $tenant);
+        $this->sincronizar($conexao);
+        $agenda = $this->agendaDe($conexao);
+        $id = 'bjt' . $tenant->getId() . 'p' . $prazo->getId();
+        unset($this->google->eventos[$agenda][$id]);
+        $this->google->paraTrazer[$agenda] = [['id' => $id, 'status' => 'cancelled']];
+        $this->em()->find(PastaPrazo::class, $prazo->getId())?->definir(PastaPrazo::TIPO_PRAZO, 'Contestação', new \DateTimeImmutable('+7 days'), null, null);
+        $this->em()->flush();
+
+        $this->sincronizar($conexao);
+
+        self::assertArrayHasKey($id, $this->google->eventos[$agenda]);
+    }
+
     #[TestDox('A agenda do escritório apagada no Google é recriada e os prazos vão de novo')]
     public function testAgendaNova(): void
     {
