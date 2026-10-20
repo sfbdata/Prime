@@ -97,7 +97,7 @@ final class IntegracaoBancariaController extends AbstractController
             return null;
         }
 
-        return new DadosDoBancoInput($r->getString('banco'), $r->getString('clientSecret'), $r->getString('chavePix'), $r->getString('appKey'), $r->getString('urlBase'), $r->getString('urlToken'));
+        return new DadosDoBancoInput($r->getString('banco'), $r->getString('clientSecret'), $r->getString('chavePix'), $r->getString('appKey'), $r->getString('urlBase'), $r->getString('urlToken'), $r->getString('contaCorrente'));
     }
 
     /** @param callable(): array<string, mixed> $fazer */

@@ -231,6 +231,77 @@ final class BancosBacenTest extends TestCase
         self::assertSame(5000, $this->banco('inter')->consultar($c->idNoBanco)->valorPagoCentavos);
     }
 
+    #[TestDox('Inter com conta corrente: toda chamada à API Pix leva x-conta-corrente (sem zeros à esquerda); o token não leva')]
+    public function testInterComContaCorrente(): void
+    {
+        $this->configurar('inter');
+        $this->integracao->definirContaCorrente('0013525622');
+        $banco = $this->banco('inter');
+
+        self::assertTrue($banco->testarConexao()->conectou);
+        $c = $banco->criarCobranca($this->pedido(2000));
+        $banco->consultar($c->idNoBanco);
+
+        $token = array_shift($this->psp->pedidos);
+        self::assertSame(BancoInter::TOKEN_SANDBOX, $token['url']);
+        self::assertNull($this->psp->cabecalho($token['opcoes'], 'x-conta-corrente'), 'a documentação do token não pede a conta');
+        self::assertCount(3, $this->psp->pedidos);
+        foreach ($this->psp->pedidos as $p) {
+            self::assertStringStartsWith(BancoInter::BASE_SANDBOX, $p['url']);
+            self::assertSame('13525622', $this->psp->cabecalho($p['opcoes'], 'x-conta-corrente'), $p['metodo'] . ' ' . $p['url']);
+        }
+    }
+
+    #[TestDox('Sem conta corrente (ou fora do Inter): nenhuma chamada leva x-conta-corrente')]
+    public function testSemContaCorrente(): void
+    {
+        $this->configurar('inter');
+        $banco = $this->banco('inter');
+        $banco->consultar($banco->criarCobranca($this->pedido(2000))->idNoBanco);
+        $this->configurar('bb');
+        $this->integracao->definirContaCorrente('123');
+        $this->banco('bb')->criarCobranca($this->pedido(2000));
+
+        self::assertNotEmpty($this->psp->pedidos);
+        foreach ($this->psp->pedidos as $p) {
+            self::assertNull($this->psp->cabecalho($p['opcoes'], 'x-conta-corrente'), $p['metodo'] . ' ' . $p['url']);
+        }
+    }
+
+    #[TestDox('Paga em dois PIX: o valor pago é a soma de pix[].valor e a hora é a do pix[0]')]
+    public function testDoisPixSomam(): void
+    {
+        $this->configurar('inter');
+        $banco = $this->banco('inter');
+        $c = $banco->criarCobranca($this->pedido(2000));
+        $this->psp->pagar($c->idNoBanco, '12.50');
+        $this->psp->cobs[$c->idNoBanco]['pix'][] = ['endToEndId' => 'E-segundo', 'txid' => $c->idNoBanco, 'valor' => '7.5', 'horario' => '2026-10-20T09:00:00.000-03:00'];
+
+        $pago = $banco->consultar($c->idNoBanco);
+
+        self::assertTrue($pago->paga);
+        self::assertSame(2000, $pago->valorPagoCentavos);
+        self::assertSame('2026-10-19 14:30', $pago->pagaEm?->format('Y-m-d H:i'));
+    }
+
+    #[TestDox('Paga em dois PIX com um valor ilegível: o total vale 0 e a cobrança não é confirmada (nem pelo valor.original)')]
+    public function testUmPixIlegivelNaoConfirma(): void
+    {
+        $this->configurar('inter');
+        $banco = $this->banco('inter');
+        $c = $banco->criarCobranca($this->pedido(2000));
+        foreach (['abc', null] as $ilegivel) {
+            $this->psp->pagar($c->idNoBanco, '12.50');
+            $this->psp->cobs[$c->idNoBanco]['pix'][] = ['endToEndId' => 'E-segundo', 'txid' => $c->idNoBanco, 'valor' => $ilegivel];
+
+            $situacao = $banco->consultar($c->idNoBanco);
+
+            self::assertFalse($situacao->paga, (string) $ilegivel);
+            self::assertSame(0, $situacao->valorPagoCentavos);
+            self::assertNull($situacao->pagaEm);
+        }
+    }
+
     #[TestDox('Token vencido (401): descarta o guardado, pede outro e repete a chamada uma vez; o token é reaproveitado entre chamadas')]
     public function testTokenVencido(): void
     {

@@ -216,6 +216,36 @@ final class ApoioPorPixComBancoBacenTest extends JusPrimeWebTestCase
         self::assertSame('aberta', $banco->fetchOne('SELECT situacao FROM contribua_cobranca_pix WHERE id_no_banco = :i', ['i' => $txid]));
     }
 
+    #[TestDox('Inter: a conta corrente (opcional) é gravada sem zeros à esquerda e aparece só no Inter; o que não é número é recusado sem mudar nada; trocar de banco a apaga')]
+    public function testContaCorrenteDoInter(): void
+    {
+        $this->logarComTenant($this->client, $this->master, $this->escritorio);
+        $inter = ['ambiente' => 'sandbox', 'clientId' => 'c1', 'banco' => 'inter', 'clientSecret' => self::SECRET, 'chavePix' => 'pix@bluejus.com.br'];
+        $banco = static::getContainer()->get(Connection::class);
+        $conta = static fn (): mixed => $banco->fetchOne('SELECT conta_corrente FROM contribua_integracao_bancaria');
+
+        self::assertTrue($this->post('/contribua/integracao-bancaria/salvar', $inter + ['contaCorrente' => ' 0013525622 '])['ok']);
+        self::assertSame('13525622', $conta());
+        $html = $this->pagina();
+        self::assertMatchesRegularExpression('/<label class="cc-campo" data-cc-para="inter">CONTA CORRENTE<input data-cc-conta-corrente value="13525622"/', $html);
+        self::assertStringContainsString('placeholder="Só se a integração tiver acesso a mais de uma conta"', $html);
+
+        foreach (['1352562-2', '13.525.622', 'abc', '12 34'] as $invalida) {
+            $r = $this->post('/contribua/integracao-bancaria/salvar', ['contaCorrente' => $invalida] + $inter);
+            self::assertResponseStatusCodeSame(422);
+            self::assertSame('Informe a conta corrente só com números, incluindo o dígito.', $r['erro'], $invalida);
+        }
+        self::assertSame('13525622', $conta(), 'a recusa não muda nada');
+
+        self::assertTrue($this->post('/contribua/integracao-bancaria/salvar', $inter + ['contaCorrente' => ''])['ok']);
+        self::assertNull($conta(), 'em branco apaga');
+
+        self::assertTrue($this->post('/contribua/integracao-bancaria/salvar', $inter + ['contaCorrente' => '777'])['ok']);
+        self::assertTrue($this->post('/contribua/integracao-bancaria/salvar', ['ambiente' => 'sandbox', 'clientId' => 'c-bb', 'banco' => 'bb', 'clientSecret' => 'segredo-bb', 'chavePix' => 'x', 'appKey' => 'k', 'contaCorrente' => '777'])['ok']);
+        self::assertNull($conta(), 'trocar de banco apaga a conta corrente');
+        self::assertMatchesRegularExpression('/data-cc-para="inter" hidden>CONTA CORRENTE<input data-cc-conta-corrente value=""/', $this->pagina());
+    }
+
     #[TestDox('Aviso com 51 itens: só os 50 primeiros são lidos (o 51º, mesmo sendo cobrança nossa, é ignorado)')]
     public function testCorteEm50(): void
     {

@@ -86,6 +86,9 @@ class ClientePixBacen
     private function chamar(CredenciaisBacen $c, array $mtls, string $metodo, string $caminho, array $opcoes, string $token): array
     {
         $opcoes['query'] = (array) ($opcoes['query'] ?? []) + $c->parametrosDaApi;
+        if ([] !== $c->cabecalhosDaApi) {
+            $opcoes['headers'] = (array) ($opcoes['headers'] ?? []) + $c->cabecalhosDaApi;
+        }
         try {
             $r = $this->http->request($metodo, rtrim($c->urlBase, '/') . $caminho, $mtls + $opcoes + ['auth_bearer' => $token, 'timeout' => self::TEMPO_SEGUNDOS, 'max_redirects' => 0]);
 

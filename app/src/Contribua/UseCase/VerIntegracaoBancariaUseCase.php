@@ -34,6 +34,7 @@ final class VerIntegracaoBancariaUseCase
             appKeyDefinida: $i->temAppKey(),
             urlBase: (string) $i->getUrlBase(),
             urlToken: (string) $i->getUrlToken(),
+            contaCorrente: (string) $i->getContaCorrente(),
         );
     }
 }

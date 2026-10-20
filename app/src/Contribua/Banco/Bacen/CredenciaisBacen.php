@@ -7,11 +7,15 @@ namespace App\Contribua\Banco\Bacen;
 /**
  * Credenciais de um banco da API Pix do BACEN, já decifradas (vivem só na memória da chamada). As
  * diferenças entre os bancos ficam aqui: URLs, como o token é pedido (Basic ou no corpo) e os parâmetros
- * de consulta que toda chamada à API leva (a app key do Banco do Brasil).
+ * de consulta e os cabeçalhos que toda chamada à API leva (a app key do Banco do Brasil, a conta corrente
+ * do Inter).
  */
 final readonly class CredenciaisBacen
 {
-    /** @param array<string, string> $parametrosDaApi */
+    /**
+     * @param array<string, string> $parametrosDaApi
+     * @param array<string, string> $cabecalhosDaApi
+     */
     public function __construct(
         public string $banco,
         public string $clientId,
@@ -29,6 +33,8 @@ final readonly class CredenciaisBacen
         public bool $tokenPorBasic,
         #[\SensitiveParameter]
         public array $parametrosDaApi = [],
+        /** Cabeçalhos de toda chamada à API, não do token (o `x-conta-corrente` do Inter). */
+        public array $cabecalhosDaApi = [],
     ) {
     }
 

@@ -9,7 +9,9 @@ use App\Contribua\Entity\IntegracaoBancaria;
 /**
  * Banco Inter (077), API Pix v2 do Inter Empresas (developers.inter.co/references/pix): token em
  * `/oauth/v2/token` com `client_id` e `client_secret` no corpo (form) e mTLS com o `.crt` e o `.key` da
- * integração; API em `/pix/v2`.
+ * integração; API em `/pix/v2`. Com a conta corrente preenchida, toda chamada à API Pix (não o token) leva
+ * o cabeçalho `x-conta-corrente` (só números, com o dígito e sem zeros à esquerda): a documentação o exige
+ * só quando a aplicação está associada a mais de uma conta.
  *
  * SUPOSIÇÃO a validar com a credencial real: as URLs de sandbox (`cdpj-sandbox.partners.uatinter.co`, com os
  * mesmos caminhos da produção) e o envio das credenciais no corpo, como mostram os exemplos públicos do Inter.
@@ -44,5 +46,17 @@ final class BancoInter extends BancoPixBacen
     protected function tokenPorBasic(): bool
     {
         return false;
+    }
+
+    public function usaContaCorrente(): bool
+    {
+        return true;
+    }
+
+    protected function cabecalhosDaApi(IntegracaoBancaria $i): array
+    {
+        $conta = (string) $i->getContaCorrente();
+
+        return '' === $conta ? [] : ['x-conta-corrente' => $conta];
     }
 }

@@ -27,6 +27,8 @@ class IntegracaoBancaria
     public const RECURSOS_PADRAO = ['cob' => true, 'conc' => true, 'bol' => false, 'rel' => true];
     /** Tamanho máximo de uma chave PIX (a aleatória tem 36; o e-mail vai até 77). */
     public const TAMANHO_CHAVE_PIX = 77;
+    /** Tamanho máximo da conta corrente do Inter (só números, com o dígito). */
+    public const TAMANHO_CONTA_CORRENTE = 20;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -70,6 +72,13 @@ class IntegracaoBancaria
     /** "Outro": a URL do token OAuth2 do PSP. */
     #[ORM\Column(name: 'url_token', length: 255, nullable: true)]
     private ?string $urlToken = null;
+
+    /**
+     * Inter: a conta corrente do cabeçalho `x-conta-corrente`, só números (com o dígito, sem zeros à
+     * esquerda). Opcional: só quando a integração tem acesso a mais de uma conta. Não é segredo.
+     */
+    #[ORM\Column(name: 'conta_corrente', length: 20, nullable: true)]
+    private ?string $contaCorrente = null;
 
     /** @var list<string> */
     #[ORM\Column(type: 'json')]
@@ -135,6 +144,22 @@ class IntegracaoBancaria
         $this->chavePix = '' === $chavePix ? null : $chavePix;
         $this->urlBase = '' === $urlBase ? null : $urlBase;
         $this->urlToken = '' === $urlToken ? null : $urlToken;
+    }
+
+    /** Conta corrente do Inter (só números); vazia apaga. Os zeros à esquerda saem, como pede o Inter. */
+    public function definirContaCorrente(string $conta): void
+    {
+        $conta = trim($conta);
+        if ('' === $conta) {
+            $this->contaCorrente = null;
+
+            return;
+        }
+        $semZeros = ltrim($conta, '0');
+        if (1 !== preg_match('/^\d+$/', $conta) || '' === $semZeros || strlen($semZeros) > self::TAMANHO_CONTA_CORRENTE) {
+            throw new \DomainException('Informe a conta corrente só com números, incluindo o dígito.');
+        }
+        $this->contaCorrente = $semZeros;
     }
 
     /** Troca de banco ou de endereço: o segredo guardado era do anterior e não pode ir para o novo. */
@@ -285,6 +310,11 @@ class IntegracaoBancaria
     public function getUrlToken(): ?string
     {
         return $this->urlToken;
+    }
+
+    public function getContaCorrente(): ?string
+    {
+        return $this->contaCorrente;
     }
 
     /** @return list<string> */

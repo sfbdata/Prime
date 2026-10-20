@@ -13,6 +13,9 @@
   banco ou de URL do "Outro"; URLs do "Outro" sem rede interna; CONCLUIDA sem valor legível não confirma; bases do BB trocadas para
   `api-pix.bb.com.br` / `api-pix.hm.bb.com.br`. Migration `Version20261021160000` (renomeada: o 235500 é do #90) no fim da fila (depois da `Version20261019230000`
   da C4). **Falta:** push e PR (empilhado sobre o #88).
+- 20/10: Inter com a conta corrente opcional (`conta_corrente`, na mesma migration; cabeçalho `x-conta-corrente`, só números e sem
+  zeros à esquerda, em toda chamada à API Pix e não no token, como a documentação do Inter pede; trocar de banco a apaga) e valor
+  pago da consulta BACEN = soma de `pix[].valor` (um item ilegível zera a soma e a cobrança não confirma; `pagaEm` do `pix[0]`).
 
 ## O pedido
 
@@ -44,7 +47,7 @@ verdade, não como 'em breve'. Etapas C4b e C4c." Desenho: `docs/design/redesign
 ## Modelo de dados (uma migration)
 
 `contribua_integracao_bancaria`: acrescenta `client_secret_cifrado` TEXT NULL, `chave_pix` VARCHAR(77) NULL, `app_key_cifrada` TEXT NULL,
-`url_base` VARCHAR(255) NULL, `url_token` VARCHAR(255) NULL. Sem mudança em `contribua_apoio` (o `txid` VARCHAR(60) comporta 35).
+`url_base` VARCHAR(255) NULL, `url_token` VARCHAR(255) NULL, `conta_corrente` VARCHAR(20) NULL (Inter, opcional). Sem mudança em `contribua_apoio` (o `txid` VARCHAR(60) comporta 35).
 
 ## Para o dono
 

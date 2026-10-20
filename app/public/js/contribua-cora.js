@@ -76,6 +76,7 @@
                 dados.append('appKey', valor('[data-cc-app-key]'));
                 dados.append('urlBase', valor('[data-cc-url-base]'));
                 dados.append('urlToken', valor('[data-cc-url-token]'));
+                dados.append('contaCorrente', valor('[data-cc-conta-corrente]'));
                 sec.querySelectorAll('[data-cc-recurso]').forEach(r => dados.append('recursos[' + r.dataset.ccRecurso + ']', r.getAttribute('aria-pressed') === 'true' ? '1' : '0'));
                 salvar.disabled = true;
                 try {

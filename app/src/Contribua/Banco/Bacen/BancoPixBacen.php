@@ -66,6 +66,22 @@ abstract class BancoPixBacen implements BancoPix
         return [];
     }
 
+    /**
+     * Cabeçalhos de toda chamada à API (não vão no token): o `x-conta-corrente` do Inter.
+     *
+     * @return array<string, string>
+     */
+    protected function cabecalhosDaApi(IntegracaoBancaria $i): array
+    {
+        return [];
+    }
+
+    /** O banco aceita a conta corrente opcional (Inter); nos outros, salvar a apaga. */
+    public function usaContaCorrente(): bool
+    {
+        return false;
+    }
+
     protected function exigeAppKey(): bool
     {
         return false;
@@ -159,9 +175,11 @@ abstract class BancoPixBacen implements BancoPix
             throw new FalhaNoBanco(ucfirst($this->nome()) . ' devolveu outra cobrança na consulta.', 0, null, false);
         }
         $status = (string) ($r['status'] ?? '');
-        $pix = is_array($r['pix'][0] ?? null) ? $r['pix'][0] : [];
+        $itens = is_array($r['pix'] ?? null) ? array_values($r['pix']) : [];
+        $pix = is_array($itens[0] ?? null) ? $itens[0] : [];
         $paga = 'CONCLUIDA' === $status;
-        $valor = $paga ? self::centavos($pix['valor'] ?? $r['valor']['original'] ?? null) : 0;
+        // O valor pago é a soma de pix[] (a cobrança pode ser paga em mais de um PIX); sem pix[], o valor.original.
+        $valor = !$paga ? 0 : ([] === $itens ? self::centavos($r['valor']['original'] ?? null) : self::somaDosPix($itens));
         if ($paga && $valor <= 0) {
             // Paga sem valor legível: não confirma com o valor esperado; fica para a próxima consulta.
             $this->logger->warning('Contribua: o banco deu a cobrança por paga sem valor legível; não confirmada', ['banco' => $this->codigo(), 'txid' => $idNoBanco]);
@@ -190,6 +208,26 @@ abstract class BancoPixBacen implements BancoPix
         }
 
         return (int) $m[1] * 100 + (int) str_pad($m[2] ?? '0', 2, '0');
+    }
+
+    /**
+     * Soma de `pix[].valor` em centavos; um item ilegível (ou zerado) faz a soma valer 0, e a cobrança paga
+     * sem valor legível não é confirmada.
+     *
+     * @param list<mixed> $itens
+     */
+    private static function somaDosPix(array $itens): int
+    {
+        $soma = 0;
+        foreach ($itens as $item) {
+            $centavos = is_array($item) ? self::centavos($item['valor'] ?? null) : 0;
+            if ($centavos <= 0) {
+                return 0;
+            }
+            $soma += $centavos;
+        }
+
+        return $soma;
     }
 
     /** @return array<string, mixed>|null */
@@ -263,6 +301,7 @@ abstract class BancoPixBacen implements BancoPix
             $this->urlBase($i),
             $this->tokenPorBasic(),
             $this->parametrosDaApi($i, $appKey),
+            $this->cabecalhosDaApi($i),
         );
     }
 }

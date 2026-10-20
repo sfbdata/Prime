@@ -16,7 +16,8 @@ use App\Entity\Auth\User;
  * do que a integração faz e clica em "Salvar integração" (desenho 08, L255). Sem Client ID, recusa; banco
  * fora de BancosPix, recusa (D5). Inter, BB e Outro exigem Client Secret e chave PIX; o BB, a app key; o
  * Outro, as URLs (D4). Os segredos vão cifrados para o cofre; em branco, fica o que já estava, salvo se
- * o banco ou as URLs mudaram: aí o segredo guardado é esquecido e tem de ser informado de novo. Com
+ * o banco ou as URLs mudaram: aí o segredo guardado é esquecido e tem de ser informado de novo. A conta
+ * corrente (opcional) só fica guardada no banco que a usa (Inter); escolher outro banco a apaga. Com
  * certificado já enviado, fica "Aguardando servidor" até o teste de conexão confirmar; sem, "Não conectado".
  */
 final class SalvarIntegracaoBancariaUseCase
@@ -51,6 +52,8 @@ final class SalvarIntegracaoBancariaUseCase
             }
             // Confere a chave PIX e as URLs antes de mudar qualquer coisa.
             $integracao->definirEnderecos($dados->chavePix, $dados->urlBase, $dados->urlToken);
+            // Só o Inter usa a conta corrente; nos outros bancos ela é apagada (não vai para banco nenhum).
+            $integracao->definirContaCorrente($banco instanceof BancoPixBacen && $banco->usaContaCorrente() ? $dados->contaCorrente : '');
             if ($trocou) {
                 $integracao->esquecerSegredos();
             }
