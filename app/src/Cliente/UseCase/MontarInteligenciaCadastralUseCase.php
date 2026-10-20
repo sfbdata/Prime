@@ -7,14 +7,11 @@ namespace App\Cliente\UseCase;
 use App\Cliente\DTO\DocumentoEncontradoNaPasta;
 use App\Cliente\DTO\InteligenciaCadastralOutput;
 use App\Cliente\Entity\Cliente;
-use App\Cliente\Entity\ClienteDocumento;
-use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Cliente\Exception\ClienteNaoEncontradoException;
 use App\Cliente\Repository\DocumentoVinculadoRepository;
 use App\Cliente\Service\AlertasDaInteligenciaCadastral;
-use App\Cliente\Service\DocumentoDoCliente;
-use App\Cliente\Service\DocumentosVisiveisDoCadastro;
+use App\Cliente\Service\RegrasDosEncontrados;
 use App\Cliente\Service\RotulosDaInteligenciaCadastral;
 use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
@@ -24,7 +21,6 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Service\PermissionChecker;
-use App\Shared\Service\DigitoVerificador;
 
 /**
  * Monta o bloco "Inteligência cadastral" da aba Documentos do cadastro (F-A; spec docs/specs/cliente-inteligencia-cadastral.md).
@@ -42,7 +38,7 @@ final class MontarInteligenciaCadastralUseCase
         private readonly PastaRepository $pastas,
         private readonly PastaDocumentoRepository $documentosDaPasta,
         private readonly DocumentoVinculadoRepository $vinculados,
-        private readonly DocumentosVisiveisDoCadastro $documentosDoCadastro,
+        private readonly RegrasDosEncontrados $regras,
         private readonly PermissionChecker $permissoes,
     ) {
     }
@@ -52,7 +48,7 @@ final class MontarInteligenciaCadastralUseCase
         if ($cliente->getTenant()?->getId() !== $tenant->getId()) {
             throw new ClienteNaoEncontradoException((int) $cliente->getId());
         }
-        $digitos = self::documentoValido($cliente);
+        $digitos = RegrasDosEncontrados::documentoValido($cliente);
         if ($digitos === null) {
             return InteligenciaCadastralOutput::desligado();
         }
@@ -65,19 +61,6 @@ final class MontarInteligenciaCadastralUseCase
             $this->encontrados($cliente, $documentos, $usuario, $tenant),
             RotulosDaInteligenciaCadastral::nota($cliente instanceof ClientePJ),
         );
-    }
-
-    /** Os dígitos do CPF/CNPJ quando o dígito verificador confere; senão null (o bloco não aparece). */
-    private static function documentoValido(Cliente $cliente): ?string
-    {
-        $documento = match (true) {
-            $cliente instanceof ClientePF => $cliente->getCpf(),
-            $cliente instanceof ClientePJ => $cliente->getCnpj(),
-            default => '',
-        };
-        $valido = $cliente instanceof ClientePF ? DigitoVerificador::cpfValido($documento) : DigitoVerificador::cnpjValido($documento);
-
-        return $valido ? DocumentoDoCliente::digitos($documento) : null;
     }
 
     /** @return list<Pasta> as pastas vivas (fora da lápide) em que o cliente está vinculado e que o usuário pode ver */
@@ -98,7 +81,7 @@ final class MontarInteligenciaCadastralUseCase
     private function encontrados(Cliente $cliente, array $documentos, User $usuario, Tenant $tenant): array
     {
         $vinculados = $this->vinculados->idsDePastaDocumentoVinculados($cliente, $tenant);
-        $categoriasNoCadastro = $this->categoriasNoCadastro($cliente, $usuario, $tenant);
+        $categoriasNoCadastro = $this->regras->categoriasNoCadastro($cliente, $usuario, $tenant);
         $podeVincular = $this->permissoes->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_CLIENTE, (int) $cliente->getId(), AccessRequest::ACTION_EDIT);
         $linhas = [];
         foreach ($documentos as $d) {
@@ -116,15 +99,6 @@ final class MontarInteligenciaCadastralUseCase
         }
 
         return $linhas;
-    }
-
-    /** @return list<string> as categorias que o cadastro já mostra a este usuário (anexo próprio ou vínculo visível) */
-    private function categoriasNoCadastro(Cliente $cliente, User $usuario, Tenant $tenant): array
-    {
-        return array_values(array_unique(array_map(
-            static fn (ClienteDocumento $d): string => $d->getCategoria(),
-            $this->documentosDoCadastro->de($cliente, $usuario, $tenant),
-        )));
     }
 
     /** @param list<PastaDocumento> $documentos */

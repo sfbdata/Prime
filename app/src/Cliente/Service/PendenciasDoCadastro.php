@@ -8,6 +8,9 @@ use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
+use App\Entity\Auth\User;
+use App\Service\Tenant\TenantContext;
+use Symfony\Bundle\SecurityBundle\Security;
 
 /**
  * O que falta no cadastro de um cliente para ele servir de qualificação numa peça.
@@ -19,9 +22,21 @@ use App\Cliente\Entity\ClientePJ;
  *
  * Pessoa jurídica (o desenho só desenha pessoa física; o dono decidiu adaptar): razão social, CNPJ, representante
  * legal e o CPF dele na aba Cliente; endereço, contato e documentos iguais.
+ *
+ * Documento VINCULADO do menu Documentos só resolve a pendência para quem vê a pasta dele
+ * ({@see DocumentosVisiveisDoCadastro}): contar o vínculo de pasta escondida denunciaria que ela tem um documento do
+ * cliente (spec cliente-inteligencia-cadastral §2.3, decisão do coordenador em 20/10). Sem quem olha, só o anexo
+ * próprio conta.
  */
 final class PendenciasDoCadastro
 {
+    public function __construct(
+        private readonly ?DocumentosVisiveisDoCadastro $visiveis = null,
+        private readonly ?Security $seguranca = null,
+        private readonly ?TenantContext $tenants = null,
+    ) {
+    }
+
     /** @return list<string> */
     public function de(Cliente $cliente): array
     {
@@ -99,13 +114,24 @@ final class PendenciasDoCadastro
 
     private function temAnexo(Cliente $cliente, string $categoria): bool
     {
-        foreach ($cliente->getDocumentos() as $documento) {
+        foreach ($this->documentosQueContam($cliente) as $documento) {
             if ($documento->getCategoria() === $categoria && $documento->estaDisponivel()) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /** @return iterable<ClienteDocumento> */
+    private function documentosQueContam(Cliente $cliente): iterable
+    {
+        $usuario = $this->seguranca?->getUser();
+        if ($this->visiveis === null || !$usuario instanceof User) {
+            return array_filter($cliente->getDocumentos()->toArray(), static fn (ClienteDocumento $d): bool => !$d->isVinculado());
+        }
+
+        return $this->visiveis->de($cliente, $usuario, $this->tenants?->getCurrentTenant());
     }
 
     private static function vazio(?string $valor): bool

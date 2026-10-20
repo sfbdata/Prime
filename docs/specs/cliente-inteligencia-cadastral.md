@@ -7,6 +7,15 @@
 - Fatia em andamento: **F-A** (só regras internas, sem fonte externa e sem IA).
 - F-B, F-C e F-D **esperam o dono** (D1 a D4 abaixo).
 - **PR em rascunho** (base `cliente-historico`, #112), migration `Version20261021150000`. Suíte completa OK (10509).
+- **Revisão cruzada da f6 (20/10)**: aprovado com ressalvas, nada ALTO. Corrigido: título e ícone neutros
+  ("Conferência do cadastro", `bi-clipboard-check`; o nome fica com o dono, item 8 do pacote); a pendência do
+  cadastro não conta o vínculo de pasta que quem olha não vê (§2.3); o POST de "Vincular" repete as regras da
+  tela (CPF/CNPJ válido, categoria que o cadastro ainda não mostra) pelo `RegrasDosEncontrados`; unit do
+  `VincularDocumentoDaPastaAoClienteUseCase`.
+- **Depois dos merges** (coordenador, 20/10): o **#68 entra antes do #124**. Com o #68 no master, o
+  `DocumentosVisiveisDoCadastro` passa a respeitar também a `VisibilidadeDasAbasDaPasta` (aba Documentos oculta:
+  hoje deixa ver nome do arquivo, NUP e data, e vincular). Com o #120 no master, trocar o laço por pasta pelo
+  `niveisEmLote` (N+1) e escrever o functional do cadeado.
 
 **Para o dono** (pacote "IA x regras", levado pelo coordenador em 19/10):
 - **D1. Rótulo "IA".** O desenho chama de IA o que é regra (l.3391, 3394, 3401, 3407). As regras 1 e 7 do
@@ -76,7 +85,9 @@ seria "OCR + extração por IA a cada upload".
   e baixar usam o arquivo do `PastaDocumento`, com a permissão da pasta conferida de novo. Remover o
   vínculo do cadastro **nunca** apaga o arquivo da pasta. Se o documento da pasta for excluído, o vínculo
   some da lista do cadastro (não fica link quebrado). O vínculo cuja pasta o usuário não pode ver não aparece
-  para ele na janela de Cadastro nem na página do cliente (as pendências do cadastro continuam contando). O
+  para ele na janela de Cadastro nem na página do cliente, **e não resolve as pendências do cadastro para ele**
+  (decisão do coordenador em 20/10, revisão cruzada da f6: contar o vínculo denunciaria documento em pasta
+  escondida; com o cadeado isso pesa). Sem usuário logado, só o anexo próprio conta. O
   vinculado não é editável na página do cliente (sem o botão Editar; a rota de edição dá 403): só desvincular.
   A purga do escritório não trata o vinculado como arquivo do cliente (a chave vazia não entra).
 
@@ -86,7 +97,10 @@ Ponto único `RotulosDaInteligenciaCadastral` (servidor) com:
   que afirmaria uma leitura que ainda não existe);
 - nota fixa neutra no lugar da l.3407: "Nome indica uma possibilidade; CPF e outros dados confirmam a
   identidade. Nada muda no cadastro sem validação, e cada mudança fica no Histórico.";
-- nenhuma ocorrência de "IA" na F-A. O ícone do cabeçalho é o do desenho.
+- nenhuma ocorrência de "IA" na F-A. **Título e ícone neutros** (regra 1 de `app/src/Inteligencia/CLAUDE.md`,
+  revisão cruzada da f6 em 20/10): "Conferência do cadastro" com `bi bi-clipboard-check`, no lugar do
+  "Inteligência cadastral" com `bi-stars` do desenho. O nome definitivo fica com o dono (item 8 do pacote);
+  trocar é mudar só `TITULO` e `ICONE` em `RotulosDaInteligenciaCadastral`.
 
 ### 2.5 Fora da F-A
 Sugestões de atualização com confiança, Validar/Editar/Manter anterior/Rejeitar, "Validar todas", linha do

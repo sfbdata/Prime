@@ -14,8 +14,8 @@ use App\Service\PermissionChecker;
 /**
  * Os documentos do cadastro que ESTE usuário vê na tela (janela de Cadastro e página do cliente). O anexo próprio
  * aparece sempre; o VINCULADO do menu Documentos só aparece com o documento da pasta vivo (fora da lixeira) e para
- * quem pode ver aquela pasta: o arquivo é o da pasta. As pendências do cadastro não passam por aqui (contam o vínculo
- * disponível, qualquer que seja quem olha).
+ * quem pode ver aquela pasta: o arquivo é o da pasta. As pendências do cadastro passam por aqui também
+ * ({@see PendenciasDoCadastro}): o vínculo de pasta escondida não resolve a pendência para quem não a vê.
  */
 final class DocumentosVisiveisDoCadastro
 {

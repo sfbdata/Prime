@@ -92,7 +92,7 @@ final class ClienteInteligenciaCadastralControllerTest extends JusPrimeWebTestCa
         $ii = $this->retrato((int) $valido->getId());
 
         self::assertTrue($ii['on']);
-        self::assertSame('Inteligência cadastral', $ii['titulo']);
+        self::assertSame('Conferência do cadastro', $ii['titulo']);
         self::assertSame('0 documento(s) deste cliente em 0 pasta(s)', $ii['subtitulo']);
         self::assertStringStartsWith('Nome indica uma possibilidade; CPF', $ii['nota']);
         self::assertDoesNotMatchRegularExpression('/\bIA\b/', (string) json_encode($ii, JSON_UNESCAPED_UNICODE));
@@ -344,7 +344,7 @@ final class ClienteInteligenciaCadastralControllerTest extends JusPrimeWebTestCa
         self::assertStringContainsString('não anexado', $janela->filter('[data-cad-doc="IDENTIFICACAO"] .cad-doc-info')->text());
         self::assertStringNotContainsString('RG_Secreto', (string) $this->client->getResponse()->getContent());
         $pendDocs = json_decode((string) $janela->filter('[data-cad-janela]')->attr('data-pend-docs'), true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame(['Comprovante de residência não anexado'], array_column($pendDocs, 'texto'), 'a pendência conta o vínculo');
+        self::assertSame(['Documento de identificação não anexado', 'Comprovante de residência não anexado'], array_column($pendDocs, 'texto'), 'o vínculo de pasta que ele não vê não resolve a pendência (não denuncia a pasta)');
         $this->em()->clear();
         $this->client->request('GET', '/clientes/' . $cliente->getId());
         self::assertResponseIsSuccessful();
@@ -386,10 +386,12 @@ final class ClienteInteligenciaCadastralControllerTest extends JusPrimeWebTestCa
         $gestor = $this->criarUsuario($tenant, true);
         $cliente = $this->criarClientePF($tenant, 'Maria das Dores', self::CPF);
         $rg = $this->criarDocumento($this->criarPasta($tenant, $gestor, $cliente, 'II-9000'), PastaDocumento::CATEGORIA_IDENTIFICACAO, 'RG.pdf');
-        // O "outro pedido" já gravou o vínculo; esta conferência não o viu (chegou antes do COMMIT dele).
+        // O "outro pedido" já gravou o vínculo; esta conferência não o viu (chegou antes do COMMIT dele). A linha vai
+        // com outra categoria só para a regra "categoria que o cadastro já mostra" não enxergá-la (o pedido real não a
+        // vê); é o índice único (cliente, documento da pasta) que recusa.
         $this->em()->getConnection()->executeStatement(
             "INSERT INTO cliente_documento (titulo, categoria, caminho_arquivo, nome_original, mime_type, tamanho_bytes, uploaded_at, cliente_id, tenant_id, pasta_documento_id)
-             VALUES ('RG.PDF', 'IDENTIFICACAO', '', 'RG.pdf', 'application/pdf', 0, NOW(), ?, ?, ?)",
+             VALUES ('RG.PDF', 'COMPROVANTE_RESIDENCIA', '', 'RG.pdf', 'application/pdf', 0, NOW(), ?, ?, ?)",
             [$cliente->getId(), $tenant->getId(), $rg->getId()],
         );
         $semVer = $this->createStub(DocumentoVinculadoRepository::class);

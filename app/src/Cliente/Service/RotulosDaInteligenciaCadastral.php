@@ -16,8 +16,13 @@ use App\Cliente\Entity\ClienteDocumento;
  */
 final class RotulosDaInteligenciaCadastral
 {
-    public const TITULO = 'Inteligência cadastral';
-    public const ICONE = 'bi bi-stars';
+    /**
+     * Título e ícone neutros (regra 1 de `app/src/Inteligencia/CLAUDE.md`: sem bi-stars nem nome de "inteligência" no
+     * que é regra). O nome que o desenho dá ao bloco fica com o dono (item 8 do pacote); trocar é mudar só estas duas
+     * linhas.
+     */
+    public const TITULO = 'Conferência do cadastro';
+    public const ICONE = 'bi bi-clipboard-check';
     public const ENCONTRADOS = 'Encontrados no menu Documentos';
     public const VINCULAR = 'Vincular ao cadastro';
     public const VINCULAR_ERRO = 'Não foi possível vincular o documento.';

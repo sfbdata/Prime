@@ -13,6 +13,7 @@ use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Repository\DocumentoVinculadoRepository;
 use App\Cliente\Service\AlertasDaInteligenciaCadastral;
 use App\Cliente\Service\DocumentosVisiveisDoCadastro;
+use App\Cliente\Service\RegrasDosEncontrados;
 use App\Cliente\UseCase\MontarInteligenciaCadastralUseCase;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Entity\Auth\User;
@@ -146,7 +147,7 @@ final class MontarInteligenciaCadastralUseCaseTest extends TestCase
             $pastas ?? $this->createStub(PastaRepository::class),
             $docs ?? $this->createStub(PastaDocumentoRepository::class),
             $vinculados ?? $this->createStub(DocumentoVinculadoRepository::class),
-            new DocumentosVisiveisDoCadastro($permissoes),
+            new RegrasDosEncontrados(new DocumentosVisiveisDoCadastro($permissoes)),
             $permissoes,
         );
     }

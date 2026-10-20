@@ -93,7 +93,7 @@ final class RotulosDaInteligenciaCadastralTest extends TestCase
             array_values(RotulosDaInteligenciaCadastral::daTela()),
         );
         foreach ($textos as $texto) {
-            self::assertDoesNotMatchRegularExpression('/\bI\.?A\.?\b|intelig[êe]ncia artificial|confian[çc]a/iu', str_replace('Inteligência cadastral', '', $texto), $texto);
+            self::assertDoesNotMatchRegularExpression('/\bI\.?A\.?\b|intelig[êe]ncia|confian[çc]a|bi-stars/iu', $texto, $texto);
             self::assertStringNotContainsString('—', $texto);
             self::assertStringNotContainsString('–', $texto);
         }
@@ -110,7 +110,8 @@ final class RotulosDaInteligenciaCadastralTest extends TestCase
         $r = $saida->paraResposta();
 
         self::assertSame(['on', 'titulo', 'subtitulo', 'alertas', 'encontrados', 'nota', 'rotulos'], array_keys($r));
-        self::assertSame(['icone' => 'bi bi-stars', 'encontrados' => 'Encontrados no menu Documentos', 'vincular' => 'Vincular ao cadastro',
+        self::assertSame('Conferência do cadastro', $r['titulo']);
+        self::assertSame(['icone' => 'bi bi-clipboard-check', 'encontrados' => 'Encontrados no menu Documentos', 'vincular' => 'Vincular ao cadastro',
             'vincularErro' => 'Não foi possível vincular o documento.', 'salvarAntes' => 'Salve as alterações antes de vincular o documento.'], $r['rotulos']);
         self::assertSame(['tipo' => 'mesmoDocumento', 'ic' => 'bi bi-intersect', 'negrito' => 'N', 'texto' => 'T'], $r['alertas'][1]);
         self::assertSame(['id' => 5, 'arquivo' => 'rg.pdf', 'categoria' => 'IDENTIFICACAO', 'categoriaRotulo' => 'Documento de identificação', 'pasta' => 'Pasta 1180', 'data' => '12/03/2024', 'podeVincular' => true], $r['encontrados'][0]);
