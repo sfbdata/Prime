@@ -4834,8 +4834,13 @@
 
     function mesPn(ano, i) { return ano + '-' + String(i + 1).padStart(2, '0'); }
 
-    /** `curva` (l.1129): Catmull-Rom em Bézier cúbica, tensão .18. */
-    function curvaPn(P) {
+    /**
+     * `curva` (l.1129): Catmull-Rom em Bézier cúbica, tensão .18. O Y dos pontos de controle fica
+     * limitado a [yMin, yMax] (Y1 e Y0 do gráfico): com picos isolados a curva não passa abaixo do
+     * zero nem acima do topo. Os pontos dos dados não mudam.
+     */
+    function curvaPn(P, yMin, yMax) {
+        var lim = function (y) { return Math.max(yMin, Math.min(yMax, y)); };
         if (P.length < 2) {
             return P.length ? 'M' + P[0].join(',') : '';
         }
@@ -4844,8 +4849,8 @@
                 return 'M' + pt[0] + ',' + pt[1];
             }
             var a = P[i - 2] || P[i - 1], b = P[i - 1], c2 = pt, d2 = P[i + 1] || pt, t = .18;
-            return d + ' C' + (b[0] + (c2[0] - a[0]) * t).toFixed(1) + ',' + (b[1] + (c2[1] - a[1]) * t).toFixed(1)
-                + ' ' + (c2[0] - (d2[0] - b[0]) * t).toFixed(1) + ',' + (c2[1] - (d2[1] - b[1]) * t).toFixed(1)
+            return d + ' C' + (b[0] + (c2[0] - a[0]) * t).toFixed(1) + ',' + lim(b[1] + (c2[1] - a[1]) * t).toFixed(1)
+                + ' ' + (c2[0] - (d2[0] - b[0]) * t).toFixed(1) + ',' + lim(c2[1] - (d2[1] - b[1]) * t).toFixed(1)
                 + ' ' + c2[0].toFixed(1) + ',' + c2[1].toFixed(1);
         }, '');
     }
@@ -4893,7 +4898,7 @@
         var xs = function (i) { return n === 1 ? (X0 + X1) / 2 : X0 + (X1 - X0) * i / (n - 1); };
         var ys = function (v) { return Y0 - (Y0 - Y1) * v / topo; };
         var linhas = ativos.map(function (x, li) {
-            var P = x.vals.map(function (v, i) { return [xs(i), ys(v)]; }), d = curvaPn(P);
+            var P = x.vals.map(function (v, i) { return [xs(i), ys(v)]; }), d = curvaPn(P, Y1, Y0);
             return {
                 k: x.k, delay: (li * 150) + 'ms', gid: 'teGrG' + x.k, cor: x.cor, d: d,
                 area: d ? d + ' L' + xs(n - 1) + ',' + Y0 + ' L' + xs(0) + ',' + Y0 + ' Z' : '',
