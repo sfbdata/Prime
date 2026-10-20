@@ -6,6 +6,7 @@ namespace App\Master\Controller;
 
 use App\Master\UseCase\ConsultarAuditoriaUseCase;
 use App\Master\UseCase\ConsultarContasUseCase;
+use App\Master\UseCase\ConsultarPlanosUseCase;
 use App\Master\UseCase\ConsultarUsuariosOabUseCase;
 use App\Master\UseCase\ConsultarVisaoGeralUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -52,6 +53,22 @@ final class PainelMasterDadosController extends AbstractController
 
         // A carência vai junto para o modal de "Excluir conta" dizer o prazo configurado, não um número fixo.
         return $this->json(['contas' => $contas, 'carenciaPurgaDias' => $carenciaPurgaDias]);
+    }
+
+    /**
+     * Planos do catálogo e faixas de alerta (spec perfis-1.2-planos-e-limites P1 e P6), com o token CSRF de
+     * cada plano e o das faixas ({@see PlanosELimitesController}).
+     */
+    #[Route('/planos', name: 'master_dados_planos', methods: ['GET'])]
+    public function planos(ConsultarPlanosUseCase $useCase, CsrfTokenManagerInterface $csrf): JsonResponse
+    {
+        $dados = $useCase->executar();
+        $dados['planos'] = array_map(
+            static fn (array $p): array => $p + ['token' => $csrf->getToken(PlanosELimitesController::PREFIXO_CSRF_PLANO . $p['codigo'])->getValue()],
+            $dados['planos'],
+        );
+
+        return $this->json($dados + ['tokenFaixas' => $csrf->getToken(PlanosELimitesController::CSRF_FAIXAS)->getValue()]);
     }
 
     #[Route('/usuarios-oab', name: 'master_dados_usuarios_oab', methods: ['GET'])]

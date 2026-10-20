@@ -39,7 +39,7 @@ final class ListarDocumentosDaPastaDoAgenteUseCaseTest extends TestCase
 
         $this->expectException(PastaNaoEncontradaException::class);
 
-        (new ListarDocumentosDaPastaDoAgenteUseCase($pastas, $documentos, $permissoes))->executar(5, new User(), $tenant);
+        (new ListarDocumentosDaPastaDoAgenteUseCase($pastas, $documentos, $permissoes, $this->abasSemRegra()))->executar(5, new User(), $tenant);
     }
 
     #[TestDox('Sem acesso à pasta: recusa, sem ler documento')]
@@ -58,7 +58,7 @@ final class ListarDocumentosDaPastaDoAgenteUseCaseTest extends TestCase
 
         $this->expectException(SemPermissaoParaVerPastaException::class);
 
-        (new ListarDocumentosDaPastaDoAgenteUseCase($pastas, $documentos, $permissoes))->executar(5, $usuario, $tenant);
+        (new ListarDocumentosDaPastaDoAgenteUseCase($pastas, $documentos, $permissoes, $this->abasSemRegra()))->executar(5, $usuario, $tenant);
     }
 
     #[TestDox('Com acesso: os documentos são lidos com o escritório explícito')]
@@ -75,10 +75,21 @@ final class ListarDocumentosDaPastaDoAgenteUseCaseTest extends TestCase
         $documentos = $this->createMock(PastaDocumentoRepository::class);
         $documentos->expects(self::once())->method('findByPastaComSecao')->with($pasta, $tenant)->willReturn([]);
 
-        $saida = (new ListarDocumentosDaPastaDoAgenteUseCase($pastas, $documentos, $permissoes))->executar(5, new User(), $tenant);
+        $saida = (new ListarDocumentosDaPastaDoAgenteUseCase($pastas, $documentos, $permissoes, $this->abasSemRegra()))->executar(5, new User(), $tenant);
 
         self::assertSame(5, $saida->pastaId);
         self::assertSame('AG-5', $saida->nup);
         self::assertSame([], $saida->documentos);
+    }
+
+    /** Sem regra de aba oculta na pasta: o ocultar aba não muda nada aqui. */
+    private function abasSemRegra(): \App\Pasta\Service\VisibilidadeDasAbasDaPasta
+    {
+        $regras = $this->createStub(\App\Pasta\Repository\AbaOcultaDaPastaRepository::class);
+        $regras->method('daPasta')->willReturn([]);
+        $vinculos = $this->createStub(\App\Repository\UserTenantRepository::class);
+        $primarios = new \App\Tenant\Service\RegraDosPrimarios($vinculos);
+
+        return new \App\Pasta\Service\VisibilidadeDasAbasDaPasta($regras, $primarios, new \App\Pasta\Service\EquipeQuePodeTerAbaOculta($vinculos, $primarios));
     }
 }

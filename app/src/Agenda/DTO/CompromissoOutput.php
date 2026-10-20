@@ -20,6 +20,10 @@ final readonly class CompromissoOutput
     public const ORIGEM_PASTA  = 'pasta';
     public const ORIGEM_ANIV   = 'aniv';
 
+    /**
+     * @param list<int> $avisados
+     * @param list<int> $participantes
+     */
     public function __construct(
         public string $id,
         public string $data,
@@ -39,10 +43,22 @@ final readonly class CompromissoOutput
         public ?int $pastaId = null,
         public ?string $pastaNup = null,
         public ?int $usuarioId = null,
+        public ?string $tipo = null,
+        public ?int $lembreteMinutos = null,
+        public array $avisados = [],
+        public array $participantes = [],
+        public ?string $repetir = null,
+        public ?string $repetirAte = null,
+        public bool $editavel = false,
+        /** Dia e horário do evento (não da ocorrência), para o modal de edição. */
+        public ?string $inicioOriginal = null,
+        public ?string $fimOriginal = null,
+        /** Nome dado pelo escritório (aniversário renomeado pelo botão direito). */
+        public bool $editado = false,
     ) {
     }
 
-    /** @return array<string, string|int|bool|null> */
+    /** @return array<string, string|int|bool|list<int>|null> */
     public function toArray(): array
     {
         return get_object_vars($this);

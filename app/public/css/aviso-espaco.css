@@ -1,0 +1,15 @@
+/* Aviso de espaço do desenho 08 (bj-plano.js): cartão no topo central, abaixo da barra azul. */
+.ae-aviso { position: fixed; z-index: 9100; left: 50%; top: 70px; transform: translateX(-50%); width: min(720px, calc(100vw - 24px)); box-sizing: border-box; background: #fff; border: 1px solid #ffe69c; border-left: 4px solid #c08a12; border-radius: 4px; box-shadow: 0 10px 30px rgba(18, 36, 47, .18); padding: 12px 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-family: Arial, Helvetica, sans-serif; color: #12242f; }
+.ae-aviso[hidden] { display: none; }
+.ae-aviso--cheio { border-color: #f1aeb5; border-left-color: #b02a37; }
+.ae-icone { font-size: 22px; }
+.ae-texto { flex: 1; min-width: 220px; }
+.ae-texto > b { font-size: 14px; }
+.ae-texto > div:not(.ae-barra) { font-size: 12.5px; color: #4a6373; margin-top: 2px; }
+.ae-barra { height: 6px; border-radius: 3px; background: #eef2f5; margin-top: 7px; overflow: hidden; }
+.ae-barra > div { height: 100%; background: #c08a12; }
+.ae-aviso--cheio .ae-barra > div { background: #b02a37; }
+a.ae-aumentar { height: 34px; padding: 0 14px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font: bold 13px Arial, Helvetica, sans-serif; display: inline-flex; align-items: center; text-decoration: none; }
+a.ae-aumentar:hover { background: #0b5f86; color: #fff; }
+.ae-fechar { width: 30px; height: 30px; border: none; border-radius: 3px; background: transparent; color: #7a8e9b; cursor: pointer; font-size: 16px; }
+@media print { .ae-aviso { display: none !important; } }

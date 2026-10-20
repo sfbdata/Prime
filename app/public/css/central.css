@@ -79,6 +79,16 @@ html[data-bs-theme="dark"] .bj-central {
     --bjc-selo-mudo: #5c6f7b;
     --bjc-perigo: #e3685c;
     --bjc-perigo-hover: rgba(227, 104, 92, .16);
+    /* Chip "Pasta N" no balão dos outros (BC:6041): #cfe8f6 sobre #1b4a63 = 7,5:1 (o claro não muda) */
+    --bjc-chip-pasta-fundo: #1b4a63;
+    --bjc-chip-pasta-texto: #cfe8f6;
+}
+
+html[data-bs-theme="dark"] .bj-central .bj-central-msg:not(.bj-central-msg--minha) .bj-central-chip-pasta,
+html[data-bs-theme="dark"] .bj-central .bj-central-msg:not(.bj-central-msg--minha) .bj-central-chip-pasta:hover,
+html[data-bs-theme="dark"] .bj-central .bj-central-msg:not(.bj-central-msg--minha) .bj-central-chip-pasta:focus {
+    background: var(--bjc-chip-pasta-fundo);
+    color: var(--bjc-chip-pasta-texto);
 }
 
 /* Tema escuro da tela "Despachar via Chat I.A" (BC:6222-6226): os fixos do protótipo levados às variáveis da Central.
@@ -2156,8 +2166,8 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
     color: var(--bjc-texto-fraco);
 }
 
-/* Chip "Pasta N" na mensagem de despacho (BC:6041). Só texto: a mensagem não guarda o id da pasta (spec §3 e §5), então
-   não há para onde navegar; por isso é <span> (cursor normal e largura do conteúdo, como o <button> do protótipo). */
+/* Chip "Pasta N" na mensagem de despacho (BC:6041): um link para a pasta, da referência que o servidor manda (spec
+   §4.1). <a> no lugar do <button> do protótipo: largura do conteúdo e sem sublinhado, como ele. */
 .bj-central-chip-pasta {
     display: flex;
     align-items: center;
@@ -2170,6 +2180,8 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
     font-family: inherit;
     font-size: 11.5px;
     font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
     white-space: nowrap;
     max-width: 100%;
     overflow: hidden;
@@ -2178,7 +2190,31 @@ html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="t
     color: var(--bjc-petroleo);
 }
 
-.bj-central-msg--minha .bj-central-chip-pasta {
+.bj-central-chip-pasta:hover,
+.bj-central-chip-pasta:focus {
+    color: var(--bjc-petroleo);
+    text-decoration: none;
+}
+
+.bj-central-msg--minha .bj-central-chip-pasta,
+.bj-central-msg--minha .bj-central-chip-pasta:hover,
+.bj-central-msg--minha .bj-central-chip-pasta:focus {
     background: rgba(255, 255, 255, .18);
     color: #fff;
+}
+
+/* Despacho de pasta que eu não vejo ("Item de pasta sem acesso"), como "Mensagem excluída" (BC:6039): ícone
+   bi-slash-circle com 5px à direita, itálico e opacidade .7 sobre a cor do balão (que já tem o par do tema escuro). */
+.bj-central-oculto {
+    font-style: italic;
+    opacity: .7;
+}
+
+.bj-central-oculto-ico {
+    margin-right: 5px;
+}
+
+/* Na citação e na prévia da lista, só o texto (o desenho não põe ícone na citação, BC:6036), em itálico. */
+.bj-central-oculto-trecho {
+    font-style: italic;
 }

@@ -56,12 +56,36 @@ final class ArquivosReferenciadosEmPecas
      */
     public function doTenant(Tenant $tenant): array
     {
+        return $this->citadosPelas($this->documentos->chavesDePecasHtmlDoTenant($tenant), $tenant);
+    }
+
+    /**
+     * Os nomes citados só pelas peças destas pastas (a imagem embutida e o cadeado, spec pasta-cadeado D5).
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return string[]
+     *
+     * @throws FalhaDeArmazenamento quando alguma peça não pôde ser lida
+     */
+    public function dasPastas(array $pastaIds, Tenant $tenant): array
+    {
+        return $this->citadosPelas($this->documentos->chavesDePecasHtmlDasPastas($pastaIds, $tenant), $tenant);
+    }
+
+    /**
+     * @param string[] $nomesDasPecas
+     *
+     * @return string[]
+     */
+    private function citadosPelas(array $nomesDasPecas, Tenant $tenant): array
+    {
         $referenciados = [];
         $tenantId      = $tenant->getId() ?? throw new ChaveDeArquivoInvalida(
             'Escritório sem id: não há como montar a chave de armazenamento das peças dele.',
         );
 
-        foreach ($this->documentos->chavesDePecasHtmlDoTenant($tenant) as $nomeDaPeca) {
+        foreach ($nomesDasPecas as $nomeDaPeca) {
             try {
                 $chave = ChavesDePasta::documentoPorNome($tenantId, $nomeDaPeca);
             } catch (ChaveDeArquivoInvalida) {
