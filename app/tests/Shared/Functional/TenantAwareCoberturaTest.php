@@ -125,6 +125,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         ConviteDemanda::class,
         ConfiguracaoCentral::class,
 
+        // Marca da varredura do push da Agenda (entrega 5b): uma linha só, global, que garante uma cadeia
+        // única de envio para todos os escritórios. Não guarda dado de escritório nenhum.
+        \App\Agenda\Entity\VarreduraDePush::class,
         // Telas e recursos (spec docs/specs/perfis-1.2-telas-e-recursos.md, R2): configuração da
         // PLATAFORMA, ligada e desligada só pelo Master e válida para todas as contas ao mesmo tempo.
         // Uma linha por chave do catálogo, sem dado de escritório nem de cliente.
@@ -146,7 +149,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 21 → 22 com RecursoEstado (19/10/2026, Perfis 1.2 · Telas e recursos): configuração global da plataforma.
     // 22 → 26 com a tela de entrada do desenho 10 (19/10/2026): ConfirmacaoEmail, CienciaPolitica, AjusteEntrada e
     // MensagemSuporte são anteriores a qualquer escritório (identidade do User e a tela de entrada única); justificado acima.
-    private const MAX_FORA_DO_ESCOPO = 26;
+    // 26 → 27 com a marca global da varredura do push da Agenda (19/10/2026), justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 27;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

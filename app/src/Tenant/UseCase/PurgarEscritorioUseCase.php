@@ -260,6 +260,9 @@ final class PurgarEscritorioUseCase
         ['legenda_cor', 'tenant_id = :tenant'],
         // Agenda: ajustes do escritório nas datas do sistema (botão direito). FK de tenant CASCADE; explícito por convenção.
         ['agenda_data_ajuste', 'tenant_id = :tenant'],
+        // Agenda (5b): inscrições de push e registro de envios. FKs de tenant CASCADE; explícito por convenção.
+        ['agenda_push_enviado', 'tenant_id = :tenant'],
+        ['agenda_push_inscricao', 'tenant_id = :tenant'],
         ['jornada_tenant', 'tenant_id = :tenant'],
         ['justificativa_ponto', 'tenant_id = :tenant'],
         ['registro_ponto', 'tenant_id = :tenant'],

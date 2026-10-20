@@ -6,6 +6,7 @@ namespace App\Agenda\Controller;
 
 use App\Agenda\DTO\CompromissoOutput;
 use App\Agenda\DTO\LembreteOutput;
+use App\Agenda\Service\GarantirVarreduraDePush;
 use App\Agenda\UseCase\ListarCompromissosUseCase;
 use App\Agenda\UseCase\ListarLembretesUseCase;
 use App\Entity\Auth\User;
@@ -34,6 +35,7 @@ final class AgendaNovaController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly UserRepository $usuarios,
         private readonly ListarLembretesUseCase $listarLembretes,
+        private readonly GarantirVarreduraDePush $garantirPush,
     ) {
     }
 
@@ -95,6 +97,8 @@ final class AgendaNovaController extends AbstractController
         }
         $verPastas = $this->permissionChecker->canAccessModule($user, $tenant, 'pastas');
         $itens = $this->listarLembretes->executar($tenant, $user, new \DateTimeImmutable(), $verPastas);
+        // Religa o push dos lembretes se o worker ficou parado (consulta barata; ver GarantirVarreduraDePush).
+        $this->garantirPush->garantir();
 
         return $this->json(['itens' => array_map(static fn (LembreteOutput $l): array => $l->toArray(), $itens)]);
     }

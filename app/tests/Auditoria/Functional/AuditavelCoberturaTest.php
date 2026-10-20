@@ -113,6 +113,12 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Pasta\Entity\DecisaoSemProcessoDaPasta::class,
         // Baixa de aviso na Central (F3): preferência de leitura da pessoa, como "lida" no sino (que não é auditada).
         \App\Central\Entity\AvisoResolvido::class,
+        // Push dos lembretes da Agenda (entrega 5b): endereço técnico do navegador, recibo de envio (evita
+        // repetir o aviso) e a marca da varredura a cada minuto. Nenhum é ato sobre dado do escritório;
+        // auditar cada envio ou minuto encheria o audit_log de ruído.
+        \App\Agenda\Entity\InscricaoDePush::class,
+        \App\Agenda\Entity\PushEnviado::class,
+        \App\Agenda\Entity\VarreduraDePush::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,

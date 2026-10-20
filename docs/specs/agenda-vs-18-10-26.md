@@ -440,3 +440,66 @@ dica, "Ver na agenda" ou "Abrir pasta", "Lembrar em 10 min", dispensar) e a noti
 - **Prazos de todos (decisão do coordenador, 19/10/2026):** prazos e audiências de hoje com hora tocam
   para todo colaborador com acesso às pastas, como no desenho (que lê todas as pastas). Filtrar pelo
   responsável depende de o responsável do prazo virar usuário (hoje é texto livre em `PastaPrazo`).
+
+## 16. Entrega 5b: push com o navegador fechado
+
+Cumpre a promessa do `bj-lembretes.js`, linha 3 (seção 15). Mesmos lembretes da tela, mesma chave.
+
+- **Inscrição (pedida por clique):** quando a permissão de notificação já foi dada (ou é dada em "Testar
+  lembretes"/"Salvar"), `public/js/lembretes.js` registra `public/sw-lembretes.js` (escopo `/`), pede a
+  chave pública em `GET /agenda/push/chave` e inscreve o navegador. A inscrição vai para
+  `POST /agenda/push/inscrever` (módulo agenda, CSRF) com o fuso do navegador (`Intl`). Uma linha por
+  navegador em `agenda_push_inscricao` (único pelo hash do endereço): se o navegador passa a outra pessoa
+  ou outro escritório, a linha muda de dono. `POST /agenda/push/cancelar` só apaga a da própria pessoa.
+  Sem chave VAPID configurada, a chave volta nula e nada se inscreve (o resto dos lembretes segue).
+- **O que se aceita:** endereço https de um serviço de push conhecido (`fcm.googleapis.com`,
+  `push.services.mozilla.com`, `push.apple.com`, `notify.windows.com` e subdomínios), para o servidor não
+  fazer POST em endereço qualquer; `p256dh` com 65 bytes começando em 0x04 e `auth` com 16 bytes. A
+  gravação é um upsert pelo hash do endereço (`ON CONFLICT`), porque o filtro de escritório esconderia a
+  linha de outro escritório.
+- **No navegador:** a inscrição feita com outra chave VAPID é refeita; a aba não repete o POST para a
+  mesma pessoa, o mesmo escritório e o mesmo endereço; ao confirmar o Sair, a navegação espera (no máximo
+  2 s) o cancelamento da inscrição desta pessoa em qualquer escritório (computador compartilhado), porque
+  depois do logout a sessão e o CSRF somem. Se o cancelamento não terminar em 2 s, a linha fica (melhor
+  esforço). Sessão que expira sem Sair deixa a inscrição até a próxima pessoa com
+  Agenda entrar naquele navegador.
+- **Envio (`VarrerLembretesDePushUseCase`):** a cada minuto, para cada pessoa ativa com inscrição e módulo
+  Agenda, calcula os lembretes com o `ListarLembretesUseCase` na **hora de parede do fuso guardado na
+  inscrição** e envia os que venceram (aviso já passou e o início foi há menos de 2 h). Título
+  "BlueJus · <título>", corpo "Às HH:MM · <observação>", `tag` = chave do lembrete (o sistema troca, em
+  vez de empilhar, o aviso de mesma chave), clique abre a Agenda no compromisso ou a pasta. TTL de 1 h,
+  urgência alta, cifra `aes128gcm` (a única do push da Apple), um envio por vez com tempo máximo de 5 s
+  (uma inscrição torta ou um serviço lento não derrubam nem seguram os outros). Inscrições que o serviço
+  dá por vencidas, recusadas por outra chave VAPID (401/403) ou com chave que não cifra são apagadas.
+  Escritório desativado e pessoa inativa não recebem.
+- **Nada se repete:** antes de enviar, o lembrete é reservado em `agenda_push_enviado` por
+  `INSERT ... ON CONFLICT (usuario_id, chave) DO NOTHING`; só quem reserva envia. Reservas com mais de 7
+  dias são limpas. A entrega é **no máximo uma vez**: se o serviço de push recusar, o aviso não sai de
+  novo (o cartão na página continua valendo). "Lembrar em 10 min" e "dispensar" ficam no navegador e não
+  mudam o push.
+- **Desvio da orientação (decisor técnico):** em vez de uma mensagem com `DelayStamp` até a hora de cada
+  aviso, uma **cadeia única** que se reagenda a cada 60 s. Motivo: compromisso editado, movido ou
+  apagado mudaria a hora já agendada; a varredura sempre lê o estado atual. Continua sem cron, no
+  transporte `async` (`doctrine://`) que já existe.
+- **Como a cadeia começa:** a primeira mensagem é enviada por `GarantirVarreduraDePush`, chamado na
+  inscrição de um navegador, a cada consulta de `GET /agenda/lembretes` (toda tela aberta, a cada 5 min)
+  e pelo comando `app:agenda:push-varredura` (para o deploy). Só despacha se a marca
+  `agenda_push_varredura.ultima_em` estiver nula ou com mais de 180 s.
+- **Uma só cadeia:** o handler reivindica a vez com
+  `UPDATE agenda_push_varredura SET ultima_em = agora WHERE id = 1 AND (ultima_em IS NULL OR ultima_em < agora - 45 s)`.
+  Quem não reivindica (mensagem duplicada) morre sem reagendar. Quem reivindica varre e, no `finally`,
+  despacha a próxima com `DelayStamp(60000)`.
+- **Como se recupera:** worker parado, mensagem perdida ou erro: a marca envelhece; passados 180 s, a
+  próxima consulta de lembretes de qualquer navegador aberto (ou o comando) religa. Com todos os
+  navegadores fechados e a cadeia morta, só o comando ou a próxima abertura religam.
+- **Tabelas novas** (`Version20261020129500`): `agenda_push_inscricao`, `agenda_push_enviado` e
+  `agenda_push_varredura` (linha única). As duas primeiras entram no expurgo do escritório.
+- **Chaves VAPID inválidas** (assunto que não é `mailto:`/`https://`, chave de tamanho errado) deixam o
+  push desligado, com erro no log, em vez de reservar lembretes e falhar.
+- **Material do dono:** chaves VAPID (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`) e o worker
+  da fila `async` rodando (já existe no `docker-compose.prod.yml`). Passo a passo no PR.
+- **Testes:** duas varreduras do mesmo minuto não duplicam; escritório desativado não recebe; chave
+  torta não derruba o lote; serviço desconhecido, http e chaves de tamanho errado são recusados; corte de
+  2 h; a cadeia não se bifurca e reagenda com 60 s;
+  desligado não envia; inscrição vencida é apagada; fuso do navegador (Manaus) muda a hora do aviso;
+  inscrever valida https e base64url; cancelar só a própria.

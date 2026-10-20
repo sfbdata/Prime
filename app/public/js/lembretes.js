@@ -21,6 +21,12 @@
     const URL_AGENDA = raiz.dataset.urlAgenda;
     const URL_PASTA = raiz.dataset.urlPasta;
     const ICONE = raiz.dataset.icone;
+    const URL_PUSH_CHAVE = raiz.dataset.urlPushChave;
+    const URL_PUSH_INSCREVER = raiz.dataset.urlPushInscrever;
+    const URL_PUSH_CANCELAR = raiz.dataset.urlPushCancelar;
+    const URL_SAIR = raiz.dataset.urlSair;
+    const SW = raiz.dataset.sw;
+    const EU = raiz.dataset.eu || '';
     const KD = 'bj-lembretes-disp';
     const AZ = '#0a6fa0';
     const PERF = {
@@ -193,14 +199,75 @@
             // Como no desenho: audiência e prazo de exemplo são da "Pasta 1180" (o botão do teste só fecha).
             mostrar({ k: 'teste:' + Date.now(), t, quando: new Date(Date.now() + (PERF[tp].antes) * 6e4), tipo: tp, obs: '', teste: true, pastaDeExemplo: tp === 'aud' || tp === 'prazo' });
         },
-        /* Pede a permissão de notificação do navegador; só chamar a partir de um clique. */
+        /* Pede a permissão de notificação do navegador; só chamar a partir de um clique. Com a permissão
+           dada, inscreve este navegador no push (lembrete com o navegador fechado, entrega 5b). */
         permitir() {
-            try { if ('Notification' in window && Notification.permission === 'default') { Notification.requestPermission(); } } catch (e) { /* sem notificação */ }
+            try {
+                if (!('Notification' in window)) { return; }
+                if (Notification.permission === 'default') { Notification.requestPermission().then(p => { if (p === 'granted') { ativarPush(); } }); }
+                else if (Notification.permission === 'granted') { ativarPush(); }
+            } catch (e) { /* sem notificação */ }
         },
     };
 
+    /* Push com o navegador fechado: só com permissão já dada, Service Worker e chave VAPID no servidor. */
+    const paraBytes = b64 => {
+        const s = (b64 + '='.repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+        return Uint8Array.from(atob(s), c => c.charCodeAt(0));
+    };
+    const JSON_POST = { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+    const JA_INSCRITO = 'bjl-push-inscrito';
+    const mesmaChave = (inscricao, chave) => {
+        const atual = inscricao.options && inscricao.options.applicationServerKey;
+        if (!atual) { return true; }
+        const a = new Uint8Array(atual);
+        const b = paraBytes(chave);
+        return a.length === b.length && a.every((x, i) => x === b[i]);
+    };
+    const sessao = (k, v) => { try { if (v === undefined) { return sessionStorage.getItem(k); } if (v === null) { sessionStorage.removeItem(k); } else { sessionStorage.setItem(k, v); } } catch (e) { /* sem armazenamento */ } return null; };
+
+    /* Inscrição feita com outra chave VAPID (troca de chave no servidor) não recebe nada: refaz. */
+    async function inscricaoValida(reg, chave) {
+        let inscricao = await reg.pushManager.getSubscription();
+        if (inscricao && !mesmaChave(inscricao, chave)) { await inscricao.unsubscribe(); inscricao = null; }
+        return inscricao || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: paraBytes(chave) });
+    }
+
+    async function ativarPush() {
+        try {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window) || Notification.permission !== 'granted' || !SW) { return; }
+            const chave = (await (await fetch(URL_PUSH_CHAVE, { headers: { Accept: 'application/json' } })).json()).chave;
+            if (!chave) { return; }
+            const reg = await navigator.serviceWorker.register(SW, { scope: '/' });
+            const inscricao = await inscricaoValida(reg, chave);
+            if (sessao(JA_INSCRITO) === EU + '|' + inscricao.endpoint) { return; } // esta aba já mandou esta inscrição desta pessoa
+            const corpo = Object.assign(inscricao.toJSON(), { fuso: Intl.DateTimeFormat().resolvedOptions().timeZone || '' });
+            const r = await fetch(URL_PUSH_INSCREVER, { method: 'POST', headers: JSON_POST, body: JSON.stringify(corpo) });
+            if (r.ok) { sessao(JA_INSCRITO, EU + '|' + inscricao.endpoint); }
+        } catch (e) { /* sem push: o cartão na página continua valendo */ }
+    }
+
+    /* Ao sair, o navegador deixa de receber os avisos desta pessoa (computador compartilhado). Ouve na
+       bolha da janela, depois do confirm do menu: saída cancelada (defaultPrevented) não mexe em nada. A
+       navegação espera o cancelamento (no máximo 2 s), porque depois do logout a sessão e o CSRF somem. */
+    function cancelarAoSair() {
+        if (!URL_SAIR || !('serviceWorker' in navigator)) { return; }
+        addEventListener('click', e => {
+            const link = e.target.closest && e.target.closest('a[href]');
+            if (e.defaultPrevented || !link || link.getAttribute('href') !== URL_SAIR) { return; }
+            e.preventDefault();
+            sessao(JA_INSCRITO, null);
+            const cancelar = navigator.serviceWorker.getRegistration('/')
+                .then(reg => reg && reg.pushManager.getSubscription())
+                .then(inscricao => inscricao && fetch(URL_PUSH_CANCELAR, { method: 'POST', keepalive: true, headers: JSON_POST, body: JSON.stringify({ endpoint: inscricao.endpoint }) }));
+            Promise.race([cancelar, new Promise(ok => setTimeout(ok, 2000))]).catch(() => {}).then(() => { location.href = URL_SAIR; });
+        });
+    }
+
     function iniciar() {
         buscar();
+        ativarPush();
+        cancelarAoSair();
         setInterval(checar, 30000);
         setInterval(buscar, 5 * 60000);
         addEventListener('bj-agenda:mudou', buscar);
