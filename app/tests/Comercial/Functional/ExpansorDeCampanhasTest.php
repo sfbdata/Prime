@@ -23,7 +23,9 @@ use App\Comercial\MessageHandler\VarrerAutomacoesHandler;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\DestinoDaCampanhaRepository;
 use App\Comercial\Repository\EnvioDeEmailRepository;
+use App\Comercial\Service\RecuperacaoDeEnvios;
 use App\Comercial\Service\SementeDoExpansor;
+use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use App\Comercial\UseCase\EncerrarCampanhaUseCase;
 use App\Comercial\UseCase\PurgarDadosDoComercialUseCase;
 use App\Tests\Comercial\Support\CriaCampanhas;
@@ -49,6 +51,7 @@ use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 #[CoversClass(CampanhaDeEmailRepository::class)]
 #[CoversClass(DestinoDaCampanhaRepository::class)]
 #[CoversClass(SementeDoExpansor::class)]
+#[CoversClass(RecuperacaoDeEnvios::class)]
 #[CoversClass(EncerrarCampanhaUseCase::class)]
 #[CoversClass(\App\Comercial\Command\EncerrarCampanhaCommand::class)]
 final class ExpansorDeCampanhasTest extends KernelTestCase
@@ -82,7 +85,7 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
 
         self::assertSame(10, $expansor->liberarLote($agora));
         self::assertSame(0, $expansor->liberarLote($agora), 'contrapressão: 10 envios de campanha ainda na fila');
-        $this->conexao->executeStatement("UPDATE comercial_envio SET situacao = 'enviado', enviado_em = NOW() WHERE origem = ?", ['campanha:' . $id]);
+        $this->conexao->executeStatement("UPDATE comercial_envio SET situacao = 'enviado', enviado_em = ? WHERE origem = ?", [(new \DateTimeImmutable())->format('Y-m-d H:i:s'), 'campanha:' . $id]);
         self::assertSame(2, $expansor->liberarLote($agora));
         self::assertSame(1, $expansor->concluir());
 
@@ -157,7 +160,7 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         $expansor->materializarDevidas(new \DateTimeImmutable());
 
         self::assertSame(3, $expansor->liberarLote(new \DateTimeImmutable()));
-        $this->conexao->executeStatement("UPDATE comercial_envio SET situacao = 'enviado', enviado_em = NOW() WHERE origem = ?", ['campanha:' . $id]);
+        $this->conexao->executeStatement("UPDATE comercial_envio SET situacao = 'enviado', enviado_em = ? WHERE origem = ?", [(new \DateTimeImmutable())->format('Y-m-d H:i:s'), 'campanha:' . $id]);
         self::assertSame(0, $expansor->liberarLote(new \DateTimeImmutable()));
         self::assertSame(2, (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM comercial_campanha_destino WHERE campanha_id = ? AND envio_id IS NULL', [$id]));
     }
@@ -290,6 +293,90 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         self::assertSame('enviada', $this->estado($semFila, ['estado'])['estado']);
     }
 
+    #[TestDox('No máximo uma vez: o enviando parado de campanha vira incerto e não volta; teste_campanha e automação voltam à fila')]
+    public function testRecuperacaoNoMaximoUmaVez(): void
+    {
+        [$email] = $this->emailsDeAtivos(1);
+        $id = $this->campanha([$email]);
+        $daCampanha = $this->enfileirarDaCampanha($id, $email);
+        $teste = $this->enfileirarDaCampanha($id, $email, 'teste_campanha');
+        $automacao = $this->enfileirarDaCampanha($id, $email, 'automacao:val');
+        $envios = static::getContainer()->get(EnvioDeEmailRepository::class);
+        $vinteMinutosAtras = new \DateTimeImmutable('-20 minutes');
+        foreach ([$daCampanha, $teste, $automacao] as $envioId) {
+            self::assertTrue($envios->reivindicar($envioId, $vinteMinutosAtras));
+        }
+        $this->fila->reset();
+
+        static::getContainer()->get(RecuperacaoDeEnvios::class)->recuperar(new \DateTimeImmutable());
+
+        $situacao = fn (int $envioId): string => (string) $this->conexao->fetchOne('SELECT situacao FROM comercial_envio WHERE id = ?', [$envioId]);
+        self::assertSame(['incerto', 'enfileirado', 'enfileirado'], [$situacao($daCampanha), $situacao($teste), $situacao($automacao)]);
+        self::assertFalse($this->conexao->fetchOne('SELECT 1 FROM comercial_envio_conteudo WHERE envio_id = ?', [$daCampanha]), 'o incerto não guarda o corpo');
+        self::assertNotFalse($this->conexao->fetchOne('SELECT 1 FROM comercial_envio_conteudo WHERE envio_id = ?', [$teste]));
+        static::getContainer()->set(ChaveDasCampanhas::class, new ChaveDasCampanhas(true));
+        static::getContainer()->get(EnviarEmailHandler::class)(new EnviarEmail($daCampanha));
+        self::assertSame('incerto', $situacao($daCampanha), 'um EnviarEmail atrasado não reenvia o incerto');
+        self::assertEmailCount(0);
+    }
+
+    #[TestDox('O handler com a chave do CONTAINER (padrão desligada): a volta cancela as ativas e nada sai')]
+    public function testHandlerComAChavePadraoDoContainer(): void
+    {
+        $id = $this->campanha($this->emailsDeAtivos(2));
+        $this->conexao->executeStatement('UPDATE comercial_expansor SET proxima_em = ? WHERE id = 1', [(new \DateTimeImmutable('-1 minute'))->format('Y-m-d H:i:s')]);
+
+        static::getContainer()->get(ExpandirCampanhasHandler::class)(new ExpandirCampanhas());
+
+        self::assertSame(['estado' => 'cancelada', 'motivo' => 'Envio de campanhas desligado na instalação'], $this->estado($id, ['estado', 'motivo']));
+        self::assertSame(0, (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM comercial_campanha_destino WHERE campanha_id = ?', [$id]));
+        self::assertSame(0, (int) $this->conexao->fetchOne("SELECT COUNT(*) FROM comercial_envio WHERE origem LIKE 'campanha:%'"));
+        self::assertSame([], $this->despachados(EnviarEmail::class));
+        self::assertSame([], $this->despachados(ExpandirCampanhas::class), 'sem ativa, a cadeia para');
+        self::assertEmailCount(0);
+    }
+
+    #[TestDox('Quem se descadastra entre a materialização e o envio não recebe; o e-mail de campanha montado leva List-Unsubscribe com One-Click')]
+    public function testDescadastroDepoisDeMaterializarEListUnsubscribe(): void
+    {
+        [$fica, $sai] = $this->emailsDeAtivos(2);
+        $id = $this->campanha([$fica, $sai]);
+        $expansor = $this->expansor();
+        $expansor->materializarDevidas(new \DateTimeImmutable());
+        static::getContainer()->get(DescadastroDeEmailInterface::class)->descadastrar(null, $sai, ComposicaoDaCampanha::LISTA, 'teste');
+
+        self::assertSame(2, $expansor->liberarLote(new \DateTimeImmutable()));
+
+        $situacoes = $this->conexao->fetchAllKeyValue('SELECT destinatario, situacao FROM comercial_envio WHERE origem = ?', ['campanha:' . $id]);
+        self::assertSame(['enfileirado', 'bloqueado_descadastro'], [$situacoes[$fica], $situacoes[$sai]]);
+        $despachados = array_map(static fn ($e): int => $e->getMessage()->envioId, $this->despachados(EnviarEmail::class));
+        self::assertCount(1, $despachados, 'só quem não saiu da lista vai para a fila');
+        static::getContainer()->set(ChaveDasCampanhas::class, new ChaveDasCampanhas(true));
+        static::getContainer()->get(EnviarEmailHandler::class)(new EnviarEmail($despachados[0]));
+
+        self::assertEmailCount(1);
+        $email = self::getMailerMessage();
+        self::assertNotNull($email);
+        self::assertSame($fica, $email->getTo()[0]->getAddress());
+        self::assertMatchesRegularExpression('#^<https?://[^>]+>$#', (string) $email->getHeaders()->get('List-Unsubscribe')?->getBodyAsString());
+        self::assertSame('List-Unsubscribe=One-Click', $email->getHeaders()->get('List-Unsubscribe-Post')?->getBodyAsString());
+    }
+
+    #[TestDox('cancelarNaFilaDaOrigem: só o enfileirado vira cancelado; o enviando (já com o worker) não é tocado')]
+    public function testCancelarSoOEnfileirado(): void
+    {
+        [$email] = $this->emailsDeAtivos(1);
+        $id = $this->campanha([$email]);
+        $enfileirado = $this->enfileirarDaCampanha($id, $email);
+        $enviando = $this->enfileirarDaCampanha($id, $email);
+        $envios = static::getContainer()->get(EnvioDeEmailRepository::class);
+        $envios->reivindicar($enviando, new \DateTimeImmutable());
+
+        self::assertSame(1, $envios->cancelarNaFilaDaOrigem('campanha:' . $id));
+
+        self::assertSame(['cancelado', 'enviando'], array_map('strval', $this->conexao->fetchFirstColumn('SELECT situacao FROM comercial_envio WHERE id IN (?, ?) ORDER BY id', [$enfileirado, $enviando])));
+    }
+
     #[TestDox('Comando app:comercial:encerrar-campanha: encerra a ativa e audita camp_fim; repetir ou id inválido falha com a mensagem')]
     public function testComandoDeEncerrar(): void
     {
@@ -389,12 +476,12 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         return array_map(fn (): string => (string) $this->cadastradoAtivo()->getEmail(), range(1, $quantos));
     }
 
-    private function enfileirarDaCampanha(int $id, string $email): int
+    private function enfileirarDaCampanha(int $id, string $email, ?string $origem = null): int
     {
         $c = static::getContainer();
         $mensagem = MensagemDaCampanha::deArray((array) (new \App\Comercial\Campanha\ModelosDeCampanha())->fixo('convite'));
 
-        return $c->get(CarteiroInterface::class)->enviar($c->get(ComposicaoDaCampanha::class)->mensagemPara($mensagem, $email, null, 'campanha:' . $id))->envioId;
+        return $c->get(CarteiroInterface::class)->enviar($c->get(ComposicaoDaCampanha::class)->mensagemPara($mensagem, $email, null, $origem ?? 'campanha:' . $id))->envioId;
     }
 
     /** @return list<array<string, mixed>> os `changes` das linhas da trilha com a ação, da campanha */

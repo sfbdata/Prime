@@ -219,7 +219,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         $excluido = $this->usuario('excluido');
         $escritorioExcluido = $this->vincular($excluido, true);
         $this->conexao()->executeStatement('UPDATE tenant SET is_active = false WHERE id = ?', [$escritorioSuspenso->getId()]);
-        $this->conexao()->executeStatement('UPDATE tenant SET excluido_em = NOW() WHERE id = ?', [$escritorioExcluido->getId()]);
+        $this->conexao()->executeStatement('UPDATE tenant SET excluido_em = ? WHERE id = ?', [(new \DateTimeImmutable())->format('Y-m-d H:i:s'), $escritorioExcluido->getId()]);
         $cadastrados = static::getContainer()->get(CadastradosRepository::class);
 
         $primarios = array_column($cadastrados->primarios(), 'email');
@@ -260,7 +260,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         $suspenso = $this->vincular($suspensoUser, false);
         $desligado = $this->usuario('desligado');
         $this->vincular($desligado, false, vinculoAtivo: false);
-        $this->conexao()->executeStatement('UPDATE tenant SET is_active = false, excluido_em = NOW() WHERE id = ?', [$excluido->getId()]);
+        $this->conexao()->executeStatement('UPDATE tenant SET is_active = false, excluido_em = ? WHERE id = ?', [(new \DateTimeImmutable())->format('Y-m-d H:i:s'), $excluido->getId()]);
         $this->conexao()->executeStatement('UPDATE tenant SET is_active = false WHERE id = ?', [$suspenso->getId()]);
         $texto = implode(', ', array_map(static fn (User $u): string => (string) $u->getEmail(), [$valido, $semVinculo, $quarentena, $suspensoUser, $desligado]));
         $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'indiv', 'individual' => $texto]);
@@ -276,8 +276,8 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         $client = $this->clienteMaster();
         $email = 'Lead.Misto_' . uniqid() . '@Exemplo.com';
         $this->conexao()->executeStatement(
-            "INSERT INTO comercial_confirmacao_endereco (lista, email, pedido_em, confirmado_em) VALUES ('comercial_campanhas', ?, NOW(), NOW())",
-            [$email],
+            "INSERT INTO comercial_confirmacao_endereco (lista, email, pedido_em, confirmado_em) VALUES ('comercial_campanhas', ?, ?, ?)",
+            [$email, (new \DateTimeImmutable())->format('Y-m-d H:i:s'), (new \DateTimeImmutable())->format('Y-m-d H:i:s')],
         );
         $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'indiv', 'individual' => strtolower($email)]);
         $indiv = $this->json($client);
