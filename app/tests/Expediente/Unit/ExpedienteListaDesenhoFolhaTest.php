@@ -57,11 +57,11 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         yield 'cabeçalho da tabela #f4f7f9' => ['--ex-cab-tabela:   #f4f7f9;'];
         yield 'barra do acervo #f7f9fb' => ['--ex-barra:        #f7f9fb;'];
         yield 'Nova Pasta #e2e9ee' => ['--ex-botao:        #e2e9ee;'];
-        yield 'colunas do desenho (96 · 120 · 220 · 76 · 190 · 116)' => ['col[data-col="resp"]    { width: 200px !important; }'];
+        yield 'colunas do desenho VS 18.10.26 (dc L.594 COLW: fixas no mínimo 74 · 105 · 82 · 98)' => ['col[data-col="resp"]    { width: 20.8% !important; }'];
         // E8b: Cliente e Ação em 2fr:1.5fr. `calc` com % é ignorado no <col>; em percentual, as duas dividem a sobra
         // das colunas fixas na razão 40:30 (= 2:1.5), medido na tela.
-        yield 'Cliente 2fr (dc L.146)' => ['col[data-col="cliente"] { width: 40% !important; }'];
-        yield 'Ação 1.5fr (dc L.146)' => ['col[data-col="acao"]    { width: 28% !important; }'];
+        yield 'Cliente 2fr (dc L.594)' => ['col[data-col="cliente"] { width: 26% !important; }'];
+        yield 'Ação 1.4fr (dc L.594)' => ['col[data-col="acao"]    { width: 18.2% !important; }'];
         yield 'período num bloco só, 34px, fundo do campo (dc L.109)' => ['.exp-body .pasta-filtros-periodo { flex: 0 1 250px; height: 34px; min-width: 120px; max-width: 250px; gap: 2px; padding: 0 4px; border-radius: 4px; background: var(--ex-campo); }'];
         yield 'datas do período encolhem dentro do bloco (dc L.109)' => ['.exp-body .pasta-filtros-periodo .pasta-data-campo .form-control { flex: 1 1 0; min-width: 0; width: 0; }'];
         yield '"a" entre as datas #7d909d (dc L.109)' => ['--ex-periodo-sep:  #7d909d;'];
@@ -136,8 +136,9 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         self::assertStringNotContainsString('minmax(', $css, 'os mínimos 220/190 do dc não entram');
         // Célula escondida sai da grade e a seguinte herdava o <col> dela (a 900px a Situação ficava com os 220px
         // do Responsável): quem sai é o próprio <col>, e o piso desce junto.
-        self::assertStringContainsString('@media (max-width: 900px) { .exp-body #tabelaPastas { min-width: 742px; } .exp-body #tabelaPastas col[data-col="acao"], .exp-body #tabelaPastas col[data-col="resp"], .exp-body #tabelaPastas col[data-col="metas"] { display: none; } }', $css);
-        self::assertStringContainsString('@media (max-width: 768px) { .exp-body #tabelaPastas { min-width: 452px; } .exp-body #tabelaPastas col[data-col="marc"] { display: none; } }', $css);
+        // O <col> do Réu sai junto (a célula já saía no `_lista`), e as porcentagens que ficam voltam a somar 100%.
+        self::assertStringContainsString('@media (max-width: 900px) { .exp-body #tabelaPastas { min-width: 742px; } .exp-body #tabelaPastas col[data-col="reu"], .exp-body #tabelaPastas col[data-col="acao"], .exp-body #tabelaPastas col[data-col="resp"], .exp-body #tabelaPastas col[data-col="metas"] { display: none; } .exp-body #tabelaPastas col[data-col="cliente"] { width: 62.7% !important; } .exp-body #tabelaPastas col[data-col="marc"] { width: 37.3% !important; } }', $css);
+        self::assertStringContainsString('@media (max-width: 768px) { .exp-body #tabelaPastas { min-width: 452px; } .exp-body #tabelaPastas col[data-col="marc"] { display: none; } .exp-body #tabelaPastas col[data-col="cliente"] { width: 100% !important; } }', $css);
 
         // Os cortes são os mesmos em que o `_tabela` esconde as células.
         $t = (string) preg_replace('/\s+/', ' ', self::ler('templates/expediente/_lista.html.twig'));

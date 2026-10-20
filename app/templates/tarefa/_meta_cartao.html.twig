@@ -9,7 +9,9 @@
 {% set status = painel.statusDaMeta(meta) %}
 {% set prazo = painel.prazoDaMeta(meta) %}
 
-<article class="mm-meta tom-{{ tom }}">
+{# A linha inteira abre a meta (dc L88, LIS-15): `data-mm-linha-clicavel` liga a delegação em
+   minhas.html.twig, que repassa o clique para o título (o link real, o único focável). #}
+<article class="mm-meta tom-{{ tom }}" data-mm-linha-clicavel>
     <div class="mm-meta-corpo">
         <div class="mm-meta-topo">
             {% set numPasta = painel.numeroNaPasta(meta.id) %}
@@ -22,10 +24,10 @@
         </div>
 
         <div class="mm-meta-linha2">
-            <a href="{{ path('pasta_show', {id: meta.pasta.id}) }}" class="mm-meta-info" title="Abrir a pasta">
-                {# Corte no Twig, não no CSS: aqui o texto é um item flex no meio de outros,
-                   e `text-overflow` num flex item sem largura fixa não corta nada. #}
-                <i class="bi bi-folder"></i>{{ meta.pasta.nup }}{% if meta.pasta.nomeCliente %} · {{ meta.pasta.nomeCliente|length > 38 ? meta.pasta.nomeCliente|slice(0, 38) ~ '…' : meta.pasta.nomeCliente }}{% endif %}
+            {# Pasta do desenho (dc L92): bi-folder2, nº em negrito azul, " · " e o nome inteiro do
+               cliente (a linha quebra se precisar). Continua sendo o link para a pasta. #}
+            <a href="{{ path('pasta_show', {id: meta.pasta.id}) }}" class="mm-meta-info mm-meta-pasta" title="Abrir a pasta">
+                <i class="bi bi-folder2"></i><b class="mm-meta-pasta-num">{{ meta.pasta.nup }}</b>{% if meta.pasta.nomeCliente %} · {{ meta.pasta.nomeCliente }}{% endif %}
             </a>
 
             {% if painel.aba.value == 'responsavel' %}
@@ -56,7 +58,7 @@
     <div class="mm-meta-lado">
         <span class="mm-pilula tom-{{ status.tom }}">{{ status.rotulo }}</span>
         <span class="mm-meta-datas">
-            criada {{ meta.dataCriacao|date('d/m/Y') }}{% if meta.dataAlteracao %} · mod. {{ meta.dataAlteracao|date('d/m/Y') }}{% endif %}
+            criada {{ meta.dataCriacao|date('d/m/Y') }}
         </span>
     </div>
 
@@ -66,7 +68,7 @@
                 data-acompanhar="{{ path('tarefa_acompanhar', {id: meta.id}) }}"
                 data-token="{{ csrf_token('acompanhar_tarefa_' ~ meta.id) }}"
                 aria-pressed="{{ acompanhando ? 'true' : 'false' }}"
-                title="{{ acompanhando ? 'Deixar de acompanhar' : 'Acompanhar' }}">
+                title="{{ acompanhando ? 'Parar de acompanhar' : 'Acompanhar esta meta' }}">
             <i class="bi {{ acompanhando ? 'bi-bookmark-fill' : 'bi-bookmark' }}"></i>
         </button>
         {# ⋮ "Opções" do desenho (dc L98) com os itens que a especificação pede (R118, R236) e que já

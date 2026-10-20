@@ -10,6 +10,7 @@ use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
+use App\Master\Service\RegraDosMasters;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Form\EditUserTenantRoleType;
@@ -266,7 +267,7 @@ final class TenantController extends AbstractController
     }
 
     #[Route('/{tenantId}', name: 'app_tenant_delete', methods: ['POST'])]
-    public function delete(Request $request, #[MapEntity(id: 'tenantId')] Tenant $tenant, ExcluirEscritorioUseCase $excluirEscritorio): Response
+    public function delete(Request $request, #[MapEntity(id: 'tenantId')] Tenant $tenant, ExcluirEscritorioUseCase $excluirEscritorio, RegraDosMasters $regraDosMasters): Response
     {
         $user = $this->getUser();
 
@@ -276,6 +277,14 @@ final class TenantController extends AbstractController
 
         if (!in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
             throw $this->createAccessDeniedException('Somente SUPER_ADMIN pode excluir Tenants.');
+        }
+
+        // Conta criada por um Master não é excluída (spec perfis-1.2-contas C5 e Q4).
+        $recusa = $regraDosMasters->recusaParaExcluir($tenant);
+        if ($recusa !== null) {
+            $this->addFlash('danger', $recusa);
+
+            return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);
         }
 
         // RS08: exclusão é soft delete (quarentena), nunca mais remove() destrutivo.

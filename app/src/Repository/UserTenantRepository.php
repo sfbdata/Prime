@@ -38,6 +38,31 @@ class UserTenantRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Contas FORA DO AR (isActive=false: suspensas ou em quarentena de exclusão) com que o usuário tem
+     * vínculo ativo. Base dos avisos da tela de seleção (spec perfis-1.2-contas C9 e C9b).
+     *
+     * @return list<array{nome: string, excluida: bool}>
+     */
+    public function contasForaDoArDoUsuario(User $user): array
+    {
+        $linhas = $this->createQueryBuilder('ut')
+            ->select('t.name AS nome', 't.excluidoEm AS excluidoEm')
+            ->join('ut.tenant', 't')
+            ->andWhere('ut.user = :user')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('t.isActive = false')
+            ->setParameter('user', $user)
+            ->orderBy('t.name')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_values(array_map(
+            static fn (array $l): array => ['nome' => (string) $l['nome'], 'excluida' => $l['excluidoEm'] !== null],
+            $linhas,
+        ));
+    }
+
     public function existeVinculoAtivo(User $user, Tenant $tenant): bool
     {
         return $this->createQueryBuilder('ut')

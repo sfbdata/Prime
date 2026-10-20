@@ -402,8 +402,18 @@
 
 /* Menu de responsável da linha (compartilhado com a Pasta): no Expediente, com a cara do desenho (dc L.208-213). */
 .exp-body #pastaRespMenu { width: 300px !important; padding: 0 !important; border-radius: 4px !important; border: 1px solid var(--ex-borda) !important; box-shadow: 0 12px 30px rgba(18,36,47,.18) !important; overflow: hidden; }
-.exp-body #pastaRespMenu .pasta-resp-busca-wrap { background: #0a6fa0; padding: 12px; margin: 0; position: relative; }
-.exp-body #pastaRespMenu .pasta-resp-busca { height: 36px; border: 0 !important; border-radius: 4px; padding-left: 32px; font-size: 14px; }
+.exp-body #pastaRespMenu .pasta-resp-busca-wrap { background: #0a6fa0; padding: 12px; margin: 0; position: relative; display: flex; align-items: center; gap: 8px; }
+.exp-body #pastaRespMenu .pasta-resp-busca { flex: 1; min-width: 0; height: 36px; border: 0 !important; border-radius: 4px; padding-left: 32px; font-size: 14px; }
+/* O X da faixa azul (dc L.213): 32px, branco sobre o azul translúcido. */
+.exp-body #pastaRespMenu .pasta-resp-fechar { width: 32px; height: 32px; flex: none; border: 0; border-radius: 4px; background: rgba(255,255,255,.2); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+.exp-body #pastaRespMenu .pasta-resp-fechar:hover,
+.exp-body #pastaRespMenu .pasta-resp-fechar:focus-visible { background: rgba(255,255,255,.32); }
+/* Avatares de 32px e o vazio de "Sem responsável" com borda, como no dc (`opts`: avBorda). */
+.exp-body #pastaRespMenu .pasta-resp-opcao .resp-avatar { width: 32px !important; height: 32px !important; flex: none; font-size: 12px; font-weight: 700; }
+.exp-body #pastaRespMenu .pasta-resp-opcao .resp-avatar-vazio { background: var(--ex-card); color: var(--ex-avatar-vazio-tx); border: 1px solid var(--ex-borda); box-sizing: border-box; }
+.exp-body #pastaRespMenu .pasta-resp-opcao .pasta-resp-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exp-body #pastaRespMenu .pasta-resp-check { font-size: 16px; color: var(--ex-azul); }
+.exp-body #pastaRespMenu .pasta-resp-vazio { padding: 14px; text-align: center; font-size: 13px; color: var(--ex-apagado); }
 .exp-body #pastaRespMenu .pasta-resp-busca-icone { left: 22px; color: #5b7383; z-index: 1; }
 .exp-body #pastaRespMenu .pasta-resp-lista { padding: 6px; max-height: 300px; }
 .exp-body #pastaRespMenu .pasta-resp-opcao { padding: 8px 10px; border-radius: 3px; font-size: 14px; gap: 12px; }
@@ -533,7 +543,7 @@
 }
 @media (max-width: 767.98px) { .exp-body .pastas-view--simples .exp-simples { display: none; } }
 .exp-body .exp-simples-linha {
-    display: flex; align-items: center; gap: 14px;
+    display: flex; align-items: center; gap: 14px; line-height: normal;   /* dc: sem o 1.5 do Bootstrap */
     padding: 9px 22px; border-bottom: 1px solid var(--ex-div-linha);
     color: var(--ex-texto); text-decoration: none; cursor: pointer;
     box-shadow: inset 3px 0 0 transparent;
@@ -560,6 +570,7 @@
     .exp-body .pastas-view--grandes .exp-cartoes { grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); }
 }
 .exp-body .exp-cartao {
+    line-height: normal;   /* dc L.257: sem o 1.5 do Bootstrap (o cartão ficava 10px mais alto) */
     position: static; background: var(--ex-card); border: 1px solid var(--ex-borda); border-radius: 4px !important;
     box-shadow: 0 1px 2px rgba(18,36,47,.05); padding: 14px 16px !important;
     display: flex; flex-direction: column; gap: 8px;
@@ -616,6 +627,6 @@
 
 /* Abaixo de 1180px (dc L.34): o cabeçalho perde os ícones e as setas das colunas que não ordenam. */
 @media (max-width: 1180px) {
-    .exp-body #tabelaPastas thead th > .bi:not(.sort-icon) { display: none; }
-    .exp-body #tabelaPastas thead th:not(.asc):not(.desc) > .sort-icon { display: none; }
+    .exp-body #tabelaPastas thead th .bi:not(.sort-icon) { display: none; }
+    .exp-body #tabelaPastas thead th:not(.asc):not(.desc) .sort-icon { display: none; }
 }
