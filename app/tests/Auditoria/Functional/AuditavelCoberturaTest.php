@@ -84,6 +84,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Central\Entity\Presenca::class,
         // Baixa de aviso na Central (F3): preferência de leitura da pessoa, como "lida" no sino (que não é auditada).
         \App\Central\Entity\AvisoResolvido::class,
+        // Pergunta da aba Perguntar da BlueJus IA (drawer, F3, 19/10): a conversa é da pessoa, e o AuditLogSubscriber
+        // gravaria o texto da pergunta no audit_log, que quem administra o escritório lê (mesmo motivo da Central).
+        // A análise da pergunta continua auditada, sem o texto do modelo (ConteudoParticular).
+        \App\Inteligencia\Entity\PerguntaDaConversa::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,

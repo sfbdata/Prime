@@ -116,7 +116,9 @@ final class PurgarEscritorioUseCase
         // (bloqueia apagar o tenant) + tenant_id direto → deleção explícita. Apaga o segredo junto.
         ['sync_drive_conexao', 'tenant_id = :tenant'],
         // BlueJus IA — análises e configuração do escritório (tenant_id direto; FK tenant NO ACTION,
-        // FKs a "user" SET NULL; nada as referencia). Deleção explícita antes de apagar o tenant.
+        // FKs a "user" SET NULL). Deleção explícita antes de apagar o tenant. As perguntas da aba
+        // Perguntar (F3) referenciam a análise (CASCADE) e o tenant (NO ACTION): saem ANTES dela.
+        ['inteligencia_pergunta', 'tenant_id = :tenant'],
         ['inteligencia_analise', 'tenant_id = :tenant'],
         ['inteligencia_configuracao', 'tenant_id = :tenant'],
         // Cobranças — movimentos financeiros (Etapa 3). Filhos antes do pai: a alocação referencia

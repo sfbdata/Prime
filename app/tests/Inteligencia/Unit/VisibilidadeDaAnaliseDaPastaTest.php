@@ -45,6 +45,10 @@ final class VisibilidadeDaAnaliseDaPastaTest extends TestCase
             self::analise(TipoDeAnalise::AnalisePasta, Agente::Documental, ['financeiro' => false, 'abasOcultas' => ['financeiro']]),
             ['documentos'],
         ];
+        yield 'pergunta livre (F3): como o Gestor que respondeu, menos o que ficou fora na solicitação' => [
+            self::analise(TipoDeAnalise::PerguntaLivre, Agente::Gestor, ['financeiro' => false, 'abasOcultas' => ['push']]),
+            ['tarefas', 'dados', 'detalhes', 'documentos', 'financeiro'],
+        ];
         yield 'Relatórios sem o financeiro liberado' => [
             self::analise(TipoDeAnalise::AnalisePasta, Agente::Relatorios, ['financeiro' => false]),
             ['push', 'tarefas', 'detalhes'],
