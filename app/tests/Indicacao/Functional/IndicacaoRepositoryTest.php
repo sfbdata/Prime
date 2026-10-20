@@ -196,6 +196,69 @@ final class IndicacaoRepositoryTest extends KernelTestCase
         self::assertSame(1, $meus[2]['contas_criadas']);
     }
 
+    #[TestDox('atribuição do cadastro pelo link: grava uma vez por conta (sem erro na segunda), fora dos envios, e a conta conta uma vez só')]
+    public function testAtribuicaoDoCadastroPeloLink(): void
+    {
+        $antes = $this->repo->totais($this->agora->modify('-24 hours'));
+        $alfa = $this->escritorio('Alfa');
+        $ana = $this->usuario('Ana Souza');
+        $bia = $this->usuario('Bia Lima');
+        $this->porEmail($ana, 'nova@exemplo.com', '-3 hours', $alfa);
+        $nova = $this->usuario('Nova', 'nova@exemplo.com', $this->agora->modify('-2 hours'));
+        $this->em->flush();
+        $anaId = (int) $ana->getId();
+        $envios24h = $this->repo->contarDoUsuarioDesde($anaId, $this->agora->modify('-24 hours'));
+
+        self::assertFalse($this->repo->contaJaAtribuida((int) $nova->getId()));
+        self::assertTrue($this->repo->gravarAtribuicao(Indicacao::porCadastroDoLink($ana, null, $nova, $this->agora->modify('-1 hour'))));
+        self::assertFalse($this->repo->gravarAtribuicao(Indicacao::porCadastroDoLink($bia, null, $nova, $this->agora)), 'a conta já tem dono');
+        self::assertTrue($this->em->isOpen());
+        self::assertTrue($this->repo->contaJaAtribuida((int) $nova->getId()));
+
+        self::assertSame($envios24h, $this->repo->contarDoUsuarioDesde($anaId, $this->agora->modify('-24 hours')), 'não conta no limite');
+        self::assertSame(0, $this->repo->contarDoUsuarioDesde((int) $bia->getId(), $this->agora->modify('-24 hours')));
+        $totais = $this->repo->totais($this->agora->modify('-24 hours'));
+        self::assertSame(1, $totais['enviadas'] - $antes['enviadas'], 'só o e-mail é envio');
+        self::assertSame(1, $totais['viraramConta'] - $antes['viraramConta'], 'indicada por e-mail e atribuída pelo link: uma conta');
+        $linha = array_values(array_filter(
+            $this->repo->indicadores($this->agora->modify('-24 hours'), $this->agora->modify('-30 days'), 0, 1000),
+            static fn (array $l): bool => $l['user_id'] === $anaId,
+        ))[0];
+        self::assertSame([1, 1, 1, 1], [$linha['total'], $linha['ultimas24h'], $linha['ultimos30d'], $linha['contas_criadas']]);
+        self::assertSame($alfa->getName(), $linha['escritorio'], 'o escritório é o do último envio, não o da atribuição');
+
+        $ultimas = $this->repo->ultimasDoUsuario($anaId, 8);
+        self::assertSame(['link', 'email'], array_column($ultimas, 'canal'));
+        self::assertSame([true, true], array_column($ultimas, 'conta_criada'));
+        self::assertNull($ultimas[0]['email']);
+    }
+
+    #[TestDox('atribuição cuja conta nova foi apagada (SET NULL): continua fora dos envios e do limite, e não conta como conta criada')]
+    public function testAtribuicaoSemAContaNova(): void
+    {
+        $antes = $this->repo->totais($this->agora->modify('-24 hours'));
+        $ana = $this->usuario('Ana Souza');
+        $nova = $this->usuario('Nova', null, $this->agora->modify('-2 hours'));
+        $this->em->flush();
+        $anaId = (int) $ana->getId();
+        self::assertTrue($this->repo->gravarAtribuicao(Indicacao::porCadastroDoLink($ana, null, $nova, $this->agora->modify('-1 hour'))));
+        // O que o ON DELETE SET NULL faz quando a conta nova é apagada.
+        $this->em->getConnection()->executeStatement('UPDATE indicacao SET indicado_user_id = NULL WHERE indicado_por_id = ?', [$anaId]);
+        self::assertTrue((bool) $this->em->getConnection()->fetchOne('SELECT por_cadastro FROM indicacao WHERE indicado_por_id = ?', [$anaId]));
+
+        self::assertSame(0, $this->repo->contarDoUsuarioDesde($anaId, $this->agora->modify('-24 hours')), 'não conta no limite');
+        $totais = $this->repo->totais($this->agora->modify('-24 hours'));
+        self::assertSame(0, $totais['enviadas'] - $antes['enviadas']);
+        self::assertSame(0, $totais['ultimas24h'] - $antes['ultimas24h']);
+        self::assertSame(0, $totais['viraramConta'] - $antes['viraramConta']);
+        $linha = array_values(array_filter(
+            $this->repo->indicadores($this->agora->modify('-24 hours'), $this->agora->modify('-30 days'), 0, 1000),
+            static fn (array $l): bool => $l['user_id'] === $anaId,
+        ))[0];
+        self::assertSame([0, 0, 0, 0], [$linha['total'], $linha['ultimas24h'], $linha['ultimos30d'], $linha['contas_criadas']]);
+        self::assertFalse($this->repo->ultimasDoUsuario($anaId, 8)[0]['conta_criada']);
+    }
+
     #[TestDox('código do link curto: grava uma vez, não troca, e o mesmo código não serve para outra pessoa')]
     public function testCodigo(): void
     {

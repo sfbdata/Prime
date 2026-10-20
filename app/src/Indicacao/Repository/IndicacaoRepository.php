@@ -14,7 +14,12 @@ use Doctrine\Persistence\ManagerRegistry;
  * é pelo id de quem indica (o dono), e as do painel são do Master, que vê todas por desenho.
  *
  * "Virou conta" (comportamento 8) é calculado na leitura: indicação por e-mail cujo e-mail (já gravado em minúsculas)
- * tem conta criada DEPOIS da indicação ({@see self::VIROU_CONTA}). As consultas agregadas vão por SQL na conexão.
+ * tem conta criada DEPOIS da indicação, OU a atribuição de uma conta criada pelo link curto (`indicado_user_id`,
+ * comportamento 7) ({@see self::VIROU_CONTA}). As consultas agregadas vão por SQL na conexão.
+ *
+ * A atribuição (`por_cadastro`) não é envio: fica fora das contagens de envio (limites, alerta, enviadas, janelas) por
+ * {@see self::SO_ENVIOS}, mesmo depois que a conta nova for apagada (SET NULL), e entra só no "virou conta" (enquanto
+ * a conta existir) e na lista da própria pessoa.
  *
  * @extends ServiceEntityRepository<Indicacao>
  */
@@ -23,7 +28,16 @@ class IndicacaoRepository extends ServiceEntityRepository
     /** Classe de trava (primeiro argumento de pg_advisory_xact_lock): as indicações de uma pessoa. */
     public const CLASSE_TRAVA = 4301;
 
-    private const VIROU_CONTA = 'EXISTS (SELECT 1 FROM "user" u WHERE lower(u.email) = i.email AND u.created_at > i.criada_em)';
+    private const VIROU_CONTA = '(i.indicado_user_id IS NOT NULL OR EXISTS (SELECT 1 FROM "user" u WHERE lower(u.email) = i.email AND u.created_at > i.criada_em))';
+
+    /**
+     * A conta que a indicação virou (id do usuário), para contar cada conta uma vez só: a mesma pessoa indicada por
+     * e-mail e atribuída pelo link, ou indicada por duas pessoas, é uma conta. Nulo quando não virou.
+     */
+    private const CONTA_CRIADA = 'COALESCE(i.indicado_user_id, (SELECT u.id FROM "user" u WHERE i.canal = \'email\' AND lower(u.email) = i.email AND u.created_at > i.criada_em ORDER BY u.id LIMIT 1))';
+
+    /** Só os envios (os três canais); exclui a atribuição do cadastro pelo link, com ou sem a conta nova ainda existindo. */
+    private const SO_ENVIOS = 'NOT i.por_cadastro';
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -63,11 +77,14 @@ class IndicacaoRepository extends ServiceEntityRepository
         return (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM indicacao WHERE indicado_por_id = ?', [$userId]);
     }
 
-    /** Janela móvel: conta as indicações da pessoa (os três canais) criadas a partir de `$desde`. */
+    /**
+     * Janela móvel: conta os envios da pessoa (os três canais) feitos a partir de `$desde`. Alimenta os limites e o
+     * alerta; a atribuição do cadastro pelo link não conta (não é envio).
+     */
     public function contarDoUsuarioDesde(int $userId, \DateTimeImmutable $desde): int
     {
         return (int) $this->conexao()->fetchOne(
-            'SELECT COUNT(*) FROM indicacao WHERE indicado_por_id = ? AND criada_em > ?',
+            'SELECT COUNT(*) FROM indicacao i WHERE i.indicado_por_id = ? AND i.criada_em > ? AND ' . self::SO_ENVIOS,
             [$userId, self::data($desde)],
         );
     }
@@ -91,6 +108,41 @@ class IndicacaoRepository extends ServiceEntityRepository
         ], $linhas);
     }
 
+    /** A conta nova já foi atribuída a alguém pelo link? (uma vez só por conta) */
+    public function contaJaAtribuida(int $indicadoUserId): bool
+    {
+        return (bool) $this->conexao()->fetchOne(
+            'SELECT EXISTS (SELECT 1 FROM indicacao WHERE indicado_user_id = ?)',
+            [$indicadoUserId],
+        );
+    }
+
+    /**
+     * Grava a atribuição do cadastro pelo link fora do EntityManager, com `ON CONFLICT DO NOTHING` no índice único
+     * parcial: uma corrida (o mesmo cadastro atribuído duas vezes) não lança nem fecha o EntityManager do request do
+     * cadastro. Devolve se gravou (falso: a conta já estava atribuída).
+     */
+    public function gravarAtribuicao(Indicacao $atribuicao): bool
+    {
+        $indicado = $atribuicao->getIndicadoUser();
+        if ($indicado === null) {
+            throw new \InvalidArgumentException('Só a atribuição do cadastro pelo link passa por aqui.');
+        }
+
+        return $this->conexao()->executeStatement(
+            'INSERT INTO indicacao (indicado_por_id, tenant_origem_id, canal, criada_em, indicado_user_id, por_cadastro)
+             VALUES (?, ?, ?, ?, ?, true)
+             ON CONFLICT (indicado_user_id) WHERE indicado_user_id IS NOT NULL DO NOTHING',
+            [
+                $atribuicao->getIndicadoPor()->getId(),
+                $atribuicao->getTenantOrigem()?->getId(),
+                $atribuicao->getCanal()->value,
+                self::data($atribuicao->getCriadaEm()),
+                $indicado->getId(),
+            ],
+        ) > 0;
+    }
+
     /**
      * O e-mail é de alguém com vínculo ativo NESTE escritório? Só o escritório de quem indica: consultar contas de fora
      * deixaria descobrir quem tem conta no BlueJus (spec, comportamento 4).
@@ -105,16 +157,17 @@ class IndicacaoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Os números do card do Master. "Viraram conta" conta endereços distintos: o mesmo e-mail indicado por duas
-     * pessoas é uma conta só.
+     * Os números do card do Master. "Enviadas" e "últimas 24h" são só envios. "Viraram conta" conta contas distintas:
+     * o mesmo e-mail indicado por duas pessoas, ou indicado e depois atribuído pelo link, é uma conta só.
      *
      * @return array{enviadas: int, ultimas24h: int, viraramConta: int}
      */
     public function totais(\DateTimeImmutable $desde24h): array
     {
         $linha = $this->conexao()->fetchAssociative(
-            'SELECT COUNT(*) AS enviadas, COUNT(*) FILTER (WHERE i.criada_em > :desde) AS ultimas24h,
-                    COUNT(DISTINCT i.email) FILTER (WHERE i.canal = \'email\' AND ' . self::VIROU_CONTA . ') AS viraram
+            'SELECT COUNT(*) FILTER (WHERE ' . self::SO_ENVIOS . ') AS enviadas,
+                    COUNT(*) FILTER (WHERE ' . self::SO_ENVIOS . ' AND i.criada_em > :desde) AS ultimas24h,
+                    COUNT(DISTINCT ' . self::CONTA_CRIADA . ') AS viraram
              FROM indicacao i',
             ['desde' => self::data($desde24h)],
         );
@@ -133,7 +186,8 @@ class IndicacaoRepository extends ServiceEntityRepository
 
     /**
      * Quem indicou, com as contagens, numa página. Ordem do card: mais envios nas últimas 24h, depois mais envios no
-     * total (o id desempata, para a página ser estável). O escritório é o da indicação mais recente.
+     * total (o id desempata, para a página ser estável). O escritório é o do envio mais recente. Total, janelas e
+     * última são só envios; contas criadas conta cada conta uma vez (inclui as que vieram pelo link).
      *
      * @return list<array{user_id: int, nome: string, email: string, escritorio: ?string, total: int, ultimas24h: int,
      *     ultimos30d: int, contas_criadas: int, ultima_em: ?string, pausado: bool}>
@@ -143,12 +197,13 @@ class IndicacaoRepository extends ServiceEntityRepository
         $linhas = $this->conexao()->fetchAllAssociative(
             'SELECT i.indicado_por_id AS user_id, u.full_name AS nome, u.email,
                     (SELECT t.name FROM indicacao r LEFT JOIN tenant t ON t.id = r.tenant_origem_id
-                      WHERE r.indicado_por_id = i.indicado_por_id ORDER BY r.criada_em DESC, r.id DESC LIMIT 1) AS escritorio,
-                    COUNT(*) AS total,
-                    COUNT(*) FILTER (WHERE i.criada_em > :d24) AS ultimas24h,
-                    COUNT(*) FILTER (WHERE i.criada_em > :d30) AS ultimos30d,
-                    COUNT(DISTINCT i.email) FILTER (WHERE i.canal = \'email\' AND ' . self::VIROU_CONTA . ') AS contas_criadas,
-                    MAX(i.criada_em) AS ultima_em,
+                      WHERE r.indicado_por_id = i.indicado_por_id AND NOT r.por_cadastro
+                      ORDER BY r.criada_em DESC, r.id DESC LIMIT 1) AS escritorio,
+                    COUNT(*) FILTER (WHERE ' . self::SO_ENVIOS . ') AS total,
+                    COUNT(*) FILTER (WHERE ' . self::SO_ENVIOS . ' AND i.criada_em > :d24) AS ultimas24h,
+                    COUNT(*) FILTER (WHERE ' . self::SO_ENVIOS . ' AND i.criada_em > :d30) AS ultimos30d,
+                    COUNT(DISTINCT ' . self::CONTA_CRIADA . ') AS contas_criadas,
+                    MAX(i.criada_em) FILTER (WHERE ' . self::SO_ENVIOS . ') AS ultima_em,
                     EXISTS (SELECT 1 FROM indicacao_pausa p WHERE p.user_id = i.indicado_por_id) AS pausado
              FROM indicacao i JOIN "user" u ON u.id = i.indicado_por_id
              GROUP BY i.indicado_por_id, u.full_name, u.email

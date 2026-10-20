@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Indicacao\Repository;
 
+use App\Entity\Auth\User;
 use App\Indicacao\Entity\IndicacaoCodigo;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -46,5 +47,11 @@ class IndicacaoCodigoRepository extends ServiceEntityRepository
             'SELECT EXISTS (SELECT 1 FROM indicacao_codigo WHERE codigo = ?)',
             [$codigo],
         );
+    }
+
+    /** Quem é o dono do código (o código já normalizado); nulo se não existe. */
+    public function donoDoCodigo(string $codigo): ?User
+    {
+        return $this->findOneBy(['codigo' => $codigo])?->getUser();
     }
 }
