@@ -452,6 +452,22 @@ final class SincronizacaoComGoogleTest extends KernelTestCase
         self::assertContains('POST /revoke', $this->google->pedidos);
     }
 
+    #[TestDox('Perdeu o acesso com a sincronia de outra máquina rodando: não quebra; a volta seguinte desconecta')]
+    public function testSemAcessoComTravaOcupada(): void
+    {
+        [$eu, , $conexao] = $this->cenario();
+        $id = (int) $conexao->getId();
+        $this->em()->getConnection()->executeStatement('DELETE FROM user_tenant WHERE user_id = :u', ['u' => $eu->getId()]);
+        $this->em()->getConnection()->executeStatement('UPDATE agenda_google_conexao SET ocupada_desde = NOW() WHERE id = :id', ['id' => $id]);
+
+        self::assertSame(['trazidos' => 0, 'enviados' => 0, 'apagados' => 0], $this->sincronizar($conexao));
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM agenda_google_conexao WHERE id = :id', ['id' => $id]));
+
+        $this->em()->getConnection()->executeStatement('UPDATE agenda_google_conexao SET ocupada_desde = NULL WHERE id = :id', ['id' => $id]);
+        $this->sincronizar($conexao);
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM agenda_google_conexao WHERE id = :id', ['id' => $id]));
+    }
+
     #[TestDox('Aniversário e local de trabalho não entram; evento de outro organizador entra mas não volta ao Google')]
     public function testTiposEConvites(): void
     {
