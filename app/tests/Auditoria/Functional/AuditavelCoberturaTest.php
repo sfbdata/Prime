@@ -130,6 +130,16 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Auditar esta linha só espalharia IP/user agent para uma segunda tabela.
         RedefinicaoSenha::class,
 
+        // Tela de entrada do desenho 10 (spec login-desenho-10):
+        // - CienciaPolitica: registro append-only de ciência da Política, como o AceiteTermo, é a própria prova;
+        // - ConfirmacaoEmail: link efêmero (7 dias), sem tenant; o fato (e-mail confirmado) muda no próprio User;
+        // - AjusteEntrada: guarda quem alterou e quando (alterado_por, alterado_em); sem tenant;
+        // - MensagemSuporte: texto de visitante anônimo, sem tenant; ela própria é o registro.
+        \App\Termo\Entity\CienciaPolitica::class,
+        \App\Auth\Entity\ConfirmacaoEmail::class,
+        \App\Auth\Entity\AjusteEntrada::class,
+        \App\Auth\Entity\MensagemSuporte::class,
+
         // Domínios novos — auditoria não expandida nesta fatia (decisão de produto)
         UserProfile::class,
         Cliente::class,

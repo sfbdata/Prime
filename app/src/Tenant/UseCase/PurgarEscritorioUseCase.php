@@ -215,6 +215,11 @@ final class PurgarEscritorioUseCase
         // são NO ACTION. Acesso antes do link (filho antes do pai).
         ['push_link_externo_acesso', 'tenant_id = :tenant'],
         ['push_link_externo', 'tenant_id = :tenant'],
+        // Cadeado da pasta (spec pasta-cadeado): cairiam pela CASCADE de `pasta`, mas as FKs de tenant são NO
+        // ACTION. A lista de pessoas antes do cadeado (filho antes do pai); os pedidos de acesso à parte.
+        ['pasta_cadeado_acesso', 'tenant_id = :tenant'],
+        ['pasta_cadeado', 'tenant_id = :tenant'],
+        ['pasta_pedido_acesso', 'tenant_id = :tenant'],
         // Abas ocultas da pasta (spec pasta-ocultar-aba §1): mesmo caso, CASCADE de `pasta` e FK de tenant NO ACTION.
         ['pasta_aba_oculta', 'tenant_id = :tenant'],
         // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o

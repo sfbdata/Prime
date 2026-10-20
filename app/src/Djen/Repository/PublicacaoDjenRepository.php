@@ -91,12 +91,16 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
      * Lista PROJETADA das publicações do escritório (só as colunas exibidas na tela — NÃO hidrata
      * `texto`/`payloadDjen`). Escopa por tenant EXPLICITAMENTE (defesa em profundidade).
      *
+     * `$numerosOcultos` (dígitos): processos das pastas com cadeado ocultas para quem lista; as publicações
+     * deles não entram (spec pasta-cadeado D3).
+     *
      * @param array<string, string> $filtros  busca, tribunal, meio, vinculo (avulsa|vinculada), data_de, data_ate
+     * @param list<string>          $numerosOcultos
      * @return PublicacaoDjenListaItem[]
      */
-    public function listarItensDoTenant(Tenant $tenant, array $filtros, int $pagina = 1, int $porPagina = 25): array
+    public function listarItensDoTenant(Tenant $tenant, array $filtros, int $pagina = 1, int $porPagina = 25, array $numerosOcultos = []): array
     {
-        $linhas = $this->buildQbFiltros($tenant, $filtros)
+        $linhas = $this->buildQbFiltros($tenant, $filtros, $numerosOcultos)
             ->select(
                 'p.id AS id',
                 'p.siglaTribunal AS siglaTribunal',
@@ -123,10 +127,11 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, string> $filtros
+     * @param list<string>          $numerosOcultos
      */
-    public function countByFiltros(Tenant $tenant, array $filtros): int
+    public function countByFiltros(Tenant $tenant, array $filtros, array $numerosOcultos = []): int
     {
-        return (int) $this->buildQbFiltros($tenant, $filtros)
+        return (int) $this->buildQbFiltros($tenant, $filtros, $numerosOcultos)
             ->select('COUNT(p.id)')
             ->getQuery()
             ->getSingleScalarResult();
@@ -416,12 +421,18 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, string> $filtros
+     * @param list<string>          $numerosOcultos
      */
-    private function buildQbFiltros(Tenant $tenant, array $filtros): QueryBuilder
+    private function buildQbFiltros(Tenant $tenant, array $filtros, array $numerosOcultos = []): QueryBuilder
     {
         $qb = $this->createQueryBuilder('p')
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant);
+
+        if ($numerosOcultos !== []) {
+            $qb->andWhere('p.numeroProcesso NOT IN (:numerosOcultos)')
+               ->setParameter('numerosOcultos', $numerosOcultos);
+        }
 
         $busca = trim((string) ($filtros['busca'] ?? ''));
         if ($busca !== '') {

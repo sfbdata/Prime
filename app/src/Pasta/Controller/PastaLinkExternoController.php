@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\Controller;
 
+use App\Auth\Controller\ContaConfirmacaoController;
 use App\Entity\Auth\User;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Master\Service\RecursosDoSistema;
@@ -23,6 +24,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
 /**
  * Link externo do Push Processual, lado do escritório (spec push-link-externo §3): listar, gerar,
@@ -43,6 +45,7 @@ final class PastaLinkExternoController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly LinkExternoDoPushRepository $links,
+        private readonly CsrfTokenManagerInterface $csrf,
     ) {
     }
 
@@ -75,7 +78,7 @@ final class PastaLinkExternoController extends AbstractController
                 $request->request->getBoolean('incluir_analises') && $this->podeVerIa(),
             );
         } catch (LinkExternoDoPushException $e) {
-            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $e->getMessage()] + $this->reenvioDaConfirmacao($e), Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return $this->json(['sucesso' => true, 'link' => $link->paraJson()], Response::HTTP_CREATED);
@@ -152,6 +155,25 @@ final class PastaLinkExternoController extends AbstractController
         }
 
         return null;
+    }
+
+    /**
+     * Só a recusa por e-mail a confirmar leva a rota e o token do "Reenviar o link de confirmação" (spec
+     * login-desenho-10): o modal mostra o botão junto do erro. Outro bloqueio (sem movimentação, pasta
+     * arquivada...) não leva nada, mesmo com a conta a confirmar.
+     *
+     * @return array{confirmacao?: array{url: string, token: string}}
+     */
+    private function reenvioDaConfirmacao(LinkExternoDoPushException $recusa): array
+    {
+        if ($recusa->getMessage() !== GerarLinkExternoDoPushUseCase::RECUSA_EMAIL_A_CONFIRMAR || $this->usuario()->isEmailConfirmado()) {
+            return [];
+        }
+
+        return ['confirmacao' => [
+            'url' => $this->generateUrl('conta_confirmacao_reenviar'),
+            'token' => $this->csrf->getToken(ContaConfirmacaoController::CSRF)->getValue(),
+        ]];
     }
 
     private function usuario(): User

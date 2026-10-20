@@ -14,6 +14,7 @@ use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\HomeOfficeResolver;
+use App\Ponto\Service\EntradaAbertaEmOutroEscritorio;
 use App\Ponto\Service\EsquecimentosRegistrados;
 use App\Ponto\Service\SedesDaCercaDoPonto;
 use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
@@ -574,6 +575,7 @@ final class PontoController extends AbstractController
         SedeRepository $sedeRepository,
         RegistroPontoRepository $registroRepository,
         HomeOfficeResolver $homeOfficeResolver,
+        EntradaAbertaEmOutroEscritorio $entradaAberta,
     ): JsonResponse {
         /** @var User $user */
         $user = $this->getUser();
@@ -625,6 +627,9 @@ final class PontoController extends AbstractController
         }
 
         $hoje = new \DateTimeImmutable();
+        if ($tipo === RegistroPonto::TIPO_ENTRADA && ($travada = $entradaAberta->mensagem($user, $tenant, $hoje)) !== null) {
+            return $this->json(['success' => false, 'message' => $travada], 422);   // ponto aberto em outro escritório
+        }
 
         // Home office: se o colaborador está liberado hoje (config do tenant atual), pula o geofencing —
         // a batida entra sem GPS nem sede. O resolver reautoriza sempre no servidor.
@@ -717,7 +722,7 @@ final class PontoController extends AbstractController
         }
 
         if ($tipo === RegistroPonto::TIPO_RETORNO && ($jornadaTenant?->isValidacaoRepousoHabilitada() ?? true)) {
-            $repousoDoDia = $registroRepository->findRepousoDoDia($user, $hoje);
+            $repousoDoDia = $registroRepository->findRepousoDoDia($user, $tenant, $hoje);
             if ($repousoDoDia !== null) {
                 $minimoMin   = $jornadaTenant?->getMinimoMinutosRepouso() ?? 60;
                 $diffMinutos = (int) round(
@@ -737,7 +742,7 @@ final class PontoController extends AbstractController
         }
 
         if ($tipo === RegistroPonto::TIPO_ENTRADA && ($jornadaTenant?->isValidacaoInterjornadaHabilitada() ?? true)) {
-            $ultimaSaida = $registroRepository->findUltimaSaida($user);
+            $ultimaSaida = $registroRepository->findUltimaSaida($user, $tenant);
             if ($ultimaSaida !== null) {
                 $minimoInterjornada = $jornadaTenant?->getMinimoMinutosInterjornada() ?? 660;
                 $diffMinutos = (int) round(

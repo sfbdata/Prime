@@ -21,6 +21,7 @@ use App\Pasta\Entity\EnvioAoCliente;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaProcesso;
 use App\Pasta\Enum\TipoDeEnvioAoCliente;
+use App\Pasta\Repository\CadeadoDaPastaRepository;
 use App\Pasta\Repository\EnvioAoClienteRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\ControladoriaDoEscritorioInterface;
@@ -65,6 +66,8 @@ final class EnviarMovimentacoesAoClienteUseCaseTest extends TestCase
 
     private Tenant $tenant;
     private Pasta $pasta;
+    /** @var list<int> ids das pastas com cadeado do escritório (o stub do repositório do cadeado) */
+    private array $pastasComCadeado = [];
     private Processo $processo;
     private ClientePF $cliente;
     /** @var list<PublicacaoDjen> */
@@ -158,6 +161,8 @@ final class EnviarMovimentacoesAoClienteUseCaseTest extends TestCase
         $pastas->method('listarVinculosDePastasVivasDosProcessos')->willReturn([new PastaProcesso($this->pasta, $this->processo)]);
         $emails = $this->createStub(ClienteEmailRepository::class);
         $emails->method('listarDoCliente')->willReturnCallback(fn (): array => $this->linhas);
+        $cadeados = $this->createStub(CadeadoDaPastaRepository::class);
+        $cadeados->method('idsDasPastasComCadeado')->willReturnCallback(fn (): array => $this->pastasComCadeado);
         $automaticos = $this->createStub(EnvioAutomaticoDoClienteRepository::class);
         $automaticos->method('porClientesDoTenant')->willReturnCallback(fn (): array => $this->chaves !== null ? [50 => $this->chaves] : []);
         $envios = $this->createStub(EnvioAoClienteRepository::class);
@@ -173,7 +178,7 @@ final class EnviarMovimentacoesAoClienteUseCaseTest extends TestCase
 
         $daPasta = new EmailsDoClienteDaPasta($emails);
 
-        return new EnviarMovimentacoesAoClienteUseCase($publicacoes, new GruposDoEnvioAutomatico($pastas, $daPasta, $automaticos), $envios, $this->envio($daPasta, $envios), new MockClock(self::AGORA), new NullLogger());
+        return new EnviarMovimentacoesAoClienteUseCase($publicacoes, new GruposDoEnvioAutomatico($pastas, $daPasta, $automaticos, $cadeados), $envios, $this->envio($daPasta, $envios), new MockClock(self::AGORA), new NullLogger());
     }
 
     private function envio(EmailsDoClienteDaPasta $daPasta, EnvioAoClienteRepository $envios): EnvioAutomaticoAoCliente
@@ -370,7 +375,6 @@ final class EnviarMovimentacoesAoClienteUseCaseTest extends TestCase
         yield 'pasta arquivada' => [static fn (Pasta $p, Processo $pr) => $p->setSituacao(Pasta::SITUACAO_ARQUIVADA)];
         yield 'pasta cancelada' => [static fn (Pasta $p, Processo $pr) => $p->setSituacao(Pasta::SITUACAO_CANCELADA)];
         yield 'pasta suspensa' => [static fn (Pasta $p, Processo $pr) => $p->setSituacao(Pasta::SITUACAO_SUSPENSA)];
-        yield 'pasta trancada' => [static fn (Pasta $p, Processo $pr) => $p->trancar(new User(), new \DateTimeImmutable())];
     }
 
     /** @param callable(Pasta, Processo): void $bloquear */
@@ -380,6 +384,17 @@ final class EnviarMovimentacoesAoClienteUseCaseTest extends TestCase
     {
         $this->ligar(ChaveDoEnvioAutomatico::NovasMovimentacoes, ChaveDoEnvioAutomatico::AudienciasIntimacoes);
         $bloquear($this->pasta, $this->processo);
+
+        self::assertSame(0, $this->useCase()->executar($this->tenant, ['701', '702']));
+        self::assertSame([], $this->mensagens);
+        self::assertSame([], $this->gravados);
+    }
+
+    #[TestDox('D7: pasta com cadeado não envia nada (o cadeado substitui a tranca antiga)')]
+    public function testPastaComCadeadoNaoEnvia(): void
+    {
+        $this->ligar(ChaveDoEnvioAutomatico::NovasMovimentacoes, ChaveDoEnvioAutomatico::AudienciasIntimacoes);
+        $this->pastasComCadeado = [(int) $this->pasta->getId()];
 
         self::assertSame(0, $this->useCase()->executar($this->tenant, ['701', '702']));
         self::assertSame([], $this->mensagens);

@@ -1,0 +1,14 @@
+{# Ícone do cadeado (desenho 02, `cadIcone(px, ondas)`, L6081-6085): círculo em degradê com o cadeado e,
+   com `ondas`, três anéis que se expandem (`@keyframes cadOnda`, em css/pasta-cadeado.css).
+   Contexto: `px` (tamanho em pixels), `ondas` (bool). #}
+{% set cor = '#0b6f8f' %}
+<div aria-hidden="true" style="position:relative;width:{{ px }}px;height:{{ px }}px;flex-shrink:0">
+    {%- if ondas -%}
+        {%- for i in 0..2 -%}
+            <span style="position:absolute;inset:0;border-radius:50%;border:1.5px solid {{ cor }};opacity:0;transform-origin:50% 50%;animation:cadOnda 3.6s cubic-bezier(.25,.6,.35,1) {{ 0.35 + i * 1.2 }}s infinite"></span>
+        {%- endfor -%}
+    {%- endif -%}
+    <div style="position:absolute;inset:0;border-radius:50%;background:linear-gradient(160deg,#16a7c9 0%,#2f7fc0 55%,#6a54b8 100%);box-shadow:0 10px 26px -12px rgba(47,90,170,.6), inset 0 0 0 1px rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;color:#fff">
+        <i class="bi bi-lock" style="font-size:{{ (px * 0.5)|round }}px;line-height:1"></i>
+    </div>
+</div>

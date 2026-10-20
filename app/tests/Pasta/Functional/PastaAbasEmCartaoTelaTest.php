@@ -257,7 +257,9 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Registro da pasta', trim($registro->filter('h2')->text()));
         self::assertSame(['Criada em', 'Modificada em', 'Criada por'], $registro->filter('.ps-registro-pasta-campos .ps-rotulo')->each(static fn ($n) => trim($n->text())));
         self::assertCount(1, $registro->filter('button[data-ps-historico]'), '"Ver histórico do sistema" abre o drawer que já existe');
-        self::assertCount(1, $trilho->filter('.ps-trilho > .ps-como-usar'));
+        // Desenho VS 18.10.26 (dc L.2520): depois do Registro vem "Pontos do relatório inicial"; "Como usar esta aba" saiu.
+        self::assertCount(1, $trilho->filter('.ps-trilho > .ps-registro-pasta + .ps-pontos-relatorio'));
+        self::assertCount(0, $trilho->filter('.ps-trilho > .ps-como-usar'));
         self::assertCount(0, $crawler->filter('#detalhes .card-header'), 'nenhum .card-header novo (clearfix do AdminLTE)');
     }
 
