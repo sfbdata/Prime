@@ -243,3 +243,54 @@ Conferência visual (19/10/2026, liberada pelo dono): demo da worktree na porta 
 `demo_agenda4b`, Playwright a 1280x900 e 390x844, desenho renderizado com dados equivalentes. Mês,
 Semana, Lista, detalhe, menu de botão direito, tema escuro e celular conferidos lado a lado; restam só
 os itens ◐/✗ da tabela acima.
+
+## 11. Entrega 3a: modal de criar e editar
+
+Na branch `agenda-modal`, empilhada sobre `agenda-nova` (#58). A tela continua em `/agenda/nova`; a
+troca da `/agenda` vem na 3b, junto com arrastar e soltar e concluir/cancelar (convenção D1: nada da
+agenda antiga sai antes de existir na nova).
+
+**Evento migrado para o domínio** (`App\Agenda\Entity\Evento`, decisão do subagente decisor: a regra
+da pasta legada manda migrar antes de evolução não trivial; precedente da Pasta, 11097f0e). Bloco
+`AppAgenda` no `doctrine.yaml`. Migration de **dados** `Version20261020122000`: troca
+`audit_log.entity_class` de `App\Entity\Agenda\Evento` para `App\Agenda\Entity\Evento` (112 linhas no
+banco de dev em 19/10/2026), para o histórico seguir no filtro da auditoria e no "Desfazer"; o down faz
+a troca inversa. O `audit_log` não tem hash nem encadeamento; só o nome da classe muda.
+
+**Campos novos** (migration `Version20261020122500`): `tipo` (enum `TipoDeCompromisso`: meus, aud,
+reun, prazo; nulo nos eventos antigos), `pasta_id` (FK anulável, `ON DELETE SET NULL`),
+`lembrete_minutos`, `avisados` (JSON com os ids avisados no Chat).
+
+**Regras** (`SalvarCompromissoUseCase`, `ExcluirCompromissoUseCase`, `AvisarNoChatUseCase`): editar e
+excluir exigem ver o compromisso (404) e ser o criador ou ter `admin.users.manage` (403), como na
+agenda antiga; fim depois do início; pasta pelo número, só do escritório e fora da lixeira; colegas e
+participantes só do escritório; cada colega é avisado uma vez, nunca quem avisa; participantes novos
+também recebem o aviso. O aviso vai pela `Notificacao` (sininho e avisos da Central), com link
+`/agenda/nova#ev=ev-<id>-<dia>`. Observações e local viram um campo só ("Local, link da reunião ou
+observações", como no desenho).
+
+**Estado contra a seção 1:** V3 ✓ (abre o modal); V11 e V12 ✓ (clique no dia ou na hora abre o modal
+já com o dia e a hora); V15 ✓ (Google Agenda, Avisar no Chat, Excluir e Editar; itens de pasta não
+têm "Avisar no Chat", porque o aviso grava no compromisso); V16 ✓; V17 ✓.
+
+Regras acrescentadas na revisão: o aviso cabe nos 255 caracteres da notificação (corta com "…");
+evento da agenda antiga editado no modal guarda a cor da legenda em toda edição (cor que não é de
+nenhum tipo é legenda; D1); quem não vê pastas não vê o campo e, ao editar, a pasta atual fica;
+participantes desligados continuam no compromisso (o modal só mostra os ativos, e tirá-los abriria um
+compromisso fechado para o escritório todo); compromisso de vários dias ou
+que passa da meia-noite guarda quantos dias dura (campo `dias`, com nota "Termina em ..." e o atalho "Terminar no mesmo dia");
+"Só eu" não avisa ninguém nem guarda avisados, e o detalhe não mostra "Avisar no Chat"; os textos de
+visibilidade dizem quem de fato vê ("Só os participantes e você veem"); o "Avisar no Chat" do detalhe
+é uma escolha explícita de cada colega, no lugar do `prompt()` do protótipo, que casava pedaços de nome
+e avisava gente demais (spec §3: os `prompt()` do protótipo viram modal); só colegas ativos são
+avisados ou viram participantes; "repetir até" antes do início é recusado; o número da pasta só sai na
+listagem para quem tem acesso às pastas; a busca da pasta aceita o número em minúsculas. Editar uma
+repetição avisa que vale para a série, e excluir pergunta "e todas as repetições?".
+
+Fica como está: 17 linhas do `audit_log` de dev guardam o nome antigo da classe dentro de
+`changes.association_events` (só exibição, via `entityRef`; filtro e Desfazer não usam).
+
+Diferenças conscientes: REPETIR/ATÉ e PARTICIPANTES no modal (agenda antiga, D1); a caixa
+"MENCIONAR · NOTIFICA NO CHAT I.A" com cargo e presença do protótipo vem do `bluejus-central.js`
+(componente global do desenho), não da Agenda: aqui vale a lista da própria Agenda (iniciais e nome);
+o aviso de lembrete "Você será lembrado com aviso e som" volta na entrega 5, com os lembretes.
