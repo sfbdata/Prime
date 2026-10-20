@@ -43,8 +43,37 @@
 .co-campo { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; font-weight: bold; color: #4a6373; min-width: 0; white-space: nowrap; }
 .co-campo > input { width: 100%; box-sizing: border-box; min-width: 0; height: 40px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 10px; font: inherit; font-size: 14px; font-weight: normal; color: #12242f; }
 .co-elemento { min-height: 120px; display: flex; flex-direction: column; gap: 12px; }
-/* Pagar.me: os campos do cartão são criados pelo módulo dele (contribua-pagarme.js) e seguem o input do desenho */
-.co-elemento .contribua-cartao-campo { width: 100%; box-sizing: border-box; min-width: 0; height: 40px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 10px; font: inherit; font-size: 14px; color: #12242f; }
+/* Pagar.me: os campos do cartão são criados pelo módulo dele (contribua-pagarme.js) e seguem o desenho 08
+   (linhas 165-167 e 260-270): rótulos em maiúscula (.co-campo), número com o selo da bandeira, borda
+   vermelha quando o Luhn falha, nome em caixa alta e a grade Validade/CVV/CPF. Cores do desenho em tokens. */
+.co-elemento {
+    --co-cartao-borda: #d3dde4;
+    --co-cartao-borda-invalida: #d9534f;
+    --co-cartao-fundo: #fff;
+    --co-bandeira-visa-fundo: #1a1f71;
+    --co-bandeira-visa-cor: #fff;
+    --co-bandeira-mastercard-fundo: #fff;
+    --co-bandeira-mastercard-cor: #eb001b;
+    --co-bandeira-amex-fundo: #2e77bc;
+    --co-bandeira-amex-cor: #fff;
+    --co-bandeira-elo-fundo: #000;
+    --co-bandeira-elo-cor: #fff;
+    --co-bandeira-hipercard-fundo: #b3131b;
+    --co-bandeira-hipercard-cor: #fff;
+}
+.co-cartao-numero { box-sizing: border-box; width: 100%; min-width: 0; display: flex; align-items: center; gap: 8px; height: 40px; border: 1px solid var(--co-cartao-borda); border-radius: 3px; padding: 0 10px; background: var(--co-cartao-fundo); }
+.co-cartao-numero--invalido { border-color: var(--co-cartao-borda-invalida); }
+.co-cartao-numero > input { flex: 1; min-width: 0; border: none; outline: none; font: inherit; font-size: 15px; font-weight: normal; letter-spacing: .5px; color: #12242f; background: transparent; }
+.co-campo > input[data-cartao="nome"] { text-transform: uppercase; }
+/* Desenho: min-width 52px + padding 0 8px em content-box (68px no total); aqui o Bootstrap põe border-box. */
+.co-bandeira { height: 24px; min-width: 68px; box-sizing: border-box; padding: 0 8px; border-radius: 3px; font-size: 11px; font-weight: bold; letter-spacing: .5px; display: inline-flex; align-items: center; justify-content: center; animation: ctPop .2s ease both; }
+.co-bandeira[hidden] { display: none; }
+.co-bandeira--visa { background: var(--co-bandeira-visa-fundo); color: var(--co-bandeira-visa-cor); font-style: italic; }
+.co-bandeira--mastercard { background: var(--co-bandeira-mastercard-fundo); color: var(--co-bandeira-mastercard-cor); }
+.co-bandeira--amex { background: var(--co-bandeira-amex-fundo); color: var(--co-bandeira-amex-cor); }
+.co-bandeira--elo { background: var(--co-bandeira-elo-fundo); color: var(--co-bandeira-elo-cor); }
+.co-bandeira--hipercard { background: var(--co-bandeira-hipercard-fundo); color: var(--co-bandeira-hipercard-cor); }
+.co-cartao-grade { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1.3fr); gap: 10px; align-items: end; }
 .co-hospedado { display: flex; gap: 8px; font-size: 12.5px; color: #4a6373; line-height: 1.5; }
 .co-erro { font-size: 13px; color: #a3232b; }
 .co-erro[hidden] { display: none; }

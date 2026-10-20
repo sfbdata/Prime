@@ -38,7 +38,11 @@
 
                 <div class="co-form" data-co-form>
                     <div class="co-meio"><i class="bi bi-credit-card"></i>Cartão de crédito</div>
-                    {% if pg.modo == 'formulario' %}
+                    {% if pg.modo == 'formulario' and pg.gateway == 'pagarme' %}
+                        {# Pagar.me: os campos do cartão são nossos e seguem o desenho; o módulo leva este CPF/CNPJ
+                           para a grade Validade/CVV/CPF (desenho 08, linha 167) e o devolve ao desmontar. #}
+                        <div class="co-elemento" data-co-elemento><label class="co-campo">CPF/CNPJ<input data-cartao-documento inputmode="numeric" placeholder="do titular" value="{{ pg.documento }}"></label></div>
+                    {% elseif pg.modo == 'formulario' %}
                         <div class="co-elemento" data-co-elemento></div>
                         <label class="co-campo">CPF/CNPJ DO TITULAR<input data-cartao-documento inputmode="numeric" placeholder="do titular" value="{{ pg.documento }}"></label>
                     {% else %}
