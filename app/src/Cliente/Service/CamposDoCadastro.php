@@ -21,8 +21,11 @@ use App\Shared\Service\DigitoVerificador;
  */
 final class CamposDoCadastro
 {
-    /** Chave do formulário => rótulo na lista de alterados do cartão. */
-    private const ROTULOS = [
+    /**
+     * Chave do formulário => rótulo na lista de alterados do cartão. Público porque o Histórico do cadastro só aceita
+     * estes rótulos (nunca valores; {@see HistoricoDoCliente}).
+     */
+    public const ROTULOS = [
         'nome' => 'nome', 'cpf' => 'CPF', 'rg' => 'RG', 'rg_orgao' => 'órgão emissor', 'nascimento' => 'nascimento',
         'estado_civil' => 'estado civil', 'profissao' => 'profissão', 'nacionalidade' => 'nacionalidade', 'genero' => 'gênero',
         'razao_social' => 'razão social', 'cnpj' => 'CNPJ', 'nome_fantasia' => 'nome fantasia',

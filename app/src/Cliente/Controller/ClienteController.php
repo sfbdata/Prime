@@ -11,6 +11,7 @@ use App\Cliente\Entity\ClientePJ;
 use App\Cliente\Form\ClientePFType;
 use App\Cliente\Form\ClientePJType;
 use App\Cliente\Repository\ClienteRepository;
+use App\Cliente\Service\HistoricoDoCliente;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Entity\Permission\AccessRequest;
@@ -98,6 +99,7 @@ class ClienteController extends AbstractController
         private readonly RemocaoAposTransacao $remocao,
         private readonly EntregaDeArquivo $entrega,
         private readonly CompressaoDeArquivoArmazenado $compressao,
+        private readonly HistoricoDoCliente $historico,
     ) {}
 
     #[Route('/{id}', name: 'cliente_show', methods: ['GET'])]
@@ -307,6 +309,7 @@ class ClienteController extends AbstractController
             $doc->setTamanhoBytes($tamanhoFinal);
 
             $this->em->persist($doc);
+            $this->historico->documentoAnexado($doc, $currentUser);
             ++$salvos;
         }
 
@@ -456,6 +459,7 @@ class ClienteController extends AbstractController
         }
 
         $chave = ChavesDeCliente::documento($doc);
+        $this->historico->documentoRemovido($doc, $currentUser);
         $this->em->remove($doc);
         $this->em->flush();
 
