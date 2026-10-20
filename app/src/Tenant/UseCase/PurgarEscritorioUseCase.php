@@ -188,6 +188,9 @@ final class PurgarEscritorioUseCase
         // CASCADE de `pasta`, mas a FK de tenant é NO ACTION; o histórico de envios só tem a FK de tenant.
         ['pasta_decisao_sem_processo', 'tenant_id = :tenant'],
         ['relatorio_sem_processo_envio', 'tenant_id = :tenant'],
+        // Relatório de pastas paradas (spec pastas-paradas): o envio do mês cairia pela CASCADE de
+        // tenant, mas a purga apaga explicitamente, como o histórico do relatório irmão.
+        ['relatorio_pastas_paradas_envio', 'tenant_id = :tenant'],
         // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o
         // usuário não é apagado na purga e a de tenant é NO ACTION — sai aqui, explicitamente.
         ['preferencia_usuario', 'tenant_id = :tenant'],
