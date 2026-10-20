@@ -116,7 +116,7 @@ final class ClienteInteligenciaCadastralControllerTest extends JusPrimeWebTestCa
         self::assertStringStartsWith('Nome indica uma possibilidade; CNPJ', $ii['nota']);
     }
 
-    #[TestDox('homônimo e mesmo CPF: só do mesmo escritório; o CPF nunca aparece no texto; link para o outro visível')]
+    #[TestDox('homônimo e mesmo CPF: só do mesmo escritório; o CPF nunca aparece no texto; o nome do outro visível aparece, sem link')]
     public function testAlertasSoDoEscritorio(): void
     {
         $tenant = $this->criarTenant();
@@ -124,7 +124,7 @@ final class ClienteInteligenciaCadastralControllerTest extends JusPrimeWebTestCa
         $gestor = $this->criarUsuario($tenant, true);
         $cliente = $this->criarClientePF($tenant, 'José da Silva', self::CPF);
         $this->criarClientePF($tenant, 'JOSE DA SILVA.', '111.444.777-35');
-        $abreviado = $this->criarClientePF($tenant, 'J. da Silva', '52998224725');
+        $this->criarClientePF($tenant, 'J. da Silva', '52998224725');
         $this->criarClientePF($outro, 'José da Silva', '390.533.447-05');
         $this->criarClientePF($outro, 'Outro Nome', self::CPF);
         $this->logarComTenant($this->client, $gestor, $tenant);
@@ -134,7 +134,7 @@ final class ClienteInteligenciaCadastralControllerTest extends JusPrimeWebTestCa
         self::assertSame(['homonimo', 'mesmoDocumento'], array_column($alertas, 'tipo'));
         self::assertStringStartsWith('1 outro(s) cadastro(s) com o mesmo nome e CPF diferente.', $alertas[0]['texto']);
         self::assertSame('"J. DA SILVA" em outro cadastro de cliente. Pode ser abreviação ou cadastro duplicado; confira antes de consolidar.', $alertas[1]['texto']);
-        self::assertSame('/clientes/' . $abreviado->getId() . '/cadastro', $alertas[1]['abrirUrl']);
+        self::assertArrayNotHasKey('abrirUrl', $alertas[1], 'só texto, sem link (decisão do coordenador)');
         $json = (string) json_encode($alertas, JSON_UNESCAPED_UNICODE);
         self::assertStringNotContainsString('529', $json);
         self::assertStringNotContainsString('Outro Nome', $json);

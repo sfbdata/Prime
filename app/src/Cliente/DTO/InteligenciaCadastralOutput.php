@@ -30,24 +30,19 @@ final class InteligenciaCadastralOutput
         return new self(false);
     }
 
-    /**
-     * @param \Closure(int): string $urlDoCliente monta o link "abrir" do outro cadastro
-     *
-     * @return array<string, mixed>
-     */
-    public function paraResposta(\Closure $urlDoCliente): array
+    /** @return array<string, mixed> */
+    public function paraResposta(): array
     {
         return [
             'on'          => $this->on,
             'titulo'      => RotulosDaInteligenciaCadastral::TITULO,
             'subtitulo'   => $this->subtitulo,
-            'alertas'     => array_map(static fn (AlertaDaInteligenciaCadastral $a): array => array_filter([
-                'tipo'     => $a->tipo,
-                'ic'       => $a->ic,
-                'negrito'  => $a->negrito,
-                'texto'    => $a->texto,
-                'abrirUrl' => $a->abrirClienteId !== null ? $urlDoCliente($a->abrirClienteId) : null,
-            ], static fn (?string $v): bool => $v !== null), $this->alertas),
+            'alertas'     => array_map(static fn (AlertaDaInteligenciaCadastral $a): array => [
+                'tipo'    => $a->tipo,
+                'ic'      => $a->ic,
+                'negrito' => $a->negrito,
+                'texto'   => $a->texto,
+            ], $this->alertas),
             'encontrados' => array_map(static fn (DocumentoEncontradoNaPasta $e): array => $e->paraResposta(), $this->encontrados),
             'nota'        => $this->nota,
         ];

@@ -19,7 +19,7 @@ use App\Service\PermissionChecker;
  * escritório, comparando o nome normalizado ({@see NomeNormalizado}) e o documento em dígitos ({@see DocumentoDoCliente}):
  *
  * - "Possível homônimo.": outros clientes do mesmo tipo com o mesmo nome e documento diferente;
- * - "Mesmo CPF com outro nome.": outro cliente com o mesmo documento e nome diferente (o nome só aparece, com o link,
+ * - "Mesmo CPF com outro nome.": outro cliente com o mesmo documento e nome diferente (o nome só aparece
  *   para quem pode ver aquele cadastro) e a pessoa da Cobrança com o mesmo documento e nome diferente, só para quem
  *   acessa o módulo de cobranças.
  *
@@ -70,7 +70,7 @@ final class AlertasDaInteligenciaCadastral
             $visivel = $this->permissoes->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_CLIENTE, $outro['id'], AccessRequest::ACTION_VIEW);
             $t = RotulosDaInteligenciaCadastral::mesmoDocumento($visivel ? $outro['nome'] : null, RotulosDaInteligenciaCadastral::ORIGEM_OUTRO_CADASTRO, $cliente instanceof ClientePJ);
 
-            return new Alerta(Alerta::MESMO_DOCUMENTO, RotulosDaInteligenciaCadastral::ICONE_MESMO_DOCUMENTO, $t['negrito'], $t['texto'], $visivel ? $outro['id'] : null);
+            return new Alerta(Alerta::MESMO_DOCUMENTO, RotulosDaInteligenciaCadastral::ICONE_MESMO_DOCUMENTO, $t['negrito'], $t['texto']);
         }
 
         return null;

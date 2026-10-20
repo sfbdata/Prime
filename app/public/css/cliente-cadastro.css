@@ -213,8 +213,6 @@
 .cad-ii-sub { font-size: 11.5px; color: #4f6878; }
 .cad-ii-alerta { display: flex; gap: 8px; padding: 8px 10px; border-radius: 4px; background: #fff7e6; color: #6b4a14; font-size: 12.5px; line-height: 1.45; }
 .cad-ii-alerta > i { flex-shrink: 0; margin-top: 2px; }
-.cad-ii-abrir { padding: 0; border: none; background: transparent; color: #0b5f86; font: inherit; font-weight: 700; cursor: pointer; }
-.cad-ii-abrir:hover { text-decoration: underline; }
 .cad-ii-encontrados { display: flex; flex-direction: column; gap: 4px; }
 .cad-ii-rotulo { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7b93a2; }
 .cad-ii-doc { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; padding: 6px 0; }
@@ -227,6 +225,5 @@
 [data-bs-theme="dark"] .cad-ii-titulo { color: #45b0d6; }
 [data-bs-theme="dark"] .cad-ii-sub, [data-bs-theme="dark"] .cad-ii-nota, [data-bs-theme="dark"] .cad-ii-rotulo { color: var(--bs-secondary-color); }
 [data-bs-theme="dark"] .cad-ii-alerta { background: rgba(211,146,34,.14); color: #f0bd62; }
-[data-bs-theme="dark"] .cad-ii-abrir { color: #45b0d6; }
 [data-bs-theme="dark"] .cad-ii-doc-nome { color: var(--bs-body-color); }
 [data-bs-theme="dark"] .cad-ii-doc > i { color: #6ddaa2; }

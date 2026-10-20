@@ -385,14 +385,6 @@
             var corpo = elemento('span');
             corpo.appendChild(elemento('b', null, a.negrito));
             corpo.appendChild(document.createTextNode(' ' + a.texto));
-            if (a.abrirUrl) {
-                var abrirOutro = elemento('button', 'cad-ii-abrir', 'Abrir o outro cadastro'); abrirOutro.type = 'button';
-                abrirOutro.addEventListener('click', function () {
-                    if (sujo()) { aviso('Salve as alterações antes de trocar.', 'pendente'); return; }
-                    trocar(a.abrirUrl + (veu.dataset.pasta ? '?pasta=' + veu.dataset.pasta : ''));
-                });
-                corpo.appendChild(document.createTextNode(' ')); corpo.appendChild(abrirOutro);
-            }
             al.appendChild(icone(a.ic)); al.appendChild(corpo);
             return al;
         }

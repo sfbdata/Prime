@@ -52,9 +52,7 @@ final class ClienteInteligenciaCadastralController extends AbstractController
             throw $this->createNotFoundException('Cliente não encontrado');
         }
 
-        return $this->json($saida->paraResposta(
-            fn (int $outroId): string => $this->generateUrl('cliente_cadastro', ['id' => $outroId]),
-        ));
+        return $this->json($saida->paraResposta());
     }
 
     #[Route('/cliente/{id}/inteligencia-cadastral/vincular/{documentoId}', name: 'cliente_inteligencia_cadastral_vincular', requirements: ['id' => '\d+', 'documentoId' => '\d+'], methods: ['POST'])]

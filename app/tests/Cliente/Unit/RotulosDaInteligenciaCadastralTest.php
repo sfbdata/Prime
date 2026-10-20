@@ -98,20 +98,19 @@ final class RotulosDaInteligenciaCadastralTest extends TestCase
         }
     }
 
-    #[TestDox('resposta do contrato: abrirUrl só no alerta que tem o outro cadastro visível; desligado mantém as chaves')]
+    #[TestDox('resposta do contrato: alerta só com tipo, ícone e texto (sem link); desligado mantém as chaves')]
     public function testResposta(): void
     {
         $saida = new InteligenciaCadastralOutput(true, 'sub', [
             new AlertaDaInteligenciaCadastral('homonimo', 'bi bi-people', 'N', 'T'),
-            new AlertaDaInteligenciaCadastral('mesmoDocumento', 'bi bi-intersect', 'N', 'T', 7),
+            new AlertaDaInteligenciaCadastral('mesmoDocumento', 'bi bi-intersect', 'N', 'T'),
         ], [new DocumentoEncontradoNaPasta(5, 'rg.pdf', 'IDENTIFICACAO', 'Documento de identificação', 'Pasta 1180', '12/03/2024', true)], 'nota');
 
-        $r = $saida->paraResposta(static fn (int $id): string => '/clientes/' . $id . '/cadastro');
+        $r = $saida->paraResposta();
 
         self::assertSame(['on', 'titulo', 'subtitulo', 'alertas', 'encontrados', 'nota'], array_keys($r));
-        self::assertArrayNotHasKey('abrirUrl', $r['alertas'][0]);
-        self::assertSame('/clientes/7/cadastro', $r['alertas'][1]['abrirUrl']);
+        self::assertSame(['tipo' => 'mesmoDocumento', 'ic' => 'bi bi-intersect', 'negrito' => 'N', 'texto' => 'T'], $r['alertas'][1]);
         self::assertSame(['id' => 5, 'arquivo' => 'rg.pdf', 'categoria' => 'IDENTIFICACAO', 'categoriaRotulo' => 'Documento de identificação', 'pasta' => 'Pasta 1180', 'data' => '12/03/2024', 'podeVincular' => true], $r['encontrados'][0]);
-        self::assertFalse(InteligenciaCadastralOutput::desligado()->paraResposta(static fn (int $id): string => '')['on']);
+        self::assertFalse(InteligenciaCadastralOutput::desligado()->paraResposta()['on']);
     }
 }

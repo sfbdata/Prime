@@ -67,7 +67,7 @@ final class AlertasDaInteligenciaCadastralTest extends TestCase
         self::assertSame([], $sut->de(self::pf('José da Silva', '529.982.247-25'), self::CPF, new User(), self::tenant()));
     }
 
-    #[TestDox('mesmo CPF com outro nome em outro cliente visível: nome, origem e o link; sem o CPF no texto')]
+    #[TestDox('mesmo CPF com outro nome em outro cliente visível: nome e origem, sem o CPF no texto')]
     public function testMesmoDocumentoOutroClienteVisivel(): void
     {
         $sut = $this->sut(mesmos: [
@@ -81,11 +81,10 @@ final class AlertasDaInteligenciaCadastralTest extends TestCase
         self::assertSame(AlertaDaInteligenciaCadastral::MESMO_DOCUMENTO, $alertas[0]->tipo);
         self::assertSame('Mesmo CPF com outro nome.', $alertas[0]->negrito);
         self::assertSame('"J. da Silva" em outro cadastro de cliente. Pode ser abreviação ou cadastro duplicado; confira antes de consolidar.', $alertas[0]->texto);
-        self::assertSame(9, $alertas[0]->abrirClienteId);
         self::assertStringNotContainsString('529', $alertas[0]->texto);
     }
 
-    #[TestDox('outro cliente que o usuário não vê: o alerta fica, sem o nome dele e sem link')]
+    #[TestDox('outro cliente que o usuário não vê: o alerta fica, sem o nome dele')]
     public function testMesmoDocumentoOutroClienteInvisivel(): void
     {
         $sut = $this->sut(mesmos: [['id' => 9, 'nome' => 'J. da Silva', 'documento' => '52998224725']], vePastaOuCliente: false);
@@ -93,7 +92,6 @@ final class AlertasDaInteligenciaCadastralTest extends TestCase
         $alertas = $sut->de(self::pf('José da Silva', '529.982.247-25'), self::CPF, new User(), self::tenant());
 
         self::assertCount(1, $alertas);
-        self::assertNull($alertas[0]->abrirClienteId);
         self::assertStringNotContainsString('J. da Silva', $alertas[0]->texto);
         self::assertStringStartsWith('Há outro cadastro de cliente com outro nome.', $alertas[0]->texto);
     }
@@ -108,7 +106,6 @@ final class AlertasDaInteligenciaCadastralTest extends TestCase
 
         self::assertCount(1, $com);
         self::assertSame('"Gleisson B. Gabriel" em Cobranças. Pode ser abreviação ou cadastro duplicado; confira antes de consolidar.', $com[0]->texto);
-        self::assertNull($com[0]->abrirClienteId);
         self::assertSame([], $sem);
     }
 
