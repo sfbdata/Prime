@@ -9,12 +9,14 @@ use App\Entity\Tenant\Tenant;
 use App\Expediente\Controller\PastasParadasController;
 use App\Pasta\DTO\RelatorioPastasParadasOutput;
 use App\Pasta\UseCase\GerarRelatorioPastasParadasUseCase;
+use App\Shared\Service\GeradorDePdf;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Pasta\Functional\CriaEscritorioPastasParadasTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Página, fragmento e PDF do relatório de pastas paradas (spec docs/specs/pastas-paradas.md,
@@ -176,5 +178,49 @@ final class PastasParadasControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('attachment', (string) $resposta->headers->get('Content-Disposition'));
         self::assertStringContainsString('BlueJus Pastas paradas h', (string) $resposta->headers->get('Content-Disposition'));
         self::assertStringContainsString((new \DateTimeImmutable())->format('d.m.Y') . '.pdf', (string) $resposta->headers->get('Content-Disposition'));
+    }
+
+    #[TestDox('Pasta parada de outro escritório não aparece na página nem no PDF')]
+    public function testOutroEscritorioNaoApareceNaPaginaNemNoPdf(): void
+    {
+        $alheio = $this->novoEscritorio('Alheio');
+        $this->pastaAbertaEm($alheio, '8888', '-200 days');
+
+        // O PDF sai comprimido: um espião no lugar do gerador guarda o HTML do modo pdf.
+        $espiao = new class () implements GeradorDePdf {
+            public string $html = '';
+
+            public function gerar(string $html): string
+            {
+                $this->html = $html;
+
+                return '%PDF-espiao';
+            }
+
+            public function logoEmbutido(): ?string
+            {
+                return null;
+            }
+
+            public function resposta(string $pdf, string $titulo, \DateTimeImmutable $hoje): Response
+            {
+                return new Response($pdf, Response::HTTP_OK, ['Content-Type' => 'application/pdf']);
+            }
+        };
+        $this->client->disableReboot();
+        static::getContainer()->set(GeradorDePdf::class, $espiao);
+        $this->abrir($this->paula, '/pdf');
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('<!DOCTYPE html>', $espiao->html);
+        self::assertStringContainsString('>1180<', $espiao->html);
+        self::assertStringNotContainsString('8888', $espiao->html);
+        self::assertStringNotContainsString('7777', $espiao->html);
+
+        $pagina = $this->abrir($this->paula, '');
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('1180', $pagina);
+        self::assertStringNotContainsString('8888', $pagina);
+        self::assertStringNotContainsString('7777', $pagina);
     }
 }

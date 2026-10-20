@@ -36,6 +36,8 @@ relatório e o botão de baixar o PDF (tarja azul, logo, como o #75).
 - **Nível**: > 90 dias "Crítico" (#a3232b), > 60 "Atenção" (#b06a00), senão "Acompanhar" (#0a6a96).
 - Ordem: mais parada primeiro.
 - Tudo em lote (consultas por lista de ids, com `tenant` explícito: o CLI roda sem TenantFilter). Sem N+1.
+  Exceção aceita: na página, a decisão do financeiro chama `VisibilidadeDoFinanceiroDaPasta` por pasta parada
+  (1 ou 2 consultas cada), porque a regra mora lá e a página abre uma vez por mês. O lote fica para quando houver volume.
 
 ## Pré-análise (textos exatos do desenho)
 
@@ -93,7 +95,9 @@ relatório e o botão de baixar o PDF (tarja azul, logo, como o #75).
 - **Avisos** (tipo `relatorio_pastas_paradas`, registrado em `TiposDeAvisoDaCentral`; aviso do sistema, não fala da I.A):
   - para cada responsável com vínculo ativo e módulo Expediente: título `Pastas paradas: N sob sua responsabilidade`;
     texto `Pasta N (cliente), X dias. <primeira sugestão>` unidos por ` | `, terminando em
-    ` Informe se vai movimentar ou arquivar.` (sem a sugestão do financeiro), cortado em 255;
+    ` Informe se vai movimentar ou arquivar.` (sem a sugestão do financeiro), cortado em 255. Só entram as pastas
+    que o responsável pode ver (`PastasVisiveisNoRelatorio::ids`; nulo = todas), para o link não abrir uma página
+    vazia; sem nenhuma visível, ele não recebe aviso (revisão de 20/10);
   - para Controladoria e primários com módulo Expediente, sem repetir: título `Relatório mensal: N pasta(s) paradas`;
     texto `N · cliente · X dias · responsável` unidos por ` | `, cortado em 255;
   - link para a página.

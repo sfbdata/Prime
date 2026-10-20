@@ -285,8 +285,9 @@ CRON_TZ=America/Sao_Paulo
 > (10h15 em Brasília, sem horário de verão).
 >
 > **Antes de agendar:** rode uma vez em simulação: `docker exec jusprime_php_prod php bin/console
-> app:pastas:relatorio-pastas-paradas --dry-run` (conta as pastas paradas e os avisos e não grava
-> nada). Para um escritório só: `--tenant=1`.
+> app:pastas:relatorio-pastas-paradas --dry-run` (não grava nada). A simulação só conta as pastas
+> paradas e os avisos no dia do envio (primeira segunda-feira do mês, a partir das 10h); em outro dia,
+> só mostra o motivo de não enviar. Para um escritório só: `--tenant=1`.
 >
 > Configurar o cron é do dono.
 

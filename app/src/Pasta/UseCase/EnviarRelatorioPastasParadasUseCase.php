@@ -12,6 +12,7 @@ use App\Pasta\DTO\RelatorioPastasParadasOutput;
 use App\Pasta\DTO\ResultadoDoEnvioPastasParadas;
 use App\Pasta\Repository\EnvioDoRelatorioPastasParadasRepository;
 use App\Pasta\Service\MontagemDoRelatorioPastasParadas;
+use App\Pasta\Service\PastasVisiveisNoRelatorio;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
@@ -37,7 +38,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *  2. analisa todas as pastas ativas do escritório (sem o financeiro: nenhum aviso fala dele);
  *  3. GRAVA o envio do mês ANTES de avisar, por `INSERT ... ON CONFLICT DO NOTHING`: quem não
  *     gravou não avisa (dois crons não duplicam); gravação e avisos numa transação só;
- *  4. cada responsável com vínculo ativo: as pastas dele; Controladoria e primários, sem repetir: a
+ *  4. cada responsável com vínculo ativo: as pastas dele QUE ELE PODE VER (o link abre a página com
+ *     as pastas visíveis a ele; sem nenhuma, não há aviso); Controladoria e primários, sem repetir: a
  *     lista inteira. Só quem tem o módulo Expediente (é onde o relatório abre).
  *
  * Sem pasta parada, o mês é gravado e ninguém é avisado. `$simular` (o `--dry-run` do comando)
@@ -68,6 +70,7 @@ final class EnviarRelatorioPastasParadasUseCase
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly ClockInterface $clock,
         private readonly PermissionChecker $permissionChecker,
+        private readonly PastasVisiveisNoRelatorio $visiveis,
     ) {
     }
 
@@ -87,7 +90,7 @@ final class EnviarRelatorioPastasParadasUseCase
         );
         $avisos = array_merge(
             self::avisosGerais($relatorio, array_merge(array_values($gerais), $this->primarios($vinculos))),
-            self::avisosAosResponsaveis($relatorio, $vinculos),
+            $this->avisosAosResponsaveis($relatorio, $vinculos, $tenant),
         );
 
         if (!$simular && !$this->gravar($tenant, $relatorio, $avisos, $agora)) {
@@ -175,14 +178,14 @@ final class EnviarRelatorioPastasParadasUseCase
     }
 
     /**
-     * L3244: cada responsável (vínculo ativo, conta ativa, módulo Expediente) recebe as pastas dele,
-     * com a primeira sugestão de cada uma (nunca a do financeiro).
+     * L3244: cada responsável (vínculo ativo, conta ativa, módulo Expediente) recebe as pastas dele
+     * que pode ver, com a primeira sugestão de cada uma (nunca a do financeiro).
      *
      * @param list<UserTenant> $vinculos
      *
      * @return list<array{0: User, 1: string, 2: string}>
      */
-    private static function avisosAosResponsaveis(RelatorioPastasParadasOutput $relatorio, array $vinculos): array
+    private function avisosAosResponsaveis(RelatorioPastasParadasOutput $relatorio, array $vinculos, Tenant $tenant): array
     {
         $ativos = [];
         foreach ($vinculos as $v) {
@@ -191,9 +194,17 @@ final class EnviarRelatorioPastasParadasUseCase
             }
         }
 
+        $visiveis       = [];
         $porResponsavel = [];
         foreach ($relatorio->pastas as $pasta) {
-            if ($pasta->responsavelId !== null && isset($ativos[$pasta->responsavelId])) {
+            $id = $pasta->responsavelId;
+            if ($id === null || !isset($ativos[$id])) {
+                continue;
+            }
+            if (!\array_key_exists($id, $visiveis)) {
+                $visiveis[$id] = $this->visiveis->ids($ativos[$id], $tenant);
+            }
+            if ($visiveis[$id] === null || \in_array($pasta->pastaId, $visiveis[$id], true)) {
                 $porResponsavel[$pasta->responsavelId][] = 'Pasta ' . $pasta->numero . ' (' . $pasta->cliente . '), ' . $pasta->dias . ' dias. ' . $pasta->primeiraSugestaoSemFinanceiro();
             }
         }

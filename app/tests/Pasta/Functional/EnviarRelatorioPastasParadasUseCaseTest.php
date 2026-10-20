@@ -24,8 +24,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  * Roda sem request, como o comando: sem TenantFilter, com o escritório explícito.
  *
  * Escritório-base, relógio na primeira segunda-feira de outubro de 2026 (05/10, 10h05):
- * Paula (primária), Carla (Controladoria, secundária com Expediente), Rui (responsável com
- * Expediente), Nina (responsável sem o módulo) e Ivo (responsável com vínculo inativo).
+ * Paula (primária), Carla (Controladoria, secundária com Expediente e ver pastas), Rui (responsável com
+ * Expediente e ver pastas), Nina (responsável sem o módulo) e Ivo (responsável com vínculo inativo).
  * Pastas: 1180 e 1181 do Rui (abertas em 01/06 e 01/08), 1182 da Nina, 1183 do Rui aberta em 20/09
  * (só 15 dias: não está parada) e 1184 do Ivo.
  */
@@ -51,7 +51,7 @@ final class EnviarRelatorioPastasParadasUseCaseTest extends KernelTestCase
         self::bootKernel();
         $this->tenant = $this->novoEscritorio('Paradas');
         $primario     = $this->novoPerfil($this->tenant, true);
-        $secundario   = $this->novoPerfil($this->tenant, false, ['modules.expediente.view']);
+        $secundario   = $this->novoPerfil($this->tenant, false, ['modules.expediente.view', 'resources.pasta.view']);
         $this->paula  = $this->novaPessoa($this->tenant, 'Paula Primária', $primario);
         $this->carla  = $this->novaPessoa($this->tenant, 'Carla Controladoria', $secundario, controladoria: true);
         $this->rui    = $this->novaPessoa($this->tenant, 'Rui Responsável', $secundario);
@@ -242,5 +242,27 @@ final class EnviarRelatorioPastasParadasUseCaseTest extends KernelTestCase
         self::assertSame('atencao', $tipo['grupo']);
         self::assertSame('Relatório', $tipo['rotulo']);
         self::assertSame('bi-pause-circle', $tipo['icone']);
+    }
+
+    #[TestDox('O responsável só recebe as pastas que pode ver: sem acesso, nada; com acesso item a item, só aquela')]
+    public function testResponsavelSoRecebeAsPastasQueVe(): void
+    {
+        $soExpediente = $this->novoPerfil($this->tenant, false, ['modules.expediente.view']);
+        $sem          = $this->novaPessoa($this->tenant, 'Saulo Sem Acesso', $soExpediente);
+        $com          = $this->novaPessoa($this->tenant, 'Celia Com Acesso', $soExpediente);
+        $this->pastaAbertaEm($this->tenant, '3001', '2026-06-01', $sem);
+        $visivel = $this->pastaAbertaEm($this->tenant, '3002', '2026-06-01', $com);
+        $this->pastaAbertaEm($this->tenant, '3003', '2026-06-01', $com);
+        $this->darAcessoAPasta($com, $visivel);
+
+        $this->useCase()->executar($this->tenant);
+
+        $avisos = $this->avisosDasParadas($this->tenant);
+        self::assertArrayNotHasKey((int) $sem->getId(), $avisos, 'sem nenhuma pasta visível, não há aviso');
+        self::assertCount(1, $avisos[$com->getId()]);
+        self::assertSame('Pastas paradas: 1 sob sua responsabilidade', $avisos[$com->getId()][0]->getTitulo());
+        self::assertStringStartsWith('Pasta 3002 (', (string) $avisos[$com->getId()][0]->getMensagem());
+        self::assertStringNotContainsString('3003', (string) $avisos[$com->getId()][0]->getMensagem());
+        self::assertStringContainsString('3001', (string) $avisos[$this->carla->getId()][0]->getMensagem(), 'a Controladoria continua com a lista inteira');
     }
 }

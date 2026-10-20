@@ -14,6 +14,7 @@ use App\Pasta\Entity\PastaPagamento;
 use App\Pasta\Repository\EnvioDoRelatorioPastasParadasRepository;
 use App\Pasta\Service\AndamentoDaPasta;
 use App\Pasta\Service\MontagemDoRelatorioPastasParadas;
+use App\Pasta\Service\PastasVisiveisNoRelatorio;
 use App\Pasta\UseCase\EnviarRelatorioPastasParadasUseCase;
 use App\Processo\Entity\MovimentacaoProcesso;
 use App\Processo\Entity\Processo;
@@ -179,6 +180,7 @@ trait CriaEscritorioPastasParadasTrait
             $c->get(UrlGeneratorInterface::class),
             new MockClock(new \DateTimeImmutable($agora)),
             $c->get(PermissionChecker::class),
+            $c->get(PastasVisiveisNoRelatorio::class),
         );
     }
 }
