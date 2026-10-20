@@ -79,6 +79,19 @@ final class ListarDestinosDoEncaminhamentoUseCaseTest extends TestCase
         self::assertSame([], $destinos);
     }
 
+    #[TestDox('Grupo em que só eu sigo no escritório: fica na lista, indisponível, com o motivo (ninguém para receber)')]
+    public function testGrupoSemNinguemQueReceba(): void
+    {
+        $grupo = Conversa::grupo($this->tenant, $this->eu, 'Esvaziado', new \DateTimeImmutable());
+        DefineId::em($grupo, 30);
+
+        $destinos = $this->listar([1, 2], [$grupo], [30 => [$this->eu, $this->bruno]], ativos: [$this->eu]);
+
+        self::assertCount(1, $destinos);
+        self::assertFalse($destinos[0]->disponivel);
+        self::assertSame('Ninguém mais nesta conversa pode receber.', $destinos[0]->motivo);
+    }
+
     #[TestDox('Pasta de outro escritório ou que eu não vejo: 404, sem lista')]
     public function testPastaQueNaoVejo(): void
     {

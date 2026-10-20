@@ -4,13 +4,23 @@ declare(strict_types=1);
 
 namespace App\Tests\Central\Functional;
 
+use App\Central\Entity\Conversa;
+use App\Central\Entity\Mensagem;
+use App\Central\Enum\TipoDeItemEncaminhado;
 use App\Central\Exception\ItemEncaminhadoNaoEncontradoException;
+use App\Central\Service\LeituraDasMensagens;
 use App\Central\Service\GuardaDoEncaminhamento;
+use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
+use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
 use App\Pasta\Repository\PastaObservacaoFinanceiraRepository;
+use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\AcessoAPasta;
+use App\Service\PermissionChecker;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
@@ -26,6 +36,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 #[CoversClass(PastaObservacaoFinanceiraRepository::class)]
 #[CoversClass(TarefaRepository::class)]
 #[CoversClass(GuardaDoEncaminhamento::class)]
+#[CoversClass(LeituraDasMensagens::class)]
 final class IsolamentoDoEncaminhamentoTest extends JusPrimeWebTestCase
 {
     use CriaFixturesInteligenciaTrait;
@@ -74,6 +85,45 @@ final class IsolamentoDoEncaminhamentoTest extends JusPrimeWebTestCase
         self::assertSame($pastaB, $guarda->pastaQueEuVejo((int) $pastaB->getId(), $admin, $escritorioB), 'controle');
         $this->expectException(ItemEncaminhadoNaoEncontradoException::class);
         $guarda->pastaQueEuVejo((int) $pastaB->getId(), $admin, $escritorioA);
+    }
+
+    #[TestDox('Sem o TenantFilter, a leitura do despacho não alcança a pasta de outro escritório pela referência, nem com a permissão dizendo sim')]
+    public function testLeituraDaReferenciaSemFiltro(): void
+    {
+        static::createClient();
+        [$adminA, $escritorioA] = $this->criarAdmin();
+        [, $escritorioB] = $this->criarAdmin();
+        $pastaA = $this->criarPasta($escritorioA);
+        $pastaB = $this->criarPasta($escritorioB);
+        $grupo = Conversa::grupo($escritorioA, $adminA, 'Equipe', new \DateTimeImmutable());
+        $this->em()->persist($grupo);
+        $despacho = new Mensagem($escritorioA, $grupo, $adminA, 'Despacho: Pasta ' . $pastaB->getNup(), new \DateTimeImmutable());
+        $despacho->referenciarDespacho($pastaA, TipoDeItemEncaminhado::Pasta);
+        $controle = new Mensagem($escritorioA, $grupo, $adminA, 'Despacho: Pasta ' . $pastaA->getNup(), new \DateTimeImmutable());
+        $controle->referenciarDespacho($pastaA, TipoDeItemEncaminhado::Pasta);
+        $this->em()->persist($despacho);
+        $this->em()->persist($controle);
+        $this->em()->flush();
+        // A referência torta (pasta do B numa mensagem do A) só entra por fora do domínio, que a recusa.
+        $this->em()->getConnection()->executeStatement('UPDATE central_mensagem SET despacho_pasta_id = ? WHERE id = ?', [$pastaB->getId(), $despacho->getId()]);
+        $this->em()->clear();
+        $this->desligarFiltro();
+
+        $sempreSim = $this->createStub(PermissionChecker::class);
+        $sempreSim->method('canAccessResource')->willReturn(true);
+        $financeiro = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
+        $financeiro->method('podeVer')->willReturn(true);
+        $leitura = new LeituraDasMensagens(static::getContainer()->get(PastaRepository::class), new AcessoAPasta($sempreSim), $financeiro);
+        $leitor = $this->em()->find(User::class, $adminA->getId());
+        $mensagens = $this->em()->getRepository(Mensagem::class)->findBy(['id' => [$despacho->getId(), $controle->getId()]], ['id' => 'ASC']);
+        [$torta, $boa] = $leitura->paraLeitor($mensagens, $leitor);
+
+        self::assertTrue($torta->ocultoPorPermissao, 'a pasta do B não é achada pela busca com o escritório do A');
+        self::assertSame(LeituraDasMensagens::SEM_ACESSO, $torta->conteudo);
+        self::assertNull($torta->despacho);
+        self::assertFalse($boa->ocultoPorPermissao, 'controle');
+        self::assertSame($pastaA->getId(), $boa->despacho?->pastaId);
+        self::assertInstanceOf(Pasta::class, $this->em()->find(Pasta::class, $pastaB->getId()), 'sem o filtro a pasta do B existe e seria alcançável pelo id cru');
     }
 
     private function desligarFiltro(): void
