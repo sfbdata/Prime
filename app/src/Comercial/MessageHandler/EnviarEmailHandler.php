@@ -30,7 +30,9 @@ use Symfony\Component\Messenger\Stamp\DelayStamp;
  *      em `lista`, relê o descadastro: descadastrado vira `bloqueado_descadastro` e o conteúdo some;
  *   3. vazão por contagem em `comercial_envio`: sem vaga, volta a `enfileirado` e reenfileira com DelayStamp;
  *   4. monta e manda. Sucesso: `enviado` e o conteúdo some. Exceção: volta a `enfileirado` e relança (retry do
- *      Messenger; a falha definitiva é do {@see \App\Comercial\EventListener\FalhaDeEnvioListener}).
+ *      Messenger; a falha definitiva é do {@see \App\Comercial\EventListener\FalhaDeEnvioListener}). Na campanha
+ *      (`campanha:*`, "no máximo uma vez", spec §8.5) a exceção vira `incerto`, o conteúdo some e NÃO relança: um
+ *      timeout depois de o servidor aceitar duplicaria a mensagem.
  *
  * Logs só com o id do envio, nunca o endereço.
  *
@@ -156,6 +158,13 @@ final class EnviarEmailHandler
         try {
             $this->mailer->send($this->montador->montar($email, $token));
         } catch (\Throwable $erro) {
+            if (str_starts_with($email->origem, 'campanha:')) {
+                $this->envios->marcarIncerto($id);
+                $this->envios->apagarConteudo($id);
+                $this->logger->warning('Envio de campanha falhou no SMTP; fica incerto e não é tentado de novo.', ['envioId' => $id, 'classe' => $erro::class]);
+
+                return;
+            }
             $this->envios->devolverAFila($id, $this->relogio->now());
             $this->logger->warning('Envio de e-mail falhou; volta à fila para nova tentativa.', ['envioId' => $id, 'classe' => $erro::class]);
 

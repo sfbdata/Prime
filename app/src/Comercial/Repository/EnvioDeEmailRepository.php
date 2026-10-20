@@ -158,6 +158,15 @@ class EnvioDeEmailRepository extends ServiceEntityRepository
         return \count($ids);
     }
 
+    /** Campanha "no máximo uma vez" (spec §8.5): a exceção do SMTP deixa o envio `incerto`, sem nova tentativa. */
+    public function marcarIncerto(int $id): void
+    {
+        $this->conexao()->executeStatement(
+            "UPDATE comercial_envio SET situacao = 'incerto', proxima_tentativa_em = NULL WHERE id = :id AND situacao = 'enviando'",
+            ['id' => $id],
+        );
+    }
+
     /** Contrapressão do expansor (spec §8.5): os envios de campanha que ainda esperam o worker. */
     public function contarDeCampanhaNaFila(): int
     {

@@ -744,7 +744,8 @@ primeira execução). (A9) Rótulos e cores do dc (L586) para
 - **No máximo uma vez** (decisão do coordenador, 20/10): campanha em massa nunca sai duas vezes para a mesma pessoa.
   O handler marca `enviando` (a reivindicação) antes do SMTP; se o worker morre ali, a recuperação de 15 min marca o
   envio de campanha como `incerto` (nova situação de `comercial_envio`, coluna VARCHAR sem CHECK, sem migration), apaga o
-  conteúdo e não reenvia. O `incerto` não conta na contrapressão e conta no teto diário. Os transacionais, os
+  conteúdo e não reenvia. Uma exceção do SMTP num envio de campanha também vira `incerto`, com o conteúdo apagado, e
+  não relança para o retry do Messenger (um timeout depois de o servidor aceitar duplicaria a mensagem). O `incerto` não conta na contrapressão e conta no teto diário. Os transacionais, os
   consumidores e o `teste_campanha` continuam "pelo menos uma vez" (§3.1). O freio do console só cancela o
   `enfileirado`; o `enviando` fica com o worker.
 - **Retenção** (R9): `comercial_campanha_destino` segue a da §3.2 (P4, 24 meses; depois `email` vira hash e `nome`
