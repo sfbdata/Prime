@@ -22,7 +22,7 @@ final class NomeSeguroDeArquivo
     public static function sanear(string $nome): string
     {
         $semBarra = str_replace(['/', '\\'], '-', $nome);
-        $semControle = (string) preg_replace('/[\x00-\x1F\x7F]+/u', '', $semBarra);
+        $semControle = (string) preg_replace('/[\x00-\x1F\x7F]+/', '', $semBarra);
 
         return trim($semControle);
     }

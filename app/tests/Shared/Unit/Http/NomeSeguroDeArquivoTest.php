@@ -41,6 +41,12 @@ final class NomeSeguroDeArquivoTest extends TestCase
         }
     }
 
+    #[TestDox('UTF-8 inválido não derruba o nome inteiro: só o controle sai')]
+    public function testUtf8InvalidoNaoZeraONome(): void
+    {
+        self::assertSame("Contrato\xC3 01.pdf", NomeSeguroDeArquivo::sanear("Contrato\xC3 01\x01.pdf"));
+    }
+
     #[TestDox('para o download, nome que fica vazio vira "arquivo"')]
     public function testParaDownloadNuncaVazio(): void
     {
