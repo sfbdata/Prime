@@ -14,6 +14,9 @@ use Doctrine\ORM\EntityManagerInterface;
 
 final class CriarConviteEscritorioUseCase
 {
+    /** Conta com o e-mail a confirmar não manda e-mail a terceiros (spec login-desenho-10, decisão c). */
+    public const RECUSA_EMAIL_A_CONFIRMAR = 'Confirme o seu e-mail para convidar pessoas. Reenviamos o link de confirmação se você pedir.';
+
     public function __construct(
         private readonly InvitationRepository $invitationRepository,
         private readonly UserRepository $userRepository,
@@ -24,6 +27,10 @@ final class CriarConviteEscritorioUseCase
 
     public function executar(CriarConviteEscritorioInput $input): Invitation
     {
+        if (!$input->criadoPor->isEmailConfirmado()) {
+            throw new \DomainException(self::RECUSA_EMAIL_A_CONFIRMAR);
+        }
+
         // Convite com o perfil de sistema faz do convidado um primário: só primário ou Master
         // (spec perfis-master D4). OperacaoDePrimarioRecusada é DomainException: vira flash.
         if ($input->tenantRole->isSystem()) {

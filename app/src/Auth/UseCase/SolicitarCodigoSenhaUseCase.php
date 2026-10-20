@@ -31,6 +31,13 @@ final class SolicitarCodigoSenhaUseCase
 {
     public const VALIDADE = '+15 minutes';
 
+    /**
+     * Teto diário por conta, além dos limitadores por hora do controller: passado dele, nada é criado nem enviado
+     * (silêncio, RN02). Conta os pedidos das últimas 24 h pelas linhas de `redefinicao_senha`.
+     */
+    public const TETO_DIARIO = 10;
+    public const JANELA_DO_TETO = '-24 hours';
+
     /** Tentativas de sortear um código cujo hash ainda não existe (índice único). */
     private const SORTEIOS = 5;
 
@@ -62,8 +69,19 @@ final class SolicitarCodigoSenhaUseCase
             return;
         }
 
-        // RS02: pedir de novo derruba os pedidos anteriores ainda vivos (código ou link).
-        $this->redefinicaoRepository->invalidarPendentesDoUsuario($user);
+        $agora = new \DateTimeImmutable();
+        if ($this->redefinicaoRepository->contarPedidosDesde($user, $agora->modify(self::JANELA_DO_TETO)) >= self::TETO_DIARIO) {
+            $this->logger->warning('Teto diário de pedidos de código de senha atingido; código não enviado.', [
+                'user_id' => $user->getId(),
+                'ip' => $ip,
+            ]);
+
+            return;
+        }
+
+        // RS02: pedir de novo derruba os pedidos anteriores ainda vivos (código ou link). Encerra em vez de apagar:
+        // a linha fica até a purga, para o teto diário contar o pedido.
+        $this->redefinicaoRepository->encerrarPendentesDoUsuario($user, $agora);
 
         [$codigo, $hash] = $this->sortearCodigo((int) $user->getId());
 

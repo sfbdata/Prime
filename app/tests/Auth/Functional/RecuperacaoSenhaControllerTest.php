@@ -319,9 +319,72 @@ final class RecuperacaoSenhaControllerTest extends JusPrimeWebTestCase
 
         $this->pedirCodigo($client, (string) $user->getEmail());
 
-        self::assertNull($this->pedidoNoBanco($ids[0]), 'O código anterior tem que morrer quando um novo é pedido.');
-        self::assertNull($this->pedidoNoBanco($ids[1]), 'O link pendente também.');
-        self::assertSame(1, $this->em()->getRepository(RedefinicaoSenha::class)->count(['user' => $user->getId()]));
+        // Encerrados (usado_em), não apagados: a linha fica até a purga para o teto diário contar o pedido.
+        self::assertTrue($this->pedidoNoBanco($ids[0])?->isUsado(), 'O código anterior tem que morrer quando um novo é pedido.');
+        self::assertTrue($this->pedidoNoBanco($ids[1])?->isUsado(), 'O link pendente também.');
+        self::assertSame(1, $this->em()->getRepository(RedefinicaoSenha::class)->count(['user' => $user->getId(), 'usadoEm' => null]));
+        self::assertSame(self::ERRO_CODIGO, $this->confirmar($client, (string) $user->getEmail(), '111111')['erro'] ?? null);
+    }
+
+    #[TestDox('Teto diário: o 11º pedido do dia não cria nem envia, e a resposta continua neutra')]
+    public function testTetoDiarioPorConta(): void
+    {
+        $client = $this->clienteJson();
+        $user   = $this->criarUsuario();
+        for ($i = 0; $i < SolicitarCodigoSenhaUseCase::TETO_DIARIO; ++$i) {
+            $pedido = $this->criarPedidoDeCodigo($user, sprintf('%06d', $i));
+            $pedido->marcarUsado(new \DateTimeImmutable());
+        }
+        $this->em()->flush();
+
+        $client->enableProfiler();
+        $resposta = $this->pedirCodigo($client, (string) $user->getEmail());
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['ok' => true], $resposta);
+        self::assertEmailCount(0);
+        self::assertSame(
+            SolicitarCodigoSenhaUseCase::TETO_DIARIO,
+            $this->em()->getRepository(RedefinicaoSenha::class)->count(['user' => $user->getId()]),
+        );
+    }
+
+    #[TestDox('Teto diário: pedido de mais de 24 h atrás não conta')]
+    public function testTetoDiarioIgnoraPedidosAntigos(): void
+    {
+        $client = $this->clienteJson();
+        $user   = $this->criarUsuario();
+        $this->criarPedidoDeCodigo($user, '000001');
+        // Pela data do PHP, não pelo NOW() do banco: a coluna é sem fuso e o fuso do banco não é o da aplicação.
+        $antigo = (new \DateTimeImmutable('-25 hours'))->format('Y-m-d H:i:s');
+        $this->em()->getConnection()->executeStatement(
+            'UPDATE redefinicao_senha SET criado_em = :antigo, usado_em = :antigo WHERE user_id = :id',
+            ['id' => $user->getId(), 'antigo' => $antigo],
+        );
+        for ($i = 0; $i < SolicitarCodigoSenhaUseCase::TETO_DIARIO - 1; ++$i) {
+            $pedido = $this->criarPedidoDeCodigo($user, sprintf('%06d', 100 + $i));
+            $pedido->marcarUsado(new \DateTimeImmutable());
+        }
+        $this->em()->flush();
+
+        $client->enableProfiler();
+        self::assertSame(['ok' => true], $this->pedirCodigo($client, (string) $user->getEmail()));
+        self::assertEmailCount(1);
+    }
+
+    #[TestDox('Trocar a senha pelo código do e-mail confirma o e-mail da conta')]
+    public function testCodigoConfirmaOEmail(): void
+    {
+        $client = $this->clienteJson();
+        $user   = $this->criarUsuario();
+        $user->marcarEmailAConfirmar(new \DateTimeImmutable('-1 hour'));
+        $this->em()->flush();
+        $this->criarPedidoDeCodigo($user, '123456');
+
+        self::assertSame(['ok' => true], $this->confirmar($client, (string) $user->getEmail(), '123456'));
+
+        $this->em()->clear();
+        self::assertTrue($this->em()->find(User::class, $user->getId())?->isEmailConfirmado());
     }
 
     #[TestDox('E-mail com formato inválido devolve 422 com o texto do desenho e não gasta cota')]

@@ -81,7 +81,7 @@ final class SolicitarCodigoSenhaUseCaseTest extends TestCase
     {
         $user = $this->usuario();
         $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([$user]);
-        $this->redefinicaoRepository->expects($this->once())->method('invalidarPendentesDoUsuario')->with($user);
+        $this->redefinicaoRepository->expects($this->once())->method('encerrarPendentesDoUsuario')->with($user);
         $this->capturar();
 
         $this->executar();
@@ -137,11 +137,46 @@ final class SolicitarCodigoSenhaUseCaseTest extends TestCase
     public function testEmailInexistenteNaoFazNada(): void
     {
         $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
-        $this->redefinicaoRepository->expects($this->never())->method('invalidarPendentesDoUsuario');
+        $this->redefinicaoRepository->expects($this->never())->method('encerrarPendentesDoUsuario');
         $this->redefinicaoRepository->expects($this->never())->method('salvar');
         $this->mailer->expects($this->never())->method('enviarCodigo');
 
         $this->executar('ninguem@adv.com');
+    }
+
+    #[TestDox('Teto diário: com 10 pedidos nas últimas 24 h, não encerra, não grava nem envia, e registra no log')]
+    public function testTetoDiarioAtingidoFicaEmSilencio(): void
+    {
+        $user = $this->usuario();
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([$user]);
+        $this->redefinicaoRepository->expects($this->once())
+            ->method('contarPedidosDesde')
+            ->with($user, self::callback(static function (\DateTimeImmutable $desde): bool {
+                $diferenca = (new \DateTimeImmutable())->getTimestamp() - $desde->getTimestamp();
+
+                return abs($diferenca - 86400) <= 5;
+            }))
+            ->willReturn(SolicitarCodigoSenhaUseCase::TETO_DIARIO);
+        $this->redefinicaoRepository->expects($this->never())->method('encerrarPendentesDoUsuario');
+        $this->redefinicaoRepository->expects($this->never())->method('salvar');
+        $this->mailer->expects($this->never())->method('enviarCodigo');
+        $this->logger->expects($this->once())->method('warning')
+            ->with(self::stringContains('Teto diário'), self::callback(static fn (array $c): bool => $c['user_id'] === 42));
+
+        $this->executar();
+    }
+
+    #[TestDox('Teto diário: com 9 pedidos nas últimas 24 h, o décimo ainda sai')]
+    public function testAbaixoDoTetoDiarioEnvia(): void
+    {
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([$this->usuario()]);
+        $this->redefinicaoRepository->method('contarPedidosDesde')->willReturn(SolicitarCodigoSenhaUseCase::TETO_DIARIO - 1);
+        $this->capturar();
+
+        $this->executar();
+
+        self::assertNotNull($this->salvo);
+        self::assertNotNull($this->codigoEnviado);
     }
 
     #[TestDox('Conta desativada não recebe código (RS04)')]

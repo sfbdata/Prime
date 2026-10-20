@@ -18,7 +18,8 @@ final class EnviarMensagemSuporteInput
     public function __construct(
         public readonly string $nome,
         #[Assert\NotBlank(message: 'Informe um e-mail válido para a resposta.')]
-        #[Assert\Regex(pattern: '/^\S+@\S+\.\S+$/u', message: 'Informe um e-mail válido para a resposta.')]
+        // Modo estrito (RFC, via egulias): o `\S+@\S+\.\S+` aceitava "a@b.com?cc=c@d.com" e "a@b.com,c@d.com".
+        #[Assert\Email(mode: Assert\Email::VALIDATION_MODE_STRICT, message: 'Informe um e-mail válido para a resposta.')]
         public readonly string $email,
         public readonly ?string $assunto,
         #[Assert\NotBlank(message: 'Escreva a sua mensagem.')]

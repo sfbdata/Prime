@@ -14,6 +14,12 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class RedefinicaoSenhaRepository extends ServiceEntityRepository
 {
+    /**
+     * A purga não apaga pedido criado há menos disto: o teto diário do SolicitarCodigoSenhaUseCase conta os pedidos
+     * das últimas 24 h pelas linhas desta tabela, e a purga das 3 h zeraria a conta no meio da janela.
+     */
+    public const RETENCAO_MINIMA = '-24 hours';
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, RedefinicaoSenha::class);
@@ -108,6 +114,38 @@ class RedefinicaoSenhaRepository extends ServiceEntityRepository
         $this->getEntityManager()->refresh($redefinicao);
     }
 
+    /** Quantos pedidos a conta criou desde `$desde`, consumidos, encerrados ou vivos (teto diário do código). */
+    public function contarPedidosDesde(User $user, \DateTimeImmutable $desde): int
+    {
+        return (int) $this->createQueryBuilder('r')
+            ->select('COUNT(r.id)')
+            ->where('r.user = :user')
+            ->andWhere('r.criadoEm >= :desde')
+            ->setParameter('user', $user)
+            ->setParameter('desde', $desde)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Encerra (marca `usado_em`) os pedidos ainda não consumidos da conta, sem apagar: é o RS02 do pedido de código.
+     * Diferente do `invalidarPendentesDoUsuario`, a linha fica até a purga, para o teto diário contar o pedido.
+     *
+     * @return int linhas encerradas
+     */
+    public function encerrarPendentesDoUsuario(User $user, \DateTimeImmutable $agora): int
+    {
+        return (int) $this->createQueryBuilder('r')
+            ->update()
+            ->set('r.usadoEm', ':agora')
+            ->where('r.user = :user')
+            ->andWhere('r.usadoEm IS NULL')
+            ->setParameter('agora', $agora)
+            ->setParameter('user', $user)
+            ->getQuery()
+            ->execute();
+    }
+
     public function salvar(RedefinicaoSenha $redefinicao, bool $flush = false): void
     {
         $this->getEntityManager()->persist($redefinicao);
@@ -146,14 +184,17 @@ class RedefinicaoSenhaRepository extends ServiceEntityRepository
 
     /**
      * Registros sem uso futuro que guardam PII (IP + user agent): os já consumidos e os
-     * que expiraram sem uso. Espelha o critério do CadastroPendenteRepository.
+     * que expiraram sem uso. Espelha o critério do CadastroPendenteRepository, menos os
+     * criados nas últimas 24 h (RETENCAO_MINIMA), que o teto diário ainda conta.
      */
     public function contarPurgaveis(\DateTimeImmutable $agora): int
     {
         return (int) $this->createQueryBuilder('r')
             ->select('COUNT(r.id)')
             ->where('r.usadoEm IS NOT NULL OR r.expiraEm < :agora')
+            ->andWhere('r.criadoEm < :retidoDesde')
             ->setParameter('agora', $agora)
+            ->setParameter('retidoDesde', $agora->modify(self::RETENCAO_MINIMA))
             ->getQuery()
             ->getSingleScalarResult();
     }
@@ -163,7 +204,9 @@ class RedefinicaoSenhaRepository extends ServiceEntityRepository
         return (int) $this->createQueryBuilder('r')
             ->delete()
             ->where('r.usadoEm IS NOT NULL OR r.expiraEm < :agora')
+            ->andWhere('r.criadoEm < :retidoDesde')
             ->setParameter('agora', $agora)
+            ->setParameter('retidoDesde', $agora->modify(self::RETENCAO_MINIMA))
             ->getQuery()
             ->execute();
     }

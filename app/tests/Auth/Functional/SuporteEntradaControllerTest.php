@@ -101,6 +101,8 @@ final class SuporteEntradaControllerTest extends JusPrimeWebTestCase
         yield 'sem arroba' => ['ana.adv.com'];
         yield 'sem ponto depois da arroba' => ['ana@adv'];
         yield 'com espaço' => ['ana souza@adv.com'];
+        yield 'com cópia na query' => ['a@b.com?cc=c@d.com'];
+        yield 'dois e-mails com vírgula' => ['a@b.com,c@d.com'];
     }
 
     #[DataProvider('emailsInvalidos')]
@@ -373,16 +375,62 @@ final class SuporteEntradaControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Primeira linha<br />', (string) $this->client->getResponse()->getContent());
     }
 
-    #[TestDox('/suporte/mensagens: o destinatário escolhido também vê')]
+    #[TestDox('/suporte/mensagens: o destinatário escolhido (da equipe da conta do Master) também vê')]
     public function testDestinatarioVeAsMensagens(): void
     {
-        $escolhida = $this->pessoa('Carla Escolhida');
+        $escolhida = $this->naEquipeDoMaster($this->master(), 'Carla Escolhida');
         $this->escolherDestinatario($escolhida);
         $this->entrarComo($escolhida);
 
         $this->client->request('GET', '/suporte/mensagens');
 
         self::assertResponseIsSuccessful();
+    }
+
+    /** @return iterable<string, array{bool}> */
+    public static function saidasDaEquipe(): iterable
+    {
+        yield 'vínculo desativado' => [false];
+        yield 'vínculo removido' => [true];
+    }
+
+    #[DataProvider('saidasDaEquipe')]
+    #[TestDox('/suporte/mensagens: o escolhido que saiu da equipe da conta do Master não lê mais (404)')]
+    public function testEscolhidoQueSaiuDaEquipeNaoVeAsMensagens(bool $remover): void
+    {
+        $master = $this->master();
+        $escolhida = $this->naEquipeDoMaster($master, 'Carla Escolhida');
+        $this->escolherDestinatario($escolhida);
+        $this->tirarDaEquipe($escolhida, $master, $remover);
+        // Entra pelo escritório próprio, o único vínculo ativo que sobrou.
+        $proprio = (int) $this->em()->getConnection()->fetchOne(
+            'SELECT MIN(tenant_id) FROM user_tenant WHERE user_id = :id AND is_active',
+            ['id' => $escolhida->getId()],
+        );
+        $this->logarComTenant($this->client, $this->em()->find(User::class, $escolhida->getId()), $this->em()->find(Tenant::class, $proprio));
+
+        $this->client->request('GET', '/suporte/mensagens');
+
+        self::assertResponseStatusCodeSame(404);
+        $this->em()->clear();
+        self::assertNull(static::getContainer()->get(PaginaDeEntrada::class)->destinatarioDoSuporte());
+    }
+
+    #[TestDox('Tela do Master: escolhido que saiu da equipe não aparece como escolhido')]
+    public function testEscolhidoQueSaiuNaoApareceEscolhido(): void
+    {
+        $master = $this->master();
+        $escolhida = $this->naEquipeDoMaster($master, 'Carla Escolhida');
+        $this->escolherDestinatario($escolhida);
+        $this->tirarDaEquipe($escolhida, $master, remover: false);
+        $this->em()->clear();
+
+        $pagina = static::getContainer()->get(PaginaDeEntrada::class)->montar($this->em()->find(User::class, $master->getId()));
+
+        $escolhidos = array_values(array_filter($pagina->destinatarios, static fn (array $d): bool => $d['escolhido']));
+        self::assertCount(1, $escolhidos);
+        self::assertNotSame($escolhida->getId(), $escolhidos[0]['id']);
+        self::assertNotContains($escolhida->getId(), array_column($pagina->destinatarios, 'id'));
     }
 
     #[TestDox('/suporte/mensagens: outro usuário recebe 404')]
@@ -448,6 +496,30 @@ final class SuporteEntradaControllerTest extends JusPrimeWebTestCase
     }
 
     /** Entra com escritório na sessão e Termos aceitos (passa pelos portões de escritório e de Termos). */
+    /**
+     * Pessoa com escritório próprio (para poder entrar) e vínculo ativo no escritório do Master: entra nas opções
+     * de quem recebe o suporte.
+     */
+    private function naEquipeDoMaster(User $master, string $nome): User
+    {
+        $pessoa = $this->pessoa($nome);
+        $contaDoMaster = $this->em()->find(Tenant::class, $this->escritorioDe($master));
+        $this->em()->persist(new UserTenant($this->em()->find(User::class, $pessoa->getId()), $contaDoMaster));
+        $this->em()->flush();
+
+        return $pessoa;
+    }
+
+    /** Tira a pessoa da conta do Master: desativa o vínculo ou o apaga. */
+    private function tirarDaEquipe(User $pessoa, User $master, bool $remover): void
+    {
+        $sql = $remover
+            ? 'DELETE FROM user_tenant WHERE user_id = :u AND tenant_id = :t'
+            : 'UPDATE user_tenant SET is_active = false WHERE user_id = :u AND tenant_id = :t';
+        $this->em()->getConnection()->executeStatement($sql, ['u' => $pessoa->getId(), 't' => $this->escritorioDe($master)]);
+        $this->em()->clear();
+    }
+
     private function entrarComo(User $user): void
     {
         $tenant = $this->em()->find(Tenant::class, $this->escritorioDe($user));

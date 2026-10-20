@@ -264,6 +264,8 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         yield 'e-mail sem ponto no domínio' => [self::input(email: 'ana@adv'), 'Informe um e-mail válido.'];
         yield 'e-mail com espaço' => [self::input(email: 'ana souza@adv.com'), 'Informe um e-mail válido.'];
         yield 'e-mail longo demais' => [self::input(email: str_repeat('a', 173) . '@adv.com'), 'Informe um e-mail válido.'];
+        yield 'e-mail com cópia na query' => [self::input(email: 'a@b.com?cc=c@d.com'), 'Informe um e-mail válido.'];
+        yield 'dois e-mails com vírgula' => [self::input(email: 'a@b.com,c@d.com'), 'Informe um e-mail válido.'];
         yield 'senha só com letras minúsculas' => [self::input(senha: 'abcdefgh'), ForcaDaSenha::ERRO];
         yield 'senha curta' => [self::input(senha: 'Ab1!'), ForcaDaSenha::ERRO];
         yield 'aceite desmarcado' => [self::input(aceite: false), 'É preciso aceitar os Termos e a Política de privacidade.'];

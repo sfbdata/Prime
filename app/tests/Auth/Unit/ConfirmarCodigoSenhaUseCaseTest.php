@@ -134,6 +134,35 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
         self::assertTrue($pedido->isUsado());
     }
 
+    #[TestDox('Código certo confirma o e-mail da conta: o código chegou no endereço')]
+    public function testCodigoCertoConfirmaOEmail(): void
+    {
+        $user = $this->usuario();
+        $user->marcarEmailAConfirmar(new \DateTimeImmutable('-1 day'));
+        $this->cenario($user);
+
+        $this->useCase->executar($this->input());
+
+        self::assertTrue($user->isEmailConfirmado());
+        self::assertNull($user->getEmailAConfirmarDesde());
+    }
+
+    #[TestDox('Código errado não confirma o e-mail')]
+    public function testCodigoErradoNaoConfirmaOEmail(): void
+    {
+        $user = $this->usuario();
+        $user->marcarEmailAConfirmar(new \DateTimeImmutable('-1 day'));
+        $this->cenario($user);
+
+        try {
+            $this->useCase->executar($this->input('999999'));
+            self::fail('Código errado não pode passar.');
+        } catch (\DomainException) {
+        }
+
+        self::assertFalse($user->isEmailConfirmado());
+    }
+
     #[TestDox('Código errado gasta a tentativa reservada no banco e devolve o erro neutro')]
     public function testCodigoErradoContaTentativa(): void
     {

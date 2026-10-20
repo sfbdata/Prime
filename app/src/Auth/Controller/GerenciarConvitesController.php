@@ -12,6 +12,7 @@ use App\Auth\Service\ConviteMailer;
 use App\Auth\UseCase\CriarConviteEscritorioUseCase;
 use App\Auth\UseCase\ReenviarConviteUseCase;
 use App\Auth\UseCase\RevogarConviteUseCase;
+use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use App\Repository\TenantRoleRepository;
 use App\Service\PermissionChecker;
@@ -154,7 +155,8 @@ final class GerenciarConvitesController extends AbstractController
         }
 
         try {
-            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($token));
+            $quem = $this->getUser();
+            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($token, $quem instanceof User ? $quem : null));
 
             try {
                 $this->mailer->enviarConviteEscritorio($invitation);

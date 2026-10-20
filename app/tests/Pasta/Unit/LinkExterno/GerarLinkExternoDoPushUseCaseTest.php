@@ -92,6 +92,19 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
         $this->useCase()->executar($pasta($this), $this->usuario(), true, true, false);
     }
 
+    #[TestDox('Conta com o e-mail a confirmar não gera link: recusa com o pedido de confirmação e nada é salvo')]
+    public function testEmailAConfirmarNaoGeraLink(): void
+    {
+        $this->publicacoes->method('existePorNumerosDoTenant')->willReturn(true);
+        $this->links->expects(self::never())->method('salvar');
+        $usuario = $this->usuario();
+        $usuario->marcarEmailAConfirmar($this->agora());
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Confirme o seu e-mail para compartilhar o processo por link.');
+        $this->useCase()->executar($this->pastaComProcesso($this->tenant()), $usuario, false, true, false);
+    }
+
     #[TestDox('Sem movimentações: "Ainda não há movimentações para compartilhar."')]
     public function testSemMovimentacoes(): void
     {

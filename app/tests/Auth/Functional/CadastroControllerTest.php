@@ -189,6 +189,8 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         yield 'escritório longo demais' => [['escritorio' => str_repeat('e', 256)], 'Informe o nome do escritório.'];
         yield 'e-mail inválido' => [['email' => 'ana@adv'], 'Informe um e-mail válido.'];
         yield 'e-mail longo demais' => [['email' => str_repeat('a', 173) . '@adv.com'], 'Informe um e-mail válido.'];
+        yield 'e-mail com cópia na query' => [['email' => 'a@b.com?cc=c@d.com'], 'Informe um e-mail válido.'];
+        yield 'dois e-mails com vírgula' => [['email' => 'a@b.com,c@d.com'], 'Informe um e-mail válido.'];
         yield 'senha fraca' => [['senha' => 'abcdefgh'], ForcaDaSenha::ERRO];
         yield 'sem aceite' => [['aceite' => false], 'É preciso aceitar os Termos e a Política de privacidade.'];
         yield 'campo ausente' => [['nome' => null], 'Informe seu nome completo.'];

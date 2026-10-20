@@ -293,4 +293,71 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         $client->followRedirect();
         self::assertSelectorExists('.alert-erro');
     }
+
+    #[TestDox('E-mail a confirmar: criar convite é recusado com o pedido de confirmação e nada é gravado')]
+    public function testEmailAConfirmarNaoCriaConvite(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarAdminComPermissao($tenant);
+        $this->marcarEmailAConfirmar($user);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em    = static::getContainer()->get(EntityManagerInterface::class);
+        $roles = $em->getRepository(TenantRole::class)->findBy(['tenant' => $tenant]);
+        $email = 'a_confirmar_' . uniqid() . '@example.com';
+
+        $client->request('POST', '/escritorio/convites/novo', [
+            'email'          => $email,
+            'tenant_role_id' => $roles[0]->getId(),
+            '_token'         => $this->gerarCsrf('convite_novo'),
+        ]);
+
+        self::assertResponseRedirects('/escritorio/convites');
+        self::assertEmailCount(0);
+        $client->followRedirect();
+        self::assertSelectorTextContains('.alert-erro', 'Confirme o seu e-mail para convidar pessoas.');
+        $em->clear();
+        self::assertNull($em->getRepository(Invitation::class)->findOneBy(['email' => $email]));
+    }
+
+    #[TestDox('E-mail a confirmar: reenviar convite é recusado e o convite não muda')]
+    public function testEmailAConfirmarNaoReenviaConvite(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarAdminComPermissao($tenant);
+        $this->marcarEmailAConfirmar($user);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $em         = static::getContainer()->get(EntityManagerInterface::class);
+        $invitation = new Invitation(
+            email: 'reenvio_' . uniqid() . '@example.com',
+            token: bin2hex(random_bytes(16)),
+            type: 'office',
+            expiresAt: new \DateTimeImmutable('+7 days'),
+        );
+        $invitation->setTenant($tenant);
+        $em->persist($invitation);
+        $em->flush();
+
+        $client->request('POST', '/escritorio/convites/' . $invitation->getToken() . '/reenviar', [
+            '_token' => $this->gerarCsrf('convite_reenviar_' . $invitation->getToken()),
+        ]);
+
+        self::assertResponseRedirects('/escritorio/convites');
+        self::assertEmailCount(0);
+        $client->followRedirect();
+        self::assertSelectorTextContains('.alert-erro', 'Confirme o seu e-mail para convidar pessoas.');
+        $em->clear();
+        self::assertSame(0, $em->find(Invitation::class, $invitation->getId())->getReenvioCount());
+    }
+
+    private function marcarEmailAConfirmar(User $user): void
+    {
+        $user->marcarEmailAConfirmar(new \DateTimeImmutable());
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+    }
 }

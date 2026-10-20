@@ -62,6 +62,19 @@ final class CriarConviteEscritorioUseCaseTest extends TestCase
         );
     }
 
+    #[TestDox('Quem convida com o e-mail a confirmar é recusado e nada é gravado')]
+    public function testEmailAConfirmarNaoConvida(): void
+    {
+        $this->criadoPor->marcarEmailAConfirmar(new \DateTimeImmutable());
+        $this->em->expects($this->never())->method('persist');
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Confirme o seu e-mail para convidar pessoas. Reenviamos o link de confirmação se você pedir.');
+
+        $this->useCase->executar($this->input('novo@example.com'));
+    }
+
     public function testEmailSemContaCriaConviteEscritorio(): void
     {
         $this->userRepo->method('findOneBy')->willReturn(null);

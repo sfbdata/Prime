@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Validator\Validation;
 
 #[CoversClass(EnviarMensagemSuporteInput::class)]
 final class EnviarMensagemSuporteInputTest extends TestCase
@@ -28,6 +29,31 @@ final class EnviarMensagemSuporteInputTest extends TestCase
         self::assertSame("Não lembro.\nAjuda", $input->mensagem);
         self::assertSame('10.0.0.1', $input->ip);
         self::assertSame('Navegador/1.0', $input->userAgent);
+    }
+
+    /** @return iterable<string, array{string, bool}> */
+    public static function emails(): iterable
+    {
+        yield 'normal' => ['ana.souza@escritorio.adv.br', true];
+        yield 'com cópia na query' => ['a@b.com?cc=c@d.com', false];
+        yield 'dois e-mails com vírgula' => ['a@b.com,c@d.com', false];
+        yield 'sem ponto no domínio' => ['ana@adv', false];
+        yield 'vazio' => ['', false];
+    }
+
+    #[DataProvider('emails')]
+    #[TestDox('E-mail validado no modo estrito (RFC): só um destinatário passa')]
+    public function testEmailNoModoEstrito(string $email, bool $aceito): void
+    {
+        $validador = Validation::createValidatorBuilder()->enableAttributeMapping()->getValidator();
+        $input = EnviarMensagemSuporteInput::doPayload(['email' => $email, 'mensagem' => 'Não consigo entrar.'], '', null);
+
+        $mensagens = array_map(
+            static fn ($v): string => (string) $v->getMessage(),
+            iterator_to_array($validador->validateProperty($input, 'email')),
+        );
+
+        self::assertSame($aceito ? [] : ['Informe um e-mail válido para a resposta.'], array_values(array_unique($mensagens)));
     }
 
     /** @return iterable<string, array{mixed}> */

@@ -18,6 +18,10 @@ final class ReenviarConviteUseCase
 
     public function executar(ReenviarConviteInput $input): Invitation
     {
+        if ($input->reenviadoPor !== null && !$input->reenviadoPor->isEmailConfirmado()) {
+            throw new \DomainException(CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR);
+        }
+
         $invitation = $this->invitationRepository->encontrarPorToken($input->token);
 
         if ($invitation === null) {

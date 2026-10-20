@@ -122,6 +122,8 @@ final class ConfirmarCodigoSenhaUseCase
 
             $user = $pedido->getUser();
             $user->setPassword($this->passwordHasher->hashPassword($user, $novaSenha));
+            // Quem trocou a senha com o código que chegou no e-mail provou que lê o endereço: confirma o e-mail.
+            $user->confirmarEmail();
 
             $this->redefinicaoRepository->invalidarPendentesDoUsuario($user, exceto: $pedido);
             $this->redefinicaoRepository->salvar($pedido, flush: true);

@@ -17,6 +17,7 @@ use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Tests\Auth\Cenario\CenarioDaEntrada;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Psr\Log\AbstractLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -136,6 +137,31 @@ final class EnviarMensagemSuporteUseCaseTest extends KernelTestCase
         self::assertNull($this->gravada($input)?->getDestinatario());
         self::assertCount(1, $this->avisosDoSuporte($master));
         self::assertSame([], $this->avisosDoSuporte($inativa));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function saidasDaEquipe(): iterable
+    {
+        yield 'vínculo desativado' => ['UPDATE user_tenant SET is_active = false WHERE user_id = :u AND tenant_id = :t'];
+        yield 'vínculo removido' => ['DELETE FROM user_tenant WHERE user_id = :u AND tenant_id = :t'];
+    }
+
+    #[DataProvider('saidasDaEquipe')]
+    #[TestDox('Destinatário escolhido que saiu da equipe da conta do Master: volta a avisar os Masters')]
+    public function testDestinatarioQueSaiuDaEquipeVoltaParaOsMasters(string $sql): void
+    {
+        $master = $this->master();
+        $escolhida = $this->colega($master, 'Carla Escolhida');
+        $this->escolherDestinatario($escolhida);
+        $this->em()->getConnection()->executeStatement($sql, ['u' => $escolhida->getId(), 't' => $this->escritorioDe($master)]);
+        $this->em()->clear();
+
+        $input = $this->input();
+        static::getContainer()->get(EnviarMensagemSuporteUseCase::class)->executar($input);
+
+        self::assertNull($this->gravada($input)?->getDestinatario());
+        self::assertCount(1, $this->avisosDoSuporte($master));
+        self::assertSame([], $this->avisosDoSuporte($escolhida));
     }
 
     #[TestDox('Sem nome e sem assunto: o aviso usa o e-mail e "mensagem"')]

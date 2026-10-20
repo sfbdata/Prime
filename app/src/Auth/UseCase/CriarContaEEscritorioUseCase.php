@@ -25,6 +25,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\Validation;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
@@ -122,12 +124,19 @@ final class CriarContaEEscritorioUseCase
         return $escritorio !== '' && mb_strlen($escritorio) <= 255;
     }
 
-    /** Igual ao desenho: `\S+@\S+\.\S+`, e cabe na coluna. */
+    /**
+     * A constraint Email do Symfony no modo estrito (RFC, via egulias), e cabe na coluna. O `\S+@\S+\.\S+` do
+     * desenho deixava passar "a@b.com?cc=c@d.com" e "a@b.com,c@d.com", que viram mais de um destinatário.
+     */
     private static function emailValido(string $email): bool
     {
         $email = trim($email);
 
-        return preg_match('/^\S+@\S+\.\S+$/u', $email) === 1 && mb_strlen($email) <= 180;
+        return mb_strlen($email) <= 180
+            && count(Validation::createValidator()->validate($email, [
+                new Assert\NotBlank(),
+                new Assert\Email(mode: Assert\Email::VALIDATION_MODE_STRICT),
+            ])) === 0;
     }
 
     private function criar(CriarContaEEscritorioInput $input, string $email, string $token, string $ip, ?string $userAgent): ContaCriadaOutput

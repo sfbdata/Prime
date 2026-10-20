@@ -7,6 +7,7 @@ namespace App\Tests\Auth\Unit;
 use App\Auth\DTO\ReenviarConviteInput;
 use App\Auth\UseCase\ReenviarConviteUseCase;
 use App\Entity\Auth\Invitation;
+use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -36,6 +37,31 @@ final class ReenviarConviteUseCaseTest extends TestCase
             type: 'office',
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
+    }
+
+    #[TestDox('Quem reenvia com o e-mail a confirmar é recusado e nada é gravado')]
+    public function testEmailAConfirmarNaoReenvia(): void
+    {
+        $quem = (new User())->setEmail('novo@escritorio.com');
+        $quem->marcarEmailAConfirmar(new \DateTimeImmutable());
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($this->convitePendente());
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Confirme o seu e-mail para convidar pessoas. Reenviamos o link de confirmação se você pedir.');
+
+        $this->useCase->executar(new ReenviarConviteInput('token-valido', $quem));
+    }
+
+    #[TestDox('Quem reenvia com o e-mail confirmado reenvia normalmente')]
+    public function testEmailConfirmadoReenvia(): void
+    {
+        $quem = (new User())->setEmail('dono@escritorio.com');
+        $convite = $this->convitePendente();
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($convite);
+        $this->em->expects($this->once())->method('flush');
+
+        self::assertSame($convite, $this->useCase->executar(new ReenviarConviteInput('token-valido', $quem)));
     }
 
     #[TestDox('Convite não encontrado lança DomainException')]

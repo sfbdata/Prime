@@ -57,14 +57,21 @@ final class PaginaDeEntrada
     }
 
     /**
-     * Quem recebe as mensagens de suporte: o escolhido pelo Master, se ainda for Master ou ativo; senão, ninguém em
-     * particular (nulo = todos os Masters).
+     * Quem recebe as mensagens de suporte: o escolhido pelo Master, enquanto continuar entre as opções (Master ativo
+     * ou usuário ativo da equipe da conta do Master); senão, ninguém em particular (nulo = todos os Masters). Quem
+     * saiu da equipe perde na hora o aviso e a leitura de /suporte/mensagens, sem o Master precisar trocar a escolha.
      */
     public function destinatarioDoSuporte(): ?User
     {
+        return $this->escolhidoEntre($this->opcoesDeDestinatario());
+    }
+
+    /** @param array<int, array{nome: string, cargo: string}> $opcoes */
+    private function escolhidoEntre(array $opcoes): ?User
+    {
         $ajuste = $this->ajustes->find(AjusteEntrada::SUPORTE_DESTINATARIO);
         $id = $ajuste?->getValor();
-        if ($id === null || !ctype_digit($id)) {
+        if ($id === null || !ctype_digit($id) || !isset($opcoes[(int) $id])) {
             return null;
         }
         $user = $this->usuarios->find((int) $id);
@@ -160,7 +167,7 @@ final class PaginaDeEntrada
     private function destinatarios(array $ajustes): array
     {
         $opcoes = $this->opcoesDeDestinatario();
-        $escolhido = $this->destinatarioDoSuporte()?->getId();
+        $escolhido = $this->escolhidoEntre($opcoes)?->getId();
         if ($escolhido === null || !isset($opcoes[$escolhido])) {
             $escolhido = array_key_first($opcoes);
         }
