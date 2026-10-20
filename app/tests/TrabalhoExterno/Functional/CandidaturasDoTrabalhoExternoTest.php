@@ -64,7 +64,8 @@ final class CandidaturasDoTrabalhoExternoTest extends JusPrimeWebTestCase
 
         $this->logarComTenant($this->client, $doB, $b);
         $this->postarJson($this->client, self::CURRICULOS . '/meu', self::curriculo('Bia Lima'));
-        $this->em()->getConnection()->executeStatement('UPDATE trabalho_externo_vaga SET inscricoes_ate = CURRENT_DATE - 1 WHERE id = ?', [Vaga::idDoCodigo($codigo)]);
+        $ontem = (new \DateTimeImmutable('yesterday'))->format('Y-m-d');
+        $this->em()->getConnection()->executeStatement('UPDATE trabalho_externo_vaga SET inscricoes_ate = ? WHERE id = ?', [$ontem, Vaga::idDoCodigo($codigo)]);
         $vencida = $this->postarJson($this->client, self::VAGAS . "/$codigo/candidatura");
         self::assertResponseStatusCodeSame(422);
         self::assertSame(['Inscrições encerradas', 'As inscrições desta vaga estão encerradas.'], [$vencida['titulo'], $vencida['mensagem']]);
