@@ -515,4 +515,44 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
         }
         self::assertSame(EstadoDoPedidoDeExclusao::Pendente, $this->pedidoDe($conta)?->getEstado());
     }
+
+    #[TestDox('rota antiga do Master (app_tenant_delete), com o escritório dele na sessão: a exclusão decide o pedido do cliente ("excluida")')]
+    public function testRotaAntigaDoMasterDecideOPedido(): void
+    {
+        $conta = $this->conta();
+        $primario = $this->pessoa($conta, true);
+        $contaDoMaster = $this->conta();
+        $master = $this->pessoa($contaDoMaster, true, ['ROLE_SUPER_ADMIN']);
+        $this->suspenderAPedido($conta, $primario);
+        $this->logarComTenant($this->client, $master, $contaDoMaster);
+
+        $this->client->request('POST', '/tenant/' . $conta->getId(), ['_token' => 'TOKEN_delete' . $conta->getId()]);
+
+        $pedido = $this->pedidoDe($conta);
+        self::assertSame(EstadoDoPedidoDeExclusao::Excluida, $pedido?->getEstado());
+        self::assertSame($master->getId(), $pedido?->getDecididoPor()?->getId());
+        self::assertNotNull($pedido?->getTenant()->getExcluidoEm());
+    }
+
+    #[TestDox('o aviso ao Master não deixa rastro na trilha do cliente: o audit_log da notificação fica na conta do Master')]
+    public function testAuditoriaDoAvisoNaContaDoMaster(): void
+    {
+        $conta = $this->conta();
+        $primario = $this->pessoa($conta, true);
+        $contaDoMaster = $this->conta();
+        $master = $this->pessoa($contaDoMaster, true, ['ROLE_SUPER_ADMIN']);
+        $this->logarComTenant($this->client, $primario, $conta);
+        $codigo = $this->pedirCodigo();
+
+        $this->postar('pedir', ['motivo' => 'Achei caro', 'codigo' => $codigo, 'palavra' => 'EXCLUIR']);
+        self::assertResponseIsSuccessful();
+
+        // Na inserção o id ainda não existe (entity_id nulo): a prova é pelo escritório da linha de auditoria.
+        $contar = fn (Tenant $t): int => (int) $this->em->getConnection()->fetchOne(
+            "SELECT count(*) FROM audit_log WHERE entity_class = :c AND action = 'create' AND tenant_id = :t",
+            ['c' => Notificacao::class, 't' => $t->getId()],
+        );
+        self::assertSame(0, $contar($conta), 'nada da notificação do Master na trilha do cliente');
+        self::assertGreaterThanOrEqual(1, $contar($contaDoMaster), 'a criação da notificação fica na conta do Master');
+    }
 }
