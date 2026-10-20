@@ -58,6 +58,8 @@
    no compositor). #}
 {% set podeEscreverObs = podeEditarPasta and not obsPastaLapide %}
 {% set obsPodeCriarMeta = podeEscreverObs %}
+{# dc L.6872: "Enviar no Chat I.A" só com o lançador flutuante na página; uma consulta só, não uma por observação. #}
+{% set obsComChat = central_disponivel() %}
 {% set OBS_MOTIVO_PRAZO = 'O prazo de 15 minutos para editar ou excluir terminou.' %}
 {% set OBS_MOTIVO_AUTOR = 'Só o autor pode editar ou excluir, nos 15 minutos após publicar.' %}
 <style>
@@ -105,7 +107,7 @@
     {% endif %}
     <div id="detalhesObsErro" class="ps-compositor-erro d-none"></div>
 
-    <div id="detalhesObsLista" class="ps-registro ps-detalhes-rolagem{{ observacoesDetalhes is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}" data-ler-mais=".obs-conteudo-det">
+    <div id="detalhesObsLista" class="ps-registro ps-detalhes-rolagem{{ observacoesDetalhes is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}" data-ler-mais=".obs-conteudo-det" data-pasta-nup="{{ pasta.nup }}">
         {% if observacoesDetalhes is empty %}
             <div class="ps-vazio" id="detalhesObsVazio">
                 <i class="bi bi-chat-left-text"></i>
@@ -131,13 +133,13 @@
                     {% set diaAnterior = dia %}
                 {% endif %}
 
-                {{ det.observacao(obs, null, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs) }}
+                {{ det.observacao(obs, null, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs, obsComChat) }}
 
                 {% set respostasDet = observacoesDetalhes|filter(o => o.respostaA is not null and o.respostaA.id == obs.id)|reverse %}
                 {% if respostasDet|length > 0 %}
                     <div class="ps-respostas" data-resposta-de="{{ obs.id }}">
                         {% for resposta in respostasDet %}
-                            {{ det.observacao(resposta, obs, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs) }}
+                            {{ det.observacao(resposta, obs, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs, obsComChat) }}
                         {% endfor %}
                     </div>
                 {% endif %}
@@ -307,7 +309,7 @@
 
             return `
                 <article class="ps-anotacao detalhes-obs-item${ehResposta ? ' ps-anotacao--resposta' : ''}" id="detalhes-obs-${data.id}"
-                         data-janela-ate="${janelaAte}" data-do-autor="1">
+                         data-janela-ate="${janelaAte}" data-do-autor="1" data-autor-id="${esc(data.autorId ?? '')}">
                     ${faixa}
                     <span class="ps-anotacao-ponto" aria-hidden="true"></span>
                     <span class="ps-anotacao-seta" aria-hidden="true"></span>
@@ -361,6 +363,9 @@
                             </button>{% endif %}{% if obsPodeCriarMeta %}
                             <button type="button" class="ps-processo-menu-item js-obs-criar-meta" role="menuitem">
                                 <i class="bi bi-check2-square"></i><span>Criar meta a partir deste registro</span>
+                            </button>{% endif %}{% if obsComChat %}
+                            <button type="button" class="ps-processo-menu-item js-obs-enviar-chat" role="menuitem">
+                                <i class="bi bi-chat-dots"></i><span>Enviar no Chat I.A</span>
                             </button>{% endif %}
                             <button type="button" class="ps-processo-menu-item js-obs-imprimir" role="menuitem"
                                     data-autor="${esc(data.autorNome ?? 'Autor desconhecido')}"
@@ -679,6 +684,30 @@
 
     /* "Copiar texto": o texto como se lê na tela (sem a marcação do editor). O rótulo
        vira o aviso por um instante e o menu fecha, como no ⋮ do processo. */
+    /* dc L.6872: abre a Central (evento `bj-central:abrir`, ouvido pelo lançador flutuante) e copia
+       "Pasta N · cabeçalho" + o texto, até 900 caracteres, para colar na conversa. */
+    function enviarObsNoChat(item) {
+        const artigo = item.closest('.detalhes-obs-item');
+        const corpo  = artigo ? artigo.querySelector('.obs-conteudo-det .ql-editor') : null;
+        const menu   = item.closest('.ps-obs-menu');
+        const titulo = menu ? menu.querySelector('.ps-processo-menu-titulo') : null;
+        const cab    = titulo ? titulo.textContent.trim() : '';
+        const lista  = document.getElementById('detalhesObsLista');
+        const nup    = lista ? (lista.dataset.pastaNup || '') : '';
+        const texto  = 'Pasta ' + nup + ' · ' + cab + '\n' + (corpo ? corpo.innerText.trim() : '').slice(0, 900);
+        fecharMenuObs(false);
+        document.dispatchEvent(new CustomEvent('bj-central:abrir'));
+        const aviso = window.bjAviso || function () {};
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto).then(
+                function () { aviso('Chat I.A aberto. Texto copiado para colar na conversa'); },
+                function () { aviso('Chat I.A aberto. Não foi possível copiar o texto'); }
+            );
+        } else {
+            aviso('Chat I.A aberto. Não foi possível copiar o texto');
+        }
+    }
+
     function copiarTextoObs(item) {
         const artigo = item.closest('.detalhes-obs-item');
         const corpo  = artigo ? artigo.querySelector('.obs-conteudo-det .ql-editor') : null;
@@ -804,6 +833,9 @@
 
             const itemMeta = e.target.closest('.js-obs-criar-meta');
             if (itemMeta) { criarMetaObs(itemMeta); return; }
+
+            const itemChat = e.target.closest('.js-obs-enviar-chat');
+            if (itemChat) { enviarObsNoChat(itemChat); return; }
 
             // Responder do ⋮: clica o botão de responder do PRÓPRIO cartão.
             const itemResponder = e.target.closest('.js-obs-responder');
@@ -1028,7 +1060,7 @@
    responde a algo fora do limite). Mesma estrutura do Registro da aba Dados. O JS deste arquivo
    (`htmlDoCartao`) monta a MESMA marcação.
 #}
-{% macro observacao(obs, raiz, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs) %}
+{% macro observacao(obs, raiz, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs, obsComChat = false) %}
     {% set obsPastaLapide = pasta.estaExcluida %}
     {% set autor = obs.autor.fullName ?? obs.autor.email ?? '' %}
     {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
@@ -1052,7 +1084,9 @@
        recalcula os minutos ao abrir, como o Registro (`data-janela-ate`/`data-do-autor`). #}
     <article class="ps-anotacao detalhes-obs-item{{ obs.resposta ? ' ps-anotacao--resposta' : '' }}" id="detalhes-obs-{{ obs.id }}"
              data-janela-ate="{{ obs.criadaEm|date('U') + comentario_janela_minutos() * 60 }}"
-             data-do-autor="{{ doAutor ? '1' : '0' }}">
+             data-do-autor="{{ doAutor ? '1' : '0' }}"
+             {#- Presença do autor (pasta-presenca-autor.js). #}
+             {%- if obs.autor %} data-autor-id="{{ obs.autor.id }}"{% endif %}>
         {% if obs.resposta %}
             {# O desenho grava o rótulo em caixa alta; quem põe em maiúsculas é o CSS. #}
             <div class="ps-anotacao-resposta-rot">
@@ -1112,7 +1146,8 @@
             {# ⋮ da observação (N7, dc L.2335): 28×28, depois da hora. Itens: ver o
                cabeçalho (PAS-041). "Imprimir" (EDT-003) fecha os extras, logo depois de "Criar
                meta…" e antes do separador de Editar/Excluir (C6-EDT-04; dc L.5958: `extras`
-               e só então '-'). Encaminhar via Chat I.A não existe aqui. #}
+               e só então '-'). Encaminhar via Chat I.A não existe aqui (vem com o despacho); "Enviar no Chat I.A"
+               (dc L.6872) fica entre "Criar meta…" e "Imprimir". #}
             <button type="button" class="ps-obs-menu-btn js-obs-menu" title="Mais ações da observação"
                     aria-label="Mais ações da observação" aria-haspopup="menu" aria-expanded="false"
                     aria-controls="psObsMenu{{ obs.id }}">
@@ -1137,6 +1172,15 @@
                 {% if obsPodeCriarMeta %}
                     <button type="button" class="ps-processo-menu-item js-obs-criar-meta" role="menuitem">
                         <i class="bi bi-check2-square"></i><span>Criar meta a partir deste registro</span>
+                    </button>
+                {% endif %}
+                {# dc L.6872: "Enviar no Chat I.A" abre a Central e copia "Pasta N · cabeçalho" + o texto (até 900) para
+                   colar na conversa. Só com o lançador flutuante na página (`obsComChat`). O NUP vem do
+                   `data-pasta-nup` da lista (fora do <script>: no template JS do cartão novo ele seria texto cru).
+                   O `bj-chat-anexar-texto` do dc fica de fora: nada no sistema o ouve. #}
+                {% if obsComChat %}
+                    <button type="button" class="ps-processo-menu-item js-obs-enviar-chat" role="menuitem">
+                        <i class="bi bi-chat-dots"></i><span>Enviar no Chat I.A</span>
                     </button>
                 {% endif %}
                 {# EDT-003 (dc L.6466): "Imprimir" abre a janela de impressão (pasta-impressao.js)

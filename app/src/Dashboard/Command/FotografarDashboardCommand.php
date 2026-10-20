@@ -27,7 +27,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * (ON CONFLICT DO UPDATE), então dois crons sobrepostos ou uma repetição manual não duplicam.
  *
  * `--data` no passado é só para reparar uma noite perdida: vencidas e prazos próximos ficam
- * relativos ao fim daquele dia, mas o status das metas/pastas é o de AGORA (o passado não é
+ * relativos àquele dia (contados por dia, RegraDoPrazo), mas o status das metas/pastas é o de AGORA (o passado não é
  * reconstruível — é por isso que a foto existe). O comando avisa quando isso acontece.
  */
 #[AsCommand(
@@ -76,7 +76,7 @@ final class FotografarDashboardCommand extends Command
         $ehHoje  = $referencia->format('Y-m-d') === $hoje->format('Y-m-d');
         $momento = $ehHoje ? $agora : $referencia->setTime(23, 59, 59);
         if (!$ehHoje) {
-            $io->warning('Data no passado: vencidas/prazos ficam relativos ao fim daquele dia, mas o status das metas e pastas é o de agora (aproximação).');
+            $io->warning('Data no passado: vencidas/prazos ficam relativos àquele dia, mas o status das metas e pastas é o de agora (aproximação).');
         }
 
         $ids = $this->resolverEscritorios($input, $io);
