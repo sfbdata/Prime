@@ -177,4 +177,42 @@ final class PastaPagamentoRepository extends ServiceEntityRepository
     {
         return rtrim($namespaceDosProxies ?? 'Proxies', '\\') . '\\' . Proxy::MARKER . '\\' . PastaPagamento::class;
     }
+
+    /**
+     * Quantos lançamentos cada pasta pedida tem e quantos estão vencidos (pendentes com vencimento
+     * antes de `$hoje`, a regra de `PastaPagamento::estaVencido`), para o relatório de pastas
+     * paradas. Um GROUP BY para o lote, com o tenant explícito.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, array{total: int, vencidos: int}> pastaId => contagens (pasta sem lançamento não aparece)
+     */
+    public function resumoPorPasta(array $pastaIds, Tenant $tenant, \DateTimeImmutable $hoje): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('p')
+            ->select(
+                'IDENTITY(p.pasta) AS pasta_id',
+                'COUNT(p.id) AS total',
+                'SUM(CASE WHEN p.pagoEm IS NULL AND p.vencimento < :hoje THEN 1 ELSE 0 END) AS vencidos',
+            )
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('IDENTITY(p.pasta) IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->setParameter('hoje', $hoje->setTime(0, 0), 'date_immutable')
+            ->groupBy('p.pasta')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPasta = [];
+        foreach ($linhas as $l) {
+            $porPasta[(int) $l['pasta_id']] = ['total' => (int) $l['total'], 'vencidos' => (int) $l['vencidos']];
+        }
+
+        return $porPasta;
+    }
 }

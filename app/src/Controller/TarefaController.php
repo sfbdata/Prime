@@ -11,6 +11,7 @@ use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Tarefa\Enum\AbaMetas;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Exception\DesfazerReaberturaRecusadoException;
@@ -64,11 +65,11 @@ final class TarefaController extends AbstractController
      * atalhos que apontam para uma aba já filtrada, e o usuário precisa poder guardar o link.
      */
     #[Route('/minhas', name: 'tarefa_minhas', methods: ['GET'])]
-    public function minhas(Request $request, ListarMinhasMetasUseCase $useCase): Response
+    public function minhas(Request $request, ListarMinhasMetasUseCase $useCase, AcessoAPasta $acessoAPasta): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        $this->assertAccess($usuario);
+        $tenant  = $this->assertAccess($usuario);
 
         $filtros = [
             'busca'      => trim((string) $request->query->get('busca', '')),
@@ -89,6 +90,7 @@ final class TarefaController extends AbstractController
                 // Na recarga parcial só o fragmento da lista é redesenhado; calcular as
                 // contagens do topo ali seria pagar 8 consultas por tecla digitada na busca.
                 $soAListagem,
+                $acessoAPasta->idsOcultosPara($usuario, (int) $tenant->getId()),
             ),
             'filtros' => $filtros,
         ];

@@ -6,6 +6,7 @@ namespace App\Tests\Auditoria\Functional;
 
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Service\Audit\AuditLogSubscriber;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Tests\Factory\Auth\UserFactory;
@@ -22,7 +23,8 @@ use Zenstruck\Foundry\Test\Factories;
 
 /**
  * AuditLogSubscriber e o escopo de plataforma (spec perfis-1.2-masters M7): com o escopo ligado a
- * linha grava com tenant_id nulo; fora dele, com o escritório da sessão, como sempre.
+ * linha grava com tenant_id nulo; fora dele, com o escritório da sessão, como sempre. No escopo de
+ * conta (spec perfis-1.2-contas C6), com o tenant da conta alvo.
  */
 #[CoversClass(AuditLogSubscriber::class)]
 #[CoversClass(EscopoDeAuditoriaDePlataforma::class)]
@@ -61,6 +63,23 @@ final class AuditoriaDePlataformaTest extends KernelTestCase
 
         self::assertNull($this->ultimaAlteracao($user)->getTenantId());
         self::assertFalse(static::getContainer()->get(EscopoDeAuditoriaDePlataforma::class)->estaLigado(), 'desliga depois');
+    }
+
+    #[TestDox('escopo de conta (spec perfis-1.2-contas C6): a alteração grava com o tenant da CONTA ALVO, não o da sessão')]
+    public function testEscopoDeContaGravaComAContaAlvo(): void
+    {
+        $alvo = TenantFactory::createOne(['name' => 'Conta alvo ' . uniqid()])->_real();
+        $alvo->setIsActive(false);
+
+        static::getContainer()->get(EscopoDeAuditoriaDePlataforma::class)->executarComoConta((int) $alvo->getId(), fn () => $this->em->flush());
+
+        $registro = $this->em->getRepository(AuditLog::class)->findOneBy(
+            ['entityClass' => Tenant::class, 'entityId' => (string) $alvo->getId(), 'action' => 'update'],
+            ['id' => 'DESC'],
+        );
+        self::assertNotNull($registro);
+        self::assertSame($alvo->getId(), $registro->getTenantId());
+        self::assertNotSame($this->tenantId, $registro->getTenantId());
     }
 
     private function alterarNome(bool $dentroDoEscopo): User

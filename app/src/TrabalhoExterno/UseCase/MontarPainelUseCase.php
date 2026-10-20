@@ -8,10 +8,13 @@ use App\Entity\Auth\UserTenant;
 use App\Repository\UserTenantRepository;
 use App\TrabalhoExterno\DTO\DadosDaSolicitacao;
 use App\TrabalhoExterno\Entity\DemandaExterna;
+use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Enum\Disponibilidade;
+use App\TrabalhoExterno\Enum\TipoItemMarcado;
 use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Enum\Visibilidade;
+use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
 use App\TrabalhoExterno\Service\ApresentadorDeDemanda;
 use App\TrabalhoExterno\Service\ContadorDeNaoLidas;
 use App\TrabalhoExterno\Service\Contexto;
@@ -35,6 +38,7 @@ final class MontarPainelUseCase
         private readonly ContadorDeNaoLidas $contador,
         private readonly UserTenantRepository $vinculos,
         private readonly PreviaDePerfil $previa,
+        private readonly MarcacaoDoUsuarioRepository $marcacoes,
     ) {
     }
 
@@ -79,6 +83,8 @@ final class MontarPainelUseCase
 
         $cfg = $ctx->configuracao;
         $bloqueada = $this->politica->abaBloqueada($ctx);
+        $marcas = $this->marcasDoUsuario($ctx, $pares);
+        $pares = array_values(array_filter($pares, static fn (array $par): bool => !($marcas[(int) $par[0]->getId()] ?? null)?->excluida()));
         $naoLidas = $this->contador->porDemanda($pares);
 
         return [
@@ -100,12 +106,29 @@ final class MontarPainelUseCase
             'envioBloqueado' => $cfg->envioBloqueado(),
             'hoje' => (new \DateTimeImmutable('today'))->format('Y-m-d'),
             'demandas' => array_map(
-                fn (array $par): array => $this->apresentador->linha($par[1], $par[0], $naoLidas[(int) $par[0]->getId()] ?? 0),
+                fn (array $par): array => $this->apresentador->linha($par[1], $par[0], $naoLidas[(int) $par[0]->getId()] ?? 0, $marcas[(int) $par[0]->getId()] ?? null),
                 $pares,
             ),
             'avisoDeMensagem' => $ctx->previa ? null : $this->avisoDeMensagem($pares, $naoLidas),
             'novaSolicitacao' => $novaSolicitacao,
         ];
+    }
+
+    /**
+     * Estrela, lixeira, importância e "não lida" de quem está logado (spec VS 18.10.26 §2). Na
+     * prévia não há: as marcações são pessoais e a prévia mostra a tela de outra pessoa.
+     *
+     * @param list<array{0: DemandaExterna, 1: Contexto}> $pares
+     *
+     * @return array<int, MarcacaoDoUsuario>
+     */
+    private function marcasDoUsuario(Contexto $ctx, array $pares): array
+    {
+        if ($ctx->previa) {
+            return [];
+        }
+
+        return $this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Demanda, array_map(static fn (array $par): int => (int) $par[0]->getId(), $pares));
     }
 
     /** @return array<string, mixed> */

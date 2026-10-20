@@ -104,6 +104,52 @@ final class PastaDocumentoControllerTest extends JusPrimeWebTestCase
         self::assertNotNull($linha['modificado_em'], 'D1: a edição grava modificado_em');
     }
 
+    #[TestDox('renomear com barra ("Contrato 01/2026") grava "Contrato 01-2026" e baixar e visualizar dão 200 (antes, 500 no Content-Disposition)')]
+    public function testRenomearComBarraEBaixar(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'contrato.pdf', $this->gravarArquivo($tenant, '%PDF-1.4 barra'));
+        $id              = (int) $doc->getId();
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+
+        $client->request('POST', "/pasta/documento/{$id}/editar", [
+            '_token'   => $this->csrf('edit_documento_' . $id),
+            'nomeBase' => "Contrato 01/2026 \\ v2\x01",
+        ], [], self::XHR);
+        self::assertResponseIsSuccessful();
+        self::assertSame('Contrato 01-2026 - v2.pdf', $this->documento($id)['nome_original']);
+
+        $client->request('GET', "/pasta/documento/{$id}/download");
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Contrato 01-2026 - v2.pdf', (string) $client->getResponse()->headers->get('Content-Disposition'));
+
+        $client->request('GET', "/pasta/documento/{$id}/visualizar");
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('nome antigo já gravado com barra (antes da correção, ou vindo do Drive): baixar e visualizar dão 200 com o nome saneado no cabeçalho')]
+    public function testNomeAntigoComBarraBaixa(): void
+    {
+        $client          = $this->cliente();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant, null, 'Acordo 03/2025.pdf', $this->gravarArquivo($tenant, '%PDF-1.4 antigo'));
+        $id              = (int) $doc->getId();
+        $this->logarComTenant($client, $user, $tenant);
+        $this->limpar();
+
+        $client->request('GET', "/pasta/documento/{$id}/download");
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Acordo 03-2025.pdf', (string) $client->getResponse()->headers->get('Content-Disposition'));
+        self::assertSame('Acordo 03/2025.pdf', $this->documento($id)['nome_original'], 'o nome gravado não muda: só o cabeçalho sai saneado');
+
+        $client->request('GET', "/pasta/documento/{$id}/visualizar");
+        self::assertResponseIsSuccessful();
+    }
+
     #[TestDox('editar com XHR: responde JSON com o documento atualizado na forma do explorador')]
     public function testEditarComXhrDevolveODocumento(): void
     {

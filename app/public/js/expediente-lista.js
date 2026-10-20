@@ -207,9 +207,10 @@
         }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); });
     }
 
-    /* Pasta trancada aberta por quem não é administrador: a janela de sigilo (dc L.368-384) no lugar da pasta. */
-    function abrirOuAvisar(trancada, nup, pastaId, abrirDeFato) {
-        if (trancada && !souAdmin()) { mostrarSigilo(nup, pastaId); return; }
+    /* Pasta com cadeado em que quem olha está Oculto (data-oculta, spec pasta-cadeado §6): a janela de sigilo
+       (dc L.368-384) no lugar da pasta. Quem só visualiza abre a pasta normalmente. */
+    function abrirOuAvisar(oculta, nup, pastaId, abrirDeFato) {
+        if (oculta) { mostrarSigilo(nup, pastaId); return; }
         abrirDeFato();
     }
     function mostrarSigilo(nup, pastaId) {
@@ -228,9 +229,18 @@
         if (e.target.closest('.js-sigilo-pedir')) {
             var id = j.getAttribute('data-pasta-id');
             j.hidden = true;
-            postar(j.getAttribute('data-url-pedir').replace('/0/', '/' + id + '/')).then(function (r) {
-                if (!r.ok) { avisar(r.j.erro || 'Não foi possível pedir acesso'); return; }
-                avisar(r.j.avisados > 0 ? 'Pedido de acesso enviado ao administrador do escritório' : 'Nenhum administrador ativo no escritório para receber o pedido');
+            /* A rota do pedido é a da pasta (pasta_acesso_pedir), com o token da própria pasta, que vem na linha
+               (`data-csrf-pedir`, só nas linhas ocultas). Erro: `{status: 'erro', erro, mensagem}`. */
+            var linhaDoPedido = document.querySelector('[data-pasta-id="' + id + '"][data-csrf-pedir]');
+            /* Pede Visualizar, como o sigiloPedir do desenho 03 ('ver'); o "Pedir para editar" é o da faixa da pasta. */
+            var corpoDoPedido = new URLSearchParams({ nivel: 'visualizar', _token: linhaDoPedido ? linhaDoPedido.getAttribute('data-csrf-pedir') : '' });
+            fetch(j.getAttribute('data-url-pedir').replace('/0/', '/' + id + '/'), {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: corpoDoPedido.toString()
+            }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (dados) { return { ok: r.ok, j: dados }; }); }).then(function (r) {
+                if (!r.ok) { avisar(r.j.mensagem || r.j.erro || 'Não foi possível pedir acesso'); return; }
+                avisar(r.j.avisados > 0 ? 'Pedido de acesso enviado ao usuário primário' : 'Nenhum usuário primário ativo no escritório para receber o pedido');
             }, function () { avisar('Falha de conexão ao pedir acesso'); });
         }
     });
@@ -240,11 +250,14 @@
     });
     /* Clique na linha, no cartão ou na linha simples de pasta trancada: antes do handler que navega. */
     document.addEventListener('click', function (e) {
-        var alvo = e.target.closest('#tabelaPastas tr.pasta-row-link[data-trancada="1"], .exp-simples-linha[data-trancada="1"], .exp-cartao[data-trancada="1"]');
-        if (!alvo || souAdmin()) { return; }
+        var alvo = e.target.closest('#tabelaPastas tr.pasta-row-link[data-oculta="1"], .exp-simples-linha[data-oculta="1"], .exp-cartao[data-oculta="1"]');
+        if (!alvo) { return; }
+        /* Com um menu aberto, o clique na linha só fecha o menu (dc `abrir`; ExpMenu do #85, se presente). */
+        if (window.ExpMenu && window.ExpMenu.abertoNoToque && window.ExpMenu.abertoNoToque()) { return; }
         if (e.target.closest('button, input, select, .js-toggle-situacao')) { return; }
         e.preventDefault();
         e.stopImmediatePropagation();
+        if (window.ExpMenu.abertoNoToque()) { return; }   // com um menu aberto, o clique só o fecha (dc `abrir`)
         mostrarSigilo(alvo.getAttribute('data-nup'), alvo.getAttribute('data-pasta-id'));
     }, true);
 
@@ -375,6 +388,7 @@
         var nome = linha.getAttribute('data-nome') || '';
         var excluida = linha.classList.contains('pasta-excluida');
         var trancada = linha.getAttribute('data-trancada') === '1';
+        var oculta = linha.getAttribute('data-oculta') === '1';
         var pastaId = linha.getAttribute('data-pasta-id');
         var chip = linha.querySelector('.pasta-resp-chip');
         var marcar = linha.querySelector('.js-marc-pop');
@@ -384,8 +398,8 @@
 
         var lista = [];
         if (editando) { lista.push({ no: editorDoNome(linha, nup, nome, espelho) }); }
-        lista.push({ rotulo: 'Abrir pasta', icone: 'bi-folder2-open', acao: function () { abrirOuAvisar(trancada, nup, pastaId, function () { window.location.href = href; }); } });
-        lista.push({ rotulo: 'Abrir em nova aba', icone: 'bi-box-arrow-up-right', acao: function () { abrirOuAvisar(trancada, nup, pastaId, function () { window.open(href, '_blank', 'noopener'); }); } });
+        lista.push({ rotulo: 'Abrir pasta', icone: 'bi-folder2-open', acao: function () { abrirOuAvisar(oculta, nup, pastaId, function () { window.location.href = href; }); } });
+        lista.push({ rotulo: 'Abrir em nova aba', icone: 'bi-box-arrow-up-right', acao: function () { abrirOuAvisar(oculta, nup, pastaId, function () { window.open(href, '_blank', 'noopener'); }); } });
         if (!excluida) {
             // Nome montado pela cobrança (credor e devedor) não se edita, como na tela da pasta.
             if (linha.getAttribute('data-nome-editavel') === '0') {
@@ -487,6 +501,14 @@
 
     // E12: o trilho (expediente-trilho.js) usa o mesmo menu e o mesmo aviso.
     window.ExpMenu = { abrir: abrir, fechar: fechar, aberto: function () { return menu; } };
+
+    /* dc `abrir` da linha: com um menu aberto, o clique na linha só fecha o menu, não abre a pasta. A pergunta é
+       feita no mousedown (captura), antes de o próprio clique fechar o menu; o clique da linha lê a resposta. */
+    var menuAbertoNoToque = false;
+    document.addEventListener('mousedown', function () {
+        menuAbertoNoToque = !!(menu || document.querySelector('.exp-pop, #pastaRespMenu:not([hidden])'));
+    }, true);
+    window.ExpMenu.abertoNoToque = function () { return menuAbertoNoToque; };
     window.ExpCopiar = copiar;
     window.ExpAviso = avisar;
 }());
@@ -715,7 +737,8 @@
         if (!document.body.classList.contains('exp-body')) { return; }
         var alvo = e.target.closest && e.target.closest('[data-tip]');
         var menuAberto = window.ExpMenu && window.ExpMenu.aberto();
-        if (!alvo || (menuAberto && !menuAberto.contains(alvo)) || document.querySelector('.exp-pop')) { fecharDica(); return; }
+        // dc `_ov`: com um menu aberto (filtro, responsável da linha ou contexto), nenhuma dica fora dele.
+        if (!alvo || (menuAberto && !menuAberto.contains(alvo)) || document.querySelector('.exp-pop, #pastaRespMenu:not([hidden])')) { fecharDica(); return; }
         var t = alvo.getAttribute('data-tip');
         if (!t) { fecharDica(); return; }
         var texto = (alvo.textContent || '').replace(/\s+\d+x$/, '').replace(/\s+/g, ' ').trim();
@@ -797,6 +820,7 @@
             if (it.avatar !== undefined) {
                 var av = el('span', 'exp-pop-av' + (it.avatar === null ? ' is-vazio' : ''));
                 if (it.avatar === null) { av.appendChild(icone('bi-person-dash')); } else { av.textContent = it.avatar; }
+                if (it.foto) { fotoNoAvatar(av, it.foto); }
                 b.appendChild(av);
             }
             var tx = el('span', 'exp-pop-texto');
@@ -884,10 +908,17 @@
         var sel = caixa.querySelector('select');
         var itens = Array.prototype.filter.call(sel.options, function (op) { return op.value !== ''; }).map(function (op) {
             var sem = op.value === 'sem';
-            return { rotulo: op.textContent.trim(), avatar: sem ? null : ini2(op.textContent), marcado: sel.value === op.value,
+            return { rotulo: op.textContent.trim(), avatar: sem ? null : ini2(op.textContent), foto: op.getAttribute('data-foto') || '', marcado: sel.value === op.value,
                 acao: function () { escolherNoSelect(sel, sel.value === op.value ? '' : op.value); } };
         });
         abrirPop(caixa, { busca: 'Filtrar responsável', largura: 300, itens: itens, vazio: 'Nenhum responsável encontrado' });
+    }
+
+    /* dc `avBg` (L.458): com foto, o círculo é a foto (fundo, sem as iniciais por cima); a URL é a rota do servidor. */
+    function fotoNoAvatar(av, url) {
+        if (!/^\/[\w\-./]*$/.test(url)) { return; }
+        av.textContent = '';
+        av.style.background = '#0a6fa0 url("' + url + '") center/cover no-repeat';
     }
 
     /* Rótulos dos campos como o desenho: Responsável com as duas primeiras palavras e avatar; Prioridade "Alta". */
@@ -902,7 +933,11 @@
             var op = resp.options[resp.selectedIndex];
             var nome = resp.value === '' ? 'Responsável' : (resp.value === 'sem' ? 'Sem responsável' : op.textContent.trim().split(/\s+/).slice(0, 2).join(' '));
             rot.textContent = '';
-            if (resp.value !== '' && resp.value !== 'sem') { rot.appendChild(el('span', 'exp-filtro-av', ini2(op.textContent))); }
+            if (resp.value !== '' && resp.value !== 'sem') {
+                var avR = el('span', 'exp-filtro-av', ini2(op.textContent));
+                if (op.getAttribute('data-foto')) { fotoNoAvatar(avR, op.getAttribute('data-foto')); }
+                rot.appendChild(avR);
+            }
             rot.appendChild(el('span', 'exp-filtro-nome', nome));
         }
         var prio = f.querySelector('select[name="prioridade"]');

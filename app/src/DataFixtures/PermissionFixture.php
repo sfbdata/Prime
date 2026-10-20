@@ -40,6 +40,7 @@ class PermissionFixture extends Fixture
         ['code' => 'resources.processo.view',    'description' => 'Visualizar processo específico',              'group' => 'resources'],
         ['code' => 'resources.processo.edit',    'description' => 'Criar e editar processo',                     'group' => 'resources'],
         ['code' => 'resources.processo.delete',  'description' => 'Excluir processo',                            'group' => 'resources'],
+        ['code' => 'resources.agenda.ver_prazos', 'description' => 'Ver prazos na agenda',                       'group' => 'resources'],
         // --- cobranças (capacidades da SPEC §22; gates ligados nas Etapas 3/8) ---
         ['code' => 'resources.cobranca.gerenciar',              'description' => 'Gerenciar casos de cobrança (operar obrigações, contatos, ações)', 'group' => 'resources'],
         ['code' => 'resources.carteira.gerenciar',              'description' => 'Gerenciar carteiras de cobrança e suas configurações',            'group' => 'resources'],

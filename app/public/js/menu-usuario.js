@@ -41,7 +41,7 @@
     estadoAba[aba] = 'carregando';
     const url = document.getElementById('modalContaEscritorio').dataset[urlAba[aba]];
     // Sessão expirada vira redirecionamento para o login: não pode cair dentro do modal.
-    fetch(url, { credentials: 'same-origin', redirect: 'manual', headers: { Accept: 'text/html' } })
+    fetch(url, { credentials: 'same-origin', redirect: 'manual', headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' } })
       .then(r => (r.ok && r.type !== 'opaqueredirect' ? r.text() : Promise.reject(r.status)))
       .then(html => { painel.innerHTML = html; estadoAba[aba] = 'pronto'; })
       .catch(() => { estadoAba[aba] = 'nada'; painel.innerHTML = '<div class="mu-nota">Não foi possível carregar agora. Recarregue a página e tente de novo.</div>'; });

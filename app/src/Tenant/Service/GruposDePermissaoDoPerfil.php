@@ -38,6 +38,7 @@ final class GruposDePermissaoDoPerfil
         ]],
         'Módulos' => ['bi-grid', [
             'modules.agenda.view'       => 'Agenda',
+            'resources.agenda.ver_prazos' => 'Ver prazos na agenda',
             'modules.bi.view'           => 'BI (futuro)',
             'modules.clientes.view'     => 'Clientes',
             'modules.cobrancas.view'    => 'Gestão de Cobranças',

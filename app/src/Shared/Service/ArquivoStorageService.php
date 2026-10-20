@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Service;
 
+use App\Shared\Http\NomeSeguroDeArquivo;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
@@ -69,7 +70,7 @@ final class ArquivoStorageService implements ArquivoStorageInterface
             : ResponseHeaderBag::DISPOSITION_ATTACHMENT;
 
         $response = new BinaryFileResponse($caminhoCompleto);
-        $response->setContentDisposition($disposicao, $nomeOriginal);
+        $response->setContentDisposition($disposicao, NomeSeguroDeArquivo::paraDownload($nomeOriginal));
 
         return $response;
     }
