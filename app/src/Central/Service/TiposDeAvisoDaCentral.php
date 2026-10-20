@@ -41,6 +41,7 @@ final class TiposDeAvisoDaCentral
             Notificacao::TIPO_TAREFA_CONCLUIDA => ['grupo' => 'metas', 'rotulo' => 'Meta concluída', 'icone' => 'bi-check2-circle', 'cor' => self::VERDE, 'nivel' => 0],
             Notificacao::TIPO_PASTA_MENCAO_REGISTRO, Notificacao::TIPO_NOTA_TECNICA_MENCAO => ['grupo' => 'mencoes', 'rotulo' => 'Menção', 'icone' => 'bi-at', 'cor' => self::AZUL, 'nivel' => 2],
             Notificacao::TIPO_PASTA_RESPOSTA_REGISTRO => ['grupo' => 'atencao', 'rotulo' => 'Para você', 'icone' => 'bi-person-check', 'cor' => self::AMBAR, 'nivel' => 2],
+            Notificacao::TIPO_CENTRAL_DESPACHO => ['grupo' => 'atencao', 'rotulo' => 'Despacho', 'icone' => 'bi-person-check', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_DJEN_PUBLICACAO, Notificacao::TIPO_PUSH_PUBLICACAO_PASTA => ['grupo' => 'atencao', 'rotulo' => 'Publicação', 'icone' => 'bi-newspaper', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_PUSH_LINK_RENOVACAO => ['grupo' => 'atencao', 'rotulo' => 'Renovação', 'icone' => 'bi-arrow-clockwise', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_EVENTO_CRIADO, Notificacao::TIPO_EVENTO_CANCELADO => ['grupo' => 'atencao', 'rotulo' => 'Agenda', 'icone' => 'bi-calendar-event', 'cor' => self::AMBAR, 'nivel' => 1],
