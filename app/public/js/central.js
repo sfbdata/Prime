@@ -1968,7 +1968,7 @@
             ic.classList.add('bj-central-despacho-cab-ico');
             cab.appendChild(ic);
             cab.appendChild(criar('span', 'bj-central-despacho-titulo', 'Despachar via Chat I.A'));
-            cab.appendChild(botao('bj-central-despacho-cancelar', 'Cancelar', function () { mostrarTela('lista'); desenharLista(); }));
+            cab.appendChild(botao('bj-central-despacho-cancelar', 'Cancelar', sairDoDespacho));
             topo.appendChild(cab);
 
             var cartao = criar('div', 'bj-central-despacho-cartao');   /* BC:6224 */
@@ -2059,17 +2059,30 @@
             var corpo = { pastaId: d.pastaId, tipo: d.tipo, itemId: d.itemId, instrucao: instrucao === '' ? null : instrucao, prioridade: d.prio };
             if (dest.tipo === 'colega') { corpo.usuarioId = dest.usuarioId; } else { corpo.conversaId = dest.conversaId; }
             pedir(urls.encaminhar, { metodo: 'POST', corpo: corpo }).then(function (r) {
-                if (estado.despacho !== d) { return; }
+                /* Despacho feito sempre avisa, mesmo se a pessoa saiu da tela no meio (pelo ⋮ ou pelo BJCentral). */
                 avisar('Despachado para ' + (r.destinoNome || dest.nome) + '.');
+                var aindaAqui = estado.despacho === d;
                 carregarConversas().then(function () {
+                    if (!aindaAqui || estado.despacho !== d) { return; }
                     var c = estado.conversas.filter(function (x) { return x.id === r.conversaId; })[0];
                     if (c) { abrirConversa(c); } else { mostrarTela('lista'); desenharLista(); }
-                }).catch(tratarFalha);
+                }).catch(function (e) {
+                    /* A lista não veio: a tela não fica presa no despacho já feito. */
+                    if (estado.despacho === d) { mostrarTela('lista'); desenharLista(); }
+                    tratarFalha(e);
+                });
             }, function (e) {
                 d.enviando = false;
                 travarDestinos(d, false);
                 falhaDoDespacho(d, e);
             });
+        }
+
+        // Cancelar e Esc: com o envio em andamento ficam travados (o despacho pode já ter sido feito no servidor).
+        function sairDoDespacho() {
+            if (estado.despacho && estado.despacho.enviando) { return; }
+            mostrarTela('lista');
+            desenharLista();
         }
 
         function travarDestinos(d, sim) {
@@ -2119,7 +2132,8 @@
 
         function voltar() {
             if (estado.tela === 'info' && estado.aberta) { mostrarTela('conversa'); ajustarCompositor(); return; }
-            if (estado.tela === 'novoGrupo' || estado.tela === 'despacho') { mostrarTela('lista'); desenharLista(); return; }
+            if (estado.tela === 'despacho') { sairDoDespacho(); return; }
+            if (estado.tela === 'novoGrupo') { mostrarTela('lista'); desenharLista(); return; }
             fecharConversa();
         }
 

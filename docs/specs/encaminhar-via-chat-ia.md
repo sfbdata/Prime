@@ -120,6 +120,7 @@ tudo.
 | Função | O que faz |
 |---|---|
 | `BJCentral.abrir()` | abre a janela flutuante, sem trocar de conversa |
+| evento `bj-central:abrir` no document | o mesmo que `BJCentral.abrir()`: só abre a janela (vem do #111, `enviar-chat-ia`) |
 | `BJCentral.despachar({pastaId, tipo, itemId})` | abre a janela na tela "Despachar via Chat I.A" (BC:6218-6238) com o cartão do item; `tipo` é um valor de `TipoDeItemEncaminhado` (§3), `itemId` é `null` no tipo `pasta` |
 | `BJCentral.conversar(userId)` | abre a janela na conversa 1:1 com o colega (PR3); si mesmo ou colega fora do escritório: só abre a janela |
 

@@ -81,6 +81,30 @@ html[data-bs-theme="dark"] .bj-central {
     --bjc-perigo-hover: rgba(227, 104, 92, .16);
 }
 
+/* Tema escuro da tela "Despachar via Chat I.A" (BC:6222-6226): os fixos do protótipo levados às variáveis da Central.
+   No claro, os valores literais do desenho continuam nas regras da tela. */
+html[data-bs-theme="dark"] .bj-central .bj-central-despacho-topo {
+    background: var(--bjc-fundo-corpo);
+}
+
+html[data-bs-theme="dark"] .bj-central .bj-central-despacho-titulo {
+    color: var(--bjc-separador-texto);
+}
+
+html[data-bs-theme="dark"] .bj-central .bj-central-despacho-instrucao {
+    border-color: var(--bjc-borda);
+}
+
+html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio {
+    background: var(--bjc-sistema-fundo);
+    color: var(--bjc-texto-medio);
+}
+
+html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="true"] {
+    background: var(--bjc-azul);
+    color: #fff;
+}
+
 .bj-central-pagina {
     padding: 16px;
 }
