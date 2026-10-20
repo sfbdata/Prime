@@ -12,7 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  * (acrescentar, renomear, ocultar), pelo botão direito. Tabela nova, sem dado existente. Não toca a
  * tabela `feriado` do Ponto. Spec: docs/specs/agenda-vs-18-10-26.md, seção 13.
  */
-final class Version20261019135744 extends AbstractMigration
+final class Version20261020125000 extends AbstractMigration
 {
     public function getDescription(): string
     {
