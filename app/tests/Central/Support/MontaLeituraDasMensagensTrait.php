@@ -40,6 +40,6 @@ trait MontaLeituraDasMensagensTrait
         $financeiro = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
         $financeiro->method('podeVer')->willReturnCallback(static fn (User $u): bool => in_array((int) $u->getId(), $quemVeOFinanceiro ?? $quemVe, true));
 
-        return new LeituraDasMensagens($repositorio, new AcessoAPasta($checker), $financeiro);
+        return new LeituraDasMensagens($repositorio, new AcessoAPasta((new \ReflectionClass(\App\Pasta\Service\NivelNoCadeado::class))->newInstanceWithoutConstructor(), $checker), $financeiro);
     }
 }

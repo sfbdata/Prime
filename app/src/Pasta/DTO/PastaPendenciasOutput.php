@@ -7,6 +7,7 @@ namespace App\Pasta\DTO;
 use App\Entity\Tarefa\Tarefa;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Service\PontosDoRelatorioInicial;
 
 /**
  * As pendências que acendem a linha vermelha sob as abas da pasta (desenho
@@ -23,18 +24,21 @@ use App\Pasta\Entity\PastaPagamento;
  *                 financeiro, na linha da aba e no resumo impresso;
  *  · Documentos → item do checklist MARCADO como entregue sem nenhum arquivo
  *                 correspondente na pasta (`ConferenciaDeAnexosDoChecklist`, DOC-74/76);
+ *  · Detalhes   → ponto do relatório inicial de atendimento sem registro
+ *                 (`PontosDoRelatorioInicial`, a heurística `relInicial()` do desenho);
  *  · Push       → publicação não lida.
  *
  * Da regra de Documentos do desenho só entra a metade "marcado sem anexo": a outra
  * metade ("documento cobrado e ainda não anexado") depende da cobrança automática do
- * checklist, que não existe no sistema (DOC-75, decisão S-6 do dono). Detalhes fica sem
- * pendência: o relatório inicial de atendimento ainda não existe como dado.
+ * checklist, que não existe no sistema (DOC-75, decisão S-6 do dono). Detalhes só acende
+ * quando quem chama manda os pontos do relatório: a pasta_show e o resumo impresso mandam
+ * (o `imprimirResumo()` do desenho, dc L.4832, lista as pendências de todas as abas).
  */
 final readonly class PastaPendenciasOutput
 {
     /**
      * @param array<string, array{n: int, txt: string}> $porAba id da aba (`tarefas`, `processo`,
-     *                                                           `financeiro`, `documentos`, `push`) => pendência;
+     *                                                           `financeiro`, `documentos`, `detalhes`, `push`) => pendência;
      *                                                           só as abas que têm pendência
      */
     public function __construct(
@@ -48,6 +52,8 @@ final readonly class PastaPendenciasOutput
      *                                    `ConferenciaDeAnexosDoChecklist::totalMarcadosSemAnexo()`.
      *                                    `$veFinanceiro` é `VisibilidadeDoFinanceiroDaPasta::podeVer()`;
      *                                    o padrão é FECHADO: quem não diz, não vê.
+     *                                    `$relatorioInicial` são os pontos do relatório inicial de
+     *                                    atendimento (aba Detalhes); null = sem pendência de Detalhes.
      */
     public static function montar(
         Pasta $pasta,
@@ -56,6 +62,7 @@ final readonly class PastaPendenciasOutput
         ?\DateTimeImmutable $hoje = null,
         int $itensMarcadosSemAnexo = 0,
         bool $veFinanceiro = false,
+        ?PontosDoRelatorioInicial $relatorioInicial = null,
     ): self {
         $porAba = [];
 
@@ -104,6 +111,10 @@ final readonly class PastaPendenciasOutput
                     'itens do checklist marcados sem anexo',
                 ),
             ];
+        }
+
+        if (($detalhes = $relatorioInicial?->pendenciaDaAba()) !== null) {
+            $porAba['detalhes'] = $detalhes;
         }
 
         if ($pushNaoLidas > 0) {

@@ -90,6 +90,14 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Pré-autenticação e efêmero (1h). Sem tenant por natureza.
         RedefinicaoSenha::class,
 
+        // Tela de entrada do desenho 10 (spec login-desenho-10), sem tenant por natureza:
+        // identidade global do User (link de confirmação, ciência da Política), a tela de entrada única,
+        // anterior a qualquer escritório (ajustes SÓ MASTER), e o suporte de quem ainda não entrou.
+        \App\Auth\Entity\ConfirmacaoEmail::class,
+        \App\Termo\Entity\CienciaPolitica::class,
+        \App\Auth\Entity\AjusteEntrada::class,
+        \App\Auth\Entity\MensagemSuporte::class,
+
         // Catálogo global de permissões. O que é por escritório é TenantRolePermission.
         Permission::class,
 
@@ -136,7 +144,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 18 → 21 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
     // natureza; o espaço do escritório é lido por tenantId explícito (motivo na lista acima).
     // 21 → 22 com RecursoEstado (19/10/2026, Perfis 1.2 · Telas e recursos): configuração global da plataforma.
-    private const MAX_FORA_DO_ESCOPO = 22;
+    // 22 → 26 com a tela de entrada do desenho 10 (19/10/2026): ConfirmacaoEmail, CienciaPolitica, AjusteEntrada e
+    // MensagemSuporte são anteriores a qualquer escritório (identidade do User e a tela de entrada única); justificado acima.
+    private const MAX_FORA_DO_ESCOPO = 26;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

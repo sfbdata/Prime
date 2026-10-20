@@ -16,6 +16,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\EnvioAoCliente;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaProcesso;
+use App\Pasta\Repository\CadeadoDaPastaRepository;
 use App\Pasta\Repository\EnvioAoClienteRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\ControladoriaDoEscritorioInterface;
@@ -149,7 +150,7 @@ final class EnviarResumoSemanalAoClienteUseCaseTest extends TestCase
             new NullLogger(),
         );
 
-        return new EnviarResumoSemanalAoClienteUseCase($publicacoes, new GruposDoEnvioAutomatico($pastas, $daPasta, $automaticos), $envios, $envio, new MockClock($agora), new NullLogger());
+        return new EnviarResumoSemanalAoClienteUseCase($publicacoes, new GruposDoEnvioAutomatico($pastas, $daPasta, $automaticos, $this->createStub(CadeadoDaPastaRepository::class)), $envios, $envio, new MockClock($agora), new NullLogger());
     }
 
     /** @return iterable<string, array{string, string, string}> */

@@ -113,7 +113,7 @@ final class IsolamentoDoEncaminhamentoTest extends JusPrimeWebTestCase
         $sempreSim->method('canAccessResource')->willReturn(true);
         $financeiro = $this->createStub(VisibilidadeDoFinanceiroDaPasta::class);
         $financeiro->method('podeVer')->willReturn(true);
-        $leitura = new LeituraDasMensagens(static::getContainer()->get(PastaRepository::class), new AcessoAPasta($sempreSim), $financeiro);
+        $leitura = new LeituraDasMensagens(static::getContainer()->get(PastaRepository::class), new AcessoAPasta((new \ReflectionClass(\App\Pasta\Service\NivelNoCadeado::class))->newInstanceWithoutConstructor(), $sempreSim), $financeiro);
         $leitor = $this->em()->find(User::class, $adminA->getId());
         $mensagens = $this->em()->getRepository(Mensagem::class)->findBy(['id' => [$despacho->getId(), $controle->getId()]], ['id' => 'ASC']);
         [$torta, $boa] = $leitura->paraLeitor($mensagens, $leitor);

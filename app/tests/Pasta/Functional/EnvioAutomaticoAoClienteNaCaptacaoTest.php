@@ -305,7 +305,7 @@ final class EnvioAutomaticoAoClienteNaCaptacaoTest extends KernelTestCase
                 parent::__construct($em, $notificacoes, $usuarios, $permissoes);
             }
 
-            public function criarNotificacao(User $usuario, Tenant $tenant, string $tipo, string $mensagem, ?string $url = null): Notificacao
+            public function criarNotificacao(User $usuario, Tenant $tenant, string $tipo, string $mensagem, ?string $url = null, ?string $texto = null): Notificacao
             {
                 if ($tipo === Notificacao::TIPO_PUSH_PUBLICACAO_PASTA) {
                     $this->em->close();
@@ -313,7 +313,7 @@ final class EnvioAutomaticoAoClienteNaCaptacaoTest extends KernelTestCase
                     throw new \RuntimeException('banco caiu no aviso à equipe');
                 }
 
-                return parent::criarNotificacao($usuario, $tenant, $tipo, $mensagem, $url);
+                return parent::criarNotificacao($usuario, $tenant, $tipo, $mensagem, $url, $texto);
             }
         });
         [$quem, $tenant, $pasta, $cliente] = $this->cenario();

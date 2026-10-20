@@ -59,6 +59,21 @@ final class ReconciliadorDePasta
     ) {
     }
 
+    /**
+     * Cadeado (spec pasta-cadeado D6): o sync é do escritório, não de uma pessoa, e o Drive não sabe quem
+     * pode ver cada pasta. Na primeira versão, pasta com cadeado (de qualquer modo) sai do sync: não
+     * cria pasta, não envia, não baixa, não renomeia. Remover o cadeado devolve a pasta ao sync.
+     */
+    private function foraDoSyncPeloCadeado(int $pastaId, ResultadoReconciliacaoPasta $r): bool
+    {
+        $comCadeado = $this->em->getConnection()->fetchOne('SELECT 1 FROM pasta_cadeado WHERE pasta_id = :id', ['id' => $pastaId]) !== false;
+        if ($comCadeado) {
+            $r->log(sprintf('[cadeado] pasta_id=%d fora do sync: a pasta tem cadeado.', $pastaId));
+        }
+
+        return $comCadeado;
+    }
+
     /** Nome esperado da pasta no Drive: "NUP - CLIENTE - AÇÃO" (partes vazias omitidas). */
     public static function nomeEsperado(?string $nup, ?string $cliente, ?string $acao): string
     {
@@ -106,6 +121,9 @@ final class ReconciliadorDePasta
      */
     public function renomearNoDrive(int $pastaId, GoogleDriveClientInterface $client, bool $dryRun, ResultadoReconciliacaoPasta $r): void
     {
+        if ($this->foraDoSyncPeloCadeado($pastaId, $r)) {
+            return;
+        }
         $conn = $this->em->getConnection();
         $row  = $conn->fetchAssociative(
             'SELECT drive_folder_id, nup, nome_cliente, nome_acao FROM pasta WHERE id = :id',
@@ -147,6 +165,9 @@ final class ReconciliadorDePasta
      */
     public function garantirFolderDaPasta(int $pastaId, string $rootFolderId, GoogleDriveClientInterface $client, bool $dryRun, ResultadoReconciliacaoPasta $r): void
     {
+        if ($this->foraDoSyncPeloCadeado($pastaId, $r)) {
+            return;
+        }
         $conn = $this->em->getConnection();
         $folderAtual = $conn->fetchOne('SELECT drive_folder_id FROM pasta WHERE id = :id', ['id' => $pastaId]);
         if ($folderAtual === false || ($folderAtual !== null && $folderAtual !== '')) {
@@ -196,6 +217,9 @@ final class ReconciliadorDePasta
         ResultadoReconciliacaoPasta $r,
         ModoSincronizacao $modo = ModoSincronizacao::Enviar,
     ): void {
+        if ($this->foraDoSyncPeloCadeado($pastaId, $r)) {
+            return;
+        }
         $conn = $this->em->getConnection();
 
         $row = $conn->fetchAssociative('SELECT tenant_id, drive_folder_id FROM pasta WHERE id = :id', ['id' => $pastaId]);

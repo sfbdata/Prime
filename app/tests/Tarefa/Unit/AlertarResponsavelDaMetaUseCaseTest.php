@@ -28,6 +28,7 @@ final class AlertarResponsavelDaMetaUseCaseTest extends TestCase
 
     private EntityManagerInterface&MockObject $em;
     private NotificacaoService&MockObject $notificacaoService;
+    private bool $responsavelVeAPasta = true;
     private NotificacaoRepository&MockObject $notificacaoRepository;
     private UserTenantRepository&MockObject $userTenantRepository;
     private AlertarResponsavelDaMetaUseCase $useCase;
@@ -40,6 +41,8 @@ final class AlertarResponsavelDaMetaUseCaseTest extends TestCase
     {
         $this->em                    = $this->createMock(EntityManagerInterface::class);
         $this->notificacaoService    = $this->createMock(NotificacaoService::class);
+        // Cadeado: por padrão o responsável vê a pasta da meta (o caso oculto tem teste próprio).
+        $this->notificacaoService->method('veAPastaDaMeta')->willReturnCallback(fn (): bool => $this->responsavelVeAPasta);
         $this->notificacaoRepository = $this->createMock(NotificacaoRepository::class);
         $this->userTenantRepository  = $this->createMock(UserTenantRepository::class);
 
@@ -176,6 +179,15 @@ final class AlertarResponsavelDaMetaUseCaseTest extends TestCase
         $this->vinculoAtivo();
 
         $this->recusa(10, 'a si mesmo');
+    }
+
+    #[TestDox('responsável oculto pelo cadeado na pasta da meta não é alertado (spec pasta-cadeado)')]
+    public function testResponsavelOcultoNaPastaRecusa(): void
+    {
+        $this->vinculoAtivo();
+        $this->responsavelVeAPasta = false;
+
+        $this->recusa(20, 'não vê a pasta da meta');
     }
 
     #[TestDox('alerta repetido dentro de 1 hora é recusado, dizendo a hora do anterior')]

@@ -66,7 +66,7 @@ trait MontaEncaminhamentoTrait
             static fn (User $u): bool => in_array((int) $u->getId(), $quemVe, true),
         );
 
-        return new AcessoAPasta($checker);
+        return new AcessoAPasta((new \ReflectionClass(\App\Pasta\Service\NivelNoCadeado::class))->newInstanceWithoutConstructor(), $checker);
     }
 
     /**

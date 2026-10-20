@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\RelatorioSemProcessoOutput;
 use App\Pasta\Service\MontagemDoRelatorioSemProcesso;
+use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\PastasVisiveisNoRelatorio;
 use Psr\Clock\ClockInterface;
 
@@ -31,13 +32,16 @@ final class GerarRelatorioSemProcessoUseCase
         private readonly MontagemDoRelatorioSemProcesso $montagem,
         private readonly PastasVisiveisNoRelatorio $visiveis,
         private readonly ClockInterface $clock,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
     public function executar(Tenant $tenant, User $leitor): RelatorioSemProcessoOutput
     {
         $ids = $this->visiveis->ids($leitor, $tenant);
+        // Cadeado (spec pasta-cadeado D1): a pasta Oculta para o leitor não entra no relatório.
+        $ocultas = $this->acessoAPasta->idsOcultosPara($leitor, (int) $tenant->getId());
 
-        return $this->montagem->montar($tenant, $ids, $ids === null, $this->clock->now());
+        return $this->montagem->montar($tenant, $ids, $ids === null, $this->clock->now(), $ocultas);
     }
 }
