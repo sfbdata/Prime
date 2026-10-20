@@ -10,6 +10,7 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Master\DTO\PromoverMasterInput;
 use App\Master\Exception\OperacaoDeMasterRecusada;
+use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Service\RegraDosMasters;
 use App\Master\UseCase\PromoverMasterUseCase;
 use App\Repository\UserRepository;
@@ -39,7 +40,7 @@ final class PromoverMasterUseCaseTest extends TestCase
         $this->userRepository       = $this->createMock(UserRepository::class);
         $this->userTenantRepository = $this->createMock(UserTenantRepository::class);
         $this->escopo = new EscopoDeAuditoriaDePlataforma();
-        $this->useCase = new PromoverMasterUseCase($this->userRepository, $this->userTenantRepository, new RegraDosMasters(), $this->escopo);
+        $this->useCase = new PromoverMasterUseCase($this->userRepository, $this->userTenantRepository, new RegraDosMasters($this->createStub(ContasDoSistemaRepository::class)), $this->escopo);
         $this->primario   = $this->usuario(['ROLE_SUPER_ADMIN', 'ROLE_MASTER_PRIMARIO']);
         $this->escritorio = new Tenant();
     }
