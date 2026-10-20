@@ -330,4 +330,39 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
 
         return $data;
     }
+
+    /**
+     * A data de disponibilização mais recente de cada número de processo pedido (o Push da pasta, no
+     * relatório de pastas paradas). Os números são normalizados como na lista da pasta (só dígitos);
+     * uma consulta para o lote, com o tenant explícito.
+     *
+     * @param string[] $numeros números CNJ com ou sem máscara
+     *
+     * @return array<string, \DateTimeImmutable> número em dígitos => data da última publicação
+     */
+    public function ultimasDisponibilizacoesPorNumero(Tenant $tenant, array $numeros): array
+    {
+        $numeros = self::normalizarNumeros($numeros);
+        if ($numeros === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('p')
+            ->select('p.numeroProcesso AS numero', 'MAX(p.dataDisponibilizacao) AS ultima')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.numeroProcesso IN (:numeros)')
+            ->andWhere('p.dataDisponibilizacao IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('numeros', $numeros)
+            ->groupBy('p.numeroProcesso')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porNumero = [];
+        foreach ($linhas as $l) {
+            $porNumero[(string) $l['numero']] = new \DateTimeImmutable((string) $l['ultima']);
+        }
+
+        return $porNumero;
+    }
 }
