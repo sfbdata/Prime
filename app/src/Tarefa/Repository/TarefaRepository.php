@@ -15,6 +15,7 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
+use App\Shared\Prazo\RegraDoPrazo;
 
 /**
  * @extends ServiceEntityRepository<Tarefa>
@@ -552,10 +553,12 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return array<int, int>  userId => total (ativas com prazo < $referencia)
+     * @return array<int, int>  userId => total (ativas com prazo antes do dia de $referencia, RegraDoPrazo)
      */
     public function countVencidasPorResponsavel(Tenant $tenant, \DateTimeImmutable $referencia): array
     {
+        $referencia = RegraDoPrazo::inicioDoDia($referencia);
+
         $rows = $this->createQueryBuilder('t')
             ->select('u.id AS responsavel_id, COUNT(t.id) AS total')
             ->join('t.pasta', 'p')
@@ -580,11 +583,12 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return array<int, int>  userId => total (ativas com prazo entre $referencia e $referencia+7 dias)
+     * @return array<int, int>  userId => total (ativas com prazo do dia de $referencia até 7 dias depois, RegraDoPrazo)
      */
     public function countPrazosProximosPorResponsavel(Tenant $tenant, \DateTimeImmutable $referencia): array
     {
-        $limite = $referencia->modify('+7 days');
+        $limite = RegraDoPrazo::fimDoPrazoProximo($referencia);
+        $referencia = RegraDoPrazo::inicioDoDia($referencia);
 
         $rows = $this->createQueryBuilder('t')
             ->select('u.id AS responsavel_id, COUNT(t.id) AS total')
@@ -594,7 +598,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->andWhere('t.status != :concluida')
             ->andWhere('t.prazo IS NOT NULL')
             ->andWhere('t.prazo >= :referencia')
-            ->andWhere('t.prazo <= :limite')
+            ->andWhere('t.prazo < :limite')
             ->setParameter('tenant', $tenant)
             ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
             ->setParameter('referencia', $referencia)
@@ -619,8 +623,8 @@ class TarefaRepository extends ServiceEntityRepository
      *
      *  - todas         → todos os status, período por t.dataCriacao (countPorResponsavel);
      *  - ativas        → status != concluida, período (countAtivasPorResponsavel);
-     *  - vencidas      → ativas com prazo < $referencia, SEM período (countVencidasPorResponsavel);
-     *  - prazo_proximo → ativas com prazo em [$referencia, $referencia+7d], SEM período
+     *  - vencidas      → ativas com prazo antes do dia de $referencia, SEM período (countVencidasPorResponsavel);
+     *  - prazo_proximo → ativas com prazo do dia de $referencia até 7 dias depois (RegraDoPrazo), SEM período
      *                    (countPrazosProximosPorResponsavel);
      *  - concluidas    → status = concluida, período (coluna extra "Metas concluídas", que é
      *                    countPorResponsavel − countAtivasPorResponsavel);
@@ -674,17 +678,17 @@ class TarefaRepository extends ServiceEntityRepository
                    ->andWhere('t.prazo IS NOT NULL')
                    ->andWhere('t.prazo < :referencia')
                    ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
-                   ->setParameter('referencia', $referencia);
+                   ->setParameter('referencia', RegraDoPrazo::inicioDoDia($referencia));
                 break;
 
             case 'prazo_proximo':
                 $qb->andWhere('t.status != :concluida')
                    ->andWhere('t.prazo IS NOT NULL')
                    ->andWhere('t.prazo >= :referencia')
-                   ->andWhere('t.prazo <= :limite')
+                   ->andWhere('t.prazo < :limite')
                    ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
-                   ->setParameter('referencia', $referencia)
-                   ->setParameter('limite', $referencia->modify('+7 days'));
+                   ->setParameter('referencia', RegraDoPrazo::inicioDoDia($referencia))
+                   ->setParameter('limite', RegraDoPrazo::fimDoPrazoProximo($referencia));
                 break;
 
             case 'concluidas':
