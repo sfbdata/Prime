@@ -199,7 +199,7 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame('Perfis', trim($crawler->filter('.navtop-page-title')->text()));
     }
 
-    #[TestDox('ponto de entrada da seção "Comercial e e-mails" (#sec=com): contêiner oculto e vazio enquanto o parcial de outra frente não existe')]
+    #[TestDox('ponto de entrada da seção "Comercial e e-mails" (#sec=com): contêiner oculto que recebe o parcial do Comercial (automações e últimos disparos)')]
     public function testPontoDeEntradaDaSecaoComercial(): void
     {
         $client = $this->clienteMaster();
@@ -209,7 +209,7 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         $externa = $crawler->filter('div.mp-painel[data-painel-aba="painel"] > div.mp-secao-externa[data-sec-externa="com"]');
         self::assertCount(1, $externa);
         self::assertSame('hidden', $externa->attr('hidden') === null ? null : 'hidden');
-        self::assertSame('', trim($externa->html()));
+        self::assertCount(1, $externa->filter('div.mc[data-mc] > section.mc-caixa'), 'o parcial do Comercial entra no ponto de entrada');
     }
 
     #[TestDox('Aba Permissões (desenho 1.2): Master primário com cadeado, "Promover a Master" e 8 poderes; sem escritório, o select vem vazio')]
