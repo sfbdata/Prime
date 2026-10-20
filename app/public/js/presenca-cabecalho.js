@@ -211,8 +211,10 @@
     var CHAVE_BIPE = 'presenca-bipe:' + chave;
     var audio = null;
     function somLigado() { return ler(window.localStorage, CHAVE_SOM, 'on') !== 'off'; }
+    // "Sons de alerta" do Meu Perfil (perfil.sons, no servidor): com "0" nenhum bipe; ligado, vale o botão do painel.
+    var perfilSons = raiz.getAttribute('data-perfil-sons') !== '0';
     function bipe(sobe) {
-        if (!somLigado()) { return; }
+        if (!perfilSons || !somLigado()) { return; }
         try {
             var ctx = audio || (audio = new (window.AudioContext || window.webkitAudioContext)());
             var t = ctx.currentTime;

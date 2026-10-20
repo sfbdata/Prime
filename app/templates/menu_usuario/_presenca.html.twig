@@ -2,7 +2,8 @@
    docs/specs/presenca-e-ponto-no-cabecalho.md). Incluído pelo cabeçalho do menu do usuário (frente menu-do-usuario),
    fora do botão do menu: clicar no selo abre o painel, não o menu. Só com vínculo ativo no escritório (a Central é
    posse, não permissão): o Master sem vínculo não vê. O painel é montado por presenca-cabecalho.js, só com textContent;
-   os dados vêm do batimento da Central (evento bj-central:presenca) e de central_equipe. #}
+   os dados vêm do batimento da Central (evento bj-central:presenca) e de central_equipe.
+   `data-perfil-sons`: "Sons de alerta" do Meu Perfil (perfil_sons()); com "0" o JS não toca o bipe. #}
 {% if central_disponivel() %}
     {% set tenantPresenca = current_tenant() %}
     {# Atalho de ponto na sua linha (fase 2, ALTO): o critério de quem já vê o alerta de ponto (módulo e jornada), e
@@ -12,6 +13,7 @@
           data-url-equipe="{{ path('central_equipe') }}"
           data-chave="{{ tenantPresenca.id }}:{{ app.user.id }}"
           data-eu-id="{{ app.user.id }}"
+          data-perfil-sons="{{ perfil_sons() ? '1' : '0' }}"
           {%- if presenca_sou_primario() %}
           data-ausencia-url="{{ path('central_presenca_ausencia') }}"
           data-ausencia-min="{{ presenca_ausente_apos_min() }}"
