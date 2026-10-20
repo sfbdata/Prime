@@ -38,37 +38,12 @@ final class BuscaRapidaGlobalTelaTest extends BuscaRapidaWebTestCase
         self::assertCount(1, $crawler->filter('.pbr'));
         self::assertNotNull($raiz->attr('hidden'), 'a janela nasce fechada');
         self::assertSame('/expediente/busca-rapida', $raiz->attr('data-url'));
-        self::assertSame('/expediente/pasta/0/pedir-acesso', $raiz->attr('data-url-pedir'));
-        self::assertNotSame('', (string) $raiz->attr('data-csrf-pedir'));
+        // Sem pedido de acesso próprio: pasta oculta abre a tela "Pasta trancada" do cadeado (#120).
+        self::assertNull($raiz->attr('data-url-pedir'));
+        self::assertNull($raiz->attr('data-csrf-pedir'));
         self::assertCount(1, $crawler->filter('link[rel="stylesheet"][href$="/css/pasta-busca-rapida.css"]'));
         self::assertCount(1, $crawler->filter('script[src$="/js/pasta-busca-rapida.js"]'));
         self::assertCount(1, $crawler->filter('#pastaBuscaRapida > .pbr-janela[role="dialog"][aria-label="Busca rápida"]'));
-    }
-
-    #[TestDox('na Agenda, o token da janela serve na rota de pedir acesso (pasta trancada, quem não é administrador)')]
-    public function testTokenDaJanelaForaDaPastaPedeAcesso(): void
-    {
-        $client   = static::createClient();
-        $tenant   = $this->criarTenant();
-        $admin    = $this->criarAdministrador($tenant);
-        // O "Pedir acesso" é a rota da Lista do Expediente e exige o módulo Expediente (ExpedienteController::assertAccess).
-        $pessoa   = $this->criarUsuarioComPermissoes($tenant, ['modules.pastas.view', 'modules.agenda.view', 'modules.expediente.view', 'resources.pasta.view']);
-        $trancada = $this->criarPasta($tenant);
-        $trancada->trancar($admin, new \DateTimeImmutable());
-        $this->em()->flush();
-
-        $this->logarComTenant($client, $pessoa, $tenant);
-        $crawler = $client->request('GET', '/agenda');
-        self::assertResponseIsSuccessful();
-        $raiz = $crawler->filter('#pastaBuscaRapida');
-        self::assertCount(1, $raiz);
-
-        $client->xmlHttpRequest('POST', str_replace('/0/', '/' . $trancada->getId() . '/', (string) $raiz->attr('data-url-pedir')), [
-            '_token' => (string) $raiz->attr('data-csrf-pedir'),
-        ]);
-
-        self::assertResponseIsSuccessful();
-        self::assertArrayHasKey('avisados', json_decode((string) $client->getResponse()->getContent(), true));
     }
 
     #[TestDox('sem o módulo Pastas, a página logada não traz a janela, o CSS nem o JS')]
