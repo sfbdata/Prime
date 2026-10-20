@@ -19,6 +19,11 @@ use App\Entity\Tenant\TenantRolePermission;
  */
 final class RotuloDeAuditoria
 {
+    public const DETALHE_DO_MASTER = 'Ação confirmada pelo Master';
+
+    /** Rotas das ações do Master sobre a conta (ContasDoSistemaController: master_conta_suspender, master_conta_reativar). */
+    private const PREFIXO_ROTA_DO_MASTER = 'master_conta_';
+
     /** Nome humano de cada campo que costuma aparecer nas entidades administrativas. */
     private const CAMPOS = [
         'name'           => 'nome',
@@ -78,7 +83,27 @@ final class RotuloDeAuditoria
             return ['acao' => $rotulos[2], 'detalhe' => 'Registro apagado'];
         }
 
-        return ['acao' => self::rotuloDeAlteracao($entidade, $mudancas, $rotulos[1]), 'detalhe' => self::detalheDeCampos($campos)];
+        $detalhe = self::confirmadaPeloMaster($entidade, $mudancas) ? self::DETALHE_DO_MASTER : self::detalheDeCampos($campos);
+
+        return ['acao' => self::rotuloDeAlteracao($entidade, $mudancas, $rotulos[1]), 'detalhe' => $detalhe];
+    }
+
+    /**
+     * Situação da conta trocada pelo menu da conta no painel do Master (spec perfis-1.2-contas C6):
+     * a rota gravada no contexto da linha é uma das ações de conta do Master (`master_conta_*`), que
+     * só rodam depois da confirmação no modal. A rota é gravada pelo AuditLogSubscriber em toda linha
+     * e não depende de quem é o ator, então o detalhe não aparece em mudança feita por outro caminho.
+     *
+     * @param array<string, mixed> $mudancas
+     */
+    private static function confirmadaPeloMaster(string $entidade, array $mudancas): bool
+    {
+        $rota = $mudancas['context']['route'] ?? null;
+        $diff = self::diff($mudancas);
+
+        return $entidade === Tenant::class
+            && is_string($rota) && str_starts_with($rota, self::PREFIXO_ROTA_DO_MASTER)
+            && (isset($diff['isActive']) || isset($diff['excluidoEm']));
     }
 
     /**
@@ -88,12 +113,14 @@ final class RotuloDeAuditoria
     {
         $diff = self::diff($mudancas);
 
-        if ($entidade === Tenant::class && isset($diff['isActive']) && is_array($diff['isActive'])) {
-            return ($diff['isActive']['to'] ?? null) === false ? 'Conta suspensa' : 'Conta reativada';
+        // A exclusão grava excluidoEm E isActive=false: excluidoEm vem primeiro, senão ela seria lida
+        // como suspensão (spec perfis-1.2-contas C6).
+        if ($entidade === Tenant::class && isset($diff['excluidoEm']) && is_array($diff['excluidoEm'])) {
+            return ($diff['excluidoEm']['to'] ?? null) !== null ? 'Conta excluída' : 'Exclusão de conta cancelada';
         }
 
-        if ($entidade === Tenant::class && isset($diff['excluidoEm']) && is_array($diff['excluidoEm'])) {
-            return ($diff['excluidoEm']['to'] ?? null) !== null ? 'Conta enviada para exclusão' : 'Exclusão de conta cancelada';
+        if ($entidade === Tenant::class && isset($diff['isActive']) && is_array($diff['isActive'])) {
+            return ($diff['isActive']['to'] ?? null) === false ? 'Conta suspensa' : 'Conta reativada';
         }
 
         if ($entidade === User::class && isset($diff['roles'])) {
