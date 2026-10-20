@@ -1,13 +1,17 @@
-/* Painel do Master · "Editar Perfil: Master do Sistema" (desenho docs/design/perfis-1.0/05 - Perfis 1.0.dc.html).
+/* Painel do Master · "Editar Perfil: Master do Sistema" (desenho docs/design/perfis-1.0/05 - Perfis 1.0.dc.html;
+   bloco "Masters do sistema" e confirmação do desenho docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html).
    Cada classe reproduz 1:1 o estilo inline do desenho. Cores e tamanhos que variam por item chegam como
    variáveis CSS (--cor, --bg, --borda, --linha, --w) no próprio elemento. */
 
-.mp { font-family: Arial, Helvetica, sans-serif; color: #12242f; -webkit-font-smoothing: antialiased;
+/* font-size e line-height do <body> do desenho (16px, normal): sem isso o painel herda 14px/1.5 do layout e cada
+   linha sai de 4 a 9px mais alta que no desenho. */
+.mp { font-family: Arial, Helvetica, sans-serif; color: #12242f; -webkit-font-smoothing: antialiased; font-size: 16px; line-height: normal;
   padding: 14px 10px 40px; max-width: 1600px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 .mp a { color: #0a6fa0; text-decoration: none; }
 .mp a:hover { color: #0b5f86; text-decoration: underline; }
 .mp [hidden] { display: none !important; }
-.mp button { font: inherit; }
+/* :where() zera a especificidade: o font herdado não pode vencer o negrito e o tamanho das classes (.mp-aba, .mp-sec...). */
+:where(.mp) button { font: inherit; }
 
 /* ---------- cabeçalho ---------- */
 .mp-topo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
@@ -193,16 +197,34 @@
 .mp-barra-6 > div, .mp-barra-8 > div { height: 100%; width: var(--w); background: var(--cor); }
 .mp-conta-cresc { text-align: center; font-size: 12.5px; color: #4a6373; }
 .mp-conta-prev { text-align: center; font-size: 12px; color: #4a6373; }
-.mp-conta-st { display: flex; justify-content: center; }
-.mp-conta-st > span { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: bold; color: var(--cor); }
-.mp-conta-st > span > i { width: 7px; height: 7px; border-radius: 50%; background: var(--cor); }
+.mp-conta-st { display: flex; align-items: center; justify-content: center; }
+.mp-conta-st > span, .mp-conta-st-bloco > .mp-conta-sit { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: bold; color: var(--cor); white-space: nowrap; }
+.mp-conta-st > span > i, .mp-conta-st-bloco > .mp-conta-sit > i { width: 7px; height: 7px; border-radius: 50%; background: var(--cor); }
 .mp-conta-acoes { display: flex; justify-content: center; }
 .mp-btn-icone { width: 30px; height: 30px; border: none; background: transparent; border-radius: 4px; color: #4a6373; cursor: pointer; }
-.mp-menu { position: absolute; z-index: 20; right: 20px; top: 52px; width: 260px; background: #fff; border: 1px solid #d6e0e7; border-radius: 4px;
+/* Menu da conta em position: fixed (top/left na janela, calculados pelo painel.js): fora do card e da rolagem, nunca cortado.
+   Abaixo do modal de confirmação (1060). */
+.mp-menu { position: fixed; z-index: 1055; top: 0; left: 0; width: 260px; background: #fff; border: 1px solid #d6e0e7; border-radius: 4px;
   box-shadow: 0 12px 30px rgba(18,36,47,.18); overflow: hidden; }
 .mp-menu-cab { background: #0a6fa0; color: #fff; padding: 9px 14px; font-size: 11px; font-weight: bold; letter-spacing: 1.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp-menu-op { width: 100%; display: flex; align-items: center; gap: 9px; border: none; background: #fff; padding: 8px 14px; font-size: 13px; color: #243845; cursor: pointer; text-align: left; }
 .mp-menu-op:hover { background: #eef6fb; }
+/* Suspender / Reativar (desenho 1.2, linha 735): separador acima e cor própria. */
+.mp-menu-op.mp-menu-sep { border-top: 1px solid #eef2f5; }
+.mp-menu-op.mp-menu-suspender { color: #8a5a12; }
+.mp-menu-op.mp-menu-suspender:hover { background: #fbf1dc; }
+.mp-menu-op.mp-menu-reativar { color: #1e7b45; }
+.mp-menu-op.mp-menu-reativar:hover { background: #e6f4ec; }
+.mp-menu-op.mp-menu-excluir { color: #a3232b; }
+.mp-menu-op.mp-menu-excluir:hover { background: #fbe7e7; }
+/* Conta em quarentena (C4b): situação cinza e, abaixo, a data da purga em 11px, alinhada à esquerda do
+   texto da situação, sem quebrar dentro da linha. O bloco fica centrado na célula e na altura da linha. */
+.mp-conta-st-bloco { display: flex; flex-direction: column; align-items: flex-start; }
+.mp-conta-st-bloco > .mp-conta-purga { font-size: 11px; font-weight: normal; line-height: 1.3; color: #5b7383; margin-top: 2px; white-space: nowrap; }
+/* Resultado de suspender/reativar conta, acima da tabela de contas. */
+.mp-aviso { display: flex; align-items: center; gap: 8px; padding: 10px 20px; font-size: 13px; border-bottom: 1px solid #eef2f5; }
+.mp-aviso.is-ok { background: #e6f4ec; color: #1e7b45; }
+.mp-aviso.is-erro { background: #fbe7e7; color: #a3232b; }
 .mp-vazio-linha { padding: 24px; text-align: center; color: #5b7383; font-size: 13px; }
 
 /* ---------- Usuários e OABs ---------- */
@@ -280,6 +302,24 @@
 .mp-master-id > span { font-size: 12px; color: #5b7383; }
 .mp-tag-master { font-size: 11px; font-weight: bold; letter-spacing: .6px; color: #fff; background: #7a3e8f; padding: 3px 8px; border-radius: 3px; }
 .mp-cadeado { width: 30px; text-align: center; color: #7a3e8f; }
+/* Master secundário (desenho 1.2, linhas 320-329): avatar #a77bb8, selo roxo sobre lilás, lixeira só para o primário. */
+.mp-avatar.mp-avatar-sec { background: #a77bb8; }
+.mp-tag-master.mp-tag-master-sec { color: #7a3e8f; background: #f3e9f7; }
+.mp-form-remover { margin: 0; display: inline-flex; }
+/* O botão do desenho não herda a fonte: usa a do navegador (13.33px), que dá o tamanho do ícone. */
+.mp .mp-lixeira { width: 30px; height: 30px; border: none; background: transparent; border-radius: 4px; color: #a3232b; cursor: pointer; padding: 0; font-size: 13.33px; }
+.mp .mp-lixeira:hover { background: #fbe7e7; }
+/* Rodapé "Promover a Master" (desenho 1.2, linhas 330-337). */
+.mp-promover { margin: 0; padding: 14px 18px; background: #faf7fc; display: flex; flex-direction: column; gap: 10px; }
+.mp-promover > b { font-size: 13px; color: #4b2259; }
+.mp-promover-grade { display: grid; grid-template-columns: minmax(160px,1.2fr) minmax(180px,1.3fr) minmax(120px,.8fr) auto; gap: 10px; align-items: center; }
+.mp-promover-grade select { height: 36px; border: 1px solid #d6e0e7; border-radius: 4px; padding: 0 10px; font: inherit; font-size: 13.5px; min-width: 0; background: #fff; grid-column: span 2; color: #12242f; }
+.mp-promover-info { font-size: 12.5px; color: #4a6373; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp .mp-btn-roxo { height: 36px; display: flex; align-items: center; gap: 7px; border: none; border-radius: 4px; background: #7a3e8f; color: #fff;
+  font-size: 13.5px; font-weight: bold; padding: 0 14px; cursor: pointer; white-space: nowrap; transition: all .18s; }
+.mp .mp-btn-roxo:hover { background: #5f2f70; transform: scale(1.03); }
+.mp-promover-msg { font-size: 12px; color: #5b7383; }
+.mp-promover-msg.is-erro { color: #a3232b; }
 .mp-perm-duas { display: grid; grid-template-columns: minmax(300px,1fr) minmax(340px,1.3fr); gap: 16px; align-items: start; }
 .mp-poderes, .mp-papeis { overflow: hidden; }
 .mp-poder { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-bottom: 1px solid #f0f4f7; font-size: 13.5px; }
@@ -294,6 +334,22 @@
 .mp-papel-faz { font-size: 13px; color: #12242f; line-height: 1.5; }
 .mp-papel-nao { font-size: 13px; color: #7a1b22; line-height: 1.5; }
 .mp-rodape-cinza { padding: 11px 18px; font-size: 12px; color: #5b7383; background: #f8fafb; }
+
+/* ---------- confirmação interna (desenho 1.2, linhas 411-419) ---------- */
+.mp-conf-fundo { position: fixed; inset: 0; z-index: 1060; background: rgba(13,27,42,.35); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.mp .mp-conf-fundo[hidden] { display: none !important; }
+.mp-conf { width: 100%; max-width: 440px; background: #fff; border-radius: 4px; box-shadow: 0 20px 50px -12px rgba(13,27,42,.45); overflow: hidden; }
+.mp-conf-cab { background: var(--cor, #0a6fa0); color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 16px; line-height: normal; }
+.mp-conf-texto { padding: 18px 20px; font-size: 13.5px; line-height: 1.55; color: #34505f; }
+.mp-conf-rodape { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: #f5f8fa; }
+.mp .mp-conf-cancelar { height: 34px; border: none; background: transparent; font-size: 13.5px; padding: 0 14px; cursor: pointer; border-radius: 4px; color: #12242f; }
+.mp .mp-conf-cancelar:hover { background: #e2e9ee; }
+.mp-conf-campo { padding: 0 20px 16px; display: flex; flex-direction: column; gap: 6px; }
+.mp .mp-conf-campo[hidden] { display: none; }
+.mp-conf-campo label { font-size: 12.5px; font-weight: bold; color: #34505f; margin: 0; }
+.mp-conf-campo input { height: 34px; border: 1px solid #d6e0e7; border-radius: 4px; padding: 0 10px; font-size: 13.5px; letter-spacing: 1px; }
+.mp .mp-conf-ok:disabled { background: #9fb3c0; cursor: not-allowed; }
+.mp .mp-conf-ok { height: 34px; border: none; background: var(--cor, #0a6fa0); color: #fff; font-size: 13.5px; font-weight: bold; padding: 0 16px; cursor: pointer; border-radius: 4px; }
 
 @media (max-width: 900px) {
   .mp-mapa-corpo, .mp-oab-duas, .mp-perm-duas { grid-template-columns: minmax(0,1fr); }

@@ -48,7 +48,7 @@ final class CentralEquipePresencaTest extends JusPrimeWebTestCase
 
         $this->post($client, '/central/presenca', ['status' => 'disponivel']);
         self::assertResponseIsSuccessful();
-        self::assertSame(['status' => 'disponivel'], $this->json($client));
+        self::assertSame(['status' => 'disponivel', 'online' => [['id' => $ana->getId(), 'status' => 'disponivel', 'semAtividadeMin' => null]]], $this->json($client));
         self::assertSame('disponivel', $this->linhaDePresenca((int) $ana->getId(), (int) $tenant->getId())['status']);
 
         // Mesmo status: a linha é a mesma e o "desde" não anda; status novo: "desde" anda.
@@ -185,6 +185,54 @@ final class CentralEquipePresencaTest extends JusPrimeWebTestCase
         }
         self::assertSame(['ocupado', true], $status[(string) $bia->getFullName()]);
         self::assertSame(['offline', false], $status[(string) $caio->getFullName()]);
+    }
+
+    #[TestDox('Batimento responde quem está on-line NESTE escritório (só ids, status e minutos): ex-colega, desligado e outro escritório ficam fora')]
+    public function testBatimentoTrazQuemEstaOnline(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        [, $outro] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $bia = $this->colega($tenant, 'bia');
+        $caio = $this->colega($tenant, 'caio');
+        $ex = $this->colega($tenant, 'ex');
+        $deFora = $this->colega($outro, 'fora');
+        $agora = (new \DateTimeImmutable('-10 seconds'))->format('Y-m-d H:i:s');
+        $inativaDesde = (new \DateTimeImmutable('-5 minutes'))->format('Y-m-d H:i:s');
+        $velho = (new \DateTimeImmutable('-2 minutes'))->format('Y-m-d H:i:s');
+        foreach ([[$tenant, $bia, 'inativo', $agora, $inativaDesde], [$tenant, $caio, 'ocupado', $velho, $velho], [$tenant, $ex, 'disponivel', $agora, $agora], [$outro, $deFora, 'disponivel', $agora, $agora]] as [$t, $quem, $st, $bat, $desde]) {
+            $this->em()->getConnection()->executeStatement(
+                'INSERT INTO central_presenca (tenant_id, usuario_id, ultima_atividade, status, status_desde) VALUES (?, ?, ?, ?, ?)',
+                [$t->getId(), $quem->getId(), $bat, $st, $desde],
+            );
+        }
+        $this->em()->getConnection()->executeStatement('UPDATE user_tenant SET is_active = false WHERE user_id = ?', [$ex->getId()]);
+        $this->logarComTenant($client, $ana, $tenant);
+
+        $this->post($client, '/central/presenca', ['status' => 'disponivel']);
+        self::assertResponseIsSuccessful();
+        $online = [];
+        foreach ($this->json($client)['online'] as $p) {
+            self::assertSame(['id', 'status', 'semAtividadeMin'], array_keys($p), 'nada de nome, texto, ponto ou horas');
+            $online[$p['id']] = [$p['status'], $p['semAtividadeMin']];
+        }
+        ksort($online);
+        self::assertSame([$ana->getId() => ['disponivel', null], $bia->getId() => ['inativo', 65]], $online);
+    }
+
+    #[TestDox('Batimento aceita o status inativo (ausente por falta de atividade)')]
+    public function testBatimentoInativo(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $this->logarComTenant($client, $ana, $tenant);
+
+        $this->post($client, '/central/presenca', ['status' => 'inativo']);
+        self::assertResponseIsSuccessful();
+        self::assertSame('inativo', $this->linhaDePresenca((int) $ana->getId(), (int) $tenant->getId())['status']);
+        self::assertSame(60, $this->json($client)['online'][0]['semAtividadeMin']);
     }
 
     #[TestDox('Sem vínculo ativo no escritório: equipe e batimento recusados')]

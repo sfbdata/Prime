@@ -183,6 +183,25 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
      * @param string[] $numeros  números CNJ com ou sem máscara (normalizados aqui)
      * @return PublicacaoDjenListaItem[]
      */
+    /** Existe ao menos uma publicação destes números neste escritório? (Sem carregar a lista.) */
+    public function existePorNumerosDoTenant(Tenant $tenant, array $numeros): bool
+    {
+        $numeros = self::normalizarNumeros($numeros);
+        if ($numeros === []) {
+            return false;
+        }
+
+        return $this->createQueryBuilder('p')
+            ->select('p.id')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.numeroProcesso IN (:numeros)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('numeros', $numeros)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult() !== null;
+    }
+
     public function listarItensPorNumerosDoTenant(Tenant $tenant, array $numeros, int $limite = 100): array
     {
         $numeros = self::normalizarNumeros($numeros);

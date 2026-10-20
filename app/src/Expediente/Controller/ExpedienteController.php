@@ -331,8 +331,6 @@ final class ExpedienteController extends AbstractController
             $pasta = $this->sincronizarMarcadoresUseCase->executar($id, $marcadorIds, $tenant);
         } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
-        } catch (\Throwable $e) {
-            return $this->json(['erro' => $e->getMessage(), 'trace' => $e->getTraceAsString()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
         return $this->json([
@@ -635,7 +633,7 @@ final class ExpedienteController extends AbstractController
      */
     private function ordenacaoDaRequest(Request $request): array
     {
-        $colunas = ['nup', 'cliente', 'acao', 'prioridade', 'responsavel', 'marcadores', 'situacao'];
+        $colunas = ['nup', 'cliente', 'reu', 'acao', 'prioridade', 'responsavel', 'marcadores', 'situacao'];
         $ordenar = (string) $request->query->get('ordenar', '');
         $ordenar = in_array($ordenar, $colunas, true) ? $ordenar : '';
         $direcao = strtolower((string) $request->query->get('direcao', 'desc')) === 'asc' ? 'asc' : 'desc';
