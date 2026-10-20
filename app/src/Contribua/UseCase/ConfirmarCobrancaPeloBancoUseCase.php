@@ -111,7 +111,8 @@ final class ConfirmarCobrancaPeloBancoUseCase
     {
         $cobranca->marcarPaga();
         $this->em->flush();
-        $this->avisar($cobranca, AvisoAoMaster::TIPO_APOIO_CONFIRMADO, 'Teste da Cora (sandbox): pagamento confirmado de %s (conta Nº %s), %s. Nenhum apoio foi registrado.', $situacao->valorPagoCentavos ?: $cobranca->getValorCentavos());
+        $teste = 'cora' === $cobranca->getBanco() ? 'Teste da Cora' : 'Teste do banco';
+        $this->avisar($cobranca, AvisoAoMaster::TIPO_APOIO_CONFIRMADO, $teste . ' (sandbox): pagamento confirmado de %s (conta Nº %s), %s. Nenhum apoio foi registrado.', $situacao->valorPagoCentavos ?: $cobranca->getValorCentavos());
 
         return false;
     }

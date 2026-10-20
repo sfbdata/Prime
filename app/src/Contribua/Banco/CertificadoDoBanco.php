@@ -6,7 +6,8 @@ namespace App\Contribua\Banco;
 
 /**
  * Lê o certificado e a chave privada enviados pelo Master (desenho 08: .pem, .key, .crt, .p12, .pfx) e
- * confere que formam um par. Devolve os dois em PEM, que é o que o mTLS usa.
+ * confere que formam um par. Devolve os dois em PEM, que é o que o mTLS usa. O .pfx/.p12 pode vir com senha
+ * (D7 da C4b, comum no certificado A1 do BB): ela serve só para abrir o arquivo aqui e nunca é gravada.
  */
 final class CertificadoDoBanco
 {
@@ -15,13 +16,13 @@ final class CertificadoDoBanco
      *
      * @return array{certificado: string, chave: string}
      */
-    public function ler(array $arquivos): array
+    public function ler(array $arquivos, #[\SensitiveParameter] string $senha = ''): array
     {
         $certificado = null;
         $chave = null;
         foreach ($arquivos as $nome => $conteudo) {
             if (preg_match('/\.(p12|pfx)$/i', $nome)) {
-                [$certificado, $chave] = $this->doPkcs12($conteudo);
+                [$certificado, $chave] = $this->doPkcs12($conteudo, $senha);
                 continue;
             }
             if (str_contains($conteudo, 'PRIVATE KEY')) {
@@ -31,7 +32,7 @@ final class CertificadoDoBanco
             }
         }
         if (null === $certificado || null === $chave) {
-            throw new \DomainException('Envie o certificado e a chave privada (.pem e .key, ou um .p12 sem senha).');
+            throw new \DomainException('Envie o certificado e a chave privada (.pem e .key, ou o .pfx/.p12 com a senha dele).');
         }
         $this->exigirPar($certificado, $chave);
 
@@ -39,11 +40,13 @@ final class CertificadoDoBanco
     }
 
     /** @return array{string, string} */
-    private function doPkcs12(string $conteudo): array
+    private function doPkcs12(string $conteudo, #[\SensitiveParameter] string $senha): array
     {
         $partes = [];
-        if (!openssl_pkcs12_read($conteudo, $partes, '')) {
-            throw new \DomainException('Não foi possível abrir o .p12. Envie sem senha, ou o .pem e o .key.');
+        if (!openssl_pkcs12_read($conteudo, $partes, $senha)) {
+            throw new \DomainException('' === $senha
+                ? 'Não foi possível abrir o .pfx/.p12. Se ele tem senha, informe a senha do certificado; ou envie o .pem e o .key.'
+                : 'Não foi possível abrir o .pfx/.p12: senha incorreta ou arquivo em formato antigo. Confira a senha, ou envie o .pem e o .key.');
         }
 
         return [(string) $partes['cert'], (string) $partes['pkey']];

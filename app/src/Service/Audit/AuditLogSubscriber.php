@@ -33,9 +33,11 @@ class AuditLogSubscriber
         'invitationToken',
         // Refresh token OAuth do Drive por tenant — já cifrado, nunca vai para o audit_log.
         'refreshTokenCifrado',
-        // Certificado e chave do banco da Contribua (C4): já cifrados, nunca para o audit_log.
+        // Certificado, chave, Client Secret e app key do banco da Contribua (C4, C4b): já cifrados, nunca para o audit_log.
         'certificadoCifrado',
         'chaveCifrada',
+        'clientSecretCifrado',
+        'appKeyCifrada',
     ];
 
     public function __construct(

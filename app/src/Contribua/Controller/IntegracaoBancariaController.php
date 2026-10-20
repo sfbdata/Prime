@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Contribua\Controller;
 
+use App\Contribua\DTO\DadosDoBancoInput;
 use App\Contribua\UseCase\EnviarCertificadoDoBancoUseCase;
 use App\Contribua\UseCase\PremioDoApoiadorUseCase;
 use App\Contribua\UseCase\SalvarIntegracaoBancariaUseCase;
@@ -20,7 +21,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 /**
  * Integração bancária do Master (desenho 08, L80-101) e a baixa do prêmio do apoiador (L192-203). Mesmo
  * protocolo das ações da página Contribua: CSRF `contribua` no campo `_token`, resposta `{ok, mensagem}` ou
- * `{ok: false, erro}`.
+ * `{ok: false, erro}`. Os segredos (Client Secret, app key, senha do certificado) só entram: nenhuma resposta
+ * os devolve.
  */
 #[IsGranted('ROLE_USER')]
 #[Route('/contribua')]
@@ -44,6 +46,7 @@ final class IntegracaoBancariaController extends AbstractController
             $request->request->getString('clientId'),
             array_map(static fn (mixed $v): bool => '1' === (string) $v, $request->request->all('recursos')),
             $this->usuario(),
+            $this->dadosDoBanco($request),
         )]);
     }
 
@@ -58,7 +61,7 @@ final class IntegracaoBancariaController extends AbstractController
                     $arquivos[$arquivo->getClientOriginalName()] = $arquivo->getContent();
                 }
             }
-            $nomes = $this->enviarCertificado->executar($arquivos, $this->usuario());
+            $nomes = $this->enviarCertificado->executar($arquivos, $this->usuario(), $request->request->getString('senhaDoCertificado'));
 
             return ['mensagem' => 'Certificado e chave guardados no cofre do servidor.', 'arquivos' => $nomes];
         });
@@ -84,6 +87,17 @@ final class IntegracaoBancariaController extends AbstractController
 
             return ['mensagem' => ''];
         });
+    }
+
+    /** O banco e os campos extras (C4b); sem o campo `banco`, ficam como estão. */
+    private function dadosDoBanco(Request $request): ?DadosDoBancoInput
+    {
+        $r = $request->request;
+        if (!$r->has('banco')) {
+            return null;
+        }
+
+        return new DadosDoBancoInput($r->getString('banco'), $r->getString('clientSecret'), $r->getString('chavePix'), $r->getString('appKey'), $r->getString('urlBase'), $r->getString('urlToken'));
     }
 
     /** @param callable(): array<string, mixed> $fazer */
