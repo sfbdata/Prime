@@ -97,6 +97,14 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Histórico de envios ao cliente (push-avisar-cliente §1): ele próprio é o registro do ato (quem, quando,
         // para quem, com cópia), nunca editado, como o EventoHistorico. Auditar seria log de log.
         \App\Pasta\Entity\EnvioAoCliente::class,
+        // Indicar o BlueJus (docs/specs/indicar-bluejus.md): dado de plataforma, sem tenant. O audit_log é por escritório e
+        // lido por quem administra o escritório; a indicação, o código, os limites, as pausas e os alertas são do Master
+        // e da própria pessoa, e a própria linha já guarda quem e quando (alterado_por, pausado_por, criada_em).
+        \App\Indicacao\Entity\Indicacao::class,
+        \App\Indicacao\Entity\IndicacaoCodigo::class,
+        \App\Indicacao\Entity\IndicacaoConfig::class,
+        \App\Indicacao\Entity\IndicacaoPausa::class,
+        \App\Indicacao\Entity\IndicacaoAlerta::class,
         // Versão anterior da nota técnica (M8/PMC-020, 07/10): ela MESMA é o histórico — só nasce (nunca
         // é editada) a cada edição da nota, que já é auditada. Auditar a versão duplicaria o texto.
         \App\Processo\Entity\NotaTecnicaVersao::class,
