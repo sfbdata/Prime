@@ -108,6 +108,9 @@ final class PurgarEscritorioUseCase
         // NO ACTION — deleção explícita, ANTES da nota.
         ['nota_tecnica_versao', 'tenant_id = :tenant'],
         ['nota_tecnica', 'tenant_id = :tenant'],
+        // Previsões da Situação atual do Push (taxa de acertos): caem pela CASCADE do processo, mas
+        // a FK de tenant é NO ACTION; deleção explícita antes de apagar o processo e o tenant.
+        ['previsao_processual', 'tenant_id = :tenant'],
         // DJEN — publicações e OABs monitoradas (tenant_id direto; FKs a processo/oab_monitorada
         // são SET NULL, então não caem por cascata — precisam de deleção explícita).
         ['publicacao_djen', 'tenant_id = :tenant'],

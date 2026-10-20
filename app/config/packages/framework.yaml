@@ -90,6 +90,13 @@ framework:
             policy: sliding_window
             limit: 30
             interval: '10 minutes'
+        # "Buscar agora" do painel do Push (spec push-painel-monitoramento §2): chave = escritório +
+        # PASTA, não usuário. Cada busca consulta o DJEN uma vez por processo da pasta, e o DJEN
+        # aceita ~20 requisições por IP na janela: dois cliques na mesma pasta não podem gastar a cota.
+        pasta_push_buscar:
+            policy: fixed_window
+            limit: 1
+            interval: '1 minute'
 
     # Note that the session will be started ONLY if you read or write from it.
     session: true
