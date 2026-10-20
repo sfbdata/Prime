@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Agenda\Repository;
 
 use App\Agenda\Entity\Evento;
+use App\Agenda\Entity\LigacaoComGoogle;
 use App\Agenda\Enum\TipoDeCompromisso;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -93,7 +94,8 @@ class EventoDaAgendaRepository
             return $qb->andWhere('e.dataFim >= :desde OR e.recorrente = true')->getQuery()->getResult();
         }
 
-        return $qb->andWhere('e.dataFim >= :desde OR e.recorrente = true OR e.modificadoEm >= :mudou')
+        // Também o que ficou para reenviar (cópia mexida no Google), mesmo fora da janela.
+        return $qb->andWhere('e.dataFim >= :desde OR e.recorrente = true OR e.modificadoEm >= :mudou OR e.id IN (SELECT IDENTITY(l.evento) FROM ' . LigacaoComGoogle::class . ' l JOIN l.conexao lc WHERE lc.usuario = :pessoa AND l.tenant = :tenant AND l.hash IS NULL)')
             ->setParameter('mudou', $mudouDesde)
             ->getQuery()
             ->getResult();

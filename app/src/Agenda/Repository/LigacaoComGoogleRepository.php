@@ -7,6 +7,7 @@ namespace App\Agenda\Repository;
 use App\Agenda\Entity\ConexaoGoogleAgenda;
 use App\Agenda\Entity\Evento;
 use App\Agenda\Entity\LigacaoComGoogle;
+use App\Agenda\Service\CompromissoNoGoogle;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -53,12 +54,15 @@ class LigacaoComGoogleRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /** Outra conta ou agenda nova: as ligações antigas não valem (os compromissos vão de novo, como novos). */
+    /**
+     * Outra conta ou agenda nova: as ligações antigas não valem (os compromissos vão de novo, como novos). Fica a
+     * marca do importado com repetição que o BlueJus não representa: ele não vai à agenda nova achatado.
+     */
     public function esquecerDaConexao(ConexaoGoogleAgenda $conexao): void
     {
         $this->getEntityManager()->getConnection()->executeStatement(
-            'DELETE FROM agenda_google_ligacao WHERE conexao_id = :c',
-            ['c' => $conexao->getId()],
+            'DELETE FROM agenda_google_ligacao WHERE conexao_id = :c AND hash IS DISTINCT FROM :soDoGoogle',
+            ['c' => $conexao->getId(), 'soDoGoogle' => CompromissoNoGoogle::SO_DO_GOOGLE],
         );
     }
 

@@ -103,6 +103,21 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
         self::assertContains('POST /token', $this->google->pedidos);
     }
 
+    #[TestDox('Conta Google sem e-mail confirmado não conecta: o e-mail casa convidados com a equipe')]
+    public function testEmailNaoConfirmado(): void
+    {
+        $client = $this->cliente();
+        [$eu, $tenant] = $this->entrar($client);
+        $this->google->emailConfirmado = false;
+        $client->request('GET', '/agenda/google/conectar?volta=' . rawurlencode('/agenda'));
+        parse_str((string) parse_url((string) $client->getResponse()->headers->get('Location'), \PHP_URL_QUERY), $q);
+
+        $client->request('GET', '/agenda/google/retorno?code=abc&state=' . $q['state']);
+
+        self::assertResponseRedirects('/agenda#google=falhou');
+        self::assertFalse($this->em()->getConnection()->fetchOne('SELECT id FROM agenda_google_conexao WHERE usuario_id = :u AND tenant_id = :t', ['u' => $eu->getId(), 't' => $tenant->getId()]));
+    }
+
     #[TestDox('A mesma conta Google pode ser ligada em outro escritório: cada um terá a sua agenda nela, e a de lá não é revogada')]
     public function testMesmaContaEmOutroEscritorio(): void
     {

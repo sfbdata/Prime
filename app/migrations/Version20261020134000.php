@@ -15,7 +15,7 @@ use Doctrine\Migrations\AbstractMigration;
  * compromisso, a marca "importado do Google". Tudo novo ou nulo/falso: os compromissos existentes não mudam.
  * Spec: docs/specs/agenda-google.md (seção 0).
  */
-final class Version20261020129700 extends AbstractMigration
+final class Version20261020134000 extends AbstractMigration
 {
     public function getDescription(): string
     {

@@ -104,6 +104,29 @@ final class SincronizacaoComGoogleTest extends KernelTestCase
         self::assertStringNotContainsString('fora.com.br', (string) json_encode($this->em()->getConnection()->fetchAllAssociative('SELECT * FROM evento WHERE id = :id', ['id' => $evento->getId()])));
     }
 
+    #[TestDox('Editar aqui o compromisso criado no Google não apaga lá os convidados, o Meet e os lembretes')]
+    public function testEdicaoPreservaOQueEDoGoogle(): void
+    {
+        [, , $conexao] = $this->cenario();
+        $this->sincronizar($conexao);
+        $agenda = (string) $this->agendaDe($conexao);
+        $doGoogle = ['id' => 'reu2', 'summary' => 'Reunião', 'attendees' => [['email' => 'cliente@fora.com.br']], 'conferenceData' => ['conferenceId' => 'abc-defg-hij'], 'reminders' => ['useDefault' => false], 'start' => ['date' => '2030-04-01'], 'end' => ['date' => '2030-04-02']];
+        $this->google->eventos[$agenda]['reu2'] = $doGoogle;
+        $this->google->paraTrazer[$agenda] = [$doGoogle];
+        $this->sincronizar($conexao);
+
+        $this->eventoPeloGoogle($conexao, 'reu2')->setTitulo('Reunião com o cliente');
+        $this->em()->flush();
+        $this->sincronizar($conexao);
+
+        $la = $this->google->eventos[$agenda]['reu2'];
+        self::assertSame('Reunião com o cliente', $la['summary']);
+        self::assertSame([['email' => 'cliente@fora.com.br']], $la['attendees']);
+        self::assertSame(['conferenceId' => 'abc-defg-hij'], $la['conferenceData']);
+        self::assertSame(['useDefault' => false], $la['reminders']);
+        self::assertArrayNotHasKey('etag', $la, 'campo só de leitura não volta');
+    }
+
     #[TestDox('Compromisso criado aqui vai ao Google com id nosso; sem mudança não vai de novo; mudou, vai como atualização')]
     public function testLevaAoGoogle(): void
     {
@@ -186,6 +209,26 @@ final class SincronizacaoComGoogleTest extends KernelTestCase
         $r = $this->sincronizar($daColega);
         self::assertSame(1, $r['apagados'], 'saiu da lista: a cópia sai da agenda dele');
         self::assertNull($this->ligacao($daColega, $reuniao));
+    }
+
+    #[TestDox('A cópia mexida no Google volta como aqui mesmo quando o compromisso já saiu da janela de envio')]
+    public function testCopiaMexidaForaDaJanela(): void
+    {
+        [$eu, $tenant] = $this->cenario();
+        [$colega] = $this->pessoa($tenant);
+        $daColega = $this->conectar($colega, $tenant, 'colega@gmail.com');
+        $reuniao = $this->compromisso($eu, $tenant, 'Reunião de pauta', [$colega]);
+        $this->sincronizar($daColega);
+        $agenda = (string) $this->agendaDe($daColega);
+        $id = 'bjt' . $tenant->getId() . 'e' . $reuniao->getId();
+        $this->em()->getConnection()->executeStatement("UPDATE evento SET modificado_em = NOW() - INTERVAL '100 days' WHERE id = :id", ['id' => $reuniao->getId()]);
+        $this->google->paraTrazer[$agenda] = [['summary' => 'Mexi aqui'] + $this->google->eventos[$agenda][$id]];
+        $this->google->eventos[$agenda][$id]['summary'] = 'Mexi aqui';
+
+        static::getContainer()->get(SincronizarGoogleAgendaUseCase::class)->executar((int) $daColega->getId(), new \DateTimeImmutable('+90 days'));
+        $this->em()->clear();
+
+        self::assertSame('Reunião de pauta', $this->google->eventos[$agenda][$id]['summary']);
     }
 
     #[TestDox('Cancelado no Google não apaga aqui: o compromisso fica, na situação "cancelado"')]

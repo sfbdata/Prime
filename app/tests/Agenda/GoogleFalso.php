@@ -27,6 +27,7 @@ final class GoogleFalso
     public array $pedidos = [];
     public string $conta = 'pessoa@gmail.com';
     public bool $recusarAutorizacao = false;
+    public bool $emailConfirmado = true;
     public bool $syncTokenVencido = false;
     /** @var list<string> ids que o Google recusa gravar (403) */
     public array $recusar = [];
@@ -78,7 +79,7 @@ final class GoogleFalso
             return $this->json(['error' => 'invalid_grant'], 400);
         }
         if ('authorization_code' === ($campos['grant_type'] ?? null)) {
-            $carga = rtrim(strtr(base64_encode((string) json_encode(['email' => $this->conta, 'email_verified' => true])), '+/', '-_'), '=');
+            $carga = rtrim(strtr(base64_encode((string) json_encode(['email' => $this->conta, 'email_verified' => $this->emailConfirmado])), '+/', '-_'), '=');
 
             return $this->json(['access_token' => 'acesso', 'refresh_token' => 'REFRESH-SECRETO', 'scope' => 'openid email ' . GoogleAgendaApi::ESCOPO, 'id_token' => 'cab.' . $carga . '.ass']);
         }
@@ -153,6 +154,10 @@ final class GoogleFalso
         if (!isset($this->eventos[$agenda][$id])) {
             return $this->json(['error' => ['code' => 404]], 404);
         }
+        if ('GET' === $metodo) {
+            return $this->json($this->eventos[$agenda][$id] + ['etag' => '"1"', 'kind' => 'calendar#event']);
+        }
+        // Como o events.update do Google: o corpo troca o evento inteiro.
         $corpo = json_decode((string) ($opcoes['body'] ?? '{}'), true);
         $this->guardar($agenda, $id, ['id' => $id] + $corpo);
 

@@ -34,6 +34,10 @@ final class GoogleAgendaApi
     private const AGENDAS = 'https://www.googleapis.com/calendar/v3/calendars';
     private const TEMPO_SEGUNDOS = 15;
     /** 403 por limite de uso é passageiro (tenta na próxima volta); os outros 403 são recusa do evento. */
+    /** O que o BlueJus manda no evento; o resto (convidados, Meet, lembretes, cor) é de quem usa o Google. */
+    private const CAMPOS_DO_BLUEJUS = ['summary', 'description', 'location', 'status', 'visibility', 'start', 'end', 'recurrence'];
+    /** Só leitura na API: não voltam na atualização. */
+    private const CAMPOS_DO_GOOGLE = ['etag', 'kind', 'htmlLink', 'created', 'updated'];
     private const LIMITES = ['rateLimitExceeded', 'userRateLimitExceeded', 'quotaExceeded', 'dailyLimitExceeded'];
 
     public function __construct(
@@ -143,14 +147,31 @@ final class GoogleAgendaApi
     {
         $url = $this->agenda($calendario) . '/events';
         $resposta = $jaExiste
-            ? $this->pedir('PUT', $url . '/' . rawurlencode($id), $acesso, ['json' => $corpo], [404])
+            ? $this->atualizar($acesso, $url . '/' . rawurlencode($id), $corpo)
             : $this->semAgenda($this->pedir('POST', $url, $acesso, ['json' => ['id' => $id] + $corpo], [409, 404]));
         $status = $resposta->getStatusCode();
         if (404 === $status) {
             $this->semAgenda($this->pedir('POST', $url, $acesso, ['json' => ['id' => $id] + $corpo], [409, 404]));
         } elseif (409 === $status) {
-            $this->pedir('PUT', $url . '/' . rawurlencode($id), $acesso, ['json' => $corpo]);
+            $this->atualizar($acesso, $url . '/' . rawurlencode($id), $corpo);
         }
+    }
+
+    /**
+     * O `events.update` do Google troca o evento inteiro: lê o que está lá e troca só os campos do BlueJus,
+     * para não apagar convidados, Meet e lembretes postos no Google. 404 volta para quem chamou.
+     *
+     * @param array<string, mixed> $corpo
+     */
+    private function atualizar(string $acesso, string $urlDoEvento, array $corpo): ResponseInterface
+    {
+        $atual = $this->pedir('GET', $urlDoEvento, $acesso, [], [404]);
+        if (404 === $atual->getStatusCode()) {
+            return $atual;
+        }
+        $deles = array_diff_key($atual->toArray(), array_flip([...self::CAMPOS_DO_BLUEJUS, ...self::CAMPOS_DO_GOOGLE]));
+
+        return $this->pedir('PUT', $urlDoEvento, $acesso, ['json' => $corpo + $deles], [404]);
     }
 
     /** Apaga o evento na agenda do escritório; já apagado (404/410) conta como feito. */
@@ -184,16 +205,17 @@ final class GoogleAgendaApi
     }
 
     /**
-     * O e-mail da conta, do `id_token` que o próprio Google devolveu na troca do código (canal TLS direto com o
-     * Google, OpenID Connect Core 3.1.3.7: sem conferir assinatura).
+     * O e-mail confirmado da conta, do `id_token` que o próprio Google devolveu na troca do código (canal TLS
+     * direto com o Google, OpenID Connect Core 3.1.3.7: sem conferir assinatura).
      */
     private function emailDoIdToken(string $idToken): string
     {
         $partes = explode('.', $idToken);
         $carga = 3 === count($partes) ? json_decode((string) base64_decode(strtr($partes[1], '-_', '+/'), false), true) : null;
         $email = is_array($carga) && is_string($carga['email'] ?? null) ? trim($carga['email']) : '';
-        if ('' === $email) {
-            throw new GoogleAgendaException('O Google não informou o e-mail da conta.');
+        // Só e-mail confirmado pelo Google: ele casa convidados com a equipe (ParticipantesDoGoogle).
+        if ('' === $email || true !== ($carga['email_verified'] ?? null)) {
+            throw new GoogleAgendaException('O Google não informou um e-mail confirmado da conta.');
         }
 
         return $email;
