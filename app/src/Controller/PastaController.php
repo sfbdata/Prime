@@ -77,6 +77,7 @@ use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Pasta\DTO\PastaPrazoOutput;
 use App\Pasta\DTO\AndamentoDaPastaOutput;
 use App\Pasta\Service\AndamentoDaPasta;
+use App\Pasta\Service\PontosDoRelatorioInicial;
 use App\Pasta\Repository\PastaPrazoRepository;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
@@ -512,15 +513,8 @@ class PastaController extends AbstractController
             'push'                        => $push,
             ...$this->paineisDoPush($pasta, $tenant, $montarPainelDoPush),
             'analisesIa'                  => $analisesIa,
-            // Linha vermelha sob as abas (desenho 1.2.3): calculada aqui, a tela só mostra.
-            // A do Financeiro ("… e N pagamentos vencidos") só para quem vê o financeiro.
-            'pendencias'                  => PastaPendenciasOutput::montar(
-                $pasta,
-                $push->naoLidas,
-                $pagamentosDaPasta,
-                itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo(),
-                veFinanceiro: $tenant !== null && $visibilidadeDoFinanceiro->podeVer($currentUser, $tenant, $pasta),
-            ),
+            ...$this->pendenciasEPontosDoRelatorio($pasta, $tenant, $observacoesDetalhes, $push->naoLidas, $pagamentosDaPasta,
+                $conferenciaChecklist->totalMarcadosSemAnexo(), $tenant !== null && $visibilidadeDoFinanceiro->podeVer($currentUser, $tenant, $pasta)),
             'metasResumo'                 => PastaMetasResumoOutput::montar($pasta),
             'abasDaPasta'                 => $abasDaPasta,
             // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
@@ -2421,6 +2415,33 @@ class PastaController extends AbstractController
         return $this->json(['sucesso' => true]);
     }
 
+    // ── Detalhes: Pontos do relatório inicial ─────────────────────────────────
+
+    /**
+     * O card "Pontos do relatório inicial" se redesenha depois que a própria pessoa envia, responde,
+     * edita ou exclui uma observação (evento `ps:detalhes-obs-alterada`), como o `relInicial()` do
+     * desenho. Leitura: a MESMA decisão da `pasta_show` (VIEW na pasta), mais a posse explícita.
+     * Lê o relatório inteiro (`conteudosDaPasta`), não a lista de exibição com teto.
+     */
+    #[Route('/{id}/detalhes/pontos-relatorio', name: 'pasta_detalhes_pontos_relatorio', methods: ['GET'])]
+    public function detalhesPontosRelatorio(Pasta $pasta): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'view')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $pontos = PontosDoRelatorioInicial::dosTextos($this->observacaoDetalhesRepository->conteudosDaPasta($pasta, $tenant));
+
+        return $this->json($pontos->paraResposta());
+    }
+
     // ── Checklist dinâmico ────────────────────────────────────────────────────
 
     #[Route('/{id}/checklist', name: 'pasta_checklist_adicionar', methods: ['POST'])]
@@ -2685,6 +2706,41 @@ class PastaController extends AbstractController
         return $this->telaDoCadeado->mostraATelaTrancada($pasta, $pessoa, $cadeado)
             ? $this->render('pasta/trancada.html.twig', ['pasta' => $pasta, 'cad' => $cadeado])
             : null;
+    }
+
+    /**
+     * Card "Pontos do relatório inicial" e a pendência da aba Detalhes (desenho, `relInicial()`).
+     * A lista de exibição tem teto de 100; só quando ela bate no teto lê-se o relatório inteiro.
+     *
+     * @param PastaObservacaoDetalhes[] $observacoesDetalhes
+     */
+    private function pontosDoRelatorioInicial(Pasta $pasta, ?Tenant $tenant, array $observacoesDetalhes): PontosDoRelatorioInicial
+    {
+        if ($tenant !== null && count($observacoesDetalhes) >= 100) {
+            return PontosDoRelatorioInicial::dosTextos($this->observacaoDetalhesRepository->conteudosDaPasta($pasta, $tenant));
+        }
+
+        return PontosDoRelatorioInicial::dasObservacoes($observacoesDetalhes);
+    }
+
+    /**
+     * Linha vermelha sob as abas (desenho 1.2.3): calculada aqui, a tela só mostra. A do Financeiro
+     * ("… e N pagamentos vencidos") só para quem vê o financeiro; a de Detalhes sai dos pontos do
+     * relatório inicial, que o card do trilho também mostra.
+     *
+     * @param PastaObservacaoDetalhes[]                $observacoesDetalhes
+     * @param \App\Pasta\Entity\PastaPagamento[]       $pagamentos
+     *
+     * @return array{pendencias: PastaPendenciasOutput, pontosDoRelatorio: PontosDoRelatorioInicial}
+     */
+    private function pendenciasEPontosDoRelatorio(Pasta $pasta, ?Tenant $tenant, array $observacoesDetalhes, int $pushNaoLidas, array $pagamentos, int $semAnexo, bool $veFinanceiro): array
+    {
+        $pontos = $this->pontosDoRelatorioInicial($pasta, $tenant, $observacoesDetalhes);
+
+        return [
+            'pendencias'        => PastaPendenciasOutput::montar($pasta, $pushNaoLidas, $pagamentos, itensMarcadosSemAnexo: $semAnexo, veFinanceiro: $veFinanceiro, relatorioInicial: $pontos),
+            'pontosDoRelatorio' => $pontos,
+        ];
     }
 
     /**
