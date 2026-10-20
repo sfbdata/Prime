@@ -30,6 +30,13 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
   `bj-central:despachar` (`public/js/pasta-encaminhar.js`); os itens de menu de registro clicam o ↪ do cartão.
   `central_disponivel()` é lido uma vez por template; fora dele (vínculo inativo) e na lápide nada aparece. Quem só
   vê a pasta também encaminha (é leitura). Pendente: smoke do dono.
+- **20/10, PR4d (explorador) implementado (em revisão):** branch `encaminhar-explorador`, empilhada sobre
+  `encaminhar-tela` (#126). "Encaminhar via Chat I.A" (ícone `bi-send`, D:5071) no menu de UM item do
+  `pasta-explorador.js`, logo depois de "Copiar caminho" e antes do favorito; o menu de vários não tem (o desenho também
+  não). A "pasta" do explorador é uma `PastaSecao`: vai como `secao` (id da seção); o arquivo, como `documento` (id do
+  `PastaDocumento`). Dispara `bj-central:despachar` com `{pastaId, tipo, itemId}` numéricos; classe
+  `js-explorador-encaminhar`. Some sem `window.BJCentral` e na lápide; item na lixeira não está na lista. O só leitor
+  também vê o item (basta ver a pasta; o servidor confere). A nota técnica do PR4d fica para outra fatia.
 
 ### Para o dono
 
