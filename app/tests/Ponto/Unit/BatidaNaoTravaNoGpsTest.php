@@ -32,10 +32,20 @@ use PHPUnit\Framework\TestCase;
  * dentro — e ficava verde com o defeito de volta, bastando extrair a espera crua para uma função
  * declarada ACIMA do recorte. Regra que vale: nenhuma promessa deste template pode embrulhar
  * `getCurrentPosition`, exceto a do leitor com prazo. Onde ela é declarada não importa.
+ *
+ * As partes puras da batida (leitor com prazo, prazos, envio e classificação da resposta) moram
+ * em `public/js/ponto-batida.js`, usado pela tela e pelo atalho do cabeçalho. Cada asserção lê o
+ * arquivo onde o código mora, e a regra da promessa vale para a tela, o módulo e o atalho
+ * (`public/js/presenca-ponto.js`) JUNTOS: arquivo novo é só outro lugar onde o defeito pode voltar.
  */
 final class BatidaNaoTravaNoGpsTest extends TestCase
 {
     private const CAMINHO_TELA = __DIR__ . '/../../../templates/ponto/index.html.twig';
+
+    private const CAMINHO_MODULO = __DIR__ . '/../../../public/js/ponto-batida.js';
+
+    /** Atalho do ponto no cabeçalho. Pode ainda não existir: ausente conta como vazio. */
+    private const CAMINHO_ATALHO = __DIR__ . '/../../../public/js/presenca-ponto.js';
 
     /** Prazo máximo aceitável para a atualização de posição, em milissegundos. */
     private const TETO_PRAZO_GPS_MS = 10000;
@@ -50,7 +60,7 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
     public function testNenhumaOutraPromessaEsperaOGpsDireto(): void
     {
         $leitor  = $this->corpoDoLeitorDePosicao();
-        $fora    = str_replace($leitor, '', $this->fonteSemComentariosNemTextos());
+        $fora    = str_replace($leitor, '', $this->todasAsFontesSemComentariosNemTextos());
         $achadas = [];
 
         foreach ($this->corposDeNewPromise($fora) as $corpo) {
@@ -67,23 +77,40 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
         );
     }
 
+    #[TestDox('a tela carrega o módulo da batida antes do próprio script')]
+    public function testTelaCarregaOModuloAntesDoScript(): void
+    {
+        $fonte  = $this->fonteDaTela();
+        $modulo = strpos($fonte, "<script src=\"{{ asset('js/ponto-batida.js') }}\"></script>");
+        $script = strpos($fonte, '<script>');
+
+        self::assertIsInt($modulo, 'a tela deixou de carregar `public/js/ponto-batida.js`');
+        self::assertIsInt($script, 'não achei o script da tela');
+        self::assertLessThan(
+            $script,
+            $modulo,
+            'o script da tela usa `window.PontoBatida` na carga: o módulo tem que vir antes, sem `defer`'
+        );
+    }
+
     #[TestDox('o fluxo da batida atualiza a posição pelo leitor com prazo, e com o prazo do projeto')]
     public function testFluxoDaBatidaUsaOLeitorComPrazo(): void
     {
-        $fonte = $this->fonteDaTela();
-
+        // A posição que chega também vai para `guardarPosicao`, como antes da extração: sem isso a
+        // página aberta o dia todo ficaria presa na posição da carga.
         self::assertStringContainsString(
-            'await lerPosicaoComPrazo(GPS_PRAZO_ATUALIZACAO_MS)',
-            $fonte,
+            'await PontoBatida.lerPosicaoComPrazo(PontoBatida.GPS_PRAZO_ATUALIZACAO_MS, guardarPosicao)',
+            $this->fonteDaTela(),
             'a batida deveria atualizar a posição pelo leitor com prazo, usando a constante do projeto'
         );
 
+        $modulo = $this->fonteDoModulo();
         self::assertMatchesRegularExpression(
             '/const GPS_PRAZO_ATUALIZACAO_MS = (\d+);/',
-            $fonte,
+            $modulo,
             'a constante do prazo de GPS deveria existir'
         );
-        preg_match('/const GPS_PRAZO_ATUALIZACAO_MS = (\d+);/', $fonte, $captura);
+        preg_match('/const GPS_PRAZO_ATUALIZACAO_MS = (\d+);/', $modulo, $captura);
 
         self::assertLessThanOrEqual(
             self::TETO_PRAZO_GPS_MS,
@@ -112,6 +139,13 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
             $leitor,
             'o leitor precisa resolver sempre — quem não conseguiu posição devolve null e segue'
         );
+        // Quem recebe a posição (`aoChegar`) roda DEPOIS de responder e dentro de um `try`: se
+        // lançasse antes, com o prazo já cancelado, a promessa nunca resolveria.
+        self::assertMatchesRegularExpression(
+            '/responder\(position\);\s*try\s*\{\s*aoChegar\(position\);/',
+            $leitor,
+            'a entrega da posição tem que vir depois da resposta e protegida por `try`'
+        );
     }
 
     #[TestDox('a batida não é enviada quando demorou tanto que a hora do servidor sairia errada')]
@@ -126,16 +160,39 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
             . 'relógio monotônico, senão acerto de hora do aparelho mascara o congelamento'
         );
         self::assertStringContainsString(
-            'performance.now() - momentoDoToque > LIMITE_ATRASO_ENVIO_MS',
+            "PontoBatida.enviarBatida('{{ path('ponto_batida') }}', payload, momentoDoToque)",
             $fonte,
+            'o envio tem que receber o instante do toque, senão a guarda de atraso não tem com o '
+            . 'que comparar'
+        );
+
+        $envio = $this->corpoDaFuncao($this->moduloSemComentariosNemTextos(), 'function enviarBatida(');
+        $guarda = strpos($envio, 'performance.now() - momentoDoToque > LIMITE_ATRASO_ENVIO_MS');
+        self::assertIsInt(
+            $guarda,
             'o servidor carimba a hora de CHEGADA; envio atrasado gravaria batida com hora errada'
+        );
+        $fetch = strpos($envio, 'fetch(');
+        self::assertIsInt($fetch, 'o envio sumiu de `enviarBatida`');
+        self::assertLessThan($fetch, $guarda, 'a guarda de atraso tem que decidir ANTES do envio');
+        self::assertMatchesRegularExpression(
+            '/LIMITE_ATRASO_ENVIO_MS\)\s*\{\s*return\b/',
+            $envio,
+            'o ramo do atraso tem que sair sem enviar'
         );
     }
 
     #[TestDox('o envio tem prazo próprio: conexão pendurada não deixa o botão preso para sempre')]
     public function testEnvioTemPrazoProprio(): void
     {
-        $fonte = $this->fonteSemComentariosNemTextos();
+        // O envio da batida mora no módulo; a tela não pode ter um `fetch` próprio sem o prazo.
+        self::assertStringNotContainsString(
+            'fetch(',
+            $this->fonteSemComentariosNemTextos(),
+            'a batida tem que sair por `PontoBatida.enviarBatida`, que é quem tem o prazo de envio'
+        );
+
+        $fonte = $this->moduloSemComentariosNemTextos();
 
         self::assertStringContainsString(
             'new AbortController()',
@@ -156,10 +213,10 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
         );
         self::assertMatchesRegularExpression(
             '/const ENVIO_PRAZO_MS = (\d+);/',
-            $fonte,
+            $this->fonteDoModulo(),
             'a constante do prazo de envio deveria existir'
         );
-        preg_match('/const ENVIO_PRAZO_MS = (\d+);/', $fonte, $captura);
+        preg_match('/const ENVIO_PRAZO_MS = (\d+);/', $this->fonteDoModulo(), $captura);
 
         self::assertLessThanOrEqual(
             self::TETO_PRAZO_ENVIO_MS,
@@ -277,7 +334,7 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
         // completo. Foi esse recorte frouxo que a revisão pegou aqui.
         self::assertStringNotContainsString(
             'alert(',
-            $fonte,
+            $this->todasAsFontesSemComentariosNemTextos(),
             'o `alert` some quando a pessoa toca em OK e navegador nenhum o mostra em aba oculta: '
             . 'a falha tem que ficar escrita na tela'
         );
@@ -295,7 +352,7 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
 
         self::assertStringNotContainsString(
             'toISOString',
-            $fonte,
+            $this->todasAsFontesSemComentariosNemTextos(),
             '`toISOString().slice(0,10)` é a data em UTC: combinada com hora local, zerava o '
             . 'relógio de quem trabalhava entre 21h e a meia-noite'
         );
@@ -312,7 +369,7 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
      */
     private function corpoDoLeitorDePosicao(): string
     {
-        return $this->corpoDaFuncao($this->fonteSemComentariosNemTextos(), 'function lerPosicaoComPrazo(');
+        return $this->corpoDaFuncao($this->moduloSemComentariosNemTextos(), 'function lerPosicaoComPrazo(');
     }
 
     /** Corpo de uma função do script, delimitado por contagem de chaves. */
@@ -384,8 +441,53 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
         return $fonte;
     }
 
+    private function fonteDoModulo(): string
+    {
+        $fonte = file_get_contents(self::CAMINHO_MODULO);
+        self::assertIsString($fonte, 'não consegui ler o módulo da batida (`public/js/ponto-batida.js`)');
+
+        return $fonte;
+    }
+
+    /** O atalho do cabeçalho; enquanto não existir, conta como vazio. */
+    private function fonteDoAtalho(): string
+    {
+        if (!is_file(self::CAMINHO_ATALHO)) {
+            return '';
+        }
+
+        $fonte = file_get_contents(self::CAMINHO_ATALHO);
+        self::assertIsString($fonte, 'não consegui ler o atalho do ponto (`public/js/presenca-ponto.js`)');
+
+        return $fonte;
+    }
+
+    private function fonteSemComentariosNemTextos(): string
+    {
+        return $this->semComentariosNemTextos($this->fonteDaTela());
+    }
+
+    private function moduloSemComentariosNemTextos(): string
+    {
+        return $this->semComentariosNemTextos($this->fonteDoModulo());
+    }
+
     /**
-     * A tela com o miolo de comentários e de literais de texto apagado (trocado por espaço, para
+     * Tela, módulo e atalho, cada um limpo SEPARADAMENTE e só depois juntados: limpar o texto já
+     * concatenado deixaria um arquivo que termina dentro de um literal apagar o seguinte inteiro,
+     * e o defeito passaria calado.
+     */
+    private function todasAsFontesSemComentariosNemTextos(): string
+    {
+        return implode("\n", [
+            $this->fonteSemComentariosNemTextos(),
+            $this->moduloSemComentariosNemTextos(),
+            $this->semComentariosNemTextos($this->fonteDoAtalho()),
+        ]);
+    }
+
+    /**
+     * O fonte com o miolo de comentários e de literais de texto apagado (trocado por espaço, para
      * os deslocamentos continuarem valendo). É sobre ISTO que os dois parsers abaixo trabalham.
      *
      * 🪤 Sem esta limpeza o teste erra dos dois lados, e as duas formas foram medidas:
@@ -394,9 +496,8 @@ final class BatidaNaoTravaNoGpsTest extends TestCase
      * - falso NEGATIVO, pior porque é mudo: um `)` solto dentro de uma string fecha a contagem de
      *   parênteses cedo, trunca o corpo da promessa e esconde o `getCurrentPosition` que vem depois.
      */
-    private function fonteSemComentariosNemTextos(): string
+    private function semComentariosNemTextos(string $fonte): string
     {
-        $fonte  = $this->fonteDaTela();
         $limpa  = '';
         $estado = 'codigo';
         $tamanho = strlen($fonte);

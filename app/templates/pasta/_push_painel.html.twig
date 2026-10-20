@@ -1,7 +1,7 @@
 {# ============================================================================
    Coluna direita da aba Push: o cartão de Monitoramento e Situação atual (desenho 1.2.3,
    dc L.2567-2626; spec push-painel-monitoramento) e o "Avisar quando chegar" (dc L.2629-2636;
-   spec push-avisar-quando-chegar). "Avisar cliente" (P4c) vem depois; a leitura completa
+   spec push-avisar-quando-chegar) e o "Avisar cliente" (P4c, spec push-avisar-cliente); a leitura completa
    ("Lendo o processo" com as 12 etapas, a análise e o envio de arquivos) é do P4e.
 
    Textos de `pushVals` (dc L.5434-5446) e de `previsaoProc` (dc L.5110-5116), resolvidos no
@@ -148,6 +148,13 @@
             <p class="ps-push-painel-msg" data-push-avisos-msg role="status" hidden></p>
         </div>
     {% endif %}
+    {# "Avisar cliente" (P4c; spec push-avisar-cliente §2, desenho de 18/10 dc N:2765-2830). #}
+    {% set avisarCliente = avisar_cliente(pasta.id) %}
+    {% if avisarCliente is not null %}
+        {% include 'pasta/_push_cliente.html.twig' with {pasta: pasta, cliente: avisarCliente} only %}
+    {% endif %}
 </aside>
 <link rel="stylesheet" href="{{ asset('css/pasta-push-painel.css') }}">
+<link rel="stylesheet" href="{{ asset('css/pasta-push-cliente.css') }}">
 <script src="{{ asset('js/pasta-push-painel.js') }}" defer></script>
+<script src="{{ asset('js/pasta-push-cliente.js') }}" defer></script>

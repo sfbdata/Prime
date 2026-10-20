@@ -38,6 +38,19 @@ final readonly class AvisoDaPastaOutput
             . ($unica->data !== null ? ' de ' . $unica->data : '');
     }
 
+    /**
+     * A mensagem para o e-mail (assunto e primeira linha): a mesma do sino, mas sem o tipo e a data
+     * quando a única movimentação é de processo sob segredo de justiça (o e-mail sai do sistema).
+     */
+    public function mensagemDoEmail(): string
+    {
+        if (\count($this->movimentacoes) === 1 && $this->movimentacoes[0]->sigilosa) {
+            return sprintf('Nova movimentação na Pasta %s', $this->numeroDaPasta);
+        }
+
+        return $this->mensagem();
+    }
+
     /** @return list<MovimentacaoDoAvisoOutput> */
     public function movimentacoesDoEmail(): array
     {

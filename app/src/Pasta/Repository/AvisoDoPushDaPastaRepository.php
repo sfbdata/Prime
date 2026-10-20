@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Pasta\Repository;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\AvisoDoPushDaPasta;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Service\PadroesDoAvisoDoPush;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -34,6 +36,34 @@ class AvisoDoPushDaPastaRepository extends ServiceEntityRepository
     public function daPastaDoTenant(Pasta $pasta, Tenant $tenant): ?AvisoDoPushDaPasta
     {
         return $this->findOneBy(['pasta' => $pasta, 'tenant' => $tenant]);
+    }
+
+    /**
+     * A linha da pasta, criada com os padrões se ainda não existe. O INSERT é `ON CONFLICT (pasta_id)
+     * DO NOTHING`: na corrida da primeira gravação (duas abas, dois cliques) o segundo não estoura o
+     * UNIQUE (o que fecharia o EntityManager e viraria 500); os dois releem a mesma linha e seguem.
+     */
+    public function garantirDaPasta(Pasta $pasta, Tenant $tenant, User $por, \DateTimeImmutable $em): AvisoDoPushDaPasta
+    {
+        $existente = $this->daPastaDoTenant($pasta, $tenant);
+        if ($existente !== null) {
+            return $existente;
+        }
+
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'INSERT INTO pasta_aviso_push (tenant_id, pasta_id, avisar_responsavel, por_email, analise_ia, atualizado_por_id, atualizado_em)
+             VALUES (:tenant, :pasta, :responsavel, :email, :ia, :por, :em)
+             ON CONFLICT (pasta_id) DO NOTHING',
+            [
+                'tenant' => $tenant->getId(), 'pasta' => $pasta->getId(), 'por' => $por->getId(), 'em' => $em->format('Y-m-d H:i:s'),
+                'responsavel' => PadroesDoAvisoDoPush::RESPONSAVEL, 'email' => PadroesDoAvisoDoPush::EMAIL, 'ia' => PadroesDoAvisoDoPush::IA,
+            ],
+            ['responsavel' => 'boolean', 'email' => 'boolean', 'ia' => 'boolean'],
+        );
+        $linha = $this->daPastaDoTenant($pasta, $tenant);
+        \assert($linha instanceof AvisoDoPushDaPasta);
+
+        return $linha;
     }
 
     /**

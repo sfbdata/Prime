@@ -9,6 +9,8 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Email\Descadastro\Controller\DescadastroDeEmailController;
 use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
+use App\Shared\Email\Descadastro\LinkDeDescadastro;
+use App\Shared\Email\Descadastro\PedidoDeDescadastro;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -166,6 +168,18 @@ final class DescadastroDeEmailControllerTest extends JusPrimeWebTestCase
         $this->client->request('GET', '/email/descadastro');
         self::assertResponseStatusCodeSame(404);
         self::assertSame([], $this->linhas($tenant));
+    }
+
+    #[TestDox('Link bem assinado de um escritório que não existe (mais): 404 no GET e no POST')]
+    public function testEscritorioInexistente(): void
+    {
+        $url = static::getContainer()->get(LinkDeDescadastro::class)->gerar(new PedidoDeDescadastro(2147480000, 'joana@gmail.com', 'push_aviso_equipe'));
+
+        $this->client->request('GET', $url);
+        self::assertResponseStatusCodeSame(404);
+        $this->client->request('POST', $url, ['confirmar' => '1']);
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne("SELECT COUNT(*) FROM email_descadastro WHERE email = 'joana@gmail.com' AND tenant_id = 2147480000"));
     }
 
     #[TestDox('Logado em OUTRO escritório: o link do primeiro escritório grava no primeiro (TenantFilter não interfere)')]

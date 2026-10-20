@@ -20,6 +20,7 @@ use App\Pasta\Entity\AvisoDoPushDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Enum\ChaveDoAvisoDoPush;
 use App\Pasta\Service\AvisoDoPushMailer;
+use App\Pasta\DTO\MovimentacaoDoAvisoOutput;
 use App\Pasta\Service\AvisoDoPushNaCaptacao;
 use App\Pasta\UseCase\AvisarQuandoChegarNoPushUseCase;
 use App\Processo\Entity\Processo;
@@ -50,6 +51,7 @@ use Symfony\Component\Mime\RawMessage;
 final class AvisarQuandoChegarNaCaptacaoTest extends KernelTestCase
 {
     use CriaFixturesPushDaPastaTrait;
+    use CriaUsuarioComPermissoesTrait;
 
     private const NUMERO = '07011345720258070007';
     private const TEOR = 'Fica a parte autora intimada para apresentar réplica à contestação no prazo de 15 dias. ';
@@ -199,6 +201,50 @@ final class AvisarQuandoChegarNaCaptacaoTest extends KernelTestCase
         self::assertSame(0, $this->contarAnalises($pasta));
     }
 
+    #[TestDox('Responsável de papel comum, ativo e com vínculo, mas SEM ver a pasta (sem resources.pasta.view nem acesso à pasta): nenhum sino, e-mail ou IA')]
+    public function testResponsavelSemVerAPasta(): void
+    {
+        [$admin, $tenant, $pasta] = $this->cenario();
+        $responsavel = $this->criarUsuarioComPermissoes($tenant, ['modules.inteligencia.view', 'modules.djen.view']);
+        $pasta->setResponsavel($responsavel);
+        $configuracao = new ConfiguracaoDeInteligencia($tenant);
+        $configuracao->atualizar(true, 50, 500, true, $admin);
+        $this->em()->persist($configuracao);
+        $linha = new AvisoDoPushDaPasta($tenant, $pasta, $admin, new \DateTimeImmutable());
+        $linha->definir(ChaveDoAvisoDoPush::Ia, true, $admin, new \DateTimeImmutable());
+        $this->em()->persist($linha);
+        $this->em()->flush();
+        $this->dublarDjen([880071]);
+
+        $this->captar($tenant);
+
+        self::assertSame([], $this->avisosDoPush($tenant));
+        self::assertEmailCount(0);
+        self::assertSame(0, $this->contarAnalises($pasta));
+    }
+
+    #[TestDox('Processo sob segredo de justiça: o sino segue igual (interno); o e-mail não leva tipo, data, órgão nem resumo, só a linha genérica')]
+    public function testSegredoDeJustica(): void
+    {
+        [, $tenant, $pasta, $processo] = $this->cenario();
+        $processo->setNivelSigilo(1);
+        $this->em()->flush();
+        $this->dublarDjen([880081]);
+
+        $this->captar($tenant);
+
+        self::assertSame('Nova movimentação na Pasta ' . $pasta->getNup() . ': Intimação de 02/10/2026', $this->avisosDoPush($tenant)[0]->getMensagem());
+        self::assertEmailCount(1);
+        $email = self::getMailerMessage();
+        self::assertInstanceOf(Email::class, $email);
+        self::assertSame('[BlueJus] Nova movimentação na Pasta ' . $pasta->getNup(), $email->getSubject());
+        self::assertEmailHtmlBodyContains($email, MovimentacaoDoAvisoOutput::TEXTO_SIGILOSA);
+        self::assertEmailHtmlBodyContains($email, 'Abrir a pasta');
+        foreach (['Intimação', '02/10/2026', '1ª Vara Cível de Brasília', 'Fica a parte autora'] as $vazamento) {
+            self::assertEmailHtmlBodyNotContains($email, $vazamento);
+        }
+    }
+
     #[TestDox('"Análise da BlueJus IA" ligada (IA ligada no escritório): pede o resumo do Push da pasta, uma vez; desligada, não pede')]
     public function testIa(): void
     {
@@ -210,7 +256,7 @@ final class AvisarQuandoChegarNaCaptacaoTest extends KernelTestCase
         $outraPasta->setResponsavel($responsavel);
         $this->vincular($outraPasta, $this->criarProcesso($tenant, '07099999999999999999'));
         $linha = new AvisoDoPushDaPasta($tenant, $pasta, $responsavel, new \DateTimeImmutable());
-        $linha->alternar(ChaveDoAvisoDoPush::Ia, $responsavel, new \DateTimeImmutable());
+        $linha->definir(ChaveDoAvisoDoPush::Ia, true, $responsavel, new \DateTimeImmutable());
         $this->em()->persist($linha);
         $this->em()->flush();
         $this->dublarDjen([880041, 880042]);

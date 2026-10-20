@@ -17,7 +17,10 @@ use App\Inteligencia\UseCase\ContarPastasDoAgenteUseCase;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaRepository;
 use App\Repository\UserTenantRepository;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
 use App\Tests\Inteligencia\Support\DefineId;
+use App\Tests\Pasta\Unit\Cadeado\CriaCenarioDoCadeadoTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -31,6 +34,15 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ContarPastasDoAgenteUseCase::class)]
 final class BuscarPastasDoAgenteUseCaseTest extends TestCase
 {
+    use CriaCenarioDoCadeadoTrait {
+        pasta as pastaDoCadeado;
+    }
+
+    protected function setUp(): void
+    {
+        $this->montarCenario();
+    }
+
     private function pasta(Tenant $tenant, int $id, string $nup, string $nomeGravado): Pasta
     {
         $pasta = new Pasta();
@@ -60,6 +72,7 @@ final class BuscarPastasDoAgenteUseCaseTest extends TestCase
         $useCase = new BuscarPastasDoAgenteUseCase(
             new ConsultaDePastasDoAgente($pastas, $this->createStub(MarcadorRepository::class), $this->createStub(UserTenantRepository::class)),
             new ResolvedorIdentificadorDaPasta($casos, new ComporNomeDaPastaJudicial()),
+            $this->acessoAPasta(),
         );
 
         $saida = $useCase->executar(FiltroDoAgenteInput::daQuery([]), $tenant);
@@ -92,6 +105,7 @@ final class BuscarPastasDoAgenteUseCaseTest extends TestCase
         $useCase = new BuscarPastasDoAgenteUseCase(
             new ConsultaDePastasDoAgente($pastas, $this->createStub(MarcadorRepository::class), $this->createStub(UserTenantRepository::class)),
             new ResolvedorIdentificadorDaPasta($casos, new ComporNomeDaPastaJudicial()),
+            $this->acessoAPasta(),
         );
 
         $saida = $useCase->executar(FiltroDoAgenteInput::daQuery([]), $tenant);
@@ -114,5 +128,40 @@ final class BuscarPastasDoAgenteUseCaseTest extends TestCase
         );
 
         self::assertSame(7, $useCase->executar(FiltroDoAgenteInput::daQuery(['busca' => 'maria']), $tenant));
+    }
+
+    #[TestDox('Cadeado (D2): da pasta oculta para quem conversa, o agente recebe só o número e o cliente')]
+    public function testPastaOcultaSaiSoComNumeroECliente(): void
+    {
+        $ana    = $this->pessoa('Ana Equipe');
+        $oculta = $this->pastaDoCadeado('20');
+        $oculta->setNomeCliente('JOANA SIGILOSA');
+        $oculta->setNomeAcao('Ação de cobrança');
+        $livre = $this->pastaDoCadeado('21');
+        $livre->setNomeCliente('PEDRO');
+        $livre->setNomeAcao('Divórcio');
+        $this->cadeadoRepository->method('dasPastas')->willReturn([
+            (int) $oculta->getId() => new CadeadoDaPasta($this->tenant, $oculta, ModoDoCadeado::Todos, null, new \DateTimeImmutable()),
+        ]);
+
+        $pastas = $this->createStub(PastaRepository::class);
+        $pastas->method('findByFilters')->willReturn([$oculta, $livre]);
+        $casos = $this->createStub(CasoCobrancaRepository::class);
+        $casos->method('credorEDevedorPorPasta')->willReturn([]);
+        $useCase = new BuscarPastasDoAgenteUseCase(
+            new ConsultaDePastasDoAgente($pastas, $this->createStub(MarcadorRepository::class), $this->createStub(UserTenantRepository::class)),
+            new ResolvedorIdentificadorDaPasta($casos, new ComporNomeDaPastaJudicial()),
+            $this->acessoAPasta(),
+        );
+
+        $saida = $useCase->executar(FiltroDoAgenteInput::daQuery([]), $this->tenant, $ana);
+
+        self::assertTrue($saida->pastas[0]->oculta);
+        self::assertSame('20', $saida->pastas[0]->nup);
+        self::assertSame('JOANA SIGILOSA', $saida->pastas[0]->identificador);
+        self::assertNull($saida->pastas[0]->acao);
+        self::assertSame('', $saida->pastas[0]->situacao);
+        self::assertFalse($saida->pastas[1]->oculta);
+        self::assertSame('DIVÓRCIO', $saida->pastas[1]->acao);
     }
 }

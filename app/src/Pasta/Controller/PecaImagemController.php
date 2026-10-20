@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Pasta\Controller;
 
+use App\Entity\Auth\User;
 use App\Pasta\Armazenamento\ChavesDePasta;
+use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\ArquivosReferenciadosEmPecas;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
@@ -30,6 +33,10 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * Restrita a extensões de imagem: documentos/peças (pdf/html/docx) NÃO são servidos por aqui —
  * eles têm rotas próprias por entidade (pasta_documento_*), com checagem de tenant/posse.
+ *
+ * Cadeado (spec pasta-cadeado D5): imagem citada por uma peça de pasta oculta para quem pede é recusada.
+ * A imagem não tem linha no banco (vive dentro do HTML da peça), então a pasta dona é achada lendo as
+ * peças das pastas ocultas para a pessoa; quem não tem pasta oculta não paga essa leitura.
  */
 final class PecaImagemController extends AbstractController
 {
@@ -37,6 +44,8 @@ final class PecaImagemController extends AbstractController
         private readonly ArmazenamentoDeArquivos $armazenamento,
         private readonly EntregaDeArquivo $entrega,
         private readonly TenantContext $tenantContext,
+        private readonly AcessoAPasta $acessoAPasta,
+        private readonly ArquivosReferenciadosEmPecas $referenciadas,
     ) {
     }
 
@@ -69,6 +78,12 @@ final class PecaImagemController extends AbstractController
 
         if (!$this->armazenamento->existe($chave)) {
             throw $this->createNotFoundException();
+        }
+
+        $pessoa = $this->getUser();
+        $ocultas = $pessoa instanceof User ? $this->acessoAPasta->idsDasPastasOcultas($pessoa, $tenant) : [];
+        if ($ocultas !== [] && in_array($nome, $this->referenciadas->dasPastas($ocultas, $tenant), true)) {
+            throw $this->createAccessDeniedException('O usuário primário restringiu o acesso a esta pasta.');
         }
 
         return $this->entrega->resposta($chave, $nome, inline: true);

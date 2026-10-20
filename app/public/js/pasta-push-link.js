@@ -164,6 +164,27 @@
         caixa.hidden = !texto;
     }
 
+    /**
+     * Recusa por e-mail a confirmar: o servidor manda a rota e o token do reenvio, e o botão
+     * "Reenviar o link de confirmação" entra junto do erro (POST comum; a página volta com o aviso).
+     */
+    function anexarReenvioDaConfirmacao(confirmacao) {
+        var caixa = q('.js-ppl-erro');
+        if (!caixa || !confirmacao || !confirmacao.url) { return; }
+        var form = el('form', 'js-ppl-reenviar-confirmacao');
+        form.method = 'post';
+        form.action = confirmacao.url;
+        var token = el('input');
+        token.type = 'hidden';
+        token.name = '_token';
+        token.value = confirmacao.token || '';
+        var botao = el('button', 'btn btn-sm btn-outline-primary mt-2', 'Reenviar o link de confirmação');
+        botao.type = 'submit';
+        form.appendChild(token);
+        form.appendChild(botao);
+        caixa.appendChild(form);
+    }
+
     function desenharForm() {
         Array.prototype.forEach.call(raiz.querySelectorAll('.js-ppl-op'), function (op) {
             var chave = op.getAttribute('data-op');
@@ -286,6 +307,7 @@
         }).then(function (r) {
             if (!r.ok || !r.corpo || !r.corpo.link) {
                 mostrarErro((r.corpo && r.corpo.erro) || ERRO_GERAL);
+                anexarReenvioDaConfirmacao(r.corpo && r.corpo.confirmacao);
                 return null;
             }
             estado.criado = r.corpo.link;
@@ -729,6 +751,9 @@
             var alvo = e.target;
             var aba = estado.gatilhoMenu;
             if (alvo.closest('.js-ppl-menu-fechar')) { fecharMenu(true); return; }
+            // Ponto de extensão: itens que outro script pôs neste menu (`data-ppl-externo`, os de ocultar
+            // aba do pasta-abas-ocultas.js). Este menu só fecha; a ação é de quem os pôs.
+            if (alvo.closest('[data-ppl-externo]')) { fecharMenu(false); return; }
             if (alvo.closest('.js-ppl-menu-copiar')) {
                 var ativo = ativoMaisRecente();
                 fecharMenu(true);
@@ -771,6 +796,8 @@
        (`popovers()`) faz stopPropagation no clique do gatilho, e um ouvinte de bolha no
        document nunca seria chamado. */
     document.addEventListener('click', function (e) {
+        // Sem o item no ⋮ (tela `pushpub` desligada para quem não é Master), não há selo a atualizar nem GET a fazer.
+        if (!document.querySelector('.js-ppl-abrir')) { return; }
         if (e.target.closest && e.target.closest('[data-ps-pop="psMenuAcoes"]')) { carregar().catch(function () {}); }
     }, true);
 })();

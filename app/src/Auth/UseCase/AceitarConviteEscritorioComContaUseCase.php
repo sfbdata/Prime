@@ -8,6 +8,7 @@ use App\Auth\DTO\AceitarConviteEscritorioComContaInput;
 use App\Auth\Event\ConviteDeEscritorioAceito;
 use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
+use App\Auth\Service\VagaNoEscritorio;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Repository\InvitationRepository;
@@ -24,6 +25,7 @@ final class AceitarConviteEscritorioComContaUseCase
         private readonly EntityManagerInterface $em,
         private readonly RegraDosPrimarios $regraDosPrimarios,
         private readonly EventDispatcherInterface $eventos,
+        private readonly VagaNoEscritorio $vagaNoEscritorio,
     ) {}
 
     public function executar(AceitarConviteEscritorioComContaInput $input): UserTenant
@@ -59,6 +61,9 @@ final class AceitarConviteEscritorioComContaUseCase
         if ($vinculo !== null && $vinculo->isActive()) {
             throw new \DomainException('Você já é colaborador deste escritório.');
         }
+
+        // Limite de usuários também no aceite (spec perfis-1.2-planos-e-limites §6): o convite pode ter saído com vaga.
+        $this->vagaNoEscritorio->exigir((int) $tenant->getId());
 
         if ($vinculo !== null) {
             $vinculo->reativar();

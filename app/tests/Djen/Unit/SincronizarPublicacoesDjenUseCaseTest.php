@@ -430,6 +430,18 @@ final class SincronizarPublicacoesDjenUseCaseTest extends TestCase
     }
 
     #[Test]
+    public function faseDeProcessosQueCaiAindaAvisaAsNovasDaFaseDeOabsUmaVez(): void
+    {
+        $this->processoRepository->method('listarNumerosAcompanhadosDoTenant')->willReturn(['50636766220224047000']);
+        $this->djenClient->method('consultarComunicacoes')->willThrowException(new \RuntimeException('banco caiu'));
+        $this->aviso->expects($this->once())->method('avisar')->with($this->tenant, ['555']);
+
+        $this->expectException(\RuntimeException::class);
+
+        $this->sut->sincronizarProcessosCobrindoTodos($this->tenant, PeriodoConsulta::dia(new \DateTimeImmutable('2026-07-06')), false, ['555']);
+    }
+
+    #[Test]
     public function faseDeOabsDoComandoNaoAvisaQuemAvisaEaSegunda(): void
     {
         $this->oabRepository->method('listarAtivasDoTenant')->willReturn([$this->oab('67228', 'PR')]);

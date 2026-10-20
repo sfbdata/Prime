@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Pasta\DTO;
 
-use App\Inteligencia\Enum\Disponibilidade;
 use App\Pasta\Enum\ChaveDoAvisoDoPush;
 
 /**
@@ -12,8 +11,8 @@ use App\Pasta\Enum\ChaveDoAvisoDoPush;
  * spec push-avisar-quando-chegar §2), já resolvido: as três linhas na ordem do desenho.
  *
  *   - "Por e-mail" só vale com "Responsável da pasta" ligado: sem ele, travado com a dica;
- *   - "Análise da BlueJus IA" só com a IA na plataforma e ligada no escritório: senão, travado
- *     com o motivo real (`Disponibilidade::mensagem()`).
+ *   - "Análise da BlueJus IA" só com a IA na plataforma, ligada no escritório e com o responsável
+ *     da pasta podendo usá-la: senão, travado com o motivo real (DisponibilidadeDaIaNoAvisoDoPush).
  */
 final readonly class AvisosDoPushOutput
 {
@@ -25,11 +24,11 @@ final readonly class AvisosDoPushOutput
     ) {
     }
 
-    public static function montar(ChavesDoAvisoDoPush $chaves, Disponibilidade $ia): self
+    public static function montar(ChavesDoAvisoDoPush $chaves, ?string $motivoDaIa): self
     {
         $itens = [];
         foreach (ChaveDoAvisoDoPush::cases() as $chave) {
-            $motivo = self::motivoDaTrava($chave, $chaves, $ia);
+            $motivo = self::motivoDaTrava($chave, $chaves, $motivoDaIa);
             $itens[] = new ItemDoAvisoDoPushOutput($chave->value, $chave->rotulo(), $chaves->ligada($chave), $motivo !== null, $motivo);
         }
 
@@ -37,12 +36,12 @@ final readonly class AvisosDoPushOutput
     }
 
     /** O motivo de a chave não poder mudar agora, ou null. */
-    public static function motivoDaTrava(ChaveDoAvisoDoPush $chave, ChavesDoAvisoDoPush $chaves, Disponibilidade $ia): ?string
+    public static function motivoDaTrava(ChaveDoAvisoDoPush $chave, ChavesDoAvisoDoPush $chaves, ?string $motivoDaIa): ?string
     {
         return match ($chave) {
             ChaveDoAvisoDoPush::Responsavel => null,
             ChaveDoAvisoDoPush::Email => $chaves->responsavel ? null : self::DICA_EMAIL_SEM_RESPONSAVEL,
-            ChaveDoAvisoDoPush::Ia => $ia->estaDisponivel() ? null : $ia->mensagem() . '.',
+            ChaveDoAvisoDoPush::Ia => $motivoDaIa,
         };
     }
 

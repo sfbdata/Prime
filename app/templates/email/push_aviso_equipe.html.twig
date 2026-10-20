@@ -1,12 +1,13 @@
 {# E-mail do "Avisar quando chegar" para o responsável da pasta (spec push-avisar-quando-chegar §3).
    Contexto: `nome`, `escritorio`, `aviso` (AvisoDaPastaOutput), `linkDaPasta`, `linkDescadastro`.
-   Só o resumo de cada movimentação (até 220 caracteres), nunca o teor inteiro. #}
+   Só o resumo de cada movimentação (até 220 caracteres), nunca o teor inteiro; a de processo sob
+   segredo de justiça sai só com a linha genérica. #}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ aviso.mensagem }}</title>
+    <title>{{ aviso.mensagemDoEmail }}</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
     <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:32px 0;">
@@ -23,21 +24,26 @@
                             <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">Olá, {{ nome }}!</p>
 
                             <p style="margin:0 0 20px;font-size:15px;color:#444444;line-height:1.6;">
-                                {{ aviso.mensagem }}.
+                                {{ aviso.mensagemDoEmail }}.
                             </p>
 
                             {% for mov in aviso.movimentacoesDoEmail %}
                                 <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;border:1px solid #dde5eb;border-radius:6px;">
                                     <tr>
                                         <td style="padding:12px 16px;">
-                                            <p style="margin:0 0 4px;font-size:14px;font-weight:bold;color:#12242f;">
-                                                {{ mov.tipo }}{% if mov.data %} de {{ mov.data }}{% endif %}
-                                            </p>
-                                            {% if mov.orgao %}
-                                                <p style="margin:0 0 6px;font-size:12px;color:#6b8494;">{{ mov.orgao }}</p>
-                                            {% endif %}
-                                            {% if mov.resumo %}
-                                                <p style="margin:0;font-size:13px;color:#444444;line-height:1.5;">{{ mov.resumo }}</p>
+                                            {% if mov.sigilosa %}
+                                                {# Segredo de justiça: nem tipo, data, órgão ou resumo saem por e-mail. #}
+                                                <p style="margin:0;font-size:13px;color:#444444;line-height:1.5;">{{ constant('App\\Pasta\\DTO\\MovimentacaoDoAvisoOutput::TEXTO_SIGILOSA') }}</p>
+                                            {% else %}
+                                                <p style="margin:0 0 4px;font-size:14px;font-weight:bold;color:#12242f;">
+                                                    {{ mov.tipo }}{% if mov.data %} de {{ mov.data }}{% endif %}
+                                                </p>
+                                                {% if mov.orgao %}
+                                                    <p style="margin:0 0 6px;font-size:12px;color:#6b8494;">{{ mov.orgao }}</p>
+                                                {% endif %}
+                                                {% if mov.resumo %}
+                                                    <p style="margin:0;font-size:13px;color:#444444;line-height:1.5;">{{ mov.resumo }}</p>
+                                                {% endif %}
                                             {% endif %}
                                         </td>
                                     </tr>

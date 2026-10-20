@@ -43,6 +43,27 @@
     --mm-prazo-atrasado:    #a3232b;
     --mm-atencao-desc:      #5b7383;   /* descrição do item de "Precisa de atenção" (dc L117) */
     --mm-opcoes:            #7d909d;   /* botão ⋮ (dc L98) */
+    /* Desenho de 19/10 (04 Minhas Metas 1.0): grupos em cartões, cabeçalho e cores dos grupos. As cores
+       dos grupos têm token próprio: `--mm-danger-dot`/`--mm-warn-dot` pintam outras coisas (o traço do H1). */
+    --mm-grupo-borda:        #dfe7ed;   /* cartão do grupo (dc L84) */
+    --mm-grupo-cabeca-bg:    #f5f8fa;   /* cabeçalho do grupo (dc L85) */
+    --mm-grupo-cabeca-borda: #e6edf2;
+    --mm-grupo-texto:        #34505f;
+    --mm-grupo-contagem-bg:  #e2e9ee;
+    --mm-grupo-atrasadas-cor: #a3232b;  /* G.atr do dc */
+    --mm-grupo-proximas-cor:  #c08a12;  /* G.vence do dc */
+    --mm-linha-info:         #4a6373;   /* pasta, criador e comentários da linha (dc L91) */
+    --mm-criada-texto:       #7d909d;   /* "criada dd/mm/aaaa" (dc L99) */
+    --mm-vazio-borda:        #d6e0e7;   /* caixa do vazio (dc L107) */
+    --mm-vazio-texto:        #5b7383;
+    --mm-atencao-hover:      #eef6fb;   /* item de "Precisa de atenção" (dc L122) */
+    --mm-marcador:           #98a9b4;   /* marcador desligado (JS `marcaCor`) */
+    --mm-marcador-ligado:    #0a6fa0;
+    --mm-subtitulo:          #5b7383;   /* subtítulo do cabeçalho (dc L51) */
+    --mm-controle-borda:     #e2e9ee;   /* busca e selects da barra (dc L76-78) */
+    --mm-busca-icone:        #5b7383;
+    --mm-foco:               #0a6fa0;
+    --mm-foco-anel:          rgba(10,111,160,.18);
 
     --mm-text:          #12242f;
     --mm-body:          #243845;
@@ -109,6 +130,25 @@
     --mm-prazo-atrasado:    #f08a84;
     --mm-atencao-desc:      var(--bs-secondary-color);
     --mm-opcoes:            var(--bs-secondary-color);
+    --mm-grupo-borda:        var(--bs-border-color);
+    --mm-grupo-cabeca-bg:    var(--bs-secondary-bg);
+    --mm-grupo-cabeca-borda: var(--bs-border-color-translucent);
+    --mm-grupo-texto:        var(--bs-secondary-color);
+    --mm-grupo-contagem-bg:  rgba(255,255,255,.08);
+    --mm-grupo-atrasadas-cor: #e0675c;
+    --mm-grupo-proximas-cor:  #e9be6c;
+    --mm-linha-info:         var(--bs-secondary-color);
+    --mm-criada-texto:       var(--bs-secondary-color);
+    --mm-vazio-borda:        var(--bs-border-color);
+    --mm-vazio-texto:        var(--bs-secondary-color);
+    --mm-atencao-hover:      rgba(77,163,234,.10);
+    --mm-marcador:           var(--bs-secondary-color);
+    --mm-marcador-ligado:    #4da3ea;
+    --mm-subtitulo:          var(--bs-secondary-color);
+    --mm-controle-borda:     var(--bs-border-color);
+    --mm-busca-icone:        var(--bs-secondary-color);
+    --mm-foco:               #4da3ea;
+    --mm-foco-anel:          rgba(77,163,234,.25);
 
     --mm-text:          var(--bs-body-color);
     --mm-body:          var(--bs-body-color);
@@ -169,6 +209,19 @@
     color: var(--mm-muted);
     margin: .25rem 0 0;
 }
+/* Cabeçalho de Minhas Metas (dc L46-51): H1 36px negrito sem ícone, com a sombra azul do desenho, 18px
+   até "Atualizado às" e o subtítulo 13.5px 8px abaixo. Só sob `.mm-cabecalho`: a tela de Equipe usa os
+   mesmos `.mm-titulo`/`.mm-subtitulo` e fica como estava. O traço vermelho (P6) segue no `::after`. */
+.mm-page .mm-cabecalho .mm-cabecalho-linha { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.mm-page .mm-cabecalho .mm-titulo {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -.5px;
+    line-height: normal;
+    color: var(--mm-text);
+    text-shadow: 0 2px 6px rgba(10,111,160,.12);
+}
+.mm-page .mm-cabecalho .mm-subtitulo { font-size: 13.5px; color: var(--mm-subtitulo); margin: 8px 0 0; }
 
 /* ── KPIs ─────────────────────────────────────────────────────────────────── */
 .mm-kpis {
@@ -293,7 +346,37 @@
     margin-bottom: 16px;
 }
 .mm-barra-sep { width: 1px; height: 28px; background: var(--mm-div); flex-shrink: 0; }
-.mm-barra-cartao > .filtro-barra { flex: 1 1 360px; min-width: 0; margin: 0; }
+.mm-barra-cartao > .filtro-barra { flex: 1 1 auto; min-width: 0; margin: 0; }
+/* Busca, Status, Prioridade e Prazo numa linha só (dc L76-78: uma linha). O BlueJus tem o select
+   Status e a alternância cartões/lista a mais. Por isso a linha dos campos não quebra, e o form não
+   encolhe abaixo do próprio conteúdo (`min-width: auto`): se não couber ao lado das abas, ele desce
+   inteiro para a linha de baixo do cartão, com os quatro campos juntos. Em tela estreita, a quebra
+   continua permitida. */
+@media (min-width: 768px) {
+    .mm-barra-cartao > .filtro-barra { min-width: auto; }
+    .mm-barra-cartao .filtro-linha { flex-wrap: nowrap; }
+}
+/* Busca e selects do desenho (dc L76-78): 36px, borda #e2e9ee, raio 4, lupa #5b7383, texto 13px. Só dentro
+   desta barra (como carteira-show.css faz na dela): o `filtro-tabela.css` é compartilhado e não muda.
+   A lupa fica a 11px (borda + 10px) e o texto começa 8px depois dela. O anel de foco continua. */
+.mm-barra-cartao .filtro-busca { flex: 1 1 220px; min-width: 180px; max-width: none; }
+.mm-barra-cartao .filtro-busca .bi-search { left: 11px; color: var(--mm-busca-icone); font-size: 13px; }
+.mm-barra-cartao .filtro-busca input.js-filtro-busca,
+.mm-barra-cartao .filtro-select {
+    height: 36px;
+    border: 1px solid var(--mm-controle-borda);
+    border-radius: 4px;
+    background-color: var(--mm-card);
+    font-size: 13px;
+}
+.mm-barra-cartao .filtro-busca input.js-filtro-busca { padding: 0 10px 0 32px; }
+/* Selects dimensionados pelo conteúdo: tira o teto de 150px e o mínimo de 128px do filtro-tabela. */
+.mm-barra-cartao .filtro-select { flex: 0 0 auto; width: auto; min-width: 120px; max-width: none; padding-left: 8px; }
+.mm-barra-cartao .filtro-busca input.js-filtro-busca:focus,
+.mm-barra-cartao .filtro-select:focus {
+    border-color: var(--mm-foco);
+    box-shadow: 0 0 0 3px var(--mm-foco-anel);
+}
 .mm-abas {
     position: relative;
     display: inline-flex;
@@ -367,12 +450,15 @@
 }
 
 /* ── Arranjo: lista + trilho ──────────────────────────────────────────────── */
+/* Lista + trilho de 340px com 16px entre eles (dc L82). */
 .mm-arranjo {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 356px;
-    gap: 1.125rem;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 16px;
     align-items: start;
 }
+/* Grupos empilhados com 12px entre os cartões (dc L83). */
+.mm-coluna-lista { display: flex; flex-direction: column; gap: 12px; }
 .mm-arranjo.mm-sem-trilho { grid-template-columns: minmax(0, 1fr); }
 .mm-trilho { display: flex; flex-direction: column; gap: .875rem; min-width: 0; position: sticky; top: calc(var(--header-height) + var(--subnav-height) + 16px); align-self: start; }
 /* O AdminLTE põe `overflow: auto` no `main.app-main`, que nunca rola (quem rola é a janela) mas vira
@@ -421,20 +507,48 @@ body.layout-fixed .app-main:has(.mm-page) { overflow: visible; }
     gap: .5rem;
 }
 
-/* ── Cabeçalho de grupo ───────────────────────────────────────────────────── */
+/* ── Grupo (cartão próprio) e cabeçalho ───────────────────────────────────── */
+/* Cada grupo é uma <section> com borda, raio 4, sombra e recorte próprios (dc L84). */
+.mm-grupo {
+    background: var(--mm-card);
+    border: 1px solid var(--mm-grupo-borda);
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(18,36,47,.05);
+    overflow: hidden;
+    min-width: 0;
+}
+/* A cor do grupo (ponto do cabeçalho e faixa das linhas): Atrasadas e Vencem em 7 dias com a do dc. */
+.mm-grupo-atrasadas { --mm-grupo-cor: var(--mm-grupo-atrasadas-cor); }
+.mm-grupo-proximas  { --mm-grupo-cor: var(--mm-grupo-proximas-cor); }
+/* Cabeçalho do grupo (dc L85): 15/20, fundo #f5f8fa, só a borda de baixo, 12px negrito 1.4px. */
 .mm-grupo-cabeca {
     display: flex;
     align-items: center;
-    gap: .5625rem;
-    padding: .6875rem 1.25rem;
-    background: var(--mm-soft);
-    border-top: 1px solid var(--mm-div);
-    border-bottom: 1px solid var(--mm-div);
+    gap: 8px;
+    padding: 15px 20px;
+    background: var(--mm-grupo-cabeca-bg);
+    border: 0;
+    border-bottom: 1px solid var(--mm-grupo-cabeca-borda);
     width: 100%;
     text-align: left;
     font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    color: var(--mm-grupo-texto);
 }
-.mm-grupo-cabeca:first-child { border-top: none; }
+.mm-grupo-cabeca > .mm-grupo-nome { font-size: 12px; letter-spacing: 1.4px; color: var(--mm-grupo-texto); }
+.mm-grupo-cabeca > .mm-grupo-contagem {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0;
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--mm-grupo-texto);
+    background: var(--mm-grupo-contagem-bg);
+}
+.mm-grupo-cabeca > .mm-dot { width: 7px; height: 7px; }
+.mm-grupo-cabeca > .mm-grupo-nota { font-weight: 400; letter-spacing: 0; }
 .mm-grupo-nome {
     font-size: .6875rem;
     font-weight: 700;
@@ -454,7 +568,9 @@ body.layout-fixed .app-main:has(.mm-page) { overflow: visible; }
 .mm-grupo-nota { font-size: .75rem; color: var(--mm-muted); }
 .mm-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-button.mm-grupo-cabeca { border: none; border-top: 1px solid var(--mm-div); cursor: pointer; }
+button.mm-grupo-cabeca { border: 0; border-bottom: 1px solid var(--mm-grupo-cabeca-borda); cursor: pointer; }
+/* Recolhido, o cabeçalho é a última coisa do cartão: a borda do próprio cartão já fecha. */
+button.mm-grupo-cabeca[aria-expanded="false"] { border-bottom-color: transparent; }
 button.mm-grupo-cabeca:hover { background: var(--mm-hover); }
 .mm-grupo-seta { margin-left: auto; color: var(--mm-faint); transition: transform .2s; }
 button.mm-grupo-cabeca[aria-expanded="true"] .mm-grupo-seta { transform: rotate(90deg); }
@@ -468,10 +584,11 @@ button.mm-grupo-cabeca[aria-expanded="true"] .mm-grupo-seta { transform: rotate(
     border-bottom: 1px solid var(--mm-div-row);
     border-left: 4px solid transparent;   /* faixa do grupo: 4px, como o `inset 4px` do dc */
     transition: background .2s;
+    cursor: pointer;   /* a linha inteira abre a meta (dc L88; delegação em minhas.html.twig) */
 }
 .mm-meta:last-child { border-bottom: none; }
-.mm-meta.tom-danger { border-left-color: var(--mm-danger-dot); background: var(--mm-linha-atrasada-bg); }
-.mm-meta.tom-warn   { border-left-color: var(--mm-warn-dot); }
+.mm-meta.tom-danger { border-left-color: var(--mm-grupo-cor, var(--mm-danger-dot)); background: var(--mm-linha-atrasada-bg); }
+.mm-meta.tom-warn   { border-left-color: var(--mm-grupo-cor, var(--mm-warn-dot)); }
 .mm-meta.tom-accent { border-left-color: var(--mm-accent); }
 .mm-meta.tom-cinza  { border-left-color: var(--mm-cinza-dot); }
 .mm-meta.tom-ok     { border-left-color: var(--mm-ok-dot); background: var(--mm-soft); }
@@ -550,14 +667,17 @@ a.mm-meta-titulo:hover { color: var(--mm-accent); text-decoration: underline; }
     text-decoration-color: var(--mm-border-ctl);
 }
 .mm-meta-linha2 { display: flex; align-items: center; gap: .875rem; flex-wrap: wrap; }
+/* Itens da 2ª linha (dc L91): 12.5px #4a6373, 5px entre ícone e texto. */
 .mm-meta-info {
     display: flex;
     align-items: center;
-    gap: .375rem;
-    font-size: .78rem;
-    color: var(--mm-muted);
+    gap: 5px;
+    font-size: 12.5px;
+    color: var(--mm-linha-info);
     text-decoration: none;
 }
+/* Nº da pasta em negrito azul (dc L92). */
+.mm-meta-pasta-num { font-weight: 700; color: var(--mm-num); }
 a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
 .mm-meta-info .bi { opacity: .8; }
 .mm-meta-lado {
@@ -568,7 +688,7 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
     flex-shrink: 0;
     min-width: 118px;
 }
-.mm-meta-datas { font-variant-numeric: tabular-nums; font-size: .6875rem; color: var(--mm-faint); }
+.mm-meta-datas { font-variant-numeric: tabular-nums; font-size: 11.5px; color: var(--mm-criada-texto); }   /* dc L99 */
 .mm-meta-acoes { display: flex; gap: 2px; flex-shrink: 0; }
 
 /* ── Prazo ────────────────────────────────────────────────────────────────── */
@@ -623,13 +743,13 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
     display: flex; align-items: center; justify-content: center;
     border: 1px solid transparent;
     background: transparent;
-    color: #b7c4cd;
+    color: var(--mm-marcador);   /* desligado #98a9b4, ligado #0a6fa0 (JS `marcaCor`) */
     border-radius: 4px;
     cursor: pointer;
     transition: color .15s, border-color .15s;
 }
 .mm-marcador:hover { border-color: var(--mm-border-ctl); color: var(--mm-accent); }
-.mm-marcador.is-marcada { color: var(--mm-accent); }
+.mm-marcador.is-marcada { color: var(--mm-marcador-ligado); }
 .mm-marcador[disabled] { opacity: .5; cursor: default; }
 
 .mm-acao-icone {
@@ -714,18 +834,29 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
 [data-bs-theme="dark"] .mm-page .mm-avatar { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
 .mm-avatar.mm-avatar-sm { width: 24px; height: 24px; font-size: .5625rem; }
 
+/* Item de "Precisa de atenção" (dc L122): o item inteiro é o link, de largura inteira, com hover #eef6fb. */
 .mm-atencao-item {
+    display: flex;
+    gap: 10px;
+    width: 100%;
     padding: 11px 16px;
     border-bottom: 1px solid var(--mm-div);
-    display: flex;
-    gap: .6875rem;
     align-items: flex-start;
+    background: var(--mm-card);
+    color: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
 }
+.mm-atencao-item:hover,
+.mm-atencao-item:focus-visible { background: var(--mm-atencao-hover); color: inherit; text-decoration: none; }
 .mm-atencao-item:last-of-type { border-bottom: none; }
 .mm-atencao-icone { color: var(--mm-faixa-atencao); margin-top: 2px; }
-.mm-atencao-titulo { font-size: 13.5px; font-weight: 400; line-height: 1.35; color: var(--mm-text); text-decoration: none; text-wrap: pretty; }
-a.mm-atencao-titulo:hover { color: var(--mm-accent); text-decoration: underline; }
-.mm-atencao-meta { font-size: 12px; line-height: 1.4; color: var(--mm-atencao-desc); margin-top: 3px; }
+.mm-atencao-texto { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mm-atencao-titulo { font-size: 13.5px; font-weight: 400; line-height: 1.35; color: var(--mm-text); text-wrap: pretty; }
+.mm-atencao-meta { font-size: 12px; line-height: 1.4; color: var(--mm-atencao-desc); }
+/* Sem atrasadas o cartão continua na tela (dc L119) com uma frase curta. */
+.mm-atencao-vazio { padding: 11px 16px; font-size: 12px; color: var(--mm-atencao-desc); }
 .mm-trilho-rodape { padding: .6875rem 1.0625rem; font-size: .78rem; color: var(--mm-muted); }
 
 /* ── Modo lista ───────────────────────────────────────────────────────────── */
@@ -788,6 +919,15 @@ a.mm-linha-titulo:hover { color: var(--mm-accent); text-decoration: underline; }
 }
 
 /* ── Vazio ────────────────────────────────────────────────────────────────── */
+/* Vazio de Minhas Metas (dc L107): uma caixa só, centralizada, sem ícone. `.mm-vazio` abaixo é da Equipe. */
+.mm-vazio-caixa {
+    background: var(--mm-card);
+    border: 1px solid var(--mm-vazio-borda);
+    border-radius: 4px;
+    padding: 40px;
+    text-align: center;
+    color: var(--mm-vazio-texto);
+}
 .mm-vazio { padding: 3.25rem 1.5rem; text-align: center; }
 .mm-vazio .bi { font-size: 2rem; color: var(--mm-border-ctl); display: block; margin-bottom: .625rem; }
 .mm-vazio-titulo { font-size: .9rem; font-weight: 600; color: var(--mm-text); }

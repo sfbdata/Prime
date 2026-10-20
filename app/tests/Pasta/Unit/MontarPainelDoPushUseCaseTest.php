@@ -208,7 +208,7 @@ final class MontarPainelDoPushUseCaseTest extends TestCase
 
         self::assertFalse($painel->ativo);
         self::assertSame('Monitoramento pausado', $painel->statusTxt);
-        self::assertSame('Novas movimentações não serão capturadas', $painel->statusSub);
+        self::assertSame('A busca pelo número do processo fica parada; intimações pela OAB continuam chegando.', $painel->statusSub);
         self::assertNotNull($painel->situacao);
     }
 
@@ -225,7 +225,7 @@ final class MontarPainelDoPushUseCaseTest extends TestCase
         self::assertNotNull($this->sut->executar($pasta, $this->tenant)->situacao);
     }
 
-    #[TestDox('Mais de um processo: o principal primeiro, os demais com "Apensado: classe · monitorado/pausado" e " · N processos" no subtítulo')]
+    #[TestDox('Mais de um processo: o principal primeiro, os demais com "Apensado: classe · monitorado/pausado" e " · N processos" (só os monitorados) no subtítulo')]
     public function testVariosProcessos(): void
     {
         $this->comPublicacoes();
@@ -242,7 +242,11 @@ final class MontarPainelDoPushUseCaseTest extends TestCase
 
         $painel = $this->sut->executar($pasta, $this->tenant);
 
-        self::assertSame('Captura automática nos diários e no PJe · 2 processos', $painel->statusSub);
+        // Desenho 18/10: a contagem é só dos monitorados; o apensado pausado não entra.
+        self::assertSame('Captura automática nos diários e no PJe', $painel->statusSub);
+        $apensado->retomarMonitoramento($quem, new \DateTimeImmutable('2026-10-18 16:00'));
+        self::assertSame('Captura automática nos diários e no PJe · 2 processos', $this->sut->executar($pasta, $this->tenant)->statusSub);
+        $apensado->pausarMonitoramento($quem, new \DateTimeImmutable('2026-10-18 15:00'));
         self::assertCount(2, $painel->processos);
         self::assertTrue($painel->processos[0]->principal);
         self::assertFalse($painel->processos[1]->principal);

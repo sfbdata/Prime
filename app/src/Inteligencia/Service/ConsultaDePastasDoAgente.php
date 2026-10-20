@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Inteligencia\Service;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
 use App\Expediente\Repository\MarcadorRepository;
@@ -20,6 +21,9 @@ use App\Repository\UserTenantRepository;
  *
  * A única consulta própria é a lista de NUPs, que a Lista não tem. `pasta.nup` não é único no
  * escritório: a lista pode devolver mais pastas do que NUPs pedidos, cada uma com o seu id.
+ *
+ * Com `quem` (a pessoa que conversa com o agente), a busca livre segue a regra do cadeado da Lista: pasta
+ * oculta para ela só casa por número e cliente (spec pasta-cadeado D1/D2).
  */
 final class ConsultaDePastasDoAgente
 {
@@ -35,7 +39,7 @@ final class ConsultaDePastasDoAgente
      *
      * @throws FiltroDoAgenteInvalidoException
      */
-    public function buscar(FiltroDoAgenteInput $filtro, Tenant $tenant, int $porPagina): array
+    public function buscar(FiltroDoAgenteInput $filtro, Tenant $tenant, int $porPagina, ?User $quem = null): array
     {
         if ($filtro->nups !== []) {
             return array_slice($this->pastasPorNup($filtro, $tenant), ($filtro->pagina - 1) * $porPagina, $porPagina);
@@ -45,14 +49,14 @@ final class ConsultaDePastasDoAgente
         $marcador = $this->marcador($filtro, $tenant);
         $filtros = $filtro->paraRepositorio();
         $pastas = $marcador !== null
-            ? $this->pastaRepository->findByFiltrosEMarcador($filtros, $marcador, $tenant, $filtro->pagina, $porPagina, 'nup', 'asc')
-            : $this->pastaRepository->findByFilters($filtros, $tenant, $filtro->pagina, $porPagina, 'nup', 'asc');
+            ? $this->pastaRepository->findByFiltrosEMarcador($filtros, $marcador, $tenant, $filtro->pagina, $porPagina, 'nup', 'asc', null, $quem)
+            : $this->pastaRepository->findByFilters($filtros, $tenant, $filtro->pagina, $porPagina, 'nup', 'asc', null, $quem);
 
         return array_values($pastas);
     }
 
     /** @throws FiltroDoAgenteInvalidoException */
-    public function contar(FiltroDoAgenteInput $filtro, Tenant $tenant): int
+    public function contar(FiltroDoAgenteInput $filtro, Tenant $tenant, ?User $quem = null): int
     {
         if ($filtro->nups !== []) {
             return $this->pastaRepository->count(['tenant' => $tenant, 'nup' => $filtro->nups]);
@@ -63,8 +67,8 @@ final class ConsultaDePastasDoAgente
         $filtros = $filtro->paraRepositorio();
 
         return $marcador !== null
-            ? $this->pastaRepository->countByFiltrosEMarcador($filtros, $marcador, $tenant)
-            : $this->pastaRepository->countByFilters($filtros, $tenant);
+            ? $this->pastaRepository->countByFiltrosEMarcador($filtros, $marcador, $tenant, $quem)
+            : $this->pastaRepository->countByFilters($filtros, $tenant, $quem);
     }
 
     /**
