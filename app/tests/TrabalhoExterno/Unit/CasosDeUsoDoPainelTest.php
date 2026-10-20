@@ -27,6 +27,10 @@ use App\TrabalhoExterno\Service\PoliticaDoCurriculo;
 use App\TrabalhoExterno\UseCase\ExportarAlertasCsvUseCase;
 use App\TrabalhoExterno\UseCase\MontarPainelDeCurriculosUseCase;
 use App\TrabalhoExterno\UseCase\RegistrarMetricaPublicaUseCase;
+use Psr\Log\NullLogger;
+use Monolog\Handler\TestHandler;
+use Monolog\Level;
+use Monolog\Logger;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -66,7 +70,7 @@ final class CasosDeUsoDoPainelTest extends TestCase
             self::assertSame('Estatísticas disponíveis só para o Master.', $e->getMessage());
         }
         $this->expectException(AcaoNaoPermitida::class);
-        (new ExportarAlertasCsvUseCase($this->politica(), $interessados))->executar($ctx);
+        (new ExportarAlertasCsvUseCase($this->politica(), $interessados, new NullLogger()))->executar($ctx);
     }
 
     #[TestDox('o Master recebe o painel com os inscritos e os contadores da página pública')]
@@ -93,13 +97,22 @@ final class CasosDeUsoDoPainelTest extends TestCase
         $interessados = $this->createStub(InteressadoEmVagasRepository::class);
         $interessados->method('paraExportar')->willReturn([$doLink, $semUf]);
 
-        $linhas = explode("\n", (new ExportarAlertasCsvUseCase($this->politica(), $interessados))->executar(Apoio::contexto(Perfil::Master)));
+        $log = new TestHandler();
+        $master = Apoio::contexto(Perfil::Master, usuario: Apoio::usuario(77));
+        $linhas = explode("\n", (new ExportarAlertasCsvUseCase($this->politica(), $interessados, new Logger('app', [$log])))->executar($master));
 
         $hoje = (new \DateTimeImmutable('now', new \DateTimeZone('America/Sao_Paulo')))->format('d/m/Y');
         self::assertSame("\u{FEFF}" . '"E-mail";"UF";"Áreas";"Inscrito em";"Origem"', $linhas[0]);
         self::assertSame('"ana@exemplo.test";"DF";"Cível; Família";"' . $hoje . '";"link de vagas"', $linhas[1]);
         self::assertSame('"\'=cmd|""x""@exemplo.test";"Brasil";"";"' . $hoje . '";"página de vagas"', $linhas[2]);
         self::assertCount(3, $linhas);
+
+        self::assertCount(1, $log->getRecords(), 'cada download fica no log da aplicação');
+        $registro = $log->getRecords()[0];
+        self::assertSame(Level::Info, $registro->level);
+        self::assertSame([77, 2], [$registro->context['usuario'], $registro->context['linhas']]);
+        self::assertNotFalse(\DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $registro->context['em']));
+        self::assertStringNotContainsString('@exemplo.test', $registro->message . json_encode($registro->context), 'sem os e-mails no log');
     }
 
     #[TestDox('sem inscritos: "não encontrado" com o texto do toast do desenho')]
@@ -110,7 +123,7 @@ final class CasosDeUsoDoPainelTest extends TestCase
 
         $this->expectException(DemandaNaoEncontrada::class);
         $this->expectExceptionMessage('Compartilhe vagas para começar a captar e-mails.');
-        (new ExportarAlertasCsvUseCase($this->politica(), $interessados))->executar(Apoio::contexto(Perfil::Master));
+        (new ExportarAlertasCsvUseCase($this->politica(), $interessados, new NullLogger()))->executar(Apoio::contexto(Perfil::Master));
     }
 
     /** @return iterable<string, array{string, ?string, bool, string, int, int, bool}> */
@@ -126,6 +139,10 @@ final class CasosDeUsoDoPainelTest extends TestCase
         yield 'prévia do WhatsApp' => [RegistrarMetricaPublicaUseCase::VISITA, 'valido', true, 'WhatsApp/2.23.20.0', 0, 0, false];
         yield 'facebookexternalhit' => [RegistrarMetricaPublicaUseCase::CLIQUE, null, false, 'facebookexternalhit/1.1', 0, 0, false];
         yield 'sem User-Agent' => [RegistrarMetricaPublicaUseCase::CLIQUE, null, false, '', 0, 0, false];
+        yield 'celular CUBOT NOTE 7 é gente' => [RegistrarMetricaPublicaUseCase::CLIQUE, null, false, 'Mozilla/5.0 (Linux; Android 10; CUBOT NOTE 7) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36', 0, 1, true];
+        yield 'Googlebot/2.1 sozinho' => [RegistrarMetricaPublicaUseCase::VISITA, 'valido', true, 'Googlebot/2.1 (+http://www.google.com/bot.html)', 0, 0, false];
+        yield 'bingbot/2.0' => [RegistrarMetricaPublicaUseCase::CLIQUE, null, false, 'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)', 0, 0, false];
+        yield 'Slackbot-LinkExpanding' => [RegistrarMetricaPublicaUseCase::VISITA, 'valido', true, 'Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)', 0, 0, false];
     }
 
     #[DataProvider('eventos')]
@@ -140,7 +157,22 @@ final class CasosDeUsoDoPainelTest extends TestCase
         $metricas->expects($conta ? self::once() : self::never())->method('somar')
             ->with(self::callback(static fn (\DateTimeImmutable $d): bool => $d->format('Y-m-d') === $hoje), $linkExiste ? $link : null, $visitas, $cliques);
 
-        self::assertSame($conta, (new RegistrarMetricaPublicaUseCase($links, $metricas))->executar($evento, $token, $ua));
+        self::assertSame($conta, (new RegistrarMetricaPublicaUseCase($links, $metricas, new NullLogger()))->executar($evento, $token, $ua));
+    }
+
+    #[TestDox('a falha ao gravar a métrica não sobe: vira aviso no log e o evento não conta')]
+    public function testFalhaAoGravarNaoDerruba(): void
+    {
+        $metricas = $this->createStub(MetricaPublicaRepository::class);
+        $metricas->method('somar')->willThrowException(new \RuntimeException('banco fora'));
+        $log = new TestHandler();
+
+        $contou = (new RegistrarMetricaPublicaUseCase($this->createStub(LinkDeVagasRepository::class), $metricas, new Logger('app', [$log])))
+            ->executar(RegistrarMetricaPublicaUseCase::CLIQUE, null, 'Mozilla/5.0 Chrome/130.0');
+
+        self::assertFalse($contou);
+        self::assertTrue($log->hasWarningThatContains('métrica pública não gravada'));
+        self::assertSame('banco fora', $log->getRecords()[0]->context['erro']);
     }
 
     private function painel(InteressadoEmVagasRepository $interessados, ?MetricaPublicaRepository $metricas = null): MontarPainelDeCurriculosUseCase

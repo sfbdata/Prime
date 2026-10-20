@@ -148,7 +148,7 @@ final class PainelDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $this->abrir('/vagas-juridicas/' . str_repeat('x', 43));
         self::assertSame(['visitas' => 2, 'cliques' => 0], $this->totais(), 'robô, página geral e token desconhecido não contam');
 
-        $this->abrir($caminho, 'Googlebot');
+        $this->abrir($caminho, 'Mozilla/5.0 (compatible; Googlebot/2.1)');
         $cadastro = $this->client->getCrawler()->filter('a[href="/cadastro"]');
         self::assertGreaterThan(5, $cadastro->count());
         self::assertSame($cadastro->count(), $this->client->getCrawler()->filter('a[href="/cadastro"][data-url-cta="/vagas-juridicas/cta"]')->count(), 'todo CTA de cadastro leva o endereço do contador');
@@ -167,7 +167,7 @@ final class PainelDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(204);
         self::assertSame('', (string) $this->client->getResponse()->getContent());
         $this->cta(['token' => 'desconhecido-' . str_repeat('y', 30)]);
-        $this->client->request('POST', '/vagas-juridicas/cta', [], [], ['CONTENT_TYPE' => 'text/plain', 'HTTP_USER_AGENT' => self::NAVEGADOR], 'não é json');
+        $this->client->request('POST', '/vagas-juridicas/cta', [], [], ['CONTENT_TYPE' => 'text/plain', 'HTTP_USER_AGENT' => self::NAVEGADOR, 'HTTP_ORIGIN' => 'http://localhost'], 'não é json');
         self::assertResponseStatusCodeSame(204);
         self::assertSame(['visitas' => 0, 'cliques' => 3], $this->totais());
 
@@ -186,7 +186,7 @@ final class PainelDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $client->disableReboot();
         $espiao = new RateLimiterFactoryEspiao(aceita: true);
         static::getContainer()->set('limiter.vagas_cta', $espiao);
-        $client->request('POST', '/vagas-juridicas/cta', [], [], ['HTTP_USER_AGENT' => self::NAVEGADOR, 'REMOTE_ADDR' => '203.0.113.9'], '{}');
+        $client->request('POST', '/vagas-juridicas/cta', [], [], ['HTTP_USER_AGENT' => self::NAVEGADOR, 'HTTP_SEC_FETCH_SITE' => 'same-origin', 'REMOTE_ADDR' => '203.0.113.9'], '{}');
         self::assertResponseStatusCodeSame(204);
         self::assertSame(['203.0.113.9'], $espiao->chavesConsumidas);
 
@@ -194,9 +194,60 @@ final class PainelDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $client->disableReboot();
         static::getContainer()->set('limiter.vagas_cta', new RateLimiterFactoryEspiao(aceita: false));
-        $client->request('POST', '/vagas-juridicas/cta', [], [], ['HTTP_USER_AGENT' => self::NAVEGADOR], '{}');
+        $client->request('POST', '/vagas-juridicas/cta', [], [], ['HTTP_USER_AGENT' => self::NAVEGADOR, 'HTTP_SEC_FETCH_SITE' => 'same-origin'], '{}');
         self::assertResponseStatusCodeSame(429);
         self::assertSame(['visitas' => 0, 'cliques' => 1], static::getContainer()->get(MetricaPublicaRepository::class)->totais(), 'só o primeiro, aceito, contou');
+    }
+
+    #[TestDox('o clique só conta da própria página: Sec-Fetch-Site same-origin, ou Origin/Referer do mesmo host; o resto é 204 sem contar')]
+    public function testCliqueSoDaPropriaOrigem(): void
+    {
+        $pedidos = [
+            'outro site' => [['HTTP_SEC_FETCH_SITE' => 'cross-site', 'HTTP_ORIGIN' => 'http://localhost'], 0],
+            'same-site não basta' => [['HTTP_SEC_FETCH_SITE' => 'same-site'], 0],
+            'sem nenhum cabeçalho de origem' => [[], 0],
+            'Origin de outro host' => [['HTTP_ORIGIN' => 'https://malicioso.test'], 0],
+            'Referer de outro host' => [['HTTP_REFERER' => 'https://malicioso.test/vagas-juridicas'], 0],
+            'Referer da própria página' => [['HTTP_REFERER' => 'http://localhost/vagas-juridicas'], 1],
+            'Sec-Fetch-Site same-origin' => [['HTTP_SEC_FETCH_SITE' => 'same-origin'], 1],
+        ];
+        $esperado = 0;
+        foreach ($pedidos as $caso => [$cabecalhos, $conta]) {
+            // Sem histórico: o BrowserKit mandaria o Referer da requisição anterior.
+            $this->client->restart();
+            $this->client->request('POST', '/vagas-juridicas/cta', [], [], $cabecalhos + ['HTTP_USER_AGENT' => self::NAVEGADOR], '{}');
+            self::assertResponseStatusCodeSame(204, $caso);
+            $esperado += $conta;
+            self::assertSame($esperado, $this->totais()['cliques'], $caso);
+        }
+    }
+
+    #[TestDox('visita acima do teto por IP e link: a página abre normalmente e não conta; a chave é IP|token')]
+    public function testLimitadorDaVisita(): void
+    {
+        $sede = $this->criarTenant('Sede');
+        $master = $this->criarMaster($sede);
+        $this->logarComTenant($this->client, $master, $sede);
+        $codigo = $this->postarJson($this->client, '/trabalho-externo/api/vagas', self::vaga())['codigo'];
+        $caminho = (string) parse_url($this->postarJson($this->client, '/trabalho-externo/api/vagas/compartilhar', ['codigos' => [$codigo]])['url'], PHP_URL_PATH);
+        $token = substr($caminho, strlen('/vagas-juridicas/'));
+
+        $espiao = new RateLimiterFactoryEspiao(aceita: true);
+        static::getContainer()->set('limiter.vagas_visita', $espiao);
+        $this->client->request('GET', $caminho, [], [], ['HTTP_USER_AGENT' => self::NAVEGADOR, 'REMOTE_ADDR' => '198.51.100.7']);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['198.51.100.7|' . $token], $espiao->chavesConsumidas);
+        self::assertSame(1, $this->totais()['visitas']);
+
+        // O limitador já foi criado neste kernel: o teto estourado vem num kernel novo (o banco é o mesmo).
+        static::ensureKernelShutdown();
+        $this->client = static::createClient();
+        $this->client->disableReboot();
+        static::getContainer()->set('limiter.vagas_visita', new RateLimiterFactoryEspiao(aceita: false));
+        $this->abrir($caminho);
+        self::assertResponseIsSuccessful('acima do teto a página abre');
+        self::assertStringContainsString('Advogado trabalhista pleno', (string) $this->client->getResponse()->getContent());
+        self::assertSame(1, $this->totais()['visitas'], 'acima do teto não conta');
     }
 
     private function abrir(string $caminho, string $ua = self::NAVEGADOR): void
@@ -207,7 +258,7 @@ final class PainelDoTrabalhoExternoTest extends JusPrimeWebTestCase
     /** @param array<string, mixed> $corpo */
     private function cta(array $corpo, string $ua = self::NAVEGADOR): void
     {
-        $this->client->request('POST', '/vagas-juridicas/cta', [], [], ['CONTENT_TYPE' => 'text/plain;charset=UTF-8', 'HTTP_USER_AGENT' => $ua], json_encode($corpo, JSON_THROW_ON_ERROR));
+        $this->client->request('POST', '/vagas-juridicas/cta', [], [], ['CONTENT_TYPE' => 'text/plain;charset=UTF-8', 'HTTP_USER_AGENT' => $ua, 'HTTP_SEC_FETCH_SITE' => 'same-origin'], json_encode($corpo, JSON_THROW_ON_ERROR));
     }
 
     /** @return array{visitas: int, cliques: int} */

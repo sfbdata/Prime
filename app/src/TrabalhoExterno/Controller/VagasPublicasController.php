@@ -33,6 +33,8 @@ final class VagasPublicasController extends AbstractController
         private readonly RateLimiterFactoryInterface $vagasAlertasLimiter,
         // E o `vagas_cta` (framework.yaml), para o contador de cliques em "Criar conta".
         private readonly RateLimiterFactoryInterface $vagasCtaLimiter,
+        // E o `vagas_visita`, por IP e link: acima do teto a página abre, só não conta.
+        private readonly RateLimiterFactoryInterface $vagasVisitaLimiter,
         private readonly RegistrarMetricaPublicaUseCase $metricas,
     ) {
     }
@@ -47,7 +49,7 @@ final class VagasPublicasController extends AbstractController
     public function link(Request $request, string $token): Response
     {
         $resposta = $this->pagina($token);
-        if ($request->isMethod('GET')) {
+        if ($request->isMethod('GET') && $this->vagasVisitaLimiter->create($request->getClientIp() . '|' . $token)->consume()->isAccepted()) {
             $this->metricas->executar(RegistrarMetricaPublicaUseCase::VISITA, $token, (string) $request->headers->get('User-Agent', ''));
         }
 
@@ -56,8 +58,9 @@ final class VagasPublicasController extends AbstractController
 
     /**
      * Clique em "Criar conta" na página (com ou sem token), por `navigator.sendBeacon`: sem sessão e sem
-     * CSRF, porque não grava nada da pessoa; o limite por IP segura a enxurrada. Sempre 204 (o
-     * navegador não lê a resposta); só o excesso responde 429.
+     * CSRF, porque não grava nada da pessoa; o limite por IP segura a enxurrada e só conta o que vem da
+     * própria página ({@see daPropriaOrigem()}). Sempre 204 (o navegador não lê a resposta); só o excesso
+     * responde 429.
      */
     #[Route('/cta', name: 'vagas_publicas_cta', methods: ['POST'], priority: 10)]
     public function cta(Request $request): Response
@@ -65,11 +68,29 @@ final class VagasPublicasController extends AbstractController
         if (!$this->vagasCtaLimiter->create((string) $request->getClientIp())->consume()->isAccepted()) {
             return new Response(null, Response::HTTP_TOO_MANY_REQUESTS);
         }
+        if (!self::daPropriaOrigem($request)) {
+            return new Response(null, Response::HTTP_NO_CONTENT);
+        }
         $corpo = json_decode($request->getContent() ?: '[]', true);
         $token = is_array($corpo) && is_string($corpo['token'] ?? null) ? $corpo['token'] : null;
         $this->metricas->executar(RegistrarMetricaPublicaUseCase::CLIQUE, $token, (string) $request->headers->get('User-Agent', ''));
 
         return new Response(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * O clique veio da própria página: `Sec-Fetch-Site: same-origin` (o navegador põe e o script não
+     * falsifica); sem esse cabeçalho, `Origin` ou `Referer` com o mesmo host do pedido.
+     */
+    private static function daPropriaOrigem(Request $request): bool
+    {
+        $site = $request->headers->get('Sec-Fetch-Site');
+        if ($site !== null) {
+            return $site === 'same-origin';
+        }
+        $origem = $request->headers->get('Origin') ?? $request->headers->get('Referer');
+
+        return $origem !== null && parse_url($origem, PHP_URL_HOST) === $request->getHost();
     }
 
     #[Route('/alertas', name: 'trabalho_externo_vagas_alertas', methods: ['POST'], priority: 10)]

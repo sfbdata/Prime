@@ -12,12 +12,14 @@ use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\EngajamentoDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\PlanilhaCsv;
 use App\TrabalhoExterno\Service\PoliticaDoCurriculo;
+use Psr\Log\LoggerInterface;
 
 /**
  * O clique no KPI "ALERTAS POR E-MAIL" do painel (desenho 06 l.1146; spec VS 18.10.26 §4.9): a lista de
  * quem pediu os alertas de vagas na página pública, em planilha (`alertas-vagas-bluejus.csv`), com as
  * colunas do desenho. Só o Master, nunca na prévia. Sem inscritos, "não encontrado" com o texto do toast
- * do desenho ("Ainda sem inscritos").
+ * do desenho ("Ainda sem inscritos"). Cada download fica no log da aplicação (quem, quando e quantas
+ * linhas, sem os e-mails): a lista é dado pessoal de terceiros.
  */
 final class ExportarAlertasCsvUseCase
 {
@@ -29,6 +31,7 @@ final class ExportarAlertasCsvUseCase
     public function __construct(
         private readonly PoliticaDoCurriculo $politica,
         private readonly InteressadoEmVagasRepository $interessados,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -42,7 +45,14 @@ final class ExportarAlertasCsvUseCase
             throw new DemandaNaoEncontrada(self::TEXTO_SEM_INSCRITOS);
         }
 
-        return PlanilhaCsv::documento(array_merge([self::CABECALHO], array_map(self::colunas(...), $inscritos)));
+        $csv = PlanilhaCsv::documento(array_merge([self::CABECALHO], array_map(self::colunas(...), $inscritos)));
+        $this->logger->info('Trabalho Externo: lista de alertas por e-mail exportada', [
+            'usuario' => $ctx->usuario->getId(),
+            'linhas' => count($inscritos),
+            'em' => (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
+        ]);
+
+        return $csv;
     }
 
     /**
