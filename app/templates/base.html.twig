@@ -160,6 +160,8 @@
                                 {% set pageTitle = 'Expediente' %}
                             {% elseif currentRoute starts with 'cobranca_' %}
                                 {% set pageTitle = 'Cobranças' %}
+                            {% elseif currentRoute starts with 'contribua_' %}
+                                {% set pageTitle = 'Quem somos e contribua' %}
                             {% endif %}
                             {% if pageTitle %}
                                 <span class="navtop-page-sep">|</span>

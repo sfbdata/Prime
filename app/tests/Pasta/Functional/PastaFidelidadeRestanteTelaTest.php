@@ -105,8 +105,8 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         self::assertSame($menuId, $crawler->filter($cab . ' > .js-proc-menu-gatilho')->attr('aria-controls'));
     }
 
-    #[TestDox('N5: o menu tem só o item com lastro (administrativo), que submete o MESMO form do interruptor')]
-    public function testMenuDoCabecalhoSoComAdministrativo(): void
+    #[TestDox('N5: o menu tem Relatório, Enviar à Controladoria e o administrativo, que submete o MESMO form do interruptor')]
+    public function testMenuDoCabecalhoComRelatorioEAdministrativo(): void
     {
         $client                       = static::createClient();
         [$em, $user, $tenant, $pasta] = $this->criarBase();
@@ -119,7 +119,8 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         $id   = $pasta->getId();
         $menu = $crawler->filter('#processo .ps-processos > #psProcHdMenu' . $id . '[role="menu"]');
         self::assertCount(1, $menu, 'o menu é filho direto do cartão (dentro dele, para voltar junto no XHR)');
-        self::assertCount(1, $menu->filter('[role="menuitem"]'), 'Relatório geral e Enviar à Controladoria não têm função: não entram');
+        // Relatório geral e Enviar à Controladoria entraram com a spec relatorio-processos-controladoria.
+        self::assertCount(3, $menu->filter('[role="menuitem"]'));
 
         $item = $menu->filter('#psProcHdMenu' . $id . ' > button[type="submit"][form="psAdmForm' . $id . '"]');
         self::assertCount(1, $item);
