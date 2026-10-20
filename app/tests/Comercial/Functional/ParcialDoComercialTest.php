@@ -76,7 +76,7 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertSame(['PRÉVIA DO E-MAIL'], $this->textos('section.mc-cp > .mc-cp-grade > .mc-cp-lado > .mc-cp-passo'));
         self::assertSame('mc-cp-col mc-cp-editor', $this->doc->filter('section.mc-cp > .mc-cp-grade > .mc-cp-col')->eq(0)->attr('class'));
         $css = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/css/master-comercial.css');
-        self::assertStringContainsString('.mc-cp-grade { padding: 16px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; align-items: start; }', $css);
+        self::assertStringContainsString('.mc-cp-grade { padding: 16px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 18px; align-items: start; }', $css, 'os 340px do dc, sem passar da caixa em tela estreita');
     }
 
     #[TestDox('As ações do modelo na ordem do dc (L.235); Salvar e Excluir só para o próprio')]
