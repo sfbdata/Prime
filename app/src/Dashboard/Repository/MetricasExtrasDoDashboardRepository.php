@@ -39,11 +39,12 @@ class MetricasExtrasDoDashboardRepository
     /**
      * Metas em revisão (aguardando o gestor) por responsável, criadas no período.
      *
-     * @param array<string, mixed> $filtros data_de, data_ate (Y-m-d)
+     * @param array<string, mixed> $filtros       data_de, data_ate (Y-m-d)
+     * @param list<int>            $pastasOcultas metas de pasta oculta pelo cadeado para quem olha não contam (D1, D3)
      *
      * @return array<int, int> userId => quantidade
      */
-    public function contarEmRevisaoPorResponsavel(Tenant $tenant, array $filtros = []): array
+    public function contarEmRevisaoPorResponsavel(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
     {
         $qb = $this->em->createQueryBuilder()
             ->select('u.id AS pessoa_id, COUNT(t.id) AS total')
@@ -58,6 +59,7 @@ class MetricasExtrasDoDashboardRepository
             ->groupBy('u.id');
 
         $this->aplicarPeriodo($qb, 't.dataCriacao', $filtros);
+        $this->semPastasOcultas($qb, $pastasOcultas);
 
         return $this->mapaDeContagem($qb);
     }
@@ -70,11 +72,12 @@ class MetricasExtrasDoDashboardRepository
      * Só metas concluídas COM `dataConclusao`: as concluídas antes de a coluna existir não têm a
      * data e ficariam com "0 dias" se entrassem. Dias corridos de calendário (DATE − DATE).
      *
-     * @param array<string, mixed> $filtros data_de, data_ate (Y-m-d)
+     * @param array<string, mixed> $filtros       data_de, data_ate (Y-m-d)
+     * @param list<int>            $pastasOcultas metas de pasta oculta pelo cadeado para quem olha não contam (D1, D3)
      *
      * @return array<int, array{dias: int, metas: int}> userId => soma de dias e quantidade
      */
-    public function tempoDeConclusaoPorResponsavel(Tenant $tenant, array $filtros = []): array
+    public function tempoDeConclusaoPorResponsavel(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
     {
         $qb = $this->em->createQueryBuilder()
             ->select('u.id AS pessoa_id, SUM(DATE_DIFF(t.dataConclusao, t.dataCriacao)) AS dias, COUNT(t.id) AS metas')
@@ -90,6 +93,7 @@ class MetricasExtrasDoDashboardRepository
             ->groupBy('u.id');
 
         $this->aplicarPeriodo($qb, 't.dataCriacao', $filtros);
+        $this->semPastasOcultas($qb, $pastasOcultas);
 
         $mapa = [];
         foreach ($qb->getQuery()->getArrayResult() as $linha) {
@@ -167,6 +171,20 @@ class MetricasExtrasDoDashboardRepository
         $this->aplicarPeriodo($qb, 'e.dataInicio', $filtros);
 
         return $this->mapaDeContagem($qb);
+    }
+
+    /**
+     * Cadeado (spec pasta-cadeado D1 e D3): tira as metas das pastas ocultas para quem olha, como o
+     * TarefaRepository faz nas colunas de metas. A raiz é `t`.
+     *
+     * @param list<int> $pastasOcultas
+     */
+    private function semPastasOcultas(QueryBuilder $qb, array $pastasOcultas): void
+    {
+        if ($pastasOcultas !== []) {
+            $qb->andWhere('IDENTITY(t.pasta) NOT IN (:pastasOcultas)')
+               ->setParameter('pastasOcultas', $pastasOcultas);
+        }
     }
 
     /** @return array<int, int> */
