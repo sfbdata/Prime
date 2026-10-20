@@ -16,7 +16,7 @@
    Migration `Version20261019235800`.
 7. `trabalho-externo-painel-termo` (F3b-1, §4.9) → **PR #117 em rascunho**, base `trabalho-externo-engajamento`.
    Migration `Version20261019235900`.
-8. `trabalho-externo-campanha` (campanha do Master, §4.10) → em andamento, base `trabalho-externo-painel-termo`. Sem migration.
+8. `trabalho-externo-campanha` (campanha do Master, §4.10) → PR em rascunho, base `trabalho-externo-painel-termo`. Sem migration.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
 rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e classe), trocar a
