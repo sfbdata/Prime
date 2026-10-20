@@ -14,6 +14,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Repository\PastaPrazoRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Profile\Repository\UserProfileRepository;
 use App\Repository\LegendaCorRepository;
 
@@ -36,6 +37,8 @@ final class ListarCompromissosUseCase
         private readonly UserProfileRepository $perfis,
         private readonly LegendaCorRepository $legendas,
         private readonly AjusteDeDataRepository $ajustes,
+        // Cadeado (spec pasta-cadeado D3): prazos e audiências de pasta oculta para quem olha não entram.
+        private readonly ?AcessoAPasta $acessoAPasta = null,
     ) {
     }
 
@@ -45,7 +48,7 @@ final class ListarCompromissosUseCase
         $ateFim = $ate->setTime(23, 59, 59);
         $itens = [
             ...$this->dosEventos($tenant, $eu, $de, $ateFim, $soMinha, $administra, $verPastas),
-            ...($verPastas ? $this->dosPrazos($tenant, $de, $ate) : []),
+            ...($verPastas ? $this->dosPrazos($tenant, $de, $ate, $this->acessoAPasta?->idsOcultosPara($eu, (int) $tenant->getId()) ?? []) : []),
             ...$this->dosAniversarios($tenant, $de, $ate),
         ];
         usort($itens, static fn (C $a, C $b): int => [$a->data, $a->dia ? '' : $a->h1] <=> [$b->data, $b->dia ? '' : $b->h1]);
@@ -158,8 +161,12 @@ final class ListarCompromissosUseCase
         return $mapa;
     }
 
-    /** @return list<C> */
-    private function dosPrazos(Tenant $tenant, \DateTimeImmutable $de, \DateTimeImmutable $ate): array
+    /**
+     * @param list<int> $pastasOcultas
+     *
+     * @return list<C>
+     */
+    private function dosPrazos(Tenant $tenant, \DateTimeImmutable $de, \DateTimeImmutable $ate, array $pastasOcultas = []): array
     {
         return array_map(static function (PastaPrazo $z): C {
             $nup = (string) $z->getPasta()->getNup();
@@ -177,7 +184,7 @@ final class ListarCompromissosUseCase
                 pastaId: $z->getPasta()->getId(),
                 pastaNup: $nup,
             );
-        }, $this->prazos->abertosDoEscritorioNoPeriodo($tenant, $de, $ate));
+        }, $this->prazos->abertosDoEscritorioNoPeriodo($tenant, $de, $ate, $pastasOcultas));
     }
 
     /** @return list<C> */

@@ -459,7 +459,8 @@
             </div>
 
             {# Passou de 3, o resto não some da vista sem dizer para onde foi. #}
-            {% if documentosContrato|length > arquivosVisiveis %}
+            {# Sem o atalho quando a aba Documentos está oculta para quem vê (ocultar aba). #}
+            {% if documentosContrato|length > arquivosVisiveis and 'documentos' not in abasOcultas|default([]) %}
                 <div class="ps-fin-doc-excedente" id="financeiro-docs-excedente">
                     <button type="button" class="ps-fin-link" data-ps-ir-aba="documentos-tab">
                         ver os outros {{ documentosContrato|length - arquivosVisiveis }} no gerenciador
@@ -812,7 +813,8 @@
 
     /** Atalho para o gerenciador quando há mais arquivos do que o card mostra. */
     function mostrarExcedente() {
-        if (document.getElementById('financeiro-docs-excedente')) { return; }
+        // Sem a aba Documentos (oculta para quem vê), o atalho não existe.
+        if (document.getElementById('financeiro-docs-excedente') || !document.getElementById('documentos-tab')) { return; }
 
         const bloco = document.createElement('div');
         bloco.className = 'ps-fin-doc-excedente';
@@ -1572,7 +1574,9 @@
        recalcula os minutos por ele a cada abertura, como em Detalhes. #}
     <article class="ps-anotacao{{ obs.resposta ? ' ps-anotacao--resposta' : '' }}" id="financeiro-obs-{{ obs.id }}"
              data-obs-do-autor="{{ obs.autor and app.user and obs.autor.id == app.user.id ? '1' : '0' }}"
-             data-janela-ate="{{ obs.criadaEm|date('U') + comentario_janela_minutos() * 60 }}">
+             data-janela-ate="{{ obs.criadaEm|date('U') + comentario_janela_minutos() * 60 }}"
+             {#- Presença do autor (pasta-presenca-autor.js). #}
+             {%- if obs.autor %} data-autor-id="{{ obs.autor.id }}"{% endif %}>
         {% if obs.resposta %}
             {# O desenho grava o rótulo em caixa alta; quem põe em maiúsculas é o CSS. #}
             <div class="ps-anotacao-resposta-rot">

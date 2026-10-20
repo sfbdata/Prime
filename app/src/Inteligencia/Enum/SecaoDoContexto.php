@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Inteligencia\Enum;
 
+use App\Pasta\Entity\AbaDaPasta;
+
 /**
  * As seções de dados da pasta que um {@see Agente} pode ler — cada uma vira um bloco delimitado do
  * prompt (`<clientes>`, `<metas>`, …) e uma contagem em `contexto_resumo`. O `nivel()` é a posição
@@ -70,6 +72,23 @@ enum SecaoDoContexto: string
             self::Metas, self::Checklist, self::Financeiro => 9,
             self::Anotacoes => 9,
             self::Observacoes => 10,
+        };
+    }
+
+    /**
+     * A aba da pasta de onde vem a seção (spec pasta-ocultar-aba §5, desenho L.4218): com ela oculta
+     * para quem pediu a análise, a seção não entra. Clientes é do cadastro (cabeçalho), de aba nenhuma.
+     */
+    public function abaDaPasta(): ?AbaDaPasta
+    {
+        return match ($this) {
+            self::Clientes => null,
+            self::Movimentacoes => AbaDaPasta::Push,
+            self::Metas => AbaDaPasta::Tarefas,
+            self::Anotacoes => AbaDaPasta::Dados,
+            self::Observacoes => AbaDaPasta::Detalhes,
+            self::Documentos, self::Checklist => AbaDaPasta::Documentos,
+            self::Financeiro => AbaDaPasta::Financeiro,
         };
     }
 
