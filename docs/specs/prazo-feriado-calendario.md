@@ -58,6 +58,14 @@ O padrão do coordenador vale: **não mexer em prazo já calculado; só os novos
   mudança futura na regra (ex.: contar o Carnaval) precisa de um marco próprio se não puder mexer nos já
   estimados.
 
+## 3.1 Revisão cruzada (f6, 20/10)
+- Regra única do sistema (coordenador, 20/10): "N dias" sem qualificador = dias úteis (CPC art. 219); a f6
+  alinha o prazo de meta (#109).
+- "prazo de 0 dias corridos" que cai em dia não útil vai para o próximo útil (CPC art. 224, §1º): fica.
+- Registro antigo editado depois do marco continua no cálculo antigo (a base é a data de criação do
+  registro), e a troca de UF do escritório relê os registros posteriores ao marco com a UF nova: os dois
+  seguem a §3 e vão ao dono como nota.
+
 ## 4. Casos (base: registro criado depois do marco, escritório em AL)
 
 | Texto | Antes | Depois |
