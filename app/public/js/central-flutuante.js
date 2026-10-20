@@ -106,9 +106,12 @@
             ui.timerSalto = window.setTimeout(function () { lancador.classList.remove('bj-flutuante--salto'); }, SALTO_MS);
         }
 
+        // "Sons de alerta" do Meu Perfil (perfil.sons, no servidor): com "0" nenhum toque, nem o de ligar o som no menu;
+        // ligado, vale a preferência local `prefs.som` como antes.
+        var perfilSons = raizLancador.getAttribute('data-perfil-sons') !== '0';
         var ultimoToque = 0, audio = null;
         function tocar() {   // tocar(), L91-104: seno 880 Hz e 1320 Hz (+0,11 s), no mínimo 2,5 s entre toques
-            if (!prefs.som || silencio() || Date.now() - ultimoToque < 2500) { return; }
+            if (!perfilSons || !prefs.som || silencio() || Date.now() - ultimoToque < 2500) { return; }
             ultimoToque = Date.now();
             try {
                 audio = audio || new (window.AudioContext || window.webkitAudioContext)();
