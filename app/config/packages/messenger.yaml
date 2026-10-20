@@ -44,9 +44,10 @@ framework:
             App\Sync\Message\SincronizarPastaNoDrive: async
             # BlueJus IA: a chamada ao provedor de linguagem leva segundos — vai para o worker.
             App\Inteligencia\Message\ProcessarAnaliseDeInteligencia: async
-            # Comercial: o envio de cada e-mail e a cadeia de varredura das automações.
+            # Comercial: o envio de cada e-mail, a cadeia de varredura das automações e a do expansor de campanhas.
             App\Comercial\Message\EnviarEmail: comercial
             App\Comercial\Message\VarrerAutomacoes: comercial
+            App\Comercial\Message\ExpandirCampanhas: comercial
 
 # Nos testes: transport em memória — nada toca o banco de fila nem o Drive; o dispatch é inspecionável.
 when@test:

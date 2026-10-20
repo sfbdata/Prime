@@ -138,6 +138,11 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\VarreduraComercial::class,
         // Fatia 2a (§8.2): os modelos próprios de campanha são do Master, de escopo plataforma, sem escritório.
         \App\Comercial\Entity\ModeloDeCampanha::class,
+        // Fatia 2b (§8.4 e §8.5): as campanhas, os destinatários de cada execução e o controle do expansor são do
+        // Master, de escopo plataforma (a tabela não tem `tenant_id`), gravados pelo worker sem sessão.
+        \App\Comercial\Entity\CampanhaDeEmail::class,
+        \App\Comercial\Entity\DestinoDaCampanha::class,
+        \App\Comercial\Entity\ControleDoExpansor::class,
         // Marca da varredura do push da Agenda (entrega 5b): uma linha só, global, que garante uma cadeia
         // única de envio para todos os escritórios. Não guarda dado de escritório nenhum.
         \App\Agenda\Entity\VarreduraDePush::class,
@@ -176,7 +181,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // automações, ciclo da conta e varredura), justificado acima.
     // 34 → 35 com a fatia 2a do Comercial (20/10/2026): `comercial_modelo`, modelos de campanha do Master (plataforma).
     // 35 → 40 com o Indicar o BlueJus (19/10/2026): dado de plataforma, da pessoa e do Master, justificado acima.
-    private const MAX_FORA_DO_ESCOPO = 40;
+    // 40 → 43 com a fatia 2b do Comercial (20/10/2026): campanha, destinatário da campanha e controle do expansor (plataforma).
+    private const MAX_FORA_DO_ESCOPO = 43;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

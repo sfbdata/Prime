@@ -1,12 +1,16 @@
-/* BlueJus · Painel do Master, seção "Comercial e e-mails", bloco "Nova campanha de e-mail", fatia 2a
-   (desenho docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html, markup L.229-260 e lógica L.530-559;
-   spec docs/specs/comercial-e-emails.md §8.2 a §8.4).
+/* BlueJus · Painel do Master, seção "Comercial e e-mails", bloco "Nova campanha de e-mail", fatias 2a e 2b
+   (desenho docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html, markup L.229-260 e lógica L.530-560;
+   spec docs/specs/comercial-e-emails.md §8.2 a §8.6).
    - A grade de modelos vem do servidor (os fixos do dc e os próprios do Master, em comercial_modelo).
    - Editar um modelo (fixo ou próprio) vale para a prévia e o teste, sem guardar; trocar de modelo descarta a
      edição sem aviso (dc L.542, `cmEd: null`). "Salvar modelo" só no próprio.
    - A prévia é o HTML do servidor (o mesmo montador do envio) num iframe sandbox="" (srcdoc), pedida com 400 ms de
-     espera entre teclas. "Baixar HTML" baixa esse HTML como email-CHAVE.html (dc L.558).
+     espera entre teclas. "Baixar HTML" baixa o mesmo e-mail como email-CHAVE.html (dc L.558), sempre com o exemplo fixo.
    - "Enviar teste" manda ao Master logado; as recusas (teto, descadastro) vêm do servidor.
+   - 2b: o público (dc L.237-239; o CSV é lido no servidor, com a regra do dc L.545), a contagem e a linha de
+     destinatários (L.252), a frequência (L.253), "Agendar" ou "Primeiro envio" (L.254, L.557) e "Enviar campanha"
+     com o confirm literal do dc (L.560) e uma chave de idempotência por campanha (clique duplo não cria duas).
+     A prévia na tela usa o primeiro destinatário do público (L.537), que vem da contagem; o arquivo baixado, não.
    Nenhuma regra mora só aqui: o servidor escapa o texto, sanitiza o HTML e recusa o que não vale. */
 (() => {
   'use strict';
@@ -37,7 +41,16 @@
   let carregado = false;
   let espera = null;
   let pedidoDaPrevia = 0;
-  let htmlDaPrevia = '';
+  // 2b: o público escolhido (dc L.530, `pub = s.cmP || 'leads'`), as listas informadas, a frequência e a contagem.
+  let publico = 'leads';
+  let csvTexto = '';
+  let csvNome = '';
+  let individual = '';
+  let frequencia = 'unica';
+  let contagem = null;
+  let pedidoDaContagem = 0;
+  let esperaDaContagem = null;
+  let chave = '';
 
   const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   const base = () => modelos.find(m => m.chave === mk) || modelos[0] || null;
@@ -71,6 +84,99 @@
       chave: m.chave, modo: m.modo, nome: m.nome, icone: m.icone, assunto: m.assunto || '', selo: m.selo || '', titulo: m.titulo || '',
       corpo: m.corpo || '', itens: m.itens || [], cta: m.cta || '', link: m.link || '', blocos: m.blocos || [], html: m.html || '',
     };
+  }
+
+  // A chave de idempotência da campanha: nova depois de cada envio aceito; a mesma se o pedido se repetir.
+  function novaChave() {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    const bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // dc L.252: "K destinatário(s) · D descadastrado(s) fora da lista · J sem autorização fora da lista · sem repetidos".
+  function linhaDeDestinatarios(c) {
+    return c.destinatarios + ' destinatário(s)'
+      + (c.descadastrados ? ' · ' + c.descadastrados + ' descadastrado(s) fora da lista' : '')
+      + (c.semAutorizacao ? ' · ' + c.semAutorizacao + ' sem autorização fora da lista' : '')
+      + ' · sem repetidos';
+  }
+
+  function desenharPublicos() {
+    raiz.querySelectorAll('[data-mc-cp-publico]').forEach(b => {
+      b.setAttribute('aria-pressed', String(b.dataset.mcCpPublico === publico));
+      const n = b.querySelector('[data-mc-cp-n]');
+      if (contagem && n) n.textContent = String(contagem.publicos[b.dataset.mcCpPublico] || 0);
+    });
+    el('[data-mc-cp-csv]').hidden = publico !== 'csv';
+    el('[data-mc-cp-individual]').hidden = publico !== 'indiv';
+    // dc L.545: "NOME · N e-mail(s)" depois de ler o arquivo.
+    el('[data-mc-cp-csv-txt]').textContent = csvNome ? csvNome + ' · ' + (contagem ? contagem.publicos.csv : 0) + ' e-mail(s)' : 'Selecionar arquivo .csv';
+    el('[data-mc-cp-dest]').textContent = contagem ? linhaDeDestinatarios(contagem) : '';
+  }
+
+  function desenharFrequencia() {
+    raiz.querySelectorAll('[data-mc-cp-freq]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mcCpFreq === frequencia)));
+    el('[data-mc-cp-agenda-rot]').textContent = frequencia !== 'unica' ? 'Primeiro envio' : 'Agendar';
+  }
+
+  function pedidoDoPublico() {
+    return { publico, csv: publico === 'csv' ? csvTexto : '', individual: publico === 'indiv' ? individual : '' };
+  }
+
+  function contar() {
+    clearTimeout(esperaDaContagem);
+    esperaDaContagem = null;
+    const numero = ++pedidoDaContagem;
+    // Devolve se a contagem vale (a recusa do servidor, como o CSV grande demais, vai à mensagem).
+    return postar(ROTAS.urlContagem, pedidoDoPublico()).then(c => {
+      if (numero !== pedidoDaContagem) return false;
+      contagem = c;
+      desenharPublicos();
+      atualizarPrevia();
+      return true;
+    }).catch(e => {
+      if (publico === 'csv') { csvTexto = ''; csvNome = ''; }
+      contagem = null;
+      desenharPublicos();
+      avisar(e.message);
+      return false;
+    });
+  }
+
+  function agendarContagem() {
+    clearTimeout(esperaDaContagem);
+    esperaDaContagem = setTimeout(contar, 400);
+  }
+
+  // dc L.560: sem destinatário, a mensagem; senão o confirm literal e o pedido ao servidor.
+  function enviarCampanha() {
+    const pronto = esperaDaContagem !== null || !contagem ? contar() : Promise.resolve(true);
+    pronto.then(valeu => {
+      if (!valeu) return;
+      if (!contagem || !contagem.destinatarios) { avisar('Nenhum destinatário nesta lista.'); return; }
+      const agenda = el('[data-mc-cp-agenda]').value;
+      const m = atual();
+      if (!window.confirm('Enviar "' + (m.assunto || '') + '" para ' + contagem.destinatarios + ' destinatário(s)' + (agenda ? ' em ' + agenda.replace('T', ' ') : ' agora') + '?')) return;
+      if (!chave) chave = novaChave();
+      const botao = el('[data-mc-cp-enviar]');
+      botao.disabled = true;
+      postar(ROTAS.urlCampanha, Object.assign(pedidoDoPublico(), { chave, modelo: pedido(), frequencia, agendar: agenda }))
+        .then(r => {
+          chave = '';
+          el('[data-mc-cp-agenda]').value = '';
+          avisar(r.mensagem);
+          document.dispatchEvent(new CustomEvent('mc:campanha-confirmada'));
+        })
+        .catch(e => avisar(e.message))
+        .finally(() => { botao.disabled = false; });
+    });
+  }
+
+  function lerCsv(arquivo) {
+    const leitor = new FileReader();
+    leitor.onload = () => { csvTexto = String(leitor.result); csvNome = arquivo.name; contar(); };
+    leitor.readAsText(arquivo);
   }
 
   function desenharGrade() {
@@ -127,11 +233,9 @@
     espera = null;
     if (!base()) return Promise.resolve('');
     const numero = ++pedidoDaPrevia;
-    return postar(ROTAS.urlPrevia, pedido()).then(r => {
-      if (numero === pedidoDaPrevia) {
-        htmlDaPrevia = r.html;
-        elPrevia.srcdoc = r.html;
-      }
+    const exemplo = contagem && contagem.exemplo ? { exemplo: contagem.exemplo } : {};
+    return postar(ROTAS.urlPrevia, Object.assign(pedido(), exemplo)).then(r => {
+      if (numero === pedidoDaPrevia) elPrevia.srcdoc = r.html;
       return r.html;
     }).catch(e => { avisar(e.message); return ''; });
   }
@@ -152,6 +256,7 @@
         if (!modelos.some(m => m.chave === mk)) mk = 'convite';
         ed = null;
         desenhar();
+        if (!contagem) contar();
       })
       .catch(() => avisar('Não foi possível carregar os modelos. Recarregue a página.'));
   }
@@ -179,10 +284,10 @@
     leitor.readAsText(arquivo);
   }
 
-  // dc L.558: o HTML da prévia (atualizada antes, se havia edição esperando) num arquivo email-CHAVE.html.
+  // dc L.558: o HTML do e-mail num arquivo email-CHAVE.html, SEMPRE com o exemplo fixo ("Dra. Ana",
+  // teste@bluejus.com.br): o arquivo baixado não leva o endereço nem o link de descadastro de uma pessoa real.
   function baixar() {
-    const pronto = espera !== null || !htmlDaPrevia ? atualizarPrevia() : Promise.resolve(htmlDaPrevia);
-    pronto.then(html => {
+    postar(ROTAS.urlPrevia, pedido()).then(r => r.html).catch(e => { avisar(e.message); return ''; }).then(html => {
       if (!html) return;
       const a = document.createElement('a');
       a.href = window.URL.createObjectURL(new Blob([html], { type: 'text/html' }));
@@ -196,7 +301,13 @@
 
   raiz.addEventListener('click', e => {
     const modelo = e.target.closest('[data-mc-cp-modelo]');
+    // dc L.542: trocar de modelo não limpa a mensagem.
     if (modelo) { mk = modelo.dataset.mcCpModelo; ed = null; desenhar(); return; }
+    const botaoDoPublico = e.target.closest('[data-mc-cp-publico]');
+    if (botaoDoPublico) { publico = botaoDoPublico.dataset.mcCpPublico; desenharPublicos(); contar(); return; }
+    const botaoDaFrequencia = e.target.closest('[data-mc-cp-freq]');
+    if (botaoDaFrequencia) { frequencia = botaoDaFrequencia.dataset.mcCpFreq; desenharFrequencia(); return; }
+    if (e.target.closest('[data-mc-cp-enviar]')) { enviarCampanha(); return; }
     const bloco = e.target.closest('[data-mc-cp-bloco]');
     const i = bloco ? parseInt(bloco.dataset.mcCpBloco, 10) : -1;
     const mover = e.target.closest('[data-mc-cp-mover]');
@@ -222,6 +333,7 @@
   raiz.addEventListener('input', e => {
     const campo = e.target.closest('[data-mc-cp-campo]');
     if (campo) { editar(campo.dataset.mcCpCampo, campo.value); return; }
+    if (e.target.closest('[data-mc-cp-individual]')) { individual = e.target.value; agendarContagem(); return; }
     const lado = e.target.closest('[data-mc-cp-lado]');
     const bloco = e.target.closest('[data-mc-cp-bloco]');
     if (lado && bloco) {
@@ -235,6 +347,12 @@
   });
 
   raiz.addEventListener('change', e => {
+    const csv = e.target.closest('[data-mc-cp-csv-arquivo]');
+    if (csv) {
+      if (csv.files && csv.files[0]) lerCsv(csv.files[0]);
+      csv.value = '';
+      return;
+    }
     const entrada = e.target.closest('[data-mc-cp-importar]');
     if (!entrada || !entrada.files || !entrada.files[0]) return;
     importar(entrada.files[0]);
@@ -242,6 +360,7 @@
   });
 
   desenharNovos();
+  desenharFrequencia();
   const painel = document.getElementById('master-painel');
   if (painel) {
     painel.addEventListener('mp:secao', e => { if (e.detail && e.detail.sec === 'com' && !carregado) carregar(); });

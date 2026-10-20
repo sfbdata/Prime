@@ -92,6 +92,24 @@ class ConfirmacaoDeEnderecoRepository extends ServiceEntityRepository
         return $linhas === 1;
     }
 
+    /**
+     * Os endereços com confirmação na lista, no escopo da plataforma, em minúsculas e sem repetidos, da confirmação mais
+     * antiga à mais nova (a "Base de contatos" das campanhas e o B1, spec §8.5). O `pedir` já grava normalizado; o
+     * LOWER aqui não deixa uma linha gravada por outro caminho escapar da comparação. Não olha o descadastro: quem chama
+     * retira os descadastrados (a 0d decide).
+     *
+     * @return list<string>
+     */
+    public function confirmadosDaLista(string $lista): array
+    {
+        return array_map('strval', $this->conexao()->fetchFirstColumn(
+            'SELECT LOWER(email) FROM comercial_confirmacao_endereco
+             WHERE tenant_id IS NULL AND lista = :lista AND confirmado_em IS NOT NULL
+             GROUP BY LOWER(email) ORDER BY MIN(confirmado_em), MIN(id)',
+            ['lista' => $lista],
+        ));
+    }
+
     /** O escritório do estado (o escopo do link), ou null se ele não existe mais. */
     public function escritorio(int $tenantId): ?Tenant
     {

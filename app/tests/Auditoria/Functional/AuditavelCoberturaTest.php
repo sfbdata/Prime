@@ -90,6 +90,12 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Modelo de campanha (comercial-e-emails.md §8.2, R6): o subscriber gravaria até 500 caracteres do conteúdo do
         // e-mail. A trilha é manual (modelo_new, modelo_upd, modelo_del) com `changes` só {nome, modo}.
         \App\Comercial\Entity\ModeloDeCampanha::class,
+        // Campanha (comercial-e-emails.md §8.4, R6): trilha manual na confirmação e no encerramento (camp_conf,
+        // camp_fim) com `changes` só {publico, frequencia, total}; o subscriber gravaria o assunto e o conteúdo. Os
+        // destinatários e o controle do expansor são gravados pelo worker sem sessão (não há autor).
+        \App\Comercial\Entity\CampanhaDeEmail::class,
+        \App\Comercial\Entity\DestinoDaCampanha::class,
+        \App\Comercial\Entity\ControleDoExpansor::class,
         // E-mails do cliente do "Avisar cliente" (push-avisar-cliente §1): dado pessoal que acompanha a decisão
         // do Cliente (não auditado). Auditar copiaria cada endereço para o audit_log, onde ele ficaria mesmo
         // depois de o escritório removê-lo; o cadastro já fica no histórico de envios da pasta.

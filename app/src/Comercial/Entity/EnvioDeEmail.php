@@ -28,6 +28,13 @@ class EnvioDeEmail
     public const FALHOU = 'falhou';
     public const BLOQUEADO_DESCADASTRO = 'bloqueado_descadastro';
     public const SIMULADO = 'simulado';
+    /** Da campanha encerrada antes de sair (spec §8.1.5): o handler não envia e o conteúdo some. */
+    public const CANCELADO = 'cancelado';
+    /**
+     * De campanha parado em `enviando` (o worker morreu no meio): pode ter saído pelo SMTP; não é reenviado ("no máximo
+     * uma vez", spec §8.5).
+     */
+    public const INCERTO = 'incerto';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]

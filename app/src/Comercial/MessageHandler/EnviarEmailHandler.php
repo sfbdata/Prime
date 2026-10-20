@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Comercial\MessageHandler;
 
+use App\Comercial\Campanha\ChaveDasCampanhas;
 use App\Comercial\Envio\LayoutDoEmail;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
 use App\Comercial\Message\EnviarEmail;
+use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\EnvioDeEmailRepository;
 use App\Comercial\Service\MontadorDeEmail;
 use App\Entity\Tenant\Tenant;
@@ -23,10 +25,14 @@ use Symfony\Component\Messenger\Stamp\DelayStamp;
 /**
  * Envia um e-mail registrado pelo Carteiro (spec `comercial-e-emails.md` §3.1 e §3.6):
  *   1. reivindica (UPDATE atômico; zero linhas = outro worker pegou ou já saiu: para);
- *   2. em `lista`, relê o descadastro: descadastrado vira `bloqueado_descadastro` e o conteúdo some;
+ *   2. de campanha (origem `campanha:<id>`) com a chave da instalação desligada ou a campanha encerrada (spec §8.1.2 e
+ *      §8.1.5): vira `cancelado`, não sai, e o conteúdo some (sem esperar a volta do expansor);
+ *      em `lista`, relê o descadastro: descadastrado vira `bloqueado_descadastro` e o conteúdo some;
  *   3. vazão por contagem em `comercial_envio`: sem vaga, volta a `enfileirado` e reenfileira com DelayStamp;
  *   4. monta e manda. Sucesso: `enviado` e o conteúdo some. Exceção: volta a `enfileirado` e relança (retry do
- *      Messenger; a falha definitiva é do {@see \App\Comercial\EventListener\FalhaDeEnvioListener}).
+ *      Messenger; a falha definitiva é do {@see \App\Comercial\EventListener\FalhaDeEnvioListener}). Na campanha
+ *      (`campanha:*`, "no máximo uma vez", spec §8.5) a exceção vira `incerto`, o conteúdo some e NÃO relança: um
+ *      timeout depois de o servidor aceitar duplicaria a mensagem.
  *
  * Logs só com o id do envio, nunca o endereço.
  *
@@ -57,6 +63,8 @@ final class EnviarEmailHandler
         private readonly LoggerInterface $logger,
         private readonly int $enviosPorMinuto,
         private readonly int $tetoDiario,
+        private readonly CampanhaDeEmailRepository $campanhas,
+        private readonly ChaveDasCampanhas $chaveDasCampanhas,
     ) {
     }
 
@@ -75,10 +83,28 @@ final class EnviarEmailHandler
 
             return;
         }
-        if ($this->bloqueadoPeloDescadastro($id, $email) || $this->adiadoPelaVazao($id, $email->origem)) {
+        if ($this->campanhaEncerrada($id, $email->origem) || $this->bloqueadoPeloDescadastro($id, $email) || $this->adiadoPelaVazao($id, $email->origem)) {
             return;
         }
         $this->mandar($id, $email, $envio['token']);
+    }
+
+    /**
+     * A chave da instalação e o freio do console (spec §8.1.2 e §8.1.5): com a chave desligada, nada de campanha sai,
+     * mesmo o que já estava na fila; com a campanha encerrada, também não.
+     */
+    private function campanhaEncerrada(int $id, string $origem): bool
+    {
+        if (preg_match('/^campanha:(\d{1,10})$/', $origem, $achado) !== 1) {
+            return false;
+        }
+        if ($this->chaveDasCampanhas->ligada() && !$this->campanhas->estaCancelada((int) $achado[1])) {
+            return false;
+        }
+        $this->envios->marcarCancelado($id);
+        $this->envios->apagarConteudo($id);
+
+        return true;
     }
 
     private function bloqueadoPeloDescadastro(int $id, MensagemDeEmail $email): bool
@@ -132,6 +158,13 @@ final class EnviarEmailHandler
         try {
             $this->mailer->send($this->montador->montar($email, $token));
         } catch (\Throwable $erro) {
+            if (str_starts_with($email->origem, 'campanha:')) {
+                $this->envios->marcarIncerto($id);
+                $this->envios->apagarConteudo($id);
+                $this->logger->warning('Envio de campanha falhou no SMTP; fica incerto e não é tentado de novo.', ['envioId' => $id, 'classe' => $erro::class]);
+
+                return;
+            }
             $this->envios->devolverAFila($id, $this->relogio->now());
             $this->logger->warning('Envio de e-mail falhou; volta à fila para nova tentativa.', ['envioId' => $id, 'classe' => $erro::class]);
 
