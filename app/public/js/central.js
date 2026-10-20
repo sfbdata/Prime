@@ -20,7 +20,8 @@
     var CORES_NOME = ['#0a6fa8', '#8a4fb5', '#1e7b45', '#b4460a', '#a8326e', '#2f6f73'];   // L5814
     var AVISO_MS = 2600;                         // aviso(), L5398
     // F2, presença (L45, L279): status e cores do desenho; batimento a cada 20 s (on-line = menos de 60 s, no servidor).
-    var STATUS = { disponivel: ['Disponível', '#3fd17f'], ocupado: ['Ocupado', '#e5484d'], ausente: ['Ausente', '#f2a93b'], offline: ['Off-line', '#b7c4cd'] };
+    // `inativo` (ausente por falta de atividade, spec presenca-e-ponto-no-cabecalho §2) aparece aqui como o Ausente da Central.
+    var STATUS = { disponivel: ['Disponível', '#3fd17f'], ocupado: ['Ocupado', '#e5484d'], ausente: ['Ausente', '#f2a93b'], inativo: ['Ausente', '#f2a93b'], offline: ['Off-line', '#b7c4cd'] };
     var BATIMENTO_MS = 20000;
     // Resolvidas (RES_JANELA, L91): com a lista à vista, o tempo da baixa anda a cada minuto sem ir ao servidor.
     var RELOGIO_DAS_RESOLVIDAS_MS = 60000;
@@ -727,12 +728,37 @@
 
         function statusManual() {   // o que a pessoa escolheu no ⋮ "Status" (L6264); é o que o ponto do cabeçalho mostra (L6337)
             var s = prefsGuardadas().status;   // fonte única: o lançador grava aqui antes de avisar
-            return STATUS[s] && s !== 'offline' ? s : 'disponivel';
+            return STATUS[s] && s !== 'offline' && s !== 'inativo' ? s : 'disponivel';
         }
 
-        function statusEfetivo() {   // o que vai no batimento (L276): "ocupado" com Não perturbe ligado
+        // Atividade (spec presenca-e-ponto-no-cabecalho §2): um número só (o instante) numa chave do usuário, para todas
+        // as abas e janelas concordarem; a última escrita vence sem perda. O `storage` desta chave NÃO bate.
+        var CHAVE_ATIVIDADE = 'bj-central-ativ:' + (raiz.dataset.euId || '0');
+        var INATIVO_MS = (Number(raiz.dataset.inativoAposMin) || 60) * 60000;
+        var ATIVIDADE_A_CADA_MS = 15000;
+        function ultimaAtividade() {
+            try { return Number(window.localStorage.getItem(CHAVE_ATIVIDADE)) || 0; } catch (e) { return 0; }
+        }
+        function marcarAtividade() {
+            var agora = Date.now();
+            if (agora - ultimaAtividade() < ATIVIDADE_A_CADA_MS) { return; }
+            var estava = statusEfetivo();
+            try { window.localStorage.setItem(CHAVE_ATIVIDADE, String(agora)); } catch (e) { /* sem armazenamento: segue ativo */ }
+            if (estava === 'inativo') { bater(); }   // voltou: os colegas sabem na hora, sem esperar os 20 s
+        }
+        function ouvirAtividade(alvo) {
+            ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(function (ev) {
+                alvo.addEventListener(ev, marcarAtividade, { passive: true, capture: true });
+            });
+        }
+
+        function statusEfetivo() {   // o que vai no batimento (L276): "ocupado" com Não perturbe; "inativo" sem atividade
             var p = prefsGuardadas();
-            return p.dnd && Date.now() < p.dnd ? 'ocupado' : statusManual();
+            if (p.dnd && Date.now() < p.dnd) { return 'ocupado'; }
+            var ativ = ultimaAtividade();
+            if (ativ && Date.now() - ativ > INATIVO_MS) { return 'inativo'; }
+
+            return statusManual();
         }
 
         function membroDaEquipe(id) {
@@ -894,8 +920,15 @@
 
         function bater() {
             if (estado.semSessao || !urls.presenca || oculta()) { return Promise.resolve(); }
-            return pedir(urls.presenca, { metodo: 'POST', corpo: { status: statusEfetivo() } })
-                .then(function () { if (estado.janelaAberta) { return carregarEquipe(); } })
+            var meu = statusEfetivo();
+            return pedir(urls.presenca, { metodo: 'POST', corpo: { status: meu } })
+                .then(function (dados) {
+                    // Para o selo e o painel do cabeçalho (presenca-cabecalho.js): quem está on-line, sem outra requisição.
+                    // No `document` da página, não na raiz: com a Central destacada a raiz vai para o documento da outra
+                    // janela e o evento não chegaria ao cabeçalho.
+                    document.dispatchEvent(new CustomEvent('bj-central:presenca', { detail: { online: (dados && dados.online) || [] } }));
+                    if (estado.janelaAberta) { return carregarEquipe(); }
+                })
                 .catch(function (e) { if (e && e.sessao) { tratarFalha(e); } });
         }
 
@@ -2105,6 +2138,7 @@
             estado.externa = externa;
             iniciarBatimento();
             if (externa) {
+                ouvirAtividade(externa);   // atividade na Central destacada também conta
                 externa.document.addEventListener('visibilitychange', function () { if (estado.externa === externa) { aoMudarVisibilidade(); } });
                 externa.addEventListener('resize', function () { fecharMenu(false); });
             }
@@ -2129,6 +2163,9 @@
             var alvo = abrirAoCarregar ? estado.conversas.filter(function (c) { return c.id === abrirAoCarregar; })[0] : null;
             if (alvo) { abrirConversa(alvo); }
         }).catch(tratarFalha).finally(iniciarPolling);
+        // Abrir uma página é atividade: sem isto, uma marca antiga (de ontem) deixaria a pessoa "inativa" até mexer.
+        try { window.localStorage.setItem(CHAVE_ATIVIDADE, String(Date.now())); } catch (e) { /* sem armazenamento */ }
+        ouvirAtividade(window);
         bater();
         iniciarBatimento();
         // Outra aba mudou o status ou o Não perturbe: o cabeçalho e o próximo batimento já usam o novo.
