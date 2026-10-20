@@ -96,7 +96,14 @@ física (pendência abaixo); F3a: minimização (esconder e-mail,
 telefone e arquivos do currículo da Equipe sem `talentos`, recomendação do decisor; hoje segue o
 desenho, toda a Equipe vê); prazo de retenção do Termo de Voluntariado aceito depois que o currículo
 é excluído (o termo fica ligado ao usuário). Decidir se "Salvar edição" e "Novo escritório" do bloco SOLICITANTE da
-Nova solicitação (06 l.640, 641) entram (§4.8).
+Nova solicitação (06 l.640, 641) entram (§4.8). **Termo de Voluntariado (F3b-2) parado por ponto
+jurídico** (coordenador, 19/10): pela Lei 9.608/1998, art. 1º, serviço voluntário é o prestado a
+entidade pública ou instituição privada sem fins lucrativos; escritório de advocacia e a BlueJus LTDA
+têm fins lucrativos, e o termo pode configurar vínculo de emprego. Vai ao dono e ao advogado, junto com:
+quem é o "ESCRITÓRIO" do termo (Central, escritório da vaga ou escolha) e quem vê CPF e RG do
+voluntário. Já decidido para quando andar: aceite forte no servidor (usuário, data e hora ISO, IP,
+navegador, versão e hash do texto congelado) e apagar o termo enviado e não aceito ao excluir o
+currículo. Até lá, o painel mostra "0 termo(s) aceito(s) · 0 aguardando" e o filtro "Termo" só "Sem termo".
 
 **Próximo passo** (coordenador, 19/10): a F3b, empilhada sobre o #113 (painel e
 Termo de Voluntariado, com os avisos do Termo pelo sino); depois os KPIs da página pública. Ao fim da
