@@ -77,7 +77,7 @@ final class ObterDadosDashboardUseCase
 
         // CARDS
         $totalMetasAtivas  = $this->tarefaRepository->countMetasAtivas($tenant, $filtros, $pastasOcultas);
-        $demandasUrgentes  = $this->pastaRepository->countUrgentes($tenant, $filtros);
+        $demandasUrgentes  = $this->pastaRepository->countUrgentes($tenant, $filtros, $pastasOcultas);
         $global            = $this->tarefaRepository->countMetasGlobal($tenant, $filtros, $pastasOcultas);
         $metaGlobalPercent = $global['total'] > 0
             ? (int) round($global['concluidas'] / $global['total'] * 100)
@@ -88,8 +88,8 @@ final class ObterDadosDashboardUseCase
         $mAtivasTarefa = $this->tarefaRepository->countAtivasPorResponsavel($tenant, $filtros, $pastasOcultas);
         $mVencidas     = $this->tarefaRepository->countVencidasPorResponsavel($tenant, $referencia, $pastasOcultas);
         $mPrazos       = $this->tarefaRepository->countPrazosProximosPorResponsavel($tenant, $referencia, $pastasOcultas);
-        $mTotalPasta   = $this->pastaRepository->countPorResponsavel($tenant, $filtros);
-        $mAtivasPasta  = $this->pastaRepository->countAtivasPorResponsavel($tenant, $filtros);
+        $mTotalPasta   = $this->pastaRepository->countPorResponsavel($tenant, $filtros, $pastasOcultas);
+        $mAtivasPasta  = $this->pastaRepository->countAtivasPorResponsavel($tenant, $filtros, $pastasOcultas);
         // Por CRIADOR, não por responsável: mede quem abriu a pasta (uso do sistema e
         // produtividade), enquanto os dois mapas acima medem quem responde por ela.
         $mCriadasPasta = $this->pastaRepository->countCriadasPorCriador($tenant, $filtros);
@@ -116,7 +116,7 @@ final class ObterDadosDashboardUseCase
         if ($comAnterior && $colaboradores !== []) {
             $filtrosAnteriores = array_merge($filtros, $periodoAnterior);
             $mAntTarefa        = $this->tarefaRepository->countPorResponsavel($tenant, $filtrosAnteriores, $pastasOcultas);
-            $mAntPasta         = $this->pastaRepository->countPorResponsavel($tenant, $filtrosAnteriores);
+            $mAntPasta         = $this->pastaRepository->countPorResponsavel($tenant, $filtrosAnteriores, $pastasOcultas);
             $mAntCriadas       = $this->pastaRepository->countCriadasPorCriador($tenant, $filtrosAnteriores);
         }
 
@@ -124,8 +124,10 @@ final class ObterDadosDashboardUseCase
         // da foto diária do dia `data_de − 1` — exatamente o fim do período anterior. Quem não
         // foi fotografado naquele dia fica sem tendência (null). Metas/Demandas ativas não
         // entram: o painel as filtra por criação no período, a foto é o estoque inteiro.
+        // Cadeado: a foto é do escritório inteiro. Para quem tem pasta oculta, comparar com ela revelaria a
+        // diferença (oráculo); sem foto, as setas de Vencidas e Prazos não aparecem nesta requisição.
         $mEstoqueAnterior = [];
-        if ($comAnterior && $colaboradores !== []) {
+        if ($comAnterior && $colaboradores !== [] && $pastasOcultas === []) {
             $mEstoqueAnterior = $this->dashboardFotoRepository->buscarPorReferencia(
                 $tenant,
                 new \DateTimeImmutable($periodoAnterior['data_ate']),
@@ -252,7 +254,7 @@ final class ObterDadosDashboardUseCase
             $mapas[$coluna] = match ($coluna) {
                 Extras::METAS_REVISAO   => $this->metricasExtras->contarEmRevisaoPorResponsavel($tenant, $filtros, $pastasOcultas),
                 Extras::TEMPO_MEDIO     => $this->metricasExtras->tempoDeConclusaoPorResponsavel($tenant, $filtros, $pastasOcultas),
-                Extras::PASTAS_URGENTES => $this->metricasExtras->contarUrgentesPorResponsavel($tenant, $filtros),
+                Extras::PASTAS_URGENTES => $this->metricasExtras->contarUrgentesPorResponsavel($tenant, $filtros, $pastasOcultas),
                 Extras::EVENTOS_AGENDA  => $this->metricasExtras->contarEventosPorPessoa($tenant, $filtros, $pessoas),
                 default                 => [],
             };

@@ -110,11 +110,12 @@ class MetricasExtrasDoDashboardRepository
      * Pastas com prioridade Urgente por responsável, abertas no período — o mesmo critério do card
      * "Demandas urgentes" (PastaRepository::countUrgentes), agora por pessoa.
      *
-     * @param array<string, mixed> $filtros data_de, data_ate (Y-m-d)
+     * @param array<string, mixed> $filtros       data_de, data_ate (Y-m-d)
+     * @param list<int>            $pastasOcultas pastas ocultas pelo cadeado para quem olha não contam (D1)
      *
      * @return array<int, int> userId => quantidade
      */
-    public function contarUrgentesPorResponsavel(Tenant $tenant, array $filtros = []): array
+    public function contarUrgentesPorResponsavel(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
     {
         $qb = $this->em->createQueryBuilder()
             ->select('r.id AS pessoa_id, COUNT(p.id) AS total')
@@ -127,6 +128,9 @@ class MetricasExtrasDoDashboardRepository
             ->groupBy('r.id');
 
         $this->aplicarPeriodo($qb, 'p.dataAbertura', $filtros);
+        if ($pastasOcultas !== []) {
+            $qb->andWhere('p.id NOT IN (:pastasOcultas)')->setParameter('pastasOcultas', $pastasOcultas);
+        }
 
         return $this->mapaDeContagem($qb);
     }

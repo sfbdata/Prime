@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Dashboard\Functional;
 
 use App\Dashboard\Controller\DashboardController;
+use App\Dashboard\Controller\HistoricoDoDashboardController;
+use App\Dashboard\Repository\DashboardFotoRepository;
 use App\Dashboard\Repository\MetricasExtrasDoDashboardRepository;
 use App\Dashboard\UseCase\ObterDadosDashboardUseCase;
 use App\Entity\Auth\User;
@@ -12,25 +14,35 @@ use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PrioridadePasta;
+use App\Repository\UserRepository;
 use App\Pasta\Service\AcessoAPasta;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Pasta\Functional\CriaCenarioDoCadeadoFuncionalTrait;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * Dashboard da equipe com cadeado (spec pasta-cadeado, D1 e D3, "Acompanhamento depois dos merges"): as metas
  * de pasta Oculta para quem olha saem dos cards e das colunas de metas, como da lista /tarefas/equipe a que os
- * números levam. O primário e quem tem nível na pasta continuam contando a meta.
+ * números levam. O mesmo vale para as colunas e cards de pastas (a lista do Expediente filtrada não mostra a
+ * oculta) e para o histórico do card "Pastas criadas". Quem tem pasta oculta não recebe as setas que comparam com
+ * a foto diária do escritório inteiro (a diferença revelaria a meta oculta). O primário e quem tem nível na pasta
+ * continuam vendo tudo.
  */
 #[CoversClass(DashboardController::class)]
 #[CoversClass(ObterDadosDashboardUseCase::class)]
 #[CoversClass(MetricasExtrasDoDashboardRepository::class)]
+#[CoversClass(HistoricoDoDashboardController::class)]
 final class DashboardMetasComCadeadoTest extends JusPrimeWebTestCase
 {
     use CriaCenarioDoCadeadoFuncionalTrait;
 
     private const PERMISSOES_GESTOR = ['modules.expediente.view', 'resources.pasta.view', 'modules.bi.view'];
+
+    private const PERIODO = 'data_de=2026-09-01&data_ate=2026-09-30';
+    private const VESPERA = '2026-08-31';
 
     protected function setUp(): void
     {
@@ -52,6 +64,12 @@ final class DashboardMetasComCadeadoTest extends JusPrimeWebTestCase
         $ana         = $this->criarColaborador($tenant, 'Ana Equipe');
         $oculta      = $this->criarPasta($tenant);
         $livre       = $this->criarPasta($tenant);
+        // As duas pastas são de Ana, urgentes e criadas por ela: entram em Demandas, Urgentes e Pastas criadas.
+        foreach ([$oculta, $livre] as $pasta) {
+            $pasta->setResponsavel($ana);
+            $pasta->setCriadoPor($ana);
+            $pasta->setPrioridade(PrioridadePasta::Urgente);
+        }
         foreach ([[$oculta, 'Meta dashboard trancada'], [$livre, 'Meta dashboard livre']] as [$pasta, $titulo]) {
             $meta = new Tarefa();
             $meta->setTitulo($titulo);
@@ -143,5 +161,84 @@ final class DashboardMetasComCadeadoTest extends JusPrimeWebTestCase
 
         self::assertSame(1, $extras->tempoDeConclusaoPorResponsavel($c['tenant'], [], $ocultas)[$anaId]['metas'] ?? 0);
         self::assertSame(2, $extras->tempoDeConclusaoPorResponsavel($c['tenant'])[$anaId]['metas'] ?? 0);
+    }
+
+    #[TestDox('colunas e cards de pastas: gestor Oculto não conta a pasta com cadeado; o primário e o gestor livre contam')]
+    public function testColunasECardsDePastas(): void
+    {
+        $c = $this->cenario();
+
+        foreach (['gestora' => [$c['gestora'], '1'], 'primario' => [$c['primario'], '2'], 'gestorLivre' => [$c['gestorLivre'], '2']] as $quem => [$usuario, $esperado]) {
+            $this->entrar($usuario, $c['tenant']);
+            $tela = $this->client->request('GET', '/dashboard');
+            self::assertResponseIsSuccessful();
+
+            self::assertSame($esperado, (string) $tela->filter('.db-stat-num[data-card="urgentes"]')->attr('data-alvo'), 'Demandas urgentes, ' . $quem);
+            self::assertSame($esperado, trim($tela->filter('a[title="Abrir: Expediente · pastas de Ana Equipe"]')->first()->text()), 'Total demandas, ' . $quem);
+            self::assertSame($esperado, trim($tela->filter('a[title="Abrir: Expediente · pastas ativas de Ana Equipe"]')->first()->text()), 'Demandas ativas, ' . $quem);
+        }
+
+        // Extra "Pastas urgentes": a mesma régua.
+        $ocultas = static::getContainer()->get(AcessoAPasta::class)->idsOcultosPara($c['gestora'], (int) $c['tenant']->getId());
+        $extras  = static::getContainer()->get(MetricasExtrasDoDashboardRepository::class);
+        $anaId   = (int) $c['ana']->getId();
+        self::assertSame(1, $extras->contarUrgentesPorResponsavel($c['tenant'], [], $ocultas)[$anaId] ?? 0);
+        self::assertSame(2, $extras->contarUrgentesPorResponsavel($c['tenant'])[$anaId] ?? 0, 'sem o cadeado seriam duas');
+    }
+
+    #[TestDox('histórico do card Pastas criadas: o gestor Oculto não conta a pasta com cadeado; o primário conta')]
+    public function testHistoricoDePastasCriadas(): void
+    {
+        $c   = $this->cenario();
+        $ano = (new \DateTimeImmutable())->format('Y');
+
+        foreach (['gestora' => [$c['gestora'], 1], 'primario' => [$c['primario'], 2]] as $quem => [$usuario, $esperado]) {
+            $this->entrar($usuario, $c['tenant']);
+            $this->client->request('GET', '/dashboard/historico/pastas?responsavel=' . $c['ana']->getId());
+            self::assertResponseIsSuccessful();
+            $dados = json_decode((string) $this->client->getResponse()->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+            $opcao = array_values(array_filter($dados['opcoes'], static fn (array $o): bool => $o['chave'] === $ano))[0];
+
+            self::assertSame($esperado, array_sum(array_map(static fn (array $b): int => (int) $b['valor'], $opcao['barras'])), $quem);
+        }
+    }
+
+    #[TestDox('setas da foto diária: o gestor com pasta Oculta não as recebe; o primário recebe')]
+    public function testSetasDaFotoDiariaSomemParaQuemTemPastaOculta(): void
+    {
+        $c = $this->cenario();
+        $contagens = [];
+        foreach (static::getContainer()->get(UserRepository::class)->findColaboradoresAtivosPorTenant($c['tenant']) as $u) {
+            $contagens[(int) $u->getId()] = ['metas_ativas' => 10, 'demandas_ativas' => 4, 'metas_vencidas' => 5, 'prazos_proximos' => 3];
+        }
+        static::getContainer()->get(DashboardFotoRepository::class)->gravar($c['tenant'], new \DateTimeImmutable(self::VESPERA), $contagens);
+
+        $this->entrar($c['primario'], $c['tenant']);
+        $tela = $this->client->xmlHttpRequest('GET', '/dashboard?' . self::PERIODO);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $this->celulaDaAna($tela, 'metas_vencidas')->filter('.db-seta'), 'o primário tem a seta de Vencidas');
+        self::assertCount(1, $this->celulaDaAna($tela, 'prazos')->filter('.db-seta'), 'o primário tem a seta de Prazos');
+
+        $this->entrar($c['gestora'], $c['tenant']);
+        $tela = $this->client->xmlHttpRequest('GET', '/dashboard?' . self::PERIODO);
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $this->celulaDaAna($tela, 'metas_vencidas')->filter('.db-seta'), 'sem a seta de Vencidas');
+        self::assertCount(0, $this->celulaDaAna($tela, 'prazos')->filter('.db-seta'), 'sem a seta de Prazos');
+        // Nem a pílula do Total (colunas 3 e 4 do rodapé: Vencidas e Prazos).
+        $total = $tela->filter('table > tfoot > tr.db-total-row > td');
+        self::assertCount(0, $total->eq(3)->filter('.db-tend'));
+        self::assertCount(0, $total->eq(4)->filter('.db-tend'));
+        // As setas do período anterior, já filtradas, continuam (Total metas).
+        self::assertCount(1, $this->celulaDaAna($tela, 'metas')->filter('.db-seta'));
+    }
+
+    private function celulaDaAna(Crawler $tela, string $coluna): Crawler
+    {
+        $linha = $tela->filter('table.db-table > tbody > tr')->reduce(
+            static fn (Crawler $tr): bool => str_contains($tr->filter('.db-colab-nome')->attr('title') ?? '', 'Ana Equipe'),
+        );
+        self::assertCount(1, $linha);
+
+        return $linha->filter('tr > td[data-coluna="' . $coluna . '"]');
     }
 }
