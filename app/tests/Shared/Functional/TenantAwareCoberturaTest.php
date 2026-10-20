@@ -20,6 +20,7 @@ use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Entity\RecursoEstado;
 use App\Pasta\Entity\PastaProcesso;
 use App\Ponto\Entity\BlocoJornada;
 use App\Ponto\Entity\BlocoJornadaColaborador;
@@ -120,6 +121,11 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         AvisoWhatsapp::class,
         ConviteDemanda::class,
         ConfiguracaoCentral::class,
+
+        // Telas e recursos (spec docs/specs/perfis-1.2-telas-e-recursos.md, R2): configuração da
+        // PLATAFORMA, ligada e desligada só pelo Master e válida para todas as contas ao mesmo tempo.
+        // Uma linha por chave do catálogo, sem dado de escritório nem de cliente.
+        RecursoEstado::class,
     ];
 
     /**
@@ -135,8 +141,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 18 → 22 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
     // natureza; o espaço do escritório é lido por tenantId explícito; o aviso de gateway chega sem
     // escritório (motivos na lista acima).
-    // 22 → 23 com a C3 do Contribua: a configuração do pagamento por cartão é da plataforma.
-    private const MAX_FORA_DO_ESCOPO = 23;
+    // 22 → 23 com RecursoEstado (19/10/2026, Perfis 1.2 · Telas e recursos): configuração global da plataforma.
+    // 23 → 24 com a C3 do Contribua: a configuração do pagamento por cartão é da plataforma.
+    private const MAX_FORA_DO_ESCOPO = 24;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

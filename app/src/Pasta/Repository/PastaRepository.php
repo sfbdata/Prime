@@ -1500,4 +1500,38 @@ class PastaRepository extends ServiceEntityRepository
             $qb->addOrderBy($criterio);
         }
     }
+
+    /**
+     * As pastas ATIVAS e não excluídas do escritório para o relatório de pastas sem processo, com o
+     * responsável e os processos vinculados já carregados (o processo principal sai sem N+1).
+     * `$ids` nulo = todas; lista = só essas (o que o leitor pode ver).
+     *
+     * @param list<int>|null $ids
+     *
+     * @return list<Pasta>
+     */
+    public function ativasParaAnaliseSemProcesso(Tenant $tenant, ?array $ids = null): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $qb = $this->createQueryBuilder('p')
+            ->addSelect('r', 'pp', 'pr')
+            ->leftJoin('p.responsavel', 'r')
+            ->leftJoin('p.pastaProcessos', 'pp')
+            ->leftJoin('pp.processo', 'pr')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.situacao = :ativa')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ativa', Pasta::SITUACAO_ATIVA)
+            ->orderBy('p.id', 'ASC');
+
+        if ($ids !== null) {
+            $qb->andWhere('p.id IN (:ids)')->setParameter('ids', $ids);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
 }

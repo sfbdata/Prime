@@ -5,6 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
         <meta name="color-scheme" content="light dark">
         {# Anti-flash: aplica o tema salvo antes do render, evitando piscar branco #}
+        {% if recurso_visivel('tema') %}
         <script>
             (function () {
                 try {
@@ -14,6 +15,7 @@
                 } catch (e) {}
             })();
         </script>
+        {% endif %}
         {# CSRF para AJAX: token único 'ajax' + interceptador que injeta o header X-CSRF-Token
            em toda requisição same-origin de método inseguro (fetch e XMLHttpRequest/jQuery). #}
         <meta name="csrf-token" content="{{ csrf_token('ajax') }}">
@@ -143,6 +145,9 @@
                                 {% set pageTitle = 'Agenda' %}
                             {% elseif currentRoute starts with 'servicedesk_' %}
                                 {% set pageTitle = 'Service Desk' %}
+                            {% elseif currentRoute starts with 'app_tenant_role_' or currentRoute starts with 'master_' %}
+                                {# Desenho 05 Perfis 1.2, L39: a barra mostra "Perfis" na lista, na edição e no perfil Master. #}
+                                {% set pageTitle = 'Perfis' %}
                             {% elseif currentRoute starts with 'app_tenant_' %}
                                 {% set pageTitle = 'Tenants' %}
                             {% elseif currentRoute starts with 'audit_log_' %}
@@ -266,12 +271,14 @@
                             </div>
 
                             {# Instalar App #}
+                            {% if recurso_visivel('instalar') %}
                             <button type="button" id="btnInstalarApp"
-                                    class="navtop-action-btn"
+                                    class="navtop-action-btn {{ recurso_marca('instalar') }}"
                                     aria-label="Instalar aplicativo"
                                     style="display:none; background:none; border:none; cursor:pointer;">
                                 <i class="bi bi-download"></i>
                             </button>
+                            {% endif %}
 
                             {# Fullscreen #}
                             <a href="#" class="navtop-action-btn" data-lte-toggle="fullscreen"
@@ -327,9 +334,9 @@
                         </a>
                         {# Processos saiu daqui (16/10, pedido do dono): o cadastro mora dentro do Push
                            Processual, que acompanha as publicações por OAB e por processo cadastrado. #}
-                        {% if can_access_module('tarefas') %}
+                        {% if can_access_module('tarefas') and recurso_visivel('metas') %}
                             <a href="{{ path('tarefa_minhas') }}"
-                               class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'tarefa_' ? 'active' : '' }}">
+                               class="navtop-subnav-link {{ recurso_marca('metas') }} {{ app.request.attributes.get('_route') starts with 'tarefa_' ? 'active' : '' }}">
                                 Minhas Metas
                             </a>
                         {% endif %}
@@ -339,9 +346,9 @@
                                 Agenda
                             </a>
                         {% endif %}
-                        {% if can_access_module('trabalho_externo') %}
+                        {% if can_access_module('trabalho_externo') and recurso_visivel('trabalho') %}
                             <a href="{{ path('trabalho_externo_index') }}"
-                               class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'trabalho_externo_' ? 'active' : '' }}">
+                               class="navtop-subnav-link {{ recurso_marca('trabalho') }} {{ app.request.attributes.get('_route') starts with 'trabalho_externo_' ? 'active' : '' }}">
                                 Trabalho Externo
                             </a>
                         {% endif %}
@@ -356,6 +363,7 @@
                 {% block sidebar %}{% include '_sidebar.html.twig' %}{% endblock %}
 
                 {# Main Content #}
+                {% include '_recurso_faixa_master.html.twig' %}
                 <main class="app-main" id="main" tabindex="-1">
                     {# Faixa logo abaixo do cabeçalho, na largura do conteúdo (abas do Meu Perfil). #}
                     {% block faixa_topo %}{% endblock %}
@@ -394,7 +402,8 @@
 
             {# Central de Comunicação flutuante (lançador + janela, Designer 13/10). Componente isolado da Central (D6:
                esta é a única linha no layout); não aparece na própria /central, que já é a janela em página. #}
-            {% if central_disponivel() and app.request.attributes.get('_route') != 'central_index' %}
+            {# Telas e recursos: a bolha é a chave "chat" (desenho 05 + bluejus-central.js de 18/10, data-recurso="chat"). #}
+            {% if central_disponivel() and app.request.attributes.get('_route') != 'central_index' and recurso_visivel('chat') %}
                 {% include 'central/_flutuante.html.twig' %}
             {% endif %}
 
