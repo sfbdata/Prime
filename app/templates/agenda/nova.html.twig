@@ -5,7 +5,7 @@
     (spec docs/specs/agenda-vs-18-10-26.md). O cabeçalho azul e a faixa de abas são a moldura do
     sistema (base.html.twig).
 
-    O template monta só o esqueleto fixo. Cartões, mini calendário, calendários, grade, lista,
+    O template monta só o esqueleto fixo; `equipe` alimenta o @colega do "Avisar no Chat". Cartões, mini calendário, calendários, grade, lista,
     próximos feriados, detalhe e menu de botão direito são desenhados pelo public/js/agenda-nova.js
     a partir de GET /agenda/datas e GET /agenda/compromissos. Rotas com {id} vão com o marcador 0,
     trocado no JS pelo id real.
@@ -24,9 +24,22 @@
 <div class="ag-page" id="agPagina"
      data-url-datas="{{ path('app_agenda_datas') }}"
      data-url-compromissos="{{ path('app_agenda_compromissos') }}"
-     data-url-novo="{{ path('agenda_novo') }}"
-     data-url-editar="{{ path('agenda_editar', {id: 0}) }}"
-     data-url-pasta="{{ path('pasta_show', {id: 0}) }}">
+     data-eu="{{ eu|json_encode|e('html_attr') }}"
+     data-equipe="{{ equipe|json_encode|e('html_attr') }}"
+     data-pode-ver-pastas="{{ podeVerPastas ? '1' : '0' }}"
+     data-url-criar="{{ path('app_agenda_compromisso_criar') }}"
+     data-url-salvar="{{ path('app_agenda_compromisso_salvar', {id: 0}) }}"
+     data-url-excluir="{{ path('app_agenda_compromisso_excluir', {id: 0}) }}"
+     data-url-avisar="{{ path('app_agenda_compromisso_avisar', {id: 0}) }}"
+     data-url-mover="{{ path('app_agenda_compromisso_mover', {id: 0}) }}"
+     data-url-status="{{ path('app_agenda_compromisso_status', {id: 0}) }}"
+     data-url-pasta="{{ path('pasta_show', {id: 0}) }}"
+     data-url-lista="{{ path('agenda_lista') }}"
+     data-url-acrescentar="{{ path('app_agenda_data_acrescentar') }}"
+     data-url-renomear="{{ path('app_agenda_data_renomear') }}"
+     data-url-ocultar="{{ path('app_agenda_data_ocultar') }}"
+     data-url-restaurar="{{ path('app_agenda_data_restaurar') }}"
+     data-url-feriados="{{ path('app_feriado_index', {tenantId: tenantId}) }}">
 
     <div class="ag-topo">
         <i class="bi bi-calendar3 ag-topo-icone" aria-hidden="true"></i>
@@ -44,6 +57,13 @@
             <div class="ag-lado-rotulo">CALENDÁRIOS</div>
             <div id="agCals"></div>
             <div class="ag-ufs"><i class="bi bi-geo-alt"></i> Feriados estaduais de: <b id="agUfs">…</b><span class="ag-ufs-sub">pela lotação do Meu Perfil e pelo estado do escritório</span></div>
+            <div class="ag-lado-rotulo ag-lado-rotulo-sep">TESTAR LEMBRETES</div>
+            <div class="ag-testes">
+                <button type="button" class="ag-teste" data-testar="aud" style="color:#5b3f9e;"><i class="bi bi-bank"></i>Audiência</button>
+                <button type="button" class="ag-teste" data-testar="reun" style="color:#1e7b45;"><i class="bi bi-people-fill"></i>Reunião</button>
+                <button type="button" class="ag-teste" data-testar="prazo" style="color:#c0392b;"><i class="bi bi-hourglass-split"></i>Prazo</button>
+                <button type="button" class="ag-teste" data-testar="meus" style="color:#0a6fa0;"><i class="bi bi-calendar-event"></i>Compromisso</button>
+            </div>
             <div class="ag-lado-rotulo ag-lado-rotulo-sep">GOOGLE AGENDA</div>
             <div class="ag-google">
                 <button type="button" class="ag-google-btn" id="agGoogle"><i class="bi bi-arrow-repeat"></i>Sincronizar com o Google Agenda</button>
@@ -75,6 +95,7 @@
     {# Camadas: o JS preenche e mostra. Dentro do .ag-page para herdar os tokens do tema. #}
     <div id="agModal"></div>
     <div id="agCtx"></div>
+    <div id="agPerg"></div>
     <div id="agToast"></div>
 </div>
 {% endblock %}

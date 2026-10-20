@@ -21,7 +21,9 @@ use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\EnfileiradorDeAnalise;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
+use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Service\PermissionChecker;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
@@ -54,6 +56,7 @@ final class SolicitarAnaliseDaPastaUseCase
         private readonly MontadorDeContextoDaPasta $montador,
         private readonly AnaliseDeInteligenciaRepository $analises,
         private readonly EnfileiradorDeAnalise $enfileirador,
+        private readonly VisibilidadeDasAbasDaPasta $abas,
     ) {
     }
 
@@ -81,7 +84,8 @@ final class SolicitarAnaliseDaPastaUseCase
         }
 
         $incluirFinanceiro = $agente->leFinanceiro() && $this->financeiro->podeVer($user, $tenant, $pasta);
-        $contexto = $this->montador->para($tenant, $pasta, $agente, $incluirFinanceiro);
+        $ocultas = array_map(static fn (AbaDaPasta $a): string => $a->value, $this->abas->abasOcultasPara($pasta, $user));
+        $contexto = $this->montador->para($tenant, $pasta, $agente, $incluirFinanceiro, $ocultas);
         if ($contexto->vazio()) {
             throw ContextoVazioException::semDadosParaOAgente();
         }

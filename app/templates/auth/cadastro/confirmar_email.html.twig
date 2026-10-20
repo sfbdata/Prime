@@ -1,0 +1,19 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Confirmação de e-mail{% endblock %}
+
+{% block body %}
+<div class="container py-5 text-center confirmacao-email" style="max-width: 520px">
+    {% if motivo is null %}
+        <i class="bi bi-check-circle display-4 text-success"></i>
+        <h3 class="mt-3">E-mail confirmado.</h3>
+    {% else %}
+        <i class="bi bi-exclamation-triangle display-4 text-warning"></i>
+        <h3 class="mt-3">Não foi possível confirmar</h3>
+        <p class="text-muted">{{ motivo }}</p>
+    {% endif %}
+    <div class="d-flex gap-2 justify-content-center mt-3">
+        <a href="{{ path('app_login') }}" class="btn btn-primary">Entrar</a>
+    </div>
+</div>
+{% endblock %}

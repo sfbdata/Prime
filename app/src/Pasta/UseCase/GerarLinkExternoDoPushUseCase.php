@@ -29,6 +29,9 @@ use Psr\Clock\ClockInterface;
  */
 final class GerarLinkExternoDoPushUseCase
 {
+    /** Conta com o e-mail a confirmar não compartilha com terceiros (spec login-desenho-10, decisão c). */
+    public const RECUSA_EMAIL_A_CONFIRMAR = 'Confirme o seu e-mail para compartilhar o processo por link.';
+
     public function __construct(
         private readonly LinkExternoDoPushRepository $links,
         private readonly ConteudoDoPushCompartilhado $conteudo,
@@ -45,6 +48,9 @@ final class GerarLinkExternoDoPushUseCase
         bool $mostrarCliente,
         bool $incluirAnalises,
     ): LinkExternoDoPushOutput {
+        if (!$usuario->isEmailConfirmado()) {
+            throw LinkExternoDoPushException::bloqueio(self::RECUSA_EMAIL_A_CONFIRMAR);
+        }
         $tenant = $this->tenantDaPasta($pasta);
         $processo = $this->exigirCompartilhavel($pasta, $tenant);
         $agora = $this->relogio->now();
