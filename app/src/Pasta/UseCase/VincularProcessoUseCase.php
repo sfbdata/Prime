@@ -26,15 +26,16 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * resolve o processo com lookup tenant-scoped, e aqui reforçamos (defesa em profundidade).
  *
  * Registro (P5d, desenho `autoReg('proc', …)`): o vínculo novo escreve o cartão do sistema "processo N
- * vinculado à pasta (ação · tribunal)." na timeline, em nome de quem vinculou. O cartão (PastaMensagem) é
- * auditado pelo AuditLogSubscriber (sem linha manual). A "ação" segue a faixa do cartão: a da pasta no
- * processo principal, senão o assunto e, sem ele, a classe (desenho: `reg.acao || reg.classe`). Ela é texto
- * livre da pasta e pode citar uma parte; é o mesmo texto que a pasta já mostra e já audita.
+ * vinculado à pasta (classe · tribunal)." na timeline, em nome de quem vinculou. O cartão (PastaMensagem) é
+ * auditado pelo AuditLogSubscriber (sem linha manual). Decisão do coordenador (20/10, revisão da 5d): o texto
+ * NÃO leva a "ação" da pasta (`nomeAcao`, texto livre que pode ter nome de pessoa) para a timeline nem para o
+ * audit_log. Vão só o número CNJ, a classe (sem ela, o assunto) da tabela pública do CNJ e o tribunal, como
+ * o registro do apensado (#91). Por isso o texto NÃO segue a faixa do cartão, que mostra a ação.
  *
  * Cadastro novo pela janela (P5d, desenho `procSalvarVinc` N:4545-4548): valor da causa, jurisdição e as
- * cinco flags entram como dados MANUAIS do processo (P5b), depois do vínculo. A janela só manda texto que
- * passa (máscara do valor, maxlength): se ainda assim algum campo não passar, o vínculo fica e os dados
- * manuais não são gravados (o advogado completa no cartão).
+ * cinco flags entram como dados MANUAIS do processo (P5b), na mesma transação do vínculo. Dado que não passa
+ * não some calado: a transação volta (nem vínculo, nem processo novo, nem registro) e a recusa
+ * ({@see DadosDoProcessoInvalidosException}) sobe para o controller responder 422 com a mensagem.
  */
 final class VincularProcessoUseCase
 {
@@ -46,35 +47,51 @@ final class VincularProcessoUseCase
     ) {
     }
 
+    /** @throws DadosDoProcessoInvalidosException dado manual do cadastro que não passa (nada é gravado) */
     public function executar(Pasta $pasta, Processo $processo, User $usuario, ?DadosDoProcessoInput $dadosDoCadastro = null): void
     {
         $this->garantirMesmoTenant($pasta, $processo);
 
-        $jaEstava = $pasta->temProcesso($processo);
-        $pasta->vincularProcesso($processo, $usuario);
-        if (!$jaEstava) {
-            $this->registro?->registrar($pasta, $usuario, 'proc', $this->textoDoRegistro($pasta, $processo));
-        }
-        $this->em->flush();
+        if ($dadosDoCadastro === null || $this->dadosManuais === null || $pasta->getTenant() === null) {
+            $this->vincular($pasta, $processo, $usuario);
 
-        if ($dadosDoCadastro !== null && $this->dadosManuais !== null && $pasta->getTenant() !== null) {
-            try {
-                $this->dadosManuais->executar($processo, $pasta, $dadosDoCadastro, $usuario, $pasta->getTenant());
-            } catch (DadosDoProcessoInvalidosException) {
-                // Só a janela chama com dados do cadastro, e ela não manda texto que não passa.
-            }
+            return;
+        }
+
+        $conexao = $this->em->getConnection();
+        $conexao->beginTransaction();
+        try {
+            $this->vincular($pasta, $processo, $usuario);
+            $this->dadosManuais->executar($processo, $pasta, $dadosDoCadastro, $usuario, $pasta->getTenant());
+            $conexao->commit();
+        } catch (\Throwable $e) {
+            $conexao->rollBack();
+
+            throw $e;
         }
     }
 
-    /** "processo N vinculado à pasta (ação · tribunal)." — sem os parênteses quando não há nenhum dos dois. */
-    private function textoDoRegistro(Pasta $pasta, Processo $processo): string
+    private function vincular(Pasta $pasta, Processo $processo, User $usuario): void
     {
-        $principal = $pasta->getVinculoPrincipal()?->getProcesso() === $processo;
-        $acao = $principal && trim((string) $pasta->getNomeAcao()) !== '' ? trim((string) $pasta->getNomeAcao()) : trim($processo->getAssuntoProcessual());
-        $acao = $acao !== '' ? $acao : trim($processo->getClasseProcessual());
-        $detalhes = array_values(array_filter([$acao, trim($processo->getSiglaTribunal())], static fn (string $d): bool => $d !== ''));
+        $jaEstava = $pasta->temProcesso($processo);
+        $pasta->vincularProcesso($processo, $usuario);
+        if (!$jaEstava) {
+            $this->registro?->registrar($pasta, $usuario, 'proc', self::textoDoRegistro($processo, $this->numero->numeroCnj($processo->getNumeroProcesso())));
+        }
+        $this->em->flush();
+    }
 
-        return 'processo ' . $this->numero->numeroCnj($processo->getNumeroProcesso()) . ' vinculado à pasta'
+    /**
+     * "processo N vinculado à pasta (classe · tribunal)." Sem a ação da pasta (texto livre); sem classe, o assunto;
+     * sem os parênteses quando não há nenhum dos dois.
+     */
+    public static function textoDoRegistro(Processo $processo, string $numeroCnj): string
+    {
+        $tipo = trim($processo->getClasseProcessual());
+        $tipo = $tipo !== '' ? $tipo : trim($processo->getAssuntoProcessual());
+        $detalhes = array_values(array_filter([$tipo, trim($processo->getSiglaTribunal())], static fn (string $d): bool => $d !== ''));
+
+        return 'processo ' . $numeroCnj . ' vinculado à pasta'
             . ($detalhes !== [] ? ' (' . implode(' · ', $detalhes) . ')' : '') . '.';
     }
 

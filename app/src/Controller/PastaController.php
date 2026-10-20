@@ -15,6 +15,7 @@ use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
 use App\Pasta\Entity\PastaDocumento;
 use App\Processo\DTO\DadosDoProcessoInput;
+use App\Processo\Exception\DadosDoProcessoInvalidosException;
 use App\Processo\Entity\Processo;
 use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\MovimentacaoProcesso;
@@ -1252,7 +1253,11 @@ class PastaController extends AbstractController
             return $this->respostaErroProcesso($isXhr, 'Informe o número do processo.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $this->vincularProcessoUseCase->executar($pasta, $processo, $currentUser, $processo->getId() === null ? DadosDoProcessoInput::fromRequest($request) : null);
+        try {
+            $this->vincularProcessoUseCase->executar($pasta, $processo, $currentUser, $processo->getId() === null ? DadosDoProcessoInput::fromRequest($request) : null);
+        } catch (DadosDoProcessoInvalidosException $e) {
+            return $this->respostaErroProcesso($isXhr, $e->getMessage(), $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
 
         if ($isXhr) {
             return $this->respostaProcessosVinculados($pasta);

@@ -22,9 +22,18 @@ Risco BAIXO.
    - o que vem do Datajud passa a ser escapado antes de entrar no HTML das linhas de partes e movimentações (o JS
      interpolava sem escape).
 3. Registro do vincular e do desvincular do processo (`autoReg('proc', …)` do desenho): "processo N vinculado à
-   pasta (ação · tribunal)." e "processo N desvinculado da pasta.", pelo `RegistroDoSistemaNaPasta` (chave `proc`,
+   pasta (classe · tribunal)." e "processo N desvinculado da pasta.", pelo `RegistroDoSistemaNaPasta` (chave `proc`,
    a mesma do #91). O cartão (PastaMensagem) é `Auditavel`: a trilha sai pelo AuditLogSubscriber, sem linha manual.
-   A "ação" segue a faixa (a da pasta no principal; senão assunto e, sem ele, classe); é texto livre da pasta.
+   Decisão do coordenador (20/10, revisão cruzada da 5d): o texto NÃO leva a ação da pasta (`nomeAcao`, texto livre
+   que pode ter nome de pessoa), nem na timeline nem no audit_log. Vão só o número CNJ, a classe (sem ela, o
+   assunto) da tabela pública do CNJ e o tribunal, como o registro do apensado do #91. Por isso o texto não segue a
+   faixa do cartão, que mostra a ação.
+   - Dado manual inválido no cadastro novo pela janela não some calado: a transação volta inteira (nem processo
+     novo, nem vínculo, nem registro) e a resposta é 422 com a mensagem.
+   - A instância aparece com o rótulo do desenho ("Turma Recursal", "Tribunal Superior") no lugar do código.
+   - Para fazer quando o #91 entrar: um teste que trave o 4º argumento (os dados do cadastro) chegando ao
+     `vincularNoModoPedido` do #91, para o apensado cadastrado pelo CNJ também gravar os manuais.
+   - Anotado (item 5 da revisão da 5d), fora deste PR.
 4. Detalhes: o item do ⋮ "Ver todas as informações" vira "Mostrar menos" junto com o botão; title do "Peticionar na
    pasta" do desenho. O ⋮ do cabeçalho já abria com o botão direito.
 

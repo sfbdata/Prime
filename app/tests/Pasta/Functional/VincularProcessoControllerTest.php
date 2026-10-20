@@ -58,14 +58,14 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         self::assertSame($processo->getId(), $pastaFresca->getProcessoPrincipal()?->getId());
     }
 
-    #[TestDox('P5d: vincular escreve o cartão do sistema "processo N vinculado à pasta (ação · tribunal)." e desvincular, "processo N desvinculado da pasta."; vincular de novo não repete')]
+    #[TestDox('P5d: vincular escreve "processo N vinculado à pasta (classe · tribunal)." SEM a ação da pasta (texto livre), nem no audit_log; desvincular, "processo N desvinculado da pasta."; vincular de novo não repete')]
     public function testRegistroDoVincularEDesvincular(): void
     {
         $client          = static::createClient();
         $client->disableReboot(); // o token falso de CSRF precisa valer nas três requisições
         [$user, $tenant] = $this->criarUsuarioAdmin();
         $pasta           = $this->criarPasta($tenant);
-        $pasta->setNomeAcao('Cobrança de honorários');
+        $pasta->setNomeAcao('Ação de cobrança contra Joaquim Pereira');
         $processo        = $this->criarProcesso($tenant, '11111111111111111111');
         $processo->setSiglaTribunal('TJDFT');
         static::getContainer()->get(EntityManagerInterface::class)->flush();
@@ -78,10 +78,18 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         $vincular();
         $vincular();
         self::assertSame(
-            ['<p><strong>Processo:</strong> processo 1111111-11.1111.1.11.1111 vinculado à pasta (COBRANÇA DE HONORÁRIOS · TJDFT).</p>'],
+            ['<p><strong>Processo:</strong> processo 1111111-11.1111.1.11.1111 vinculado à pasta (PROCEDIMENTO · TJDFT).</p>'],
             $this->registros($pasta),
             'o segundo vínculo é no-op e não repete o cartão',
         );
+        $auditoria = static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchFirstColumn(
+            "SELECT coalesce(changes::text, '') FROM audit_log WHERE entity_class = :c AND tenant_id = :t",
+            ['c' => \App\Pasta\Entity\PastaMensagem::class, 't' => $tenant->getId()],
+        );
+        self::assertNotSame([], $auditoria, 'o cartão do sistema é auditado');
+        foreach ($auditoria as $linha) {
+            self::assertStringNotContainsStringIgnoringCase('Joaquim', (string) $linha, 'o audit_log do registro não leva a ação da pasta (dado pessoal)');
+        }
 
         $client->request('POST', "/pasta/{$pasta->getId()}/processo/desvincular", [
             '_token' => $this->gerarCsrf('pasta_desvincular_processo_' . $pasta->getId()),
@@ -124,6 +132,28 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         self::assertNull($linha['tutela_manual'], '"Não informado" não grava');
         self::assertNull($linha['orgao_manual'], 'os campos do cadastro (Datajud) não viram manuais');
         self::assertSame('TRANSITADO_EM_JULGADO', $linha['situacao_processo']);
+    }
+
+    #[TestDox('P5d: dado manual inválido no cadastro novo não some calado: 422 com a mensagem, e nada é gravado (nem processo, nem vínculo, nem registro)')]
+    public function testCadastroComDadoManualInvalidoDevolve422(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->autenticar($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/processo/vincular", [
+            '_token' => $this->gerarCsrf('vincular_processo_' . $pasta->getId()),
+            'numeroProcesso' => '7654321-89.2024.1.23.4567',
+            'valorCausa' => 'muito dinheiro',
+        ], [], self::XHR);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => 'Valor da causa inválido. Use R$ 0,00.'], json_decode((string) $client->getResponse()->getContent(), true));
+        $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        self::assertSame(0, (int) $conexao->fetchOne("SELECT count(*) FROM processo WHERE numero_processo = '76543218920241234567' AND tenant_id = :t", ['t' => $tenant->getId()]));
+        self::assertSame(0, (int) $conexao->fetchOne('SELECT count(*) FROM pasta_processo WHERE pasta_id = :p', ['p' => $pasta->getId()]));
+        self::assertSame([], $this->registros($pasta));
     }
 
     #[TestDox('P5d: processo JÁ cadastrado (por número ou por id) não ganha dados manuais pela janela (no cartão, isso exige EDIT no processo)')]
