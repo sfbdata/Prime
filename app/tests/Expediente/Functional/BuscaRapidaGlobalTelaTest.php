@@ -4,31 +4,38 @@ declare(strict_types=1);
 
 namespace App\Tests\Expediente\Functional;
 
-use App\Expediente\Controller\ExpedienteController;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\TenantRole;
+use App\Twig\PermissionExtension;
+use App\Twig\TenantContextExtension;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
  * A Busca rápida (Ctrl + K) em toda página logada: o parcial layout/_globais/busca_rapida.html.twig, incluído
- * pelo layout/_globais.html.twig do base. Prova que a janela, o CSS e o JS entram uma vez só (fora da pasta e na
- * pasta), que somem sem o módulo Pastas e que a página pública não os tem. O teclado é do smoke.
+ * pelo layout/_globais.html.twig do base. Prova que a janela, o CSS e o JS entram uma vez só numa tela sem relação
+ * com Expediente nem Pasta (Agenda), com o "Pedir acesso" funcionando; que somem sem o módulo Pastas, sem
+ * escritório na sessão e na página pública. A pasta (uma vez só) fica em PastaBuscaRapidaTelaTest. O teclado é do
+ * smoke. Cobre as duas funções Twig que decidem a condição do parcial: can_access_module e current_tenant.
  */
-#[CoversClass(ExpedienteController::class)]
+#[CoversClass(PermissionExtension::class)]
+#[CoversClass(TenantContextExtension::class)]
 final class BuscaRapidaGlobalTelaTest extends BuscaRapidaWebTestCase
 {
-    #[TestDox('uma página logada fora da pasta (Expediente) traz a janela, o CSS e o JS uma vez')]
-    public function testPaginaForaDaPastaTemABusca(): void
+    #[TestDox('uma tela logada sem relação com Expediente nem Pasta (Agenda) traz a janela, o CSS e o JS uma vez')]
+    public function testTelaDaAgendaTemABusca(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $admin  = $this->criarAdministrador($tenant);
 
         $this->logarComTenant($client, $admin, $tenant);
-        $crawler = $client->request('GET', '/expediente');
+        $crawler = $client->request('GET', '/agenda');
         self::assertResponseIsSuccessful();
 
         $raiz = $crawler->filter('#pastaBuscaRapida');
         self::assertCount(1, $raiz);
+        self::assertCount(1, $crawler->filter('.pbr'));
         self::assertNotNull($raiz->attr('hidden'), 'a janela nasce fechada');
         self::assertSame('/expediente/busca-rapida', $raiz->attr('data-url'));
         self::assertSame('/expediente/pasta/0/pedir-acesso', $raiz->attr('data-url-pedir'));
@@ -38,19 +45,20 @@ final class BuscaRapidaGlobalTelaTest extends BuscaRapidaWebTestCase
         self::assertCount(1, $crawler->filter('#pastaBuscaRapida > .pbr-janela[role="dialog"][aria-label="Busca rápida"]'));
     }
 
-    #[TestDox('fora da pasta, o token da janela serve na rota de pedir acesso (pasta trancada, quem não é administrador)')]
+    #[TestDox('na Agenda, o token da janela serve na rota de pedir acesso (pasta trancada, quem não é administrador)')]
     public function testTokenDaJanelaForaDaPastaPedeAcesso(): void
     {
         $client   = static::createClient();
         $tenant   = $this->criarTenant();
         $admin    = $this->criarAdministrador($tenant);
-        $pessoa   = $this->criarUsuarioComPermissoes($tenant, ['modules.pastas.view', 'modules.expediente.view', 'resources.pasta.view']);
+        // O "Pedir acesso" é a rota da Lista do Expediente e exige o módulo Expediente (ExpedienteController::assertAccess).
+        $pessoa   = $this->criarUsuarioComPermissoes($tenant, ['modules.pastas.view', 'modules.agenda.view', 'modules.expediente.view', 'resources.pasta.view']);
         $trancada = $this->criarPasta($tenant);
         $trancada->trancar($admin, new \DateTimeImmutable());
         $this->em()->flush();
 
         $this->logarComTenant($client, $pessoa, $tenant);
-        $crawler = $client->request('GET', '/expediente');
+        $crawler = $client->request('GET', '/agenda');
         self::assertResponseIsSuccessful();
         $raiz = $crawler->filter('#pastaBuscaRapida');
         self::assertCount(1, $raiz);
@@ -76,6 +84,35 @@ final class BuscaRapidaGlobalTelaTest extends BuscaRapidaWebTestCase
 
         self::assertCount(0, $crawler->filter('#pastaBuscaRapida'));
         self::assertCount(0, $crawler->filter('link[href$="/css/pasta-busca-rapida.css"]'));
+        self::assertCount(0, $crawler->filter('script[src$="/js/pasta-busca-rapida.js"]'));
+    }
+
+    #[TestDox('logado sem escritório na sessão (tela de escolher escritório), não há busca')]
+    public function testSemEscritorioNaSessaoNaoTemABusca(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $outro  = $this->criarTenant();
+        $admin  = $this->criarAdministrador($tenant);
+
+        // Segundo vínculo, para a tela de escolher escritório não escolher sozinha.
+        $papel = new TenantRole();
+        $papel->setTenant($outro);
+        $papel->setName('Papel Busca Rapida ' . uniqid());
+        $papel->setIsSystem(true);
+        $this->em()->persist($papel);
+        $vinculo = new UserTenant($admin, $outro);
+        $vinculo->setTenantRole($papel);
+        $this->em()->persist($vinculo);
+        $this->em()->flush();
+
+        $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
+        $crawler = $client->request('GET', '/escritorio/selecionar');
+        self::assertResponseIsSuccessful();
+
+        self::assertCount(1, $crawler->filter('.app-wrapper'), 'a tela é logada (base com usuário)');
+        self::assertCount(0, $crawler->filter('#pastaBuscaRapida'));
         self::assertCount(0, $crawler->filter('script[src$="/js/pasta-busca-rapida.js"]'));
     }
 

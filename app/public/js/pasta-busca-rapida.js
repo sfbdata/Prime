@@ -3,9 +3,11 @@
  * docs/design/redesign-19-10-26/02 - EXPEDIENTES - VS 18.10.26.dc.html, janela L405-421, teclado onBuscaG
  * L6446-6454, lógica bgVals L6455-6482.
  *
- * Ctrl/Cmd + K abre e fecha (em qualquer foco, como no desenho), com uma exceção: com a janela fechada e o foco
- * num editor de texto rico (contenteditable), o atalho fica com o editor. O Quill da descrição e do comentário do
- * cartão do Kanban (kanban/board.html.twig, botão "link" na barra) usa Ctrl + K para inserir link.
+ * Ctrl/Cmd + K abre e fecha (em qualquer foco, como no desenho), com uma única exceção, para não quebrar o
+ * "inserir link" do Kanban: com a janela fechada e o foco dentro de um .ql-editor cujo Quill tem o botão .ql-link
+ * na barra (descrição e comentário do cartão, kanban/board.html.twig), o Ctrl + K fica com o Quill. O editor rico
+ * da casa (editor-rico.js, sem botão de link) e os demais campos abrem a busca normalmente. Exceção pendente de
+ * confirmação do dono.
  * Esc fecha, ↑ ↓ navegam, Enter abre (o item selecionado, ou o item que estiver com o foco), o mouse
  * seleciona, clique no fundo fecha. Tab circula só dentro da janela, e ao fechar o foco volta para onde estava. Os resultados vêm de GET
  * expediente_busca_rapida?q= (até 8), com espera de 200 ms depois da última tecla e a requisição anterior
@@ -235,9 +237,18 @@
         selecionar(Math.max(0, Math.min(resultados.length - 1, selecionado + passo)));
     }
 
+    /* Foco num Quill que usa Ctrl + K para "inserir link": o tema snow põe a barra (.ql-toolbar) logo antes do
+       .ql-container, e só liga o atalho quando a barra tem o botão .ql-link. */
+    function quillComLink(alvo) {
+        var editor = alvo && alvo.closest ? alvo.closest('.ql-editor') : null;
+        var container = editor ? editor.closest('.ql-container') : null;
+        var barra = container ? container.previousElementSibling : null;
+        return !!(barra && barra.classList.contains('ql-toolbar') && barra.querySelector('.ql-link'));
+    }
+
     document.addEventListener('keydown', function (e) {
         if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
-            if (!aberta() && e.target && e.target.isContentEditable) { return; }
+            if (!aberta() && quillComLink(e.target)) { return; }
             e.preventDefault();
             if (aberta()) { fechar(); } else { abrir(); }
             return;
