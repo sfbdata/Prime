@@ -38,11 +38,21 @@ própria pasta na linha, `data-csrf-pedir`); a rota antiga `expediente_pasta_ped
 
 **Decidido:** D3 foi confirmada pela coordenação em 20/10. Cadeado = restrição; ocultar aba = organização.
 
-**Pendente de envio (sem internet em 20/10):** a branch `pasta-cadeado` está toda commitada localmente e com a
-suíte verde (10.511 testes), com revisão e re-revisão aprovadas e verificação visual ✓. Falta `git push -u origin
-pasta-cadeado`, abrir o PR (base master), avisar 5d, 9b, 4b e 0d com o número e pedir a vaga da migration
-`Version20261019230450` (depois da do #68). Depois do merge do #68: trazer o master e adaptar o
-`BarreiraDeAbaOcultaListener` ao `PastaDaRota` (`BarreiraDeAbaOcultaMapaTest` verde).
+**PR #120** (base master, migration `Version20261019230450`, depois da do #68). Depois do merge do #68: trazer o
+master e adaptar o `BarreiraDeAbaOcultaListener` ao `PastaDaRota` (`BarreiraDeAbaOcultaMapaTest` verde).
+
+**Ordem de merge (coordenação, 20/10):** o #120 entra ANTES do #106 e do #151 (9b), que usam a rota antiga, a
+coluna `trancada_em` e o `->trancar()`; a 9b adapta os dois depois. Com o #103 (Push automático), quem entra por
+segundo adapta: `GruposDoEnvioAutomatico::pastaLiberada` deixa de usar `estaTrancada()` e passa a uma consulta por
+execução de `CadeadoDaPastaRepository::idsDasPastasComCadeado`; o caso de teste "pasta trancada" vira
+`testPastaComCadeadoNaoEnvia`.
+
+**Acompanhamento depois dos merges (revisão do #153, 20/10):**
+- **Dashboard da equipe:** as consultas de metas não aplicam `semPastasOcultas`, então o gestor vê o título de meta
+  de pasta Oculta para ele. **Decisão pela D1:** a pasta oculta mostra só número, cliente e CPF, e metas estão
+  na lista do que não aparece. As metas de pasta Oculta para quem olha saem da lista e das contagens do Dashboard
+  da equipe, como "pastas criadas por X" já não conta a oculta (D3). Aplicar `semPastasOcultas` (ou
+  `idsOcultosPara`) nessas consultas, com teste de gestor que não vê a pasta.
 
 ## 1. Fontes
 
