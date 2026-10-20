@@ -6,6 +6,7 @@ namespace App\Master\Controller;
 
 use App\Entity\Auth\User;
 use App\Master\Repository\PainelMasterRepository;
+use App\Master\Service\RecursosDoSistema;
 use App\Master\Service\RegraDosMasters;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -14,9 +15,10 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * "Editar Perfil: Master do Sistema" (desenho 05 - Perfis 1.2): abas Painel do sistema | Permissões.
- * Exclusivo do Master (ROLE_SUPER_ADMIN). Specs: docs/specs/perfis-master-1.0.md §4.3 e
- * docs/specs/perfis-1.2-masters.md §4.1 (Masters primário e secundários).
+ * "Editar Perfil: Master do Sistema" (desenho 05 - Perfis 1.2): abas Painel do sistema | Permissões |
+ * Telas e recursos. Exclusivo do Master (ROLE_SUPER_ADMIN). Specs: docs/specs/perfis-master-1.0.md §4.3,
+ * docs/specs/perfis-1.2-masters.md §4.1 (Masters primário e secundários) e
+ * docs/specs/perfis-1.2-telas-e-recursos.md §3 (ligar e desligar: {@see RecursosDoSistemaController}).
  *
  * A página só monta a moldura e a aba Permissões; as seções do painel chegam pelos endpoints JSON
  * de {@see PainelMasterDadosController}. Promover e remover Master: {@see MastersDoSistemaController}.
@@ -28,6 +30,7 @@ final class PainelMasterController extends AbstractController
         private readonly PainelMasterRepository $repositorio,
         private readonly RegraDosMasters $regraDosMasters,
         private readonly TenantContext $tenantContext,
+        private readonly RecursosDoSistema $recursos,
     ) {
     }
 
@@ -43,6 +46,7 @@ final class PainelMasterController extends AbstractController
             'souPrimario' => $souPrimario,
             // M5: só secundários do escritório em que o Master primário está.
             'candidatos'  => $escritorio !== null ? $this->repositorio->candidatosAMaster((int) $escritorio->getId()) : [],
+            'recursos'    => $this->recursos->paraOPainel(),
         ]);
     }
 }

@@ -39,7 +39,7 @@ final class PastaPushMenuContextoTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
         self::assertResponseIsSuccessful();
 
-        $menu = $crawler->filter('#push > .ps-push > #pushMenuContexto.ps-push-menu[role="menu"][hidden]');
+        $menu = $crawler->filter('#push > .ps-push-grade > .ps-push > #pushMenuContexto.ps-push-menu[role="menu"][hidden]');
         self::assertCount(1, $menu, 'um menu para a lista inteira, não um por cartão');
         self::assertCount(1, $menu->filter('#pushMenuContexto > .ps-push-menu-titulo'));
 

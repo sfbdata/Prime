@@ -63,6 +63,7 @@ use App\Pasta\DTO\PastaPagamentosOutput;
 use App\Pasta\DTO\PastaMetasResumoOutput;
 use App\Pasta\DTO\PastaPendenciasOutput;
 use App\Pasta\DTO\PastaPushOutput;
+use App\Pasta\UseCase\MontarPainelDoPushUseCase;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Inteligencia\DTO\AnalisesDaPastaOutput;
@@ -319,6 +320,7 @@ class PastaController extends AbstractController
         VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         NotaTecnicaRepository $notaTecnicaRepository,
         VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
+        MontarPainelDoPushUseCase $montarPainelDoPush,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -503,6 +505,7 @@ class PastaController extends AbstractController
             'secoes'                      => $secoes,
             'explorador'                  => $explorador,
             'push'                        => $push,
+            'pushPainel'                  => $tenant !== null ? $montarPainelDoPush->executar($pasta, $tenant) : null, // painel lateral (push-painel-monitoramento)
             'analisesIa'                  => $analisesIa,
             // Linha vermelha sob as abas (desenho 1.2.3): calculada aqui, a tela só mostra.
             // A do Financeiro ("… e N pagamentos vencidos") só para quem vê o financeiro.

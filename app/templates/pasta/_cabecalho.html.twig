@@ -257,9 +257,10 @@
                     {# Link externo do Push ([EXP] L.1104, `mPushLink`): abre o #modalLinkExternoPush
                        (pasta/_push_link_externo.html.twig). O selo conta os links ATIVOS; quem o
                        preenche é o pasta-push-link.js, com o GET da lista, ao abrir este menu. #}
-                    {# Com a aba Push oculta para quem abre o ⋮, o item some (spec pasta-ocultar-aba §5). #}
-                    {% if abasDaPasta is null or abasDaPasta.visivel('push') %}
-                    <button type="button" class="ps-pop-item js-ppl-abrir" role="menuitem"
+                    {# Com a aba Push oculta para quem abre o ⋮, o item some (spec pasta-ocultar-aba §5); com a tela
+                       `pushpub` desligada, também (Telas e recursos, #56). #}
+                    {% if (abasDaPasta is null or abasDaPasta.visivel('push')) and recurso_visivel('pushpub') %}
+                    <button type="button" class="ps-pop-item js-ppl-abrir {{ recurso_marca('pushpub') }}" role="menuitem"
                             aria-haspopup="dialog" aria-controls="modalLinkExternoPush">
                         <i class="bi bi-broadcast"></i><span>Link externo do Push</span>
                         <span class="ppl-badge js-ppl-badge-ativos ps-num" hidden></span>
@@ -391,9 +392,9 @@
            quem tem `modules.inteligencia.view`; o botão sempre abre o drawer — é lá que cada
            agente mostra "Gerar análise" ou o motivo REAL de a IA não estar disponível. O title
            do desenho ("Ler documentos…") não é usado: o sistema não lê documentos. #}
-        {% if can_access_module('inteligencia') %}
+        {% if can_access_module('inteligencia') and recurso_visivel('assistente') %}
             {% set iaDisp = ia_disponibilidade() %}
-            <button type="button" class="ps-cab-ia" id="psIaAbrir"
+            <button type="button" class="ps-cab-ia {{ recurso_marca('assistente') }}" id="psIaAbrir"
                     title="{{ iaDisp.estaDisponivel ? 'BlueJus IA: análises desta pasta por agente' : iaDisp.mensagem }}"
                     aria-controls="psIaDrawer" aria-expanded="false"
                     data-ia-abrir
