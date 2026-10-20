@@ -691,22 +691,42 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertNull($d['pausada']);
     }
 
-    #[TestDox('aceitar convite de demanda de escritório fora do ar é recusado com a frase do convite indisponível')]
-    public function testAceitarConviteDeEscritorioForaDoAr(): void
+    #[TestDox('escritório fora do ar: o link do convite mostra "indisponível" como o vencido, e nem aceitar logado nem criar a conta gravam o aceite')]
+    public function testConviteDeEscritorioForaDoAr(): void
     {
         [$client, $codigo, $master, $central, , $escritorio] = $this->demandaEmExecucao();
         $comConta = $this->criarUsuario($this->criarTenant('Correspondente'));
         $this->logarComTenant($client, $master, $central);
-        $token = $this->convidar($client, $codigo, (string) $comConta->getEmail());
+        $tokenComConta = $this->convidar($client, $codigo, (string) $comConta->getEmail());
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo"); // o registro de e-mails recomeça a cada requisição
+        $tokenNovo = $this->convidar($client, $codigo, 'novo-fora@test.com', array_fill_keys(array_keys(ConviteDemanda::PERMISSOES), true));
         $this->colocarForaDoAr($escritorio, null);
 
+        // Logado com a conta do convite: a mesma página do convite vencido, sem formulário.
         $this->logarComoConvidado($client, $comConta);
-        $crawler = $client->request('GET', "/trabalho-externo/convite/$token");
-        $client->request('POST', "/trabalho-externo/convite/$token/aceitar", ['_token' => $crawler->filter('form[action$="/aceitar"] input[name="_token"]')->attr('value')]);
-
+        $crawler = $client->request('GET', "/trabalho-externo/convite/$tokenComConta");
+        self::assertSelectorTextContains('h1', 'Convite indisponível');
+        self::assertCount(0, $crawler->filter('form[action$="/aceitar"]'));
+        $client->request('POST', "/trabalho-externo/convite/$tokenComConta/aceitar", ['_token' => 'TOKEN_te_convite_' . $tokenComConta]);
         self::assertResponseStatusCodeSame(422);
-        self::assertStringContainsString('Este convite não está mais disponível.', (string) $client->getResponse()->getContent());
-        self::assertNull($this->em()->getRepository(ConviteDemanda::class)->peloToken($token)?->getConvidado());
+        self::assertSelectorTextContains('h1', 'Convite indisponível');
+
+        // Sem conta: nem o formulário de criar conta aparece, e o POST montado à mão não cria nada.
+        $client->getCookieJar()->clear();
+        $crawler = $client->request('GET', "/trabalho-externo/convite/$tokenNovo");
+        self::assertSelectorTextContains('h1', 'Convite indisponível');
+        self::assertCount(0, $crawler->filter('form[action$="/criar-conta"]'));
+        $client->request('POST', "/trabalho-externo/convite/$tokenNovo/criar-conta", ['full_name' => 'Novo', 'senha' => 'senha-forte-1', 'aceite_termos' => '1', '_token' => 'TOKEN_te_convite_' . $tokenNovo]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('h1', 'Convite indisponível');
+
+        $this->em()->clear();
+        $convites = $this->em()->getRepository(ConviteDemanda::class);
+        self::assertNull($convites->peloToken($tokenComConta)?->getConvidado());
+        self::assertNull($convites->peloToken($tokenNovo)?->getConvidado(), 'o convite não ganha convidado');
+        self::assertNull($this->em()->getRepository(User::class)->findOneBy(['email' => 'novo-fora@test.com']), 'nenhuma conta criada');
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        self::assertNotSame(200, $client->getResponse()->getStatusCode(), 'ninguém ficou logado lendo a demanda');
     }
 
     #[TestDox('login de quem só tem escritório fora do ar e um convite: vai para a seleção de escritório e vê o aviso da conta')]

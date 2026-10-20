@@ -11,6 +11,7 @@ use App\TrabalhoExterno\Enum\SituacaoVaga;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\Query;
+use Doctrine\ORM\Query\Expr\Orx;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -40,7 +41,23 @@ class VagaRepository extends ServiceEntityRepository
     /** @return list<Vaga> */
     public function daCentral(): array
     {
-        return $this->createQueryBuilder('v')->orderBy('v.id', 'DESC')->getQuery()->getResult();
+        // A pendente de escritório fora do ar não entra na fila de aprovação (decisão do coordenador em 20/10, até o
+        // dono responder; docs/specs/te-convidado-escritorio-fora-do-ar.md).
+        $qb = $this->createQueryBuilder('v')->setParameter('pendente', SituacaoVaga::Pendente);
+
+        return $qb->andWhere($qb->expr()->orX('v.situacao <> :pendente', self::donoNoAr($qb)))
+            ->orderBy('v.id', 'DESC')->getQuery()->getResult();
+    }
+
+    /**
+     * Sem escritório (da Central ou de pessoa) ou com o escritório no ar: o mesmo critério da
+     * `SituacaoDaConta::foraDoAr`, em DQL. Junta o escritório da vaga como `donoDaVaga`.
+     */
+    private static function donoNoAr(QueryBuilder $qb): Orx
+    {
+        $qb->leftJoin('v.escritorio', 'donoDaVaga');
+
+        return $qb->expr()->orX('v.escritorio IS NULL', $qb->expr()->andX('donoDaVaga.isActive = true', 'donoDaVaga.excluidoEm IS NULL'));
     }
 
     /**
@@ -51,8 +68,11 @@ class VagaRepository extends ServiceEntityRepository
      */
     public function abertas(): array
     {
-        return $this->createQueryBuilder('v')
+        $qb = $this->createQueryBuilder('v');
+
+        return $qb
             ->andWhere('v.situacao = :aberta')
+            ->andWhere(self::donoNoAr($qb))
             ->setParameter('aberta', SituacaoVaga::Aberta)
             ->orderBy('v.id', 'DESC')
             ->getQuery()
@@ -135,13 +155,11 @@ class VagaRepository extends ServiceEntityRepository
     private function doExterno(?Tenant $tenant, User $usuario): QueryBuilder
     {
         $qb = $this->createQueryBuilder('v')
-            ->leftJoin('v.escritorio', 'donoDaVaga')
             ->setParameter('aberta', SituacaoVaga::Aberta)
             ->setParameter('usuario', $usuario);
         // A vaga aberta de escritório fora do ar (suspenso ou excluído) sai da lista de quem é de fora
         // (docs/specs/te-convidado-escritorio-fora-do-ar.md); quem se candidatou a abre pela candidatura.
-        $donoNoAr = $qb->expr()->andX('donoDaVaga.isActive = true', 'donoDaVaga.excluidoEm IS NULL');
-        $aberta = $qb->expr()->andX('v.situacao = :aberta', $qb->expr()->orX('v.escritorio IS NULL', $donoNoAr));
+        $aberta = $qb->expr()->andX('v.situacao = :aberta', self::donoNoAr($qb));
         $dele = $qb->expr()->andX('v.daCentral = false', 'v.escritorio IS NULL', 'v.criadaPor = :usuario');
         if ($tenant === null) {
             return $qb->andWhere($qb->expr()->orX($aberta, $dele));
@@ -188,9 +206,12 @@ class VagaRepository extends ServiceEntityRepository
             return [];
         }
 
-        return $this->createQueryBuilder('v')
+        $qb = $this->createQueryBuilder('v');
+
+        return $qb
             ->andWhere('v.id IN (:ids)')
             ->andWhere('v.situacao = :aberta')
+            ->andWhere(self::donoNoAr($qb))
             ->setParameter('ids', $ids)
             ->setParameter('aberta', SituacaoVaga::Aberta)
             ->getQuery()

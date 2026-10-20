@@ -204,7 +204,7 @@ final class CasosDeUsoDaCandidaturaTest extends TestCase
 
     private function candidatar(): CandidatarOuAceitarUseCase
     {
-        return new CandidatarOuAceitarUseCase($this->localizador(), $this->politicaDaVaga(), $this->curriculos, $this->candidaturas, $this->vagas, $this->avisos());
+        return new CandidatarOuAceitarUseCase($this->localizador(), $this->politicaDaVaga(), $this->curriculos, $this->candidaturas, $this->vagas, $this->avisos(), new \App\Tenant\Service\SituacaoDaConta());
     }
 
     private function enviar(): EnviarCandidatosAoEscritorioUseCase

@@ -40,7 +40,7 @@ final class CandidatarOuAceitarUseCase
         private readonly CandidaturaRepository $candidaturas,
         private readonly VagaRepository $vagas,
         private readonly AvisosDoTrabalhoExterno $avisos,
-        private readonly SituacaoDaConta $situacao = new SituacaoDaConta(),
+        private readonly SituacaoDaConta $situacao,
     ) {
     }
 

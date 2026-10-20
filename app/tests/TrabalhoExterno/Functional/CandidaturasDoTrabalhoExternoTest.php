@@ -281,6 +281,40 @@ final class CandidaturasDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $jaCandidato, $this->em()->getRepository(\App\Entity\Auth\UserTenant::class)->findOneBy(['user' => $jaCandidato])->getTenant());
         self::assertSame('enviada', $this->detalhe($codigo)['botaoExterno'], 'quem se candidatou acompanha a vaga');
         self::assertSame(1, $this->contar('trabalho_externo_candidatura'));
+
+        // Link público de vagas e e-mail da campanha: as mesmas listagens, sem a vaga.
+        $repositorio = static::getContainer()->get(\App\TrabalhoExterno\Repository\VagaRepository::class);
+        $id = (int) Vaga::idDoCodigo($codigo);
+        self::assertSame([], $repositorio->abertasEntre([$id]), 'link público /vagas-juridicas/{token}');
+        self::assertNotContains($id, array_map(static fn (Vaga $v): ?int => $v->getId(), $repositorio->abertas()), 'e-mail da campanha');
+
+        // Master: não reabre nem oferta de novo a vaga desse escritório.
+        $this->logarComTenant($this->client, $master, $sede);
+        $this->postarJson($this->client, self::VAGAS . "/$codigo/acoes/pausar");
+        $recusa = $this->postarJson($this->client, self::VAGAS . "/$codigo/acoes/reabrir");
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('O escritório que divulgou esta vaga está fora do ar. A vaga não pode ser publicada agora.', $recusa['mensagem']);
+    }
+
+    #[TestDox('vaga pendente de escritório fora do ar não entra na fila de aprovação do Master e não pode ser aprovada')]
+    public function testFilaDeAprovacaoSemEscritorioForaDoAr(): void
+    {
+        [$sede, $a] = [$this->criarTenant('Sede'), $this->criarTenant('Dono suspenso')];
+        $master = $this->criarMaster($sede);
+        $dono = $this->criarUsuario($a, nome: 'Dono');
+        $this->logarComTenant($this->client, $dono, $a);
+        $codigo = $this->postarJson($this->client, self::VAGAS, self::vaga('Pendente do suspenso'))['codigo'];
+        self::assertResponseIsSuccessful();
+        $this->logarComTenant($this->client, $master, $sede);
+        self::assertContains($codigo, array_column($this->listaDeVagas(), 'codigo'), 'premissa: no ar, a pendente está na fila');
+
+        $a = $this->em()->find(Tenant::class, $a->getId());
+        $a->setIsActive(false);
+        $this->em()->flush();
+
+        self::assertNotContains($codigo, array_column($this->listaDeVagas(), 'codigo'));
+        $this->postarJson($this->client, self::VAGAS . "/$codigo/acoes/aprovar");
+        self::assertResponseStatusCodeSame(403);
     }
 
     /** @return list<array<string, mixed>> */

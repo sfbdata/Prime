@@ -7,6 +7,7 @@ namespace App\TrabalhoExterno\UseCase;
 use App\Entity\Auth\User;
 use App\Repository\UserRepository;
 use App\TrabalhoExterno\Repository\ConviteDemandaRepository;
+use App\TrabalhoExterno\Service\ConviteDisponivel;
 
 /**
  * O que a página do convite mostra (tabela do §8 da spec): indisponível, criar conta, entrar,
@@ -18,6 +19,7 @@ final class AbrirConviteUseCase
     public function __construct(
         private readonly ConviteDemandaRepository $convites,
         private readonly UserRepository $usuarios,
+        private readonly ConviteDisponivel $disponivel,
     ) {
     }
 
@@ -25,7 +27,7 @@ final class AbrirConviteUseCase
     public function executar(string $token, ?User $logado): array
     {
         $convite = $this->convites->peloToken($token);
-        if ($convite === null || !$convite->aceitavel(new \DateTimeImmutable('today'))) {
+        if ($convite === null || !$this->disponivel->para($convite, new \DateTimeImmutable('today'))) {
             return ['estado' => 'indisponivel', 'convite' => null];
         }
 

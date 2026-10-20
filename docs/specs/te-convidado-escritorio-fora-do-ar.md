@@ -42,11 +42,18 @@ do #125 (conta ativa com pedido de exclusão pendente) entra nessa regra quando 
 3. **Aviso na tela**: no lugar dos botões, "Esta demanda está pausada. Fale com a Central." Sem nome nem
    situação do escritório (o #155 evita esse vazamento para quem é de fora). As recusas do servidor seguem com a
    mensagem de cada ação, que já é neutra.
-4. **Aceitar convite** de demanda de escritório fora do ar: recusado com "Este convite não está mais
-   disponível." (a mesma frase do convite vencido; não revela a situação).
-5. **Vagas** (item 6): vaga de escritório fora do ar sai da lista e do detalhe do externo e recusa candidatura
-   ("Vaga indisponível"). Quem já se candidatou continua abrindo a vaga por "Minhas candidaturas" (só leitura).
-   Vaga da Central ou de pessoa (sem escritório) não muda.
+4. **Convite** de demanda de escritório fora do ar: o link tem a **mesma resposta do convite vencido** ("Convite
+   indisponível", sem formulário), nos três caminhos (abrir, criar a conta e aceitar logado), pela regra única
+   `ConviteDisponivel` (convite aceitável e escritório no ar). Nenhum caminho grava o aceite nem cria a conta
+   (revisão da b5, B1: o criar-conta gravava o aceite antes da recusa). Quem já tinha aceito e volta ao link também
+   vê "indisponível" e segue lendo a demanda (a leitura está com o dono, (ii)).
+5. **Vagas** (item 6): vaga de escritório fora do ar sai da lista e do detalhe do externo, do link público
+   `/vagas-juridicas/{token}` (`abertasEntre`) e do e-mail da campanha (`abertas`), e recusa candidatura ("Vaga
+   indisponível"). Quem já se candidatou continua abrindo a vaga por "Minhas candidaturas" (só leitura). Vaga da
+   Central ou de pessoa (sem escritório) não muda. Um só critério em DQL (`VagaRepository::donoNoAr`).
+   **Master** (decisão do coordenador em 20/10, até o dono responder): a pendente desse escritório não entra na
+   fila de aprovação, e aprovar, reabrir ou ofertar de novo é recusado (403, "O escritório que divulgou esta vaga
+   está fora do ar. A vaga não pode ser publicada agora."), o que também evita o aviso "Nova vaga na sua área".
 6. **Avisos e entrada** (item 7): `ativosDoEscritorio` não devolve ninguém de escritório fora do ar; a entrada
    pelo formulário não desvia para o Trabalho Externo quem tem vínculo ativo com escritório fora do ar, para a
    pessoa passar pela seleção e ver o aviso de suspensão.
@@ -55,6 +62,22 @@ do #125 (conta ativa com pedido de exclusão pendente) entra nessa regra quando 
 barrado pela sessão (`TenantContextValidatorListener::barreiraDaConta`); currículo e alerta de vagas do Convidado
 (não têm relação com o escritório da demanda); o perfil Convidado continua sendo dado pelo convite
 (`FabricaDeContexto`), para ele não perder vagas e currículo.
+
+## 2.1 Revisão da b5 (20/10): registrado
+
+- **Duas leituras de "fora do ar"**: a `SituacaoDaConta` e os filtros desta frente usam `isActive` falso OU
+  `excluidoEm` preenchido. A sessão (`TenantContextValidatorListener::barreiraDaConta`), o
+  `UserTenantRepository::findActiveByUser`/`contasForaDoArDoUsuario` e outros pontos olham só `isActive`. Vale a
+  invariante "excluído implica inativo" (`ExcluirEscritorioUseCase` desliga os dois juntos; `ReativarContaUseCase`
+  liga e limpa juntos); unificar tudo pela `SituacaoDaConta` fica para depois do #125 e do #155, que tocam esses
+  arquivos.
+- **#125 ("suspensa a pedido")**: quem entrar por último (este PR ou o #125) estende `SituacaoDaConta::foraDoAr`
+  com o pedido pendente; nada obriga isso no código, por isso fica aqui e no PR.
+- **Escrita em andamento**: a que começou antes da suspensão termina (janela de milissegundos entre localizar e
+  gravar). Aceito.
+- **Checagens de escrita**: `agePeloEscritorio`, `podePropor`, `podeGerirConvites` e os lotes seguem olhando só
+  `previa`; o Convidado não chega a eles. Não há teste de arquitetura que obrigue `somenteLeitura()` em toda
+  checagem de escrita; fica como melhoria.
 
 ## 3. Verificação
 
