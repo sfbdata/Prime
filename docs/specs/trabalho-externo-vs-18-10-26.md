@@ -11,6 +11,7 @@
 4. `trabalho-externo-curriculos` (F3a, §4.5) → **PR #96 em rascunho**, base `trabalho-externo-vagas-publicas`.
 5. `trabalho-externo-candidatura` (F2b, §4.6) → **PR #105 em rascunho**, base `trabalho-externo-curriculos`.
    Migration `Version20261019231700`.
+6. `trabalho-externo-engajamento` (F4, §4.7) → em andamento, base `trabalho-externo-candidatura`.
    Migration `Version20261019213000`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
@@ -610,6 +611,65 @@ Marcações pessoais: `TipoItemMarcado::Candidatura`.
   statusRotulo, statusCor, etapas, estrela, lixeira, vista, importancia}`.
 - `index.html.twig` ganha `data-url-vaga-candidatura` (VG-0), `-vaga-enviar` (VG-0),
   `-candidatura-status` (com 0), `-candidaturas-marcacoes`.
+
+## 4.7 F4: visão externa, engajamento e avisos (desenho 06, 19/10)
+
+Branch `trabalho-externo-engajamento`, empilhada sobre `trabalho-externo-candidatura` (#105). Risco
+**MÉDIO**. Inventário de 19/10. Fora: campanha por e-mail do Master (l.330 a 341, 1082 a 1097; depende
+da 5d), Termo de Voluntariado e painel (F3b), envio dos alertas por e-mail (F2d).
+
+### Tela (desenho manda; textos, ícones e cores exatos do inventário)
+- **Abas** (l.85 a 87, 1105): Vagas mostra as pendentes para quem tem `talentos` e há pendente, senão as
+  abertas; Currículos (interno) os novos; Demandas e "Meu currículo" sem selo.
+- **Banner** (l.88 a 96, 1013 a 1023, 1106), só nas abas Vagas e Currículo: saudação "Bom dia/Boa
+  tarde/Boa noite, {primeiro nome}" pelo horário de Brasília; subtítulo do interno ou do externo;
+  "Tudo em dia por aqui."; chips do interno (pedidos para aprovar **só com `talentos`**, lacuna 14;
+  ofertas ao vivo com o tempo da próxima; currículos novos na semana; candidaturas e aceites na
+  semana; média de aceite; "Publique a primeira vaga…" sem nenhuma vaga) e do externo (ofertas
+  disputadas; vagas novas desde a última visita; currículo: cadastre, X% completo com as duas
+  primeiras faltas, ou 100%). O chip de termo do externo entra com a F3b.
+- **Botão de avisos** (l.91, 1107), só externo e só com `sino` ligado pelo Master: "Avisar quando sair
+  vaga da minha área" / "Avisos de vagas ligados", toasts do desenho. A escolha é **por usuário** no
+  servidor (`PreferenciaDoUsuario` `vagas.alerta`, com o escritório do contexto), não no navegador.
+- **Boas-vindas pelo link** (l.382 a 391, 1078, 1111): `/trabalho-externo?origem=link&vagas=VG-1,VG-2
+  [&cadastro=1][&divulgar=1]`, só externo, com os títulos, textos, passos e botões do desenho; com
+  `divulgar=1` abre "Divulgar uma vaga na Central". O retorno a esse endereço depois do login é da 7d
+  (dependência registrada).
+- **Lembrete diário** (l.404 a 422, 1054 a 1061): só externo, uma vez por dia **pela data de
+  Brasília** (lacuna 9), não na visita com boas-vindas, quatro estados do desenho; a idade do
+  currículo usa `atualizadoEm`. A marca do dia fica no navegador (conveniência por pessoa).
+- **QUASE na oferta perdida** (l.1012, 1069): a tela guarda as ofertas abertas que a pessoa abriu
+  (conveniência no navegador); quando, num recarregar, uma delas está preenchida ou expirada sem
+  aceite dela, mostra o QUASE uma vez (com `motiv`). Frases de "aceitou primeiro" só na preenchida.
+- **"Ver exemplo de mensagem"** no modal de configuração do Master (l.1099, 1162) abre o QUASE.
+- **Endereços** `#mod=vagas|cv|dem` e `#vaga=VG-n`, `#cv=CV-n` abrem a aba e o item (usados pelos avisos).
+
+### Avisos no sino da Central (decisão do coordenador; `Notificacao` + `TiposDeAvisoDaCentral`)
+Sem texto pessoal na notificação (ela é auditada, `app/src/Central/CLAUDE.md`): título com o título da
+vaga, nunca o nome nem o contato do candidato. URL para a tela com `#vaga=`/`#cv=`.
+
+| Evento | Quem recebe | Tenant |
+|---|---|---|
+| Pedido de divulgação novo ou reenviado (l.1005) | Master e Equipe com `talentos` | sede da Central |
+| Nova candidatura e aceite em vaga da Central (l.974, 978) | Master e Equipe com `talentos` | sede |
+| Aceite em vaga de escritório (l.978) e candidatos enviados (l.981) | Solicitantes do escritório dono (ou o Convidado que pediu) | escritório da vaga |
+| Vaga aprovada ou não aprovada, com o motivo (l.979, 980) | quem pediu (dono) | escritório da vaga |
+| Mudança de status da candidatura (l.985, 1040) | o candidato | escritório gravado na candidatura |
+| Vaga nova ou reaberta na área (l.1012, 1107, 1160; lacuna 1) | externos com o aviso ligado, com área em comum ou sem currículo (como o desenho) | escritório gravado na preferência |
+
+Sem sede definida, ou sem escritório (Convidado avulso), o aviso não é criado. Tipos novos
+`trabalho_externo_*` com grupo, rótulo, ícone e cor no `TiposDeAvisoDaCentral`. Um aviso por evento
+e destinatário, sem duplicar pendente da mesma URL.
+
+### Contrato (fixo)
+- `GET /trabalho-externo/api/engajamento` `trabalho_externo_engajamento` (`?como=` aceito; `?vagas=` para
+  as boas-vindas): `{contadores: {vagas, curriculos}, banner: {saudacao, subtitulo, chips: [{ic, cor,
+  txt, ir: {mod, filtro?, acao?}|null}]}, alerta: {disponivel, ligado}, lembrete: {estado
+  (cadastrar|completar|revisar|emDia), pct, faltas[], dias, vagasAbertas} | null, boasVindas: {titulo,
+  texto, passos: [{rot, ic, feito}], botao: {rot, acao, codigo?}} | null, motiv}`.
+- `POST /trabalho-externo/api/vagas/alerta` `trabalho_externo_vagas_alerta` `{ligado}`: `{alerta, toast}`.
+- Migration: `escritorio_do_candidato` na candidatura (o tenant do contexto no momento).
+- `index.html.twig`: `data-url-engajamento`, `data-url-vagas-alerta`.
 
 ## 5. Verificação
 
