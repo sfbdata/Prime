@@ -10,8 +10,8 @@ use App\Ponto\Entity\RegistroPonto;
  * Decide quais batidas de um dia valem. É a decisão ÚNICA: a folha (células, links, intervalo, minutos
  * e saldo), o quadro "suas batidas de hoje" e o aviso de jornada leem esta escolha
  * (`docs/specs/ponto-folha-uma-batida-por-tipo.md` §9.3, §9.9 e §10). Fora dela ficam só as validações
- * da batida nova no servidor, que consultam o repositório: `findRepousoDoDia` (o primeiro repouso, o
- * mesmo daqui) e `findUltimaSaida` (a interjornada, entre dias).
+ * da batida nova no servidor, que consultam o repositório, sempre no escritório da batida: `findRepousoDoDia(user,
+ * tenant, dia)` (o primeiro repouso, o mesmo daqui) e `findUltimaSaida(user, tenant)` (a interjornada, entre dias).
  *
  * **A regra.** Batidas do mesmo tipo, consecutivas, a até 5 min uma da outra e as duas feitas pelo
  * próprio colaborador são o mesmo registro repetido — é a D1 da frente de duplicatas. Aprovação de

@@ -30,6 +30,16 @@ final class ExpedienteAcertosDesenho03FolhaTest extends TestCase
         self::assertStringContainsString('aria-label="Tela cheia" data-tip="Tela cheia"', $base);
     }
 
+    #[TestDox('Cabeçalho no Expediente: o escritório (dc L.64) e o selo de presença (dc L.67) usam a dica do desenho (data-tip); fora do Expediente, a do navegador (title)')]
+    public function testDicasDoEscritorioEDoSelo(): void
+    {
+        $base = self::ler('templates/base.html.twig');
+        self::assertStringContainsString("{% if 'exp-body' in block('body_class') %}data-tip{% else %}title{% endif %}=\"{{ current_tenant().name }}\"", $base);
+        $js = self::ler('public/js/presenca-cabecalho.js');
+        self::assertStringContainsString("selo.setAttribute(document.body.classList.contains('exp-body') ? 'data-tip' : 'title', n + ' on-line'", $js);
+        self::assertStringNotContainsString('selo.title =', $js);
+    }
+
     #[TestDox('Paginação: as dicas do desenho (dc `pags`), com "Página N de M"')]
     public function testDicasDaPaginacao(): void
     {

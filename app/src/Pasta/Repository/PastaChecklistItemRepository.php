@@ -64,4 +64,37 @@ class PastaChecklistItemRepository extends ServiceEntityRepository
             $this->getEntityManager()->flush();
         }
     }
+
+    /**
+     * Títulos dos itens do checklist das pastas pedidas, para o relatório de pastas sem processo.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, list<string>> pastaId => títulos
+     */
+    public function titulosParaAnaliseSemProcesso(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('c')
+            ->select('IDENTITY(c.pasta) AS pasta_id', 'c.titulo')
+            ->join('c.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->orderBy('c.ordem', 'ASC')
+            ->addOrderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPasta = [];
+        foreach ($linhas as $l) {
+            $porPasta[(int) $l['pasta_id']][] = (string) $l['titulo'];
+        }
+
+        return $porPasta;
+    }
 }

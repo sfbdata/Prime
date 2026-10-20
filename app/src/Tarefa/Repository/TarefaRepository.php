@@ -7,6 +7,7 @@ namespace App\Tarefa\Repository;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Processo\Entity\Processo;
 use App\Tarefa\DTO\PessoaNoTrilhoOutput;
@@ -58,14 +59,19 @@ class TarefaRepository extends ServiceEntityRepository
      * Tarefa é TenantAware — o escopo de tenant vem do TenantFilter no fluxo web; nenhum id de
      * usuário chega aqui pelo request (evita IDOR entre colegas).
      *
+     * `$pastasOcultas`: ids das pastas ocultas pelo cadeado para o usuário (spec pasta-cadeado D3); as metas
+     * delas não entram aqui nem nas contagens abaixo.
+     *
      * @param array<string, string> $filtros  busca, status, prioridade, prazo
+     * @param list<int>             $pastasOcultas
      * @return Tarefa[]
      */
-    public function findParaMinhasMetas(User $usuario, AbaMetas $aba, array $filtros): array
+    public function findParaMinhasMetas(User $usuario, AbaMetas $aba, array $filtros, array $pastasOcultas = []): array
     {
         $qb = $this->createQueryBuilder('t')->setParameter('usuario', $usuario);
 
         $this->escoparPelaAba($qb, $aba);
+        $this->semPastasOcultas($qb, $pastasOcultas);
         $this->cortarConcluidasAntigas($qb);
         $this->aplicarFiltrosDaTela($qb, $filtros);
 
@@ -80,9 +86,10 @@ class TarefaRepository extends ServiceEntityRepository
      * Concluída não conta: o badge mede trabalho pendente, e somar concluídas de meses faria o
      * número crescer para sempre sem dizer nada sobre a carga de hoje.
      *
+     * @param list<int> $pastasOcultas
      * @return array<string, int>  chave = valor do enum AbaMetas
      */
-    public function contarPorAba(User $usuario): array
+    public function contarPorAba(User $usuario, array $pastasOcultas = []): array
     {
         $contagens = [];
 
@@ -94,6 +101,7 @@ class TarefaRepository extends ServiceEntityRepository
                 ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA);
 
             $this->escoparPelaAba($qb, $aba);
+            $this->semPastasOcultas($qb, $pastasOcultas);
 
             $contagens[$aba->value] = (int) $qb->getQuery()->getSingleScalarResult();
         }
@@ -112,9 +120,10 @@ class TarefaRepository extends ServiceEntityRepository
      * criou, então contá-la como pendência atrasada do responsável cobraria dele algo que não
      * está mais na mão dele.
      *
+     * @param list<int> $pastasOcultas
      * @return array{atrasadas: int, proximas: int, sem_prazo: int, aguardando_revisao: int}
      */
-    public function contarPainelMinhasMetas(User $usuario): array
+    public function contarPainelMinhasMetas(User $usuario, array $pastasOcultas = []): array
     {
         $hoje   = new \DateTimeImmutable('today');
         $limite = $hoje->modify('+7 days')->setTime(23, 59, 59);
@@ -122,23 +131,16 @@ class TarefaRepository extends ServiceEntityRepository
         return [
             'atrasadas'          => $this->contarUrgencia($usuario, static function (QueryBuilder $qb) use ($hoje): void {
                 $qb->andWhere('t.prazo IS NOT NULL AND t.prazo < :hoje')->setParameter('hoje', $hoje);
-            }),
+            }, $pastasOcultas),
             'proximas'           => $this->contarUrgencia($usuario, static function (QueryBuilder $qb) use ($hoje, $limite): void {
                 $qb->andWhere('t.prazo IS NOT NULL AND t.prazo >= :hoje AND t.prazo <= :limite')
                    ->setParameter('hoje', $hoje)
                    ->setParameter('limite', $limite);
-            }),
+            }, $pastasOcultas),
             'sem_prazo'          => $this->contarUrgencia($usuario, static function (QueryBuilder $qb): void {
                 $qb->andWhere('t.prazo IS NULL');
-            }),
-            'aguardando_revisao' => (int) $this->createQueryBuilder('t')
-                ->select('COUNT(DISTINCT t.id)')
-                ->andWhere('t.criadoPor = :usuario')
-                ->andWhere('t.status = :emRevisao')
-                ->setParameter('usuario', $usuario)
-                ->setParameter('emRevisao', Tarefa::STATUS_EM_REVISAO)
-                ->getQuery()
-                ->getSingleScalarResult(),
+            }, $pastasOcultas),
+            'aguardando_revisao' => $this->contarAguardandoRevisao($usuario, $pastasOcultas),
         ];
     }
 
@@ -238,9 +240,10 @@ class TarefaRepository extends ServiceEntityRepository
      * Concluída não entra: o bloco mede carga de hoje. Meta com dois responsáveis conta para
      * os dois — é o que o usuário espera ao ler "com quem estão".
      *
+     * @param list<int> $pastasOcultas
      * @return PessoaNoTrilhoOutput[]  em ordem decrescente de metas em aberto
      */
-    public function contarPessoasDoTrilho(User $usuario, AbaMetas $aba): array
+    public function contarPessoasDoTrilho(User $usuario, AbaMetas $aba, array $pastasOcultas = []): array
     {
         $porCriador = $aba === AbaMetas::RESPONSAVEL;
 
@@ -258,13 +261,14 @@ class TarefaRepository extends ServiceEntityRepository
                ->join('t.responsaveis', 'u');
             $this->escoparPelaAba($qb, $aba);
         }
+        $this->semPastasOcultas($qb, $pastasOcultas);
 
         $linhas = $qb->groupBy('u.id, u.fullName')
             ->orderBy('abertas', 'DESC')
             ->getQuery()
             ->getArrayResult();
 
-        $atrasadas = $this->contarAtrasadasPorPessoa($usuario, $aba, $porCriador);
+        $atrasadas = $this->contarAtrasadasPorPessoa($usuario, $aba, $porCriador, $pastasOcultas);
 
         return array_map(
             static fn (array $l): PessoaNoTrilhoOutput => new PessoaNoTrilhoOutput(
@@ -284,7 +288,8 @@ class TarefaRepository extends ServiceEntityRepository
      *
      * @return array<int, int>  userId => atrasadas
      */
-    private function contarAtrasadasPorPessoa(User $usuario, AbaMetas $aba, bool $porCriador): array
+    /** @param list<int> $pastasOcultas */
+    private function contarAtrasadasPorPessoa(User $usuario, AbaMetas $aba, bool $porCriador, array $pastasOcultas = []): array
     {
         $qb = $this->createQueryBuilder('t')
             ->select('u.id AS id, COUNT(DISTINCT t.id) AS total')
@@ -300,6 +305,7 @@ class TarefaRepository extends ServiceEntityRepository
             $qb->join('t.responsaveis', 'u');
             $this->escoparPelaAba($qb, $aba);
         }
+        $this->semPastasOcultas($qb, $pastasOcultas);
 
         $contagens = [];
         foreach ($qb->groupBy('u.id')->getQuery()->getArrayResult() as $linha) {
@@ -312,7 +318,8 @@ class TarefaRepository extends ServiceEntityRepository
     /**
      * Base dos três KPIs de prazo: o que está com o usuário e ainda depende dele.
      */
-    private function contarUrgencia(User $usuario, callable $recorte): int
+    /** @param list<int> $pastasOcultas */
+    private function contarUrgencia(User $usuario, callable $recorte, array $pastasOcultas = []): int
     {
         $qb = $this->createQueryBuilder('t')
             ->select('COUNT(DISTINCT t.id)')
@@ -322,8 +329,36 @@ class TarefaRepository extends ServiceEntityRepository
             ->setParameter('foraDaFila', self::FORA_DA_FILA);
 
         $recorte($qb);
+        $this->semPastasOcultas($qb, $pastasOcultas);
 
         return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /** @param list<int> $pastasOcultas */
+    private function contarAguardandoRevisao(User $usuario, array $pastasOcultas): int
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->select('COUNT(DISTINCT t.id)')
+            ->andWhere('t.criadoPor = :usuario')
+            ->andWhere('t.status = :emRevisao')
+            ->setParameter('usuario', $usuario)
+            ->setParameter('emRevisao', Tarefa::STATUS_EM_REVISAO);
+        $this->semPastasOcultas($qb, $pastasOcultas);
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Cadeado (spec pasta-cadeado D3): tira as metas das pastas ocultas para quem olha. A raiz é `t`.
+     *
+     * @param list<int> $pastasOcultas
+     */
+    private function semPastasOcultas(QueryBuilder $qb, array $pastasOcultas): void
+    {
+        if ($pastasOcultas !== []) {
+            $qb->andWhere('IDENTITY(t.pasta) NOT IN (:pastasOcultas)')
+               ->setParameter('pastasOcultas', $pastasOcultas);
+        }
     }
 
     /**
@@ -464,6 +499,23 @@ class TarefaRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * Uma meta pelo id, desta pasta E deste escritório (o "Encaminhar via Chat I.A" relê o item no servidor).
+     * Filtro explícito: não depende de o TenantFilter estar ligado.
+     */
+    public function findByIdAndPastaAndTenant(int $id, Pasta $pasta, Tenant $tenant): ?Tarefa
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.id = :id')
+            ->andWhere('t.pasta = :pasta')
+            ->andWhere('t.tenant = :tenant')
+            ->setParameter('id', $id)
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     public function save(Tarefa $entity, bool $flush = false): void
     {
         $this->getEntityManager()->persist($entity);
@@ -475,8 +527,9 @@ class TarefaRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, mixed> $filtros  filtros do Dashboard (data_de, data_ate, responsavel)
+     * @param list<int>            $pastasOcultas  metas de pasta oculta pelo cadeado para quem olha não contam (D1, D3)
      */
-    public function countMetasAtivas(Tenant $tenant, array $filtros = []): int
+    public function countMetasAtivas(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): int
     {
         $qb = $this->createQueryBuilder('t')
             ->select('COUNT(t.id)')
@@ -488,15 +541,17 @@ class TarefaRepository extends ServiceEntityRepository
             ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA);
 
         $this->aplicarFiltrosDashboard($qb, $filtros, true);
+        $this->semPastasOcultas($qb, $pastasOcultas);
 
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
 
     /**
      * @param array<string, mixed> $filtros  filtros do Dashboard (data_de, data_ate, responsavel)
+     * @param list<int>            $pastasOcultas  metas de pasta oculta pelo cadeado para quem olha não contam (D1, D3)
      * @return array{concluidas: int, total: int}
      */
-    public function countMetasGlobal(Tenant $tenant, array $filtros = []): array
+    public function countMetasGlobal(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
     {
         $qb = $this->createQueryBuilder('t')
             ->join('t.pasta', 'p')
@@ -505,6 +560,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->setParameter('tenant', $tenant);
 
         $this->aplicarFiltrosDashboard($qb, $filtros, true);
+        $this->semPastasOcultas($qb, $pastasOcultas);
 
         $total = (int) (clone $qb)
             ->select('COUNT(t.id)')
@@ -523,9 +579,10 @@ class TarefaRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, mixed> $filtros  filtros do Dashboard (data_de, data_ate)
+     * @param list<int>            $pastasOcultas  metas de pasta oculta pelo cadeado para quem olha não contam (D1, D3)
      * @return array<int, int>  userId => total (todos os status)
      */
-    public function countPorResponsavel(Tenant $tenant, array $filtros = []): array
+    public function countPorResponsavel(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
     {
         $qb = $this->createQueryBuilder('t')
             ->select('u.id AS responsavel_id, COUNT(t.id) AS total')
@@ -537,6 +594,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->groupBy('u.id');
 
         $this->aplicarFiltrosDashboard($qb, $filtros, false);
+        $this->semPastasOcultas($qb, $pastasOcultas);
 
         $rows = $qb->getQuery()->getArrayResult();
 
@@ -550,9 +608,10 @@ class TarefaRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, mixed> $filtros  filtros do Dashboard (data_de, data_ate)
+     * @param list<int>            $pastasOcultas  metas de pasta oculta pelo cadeado para quem olha não contam (D1, D3)
      * @return array<int, int>  userId => total (status != concluida)
      */
-    public function countAtivasPorResponsavel(Tenant $tenant, array $filtros = []): array
+    public function countAtivasPorResponsavel(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
     {
         $qb = $this->createQueryBuilder('t')
             ->select('u.id AS responsavel_id, COUNT(t.id) AS total')
@@ -566,6 +625,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->groupBy('u.id');
 
         $this->aplicarFiltrosDashboard($qb, $filtros, false);
+        $this->semPastasOcultas($qb, $pastasOcultas);
 
         $rows = $qb->getQuery()->getArrayResult();
 
@@ -578,13 +638,14 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
+     * @param list<int> $pastasOcultas metas de pasta oculta pelo cadeado para quem olha não contam (D1, D3)
      * @return array<int, int>  userId => total (ativas com prazo antes do dia de $referencia, RegraDoPrazo)
      */
-    public function countVencidasPorResponsavel(Tenant $tenant, \DateTimeImmutable $referencia): array
+    public function countVencidasPorResponsavel(Tenant $tenant, \DateTimeImmutable $referencia, array $pastasOcultas = []): array
     {
         $referencia = RegraDoPrazo::inicioDoDia($referencia);
 
-        $rows = $this->createQueryBuilder('t')
+        $qb = $this->createQueryBuilder('t')
             ->select('u.id AS responsavel_id, COUNT(t.id) AS total')
             ->join('t.pasta', 'p')
             ->join('t.responsaveis', 'u')
@@ -596,9 +657,9 @@ class TarefaRepository extends ServiceEntityRepository
             ->setParameter('tenant', $tenant)
             ->setParameter('foraDaFila', self::FORA_DA_FILA)
             ->setParameter('referencia', $referencia)
-            ->groupBy('u.id')
-            ->getQuery()
-            ->getArrayResult();
+            ->groupBy('u.id');
+        $this->semPastasOcultas($qb, $pastasOcultas);
+        $rows = $qb->getQuery()->getArrayResult();
 
         $counts = [];
         foreach ($rows as $row) {
@@ -609,14 +670,15 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
+     * @param list<int> $pastasOcultas metas de pasta oculta pelo cadeado para quem olha não contam (D1, D3)
      * @return array<int, int>  userId => total (ativas com prazo do dia de $referencia até 7 dias depois, RegraDoPrazo)
      */
-    public function countPrazosProximosPorResponsavel(Tenant $tenant, \DateTimeImmutable $referencia): array
+    public function countPrazosProximosPorResponsavel(Tenant $tenant, \DateTimeImmutable $referencia, array $pastasOcultas = []): array
     {
         $limite = RegraDoPrazo::fimDoPrazoProximo($referencia);
         $referencia = RegraDoPrazo::inicioDoDia($referencia);
 
-        $rows = $this->createQueryBuilder('t')
+        $qb = $this->createQueryBuilder('t')
             ->select('u.id AS responsavel_id, COUNT(t.id) AS total')
             ->join('t.pasta', 'p')
             ->join('t.responsaveis', 'u')
@@ -630,9 +692,9 @@ class TarefaRepository extends ServiceEntityRepository
             ->setParameter('foraDaFila', self::FORA_DA_FILA)
             ->setParameter('referencia', $referencia)
             ->setParameter('limite', $limite)
-            ->groupBy('u.id')
-            ->getQuery()
-            ->getArrayResult();
+            ->groupBy('u.id');
+        $this->semPastasOcultas($qb, $pastasOcultas);
+        $rows = $qb->getQuery()->getArrayResult();
 
         $counts = [];
         foreach ($rows as $row) {
@@ -666,6 +728,7 @@ class TarefaRepository extends ServiceEntityRepository
      *
      * @param list<int>            $responsavelIds
      * @param array<string, mixed> $filtros         data_de, data_ate (Y-m-d)
+     * @param list<int>            $pastasOcultas   metas de pasta oculta pelo cadeado não entram (D3)
      *
      * @return Paginator<Tarefa>
      */
@@ -677,6 +740,7 @@ class TarefaRepository extends ServiceEntityRepository
         \DateTimeImmutable $referencia,
         int $pagina,
         int $porPagina,
+        array $pastasOcultas = [],
     ): Paginator {
         // Id 0 não existe: universo vazio vira "nenhuma meta", e não um IN () inválido.
         $ids = $responsavelIds === [] ? [0] : array_values($responsavelIds);
@@ -694,6 +758,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->addOrderBy('t.id', 'DESC')
             ->setFirstResult((max(1, $pagina) - 1) * $porPagina)
             ->setMaxResults($porPagina);
+        $this->semPastasOcultas($qb, $pastasOcultas);
 
         switch ($status) {
             case 'ativas':
@@ -751,7 +816,8 @@ class TarefaRepository extends ServiceEntityRepository
      *
      * @return Paginator<Tarefa>
      */
-    public function findMetasAtivasDoCardPaginado(Tenant $tenant, array $filtros, int $pagina, int $porPagina): Paginator
+    /** @param list<int> $pastasOcultas metas de pasta oculta pelo cadeado não entram (D3) */
+    public function findMetasAtivasDoCardPaginado(Tenant $tenant, array $filtros, int $pagina, int $porPagina, array $pastasOcultas = []): Paginator
     {
         $qb = $this->createQueryBuilder('t')
             ->addSelect('p', 'r')
@@ -768,6 +834,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->setMaxResults($porPagina);
 
         $this->aplicarFiltrosDashboard($qb, $filtros, true);
+        $this->semPastasOcultas($qb, $pastasOcultas);
 
         return new Paginator($qb, true);
     }
@@ -815,5 +882,38 @@ class TarefaRepository extends ServiceEntityRepository
         }
 
         return $fimDoDia ? $data->setTime(23, 59, 59) : $data;
+    }
+
+    /**
+     * Título e descrição das metas das pastas pedidas, para o relatório de pastas sem processo
+     * (desenho 1.2.3, `spAnalisar`: fonte "Meta"). Uma consulta para o lote; tenant pela pasta.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, list<string>> pastaId => "título descrição"
+     */
+    public function textosParaAnaliseSemProcesso(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('t')
+            ->select('IDENTITY(t.pasta) AS pasta_id', 't.titulo', 't.descricao')
+            ->join('t.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->orderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPasta = [];
+        foreach ($linhas as $l) {
+            $porPasta[(int) $l['pasta_id']][] = trim($l['titulo'] . ' ' . $l['descricao']);
+        }
+
+        return $porPasta;
     }
 }

@@ -13,6 +13,7 @@ use App\Auth\UseCase\CriarConvitePlataformaUseCase;
 use App\Auth\UseCase\ReenviarConviteUseCase;
 use App\Auth\UseCase\RevogarConviteUseCase;
 use App\Entity\Auth\Invitation;
+use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -116,8 +117,13 @@ final class AdminConviteController extends AbstractController
             throw $this->createNotFoundException('Convite de plataforma não encontrado.');
         }
 
+        $quem = $this->getUser();
+        if (!$quem instanceof User) {
+            throw $this->createAccessDeniedException();
+        }
+
         try {
-            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($token));
+            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($token, $quem));
 
             try {
                 $this->mailer->enviarConvitePlataforma($invitation);

@@ -246,6 +246,20 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
     }
 
     /** @return array{0: User, 1: Tenant} */
+    #[TestDox('dc L.64: no Expediente o nome do escritório tem a dica do desenho (data-tip) e não a do navegador')]
+    public function testDicaDoEscritorioNoExpediente(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->entrar($client);
+
+        $crawler = $client->request('GET', '/expediente');
+        self::assertResponseIsSuccessful();
+        $botao = $crawler->filter('.navtop-action > button.mu-escritorio');
+        self::assertCount(1, $botao);
+        self::assertSame($tenant->getName(), $botao->attr('data-tip'));
+        self::assertNull($botao->attr('title'));
+    }
+
     #[TestDox('dc L.144 e L.146-148/652: a busca tem a dica do desenho; no filtro Responsável, quem tem foto leva o data-foto (avatar com a foto no menu e no botão)')]
     public function testDicaDaBuscaEFotoNoFiltroResponsavel(): void
     {

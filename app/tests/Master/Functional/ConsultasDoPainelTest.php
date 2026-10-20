@@ -111,7 +111,7 @@ final class ConsultasDoPainelTest extends KernelTestCase
         foreach (['titular painel', 'secundario painel', '123.456.789-00', '12345678900'] as $proibido) {
             self::assertStringNotContainsString($proibido, $json);
         }
-        self::assertSame(['kpis', 'crescimento', 'mapa', 'idades', 'geradoEm'], array_keys($this->visao()));
+        self::assertSame(['kpis', 'crescimento', 'mapa', 'idades', 'armazenamento', 'registrosDeAuditoria', 'geradoEm'], array_keys($this->visao()));
         self::assertSame(['A', 'C', 'tend', 'semLoc', 'total'], array_keys($this->visao()['mapa']['pessoas']['geral']));
     }
 
