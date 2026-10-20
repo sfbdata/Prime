@@ -13,13 +13,14 @@ use App\TrabalhoExterno\Service\EngajamentoDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\PlanilhaCsv;
 use App\TrabalhoExterno\Service\PoliticaDoCurriculo;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * O clique no KPI "ALERTAS POR E-MAIL" do painel (desenho 06 l.1146; spec VS 18.10.26 §4.9): a lista de
  * quem pediu os alertas de vagas na página pública, em planilha (`alertas-vagas-bluejus.csv`), com as
  * colunas do desenho. Só o Master, nunca na prévia. Sem inscritos, "não encontrado" com o texto do toast
- * do desenho ("Ainda sem inscritos"). Cada download fica no log da aplicação (quem, quando e quantas
- * linhas, sem os e-mails): a lista é dado pessoal de terceiros.
+ * do desenho ("Ainda sem inscritos"). Cada download fica no log de auditoria (canal `audit`: quem, quando e
+ * quantas linhas, sem os e-mails): a lista é dado pessoal de terceiros.
  */
 final class ExportarAlertasCsvUseCase
 {
@@ -31,6 +32,8 @@ final class ExportarAlertasCsvUseCase
     public function __construct(
         private readonly PoliticaDoCurriculo $politica,
         private readonly InteressadoEmVagasRepository $interessados,
+        /** Canal `audit`: o padrão passa pelo `fingers_crossed` da produção e descartaria o `info`. */
+        #[Autowire(service: 'monolog.logger.audit')]
         private readonly LoggerInterface $logger,
     ) {
     }
