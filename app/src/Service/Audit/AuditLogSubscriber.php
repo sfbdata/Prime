@@ -33,6 +33,8 @@ class AuditLogSubscriber
         'invitationToken',
         // Refresh token OAuth do Drive por tenant — já cifrado, nunca vai para o audit_log.
         'refreshTokenCifrado',
+        // Resumo técnico da sincronia com o Google Agenda (entrega 6): muda a cada envio, não é dado de ninguém.
+        'googleHash',
     ];
 
     public function __construct(
@@ -357,9 +359,11 @@ class AuditLogSubscriber
 
         $actorUserId = ($user && method_exists($user, 'getId')) ? $user->getId() : null;
         $actorEmail = ($user && method_exists($user, 'getUserIdentifier')) ? $user->getUserIdentifier() : null;
-        // Ato de plataforma (ex.: promover/remover Master) grava sem escritório: não vaza para a
-        // auditoria do escritório da sessão, aparece só na trilha do Master.
-        $tenantId = $this->escopoDePlataforma->estaLigado() ? null : $this->tenantContext->getCurrentTenant()?->getId();
+        // Ato de plataforma grava com o escritório do escopo, nunca com o da sessão: sem escritório
+        // (promover/remover Master) ou com a conta alvo (suspender/reativar conta pelo Master).
+        $tenantId = $this->escopoDePlataforma->estaLigado()
+            ? $this->escopoDePlataforma->contaAlvo()
+            : $this->tenantContext->getCurrentTenant()?->getId();
 
         return (new AuditLog())
             ->setAction($action)

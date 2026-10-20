@@ -3,13 +3,17 @@ declare(strict_types=1);
 
 namespace App\Controller\Tenant;
 
+use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Repository\InvitationRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
+use App\Tenant\Service\AvisoDeContaSuspensa;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 final class TenantSelecaoController extends AbstractController
@@ -64,11 +68,46 @@ final class TenantSelecaoController extends AbstractController
             return $this->redirectToRoute('admin_platform_dashboard');
         }
 
+        // E-mail ainda a confirmar não vê convite (o token sairia para quem talvez não seja dono da caixa).
+        $convites = $user->isEmailConfirmado() ? $this->invitationRepository->encontrarPendentesPorEmail($user->getEmail()) : [];
+
         return $this->render('tenant/selecionar.html.twig', [
             'vinculos' => $vinculos,
-            'convites' => $this->invitationRepository->encontrarPendentesPorEmail($user->getEmail()),
-            // Vínculos em análise ou suspensos não entram na lista: a tela diz por quê (spec equipe-da-conta §3).
-            'bloqueados' => $this->equipe->mensagensDeAcessoBloqueado($user),
+            'convites' => $convites,
+            'avisosDeConta' => $this->avisosDeContaForaDoAr($request, $user, $vinculos, $convites),
+            'bloqueados' => $this->equipe->mensagensDeAcessoBloqueado($user), // em análise ou suspensos: o porquê (equipe-da-conta §3)
         ]);
+    }
+
+    /**
+     * C9 e C9b (spec perfis-1.2-contas): sem escritório ativo e sem convite de escritório, mas com vínculo
+     * em conta suspensa ou excluída (quarentena), a página mostra o aviso de cada conta no lugar de "Você
+     * ainda não faz parte de nenhum escritório". O mesmo texto que a barreira da conta
+     * (TenantContextValidatorListener) pôs no flash sai do flash, para não aparecer duas vezes; em
+     * qualquer outro destino o flash continua.
+     *
+     * @param array<UserTenant> $vinculos
+     * @param array<Invitation> $convites
+     *
+     * @return list<array{texto: string, excluida: bool}>
+     */
+    private function avisosDeContaForaDoAr(Request $request, User $user, array $vinculos, array $convites): array
+    {
+        $temConviteDeEscritorio = array_filter($convites, static fn (Invitation $c): bool => $c->getTenant() !== null) !== [];
+        if ($vinculos !== [] || $temConviteDeEscritorio) {
+            return [];
+        }
+
+        $avisos = array_map(static fn (array $c): array => [
+            'texto'    => $c['excluida'] ? AvisoDeContaSuspensa::paraExcluida($c['nome']) : AvisoDeContaSuspensa::para($c['nome']),
+            'excluida' => $c['excluida'],
+        ], $this->userTenantRepository->contasForaDoArDoUsuario($user));
+        $sessao = $request->getSession();
+        if ($avisos !== [] && $sessao instanceof FlashBagAwareSessionInterface) {
+            $flashes = $sessao->getFlashBag();
+            $flashes->set('warning', array_values(array_diff($flashes->peek('warning'), array_column($avisos, 'texto'))));
+        }
+
+        return $avisos;
     }
 }

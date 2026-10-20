@@ -30,36 +30,39 @@ compactação de contexto, releia antes de continuar.
 - 4b: dona do formulário de Evento (fica fora do PR de `ColaboradoresAtribuiveis`).
 - "Comercial e e-mails": lê a tabela de indicações por um UseCase público de consulta, com limites (PR de Indicar).
 
-**PRs e pilha**
-- #53 menu do usuário: mergeado. Master em a7433b93 (19/10) trazido para #60, #65 e #69.
-- #60 página Meu Perfil (`meu-perfil-pagina`, base master).
-- #65 inscrições na OAB (`meu-perfil-oab`, EMPILHADO sobre #60): mergear depois do #60; em seguida trazer o
-  origin/master para a branch.
-- #69 equipe da conta (`equipe-da-conta`, base master). Sobrepõe #56 (menu-usuario.css/js, EquipeDoEscritorioRepository,
-  _globais, _dropdown, _modais, profile/index), #60/#65 (_dropdown, profile/index) e #55 (listener).
+**PRs e pilha** (atualizado em 20/10/2026)
+- #53 menu do usuário: mergeado.
+- #60 página Meu Perfil (`meu-perfil-pagina`, base master). Em cima dele: #144 (a7: sons e o selo da f6).
+- #65 inscrições na OAB (`meu-perfil-oab`, EMPILHADO sobre #60). Em cima dele: #143 (a7), #125 e #131 (0d e b5,
+  exclusão de conta).
+- #69 equipe da conta (`equipe-da-conta`, base master; master de 20/10 trazido, com o conflito do listener com o #72
+  resolvido).
+- #89 seletores com `ColaboradoresAtribuiveis` (`colaboradores-atribuiveis`, EMPILHADO sobre #69, sem migration).
+- #161 saída da equipe (`saida-da-equipe`, EMPILHADO sobre #69; rascunho até a suíte).
+- Listener de acesso (`TenantContextValidatorListener`) é quente: #73 #79 #84 #87 #98 #99 #103 #116 #117 #119 #125
+  #155. Quem entra depois resolve.
 
-**Fila de migrations** (a coordenação controla; renomear o timestamp para o atual antes de cada merge)
-- #60 `Version20261019120728`, depois de #55 → #56 (o #52 entrou em 19/10, master em a7433b93).
-- #65 `Version20261019130750`, depois do #60.
-- #69 `Version20261019134246`, depois do #65.
+**Fila de migrations** (a coordenação controla; o nome final é passado ao coordenador antes de renomear)
+- Nomes finais dados pela coordenação (20/10): #60 `Version20261020131000` (mergeado, feeedb23) → #65
+  `Version20261020131500` → #69 `Version20261020132000` → #161 `Version20261020132500` (o #89 não tem migration).
+
+**Passadas a outras sessões (20/10)**
+- Login (desenho 10): bluejus-9b, #101. O inventário da 7d e a confirmação do dono sobre os textos de segurança foram
+  entregues.
+- Indicar o BlueJus: bluejus-9b, #119.
+- PR 5 (excluir conta em 2 etapas): bluejus-0d, #125.
+
+**Para o dono**
+- Remover a worktree vazia `.claude/worktrees/login-vs1910` (aberta pela 7d, não usada): `git worktree remove
+  .claude/worktrees/login-vs1910`.
+- Pendente com a coordenação: terceiro campo do convite, Cargo (desenho) ou Perfil (implementado no #69).
 
 **Pendências**
-- Com a coordenação: terceiro campo do convite, Cargo (desenho) ou Perfil (implementado no #69).
-- Depois de cada merge: trazer o origin/master para as branches que ficaram para trás e rodar a suíte.
+- Depois de cada merge: trazer o origin/master para as branches que ficaram para trás, migrar o banco de teste da
+  frente e rodar a suíte (fila única: `flock /tmp/bluejus-suite-completa.lock ... -p 3`).
 
 **Próximo passo**
-1. PR `ColaboradoresAtribuiveis` nos formulários (Chamado, Expediente, seletores de Pasta, consultas de Kanban,
-   Tarefa e Agenda; não o de Evento), sem migration, com teste funcional por formulário provando que editar preserva
-   o suspenso.
-2. PR 5: excluir conta em 2 etapas (motivo; código de 6 dígitos por e-mail e a palavra EXCLUIR), barreira (b) e
-   desistir, com migration.
-3. PR Indicar o BlueJus (desenho 03, L320/L687), com migration e o contrato de leitura na spec.
-
-Risco: **ALTO** (vínculo User↔Tenant: quem entra no escritório). Revisão read-only antes de seguir e de novo depois
-das correções.
-Desenho: `docs/design/meu-perfil-18-10/bj-contas.js` (função `desenhar`, aba `conta`; `situacao`, `abrirMnu`, `convidar`,
-`remover`) e o print do dono "Conta do escritório · Minha conta" (equipe com PRIMÁRIO/SECUNDÁRIO e APROVADO, ⋮, convidar).
-Contratos com outras frentes: b5 (suspensão da conta, ordem das barreiras no acesso), 0d (coluna em `user_tenant`).
+- Fechar #69 (suíte), #89 e #161; atender as revisões e os merges na ordem da fila.
 
 ## 1. O que a tela mostra (aba "Minha conta" do modal "Conta do escritório")
 

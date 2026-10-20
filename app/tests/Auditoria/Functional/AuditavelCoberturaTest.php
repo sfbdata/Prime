@@ -47,6 +47,13 @@ final class AuditavelCoberturaTest extends KernelTestCase
     // Entidades deliberadamente fora do escopo de Auditavel.
     // Toda entidade ausente desta lista E que não implemente Auditavel quebra o teste.
     private const NAO_AUDITAVEIS = [
+        // Contribua: motivo de ainda não apoiar. O desenho promete resposta ANÔNIMA; a trilha gravaria
+        // quem respondeu (actor do audit_log) e desfaria o anonimato.
+        \App\Contribua\Entity\MotivoDeNaoApoiar::class,
+        // Contribua: sugestão. O Master a atende a partir de outro escritório e o audit_log gravaria no
+        // escritório da sessão dele (vazamento entre trilhas). Volta quando houver o escopo de plataforma.
+        \App\Contribua\Entity\Sugestao::class,
+
         // Favorito de pasta: preferência pessoal de ordenação (estrela), sem efeito sobre o dado da
         // pasta. Auditar cada clique encheria o audit_log de ruído sem valor de prova.
         \App\Pasta\Entity\PastaFavorita::class,
@@ -66,12 +73,59 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Foto diária do estoque do Dashboard: dado DERIVADO de tarefa/pasta (contagens), regravado
         // pelo cron. Não é ato de ninguém e não prova nada — auditar só duplicaria números.
         \App\Dashboard\Entity\DashboardFoto::class,
+        // Previsão da Situação atual do Push (taxa de acertos, push-painel-monitoramento §3): dado DERIVADO
+        // das publicações, gravado pelo sistema ao montar a aba, sem ato de ninguém. Auditar só duplicaria
+        // a previsão; o processo dela já está fora da auditoria por decisão de produto.
+        \App\Processo\Entity\PrevisaoRegistrada::class,
+        // Descadastro de e-mail (push-avisar-quando-chegar D3): a própria linha é o registro do pedido (escritório,
+        // endereço, assunto, origem e quando), gravada por SQL na rota pública sem sessão (não há autor
+        // para auditar) e nunca editada. Auditar só duplicaria o endereço no audit_log.
+        \App\Shared\Email\Descadastro\Entity\EmailDescadastro::class,
+        // Comercial e e-mails (comercial-e-emails.md §3): o envio, o conteúdo (apagado no estado final), o ciclo e a
+        // varredura são registros gravados pelo worker sem sessão (não há autor); a prova de consentimento já é a
+        // própria trilha, só de acréscimo, e o estado da confirmação também é escrito por SQL na rota pública. A
+        // alteração do Master nas automações É auditada (AutomacaoDeEmail implementa Auditavel).
+        \App\Comercial\Entity\EnvioDeEmail::class,
+        \App\Comercial\Entity\ConteudoDoEnvio::class,
+        \App\Comercial\Entity\FatoDeConsentimento::class,
+        \App\Comercial\Entity\ConfirmacaoDeEndereco::class,
+        \App\Comercial\Entity\CicloDaConta::class,
+        \App\Comercial\Entity\VarreduraComercial::class,
+        // Modelo de campanha (comercial-e-emails.md §8.2, R6): o subscriber gravaria até 500 caracteres do conteúdo do
+        // e-mail. A trilha é manual (modelo_new, modelo_upd, modelo_del) com `changes` só {nome, modo}.
+        \App\Comercial\Entity\ModeloDeCampanha::class,
+        // Campanha (comercial-e-emails.md §8.4, R6): trilha manual na confirmação e no encerramento (camp_conf,
+        // camp_fim) com `changes` só {publico, frequencia, total}; o subscriber gravaria o assunto e o conteúdo. Os
+        // destinatários e o controle do expansor são gravados pelo worker sem sessão (não há autor).
+        \App\Comercial\Entity\CampanhaDeEmail::class,
+        \App\Comercial\Entity\DestinoDaCampanha::class,
+        \App\Comercial\Entity\ControleDoExpansor::class,
+        // E-mails do cliente do "Avisar cliente" (push-avisar-cliente §1): dado pessoal que acompanha a decisão
+        // do Cliente (não auditado). Auditar copiaria cada endereço para o audit_log, onde ele ficaria mesmo
+        // depois de o escritório removê-lo; o cadastro já fica no histórico de envios da pasta.
+        \App\Cliente\Entity\ClienteEmail::class,
+        // Histórico de envios ao cliente (push-avisar-cliente §1): ele próprio é o registro do ato (quem, quando,
+        // para quem, com cópia), nunca editado, como o EventoHistorico. Auditar seria log de log.
+        \App\Pasta\Entity\EnvioAoCliente::class,
+        // Indicar o BlueJus (docs/specs/indicar-bluejus.md): dado de plataforma, sem tenant. O audit_log é por escritório e
+        // lido por quem administra o escritório; a indicação, o código, os limites, as pausas e os alertas são do Master
+        // e da própria pessoa, e a própria linha já guarda quem e quando (alterado_por, pausado_por, criada_em).
+        \App\Indicacao\Entity\Indicacao::class,
+        \App\Indicacao\Entity\IndicacaoCodigo::class,
+        \App\Indicacao\Entity\IndicacaoConfig::class,
+        \App\Indicacao\Entity\IndicacaoPausa::class,
+        \App\Indicacao\Entity\IndicacaoAlerta::class,
         // Versão anterior da nota técnica (M8/PMC-020, 07/10): ela MESMA é o histórico — só nasce (nunca
         // é editada) a cada edição da nota, que já é auditada. Auditar a versão duplicaria o texto.
         \App\Processo\Entity\NotaTecnicaVersao::class,
         // Última visita do usuário à Timeline da pasta (M4/PAS-043, 07/10): marcador pessoal de leitura,
         // regravado a cada abertura, como os favoritos e as preferências. Não é ato sobre dado do escritório.
         \App\Pasta\Entity\PastaTimelineVisita::class,
+        // Link externo do Push (19/10, spec push-link-externo §1): o link guarda o código de acesso em claro (o
+        // escritório precisa copiá-lo de novo) e o AuditLogSubscriber gravaria o estado inteiro no audit_log. O acesso
+        // é contagem de aberturas pelo terceiro, sem dado de negócio.
+        \App\Pasta\Entity\LinkExternoDoPush::class,
+        \App\Pasta\Entity\AcessoAoLinkExternoDoPush::class,
         // Central de Comunicação (A1, 14/10): a conversa é das duas pessoas. O AuditLogSubscriber grava o estado
         // inteiro da entidade, e o audit_log é lido por quem administra o escritório — auditar entregaria a
         // conversa privada a terceiros (spec central-comunicacao-a1 §3). O participante é cursor de leitura.
@@ -81,8 +135,32 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Presença na Central (F2, 16/10): batimento a cada 20 s por pessoa. É atividade, não dado de negócio; auditar
         // cada batimento inundaria o audit_log e exporia a rotina de cada um a quem administra.
         \App\Central\Entity\Presenca::class,
+        // Histórico do envio automático do relatório de pastas sem processo: a fotografia das contagens
+        // gravada pelo comando agendado. Dado derivado das pastas, não ato de uma pessoa (como a foto do
+        // Dashboard).
+        \App\Pasta\Entity\EnvioDoRelatorioSemProcesso::class,
+        // Envio mensal do relatório de pastas paradas: a trava do mês com as contagens, gravada pelo comando
+        // agendado. Dado derivado das pastas, não ato de uma pessoa (como o histórico acima).
+        \App\Pasta\Entity\EnvioDoRelatorioPastasParadas::class,
+        // Decisão da equipe sobre pasta sem processo: gravada por upsert SQL (corrida no UNIQUE não pode
+        // derrubar a marcação), derivada do ato já auditado (a troca de `administrativa` na Pasta).
+        \App\Pasta\Entity\DecisaoSemProcessoDaPasta::class,
         // Baixa de aviso na Central (F3): preferência de leitura da pessoa, como "lida" no sino (que não é auditada).
         \App\Central\Entity\AvisoResolvido::class,
+        // Push dos lembretes da Agenda (entrega 5b): endereço técnico do navegador, recibo de envio (evita
+        // repetir o aviso) e a marca da varredura a cada minuto. Nenhum é ato sobre dado do escritório;
+        // auditar cada envio ou minuto encheria o audit_log de ruído.
+        \App\Agenda\Entity\InscricaoDePush::class,
+        \App\Agenda\Entity\PushEnviado::class,
+        \App\Agenda\Entity\VarreduraDePush::class,
+        // Google Agenda (entrega 6): a conexão guarda a autorização cifrada e a marca técnica da sincronia,
+        // a ligação guarda o id do evento lá e o resumo do último envio, a exclusão pendente é fila de
+        // trabalho, e a marca da cadeia é técnica. O que vem do Google para os compromissos É auditado
+        // (edição do Evento pelo ORM).
+        \App\Agenda\Entity\ConexaoGoogleAgenda::class,
+        \App\Agenda\Entity\LigacaoComGoogle::class,
+        \App\Agenda\Entity\ExclusaoNoGoogle::class,
+        \App\Agenda\Entity\VarreduraDoGoogle::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,
@@ -99,6 +177,16 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // (a senha mudou) já é auditado no próprio User, com o hash fora por IGNORED_FIELDS.
         // Auditar esta linha só espalharia IP/user agent para uma segunda tabela.
         RedefinicaoSenha::class,
+
+        // Tela de entrada do desenho 10 (spec login-desenho-10):
+        // - CienciaPolitica: registro append-only de ciência da Política, como o AceiteTermo, é a própria prova;
+        // - ConfirmacaoEmail: link efêmero (7 dias), sem tenant; o fato (e-mail confirmado) muda no próprio User;
+        // - AjusteEntrada: guarda quem alterou e quando (alterado_por, alterado_em); sem tenant;
+        // - MensagemSuporte: texto de visitante anônimo, sem tenant; ela própria é o registro.
+        \App\Termo\Entity\CienciaPolitica::class,
+        \App\Auth\Entity\ConfirmacaoEmail::class,
+        \App\Auth\Entity\AjusteEntrada::class,
+        \App\Auth\Entity\MensagemSuporte::class,
 
         // Domínios novos — auditoria não expandida nesta fatia (decisão de produto)
         UserProfile::class,
@@ -163,6 +251,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\TrabalhoExterno\Entity\ContatoWhatsapp::class,
         \App\TrabalhoExterno\Entity\AvisoWhatsapp::class,
         \App\TrabalhoExterno\Entity\ConfiguracaoCentral::class,
+        // Marcações pessoais do Trabalho Externo (spec VS 18.10.26 §2): estrela, lixeira e favorita
+        // de UM usuário, como a LeituraDemanda. Não mudam nada para os outros; auditar seria ruído.
+        \App\TrabalhoExterno\Entity\MarcacaoDoUsuario::class,
+        \App\TrabalhoExterno\Entity\MarcacaoDeMensagem::class,
     ];
 
     private EntityManagerInterface $em;

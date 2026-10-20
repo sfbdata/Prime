@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Auth\UseCase;
 
 use App\Auth\DTO\CriarConviteEscritorioInput;
+use App\Auth\Service\VagaNoEscritorio;
 use App\Entity\Auth\Invitation;
+use App\Entity\Tenant\Tenant;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
@@ -15,38 +17,41 @@ use Doctrine\ORM\EntityManagerInterface;
 
 final class CriarConviteEscritorioUseCase
 {
+    /** Conta com o e-mail a confirmar não manda e-mail a terceiros (spec login-desenho-10, decisão c). */
+    public const RECUSA_EMAIL_A_CONFIRMAR = 'Confirme o seu e-mail para convidar pessoas. Reenviamos o link de confirmação se você pedir.';
+
     public function __construct(
         private readonly InvitationRepository $invitationRepository,
         private readonly UserRepository $userRepository,
         private readonly UserTenantRepository $userTenantRepository,
         private readonly EntityManagerInterface $em,
         private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly VagaNoEscritorio $vagaNoEscritorio,
     ) {}
 
     public function executar(CriarConviteEscritorioInput $input): Invitation
     {
+        if (!$input->criadoPor->isEmailConfirmado()) {
+            throw new \DomainException(self::RECUSA_EMAIL_A_CONFIRMAR);
+        }
+
         // Convite com o perfil de sistema faz do convidado um primário: só primário ou Master
         // (spec perfis-master D4). OperacaoDePrimarioRecusada é DomainException: vira flash.
         if ($input->tenantRole->isSystem()) {
             $this->regraDosPrimarios->garantirQuePodeGerirPrimarios($input->criadoPor, $input->tenant);
         }
 
+        // Limite de usuários do plano ou do Master (P8): só com o bloqueio ligado.
+        $this->vagaNoEscritorio->exigir((int) $input->tenant->getId());
+
         $email = strtolower(trim($input->email));
 
-        $existingUser = $this->userRepository->findOneBy(['email' => $email]);
-        if ($existingUser !== null && $this->userTenantRepository->existeVinculoAtivo($existingUser, $input->tenant)) {
-            throw new \DomainException('Este usuário já é colaborador ativo deste escritório.');
-        }
-        // Quem está suspenso ou em análise só volta pela equipe da conta, pelo primário (spec equipe-da-conta §2).
-        $situacao = $existingUser === null ? null : $this->userTenantRepository->findPorUserETenant($existingUser, $input->tenant)?->getSituacao();
-        if ($situacao !== null && $situacao !== SituacaoNaEquipe::Aprovado) {
-            throw new \DomainException('Esta pessoa está com o acesso suspenso ou em análise neste escritório. Altere a situação dela na equipe da conta.');
-        }
+        $this->exigirQueAindaNaoEstaNaEquipe($email, $input->tenant);
 
         $invitation = new Invitation(
             email: $email,
             token: bin2hex(random_bytes(32)),
-            type: 'office',
+            type: Invitation::TIPO_ESCRITORIO,
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
         $invitation->setFullName($input->fullName);
@@ -58,5 +63,21 @@ final class CriarConviteEscritorioUseCase
         $this->em->flush();
 
         return $invitation;
+    }
+
+    /** Já ativo, ou suspenso / em análise (só volta pela equipe da conta, pelo primário; spec equipe-da-conta §2). */
+    private function exigirQueAindaNaoEstaNaEquipe(string $email, Tenant $tenant): void
+    {
+        $existingUser = $this->userRepository->findOneBy(['email' => $email]);
+        if ($existingUser === null) {
+            return;
+        }
+        if ($this->userTenantRepository->existeVinculoAtivo($existingUser, $tenant)) {
+            throw new \DomainException('Este usuário já é colaborador ativo deste escritório.');
+        }
+        $situacao = $this->userTenantRepository->findPorUserETenant($existingUser, $tenant)?->getSituacao();
+        if ($situacao !== null && $situacao !== SituacaoNaEquipe::Aprovado) {
+            throw new \DomainException('Esta pessoa está com o acesso suspenso ou em análise neste escritório. Altere a situação dela na equipe da conta.');
+        }
     }
 }

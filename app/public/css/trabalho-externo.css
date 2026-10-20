@@ -57,6 +57,14 @@
     --te-laranja:       #c76a12;
     --te-urgente:       #fffaf3;
 
+    --te-sel-bg:        #e8f2f9;
+    --te-sel-bd:        #cfe3f0;
+    --te-sel-off:       #7a8e9b;
+    --te-sel-hover:     #dde7ed;
+    --te-estrela-bg:    #fff4d6;
+    --te-cancelar:      #4a6373;
+    --te-perigo-bg:     #fdecee;
+
     --te-trilho:        #e1e9ef;
     --te-pendente-bd:   #cfdbe3;
     --te-pendente-ic:   #9fb3c0;
@@ -123,6 +131,14 @@
     --te-nota-bg:       rgba(200, 149, 42, .12);
     --te-laranja:       #e9a35c;
     --te-urgente:       rgba(200, 149, 42, .08);
+
+    --te-sel-bg:        rgba(77, 163, 234, .12);
+    --te-sel-bd:        rgba(77, 163, 234, .35);
+    --te-sel-off:       var(--bs-secondary-color);
+    --te-sel-hover:     rgba(255, 255, 255, .08);
+    --te-estrela-bg:    rgba(224, 161, 6, .16);
+    --te-cancelar:      var(--bs-secondary-color);
+    --te-perigo-bg:     rgba(192, 57, 47, .16);
 
     --te-trilho:        var(--bs-border-color);
     --te-pendente-bd:   var(--bs-border-color);
@@ -231,15 +247,19 @@
 
 /* ---------- Tabela em grade ---------- */
 .te-tabela-caixa { background: var(--te-card); border: 1px solid var(--te-border); border-radius: 4px; overflow-x: auto; }
-.te-tabela { min-width: 1040px; }
-.te-grade { display: grid; grid-template-columns: 96px minmax(220px, 2fr) minmax(190px, 1.3fr) 150px 170px 190px 60px 44px; align-items: center; }
+.te-tabela { min-width: 1140px; }
+.te-grade { display: grid; grid-template-columns: 96px 96px minmax(220px, 2fr) minmax(190px, 1.3fr) 150px 170px 190px 60px 44px; align-items: center; }
 .te-grade--cab { background: var(--te-soft); border-bottom: 2px solid var(--te-border); font-size: 12px; font-weight: bold; letter-spacing: .4px; color: var(--te-text-2); }
 .te-grade--cab > div { padding: 11px 14px; }
 .te-grade--cab > div.te-centro { padding: 11px 6px; text-align: center; }
 .te-linha { border-bottom: 1px solid var(--te-div); cursor: pointer; background: var(--te-card); transition: background .12s; }
 .te-linha.is-urgente { background: var(--te-urgente); }
 .te-linha:hover { background: var(--te-hover); }
-.te-l-id { padding: 12px 14px; font-weight: bold; font-size: 13.5px; color: var(--te-azul); }
+.te-l-id { padding: 12px 14px; font-weight: normal; font-size: 13.5px; color: var(--te-azul); }
+/* Não lida: o desenho põe o peso da linha no ID (`l.negrito`, linha 138). */
+.te-linha.is-naolida .te-l-id { font-weight: bold; }
+.te-linha.is-sel { background: var(--te-sel-bg); }
+.te-linha.is-sel:hover { background: var(--te-hover); }
 .te-l-serv { padding: 10px 14px; min-width: 0; }
 .te-l-tipo { font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .te-l-desc { font-size: 12.5px; color: var(--te-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -261,12 +281,47 @@
 .te-btn-mais:hover { background: var(--te-azul-suave); color: var(--te-azul); }
 .te-vazio { padding: 40px; text-align: center; color: var(--te-muted); font-size: 14px; }
 
+/* ---------- Marcações pessoais (VS 18.10.26, linhas 124 a 141 do desenho) ---------- */
+.te-grade--cab > div.te-cab-sel { display: flex; align-items: center; gap: 2px; padding: 0 6px; letter-spacing: 0; }
+.te-l-marca { display: flex; align-items: center; gap: 2px; padding: 0 6px; cursor: default; }
+.te-sel-btn { width: 26px; height: 28px; border: none; background: transparent; color: var(--te-sel-off); cursor: pointer; font-size: 14px; border-radius: 3px; padding: 0; }
+.te-sel-btn.is-on { color: var(--te-azul); }
+.te-sel-btn:hover { background: var(--te-seg); }
+.te-l-marca > .te-sel-btn:hover { background: var(--te-sel-hover); }
+.te-sel-caret { width: 16px; height: 28px; border: none; background: transparent; color: var(--te-sel-off); cursor: pointer; font-size: 10px; border-radius: 3px; padding: 0; }
+.te-sel-caret:hover { background: var(--te-seg); }
+.te-sel-atualizar { width: 28px; height: 28px; border: none; background: transparent; color: var(--te-sel-off); cursor: pointer; font-size: 14px; border-radius: 3px; padding: 0; }
+.te-sel-atualizar:hover { background: var(--te-seg); color: var(--te-azul); }
+.te-estrela { width: 28px; height: 28px; border: none; background: transparent; color: var(--te-sel-off); cursor: pointer; font-size: 14px; border-radius: 3px; padding: 0; transition: transform .2s cubic-bezier(.3, 1.6, .5, 1); }
+.te-estrela.is-on { color: #e0a106; }
+.te-estrela:hover:not(:disabled) { background: var(--te-estrela-bg); transform: scale(1.15); }
+.te-imp { width: 26px; height: 20px; border: none; cursor: pointer; font-size: 12px; border-radius: 2px 8px 8px 2px; padding: 0; transition: background .2s; }
+.te-imp:hover:not(:disabled) { filter: brightness(1.1); }
+.te-l-marca > button:disabled { cursor: default; }
+
+.te-lote { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; background: var(--te-sel-bg); border: 1px solid var(--te-sel-bd); border-radius: 4px; padding: 6px 10px; margin-bottom: 8px; animation: teUp .15s ease; }
+.te-lote-n { font-size: 13px; color: var(--te-azul); margin-right: 6px; }
+.te-lote-btn { width: 34px; height: 30px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-text-2); cursor: pointer; font-size: 14px; transition: background .15s, transform .15s; padding: 0; }
+.te-lote-btn:hover { background: var(--te-sel-hover); transform: translateY(-1px); }
+.te-lote > .te-espaco { flex: 1; }
+.te-lote-cancelar { height: 30px; padding: 0 10px; border: none; background: transparent; color: var(--te-cancelar); font-size: 13px; cursor: pointer; }
+.te-lote-cancelar:hover { text-decoration: underline; }
+.te-lix-aviso { font-size: 12.5px; color: var(--te-muted); background: var(--te-soft); border: 1px solid var(--te-div); border-radius: 3px; padding: 8px 11px; margin-bottom: 8px; }
+
+/* Aviso de desfazer (desenho, linha 127): faixa escura no canto esquerdo, 8 s. */
+.te-desfazer { position: fixed; z-index: 1135; left: 24px; bottom: 24px; display: flex; align-items: center; gap: 14px; background: #243845; color: #fff; border-radius: 4px; padding: 11px 16px; font-size: 13.5px; box-shadow: 0 10px 28px rgba(18, 36, 47, .3); animation: teUp .2s ease; max-width: calc(100vw - 48px); }
+.te-desfazer-btn { border: none; background: transparent; color: #8fd0f2; font: inherit; font-weight: bold; cursor: pointer; padding: 0; }
+.te-desfazer-btn:hover { text-decoration: underline; }
+.te-desfazer-fechar { border: none; background: transparent; color: #c9d6df; cursor: pointer; padding: 0; }
+
 /* ---------- Menu de contexto ---------- */
 .te-menu-fundo { position: fixed; inset: 0; z-index: 1110; }
 .te-menu { position: fixed; z-index: 1111; width: 250px; background: var(--te-card); border: 1px solid var(--te-border-ctl); border-radius: 4px; box-shadow: var(--te-shadow-pop); padding: 4px 0; animation: teUp .14s ease; }
 .te-menu-item { width: 100%; display: flex; align-items: center; gap: 10px; border: none; border-top: 1px solid transparent; background: var(--te-card); padding: 8px 14px; font-size: 13.5px; color: var(--te-body); cursor: pointer; text-align: left; }
 .te-menu-item.is-sep { border-top-color: var(--te-div); }
 .te-menu-item.is-perigo { color: var(--te-vermelho); }
+/* Apagar negado pelo servidor (`apagarBloqueado`): o item só mostra o motivo e fecha o menu. */
+.te-menu-item.is-travado { color: #9aabb7; }
 .te-menu-item:hover { background: var(--te-hover); }
 .te-menu-item > .bi { width: 16px; }
 
@@ -373,6 +428,52 @@ select.te-ctl { padding: 0 7px; }
 .te-msg-cab { font-size: 11.5px; color: var(--te-muted); margin-bottom: 3px; display: flex; gap: 8px; flex-wrap: wrap; }
 .te-msg-txt { font-size: 14px; line-height: 1.45; white-space: pre-wrap; word-wrap: break-word; }
 .te-msgs-vazio { font-size: 13px; color: var(--te-muted); text-align: center; padding: 20px 0; }
+
+/* ---------- Chat avançado (VS 18.10.26, linhas 558 a 576 do desenho) ---------- */
+.te-chat-barra { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.te-chat-barra > .te-espaco { flex: 1; }
+.te-chat-filtro { height: 28px; display: flex; align-items: center; gap: 6px; }
+.te-chat-todas { width: 30px; height: 30px; border: none; background: transparent; border-radius: 3px; color: var(--te-cancelar); cursor: pointer; font-size: 15px; padding: 0; }
+.te-chat-todas:hover { background: var(--te-sel-hover); color: var(--te-azul); }
+.te-chat-sel { display: flex; align-items: center; gap: 4px; animation: teUp .15s ease; }
+.te-chat-sel-n { font-size: 12.5px; color: var(--te-azul); margin-right: 4px; }
+.te-chat-acao { height: 28px; padding: 0 10px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-text-2); font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.te-chat-acao:hover { border-color: var(--te-azul); color: var(--te-azul); background: var(--te-azul-suave); }
+.te-chat-acao.is-perigo { border-color: var(--te-vermelho-bd); color: var(--te-vermelho); }
+.te-chat-acao.is-perigo:hover { background: var(--te-perigo-bg); color: var(--te-vermelho); }
+.te-chat-icone { width: 30px; height: 28px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-text-2); cursor: pointer; padding: 0; }
+.te-chat-icone.is-lixeira:hover { border-color: #a3232b; color: #a3232b; background: var(--te-perigo-bg); }
+.te-chat-icone.is-fav:hover { border-color: #e0a106; color: #b07f00; background: var(--te-nota-bg); }
+.te-chat-cancelar { width: 28px; height: 28px; border: none; background: transparent; border-radius: 3px; color: var(--te-sel-off); cursor: pointer; padding: 0; }
+.te-chat-cancelar:hover { background: var(--te-sel-hover); }
+.te-chat-esvaziar { height: 28px; padding: 0 10px; border: none; background: transparent; color: var(--te-vermelho); font-size: 12.5px; font-weight: bold; cursor: pointer; }
+.te-chat-esvaziar:hover { text-decoration: underline; }
+.te-dz-corpo .te-lix-aviso { margin-bottom: 10px; }
+.te-chat-undo { display: flex; align-items: center; gap: 12px; background: #243845; color: #fff; border-radius: 4px; padding: 9px 14px; margin-bottom: 10px; font-size: 13px; animation: teUp .18s ease; }
+.te-chat-undo .te-desfazer-btn { font-size: 13px; }
+
+.te-msg { position: relative; outline: 2px solid transparent; outline-offset: 1px; transition: box-shadow .15s; }
+.te-msg:hover { box-shadow: 0 3px 10px rgba(18, 36, 47, .08); }
+.te-msg.is-sel { outline-color: #0a6fa0; }
+.te-msg-cab { align-items: center; }
+.te-msg-sel { width: 18px; height: 18px; padding: 0; border: none; background: transparent; color: var(--te-sel-off); cursor: pointer; font-size: 13px; line-height: 1; }
+.te-msg-sel.is-on { color: var(--te-azul); }
+.te-msg-fav { color: #e0a106; }
+.te-msg-cab > .te-espaco { flex: 1; }
+.te-msg-acoes { display: flex; gap: 2px; opacity: .55; transition: opacity .15s; }
+.te-msg:hover .te-msg-acoes, .te-msg.is-sel .te-msg-acoes, .te-msg-acoes:focus-within { opacity: 1; }
+/* Favorita: as ações ficam sempre acesas (`acOp` do desenho). */
+.te-msg-acoes.is-fav { opacity: 1; }
+.te-msg-btn { width: 24px; height: 22px; border: none; background: transparent; border-radius: 3px; color: var(--te-sel-off); cursor: pointer; font-size: 12px; padding: 0; }
+.te-msg-btn:hover { background: var(--te-sel-hover); color: var(--te-text-2); }
+.te-msg-btn.is-fav { color: #e0a106; }
+.te-msg-btn.is-perigo:hover { background: var(--te-perigo-bg); color: var(--te-vermelho); }
+.te-msg-restaurar { height: 22px; padding: 0 8px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-azul); font-size: 11.5px; font-weight: bold; cursor: pointer; }
+.te-msg-restaurar:hover { background: var(--te-azul-suave); }
+.te-msg-apagada { font-size: 13px; font-style: italic; color: var(--te-sel-off); display: flex; align-items: center; gap: 6px; }
+
+/* Título do menu de uma mensagem (desenho, linha 426). */
+.te-menu-tit { padding: 7px 14px 8px; font-size: 12px; color: var(--te-muted); border-bottom: 1px solid var(--te-div-2); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .te-nota { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--te-amarelo-txt); cursor: pointer; margin-bottom: 4px; font-weight: normal; }
 .te-nota > input { accent-color: #c76a12; }
 .te-chat-envio { display: flex; gap: 8px; position: sticky; bottom: -18px; background: var(--te-card); padding: 10px 0; }

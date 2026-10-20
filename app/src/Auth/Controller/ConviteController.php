@@ -13,6 +13,8 @@ use App\Auth\UseCase\AceitarConviteEscritorioComContaUseCase;
 use App\Auth\UseCase\AceitarConviteEscritorioSemContaUseCase;
 use App\Auth\UseCase\AceitarConvitePlataformaUseCase;
 use App\Auth\UseCase\RecusarConviteEscritorioUseCase;
+use App\Entity\Auth\Invitation;
+use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -62,7 +64,7 @@ final class ConviteController extends AbstractController
 
         $output = ConviteOutput::fromInvitation($invitation);
 
-        if ($invitation->getType() === 'plataforma') {
+        if ($invitation->getType() === Invitation::TIPO_PLATAFORMA) {
             return $this->render('auth/convite/ver.html.twig', ['convite' => $output, 'tipo_form' => 'plataforma']);
         }
 
@@ -189,13 +191,16 @@ final class ConviteController extends AbstractController
     #[IsGranted('ROLE_USER')]
     public function meusConvites(): Response
     {
-        $pendentes = $this->invitationRepository->encontrarPendentesPorEmail(
-            (string) $this->getUser()->getUserIdentifier()
-        );
+        $usuario = $this->getUser();
+        // Conta com o e-mail ainda a confirmar (cadastro do desenho 10) não vê convite: a lista entrega o token,
+        // e quem criou a conta pode não ser o dono da caixa de e-mail.
+        $pendentes = $usuario instanceof User && $usuario->isEmailConfirmado()
+            ? $this->invitationRepository->encontrarPendentesPorEmail($usuario->getUserIdentifier())
+            : [];
 
         $convites = array_values(array_map(
             ConviteOutput::fromInvitation(...),
-            array_filter($pendentes, static fn($i) => $i->getType() === 'escritorio')
+            array_filter($pendentes, static fn($i) => $i->getType() === Invitation::TIPO_ESCRITORIO)
         ));
 
         return $this->render('auth/meus_convites.html.twig', ['convites' => $convites]);

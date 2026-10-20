@@ -5,7 +5,7 @@ namespace App\Tests\Tenant\Functional;
 
 use App\Tenant\Repository\SaidaDaEquipeRepository;
 use App\Tenant\Service\RegraDosPrimarios;
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\ServiceDesk\Chamado;
