@@ -60,35 +60,61 @@
         </div>
     {% endif %}
 
+    {# Telas e recursos (spec perfis-1.2-telas-e-recursos): item desligado some para quem não é Master e
+       aparece marcado em vermelho para o Master; o grupo inteiro some quando nenhum item dele é visível. #}
+    {% if recurso_visivel('tema') or recurso_visivel('idioma') or recurso_visivel('instalar') %}
     <div class="mu-grupo">
-        <button type="button" id="toggleTema" class="dropdown-item mu-item"
+        {% if recurso_visivel('tema') %}
+        <button type="button" id="toggleTema" class="dropdown-item mu-item {{ recurso_marca('tema') }}"
                 role="menuitemcheckbox" aria-checked="false">
             <i class="bi bi-moon-stars" id="toggleTemaIcone"></i>
             <span class="mu-item-texto"><span class="mu-item-titulo" id="toggleTemaLabel">Tema escuro</span></span>
             <span class="mu-chave" aria-hidden="true"><span></span></span>
         </button>
-        <button type="button" class="dropdown-item mu-item" role="menuitem" data-mu-idioma>
+        {% endif %}
+        {% if recurso_visivel('idioma') %}
+        <button type="button" class="dropdown-item mu-item {{ recurso_marca('idioma') }}" role="menuitem" data-mu-idioma>
             <i class="bi bi-translate"></i><span class="mu-item-texto"><span class="mu-item-titulo">Idioma</span></span>
             <span class="mu-item-dir">Português (Brasil)</span>
         </button>
-        <button type="button" id="linkInstalarApp" class="dropdown-item mu-item" role="menuitem">
+        {% endif %}
+        {% if recurso_visivel('instalar') %}
+        <button type="button" id="linkInstalarApp" class="dropdown-item mu-item {{ recurso_marca('instalar') }}" role="menuitem">
             <i class="bi bi-download"></i>
             <span class="mu-item-texto"><span class="mu-item-titulo" id="linkInstalarAppTexto">Instalar aplicativo</span></span>
         </button>
+        {% endif %}
     </div>
+    {% endif %}
 
+    {% if recurso_visivel('novidades') or recurso_visivel('ajuda') or recurso_visivel('privacidade') %}
     <div class="mu-grupo">
+        {% if recurso_visivel('novidades') %}
         {# Novidades: o selo aparece até a pessoa abrir a página (public/js/novidades.js). #}
-        <a href="{{ path('novidades_index') }}" class="dropdown-item mu-item" role="menuitem"
+        <a href="{{ path('novidades_index') }}" class="dropdown-item mu-item {{ recurso_marca('novidades') }}" role="menuitem"
            data-novidades-versao="{{ novidades_mais_recente()|e('html_attr') }}">
             <i class="bi bi-stars"></i><span class="mu-item-texto"><span class="mu-item-titulo">Novidades</span></span>
             <span class="novidades-selo badge rounded-pill text-bg-primary ms-auto d-none">novo</span>
         </a>
-        <button type="button" class="dropdown-item mu-item" role="menuitem" data-mu-ajuda>
+        {% endif %}
+        {% if recurso_visivel('ajuda') %}
+        <button type="button" class="dropdown-item mu-item {{ recurso_marca('ajuda') }}" role="menuitem" data-mu-ajuda>
             <i class="bi bi-question-circle"></i><span class="mu-item-texto"><span class="mu-item-titulo">Ajuda e atalhos</span></span>
         </button>
-        <a href="{{ path('legal_politica_privacidade') }}" class="dropdown-item mu-item" role="menuitem" target="_blank" rel="noopener">
+        {% endif %}
+        {% if recurso_visivel('privacidade') %}
+        <a href="{{ path('legal_politica_privacidade') }}" class="dropdown-item mu-item {{ recurso_marca('privacidade') }}" role="menuitem" target="_blank" rel="noopener">
             <i class="bi bi-shield-lock"></i><span class="mu-item-texto"><span class="mu-item-titulo">Política de Privacidade</span></span>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {# Contribua (desenho 03: entre Política de Privacidade e Sair, com "PIX" à direita). #}
+    <div class="mu-grupo">
+        <a href="{{ path('contribua_index') }}" class="dropdown-item mu-item" role="menuitem">
+            <i class="bi bi-heart" style="color:#c0392b"></i><span class="mu-item-texto"><span class="mu-item-titulo">Contribua</span></span>
+            <span class="mu-item-dir">PIX</span>
         </a>
     </div>
 

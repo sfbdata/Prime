@@ -47,9 +47,11 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
     public function testCabecalhoECelulas(): void
     {
         $css = self::css();
-        self::assertStringContainsString('letter-spacing: 1.3px; line-height: 14px;', self::bloco($css, '.exp-body #tabelaPastas thead th'));
-        self::assertStringContainsString('.exp-body #tabelaPastas thead th:last-child { text-align: center; }', $css);
-        self::assertStringContainsString('.exp-body #tabelaPastas thead .sort-icon { font-size: 10px; opacity: 1; margin-left: 6px; color: var(--ex-seta-ordem);', $css);
+        // VS 18.10.26 (dc L.200): 12px 8px e .4px (o 1.1 tinha 12px 14px e 1.3px).
+        self::assertStringContainsString('padding: 12px 8px;', self::bloco($css, '.exp-body #tabelaPastas thead th'));
+        self::assertStringContainsString('letter-spacing: .4px; line-height: 14px;', self::bloco($css, '.exp-body #tabelaPastas thead th'));
+        self::assertStringContainsString('.exp-body #tabelaPastas thead th:last-child { text-align: center;', $css);
+        self::assertStringContainsString('.exp-body #tabelaPastas thead .sort-icon { font-size: 9px; opacity: 1; margin-left: 4px; color: var(--ex-seta-ordem);', $css);
         self::assertStringContainsString('--ex-seta-ordem: #a7b6c0;', $css);
         self::assertStringContainsString('.exp-body #tabelaPastas tbody .marcador-principal, .exp-body #tabelaPastas tbody .marcadores-extra { text-transform: none; }', $css);
         $tag = self::bloco($css, '.exp-body .js-mover-para');
@@ -86,7 +88,7 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
     {
         $css = self::css();
         $titulo = self::bloco($css, '.exp-ctx-titulo');
-        self::assertStringContainsString('padding: 7px 14px 8px; border-bottom: 1px solid var(--ex-div-linha, #eef2f5); font-size: 12px; color: var(--ex-menu-titulo, #62798a);', $titulo);
+        self::assertStringContainsString('padding: 7px 14px 8px; border-bottom: 1px solid var(--ex-div-linha, #eef2f5); font-size: 12px; line-height: normal; color: var(--ex-menu-titulo, #62798a);', $titulo);
         self::assertStringNotContainsString('background', $titulo, 'sem a faixa azul dos menus suspensos');
         self::assertStringNotContainsString('uppercase', $titulo);
         self::assertStringContainsString('width: 250px;', self::bloco($css, '.exp-ctx'));
@@ -94,7 +96,7 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         self::assertStringContainsString('padding: 8px 14px; border: 0; border-radius: 0;', self::bloco($css, '.exp-ctx-item'));
 
         $js = self::js();
-        self::assertStringContainsString("abrir(editando ? '' : 'Pasta ' + nup + (temNome ? ' · ' + nome : ''), lista, x, y, linha, editando ? 'editando' : null);", $js);
+        self::assertStringContainsString("abrir(editando ? '' : 'Pasta ' + nup + (temNome ? ' · ' + nome : ''), lista, x, y, espelho || linha, editando ? 'editando' : null);", $js);
         self::assertStringContainsString("window.ExpMenu.abrir(el.dataset.nome + ' · ' + (el.dataset.n || '0') + ' pasta(s)', lista, x, y, el, 'marcador');", self::ler('public/js/expediente-trilho.js'));
         foreach (["icone: 'bi-person-badge'", "icone: 'bi-funnel'", "icone: 'bi-plus-lg'", "rotulo: 'Copiar número da pasta'", "rotulo: 'Copiar nome do cliente'"] as $trecho) {
             self::assertStringContainsString($trecho, $js . self::ler('public/js/expediente-trilho.js'));
@@ -127,7 +129,7 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
             '.exp-body .exp-topo > .exp-controles { flex: 0 1 auto; margin-left: -12px; padding: 16px 22px 0 0;',
             '.exp-body .exp-topo > .exp-resumo { flex: 0 0 100%; padding: 12px 22px; }',
             '.exp-body .pasta-filtros-linha { flex-wrap: nowrap; }',
-            '.exp-body .pasta-filtros-busca { flex: 2.2 1 0; min-width: 70px; max-width: none; }',
+            '.exp-body .pasta-filtros-busca { flex: 2.2 1 24px; min-width: 70px; max-width: none; }',   // o recuo da <label> do dc entra na base
             '.exp-body .exp-filtro--resp { flex: 1.3 1 0; min-width: 70px; }',
             '.exp-body .exp-filtro--prio { flex: 1 1 0; min-width: 60px; }',
             '.exp-body .exp-filtro.is-ativo .pasta-filtros-select, .exp-body .pasta-filtros-busca.is-ativo .form-control, .exp-body .pasta-filtros-periodo.is-ativo { background-color: var(--ex-campo-ativo); }',
@@ -156,7 +158,7 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         $index = self::ler('templates/expediente/index.html.twig');
         self::assertStringNotContainsString("form.querySelectorAll('select.js-pasta-filtro')", $index);
         self::assertStringContainsString('form.elements.namedItem(remover.dataset.campo)', $index);
-        self::assertStringContainsString("Array.prototype.filter.call(f.elements, function (el) { return el.matches('.js-pasta-busca, .js-pasta-filtro'); })", $index, '"Limpar tudo" zera também a situação');
+        self::assertStringContainsString("Array.prototype.filter.call(f.elements, function (el) { return el.matches('.js-pasta-busca, .js-pasta-filtro') && el.name !== 'status'; })", $index, 'o Limpar do desenho 03 (dc `limpar`) não zera a Situação; o ↻ do painel zera tudo');
 
         $pag = self::ler('templates/expediente/_paginacao.html.twig');
         foreach (['bi-chevron-double-left', 'bi-chevron-left', 'bi-chevron-right', 'bi-chevron-double-right'] as $seta) {
@@ -184,12 +186,13 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         self::assertStringContainsString("<i class=\"bi {{ naPasta ? 'bi-person-dash' : 'bi-person' }}\"></i>", self::ler('templates/pasta/_resp_chip.html.twig'));
     }
 
-    #[TestDox('AUD-29 (decisão do dono): de 901 a 1280px Cliente e Ação legíveis (piso 1262px) com a rolagem só dentro da tabela; até 900px, Cliente com 220px')]
+    #[TestDox('AUD-29 (decisão do dono, 19/10, segue o desenho 03): de 901 a 1280px saem Ação, Responsável e Metas e o Réu aparece (piso 742px); até 900px o <col> do Réu sai com a célula')]
     public function testResponsividade(): void
     {
         $css = self::css();
-        self::assertStringContainsString('@media (min-width: 901px) and (max-width: 1280px) { .exp-body #tabelaPastas { min-width: 1262px; } .exp-body #tabelaPastas [data-col="reu"] { display: none; } }', $css);
-        self::assertStringContainsString('@media (max-width: 900px) { .exp-body #tabelaPastas { min-width: 742px; }', $css);
+        self::assertStringContainsString('@media (min-width: 901px) and (max-width: 1280px) { .exp-body #tabelaPastas { min-width: 742px; } .exp-body #tabelaPastas col[data-col="cliente"] { width: 42.6% !important; } .exp-body #tabelaPastas col[data-col="reu"] { width: 32% !important; } .exp-body #tabelaPastas col[data-col="marc"] { width: 25.4% !important; } .exp-body #tabelaPastas [data-col="acao"], .exp-body #tabelaPastas [data-col="resp"], .exp-body #tabelaPastas [data-col="metas"] { display: none; } }', $css);
+        self::assertStringNotContainsString('[data-col="reu"] { display: none; }', $css, 'de 901 a 1280px o Réu fica (a decisão de 15/10 caiu)');
+        self::assertStringContainsString('@media (max-width: 900px) { .exp-body #tabelaPastas { min-width: 742px; } .exp-body #tabelaPastas col[data-col="reu"], .exp-body #tabelaPastas col[data-col="acao"],', $css);
     }
 
     #[TestDox('tema escuro: todo token novo da rodada tem par no escuro')]
@@ -201,5 +204,54 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
             self::assertStringContainsString($token . ':', $escuro, 'sem par no escuro: ' . $token);
         }
         // E12: o chip do marcador usa a cor do marcador (texto) sobre ela a 10% (`--mk-cor`), não mais o pastel de fundo.
+    }
+
+    #[TestDox('título da barra (Acervo geral): a caixa tem o tamanho do conteúdo, o realce do hover não estica até o Nova Pasta')]
+    public function testTituloDaBarraDoTamanhoDoConteudo(): void
+    {
+        $titulo = self::bloco(self::css(), '.exp-body .exp-barra-titulo');
+        self::assertStringContainsString('flex: 0 1 auto; min-width: 0;', $titulo);
+        self::assertStringContainsString('margin-right: auto;', $titulo);
+        self::assertStringNotContainsString('flex: 1;', $titulo);
+    }
+
+    #[TestDox('menu de botão direito também nos modos Lista e Cartões, e F2 na linha simples focada')]
+    public function testMenuDaLinhaNosModosListaECartoes(): void
+    {
+        $js = self::js();
+        self::assertStringContainsString("e.target.closest('.exp-simples-linha[data-pasta-id], .exp-cartao[data-pasta-id]')", $js);
+        self::assertStringContainsString("e.target.closest('.exp-simples-linha[data-pasta-id]')", $js);
+        self::assertStringContainsString('function linhaDaTabela(item)', $js);
+    }
+
+    #[TestDox('VS 18.10.26, conferido no navegador: colunas do COLW, rótulo do cabeçalho com reticências e seta sempre, filtros com o recuo da label, passo da paginação, cartão e lista sem o 1.5 do Bootstrap, menu de colunas à esquerda do botão')]
+    public function testMedidasDoVs181026(): void
+    {
+        $css = self::css();
+        foreach (['nup" { width: 74px', 'prio" { width: 105px', 'metas" { width: 82px', 'sit" { width: 98px', 'reu" { width: 19.5%', 'marc" { width: 15.5%'] as $col) {
+            self::assertStringContainsString(str_replace('" {', '"] {', '.exp-body #tabelaPastas col[data-col="' . $col), preg_replace('/\s+/', ' ', $css));
+        }
+        self::assertStringContainsString('.exp-body #tabelaPastas thead th > .exp-th > .exp-th-rot { min-width: 0; overflow: hidden; text-overflow: ellipsis; }', $css);
+        self::assertStringNotContainsString(':not(.asc):not(.desc):not(:hover) .sort-icon', $css, 'a seta não some mais em Prioridade e Situação');
+        self::assertStringContainsString('.exp-body #tabelaPastas thead th:last-child { text-align: center; padding-left: 8px; padding-right: 8px; }', $css);
+        self::assertStringContainsString('.exp-body .pasta-filtros-periodo { flex: 1.8 1 8px; }', $css);
+        self::assertStringContainsString('.exp-body .pagination .page-item .page-link { margin-left: 0; }', $css);
+        self::assertStringContainsString('.exp-ctx--colunas .exp-ctx-item { padding-top: 7px; padding-bottom: 7px; }', $css);
+        $css12 = (string) preg_replace('/\s+/', ' ', (string) preg_replace('#/\*.*?\*/#s', '', self::ler('public/css/expediente-lista-12.css')));
+        self::assertStringContainsString('.exp-body .exp-cartao { line-height: normal;', $css12);
+        self::assertStringContainsString('gap: 14px; line-height: normal;', self::bloco($css12, '.exp-body .exp-simples-linha'));
+        self::assertStringContainsString('Math.max(8, Math.min(r.right - 250, window.innerWidth - 258))', self::js(), 'dc `colAbrir`');
+    }
+
+    #[TestDox('VS 18.10.26: colunas por usuário com a subfrase do dc, hover do chip do responsável na linha azul, textos do dc')]
+    public function testDesenhoVs181026(): void
+    {
+        $js = self::js();
+        self::assertStringContainsString("t.getAttribute('data-chave-colunas')", $js);
+        self::assertStringContainsString("{ icone: 'bi-person-lock', texto: 'Ajuste só seu: não muda para o resto da equipe' }", $js);
+        self::assertStringContainsString("'BlueJus I.A · '", $js);
+        $css = self::css();
+        self::assertStringContainsString('> td .pasta-resp-chip:hover:not(.resp-avatar):not(.pasta-favorita-estrela) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.65) !important; }', $css);
+        self::assertStringContainsString('placeholder="Buscar pasta, cliente, ação ou processo"', self::ler('templates/pasta/_filtros.html.twig'));
     }
 }

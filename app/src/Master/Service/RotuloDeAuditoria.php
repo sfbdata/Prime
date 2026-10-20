@@ -11,14 +11,22 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Entity\RecursoEstado;
+use App\Master\Repository\PainelMasterRepository;
 
 /**
  * Traduz uma linha do `audit_log` para o rótulo humano da trilha "Segurança e auditoria" e um
  * detalhe CURTO. O detalhe cita só os NOMES dos campos alterados, nunca os valores: o `changes`
  * pode carregar dado sensível (hash de senha, token de convite, CPF) e não sai cru para a tela.
+ * Exceção: limites, planos e faixas da Contribua ({@see RotuloDeAuditoriaDoEspaco}), sem dado sensível.
  */
 final class RotuloDeAuditoria
 {
+    public const DETALHE_DO_MASTER = 'Ação confirmada pelo Master';
+
+    /** Rotas das ações do Master sobre a conta (ContasDoSistemaController: master_conta_suspender, master_conta_reativar). */
+    private const PREFIXO_ROTA_DO_MASTER = 'master_conta_';
+
     /** Nome humano de cada campo que costuma aparecer nas entidades administrativas. */
     private const CAMPOS = [
         'name'           => 'nome',
@@ -57,14 +65,35 @@ final class RotuloDeAuditoria
     ];
 
     /**
+     * @param array{cotaGb: int, limiteUsuarios: ?int}|null $planoDaConta valores de HOJE do plano da conta da
+     *                                                            linha, para o "anterior" da primeira mudança de limite
+     * @param string|null                                    $recurso      chave da tela ou função quando a linha é de
+     *                                                            RecursoEstado (vem da própria `recurso_estado`: a
+     *                                                            alteração não regrava a chave)
+     *
      * @return array{acao: string, detalhe: string}
      */
-    public static function traduzir(string $acao, string $entidade, ?string $mudancasJson): array
+    public static function traduzir(string $acao, string $entidade, ?string $mudancasJson, ?array $planoDaConta = null, ?string $recurso = null): array
     {
         $mudancas = self::decodificar($mudancasJson);
 
+        if ($entidade === RecursoEstado::class && $acao !== 'delete') {
+            return self::traduzirRecurso($acao, $mudancas, $recurso);
+        }
+
         if ($acao === 'purge') {
             return ['acao' => 'Conta excluída definitivamente', 'detalhe' => 'Purga após a quarentena de exclusão'];
+        }
+
+        // Alerta de consumo do Sistema (AlertaDeConsumoNaTrilha): o limiar da faixa alcançada.
+        if ($acao === PainelMasterRepository::ACAO_ALERTA_DE_CONSUMO) {
+            return ['acao' => 'Alerta de consumo', 'detalhe' => sprintf('Passou de %d%% do armazenamento', (int) ($mudancas['limiar'] ?? 0))];
+        }
+
+        // Limites, planos e faixas (Contribua): detalhe com os valores, ver RotuloDeAuditoriaDoEspaco.
+        $doEspaco = RotuloDeAuditoriaDoEspaco::traduzir($acao, $entidade, $mudancas, $planoDaConta);
+        if ($doEspaco !== null) {
+            return $doEspaco;
         }
 
         $rotulos = self::ENTIDADE[$entidade] ?? ['Registro criado', 'Registro alterado', 'Registro excluído'];
@@ -78,7 +107,27 @@ final class RotuloDeAuditoria
             return ['acao' => $rotulos[2], 'detalhe' => 'Registro apagado'];
         }
 
-        return ['acao' => self::rotuloDeAlteracao($entidade, $mudancas, $rotulos[1]), 'detalhe' => self::detalheDeCampos($campos)];
+        $detalhe = self::confirmadaPeloMaster($entidade, $mudancas) ? self::DETALHE_DO_MASTER : self::detalheDeCampos($campos);
+
+        return ['acao' => self::rotuloDeAlteracao($entidade, $mudancas, $rotulos[1]), 'detalhe' => $detalhe];
+    }
+
+    /**
+     * Situação da conta trocada pelo menu da conta no painel do Master (spec perfis-1.2-contas C6):
+     * a rota gravada no contexto da linha é uma das ações de conta do Master (`master_conta_*`), que
+     * só rodam depois da confirmação no modal. A rota é gravada pelo AuditLogSubscriber em toda linha
+     * e não depende de quem é o ator, então o detalhe não aparece em mudança feita por outro caminho.
+     *
+     * @param array<string, mixed> $mudancas
+     */
+    private static function confirmadaPeloMaster(string $entidade, array $mudancas): bool
+    {
+        $rota = $mudancas['context']['route'] ?? null;
+        $diff = self::diff($mudancas);
+
+        return $entidade === Tenant::class
+            && is_string($rota) && str_starts_with($rota, self::PREFIXO_ROTA_DO_MASTER)
+            && (isset($diff['isActive']) || isset($diff['excluidoEm']));
     }
 
     /**
@@ -88,16 +137,18 @@ final class RotuloDeAuditoria
     {
         $diff = self::diff($mudancas);
 
+        // A exclusão grava excluidoEm E isActive=false: excluidoEm vem primeiro, senão ela seria lida
+        // como suspensão (spec perfis-1.2-contas C6).
+        if ($entidade === Tenant::class && isset($diff['excluidoEm']) && is_array($diff['excluidoEm'])) {
+            return ($diff['excluidoEm']['to'] ?? null) !== null ? 'Conta excluída' : 'Exclusão de conta cancelada';
+        }
+
         if ($entidade === Tenant::class && isset($diff['isActive']) && is_array($diff['isActive'])) {
             return ($diff['isActive']['to'] ?? null) === false ? 'Conta suspensa' : 'Conta reativada';
         }
 
-        if ($entidade === Tenant::class && isset($diff['excluidoEm']) && is_array($diff['excluidoEm'])) {
-            return ($diff['excluidoEm']['to'] ?? null) !== null ? 'Conta enviada para exclusão' : 'Exclusão de conta cancelada';
-        }
-
         if ($entidade === User::class && isset($diff['roles'])) {
-            return 'Papel no sistema alterado';
+            return self::rotuloDePapel($diff['roles']);
         }
 
         if ($entidade === User::class && isset($diff['oabStatus'])) {
@@ -113,6 +164,113 @@ final class RotuloDeAuditoria
         }
 
         return $padrao;
+    }
+
+    /**
+     * Promoção e remoção de Master secundário (spec perfis-1.2-masters M7): entrou ou saiu o
+     * ROLE_SUPER_ADMIN. Qualquer outra troca de papel fica com o rótulo genérico.
+     */
+    private static function rotuloDePapel(mixed $troca): string
+    {
+        $antes  = is_array($troca) && is_array($troca['from'] ?? null) ? $troca['from'] : [];
+        $depois = is_array($troca) && is_array($troca['to'] ?? null) ? $troca['to'] : [];
+        $eraMaster = in_array(RegraDosMasters::PAPEL_MASTER, $antes, true);
+        $ehMaster  = in_array(RegraDosMasters::PAPEL_MASTER, $depois, true);
+
+        if (!$eraMaster && $ehMaster) {
+            return 'Promovido a Master';
+        }
+
+        if ($eraMaster && !$ehMaster) {
+            return 'Removido de Master';
+        }
+
+        return 'Papel no sistema alterado';
+    }
+
+    /**
+     * Tela ou função ligada/desligada pelo Master (spec perfis-1.2-telas-e-recursos, R7): "Desativou X" e
+     * "Reativou X", com o título do catálogo. O motivo e a data de volta são texto mostrado aos usuários,
+     * não dado sensível: entram no detalhe quando a linha os registra.
+     *
+     * @param array<string, mixed> $mudancas
+     *
+     * @return array{acao: string, detalhe: string}
+     */
+    private static function traduzirRecurso(string $acao, array $mudancas, ?string $recurso): array
+    {
+        $depois = $acao === 'create' ? self::estadoCriado($mudancas) : self::valoresNovos($mudancas);
+        $chave = $recurso ?? (is_string($depois['chave'] ?? null) ? $depois['chave'] : '');
+        $titulo = CatalogoDeRecursos::titulo($chave) ?? ($chave !== '' ? $chave : 'tela ou função');
+
+        if (($depois['ativo'] ?? null) === true) {
+            return ['acao' => 'Reativou ' . $titulo, 'detalhe' => 'Liberado para todos os usuários'];
+        }
+
+        return ['acao' => 'Desativou ' . $titulo, 'detalhe' => self::detalheDeDesligamento(self::comMotivoDeQuemEstavaAtivo($acao, $mudancas, $depois))];
+    }
+
+    /**
+     * Saindo de ativo, o motivo de antes era sempre nulo (religar limpa motivo e data). Se ele não
+     * aparece entre os campos alterados, continuou nulo: é "Sem motivo informado", não uma lacuna.
+     *
+     * @param array<string, mixed> $mudancas
+     * @param array<string, mixed> $depois
+     *
+     * @return array<string, mixed>
+     */
+    private static function comMotivoDeQuemEstavaAtivo(string $acao, array $mudancas, array $depois): array
+    {
+        $saiuDeAtivo = (self::diff($mudancas)['ativo']['from'] ?? null) === true;
+        if ($acao === 'update' && $saiuDeAtivo && !array_key_exists('motivo', $depois)) {
+            $depois['motivo'] = null;
+        }
+
+        return $depois;
+    }
+
+    /**
+     * @param array<string, mixed> $depois
+     */
+    private static function detalheDeDesligamento(array $depois): string
+    {
+        $partes = [];
+        if (array_key_exists('motivo', $depois)) {
+            $partes[] = is_string($depois['motivo']) && $depois['motivo'] !== '' ? 'Motivo: ' . $depois['motivo'] : 'Sem motivo informado';
+        }
+
+        if (is_string($depois['ate'] ?? null) && strlen($depois['ate']) >= 10) {
+            $partes[] = 'volta em ' . implode('/', array_reverse(explode('-', substr($depois['ate'], 0, 10))));
+        }
+
+        return $partes === [] ? 'Desativado para os usuários' : implode(' · ', $partes);
+    }
+
+    /**
+     * @param array<string, mixed> $mudancas
+     *
+     * @return array<string, mixed>
+     */
+    private static function estadoCriado(array $mudancas): array
+    {
+        $depois = $mudancas['diff']['after'] ?? null;
+
+        return is_array($depois) ? $depois : [];
+    }
+
+    /**
+     * @param array<string, mixed> $mudancas
+     *
+     * @return array<string, mixed>
+     */
+    private static function valoresNovos(array $mudancas): array
+    {
+        $novos = [];
+        foreach (self::diff($mudancas) as $campo => $troca) {
+            $novos[(string) $campo] = is_array($troca) ? ($troca['to'] ?? null) : null;
+        }
+
+        return $novos;
     }
 
     /**

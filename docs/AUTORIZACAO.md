@@ -50,14 +50,27 @@ qualquer checagem, independente de tenant ou permissão. É uma role
 atribuída diretamente no `User` (campo `roles`, JSONB), fora do
 sistema de `TenantRole`.
 
-**Master = `ROLE_SUPER_ADMIN`, único** (spec `docs/specs/perfis-master-1.0.md`, D2). Na interface
-o papel se chama só "Master" (Painel do Master, selo MASTER). Atribuição só por CLI:
+**Master = `ROLE_SUPER_ADMIN`: um primário e, se ele quiser, secundários** (spec
+`docs/specs/perfis-1.2-masters.md`, que substitui a D2 "Master é único" de `perfis-master-1.0.md`). Na
+interface o papel se chama "Master" (Painel do Master, selo MASTER). Os nomes dos papéis moram em
+`App\Master\Service\RegraDosMasters`.
 
-- `app:master:definir <email> [--confirmar]` (`app/src/Command/DefinirMasterCommand.php`): deixa
-  EXATAMENTE um `ROLE_SUPER_ADMIN`, o do e-mail. Sem `--confirmar` só mostra quem ganha e quem perde;
-  com `--confirmar` aplica numa transação. É o caminho para TROCAR o Master.
-- `app:create-super-admin` (`app/src/Command/CreateSuperAdminCommand.php`): só cria o Master quando
-  ainda não existe nenhum; havendo um, falha e aponta o `app:master:definir`.
+- **Master primário** = `ROLE_SUPER_ADMIN` + `ROLE_MASTER_PRIMARIO` (um só, o criador do BlueJus). O
+  `ROLE_MASTER_PRIMARIO` só marca quem é o primário; sozinho não dá acesso a nada.
+- **Master secundário** = `ROLE_SUPER_ADMIN` dado pelo primário na aba Permissões de `/master`
+  (`PromoverMasterUseCase`): só um usuário secundário com vínculo ativo no escritório da sessão do primário.
+  Tem o MESMO bypass total acima (falha conhecida, aceita pelo desenho 1.2). Só o primário promove e remove
+  (`RemoverMasterUseCase`, que tira só o `ROLE_SUPER_ADMIN`); o primário nunca é removido pela tela.
+  Promoção e remoção ficam na auditoria (`User` é `Auditavel`).
+
+Por CLI, rodado pelo dono:
+
+- `app:master:definir <email> [--confirmar]` (`app/src/Command/DefinirMasterCommand.php`): o do e-mail
+  fica Master primário e TODOS os outros Masters (primário anterior e secundários) perdem os dois papéis.
+  Sem `--confirmar` só mostra quem ganha e quem perde; com `--confirmar` aplica numa transação. É o
+  caminho para TROCAR o Master primário.
+- `app:create-super-admin` (`app/src/Command/CreateSuperAdminCommand.php`): só cria o primeiro Master, já
+  primário, quando ainda não existe nenhum; havendo um, falha e aponta o `app:master:definir`.
 
 Não é atribuída automaticamente no bootstrap de tenant.
 
@@ -457,6 +470,74 @@ o router e falha se uma rota de escrita que envolva pasta (nome `pasta_*`,
 `/pasta/` no path, variável `pastaId`/`pasta_id`/`pasta`, ou action que recebe a
 pasta ou filha) não for alcançada nem for exceção. Rota com o id da pasta só no
 corpo da requisição não é vista por nenhum dos dois.
+
+### Cadeado da pasta: teto por pasta (spec `docs/specs/pasta-cadeado.md`)
+
+O cadeado é uma **restrição** (decisão D3, 20/10/2026): ele tira acesso de quem teria pelas camadas
+acima e nunca dá acesso a ninguém. O ponto único é `App\Pasta\Service\AcessoAPasta`:
+
+- `nivel(User, Pasta)` devolve `Oculto`, `Visualizar` ou `Editar` (`NivelNoCadeado`): Master ou
+  primário ativo do escritório da pasta → `Editar`; sem vínculo ativo → `Oculto`; pasta sem cadeado
+  → `Editar`; cadeado `Todos` → `Oculto`; `PorPessoa` → o nível gravado da pessoa, ou `Oculto` (quem
+  não está na lista, inclusive quem entrar depois);
+- `podeVer()`/`podeEditar()` são o `canAccessResource` completo (`view`/`edit`) da pasta, com o teto
+  dentro: vê = não `Oculto` + permissão de ver a pasta;
+- para listas e buscas: `niveisEmLote()` (uma consulta para N pastas), `restringirAoVisivel()` (só
+  as visíveis) e `criterioDeVisivel()` (o critério em DQL, para combinar: a pasta oculta continua na
+  busca da Lista, mas só casa por número e cliente).
+
+**Quem configura** (abre, altera, remove o cadeado e decide os pedidos): o Master e o primário com
+vínculo ativo, pelo mesmo critério de `RegraDosPrimarios::podeGerirPrimarios()`. Quem configura nunca
+é restringido. O antigo `PermissionChecker::isAdministradorDoEscritorio()` saiu: a Lista do
+Expediente pergunta ao `AcessoAPasta::podeConfigurar()`.
+
+**Onde o teto vale:**
+
+1. `PermissionChecker::canAccessResource()` com `resourceType = 'pasta'`: **depois** dos bypasses
+   (2a e 2b, que já são `Editar` no cadeado) e **antes** do `ResourceAccess` e do fallback por tipo
+   (5b). `view` exige pelo menos `Visualizar`; `edit` e `delete` exigem `Editar`. Por isso um
+   `AccessRequest` aprovado (seção 6) nunca fura o cadeado. Para o pedido de acesso há
+   `canAccessResourceIgnoringPastaLock()`: a permissão sem o teto, só para saber se a pessoa veria a
+   pasta livre (quem não veria nem livre não tem o que pedir).
+2. `BarreiraDoCadeadoListener` (`kernel.controller_arguments`), em TODA rota de pasta, de leitura ou
+   escrita: `Oculto` recebe 403 em tudo menos `pasta_show` (que desenha a tela "Pasta trancada") e o
+   pedido de acesso; `Visualizar` recebe 403 nos métodos não seguros, menos as preferências pessoais
+   e as leituras por POST (`ROTAS_DO_VISUALIZAR`, com o motivo de cada uma). A pasta sai do mesmo
+   resolvedor da lápide e da aba oculta, `App\Pasta\Service\PastaDaRota` (argumento `Pasta`, filha
+   com `getPasta()`, neta pela meta, `#[PastaPelaFilha]`, `#[PastaPorId]`; entrega também a filha).
+   Pasta de outro escritório passa reto: a action responde o 404 dela. O alcance é travado por
+   `app/tests/Arquitetura/BarreiraDoCadeadoRotasArquiteturaTest.php`, que olha todas as rotas de
+   pasta (de qualquer método).
+3. Fora da pasta (spec §5):
+   - a Lista, a busca, o CSV e a janela do cliente mostram da pasta oculta só o número e o cliente,
+     sem prioridade nem situação; ela casa na busca só por número e cliente, e fica FORA do resultado
+     com qualquer filtro de atributo (responsável, situação, prioridade, criador, datas, painéis do
+     Expediente, ação, marcador), também nas contagens do trilho (D1). A busca de pastas do agente de
+     IA segue a mesma regra (D2);
+   - o processo cujas pastas vinculadas são TODAS ocultas para a pessoa não abre (403 no
+     `processo_show` e recusa no `canAccessResource` de `processo`, o que fecha também as notas
+     técnicas) e some da lista de processos; com pelo menos uma pasta visível, abre, e a pasta oculta
+     aparece nele só com o número, o cliente e o cadeado (K3);
+   - as Minhas Metas (lista, abas, KPIs, trilho), as metas da equipe e a Agenda (prazos e audiências
+     da pasta) não mostram nem contam o que é dela; o Push global esconde o processo cujas pastas são
+     todas ocultas (a regra do processo); os avisos da meta não vão para quem está oculto, e o sino e
+     "Ver todas" não mostram nem contam aviso ligado a pasta oculta, mesmo antigo; qualquer cadeado
+     desliga o link externo do Push (D3);
+   - a auditoria do escritório mostra sem o conteúdo e sem "desfazer" as linhas da pasta, das
+     entidades dela (`App\Pasta\Entity\*`), da meta, da resposta da meta e das análises da BlueJus IA
+     da pasta (D4);
+   - a imagem embutida em peça dela é recusada (D5); pasta com cadeado sai do sync do Drive (D6);
+   - na Cobrança, a busca de pasta para judicializar só oferece pasta que a pessoa edita pelo cadeado,
+     e vincular um caso a uma pasta em que ela não edita é recusado.
+
+**Precedência com o "ocultar aba"** (#68): são dois eixos e os dois só subtraem. O cadeado é o teto da
+pasta inteira; a aba oculta é **organização** e tira abas dentro do que o cadeado permite. Com
+`Oculto`, a aba não importa (a pasta toda está fechada); com `Visualizar`, as abas visíveis ficam em
+leitura; com `Editar`, vale só o que a aba oculta tirar. Quem configura os dois é o mesmo grupo.
+
+**Ainda não cobre:** na auditoria, `CasoCobranca`, `NotaTecnica` e `Notificacao` (que citam pasta mas são
+da Cobrança, do processo e da pessoa); a janela do cliente (`ClienteResumoController`) segue escondendo
+inteira a pasta que a pessoa não pode abrir.
 
 ---
 

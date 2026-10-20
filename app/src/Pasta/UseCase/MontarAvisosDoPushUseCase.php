@@ -16,7 +16,7 @@ use App\Pasta\Service\DisponibilidadeDaIaNoAvisoDoPush;
  *
  * História: quem abre a pasta quer ver, e o editor quer mudar, quem é avisado quando chega uma
  * movimentação nova: o responsável no sino, também por e-mail, e se a BlueJus IA já analisa. Lê a
- * linha da pasta (sem linha, os padrões) e a disponibilidade da IA no escritório.
+ * linha da pasta (sem linha, os padrões) e se a IA pode valer nesta pasta (escritório e responsável).
  */
 final class MontarAvisosDoPushUseCase
 {
@@ -30,6 +30,6 @@ final class MontarAvisosDoPushUseCase
     {
         $linha = $pasta->getTenant() === $tenant ? $this->avisos->daPastaDoTenant($pasta, $tenant) : null;
 
-        return AvisosDoPushOutput::montar(ChavesDoAvisoDoPush::da($linha), $this->ia->doEscritorio($tenant));
+        return AvisosDoPushOutput::montar(ChavesDoAvisoDoPush::da($linha), $this->ia->motivoDaTravaNaPasta($pasta, $tenant));
     }
 }

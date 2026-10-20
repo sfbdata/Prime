@@ -18,7 +18,8 @@ use Doctrine\ORM\Mapping as ORM;
  * responsável no sino, mandar também por e-mail, e pedir a análise da BlueJus IA. Valem por pasta.
  *
  * A linha só nasce quando alguém mexe numa chave: sem linha, valem os padrões de
- * {@see PadroesDoAvisoDoPush} (e a primeira alteração parte deles). UNIQUE (pasta_id): uma linha
+ * {@see PadroesDoAvisoDoPush} (e a primeira alteração parte deles). A criação é um INSERT
+ * idempotente no repositório (`garantirDaPasta`): duas abas gravando ao mesmo tempo não estouram o UNIQUE. UNIQUE (pasta_id): uma linha
  * por pasta; a pasta apagada leva a linha (CASCADE). Quem mexeu por último fica gravado (SET NULL
  * se o usuário sair do banco).
  *
@@ -59,13 +60,13 @@ class AvisoDoPushDaPasta implements Auditavel, TenantAware
     ) {
     }
 
-    /** Inverte uma chave e registra quem mexeu. */
-    public function alternar(ChaveDoAvisoDoPush $chave, User $por, \DateTimeImmutable $em): void
+    /** Põe a chave no estado pedido e registra quem mexeu. */
+    public function definir(ChaveDoAvisoDoPush $chave, bool $ligada, User $por, \DateTimeImmutable $em): void
     {
         match ($chave) {
-            ChaveDoAvisoDoPush::Responsavel => $this->avisarResponsavel = !$this->avisarResponsavel,
-            ChaveDoAvisoDoPush::Email => $this->porEmail = !$this->porEmail,
-            ChaveDoAvisoDoPush::Ia => $this->analiseIa = !$this->analiseIa,
+            ChaveDoAvisoDoPush::Responsavel => $this->avisarResponsavel = $ligada,
+            ChaveDoAvisoDoPush::Email => $this->porEmail = $ligada,
+            ChaveDoAvisoDoPush::Ia => $this->analiseIa = $ligada,
         };
         $this->atualizadoPor = $por;
         $this->atualizadoEm = $em;

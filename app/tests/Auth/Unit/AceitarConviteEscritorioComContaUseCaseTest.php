@@ -12,6 +12,7 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\InvitationRepository;
+use App\Tests\Auth\Doubles\VagaNoEscritorioDublada;
 use App\Repository\UserTenantRepository;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
 use App\Tenant\Service\RegraDosPrimarios;
@@ -26,6 +27,7 @@ use App\Auth\Event\ConviteDeEscritorioAceito;
 #[CoversClass(AceitarConviteEscritorioComContaUseCase::class)]
 final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
 {
+    use VagaNoEscritorioDublada;
     private EventDispatcher $eventos;
 
     private InvitationRepository&MockObject $invitationRepo;
@@ -46,6 +48,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
             $this->em,
             new RegraDosPrimarios($this->userTenantRepo),
             $this->eventos = new EventDispatcher(),
+            $this->vagaNoEscritorio(),
         );
         $this->tenant  = new Tenant();
         $this->usuario = (new User())->setEmail('usuario@example.com');

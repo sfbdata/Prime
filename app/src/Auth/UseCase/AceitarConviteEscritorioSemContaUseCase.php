@@ -7,6 +7,8 @@ namespace App\Auth\UseCase;
 use App\Auth\DTO\AceitarConviteEscritorioSemContaInput;
 use App\Auth\Event\ConviteDeEscritorioAceito;
 use App\Entity\Auth\Invitation;
+use App\Auth\Service\DadosDaContaDoConvite;
+use App\Auth\Service\VagaNoEscritorio;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -29,6 +31,7 @@ final class AceitarConviteEscritorioSemContaUseCase
         private readonly RegistrarAceiteTermoUseCase $registrarAceite,
         private readonly RegraDosPrimarios $regraDosPrimarios,
         private readonly EventDispatcherInterface $eventos,
+        private readonly VagaNoEscritorio $vagaNoEscritorio,
     ) {}
 
     public function executar(AceitarConviteEscritorioSemContaInput $input): User
@@ -53,10 +56,9 @@ final class AceitarConviteEscritorioSemContaUseCase
             throw new \DomainException('Já existe uma conta com este e-mail.');
         }
 
-        $fullName = $input->fullName !== '' ? $input->fullName : $invitation->getFullName();
-        if ($fullName === null || $fullName === '') {
-            throw new \InvalidArgumentException('Nome completo é obrigatório.');
-        }
+        // O `required` do HTML não protege um POST direto: a mesma regra do aceite de plataforma.
+        DadosDaContaDoConvite::exigirSenha($input->senha);
+        $fullName = DadosDaContaDoConvite::nome($input->fullName, $invitation->getFullName());
 
         $tenant = $invitation->getTenant();
         if ($tenant === null) {
@@ -65,6 +67,9 @@ final class AceitarConviteEscritorioSemContaUseCase
 
         // Convite de primário: quem convidou ainda pode dar esse acesso? (spec perfis-master D4)
         $this->regraDosPrimarios->garantirQueConviteDePrimarioSegueValido($invitation);
+
+        // Limite de usuários também no aceite (spec perfis-1.2-planos-e-limites §6): o convite pode ter saído com vaga.
+        $this->vagaNoEscritorio->exigir((int) $tenant->getId());
 
         if (!$input->aceiteTermos) {
             throw new \DomainException('É necessário aceitar os Termos de Uso para criar a conta.');

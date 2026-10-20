@@ -91,12 +91,16 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
      * Lista PROJETADA das publicações do escritório (só as colunas exibidas na tela — NÃO hidrata
      * `texto`/`payloadDjen`). Escopa por tenant EXPLICITAMENTE (defesa em profundidade).
      *
+     * `$numerosOcultos` (dígitos): processos das pastas com cadeado ocultas para quem lista; as publicações
+     * deles não entram (spec pasta-cadeado D3).
+     *
      * @param array<string, string> $filtros  busca, tribunal, meio, vinculo (avulsa|vinculada), data_de, data_ate
+     * @param list<string>          $numerosOcultos
      * @return PublicacaoDjenListaItem[]
      */
-    public function listarItensDoTenant(Tenant $tenant, array $filtros, int $pagina = 1, int $porPagina = 25): array
+    public function listarItensDoTenant(Tenant $tenant, array $filtros, int $pagina = 1, int $porPagina = 25, array $numerosOcultos = []): array
     {
-        $linhas = $this->buildQbFiltros($tenant, $filtros)
+        $linhas = $this->buildQbFiltros($tenant, $filtros, $numerosOcultos)
             ->select(
                 'p.id AS id',
                 'p.siglaTribunal AS siglaTribunal',
@@ -123,10 +127,11 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, string> $filtros
+     * @param list<string>          $numerosOcultos
      */
-    public function countByFiltros(Tenant $tenant, array $filtros): int
+    public function countByFiltros(Tenant $tenant, array $filtros, array $numerosOcultos = []): int
     {
-        return (int) $this->buildQbFiltros($tenant, $filtros)
+        return (int) $this->buildQbFiltros($tenant, $filtros, $numerosOcultos)
             ->select('COUNT(p.id)')
             ->getQuery()
             ->getSingleScalarResult();
@@ -183,6 +188,30 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     }
 
     /**
+     * As publicações do escritório VINCULADAS a um processo dele e disponibilizadas no período (datas
+     * inclusivas), com o processo junto: a entrada do resumo semanal ao cliente (spec
+     * push-envio-automatico §3). Da mais antiga para a mais recente. Tenant explícito: roda no CLI.
+     *
+     * @return list<PublicacaoDjen>
+     */
+    public function listarVinculadasDoPeriodoDoTenant(Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
+    {
+        return $this->createQueryBuilder('p')
+            ->addSelect('pr')
+            ->join('p.processo', 'pr')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('pr.tenant = :tenant')
+            ->andWhere('p.dataDisponibilizacao BETWEEN :inicio AND :fim')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('inicio', $inicio->setTime(0, 0), 'date_immutable')
+            ->setParameter('fim', $fim->setTime(0, 0), 'date_immutable')
+            ->orderBy('p.dataDisponibilizacao', 'ASC')
+            ->addOrderBy('p.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Publicações do escritório ainda sem vínculo com Processo — a entrada da reconciliação.
      * Devolve ENTIDADES (e não projeção) porque quem chama vai gravar a FK nelas.
      *
@@ -213,6 +242,25 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
      * @param string[] $numeros  números CNJ com ou sem máscara (normalizados aqui)
      * @return PublicacaoDjenListaItem[]
      */
+    /** Existe ao menos uma publicação destes números neste escritório? (Sem carregar a lista.) */
+    public function existePorNumerosDoTenant(Tenant $tenant, array $numeros): bool
+    {
+        $numeros = self::normalizarNumeros($numeros);
+        if ($numeros === []) {
+            return false;
+        }
+
+        return $this->createQueryBuilder('p')
+            ->select('p.id')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.numeroProcesso IN (:numeros)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('numeros', $numeros)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult() !== null;
+    }
+
     public function listarItensPorNumerosDoTenant(Tenant $tenant, array $numeros, int $limite = 100): array
     {
         $numeros = self::normalizarNumeros($numeros);
@@ -373,12 +421,18 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, string> $filtros
+     * @param list<string>          $numerosOcultos
      */
-    private function buildQbFiltros(Tenant $tenant, array $filtros): QueryBuilder
+    private function buildQbFiltros(Tenant $tenant, array $filtros, array $numerosOcultos = []): QueryBuilder
     {
         $qb = $this->createQueryBuilder('p')
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant);
+
+        if ($numerosOcultos !== []) {
+            $qb->andWhere('p.numeroProcesso NOT IN (:numerosOcultos)')
+               ->setParameter('numerosOcultos', $numerosOcultos);
+        }
 
         $busca = trim((string) ($filtros['busca'] ?? ''));
         if ($busca !== '') {

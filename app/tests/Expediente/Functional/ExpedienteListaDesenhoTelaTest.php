@@ -12,6 +12,7 @@ use App\Expediente\Controller\ExpedienteController;
 use App\Expediente\Entity\Marcador;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PrioridadePasta;
+use App\Profile\Entity\UserProfile;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -160,14 +161,14 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('desc', (string) $nup->attr('class'));
         self::assertCount(1, $nup->filter('i.sort-icon.bi-caret-down-fill'));
         self::assertCount(1, $crawler->filter('#tabelaPastas thead [aria-sort]'));
-        self::assertCount(6, $crawler->filter('#tabelaPastas thead th[data-ordenar] > i.sort-icon.bi-chevron-expand'));
+        self::assertCount(7, $crawler->filter('#tabelaPastas thead th[data-ordenar] > .exp-th > i.sort-icon.bi-chevron-expand'), 'VS 18.10.26: Réu também ordena; rótulo e seta no .exp-th (dc L.200)');
         self::assertCount(0, $crawler->filter('#tabelaPastas .bi-arrow-down-up, #tabelaPastas .ps-3'));
 
         // Ordenação escolhida: a seta vai para a coluna, crescente.
         $crawler = $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?ordenar=cliente&direcao=asc');
         self::assertSame('ascending', $crawler->filter('#tabelaPastas thead th[data-ordenar="cliente"]')->attr('aria-sort'));
-        self::assertCount(1, $crawler->filter('#tabelaPastas thead th[data-ordenar="cliente"] > i.bi-caret-up-fill'));
-        self::assertCount(1, $crawler->filter('#tabelaPastas thead th[data-ordenar="nup"] > i.bi-chevron-expand'));
+        self::assertCount(1, $crawler->filter('#tabelaPastas thead th[data-ordenar="cliente"] > .exp-th > i.bi-caret-up-fill'));
+        self::assertCount(1, $crawler->filter('#tabelaPastas thead th[data-ordenar="nup"] > .exp-th > i.bi-chevron-expand'));
         self::assertCount(1, $crawler->filter('#tabelaPastas tbody td.col-marc-tabela .exp-tag-vazio > i.bi-tag'), 'AUD-24: ícone do dc');
     }
 
@@ -245,6 +246,48 @@ final class ExpedienteListaDesenhoTelaTest extends JusPrimeWebTestCase
     }
 
     /** @return array{0: User, 1: Tenant} */
+    #[TestDox('dc L.64: no Expediente o nome do escritório tem a dica do desenho (data-tip) e não a do navegador')]
+    public function testDicaDoEscritorioNoExpediente(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->entrar($client);
+
+        $crawler = $client->request('GET', '/expediente');
+        self::assertResponseIsSuccessful();
+        $botao = $crawler->filter('.navtop-action > button.mu-escritorio');
+        self::assertCount(1, $botao);
+        self::assertSame($tenant->getName(), $botao->attr('data-tip'));
+        self::assertNull($botao->attr('title'));
+    }
+
+    #[TestDox('dc L.144 e L.146-148/652: a busca tem a dica do desenho; no filtro Responsável, quem tem foto leva o data-foto (avatar com a foto no menu e no botão)')]
+    public function testDicaDaBuscaEFotoNoFiltroResponsavel(): void
+    {
+        $client = static::createClient();
+        [$admin, $tenant] = $this->entrar($client);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->persist((new UserProfile($admin))->setFotoUrl('foto_filtro.jpg'));
+        $em->flush();
+        $this->criarPasta($tenant, 'FOTO-' . uniqid());
+
+        // Os filtros vêm no painel do acervo (fragmento trocável), não na casca da página.
+        $crawler = $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
+        self::assertResponseIsSuccessful();
+
+        self::assertSame(
+            'Buscar por número da pasta, nome do cliente, ação ou número do processo',
+            $crawler->filter('.pasta-filtros-linha > .pasta-filtros-busca')->attr('data-tip'),
+        );
+        $opcao = $crawler->filter('.exp-filtro--resp > select[name="responsavel"] > option[value="' . $admin->getId() . '"]');
+        self::assertCount(1, $opcao);
+        self::assertSame('/perfil/foto/foto_filtro.jpg', $opcao->attr('data-foto'));
+
+        $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/expediente-lista.js');
+        self::assertStringContainsString("foto: op.getAttribute('data-foto') || ''", $js);
+        self::assertStringContainsString("if (it.foto) { fotoNoAvatar(av, it.foto); }", $js);
+        self::assertStringContainsString("av.style.background = '#0a6fa0 url(\"' + url + '\") center/cover no-repeat';", $js);
+    }
+
     private function entrar($client): array
     {
         $container = static::getContainer();

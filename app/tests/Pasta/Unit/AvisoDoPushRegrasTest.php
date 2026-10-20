@@ -39,7 +39,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(AvisoDoPushDaPasta::class)]
 final class AvisoDoPushRegrasTest extends TestCase
 {
-    #[TestDox('Padrões: responsável e e-mail ligados (como no desenho); IA desligada (D2, a confirmar)')]
+    #[TestDox('Padrões: responsável e e-mail ligados (como no desenho); IA desligada (D2, decidido pelo dono em 19/10)')]
     public function testPadroes(): void
     {
         $chaves = ChavesDoAvisoDoPush::da(null);
@@ -50,12 +50,12 @@ final class AvisoDoPushRegrasTest extends TestCase
         self::assertSame([true, true, false], array_map(PadroesDoAvisoDoPush::de(...), ChaveDoAvisoDoPush::cases()));
     }
 
-    #[TestDox('A linha nasce dos padrões, alterna só a chave pedida e guarda quem mexeu')]
+    #[TestDox('A linha nasce dos padrões, muda só a chave pedida para o estado pedido e guarda quem mexeu')]
     public function testLinhaAlterna(): void
     {
         $quem = new User();
         $linha = new AvisoDoPushDaPasta(new Tenant(), new Pasta(), null, new \DateTimeImmutable('2026-10-01'));
-        $linha->alternar(ChaveDoAvisoDoPush::Ia, $quem, new \DateTimeImmutable('2026-10-19 10:00'));
+        $linha->definir(ChaveDoAvisoDoPush::Ia, true, $quem, new \DateTimeImmutable('2026-10-19 10:00'));
 
         $chaves = ChavesDoAvisoDoPush::da($linha);
         self::assertTrue($chaves->responsavel);
@@ -150,7 +150,7 @@ final class AvisoDoPushRegrasTest extends TestCase
     #[TestDox('Cartão: rótulos do desenho na ordem; e-mail travado sem o responsável; IA travada com o motivo real')]
     public function testCartao(): void
     {
-        $cartao = AvisosDoPushOutput::montar(new ChavesDoAvisoDoPush(false, true, false), Disponibilidade::DesligadaNoEscritorio);
+        $cartao = AvisosDoPushOutput::montar(new ChavesDoAvisoDoPush(false, true, false), Disponibilidade::DesligadaNoEscritorio->mensagem() . '.');
 
         self::assertSame(['Responsável da pasta', 'Por e-mail', 'Análise da BlueJus IA'], array_map(static fn ($i): string => $i->rotulo, $cartao->itens));
         self::assertSame([false, true, false], array_map(static fn ($i): bool => $i->ligado, $cartao->itens));
@@ -158,7 +158,7 @@ final class AvisoDoPushRegrasTest extends TestCase
         self::assertSame('Ligue o aviso ao responsável para receber por e-mail.', $cartao->itens[1]->dica);
         self::assertSame('BlueJus IA desligada neste escritório. Peça ao administrador.', $cartao->itens[2]->dica);
 
-        $livre = AvisosDoPushOutput::montar(new ChavesDoAvisoDoPush(true, true, false), Disponibilidade::Disponivel);
+        $livre = AvisosDoPushOutput::montar(new ChavesDoAvisoDoPush(true, true, false), null);
         self::assertSame([false, false, false], array_map(static fn ($i): bool => $i->travado, $livre->itens));
         self::assertSame(['chave' => 'ia', 'ligado' => false, 'travado' => false, 'dica' => null], $livre->paraJson()[2]);
     }

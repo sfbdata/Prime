@@ -2,7 +2,7 @@
 
 namespace App\Repository;
 
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -272,7 +272,7 @@ class EventoRepository extends ServiceEntityRepository
      *
      * Exige o alias `e`. Parâmetros com prefixo próprio para não colidir com os da consulta.
      */
-    private function restringirAoVisivelPara(QueryBuilder $qb, User $visualizador): QueryBuilder
+    public function restringirAoVisivelPara(QueryBuilder $qb, User $visualizador): QueryBuilder
     {
         return $qb
             ->andWhere(

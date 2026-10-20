@@ -107,31 +107,36 @@
 {# ── Tabela (dc L.190-234, E12) ─────────────────────────────────────────
    Colunas do 1.1: NUP · Cliente · Réu · Ação · Prioridade · Responsável · Metas · Marcadores · Situação. Cada
    <col>, <th> e <td> leva `data-col`: o menu de colunas esconde por ele (expediente-lista.js). A linha leva o que
-   o menu de botão direito precisa (id, número, nome, trancada, destaque) e as cores do destaque do usuário. #}
+   o menu de botão direito precisa (id, número, nome, trancada, destaque) e as cores do destaque do usuário.
+   Cadeado (spec pasta-cadeado D1): `cadeados[id]` traz o nível de quem olha. Pasta OCULTA para a pessoa continua
+   listada só com o número, o cliente e o cadeado; as outras células ficam vazias (`data-oculta="1"` abre a janela
+   "Pasta N protegida" no lugar da pasta). #}
 {% set PRIO = {normal: 'Normal', prioridade: 'Alta', urgente: 'Urgente'} %}
 {% set PRIO_TIP = {normal: 'Prioridade normal: segue o fluxo padrão', prioridade: 'Prioridade alta: tratar antes das demais', urgente: 'Urgente: exige providência imediata'} %}
 {% set SIT = {ativo: ['Ativo', 'Pasta em andamento'], suspenso: ['Suspenso', 'Andamento suspenso temporariamente'], cancelado: ['Cancelado', 'Pasta cancelada'], arquivado: ['Arquivado', 'Pasta encerrada e arquivada']} %}
 {% set reusPorPasta = reusPorPasta ?? {} %}
 {% set pastasPorCliente = pastasPorCliente ?? {} %}
 {% set destaques = destaques ?? {} %}
+{% set cadeados = cadeados ?? {} %}
 <div class="pastas-tabela-wrap card">
     <div class="card-body table-responsive p-0">
-        <table class="table table-hover mb-0" id="tabelaPastas" data-csrf-lista="{{ csrfLista ?? '' }}" data-sou-admin="{{ (souAdministrador ?? false) ? '1' : '0' }}">
+        <table class="table table-hover mb-0" id="tabelaPastas" data-csrf-lista="{{ csrfLista ?? '' }}" data-sou-admin="{{ (souAdministrador ?? false) ? '1' : '0' }}"
+               data-chave-colunas="{{ (current_tenant() ? current_tenant().id : 0) ~ ':' ~ (app.user ? app.user.id : 0) }}">
             <colgroup>
                 <col data-col="nup"><col data-col="cliente"><col data-col="reu"><col data-col="acao"><col data-col="prio">
                 <col data-col="resp"><col data-col="metas"><col data-col="marc"><col data-col="sit">
             </colgroup>
             <thead class="table-light">
                 <tr>
-                    <th data-col="nup" class="sortable {{ ordColVis == 'nup' ? ordDirVis }}" data-ordenar="nup" title="Número único da pasta"{{ tab.ariaSort('nup', ordColVis, ordDirVis) }}><i class="bi bi-upc me-1"></i>NUP {{ tab.seta('nup', ordColVis, ordDirVis) }}</th>
-                    <th data-col="cliente" class="sortable {{ ordColVis == 'cliente' ? ordDirVis }}" data-ordenar="cliente" title="Ordenar por cliente"{{ tab.ariaSort('cliente', ordColVis, ordDirVis) }}><i class="bi bi-person me-1"></i>Cliente {{ tab.seta('cliente', ordColVis, ordDirVis) }}</th>
-                    <th data-col="reu" class="col-reu-tabela" title="Parte adversa (polo passivo dos processos da pasta)"><i class="bi bi-person-x me-1"></i>Réu</th>
-                    <th data-col="acao" class="sortable col-acao-tabela {{ ordColVis == 'acao' ? ordDirVis }}" data-ordenar="acao" title="Ordenar por ação"{{ tab.ariaSort('acao', ordColVis, ordDirVis) }}><i class="bi bi-bank me-1"></i>Ação {{ tab.seta('acao', ordColVis, ordDirVis) }}</th>
-                    <th data-col="prio" class="sortable {{ ordColVis == 'prioridade' ? ordDirVis }}" data-ordenar="prioridade" title="Ordenar por prioridade"{{ tab.ariaSort('prioridade', ordColVis, ordDirVis) }}><i class="bi bi-flag me-1"></i>Prioridade {{ tab.seta('prioridade', ordColVis, ordDirVis) }}</th>
-                    <th data-col="resp" class="sortable col-resp-tabela {{ ordColVis == 'responsavel' ? ordDirVis }}" data-ordenar="responsavel" title="Ordenar por responsável"{{ tab.ariaSort('responsavel', ordColVis, ordDirVis) }}><i class="bi bi-person-badge me-1"></i>Responsável {{ tab.seta('responsavel', ordColVis, ordDirVis) }}</th>
-                    <th data-col="metas" class="col-tarefas-tabela" title="Metas da pasta"><i class="bi bi-check2-square me-1"></i>Metas</th>
-                    <th data-col="marc" class="sortable col-marc-tabela {{ ordColVis == 'marcadores' ? ordDirVis }}" data-ordenar="marcadores" title="Ordenar por marcador"{{ tab.ariaSort('marcadores', ordColVis, ordDirVis) }}><i class="bi bi-tags me-1"></i>Marcadores {{ tab.seta('marcadores', ordColVis, ordDirVis) }}</th>
-                    <th data-col="sit" class="sortable {{ ordColVis == 'situacao' ? ordDirVis }}" data-ordenar="situacao" title="Ordenar por situação"{{ tab.ariaSort('situacao', ordColVis, ordDirVis) }}><i class="bi bi-circle-half me-1"></i>Situação {{ tab.seta('situacao', ordColVis, ordDirVis) }}</th>
+                    <th data-col="nup" class="sortable {{ ordColVis == 'nup' ? ordDirVis }}" data-ordenar="nup" title="Número único da pasta"{{ tab.ariaSort('nup', ordColVis, ordDirVis) }}><span class="exp-th"><i class="bi bi-upc me-1"></i><span class="exp-th-rot">NUP</span>{{ tab.seta('nup', ordColVis, ordDirVis) }}</span></th>
+                    <th data-col="cliente" class="sortable {{ ordColVis == 'cliente' ? ordDirVis }}" data-ordenar="cliente" title="Ordenar por cliente"{{ tab.ariaSort('cliente', ordColVis, ordDirVis) }}><span class="exp-th"><i class="bi bi-person me-1"></i><span class="exp-th-rot">Cliente</span>{{ tab.seta('cliente', ordColVis, ordDirVis) }}</span></th>
+                    <th data-col="reu" class="sortable col-reu-tabela {{ ordColVis == 'reu' ? ordDirVis }}" data-ordenar="reu" title="Parte adversa · ordenar por réu"{{ tab.ariaSort('reu', ordColVis, ordDirVis) }}><span class="exp-th"><i class="bi bi-person-x me-1"></i><span class="exp-th-rot">Réu</span>{{ tab.seta('reu', ordColVis, ordDirVis) }}</span></th>
+                    <th data-col="acao" class="sortable col-acao-tabela {{ ordColVis == 'acao' ? ordDirVis }}" data-ordenar="acao" title="Ordenar por ação"{{ tab.ariaSort('acao', ordColVis, ordDirVis) }}><span class="exp-th"><i class="bi bi-bank me-1"></i><span class="exp-th-rot">Ação</span>{{ tab.seta('acao', ordColVis, ordDirVis) }}</span></th>
+                    <th data-col="prio" class="sortable {{ ordColVis == 'prioridade' ? ordDirVis }}" data-ordenar="prioridade" title="Ordenar por prioridade"{{ tab.ariaSort('prioridade', ordColVis, ordDirVis) }}><span class="exp-th"><i class="bi bi-flag me-1"></i><span class="exp-th-rot">Prioridade</span>{{ tab.seta('prioridade', ordColVis, ordDirVis) }}</span></th>
+                    <th data-col="resp" class="sortable col-resp-tabela {{ ordColVis == 'responsavel' ? ordDirVis }}" data-ordenar="responsavel" title="Ordenar por responsável"{{ tab.ariaSort('responsavel', ordColVis, ordDirVis) }}><span class="exp-th"><i class="bi bi-person-badge me-1"></i><span class="exp-th-rot">Responsável</span>{{ tab.seta('responsavel', ordColVis, ordDirVis) }}</span></th>
+                    <th data-col="metas" class="col-tarefas-tabela" title="Metas abertas na pasta"><span class="exp-th"><i class="bi bi-check2-square me-1"></i><span class="exp-th-rot">Metas</span></span></th>
+                    <th data-col="marc" class="sortable col-marc-tabela {{ ordColVis == 'marcadores' ? ordDirVis }}" data-ordenar="marcadores" title="Ordenar por marcador"{{ tab.ariaSort('marcadores', ordColVis, ordDirVis) }}><span class="exp-th"><i class="bi bi-tags me-1"></i><span class="exp-th-rot">Marcadores</span>{{ tab.seta('marcadores', ordColVis, ordDirVis) }}</span></th>
+                    <th data-col="sit" class="sortable {{ ordColVis == 'situacao' ? ordDirVis }}" data-ordenar="situacao" title="Ordenar por situação"{{ tab.ariaSort('situacao', ordColVis, ordDirVis) }}><span class="exp-th"><i class="bi bi-circle-half me-1"></i><span class="exp-th-rot">Situação</span>{{ tab.seta('situacao', ordColVis, ordDirVis) }}</span></th>
                 </tr>
             </thead>
             <tbody>
@@ -143,20 +148,23 @@
                 {% set rep = cliPrin ? (pastasPorCliente[cliPrin.id] ?? 0) : 0 %}
                 {% set dest = destaques[pasta.id] ?? '' %}
                 {% set sit = pasta.estaExcluida ? null : (SIT[pasta.situacao] ?? [pasta.situacao, '']) %}
-                <tr class="pasta-row-link{% if pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}{% if pasta.estaExcluida %} pasta-excluida{% endif %}"
+                {% set cad = cadeados[pasta.id] ?? null %}
+                {% set oculta = cad is not null and cad.nivel == 'oculto' %}
+                {# D1: a linha da pasta oculta não diz a prioridade nem a situação (nem a lápide). #}
+                <tr class="pasta-row-link{% if not oculta and pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}{% if not oculta and pasta.estaExcluida %} pasta-excluida{% endif %}"
                     style="cursor:pointer;" data-href="{{ path('pasta_show', {id: pasta.id}) }}"
                     data-pasta-id="{{ pasta.id }}" data-nup="{{ pasta.nup }}" data-nome="{{ nomeLinha }}"
                     data-url-nome="{{ path('expediente_pasta_nome', {id: pasta.id}) }}"
                     data-url-trancar="{{ path('expediente_pasta_trancar', {id: pasta.id}) }}"
                     data-url-destaque="{{ path('expediente_pasta_destaque', {id: pasta.id}) }}"
-                    data-trancada="{{ pasta.estaTrancada ? '1' : '0' }}"
+                    data-trancada="{{ cad ? '1' : '0' }}" data-oculta="{{ oculta ? '1' : '0' }}"{% if oculta %} data-csrf-pedir="{{ csrf_token('pasta_acesso_' ~ pasta.id) }}"{% endif %}
                     data-nome-editavel="{{ identificador is not null and identificador != pasta.nomeCliente ? '0' : '1' }}"
                     {% if dest %}data-dest="{{ dest }}"{% endif %}>
                     <td data-col="nup" class="fw-semibold align-middle" data-favorito-celula="{{ pasta.id }}">
                         <span class="exp-nup">{% if favoritasIds[pasta.id] is defined %}<i class="bi bi-star-fill pasta-favorita-estrela me-1 js-pasta-tabela-favorita" data-pasta-id="{{ pasta.id }}" title="Fixada nos favoritos" aria-label="Fixada nos favoritos"></i>{% endif %}{{ pasta.nup }}</span>
-                        {%- if pasta.estaTrancada %}
+                        {%- if cad %}
                             <i class="bi bi-lock exp-cadeado js-cadeado" aria-label="Pasta trancada"
-                               data-tip="Documentos sigilosos · pasta trancada{{ pasta.trancadaPor ? ' por ' ~ pasta.trancadaPor.fullName : ' pelo usuário primário' }}{{ pasta.trancadaEm ? ' em ' ~ pasta.trancadaEm|date('d/m/Y') }}"></i>
+                               data-tip="Documentos sigilosos · pasta trancada{{ cad.por ? ' por ' ~ cad.por : ' pelo usuário primário' }} em {{ cad.em }}"></i>
                         {%- endif %}
                     </td>
                     <td data-col="cliente" class="align-middle exp-cel-cliente">
@@ -182,6 +190,16 @@
                         {% if rep > 1 %}<span class="exp-rep" data-tip="{{ rep }} pastas com o mesmo nome e CPF">{{ rep }}x</span>{% endif %}
                         </span>
                     </td>
+                    {% if oculta %}
+                    {# D1: da pasta oculta só ficam o número, o cliente e o cadeado. #}
+                    <td data-col="reu" class="align-middle col-reu-tabela"></td>
+                    <td data-col="acao" class="col-acao-tabela align-middle"></td>
+                    <td data-col="prio" class="align-middle"></td>
+                    <td data-col="resp" class="col-resp-tabela align-middle"></td>
+                    <td data-col="metas" class="col-tarefas-tabela align-middle"></td>
+                    <td data-col="marc" class="col-marc-tabela align-middle"></td>
+                    <td data-col="sit" class="align-middle"></td>
+                    {% else %}
                     <td data-col="reu" class="align-middle col-reu-tabela">
                         {% if reus is not empty %}
                             <span class="text-truncate d-block exp-reu" data-tip="{{ reus|length > 1 ? 'Réus: ' ~ reus|join(' · ') : reus[0] }}">{{ reus[0] }}{{ reus|length > 1 ? ' e outros' }}</span>
@@ -263,6 +281,7 @@
                         <span class="badge exp-sit-fixa" data-situacao="{{ pasta.situacao }}" data-tip="{{ sit[1] }} · aberta em {{ pasta.dataAbertura|date('d/m/Y') }}">{{ sit[0] }}</span>
                         {% endif %}
                     </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -276,14 +295,20 @@
         {% set nomeLinha = identificador_pasta(pasta) ?: (pasta.clientes|length > 0 ? pasta.clientes[0].nomeExibicao : 'Sem cliente') %}
         {% set acao = pasta.nomeAcao ?: (pasta.processoPrincipal ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.numeroProcesso) : '') %}
         {% set sitS = pasta.estaExcluida ? 'excluida' : pasta.situacao %}
+        {% set cad = cadeados[pasta.id] ?? null %}
+        {% set oculta = cad is not null and cad.nivel == 'oculto' %}
         {# `div` com data-href, como a linha da tabela: sem link nativo, o aviso de pasta trancada vale para todo clique. #}
-        <div class="exp-simples-linha pasta-row-link{% if pasta.estaExcluida %} pasta-excluida{% endif %}" data-href="{{ path('pasta_show', {id: pasta.id}) }}" role="link" tabindex="0" data-pasta-id="{{ pasta.id }}" data-trancada="{{ pasta.estaTrancada ? '1' : '0' }}" data-nup="{{ pasta.nup }}">
-            <span class="exp-simples-ponto" data-situacao="{{ sitS }}" data-tip="{{ pasta.estaExcluida ? 'Excluída' : (SIT[pasta.situacao][1] ?? '') }}"></span>
+        <div class="exp-simples-linha pasta-row-link{% if not oculta and pasta.estaExcluida %} pasta-excluida{% endif %}" data-href="{{ path('pasta_show', {id: pasta.id}) }}" role="link" tabindex="0" data-pasta-id="{{ pasta.id }}" data-trancada="{{ cad ? '1' : '0' }}" data-oculta="{{ oculta ? '1' : '0' }}"{% if oculta %} data-csrf-pedir="{{ csrf_token('pasta_acesso_' ~ pasta.id) }}"{% endif %} data-nup="{{ pasta.nup }}">
+            {% if oculta %}<span class="exp-simples-ponto"></span>{% else %}<span class="exp-simples-ponto" data-situacao="{{ sitS }}" data-tip="{{ pasta.estaExcluida ? 'Excluída' : (SIT[pasta.situacao][1] ?? '') }}"></span>{% endif %}
             <span class="exp-simples-nup">{{ pasta.nup }}</span>
             <span class="exp-simples-cli" data-tip="{{ nomeLinha }}">{{ nomeLinha }}</span>
+            {% if oculta %}
+            <span class="exp-simples-acao"><i class="bi bi-lock exp-cadeado" aria-label="Pasta trancada"></i></span>
+            {% else %}
             <span class="exp-simples-acao" data-tip="{{ acao }}">{{ acao }}</span>
             {% set r = pasta.responsavel %}
             <span class="exp-simples-av{{ r ? '' : ' is-vazio' }}" data-tip="{{ r ? r.fullName : 'Sem responsável' }}">{{ r ? (r.fullName|split(' ')|filter(p => p != '')|slice(0, 2)|map(p => p|first)|join|upper) : '?' }}</span>
+            {% endif %}
         </div>
     {% endfor %}
 </div>
@@ -295,12 +320,15 @@
         {% set acao = pasta.nomeAcao ?: (pasta.processoPrincipal ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.numeroProcesso) : '') %}
         {% set r = pasta.responsavel %}
         {% set eFavorita = favoritasIds[pasta.id] is defined %}
+        {% set cad = cadeados[pasta.id] ?? null %}
+        {% set oculta = cad is not null and cad.nivel == 'oculto' %}
         {# `div` com data-href (como a linha da tabela): o cartão tem o botão da estrela dentro, e botão não vai em link.
            A estrela de favorito é só do BlueJus (o desenho não tem); lápide mostra só o indicador. #}
-        <div class="exp-cartao pasta-card pasta-row-link{% if pasta.estaExcluida %} pasta-excluida{% endif %}" data-href="{{ path('pasta_show', {id: pasta.id}) }}" data-pasta-id="{{ pasta.id }}" data-trancada="{{ pasta.estaTrancada ? '1' : '0' }}" data-nup="{{ pasta.nup }}">
+        <div class="exp-cartao pasta-card pasta-row-link{% if not oculta and pasta.estaExcluida %} pasta-excluida{% endif %}" data-href="{{ path('pasta_show', {id: pasta.id}) }}" data-pasta-id="{{ pasta.id }}" data-trancada="{{ cad ? '1' : '0' }}" data-oculta="{{ oculta ? '1' : '0' }}"{% if oculta %} data-csrf-pedir="{{ csrf_token('pasta_acesso_' ~ pasta.id) }}"{% endif %} data-nup="{{ pasta.nup }}">
             <span class="exp-cartao-topo pasta-card-topo">
                 <span class="pasta-card-ident">
-                    {% if pasta.estaExcluida %}
+                    {% if oculta %}
+                    {% elseif pasta.estaExcluida %}
                         {% if eFavorita %}<i class="bi bi-star-fill pasta-favorita-estrela" title="Fixada nos favoritos" aria-label="Fixada nos favoritos"></i>{% endif %}
                     {% else %}
                         <button type="button" class="pasta-card-fav js-pasta-card-favorito{{ eFavorita ? ' is-favorita' : '' }}"
@@ -313,8 +341,9 @@
                             <i class="bi {{ eFavorita ? 'bi-star-fill' : 'bi-star' }}" aria-hidden="true"></i>
                         </button>
                     {% endif %}
-                    <span class="exp-cartao-nup pasta-card-nup">PASTA {{ pasta.nup }}{% if pasta.estaTrancada %} <i class="bi bi-lock exp-cadeado" aria-label="Pasta trancada"></i>{% endif %}</span>
+                    <span class="exp-cartao-nup pasta-card-nup">PASTA {{ pasta.nup }}{% if cad %} <i class="bi bi-lock exp-cadeado" aria-label="Pasta trancada"></i>{% endif %}</span>
                 </span>
+                {% if not oculta %}
                 <span class="exp-cartao-vao"></span>
                 <span class="exp-prio exp-prio--cartao" data-prio="{{ pasta.prioridade.value }}"><i class="bi bi-flag-fill" aria-hidden="true"></i>{{ PRIO[pasta.prioridade.value] }}</span>
                 {% if pasta.estaExcluida %}
@@ -322,8 +351,10 @@
                 {% else %}
                     <span class="exp-sit-chip" data-situacao="{{ pasta.situacao }}"><span class="exp-sit-chip-ponto"></span>{{ SIT[pasta.situacao][0] ?? pasta.situacao }}</span>
                 {% endif %}
+                {% endif %}
             </span>
             <span class="exp-cartao-cli" data-tip="{{ nomeLinha }}">{{ nomeLinha }}</span>
+            {% if not oculta %}
             <span class="exp-cartao-acao" data-tip="{{ acao }}">{{ acao ?: 'Não informada' }}</span>
             <span class="exp-cartao-pe">
                 <span class="exp-simples-av{{ r ? '' : ' is-vazio' }}">{{ r ? (r.fullName|split(' ')|filter(p => p != '')|slice(0, 2)|map(p => p|first)|join|upper) : '?' }}</span>
@@ -334,6 +365,7 @@
                     <span class="exp-chip-marc exp-chip-marc--cartao" style="--mk-cor: {{ primeiro.cor|cor_marcador }};">{{ primeiro.nome }}{% if pasta.marcadores|length > 1 %} +{{ pasta.marcadores|length - 1 }}{% endif %}</span>
                 {% endif %}
             </span>
+            {% endif %}
         </div>
     {% endfor %}
 </div>
