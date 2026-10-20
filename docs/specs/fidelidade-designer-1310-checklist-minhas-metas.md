@@ -145,7 +145,7 @@
 | MM-MENU-08 | "Abrir relatório completo" (R118) | item | **✓ E5c** — → `tarefa_show` (a página da meta, o relatório completo) | — | já existe | R118 |
 | MM-MENU-09 | "Ir para a aba Metas da pasta" (R118) | item | **✓ E5c** — → `/pasta/{id}?meta={id}#tarefas`: aba Metas aberta, meta realçada (realce do PMC-044; meta concluída abre no filtro "Concluídas") | — | não | R118 |
 | MM-MENU-10 | "Editar nome" (R236) | item | **✓ E5c** — → `…&acao=renomear#tarefas`: a pasta abre a edição de nome do próprio ⋮ dela (mesmo form, mesmo POST `tarefa_renomear`, volta para a aba Metas da pasta). Oculto em pasta excluída, como na pasta | — | já existe | R236 |
-| MM-MENU-11 | "Encaminhar via Chat I.A" (R223) | item | ∅ | — | **sim** | R223 |
+| MM-MENU-11 | "Encaminhar via Chat I.A" (R223) | item | **✓ Encaminhar PR4b**: último item do ⋮, só com a Central e fora da lápide | — | — | R223 |
 | MM-MENU-12 | Menu de botão direito: nenhum | menu | ✓ (ambos sem) | — | — | — |
 
 ## 7. Trilho direito

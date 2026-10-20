@@ -74,8 +74,10 @@
            "Abrir relatório completo" mantém o acesso à meta que a antiga seta dava. Os outros dois
            levam à aba Metas da pasta com a meta realçada (PMC-044); "Editar nome" abre ali a edição
            que já existe no ⋮ da pasta (pasta-metas.js, `acao=renomear`), com a mesma regra de
-           exibição: pasta excluída é somente leitura. "Encaminhar via Chat I.A" (R223) não tem
-           backend: fica fora, registrado no checklist (MM-MENU-11).
+           exibição: pasta excluída é somente leitura. "Encaminhar via Chat I.A" (R223, MM-MENU-11) vem por
+           último, como a especificação lista, com o mesmo ícone do ⋮ da aba Metas (D:3737): só ids em
+           `data-*` (a pasta da meta e a meta), o clique dispara `bj-central:despachar` (script de
+           minhas.html.twig). Só com a Central (`encaminharMetas`, do _resultado) e fora da lápide.
            `strategy: fixed` tira o menu do recorte do cartão (`overflow: hidden`). #}
         <div class="dropdown mm-menu">
             <button type="button" class="mm-acao-icone" title="Opções" aria-label="Opções da meta"
@@ -87,6 +89,9 @@
                 <li><a class="dropdown-item mm-menu-item" href="{{ path('pasta_show', {id: meta.pasta.id, meta: meta.id}) }}#tarefas"><i class="bi bi-folder2-open"></i>Ir para a aba Metas da pasta</a></li>
                 {% if not meta.pasta.estaExcluida %}
                     <li><a class="dropdown-item mm-menu-item" href="{{ path('pasta_show', {id: meta.pasta.id, meta: meta.id, acao: 'renomear'}) }}#tarefas"><i class="bi bi-pencil"></i>Editar nome</a></li>
+                {% endif %}
+                {% if encaminharMetas|default(false) and meta.pasta and not meta.pasta.estaExcluida %}
+                    <li><button type="button" class="dropdown-item mm-menu-item js-mm-encaminhar" data-encaminhar-pasta="{{ meta.pasta.id }}" data-encaminhar-tipo="meta" data-encaminhar-id="{{ meta.id }}"><i class="bi bi-send"></i>Encaminhar via Chat I.A</button></li>
                 {% endif %}
             </ul>
         </div>

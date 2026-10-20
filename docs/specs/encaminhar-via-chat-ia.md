@@ -14,6 +14,16 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
   não há API nesta fatia), tela "Despachar via Chat I.A" no `central.js` (`mostrarTela('despacho')`) e o chip "Pasta N"
   **só como texto**: a mensagem não guarda o id da pasta, o chip sai da linha "Pasta NUP" e não abre a pasta (link
   depende da coluna `referencia`, §5). Pendente: smoke do dono e o Playwright comparativo.
+- **20/10, PR4b implementado (em revisão):** branch `encaminhar-metas`, empilhada sobre `encaminhar-responsaveis`
+  (#128). O item "Encaminhar via Chat I.A" (`bi-send`) no ⋮ da meta da aba Metas (D:3737, tipo `meta`: depois de
+  "Editar nome", porque "Duplicar" não existe, e antes de "Copiar link"), no ⋮ do prazo do trilho "Próximos prazos"
+  da aba Dados (D:6561, logo depois de "Ver nas metas") e no ⋮ do cartão de Minhas Metas (R223, MM-MENU-11, por
+  último, com a pasta da meta). O clique dispara `bj-central:despachar` no próprio JS de cada área
+  (`pasta-metas.js`, `pasta-prazos.js`, script de `tarefa/minhas.html.twig`), com classes próprias
+  (`.js-meta-encaminhar`, `.js-prazo-encaminhar`, `.js-mm-encaminhar`) para não cruzar com o ouvinte dos registros do
+  PR4a. `central_disponivel()` lido uma vez por template; sem a Central e na lápide nada aparece. **Desvio da decisão
+  9:** o prazo do trilho leva o id real, não a pasta: a linha que é meta vai como `meta` (Tarefa.id) e o prazo
+  registrado como `prazo` (PastaPrazo.id), os dois tipos que o backend já relê (§3). Pendente: smoke do dono.
 
 ### Para o dono
 
