@@ -44,6 +44,7 @@ security:
         - { path: ^/senha,            roles: PUBLIC_ACCESS }  # recuperação de senha (quem esqueceu não consegue logar)
         - { path: ^/login,            roles: PUBLIC_ACCESS }
         - { path: ^/politica-de-privacidade, roles: PUBLIC_ACCESS }  # leitura pública: quem ainda não tem conta precisa ler
+        - { path: ^/email/descadastro, roles: PUBLIC_ACCESS }  # "Não quero mais receber estes avisos": link assinado, sem login
 
         # A partir daqui: apenas usuário autenticado.
         # Autorização fina (o que pode fazer) é responsabilidade dos controllers
