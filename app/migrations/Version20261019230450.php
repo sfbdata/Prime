@@ -19,7 +19,7 @@ use Doctrine\Migrations\AbstractMigration;
  * (`uniq_cobranca_obrigacao_ref_competencia`, `idx_cobranca_pessoa_tenant_c*_digitos`) e os
  * `ALTER ... atual DROP DEFAULT` da cobrança.
  */
-final class Version20261020090000 extends AbstractMigration
+final class Version20261019230450 extends AbstractMigration
 {
     public function getDescription(): string
     {
