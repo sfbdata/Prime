@@ -636,6 +636,87 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertFalse($this->json($client)['demanda']['mostraConvites']);
     }
 
+    #[TestDox('escritório dono fora do ar (suspenso ou excluído): o convidado só lê e vê "pausada"; a Central segue agindo; reativado, volta a agir')]
+    public function testConvidadoDeEscritorioForaDoArSoLe(): void
+    {
+        [$client, $codigo, $master, $central, , $escritorio] = $this->demandaEmExecucao();
+        $this->logarComTenant($client, $master, $central);
+        $this->anexar($client, $codigo, 'instrucoes.pdf');
+        $token = $this->convidar($client, $codigo, 'pausa@test.com', array_fill_keys(array_keys(ConviteDemanda::PERMISSOES), true));
+        $convidado = $this->contaDoConvidado($client, $token, 'pausa@test.com');
+
+        foreach (['suspenso' => null, 'excluído' => new \DateTimeImmutable()] as $caso => $excluidoEm) {
+            $this->colocarForaDoAr($escritorio, $excluidoEm);
+            $this->logarComoConvidado($client, $convidado);
+
+            $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+            self::assertResponseIsSuccessful($caso);
+            $d = $this->json($client)['demanda'];
+            self::assertSame('Esta demanda está pausada. Fale com a Central.', $d['pausada'], $caso);
+            self::assertSame([], $d['botoes'], $caso);
+            self::assertFalse($d['podeConversar'], $caso);
+            self::assertFalse($d['podeAnexar'], $caso);
+            self::assertFalse($d['podeAndamento'], $caso);
+            self::assertStringNotContainsString('Solicitante', (string) $d['pausada'], 'sem o nome do escritório');
+
+            foreach ([
+                "/trabalho-externo/api/demandas/$codigo/mensagens" => ['texto' => 'olá'],
+                "/trabalho-externo/api/demandas/$codigo/andamentos" => ['texto' => 'Cheguei'],
+                "/trabalho-externo/api/demandas/$codigo/checklist/0" => [],
+                "/trabalho-externo/api/demandas/$codigo/acoes/impedimento" => ['motivo' => 'Fórum fechado'],
+                "/trabalho-externo/api/demandas/$codigo/acoes/prorrogar" => ['motivo' => 'Mais um dia'],
+            ] as $url => $corpo) {
+                $this->postarJson($client, $url, $corpo);
+                self::assertResponseStatusCodeSame(403, "$caso: $url");
+            }
+            $arquivo = tempnam(sys_get_temp_dir(), 'te');
+            file_put_contents($arquivo, '%PDF-1.4 x');
+            $client->request('POST', "/trabalho-externo/api/demandas/$codigo/documentos", [], ['documentos' => [new \Symfony\Component\HttpFoundation\File\UploadedFile($arquivo, 'novo.pdf', 'application/pdf', null, true)]], ['HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax']);
+            self::assertResponseStatusCodeSame(403, "$caso: documento");
+
+            $client->request('GET', "/trabalho-externo/demandas/$codigo/documentos/" . $d['documentos'][0]['id']);
+            self::assertResponseIsSuccessful("$caso: o download continua");
+            $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/lida");
+            self::assertResponseIsSuccessful("$caso: marcar como lida continua");
+
+            $this->logarComTenant($client, $master, $central);
+            $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => "A Central segue ($caso)"]);
+            self::assertResponseIsSuccessful("$caso: a Central segue agindo");
+        }
+
+        $this->colocarForaDoAr($escritorio, null, true);
+        $this->logarComoConvidado($client, $convidado);
+        $d = $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'voltei'])['demanda'];
+        self::assertResponseIsSuccessful('reativado, volta a agir');
+        self::assertNull($d['pausada']);
+    }
+
+    #[TestDox('aceitar convite de demanda de escritório fora do ar é recusado com a frase do convite indisponível')]
+    public function testAceitarConviteDeEscritorioForaDoAr(): void
+    {
+        [$client, $codigo, $master, $central, , $escritorio] = $this->demandaEmExecucao();
+        $comConta = $this->criarUsuario($this->criarTenant('Correspondente'));
+        $this->logarComTenant($client, $master, $central);
+        $token = $this->convidar($client, $codigo, (string) $comConta->getEmail());
+        $this->colocarForaDoAr($escritorio, null);
+
+        $this->logarComoConvidado($client, $comConta);
+        $crawler = $client->request('GET', "/trabalho-externo/convite/$token");
+        $client->request('POST', "/trabalho-externo/convite/$token/aceitar", ['_token' => $crawler->filter('form[action$="/aceitar"] input[name="_token"]')->attr('value')]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('Este convite não está mais disponível.', (string) $client->getResponse()->getContent());
+        self::assertNull($this->em()->getRepository(ConviteDemanda::class)->peloToken($token)?->getConvidado());
+    }
+
+    private function colocarForaDoAr(\App\Entity\Tenant\Tenant $escritorio, ?\DateTimeImmutable $excluidoEm, bool $reativar = false): void
+    {
+        $escritorio = $this->em()->find(\App\Entity\Tenant\Tenant::class, $escritorio->getId());
+        $escritorio->setIsActive($reativar);
+        $escritorio->setExcluidoEm($reativar ? null : $excluidoEm);
+        $this->em()->flush();
+    }
+
     private function aceitarLogado(KernelBrowser $client, User $usuario, string $token): void
     {
         $client->getCookieJar()->clear();
