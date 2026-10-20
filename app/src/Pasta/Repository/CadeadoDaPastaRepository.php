@@ -164,6 +164,33 @@ class CadeadoDaPastaRepository extends ServiceEntityRepository
         return array_values(array_map(static fn (array $l): int => (int) $l['pasta'], $linhas));
     }
 
+    /**
+     * Os processos cujas pastas vinculadas estão TODAS entre estas (as ocultas para alguém): spec
+     * pasta-cadeado K3, "processo" está no que o Oculto não vê. Processo com pelo menos uma pasta fora da
+     * lista, ou sem pasta, não entra.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return list<int>
+     */
+    public function processosSoDestasPastas(array $pastaIds): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->getEntityManager()->createQueryBuilder()
+            ->select('DISTINCT IDENTITY(pp.processo) AS processo')
+            ->from(PastaProcesso::class, 'pp')
+            ->andWhere('IDENTITY(pp.pasta) IN (:pastas)')
+            ->andWhere('NOT EXISTS (SELECT pp2.id FROM ' . PastaProcesso::class . ' pp2 WHERE pp2.processo = pp.processo AND IDENTITY(pp2.pasta) NOT IN (:pastas))')
+            ->setParameter('pastas', $pastaIds)
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_values(array_map(static fn (array $l): int => (int) $l['processo'], $linhas));
+    }
+
     /** O escritório pelo id, sem consulta (referência do Doctrine), para quem só tem o id (SQL nativo). */
     public function escritorioPorId(int $tenantId): Tenant
     {

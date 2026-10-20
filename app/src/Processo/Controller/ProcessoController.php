@@ -11,6 +11,7 @@ use App\Processo\Repository\ProcessoRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Cliente\Repository\ClienteRepository;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Processo\Enum\MotivoFalhaDatajud;
 use App\Processo\Exception\ConsultaDatajudException;
@@ -69,7 +70,7 @@ class ProcessoController extends AbstractController
     ) {}
 
     #[Route('/', name: 'processo_index', methods: ['GET'])]
-    public function index(Request $request, ProcessoRepository $repo, PermissionChecker $permissionChecker): Response
+    public function index(Request $request, ProcessoRepository $repo, PermissionChecker $permissionChecker, AcessoAPasta $acessoAPasta): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -90,11 +91,11 @@ class ProcessoController extends AbstractController
         $direcao = strtolower((string) $request->query->get('direcao', 'desc')) === 'asc' ? 'asc' : 'desc';
         $pagina  = max(1, (int) $request->query->get('page', 1));
 
-        $total        = $repo->countByFiltros($tenant, $filtros);
+        $total        = $repo->countByFiltros($tenant, $filtros, $tenant !== null ? $acessoAPasta->idsDosProcessosOcultos($currentUser, $tenant) : []);
         $totalPaginas = max(1, (int) ceil($total / self::PER_PAGE));
 
         $dados = [
-            'processos'     => $repo->findByFiltrosPaginado($tenant, $filtros, $pagina, self::PER_PAGE, $ordenar, $direcao),
+            'processos'     => $repo->findByFiltrosPaginado($tenant, $filtros, $pagina, self::PER_PAGE, $ordenar, $direcao, $tenant !== null ? $acessoAPasta->idsDosProcessosOcultos($currentUser, $tenant) : []),
             'total'         => $total,
             'pagina'        => $pagina,
             'total_paginas' => $totalPaginas,
@@ -203,6 +204,7 @@ class ProcessoController extends AbstractController
         TarefaRepository $tarefaRepository,
         PastaRepository $pastaRepository,
         PermissionChecker $permissionChecker,
+        AcessoAPasta $acessoAPasta,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -210,6 +212,9 @@ class ProcessoController extends AbstractController
 
         $tenant = $this->tenantContext->getCurrentTenant();
         $processoId = (int) $processo->getId();
+        if ($tenant !== null && in_array($processoId, $acessoAPasta->idsDosProcessosOcultos($currentUser, $tenant), true)) {
+            throw $this->createAccessDeniedException('O usuário primário restringiu o acesso às pastas deste processo.');
+        }
         if ($redirect = $this->denyResourceAccessUnlessGranted($permissionChecker, $tenant, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_VIEW, 'processo_index', $processo->getNumeroProcesso())) {
             return $redirect;
         }

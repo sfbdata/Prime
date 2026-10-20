@@ -114,9 +114,9 @@ final class ExpedienteController extends AbstractController
     {
         return [
             'pastas'              => $this->marcadorRepository->findRaizPorTenant($tenant),
-            'contagemPastas'      => $this->pastaRepository->countPorMarcadores($tenant),
-            'contagemRaiz'        => $this->pastaRepository->countPorMarcadoresDeTopoComFilhos($tenant),
-            'contagensExpediente' => $this->pastaRepository->contagensDosFiltrosDoExpediente($tenant),
+            'contagemPastas'      => $this->pastaRepository->countPorMarcadores($tenant, $this->quemConsulta()),
+            'contagemRaiz'        => $this->pastaRepository->countPorMarcadoresDeTopoComFilhos($tenant, $this->quemConsulta()),
+            'contagensExpediente' => $this->pastaRepository->contagensDosFiltrosDoExpediente($tenant, $this->quemConsulta()),
             'totalPastas'         => $this->pastaRepository->countByFilters([], $tenant),
         ];
     }
@@ -282,7 +282,7 @@ final class ExpedienteController extends AbstractController
 
         $totalItems = $hasFilters
             ? $this->pastaRepository->countByFiltrosEMarcador($filters, $marcador, $tenant, $user)
-            : $this->pastaRepository->countPorMarcador($marcador, $tenant);
+            : $this->pastaRepository->countPorMarcador($marcador, $tenant, $user);
 
         $porPagina  = $this->porPaginaDaRequest($request);
         $totalPages = max(1, (int) ceil($totalItems / $porPagina));
@@ -290,7 +290,7 @@ final class ExpedienteController extends AbstractController
 
         $pastas = $hasFilters
             ? $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant, $page, $porPagina, $ordenar, $direcao, $user, $user)
-            : $this->pastaRepository->findPorMarcador($marcador, $tenant, $page, $porPagina, $ordenar, $direcao, $user);
+            : $this->pastaRepository->findPorMarcador($marcador, $tenant, $page, $porPagina, $ordenar, $direcao, $user, $user);
 
         $urlPainel = $this->generateUrl('expediente_marcador_pastas', ['id' => $id]);
 
@@ -647,6 +647,14 @@ final class ExpedienteController extends AbstractController
         $direcao = strtolower((string) $request->query->get('direcao', 'desc')) === 'asc' ? 'asc' : 'desc';
 
         return [$ordenar, $direcao];
+    }
+
+    /** Quem consulta as contagens do trilho (cadeado, D1: a pasta oculta não conta nos marcadores nem nos painéis). */
+    private function quemConsulta(): ?User
+    {
+        $user = $this->getUser();
+
+        return $user instanceof User ? $user : null;
     }
 
     private function assertAccess(User $user): Tenant

@@ -2659,9 +2659,10 @@ class PastaController extends AbstractController
 
 
     /**
-     * Cadeado (spec pasta-cadeado K3): quem está `Oculto` numa pasta COM cadeado vê só o cabeçalho (cliente e
-     * CPF) e a tela "Pasta trancada", com o pedido de acesso. Pasta de outro escritório segue o caminho de
-     * sempre (o `denyResourceAccessUnlessGranted` e o 404); sem cadeado, nada muda.
+     * Cadeado (spec pasta-cadeado K3): quem está `Oculto` numa pasta COM cadeado, e a veria se ela estivesse
+     * livre, vê só o cabeçalho (cliente e CPF) e a tela "Pasta trancada", com o pedido de acesso. Os demais,
+     * a pasta de outro escritório e a pasta sem cadeado seguem o caminho de sempre (o
+     * `denyResourceAccessUnlessGranted`, com o redirect, e o 404).
      */
     private function telaDaPastaTrancada(Pasta $pasta, \App\Entity\Auth\User $pessoa, TelaDoCadeado $telaDoCadeado): ?Response
     {
@@ -2672,6 +2673,8 @@ class PastaController extends AbstractController
 
         $cadeado = $telaDoCadeado->montar($pasta, $pessoa, $tenant);
 
-        return $cadeado->oculto() ? $this->render('pasta/trancada.html.twig', ['pasta' => $pasta, 'cad' => $cadeado]) : null;
+        return $telaDoCadeado->mostraATelaTrancada($pasta, $pessoa, $cadeado)
+            ? $this->render('pasta/trancada.html.twig', ['pasta' => $pasta, 'cad' => $cadeado])
+            : null;
     }
 }

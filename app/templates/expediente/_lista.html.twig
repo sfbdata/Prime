@@ -150,7 +150,8 @@
                 {% set sit = pasta.estaExcluida ? null : (SIT[pasta.situacao] ?? [pasta.situacao, '']) %}
                 {% set cad = cadeados[pasta.id] ?? null %}
                 {% set oculta = cad is not null and cad.nivel == 'oculto' %}
-                <tr class="pasta-row-link{% if pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}{% if pasta.estaExcluida %} pasta-excluida{% endif %}"
+                {# D1: a linha da pasta oculta não diz a prioridade nem a situação (nem a lápide). #}
+                <tr class="pasta-row-link{% if not oculta and pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}{% if not oculta and pasta.estaExcluida %} pasta-excluida{% endif %}"
                     style="cursor:pointer;" data-href="{{ path('pasta_show', {id: pasta.id}) }}"
                     data-pasta-id="{{ pasta.id }}" data-nup="{{ pasta.nup }}" data-nome="{{ nomeLinha }}"
                     data-url-nome="{{ path('expediente_pasta_nome', {id: pasta.id}) }}"
@@ -297,8 +298,8 @@
         {% set cad = cadeados[pasta.id] ?? null %}
         {% set oculta = cad is not null and cad.nivel == 'oculto' %}
         {# `div` com data-href, como a linha da tabela: sem link nativo, o aviso de pasta trancada vale para todo clique. #}
-        <div class="exp-simples-linha pasta-row-link{% if pasta.estaExcluida %} pasta-excluida{% endif %}" data-href="{{ path('pasta_show', {id: pasta.id}) }}" role="link" tabindex="0" data-pasta-id="{{ pasta.id }}" data-trancada="{{ cad ? '1' : '0' }}" data-oculta="{{ oculta ? '1' : '0' }}" data-nup="{{ pasta.nup }}">
-            <span class="exp-simples-ponto" data-situacao="{{ sitS }}" data-tip="{{ pasta.estaExcluida ? 'Excluída' : (SIT[pasta.situacao][1] ?? '') }}"></span>
+        <div class="exp-simples-linha pasta-row-link{% if not oculta and pasta.estaExcluida %} pasta-excluida{% endif %}" data-href="{{ path('pasta_show', {id: pasta.id}) }}" role="link" tabindex="0" data-pasta-id="{{ pasta.id }}" data-trancada="{{ cad ? '1' : '0' }}" data-oculta="{{ oculta ? '1' : '0' }}" data-nup="{{ pasta.nup }}">
+            {% if oculta %}<span class="exp-simples-ponto"></span>{% else %}<span class="exp-simples-ponto" data-situacao="{{ sitS }}" data-tip="{{ pasta.estaExcluida ? 'Excluída' : (SIT[pasta.situacao][1] ?? '') }}"></span>{% endif %}
             <span class="exp-simples-nup">{{ pasta.nup }}</span>
             <span class="exp-simples-cli" data-tip="{{ nomeLinha }}">{{ nomeLinha }}</span>
             {% if oculta %}
@@ -323,10 +324,11 @@
         {% set oculta = cad is not null and cad.nivel == 'oculto' %}
         {# `div` com data-href (como a linha da tabela): o cartão tem o botão da estrela dentro, e botão não vai em link.
            A estrela de favorito é só do BlueJus (o desenho não tem); lápide mostra só o indicador. #}
-        <div class="exp-cartao pasta-card pasta-row-link{% if pasta.estaExcluida %} pasta-excluida{% endif %}" data-href="{{ path('pasta_show', {id: pasta.id}) }}" data-pasta-id="{{ pasta.id }}" data-trancada="{{ cad ? '1' : '0' }}" data-oculta="{{ oculta ? '1' : '0' }}" data-nup="{{ pasta.nup }}">
+        <div class="exp-cartao pasta-card pasta-row-link{% if not oculta and pasta.estaExcluida %} pasta-excluida{% endif %}" data-href="{{ path('pasta_show', {id: pasta.id}) }}" data-pasta-id="{{ pasta.id }}" data-trancada="{{ cad ? '1' : '0' }}" data-oculta="{{ oculta ? '1' : '0' }}" data-nup="{{ pasta.nup }}">
             <span class="exp-cartao-topo pasta-card-topo">
                 <span class="pasta-card-ident">
-                    {% if pasta.estaExcluida %}
+                    {% if oculta %}
+                    {% elseif pasta.estaExcluida %}
                         {% if eFavorita %}<i class="bi bi-star-fill pasta-favorita-estrela" title="Fixada nos favoritos" aria-label="Fixada nos favoritos"></i>{% endif %}
                     {% else %}
                         <button type="button" class="pasta-card-fav js-pasta-card-favorito{{ eFavorita ? ' is-favorita' : '' }}"

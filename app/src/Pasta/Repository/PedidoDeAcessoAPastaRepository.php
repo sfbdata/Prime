@@ -99,4 +99,30 @@ class PedidoDeAcessoAPastaRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * A trava da decisão (concorrência): grava a decisão só se o pedido AINDA está pendente, num UPDATE
+     * condicional. Duas decisões ao mesmo tempo: só a primeira muda a linha; a segunda recebe `false`.
+     */
+    public function reservarDecisao(PedidoDeAcessoAPasta $pedido, EstadoDoPedidoDeAcesso $estado, User $por, \DateTimeImmutable $em): bool
+    {
+        $alteradas = $this->getEntityManager()->createQueryBuilder()
+            ->update(PedidoDeAcessoAPasta::class, 'p')
+            ->set('p.estado', ':estado')
+            ->set('p.decididoPor', ':por')
+            ->set('p.decididoEm', ':em')
+            ->andWhere('p.id = :id')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.estado = :pendente')
+            ->setParameter('estado', $estado)
+            ->setParameter('por', $por)
+            ->setParameter('em', $em)
+            ->setParameter('id', $pedido->getId())
+            ->setParameter('tenant', $pedido->getTenant())
+            ->setParameter('pendente', EstadoDoPedidoDeAcesso::Pendente)
+            ->getQuery()
+            ->execute();
+
+        return $alteradas === 1;
+    }
 }

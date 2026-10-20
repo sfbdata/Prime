@@ -7,6 +7,10 @@ namespace App\Tests\Pasta\Functional;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Tarefa\TarefaMensagem;
+use App\Cliente\Entity\ClientePF;
+use App\Expediente\Entity\Marcador;
+use App\Pasta\Entity\PastaPrazo;
+use App\Pasta\Entity\PrioridadePasta;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Entity\Tarefa\Tarefa;
 use App\Pasta\Armazenamento\ChavesDePasta;
@@ -112,16 +116,179 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
         $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'resources.processo.view']);
         $oculta = $this->criarPasta($tenant, 'JOANA SIGILOSA');
         $processo = $this->vincularProcesso($oculta, '0700003-33.2026.8.07.0001');
+        // Com uma pasta visível, o processo abre (K3 só fecha o processo de pastas todas ocultas).
+        $this->criarPasta($tenant, 'PEDRO LIVRE')->vincularProcesso($processo);
+        $this->em()->flush();
         $this->trancar($oculta, $primario);
         $this->entrar($ana, $tenant);
 
         $c = $this->client->request('GET', '/processos/' . $processo->getId());
 
         self::assertResponseIsSuccessful();
-        $item = $c->filter('.pasta-vinculada');
+        $item = $c->filter('.pasta-vinculada')->reduce(static fn ($n): bool => str_contains($n->text(), 'JOANA'));
         self::assertCount(1, $item->filter('i.exp-cadeado'));
         self::assertStringContainsString('JOANA SIGILOSA', $item->text());
         self::assertStringNotContainsString('Ação sigilosa', $item->text());
+    }
+
+    #[TestDox('K3 processo: o processo cujas pastas são todas ocultas não abre (403) e some da lista de processos; sem pasta, abre')]
+    public function testProcessoDePastasTodasOcultas(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'resources.processo.view', 'modules.processos.view']);
+        $oculta = $this->criarPasta($tenant);
+        $fechado = $this->vincularProcesso($oculta, '0700009-99.2026.8.07.0001');
+        $semPasta = new Processo();
+        $semPasta->setTenant($tenant);
+        $semPasta->setNumeroProcesso('0700010-10.2026.8.07.0001');
+        $this->em()->persist($semPasta);
+        $this->em()->flush();
+        $this->trancar($oculta, $primario);
+        $this->entrar($ana, $tenant);
+
+        $this->client->request('GET', '/processos/' . $fechado->getId());
+        self::assertResponseStatusCodeSame(403);
+        $lista = (string) $this->client->request('GET', '/processos/')->html();
+        self::assertStringNotContainsString('0700009-99', $lista);
+        self::assertStringContainsString('0700010-10', $lista);
+        $this->client->request('GET', '/processos/' . $semPasta->getId());
+        self::assertResponseIsSuccessful();
+
+        $this->entrar($primario, $tenant);
+        $this->client->request('GET', '/processos/' . $fechado->getId());
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('D1 filtros: com qualquer filtro de atributo (responsável, prioridade, ação, painel, marcador) a pasta oculta fica fora; sem filtro, aparece')]
+    public function testFiltrosNaoViramOraculo(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $ana = $this->criarColaborador($tenant);
+        $marcador = new Marcador('Sigilo ' . uniqid(), $tenant, $primario);
+        $this->em()->persist($marcador);
+        $pastas = [];
+        foreach (['oculta' => 'JOANA SIGILOSA', 'livre' => 'PEDRO LIVRE'] as $chave => $cliente) {
+            $p = $this->criarPasta($tenant, $cliente);
+            $p->setResponsavel($primario);
+            $p->setPrioridade(PrioridadePasta::Urgente);
+            $p->setNomeAcao('Ação de família');
+            $p->addMarcador($marcador);
+            $audiencia = new PastaPrazo($tenant, $p, $primario);
+            $audiencia->definir(PastaPrazo::TIPO_AUDIENCIA, 'Audiência', new \DateTimeImmutable('+10 days'), '14:00', null);
+            $this->em()->persist($audiencia);
+            $pastas[$chave] = $p;
+        }
+        $this->em()->flush();
+        $this->trancar($pastas['oculta'], $primario);
+        $this->entrar($ana, $tenant);
+
+        $tem = function (string $url, Pasta $p): bool {
+            $c = $this->client->xmlHttpRequest('GET', $url);
+            self::assertResponseIsSuccessful($url);
+
+            return $c->filter('#tabelaPastas tbody > tr[data-pasta-id="' . $p->getId() . '"]')->count() === 1;
+        };
+        self::assertTrue($tem('/expediente/painel/acervo-geral', $pastas['oculta']), 'sem filtro de atributo a oculta aparece');
+        foreach ([
+            '?responsavel=' . $primario->getId(),
+            '?prioridade=urgente',
+            '?expediente=aud',
+        ] as $filtro) {
+            self::assertFalse($tem('/expediente/painel/acervo-geral' . $filtro, $pastas['oculta']), $filtro);
+            self::assertTrue($tem('/expediente/painel/acervo-geral' . $filtro, $pastas['livre']), $filtro . ' (a livre aparece)');
+        }
+        self::assertFalse($tem('/expediente/marcador/' . $marcador->getId() . '/pastas', $pastas['oculta']), 'painel do marcador');
+        self::assertTrue($tem('/expediente/marcador/' . $marcador->getId() . '/pastas', $pastas['livre']), 'painel do marcador (a livre)');
+
+        // `acao` não é filtro da tela da Lista; é da consulta, e vale o mesmo.
+        $porAcao = static::getContainer()->get(PastaRepository::class)->findByFilters(['acao' => 'fam'], $tenant, 1, 50, '', 'desc', null, $ana);
+        self::assertNotContains((int) $pastas['oculta']->getId(), array_map(static fn (Pasta $p): int => (int) $p->getId(), $porAcao), 'filtro acao');
+
+        // A mesma regra no agente de IA (os filtros do agente passam pela mesma consulta).
+        $consulta = static::getContainer()->get(\App\Inteligencia\Service\ConsultaDePastasDoAgente::class);
+        $ids = array_map(static fn (Pasta $p): int => (int) $p->getId(), $consulta->buscar(\App\Inteligencia\DTO\FiltroDoAgenteInput::daQuery(['prioridade' => 'urgente']), $tenant, 50, $ana));
+        self::assertNotContains((int) $pastas['oculta']->getId(), $ids);
+        self::assertContains((int) $pastas['livre']->getId(), $ids);
+    }
+
+    #[TestDox('Cobrança: a busca de pasta para vincular não oferece a pasta oculta (nem pela ação)')]
+    public function testBuscaParaVinculo(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $ana    = $this->criarColaborador($tenant);
+        $oculta = $this->criarPasta($tenant, 'JOANA SIGILOSA');
+        $oculta->setNomeAcao('Monitória sigilosa');
+        $this->em()->flush();
+        $this->trancar($oculta, $primario);
+        $repo = static::getContainer()->get(PastaRepository::class);
+
+        $ids = static fn (array $linhas): array => array_column($linhas, 'id');
+        self::assertNotContains((int) $oculta->getId(), $ids($repo->buscarParaVinculo('sigilosa', $tenant, 20, [], $ana)));
+        self::assertNotContains((int) $oculta->getId(), $ids($repo->buscarParaVinculo('', $tenant, 20, [], $ana)));
+        self::assertContains((int) $oculta->getId(), $ids($repo->buscarParaVinculo('sigilosa', $tenant, 20, [])), 'sem quem busca (uso interno), nada muda');
+    }
+
+    #[TestDox('D1 Lista e cliente: a pasta oculta não vaza prioridade nem situação')]
+    public function testListaEClienteNaoVazamPrioridadeNemSituacao(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'resources.cliente.view']);
+        $oculta = $this->criarPasta($tenant, 'JOANA SIGILOSA');
+        $oculta->setPrioridade(PrioridadePasta::Urgente);
+        $oculta->setSituacao(Pasta::SITUACAO_ARQUIVADA);
+        $cliente = new ClientePF();
+        $cliente->setTenant($tenant);
+        $cliente->setNomeCompleto('JOANA SIGILOSA');
+        $cliente->setCpf('111.222.333-44');
+        $cliente->setRg('');
+        $cliente->setRgOrgaoExpedidor('');
+        $cliente->setEmail('joana_' . uniqid() . '@test.com');
+        $cliente->setCep('')->setEndereco('')->setCidade('')->setEstado('');
+        $this->em()->persist($cliente);
+        $oculta->addCliente($cliente);
+        $this->em()->flush();
+        $this->trancar($oculta, $primario);
+        $this->entrar($ana, $tenant);
+
+        $c = $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
+        $linha = $c->filter('#tabelaPastas tbody > tr[data-pasta-id="' . $oculta->getId() . '"]');
+        self::assertStringNotContainsString('pasta-row-urgente', (string) $linha->attr('class'));
+        $simples = $c->filter('.exp-simples-linha[data-pasta-id="' . $oculta->getId() . '"] .exp-simples-ponto');
+        self::assertNull($simples->attr('data-situacao'));
+        self::assertNull($simples->attr('data-tip'));
+
+        $c = $this->client->request('GET', '/clientes/' . $cliente->getId());
+        self::assertResponseIsSuccessful();
+        $vinculo = $c->filter('.vinculo-link')->reduce(static fn ($n): bool => str_contains($n->text(), (string) $oculta->getNup()));
+        self::assertCount(1, $vinculo->filter('i.exp-cadeado'));
+        self::assertStringNotContainsString('Arquivado', $vinculo->text());
+    }
+
+    #[TestDox('Agenda: prazos e audiências da pasta oculta não aparecem para quem não a vê')]
+    public function testAgenda(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'modules.agenda.view', 'modules.pastas.view']);
+        $oculta = $this->criarPasta($tenant);
+        $livre  = $this->criarPasta($tenant);
+        $data   = new \DateTimeImmutable('+3 days');
+        $prazos = [];
+        foreach (['oculta' => $oculta, 'livre' => $livre] as $chave => $pasta) {
+            $prazo = new PastaPrazo($tenant, $pasta, $primario);
+            $prazo->definir(PastaPrazo::TIPO_AUDIENCIA, 'Audiência', $data, '10:00', null);
+            $this->em()->persist($prazo);
+            $prazos[$chave] = $prazo;
+        }
+        $this->em()->flush();
+        $this->trancar($oculta, $primario);
+        $this->entrar($ana, $tenant);
+
+        $this->client->request('GET', '/agenda/compromissos?de=' . $data->format('Y-m-d') . '&ate=' . $data->format('Y-m-d'));
+
+        self::assertResponseIsSuccessful();
+        $ids = array_column(json_decode((string) $this->client->getResponse()->getContent(), true)['itens'], 'id');
+        self::assertContains('pz-' . $prazos['livre']->getId(), $ids);
+        self::assertNotContains('pz-' . $prazos['oculta']->getId(), $ids);
     }
 
     // ── D3 ─────────────────────────────────────────────────────────────

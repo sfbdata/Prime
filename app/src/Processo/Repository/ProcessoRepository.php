@@ -206,6 +206,7 @@ class ProcessoRepository extends ServiceEntityRepository
      * (CLI, super-admin, teste).
      *
      * @param array<string, string> $filtros  busca, tribunal, situacao, data_de, data_ate
+     * @param list<int>             $processosOcultos processos que não abrem para quem lista (cadeado, K3)
      * @return Processo[]
      */
     public function findByFiltrosPaginado(
@@ -214,9 +215,10 @@ class ProcessoRepository extends ServiceEntityRepository
         int $pagina = 1,
         int $porPagina = 25,
         string $ordenar = '',
-        string $direcao = 'desc'
+        string $direcao = 'desc',
+        array $processosOcultos = [],
     ): array {
-        $qb = $this->buildQbFiltros($tenant, $filtros);
+        $qb = $this->buildQbFiltros($tenant, $filtros, $processosOcultos);
         $this->aplicarOrdenacaoProcesso($qb, $ordenar, $direcao);
 
         return $qb
@@ -228,10 +230,11 @@ class ProcessoRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, string> $filtros
+     * @param list<int>             $processosOcultos
      */
-    public function countByFiltros(Tenant $tenant, array $filtros): int
+    public function countByFiltros(Tenant $tenant, array $filtros, array $processosOcultos = []): int
     {
-        return (int) $this->buildQbFiltros($tenant, $filtros)
+        return (int) $this->buildQbFiltros($tenant, $filtros, $processosOcultos)
             ->select('COUNT(p.id)')
             ->getQuery()
             ->getSingleScalarResult();
@@ -239,12 +242,18 @@ class ProcessoRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, string> $filtros
+     * @param list<int>             $processosOcultos
      */
-    private function buildQbFiltros(Tenant $tenant, array $filtros): QueryBuilder
+    private function buildQbFiltros(Tenant $tenant, array $filtros, array $processosOcultos = []): QueryBuilder
     {
         $qb = $this->createQueryBuilder('p')
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant);
+
+        // Cadeado (spec pasta-cadeado K3): processo cujas pastas são todas ocultas para quem lista não entra.
+        if ($processosOcultos !== []) {
+            $qb->andWhere('p.id NOT IN (:processosOcultos)')->setParameter('processosOcultos', $processosOcultos);
+        }
 
         $busca = trim((string) ($filtros['busca'] ?? ''));
         if ($busca !== '') {

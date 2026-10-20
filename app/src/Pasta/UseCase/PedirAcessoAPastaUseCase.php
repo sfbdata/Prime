@@ -25,8 +25,8 @@ use Psr\Clock\ClockInterface;
  *
  * Regras: só pede quem veria a pasta se ela estivesse livre (a permissão de ver, sem o teto do cadeado) e
  * está abaixo do nível pedido (quem já edita não pede nada); fica um
- * pedido pendente por pasta e pessoa; pedir de novo dentro de 24 h é recusado com o texto do desenho;
- * depois de 24 h o pendente é renovado; recusado ou liberado, a pessoa pode pedir de novo na hora.
+ * pedido pendente por pasta e pessoa; pedir de novo dentro de 24 h do anterior é recusado, também depois
+ * de recusa (antispam); depois de 24 h o pendente é renovado; liberado, a pessoa pode pedir de novo na hora.
  * Pasta sem cadeado não tem o que pedir.
  */
 final class PedirAcessoAPastaUseCase
@@ -43,6 +43,7 @@ final class PedirAcessoAPastaUseCase
     {
         $this->exigirQuePodePedir($input);
         $agora    = $this->relogio->now();
+        $this->exigirJanelaDoAnterior($input, $agora);
         $pendente = $this->pedidos->pendenteDe($input->pasta, $input->solicitante);
 
         if ($pendente !== null) {
@@ -58,6 +59,20 @@ final class PedirAcessoAPastaUseCase
         $this->pedidos->salvar($pedido, flush: true);
 
         return PedidoDeAcessoOutput::fromEntity($pedido, $avisados);
+    }
+
+    /** Antispam (K5): um pedido novo só 24 h depois do anterior, também depois de recusa. */
+    private function exigirJanelaDoAnterior(PedirAcessoInput $input, \DateTimeImmutable $agora): void
+    {
+        $anterior = $this->pedidos->ultimoDe($input->pasta, $input->solicitante);
+        $ate      = $anterior?->seguraNovoPedidoAte($agora);
+        if ($anterior === null || $ate === null) {
+            return;
+        }
+
+        throw new \DomainException($anterior->foiRecusado()
+            ? sprintf('O usuário primário não liberou o pedido anterior. Você pode pedir de novo a partir de %s às %s.', $ate->format('d/m'), $ate->format('H:i'))
+            : 'Você já pediu acesso a esta pasta hoje. Aguarde o usuário primário.');
     }
 
     private function exigirQuePodePedir(PedirAcessoInput $input): void

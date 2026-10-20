@@ -146,6 +146,27 @@ configura os dois é o mesmo grupo (K1).
 - **K5, quem pode pedir:** quem veria a pasta se ela estivesse livre (`canAccessResourceIgnoringPastaLock`);
   quem nem assim veria recebe 403. O pedido avisa os primários ativos e os Masters com vínculo ativo no
   escritório.
+- **K5, antispam e desvio de texto:** um pedido novo só 24 h depois do anterior, também depois de recusa.
+  Enquanto a janela vale, o recusado diz "O usuário primário não liberou o pedido anterior. Você pode pedir
+  de novo a partir de dd/mm às HH:MM." (o texto do desenho mais a data, **desvio de texto**); passado o
+  prazo, volta a ser o texto exato do desenho. A decisão é travada no banco (UPDATE condicional "ainda
+  pendente"): a segunda decisão simultânea recebe 422.
+- **K3, processo (decisão do orquestrador, 20/10):** o processo cujas pastas vinculadas são TODAS ocultas
+  para a pessoa não abre (403) e some da lista de processos; as notas técnicas dele seguem a mesma regra.
+  Processo sem pasta, ou com pelo menos uma visível, segue normal.
+- **D1, filtros como oráculo:** com qualquer filtro de atributo (responsável, situação, prioridade,
+  criador, datas, painéis do Expediente, ação, marcador) a pasta oculta fica FORA do resultado e das
+  contagens do trilho; ela só aparece sem filtro de atributo ou casando a busca por número ou cliente.
+  Vale para a Lista e para o agente. Na Lista e na janela do cliente, a linha oculta não mostra
+  prioridade nem situação.
+- **Agenda (4b):** os prazos e audiências da pasta oculta saem da Agenda (`ListarCompromissosUseCase` e
+  `PastaPrazoRepository::abertosDoEscritorioNoPeriodo`).
+- **Cobrança:** a busca de pasta para vincular não oferece a oculta; vincular exige poder editar a pasta
+  pelo cadeado (nível `Editar`), não a permissão `resources.pasta.edit`, para não mudar quem já vincula hoje.
+- **Avisos da meta:** os avisos de meta criada, devolvida, concluída, em revisão e o "Alertar" não vão para
+  quem está oculto na pasta da meta.
+- **pasta_show:** a tela trancada só aparece para quem veria a pasta se ela estivesse livre; os demais
+  seguem o caminho antigo, com o redirect do pedido genérico, sem saber do cadeado.
 - **K6:** o histórico da pasta é o cartão do sistema no Registro ("Cadeado: …", `RegistroDoSistemaNaPasta`);
   a auditoria da conta vem das entidades auditáveis (`CadeadoDaPasta`, `AcessoAPastaTrancada`,
   `PedidoDeAcessoAPasta`).

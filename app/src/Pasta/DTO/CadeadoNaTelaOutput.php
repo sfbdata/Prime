@@ -26,6 +26,8 @@ final class CadeadoNaTelaOutput
         public readonly bool $aguardando,
         public readonly string $horaDoPedido,
         public readonly bool $recusado,
+        /** Recusado há menos de 24 h: "dd/mm às HH:MM", a partir de quando pode pedir de novo. */
+        public readonly string $pedirDeNovoEm = '',
         public readonly array $equipe = [],
         public readonly array $pedidosPendentes = [],
     ) {
@@ -44,7 +46,15 @@ final class CadeadoNaTelaOutput
     /** "Pedir acesso ao primário" / "Pedir para editar": só sem pedido aguardando (desenho `!pend`). */
     public function podePedir(): bool
     {
-        return ($this->oculto() || $this->soVer()) && !$this->aguardando;
+        return ($this->oculto() || $this->soVer()) && !$this->aguardando && $this->pedirDeNovoEm === '';
+    }
+
+    /** O texto do recusado (desenho L6094), com a data do antispam enquanto ele vale (desvio registrado na spec). */
+    public function recusadoTexto(): string
+    {
+        return $this->pedirDeNovoEm === ''
+            ? 'O usuário primário não liberou o pedido anterior. Você pode pedir de novo.'
+            : 'O usuário primário não liberou o pedido anterior. Você pode pedir de novo a partir de ' . $this->pedirDeNovoEm . '.';
     }
 
     public function menuIcone(): string

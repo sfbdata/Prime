@@ -36,7 +36,9 @@ final class TelaDoCadeado
         $cadeado        = $this->acessoAPasta->cadeadoDe($pasta);
         $podeConfigurar = $this->acessoAPasta->podeConfigurar($pessoa, $tenant);
         $ultimo         = $cadeado !== null && !$podeConfigurar ? $this->pedidos->ultimoDe($pasta, $pessoa) : null;
-        $aguardando     = $ultimo !== null && $ultimo->aguardandoEm($this->relogio->now());
+        $agora          = $this->relogio->now();
+        $aguardando     = $ultimo !== null && $ultimo->aguardandoEm($agora);
+        $recusadoAte    = $ultimo !== null && $ultimo->foiRecusado() ? $ultimo->seguraNovoPedidoAte($agora) : null;
 
         return new CadeadoNaTelaOutput(
             nivel: $this->acessoAPasta->nivel($pessoa, $pasta)->value,
@@ -47,9 +49,19 @@ final class TelaDoCadeado
             aguardando: $aguardando,
             horaDoPedido: $ultimo?->getPedidoEm()->format('H:i') ?? '',
             recusado: !$aguardando && $ultimo !== null && $ultimo->foiRecusado(),
+            pedirDeNovoEm: $recusadoAte !== null ? $recusadoAte->format('d/m') . ' às ' . $recusadoAte->format('H:i') : '',
             equipe: $podeConfigurar ? $this->grade($cadeado, $tenant) : [],
             pedidosPendentes: $podeConfigurar && $cadeado !== null ? $this->pendentes($pasta) : [],
         );
+    }
+
+    /**
+     * A tela "Pasta trancada" só é para quem veria a pasta se ela estivesse livre: quem não veria nem assim
+     * segue o caminho de sempre (o pedido de acesso genérico), sem saber que há um cadeado.
+     */
+    public function mostraATelaTrancada(Pasta $pasta, User $pessoa, CadeadoNaTelaOutput $cadeado): bool
+    {
+        return $cadeado->oculto() && $this->acessoAPasta->veriaSemCadeado($pessoa, $pasta);
     }
 
     /** @return list<array{id: int, nome: string, funcao: string, nivel: string}> */

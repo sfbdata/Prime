@@ -16,8 +16,8 @@ use Doctrine\ORM\Mapping as ORM;
  * `bluejus-central.js` `pedirAcessoPasta`/`cadResolver`).
  *
  * Fica um pendente por pasta e pessoa: pedir de novo dentro de 24 h é recusado; depois de 24 h, o mesmo
- * pedido pendente é renovado (nova hora, novo nível e motivo) em vez de abrir outro. Recusado ou liberado,
- * a pessoa pode pedir de novo na hora (o desenho mostra "Você pode pedir de novo.").
+ * pedido pendente é renovado (nova hora, novo nível e motivo) em vez de abrir outro. Recusado também segura
+ * um pedido novo por 24 h desde o anterior (antispam); liberado, não.
  *
  * Anatomia: índice único PARCIAL (pasta_id, solicitante_id) WHERE estado = 'pendente', a trava do "um
  * pendente" no banco; pasta e solicitante CASCADE; quem decidiu SET NULL.
@@ -139,6 +139,20 @@ class PedidoDeAcessoAPasta implements Auditavel, TenantAware
     public function aguardandoEm(\DateTimeImmutable $agora): bool
     {
         return $this->estaPendente() && $agora < $this->fimDaJanela();
+    }
+
+    /**
+     * Até quando este pedido segura um novo da mesma pessoa nesta pasta (antispam): 24 h desde ele, se está
+     * pendente ou foi recusado. `null` = não segura (liberado, ou a janela já passou).
+     */
+    public function seguraNovoPedidoAte(\DateTimeImmutable $agora): ?\DateTimeImmutable
+    {
+        if (!$this->estaPendente() && !$this->foiRecusado()) {
+            return null;
+        }
+        $fim = $this->fimDaJanela();
+
+        return $agora < $fim ? $fim : null;
     }
 
     /** Pedido pendente com mais de 24 h, pedido de novo: renova o mesmo registro (um pendente por pessoa). */

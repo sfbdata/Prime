@@ -508,13 +508,25 @@ Expediente pergunta ao `AcessoAPasta::podeConfigurar()`.
    Pasta de outro escritório passa reto: a action responde o 404 dela. O alcance é travado por
    `app/tests/Arquitetura/BarreiraDoCadeadoRotasArquiteturaTest.php`, que olha todas as rotas de
    pasta (de qualquer método).
-3. Fora da pasta (spec §5): a Lista, a busca, o CSV e a tela do processo mostram da pasta oculta só
-   o número e o cliente (D1); a busca de pastas do agente de IA também (D2); o Push global e as
-   Minhas Metas e as metas da equipe não mostram nem contam o que é dela, e qualquer cadeado desliga o
-   link externo do Push (D3); a auditoria do escritório mostra sem o conteúdo e sem "desfazer" as linhas
-   da pasta, das entidades dela (`App\Pasta\Entity\*`), da meta e da resposta da meta e das análises da
-   BlueJus IA da pasta (D4); a imagem embutida em peça dela é recusada (D5); pasta com cadeado sai do
-   sync do Drive (D6).
+3. Fora da pasta (spec §5):
+   - a Lista, a busca, o CSV e a janela do cliente mostram da pasta oculta só o número e o cliente,
+     sem prioridade nem situação; ela casa na busca só por número e cliente, e fica FORA do resultado
+     com qualquer filtro de atributo (responsável, situação, prioridade, criador, datas, painéis do
+     Expediente, ação, marcador), também nas contagens do trilho (D1). A busca de pastas do agente de
+     IA segue a mesma regra (D2);
+   - o processo cujas pastas vinculadas são TODAS ocultas para a pessoa não abre (403 no
+     `processo_show` e recusa no `canAccessResource` de `processo`, o que fecha também as notas
+     técnicas) e some da lista de processos; com pelo menos uma pasta visível, abre, e a pasta oculta
+     aparece nele só com o número, o cliente e o cadeado (K3);
+   - o Push global, as Minhas Metas (lista, abas, KPIs, trilho), as metas da equipe e a Agenda
+     (prazos e audiências da pasta) não mostram nem contam o que é dela; os avisos da meta não vão
+     para quem está oculto; qualquer cadeado desliga o link externo do Push (D3);
+   - a auditoria do escritório mostra sem o conteúdo e sem "desfazer" as linhas da pasta, das
+     entidades dela (`App\Pasta\Entity\*`), da meta, da resposta da meta e das análises da BlueJus IA
+     da pasta (D4);
+   - a imagem embutida em peça dela é recusada (D5); pasta com cadeado sai do sync do Drive (D6);
+   - na Cobrança, a busca de pasta para judicializar não oferece a oculta, e vincular um caso a uma
+     pasta em que a pessoa não edita pelo cadeado é recusado.
 
 **Precedência com o "ocultar aba"** (#68): são dois eixos e os dois só subtraem. O cadeado é o teto da
 pasta inteira; a aba oculta é **organização** e tira abas dentro do que o cadeado permite. Com

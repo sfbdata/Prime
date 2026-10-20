@@ -91,6 +91,9 @@ final class UseCasesDoCadeadoTest extends TestCase
             }
         });
         $this->pedidos->method('pendenteDe')->willReturnCallback(fn (Pasta $pa, User $u): ?PedidoDeAcessoAPasta => $this->achar(static fn (PedidoDeAcessoAPasta $p): bool => $p->getSolicitante() === $u && $p->estaPendente()));
+        $this->pedidos->method('reservarDecisao')->willReturnCallback(static fn (PedidoDeAcessoAPasta $p): bool => $p->estaPendente());
+        $this->pedidos->method('ultimoDe')->willReturnCallback(fn (Pasta $pa, User $u): ?PedidoDeAcessoAPasta => $this->achar(static fn (PedidoDeAcessoAPasta $p): bool => $p->getSolicitante() === $u && !$p->estaPendente())
+            ?? $this->achar(static fn (PedidoDeAcessoAPasta $p): bool => $p->getSolicitante() === $u));
         $this->pedidos->method('daPasta')->willReturnCallback(fn (int $id): ?PedidoDeAcessoAPasta => $this->achar(static fn (PedidoDeAcessoAPasta $p): bool => $p->getId() === $id));
 
         $this->notificacoes = $this->createMock(NotificacaoService::class);
@@ -342,5 +345,44 @@ final class UseCasesDoCadeadoTest extends TestCase
 
         $this->expectException(CadeadoRecusadoException::class);
         $this->decidir()->executar($saida->id, $this->pastaDoCaso, $this->bia, $this->tenant, DecidirPedidoDeAcessoUseCase::LIBERAR_EDITAR);
+    }
+
+    #[TestDox('antispam: depois de recusado, pedido novo só 24 h depois do anterior, com a data no texto')]
+    public function testRecusadoSeguraNovoPedidoPor24Horas(): void
+    {
+        $this->trancarParaTodos();
+        $saida = $this->pedir()->executar(new PedirAcessoInput($this->pastaDoCaso, $this->ana, $this->tenant, NivelDeAcesso::Editar, null));
+        $this->decidir()->executar($saida->id, $this->pastaDoCaso, $this->primario, $this->tenant, DecidirPedidoDeAcessoUseCase::RECUSAR);
+
+        $this->relogio->modify('+2 hours');
+        try {
+            $this->pedir()->executar(new PedirAcessoInput($this->pastaDoCaso, $this->ana, $this->tenant, NivelDeAcesso::Editar, null));
+            self::fail('pediu de novo logo depois da recusa');
+        } catch (\DomainException $e) {
+            self::assertSame('O usuário primário não liberou o pedido anterior. Você pode pedir de novo a partir de 21/10 às 10:00.', $e->getMessage());
+        }
+
+        $this->relogio->modify('+23 hours');
+        $this->pedir()->executar(new PedirAcessoInput($this->pastaDoCaso, $this->ana, $this->tenant, NivelDeAcesso::Editar, null));
+        self::assertCount(2, $this->pedidosGravados, 'depois de 24 h, um pedido novo');
+    }
+
+    #[TestDox('concorrência: se o banco já não tem o pedido pendente, a decisão não mexe no cadeado e é recusada')]
+    public function testDecisaoConcorrente(): void
+    {
+        $this->trancarParaTodos();
+        $saida = $this->pedir()->executar(new PedirAcessoInput($this->pastaDoCaso, $this->ana, $this->tenant, NivelDeAcesso::Editar, null));
+        $outroRepo = $this->createMock(PedidoDeAcessoAPastaRepository::class);
+        $outroRepo->method('daPasta')->willReturn($this->pedidosGravados[0]);
+        $outroRepo->method('reservarDecisao')->willReturn(false);
+        $decidir = new DecidirPedidoDeAcessoUseCase($outroRepo, $this->cadeadoRepository, $this->acessoAPasta(), new EquipeDoCadeado($this->userTenantRepository, $this->regraDosPrimarios()), $this->avisosDoCadeado(), new RegistroDoSistemaNaPasta($this->em), $this->em, $this->relogio);
+
+        try {
+            $decidir->executar($saida->id, $this->pastaDoCaso, $this->primario, $this->tenant, DecidirPedidoDeAcessoUseCase::LIBERAR_EDITAR);
+            self::fail('decidiu duas vezes');
+        } catch (\DomainException $e) {
+            self::assertSame('Este pedido já foi atendido.', $e->getMessage());
+        }
+        self::assertSame(ModoDoCadeado::Todos, $this->cadeadosGravados[$this->pastaDoCaso->getId()]->getModo(), 'o cadeado não mudou');
     }
 }

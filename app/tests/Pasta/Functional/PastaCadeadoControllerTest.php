@@ -44,10 +44,22 @@ final class PastaCadeadoControllerTest extends JusPrimeWebTestCase
         [$primario, $tenant] = $this->criarEscritorio();
         $ana   = $this->criarColaborador($tenant);
         $pasta = $this->criarPasta($tenant, 'JOANA SIGILOSA');
+        $pasta->setNomeAcao('AÇÃO SIGILOSA DA PASTA');
+        $this->em()->persist(new \App\Pasta\Entity\PastaReu($tenant, $pasta, 'RÉU SIGILOSO LTDA', null, 0));
+        $processo = new \App\Processo\Entity\Processo();
+        $processo->setTenant($tenant);
+        $processo->setNumeroProcesso('0799999-88.2026.8.07.0001');
+        $this->em()->persist($processo);
+        $pasta->vincularProcesso($processo);
+        $this->em()->flush();
         $this->trancar($pasta, $primario);
         $this->entrar($ana, $tenant);
 
         $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+        $html = (string) $this->client->getResponse()->getContent();
+        foreach (['AÇÃO SIGILOSA', 'RÉU SIGILOSO', '0799999-88', '07999998820268070001'] as $segredo) {
+            self::assertStringNotContainsString($segredo, $html, 'a tela trancada não mostra ' . $segredo);
+        }
 
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('JOANA SIGILOSA', $c->filter('h1.ps-cab-titulo')->text());
@@ -57,6 +69,62 @@ final class PastaCadeadoControllerTest extends JusPrimeWebTestCase
         self::assertSame('Pedir acesso ao primário', trim($c->filter('form[action$="/acesso/pedidos"] button[type="submit"]')->text()));
         self::assertCount(0, $c->filter('#psMenuAcoes'), 'sem menu ⋮');
         self::assertCount(0, $c->filter('#pastaTabs, .ps-abas'), 'sem abas');
+    }
+
+    #[TestDox('quem não veria a pasta nem sem o cadeado segue o caminho antigo (redirect do pedido genérico), sem a tela trancada')]
+    public function testShowSemPermissaoDeVerNaoMostraATelaTrancada(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $semPerfil = $this->criarColaborador($tenant, 'Sem Perfil', ['modules.expediente.view']);
+        $pasta = $this->criarPasta($tenant);
+        $this->trancar($pasta, $primario);
+        $this->entrar($semPerfil, $tenant);
+
+        $this->client->request('GET', '/pasta/' . $pasta->getId());
+
+        self::assertResponseRedirects();
+        self::assertStringContainsString('requestAccess=1', (string) $this->client->getResponse()->headers->get('Location'));
+    }
+
+    #[TestDox('Oculto: as filhas por id também são recusadas (download de documento, a meta e o anexo da resposta da meta)')]
+    public function testFilhasPorIdEmOculto(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $ana   = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'modules.tarefas.view']);
+        $pasta = $this->criarPasta($tenant);
+        $doc = new \App\Pasta\Entity\PastaDocumento();
+        $doc->setPasta($pasta);
+        $doc->setTenant($tenant);
+        $doc->setTitulo('Contrato');
+        $doc->setCategoria(\App\Pasta\Entity\PastaDocumento::CATEGORIA_DEMAIS);
+        $doc->setCaminhoArquivo('nao_existe_' . uniqid() . '.pdf');
+        $doc->setNomeOriginal('Contrato.pdf');
+        $doc->setMimeType('application/pdf');
+        $doc->setTamanhoBytes(10);
+        $this->em()->persist($doc);
+        $meta = new \App\Entity\Tarefa\Tarefa();
+        $meta->setTitulo('Meta');
+        $meta->setDescricao('Descrição');
+        $meta->setPasta($pasta);
+        $meta->setTenant($tenant);
+        $meta->setCriadoPor($primario);
+        $meta->addResponsavel($ana);
+        $this->em()->persist($meta);
+        $resposta = new \App\Entity\Tarefa\TarefaMensagem();
+        $resposta->setTarefa($meta);
+        $resposta->setTenant($tenant);
+        $resposta->setUsuario($primario);
+        $resposta->setMensagem('Anexo');
+        $resposta->setArquivoAnexo('nao_existe.pdf');
+        $this->em()->persist($resposta);
+        $this->em()->flush();
+        $this->trancar($pasta, $primario);
+        $this->entrar($ana, $tenant);
+
+        foreach (['/pasta/documento/' . $doc->getId() . '/download', '/tarefas/' . $meta->getId(), '/tarefas/mensagem/' . $resposta->getId() . '/arquivo/download'] as $url) {
+            $this->client->request('GET', $url);
+            self::assertResponseStatusCodeSame(403, $url);
+        }
     }
 
     #[TestDox('Visualizar: a pasta abre, com a faixa de somente visualização e sem as ações de escrita')]
@@ -280,11 +348,19 @@ final class PastaCadeadoControllerTest extends JusPrimeWebTestCase
     {
         [$primario, $tenant] = $this->criarEscritorio();
         $ana   = $this->criarColaborador($tenant);
+        $bia   = $this->criarColaborador($tenant, 'Bia Equipe');
+        $socio = $this->novoUsuario('Sócio Primário');
+        $this->vincular($socio, $tenant, true, []);
         $pasta = $this->criarPasta($tenant);
         $this->trancar($pasta, $primario);
         $this->entrar($ana, $tenant);
 
         $this->client->request('POST', '/pasta/' . $pasta->getId() . '/acesso/pedidos', ['nivel' => 'editar', 'motivo' => 'preciso do contrato', '_token' => 'TOKEN_pasta_acesso_' . $pasta->getId()]);
+        $destinatarios = array_map('intval', $this->em()->getConnection()->fetchFirstColumn("SELECT usuario_id FROM notificacao WHERE tipo = 'pasta_pedido_acesso' AND tenant_id = ? ORDER BY usuario_id", [$tenant->getId()]));
+        $esperados = [(int) $primario->getId(), (int) $socio->getId()];
+        sort($esperados);
+        self::assertSame($esperados, $destinatarios, 'os primários ativos, e não a colega nem quem pediu');
+        self::assertNotContains((int) $bia->getId(), $destinatarios);
         self::assertResponseRedirects('/pasta/' . $pasta->getId());
         $c = $this->client->followRedirect();
         self::assertStringContainsString('Aguardando o usuário primário.', $c->text());
@@ -353,5 +429,25 @@ final class PastaCadeadoControllerTest extends JusPrimeWebTestCase
         $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/acesso/pedidos/' . $pedidoId . '/decidir', ['decisao' => 'recusar', '_token' => 'TOKEN_pasta_cadeado_' . $pasta->getId()]);
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Este pedido já foi atendido.', json_decode((string) $this->client->getResponse()->getContent(), true)['mensagem']);
+    }
+
+    #[TestDox('recusado: a tela trancada diz a partir de quando pode pedir de novo, e não oferece o pedido antes disso')]
+    public function testRecusadoMostraAData(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $ana   = $this->criarColaborador($tenant);
+        $pasta = $this->criarPasta($tenant);
+        $this->trancar($pasta, $primario);
+        $this->entrar($ana, $tenant);
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/acesso/pedidos', ['nivel' => 'editar', '_token' => 'TOKEN_pasta_acesso_' . $pasta->getId()]);
+        $pedidoId = json_decode((string) $this->client->getResponse()->getContent(), true)['id'];
+        $this->entrar($primario, $tenant);
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/acesso/pedidos/' . $pedidoId . '/decidir', ['decisao' => 'recusar', '_token' => 'TOKEN_pasta_cadeado_' . $pasta->getId()]);
+
+        $this->entrar($ana, $tenant);
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+
+        self::assertMatchesRegularExpression('/O usuário primário não liberou o pedido anterior\. Você pode pedir de novo a partir de \d{2}\/\d{2} às \d{2}:\d{2}\./u', $c->text());
+        self::assertCount(0, $c->filter('form[action$="/acesso/pedidos"]'));
     }
 }

@@ -7,6 +7,7 @@ namespace App\Pasta\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\CadeadoDaPastaOutput;
+use App\Pasta\Entity\EstadoDoPedidoDeAcesso;
 use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PedidoDeAcessoAPasta;
@@ -55,6 +56,7 @@ final class DecidirPedidoDeAcessoUseCase
         $agora  = $this->relogio->now();
         $nome   = (string) ($pedido->getSolicitante()->getFullName() ?? $pedido->getSolicitante()->getEmail());
 
+        $this->reservar($pedido, $decisao, $ator, $agora);
         if ($decisao === self::RECUSAR) {
             $pedido->recusar($ator, $agora);
             $this->registro->registrar($pasta, $ator, 'cadeado', sprintf('Pedido de acesso de %s recusado', $nome));
@@ -84,6 +86,21 @@ final class DecidirPedidoDeAcessoUseCase
 
         return $this->pedidos->daPasta($pedidoId, $pasta, $tenant)
             ?? throw new PastaDeOutroEscritorioException('Pedido não encontrado.');
+    }
+
+    /**
+     * Concorrência: a decisão é reservada no banco (UPDATE condicional "ainda pendente") ANTES de mexer no
+     * cadeado. A segunda decisão simultânea não muda nada e recebe o texto do desenho (422).
+     */
+    private function reservar(PedidoDeAcessoAPasta $pedido, string $decisao, User $ator, \DateTimeImmutable $agora): void
+    {
+        $estado = $decisao === self::RECUSAR ? EstadoDoPedidoDeAcesso::Recusado : EstadoDoPedidoDeAcesso::liberadoPara(self::nivelDaDecisao($decisao));
+        if ($pedido->estaPendente() && $this->pedidos->reservarDecisao($pedido, $estado, $ator, $agora)) {
+            return;
+        }
+
+        $this->em->refresh($pedido);
+        throw new \DomainException($pedido->foiRecusado() ? 'Este pedido já foi recusado.' : 'Este pedido já foi atendido.');
     }
 
     private static function nivelDaDecisao(string $decisao): NivelDeAcesso

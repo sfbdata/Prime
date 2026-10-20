@@ -51,6 +51,14 @@ class PastaRepository extends ServiceEntityRepository
      */
     public const FILTROS_EXPEDIENTE = ['resp10', 'findou', 'aud', 'prazo', 'metas', 'protocolar'];
 
+    /**
+     * Filtros de ATRIBUTO da pasta (spec pasta-cadeado D1): com qualquer um deles, a pasta oculta pelo cadeado
+     * para quem consulta fica FORA do resultado, senão o filtro viraria oráculo ("a oculta tem audiência",
+     * "é do Fulano"). Número (`nup`), cliente (`cliente`) e a busca livre não estão aqui: a oculta continua
+     * casando por eles. O marcador também é atributo (ver `buildQbPorMarcador`).
+     */
+    private const FILTROS_DE_ATRIBUTO = ['responsavel', 'status', 'prioridade', 'criado_por', 'data_de', 'data_ate', 'expediente', 'acao'];
+
     public function __construct(
         ManagerRegistry $registry,
         private readonly ?NivelNoCadeado $nivelNoCadeado = null,
@@ -292,7 +300,7 @@ class PastaRepository extends ServiceEntityRepository
      *
      * @return list<array{id: int, texto: string}>
      */
-    public function buscarParaVinculo(string $termo, Tenant $tenant, int $limite = 20, array $idsExcluidos = []): array
+    public function buscarParaVinculo(string $termo, Tenant $tenant, int $limite = 20, array $idsExcluidos = [], ?User $quemBusca = null): array
     {
         $qb = $this->createQueryBuilder('p')
             ->select('p.id AS id', 'p.nup AS nup', 'p.nomeCliente AS nomeCliente', 'p.nomeAcao AS nomeAcao')
@@ -305,6 +313,7 @@ class PastaRepository extends ServiceEntityRepository
         if ($idsExcluidos !== []) {
             $qb->andWhere('p.id NOT IN (:idsExcluidos)')->setParameter('idsExcluidos', $idsExcluidos);
         }
+        $this->soAsVisiveis($qb, $quemBusca); // cadeado: a pasta oculta para quem vincula não é oferecida
 
         $termo = trim($termo);
 
@@ -409,8 +418,9 @@ class PastaRepository extends ServiceEntityRepository
         string $ordenar = '',
         string $direcao = 'desc',
         ?User $favoritosDe = null,
+        ?User $quemBusca = null,
     ): array {
-        $qb = $this->buildQbPorMarcador([], $marcador, $tenant)->groupBy('p.id');
+        $qb = $this->buildQbPorMarcador([], $marcador, $tenant, $quemBusca)->groupBy('p.id');
         $this->aplicarOrdenacao($qb, $ordenar, $direcao, $favoritosDe);
 
         return $qb
@@ -420,9 +430,9 @@ class PastaRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    public function countPorMarcador(Marcador $marcador, Tenant $tenant): int
+    public function countPorMarcador(Marcador $marcador, Tenant $tenant, ?User $quemBusca = null): int
     {
-        return (int) $this->buildQbPorMarcador([], $marcador, $tenant)
+        return (int) $this->buildQbPorMarcador([], $marcador, $tenant, $quemBusca)
             ->select('COUNT(DISTINCT p.id)')
             ->getQuery()
             ->getSingleScalarResult();
@@ -503,16 +513,16 @@ class PastaRepository extends ServiceEntityRepository
     /**
      * @return array<int, int>  marcadorId => total
      */
-    public function countPorMarcadores(Tenant $tenant): array
+    public function countPorMarcadores(Tenant $tenant, ?User $quemBusca = null): array
     {
-        $rows = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p')
             ->select('m.id AS marcador_id, COUNT(p.id) AS total')
             ->join('p.marcadores', 'm')
             ->where('m.tenant = :tenant')
             ->setParameter('tenant', $tenant)
-            ->groupBy('m.id')
-            ->getQuery()
-            ->getArrayResult();
+            ->groupBy('m.id');
+        $this->soAsVisiveis($qb, $quemBusca);
+        $rows = $qb->getQuery()->getArrayResult();
 
         $counts = [];
         foreach ($rows as $row) {
@@ -528,16 +538,16 @@ class PastaRepository extends ServiceEntityRepository
      *
      * @return array<int, int> marcadorDeTopoId => total
      */
-    public function countPorMarcadoresDeTopoComFilhos(Tenant $tenant): array
+    public function countPorMarcadoresDeTopoComFilhos(Tenant $tenant, ?User $quemBusca = null): array
     {
-        $rows = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p')
             ->select('COALESCE(IDENTITY(m.pai), m.id) AS raiz, COUNT(DISTINCT p.id) AS total')
             ->join('p.marcadores', 'm')
             ->where('m.tenant = :tenant')
             ->setParameter('tenant', $tenant)
-            ->groupBy('raiz')
-            ->getQuery()
-            ->getArrayResult();
+            ->groupBy('raiz');
+        $this->soAsVisiveis($qb, $quemBusca);
+        $rows = $qb->getQuery()->getArrayResult();
 
         $counts = [];
         foreach ($rows as $row) {
@@ -728,9 +738,31 @@ class PastaRepository extends ServiceEntityRepository
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant);
 
+        // O marcador é atributo: a pasta oculta para quem consulta não entra no painel dele (D1).
+        $this->soAsVisiveis($qb, $quemBusca);
         $this->aplicarFiltrosPasta($qb, $filters, $quemBusca);
 
         return $qb;
+    }
+
+    /** Cadeado (spec pasta-cadeado D1): só as pastas que `quemBusca` vê. Sem `quemBusca`, nada muda. */
+    private function soAsVisiveis(QueryBuilder $qb, ?User $quemBusca): void
+    {
+        if ($quemBusca !== null) {
+            $this->nivelNoCadeado?->restringirAoVisivel($qb, 'p', $quemBusca);
+        }
+    }
+
+    /** @param array<string, string> $filters */
+    private static function temFiltroDeAtributo(array $filters): bool
+    {
+        foreach (self::FILTROS_DE_ATRIBUTO as $chave) {
+            if (trim((string) ($filters[$chave] ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -744,6 +776,9 @@ class PastaRepository extends ServiceEntityRepository
      */
     private function aplicarFiltrosPasta(QueryBuilder $qb, array $filters, ?User $quemBusca = null): void
     {
+        if (self::temFiltroDeAtributo($filters)) {
+            $this->soAsVisiveis($qb, $quemBusca);
+        }
         if (!empty($filters['expediente']) && in_array($filters['expediente'], self::FILTROS_EXPEDIENTE, true)) {
             $this->aplicarFiltroDoExpediente($qb, (string) $filters['expediente']);
         }
@@ -997,11 +1032,11 @@ class PastaRepository extends ServiceEntityRepository
      *
      * @return array<string, int>
      */
-    public function contagensDosFiltrosDoExpediente(Tenant $tenant): array
+    public function contagensDosFiltrosDoExpediente(Tenant $tenant, ?User $quemBusca = null): array
     {
         $contagens = [];
         foreach (self::FILTROS_EXPEDIENTE as $filtro) {
-            $contagens[$filtro] = $this->countByFilters(['expediente' => $filtro], $tenant);
+            $contagens[$filtro] = $this->countByFilters(['expediente' => $filtro], $tenant, $quemBusca);
         }
 
         return $contagens;

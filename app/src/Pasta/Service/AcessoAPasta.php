@@ -120,6 +120,12 @@ final class AcessoAPasta
         return $this->nivelNoCadeado->idsDasPastasOcultasPorTenantId($pessoa, $tenantId);
     }
 
+    /** @return list<int> processos cujas pastas são todas ocultas para a pessoa (não abrem para ela, K3) */
+    public function idsDosProcessosOcultos(User $pessoa, Tenant $tenant): array
+    {
+        return $this->nivelNoCadeado->idsDosProcessosOcultos($pessoa, $tenant);
+    }
+
     /** Depois de gravar um cadeado na mesma requisição. */
     public function esquecer(): void
     {

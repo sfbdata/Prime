@@ -159,10 +159,15 @@ class PermissionChecker
     /**
      * O teto do cadeado da pasta (spec pasta-cadeado §3), depois dos bypasses e ANTES do `ResourceAccess`
      * e do fallback por tipo: `view` exige pelo menos `Visualizar`, as demais ações exigem `Editar`. Assim
-     * um `AccessRequest` aprovado nunca fura o cadeado. Outros tipos de recurso passam reto.
+     * um `AccessRequest` aprovado nunca fura o cadeado. O processo cujas pastas são TODAS ocultas para a
+     * pessoa também é recusado (K3). Outros tipos de recurso passam reto.
      */
     private function cabeNoCadeadoDaPasta(User $user, UserTenant $userTenant, string $resourceType, int $resourceId, string $action): bool
     {
+        if ($resourceType === AccessRequest::RESOURCE_PROCESSO) {
+            // K3: o processo cujas pastas são todas ocultas para a pessoa não abre para ela.
+            return !$this->nivelNoCadeado->processoOcultoComVinculo($user, $userTenant, $resourceId);
+        }
         if ($resourceType !== AccessRequest::RESOURCE_PASTA) {
             return true;
         }

@@ -9,6 +9,7 @@ use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Repository\NotificacaoRepository;
+use App\Pasta\Service\NivelNoCadeado;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
@@ -28,8 +29,18 @@ class NotificacaoService
         private readonly EntityManagerInterface $entityManager,
         private readonly NotificacaoRepository $notificacaoRepository,
         private readonly UserRepository $userRepository,
-        private readonly PermissionChecker $permissionChecker
+        private readonly PermissionChecker $permissionChecker,
+        private readonly ?NivelNoCadeado $nivelNoCadeado = null,
     ) {
+    }
+
+    /**
+     * Cadeado (spec pasta-cadeado D3): quem está `Oculto` na pasta da meta não recebe aviso dela (o título
+     * da meta já diria o que a pasta tem).
+     */
+    public function veAPastaDaMeta(Tarefa $tarefa, User $usuario): bool
+    {
+        return $this->nivelNoCadeado?->nivel($usuario, $tarefa->getPasta())->podeVer() ?? true;
     }
 
     /**
@@ -104,6 +115,9 @@ class NotificacaoService
     {
         $tenant = $tarefa->getTenant();
         foreach ($usuarios as $usuario) {
+            if (!$this->veAPastaDaMeta($tarefa, $usuario)) {
+                continue;
+            }
             $this->criar(
                 $usuario,
                 $tenant,
@@ -124,7 +138,7 @@ class NotificacaoService
     public function notificarTarefaEmRevisao(Tarefa $tarefa): void
     {
         $criador = $tarefa->getCriadoPor();
-        if ($criador === null) {
+        if ($criador === null || !$this->veAPastaDaMeta($tarefa, $criador)) {
             return;
         }
 
@@ -148,6 +162,9 @@ class NotificacaoService
     {
         $tenant = $tarefa->getTenant();
         foreach ($tarefa->getResponsaveis() as $usuario) {
+            if (!$this->veAPastaDaMeta($tarefa, $usuario)) {
+                continue;
+            }
             $this->criar(
                 $usuario,
                 $tenant,
@@ -169,6 +186,9 @@ class NotificacaoService
     {
         $tenant = $tarefa->getTenant();
         foreach ($tarefa->getResponsaveis() as $usuario) {
+            if (!$this->veAPastaDaMeta($tarefa, $usuario)) {
+                continue;
+            }
             $this->criar(
                 $usuario,
                 $tenant,

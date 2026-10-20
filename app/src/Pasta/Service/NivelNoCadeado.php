@@ -47,6 +47,9 @@ final class NivelNoCadeado implements ResetInterface
     /** @var array<string, UserTenant|false> por "user:tenant"; `false` = sem vínculo ativo */
     private array $vinculos = [];
 
+    /** @var array<string, list<int>> processos ocultos por "user:tenant" */
+    private array $processosOcultos = [];
+
     /** Sufixo dos parâmetros do critério de DQL: dois critérios no mesmo QueryBuilder não colidem. */
     private int $criterios = 0;
 
@@ -244,6 +247,28 @@ final class NivelNoCadeado implements ResetInterface
             : $this->cadeadoRepository->idsDasPastasOcultasPara($pessoa, $tenant);
     }
 
+    /**
+     * Os processos que a pessoa não abre (K3): todas as pastas vinculadas a eles estão ocultas para ela.
+     *
+     * @return list<int>
+     */
+    public function idsDosProcessosOcultos(User $pessoa, Tenant $tenant): array
+    {
+        $chave = $pessoa->getId() . ':' . $tenant->getId();
+
+        return $this->processosOcultos[$chave] ??= $this->cadeadoRepository->processosSoDestasPastas($this->idsDasPastasOcultas($pessoa, $tenant));
+    }
+
+    /** O mesmo, para o `canAccessResource`, que já tem o vínculo ativo (Master e primário: nenhum). */
+    public function processoOcultoComVinculo(User $pessoa, UserTenant $vinculoAtivo, int $processoId): bool
+    {
+        if ($this->regraDosPrimarios->ehMaster($pessoa) || $this->regraDosPrimarios->ehPrimario($vinculoAtivo)) {
+            return false;
+        }
+
+        return in_array($processoId, $this->idsDosProcessosOcultos($pessoa, $vinculoAtivo->getTenant()), true);
+    }
+
     /** @return list<int> o mesmo `idsDasPastasOcultas()`, para quem só tem o id do escritório */
     public function idsDasPastasOcultasPorTenantId(User $pessoa, int $tenantId): array
     {
@@ -254,12 +279,14 @@ final class NivelNoCadeado implements ResetInterface
     public function esquecer(): void
     {
         $this->cadeados = [];
+        $this->processosOcultos = [];
     }
 
     public function reset(): void
     {
         $this->cadeados = [];
         $this->vinculos = [];
+        $this->processosOcultos = [];
     }
 
     private function cadeadoPorId(int $pastaId, Tenant $tenant): ?CadeadoDaPasta
