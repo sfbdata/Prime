@@ -106,6 +106,14 @@
     </div>
     {% endif %}
 
+    {# Contribua (desenho 03: entre Política de Privacidade e Sair, com "PIX" à direita). #}
+    <div class="mu-grupo">
+        <a href="{{ path('contribua_index') }}" class="dropdown-item mu-item" role="menuitem">
+            <i class="bi bi-heart" style="color:#c0392b"></i><span class="mu-item-texto"><span class="mu-item-titulo">Contribua</span></span>
+            <span class="mu-item-dir">PIX</span>
+        </a>
+    </div>
+
     <div class="mu-grupo">
         <a href="{{ path('app_logout') }}" class="dropdown-item mu-item text-danger" role="menuitem" data-mu-sair>
             <i class="bi bi-box-arrow-right"></i><span class="mu-item-texto"><span class="mu-item-titulo">Sair</span></span>

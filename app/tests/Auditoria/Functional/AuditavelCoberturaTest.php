@@ -47,6 +47,13 @@ final class AuditavelCoberturaTest extends KernelTestCase
     // Entidades deliberadamente fora do escopo de Auditavel.
     // Toda entidade ausente desta lista E que não implemente Auditavel quebra o teste.
     private const NAO_AUDITAVEIS = [
+        // Contribua: motivo de ainda não apoiar. O desenho promete resposta ANÔNIMA; a trilha gravaria
+        // quem respondeu (actor do audit_log) e desfaria o anonimato.
+        \App\Contribua\Entity\MotivoDeNaoApoiar::class,
+        // Contribua: sugestão. O Master a atende a partir de outro escritório e o audit_log gravaria no
+        // escritório da sessão dele (vazamento entre trilhas). Volta quando houver o escopo de plataforma.
+        \App\Contribua\Entity\Sugestao::class,
+
         // Favorito de pasta: preferência pessoal de ordenação (estrela), sem efeito sobre o dado da
         // pasta. Auditar cada clique encheria o audit_log de ruído sem valor de prova.
         \App\Pasta\Entity\PastaFavorita::class,
