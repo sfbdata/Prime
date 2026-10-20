@@ -137,7 +137,12 @@ final class ListarCompromissosUseCase
         return (new CalendarioPelaCor())->mapa($this->legendas->findBy(['tenant' => $tenant]));
     }
 
-    /** @return list<C> */
+    /**
+     * Aplicar `idsOcultosPara` quando o #120 (cadeado da pasta, b5) entrar: o `$pastasOcultas` vai como 4º
+     * argumento do `doEscritorioNoPeriodo` (combinado com a b5 em 20/10/2026).
+     *
+     * @return list<C>
+     */
     private function dosPrazos(Tenant $tenant, \DateTimeImmutable $de, \DateTimeImmutable $ate): array
     {
         return array_map(static function (PastaPrazo $z): C {

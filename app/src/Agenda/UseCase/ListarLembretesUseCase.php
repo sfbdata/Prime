@@ -101,7 +101,13 @@ final class ListarLembretesUseCase
         );
     }
 
-    /** @return list<L> */
+    /**
+     * Aplicar `idsOcultosPara` quando o #120 (cadeado da pasta, b5) entrar: `?AcessoAPasta $acessoAPasta = null`
+     * no fim do construtor e `$this->acessoAPasta?->idsOcultosPara($eu, (int) $tenant->getId()) ?? []` como 4º
+     * argumento do `abertosDoEscritorioNoPeriodo`, com o teste "Oculta na pasta não recebe lembrete do prazo".
+     *
+     * @return list<L>
+     */
     private function dosPrazosDeHoje(Tenant $tenant, \DateTimeImmutable $agora): array
     {
         $hoje = $agora->setTime(0, 0);
