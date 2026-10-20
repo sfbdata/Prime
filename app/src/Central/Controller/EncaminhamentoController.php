@@ -6,6 +6,7 @@ namespace App\Central\Controller;
 
 use App\Central\DTO\DestinoDoEncaminhamentoOutput;
 use App\Central\DTO\EncaminharItemInput;
+use App\Central\Enum\TipoDeItemEncaminhado;
 use App\Central\Exception\ConversaCriadaAoMesmoTempoException;
 use App\Central\Exception\ConversaNaoEncontradaException;
 use App\Central\Exception\ItemEncaminhadoNaoEncontradoException;
@@ -13,6 +14,7 @@ use App\Central\Exception\PedidoInvalidoNaCentralException;
 use App\Central\Exception\SemAcessoACentralException;
 use App\Central\UseCase\EncaminharItemDaPastaUseCase;
 use App\Central\UseCase\ListarDestinosDoEncaminhamentoUseCase;
+use App\Central\UseCase\ObterItemDoEncaminhamentoUseCase;
 use App\Entity\Auth\User;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
@@ -39,7 +41,32 @@ final class EncaminhamentoController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly ListarDestinosDoEncaminhamentoUseCase $listarDestinos,
         private readonly EncaminharItemDaPastaUseCase $encaminhar,
+        private readonly ObterItemDoEncaminhamentoUseCase $obterItem,
     ) {
+    }
+
+    /**
+     * O cartão da tela de despacho (BC:6224): `{titulo, resumo}` relidos pelo servidor. `item` ausente ou torto vira
+     * `null` (no tipo `pasta` é ignorado; nos outros, o leitor dá 404).
+     */
+    #[Route('/item', name: 'central_encaminhar_item', methods: ['GET'])]
+    public function item(Request $request): JsonResponse
+    {
+        $pastaId = self::idDaQuery($request, 'pasta');
+        $itemId = self::idDaQuery($request, 'item');
+        $tipo = TipoDeItemEncaminhado::tryFrom((string) $request->query->get('tipo', ''));
+
+        return $this->responder(function () use ($pastaId, $itemId, $tipo): array {
+            $item = $this->obterItem->executar(
+                $this->usuario(),
+                $this->tenantContext->getCurrentTenant(),
+                $pastaId,
+                $tipo ?? throw new PedidoInvalidoNaCentralException('Tipo de item desconhecido.'),
+                $itemId > 0 ? $itemId : null,
+            );
+
+            return ['titulo' => $item->titulo, 'resumo' => $item->resumo];
+        });
     }
 
     #[Route('/destinos', name: 'central_encaminhar_destinos', methods: ['GET'])]

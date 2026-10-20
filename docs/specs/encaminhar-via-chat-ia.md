@@ -7,12 +7,20 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
 
 - **19/10:** investigação concluída, perguntas de produto respondidas pelo coordenador (§2).
 - **19/10, PR1 (backend):** implementado na branch `encaminhar-chat-ia` (commit 82327702), em revisão.
+- **19/10, PR2:** a base de presença (#61) entrou; PR2 (tela de despacho e API da janela, §4.1) na branch
+  `encaminhar-tela`, empilhada sobre `encaminhar-chat-ia` (#108).
+- **19/10, PR2 implementado (em revisão):** `GET /central/encaminhar/item` (`ObterItemDoEncaminhamentoUseCase`, as
+  guardas e o leitor do envio), `window.BJCentral` no `central-flutuante.js` (só com o lançador na página; na `/central`
+  não há API nesta fatia), tela "Despachar via Chat I.A" no `central.js` (`mostrarTela('despacho')`) e o chip "Pasta N"
+  **só como texto**: a mensagem não guarda o id da pasta, o chip sai da linha "Pasta NUP" e não abre a pasta (link
+  depende da coluna `referencia`, §5). Pendente: smoke do dono e o Playwright comparativo.
+- **20/10, PR2 sobre a referência:** o chip "Pasta N" sai de `mensagem.despacho` e abre a pasta; a extração por regex do
+  texto saiu (chip forjado não existe mais); `ocultoPorPermissao` apagado no balão, na citação e na prévia.
 - **20/10, PR1, correção de segurança (bloqueante da revisão):** quem entrava no grupo depois do despacho (ou perdia
   o acesso à pasta) lia no histórico o título, o trecho do teor e o NUP. Agora a mensagem guarda a referência
   (`despacho_pasta_id`, `despacho_tipo`; migration `Version20261020129000`) e toda leitura confere a pasta na hora
   (`LeituraDasMensagens`); o contrato novo da `MensagemOutput` está em §4.1. Também: conversa sem ninguém que receba é
   recusada, e o registro do Financeiro pede o financeiro de quem envia e de quem recebe.
-- **Próximo:** PR2 (tela de despacho), quando a base de presença entrar no master.
 
 ### Para o dono
 
@@ -141,6 +149,39 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
 4. **PR4 em diante, os menus, um por área:** (a) Dados, Detalhes, Financeiro; (b) metas e prazo; (c) processo, depois
    de #91 e #75; (d) explorador e nota técnica; (e) Push, com a 0d, depois de #82, #87 e #98.
 5. **"Enviar no Chat I.A"** (D:6872): fatia pequena com a API do PR2.
+
+## 4.1 Contrato da API da janela (PR2, 19/10): para as outras áreas e a 0d
+
+A janela da Central expõe, onde o lançador flutuante está na página (`central_disponivel()`; a `/central`, sem
+lançador e sem menus de pasta, não expõe), o objeto
+`window.BJCentral` (nome do desenho, BC:6645) com três funções. Só identificadores saem da tela; o servidor relê
+tudo.
+
+| Função | O que faz |
+|---|---|
+| `BJCentral.abrir()` | abre a janela flutuante, sem trocar de conversa |
+| evento `bj-central:abrir` no document | o mesmo que `BJCentral.abrir()`: só abre a janela (vem do #111, `enviar-chat-ia`) |
+| `BJCentral.despachar({pastaId, tipo, itemId})` | abre a janela na tela "Despachar via Chat I.A" (BC:6218-6238) com o cartão do item; `tipo` é um valor de `TipoDeItemEncaminhado` (§3), `itemId` é `null` no tipo `pasta` |
+| `BJCentral.conversar(userId)` | abre a janela na conversa 1:1 com o colega (PR3); si mesmo ou colega fora do escritório: só abre a janela |
+
+Também por evento, para quem carrega antes da janela: `document.dispatchEvent(new CustomEvent('bj-central:despachar',
+{detail: {pastaId, tipo, itemId}}))` e `bj-central:conversar` com `{userId}`. Ausente (`window.BJCentral`
+indefinido), o item de menu não aparece (a tela que monta o menu confere `central_disponivel()` no Twig ou
+`window.BJCentral` no JS).
+
+Rotas que a tela usa: `GET /central/encaminhar/item?pasta=N&tipo=T&item=I` (novo no PR2: `{titulo, resumo}` do
+cartão, montado pelo mesmo `ItensEncaminhaveisDaPasta`; 404 se não achar ou eu não vir), `GET
+/central/encaminhar/destinos?pasta=N` e `POST /central/encaminhar` (PR1).
+
+Tela de despacho (BC:6218-6238, literal): cabeçalho "DESPACHAR VIA CHAT I.A" e "Cancelar"; cartão com ícone por tipo,
+título e resumo; "Instrução (opcional). Ex.: favor concluir até sexta."; prioridade Normal / Urgente / Para hoje;
+"Para quem?" com os destinos (grupo travado mostra o motivo, sem clique); ao escolher, envia, abre a conversa com o
+destino e avisa "Despachado para NOME.". Erro do servidor: o `erro` da resposta, na própria tela. "Cancelar" volta à
+lista (BC:6223 só zera o despacho). Desvio registrado: a busca e as abas da lista, que no protótipo ficam à vista e
+inertes atrás da tela (BC:6362-6372), não aparecem no despacho. O chip "Pasta N" sai da referência `despacho`
+(`{pastaId, nup}`) da mensagem, nunca do texto: rótulo "Pasta " + nup (ou o id sem nup), link para `/pasta/{pastaId}`
+(BC:6041, `bj-navegar` no protótipo). A linha "Pasta NUP" do texto some da tela só quando é igual à da referência.
+Com `ocultoPorPermissao`, balão, citação e prévia mostram "Item de pasta sem acesso" apagado e sem chip.
 
 ## 5. Fora
 

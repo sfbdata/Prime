@@ -73,6 +73,31 @@ final class EncaminhamentoComCadeadoTest extends JusPrimeWebTestCase
         $this->remetenteOcultoRecebe404($client, $tenant, $pasta, $ana, $bruno, (int) $registro->getId());
     }
 
+    #[TestDox('Cartão do despacho (GET /central/encaminhar/item): pasta Oculta para quem pede dá 404 sem o teor; com Visualizar, o cartão vem (controle)')]
+    public function testCartaoDoItemComCadeado(): void
+    {
+        $client = $this->cliente();
+        [$master, $tenant] = $this->criarAdmin();
+        $ana = $this->criarUsuarioComPermissoes($tenant, self::VE_PASTA, 'ana');
+        $bruno = $this->criarUsuarioComPermissoes($tenant, self::VE_PASTA, 'bruno');
+        $pasta = $this->criarPasta($tenant);
+        $registro = $this->criarAnotacao($tenant, $pasta, $ana, self::SEGREDO);
+        $this->trancar($pasta, $master, [[$bruno, NivelDeAcesso::Visualizar]]);
+        $url = '/central/encaminhar/item?pasta=' . $pasta->getId() . '&tipo=registro_dados&item=' . $registro->getId();
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $client->request('GET', $url);
+        self::assertResponseStatusCodeSame(404);
+        self::assertStringNotContainsString('SEGREDO-DO-CADEADO', (string) $client->getResponse()->getContent());
+        $client->request('GET', '/central/encaminhar/item?pasta=' . $pasta->getId() . '&tipo=pasta');
+        self::assertResponseStatusCodeSame(404, 'nem o cartão da própria pasta');
+
+        $this->logarComTenant($client, $bruno, $tenant);
+        $client->request('GET', $url);
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('SEGREDO-DO-CADEADO', (string) $client->getResponse()->getContent(), 'quem vê recebe o resumo');
+    }
+
     #[TestDox('Pasta Oculta para quem recebe e visível para quem envia (Visualizar ou Editar): ele some dos destinos, envio 422, grupo indisponível')]
     public function testDestinatarioOculto(): void
     {
