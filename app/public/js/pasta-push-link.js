@@ -729,6 +729,9 @@
             var alvo = e.target;
             var aba = estado.gatilhoMenu;
             if (alvo.closest('.js-ppl-menu-fechar')) { fecharMenu(true); return; }
+            // Ponto de extensão: itens que outro script pôs neste menu (`data-ppl-externo`, os de ocultar
+            // aba do pasta-abas-ocultas.js). Este menu só fecha; a ação é de quem os pôs.
+            if (alvo.closest('[data-ppl-externo]')) { fecharMenu(false); return; }
             if (alvo.closest('.js-ppl-menu-copiar')) {
                 var ativo = ativoMaisRecente();
                 fecharMenu(true);
