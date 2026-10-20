@@ -223,6 +223,44 @@ legado de risco ALTO):
   chave liga/desliga do bloqueio. Motivo medido: em produção o único escritório com arquivos usa 24,29 GB;
   com o Free de 10 GB ele seria bloqueado no deploy.
 
+## 5.1 Página e aviso (C2)
+
+- Página própria `/contribua` (`contribua_index`), como no 08, com o item "Contribua · PIX" no menu do
+  avatar (desenho 03) e o título "Quem somos e contribua" na barra azul (linha autorizada pela 7d no
+  `base.html.twig`). Não há aba no Meu Perfil: o 07 não tem; o bloco "Assinatura" do Meu Perfil (plano,
+  vencimento, cancelar) entra na C3, no ponto de inclusão do #60 (decisão da coordenação, 19/10).
+- Sugestões: cada escritório vê as próprias; o Master vê as de todos (pela porta `VisaoDoMaster`, que
+  suspende o filtro de tenant só no callback) e marca como atendida com resposta. Números (recebidas, em
+  aberto, atendidas, apoios): do escritório; para o Master, de todos.
+- Apoio informado: um por escritório a cada 30 dias, como no desenho; avisa o Master. Motivo de não
+  apoiar: anônimo (só a conta), um a cada 30 dias.
+- PIX estático gerado e validado no servidor (`CodigoPixEstatico`, testado byte a byte contra a função
+  `pix()` do desenho); QR desenhado no navegador com o `qrcode-generator@1.4.4` do desenho.
+- Conta Nº = id do escritório com 6 dígitos; txid `BJ<conta>`.
+- "Quero +N GB": na C2 registra o pedido em lista de espera e avisa o Master (caminho `coPedir` do
+  próprio desenho para gateway não configurado). Na C3 vira o checkout de cartão.
+- Aviso de espaço: parcial `layout/_globais/aviso_espaco.html.twig` (ponto de inclusão da 7d), só para o
+  primário, a partir da faixa Alerta, uma vez por dia; "Espaço esgotado" sem fechar só com o bloqueio
+  ligado e a faixa Bloqueio atingida. Espera qualquer modal aberto (`hidden.bs.modal`).
+- Cores do cabeçalho do espaço e do aviso pelos limiares literais do desenho (80, 90, 100). **Estado
+  bloqueio desligado acima de 100% usa a variante de uso alto do desenho** ("Seu escritório está com N% do
+  espaço ocupado", aviso com ×), mantendo o vermelho: "novos envios estão pausados" só aparece com o
+  bloqueio ligado e a faixa Bloqueio atingida, porque com ele desligado seria falso (coordenação, 19/10).
+- E-mail de 90%/100% (§2.8): fica com a frente de e-mails, que ouve o evento `EspacoAtingiuFaixa`
+  (coordenação, 19/10). A C2 não manda e-mail.
+- Auditoria: `Apoio` é auditável; `MotivoDeNaoApoiar` fica fora de propósito (a trilha gravaria quem
+  respondeu e desfaria o anonimato); `Sugestao` fica fora até o escopo de auditoria de plataforma (#52),
+  porque o Master a atende de outro escritório e a trilha gravaria no escritório da sessão dele.
+- O aviso ao Master nunca derruba a ação: título cortado em 255 e falha vira log. O aviso global de
+  espaço nunca derruba a página: falha vira log e o aviso some.
+- Limites aceitos: "um apoio por mês" não tem trava entre dois cliques simultâneos (dois apoios e dois
+  avisos no pior caso); a soma de consumo roda em toda página do primário (uma consulta indexada por
+  escritório).
+- Ficam para a C3/C4, com as funções: "Configurar pagamento" (Master), checkout, Integração bancária,
+  "Testar mensagem de prêmio" e o prêmio do apoiador.
+- Avisos ao Master saem no sino do escritório de origem quando o Master tem vínculo com ele; senão no
+  primeiro escritório do Master.
+
 ## 6. Cartão (espaço): quatro gateways atrás de uma interface
 
 O desenho (§2.2 e §2.6) tem o seletor GATEWAY com **Mercado Pago (Assinaturas), Stripe (Payment Links),
@@ -311,7 +349,7 @@ interface. Mais um **adaptador falso** para os testes, que já entra na C3.
 |---|---|---|
 | D1 | Cora para o espaço? | **Resolvida**: a API da Cora só tem boleto, PIX e webhooks (developers.cora.com.br/llms.txt); o link de cartão da Cora existe só no aplicativo (avulso, validade de 7 dias, sem API e sem recorrência), então não serve para assinatura. O desenho (cartão por gateway, Cora no PIX) é compatível com o pedido |
 | D2 | Em qual gateway abrir conta primeiro | **Resolvida pelo dono**: Asaas (C3a). Os quatro continuam no escopo |
-| D3 | (dono) Carência da inadimplência antes de voltar ao Free | 7 dias |
+| D3 | Carência da inadimplência | **Resolvida pelo dono (19/10)**: 7 dias, configurável pelo Master (padrão 7) |
 | D4 | Quem compra e cancela espaço | **Resolvida**: o primário, como no desenho |
 | D5 | Nota fiscal mensal | **Resolvida para o Asaas** (NFS-e da assinatura, §6); pendência por adaptador nos outros três |
 | D6 | Certificado da Cora pela tela | **Resolvida**: segue o desenho; o arquivo é guardado cifrado (sodium, chave de ambiente ou Symfony secrets) e a tela mostra presente/ausente. A chave de produção é segredo do dono |

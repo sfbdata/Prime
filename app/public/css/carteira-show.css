@@ -169,7 +169,7 @@
 }
 .cs-btn-verde:hover { background: var(--cs-verde-escuro); border-color: var(--cs-verde-escuro); color: #fff; }
 
-/* ⋮ do cabeçalho (desenho L75-84): quadrado de 34px, e o menu de um item só. */
+/* ⋮ do cabeçalho (desenho L75-84): quadrado de 34px, e o menu com os itens que têm ação. */
 .cs-btn-icone { width: 34px; padding: 0; font-size: 15px; }
 .cs-btn-icone .bi { font-size: 15px; }
 .cs-mais-menu {
@@ -188,6 +188,8 @@
 .cs-mais-item:hover { background: #f2f7fa; }
 [data-bs-theme="dark"] .cs-mais-item:hover { background: var(--cs-hover); }
 .cs-mais-item:focus-visible { outline: 2px solid var(--cs-foco); outline-offset: -2px; }
+/* "Exportar lista (.xlsx)" é link (download), não botão: sem o sublinhado e a cor de link. */
+a.cs-mais-item, a.cs-mais-item:hover { color: var(--cs-body); text-decoration: none; }
 
 /* ── Cabeçalho ───────────────────────────────────────────────────────────── */
 .cs-cab-topo {
