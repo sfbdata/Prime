@@ -6,6 +6,7 @@ namespace App\Tests\Agenda\Functional;
 
 use App\Agenda\Controller\CompromissoController;
 use App\Agenda\Entity\Evento;
+use App\Agenda\Service\PermissoesDaAgenda;
 use App\Agenda\Enum\TipoDeCompromisso;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -197,6 +198,8 @@ final class CompromissoControllerTest extends JusPrimeWebTestCase
         $eu = $this->criarUsuario($tenant, true);
         $colega = $this->criarUsuario($tenant, true);
         $soAgenda = $this->criarUsuario($tenant, false, ['modules.agenda.view']);
+        $soPastas = $this->criarUsuario($tenant, false, ['modules.agenda.view', 'modules.pastas.view']);
+        $soPrazos = $this->criarUsuario($tenant, false, ['modules.agenda.view', PermissoesDaAgenda::VER_PRAZOS]);
         $pasta = PastaFactory::createOne(['tenant' => $tenant, 'nup' => 'AV-0001'])->_real();
         $prazo = new PastaPrazo($tenant, $pasta, null);
         $prazo->definir(PastaPrazo::TIPO_PRAZO, 'Contestação', new \DateTimeImmutable('2030-03-16'), null, null);
@@ -214,11 +217,18 @@ final class CompromissoControllerTest extends JusPrimeWebTestCase
         $deFora = $client->getResponse()->getStatusCode();
         $this->logarComTenant($client, $soAgenda, $tenant);
         $this->postar($client, '/agenda/prazos/' . $prazo->getId() . '/avisar', ['ids' => [$colega->getId()]]);
+        $semVerPrazos = $client->getResponse()->getStatusCode();
+        $this->logarComTenant($client, $soPastas, $tenant);
+        $this->postar($client, '/agenda/prazos/' . $prazo->getId() . '/avisar', ['ids' => [$colega->getId()]]);
+        $soPastas = $client->getResponse()->getStatusCode();
+        $this->logarComTenant($client, $soPrazos, $tenant);
+        $comVerPrazos = $this->postar($client, '/agenda/prazos/' . $prazo->getId() . '/avisar', ['ids' => [$colega->getId()]]);
 
         self::assertSame(1, $r['avisados']);
-        self::assertSame([404, 404], [$deFora, $client->getResponse()->getStatusCode()]);
-        $avisos = $this->em()->getRepository(Notificacao::class)->findBy(['usuario' => $colega]);
-        self::assertCount(1, $avisos);
+        self::assertSame([404, 404, 404], [$deFora, $semVerPrazos, $soPastas], 'de outro escritório, sem Ver prazos e só com Pastas');
+        self::assertSame(1, $comVerPrazos['avisados'], 'Ver prazos na agenda basta, sem o módulo Pastas');
+        $avisos = $this->em()->getRepository(Notificacao::class)->findBy(['usuario' => $colega], ['id' => 'ASC']);
+        self::assertCount(2, $avisos);
         self::assertSame('/pasta/' . $pasta->getId(), (string) $avisos[0]->getUrl());
         self::assertSame('Agenda: Contestação · Pasta AV-0001', $avisos[0]->getTitulo());
         self::assertStringContainsString('um prazo: Contestação · sáb, 16/03 · Pasta AV-0001', (string) $avisos[0]->getMensagem());

@@ -22,7 +22,7 @@ use App\Repository\LegendaCorRepository;
 /**
  * História: a pessoa abre a Agenda e vê, no período, os compromissos que pode ver (os dela e, na
  * "Equipe do escritório", os dos colegas que não são "Só eu"), os prazos e audiências abertos das
- * pastas do escritório e os aniversários dos colegas. Só leitura.
+ * pastas do escritório (com a permissão "Ver prazos na agenda") e os aniversários dos colegas. Só leitura.
  *
  * O Evento ainda não tem tipo: até a entrega 3, o calendário (Audiência, Reunião, Prazo ou Meus
  * compromissos) sai da legenda de cor escolhida no formulário antigo.
@@ -44,12 +44,12 @@ final class ListarCompromissosUseCase
     }
 
     /** @return list<C> */
-    public function executar(Tenant $tenant, User $eu, \DateTimeImmutable $de, \DateTimeImmutable $ate, bool $soMinha, bool $verPastas, bool $administra = false): array
+    public function executar(Tenant $tenant, User $eu, \DateTimeImmutable $de, \DateTimeImmutable $ate, bool $soMinha, bool $verPastas, bool $verPrazos, bool $administra = false): array
     {
         $ateFim = $ate->setTime(23, 59, 59);
         $itens = [
             ...$this->dosEventos($tenant, $eu, $de, $ateFim, $soMinha, $administra, $verPastas),
-            ...($verPastas ? $this->dosPrazos($tenant, $de, $ate, $this->acessoAPasta?->idsOcultosPara($eu, (int) $tenant->getId()) ?? []) : []),
+            ...($verPrazos ? $this->dosPrazos($tenant, $de, $ate, $this->acessoAPasta?->idsOcultosPara($eu, (int) $tenant->getId()) ?? []) : []),
             ...$this->dosAniversarios($tenant, $de, $ate),
         ];
         usort($itens, static fn (C $a, C $b): int => [$a->data, $a->dia ? '' : $a->h1] <=> [$b->data, $b->dia ? '' : $b->h1]);

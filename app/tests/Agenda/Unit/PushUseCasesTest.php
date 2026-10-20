@@ -13,6 +13,7 @@ use App\Agenda\Repository\PushEnviadoRepository;
 use App\Agenda\Repository\VarreduraDePushRepository;
 use App\Agenda\Service\GarantirVarreduraDePush;
 use App\Agenda\Service\OcorrenciasDoEvento;
+use App\Agenda\Service\PermissoesDaAgenda;
 use App\Agenda\UseCase\CancelarInscricaoDePushUseCase;
 use App\Agenda\UseCase\InscreverPushUseCase;
 use App\Agenda\UseCase\ListarLembretesUseCase;
@@ -127,6 +128,6 @@ final class PushUseCasesTest extends TestCase
         $permissoes->method('canAccessModule')->willReturn(true);
         $listar = new ListarLembretesUseCase($eventos, new OcorrenciasDoEvento(), $this->createStub(PastaPrazoRepository::class));
 
-        return new VarrerLembretesDePushUseCase($inscricoes, $enviados, $listar, $permissoes, $falso);
+        return new VarrerLembretesDePushUseCase($inscricoes, $enviados, $listar, $permissoes, $falso, new PermissoesDaAgenda($permissoes));
     }
 }

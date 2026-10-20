@@ -46,11 +46,11 @@ final class ListarLembretesUseCase
     }
 
     /** @return list<L> */
-    public function executar(Tenant $tenant, User $eu, \DateTimeImmutable $agora, bool $verPastas): array
+    public function executar(Tenant $tenant, User $eu, \DateTimeImmutable $agora, bool $verPastas, bool $verPrazos): array
     {
         $de = $agora->modify('-' . self::ATRASO_HORAS . ' hours');
         $ate = $agora->modify('+' . (self::JANELA_HORAS + 1) . ' hours');
-        $lembretes = [...$this->dosCompromissos($tenant, $eu, $de, $ate, $agora, $verPastas), ...($verPastas ? $this->dosPrazosDeHoje($tenant, $eu, $agora) : [])];
+        $lembretes = [...$this->dosCompromissos($tenant, $eu, $de, $ate, $agora, $verPastas), ...($verPrazos ? $this->dosPrazosDeHoje($tenant, $eu, $agora) : [])];
         usort($lembretes, static fn (L $a, L $b): int => $a->aviso <=> $b->aviso);
 
         return $lembretes;

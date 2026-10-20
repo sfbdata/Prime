@@ -305,7 +305,7 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
     public function testAgenda(): void
     {
         [$primario, $tenant] = $this->criarEscritorio();
-        $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'modules.agenda.view', 'modules.pastas.view']);
+        $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'modules.agenda.view', 'modules.pastas.view', 'resources.agenda.ver_prazos']);
         $oculta = $this->criarPasta($tenant);
         $livre  = $this->criarPasta($tenant);
         $data   = new \DateTimeImmutable('+3 days');
@@ -332,7 +332,7 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
     public function testLembretes(): void
     {
         [$primario, $tenant] = $this->criarEscritorio();
-        $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'modules.agenda.view', 'modules.pastas.view']);
+        $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'modules.agenda.view', 'modules.pastas.view', 'resources.agenda.ver_prazos']);
         $oculta = $this->criarPasta($tenant);
         $livre  = $this->criarPasta($tenant);
         $prazos = [];
