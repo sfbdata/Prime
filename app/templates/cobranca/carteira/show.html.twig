@@ -175,7 +175,7 @@
                                 <div class="cs-frescor-nota">
                                     A carteira só está em dia até a emissão <strong>mais antiga</strong>.
                                     {%- if tipoMaisAntigo is not null %}
-                                        Importe <span data-frescor-importar="{{ tipoMaisAntigo }}">{{ importarQual[tipoMaisAntigo] is defined ? importarQual[tipoMaisAntigo] : ('o relatório de ' ~ tipoMaisAntigo) }}</span> para fechar a defasagem.
+                                        Importe <span data-frescor-importar="{{ tipoMaisAntigo }}">{{ importarQual[tipoMaisAntigo] is defined ? importarQual[tipoMaisAntigo] : ('o relatório de ' ~ (tipoMaisAntigo|capitalize)) }}</span> para fechar a defasagem.
                                     {%- endif %}
                                 </div>
                             </div>

@@ -20,8 +20,33 @@
 
     var LARGURA = 240;
     var MARGEM = 8;
-    var aberto = null;     // { menu, linha, gatilho }
+    var aberto = null;     // { menu, linha }
     var avisoTimer = null;
+    var camada = null;
+
+    /* Camada transparente atrás do menu aberto (desenho L215: `position:fixed;inset:0`). Ela ABSORVE
+       o clique e o botão direito fora do menu: só fecham o menu. Sem ela o clique atravessaria para
+       o "Receber" de outra linha e o botão direito abriria o menu nativo do navegador. */
+    function camadaDeFundo() {
+        if (camada) {
+            return camada;
+        }
+        camada = document.createElement('div');
+        camada.className = 'cob-obr-menu-camada';
+        camada.hidden = true;
+        camada.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            fechar(false);
+        });
+        camada.addEventListener('contextmenu', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            fechar(false);
+        });
+        document.body.appendChild(camada);
+        return camada;
+    }
 
     function linhaDoMenu(menu) {
         return document.querySelector('[data-obr-menu="' + menu.id + '"]');
@@ -38,6 +63,9 @@
         var atual = aberto;
         aberto = null;
         atual.menu.hidden = true;
+        if (camada) {
+            camada.hidden = true;
+        }
         atual.menu.style.left = '';
         atual.menu.style.top = '';
         var botao = atual.linha ? atual.linha.querySelector('[data-obr-menu-abrir]') : null;
@@ -75,6 +103,7 @@
             marcar.setAttribute('aria-checked', check.checked ? 'true' : 'false');
         }
 
+        camadaDeFundo().hidden = false;
         menu.hidden = false;
         posicionar(menu, x, y);
         var botao = linha ? linha.querySelector('[data-obr-menu-abrir]') : null;
@@ -168,17 +197,18 @@
             // Sem `data-obr-menu-acao` é Editar/Excluir: o Bootstrap abre o modal pelo próprio clique.
             return;
         }
-
-        if (aberto && !aberto.menu.contains(e.target)) {
-            fechar(false);
-        }
     });
 
     document.addEventListener('contextmenu', function (e) {
+        if (aberto && aberto.menu.contains(e.target)) {
+            // Dentro do próprio menu o botão direito não faz nada (nem abre o nativo por cima dele).
+            e.preventDefault();
+            return;
+        }
         var linha = e.target.closest('[data-obr-menu]');
         if (!linha || e.shiftKey) {
-            // Shift + botão direito devolve o menu nativo do navegador.
-            if (aberto && !aberto.menu.contains(e.target)) { fechar(false); }
+            // Shift + botão direito devolve o menu nativo do navegador. Com o menu aberto, o botão
+            // direito fora dele nem chega aqui: cai na camada de fundo, que absorve e fecha.
             return;
         }
         var menu = document.getElementById(linha.getAttribute('data-obr-menu'));
@@ -201,7 +231,9 @@
             fechar(true);
             return;
         }
-        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        // Setas só navegam quando o foco está DENTRO do menu (aberto pelo botão direito o foco fica
+        // onde estava, e as setas continuam rolando a página).
+        if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && aberto.menu.contains(document.activeElement)) {
             var lista = itens(aberto.menu);
             if (!lista.length) { return; }
             e.preventDefault();

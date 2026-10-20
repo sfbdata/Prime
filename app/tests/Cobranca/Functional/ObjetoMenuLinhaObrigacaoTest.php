@@ -30,11 +30,11 @@ use Symfony\Component\DomCrawler\Crawler;
 final class ObjetoMenuLinhaObrigacaoTest extends CobrancaWebTestCase
 {
     /** @return array{0: Crawler, 1: int} */
-    private function abrirComUmaObrigacao(CasoCobranca $caso, KernelBrowser $client): array
+    private function abrirComUmaObrigacao(CasoCobranca $caso, KernelBrowser $client, string $descricao = 'Taxa de condomínio 03/2026'): array
     {
         $obrigacao = ObrigacaoFactory::createOne([
             'tenant' => $caso->getTenant(), 'caso' => $caso,
-            'descricao' => 'Taxa de condomínio 03/2026', 'valorOriginal' => 120000, 'encargosReconhecidos' => 0,
+            'descricao' => $descricao, 'valorOriginal' => 120000, 'encargosReconhecidos' => 0,
             'vencimentoOriginal' => new \DateTimeImmutable('2026-03-10'),
         ])->_real();
         $id = (int) $obrigacao->getId();
@@ -197,6 +197,30 @@ final class ObjetoMenuLinhaObrigacaoTest extends CobrancaWebTestCase
         self::assertCount(1, $crawler->filter('[data-obr-menu-abrir="menuObr' . $id . '"]'));
     }
 
+    #[TestDox('Descrição hostil sai escapada no JSON do Copiar, no title e no título do menu')]
+    public function testDescricaoHostilSaiEscapada(): void
+    {
+        $hostil = '"><script>alert(1)</script> \'aspas\' "duplas"';
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        [$crawler, $id] = $this->abrirComUmaObrigacao($caso, $client, $hostil);
+
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('<script>alert(1)</script>', $html, 'A descrição vazou crua no HTML');
+        self::assertCount(0, $crawler->filter('#secao-divida script'), 'Nenhum <script> nasce da descrição');
+
+        $menu = $crawler->filter('#menuObr' . $id);
+        self::assertCount(1, $menu, 'O atributo não foi quebrado pelas aspas');
+        // Lido de volta pelo parser, cada lugar devolve o texto EXATO: escapado na ida, íntegro na volta.
+        $dados = json_decode((string) $menu->attr('data-obr-menu-dados'), true, 512, \JSON_THROW_ON_ERROR);
+        self::assertSame($hostil, $dados['descricao']);
+        $titulo = $menu->filter(':scope > .cob-obr-menu-titulo');
+        self::assertSame($hostil, $titulo->text());
+        self::assertSame($hostil, $titulo->attr('title'));
+        self::assertSame($hostil, $menu->filter('[data-bs-target="#modalExcluirObrigacao"]')->attr('data-descricao'));
+    }
+
     #[TestDox('O script do menu monta o DOM sem innerHTML e trata os dois gatilhos e o aviso')]
     public function testScriptDoMenuTrataOsDoisGatilhosSemInnerHtml(): void
     {
@@ -211,5 +235,12 @@ final class ObjetoMenuLinhaObrigacaoTest extends CobrancaWebTestCase
         self::assertStringContainsString('[data-acao="receber"]', $js);
         self::assertStringContainsString('.jp-check', $js);
         self::assertStringContainsString('.cob-obr-chevron', $js);
+        // Com o menu aberto, clique e botão direito fora caem numa camada que absorve e só fecha.
+        self::assertStringContainsString('cob-obr-menu-camada', $js);
+        self::assertStringContainsString('e.stopPropagation()', $js);
+        // Setas só navegam com o foco dentro do menu.
+        self::assertStringContainsString('aberto.menu.contains(document.activeElement)', $js);
+        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/objeto-linha-menu.css');
+        self::assertMatchesRegularExpression('/\.cob-obr-menu-camada\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;/', $css);
     }
 }

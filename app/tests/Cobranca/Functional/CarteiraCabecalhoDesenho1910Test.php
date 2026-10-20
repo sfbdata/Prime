@@ -100,6 +100,54 @@ final class CarteiraCabecalhoDesenho1910Test extends CobrancaWebTestCase
         );
     }
 
+    #[TestDox('Empate na emissão mais antiga fica com o primeiro na ordem da lista')]
+    public function testEmpateFicaComOPrimeiroDaOrdem(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteira = $this->carteira($tenant);
+        $mesmaEmissao = new \DateTimeImmutable('-6 days');
+        // Registrados fora da ordem da lista, de propósito: quem desempata é a ordem, não o registro.
+        $carteira->registrarEmissaoImportada('cadastro', $mesmaEmissao);
+        $carteira->registrarEmissaoImportada('acordos', $mesmaEmissao);
+        $carteira->registrarEmissaoImportada('receitas', new \DateTimeImmutable('-1 day'));
+        static::getContainer()->get('doctrine')->getManager()->flush();
+
+        $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId());
+
+        self::assertResponseIsSuccessful();
+        $nota = $crawler->filter('.content-header .cs-frescor-menu > .cs-frescor-nota');
+        self::assertSame('acordos', $nota->filter('[data-frescor-importar]')->attr('data-frescor-importar'));
+        self::assertStringContainsString(
+            'Importe os acordos detalhados para fechar a defasagem.',
+            (string) preg_replace('/\s+/u', ' ', $nota->text()),
+        );
+    }
+
+    #[TestDox('Tipo de relatório desconhecido usa o mesmo rótulo da lista do popover')]
+    public function testTipoDesconhecidoUsaORotuloDaLista(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteira = $this->carteira($tenant);
+        $carteira->registrarEmissaoImportada('boletos', new \DateTimeImmutable('-20 days'));
+        $carteira->registrarEmissaoImportada('inadimplencia', new \DateTimeImmutable('-3 days'));
+        static::getContainer()->get('doctrine')->getManager()->flush();
+
+        $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId());
+
+        self::assertResponseIsSuccessful();
+        $menu = $crawler->filter('.content-header .cs-frescor-menu');
+        // A lista já mostra o tipo novo como "Boletos"; o rodapé fala a mesma língua.
+        self::assertContains('Boletos', $menu->filter('.cs-frescor-item > span:first-child')->each(static fn ($n): string => trim($n->text())));
+        $nota = $menu->filter(':scope > .cs-frescor-nota');
+        self::assertSame('boletos', $nota->filter('[data-frescor-importar]')->attr('data-frescor-importar'));
+        self::assertStringContainsString(
+            'Importe o relatório de Boletos para fechar a defasagem.',
+            (string) preg_replace('/\s+/u', ' ', $nota->text()),
+        );
+    }
+
     #[TestDox('O ⋮ do cabeçalho tem SÓ "Editar configuração", ligado ao modal que já existe')]
     public function testMenuDoCabecalhoAbreAConfiguracao(): void
     {

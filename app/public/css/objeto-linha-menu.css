@@ -18,6 +18,10 @@
 }
 .cob-obr-menu[hidden] { display: none; }
 
+/* Camada transparente atrás do menu: absorve clique e botão direito fora dele (desenho L215). */
+.cob-obr-menu-camada { position: fixed; inset: 0; z-index: 1040; background: transparent; }
+.cob-obr-menu-camada[hidden] { display: none; }
+
 /* Título: a descrição da obrigação, numa linha, em caixa-alta discreta. */
 .cob-obr-menu-titulo {
     padding: 6px 10px 5px;
