@@ -22,7 +22,7 @@ use Doctrine\Persistence\ManagerRegistry;
  *     id: int, token: string, tenant_id: ?int, destinatario: string, nome: ?string, assunto: string, tipo: string,
  *     lista: ?string, origem: string, situacao: string, tem_conteudo: bool, corpo_html: ?string, selo: ?string,
  *     titulo: ?string, reply_to: ?string, cc: list<string>, rastrear: bool, nome_do_remetente: ?string,
- *     motivo_do_envio: ?string
+ *     motivo_do_envio: ?string, layout: string
  * }
  *
  * @extends ServiceEntityRepository<EnvioDeEmail>
@@ -72,12 +72,13 @@ class EnvioDeEmailRepository extends ServiceEntityRepository
     public function inserirConteudo(int $envioId, MensagemDeEmail $m): void
     {
         $this->conexao()->executeStatement(
-            'INSERT INTO comercial_envio_conteudo (envio_id, corpo_html, selo, titulo, reply_to, cc, rastrear, nome_do_remetente, motivo_do_envio)
-             VALUES (:id, :corpo, :selo, :titulo, :reply, :cc, :rastrear, :remetente, :motivo)',
+            'INSERT INTO comercial_envio_conteudo (envio_id, corpo_html, selo, titulo, reply_to, cc, rastrear, nome_do_remetente, motivo_do_envio, layout)
+             VALUES (:id, :corpo, :selo, :titulo, :reply, :cc, :rastrear, :remetente, :motivo, :layout)',
             [
                 'id' => $envioId, 'corpo' => $m->corpoHtml, 'selo' => self::corte($m->selo, 120), 'titulo' => self::corte($m->titulo, 255),
                 'reply' => $m->replyTo, 'cc' => json_encode($m->cc, JSON_THROW_ON_ERROR),
                 'rastrear' => $m->rastrear ? 'true' : 'false', 'remetente' => self::corte($m->nomeDoRemetente, 120), 'motivo' => self::corte($m->motivoDoEnvio, 300),
+                'layout' => $m->layout->value,
             ],
         );
     }
@@ -144,6 +145,18 @@ class EnvioDeEmailRepository extends ServiceEntityRepository
     }
 
     /**
+     * Quantos envios desta origem para este endereço foram registrados desde o instante dado (inclusive), em qualquer
+     * situação: o teto de testes de campanha por Master (spec §8.4) conta também o bloqueado.
+     */
+    public function contarDaOrigemParaDesde(string $origem, string $destinatario, \DateTimeImmutable $desde): int
+    {
+        return (int) $this->conexao()->fetchOne(
+            'SELECT COUNT(*) FROM comercial_envio WHERE origem = :origem AND destinatario = :para AND criado_em >= :desde',
+            ['origem' => $origem, 'para' => MensagemDeEmail::normalizar($destinatario), 'desde' => self::data($desde)],
+        );
+    }
+
+    /**
      * O envio com o conteúdo, para o handler montar o e-mail. `tem_conteudo` falso = o conteúdo já foi apagado.
      *
      * @return EnvioParaMandar|null
@@ -153,7 +166,7 @@ class EnvioDeEmailRepository extends ServiceEntityRepository
         $linha = $this->conexao()->fetchAssociative(
             'SELECT e.id, e.token, e.tenant_id, e.destinatario, e.nome, e.assunto, e.tipo, e.lista, e.origem, e.situacao,
                     c.envio_id IS NOT NULL AS tem_conteudo, c.corpo_html, c.selo, c.titulo, c.reply_to, c.cc, c.rastrear,
-                    c.nome_do_remetente, c.motivo_do_envio
+                    c.nome_do_remetente, c.motivo_do_envio, c.layout
              FROM comercial_envio e LEFT JOIN comercial_envio_conteudo c ON c.envio_id = e.id
              WHERE e.id = :id',
             ['id' => $id],
@@ -251,6 +264,7 @@ class EnvioDeEmailRepository extends ServiceEntityRepository
             'reply_to' => self::texto($l['reply_to']), 'cc' => \is_array($cc) ? array_values(array_map('strval', $cc)) : [],
             'rastrear' => (bool) $l['rastrear'], 'nome_do_remetente' => self::texto($l['nome_do_remetente']),
             'motivo_do_envio' => self::texto($l['motivo_do_envio']),
+            'layout' => (string) ($l['layout'] ?? 'padrao'),
         ];
     }
 

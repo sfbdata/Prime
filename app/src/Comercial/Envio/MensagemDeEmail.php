@@ -44,6 +44,8 @@ final class MensagemDeEmail
          * a confirmação de endereço, "Este endereço foi informado em ... Se não foi você, ignore este e-mail."
          */
         public readonly ?string $motivoDoEnvio = null,
+        /** Como o corpo entra no layout (§8.3); quem não informa fica no `padrao` da 1a (0d e a7 não mudam nada). */
+        public readonly LayoutDoEmail $layout = LayoutDoEmail::Padrao,
     ) {
         $this->para = self::normalizar($para);
         if (filter_var($this->para, FILTER_VALIDATE_EMAIL) === false) {
@@ -56,16 +58,22 @@ final class MensagemDeEmail
         if (trim($assunto) === '' || trim($corpoHtml) === '') {
             throw new \InvalidArgumentException('Assunto e corpo são obrigatórios.');
         }
-        foreach ([$replyTo, ...$cc] as $endereco) {
-            if ($endereco !== null && filter_var($endereco, FILTER_VALIDATE_EMAIL) === false) {
-                throw new \InvalidArgumentException('Endereço de resposta ou cópia inválido.');
-            }
-        }
+        self::exigirEnderecosValidos([$replyTo, ...$cc]);
     }
 
     public static function normalizar(string $email): string
     {
         return mb_strtolower(trim($email));
+    }
+
+    /** @param list<?string> $enderecos o `replyTo` e as cópias */
+    private static function exigirEnderecosValidos(array $enderecos): void
+    {
+        foreach ($enderecos as $endereco) {
+            if ($endereco !== null && filter_var($endereco, FILTER_VALIDATE_EMAIL) === false) {
+                throw new \InvalidArgumentException('Endereço de resposta ou cópia inválido.');
+            }
+        }
     }
 
     private static function exigirListaCoerente(TipoDeEnvio $tipo, ?string $lista): void
