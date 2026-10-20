@@ -217,6 +217,7 @@
     {# `data-nome-cliente`: o JS do show remonta o vazio deste bloco (abaixo) ao desvincular o último cliente. #}
     <div id="clientesList" data-nome-cliente="{{ pasta.nomeCliente }}">
         {% set clientePrincipal = pasta.clientePrincipal %}
+        {% set idsDuplicados = pasta_clientes_duplicados(pasta) %}
         {% if pasta.clientes|length > 0 %}
             {% set outros = pasta.clientes|filter(c => not clientePrincipal or c.id != clientePrincipal.id) %}
 
@@ -228,7 +229,7 @@
             {% if clientePrincipal %}
                 <div class="cliente-principal">
                     {{ include('pasta/_cliente_linha.html.twig', {
-                        pasta: pasta, cliente: clientePrincipal, ehPrincipal: true, podeMexerNoCliente: podeMexerNoCliente,
+                        pasta: pasta, cliente: clientePrincipal, ehPrincipal: true, podeMexerNoCliente: podeMexerNoCliente, cpfDuplicado: clientePrincipal.id in idsDuplicados,
                     }) }}
                 </div>
             {% endif %}
@@ -237,7 +238,7 @@
                 <div class="clientes-outros ps-clientes-rolagem" id="clientesOutros">
                     {% for cliente in outros %}
                         {{ include('pasta/_cliente_linha.html.twig', {
-                            pasta: pasta, cliente: cliente, ehPrincipal: false, podeMexerNoCliente: podeMexerNoCliente,
+                            pasta: pasta, cliente: cliente, ehPrincipal: false, podeMexerNoCliente: podeMexerNoCliente, cpfDuplicado: cliente.id in idsDuplicados,
                         }) }}
                     {% endfor %}
                 </div>

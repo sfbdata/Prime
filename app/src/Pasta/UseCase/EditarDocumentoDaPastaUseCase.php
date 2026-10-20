@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\EditarDocumentoDaPastaInput;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Pasta\Entity\PastaDocumento;
+use App\Shared\Http\NomeSeguroDeArquivo;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -53,7 +54,8 @@ final class EditarDocumentoDaPastaUseCase
 
         $descricao = trim((string) $input->descricao);
         $numero    = trim((string) $input->numero);
-        $nomeBase  = trim((string) $input->nomeBase);
+        // "/", "\" e caracteres de controle saem do nome: com barra, o baixar e o visualizar davam 500.
+        $nomeBase  = NomeSeguroDeArquivo::sanear((string) $input->nomeBase);
 
         $nome = $documento->getNomeOriginal();
         if ($nomeBase !== '') {
