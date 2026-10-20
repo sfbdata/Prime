@@ -337,40 +337,40 @@ parameters:
 			path: src/Djen/Entity/PublicacaoDjen.php
 
 		-
-			message: '#^Property App\\Entity\\Agenda\\Evento\:\:\$criadoEm type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			message: '#^Property App\\Agenda\\Entity\\Evento\:\:\$criadoEm type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
 			identifier: doctrine.columnType
 			count: 1
-			path: src/Entity/Agenda/Evento.php
+			path: src/Agenda/Entity/Evento.php
 
 		-
-			message: '#^Property App\\Entity\\Agenda\\Evento\:\:\$criador type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
+			message: '#^Property App\\Agenda\\Entity\\Evento\:\:\$criador type mapping mismatch\: property can contain App\\Entity\\Auth\\User\|null but database expects App\\Entity\\Auth\\User\.$#'
 			identifier: doctrine.associationType
 			count: 1
-			path: src/Entity/Agenda/Evento.php
+			path: src/Agenda/Entity/Evento.php
 
 		-
-			message: '#^Property App\\Entity\\Agenda\\Evento\:\:\$dataFim type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			message: '#^Property App\\Agenda\\Entity\\Evento\:\:\$dataFim type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
 			identifier: doctrine.columnType
 			count: 1
-			path: src/Entity/Agenda/Evento.php
+			path: src/Agenda/Entity/Evento.php
 
 		-
-			message: '#^Property App\\Entity\\Agenda\\Evento\:\:\$dataInicio type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
+			message: '#^Property App\\Agenda\\Entity\\Evento\:\:\$dataInicio type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
 			identifier: doctrine.columnType
 			count: 1
-			path: src/Entity/Agenda/Evento.php
+			path: src/Agenda/Entity/Evento.php
 
 		-
-			message: '#^Property App\\Entity\\Agenda\\Evento\:\:\$participantes type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Entity\\Auth\\User\>\.$#'
+			message: '#^Property App\\Agenda\\Entity\\Evento\:\:\$participantes type mapping mismatch\: property can contain Doctrine\\Common\\Collections\\Collection but database expects Doctrine\\Common\\Collections\\Collection&iterable\<App\\Entity\\Auth\\User\>\.$#'
 			identifier: doctrine.associationType
 			count: 1
-			path: src/Entity/Agenda/Evento.php
+			path: src/Agenda/Entity/Evento.php
 
 		-
-			message: '#^Property App\\Entity\\Agenda\\Evento\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
+			message: '#^Property App\\Agenda\\Entity\\Evento\:\:\$tenant type mapping mismatch\: property can contain App\\Entity\\Tenant\\Tenant\|null but database expects App\\Entity\\Tenant\\Tenant\.$#'
 			identifier: doctrine.associationType
 			count: 1
-			path: src/Entity/Agenda/Evento.php
+			path: src/Agenda/Entity/Evento.php
 
 		-
 			message: '#^Property App\\Entity\\Agenda\\LegendaCor\:\:\$criadoAt type mapping mismatch\: property can contain DateTimeImmutable\|null but database expects DateTimeImmutable\.$#'
