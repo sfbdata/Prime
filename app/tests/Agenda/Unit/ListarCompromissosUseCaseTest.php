@@ -33,6 +33,16 @@ final class ListarCompromissosUseCaseTest extends TestCase
         self::assertSame([C::CAL_AUD, C::CAL_MEUS], array_map(static fn (C $c): string => $c->calendario, $itens));
     }
 
+    #[TestDox('Compromisso que nasceu no Google sai marcado (detalhe: "Importado do Google Agenda."); o daqui, não')]
+    public function testImportadoDoGoogle(): void
+    {
+        $doGoogle = $this->evento(Evento::COR_AZUL)->marcarImportadoDoGoogle();
+
+        $itens = $this->executar([$doGoogle, $this->evento(Evento::COR_AZUL)], []);
+
+        self::assertSame([true, false], array_map(static fn (C $c): bool => $c->doGoogle, $itens));
+    }
+
     #[TestDox('Sem legendas, vale a cor padrão do formulário antigo')]
     public function testCoresPadrao(): void
     {
