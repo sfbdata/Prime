@@ -5,7 +5,29 @@
 
 {% block title %}Peticionar | {{ pasta.nup }}{% endblock %}
 
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ asset('css/peticionar-documentos.css') }}">
+{% endblock %}
+
 {% block content %}
+
+{# "Voltar à pasta" do cabeçalho (desenho 07, L38). O layout não expõe bloco no cabeçalho: o
+   link nasce aqui, escondido, e o peticionar-documentos.js o leva para o início do .navtop-right. #}
+<a href="{{ path('pasta_show', {id: pasta.id}) }}"
+   class="petic-voltar-pasta"
+   id="peticVoltarPasta"
+   title="Voltar para a pasta"
+   hidden><i class="bi bi-arrow-left"></i>Voltar à pasta</a>
+
+{% set podeEditarPasta = can_access_resource('pasta', pasta.id, 'edit') %}
+
+{# Formatos do "Adicionar peça": o mesmo accept vale para o modal e para soltar arquivos na lista,
+   e o ícone de cada um vem do arquivo_icone() (a linha nova, montada no navegador, usa o mesmo). #}
+{% set formatosDoEnvio = ['pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'xls', 'xlsx', 'xml', 'kml'] %}
+{% set iconesDoEnvio = {} %}
+{% for ext in formatosDoEnvio %}
+    {% set iconesDoEnvio = iconesDoEnvio|merge({(ext): arquivo_icone('arquivo.' ~ ext)}) %}
+{% endfor %}
 
 {% set categoriaCorMap = {
     'PECA':                    'text-bg-primary',
@@ -50,7 +72,21 @@
             </div>
         </div>
 
-        <div class="petic-timeline-list" id="timelineList">
+        {# Configuração do peticionar-documentos.js (menu da linha, barra do selecionado, soltar
+           arquivos): rotas que já existem, com os mesmos tokens que a aba Documentos usa. #}
+        <div class="petic-timeline-list"
+             id="timelineList"
+             data-pode-editar="{{ podeEditarPasta ? '1' : '0' }}"
+             data-url-excluir="{{ path('pasta_documentos_excluir_lote', {id: pasta.id})|e('html_attr') }}"
+             data-csrf-lote="{{ csrf_token('pex_lote_' ~ pasta.id)|e('html_attr') }}"
+             data-url-upload="{{ path('pasta_peticionar_upload', {id: pasta.id})|e('html_attr') }}"
+             data-csrf-upload="{{ csrf_token('peticionar_upload_' ~ pasta.id)|e('html_attr') }}"
+             data-url-editar-tpl="{{ path('pasta_documento_edit', {id: '__ID__'})|e('html_attr') }}"
+             data-categorias="{{ categoriaLabels|json_encode|e('html_attr') }}"
+             data-classificaveis="{{ constant('App\\Pasta\\DTO\\ExploradorDeDocumentosOutput::CATEGORIAS')|keys|json_encode|e('html_attr') }}"
+             data-cor-categoria="{{ categoriaCorMap|json_encode|e('html_attr') }}"
+             data-ponto-categoria="{{ categoriaPointMap|json_encode|e('html_attr') }}"
+             data-icones="{{ iconesDoEnvio|json_encode|e('html_attr') }}">
             <div class="petic-tl-inner" id="tlInner">
                 {% set lastDate = null %}
                 {% for doc in documentos %}
@@ -58,6 +94,13 @@
                     {% set catCor    = categoriaCorMap[doc.categoria] ?? 'text-bg-secondary' %}
                     {% set dotClass  = categoriaPointMap[doc.categoria] ?? 'petic-tl-dot--secondary' %}
                     {% set docDate   = doc.carregadoEm|date('d/m/Y') %}
+                    {% set ehTexto   = doc.mimeType == 'text/html' %}
+                    {# O nome é o mesmo da aba Documentos (nome_original), que é o que o Renomear
+                       grava; na peça de texto, sem o ".html" que o editor acrescenta. #}
+                    {% set nomeExibido = (ehTexto and doc.nomeOriginal|lower ends with '.html') ? doc.nomeOriginal|slice(0, -5) : doc.nomeOriginal %}
+                    {% set icone = ehTexto ? {icone: 'bi-file-earmark-text-fill', cor: '#0a6fa0'} : arquivo_icone(doc.nomeOriginal, doc.mimeType) %}
+                    {% set bytes = doc.tamanhoBytes %}
+                    {% set tamanhoTexto = bytes > 1048576 ? ((bytes / 1048576)|number_format(1, ',', '.') ~ ' MB') : (max(1, (bytes / 1024)|round) ~ ' KB') %}
                     {% if docDate != lastDate %}
                         <div class="petic-tl-datesep" data-date="{{ docDate }}">
                             <span>{{ docDate }}</span>
@@ -69,29 +112,41 @@
                          data-view-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
                          data-download-url="{{ path('pasta_documento_download', {id: doc.id}) }}"
                          data-mime-type="{{ doc.mimeType }}"
-                         data-titulo="{{ doc.titulo|e('html_attr') }}"
+                         data-titulo="{{ nomeExibido|e('html_attr') }}"
                          data-categoria="{{ doc.categoria }}"
                          data-categoria-label="{{ (categoriaLabels[doc.categoria] ?? doc.categoria)|e('html_attr') }}"
-                         {% if doc.mimeType == 'text/html' %}
+                         data-tamanho="{{ bytes }}"
+                         data-tamanho-texto="{{ tamanhoTexto|e('html_attr') }}"
+                         data-carregado-em="{{ doc.carregadoEm|date('d/m/Y H:i')|e('html_attr') }}"
+                         data-descricao="{{ (doc.descricao ?? '')|e('html_attr') }}"
+                         data-numero="{{ (doc.numero ?? '')|e('html_attr') }}"
+                         data-editar-documento-url="{{ path('pasta_documento_edit', {id: doc.id})|e('html_attr') }}"
+                         data-csrf-documento="{{ csrf_token('edit_documento_' ~ doc.id)|e('html_attr') }}"
+                         {% if ehTexto %}
                          data-csrf-editar="{{ csrf_token('peticionar_editar_' ~ doc.id) }}"
                          data-editar-url="{{ path('pasta_documento_editar_texto', {id: doc.id}) }}"
                          {% endif %}>
                         <div class="petic-tl-dot {{ dotClass }}"></div>
                         <div class="petic-tl-card">
                             <div class="petic-tl-card-top">
-                                <i class="bi bi-file-earmark-text petic-tl-icon"></i>
-                                <span class="petic-tl-titulo">{{ doc.titulo }}</span>
+                                <i class="bi {{ icone.icone }} petic-tl-icon petic-doc-icone" style="color: {{ icone.cor }}" aria-hidden="true"></i>
+                                <span class="petic-tl-titulo" title="{{ nomeExibido|e('html_attr') }}">{{ nomeExibido }}</span>
                             </div>
                             <div class="petic-tl-card-bottom">
                                 <span class="badge {{ catCor }} petic-item-cat">{{ catLabel }}</span>
+                                <span class="petic-doc-tamanho">{{ ehTexto ? 'Texto' : tamanhoTexto }}</span>
                                 <span class="petic-tl-time">{{ doc.carregadoEm|date('H:i') }}</span>
                             </div>
+                            <button type="button" class="petic-doc-mais" title="Mais opções" aria-label="Mais opções" aria-haspopup="menu">
+                                <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                            </button>
                         </div>
                     </div>
                 {% else %}
                     <div class="petic-tl-vazio">
                         <i class="bi bi-folder2-open"></i>
                         Nenhum documento na pasta.
+                        <span class="petic-tl-vazio-dica">Use "Adicionar peça" ou arraste arquivos para cá.</span>
                     </div>
                 {% endfor %}
             </div>
@@ -127,6 +182,18 @@
        PAINEL DIREITO — Preview
        ────────────────────────────────────────────────────────── #}
     <div class="petic-preview" id="previewPanel">
+
+        {# Barra do documento selecionado (desenho 07, L77-85): ícone, nome (duplo clique renomeia),
+           "tamanho · data", Baixar e Excluir. Preenchida pelo peticionar-documentos.js. #}
+        <div class="petic-selbar" id="peticSelbar" hidden>
+            <i class="bi petic-selbar-icone" aria-hidden="true"></i>
+            <b class="petic-selbar-nome" title="Clique duas vezes para renomear"></b>
+            <span class="petic-selbar-sub"></span>
+            <button type="button" class="petic-selbar-btn" data-acao="baixar" title="Baixar" aria-label="Baixar"><i class="bi bi-download" aria-hidden="true"></i></button>
+            {% if podeEditarPasta %}
+            <button type="button" class="petic-selbar-btn petic-selbar-btn--excluir" data-acao="excluir" title="Excluir peça" aria-label="Excluir peça"><i class="bi bi-trash3" aria-hidden="true"></i></button>
+            {% endif %}
+        </div>
 
         <div class="petic-preview-placeholder" id="previewPlaceholder">
             <i class="bi bi-file-earmark-text"></i>
@@ -271,7 +338,7 @@
                        class="form-control"
                        id="uploadArquivo"
                        name="arquivo"
-                       accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.xml,.kml"
+                       accept="{{ formatosDoEnvio|map(ext => '.' ~ ext)|join(',') }}"
                        required>
                 <div class="form-text text-muted">PDF até 10 MB · Imagens até 3 MB · DOC/XLS até 10 MB</div>
             </div>
@@ -533,27 +600,7 @@
 
     // ── Upload via fetch ──────────────────────────────────────────────────────
 
-    const categoriaLabels = {{ categoriaLabels|json_encode|raw }};
-
-    const categoriaCorMap = {
-        'PECA':                   'text-bg-primary',
-        'PROCURACAO':             'text-bg-success',
-        'IDENTIFICACAO':          'text-bg-info',
-        'COMPROVANTE_RESIDENCIA': 'text-bg-warning',
-        'GRATUIDADE_JUSTICA':     'text-bg-secondary',
-        'DEMAIS':                 'text-bg-secondary',
-        'CONTRATO':               'text-bg-dark',
-    };
-
-    const categoriaPointMap = {
-        'PECA':                   'petic-tl-dot--primary',
-        'PROCURACAO':             'petic-tl-dot--success',
-        'IDENTIFICACAO':          'petic-tl-dot--info',
-        'COMPROVANTE_RESIDENCIA': 'petic-tl-dot--warning',
-        'GRATUIDADE_JUSTICA':     'petic-tl-dot--secondary',
-        'DEMAIS':                 'petic-tl-dot--secondary',
-        'CONTRATO':               'petic-tl-dot--dark',
-    };
+    // Rótulos e cores da categoria: no data-* da lista, lidos pelo peticionar-documentos.js.
 
     function setCarregando(sim) {
         btnEnviar.disabled      = sim;
@@ -562,56 +609,23 @@
     }
 
     function injetarItemTimeline(doc) {
-        // Remove mensagem "nenhum documento" se existir
-        const vazio = tlInner.querySelector('.petic-tl-vazio');
-        if (vazio) vazio.remove();
-
-        const catLabel   = categoriaLabels[doc.categoria] ?? doc.categoria;
-        const catCor     = categoriaCorMap[doc.categoria] ?? 'text-bg-secondary';
-        const dotClass   = categoriaPointMap[doc.categoria] ?? 'petic-tl-dot--secondary';
-
-        // Separa data e hora do uploadedAt ("dd/mm/YYYY HH:ii")
-        const partes   = doc.uploadedAt.split(' ');
-        const dateKey  = partes[0];
-        const timeStr  = partes[1] ?? '';
-
-        // Adiciona separador de data se ainda não existir
-        const sepExistente = tlInner.querySelector(`.petic-tl-datesep[data-date="${CSS.escape(dateKey)}"]`);
-        if (!sepExistente) {
-            const sep = document.createElement('div');
-            sep.className    = 'petic-tl-datesep';
-            sep.dataset.date = dateKey;
-            sep.innerHTML    = `<span>${escHtml(dateKey)}</span>`;
-            tlInner.appendChild(sep);
-        }
-
-        const item = document.createElement('div');
-        item.className           = 'petic-tl-row';
-        item.dataset.viewUrl     = doc.viewUrl;
-        item.dataset.downloadUrl = doc.downloadUrl;
-        item.dataset.mimeType    = doc.mimeType;
-        item.dataset.titulo      = doc.titulo;
-        item.innerHTML = `
-            <div class="petic-tl-dot ${dotClass}"></div>
-            <div class="petic-tl-card">
-                <div class="petic-tl-card-top">
-                    <i class="bi bi-file-earmark-text petic-tl-icon"></i>
-                    <span class="petic-tl-titulo">${escHtml(doc.titulo)}</span>
-                </div>
-                <div class="petic-tl-card-bottom">
-                    <span class="badge ${catCor} petic-item-cat">${escHtml(catLabel)}</span>
-                    <span class="petic-tl-time">${escHtml(timeStr)}</span>
-                </div>
-            </div>
-        `;
-        tlInner.appendChild(item);
-
-        // Atualiza badge de contagem
-        const badge = document.getElementById('badgeCount');
-        if (badge) badge.textContent = tlInner.querySelectorAll('.petic-tl-row').length;
-
+        // A linha nova sai do peticionar-documentos.js (createElement, com o menu, o tamanho e o
+        // ícone por tipo); sem ele, recarregar mostra o documento do jeito que o servidor monta.
+        if (!window.PeticionarDocumentos) { window.location.reload(); return; }
+        const item = window.PeticionarDocumentos.inserirLinha(doc);
         selecionarItem(item);
     }
+
+    // Para o peticionar-documentos.js: selecionar uma linha e voltar ao "nenhum selecionado"
+    // (depois de excluir o documento aberto).
+    window.PeticionarTela = {
+        selecionarItem: selecionarItem,
+        limparSelecao: function () {
+            document.querySelectorAll('.petic-tl-row').forEach(el => el.classList.remove('ativo'));
+            ocultarTodosPaineis();
+            placeholder.style.display = '';
+        },
+    };
 
     function escHtml(str) {
         const d = document.createElement('div');
@@ -1173,6 +1187,9 @@
 
     window.abrirEditor           = abrirEditor;
     window.abrirEditorParaEditar = abrirEditorParaEditar;
+    window.fecharEditorPeticionar = fecharEditor;
 }());
 </script>
+
+<script src="{{ asset('js/peticionar-documentos.js') }}"></script>
 {% endblock %}

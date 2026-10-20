@@ -1,0 +1,244 @@
+/*
+ * Peticionar (desenho 07, P1 e P2): o que a lista de documentos ganhou.
+ * Valores do desenho "07 - Peticionar 1.0.dc.html" (linha citada em cada bloco).
+ */
+
+/* "Voltar à pasta" no cabeçalho (L38) */
+.petic-voltar-pasta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, .14);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+}
+.petic-voltar-pasta:hover,
+.petic-voltar-pasta:focus {
+    background: rgba(255, 255, 255, .22);
+    color: #fff;
+    text-decoration: none;
+}
+.petic-voltar-pasta[hidden] { display: none; }
+
+/* Linha do documento: ícone por tipo, nome, categoria, tamanho, hora e os três pontos (L49-55) */
+.petic-tl-card {
+    position: relative;
+    padding-right: 38px;
+}
+.petic-tl-card-top {
+    align-items: center;
+}
+.petic-tl-card-top > .petic-doc-icone {
+    font-size: 20px;
+    margin-top: 0;
+    line-height: 1;
+}
+.petic-tl-card-top > .petic-tl-titulo {
+    flex: 1;
+    min-width: 0;
+    font-size: 13.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.petic-tl-card-bottom {
+    justify-content: flex-start;
+    gap: 8px;
+}
+.petic-tl-card-bottom > .petic-doc-tamanho {
+    font-size: 11.5px;
+    color: #7b93a2;
+    white-space: nowrap;
+}
+.petic-tl-card-bottom > .petic-tl-time {
+    margin-left: auto;
+    font-size: 11.5px;
+    color: #7b93a2;
+    font-variant-numeric: tabular-nums;
+}
+.petic-tl-card > .petic-doc-mais {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #5b7383;
+    cursor: pointer;
+}
+.petic-tl-card > .petic-doc-mais:hover,
+.petic-tl-card > .petic-doc-mais:focus-visible {
+    background: #e5f1f7;
+    color: #0a6fa0;
+}
+
+/* Campo de renomear (L80: na barra; na peça de texto, na própria linha) */
+.petic-renomear-input {
+    flex: 1;
+    min-width: 0;
+    height: 32px;
+    border: 1px solid #0a6fa0;
+    border-radius: 4px;
+    padding: 0 9px;
+    font: inherit;
+    font-size: 14px;
+    outline: none;
+}
+.petic-tl-card-top > .petic-renomear-input {
+    height: 26px;
+    font-size: 13px;
+}
+
+/* Lista vazia e busca sem resultado (L57-58) */
+.petic-tl-vazio {
+    color: #34505f;
+    font-size: 14px;
+}
+.petic-tl-vazio i {
+    font-size: 38px;
+    color: #9aabb7;
+    opacity: 1;
+}
+.petic-tl-vazio > .petic-tl-vazio-dica {
+    display: block;
+    margin-top: 12px;
+    font-size: 12px;
+    color: #7b93a2;
+}
+
+/* Soltar arquivos na lista (L47) */
+.petic-timeline-list.petic-drop-ativo {
+    background: #e5f1f7;
+}
+.petic-timeline-list.petic-enviando {
+    cursor: progress;
+}
+
+/* Menu da linha (L161) */
+@keyframes peticMenu {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+}
+.petic-ctx-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 1060;
+}
+.petic-ctx {
+    position: fixed;
+    z-index: 1061;
+    width: 210px;
+    background: #fff;
+    border: 1px solid #d3dde4;
+    border-radius: 4px;
+    box-shadow: 0 10px 26px rgba(16, 42, 58, .18);
+    padding: 4px;
+    animation: peticMenu .12s ease;
+}
+.petic-ctx > .petic-ctx-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+    color: #243845;
+    text-align: left;
+    cursor: pointer;
+}
+.petic-ctx > .petic-ctx-item > i { width: 16px; }
+.petic-ctx > .petic-ctx-item:hover,
+.petic-ctx > .petic-ctx-item:focus-visible {
+    background: #eef5fa;
+    outline: none;
+}
+.petic-ctx > .petic-ctx-item--perigo { color: #a3232b; }
+
+/* Barra do documento selecionado (L77-85) */
+.petic-preview.petic-preview--com-barra {
+    padding-top: 53px;
+}
+.petic-preview > .petic-selbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: #fff;
+    border-bottom: 1px solid #dde5eb;
+    z-index: 2;
+}
+.petic-preview > .petic-selbar[hidden] { display: none; }
+.petic-selbar > .petic-selbar-icone { font-size: 18px; }
+.petic-selbar > .petic-selbar-nome {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.petic-selbar > .petic-selbar-nome[hidden] { display: none; }
+.petic-selbar > .petic-selbar-sub {
+    font-size: 12px;
+    color: #7b93a2;
+    white-space: nowrap;
+}
+.petic-selbar > .petic-selbar-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: #eef2f5;
+    color: #34505f;
+    cursor: pointer;
+}
+.petic-selbar > .petic-selbar-btn:hover,
+.petic-selbar > .petic-selbar-btn:focus-visible {
+    background: #e5f1f7;
+    color: #0a6fa0;
+}
+.petic-selbar > .petic-selbar-btn--excluir:hover,
+.petic-selbar > .petic-selbar-btn--excluir:focus-visible {
+    background: #fdecea;
+    color: #a3232b;
+}
+
+/* Aviso (L166) */
+.petic-aviso {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 2000;
+    max-width: 90vw;
+    background: #0a6fa0;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 9px 16px;
+    border-radius: 4px;
+    box-shadow: 0 8px 22px rgba(10, 60, 90, .3);
+}
+.petic-aviso--erro { background: #a3232b; }
