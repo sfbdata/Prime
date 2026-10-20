@@ -186,6 +186,42 @@ final class ContaConfirmacaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(2, $this->linksDa($user));
     }
 
+    /** Links já emitidos para a conta, com as idades dadas (ex.: '-3 hours'). */
+    private function emitidos(User $user, string ...$idades): void
+    {
+        foreach ($idades as $i => $idade) {
+            $criado = new \DateTimeImmutable($idade);
+            $this->em()->persist(new ConfirmacaoEmail($user, hash('sha256', $idade . $i), $criado->modify('+7 days'), criadoEm: $criado));
+        }
+        $this->em()->flush();
+    }
+
+    #[TestDox('Teto diário: com 5 links nas últimas 24 h (o do cadastro conta), o 6º não sai')]
+    public function testSextaEmissaoDoDiaNaoSai(): void
+    {
+        $user = $this->entrar();
+        $this->emitidos($user, '-20 hours', '-10 hours', '-5 hours', '-1 hour', '-10 minutes');
+
+        $this->pedir();
+
+        self::assertResponseRedirects('/escritorio/convites');
+        self::assertSame([], $this->emailsEnviados());
+        self::assertSame(['warning' => [ContaConfirmacaoController::FLASH_TETO_DIARIO]], $this->flashes());
+        self::assertSame(ContaConfirmacaoController::TETO_DIARIO, $this->linksDa($user));
+    }
+
+    #[TestDox('Teto diário: link de mais de 24 h atrás não conta')]
+    public function testEmissaoDeOntemNaoConta(): void
+    {
+        $user = $this->entrar();
+        $this->emitidos($user, '-25 hours', '-10 hours', '-5 hours', '-1 hour', '-10 minutes');
+
+        $this->pedir();
+
+        self::assertCount(1, $this->emailsEnviados());
+        self::assertSame(['success' => [ContaConfirmacaoController::FLASH_ENVIADO]], $this->flashes());
+    }
+
     #[TestDox('Conta já confirmada: não grava nem envia, e avisa que já está confirmada')]
     public function testContaConfirmadaNaoReenvia(): void
     {

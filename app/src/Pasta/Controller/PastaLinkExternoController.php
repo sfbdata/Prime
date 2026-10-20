@@ -77,7 +77,7 @@ final class PastaLinkExternoController extends AbstractController
                 $request->request->getBoolean('incluir_analises') && $this->podeVerIa(),
             );
         } catch (LinkExternoDoPushException $e) {
-            return $this->json(['erro' => $e->getMessage()] + $this->reenvioDaConfirmacao(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $e->getMessage()] + $this->reenvioDaConfirmacao($e), Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return $this->json(['sucesso' => true, 'link' => $link->paraJson()], Response::HTTP_CREATED);
@@ -149,14 +149,15 @@ final class PastaLinkExternoController extends AbstractController
     }
 
     /**
-     * Com o e-mail a confirmar, a recusa leva a rota e o token do "Reenviar o link de confirmação" (spec
-     * login-desenho-10): o modal mostra o botão junto do erro. Conta confirmada: nada a mais.
+     * Só a recusa por e-mail a confirmar leva a rota e o token do "Reenviar o link de confirmação" (spec
+     * login-desenho-10): o modal mostra o botão junto do erro. Outro bloqueio (sem movimentação, pasta
+     * arquivada...) não leva nada, mesmo com a conta a confirmar.
      *
      * @return array{confirmacao?: array{url: string, token: string}}
      */
-    private function reenvioDaConfirmacao(): array
+    private function reenvioDaConfirmacao(LinkExternoDoPushException $recusa): array
     {
-        if ($this->usuario()->isEmailConfirmado()) {
+        if ($recusa->getMessage() !== GerarLinkExternoDoPushUseCase::RECUSA_EMAIL_A_CONFIRMAR || $this->usuario()->isEmailConfirmado()) {
             return [];
         }
 

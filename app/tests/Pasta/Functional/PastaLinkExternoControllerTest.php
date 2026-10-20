@@ -111,6 +111,7 @@ final class PastaLinkExternoControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertSame(['erro' => 'Ainda não há movimentações para compartilhar.'], $this->corpo($client));
+        self::assertArrayNotHasKey('confirmacao', $this->corpo($client), 'outro motivo de 422 não leva o reenvio da confirmação');
     }
 
     #[TestDox('Gerar com o e-mail da conta a confirmar: 422 com o texto da recusa, a rota e o token do reenvio, e nada gravado')]
