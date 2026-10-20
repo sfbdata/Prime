@@ -19,7 +19,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Fila de migrations: logo depois da Version20261020090000 da 0d (email_descadastro). Gerada pelo diff do mapeamento e
  * limpa do ruído de base (messenger_messages e índices funcionais da Cobrança), que não é desta frente.
  */
-final class Version20261020100000 extends AbstractMigration
+final class Version20261020129800 extends AbstractMigration
 {
     public function getDescription(): string
     {
