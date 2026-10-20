@@ -112,7 +112,12 @@ final class InscricaoOabRepositoryTest extends KernelTestCase
         );
     }
 
-    #[TestDox('criarPrincipalSeFaltar não estoura o índice único se a principal entrou entre a consulta e o INSERT')]
+    /**
+     * Prova a principal gravada (com COMMIT) por outra requisição entre o `doUsuario` e o INSERT: o NOT EXISTS a vê.
+     * A corrida com a outra linha ainda sem COMMIT não se testa numa conexão só (DAMA); ali quem garante é o
+     * `ON CONFLICT DO NOTHING` do Postgres, que usa todos os índices únicos como árbitros.
+     */
+    #[TestDox('criarPrincipalSeFaltar não duplica se outra requisição já gravou a principal (o caso sem COMMIT fica com o ON CONFLICT do Postgres)')]
     public function testCriarPrincipalSeFaltarComPrincipalGravadaPorOutraRequisicao(): void
     {
         $user = $this->usuario();

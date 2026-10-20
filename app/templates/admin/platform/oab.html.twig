@@ -11,15 +11,7 @@
     <span class="platform-badge"><i class="bi bi-people-fill"></i> {{ total }} {{ total == 1 ? 'inscrição' : 'inscrições' }}</span>
 </div>
 
-{% for type, messages in app.flashes %}
-    {% for message in messages %}
-        <div class="alert alert-{{ type in ['sucesso', 'success'] ? 'success' : (type in ['erro', 'danger'] ? 'danger' : (type == 'info' ? 'info' : 'secondary')) }} alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
-            <i class="bi bi-{{ type in ['sucesso', 'success'] ? 'check-circle-fill' : (type in ['erro', 'danger'] ? 'x-circle-fill' : 'info-circle-fill') }}"></i>
-            <span>{{ message }}</span>
-            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
-        </div>
-    {% endfor %}
-{% endfor %}
+{# Os avisos (flash) saem pelo base.html.twig, que esvazia a flashbag antes deste bloco. #}
 
 {# Filtros + busca #}
 <div class="card border-0 shadow-sm mb-3">

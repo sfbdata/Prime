@@ -45,6 +45,9 @@
 - Corrida no `garantirPrincipal` (usuário já gravado, duas abas): a principal nasce por
   `InscricaoOabRepository::criarPrincipalSeFaltar` (INSERT com os valores em memória e ON CONFLICT DO NOTHING),
   sem estourar `uniq_inscricao_oab_principal`. Usuário novo (cadastro, convite) segue por `persist`, sem corrida.
+  O teste prova a principal já gravada (com COMMIT) por outra requisição, que o `NOT EXISTS` vê; a corrida com a
+  outra linha ainda sem COMMIT não se testa numa conexão só (DAMA), e ali a garantia é do `ON CONFLICT DO NOTHING`
+  do Postgres (sem alvo, usa todos os índices únicos como árbitros, inclusive o parcial).
 - Recusa (403) testada nas três ações, para usuário comum e para admin de escritório que não é Master.
 
 ## Re-revisão (20/10, risco ALTO): riscos conhecidos e aceitos
@@ -53,12 +56,22 @@
   (erro 500), fica uma principal Não verificada sem OAB no `User`; ela se corrige no envio seguinte (o
   formulário pede a OAB de novo e `alterar` acerta). Nada é confirmado sem o Master e ninguém ganha acesso.
   Pôr o caso de uso inteiro numa transação mexeria no fluxo de identidade; fica para frente própria.
+  **Vale enquanto a verificação automática no CNA estiver dormente** (hoje o `ValidadorOab` devolve Não verificada).
+  Com ela ligada, o INSERT antecipado pode gravar uma principal **Confirmada** pela verificação mesmo com o
+  escritório não salvo, e quem já tinha OAB no `User` a mantém; ao religar o CNA, revisar este risco (mover o
+  `garantirPrincipal` para depois do salvamento ou pôr o caso de uso numa transação).
 - **Auditoria**: a criação da principal por esse INSERT não aparece no log de auditoria da `InscricaoOab`
   (como o `criarPrincipalDoEspelhoSeFaltar` do #65); a mudança no `User.oab*` continua auditada. As ações do
   Master passam pelo ORM e são auditadas.
 - **Janela entre conferir e gravar**: confirmar/reverter conferem número e UF e gravam na mesma requisição;
   uma troca feita pelo titular nos milissegundos entre os dois passa. Já existia; só fecharia com trava ou
   versão.
+
+## Caso conhecido (já era assim antes)
+- Usuário só com suplementares e sem principal: o `garantirPrincipal` não cria principal nenhuma (só cria quando o
+  usuário não tem inscrição alguma; com suplementares, só acompanha a principal se ela existir), e o `User.oab*` fica sem principal correspondente. Não é mudança
+  deste PR; registrado na re-revisão de 20/10.
+- O laço de avisos do template da fila era código morto (o `base.html.twig` esvazia a flashbag antes); saiu.
 
 ## Segurança
 - Só quem já acessa a tela hoje (`ROLE_SUPER_ADMIN`, conferir no controller) e CSRF nas ações, como hoje.

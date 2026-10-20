@@ -371,6 +371,27 @@ final class OabReviewTest extends JusPrimeWebTestCase
         self::assertAnySelectorTextContains('.alert', 'A inscrição mudou depois que a fila foi aberta. Confira de novo.');
     }
 
+    #[TestDox('Reverter sem o número e a UF exibidos (POST montado à mão) é recusado com aviso')]
+    public function testReverterSemNumeroExibidoRecusa(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
+        $adv   = $this->criarAdvogado(StatusOab::Confirmada);
+        $supId = (int) $this->adicionarSuplementar($adv, 'RJ', StatusOab::Confirmada)->getId();
+
+        $client->request('POST', '/admin/platform/oab/' . $supId . '/reverter', [
+            '_token'  => 'TOKEN_oab_reverter_' . $supId,
+            'destino' => StatusOab::Divergente->value,
+        ]);
+
+        self::assertResponseRedirects();
+        self::assertSame(StatusOab::Confirmada, $this->recarregarInscricao($supId)->getStatus());
+
+        $client->followRedirect();
+        self::assertAnySelectorTextContains('.alert', 'A inscrição mudou depois que a fila foi aberta. Confira de novo.');
+    }
+
     #[TestDox('Confirmar com CSRF inválido → 403 e situação inalterada')]
     public function testCsrfInvalidoRecusa(): void
     {
