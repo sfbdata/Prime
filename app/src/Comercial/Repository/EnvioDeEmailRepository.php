@@ -129,6 +129,37 @@ class EnvioDeEmailRepository extends ServiceEntityRepository
         );
     }
 
+    /** A campanha foi encerrada antes de o envio sair (spec §8.1.5): não sai mais. */
+    public function marcarCancelado(int $id): void
+    {
+        $this->conexao()->executeStatement(
+            "UPDATE comercial_envio SET situacao = 'cancelado', proxima_tentativa_em = NULL
+             WHERE id = :id AND situacao IN ('enfileirado', 'enviando')",
+            ['id' => $id],
+        );
+    }
+
+    /** Contrapressão do expansor (spec §8.5): os envios de campanha que ainda esperam o worker. */
+    public function contarDeCampanhaNaFila(): int
+    {
+        return (int) $this->conexao()->fetchOne(
+            "SELECT COUNT(*) FROM comercial_envio WHERE situacao IN ('enfileirado', 'enviando') AND origem LIKE 'campanha:%'",
+        );
+    }
+
+    /**
+     * Teto diário das campanhas (spec §8.5): os envios de campanha registrados desde o instante dado, sem os que não
+     * saíram nem vão sair (bloqueados pelo descadastro, cancelados).
+     */
+    public function contarDeCampanhaDesde(\DateTimeImmutable $desde): int
+    {
+        return (int) $this->conexao()->fetchOne(
+            "SELECT COUNT(*) FROM comercial_envio WHERE origem LIKE 'campanha:%' AND criado_em >= :desde
+               AND situacao NOT IN ('bloqueado_descadastro', 'cancelado')",
+            ['desde' => self::data($desde)],
+        );
+    }
+
     /** O corpo pode levar credencial (o link do `lemb`): não sobra depois do estado final (N1). */
     public function apagarConteudo(int $id): void
     {

@@ -117,3 +117,67 @@
 .mc-cp-msg { font-size: 12.5px; color: var(--mc-cp-msg-tx); background: var(--mc-cp-msg-bg); border: 1px solid var(--mc-cp-msg-borda); border-radius: 3px; padding: 8px 11px; }
 /* L.256: a nota de LGPD */
 .mc-cp-lgpd { font-size: 11.5px; color: var(--mc-cp-dica); line-height: 1.5; }
+
+/* Fatia 2b (desenho 05 VS 18.10.26): 2 · PARA QUEM (L.236-239), destinatários, Frequência, Agendar e "Enviar campanha"
+   (L.252-254), e o Monitoramento com a lista de campanhas (L.282-286, L.586). Valores literais do dc em tokens, com par
+   escuro; cada regra cita a linha do dc. */
+.mc {
+    --mc-cp-publico-tx: #243845; --mc-cp-publico-sel: #f2f8fc; --mc-cp-csv-borda: #b9c7d2; --mc-cp-csv-bg: #f9fbfc;
+    --mc-cp-enviar-bg: #0a6fa0; --mc-cp-enviar-hover: #0b5f86; --mc-camps-vazio: #6c757d;
+    --mc-st-fila-bg: #fff4d6; --mc-st-fila-tx: #9a5b00; --mc-st-agendada-bg: #efeaf8; --mc-st-agendada-tx: #5b3f9e;
+    --mc-st-recorrente-bg: #e9f6ee; --mc-st-recorrente-tx: #1e7b45;
+}
+[data-bs-theme="dark"] .mc {
+    --mc-cp-publico-tx: var(--bs-body-color); --mc-cp-publico-sel: rgba(77, 163, 234, .1); --mc-cp-csv-borda: #4a5a66;
+    --mc-cp-csv-bg: var(--bs-tertiary-bg); --mc-camps-vazio: var(--bs-secondary-color);
+    --mc-st-fila-bg: rgba(242, 169, 59, .18); --mc-st-fila-tx: #f2c46b; --mc-st-agendada-bg: rgba(155, 125, 220, .2);
+    --mc-st-agendada-tx: #c3b0f0; --mc-st-recorrente-bg: rgba(95, 196, 138, .16); --mc-st-recorrente-tx: #5fc48a;
+}
+/* L.237 */
+.mc-cp-publicos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mc-cp-publico { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border: 1px solid var(--mc-div); border-radius: 3px; background: var(--mc-fundo); font: inherit; color: var(--mc-cp-publico-tx); cursor: pointer; text-align: left; }
+.mc-cp-publico[aria-pressed="true"] { border-color: var(--mc-azul); background: var(--mc-cp-publico-sel); }
+.mc-cp-publico > i { color: var(--mc-azul); font-size: 15px; }
+.mc-cp-publico-texto { flex: 1; min-width: 0; }
+.mc-cp-publico-rot { display: block; font-size: 12.5px; font-weight: bold; }
+.mc-cp-publico-desc { display: block; font-size: 11px; color: var(--mc-sub); }
+.mc-cp-publico-n { font-size: 13px; color: var(--mc-azul); }
+/* L.238 */
+.mc-cp-csv { display: flex; align-items: center; gap: 10px; height: 36px; border: 1px dashed var(--mc-cp-csv-borda); border-radius: 3px; padding: 0 12px; cursor: pointer; background: var(--mc-cp-csv-bg); font-size: 13px; font-weight: normal; color: var(--mc-cp-texto); margin: 0; }
+.mc-cp-csv > i { color: var(--mc-azul); }
+.mc-cp-csv-txt { flex: 1; }
+/* L.239 */
+.mc-cp-individual { width: 100%; box-sizing: border-box; border: 1px solid var(--mc-cp-campo); border-radius: 3px; padding: 8px 10px; font: inherit; font-size: 13.5px; resize: vertical; background: var(--mc-fundo); color: var(--mc-texto); }
+/* L.252 */
+.mc-cp-dest { font-size: 12.5px; color: var(--mc-cp-texto); }
+.mc-cp-dest > i { color: var(--mc-azul); }
+/* L.253 */
+.mc-cp-freq { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mc-cp-freq-rot { font-size: 12.5px; color: var(--mc-cp-rotulo); }
+.mc-cp-freq-ops { display: flex; background: var(--mc-div); border-radius: 4px; padding: 3px; gap: 2px; }
+.mc-cp-freq-op { height: 26px; padding: 0 10px; border: none; border-radius: 3px; background: transparent; color: var(--mc-sub); font: inherit; font-size: 12px; font-weight: bold; cursor: pointer; }
+.mc-cp-freq-op[aria-pressed="true"] { background: var(--mc-fundo); color: var(--mc-azul); box-shadow: 0 1px 3px rgba(18,36,47,.12); }
+/* L.254 */
+.mc-cp-agenda { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: normal; color: var(--mc-cp-rotulo); margin: 0; }
+.mc-cp-agenda-data { height: 32px; border: 1px solid var(--mc-cp-campo); border-radius: 3px; padding: 0 7px; font: inherit; font-size: 13px; background: var(--mc-fundo); color: var(--mc-texto); }
+.mc-cp-enviar { height: 34px; padding: 0 16px; border: none; border-radius: 3px; background: var(--mc-cp-enviar-bg); color: #fff; font: inherit; font-size: 13.5px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.mc-cp-enviar:hover, .mc-cp-enviar:focus-visible { background: var(--mc-cp-enviar-hover); }
+.mc-cp-enviar:disabled { opacity: .7; cursor: wait; }
+/* L.282-283: o cabeçalho do Monitoramento */
+.mc-mon-ic { color: var(--mc-azul); font-size: 17px; }
+.mc-camps { overflow-x: auto; }
+/* L.284 */
+.mc-camps-vazio { padding: 26px; text-align: center; font-size: 13.5px; color: var(--mc-camps-vazio); }
+/* L.285 */
+.mc-camp { display: grid; grid-template-columns: minmax(200px,2fr) 130px 90px 110px minmax(150px,1fr); align-items: center; gap: 10px; padding: 11px 18px; border-bottom: 1px solid var(--mc-linha); font-size: 13px; }
+.mc-camp-nome { min-width: 0; }
+.mc-camp-nome > b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-camp-sub { font-size: 11.5px; color: var(--mc-sub); }
+.mc-camp-em { color: var(--mc-cp-rotulo); }
+.mc-camp-st { height: 22px; padding: 0 8px; border-radius: 3px; font-size: 11.5px; font-weight: bold; display: inline-flex; align-items: center; justify-self: start; }
+/* L.586: os 3 estados com selo; os demais em texto */
+.mc-camp-st-na_fila { background: var(--mc-st-fila-bg); color: var(--mc-st-fila-tx); }
+.mc-camp-st-agendada { background: var(--mc-st-agendada-bg); color: var(--mc-st-agendada-tx); }
+.mc-camp-st-recorrente { background: var(--mc-st-recorrente-bg); color: var(--mc-st-recorrente-tx); }
+.mc-camp-st-texto { padding: 0; font-weight: normal; color: var(--mc-sub); }
+.mc-camp-met { font-size: 12px; color: var(--mc-apagado); }

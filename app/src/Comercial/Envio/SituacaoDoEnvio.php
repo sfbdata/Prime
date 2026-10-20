@@ -9,7 +9,7 @@ final class SituacaoDoEnvio
 {
     public function __construct(
         public readonly int $envioId,
-        /** enfileirado | enviando | enviado | falhou | bloqueado_descadastro */
+        /** enfileirado | enviando | enviado | falhou | bloqueado_descadastro | cancelado (só campanha, §8.1.5) */
         public readonly string $situacao,
         public readonly ?\DateTimeImmutable $enviadoEm,
         public readonly bool $abriu,

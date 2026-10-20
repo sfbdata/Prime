@@ -171,6 +171,21 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   como o dc (o envio usa o primeiro nome); (3) o bloco da campanha fica ANTES das Automações, na posição do dc;
   (4) os marcadores das URLs do parcial passaram a casar com o requisito das rotas (`xchavex`, `xidx`): com
   `__chave__`, o parcial da 1a não renderizava em dev nem em teste (`strict_requirements`).
+- **Fatia 2b implementada (19/10, branch `comercial-2b`, empilhada sobre `comercial-2`, sem PR):** públicos
+  (`PublicosDaCampanha`, `CadastradosRepository`, o CSV lido no servidor com a regra do dc L.545 em `ListaInformada`),
+  B1 e reply-to em `PoliticaDeDestinatarios`, "Enviar campanha" com a chave de idempotência e a chave
+  `COMERCIAL_CAMPANHAS_LIGADAS` (`ChaveDasCampanhas`, padrão desligada), o expansor (`ExpandirCampanhas`,
+  `ExpansorDeCampanhas`, `comercial_expansor`), a situação nova `cancelado` em `comercial_envio` (o handler não envia
+  o que é de campanha cancelada), o comando `app:comercial:encerrar-campanha`, a lista de campanhas no bloco
+  Monitoramento e a retenção de 24 meses de `comercial_campanha_destino`. Migration provisória `Version20261021140000`.
+  Decisões da implementação: (1) secundário = vínculo sem papel de sistema e que não é primário em nenhum escritório
+  válido (o dc divide os usuários entre os dois); (2) o "usuário ativo cadastrado" do B1 é `user.is_active`, sem
+  olhar o vínculo; (3) nada é recuperado vale também para a `na_fila` com mais de 24 h de atraso; a recorrente com até
+  24 h de atraso executa uma vez; (4) o nome de todo destinatário (não só do CSV) é limpo de `;:()<>"'`; (5) o teto
+  diário das campanhas conta os envios de campanha registrados no dia, sem os bloqueados e os cancelados; (6) a frase
+  de sucesso volta a "registra entregas, aberturas e cliques." se as duas chaves do rastreio ligarem; (7) o
+  descadastro é consultado um endereço por vez (contrato da 0d); uma consulta em lote, pedida à 0d, é follow-up para
+  públicos grandes.
 - **Próximo passo:** depois do #56 no master, verificação visual do bloco Automações contra o 05 e tirar o #99 do
   rascunho; a 1b quando o #87 com o #99, ou o #74, entrar no master; o follow-up da 9b depois do merge das duas.
 

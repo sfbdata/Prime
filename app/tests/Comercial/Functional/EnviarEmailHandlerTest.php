@@ -9,6 +9,7 @@ use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
 use App\Comercial\Message\EnviarEmail;
 use App\Comercial\MessageHandler\EnviarEmailHandler;
+use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\EnvioDeEmailRepository;
 use App\Comercial\Service\Carteiro;
 use App\Repository\TenantRepository;
@@ -70,6 +71,7 @@ final class EnviarEmailHandlerTest extends KernelTestCase
             new NullLogger(),
             $porMinuto,
             $teto,
+            $c->get(CampanhaDeEmailRepository::class),
         );
     }
 
