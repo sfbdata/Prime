@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Tenant\Functional;
 
+use App\Master\Service\RegraDosMasters;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
@@ -627,6 +628,7 @@ final class PurgaArquivosTest extends KernelTestCase
             new ConsultaDeDestinoFixa(DestinoDaTransacao::Incerta),
             $logger,
             (int) static::getContainer()->getParameter('tenant_carencia_purga_dias'),
+            static::getContainer()->get(RegraDosMasters::class),
         );
 
         $purga->executar($this->tenant($a), dryRun: false);
@@ -683,6 +685,7 @@ final class PurgaArquivosTest extends KernelTestCase
             $consulta,
             $logger,
             (int) $container->getParameter('tenant_carencia_purga_dias'),
+            $container->get(RegraDosMasters::class),
         );
     }
 
