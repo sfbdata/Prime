@@ -1,6 +1,10 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.3.1"
+  data: "2026-10-20"
+  itens:
+    - "A página \"Meus convites\" volta a mostrar os convites de escritório recebidos."
 - versao: "2.3.0"
   data: "2026-10-19"
   itens:

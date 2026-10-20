@@ -6,6 +6,7 @@ namespace App\Pasta\DTO;
 
 use App\Entity\Tarefa\Tarefa;
 use App\Pasta\Entity\PastaPrazo;
+use App\Shared\Prazo\RegraDoPrazo;
 
 /**
  * Uma linha do cartão "Próximos prazos" do trilho da aba Dados, já pronta para
@@ -19,9 +20,9 @@ use App\Pasta\Entity\PastaPrazo;
  */
 final readonly class PastaPrazoOutput
 {
-    public const TOM_URGENTE   = 'urgente';
-    public const TOM_PROXIMO   = 'proximo';
-    public const TOM_TRANQUILO = 'tranquilo';
+    public const TOM_URGENTE   = RegraDoPrazo::TOM_URGENTE;
+    public const TOM_PROXIMO   = RegraDoPrazo::TOM_PROXIMO;
+    public const TOM_TRANQUILO = RegraDoPrazo::TOM_TRANQUILO;
 
     public function __construct(
         /** A meta de origem; null no prazo manual. */
@@ -78,7 +79,7 @@ final readonly class PastaPrazoOutput
 
     public static function dePrazo(PastaPrazo $prazo): self
     {
-        $dias = self::diasAte($prazo->getData());
+        $dias = RegraDoPrazo::diasAte($prazo->getData());
         $meta = ($prazo->getResponsavel() ?: 'Sem responsável') . ' · ' . $prazo->getData()->format('d/m')
             . ($prazo->getHora() ? ' ' . $prazo->getHora() : '') . ' · ' . $prazo->getOrigemRotulo();
 
@@ -86,8 +87,8 @@ final readonly class PastaPrazoOutput
             tarefaId: null,
             titulo: ($prazo->isAudiencia() ? 'Audiência · ' : '') . $prazo->getTitulo(),
             meta: $meta,
-            selo: self::montarSelo($dias),
-            tom: self::tomDosDias($dias),
+            selo: RegraDoPrazo::selo($dias),
+            tom: RegraDoPrazo::tom($dias),
             prazoId: $prazo->getId(),
             tipo: $prazo->getTipo(),
             origem: $prazo->getOrigemRotulo(),
@@ -138,14 +139,14 @@ final readonly class PastaPrazoOutput
             throw new \InvalidArgumentException('Meta sem prazo não vira linha de "Próximos prazos".');
         }
 
-        $dias = self::diasAte($prazo);
+        $dias = RegraDoPrazo::diasAte($prazo);
 
         return new self(
             tarefaId: (int) $tarefa->getId(),
             titulo: $tarefa->getTitulo(),
             meta: self::montarMeta($tarefa, $prazo),
-            selo: self::montarSelo($dias),
-            tom: self::tomDosDias($dias),
+            selo: RegraDoPrazo::selo($dias),
+            tom: RegraDoPrazo::tom($dias),
             origem: 'Meta',
             dataIso: $prazo->format('Y-m-d'),
             responsavel: $tarefa->getResponsavel()?->getFullName(),
@@ -154,58 +155,11 @@ final readonly class PastaPrazoOutput
         );
     }
 
-    /**
-     * Dias inteiros de HOJE até o prazo. Negativo = atrasado.
-     *
-     * A conta é feita entre datas (sem hora) dos dois lados: comparar "agora"
-     * com um prazo gravado à meia-noite faria "vence hoje" virar "1 dia de
-     * atraso" a partir das 00:01.
-     */
-    private static function diasAte(\DateTimeImmutable $prazo): int
-    {
-        $hoje = new \DateTimeImmutable('today');
-        $alvo = $prazo->setTime(0, 0);
-
-        return (int) $hoje->diff($alvo)->format('%r%a');
-    }
-
     private static function montarMeta(Tarefa $tarefa, \DateTimeImmutable $prazo): string
     {
         $responsavel = $tarefa->getResponsavel()?->getFullName();
 
         return ($responsavel !== null && $responsavel !== '' ? $responsavel : 'Sem responsável')
             . ' · ' . $prazo->format('d/m') . ' · Meta';
-    }
-
-    private static function montarSelo(int $dias): string
-    {
-        if ($dias < 0) {
-            $atraso = abs($dias);
-
-            return $atraso === 1 ? 'Vencido há 1 dia' : 'Vencido há ' . $atraso . ' dias';
-        }
-
-        if ($dias === 0) {
-            return 'Hoje';
-        }
-
-        return $dias === 1 ? 'Faltam 1 dia' : 'Faltam ' . $dias . ' dias';
-    }
-
-    /**
-     * Faixas do desenho 1.2.3: vermelho até 3 dias, âmbar até 7, cinza acima.
-     * Atrasado cai no vermelho por ser o caso mais grave dos três.
-     */
-    private static function tomDosDias(int $dias): string
-    {
-        if ($dias <= 3) {
-            return self::TOM_URGENTE;
-        }
-
-        if ($dias <= 7) {
-            return self::TOM_PROXIMO;
-        }
-
-        return self::TOM_TRANQUILO;
     }
 }
