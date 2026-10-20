@@ -14,7 +14,7 @@
    Migration `Version20261019231700`.
 6. `trabalho-externo-engajamento` (F4, §4.7) → **PR #113 em rascunho**, base `trabalho-externo-candidatura`.
    Migration `Version20261019235800`.
-7. `trabalho-externo-painel-termo` (F3b-1, §4.9) → em andamento, base `trabalho-externo-engajamento`.
+7. `trabalho-externo-painel-termo` (F3b-1, §4.9) → **PR #117 em rascunho**, base `trabalho-externo-engajamento`.
    Migration `Version20261019235900`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
@@ -22,7 +22,7 @@ rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e
 base do PR para `master` e tirar do rascunho.
 
 **Fila de merge** (coordenador, 19/10, depois do master a7433b93): #56 → #60 → #65 → #69 → #64 → #74 →
-#62 → #83 → #84 → #96 → #105 → #113. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
+#62 → #83 → #84 → #96 → #105 → #113 → #117. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
 F2c: as duas são renomeadas na vez. Teto do FORA_DO_ESCOPO: quando o #56 entrar, somar as entradas dele.
 
 **Decisões do dono** (via coordenador, 19/10): tudo do desenho entra, mesmo que abra frente nova; o
