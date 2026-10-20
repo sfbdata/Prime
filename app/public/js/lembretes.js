@@ -151,9 +151,15 @@
     });
 
     /* ── Busca no servidor e conferência ────────────────────────────────── */
+    let semSessao = false;
+    let relogioBusca = null;
+
     async function buscar() {
+        if (semSessao) { return; }
         try {
             const r = await fetch(URL_LEMBRETES, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } });
+            // 401 = sessão vencida: para de sondar (o login responde em JSON aos pedidos de dados).
+            if (r.status === 401) { semSessao = true; clearInterval(relogioBusca); return; }
             if (!r.ok) { return; }
             const j = await r.json();
             lista = (j.itens || []).map(i => ({ k: i.k, t: i.titulo, quando: new Date(i.quando), aviso: new Date(i.aviso), tipo: i.tipo, obs: i.observacao, eventoId: i.eventoId, pastaId: i.pastaId, dia: i.dia }));
@@ -202,7 +208,7 @@
     function iniciar() {
         buscar();
         setInterval(checar, 30000);
-        setInterval(buscar, 5 * 60000);
+        relogioBusca = setInterval(buscar, 5 * 60000);
         addEventListener('bj-agenda:mudou', buscar);
     }
     if (document.readyState === 'loading') { addEventListener('DOMContentLoaded', () => setTimeout(iniciar, 1200)); }
