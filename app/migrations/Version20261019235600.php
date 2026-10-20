@@ -12,7 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  *
  * Só cria tabelas novas, sem carga e sem mexer em tabela existente.
  */
-final class Version20261019210000 extends AbstractMigration
+final class Version20261019235600 extends AbstractMigration
 {
     public function getDescription(): string
     {
