@@ -10,6 +10,11 @@ use App\Agenda\Repository\ConexaoGoogleAgendaRepository;
 use App\Agenda\Repository\EventoDaAgendaRepository;
 use App\Agenda\Repository\LigacaoComGoogleRepository;
 use App\Agenda\Service\LevarAoGoogle;
+use App\Agenda\Service\LevarPrazosAoGoogle;
+use App\Agenda\Service\PermissoesDaAgenda;
+use App\Agenda\Service\PrazoParaOGoogle;
+use App\Agenda\Repository\PrazoNoGoogleRepository;
+use App\Pasta\Repository\PastaPrazoRepository;
 use App\Agenda\Service\ParticipantesDoGoogle;
 use App\Repository\UserRepository;
 use App\Agenda\Repository\ExclusaoNoGoogleRepository;
@@ -142,6 +147,8 @@ final class GoogleAgendaUseCasesTest extends TestCase
             new DesconectarGoogleAgendaUseCase($repo, $this->createStub(ExclusaoNoGoogleRepository::class), $api, new CifradorDeSegredo(self::CHAVE), $this->createStub(EntityManagerInterface::class)),
             $this->createStub(EntityManagerInterface::class),
             new NullLogger(),
+            new LevarPrazosAoGoogle($api, new PrazoParaOGoogle(), $this->createStub(PastaPrazoRepository::class), $this->createStub(PrazoNoGoogleRepository::class), new PermissoesDaAgenda($permissoes), $em, new NullLogger()),
+            $this->createStub(PrazoNoGoogleRepository::class),
         );
 
         self::assertSame(['trazidos' => 0, 'enviados' => 0, 'apagados' => 0], $montar(new GoogleAgendaApi(new MockHttpClient()))->executar(1, new \DateTimeImmutable()));

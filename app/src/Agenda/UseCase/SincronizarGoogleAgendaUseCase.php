@@ -15,8 +15,10 @@ use App\Agenda\Exception\SyncTokenVencidoException;
 use App\Agenda\Infra\GoogleAgendaApi;
 use App\Agenda\Repository\ConexaoGoogleAgendaRepository;
 use App\Agenda\Repository\LigacaoComGoogleRepository;
+use App\Agenda\Repository\PrazoNoGoogleRepository;
 use App\Agenda\Service\CompromissoNoGoogle;
 use App\Agenda\Service\LevarAoGoogle;
+use App\Agenda\Service\LevarPrazosAoGoogle;
 use App\Agenda\Service\ParticipantesDoGoogle;
 use App\Agenda\Service\SilencioDaSincronia;
 use App\Service\PermissionChecker;
@@ -32,7 +34,8 @@ use Psr\Log\LoggerInterface;
  * 2. traz o que mudou nela (syncToken). Criado lá entra visível à equipe, com os convidados da equipe como
  *    participantes; cancelado lá vira "cancelado" aqui, o registro fica. Na cópia de compromisso de outra
  *    pessoa (só leitura), mudança feita lá é desfeita no próximo envio; apagada lá, fica apagada até mudar aqui;
- * 3. leva ao Google as exclusões, o que mudou e tira as cópias que não valem mais (`LevarAoGoogle`).
+ * 3. leva ao Google as exclusões, o que mudou e tira as cópias que não valem mais (`LevarAoGoogle`);
+ * 4. leva os prazos e audiências das pastas a quem tem "Ver prazos na agenda", só leitura (`LevarPrazosAoGoogle`).
  * Uma sincronia por conexão de cada vez (trava no banco). Sem acesso à Agenda no escritório, a conexão é
  * desfeita. Autorização revogada na conta Google: o painel volta a "Não conectado".
  */
@@ -55,6 +58,8 @@ final class SincronizarGoogleAgendaUseCase
         private readonly DesconectarGoogleAgendaUseCase $desconectar,
         private readonly EntityManagerInterface $em,
         private readonly LoggerInterface $logger,
+        private readonly LevarPrazosAoGoogle $levarPrazos,
+        private readonly PrazoNoGoogleRepository $prazosNoGoogle,
     ) {
     }
 
@@ -110,6 +115,9 @@ final class SincronizarGoogleAgendaUseCase
         $apagados = $this->levar->apagarPendentes($conexao, $acesso);
         $enviados = $this->levar->enviar($conexao, $acesso, $agora, $ultima?->modify(self::FOLGA));
         $apagados += $this->levar->tirarCopiasQueNaoValemMais($conexao, $acesso);
+        $prazos = $this->levarPrazos->levar($conexao, $acesso, $agora);
+        $enviados += $prazos['enviados'];
+        $apagados += $prazos['apagados'];
         $conexao->sincronizou($syncToken, $agora);
         $this->conexoes->salvar($conexao);
 
@@ -124,6 +132,7 @@ final class SincronizarGoogleAgendaUseCase
         }
         $conexao->agendaCriada($this->google->criarAgenda($acesso, (string) $conexao->getTenant()->getName()));
         $this->ligacoes->esquecerDaConexao($conexao);
+        $this->prazosNoGoogle->esquecerDaConexao($conexao);
         $this->conexoes->salvar($conexao);
     }
 
@@ -136,6 +145,7 @@ final class SincronizarGoogleAgendaUseCase
         }
         $conexao->agendaSumiu();
         $this->ligacoes->esquecerDaConexao($conexao);
+        $this->prazosNoGoogle->esquecerDaConexao($conexao);
         $this->conexoes->salvar($conexao);
     }
 
@@ -179,6 +189,11 @@ final class SincronizarGoogleAgendaUseCase
     {
         $id = is_string($item['id'] ?? null) ? $item['id'] : '';
         if ('' === $id || $this->traducao->ehOcorrenciaDeSerie($item) || $this->traducao->ehDeOutroTipo($item)) {
+            return false;
+        }
+        if ($this->levarPrazos->ehIdDePrazo($id)) {
+            $this->levarPrazos->mexeramLa($conexao, $item, $id);
+
             return false;
         }
         $ligacao = $this->ligacoes->daConexaoPeloGoogle($conexao, $id) ?? $this->religarIdNosso($conexao, $id);
