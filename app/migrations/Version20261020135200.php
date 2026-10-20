@@ -15,7 +15,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Só acrescenta. As linhas vieram do `--dump-sql` no banco de teste da frente, filtradas por
  * `trabalho_externo`.
  */
-final class Version20261019160801 extends AbstractMigration
+final class Version20261020135200 extends AbstractMigration
 {
     public function getDescription(): string
     {
