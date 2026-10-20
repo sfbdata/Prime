@@ -135,15 +135,19 @@ class VagaRepository extends ServiceEntityRepository
     private function doExterno(?Tenant $tenant, User $usuario): QueryBuilder
     {
         $qb = $this->createQueryBuilder('v')
+            ->leftJoin('v.escritorio', 'donoDaVaga')
             ->setParameter('aberta', SituacaoVaga::Aberta)
             ->setParameter('usuario', $usuario);
+        // A vaga aberta de escritório fora do ar (suspenso ou excluído) sai da lista de quem é de fora
+        // (docs/specs/te-convidado-escritorio-fora-do-ar.md); quem se candidatou a abre pela candidatura.
+        $aberta = $qb->expr()->andX('v.situacao = :aberta', $qb->expr()->orX('v.escritorio IS NULL', 'donoDaVaga.isActive = true'));
         $dele = $qb->expr()->andX('v.daCentral = false', 'v.escritorio IS NULL', 'v.criadaPor = :usuario');
         if ($tenant === null) {
-            return $qb->andWhere($qb->expr()->orX('v.situacao = :aberta', $dele));
+            return $qb->andWhere($qb->expr()->orX($aberta, $dele));
         }
 
         return $qb
-            ->andWhere($qb->expr()->orX('v.situacao = :aberta', 'v.escritorio = :tenant', $dele))
+            ->andWhere($qb->expr()->orX($aberta, 'v.escritorio = :tenant', $dele))
             ->setParameter('tenant', $tenant);
     }
 

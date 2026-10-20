@@ -253,6 +253,45 @@ final class CandidaturasDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertSame('Ana Lima', $this->lista()['meu']['nome'], 'o currículo ficou salvo');
     }
 
+    #[TestDox('vaga de escritório fora do ar: some da lista e do detalhe de quem é de fora e recusa candidatura; quem já se candidatou ainda a abre')]
+    public function testVagaDeEscritorioForaDoAr(): void
+    {
+        [$sede, $a] = [$this->criarTenant('Sede'), $this->criarTenant('Dono suspenso')];
+        $master = $this->criarMaster($sede);
+        $dono = $this->criarUsuario($a, nome: 'Dono');
+        $codigo = $this->divulgarEAprovar($dono, $a, $master, $sede, 'Correspondente em Maceió');
+        $jaCandidato = $this->comCurriculo($this->criarTenant('B'), 'Bia Lima');
+        $this->postarJson($this->client, self::VAGAS . "/$codigo/candidatura");
+        self::assertResponseIsSuccessful();
+        $outro = $this->comCurriculo($tenantC = $this->criarTenant('C'), 'Caio Reis');
+        self::assertContains($codigo, array_column($this->listaDeVagas(), 'codigo'), 'premissa: no ar, a vaga aparece');
+
+        $a = $this->em()->find(Tenant::class, $a->getId());
+        $a->setIsActive(false);
+        $this->em()->flush();
+
+        $this->logarComTenant($this->client, $outro, $tenantC);
+        self::assertNotContains($codigo, array_column($this->listaDeVagas(), 'codigo'));
+        $this->client->request('GET', self::VAGAS . "/$codigo");
+        self::assertResponseStatusCodeSame(404);
+        $recusa = $this->postarJson($this->client, self::VAGAS . "/$codigo/candidatura");
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['Vaga indisponível', 'Esta vaga não está recebendo candidaturas.'], [$recusa['titulo'], $recusa['mensagem']]);
+
+        $this->logarComTenant($this->client, $jaCandidato, $this->em()->getRepository(\App\Entity\Auth\UserTenant::class)->findOneBy(['user' => $jaCandidato])->getTenant());
+        self::assertSame('enviada', $this->detalhe($codigo)['botaoExterno'], 'quem se candidatou acompanha a vaga');
+        self::assertSame(1, $this->contar('trabalho_externo_candidatura'));
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function listaDeVagas(): array
+    {
+        $this->client->request('GET', self::VAGAS);
+        self::assertResponseIsSuccessful();
+
+        return $this->json($this->client)['vagas']['vagas'];
+    }
+
     protected function setUp(): void
     {
         $this->client = static::createClient();
