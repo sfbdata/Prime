@@ -29,7 +29,7 @@ final class CriarConvitePlataformaUseCase
         $invitation = new Invitation(
             email: $email,
             token: bin2hex(random_bytes(32)),
-            type: 'platform',
+            type: Invitation::TIPO_PLATAFORMA,
             expiresAt: new \DateTimeImmutable('+24 hours'),
         );
         $invitation->setFullName($input->fullName);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Auditoria\UseCase\DesfazerAlteracaoAuditLogUseCase;
+use App\Pasta\Service\AuditoriaDoCadeado;
 use App\Shared\Contract\Auditavel;
 use App\Repository\UserRepository;
 use App\Repository\AuditLogRepository;
@@ -25,6 +26,7 @@ final class AuditLogController extends AbstractController
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly DesfazerAlteracaoAuditLogUseCase $desfazerUseCase,
+        private readonly AuditoriaDoCadeado $auditoriaDoCadeado,
     ) {}
 
     #[Route('', name: 'audit_log_index', methods: ['GET'])]
@@ -79,14 +81,17 @@ final class AuditLogController extends AbstractController
             self::PER_PAGE
         );
 
+        // Cadeado (spec pasta-cadeado D4): linha de pasta oculta para quem lê sai sem conteúdo e sem desfazer.
+        $ocultasPeloCadeado = $tenant !== null ? $this->auditoriaDoCadeado->linhasOcultas($currentUser, $tenant, $auditLogs) : [];
         $podeDesfazerMap = [];
         foreach ($auditLogs as $auditLog) {
-            $podeDesfazerMap[(int) $auditLog->getId()] = $this->desfazerUseCase->podeReverter($auditLog);
+            $podeDesfazerMap[(int) $auditLog->getId()] = !isset($ocultasPeloCadeado[(int) $auditLog->getId()]) && $this->desfazerUseCase->podeReverter($auditLog);
         }
 
         return $this->render('audit/index.html.twig', [
             'auditLogs' => $auditLogs,
             'podeDesfazerMap' => $podeDesfazerMap,
+            'ocultasPeloCadeado' => $ocultasPeloCadeado,
             'filters' => [
                 'entity' => $entityFilter,
                 'user' => $userFilter,
@@ -122,6 +127,10 @@ final class AuditLogController extends AbstractController
         $tokenValue = (string) $request->request->get('_token', '');
         if (!$csrfTokenManager->isTokenValid(new CsrfToken('audit_desfazer_' . $id, $tokenValue))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        if ($tenant !== null && $this->auditoriaDoCadeado->linhaOcultaPorId($currentUser, $tenant, $id)) {
+            throw $this->createAccessDeniedException('O usuário primário restringiu o acesso a esta pasta.');
         }
 
         $tenantId = $tenant?->getId();

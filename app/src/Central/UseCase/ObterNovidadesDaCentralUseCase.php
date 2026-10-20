@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace App\Central\UseCase;
 
-use App\Central\DTO\MensagemOutput;
 use App\Central\DTO\NovidadesOutput;
-use App\Central\Entity\Mensagem;
 use App\Central\Exception\SemAcessoACentralException;
 use App\Central\Repository\MensagemRepository;
 use App\Central\Repository\ParticipanteRepository;
 use App\Central\Service\AcessoACentral;
 use App\Central\Service\AvisoDeMencaoNaCentral;
+use App\Central\Service\LeituraDasMensagens;
 use App\Central\DTO\ContagemDeAvisos;
 use App\Central\Service\ContadorDeAvisos;
 use App\Entity\Auth\User;
@@ -26,6 +25,9 @@ use Psr\Clock\ClockInterface;
  * conversa aberta, e despejar as 200 mais antigas como "novidade" seria falso. `desde = 0` é um cursor como
  * outro qualquer (quem ainda não tinha mensagem nenhuma): devolve tudo acima de 0. Misturar os dois perdia a
  * primeira mensagem de quem começou sem nenhuma.
+ *
+ * O texto (das novas e da janela de 30 s) sai por {@see LeituraDasMensagens}: despacho de pasta que eu não vejo vem
+ * como "Item de pasta sem acesso".
  */
 final class ObterNovidadesDaCentralUseCase
 {
@@ -40,6 +42,7 @@ final class ObterNovidadesDaCentralUseCase
         private readonly ClockInterface $clock,
         private readonly ParticipanteRepository $participantes,
         private readonly AvisoDeMencaoNaCentral $avisos,
+        private readonly LeituraDasMensagens $leitura,
         // Opcional só para não mexer nos testes unitários antigos do polling; no container o autowiring sempre injeta
         // (provado pelo teste funcional das contagens).
         private readonly ?ContadorDeAvisos $contadorDeAvisos = null,
@@ -74,7 +77,7 @@ final class ObterNovidadesDaCentralUseCase
 
         // `completo` conta só as NOVAS: a janela repete, não é motivo para a tela pedir de novo.
         return new NovidadesOutput(
-            mensagens: array_map(static fn (Mensagem $m): MensagemOutput => MensagemOutput::fromEntity($m, $eu), array_merge($repetidas, $novas)),
+            mensagens: $this->leitura->paraLeitor(array_merge($repetidas, $novas), $eu),
             cursor: $cursor,
             naoLidas: $naoLidas,
             completo: count($novas) < self::TETO,

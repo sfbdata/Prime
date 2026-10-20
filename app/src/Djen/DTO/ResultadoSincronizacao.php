@@ -19,6 +19,9 @@ final class ResultadoSincronizacao
     /** Processos cadastrados consultados com sucesso pelo número CNJ (segunda fonte da captação). */
     private int $processosConsultados = 0;
 
+    /** @var list<string> números (só dígitos) consultados com sucesso: a última verificação de cada um */
+    private array $numerosConsultados = [];
+
     /** Processos que o request não chegou a consultar (limite do DJEN); a captação automática consulta todos. */
     private int $processosAdiados = 0;
 
@@ -49,9 +52,19 @@ final class ResultadoSincronizacao
         }
     }
 
-    public function registrarProcessoConsultado(): void
+    public function registrarProcessoConsultado(string $numero = ''): void
     {
         $this->processosConsultados++;
+
+        if ($numero !== '') {
+            $this->numerosConsultados[] = $numero;
+        }
+    }
+
+    /** @return list<string> */
+    public function getNumerosConsultados(): array
+    {
+        return $this->numerosConsultados;
     }
 
     public function registrarProcessosAdiados(int $quantidade): void

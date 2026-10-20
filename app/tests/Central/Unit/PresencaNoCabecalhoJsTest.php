@@ -37,6 +37,11 @@ final class PresencaNoCabecalhoJsTest extends TestCase
         $js = self::js('presenca-cabecalho.js');
         self::assertStringContainsString("var ST = { on: ['On-line', '#2ecc71', 1], ausente: ['Ausente', '#f0b429', 2], ocupado: ['Não perturbe', '#e74c3c', 3], off: ['Desligado', '#b7c4cd', 4] };", $js);
         self::assertStringContainsString("'sem atividade há ' + p.semAtividadeMin + ' min'", $js);
+        // Fase 3 (dc L.306 e L.685): o seletor só com a URL do primário, depois da nota, com as 4 opções do desenho.
+        self::assertStringContainsString("var OPCOES_AUSENCIA = [15, 30, 60, 120];", $js);
+        self::assertStringContainsString("if (urlAusencia) { painel.appendChild(regraDeAusencia()); }", $js);
+        self::assertStringContainsString("el('label', 'presenca-regra-rotulo', 'Ausente após sem atividade')", $js);
+        self::assertStringContainsString("n < 60 ? n + ' min' : (n / 60) + ' h'", $js);
         self::assertStringContainsString("if (x.eu) {   // horas: só na sua linha", $js);
         self::assertStringContainsString("var dt = agora - Math.max(hr.l || agora, meiaNoite.getTime());", $js, 'o último instante é o compartilhado');
         self::assertStringContainsString('HORAS_INTERVALO_MAX_MS = 90000', $js);

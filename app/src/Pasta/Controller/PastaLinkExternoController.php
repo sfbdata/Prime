@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Pasta\Controller;
 
+use App\Auth\Controller\ContaConfirmacaoController;
 use App\Entity\Auth\User;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
+use App\Master\Service\RecursosDoSistema;
 use App\Pasta\Entity\LinkExternoDoPush;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\LinkExternoDoPushException;
@@ -22,6 +24,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
 /**
  * Link externo do Push Processual, lado do escritório (spec push-link-externo §3): listar, gerar,
@@ -42,6 +45,7 @@ final class PastaLinkExternoController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly LinkExternoDoPushRepository $links,
+        private readonly CsrfTokenManagerInterface $csrf,
     ) {
     }
 
@@ -74,16 +78,24 @@ final class PastaLinkExternoController extends AbstractController
                 $request->request->getBoolean('incluir_analises') && $this->podeVerIa(),
             );
         } catch (LinkExternoDoPushException $e) {
-            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $e->getMessage()] + $this->reenvioDaConfirmacao($e), Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return $this->json(['sucesso' => true, 'link' => $link->paraJson()], Response::HTTP_CREATED);
     }
 
     #[Route('/{linkId}/revogar', name: 'pasta_push_links_revogar', requirements: ['linkId' => '\d+'], methods: ['POST'])]
-    public function revogar(Pasta $pasta, int $linkId, Request $request, RevogarLinkExternoDoPushUseCase $revogar): JsonResponse
+    public function revogar(Pasta $pasta, int $linkId, Request $request, RevogarLinkExternoDoPushUseCase $revogar, RecursosDoSistema $recursos): JsonResponse
     {
-        return $this->operarNoLink($pasta, $linkId, $request, static fn (LinkExternoDoPush $l, User $u) => $revogar->executar($l, $u));
+        $resposta = $this->operarNoLink($pasta, $linkId, $request, static fn (LinkExternoDoPush $l, User $u) => $revogar->executar($l, $u));
+
+        // Com a tela `pushpub` desligada o revogar segue aberto (tirar acesso nunca trava), mas não pode servir
+        // de leitura link por link: só a confirmação, sem endereço, código, acessos nem pedido de renovação.
+        if ($resposta->isSuccessful() && !$recursos->visivel('pushpub')) {
+            return $this->json(['ok' => true, 'id' => $linkId, 'revogado' => true]);
+        }
+
+        return $resposta;
     }
 
     #[Route('/{linkId}/renovar', name: 'pasta_push_links_renovar', requirements: ['linkId' => '\d+'], methods: ['POST'])]
@@ -143,6 +155,25 @@ final class PastaLinkExternoController extends AbstractController
         }
 
         return null;
+    }
+
+    /**
+     * Só a recusa por e-mail a confirmar leva a rota e o token do "Reenviar o link de confirmação" (spec
+     * login-desenho-10): o modal mostra o botão junto do erro. Outro bloqueio (sem movimentação, pasta
+     * arquivada...) não leva nada, mesmo com a conta a confirmar.
+     *
+     * @return array{confirmacao?: array{url: string, token: string}}
+     */
+    private function reenvioDaConfirmacao(LinkExternoDoPushException $recusa): array
+    {
+        if ($recusa->getMessage() !== GerarLinkExternoDoPushUseCase::RECUSA_EMAIL_A_CONFIRMAR || $this->usuario()->isEmailConfirmado()) {
+            return [];
+        }
+
+        return ['confirmacao' => [
+            'url' => $this->generateUrl('conta_confirmacao_reenviar'),
+            'token' => $this->csrf->getToken(ContaConfirmacaoController::CSRF)->getValue(),
+        ]];
     }
 
     private function usuario(): User

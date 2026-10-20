@@ -10,6 +10,8 @@ use App\Entity\Auth\User;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use App\Auth\Repository\InscricaoOabRepository;
+use App\Auth\Service\EspelhoDaOabPrincipal;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(ReverterOabUseCase::class)]
@@ -25,7 +27,7 @@ final class ReverterOabUseCaseTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::once())->method('flush');
 
-        (new ReverterOabUseCase($em))->executar($user, StatusOab::NaoVerificada);
+        (new ReverterOabUseCase($em, $this->espelho()))->executar($user, StatusOab::NaoVerificada);
 
         self::assertSame(StatusOab::NaoVerificada, $user->getOabStatus());
         self::assertNull($user->getOabVerificadaEm());
@@ -40,7 +42,7 @@ final class ReverterOabUseCaseTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::once())->method('flush');
 
-        (new ReverterOabUseCase($em))->executar($user, StatusOab::Divergente);
+        (new ReverterOabUseCase($em, $this->espelho()))->executar($user, StatusOab::Divergente);
 
         self::assertSame(StatusOab::Divergente, $user->getOabStatus());
         self::assertNotNull($user->getOabVerificadaEm());
@@ -57,6 +59,12 @@ final class ReverterOabUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        (new ReverterOabUseCase($em))->executar($user, StatusOab::Confirmada);
+        (new ReverterOabUseCase($em, $this->espelho()))->executar($user, StatusOab::Confirmada);
+    }
+
+    /** Espelho da OAB sobre um repositório sem inscrições: o UseCase cria a principal a partir do User. */
+    private function espelho(): EspelhoDaOabPrincipal
+    {
+        return new EspelhoDaOabPrincipal($this->createStub(InscricaoOabRepository::class));
     }
 }

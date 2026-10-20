@@ -4,6 +4,8 @@ namespace App\Processo\Repository;
 
 use App\Entity\Tenant\Tenant;
 use App\Processo\Entity\Processo;
+use App\Twig\NumeroProcessoExtension;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -52,7 +54,8 @@ class ProcessoRepository extends ServiceEntityRepository
 
     /**
      * Números dos processos que o Push Processual acompanha por número: todos os cadastrados no
-     * escritório que ainda não deram baixa (processo baixado não recebe publicação nova), do mais
+     * escritório que ainda não deram baixa (processo baixado não recebe publicação nova) e cujo
+     * monitoramento não foi pausado na aba Push da pasta (spec push-painel-monitoramento §1), do mais
      * recente ao mais antigo: no botão, que roda dentro do limite do DJEN, o recém-cadastrado vem
      * primeiro.
      *
@@ -67,6 +70,7 @@ class ProcessoRepository extends ServiceEntityRepository
             ->select('p.numeroProcesso')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.dataBaixa IS NULL')
+            ->andWhere('p.monitoramentoPausadoEm IS NULL')
             ->setParameter('tenant', $tenant)
             ->orderBy('p.id', 'DESC')
             ->getQuery()
@@ -85,9 +89,42 @@ class ProcessoRepository extends ServiceEntityRepository
             ->select('COUNT(p.id)')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.dataBaixa IS NULL')
+            ->andWhere('p.monitoramentoPausadoEm IS NULL')
             ->setParameter('tenant', $tenant)
             ->getQuery()
             ->getSingleScalarResult();
+    }
+
+    /**
+     * Grava a última verificação no DJEN dos processos do escritório com estes números (spec
+     * push-painel-monitoramento §1). Os números chegam só com dígitos (é o que a captação consulta)
+     * e o cadastro pode guardá-los com a máscara CNJ: a comparação é com as DUAS formas, por `IN`,
+     * para usar o índice único (tenant_id, numero_processo) em vez de varrer a tabela.
+     *
+     * UPDATE direto, e não pela entidade: roda depois da captação (no comando, centenas de números)
+     * e não deve disparar o `PreUpdate` do processo, que mudaria o `modificadoEm` sem ninguém ter
+     * mexido no cadastro. Escopado pelo tenant explícito (o comando roda sem o TenantFilter).
+     *
+     * @param list<string> $numerosSoDigitos
+     */
+    public function registrarVerificacaoDosNumeros(Tenant $tenant, array $numerosSoDigitos, \DateTimeImmutable $em): void
+    {
+        if ($numerosSoDigitos === []) {
+            return;
+        }
+
+        $mascara = new NumeroProcessoExtension();
+        $formas = [];
+        foreach ($numerosSoDigitos as $numero) {
+            $formas[$numero] = true;
+            $formas[$mascara->numeroCnj($numero)] = true;
+        }
+
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE processo SET ultima_verificacao_em = :em WHERE tenant_id = :tenant AND numero_processo IN (:numeros)',
+            ['em' => $em->format('Y-m-d H:i:s'), 'tenant' => $tenant->getId(), 'numeros' => array_map('strval', array_keys($formas))],
+            ['numeros' => ArrayParameterType::STRING],
+        );
     }
 
     /**
@@ -206,6 +243,7 @@ class ProcessoRepository extends ServiceEntityRepository
      * (CLI, super-admin, teste).
      *
      * @param array<string, string> $filtros  busca, tribunal, situacao, data_de, data_ate
+     * @param list<int>             $processosOcultos processos que não abrem para quem lista (cadeado, K3)
      * @return Processo[]
      */
     public function findByFiltrosPaginado(
@@ -214,9 +252,11 @@ class ProcessoRepository extends ServiceEntityRepository
         int $pagina = 1,
         int $porPagina = 25,
         string $ordenar = '',
-        string $direcao = 'desc'
+        string $direcao = 'desc',
+        array $processosOcultos = [],
     ): array {
         $qb = $this->buildQbFiltros($tenant, $filtros);
+        $this->semOsProcessosOcultos($qb, $processosOcultos);
         $this->aplicarOrdenacaoProcesso($qb, $ordenar, $direcao);
 
         return $qb
@@ -228,13 +268,26 @@ class ProcessoRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, string> $filtros
+     * @param list<int>             $processosOcultos
      */
-    public function countByFiltros(Tenant $tenant, array $filtros): int
+    public function countByFiltros(Tenant $tenant, array $filtros, array $processosOcultos = []): int
     {
-        return (int) $this->buildQbFiltros($tenant, $filtros)
-            ->select('COUNT(p.id)')
-            ->getQuery()
-            ->getSingleScalarResult();
+        $qb = $this->buildQbFiltros($tenant, $filtros)->select('COUNT(p.id)');
+        $this->semOsProcessosOcultos($qb, $processosOcultos);
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Cadeado (spec pasta-cadeado K3): processo cujas pastas são todas ocultas para quem lista não entra.
+     *
+     * @param list<int> $processosOcultos
+     */
+    private function semOsProcessosOcultos(QueryBuilder $qb, array $processosOcultos): void
+    {
+        if ($processosOcultos !== []) {
+            $qb->andWhere('p.id NOT IN (:processosOcultos)')->setParameter('processosOcultos', $processosOcultos);
+        }
     }
 
     /**

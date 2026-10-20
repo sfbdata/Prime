@@ -51,14 +51,14 @@ final class PastaPushAcoesTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
         self::assertResponseIsSuccessful();
-        $filtros = $crawler->filter('#push > .ps-push > .ps-card-cab > .ps-push-filtros > .ps-push-filtro');
+        $filtros = $crawler->filter('#push > .ps-push-grade > .ps-push > .ps-card-cab > .ps-push-filtros > .ps-push-filtro');
         self::assertSame(['todas', 'novas', 'prazo'], $filtros->each(static fn ($b) => $b->attr('data-push-filtro')));
         self::assertSame(['Todas', 'Novas', 'Geram prazo'], $filtros->each(static fn ($b) => trim($b->text())));
         self::assertSame('true', $crawler->filter('.ps-push-filtro[data-push-filtro="todas"]')->attr('aria-pressed'));
         self::assertSame('false', $crawler->filter('.ps-push-filtro[data-push-filtro="novas"]')->attr('aria-pressed'));
         self::assertSame('false', $crawler->filter('.ps-push-filtro[data-push-filtro="prazo"]')->attr('aria-pressed'));
         // O vazio do filtro existe e nasce escondido; o script da aba é carregado.
-        self::assertSame(1, $crawler->filter('#push > .ps-push > #push-vazio-filtro[hidden]')->count());
+        self::assertSame(1, $crawler->filter('#push > .ps-push-grade > .ps-push > #push-vazio-filtro[hidden]')->count());
         self::assertSame(1, $crawler->filter('#push > script[src*="js/pasta-push.js"]')->count());
     }
 
@@ -74,11 +74,11 @@ final class PastaPushAcoesTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
         self::assertResponseIsSuccessful();
-        $filtros = $crawler->filter('#push > .ps-push > .ps-card-cab > .ps-push-filtros > .ps-push-filtro');
+        $filtros = $crawler->filter('#push > .ps-push-grade > .ps-push > .ps-card-cab > .ps-push-filtros > .ps-push-filtro');
         self::assertSame(['todas', 'novas', 'prazo'], $filtros->each(static fn ($b) => $b->attr('data-push-filtro')));
         self::assertSame('true', $crawler->filter('.ps-push-filtro[data-push-filtro="todas"]')->attr('aria-pressed'));
-        self::assertSame('0', trim($crawler->filter('#push > .ps-push > .ps-card-cab > .ps-contagem')->text()));
-        self::assertSame(1, $crawler->filter('#push > .ps-push > #push-vazio-sem-publicacao')->count());
+        self::assertSame('0', trim($crawler->filter('#push > .ps-push-grade > .ps-push > .ps-card-cab > .ps-contagem')->text()));
+        self::assertSame(1, $crawler->filter('#push > .ps-push-grade > .ps-push > #push-vazio-sem-publicacao')->count());
         // Sem lista não há o que filtrar: nem a lista nem o vazio do filtro existem.
         self::assertSame(0, $crawler->filter('.ps-push-lista, #push-vazio-filtro')->count());
     }
@@ -94,8 +94,8 @@ final class PastaPushAcoesTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
 
         self::assertResponseIsSuccessful();
-        self::assertSame(3, $crawler->filter('#push > .ps-push > .ps-card-cab > .ps-push-filtros > .ps-push-filtro')->count());
-        self::assertSame(1, $crawler->filter('#push > .ps-push > #push-vazio-sem-processo')->count());
+        self::assertSame(3, $crawler->filter('#push > .ps-push-grade > .ps-push > .ps-card-cab > .ps-push-filtros > .ps-push-filtro')->count());
+        self::assertSame(1, $crawler->filter('#push > .ps-push-grade > .ps-push > #push-vazio-sem-processo')->count());
     }
 
     #[TestDox('Itens: cada linha é filha direta da lista, marca nova/lida e leva a pílula do dia (repetida escondida)')]
