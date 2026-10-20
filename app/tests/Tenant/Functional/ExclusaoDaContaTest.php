@@ -229,11 +229,12 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
 
         // SQL direto: a notificação mora no escritório do Master, que o filtro de escritório da sessão esconde.
         $aviso = $this->em->getConnection()->fetchAssociative(
-            'SELECT titulo, mensagem, tenant_id FROM notificacao WHERE usuario_id = :u AND tipo = :t',
+            'SELECT titulo, mensagem, tenant_id, url FROM notificacao WHERE usuario_id = :u AND tipo = :t',
             ['u' => $master->getId(), 't' => Notificacao::TIPO_CONTA_PEDIDO_EXCLUSAO],
         );
         self::assertNotFalse($aviso, 'o Master recebe no sino');
         self::assertSame('Pedido de exclusão de conta', $aviso['titulo']);
+        self::assertSame('/master#sec=contas', $aviso['url'], 'abre o painel na seção Contas');
         self::assertSame($conta->getName() . ' pediu exclusão. Motivo: Achei caro · muito caro para nós', $aviso['mensagem']);
         self::assertNotSame($conta->getId(), (int) $aviso['tenant_id'], 'gravado no escritório do Master, nunca no do cliente');
 

@@ -42,7 +42,8 @@ final class AvisoAoMasterDoPedidoDeExclusao
     {
         try {
             $texto = sprintf('%s pediu exclusão. Motivo: %s', (string) $pedido->getTenant()->getName(), $pedido->getMotivo());
-            $url = $this->urls->generate('master_painel');
+            // Abre o painel direto na seção Contas, onde fica o bloco "Pedidos de exclusão de conta" (b5).
+            $url = $this->urls->generate('master_painel') . '#sec=contas';
             foreach ($this->usuarios->findComPapelGlobal('ROLE_SUPER_ADMIN') as $master) {
                 $this->avisarUm($master, $texto, $url);
             }
