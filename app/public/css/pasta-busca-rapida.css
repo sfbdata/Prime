@@ -112,7 +112,8 @@
 
 .pbr-item.is-selecionado .pbr-icone { background: #fff; }
 
-.pbr-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+/* Altura de linha normal como no desenho (o 1.5 do Bootstrap deixava cada item ~10px mais alto). */
+.pbr-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: normal; }
 
 .pbr-titulo {
     font-size: 13.5px;
