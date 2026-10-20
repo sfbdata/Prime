@@ -45,6 +45,8 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_CENTRAL_MENCAO = 'central_mencao';
     /** Alguém adicionou o destinatário a um grupo da Central de Comunicação. */
     public const TIPO_CENTRAL_GRUPO_ADICIONADO = 'central_grupo_adicionado';
+    /** Despacho urgente de um item da pasta para a Central ("Encaminhar via Chat I.A"; sem o texto: é auditada). */
+    public const TIPO_CENTRAL_DESPACHO = 'central_despacho';
     /** Quem recebeu o link externo do Push pediu a renovação; vai para quem criou o link. */
     public const TIPO_PUSH_LINK_RENOVACAO = 'push_link_renovacao';
 
@@ -229,6 +231,7 @@ class Notificacao implements Auditavel, TenantAware
             self::TIPO_PASTA_ACESSO_DECIDIDO => 'bi-unlock text-primary',
             // Desenho (bluejus-central.js, tipo "direcionada"): `bi-person-check` em âmbar.
             self::TIPO_PASTA_RESPOSTA_REGISTRO => 'bi-person-check text-warning',
+            self::TIPO_CENTRAL_DESPACHO => 'bi-person-check text-warning',
             // Desenho (bluejus-central.js, tipo "mencao"): `bi-at` em azul.
             self::TIPO_PASTA_MENCAO_REGISTRO => 'bi-at text-primary',
             // Menção numa nota técnica: o mesmo tipo "mencao" do desenho — `bi-at` em azul.

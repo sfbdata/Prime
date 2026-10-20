@@ -18,13 +18,19 @@ use Symfony\Component\HttpFoundation\Request;
  *   sem espaço nem caractere de controle (nem cru, nem codificado com `%`);
  * - URL absoluta `http(s)` do próprio host (e porta) da requisição, reduzida a caminho e query.
  *
- * Recusa também as telas de entrada (`/login`, `/logout`, `/senha`, `/cadastro`) para não criar laço.
+ * Recusa também as telas de entrada (`/login`, `/logout`, `/senha`, `/cadastro`) para não criar laço, e o que
+ * não é página: endpoint de dados (`/api/`, `.../count`, o polling do sino), arquivo estático e as rotas
+ * internas do Symfony (`/_`). Em produção, o `fetch('/notificacoes/count')` do sino com a sessão vencida
+ * virou destino e o dono entrou e caiu no JSON `{"count":390}`. Na dúvida, `null` (a página inicial).
  */
 final class DestinoPosLogin
 {
     private const TAMANHO_MAXIMO = 2048;
 
-    private const PREFIXOS_PROIBIDOS = ['/login', '/logout', '/senha', '/cadastro'];
+    private const PREFIXOS_PROIBIDOS = ['/login', '/logout', '/senha', '/cadastro', '/api'];
+
+    /** Caminhos que devolvem dado, não página: o último trecho `count` e arquivos com extensão de recurso. */
+    private const NAO_E_PAGINA = '#^/_|(/count$|\.(json|js|css|map|xml|txt|png|jpe?g|gif|svg|ico|webp|avif|pdf|woff2?)$)#i';
 
     public function validar(?string $destino, Request $request): ?string
     {
@@ -97,13 +103,21 @@ final class DestinoPosLogin
             }
         }
 
-        return preg_match('/[\x00-\x1F\x7F]/', $decodificado) !== 1 && !$this->apontaParaEntrada($decodificado);
+        return preg_match('/[\x00-\x1F\x7F]/', $decodificado) !== 1
+            && !$this->apontaParaEntrada($decodificado)
+            && !$this->naoEPagina($decodificado);
     }
 
     /** Barra invertida, espaço e caractere de controle crus nunca entram. */
     private function temCaractereProibido(string $texto): bool
     {
         return str_contains($texto, '\\') || preg_match('/[\x00-\x20\x7F]/', $texto) === 1;
+    }
+
+    private function naoEPagina(string $caminho): bool
+    {
+        // Sem a barra final: `/notificacoes/count/` também é o contador.
+        return preg_match(self::NAO_E_PAGINA, rtrim(strtolower((string) strtok($caminho, '?#')), '/')) === 1;
     }
 
     private function apontaParaEntrada(string $caminho): bool

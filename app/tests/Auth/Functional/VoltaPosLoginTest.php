@@ -76,6 +76,58 @@ final class VoltaPosLoginTest extends JusPrimeWebTestCase
         self::assertSame('/expediente', $this->submeter($client, $crawler, $user));
     }
 
+    #[TestDox('Incidente da v2.5.0: o fetch anônimo do sino recebe 401 em JSON, não vira destino, e o login vai ao Expediente')]
+    public function testFetchDoSinoNaoViraDestino(): void
+    {
+        $client = static::createClient();
+        $user = $this->criarUsuario(escritorios: 1);
+
+        // O `fetch('/notificacoes/count')` do base: sem X-Requested-With, com o modo que o navegador manda.
+        $client->request('GET', '/notificacoes/count', [], [], ['HTTP_SEC_FETCH_MODE' => 'cors', 'HTTP_ACCEPT' => '*/*']);
+        self::assertResponseStatusCodeSame(401);
+        self::assertSame('Sua sessão terminou. Entre de novo.', json_decode((string) $client->getResponse()->getContent(), true)['erro']);
+        self::assertFalse($client->getSession()->has(self::TARGET_PATH), 'pedido de dados não vira destino');
+
+        self::assertSame('/expediente', $this->entrar($client, $user));
+    }
+
+    #[TestDox('XHR e pedido que só aceita JSON também recebem 401 sem virar destino')]
+    public function testXhrEJsonRecebem401(): void
+    {
+        $client = static::createClient();
+
+        $client->xmlHttpRequest('GET', '/notificacoes/count');
+        self::assertResponseStatusCodeSame(401);
+        $client->request('GET', '/agenda', [], [], ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseStatusCodeSame(401);
+        self::assertFalse($client->getSession()->has(self::TARGET_PATH));
+    }
+
+    #[TestDox('Navegação de página e formulário vencido continuam indo ao login')]
+    public function testNavegacaoContinuaIndoAoLogin(): void
+    {
+        $client = static::createClient();
+
+        $client->request('GET', '/agenda', [], [], ['HTTP_SEC_FETCH_MODE' => 'navigate', 'HTTP_ACCEPT' => 'text/html']);
+        self::assertResponseRedirects('/login');
+        $client->request('POST', '/notificacoes/excluir', [], [], ['HTTP_SEC_FETCH_MODE' => 'navigate', 'HTTP_ACCEPT' => 'text/html']);
+        self::assertResponseRedirects('/login');
+    }
+
+    #[TestDox('Sessão antiga com o contador do sino gravado como destino: o login vai ao Expediente')]
+    public function testDestinoAntigoDoSinoNaSessaoEhIgnorado(): void
+    {
+        $client = static::createClient();
+        $user = $this->criarUsuario(escritorios: 1);
+
+        $crawler = $client->request('GET', '/login');
+        $session = $client->getSession();
+        $session->set(self::TARGET_PATH, 'https://localhost/notificacoes/count');
+        $session->save();
+
+        self::assertSame('/expediente', $this->submeter($client, $crawler, $user));
+    }
+
     #[TestDox('Master sem escritório volta para a tela pedida, ou para o painel do Master')]
     public function testMasterSemEscritorio(): void
     {

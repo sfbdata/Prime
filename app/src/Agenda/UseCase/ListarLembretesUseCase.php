@@ -13,6 +13,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Repository\PastaPrazoRepository;
+use App\Pasta\Service\AcessoAPasta;
 
 /**
  * História: em qualquer tela do sistema, o navegador pergunta de tempos em tempos quais lembretes a
@@ -39,6 +40,8 @@ final class ListarLembretesUseCase
         private readonly EventoDaAgendaRepository $eventos,
         private readonly OcorrenciasDoEvento $ocorrencias,
         private readonly PastaPrazoRepository $prazos,
+        // Cadeado (spec pasta-cadeado D3): prazo de pasta oculta para a pessoa não vira lembrete dela.
+        private readonly ?AcessoAPasta $acessoAPasta = null,
     ) {
     }
 
@@ -47,7 +50,7 @@ final class ListarLembretesUseCase
     {
         $de = $agora->modify('-' . self::ATRASO_HORAS . ' hours');
         $ate = $agora->modify('+' . (self::JANELA_HORAS + 1) . ' hours');
-        $lembretes = [...$this->dosCompromissos($tenant, $eu, $de, $ate, $agora, $verPastas), ...($verPastas ? $this->dosPrazosDeHoje($tenant, $agora) : [])];
+        $lembretes = [...$this->dosCompromissos($tenant, $eu, $de, $ate, $agora, $verPastas), ...($verPastas ? $this->dosPrazosDeHoje($tenant, $eu, $agora) : [])];
         usort($lembretes, static fn (L $a, L $b): int => $a->aviso <=> $b->aviso);
 
         return $lembretes;
@@ -102,11 +105,12 @@ final class ListarLembretesUseCase
     }
 
     /** @return list<L> */
-    private function dosPrazosDeHoje(Tenant $tenant, \DateTimeImmutable $agora): array
+    private function dosPrazosDeHoje(Tenant $tenant, User $eu, \DateTimeImmutable $agora): array
     {
         $hoje = $agora->setTime(0, 0);
+        $ocultas = $this->acessoAPasta?->idsOcultosPara($eu, (int) $tenant->getId()) ?? [];
         $saida = [];
-        foreach ($this->prazos->abertosDoEscritorioNoPeriodo($tenant, $hoje, $hoje) as $z) {
+        foreach ($this->prazos->abertosDoEscritorioNoPeriodo($tenant, $hoje, $hoje, $ocultas) as $z) {
             $hora = $z->getHora();
             if (null === $hora || '' === $hora) {
                 continue;

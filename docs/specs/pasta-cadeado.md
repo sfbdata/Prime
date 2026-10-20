@@ -56,12 +56,22 @@ pontos levam o comentário "Aplicar idsOcultosPara quando o #120 entrar":
   lembrete do prazo).
 O `AcessoAPasta` fica opcional nos dois construtores: os testes da Agenda montam sem ele.
 
-**Acompanhamento depois dos merges (revisão do #153, 20/10):**
-- **Dashboard da equipe:** as consultas de metas não aplicam `semPastasOcultas`, então o gestor vê o título de meta
-  de pasta Oculta para ele. **Decisão pela D1:** a pasta oculta mostra só número, cliente e CPF, e metas estão
-  na lista do que não aparece. As metas de pasta Oculta para quem olha saem da lista e das contagens do Dashboard
-  da equipe, como "pastas criadas por X" já não conta a oculta (D3). Aplicar `semPastasOcultas` (ou
-  `idsOcultosPara`) nessas consultas, com teste de gestor que não vê a pasta.
+**Acompanhamento depois dos merges (revisão do #153, 20/10): FEITO na frente `dashboard-oculta-prazo`.**
+- **Dashboard da equipe (decisão pela D1 e D3):** a pasta oculta mostra só número, cliente e CPF, e metas estão na
+  lista do que não aparece. Para quem olha, a pasta Oculta sai de TODA lista e contagem do Dashboard da equipe:
+  - metas: cards Metas ativas e Meta global batida, colunas Total, Ativas, Vencidas e Prazo próximo (atual e
+    período anterior), extras Em revisão e Tempo médio;
+  - pastas: card Demandas urgentes, colunas Total demandas e Demandas ativas, extra Pastas urgentes, Pastas
+    criadas e o histórico desse card.
+  Os ids saem de `AcessoAPasta::idsOcultosPara`, uma vez por requisição, no controller. A foto diária
+  (`FotografarDashboardUseCase`) continua contando o escritório inteiro: ela não tem quem olha.
+- **Setas e pílulas da foto diária:** comparam o número de quem olha (filtrado) com a foto do escritório inteiro, e a
+  diferença revelaria a pasta oculta. Para quem tem ao menos uma pasta Oculta, essas comparações não aparecem
+  (Vencidas, Prazo próximo e a pílula do Total). As setas do período anterior que vêm de consulta ao vivo já
+  filtrada continuam.
+- **Em aberto, para o dono:** o extra "Eventos na agenda" conta `Evento` com `pasta_id` sem o cadeado, coerente com
+  a Agenda de hoje (`ListarCompromissosUseCase::dosEventos` tira só os prazos da pasta oculta). Evento ligado a
+  pasta Oculta deve sumir também (D3 na Agenda)?
 
 ## 1. Fontes
 
