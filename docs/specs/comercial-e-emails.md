@@ -102,7 +102,7 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   `pasta:push_cliente_ia`, escopo = o escritório, `replyTo` = responsável, `nomeDoRemetente` = "{Escritório} via
   BlueJus", CC da Controladoria só na 1ª mensagem; automático = lista `push_cliente`. A 0d guarda os `envioId` e lê a
   situação pelo `RegistroDeEnviosInterface`. Migration dela renomeada para `Version20261020103000` (a desta é
-  `Version20261020100000`).
+  `Version20261020129800`).
 - **Contrato com a 9b (desenho 10, Login e cadastro, que passou da 7d para a 9b em 19/10):** o cadastro passa a
   criar a conta direto e a confirmação do e-mail não trava. A 9b cria `App\Auth\Event\ContaCriadaPeloCadastro(int
   $userId, int $tenantId)` e `App\Auth\Event\EmailDaContaConfirmado(int $userId)` (depois do commit); as boas-vindas
