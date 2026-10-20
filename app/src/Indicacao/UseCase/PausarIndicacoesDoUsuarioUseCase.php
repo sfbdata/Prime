@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Indicacao\UseCase;
 
 use App\Entity\Auth\User;
-use App\Indicacao\Entity\IndicacaoPausa;
 use App\Indicacao\Exception\IndicadorNaoEncontrado;
 use App\Indicacao\Repository\IndicacaoPausaRepository;
 use App\Indicacao\Service\GuardaDoMaster;
@@ -13,8 +12,9 @@ use App\Repository\UserRepository;
 use Psr\Clock\ClockInterface;
 
 /**
- * O Master pausa (ou retoma) os convites de uma pessoa (contrato com a 5d). Idempotente: pausar quem já está pausado
- * ou retomar quem não está não muda nada. Usuário inexistente: {@see IndicadorNaoEncontrado}.
+ * O Master pausa (ou retoma) os convites de uma pessoa (contrato com a 5d). Idempotente, inclusive sob corrida: dois
+ * Masters pausando ao mesmo tempo gravam uma pausa só, sem erro (INSERT ... ON CONFLICT DO NOTHING no repositório);
+ * retomar quem não está pausado não faz nada. Usuário inexistente: {@see IndicadorNaoEncontrado}.
  */
 final class PausarIndicacoesDoUsuarioUseCase
 {
@@ -28,13 +28,14 @@ final class PausarIndicacoesDoUsuarioUseCase
     public function executar(int $userId, bool $pausar, User $master): void
     {
         GuardaDoMaster::exigir($master);
-        $user = $this->usuarios->find($userId) ?? throw new IndicadorNaoEncontrado('Usuário não encontrado.');
-        $pausa = $this->pausas->doUsuario($userId);
-        if ($pausar && $pausa === null) {
-            $this->pausas->salvar(new IndicacaoPausa($user, $master, $this->relogio->now()), flush: true);
+        if ($this->usuarios->find($userId) === null) {
+            throw new IndicadorNaoEncontrado('Usuário não encontrado.');
         }
-        if (!$pausar && $pausa !== null) {
-            $this->pausas->remover($pausa, flush: true);
+        if ($pausar) {
+            $this->pausas->pausar($userId, $master->getId(), $this->relogio->now());
+
+            return;
         }
+        $this->pausas->retomar($userId);
     }
 }

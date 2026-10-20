@@ -87,13 +87,6 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Termo/Entity'
                 prefix: 'App\Termo\Entity'
                 alias: AppTermo
-            # Indicar o BlueJus (docs/specs/indicar-bluejus.md): dado de plataforma, sem tenant.
-            AppIndicacao:
-                type: attribute
-                is_bundle: false
-                dir: '%kernel.project_dir%/src/Indicacao/Entity'
-                prefix: 'App\Indicacao\Entity'
-                alias: AppIndicacao
             AppPonto:
                 type: attribute
                 is_bundle: false
@@ -124,6 +117,13 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Inteligencia/Entity'
                 prefix: 'App\Inteligencia\Entity'
                 alias: AppInteligencia
+            # Indicar o BlueJus (docs/specs/indicar-bluejus.md): dado de plataforma, sem tenant.
+            AppIndicacao:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Indicacao/Entity'
+                prefix: 'App\Indicacao\Entity'
+                alias: AppIndicacao
             AppDashboard:
                 type: attribute
                 is_bundle: false

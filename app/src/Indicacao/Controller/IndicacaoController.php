@@ -27,7 +27,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * `X-CSRF-Token`. Recusa (cadastro, trava, e-mail) volta 422 com o texto do desenho em `mensagem`.
  *
  * `/i/{codigo}` é pública (security.yaml): guarda o código na sessão e leva ao cadastro; código que não existe leva
- * ao cadastro igual, sem guardar nada (não revela se o código existe).
+ * ao cadastro igual, com a chave nula (mesma resposta, inclusive nos cabeçalhos: não revela se o código existe).
  */
 final class IndicacaoController extends AbstractController
 {
@@ -71,10 +71,9 @@ final class IndicacaoController extends AbstractController
     #[Route('/i/{codigo}', name: 'indicacao_link_curto', methods: ['GET'])]
     public function linkCurto(string $codigo, Request $request, ConferirCodigoDeIndicacaoUseCase $conferir): RedirectResponse
     {
-        $valido = $conferir->executar($codigo);
-        if ($valido !== null) {
-            $request->getSession()->set(self::CHAVE_DA_SESSAO, $valido);
-        }
+        // Sempre grava a chave (nulo quando o código não existe): a sessão nasce nos dois casos e a resposta, com o
+        // Set-Cookie, é a mesma; só remover deixaria a sessão vazia e sem cookie, o que revelaria o código válido.
+        $request->getSession()->set(self::CHAVE_DA_SESSAO, $conferir->executar($codigo));
 
         return $this->redirectToRoute('auth_cadastro');
     }

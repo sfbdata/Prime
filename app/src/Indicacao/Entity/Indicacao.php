@@ -14,9 +14,8 @@ use Doctrine\ORM\Mapping as ORM;
  * Uma indicação do BlueJus (spec `indicar-bluejus.md`, modelo de dados). Dado de plataforma: sem tenant (o escritório
  * de origem é só para mostrar ao Master e vira NULL se o escritório for purgado).
  *
- * Índice funcional `idx_indicacao_email_lower` em `lower(email)`: criado por SQL cru na migration, porque o Doctrine
- * não representa índice de expressão no mapeamento. Se um `make:migration` propuser um `DROP INDEX` dele,
- * esse DROP é ruído e sai do arquivo gerado (skill `criar-migration`).
+ * O e-mail é gravado já em minúsculas ({@see self::porEmail()}): as consultas comparam a coluna direto, sem índice de
+ * expressão.
  */
 #[ORM\Entity(repositoryClass: IndicacaoRepository::class)]
 #[ORM\Table(name: 'indicacao')]

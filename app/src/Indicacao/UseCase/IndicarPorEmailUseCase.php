@@ -25,7 +25,7 @@ use Twig\Environment;
  * {@see RegistroDeIndicacao}); e-mail com formato válido; não é de quem já está no MEU escritório (só ele é consultado:
  * olhar contas de fora deixaria descobrir quem tem conta). Grava a indicação e manda pelo Carteiro, lista `indicacao`,
  * com o modelo FIXO (o texto livre da caixa vai só no WhatsApp: e-mail da plataforma com texto livre vira canal de
- * spam). Descadastrado (`bloqueado_descadastro`): a indicação fica gravada e a resposta é o mesmo sucesso, para não
+ * spam; nem o nome digitado do convidado entra no corpo, só no registro). Descadastrado (`bloqueado_descadastro`): a indicação fica gravada e a resposta é o mesmo sucesso, para não
  * revelar quem saiu da lista. Tudo numa transação: falha no envio desfaz a indicação.
  */
 final class IndicarPorEmailUseCase
@@ -82,7 +82,6 @@ final class IndicarPorEmailUseCase
         $quem = RegistroDeIndicacao::nomeDe($user);
         $corpo = $this->twig->render(self::TEMPLATE, [
             'quemIndica' => $quem,
-            'nomeDoConvidado' => $indicacao->getNome(),
             'link' => $this->codigos->linkCurtoDe($user),
         ]);
 
@@ -94,7 +93,7 @@ final class IndicarPorEmailUseCase
             origem: self::ORIGEM,
             lista: self::LISTA,
             escopo: null,
-            nome: $indicacao->getNome(),
+            nome: null, // nem no cabeçalho "Para": o nome digitado é texto livre
             nomeDoRemetente: sprintf('%s via BlueJus', $quem),
             motivoDoEnvio: sprintf('Você recebeu este e-mail porque %s indicou o BlueJus para você.', $quem),
         );

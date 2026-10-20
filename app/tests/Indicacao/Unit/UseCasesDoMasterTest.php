@@ -7,7 +7,6 @@ namespace App\Tests\Indicacao\Unit;
 use App\Indicacao\DTO\AlterarLimitesDeIndicacaoInput;
 use App\Indicacao\Entity\IndicacaoAlerta;
 use App\Indicacao\Entity\IndicacaoConfig;
-use App\Indicacao\Entity\IndicacaoPausa;
 use App\Indicacao\Exception\IndicadorNaoEncontrado;
 use App\Indicacao\Repository\IndicacaoAlertaRepository;
 use App\Indicacao\Repository\IndicacaoConfigRepository;
@@ -109,39 +108,19 @@ final class UseCasesDoMasterTest extends TestCase
         self::assertFalse($this->config->isPausadoParaTodos());
     }
 
-    #[TestDox('pausar a pessoa grava a pausa (uma vez); retomar apaga; idempotente')]
+    #[TestDox('pausar e retomar a pessoa: pede ao repositório a pausa idempotente com quem e quando')]
     public function testPausarDoUsuario(): void
     {
-        $alvo = Pessoas::usuario(5);
         $master = Pessoas::master();
-        $atual = null;
-        $gravou = 0;
-        $removeu = 0;
-        $pausas = $this->createStub(IndicacaoPausaRepository::class);
-        $pausas->method('doUsuario')->willReturnCallback(static function () use (&$atual): ?IndicacaoPausa {
-            return $atual;
-        });
-        $pausas->method('salvar')->willReturnCallback(static function (IndicacaoPausa $p) use (&$atual, &$gravou): void {
-            $atual = $p;
-            ++$gravou;
-        });
-        $pausas->method('remover')->willReturnCallback(static function () use (&$atual, &$removeu): void {
-            $atual = null;
-            ++$removeu;
-        });
+        $pausas = $this->createMock(IndicacaoPausaRepository::class);
+        $pausas->expects(self::once())->method('pausar')->with(5, 900, new \DateTimeImmutable(self::AGORA));
+        $pausas->expects(self::once())->method('retomar')->with(5);
         $usuarios = $this->createStub(UserRepository::class);
-        $usuarios->method('find')->willReturn($alvo);
+        $usuarios->method('find')->willReturn(Pessoas::usuario(5));
         $useCase = new PausarIndicacoesDoUsuarioUseCase($pausas, $usuarios, $this->relogio);
 
         $useCase->executar(5, true, $master);
-        $useCase->executar(5, true, $master);
-        self::assertSame(1, $gravou);
-        self::assertSame($alvo, $atual?->getUser());
-        self::assertSame($master, $atual?->getPausadoPor());
         $useCase->executar(5, false, $master);
-        $useCase->executar(5, false, $master);
-        self::assertSame(1, $removeu);
-        self::assertNull($atual);
     }
 
     #[TestDox('pausar usuário inexistente: IndicadorNaoEncontrado')]

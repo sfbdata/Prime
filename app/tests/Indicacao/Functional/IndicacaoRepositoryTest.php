@@ -13,21 +13,27 @@ use App\Indicacao\Entity\IndicacaoPausa;
 use App\Indicacao\Enum\CanalDeIndicacao;
 use App\Indicacao\Repository\IndicacaoCodigoRepository;
 use App\Indicacao\Repository\IndicacaoConfigRepository;
+use App\Indicacao\Repository\IndicacaoPausaRepository;
+use App\Indicacao\UseCase\PausarIndicacoesDoUsuarioUseCase;
 use App\Indicacao\Exception\IndicacaoRecusada;
 use App\Indicacao\Repository\IndicacaoRepository;
 use App\Indicacao\Service\RegistroDeIndicacao;
 use App\Indicacao\UseCase\RegistrarIndicacaoPorCanalUseCase;
 use App\Profile\Entity\UserProfile;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Clock\MockClock;
 
 /** As consultas do Indicar o BlueJus contra o banco (DAMA desfaz no fim de cada teste). */
 #[CoversClass(IndicacaoRepository::class)]
 #[CoversClass(IndicacaoCodigoRepository::class)]
 #[CoversClass(IndicacaoConfigRepository::class)]
 #[CoversClass(RegistroDeIndicacao::class)]
+#[CoversClass(IndicacaoPausaRepository::class)]
+#[CoversClass(PausarIndicacoesDoUsuarioUseCase::class)]
 final class IndicacaoRepositoryTest extends KernelTestCase
 {
     private const AGORA = '2026-10-19 15:00:00';
@@ -252,5 +258,32 @@ final class IndicacaoRepositoryTest extends KernelTestCase
 
         self::assertTrue($this->em->isOpen());
         self::assertSame(0, $this->repo->contarDoUsuario((int) $ana->getId()));
+    }
+
+    #[TestDox('pausar a mesma pessoa duas vezes (dois Masters ao mesmo tempo): uma pausa só, sem erro, EntityManager aberto')]
+    public function testPausaConcorrenteNaoQuebra(): void
+    {
+        $alvo = $this->usuario('Alvo Lima');
+        $m1 = $this->usuario('Master Um');
+        $m1->setRoles(['ROLE_SUPER_ADMIN']);
+        $m2 = $this->usuario('Master Dois');
+        $m2->setRoles(['ROLE_SUPER_ADMIN']);
+        $this->em->flush();
+        // Sem consumidor ainda (o controller é da 5d), o UseCase não fica no container: montado com as peças reais.
+        $pausas = static::getContainer()->get(IndicacaoPausaRepository::class);
+        $pausar = new PausarIndicacoesDoUsuarioUseCase($pausas, static::getContainer()->get(UserRepository::class), new MockClock($this->agora));
+
+        // A segunda pausa chega depois que a primeira já gravou: é o que a corrida produz no banco.
+        $pausar->executar((int) $alvo->getId(), true, $m1);
+        $pausar->executar((int) $alvo->getId(), true, $m2);
+
+        self::assertTrue($this->em->isOpen());
+        self::assertSame(1, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM indicacao_pausa WHERE user_id = ?', [$alvo->getId()]));
+        self::assertSame($m1->getId(), (int) $this->em->getConnection()->fetchOne('SELECT pausado_por_id FROM indicacao_pausa WHERE user_id = ?', [$alvo->getId()]));
+        self::assertTrue($pausas->estaPausado((int) $alvo->getId()));
+
+        $pausar->executar((int) $alvo->getId(), false, $m2);
+        $pausar->executar((int) $alvo->getId(), false, $m1);
+        self::assertFalse($pausas->estaPausado((int) $alvo->getId()));
     }
 }

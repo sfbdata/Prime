@@ -86,20 +86,23 @@ final class IndicarPorEmailUseCaseTest extends TestCase
         self::assertSame('indicacao', $email->lista);
         self::assertSame('indicacao', $email->origem);
         self::assertNull($email->escopo);
+        self::assertNull($email->nome, 'o nome digitado não vai nem no cabeçalho Para');
         self::assertSame('Ana Souza Lima convidou você para o BlueJus', $email->assunto);
         self::assertSame('Ana Souza Lima via BlueJus', $email->nomeDoRemetente);
         self::assertSame('Você recebeu este e-mail porque Ana Souza Lima indicou o BlueJus para você.', $email->motivoDoEnvio);
         self::assertStringContainsString('https://bluejus.test/i/ABCD2345', $email->corpoHtml);
-        self::assertStringContainsString('Olá, Bia!', $email->corpoHtml);
+        self::assertStringContainsString('Olá!', $email->corpoHtml);
         self::assertStringNotContainsString('Uso o BlueJus no meu escritório', $email->corpoHtml, 'o texto livre da caixa não vai no e-mail');
     }
 
-    #[TestDox('o nome digitado é escapado no corpo do e-mail')]
-    public function testEscapaONomeDoConvidado(): void
+    #[TestDox('o nome digitado do convidado não entra no corpo do e-mail (sem texto livre), só na indicação')]
+    public function testNomeDoConvidadoForaDoCorpo(): void
     {
-        $this->useCase()->executar(new IndicarPorEmailInput('bia@exemplo.com', '<b>Bia</b>'), Pessoas::usuario(7), null);
+        $this->useCase()->executar(new IndicarPorEmailInput('bia@exemplo.com', 'Compre já em spam.example'), Pessoas::usuario(7), null);
 
-        self::assertStringContainsString('&lt;b&gt;Bia&lt;/b&gt;', $this->enviadas[0]->corpoHtml);
+        self::assertStringNotContainsString('spam.example', $this->enviadas[0]->corpoHtml);
+        self::assertStringContainsString('Olá!', $this->enviadas[0]->corpoHtml);
+        self::assertSame('Compre já em spam.example', $this->gravadas[0]->getNome());
     }
 
     #[TestDox('descadastrado (bloqueado_descadastro): a indicação fica gravada e a resposta é o mesmo sucesso')]

@@ -244,13 +244,41 @@ final class IndicacaoControllerTest extends JusPrimeWebTestCase
         self::assertSame('ZXCV2345', $this->client->getRequest()->getSession()->get(IndicacaoController::CHAVE_DA_SESSAO));
     }
 
-    #[TestDox('/i/{codigo} inexistente: leva ao cadastro igual, sem guardar nada (não revela)')]
+    #[TestDox('/i/{codigo} inexistente: leva ao cadastro igual, sem código guardado (não revela)')]
     public function testLinkCurtoInexistente(): void
     {
         $this->client->request('GET', '/i/NAOEXISTE');
 
         self::assertResponseRedirects('/cadastro');
         self::assertNull($this->client->getRequest()->getSession()->get(IndicacaoController::CHAVE_DA_SESSAO));
+    }
+
+    #[TestDox('/i/{codigo}: visitante anônimo recebe os mesmos cabeçalhos (inclusive o Set-Cookie) com código válido e inválido')]
+    public function testLinkCurtoNaoRevelaPeloCabecalho(): void
+    {
+        $this->conexao->executeStatement('INSERT INTO indicacao_codigo (user_id, codigo) VALUES (?, ?)', [$this->ana->getId(), 'ZXCV2345']);
+
+        $valido = $this->cabecalhosDoLinkCurto('/i/ZXCV2345');
+        $invalido = $this->cabecalhosDoLinkCurto('/i/NAOEXISTE');
+
+        self::assertNotSame([], $valido['cookies'], 'a sessão nasce');
+        self::assertSame($valido, $invalido);
+    }
+
+    /** @return array{status: int, location: ?string, nomes: list<string>, cookies: list<array<string, mixed>>} */
+    private function cabecalhosDoLinkCurto(string $url): array
+    {
+        $this->client->getCookieJar()->clear();
+        $this->client->request('GET', $url);
+        $resposta = $this->client->getResponse();
+        $cookies = array_map(static fn ($c): array => [
+            'nome' => $c->getName(), 'caminho' => $c->getPath(), 'dominio' => $c->getDomain(), 'seguro' => $c->isSecure(),
+            'httpOnly' => $c->isHttpOnly(), 'sameSite' => $c->getSameSite(), 'expira' => $c->getExpiresTime() > 0,
+        ], $resposta->headers->getCookies());
+        $nomes = array_keys($resposta->headers->all());
+        sort($nomes);
+
+        return ['status' => $resposta->getStatusCode(), 'location' => $resposta->headers->get('Location'), 'nomes' => $nomes, 'cookies' => $cookies];
     }
 
     #[TestDox('menu: "Indicar o BlueJus" (bi-megaphone, "nova conta") entre "Convites do escritório" e "Trocar de conta"')]

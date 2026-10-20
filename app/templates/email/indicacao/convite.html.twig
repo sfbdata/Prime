@@ -1,9 +1,9 @@
 {# Miolo do convite "Indicar o BlueJus" (spec indicar-bluejus.md, comportamento 4 e "Para o dono" 2). Modelo FIXO: o
    texto livre da janela vai só no WhatsApp (e-mail da plataforma com texto livre vira canal de spam). O layout, o
    rodapé legal, o motivo do envio e o link "Não quero mais receber" são do Carteiro (email/comercial/_layout).
-   Contexto: `quemIndica` (nome de quem indica), `nomeDoConvidado` (opcional, digitado por quem indica) e `link`
-   (o link curto /i/{codigo}). Tudo escapado pelo autoescape do Twig. #}
-<p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#12242f;">Olá{% if nomeDoConvidado %}, {{ nomeDoConvidado }}{% endif %}!</p>
+   Contexto: `quemIndica` (nome de quem indica) e `link` (o link curto /i/{codigo}). O nome do convidado, digitado por
+   quem indica, NÃO entra no corpo (seria texto livre num e-mail da plataforma): fica só gravado na indicação. #}
+<p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#12242f;">Olá!</p>
 
 <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#1f3644;">
     <b>{{ quemIndica }}</b> indicou o BlueJus para você. O BlueJus reúne prazos, processos e documentos do escritório em um só lugar, e é grátis para começar.

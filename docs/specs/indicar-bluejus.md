@@ -8,6 +8,9 @@
   decisão do coordenador, deploy junto. Usa o Carteiro (#99) e o `DescadastroDeEmailInterface` (#87).
 - Migration: uma, no fim da fila (coordenador); timestamp do momento, renomeada na vez.
 - A frente era da 7d (parada aguardando o dono); passou para a 9b em 19/10.
+- 19/10 noite: implementada (commits locais na branch `indicar-bluejus`); revisão aprovada com ressalvas, ressalvas corrigidas
+  (corpo do e-mail sem texto do convidado, `/i/` com a mesma resposta para código válido e inválido, sem índice funcional,
+  pausa idempotente sob corrida).
 
 ## O desenho
 
@@ -40,7 +43,8 @@ Domínio novo `App\Indicacao`. Tudo de plataforma (sem tenant); autorização de
 
 - `indicacao`: `id`, `indicado_por_id` (User, CASCADE), `tenant_origem_id` (Tenant, SET NULL, só para mostrar o escritório),
   `canal` (`email` | `whatsapp` | `link`), `email` NULL, `nome` NULL (só no canal e-mail), `criada_em`.
-  Índices `(indicado_por_id, criada_em)` e `lower(email)` (funcional: atenção ao ritual `criar-migration`).
+  Índice `(indicado_por_id, criada_em)`. Sem índice em `lower(email)` (revisão A5): o e-mail já é gravado em minúsculas e
+  nenhuma consulta o usaria.
 - `indicacao_codigo`: `user_id` PK, `codigo` varchar(12) único, aleatório (não derivado: hash seria adivinhável).
 - `indicacao_config`: uma linha (`id = 1`): `pausado_para_todos`, `limite_dia` (20), `limite_mes` (200), `alerta_24h` (30), `alterado_por_id`, `alterado_em`.
 - `indicacao_pausa`: `user_id` PK, `pausado_por_id`, `pausado_em`.
@@ -74,3 +78,11 @@ Domínio novo `App\Indicacao`. Tudo de plataforma (sem tenant); autorização de
 2. O texto editável vai só no WhatsApp; no e-mail o corpo é um modelo fixo com o nome de quem indica e o link (texto livre em e-mail
    da plataforma vira canal de spam). Desvio por segurança, isolado.
 3. LGPD: e-mail a quem foi indicado por terceiro. Vai com o motivo do envio verdadeiro, o link "Não quero mais receber" e consulta o descadastro.
+4. Telefone: o desenho exige, mas o perfil ainda não tem o campo (chega com o #60). Até lá, o cadastro completo é só nome com 2
+   palavras e CPF. Quando o campo entrar, a exigência passa a valer sozinha (`method_exists`) e quem não tiver telefone passa a ver
+   a caixa amarela.
+5. O aviso "Disparo alto de convites" ao Master é uma `Notificacao` auditada, e o `AuditLogSubscriber` grava no `audit_log` do
+   escritório da SESSÃO de quem indicou: o escritório dele vê que o Master foi avisado sobre o próprio membro. Manter como no
+   desenho ou deixar o alerta só no card.
+6. Prazo de guarda do e-mail e do nome do indicado em `indicacao`: hoje sem prazo; o "viraram conta" depende do e-mail.
+7. A vazão do Carteiro é global (1.500/dia): as indicações disputam com o Push e os alertas.
