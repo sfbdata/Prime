@@ -231,7 +231,14 @@
             var aba = e.target.closest('[data-ia-aba]');
             if (aba) { mostrarAba(aba.getAttribute('data-ia-aba'), false); return; }
             var botao = e.target.closest('[data-ia-escolher]');
-            if (botao) { escolher(botao.getAttribute('data-ia-escolher')); }
+            if (!botao) { return; }
+            var valor = botao.getAttribute('data-ia-escolher');
+            escolher(valor);
+            // Comando: o clique já roda, como no desenho (dc `CMDS`, `onClick` do botão). Sem nada novo, o
+            // servidor devolve a última análise sem gastar cota. Relatório: escolhe e o "Gerar ..." roda.
+            var secao = drawer.querySelector('[data-ia-comando="' + valor + '"]');
+            var gerar = secao && secao.closest('[data-ia-aba-painel="analise"]') ? botaoDe(secao) : null;
+            if (gerar && !gerar.disabled && gerar.getAttribute('data-ia-disponivel') !== '0') { gerar.click(); }
         });
 
         // Tablist do WAI-ARIA: setas trocam de aba (e levam o foco), Home/End vão às pontas.
