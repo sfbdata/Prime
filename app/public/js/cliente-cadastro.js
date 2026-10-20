@@ -77,6 +77,7 @@
             veu.querySelectorAll('[data-cad-aba]').forEach(function (b) { var on = b.dataset.cadAba === k; b.classList.toggle('is-ativa', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
             semPendencias(k);
             atualizar();
+            if (k === 'docs') { carregarInteligencia(); }
         }
         /* O bloco Pendências não aparece na Qualificação nem no Histórico (desenho: `temPend` some em 'hist'). */
         function semPendencias(k) { veu.querySelector('.js-cad-pend').dataset.naQual = k === 'qual' || k === 'hist' ? '1' : ''; }
@@ -354,6 +355,84 @@
                     .catch(function () { aviso('Não foi possível excluir o documento.', 'erro'); });
             });
         });
+
+        /* Inteligência cadastral (desenho 02, l.740 a 791; F-A): carregada ao abrir a aba Documentos, uma vez por janela.
+           Cabeçalho, alertas, "Encontrados no menu Documentos" com "Vincular ao cadastro" e a nota. Os textos vêm do
+           servidor (RotulosDaInteligenciaCadastral); aqui só se desenha, sempre por textContent. */
+        var caixaIi = veu.querySelector('.js-cad-ii');
+        var iiCarregada = false;
+        function elemento(tag, cls, txt) { var e = document.createElement(tag); if (cls) { e.className = cls; } if (txt !== undefined) { e.textContent = txt; } return e; }
+        function icone(cls) { var i = elemento('i', cls); i.setAttribute('aria-hidden', 'true'); return i; }
+        function carregarInteligencia() {
+            if (!caixaIi || iiCarregada) { return; }
+            iiCarregada = true;
+            fetch(caixaIi.dataset.url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+                .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.json(); })
+                .then(desenharInteligencia)
+                .catch(function () { iiCarregada = false; });
+        }
+        function cabecalhoIi(ii) {
+            var topo = elemento('div', 'cad-ii-topo');
+            var ic = elemento('span', 'cad-ii-icone'); ic.appendChild(icone('bi bi-stars'));
+            var txt = elemento('div', 'cad-ii-texto');
+            txt.appendChild(elemento('div', 'cad-ii-titulo', ii.titulo));
+            txt.appendChild(elemento('div', 'cad-ii-sub', ii.subtitulo));
+            topo.appendChild(ic); topo.appendChild(txt);
+            return topo;
+        }
+        function alertaIi(a) {
+            var al = elemento('div', 'cad-ii-alerta'); al.dataset.tipo = a.tipo;
+            var corpo = elemento('span');
+            corpo.appendChild(elemento('b', null, a.negrito));
+            corpo.appendChild(document.createTextNode(' ' + a.texto));
+            if (a.abrirUrl) {
+                var abrirOutro = elemento('button', 'cad-ii-abrir', 'Abrir o outro cadastro'); abrirOutro.type = 'button';
+                abrirOutro.addEventListener('click', function () {
+                    if (sujo()) { aviso('Salve as alterações antes de trocar.', 'pendente'); return; }
+                    trocar(a.abrirUrl + (veu.dataset.pasta ? '?pasta=' + veu.dataset.pasta : ''));
+                });
+                corpo.appendChild(document.createTextNode(' ')); corpo.appendChild(abrirOutro);
+            }
+            al.appendChild(icone(a.ic)); al.appendChild(corpo);
+            return al;
+        }
+        function encontradoIi(e) {
+            var linha = elemento('div', 'cad-ii-doc'); linha.dataset.documentoId = e.id;
+            var nome = elemento('span', 'cad-ii-doc-nome');
+            nome.appendChild(elemento('b', null, e.arquivo));
+            nome.appendChild(document.createTextNode(' · ' + e.categoriaRotulo + ' · ' + e.pasta + ' · ' + e.data));
+            linha.appendChild(icone('bi bi-file-earmark-check')); linha.appendChild(nome);
+            if (e.podeVincular) {
+                var b = elemento('button', 'cad-ii-vincular js-cad-ii-vincular'); b.type = 'button';
+                b.appendChild(icone('bi bi-link-45deg')); b.appendChild(document.createTextNode('Vincular ao cadastro'));
+                b.addEventListener('click', function () { vincularIi(e.id, b); });
+                linha.appendChild(b);
+            }
+            return linha;
+        }
+        function desenharInteligencia(ii) {
+            caixaIi.textContent = '';
+            if (!ii || !ii.on) { caixaIi.hidden = true; return; }
+            caixaIi.appendChild(cabecalhoIi(ii));
+            (ii.alertas || []).forEach(function (a) { caixaIi.appendChild(alertaIi(a)); });
+            if ((ii.encontrados || []).length) {
+                var lista = elemento('div', 'cad-ii-encontrados');
+                lista.appendChild(elemento('div', 'cad-ii-rotulo', 'Encontrados no menu Documentos'));
+                ii.encontrados.forEach(function (e) { lista.appendChild(encontradoIi(e)); });
+                caixaIi.appendChild(lista);
+            }
+            caixaIi.appendChild(elemento('div', 'cad-ii-nota', ii.nota));
+            caixaIi.hidden = false;
+        }
+        function vincularIi(documentoId, botao) {
+            if (sujo()) { aviso('Salve as alterações antes de vincular o documento.', 'pendente'); return; }
+            botao.disabled = true;
+            fetch(caixaIi.dataset.urlVincular.replace(/\/0$/, '/' + documentoId), { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': veu.dataset.csrf } })
+                .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.json(); })
+                .then(function () { return reabrir(''); })
+                .catch(function () { botao.disabled = false; aviso('Não foi possível vincular o documento.', 'erro'); });
+        }
+        if (veu.querySelector('[data-cad-aba="docs"].is-ativa')) { carregarInteligencia(); }
 
         /* Aba Réu: lista da pasta, grava na hora (rotas pasta_reu_*); a resposta traz a lista inteira. */
         var painelReu = veu.querySelector('[data-cad-painel="reu"]');

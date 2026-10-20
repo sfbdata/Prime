@@ -280,7 +280,8 @@ final class ClienteCadastroController extends AbstractController
         $docs = [ClienteDocumento::CATEGORIA_IDENTIFICACAO => null, ClienteDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA => null];
         foreach ($cliente->getDocumentos() as $doc) {
             $cat = $doc->getCategoria();
-            if (\array_key_exists($cat, $docs) && ($docs[$cat] === null || $doc->getUploadedAt() > $docs[$cat]->getUploadedAt())) {
+            // O vinculado cujo documento da pasta foi para a lixeira some da aba (sem link quebrado).
+            if (\array_key_exists($cat, $docs) && $doc->estaDisponivel() && ($docs[$cat] === null || $doc->getUploadedAt() > $docs[$cat]->getUploadedAt())) {
                 $docs[$cat] = $doc;
             }
         }

@@ -100,7 +100,7 @@ final class PendenciasDoCadastro
     private function temAnexo(Cliente $cliente, string $categoria): bool
     {
         foreach ($cliente->getDocumentos() as $documento) {
-            if ($documento->getCategoria() === $categoria) {
+            if ($documento->getCategoria() === $categoria && $documento->estaDisponivel()) {
                 return true;
             }
         }

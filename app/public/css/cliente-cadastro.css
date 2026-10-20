@@ -201,3 +201,32 @@
 .cad-hist-q { color: var(--cad-hist-q); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cad-hist-t { flex: 1; min-width: 0; color: var(--cad-hist-t); }
 .cad-hist-vazio { font-size: 12.5px; color: var(--cad-hist-vazio); }
+
+/* Inteligência cadastral (desenho 02, l.740 a 791; spec cliente-inteligencia-cadastral, F-A): valores do desenho. */
+.cad-ii { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; padding: 12px; border-radius: 4px; background: #f3f8fb; box-shadow: inset 0 0 0 1px #d6e7f1; }
+.cad-ii[hidden] { display: none; }
+.cad-ii-topo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cad-ii-icone { width: 28px; height: 28px; border-radius: 4px; background: #0a7aad; color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.cad-ii-icone i { font-size: 14px; }
+.cad-ii-texto { flex: 1; min-width: 180px; }
+.cad-ii-titulo { font-size: 13.5px; font-weight: 700; color: #0b4f6c; }
+.cad-ii-sub { font-size: 11.5px; color: #4f6878; }
+.cad-ii-alerta { display: flex; gap: 8px; padding: 8px 10px; border-radius: 4px; background: #fff7e6; color: #6b4a14; font-size: 12.5px; line-height: 1.45; }
+.cad-ii-alerta > i { flex-shrink: 0; margin-top: 2px; }
+.cad-ii-abrir { padding: 0; border: none; background: transparent; color: #0b5f86; font: inherit; font-weight: 700; cursor: pointer; }
+.cad-ii-abrir:hover { text-decoration: underline; }
+.cad-ii-encontrados { display: flex; flex-direction: column; gap: 4px; }
+.cad-ii-rotulo { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7b93a2; }
+.cad-ii-doc { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; padding: 6px 0; }
+.cad-ii-doc > i { color: #1f9d61; }
+.cad-ii-doc-nome { flex: 1; min-width: 160px; color: #12242f; overflow-wrap: anywhere; }
+.cad-ii-vincular { height: 28px; padding: 0 10px; border: none; border-radius: 4px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; background: #0a7aad; color: #fff; }
+.cad-ii-vincular:disabled { opacity: .6; cursor: default; }
+.cad-ii-nota { font-size: 11px; line-height: 1.45; color: #6b8494; }
+[data-bs-theme="dark"] .cad-ii { background: rgba(10,122,173,.1); box-shadow: inset 0 0 0 1px rgba(69,176,214,.25); }
+[data-bs-theme="dark"] .cad-ii-titulo { color: #45b0d6; }
+[data-bs-theme="dark"] .cad-ii-sub, [data-bs-theme="dark"] .cad-ii-nota, [data-bs-theme="dark"] .cad-ii-rotulo { color: var(--bs-secondary-color); }
+[data-bs-theme="dark"] .cad-ii-alerta { background: rgba(211,146,34,.14); color: #f0bd62; }
+[data-bs-theme="dark"] .cad-ii-abrir { color: #45b0d6; }
+[data-bs-theme="dark"] .cad-ii-doc-nome { color: var(--bs-body-color); }
+[data-bs-theme="dark"] .cad-ii-doc > i { color: #6ddaa2; }

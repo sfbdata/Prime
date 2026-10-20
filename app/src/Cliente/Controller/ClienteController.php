@@ -195,10 +195,7 @@ class ClienteController extends AbstractController
             // As chaves saem antes; os arquivos, só depois de o banco aceitar a exclusão (E2.5).
             // Antes, os arquivos eram apagados aqui e o flush vinha depois: quando uma FK recusava
             // (cobranca_carteira → cliente é NO ACTION), o cliente ficava — sem os documentos.
-            $chaves = [];
-            foreach ($cliente->getDocumentos() as $doc) {
-                $chaves[] = ChavesDeCliente::documento($doc);
-            }
+            $chaves = $this->chavesDosArquivosProprios($cliente);
 
             try {
                 $this->em->remove($cliente);
@@ -214,6 +211,23 @@ class ClienteController extends AbstractController
         }
 
         return $this->redirectToRoute('homepage');
+    }
+
+    /**
+     * As chaves dos arquivos do próprio cadastro. O vinculado do menu Documentos não tem arquivo próprio: o da pasta fica.
+     *
+     * @return list<\App\Shared\Armazenamento\ChaveDeArquivo>
+     */
+    private function chavesDosArquivosProprios(Cliente $cliente): array
+    {
+        $chaves = [];
+        foreach ($cliente->getDocumentos() as $doc) {
+            if (!$doc->isVinculado()) {
+                $chaves[] = ChavesDeCliente::documento($doc);
+            }
+        }
+
+        return $chaves;
     }
 
     // -------------------------------------------------------------------------
@@ -376,6 +390,10 @@ class ClienteController extends AbstractController
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'cliente', $clienteId, 'view')) {
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos deste cliente.');
         }
+        if ($doc->isVinculado()) {
+            // Vinculado do menu Documentos: o arquivo é o da pasta, que confere de novo a permissão da pasta.
+            return $this->redirectToRoute('pasta_documento_view', ['id' => $doc->getPastaDocumento()?->getId()]);
+        }
 
         $chave = ChavesDeCliente::documento($doc);
 
@@ -395,6 +413,9 @@ class ClienteController extends AbstractController
         $clienteId = (int) $doc->getCliente()?->getId();
         if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'cliente', $clienteId, 'view')) {
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos deste cliente.');
+        }
+        if ($doc->isVinculado()) {
+            return $this->redirectToRoute('pasta_documento_download', ['id' => $doc->getPastaDocumento()?->getId()]);
         }
 
         $chave = ChavesDeCliente::documento($doc);
@@ -466,13 +487,14 @@ class ClienteController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $chave = ChavesDeCliente::documento($doc);
+        // Vinculado do menu Documentos: sai só o vínculo; o arquivo é da pasta e fica.
+        $chaves = $doc->isVinculado() ? [] : [ChavesDeCliente::documento($doc)];
         $this->historico->documentoRemovido($doc, $currentUser);
         $this->em->remove($doc);
         $this->em->flush();
 
         // Só depois do COMMIT (E2.5, INV-6); falha física vira registro, não 500.
-        $this->remocao->remover([$chave], 'ClienteController::deleteDocumento');
+        $this->remocao->remover($chaves, 'ClienteController::deleteDocumento');
 
         $this->addFlash('success', 'Documento removido com sucesso.');
 
@@ -490,7 +512,7 @@ class ClienteController extends AbstractController
         }
         foreach ($cliente->getDocumentos() as $doc) {
             $cat = $doc->getCategoria();
-            if (array_key_exists($cat, $grouped)) {
+            if (array_key_exists($cat, $grouped) && $doc->estaDisponivel()) {
                 $grouped[$cat][] = $doc;
             }
         }
