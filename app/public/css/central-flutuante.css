@@ -248,7 +248,7 @@
     position: fixed;
     z-index: 2147482999;
     pointer-events: none;
-    border-radius: 6px;
+    border-radius: 4px;
     background: rgba(10, 122, 173, .14);
     box-shadow: inset 0 0 0 2px #0a7aad;
     transition: all .12s;
