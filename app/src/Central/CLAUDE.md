@@ -64,6 +64,13 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
     `Notificacao` `central_despacho` sem texto, com o link da conversa; a auditoria é uma linha manual
     (`action = 'despacho'`, entidade Pasta) só com tipo, item_id, conversa_id e prioridade, nunca texto. Abrir a 1:1,
     mensagem, avisos e auditoria numa transação só (`wrapInTransaction` do UseCase, flush dele). Pasta excluída = 404.
+    Conversa sem ninguém que receba é recusada (`todosVeem([])` é falso). Registro do Financeiro: quem envia e quem
+    recebe também passam por `VisibilidadeDoFinanceiroDaPasta::podeVer`.
+    **Na leitura:** a mensagem guarda a referência (`despacho_pasta_id`, `despacho_tipo`) e TODA saída do texto de
+    mensagem (`MensagemOutput`, `RespostaOutput`) nasce em `LeituraDasMensagens`, que confere a pasta para quem lê
+    naquela hora (memória só durante a leitura; pasta buscada com o escritório explícito). Não vê, pasta apagada ou
+    excluída: "Item de pasta sem acesso", sem a referência (`despacho` nulo, `ocultoPorPermissao`). Consulta nova que
+    devolva mensagem à tela passa por ela; nunca monte a saída com `Mensagem::getConteudo()` direto.
 
 ## Modelo
 
