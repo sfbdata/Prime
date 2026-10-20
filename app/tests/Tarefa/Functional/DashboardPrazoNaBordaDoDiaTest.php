@@ -71,11 +71,71 @@ final class DashboardPrazoNaBordaDoDiaTest extends KernelTestCase
         self::assertSame(2, $lista->executar($tenant, $tarde, ['status' => 'prazo_proximo', 'responsavel' => (string) $pessoa->getId()])->total);
     }
 
-    private function criarMeta(Tenant $tenant, User $responsavel, \DateTimeImmutable $prazo): void
+    #[TestDox('Meta de pasta excluída (lápide), meta em revisão vencida e meta de outro escritório não entram nas colunas nem nas listas')]
+    public function testLapideEmRevisaoEOutroEscritorio(): void
+    {
+        $tenant = $this->novoEscritorio();
+        $outro = $this->novoEscritorio();
+        $pessoa = $this->novaPessoa([$tenant, $outro]);
+        $hoje = new \DateTimeImmutable('today');
+
+        $this->criarMeta($tenant, $pessoa, $hoje->modify('-2 days'));                        // conta: vencida
+        $this->criarMeta($tenant, $pessoa, $hoje->modify('+2 days'));                        // conta: próxima
+        $this->criarMeta($tenant, $pessoa, $hoje->modify('-2 days'), Tarefa::STATUS_EM_REVISAO); // fora da fila
+        $this->criarMeta($tenant, $pessoa, $hoje->modify('+2 days'), Tarefa::STATUS_EM_REVISAO); // fora da fila
+        $this->criarMeta($tenant, $pessoa, $hoje->modify('-2 days'), Tarefa::STATUS_PENDENTE, excluida: $pessoa);
+        $this->criarMeta($tenant, $pessoa, $hoje->modify('+2 days'), Tarefa::STATUS_PENDENTE, excluida: $pessoa);
+        $this->criarMeta($outro, $pessoa, $hoje->modify('-2 days'));                         // outro escritório
+        $this->em->flush();
+
+        $tarde = $hoje->setTime(15, 0);
+        $linhas = static::getContainer()->get(ObterDadosDashboardUseCase::class)->executar($tenant, $tarde, [])->porAdvogado;
+        $linha = array_values(array_filter($linhas, static fn (LinhaAdvogadoDashboardOutput $l): bool => $l->userId === $pessoa->getId()))[0];
+
+        self::assertSame(1, $linha->metasVencidas, 'nem a em revisão, nem a da pasta excluída, nem a do outro escritório');
+        self::assertSame(1, $linha->prazosProximos);
+        self::assertSame(4, $linha->totalMetas, 'a pasta excluída sai também do total');
+
+        $lista = static::getContainer()->get(ListarMetasDaEquipeUseCase::class);
+        $filtro = ['responsavel' => (string) $pessoa->getId()];
+        self::assertSame(1, $lista->executar($tenant, $tarde, $filtro + ['status' => 'vencidas'])->total);
+        self::assertSame(1, $lista->executar($tenant, $tarde, $filtro + ['status' => 'prazo_proximo'])->total);
+        self::assertSame(4, $lista->executar($tenant, $tarde, $filtro + ['status' => 'todas'])->total);
+    }
+
+    private function novoEscritorio(): Tenant
+    {
+        $tenant = new Tenant();
+        $tenant->setName('Tenant Borda ' . uniqid());
+        $this->em->persist($tenant);
+
+        return $tenant;
+    }
+
+    /** @param list<Tenant> $escritorios */
+    private function novaPessoa(array $escritorios): User
+    {
+        $pessoa = new User();
+        $pessoa->setEmail('borda_' . uniqid() . '@test.com');
+        $pessoa->setFullName('Pessoa da Borda');
+        $pessoa->setRoles(['ROLE_USER']);
+        $pessoa->setIsActive(true);
+        $this->em->persist($pessoa);
+        foreach ($escritorios as $escritorio) {
+            $this->em->persist(new UserTenant($pessoa, $escritorio));
+        }
+
+        return $pessoa;
+    }
+
+    private function criarMeta(Tenant $tenant, User $responsavel, \DateTimeImmutable $prazo, string $status = Tarefa::STATUS_PENDENTE, ?User $excluida = null): void
     {
         $pasta = new Pasta();
         $pasta->setNup('BORDA-' . uniqid());
         $pasta->setTenant($tenant);
+        if ($excluida !== null) {
+            $pasta->marcarExcluida($excluida, new \DateTimeImmutable());
+        }
         $this->em->persist($pasta);
 
         $tarefa = new Tarefa();
@@ -83,7 +143,7 @@ final class DashboardPrazoNaBordaDoDiaTest extends KernelTestCase
         $tarefa->setDescricao('Prazo na borda do dia');
         $tarefa->setPasta($pasta);
         $tarefa->setTenant($tenant);
-        $tarefa->setStatus(Tarefa::STATUS_PENDENTE);
+        $tarefa->setStatus($status);
         $tarefa->setPrazo($prazo);
         $tarefa->addResponsavel($responsavel);
         $this->em->persist($tarefa);

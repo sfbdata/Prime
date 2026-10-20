@@ -461,6 +461,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->select('COUNT(t.id)')
             ->join('t.pasta', 'p')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
             ->andWhere('t.status != :concluida')
             ->setParameter('tenant', $tenant)
             ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA);
@@ -479,6 +480,7 @@ class TarefaRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('t')
             ->join('t.pasta', 'p')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
             ->setParameter('tenant', $tenant);
 
         $this->aplicarFiltrosDashboard($qb, $filtros, true);
@@ -509,6 +511,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->join('t.pasta', 'p')
             ->join('t.responsaveis', 'u')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
             ->setParameter('tenant', $tenant)
             ->groupBy('u.id');
 
@@ -535,6 +538,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->join('t.pasta', 'p')
             ->join('t.responsaveis', 'u')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
             ->andWhere('t.status != :concluida')
             ->setParameter('tenant', $tenant)
             ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
@@ -564,11 +568,12 @@ class TarefaRepository extends ServiceEntityRepository
             ->join('t.pasta', 'p')
             ->join('t.responsaveis', 'u')
             ->andWhere('p.tenant = :tenant')
-            ->andWhere('t.status != :concluida')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
+            ->andWhere('t.status NOT IN (:foraDaFila)') // em revisão não vence nem é prazo próximo, como em Minhas Metas
             ->andWhere('t.prazo IS NOT NULL')
             ->andWhere('t.prazo < :referencia')
             ->setParameter('tenant', $tenant)
-            ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
             ->setParameter('referencia', $referencia)
             ->groupBy('u.id')
             ->getQuery()
@@ -595,12 +600,13 @@ class TarefaRepository extends ServiceEntityRepository
             ->join('t.pasta', 'p')
             ->join('t.responsaveis', 'u')
             ->andWhere('p.tenant = :tenant')
-            ->andWhere('t.status != :concluida')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
+            ->andWhere('t.status NOT IN (:foraDaFila)') // em revisão não vence nem é prazo próximo, como em Minhas Metas
             ->andWhere('t.prazo IS NOT NULL')
             ->andWhere('t.prazo >= :referencia')
             ->andWhere('t.prazo < :limite')
             ->setParameter('tenant', $tenant)
-            ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
             ->setParameter('referencia', $referencia)
             ->setParameter('limite', $limite)
             ->groupBy('u.id')
@@ -623,8 +629,9 @@ class TarefaRepository extends ServiceEntityRepository
      *
      *  - todas         → todos os status, período por t.dataCriacao (countPorResponsavel);
      *  - ativas        → status != concluida, período (countAtivasPorResponsavel);
-     *  - vencidas      → ativas com prazo antes do dia de $referencia, SEM período (countVencidasPorResponsavel);
-     *  - prazo_proximo → ativas com prazo do dia de $referencia até 7 dias depois (RegraDoPrazo), SEM período
+     *  - vencidas      → na fila (nem concluída nem em revisão, como Minhas Metas) com prazo antes do dia de
+     *                    $referencia, SEM período (countVencidasPorResponsavel);
+     *  - prazo_proximo → na fila com prazo do dia de $referencia até 7 dias depois (RegraDoPrazo), SEM período
      *                    (countPrazosProximosPorResponsavel);
      *  - concluidas    → status = concluida, período (coluna extra "Metas concluídas", que é
      *                    countPorResponsavel − countAtivasPorResponsavel);
@@ -658,6 +665,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->join('t.pasta', 'p')
             ->leftJoin('t.responsaveis', 'r')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
             ->andWhere('t.id IN (SELECT t_eq.id FROM ' . Tarefa::class . ' t_eq JOIN t_eq.responsaveis u_eq WHERE u_eq.id IN (:fEquipeIds))')
             ->setParameter('tenant', $tenant)
             ->setParameter('fEquipeIds', $ids)
@@ -674,19 +682,19 @@ class TarefaRepository extends ServiceEntityRepository
                 break;
 
             case 'vencidas':
-                $qb->andWhere('t.status != :concluida')
+                $qb->andWhere('t.status NOT IN (:foraDaFila)')
                    ->andWhere('t.prazo IS NOT NULL')
                    ->andWhere('t.prazo < :referencia')
-                   ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+                   ->setParameter('foraDaFila', self::FORA_DA_FILA)
                    ->setParameter('referencia', RegraDoPrazo::inicioDoDia($referencia));
                 break;
 
             case 'prazo_proximo':
-                $qb->andWhere('t.status != :concluida')
+                $qb->andWhere('t.status NOT IN (:foraDaFila)')
                    ->andWhere('t.prazo IS NOT NULL')
                    ->andWhere('t.prazo >= :referencia')
                    ->andWhere('t.prazo < :limite')
-                   ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+                   ->setParameter('foraDaFila', self::FORA_DA_FILA)
                    ->setParameter('referencia', RegraDoPrazo::inicioDoDia($referencia))
                    ->setParameter('limite', RegraDoPrazo::fimDoPrazoProximo($referencia));
                 break;
@@ -729,6 +737,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->join('t.pasta', 'p')
             ->leftJoin('t.responsaveis', 'r')
             ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL') // pasta excluída (lápide) não conta no Dashboard
             ->andWhere('t.status != :concluida')
             ->setParameter('tenant', $tenant)
             ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
