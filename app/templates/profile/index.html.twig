@@ -439,6 +439,8 @@ input[type="range"].img-slider {
     {# Ponto de inclusão da frente do Contribua: bloco "Assinatura" (plano, vencimento e cancelar), porque o checkout
        do desenho 08 manda cancelar em Meu Perfil. Basta a outra frente criar o parcial. #}
     {% include 'contribua/_assinatura_no_perfil.html.twig' ignore missing %}
+    {# Selo de apoiador (pilha do Contribua, f6): o parcial chama sozinho selo_apoiador(); ausente, nada aparece. #}
+    {% include 'contribua/_selo_apoiador.html.twig' ignore missing %}
 
     {# ── Segurança ── #}
     <section class="mp-card" data-screen-label="Segurança">
