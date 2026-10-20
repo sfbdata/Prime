@@ -12,7 +12,7 @@
    Migration `Version20261019213000`.
 5. `trabalho-externo-candidatura` (F2b, §4.6) → **PR #105 em rascunho**, base `trabalho-externo-curriculos`.
    Migration `Version20261019231700`.
-6. `trabalho-externo-engajamento` (F4, §4.7) → em andamento, base `trabalho-externo-candidatura`.
+6. `trabalho-externo-engajamento` (F4, §4.7) → **PR #113 em rascunho**, base `trabalho-externo-candidatura`.
    Migration `Version20261019235800`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
@@ -20,7 +20,7 @@ rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e
 base do PR para `master` e tirar do rascunho.
 
 **Fila de merge** (coordenador, 19/10, depois do master a7433b93): #56 → #60 → #65 → #69 → #64 → #74 →
-#62 → #83 → #84 → #96 → #105. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
+#62 → #83 → #84 → #96 → #105 → #113. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
 F2c: as duas são renomeadas na vez. Teto do FORA_DO_ESCOPO: quando o #56 entrar, somar as entradas dele.
 
 **Decisões do dono** (via coordenador, 19/10): tudo do desenho entra, mesmo que abra frente nova; o
@@ -97,7 +97,7 @@ desenho, toda a Equipe vê); prazo de retenção do Termo de Voluntariado aceito
 é excluído (o termo fica ligado ao usuário). Decidir se "Salvar edição" e "Novo escritório" do bloco SOLICITANTE da
 Nova solicitação (06 l.640, 641) entram (§4.8).
 
-**Próximo passo** (coordenador, 19/10): terminar a F4 (§4.7) sobre o #105; depois a F3b (painel e
+**Próximo passo** (coordenador, 19/10): a F3b, empilhada sobre o #113 (painel e
 Termo de Voluntariado, com os avisos do Termo pelo sino); depois os KPIs da página pública. Ao fim da
 F3b, combinar com a 5d (#99) o contrato da campanha de vagas por e-mail (consumidora da Comercial). A
 F2d espera a primeira das pilhas (#84 ou #99) entrar no master.
