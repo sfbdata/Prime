@@ -13,6 +13,8 @@
 <link rel="stylesheet" href="{{ asset('css/pasta-prazos.css') }}">
 <link rel="stylesheet" href="{{ asset('css/cliente-cadastro.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-andamento.css') }}">
+{# Link externo do Push: menu da aba, modal e painel de acessos (pasta/_push_link_externo.html.twig). #}
+<link rel="stylesheet" href="{{ asset('css/pasta-push-link.css') }}">
 
 {# O estilo do chip de responsável sobe para o <head>. Ele ficava no fim do
    <body>, a ~4.800 linhas de HTML do chip — e o chip agora abre a página, no
@@ -476,6 +478,8 @@
    drawer do histórico. Os eventos chegam por JSON (`pasta_timeline`). #}
 {{ include('pasta/_timeline_inteligente.html.twig', {pasta: pasta}) }}
 {{ include('pasta/_impressao_modal.html.twig', {pasta: pasta}) }}
+{# Link externo do Push Processual (spec push-link-externo §5): menu da aba Push, modal e painel de acessos. #}
+{{ include('pasta/_push_link_externo.html.twig', {pasta: pasta, push: push, iaPermitida: analisesIa is not null}) }}
 
 {# ── Modais do explorador de documentos ─────────────────────────────────────
    Vivem AQUI, fora de .ps-page, e não dentro do painel da aba Documentos. Modal é
@@ -4379,6 +4383,8 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="/js/pasta-timeline.js"></script>
 {# Diálogos da pasta: chips de responsáveis e contador do modal Nova meta (PMC-059/041). #}
 <script src="{{ asset('js/pasta-dialogos.js') }}"></script>
+{# Link externo do Push: menu da aba, modal e painel de acessos. Depois do pasta-dialogos.js (confirmarPs/avisarPs). #}
+<script src="{{ asset('js/pasta-push-link.js') }}"></script>
 {# "Próximos prazos" (E12b): novo, editar, cumprir e excluir prazo ou audiência. #}
 <script src="{{ asset('js/pasta-prazos.js') }}"></script>
 {# Andamento da pasta em fases (E12b). #}

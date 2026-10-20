@@ -212,6 +212,104 @@ final class ExpedienteListaIntegralTelaTest extends JusPrimeWebTestCase
         self::assertSame('0', $c->filter('#tabelaPastas')->attr('data-sou-admin'));
     }
 
+    #[TestDox('Audiência e Protocolar: o título da barra é o do filtro aberto no trilho')]
+    public function testTituloDeAudienciaEProtocolar(): void
+    {
+        $this->entrar();
+
+        foreach (['aud' => 'Audiência', 'protocolar' => 'Protocolar'] as $filtro => $titulo) {
+            $c = $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?expediente=' . $filtro);
+            self::assertResponseIsSuccessful();
+            self::assertSame($titulo, trim($c->filter('#acervo-geral-wrapper > .exp-barra > h2.exp-barra-titulo')->text()));
+        }
+    }
+
+    #[TestDox('menu de botão direito nos modos Lista e Cartões: cada item tem a linha da tabela da mesma pasta, que leva os dados e as URLs')]
+    public function testItensDaListaECartoesTemALinhaDaTabela(): void
+    {
+        [, $tenant] = $this->entrar();
+        $ids = [$this->pasta($tenant, 'M1')->getId(), $this->pasta($tenant, 'M2')->getId()];
+
+        $c = $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
+
+        foreach ($ids as $id) {
+            $linha = $c->filter('#tabelaPastas tbody tr.pasta-row-link[data-pasta-id="' . $id . '"]');
+            self::assertCount(1, $linha);
+            self::assertNotEmpty($linha->attr('data-url-nome'));
+            self::assertNotEmpty($linha->attr('data-url-trancar'));
+            self::assertCount(1, $c->filter('.exp-simples > .exp-simples-linha[data-pasta-id="' . $id . '"] > .exp-simples-cli'));
+            self::assertCount(1, $c->filter('.exp-cartoes > .exp-cartao[data-pasta-id="' . $id . '"] > .exp-cartao-cli'));
+        }
+    }
+
+    #[TestDox('busca pelo réu (desenho VS 18.10.26): o cadastrado na pasta e o polo passivo do Datajud, sem acento; o polo ativo não')]
+    public function testBuscaPeloReu(): void
+    {
+        [$user, $tenant] = $this->entrar();
+        $cadastrado = $this->pasta($tenant, 'R1');
+        $this->em()->persist(new \App\Pasta\Entity\PastaReu($tenant, $cadastrado, 'Condomínio Residencial Park', null, 0));
+        $datajud = $this->pasta($tenant, 'R2');
+        $this->parteNoProcesso($datajud, $user, 'TELEFÔNICA BRASIL S.A.', 'POLO PASSIVO');
+        $ativo = $this->pasta($tenant, 'R3');
+        $this->parteNoProcesso($ativo, $user, 'TELEFÔNICA BRASIL S.A.', 'POLO ATIVO');
+        // Como na coluna: com réu cadastrado, o polo passivo do Datajud não vale (nem para a busca).
+        $this->parteNoProcesso($cadastrado, $user, 'TELEFÔNICA BRASIL S.A.', 'RÉU');
+        $this->em()->flush();
+
+        self::assertSame([$cadastrado->getId()], $this->idsDaBusca('condominio residencial'));
+        self::assertSame([$datajud->getId()], $this->idsDaBusca('telefonica'));
+    }
+
+    #[TestDox('ordenar pela coluna Réu: pelo nome que a coluna mostra (o primeiro), o cadastrado manda e o Datajud vale para a pasta sem cadastrado')]
+    public function testOrdenarPeloReu(): void
+    {
+        [$user, $tenant] = $this->entrar();
+        $b = $this->pasta($tenant, 'O1');
+        $this->em()->persist(new \App\Pasta\Entity\PastaReu($tenant, $b, 'BETA LTDA', null, 0));
+        $this->parteNoProcesso($b, $user, 'AAA DO DATAJUD', 'RÉU');   // ignorado: a pasta tem réu cadastrado
+        $a = $this->pasta($tenant, 'O2');
+        $this->parteNoProcesso($a, $user, 'ALFA S.A.', 'POLO PASSIVO');
+        $this->parteNoProcesso($a, $user, '  ', 'POLO PASSIVO');   // nome vazio: a coluna descarta, a ordem também
+        // "ZETA e outros" na coluna: ordena como zeta, não como o menor (ACME).
+        $z = $this->pasta($tenant, 'O3');
+        $this->em()->persist(new \App\Pasta\Entity\PastaReu($tenant, $z, 'ZETA', null, 0));
+        $this->em()->persist(new \App\Pasta\Entity\PastaReu($tenant, $z, 'ACME', null, 1));
+        $this->em()->flush();
+
+        $c = $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?ordenar=reu&direcao=asc');
+        self::assertResponseIsSuccessful();
+        $nossas = [$a->getId(), $b->getId(), $z->getId()];
+        $ids = $c->filter('#tabelaPastas tbody > tr.pasta-row-link')->each(static fn ($tr): int => (int) $tr->attr('data-pasta-id'));
+        self::assertSame($nossas, array_values(array_intersect($ids, $nossas)));
+        self::assertSame('ZETA e outros', trim($c->filter('tr[data-pasta-id="' . $z->getId() . '"] td[data-col="reu"] > .exp-reu')->text()));
+        self::assertStringContainsString('asc', (string) $c->filter('#tabelaPastas thead th[data-col="reu"].sortable[data-ordenar="reu"]')->attr('class'));
+    }
+
+    #[TestDox('navegação: Expediente leva a Demandas e volta pelas abas, e a linha abre a pasta')]
+    public function testNavegacaoEntreAbasEPasta(): void
+    {
+        [, $tenant] = $this->entrar();
+        $pasta = $this->pasta($tenant, 'NV');
+
+        $c = $this->client->request('GET', '/expediente');
+        self::assertResponseIsSuccessful();
+        self::assertSame('Expediente', trim($c->filter('.navtop-subnav > a.navtop-subnav-link.active')->text()));
+
+        $c = $this->client->click($c->filter('.navtop-subnav > a.navtop-subnav-link')->reduce(static fn ($a): bool => trim($a->text()) === 'Demandas')->link());
+        self::assertResponseIsSuccessful();
+        self::assertSame('Demandas', trim($c->filter('.navtop-subnav > a.navtop-subnav-link.active')->text()));
+
+        $c = $this->client->click($c->filter('.navtop-subnav > a.navtop-subnav-link')->reduce(static fn ($a): bool => trim($a->text()) === 'Expediente')->link());
+        self::assertResponseIsSuccessful();
+        self::assertRouteSame('expediente_index');
+
+        $c = $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
+        $href = (string) $c->filter('#tabelaPastas tbody tr.pasta-row-link[data-pasta-id="' . $pasta->getId() . '"]')->attr('data-href');
+        $this->client->request('GET', $href);
+        self::assertResponseIsSuccessful();
+        self::assertRouteSame('pasta_show');
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────
 
     private function em(): EntityManagerInterface
@@ -263,6 +361,31 @@ final class ExpedienteListaIntegralTelaTest extends JusPrimeWebTestCase
         $this->em()->flush();
 
         return $pasta;
+    }
+
+    /** @return int[] ids das pastas que a busca livre do acervo devolve */
+    private function idsDaBusca(string $termo): array
+    {
+        $c = $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?busca=' . rawurlencode($termo));
+        self::assertResponseIsSuccessful();
+
+        return $c->filter('#tabelaPastas tbody > tr.pasta-row-link')->each(static fn ($tr): int => (int) $tr->attr('data-pasta-id'));
+    }
+
+    private function parteNoProcesso(Pasta $pasta, User $user, string $nome, string $papel): void
+    {
+        $proc = new Processo();
+        $proc->setNumeroProcesso('07' . substr(uniqid(), -5) . '-00.2026.8.07.0001');
+        $proc->setTenant($pasta->getTenant());
+        $this->em()->persist($proc);
+        $pasta->vincularProcesso($proc, $user);
+        $parte = new ParteProcesso();
+        $parte->setTipo('PARTE');
+        $parte->setNome($nome);
+        $parte->setPapel($papel);
+        $parte->setTenant($pasta->getTenant());
+        $proc->addParte($parte);
+        $this->em()->persist($parte);
     }
 
     private function marcador(Tenant $tenant, User $user, string $nome, string $cor, ?Marcador $pai = null): Marcador
