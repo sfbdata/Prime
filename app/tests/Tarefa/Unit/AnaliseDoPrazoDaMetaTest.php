@@ -81,12 +81,13 @@ final class AnaliseDoPrazoDaMetaTest extends TestCase
     {
         yield 'amanhã é o próximo dia útil' => ['Retornar ao cliente amanhã', '2026-10-20'];
         yield 'em 3 dias úteis' => ['Juntar documentos em 3 dias uteis', '2026-10-22'];
-        yield 'em 10 dias corridos' => ['Juntar documentos em 10 dias', '2026-10-29'];
+        yield 'em 10 dias sem qualificador conta úteis (CPC 219), pula Finados' => ['Juntar documentos em 10 dias', '2026-11-03'];
+        yield 'em 10 dias corridos escrito' => ['Juntar documentos em 10 dias corridos', '2026-10-29'];
         yield 'até sexta' => ['Ligar para o cliente até sexta', '2026-10-23'];
         yield 'data passada sem ano vira o ano seguinte' => ['Atualizar cadastro até 10/01', '2027-01-10'];
         yield 'ano com 2 dígitos' => ['Atualizar cadastro até 05/03/27', '2027-03-05'];
         yield 'hoje' => ['Ligar para o cliente hoje', '2026-10-19'];
-        yield 'prazo de N dias corridos' => ['Juntar procuração, prazo de 5 dias', '2026-10-24'];
+        yield 'prazo de N dias sem qualificador conta úteis' => ['Juntar procuração, prazo de 5 dias', '2026-10-26'];
         yield 'até a sexta' => ['Retornar ao cliente até a sexta', '2026-10-23'];
         yield 'em 0 dias úteis é hoje' => ['Juntar documentos em 0 dias uteis', '2026-10-19'];
         yield 'data inválida cai na próxima regra' => ['Atualizar cadastro 15/13 hoje', '2026-10-19'];

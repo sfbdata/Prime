@@ -6,6 +6,13 @@ dele como fonte única de dias úteis. Risco: prazo jurídico é risco (`trilha-
 
 ## Estado da frente
 
+- **Regra única de dia útil (coordenação, 20/10/2026):** a do #145 (`DiasUteisDoEscritorio`: feriado nacional e
+  estadual da UF do escritório, recesso; ponto facultativo conta como útil). "N dias" sem qualificador conta ÚTEIS
+  (CPC art. 219); só "corridos" escrito conta corridos. **Feito aqui:** corridos para úteis no `AnaliseDoPrazoDaMeta`,
+  com teste. **Quando o #145 chegar ao master:** o `DiasUteisNacionais` passa a delegar ao `DiasUteisDoEscritorio`
+  (hoje ele tira Carnaval, segunda de Carnaval e Corpus Christi e não conhece estadual). Anotado: o `somarUteis` do
+  `pasta-metas.js` conta só seg-sex.
+
 - **Feito: o motor, sem tela.** `App\Tarefa\Service\AnaliseDoPrazoDaMeta` (porte do `IA_PRAZO`, dc 3971-4026),
   com a tabela de tipos do CPC, as datas escritas no texto, o termo inicial pela ciência ou pela publicação, a
   folga, a urgência e a prioridade; e o calendário do `DiasUteisNacionais` (feriados nacionais com os móveis,

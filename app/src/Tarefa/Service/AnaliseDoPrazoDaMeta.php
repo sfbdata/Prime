@@ -115,7 +115,7 @@ final class AnaliseDoPrazoDaMeta
     }
 
     /**
-     * Data escrita na meta (dc 3989-3997): "dd/mm[/aa]", "hoje", "amanhã", "em|prazo de|até N dias [úteis]" e
+     * Data escrita na meta (dc 3989-3997): "dd/mm[/aa]", "hoje", "amanhã", "em|prazo de|até N dias [úteis|corridos]" e
      * "até <dia da semana>". Devolve a data e como foi achada.
      *
      * @return array{?\DateTimeImmutable, string}
@@ -134,12 +134,14 @@ final class AnaliseDoPrazoDaMeta
         if (preg_match('/\bamanha\b/', $t) === 1) {
             return [$this->diasUteis->somarUteis($hoje, 1), 'a palavra "amanhã"'];
         }
-        if (preg_match('/(?:em|prazo de|ate)\s+(\d{1,2})\s+dias?(\s+uteis)?/', $t, $m) === 1) {
+        // "N dias" sem qualificador conta ÚTEIS (CPC art. 219; regra única da coordenação, 20/10/2026); só "corridos"
+        // escrito conta dias corridos.
+        if (preg_match('/(?:em|prazo de|ate)\s+(\d{1,2})\s+dias?(\s+(?:uteis|corridos))?/', $t, $m) === 1) {
             $n = (int) $m[1];
             $data = match (true) {
                 $n === 0 => $hoje,
-                ($m[2] ?? '') !== '' => $this->diasUteis->somarUteis($hoje, $n),
-                default => $hoje->modify('+' . $n . ' days'),
+                trim($m[2] ?? '') === 'corridos' => $hoje->modify('+' . $n . ' days'),
+                default => $this->diasUteis->somarUteis($hoje, $n),
             };
 
             return [$data, '"' . $m[0] . '"'];
