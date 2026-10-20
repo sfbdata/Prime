@@ -50,18 +50,21 @@ final class DesconectarEmLoteTest extends KernelTestCase
         self::assertCount(2, array_filter($this->google->pedidos, static fn (string $p): bool => 'POST /revoke' === $p));
     }
 
-    #[TestDox('Dentro de uma sessão de outro escritório (filtro ligado), o lote ainda acha as conexões do escritório pedido')]
+    #[TestDox('Dentro de uma sessão de outro escritório (filtro ligado), o lote ainda acha as conexões do escritório pedido e limpa as exclusões pendentes')]
     public function testComFiltroDeOutroEscritorio(): void
     {
         $tenant = $this->escritorio();
         $sessao = $this->escritorio();
-        $this->conectar($this->pessoa(), $tenant, 'ana@gmail.com');
+        $ana = $this->pessoa();
+        $this->conectar($ana, $tenant, 'ana@gmail.com');
+        $this->em()->getConnection()->executeStatement("INSERT INTO agenda_google_exclusao (tenant_id, usuario_id, google_id) VALUES (:t, :u, 'bjt1e1')", ['t' => $tenant->getId(), 'u' => $ana->getId()]);
         $this->em()->getFilters()->enable('tenant')->setParameter('tenant', (int) $sessao->getId(), Types::INTEGER);
 
         static::getContainer()->get(DesconectarGoogleAgendaUseCase::class)->todasDoEscritorio($tenant, false);
 
         $this->em()->getFilters()->disable('tenant');
         self::assertSame(0, $this->conexoes('tenant_id', (int) $tenant->getId()));
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM agenda_google_exclusao WHERE tenant_id = :t', ['t' => $tenant->getId()]), 'as exclusões pendentes saem junto');
     }
 
     #[TestDox('Todas da pessoa: sai de todos os escritórios, apagando a agenda do escritório quando pedido')]

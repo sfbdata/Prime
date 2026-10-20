@@ -91,9 +91,7 @@ final class DesconectarGoogleAgendaUseCase
         if (null !== $refresh && !$this->conexoes->contaLigadaEmOutraConexao($conexao)) {
             $this->google->revogar($refresh);
         }
-        foreach ($this->exclusoes->pendentesDaPessoa($conexao->getUsuario(), $conexao->getTenant()) as $exclusao) {
-            $this->exclusoes->concluir($exclusao);
-        }
+        $this->exclusoes->esquecerDaPessoa($conexao->getUsuario(), $conexao->getTenant());
         $this->em->remove($conexao);
         $this->em->flush();
     }

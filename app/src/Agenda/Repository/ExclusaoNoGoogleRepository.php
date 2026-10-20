@@ -33,6 +33,15 @@ class ExclusaoNoGoogleRepository extends ServiceEntityRepository
         );
     }
 
+    /** As pendentes da pessoa no escritório, em SQL: vale também de dentro de uma sessão de outro escritório (lote). */
+    public function esquecerDaPessoa(User $usuario, Tenant $tenant): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'DELETE FROM agenda_google_exclusao WHERE usuario_id = :u AND tenant_id = :t',
+            ['u' => $usuario->getId(), 't' => $tenant->getId()],
+        );
+    }
+
     public function concluir(ExclusaoNoGoogle $exclusao): void
     {
         $this->getEntityManager()->remove($exclusao);
