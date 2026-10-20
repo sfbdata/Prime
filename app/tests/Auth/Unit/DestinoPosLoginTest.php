@@ -24,6 +24,7 @@ final class DestinoPosLoginTest extends TestCase
         yield 'caminho com query' => ['/agenda?dia=2026-10-19', '/agenda?dia=2026-10-19'];
         yield 'query com espaço codificado' => ['/busca?q=a%20b', '/busca?q=a%20b'];
         yield 'parecido com login, mas outra tela' => ['/loginx', '/loginx'];
+        yield 'página que termina com count no meio do nome' => ['/countries', '/countries'];
         yield 'URL absoluta do próprio host' => ['http://localhost/agenda?dia=1', '/agenda?dia=1'];
         yield 'URL absoluta https do próprio host' => ['https://localhost/agenda', '/agenda'];
         yield 'host em maiúsculas' => ['http://LOCALHOST/agenda', '/agenda'];
@@ -83,6 +84,16 @@ final class DestinoPosLoginTest extends TestCase
         yield 'cadastro' => ['/cadastro'];
         yield 'login codificado' => ['/%6Cogin'];
         yield 'longo demais' => ['/' . str_repeat('a', 2100)];
+        // Não é página (incidente da v2.5.0: o polling do sino virou destino e o login caiu no JSON).
+        yield 'contador do sino' => ['/notificacoes/count'];
+        yield 'contador do sino absoluto' => ['http://localhost/notificacoes/count'];
+        yield 'contador com query' => ['/notificacoes/count?x=1'];
+        yield 'contador com barra no fim' => ['/notificacoes/count/'];
+        yield 'API' => ['/api/webhooks/cora/pix'];
+        yield 'rota interna do Symfony' => ['/_fragment'];
+        yield 'arquivo JSON' => ['/manifest.json'];
+        yield 'arquivo JS' => ['/js/central.js'];
+        yield 'imagem' => ['/images/logo/bluejus.png'];
     }
 
     #[DataProvider('destinosRecusados')]

@@ -596,8 +596,9 @@ class PastaRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, mixed> $filtros  filtros do Dashboard (data_de, data_ate, responsavel)
+     * @param list<int>            $pastasOcultas  pastas ocultas pelo cadeado para quem olha não contam (D1)
      */
-    public function countUrgentes(Tenant $tenant, array $filtros = []): int
+    public function countUrgentes(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): int
     {
         $qb = $this->createQueryBuilder('p')
             ->select('COUNT(p.id)')
@@ -607,15 +608,17 @@ class PastaRepository extends ServiceEntityRepository
             ->setParameter('prioridade', PrioridadePasta::Urgente);
 
         $this->aplicarFiltrosDashboard($qb, $filtros, true);
+        $this->semPastasOcultasNoDashboard($qb, $pastasOcultas);
 
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
 
     /**
      * @param array<string, mixed> $filtros  filtros do Dashboard (data_de, data_ate)
+     * @param list<int>            $pastasOcultas  pastas ocultas pelo cadeado para quem olha não contam (D1)
      * @return array<int, int>  userId => total (todas as situações)
      */
-    public function countPorResponsavel(Tenant $tenant, array $filtros = []): array
+    public function countPorResponsavel(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
     {
         $qb = $this->createQueryBuilder('p')
             ->select('r.id AS responsavel_id, COUNT(p.id) AS total')
@@ -625,6 +628,7 @@ class PastaRepository extends ServiceEntityRepository
             ->groupBy('r.id');
 
         $this->aplicarFiltrosDashboard($qb, $filtros, false);
+        $this->semPastasOcultasNoDashboard($qb, $pastasOcultas);
 
         $rows = $qb->getQuery()->getArrayResult();
 
@@ -638,9 +642,10 @@ class PastaRepository extends ServiceEntityRepository
 
     /**
      * @param array<string, mixed> $filtros  filtros do Dashboard (data_de, data_ate)
+     * @param list<int>            $pastasOcultas  pastas ocultas pelo cadeado para quem olha não contam (D1)
      * @return array<int, int>  userId => total (só ativas)
      */
-    public function countAtivasPorResponsavel(Tenant $tenant, array $filtros = []): array
+    public function countAtivasPorResponsavel(Tenant $tenant, array $filtros = [], array $pastasOcultas = []): array
     {
         $qb = $this->createQueryBuilder('p')
             ->select('r.id AS responsavel_id, COUNT(p.id) AS total')
@@ -652,6 +657,7 @@ class PastaRepository extends ServiceEntityRepository
             ->groupBy('r.id');
 
         $this->aplicarFiltrosDashboard($qb, $filtros, false);
+        $this->semPastasOcultasNoDashboard($qb, $pastasOcultas);
 
         $rows = $qb->getQuery()->getArrayResult();
 
@@ -680,9 +686,11 @@ class PastaRepository extends ServiceEntityRepository
      * dia nas 1.083 pastas.
      *
      * @param array<string, mixed> $filtros  filtros do Dashboard (data_de, data_ate)
+     * @param list<int>|null       $pastasOcultas  ids de `AcessoAPasta::idsOcultosPara` de quem olha, já
+     *                                             calculados pelo Dashboard; null = busca pela sessão
      * @return array<int, int>  userId => total de pastas criadas
      */
-    public function countCriadasPorCriador(Tenant $tenant, array $filtros = []): array
+    public function countCriadasPorCriador(Tenant $tenant, array $filtros = [], ?array $pastasOcultas = null): array
     {
         $qb = $this->createQueryBuilder('p')
             ->select('c.id AS criador_id, COUNT(p.id) AS total')
@@ -694,7 +702,7 @@ class PastaRepository extends ServiceEntityRepository
 
         $this->aplicarFiltrosDashboard($qb, $filtros, false);
         // Cadeado: o número leva à lista "pastas criadas por X", que não mostra a oculta com esse filtro (D1).
-        $ocultas = $this->nivelNoCadeado?->idsDasPastasOcultasDeQuemEstaLogado() ?? [];
+        $ocultas = $pastasOcultas ?? $this->nivelNoCadeado?->idsDasPastasOcultasDeQuemEstaLogado() ?? [];
         if ($ocultas !== []) {
             $qb->andWhere('p.id NOT IN (:criadasOcultas)')->setParameter('criadasOcultas', $ocultas);
         }
@@ -707,6 +715,20 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         return $counts;
+    }
+
+    /**
+     * Cadeado (spec pasta-cadeado D1): nas colunas de pastas do Dashboard, a pasta oculta para quem olha não
+     * conta, porque a lista do Expediente a que o número leva, filtrada por responsável ou prioridade, não a
+     * mostra. A raiz é `p`; os ids vêm de `AcessoAPasta::idsOcultosPara`, uma consulta por requisição.
+     *
+     * @param list<int> $pastasOcultas
+     */
+    private function semPastasOcultasNoDashboard(QueryBuilder $qb, array $pastasOcultas): void
+    {
+        if ($pastasOcultas !== []) {
+            $qb->andWhere('p.id NOT IN (:pastasOcultasDashboard)')->setParameter('pastasOcultasDashboard', $pastasOcultas);
+        }
     }
 
     /**
