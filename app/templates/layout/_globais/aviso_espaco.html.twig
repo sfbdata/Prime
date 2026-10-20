@@ -1,0 +1,22 @@
+{#
+    Aviso de espaço no topo de toda tela (desenho 08, bj-plano.js). Só para o usuário primário, a partir
+    da faixa Alerta do Master (padrão 90%), uma vez por dia ("Lembrar amanhã"). Espaço esgotado não tem
+    botão de fechar. Os dados vêm de aviso_de_espaco() (Contribua), que só consulta quando chamado.
+#}
+{% if _ehPrimario|default(false) %}
+    {% set aviso = aviso_de_espaco() %}
+    {% if aviso %}
+        <link rel="stylesheet" href="{{ asset('css/aviso-espaco.css') }}">
+        <div class="ae-aviso{{ aviso.vermelho ? ' ae-aviso--cheio' }}" data-aviso-espaco data-cheio="{{ aviso.cheio ? '1' : '0' }}" data-print="hide" role="status" hidden>
+            <span class="ae-icone" aria-hidden="true">{{ aviso.vermelho ? '⛔' : '⚠️' }}</span>
+            <div class="ae-texto">
+                <b>{{ aviso.cheio ? 'Espaço esgotado: novos envios estão pausados' : 'Seu espaço está ' ~ aviso.percentual ~ '% ocupado' }}</b>
+                <div>{{ aviso.uso }} de {{ aviso.limite }} no plano {{ aviso.plano }}. {{ aviso.cheio ? 'Consultar e baixar arquivos continua liberado.' : (aviso.faltam ? 'Faltam ' ~ aviso.faltam ~ '. ' : '') ~ 'Recomendamos aumentar o espaço para não interromper o envio de documentos.' }}</div>
+                <div class="ae-barra"><div style="width: {{ aviso.largura }}"></div></div>
+            </div>
+            <a class="ae-aumentar" href="{{ path('contribua_index') }}#espaco">Aumentar espaço</a>
+            {% if not aviso.cheio %}<button type="button" class="ae-fechar" data-fechar-aviso-espaco title="Lembrar amanhã" aria-label="Lembrar amanhã">×</button>{% endif %}
+        </div>
+        <script src="{{ asset('js/aviso-espaco.js') }}" defer></script>
+    {% endif %}
+{% endif %}

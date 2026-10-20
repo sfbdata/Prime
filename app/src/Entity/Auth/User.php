@@ -62,6 +62,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $oabVerificadaEm = null;
 
+    /**
+     * Preenchido só pelo cadastro do desenho 10, que entra antes do clique no link de confirmação; o clique
+     * zera. Nulo = e-mail sem pendência (as contas antigas e as de convite provaram o e-mail pelo próprio link).
+     */
+    #[ORM\Column(name: 'email_a_confirmar_desde', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $emailAConfirmarDesde = null;
+
     // -------------------------
     // Construtor
     // -------------------------
@@ -146,6 +153,26 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
     {
         $this->createdAt = $createdAt;
         return $this;
+    }
+
+    public function getEmailAConfirmarDesde(): ?\DateTimeImmutable
+    {
+        return $this->emailAConfirmarDesde;
+    }
+
+    public function isEmailConfirmado(): bool
+    {
+        return $this->emailAConfirmarDesde === null;
+    }
+
+    public function marcarEmailAConfirmar(\DateTimeImmutable $agora): void
+    {
+        $this->emailAConfirmarDesde = $agora;
+    }
+
+    public function confirmarEmail(): void
+    {
+        $this->emailAConfirmarDesde = null;
     }
 
     public function isActive(): bool

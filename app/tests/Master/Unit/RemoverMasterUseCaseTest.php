@@ -7,6 +7,7 @@ namespace App\Tests\Master\Unit;
 use App\Entity\Auth\User;
 use App\Master\DTO\RemoverMasterInput;
 use App\Master\Exception\OperacaoDeMasterRecusada;
+use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Service\RegraDosMasters;
 use App\Master\UseCase\RemoverMasterUseCase;
 use App\Repository\UserRepository;
@@ -31,7 +32,7 @@ final class RemoverMasterUseCaseTest extends TestCase
     {
         $this->userRepository = $this->createMock(UserRepository::class);
         $this->escopo = new EscopoDeAuditoriaDePlataforma();
-        $this->useCase  = new RemoverMasterUseCase($this->userRepository, new RegraDosMasters(), $this->escopo);
+        $this->useCase  = new RemoverMasterUseCase($this->userRepository, new RegraDosMasters($this->createStub(ContasDoSistemaRepository::class)), $this->escopo);
         $this->primario = $this->usuario(['ROLE_SUPER_ADMIN', 'ROLE_MASTER_PRIMARIO']);
     }
 

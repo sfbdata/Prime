@@ -1,6 +1,7 @@
 {% extends 'base.html.twig' %}
 
-{# Desenho: docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html (edição do perfil Master: abas Painel do sistema | Permissões;
+{# Desenho: docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html (edição do perfil Master: abas Painel do sistema | Permissões |
+   Telas e recursos;
    bloco "Masters do sistema" com Master primário e secundários, linhas 317-336). O painel do sistema segue o desenho 1.0
    (docs/design/perfis-1.0/05 - Perfis 1.0.dc.html).
    As seções do painel são montadas por public/js/master/painel.js a partir dos endpoints /master/dados/*; o bloco Masters
@@ -19,6 +20,14 @@
     contas: path('master_dados_contas'),
     oab: path('master_dados_usuarios_oab'),
     auditoria: path('master_dados_auditoria'),
+    contaSuspender: path('master_conta_suspender', {id: 0}),
+    contaReativar: path('master_conta_reativar', {id: 0}),
+    contaExcluir: path('master_conta_excluir', {id: 0}),
+    contaLimiteArm: path('master_conta_limite_armazenamento', {id: 0}),
+    contaLimiteUsu: path('master_conta_limite_usuarios', {id: 0}),
+    planos: path('master_dados_planos'),
+    planoAlterar: path('master_plano_alterar', {codigo: 'codigo'}),
+    faixas: path('master_faixas_configurar'),
     mapaBrasil: path('master_mapa_brasil'),
     mapaMundo: path('master_mapa_mundo'),
     revisaoOab: path('admin_platform_oab_index'),
@@ -35,12 +44,17 @@
     <div class="mp-abas" role="tablist">
         <button type="button" class="mp-aba on" data-aba="painel" role="tab" aria-selected="true"><i class="bi bi-speedometer2"></i>Painel do sistema</button>
         <button type="button" class="mp-aba" data-aba="perm" role="tab" aria-selected="false"><i class="bi bi-key"></i>Permissões</button>
+        <button type="button" class="mp-aba" data-aba="rec" role="tab" aria-selected="false"><i class="bi bi-toggles"></i>Telas e recursos</button>
     </div>
 
     <div class="mp-painel" data-painel-aba="painel">
         <div class="mp-faixa"><i class="bi bi-shield-fill-check"></i>Painel exclusivo do Master. Mostra metadados das contas (quantidades, consumo, situação), nunca o conteúdo jurídico dos escritórios.</div>
         <div class="mp-secs" id="mp-secs"></div>
         <div class="mp-secao" id="mp-secao"><div class="mp-carregando">Carregando o painel…</div></div>
+        {# Seção "Comercial e e-mails" (desenho 1.2, #sec=com): mora num parcial próprio, de outra frente. Sem o
+           parcial, o painel.js nem mostra o botão da seção. O parcial pode trazer o próprio <script src> (CSP 'self')
+           e ouvir o evento "mp:secao" no #master-painel para montar a seção quando ela abrir. #}
+        <div class="mp-secao-externa" data-sec-externa="com" hidden>{% include 'master/_comercial.html.twig' ignore missing %}</div>
     </div>
 
     <div class="mp-perm" data-painel-aba="perm" hidden>
@@ -128,11 +142,42 @@
         </div>
     </div>
 
-    {# Confirmação interna do desenho (linhas 411-419), preenchida por public/js/master/masters.js. #}
+    {# Aba "Telas e recursos" (desenho linhas 299-309; spec docs/specs/perfis-1.2-telas-e-recursos.md §3). Os grupos e
+       os itens são desenhados por public/js/master/recursos.js a partir de data-recursos (estado efetivo do servidor). #}
+    <div class="mp-rec" data-painel-aba="rec" hidden>
+        <div class="mp-rec-card" data-mp-recursos
+             data-recursos="{{ recursos|json_encode|e('html_attr') }}"
+             data-url="{{ path('master_recurso_alternar', {chave: 'CHAVE'})|e('html_attr') }}"
+             data-token="{{ csrf_token('master_recursos') }}">
+            <div class="mp-rec-cab">
+                <i class="bi bi-toggles"></i>
+                <div class="mp-rec-cab-texto">
+                    <b>Telas e recursos do sistema</b>
+                    <div>Desative uma tela ou função enquanto não estiver pronta, por regularidade ética ou por falha. Quem não é Master deixa de ver; o Master continua vendo, marcado em vermelho.</div>
+                </div>
+                {% set recOff = recursos|filter(r => not r.ativo)|length %}
+                <b class="mp-rec-resumo{{ recOff ? ' is-off' }}" data-mp-rec-resumo>{{ recOff ? recOff ~ ' desativado(s) para os usuários' : 'Tudo ativo' }}</b>
+                <input type="search" class="mp-rec-busca" data-mp-rec-busca placeholder="Buscar tela ou função" aria-label="Buscar tela ou função">
+            </div>
+            <div class="mp-rec-aviso" data-mp-rec-aviso role="status" hidden></div>
+            <div class="mp-rec-grupos" data-mp-rec-grupos></div>
+        </div>
+    </div>
+
+    {# Modal de limite (desenho 1.2, linhas 397-410) e "Editar plano" (convenção), montados pelo painel.js. #}
+    <div id="mp-modal"></div>
+
+    {# Confirmação interna do desenho (linhas 411-419), preenchida por public/js/master/masters.js (promover e remover
+       Master) e pelo painel.js (suspender, reativar e excluir conta), por window.BJMasterConf. #}
     <div class="mp-conf-fundo" data-mp-conf hidden>
         <div class="mp-conf" role="dialog" aria-modal="true" aria-labelledby="mpConfTitulo">
             <div class="mp-conf-cab" data-mp-conf-cab><i class="bi" data-mp-conf-icone></i><span id="mpConfTitulo" data-mp-conf-titulo></span></div>
             <div class="mp-conf-texto" data-mp-conf-texto></div>
+            {# Só na exclusão de conta (C4): libera o botão quando a palavra bater; o servidor confere de novo. #}
+            <div class="mp-conf-campo" data-mp-conf-campo hidden>
+                <label for="mpConfPalavra" data-mp-conf-rotulo></label>
+                <input id="mpConfPalavra" type="text" autocomplete="off" spellcheck="false" data-mp-conf-palavra>
+            </div>
             <div class="mp-conf-rodape">
                 <button type="button" class="mp-conf-cancelar" data-mp-conf-cancelar>Cancelar</button>
                 <button type="button" class="mp-conf-ok" data-mp-conf-ok></button>
@@ -146,4 +191,5 @@
     <script src="{{ asset('js/master/bj-dica.js') }}"></script>
     <script src="{{ asset('js/master/painel.js') }}"></script>
     <script src="{{ asset('js/master/masters.js') }}"></script>
+    <script src="{{ asset('js/master/recursos.js') }}"></script>
 {% endblock %}

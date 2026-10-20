@@ -6,6 +6,8 @@ namespace App\Tests\Central\Unit;
 
 use App\Central\Exception\SemAcessoACentralException;
 use App\Central\Repository\ParticipanteRepository;
+use App\Central\Entity\Presenca;
+use App\Central\Repository\ConfiguracaoDePresencaRepository;
 use App\Central\Repository\PresencaRepository;
 use App\Central\Service\AcessoACentral;
 use App\Central\UseCase\ListarPresencaDoEscritorioUseCase;
@@ -43,6 +45,9 @@ final class ListarPresencaDoEscritorioUseCaseTest extends TestCase
         $usuarios->method('findColaboradoresAtivosPorTenant')->willReturn([$this->usuario(1), $this->usuario(2), $this->usuario(3), $this->usuario(4)]);
         $repo = $this->createStub(PresencaRepository::class);
         $repo->method('doEscritorio')->willReturn($presencas);
+        // Sem escolha do primário, o limite é o padrão do desenho (60): o "65" deste teste continua valendo.
+        $configuracoes = $this->createStub(ConfiguracaoDePresencaRepository::class);
+        $configuracoes->method('minutosAusente')->willReturn(Presenca::INATIVO_APOS_MINUTOS);
         $clock = $this->createStub(ClockInterface::class);
         $clock->method('now')->willReturn(new \DateTimeImmutable(self::AGORA));
 
@@ -51,6 +56,7 @@ final class ListarPresencaDoEscritorioUseCaseTest extends TestCase
             $usuarios,
             $repo,
             $clock,
+            $configuracoes,
         );
     }
 

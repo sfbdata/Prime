@@ -15,7 +15,7 @@
    processo, Trocar responsável, Copiar link, Imprimir resumo, Fixar nos
    favoritos, Arquivar/Desarquivar, Excluir) vivem no menu ⋮, com a tarja azul
    do desenho. O que o desenho mostra e o sistema ainda não tem (Mover carteira,
-   Link do Push, Acompanhar, Cadeado, Intelligence, foto do cliente) NÃO é
+   Acompanhar, Cadeado, Intelligence, foto do cliente) NÃO é
    renderizado: item inerte ensina o usuário a desconfiar do menu inteiro.
    "Fixar nos favoritos" (seção Preferências) é real: POST
    `pasta_favorito_alternar`.
@@ -26,6 +26,8 @@
    Contexto: `pasta`, `fotosResponsaveis`, `vizinhas`, `push`, `unidadeCobrada`.
    ============================================================================ #}
 {% set proc = pasta.processoPrincipal %}
+{# Abas ocultas desta pasta para quem está vendo (spec pasta-ocultar-aba §5); sem o dado, tudo visível. #}
+{% set abasDaPasta = abasDaPasta|default(null) %}
 {% set cliente = pasta.clientePrincipal %}
 {# O documento sai do CADASTRO, nunca do texto legado: pasta sem cliente vinculado
    não tem CPF/CNPJ para mostrar — é o estado de 1.152 das 1.201 pastas em produção. #}
@@ -252,6 +254,18 @@
                             data-link="{{ url('pasta_show', {id: pasta.id}) }}">
                         <i class="bi bi-link"></i><span class="js-copiar-link-rotulo">Copiar link da pasta</span>
                     </button>
+                    {# Link externo do Push ([EXP] L.1104, `mPushLink`): abre o #modalLinkExternoPush
+                       (pasta/_push_link_externo.html.twig). O selo conta os links ATIVOS; quem o
+                       preenche é o pasta-push-link.js, com o GET da lista, ao abrir este menu. #}
+                    {# Com a aba Push oculta para quem abre o ⋮, o item some (spec pasta-ocultar-aba §5); com a tela
+                       `pushpub` desligada, também (Telas e recursos, #56). #}
+                    {% if (abasDaPasta is null or abasDaPasta.visivel('push')) and recurso_visivel('pushpub') %}
+                    <button type="button" class="ps-pop-item js-ppl-abrir {{ recurso_marca('pushpub') }}" role="menuitem"
+                            aria-haspopup="dialog" aria-controls="modalLinkExternoPush">
+                        <i class="bi bi-broadcast"></i><span>Link externo do Push</span>
+                        <span class="ppl-badge js-ppl-badge-ativos ps-num" hidden></span>
+                    </button>
+                    {% endif %}
                     {# O clique abre a janela Imprimir (pasta-impressao.js, EDT-001): prévia, opções,
                        Imprimir e Copiar texto, e "Baixar PDF" gerado no servidor (Dompdf, rota
                        `pasta_resumo_pdf`). O href fica como caminho sem JS e para o Ctrl+clique: a
@@ -262,6 +276,7 @@
                     </a>
 
                     <div class="ps-pop-sep"></div>
+                    {{ include('pasta/_cadeado_menu.html.twig', {cad: cad is defined ? cad : cadeado_da_pasta(pasta)}) }}
                     <div class="ps-pop-secao">Preferências</div>
                     {# Desenho: `prefPasta('fav')` — estrela fixa, rótulo fixo e o interruptor
                        mostrando o estado. É do USUÁRIO: a pasta sobe para o topo da listagem do
@@ -331,7 +346,7 @@
        que vira o título quando não há cliente cadastrado — o estado real de quase
        todas as pastas. O ícone de pessoa não é clicável: a foto do cliente é função
        nova e botão sem função é mentira na tela. #}
-    <div class="ps-cab-cliente">
+    <div class="ps-cab-cliente" data-cad-ate="1">
         <span class="ps-cab-cliente-icone" aria-hidden="true"><i class="bi bi-person-fill"></i></span>
         <div class="ps-cab-cliente-corpo">
             <div class="ps-cab-cliente-linha">
@@ -378,9 +393,9 @@
            quem tem `modules.inteligencia.view`; o botão sempre abre o drawer — é lá que cada
            agente mostra "Gerar análise" ou o motivo REAL de a IA não estar disponível. O title
            do desenho ("Ler documentos…") não é usado: o sistema não lê documentos. #}
-        {% if can_access_module('inteligencia') %}
+        {% if can_access_module('inteligencia') and recurso_visivel('assistente') %}
             {% set iaDisp = ia_disponibilidade() %}
-            <button type="button" class="ps-cab-ia" id="psIaAbrir"
+            <button type="button" class="ps-cab-ia {{ recurso_marca('assistente') }}" id="psIaAbrir"
                     title="{{ iaDisp.estaDisponivel ? 'BlueJus IA: análises desta pasta por agente' : iaDisp.mensagem }}"
                     aria-controls="psIaDrawer" aria-expanded="false"
                     data-ia-abrir
@@ -395,6 +410,12 @@
         {% endif %}
     </div>
 
+
+    {# Cadeado (spec pasta-cadeado; desenho 02 L1295-1297): a faixa de somente visualização e a dos pedidos
+       pendentes ficam DENTRO do cabeçalho, logo abaixo da linha do cliente e antes das fases. #}
+    {% set cadFaixa = cad is defined ? cad : cadeado_da_pasta(pasta) %}
+    {{ include('pasta/_cadeado_faixa.html.twig', {pasta: pasta, cad: cadFaixa}) }}
+    {{ include('pasta/_cadeado_pedidos.html.twig', {pasta: pasta, cad: cadFaixa}) }}
 
     {# ── Palco da linha do tempo (desenho 1.2.3: o carimbo da situação fica no MESMO bloco do andamento,
        à direita, e a linha do tempo reserva 150px para ele). A faixa "Processo vinculado · Ação ·
@@ -443,6 +464,15 @@
                 <span class="ps-cab-selo-faixa"><i class="bi {{ sp.icone }}" aria-hidden="true"></i>{{ sp.texto }}</span>
             </div>
         {% endif %}
+        {# Selo do cadeado (desenho 02 L1300, `cd.seloEl`): só para quem configura, em pasta com cadeado; abre o
+           modal. Fica à esquerda do carimbo da situação quando ele existe (136px), como no desenho. #}
+        {% set cadSelo = cad is defined ? cad : cadeado_da_pasta(pasta) %}
+        {% if cadSelo and cadSelo.podeConfigurar and cadSelo.temCadeado %}
+            <div class="js-cadeado-abrir" role="button" tabindex="0" aria-label="Cadeado da pasta" title="{{ cadSelo.seloTitulo }}" data-cad-onda
+                 style="position:absolute;right:{{ pasta.situacao != 'ativo' ? 136 : 8 }}px;top:50%;transform:translateY(-50%);z-index:2;pointer-events:auto;cursor:pointer">
+                {{ include('pasta/_cadeado_icone.html.twig', {px: 64, ondas: true}) }}
+            </div>
+        {% endif %}
         {{ include('pasta/_andamento.html.twig') }}
     </div>
 
@@ -467,9 +497,14 @@
         {id: 'processo',   painel: 'processo',   rotulo: 'Processo',       icone: 'bi-bank',          contagem: null},
         {id: 'financeiro', painel: 'financeiro', rotulo: 'Financeiro',     icone: 'bi-cash-coin',     contagem: null},
         {id: 'detalhes',   painel: 'detalhes',   rotulo: 'Detalhes',       icone: 'bi-info-circle',   contagem: null},
-        {id: 'documentos', painel: 'documentos', rotulo: 'Documentos',     icone: 'bi-paperclip',     contagem: pasta.documentos|length},
+        {id: 'documentos', painel: 'documentos', rotulo: 'Documentos',     icone: 'bi-paperclip',     contagem: (abasDaPasta ? pasta.documentos|filter(d => abasDaPasta.documentoVisivel(d.categoria)) : pasta.documentos)|length},
         {id: 'push',       painel: 'push',       rotulo: 'Push Processual', icone: 'bi-broadcast',     contagem: pushNaoLidas},
     ] %}
+    {# Abas ocultas (spec pasta-ocultar-aba §5): para quem está oculto, a aba nem é desenhada, e a
+       primeira visível nasce ativa (o `loop.first` abaixo). `abasDaPasta` vem do servidor
+       (`VisibilidadeDasAbasDaPasta::estadoParaTela`); quem configura nunca é ocultado. #}
+    {% set abas = abas|filter(a => abasDaPasta is null or abasDaPasta.visivel(a.id)) %}
+    {% set configuraAbas = abasDaPasta is not null and abasDaPasta.podeConfigurar %}
     <div class="ps-abas-faixa">
         {# `ps-abas--sem-js` sai no boot do pasta-show.js. Sem JS o sublinhado nunca
            é medido, e sem esta classe a aba ativa ficaria sem marca nenhuma. #}
@@ -484,7 +519,18 @@
                         type="button" role="tab"
                         aria-controls="{{ aba.painel }}"
                         aria-selected="{{ loop.first ? 'true' : 'false' }}"
-                        title="{{ aba.rotulo }}{% if pend %} · {{ pend.txt }}{% endif %}">
+                        title="{{ aba.rotulo }}{% if pend %} · {{ pend.txt }}{% endif %}"
+                        {#- Botão direito (ou Shift+F10 / tecla de menu) na aba Push abre o menu
+                            "PUSH PROCESSUAL" do link externo ([EXP] L.1241 `onContextMenu`,
+                            `abaMenu` L.4409). Quem escuta é o pasta-push-link.js. Com a tela `pushpub`
+                            desligada o menu não existe, e a aba não o anuncia. #}
+                        {%- if aba.id == 'push' and recurso_visivel('pushpub') %} data-ppl-menu="pushLinkMenu" aria-keyshortcuts="Shift+F10"{% endif %}
+                        {#- Botão direito em qualquer aba: ocultar para a equipe ([EXP] L.4409-4419). Quem
+                            escuta é o pasta-abas-ocultas.js; o rótulo e a regra vão para o menu. #}
+                        data-pao-aba="{{ aba.id }}" data-pao-rotulo="{{ aba.rotulo }}"
+                        {%- if configuraAbas and abasDaPasta.temRegra(aba.id) %} data-pao-regra="1" data-pao-sufixo="{{ abasDaPasta.sufixoDoMenu(aba.id) }}"{% endif %}>
+                    {# Ícone da regra, só para quem configura ([EXP] L.1243, title L.6088). #}
+                    {% if configuraAbas and abasDaPasta.temRegra(aba.id) %}<i class="bi bi-eye-slash ps-aba-oculta-ind" title="{{ abasDaPasta.dicaDoIcone(aba.id) }}" aria-label="{{ abasDaPasta.dicaDoIcone(aba.id) }}"></i>{% endif %}
                     {# A barra some na aba ativa (CSS, pela classe `.active` que o
                        Bootstrap alterna): quem está olhando a aba já vê a pendência. #}
                     {% if pend %}<span class="ps-aba-pend" aria-hidden="true"></span>{% endif %}

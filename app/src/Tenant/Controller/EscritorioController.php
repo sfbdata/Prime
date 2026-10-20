@@ -6,6 +6,7 @@ namespace App\Tenant\Controller;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Master\Service\RegraDosMasters;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -21,13 +22,20 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class EscritorioController extends AbstractController
 {
+    private const CONFIRMACAO_NAO_CONFERE = 'A confirmação não confere com o nome do escritório.';
+
     public function __construct(
         private readonly SairDoEscritorioUseCase $sairDoEscritorio,
         private readonly CriarEscritorioUseCase $criarEscritorio,
         private readonly ExcluirEscritorioUseCase $excluirEscritorio,
         private readonly TenantContext $tenantContext,
+        private readonly RegraDosMasters $regraDosMasters,
     ) {}
 
+    /**
+     * Recusa, com flash, a conta criada por um Master (spec perfis-1.2-contas C5 e Q4, regra em
+     * {@see RegraDosMasters::recusaParaExcluir()}) e a confirmação com o nome errado.
+     */
     #[Route('/escritorio/{id}/excluir', name: 'escritorio_excluir', methods: ['POST'])]
     public function excluir(
         Tenant $tenant,
@@ -52,8 +60,9 @@ final class EscritorioController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        if ($request->request->getString('confirmar_nome') !== (string) $tenant->getName()) {
-            $this->addFlash('danger', 'A confirmação não confere com o nome do escritório.');
+        $recusa = $this->regraDosMasters->recusaParaExcluir($tenant) ?? ($request->request->getString('confirmar_nome') !== (string) $tenant->getName() ? self::CONFIRMACAO_NAO_CONFERE : null);
+        if ($recusa !== null) {
+            $this->addFlash('danger', $recusa);
 
             return $this->redirectToRoute('app_tenant_show', ['tenantId' => $tenant->getId()]);
         }
