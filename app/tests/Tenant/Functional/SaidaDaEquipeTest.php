@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Tenant\DTO\RemoverColaboradorInput;
 use App\Tenant\Entity\SaidaDaEquipe;
 use App\Tenant\Enum\MotivoDaSaida;
 use App\Tenant\Enum\SituacaoNaEquipe;
@@ -81,6 +82,20 @@ final class SaidaDaEquipeTest extends KernelTestCase
         $saidas = $this->saidas();
         self::assertCount(1, $saidas);
         self::assertSame(MotivoDaSaida::Saiu, $saidas[0]->getMotivo());
+    }
+
+    #[TestDox('remover um sócio com perfil de sistema grava era_primario')]
+    public function testRemoverPrimarioGravaEraPrimario(): void
+    {
+        $socio = $this->usuario('Sócio Saídas');
+        $this->vincular($socio, $this->perfil(true));
+        $this->em->flush();
+
+        $this->servico(RemoverColaboradorDoEscritorioUseCase::class)->executar(new RemoverColaboradorInput($this->primario, $socio, $this->tenant));
+
+        $saidas = $this->saidas();
+        self::assertCount(1, $saidas);
+        self::assertSame([MotivoDaSaida::Removido, true], [$saidas[0]->getMotivo(), $saidas[0]->eraPrimario()]);
     }
 
     #[TestDox('uma remoção recusada não grava saída (mesma transação)')]
