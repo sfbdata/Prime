@@ -54,7 +54,10 @@ final class ObterEstadoDoPontoDoDiaUseCaseTest extends KernelTestCase
         foreach ($batidas as [$tipo, $hora]) {
             $this->batida($user, $tenant, $tipo, 'today ' . $hora);
         }
-        $this->batida($user, $tenant, RegistroPonto::TIPO_ENTRADA, 'yesterday 08:00');   // outro dia não entra
+        // Outro dia não entra. Ontem com entrada E saída: um ontem sem saída, num dia útil, poria "Regularizar ponto de
+        // ontem" na frente do estado de hoje e o teste dependeria do dia da semana em que roda.
+        $this->batida($user, $tenant, RegistroPonto::TIPO_ENTRADA, 'yesterday 08:00');
+        $this->batida($user, $tenant, RegistroPonto::TIPO_SAIDA, 'yesterday 17:00');
 
         $saida = $this->casoDeUso()->executar($user, $tenant);
 
