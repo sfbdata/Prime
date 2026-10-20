@@ -377,4 +377,22 @@ class NotificacaoRepository extends ServiceEntityRepository
 
         return $porUsuario;
     }
+
+    /**
+     * Existe aviso deste tipo no escritório criado a partir de `$desde`? É o teto do envio manual do
+     * relatório de pastas sem processo (um a cada 30 minutos por escritório).
+     */
+    public function existeDoTipoNoEscritorioDesde(Tenant $tenant, string $tipo, \DateTimeImmutable $desde): bool
+    {
+        return (int) $this->createQueryBuilder('n')
+            ->select('COUNT(n.id)')
+            ->andWhere('n.tenant = :tenant')
+            ->andWhere('n.tipo = :tipo')
+            ->andWhere('n.criadaEm >= :desde')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('tipo', $tipo)
+            ->setParameter('desde', $desde)
+            ->getQuery()
+            ->getSingleScalarResult() > 0;
+    }
 }

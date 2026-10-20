@@ -13,6 +13,7 @@ use App\Inteligencia\UseCase\BuscarPastasDoAgenteUseCase;
 use App\Inteligencia\UseCase\ContarPastasDoAgenteUseCase;
 use App\Inteligencia\UseCase\ListarDocumentosDaPastaDoAgenteUseCase;
 use App\Inteligencia\UseCase\ListarOpcoesDoAgenteUseCase;
+use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Exception\SemPermissaoParaVerPastaException;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -61,7 +62,9 @@ final class AgenteDePastasController extends AbstractController
         }
     }
 
+    // `#[PastaPorId]`: a barreira do ocultar aba acha a pasta pelo id e recusa com a aba Documentos oculta.
     #[Route('/pastas/{id}/documentos', name: 'inteligencia_agente_pastas_documentos', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[PastaPorId('id')]
     public function documentos(int $id): JsonResponse
     {
         $tenant = $this->tenantComModulo();

@@ -421,4 +421,39 @@ class PastaDocumentoRepository extends ServiceEntityRepository
 
         return $documentos;
     }
+
+    /**
+     * Título, nome do arquivo e categoria dos documentos (fora da lixeira) das pastas pedidas, para o
+     * relatório de pastas sem processo. Uma consulta para o lote; tenant pela pasta.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, list<string>> pastaId => "título nome categoria"
+     */
+    public function textosParaAnaliseSemProcesso(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('d')
+            ->select('IDENTITY(d.pasta) AS pasta_id', 'd.titulo', 'd.nomeOriginal', 'd.categoria')
+            ->join('d.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            // A lixeira já sai pelo LixeiraFilter na tela; o comando roda sem filtro nenhum.
+            ->andWhere('d.excluidoEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->orderBy('d.id', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPasta = [];
+        foreach ($linhas as $l) {
+            $porPasta[(int) $l['pasta_id']][] = trim($l['titulo'] . ' ' . $l['nomeOriginal'] . ' ' . $l['categoria']);
+        }
+
+        return $porPasta;
+    }
 }

@@ -10,6 +10,7 @@ use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\TelaDoCadeado;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
@@ -64,11 +65,14 @@ use App\Pasta\DTO\PastaPagamentosOutput;
 use App\Pasta\DTO\PastaMetasResumoOutput;
 use App\Pasta\DTO\PastaPendenciasOutput;
 use App\Pasta\DTO\PastaPushOutput;
+use App\Pasta\UseCase\MontarPainelDoPushUseCase;
+use App\Pasta\UseCase\MontarAvisosDoPushUseCase;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Inteligencia\DTO\AnalisesDaPastaOutput;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Pasta\DTO\PastaPrazoOutput;
 use App\Pasta\DTO\AndamentoDaPastaOutput;
@@ -162,6 +166,7 @@ class PastaController extends AbstractController
         private readonly EditarMensagemPastaUseCase $editarMensagemUseCase,
         private readonly ExcluirMensagemPastaUseCase $excluirMensagemUseCase,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
+        private readonly MontarAvisosDoPushUseCase $montarAvisosDoPush,
         private readonly MarcadorRepository $marcadorRepository,
         private readonly CasoCobrancaRepository $casoCobrancaRepository,
         private readonly AlterarSituacaoContratoUseCase $alterarSituacaoContratoUseCase,
@@ -300,6 +305,8 @@ class PastaController extends AbstractController
             return new JsonResponse([
                 'status'   => 'ok',
                 'redirect' => $this->generateUrl('pasta_show', ['id' => $pasta->getId()]),
+                'nup'      => $pasta->getNup(),   // o Expediente fica na lista e avisa (desenho 03, dc `salvarNovaFn`)
+                'cliente'  => mb_strtoupper((string) $pasta->getNomeCliente()),
             ]);
         }
 
@@ -317,6 +324,8 @@ class PastaController extends AbstractController
         VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         NotaTecnicaRepository $notaTecnicaRepository,
         TelaDoCadeado $telaDoCadeado,
+        VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
+        MontarPainelDoPushUseCase $montarPainelDoPush,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -334,7 +343,8 @@ class PastaController extends AbstractController
         $tenantId  = $tenant?->getId() ?? 0;
         $processoId = $pasta->getProcessoPrincipal()?->getId();
 
-        $timelineItems   = $this->timelineAssembler->montar($pasta, $tenant, $tenantId, $processoId);
+        $abasDaPasta     = $visibilidadeDasAbas->estadoParaTela($pasta, $currentUser); // abas ocultas (spec pasta-ocultar-aba §5)
+        $timelineItems   = $this->timelineAssembler->montar($pasta, $tenant, $tenantId, $processoId, abasOcultas: $abasDaPasta->ocultas);
         $todosMarcadores = $this->marcadorRepository->findTodosPorTenant($tenant);
 
         // O redesenho parte a timeline em dois destinos que antes disputavam a
@@ -398,7 +408,7 @@ class PastaController extends AbstractController
         // "contém 3 subpastas e 127 arquivos" precisa delas ANTES do clique — saem em memória.
         $explorador = ExploradorDeDocumentosOutput::montar(
             $secoes,
-            $tenant !== null ? $this->pastaDocumentoRepository->findByPastaComSecao($pasta, $tenant) : [],
+            $tenant !== null ? VisibilidadeDasAbasDaPasta::documentosVisiveis($this->pastaDocumentoRepository->findByPastaComSecao($pasta, $tenant), $abasDaPasta->ocultas) : [], // contrato some com o Financeiro oculto
             self::DOCUMENT_TYPES,
             fn (string $rota, array $params): string => $this->generateUrl($rota, $params),
             fn (string $idDoToken): string => $this->csrfTokenManager->getToken($idDoToken)->getValue(),
@@ -455,7 +465,7 @@ class PastaController extends AbstractController
             && $this->permissionChecker->canAccessModule($currentUser, $tenant, DisponibilidadeDeInteligencia::MODULO)
         ) {
             $analisesIa = $disponibilidadeIa->plataformaConfigurada()
-                ? $listarAnalisesIa->executar($pasta, $tenant)
+                ? $listarAnalisesIa->executar($pasta, $tenant, $abasDaPasta->ocultas)
                 : AnalisesDaPastaOutput::semInteligenciaNaPlataforma($push->total);
         }
 
@@ -503,6 +513,7 @@ class PastaController extends AbstractController
             'secoes'                      => $secoes,
             'explorador'                  => $explorador,
             'push'                        => $push,
+            ...$this->paineisDoPush($pasta, $tenant, $montarPainelDoPush),
             'analisesIa'                  => $analisesIa,
             // Linha vermelha sob as abas (desenho 1.2.3): calculada aqui, a tela só mostra.
             // A do Financeiro ("… e N pagamentos vencidos") só para quem vê o financeiro.
@@ -514,6 +525,7 @@ class PastaController extends AbstractController
                 veFinanceiro: $tenant !== null && $visibilidadeDoFinanceiro->podeVer($currentUser, $tenant, $pasta),
             ),
             'metasResumo'                 => PastaMetasResumoOutput::montar($pasta),
+            'abasDaPasta'                 => $abasDaPasta,
             // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
             // judicialização (6 das 1.099 em produção). `null` nas demais, e o cabeçalho
             // simplesmente não desenha o campo.
@@ -2676,5 +2688,19 @@ class PastaController extends AbstractController
         return $telaDoCadeado->mostraATelaTrancada($pasta, $pessoa, $cadeado)
             ? $this->render('pasta/trancada.html.twig', ['pasta' => $pasta, 'cad' => $cadeado])
             : null;
+    }
+
+    /**
+     * Os painéis da aba Push na tela da pasta: o painel lateral de monitoramento (push-painel-monitoramento) e o
+     * "Avisar quando chegar" (push-avisar-quando-chegar). Sem escritório na sessão, nenhum dos dois.
+     *
+     * @return array{pushPainel: mixed, pushAvisos: mixed}
+     */
+    private function paineisDoPush(Pasta $pasta, ?Tenant $tenant, MontarPainelDoPushUseCase $montarPainelDoPush): array
+    {
+        return [
+            'pushPainel' => $tenant !== null ? $montarPainelDoPush->executar($pasta, $tenant) : null,
+            'pushAvisos' => $tenant !== null ? $this->montarAvisosDoPush->executar($pasta, $tenant) : null,
+        ];
     }
 }

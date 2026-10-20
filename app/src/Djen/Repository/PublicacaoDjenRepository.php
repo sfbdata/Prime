@@ -7,6 +7,10 @@ namespace App\Djen\Repository;
 use App\Djen\DTO\PublicacaoDjenListaItem;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Tenant\Tenant;
+use App\Processo\DTO\HistoricoParaPrevisao;
+use App\Processo\DTO\MovimentacaoParaPrevisao;
+use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\DBAL\ParameterType;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -19,6 +23,7 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
 {
     /** Caracteres do teor (HTML cru) que a lista da PASTA projeta para montar o `textoResumo`. */
     private const TEXTO_INICIO_LISTA = 2000;
+    private const TEXTO_PREVISAO = 15000;
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -153,6 +158,60 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     }
 
     /**
+     * As publicações desta captação (pelos `djenId` novos) que estão VINCULADAS a um processo do
+     * escritório, com o processo junto: a entrada do "Avisar quando chegar" do Push (spec
+     * push-avisar-quando-chegar §3). Chamada depois da reconciliação, então pega também a que
+     * nasceu avulsa e foi religada na mesma captação. Tenant explícito: roda no CLI.
+     *
+     * @param list<string> $djenIds
+     *
+     * @return list<PublicacaoDjen>
+     */
+    public function listarVinculadasPorDjenIdsDoTenant(Tenant $tenant, array $djenIds): array
+    {
+        if ($djenIds === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('p')
+            ->addSelect('pr')
+            ->join('p.processo', 'pr')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('pr.tenant = :tenant')
+            ->andWhere('p.djenId IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', array_values(array_unique($djenIds)))
+            ->orderBy('p.dataDisponibilizacao', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * As publicações do escritório VINCULADAS a um processo dele e disponibilizadas no período (datas
+     * inclusivas), com o processo junto: a entrada do resumo semanal ao cliente (spec
+     * push-envio-automatico §3). Da mais antiga para a mais recente. Tenant explícito: roda no CLI.
+     *
+     * @return list<PublicacaoDjen>
+     */
+    public function listarVinculadasDoPeriodoDoTenant(Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
+    {
+        return $this->createQueryBuilder('p')
+            ->addSelect('pr')
+            ->join('p.processo', 'pr')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('pr.tenant = :tenant')
+            ->andWhere('p.dataDisponibilizacao BETWEEN :inicio AND :fim')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('inicio', $inicio->setTime(0, 0), 'date_immutable')
+            ->setParameter('fim', $fim->setTime(0, 0), 'date_immutable')
+            ->orderBy('p.dataDisponibilizacao', 'ASC')
+            ->addOrderBy('p.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Publicações do escritório ainda sem vínculo com Processo — a entrada da reconciliação.
      * Devolve ENTIDADES (e não projeção) porque quem chama vai gravar a FK nelas.
      *
@@ -240,6 +299,77 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
             static fn (array $linha): PublicacaoDjenListaItem => PublicacaoDjenListaItem::fromRow($linha),
             $linhas,
         );
+    }
+
+    /**
+     * A movimentação mais recente da pasta, com o teor, para a regra da "Situação atual" do Push
+     * (spec push-painel-monitoramento §3): a primeira da MESMA lista da aba
+     * (`listarItensPorNumerosDoTenant`: mesmos números e ordem), sem as que não têm data (sem data
+     * não há contagem de prazo nem ordem). O teor vem cortado em `TEXTO_PREVISAO` caracteres de
+     * HTML: a previsão só lê os 5.000 primeiros de texto, e as tags ocupam espaço.
+     *
+     * @param string[] $numeros números CNJ dos processos da pasta
+     */
+    public function ultimaParaPrevisaoDoTenant(Tenant $tenant, array $numeros): ?MovimentacaoParaPrevisao
+    {
+        $numeros = self::normalizarNumeros($numeros);
+        if ($numeros === []) {
+            return null;
+        }
+
+        $linha = $this->createQueryBuilder('p')
+            ->select('p.dataDisponibilizacao AS data', 'p.tipoComunicacao AS tipo', 'SUBSTRING(p.texto, 1, ' . self::TEXTO_PREVISAO . ') AS teor')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.numeroProcesso IN (:numeros)')
+            ->andWhere('p.dataDisponibilizacao IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('numeros', $numeros)
+            ->orderBy('p.dataDisponibilizacao', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getArrayResult()[0] ?? null;
+
+        if ($linha === null || !$linha['data'] instanceof \DateTimeInterface) {
+            return null;
+        }
+
+        return MovimentacaoParaPrevisao::doTeorHtml(\DateTimeImmutable::createFromInterface($linha['data']), $linha['tipo'], $linha['teor']);
+    }
+
+    /**
+     * O histórico que a "Situação atual" lê, respondido no banco sem trazer teor nenhum: quantas
+     * movimentações há na lista (até o teto da aba) e se alguma, além da mais recente, fala em
+     * contestação (`/contesta/` sobre tipo + teor, dc L.5098). ILIKE dispensa tirar acento e caixa:
+     * "contesta" não tem acento, e "CONTESTAÇÃO"/"contestação" casam igual.
+     *
+     * @param string[] $numeros números CNJ dos processos da pasta
+     */
+    public function historicoParaPrevisaoDoTenant(Tenant $tenant, array $numeros, int $limite = 100): HistoricoParaPrevisao
+    {
+        $numeros = self::normalizarNumeros($numeros);
+        if ($numeros === []) {
+            return new HistoricoParaPrevisao(0, false);
+        }
+
+        $linha = $this->getEntityManager()->getConnection()->fetchAssociative(
+            "WITH lista AS (
+                SELECT ROW_NUMBER() OVER (ORDER BY data_disponibilizacao DESC, id DESC) AS ordem,
+                       COALESCE(tipo_comunicacao, '') || ' ' || SUBSTRING(COALESCE(texto, ''), 1, " . self::TEXTO_PREVISAO . ") AS n
+                  FROM publicacao_djen
+                 WHERE tenant_id = :tenant AND numero_processo IN (:numeros) AND data_disponibilizacao IS NOT NULL
+                 ORDER BY data_disponibilizacao DESC, id DESC
+                 LIMIT :limite
+            )
+            SELECT COUNT(*) AS total, COALESCE(BOOL_OR(ordem > 1 AND n ILIKE '%contesta%'), false) AS contestacao FROM lista",
+            ['tenant' => $tenant->getId(), 'numeros' => array_map('strval', $numeros), 'limite' => $limite],
+            ['numeros' => ArrayParameterType::STRING, 'limite' => ParameterType::INTEGER],
+        );
+
+        // O driver devolve o booleano do PostgreSQL como bool; 't' cobre um driver que devolva texto.
+        $contestacao = $linha['contestacao'] ?? false;
+
+        return new HistoricoParaPrevisao((int) ($linha['total'] ?? 0), $contestacao === true || $contestacao === 't');
     }
 
     /**

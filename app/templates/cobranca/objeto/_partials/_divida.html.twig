@@ -277,8 +277,10 @@
                    modal de Editar decidir a borda "R$ de juros desabilitado quando dias==0" — sem
                    consulta nova, só aritmética sobre datas já carregadas. #}
                 {% set diasAteHoje = max(0, ((hoje.timestamp - o.vencimentoOriginal.timestamp) / 86400)|round(0, 'floor')) %}
+                {# `data-obr-menu`: o botão direito em qualquer ponto da linha abre o menu dela (o mesmo do `⋯`). #}
                 <div class="jp-obr {{ vencida ? 'is-vencida' }} {{ o.quitada ? 'is-quitada' }}"
-                     data-valor-centavos="{{ o.restante }}" data-bruto-centavos="{{ o.brutoSugerido }}">
+                     data-valor-centavos="{{ o.restante }}" data-bruto-centavos="{{ o.brutoSugerido }}"
+                     data-obr-menu="menuObr{{ o.id }}">
                     {% if podeAcordar %}
                         <input class="form-check-input mt-0 jp-check" type="checkbox"
                                value="{{ o.id }}" data-valor-centavos="{{ o.restante }}"
@@ -326,62 +328,96 @@
                             <i class="bi bi-file-earmark-text me-1"></i>Acordar
                         </button>
                         {% endif %}
-                        {% if podeGerenciar and not o.substituidaPorAcordo and not o.ehParcelaAcordo %}
-                        {# Editar + excluir juntos num único menu (Ajuste 11/T4): cada `dropdown-item` carrega
-                           EXATAMENTE os mesmos `data-*` que os dois botões soltos de antes — o JS de show.html.twig
-                           lê `event.relatedTarget` no `show.bs.modal`, e o `relatedTarget` passa a ser o
-                           `dropdown-item` clicado, que continua tendo esses atributos. #}
-                        <div class="dropdown cob-row-menu">
-                            <button type="button" class="btn btn-sm jp-btn-outline py-0" data-bs-toggle="dropdown"
-                                    aria-expanded="false" aria-label="Mais ações desta obrigação" title="Mais ações">
+                        {# ── Menu da LINHA (desenho 1A de 19/10, `omVals`) ──────────────────────────────
+                           O `⋯` e o botão direito em qualquer ponto da linha abrem o MESMO menu (o `id` em
+                           `aria-controls` do botão é o `data-obr-menu` da linha). Quem abre, posiciona e
+                           fecha é `public/js/objeto-linha-menu.js`; o menu nasce `hidden`.
+
+                           Cada item é a ação que JÁ EXISTE na linha, não uma segunda implementação:
+                           "Receber" clica o botão Receber, "Marcar para cobrança em lote" clica a checkbox,
+                           "Ver memória de cálculo" abre o chevron. Editar e Excluir continuam sendo os
+                           gatilhos REAIS dos modais, com EXATAMENTE os mesmos `data-*` de antes: o JS de
+                           `show.html.twig` lê `event.relatedTarget` no `show.bs.modal`.
+
+                           Fora, por decisão do dono (19/10): "Gerar boleto / 2ª via" e "Enviar cobrança ao
+                           devedor", que o desenho traz e o sistema não tem. "Editar (corrigir)" fica, mesmo
+                           fora do desenho: é ação que existe e não pode sumir. #}
+                        {% set idMenu = 'menuObr' ~ o.id %}
+                        {% set podeEditarLinha = podeGerenciar and not o.substituidaPorAcordo and not o.ehParcelaAcordo %}
+                        <div class="cob-row-menu">
+                            <button type="button" class="btn btn-sm jp-btn-outline py-0 cob-obr-menu-btn"
+                                    data-obr-menu-abrir="{{ idMenu }}" aria-haspopup="menu" aria-expanded="false"
+                                    aria-controls="{{ idMenu }}" aria-label="Mais ações desta obrigação" title="Mais ações">
                                 <i class="bi bi-three-dots"></i>
                             </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li>
-                                    <button type="button" class="dropdown-item"
-                                            data-bs-toggle="modal" data-bs-target="#modalEditarObrigacao"
-                                            data-acao-url="{{ path('cobranca_obrigacao_editar', {id: o.id}) }}"
-                                            data-descricao="{{ o.descricao|e('html_attr') }}"
-                                            data-referencia="{{ o.referenciaExterna|e('html_attr') }}"
-                                            data-vencimento="{{ o.vencimentoOriginal|date('Y-m-d') }}"
-                                            data-valor-centavos="{{ o.valorOriginal }}"
-                                            {# `data-encargos-centavos` (a soma, INV-E1) PERMANECE por compatibilidade;
-                                               os três abaixo são o split que o modal de edição reidrata (spec §11). #}
-                                            data-encargos-centavos="{{ o.encargosReconhecidos }}"
-                                            data-juros-centavos="{{ o.juros }}"
-                                            data-multa-centavos="{{ o.multa }}"
-                                            data-correcao-centavos="{{ o.correcao }}"
-                                            {# F5 (spec §12): a obrigação já recebeu pagamento? Se sim, mudar o valor pode
-                                               deixar o recebido sobrando/faltando — o modal de edição usa este gatilho para
-                                               revelar o aviso de "reconciliar em Corrigir pagamento". `o.alocado` já vem
-                                               materializado no ObrigacaoOutput (não recalcula nada aqui). #}
-                                            data-tem-pagamento="{{ o.alocado > 0 ? '1' : '0' }}"
-                                            data-dias="{{ diasAteHoje }}"
-                                            {# FIX crítico (Task 9): a taxa CRUA de override (bp; vazio = herda do caso),
-                                               não o valor calculado acima — é o que o JS usa para reidratar o override
-                                               ATUAL desta obrigação ao abrir "Editar". Sem isto, reabrir sempre nascia
-                                               "herda" e qualquer submissão (mesmo só a descrição) apagava silenciosamente
-                                               a taxa própria (`EditarObrigacaoUseCase` sempre deriva os 4 overrides do que
-                                               o Form submete — não existe "não mexi, mantenha"). #}
-                                            data-taxa-juros-bp="{{ o.taxaJurosMensalBp is not null ? o.taxaJurosMensalBp : '' }}"
-                                            data-taxa-multa-bp="{{ o.taxaMultaBp is not null ? o.taxaMultaBp : '' }}"
-                                            data-taxa-correcao-bp="{{ o.taxaCorrecaoBp is not null ? o.taxaCorrecaoBp : '' }}"
-                                            data-taxa-honorarios-bp="{{ o.taxaHonorariosBp is not null ? o.taxaHonorariosBp : '' }}">
-                                        <i class="bi bi-pencil me-2"></i>Editar (corrigir)
-                                    </button>
-                                </li>
-                                <li>
-                                    <button type="button" class="dropdown-item text-danger"
-                                            data-bs-toggle="modal" data-bs-target="#modalExcluirObrigacao"
-                                            data-acao-url="{{ path('cobranca_obrigacao_excluir', {id: o.id}) }}"
-                                            data-token="{{ csrf_token('excluir_obrigacao_' ~ o.id) }}"
-                                            data-descricao="{{ o.descricao|e('html_attr') }}">
-                                        <i class="bi bi-trash me-2"></i>Excluir
-                                    </button>
-                                </li>
-                            </ul>
+                            {# O texto copiado é montado no JS a partir destes três campos, já formatados como a
+                               linha os mostra: nada de aritmética de dinheiro no navegador. #}
+                            <div class="cob-obr-menu" id="{{ idMenu }}" role="menu" aria-labelledby="{{ idMenu }}Titulo" hidden
+                                 data-obr-menu-dados="{{ {
+                                     descricao: o.descricao,
+                                     vencimento: o.vencimentoOriginal|date('d/m/Y'),
+                                     total: (o.encargosNaoCalculados ? o.valorOriginal : o.valorAtual)|centavos
+                                 }|json_encode|e('html_attr') }}">
+                                <div class="cob-obr-menu-titulo" id="{{ idMenu }}Titulo" title="{{ o.descricao|e('html_attr') }}">{{ o.descricao }}</div>
+                                {% if podeMovimentar and exigivel and not o.quitada %}
+                                <button type="button" role="menuitem" class="cob-obr-menu-item" data-obr-menu-acao="receber">
+                                    <i class="bi bi-cash-coin"></i><span>Receber</span>
+                                </button>
+                                {% endif %}
+                                {% if podeAcordar %}
+                                <button type="button" role="menuitemcheckbox" aria-checked="false" class="cob-obr-menu-item" data-obr-menu-acao="marcar">
+                                    <i class="bi bi-check2-square"></i><span>Marcar para cobrança em lote</span>
+                                </button>
+                                {% endif %}
+                                <button type="button" role="menuitem" class="cob-obr-menu-item" data-obr-menu-acao="copiar">
+                                    <i class="bi bi-clipboard"></i><span>Copiar valor e descrição</span>
+                                </button>
+                                <button type="button" role="menuitem" class="cob-obr-menu-item" data-obr-menu-acao="memoria">
+                                    <i class="bi bi-calculator"></i><span>Ver memória de cálculo</span>
+                                </button>
+                                {% if podeEditarLinha %}
+                                <button type="button" role="menuitem" class="cob-obr-menu-item"
+                                        data-bs-toggle="modal" data-bs-target="#modalEditarObrigacao"
+                                        data-acao-url="{{ path('cobranca_obrigacao_editar', {id: o.id}) }}"
+                                        data-descricao="{{ o.descricao|e('html_attr') }}"
+                                        data-referencia="{{ o.referenciaExterna|e('html_attr') }}"
+                                        data-vencimento="{{ o.vencimentoOriginal|date('Y-m-d') }}"
+                                        data-valor-centavos="{{ o.valorOriginal }}"
+                                        {# `data-encargos-centavos` (a soma, INV-E1) PERMANECE por compatibilidade;
+                                           os três abaixo são o split que o modal de edição reidrata (spec §11). #}
+                                        data-encargos-centavos="{{ o.encargosReconhecidos }}"
+                                        data-juros-centavos="{{ o.juros }}"
+                                        data-multa-centavos="{{ o.multa }}"
+                                        data-correcao-centavos="{{ o.correcao }}"
+                                        {# F5 (spec §12): a obrigação já recebeu pagamento? Se sim, mudar o valor pode
+                                           deixar o recebido sobrando/faltando — o modal de edição usa este gatilho para
+                                           revelar o aviso de "reconciliar em Corrigir pagamento". `o.alocado` já vem
+                                           materializado no ObrigacaoOutput (não recalcula nada aqui). #}
+                                        data-tem-pagamento="{{ o.alocado > 0 ? '1' : '0' }}"
+                                        data-dias="{{ diasAteHoje }}"
+                                        {# FIX crítico (Task 9): a taxa CRUA de override (bp; vazio = herda do caso),
+                                           não o valor calculado acima — é o que o JS usa para reidratar o override
+                                           ATUAL desta obrigação ao abrir "Editar". Sem isto, reabrir sempre nascia
+                                           "herda" e qualquer submissão (mesmo só a descrição) apagava silenciosamente
+                                           a taxa própria (`EditarObrigacaoUseCase` sempre deriva os 4 overrides do que
+                                           o Form submete — não existe "não mexi, mantenha"). #}
+                                        data-taxa-juros-bp="{{ o.taxaJurosMensalBp is not null ? o.taxaJurosMensalBp : '' }}"
+                                        data-taxa-multa-bp="{{ o.taxaMultaBp is not null ? o.taxaMultaBp : '' }}"
+                                        data-taxa-correcao-bp="{{ o.taxaCorrecaoBp is not null ? o.taxaCorrecaoBp : '' }}"
+                                        data-taxa-honorarios-bp="{{ o.taxaHonorariosBp is not null ? o.taxaHonorariosBp : '' }}">
+                                    <i class="bi bi-pencil"></i><span>Editar (corrigir)</span>
+                                </button>
+                                <div class="cob-obr-menu-sep" role="separator"></div>
+                                <button type="button" role="menuitem" class="cob-obr-menu-item is-perigo"
+                                        data-bs-toggle="modal" data-bs-target="#modalExcluirObrigacao"
+                                        data-acao-url="{{ path('cobranca_obrigacao_excluir', {id: o.id}) }}"
+                                        data-token="{{ csrf_token('excluir_obrigacao_' ~ o.id) }}"
+                                        data-descricao="{{ o.descricao|e('html_attr') }}">
+                                    <i class="bi bi-trash3"></i><span>Excluir lançamento</span>
+                                </button>
+                                {% endif %}
+                            </div>
                         </div>
-                        {% endif %}
                     </div>
                     {{ colunas.chevron(o) }}
                     {{ colunas.detalheEncargos(o) }}

@@ -26,8 +26,8 @@
         <nav>
             <ul class="pje-menu-list">
 
-                {% if can_access_module('bi') %}
-                    <li class="pje-menu-item">
+                {% if can_access_module('bi') and recurso_visivel('dashboard') %}
+                    <li class="pje-menu-item {{ recurso_marca('dashboard') }}">
                         <a href="{{ path('dashboard_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'dashboard_' ? 'active' : '' }}">
                             <i class="bi bi-bar-chart-line pje-nav-icon"></i>
@@ -73,8 +73,8 @@
                 {# Trabalho Externo: logo abaixo do Push Processual, com o selo "NOVO" do desenho
                    (`06 - Trabalho Externo 1.0`, menu lateral). O Master global passa pelo bypass de
                    super admin; a tela decide o resto (aba suspensa, só equipe etc.). #}
-                {% if can_access_module('trabalho_externo') %}
-                    <li class="pje-menu-item">
+                {% if can_access_module('trabalho_externo') and recurso_visivel('trabalho') %}
+                    <li class="pje-menu-item {{ recurso_marca('trabalho') }}">
                         <a href="{{ path('trabalho_externo_index') }}"
                            data-busca-alias="correspondente diligência demanda externa"
                            class="pje-menu-link {{ currentRoute starts with 'trabalho_externo_' ? 'active' : '' }}">
@@ -95,8 +95,8 @@
                     </li>
                 {% endif %}
 
-                {% if can_access_module('tarefas') %}
-                    <li class="pje-menu-item">
+                {% if can_access_module('tarefas') and recurso_visivel('metas') %}
+                    <li class="pje-menu-item {{ recurso_marca('metas') }}">
                         <a href="{{ path('tarefa_minhas') }}"
                            class="pje-menu-link {{ currentRoute starts with 'tarefa_' ? 'active' : '' }}">
                             <i class="bi bi-list-check pje-nav-icon"></i>

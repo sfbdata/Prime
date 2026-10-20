@@ -257,6 +257,7 @@
         if (e.target.closest('button, input, select, .js-toggle-situacao')) { return; }
         e.preventDefault();
         e.stopImmediatePropagation();
+        if (window.ExpMenu.abertoNoToque()) { return; }   // com um menu aberto, o clique só o fecha (dc `abrir`)
         mostrarSigilo(alvo.getAttribute('data-nup'), alvo.getAttribute('data-pasta-id'));
     }, true);
 
@@ -500,6 +501,14 @@
 
     // E12: o trilho (expediente-trilho.js) usa o mesmo menu e o mesmo aviso.
     window.ExpMenu = { abrir: abrir, fechar: fechar, aberto: function () { return menu; } };
+
+    /* dc `abrir` da linha: com um menu aberto, o clique na linha só fecha o menu, não abre a pasta. A pergunta é
+       feita no mousedown (captura), antes de o próprio clique fechar o menu; o clique da linha lê a resposta. */
+    var menuAbertoNoToque = false;
+    document.addEventListener('mousedown', function () {
+        menuAbertoNoToque = !!(menu || document.querySelector('.exp-pop, #pastaRespMenu:not([hidden])'));
+    }, true);
+    window.ExpMenu.abertoNoToque = function () { return menuAbertoNoToque; };
     window.ExpCopiar = copiar;
     window.ExpAviso = avisar;
 }());
@@ -728,7 +737,8 @@
         if (!document.body.classList.contains('exp-body')) { return; }
         var alvo = e.target.closest && e.target.closest('[data-tip]');
         var menuAberto = window.ExpMenu && window.ExpMenu.aberto();
-        if (!alvo || (menuAberto && !menuAberto.contains(alvo)) || document.querySelector('.exp-pop')) { fecharDica(); return; }
+        // dc `_ov`: com um menu aberto (filtro, responsável da linha ou contexto), nenhuma dica fora dele.
+        if (!alvo || (menuAberto && !menuAberto.contains(alvo)) || document.querySelector('.exp-pop, #pastaRespMenu:not([hidden])')) { fecharDica(); return; }
         var t = alvo.getAttribute('data-tip');
         if (!t) { fecharDica(); return; }
         var texto = (alvo.textContent || '').replace(/\s+\d+x$/, '').replace(/\s+/g, ' ').trim();
@@ -810,6 +820,7 @@
             if (it.avatar !== undefined) {
                 var av = el('span', 'exp-pop-av' + (it.avatar === null ? ' is-vazio' : ''));
                 if (it.avatar === null) { av.appendChild(icone('bi-person-dash')); } else { av.textContent = it.avatar; }
+                if (it.foto) { fotoNoAvatar(av, it.foto); }
                 b.appendChild(av);
             }
             var tx = el('span', 'exp-pop-texto');
@@ -897,10 +908,17 @@
         var sel = caixa.querySelector('select');
         var itens = Array.prototype.filter.call(sel.options, function (op) { return op.value !== ''; }).map(function (op) {
             var sem = op.value === 'sem';
-            return { rotulo: op.textContent.trim(), avatar: sem ? null : ini2(op.textContent), marcado: sel.value === op.value,
+            return { rotulo: op.textContent.trim(), avatar: sem ? null : ini2(op.textContent), foto: op.getAttribute('data-foto') || '', marcado: sel.value === op.value,
                 acao: function () { escolherNoSelect(sel, sel.value === op.value ? '' : op.value); } };
         });
         abrirPop(caixa, { busca: 'Filtrar responsável', largura: 300, itens: itens, vazio: 'Nenhum responsável encontrado' });
+    }
+
+    /* dc `avBg` (L.458): com foto, o círculo é a foto (fundo, sem as iniciais por cima); a URL é a rota do servidor. */
+    function fotoNoAvatar(av, url) {
+        if (!/^\/[\w\-./]*$/.test(url)) { return; }
+        av.textContent = '';
+        av.style.background = '#0a6fa0 url("' + url + '") center/cover no-repeat';
     }
 
     /* Rótulos dos campos como o desenho: Responsável com as duas primeiras palavras e avatar; Prioridade "Alta". */
@@ -915,7 +933,11 @@
             var op = resp.options[resp.selectedIndex];
             var nome = resp.value === '' ? 'Responsável' : (resp.value === 'sem' ? 'Sem responsável' : op.textContent.trim().split(/\s+/).slice(0, 2).join(' '));
             rot.textContent = '';
-            if (resp.value !== '' && resp.value !== 'sem') { rot.appendChild(el('span', 'exp-filtro-av', ini2(op.textContent))); }
+            if (resp.value !== '' && resp.value !== 'sem') {
+                var avR = el('span', 'exp-filtro-av', ini2(op.textContent));
+                if (op.getAttribute('data-foto')) { fotoNoAvatar(avR, op.getAttribute('data-foto')); }
+                rot.appendChild(avR);
+            }
             rot.appendChild(el('span', 'exp-filtro-nome', nome));
         }
         var prio = f.querySelector('select[name="prioridade"]');
