@@ -256,6 +256,8 @@ final class PurgarEscritorioUseCase
         ['trabalho_externo_demanda', 'tenant_id = :tenant'],
         ['marcador', 'tenant_id = :tenant'],
         ['legenda_cor', 'tenant_id = :tenant'],
+        // Agenda: ajustes do escritório nas datas do sistema (botão direito). FK de tenant CASCADE; explícito por convenção.
+        ['agenda_data_ajuste', 'tenant_id = :tenant'],
         ['jornada_tenant', 'tenant_id = :tenant'],
         ['justificativa_ponto', 'tenant_id = :tenant'],
         ['registro_ponto', 'tenant_id = :tenant'],
