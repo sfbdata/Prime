@@ -17,7 +17,7 @@ use Doctrine\Migrations\AbstractMigration;
  *  - contribua_configuracao_pagamento: linha única do modal "Pagamento por cartão" do Master. Nasce SEM
  *    gateway (o "Quero +N GB" continua sendo a lista de espera da C2) e com carência de 7 dias (D3).
  */
-final class Version20261019220000 extends AbstractMigration
+final class Version20261019235700 extends AbstractMigration
 {
     public function getDescription(): string
     {
