@@ -14,6 +14,8 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
   não há API nesta fatia), tela "Despachar via Chat I.A" no `central.js` (`mostrarTela('despacho')`) e o chip "Pasta N"
   **só como texto**: a mensagem não guarda o id da pasta, o chip sai da linha "Pasta NUP" e não abre a pasta (link
   depende da coluna `referencia`, §5). Pendente: smoke do dono e o Playwright comparativo.
+- **20/10, PR2 sobre a referência:** o chip "Pasta N" sai de `mensagem.despacho` e abre a pasta; a extração por regex do
+  texto saiu (chip forjado não existe mais); `ocultoPorPermissao` apagado no balão, na citação e na prévia.
 - **20/10, PR1, correção de segurança (bloqueante da revisão):** quem entrava no grupo depois do despacho (ou perdia
   o acesso à pasta) lia no histórico o título, o trecho do teor e o NUP. Agora a mensagem guarda a referência
   (`despacho_pasta_id`, `despacho_tipo`; migration `Version20261021180000`) e toda leitura confere a pasta na hora
@@ -175,8 +177,10 @@ título e resumo; "Instrução (opcional). Ex.: favor concluir até sexta."; pri
 "Para quem?" com os destinos (grupo travado mostra o motivo, sem clique); ao escolher, envia, abre a conversa com o
 destino e avisa "Despachado para NOME.". Erro do servidor: o `erro` da resposta, na própria tela. "Cancelar" volta à
 lista (BC:6223 só zera o despacho). Desvio registrado: a busca e as abas da lista, que no protótipo ficam à vista e
-inertes atrás da tela (BC:6362-6372), não aparecem no despacho. O chip "Pasta N" sai da linha "Pasta NUP" do texto,
-só como texto (sem o id da pasta na mensagem, não abre a pasta; abrir exige a coluna `referencia` da §5).
+inertes atrás da tela (BC:6362-6372), não aparecem no despacho. O chip "Pasta N" sai da referência `despacho`
+(`{pastaId, nup}`) da mensagem, nunca do texto: rótulo "Pasta " + nup (ou o id sem nup), link para `/pasta/{pastaId}`
+(BC:6041, `bj-navegar` no protótipo). A linha "Pasta NUP" do texto some da tela só quando é igual à da referência.
+Com `ocultoPorPermissao`, balão, citação e prévia mostram "Item de pasta sem acesso" apagado e sem chip.
 
 ## 5. Fora
 

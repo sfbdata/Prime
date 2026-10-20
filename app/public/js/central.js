@@ -31,10 +31,6 @@
     var TIPO_DO_DESENHO = { registro_dados: 'registro', registro_detalhes: 'registro', registro_financeiro: 'registro', secao: 'pasta', prazo: 'meta', nota_tecnica: 'push' };
     var PRIORIDADES = [['normal', 'Normal'], ['urgente', 'Urgente'], ['para_hoje', 'Para hoje']];   /* BC:6226 ('hoje' do desenho = para_hoje) */
     var INSTRUCAO_MAXIMA = 1000;   /* EncaminharItemInput::INSTRUCAO_MAXIMA */
-    // A mensagem de despacho (EncaminharItemDaPastaUseCase::texto): 1ª linha "[prefixo]Despacho: TÍTULO", e a linha
-    // "Pasta NUP" no fim do primeiro bloco, que vira o chip "Pasta N" (BC:6041).
-    var COMECO_DO_DESPACHO = /^(?:🔴 URGENTE · |🟠 PARA HOJE · )?Despacho: /;
-    var LINHA_DA_PASTA = /^Pasta \S.*$/;
 
     function corNome(id) {   // L5815 — a mesma cor para a mesma pessoa
         var h = String(id).split('').reduce(function (t, ch) { return (t * 31 + ch.charCodeAt(0)) | 0; }, 7);
@@ -55,7 +51,8 @@
             presenca: raiz.dataset.urlPresenca,
             encaminharItem: raiz.dataset.urlEncaminharItem,          /* Encaminhar via Chat I.A (spec §4.1) */
             encaminharDestinos: raiz.dataset.urlEncaminharDestinos,
-            encaminhar: raiz.dataset.urlEncaminhar
+            encaminhar: raiz.dataset.urlEncaminhar,
+            pastaBase: raiz.dataset.urlPastaBase   /* "/pasta/": o chip "Pasta N" abre a pasta (BC:6041) */
         };
         var meuNome = raiz.dataset.euNome || '';
         var tamanhoMaximo = Number(raiz.dataset.tamanhoMaximo) || 4000;   // Mensagem::TAMANHO_MAXIMO
@@ -369,7 +366,8 @@
             } else if (grupo) {
                 previa = plural(c.participantes, 'participante', 'participantes');
             }
-            baixo.appendChild(criar('span', 'bj-central-previa', previa));
+            /* Última mensagem é um despacho que eu não vejo: "Item de pasta sem acesso", apagado como no balão. */
+            baixo.appendChild(criar('span', 'bj-central-previa' + (c.ultima && c.ultima.ocultoPorPermissao ? ' bj-central-oculto' : ''), previa));
             if (c.naoLidas > 0) {
                 // Silenciada: o selo fica cinza (L5693) e a conversa sai do total do cabeçalho.
                 var selo = criar('span', 'bj-central-selo' + (c.silenciada ? ' bj-central-selo--mudo' : ''), String(c.naoLidas));
@@ -1027,14 +1025,20 @@
                 cit.type = 'button';
                 if (!m.minha) { cit.style.borderLeftColor = corNome(m.respostaA.autorId); }   // no balão próprio: branca
                 cit.appendChild(criar('span', 'bj-central-citacao-autor', '↩ ' + (m.respostaA.minha ? 'Você' : m.respostaA.autorNome)));
-                cit.appendChild(criar('span', 'bj-central-citacao-trecho', m.respostaA.trecho));
+                /* Citação de um despacho que eu não vejo: o servidor manda "Item de pasta sem acesso"; aqui, apagada. */
+                cit.appendChild(criar('span', 'bj-central-citacao-trecho' + (m.respostaA.ocultoPorPermissao ? ' bj-central-oculto' : ''), m.respostaA.trecho));
                 cit.title = 'Ir para a mensagem respondida';
                 cit.addEventListener('click', function () { irParaMensagem(m.respostaA.id); });
                 corpoBolha.appendChild(cit);
             }
-            var despacho = pastaDoDespacho(m.conteudo);
-            pintarTexto(corpoBolha, despacho ? despacho.texto : m.conteudo);
-            if (despacho) { corpoBolha.appendChild(chipDaPasta(despacho.rotulo)); }
+            if (m.ocultoPorPermissao) {
+                /* Despacho de pasta que eu não vejo: o servidor já trocou o texto; apagado, sem chip (BC:6039). */
+                corpoBolha.appendChild(criar('span', 'bj-central-oculto', m.conteudo));
+            } else {
+                var chip = chipDaPasta(m.despacho);
+                pintarTexto(corpoBolha, chip ? semALinhaDaPasta(m.conteudo, m.despacho) : m.conteudo);
+                if (chip) { corpoBolha.appendChild(chip); }
+            }
             corpoBolha.addEventListener('contextmenu', function (ev) { ev.preventDefault(); menuDaMensagem(m, ev.clientX, ev.clientY, corpoBolha); });
             corpoBolha.addEventListener('keydown', function (ev) {
                 if (ev.key === 'ContextMenu' || (ev.shiftKey && ev.key === 'F10')) {
@@ -2104,30 +2108,40 @@
         }
 
         /**
-         * A mensagem de despacho com o chip "Pasta N" (BC:6041): a linha "Pasta NUP" sai do texto e vira o chip. No tipo
-         * pasta o título já é a pasta: o texto fica inteiro e o chip repete, como no desenho. Sem o id da pasta na
-         * mensagem (spec §5), o chip é só texto, sem link.
+         * Chip "Pasta N" (BC:6041) da mensagem de despacho. Sai SÓ da referência que o servidor manda (`despacho`,
+         * `{pastaId, nup}`, presente quando eu vejo a pasta agora), nunca do texto: quem digita no mesmo formato não
+         * ganha chip. Abre a pasta, como o `bj-navegar` do desenho.
          */
-        function pastaDoDespacho(conteudo) {
-            var texto = String(conteudo || '');
-            if (!COMECO_DO_DESPACHO.test(texto)) { return null; }
-            var fim = texto.indexOf('\n\n');
-            var linhas = (fim === -1 ? texto : texto.slice(0, fim)).split('\n');
-            var resto = fim === -1 ? '' : texto.slice(fim);
-            var ultima = linhas[linhas.length - 1];
-            if (linhas.length > 1 && LINHA_DA_PASTA.test(ultima)) {
-                return { rotulo: ultima, texto: linhas.slice(0, -1).join('\n') + resto };
-            }
-            var titulo = linhas[0].replace(COMECO_DO_DESPACHO, '');
-            return linhas.length === 1 && LINHA_DA_PASTA.test(titulo) ? { rotulo: titulo, texto: texto } : null;
-        }
-
-        function chipDaPasta(rotulo) {   /* BC:6041, ícone bi-folder2-open */
-            var chip = criar('span', 'bj-central-chip-pasta');
+        function chipDaPasta(despacho) {
+            var id = despacho ? Number(despacho.pastaId) : NaN;
+            if (!Number.isInteger(id) || id <= 0) { return null; }
+            var nup = typeof despacho.nup === 'string' && despacho.nup !== '' ? despacho.nup : null;
+            var rotulo = 'Pasta ' + (nup !== null ? nup : String(id));
+            var chip = criar('a', 'bj-central-chip-pasta');
+            chip.href = urls.pastaBase + String(id);
             chip.appendChild(icone('bi-folder2-open'));
             chip.appendChild(document.createTextNode(rotulo));
             chip.title = rotulo;
+            chip.addEventListener('click', function (ev) {
+                /* Destacada, a Central mora em outra janela: a pasta abre na página do BlueJus, não no pop-up. */
+                if (vista() !== window) { ev.preventDefault(); window.location.assign(chip.href); }
+            });
             return chip;
+        }
+
+        /**
+         * O servidor sempre põe a linha "Pasta NUP" (ou "Pasta #id") no fim do primeiro bloco do despacho. Com o chip
+         * à vista ela sairia duas vezes: tira só essa linha, e só se for IGUAL à da referência (comparação exata, sem
+         * regex). No tipo pasta o título já é a pasta e o texto fica inteiro.
+         */
+        function semALinhaDaPasta(conteudo, despacho) {
+            var texto = String(conteudo || '');
+            var linha = ('Pasta ' + (despacho.nup ? despacho.nup : '#' + despacho.pastaId)).split('@[').join('@ [');   /* rotuloDaPasta, desarmado */
+            var fim = texto.indexOf('\n\n');
+            var bloco = fim === -1 ? texto : texto.slice(0, fim);
+            var corte = bloco.lastIndexOf('\n');
+            if (corte === -1 || bloco.slice(corte + 1) !== linha) { return texto; }
+            return bloco.slice(0, corte) + (fim === -1 ? '' : texto.slice(fim));
         }
 
         function voltar() {

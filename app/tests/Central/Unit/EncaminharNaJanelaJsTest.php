@@ -90,8 +90,48 @@ final class EncaminharNaJanelaJsTest extends TestCase
         self::assertStringContainsString('var INSTRUCAO_MAXIMA = 1000;', $js);
         self::assertStringContainsString("el.telaDespacho.hidden = nome !== 'despacho';", $js);
         self::assertStringContainsString("chip.appendChild(icone('bi-folder2-open'));", $tela, 'chip "Pasta N" (BC:6041)');
-        self::assertStringContainsString('if (despacho) { corpoBolha.appendChild(chipDaPasta(despacho.rotulo)); }', $js);
         self::assertDoesNotMatchRegularExpression('/innerHTML|outerHTML|insertAdjacentHTML|document\.write/', $tela);
         self::assertDoesNotMatchRegularExpression('/[—–]/u', $tela, 'sem travessão nos textos novos');
+    }
+
+    #[TestDox('Chip "Pasta N": sai da referência do servidor (despacho.pastaId/nup), é um link para a pasta com id inteiro')]
+    public function testChipPelaReferencia(): void
+    {
+        $js = self::js('central.js');
+        $chip = self::trecho($js, 'function chipDaPasta(despacho) {', 'function voltar() {');
+
+        self::assertStringContainsString("var chip = chipDaPasta(m.despacho);\n                pintarTexto(corpoBolha, chip ? semALinhaDaPasta(m.conteudo, m.despacho) : m.conteudo);", $js);
+        self::assertStringContainsString("var id = despacho ? Number(despacho.pastaId) : NaN;\n            if (!Number.isInteger(id) || id <= 0) { return null; }", $chip);
+        self::assertStringContainsString("var rotulo = 'Pasta ' + (nup !== null ? nup : String(id));", $chip);
+        self::assertStringContainsString("var chip = criar('a', 'bj-central-chip-pasta');\n            chip.href = urls.pastaBase + String(id);", $chip);
+        self::assertStringContainsString("pastaBase: raiz.dataset.urlPastaBase", $js);
+        // A linha "Pasta NUP" do texto sai só por comparação exata com a da referência.
+        self::assertStringContainsString("if (corte === -1 || bloco.slice(corte + 1) !== linha) { return texto; }", $chip);
+        self::assertDoesNotMatchRegularExpression('/innerHTML|outerHTML|insertAdjacentHTML|document\.write/', $chip);
+    }
+
+    #[TestDox('Nada do chip sai do texto por regex: sem pastaDoDespacho, sem os padrões de "Despacho:" e de "Pasta "')]
+    public function testSemExtracaoPorRegex(): void
+    {
+        $js = self::js('central.js');
+
+        foreach (['pastaDoDespacho', 'COMECO_DO_DESPACHO', 'LINHA_DA_PASTA', 'Despacho: /', '/^Pasta '] as $resto) {
+            self::assertStringNotContainsString($resto, $js);
+        }
+        $chip = self::trecho($js, 'function chipDaPasta(despacho) {', 'function voltar() {');
+        self::assertDoesNotMatchRegularExpression('#\.(test|match|exec|replace)\(\s*/|new RegExp#', $chip, 'chip e linha da pasta sem regex');
+    }
+
+    #[TestDox('ocultoPorPermissao: balão, citação e prévia mostram o texto do servidor apagado, sem chip')]
+    public function testOcultoPorPermissao(): void
+    {
+        $js = self::js('central.js');
+        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/central.css');
+
+        self::assertStringContainsString("if (m.ocultoPorPermissao) {", $js);
+        self::assertStringContainsString("corpoBolha.appendChild(criar('span', 'bj-central-oculto', m.conteudo));\n            } else {\n                var chip = chipDaPasta(m.despacho);", $js, 'oculto não tem chip');
+        self::assertStringContainsString("(m.respostaA.ocultoPorPermissao ? ' bj-central-oculto' : ''), m.respostaA.trecho)", $js);
+        self::assertStringContainsString("(c.ultima && c.ultima.ocultoPorPermissao ? ' bj-central-oculto' : ''), previa)", $js);
+        self::assertMatchesRegularExpression('/\.bj-central-oculto \{\s+font-style: italic;\s+color: var\(--bjc-texto-suave\);/', $css);
     }
 }
