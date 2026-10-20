@@ -195,20 +195,6 @@
     }
 }());
 
-// "Encaminhar via Chat I.A" no ⋮ do cartão (R223): só ids, lidos dos `data-*` que o Twig renderizou; o despacho
-// é da janela da Central (`bj-central:despachar`, spec encaminhar-via-chat-ia §4.1). O dropdown fecha sozinho.
-document.addEventListener('click', function (e) {
-    var item = e.target.closest('.js-mm-encaminhar');
-    if (!item) { return; }
-    var pastaId = Number(item.getAttribute('data-encaminhar-pasta'));
-    var itemId  = Number(item.getAttribute('data-encaminhar-id'));
-    if (!pastaId || !itemId || item.getAttribute('data-encaminhar-tipo') !== 'meta') { return; }
-    e.preventDefault();
-    document.dispatchEvent(new CustomEvent('bj-central:despachar', {
-        detail: { pastaId: pastaId, tipo: 'meta', itemId: itemId }
-    }));
-});
-
 // Marcador de acompanhamento — alterna sem recarregar a página.
 var ABA_ATUAL = {{ aba.value|json_encode|raw }};
 document.addEventListener('click', function (e) {

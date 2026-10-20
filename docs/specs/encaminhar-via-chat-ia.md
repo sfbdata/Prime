@@ -17,12 +17,13 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
 - **20/10, PR4b implementado (em revisão):** branch `encaminhar-metas`, empilhada sobre `encaminhar-responsaveis`
   (#128). O item "Encaminhar via Chat I.A" (`bi-send`) no ⋮ da meta da aba Metas (D:3737, tipo `meta`: depois de
   "Editar nome", porque "Duplicar" não existe, e antes de "Copiar link"), no ⋮ do prazo do trilho "Próximos prazos"
-  da aba Dados (D:6561, logo depois de "Ver nas metas") e no ⋮ do cartão de Minhas Metas (R223, MM-MENU-11, por
-  último, com a pasta da meta). O clique dispara `bj-central:despachar` no próprio JS de cada área
-  (`pasta-metas.js`, `pasta-prazos.js`, script de `tarefa/minhas.html.twig`), com classes próprias
-  (`.js-meta-encaminhar`, `.js-prazo-encaminhar`, `.js-mm-encaminhar`) para não cruzar com o ouvinte dos registros do
-  PR4a. `central_disponivel()` lido uma vez por template; sem a Central e na lápide nada aparece. **Desvio da decisão
-  9:** o prazo do trilho leva o id real, não a pasta: a linha que é meta vai como `meta` (Tarefa.id) e o prazo
+  da aba Dados (D:6561, logo depois de "Ver nas metas"). O clique dispara `bj-central:despachar` no próprio JS de
+  cada área (`pasta-metas.js`, `pasta-prazos.js`), com classes próprias (`.js-meta-encaminhar`,
+  `.js-prazo-encaminhar`) para não cruzar com o ouvinte dos registros do PR4a. **Minhas Metas (R223, MM-MENU-11) saiu
+  deste PR (20/10):** a b5 está redesenhando os cartões e a linha clicável em Minhas Metas
+  (`minhas-metas-desenho`); entra num PR próprio depois dela, como `<button>` dentro do `.dropdown-menu` (a linha
+  clicável ignora `a`, `button` e `.dropdown-menu`). `central_disponivel()` lido uma vez por template; sem a Central e na lápide nada aparece. **Desvio da decisão
+  9 (aprovado pelo orquestrador, mais preciso que a pasta):** o prazo do trilho leva o id real, não a pasta: a linha que é meta vai como `meta` (Tarefa.id) e o prazo
   registrado como `prazo` (PastaPrazo.id), os dois tipos que o backend já relê (§3). Pendente: smoke do dono.
 
 ### Para o dono
@@ -54,7 +55,7 @@ Pontos do desenho (linha D: tipo):
 | 6958 | arquivo do Financeiro | documento |
 | 3072 | ⋮ do processo | processo |
 | 3737 | menu da meta | meta |
-| 6561 | ⋮ do prazo no trilho | meta (sem id) |
+| 6561 | ⋮ do prazo no trilho | meta (Tarefa.id) ou prazo (PastaPrazo.id) |
 | 5071 | menu do explorador | documento ou pasta |
 | 2658, 5641 | movimentação do Push | push |
 | 5632 | documento do PDF do processo | push (sem id) |
