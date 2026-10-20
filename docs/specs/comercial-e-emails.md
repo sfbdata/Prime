@@ -182,7 +182,7 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   `COMERCIAL_CAMPANHAS_LIGADAS` (`ChaveDasCampanhas`, padrão desligada), o expansor (`ExpandirCampanhas`,
   `ExpansorDeCampanhas`, `comercial_expansor`), a situação nova `cancelado` em `comercial_envio` (o handler não envia
   o que é de campanha cancelada), o comando `app:comercial:encerrar-campanha`, a lista de campanhas no bloco
-  Monitoramento e a retenção de 24 meses de `comercial_campanha_destino`. Migration provisória `Version20261021140000`.
+  Monitoramento e a retenção de 24 meses de `comercial_campanha_destino`. Migration `Version20261020129950`.
   Decisões da implementação: (1) secundário = vínculo ativo sem papel de sistema, mesmo que a pessoa seja primária em
   outro escritório (letra da §8.5); "Todos" é a união sem repetidos; (2) o "usuário ativo cadastrado" do B1 usa o
   mesmo vínculo válido dos públicos de sistema (vínculo e usuário ativos, escritório nem suspenso nem excluído); (3) nada é recuperado vale também para a `na_fila` com mais de 24 h de atraso; a recorrente com até
