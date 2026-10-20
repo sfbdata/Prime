@@ -46,6 +46,37 @@ final class InscricaoOabRepositoryTest extends KernelTestCase
         self::assertSame(1, $this->repo->contarParaRevisao([], '49613'));
     }
 
+    #[TestDox('paraRevisao: com o mesmo criado_em (backfill), as páginas não repetem nem pulam inscrição')]
+    public function testPaginacaoEstavelComMesmoCriadoEm(): void
+    {
+        $user = $this->usuario();
+        $ufs  = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE'];
+        foreach ($ufs as $n => $uf) {
+            $this->inscrever($user, (string) (1000 + $n), $uf, $n === 0 ? TipoInscricaoOab::Principal : TipoInscricaoOab::Suplementar);
+        }
+        $this->em->flush();
+        $this->em->getConnection()->executeStatement(
+            "UPDATE inscricao_oab SET criado_em = '2026-10-19 12:00:00' WHERE user_id = ?",
+            [$user->getId()],
+        );
+        $this->em->clear();
+
+        $ids = static fn (array $lista): array => array_map(static fn (InscricaoOab $i): int => (int) $i->getId(), $lista);
+        $pagina1 = $ids($this->repo->paraRevisao([], (string) $user->getEmail(), 1, 20));
+        $pagina2 = $ids($this->repo->paraRevisao([], (string) $user->getEmail(), 2, 20));
+
+        self::assertCount(20, $pagina1);
+        self::assertCount(5, $pagina2);
+        self::assertSame([], array_intersect($pagina1, $pagina2), 'nenhuma inscrição em duas páginas');
+        $todas = array_merge($pagina1, $pagina2);
+        sort($todas);
+        $esperadas = array_map('intval', $this->em->getConnection()->fetchFirstColumn(
+            'SELECT id FROM inscricao_oab WHERE user_id = ? ORDER BY id',
+            [$user->getId()],
+        ));
+        self::assertSame($esperadas, $todas, 'nenhuma inscrição pulada');
+    }
+
     #[TestDox('criar a principal do espelho duas vezes (duas abas) deixa uma só, sem erro')]
     public function testEspelhoIdempotente(): void
     {

@@ -6,6 +6,7 @@ namespace App\Auth\UseCase;
 
 use App\Auth\Enum\StatusOab;
 use App\Auth\Repository\CadastroPendenteRepository;
+use App\Auth\Service\EspelhoDaOabPrincipal;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Repository\UserRepository;
@@ -28,6 +29,7 @@ final class ConfirmarCadastroUseCase
         private readonly UserRepository $userRepository,
         private readonly TenantBootstrapService $bootstrap,
         private readonly RegistrarAceiteTermoUseCase $registrarAceite,
+        private readonly EspelhoDaOabPrincipal $espelhoOab,
     ) {}
 
     public function executar(string $token): User
@@ -73,6 +75,8 @@ final class ConfirmarCadastroUseCase
                 }
 
                 $this->em->persist($user);
+                // A inscrição principal nasce junto (fila de revisão do Master é por inscrição); o flush é o daqui.
+                $this->espelhoOab->garantirPrincipal($user);
 
                 $tenant = new Tenant();
                 $tenant->setName($cadastro->getNomeEscritorio());

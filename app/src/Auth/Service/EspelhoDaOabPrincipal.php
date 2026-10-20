@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\Service;
 
 use App\Auth\Entity\InscricaoOab;
+use App\Auth\Enum\TipoInscricaoOab;
 use App\Auth\Repository\InscricaoOabRepository;
 use App\Entity\Auth\User;
 
@@ -16,6 +17,9 @@ use App\Entity\Auth\User;
  * - `doUsuarioParaPrincipal`: depois que a revisão do Master mudou o status no User (fluxo por User), copia
  *   status, nome oficial e data para a principal.
  * - `principalParaUsuario`: depois de mudar inscrições pelo perfil, copia a principal para o User (ou limpa).
+ * - `garantirPrincipal`: nos fluxos que gravam a OAB no User (cadastro público, convite da plataforma, criar
+ *   escritório), cria a principal em memória ou acompanha a que já existe, sem flush (o flush é do caso de uso).
+ *   Sem ela a pessoa ficaria fora da fila de revisão do Master, que é por inscrição.
  */
 final class EspelhoDaOabPrincipal
 {
@@ -45,6 +49,40 @@ final class EspelhoDaOabPrincipal
                 $this->copiarSituacaoDoUsuario($usuario, $inscricao);
             }
         }
+    }
+
+    /**
+     * Toda pessoa com OAB no espelho tem a inscrição principal. Usuário ainda não gravado (cadastro, convite): cria a
+     * principal e só faz `persist`. Usuário já gravado: a principal existente acompanha número, UF e situação do User;
+     * se não há nenhuma inscrição, cria. Não usa o SQL do `inscricoesDe`, que lê o User do banco e não veria o que o
+     * caso de uso ainda não gravou.
+     */
+    public function garantirPrincipal(User $usuario): void
+    {
+        if (!$this->temOabNoEspelho($usuario)) {
+            return;
+        }
+
+        $existentes = $usuario->getId() === null ? [] : $this->inscricoes->doUsuario($usuario);
+        if ($existentes !== []) {
+            foreach ($existentes as $inscricao) {
+                if ($inscricao->ehPrincipal()) {
+                    $inscricao->alterar(trim((string) $usuario->getOabNumero()), strtoupper(trim((string) $usuario->getOabUf())));
+                    $this->copiarSituacaoDoUsuario($usuario, $inscricao);
+                }
+            }
+
+            return;
+        }
+
+        $principal = new InscricaoOab(
+            $usuario,
+            trim((string) $usuario->getOabNumero()),
+            strtoupper(trim((string) $usuario->getOabUf())),
+            TipoInscricaoOab::Principal,
+        );
+        $this->copiarSituacaoDoUsuario($usuario, $principal);
+        $this->inscricoes->salvar($principal);
     }
 
     /** @param list<InscricaoOab> $inscricoes as que valem depois da mudança */

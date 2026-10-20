@@ -6,6 +6,8 @@ namespace App\Tests\Auth\Unit;
 
 use App\Auth\Entity\CadastroPendente;
 use App\Auth\Repository\CadastroPendenteRepository;
+use App\Auth\Repository\InscricaoOabRepository;
+use App\Auth\Service\EspelhoDaOabPrincipal;
 use App\Auth\UseCase\ConfirmarCadastroUseCase;
 use App\Entity\Auth\User;
 use App\Repository\UserRepository;
@@ -48,6 +50,7 @@ final class ConfirmarCadastroUseCaseTest extends TestCase
             $this->userRepository,
             $this->bootstrap,
             $registrarAceite,
+            new EspelhoDaOabPrincipal($this->createStub(InscricaoOabRepository::class)),
         );
 
         // Executa a closure da transação diretamente.

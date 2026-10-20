@@ -60,6 +60,8 @@ class InscricaoOabRepository extends ServiceEntityRepository
         /** @var list<InscricaoOab> $lista */
         $lista = $this->qbRevisao($statuses, $busca)
             ->orderBy('i.criadoEm', 'DESC')
+            // Desempate: o backfill gravou o mesmo criado_em para todas, e sem ele as páginas repetem ou pulam linhas.
+            ->addOrderBy('i.id', 'DESC')
             ->setFirstResult((max(1, $pagina) - 1) * $porPagina)
             ->setMaxResults($porPagina)
             ->getQuery()
