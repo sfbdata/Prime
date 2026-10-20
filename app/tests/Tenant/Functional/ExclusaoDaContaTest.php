@@ -7,8 +7,10 @@ namespace App\Tests\Tenant\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Notificacao;
+use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Entity\Tenant\TenantRolePermission;
 use App\EventListener\TenantContextValidatorListener;
 use App\Master\DTO\ExcluirContaInput;
 use App\Master\DTO\SituacaoDaContaInput;
@@ -145,6 +147,32 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
         }
 
         return $this->em->getRepository(PedidoDeExclusaoDeConta::class)->findOneBy(['tenant' => $conta->getId()], ['id' => 'DESC']);
+    }
+
+    /** Secundário: papel que não é de sistema, só com a permissão pedida. */
+    private function secundarioComPermissao(Tenant $conta, string $codigo): User
+    {
+        $conta = $this->em->find(Tenant::class, $conta->getId());
+        self::assertNotNull($conta);
+        $permissao = $this->em->getRepository(Permission::class)->findOneBy(['code' => $codigo]);
+        if ($permissao === null) {
+            $permissao = (new Permission())->setCode($codigo)->setDescription($codigo)->setGroup(explode('.', $codigo)[0]);
+            $this->em->persist($permissao);
+        }
+        $papel = (new TenantRole())->setTenant($conta)->setName('Secundário ' . uniqid())->setIsSystem(false);
+        $concessao = new TenantRolePermission();
+        $concessao->setTenantRole($papel);
+        $concessao->setPermission($permissao);
+        $papel->getTenantRolePermissions()->add($concessao);
+        $user = (new User())->setEmail('sec_' . uniqid() . '@test.com')->setFullName('Carla Secundária')->setRoles(['ROLE_USER'])->setIsActive(true);
+        $user->setPassword('x');
+        $this->em->persist($papel);
+        $this->em->persist($concessao);
+        $this->em->persist($user);
+        $this->em->persist((new UserTenant($user, $conta))->setTenantRole($papel));
+        $this->em->flush();
+
+        return $user;
     }
 
     /** Pedido pendente direto no banco (para os testes da barreira e do Master). */
@@ -566,19 +594,19 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
     // Revisão cruzada da b5 (itens 2, 4 e 5)
     // ------------------------------------------------------------------------------------------------
 
-    #[TestDox('rota antiga escritorio_excluir com pedido pendente: quem não é Master é recusado, a conta segue ativa e o pedido pendente')]
+    #[TestDox('rota antiga escritorio_excluir com pedido pendente: o secundário com admin.tenant.settings.manage (B na sessão) é recusado, a conta segue ativa e o pedido pendente')]
     public function testRotaAntigaRecusaQuemNaoEMaster(): void
     {
         $conta = $this->conta();
         $outra = $this->conta();
         $primario = $this->pessoa($conta, true);
-        $socio = $this->pessoa($conta, true);
-        $this->em->persist(new UserTenant($this->em->find(User::class, $socio->getId()), $this->em->find(Tenant::class, $outra->getId())));
+        $secundario = $this->secundarioComPermissao($conta, 'admin.tenant.settings.manage');
+        $this->em->persist(new UserTenant($secundario, $this->em->find(Tenant::class, $outra->getId())));
         $this->em->flush();
         $this->suspenderAPedido($conta, $primario);
 
         // Com o escritório B na sessão, a barreira do pedido (que olha a sessão) não segura a rota de A.
-        $this->logarComTenant($this->client, $socio, $outra);
+        $this->logarComTenant($this->client, $secundario, $outra);
         $this->client->request('POST', '/escritorio/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_excluir_' . $conta->getId(), 'confirmar_nome' => $conta->getName()]);
 
         self::assertResponseRedirects('/tenant/' . $conta->getId());
@@ -630,7 +658,6 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
         $this->suspenderAPedido($conta, $primario);
         $pedido = $this->pedidoDe($conta);
         self::assertNotNull($pedido);
-        $this->logarComTenant($this->client, $primario, $conta);
 
         // A decisão do Master chega por outro processo entre a leitura e a gravação do primário: simulada
         // trocando o estado no banco, sem o pedido sair de "pendente" para a leitura (a mesma linha lida antes).
@@ -649,6 +676,24 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
         }
 
         self::assertSame(EstadoDoPedidoDeExclusao::Reativada, $this->pedidoDe($conta)?->getEstado());
+    }
+
+    #[TestDox('rota antiga com a conta já inativa: nada muda (sem quarentena nova), como antes')]
+    public function testRotaAntigaIdempotenteComContaInativa(): void
+    {
+        $conta = $this->conta();
+        $master = $this->pessoa($this->conta(), true, ['ROLE_SUPER_ADMIN']);
+        $conta = $this->em->find(Tenant::class, $conta->getId());
+        self::assertNotNull($conta);
+        $conta->setIsActive(false);
+        $this->em->flush();
+
+        static::getContainer()->get(ExcluirEscritorioUseCase::class)->executar($conta, $this->em->find(User::class, $master->getId()));
+
+        $this->em->clear();
+        $depois = $this->em->find(Tenant::class, $conta->getId());
+        self::assertFalse($depois?->isActive());
+        self::assertNull($depois?->getExcluidoEm(), 'suspensa não vira excluída pela rota antiga');
     }
 
     #[TestDox('auditoria da rota antiga: a linha da conta excluída cai no escritório excluído, não no escritório da sessão do Master')]
