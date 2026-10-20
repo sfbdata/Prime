@@ -6,6 +6,7 @@ namespace App\Auth\UseCase;
 
 use App\Auth\DTO\AceitarConvitePlataformaInput;
 use App\Auth\Enum\StatusOab;
+use App\Auth\Service\DadosDaContaDoConvite;
 use App\Auth\Service\ValidadorOab;
 use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
@@ -18,9 +19,6 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 final class AceitarConvitePlataformaUseCase
 {
-    /** O mesmo mínimo do cadastro e da troca de senha (Assert\Length(min: 8) nos DTOs de senha). */
-    public const SENHA_MINIMA = 8;
-
     public function __construct(
         private readonly InvitationRepository $invitationRepository,
         private readonly UserRepository $userRepository,
@@ -111,14 +109,8 @@ final class AceitarConvitePlataformaUseCase
             throw new \DomainException('Convite não encontrado.');
         }
 
-        if (mb_strlen($input->senha) < self::SENHA_MINIMA) {
-            throw new \InvalidArgumentException('A senha deve ter ao menos 8 caracteres.');
-        }
-
-        $fullName = trim($input->fullName) !== '' ? trim($input->fullName) : (string) $invitation->getFullName();
-        if ($fullName === '') {
-            throw new \InvalidArgumentException('Nome completo é obrigatório.');
-        }
+        DadosDaContaDoConvite::exigirSenha($input->senha);
+        $fullName = DadosDaContaDoConvite::nome($input->fullName, $invitation->getFullName());
 
         return $fullName;
     }

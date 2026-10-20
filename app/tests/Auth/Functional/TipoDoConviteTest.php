@@ -92,6 +92,7 @@ final class TipoDoConviteTest extends JusPrimeWebTestCase
         $em->clear();
         $user = $em->getRepository(User::class)->findOneBy(['email' => $email]);
         self::assertNotNull($user, 'A conta tinha que nascer.');
+        self::assertSame([], $em->getRepository(UserTenant::class)->findBy(['user' => $user]), 'Conta de plataforma nasce sem escritório.');
         self::assertSame('accepted', $em->getRepository(Invitation::class)->find($convite->getId())?->getStatus());
     }
 
