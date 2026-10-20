@@ -11,6 +11,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\InvitationRepository;
+use App\Tests\Auth\Doubles\VagaNoEscritorioDublada;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
@@ -28,6 +29,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 #[CoversClass(AceitarConviteEscritorioSemContaUseCase::class)]
 final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
 {
+    use VagaNoEscritorioDublada;
+
     private InvitationRepository&MockObject $invitationRepo;
     private UserRepository&MockObject $userRepo;
     private EntityManagerInterface&MockObject $em;
@@ -56,6 +59,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
             $this->hasher,
             $registrarAceite,
             new RegraDosPrimarios($this->userTenantRepo),
+            $this->vagaNoEscritorio(),
         );
         $this->tenant = new Tenant();
     }

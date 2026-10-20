@@ -11,6 +11,7 @@ use App\Pasta\Attribute\PastaPelaFilha;
 use App\Pasta\DTO\EditarDocumentoDaPastaInput;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Pasta\DTO\ZipDeDocumentosOutput;
+use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
@@ -20,6 +21,7 @@ use App\Pasta\Repository\PastaDocumentoFavoritoRepository;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\Service\VagasDeZipDoEscritorio;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Pasta\UseCase\AlternarFavoritoDeDocumentoUseCase;
 use App\Pasta\UseCase\CopiarDocumentosDaPastaUseCase;
 use App\Pasta\UseCase\EditarDocumentoDaPastaUseCase;
@@ -106,6 +108,7 @@ final class PastaDocumentoController extends AbstractController
         private readonly RateLimiterFactoryInterface $pastaDocumentosZipLimiter,
         // SEC-004b: no máximo 2 .zips simultâneos por escritório (trava não bloqueante).
         private readonly VagasDeZipDoEscritorio $vagasDeZip,
+        private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
     ) {
     }
 
@@ -296,7 +299,7 @@ final class PastaDocumentoController extends AbstractController
         }
 
         try {
-            $lixeira = $this->listarLixeiraUseCase->executar($pasta, $tenant);
+            $lixeira = $this->listarLixeiraUseCase->executar($pasta, $tenant, $this->abasOcultas($pasta, $currentUser));
         } catch (AccessDeniedException) {
             return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
         }
@@ -351,7 +354,7 @@ final class PastaDocumentoController extends AbstractController
                 ? ($this->documentos->findTodosDaPasta([$alvoId], $pasta, $tenant)[0] ?? null)
                 : $this->secoes->findByIdAndPastaAndTenant($alvoId, $pasta, $tenant);
         }
-        if ($alvo === null) {
+        if ($alvo === null || ($alvo instanceof PastaDocumento && $this->temContratoOculto([$alvo], $pasta, $currentUser))) {
             return $this->json(['erro' => $tipo === 'documento' ? 'Documento não encontrado.' : 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
         }
 
@@ -458,7 +461,7 @@ final class PastaDocumentoController extends AbstractController
         }
 
         try {
-            $saida = $this->montarZipUseCase->executar($pasta, $documentos, $secoes, $currentUser, $tenant);
+            $saida = $this->montarZipUseCase->executar($pasta, $documentos, $secoes, $currentUser, $tenant, $this->abasOcultas($pasta, $currentUser));
         } catch (\InvalidArgumentException $e) {
             $vaga->liberar();
 
@@ -554,6 +557,32 @@ final class PastaDocumentoController extends AbstractController
     }
 
     /** `marcado` do corpo: 1/0 (int ou string, como o form manda) ou booleano do JSON. O resto é NULL. */
+    /**
+     * As abas desta pasta ocultas para quem pede (spec pasta-ocultar-aba).
+     *
+     * @return list<string>
+     */
+    private function abasOcultas(Pasta $pasta, User $usuario): array
+    {
+        return array_map(static fn (AbaDaPasta $a): string => $a->value, $this->visibilidadeDasAbas->abasOcultasPara($pasta, $usuario));
+    }
+
+    /**
+     * Algum dos documentos é contrato de honorários com o Financeiro oculto para quem pede? A ação
+     * em lote o trata como id inexistente: 404, sem confirmar que ele existe (regra única
+     * `VisibilidadeDasAbasDaPasta::documentoVisivel`).
+     *
+     * @param list<PastaDocumento> $documentos
+     */
+    private function temContratoOculto(array $documentos, Pasta $pasta, User $usuario): bool
+    {
+        if ($documentos === []) {
+            return false;
+        }
+
+        return \count(VisibilidadeDasAbasDaPasta::documentosVisiveis($documentos, $this->abasOcultas($pasta, $usuario))) !== \count($documentos);
+    }
+
     private static function booleanoDoCorpo(mixed $valor): ?bool
     {
         return match ($valor) {
@@ -620,7 +649,8 @@ final class PastaDocumentoController extends AbstractController
         $documentos = $naLixeira
             ? $this->documentos->findNaLixeiraDaPasta($idsDocumentos, $pasta, $tenant)
             : $this->documentos->findTodosDaPasta($idsDocumentos, $pasta, $tenant);
-        if (count($documentos) !== count($idsDocumentos)) {
+        // Contrato com o Financeiro oculto responde como id que não existe (ocultar aba).
+        if (count($documentos) !== count($idsDocumentos) || $this->temContratoOculto($documentos, $pasta, $currentUser)) {
             return $this->json(['erro' => 'Documento não encontrado.'], Response::HTTP_NOT_FOUND);
         }
 
