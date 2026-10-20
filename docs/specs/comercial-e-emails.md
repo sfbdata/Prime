@@ -667,10 +667,9 @@ evento, `javascript:`), dos casos de uso (modelo fixo não se salva; teto do tes
 cria envio; data passada; B1 tira o não autorizado; deduplicação e descadastro). Functional das rotas (403 sem
 super admin, CSRF, 422). Integração do expansor (UNIQUE impede duplicata, lote respeita a vazão, recorrente recalcula).
 
-### 8.8 Perguntas desta fatia (ao coordenador)
+### 8.8 Decisões provisórias (coordenador, 19/10): todas "a confirmar" com o dono, no pacote da Comercial
 
-1. A chave `COMERCIAL_CAMPANHAS_LIGADAS` desligada por padrão (8.1.2) está ok?
-2. B1 com o padrão restritivo enquanto o dono não responde (8.5) está ok?
-3. "Base de contatos" = confirmados em `vagas_alerta` (é o que o dc grava: inscritos pela página de vagas). Inscritos
-   "de campanhas" (a descrição do dc) não têm fonte hoje.
-4. Recorrente sem botão de Encerrar (A3 com o dono): aceitável com a chave da instalação como freio?
+1. `COMERCIAL_CAMPANHAS_LIGADAS` nasce desligada, com o aviso na tela; quem liga é o dono. **A confirmar.**
+2. B1 restritivo no CSV e no Individual, com a contagem "sem autorização fora da lista". **A confirmar.**
+3. "Base de contatos" = confirmados em `vagas_alerta` (a fonte que o dc usa). **A confirmar.**
+4. Recorrente sem Encerrar enquanto A3 espera o dono; freios: a chave e o excluir. **A confirmar.**
