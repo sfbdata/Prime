@@ -136,8 +136,9 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
         self::assertStringNotContainsString('minmax(', $css, 'os mínimos 220/190 do dc não entram');
         // Célula escondida sai da grade e a seguinte herdava o <col> dela (a 900px a Situação ficava com os 220px
         // do Responsável): quem sai é o próprio <col>, e o piso desce junto.
-        self::assertStringContainsString('@media (max-width: 900px) { .exp-body #tabelaPastas { min-width: 742px; } .exp-body #tabelaPastas col[data-col="acao"], .exp-body #tabelaPastas col[data-col="resp"], .exp-body #tabelaPastas col[data-col="metas"] { display: none; } }', $css);
-        self::assertStringContainsString('@media (max-width: 768px) { .exp-body #tabelaPastas { min-width: 452px; } .exp-body #tabelaPastas col[data-col="marc"] { display: none; } }', $css);
+        // O <col> do Réu sai junto (a célula já saía no `_lista`), e as porcentagens que ficam voltam a somar 100%.
+        self::assertStringContainsString('@media (max-width: 900px) { .exp-body #tabelaPastas { min-width: 742px; } .exp-body #tabelaPastas col[data-col="reu"], .exp-body #tabelaPastas col[data-col="acao"], .exp-body #tabelaPastas col[data-col="resp"], .exp-body #tabelaPastas col[data-col="metas"] { display: none; } .exp-body #tabelaPastas col[data-col="cliente"] { width: 62.7% !important; } .exp-body #tabelaPastas col[data-col="marc"] { width: 37.3% !important; } }', $css);
+        self::assertStringContainsString('@media (max-width: 768px) { .exp-body #tabelaPastas { min-width: 452px; } .exp-body #tabelaPastas col[data-col="marc"] { display: none; } .exp-body #tabelaPastas col[data-col="cliente"] { width: 100% !important; } }', $css);
 
         // Os cortes são os mesmos em que o `_tabela` esconde as células.
         $t = (string) preg_replace('/\s+/', ' ', self::ler('templates/expediente/_lista.html.twig'));

@@ -231,4 +231,15 @@ final class ContarOQueAIaSabeDaPastaUseCaseTest extends TestCase
         }
         self::fail('seção ' . $qual->value . ' não montada');
     }
+
+    #[\PHPUnit\Framework\Attributes\TestDox('aba oculta para quem vê o painel (ocultar aba): a contagem dela é zero')]
+    public function testAbasOcultasZeram(): void
+    {
+        $c = new \App\Inteligencia\DTO\ContagensDaPasta(documentos: 7, metas: 5, metasAbertasComPrazo: 2, anotacoes: 4, observacoes: 3);
+
+        $sem = ContarOQueAIaSabeDaPastaUseCase::semAbasOcultas($c, ['documentos', 'tarefas', 'detalhes']);
+
+        self::assertSame([0, 0, 0, 4, 0], [$sem->documentos, $sem->metas, $sem->metasAbertasComPrazo, $sem->anotacoes, $sem->observacoes]);
+        self::assertSame(7, ContarOQueAIaSabeDaPastaUseCase::semAbasOcultas($c, [])->documentos);
+    }
 }

@@ -21,6 +21,7 @@ final readonly class ContextoDaPasta
      * @param list<string>           $processos           uma linha por processo vinculado
      * @param list<SecaoDeContexto>  $secoes              na ordem do agente
      * @param list<string>           $numerosDosProcessos
+     * @param list<string>           $abasOcultas         abas da pasta ocultas para quem pediu (seções fora)
      */
     public function __construct(
         public Agente $agente,
@@ -30,6 +31,7 @@ final readonly class ContextoDaPasta
         public string $hash,
         public bool $incluiFinanceiro,
         public array $numerosDosProcessos = [],
+        public array $abasOcultas = [],
     ) {
     }
 
@@ -84,10 +86,10 @@ final readonly class ContextoDaPasta
 
     /**
      * O que fica gravado em `contexto_resumo`: contagens, nunca o texto. `total` é lido pelo
-     * `AnaliseOutput` (base da análise); `financeiro` é a decisão tomada na solicitação, que o
-     * worker obedece.
+     * `AnaliseOutput` (base da análise); `financeiro` e `abasOcultas` são decisões tomadas na
+     * solicitação, que o worker obedece.
      *
-     * @return array{agente: string, secoes: array<string, int>, omitidas: array<string, int>, total: int, processos: list<string>, financeiro: bool}
+     * @return array{agente: string, secoes: array<string, int>, omitidas: array<string, int>, total: int, processos: list<string>, financeiro: bool, abasOcultas: list<string>}
      */
     public function resumo(): array
     {
@@ -107,6 +109,7 @@ final readonly class ContextoDaPasta
             'total' => $this->totalDeItens(),
             'processos' => $this->numerosDosProcessos,
             'financeiro' => $this->incluiFinanceiro,
+            'abasOcultas' => $this->abasOcultas,
         ];
     }
 }
