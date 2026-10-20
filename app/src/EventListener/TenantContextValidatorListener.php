@@ -161,7 +161,8 @@ final class TenantContextValidatorListener
     /**
      * O primário de uma conta "suspensa a pedido" continua no escritório, mas só no Meu Perfil (onde
      * desiste) e no sair: qualquer outra rota volta ao Meu Perfil. Devolve true quando a requisição já foi
-     * resolvida aqui (liberada ou redirecionada).
+     * resolvida aqui (liberada ou redirecionada). Atenção (PR 4, barreira (d)): este ramo sai antes da (c) e
+     * da (d); quando a (d) entrar, ela precisa valer aqui também.
      */
     private function primarioNaContaSuspensaAPedido(?UserTenant $userTenant, RequestEvent $event): bool
     {
@@ -176,8 +177,10 @@ final class TenantContextValidatorListener
             return true;
         }
 
-        // Chamada de fundo (sino, contadores): recusa curta, sem flash acumulando para a próxima página.
-        if ($event->getRequest()->isXmlHttpRequest()) {
+        // Chamada de fundo (sino, contadores, polling sem o cabeçalho XHR): recusa curta, sem flash acumulando
+        // para a próxima página. Só a navegação de verdade (aceita HTML) vai ao Meu Perfil.
+        $requisicao = $event->getRequest();
+        if ($requisicao->isXmlHttpRequest() || !str_contains((string) $requisicao->headers->get('Accept'), 'text/html')) {
             $event->setResponse(new JsonResponse(['erro' => BloqueioPorPedidoDeExclusao::MENSAGEM], Response::HTTP_FORBIDDEN));
 
             return true;

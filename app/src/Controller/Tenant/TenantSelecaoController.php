@@ -57,11 +57,7 @@ final class TenantSelecaoController extends AbstractController
             return $this->redirectToRoute('app_login');
         }
 
-        // "Suspensa a pedido" (PR 5): o escritório barrado sai da escolha (senão a seleção automática o
-        // escolhe de novo e cai em laço com a barreira) e aparece com o aviso.
-        $todos = $this->userTenantRepository->findActiveByUser($user);
-        $vinculos = $this->bloqueioPorPedido->permitidos($todos);
-        $suspensosAPedido = $this->bloqueioPorPedido->nomesBloqueados($todos);
+        [$vinculos, $suspensosAPedido] = $this->vinculosDaEscolha($user);
 
         if (count($vinculos) === 1 && $suspensosAPedido === []) {
             $this->tenantContext->setCurrentTenant($vinculos[0]->getTenant()->getId());
@@ -81,6 +77,19 @@ final class TenantSelecaoController extends AbstractController
             'avisosDeConta' => $this->avisosDeContaForaDoAr($request, $user, $vinculos, $convites),
             'avisosDePedido' => $this->avisosDePedido($request, $suspensosAPedido),
         ]);
+    }
+
+    /**
+     * "Suspensa a pedido" (PR 5): o escritório barrado sai da escolha (senão a seleção automática o escolhe
+     * de novo e cai em laço com a barreira) e volta só o nome, para o aviso.
+     *
+     * @return array{0: list<UserTenant>, 1: list<string>}
+     */
+    private function vinculosDaEscolha(User $user): array
+    {
+        $todos = $this->userTenantRepository->findActiveByUser($user);
+
+        return [$this->bloqueioPorPedido->permitidos($todos), $this->bloqueioPorPedido->nomesBloqueados($todos)];
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Entity\Notificacao;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
+use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Tenant\Entity\PedidoDeExclusaoDeConta;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -18,7 +19,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * Avisa os Masters de um pedido de exclusão (PR 5, decisão E5; desenho 07 L265): no sino de cada Master
  * ativo, título "Pedido de exclusão de conta" e texto "{escritório} pediu exclusão. Motivo: {motivo}". A
  * notificação é gravada no escritório da conta do próprio Master (nunca no do cliente: ela é auditada e
- * apareceria na trilha do cliente). Master sem escritório não tem sino: fica de fora. Falha aqui não
+ * apareceria na trilha do cliente; a linha do audit_log também vai no escopo da conta do Master). Master
+ * sem escritório não tem sino: fica de fora. Falha aqui não
  * derruba o pedido: vai ao log.
  */
 final class AvisoAoMasterDoPedidoDeExclusao
@@ -32,6 +34,7 @@ final class AvisoAoMasterDoPedidoDeExclusao
         private readonly EntityManagerInterface $em,
         private readonly UrlGeneratorInterface $urls,
         private readonly LoggerInterface $logger,
+        private readonly EscopoDeAuditoriaDePlataforma $escopoDeAuditoria,
     ) {
     }
 
@@ -43,7 +46,6 @@ final class AvisoAoMasterDoPedidoDeExclusao
             foreach ($this->usuarios->findComPapelGlobal('ROLE_SUPER_ADMIN') as $master) {
                 $this->avisarUm($master, $texto, $url);
             }
-            $this->em->flush();
         } catch (\Throwable $e) {
             $this->logger->error('Aviso do pedido de exclusão ao Master falhou.', ['pedido' => $pedido->getId(), 'erro' => $e::class]);
         }
@@ -59,8 +61,13 @@ final class AvisoAoMasterDoPedidoDeExclusao
             return;
         }
 
-        $this->notificacoes
-            ->criar($master, $escritorio, Notificacao::TIPO_CONTA_PEDIDO_EXCLUSAO, self::TITULO, $texto)
-            ->setUrl($url);
+        // A Notificacao é auditada: o flush vai no escopo da conta do Master, senão a linha do audit_log
+        // cairia no escritório do cliente (o da sessão) e mostraria a ele quem é Master.
+        $this->escopoDeAuditoria->executarComoConta((int) $escritorio->getId(), function () use ($master, $escritorio, $texto, $url): void {
+            $this->notificacoes
+                ->criar($master, $escritorio, Notificacao::TIPO_CONTA_PEDIDO_EXCLUSAO, self::TITULO, $texto)
+                ->setUrl($url);
+            $this->em->flush();
+        });
     }
 }

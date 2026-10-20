@@ -134,6 +134,10 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
     private function pedidoDe(Tenant $conta): ?PedidoDeExclusaoDeConta
     {
         $this->em->clear();
+        // A requisição anterior pode ter ligado o filtro de escritório com outra conta (a do Master).
+        if ($this->em->getFilters()->isEnabled('tenant')) {
+            $this->em->getFilters()->disable('tenant');
+        }
 
         return $this->em->getRepository(PedidoDeExclusaoDeConta::class)->findOneBy(['tenant' => $conta->getId()], ['id' => 'DESC']);
     }
@@ -325,8 +329,10 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
         $this->suspenderAPedido($conta, $primario);
         $this->logarComTenant($this->client, $primario, $conta);
 
-        $this->client->request('GET', '/expediente');
+        $this->client->request('GET', '/expediente', [], [], ['HTTP_ACCEPT' => 'text/html']);
         self::assertResponseRedirects('/perfil');
+        $this->client->request('GET', '/notificacoes/count', [], [], ['HTTP_ACCEPT' => '*/*']);
+        self::assertResponseStatusCodeSame(403, 'polling sem o cabeçalho XHR também recebe a recusa curta');
         $this->client->request('GET', '/expediente', [], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
         self::assertResponseStatusCodeSame(403);
 
@@ -402,5 +408,111 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
         $pedido = $this->pedidoDe($conta);
         self::assertSame(EstadoDoPedidoDeExclusao::Excluida, $pedido?->getEstado(), 'recuperada = "excluida" com o escritório ativo');
         self::assertTrue($pedido?->getTenant()->isActive());
+    }
+
+    #[TestDox('Master pelo PAINEL (HTTP), com o escritório dele na sessão: reativar decide o pedido do cliente (o filtro de escritório não esconde o pedido)')]
+    public function testMasterReativaPeloPainel(): void
+    {
+        $conta = $this->conta();
+        $primario = $this->pessoa($conta, true);
+        $contaDoMaster = $this->conta();
+        $master = $this->pessoa($contaDoMaster, true, ['ROLE_SUPER_ADMIN']);
+        $this->suspenderAPedido($conta, $primario);
+        $this->logarComTenant($this->client, $master, $contaDoMaster);
+
+        $this->client->request('POST', '/master/contas/' . $conta->getId() . '/reativar', ['_token' => 'TOKEN_master_conta_' . $conta->getId()], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(EstadoDoPedidoDeExclusao::Reativada, $this->pedidoDe($conta)?->getEstado());
+    }
+
+    #[TestDox('Master pelo PAINEL (HTTP), com o escritório dele na sessão: excluir põe em quarentena e decide o pedido ("excluida")')]
+    public function testMasterExcluiPeloPainel(): void
+    {
+        $conta = $this->conta();
+        $primario = $this->pessoa($conta, true);
+        $contaDoMaster = $this->conta();
+        $master = $this->pessoa($contaDoMaster, true, ['ROLE_SUPER_ADMIN']);
+        $this->suspenderAPedido($conta, $primario);
+        $this->logarComTenant($this->client, $master, $contaDoMaster);
+
+        $this->client->request('POST', '/master/contas/' . $conta->getId() . '/excluir', ['_token' => 'TOKEN_master_conta_' . $conta->getId(), 'confirmacao' => 'EXCLUIR'], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+        self::assertResponseIsSuccessful();
+        $pedido = $this->pedidoDe($conta);
+        self::assertSame(EstadoDoPedidoDeExclusao::Excluida, $pedido?->getEstado());
+        self::assertNotNull($pedido?->getTenant()->getExcluidoEm());
+    }
+
+    #[TestDox('conta do Master (criada por um Master): sem card e o servidor recusa (403)')]
+    public function testContaDoMaster(): void
+    {
+        $conta = $this->conta();
+        $master = $this->pessoa($conta, true, ['ROLE_SUPER_ADMIN']);
+        $conta = $this->em->find(Tenant::class, $conta->getId());
+        $conta?->setCriadoPor($this->em->find(User::class, $master->getId()));
+        $this->em->flush();
+        $this->logarComTenant($this->client, $master, $conta);
+
+        $pagina = $this->client->request('GET', '/perfil');
+        self::assertCount(0, $pagina->filter('.mp-ex'));
+        $this->postar('codigo', ['motivo' => 'Achei caro']);
+        self::assertResponseStatusCodeSame(403);
+        self::assertEmailCount(0);
+    }
+
+    #[TestDox('código vencido (mais de 15 minutos): "Código inválido." e nenhum pedido')]
+    public function testCodigoVencido(): void
+    {
+        $conta = $this->conta();
+        $this->logarComTenant($this->client, $this->pessoa($conta, true), $conta);
+        $codigo = $this->pedirCodigo();
+        $this->em->getConnection()->executeStatement("UPDATE codigo_exclusao_conta SET expira_em = criado_em - interval '1 minute' WHERE tenant_id = :t", ['t' => $conta->getId()]);
+
+        $this->postar('pedir', ['motivo' => 'Achei caro', 'codigo' => $codigo, 'palavra' => 'EXCLUIR']);
+
+        self::assertSame('Código inválido.', $this->json()['erro']);
+        self::assertNull($this->pedidoDe($conta));
+    }
+
+    #[TestDox('e-mail que não sai: 503 com a mensagem e nenhum código fica gravado')]
+    public function testFalhaDeEmail(): void
+    {
+        static::getContainer()->set(\App\Tenant\Service\CodigoDeExclusaoMailerInterface::class, new class () implements \App\Tenant\Service\CodigoDeExclusaoMailerInterface {
+            public function enviar(User $usuario, string $escritorio, string $codigo): void
+            {
+                throw new \RuntimeException('transporte fora');
+            }
+        });
+        $conta = $this->conta();
+        $this->logarComTenant($this->client, $this->pessoa($conta, true), $conta);
+
+        $this->postar('codigo', ['motivo' => 'Achei caro']);
+
+        self::assertResponseStatusCodeSame(503);
+        self::assertSame('Não foi possível enviar o código. Tente de novo em instantes.', $this->json()['erro']);
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT count(*) FROM codigo_exclusao_conta WHERE tenant_id = :t', ['t' => $conta->getId()]));
+    }
+
+    #[TestDox('desistir com a conta fora do ar (suspensa pelo Master depois do pedido): recusado, só o Master decide')]
+    public function testDesistirComContaForaDoAr(): void
+    {
+        $conta = $this->conta();
+        $primario = $this->pessoa($conta, true);
+        $this->suspenderAPedido($conta, $primario);
+        $suspensa = $this->em->find(Tenant::class, $conta->getId());
+        $suspensa?->setIsActive(false);
+        $this->em->flush();
+
+        $usuario = $this->em->find(User::class, $primario->getId());
+        self::assertNotNull($usuario);
+        self::assertNotNull($suspensa);
+        try {
+            static::getContainer()->get(\App\Tenant\UseCase\DesistirDaExclusaoUseCase::class)->executar($usuario, $suspensa);
+            self::fail('conta fora do ar não aceita desistir');
+        } catch (\App\Tenant\Exception\PedidoDeExclusaoRecusado $e) {
+            self::assertSame(409, $e->status);
+        }
+        self::assertSame(EstadoDoPedidoDeExclusao::Pendente, $this->pedidoDe($conta)?->getEstado());
     }
 }

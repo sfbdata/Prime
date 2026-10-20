@@ -9,6 +9,7 @@ use App\Tenant\DTO\PedidoDeExclusaoPendenteOutput;
 use App\Tenant\Entity\PedidoDeExclusaoDeConta;
 use App\Tenant\Enum\EstadoDoPedidoDeExclusao;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Query\ResultSetMappingBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -24,15 +25,24 @@ class PedidoDeExclusaoDeContaRepository extends ServiceEntityRepository
         parent::__construct($registry, PedidoDeExclusaoDeConta::class);
     }
 
+    /**
+     * O pedido pendente desta conta. Consulta NATIVA de propósito: o filtro de escritório (TenantFilter)
+     * não vale para ela. O Master decide pelo painel com o escritório DELE na sessão, e uma DQL aqui
+     * esconderia o pedido do cliente (Reativar recusaria e Excluir deixaria o pedido pendente). O escritório
+     * é sempre o do parâmetro.
+     */
     public function pendenteDoEscritorio(Tenant $tenant): ?PedidoDeExclusaoDeConta
     {
-        return $this->createQueryBuilder('p')
-            ->andWhere('p.tenant = :tenant')
-            ->andWhere('p.estado = :pendente')
-            ->setParameter('tenant', $tenant)
-            ->setParameter('pendente', EstadoDoPedidoDeExclusao::Pendente)
-            ->setMaxResults(1)
-            ->getQuery()
+        $mapa = new ResultSetMappingBuilder($this->getEntityManager());
+        $mapa->addRootEntityFromClassMetadata(PedidoDeExclusaoDeConta::class, 'p');
+
+        return $this->getEntityManager()
+            ->createNativeQuery(
+                "SELECT {$mapa->generateSelectClause()} FROM pedido_exclusao_conta p WHERE p.tenant_id = :tenant AND p.estado = :pendente LIMIT 1",
+                $mapa,
+            )
+            ->setParameter('tenant', $tenant->getId())
+            ->setParameter('pendente', EstadoDoPedidoDeExclusao::Pendente->value)
             ->getOneOrNullResult();
     }
 

@@ -467,9 +467,9 @@ input[type="range"].img-slider {
             <div class="mp-ex-corpo">
                 <div data-mp-ex-e1>
                     <p class="mp-ex-p">Conte em poucas palavras o motivo. Isso nos ajuda a melhorar.</p>
-                    <div class="mp-ex-motivos" role="radiogroup" aria-label="Motivo">
+                    <div class="mp-ex-motivos" role="group" aria-label="Motivo">
                         {% for motivo in ['Não uso mais', 'Achei caro', 'Faltou um recurso', 'Mudei de sistema', 'Encerrando o escritório', 'Outro motivo'] %}
-                            <button type="button" class="mp-ex-motivo" role="radio" aria-checked="false" data-mp-ex-motivo="{{ motivo }}">{{ motivo }}</button>
+                            <button type="button" class="mp-ex-motivo" aria-pressed="false" data-mp-ex-motivo="{{ motivo }}">{{ motivo }}</button>
                         {% endfor %}
                     </div>
                     <input type="text" class="mp-ex-campo" data-mp-ex-obs placeholder="Algo a mais? (opcional)" maxlength="300" aria-label="Algo a mais? (opcional)">

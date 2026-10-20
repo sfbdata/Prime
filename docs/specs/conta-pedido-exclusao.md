@@ -14,7 +14,14 @@ Releia esta seção antes de continuar se a sessão for compactada.
   empilha o bloco "Pedidos de exclusão de conta" do painel do Master sobre este PR e lê `pendentes()`. Neste PR
   entram as duas chamadas do lado do Master (`marcarReativada` no `ReativarContaUseCase`, que deixa de recusar conta
   ativa com pedido pendente; `marcarExcluida` no `ExcluirContaPeloMasterUseCase`).
-- Migration: no fim da fila (pedir a vez ao coordenador). `framework.yaml` (arquivo quente): um limitador novo em
+- Migration `Version20261020150000`, no fim da fila (coordenador, 20/10). Mapeamento novo `AppTenant` no
+  `doctrine.yaml` (arquivo quente).
+- 20/10, sem internet na máquina: commits só locais. FALTA ENVIAR: `git push -u origin conta-pedido-exclusao` e o PR
+  (base `meu-perfil-oab`); depois avisar a b5 (empilha o bloco do painel) e o coordenador.
+- Coordenador (20/10): (d1) o link público do Push desliga com escritório suspenso, em quarentena ou suspenso a
+  pedido (correção de segurança, vale para a suspensão do Master já em produção). Ao dono: (a) card para o Master
+  que não é primário, (b) troca da rota antiga `escritorio_excluir` (ainda NÃO aplicada; aguarda), (d2) DJEN durante
+  a suspensão a pedido. `framework.yaml` (arquivo quente): um limitador novo em
   trecho próprio.
 
 ## Decisões
@@ -47,16 +54,23 @@ Decisor imparcial (feature-review-agent, 20/10), sobre o desenho e o contrato:
 - E5. Aviso ao Master: no sino de cada Master ativo, título "Pedido de exclusão de conta", texto "{escritório} pediu
   exclusão. Motivo: {motivo}", gravado no escritório da conta do próprio Master (nunca no do cliente). Sem e-mail.
   Falha no aviso vai ao log e não derruba o pedido.
-- E6. Rota antiga `escritorio_excluir` (exclusão imediata pelo admin do escritório): passa a ser só do Master; a
-  "Zona de perigo" de `tenant/show` leva o primário ao card do Meu Perfil e some para os demais. O
-  `ExcluirEscritorioUseCase` marca o pedido pendente como "excluida". (Deriva da decisão do dono de que os 365 dias
-  contam da decisão do Master e da Q4 da b5; vai ao dono como aviso, pois tira uma função do admin.)
+- E6. Rota antiga `escritorio_excluir` (exclusão imediata pelo admin do escritório): proposta passar a ser só do
+  Master, com a "Zona de perigo" levando o primário ao card do Meu Perfil. AGUARDA O DONO (tira uma função do admin);
+  por ora a rota fica como está. Já entrou: o `ExcluirEscritorioUseCase` marca o pedido pendente como "excluida".
 - E7. Os jobs (DJEN, fotografar, worker) seguem: o escritório continua ativo e desistir devolve tudo inteiro. Ficam
   como pendência (fora deste PR): o link público do Push e os e-mails do DJEN para a equipe bloqueada.
 - E8. Purga: `pedido_exclusao_conta` e `codigo_exclusao_conta` entram em `ORDEM_DELECAO` antes de `tenant`; o
   histórico fica no `audit_log` (pedido `Auditavel`; código não). Códigos vencidos saem ao emitir um novo e na purga.
 - E9. Master suspende (C2) com pedido pendente: permitido, o pedido continua pendente; a barreira (a) vem antes da
   (b), então o primário também perde o acesso até o Master reativar ou excluir. Desistir recusa conta fora do ar.
+
+- E10 (revisão, 20/10). O pedido pendente é lido por consulta NATIVA (`pendenteDoEscritorio`): o filtro de escritório
+  da sessão do Master escondia o pedido do cliente no painel (Reativar recusava, Excluir deixava o pedido
+  pendente). A notificação ao Master é gravada no escopo de auditoria da conta do Master. Chamadas de fundo (sem
+  `Accept: text/html` ou com XHR) do primário suspenso recebem 403 curto, sem flash. Os motivos do modal são botões
+  `aria-pressed`. Pendências registradas: rotas com o escritório na URL (`/tenant/{id}`…) não passam pela barreira
+  (b), lacuna que já existe na (a) (vai ao dono junto com a E6); a futura barreira (d) do PR 4 precisa valer também
+  no ramo do primário suspenso.
 
 ## Textos
 

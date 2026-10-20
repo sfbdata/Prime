@@ -58,7 +58,7 @@ final class SolicitarCodigoDeExclusaoUseCase
 
         try {
             $this->mailer->enviar($usuario, (string) $tenant->getName(), $codigo);
-        } catch (\RuntimeException) {
+        } catch (\Throwable) {
             $this->codigos->apagarDoPar($tenant, $usuario);
             throw new PedidoDeExclusaoRecusado('Não foi possível enviar o código. Tente de novo em instantes.', 503);
         }

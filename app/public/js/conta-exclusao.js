@@ -60,7 +60,7 @@
   function zerar() {
     motivo = '';
     obs.value = ''; codigo.value = ''; palavra.value = '';
-    modal.querySelectorAll('[data-mp-ex-motivo]').forEach(b => { b.setAttribute('aria-checked', 'false'); b.classList.remove('is-on'); });
+    modal.querySelectorAll('[data-mp-ex-motivo]').forEach(b => { b.setAttribute('aria-pressed', 'false'); b.classList.remove('is-on'); });
     avancar.disabled = false;
     irPara(1);
   }
@@ -71,7 +71,7 @@
     motivo = b.dataset.mpExMotivo;
     modal.querySelectorAll('[data-mp-ex-motivo]').forEach(o => {
       const on = o === b;
-      o.setAttribute('aria-checked', on ? 'true' : 'false');
+      o.setAttribute('aria-pressed', on ? 'true' : 'false');
       o.classList.toggle('is-on', on);
     });
     mostrarErro('');

@@ -81,19 +81,18 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Pasta/Entity'
                 prefix: 'App\Pasta\Entity'
                 alias: AppPasta
-            # Pedido de exclusão da conta e o código da etapa 2 (PR 5, docs/specs/conta-pedido-exclusao.md).
-            AppTenant:
-                type: attribute
-                is_bundle: false
-                dir: '%kernel.project_dir%/src/Tenant/Entity'
-                prefix: 'App\Tenant\Entity'
-                alias: AppTenant
             AppTermo:
                 type: attribute
                 is_bundle: false
                 dir: '%kernel.project_dir%/src/Termo/Entity'
                 prefix: 'App\Termo\Entity'
                 alias: AppTermo
+            AppTenant:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Tenant/Entity'
+                prefix: 'App\Tenant\Entity'
+                alias: AppTenant
             AppPonto:
                 type: attribute
                 is_bundle: false
