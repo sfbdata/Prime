@@ -230,11 +230,14 @@
                 }
                 return r.json().catch(function () { return {}; }).then(function (dados) {
                     if (!r.ok) {
-                        var erro = new Error(dados.erro || 'Falha na Central.');
+                        // 401 = sessão vencida: o login responde em JSON aos pedidos de dados (não redireciona mais).
+                        var erro = new Error(r.status === 401
+                            ? 'Sua sessão nesta Central terminou. Recarregue a página para continuar.'
+                            : (dados.erro || 'Falha na Central.'));
                         erro.status = r.status;
                         // 403 sem `codigo` = sem vínculo com o escritório (sessão); com `sem_permissao_no_grupo` é regra
                         // do grupo (B): a sessão continua.
-                        erro.sessao = r.status === 403 && dados.codigo !== 'sem_permissao_no_grupo';
+                        erro.sessao = r.status === 401 || (r.status === 403 && dados.codigo !== 'sem_permissao_no_grupo');
                         throw erro;
                     }
                     return dados;

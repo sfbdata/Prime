@@ -81,7 +81,7 @@
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
             signal: controle.signal
         }).then(function (r) {
-            if (r.redirected && new URL(r.url).pathname.indexOf('/login') === 0) { throw new Error('sessao'); }
+            if (r.status === 401 || (r.redirected && new URL(r.url).pathname.indexOf('/login') === 0)) { throw new Error('sessao'); }
             if (!r.ok) { throw new Error('http'); }
             return r.json();
         }).then(function (j) {
