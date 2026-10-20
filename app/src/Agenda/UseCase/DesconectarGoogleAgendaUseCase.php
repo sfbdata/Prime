@@ -13,6 +13,8 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Sync\Service\CifradorDeSegredo;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 /**
  * História: a pessoa revoga o consentimento (LGPD, art. 8º, § 5º) clicando em "Desconectar" e responde se quer
@@ -33,6 +35,7 @@ final class DesconectarGoogleAgendaUseCase
         private readonly GoogleAgendaApi $google,
         private readonly CifradorDeSegredo $cifrador,
         private readonly EntityManagerInterface $em,
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {
     }
 
@@ -57,7 +60,7 @@ final class DesconectarGoogleAgendaUseCase
     public function todasDaPessoa(User $pessoa, bool $apagarAgenda): void
     {
         foreach ($this->conexoes->daPessoaEmTodos($pessoa) as $conexao) {
-            $this->desfazer($conexao, $apagarAgenda);
+            $this->desfazerSemParar($conexao, $apagarAgenda);
         }
     }
 
@@ -65,7 +68,17 @@ final class DesconectarGoogleAgendaUseCase
     public function todasDoEscritorio(Tenant $tenant, bool $apagarAgenda): void
     {
         foreach ($this->conexoes->doEscritorio($tenant) as $conexao) {
+            $this->desfazerSemParar($conexao, $apagarAgenda);
+        }
+    }
+
+    /** Em lote, uma conexão que falha não segura as outras. */
+    private function desfazerSemParar(ConexaoGoogleAgenda $conexao, bool $apagarAgenda): void
+    {
+        try {
             $this->desfazer($conexao, $apagarAgenda);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Google Agenda: conexão não desfeita no lote', ['conexao' => $conexao->getId(), 'motivo' => $e->getMessage()]);
         }
     }
 

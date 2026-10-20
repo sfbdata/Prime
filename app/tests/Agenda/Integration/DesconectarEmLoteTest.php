@@ -11,6 +11,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Sync\Service\CifradorDeSegredo;
 use App\Tests\Agenda\GoogleFalso;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -47,6 +48,20 @@ final class DesconectarEmLoteTest extends KernelTestCase
         self::assertSame(0, $this->conexoes('tenant_id', (int) $tenant->getId()));
         self::assertSame(1, $this->conexoes('tenant_id', (int) $outro->getId()));
         self::assertCount(2, array_filter($this->google->pedidos, static fn (string $p): bool => 'POST /revoke' === $p));
+    }
+
+    #[TestDox('Dentro de uma sessão de outro escritório (filtro ligado), o lote ainda acha as conexões do escritório pedido')]
+    public function testComFiltroDeOutroEscritorio(): void
+    {
+        $tenant = $this->escritorio();
+        $sessao = $this->escritorio();
+        $this->conectar($this->pessoa(), $tenant, 'ana@gmail.com');
+        $this->em()->getFilters()->enable('tenant')->setParameter('tenant', (int) $sessao->getId(), Types::INTEGER);
+
+        static::getContainer()->get(DesconectarGoogleAgendaUseCase::class)->todasDoEscritorio($tenant, false);
+
+        $this->em()->getFilters()->disable('tenant');
+        self::assertSame(0, $this->conexoes('tenant_id', (int) $tenant->getId()));
     }
 
     #[TestDox('Todas da pessoa: sai de todos os escritórios, apagando a agenda do escritório quando pedido')]

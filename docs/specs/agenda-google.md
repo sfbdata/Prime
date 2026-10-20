@@ -262,16 +262,23 @@ Google; agenda nova manda de novo; o id de prazo nunca vira compromisso importad
 
 - **Escopos:** `include_granted_scopes=false` (nada herdado de outra autorização do mesmo cliente, como um login
   futuro). Token com escopo além de `openid`, `email` (ou `userinfo.email`) e `calendar.app.created`, ou sem o da
-  agenda, é recusado e revogado no Google.
+  agenda, é recusado e revogado no Google, a menos que a conta já esteja ligada em outro escritório (revogar
+  derrubaria a de lá). Mesma regra no retorno sem como cifrar.
 - **id_token:** além do `email_verified`, confere `aud` (o nosso cliente), `iss` (`accounts.google.com`) e `exp`.
 - **Chave dos segredos:** sem `SYNC_CRYPTO_KEY` o Google fica desligado (`ligado()` falso, painel "indisponível").
   Se mesmo assim um retorno do OAuth chegar sem como cifrar, a autorização é revogada lá e a tela mostra a falha,
   sem erro 500.
 - **Desconectar pega a trava da conexão:** com a sincronia rodando, 409 com "tente de novo em instantes"; no
   worker (perdeu o acesso), a próxima volta desconecta.
-- **Limitador** `agenda_google` (20 por pessoa em 15 min) em conectar, retorno e desconectar; bloco próprio em
+- **Limitador** `agenda_google` (20 por pessoa em 15 min) em conectar e desconectar (o retorno não conta: o
+  consentimento já foi dado). Estourado, conectar volta à Agenda com o aviso "Muitas tentativas com o Google
+  Agenda. Tente de novo em alguns minutos." e desconectar responde 429 com a mesma frase. Bloco próprio em
   `config/packages/agenda_google.yaml`, fora do `framework.yaml`.
 - **Auditoria:** sai o `googleHash` morto da lista de campos ignorados.
 - **Com o dono (prontos para virar com uma linha):** (1) apagar a agenda do escritório de quem perde a Agenda:
   `SincronizarGoogleAgendaUseCase::APAGAR_AGENDA_DE_QUEM_SAI`; (2) revogar na exclusão de conta, suspensão ou
   purga: `DesconectarGoogleAgendaUseCase::todasDaPessoa()` e `todasDoEscritorio()` (testadas, ainda não chamadas).
+  Buscam com o filtro de escritório suspenso (funcionam de dentro de uma sessão de outro escritório), não esperam
+  a trava e uma conexão que falha não segura as outras.
+- **Ambiente:** `.env.prod.example` documenta `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`, `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET`
+  e `SYNC_CRYPTO_KEY`.

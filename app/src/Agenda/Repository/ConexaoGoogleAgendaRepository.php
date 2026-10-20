@@ -78,16 +78,46 @@ class ConexaoGoogleAgendaRepository extends ServiceEntityRepository
         );
     }
 
-    /** @return list<ConexaoGoogleAgenda> as conexões da pessoa em todos os escritórios */
-    public function daPessoaEmTodos(User $usuario): array
+    /** A conta já está ligada em alguma conexão (de qualquer escritório)? Em SQL, pelo mesmo motivo de cima. */
+    public function contaEmAlgumaConexao(string $conta): bool
     {
-        return $this->findBy(['usuario' => $usuario], ['id' => 'ASC']);
+        return false !== $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT 1 FROM agenda_google_conexao WHERE LOWER(conta) = LOWER(:conta)',
+            ['conta' => $conta],
+        );
     }
 
-    /** @return list<ConexaoGoogleAgenda> */
+    /** @return list<ConexaoGoogleAgenda> as conexões da pessoa em todos os escritórios, com o filtro de escritório suspenso */
+    public function daPessoaEmTodos(User $usuario): array
+    {
+        return $this->semFiltroDeEscritorio(fn (): array => $this->findBy(['usuario' => $usuario], ['id' => 'ASC']));
+    }
+
+    /** @return list<ConexaoGoogleAgenda> as do escritório pedido, mesmo de dentro de uma sessão de outro escritório */
     public function doEscritorio(Tenant $tenant): array
     {
-        return $this->findBy(['tenant' => $tenant], ['id' => 'ASC']);
+        return $this->semFiltroDeEscritorio(fn (): array => $this->findBy(['tenant' => $tenant], ['id' => 'ASC']));
+    }
+
+    /**
+     * @param callable(): list<ConexaoGoogleAgenda> $consulta
+     *
+     * @return list<ConexaoGoogleAgenda>
+     */
+    private function semFiltroDeEscritorio(callable $consulta): array
+    {
+        $filtros = $this->getEntityManager()->getFilters();
+        $estavaLigado = $filtros->isEnabled('tenant');
+        if ($estavaLigado) {
+            $filtros->suspend('tenant');
+        }
+        try {
+            return $consulta();
+        } finally {
+            if ($estavaLigado) {
+                $filtros->restore('tenant');
+            }
+        }
     }
 
     /** Trava atômica: duas sincronias da mesma pessoa ao mesmo tempo duplicariam envios. */

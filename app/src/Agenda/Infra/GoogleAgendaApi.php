@@ -8,6 +8,7 @@ use App\Agenda\Exception\AgendaDoEscritorioSumiuException;
 use App\Agenda\Exception\AutorizacaoDoGoogleRecusadaException;
 use App\Agenda\Exception\EventoRecusadoPeloGoogleException;
 use App\Agenda\Exception\GoogleAgendaException;
+use App\Agenda\Exception\PermissoesDoGoogleRecusadasException;
 use App\Agenda\Exception\SyncTokenVencidoException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
@@ -89,13 +90,13 @@ final class GoogleAgendaApi
         if (!is_string($token['refresh_token'] ?? null) || '' === $token['refresh_token']) {
             throw new GoogleAgendaException('O Google não devolveu a autorização permanente (refresh token).');
         }
+        $conta = $this->emailDoIdToken((string) ($token['id_token'] ?? ''));
         $escopos = preg_split('/\s+/', trim((string) ($token['scope'] ?? self::ESCOPO))) ?: [];
         if (!in_array(self::ESCOPO, $escopos, true) || [] !== array_diff($escopos, self::ESCOPOS_ACEITOS)) {
-            $this->revogar($token['refresh_token']);
-            throw new GoogleAgendaException('O Google concedeu permissões diferentes das pedidas para a agenda.');
+            throw new PermissoesDoGoogleRecusadasException($token['refresh_token'], $conta);
         }
 
-        return ['refresh' => $token['refresh_token'], 'conta' => $this->emailDoIdToken((string) ($token['id_token'] ?? ''))];
+        return ['refresh' => $token['refresh_token'], 'conta' => $conta];
     }
 
     public function renovar(string $refreshToken): string

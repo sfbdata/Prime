@@ -19,7 +19,6 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -36,6 +35,7 @@ final class GoogleAgendaController extends AbstractController
     use ValidaCsrfAjaxTrait;
 
     private const SESSAO = 'agenda_google_oauth';
+    private const LIMITE = 'Muitas tentativas com o Google Agenda. Tente de novo em alguns minutos.';
 
     public function __construct(
         private readonly GoogleAgendaApi $google,
@@ -55,6 +55,9 @@ final class GoogleAgendaController extends AbstractController
         $volta = $this->voltaLocal($request->query->getString('volta'), $request->getHost());
         if (!$this->google->ligado()) {
             return $this->redirect($volta);
+        }
+        if (!$this->dentroDoLimite($eu)) {
+            return $this->redirect($volta . '#google=limite');
         }
         $state = bin2hex(random_bytes(16));
         $verificador = rtrim(strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=');
@@ -97,6 +100,9 @@ final class GoogleAgendaController extends AbstractController
     {
         [$eu, $tenant] = $this->exigirAgenda();
         $this->validarCsrfAjax($request);
+        if (!$this->dentroDoLimite($eu)) {
+            return $this->json(['erro' => self::LIMITE], 429);
+        }
         $corpo = '' === $request->getContent() ? [] : $request->toArray();
         try {
             $this->desconectar->executar($tenant, $eu, true === ($corpo['apagarAgenda'] ?? false));
@@ -107,6 +113,12 @@ final class GoogleAgendaController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
+    /** Limitador por pessoa em conectar e desconectar (o retorno já vem com o consentimento dado: não conta). */
+    private function dentroDoLimite(User $eu): bool
+    {
+        return $this->agendaGoogleLimiter->create('pessoa-' . $eu->getId())->consume()->isAccepted();
+    }
+
     /** @return array{User, Tenant} */
     private function exigirAgenda(): array
     {
@@ -114,9 +126,6 @@ final class GoogleAgendaController extends AbstractController
         $tenant = $this->tenantContext->getCurrentTenant();
         if (!$eu instanceof User || null === $tenant || !$this->permissionChecker->canAccessModule($eu, $tenant, 'agenda')) {
             throw new AccessDeniedHttpException('Sem acesso à Agenda.');
-        }
-        if (!$this->agendaGoogleLimiter->create('pessoa-' . $eu->getId())->consume()->isAccepted()) {
-            throw new TooManyRequestsHttpException(null, 'Muitas tentativas de conexão com o Google. Tente de novo em alguns minutos.');
         }
 
         return [$eu, $tenant];
