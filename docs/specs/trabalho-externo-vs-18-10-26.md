@@ -9,10 +9,11 @@
    base `trabalho-externo-vagas`.
    Migration `Version20261019160801`.
 4. `trabalho-externo-curriculos` (F3a, §4.5) → **PR #96 em rascunho**, base `trabalho-externo-vagas-publicas`.
+   Migration `Version20261019213000`.
 5. `trabalho-externo-candidatura` (F2b, §4.6) → **PR #105 em rascunho**, base `trabalho-externo-curriculos`.
    Migration `Version20261019231700`.
 6. `trabalho-externo-engajamento` (F4, §4.7) → em andamento, base `trabalho-externo-candidatura`.
-   Migration `Version20261019213000`.
+   Migration `Version20261019235800`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
 rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e classe), trocar a
@@ -659,7 +660,9 @@ vaga, nunca o nome nem o contato do candidato. URL para a tela com `#vaga=`/`#cv
 | Mudança de status da candidatura (l.985, 1040) | o candidato | escritório gravado na candidatura |
 | Vaga nova ou reaberta na área (l.1012, 1107, 1160; lacuna 1) | externos com o aviso ligado, com área em comum ou sem currículo (como o desenho) | escritório gravado na preferência |
 
-Sem sede definida, ou sem escritório, o aviso não é criado: o **Convidado avulso fica sem aviso no sino**
+Decisão técnica (19/10): a candidatura comum em vaga de escritório também avisa a Central, que é quem
+analisa e envia; o aceite de oferta em vaga de escritório vai só para o dono. Quem age não recebe o
+próprio aviso. Sem sede definida, ou sem escritório, o aviso não é criado: o **Convidado avulso fica sem aviso no sino**
 (coordenador, 19/10; o desenho não mostra aviso próprio para ele). Os arquivos `Notificacao.php` e
 `TiposDeAvisoDaCentral.php` são disputados (5d, 0d, 9b, f6, 4b): constantes e entradas do Trabalho Externo
 num bloco próprio, com um comentário de uma linha, só acréscimos. Tipos novos
