@@ -236,25 +236,31 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         [$user, $tenant] = $this->criarAdmin();
         $pasta           = $this->criarPasta($tenant);
         $obs             = $this->criarObs($pasta, $tenant, $user, '-5 minutes');
+        // NUP é texto livre: com crase e ${...} ele não pode entrar cru no template JS do cartão novo (XSS).
+        $pasta->setNup('10`A ${ALERTA}');
+        $this->em()->flush();
 
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertResponseIsSuccessful();
+        self::assertSame('10`A ${ALERTA}', $crawler->filter('#detalhesObsLista')->attr('data-pasta-nup'), 'o NUP vem da lista, em atributo HTML');
 
         [$menu] = $this->menu($crawler, $obs);
         $id     = $obs->getId();
         $item   = $menu->filter("#psObsMenu{$id} > .js-obs-criar-meta + .js-obs-enviar-chat[role=\"menuitem\"]");
         self::assertCount(1, $menu->filter("#psObsMenu{$id} > .js-obs-enviar-chat + .js-obs-imprimir"));
         self::assertSame('Enviar no Chat I.A', trim($item->text()));
-        self::assertSame((string) $pasta->getNup(), $item->attr('data-pasta-nup'));
+        self::assertNull($item->attr('data-pasta-nup'));
         self::assertCount(1, $item->filter('i.bi-chat-dots'));
 
         $html = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('${ALERTA}', substr($html, (int) strpos($html, 'function inserirItem(data)'), 20000), 'o NUP não entra no script');
         self::assertStringContainsString("if (itemChat) { enviarObsNoChat(itemChat); return; }", $html);
         $fn = substr($html, (int) strpos($html, 'function enviarObsNoChat(item)'), 1500);
         self::assertStringContainsString("new CustomEvent('bj-central:abrir')", $fn);
         self::assertStringContainsString(".slice(0, 900)", $fn);
-        self::assertStringContainsString("'Pasta ' + (item.dataset.pastaNup || '') + ' · ' + cab", $fn);
+        self::assertStringContainsString("getElementById('detalhesObsLista')", $fn);
+        self::assertStringContainsString("'Pasta ' + nup + ' · ' + cab", $fn);
         self::assertStringContainsString('Chat I.A aberto. Texto copiado para colar na conversa', $fn);
 
         $flutuante = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/central-flutuante.js');
