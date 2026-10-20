@@ -9,6 +9,7 @@ use App\Contribua\Banco\BancosPix;
 use App\Contribua\Entity\NotificacaoRecebida;
 use App\Contribua\Message\ReconsultarCobrancaNoBanco;
 use App\Contribua\Repository\CobrancaPixDaContaRepository;
+use App\Contribua\Repository\IntegracaoBancariaRepository;
 use App\Contribua\Repository\NotificacaoRecebidaRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -38,6 +39,7 @@ final class WebhookDoBancoController extends AbstractController
         private readonly CobrancaPixDaContaRepository $cobrancas,
         private readonly MessageBusInterface $bus,
         private readonly BancosPix $bancos,
+        private readonly IntegracaoBancariaRepository $integracoes,
     ) {
     }
 
@@ -63,8 +65,9 @@ final class WebhookDoBancoController extends AbstractController
     #[Route('/api/webhooks/{banco}/pix/pix', name: 'contribua_webhook_bacen_pix', requirements: ['banco' => '[a-z]{2,20}'], methods: ['POST'])]
     public function bacen(Request $request, string $banco): JsonResponse
     {
-        // Só os bancos da API Pix do BACEN registrados; a Cora tem a rota própria (acima).
-        if (!$this->bancos->doCodigo($banco) instanceof BancoPixBacen) {
+        // Só os bancos da API Pix do BACEN registrados (a Cora tem a rota própria, acima), e só o configurado
+        // agora: aviso do banco anterior não gera trabalho (as credenciais guardadas não são dele).
+        if (!$this->bancos->doCodigo($banco) instanceof BancoPixBacen || $banco !== $this->integracoes->atual()->getBanco()) {
             return $this->json(['success' => true]);
         }
         $corpo = json_decode($request->getContent(), true);

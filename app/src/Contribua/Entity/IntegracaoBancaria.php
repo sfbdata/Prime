@@ -137,6 +137,13 @@ class IntegracaoBancaria
         $this->urlToken = '' === $urlToken ? null : $urlToken;
     }
 
+    /** Troca de banco ou de endereço: o segredo guardado era do anterior e não pode ir para o novo. */
+    public function esquecerSegredos(): void
+    {
+        $this->clientSecretCifrado = null;
+        $this->appKeyCifrada = null;
+    }
+
     /** Segredos já cifrados; `null` mantém o que estava (campo deixado em branco na tela). */
     public function guardarSegredos(?string $clientSecretCifrado, ?string $appKeyCifrada): void
     {
@@ -193,8 +200,25 @@ class IntegracaoBancaria
         if (mb_strlen($url) > 255 || !str_starts_with(strtolower($url), 'https://') || !is_string($host) || '' === $host || false === filter_var($url, \FILTER_VALIDATE_URL)) {
             throw new \DomainException('A ' . $rotulo . ' precisa ser um endereço https:// completo.');
         }
+        if (self::redeInterna($host)) {
+            throw new \DomainException('A ' . $rotulo . ' não pode apontar para a rede interna (localhost, IP privado, de loopback ou link-local).');
+        }
 
         return $url;
+    }
+
+    /** localhost e IP literal privado, reservado (loopback, link-local...), v4 ou v6. O nome que resolve para dentro não é pego aqui. */
+    private static function redeInterna(string $host): bool
+    {
+        $host = strtolower(rtrim(trim($host, '[]'), '.'));
+        if ('localhost' === $host || str_ends_with($host, '.localhost')) {
+            return true;
+        }
+        if (false === filter_var($host, \FILTER_VALIDATE_IP)) {
+            return false;
+        }
+
+        return false === filter_var($host, \FILTER_VALIDATE_IP, \FILTER_FLAG_NO_PRIV_RANGE | \FILTER_FLAG_NO_RES_RANGE);
     }
 
     private function tocar(User $quem): void

@@ -162,8 +162,9 @@ final class CasosDeUsoDoBancoTest extends TestCase
         $sut->executar('sandbox', 'c1', [], new User(), new DadosDoBancoInput('bb', 's', 'x', 'chave-do-app'));
         self::assertSame('chave-do-app', $this->cofre->decifrar((string) $this->integracao->getAppKeyCifrada()));
 
-        $sut->executar('sandbox', 'c1', [], new User(), new DadosDoBancoInput('outro', '', 'x', '', 'https://psp.com.br/pix/v2/', 'https://psp.com.br/oauth/token'));
+        $sut->executar('sandbox', 'c1', [], new User(), new DadosDoBancoInput('outro', 's2', 'x', '', 'https://psp.com.br/pix/v2/', 'https://psp.com.br/oauth/token'));
         self::assertSame('outro', $this->integracao->getBanco());
+        self::assertFalse($this->integracao->temAppKey(), 'a app key do BB foi esquecida na troca');
         self::assertSame('https://psp.com.br/pix/v2', $this->integracao->getUrlBase());
         self::assertSame('https://psp.com.br/oauth/token', $this->integracao->getUrlToken());
     }
@@ -185,6 +186,57 @@ final class CasosDeUsoDoBancoTest extends TestCase
         self::assertTrue($this->integracao->cobraPorConta());
         $this->integracao->escolherBanco('bb');
         self::assertFalse($this->integracao->cobraPorConta(), 'o teste valia para o Inter');
+    }
+
+    #[TestDox('Trocar de banco ou as URLs do Outro esquece o segredo guardado: em branco, recusa pedindo de novo; nada muda')]
+    public function testTrocaExigeSegredoDeNovo(): void
+    {
+        $sut = $this->salvar();
+        $sut->executar('sandbox', 'c1', [], new User(), new DadosDoBancoInput('inter', 'segredo-inter', 'x'));
+        $antes = $this->integracao->getClientSecretCifrado();
+
+        $recusas = [
+            'Ao trocar de banco ou de endereço, informe de novo o Client Secret.' => new DadosDoBancoInput('bb', '', 'x', 'k'),
+            'Informe a app key do Banco do Brasil.' => new DadosDoBancoInput('bb', 'novo', 'x'),
+        ];
+        foreach ($recusas as $mensagem => $dados) {
+            try {
+                $sut->executar('sandbox', 'c1', [], new User(), $dados);
+                self::fail('Devia recusar: ' . $mensagem);
+            } catch (\DomainException $e) {
+                self::assertSame($mensagem, $e->getMessage());
+            }
+        }
+        self::assertSame('inter', $this->integracao->getBanco());
+        self::assertSame($antes, $this->integracao->getClientSecretCifrado());
+
+        $sut->executar('sandbox', 'c1', [], new User(), new DadosDoBancoInput('outro', 'segredo-outro', 'x', '', 'https://a.psp.com.br/pix', 'https://a.psp.com.br/token'));
+        try {
+            $sut->executar('sandbox', 'c1', [], new User(), new DadosDoBancoInput('outro', '', 'x', '', 'https://b.atacante.com/pix', 'https://a.psp.com.br/token'));
+            self::fail('Devia recusar a URL nova sem o segredo.');
+        } catch (\DomainException $e) {
+            self::assertSame('Ao trocar de banco ou de endereço, informe de novo o Client Secret.', $e->getMessage());
+        }
+        self::assertSame('https://a.psp.com.br/pix', $this->integracao->getUrlBase());
+        self::assertSame('segredo-outro', $this->cofre->decifrar((string) $this->integracao->getClientSecretCifrado()));
+    }
+
+    #[TestDox('URLs do Outro: recusa localhost e IP privado, de loopback ou link-local (v4 e v6); aceita host público')]
+    public function testUrlsDaRedeInterna(): void
+    {
+        $sut = $this->salvar();
+        foreach (['https://localhost/pix', 'https://api.localhost/pix', 'https://127.0.0.1/pix', 'https://10.0.0.5/pix', 'https://192.168.1.1/pix', 'https://172.16.0.1/pix', 'https://169.254.169.254/latest', 'https://[::1]/pix', 'https://[fe80::1]/pix', 'https://[fd00::1]/pix', 'https://0.0.0.0/pix'] as $url) {
+            try {
+                $sut->executar('sandbox', 'c1', [], new User(), new DadosDoBancoInput('outro', 's', 'x', '', $url, 'https://psp.com.br/token'));
+                self::fail('Devia recusar ' . $url);
+            } catch (\DomainException $e) {
+                self::assertSame('A URL base da API Pix não pode apontar para a rede interna (localhost, IP privado, de loopback ou link-local).', $e->getMessage(), $url);
+            }
+        }
+        self::assertNull($this->integracao->getUrlBase());
+
+        $sut->executar('sandbox', 'c1', [], new User(), new DadosDoBancoInput('outro', 's', 'x', '', 'https://8.8.8.8/pix', 'https://psp.com.br/token'));
+        self::assertSame('https://8.8.8.8/pix', $this->integracao->getUrlBase());
     }
 
     private function salvar(): SalvarIntegracaoBancariaUseCase

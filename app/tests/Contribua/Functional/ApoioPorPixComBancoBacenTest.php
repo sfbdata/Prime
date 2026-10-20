@@ -12,6 +12,7 @@ use App\Contribua\Controller\IntegracaoBancariaController;
 use App\Contribua\Controller\WebhookDoBancoController;
 use App\Contribua\Message\ReconsultarCobrancaNoBanco;
 use App\Contribua\MessageHandler\ReconsultarCobrancaNoBancoHandler;
+use App\Contribua\UseCase\ConfirmarCobrancaPeloBancoUseCase;
 use App\Contribua\UseCase\SalvarIntegracaoBancariaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -190,6 +191,50 @@ final class ApoioPorPixComBancoBacenTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Definida. Deixe em branco para manter.', $html);
         $urlDaApi = $this->psp->pedidos[array_key_last($this->psp->pedidos)]['url'];
         self::assertStringContainsString('gw-dev-app-key=app-key-do-bb', $urlDaApi);
+    }
+
+    #[TestDox('Master troca do Inter para o BB com uma cobrança do Inter aberta e paga: o aviso do Inter não registra nem enfileira, a reconsulta e a conciliação não chamam banco nenhum, nada é confirmado')]
+    public function testTrocaDeBancoNaoMandaSegredoAoOutro(): void
+    {
+        $txid = $this->cobrancaPaga();
+        $this->logarComTenant($this->client, $this->master, $this->escritorio);
+        self::assertSame('Ao trocar de banco ou de endereço, informe de novo o Client Secret.', $this->post('/contribua/integracao-bancaria/salvar', ['ambiente' => 'producao', 'clientId' => 'c-bb', 'banco' => 'bb', 'chavePix' => 'x', 'appKey' => 'k'])['erro']);
+        self::assertTrue($this->post('/contribua/integracao-bancaria/salvar', ['ambiente' => 'producao', 'clientId' => 'c-bb', 'banco' => 'bb', 'clientSecret' => 'segredo-bb', 'chavePix' => 'x', 'appKey' => 'k'])['ok']);
+        $chamadas = count($this->psp->pedidos);
+
+        $this->aviso('inter', $txid, 'E-depois-da-troca');
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->enfileiradas());
+        static::getContainer()->get(ReconsultarCobrancaNoBancoHandler::class)(new ReconsultarCobrancaNoBanco('inter', $txid, 'E-fila-antiga'));
+        self::assertFalse(static::getContainer()->get(ConfirmarCobrancaPeloBancoUseCase::class)->executar('inter', $txid));
+        (new CommandTester((new Application(static::$kernel))->find('app:contribua:conciliar')))->execute([]);
+
+        self::assertCount($chamadas, $this->psp->pedidos, 'nenhuma chamada HTTP sai depois da troca');
+        $banco = static::getContainer()->get(Connection::class);
+        self::assertSame(0, (int) $banco->fetchOne('SELECT COUNT(*) FROM contribua_apoio WHERE tenant_id = :t', ['t' => $this->escritorio->getId()]));
+        self::assertSame(0, (int) $banco->fetchOne("SELECT COUNT(*) FROM contribua_notificacao_recebida WHERE origem = 'inter'"));
+        self::assertSame('aberta', $banco->fetchOne('SELECT situacao FROM contribua_cobranca_pix WHERE id_no_banco = :i', ['i' => $txid]));
+    }
+
+    #[TestDox('Aviso com 51 itens: só os 50 primeiros são lidos (o 51º, mesmo sendo cobrança nossa, é ignorado)')]
+    public function testCorteEm50(): void
+    {
+        $txid = $this->cobrancaPaga();
+        $itens = [];
+        for ($n = 0; $n < 50; ++$n) {
+            $itens[] = ['endToEndId' => 'E-lixo-' . $n, 'txid' => 'BJ' . str_pad((string) $n, 30, 'z'), 'valor' => '1.00'];
+        }
+        $itens[] = ['endToEndId' => 'E-51', 'txid' => $txid, 'valor' => '20.00'];
+
+        $this->client->request('POST', '/api/webhooks/inter/pix', [], [], ['CONTENT_TYPE' => 'application/json'], (string) json_encode(['pix' => $itens]));
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $this->enfileiradas());
+        array_pop($itens);
+        array_pop($itens);
+        $itens[] = ['endToEndId' => 'E-50', 'txid' => $txid, 'valor' => '20.00'];
+        $this->client->request('POST', '/api/webhooks/inter/pix', [], [], ['CONTENT_TYPE' => 'application/json'], (string) json_encode(['pix' => $itens]));
+        self::assertCount(1, $this->enfileiradas(), 'o 50º ainda é lido');
     }
 
     /** @return list<object> */

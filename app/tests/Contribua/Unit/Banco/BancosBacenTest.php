@@ -289,6 +289,7 @@ final class BancosBacenTest extends TestCase
     #[TestDox('Configuração incompleta: cada banco diz o que falta antes de chamar')]
     public function testFaltas(): void
     {
+        $this->integracao->escolherBanco('inter');
         self::assertSame('Informe o Client ID e envie o certificado antes de testar.', $this->banco('inter')->testarConexao()->mensagem);
         $inter = $this->banco('inter');
         self::assertSame('Informe o Client Secret fornecido pelo banco.', $inter->faltaNaConfiguracao(false, 'x', false, '', ''));
@@ -309,6 +310,90 @@ final class BancosBacenTest extends TestCase
         self::assertSame(2000, BancoPixBacen::centavos('20'));
         self::assertSame(0, BancoPixBacen::centavos('abc'));
         self::assertSame(0, BancoPixBacen::centavos(20));
+    }
+
+    #[TestDox('CONCLUIDA com valor ilegível ou zero não confirma: fica para a próxima consulta, com aviso no log')]
+    public function testPagaSemValor(): void
+    {
+        $this->configurar('inter');
+        $c = $this->banco('inter')->criarCobranca($this->pedido(2000));
+        foreach (['abc', '0.00'] as $valor) {
+            $this->psp->pagar($c->idNoBanco, $valor);
+            $this->psp->cobs[$c->idNoBanco]['valor']['original'] = 'xyz';
+            $logger = new class () extends \Psr\Log\AbstractLogger {
+                /** @var list<string> */
+                public array $avisos = [];
+
+                public function log($level, \Stringable|string $message, array $context = []): void
+                {
+                    $this->avisos[] = $level . ' ' . $message;
+                }
+            };
+            $banco = new BancoInter(new ClientePixBacen($this->psp->cliente(), $this->cache, $this->cofre), $this->repo(), $this->cofre, $logger);
+
+            $situacao = $banco->consultar($c->idNoBanco);
+
+            self::assertFalse($situacao->paga, $valor);
+            self::assertNull($situacao->pagaEm);
+            self::assertCount(1, $logger->avisos);
+            self::assertStringStartsWith('warning ', $logger->avisos[0]);
+        }
+    }
+
+    #[TestDox('Banco trocado na configuração: o adaptador anterior não monta credenciais, não chama o banco e a falha não é passageira')]
+    public function testBancoTrocado(): void
+    {
+        $this->configurar('inter');
+        $this->integracao->escolherBanco('bb');
+
+        try {
+            $this->banco('inter')->consultar('BJ' . str_repeat('a', 30));
+            self::fail('Devia recusar.');
+        } catch (FalhaNoBanco $e) {
+            self::assertFalse($e->passageira);
+            self::assertSame('A integração foi trocada para outro banco; esta cobrança não é mais consultada automaticamente.', $e->getMessage());
+        }
+        self::assertSame([], $this->psp->pedidos, 'o segredo do Inter não vai para lugar nenhum');
+    }
+
+    #[TestDox('Nenhuma chamada segue redirecionamento (max_redirects 0): um 307/308 não reenvia o client_secret')]
+    public function testSemRedirecionamento(): void
+    {
+        $this->configurar('inter');
+        $this->banco('inter')->criarCobranca($this->pedido(2000));
+
+        self::assertNotEmpty($this->psp->pedidos);
+        foreach ($this->psp->pedidos as $p) {
+            self::assertSame(0, $p['opcoes']['max_redirects'], $p['url']);
+        }
+    }
+
+    #[TestDox('Falha no meio da chamada: o certificado e a chave em claro também saem do disco')]
+    public function testAreaTemporariaApagadaNaFalha(): void
+    {
+        $this->configurar('inter');
+        $caminhos = [];
+        $http = new MockHttpClient(static function (string $metodo, string $url, array $opcoes) use (&$caminhos): MockResponse {
+            $caminhos[] = $opcoes['local_cert'];
+            $caminhos[] = $opcoes['local_pk'];
+            self::assertFileExists($opcoes['local_cert'], 'durante a chamada o arquivo existe');
+
+            throw new \Symfony\Component\HttpClient\Exception\TransportException('Conexão recusada.');
+        });
+        $banco = new BancoInter(new ClientePixBacen($http, $this->cache, $this->cofre), $this->repo(), $this->cofre);
+
+        try {
+            $banco->criarCobranca($this->pedido(2000));
+            self::fail('Devia falhar.');
+        } catch (FalhaNoBanco $e) {
+            self::assertTrue($e->passageira);
+        }
+
+        self::assertNotEmpty($caminhos);
+        foreach ($caminhos as $caminho) {
+            self::assertFileDoesNotExist($caminho);
+            self::assertDirectoryDoesNotExist(dirname($caminho));
+        }
     }
 
     private function configurar(string $banco, string $ambiente = 'sandbox'): void

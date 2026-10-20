@@ -13,6 +13,8 @@ use App\Contribua\Banco\ResultadoDoTeste;
 use App\Contribua\Banco\SituacaoDaCobranca;
 use App\Contribua\Entity\IntegracaoBancaria;
 use App\Contribua\Repository\IntegracaoBancariaRepository;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 /**
  * Banco da API Pix do BACEN (C4b/C4c, D2): cobrança imediata `PUT {base}/cob/{txid}` e consulta
@@ -35,6 +37,7 @@ abstract class BancoPixBacen implements BancoPix
         private readonly ClientePixBacen $cliente,
         private readonly IntegracaoBancariaRepository $integracoes,
         private readonly CofreDeCertificado $cofre,
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {
     }
 
@@ -158,10 +161,16 @@ abstract class BancoPixBacen implements BancoPix
         $status = (string) ($r['status'] ?? '');
         $pix = is_array($r['pix'][0] ?? null) ? $r['pix'][0] : [];
         $paga = 'CONCLUIDA' === $status;
+        $valor = $paga ? self::centavos($pix['valor'] ?? $r['valor']['original'] ?? null) : 0;
+        if ($paga && $valor <= 0) {
+            // Paga sem valor legível: não confirma com o valor esperado; fica para a próxima consulta.
+            $this->logger->warning('Contribua: o banco deu a cobrança por paga sem valor legível; não confirmada', ['banco' => $this->codigo(), 'txid' => $idNoBanco]);
+            $paga = false;
+        }
 
         return new SituacaoDaCobranca(
             paga: $paga,
-            valorPagoCentavos: $paga ? self::centavos($pix['valor'] ?? $r['valor']['original'] ?? null) : 0,
+            valorPagoCentavos: $valor,
             pagaEm: $paga ? (self::horario($pix['horario'] ?? null) ?? new \DateTimeImmutable()) : null,
             codigo: self::nossoCodigo($r['infoAdicionais'] ?? null),
             cancelada: str_starts_with($status, 'REMOVIDA_'),
@@ -226,6 +235,10 @@ abstract class BancoPixBacen implements BancoPix
     private function credenciais(): CredenciaisBacen
     {
         $i = $this->integracoes->atual();
+        // As credenciais guardadas são do banco configurado: nunca vão para outro banco.
+        if ($i->getBanco() !== $this->codigo()) {
+            throw new FalhaNoBanco('A integração foi trocada para outro banco; esta cobrança não é mais consultada automaticamente.', 0, null, false);
+        }
         if (null === $i->getClientId() || '' === $i->getClientId() || !$i->temCertificado()) {
             throw new FalhaNoBanco('Informe o Client ID e envie o certificado antes de testar.');
         }

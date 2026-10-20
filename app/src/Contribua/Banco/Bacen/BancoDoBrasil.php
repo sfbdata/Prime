@@ -12,16 +12,16 @@ use App\Contribua\Entity\IntegracaoBancaria;
  * como parâmetro de consulta: `gw-dev-app-key` em homologação e `gw-app-key` em produção. mTLS com o
  * certificado A1 da empresa cadastrado no portal (em geral um `.pfx` com senha, D7).
  *
- * SUPOSIÇÃO a validar com a credencial real: a base de produção. A spec usa `api.bb.com.br/pix/v2`; a
- * documentação do BB também cita `api-pix.bb.com.br/pix/v2` como a base com mTLS obrigatório. Se o teste de
- * conexão em produção recusar a consulta, é a primeira coisa a trocar (BASE_PRODUCAO).
+ * Bases conferidas na documentação pública (integradores CIGAM e ACBr): produção `api-pix.bb.com.br/pix/v2`
+ * (mTLS obrigatório) e homologação `api-pix.hm.bb.com.br/pix/v2`. A conferir com credencial real, junto
+ * com os nomes `gw-dev-app-key`/`gw-app-key` e as URLs do token.
  */
 final class BancoDoBrasil extends BancoPixBacen
 {
     public const TOKEN_PRODUCAO = 'https://oauth.bb.com.br/oauth/token';
     public const TOKEN_HOMOLOGACAO = 'https://oauth.hm.bb.com.br/oauth/token';
-    public const BASE_PRODUCAO = 'https://api.bb.com.br/pix/v2';
-    public const BASE_HOMOLOGACAO = 'https://api.hm.bb.com.br/pix/v2';
+    public const BASE_PRODUCAO = 'https://api-pix.bb.com.br/pix/v2';
+    public const BASE_HOMOLOGACAO = 'https://api-pix.hm.bb.com.br/pix/v2';
 
     public function codigo(): string
     {

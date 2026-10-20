@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Contribua\Banco\Bacen;
 
+use App\Contribua\Banco\ClienteHttpDosBancos;
 use App\Contribua\Banco\CofreDeCertificado;
 use App\Contribua\Banco\FalhaNoBanco;
 use App\Shared\Armazenamento\AreaTemporariaPrivada;
@@ -33,6 +34,8 @@ class ClientePixBacen
     private const FOLGA_SEGUNDOS = 60;
 
     public function __construct(
+        /** Sem logger e sem redirecionamento (ClienteHttpDosBancos): a URL e o segredo não vão para o log. */
+        #[Autowire(service: ClienteHttpDosBancos::class)]
         private readonly HttpClientInterface $http,
         #[Autowire(service: 'cache.app')]
         private readonly CacheItemPoolInterface $cache,
@@ -84,7 +87,7 @@ class ClientePixBacen
     {
         $opcoes['query'] = (array) ($opcoes['query'] ?? []) + $c->parametrosDaApi;
         try {
-            $r = $this->http->request($metodo, rtrim($c->urlBase, '/') . $caminho, $mtls + $opcoes + ['auth_bearer' => $token, 'timeout' => self::TEMPO_SEGUNDOS]);
+            $r = $this->http->request($metodo, rtrim($c->urlBase, '/') . $caminho, $mtls + $opcoes + ['auth_bearer' => $token, 'timeout' => self::TEMPO_SEGUNDOS, 'max_redirects' => 0]);
 
             return [$r->getStatusCode(), $this->corpo($r->getContent(false))];
         } catch (ExceptionInterface $e) {
@@ -113,7 +116,7 @@ class ClientePixBacen
     private function pedirToken(CredenciaisBacen $c, array $mtls): array
     {
         $corpo = ['grant_type' => 'client_credentials', 'scope' => self::ESCOPOS];
-        $opcoes = $mtls + ['timeout' => self::TEMPO_SEGUNDOS];
+        $opcoes = $mtls + ['timeout' => self::TEMPO_SEGUNDOS, 'max_redirects' => 0];
         if ($c->tokenPorBasic) {
             $opcoes['auth_basic'] = [$c->clientId, $c->clientSecret];
         } else {
