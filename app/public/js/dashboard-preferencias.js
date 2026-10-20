@@ -137,6 +137,8 @@
             }
         });
         lista.forEach(function (c) { pagina.classList.add(c); });
+        // "Animações" vale para o sistema inteiro (app.css, `html.jp-sem-anim`): aplica já, sem recarregar.
+        document.documentElement.classList.toggle('jp-sem-anim', lista.indexOf('db-page--sem-anim') !== -1);
     }
 
     function sincronizarMenu() {
