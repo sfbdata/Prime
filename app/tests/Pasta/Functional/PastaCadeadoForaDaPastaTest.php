@@ -73,6 +73,13 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
         $linha = $c->filter('#tabelaPastas tbody > tr[data-pasta-id="' . $oculta->getId() . '"]');
         self::assertSame('1', $linha->attr('data-oculta'));
         self::assertNotEmpty($linha->attr('data-csrf-pedir'), 'o pedido da Lista leva o token da pasta');
+        // A janela de sigilo abre pelos três modos (tabela, linha simples, cartão): todos levam o token.
+        foreach (['.exp-simples-linha', '.exp-cartao'] as $modo) {
+            $outro = $c->filter($modo . '[data-pasta-id="' . $oculta->getId() . '"]');
+            if ($outro->count() > 0) {
+                self::assertNotEmpty($outro->attr('data-csrf-pedir'), 'o token do pedido também em ' . $modo);
+            }
+        }
         self::assertStringContainsString('JOANA SIGILOSA', $linha->filter('td[data-col="cliente"]')->text());
         self::assertCount(1, $linha->filter('td[data-col="nup"] > i.js-cadeado'));
         self::assertSame('', trim($linha->filter('td[data-col="acao"]')->text()), 'sem ação');

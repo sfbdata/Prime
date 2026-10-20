@@ -76,7 +76,7 @@ final class PastaCadeadoController extends AbstractController
             $nivel = NivelDeAcesso::tryFrom((string) $request->request->get('nivel', NivelDeAcesso::Editar->value)) ?? NivelDeAcesso::Editar;
             $saida = $this->pedir->executar(new PedirAcessoInput($pasta, $ator, $tenant, $nivel, (string) $request->request->get('motivo', '')));
 
-            return ['Pedido enviado ao usuário primário', $saida->paraJson()];
+            return ['Pedido de acesso enviado ao usuário primário', $saida->paraJson()];
         });
     }
 

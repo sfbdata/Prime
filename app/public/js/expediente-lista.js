@@ -240,7 +240,7 @@
                 body: corpoDoPedido.toString()
             }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (dados) { return { ok: r.ok, j: dados }; }); }).then(function (r) {
                 if (!r.ok) { avisar(r.j.mensagem || r.j.erro || 'Não foi possível pedir acesso'); return; }
-                avisar(r.j.avisados > 0 ? 'Pedido enviado ao usuário primário' : 'Nenhum usuário primário ativo no escritório para receber o pedido');
+                avisar(r.j.avisados > 0 ? 'Pedido de acesso enviado ao usuário primário' : 'Nenhum usuário primário ativo no escritório para receber o pedido');
             }, function () { avisar('Falha de conexão ao pedir acesso'); });
         }
     });
@@ -252,6 +252,8 @@
     document.addEventListener('click', function (e) {
         var alvo = e.target.closest('#tabelaPastas tr.pasta-row-link[data-oculta="1"], .exp-simples-linha[data-oculta="1"], .exp-cartao[data-oculta="1"]');
         if (!alvo) { return; }
+        /* Com um menu aberto, o clique na linha só fecha o menu (dc `abrir`; ExpMenu do #85, se presente). */
+        if (window.ExpMenu && window.ExpMenu.abertoNoToque && window.ExpMenu.abertoNoToque()) { return; }
         if (e.target.closest('button, input, select, .js-toggle-situacao')) { return; }
         e.preventDefault();
         e.stopImmediatePropagation();
