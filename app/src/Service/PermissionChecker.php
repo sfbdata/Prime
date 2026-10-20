@@ -4,7 +4,9 @@ namespace App\Service;
 
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Service\NivelNoCadeado;
 use App\Repository\ResourceAccessRepository;
 use App\Repository\UserTenantRepository;
 
@@ -13,6 +15,7 @@ class PermissionChecker
     public function __construct(
         private readonly ResourceAccessRepository $resourceAccessRepository,
         private readonly UserTenantRepository $userTenantRepository,
+        private readonly NivelNoCadeado $nivelNoCadeado,
     ) {}
 
     public function canAccessModule(User $user, ?Tenant $tenant, string $module): bool
@@ -81,6 +84,43 @@ class PermissionChecker
             return false;
         }
 
+        if (!$this->cabeNoCadeadoDaPasta($user, $userTenant, $resourceType, $resourceId, $action)) {
+            return false;
+        }
+
+        return $this->permiteORecurso($user, $userTenant, $resourceType, $resourceId, $action);
+    }
+
+    /**
+     * O `canAccessResource` SEM o teto do cadeado da pasta: a permissão que a pessoa teria se a pasta
+     * estivesse livre. Só para o pedido de acesso (spec pasta-cadeado K5): quem não veria a pasta nem sem
+     * cadeado não tem o que pedir ao primário. Nunca use para liberar uma tela.
+     */
+    public function canAccessResourceIgnoringPastaLock(User $user, ?Tenant $tenant, string $resourceType, int $resourceId, string $action): bool
+    {
+        if ($this->isGlobalSuperAdmin($user)) {
+            return true;
+        }
+
+        if ($tenant === null) {
+            return false;
+        }
+
+        $userTenant = $this->resolveUserTenant($user, $tenant);
+
+        if ($userTenant?->getTenantRole()?->isSystem() === true) {
+            return true;
+        }
+
+        if ($userTenant === null) {
+            return false;
+        }
+
+        return $this->permiteORecurso($user, $userTenant, $resourceType, $resourceId, $action);
+    }
+
+    private function permiteORecurso(User $user, UserTenant $userTenant, string $resourceType, int $resourceId, string $action): bool
+    {
         $resourceAccess = $this->resourceAccessRepository->findForUserAndResource($user, $resourceType, $resourceId);
         if ($resourceAccess !== null && $resourceAccess->allows($action)) {
             return true;
@@ -117,21 +157,19 @@ class PermissionChecker
     // -------------------------------------------------------------------------
 
     /**
-     * Administrador do escritório: vínculo ativo com o perfil de sistema (o mesmo bypass das checagens
-     * acima), ou o super admin global. É o "usuário primário" do desenho 1.1 da Lista (E12): só ele tranca
-     * e destranca pasta.
+     * O teto do cadeado da pasta (spec pasta-cadeado §3), depois dos bypasses e ANTES do `ResourceAccess`
+     * e do fallback por tipo: `view` exige pelo menos `Visualizar`, as demais ações exigem `Editar`. Assim
+     * um `AccessRequest` aprovado nunca fura o cadeado. Outros tipos de recurso passam reto.
      */
-    public function isAdministradorDoEscritorio(User $user, ?Tenant $tenant): bool
+    private function cabeNoCadeadoDaPasta(User $user, UserTenant $userTenant, string $resourceType, int $resourceId, string $action): bool
     {
-        if ($this->isGlobalSuperAdmin($user)) {
+        if ($resourceType !== AccessRequest::RESOURCE_PASTA) {
             return true;
         }
 
-        if ($tenant === null) {
-            return false;
-        }
+        $nivel = $this->nivelNoCadeado->nivelComVinculo($user, $userTenant, $resourceId);
 
-        return $this->resolveUserTenant($user, $tenant)?->getTenantRole()?->isSystem() === true;
+        return $action === AccessRequest::ACTION_VIEW ? $nivel->podeVer() : $nivel->podeEditar();
     }
 
     private function isGlobalSuperAdmin(User $user): bool
