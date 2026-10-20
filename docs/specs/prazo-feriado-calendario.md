@@ -5,6 +5,8 @@
 - Branch `prazo-feriado-calendario`, a partir do master (a0af62f9). Risco **MÉDIO** (muda a data
   estimada de prazos gravados em pasta real). Pedido do coordenador em 19/10, a partir do inventário do
   desenho 09 (Agenda), L97: "prazos que vencem em feriado passam para o próximo dia útil".
+- **Para o dono** (coordenador leva ao pacote): definir `PRAZOS_CALENDARIO_DESDE` no deploy; contar ou não
+  Carnaval e Corpus Christi como dia não útil.
 - **Sem migration.** Uma variável de ambiente nova (`PRAZOS_CALENDARIO_DESDE`), definida pelo dono no
   deploy.
 
@@ -68,7 +70,8 @@ O padrão do coordenador vale: **não mexer em prazo já calculado; só os novos
 ## 5. Fora
 
 - `pasta-metas.js` (`somarUteis` do front, atalho de prazo de meta) não conhece feriado; continua igual
-  nesta fatia (registrado como melhoria separada).
+  nesta fatia: **divergência conhecida** entre o prazo de meta (front) e o prazo lido (servidor), registrada
+  pelo coordenador em 20/10 como melhoria separada.
 - Feriados municipais e do Ponto, dias de tribunal, ajustes da Agenda: decisão futura (dono).
 
 ## 6. Verificação
