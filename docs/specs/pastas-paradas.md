@@ -87,7 +87,7 @@ relatório e o botão de baixar o PDF (tarja azul, logo, como o #75).
 - Cron diário às 10h15 com `CRON_TZ=America/Sao_Paulo` (linha no DEPLOY.md deste PR); o UseCase só envia na
   primeira segunda-feira do mês, a partir das 10h, e uma vez por mês.
 - **Uma vez por mês**: tabela `relatorio_pastas_paradas_envio` (tenant, `mes` MM/AAAA, contagens, `em`),
-  UNIQUE (tenant_id, mes), migration `Version20261021190000` (reservada pelo coordenador). A gravação vem
+  UNIQUE (tenant_id, mes), migration `Version20261020129996` (reservada pelo coordenador). A gravação vem
   ANTES de enviar, com `INSERT ... ON CONFLICT DO NOTHING`: quem não inseriu não envia (dois crons não duplicam).
   Fora do audit_log, como a tabela do #75; entra no `PurgarEscritorioUseCase`.
 - Sem pasta parada, não há aviso (o desenho mostraria "Nenhuma pasta parada há mais de 30 dias. 👍", que

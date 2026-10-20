@@ -17,7 +17,7 @@ use Doctrine\Migrations\AbstractMigration;
  * tabelas de outras frentes, os DROP INDEX de índice funcional e os DROP DEFAULT da cobrança que o
  * comando também propõe são ruído do banco de teste.
  */
-final class Version20261021190000 extends AbstractMigration
+final class Version20261020129996 extends AbstractMigration
 {
     public function getDescription(): string
     {
