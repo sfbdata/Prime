@@ -33,11 +33,11 @@ final class GoogleAgendaApi
     private const REVOGAR = 'https://oauth2.googleapis.com/revoke';
     private const AGENDAS = 'https://www.googleapis.com/calendar/v3/calendars';
     private const TEMPO_SEGUNDOS = 15;
-    /** 403 por limite de uso é passageiro (tenta na próxima volta); os outros 403 são recusa do evento. */
     /** O que o BlueJus manda no evento; o resto (convidados, Meet, lembretes, cor) é de quem usa o Google. */
     private const CAMPOS_DO_BLUEJUS = ['summary', 'description', 'location', 'status', 'visibility', 'start', 'end', 'recurrence'];
     /** Só leitura na API: não voltam na atualização. */
     private const CAMPOS_DO_GOOGLE = ['etag', 'kind', 'htmlLink', 'created', 'updated'];
+    /** 403 por limite de uso é passageiro (tenta na próxima volta); os outros 403 são recusa do evento. */
     private const LIMITES = ['rateLimitExceeded', 'userRateLimitExceeded', 'quotaExceeded', 'dailyLimitExceeded'];
 
     public function __construct(
@@ -150,7 +150,7 @@ final class GoogleAgendaApi
             ? $this->atualizar($acesso, $url . '/' . rawurlencode($id), $corpo)
             : $this->semAgenda($this->pedir('POST', $url, $acesso, ['json' => ['id' => $id] + $corpo], [409, 404]));
         $status = $resposta->getStatusCode();
-        if (404 === $status) {
+        if (in_array($status, [404, 410], true)) {
             $this->semAgenda($this->pedir('POST', $url, $acesso, ['json' => ['id' => $id] + $corpo], [409, 404]));
         } elseif (409 === $status) {
             $this->atualizar($acesso, $url . '/' . rawurlencode($id), $corpo);
@@ -159,17 +159,17 @@ final class GoogleAgendaApi
 
     /**
      * O `events.update` do Google troca o evento inteiro: lê o que está lá e troca só os campos do BlueJus,
-     * para não apagar convidados, Meet e lembretes postos no Google. 404 volta para quem chamou.
+     * para não apagar convidados, Meet e lembretes postos no Google. Sumido (404 ou 410) volta para quem chamou.
      *
      * @param array<string, mixed> $corpo
      */
     private function atualizar(string $acesso, string $urlDoEvento, array $corpo): ResponseInterface
     {
-        $atual = $this->pedir('GET', $urlDoEvento, $acesso, [], [404]);
-        if (404 === $atual->getStatusCode()) {
+        $atual = $this->pedir('GET', $urlDoEvento, $acesso, [], [404, 410]);
+        if (in_array($atual->getStatusCode(), [404, 410], true)) {
             return $atual;
         }
-        $deles = array_diff_key($atual->toArray(), array_flip([...self::CAMPOS_DO_BLUEJUS, ...self::CAMPOS_DO_GOOGLE]));
+        $deles = array_diff_key($this->json($atual), array_flip([...self::CAMPOS_DO_BLUEJUS, ...self::CAMPOS_DO_GOOGLE]));
 
         return $this->pedir('PUT', $urlDoEvento, $acesso, ['json' => $corpo + $deles], [404]);
     }
