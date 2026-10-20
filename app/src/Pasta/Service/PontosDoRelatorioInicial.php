@@ -129,6 +129,21 @@ final readonly class PontosDoRelatorioInicial
         return ['n' => count($faltam), 'txt' => 'relatório inicial sem ' . $lista];
     }
 
+    /**
+     * A resposta da rota `pasta_detalhes_pontos_relatorio`, que o card usa para se redesenhar.
+     *
+     * @return array{itens: list<array{k: string, rot: string, ok: bool, dica: string}>, selo: string, completo: bool, pendencia: array{n: int, txt: string}|null}
+     */
+    public function paraResposta(): array
+    {
+        return [
+            'itens'     => $this->itens,
+            'selo'      => $this->selo(),
+            'completo'  => $this->completo(),
+            'pendencia' => $this->pendenciaDaAba(),
+        ];
+    }
+
     private static function textoPuro(string $conteudo): string
     {
         $semMencao = (string) preg_replace('/@\[([^\]]*)\]\(user:\d+\)/u', '@$1', $conteudo);

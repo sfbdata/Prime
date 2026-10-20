@@ -31,7 +31,8 @@ use App\Pasta\Service\PontosDoRelatorioInicial;
  * Da regra de Documentos do desenho só entra a metade "marcado sem anexo": a outra
  * metade ("documento cobrado e ainda não anexado") depende da cobrança automática do
  * checklist, que não existe no sistema (DOC-75, decisão S-6 do dono). Detalhes só acende
- * quando quem chama manda os pontos do relatório (o resumo impresso não manda).
+ * quando quem chama manda os pontos do relatório: a pasta_show e o resumo impresso mandam
+ * (o `imprimirResumo()` do desenho, dc L.4832, lista as pendências de todas as abas).
  */
 final readonly class PastaPendenciasOutput
 {

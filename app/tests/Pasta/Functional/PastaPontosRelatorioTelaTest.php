@@ -160,4 +160,71 @@ final class PastaPontosRelatorioTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $card->filter('.js-ri-completar'));
         self::assertCount(0, $crawler->filter('#detalhesObsConteudo'), 'premissa: o leitor não tem compositor');
     }
+
+    // =========================================================================
+    // Rota que o card usa para se redesenhar (pasta_detalhes_pontos_relatorio)
+    // =========================================================================
+
+    #[TestDox('a rota devolve itens, selo, completo e pendência do relatório inteiro')]
+    public function testRotaDevolveOsPontos(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->observar($pasta, $user, $tenant, '<p>O cliente <em>pretende</em> anular o contrato.</p>');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->xmlHttpRequest('GET', '/pasta/' . $pasta->getId() . '/detalhes/pontos-relatorio');
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['itens', 'selo', 'completo', 'pendencia'], array_keys($data));
+        self::assertSame('2 pendentes', $data['selo']);
+        self::assertFalse($data['completo']);
+        self::assertSame(['objetivos', 'acordos', 'resultado'], array_column($data['itens'], 'k'));
+        self::assertSame([true, false, false], array_column($data['itens'], 'ok'));
+        self::assertSame(['k', 'rot', 'ok', 'dica'], array_keys($data['itens'][0]));
+        self::assertSame(
+            ['n' => 2, 'txt' => 'relatório inicial sem acordos iniciais e resultado esperado pelo cliente'],
+            $data['pendencia'],
+        );
+
+        $this->observar($pasta, $user, $tenant, '<p>Ficou combinado o envio. Expectativa: acordo.</p>');
+        $client->xmlHttpRequest('GET', '/pasta/' . $pasta->getId() . '/detalhes/pontos-relatorio');
+        $data = json_decode((string) $client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('Completo', $data['selo']);
+        self::assertTrue($data['completo']);
+        self::assertNull($data['pendencia']);
+    }
+
+    #[TestDox('sem permissão de ver a pasta (mesmo escritório): 403, como a pasta_show recusa')]
+    public function testRotaRecusaSemPermissao(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $pasta  = $this->criarPasta($tenant);
+        $semVer = $this->criarUsuarioComPermissoes($tenant, ['modules.pastas.view']);
+        $this->logarComTenant($client, $semVer, $tenant);
+
+        $client->xmlHttpRequest('GET', '/pasta/' . $pasta->getId() . '/detalhes/pontos-relatorio');
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertStringNotContainsString('itens', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('pasta de outro escritório: 404, sem nada do relatório (SUPER_ADMIN de propósito: só a posse pode recusar)')]
+    public function testRotaRecusaOutroEscritorio(): void
+    {
+        $client             = static::createClient();
+        [$dono, $tenantA]   = $this->criarAdmin();
+        $pasta              = $this->criarPasta($tenantA);
+        $this->observar($pasta, $dono, $tenantA, '<p>Objetivo sigiloso.</p>');
+        [$intruso, $tenantB] = $this->criarAdmin();
+        $this->logarComTenant($client, $intruso, $tenantB);
+
+        $client->xmlHttpRequest('GET', '/pasta/' . $pasta->getId() . '/detalhes/pontos-relatorio');
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertStringNotContainsString('itens', (string) $client->getResponse()->getContent());
+    }
 }

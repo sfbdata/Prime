@@ -238,6 +238,7 @@
 
                 inserirItem(data);
                 atualizarContagem();
+                avisarObsAlterada();
                 // Limpa o editor (que é quem alimenta a textarea); sem isso o texto enviado ficaria na tela.
                 if (window.EditorRico) { EditorRico.limpar(obsConteudo); } else { obsConteudo.value = ''; }
                 if (window.PastaMencoes) { PastaMencoes.esquecer(obsConteudo); }
@@ -278,6 +279,12 @@
     /* Mais recente PRIMEIRO (mesma ordem do servidor). A pílula do dia só entra se a
        primeira do topo não for a de hoje — a chave do dia é a do servidor (`data-hoje`).
        Resposta: vai para o fim da conversa da raiz (da mais antiga à mais nova). */
+    /* O relatório mudou (enviar, responder, editar ou excluir deram certo): o card "Pontos do
+       relatório inicial" (pasta/_pontos_relatorio.html.twig) escuta e se redesenha. */
+    function avisarObsAlterada() {
+        document.dispatchEvent(new CustomEvent('ps:detalhes-obs-alterada'));
+    }
+
     function inserirItem(data) {
         const vazioMsg = document.getElementById('detalhesObsVazio');
         if (vazioMsg) { vazioMsg.remove(); }
@@ -526,6 +533,7 @@
                 fecharCaixaRespostaDet();
                 inserirItem(data);
                 atualizarContagem();
+                avisarObsAlterada();
             } catch (_) {
                 erro.textContent = 'Erro de rede. Tente novamente.';
                 erro.hidden = false;
@@ -935,6 +943,7 @@
                             btnEditar.dataset.conteudo     = data.conteudo;
                             btnEditar.dataset.conteudoHtml = data.conteudoHtml ?? '';
                             marcarEditadoObs(item, data.editadaEm);
+                            avisarObsAlterada();
                         } else {
                             restaurarExibicao(htmlAtual);
                             avisarErroObs(data.erro ?? 'Erro ao editar.');
@@ -999,6 +1008,7 @@
                             }
                         }
                         atualizarContagem();
+                        avisarObsAlterada();
                         if (!obsLista.querySelector('.ps-anotacao')) {
                             obsLista.classList.add('ps-registro--vazio');
                             const div = document.createElement('div');

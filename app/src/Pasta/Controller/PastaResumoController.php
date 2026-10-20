@@ -21,6 +21,7 @@ use App\Pasta\Repository\PastaChecklistItemRepository;
 use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
 use App\Pasta\Repository\PastaPagamentoRepository;
 use App\Pasta\Service\ConferenciaDeAnexosDoChecklist;
+use App\Pasta\Service\PontosDoRelatorioInicial;
 use App\Processo\Entity\Processo;
 use App\Processo\Service\SituacaoProcessoRotulo;
 use App\Service\PermissionChecker;
@@ -371,6 +372,9 @@ final class PastaResumoController extends AbstractController
                 itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo(),
                 // A pendência do Financeiro ("… e N pagamentos vencidos") é dado financeiro.
                 veFinanceiro: $veFinanceiro,
+                // `imprimirResumo()` do desenho (dc L.4832) lista as pendências de todas as abas,
+                // Detalhes inclusive; o relatório inteiro, sem o teto da lista de exibição.
+                relatorioInicial: PontosDoRelatorioInicial::dosTextos($this->observacaoDetalhesRepository->conteudosDaPasta($pasta, $tenant)),
             ),
             $push->itens,
             $pagamentos,

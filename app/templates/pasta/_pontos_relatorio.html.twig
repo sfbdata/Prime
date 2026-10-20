@@ -11,9 +11,18 @@
    ponto que falta, um por linha (`ri.escrever` do desenho). Sem compositor (quem só vê a pasta,
    ou a lápide) o servidor recusaria o envio, e o botão não aparece (convenção PAS-014).
 
-   Contexto: `pontos` (PontosDoRelatorioInicial), `podeEscrever` (bool). #}
+   Reativo como o `relInicial()` do desenho: quando a própria pessoa envia, responde, edita ou
+   exclui uma observação, o _detalhes_obs.html.twig dispara `ps:detalhes-obs-alterada`; o card
+   busca `pasta_detalhes_pontos_relatorio` e redesenha selo, itens e botão, e acende ou apaga a
+   pendência da aba Detalhes (#detalhes-tab: classe, barra e title, montados como no
+   _cabecalho.html.twig). Tudo por textContent. Erro de rede: fica como está, em silêncio.
+   Mudança feita por OUTRA pessoa só aparece ao recarregar.
+
+   Contexto: `pasta` (para a URL), `pontos` (PontosDoRelatorioInicial), `podeEscrever` (bool). #}
 {% set faltam = pontos.faltam() %}
-<section class="ps-card ps-pontos-relatorio" data-trilho="pontos-relatorio">
+<section class="ps-card ps-pontos-relatorio" data-trilho="pontos-relatorio"
+         data-url="{{ path('pasta_detalhes_pontos_relatorio', {id: pasta.id}) }}"
+         data-pode-escrever="{{ podeEscrever ? '1' : '0' }}">
     <div class="ps-pontos-relatorio-cab">
         <h2>Pontos do relatório inicial</h2>
         <span class="ps-pontos-relatorio-selo {{ pontos.completo() ? 'is-completo' : 'is-pendente' }}">{{ pontos.selo() }}</span>
@@ -36,21 +45,25 @@
         </button>
     {% endif %}
 </section>
-{% if faltam is not empty and podeEscrever %}
 <script>
 (function () {
-    var botao = document.querySelector('.js-ri-completar');
-    if (!botao) { return; }
+    var card = document.querySelector('.ps-pontos-relatorio[data-url]');
+    if (!card) { return; }
+    var podeEscrever = card.dataset.podeEscrever === '1';
 
     function escHtml(s) {
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    botao.addEventListener('click', function () {
+    /* "Completar no relatório": foca o compositor e, se vazio, escreve "Rótulo: " de cada ponto
+       que falta (`ri.escrever` do desenho). Delegado no card: o botão é refeito ao redesenhar. */
+    card.addEventListener('click', function (e) {
+        var botao = e.target.closest('.js-ri-completar');
+        if (!botao) { return; }
         var textarea = document.getElementById('detalhesObsConteudo');
         if (!textarea) { return; }
         var faltam = [];
-        try { faltam = JSON.parse(botao.dataset.faltam || '[]'); } catch (e) { faltam = []; }
+        try { faltam = JSON.parse(botao.dataset.faltam || '[]'); } catch (x) { faltam = []; }
 
         var caixa = textarea.closest('.ps-compositor') || textarea;
         caixa.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -74,6 +87,88 @@
         quill.focus();
         quill.setSelection(Math.max(0, quill.getLength() - 1), 0);
     });
+
+    function itemDoPonto(item) {
+        var li = document.createElement('li');
+        li.className = 'ps-pontos-relatorio-item ' + (item.ok ? 'is-ok' : 'is-falta');
+        li.dataset.ponto = String(item.k);
+        var ic = document.createElement('i');
+        ic.className = 'bi ' + (item.ok ? 'bi-check-circle-fill' : 'bi-exclamation-circle');
+        ic.setAttribute('aria-hidden', 'true');
+        var texto = document.createElement('span');
+        texto.className = 'ps-pontos-relatorio-texto';
+        var rot = document.createElement('span');
+        rot.className = 'ps-pontos-relatorio-rot';
+        rot.textContent = String(item.rot);
+        var dica = document.createElement('span');
+        dica.className = 'ps-pontos-relatorio-dica';
+        dica.textContent = String(item.dica);
+        texto.appendChild(rot);
+        texto.appendChild(dica);
+        li.appendChild(ic);
+        li.appendChild(texto);
+
+        return li;
+    }
+
+    function botaoCompletar(faltam) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ps-pontos-relatorio-completar js-ri-completar';
+        var ic = document.createElement('i');
+        ic.className = 'bi bi-pencil-square';
+        ic.setAttribute('aria-hidden', 'true');
+        btn.appendChild(ic);
+        btn.appendChild(document.createTextNode('Completar no relatório'));
+        btn.dataset.faltam = JSON.stringify(faltam);
+
+        return btn;
+    }
+
+    /* A pendência da aba, como o _cabecalho.html.twig monta: classe `ps-aba--pend`, a barra
+       `.ps-aba-pend` como primeiro filho e o title "Rótulo · texto". */
+    function pendenciaDaAba(pendencia) {
+        var aba = document.getElementById('detalhes-tab');
+        if (!aba) { return; }
+        var rotuloEl = aba.querySelector(':scope > i + span');
+        var rotulo = rotuloEl ? rotuloEl.textContent : 'Detalhes';
+        var barra = aba.querySelector(':scope > .ps-aba-pend');
+        aba.classList.toggle('ps-aba--pend', !!pendencia);
+        aba.title = pendencia ? rotulo + ' · ' + String(pendencia.txt) : rotulo;
+        if (pendencia && !barra) {
+            barra = document.createElement('span');
+            barra.className = 'ps-aba-pend';
+            barra.setAttribute('aria-hidden', 'true');
+            aba.insertBefore(barra, aba.firstChild);
+        } else if (!pendencia && barra) {
+            barra.remove();
+        }
+    }
+
+    function redesenhar(d) {
+        if (!d || !Array.isArray(d.itens)) { return; }
+        var selo = card.querySelector('.ps-pontos-relatorio-selo');
+        if (selo) {
+            selo.textContent = String(d.selo);
+            selo.classList.toggle('is-completo', !!d.completo);
+            selo.classList.toggle('is-pendente', !d.completo);
+        }
+        var lista = card.querySelector('.ps-pontos-relatorio-lista');
+        if (lista) {
+            lista.replaceChildren.apply(lista, d.itens.map(itemDoPonto));
+        }
+        var faltam = d.itens.filter(function (i) { return !i.ok; }).map(function (i) { return String(i.rot); });
+        var atual = card.querySelector('.js-ri-completar');
+        if (atual) { atual.remove(); }
+        if (podeEscrever && faltam.length) { card.appendChild(botaoCompletar(faltam)); }
+        pendenciaDaAba(d.pendencia || null);
+    }
+
+    document.addEventListener('ps:detalhes-obs-alterada', function () {
+        fetch(card.dataset.url, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(redesenhar)
+            .catch(function () { /* rede: o card fica como está */ });
+    });
 }());
 </script>
-{% endif %}

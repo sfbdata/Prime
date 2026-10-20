@@ -2412,6 +2412,33 @@ class PastaController extends AbstractController
         return $this->json(['sucesso' => true]);
     }
 
+    // ── Detalhes: Pontos do relatório inicial ─────────────────────────────────
+
+    /**
+     * O card "Pontos do relatório inicial" se redesenha depois que a própria pessoa envia, responde,
+     * edita ou exclui uma observação (evento `ps:detalhes-obs-alterada`), como o `relInicial()` do
+     * desenho. Leitura: a MESMA decisão da `pasta_show` (VIEW na pasta), mais a posse explícita.
+     * Lê o relatório inteiro (`conteudosDaPasta`), não a lista de exibição com teto.
+     */
+    #[Route('/{id}/detalhes/pontos-relatorio', name: 'pasta_detalhes_pontos_relatorio', methods: ['GET'])]
+    public function detalhesPontosRelatorio(Pasta $pasta): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'view')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $pontos = PontosDoRelatorioInicial::dosTextos($this->observacaoDetalhesRepository->conteudosDaPasta($pasta, $tenant));
+
+        return $this->json($pontos->paraResposta());
+    }
+
     // ── Checklist dinâmico ────────────────────────────────────────────────────
 
     #[Route('/{id}/checklist', name: 'pasta_checklist_adicionar', methods: ['POST'])]
