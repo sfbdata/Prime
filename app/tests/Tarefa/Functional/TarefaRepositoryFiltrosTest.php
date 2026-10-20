@@ -269,4 +269,26 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
 
         self::assertSame([$meta->getId()], array_map(static fn (Tarefa $t): ?int => $t->getId(), $resultado));
     }
+
+    #[TestDox('Busca escapa os curingas do LIKE: "%" e "_" procuram o caractere, não casam tudo')]
+    public function testBuscaEscapaCuringas(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => 'PASTA-9', 'nomeCliente' => 'Fulano'])->_real();
+        $eu     = UserFactory::createOne()->_real();
+
+        $comPorcento = TarefaFactory::createOne(['pasta' => $pasta, 'titulo' => 'Reajuste de 10% no aluguel', 'descricao' => ''])->_real();
+        $comPorcento->addResponsavel($eu);
+        $comSublinhado = TarefaFactory::createOne(['pasta' => $pasta, 'titulo' => 'Arquivo peca_final', 'descricao' => ''])->_real();
+        $comSublinhado->addResponsavel($eu);
+        $comum = TarefaFactory::createOne(['pasta' => $pasta, 'titulo' => 'Agendar reunião', 'descricao' => ''])->_real();
+        $comum->addResponsavel($eu);
+        $this->em->flush();
+
+        $ids = static fn (array $r): array => array_map(static fn (Tarefa $t): ?int => $t->getId(), $r);
+
+        self::assertSame([$comPorcento->getId()], $ids($this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['busca' => '%'])));
+        self::assertSame([$comSublinhado->getId()], $ids($this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['busca' => '_'])));
+        self::assertSame([], $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['busca' => 'a\\']), 'a barra também é literal');
+    }
 }

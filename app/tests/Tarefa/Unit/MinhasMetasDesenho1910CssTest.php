@@ -240,4 +240,17 @@ final class MinhasMetasDesenho1910CssTest extends TestCase
         }
         self::assertStringNotContainsString('outline: none', $this->regras('.mm-barra-cartao .filtro-select:focus'));
     }
+
+    #[TestDox('FIL-03/MM-FIL-11: busca, Status, Prioridade e Prazo numa linha só a partir de 768px; o form desce inteiro em vez de quebrar os campos; selects pelo conteúdo')]
+    public function testFiltrosNumaLinhaSo(): void
+    {
+        $this->temTudo('.mm-barra-cartao > .filtro-barra', ['flex: 1 1 auto', 'min-width: 0']);
+        self::assertSame(
+            1,
+            preg_match('/@media \(min-width:\s*768px\)\s*\{\s*\.mm-barra-cartao > \.filtro-barra\s*\{\s*min-width:\s*auto;\s*\}\s*\.mm-barra-cartao \.filtro-linha\s*\{\s*flex-wrap:\s*nowrap;\s*\}/', $this->css()),
+            'em tela larga a linha dos campos não quebra e o form não encolhe abaixo do conteúdo',
+        );
+        $this->temTudo('.mm-barra-cartao .filtro-select', ['flex: 0 0 auto', 'width: auto', 'min-width: 120px', 'max-width: none']);
+        $this->temTudo('.mm-barra-cartao .filtro-busca', ['min-width: 180px']);
+    }
 }

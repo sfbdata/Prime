@@ -268,22 +268,28 @@ document.addEventListener('click', function (e) {
 // mesmo destino do título (decisão do dono de 14/10: a pasta não). O título continua sendo o
 // link real, focável pelo teclado e lido pelo leitor de tela; a linha só delega o clique para
 // ele. Controles internos (marcador, ⋮, link da pasta, itens do menu) seguem com a ação deles,
-// e quem está selecionando texto não é levado para outra página.
-document.addEventListener('click', function (e) {
+// e quem está selecionando texto não é levado para outra página. Como num link: Ctrl, Cmd,
+// Shift ou o botão do meio (que chega como `auxclick`) abrem em outra aba ou janela.
+function abrirMetaPelaLinha(e) {
     var linha = e.target.closest('[data-mm-linha-clicavel]');
-    if (!linha || e.defaultPrevented || e.button !== 0) { return; }
+    if (!linha || e.defaultPrevented) { return; }
+    var meio = e.type === 'auxclick';
+    if (meio ? e.button !== 1 : e.button !== 0) { return; }
     if (e.target.closest('a, button, input, select, textarea, label, .dropdown-menu')) { return; }
     var selecao = window.getSelection ? String(window.getSelection()) : '';
     if (selecao !== '') { return; }
 
     var titulo = linha.querySelector('a.mm-meta-titulo');
     if (!titulo) { return; }
-    if (e.ctrlKey || e.metaKey) {
+    if (meio || e.ctrlKey || e.metaKey || e.shiftKey) {
+        e.preventDefault();
         window.open(titulo.href, '_blank', 'noopener');
         return;
     }
     titulo.click();
-});
+}
+document.addEventListener('click', abrirMetaPelaLinha);
+document.addEventListener('auxclick', abrirMetaPelaLinha);
 </script>
 {% endblock %}
 

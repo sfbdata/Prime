@@ -722,6 +722,9 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString("closest('[data-mm-linha-clicavel]')", $corpo);
         self::assertStringContainsString("closest('a, button, input, select, textarea, label, .dropdown-menu')", $corpo);
         self::assertStringContainsString("querySelector('a.mm-meta-titulo')", $corpo);
+        self::assertStringContainsString("document.addEventListener('auxclick', abrirMetaPelaLinha)", $corpo, 'botão do meio abre em outra aba');
+        self::assertStringContainsString("meio || e.ctrlKey || e.metaKey || e.shiftKey", $corpo);
+        self::assertStringContainsString("window.open(titulo.href, '_blank', 'noopener')", $corpo);
         self::assertStringContainsString("'Parar de acompanhar' : 'Acompanhar esta meta'", $corpo, 'o JS do marcador troca para as dicas do desenho');
     }
 
@@ -835,6 +838,50 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         $corpo = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('Juntar procuração', $corpo);
         self::assertStringNotContainsString('Outra meta', $corpo);
+    }
+
+    #[TestDox('"Precisa de atenção" sai das atrasadas pela regra (dc `atencao`): na aba Criei a delegada atrasada aparece, de quem é, e a legenda conta 1')]
+    public function testAtencaoNaAbaCrieiPelaRegra(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $colega             = $this->criarColega($tenant);
+        $atrasada           = $this->criarMetaDelegada($tenant, $usuario, $colega, 'Delegada atrasada');
+        $atrasada->setPrazo(new \DateTimeImmutable('-2 days'));
+        $this->criarMetaDelegada($tenant, $usuario, $colega, 'Delegada folgada')->setPrazo(new \DateTimeImmutable('+20 days'));
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $client->request('GET', '/tarefas/minhas?aba=criei');
+        self::assertResponseIsSuccessful();
+        $c     = $client->getCrawler();
+        $itens = $c->filter('.mm-trilho > .mm-cartao.mm-trilho-atencao > a.mm-atencao-item');
+        self::assertCount(1, $itens);
+        self::assertSame('/tarefas/' . $atrasada->getId(), $itens->attr('href'));
+        self::assertSame('Delegada atrasada · Pasta ' . $atrasada->getPasta()->getNup(), trim(preg_replace('/\s+/', ' ', $itens->filter('.mm-atencao-titulo')->text()) ?? ''));
+        self::assertStringEndsWith('· Colega de Escritório', trim(preg_replace('/\s+/', ' ', $itens->filter('.mm-atencao-meta')->text()) ?? ''), 'na aba Criei mostra com quem está');
+        self::assertCount(0, $c->filter('.mm-trilho-atencao > .mm-atencao-vazio'));
+        self::assertContains('1 atrasada(s)', $c->filter('.mm-trilho-andamento .mm-fatias > .mm-fatia')->each(static fn ($f): string => trim(preg_replace('/\s+/', ' ', $f->text()) ?? '')));
+    }
+
+    #[TestDox('"Precisa de atenção" nas outras abas segue igual: atrasadas da aba, da que venceu primeiro, e a em revisão vencida fica de fora')]
+    public function testAtencaoNasOutrasAbasNaoMuda(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $this->criarMeta($tenant, $usuario, 'Venceu ontem')->setPrazo(new \DateTimeImmutable('-1 day'));
+        $this->criarMeta($tenant, $usuario, 'Venceu faz tempo')->setPrazo(new \DateTimeImmutable('-9 days'));
+        $this->criarMeta($tenant, $usuario, 'Em revisão vencida', Tarefa::STATUS_EM_REVISAO)->setPrazo(new \DateTimeImmutable('-3 days'));
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        foreach (['responsavel', 'todas'] as $aba) {
+            $client->request('GET', '/tarefas/minhas?aba=' . $aba);
+            self::assertResponseIsSuccessful();
+            self::assertSame(
+                ['Venceu faz tempo', 'Venceu ontem'],
+                $client->getCrawler()->filter('.mm-trilho-atencao > a.mm-atencao-item .mm-atencao-titulo')->each(static fn ($t): string => trim((string) preg_replace('/ · Pasta .*$/', '', trim($t->text())))),
+                $aba,
+            );
+        }
     }
 
     private function criarColega(Tenant $tenant): User

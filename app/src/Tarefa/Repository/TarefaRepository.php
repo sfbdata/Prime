@@ -433,7 +433,9 @@ class TarefaRepository extends ServiceEntityRepository
     /**
      * "Buscar por título, pasta ou cliente" (desenho de 19/10): título, nº da pasta e nome do cliente,
      * sem acento. A descrição continua entrando, como antes do desenho. Usa o alias `p_tela`, que
-     * `aplicarFiltrosDaTela` junta uma vez só.
+     * `aplicarFiltrosDaTela` junta uma vez só. `%`, `_` e `\` digitados são escapados (o escape padrão
+     * do LIKE no PostgreSQL é a barra), como no NotificacaoRepository: "%" procura um "%" literal nos
+     * quatro campos, em vez de casar tudo.
      */
     private function aplicarBuscaDaTela(QueryBuilder $qb, string $busca): void
     {
@@ -443,7 +445,7 @@ class TarefaRepository extends ServiceEntityRepository
             . ' OR UNACCENT(LOWER(p_tela.nup)) LIKE UNACCENT(:busca)'
             . ' OR UNACCENT(LOWER(p_tela.nomeCliente)) LIKE UNACCENT(:busca))'
         )
-           ->setParameter('busca', '%' . mb_strtolower($busca) . '%');
+           ->setParameter('busca', '%' . addcslashes(mb_strtolower($busca), '%_\\') . '%');
     }
 
     /**
