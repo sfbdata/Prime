@@ -30,7 +30,7 @@ final class ContribuaPagarmeJsTest extends TestCase
     #[TestDox('contrato do módulo intacto: ContribuaPagarme com montar, tokenizar, concluirAcao e desmontar')]
     public function testContratoDoModulo(): void
     {
-        self::assertStringContainsString('window.ContribuaPagarme = { montar, tokenizar, concluirAcao, desmontar };', self::js());
+        self::assertStringContainsString('window.ContribuaPagarme = { montar, tokenizar, concluirAcao, desmontar, validar };', self::js());
         self::assertStringContainsString("pagarme: 'ContribuaPagarme'", self::ler('public/js/contribua-checkout.js'));
     }
 
@@ -73,13 +73,12 @@ final class ContribuaPagarmeJsTest extends TestCase
         self::assertStringContainsString("if (!/^\\d{3,4}$/.test(cvv)) {", $js);
     }
 
-    #[TestDox('máscaras: número em grupos de 4 (Amex 4-6-5), validade MM/AA, CVV só dígitos e nome em caixa alta')]
+    #[TestDox('máscaras: número em grupos de 4 para todas as bandeiras (Amex 4-4-4-3), validade MM/AA, CVV só dígitos e nome em caixa alta')]
     public function testMascaras(): void
     {
         $js = self::js();
-        self::assertStringContainsString("return digitos.slice(0, 19).replace(/(\\d{4})(?=\\d)/g, '\$1 ');", $js, '4-4-4-4 do desenho');
-        self::assertStringContainsString("if (/^3[47]/.test(digitos)) {", $js);
-        self::assertStringContainsString('[d.slice(0, 4), d.slice(4, 10), d.slice(10, 15)]', $js, 'Amex 4-6-5');
+        self::assertStringContainsString("const mascararNumero = (valor) => soDigitos(valor).slice(0, 19).replace(/(\\d{4})(?=\\d)/g, '\$1 ');", $js, '4-4-4-4 do desenho, sem exceção por bandeira');
+        self::assertStringNotContainsString('d.slice(4, 10)', $js, 'sem o 4-6-5 do Amex: o desenho manda');
         self::assertStringContainsString("soDigitos(valor).slice(0, 4).replace(/^(\\d{2})(\\d)/, '\$1/\$2')", $js, 'MM/AA');
         self::assertStringContainsString('const mascararCvv = (valor) => soDigitos(valor).slice(0, 4);', $js);
         self::assertStringContainsString('ao(nome, (v) => v.toUpperCase());', $js);
@@ -126,6 +125,40 @@ final class ContribuaPagarmeJsTest extends TestCase
         self::assertStringContainsString("grade.append(rotulo('VALIDADE', validade), rotulo('CVV', cvv));", $js);
         self::assertStringContainsString('grade.append(documento);', $js, 'o CPF/CNPJ do checkout entra na terceira coluna');
         self::assertStringContainsString('raiz.replaceChildren(...(documento ? [documento] : []));', $js, 'e volta ao desmontar');
+    }
+
+    #[TestDox('validar() opcional: devolve a primeira mensagem do desenho (com foco no campo) ou null, sem tokenizar')]
+    public function testValidarDoModulo(): void
+    {
+        $js = self::js();
+        $inicio = strpos($js, 'function validar() {');
+        self::assertNotFalse($inicio);
+        $corpo = substr($js, $inicio, (int) strpos($js, 'async function tokenizar()') - $inicio);
+        self::assertStringContainsString('lerCartao();', $corpo, 'as mesmas conferências da tokenização');
+        self::assertStringContainsString('return erro.message;', $corpo);
+        self::assertStringNotContainsString('fetch(', $corpo, 'validar não fala com ninguém');
+        self::assertStringContainsString("campo.setAttribute('aria-invalid', 'true');", $js);
+        self::assertStringContainsString('campo.focus();', $js);
+    }
+
+    #[TestDox('checkout: validar do módulo (se existir) antes do CPF/CNPJ, e os dois antes do iniciar no servidor')]
+    public function testCheckoutValidaAntesDeIniciar(): void
+    {
+        $checkout = self::ler('public/js/contribua-checkout.js');
+        $inicio = strpos($checkout, 'function pagar() {');
+        self::assertNotFalse($inicio);
+        $pagar = substr($checkout, $inicio, (int) strpos($checkout, 'function tokenizarEAssinar(') - $inicio);
+
+        $validar = strpos($pagar, "montado && typeof montado.validar === 'function' ? montado.validar() : null");
+        $documento = strpos($pagar, "erro('Informe o CPF ou CNPJ do titular.');");
+        $iniciar = strpos($pagar, 'enviar(modal.dataset.urlIniciar');
+        self::assertNotFalse($validar, 'validar é opcional: Stripe e Mercado Pago não o têm');
+        self::assertNotFalse($documento);
+        self::assertNotFalse($iniciar);
+        self::assertLessThan($documento, $validar, 'cartão antes do documento, como no desenho');
+        self::assertLessThan($iniciar, $documento, 'nada vai ao servidor antes das conferências');
+        self::assertMatchesRegularExpression('/if \(erroDoCartao\) \{\s*erro\(erroDoCartao\);\s*return;\s*\}/', $pagar, 'erro do cartão para antes do iniciar');
+        self::assertStringContainsString('Extensão compatível do contrato: o módulo PODE ter validar()', $checkout);
     }
 
     #[TestDox('o cartão só sai do navegador para o Pagar.me: o BlueJus recebe o token e o documento, nada mais')]

@@ -22,6 +22,10 @@
  *   const token = await ContribuaPagarme.tokenizar();   // rejeita com Error de mensagem pronta para a tela
  *   await ContribuaPagarme.concluirAcao(segredo);        // nada a fazer no Pagar.me
  *   ContribuaPagarme.desmontar();
+ *   ContribuaPagarme.validar();   // opcional no contrato: 1ª mensagem de erro do cartão ou null
+ *
+ * validar() é extensão compatível: o checkout o chama, se existir, antes de abrir o pedido no servidor,
+ * para o pedido não nascer com cartão digitado errado. A tokenizar() confere de novo.
  */
 (function () {
     'use strict';
@@ -75,17 +79,8 @@
         return digitos.length >= 13 && soma % 10 === 0;
     }
 
-    /* Número em grupos de 4 (4-4-4-4, até 19 dígitos); Amex em 4-6-5, até 15. */
-    function mascararNumero(valor) {
-        const digitos = soDigitos(valor);
-        if (/^3[47]/.test(digitos)) {
-            const d = digitos.slice(0, 15);
-
-            return [d.slice(0, 4), d.slice(4, 10), d.slice(10, 15)].filter(Boolean).join(' ');
-        }
-
-        return digitos.slice(0, 19).replace(/(\d{4})(?=\d)/g, '$1 ');
-    }
+    /* Número em grupos de 4 para todas as bandeiras, até 19 dígitos (linha 269; o Amex de 15 fica 4-4-4-3). */
+    const mascararNumero = (valor) => soDigitos(valor).slice(0, 19).replace(/(\d{4})(?=\d)/g, '$1 ');
 
     /* Validade MM/AA (linha 270): a barra entra depois do segundo dígito. */
     const mascararValidade = (valor) => soDigitos(valor).slice(0, 4).replace(/^(\d{2})(\d)/, '$1/$2');
@@ -211,6 +206,20 @@
         return { number: numero, holder_name: nome, exp_month: mes, exp_year: ano, cvv: cvv };
     }
 
+    /* Confere o cartão sem tokenizar: a primeira mensagem do desenho (com foco no campo) ou null. */
+    function validar() {
+        if (!raiz) {
+            return null;
+        }
+        try {
+            lerCartao();
+        } catch (erro) {
+            return erro.message;
+        }
+
+        return null;
+    }
+
     async function tokenizar() {
         if (!raiz) {
             throw new Error('O formulário de cartão ainda não está pronto.');
@@ -249,5 +258,5 @@
         documento = null;
     }
 
-    window.ContribuaPagarme = { montar, tokenizar, concluirAcao, desmontar };
+    window.ContribuaPagarme = { montar, tokenizar, concluirAcao, desmontar, validar };
 })();

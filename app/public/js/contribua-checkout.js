@@ -2,7 +2,11 @@
    (coPagar, coFechar, gwLinks, gwPed). O cartão nunca vai ao BlueJus: no modo formulário o campo seguro do
    gateway é montado pelo módulo dele (contribua-<gateway>.js, contrato com a sessão 4b:
    montar(elemento, {chavePublica, valorCentavos, nome, email}), tokenizar(), concluirAcao(segredo),
-   desmontar()) e só o token sobe; no modo hospedado o pagador digita o cartão na página do gateway. */
+   desmontar()) e só o token sobe; no modo hospedado o pagador digita o cartão na página do gateway.
+   Extensão compatível do contrato: o módulo PODE ter validar(), que devolve a primeira mensagem de erro do
+   cartão (com foco no campo) ou null. Se existir, é chamado antes do iniciar no servidor, e só depois vem o
+   CPF/CNPJ (a ordem do desenho: número, nome, validade, CVV, documento); assim o pedido não é aberto com
+   cartão digitado errado. Módulo sem validar() (Stripe, Mercado Pago) segue como antes. */
 (function () {
     'use strict';
 
@@ -109,6 +113,11 @@
     }
 
     function pagar() {
+        const erroDoCartao = montado && typeof montado.validar === 'function' ? montado.validar() : null;
+        if (erroDoCartao) {
+            erro(erroDoCartao);
+            return;
+        }
         if (![11, 14].includes(documento().length)) {
             erro('Informe o CPF ou CNPJ do titular.');
             return;
