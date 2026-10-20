@@ -108,6 +108,9 @@ final class PurgarEscritorioUseCase
         // NO ACTION — deleção explícita, ANTES da nota.
         ['nota_tecnica_versao', 'tenant_id = :tenant'],
         ['nota_tecnica', 'tenant_id = :tenant'],
+        // Previsões da Situação atual do Push (taxa de acertos): caem pela CASCADE do processo, mas
+        // a FK de tenant é NO ACTION; deleção explícita antes de apagar o processo e o tenant.
+        ['previsao_processual', 'tenant_id = :tenant'],
         // DJEN — publicações e OABs monitoradas (tenant_id direto; FKs a processo/oab_monitorada
         // são SET NULL, então não caem por cascata — precisam de deleção explícita).
         ['publicacao_djen', 'tenant_id = :tenant'],
@@ -119,6 +122,9 @@ final class PurgarEscritorioUseCase
         // FKs a "user" SET NULL; nada as referencia). Deleção explícita antes de apagar o tenant.
         ['inteligencia_analise', 'tenant_id = :tenant'],
         ['inteligencia_configuracao', 'tenant_id = :tenant'],
+        // Contribua — plano e limites de espaço do escritório (tenant_id direto; FK tenant NO ACTION, nada a
+        // referencia). O catálogo de planos e a configuração são globais e ficam.
+        ['contribua_espaco_do_escritorio', 'tenant_id = :tenant'],
         // Cobranças — movimentos financeiros (Etapa 3). Filhos antes do pai: a alocação referencia
         // pagamento E obrigação; pagamento/liquidação referenciam o caso (NO ACTION). Por isso vem
         // ANTES do bloco Etapa 2 (que apaga obrigação e caso).

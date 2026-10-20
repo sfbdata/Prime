@@ -18,8 +18,8 @@ use PHPUnit\Framework\Attributes\TestDox;
 /**
  * Cabeçalho da carteira na cópia de 19/10 do desenho "Carteira 1B": o selo "CARTEIRA {id}" (L91), o
  * rodapé do popover de frescor que diz QUAL relatório importar (L118) e o ⋮ com "Editar configuração"
- * (L75-84). Os outros três itens do ⋮ (espelho contábil, exportar, excluir carteira) não entram:
- * decisão do dono, sem rota no sistema.
+ * e "Exportar lista (.xlsx)" (L75-84). Os outros dois itens do ⋮ (espelho contábil, excluir carteira)
+ * não entram: decisão do dono, sem rota no sistema.
  */
 #[CoversClass(CarteiraController::class)]
 final class CarteiraCabecalhoDesenho1910Test extends CobrancaWebTestCase
@@ -148,8 +148,8 @@ final class CarteiraCabecalhoDesenho1910Test extends CobrancaWebTestCase
         );
     }
 
-    #[TestDox('O ⋮ do cabeçalho tem SÓ "Editar configuração", ligado ao modal que já existe')]
-    public function testMenuDoCabecalhoAbreAConfiguracao(): void
+    #[TestDox('O ⋮ do cabeçalho tem "Editar configuração" e "Exportar lista (.xlsx)", nessa ordem')]
+    public function testMenuDoCabecalhoAbreAConfiguracaoEExporta(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -168,21 +168,54 @@ final class CarteiraCabecalhoDesenho1910Test extends CobrancaWebTestCase
         self::assertSame('Mais ações', $botao->attr('title'));
 
         $itens = $mais->filter(':scope > .cs-mais-menu > *');
-        self::assertCount(1, $itens, 'Só o item que tem ação no sistema');
-        self::assertSame('Editar configuração', trim($itens->text()));
-        self::assertSame('modal', $itens->attr('data-bs-toggle'));
-        self::assertSame('#modalEditarConfiguracao', $itens->attr('data-bs-target'));
-        self::assertCount(1, $itens->filter('i.bi-sliders'));
+        self::assertCount(2, $itens, 'Só os itens que têm ação no sistema');
+
+        $config = $itens->eq(0);
+        self::assertSame('Editar configuração', trim($config->text()));
+        self::assertSame('modal', $config->attr('data-bs-toggle'));
+        self::assertSame('#modalEditarConfiguracao', $config->attr('data-bs-target'));
+        self::assertCount(1, $config->filter('i.bi-sliders'));
         self::assertCount(1, $crawler->filter('#modalEditarConfiguracao'));
 
+        $exportar = $itens->eq(1);
+        self::assertSame('a', $exportar->nodeName());
+        self::assertSame('Exportar lista (.xlsx)', trim($exportar->text()));
+        self::assertCount(1, $exportar->filter('i.bi-file-earmark-spreadsheet'));
+        self::assertSame('/cobrancas/carteiras/' . $carteira->getId() . '/exportar', $exportar->attr('data-exportar-base'));
+
         $texto = $mais->text();
-        foreach (['espelho', 'Exportar', 'Excluir carteira'] as $fora) {
+        foreach (['espelho', 'Excluir carteira'] as $fora) {
             self::assertStringNotContainsString($fora, $texto);
         }
     }
 
-    #[TestDox('Sem gerenciar carteira não há ⋮: o botão nunca aponta para um modal que não existe')]
-    public function testSemGerenciarCarteiraNaoHaMenu(): void
+    #[TestDox('O link de exportar sai com a busca e o Estado da carga da página')]
+    public function testExportarLevaORecorteDaTela(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteira = $this->carteira($tenant);
+
+        $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId() . '?busca=101&estado=ativo');
+
+        self::assertResponseIsSuccessful();
+        $href = (string) $crawler->filter('.cs-mais-menu > a[data-exportar-lista]')->attr('href');
+        self::assertStringStartsWith('/cobrancas/carteiras/' . $carteira->getId() . '/exportar?', $href);
+        parse_str((string) parse_url($href, \PHP_URL_QUERY), $query);
+        self::assertSame('101', $query['busca'] ?? null);
+        self::assertSame('ativo', $query['estado'] ?? null);
+        self::assertArrayNotHasKey('page', $query, 'A planilha não pagina');
+
+        // O recorte muda por XHR sem recarregar: o script refaz o href também no clique do meio e no
+        // menu de contexto ("copiar link"), além da troca do formulário e do fragmento.
+        $html = (string) $client->getResponse()->getContent();
+        foreach (["'auxclick'", "'contextmenu'", "'change'", 'MutationObserver'] as $gancho) {
+            self::assertStringContainsString($gancho, $html);
+        }
+    }
+
+    #[TestDox('Sem gerenciar carteira, o ⋮ fica só com o exportar: nunca aponta para um modal que não existe')]
+    public function testSemGerenciarCarteiraOMenuSoExporta(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarOperadorSemCapacidade($client);
@@ -191,7 +224,10 @@ final class CarteiraCabecalhoDesenho1910Test extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId());
 
         self::assertResponseIsSuccessful();
-        self::assertCount(0, $crawler->filter('.cs-mais'));
+        $itens = $crawler->filter('.cs-cab-acoes > .cs-mais > .cs-mais-menu > *');
+        self::assertCount(1, $itens);
+        self::assertSame('Exportar lista (.xlsx)', trim($itens->text()));
+        self::assertCount(0, $crawler->filter('[data-bs-target="#modalEditarConfiguracao"]'));
         self::assertCount(0, $crawler->filter('#modalEditarConfiguracao'));
     }
 }
