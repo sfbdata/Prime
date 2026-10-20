@@ -14,6 +14,11 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
   não há API nesta fatia), tela "Despachar via Chat I.A" no `central.js` (`mostrarTela('despacho')`) e o chip "Pasta N"
   **só como texto**: a mensagem não guarda o id da pasta, o chip sai da linha "Pasta NUP" e não abre a pasta (link
   depende da coluna `referencia`, §5). Pendente: smoke do dono e o Playwright comparativo.
+- **20/10, PR1, correção de segurança (bloqueante da revisão):** quem entrava no grupo depois do despacho (ou perdia
+  o acesso à pasta) lia no histórico o título, o trecho do teor e o NUP. Agora a mensagem guarda a referência
+  (`despacho_pasta_id`, `despacho_tipo`; migration `Version20261021180000`) e toda leitura confere a pasta na hora
+  (`LeituraDasMensagens`); o contrato novo da `MensagemOutput` está em §4.1. Também: conversa sem ninguém que receba é
+  recusada, e o registro do Financeiro pede o financeiro de quem envia e de quem recebe.
 
 ### Para o dono
 
@@ -87,6 +92,23 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
   - Uma transação só: abrir a 1:1, a mensagem, os avisos e a auditoria entram juntos ou não entram. A corrida de dois
     abrindo a mesma 1:1 segue em 409 (`ConversaCriadaAoMesmoTempoException`).
   - Exige: eu vejo a pasta; o destino (cada participante ativo, no grupo) vê a pasta. Senão recusa com o motivo.
+    Conversa sem ninguém que receba (a 1:1 com quem saiu do escritório, o grupo em que só eu fiquei) é recusada com
+    "Ninguém mais nesta conversa pode receber." (`todosVeem([])` é falso; na lista de destinos o grupo fica
+    indisponível com esse motivo). Colega de outro escritório pelo `usuarioId`: a mesma recusa de um id que não existe
+    (422 "Colega não encontrado neste escritório."), sem dizer se ele existe.
+  - Registro do Financeiro (`registro_financeiro`): quem envia e cada um que recebe também passam por
+    `VisibilidadeDoFinanceiroDaPasta::podeVer` (quem envia sem ver = 404; destinatário sem ver = 422 com o motivo).
+    A lista de destinos não recebe o tipo e segue filtrando só pela pasta (hoje as duas regras coincidem).
+  - **Referência e conferência na leitura (20/10).** A mensagem do despacho grava `despacho_pasta_id` (FK para a pasta,
+    `ON DELETE SET NULL`) e `despacho_tipo` (o `TipoDeItemEncaminhado`), pelo `EnviarMensagemUseCase` (parâmetro
+    `ReferenciaDeDespacho`), na mesma transação; a mensagem comum fica com as duas nulas. Toda saída do texto de uma
+    mensagem (histórico, novidades e janela de 30 s, prévia da lista, trecho citado de `respostaA`, a própria resposta
+    do envio) passa por `LeituraDasMensagens`: com `despacho_tipo`, quem lê precisa ver a pasta NAQUELA HORA
+    (`AcessoAPasta::podeVer`; no Financeiro também o financeiro). Pasta apagada (nula), excluída (lápide) ou de outro
+    escritório conta como não vê. Quem não vê recebe "Item de pasta sem acesso" e nenhuma referência. A pasta é buscada
+    com o escritório da mensagem explícito; a resposta fica em memória só durante aquela leitura. Isto substitui a
+    decisão 2.5 ("quem perde o acesso depois mantém o texto já entregue") e o "recheck na leitura" de §5, por causa
+    da ressalva do dono na spec B (o histórico respeita as permissões, inclusive para participantes novos).
   - Abre ou reaproveita a 1:1 (`AbrirConversaUseCase`) e grava a mensagem pelo caminho do `EnviarMensagemUseCase`
     (participação, menções, limite de 4000).
   - Urgente: `Notificacao` tipo `central_despacho` para cada membro, sem o texto do item (só "Despacho urgente de
@@ -103,6 +125,19 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
 
 1. **PR1, backend:** os dois use cases, rotas, tipo `despacho` em `TiposDeAvisoDaCentral`, testes (unit + functional
    + isolamento sem `TenantFilter`).
+
+   **Contrato da `MensagemOutput` para a tela (PR2 em diante).** Toda mensagem que a Central devolve (histórico
+   `GET /central/conversas/{id}/mensagens`, `GET /central/novidades`, `ultima` de `GET /central/conversas`, a resposta
+   de `POST /central/conversas/{id}/mensagens`) leva dois campos novos:
+
+   - `despacho`: `{"pastaId": int, "nup": string|null}` só quando a mensagem é um despacho E quem lê vê a pasta agora;
+     `null` na mensagem comum e no despacho que o leitor não vê. O chip "Pasta N" sai daqui (`nup`, ou o id quando
+     `nup` é nulo), nunca do texto.
+   - `ocultoPorPermissao`: `true` quando é despacho e o leitor não vê a pasta; então `conteudo` é
+     "Item de pasta sem acesso" e `despacho` é `null`. `false` em todo o resto.
+
+   A citação (`respostaA`) ganha `ocultoPorPermissao` também: citação de um despacho que o leitor não vê traz `trecho`
+   = "Item de pasta sem acesso". A tela não deve tentar reconstruir a pasta a partir do texto.
 2. **PR2, tela de despacho e API da janela** (`central.js`, flutuante, `_janela`): espera a base de presença entrar
    (arquivo quente em ~10 PRs).
 3. **PR3, "Responsáveis nas metas" abre a conversa:** `PastaMetasResumoOutput` leva o `userId`.
