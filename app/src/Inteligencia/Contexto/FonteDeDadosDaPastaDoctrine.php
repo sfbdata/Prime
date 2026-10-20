@@ -100,6 +100,27 @@ final class FonteDeDadosDaPastaDoctrine implements FonteDeDadosDaPasta
         return $this->daPasta(PastaDocumento::class, $tenant, $pasta, $limite, 'carregadoEm', 'DESC');
     }
 
+    public function documentosDaPastaPorIds(Tenant $tenant, Pasta $pasta, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->em->createQueryBuilder()
+            ->select('x')
+            ->from(PastaDocumento::class, 'x')
+            ->andWhere('x.pasta = :pasta')
+            ->andWhere('x.tenant = :tenant')
+            ->andWhere('x.id IN (:ids)')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $ids)
+            ->orderBy('x.carregadoEm', 'DESC')
+            ->addOrderBy('x.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function checklistDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array
     {
         return $this->daPasta(PastaChecklistItem::class, $tenant, $pasta, $limite, 'ordem', 'ASC');

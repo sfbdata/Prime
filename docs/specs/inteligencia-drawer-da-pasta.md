@@ -88,10 +88,11 @@ Desenho: aba "Perguntar" (`bi bi-chat-dots`, dc L5945), painel em L1072-1084, ro
 Desenho: aba "Documentos" (`bi bi-file-earmark-text`, dc L5945), painel em L1041-1058, lógica em L5915 e L5961-5968.
 
 - **Tela.** Aba entre Análise e Relatórios (ordem do desenho). Não aparece para quem tem a aba Documentos da pasta oculta.
-  Texto do topo: "A IA monta o índice pelos dados de cada arquivo: nome, tipo, data e tamanho. O conteúdo dos arquivos não
-  é lido." (o do desenho promete leitura e OCR: regra 7 e D13, a lei do domínio corrige o protótipo). Lista num cartão:
+  Texto do topo: "A IA monta o índice pelos dados de cada arquivo: nome, título, categoria e data. O conteúdo dos arquivos
+  não é lido." (é o que vai ao modelo; o tamanho só aparece na lista; o do desenho promete leitura e OCR: regra 7 e D13, a lei do domínio corrige o protótipo). Lista num cartão:
   linha "Todos" que marca e desmarca tudo, divisória, e cada documento com a caixa de marcar, o ícone do arquivo com a
-  letra do tipo, o nome (uma linha, reticências) e a linha de dados "PDF · 1,2 MB · 12/10/2026". Embaixo, um botão só,
+  letra do tipo, o nome (uma linha, reticências) e a linha de dados do desenho, "tamanho · data" (`meta`, dc L6578-6580:
+  "240 KB · 18/08", "1,2 MB · hoje"; de outro ano, com o ano). O tipo está no ícone. Embaixo, um botão só,
   "Índice inteligente" (`bi-list-columns-reverse`), na largura toda, desabilitado sem seleção ou com a IA indisponível
   (motivo real). "Ler N documentos" NÃO entra (D13, com o dono). O resultado e o histórico aparecem embaixo, como nos
   comandos. Pasta sem documento: "Nenhum documento nesta pasta." e o botão desabilitado.
@@ -102,7 +103,10 @@ Desenho: aba "Documentos" (`bi bi-file-earmark-text`, dc L5945), painel em L1041
 - **Seleção.** O POST do comando aceita `documentos[]` (ids). Só vale id de documento da pasta, visível para quem pede
   (abas ocultas) e dentro da lista mostrada (os mesmos `LIMITE_DOCUMENTOS` mais recentes do contexto); id fora disso ou
   seleção vazia → 422. Os ids ordenados vão em `contexto_resumo.documentosSelecionados`; o worker obedece (não decide) e a
-  seção `<documentos>` do contexto leva só esses. A seleção muda o hash: "nada novo" vale por seleção.
+  seção `<documentos>` do contexto leva só esses, buscados pelos ids (um documento novo entre o pedido e o processamento não
+  tira um marcado). A seleção muda o hash: "nada novo" vale por seleção. O Índice nunca recebe análise anterior (a seleção
+  muda). Índice em andamento com outra seleção: "Já há um índice em andamento com outra seleção de documentos. Espere
+  terminar para pedir outro." (com a mesma seleção, o aviso de sempre).
 - **Sem migration.**
 
 ## Contratos compartilhados (avisar a 4b antes)

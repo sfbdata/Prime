@@ -56,15 +56,28 @@ final class FluxoDaAnaliseDaPasta implements FluxoDeAnalise
             return null;
         }
 
-        // A anterior é a do MESMO comando (sem comando, a do mesmo agente, como antes).
-        $anterior = $this->analises->findUltimaConcluidaDoAlvo($tenant, $analise->getAlvoTipo(), $analise->getAlvoId(), TipoDeAnalise::AnalisePasta, $agente, $comando);
-        if ($anterior !== null && !self::podeVoltar($anterior, $analise)) {
-            $anterior = null;
-        }
+        $anterior = $this->anteriorQuePodeVoltar($analise, $tenant);
         $analise->registrarContexto($contexto->hash, $contexto->resumo());
 
         // A resposta anterior volta ao provedor: passa pela máscara do montador (IA-033).
         return $this->prompt->montar($contexto, $this->montador->analiseAnterior($tenant, $anterior?->getResumo()));
+    }
+
+    /**
+     * A anterior é a do MESMO comando (sem comando, a do mesmo agente, como antes), se puder voltar
+     * ({@see podeVoltar()}). O "Índice inteligente" (F4) nunca recebe anterior: a seleção muda de um
+     * pedido para outro, e um índice antigo citaria documentos que a pessoa não marcou agora.
+     */
+    private function anteriorQuePodeVoltar(AnaliseDeInteligencia $analise, Tenant $tenant): ?AnaliseDeInteligencia
+    {
+        $comando = $analise->getComando();
+        if ($comando?->ehDaAbaDocumentos() === true) {
+            return null;
+        }
+
+        $anterior = $this->analises->findUltimaConcluidaDoAlvo($tenant, $analise->getAlvoTipo(), $analise->getAlvoId(), TipoDeAnalise::AnalisePasta, $analise->getAgente(), $comando);
+
+        return $anterior !== null && self::podeVoltar($anterior, $analise) ? $anterior : null;
     }
 
     /**

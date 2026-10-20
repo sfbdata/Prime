@@ -752,6 +752,25 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
         self::assertSame([2], $salvas[0]->getContextoResumo()['documentosSelecionados']);
     }
 
+    #[TestDox('Índice em andamento com OUTRA seleção → devolve o em andamento com o aviso da seleção; com a MESMA, o aviso de sempre')]
+    public function testIndiceEmAndamentoComOutraSelecao(): void
+    {
+        $this->dados->documentos = [$this->documentoDaPasta(2), $this->documentoDaPasta(1)];
+        $pendente = new AnaliseDeInteligencia($this->tenant, $this->user, TipoDeAnalise::AnalisePasta, AnaliseDeInteligencia::ALVO_PASTA, self::PASTA_ID, PromptDoAgente::VERSAO, 'h', ['total' => 1, 'documentosSelecionados' => [1]], Agente::Documental, Comando::IndiceDosDocumentos);
+        DefineId::em($pendente, 300);
+        $this->analises->method('findPendenteDoAlvo')->willReturn($pendente);
+        $this->analises->expects($this->never())->method('salvar');
+
+        $outra = $this->sut()->executar($this->inputDoIndice(['2']), $this->user, $this->tenant, $this->semCriar());
+        $mesma = $this->sut()->executar($this->inputDoIndice(['1']), $this->user, $this->tenant, $this->semCriar());
+
+        self::assertSame(300, $outra->id);
+        self::assertSame('Já há um índice em andamento com outra seleção de documentos. Espere terminar para pedir outro.', $outra->aviso);
+        self::assertSame(300, $mesma->id);
+        self::assertSame('Já existe uma análise "Índice inteligente" em andamento.', $mesma->aviso);
+        self::assertSame([], $this->despachadas);
+    }
+
     #[TestDox('outro comando: `documentos` é ignorado (sem validação, sem recorte, sem chave no resumo)')]
     public function testOutroComandoIgnoraDocumentos(): void
     {

@@ -9,7 +9,8 @@
      documentos não é lido) corrige o protótipo;
    · o cartão da lista: "Selecionar todos" com a contagem "N de M", a divisória e
      uma linha por documento (caixa de marcar, ícone do arquivo pelo tipo, nome
-     numa linha e "PDF · 1,2 MB · 12/10/2026"). Só metadados;
+     numa linha e "1,2 MB · 18/08" ou "240 KB · hoje", como o `meta` do
+     desenho, dc L6578-6580; o tipo está no ícone). Só metadados;
    · a seção do "Índice inteligente" (`_comando_secao.html.twig`): o botão na
      largura toda, desabilitado sem documento marcado, e embaixo o resultado e o
      histórico do comando. "Ler N documentos" do desenho NÃO entra (D13).
@@ -22,7 +23,7 @@
    Comando), `saida` (AnalisesDoComandoOutput ou null), `pastaId` (int), `ia`
    (enum Disponibilidade).
    ============================================================================ #}
-<p class="ia-aba-intro">A IA monta o índice pelos dados de cada arquivo: nome, tipo, data e tamanho. O conteúdo dos arquivos não é lido.</p>
+<p class="ia-aba-intro">A IA monta o índice pelos dados de cada arquivo: nome, título, categoria e data. O conteúdo dos arquivos não é lido.</p>
 <div class="ia-docs" role="group" aria-label="Documentos desta pasta" data-ia-docs>
     {% if documentos is null %}
         <p class="ia-ag-vazio ia-docs-aviso" data-ia-docs-carregando>Carregando os documentos…</p>

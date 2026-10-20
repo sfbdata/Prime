@@ -13,7 +13,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A linha da aba Documentos do drawer (spec inteligencia-drawer-da-pasta, F4): só metadados, com a
- * linha de dados "PDF · 1,2 MB · 12/10/2026" e o ícone pelo tipo (o `fi` pequeno do desenho).
+ * linha de dados do desenho, "tamanho · data" ("1,2 MB · hoje", "240 KB · 18/08"), e o ícone pelo tipo
+ * (o `fi` pequeno do desenho).
  */
 #[CoversClass(DocumentoDoIndiceOutput::class)]
 final class DocumentoDoIndiceOutputTest extends TestCase
@@ -41,31 +42,41 @@ final class DocumentoDoIndiceOutputTest extends TestCase
         self::assertSame('2,0 GB', DocumentoDoIndiceOutput::tamanhoLegivel(2 * 1024 * 1024 * 1024));
     }
 
-    #[TestDox('PDF: nome do arquivo, extensão em maiúsculas, ícone do PDF e a linha "PDF · tamanho · data"; o caminho não sai')]
+    #[TestDox('PDF: nome do arquivo, extensão em maiúsculas, ícone do PDF e a linha "tamanho · hoje" no dia; o caminho não sai')]
     public function testPdf(): void
     {
         $d = self::documento('Procuração assinada.pdf', (int) (1.2 * 1024 * 1024));
 
-        $saida = DocumentoDoIndiceOutput::fromEntity($d);
+        $saida = DocumentoDoIndiceOutput::fromEntity($d, $d->getCarregadoEm());
 
         self::assertSame(31, $saida->id);
         self::assertSame('Procuração assinada.pdf', $saida->nome);
         self::assertSame('PDF', $saida->extensao);
-        self::assertSame('PDF · 1,2 MB · ' . $d->getCarregadoEm()->format('d/m/Y'), $saida->dados());
+        self::assertSame('1,2 MB · hoje', $saida->dados());
         self::assertSame('bi-file-earmark-pdf-fill', $saida->icone());
         self::assertSame('pdf', $saida->familia());
         self::assertStringNotContainsString('segredo', (string) json_encode(get_object_vars($saida)));
     }
 
+    #[TestDox('data como o desenho: "hoje" no dia, "18/08" no ano, com o ano quando é de outro ano')]
+    public function testDataCurta(): void
+    {
+        $hoje = new \DateTimeImmutable('2026-10-19 15:00');
+
+        self::assertSame('hoje', DocumentoDoIndiceOutput::dataCurta(new \DateTimeImmutable('2026-10-19 08:00'), $hoje));
+        self::assertSame('18/08', DocumentoDoIndiceOutput::dataCurta(new \DateTimeImmutable('2026-08-18 10:00'), $hoje));
+        self::assertSame('18/08/2025', DocumentoDoIndiceOutput::dataCurta(new \DateTimeImmutable('2025-08-18 10:00'), $hoje));
+    }
+
     #[TestDox('Word e Excel com os ícones do desenho; sem extensão conhecida, a folha genérica; sem extensão, "Arquivo"')]
     public function testOutrosTipos(): void
     {
-        self::assertSame('bi-file-earmark-word-fill', DocumentoDoIndiceOutput::fromEntity(self::documento('a.docx', 10))->icone());
-        self::assertSame('bi-file-earmark-excel-fill', DocumentoDoIndiceOutput::fromEntity(self::documento('a.xlsx', 10))->icone());
-        $odt = DocumentoDoIndiceOutput::fromEntity(self::documento('a.odt', 10));
+        self::assertSame('bi-file-earmark-word-fill', DocumentoDoIndiceOutput::fromEntity(self::documento('a.docx', 10), new \DateTimeImmutable())->icone());
+        self::assertSame('bi-file-earmark-excel-fill', DocumentoDoIndiceOutput::fromEntity(self::documento('a.xlsx', 10), new \DateTimeImmutable())->icone());
+        $odt = DocumentoDoIndiceOutput::fromEntity(self::documento('a.odt', 10), new \DateTimeImmutable());
         self::assertSame('bi-file-earmark-fill', $odt->icone());
         self::assertSame('outro', $odt->familia());
         self::assertSame('ODT', $odt->tipo);
-        self::assertSame('Arquivo', DocumentoDoIndiceOutput::fromEntity(self::documento('sem_extensao', 10))->tipo);
+        self::assertSame('Arquivo', DocumentoDoIndiceOutput::fromEntity(self::documento('sem_extensao', 10), new \DateTimeImmutable())->tipo);
     }
 }

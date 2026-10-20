@@ -30,7 +30,7 @@ final class DocumentosDoIndiceTelaTest extends JusPrimeWebTestCase
     private const DRAWER = 'aside.ia-drawer#psIaDrawer[data-ia-drawer]';
     private const ABA_NA_PASTA = self::DRAWER . ' > .ia-drawer-corpo > .ia-agentes[data-ia-painel] > .ia-aba-painel[data-ia-aba-painel="documentos"]';
     private const ABA_NO_PAINEL = '.ia-agentes[data-ia-painel] > .ia-aba-painel[data-ia-aba-painel="documentos"]';
-    private const TEXTO_DO_TOPO = 'A IA monta o índice pelos dados de cada arquivo: nome, tipo, data e tamanho. O conteúdo dos arquivos não é lido.';
+    private const TEXTO_DO_TOPO = 'A IA monta o índice pelos dados de cada arquivo: nome, título, categoria e data. O conteúdo dos arquivos não é lido.';
 
     private function cliente(): KernelBrowser
     {
@@ -84,7 +84,7 @@ final class DocumentosDoIndiceTelaTest extends JusPrimeWebTestCase
         self::semPromessaDeLeitura($crawler->filter(self::DRAWER)->html());
     }
 
-    #[TestDox('Painel: "Selecionar todos" com "0 de N", divisória e uma linha por documento DESTA pasta (caixa, ícone pelo tipo, nome, "PDF · 1 KB · data"), mais recente primeiro')]
+    #[TestDox('Painel: "Selecionar todos" com "0 de N", divisória e uma linha por documento DESTA pasta (caixa, ícone pelo tipo, nome, "1 KB · hoje"), mais recente primeiro')]
     public function testPainelComDocumentos(): void
     {
         $client = $this->cliente();
@@ -118,7 +118,7 @@ final class DocumentosDoIndiceTelaTest extends JusPrimeWebTestCase
         self::assertSame(1, $primeira->filter('button > .ia-doc-check > i.bi-check-lg')->count());
         self::assertSame(1, $primeira->filter('button > .ia-doc-ico.ia-doc-ico--pdf > i.bi-file-earmark-pdf-fill')->count());
         self::assertSame('peticao-inicial.pdf', trim($primeira->filter('button > .ia-doc-txt > .ia-doc-nome')->text()));
-        self::assertSame('PDF · 1 KB · ' . $novo->getCarregadoEm()->format('d/m/Y'), trim($primeira->filter('button > .ia-doc-txt > .ia-doc-dados')->text()));
+        self::assertSame('1 KB · hoje', trim($primeira->filter('button > .ia-doc-txt > .ia-doc-dados')->text()));
 
         $html = (string) $client->getResponse()->getContent();
         self::assertStringNotContainsString('da-outra-pasta.pdf', $html);

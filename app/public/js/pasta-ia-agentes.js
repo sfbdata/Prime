@@ -304,6 +304,7 @@
             var deNovo = botao.getAttribute('data-ia-rotulo-de-novo') || 'Gerar nova análise';
             rotuloDoBotao(botao, temConcluida ? deNovo : rotulo);
             botao.title = temConcluida ? 'Nova análise considerando o histórico' : 'Lê os dados desta pasta e responde';
+            if (botao.hasAttribute('data-ia-exige-selecao')) { botao.title = tituloDoIndice(botao); }
         }
 
         // Um 409/429 de disponibilidade vale para todos os botões até a página recarregar.
@@ -436,6 +437,11 @@
             return botao.hasAttribute('data-ia-exige-selecao') && idsMarcados().length === 0;
         }
 
+        // O title do Índice segue a seleção, não o histórico (o índice nunca recebe o anterior).
+        function tituloDoIndice(botao) {
+            return semSelecao(botao) ? 'Marque os documentos do índice' : 'Monta o índice dos documentos marcados';
+        }
+
         function atualizarSelecao() {
             var total = linhasDeDocumento().length;
             var marcados = idsMarcados().length;
@@ -446,6 +452,7 @@
             drawer.querySelectorAll('[data-ia-gerar][data-ia-exige-selecao]').forEach(function (botao) {
                 if (botao.getAttribute('data-ia-disponivel') !== '1' || botao.classList.contains('is-carregando')) { return; }
                 botao.disabled = marcados === 0;
+                botao.title = tituloDoIndice(botao);
             });
         }
 

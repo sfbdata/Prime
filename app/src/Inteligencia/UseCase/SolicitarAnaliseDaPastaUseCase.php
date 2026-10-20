@@ -87,7 +87,7 @@ final class SolicitarAnaliseDaPastaUseCase
         $alvoId = (int) $pasta->getId();
         $emAndamento = $this->analises->findPendenteDoAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, TipoDeAnalise::AnalisePasta, $agente, $comando);
         if ($emAndamento !== null) {
-            return AnaliseOutput::fromEntity($emAndamento, self::avisoEmAndamento($agente, $comando));
+            return AnaliseOutput::fromEntity($emAndamento, self::avisoEmAndamento($agente, $comando, $emAndamento, $selecionados));
         }
 
         $incluirFinanceiro = $agente->leFinanceiro() && $this->financeiro->podeVer($user, $tenant, $pasta);
@@ -180,9 +180,18 @@ final class SolicitarAnaliseDaPastaUseCase
         return $pasta;
     }
 
-    /** Aviso da idempotência "em andamento": com comando, o rótulo dele; sem, o nome do agente. */
-    private static function avisoEmAndamento(Agente $agente, ?Comando $comando): string
+    /**
+     * Aviso da idempotência "em andamento": com comando, o rótulo dele; sem, o nome do agente. No
+     * Índice (F4) com OUTRA seleção, diz que a seleção pedida não é a que está rodando.
+     *
+     * @param list<int>|null $selecionados
+     */
+    private static function avisoEmAndamento(Agente $agente, ?Comando $comando, AnaliseDeInteligencia $emAndamento, ?array $selecionados): string
     {
+        if ($selecionados !== null && ($emAndamento->getContextoResumo()['documentosSelecionados'] ?? null) !== $selecionados) {
+            return 'Já há um índice em andamento com outra seleção de documentos. Espere terminar para pedir outro.';
+        }
+
         return $comando !== null
             ? sprintf('Já existe uma análise "%s" em andamento.', $comando->rotulo())
             : sprintf('Já existe uma análise do %s em andamento.', $agente->nome());

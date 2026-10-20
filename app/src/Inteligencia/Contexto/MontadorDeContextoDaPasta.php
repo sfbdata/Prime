@@ -326,7 +326,9 @@ final class MontadorDeContextoDaPasta
     /**
      * Com o Financeiro oculto para quem pediu, o contrato de honorários não entra (regra
      * `VisibilidadeDasAbasDaPasta::documentosVisiveis`, ocultar aba). Com seleção (Índice da aba
-     * Documentos, F4), só os marcados entram, e os não marcados não contam como omitidos por limite.
+     * Documentos, F4), só os marcados entram, buscados pelos ids e sem o corte de recência (a validação
+     * da solicitação já os limitou à lista mostrada; um documento novo depois do pedido não tira um
+     * marcado), e os não marcados não contam como omitidos por limite.
      *
      * @param list<string>   $abasOcultas
      * @param list<int>|null $selecionados
@@ -335,12 +337,10 @@ final class MontadorDeContextoDaPasta
     {
         $linhas = [];
         $assinaturas = [];
-        $todos = $this->documentosVisiveis($tenant, $pasta, $abasOcultas);
-        $mostrados = array_slice($todos, 0, self::LIMITE_DOCUMENTOS);
-        if ($selecionados !== null) {
-            $mostrados = array_values(array_filter($mostrados, static fn (PastaDocumento $d): bool => \in_array((int) $d->getId(), $selecionados, true)));
-        }
-        foreach ($mostrados as $documento) {
+        $todos = $selecionados === null
+            ? $this->documentosVisiveis($tenant, $pasta, $abasOcultas)
+            : VisibilidadeDasAbasDaPasta::documentosVisiveis($this->dados->documentosDaPastaPorIds($tenant, $pasta, $selecionados), $abasOcultas);
+        foreach (array_slice($todos, 0, self::LIMITE_DOCUMENTOS) as $documento) {
             // Só metadados: o conteúdo do arquivo não é lido nem enviado (spec §2.2).
             $categoria = $this->rotulo($documento->getCategoria(), 'sem categoria', $mascarar);
             $titulo = $this->rotulo($documento->getTitulo(), 'sem título', $mascarar);
