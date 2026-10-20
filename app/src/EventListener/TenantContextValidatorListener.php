@@ -53,6 +53,12 @@ final class TenantContextValidatorListener
         'push_compartilhado',
         'push_compartilhado_codigo',
         'push_compartilhado_renovacao',
+        // Indicar o BlueJus (spec indicar-bluejus.md): o menu oferece a janela a todo logado, com ou sem
+        // escritório (o Convidado do Trabalho Externo também). O dado é da pessoa, sem tenant; o controller só
+        // usa o escritório da sessão com vínculo ativo, conferido por ele mesmo.
+        'indicacao_janela',
+        'indicacao_email',
+        'indicacao_canal',
     ];
 
     /**
