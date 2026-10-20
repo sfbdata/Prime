@@ -42,7 +42,9 @@ final class PainelPedidosDeExclusaoJsTest extends TestCase
         self::assertStringContainsString("esc(quemPediu(p)) + ' · ' + esc(dataHora(p.criadoEm)) + ' · ' + esc(p.motivo)", $bloco);
         self::assertStringContainsString('<i class="bi bi-trash3"></i>', $bloco);
         self::assertStringContainsString('>Reativar</button>', $bloco);
-        self::assertStringContainsString('>Excluir definitivamente</button>', $bloco);
+        // Rótulo decidido pelo dono (spec perfis-1.2-contas C4 e §3): o texto diz o que acontece, a quarentena.
+        self::assertStringContainsString('>Excluir conta</button>', $bloco);
+        self::assertStringNotContainsString('Excluir definitivamente', self::js());
         self::assertStringContainsString('id="pedidos-exclusao"', $bloco);
         self::assertStringContainsString("p.pedidoPorNome + (p.pedidoPorEmail ? ' (' + p.pedidoPorEmail + ')' : '')", self::js(), 'por = nome (e-mail), como no desenho');
     }
@@ -75,13 +77,25 @@ final class PainelPedidosDeExclusaoJsTest extends TestCase
     {
         $js = self::js();
 
-        self::assertStringContainsString("if (tipo !== 'suspender') D.contas.pedidosExclusao = pedidosDeExclusao().filter(p => p.contaId !== c.id);", $js);
+        self::assertStringContainsString("if (tipo !== 'suspender') { D.contas.pedidosExclusao = pedidosDeExclusao().filter(p => p.contaId !== c.id); c.pedidoPendente = false; }", $js);
         self::assertStringContainsString("if (S.sec === 'contas') { renderPedidosDeExclusao(); renderContasLista(); }", $js);
         $sucesso = strpos($js, 'if (json && r.ok && j.conta) {');
-        $filtro = strpos($js, "if (tipo !== 'suspender') D.contas.pedidosExclusao");
+        $filtro = strpos($js, "if (tipo !== 'suspender') { D.contas.pedidosExclusao");
         $erro = strpos($js, 'avisar(false, json && !r.ok ? j.erro : null);');
         self::assertNotFalse($sucesso);
         self::assertTrue($sucesso < $filtro && $filtro < $erro, 'a linha só sai no ramo de sucesso');
+    }
+
+    #[TestDox('tabela de contas: com pedido pendente a situação aparece "Suspensa a pedido" (vermelho da Suspensa do desenho), não "Ativa"; decidido, volta a seguir a conta')]
+    public function testSituacaoSuspensaAPedido(): void
+    {
+        $js = self::js();
+
+        self::assertStringContainsString("const ST = { Ativa: '#1e7b45', Suspensa: '#a3232b', 'Suspensa a pedido': '#a3232b', 'Em quarentena': '#5b7383' };", $js);
+        self::assertStringContainsString("const situacaoVisivel = c => (c.pedidoPendente && c.situacao === 'Ativa' ? A_PEDIDO : c.situacao);", $js);
+        self::assertStringContainsString("const A_PEDIDO = 'Suspensa a pedido';", $js);
+        self::assertStringContainsString("const sit = situacaoVisivel(c), cor = ST[sit] || '#4a6373';", $js);
+        self::assertStringContainsString("'<span style=\"--cor:' + cor + '\"><i></i>' + esc(sit) + '</span>'", $js, 'mesma etiqueta (ponto + texto na cor) das outras situações');
     }
 
     #[TestDox('cores e medidas exatas do desenho no master.css')]

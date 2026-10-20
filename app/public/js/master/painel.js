@@ -39,8 +39,12 @@
     planos: ['bi-sliders', 'Planos e limites', 'Planos, franquias de armazenamento e limites de usuários por conta ainda não existem no sistema. Quando forem cadastrados, cada plano aparece aqui com as contas que o usam.', ['Planos', 'Preço mensal', 'Franquia de armazenamento', 'Limite de usuários', 'Contas por plano', 'Contas perto da franquia']]
   };
   const NM = { RO: 'Rondônia', AC: 'Acre', AM: 'Amazonas', RR: 'Roraima', PA: 'Pará', AP: 'Amapá', TO: 'Tocantins', MA: 'Maranhão', PI: 'Piauí', CE: 'Ceará', RN: 'Rio Grande do Norte', PB: 'Paraíba', PE: 'Pernambuco', AL: 'Alagoas', SE: 'Sergipe', BA: 'Bahia', MG: 'Minas Gerais', ES: 'Espírito Santo', RJ: 'Rio de Janeiro', SP: 'São Paulo', PR: 'Paraná', SC: 'Santa Catarina', RS: 'Rio Grande do Sul', MS: 'Mato Grosso do Sul', MT: 'Mato Grosso', GO: 'Goiás', DF: 'Distrito Federal' };
-  const ST = { Ativa: '#1e7b45', Suspensa: '#a3232b', 'Em quarentena': '#5b7383' };
+  const ST = { Ativa: '#1e7b45', Suspensa: '#a3232b', 'Suspensa a pedido': '#a3232b', 'Em quarentena': '#5b7383' };
   const QUARENTENA = 'Em quarentena';
+  // Pedido de exclusão pendente (o Tenant segue ativo): a tabela mostra "Suspensa a pedido", não "Ativa" (desvio pelo
+  // dado: o protótipo mostrava Ativa). Só o rótulo muda; filtro e menu seguem a situação gravada da conta.
+  const A_PEDIDO = 'Suspensa a pedido';
+  const situacaoVisivel = c => (c.pedidoPendente && c.situacao === 'Ativa' ? A_PEDIDO : c.situacao);
   const dataBr = ymd => { const p = String(ymd || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : ''; };
 
   /* ---------- carga ---------- */
@@ -280,7 +284,7 @@
       + peds.map(p => '<div class="mp-pedido" data-mp-pedido="' + p.contaId + '"><span class="mp-pedido-id"><b>' + esc(p.escritorio) + '</b>'
         + '<span>' + esc(quemPediu(p)) + ' · ' + esc(dataHora(p.criadoEm)) + ' · ' + esc(p.motivo) + '</span></span>'
         + '<button type="button" class="mp-pedido-reativar" data-pedido-op="reativar" data-conta-id="' + p.contaId + '">Reativar</button>'
-        + '<button type="button" class="mp-pedido-excluir" data-pedido-op="excluir" data-conta-id="' + p.contaId + '">Excluir definitivamente</button></div>').join('')
+        + '<button type="button" class="mp-pedido-excluir" data-pedido-op="excluir" data-conta-id="' + p.contaId + '">Excluir conta</button></div>').join('')
       + '</div>';
   }
   // Conta do pedido fora da lista (não deveria acontecer): monta o mínimo para a confirmação com o token do pedido.
@@ -361,7 +365,7 @@
           c.situacao = j.conta.situacao; c.purgaEm = j.conta.purgaEm || null;
           // Reativar e excluir decidem o pedido de exclusão da conta (no servidor, na mesma transação): sai do bloco.
           // Suspender não decide (o pedido continua pendente).
-          if (tipo !== 'suspender') D.contas.pedidosExclusao = pedidosDeExclusao().filter(p => p.contaId !== c.id);
+          if (tipo !== 'suspender') { D.contas.pedidosExclusao = pedidosDeExclusao().filter(p => p.contaId !== c.id); c.pedidoPendente = false; }
           // KPIs (suspensas) e trilha mudaram: recarregam quando a seção for aberta de novo.
           D.visao = null; D.audit = null; ERRO.visao = null; ERRO.audit = null;
           return avisar(true, j.mensagem);
@@ -386,7 +390,7 @@
     document.getElementById('mp-contas-aviso').innerHTML = S.aviso ? '<div class="mp-aviso ' + (S.aviso.ok ? 'is-ok' : 'is-erro') + '" role="status" data-mp-aviso><i class="bi '
       + (S.aviso.ok ? 'bi-check-circle' : 'bi-exclamation-circle') + '"></i>' + esc(S.aviso.msg) + '</div>' : '';
     document.getElementById('mp-contas-lista').innerHTML = contas.length ? contas.map(c => {
-      const cor = ST[c.situacao] || '#4a6373';
+      const sit = situacaoVisivel(c), cor = ST[sit] || '#4a6373';
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
         + '<div class="mp-conta-nome mp-hv"><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b><span>desde ' + esc(c.desde) + ' · último acesso ' + esc(acessoRelativo(c.ultimoAcesso)) + '</span></div>'
         + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || 'titular não registrado') + '</span><span>sem plano</span></div>'
@@ -399,7 +403,7 @@
           // Quarentena: a situação e, abaixo, a data da purga em duas linhas curtas que não quebram (coluna de 100px).
           ? '<div class="mp-conta-st-bloco"><span class="mp-conta-sit" style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span>'
             + '<span class="mp-conta-purga" title="A purga automática roda às 03h, a partir desta data">apagada a partir de<br>' + esc(dataBr(c.purgaEm)) + '</span></div>'
-          : '<span style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span>') + '</div>'
+          : '<span style="--cor:' + cor + '"><i></i>' + esc(sit) + '</span>') + '</div>'
         + '<div class="mp-conta-acoes mp-hv"><button type="button" class="mp-btn-icone" data-menu="' + c.id + '" title="Ações da conta" aria-label="Ações da conta"><i class="bi bi-three-dots-vertical"></i></button></div>'
         + '</div>';
     }).join('') : '<div class="mp-vazio-linha">Nenhuma conta encontrada.</div>';

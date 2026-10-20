@@ -85,6 +85,60 @@ final class PedidosDeExclusaoNoPainelTest extends JusPrimeWebTestCase
         self::assertIsArray($this->dadosDasContas()['pedidosExclusao'], 'a chave existe mesmo sem pedidos');
     }
 
+    #[TestDox('primário SEM pedido pendente (nenhuma barreira de conta no caminho) recebe exatamente 403: é o IsGranted')]
+    public function testPrimarioSemPedidoRecebe403(): void
+    {
+        $this->entrar($this->primarioDoAlvo, $this->alvo);
+
+        $this->client->request('GET', '/master/dados/contas');
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('a conta com pedido pendente vem com pedidoPendente (a tabela mostra "Suspensa a pedido"); decidido, a marca sai')]
+    public function testMarcaDaContaComPedido(): void
+    {
+        $this->pedirExclusao($this->alvo, $this->primarioDoAlvo);
+        $this->entrar($this->master, $this->contaDoMaster);
+
+        $conta = $this->contaDaLista($this->alvo);
+        self::assertTrue($conta['pedidoPendente']);
+        self::assertSame('Ativa', $conta['situacao'], 'a situação gravada segue "Ativa"; o rótulo "Suspensa a pedido" é do painel');
+        self::assertFalse($this->contaDaLista($this->contaDoMaster)['pedidoPendente']);
+
+        $this->client->request('POST', '/master/contas/' . $this->alvo->getId() . '/reativar', ['_token' => 'TOKEN_master_conta_' . $this->alvo->getId()]);
+        self::assertResponseIsSuccessful();
+
+        self::assertFalse($this->contaDaLista($this->alvo)['pedidoPendente']);
+    }
+
+    #[TestDox('POST recusado não decide o pedido: CSRF errado no reativar (403), confirmação diferente de EXCLUIR (422) e reativar por quem não é Master (403); o pedido continua na lista')]
+    public function testRecusaMantemNaLista(): void
+    {
+        $this->pedirExclusao($this->alvo, $this->primarioDoAlvo);
+        $outroPrimario = $this->usuario('Bruno Primário', ['ROLE_USER']);
+        $outraConta = $this->conta('Outra Conta', $outroPrimario);
+        $this->vincular($outroPrimario, $outraConta, sistema: true);
+
+        $this->entrar($this->master, $this->contaDoMaster);
+        $this->client->request('POST', '/master/contas/' . $this->alvo->getId() . '/reativar', ['_token' => 'errado']);
+        self::assertResponseStatusCodeSame(403);
+        self::assertNotNull($this->pedidoDaLista($this->alvo), 'CSRF errado no reativar');
+
+        $this->client->request('POST', '/master/contas/' . $this->alvo->getId() . '/excluir', ['_token' => 'TOKEN_master_conta_' . $this->alvo->getId(), 'confirmacao' => 'excluir']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertNotNull($this->pedidoDaLista($this->alvo), 'confirmação diferente de EXCLUIR');
+        self::assertTrue($this->contaDaLista($this->alvo)['pedidoPendente']);
+
+        $this->entrar($outroPrimario, $outraConta);
+        $this->client->request('POST', '/master/contas/' . $this->alvo->getId() . '/reativar', ['_token' => 'TOKEN_master_conta_' . $this->alvo->getId()]);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->entrar($this->master, $this->contaDoMaster);
+        self::assertNotNull($this->pedidoDaLista($this->alvo), 'reativar recusado');
+        self::assertTrue($this->contaDaLista($this->alvo)['pedidoPendente']);
+    }
+
     #[TestDox('quem não é Master não recebe a lista: primário de outra conta 403, primário da conta que pediu 403 ou redirecionado, sem o motivo no corpo')]
     public function testNaoMasterNaoRecebe(): void
     {
@@ -150,6 +204,15 @@ final class PedidosDeExclusaoNoPainelTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         return (array) json_decode((string) $this->client->getResponse()->getContent(), true);
+    }
+
+    /** @return array<string, mixed> */
+    private function contaDaLista(Tenant $conta): array
+    {
+        $contas = array_column($this->dadosDasContas()['contas'], null, 'id');
+        self::assertArrayHasKey($conta->getId(), $contas);
+
+        return $contas[$conta->getId()];
     }
 
     /** @return array<string, mixed>|null */
