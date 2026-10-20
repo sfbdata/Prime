@@ -20,7 +20,7 @@ use Doctrine\Migrations\AbstractMigration;
  * `trabalho_externo_marcacao.item_id` não tem FK: a tabela é polimórfica (quatro tipos de item) e
  * quem remove o item remove as marcações dele.
  */
-final class Version20261019120126 extends AbstractMigration
+final class Version20261020133000 extends AbstractMigration
 {
     public function getDescription(): string
     {
