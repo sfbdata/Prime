@@ -1,9 +1,13 @@
 <?php
 
-namespace App\Entity\Agenda;
+declare(strict_types=1);
 
+namespace App\Agenda\Entity;
+
+use App\Agenda\Enum\TipoDeCompromisso;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Repository\EventoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -88,6 +92,22 @@ class Evento implements Auditavel, TenantAware, ConteudoParticular
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $modificadoEm = null;
+
+    /** Nulo nos eventos da agenda antiga: o calendário sai da legenda de cor. */
+    #[ORM\Column(length: 10, nullable: true, enumType: TipoDeCompromisso::class)]
+    private ?TipoDeCompromisso $tipo = null;
+
+    #[ORM\ManyToOne(targetEntity: Pasta::class)]
+    #[ORM\JoinColumn(name: 'pasta_id', nullable: true, onDelete: 'SET NULL')]
+    private ?Pasta $pasta = null;
+
+    /** Minutos antes do início para o lembrete; 0 = sem lembrete; nulo = padrão do tipo. */
+    #[ORM\Column(nullable: true)]
+    private ?int $lembreteMinutos = null;
+
+    /** @var array<mixed> ids dos colegas avisados no Chat (JSON do banco; getAvisados() normaliza) */
+    #[ORM\Column(type: 'json', options: ['default' => '[]'])]
+    private array $avisados = [];
 
     public function __construct()
     {
@@ -339,6 +359,66 @@ class Evento implements Auditavel, TenantAware, ConteudoParticular
         }
 
         return $data;
+    }
+
+    public function getTipo(): ?TipoDeCompromisso
+    {
+        return $this->tipo;
+    }
+
+    public function setTipo(?TipoDeCompromisso $tipo): self
+    {
+        $this->tipo = $tipo;
+        if (null !== $tipo) {
+            $this->cor = $tipo->cor();
+        }
+
+        return $this;
+    }
+
+    public function getPasta(): ?Pasta
+    {
+        return $this->pasta;
+    }
+
+    public function setPasta(?Pasta $pasta): self
+    {
+        $this->pasta = $pasta;
+
+        return $this;
+    }
+
+    public function getLembreteMinutos(): ?int
+    {
+        return $this->lembreteMinutos;
+    }
+
+    public function setLembreteMinutos(?int $minutos): self
+    {
+        $this->lembreteMinutos = $minutos;
+
+        return $this;
+    }
+
+    /** @return list<int> */
+    public function getAvisados(): array
+    {
+        return array_map('intval', array_values($this->avisados));
+    }
+
+    /**
+     * Acrescenta colegas avisados no Chat e devolve só os que ainda não tinham sido avisados.
+     *
+     * @param list<int> $ids
+     *
+     * @return list<int>
+     */
+    public function avisar(array $ids): array
+    {
+        $novos = array_values(array_diff(array_unique(array_map('intval', $ids)), $this->getAvisados()));
+        $this->avisados = [...$this->getAvisados(), ...$novos];
+
+        return $novos;
     }
 
     /** "Só eu" agora ou antes desta mudança: nos dois casos o conteúdo não vai para a auditoria. */

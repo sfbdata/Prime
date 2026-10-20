@@ -271,6 +271,6 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $this->abrir($client, $pasta);
 
-        self::assertSame('Movimentações recebidas', trim($crawler->filter('#push > .ps-push > .ps-card-cab--faixa > h2')->text()));
+        self::assertSame('Movimentações recebidas', trim($crawler->filter('#push > .ps-push-grade > .ps-push > .ps-card-cab--faixa > h2')->text()));
     }
 }

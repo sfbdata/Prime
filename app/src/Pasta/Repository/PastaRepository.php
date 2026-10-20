@@ -167,6 +167,25 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Pasta do escritório pelo número (NUP), fora da lixeira. Usada pela Agenda ao ligar compromisso a
+     * pasta. O número é normalizado como em Pasta::setNup (sem espaços nas pontas, maiúsculas).
+     */
+    public function findDoEscritorioPorNup(string $nup, Tenant $tenant): ?Pasta
+    {
+        $nup = mb_strtoupper(trim($nup));
+
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.nup = :nup')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('nup', $nup)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * Pastas do escritório com o MESMO cliente e a MESMA ação — base do aviso de duplicada na
      * criação (spec fase2 §12.5/D12.5).
      *
@@ -1327,6 +1346,39 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Os vínculos pasta-processo dos processos informados, só das pastas VIVAS (sem lápide) do
+     * escritório, com a pasta junto: quem recebe o "Avisar quando chegar" do Push (spec
+     * push-avisar-quando-chegar §3). Presa ao escritório pelos dois lados e com o tenant explícito
+     * (roda no CLI, sem TenantFilter). Carrega o vínculo, e não a pasta com a coleção filtrada, para
+     * não deixar `getPastaProcessos()` parcial no EntityManager.
+     *
+     * @param list<int> $processoIds
+     *
+     * @return list<PastaProcesso>
+     */
+    public function listarVinculosDePastasVivasDosProcessos(Tenant $tenant, array $processoIds): array
+    {
+        if ($processoIds === []) {
+            return [];
+        }
+
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('pp', 'pa')
+            ->from(PastaProcesso::class, 'pp')
+            ->innerJoin('pp.pasta', 'pa')
+            ->innerJoin('pp.processo', 'proc')
+            ->andWhere('pa.tenant = :tenant')
+            ->andWhere('proc.tenant = :tenant')
+            ->andWhere('pa.excluidaEm IS NULL')
+            ->andWhere('proc.id IN (:processos)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('processos', array_values(array_unique($processoIds)))
+            ->orderBy('pa.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * "Média por CPF" da aba Financeiro: o ticket médio do cliente — a soma do
      * valor da causa de todas as pastas dele dividida pela quantidade dessas
      * pastas.
@@ -1499,5 +1551,39 @@ class PastaRepository extends ServiceEntityRepository
         foreach ($criteriosDoRamo as $criterio) {
             $qb->addOrderBy($criterio);
         }
+    }
+
+    /**
+     * As pastas ATIVAS e não excluídas do escritório para o relatório de pastas sem processo, com o
+     * responsável e os processos vinculados já carregados (o processo principal sai sem N+1).
+     * `$ids` nulo = todas; lista = só essas (o que o leitor pode ver).
+     *
+     * @param list<int>|null $ids
+     *
+     * @return list<Pasta>
+     */
+    public function ativasParaAnaliseSemProcesso(Tenant $tenant, ?array $ids = null): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $qb = $this->createQueryBuilder('p')
+            ->addSelect('r', 'pp', 'pr')
+            ->leftJoin('p.responsavel', 'r')
+            ->leftJoin('p.pastaProcessos', 'pp')
+            ->leftJoin('pp.processo', 'pr')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.situacao = :ativa')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ativa', Pasta::SITUACAO_ATIVA)
+            ->orderBy('p.id', 'ASC');
+
+        if ($ids !== null) {
+            $qb->andWhere('p.id IN (:ids)')->setParameter('ids', $ids);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 }

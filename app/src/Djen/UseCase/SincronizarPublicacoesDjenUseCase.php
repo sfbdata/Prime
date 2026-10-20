@@ -13,6 +13,7 @@ use App\Djen\Enum\MotivoFalhaDjen;
 use App\Djen\Exception\ConsultaDjenException;
 use App\Djen\Repository\OabMonitoradaRepository;
 use App\Djen\Repository\PublicacaoDjenRepository;
+use App\Djen\Service\AvisoDePublicacoesNovasInterface;
 use App\Djen\Service\DjenClientInterface;
 use App\Djen\Service\DjenPublicacaoMapper;
 use App\Djen\Service\EsperaEntreConsultasInterface;
@@ -24,13 +25,18 @@ use App\Processo\Repository\ProcessoRepository;
  * Sincroniza as publicações do DJEN de UM escritório por duas fontes:
  *
  *  1. cada OAB ativa monitorada (o que sempre existiu);
- *  2. cada processo CADASTRADO no escritório, sem baixa, consultado pelo próprio número. Pega a
+ *  2. cada processo CADASTRADO no escritório, sem baixa e sem monitoramento pausado, consultado
+ *     pelo próprio número (e cada consulta bem-sucedida grava a última verificação). Pega a
  *     publicação em que nenhuma OAB monitorada aparece (advogado de fora da lista, substabelecimento,
  *     processo assumido em andamento), que pela OAB nunca chegaria.
  *
  * Nas duas, consulta o DJEN no período, deduplica (por escritório + dentro da execução, então a mesma
  * publicação vinda pela OAB e pelo número vira UMA linha), persiste as novas vinculando ao Processo
  * quando o número CNJ já existe no escritório, e notifica os usuários com acesso ao módulo.
+ * Por fim, depois da reconciliação, entrega os `djenId` novos ao {@see AvisoDePublicacoesNovasInterface}
+ * (o "Avisar quando chegar" de cada pasta, spec push-avisar-quando-chegar §3), UMA vez por execução:
+ * no botão do módulo e no "Buscar agora", no fim da chamada; no comando diário, no fim da 2ª fase,
+ * com as novas das duas. O --dry-run não avisa.
  *
  * Recebe o Tenant EXPLICITAMENTE — roda tanto no request (botão "sincronizar agora") quanto no comando
  * CLI (TenantFilter desligado). Toda query e criação é escopada por esse tenant; nunca depende do filtro.
@@ -57,6 +63,7 @@ final class SincronizarPublicacoesDjenUseCase
         private readonly NotificadorPublicacoesDjenInterface $notificador,
         private readonly ReconciliarPublicacoesComProcessosUseCase $reconciliar,
         private readonly EsperaEntreConsultasInterface $espera,
+        private readonly AvisoDePublicacoesNovasInterface $avisoDasNovas,
     ) {
     }
 
@@ -102,10 +109,11 @@ final class SincronizarPublicacoesDjenUseCase
         }
 
         if ($incluirProcessos) {
-            $this->consultarProcessos($tenant, $periodo, $dryRun, $vistosNesteRun, $resultado, false);
+            $this->consultarProcessos($tenant, $this->numerosAcompanhados($tenant), $periodo, $dryRun, $vistosNesteRun, $resultado, false);
         }
 
         $this->concluir($tenant, $dryRun, $resultado);
+        $this->registrarVerificacoes($tenant, $dryRun, $resultado);
 
         // A vinculação acima olha o cadastro no instante da captura. Quando o processo entra no
         // sistema DEPOIS — o caso normal ao assumir um caso em andamento —, a publicação ficaria
@@ -113,9 +121,21 @@ final class SincronizarPublicacoesDjenUseCase
         // faz a captação diária curar o passivo sozinha, em duas consultas.
         if (!$dryRun) {
             $this->reconciliar->executar($tenant);
+            $this->avisarSeForAExecucaoInteira($tenant, $incluirProcessos, $resultado);
         }
 
         return $resultado;
+    }
+
+    /**
+     * Só OABs = a 1ª fase do comando: quem avisa é a 2ª (`sincronizarProcessosCobrindoTodos`), uma
+     * vez por escritório, com as novas das duas fases. Senão a pasta receberia dois avisos.
+     */
+    private function avisarSeForAExecucaoInteira(Tenant $tenant, bool $incluirProcessos, ResultadoSincronizacao $resultado): void
+    {
+        if ($incluirProcessos) {
+            $this->avisoDasNovas->avisar($tenant, $resultado->getDjenIdsNovos());
+        }
     }
 
     /**
@@ -124,7 +144,8 @@ final class SincronizarPublicacoesDjenUseCase
      * então nenhum fica de fora por estar no fim da lista. O comando roda esta fase depois das
      * OABs de todos os escritórios, para a cota gasta aqui nunca faltar à captação por OAB.
      *
-     * @param list<string> $djenIdsJaCaptados djenId que a fase de OABs já contou como novos
+     * @param list<string> $djenIdsJaCaptados djenId que a fase de OABs já contou como novos (entram no
+     *                                       aviso único do escritório, dado aqui, no fim das duas fases)
      */
     public function sincronizarProcessosCobrindoTodos(
         Tenant $tenant,
@@ -137,10 +158,91 @@ final class SincronizarPublicacoesDjenUseCase
         // foi gravado, e sem isto a simulação contaria em dobro a publicação vinda pelas duas fontes.
         $vistosNesteRun = array_fill_keys($djenIdsJaCaptados, true);
 
-        $this->consultarProcessos($tenant, $periodo, $dryRun, $vistosNesteRun, $resultado, true);
-        $this->concluir($tenant, $dryRun, $resultado);
+        try {
+            $this->consultarProcessos($tenant, $this->numerosAcompanhados($tenant), $periodo, $dryRun, $vistosNesteRun, $resultado, true);
+            $this->concluir($tenant, $dryRun, $resultado);
+            $this->registrarVerificacoes($tenant, $dryRun, $resultado);
+        } catch (\Throwable $e) {
+            // A 2ª fase caiu: as novas da 1ª (já gravadas) ainda são avisadas, uma vez; as desta fase
+            // podem nem ter chegado ao banco. O erro segue para o comando registrar.
+            $this->avisarFimDoEscritorio($tenant, $dryRun, $djenIdsJaCaptados);
+
+            throw $e;
+        }
+        $this->avisarFimDoEscritorio($tenant, $dryRun, [...$djenIdsJaCaptados, ...$resultado->getDjenIdsNovos()]);
 
         return $resultado;
+    }
+
+    /**
+     * Fim da execução do escritório no comando: UM aviso com as novas da fase de OABs (recebidas em
+     * `$djenIdsJaCaptados`) e as da fase de processos.
+     *
+     * @param list<string> $djenIds
+     */
+    private function avisarFimDoEscritorio(Tenant $tenant, bool $dryRun, array $djenIds): void
+    {
+        if (!$dryRun) {
+            $this->avisoDasNovas->avisar($tenant, array_values(array_unique($djenIds)));
+        }
+    }
+
+    /**
+     * "Buscar agora" do painel do Push na pasta (spec push-painel-monitoramento §2): só os números
+     * informados (os processos da pasta com monitoramento ativo), dentro de um REQUEST. Mesmas regras
+     * da fase de processos do botão do módulo: deduplica, vincula, notifica as novas, para no
+     * primeiro sinal de limite do DJEN (o resultado conta os adiados) e reconcilia as avulsas.
+     *
+     * @param list<string> $numeros números CNJ, com ou sem máscara
+     */
+    public function sincronizarNumeros(Tenant $tenant, PeriodoConsulta $periodo, array $numeros): ResultadoSincronizacao
+    {
+        $resultado = new ResultadoSincronizacao();
+        $vistosNesteRun = [];
+
+        $this->consultarProcessos($tenant, $this->numerosCnj($numeros), $periodo, false, $vistosNesteRun, $resultado, false);
+        $this->concluir($tenant, false, $resultado);
+        $this->registrarVerificacoes($tenant, false, $resultado);
+        $this->reconciliar->executar($tenant);
+        $this->avisoDasNovas->avisar($tenant, $resultado->getDjenIdsNovos());
+
+        return $resultado;
+    }
+
+    /** @return list<string> os números acompanhados do escritório (sem baixa e sem pausa), só dígitos */
+    private function numerosAcompanhados(Tenant $tenant): array
+    {
+        return $this->numerosCnj($this->processoRepository->listarNumerosAcompanhadosDoTenant($tenant));
+    }
+
+    /**
+     * @param list<string> $numeros
+     *
+     * @return list<string> só os que têm os 20 dígitos do CNJ, sem a máscara
+     */
+    private function numerosCnj(array $numeros): array
+    {
+        $validos = [];
+        foreach ($numeros as $numeroCadastrado) {
+            $numero = preg_replace('/\D/', '', $numeroCadastrado) ?? '';
+            if (\strlen($numero) === self::DIGITOS_NUMERO_CNJ) {
+                $validos[] = $numero;
+            }
+        }
+
+        return $validos;
+    }
+
+    /**
+     * A última verificação dos números consultados com sucesso (spec push-painel-monitoramento §1).
+     * Só DEPOIS do flush das publicações (`concluir`): se gravar o que o DJEN trouxe falhar, o
+     * processo não pode aparecer como verificado. O --dry-run não grava nada.
+     */
+    private function registrarVerificacoes(Tenant $tenant, bool $dryRun, ResultadoSincronizacao $resultado): void
+    {
+        if (!$dryRun) {
+            $this->processoRepository->registrarVerificacaoDosNumeros($tenant, $resultado->getNumerosConsultados(), new \DateTimeImmutable());
+        }
     }
 
     private function concluir(Tenant $tenant, bool $dryRun, ResultadoSincronizacao $resultado): void
@@ -163,24 +265,18 @@ final class SincronizarPublicacoesDjenUseCase
      *
      * Falta de configuração para nos dois modos: as consultas seguintes falhariam igual.
      *
+     * @param list<string>        $numeros        números CNJ só com dígitos, na ordem de consulta
      * @param array<string, true> $vistosNesteRun djenId já criados nesta execução
      */
     private function consultarProcessos(
         Tenant $tenant,
+        array $numeros,
         PeriodoConsulta $periodo,
         bool $dryRun,
         array &$vistosNesteRun,
         ResultadoSincronizacao $resultado,
         bool $aguardarNoLimite,
     ): void {
-        $numeros = [];
-        foreach ($this->processoRepository->listarNumerosAcompanhadosDoTenant($tenant) as $numeroCadastrado) {
-            $numero = preg_replace('/\D/', '', $numeroCadastrado) ?? '';
-            if (\strlen($numero) === self::DIGITOS_NUMERO_CNJ) {
-                $numeros[] = $numero;
-            }
-        }
-
         $indice = 0;
         $esperasSeguidas = 0;
         $total = \count($numeros);
@@ -241,7 +337,7 @@ final class SincronizarPublicacoesDjenUseCase
 
             $esperasSeguidas = 0;
             ++$indice;
-            $resultado->registrarProcessoConsultado();
+            $resultado->registrarProcessoConsultado($numero);
             $resultado->registrarRecebidas(\count($itens));
             $this->processarItens(null, $tenant, $itens, $dryRun, $vistosNesteRun, $resultado);
         }

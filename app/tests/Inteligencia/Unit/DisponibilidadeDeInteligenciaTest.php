@@ -73,6 +73,19 @@ final class DisponibilidadeDeInteligenciaTest extends TestCase
         self::assertSame(Disponibilidade::NaoConfiguradaNaPlataforma, $this->sut(new ProvedorNaoConfigurado())->para($this->user, $this->tenant));
     }
 
+    #[TestDox('paraEscritorio: só plataforma e escritório, sem olhar permissão nem cota')]
+    public function testParaEscritorio(): void
+    {
+        $this->permissoes->expects($this->never())->method('canAccessModule');
+        $this->analises->expects($this->never())->method('contarDesde');
+
+        self::assertSame(Disponibilidade::NaoConfiguradaNaPlataforma, $this->sut(new ProvedorNaoConfigurado())->paraEscritorio($this->tenant));
+        $this->configuracoes->method('findDoTenant')->willReturnOnConsecutiveCalls(null, $this->configuracao(false), $this->configuracao(true, 0, 0));
+        self::assertSame(Disponibilidade::DesligadaNoEscritorio, $this->sut(new ProvedorFalso())->paraEscritorio($this->tenant));
+        self::assertSame(Disponibilidade::DesligadaNoEscritorio, $this->sut(new ProvedorFalso())->paraEscritorio($this->tenant));
+        self::assertSame(Disponibilidade::Disponivel, $this->sut(new ProvedorFalso())->paraEscritorio($this->tenant), 'cota zerada não conta');
+    }
+
     #[TestDox('escritório sem configuração → desligada no escritório (antes de olhar a permissão)')]
     public function testSemConfiguracaoDoTenant(): void
     {

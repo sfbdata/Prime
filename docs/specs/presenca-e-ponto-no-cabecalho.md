@@ -1,5 +1,29 @@
 # Presença on-line e ponto no avatar do cabeçalho
 
+## Estado da frente (atualizado em 19/10/2026; reler antes de continuar se a sessão for compactada)
+
+- **Sessão:** 5d. **Branches:** `presenca-cabecalho` (fase 1, PR #61) e `ponto-no-cabecalho` (fase 2, PR #67, empilhado
+  no #61). Em cima do #67 está o #79 (ponto por escritório, spec própria `ponto-por-escritorio.md`).
+- **Ordem de merge:** #61 → #67 → #79. Depois de cada merge, trazer o master para a branch de cima, testar e fazer push.
+- **Decisões do dono (19/10, pelo coordenador):** P2 (regularizar ontem pelo esquecimento), Q1 ("Em intervalo desde"),
+  Q2 (aviso de descanso com o valor configurado). Decididas pelo coordenador por delegação: P1, P3, P4, Q3 a Q7 (seção 5).
+  Ainda sem a confirmação explícita do dono: Q3 ("sem atividade há N min", sinal de monitoramento).
+- **Fase 3 (seletor "Ausente após", só o primário):** atribuída à 5d pelo coordenador em 19/10 ("tudo do desenho
+  entra"); tem migration, entra na fila de migrations do coordenador; começa depois do PR de acertos do Expediente
+  (#85), num intervalo da frente Comercial e e-mails. Substitui o desvio temporário P4.
+- **Contratos com outras sessões:** o X de fechar do painel segue a regra do #71 (fechar-janelas, 5d), cujo include
+  global está no #69 (7d).
+- **Migrations:** nenhuma nas fases 1 e 2; uma na fase 3 (posição na fila: a pedir ao coordenador).
+- **Subtítulo do colega, fechado (19/10):** o 03 monta o painel com `BJCentral.online()` (`{id, nome, setor, cargo}`,
+  dc L.662) e o subtítulo é `[u.setor, u.cargo, u.funcao].join(' · ') || 'on-line'` (L.669; L.676). O "setor" é um
+  departamento, que o sistema não tem (a lotação é o local de trabalho, e em produção guarda endereços), e a 7d
+  conferiu que em nenhum desenho ele é preenchido (`bj-contas.js` L.23, L.41-43, L.53, L.64: sempre `setor: ''`).
+  Na prática o desenho mostra o cargo. Decisão do coordenador: o subtítulo fica como está no master (o cargo, e
+  "on-line" sem nada); a branch `presenca-lotacao` foi descartada. Se um dia o setor existir no vínculo (7d), entra
+  como "setor · cargo".
+- **Pendências:** merges; confirmação do Q3 pelo dono; fase 3.
+- **Próximo passo:** depois dos merges, trazer o master para o #79; fase 3 quando houver intervalo.
+
 Desenho: `03 - EXPEDIENTE - VS 18.10.26.dc.html` (projeto claude.ai/design 4f6a5f61), linhas 31, 67 (selo),
 299-309 (painel) e 662-685 (lógica). "dc L.n" abaixo são linhas desse arquivo.
 
@@ -131,20 +155,27 @@ e escuro), `public/js/central.js` (inatividade, evento), `src/Central/...` (resp
 
 **Quem vê.** Só você, na sua linha, e só se `central_disponivel()` **e** `can_access_module('ponto')` **e**
 `app.user.jornadaColaborador is not null` (o critério do alerta de ponto do layout, decisão P3). Ninguém vê o ponto
-de outro: o estado vem de uma rota que só lê o usuário da sessão.
+de outro: o estado vem de uma rota que só lê o usuário da sessão. **Fora da própria tela `/ponto` (`ponto_index`,
+F3):** lá o bloco "batidas de hoje" e a sugestão de tipo são montados na carga e não releem nada; uma batida pelo
+atalho deixaria a tela sugerindo a mesma batida de novo. Na tela do ponto, bate-se pela tela.
 
 **Estado do dia: UseCase de leitura (I5).** `ObterEstadoDoPontoDoDiaUseCase` (domínio Ponto), com teste unitário dos
 estados; rota `GET /ponto/estado-do-dia` (`ponto_estado_do_dia`) com as mesmas guardas da batida (401 sem usuário,
 403 sem módulo, 403 sem tenant). Devolve:
-`{dia: 'AAAA-MM-DD', hoje: {entrada, repouso, retorno, saida} (H:i ou null), homeOffice: bool,
-sedes: [{nome, lat, lng, raio}], interjornadaLigada: bool}`. (`ontemEntradaSemSaida` só entra com a P2: nenhum
+`{dia: 'AAAA-MM-DD', estado: 'bater_entrada'|'em_intervalo'|'em_jornada'|'jornada_concluida', hoje: {entrada,
+repouso, retorno, saida} (H:i ou null), homeOffice: bool, sedes: [{nome, latitude, longitude, raio}] (as chaves da
+tela do ponto, que o `avaliarPosicao` lê), ontemSemSaida: ?'AAAA-MM-DD', interjornadaMinimaMin: ?int}`. O `estado` é
+derivado no UseCase (`regularizar_ontem` vem antes dos outros, ver P2 na seção 5). (`ontemEntradaSemSaida` só entra com a P2: nenhum
 campo morto no contrato.)
 - Batidas de `RegistroPontoRepository::batidasDoDiaNoEscritorio(User, Tenant, dia)`, método novo com
   `r.tenant = :tenant` explícito; escolha por `CalculadoraJornada::escolherBatidas` (a da folha, spec
   `ponto-folha-uma-batida-por-tipo.md` §9.9): primeira entrada, primeiro repouso e retorno, última saída.
 - `homeOffice` do `HomeOfficeResolver`; `sedes` de um ponto único (`SedesDaCercaDoPonto`, extraído da montagem que
   hoje está em `PontoController::index`, que passa a usá-lo), com as mesmas exclusões (sem coordenada, raio ≤ 0).
-- `interjornadaLigada`: `JornadaTenant::isValidacaoInterjornadaHabilitada()`, para o texto da confirmação (N6).
+- `interjornadaLigada`: `$jornadaTenant?->isValidacaoInterjornadaHabilitada() ?? true`, o mesmo padrão do servidor
+  (`PontoController.php:731`; sem configuração de jornada a validação vale), para o texto da confirmação (N6, F7).
+- O dia passado a `escolherBatidas` é o de hoje no fuso do escritório, como no `index` (`PontoController.php:152`),
+  para a vigência da escolha sair certa (F8).
 - Não grava nada e não muda nenhuma regra da batida.
 
 **Estados na sua linha (dc `pontoDe`, com o caso que o dc não tem).**
@@ -162,7 +193,8 @@ com dois repousos e um só retorno, a escolha pega o primeiro par e o segundo in
 
 **Estado nunca velho na hora do clique (I1, d).** O estado é pedido ao abrir o painel, a cada batimento com o
 painel aberto e **de novo no clique, depois da espera da posição e logo antes do POST** (para a janela ficar
-mínima). Compara o **estado derivado** (qual ação o estado oferece) e o `dia`, não os horários: se mudou (bateu em
+mínima). A releitura tem prazo próprio (F1): `AbortController` com 5 s (`RELEITURA_PRAZO_MS`); estourar conta como
+leitura que falhou. Compara o **estado derivado** (qual ação o estado oferece) e o `dia`, não os horários: se mudou (bateu em
 outra aba, outro aparelho ou na tela do ponto; página aberta de um dia para o outro), não envia, redesenha e avisa
 "O ponto mudou em outra tela; confira antes de bater". Se essa leitura **falhar** (sem rede, 401, resposta que não
 é JSON), não envia e avisa; nunca volta ao estado antigo. O resíduo (segundos entre a leitura e o POST, e o
@@ -171,14 +203,18 @@ o mesmo registro na escolha da folha (`EscolhaDasBatidasDoDia`, `JANELA_REPETICA
 nem saldo.
 
 **Envio, com a lógica da tela do ponto num lugar só (I4, B1, I2, a).** Vão para `public/js/ponto-batida.js` só as
-partes puras: `distanciaEmMetros`, `avaliarPosicao(posicao, sedes)`, `lerPosicaoComPrazo(prazo, aoChegarDepois)`, as
+partes puras: `distanciaEmMetros`, `avaliarPosicao(posicao, sedes)`, `lerPosicaoComPrazo(prazo, aoChegar)`, as
 constantes (prazos, `LIMITE_ATRASO_ENVIO_MS`, `ENVIO_PRAZO_MS`) e `enviarBatida(url, payload, momentoDoToque)`, que
-devolve uma classificação (sucesso, recusa com mensagem, não entrou, sem confirmação, sem rede) sem mexer na tela.
+devolve uma classificação (sucesso, recusa com mensagem, não entrou, sem confirmação, sem rede, e `atrasado`
+quando passou do limite de 60 s: a guarda de atraso mora no módulo, antes do `fetch`, na mesma posição de hoje) sem
+mexer na tela.
 Ficam na tela, porque dependem de IDs dela: `updateButtonState`, `liberarBotaoBatida`, os rótulos do botão,
 `mostrarAvisoBatida` e `AVISO_SEM_REDE`, `cercaMandaNoBotaoAtualizar`, `guardarPosicao` e `aplicarPosicao`,
 `conferirViradaDoDia` e o relógio, a sugestão de tipo e o recarregamento. **Não é só mover**: as funções passam a
 receber por parâmetro o que hoje leem de variáveis da tela (`currentLocation`, `SEDES`, `guardarPosicao`, a URL do
-Twig). Por isso é um commit próprio de **reescrita sem mudança de comportamento** (regra 6 do `app/src/CLAUDE.md`),
+Twig). `aoChegar` é chamado em **toda** chegada da posição, dentro ou fora do prazo, depois de responder, dentro do
+mesmo `try/catch` (hoje `guardarEResponder`, `index.html.twig:793-800`, guarda sempre; F4). Por isso é um commit
+próprio de **reescrita sem mudança de comportamento** (regra 6 do `app/src/CLAUDE.md`),
 antes do atalho, com a suíte do ponto e o `e2e/tests/ponto-batida-cerca.spec.js` como prova. Os três testes de
 texto (`BatidaNaoTravaNoGpsTest`, `BotaoDoPontoRespondeAoToqueTest`, `CercaDaTelaNaoEndureceARegraTest`) passam a ler
 a tela **e** o módulo; a regra de arquivo inteiro (nenhuma promessa embrulha `getCurrentPosition` fora do leitor com
@@ -186,8 +222,8 @@ prazo) cobre a tela, o módulo e o `presenca-ponto.js`. As asserções presas ao
 a uma, na mensagem do commit. Regras que o atalho herda por usar o módulo:
 - **Cerca no clique (B1).** Decisão do dono de 11/09: a cerca continua bloqueando também na tela. O atalho avalia a
   posição contra `sedes` com a mesma avaliação permissiva (dentro, fora, indeterminado; margem pela precisão;
-  excedente menor entre as sedes) e só recusa quando está fora mesmo descontando a precisão, com a mesma mensagem
-  regra. Nunca mais rígido que o servidor. Em home office, não avalia. A mensagem vai completa no `window.bjAviso`
+  excedente menor entre as sedes) e só recusa quando está fora mesmo descontando a precisão. Nunca mais rígido que o
+  servidor. Em home office, não avalia. A mensagem vai completa no `window.bjAviso`
   (no cabeçalho não existe o aviso de cima da tela do ponto, N2): "Não registrou: você está a N m da sede <nome>,
   fora da área permitida. Se hoje é trabalho fora da sede, peça a liberação do dia ao gestor."
 - **Posição com prazo e sempre nova (N1, N4, N7).** A localização só é pedida **no clique** de um estado com
@@ -203,6 +239,11 @@ a uma, na mensagem do commit. Regras que o atalho herda por usar o módulo:
   servidor pode ter gravado antes de falhar): o aviso **nunca** afirma que a batida não entrou e pede para conferir;
   sem rede, não oferece atualizar.
 - **Item nunca desabilitado por regra**; o motivo vem no clique, no `window.bjAviso`.
+- **Sequência do clique, nesta ordem (F2):** (1) clique liga a trava (`envioEmAndamento`), que cobre posição,
+  releitura e POST; (2) só na saída, a confirmação (cancelar destrava); (3) `momentoDoToque = performance.now()`,
+  depois da confirmação, para quem demora a responder não perder a batida pelo limite de atraso; (4) posição (10 s),
+  fora de home office; (5) cerca; (6) releitura do estado com prazo, comparando estado derivado e dia; (7) limite de
+  atraso de 60 s; (8) POST; (9) `finally` destrava, salvo no sucesso, que redesenha.
 - **Sucesso:** recarrega o estado (não a página) e avisa "Ponto de entrada registrado às HH:MM" / "Saída registrada
   às HH:MM" com a hora de `data.hora` da resposta (o servidor carimba), não a do aparelho.
 
@@ -212,13 +253,16 @@ a uma, na mensagem do commit. Regras que o atalho herda por usar o módulo:
 extraído), `templates/ponto/index.html.twig` (passa a usar o módulo), `public/js/presenca-ponto.js` (atalho).
 
 **Testes.**
-- Unit do UseCase: os quatro estados, dia com saída sem entrada, duplicata a 5 min (escolha da folha), home office.
+- Unit do UseCase: os quatro estados, dia com saída sem entrada, duplicata a 5 min (escolha da folha), home office,
+  `interjornadaLigada` sem configuração de jornada (`true`), o dia de hoje passado à escolha.
 - Functional: guardas 401/403 iguais às da batida; rota só devolve o usuário da sessão; o parcial não mostra o
-  atalho sem módulo, sem jornada ou sem vínculo; a resposta de `central_equipe` e do batimento não traz ponto.
+  atalho sem módulo, sem jornada ou sem vínculo, nem na rota `ponto_index`; a resposta de `central_equipe` e do
+  batimento não traz ponto; `CercaNaTelaDoPontoTest` continua verde com o serviço de sedes (F8).
 - Integração com o filtro desligado (M1): `batidasDoDiaNoEscritorio` em `PontoIsolamentoRepositoryTest`.
 - Os três testes de texto, lendo a tela e o módulo; teste de texto do atalho (N9): nenhuma promessa crua com
   `getCurrentPosition`; leitura nova de posição no clique, só alta precisão; estado pedido de novo depois da
-  posição e antes do POST; leitura do estado que falha não envia; classificação da resposta igual à da tela;
+  posição e antes do POST, com `AbortController` amarrado ao prazo da releitura; leitura do estado que falha não
+  envia; a ordem da sequência do clique; classificação da resposta igual à da tela;
   avaliação da cerca pelo módulo; confirmação antes da saída; sem ação no intervalo.
 - `e2e/tests/ponto-batida-cerca.spec.js` continua verde (o dono roda).
 
@@ -275,13 +319,26 @@ Decididas pelo coordenador (19/10), por delegação do dono para dúvida de prod
   dono como informação.
 
 Ao dono, nesta sessão (N5: desvio do dc e sinal de monitoramento são dele; o coordenador decidiu por delegação, e o
-dono confirma ou corrige): P4 temporário, Q1, Q2 e Q3.
+dono confirma ou corrige): P4 temporário, Q1, Q2 e Q3. O PR da fase 2 fica em rascunho até o dono confirmar Q1 e Q2
+(F5).
 
-Com o dono, pendente:
-- **P2. Regularizar ontem.** O dc grava a saída retroativa sem aprovação; conflita com a regra do ponto. Até a
-  resposta, o estado não aparece e o contrato não tem o campo. Se entrar pelo fluxo de esquecimento: segue as
-  condições do "+" da folha (dia útil, dentro da contagem, sem esquecimento de saída pendente ou abonado); e, como a
-  regularização aqui depende do gestor, o estado não pode esconder "Bater ponto" o dia todo.
+Decididas pelo dono (19/10, pelo coordenador), que fecham a fase 2:
+- **P2. Regularizar ontem: aprovado pelo fluxo de esquecimento.** Estado `regularizar_ontem` ("Regularizar ponto de
+  ontem", laranja `#c76a12`, bi-exclamation-triangle, dica "Clique para informar a saída de ontem"), que vem antes do
+  estado de hoje como no dc. Só aparece quando a folha ofereceria o "+" da saída de ontem: o UseCase monta a linha de
+  ontem com o próprio `FolhaPontoBuilder` (fim de semana, feriado, início da contagem, escolha das batidas) e o
+  esquecimento já pedido ou abonado (`EsquecimentosRegistrados`, extraído do `index`) não volta. O clique leva a
+  `ponto_index?competencia=<mês de ontem>&esquecimento=<dia>:saida`, e a tela do ponto clica no MESMO "+" da folha (se
+  ele não existir, nada abre): nenhuma batida sai do atalho e a regra de quando o "+" aparece continua só na folha.
+  Depois do pedido (pendente), o estado some e volta o de hoje.
+  Precedência (decidida pelo coordenador, 19/10, segue o dc): enquanto o pedido não é feito, o atalho mostra só
+  "Regularizar ponto de ontem", inclusive com hoje em jornada; o link leva à própria tela do ponto, onde se bate o de
+  hoje normalmente. Substitui a ressalva anterior de que o estado não podia esconder "Bater ponto".
+- **Q1. "Em intervalo desde HH:MM" sem ação: aprovado.**
+- **Q2. Aviso da saída: a interjornada fica em 11 h.** A confirmação é a frase do dc mais "A próxima entrada só será
+  aceita depois de <descanso> de descanso.", com o valor configurado do escritório (`minimoMinutosInterjornada`, 660
+  sem configuração, como o servidor), e só com a validação de interjornada ligada. O contrato troca
+  `interjornadaLigada` por `interjornadaMinimaMin` (null com a validação desligada).
 
 ## 6. O que o dono olha na tela (smoke)
 

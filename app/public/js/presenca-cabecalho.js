@@ -32,6 +32,8 @@
     var evento = '';
     var painel = null;
     var veu = null;
+    var alternar = false;     // dc `_alt`: a sua linha alterna "Você" e o ponto a cada 4 s quando o ponto não tem ação
+    function ponto() { return window.PresencaPonto || null; }
 
     function ler(armazem, k, padrao) {
         try { var v = JSON.parse(armazem.getItem(k)); return v === null ? padrao : v; } catch (e) { return padrao; }
@@ -257,7 +259,8 @@
         selo.textContent = String(n);
         selo.hidden = n < 1;
         var nomes = ligados.map(function (x) { return primeiroNome(x.m.nome); });
-        selo.title = n + ' on-line' + (nomes.length ? ': ' + nomes.join(', ') : '');
+        /* dc 03 L.67: no Expediente a dica é a do desenho (data-tip, a azul); fora dele, a do navegador. */
+        selo.setAttribute(document.body.classList.contains('exp-body') ? 'data-tip' : 'title', n + ' on-line' + (nomes.length ? ': ' + nomes.join(', ') : ''));
         selo.setAttribute('aria-label', 'Quem está on-line: ' + n);
     }
 
@@ -277,7 +280,7 @@
         l.appendChild(av);
         var tx = el('span', 'presenca-textos');
         tx.appendChild(el('b', 'presenca-nome', x.m.nome));
-        tx.appendChild(el('span', 'presenca-sub', detalhe(x.m, x.k)));
+        tx.appendChild(subtitulo(x));
         l.appendChild(tx);
         var dir = el('span', 'presenca-dir');
         var st = el('span', 'presenca-status', ST[x.k][0]);
@@ -295,10 +298,33 @@
 
         return frag;
     }
+    /* Subtítulo da linha; na sua, o atalho de ponto (presenca-ponto.js, dc `pontoDe`): fixo quando tem ação. */
+    function subtitulo(x) {
+        var pt = x.eu && ponto() ? ponto().linha() : null;
+        if (!pt || !(pt.acao || alternar)) { return el('span', 'presenca-sub', detalhe(x.m, x.k)); }
+        var ocupado = ponto().ocupado();
+        var sub = el('span', 'presenca-sub presenca-sub--ponto' + (pt.acao ? ' is-acao' : '') + (ocupado ? ' is-ocupado' : ''));
+        sub.style.color = pt.cor;
+        sub.appendChild(icone(pt.icone));
+        sub.appendChild(document.createTextNode(pt.texto));
+        if (pt.acao) {
+            sub.setAttribute('role', 'button');
+            sub.setAttribute('tabindex', '0');
+            sub.setAttribute('aria-busy', ocupado ? 'true' : 'false');
+            sub.title = pt.dica;
+            var bater = function (e) { e.stopPropagation(); ponto().bater(); };
+            sub.addEventListener('click', bater);
+            sub.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bater(e); } });
+        }
+
+        return sub;
+    }
+
     function desenharPainel() {
         if (!painel) { return; }
         if (seletorDeAusenciaEmUso()) { redesenhoPendente = true; return; }
         var focoNoSom = document.activeElement && document.activeElement.classList.contains('presenca-som');
+        var focoNoPonto = document.activeElement && document.activeElement.classList.contains('presenca-sub--ponto');
         var lista = pessoas();
         var nOn = lista.filter(function (x) { return x.k === 'on'; }).length;
         var nAus = lista.filter(function (x) { return x.k === 'ausente'; }).length;
@@ -337,6 +363,8 @@
         if (urlAusencia) { painel.appendChild(regraDeAusencia()); }
         if (equipe && lista.length <= 1) { painel.appendChild(el('div', 'presenca-vazio', 'Só você está na equipe por enquanto.')); }
         if (focoNoSom) { som.focus(); }   // redesenhar a cada 20 s não tira o foco de quem está no botão
+        var novoPonto = focoNoPonto ? painel.querySelector('.presenca-sub--ponto.is-acao') : null;
+        if (novoPonto) { novoPonto.focus(); }   // nem do atalho de ponto (revisão: perdia o foco em até 4 s)
     }
     function fecharMenuDoAvatar() {   // dc `onTg`: abrir o painel fecha o menu do avatar
         document.querySelectorAll('[data-mu-toggle]').forEach(function (t) {
@@ -355,6 +383,7 @@
         document.body.appendChild(veu);
         document.body.appendChild(painel);
         selo.setAttribute('aria-expanded', 'true');
+        if (ponto()) { ponto().atualizar(); }
         desenharPainel();
         var som = painel.querySelector('.presenca-som');
         if (som) { som.focus(); }   // o foco entra no painel (Esc fecha e volta ao selo)
@@ -378,6 +407,7 @@
     /* ── Batimento da Central ──────────────────────────────────────────── */
     document.addEventListener('bj-central:presenca', function (ev) {
         online = (ev.detail && ev.detail.online) || [];
+        if (painel && ponto()) { ponto().atualizar(); }   // com o painel aberto, o ponto é relido a cada batimento
         var desconhecido = online.some(function (o) { return !pessoaDe(o.id); });
         (equipe && !desconhecido ? Promise.resolve() : carregarEquipe()).then(function () {
             detectarEvento();
@@ -385,6 +415,9 @@
             desenharPainel();
         });
     });
+
+    if (ponto()) { ponto().aoMudar(function () { desenharPainel(); }); }
+    window.setInterval(function () { if (painel) { alternar = !alternar; desenharPainel(); } }, 4000);   // dc `_altT`
 
     // Relógio próprio das horas: segue com a aba oculta (dc), o navegador só o espaça.
     contarHoras();
