@@ -6,6 +6,7 @@ namespace App\Tests\Shared\Functional;
 
 use App\AtualizacaoMonetaria\Entity\IndiceMonetario;
 use App\Auth\Entity\CadastroPendente;
+use App\Auth\Entity\InscricaoOab;
 use App\Auth\Entity\RedefinicaoSenha;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\Invitation;
@@ -113,6 +114,11 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // não do escritório. Quem atua em dois escritórios tem um perfil só.
         UserProfile::class,
 
+        // Inscrições na OAB (spec docs/specs/meu-perfil-oab-inscricoes.md §2): credencial da PESSOA, como os
+        // campos oab* do User de que a principal é o espelho; vale em todo escritório em que ela atua. Leitura
+        // sempre por usuário (doUsuario/daPessoa); a fila global é só do Master.
+        InscricaoOab::class,
+
         // Trabalho Externo (spec docs/specs/trabalho-externo.md §3): a Central do Master global lê
         // as demandas de TODOS os escritórios, por desenho. O TenantFilter as esconderia dela. O
         // isolamento é do DemandaExternaRepository (só consultas escopadas: Central ou escritório)
@@ -164,6 +170,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Marca da varredura do push da Agenda (entrega 5b): uma linha só, global, que garante uma cadeia
         // única de envio para todos os escritórios. Não guarda dado de escritório nenhum.
         \App\Agenda\Entity\VarreduraDePush::class,
+        // Marca da cadeia de sincronia do Google Agenda (entrega 6): mesma natureza, uma linha global.
+        \App\Agenda\Entity\VarreduraDoGoogle::class,
         // Telas e recursos (spec docs/specs/perfis-1.2-telas-e-recursos.md, R2): configuração da
         // PLATAFORMA, ligada e desligada só pelo Master e válida para todas as contas ao mesmo tempo.
         // Uma linha por chave do catálogo, sem dado de escritório nem de cliente.
@@ -201,9 +209,11 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 35 → 40 com o Indicar o BlueJus (19/10/2026): dado de plataforma, da pessoa e do Master, justificado acima.
     // 40 → 43 com a fatia 2b do Comercial (20/10/2026): campanha, destinatário da campanha e controle do expansor (plataforma).
     // 43 → 45 com as marcações pessoais do Trabalho Externo (19/10/2026): MarcacaoDoUsuario e
-    // MarcacaoDeMensagem são do usuário, justificadas acima.
-    // 45 → 48 com as vagas e as preferências do usuário do Trabalho Externo (19/10/2026): Vaga, HistoricoVaga e PreferenciaDoUsuario, justificadas acima.
-    private const MAX_FORA_DO_ESCOPO = 48;
+    // MarcacaoDeMensagem são do usuário, justificadas acima. 45 → 46 com a marca global da sincronia do
+    // Google Agenda (19/10/2026), justificada acima.
+    // 46 → 47 com as inscrições na OAB do Meu Perfil (19/10/2026): InscricaoOab é da pessoa, não do escritório.
+    // 47 → 50 com as vagas e as preferências do usuário do Trabalho Externo (19/10/2026): Vaga, HistoricoVaga e PreferenciaDoUsuario, justificadas acima.
+    private const MAX_FORA_DO_ESCOPO = 50;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

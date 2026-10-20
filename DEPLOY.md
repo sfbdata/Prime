@@ -142,6 +142,7 @@ A renovação recorrente **não** usa o `letsencrypt.sh` — usa `certbot renew`
 renova todos os certs configurados e recarrega o nginx via `--deploy-hook`:
 
 ```bash
+# 03h UTC = 00h de Brasília
 0 3 * * * certbot renew --quiet --deploy-hook "docker exec jusprime_nginx_prod nginx -s reload"
 ```
 
@@ -183,10 +184,21 @@ crontab -e
 Adicione a linha (executa todo dia às 02:00):
 
 ```
+# 02h UTC = 23h de Brasília (do dia anterior)
 0 2 * * * /caminho/para/jusprime/scripts/backup.sh >> /var/log/jusprime-backup.log 2>&1
 ```
 
 > Substitua `/caminho/para/jusprime` pelo caminho real do projeto na VPS.
+
+### Comandos do console no container de produção
+
+O container `jusprime_php_prod` começa em `/var/www` (estágio de produção do `Dockerfile`), e o
+`bin/console` mora em `/var/www/app`. Por isso toda chamada do console nas crons abaixo leva
+`-w /var/www/app`; sem ele, o `docker exec` responde "Could not open input file: bin/console".
+
+**Horários em UTC.** O relógio da VPS está em UTC e o cron dela não garante o `CRON_TZ`, então as
+linhas abaixo já vêm em UTC, com a hora de Brasília num comentário logo acima (Brasília é UTC-3, sem
+horário de verão).
 
 ### Purga de dados expirados (crontab na VPS)
 
@@ -196,64 +208,31 @@ Roda **depois** do backup das 02:00, para que o dump da noite ainda contenha o e
 (janela de recuperação). `--force` é obrigatório (cron não tem TTY para a confirmação).
 
 ```
-0 3 * * * docker exec jusprime_php_prod php bin/console app:purgar-dados-expirados --force >> /var/log/jusprime-purga.log 2>&1
+# 03h UTC = 00h de Brasília, uma hora depois do backup
+0 3 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:purgar-dados-expirados --force >> /var/log/jusprime-purga.log 2>&1
 ```
 
 > **Antes de agendar:** rode uma vez em simulação para conferir o que seria apagado —
-> `docker exec jusprime_php_prod php bin/console app:purgar-dados-expirados --dry-run`.
+> `docker exec -w /var/www/app jusprime_php_prod php bin/console app:purgar-dados-expirados --dry-run`.
 >
 > A carência de quarentena (padrão 365 dias) é configurável sem deploy via
 > `TENANT_CARENCIA_PURGA_DIAS` no `.env.prod`.
 
 ### Resumo semanal ao cliente (crontab na VPS)
 
-Toda segunda-feira, às 8h de Brasília, manda aos clientes com o "Resumo semanal" ligado as movimentações da semana anterior (spec `docs/specs/push-envio-automatico.md` §3; se o relógio da VPS estiver em UTC, use `0 11 * * 1`; simule antes com `--dry-run`; configurar é do dono):
+Toda segunda-feira, às 8h de Brasília, manda aos clientes com o "Resumo semanal" ligado as movimentações da semana anterior (spec `docs/specs/push-envio-automatico.md` §3; simule antes com `--dry-run`; configurar é do dono):
 
 ```
-0 8 * * 1 docker exec jusprime_php_prod php bin/console app:push:resumo-semanal-cliente >> /var/log/jusprime-resumo-semanal-cliente.log 2>&1
+# segunda, 11h UTC = 8h de Brasília
+0 11 * * 1 docker exec -w /var/www/app jusprime_php_prod php bin/console app:push:resumo-semanal-cliente >> /var/log/jusprime-resumo-semanal-cliente.log 2>&1
 ```
 
-### Atualização de encargos de cobrança (crontab na VPS)
+### Encargos de cobrança (sem cron)
 
-Job diário que faz os encargos das obrigações **crescerem no tempo**: recalcula juros, multa,
-correção e honorários para a data de hoje e grava nas colunas da obrigação. Os juros de mora
-mudam todo dia, mas o `valorExigivel()` é materializado (não derivado) — sem este cron o valor
-congela no dia em que a obrigação foi cadastrada.
-
-Roda **depois** do backup das 02:00 e da purga das 03:00, para que o dump da noite tenha o
-estado anterior ao recálculo (janela de conferência) e para não disputar CPU com os dois.
-
-```
-30 3 * * * docker exec jusprime_php_prod php bin/console app:cobranca:atualizar-encargos >> /var/log/jusprime-encargos.log 2>&1
-```
-
-> **Antes de agendar:** rode uma vez em simulação e confira o delta relatado —
-> `docker exec jusprime_php_prod php bin/console app:cobranca:atualizar-encargos --dry-run`.
-> O `--dry-run` calcula tudo e mostra o relatório sem gravar nada. Para amostrar um escritório
-> só: `--tenant=1 --limit=50`.
->
-> **O que ele toca:** apenas obrigações **não congeladas** (`encargos_congelados_em IS NULL`) de
-> casos **não encerrados**, e que sejam **dívida original** — nunca parcela de acordo. Obrigação
-> editada à mão ou importada da contabilidade está congelada e é **pulada**; o cron nunca desfaz
-> decisão de gente. Parcela de acordo tem valor **pactuado** e não recebe mora automática (se o
-> acordo furar, rompa-o: as originais voltam ao saldo e crescem com o atraso inteiro). Original
-> cujo acordo foi **rompido/cancelado** volta a crescer, porque voltou a ser dívida.
->
-> **Ele nunca REDUZ encargo já reconhecido.** Se o recálculo der um total menor que o gravado, a
-> obrigação é deixada intacta e entra em "Reduções bloqueadas" no relatório. Encolher é sinal de
-> **configuração** mudada (taxa zerada por engano), não de tempo passado — e `definirEncargos`
-> sobrescreve, então deixar passar apagaria dinheiro em lote. Se a redução for mesmo intencional,
-> repita com `--permitir-reducao`. Pela mesma razão, `--hoje` no passado é recusado sem
-> `--forcar-retroativo`.
->
-> **Se aparecerem "Reduções bloqueadas", NÃO rode com `--permitir-reducao` para "resolver".** Vá
-> conferir a configuração de taxas da carteira primeiro: o normal é que alguém tenha zerado uma
-> taxa sem querer.
->
-> **Exit code 1 significa que alguma obrigação FALHOU** no recálculo (o comando segue a rodada e
-> alarma no fim). Leia `/var/log/jusprime-encargos.log`: a seção "Obrigações que falharam" traz o
-> id e o motivo — tipicamente uma taxa configurada em regime composto alta demais para o atraso
-> acumulado. As demais obrigações foram atualizadas normalmente.
+Não há cron de encargos. Os juros, a multa, a correção e os honorários das obrigações são calculados
+ao vivo, na leitura; o antigo `app:cobranca:atualizar-encargos` foi removido (commit a5583f7f, "F4:
+remover o cron de encargos") e não existe mais no console. Se o crontab da VPS ainda tiver essa linha,
+apague-a.
 
 ### Relatório mensal de pastas sem processo (crontab na VPS)
 
@@ -264,14 +243,11 @@ só na **primeira segunda-feira do mês**, a partir das 10h, e **uma vez por mê
 histórico `relatorio_sem_processo_envio` trava a repetição). Nos outros dias ele passa e não envia nada.
 
 ```
-CRON_TZ=America/Sao_Paulo
-5 10 * * * docker exec jusprime_php_prod php bin/console app:pastas:relatorio-sem-processo >> /var/log/jusprime-relatorio-sem-processo.log 2>&1
+# todo dia, 13h05 UTC = 10h05 de Brasília
+5 13 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:pastas:relatorio-sem-processo >> /var/log/jusprime-relatorio-sem-processo.log 2>&1
 ```
 
-> Se o cron da VPS não aceitar `CRON_TZ` e o relógio dela estiver em UTC, use `5 13 * * *`
-> (10h05 em Brasília, sem horário de verão).
->
-> **Antes de agendar:** rode uma vez em simulação: `docker exec jusprime_php_prod php bin/console
+> **Antes de agendar:** rode uma vez em simulação: `docker exec -w /var/www/app jusprime_php_prod php bin/console
 > app:pastas:relatorio-sem-processo --dry-run` (conta os avisos e não grava nada). Para um escritório
 > só: `--tenant=1`.
 >
@@ -287,14 +263,11 @@ das 10h, e **uma vez por mês por escritório** (a gravação em `relatorio_past
 dos avisos e trava a repetição). Nos outros dias ele passa e não envia nada.
 
 ```
-CRON_TZ=America/Sao_Paulo
-15 10 * * * docker exec jusprime_php_prod php bin/console app:pastas:relatorio-pastas-paradas >> /var/log/jusprime-relatorio-pastas-paradas.log 2>&1
+# todo dia, 13h15 UTC = 10h15 de Brasília
+15 13 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:pastas:relatorio-pastas-paradas >> /var/log/jusprime-relatorio-pastas-paradas.log 2>&1
 ```
 
-> Se o cron da VPS não aceitar `CRON_TZ` e o relógio dela estiver em UTC, use `15 13 * * *`
-> (10h15 em Brasília, sem horário de verão).
->
-> **Antes de agendar:** rode uma vez em simulação: `docker exec jusprime_php_prod php bin/console
+> **Antes de agendar:** rode uma vez em simulação: `docker exec -w /var/www/app jusprime_php_prod php bin/console
 > app:pastas:relatorio-pastas-paradas --dry-run` (não grava nada). A simulação só conta as pastas
 > paradas e os avisos no dia do envio (primeira segunda-feira do mês, a partir das 10h); em outro dia,
 > só mostra o motivo de não enviar. Para um escritório só: `--tenant=1`.

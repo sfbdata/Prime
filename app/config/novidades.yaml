@@ -1,6 +1,12 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.9.0"
+  data: "2026-10-20"
+  itens:
+    - "O Meu Perfil ganhou visual novo: mostra o quanto do seu cadastro está preenchido, o seu vínculo com o escritório e suas preferências, e pede uma conferência rápida uma vez por mês."
+    - "No Trabalho Externo você pode marcar demandas com estrela, como importantes ou lidas, e mover para a sua lixeira, sem mudar nada para os outros."
+    - "No chat da demanda dá para favoritar, mandar para a lixeira e apagar as suas mensagens para todos."
 - versao: "2.8.0"
   data: "2026-10-20"
   itens:

@@ -13,16 +13,14 @@ use App\Profile\DTO\AtualizarFotoInput;
 use App\Profile\DTO\AtualizarStatusInput;
 use App\Profile\DTO\CompletudeDoCadastro;
 use App\Profile\DTO\DadosPessoaisInput;
-use App\Profile\DTO\OabPerfilInput;
 use App\Profile\DTO\PerfilOutput;
 use App\Profile\Form\DadosPessoaisType;
-use App\Profile\Form\OabPerfilType;
 use App\Profile\Repository\UserProfileRepository;
 use App\Profile\Repository\VinculoNoEscritorioRepository;
 use App\Profile\UseCase\AtualizarDadosPessoaisUseCase;
 use App\Profile\UseCase\AtualizarFotoPerfilUseCase;
-use App\Profile\UseCase\AtualizarOabPerfilUseCase;
 use App\Profile\UseCase\AtualizarStatusUseCase;
+use App\Profile\UseCase\ObterInscricoesOabUseCase;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Profile\UseCase\ObterPreferenciasDoPerfilUseCase;
 use App\Service\Tenant\TenantContext;
@@ -50,7 +48,7 @@ final class ProfileController extends AbstractController
         private readonly EntregaDeArquivo $entrega,
         private readonly TenantContext $tenantContext,
         private readonly UserProfileRepository $profileRepository,
-        private readonly AtualizarOabPerfilUseCase $atualizarOab,
+        private readonly ObterInscricoesOabUseCase $obterInscricoesOab,
         private readonly VerificarOabUseCase $verificarOab,
         private readonly RateLimiterFactory $oabVerificarLimiter,
         private readonly AlterarSenhaUseCase $alterarSenha,
@@ -61,7 +59,7 @@ final class ProfileController extends AbstractController
     }
 
     #[Route('', name: '', methods: ['GET'])]
-    public function index(): Response
+    public function index(Request $request): Response
     {
         /** @var User $user */
         $user = $this->getUser();
@@ -71,11 +69,6 @@ final class ProfileController extends AbstractController
         $output = PerfilOutput::fromEntity($perfil, $user, $userTenant, $vinculo);
 
         $formDados = $this->createForm(DadosPessoaisType::class, DadosPessoaisInput::dePerfil($output), ['campos_do_perfil' => true]);
-
-        $oabInput = new OabPerfilInput();
-        $oabInput->oabNumero = $output->oabNumero;
-        $oabInput->oabUf = $output->oabUf;
-        $formOab = $this->createForm(OabPerfilType::class, $oabInput);
 
         $formSenha = $this->createForm(AlterarSenhaType::class, new AlterarSenhaInput(), [
             'action' => $this->generateUrl('app_profile_senha'),
@@ -87,7 +80,9 @@ final class ProfileController extends AbstractController
             'preferencias' => $this->obterPreferencias->executar($userTenant?->getTenant(), $user),
             'podeAlterarVinculo' => $this->podeAlterarVinculo($user, $userTenant),
             'form_dados' => $formDados->createView(),
-            'form_oab'   => $formOab->createView(),
+            'inscricoesOab' => $this->obterInscricoesOab->executar($user),
+            // Recusa do modal da OAB: volta aberto, com o erro e o que foi digitado (InscricoesOabDoPerfilController).
+            'erroOab'       => $request->getSession()->remove(InscricoesOabDoPerfilController::ERRO_NA_SESSAO),
             'form_senha' => $formSenha->createView(),
         ]);
     }
@@ -149,32 +144,6 @@ final class ProfileController extends AbstractController
         } else {
             $erros = array_map(static fn ($e): string => $e->getMessage(), iterator_to_array($form->getErrors(true)));
             $this->addFlash('error', $erros === [] ? 'Verifique os dados informados.' : implode(' ', array_unique($erros)));
-        }
-
-        return $this->redirectToRoute('app_profile');
-    }
-
-    #[Route('/oab', name: '_oab', methods: ['POST'])]
-    public function salvarOab(Request $request): Response
-    {
-        /** @var User $user */
-        $user = $this->getUser();
-
-        $input = new OabPerfilInput();
-        $form  = $this->createForm(OabPerfilType::class, $input);
-        $form->handleRequest($request);
-
-        if (!$form->isSubmitted() || !$form->isValid()) {
-            $this->addFlash('error', 'Verifique os dados da OAB.');
-
-            return $this->redirectToRoute('app_profile');
-        }
-
-        try {
-            $this->atualizarOab->executar($user, $input);
-            $this->addFlash('success', 'OAB atualizada.');
-        } catch (\InvalidArgumentException $e) {
-            $this->addFlash('error', $e->getMessage());
         }
 
         return $this->redirectToRoute('app_profile');
