@@ -683,9 +683,11 @@ class PastaRepository extends ServiceEntityRepository
      * dia nas 1.083 pastas.
      *
      * @param array<string, mixed> $filtros  filtros do Dashboard (data_de, data_ate)
+     * @param list<int>|null       $pastasOcultas  ids de `AcessoAPasta::idsOcultosPara` de quem olha, já
+     *                                             calculados pelo Dashboard; null = busca pela sessão
      * @return array<int, int>  userId => total de pastas criadas
      */
-    public function countCriadasPorCriador(Tenant $tenant, array $filtros = []): array
+    public function countCriadasPorCriador(Tenant $tenant, array $filtros = [], ?array $pastasOcultas = null): array
     {
         $qb = $this->createQueryBuilder('p')
             ->select('c.id AS criador_id, COUNT(p.id) AS total')
@@ -697,7 +699,7 @@ class PastaRepository extends ServiceEntityRepository
 
         $this->aplicarFiltrosDashboard($qb, $filtros, false);
         // Cadeado: o número leva à lista "pastas criadas por X", que não mostra a oculta com esse filtro (D1).
-        $ocultas = $this->nivelNoCadeado?->idsDasPastasOcultasDeQuemEstaLogado() ?? [];
+        $ocultas = $pastasOcultas ?? $this->nivelNoCadeado?->idsDasPastasOcultasDeQuemEstaLogado() ?? [];
         if ($ocultas !== []) {
             $qb->andWhere('p.id NOT IN (:criadasOcultas)')->setParameter('criadasOcultas', $ocultas);
         }

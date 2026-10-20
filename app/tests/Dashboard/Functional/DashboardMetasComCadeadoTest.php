@@ -56,7 +56,7 @@ final class DashboardMetasComCadeadoTest extends JusPrimeWebTestCase
      *
      * @return array{primario: User, tenant: Tenant, gestora: User, gestorLivre: User, ana: User, oculta: Pasta}
      */
-    private function cenario(string $statusDasMetas = Tarefa::STATUS_PENDENTE): array
+    private function cenario(string $statusDasMetas = Tarefa::STATUS_PENDENTE, string $prazo = '-2 days'): array
     {
         [$primario, $tenant] = $this->criarEscritorio();
         $gestora     = $this->criarColaborador($tenant, 'Gestora Oculta', self::PERMISSOES_GESTOR);
@@ -78,7 +78,7 @@ final class DashboardMetasComCadeadoTest extends JusPrimeWebTestCase
             $meta->setTenant($tenant);
             $meta->setCriadoPor($primario);
             $meta->addResponsavel($ana);
-            $meta->setPrazo(new \DateTimeImmutable('-2 days'));
+            $meta->setPrazo(new \DateTimeImmutable($prazo));
             $meta->setStatus($statusDasMetas);
             $this->em()->persist($meta);
         }
@@ -176,6 +176,8 @@ final class DashboardMetasComCadeadoTest extends JusPrimeWebTestCase
             self::assertSame($esperado, (string) $tela->filter('.db-stat-num[data-card="urgentes"]')->attr('data-alvo'), 'Demandas urgentes, ' . $quem);
             self::assertSame($esperado, trim($tela->filter('a[title="Abrir: Expediente · pastas de Ana Equipe"]')->first()->text()), 'Total demandas, ' . $quem);
             self::assertSame($esperado, trim($tela->filter('a[title="Abrir: Expediente · pastas ativas de Ana Equipe"]')->first()->text()), 'Demandas ativas, ' . $quem);
+            // Pastas criadas: a lista vem do controller (sem a segunda busca pela sessão) e o número é o mesmo.
+            self::assertSame($esperado, trim($tela->filter('a[title="Abrir: Expediente · pastas criadas por Ana Equipe"]')->first()->text()), 'Pastas criadas, ' . $quem);
         }
 
         // Extra "Pastas urgentes": a mesma régua.
@@ -230,6 +232,41 @@ final class DashboardMetasComCadeadoTest extends JusPrimeWebTestCase
         self::assertCount(0, $total->eq(4)->filter('.db-tend'));
         // As setas do período anterior, já filtradas, continuam (Total metas).
         self::assertCount(1, $this->celulaDaAna($tela, 'metas')->filter('.db-seta'));
+    }
+
+    #[TestDox('coluna Prazo próximo: a meta da pasta Oculta com prazo dentro da janela não conta para a gestora; conta para o primário')]
+    public function testPrazoProximo(): void
+    {
+        $c = $this->cenario(Tarefa::STATUS_PENDENTE, '+2 days');
+
+        foreach (['gestora' => [$c['gestora'], '1'], 'primario' => [$c['primario'], '2']] as $quem => [$usuario, $esperado]) {
+            $this->entrar($usuario, $c['tenant']);
+            $tela = $this->client->request('GET', '/dashboard');
+            self::assertResponseIsSuccessful();
+
+            self::assertSame($esperado, trim($tela->filter('a[title="Abrir: Metas com prazo próximo de Ana Equipe"]')->first()->text()), $quem);
+        }
+    }
+
+    #[TestDox('card Meta global batida: concluídas e total sem a meta da pasta Oculta para a gestora; com ela para o primário')]
+    public function testMetaGlobal(): void
+    {
+        $c = $this->cenario();
+        // A meta da pasta oculta está concluída; a da livre, pendente.
+        $trancada = $this->em()->getRepository(Tarefa::class)->findOneBy(['titulo' => 'Meta dashboard trancada', 'tenant' => $c['tenant']]);
+        self::assertNotNull($trancada);
+        $trancada->setStatus(Tarefa::STATUS_CONCLUIDA);
+        $this->em()->flush();
+
+        foreach (['gestora' => [$c['gestora'], ['0', '1'], '0'], 'primario' => [$c['primario'], ['1', '2'], '50']] as $quem => [$usuario, $legenda, $pct]) {
+            $this->entrar($usuario, $c['tenant']);
+            $tela = $this->client->request('GET', '/dashboard');
+            self::assertResponseIsSuccessful();
+
+            $card = $tela->filter('.db-stat-card--global');
+            self::assertSame($legenda, $card->filter('.db-card-legenda-num')->each(static fn (Crawler $n): string => trim($n->text())), 'concluídas de total, ' . $quem);
+            self::assertSame($pct, (string) $card->filter('.db-stat-num[data-card="global"]')->attr('data-alvo'), $quem);
+        }
     }
 
     private function celulaDaAna(Crawler $tela, string $coluna): Crawler

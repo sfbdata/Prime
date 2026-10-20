@@ -92,7 +92,7 @@ final class ObterDadosDashboardUseCase
         $mAtivasPasta  = $this->pastaRepository->countAtivasPorResponsavel($tenant, $filtros, $pastasOcultas);
         // Por CRIADOR, não por responsável: mede quem abriu a pasta (uso do sistema e
         // produtividade), enquanto os dois mapas acima medem quem responde por ela.
-        $mCriadasPasta = $this->pastaRepository->countCriadasPorCriador($tenant, $filtros);
+        $mCriadasPasta = $this->pastaRepository->countCriadasPorCriador($tenant, $filtros, $pastasOcultas);
 
         // Lista canônica: todos os colaboradores ativos do tenant
         $colaboradores = $this->userRepository->findColaboradoresAtivosPorTenant($tenant);
@@ -117,7 +117,7 @@ final class ObterDadosDashboardUseCase
             $filtrosAnteriores = array_merge($filtros, $periodoAnterior);
             $mAntTarefa        = $this->tarefaRepository->countPorResponsavel($tenant, $filtrosAnteriores, $pastasOcultas);
             $mAntPasta         = $this->pastaRepository->countPorResponsavel($tenant, $filtrosAnteriores, $pastasOcultas);
-            $mAntCriadas       = $this->pastaRepository->countCriadasPorCriador($tenant, $filtrosAnteriores);
+            $mAntCriadas       = $this->pastaRepository->countCriadasPorCriador($tenant, $filtrosAnteriores, $pastasOcultas);
         }
 
         // Estoque anterior (vencidas, prazos próximos): não se reconstrói do passado, então vem
