@@ -9,7 +9,8 @@ use App\Pasta\Service\TextoDoEnvioAoCliente;
 
 /**
  * O cartão "Avisar cliente" e o modal "Enviar ao cliente" de UMA pasta (spec push-avisar-cliente §2 e
- * §3; desenho `mailVals` e `mailIAVals`, dc L.5241-5293), com os textos já resolvidos.
+ * §3; desenho `mailVals` e `mailIAVals`, dc L.5241-5293), com os textos já resolvidos. `automatico`
+ * são as chaves do "Envio automático" do cliente (spec push-envio-automatico §2).
  */
 final readonly class AvisarClienteOutput
 {
@@ -30,7 +31,19 @@ final readonly class AvisarClienteOutput
         public array $historico,
         public int $totalHistorico,
         public array $enviosPorAnalise,
+        public ChavesDoEnvioAutomatico $automatico = new ChavesDoEnvioAutomatico(),
     ) {
+    }
+
+    /**
+     * As três linhas do bloco "Envio automático" (spec push-envio-automatico §2; dc N:5270 `autos`).
+     * Sem e-mail nenhum cadastrado, esmaecidas e com o prefixo da dica (como o `n` do desenho).
+     *
+     * @return list<ItemDoEnvioAutomaticoOutput>
+     */
+    public function envioAutomatico(): array
+    {
+        return ItemDoEnvioAutomaticoOutput::lista($this->automatico, $this->total() === 0);
     }
 
     public function total(): int

@@ -7,7 +7,7 @@ namespace App\Agenda\UseCase;
 use App\Agenda\DTO\CompromissoOutput as C;
 use App\Agenda\Repository\EventoDaAgendaRepository;
 use App\Agenda\Service\OcorrenciasDoEvento;
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaPrazo;
@@ -37,11 +37,11 @@ final class ListarCompromissosUseCase
     }
 
     /** @return list<C> */
-    public function executar(Tenant $tenant, User $eu, \DateTimeImmutable $de, \DateTimeImmutable $ate, bool $soMinha, bool $verPastas): array
+    public function executar(Tenant $tenant, User $eu, \DateTimeImmutable $de, \DateTimeImmutable $ate, bool $soMinha, bool $verPastas, bool $administra = false): array
     {
         $ateFim = $ate->setTime(23, 59, 59);
         $itens = [
-            ...$this->dosEventos($tenant, $eu, $de, $ateFim, $soMinha),
+            ...$this->dosEventos($tenant, $eu, $de, $ateFim, $soMinha, $administra, $verPastas),
             ...($verPastas ? $this->dosPrazos($tenant, $de, $ate) : []),
             ...$this->dosAniversarios($tenant, $de, $ate),
         ];
@@ -51,14 +51,14 @@ final class ListarCompromissosUseCase
     }
 
     /** @return list<C> */
-    private function dosEventos(Tenant $tenant, User $eu, \DateTimeImmutable $de, \DateTimeImmutable $ate, bool $soMinha): array
+    private function dosEventos(Tenant $tenant, User $eu, \DateTimeImmutable $de, \DateTimeImmutable $ate, bool $soMinha, bool $administra, bool $verPastas): array
     {
         $calPorCor = $this->calendarioPorCor($tenant);
         $saida = [];
         foreach ($this->eventos->doEscritorioNoPeriodo($tenant, $eu, $de, $ate, $soMinha) as $evento) {
             foreach ($this->ocorrencias->noPeriodo($evento, $de, $ate) as $o) {
                 foreach ($this->diasDaOcorrencia($evento, $o['inicio'], $o['fim'], $de, $ate) as $dia) {
-                    $saida[] = $this->compromisso($evento, $eu, $dia, $o['inicio'], $o['fim'], $calPorCor);
+                    $saida[] = $this->compromisso($evento, $eu, $dia, $o['inicio'], $o['fim'], $calPorCor, $administra, $verPastas);
                 }
             }
         }
@@ -91,7 +91,7 @@ final class ListarCompromissosUseCase
     }
 
     /** @param array<string, string> $calPorCor */
-    private function compromisso(Evento $evento, User $eu, string $dia, \DateTimeImmutable $inicio, \DateTimeImmutable $fim, array $calPorCor): C
+    private function compromisso(Evento $evento, User $eu, string $dia, \DateTimeImmutable $inicio, \DateTimeImmutable $fim, array $calPorCor, bool $administra, bool $verPastas): C
     {
         $id = (int) $evento->getId();
         $obs = trim(implode("\n", array_filter([(string) $evento->getLocal(), (string) $evento->getDescricao()])));
@@ -100,7 +100,7 @@ final class ListarCompromissosUseCase
             id: 'ev-' . $id . '-' . $dia,
             data: $dia,
             titulo: $evento->getTitulo(),
-            calendario: $calPorCor[strtolower($evento->getCor())] ?? C::CAL_MEUS,
+            calendario: $evento->getTipo()->value ?? $calPorCor[strtolower($evento->getCor())] ?? C::CAL_MEUS,
             origem: C::ORIGEM_AGENDA,
             dia: $evento->isDiaInteiro(),
             h1: $evento->isDiaInteiro() ? '' : $inicio->format('H:i'),
@@ -112,6 +112,17 @@ final class ListarCompromissosUseCase
             status: $evento->getStatus(),
             recorrente: $evento->isRecorrente(),
             eventoId: $id,
+            pastaId: $verPastas ? $evento->getPasta()?->getId() : null,
+            pastaNup: $verPastas ? $evento->getPasta()?->getNup() : null,
+            tipo: $evento->getTipo()?->value,
+            lembreteMinutos: $evento->getLembreteMinutos(),
+            avisados: $evento->getAvisados(),
+            participantes: array_values(array_map(static fn (User $u): int => (int) $u->getId(), $evento->getParticipantes()->toArray())),
+            repetir: $evento->isRecorrente() ? $evento->getTipoRecorrencia() : null,
+            repetirAte: $evento->getFimRecorrencia()?->format('Y-m-d'),
+            editavel: $administra || $evento->getCriador()?->getId() === $eu->getId(),
+            inicioOriginal: $evento->getDataInicio()?->format('Y-m-d\TH:i'),
+            fimOriginal: $evento->getDataFim()?->format('Y-m-d\TH:i'),
         );
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\Repository;
 
+use App\Cliente\Entity\Cliente;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\EnvioAoCliente;
 use App\Pasta\Entity\Pasta;
@@ -87,6 +88,63 @@ class EnvioAoClienteRepository extends ServiceEntityRepository
             ->setParameter('pasta', $pasta)
             ->setParameter('tipo', TipoDeEnvioAoCliente::Ia)
             ->setParameter('analise', $analiseId)
+            ->setParameter('desde', $desde)
+            ->getQuery()
+            ->getResult();
+
+        return array_values(array_unique(array_merge([], ...array_map(static fn (EnvioAoCliente $e): array => $e->getPara(), $envios))));
+    }
+
+    /**
+     * Das publicações informadas, as que já foram enviadas automaticamente a este cliente (P4d, "não
+     * repetir": a linha `auto` guarda a publicação em `referencia`), em qualquer pasta dele.
+     *
+     * @param list<int> $publicacaoIds
+     *
+     * @return list<int>
+     */
+    public function publicacoesJaEnviadasAoCliente(Tenant $tenant, Cliente $cliente, array $publicacaoIds): array
+    {
+        if ($publicacaoIds === []) {
+            return [];
+        }
+
+        $ids = $this->createQueryBuilder('e')
+            ->select('DISTINCT e.referencia')
+            ->andWhere('e.tenant = :tenant')
+            ->andWhere('e.cliente = :cliente')
+            ->andWhere('e.tipo = :tipo')
+            ->andWhere('e.referencia IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('cliente', $cliente)
+            ->setParameter('tipo', TipoDeEnvioAoCliente::Auto)
+            ->setParameter('ids', array_values(array_unique($publicacaoIds)))
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_map('intval', $ids);
+    }
+
+    /**
+     * Quem já recebeu, desde o instante, o envio automático da pasta com esta descrição (o resumo
+     * semanal de uma semana não vai de novo a quem já recebeu; o `desde` evita que a mesma "dd/mm a
+     * dd/mm" de outro ano conte).
+     *
+     * @return list<string>
+     */
+    public function destinatariosDoEnvioAutomaticoDaPasta(Tenant $tenant, Pasta $pasta, string $descricao, \DateTimeImmutable $desde): array
+    {
+        /** @var list<EnvioAoCliente> $envios */
+        $envios = $this->createQueryBuilder('e')
+            ->andWhere('e.tenant = :tenant')
+            ->andWhere('e.pasta = :pasta')
+            ->andWhere('e.tipo = :tipo')
+            ->andWhere('e.descricao = :descricao')
+            ->andWhere('e.em >= :desde')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tipo', TipoDeEnvioAoCliente::Auto)
+            ->setParameter('descricao', $descricao)
             ->setParameter('desde', $desde)
             ->getQuery()
             ->getResult();

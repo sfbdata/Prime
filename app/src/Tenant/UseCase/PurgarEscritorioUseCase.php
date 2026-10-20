@@ -195,6 +195,9 @@ final class PurgarEscritorioUseCase
         // cliente pela de `cliente`, mas a FK de tenant das duas é NO ACTION; deleção explícita aqui.
         ['envio_ao_cliente', 'tenant_id = :tenant'],
         ['cliente_email', 'tenant_id = :tenant'],
+        // Chaves do envio automático ao cliente (P4d): cairiam pela CASCADE de `cliente`, mas a FK de
+        // tenant é NO ACTION; deleção explícita aqui.
+        ['cliente_envio_automatico', 'tenant_id = :tenant'],
         // Prazos e audiências da pasta (E12b): cairiam pela CASCADE de `pasta`; FK de tenant NO ACTION.
         ['pasta_prazo', 'tenant_id = :tenant'],
         // Andamento da pasta em fases (E12b): mesmo caso.

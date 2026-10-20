@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\Controller;
 
+use App\Cliente\Enum\ChaveDoEnvioAutomatico;
 use App\Cliente\Enum\RotuloDoEmail;
 use App\Cliente\Exception\EmailDoClienteEmConflitoException;
 use App\Cliente\Exception\EmailDoClienteNaoEncontradoException;
@@ -19,6 +20,7 @@ use App\Pasta\Exception\EnvioAoClienteRecusadoException;
 use App\Pasta\Exception\FalhaNoEnvioAoClienteException;
 use App\Pasta\UseCase\CadastrarEmailDoClienteUseCase;
 use App\Pasta\UseCase\DefinirAvisosDoEmailDoClienteUseCase;
+use App\Pasta\UseCase\DefinirEnvioAutomaticoDoClienteUseCase;
 use App\Pasta\UseCase\EnviarAnaliseAoClienteUseCase;
 use App\Pasta\UseCase\MontarAvisarClienteUseCase;
 use App\Pasta\UseCase\RemoverEmailDoClienteUseCase;
@@ -39,8 +41,10 @@ use Symfony\Component\Routing\Attribute\Route;
  *   POST /pasta/{id}/push/cliente/emails/{emailId}/principal   → a estrela
  *   POST /pasta/{id}/push/cliente/emails/{emailId}/avisos      → `ligado` = 1|0 (o estado desejado)
  *   POST /pasta/{id}/push/cliente/emails/{emailId}/remover     → o X
+ *   POST /pasta/{id}/push/cliente/automatico                   → `chave` (novas_movimentacoes|audiencias_intimacoes|
+ *                                                                resumo_semanal), `ligado` = 1|0 (P4d, do cliente)
  *   POST /pasta/{id}/push/cliente/analises/{analiseId}/enviar  → `para[]`, `assunto`, `corpo`, `revisado` = 1
- * As de e-mail respondem {sucesso, mensagem, html (o cartão)}; recusa 422 {erro}; id alheio 404.
+ * As de e-mail e a do automático respondem {sucesso, mensagem, html (o cartão)}; recusa 422 {erro}; id alheio 404.
  * O envio responde {sucesso, mensagem, enviados, jaEnviados (idempotência de 2 min), enviado, dica};
  * recusa 422; mais de 10 envios da pasta na hora 429; falha do transporte 502 {erro, enviados}.
  *
@@ -114,6 +118,23 @@ final class PastaPushClienteController extends AbstractController
     {
         return $this->alterar($pasta, $request, static function (User $u, Tenant $t) use ($pasta, $emailId, $remover): ?string {
             $remover->executar($pasta, $emailId, $u, $t);
+
+            return null;
+        });
+    }
+
+    #[Route('/automatico', name: 'pasta_push_cliente_automatico', methods: ['POST'])]
+    public function automatico(Pasta $pasta, Request $request, DefinirEnvioAutomaticoDoClienteUseCase $definir): JsonResponse
+    {
+        $chave = ChaveDoEnvioAutomatico::tryFrom((string) $request->request->get('chave'));
+        $ligado = (string) $request->request->get('ligado');
+
+        return $this->alterar($pasta, $request, static function (User $u, Tenant $t) use ($pasta, $chave, $ligado, $definir): ?string {
+            if ($chave === null || !\in_array($ligado, ['0', '1'], true)) {
+                throw new EmailDoClienteRecusadoException('Chave ou estado desconhecido.');
+            }
+
+            $definir->executar($pasta, $chave, $ligado === '1', $u, $t);
 
             return null;
         });

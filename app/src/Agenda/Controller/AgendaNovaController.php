@@ -7,6 +7,7 @@ namespace App\Agenda\Controller;
 use App\Agenda\DTO\CompromissoOutput;
 use App\Agenda\UseCase\ListarCompromissosUseCase;
 use App\Entity\Auth\User;
+use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -27,6 +28,7 @@ final class AgendaNovaController extends AbstractController
         private readonly ListarCompromissosUseCase $listarCompromissos,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
+        private readonly UserRepository $usuarios,
     ) {
     }
 
@@ -42,7 +44,14 @@ final class AgendaNovaController extends AbstractController
             return $this->redirectToRoute('homepage');
         }
 
-        return $this->render('agenda/nova.html.twig');
+        return $this->render('agenda/nova.html.twig', [
+            'eu'     => ['id' => $user->getId(), 'nome' => $user->getFullName()],
+            'podeVerPastas' => $this->permissionChecker->canAccessModule($user, $tenant, 'pastas'),
+            'equipe' => array_map(
+                static fn (User $u): array => ['id' => $u->getId(), 'nome' => $u->getFullName()],
+                $this->usuarios->findColaboradoresAtivosPorTenant($tenant),
+            ),
+        ]);
     }
 
     #[Route('/agenda/compromissos', name: 'app_agenda_compromissos', methods: ['GET'])]
@@ -61,7 +70,8 @@ final class AgendaNovaController extends AbstractController
         }
         $soMinha = 'minha' === $request->query->getString('escopo');
         $verPastas = $this->permissionChecker->canAccessModule($user, $tenant, 'pastas');
-        $itens = $this->listarCompromissos->executar($tenant, $user, $de, $ate, $soMinha, $verPastas);
+        $administra = $this->permissionChecker->canAdminister($user, $tenant, 'admin.users.manage');
+        $itens = $this->listarCompromissos->executar($tenant, $user, $de, $ate, $soMinha, $verPastas, $administra);
 
         return $this->json(['itens' => array_map(static fn (CompromissoOutput $c): array => $c->toArray(), $itens)]);
     }

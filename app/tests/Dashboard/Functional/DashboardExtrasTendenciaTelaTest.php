@@ -7,7 +7,7 @@ namespace App\Tests\Dashboard\Functional;
 use App\Dashboard\Controller\DashboardController;
 use App\Dashboard\Preferencia\CatalogoDePreferenciasDoDashboard;
 use App\Dashboard\Repository\PreferenciaDoUsuarioRepository;
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tarefa\Tarefa;

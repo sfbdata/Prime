@@ -183,6 +183,30 @@ class PublicacaoDjenRepository extends ServiceEntityRepository
     }
 
     /**
+     * As publicações do escritório VINCULADAS a um processo dele e disponibilizadas no período (datas
+     * inclusivas), com o processo junto: a entrada do resumo semanal ao cliente (spec
+     * push-envio-automatico §3). Da mais antiga para a mais recente. Tenant explícito: roda no CLI.
+     *
+     * @return list<PublicacaoDjen>
+     */
+    public function listarVinculadasDoPeriodoDoTenant(Tenant $tenant, \DateTimeImmutable $inicio, \DateTimeImmutable $fim): array
+    {
+        return $this->createQueryBuilder('p')
+            ->addSelect('pr')
+            ->join('p.processo', 'pr')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('pr.tenant = :tenant')
+            ->andWhere('p.dataDisponibilizacao BETWEEN :inicio AND :fim')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('inicio', $inicio->setTime(0, 0), 'date_immutable')
+            ->setParameter('fim', $fim->setTime(0, 0), 'date_immutable')
+            ->orderBy('p.dataDisponibilizacao', 'ASC')
+            ->addOrderBy('p.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Publicações do escritório ainda sem vínculo com Processo — a entrada da reconciliação.
      * Devolve ENTIDADES (e não projeção) porque quem chama vai gravar a FK nelas.
      *
