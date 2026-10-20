@@ -989,4 +989,22 @@
         if (!id) { return; }
         document.dispatchEvent(new CustomEvent('bj-central:conversar', { detail: { userId: id } }));
     });
+
+    /* "Encaminhar via Chat I.A" no ⋮ da meta (D:3737): o item leva `data-encaminhar-pasta`, `-tipo` (meta) e `-id`,
+       renderizados pelo Twig, e o clique dispara `bj-central:despachar` com `{pastaId, tipo, itemId}` (spec
+       encaminhar-via-chat-ia §4.1). Pelo evento, para não depender da ordem de carga do lançador. Só ids saem da
+       tela: título e resumo vêm do servidor. Classe própria (não `.js-encaminhar`), para o ouvinte dos registros não
+       disparar o mesmo despacho de novo. O menu fecha pelo clique no `.ps-pop-item` (pasta-show.js e
+       popoversDasLinhasNovas). */
+    document.addEventListener('click', function (e) {
+        var item = e.target.closest('.js-meta-encaminhar');
+        if (!item) { return; }
+        var pastaId = Number(item.getAttribute('data-encaminhar-pasta'));
+        var itemId = Number(item.getAttribute('data-encaminhar-id'));
+        if (!pastaId || !itemId || item.getAttribute('data-encaminhar-tipo') !== 'meta') { return; }
+        e.preventDefault();
+        document.dispatchEvent(new CustomEvent('bj-central:despachar', {
+            detail: { pastaId: pastaId, tipo: 'meta', itemId: itemId }
+        }));
+    });
 }());

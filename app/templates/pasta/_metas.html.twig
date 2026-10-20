@@ -38,7 +38,12 @@
    "Desfazer", que manda o formulário oposto da linha nova (mesma guarda e CSRF).
    Sem JS, continua o POST + redirect.
 
-   O que não tem lastro NÃO aparece: número global, duplicar e encaminhar. #}
+   "Encaminhar via Chat I.A" (D:3737, `metaMenu`): no ⋮, depois de "Editar nome" (o desenho o põe depois de
+   "Duplicar", que não existe aqui) e antes de "Copiar link". Leva só ids em `data-*` (`.js-meta-encaminhar`,
+   tipo `meta`); o pasta-metas.js dispara `bj-central:despachar`. Só com a Central (`central_disponivel()`) e
+   fora da lápide (o despacho dá 404 na pasta excluída, spec §2.11).
+
+   O que não tem lastro NÃO aparece: número global e duplicar. #}
 {# Aviso com "Desfazer" (dc L.1509-1510): fixo, centrado, 24px do rodapé, raio 4,
    13px; "Desfazer" #7cc4ff/700. O `.ps-l7-aviso` da tela não serve: tem
    `pointer-events: none` e o botão precisa de clique. Nasce no <body> pelo
@@ -95,6 +100,10 @@
 {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
 {% set podeAlertar = metaEditavel and podeEditarPasta %}
 {% set ultimosAlertas = podeAlertar and metasResumo.linhas|length > 0 ? metas_ultimos_alertas(pasta) : {} %}
+{# A Central conferida UMA vez neste template (cada chamada consulta o vínculo): o "Encaminhar via Chat I.A" do ⋮ e
+   os "Responsáveis nas metas" que abrem a conversa. `encaminharPasta` é o id da pasta ou null (sem Central, lápide). #}
+{% set metasComChat = central_disponivel() %}
+{% set encaminharPasta = metasComChat and not pasta.estaExcluida ? pasta.id : null %}
 <div class="ps-grade">
 <section class="ps-card ps-metas" data-ps-metas>
     <div class="ps-card-cab ps-card-cab--painel">
@@ -241,6 +250,15 @@
                                         <i class="bi bi-pencil"></i><span>Editar nome</span>
                                     </button>
                                 {% endif %}
+                                {% if encaminharPasta %}
+                                    {# D:3737: depois de "Editar nome" ("Duplicar" não existe aqui), antes de "Copiar link". #}
+                                    <button type="button" class="ps-pop-item js-meta-encaminhar" role="menuitem"
+                                            data-encaminhar-pasta="{{ encaminharPasta }}"
+                                            data-encaminhar-tipo="meta"
+                                            data-encaminhar-id="{{ tarefa.id }}">
+                                        <i class="bi bi-send"></i><span>Encaminhar via Chat I.A</span>
+                                    </button>
+                                {% endif %}
                                 <button type="button" class="ps-pop-item js-ps-copiar" role="menuitem"
                                         data-ps-copiar="{{ url('tarefa_show', {id: tarefa.id}) }}"
                                         data-ps-copiado="Link da meta copiado">
@@ -343,7 +361,6 @@
             {# dc L.1686: cada pessoa é um botão que abre a conversa 1:1 no Chat I.A (`BJCentral.conversar`, Encaminhar
                PR3), com a dica "Conversar com PRIMEIRO_NOME no chat" e o `bi-chat-dots`. Sem a Central na página, fica
                o texto de antes. #}
-            {% set metasComChat = central_disponivel() %}
             {% for p in metasResumo.pessoas %}
                 {% if metasComChat and p.userId %}
                     {% set dica = 'Conversar com ' ~ (p.nome|split(' ')|first) ~ ' no chat' %}
