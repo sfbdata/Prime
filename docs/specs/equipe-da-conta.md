@@ -43,9 +43,8 @@ compactação de contexto, releia antes de continuar.
   #155. Quem entra depois resolve.
 
 **Fila de migrations** (a coordenação controla; o nome final é passado ao coordenador antes de renomear)
-- #60 `Version20261019120728` → #65 `Version20261019130750` → #69 `Version20261019134246` → #161
-  `Version20261019181325`. Todas são anteriores à `Version20261019170000` que já está no master: precisam de
-  timestamp novo no merge.
+- Nomes finais dados pela coordenação (20/10): #60 `Version20261020131000` (mergeado, feeedb23) → #65
+  `Version20261020131500` → #69 `Version20261020132000` → #161 `Version20261020132500` (o #89 não tem migration).
 
 **Passadas a outras sessões (20/10)**
 - Login (desenho 10): bluejus-9b, #101. O inventário da 7d e a confirmação do dono sobre os textos de segurança foram

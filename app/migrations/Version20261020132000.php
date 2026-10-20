@@ -12,7 +12,7 @@ use Doctrine\Migrations\AbstractMigration;
  * escritório (aprovado, em análise, suspenso). Só acréscimo: todo vínculo existente fica aprovado, e o isActive de
  * cada um não muda (os inativos de legado continuam inativos, com situação aprovado).
  */
-final class Version20261019134246 extends AbstractMigration
+final class Version20261020132000 extends AbstractMigration
 {
     public function getDescription(): string
     {
