@@ -128,7 +128,7 @@ final class MetaNaListaTelaTest extends JusPrimeWebTestCase
     // ⋮ da meta
     // =========================================================================
 
-    #[TestDox('⋮ da meta aberta: "Abrir relatório", "Marcar como concluída", "Editar nome", "Copiar link", "Abrir em Metas" e "Excluir" (criador, na janela); da concluída: "Abrir relatório", "Reabrir meta" (POST tarefa_reabrir), "Editar nome", "Copiar link", "Abrir em Metas" e "Excluir"')]
+    #[TestDox('⋮ da meta aberta: "Abrir relatório", "Marcar como concluída", "Editar nome", "Encaminhar via Chat I.A", "Copiar link", "Abrir em Metas" e "Excluir" (criador, na janela); da concluída: "Abrir relatório", "Reabrir meta" (POST tarefa_reabrir), "Editar nome", "Encaminhar via Chat I.A", "Copiar link", "Abrir em Metas" e "Excluir"')]
     public function testItensDoMenu(): void
     {
         $client          = static::createClient();
@@ -142,7 +142,7 @@ final class MetaNaListaTelaTest extends JusPrimeWebTestCase
 
         $menuAberta = $this->linha($crawler, $aberta)->filter('article > .ps-meta-acoes > #psMetaMenu' . $aberta->getId() . '.ps-pop');
         self::assertSame(
-            ['Abrir relatório', 'Marcar como concluída', 'Editar nome', 'Copiar link', 'Abrir em Metas', 'Excluir'],
+            ['Abrir relatório', 'Marcar como concluída', 'Editar nome', 'Encaminhar via Chat I.A', 'Copiar link', 'Abrir em Metas', 'Excluir'],
             $menuAberta->filter('.ps-pop > form > button.ps-pop-item, .ps-pop > button.ps-pop-item, .ps-pop > a.ps-pop-item')->each(static fn (Crawler $b) => trim($b->text())),
         );
         self::assertSame((string) $aberta->getId(), $menuAberta->filter('.ps-pop > button[type="button"][data-ps-meta-renomear]')->attr('data-ps-meta-renomear'));
@@ -150,7 +150,7 @@ final class MetaNaListaTelaTest extends JusPrimeWebTestCase
 
         $menuConcluida = $this->linha($crawler, $concluida)->filter('article > .ps-meta-acoes > #psMetaMenu' . $concluida->getId() . '.ps-pop');
         self::assertSame(
-            ['Abrir relatório', 'Reabrir meta', 'Editar nome', 'Copiar link', 'Abrir em Metas', 'Excluir'],
+            ['Abrir relatório', 'Reabrir meta', 'Editar nome', 'Encaminhar via Chat I.A', 'Copiar link', 'Abrir em Metas', 'Excluir'],
             $menuConcluida->filter('.ps-pop > form > button.ps-pop-item, .ps-pop > button.ps-pop-item, .ps-pop > a.ps-pop-item')->each(static fn (Crawler $b) => trim($b->text())),
         );
         $reabrir = $menuConcluida->filter('.ps-pop > form.ps-meta-reabrir');

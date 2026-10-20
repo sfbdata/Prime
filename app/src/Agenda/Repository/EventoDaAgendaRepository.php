@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Agenda\Repository;
 
 use App\Agenda\Entity\Evento;
+use App\Agenda\Enum\TipoDeCompromisso;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Repository\EventoRepository;
@@ -96,6 +97,31 @@ class EventoDaAgendaRepository
             ->setParameter('mudou', $mudouDesde)
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Quantos compromissos a pessoa criou neste escritório, por tipo e cor (a cor decide o calendário de quem
+     * não tem tipo, da agenda antiga), em qualquer data: a contagem da lateral do desenho.
+     *
+     * @return list<array{tipo: ?TipoDeCompromisso, cor: string, n: int}>
+     */
+    public function contarDoCriadorPorTipoECor(Tenant $tenant, User $criador): array
+    {
+        $linhas = $this->eventos->createQueryBuilder('e')
+            ->select('e.tipo AS tipo', 'e.cor AS cor', 'COUNT(e.id) AS n')
+            ->andWhere('e.tenant = :tenant')
+            ->andWhere('e.criador = :criador')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('criador', $criador)
+            ->groupBy('e.tipo', 'e.cor')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $l): array => [
+            'tipo' => $l['tipo'] instanceof TipoDeCompromisso ? $l['tipo'] : TipoDeCompromisso::tryFrom((string) $l['tipo']),
+            'cor'  => (string) $l['cor'],
+            'n'    => (int) $l['n'],
+        ], $linhas);
     }
 
     public function salvar(Evento $evento): void

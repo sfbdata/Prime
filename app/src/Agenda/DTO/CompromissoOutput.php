@@ -55,6 +55,8 @@ final readonly class CompromissoOutput
         public ?string $fimOriginal = null,
         /** Nome dado pelo escritório (aniversário renomeado pelo botão direito). */
         public bool $editado = false,
+        /** Nasceu no Google Agenda da pessoa e veio pela sincronia (entrega 6): "Importado do Google Agenda." */
+        public bool $doGoogle = false,
     ) {
     }
 

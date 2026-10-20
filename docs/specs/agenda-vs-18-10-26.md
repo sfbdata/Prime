@@ -4,6 +4,62 @@ Desenho: `docs/design/agenda-vs-18-10-26/09 - Agenda - VS 18.10.26.dc.html` (+ `
 projeto do Claude Design). Risco: BAIXO na tela; **MÉDIO** na ligação com o Google (token de usuário).
 O protótipo guarda tudo em `localStorage`; aqui tudo vai para o servidor, por escritório e por usuário.
 
+## Estado da frente (sessão 4b; atualizado em 19/10/2026; reler antes de continuar após compactação)
+
+**Decisões do dono (com data)**
+- 19/10: tudo o que está no desenho entra; não perguntar escopo.
+- 15/10 (Fase A): balão de dica do `bj-dica.js` só na Central; no resto, dica do navegador (`title`).
+- O smoke no navegador é do dono; a 4b foi autorizada a abrir a implementação no navegador (Playwright e
+  `scripts/central-demo.sh` na porta 8106, banco isolado `demo_agenda4b_*`) para comparar com o desenho.
+- PENDENTE (coordenador levou ao dono): os 23 registros antigos de auditoria de "Só eu" em produção. Não
+  mexer até a resposta.
+
+**Decisões do coordenador (19/10, sem o dono)**
+- Push: Messenger sem cron, cadeia de 60 s; chaves VAPID e worker na lista do dono.
+- Google: D1-D5 de `docs/specs/agenda-google.md`; cancelado no Google vira "cancelado" (não apaga);
+  Desconectar por LGPD art. 8º §5º; a mesma conta Google num escritório só (agenda pessoal não vaza).
+- "Só eu" escondido da auditoria (#81), antes do #78.
+- Acertos finais (§17): itens 1-6 e 8; o 7 removido; `.ics` fora; botão "Abrir na agenda" não entra
+  (o protótipo da Central de 05/10 descarta `acao`; o de 18/10 guarda em `ctx.acao` mas não desenha; fechado).
+
+**20/10 (coordenador):** o #86 e o #162 saíram de cima do Google (modelo novo do dono para a sincronia,
+78a/78b) e foram para a branch `agenda-final`, cortada do master, por cherry-pick um a um; o
+"Importado do Google Agenda." e a spec do Google ficam com o #78. Pilha atualizada com o master (sete camadas, suítes verdes); divergências da a7
+(§18) na camada nova `agenda-desenho`, sobre a `agenda-acertos`. Pendentes com o dono: o Google (regras
+decididas pelo coordenador contra o desenho) e a faixa de abas no topo. Quando o #89 entrar: colaboradores
+atribuíveis no modal.
+
+**Contratos com outras sessões**
+- Lembretes pelo parcial `templates/layout/_globais/lembretes.html.twig` (ponto de inclusão da frente
+  menu-do-usuario); `base.html.twig` não muda.
+- Bloco `AppAgenda` no `doctrine.yaml` logo depois de `App`.
+- ColaboradoresAtribuiveis (#69): aplicar no modal (participantes e avisados) quando entrar no master,
+  com teste de participante suspenso preservado.
+- Central sem dono: não mexer agora; o #61 (5d) tocou `central.js`.
+- O `Evento` muda de pasta na pilha (#63): ao trazer o master depois do #81, levar o
+  `implements ConteudoParticular` e os dois métodos para `App\Agenda\Entity\Evento`.
+
+**PRs e ordem de merge (pilha)**
+- #58 agenda-nova (base master) → #63 agenda-modal → #66 agenda-troca → #70 agenda-ajustes →
+  #73 agenda-lembretes → #76 agenda-push → #78 agenda-google (RASCUNHO até o #81 entrar) →
+  acertos finais (branch agenda-acertos, base #78, a abrir).
+- #81 auditoria-so-eu (base master, independente da pilha): entra antes do #78.
+
+**Fila de migrations (uma por vez, na fila do coordenador)**
+- #63: Version20261019125154 e Version20261019125854 (inclui o UPDATE do audit_log de produção, que o
+  coordenador leva ao dono).
+- #70: Version20261019135744. #76: Version20261019144101. #78: Version20261019170000.
+- #58, #66, #73, #81 e acertos: sem migration. Renomear o horário se outra migration entrar antes.
+
+**Pendências**
+- Acertos finais: suíte completa e revisão rodando; depois commit, push e PR sobre o #78.
+- Depois do #81 no master: trazer o master para a pilha e levar o `ConteudoParticular` (ver acima).
+- Depois do #69: ColaboradoresAtribuiveis.
+- Material do dono: chaves VAPID e worker (#76); cliente OAuth do Google e as duas variáveis (#78, §8).
+- Ponta a ponta do Google com conta real; iPhone real (push e toque longo).
+
+**Próximo passo:** fechar o PR de acertos finais; depois, só o ColaboradoresAtribuiveis quando o #69 entrar.
+
 ## 1. Inventário do desenho
 
 ### Visível
@@ -503,3 +559,86 @@ Cumpre a promessa do `bj-lembretes.js`, linha 3 (seção 15). Mesmos lembretes d
   2 h; a cadeia não se bifurca e reagenda com 60 s;
   desligado não envia; inscrição vencida é apagada; fuso do navegador (Manaus) muda a hora do aviso;
   inscrever valida https e base64url; cancelar só a própria.
+
+## 17. Acertos finais contra o desenho (conferência de 19/10/2026)
+
+Conferência do desenho inteiro contra as entregas #58 a #78 e #81 (98 itens). O que estava sem dono:
+
+- **Dica ao passar o mouse** nos chips do Mês e nos blocos de Semana/Dia (desenho L76 e L87): `title` com
+  título e hora. O desenho usa o balão do `bj-dica.js`; fora da Central vale a dica do navegador (decisão do
+  dono, Fase A, 15/10, registrada em `public/js/central-dica.js`).
+- **"Importado do Google Agenda."** no detalhe (L237): compromisso nascido no Google
+  (`CompromissoOutput::doGoogle`). O campo e o texto do detalhe já estão aqui, sempre falsos; quem os
+  preenche é a sincronia, que volta no reescopo do Google (78a, modelo novo do dono, 20/10/2026).
+- **Contagem por calendário** (L196): todos os compromissos da pessoa de cada tipo, em qualquer data
+  (`ContarMeusCompromissosUseCase`, devolvida em `contagens` com os compromissos), e não só os do período.
+  O da agenda antiga, sem tipo, conta no calendário em que aparece na grade (pela cor da legenda), pela mesma
+  regra (`CalendarioPelaCor`); no desenho não existe esse legado.
+- **Lista de @** reabre ao clicar no campo de observação (L118, `onClick=obsAuto`).
+- **Aviso do colega no Chat:** título "Agenda: <título>" e o texto com o resumo (L191). Na assinatura de
+  `NotificacaoService::criarNotificacao` (`$titulo`, `$url`, `$texto`), o título vai em 4º e o resumo em 6º;
+  até 20/10/2026 a Agenda os mandava trocados (o aviso saía com o resumo no título), corrigido aqui. O botão "Abrir na
+  agenda" (`acao` em L192) **não aparece no protótipo da Central**: `notificar()` em
+  `docs/design/claude-design-2026-10-05 (1)/bluejus-central.js:123-131` monta o aviso sem o campo `acao`, e
+  nenhum trecho desenha botão de ação no aviso; lá, como no sistema, o clique no aviso leva ao link. A
+  Central não muda (decisão do coordenador, 19/10/2026). **Conferido no zip do dono (19/10/2026), pendência fechada:** no
+  `bluejus-central.js` de 18/10 (`docs/design/redesign-19-10-26/`, 1.415 KB, completo), o
+  `BJCentral.notificar` guarda o `acao` em `ctx.acao` quando há link (L6644: `acao: e2.acao || 'Abrir'`),
+  mas nenhum trecho do protótipo lê `ctx.acao` nem desenha botão no aviso: o clique no aviso leva ao link,
+  como no sistema. O botão não entra. O 09 do zip é idêntico à cópia em `docs/design/agenda-vs-18-10-26/`.
+  O tipo `agenda` do mesmo protótipo (grupo atenção, `bi-calendar-event`, azul `#0a7aad`, nível 2, com som)
+  passa a valer para os avisos da Agenda na Central (`TiposDeAvisoDaCentral`; antes âmbar, nível 1). O som
+  da Central do sistema não depende do nível: toca quando sobe o total de não lidas (regra da Central).
+- **Data acrescentada:** "Incluído manualmente." (L218).
+- **Botão direito só no Mês** (célula, chip e rótulo do feriado), como no desenho; saiu das horas de
+  Semana/Dia (acréscimo sem registro, removido por decisão do coordenador).
+- **Menu pelo teclado e por toque longo** (prometido na seção 3): células e chips do Mês recebem foco
+  (Tab; navegação por setas fica para depois); Enter ou espaço fazem o clique; tecla Menu ou Shift+F10 abrem o menu junto do elemento; toque
+  parado de meio segundo abre o menu no iPhone (o Safari não dispara `contextmenu`), mexer o dedo cancela, e
+  o clique depois do toque longo não acontece; toque cancelado pelo sistema ou que vira arrastar não abre
+  o menu. Sem o balão de copiar do sistema nas células, só em tela de toque.
+- **Fora, por não aparecer na tela do desenho:** exportar e importar `.ics` (L167, L200-201) e o antigo
+  "Avisar alguém no Chat" (`equipe`, `eqAberto`, `eqBtn`, `pergResp`, L202-203, L231) existem só no script
+  do protótipo, sem botão no template.
+
+**Lembretes contra `docs/design/meu-perfil-18-10/bj-lembretes.js`** (além do registrado nas seções 15 e 16):
+- Corrigido: outras abas refazem os lembretes na hora quando a Agenda salva algo (o desenho ouve
+  `storage`; aqui a chave `bj-agenda-mudou`).
+- Acréscimo (o desenho não tem Service Worker): o clique no push foca a aba que já está no destino (a
+  Agenda ou a pasta); senão abre uma janela. Não leva uma aba de outra tela ao destino (formulário pela
+  metade).
+- Iguais ao desenho, sem mudança: perfis (rótulo, ícone, cor, notas, antecedência, dica), som, rótulo de
+  tempo, cartão (medidas, cores, animações, barra), ações, notificação, teste. Audiência pelo tipo do
+  prazo: no desenho é `/audi/i` sobre `tipo || título`, e no sistema o prazo sempre tem tipo.
+- Diferenças registradas (adaptação ao sistema real):
+  - "Sem lembrete" (0): o script do desenho avisaria na hora do início, mas a tela 09 rotula 0 como "Sem
+    lembrete"; vale a tela.
+  - Ícone das notificações: o favicon do sistema (`icons/favicon-32x32.png`); o `bluejus-simbolo-petroleo.png`
+    do desenho não existe no repositório.
+  - Destinos: `/pasta/{id}` e `/agenda#ev=ev-{id}-{dia}` (rotas reais) no lugar das páginas do protótipo.
+  - Chaves: `ag:<id>:<AAAA-MM-DDTHH:MM>` e `pz:<id do prazo>:<data>` (estáveis), observação vinda da
+    descrição (até 200 caracteres) e um lembrete por ocorrência de compromisso que se repete.
+  - "Hoje" dos prazos pela data do servidor (Brasília); prazos mudados em Pastas aparecem na próxima busca
+    (até 5 min), pois não há armazenamento compartilhado com as Pastas como no protótipo.
+  - Rótulo do cartão atualizado a cada 30 s ("Em 5 min" não fica parado depois de começar).
+  - Acessibilidade (`role=region`, `role=alert`, `aria-label`) e tema escuro, convenção do sistema.
+  - Push: som padrão do sistema operacional (o push não carrega o perfil de som).
+
+## 18. Divergências levantadas pela a7 (20/10/2026)
+
+Regra do dono: tudo o que está no desenho entra. Itens trazidos pelo coordenador (20/10/2026):
+
+- **Prazos cumpridos na grade** (L152): o desenho põe na Agenda todo prazo de pasta com data, sem filtrar
+  os cumpridos. A grade passa a usar `PastaPrazoRepository::doEscritorioNoPeriodo` (cumpridos ou não, pasta
+  fora da lixeira), e o cumprido vem com `status: concluido` (riscado na grade, "Concluído" no detalhe, como
+  o compromisso concluído). Os lembretes continuam com `abertosDoEscritorioNoPeriodo` (só os abertos). O
+  método novo já recebe `$pastasOcultas` (cadeado da pasta, #120, da b5): quem entrar por segundo liga o
+  `AcessoAPasta` nele. Os cartões do topo contam todo prazo da grade, como no desenho (L226-227).
+- **"Avisar no Chat" em todo item que não é data do sistema** (L238): já valia para compromisso de colega;
+  agora também para prazo e audiência de pasta (`POST /agenda/prazos/{id}/avisar`,
+  `AvisarPrazoNoChatUseCase`). O aviso vai pela Central, com o atalho para a pasta e o texto "📅 <nome>
+  marcou você em um prazo: <título> · <dia> · Pasta <NUP>". Só para quem vê as pastas (sem acesso, 404, como
+  o prazo, que nem aparece na grade). O prazo não guarda a lista "Avisados no Chat" (seria coluna nova na
+  pasta): avisar de novo avisa de novo.
+- **Ficam como estão** (coordenador, 20/10/2026): `.ics` e "Abrir na agenda" (sem botão no desenho),
+  Carnaval e Corpus Christi pela lei, e os ajustes de data que não mexem no Ponto.

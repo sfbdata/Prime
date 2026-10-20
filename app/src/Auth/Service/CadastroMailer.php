@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Auth\Service;
 
 use App\Auth\Entity\CadastroPendente;
+use App\Auth\Event\ConfirmacaoDeCadastroEnviada;
 use App\Entity\Auth\User;
 use App\Shared\Email\IdentidadeDeEmail;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
@@ -20,6 +22,7 @@ final class CadastroMailer
         private readonly Environment $twig,
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly IdentidadeDeEmail $identidadeDeEmail,
+        private readonly EventDispatcherInterface $eventos,
     ) {
     }
 
@@ -49,6 +52,10 @@ final class CadastroMailer
                 previous: $e,
             );
         }
+
+        // Depois do envio, para os "Últimos disparos" do Comercial (comercial-e-emails.md §3.5, `cad`). O ouvinte
+        // de lá captura qualquer falha: o cadastro nunca recebe erro por causa do registro.
+        $this->eventos->dispatch(new ConfirmacaoDeCadastroEnviada($cadastro->getEmail(), (string) $email->getSubject()));
     }
 
     /**

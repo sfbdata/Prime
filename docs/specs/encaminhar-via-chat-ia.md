@@ -21,6 +21,33 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
   (`despacho_pasta_id`, `despacho_tipo`; migration `Version20261020129000`) e toda leitura confere a pasta na hora
   (`LeituraDasMensagens`); o contrato novo da `MensagemOutput` está em §4.1. Também: conversa sem ninguém que receba é
   recusada, e o registro do Financeiro pede o financeiro de quem envia e de quem recebe.
+- **20/10, PR4a implementado (em revisão):** branch `encaminhar-menus-registros`, empilhada sobre `encaminhar-tela`.
+  O ↪ espelhado (D:1405, D:1936, D:2463) nos cartões de Dados (`registro_dados`), Detalhes (`registro_detalhes`) e
+  Financeiro (`registro_financeiro`), depois do Responder e antes da hora; o item "Encaminhar via Chat I.A" (`bi-send`)
+  no menu do registro de Dados e do Financeiro (D:6305, depois de Copiar texto; Destacar não existe), no ⋮ da
+  observação de Detalhes (D:6869, entre Copiar texto e Citar) e no ⋮ do arquivo do Financeiro (D:6958, `documento`,
+  depois de Copiar nome do arquivo; o Renomear do sistema fica entre ele e o e-mail). O clique dispara
+  `bj-central:despachar` (`public/js/pasta-encaminhar.js`); os itens de menu de registro clicam o ↪ do cartão.
+  `central_disponivel()` é lido uma vez por template; fora dele (vínculo inativo) e na lápide nada aparece. Quem só
+  vê a pasta também encaminha (é leitura). Pendente: smoke do dono.
+- **20/10, PR4d (explorador) implementado (em revisão):** branch `encaminhar-explorador`, empilhada sobre
+  `encaminhar-tela` (#126). "Encaminhar via Chat I.A" (ícone `bi-send`, D:5071) no menu de UM item do
+  `pasta-explorador.js`, logo depois de "Copiar caminho" e antes do favorito; o menu de vários não tem (o desenho também
+  não). A "pasta" do explorador é uma `PastaSecao`: vai como `secao` (id da seção); o arquivo, como `documento` (id do
+  `PastaDocumento`). Dispara `bj-central:despachar` com `{pastaId, tipo, itemId}` numéricos; classe
+  `js-explorador-encaminhar`. Some sem `window.BJCentral` e na lápide; item na lixeira não está na lista. O só leitor
+  também vê o item (basta ver a pasta; o servidor confere). A nota técnica do PR4d fica para outra fatia.
+- **20/10, PR4b implementado (em revisão):** branch `encaminhar-metas`, empilhada sobre `encaminhar-responsaveis`
+  (#128). O item "Encaminhar via Chat I.A" (`bi-send`) no ⋮ da meta da aba Metas (D:3737, tipo `meta`: depois de
+  "Editar nome", porque "Duplicar" não existe, e antes de "Copiar link"), no ⋮ do prazo do trilho "Próximos prazos"
+  da aba Dados (D:6561, logo depois de "Ver nas metas"). O clique dispara `bj-central:despachar` no próprio JS de
+  cada área (`pasta-metas.js`, `pasta-prazos.js`), com classes próprias (`.js-meta-encaminhar`,
+  `.js-prazo-encaminhar`) para não cruzar com o ouvinte dos registros do PR4a. **Minhas Metas (R223, MM-MENU-11) saiu
+  deste PR (20/10):** a b5 está redesenhando os cartões e a linha clicável em Minhas Metas
+  (`minhas-metas-desenho`); entra num PR próprio depois dela, como `<button>` dentro do `.dropdown-menu` (a linha
+  clicável ignora `a`, `button` e `.dropdown-menu`). `central_disponivel()` lido uma vez por template; sem a Central e na lápide nada aparece. **Desvio da decisão
+  9 (aprovado pelo orquestrador, mais preciso que a pasta):** o prazo do trilho leva o id real, não a pasta: a linha que é meta vai como `meta` (Tarefa.id) e o prazo
+  registrado como `prazo` (PastaPrazo.id), os dois tipos que o backend já relê (§3). Pendente: smoke do dono.
 
 ### Para o dono
 
@@ -51,7 +78,7 @@ Pontos do desenho (linha D: tipo):
 | 6958 | arquivo do Financeiro | documento |
 | 3072 | ⋮ do processo | processo |
 | 3737 | menu da meta | meta |
-| 6561 | ⋮ do prazo no trilho | meta (sem id) |
+| 6561 | ⋮ do prazo no trilho | meta (Tarefa.id) ou prazo (PastaPrazo.id) |
 | 5071 | menu do explorador | documento ou pasta |
 | 2658, 5641 | movimentação do Push | push |
 | 5632 | documento do PDF do processo | push (sem id) |

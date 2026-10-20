@@ -123,6 +123,7 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
             new Environment(new ArrayLoader(['auth/cadastro/email_confirmacao.html.twig' => '{{ nome }} {{ link }}'])),
             new UrlGenerator($rotas, new RequestContext(host: 'bluejus.test', scheme: 'https')),
             new IdentidadeDeEmail('BlueJus <nao-responda@bluejus.test>', 'infra@bluejus.test'),
+            new EventDispatcher(),
         );
     }
 

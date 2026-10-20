@@ -125,6 +125,24 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         ConviteDemanda::class,
         ConfiguracaoCentral::class,
 
+        // Comercial e e-mails (docs/specs/comercial-e-emails.md §3): dado do Master, de escopo plataforma, que cruza
+        // escritórios (envios, consentimentos, automações, ciclo da conta, varredura). O escritório, quando há, é uma
+        // coluna nullable (null = plataforma) escrita à mão em cada consulta SQL; o filtro de tenant esconderia o que
+        // o Master precisa ver e quebraria o envio pelo worker, que roda sem sessão.
+        \App\Comercial\Entity\EnvioDeEmail::class,
+        \App\Comercial\Entity\ConteudoDoEnvio::class,
+        \App\Comercial\Entity\FatoDeConsentimento::class,
+        \App\Comercial\Entity\ConfirmacaoDeEndereco::class,
+        \App\Comercial\Entity\AutomacaoDeEmail::class,
+        \App\Comercial\Entity\CicloDaConta::class,
+        \App\Comercial\Entity\VarreduraComercial::class,
+        // Fatia 2a (§8.2): os modelos próprios de campanha são do Master, de escopo plataforma, sem escritório.
+        \App\Comercial\Entity\ModeloDeCampanha::class,
+        // Fatia 2b (§8.4 e §8.5): as campanhas, os destinatários de cada execução e o controle do expansor são do
+        // Master, de escopo plataforma (a tabela não tem `tenant_id`), gravados pelo worker sem sessão.
+        \App\Comercial\Entity\CampanhaDeEmail::class,
+        \App\Comercial\Entity\DestinoDaCampanha::class,
+        \App\Comercial\Entity\ControleDoExpansor::class,
         // Marca da varredura do push da Agenda (entrega 5b): uma linha só, global, que garante uma cadeia
         // única de envio para todos os escritórios. Não guarda dado de escritório nenhum.
         \App\Agenda\Entity\VarreduraDePush::class,
@@ -134,6 +152,15 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // PLATAFORMA, ligada e desligada só pelo Master e válida para todas as contas ao mesmo tempo.
         // Uma linha por chave do catálogo, sem dado de escritório nem de cliente.
         RecursoEstado::class,
+
+        // Indicar o BlueJus (docs/specs/indicar-bluejus.md): plataforma. A indicação é da pessoa (quem indica), não do
+        // escritório: ela indica com ou sem escritório, e o Master lê todas. O escritório de origem é só para mostrar
+        // (SET NULL na purga). Toda consulta do lado do usuário filtra pelo id de quem indica.
+        \App\Indicacao\Entity\Indicacao::class,
+        \App\Indicacao\Entity\IndicacaoCodigo::class,
+        \App\Indicacao\Entity\IndicacaoConfig::class,
+        \App\Indicacao\Entity\IndicacaoPausa::class,
+        \App\Indicacao\Entity\IndicacaoAlerta::class,
     ];
 
     /**
@@ -152,8 +179,13 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 22 → 26 com a tela de entrada do desenho 10 (19/10/2026): ConfirmacaoEmail, CienciaPolitica, AjusteEntrada e
     // MensagemSuporte são anteriores a qualquer escritório (identidade do User e a tela de entrada única); justificado acima.
     // 26 → 27 com a marca global da varredura do push da Agenda (19/10/2026), justificada acima.
-    // 27 → 28 com a marca global da sincronia do Google Agenda (19/10/2026), justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 28;
+    // 27 → 34 com o Comercial e e-mails (19/10/2026): dado do Master, de escopo plataforma (envios, consentimentos,
+    // automações, ciclo da conta e varredura), justificado acima.
+    // 34 → 35 com a fatia 2a do Comercial (20/10/2026): `comercial_modelo`, modelos de campanha do Master (plataforma).
+    // 35 → 40 com o Indicar o BlueJus (19/10/2026): dado de plataforma, da pessoa e do Master, justificado acima.
+    // 40 → 43 com a fatia 2b do Comercial (20/10/2026): campanha, destinatário da campanha e controle do expansor (plataforma).
+    // 43 → 44 com a marca global da sincronia do Google Agenda (19/10/2026), justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 44;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

@@ -7,6 +7,7 @@ namespace App\Central\Service;
 use App\Auth\UseCase\EnviarMensagemSuporteUseCase;
 use App\Contribua\Service\AvisoAoMaster;
 use App\Entity\Notificacao;
+use App\Indicacao\Service\AvisoDeDisparoAlto;
 use App\Inteligencia\MessageHandler\ProcessarAnaliseDeInteligenciaHandler;
 use App\Pasta\UseCase\EnviarRelatorioSemProcessoUseCase;
 use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
@@ -35,7 +36,9 @@ final class TiposDeAvisoDaCentral
     {
         // O legado tem tipos gravados em maiúsculas (ex.: EVENTO_CRIADO): o mapa compara sem diferenciar.
         return match (strtolower($tipo)) {
-            AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO => ['grupo' => 'urgente', 'rotulo' => 'Alerta', 'icone' => 'bi-bell-fill', 'cor' => '#e8590c', 'nivel' => 3],
+            AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO,
+            // "Disparo alto de convites" do Indicar o BlueJus: no desenho é o tipo 'alerta' (bj-contas.js L126).
+            AvisoDeDisparoAlto::TIPO_NOTIFICACAO => ['grupo' => 'urgente', 'rotulo' => 'Alerta', 'icone' => 'bi-bell-fill', 'cor' => '#e8590c', 'nivel' => 3],
             Notificacao::TIPO_TAREFA_CRIADA => ['grupo' => 'metas', 'rotulo' => 'Nova meta', 'icone' => 'bi-clipboard2-plus', 'cor' => self::AZUL, 'nivel' => 2],
             Notificacao::TIPO_TAREFA_EM_REVISAO, Notificacao::TIPO_TAREFA_PENDENTE => ['grupo' => 'metas', 'rotulo' => 'Meta atualizada', 'icone' => 'bi-pencil-square', 'cor' => self::PETROLEO, 'nivel' => 1],
             Notificacao::TIPO_TAREFA_CONCLUIDA => ['grupo' => 'metas', 'rotulo' => 'Meta concluída', 'icone' => 'bi-check2-circle', 'cor' => self::VERDE, 'nivel' => 0],
@@ -44,7 +47,8 @@ final class TiposDeAvisoDaCentral
             Notificacao::TIPO_CENTRAL_DESPACHO => ['grupo' => 'atencao', 'rotulo' => 'Despacho', 'icone' => 'bi-person-check', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_DJEN_PUBLICACAO, Notificacao::TIPO_PUSH_PUBLICACAO_PASTA => ['grupo' => 'atencao', 'rotulo' => 'Publicação', 'icone' => 'bi-newspaper', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_PUSH_LINK_RENOVACAO => ['grupo' => 'atencao', 'rotulo' => 'Renovação', 'icone' => 'bi-arrow-clockwise', 'cor' => self::AMBAR, 'nivel' => 2],
-            Notificacao::TIPO_EVENTO_CRIADO, Notificacao::TIPO_EVENTO_CANCELADO => ['grupo' => 'atencao', 'rotulo' => 'Agenda', 'icone' => 'bi-calendar-event', 'cor' => self::AMBAR, 'nivel' => 1],
+            // Agenda: como o tipo `agenda` do bluejus-central.js de 18/10 (L12 e TIPOS): azul, nível 2.
+            Notificacao::TIPO_EVENTO_CRIADO, Notificacao::TIPO_EVENTO_CANCELADO => ['grupo' => 'atencao', 'rotulo' => 'Agenda', 'icone' => 'bi-calendar-event', 'cor' => self::AZUL, 'nivel' => 2],
             // Relatório de pastas sem processo (spec relatorio-processos-controladoria §4): o "Enviar à Controladoria" do desenho.
             EnviarRelatorioSemProcessoUseCase::TIPO_NOTIFICACAO => ['grupo' => 'atencao', 'rotulo' => 'Relatório', 'icone' => 'bi-file-earmark-bar-graph', 'cor' => self::AMBAR, 'nivel' => 2],
             // Contribua (desenho 08 / bluejus-central.js: tipo "contribua"): sugestão, apoio, motivo e pedido de espaço.

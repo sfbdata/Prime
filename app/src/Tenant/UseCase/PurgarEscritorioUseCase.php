@@ -76,8 +76,11 @@ use Psr\Log\LoggerInterface;
  */
 final class PurgarEscritorioUseCase
 {
-    /** Tabelas com coluna tenant_id que NÃO são apagadas na purga (retidas por decisão de produto). */
-    private const TABELAS_RETIDAS = ['audit_log'];
+    /**
+     * Tabelas com coluna tenant_id que NÃO são apagadas na purga (retidas por decisão de produto).
+     * comercial_consentimento: prova de consentimento, 5 anos depois do término (Política L379); tenant_id sem FK.
+     */
+    private const TABELAS_RETIDAS = ['audit_log', 'comercial_consentimento'];
 
     /**
      * Ordem de deleção (do filho para o pai), verificada contra o grafo de FKs do banco.
@@ -242,6 +245,11 @@ final class PurgarEscritorioUseCase
         // Descadastro de e-mail do escritório (Shared, "Não quero mais receber estes avisos"): FK de tenant
         // NO ACTION e nada a referencia. Sai com o escritório: sem ele não há quem envie.
         ['email_descadastro', 'tenant_id = :tenant'],
+        // Comercial (docs/specs/comercial-e-emails.md §3.2): o que um consumidor enviou com escopo deste escritório. FK
+        // de tenant NO ACTION; o conteúdo do envio cai junto (CASCADE). A prova de consentimento é retida (acima).
+        ['comercial_envio', 'tenant_id = :tenant'],
+        ['comercial_confirmacao_endereco', 'tenant_id = :tenant'],
+        ['comercial_ciclo_conta', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],
