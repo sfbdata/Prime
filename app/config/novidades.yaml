@@ -1,6 +1,15 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.7.0"
+  data: "2026-10-20"
+  itens:
+    - "Os lembretes da Agenda agora chegam como notificação mesmo com o BlueJus fechado, desde que você tenha permitido as notificações no navegador."
+    - "Quem cria a conta ou entra numa equipe recebe um e-mail de boas-vindas com os primeiros passos."
+    - "Agora dá para encaminhar um registro ou um arquivo do Financeiro a um colega pelo Chat I.A, direto do cartão ou do menu."
+    - "Agora dá para encaminhar uma meta ou um prazo a um colega pelo Chat I.A, direto do menu da meta ou do prazo, na pasta."
+    - "Em Minhas Metas, o menu de cada meta agora tem \"Encaminhar via Chat I.A\", para mandar a meta a um colega."
+    - "Na aba Metas da pasta, clique num responsável para abrir a conversa com ele no chat."
 - versao: "2.6.0"
   data: "2026-10-20"
   itens:
