@@ -7,8 +7,8 @@
   na pilha. Merge depois do #132.
 - Risco **MÉDIO, revisado como ALTO** (escopo de acesso de externo; toca a pré-condição do caso de uso que cria o
   `User` pelo convite e uma regra de conta que o Tenant reusa). Revisão da b5 em 20/10: não aprovado (B1), corrigido
-  em fa2f1524 e **aprovado** na re-revisão. Ressalva: `OfertarNovamente` está na guarda das vagas sem teste
-  funcional próprio (o mesmo ramo de Aprovar e Reabrir, testados). **Sem migration.**
+  em fa2f1524 e **aprovado** na re-revisão. A ressalva do `OfertarNovamente` sem teste funcional ficou fechada
+  (`testOfertarNovamenteComEscritorioForaDoAr`). **Sem migration.**
 - Origem: achado da 0d no #155 (barreira para escritório suspenso nas rotas `/tenant/{id}`). O Convidado não tem
   escritório na URL (`PREFIXO_SEM_ESCRITORIO`) e a barreira não o pega. Proposta aprovada pelo coordenador em
   20/10 (itens 1 a 5), com os itens 6 e 7 acrescentados por decisão dele (reversível).

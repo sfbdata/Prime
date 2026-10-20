@@ -317,6 +317,30 @@ final class CandidaturasDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
+    #[TestDox('oferta de escritório fora do ar: "Ofertar novamente" é recusado (403) e a vaga continua pausada')]
+    public function testOfertarNovamenteComEscritorioForaDoAr(): void
+    {
+        [$sede, $a] = [$this->criarTenant('Sede'), $this->criarTenant('Dono suspenso')];
+        $master = $this->criarMaster($sede);
+        $codigo = $this->divulgarEAprovar($this->criarUsuario($a, nome: 'Dono'), $a, $master, $sede, 'Oferta do suspenso');
+        // A oferta (minutos, quantidade) só o Master cria pela tela, sempre da Central; aqui ela é de um escritório.
+        $this->em()->getConnection()->executeStatement('UPDATE trabalho_externo_vaga SET oferta = true WHERE id = ?', [Vaga::idDoCodigo($codigo)]);
+        $this->em()->clear();
+        $this->logarComTenant($this->client, $master, $sede);
+        $this->postarJson($this->client, self::VAGAS . "/$codigo/acoes/pausar");
+        self::assertResponseIsSuccessful();
+        self::assertContains('ofertar', array_column($this->detalhe($codigo)['botoes'] ?? [], 'k'), 'premissa: no ar, "Ofertar novamente" aparece');
+
+        $a = $this->em()->find(Tenant::class, $a->getId());
+        $a->setIsActive(false);
+        $this->em()->flush();
+
+        $recusa = $this->postarJson($this->client, self::VAGAS . "/$codigo/acoes/ofertar");
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('O escritório que divulgou esta vaga está fora do ar. A vaga não pode ser publicada agora.', $recusa['mensagem']);
+        self::assertSame('pausada', $this->em()->getConnection()->fetchOne('SELECT situacao FROM trabalho_externo_vaga WHERE id = ?', [Vaga::idDoCodigo($codigo)]));
+    }
+
     /** @return list<array<string, mixed>> */
     private function listaDeVagas(): array
     {
