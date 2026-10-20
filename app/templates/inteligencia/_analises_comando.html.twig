@@ -1,6 +1,6 @@
 {# ============================================================================
    Lista de análises de UM comando ou relatório do drawer BlueJus IA numa pasta
-   (spec inteligencia-drawer-da-pasta, F1/F2). Irmã do `_analises_agente`: o
+   (spec inteligencia-drawer-da-pasta, F1/F2/F4). Irmã do `_analises_agente`: o
    mesmo cartão (`_analise_cartao_agente.html.twig`), com as análises do comando
    e as antigas, de antes dos comandos, do agente que `Comando::doAgenteLegado`
    põe aqui.
@@ -22,6 +22,6 @@
     {% for a in saida.analises %}
         {{ include('inteligencia/_analise_cartao_agente.html.twig', {a: a, pastaId: pastaId, podeVerMotivoTecnico: podeVerMotivoTecnico, hojeIa: hojeIa, iaPodeCriarTarefa: iaPodeCriarTarefa}, with_context = false) }}
     {% else %}
-        <p class="ia-ag-vazio" data-ia-vazio>{{ saida.comando.ehRelatorio ? 'Nenhum relatório gerado ainda.' : 'Nenhuma análise deste comando ainda.' }}</p>
+        <p class="ia-ag-vazio" data-ia-vazio>{{ saida.comando.ehRelatorio ? 'Nenhum relatório gerado ainda.' : (saida.comando.ehDaAbaDocumentos ? 'Nenhum índice gerado ainda.' : 'Nenhuma análise deste comando ainda.') }}</p>
     {% endfor %}
 </div>

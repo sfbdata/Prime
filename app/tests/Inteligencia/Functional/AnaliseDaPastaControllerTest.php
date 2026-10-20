@@ -573,7 +573,7 @@ final class AnaliseDaPastaControllerTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pastaA->getId()}/ia/agentes");
 
         self::assertResponseIsSuccessful();
-        self::assertSame(15, $crawler->filter('.ia-comando')->count());
+        self::assertSame(16, $crawler->filter('.ia-comando')->count(), '10 comandos, 5 relatórios e o Índice da aba Documentos');
         self::assertSame(0, $crawler->filter('.ia-cartao')->count());
         self::assertStringNotContainsString('Resumo do outro escritório.', (string) $client->getResponse()->getContent());
         self::assertStringContainsString('Gerar análise', $crawler->filter('.ia-comando[data-ia-comando="analisar_pasta"] .ia-cta')->text(), 'nem conta como análise desta pasta');
@@ -847,5 +847,166 @@ final class AnaliseDaPastaControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('De outro comando.', $html);
         self::assertStringNotContainsString('Excluída.', $html);
         self::assertStringNotContainsString('Do outro escritório.', $html);
+    }
+
+    // =========================================================================
+    // Índice inteligente da aba Documentos (spec inteligencia-drawer-da-pasta, F4)
+    // =========================================================================
+
+    /** @param list<int|string> $documentos */
+    private function solicitarIndice(KernelBrowser $client, int $pastaId, array $documentos): void
+    {
+        $client->request(
+            'POST',
+            "/pasta/{$pastaId}/ia/comandos/indice_documentos/analises",
+            ['_token' => $this->csrf($pastaId), 'documentos' => $documentos],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+    }
+
+    #[TestDox('Índice: 202 com a seleção; a linha é do Documental, com o comando e os ids ORDENADOS em contexto_resumo.documentosSelecionados')]
+    public function testIndiceComSelecao(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $a = $this->criarDocumento($tenant, $pasta, 'Procuracao');
+        $b = $this->criarDocumento($tenant, $pasta, 'Peticao inicial');
+        $this->criarDocumento($tenant, $pasta, 'Nao marcado');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->solicitarIndice($client, (int) $pasta->getId(), [(string) $b->getId(), (string) $a->getId(), (string) $b->getId()]);
+
+        self::assertResponseStatusCodeSame(202);
+        $json = $this->json($client);
+        self::assertSame('indice_documentos', $json['comando']);
+        self::assertSame('documental', $json['agente']);
+        $resumo = json_decode((string) $this->em()->getConnection()->fetchOne('SELECT contexto_resumo FROM inteligencia_analise WHERE id = :id', ['id' => $json['id']]), true);
+        self::assertSame([(int) $a->getId(), (int) $b->getId()], $resumo['documentosSelecionados']);
+        self::assertSame(2, $resumo['secoes']['documentos'], 'só os marcados entram na seção');
+        self::assertCount(1, $this->transporteAsync()->getSent());
+    }
+
+    #[TestDox('Índice: "nada novo" vale POR seleção: a mesma seleção depois de concluída volta 200; outra seleção abre outra análise (202)')]
+    public function testIndiceNadaNovoPorSelecao(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $a = $this->criarDocumento($tenant, $pasta, 'Procuracao');
+        $b = $this->criarDocumento($tenant, $pasta, 'Peticao inicial');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->solicitarIndice($client, (int) $pasta->getId(), [(int) $a->getId()]);
+        self::assertResponseStatusCodeSame(202);
+        $primeira = $this->em()->getRepository(\App\Inteligencia\Entity\AnaliseDeInteligencia::class)->find($this->json($client)['id']);
+        self::assertNotNull($primeira);
+        $this->concluirAnalise($primeira, 'Índice de um documento.');
+
+        $this->solicitarIndice($client, (int) $pasta->getId(), [(int) $a->getId()]);
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame($primeira->getId(), $this->json($client)['id']);
+        self::assertSame('Nada novo desde a última análise "Índice inteligente".', $this->json($client)['aviso']);
+
+        $this->solicitarIndice($client, (int) $pasta->getId(), [(int) $a->getId(), (int) $b->getId()]);
+        self::assertResponseStatusCodeSame(202);
+        self::assertNotSame($primeira->getId(), $this->json($client)['id']);
+        self::assertSame(2, $this->linhasDoComando((int) $pasta->getId(), 'indice_documentos'));
+    }
+
+    #[TestDox('Índice sem documento marcado → 422 selecao_invalida, nada persistido, e o limitador NÃO é gasto (recusando, seria 429)')]
+    public function testIndiceSemSelecao(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $this->criarDocumento($tenant, $pasta, 'Procuracao');
+        static::getContainer()->set('limiter.inteligencia_solicitar', new RateLimiterFactoryEspiao(aceita: false));
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->solicitarIndice($client, (int) $pasta->getId(), []);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('selecao_invalida', $this->json($client)['motivo']);
+        self::assertSame('Marque ao menos um documento para montar o índice.', $this->json($client)['mensagem']);
+        self::assertSame(0, $this->linhasDaPasta((int) $pasta->getId()));
+        self::assertCount(0, $this->transporteAsync()->getSent());
+    }
+
+    #[TestDox('Índice com id de documento de OUTRA pasta do escritório, de OUTRO escritório ou que não é número → 422, nada persistido')]
+    public function testIndiceComIdForaDaPasta(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [, $tenantB] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        [$outraPasta] = $this->criarPastaComPublicacao($tenant, '07099995520258070001');
+        [$pastaB] = $this->criarPastaComPublicacao($tenantB);
+        $this->ligarIaNoTenant($tenant, $user);
+        $meu = $this->criarDocumento($tenant, $pasta, 'Procuracao');
+        $daOutraPasta = $this->criarDocumento($tenant, $outraPasta, 'Da outra pasta');
+        $deOutroEscritorio = $this->criarDocumento($tenantB, $pastaB, 'Do outro escritorio');
+        $this->logarComTenant($client, $user, $tenant);
+
+        foreach ([(int) $daOutraPasta->getId(), (int) $deOutroEscritorio->getId(), 'abc'] as $intruso) {
+            $this->solicitarIndice($client, (int) $pasta->getId(), [(int) $meu->getId(), $intruso]);
+
+            self::assertResponseStatusCodeSame(422, 'id ' . $intruso);
+            self::assertSame('selecao_invalida', $this->json($client)['motivo']);
+            self::assertStringNotContainsString((string) $intruso, $this->json($client)['mensagem'], 'não confirma que o id existe');
+        }
+        self::assertSame(0, $this->linhasDaPasta((int) $pasta->getId()));
+        self::assertCount(0, $this->transporteAsync()->getSent());
+    }
+
+    #[TestDox('Índice de quem tem a aba Documentos da pasta oculta → 422 (a lista dele é vazia) e o painel não traz a aba')]
+    public function testIndiceComAbaDocumentosOculta(): void
+    {
+        $client = $this->cliente();
+        [$admin, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $admin);
+        $documento = $this->criarDocumento($tenant, $pasta, 'Procuracao');
+        $comum = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'modules.inteligencia.view']);
+        $this->ocultarAbaParaTodos($pasta, \App\Pasta\Entity\AbaDaPasta::Documentos, $admin);
+        $this->logarComTenant($client, $comum, $tenant);
+
+        $this->solicitarIndice($client, (int) $pasta->getId(), [(int) $documento->getId()]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, $this->linhasDaPasta((int) $pasta->getId()));
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/ia/agentes");
+        self::assertResponseIsSuccessful();
+        self::assertSame(0, $crawler->filter('[data-ia-aba-painel="documentos"]')->count());
+        self::assertSame(0, $crawler->filter('[data-ia-doc]')->count());
+        self::assertStringNotContainsString('procuracao.pdf', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('nos outros comandos `documentos[]` é ignorado: nem valida, nem recorta, nem entra no resumo')]
+    public function testOutroComandoIgnoraDocumentos(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request(
+            'POST',
+            "/pasta/{$pasta->getId()}/ia/comandos/identificar_riscos/analises",
+            ['_token' => $this->csrf((int) $pasta->getId()), 'documentos' => ['999999']],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        self::assertResponseStatusCodeSame(202);
+        self::assertSame(0, $this->contarNoBanco(
+            "SELECT count(*) FROM inteligencia_analise WHERE id = :id AND contexto_resumo->'documentosSelecionados' IS NOT NULL",
+            ['id' => $this->json($client)['id']],
+        ));
     }
 }

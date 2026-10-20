@@ -718,6 +718,39 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertSame(['push'], $this->reler($analise)->getContextoResumo()['abasOcultas']);
     }
 
+    #[TestDox('Índice (F4): o worker obedece a documentosSelecionados: o pedido leva só os marcados, nenhum outro nome, e diz que o conteúdo não foi lido')]
+    public function testIndiceLevaSoOsDocumentosSelecionados(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $marcado = $this->criarDocumento($tenant, $pasta, 'Procuracao marcada');
+        $this->criarDocumento($tenant, $pasta, 'Contrato social esquecido');
+        $outroMarcado = $this->criarDocumento($tenant, $pasta, 'Peticao marcada');
+        $selecao = [(int) $marcado->getId(), (int) $outroMarcado->getId()];
+        sort($selecao);
+        $analise = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::IndiceDosDocumentos, documentosSelecionados: $selecao);
+        $falso = new ProvedorFalso();
+        $falso->responderCom('{"resumo":"ok","pontos":[],"quem":"","texto":"CONCLUSÃO\n• ok"}');
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Concluida, $relida->getStatus());
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringContainsString('PEDIDO: ' . Comando::IndiceDosDocumentos->pedido(), $texto);
+        self::assertStringContainsString('O conteúdo dos arquivos não foi lido: não descreva o que está dentro deles.', $texto);
+        self::assertStringContainsString('procuracao-marcada.pdf', $texto);
+        self::assertStringContainsString('peticao-marcada.pdf', $texto);
+        self::assertStringNotContainsString('CONTRATO SOCIAL ESQUECIDO', mb_strtoupper($texto), 'documento não marcado não sai');
+        self::assertStringNotContainsString('contrato-social-esquecido', $texto);
+        self::assertStringNotContainsString('itens omitidos', $texto, 'o não marcado não vira "omitido por limite"');
+        self::assertSame(1, substr_count($texto, '<documentos>'));
+        self::assertSame($selecao, $relida->getContextoResumo()['documentosSelecionados'], 'o worker regrava o resumo com a mesma seleção');
+        self::assertSame(2, $relida->getContextoResumo()['secoes']['documentos']);
+    }
+
     #[TestDox('agente: processo com nivelSigilo > 0 → falhou "contexto bloqueado", provedor NÃO chamado (mesmo para o Documental)')]
     public function testAgenteSigiloBloqueia(): void
     {

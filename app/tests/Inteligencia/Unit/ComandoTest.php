@@ -91,6 +91,7 @@ final class ComandoTest extends TestCase
             'relatorio_prazos' => Agente::Prazos,
             'relatorio_risco' => Agente::Gestor,
             'relatorio_linha_do_tempo' => Agente::Processual,
+            'indice_documentos' => Agente::Documental,
         ];
 
         foreach (Comando::cases() as $comando) {
@@ -185,12 +186,46 @@ final class ComandoTest extends TestCase
         self::assertStringNotContainsString('—', $comando->rotulo() . (string) $comando->descricao());
     }
 
+    #[TestDox('F4: o "Índice inteligente" é do Documental, fica fora da grade de 10 e dos 5 relatórios, e só ele é da aba Documentos')]
+    public function testIndiceDosDocumentos(): void
+    {
+        $indice = Comando::daAbaDocumentos();
+
+        self::assertSame(Comando::IndiceDosDocumentos, $indice);
+        self::assertSame('indice_documentos', $indice->value);
+        self::assertSame('Índice inteligente', $indice->rotulo());
+        self::assertSame('bi-list-columns-reverse', $indice->icone());
+        self::assertSame(Agente::Documental, $indice->agente());
+        self::assertFalse($indice->ehRelatorio());
+        self::assertNull($indice->descricao());
+        self::assertNotContains($indice, Comando::comandos());
+        self::assertNotContains($indice, Comando::relatorios());
+        self::assertCount(10, Comando::comandos());
+        self::assertCount(5, Comando::relatorios());
+        self::assertSame([Comando::IndiceDosDocumentos], array_values(array_filter(Comando::cases(), static fn (Comando $c): bool => $c->ehDaAbaDocumentos())));
+    }
+
+    #[TestDox('F4: o pedido do Índice é o canônico do Documental restrito aos selecionados, com a frase de não leitura e sem dado da pasta')]
+    public function testPedidoDoIndice(): void
+    {
+        $pedido = Comando::IndiceDosDocumentos->pedido();
+
+        self::assertStringStartsWith('Monte um índice inteligente dos documentos selecionados', $pedido);
+        self::assertStringContainsString('documento, data, tipo, relevância, processo relacionado, providência', $pedido);
+        self::assertStringContainsString('O conteúdo dos arquivos não foi lido: não descreva o que está dentro deles.', $pedido);
+        self::assertStringNotContainsString('<', $pedido, 'nenhuma tag delimitadora no pedido: os documentos vão no bloco do contexto');
+        self::assertDoesNotMatchRegularExpression('/\bleia\b|\bler\b|\bleitura\b|\bOCR\b/iu', $pedido);
+    }
+
     #[TestDox('doAgenteLegado: cada agente antigo cai num comando, e agentesLegados é o inverso')]
     public function testDoAgenteLegado(): void
     {
         self::assertSame(Comando::AnalisarPasta, Comando::doAgenteLegado(Agente::Gestor));
         self::assertSame(Comando::ProcessoParado, Comando::doAgenteLegado(Agente::Processual));
-        self::assertSame(Comando::RaioX, Comando::doAgenteLegado(Agente::Documental));
+        // F4: a análise antiga do Documental (índice pelos metadados) aparece no "Índice inteligente", não mais no Raio-X.
+        self::assertSame(Comando::IndiceDosDocumentos, Comando::doAgenteLegado(Agente::Documental));
+        self::assertSame([], Comando::RaioX->agentesLegados());
+        self::assertSame([Agente::Documental], Comando::IndiceDosDocumentos->agentesLegados());
         self::assertSame(Comando::VerificarPrazos, Comando::doAgenteLegado(Agente::Prazos));
         self::assertSame(Comando::RelatorioPasta, Comando::doAgenteLegado(Agente::Relatorios));
         self::assertSame(Comando::AnalisarHistorico, Comando::doAgenteLegado(Agente::Cliente));

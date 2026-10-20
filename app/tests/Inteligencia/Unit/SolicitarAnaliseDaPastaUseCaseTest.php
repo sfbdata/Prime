@@ -21,6 +21,7 @@ use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\ContextoVazioException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\PastaNaoEncontradaException;
+use App\Inteligencia\Exception\SelecaoDeDocumentosInvalidaException;
 use App\Inteligencia\Message\ProcessarAnaliseDeInteligencia;
 use App\Inteligencia\Prompt\PromptDoAgente;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
@@ -32,7 +33,10 @@ use App\Inteligencia\Service\ProvedorDeLinguagem;
 use App\Inteligencia\Service\ProvedorNaoConfigurado;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Inteligencia\UseCase\SolicitarAnaliseDaPastaUseCase;
+use App\Pasta\Entity\AbaDaPasta;
+use App\Pasta\Entity\AbaOcultaDaPasta;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\PastaRepository;
 use App\Processo\Entity\Processo;
 use App\Service\PermissionChecker;
@@ -597,5 +601,166 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
         self::assertSame(Agente::Prazos, $salvas[0]->getAgente());
         self::assertArrayNotHasKey('comando', $salvas[0]->getContextoResumo());
         self::assertNull($saida->comando);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Índice inteligente da aba Documentos (spec inteligencia-drawer-da-pasta, F4)
+    // ---------------------------------------------------------------------------------------
+
+    private function documentoDaPasta(int $id, string $categoria = PastaDocumento::CATEGORIA_DEMAIS): PastaDocumento
+    {
+        $d = new PastaDocumento();
+        $d->setTenant($this->tenant);
+        $d->setPasta($this->pasta);
+        $d->setTitulo('Documento ' . $id);
+        $d->setCategoria($categoria);
+        $d->setCaminhoArquivo('x/doc-' . $id . '.pdf');
+        $d->setNomeOriginal('doc-' . $id . '.pdf');
+        $d->setMimeType('application/pdf');
+        $d->setTamanhoBytes(100);
+        DefineId::em($d, $id);
+
+        return $d;
+    }
+
+    /** @param list<string> $documentos */
+    private function inputDoIndice(array $documentos): SolicitarAnaliseDaPastaInput
+    {
+        return SolicitarAnaliseDaPastaInput::doComando(self::PASTA_ID, Comando::IndiceDosDocumentos, $documentos);
+    }
+
+    private function semCriar(): callable
+    {
+        return static function (): void {
+            self::fail('seleção inválida não chega ao limitador');
+        };
+    }
+
+    private function esperarSelecaoInvalida(SolicitarAnaliseDaPastaInput $input, string $trecho): void
+    {
+        $this->analises->expects($this->never())->method('salvar');
+        $this->analises->expects($this->never())->method('findPendenteDoAlvo');
+
+        try {
+            $this->sut()->executar($input, $this->user, $this->tenant, $this->semCriar());
+            self::fail('deveria ter recusado a seleção');
+        } catch (SelecaoDeDocumentosInvalidaException $e) {
+            self::assertSame('selecao_invalida', $e->motivo());
+            self::assertStringContainsString($trecho, $e->getMessage());
+        }
+        self::assertSame([], $this->despachadas);
+    }
+
+    #[TestDox('Índice: seleção válida → Documental, ids ordenados e sem repetição em documentosSelecionados, e a seção leva só os marcados')]
+    public function testIndiceSelecaoValida(): void
+    {
+        $this->dados->documentos = [$this->documentoDaPasta(3), $this->documentoDaPasta(2), $this->documentoDaPasta(1)];
+        $this->analises->method('findPendenteDoAlvo')->willReturn(null);
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturn(null);
+        $salvas = $this->capturarSalva();
+
+        $saida = $this->sut()->executar($this->inputDoIndice(['3', '1', '3']), $this->user, $this->tenant);
+
+        /** @var AnaliseDeInteligencia $gravada */
+        $gravada = $salvas[0];
+        self::assertSame(Comando::IndiceDosDocumentos, $gravada->getComando());
+        self::assertSame(Agente::Documental, $gravada->getAgente());
+        $resumo = $gravada->getContextoResumo();
+        self::assertSame([1, 3], $resumo['documentosSelecionados']);
+        self::assertSame(2, $resumo['secoes']['documentos']);
+        self::assertArrayNotHasKey('documentos', $resumo['omitidas'], 'os não marcados não são "omitidos por limite"');
+        self::assertSame('indice_documentos', $saida->comando);
+        self::assertCount(1, $this->despachadas);
+    }
+
+    #[TestDox('Índice: a seleção muda o hash ("nada novo" vale por seleção)')]
+    public function testIndiceSelecaoMudaOHash(): void
+    {
+        $this->dados->documentos = [$this->documentoDaPasta(2), $this->documentoDaPasta(1)];
+        $this->analises->method('findPendenteDoAlvo')->willReturn(null);
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturn(null);
+        $salvas = $this->capturarSalva();
+
+        $this->sut()->executar($this->inputDoIndice(['1']), $this->user, $this->tenant);
+        $this->sut()->executar($this->inputDoIndice(['1', '2']), $this->user, $this->tenant);
+        $this->sut()->executar($this->inputDoIndice(['2', '1']), $this->user, $this->tenant);
+
+        self::assertNotSame($salvas[0]->getContextoHash(), $salvas[1]->getContextoHash());
+        self::assertSame($salvas[1]->getContextoHash(), $salvas[2]->getContextoHash(), 'a ordem do clique não importa');
+    }
+
+    #[TestDox('Índice: seleção vazia → SelecaoDeDocumentosInvalidaException, sem consultar idempotência, sem limitador, nada persistido')]
+    public function testIndiceSelecaoVazia(): void
+    {
+        $this->dados->documentos = [$this->documentoDaPasta(1)];
+
+        $this->esperarSelecaoInvalida($this->inputDoIndice([]), 'Marque ao menos um documento');
+    }
+
+    #[TestDox('Índice: id que não é da pasta (outra pasta ou outro escritório: a fonte, com tenant e pasta, não o devolve) → recusa')]
+    public function testIndiceIdDeOutraPasta(): void
+    {
+        $this->dados->documentos = [$this->documentoDaPasta(1)];
+
+        $this->esperarSelecaoInvalida($this->inputDoIndice(['1', '999']), 'não está mais na lista');
+    }
+
+    #[TestDox('Índice: valor que não é id inteiro → recusa')]
+    public function testIndiceIdNaoNumerico(): void
+    {
+        $this->dados->documentos = [$this->documentoDaPasta(1)];
+
+        $this->esperarSelecaoInvalida($this->inputDoIndice(['1', 'abc']), 'não está mais na lista');
+    }
+
+    #[TestDox('Índice: contrato de honorários com o Financeiro oculto para quem pede (oculto pelas abas) → recusa')]
+    public function testIndiceIdOculto(): void
+    {
+        $this->dados->documentos = [$this->documentoDaPasta(2, PastaDocumento::CATEGORIA_CONTRATO), $this->documentoDaPasta(1)];
+        $this->regrasDeAba = [AbaOcultaDaPasta::paraTodaAEquipe($this->tenant, $this->pasta, AbaDaPasta::Financeiro, $this->user, new \DateTimeImmutable())];
+
+        $this->esperarSelecaoInvalida($this->inputDoIndice(['2']), 'não está mais na lista');
+    }
+
+    #[TestDox('Índice: aba Documentos oculta para quem pede → nenhum documento pode ser marcado')]
+    public function testIndiceAbaDocumentosOculta(): void
+    {
+        $this->dados->documentos = [$this->documentoDaPasta(1)];
+        $this->regrasDeAba = [AbaOcultaDaPasta::paraTodaAEquipe($this->tenant, $this->pasta, AbaDaPasta::Documentos, $this->user, new \DateTimeImmutable())];
+
+        $this->esperarSelecaoInvalida($this->inputDoIndice(['1']), 'não está mais na lista');
+    }
+
+    #[TestDox('Índice: documento fora dos LIMITE_DOCUMENTOS mais recentes (fora da lista da aba) → recusa; o último da lista vale')]
+    public function testIndiceIdForaDoLimite(): void
+    {
+        $limite = MontadorDeContextoDaPasta::LIMITE_DOCUMENTOS;
+        $documentos = [];
+        for ($id = $limite + 1; $id >= 1; --$id) {
+            $documentos[] = $this->documentoDaPasta($id); // mais recente primeiro: o id 1 é o (limite+1)-ésimo
+        }
+        $this->dados->documentos = $documentos;
+
+        $this->esperarSelecaoInvalida($this->inputDoIndice(['1']), 'não está mais na lista');
+
+        $this->setUp();
+        $this->dados->documentos = $documentos;
+        $this->analises->method('findPendenteDoAlvo')->willReturn(null);
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturn(null);
+        $salvas = $this->capturarSalva();
+        $this->sut()->executar($this->inputDoIndice(['2']), $this->user, $this->tenant);
+        self::assertSame([2], $salvas[0]->getContextoResumo()['documentosSelecionados']);
+    }
+
+    #[TestDox('outro comando: `documentos` é ignorado (sem validação, sem recorte, sem chave no resumo)')]
+    public function testOutroComandoIgnoraDocumentos(): void
+    {
+        $this->analises->method('findPendenteDoAlvo')->willReturn(null);
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturn(null);
+        $salvas = $this->capturarSalva();
+
+        $this->sut()->executar(SolicitarAnaliseDaPastaInput::doComando(self::PASTA_ID, Comando::IdentificarRiscos, ['999']), $this->user, $this->tenant);
+
+        self::assertArrayNotHasKey('documentosSelecionados', $salvas[0]->getContextoResumo());
     }
 }
