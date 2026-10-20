@@ -107,6 +107,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         ClientePF::class,
         ClientePJ::class,
         ClienteDocumento::class,
+        // Histórico do cadastro (E12 3d, 19/10): ela MESMA é o registro (quem, quando, quais campos), só com rótulos,
+        // nunca valores. Cliente não é Auditavel de propósito: o AuditLogSubscriber poria CPF e RG em claro no audit_log.
+        \App\Cliente\Entity\ClienteHistorico::class,
         Processo::class,
         DocumentoProcesso::class,
         ParteProcesso::class,

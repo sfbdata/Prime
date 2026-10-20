@@ -361,6 +361,8 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         // Cliente + documento (bloqueador intermediário)
         $cli = $this->ins('cliente', $this->dadosCliente($t));
         $this->ins('cliente_documento', ['titulo' => 'Doc', 'categoria' => 'geral', 'caminho_arquivo' => $hex(), 'nome_original' => 'd.pdf', 'mime_type' => 'application/pdf', 'tamanho_bytes' => 1, 'uploaded_at' => $ts, 'cliente_id' => $cli, 'tenant_id' => $t]);
+        // Histórico do cadastro (E12 3d): cai com o cliente, mas a FK de tenant é NO ACTION.
+        $this->ins('cliente_historico', ['em' => $ts, 'texto' => 'Fulano alterou nome', 'tenant_id' => $t, 'cliente_id' => $cli, 'autor_id' => $u]);
 
         // Cobranças (Etapa 1): carteira→cliente, objeto→carteira, vínculo→pessoa+objeto. Exercita a
         // ordem FK-safe da purga (carteira apagada antes de cliente) e o isolamento entre escritórios.
