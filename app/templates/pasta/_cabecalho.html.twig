@@ -15,7 +15,7 @@
    processo, Trocar responsável, Copiar link, Imprimir resumo, Fixar nos
    favoritos, Arquivar/Desarquivar, Excluir) vivem no menu ⋮, com a tarja azul
    do desenho. O que o desenho mostra e o sistema ainda não tem (Mover carteira,
-   Link do Push, Acompanhar, Cadeado, Intelligence, foto do cliente) NÃO é
+   Acompanhar, Cadeado, Intelligence, foto do cliente) NÃO é
    renderizado: item inerte ensina o usuário a desconfiar do menu inteiro.
    "Fixar nos favoritos" (seção Preferências) é real: POST
    `pasta_favorito_alternar`.
@@ -252,6 +252,14 @@
                             data-link="{{ url('pasta_show', {id: pasta.id}) }}">
                         <i class="bi bi-link"></i><span class="js-copiar-link-rotulo">Copiar link da pasta</span>
                     </button>
+                    {# Link externo do Push ([EXP] L.1104, `mPushLink`): abre o #modalLinkExternoPush
+                       (pasta/_push_link_externo.html.twig). O selo conta os links ATIVOS; quem o
+                       preenche é o pasta-push-link.js, com o GET da lista, ao abrir este menu. #}
+                    <button type="button" class="ps-pop-item js-ppl-abrir" role="menuitem"
+                            aria-haspopup="dialog" aria-controls="modalLinkExternoPush">
+                        <i class="bi bi-broadcast"></i><span>Link externo do Push</span>
+                        <span class="ppl-badge js-ppl-badge-ativos ps-num" hidden></span>
+                    </button>
                     {# O clique abre a janela Imprimir (pasta-impressao.js, EDT-001): prévia, opções,
                        Imprimir e Copiar texto, e "Baixar PDF" gerado no servidor (Dompdf, rota
                        `pasta_resumo_pdf`). O href fica como caminho sem JS e para o Ctrl+clique: a
@@ -484,7 +492,11 @@
                         type="button" role="tab"
                         aria-controls="{{ aba.painel }}"
                         aria-selected="{{ loop.first ? 'true' : 'false' }}"
-                        title="{{ aba.rotulo }}{% if pend %} · {{ pend.txt }}{% endif %}">
+                        title="{{ aba.rotulo }}{% if pend %} · {{ pend.txt }}{% endif %}"
+                        {#- Botão direito (ou Shift+F10 / tecla de menu) na aba Push abre o menu
+                            "PUSH PROCESSUAL" do link externo ([EXP] L.1241 `onContextMenu`,
+                            `abaMenu` L.4409). Quem escuta é o pasta-push-link.js. #}
+                        {%- if aba.id == 'push' %} data-ppl-menu="pushLinkMenu" aria-keyshortcuts="Shift+F10"{% endif %}>
                     {# A barra some na aba ativa (CSS, pela classe `.active` que o
                        Bootstrap alterna): quem está olhando a aba já vê a pendência. #}
                     {% if pend %}<span class="ps-aba-pend" aria-hidden="true"></span>{% endif %}
