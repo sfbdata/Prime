@@ -2741,6 +2741,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const cartao = regAberto.cartao;
             if (item.classList.contains('js-reg-copiar')) { copiarTextoReg(item, cartao); return; }
             const seletor = item.classList.contains('js-reg-responder') ? '.btn-responder-msg-pasta'
+                : item.classList.contains('js-reg-encaminhar') ? ':scope > .ps-anotacao-topo > .js-encaminhar'
                 : item.classList.contains('js-reg-editar') ? '.ps-anotacao-acoes .btn-editar-msg-pasta'
                 : item.classList.contains('js-reg-excluir') ? '.ps-anotacao-acoes .btn-excluir-msg-pasta'
                 : null;
@@ -3084,6 +3085,19 @@ document.addEventListener('DOMContentLoaded', function () {
         const alvoId   = ehResposta ? data.respostaA : data.id;
         const alvoNome = ehResposta ? (data.respostaANome ?? '') : (data.autorNome ?? '');
 
+        /* "Encaminhar via Chat I.A" (D:1405): o id da pasta vem do atributo que o Twig põe na
+           lista (só com a Central e fora da lápide); o do registro é o número do servidor. */
+        const encaminharPasta = Number(list.dataset.encaminharPasta || 0);
+        const btnEncaminhar   = encaminharPasta
+            ? `<button type="button" class="ps-anotacao-acao ps-anotacao-acao--responder js-encaminhar"
+                        title="Encaminhar via Chat I.A" aria-label="Encaminhar via Chat I.A"
+                        data-encaminhar-pasta="${encaminharPasta}"
+                        data-encaminhar-tipo="registro_dados"
+                        data-encaminhar-id="${Number(data.id)}">
+                    <i class="bi bi-reply-fill" style="display:inline-block;transform:scaleX(-1)"></i>
+                </button>`
+            : '';
+
         /* Tem de sair a MESMA estrutura que o _dados_anotacoes.html.twig gera no
            servidor: se divergirem, o registro recém-enviado aparece com outra
            cara — defeito que só se vê depois de enviar, nunca ao abrir a tela. */
@@ -3121,6 +3135,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         data-resposta-nome="${esc(alvoNome || 'Autor desconhecido')}"${ehResposta ? ` data-resposta-autor-id="{{ app.user ? app.user.id : '' }}" data-resposta-autor-nome="${esc(data.autorNome ?? '')}"` : ''}>
                     <i class="bi bi-reply-fill"></i>
                 </button>
+                ${btnEncaminhar}
                 <span class="ps-anotacao-data ps-num" title="${dataHora}">${horaRotulo}</span>
                 <button type="button" class="ps-reg-menu-btn js-reg-menu" title="Mais ações do registro"
                         aria-label="Mais ações do registro" aria-haspopup="menu" aria-expanded="false"
@@ -4455,4 +4470,6 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-presenca-autor.js') }}" defer></script>
 {# Selo "CPF duplicado" em todas as linhas depois de vincular/desvincular sem recarregar (desenho 02, dc L6527). #}
 <script src="{{ asset('js/pasta-clientes-duplicados.js') }}" defer></script>
+{# "Encaminhar via Chat I.A" (↪ dos registros e ⋮ do arquivo do Financeiro): dispara `bj-central:despachar`. #}
+<script src="{{ asset('js/pasta-encaminhar.js') }}"></script>
 {% endblock %}

@@ -21,6 +21,15 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
   (`despacho_pasta_id`, `despacho_tipo`; migration `Version20261020129000`) e toda leitura confere a pasta na hora
   (`LeituraDasMensagens`); o contrato novo da `MensagemOutput` está em §4.1. Também: conversa sem ninguém que receba é
   recusada, e o registro do Financeiro pede o financeiro de quem envia e de quem recebe.
+- **20/10, PR4a implementado (em revisão):** branch `encaminhar-menus-registros`, empilhada sobre `encaminhar-tela`.
+  O ↪ espelhado (D:1405, D:1936, D:2463) nos cartões de Dados (`registro_dados`), Detalhes (`registro_detalhes`) e
+  Financeiro (`registro_financeiro`), depois do Responder e antes da hora; o item "Encaminhar via Chat I.A" (`bi-send`)
+  no menu do registro de Dados e do Financeiro (D:6305, depois de Copiar texto; Destacar não existe), no ⋮ da
+  observação de Detalhes (D:6869, entre Copiar texto e Citar) e no ⋮ do arquivo do Financeiro (D:6958, `documento`,
+  depois de Copiar nome do arquivo; o Renomear do sistema fica entre ele e o e-mail). O clique dispara
+  `bj-central:despachar` (`public/js/pasta-encaminhar.js`); os itens de menu de registro clicam o ↪ do cartão.
+  `central_disponivel()` é lido uma vez por template; fora dele (vínculo inativo) e na lápide nada aparece. Quem só
+  vê a pasta também encaminha (é leitura). Pendente: smoke do dono.
 
 ### Para o dono
 
