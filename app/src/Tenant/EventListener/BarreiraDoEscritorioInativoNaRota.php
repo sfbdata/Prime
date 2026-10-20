@@ -44,6 +44,16 @@ final class BarreiraDoEscritorioInativoNaRota
         'escritorio_excluir',
     ];
 
+    /**
+     * Rotas com o escritório no caminho que ficam FORA da barreira, de propósito (R4). O teste de arquitetura
+     * recusa toda rota `/tenant/{...}` ou `/escritorio/{...}` que não esteja coberta pelo `tenantId`, pelo R2
+     * ou por esta lista.
+     */
+    public const ROTAS_FORA_DA_BARREIRA = [
+        // Sair tira o próprio acesso, e tirar acesso nunca trava.
+        'escritorio_sair',
+    ];
+
     public function __construct(
         private readonly Security $security,
         private readonly TenantRepository $tenants,

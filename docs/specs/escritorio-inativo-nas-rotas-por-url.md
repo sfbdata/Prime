@@ -30,10 +30,15 @@ fora do escritório.
 - o parâmetro `id`, nas rotas cujo caminho começa no próprio escritório: `app_jornada_tenant_get`,
   `app_jornada_tenant_save` (`/tenant/{id}/jornada`) e `escritorio_excluir` (`/escritorio/{id}/excluir`).
 
-**R3.** O Master (`RegraDosMasters::ehMaster`) passa. Ele é quem suspende, reativa e decide a exclusão, e
-precisa ver a conta. A barreira da sessão (C12, sem bypass) continua como está.
+**R3.** O Master (`RegraDosMasters::ehMaster`, o único jeito de detectá-lo aqui) passa, inclusive vinculado ao
+escritório suspenso e agindo pela URL com outro escritório na sessão (regra do dono: "o Master é dono do sistema e
+pode fazer tudo"). A barreira da sessão (C12) continua barrando o Master sem exceção: a diferença entre as duas
+vai ao pacote do dono.
 
 **R4.** `escritorio_sair` fica fora. Sair de um escritório tira o próprio acesso, e tirar acesso nunca trava.
+Toda exceção fica numa lista explícita (`ROTAS_FORA_DA_BARREIRA`), com o motivo: um teste percorre o roteador e
+falha para toda rota `/tenant/{...}` ou `/escritorio/{...}` que não esteja coberta pelo `tenantId`, pelo R2 ou
+por essa lista.
 
 **R5.** A recusa:
 - chamada de script (XHR, `Accept: application/json` ou corpo JSON) recebe **403 JSON** `{erro}`;
@@ -66,7 +71,9 @@ controller lembrar de checar.
 ## Fora
 
 - Item 7 do #125 (`existePendente` em toda página): anotado pelo coordenador.
-- Perguntas (a), (b) e (c) da revisão: vão ao pacote do dono.
+- Perguntas (a), (b) e (c) da revisão: vão ao pacote do dono. Notas da revisão cruzada da b5: o primário de
+  conta suspensa não exclui o escritório, só o Master; `trabalho_externo_solicitacao` (escritório no corpo, só
+  Master) fica fora, junto com o Trabalho Externo.
 - Conta "suspensa a pedido" do #125: o Tenant segue ativo, então esta barreira não a cobre. A lacuna está
   registrada no próprio #125.
 - Trabalho Externo: o Convidado age, sem escritório, sobre a demanda de um escritório suspenso (rotas

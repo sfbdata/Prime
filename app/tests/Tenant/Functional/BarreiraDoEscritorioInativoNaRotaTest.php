@@ -129,6 +129,7 @@ final class BarreiraDoEscritorioInativoNaRotaTest extends JusPrimeWebTestCase
 
         self::assertFalse($this->foiRecusadaPelaBarreira());
         self::assertStringNotContainsString('Escritório A suspenso', (string) $this->client->getResponse()->getContent());
+        self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode(), 'o controller recusa o ex-membro como sempre');
     }
 
     #[TestDox('fetch com Accept: application/json (sem XHR), como as abas de jornada e home office: 403 JSON')]
@@ -154,14 +155,36 @@ final class BarreiraDoEscritorioInativoNaRotaTest extends JusPrimeWebTestCase
         }
     }
 
-    #[TestDox('O Master passa com o escritório suspenso (é quem suspende e reativa)')]
+    #[TestDox('Toda rota /tenant/{...} ou /escritorio/{...} está coberta pelo tenantId, pelo R2 ou pela lista explícita de fora (uma rota nova com {id} quebra este teste)')]
+    public function testNenhumaRotaDeEscritorioFicaSemDecisao(): void
+    {
+        $colecao = static::getContainer()->get(RouterInterface::class)->getRouteCollection();
+        $semDecisao = [];
+        foreach ($colecao->all() as $nome => $rota) {
+            if (preg_match('#^/(tenant|escritorio)/\{#', $rota->getPath()) !== 1) {
+                continue;
+            }
+            $coberta = str_contains($rota->getPath(), '{tenantId}')
+                || in_array($nome, BarreiraDoEscritorioInativoNaRota::ROTAS_COM_ID_DO_ESCRITORIO, true)
+                || in_array($nome, BarreiraDoEscritorioInativoNaRota::ROTAS_FORA_DA_BARREIRA, true);
+            if (!$coberta) {
+                $semDecisao[] = $nome . ' ' . $rota->getPath();
+            }
+        }
+
+        self::assertSame([], $semDecisao, 'rota com o escritório no caminho sem decisão: entra no R2 ou na lista de fora, com o motivo');
+        foreach (BarreiraDoEscritorioInativoNaRota::ROTAS_FORA_DA_BARREIRA as $nome) {
+            self::assertNotNull($colecao->get($nome), $nome);
+        }
+    }
+
+    #[TestDox('O Master VINCULADO ao escritório suspenso age pela URL com outro escritório na sessão (regra do dono: o Master pode tudo)')]
     public function testMasterPassa(): void
     {
-        $master = $this->criarUsuario('Master do Sistema', ['ROLE_SUPER_ADMIN'], []);
+        $master = $this->criarUsuario('Master do Sistema', ['ROLE_SUPER_ADMIN'], [$this->escritorioA, $this->escritorioB]);
         $this->escritorioA->setIsActive(false);
         $this->em->flush();
-        $this->client->loginUser($master);
-        $this->marcarTermosAceitos($this->client);
+        $this->logarComTenant($this->client, $master, $this->escritorioB);
 
         $this->client->request('GET', "/tenant/{$this->escritorioA->getId()}/users");
 
