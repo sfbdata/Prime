@@ -40,11 +40,11 @@ use Symfony\Component\Routing\RouterInterface;
 final class BarreiraDoCadeadoListener
 {
     /**
-     * O que quem está `Oculto` ainda alcança: a tela trancada e o pedido de acesso (da tela e da Lista).
+     * O que quem está `Oculto` ainda alcança: a tela trancada e o pedido de acesso (da tela, da Lista e da busca).
      *
      * @var list<string>
      */
-    public const ROTAS_DO_OCULTO = ['pasta_show', 'pasta_acesso_pedir', 'expediente_pasta_pedir_acesso'];
+    public const ROTAS_DO_OCULTO = ['pasta_show', 'pasta_acesso_pedir'];
 
     /**
      * Escritas que quem está em `Visualizar` ainda faz, cada uma pelo seu motivo (K4):
@@ -53,7 +53,7 @@ final class BarreiraDoCadeadoListener
      *    última visita à Timeline inteligente) e `expediente_pasta_destaque` (destaque de linha na Lista);
      *  - leituras por POST: `pasta_documentos_zip` (baixar o que se vê; a seleção vai no corpo) e
      *    `inteligencia_analise_registro` (grava só a linha de auditoria de baixar ou imprimir a análise);
-     *  - o pedido: `pasta_acesso_pedir` e `expediente_pasta_pedir_acesso` ("Pedir para editar").
+     *  - o pedido: `pasta_acesso_pedir` ("Pedir para editar"; a mesma rota serve à Lista e à busca).
      *
      * Ficam de FORA (recusadas): `pasta_push_lida` e `inteligencia_analise_lida`/`_nao_lida`, que marcam
      * para o escritório inteiro (lida por quem, quando), não para a pessoa.
@@ -68,7 +68,6 @@ final class BarreiraDoCadeadoListener
         'pasta_documentos_zip',
         'inteligencia_analise_registro',
         'pasta_acesso_pedir',
-        'expediente_pasta_pedir_acesso',
     ];
 
     /**

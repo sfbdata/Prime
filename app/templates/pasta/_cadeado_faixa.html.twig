@@ -1,12 +1,11 @@
 {# ============================================================================
-   Faixas do cadeado sob o cabeçalho da pasta (spec pasta-cadeado K4, K5).
+   Faixa de somente visualização sob o cabeçalho da pasta (spec pasta-cadeado K4).
 
-   1. Somente visualização (desenho 02 L1295-1297, `cd.soVer`): quem está em `Visualizar`. "Pedir para
+   Somente visualização (desenho 02 L1295-1297, `cd.soVer`): quem está em `Visualizar`. "Pedir para
       editar" envia o pedido; com pedido aguardando, "Pedido enviado". O servidor recusa toda escrita
       (BarreiraDoCadeadoListener); os botões de escrita somem porque `can_access_resource(edit)` é falso.
-   2. Pedidos de acesso pendentes, para quem configura (K5). O desenho decide o pedido na conversa com a
-      BlueJus IA (`cadResolver`), que não existe no sistema: a notificação traz a pessoa até aqui
-      (`#cadeado-pedidos`), com os três botões do desenho e o mesmo estilo da faixa acima.
+   Os pedidos de acesso pendentes, para quem configura, são um componente à parte:
+   pasta/_cadeado_pedidos.html.twig.
 
    Contexto: `pasta`, `cad` (CadeadoNaTelaOutput).
    ============================================================================ #}
@@ -22,26 +21,5 @@
     {%- if cad.aguardando -%}
         <span style="flex-shrink:0;font-size:12px;font-weight:600"><i class="bi bi-hourglass-split"></i> Pedido enviado</span>
     {%- endif -%}
-</div>
-{% endif %}
-{% if cad and cad.podeConfigurar and cad.pedidosPendentes is not empty %}
-<div id="cadeado-pedidos" style="display:flex;flex-direction:column;gap:6px;margin:-12px 0 14px">
-    {% for p in cad.pedidosPendentes %}
-        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:9px;padding:8px 12px;border-radius:4px;background:#eef5fa;color:#0b5f86;font-size:12.5px;font-weight:600" role="status">
-            <i class="bi bi-key"></i>
-            <span style="flex:1;min-width:0">{{ p.nome }} pediu acesso à pasta para {{ p.nivel }} ({{ p.hora }}).{% if p.motivo %} Motivo: "{{ p.motivo }}"{% endif %}</span>
-            {% for d in [
-                {v: 'editar', l: 'Liberar para editar', st: 'background:#0a7aad;color:#fff'},
-                {v: 'visualizar', l: 'Liberar só visualizar', st: 'background:#e3f0f8;color:#0b5f86'},
-                {v: 'recusar', l: 'Recusar', st: 'background:transparent;color:#a3232b'},
-            ] %}
-                <form method="post" action="{{ path('pasta_acesso_decidir', {id: pasta.id, pedidoId: p.id}) }}" style="display:contents">
-                    <input type="hidden" name="_token" value="{{ csrf_token('pasta_cadeado_' ~ pasta.id) }}">
-                    <input type="hidden" name="decisao" value="{{ d.v }}">
-                    <button type="submit" style="flex-shrink:0;height:28px;padding:0 12px;border:none;border-radius:4px;{{ d.st }};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">{{ d.l }}</button>
-                </form>
-            {% endfor %}
-        </div>
-    {% endfor %}
 </div>
 {% endif %}

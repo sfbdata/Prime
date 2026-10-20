@@ -229,8 +229,16 @@
         if (e.target.closest('.js-sigilo-pedir')) {
             var id = j.getAttribute('data-pasta-id');
             j.hidden = true;
-            postar(j.getAttribute('data-url-pedir').replace('/0/', '/' + id + '/')).then(function (r) {
-                if (!r.ok) { avisar(r.j.erro || 'Não foi possível pedir acesso'); return; }
+            /* A rota do pedido é a da pasta (pasta_acesso_pedir), com o token da própria pasta, que vem na linha
+               (`data-csrf-pedir`, só nas linhas ocultas). Erro: `{status: 'erro', erro, mensagem}`. */
+            var linhaDoPedido = document.querySelector('[data-pasta-id="' + id + '"][data-csrf-pedir]');
+            var corpoDoPedido = new URLSearchParams({ nivel: 'editar', _token: linhaDoPedido ? linhaDoPedido.getAttribute('data-csrf-pedir') : '' });
+            fetch(j.getAttribute('data-url-pedir').replace('/0/', '/' + id + '/'), {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: corpoDoPedido.toString()
+            }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (dados) { return { ok: r.ok, j: dados }; }); }).then(function (r) {
+                if (!r.ok) { avisar(r.j.mensagem || r.j.erro || 'Não foi possível pedir acesso'); return; }
                 avisar(r.j.avisados > 0 ? 'Pedido enviado ao usuário primário' : 'Nenhum usuário primário ativo no escritório para receber o pedido');
             }, function () { avisar('Falha de conexão ao pedir acesso'); });
         }

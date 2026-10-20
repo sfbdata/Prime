@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Functional;
 
 use App\Djen\Entity\PublicacaoDjen;
+use App\Entity\Audit\AuditLog;
+use App\Entity\Tarefa\TarefaMensagem;
+use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Entity\Tarefa\Tarefa;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\NivelDeAcesso;
@@ -65,6 +68,7 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
         $c     = $this->client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
         $linha = $c->filter('#tabelaPastas tbody > tr[data-pasta-id="' . $oculta->getId() . '"]');
         self::assertSame('1', $linha->attr('data-oculta'));
+        self::assertNotEmpty($linha->attr('data-csrf-pedir'), 'o pedido da Lista leva o token da pasta');
         self::assertStringContainsString('JOANA SIGILOSA', $linha->filter('td[data-col="cliente"]')->text());
         self::assertCount(1, $linha->filter('td[data-col="nup"] > i.js-cadeado'));
         self::assertSame('', trim($linha->filter('td[data-col="acao"]')->text()), 'sem ação');
@@ -179,6 +183,46 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
         $html = (string) $this->client->getResponse()->getContent();
         self::assertStringContainsString('Meta da pasta livre', $html);
         self::assertStringNotContainsString('Meta da pasta trancada', $html);
+
+        // As contagens do topo também deixam de contar a meta da pasta oculta.
+        $acesso   = static::getContainer()->get(AcessoAPasta::class);
+        $ocultas  = $acesso->idsOcultosPara($ana, (int) $tenant->getId());
+        $metas    = static::getContainer()->get(\App\Tarefa\Repository\TarefaRepository::class);
+        self::assertSame(1, $metas->contarPorAba($ana, $ocultas)[\App\Tarefa\Enum\AbaMetas::RESPONSAVEL->value]);
+        self::assertSame(2, $metas->contarPorAba($ana)[\App\Tarefa\Enum\AbaMetas::RESPONSAVEL->value], 'sem o cadeado seriam duas');
+        self::assertSame(1, $metas->contarPainelMinhasMetas($ana, $ocultas)['sem_prazo']);
+        $trilho = $metas->contarPessoasDoTrilho($ana, \App\Tarefa\Enum\AbaMetas::RESPONSAVEL, $ocultas);
+        self::assertSame(1, $trilho[0]->abertas);
+    }
+
+    #[TestDox('D3 metas da equipe: a meta da pasta oculta para quem olha não entra na lista nem no total')]
+    public function testMetasDaEquipe(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $gestora = $this->criarColaborador($tenant, 'Gestora', ['modules.expediente.view', 'resources.pasta.view', 'modules.bi.view']);
+        $ana     = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view']);
+        $oculta  = $this->criarPasta($tenant);
+        $livre   = $this->criarPasta($tenant);
+        foreach ([[$oculta, 'Meta equipe trancada'], [$livre, 'Meta equipe livre']] as [$pasta, $titulo]) {
+            $meta = new Tarefa();
+            $meta->setTitulo($titulo);
+            $meta->setDescricao('Descrição');
+            $meta->setPasta($pasta);
+            $meta->setTenant($tenant);
+            $meta->setCriadoPor($primario);
+            $meta->addResponsavel($ana);
+            $this->em()->persist($meta);
+        }
+        $this->em()->flush();
+        $this->trancar($oculta, $primario);
+        $this->entrar($gestora, $tenant);
+
+        $this->client->request('GET', '/tarefas/equipe?status=todas');
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('Meta equipe livre', $html);
+        self::assertStringNotContainsString('Meta equipe trancada', $html);
     }
 
     // ── D4 ─────────────────────────────────────────────────────────────
@@ -205,6 +249,59 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
         $this->entrar($primario, $tenant);
         $html = (string) $this->client->request('GET', '/auditoria?entity=' . urlencode(Pasta::class))->html();
         self::assertStringContainsString('<strong>prioridade</strong>', $html);
+    }
+
+    #[TestDox('D4 estendida: linhas da meta, da resposta da meta e da análise da IA de pasta oculta saem sem o conteúdo, e o desfazer é recusado')]
+    public function testAuditoriaDasEntidadesLigadasAPasta(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $auditora = $this->criarColaborador($tenant, 'Ana Auditora', ['modules.expediente.view', 'admin.audit.view']);
+        $oculta   = $this->criarPasta($tenant);
+        $meta = new Tarefa();
+        $meta->setTitulo('Meta qualquer');
+        $meta->setDescricao('Descrição');
+        $meta->setPasta($oculta);
+        $meta->setTenant($tenant);
+        $meta->setCriadoPor($primario);
+        $this->em()->persist($meta);
+        $this->em()->flush();
+        $this->trancar($oculta, $primario);
+
+        $linhas = [
+            'meta'     => $this->linhaDeAuditoria($tenant, Tarefa::class, (string) $meta->getId(), ['changes' => ['titulo' => ['from' => 'Meta qualquer', 'to' => 'CONTEUDO SECRETO DA META']]]),
+            'resposta' => $this->linhaDeAuditoria($tenant, TarefaMensagem::class, '999999', ['after' => ['conteudo' => 'CONTEUDO SECRETO DA RESPOSTA', 'tarefa' => ['id' => (string) $meta->getId()]]], 'create'),
+            'analise'  => $this->linhaDeAuditoria($tenant, AnaliseDeInteligencia::class, '999998', ['after' => ['resumo' => 'CONTEUDO SECRETO DA ANALISE', 'alvoTipo' => 'pasta', 'alvoId' => $oculta->getId()]], 'create'),
+        ];
+        $this->entrar($auditora, $tenant);
+
+        $html = (string) $this->client->request('GET', '/auditoria')->html();
+        self::assertResponseIsSuccessful();
+        foreach (['META', 'RESPOSTA', 'ANALISE'] as $segredo) {
+            self::assertStringNotContainsString('CONTEUDO SECRETO DA ' . $segredo, $html, $segredo);
+        }
+        self::assertSame(3, substr_count($html, 'Pasta trancada pelo usuário primário'));
+
+        $this->client->request('POST', '/auditoria/' . $linhas['meta']->getId() . '/desfazer', ['_token' => 'TOKEN_audit_desfazer_' . $linhas['meta']->getId()]);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->entrar($primario, $tenant);
+        $html = (string) $this->client->request('GET', '/auditoria')->html();
+        self::assertStringContainsString('CONTEUDO SECRETO DA META', $html, 'o primário vê tudo');
+    }
+
+    /** @param array<string, mixed> $diff */
+    private function linhaDeAuditoria(\App\Entity\Tenant\Tenant $tenant, string $classe, string $id, array $diff, string $acao = 'update'): AuditLog
+    {
+        $linha = (new AuditLog())
+            ->setAction($acao)
+            ->setEntityClass($classe)
+            ->setEntityId($id)
+            ->setChanges(['diff' => $diff, 'context' => []])
+            ->setTenantId($tenant->getId());
+        $this->em()->persist($linha);
+        $this->em()->flush();
+
+        return $linha;
     }
 
     // ── D5 ─────────────────────────────────────────────────────────────

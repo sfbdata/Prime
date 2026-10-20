@@ -9,8 +9,6 @@ use App\Entity\Tarefa\Tarefa;
 use App\Tarefa\DTO\MinhasMetasOutput;
 use App\Tarefa\Enum\AbaMetas;
 use App\Tarefa\Repository\TarefaRepository;
-use App\Pasta\Entity\Pasta;
-use App\Pasta\Service\AcessoAPasta;
 use App\Tarefa\Service\AgrupadorDeMetas;
 
 /**
@@ -26,8 +24,8 @@ use App\Tarefa\Service\AgrupadorDeMetas;
  * **Por quê:** a tela unia dois papéis numa lista só, e quem delega perdia a própria fila de
  * trabalho dentro do que tinha delegado. Ver `docs/specs/minhas-metas-abas.md`.
  *
- * **Cadeado** (spec pasta-cadeado D3): meta de pasta oculta pelo cadeado para o usuário não entra na
- * lista. As contagens do topo e das abas continuam sendo as do banco.
+ * **Cadeado** (spec pasta-cadeado D3): meta de pasta oculta pelo cadeado para o usuário (`$pastasOcultas`,
+ * de `AcessoAPasta::idsOcultosPara()`) não entra na lista, nas contagens das abas, nos KPIs nem no trilho.
  *
  * **Erros:** não lança. Aba desconhecida cai no padrão (`Sou responsável`) — é uma tela de
  * leitura, e derrubar a página por um parâmetro estranho na URL seria pior que ignorá-lo.
@@ -39,7 +37,6 @@ final class ListarMinhasMetasUseCase
     public function __construct(
         private readonly TarefaRepository $repository,
         private readonly AgrupadorDeMetas $agrupador,
-        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
@@ -48,6 +45,7 @@ final class ListarMinhasMetasUseCase
      * @param bool $soAListagem  recarga parcial (XHR do filtro): o topo da tela não é
      *                           redesenhado, então as 8 contagens dele seriam calculadas e
      *                           jogadas fora — a cada tecla digitada na busca.
+     * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
     public function executar(
         User $usuario,
@@ -55,8 +53,9 @@ final class ListarMinhasMetasUseCase
         array $filtros,
         bool $modoLista = false,
         bool $soAListagem = false,
+        array $pastasOcultas = [],
     ): MinhasMetasOutput {
-        $metas = $this->semAsDasPastasOcultas($usuario, $this->repository->findParaMinhasMetas($usuario, $aba, $filtros));
+        $metas = $this->repository->findParaMinhasMetas($usuario, $aba, $filtros, $pastasOcultas);
 
         $ids        = array_map(static fn (Tarefa $m): int => (int) $m->getId(), $metas);
         $marcadores = $this->repository->carregarMarcadoresDaLista($usuario, $ids);
@@ -64,30 +63,15 @@ final class ListarMinhasMetasUseCase
         return new MinhasMetasOutput(
             aba: $aba,
             grupos: $this->agrupador->agrupar($metas, $aba),
-            contagensPorAba: $soAListagem ? [] : $this->repository->contarPorAba($usuario),
-            kpis: $soAListagem ? self::KPIS_VAZIOS : $this->repository->contarPainelMinhasMetas($usuario),
+            contagensPorAba: $soAListagem ? [] : $this->repository->contarPorAba($usuario, $pastasOcultas),
+            kpis: $soAListagem ? self::KPIS_VAZIOS : $this->repository->contarPainelMinhasMetas($usuario, $pastasOcultas),
             filtros: $filtros,
             modoLista: $modoLista,
             // O trilho não é desenhado no modo lista — não vale pagar duas consultas por ele.
-            pessoas: $modoLista ? [] : $this->repository->contarPessoasDoTrilho($usuario, $aba),
+            pessoas: $modoLista ? [] : $this->repository->contarPessoasDoTrilho($usuario, $aba, $pastasOcultas),
             acompanhadas: $marcadores['acompanhadas'],
             mensagensPorMeta: $marcadores['mensagens'],
             numerosNaPasta: $this->repository->numerosNaPasta($ids),
         );
-    }
-
-    /**
-     * @param Tarefa[] $metas
-     *
-     * @return Tarefa[]
-     */
-    private function semAsDasPastasOcultas(User $usuario, array $metas): array
-    {
-        $niveis = $this->acessoAPasta->niveisEmLote($usuario, array_map(static fn (Tarefa $m): Pasta => $m->getPasta(), $metas));
-
-        return array_values(array_filter(
-            $metas,
-            static fn (Tarefa $m): bool => ($niveis[(int) $m->getPasta()->getId()] ?? null)?->podeVer() !== false,
-        ));
     }
 }

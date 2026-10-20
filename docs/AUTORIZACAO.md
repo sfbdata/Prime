@@ -510,18 +510,20 @@ Expediente pergunta ao `AcessoAPasta::podeConfigurar()`.
    pasta (de qualquer método).
 3. Fora da pasta (spec §5): a Lista, a busca, o CSV e a tela do processo mostram da pasta oculta só
    o número e o cliente (D1); a busca de pastas do agente de IA também (D2); o Push global e as
-   Minhas Metas não mostram o que é dela, e qualquer cadeado desliga o link externo do Push (D3); a
-   auditoria do escritório mostra a linha sem o conteúdo e sem "desfazer" (D4); a imagem embutida em
-   peça dela é recusada (D5); pasta com cadeado sai do sync do Drive (D6).
+   Minhas Metas e as metas da equipe não mostram nem contam o que é dela, e qualquer cadeado desliga o
+   link externo do Push (D3); a auditoria do escritório mostra sem o conteúdo e sem "desfazer" as linhas
+   da pasta, das entidades dela (`App\Pasta\Entity\*`), da meta e da resposta da meta e das análises da
+   BlueJus IA da pasta (D4); a imagem embutida em peça dela é recusada (D5); pasta com cadeado sai do
+   sync do Drive (D6).
 
 **Precedência com o "ocultar aba"** (#68): são dois eixos e os dois só subtraem. O cadeado é o teto da
 pasta inteira; a aba oculta é **organização** e tira abas dentro do que o cadeado permite. Com
 `Oculto`, a aba não importa (a pasta toda está fechada); com `Visualizar`, as abas visíveis ficam em
 leitura; com `Editar`, vale só o que a aba oculta tirar. Quem configura os dois é o mesmo grupo.
 
-**Ainda não cobre:** a tela de metas da equipe (`/tarefas/equipe`, módulo `bi`) e as contagens do
-topo das Minhas Metas continuam contando as metas da pasta oculta; a janela do cliente
-(`ClienteResumoController`) segue escondendo inteira a pasta que a pessoa não pode abrir.
+**Ainda não cobre:** na auditoria, `CasoCobranca`, `NotaTecnica` e `Notificacao` (que citam pasta mas são
+da Cobrança, do processo e da pessoa); a janela do cliente (`ClienteResumoController`) segue escondendo
+inteira a pasta que a pessoa não pode abrir.
 
 ---
 

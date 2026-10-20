@@ -328,4 +328,30 @@ final class PastaCadeadoControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Pasta trancada', $c->filter('.ps-page')->text());
         self::assertCount(1, $c->filter('#psMenuAcoes'));
     }
+
+    #[TestDox('a decisão é um endpoint JSON, para outro front (o chat) chamar o mesmo; a faixa dos pedidos é um parcial próprio')]
+    public function testDecidirPorJson(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $ana   = $this->criarColaborador($tenant);
+        $pasta = $this->criarPasta($tenant);
+        $this->trancar($pasta, $primario);
+        $this->entrar($ana, $tenant);
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/acesso/pedidos', ['nivel' => 'visualizar', '_token' => 'TOKEN_pasta_acesso_' . $pasta->getId()]);
+        $pedidoId = json_decode((string) $this->client->getResponse()->getContent(), true)['id'];
+
+        $this->entrar($primario, $tenant);
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertCount(3, $c->filter('#cadeado-pedidos[data-cadeado-pedidos] .js-cadeado-pedido form.js-cadeado-decidir'));
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/acesso/pedidos/' . $pedidoId . '/decidir', ['decisao' => 'visualizar', '_token' => 'TOKEN_pasta_cadeado_' . $pasta->getId()]);
+
+        self::assertResponseIsSuccessful();
+        $json = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertSame('ok', $json['status']);
+        self::assertSame('Restrito', $json['selo']);
+
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/acesso/pedidos/' . $pedidoId . '/decidir', ['decisao' => 'recusar', '_token' => 'TOKEN_pasta_cadeado_' . $pasta->getId()]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Este pedido já foi atendido.', json_decode((string) $this->client->getResponse()->getContent(), true)['mensagem']);
+    }
 }

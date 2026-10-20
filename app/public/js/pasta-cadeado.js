@@ -107,10 +107,4 @@
         }
         if (e.key === 'Escape') { e.preventDefault(); fechar(); }
     });
-
-    // Chegou pelo aviso do pedido (`#cadeado-pedidos`): a faixa de decisão já está na tela; só rola até ela.
-    if (window.location.hash === '#cadeado-pedidos') {
-        var faixa = document.getElementById('cadeado-pedidos');
-        if (faixa) { faixa.scrollIntoView({ block: 'center' }); }
-    }
 }());

@@ -60,6 +60,7 @@
         podeEditarPasta: podeEditarPasta,
     }) }}
     {{ include('pasta/_cadeado_faixa.html.twig', {pasta: pasta, cad: cad}) }}
+    {{ include('pasta/_cadeado_pedidos.html.twig', {pasta: pasta, cad: cad}) }}
 
 
             <style>
@@ -4390,6 +4391,7 @@ document.addEventListener('DOMContentLoaded', function () {
 {# Link externo do Push: menu da aba, modal e painel de acessos. Depois do pasta-dialogos.js (confirmarPs/avisarPs). #}
 <script src="{{ asset('js/pasta-push-link.js') }}"></script>
 <script src="{{ asset('js/pasta-cadeado.js') }}"></script>
+<script src="{{ asset('js/pasta-cadeado-pedidos.js') }}"></script>
 {# "Próximos prazos" (E12b): novo, editar, cumprir e excluir prazo ou audiência. #}
 <script src="{{ asset('js/pasta-prazos.js') }}"></script>
 {# Andamento da pasta em fases (E12b). #}

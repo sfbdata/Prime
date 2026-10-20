@@ -28,6 +28,14 @@ Frente `pasta-cadeado` · base `origin/master` · risco **MÉDIO** (permissão p
 **Produção (20/10):** 0 pastas trancadas, 0 `resource_access` de pasta e 0 pedidos de acesso, em 1.214 pastas.
 Nenhum comportamento atual muda para ninguém.
 
+**A confirmar pelo dono:** no desenho a decisão do pedido de acesso é no Chat I.A; a faixa de pedidos na pasta é
+provisória. Ela é um componente isolado para ser levada ao chat: parcial `pasta/_cadeado_pedidos.html.twig`, módulo
+`public/js/pasta-cadeado-pedidos.js` (só chama `pasta_acesso_decidir`) e a decisão inteira no
+`DecidirPedidoDeAcessoUseCase` e no endpoint JSON (XHR), que o chat pode chamar.
+
+**Pedido pela Lista:** a janela "Pasta N protegida" pede pela rota da pasta (`pasta_acesso_pedir`, com o token da
+própria pasta na linha, `data-csrf-pedir`); a rota antiga `expediente_pasta_pedir_acesso` saiu.
+
 **Decidido:** D3 foi confirmada pela coordenação em 20/10. Cadeado = restrição; ocultar aba = organização.
 
 ## 1. Fontes
@@ -126,12 +134,15 @@ configura os dois é o mesmo grupo (K1).
 - **D1, janela do cliente:** o `ClienteResumoController` já esconde inteira a pasta que a pessoa não pode
   abrir; com o teto, a pasta oculta também some dali (mais restritivo que D1). Sugestões da Nova Pasta só
   mostram nomes de cliente, que D1 permite.
-- **D3, metas:** a lista das Minhas Metas tira a meta da pasta oculta; as contagens do topo e a tela de metas
-  da equipe (`/tarefas/equipe`) ainda contam. Para quem só visualiza, as rotas de escrita da meta da pasta
-  são recusadas (a meta tem `getPasta()` e entra na barreira).
-- **K5, onde o primário decide:** o desenho decide na conversa com a BlueJus IA, que não existe no sistema.
-  O aviso no sino leva à pasta (`#cadeado-pedidos`), onde uma faixa no estilo da de somente visualização
-  traz os três botões do desenho. É a convenção do link externo do Push (o pedido de renovação leva à aba).
+- **D3, metas:** a meta da pasta oculta sai das Minhas Metas (lista, contagens das abas, KPIs do topo e trilho)
+  e de `/tarefas/equipe` (lista e total), pelos ids de `idsOcultosPara()`. Para quem só visualiza, as rotas
+  de escrita da meta da pasta são recusadas (a meta tem `getPasta()` e entra na barreira).
+- **D4, entidades cobertas:** `App\Pasta\Entity\*`, `Tarefa`, `TarefaMensagem` e `AnaliseDeInteligencia` com alvo
+  `pasta` (linha sem o conteúdo e sem desfazer, também no servidor). Fora: `CasoCobranca` (Cobrança),
+  `NotaTecnica` (processo) e `Notificacao` (pessoal).
+- **K5, onde o primário decide (a confirmar pelo dono):** o desenho decide na conversa com a BlueJus IA, que não
+  existe no sistema. O aviso no sino leva à pasta (`#cadeado-pedidos`), onde uma faixa PROVISÓRIA, no estilo
+  da de somente visualização, traz os três botões do desenho (componente isolado, ver "Estado da frente").
 - **K5, quem pode pedir:** quem veria a pasta se ela estivesse livre (`canAccessResourceIgnoringPastaLock`);
   quem nem assim veria recebe 403. O pedido avisa os primários ativos e os Masters com vínculo ativo no
   escritório.
@@ -157,6 +168,8 @@ configura os dois é o mesmo grupo (K1).
   - estados "Pedido enviado às HH:MM. Aguardando o usuário primário." e "O usuário primário não liberou o pedido
     anterior. Você pode pedir de novo.".
 - Faixa de somente visualização (L1295-1297) com "Pedir para editar".
+- Pedidos de acesso pendentes, para quem configura: **a confirmar pelo dono**, no desenho a decisão é no Chat
+  I.A; a faixa na pasta é provisória (`pasta/_cadeado_pedidos.html.twig` + `pasta-cadeado-pedidos.js`).
 - Na Lista do Expediente, a janela "Pasta N protegida" da 5d passa a refletir o nível. A pessoa com `Visualizar`
   abre a pasta normalmente; com `Oculto`, vê a janela com "Pedir acesso".
 

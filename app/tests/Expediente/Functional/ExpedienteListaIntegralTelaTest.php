@@ -83,7 +83,7 @@ final class ExpedienteListaIntegralTelaTest extends JusPrimeWebTestCase
         // Modais do desenho: marcador com as 10 cores e o sigilo.
         self::assertCount(10, $c->filter('#expMkModal .exp-mk-cores > button.exp-mk-cor'));
         self::assertCount(1, $c->filter('#expMkModal select#expMkPai'));
-        self::assertCount(1, $c->filter('#expSigilo[data-url-pedir] .js-sigilo-pedir'));
+        self::assertCount(1, $c->filter('#expSigilo[data-url-pedir="/pasta/0/acesso/pedidos"] .js-sigilo-pedir'), 'o pedido da Lista usa a rota da pasta');
     }
 
     #[TestDox('o trilho também sai sozinho (rota XHR), para a tela redesenhá-lo depois de mexer nos marcadores')]

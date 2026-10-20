@@ -156,7 +156,7 @@
                     data-url-nome="{{ path('expediente_pasta_nome', {id: pasta.id}) }}"
                     data-url-trancar="{{ path('expediente_pasta_trancar', {id: pasta.id}) }}"
                     data-url-destaque="{{ path('expediente_pasta_destaque', {id: pasta.id}) }}"
-                    data-trancada="{{ cad ? '1' : '0' }}" data-oculta="{{ oculta ? '1' : '0' }}"
+                    data-trancada="{{ cad ? '1' : '0' }}" data-oculta="{{ oculta ? '1' : '0' }}"{% if oculta %} data-csrf-pedir="{{ csrf_token('pasta_acesso_' ~ pasta.id) }}"{% endif %}
                     data-nome-editavel="{{ identificador is not null and identificador != pasta.nomeCliente ? '0' : '1' }}"
                     {% if dest %}data-dest="{{ dest }}"{% endif %}>
                     <td data-col="nup" class="fw-semibold align-middle" data-favorito-celula="{{ pasta.id }}">

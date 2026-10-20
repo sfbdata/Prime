@@ -158,7 +158,7 @@ final class BarreiraDoCadeadoRotasArquiteturaTest extends KernelTestCase
     #[TestDox('o que o Oculto alcança é só a tela trancada e o pedido')]
     public function testOcultoSoAlcancaATelaEOPedido(): void
     {
-        self::assertSame(['pasta_show', 'pasta_acesso_pedir', 'expediente_pasta_pedir_acesso'], BarreiraDoCadeadoListener::ROTAS_DO_OCULTO);
+        self::assertSame(['pasta_show', 'pasta_acesso_pedir'], BarreiraDoCadeadoListener::ROTAS_DO_OCULTO);
         self::assertNotContains('pasta_push_lida', BarreiraDoCadeadoListener::ROTAS_DO_VISUALIZAR, 'marcar lida vale para o escritório: é escrita.');
     }
 }

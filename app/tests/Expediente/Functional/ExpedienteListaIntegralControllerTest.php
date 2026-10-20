@@ -16,6 +16,8 @@ use App\Entity\Tenant\TenantRolePermission;
 use App\Expediente\Controller\ExpedienteController;
 use App\Expediente\Entity\Marcador;
 use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\EstadoDoPedidoDeAcesso;
+use App\Pasta\Entity\PedidoDeAcessoAPasta;
 use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
@@ -268,7 +270,7 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
 
     // ── Pedir acesso ────────────────────────────────────────────────────
 
-    #[TestDox('pedir acesso a pasta trancada notifica o administrador do escritório')]
+    #[TestDox('o pedido de acesso da Lista (rota pasta_acesso_pedir, token da pasta) cria o pedido e notifica o primário')]
     public function testPedirAcessoNotificaAdministrador(): void
     {
         [$admin, $tenant] = $this->criarAdmin();
@@ -278,10 +280,13 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
         $this->em()->flush();
         $this->logarComTenant($this->client, $colaborador, $tenant);
 
-        $this->post('/expediente/pasta/' . $pasta->getId() . '/pedir-acesso');
+        $this->pedirPelaLista($pasta);
 
         self::assertResponseIsSuccessful();
         self::assertSame(1, $this->resposta()['avisados']);
+        $pedidos = $this->em()->getRepository(PedidoDeAcessoAPasta::class)->findBy(['pasta' => $pasta, 'solicitante' => $colaborador]);
+        self::assertCount(1, $pedidos, 'o pedido da Lista cria o PedidoDeAcessoAPasta');
+        self::assertSame(EstadoDoPedidoDeAcesso::Pendente, $pedidos[0]->getEstado());
         $notificacoes = $this->em()->getRepository(Notificacao::class)->findBy([
             'usuario' => $admin,
             'tipo'    => Notificacao::TIPO_PASTA_PEDIDO_ACESSO,
@@ -298,7 +303,7 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
         $pasta = $this->criarPasta($tenant);
         $this->logarComTenant($this->client, $colaborador, $tenant);
 
-        $this->post('/expediente/pasta/' . $pasta->getId() . '/pedir-acesso');
+        $this->pedirPelaLista($pasta);
 
         self::assertResponseStatusCodeSame(422);
     }
@@ -311,7 +316,6 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
         yield 'F2' => ['nome', ['nome' => 'NOVO']];
         yield 'trancar' => ['trancar', []];
         yield 'destaque' => ['destaque', ['cor' => 'azul']];
-        yield 'pedir acesso' => ['pedir-acesso', []];
     }
 
     #[DataProvider('rotasDaPasta')]
@@ -363,7 +367,7 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
         $this->post('/expediente/pasta/' . $pasta->getId() . '/destaque', ['cor' => 'rosa']);
         self::assertResponseStatusCodeSame(403);
-        $this->post('/expediente/pasta/' . $pasta->getId() . '/pedir-acesso');
+        $this->pedirPelaLista($pasta);
         self::assertResponseIsSuccessful();
     }
 
@@ -397,7 +401,7 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
 
         $this->post('/expediente/pasta/' . $pasta->getId() . '/destaque', ['cor' => 'rosa']);
         self::assertResponseStatusCodeSame(403);
-        $this->post('/expediente/pasta/' . $pasta->getId() . '/pedir-acesso');
+        $this->pedirPelaLista($pasta);
         self::assertResponseStatusCodeSame(403);
     }
 
@@ -840,5 +844,11 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
     private function trancar(Pasta $pasta, User $por): void
     {
         $this->em()->persist(new CadeadoDaPasta($pasta->getTenant(), $pasta, ModoDoCadeado::Todos, $por, new \DateTimeImmutable()));
+    }
+
+    /** O "Pedir acesso" da janela Pasta N protegida: a rota da pasta, com o token da própria pasta (data-csrf-pedir). */
+    private function pedirPelaLista(Pasta $pasta): void
+    {
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/acesso/pedidos', ['nivel' => 'editar', '_token' => 'TOKEN_pasta_acesso_' . $pasta->getId()]);
     }
 }

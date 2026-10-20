@@ -16,7 +16,6 @@ use App\Expediente\UseCase\SincronizarMarcadoresDaPastaUseCase;
 use App\Expediente\Service\CsvDaListaDoExpediente;
 use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Entity\Pasta;
-use App\Pasta\DTO\PedirAcessoInput;
 use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Exception\CadeadoRecusadoException;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
@@ -28,7 +27,6 @@ use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\NumeracaoDePastaInterface;
 use App\Pasta\UseCase\AlternarTrancaDaPastaUseCase;
 use App\Pasta\UseCase\DestacarPastaUseCase;
-use App\Pasta\UseCase\PedirAcessoAPastaUseCase;
 use App\Pasta\UseCase\RenomearClienteDaPastaUseCase;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
@@ -48,7 +46,7 @@ final class ExpedienteController extends AbstractController
     /** "Pastas por página" do Visualizar (desenho 1.1, E12). */
     private const POR_PAGINA = [25, 50, 100];
 
-    /** Token único das ações da Lista (F2, trancar, destacar, pedir acesso, reordenar). */
+    /** Token único das ações da Lista (F2, trancar, destacar, reordenar). O pedido de acesso usa o da pasta. */
     public const CSRF_LISTA = 'expediente_lista';
 
     public function __construct(
@@ -67,7 +65,6 @@ final class ExpedienteController extends AbstractController
         private readonly RenomearClienteDaPastaUseCase $renomearClienteUseCase,
         private readonly AlternarTrancaDaPastaUseCase $alternarTrancaUseCase,
         private readonly DestacarPastaUseCase $destacarPastaUseCase,
-        private readonly PedirAcessoAPastaUseCase $pedirAcessoUseCase,
         private readonly PastaDestaqueRepository $destaqueRepository,
         private readonly NumeracaoDePastaInterface $numeracaoDePasta,
         private readonly CsvDaListaDoExpediente $csvDaLista,
@@ -451,30 +448,6 @@ final class ExpedienteController extends AbstractController
         }
 
         return $this->json(['cor' => $final]);
-    }
-
-    #[Route('/expediente/pasta/{id}/pedir-acesso', name: 'expediente_pasta_pedir_acesso', methods: ['POST'])]
-    public function pedirAcessoAPasta(Pasta $pasta, Request $request): JsonResponse
-    {
-        /** @var User $user */
-        $user   = $this->getUser();
-        $tenant = $this->assertAccess($user);
-
-        if (!$this->isCsrfTokenValid(self::CSRF_LISTA, $request->request->get('_token'))) {
-            return $this->json(['erro' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
-        }
-
-        try {
-            $pedido = $this->pedirAcessoUseCase->executar(new PedirAcessoInput($pasta, $user, $tenant, NivelDeAcesso::Editar, null));
-        } catch (PastaDeOutroEscritorioException) {
-            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
-        } catch (SemPermissaoParaVerPastaException $e) {
-            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
-        } catch (\DomainException $e) {
-            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
-        return $this->json(['avisados' => $pedido->avisados]);
     }
 
     /**
