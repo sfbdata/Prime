@@ -116,7 +116,8 @@ final class CampanhaPorEmailTest extends TestCase
         self::assertSame([], $todos['lista']);
         self::assertSame([['n' => 3, 'motivo' => '3 inscrito(s) nos alertas ficam de fora até confirmarem o e-mail.']], $todos['deFora']);
         self::assertSame([['n' => 2, 'motivo' => self::MOTIVO_DE_2]], $d->para(FiltroDaCampanha::deArray(['uf' => 'DF']))['deFora'], 'o sem UF vale para qualquer UF');
-        self::assertSame([], $d->para(FiltroDaCampanha::deArray(['pub' => 'esc']))['deFora']);
+        self::assertSame([['n' => 2, 'motivo' => self::MOTIVO_DE_2]], $d->para(FiltroDaCampanha::deArray(['pub' => 'esc', 'uf' => 'SP']))['deFora'], 'como no desenho, os inscritos entram também em Escritórios, com o mesmo filtro');
+        self::assertSame([], $d->para(FiltroDaCampanha::deArray(['pub' => 'esc']))['lista']);
     }
 
     #[TestDox('escritórios desligados pela constante: botão indisponível com a dica e nenhuma vaga lida')]
@@ -357,7 +358,35 @@ final class CampanhaPorEmailTest extends TestCase
             ['n' => 1, 'motivo' => '1 currículo(s) ficam de fora: o aceite do currículo não cobre e-mail de campanha.'],
             ['n' => 2, 'motivo' => self::MOTIVO_DE_2],
         ], $d->para(FiltroDaCampanha::deArray(['uf' => 'SP']))['deFora'], 'o filtro vale para a contagem: em SP, Ana conta só como inscrita (sem UF)');
-        self::assertSame([], $this->destinatarios($cvs, [], curriculosLiberados: false)->para(FiltroDaCampanha::deArray(['pub' => 'esc']))['deFora']);
+        self::assertSame([], $this->destinatarios($cvs, [], curriculosLiberados: false)->para(FiltroDaCampanha::deArray(['pub' => 'esc']))['deFora'], 'currículo não é público de Escritórios');
+    }
+
+    #[TestDox('conta desativada: o currículo nunca entra na lista nem conta no "de fora", com a regra ligada ou desligada')]
+    public function testContaDesativada(): void
+    {
+        $inativo = $this->curriculo(2, 'inativo@exemplo.test', 'DF', []);
+        $inativo->getUsuario()->setIsActive(false);
+        $cvs = [$this->curriculo(1, 'ana@exemplo.test', 'DF', []), $inativo];
+
+        self::assertSame(['ana@exemplo.test'], self::emails($this->destinatarios($cvs)->para(FiltroDaCampanha::deArray([]))));
+        self::assertSame(
+            [['n' => 1, 'motivo' => '1 currículo(s) ficam de fora: o aceite do currículo não cobre e-mail de campanha.']],
+            $this->destinatarios($cvs, [], curriculosLiberados: false)->para(FiltroDaCampanha::deArray([]))['deFora'],
+        );
+    }
+
+    #[TestDox('escape: assunto e título de vaga com "><script> saem escapados no HTML do e-mail')]
+    public function testEscapeNoHtml(): void
+    {
+        $maldoso = '"><script>alert(1)</script>';
+        $email = $this->email([]);
+        $filtro = FiltroDaCampanha::deArray(['assunto' => $maldoso]);
+
+        $html = $email->html($filtro, [$this->vaga(1, ['titulo' => $maldoso])], 'https://bluejus.test/vagas-juridicas');
+
+        self::assertStringNotContainsString('<script>', $html);
+        self::assertStringContainsString('<title>&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;</title>', $html);
+        self::assertSame(2, substr_count($html, '&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;'), 'no assunto e no título da vaga');
     }
 
     /**

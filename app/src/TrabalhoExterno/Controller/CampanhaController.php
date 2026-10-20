@@ -27,7 +27,9 @@ use Symfony\Component\Routing\Attribute\Route;
  * Campanha por e-mail do Master (spec VS 18.10.26 §4.10): monta, mostra e exporta; não envia. Tudo é só do
  * Master de verdade: a Equipe, o externo e a prévia (`?como=`, aceito aqui para ser negado) recebem 403 em
  * JSON, também nos downloads (a tela baixa por `fetch` e mostra o toast). Os parâmetros são os do modal:
- * `pub`, `uf`, `area` e `assunto`. A escrita (o registro do "Copiar HTML") tem CSRF no `X-CSRF-Token`.
+ * `pub`, `uf`, `area` e `assunto` (na query do GET; no corpo JSON dos POST). Toda exportação grava algo
+ * (o log; o HTML também o link de vagas), então é POST com CSRF no `X-CSRF-Token`: o CSV, o HTML e o
+ * registro do "Copiar HTML".
  */
 #[Route('/trabalho-externo')]
 final class CampanhaController extends AbstractController
@@ -50,18 +52,18 @@ final class CampanhaController extends AbstractController
         return $ctx === null ? $this->semAcesso() : $this->responder(static fn (): array => $montar->executar($ctx, $filtro));
     }
 
-    #[Route('/campanha/destinatarios.csv', name: 'trabalho_externo_campanha_csv', methods: ['GET'])]
+    #[Route('/campanha/destinatarios.csv', name: 'trabalho_externo_campanha_csv', methods: ['POST'])]
     public function destinatarios(Request $request, ExportarDestinatariosDaCampanhaUseCase $exportar): Response
     {
-        $filtro = FiltroDaCampanha::deArray($request->query->all());
+        $filtro = FiltroDaCampanha::deArray($this->corpo($request));
 
         return $this->baixar($request, static fn (Contexto $ctx): string => $exportar->executar($ctx, $filtro), ExportarDestinatariosDaCampanhaUseCase::NOME_DO_ARQUIVO, 'text/csv; charset=utf-8');
     }
 
-    #[Route('/campanha/email.html', name: 'trabalho_externo_campanha_html', methods: ['GET'])]
+    #[Route('/campanha/email.html', name: 'trabalho_externo_campanha_html', methods: ['POST'])]
     public function email(Request $request, ExportarEmailDaCampanhaUseCase $exportar): Response
     {
-        $filtro = FiltroDaCampanha::deArray($request->query->all());
+        $filtro = FiltroDaCampanha::deArray($this->corpo($request));
 
         return $this->baixar($request, static fn (Contexto $ctx): string => $exportar->executar($ctx, $filtro, RegistroDaCampanha::BAIXAR)['html'], EmailDaCampanha::NOME_DO_ARQUIVO, 'text/html; charset=utf-8');
     }
@@ -82,8 +84,8 @@ final class CampanhaController extends AbstractController
     }
 
     /**
-     * Os downloads: o arquivo como anexo; a recusa (403) e a lista vazia (404, com o título do toast do
-     * desenho) em JSON.
+     * Os downloads (POST com CSRF): o arquivo como anexo; a recusa (403) e a lista vazia (404, com o
+     * título do toast do desenho) em JSON.
      *
      * @param callable(Contexto): string $gerar
      */
@@ -93,6 +95,7 @@ final class CampanhaController extends AbstractController
         if ($ctx === null) {
             return $this->semAcesso();
         }
+        $this->validarCsrfAjax($request);
         try {
             $conteudo = $gerar($ctx);
         } catch (DemandaNaoEncontrada $e) {

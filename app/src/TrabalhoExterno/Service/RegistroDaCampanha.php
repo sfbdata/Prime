@@ -6,9 +6,10 @@ namespace App\TrabalhoExterno\Service;
 
 use App\TrabalhoExterno\DTO\FiltroDaCampanha;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
- * O rastro de cada exportação da campanha por e-mail (spec VS 18.10.26 §4.10), no log da aplicação: quem,
+ * O rastro de cada exportação da campanha por e-mail (spec VS 18.10.26 §4.10), no log de auditoria: quem,
  * quando, o que (CSV, baixar ou copiar o HTML), o público, os filtros e quantos destinatários. Nunca a
  * lista: os e-mails são dado pessoal de terceiros. Nada é gravado no banco.
  */
@@ -19,6 +20,8 @@ final class RegistroDaCampanha
     public const COPIAR = 'copiar';
 
     public function __construct(
+        /** Canal `audit`: o padrão passa pelo `fingers_crossed` da produção e descartaria o `info`. */
+        #[Autowire(service: 'monolog.logger.audit')]
         private readonly LoggerInterface $logger,
     ) {
     }

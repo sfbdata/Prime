@@ -791,26 +791,34 @@ o link das vagas por um link público de vagas (F2c) com as vagas abertas filtra
   pública) **só entram com o e-mail confirmado** (double opt-in da 5d); até lá ficam de fora, e a tela
   diz quantos e por quê ("N inscrito(s) nos alertas ficam de fora até confirmarem o e-mail."). **A
   confirmar com o dono.**
-- **Escritórios**: e-mails dos ofertantes das vagas. **Fora até o dono decidir** ("e-mail dos ofertantes
-  em campanha, interesse legítimo B2B?"): o botão do público aparece desabilitado com a dica "a
-  confirmar". Uma regra só liga. **A confirmar com o dono.**
+- **Escritórios**: e-mails dos ofertantes das vagas e, como no desenho (l.1083), os inscritos nos alertas
+  (filtro de UF e área do desenho; sem confirmação ficam de fora com o motivo deles). Ofertantes **fora até
+  o dono decidir** ("e-mail dos ofertantes em campanha, interesse legítimo B2B?", `ESCRITORIOS_LIBERADOS`):
+  o botão do público aparece desabilitado com a dica "a confirmar". Uma regra só liga. **A confirmar com o
+  dono.**
+- Contas desativadas (`isActive() === false`): o currículo nunca entra nem conta no "de fora".
 - Sem duplicados (e-mail em minúsculas). Descadastro: quando o serviço da 0d entrar no master, quem se
   descadastrou sai da lista (ponto de troca marcado no código).
 
 ### Segurança e LGPD
-Só o Master (como o CSV de alertas, §4.9). Cada exportação (CSV, copiar HTML, baixar HTML) grava no log
-quem, quando, o público e a quantidade, **sem a lista**. CSV com proteção contra fórmula. Nada é gravado
-no banco.
+Só o Master (como o CSV de alertas, §4.9). Cada exportação (CSV, copiar HTML, baixar HTML) grava no log de
+auditoria (canal `audit`; o padrão passa pelo `fingers_crossed` da produção e descartaria o `info`) quem,
+quando, o público, os filtros e a quantidade, **sem a lista**. CSV com proteção contra fórmula. No banco,
+só o link de vagas (F2c) do HTML exportado; a prévia não grava nada. Toda exportação é POST com CSRF.
 
 ### Contrato (fixo)
 - `GET /trabalho-externo/api/campanha` `trabalho_externo_campanha` (`?pub=cand|esc&uf=&area=&assunto=`;
   só Master): `{pub, publicos: [{k, rot, sub, ic, disponivel, dica?}], ufs, areas, assunto,
   assuntoPadrao, destinatarios: n, deFora: [{n, motivo}], vagas: n, html, resumo}`.
-- `GET /trabalho-externo/campanha/destinatarios.csv` `trabalho_externo_campanha_csv` (mesmos parâmetros;
-  colunas do desenho: E-mail; Nome; Origem; UF).
-- `GET /trabalho-externo/campanha/email.html` `trabalho_externo_campanha_html` (attachment).
-- `POST /trabalho-externo/api/campanha/registro` `trabalho_externo_campanha_registro` (`{acao: copiar}`,
-  CSRF; só para o log do "Copiar HTML").
+- `POST /trabalho-externo/campanha/destinatarios.csv` `trabalho_externo_campanha_csv` (CSRF no header
+  `X-CSRF-Token`; corpo JSON `{pub, uf, area}`; colunas do desenho: E-mail; Nome; Origem; UF; lista vazia:
+  404 `{ok: false, titulo: "Sem destinatários", mensagem}`). GET é 405.
+- `POST /trabalho-externo/campanha/email.html` `trabalho_externo_campanha_html` (CSRF; corpo JSON
+  `{pub, uf, area, assunto}`; attachment `email-campanha-bluejus.html`; grava o link de vagas). GET é 405.
+- `POST /trabalho-externo/api/campanha/registro` `trabalho_externo_campanha_registro` (`{acao: copiar,
+  pub, uf, area, assunto}`, CSRF): grava o log do "Copiar HTML" e devolve `{ok, html, destinatarios,
+  vagas}` (o HTML com o link de vagas próprio, para a tela copiar).
+- A recusa (Equipe, externo, prévia `?como=`) é 403 em JSON nas quatro rotas.
 - `index.html.twig`: `data-url-campanha`, `data-url-campanha-csv`, `data-url-campanha-html`,
   `data-url-campanha-registro`.
 

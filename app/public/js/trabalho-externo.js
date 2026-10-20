@@ -4086,7 +4086,7 @@
         carregarCampanha();
     }
 
-    /** `pub`, `uf`, `area` e, se o Master escreveu, `assunto`: os parâmetros das quatro rotas. */
+    /** `pub`, `uf`, `area` e, se o Master escreveu, `assunto`: a query do GET da campanha (os POST levam no corpo). */
     function campParams() {
         var cp = S.cp, q = new URLSearchParams({ pub: cp.pub, uf: cp.uf, area: cp.area });
         if (cp.assunto !== null && !vazio(cp.assunto)) {
@@ -4230,7 +4230,7 @@
             campSemDestinatarios();
             return;
         }
-        campBaixar(campUrl(D.urlCampanhaCsv), 'destinatarios-campanha.csv', function () {});
+        campBaixar(D.urlCampanhaCsv, 'destinatarios-campanha.csv', function () {});
     }
 
     function campBaixarHtml() {
@@ -4238,7 +4238,7 @@
             return;
         }
         var n = +S.cp.dados.destinatarios || 0;
-        campBaixar(campUrl(D.urlCampanhaHtml), 'email-campanha-bluejus.html', function () {
+        campBaixar(D.urlCampanhaHtml, 'email-campanha-bluejus.html', function () {
             mostrarToast({ tit: 'E-mail pronto', txt: 'Envie para ' + n + ' destinatário(s) pela sua ferramenta de e-mail em massa.', hora: '' });
         });
     }
@@ -4251,10 +4251,8 @@
         if (!S.cp || !S.cp.dados) {
             return;
         }
-        var cp = S.cp, corpo = { acao: 'copiar', pub: cp.pub, uf: cp.uf, area: cp.area };
-        if (cp.assunto !== null && !vazio(cp.assunto)) {
-            corpo.assunto = cp.assunto;
-        }
+        var corpo = campCorpo();
+        corpo.acao = 'copiar';
         pedir('POST', String(D.urlCampanhaRegistro || ''), corpo).then(function (r) {
             if (!r.ok || typeof r.html !== 'string') {
                 toastErro(r.mensagem);
@@ -4268,9 +4266,25 @@
         });
     }
 
-    /** O download por `fetch`: a recusa e a lista vazia chegam em JSON (403 e 404) e viram toast. */
+    /** Os filtros no corpo dos POST (CSV, HTML e registro do "Copiar HTML"). */
+    function campCorpo() {
+        var cp = S.cp, corpo = { pub: cp.pub, uf: cp.uf, area: cp.area };
+        if (cp.assunto !== null && !vazio(cp.assunto)) {
+            corpo.assunto = cp.assunto;
+        }
+        return corpo;
+    }
+
+    /**
+     * O download por `fetch` em POST (a exportação grava o log; o CSRF vai no header pelo interceptador do
+     * base.html.twig): a recusa e a lista vazia chegam em JSON (403 e 404) e viram toast; o arquivo vem
+     * como blob, com o nome do Content-Disposition.
+     */
     function campBaixar(url, nomePadrao, pronto) {
-        fetch(url, { method: 'GET', credentials: 'same-origin', headers: { 'Accept': 'text/csv, text/html, application/json', 'X-Requested-With': 'XMLHttpRequest' } }).then(function (r) {
+        fetch(String(url || ''), {
+            method: 'POST', credentials: 'same-origin', body: JSON.stringify(campCorpo()),
+            headers: { 'Accept': 'text/csv, text/html, application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) {
             var tipo = (r.headers.get('Content-Type') || '').toLowerCase();
             if (!r.ok || tipo.indexOf('json') >= 0) {
                 return r.json().then(function (j) { return j; }, function () { return null; }).then(function (j) {

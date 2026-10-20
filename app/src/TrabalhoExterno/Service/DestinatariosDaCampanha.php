@@ -20,7 +20,9 @@ use App\TrabalhoExterno\Repository\VagaRepository;
  *   não e-mail de campanha); até o dono decidir ficam de fora e a tela diz quantos. Os inscritos nos alertas da
  *   página pública só entram com o e-mail confirmado (double opt-in da 5d); até lá ficam de fora e a
  *   tela diz quantos e por quê.
- * - Escritórios: os e-mails dos ofertantes das vagas, desligados por {@see ESCRITORIOS_LIBERADOS}.
+ * - Escritórios: os e-mails dos ofertantes das vagas, desligados por {@see ESCRITORIOS_LIBERADOS}, e os
+ *   inscritos nos alertas, como no desenho (l.1083), com a mesma regra da confirmação.
+ * - Conta desativada: o currículo nunca entra, nem conta no "de fora".
  * - Sem duplicados: o e-mail em minúsculas é a chave; o primeiro que entra fica.
  */
 final class DestinatariosDaCampanha
@@ -74,11 +76,27 @@ final class DestinatariosDaCampanha
      */
     public function para(FiltroDaCampanha $filtro): array
     {
-        if ($filtro->ehEscritorios()) {
-            return ['lista' => $this->semDescadastrados($this->escritoriosLiberados ? $this->ofertantes() : []), 'deFora' => []];
-        }
-        $curriculos = $this->doBancoDeTalentos($filtro);
-        $lista = $this->curriculosLiberados ? $curriculos : [];
+        $curriculos = $filtro->ehEscritorios() ? [] : $this->doBancoDeTalentos($filtro);
+        $base = $filtro->ehEscritorios()
+            ? ($this->escritoriosLiberados ? $this->ofertantes() : [])
+            : ($this->curriculosLiberados ? $curriculos : []);
+        [$lista, $pendentes] = $this->comInscritos($filtro, $base, $curriculos);
+
+        return ['lista' => $this->semDescadastrados($lista), 'deFora' => $this->deFora($this->curriculosLiberados ? 0 : \count($curriculos), $pendentes)];
+    }
+
+    /**
+     * Os inscritos nos alertas entram nos dois públicos, como no desenho (l.1083), com o filtro do desenho.
+     * Só o confirmado entra na lista; o pendente conta no "de fora". Quem já está na lista, ou já contou
+     * como currículo, não conta duas vezes.
+     *
+     * @param array<string, array{email: string, nome: string, origem: string, uf: string}> $lista
+     * @param array<string, mixed>                                                         $curriculos
+     *
+     * @return array{0: array<string, array{email: string, nome: string, origem: string, uf: string}>, 1: int}
+     */
+    private function comInscritos(FiltroDaCampanha $filtro, array $lista, array $curriculos): array
+    {
         $pendentes = 0;
         foreach ($this->interessados->paraExportar() as $i) {
             if (!self::inscritoNoFiltro($i, $filtro) || isset($curriculos[$i->getEmail()]) || isset($lista[$i->getEmail()])) {
@@ -91,7 +109,7 @@ final class DestinatariosDaCampanha
             $lista[$i->getEmail()] = ['email' => $i->getEmail(), 'nome' => '', 'origem' => self::ORIGEM_ALERTA, 'uf' => $i->getUf()];
         }
 
-        return ['lista' => $this->semDescadastrados($lista), 'deFora' => $this->deFora($this->curriculosLiberados ? 0 : \count($curriculos), $pendentes)];
+        return [$lista, $pendentes];
     }
 
     /** @return list<array{n: int, motivo: string}> */
@@ -123,7 +141,7 @@ final class DestinatariosDaCampanha
         $lista = [];
         foreach ($this->curriculos->recebidos() as $cv) {
             $email = mb_strtolower(trim($cv->texto('email')));
-            if ($email === '' || isset($lista[$email]) || !self::comAceiteLgpd($cv) || !self::curriculoNoFiltro($cv, $filtro)) {
+            if ($email === '' || isset($lista[$email]) || !$cv->getUsuario()->isActive() || !self::comAceiteLgpd($cv) || !self::curriculoNoFiltro($cv, $filtro)) {
                 continue;
             }
             $lista[$email] = ['email' => $email, 'nome' => $cv->texto('nome'), 'origem' => self::ORIGEM_CURRICULO, 'uf' => $cv->texto('uf')];

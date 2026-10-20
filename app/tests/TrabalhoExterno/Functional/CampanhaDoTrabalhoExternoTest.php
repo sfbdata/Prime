@@ -20,7 +20,6 @@ use Monolog\Handler\TestHandler;
 use Monolog\Logger;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
-use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 
 /**
@@ -60,13 +59,14 @@ final class CampanhaDoTrabalhoExternoTest extends JusPrimeWebTestCase
 
         foreach ([[$equipe, $sede, ''], [$doA, $a, ''], [$master, $sede, '?como=equipe'], [$master, $sede, '?como=solicitante']] as [$quem, $onde, $como]) {
             $this->logarComTenant($this->client, $quem, $onde);
-            foreach ([self::API, self::CSV, self::HTML] as $url) {
-                $this->client->request('GET', $url . $como);
+            $this->client->request('GET', self::API . $como);
+            self::assertResponseStatusCodeSame(403, self::API . $como);
+            self::assertSame(false, $this->json($this->client)['ok'] ?? null, 'a recusa sai em JSON');
+            foreach ([self::CSV, self::HTML, self::REGISTRO] as $url) {
+                $r = $this->postarJson($this->client, $url . $como, ['acao' => 'copiar']);
                 self::assertResponseStatusCodeSame(403, $url . $como);
-                self::assertSame(false, $this->json($this->client)['ok'] ?? null, 'a recusa sai em JSON: ' . $url);
+                self::assertSame(false, $r['ok'] ?? null, 'a recusa sai em JSON: ' . $url);
             }
-            $this->postarJson($this->client, self::REGISTRO . $como, ['acao' => 'copiar']);
-            self::assertResponseStatusCodeSame(403);
         }
         self::assertSame(0, $this->links(), 'ninguém sem permissão gera link de vagas');
     }
@@ -92,9 +92,8 @@ final class CampanhaDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertStringContainsString('href="http://localhost/vagas-juridicas"', $c['html']);
         self::assertStringContainsString('{{descadastrar}}', $c['html']);
         self::assertSame(0, $this->links(), 'a prévia usa a página pública geral e não grava link de vagas');
-        $this->client->request('GET', self::CSV . '?uf=DF');
+        self::assertSame('Sem destinatários', $this->postarJson($this->client, self::CSV, ['uf' => 'DF'])['titulo'] ?? null);
         self::assertResponseStatusCodeSame(404, 'com a regra padrão ninguém sai no CSV');
-        self::assertSame('Sem destinatários', $this->json($this->client)['titulo']);
 
         $this->client->request('GET', self::API . '?assunto=' . rawurlencode('Novidades da semana'));
         self::assertSame('Novidades da semana', $this->json($this->client)['assunto']);
@@ -108,14 +107,14 @@ final class CampanhaDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $master, $sede);
         $log = $this->escutarLog();
 
-        $this->client->request('GET', self::CSV . '?pub=cand&uf=DF&area=C%C3%ADvel');
+        $this->postarJson($this->client, self::CSV, ['pub' => 'cand', 'uf' => 'DF', 'area' => 'Cível']);
         self::assertResponseIsSuccessful();
         $resposta = $this->client->getResponse();
         self::assertStringContainsString('attachment; filename=destinatarios-campanha.csv', (string) $resposta->headers->get('Content-Disposition'));
         self::assertStringStartsWith('text/csv', (string) $resposta->headers->get('Content-Type'));
         self::assertSame(["\u{FEFF}" . '"E-mail";"Nome";"Origem";"UF"', '"ana@exemplo.test";"Ana Souza";"Currículo";"DF"'], explode("\n", (string) $resposta->getContent()));
 
-        $this->client->request('GET', self::CSV . '?uf=SP');
+        $this->postarJson($this->client, self::CSV, ['uf' => 'SP']);
         self::assertResponseStatusCodeSame(404);
         self::assertSame(['ok' => false, 'titulo' => 'Sem destinatários', 'mensagem' => 'Ainda não há e-mails autorizados para este público.'], $this->json($this->client));
 
@@ -133,7 +132,7 @@ final class CampanhaDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $this->postarJson($this->client, '/trabalho-externo/api/vagas', self::vaga());
         $log = $this->escutarLog();
 
-        $this->client->request('GET', self::HTML . '?uf=DF');
+        $this->postarJson($this->client, self::HTML, ['uf' => 'DF']);
         self::assertResponseIsSuccessful();
         $resposta = $this->client->getResponse();
         self::assertStringContainsString('attachment; filename=email-campanha-bluejus.html', (string) $resposta->headers->get('Content-Disposition'));
@@ -174,6 +173,25 @@ final class CampanhaDoTrabalhoExternoTest extends JusPrimeWebTestCase
 
         $this->postarJson($this->client, self::REGISTRO, ['acao' => 'enviar']);
         self::assertResponseStatusCodeSame(422, 'a campanha não envia');
+    }
+
+    #[TestDox('as exportações gravam (log e link de vagas): GET é 405 e o POST sem o CSRF certo é 403, sem log nem link')]
+    public function testExportacoesSaoPostComCsrf(): void
+    {
+        [$sede, $master] = $this->cenario();
+        $this->liberarCurriculos();
+        $this->logarComTenant($this->client, $master, $sede);
+        $this->postarJson($this->client, '/trabalho-externo/api/vagas', self::vaga());
+        $log = $this->escutarLog();
+
+        foreach ([self::CSV, self::HTML] as $url) {
+            $this->client->request('GET', $url . '?uf=DF');
+            self::assertResponseStatusCodeSame(405, 'GET ' . $url);
+            $this->postarJson($this->client, $url, ['uf' => 'DF'], 'TOKEN_errado');
+            self::assertResponseStatusCodeSame(403, 'POST sem CSRF ' . $url);
+        }
+        self::assertSame(0, $this->links());
+        self::assertSame([], $this->registrosDaCampanha($log));
     }
 
     /**
@@ -220,7 +238,7 @@ final class CampanhaDoTrabalhoExternoTest extends JusPrimeWebTestCase
     private function escutarLog(): TestHandler
     {
         $log = new TestHandler();
-        $logger = static::getContainer()->get(LoggerInterface::class);
+        $logger = static::getContainer()->get('monolog.logger.audit');
         self::assertInstanceOf(Logger::class, $logger);
         $logger->pushHandler($log);
 
