@@ -130,6 +130,7 @@ final class ListarCompromissosUseCase
             editavel: $administra || $evento->getCriador()?->getId() === $eu->getId(),
             inicioOriginal: $evento->getDataInicio()?->format('Y-m-d\TH:i'),
             fimOriginal: $evento->getDataFim()?->format('Y-m-d\TH:i'),
+            doGoogle: $evento->isImportadoDoGoogle(),
         );
     }
 

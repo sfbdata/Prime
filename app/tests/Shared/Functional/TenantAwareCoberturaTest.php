@@ -160,6 +160,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Marca da varredura do push da Agenda (entrega 5b): uma linha só, global, que garante uma cadeia
         // única de envio para todos os escritórios. Não guarda dado de escritório nenhum.
         \App\Agenda\Entity\VarreduraDePush::class,
+        // Marca da cadeia de sincronia do Google Agenda (entrega 6): mesma natureza, uma linha global.
+        \App\Agenda\Entity\VarreduraDoGoogle::class,
         // Telas e recursos (spec docs/specs/perfis-1.2-telas-e-recursos.md, R2): configuração da
         // PLATAFORMA, ligada e desligada só pelo Master e válida para todas as contas ao mesmo tempo.
         // Uma linha por chave do catálogo, sem dado de escritório nem de cliente.
@@ -197,9 +199,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 35 → 40 com o Indicar o BlueJus (19/10/2026): dado de plataforma, da pessoa e do Master, justificado acima.
     // 40 → 43 com a fatia 2b do Comercial (20/10/2026): campanha, destinatário da campanha e controle do expansor (plataforma).
     // 43 → 45 com as marcações pessoais do Trabalho Externo (19/10/2026): MarcacaoDoUsuario e
-    // MarcacaoDeMensagem são do usuário, justificadas acima.
-    // 45 → 46 com as inscrições na OAB do Meu Perfil (19/10/2026): InscricaoOab é da pessoa, não do escritório.
-    private const MAX_FORA_DO_ESCOPO = 46;
+    // MarcacaoDeMensagem são do usuário, justificadas acima. 45 → 46 com a marca global da sincronia do
+    // Google Agenda (19/10/2026), justificada acima.
+    // 46 → 47 com as inscrições na OAB do Meu Perfil (19/10/2026): InscricaoOab é da pessoa, não do escritório.
+    private const MAX_FORA_DO_ESCOPO = 47;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
