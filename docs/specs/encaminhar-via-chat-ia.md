@@ -7,7 +7,8 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
 
 - **19/10:** investigação concluída, perguntas de produto respondidas pelo coordenador (§2).
 - **19/10, PR1 (backend):** implementado na branch `encaminhar-chat-ia` (commit 82327702), em revisão.
-- **Próximo:** PR2 (tela de despacho), quando a base de presença entrar no master.
+- **19/10, PR2:** a base de presença (#61) entrou; PR2 (tela de despacho e API da janela, §4.1) na branch
+  `encaminhar-tela`, empilhada sobre `encaminhar-chat-ia` (#108).
 
 ### Para o dono
 
@@ -103,6 +104,32 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
 4. **PR4 em diante, os menus, um por área:** (a) Dados, Detalhes, Financeiro; (b) metas e prazo; (c) processo, depois
    de #91 e #75; (d) explorador e nota técnica; (e) Push, com a 0d, depois de #82, #87 e #98.
 5. **"Enviar no Chat I.A"** (D:6872): fatia pequena com a API do PR2.
+
+## 4.1 Contrato da API da janela (PR2, 19/10): para as outras áreas e a 0d
+
+A janela da Central expõe, onde o lançador flutuante está na página (`central_disponivel()`), o objeto
+`window.BJCentral` (nome do desenho, BC:6645) com três funções. Só identificadores saem da tela; o servidor relê
+tudo.
+
+| Função | O que faz |
+|---|---|
+| `BJCentral.abrir()` | abre a janela flutuante, sem trocar de conversa |
+| `BJCentral.despachar({pastaId, tipo, itemId})` | abre a janela na tela "Despachar via Chat I.A" (BC:6218-6238) com o cartão do item; `tipo` é um valor de `TipoDeItemEncaminhado` (§3), `itemId` é `null` no tipo `pasta` |
+| `BJCentral.conversar(userId)` | abre a janela na conversa 1:1 com o colega (PR3); si mesmo ou colega fora do escritório: só abre a janela |
+
+Também por evento, para quem carrega antes da janela: `document.dispatchEvent(new CustomEvent('bj-central:despachar',
+{detail: {pastaId, tipo, itemId}}))` e `bj-central:conversar` com `{userId}`. Ausente (`window.BJCentral`
+indefinido), o item de menu não aparece (a tela que monta o menu confere `central_disponivel()` no Twig ou
+`window.BJCentral` no JS).
+
+Rotas que a tela usa: `GET /central/encaminhar/item?pasta=N&tipo=T&item=I` (novo no PR2: `{titulo, resumo}` do
+cartão, montado pelo mesmo `ItensEncaminhaveisDaPasta`; 404 se não achar ou eu não vir), `GET
+/central/encaminhar/destinos?pasta=N` e `POST /central/encaminhar` (PR1).
+
+Tela de despacho (BC:6218-6238, literal): cabeçalho "DESPACHAR VIA CHAT I.A" e "Cancelar"; cartão com ícone por tipo,
+título e resumo; "Instrução (opcional). Ex.: favor concluir até sexta."; prioridade Normal / Urgente / Para hoje;
+"Para quem?" com os destinos (grupo travado mostra o motivo, sem clique); ao escolher, envia, abre a conversa com o
+destino e avisa "Despachado para NOME.". Erro do servidor: o `erro` da resposta, na própria tela.
 
 ## 5. Fora
 
