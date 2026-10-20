@@ -340,12 +340,26 @@
     <section class="ps-card ps-metas-pessoas" data-trilho="pessoas">
         <h2>Responsáveis nas metas</h2>
         <div class="ps-metas-pessoas-lista">
+            {# dc L.1686: cada pessoa é um botão que abre a conversa 1:1 no Chat I.A (`BJCentral.conversar`, Encaminhar
+               PR3), com a dica "Conversar com PRIMEIRO_NOME no chat" e o `bi-chat-dots`. Sem a Central na página, fica
+               o texto de antes. #}
+            {% set metasComChat = central_disponivel() %}
             {% for p in metasResumo.pessoas %}
+                {% if metasComChat and p.userId %}
+                    {% set dica = 'Conversar com ' ~ (p.nome|split(' ')|first) ~ ' no chat' %}
+                    <button type="button" class="ps-metas-pessoa ps-metas-pessoa--conversar js-metas-conversar" data-user-id="{{ p.userId }}" title="{{ dica }}" aria-label="{{ dica }}">
+                        <span class="ps-avatar ps-avatar--27 ps-avatar--neutro" aria-hidden="true">{{ p.iniciais }}</span>
+                        <span class="ps-metas-pessoa-nome">{{ p.nome }}</span>
+                        <span class="ps-metas-pessoa-n ps-num">{{ p.contagem }}</span>
+                        <i class="bi bi-chat-dots ps-metas-pessoa-chat" aria-hidden="true"></i>
+                    </button>
+                {% else %}
                 <div class="ps-metas-pessoa">
                     <span class="ps-avatar ps-avatar--27 ps-avatar--neutro" aria-hidden="true">{{ p.iniciais }}</span>
                     <span class="ps-metas-pessoa-nome" title="{{ p.nome }}">{{ p.nome }}</span>
                     <span class="ps-metas-pessoa-n ps-num">{{ p.contagem }}</span>
                 </div>
+                {% endif %}
             {% else %}
                 <div class="ps-metas-pessoas-vazio">Nenhuma meta com responsável.</div>
             {% endfor %}
