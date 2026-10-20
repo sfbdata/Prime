@@ -8,6 +8,17 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.9.0] - 2026-10-20
+
+### Adicionado
+
+- Página Meu Perfil conforme o desenho 07 (VS 18.10.26): nome em caixa alta com os selos MASTER e USUÁRIO PRIMÁRIO/SECUNDÁRIO, aviso de cadastro incompleto com percentual e o que falta, grade de dados conforme o vínculo (CLT, associado, PJ, sócio, estagiário), copiar e-mail, CPF, CNPJ e telefone.
+- Modal "Editar informações" com vínculo com o escritório (só o usuário primário ou o Master troca o tipo), frase do perfil, telefone/WhatsApp e as datas do contrato conforme o vínculo; tabela nova vinculo_no_escritorio e telefone/revisado_em no perfil (migration Version20261020131000). Alterações auditadas.
+- Card Preferências (idioma, notificações no sistema, sons de alerta e resumo diário por e-mail, gravadas por pessoa) e revisão mensal do cadastro.
+- Trabalho Externo, aba Demandas: marcações pessoais por demanda (seleção em lote, estrela, importância calculada com escolha manual, lixeira, marcar como lida ou não lida, excluir da própria lista e desfazer em 8 segundos). Nada disso muda a demanda para os outros participantes.
+- Trabalho Externo, chat da demanda: seleção de mensagens, favoritas, lixeira pessoal que se esvazia sozinha em 30 dias, excluir definitivamente e apagar para todos (pelo autor ou pelo Master).
+- Migration `Version20261019120126`: tabelas `trabalho_externo_marcacao` e `trabalho_externo_marcacao_mensagem` e a coluna `trabalho_externo_mensagem.apagada_em`.
+
 ## [2.8.0] - 2026-10-20
 
 ### Adicionado
@@ -420,7 +431,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.8.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.9.0...HEAD
+[2.9.0]: https://github.com/sfbdata/Prime/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/sfbdata/Prime/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/sfbdata/Prime/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/sfbdata/Prime/compare/v2.5.0...v2.6.0
