@@ -244,7 +244,7 @@ final class VoltaPosLoginTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    #[TestDox('Lembrado pelo remember-me e sem permissão, em pedido de dados: 403, sem tocar o destino gravado')]
+    #[TestDox('Lembrado pelo remember-me (não é autenticação completa) e sem permissão, em pedido de dados: 401, sem tocar o destino gravado')]
     public function testRememberMeSemPermissaoEmPedidoDeDados(): void
     {
         $client = static::createClient();
@@ -255,11 +255,14 @@ final class VoltaPosLoginTest extends JusPrimeWebTestCase
         $session = $client->getSession();
         $session->set('_security_main', serialize(new RememberMeToken($user, 'main')));
         $session->save();
+        // Sem o termo aceito, o portão dos Termos responderia 403 antes do #[IsGranted].
+        $this->marcarTermosAceitos($client);
 
         // Rota com #[IsGranted('ROLE_SUPER_ADMIN')]: a recusa sai do firewall, não do controller.
         $client->request('GET', '/admin/platform', [], [], self::FETCH);
 
-        self::assertResponseStatusCodeSame(403);
+        self::assertResponseStatusCodeSame(401);
+        self::assertSame(PedidoDeNavegacao::MENSAGEM_SESSAO_VENCIDA, json_decode((string) $client->getResponse()->getContent(), true)['erro']);
         self::assertSame('/agenda', parse_url((string) $client->getSession()->get(self::TARGET_PATH), PHP_URL_PATH));
     }
 
