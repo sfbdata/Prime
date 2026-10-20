@@ -129,7 +129,7 @@ final class SalvarCompromissoUseCaseTest extends TestCase
         $evento = (new Evento())->setCriador($this->eu)->setTenant($this->tenant);
         $this->eventos->method('visivelPara')->willReturn($evento);
         $this->notificacoes->expects(self::once())->method('criarNotificacao')
-            ->with($this->maria, $this->tenant, self::anything(), self::stringContains('Samuel marcou você em um compromisso: Audiência'), '/agenda/nova#ev=ev--2030-03-10');
+            ->with($this->maria, $this->tenant, self::anything(), self::stringContains('Samuel marcou você em um compromisso: Audiência'), '/agenda#ev=ev--2030-03-10');
 
         $r1 = $this->sut()->executar($this->input(['avisados' => [1, 2, 99]]), 5, $this->eu, $this->tenant);
         $r2 = $this->sut()->executar($this->input(['avisados' => [1, 2]]), 5, $this->eu, $this->tenant);
@@ -247,7 +247,7 @@ final class SalvarCompromissoUseCaseTest extends TestCase
     private function sut(): SalvarCompromissoUseCase
     {
         $urls = $this->createStub(UrlGeneratorInterface::class);
-        $urls->method('generate')->willReturn('/agenda/nova');
+        $urls->method('generate')->willReturn('/agenda');
 
         return new SalvarCompromissoUseCase($this->eventos, $this->pastas, $this->usuarios, $this->permissoes, new AvisoDoCompromisso($this->notificacoes, $urls));
     }

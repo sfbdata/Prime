@@ -64,6 +64,6 @@ final class AvisoDoCompromisso
     {
         $dia = ($evento->getDataInicio() ?? new \DateTimeImmutable())->format('Y-m-d');
 
-        return $this->urls->generate('agenda_nova') . '#ev=ev-' . $evento->getId() . '-' . $dia;
+        return $this->urls->generate('agenda_index') . '#ev=ev-' . $evento->getId() . '-' . $dia;
     }
 }
