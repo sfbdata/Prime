@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-bs-theme="light">
+<html lang="pt-BR" data-bs-theme="light"{% if animacoes_reduzidas() %} class="jp-sem-anim"{% endif %}>
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
@@ -124,7 +124,7 @@
                             #}
                             <button class="sidebar-toggle-btn" id="sidebarToggleBtn"
                                     type="button"
-                                    aria-label="Abrir/fechar menu">
+                                    aria-label="Abrir/fechar menu" data-tip="Menu">
                                 <i class="bi bi-list"></i>
                             </button>
                             <a href="{{ path('expediente_index') }}" class="navtop-brand">
@@ -192,7 +192,7 @@
                                 <a href="#" class="navtop-action-btn"
                                    data-bs-toggle="dropdown" data-bs-auto-close="outside"
                                    id="notificacaoDropdownToggle"
-                                   aria-label="Notificações">
+                                   aria-label="Notificações" data-tip="Notificações">
                                     <i class="bi bi-bell"></i>
                                     <span class="navtop-badge" id="notificacaoBadge"
                                           style="{% if notificacoesCount == 0 %}display:none;{% endif %}">
@@ -280,7 +280,7 @@
 
                             {# Fullscreen #}
                             <a href="#" class="navtop-action-btn" data-lte-toggle="fullscreen"
-                               aria-label="Tela cheia">
+                               aria-label="Tela cheia" data-tip="Tela cheia">
                                 <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>
                                 <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display:none"></i>
                             </a>
@@ -562,6 +562,7 @@
                 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
                 let deferredPrompt = null;
+                const AVISO_SEM_PEDIDO = 'Para instalar: no Chrome ou Edge, use o ícone de instalar na barra de endereço. No celular, "Adicionar à tela inicial".';
 
                 function marcarInstalado() {
                     if (btnHeader)    btnHeader.style.display = 'none';
@@ -583,7 +584,9 @@
                         new bootstrap.Modal(document.getElementById('modalInstalarIOS')).show();
                         return;
                     }
-                    if (isStandalone) marcarInstalado();
+                    if (isStandalone) { marcarInstalado(); return; }
+                    // Sem o pedido do navegador (desenho 03, dc L.690): o aviso de como instalar, em vez de nada.
+                    if (window.bjAviso) window.bjAviso(AVISO_SEM_PEDIDO);
                 }
 
                 if (isStandalone) {

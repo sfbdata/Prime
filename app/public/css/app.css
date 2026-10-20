@@ -548,3 +548,30 @@ html[data-bs-theme="dark"] .table-light {
 .bj-recurso-preparo-voltar { display: inline-flex; align-items: center; gap: 7px; margin-top: 18px; height: 38px; padding: 0 16px; border-radius: 3px;
   background: #0a6fa0; color: #fff; font-weight: bold; font-size: 14px; text-decoration: none; }
 .bj-recurso-preparo-voltar:hover { background: #0a6fa0; color: #fff; text-decoration: none; }
+
+/* ===== Animações reduzidas (Guia visual → "Animações") =====
+   A opção vale para o sistema inteiro: o base.html.twig põe `jp-sem-anim` no <html> pela preferência
+   do usuário (`animacoes_reduzidas()`), e quem pede movimento reduzido no sistema operacional ganha o
+   mesmo. Tudo fica instantâneo, e os laços infinitos param no 1º ciclo (a regra do Dashboard). */
+html.jp-sem-anim *,
+html.jp-sem-anim *::before,
+html.jp-sem-anim *::after {
+    animation-duration: .01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: .01ms !important;
+        animation-delay: 0s !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        transition-delay: 0s !important;
+        scroll-behavior: auto !important;
+    }
+}

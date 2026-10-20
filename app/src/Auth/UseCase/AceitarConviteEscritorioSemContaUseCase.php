@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\UseCase;
 
 use App\Auth\DTO\AceitarConviteEscritorioSemContaInput;
+use App\Auth\Service\DadosDaContaDoConvite;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Repository\InvitationRepository;
@@ -48,10 +49,9 @@ final class AceitarConviteEscritorioSemContaUseCase
             throw new \DomainException('Já existe uma conta com este e-mail.');
         }
 
-        $fullName = $input->fullName !== '' ? $input->fullName : $invitation->getFullName();
-        if ($fullName === null || $fullName === '') {
-            throw new \InvalidArgumentException('Nome completo é obrigatório.');
-        }
+        // O `required` do HTML não protege um POST direto: a mesma regra do aceite de plataforma.
+        DadosDaContaDoConvite::exigirSenha($input->senha);
+        $fullName = DadosDaContaDoConvite::nome($input->fullName, $invitation->getFullName());
 
         $tenant = $invitation->getTenant();
         if ($tenant === null) {
