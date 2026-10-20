@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Busca rápida da pasta (Ctrl + K na página da pasta, desenho 02 EXPEDIENTES L405-421). Devolve até 8
+ * Busca rápida de pastas (Ctrl + K em toda página logada, desenho 02 EXPEDIENTES L405-421). Devolve até 8
  * resultados em JSON para a janela montada por public/js/pasta-busca-rapida.js.
  *
  * A URL de todo resultado é a da pasta (`pasta_show`), inclusive a da pasta oculta pelo cadeado

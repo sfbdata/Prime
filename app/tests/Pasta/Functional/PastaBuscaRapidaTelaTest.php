@@ -10,9 +10,10 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
- * A janela da Busca rápida (Ctrl + K) na página da pasta: desenho 02 EXPEDIENTES L405-421. O PHPUnit
- * prova a marcação, os textos e o arranjo (com combinador de filho direto); animação, cores e o
- * teclado são do smoke.
+ * A janela da Busca rápida (Ctrl + K) na página da pasta: desenho 02 EXPEDIENTES L405-421. A janela vem do
+ * parcial global (layout/_globais/busca_rapida.html.twig), não do show.html.twig: a pasta a tem uma vez só.
+ * O PHPUnit prova a marcação, os textos e o arranjo (com combinador de filho direto); animação, cores e o
+ * teclado são do smoke. Fora da pasta: BuscaRapidaGlobalTelaTest.
  */
 #[CoversClass(PastaController::class)]
 final class PastaBuscaRapidaTelaTest extends BuscaRapidaWebTestCase
@@ -31,6 +32,7 @@ final class PastaBuscaRapidaTelaTest extends BuscaRapidaWebTestCase
 
         self::assertCount(1, $crawler->filter('link[rel="stylesheet"][href$="/css/pasta-busca-rapida.css"]'));
         self::assertCount(1, $crawler->filter('script[src$="/js/pasta-busca-rapida.js"]'));
+        self::assertCount(1, $crawler->filter('.pbr'), 'a janela não se repete (só o parcial global a inclui)');
 
         $raiz = $crawler->filter('#pastaBuscaRapida');
         self::assertCount(1, $raiz);

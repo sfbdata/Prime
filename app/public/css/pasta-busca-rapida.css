@@ -1,5 +1,5 @@
 /* Busca rápida da pasta (Ctrl + K). Desenho: docs/design/redesign-19-10-26/02 - EXPEDIENTES - VS 18.10.26.dc.html,
-   janela L405-421, keyframes pcIn (L46) e menuIn (L56). Marcação em templates/pasta/_busca_rapida.html.twig,
+   janela L405-421, keyframes pcIn (L46) e menuIn (L56). Marcação em templates/layout/_globais/busca_rapida.html.twig (toda página logada),
    comportamento em public/js/pasta-busca-rapida.js. */
 
 @keyframes pbrFundoIn { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
