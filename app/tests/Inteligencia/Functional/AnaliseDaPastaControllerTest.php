@@ -243,6 +243,39 @@ final class AnaliseDaPastaControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->linhasDaPasta((int) $pasta->getId()));
     }
 
+    #[TestDox('limitador só gasta ao criar: com análise do comando em andamento, o clique volta 202 com ela mesmo com o limitador recusando')]
+    public function testLimitadorNaoGastaSemCriar(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $pendente = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::IdentificarRiscos);
+        static::getContainer()->set('limiter.inteligencia_solicitar', new RateLimiterFactoryEspiao(aceita: false));
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->solicitarComando($client, (int) $pasta->getId(), 'identificar_riscos');
+
+        self::assertResponseStatusCodeSame(202);
+        self::assertSame($pendente->getId(), $this->json($client)['id']);
+    }
+
+    #[TestDox('rota por agente não se prende à análise de um comando do mesmo agente')]
+    public function testRotaDeAgenteIgnoraLinhaDeComando(): void
+    {
+        $client = $this->cliente();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $doComando = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::IdentificarRiscos);
+        $this->logarComTenant($client, $user, $tenant);
+
+        $this->solicitar($client, (int) $pasta->getId(), 'gestor');
+
+        self::assertResponseStatusCodeSame(202);
+        self::assertNotSame($doComando->getId(), $this->json($client)['id'], 'cria a do agente, não devolve a do comando');
+    }
+
     #[TestDox('agente sem dado nenhum na pasta (Documental sem documentos) → 409 sem_dados, nada persistido')]
     public function testSemDadosParaOAgente(): void
     {

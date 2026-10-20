@@ -65,7 +65,11 @@ final class SolicitarAnaliseDaPastaUseCase
     ) {
     }
 
-    public function executar(SolicitarAnaliseDaPastaInput $input, User $user, Tenant $tenant): AnaliseOutput
+    /**
+     * `$antesDeCriar` roda só quando uma análise nova vai ser criada (o controller passa o limitador de ritmo):
+     * pedido em andamento ou "nada novo" não gastam a cota de ritmo de quem só olha o resultado.
+     */
+    public function executar(SolicitarAnaliseDaPastaInput $input, User $user, Tenant $tenant, ?callable $antesDeCriar = null): AnaliseOutput
     {
         $pasta = $this->pastas->findOneBy(['id' => $input->pastaId, 'tenant' => $tenant]);
         if ($pasta === null) {
@@ -99,6 +103,10 @@ final class SolicitarAnaliseDaPastaUseCase
         $ultima = $this->analises->findUltimaConcluidaDoAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, TipoDeAnalise::AnalisePasta, $agente, $comando);
         if ($ultima !== null && $ultima->getContextoHash() === $contexto->hash) {
             return AnaliseOutput::fromEntity($ultima, self::avisoNadaNovo($comando));
+        }
+
+        if ($antesDeCriar !== null) {
+            $antesDeCriar();
         }
 
         $analise = new AnaliseDeInteligencia(

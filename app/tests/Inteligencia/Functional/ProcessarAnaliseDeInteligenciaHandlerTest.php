@@ -10,6 +10,7 @@ use App\Inteligencia\Contexto\MontadorDeContextoDoPush;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
@@ -638,6 +639,36 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertCount(1, $notificacoes);
         self::assertStringContainsString('#ia', (string) $notificacoes[0]->getUrl());
         self::assertStringContainsString('Agente Gestor', (string) $notificacoes[0]->getMensagem());
+    }
+
+    #[TestDox('comando: o worker monta o PEDIDO do comando, usa a anterior do MESMO comando e conclui; a de outro comando do agente não vira anterior')]
+    public function testComandoConcluiComAnteriorDoMesmoComando(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant, texto: 'Intimação para réplica em 15 dias.');
+        $this->ligarIaNoTenant($tenant, $user);
+        $resposta = (string) json_encode(['resumo' => 'Riscos mapeados.', 'pontos' => [], 'quem' => 'Dra. Ana', 'texto' => "CONCLUSÃO\nRiscos.\n\nNecessita de conferência do advogado."], JSON_UNESCAPED_UNICODE);
+
+        // Uma concluída de OUTRO comando do mesmo agente (Gestor): não pode entrar como anterior.
+        $outro = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::AnalisarPasta);
+        $falsoOutro = new ProvedorFalso();
+        $falsoOutro->responderCom((string) json_encode(['resumo' => 'Visão geral SEGREDO-DO-OUTRO.', 'pontos' => [], 'quem' => '', 'texto' => 'Texto SEGREDO-DO-OUTRO.'], JSON_UNESCAPED_UNICODE));
+        $this->handler($falsoOutro)($this->mensagem($outro));
+
+        $analise = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::IdentificarRiscos);
+        $falso = new ProvedorFalso();
+        $falso->responderCom($resposta);
+        $this->handler($falso)($this->mensagem($analise));
+
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Concluida, $relida->getStatus());
+        self::assertSame(Comando::IdentificarRiscos, $relida->getComando());
+        $pedido = $falso->ultimoPedido();
+        self::assertNotNull($pedido);
+        self::assertStringStartsWith('PEDIDO: ' . Comando::IdentificarRiscos->pedido(), $pedido->textoDoUsuario());
+        self::assertStringNotContainsString('SEGREDO-DO-OUTRO', $pedido->textoDoUsuario(), 'a anterior é só do mesmo comando');
+        self::assertStringContainsString('identificar_riscos', $pedido->rotuloDeUso);
     }
 
     #[TestDox('agente: financeiro gravado como false → o worker obedece e nada financeiro vai ao provedor')]

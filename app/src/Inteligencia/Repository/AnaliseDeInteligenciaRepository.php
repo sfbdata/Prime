@@ -218,7 +218,7 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
         ?Agente $agente = null,
         ?Comando $comando = null,
     ): ?AnaliseDeInteligencia {
-        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, $tipo, $agente, $comando)
+        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, $tipo, $agente, $comando, semComandoQuandoNulo: true)
             ->andWhere('a.status IN (:emAndamento)')
             ->setParameter('emAndamento', [StatusDaAnalise::Pendente, StatusDaAnalise::Processando])
             ->setMaxResults(1)
@@ -235,7 +235,7 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
         ?Agente $agente = null,
         ?Comando $comando = null,
     ): ?AnaliseDeInteligencia {
-        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, $tipo, $agente, $comando)
+        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, $tipo, $agente, $comando, semComandoQuandoNulo: true)
             ->andWhere('a.status = :concluida')
             ->setParameter('concluida', StatusDaAnalise::Concluida)
             ->setMaxResults(1)
@@ -369,7 +369,7 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
             ->setParameter('ids', $idsDasAnalises, ArrayParameterType::STRING);
     }
 
-    private function qbDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId, TipoDeAnalise $tipo, ?Agente $agente, ?Comando $comando = null): QueryBuilder
+    private function qbDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId, TipoDeAnalise $tipo, ?Agente $agente, ?Comando $comando = null, bool $semComandoQuandoNulo = false): QueryBuilder
     {
         $qb = $this->createQueryBuilder('a')
             ->andWhere('a.tenant = :tenant')
@@ -389,6 +389,9 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
         }
         if ($comando !== null) {
             $qb->andWhere('a.comando = :comando')->setParameter('comando', $comando);
+        } elseif ($semComandoQuandoNulo) {
+            // Pedido por agente (rota antiga, Push): não trava nem herda como "anterior" a linha de um comando.
+            $qb->andWhere('a.comando IS NULL');
         }
 
         return $qb;

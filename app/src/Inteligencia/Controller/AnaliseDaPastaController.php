@@ -14,6 +14,7 @@ use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Exception\ContextoVazioException;
 use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
+use App\Inteligencia\Exception\MuitasSolicitacoesException;
 use App\Inteligencia\Exception\PastaNaoEncontradaException;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\VisibilidadeDaAnaliseDaPasta;
@@ -112,13 +113,19 @@ final class AnaliseDaPastaController extends AbstractController
             return $this->recusa('csrf', 'Sessão expirada. Recarregue a página e tente de novo.', Response::HTTP_FORBIDDEN);
         }
 
-        // Mesmo limitador do Push, por usuário: a cota de ritmo é da pessoa, não do botão.
-        if (!$this->inteligenciaSolicitarLimiter->create((string) $user->getId())->consume()->isAccepted()) {
-            return $this->recusa('muitas_solicitacoes', 'Muitos pedidos em sequência. Aguarde um instante.', Response::HTTP_TOO_MANY_REQUESTS);
-        }
+        // Mesmo limitador do Push, por usuário: a cota de ritmo é da pessoa, não do botão. Só gasta quando uma
+        // análise nova vai ser criada: clicar num comando para ver o resultado ("nada novo") não gasta.
+        $limitador = $this->inteligenciaSolicitarLimiter->create((string) $user->getId());
+        $antesDeCriar = static function () use ($limitador): void {
+            if (!$limitador->consume()->isAccepted()) {
+                throw new MuitasSolicitacoesException();
+            }
+        };
 
         try {
-            $saida = $this->solicitar->executar($input, $user, $tenant);
+            $saida = $this->solicitar->executar($input, $user, $tenant, $antesDeCriar);
+        } catch (MuitasSolicitacoesException) {
+            return $this->recusa('muitas_solicitacoes', 'Muitos pedidos em sequência. Aguarde um instante.', Response::HTTP_TOO_MANY_REQUESTS);
         } catch (PastaNaoEncontradaException $e) {
             throw $this->createNotFoundException($e->getMessage());
         } catch (InteligenciaIndisponivelException $e) {
