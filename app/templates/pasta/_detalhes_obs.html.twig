@@ -62,6 +62,9 @@
 {% set obsComChat = central_disponivel() %}
 {% set OBS_MOTIVO_PRAZO = 'O prazo de 15 minutos para editar ou excluir terminou.' %}
 {% set OBS_MOTIVO_AUTOR = 'Só o autor pode editar ou excluir, nos 15 minutos após publicar.' %}
+{# "Encaminhar via Chat I.A": a Central conferida UMA vez (cada chamada consulta o vínculo). Na
+   lápide o servidor dá 404 ao despacho (spec §2.11): nada a oferecer. É o id da pasta ou null. #}
+{% set encaminharPasta = obsComChat and not obsPastaLapide ? pasta.id : null %}
 <style>
     {# C7-FPN-02: o bloqueado é `aria-disabled` (clicável, avisa o motivo), não mais `disabled`. #}
     .ps-detalhes-obs .ps-obs-menu .ps-processo-menu-item[aria-disabled="true"],
@@ -107,7 +110,8 @@
     {% endif %}
     <div id="detalhesObsErro" class="ps-compositor-erro d-none"></div>
 
-    <div id="detalhesObsLista" class="ps-registro ps-detalhes-rolagem{{ observacoesDetalhes is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}" data-ler-mais=".obs-conteudo-det" data-pasta-nup="{{ pasta.nup }}">
+    <div id="detalhesObsLista" class="ps-registro ps-detalhes-rolagem{{ observacoesDetalhes is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}" data-ler-mais=".obs-conteudo-det" data-pasta-nup="{{ pasta.nup }}"
+         {%- if encaminharPasta %} data-encaminhar-pasta="{{ encaminharPasta }}"{% endif %}>
         {% if observacoesDetalhes is empty %}
             <div class="ps-vazio" id="detalhesObsVazio">
                 <i class="bi bi-chat-left-text"></i>
@@ -133,13 +137,13 @@
                     {% set diaAnterior = dia %}
                 {% endif %}
 
-                {{ det.observacao(obs, null, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs, obsComChat) }}
+                {{ det.observacao(obs, null, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs, encaminharPasta, obsComChat) }}
 
                 {% set respostasDet = observacoesDetalhes|filter(o => o.respostaA is not null and o.respostaA.id == obs.id)|reverse %}
                 {% if respostasDet|length > 0 %}
                     <div class="ps-respostas" data-resposta-de="{{ obs.id }}">
                         {% for resposta in respostasDet %}
-                            {{ det.observacao(resposta, obs, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs, obsComChat) }}
+                            {{ det.observacao(resposta, obs, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs, encaminharPasta, obsComChat) }}
                         {% endfor %}
                     </div>
                 {% endif %}
@@ -314,6 +318,25 @@
                `Number()` dele daria NaN (o defeito do C6-PAS-01 no Registro). */
             const janelaAte  = Number(data.criadaEmEpoch) + {{ comentario_janela_minutos() }} * 60;
 
+            /* "Encaminhar via Chat I.A" (D:2463 e D:6869): o id da pasta vem do atributo que o Twig
+               põe na lista (só com a Central e fora da lápide); o da observação é o número do servidor. */
+            const encaminharPasta = Number(obsLista.dataset.encaminharPasta || 0);
+            const btnEncaminhar   = encaminharPasta
+                ? `<button type="button"
+                                class="ps-anotacao-acao ps-anotacao-acao--responder js-encaminhar"
+                                title="Encaminhar via Chat I.A" aria-label="Encaminhar via Chat I.A"
+                                data-encaminhar-pasta="${encaminharPasta}"
+                                data-encaminhar-tipo="registro_detalhes"
+                                data-encaminhar-id="${Number(data.id)}">
+                            <i class="bi bi-reply-fill" style="display:inline-block;transform:scaleX(-1)"></i>
+                        </button>`
+                : '';
+            const itemEncaminhar  = encaminharPasta
+                ? `<button type="button" class="ps-processo-menu-item js-obs-encaminhar" role="menuitem">
+                                <i class="bi bi-send"></i><span>Encaminhar via Chat I.A</span>
+                            </button>`
+                : '';
+
             return `
                 <article class="ps-anotacao detalhes-obs-item${ehResposta ? ' ps-anotacao--resposta' : ''}" id="detalhes-obs-${data.id}"
                          data-janela-ate="${janelaAte}" data-do-autor="1" data-autor-id="${esc(data.autorId ?? '')}">
@@ -351,6 +374,7 @@
                                 data-resposta-nome="${esc(alvoNome)}"${autorResp}>
                             <i class="bi bi-reply-fill"></i>
                         </button>{% endif %}
+                        ${btnEncaminhar}
                         <span class="ps-anotacao-data ps-num" title="${esc(criadaEm)}">${esc(horaDaResposta(criadaEm, raiz))}</span>
                         <button type="button" class="ps-obs-menu-btn js-obs-menu" title="Mais ações da observação"
                                 aria-label="Mais ações da observação" aria-haspopup="menu" aria-expanded="false"
@@ -364,7 +388,8 @@
                             </button>{% endif %}
                             <button type="button" class="ps-processo-menu-item js-obs-copiar" role="menuitem">
                                 <i class="bi bi-clipboard"></i><span>Copiar texto</span>
-                            </button>{% if podeEscreverObs %}
+                            </button>
+                            ${itemEncaminhar}{% if podeEscreverObs %}
                             <button type="button" class="ps-processo-menu-item js-obs-citar" role="menuitem">
                                 <i class="bi bi-quote"></i><span>Citar no novo registro</span>
                             </button>{% endif %}{% if obsPodeCriarMeta %}
@@ -1068,9 +1093,10 @@
    Uma observação. `raiz` é a observação respondida quando o cartão é uma resposta pendurada
    nela (null para a raiz e para a resposta solta — a órfã, cuja original foi excluída, ou a que
    responde a algo fora do limite). Mesma estrutura do Registro da aba Dados. O JS deste arquivo
-   (`htmlDoCartao`) monta a MESMA marcação.
+   (`htmlDoCartao`) monta a MESMA marcação. `encaminharPasta`: o id da pasta quando o ↪
+   "Encaminhar via Chat I.A" e o item do ⋮ entram, ou null.
 #}
-{% macro observacao(obs, raiz, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs, obsComChat = false) %}
+{% macro observacao(obs, raiz, pasta, fotos, obsPodeCriarMeta, OBS_MOTIVO_PRAZO, OBS_MOTIVO_AUTOR, podeEscreverObs, encaminharPasta = null, obsComChat = false) %}
     {% set obsPastaLapide = pasta.estaExcluida %}
     {% set autor = obs.autor.fullName ?? obs.autor.email ?? '' %}
     {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
@@ -1152,11 +1178,24 @@
                     <i class="bi bi-reply-fill"></i>
                 </button>
             {% endif %}
+            {% if encaminharPasta %}
+                {# D:2463: o ↪ espelhado, 28×26, depois do Responder e antes da hora; aparece com o
+                   cartão sob o mouse, como o Responder (`data-acao`). Só ids: o servidor relê a observação. #}
+                <button type="button"
+                        class="ps-anotacao-acao ps-anotacao-acao--responder js-encaminhar"
+                        title="Encaminhar via Chat I.A" aria-label="Encaminhar via Chat I.A"
+                        data-encaminhar-pasta="{{ encaminharPasta }}"
+                        data-encaminhar-tipo="registro_detalhes"
+                        data-encaminhar-id="{{ obs.id }}">
+                    <i class="bi bi-reply-fill" style="display:inline-block;transform:scaleX(-1)"></i>
+                </button>
+            {% endif %}
             <span class="ps-anotacao-data ps-num" title="{{ obs.criadaEm|date('d/m/Y H:i') }}">{{ horaRotulo }}</span>
             {# ⋮ da observação (N7, dc L.2335): 28×28, depois da hora. Itens: ver o
                cabeçalho (PAS-041). "Imprimir" (EDT-003) fecha os extras, logo depois de "Criar
                meta…" e antes do separador de Editar/Excluir (C6-EDT-04; dc L.5958: `extras`
-               e só então '-'). Encaminhar via Chat I.A não existe aqui (vem com o despacho); "Enviar no Chat I.A"
+               e só então '-'). "Encaminhar via Chat I.A" (D:6869) vem logo depois de Copiar
+               texto, com a Central, e clica o ↪ do cartão. "Enviar no Chat I.A"
                (dc L.6872) fica entre "Criar meta…" e "Imprimir". #}
             <button type="button" class="ps-obs-menu-btn js-obs-menu" title="Mais ações da observação"
                     aria-label="Mais ações da observação" aria-haspopup="menu" aria-expanded="false"
@@ -1173,6 +1212,11 @@
                 <button type="button" class="ps-processo-menu-item js-obs-copiar" role="menuitem">
                     <i class="bi bi-clipboard"></i><span>Copiar texto</span>
                 </button>
+                {% if encaminharPasta %}
+                    <button type="button" class="ps-processo-menu-item js-obs-encaminhar" role="menuitem">
+                        <i class="bi bi-send"></i><span>Encaminhar via Chat I.A</span>
+                    </button>
+                {% endif %}
                 {# Citar escreve no compositor: sem compositor (C6-PAS-02), não há onde citar. #}
                 {% if podeEscreverObs %}
                     <button type="button" class="ps-processo-menu-item js-obs-citar" role="menuitem">
