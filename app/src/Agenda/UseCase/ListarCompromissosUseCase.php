@@ -153,10 +153,11 @@ final class ListarCompromissosUseCase
                 dia: '' === $hora,
                 h1: $hora,
                 observacao: null !== $z->getResponsavel() && '' !== $z->getResponsavel() ? 'Responsável: ' . $z->getResponsavel() : null,
+                status: $z->estaCumprido() ? 'concluido' : null,
                 pastaId: $z->getPasta()->getId(),
                 pastaNup: $nup,
             );
-        }, $this->prazos->abertosDoEscritorioNoPeriodo($tenant, $de, $ate));
+        }, $this->prazos->doEscritorioNoPeriodo($tenant, $de, $ate));
     }
 
     /** @return list<C> */

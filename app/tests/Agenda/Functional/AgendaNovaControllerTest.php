@@ -90,7 +90,7 @@ final class AgendaNovaControllerTest extends JusPrimeWebTestCase
         self::assertSame('09:00', $itens[0]['h1']);
     }
 
-    #[TestDox('Prazos e audiências abertos das pastas entram; cumpridos e de pasta na lixeira não')]
+    #[TestDox('Prazos e audiências das pastas entram, os cumpridos como concluídos (desenho 09, L152); de pasta na lixeira não')]
     public function testPrazosDasPastas(): void
     {
         $client = static::createClient();
@@ -108,7 +108,9 @@ final class AgendaNovaControllerTest extends JusPrimeWebTestCase
         $itens = $this->itens($client, self::PERIODO);
         $porTitulo = array_column($itens, null, 'titulo');
 
-        self::assertSame(['Audiência · Pasta AG-0001', 'Contestação · Pasta AG-0001'], array_column($itens, 'titulo'));
+        self::assertSame(['Audiência · Pasta AG-0001', 'Contestação · Pasta AG-0001', 'Já cumprido · Pasta AG-0001'], array_column($itens, 'titulo'));
+        self::assertSame('concluido', $porTitulo['Já cumprido · Pasta AG-0001']['status']);
+        self::assertNull($porTitulo['Contestação · Pasta AG-0001']['status']);
         self::assertSame('aud', $porTitulo['Audiência · Pasta AG-0001']['calendario']);
         self::assertSame('14:30', $porTitulo['Audiência · Pasta AG-0001']['h1']);
         self::assertTrue($porTitulo['Contestação · Pasta AG-0001']['dia']);
