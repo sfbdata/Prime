@@ -6,13 +6,17 @@ namespace App\Auth\UseCase;
 
 use App\Auth\DTO\ConfirmarCodigoSenhaInput;
 use App\Auth\Entity\RedefinicaoSenha;
+use App\Auth\Event\EmailDaContaConfirmado;
+use App\Auth\Repository\ConfirmacaoEmailRepository;
 use App\Auth\Repository\RedefinicaoSenhaRepository;
 use App\Auth\Service\ForcaDaSenha;
 use App\Entity\Auth\User;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Passo 2 da senha por código (desenho 10): confere o código e grava a senha nova.
@@ -28,6 +32,9 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  *
  * Trocar o hash da senha derruba sozinho as outras sessões e os cookies "lembrar-me" (ver
  * RedefinirSenhaUseCase); o RecuperacaoSenhaControllerTest prova os dois.
+ *
+ * Trocar a senha pelo código confirma o e-mail da conta; se ela estava com o e-mail a confirmar, sai o
+ * EmailDaContaConfirmado depois do commit, uma vez só (o UPDATE condicional decide, como no clique do link).
  */
 final class ConfirmarCodigoSenhaUseCase
 {
@@ -45,6 +52,9 @@ final class ConfirmarCodigoSenhaUseCase
         private readonly UserPasswordHasherInterface $passwordHasher,
         #[Autowire('%kernel.secret%')]
         private readonly string $segredo,
+        private readonly ConfirmacaoEmailRepository $confirmacaoEmailRepository,
+        private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -111,7 +121,7 @@ final class ConfirmarCodigoSenhaUseCase
      */
     private function trocarSenha(RedefinicaoSenha $pedido, string $novaSenha): void
     {
-        $this->em->wrapInTransaction(function () use ($pedido, $novaSenha): void {
+        $confirmouAgora = $this->em->wrapInTransaction(function () use ($pedido, $novaSenha): bool {
             $agora = new \DateTimeImmutable();
 
             if (!$this->redefinicaoRepository->consumir($pedido, $agora)) {
@@ -123,11 +133,29 @@ final class ConfirmarCodigoSenhaUseCase
             $user = $pedido->getUser();
             $user->setPassword($this->passwordHasher->hashPassword($user, $novaSenha));
             // Quem trocou a senha com o código que chegou no e-mail provou que lê o endereço: confirma o e-mail.
+            // O UPDATE condicional diz se FOI ESTA troca que confirmou; o objeto só se alinha ao banco.
+            $confirmou = $this->confirmacaoEmailRepository->confirmarEmailDaConta($user);
             $user->confirmarEmail();
 
             $this->redefinicaoRepository->invalidarPendentesDoUsuario($user, exceto: $pedido);
             $this->redefinicaoRepository->salvar($pedido, flush: true);
+
+            return $confirmou;
         });
+
+        if ($confirmouAgora === true) {
+            $this->despacharEmailConfirmado((int) $pedido->getUser()->getId());
+        }
+    }
+
+    /** Depois do commit: a senha e o e-mail já estão gravados, e um ouvinte com defeito não pode virar erro na tela. */
+    private function despacharEmailConfirmado(int $userId): void
+    {
+        try {
+            $this->eventDispatcher->dispatch(new EmailDaContaConfirmado($userId));
+        } catch (\Throwable $e) {
+            $this->logger->error('Um ouvinte de EmailDaContaConfirmado falhou.', ['exception' => $e, 'userId' => $userId]);
+        }
     }
 
     /**

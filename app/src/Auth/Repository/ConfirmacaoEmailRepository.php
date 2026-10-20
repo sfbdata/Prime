@@ -58,6 +58,21 @@ class ConfirmacaoEmailRepository extends ServiceEntityRepository
         );
     }
 
+    /**
+     * Confirma o e-mail da conta por outro caminho que não o link (o código da troca de senha), num UPDATE condicional
+     * na conexão corrente: roda dentro da transação de quem chama. Só uma chamada ganha, inclusive contra o clique no
+     * link ao mesmo tempo, e só quem ganhou despacha o EmailDaContaConfirmado.
+     *
+     * @return bool true se FOI ESTA chamada que confirmou (a conta estava com o e-mail a confirmar)
+     */
+    public function confirmarEmailDaConta(User $user): bool
+    {
+        return $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = :id AND email_a_confirmar_desde IS NOT NULL',
+            ['id' => $user->getId()],
+        ) === 1;
+    }
+
     public function salvar(ConfirmacaoEmail $confirmacao, bool $flush = false): void
     {
         $this->getEntityManager()->persist($confirmacao);

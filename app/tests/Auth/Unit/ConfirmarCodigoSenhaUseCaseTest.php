@@ -6,6 +6,8 @@ namespace App\Tests\Auth\Unit;
 
 use App\Auth\DTO\ConfirmarCodigoSenhaInput;
 use App\Auth\Entity\RedefinicaoSenha;
+use App\Auth\Event\EmailDaContaConfirmado;
+use App\Auth\Repository\ConfirmacaoEmailRepository;
 use App\Auth\Repository\RedefinicaoSenhaRepository;
 use App\Auth\Service\ForcaDaSenha;
 use App\Auth\UseCase\ConfirmarCodigoSenhaUseCase;
@@ -18,7 +20,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**
  * O EntityManager entra só pelo wrapInTransaction, executado direto aqui, no mesmo padrão
@@ -35,10 +39,15 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
     private UserRepository&MockObject $userRepository;
     private RedefinicaoSenhaRepository&MockObject $redefinicaoRepository;
     private UserPasswordHasherInterface&MockObject $hasher;
+    private ConfirmacaoEmailRepository&MockObject $confirmacaoEmailRepository;
+    private EventDispatcherInterface&MockObject $eventDispatcher;
     private ConfirmarCodigoSenhaUseCase $useCase;
 
     /** Resultado do UPDATE condicional: false = outra requisição consumiu o código antes. */
     private bool $consumoAtomicoVence = true;
+
+    /** O banco já tem o e-mail confirmado (o clique no link ganhou antes), mesmo com o objeto em memória atrasado. */
+    private bool $bancoJaConfirmado = false;
 
     protected function setUp(): void
     {
@@ -46,13 +55,21 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
         $this->userRepository        = $this->createMock(UserRepository::class);
         $this->redefinicaoRepository = $this->createMock(RedefinicaoSenhaRepository::class);
         $this->hasher                = $this->createMock(UserPasswordHasherInterface::class);
+        $this->confirmacaoEmailRepository = $this->createMock(ConfirmacaoEmailRepository::class);
+        $this->eventDispatcher       = $this->createMock(EventDispatcherInterface::class);
         $this->useCase               = new ConfirmarCodigoSenhaUseCase(
             $this->em,
             $this->userRepository,
             $this->redefinicaoRepository,
             $this->hasher,
             self::SEGREDO,
+            $this->confirmacaoEmailRepository,
+            $this->eventDispatcher,
+            $this->createStub(LoggerInterface::class),
         );
+        // Faz no objeto o que o UPDATE condicional faz no banco: só ganha quem encontra o e-mail ainda a confirmar.
+        $this->confirmacaoEmailRepository->method('confirmarEmailDaConta')
+            ->willReturnCallback(fn (User $u): bool => !$this->bancoJaConfirmado && !$u->isEmailConfirmado());
 
         $this->em->method('wrapInTransaction')->willReturnCallback(static fn (callable $cb) => $cb());
         $this->redefinicaoRepository->method('consumir')
@@ -145,6 +162,68 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
 
         self::assertTrue($user->isEmailConfirmado());
         self::assertNull($user->getEmailAConfirmarDesde());
+    }
+
+    #[TestDox('Código certo com o e-mail a confirmar despacha EmailDaContaConfirmado uma vez, com o id da conta')]
+    public function testCodigoCertoDespachaEmailConfirmado(): void
+    {
+        $user = $this->usuario();
+        $user->marcarEmailAConfirmar(new \DateTimeImmutable('-1 day'));
+        $this->cenario($user);
+        $this->eventDispatcher->expects($this->once())->method('dispatch')
+            ->with(self::callback(static fn (object $e): bool => $e instanceof EmailDaContaConfirmado && $e->userId === 42))
+            ->willReturnArgument(0);
+
+        $this->useCase->executar($this->input());
+    }
+
+    #[TestDox('Código certo com a conta já confirmada não despacha o evento')]
+    public function testContaJaConfirmadaNaoDespacha(): void
+    {
+        $this->cenario();
+        $this->eventDispatcher->expects($this->never())->method('dispatch');
+
+        $this->useCase->executar($this->input());
+    }
+
+    #[TestDox('Confirmada pelo link antes do código (o banco já confirmado): troca a senha e não despacha de novo')]
+    public function testConfirmadaPeloLinkAntesNaoDespachaDeNovo(): void
+    {
+        $user = $this->usuario();
+        $user->marcarEmailAConfirmar(new \DateTimeImmutable('-1 day'));
+        $this->cenario($user);
+        $this->bancoJaConfirmado = true;
+        $this->eventDispatcher->expects($this->never())->method('dispatch');
+
+        $this->useCase->executar($this->input());
+
+        self::assertSame('HASH_NOVO', $user->getPassword());
+        self::assertTrue($user->isEmailConfirmado());
+    }
+
+    #[TestDox('Código errado não despacha o evento')]
+    public function testCodigoErradoNaoDespacha(): void
+    {
+        $user = $this->usuario();
+        $user->marcarEmailAConfirmar(new \DateTimeImmutable('-1 day'));
+        $this->cenario($user);
+        $this->eventDispatcher->expects($this->never())->method('dispatch');
+        $this->esperarErro(ConfirmarCodigoSenhaUseCase::ERRO_CODIGO);
+
+        $this->useCase->executar($this->input('999999'));
+    }
+
+    #[TestDox('Código certo, mas outra requisição consumiu antes: não despacha o evento')]
+    public function testCorridaPerdidaNaoDespacha(): void
+    {
+        $user = $this->usuario();
+        $user->marcarEmailAConfirmar(new \DateTimeImmutable('-1 day'));
+        $this->cenario($user);
+        $this->consumoAtomicoVence = false;
+        $this->eventDispatcher->expects($this->never())->method('dispatch');
+        $this->esperarErro(ConfirmarCodigoSenhaUseCase::ERRO_CODIGO);
+
+        $this->useCase->executar($this->input());
     }
 
     #[TestDox('Código errado não confirma o e-mail')]
