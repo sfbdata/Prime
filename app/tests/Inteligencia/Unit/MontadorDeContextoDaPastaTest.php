@@ -26,6 +26,7 @@ use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaPagamento;
+use App\Processo\DTO\DadosManuaisDoProcesso;
 use App\Processo\Entity\Processo;
 use App\Tests\Inteligencia\Support\DefineId;
 use App\Tests\Inteligencia\Support\FonteDeDadosDaPastaFalsa;
@@ -422,6 +423,22 @@ final class MontadorDeContextoDaPastaTest extends TestCase
         $this->expectException(ContextoBloqueadoException::class);
 
         $this->sut()->para($this->tenant, $this->pasta, Agente::Documental, true);
+    }
+
+    #[TestDox('P5b: o "Sim" manual de segredo de justiça no cartão bloqueia como o sigilo do tribunal (agentes e Push)')]
+    public function testSegredoManualBloqueia(): void
+    {
+        $this->processo->setNivelSigilo(0);
+        $this->processo->definirDadosManuais(new DadosManuaisDoProcesso(segredo: true), $this->user);
+
+        try {
+            $this->sut()->para($this->tenant, $this->pasta, Agente::Gestor, true);
+            self::fail('agente: o "Sim" manual tem de bloquear');
+        } catch (ContextoBloqueadoException) {
+        }
+
+        $this->expectException(ContextoBloqueadoException::class);
+        (new MontadorDeContextoDoPush($this->movimentacoes, $this->configuracoes, new MascaradorDeDadosPessoais()))->para($this->tenant, $this->pasta);
     }
 
     #[TestDox('processo de OUTRO escritório vinculado à pasta é ignorado em silêncio')]

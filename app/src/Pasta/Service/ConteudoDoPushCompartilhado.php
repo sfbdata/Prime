@@ -139,7 +139,7 @@ final class ConteudoDoPushCompartilhado
     public function temProcessoEmSegredo(Pasta $pasta): bool
     {
         foreach ($pasta->getProcessos() as $processo) {
-            if (($processo->getNivelSigilo() ?? 0) > 0) {
+            if ($processo->emSegredoDeJustica()) { // tribunal OU "Sim" manual do cartão (P5b)
                 return true;
             }
         }
