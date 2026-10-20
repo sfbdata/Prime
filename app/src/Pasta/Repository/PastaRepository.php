@@ -10,6 +10,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Pasta\DTO\PastaVinculadaOutput;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Service\NivelNoCadeado;
 use App\Pasta\Entity\PastaFavorita;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaPrazo;
@@ -50,8 +51,10 @@ class PastaRepository extends ServiceEntityRepository
      */
     public const FILTROS_EXPEDIENTE = ['resp10', 'findou', 'aud', 'prazo', 'metas', 'protocolar'];
 
-    public function __construct(ManagerRegistry $registry)
-    {
+    public function __construct(
+        ManagerRegistry $registry,
+        private readonly ?NivelNoCadeado $nivelNoCadeado = null,
+    ) {
         parent::__construct($registry, Pasta::class);
     }
 
@@ -128,8 +131,9 @@ class PastaRepository extends ServiceEntityRepository
         string $ordenar = '',
         string $direcao = 'desc',
         ?User $favoritosDe = null,
+        ?User $quemBusca = null,
     ): array {
-        $qb = $this->buildQbByFilters($filters, $tenant)->groupBy('p.id');
+        $qb = $this->buildQbByFilters($filters, $tenant, $quemBusca)->groupBy('p.id');
         $this->aplicarOrdenacao($qb, $ordenar, $direcao, $favoritosDe);
 
         return $qb
@@ -142,9 +146,9 @@ class PastaRepository extends ServiceEntityRepository
     /**
      * @param array<string, string> $filters
      */
-    public function countByFilters(array $filters, Tenant $tenant): int
+    public function countByFilters(array $filters, Tenant $tenant, ?User $quemBusca = null): int
     {
-        return (int) $this->buildQbByFilters($filters, $tenant)
+        return (int) $this->buildQbByFilters($filters, $tenant, $quemBusca)
             ->select('COUNT(DISTINCT p.id)')
             ->getQuery()
             ->getSingleScalarResult();
@@ -341,9 +345,12 @@ class PastaRepository extends ServiceEntityRepository
      * lápide, pela mesma razão das listagens do acervo: sumir com ela esconde o vínculo que
      * de fato existe.
      *
+     * Com `quemVe`, a pasta oculta pelo cadeado para essa pessoa sai só com o número e o cliente
+     * (spec pasta-cadeado D1).
+     *
      * @return PastaVinculadaOutput[]
      */
-    public function listarVinculadasAoProcesso(Processo $processo, Tenant $tenant): array
+    public function listarVinculadasAoProcesso(Processo $processo, Tenant $tenant, ?User $quemVe = null): array
     {
         $linhas = $this->createQueryBuilder('p')
             ->select(
@@ -366,10 +373,13 @@ class PastaRepository extends ServiceEntityRepository
             ->getQuery()
             ->getArrayResult();
 
-        return array_map(
-            static fn (array $linha): PastaVinculadaOutput => PastaVinculadaOutput::fromRow($linha),
-            $linhas,
-        );
+        return array_map(function (array $linha) use ($tenant, $quemVe): PastaVinculadaOutput {
+            $pasta = PastaVinculadaOutput::fromRow($linha);
+            $oculta = $quemVe !== null && $this->nivelNoCadeado !== null
+                && !$this->nivelNoCadeado->nivelPorId($quemVe, $tenant, $pasta->id)->podeVer();
+
+            return $oculta ? $pasta->oculta() : $pasta;
+        }, $linhas);
     }
 
     /**
@@ -431,8 +441,9 @@ class PastaRepository extends ServiceEntityRepository
         string $ordenar = '',
         string $direcao = 'desc',
         ?User $favoritosDe = null,
+        ?User $quemBusca = null,
     ): array {
-        $qb = $this->buildQbPorMarcador($filters, $marcador, $tenant)->groupBy('p.id');
+        $qb = $this->buildQbPorMarcador($filters, $marcador, $tenant, $quemBusca)->groupBy('p.id');
         $this->aplicarOrdenacao($qb, $ordenar, $direcao, $favoritosDe);
 
         return $qb
@@ -448,9 +459,10 @@ class PastaRepository extends ServiceEntityRepository
     public function countByFiltrosEMarcador(
         array $filters,
         Marcador $marcador,
-        Tenant $tenant
+        Tenant $tenant,
+        ?User $quemBusca = null,
     ): int {
-        return (int) $this->buildQbPorMarcador($filters, $marcador, $tenant)
+        return (int) $this->buildQbPorMarcador($filters, $marcador, $tenant, $quemBusca)
             ->select('COUNT(DISTINCT p.id)')
             ->getQuery()
             ->getSingleScalarResult();
@@ -688,13 +700,13 @@ class PastaRepository extends ServiceEntityRepository
     /**
      * @param array<string, string> $filters
      */
-    private function buildQbByFilters(array $filters, Tenant $tenant): QueryBuilder
+    private function buildQbByFilters(array $filters, Tenant $tenant, ?User $quemBusca = null): QueryBuilder
     {
         $qb = $this->createQueryBuilder('p')
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant);
 
-        $this->aplicarFiltrosPasta($qb, $filters);
+        $this->aplicarFiltrosPasta($qb, $filters, $quemBusca);
 
         return $qb;
     }
@@ -705,7 +717,8 @@ class PastaRepository extends ServiceEntityRepository
     private function buildQbPorMarcador(
         array $filters,
         Marcador $marcador,
-        Tenant $tenant
+        Tenant $tenant,
+        ?User $quemBusca = null,
     ): QueryBuilder {
         // Marcador de topo traz também as pastas dos submarcadores (desenho 1.1, dc `filtrados`, E12).
         $qb = $this->createQueryBuilder('p')
@@ -715,7 +728,7 @@ class PastaRepository extends ServiceEntityRepository
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant);
 
-        $this->aplicarFiltrosPasta($qb, $filters);
+        $this->aplicarFiltrosPasta($qb, $filters, $quemBusca);
 
         return $qb;
     }
@@ -729,7 +742,7 @@ class PastaRepository extends ServiceEntityRepository
      *
      * @param array<string, string> $filters
      */
-    private function aplicarFiltrosPasta(QueryBuilder $qb, array $filters): void
+    private function aplicarFiltrosPasta(QueryBuilder $qb, array $filters, ?User $quemBusca = null): void
     {
         if (!empty($filters['expediente']) && in_array($filters['expediente'], self::FILTROS_EXPEDIENTE, true)) {
             $this->aplicarFiltroDoExpediente($qb, (string) $filters['expediente']);
@@ -825,20 +838,7 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         if (!empty($filters['busca'])) {
-            $qb->andWhere(
-                $qb->expr()->orX(
-                    'UNACCENT(LOWER(p.nup)) LIKE UNACCENT(:busca)',
-                    'UNACCENT(LOWER(p.nomeCliente)) LIKE UNACCENT(:busca)',
-                    self::existeCredorOuDevedorCasando('busca', acentoInsensivel: true),
-                    'UNACCENT(LOWER(p.nomeAcao)) LIKE UNACCENT(:busca)',
-                    'UNACCENT(LOWER(cpf.nomeCompleto)) LIKE UNACCENT(:busca)',
-                    'UNACCENT(LOWER(cpj.razaoSocial)) LIKE UNACCENT(:busca)',
-                    'UNACCENT(LOWER(proc.classeProcessual)) LIKE UNACCENT(:busca)',
-                    'UNACCENT(LOWER(proc.numeroProcesso)) LIKE UNACCENT(:busca)',
-                    'UNACCENT(LOWER(proc.assuntoProcessual)) LIKE UNACCENT(:busca)',
-                    self::existeReuCasando('busca'),
-                )
-            )->setParameter('busca', '%' . mb_strtolower($filters['busca']) . '%');
+            $this->aplicarBusca($qb, (string) $filters['busca'], $quemBusca);
         }
 
         if (!empty($filters['prioridade'])) {
@@ -860,6 +860,33 @@ class PastaRepository extends ServiceEntityRepository
             $qb->andWhere('p.dataAbertura <= :dataAte')
                ->setParameter('dataAte', $dataAte);
         }
+    }
+
+    /**
+     * A busca livre da Lista. Pasta OCULTA pelo cadeado para quem busca (spec pasta-cadeado D1) casa só
+     * pelo que a linha dela mostra: o número da pasta e o cliente (nome da pasta, cadastro, credor ou
+     * devedor). Ação, processo (número, classe, assunto) e réus só casam nas pastas que a pessoa vê. Sem
+     * `quemBusca` (consultas internas) ou para quem vê tudo (Master, primário), a busca é a de sempre.
+     */
+    private function aplicarBusca(QueryBuilder $qb, string $busca, ?User $quemBusca): void
+    {
+        $doQueVe = [
+            'UNACCENT(LOWER(p.nomeAcao)) LIKE UNACCENT(:busca)',
+            'UNACCENT(LOWER(proc.classeProcessual)) LIKE UNACCENT(:busca)',
+            'UNACCENT(LOWER(proc.numeroProcesso)) LIKE UNACCENT(:busca)',
+            'UNACCENT(LOWER(proc.assuntoProcessual)) LIKE UNACCENT(:busca)',
+            self::existeReuCasando('busca'),
+        ];
+        $visivel = $quemBusca !== null ? $this->nivelNoCadeado?->criterioDeVisivel($qb, 'p', $quemBusca) : null;
+
+        $qb->andWhere($qb->expr()->orX(
+            'UNACCENT(LOWER(p.nup)) LIKE UNACCENT(:busca)',
+            'UNACCENT(LOWER(p.nomeCliente)) LIKE UNACCENT(:busca)',
+            self::existeCredorOuDevedorCasando('busca', acentoInsensivel: true),
+            'UNACCENT(LOWER(cpf.nomeCompleto)) LIKE UNACCENT(:busca)',
+            'UNACCENT(LOWER(cpj.razaoSocial)) LIKE UNACCENT(:busca)',
+            $visivel === null ? $qb->expr()->orX(...$doQueVe) : $qb->expr()->andX($visivel, $qb->expr()->orX(...$doQueVe)),
+        ))->setParameter('busca', '%' . mb_strtolower($busca) . '%');
     }
 
     /**

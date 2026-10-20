@@ -45,6 +45,35 @@ class PastaDocumentoRepository extends ServiceEntityRepository
     }
 
     /**
+     * As chaves das peças HTML de algumas pastas do escritório (a imagem embutida na peça e o cadeado,
+     * spec pasta-cadeado D5).
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return string[]
+     */
+    public function chavesDePecasHtmlDasPastas(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        /** @var string[] $chaves */
+        $chaves = $this->createQueryBuilder('d')
+            ->select('d.caminhoArquivo')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.mimeType = :mime')
+            ->andWhere('IDENTITY(d.pasta) IN (:pastas)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('mime', 'text/html')
+            ->setParameter('pastas', $pastaIds)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return $chaves;
+    }
+
+    /**
      * Documentos do escritório com o MESMO conteúdo (`sha256` igual) — a consulta por trás do aviso
      * "este arquivo já existe em…" do upload.
      *

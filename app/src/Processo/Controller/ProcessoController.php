@@ -250,7 +250,7 @@ class ProcessoController extends AbstractController
         // Sem escritório no contexto não há a quem perguntar quais pastas são visíveis —
         // lista vazia é o único resultado seguro (o super admin global cai aqui).
         $pastasVinculadas = $tenant !== null
-            ? $pastaRepository->listarVinculadasAoProcesso($processo, $tenant)
+            ? $pastaRepository->listarVinculadasAoProcesso($processo, $tenant, $currentUser)
             : [];
 
         return $this->render('processo/show.html.twig', [
