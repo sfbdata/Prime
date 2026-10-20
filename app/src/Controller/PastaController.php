@@ -72,6 +72,7 @@ use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Pasta\DTO\PastaPrazoOutput;
 use App\Pasta\DTO\AndamentoDaPastaOutput;
 use App\Pasta\Service\AndamentoDaPasta;
+use App\Pasta\Service\PontosDoRelatorioInicial;
 use App\Pasta\Repository\PastaPrazoRepository;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
@@ -380,6 +381,8 @@ class PastaController extends AbstractController
         $observacoesDetalhes     = $tenant !== null
             ? $this->observacaoDetalhesRepository->findByPasta($pasta, $tenant)
             : [];
+        // Card "Pontos do relatório inicial" e a pendência da aba Detalhes (desenho, `relInicial()`).
+        $pontosDoRelatorio = PontosDoRelatorioInicial::dasObservacoes($observacoesDetalhes);
 
         $checklistItens      = $tenant !== null ? $this->checklistRepository->findByPasta($pasta, $tenant) : [];
         $totalChecklist      = count($checklistItens);
@@ -507,7 +510,9 @@ class PastaController extends AbstractController
                 $pagamentosDaPasta,
                 itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo(),
                 veFinanceiro: $tenant !== null && $visibilidadeDoFinanceiro->podeVer($currentUser, $tenant, $pasta),
+                relatorioInicial: $pontosDoRelatorio,
             ),
+            'pontosDoRelatorio'           => $pontosDoRelatorio,
             'metasResumo'                 => PastaMetasResumoOutput::montar($pasta),
             // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
             // judicialização (6 das 1.099 em produção). `null` nas demais, e o cabeçalho

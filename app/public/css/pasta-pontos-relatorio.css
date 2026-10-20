@@ -1,0 +1,46 @@
+/* Card "Pontos do relatório inicial" (trilho da aba Detalhes da pasta).
+   Desenho 02 - EXPEDIENTES - VS 18.10.26, dc L.2520-2527 e `ri` (L.6932). As cores saem dos
+   tokens `--ps-*` do pasta-show.css, que já têm o par do tema escuro. */
+.ps-pontos-relatorio { padding: 15px 17px; }
+.ps-pontos-relatorio-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+.ps-pontos-relatorio-cab h2 { flex: 1; margin: 0; font-size: 13.5px; font-weight: 600; }
+.ps-pontos-relatorio-selo {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    white-space: nowrap;
+}
+.ps-pontos-relatorio-selo.is-completo { color: var(--ps-ok-text); background: var(--ps-ok-bg); }
+.ps-pontos-relatorio-selo.is-pendente { color: var(--ps-danger-text); background: var(--ps-danger-bg); }
+
+.ps-pontos-relatorio-lista { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.ps-pontos-relatorio-item { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.45; }
+.ps-pontos-relatorio-item > i { flex-shrink: 0; margin-top: 1px; font-size: 14px; }
+.ps-pontos-relatorio-item.is-ok > i { color: var(--ps-ok-dot); }
+.ps-pontos-relatorio-item.is-falta > i { color: var(--ps-danger-dot); }
+.ps-pontos-relatorio-texto { display: flex; flex-direction: column; gap: 1px; }
+.ps-pontos-relatorio-rot { font-weight: 600; color: var(--ps-body); }
+.ps-pontos-relatorio-dica { font-size: 11.5px; color: var(--ps-label); }
+
+.ps-pontos-relatorio-completar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    height: 32px;
+    margin-top: 11px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ps-accent-bg);
+    color: var(--ps-chip-text);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ps-pontos-relatorio-completar:hover,
+.ps-pontos-relatorio-completar:focus-visible { background: var(--ps-accent-bg-hv); }
+.ps-pontos-relatorio-completar i { font-size: 13px; }

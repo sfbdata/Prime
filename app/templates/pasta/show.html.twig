@@ -15,6 +15,8 @@
 <link rel="stylesheet" href="{{ asset('css/pasta-andamento.css') }}">
 {# Link externo do Push: menu da aba, modal e painel de acessos (pasta/_push_link_externo.html.twig). #}
 <link rel="stylesheet" href="{{ asset('css/pasta-push-link.css') }}">
+{# Card "Pontos do relatório inicial" da aba Detalhes (pasta/_pontos_relatorio.html.twig). #}
+<link rel="stylesheet" href="{{ asset('css/pasta-pontos-relatorio.css') }}">
 
 {# O estilo do chip de responsável sobe para o <head>. Ele ficava no fim do
    <body>, a ~4.800 linhas de HTML do chip — e o chip agora abre a página, no
@@ -315,6 +317,12 @@
                                             <i class="bi bi-clock-history"></i><span>Ver histórico do sistema</span>
                                         </button>
                                     </section>
+
+                                    {# Pontos do relatório inicial (desenho VS 18.10.26, dc L.2520): logo abaixo do Registro da pasta. #}
+                                    {% include 'pasta/_pontos_relatorio.html.twig' with {
+                                        pontos: pontosDoRelatorio,
+                                        podeEscrever: podeEditarPasta and not pasta.estaExcluida,
+                                    } only %}
 
                                     <section class="ps-card ps-como-usar" data-trilho="como-usar">
                                         <h2>Como usar esta aba</h2>

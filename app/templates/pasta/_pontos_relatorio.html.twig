@@ -1,0 +1,79 @@
+{# ── Pontos do relatório inicial (trilho da aba Detalhes) ────────────────────
+   Desenho 02 - EXPEDIENTES - VS 18.10.26 (dc L.2520-2527 e `ri` em L.6932): título, selo
+   "Completo" ou "N pendente(s)", os três pontos (registrado: check verde e "Registrado no
+   relatório"; faltando: alerta vermelho e a dica) e, quando falta algo, "Completar no relatório".
+
+   A regra (quais pontos foram registrados) é do servidor: `PontosDoRelatorioInicial`, a mesma
+   que acende a linha vermelha da aba Detalhes. A tela só mostra.
+
+   "Completar no relatório" escreve no compositor do Relatório inicial de Atendimento, logo ao
+   lado (#detalhesObsConteudo): foca o editor e, se estiver vazio, escreve "Rótulo: " de cada
+   ponto que falta, um por linha (`ri.escrever` do desenho). Sem compositor (quem só vê a pasta,
+   ou a lápide) o servidor recusaria o envio, e o botão não aparece (convenção PAS-014).
+
+   Contexto: `pontos` (PontosDoRelatorioInicial), `podeEscrever` (bool). #}
+{% set faltam = pontos.faltam() %}
+<section class="ps-card ps-pontos-relatorio" data-trilho="pontos-relatorio">
+    <div class="ps-pontos-relatorio-cab">
+        <h2>Pontos do relatório inicial</h2>
+        <span class="ps-pontos-relatorio-selo {{ pontos.completo() ? 'is-completo' : 'is-pendente' }}">{{ pontos.selo() }}</span>
+    </div>
+    <ul class="ps-pontos-relatorio-lista">
+        {% for item in pontos.itens %}
+            <li class="ps-pontos-relatorio-item {{ item.ok ? 'is-ok' : 'is-falta' }}" data-ponto="{{ item.k }}">
+                <i class="bi {{ item.ok ? 'bi-check-circle-fill' : 'bi-exclamation-circle' }}" aria-hidden="true"></i>
+                <span class="ps-pontos-relatorio-texto">
+                    <span class="ps-pontos-relatorio-rot">{{ item.rot }}</span>
+                    <span class="ps-pontos-relatorio-dica">{{ item.dica }}</span>
+                </span>
+            </li>
+        {% endfor %}
+    </ul>
+    {% if faltam is not empty and podeEscrever %}
+        <button type="button" class="ps-pontos-relatorio-completar js-ri-completar"
+                data-faltam="{{ faltam|map(f => f.rot)|json_encode|e('html_attr') }}">
+            <i class="bi bi-pencil-square" aria-hidden="true"></i>Completar no relatório
+        </button>
+    {% endif %}
+</section>
+{% if faltam is not empty and podeEscrever %}
+<script>
+(function () {
+    var botao = document.querySelector('.js-ri-completar');
+    if (!botao) { return; }
+
+    function escHtml(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    botao.addEventListener('click', function () {
+        var textarea = document.getElementById('detalhesObsConteudo');
+        if (!textarea) { return; }
+        var faltam = [];
+        try { faltam = JSON.parse(botao.dataset.faltam || '[]'); } catch (e) { faltam = []; }
+
+        var caixa = textarea.closest('.ps-compositor') || textarea;
+        caixa.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        var quill = window.EditorRico ? window.EditorRico.instancia(textarea) : null;
+        if (!quill) {
+            if (textarea.value.trim() === '') {
+                textarea.value = faltam.map(function (r) { return r + ': '; }).join('\n');
+            }
+            textarea.focus();
+
+            return;
+        }
+
+        if (window.EditorRico.estaVazio(textarea)) {
+            window.EditorRico.definirConteudo(
+                textarea,
+                faltam.map(function (r) { return '<p>' + escHtml(r) + ': </p>'; }).join('')
+            );
+        }
+        quill.focus();
+        quill.setSelection(Math.max(0, quill.getLength() - 1), 0);
+    });
+}());
+</script>
+{% endif %}
