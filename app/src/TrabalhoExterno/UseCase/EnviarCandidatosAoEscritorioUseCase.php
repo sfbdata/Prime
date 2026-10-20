@@ -10,6 +10,7 @@ use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Exception\CandidaturaRecusada;
 use App\TrabalhoExterno\Repository\CandidaturaRepository;
 use App\TrabalhoExterno\Repository\VagaRepository;
+use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeVaga;
 use App\TrabalhoExterno\Service\PoliticaDaVaga;
@@ -18,7 +19,7 @@ use App\TrabalhoExterno\Service\PoliticaDaVaga;
  * "Enviar N ao escritório" (`enviarCands`, desenho 06 l.981): a Central com `talentos` libera ao dono
  * externo da vaga os candidatos marcados. A seleção é por vaga (lacuna 9): id que não é desta vaga, ou
  * que já foi enviado, fica de fora. "Recebida" vira "Em análise". O mínimo `minEnvio` é só a
- * confirmação da tela; o servidor não o exige. Sem "desenviar".
+ * confirmação da tela; o servidor não o exige. Sem "desenviar". O dono é avisado (spec §4.7).
  */
 final class EnviarCandidatosAoEscritorioUseCase
 {
@@ -27,6 +28,7 @@ final class EnviarCandidatosAoEscritorioUseCase
         private readonly PoliticaDaVaga $politica,
         private readonly CandidaturaRepository $candidaturas,
         private readonly VagaRepository $vagas,
+        private readonly AvisosDoTrabalhoExterno $avisos,
     ) {
     }
 
@@ -49,6 +51,7 @@ final class EnviarCandidatosAoEscritorioUseCase
         }
         $n = count($enviados);
         $vaga->registrarEnvio($n, $ctx->autor()->nome, $agora);
+        $this->avisos->candidatosEnviados($ctx, $vaga);
         $this->vagas->salvar($vaga, flush: true);
         $escritorio = trim((string) ($vaga->getOfertante()['nome'] ?? ''));
 

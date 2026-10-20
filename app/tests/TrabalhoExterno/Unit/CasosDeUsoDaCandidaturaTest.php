@@ -23,13 +23,19 @@ use App\TrabalhoExterno\Exception\SemCurriculo;
 use App\TrabalhoExterno\Repository\CandidaturaRepository;
 use App\TrabalhoExterno\Repository\CurriculoRepository;
 use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
+use App\TrabalhoExterno\Repository\DestinatariosDosAvisosRepository;
+use App\TrabalhoExterno\Repository\PreferenciaDoUsuarioRepository;
 use App\TrabalhoExterno\Repository\VagaRepository;
+use App\Service\NotificacaoService;
+use App\Service\PermissionChecker;
+use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeCurriculo;
 use App\TrabalhoExterno\Service\LocalizadorDeVaga;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
 use App\TrabalhoExterno\Service\PoliticaDaVaga;
 use App\TrabalhoExterno\Service\PoliticaDoCurriculo;
+use App\TrabalhoExterno\Service\ResolvedorDePerfil;
 use App\TrabalhoExterno\UseCase\CandidatarOuAceitarUseCase;
 use App\TrabalhoExterno\UseCase\EnviarCandidatosAoEscritorioUseCase;
 use App\TrabalhoExterno\UseCase\MarcarCandidaturasEmLoteUseCase;
@@ -69,12 +75,13 @@ final class CasosDeUsoDaCandidaturaTest extends TestCase
         $this->candidaturas = $this->createMock(CandidaturaRepository::class);
     }
 
-    #[TestDox('candidatar: cria "Recebida" com "Candidatura de {nome}" no histórico e o toast do desenho')]
+    #[TestDox('candidatar: cria "Recebida" com o escritório do contexto, "Candidatura de {nome}" no histórico e o toast do desenho')]
     public function testCandidatarCria(): void
     {
         $vaga = $this->vaga();
         $this->comCurriculo();
-        $this->candidaturas->expects(self::once())->method('salvar')->with(self::callback(static fn (Candidatura $c): bool => $c->getStatus() === StatusCandidatura::Recebida));
+        $escritorio = $this->escritorio;
+        $this->candidaturas->expects(self::once())->method('salvar')->with(self::callback(static fn (Candidatura $c): bool => $c->getStatus() === StatusCandidatura::Recebida && $c->getEscritorioDoCandidato() === $escritorio));
 
         $r = $this->candidatar()->executar($this->ctx(), $vaga->getCodigo());
 
@@ -164,7 +171,7 @@ final class CasosDeUsoDaCandidaturaTest extends TestCase
         $c = Candidatura::candidatar($this->vaga(), $this->curriculo(), new \DateTimeImmutable());
         $this->candidaturas->method('daCentralPorId')->willReturnMap([[5, $c], [6, null]]);
         $this->candidaturas->expects(self::once())->method('salvar')->with($c, true);
-        $mudar = new MudarStatusDaCandidaturaUseCase($this->politicaDaVaga(), $this->candidaturas);
+        $mudar = new MudarStatusDaCandidaturaUseCase($this->politicaDaVaga(), $this->candidaturas, $this->avisos());
 
         self::assertSame(StatusCandidatura::Entrevista, $mudar->executar($this->ctx(Perfil::Master), 5, StatusCandidatura::Entrevista)->getStatus());
         self::assertArrayHasKey('entrevista', $c->getDatas());
@@ -196,12 +203,24 @@ final class CasosDeUsoDaCandidaturaTest extends TestCase
 
     private function candidatar(): CandidatarOuAceitarUseCase
     {
-        return new CandidatarOuAceitarUseCase($this->localizador(), $this->politicaDaVaga(), $this->curriculos, $this->candidaturas, $this->vagas);
+        return new CandidatarOuAceitarUseCase($this->localizador(), $this->politicaDaVaga(), $this->curriculos, $this->candidaturas, $this->vagas, $this->avisos());
     }
 
     private function enviar(): EnviarCandidatosAoEscritorioUseCase
     {
-        return new EnviarCandidatosAoEscritorioUseCase($this->localizador(), $this->politicaDaVaga(), $this->candidaturas, $this->vagas);
+        return new EnviarCandidatosAoEscritorioUseCase($this->localizador(), $this->politicaDaVaga(), $this->candidaturas, $this->vagas, $this->avisos());
+    }
+
+    /** Os avisos com o sino vazio (sem sede, sem ninguém): o que cada evento cria se prova no `AvisosDoTrabalhoExternoTest`. */
+    private function avisos(): AvisosDoTrabalhoExterno
+    {
+        return new AvisosDoTrabalhoExterno(
+            $this->createStub(NotificacaoService::class),
+            $this->createStub(DestinatariosDosAvisosRepository::class),
+            $this->createStub(PreferenciaDoUsuarioRepository::class),
+            $this->curriculos,
+            new ResolvedorDePerfil($this->createStub(PermissionChecker::class)),
+        );
     }
 
     private function localizador(): LocalizadorDeVaga

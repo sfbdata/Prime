@@ -42,6 +42,16 @@ final class TiposDeAvisoDaCentral
             Notificacao::TIPO_PUSH_LINK_RENOVACAO => ['grupo' => 'atencao', 'rotulo' => 'Renovação', 'icone' => 'bi-arrow-clockwise', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_EVENTO_CRIADO, Notificacao::TIPO_EVENTO_CANCELADO => ['grupo' => 'atencao', 'rotulo' => 'Agenda', 'icone' => 'bi-calendar-event', 'cor' => self::AMBAR, 'nivel' => 1],
             ProcessarAnaliseDeInteligenciaHandler::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Documento analisado', 'icone' => 'bi-file-earmark-check', 'cor' => self::AZUL, 'nivel' => 1],
+            // Trabalho Externo (F4): avisos de vagas e candidaturas.
+            Notificacao::TIPO_TRABALHO_EXTERNO_PEDIDO_DE_VAGA => ['grupo' => 'atencao', 'rotulo' => 'Pedido de vaga', 'icone' => 'bi-inbox', 'cor' => self::AMBAR, 'nivel' => 2],
+            Notificacao::TIPO_TRABALHO_EXTERNO_CANDIDATURA => ['grupo' => 'atencao', 'rotulo' => 'Candidatura', 'icone' => 'bi-send-check', 'cor' => self::AZUL, 'nivel' => 1],
+            Notificacao::TIPO_TRABALHO_EXTERNO_OFERTA_ACEITA => ['grupo' => 'atencao', 'rotulo' => 'Oferta aceita', 'icone' => 'bi-hand-thumbs-up', 'cor' => self::VERDE, 'nivel' => 2],
+            Notificacao::TIPO_TRABALHO_EXTERNO_CANDIDATOS_ENVIADOS => ['grupo' => 'atencao', 'rotulo' => 'Candidatos', 'icone' => 'bi-people', 'cor' => self::AZUL, 'nivel' => 2],
+            Notificacao::TIPO_TRABALHO_EXTERNO_VAGA_APROVADA => ['grupo' => 'atencao', 'rotulo' => 'Vaga aprovada', 'icone' => 'bi-check2-circle', 'cor' => self::VERDE, 'nivel' => 1],
+            Notificacao::TIPO_TRABALHO_EXTERNO_VAGA_REPROVADA => ['grupo' => 'atencao', 'rotulo' => 'Vaga não aprovada', 'icone' => 'bi-x-circle', 'cor' => self::AMBAR, 'nivel' => 2],
+            Notificacao::TIPO_TRABALHO_EXTERNO_CANDIDATURA_STATUS => ['grupo' => 'atencao', 'rotulo' => 'Andamento', 'icone' => 'bi-arrow-repeat', 'cor' => self::PETROLEO, 'nivel' => 1],
+            Notificacao::TIPO_TRABALHO_EXTERNO_VAGA_NA_AREA => ['grupo' => 'atencao', 'rotulo' => 'Vaga nova', 'icone' => 'bi-megaphone', 'cor' => self::AZUL, 'nivel' => 1],
+            Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES => ['grupo' => 'atencao', 'rotulo' => 'Pedido de informações', 'icone' => 'bi-question-circle', 'cor' => self::AMBAR, 'nivel' => 2],
             default => ['grupo' => null, 'rotulo' => 'Aviso', 'icone' => 'bi-bell', 'cor' => self::PETROLEO, 'nivel' => 1],
         };
     }

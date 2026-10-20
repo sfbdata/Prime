@@ -39,4 +39,22 @@ class PreferenciaDoUsuarioRepository extends ServiceEntityRepository
     {
         return $this->doUsuario($usuario, $chave) ?? new PreferenciaDoUsuario($usuario, $chave);
     }
+
+    /**
+     * As preferências de TODOS com esta chave (o aviso de vaga nova procura quem ligou o alerta). Só a
+     * chave sai daqui; quem chama confere o escritório guardado em cada uma.
+     *
+     * @return list<PreferenciaDoUsuario>
+     */
+    public function comChave(string $chave): array
+    {
+        return $this->createQueryBuilder('p')
+            ->addSelect('u')
+            ->join('p.usuario', 'u')
+            ->andWhere('p.chave = :chave')
+            ->setParameter('chave', $chave)
+            ->orderBy('p.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }
