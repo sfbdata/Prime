@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use App\Agenda\Service\CalendarioDoSistema;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -11,6 +12,7 @@ use App\Entity\Tenant\TenantRole;
 use App\Pasta\Controller\PastaPrazoController;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\EventListener\PrazosDosRegistrosListener;
+use App\Pasta\Service\DiasUteisDoEscritorio;
 use App\Pasta\Service\PrazosDosRegistros;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -153,7 +155,76 @@ final class PrazosDosRegistrosTest extends JusPrimeWebTestCase
         self::assertNull($this->em()->getConnection()->fetchOne('SELECT cumprido_em FROM pasta_prazo WHERE id = ?', [$id]));
     }
 
+    #[TestDox('marco vazio (padrão): "prazo de 5 dias" de 30/03/2026 grava 06/04, contando a Sexta-feira Santa como hoje')]
+    public function testMarcoVazioCalculaComoHoje(): void
+    {
+        self::assertSame('', static::getContainer()->getParameter('prazos_calendario_desde'));
+        $pasta = $this->pastaComRegistroDe('2026-03-30 10:00:00', 'Prazo de 5 dias para manifestação.');
+
+        self::assertSame(['criados' => 0, 'apagados' => 0], $this->sincronizar($pasta, static::getContainer()->get(PrazosDosRegistros::class)));
+        self::assertSame(['2026-04-06'], array_column($this->lidos($pasta), 'data'));
+    }
+
+    #[TestDox('registro anterior ao marco relido com o marco ligado: a data gravada e o próprio prazo continuam os mesmos')]
+    public function testRegistroAntigoRelidoNaoMuda(): void
+    {
+        $pasta = $this->pastaComRegistroDe('2026-03-30 10:00:00', 'Prazo de 5 dias para manifestação.');
+        $antes = $this->lidos($pasta);
+        self::assertSame(['2026-04-06'], array_column($antes, 'data'));
+
+        self::assertSame(['criados' => 0, 'apagados' => 0], $this->sincronizar($pasta, $this->prazosDesde('2026-04-01')));
+        self::assertSame($antes, $this->lidos($pasta), 'mesmo id, mesma data: nada apagado nem recriado');
+    }
+
+    #[TestDox('registro a partir do marco: grava a data nova (Sexta-feira Santa e feriado de AL não contam; corridos no sábado vão à segunda)')]
+    public function testRegistroNovoGravaDataNova(): void
+    {
+        $pasta = $this->pastaComRegistroDe('2026-03-30 10:00:00', 'Prazo de 5 dias para manifestação.');
+        self::assertSame(['2026-04-06'], array_column($this->lidos($pasta), 'data'));
+
+        self::assertSame(['criados' => 1, 'apagados' => 1], $this->sincronizar($pasta, $this->prazosDesde('2026-03-30')));
+        self::assertSame(['2026-04-07'], array_column($this->lidos($pasta), 'data'));
+
+        $corridos = $this->pastaComRegistroDe('2026-04-08 09:00:00', 'Prazo de 10 dias corridos.');
+        $this->sincronizar($corridos, $this->prazosDesde('2026-03-30'));
+        self::assertSame(['2026-04-20'], array_column($this->lidos($corridos), 'data'));
+
+        $alagoas = $this->pastaComRegistroDe('2026-09-15 09:00:00', 'Prazo de 2 dias para manifestação.');
+        $this->sincronizar($alagoas, $this->prazosDesde('2026-03-30'));
+        self::assertSame(['2026-09-18'], array_column($this->lidos($alagoas), 'data'));
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────
+
+    /** Pasta de escritório em AL com um registro escrito em $criadaEm (o leitor usa essa data como base). */
+    private function pastaComRegistroDe(string $criadaEm, string $texto): Pasta
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $tenant->setEstado('AL');
+        $this->em()->flush();
+        $pasta = $this->criarPasta($tenant);
+        $this->logarComTenant($this->client, $user, $tenant);
+        $id = $this->registrar($pasta, $texto);
+        $this->em()->getConnection()->executeStatement('UPDATE pasta_mensagem SET criada_em = ? WHERE id = ?', [$criadaEm, $id]);
+        $this->sincronizar($pasta, static::getContainer()->get(PrazosDosRegistros::class));
+
+        return $pasta;
+    }
+
+    private function prazosDesde(string $desde): PrazosDosRegistros
+    {
+        return new PrazosDosRegistros($this->em(), new DiasUteisDoEscritorio(new CalendarioDoSistema()), $desde);
+    }
+
+    /** @return array{criados: int, apagados: int} */
+    private function sincronizar(Pasta $pasta, PrazosDosRegistros $prazos): array
+    {
+        $this->em()->clear();
+        $r = $prazos->sincronizar($this->em()->find(Pasta::class, $pasta->getId()));
+        $this->em()->flush();
+
+        return $r;
+    }
 
     private function em(): EntityManagerInterface
     {
