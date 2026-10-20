@@ -9,6 +9,7 @@ use App\Cliente\Controller\ClienteController;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClienteHistorico;
 use App\Cliente\Entity\ClientePF;
+use App\Cliente\Entity\ClientePJ;
 use App\Cliente\Service\HistoricoDoCliente;
 use App\Cliente\UseCase\AtualizarContatoDoClienteUseCase;
 use App\Cliente\UseCase\CriarClienteDaPastaUseCase;
@@ -150,7 +151,7 @@ final class ClienteHistoricoControllerTest extends JusPrimeWebTestCase
         self::assertSame($gestor->getId(), (int) $linhas[0]['autor_id']);
     }
 
-    #[TestDox('anexar e remover documento pelo cadastro grava o tipo, sem o nome do arquivo')]
+    #[TestDox('anexar e remover documento grava "alterou <tipo>" uma vez por ação, sem o nome do arquivo')]
     public function testAnexarERemoverDocumento(): void
     {
         ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
@@ -170,14 +171,14 @@ final class ClienteHistoricoControllerTest extends JusPrimeWebTestCase
         self::assertResponseRedirects('/clientes/' . $id);
 
         $textos = array_column($this->linhas($id), 'texto');
-        self::assertSame(['Ana Souza removeu documento de identificação', 'Ana Souza anexou documento de identificação'], $textos);
+        self::assertSame(['Ana Souza alterou documento de identificação', 'Ana Souza alterou documento de identificação'], $textos, 'uma linha por ação, com o verbo do desenho');
         foreach ($textos as $t) {
             self::assertStringNotContainsString('rg-maria', $t);
             self::assertStringNotContainsString('529', $t);
         }
     }
 
-    #[TestDox('aba Histórico: última aba, linhas mais nova primeiro com "dd/mm/aaaa hh:mm"; Pendências fica fora do painel')]
+    #[TestDox('aba Histórico: última aba, linhas mais nova primeiro com "dd/mm/aaaa, hh:mm"; Pendências fica fora do painel')]
     public function testAbaComLinhas(): void
     {
         $tenant = $this->criarTenant();
@@ -195,7 +196,7 @@ final class ClienteHistoricoControllerTest extends JusPrimeWebTestCase
         self::assertSame('true', $c->filter('[data-cad-aba="hist"]')->attr('aria-selected'));
         $painel = $c->filter('[data-cad-painel="hist"]');
         self::assertNull($painel->attr('hidden'));
-        self::assertSame([['18/10/2026 14:32', 'Ana Souza alterou bairro'], ['01/10/2026 09:00', 'Ana Souza criou o cadastro']], $this->linhasDaTela($c));
+        self::assertSame([['18/10/2026, 14:32', 'Ana Souza alterou bairro'], ['01/10/2026, 09:00', 'Ana Souza criou o cadastro']], $this->linhasDaTela($c));
         self::assertCount(0, $painel->filter('.cad-hist-vazio'));
         self::assertCount(0, $painel->filter('.js-cad-pend'), 'o bloco Pendências não mora no painel do Histórico');
     }
@@ -254,7 +255,7 @@ final class ClienteHistoricoControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
 
         $c = $this->client->request('GET', '/clientes/' . $clienteA->getId() . '/cadastro');
-        self::assertSame([['01/10/2026 09:00', 'Ana Souza alterou nome']], $this->linhasDaTela($c));
+        self::assertSame([['01/10/2026, 09:00', 'Ana Souza alterou nome']], $this->linhasDaTela($c));
         self::assertStringNotContainsString('Bruno Lima', (string) $this->client->getResponse()->getContent());
     }
 
@@ -304,6 +305,63 @@ final class ClienteHistoricoControllerTest extends JusPrimeWebTestCase
         $textos = array_column($this->linhas($id), 'texto');
         self::assertSame(['Ana Souza alterou estado civil, complemento, telefone fixo'], $textos);
         self::assertStringNotContainsString('101', $textos[0]);
+    }
+
+    #[TestDox('salvar recusado (CPF inválido, 422) não grava linha nenhuma')]
+    public function testSalvarRecusadoNaoGrava(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'Ana Souza');
+        $cliente = $this->criarClientePF($tenant, 'Maria das Dores');
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $this->salvar((int) $cliente->getId(), ['bairro' => 'Asa Sul', 'cpf' => '529.982.247-26']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM cliente_historico WHERE cliente_id = ?', [$cliente->getId()]));
+    }
+
+    #[TestDox('ficha antiga: emissão do RG (PF) e endereço da sede (PJ) entram pelo rótulo')]
+    public function testFichaAntigaCamposForaDaJanela(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'Ana Souza');
+        $pf = $this->criarClientePF($tenant, 'Maria das Dores');
+        $pj = $this->criarClientePJ($tenant);
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $this->em()->clear();
+        $form = $this->client->request('GET', '/clientes/' . $pf->getId() . '/editar')->selectButton('Salvar Alterações')->form();
+        $form['cliente_pf[rgDataEmissao]'] = '2010-05-04';
+        $this->client->submit($form);
+        self::assertResponseRedirects('/clientes/' . $pf->getId());
+
+        $this->em()->clear();
+        $form = $this->client->request('GET', '/clientes/' . $pj->getId() . '/editar')->selectButton('Salvar Alterações')->form();
+        $form['cliente_pj[enderecSede]'] = 'Setor Comercial Sul, Quadra 2';
+        $this->client->submit($form);
+        self::assertResponseRedirects('/clientes/' . $pj->getId());
+
+        self::assertSame(['Ana Souza alterou emissão do RG'], array_column($this->linhas((int) $pf->getId()), 'texto'));
+        self::assertSame(['Ana Souza alterou endereço da sede'], array_column($this->linhas((int) $pj->getId()), 'texto'));
+    }
+
+    #[TestDox('editar documento trocando o tipo: o texto usa o tipo de ANTES')]
+    public function testEditarDocumentoTrocandoTipo(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'Ana Souza');
+        $cliente = $this->criarClientePF($tenant, 'Maria das Dores');
+        $doc = (new ClienteDocumento())->setCliente($cliente)->setTenant($tenant)->setCategoria(ClienteDocumento::CATEGORIA_CONTRATO)
+            ->setTitulo('c.pdf')->setNomeOriginal('c.pdf')->setCaminhoArquivo('fake/' . uniqid() . '.pdf')->setMimeType('application/pdf')->setTamanhoBytes(10);
+        $this->em()->persist($doc);
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $this->editarDocumento((int) $doc->getId(), ['categoria' => 'PROCURACAO']);
+
+        self::assertSame('PROCURACAO', $this->em()->getConnection()->fetchOne('SELECT categoria FROM cliente_documento WHERE id = ?', [$doc->getId()]));
+        self::assertSame(['Ana Souza alterou contrato'], array_column($this->linhas((int) $cliente->getId()), 'texto'));
     }
 
     #[TestDox('editar os dados do documento (cliente_documento_edit) grava "alterou <tipo>"; reenviar igual não grava')]
@@ -431,6 +489,19 @@ final class ClienteHistoricoControllerTest extends JusPrimeWebTestCase
         $cliente->setEndereco('SQS 110 Bloco A');
         $cliente->setCidade('Brasília');
         $cliente->setEstado('DF');
+        $cliente->setTenant($tenant);
+        $this->em()->persist($cliente);
+        $this->em()->flush();
+
+        return $cliente;
+    }
+
+    private function criarClientePJ(Tenant $tenant): ClientePJ
+    {
+        $cliente = new ClientePJ();
+        $cliente->setRazaoSocial('Empresa Histórico ' . uniqid())->setCnpj('11222333000181')->setEnderecSede('SCS Quadra 1')
+            ->setRepresentanteLegal('Rep')->setRepresentanteCpf('529.982.247-25')->setRepresentanteRg('123')->setRepresentanteCargo('Diretor');
+        $cliente->setEmail('pj_' . uniqid() . '@test.com')->setCep('70000-000')->setEndereco('SCS')->setCidade('Brasília')->setEstado('DF');
         $cliente->setTenant($tenant);
         $this->em()->persist($cliente);
         $this->em()->flush();

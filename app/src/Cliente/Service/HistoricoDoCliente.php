@@ -16,8 +16,10 @@ use App\Entity\Tenant\Tenant;
  *
  * Os textos seguem o desenho: "<quem> criou o cadastro", "<quem> alterou nome, CPF, estado civil". Só RÓTULOS, nunca o
  * valor do campo (LGPD: CPF, RG e endereço não são copiados para o histórico); um rótulo fora de
- * {@see CamposDoCadastro::ROTULOS} é descartado, para nenhum valor entrar por engano. Documento anexado ou removido
- * entra pelo tipo ("documento de identificação"), sem o nome do arquivo, que pode trazer nome ou CPF da pessoa.
+ * {@see CamposDoCadastro::ROTULOS} é descartado, para nenhum valor entrar por engano. Documento anexado, editado ou
+ * removido entra como "<quem> alterou documento de identificação" (o verbo e o tipo em minúsculas do desenho,
+ * L.3496-3500), uma linha por ação (no sistema o anexo é requisição separada do Salvar), sem o nome do arquivo, que
+ * pode trazer nome ou CPF da pessoa.
  *
  * Só persiste: quem chama dá o flush junto da própria mudança, na mesma transação.
  */
@@ -60,23 +62,23 @@ final class HistoricoDoCliente
     /** O documento já ligado ao cliente e ao escritório dele (como a rota de envio monta). */
     public function documentoAnexado(ClienteDocumento $documento, User $autor): void
     {
-        $this->gravarDoDocumento($documento, $autor, 'anexou');
+        $this->gravarDoDocumento($documento, $autor);
     }
 
     /** Metadados do documento mudaram (tipo, descrição, número, nome): entra pelo tipo que ele tinha antes. */
     public function documentoAlterado(ClienteDocumento $documento, User $autor, string $categoriaAnterior): void
     {
-        $this->gravarDoDocumento($documento, $autor, 'alterou', $categoriaAnterior);
+        $this->gravarDoDocumento($documento, $autor, $categoriaAnterior);
     }
 
     /** Chame ANTES de remover: depois do flush o documento não diz mais de quem era. */
     public function documentoRemovido(ClienteDocumento $documento, User $autor): void
     {
-        $this->gravarDoDocumento($documento, $autor, 'removeu');
+        $this->gravarDoDocumento($documento, $autor);
     }
 
     /**
-     * A lista da aba, já pronta para a tela: mais nova primeiro, `q` = "dd/mm/aaaa hh:mm" no fuso da aplicação.
+     * A lista da aba, já pronta para a tela: mais nova primeiro, `q` = "dd/mm/aaaa, hh:mm" (o `toLocaleString` pt-BR do desenho) no fuso da aplicação.
      *
      * @return list<array{q: string, t: string}>
      */
@@ -87,7 +89,7 @@ final class HistoricoDoCliente
         }
 
         return array_map(
-            static fn (ClienteHistorico $h): array => ['q' => $h->getEm()->setTimezone(new \DateTimeZone(date_default_timezone_get()))->format('d/m/Y H:i'), 't' => $h->getTexto()],
+            static fn (ClienteHistorico $h): array => ['q' => $h->getEm()->setTimezone(new \DateTimeZone(date_default_timezone_get()))->format('d/m/Y, H:i'), 't' => $h->getTexto()],
             $this->repositorio->ultimosDoCliente($cliente, $tenant, self::LIMITE_NA_TELA),
         );
     }
@@ -109,14 +111,14 @@ final class HistoricoDoCliente
         $this->repositorio->registrar(new ClienteHistorico($tenant, $cliente, $autor, $texto));
     }
 
-    private function gravarDoDocumento(ClienteDocumento $documento, User $autor, string $verbo, ?string $categoria = null): void
+    private function gravarDoDocumento(ClienteDocumento $documento, User $autor, ?string $categoria = null): void
     {
         $cliente = $documento->getCliente();
         $tenant = $documento->getTenant();
         if ($cliente === null || $tenant === null) {
             throw new \DomainException('Documento sem cliente ou sem escritório.');
         }
-        $this->gravar($cliente, $autor, $tenant, self::nomeDe($autor) . ' ' . $verbo . ' ' . self::documento($categoria ?? $documento->getCategoria()));
+        $this->gravar($cliente, $autor, $tenant, self::nomeDe($autor) . ' alterou ' . self::documento($categoria ?? $documento->getCategoria()));
     }
 
     private static function nomeDe(User $autor): string

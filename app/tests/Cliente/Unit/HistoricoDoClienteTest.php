@@ -79,7 +79,7 @@ final class HistoricoDoClienteTest extends TestCase
         self::assertSame(['Ana Souza criou o cadastro', 'Usuário criou o cadastro'], array_map(static fn (ClienteHistorico $h): string => $h->getTexto(), $this->gravadas));
     }
 
-    #[TestDox('documento: "<autor> anexou documento de identificação" e "removeu comprovante de residência", sem o nome do arquivo')]
+    #[TestDox('documento anexado ou removido: "<autor> alterou <tipo>" (verbo do desenho), sem o nome do arquivo')]
     public function testDocumentoPeloTipo(): void
     {
         [$sut, $cliente, $tenant, $autor] = $this->montar();
@@ -89,9 +89,9 @@ final class HistoricoDoClienteTest extends TestCase
         $sut->documentoAnexado($this->documento($cliente, $tenant, 'OUTRA'), $autor);
 
         self::assertSame([
-            'Ana Souza anexou documento de identificação',
-            'Ana Souza removeu comprovante de residência',
-            'Ana Souza anexou documento',
+            'Ana Souza alterou documento de identificação',
+            'Ana Souza alterou comprovante de residência',
+            'Ana Souza alterou documento',
         ], array_map(static fn (ClienteHistorico $h): string => $h->getTexto(), $this->gravadas));
         foreach ($this->gravadas as $h) {
             self::assertStringNotContainsString('rg-maria', $h->getTexto());
@@ -132,7 +132,7 @@ final class HistoricoDoClienteTest extends TestCase
         self::assertSame([], $this->gravadas);
     }
 
-    #[TestDox('tela: q "dd/mm/aaaa hh:mm" e t; cliente sem id (novo) não consulta e devolve vazio')]
+    #[TestDox('tela: q "dd/mm/aaaa, hh:mm" e t; cliente sem id (novo) não consulta e devolve vazio')]
     public function testParaTela(): void
     {
         $repo = $this->createMock(ClienteHistoricoRepository::class);
@@ -155,7 +155,7 @@ final class HistoricoDoClienteTest extends TestCase
         (new \ReflectionProperty($linha, 'em'))->setValue($linha, new \DateTimeImmutable('2026-10-19 08:05:00'));
         $repo->expects(self::once())->method('ultimosDoCliente')->with($cliente, $tenant, 40)->willReturn([$linha]);
 
-        self::assertSame([['q' => '19/10/2026 08:05', 't' => 'Ana Souza alterou nome']], (new HistoricoDoCliente($repo))->paraTela($cliente, $tenant));
+        self::assertSame([['q' => '19/10/2026, 08:05', 't' => 'Ana Souza alterou nome']], (new HistoricoDoCliente($repo))->paraTela($cliente, $tenant));
     }
 
     #[TestDox('texto vazio não vira linha; texto longo é cortado no tamanho da coluna')]

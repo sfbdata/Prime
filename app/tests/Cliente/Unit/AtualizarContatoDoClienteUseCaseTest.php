@@ -140,6 +140,7 @@ final class AtualizarContatoDoClienteUseCaseTest extends TestCase
         self::assertSame('(61) 98400-4003', $cliente->getTelefoneCelular());
         self::assertSame('(61) 3425-8844', $cliente->getTelefoneFixo());
         self::assertSame('original@exemplo.com', $cliente->getEmail());
+        self::assertSame([], $this->historico, 'recusado: nada no Histórico');
     }
 
     #[TestDox('cliente de outro escritório: não encontrado, nada gravado')]
