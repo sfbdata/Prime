@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
+use App\Entity\Tenant\TenantRole;
 use App\Master\Entity\RecursoEstado;
 use App\Master\EventListener\BloqueioDeRecursoDesativado;
 use App\Pasta\Entity\LinkExternoDoPush;
@@ -63,9 +67,45 @@ final class PushLinkComTelaDesligadaTest extends JusPrimeWebTestCase
         $client->request('POST', "/pasta/{$pasta->getId()}/push/links/{$expirado->getId()}/renovar", $token, server: $json);
         self::assertResponseStatusCodeSame(503, 'renovar segue a tela');
 
+        $client->request('GET', "/pasta/{$pasta->getId()}/push/links", server: $json);
+        self::assertResponseStatusCodeSame(503, 'listar segue a tela');
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/push/links/{$expirado->getId()}/recusar", $token, server: $json);
+        self::assertResponseStatusCodeSame(503, 'recusar segue a tela (não estende acesso)');
+
         $client->request('POST', "/pasta/{$pasta->getId()}/push/links/{$link->getId()}/revogar", $token, server: $json);
         self::assertResponseIsSuccessful();
+        self::assertSame(
+            ['ok' => true, 'id' => $link->getId(), 'revogado' => true],
+            json_decode((string) $client->getResponse()->getContent(), true),
+            'só a confirmação: sem endereço, código, acessos nem pedido de renovação',
+        );
         self::assertTrue($this->em()->find(LinkExternoDoPush::class, $link->getId())?->estaRevogado());
+    }
+
+    #[TestDox('Tela desligada: o revogar aberto continua com as guardas (outro escritório 404, CSRF inválido 403)')]
+    public function testRevogarAbertoMantemAsGuardas(): void
+    {
+        $client = $this->cliente();
+        [$admin, $tenant] = $this->criarAdmin();
+        $comum = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view']);
+        [$pasta, $processo] = $this->criarPastaComPush($tenant);
+        $link = $this->criarLink($tenant, $pasta, $processo, $admin);
+        [, $outroTenant] = $this->criarAdmin();
+        $deFora = $this->criarUsuarioComPermissoes($outroTenant, ['resources.pasta.view']);
+        $this->desligarPushPublico();
+        $this->instalarCsrfPrevisivel();
+        $json = ['HTTP_ACCEPT' => 'application/json'];
+
+        $this->logarComTenant($client, $deFora, $outroTenant);
+        $client->request('POST', "/pasta/{$pasta->getId()}/push/links/{$link->getId()}/revogar", ['_token' => 'TOKEN_pasta_push_link_' . $pasta->getId()], server: $json);
+        self::assertResponseStatusCodeSame(404, 'pasta de outro escritório');
+
+        $this->logarComTenant($client, $comum, $tenant);
+        $client->request('POST', "/pasta/{$pasta->getId()}/push/links/{$link->getId()}/revogar", ['_token' => 'invalido'], server: $json);
+        self::assertResponseStatusCodeSame(403, 'CSRF inválido');
+
+        self::assertFalse($this->em()->find(LinkExternoDoPush::class, $link->getId())?->estaRevogado());
     }
 
     #[TestDox('Tela desligada: o #pushLinkMenu some para quem não é Master e fica marcado para o Master')]
@@ -88,6 +128,14 @@ final class PushLinkComTelaDesligadaTest extends JusPrimeWebTestCase
         self::assertCount(0, $desligada->filter('#pastaTabs > #push-tab[data-ppl-menu]'), 'a aba não anuncia o menu que não existe');
         self::assertCount(1, $desligada->filter('#pastaTabs > #push-tab'), 'a aba Push continua');
         self::assertCount(0, $desligada->filter('.js-ppl-abrir'), 'o item do ⋮ some pela mesma regra');
+
+        // O primário (papel de sistema) também não é Master: o menu some para ele.
+        $primario = $this->criarPrimario($tenant);
+        $this->logarComTenant($client, $primario, $tenant);
+        $doPrimario = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $doPrimario->filter('#pushLinkMenu'));
+        self::assertCount(0, $doPrimario->filter('#pastaTabs > #push-tab[data-ppl-menu]'));
 
         $this->logarComTenant($client, $admin, $tenant);
         $master = $client->request('GET', "/pasta/{$pasta->getId()}");
@@ -116,5 +164,20 @@ final class PushLinkComTelaDesligadaTest extends JusPrimeWebTestCase
             'Esta tela está desativada para os usuários. Só o Master está vendo.',
             $desligada->filter('body.pc-corpo > [data-recurso-faixa].bj-recurso-faixa')->text(),
         );
+    }
+
+    private function criarPrimario(Tenant $tenant): User
+    {
+        $tenant = $this->em()->find(Tenant::class, $tenant->getId());
+        self::assertNotNull($tenant);
+        $papel = (new TenantRole())->setTenant($tenant)->setName('Primário ' . uniqid())->setIsSystem(true);
+        $user = (new User())->setEmail('prim_' . uniqid() . '@test.com')->setFullName('Primário da Conta')->setRoles(['ROLE_USER'])->setIsActive(true);
+        $user->setPassword('x');
+        $this->em()->persist($papel);
+        $this->em()->persist($user);
+        $this->em()->persist((new UserTenant($user, $tenant))->setTenantRole($papel));
+        $this->em()->flush();
+
+        return $user;
     }
 }
