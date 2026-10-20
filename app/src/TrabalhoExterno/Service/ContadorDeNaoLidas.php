@@ -64,6 +64,7 @@ final class ContadorDeNaoLidas
         $total = 0;
         foreach ($d->getMensagens() as $m) {
             if ((int) $m->getId() > $ultimaLida
+                && !$m->foiApagada()
                 && $m->getAutor()?->getId() !== $ctx->usuario->getId()
                 && $this->politica->mensagemVisivel($ctx, $d, $m)) {
                 ++$total;

@@ -205,6 +205,14 @@ Roda **depois** do backup das 02:00, para que o dump da noite ainda contenha o e
 > A carência de quarentena (padrão 365 dias) é configurável sem deploy via
 > `TENANT_CARENCIA_PURGA_DIAS` no `.env.prod`.
 
+### Resumo semanal ao cliente (crontab na VPS)
+
+Toda segunda-feira, às 8h de Brasília, manda aos clientes com o "Resumo semanal" ligado as movimentações da semana anterior (spec `docs/specs/push-envio-automatico.md` §3; se o relógio da VPS estiver em UTC, use `0 11 * * 1`; simule antes com `--dry-run`; configurar é do dono):
+
+```
+0 8 * * 1 docker exec jusprime_php_prod php bin/console app:push:resumo-semanal-cliente >> /var/log/jusprime-resumo-semanal-cliente.log 2>&1
+```
+
 ### Atualização de encargos de cobrança (crontab na VPS)
 
 Job diário que faz os encargos das obrigações **crescerem no tempo**: recalcula juros, multa,
@@ -246,6 +254,52 @@ estado anterior ao recálculo (janela de conferência) e para não disputar CPU 
 > alarma no fim). Leia `/var/log/jusprime-encargos.log`: a seção "Obrigações que falharam" traz o
 > id e o motivo — tipicamente uma taxa configurada em regime composto alta demais para o atraso
 > acumulado. As demais obrigações foram atualizadas normalmente.
+
+### Relatório mensal de pastas sem processo (crontab na VPS)
+
+Envia à Controladoria (e aos primários) o relatório de pastas sem processo vinculado, e a cada
+responsável as pastas dele que pedem atenção (spec `docs/specs/relatorio-processos-controladoria.md`,
+D5). O cron roda **todo dia às 10h05 de Brasília**; quem decide se é dia de envio é o próprio comando:
+só na **primeira segunda-feira do mês**, a partir das 10h, e **uma vez por mês por escritório** (o
+histórico `relatorio_sem_processo_envio` trava a repetição). Nos outros dias ele passa e não envia nada.
+
+```
+CRON_TZ=America/Sao_Paulo
+5 10 * * * docker exec jusprime_php_prod php bin/console app:pastas:relatorio-sem-processo >> /var/log/jusprime-relatorio-sem-processo.log 2>&1
+```
+
+> Se o cron da VPS não aceitar `CRON_TZ` e o relógio dela estiver em UTC, use `5 13 * * *`
+> (10h05 em Brasília, sem horário de verão).
+>
+> **Antes de agendar:** rode uma vez em simulação: `docker exec jusprime_php_prod php bin/console
+> app:pastas:relatorio-sem-processo --dry-run` (conta os avisos e não grava nada). Para um escritório
+> só: `--tenant=1`.
+>
+> Configurar o cron é do dono (D5).
+
+### Relatório mensal de pastas paradas (crontab na VPS)
+
+Avisa cada responsável das pastas dele que estão sem movimentação há mais de 30 dias (para dizer se
+vão receber movimentação ou ser arquivadas), e a Controladoria e os primários da lista inteira (spec
+`docs/specs/pastas-paradas.md`, "Envio automático"). O cron roda **todo dia às 10h15 de Brasília**;
+quem decide se é dia de envio é o próprio comando: só na **primeira segunda-feira do mês**, a partir
+das 10h, e **uma vez por mês por escritório** (a gravação em `relatorio_pastas_paradas_envio` vem antes
+dos avisos e trava a repetição). Nos outros dias ele passa e não envia nada.
+
+```
+CRON_TZ=America/Sao_Paulo
+15 10 * * * docker exec jusprime_php_prod php bin/console app:pastas:relatorio-pastas-paradas >> /var/log/jusprime-relatorio-pastas-paradas.log 2>&1
+```
+
+> Se o cron da VPS não aceitar `CRON_TZ` e o relógio dela estiver em UTC, use `15 13 * * *`
+> (10h15 em Brasília, sem horário de verão).
+>
+> **Antes de agendar:** rode uma vez em simulação: `docker exec jusprime_php_prod php bin/console
+> app:pastas:relatorio-pastas-paradas --dry-run` (não grava nada). A simulação só conta as pastas
+> paradas e os avisos no dia do envio (primeira segunda-feira do mês, a partir das 10h); em outro dia,
+> só mostra o motivo de não enviar. Para um escritório só: `--tenant=1`.
+>
+> Configurar o cron é do dono.
 
 ### Personalizar configuração
 

@@ -410,6 +410,10 @@ input[type="range"].img-slider {
         </div>
     </section>
 
+    {# Ponto de inclusão da frente do Contribua: bloco "Assinatura" (plano, vencimento e cancelar), porque o checkout
+       do desenho 08 manda cancelar em Meu Perfil. Basta a outra frente criar o parcial. #}
+    {% include 'contribua/_assinatura_no_perfil.html.twig' ignore missing %}
+
     {# ── Segurança ── #}
     <section class="mp-card" data-screen-label="Segurança">
         <div class="mp-card-topo">

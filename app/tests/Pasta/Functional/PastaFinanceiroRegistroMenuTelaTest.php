@@ -100,16 +100,18 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $menu->filter('#financeiroObsMenu > .ps-fin-menu-titulo'));
 
         $itens = $menu->filter('#financeiroObsMenu > button.ps-fin-menu-item[role="menuitem"]');
-        // Desenho (dc L.5958): Responder, Copiar texto, — , Editar, Excluir comentário (FPN-005).
-        self::assertSame(['Responder', 'Copiar texto', 'Editar', 'Excluir comentário'], $itens->each(static fn ($b): string => trim($b->text())));
+        // Desenho (dc L.5958 / D:6305): Responder, Copiar texto, Encaminhar via Chat I.A (com a Central),
+        // separador, Editar, Excluir comentário (FPN-005).
+        self::assertSame(['Responder', 'Copiar texto', 'Encaminhar via Chat I.A', 'Editar', 'Excluir comentário'], $itens->each(static fn ($b): string => trim($b->text())));
         self::assertSame(
-            ['bi bi-reply-fill', 'bi bi-clipboard', 'bi bi-pencil', 'bi bi-trash3'],
+            ['bi bi-reply-fill', 'bi bi-clipboard', 'bi bi-send', 'bi bi-pencil', 'bi bi-trash3'],
             $itens->each(static fn ($b): ?string => $b->filter('i')->attr('class')),
         );
         self::assertStringContainsString('js-fin-obs-responder', (string) $itens->eq(0)->attr('class'));
         self::assertStringContainsString('js-fin-obs-copiar', (string) $itens->eq(1)->attr('class'));
-        self::assertStringContainsString('js-fin-obs-editar js-fin-obs-gerenciar', (string) $itens->eq(2)->attr('class'));
-        self::assertStringContainsString('ps-fin-menu-item--perigo js-fin-obs-excluir js-fin-obs-gerenciar', (string) $itens->eq(3)->attr('class'));
+        self::assertStringContainsString('js-fin-obs-encaminhar', (string) $itens->eq(2)->attr('class'));
+        self::assertStringContainsString('js-fin-obs-editar js-fin-obs-gerenciar', (string) $itens->eq(3)->attr('class'));
+        self::assertStringContainsString('ps-fin-menu-item--perigo js-fin-obs-excluir js-fin-obs-gerenciar', (string) $itens->eq(4)->attr('class'));
         // Desenho (dc L.6454-6466, `menuObs`/`extrasObs`): "Imprimir" mora só no ⋮ da observação
         // de Detalhes; o menu do Relatório financeiro não tem o item.
         self::assertCount(0, $menu->filter('#financeiroObsMenu .js-fin-obs-imprimir, #financeiroObsMenu .js-obs-imprimir, #financeiroObsMenu .bi-printer'));
@@ -119,10 +121,8 @@ final class PastaFinanceiroRegistroMenuTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $menu->filter('#financeiroObsMenu > .ps-fin-menu-sep'));
         self::assertCount(0, $menu->filter('#financeiroObsMenu > [hidden]'));
 
-        // Sem lastro no Financeiro: não aparecem.
-        foreach (['Encaminhar', 'Destacar'] as $fora) {
-            self::assertStringNotContainsString($fora, $menu->text());
-        }
+        // Sem lastro no Financeiro: não aparece.
+        self::assertStringNotContainsString('Destacar', $menu->text());
     }
 
     #[TestDox('O registro da autora, dentro da janela, expõe os gatilhos do menu: texto, autor, hora e os botões de editar e excluir')]

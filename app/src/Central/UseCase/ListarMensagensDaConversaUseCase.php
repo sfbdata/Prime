@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace App\Central\UseCase;
 
 use App\Central\DTO\ContatoOutput;
-use App\Central\DTO\MensagemOutput;
 use App\Central\DTO\MensagensDaConversaOutput;
-use App\Central\Entity\Mensagem;
 use App\Central\Exception\ConversaNaoEncontradaException;
 use App\Central\Exception\SemAcessoACentralException;
 use App\Central\Repository\MensagemRepository;
 use App\Central\Service\AcessoACentral;
+use App\Central\Service\LeituraDasMensagens;
 use App\Central\Service\MencoesDaCentral;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -22,6 +21,9 @@ use App\Entity\Tenant\Tenant;
  *
  * Junto vai quem pode ser @mencionado nesta conversa (A2), para o autocomplete da tela — só na primeira página
  * (`antesDe` nulo): a tela não relê a lista ao rolar o histórico.
+ *
+ * O texto sai por {@see LeituraDasMensagens}: o despacho de uma pasta que eu não vejo (entrei no grupo depois, ou perdi
+ * o acesso) vem como "Item de pasta sem acesso".
  */
 final class ListarMensagensDaConversaUseCase
 {
@@ -30,6 +32,7 @@ final class ListarMensagensDaConversaUseCase
     public function __construct(
         private readonly AcessoACentral $acesso,
         private readonly MensagemRepository $mensagens,
+        private readonly LeituraDasMensagens $leitura,
     ) {
     }
 
@@ -58,7 +61,7 @@ final class ListarMensagensDaConversaUseCase
 
         return new MensagensDaConversaOutput(
             conversaId: $conversaId,
-            mensagens: array_map(static fn (Mensagem $m): MensagemOutput => MensagemOutput::fromEntity($m, $eu), $pagina),
+            mensagens: $this->leitura->paraLeitor($pagina, $eu),
             temMais: $temMais,
             ultimaLidaId: $participacao->getUltimaLidaId(),
             mencionaveis: $mencionaveis,

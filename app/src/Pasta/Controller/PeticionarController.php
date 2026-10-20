@@ -6,6 +6,7 @@ namespace App\Pasta\Controller;
 
 use App\Cliente\Entity\Cliente;
 use App\Entity\Auth\User;
+use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
@@ -13,6 +14,7 @@ use App\Pasta\Exception\TituloDePecaLongoDemaisException;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Pasta\DTO\UploadImagemEditorInput;
 use App\Pasta\Repository\PastaSecaoRepository;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Pasta\DTO\DocumentoDuplicadoOutput;
 use App\Pasta\UseCase\EditarPecaTextoUseCase;
 use App\Pasta\UseCase\ExportarPecaTextoUseCase;
@@ -49,6 +51,7 @@ final class PeticionarController extends AbstractController
         private readonly PastaSecaoRepository $pastaSecaoRepository,
         private readonly SincronizacaoPastaDispatcher $syncDispatcher,
         private readonly LoggerInterface $logger,
+        private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
     ) {}
 
     #[Route('/{id}/peticionar', name: 'pasta_peticionar', methods: ['GET'])]
@@ -62,7 +65,8 @@ final class PeticionarController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $documentos = $pasta->getDocumentos()->toArray();
+        // Contrato de honorários some com o Financeiro oculto (regra única do ocultar aba).
+        $documentos = VisibilidadeDasAbasDaPasta::documentosVisiveis($pasta->getDocumentos()->toArray(), array_map(static fn (AbaDaPasta $a): string => $a->value, $this->visibilidadeDasAbas->abasOcultasPara($pasta, $currentUser)));
         usort(
             $documentos,
             static fn (PastaDocumento $a, PastaDocumento $b) => $a->getCarregadoEm() <=> $b->getCarregadoEm(),

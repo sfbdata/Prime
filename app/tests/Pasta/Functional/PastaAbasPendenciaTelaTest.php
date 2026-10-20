@@ -277,7 +277,7 @@ final class PastaAbasPendenciaTelaTest extends JusPrimeWebTestCase
     // Dados, Detalhes e Documentos
     // =========================================================================
 
-    #[TestDox('Dados e Detalhes nunca carregam a marca; Documentos, sem checklist marcado sem anexo, também não (a regra dela está em PastaChecklistTelaTest)')]
+    #[TestDox('Dados nunca carrega a marca; Documentos, sem checklist marcado sem anexo, também não (a regra dela está em PastaChecklistTelaTest; a de Detalhes, em PastaPontosRelatorioTelaTest)')]
     public function testAbasSemRegraNaoMarcam(): void
     {
         $client          = static::createClient();
@@ -288,7 +288,8 @@ final class PastaAbasPendenciaTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertResponseIsSuccessful();
 
-        foreach (['dados', 'detalhes', 'documentos'] as $id) {
+        // Detalhes saiu daqui: o relatório inicial incompleto acende a aba (desenho VS 18.10.26, dc L.5504).
+        foreach (['dados', 'documentos'] as $id) {
             self::assertCount(0, $crawler->filter('#pastaTabs > #' . $id . '-tab.ps-aba--pend'), $id);
             self::assertCount(0, $crawler->filter('#' . $id . '-tab > .ps-aba-pend'), $id);
         }
