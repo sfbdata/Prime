@@ -28,7 +28,7 @@
 
 ## 2. Depois
 
-**Fora do ar** = `Tenant::isActive() !== true` (suspenso pelo Master, ou excluído e em quarentena, que também
+**Fora do ar** = `Tenant::isActive() !== true` ou `excluidoEm` preenchido (suspenso pelo Master, ou excluído e em quarentena, que também
 fica inativo). Regra num lugar só: `App\Tenant\Service\SituacaoDaConta::foraDoAr(Tenant)`. A "suspensa a pedido"
 do #125 (conta ativa com pedido de exclusão pendente) entra nessa regra quando o #125 estiver no master.
 

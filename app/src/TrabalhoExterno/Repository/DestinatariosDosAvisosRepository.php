@@ -52,7 +52,7 @@ class DestinatariosDosAvisosRepository
             ->select('u')
             ->from(User::class, 'u')
             ->join(UserTenant::class, 'ut', 'WITH', 'ut.user = u AND ut.tenant = :tenant AND ut.isActive = true')
-            ->join('ut.tenant', 't', 'WITH', 't.isActive = true')
+            ->join('ut.tenant', 't', 'WITH', 't.isActive = true AND t.excluidoEm IS NULL')
             ->andWhere('u.isActive = true')
             ->setParameter('tenant', $escritorio)
             ->orderBy('u.id', 'ASC')

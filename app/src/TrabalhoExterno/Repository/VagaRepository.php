@@ -140,7 +140,8 @@ class VagaRepository extends ServiceEntityRepository
             ->setParameter('usuario', $usuario);
         // A vaga aberta de escritório fora do ar (suspenso ou excluído) sai da lista de quem é de fora
         // (docs/specs/te-convidado-escritorio-fora-do-ar.md); quem se candidatou a abre pela candidatura.
-        $aberta = $qb->expr()->andX('v.situacao = :aberta', $qb->expr()->orX('v.escritorio IS NULL', 'donoDaVaga.isActive = true'));
+        $donoNoAr = $qb->expr()->andX('donoDaVaga.isActive = true', 'donoDaVaga.excluidoEm IS NULL');
+        $aberta = $qb->expr()->andX('v.situacao = :aberta', $qb->expr()->orX('v.escritorio IS NULL', $donoNoAr));
         $dele = $qb->expr()->andX('v.daCentral = false', 'v.escritorio IS NULL', 'v.criadaPor = :usuario');
         if ($tenant === null) {
             return $qb->andWhere($qb->expr()->orX($aberta, $dele));

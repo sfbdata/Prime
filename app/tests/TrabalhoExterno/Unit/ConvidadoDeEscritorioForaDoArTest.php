@@ -24,7 +24,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Contexto::class)]
 final class ConvidadoDeEscritorioForaDoArTest extends TestCase
 {
-    #[TestDox('fora do ar: suspenso e excluído (os dois inativos); ativo não')]
+    #[TestDox('fora do ar: suspenso (inativo) e excluído (excluidoEm, mesmo com isActive ligado); ativo não')]
     public function testSituacaoDaConta(): void
     {
         $situacao = new SituacaoDaConta();
@@ -36,6 +36,8 @@ final class ConvidadoDeEscritorioForaDoArTest extends TestCase
         self::assertTrue($situacao->foraDoAr($conta), 'suspenso');
         $conta->setExcluidoEm(new \DateTimeImmutable());
         self::assertTrue($situacao->foraDoAr($conta), 'excluído');
+        $conta->setIsActive(true);
+        self::assertTrue($situacao->foraDoAr($conta), 'excluído conta mesmo se o isActive ficou ligado');
     }
 
     #[TestDox('Convidado com todas as permissões e dono fora do ar: vê e baixa, mas não age, não conversa, não registra, não anexa nem apaga')]
