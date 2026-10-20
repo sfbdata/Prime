@@ -49,6 +49,10 @@ final class SanitizadorDeHtmlDeEmailTest extends TestCase
         self::assertStringNotContainsString('expression', $html);
         self::assertSame('font-size:12px', SanitizadorDeEstiloInline::limpar('font-size:12px; @import "x.css"'));
         self::assertSame('', SanitizadorDeEstiloInline::limpar('background: u/**/rl(x)'));
+        // Outras funções de CSS que buscam imagem de fora (revisão da 2a, M1).
+        self::assertSame('color:red', SanitizadorDeEstiloInline::limpar('color:red; background-image:image-set("https://x.test/a.png" 1x)'));
+        self::assertSame('', SanitizadorDeEstiloInline::limpar('background:-webkit-image-set("https://x.test/a.png" 1x)'));
+        self::assertSame('', SanitizadorDeEstiloInline::limpar('background:cross-fade("https://x.test/a.png", red 50%)'));
     }
 
     #[TestDox('O documento inteiro vira o conteúdo do body; <head> e <style> caem e o aviso é detectado')]

@@ -751,6 +751,11 @@ recorrente pula, +1 mês no fim do mês, comando de encerrar).
 8. Secundários como clientes (legítimo interesse).
 9. O rótulo "Inscritos pela página de vagas e campanhas" (dc L539) mantido literal com a fonte nova (A8).
 10. O modelo `validar` disponível como campanha (A1).
+11. O botão `espaco` aponta para `/contribua#espaco` (comprar espaço fica no Contribua); o dc aponta para a Lista do
+    Expediente (revisão da 2a).
+12. Para a 2b (revisão da 2a): `{nome}` vindo do CSV entra no `style`/`href` do HTML importado só escapado para HTML;
+    atinge só o e-mail da própria pessoa, mas a 2b sanitiza o nome do CSV (sem `;:()<>"'`). O teto de 10 testes por
+    hora não é atômico (só o Master chega lá; o limite por minuto vale).
 
 ### 8.9 Inventário do dc (19/10), para conferir item a item
 

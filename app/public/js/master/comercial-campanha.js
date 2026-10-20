@@ -169,7 +169,7 @@
   function excluir() {
     const m = atual();
     if (!m.proprio || !window.confirm('Excluir o modelo "' + m.nome + '"?')) return;
-    postar(ROTAS.urlExcluir.replace('xidx', encodeURIComponent(m.id))).then(() => carregar('convite')).then(() => avisar('')).catch(e => avisar(e.message));
+    postar(ROTAS.urlExcluir.replace('xidx', encodeURIComponent(m.id))).then(() => carregar('convite')).catch(e => avisar(e.message));
   }
 
   function importar(arquivo) {
@@ -196,7 +196,7 @@
 
   raiz.addEventListener('click', e => {
     const modelo = e.target.closest('[data-mc-cp-modelo]');
-    if (modelo) { mk = modelo.dataset.mcCpModelo; ed = null; avisar(''); desenhar(); return; }
+    if (modelo) { mk = modelo.dataset.mcCpModelo; ed = null; desenhar(); return;   // dc L542: trocar de modelo não limpa a mensagem }
     const bloco = e.target.closest('[data-mc-cp-bloco]');
     const i = bloco ? parseInt(bloco.dataset.mcCpBloco, 10) : -1;
     const mover = e.target.closest('[data-mc-cp-mover]');

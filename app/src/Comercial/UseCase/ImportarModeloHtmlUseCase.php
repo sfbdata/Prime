@@ -34,6 +34,10 @@ final class ImportarModeloHtmlUseCase
             throw new CampanhaRecusada('O arquivo passa de 200 KB.');
         }
         $limpo = $this->sanitizador->sanitizar($html);
+        // O limite vale para o que fica gravado (o sanitizado cresce com as entidades), o mesmo que a prévia e o teste medem.
+        if (\strlen($limpo) > SanitizadorDeHtmlDeEmail::LIMITE_EM_BYTES) {
+            throw new CampanhaRecusada('O arquivo passa de 200 KB.');
+        }
         if (trim(strip_tags($limpo, '<img>')) === '') {
             throw new CampanhaRecusada('O arquivo não tem conteúdo de e-mail que possa ser usado.');
         }
