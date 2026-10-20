@@ -123,7 +123,8 @@ final class EntregaDeArquivo
         $resposta = new BinaryFileResponse($arquivo->caminho());
         $resposta->setContentDisposition(
             $inline ? ResponseHeaderBag::DISPOSITION_INLINE : ResponseHeaderBag::DISPOSITION_ATTACHMENT,
-            $nomeParaDownload,
+            // Nome antigo gravado com "/" ou "\" quebrava o cabeçalho (500): sai saneado (NomeSeguroDeArquivo).
+            NomeSeguroDeArquivo::paraDownload($nomeParaDownload),
         );
         $resposta->headers->set('X-Content-Type-Options', 'nosniff');
 

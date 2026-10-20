@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Sync\Functional;
 
+use App\Contribua\DTO\RetratoDoEspaco;
+use App\Contribua\Enum\FaixaDoEspaco;
+use App\Contribua\Enum\OrigemDoLimite;
+use App\Contribua\Exception\EspacoEsgotado;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\PastaSecaoRepository;
@@ -12,6 +16,7 @@ use App\Shared\Armazenamento\ArquivoArmazenado;
 use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\Exception\FalhaDeArmazenamento;
+use App\Shared\Armazenamento\MaterializadorDeArquivo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Doctrine\Transacao\ConsultaDeDestinoDaTransacao;
 use App\Shared\Doctrine\Transacao\DestinoDaTransacao;
@@ -249,6 +254,27 @@ final class ReconciliadorDownloadPorChaveTest extends KernelTestCase
         $this->assertTemporariosNaoSobraram($fake, 2);
     }
 
+    #[TestDox('espaço esgotado (Contribua): a pasta para no primeiro arquivo, sem baixar os seguintes à toa')]
+    public function testEspacoEsgotadoInterrompeAPasta(): void
+    {
+        self::bootKernel();
+        [, $pastaId] = $this->pastaVinculada();
+        $fake = new FakeGoogleDriveClient();
+        $fake->seedArquivo('F-CHEIO', 'sentenca.pdf', self::PASTA_NO_DRIVE);
+        $fake->seedArquivo('F-NAO-BAIXA', 'outro.pdf', self::PASTA_NO_DRIVE);
+
+        $cheio                = new ArmazenamentoEmMemoria();
+        $cheio->falhaAoGravar = new EspacoEsgotado(new RetratoDoEspaco(1, 11, 10, 110, FaixaDoEspaco::Bloqueio, OrigemDoLimite::Plano, 'free', 'Free', null, OrigemDoLimite::Plano, true));
+
+        $r = $this->importar($cheio, $pastaId, $fake);
+
+        self::assertSame(1, $r->erros);
+        self::assertFalse($r->fatal, 'espaço esgotado interrompe a pasta, não a rodada');
+        self::assertStringContainsString('drive_file_id=F-CHEIO: espaço do escritório esgotado', implode("\n", $r->mensagens));
+        self::assertSame(0, $this->linhasDoDrive(['F-CHEIO', 'F-NAO-BAIXA']));
+        $this->assertTemporariosNaoSobraram($fake, 1);
+    }
+
     #[TestDox('sucesso: o temporário do download é consumido pela gravação e não sobra')]
     public function testTemporarioNaoSobraNoSucesso(): void
     {
@@ -480,8 +506,9 @@ final class ReconciliadorDownloadPorChaveTest extends KernelTestCase
         $reconciliador = new ReconciliadorDePasta(
             $em,
             // E2.6C: o shim saiu; a Via A materializa por chave. Nos testes com armazenamento em
-            // memória, o dublê é materializador também.
-            $armazenamento,
+            // memória, o dublê é materializador também. O disco do container vem envolvido pelo
+            // decorador de cota do Contribua, que não materializa: aí o materializador é o do container.
+            $armazenamento instanceof MaterializadorDeArquivo ? $armazenamento : $container->get(MaterializadorDeArquivo::class),
             $armazenamento,
             new TransacaoComArquivoNovo(
                 $em,
