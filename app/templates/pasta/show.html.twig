@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="{{ asset('css/pasta-andamento.css') }}">
 {# Link externo do Push: menu da aba, modal e painel de acessos (pasta/_push_link_externo.html.twig). #}
 <link rel="stylesheet" href="{{ asset('css/pasta-push-link.css') }}">
+<link rel="stylesheet" href="{{ asset('css/pasta-presenca-autor.css') }}">
 
 {# O estilo do chip de responsável sobe para o <head>. Ele ficava no fim do
    <body>, a ~4.800 linhas de HTML do chip — e o chip agora abre a página, no
@@ -3038,7 +3039,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const cartao = `
         <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="pasta-msg-${data.id}"
                  data-janela-ate="${Number(data.criadaEmEpoch) + {{ comentario_janela_minutos() }} * 60}"
-                 data-do-autor="1">
+                 data-do-autor="1" data-autor-id="{{ app.user ? app.user.id : '' }}">
             ${faixa}
             <span class="ps-anotacao-ponto" aria-hidden="true"></span>
             <span class="ps-anotacao-seta" aria-hidden="true"></span>
@@ -4395,4 +4396,8 @@ document.addEventListener('DOMContentLoaded', function () {
 {# Andamento da pasta em fases (E12b). #}
 <script src="{{ asset('js/pasta-andamento.js') }}"></script>
 <script src="{{ asset('js/cliente-cadastro.js') }}"></script>
+{# Presença do autor nos cartões (desenho 02, dc L1398): escuta o batimento da Central; `defer` porque a Central entra depois do bloco. #}
+<script src="{{ asset('js/pasta-presenca-autor.js') }}" defer></script>
+{# Selo "CPF duplicado" em todas as linhas depois de vincular/desvincular sem recarregar (desenho 02, dc L6527). #}
+<script src="{{ asset('js/pasta-clientes-duplicados.js') }}" defer></script>
 {% endblock %}
