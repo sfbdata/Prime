@@ -46,7 +46,7 @@ final class FluxoDaAnaliseDaPasta implements FluxoDeAnalise
         }
 
         $incluirFinanceiro = ($analise->getContextoResumo()['financeiro'] ?? false) === true;
-        $contexto = $this->montador->para($tenant, $pasta, $agente, $incluirFinanceiro);
+        $contexto = $this->montador->para($tenant, $pasta, $agente, $incluirFinanceiro, self::abasOcultasDo($analise));
         if ($contexto->vazio()) {
             return null;
         }
@@ -56,6 +56,19 @@ final class FluxoDaAnaliseDaPasta implements FluxoDeAnalise
 
         // A resposta anterior volta ao provedor: passa pela máscara do montador (IA-033).
         return $this->prompt->montar($contexto, $this->montador->analiseAnterior($tenant, $anterior?->getResumo()));
+    }
+
+    /**
+     * As abas ocultas para quem pediu, como a solicitação gravou (spec pasta-ocultar-aba §5). O worker
+     * não tem sessão: não decide, obedece. Análise anterior à regra não tem a chave: nada oculto.
+     *
+     * @return list<string>
+     */
+    private static function abasOcultasDo(AnaliseDeInteligencia $analise): array
+    {
+        $abas = $analise->getContextoResumo()['abasOcultas'] ?? [];
+
+        return \is_array($abas) ? array_values(array_filter($abas, 'is_string')) : [];
     }
 
     public function motivoDeContextoVazio(): string

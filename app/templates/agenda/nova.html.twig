@@ -5,7 +5,7 @@
     (spec docs/specs/agenda-vs-18-10-26.md). O cabeçalho azul e a faixa de abas são a moldura do
     sistema (base.html.twig).
 
-    O template monta só o esqueleto fixo. Cartões, mini calendário, calendários, grade, lista,
+    O template monta só o esqueleto fixo; `equipe` alimenta o @colega do "Avisar no Chat". Cartões, mini calendário, calendários, grade, lista,
     próximos feriados, detalhe e menu de botão direito são desenhados pelo public/js/agenda-nova.js
     a partir de GET /agenda/datas e GET /agenda/compromissos. Rotas com {id} vão com o marcador 0,
     trocado no JS pelo id real.
@@ -24,8 +24,13 @@
 <div class="ag-page" id="agPagina"
      data-url-datas="{{ path('app_agenda_datas') }}"
      data-url-compromissos="{{ path('app_agenda_compromissos') }}"
-     data-url-novo="{{ path('agenda_novo') }}"
-     data-url-editar="{{ path('agenda_editar', {id: 0}) }}"
+     data-eu="{{ eu|json_encode|e('html_attr') }}"
+     data-equipe="{{ equipe|json_encode|e('html_attr') }}"
+     data-pode-ver-pastas="{{ podeVerPastas ? '1' : '0' }}"
+     data-url-criar="{{ path('app_agenda_compromisso_criar') }}"
+     data-url-salvar="{{ path('app_agenda_compromisso_salvar', {id: 0}) }}"
+     data-url-excluir="{{ path('app_agenda_compromisso_excluir', {id: 0}) }}"
+     data-url-avisar="{{ path('app_agenda_compromisso_avisar', {id: 0}) }}"
      data-url-pasta="{{ path('pasta_show', {id: 0}) }}">
 
     <div class="ag-topo">
@@ -75,6 +80,7 @@
     {# Camadas: o JS preenche e mostra. Dentro do .ag-page para herdar os tokens do tema. #}
     <div id="agModal"></div>
     <div id="agCtx"></div>
+    <div id="agPerg"></div>
     <div id="agToast"></div>
 </div>
 {% endblock %}
