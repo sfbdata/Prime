@@ -126,6 +126,31 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         self::assertSame('TRANSITADO_EM_JULGADO', $linha['situacao_processo']);
     }
 
+    #[TestDox('P5d: processo JÁ cadastrado (por número ou por id) não ganha dados manuais pela janela (no cartão, isso exige EDIT no processo)')]
+    public function testProcessoExistenteNaoGanhaDadosManuais(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $outra           = $this->criarPasta($tenant);
+        $existente       = $this->criarProcesso($tenant, '12345678920241234567');
+        $porId           = $this->criarProcesso($tenant, '22222222222222222222');
+        $this->autenticar($client, $user, $tenant);
+        $manuais = ['valorCausa' => 'R$ 1.000,00', 'jurisdicao' => 'Brasília', 'gratuita' => '1'];
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/processo/vincular", ['_token' => $this->gerarCsrf('vincular_processo_' . $pasta->getId()), 'numeroProcesso' => '1234567-89.2024.1.23.4567'] + $manuais, [], self::XHR);
+        self::assertResponseIsSuccessful();
+        $client->request('POST', "/pasta/{$outra->getId()}/processo/vincular", ['_token' => $this->gerarCsrf('vincular_processo_' . $outra->getId()), 'processo_id' => $porId->getId()] + $manuais, [], self::XHR);
+        self::assertResponseIsSuccessful();
+
+        $conn = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        self::assertSame(0, (int) $conn->fetchOne(
+            'SELECT count(*) FROM processo WHERE id IN (:a, :b) AND (valor_causa_manual IS NOT NULL OR jurisdicao_manual IS NOT NULL OR gratuita_manual IS NOT NULL OR dados_manuais_em IS NOT NULL)',
+            ['a' => $existente->getId(), 'b' => $porId->getId()],
+        ));
+    }
+
     /** @return list<string> o conteúdo dos cartões do sistema "proc" da pasta, na ordem */
     private function registros(Pasta $pasta): array
     {

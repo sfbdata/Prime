@@ -27,8 +27,9 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  *
  * Registro (P5d, desenho `autoReg('proc', …)`): o vínculo novo escreve o cartão do sistema "processo N
  * vinculado à pasta (ação · tribunal)." na timeline, em nome de quem vinculou. O cartão (PastaMensagem) é
- * auditado pelo AuditLogSubscriber: a trilha fica sem linha manual e sem dado de cliente (número, ação e
- * tribunal).
+ * auditado pelo AuditLogSubscriber (sem linha manual). A "ação" segue a faixa do cartão: a da pasta no
+ * processo principal, senão o assunto e, sem ele, a classe (desenho: `reg.acao || reg.classe`). Ela é texto
+ * livre da pasta e pode citar uma parte; é o mesmo texto que a pasta já mostra e já audita.
  *
  * Cadastro novo pela janela (P5d, desenho `procSalvarVinc` N:4545-4548): valor da causa, jurisdição e as
  * cinco flags entram como dados MANUAIS do processo (P5b), depois do vínculo. A janela só manda texto que
@@ -68,7 +69,10 @@ final class VincularProcessoUseCase
     /** "processo N vinculado à pasta (ação · tribunal)." — sem os parênteses quando não há nenhum dos dois. */
     private function textoDoRegistro(Pasta $pasta, Processo $processo): string
     {
-        $detalhes = array_values(array_filter([trim((string) $pasta->getNomeAcao()), trim($processo->getSiglaTribunal())], static fn (string $d): bool => $d !== ''));
+        $principal = $pasta->getVinculoPrincipal()?->getProcesso() === $processo;
+        $acao = $principal && trim((string) $pasta->getNomeAcao()) !== '' ? trim((string) $pasta->getNomeAcao()) : trim($processo->getAssuntoProcessual());
+        $acao = $acao !== '' ? $acao : trim($processo->getClasseProcessual());
+        $detalhes = array_values(array_filter([$acao, trim($processo->getSiglaTribunal())], static fn (string $d): bool => $d !== ''));
 
         return 'processo ' . $this->numero->numeroCnj($processo->getNumeroProcesso()) . ' vinculado à pasta'
             . ($detalhes !== [] ? ' (' . implode(' · ', $detalhes) . ')' : '') . '.';

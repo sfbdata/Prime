@@ -1823,7 +1823,7 @@
                             {# Desenho N:322-327 (P5d): gravados como dados MANUAIS do processo (selo "manual" no cartão). #}
                             <div class="col-md-4">
                                 <label for="mp-valorCausa" class="form-label">Valor da causa</label>
-                                <input type="text" id="mp-valorCausa" name="valorCausa" class="form-control" placeholder="R$ 0,00" inputmode="numeric" autocomplete="off">
+                                <input type="text" id="mp-valorCausa" name="valorCausa" class="form-control" placeholder="R$ 0,00" inputmode="numeric" autocomplete="off" maxlength="22">
                             </div>
                             <div class="col-md-8">
                                 <label for="mp-jurisdicao" class="form-label">Jurisdição</label>
@@ -1846,7 +1846,7 @@
                     <div class="processo-modal-tab-content pt-3" id="tab-modal-proc-partes">
                         <div class="d-flex justify-content-end mb-2">
                             <button type="button" id="mp-btn-add-parte" class="btn btn-sm btn-warning">
-                                <i class="bi bi-plus-lg me-1"></i> Adicionar Parte
+                                <i class="bi bi-plus-lg me-1"></i> Adicionar parte
                             </button>
                         </div>
                         <div id="mp-partesContainer">
@@ -1877,7 +1877,7 @@
                                 </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
                                         style="display: none; position: absolute; top: 8px; right: 12px;"
-                                        title="Remover"><i class="bi bi-trash"></i></button>
+                                        title="Remover linha"><i class="bi bi-trash"></i></button>
                             </div>
                         </div>
                     </div>{# fim tab-modal-proc-partes #}
@@ -1886,7 +1886,7 @@
                     <div class="processo-modal-tab-content pt-3" id="tab-modal-proc-movimentacoes">
                         <div class="d-flex justify-content-end mb-2">
                             <button type="button" id="mp-btn-add-movimentacao" class="btn btn-sm btn-info">
-                                <i class="bi bi-plus-lg me-1"></i> Adicionar Movimentação
+                                <i class="bi bi-plus-lg me-1"></i> Adicionar movimentação
                             </button>
                         </div>
                         <div id="mp-movimentacoesContainer">
@@ -1911,7 +1911,7 @@
                                 </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
                                         style="display: none; position: absolute; top: 8px; right: 12px;"
-                                        title="Remover"><i class="bi bi-trash"></i></button>
+                                        title="Remover linha"><i class="bi bi-trash"></i></button>
                             </div>
                         </div>
                         <p class="small text-muted mb-0">"Buscar no CNJ" (aba Informações) importa as movimentações do PJe e dos diários oficiais. Depois de vinculado, o Push processual passa a monitorar o processo.</p>
@@ -1920,9 +1920,9 @@
                     {# Modal de carregamento DataJud (interno ao modal de processo) #}
                     <div id="mp-loadingOverlay" class="d-none text-center py-3">
                         <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Buscando...</span>
+                            <span class="visually-hidden">Buscando…</span>
                         </div>
-                        <p class="mt-2 mb-0 small">Buscando processo no DataJud...</p>
+                        <p class="mt-2 mb-0 small">Buscando…</p>
                     </div>
 
                     <div id="mp-feedbackAlerta" class="d-none mt-3"></div>
@@ -3352,6 +3352,7 @@ document.addEventListener('DOMContentLoaded', function () {
         mpUpdateRemoveButtons();
         document.getElementById('mp-feedbackAlerta').className = 'd-none mt-3';
         document.getElementById('mp-feedbackAlerta').innerHTML = '';
+        document.getElementById('mp-cnj-ok').classList.add('d-none'); // a confirmação da busca é desta abertura
         document.querySelectorAll('.processo-modal-tab').forEach(function (t) { t.classList.remove('active'); });
         document.querySelectorAll('.processo-modal-tab-content').forEach(function (c) { c.classList.remove('active'); });
         document.querySelector('.processo-modal-tab[data-modal-tab="modal-proc-info"]').classList.add('active');
@@ -3393,7 +3394,7 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
             <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
                     style="display: none; position: absolute; top: 8px; right: 12px;"
-                    title="Remover"><i class="bi bi-trash"></i></button>
+                    title="Remover linha"><i class="bi bi-trash"></i></button>
         </div>`;
     }
 
@@ -3419,7 +3420,7 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
             <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
                     style="display: none; position: absolute; top: 8px; right: 12px;"
-                    title="Remover"><i class="bi bi-trash"></i></button>
+                    title="Remover linha"><i class="bi bi-trash"></i></button>
         </div>`;
     }
 
@@ -3480,6 +3481,11 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    /* Número editado: a confirmação da busca anterior já não vale (desenho: `up('numero')` zera o cnj). */
+    document.getElementById('mp-numeroProcesso').addEventListener('input', function () {
+        document.getElementById('mp-cnj-ok').classList.add('d-none');
+    });
+
     /* ── Busca DataJud ── */
     document.getElementById('mp-btn-datajud').addEventListener('click', async function () {
         var numeroProcesso = document.getElementById('mp-numeroProcesso').value;
@@ -3511,8 +3517,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (!response.ok || !data.success) {
                 feedbackEl.className = response.status === 404 ? 'alert alert-warning mt-3' : 'alert alert-danger mt-3';
+                // 404: o texto do desenho e, depois, o motivo do servidor (dígito verificador, atraso da base,
+                // segredo ou arquivado), que ajuda a achar número mal digitado.
                 feedbackEl.textContent = response.status === 404
-                    ? 'Processo não localizado no CNJ/diário. Preencha os dados manualmente.'
+                    ? 'Processo não localizado no CNJ/diário. Preencha os dados manualmente.' + (data.error ? ' ' + data.error : '')
                     : (data.error || 'Erro ao buscar processo no CNJ/DataJud.');
                 return;
             }
@@ -3549,7 +3557,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                     <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
                             style="display: ${partesList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
-                            title="Remover"><i class="bi bi-trash"></i></button>
+                            title="Remover linha"><i class="bi bi-trash"></i></button>
                 </div>`);
             });
 
@@ -3570,7 +3578,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                     <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
                             style="display: ${movsList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
-                            title="Remover"><i class="bi bi-trash"></i></button>
+                            title="Remover linha"><i class="bi bi-trash"></i></button>
                 </div>`);
             });
 

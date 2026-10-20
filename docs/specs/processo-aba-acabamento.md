@@ -23,8 +23,8 @@ Risco BAIXO.
      interpolava sem escape).
 3. Registro do vincular e do desvincular do processo (`autoReg('proc', …)` do desenho): "processo N vinculado à
    pasta (ação · tribunal)." e "processo N desvinculado da pasta.", pelo `RegistroDoSistemaNaPasta` (chave `proc`,
-   a mesma do #91). O cartão (PastaMensagem) é `Auditavel`: a trilha sai pelo AuditLogSubscriber, sem linha manual e
-   sem dado de cliente.
+   a mesma do #91). O cartão (PastaMensagem) é `Auditavel`: a trilha sai pelo AuditLogSubscriber, sem linha manual.
+   A "ação" segue a faixa (a da pasta no principal; senão assunto e, sem ele, classe); é texto livre da pasta.
 4. Detalhes: o item do ⋮ "Ver todas as informações" vira "Mostrar menos" junto com o botão; title do "Peticionar na
    pasta" do desenho. O ⋮ do cabeçalho já abria com o botão direito.
 
@@ -37,5 +37,12 @@ Risco BAIXO.
   genuinamente do Samuel" em `docs/specs/trilha-b-designer.md`); vai ao pacote "Desenho 02 x decisões antigas".
 - Fora: PJe (estados de fonte, "Atualizar", "Abrir no PJe", "Buscar no CNJ" com PJe e diários) e OCR, com o dono;
   "Encaminhar via Chat I.A", PR próprio sobre o #126 (5d).
-- Integração com o #91 no merge: o `DesvincularProcessoUseCase` dele registra só o apensado; aqui, todo
-  desvincular. Juntar: apensado com o texto dele, os demais com o texto daqui.
+- Integração com o #91 no merge (revisão, 20/10):
+  - desvincular: o `DesvincularProcessoUseCase` dele registra só o apensado; aqui, todo desvincular. Juntar:
+    apensado com o texto dele, os demais com o texto daqui;
+  - vincular: o #91 troca a chamada em `PastaController::vincularProcesso` por `vincularNoModoPedido(...)`. O 4º
+    argumento (`DadosDoProcessoInput` do cadastro novo) precisa continuar chegando ao UseCase; e, como no desenho
+    (`procSalvarVinc` grava os manuais antes do `if (ap)`), o apensado cadastrado pelo CNJ também grava os manuais.
+- Busca no CNJ, 404: o texto do desenho seguido do motivo que o servidor devolve (dígito verificador, atraso da
+  base, segredo ou arquivado), para não perder o aviso de número mal digitado.
+- Situações novas (Arquivado, Baixado, Transitado em julgado) também no filtro da lista de processos.
