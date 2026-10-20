@@ -11,7 +11,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Saída da equipe (spec docs/specs/saida-da-equipe.md): a remoção apaga o vínculo, então a data em que a pessoa
  * deixou o escritório fica nesta tabela, só de inclusão. Lida pelo painel do Master (frente b5).
  */
-final class Version20261019181325 extends AbstractMigration
+final class Version20261020136500 extends AbstractMigration
 {
     public function getDescription(): string
     {
