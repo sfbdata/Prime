@@ -12,10 +12,9 @@ lido; do cliente sai só o nome) e, do coordenador, **nada roda sozinho em lote*
 ## Estado da frente (19/10, sessão f6)
 
 - F1+F2: PR #114 (rascunho, base #68), suíte completa e visual feitos. Commits já enviados.
-- F3 Perguntar: branch `ia-drawer-f3` (sobre `ia-drawer-f1`), commits LOCAIS 63fbf732, 43648b20, 79bdb1b3; revisão
-  aprovada com ressalvas, ressalvas corrigidas. **Falta enviar** (máquina sem internet): `git push -u origin ia-drawer-f3`
-  e abrir o PR em rascunho com base `ia-drawer-f1`. Migration provisória `Version20261021110000`.
-- F4 Documentos e F5 Criar tarefa: a fazer, nesta ordem, cada uma em branch empilhada.
+- F3 Perguntar: PR #122 (rascunho, base #114), suíte completa OK (10788), revisão aprovada com ressalvas corrigidas.
+  Migration provisória `Version20261021110000`. Auditoria "quem perguntou e quando, sem texto": regra do "Só eu" (coordenador).
+- F4 Documentos: branch `ia-drawer-f4` (sobre `ia-drawer-f3`), sem migration. F5 Criar tarefa: a fazer.
 
 ## O que o desenho tem, e o que pode entrar
 
@@ -83,6 +82,28 @@ Desenho: aba "Perguntar" (`bi bi-chat-dots`, dc L5945), painel em L1072-1084, ro
   respostas (8 mensagens, como o desenho) dentro de `<conversa_anterior>` e a pergunta dentro de `<pergunta>`, ambos
   neutralizados e passados pela máscara de dados pessoais. Nenhum texto de pergunta em log.
 - **Migration**: só a tabela nova (provisória `Version20261021110000`, depois da do F1).
+
+## F4 Documentos: contrato (19/10)
+
+Desenho: aba "Documentos" (`bi bi-file-earmark-text`, dc L5945), painel em L1041-1058, lógica em L5915 e L5961-5968.
+
+- **Tela.** Aba entre Análise e Relatórios (ordem do desenho). Não aparece para quem tem a aba Documentos da pasta oculta.
+  Texto do topo: "A IA monta o índice pelos dados de cada arquivo: nome, tipo, data e tamanho. O conteúdo dos arquivos não
+  é lido." (o do desenho promete leitura e OCR: regra 7 e D13, a lei do domínio corrige o protótipo). Lista num cartão:
+  linha "Todos" que marca e desmarca tudo, divisória, e cada documento com a caixa de marcar, o ícone do arquivo com a
+  letra do tipo, o nome (uma linha, reticências) e a linha de dados "PDF · 1,2 MB · 12/10/2026". Embaixo, um botão só,
+  "Índice inteligente" (`bi-list-columns-reverse`), na largura toda, desabilitado sem seleção ou com a IA indisponível
+  (motivo real). "Ler N documentos" NÃO entra (D13, com o dono). O resultado e o histórico aparecem embaixo, como nos
+  comandos. Pasta sem documento: "Nenhum documento nesta pasta." e o botão desabilitado.
+- **Modelo.** Comando novo `IndiceDosDocumentos` (`indice_documentos`, rótulo "Índice inteligente", agente Documental,
+  fora da grade de 10 comandos e dos relatórios). Pedido: o canônico do Documental restrito aos selecionados, mantendo
+  "O conteúdo dos arquivos não foi lido: não descreva o que está dentro deles." A análise legada do Documental (sem
+  comando) passa a aparecer no histórico deste comando (não mais no Raio-X).
+- **Seleção.** O POST do comando aceita `documentos[]` (ids). Só vale id de documento da pasta, visível para quem pede
+  (abas ocultas) e dentro da lista mostrada (os mesmos `LIMITE_DOCUMENTOS` mais recentes do contexto); id fora disso ou
+  seleção vazia → 422. Os ids ordenados vão em `contexto_resumo.documentosSelecionados`; o worker obedece (não decide) e a
+  seção `<documentos>` do contexto leva só esses. A seleção muda o hash: "nada novo" vale por seleção.
+- **Sem migration.**
 
 ## Contratos compartilhados (avisar a 4b antes)
 
