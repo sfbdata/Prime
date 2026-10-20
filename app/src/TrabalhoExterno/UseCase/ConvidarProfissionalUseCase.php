@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\UseCase;
 
+use App\Auth\UseCase\CriarConviteEscritorioUseCase;
 use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
@@ -50,6 +51,11 @@ final class ConvidarProfissionalUseCase
         $permissoes = is_array($dados['permissoes'] ?? null) ? $dados['permissoes'] : array_fill_keys(array_keys(ConviteDemanda::PERMISSOES), true);
 
         [$demanda, $ctx] = $this->guarda->demanda($ctx, $codigo, novoConvite: true);
+        // Conta com o e-mail a confirmar não manda e-mail a terceiros (spec login-desenho-10, decisão c). Depois da
+        // guarda, para quem não pode convidar continuar recebendo o 403 de sempre.
+        if (!$ctx->usuario->isEmailConfirmado()) {
+            throw new DadosInvalidos(CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR);
+        }
         $token = bin2hex(random_bytes(32));
         $convite = new ConviteDemanda($demanda, $nome, $email, $funcao !== '' ? $funcao : null, $validade, ConviteDemanda::hashDoToken($token), $permissoes, $ctx->autor());
         $demanda->convidar($convite, $ctx->autor());

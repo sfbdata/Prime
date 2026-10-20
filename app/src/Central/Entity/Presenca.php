@@ -34,8 +34,13 @@ class Presenca implements TenantAware
      */
     public const INATIVO = 'inativo';
     public const STATUS = [self::DISPONIVEL, self::OCUPADO, self::AUSENTE, self::INATIVO];
-    /** Limite de inatividade (padrão do desenho, 60 min) até a fase 3 da spec dar ao primário a escolha. */
+    /**
+     * Limite de inatividade padrão (desenho 03, 60 min). Desde a fase 3, o primário escolhe o do escritório entre as
+     * opções do desenho ({@see \App\Central\Entity\ConfiguracaoDePresenca}); sem escolha, vale este.
+     */
     public const INATIVO_APOS_MINUTOS = 60;
+    /** As opções do seletor "Ausente após sem atividade" (desenho 03 L.685). */
+    public const OPCOES_DE_AUSENCIA = [15, 30, 60, 120];
 
     #[ORM\Id]
     #[ORM\GeneratedValue]

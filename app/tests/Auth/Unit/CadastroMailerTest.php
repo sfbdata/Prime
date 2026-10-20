@@ -7,6 +7,7 @@ namespace App\Tests\Auth\Unit;
 use App\Auth\Entity\CadastroPendente;
 use App\Auth\Event\ConfirmacaoDeCadastroEnviada;
 use App\Auth\Service\CadastroMailer;
+use App\Entity\Auth\User;
 use App\Shared\Email\IdentidadeDeEmail;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -90,5 +91,38 @@ final class CadastroMailerTest extends TestCase
         } catch (\RuntimeException) {
         }
         self::assertSame(0, $capturados);
+    }
+
+    #[TestDox('Confirmação de e-mail da conta leva o token em claro no link absoluto de auth_cadastro_confirmar_email')]
+    public function testConfirmacaoDeEmailDaConta(): void
+    {
+        $mailer = $this->createMock(MailerInterface::class);
+        $twig = $this->createMock(Environment::class);
+        $twig->expects($this->once())->method('render')
+            ->with('auth/cadastro/email_confirmacao.html.twig', ['nome' => 'Ana Souza', 'link' => 'https://bluejus.test/cadastro/confirmar-email/tok'])
+            ->willReturn('<html>confirme</html>');
+        $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+        $urlGenerator->expects($this->once())->method('generate')
+            ->with('auth_cadastro_confirmar_email', ['token' => 'tok'], UrlGeneratorInterface::ABSOLUTE_URL)
+            ->willReturn('https://bluejus.test/cadastro/confirmar-email/tok');
+        $emailCapturado = null;
+        $mailer->expects($this->once())->method('send')
+            ->willReturnCallback(static function (Email $email) use (&$emailCapturado): void {
+                $emailCapturado = $email;
+            });
+        $user = (new User())->setEmail('ana@bluejus.test')->setFullName('Ana Souza');
+        $service = new CadastroMailer(
+            $mailer,
+            $twig,
+            $urlGenerator,
+            new IdentidadeDeEmail('BlueJus <nao-responda@bluejus.test>', 'infra@bluejus.test'),
+            new EventDispatcher(),
+        );
+
+        $service->enviarConfirmacaoDeEmail($user, 'tok');
+
+        self::assertInstanceOf(Email::class, $emailCapturado);
+        self::assertSame('[BlueJus] Confirme seu e-mail no BlueJus', $emailCapturado->getSubject());
+        self::assertSame('ana@bluejus.test', $emailCapturado->getTo()[0]->getAddress());
     }
 }

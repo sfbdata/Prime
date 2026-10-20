@@ -15,6 +15,13 @@
         {% endfor %}
     {% endfor %}
 
+    {% if app.user is not null and not app.user.emailConfirmado %}
+        <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2 aviso-email-a-confirmar" role="alert">
+            <span>{{ constant('App\\Auth\\UseCase\\CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR') }}</span>
+            {% include 'auth/conta/_reenviar_confirmacao.html.twig' %}
+        </div>
+    {% endif %}
+
     <div class="card mb-4">
         <div class="card-header fw-semibold">Novo convite</div>
         <div class="card-body">

@@ -135,6 +135,14 @@
                 <div class="fm-vazio-icone"><i class="bi bi-cloud-arrow-up"></i></div>
                 <div class="fm-vazio-titulo">Nenhum arquivo aqui</div>
                 <div class="fm-vazio-dica">Arraste arquivos do computador para esta área ou clique em <strong>Enviar</strong>.</div>
+                {# Chips do desenho Objeto 1A (aba Documentos, área vazia, L424-429): dica visual do que
+                   costuma entrar aqui, com o texto e a ordem do desenho. NÃO são as categorias do enum
+                   (`CategoriaDocumentoCobranca`) nem filtro: não classificam nem recortam nada. #}
+                <div class="fm-vazio-categorias" aria-label="Exemplos de documentos">
+                    {% for exemplo in ['Boletos', 'Notificações', 'Acordos assinados', 'Comprovantes'] %}
+                    <span class="fm-vazio-categoria">{{ exemplo }}</span>
+                    {% endfor %}
+                </div>
             </div>
         </div>
     </div>{# /fm-body #}

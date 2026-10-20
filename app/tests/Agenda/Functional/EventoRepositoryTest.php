@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Agenda\Functional;
 
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Agenda\LegendaCor;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;

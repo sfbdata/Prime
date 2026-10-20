@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Pasta\Service\AcessoAPasta;
 use App\Tarefa\UseCase\ListarMetasDaEquipeUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,6 +27,7 @@ final class TarefaEquipeController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
         private readonly ListarMetasDaEquipeUseCase $useCase,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
@@ -51,7 +53,8 @@ final class TarefaEquipeController extends AbstractController
         ];
 
         return $this->render('tarefa/equipe.html.twig', [
-            'lista' => $this->useCase->executar($tenant, new \DateTimeImmutable(), $filtros, (int) $request->query->get('page', '1')),
+            // Cadeado (spec pasta-cadeado D3): metas de pasta oculta para quem olha não entram.
+            'lista' => $this->useCase->executar($tenant, new \DateTimeImmutable(), $filtros, (int) $request->query->get('page', '1'), $this->acessoAPasta->idsOcultosPara($usuario, (int) $tenant->getId())),
         ]);
     }
 

@@ -19,7 +19,8 @@ use Twig\Environment;
 /**
  * O e-mail do "Avisar quando chegar" para o responsável da pasta (spec push-avisar-quando-chegar §3,
  * D3 e D4): o mesmo conteúdo do sino, a lista das movimentações (tipo, data, órgão e resumo, nunca o
- * teor inteiro), o botão "Abrir a pasta" e o link "Não quero mais receber estes avisos".
+ * teor inteiro), o botão "Abrir a pasta" e o link "Não quero mais receber estes avisos". Movimentação
+ * de processo sob segredo de justiça sai só como "Movimentação em processo sob segredo de justiça".
  *
  * Remetente: o `MAILER_FROM` com o NOME DO ESCRITÓRIO no nome de exibição (D4). "Responder para" fica
  * o padrão da instalação: o destinatário já é o responsável. O descadastro vai também no cabeçalho
@@ -52,7 +53,7 @@ final class AvisoDoPushMailer
                 'linkDaPasta' => $this->urls->generate('pasta_show', ['id' => $aviso->pastaId], UrlGeneratorInterface::ABSOLUTE_URL) . '#push',
                 'linkDescadastro' => $descadastro,
             ]));
-        $this->identidade->aplicar($mensagem, $aviso->mensagem());
+        $this->identidade->aplicar($mensagem, $aviso->mensagemDoEmail());
         $this->usarNomeDoEscritorio($mensagem, $tenant);
         $mensagem->getHeaders()->addTextHeader('List-Unsubscribe', '<' . $descadastro . '>');
         $mensagem->getHeaders()->addTextHeader('List-Unsubscribe-Post', 'List-Unsubscribe=One-Click');

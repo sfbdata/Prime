@@ -113,7 +113,8 @@
         <div class="ps-push-vazio-linha" id="push-vazio-sem-processo">
             Esta pasta não tem processo vinculado.
             O Push Processual acompanha as publicações pelo número do processo.
-            <button type="button" class="ps-push-link" data-ps-ir-aba="processo-tab">Vincule um processo</button>
+            {# Atalho para aba oculta não é renderizado (ocultar aba): fica o texto, sem botão. #}
+            {% if 'processo' not in abasOcultas|default([]) %}<button type="button" class="ps-push-link" data-ps-ir-aba="processo-tab">Vincule um processo</button>{% else %}Vincule um processo{% endif %}
             para que as publicações dele apareçam aqui.
         </div>
     {% elseif push.total == 0 %}
@@ -313,6 +314,14 @@
     {% include 'pasta/_push_painel.html.twig' with {pasta: pasta, painel: pushPainel, avisos: pushAvisos ?? null, podeEditarPasta: podeEditarPasta} only %}
 {% endif %}
 </div>
+{# Modal "Enviar ao cliente" da Análise IA (P4c, spec push-avisar-cliente §3): fora da grade de duas
+   colunas (é `position: fixed`); o cartão "Avisar cliente" da coluna fornece os e-mails. #}
+{% if pushPainel is defined and pushPainel is not null %}
+    {% set avisarClienteModal = avisar_cliente(pasta.id) %}
+    {% if avisarClienteModal is not null %}
+        {% include 'pasta/_push_cliente_modal.html.twig' with {pasta: pasta, cliente: avisarClienteModal} only %}
+    {% endif %}
+{% endif %}
 {# Filtro, selo da aba, copiar ID, marcar (não) lida, criar tarefa a partir da publicação e o
    menu do botão direito no cartão. #}
 <script src="{{ asset('js/pasta-push.js') }}" defer></script>

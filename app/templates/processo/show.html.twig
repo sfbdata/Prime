@@ -388,12 +388,17 @@
                                                     <i class="bi bi-folder2-open me-1 text-warning"></i>
                                                     <span class="fw-semibold">{{ pasta.rotulo }}</span>
                                                 </a>
+                                                {% if pasta.oculta %}
+                                                    {# Cadeado (spec pasta-cadeado D1): da pasta oculta, só o número, o cliente e o cadeado. #}
+                                                    <i class="bi bi-lock exp-cadeado" title="Pasta trancada pelo usuário primário" aria-label="Pasta trancada"></i>
+                                                {% endif %}
                                                 {% if pasta.principal %}
                                                     <span class="badge text-bg-primary small" title="Este processo é o principal da pasta">
                                                         <i class="bi bi-star-fill me-1"></i>Principal
                                                     </span>
                                                 {% endif %}
-                                                {% if pasta.excluida %}
+                                                {% if pasta.oculta %}
+                                                {% elseif pasta.excluida %}
                                                     <span class="badge text-bg-danger pasta-badge-excluida small"
                                                           title="Excluída em {{ pasta.excluidaEm|date('d/m/Y H:i') }}">
                                                         Excluída
