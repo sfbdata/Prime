@@ -1840,6 +1840,21 @@ span.ps-situacao-pill { cursor: default; }
     border-radius: 4px;
     flex-shrink: 0;
 }
+/* Selo "CPF duplicado" (desenho 02 VS 18.10.26, L1509): cores do documento no claro;
+   no escuro, os tokens de perigo (o desenho não tem o par escuro). */
+.ps-selo-duplicado {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: #b03a2e;
+    background: #fbeceb;
+    padding: 2px 7px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+[data-bs-theme="dark"] .ps-selo-duplicado { color: var(--ps-danger-text); background: var(--ps-danger-bg); }
 .ps-cliente-abrir { font-size: 12px; font-weight: 600; flex-shrink: 0; }
 
 /* A rolagem mora na lista, nao no cartao: com muitos clientes o trilho cresceria

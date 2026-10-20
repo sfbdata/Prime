@@ -127,6 +127,17 @@ final readonly class PastaPendenciasOutput
         return new self($porAba);
     }
 
+    /**
+     * Sem as pendências das abas que a pessoa não vê (spec pasta-ocultar-aba §4): a folha impressa
+     * não pode contar o que a tela esconde.
+     *
+     * @param list<string> $abas ids das abas ocultas
+     */
+    public function semAbas(array $abas): self
+    {
+        return new self(array_diff_key($this->porAba, array_flip($abas)));
+    }
+
     private static function plural(int $n, string $um, string $varios): string
     {
         return $n . ' ' . ($n === 1 ? $um : $varios);

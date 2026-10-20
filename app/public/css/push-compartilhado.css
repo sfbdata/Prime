@@ -139,3 +139,7 @@
 /* [PC] 99: aviso "Cópia e impressão bloqueadas" */
 .pc-aviso { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 60; display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 4px; background: #12242f; color: #fff; font-size: 13px; font-weight: 600; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }
 .pc-aviso[hidden] { display: none; }
+
+/* Faixa do Master na tela desligada (_recurso_faixa_master.html.twig): a página pública não carrega o app.css, mesmas medidas. */
+.bj-recurso-faixa { position: fixed; z-index: 2147483100; left: 50%; top: 8px; transform: translateX(-50%); background: #c0392b; color: #fff;
+  font: bold 12.5px Arial, Helvetica, sans-serif; padding: 7px 14px; border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.2); }
