@@ -9,7 +9,7 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
 - **19/10, PR1 (backend):** implementado na branch `encaminhar-chat-ia` (commit 82327702), em revisão.
 - **20/10, PR1, correção de segurança (bloqueante da revisão):** quem entrava no grupo depois do despacho (ou perdia
   o acesso à pasta) lia no histórico o título, o trecho do teor e o NUP. Agora a mensagem guarda a referência
-  (`despacho_pasta_id`, `despacho_tipo`; migration `Version20261021180000`) e toda leitura confere a pasta na hora
+  (`despacho_pasta_id`, `despacho_tipo`; migration `Version20261020129000`) e toda leitura confere a pasta na hora
   (`LeituraDasMensagens`); o contrato novo da `MensagemOutput` está em §4.1. Também: conversa sem ninguém que receba é
   recusada, e o registro do Financeiro pede o financeiro de quem envia e de quem recebe.
 - **Próximo:** PR2 (tela de despacho), quando a base de presença entrar no master.
