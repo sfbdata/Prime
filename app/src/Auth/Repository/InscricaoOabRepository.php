@@ -97,6 +97,37 @@ class InscricaoOabRepository extends ServiceEntityRepository
     }
 
     /**
+     * Cria a principal com os valores dados (os do User em memória, ainda não gravados) se a pessoa ainda não tem
+     * inscrição. Mesmo ON CONFLICT do `criarPrincipalDoEspelhoSeFaltar`: duas requisições ao mesmo tempo (criar
+     * escritório em duas abas) não estouram o índice único, a segunda só não faz nada. O usuário já tem de estar no banco.
+     */
+    public function criarPrincipalSeFaltar(
+        User $usuario,
+        string $numero,
+        string $uf,
+        StatusOab $status,
+        ?string $nomeOficial,
+        ?\DateTimeImmutable $verificadaEm,
+    ): void {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            <<<'SQL'
+                INSERT INTO inscricao_oab (user_id, numero, uf, tipo, status, nome_oficial, verificada_em, criado_em)
+                SELECT :id, :numero, :uf, 'principal', :status, :nome, CAST(:verificada AS TIMESTAMP(0)), NOW()
+                 WHERE NOT EXISTS (SELECT 1 FROM inscricao_oab i WHERE i.user_id = :id)
+                ON CONFLICT DO NOTHING
+                SQL,
+            [
+                'id'         => $usuario->getId(),
+                'numero'     => $numero,
+                'uf'         => $uf,
+                'status'     => $status->value,
+                'nome'       => $nomeOficial,
+                'verificada' => $verificadaEm?->format('Y-m-d H:i:s'),
+            ],
+        );
+    }
+
+    /**
      * Grava `$nova` como principal rebaixando as outras ANTES, numa transação. O Doctrine faz INSERT antes de UPDATE
      * no mesmo flush, e o índice único parcial da principal recusaria a nova enquanto a antiga ainda é principal.
      *

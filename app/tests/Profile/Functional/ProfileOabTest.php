@@ -181,7 +181,7 @@ final class ProfileOabTest extends JusPrimeWebTestCase
         $principal = $this->idDa($user, 'DF');
         $fila      = $client->request('GET', '/admin/platform/oab?status=todas&q=' . urlencode((string) $user->getEmail()));
         $token     = (string) $fila->filter('form[action*="/admin/platform/oab/' . $principal . '/confirmar"] input[name=_token]')->attr('value');
-        $client->request('POST', '/admin/platform/oab/' . $principal . '/confirmar', ['_token' => $token]);
+        $client->request('POST', '/admin/platform/oab/' . $principal . '/confirmar', ['_token' => $token, 'numero' => '49613', 'uf' => 'DF']);
 
         self::assertResponseRedirects();
         self::assertSame([['49613', 'DF', 'principal', 'confirmada']], $this->inscricoes($user));

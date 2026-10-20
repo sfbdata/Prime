@@ -94,6 +94,40 @@ final class InscricaoOabRepositoryTest extends KernelTestCase
         self::assertSame(['49613', 'DF', StatusOab::Confirmada, true], [$lista[0]->getNumero(), $lista[0]->getUf(), $lista[0]->getStatus(), $lista[0]->ehPrincipal()]);
     }
 
+    #[TestDox('criarPrincipalSeFaltar duas vezes (duas abas no criar escritório) deixa uma principal só, sem erro')]
+    public function testCriarPrincipalSeFaltarIdempotente(): void
+    {
+        $user = $this->usuario();
+        $this->em->flush();
+        $quando = new \DateTimeImmutable('2026-10-01 10:00:00');
+
+        $this->repo->criarPrincipalSeFaltar($user, '49613', 'DF', StatusOab::Confirmada, 'PESSOA OAB', $quando);
+        $this->repo->criarPrincipalSeFaltar($user, '11111', 'SP', StatusOab::NaoVerificada, null, null);
+
+        $lista = $this->repo->doUsuario($user);
+        self::assertCount(1, $lista);
+        self::assertSame(
+            ['49613', 'DF', StatusOab::Confirmada, 'PESSOA OAB', '2026-10-01 10:00:00', true],
+            [$lista[0]->getNumero(), $lista[0]->getUf(), $lista[0]->getStatus(), $lista[0]->getNomeOficial(), $lista[0]->getVerificadaEm()?->format('Y-m-d H:i:s'), $lista[0]->ehPrincipal()],
+        );
+    }
+
+    #[TestDox('criarPrincipalSeFaltar não estoura o índice único se a principal entrou entre a consulta e o INSERT')]
+    public function testCriarPrincipalSeFaltarComPrincipalGravadaPorOutraRequisicao(): void
+    {
+        $user = $this->usuario();
+        $this->em->flush();
+        // Outra requisição gravou a principal sem passar pela consulta desta (o INSERT direto simula a corrida).
+        $this->em->getConnection()->executeStatement(
+            "INSERT INTO inscricao_oab (user_id, numero, uf, tipo, status, criado_em) VALUES (?, '1', 'DF', 'principal', 'nao_verificada', NOW())",
+            [$user->getId()],
+        );
+
+        $this->repo->criarPrincipalSeFaltar($user, '1', 'DF', StatusOab::NaoVerificada, null, null);
+
+        self::assertCount(1, $this->repo->doUsuario($user));
+    }
+
     #[TestDox('trocar para uma principal NOVA grava na ordem certa, sem estourar o índice parcial')]
     public function testGravarComNovaPrincipal(): void
     {

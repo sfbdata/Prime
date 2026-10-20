@@ -4,7 +4,8 @@
 
 - Branch `oab-revisao-por-inscricao`, **empilhada sobre o #65** (`meu-perfil-oab`, da 7d), criada a partir de
   `origin/meu-perfil-oab` sem tocar na branch da 7d. Merge depois do #65 (e do #60, base dele).
-- Risco **MÉDIO** (situação da OAB de usuários; só o Master age). **Sem migration.**
+- Risco **ALTO** (subiu de MÉDIO na revisão cruzada do #143: o PR toca `ConfirmarCadastroUseCase`,
+  `AceitarConvitePlataformaUseCase` e `CriarEscritorioUseCase`, identidade User/Tenant). **Sem migration.**
 - Pedido do coordenador em 20/10: o desenho 07 diz que a suplementar "fica Pendente até o Master validar"
   (L217 a 219), mas **o desenho é omisso** sobre a tela: o 05 só tem a seção "Usuários e OABs" de leitura
   (L183 a 192). Vale a convenção: a **tela que já existe** (`/admin/platform/oab`) passa a listar por inscrição.
@@ -34,6 +35,18 @@
   suplementares); números diferentes por desenho, não é defeito. Medir em produção, depois do deploy do #65,
   quantos `user.oab_status IS NOT NULL` ficaram sem `inscricao_oab` (consulta pelo MCP `jusprime-prod`).
 
+## Revisão cruzada do #143 (20/10, corrigido)
+- Confirmar e reverter amarram o que o Master viu: o form envia o número e a UF exibidos, e a ação recusa com
+  o aviso "A inscrição mudou depois que a fila foi aberta. Confira de novo." se não baterem com o atual
+  (`InscricaoOab::alterar` mantém o id). A conferência fica no controller, antes do UseCase; os UseCases do #65
+  não mudaram. Re-verificar fica livre (consulta de novo).
+- Criar escritório com a principal já existente só acompanha: não duplica, a Confirmada segue Confirmada e as
+  suplementares ficam intactas (teste).
+- Corrida no `garantirPrincipal` (usuário já gravado, duas abas): a principal nasce por
+  `InscricaoOabRepository::criarPrincipalSeFaltar` (INSERT com os valores em memória e ON CONFLICT DO NOTHING),
+  sem estourar `uniq_inscricao_oab_principal`. Usuário novo (cadastro, convite) segue por `persist`, sem corrida.
+- Recusa (403) testada nas três ações, para usuário comum e para admin de escritório que não é Master.
+
 ## Segurança
 - Só quem já acessa a tela hoje (`ROLE_SUPER_ADMIN`, conferir no controller) e CSRF nas ações, como hoje.
 - Id de inscrição inexistente: 404 (o UseCase lança `DomainException`).
@@ -41,6 +54,7 @@
 
 ## Verificação
 - Functional: lista mostra principal e suplementar com o selo; filtros; confirmar/reverter/reverificar uma
-  suplementar muda só ela; confirmar a principal espelha no usuário; sem permissão 403; CSRF errado 403;
-  id inexistente 404.
+  suplementar muda só ela; confirmar a principal espelha no usuário; sem permissão 403 (usuário comum e
+  admin de escritório, nas três ações); CSRF errado 403; id inexistente 404; inscrição alterada depois de
+  aberta a fila recusa confirmar e reverter.
 - Navegador: a tela com uma suplementar Pendente sendo confirmada.

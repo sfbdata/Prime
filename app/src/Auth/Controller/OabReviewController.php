@@ -78,8 +78,11 @@ final class OabReviewController extends AbstractController
     public function confirmarAcao(int $id, Request $request): Response
     {
         $this->validarCsrf($request, 'oab_confirmar_' . $id);
+        if (!$this->conferirOQueFoiVisto($id, $request)) {
+            return $this->redirectParaLista($request);
+        }
         $this->executarOu404(fn () => $this->confirmar->executar($id));
-        $this->addFlash('sucesso', 'OAB confirmada.');
+        $this->addFlash('success', 'OAB confirmada.');
 
         return $this->redirectParaLista($request);
     }
@@ -91,16 +94,19 @@ final class OabReviewController extends AbstractController
         $destino = StatusOab::tryFrom((string) $request->request->get('destino'));
 
         if ($destino === null) {
-            $this->addFlash('erro', 'Destino inválido.');
+            $this->addFlash('danger', 'Destino inválido.');
 
+            return $this->redirectParaLista($request);
+        }
+        if (!$this->conferirOQueFoiVisto($id, $request)) {
             return $this->redirectParaLista($request);
         }
 
         try {
             $this->executarOu404(fn () => $this->reverter->executar($id, $destino));
-            $this->addFlash('sucesso', 'OAB revertida.');
+            $this->addFlash('success', 'OAB revertida.');
         } catch (\InvalidArgumentException $e) {
-            $this->addFlash('erro', $e->getMessage());
+            $this->addFlash('danger', $e->getMessage());
         }
 
         return $this->redirectParaLista($request);
@@ -126,6 +132,24 @@ final class OabReviewController extends AbstractController
         if (!$this->isCsrfTokenValid($csrfId, (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
+    }
+
+    /**
+     * Confirmar e reverter valem para o número e a UF que o Master viu na fila (o form os envia). Se o titular trocou
+     * a inscrição depois (`InscricaoOab::alterar` mantém o id), recusa com aviso em vez de agir sobre o que não foi
+     * visto. Inscrição inexistente: 404.
+     */
+    private function conferirOQueFoiVisto(int $id, Request $request): bool
+    {
+        $inscricao = $this->inscricoes->find($id) ?? throw $this->createNotFoundException('Inscrição não encontrada.');
+        $numero    = (string) $request->request->get('numero');
+        $uf        = (string) $request->request->get('uf');
+        if ($numero === $inscricao->getNumero() && $uf === $inscricao->getUf()) {
+            return true;
+        }
+        $this->addFlash('danger', 'A inscrição mudou depois que a fila foi aberta. Confira de novo.');
+
+        return false;
     }
 
     /**

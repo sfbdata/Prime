@@ -13,8 +13,8 @@
 
 {% for type, messages in app.flashes %}
     {% for message in messages %}
-        <div class="alert alert-{{ type == 'sucesso' ? 'success' : (type == 'erro' ? 'danger' : (type == 'info' ? 'info' : 'secondary')) }} alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
-            <i class="bi bi-{{ type == 'sucesso' ? 'check-circle-fill' : (type == 'erro' ? 'x-circle-fill' : 'info-circle-fill') }}"></i>
+        <div class="alert alert-{{ type in ['sucesso', 'success'] ? 'success' : (type in ['erro', 'danger'] ? 'danger' : (type == 'info' ? 'info' : 'secondary')) }} alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
+            <i class="bi bi-{{ type in ['sucesso', 'success'] ? 'check-circle-fill' : (type in ['erro', 'danger'] ? 'x-circle-fill' : 'info-circle-fill') }}"></i>
             <span>{{ message }}</span>
             <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
         </div>
@@ -77,6 +77,8 @@
                             {% if s != 'confirmada' %}
                                 <form method="post" action="{{ path('admin_platform_oab_confirmar', ctx|merge({id: item.id})) }}" class="d-inline">
                                     <input type="hidden" name="_token" value="{{ csrf_token('oab_confirmar_' ~ item.id) }}">
+                                    <input type="hidden" name="numero" value="{{ item.oabNumero }}">
+                                    <input type="hidden" name="uf" value="{{ item.oabUf }}">
                                     <button class="btn btn-sm btn-success" title="Marcar como confirmada" data-bs-toggle="tooltip">
                                         <i class="bi bi-check-lg"></i>
                                     </button>
@@ -91,6 +93,8 @@
                                         <li>
                                             <form method="post" action="{{ path('admin_platform_oab_reverter', ctx|merge({id: item.id})) }}">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('oab_reverter_' ~ item.id) }}">
+                                                <input type="hidden" name="numero" value="{{ item.oabNumero }}">
+                                                <input type="hidden" name="uf" value="{{ item.oabUf }}">
                                                 <input type="hidden" name="destino" value="nao_verificada">
                                                 <button class="dropdown-item" type="submit"><i class="bi bi-clock-history me-2 text-warning"></i>Não verificada</button>
                                             </form>
@@ -98,6 +102,8 @@
                                         <li>
                                             <form method="post" action="{{ path('admin_platform_oab_reverter', ctx|merge({id: item.id})) }}">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('oab_reverter_' ~ item.id) }}">
+                                                <input type="hidden" name="numero" value="{{ item.oabNumero }}">
+                                                <input type="hidden" name="uf" value="{{ item.oabUf }}">
                                                 <input type="hidden" name="destino" value="divergente">
                                                 <button class="dropdown-item" type="submit"><i class="bi bi-exclamation-triangle me-2 text-danger"></i>Divergente</button>
                                             </form>

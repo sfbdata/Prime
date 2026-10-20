@@ -12,6 +12,7 @@ use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Service\TenantBootstrapService;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -49,10 +50,11 @@ final class OabReviewTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    #[TestDox('Usuário comum recebe 403 também nas ações por inscrição, e a inscrição não muda')]
+    #[TestDox('Usuário comum recebe 403 nas três ações por inscrição, e a inscrição não muda')]
     public function testNaoSuperAdminRecebe403NasAcoes(): void
     {
         $client = static::createClient();
+        $client->disableReboot(); // vários POST com o mesmo storage de CSRF trocado
         $this->instalarCsrfStorage();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
@@ -63,15 +65,30 @@ final class OabReviewTest extends JusPrimeWebTestCase
         $em->persist(new UserTenant($comum, $tenant));
         $em->flush();
 
-        $adv = $this->criarAdvogado(StatusOab::NaoVerificada);
-        $sup = $this->adicionarSuplementar($adv, 'RJ', StatusOab::NaoVerificada);
-        $id  = (int) $sup->getId();
-
         $this->logarComTenant($client, $comum, $tenant);
-        $client->request('POST', '/admin/platform/oab/' . $id . '/confirmar', ['_token' => 'TOKEN_oab_confirmar_' . $id]);
+        $this->assertAcoesRecusadas($client);
+    }
 
+    #[TestDox('Admin de escritório (dono, sem ser super-admin) recebe 403 na fila e nas três ações')]
+    public function testAdminDeEscritorioRecebe403(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $tenant = new Tenant();
+        $tenant->setName('Tenant OAB ' . uniqid());
+        $em->persist($tenant);
+        $dono = $this->criarUsuario(['ROLE_USER']);
+        // Bootstrap: perfil admin do escritório + vínculo de dono (o mesmo do criar escritório).
+        static::getContainer()->get(TenantBootstrapService::class)->bootstrap($tenant, $dono);
+
+        $this->logarComTenant($client, $dono, $tenant);
+        $client->request('GET', '/admin/platform/oab');
         self::assertResponseStatusCodeSame(403);
-        self::assertSame(StatusOab::NaoVerificada, $this->recarregarInscricao($id)->getStatus());
+
+        $this->assertAcoesRecusadas($client);
     }
 
     #[TestDox('Super-admin enxerga inscrições de usuários de qualquer escritório (identidade global)')]
@@ -287,6 +304,70 @@ final class OabReviewTest extends JusPrimeWebTestCase
         self::assertSelectorTextContains('.alert-info', 'Backend automático indisponível');
     }
 
+    #[TestDox('Confirmar depois que o titular trocou o número (mesmo id) é recusado com aviso, e nada muda')]
+    public function testConfirmarRecusaSeInscricaoMudouDepoisDaFila(): void
+    {
+        $client = static::createClient();
+        $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
+
+        $adv         = $this->criarAdvogado(StatusOab::NaoVerificada, '123', 'RJ');
+        $principalId = (int) $this->principalDe($adv)->getId();
+
+        $crawler = $client->request('GET', '/admin/platform/oab?q=' . urlencode((string) $adv->getEmail()));
+        $form    = $crawler->filter('form[action*="/' . $principalId . '/confirmar"]')->form();
+        self::assertSame(['123', 'RJ'], [$form->get('numero')->getValue(), $form->get('uf')->getValue()]);
+
+        // O titular troca 123/RJ por 999/RJ pelo perfil enquanto a fila está aberta.
+        $this->trocarNumero($principalId, '999', 'RJ');
+
+        $client->submit($form);
+        self::assertResponseRedirects();
+        $depois = $this->recarregarInscricao($principalId);
+        self::assertSame(['999', StatusOab::NaoVerificada], [$depois->getNumero(), $depois->getStatus()]);
+        self::assertNotSame(StatusOab::Confirmada, $this->recarregarUsuario($adv)->getOabStatus());
+
+        $client->followRedirect();
+        self::assertAnySelectorTextContains('.alert', 'A inscrição mudou depois que a fila foi aberta. Confira de novo.');
+    }
+
+    #[TestDox('Reverter depois que o titular trocou a UF (mesmo id) é recusado com aviso, e nada muda')]
+    public function testReverterRecusaSeInscricaoMudouDepoisDaFila(): void
+    {
+        $client = static::createClient();
+        $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
+
+        $adv   = $this->criarAdvogado(StatusOab::Confirmada, '11111', 'SP');
+        $supId = (int) $this->adicionarSuplementar($adv, 'RJ', StatusOab::Confirmada, '22222')->getId();
+
+        $crawler = $client->request('GET', '/admin/platform/oab?status=confirmada&q=' . urlencode((string) $adv->getEmail()));
+        $form    = $crawler->filter('form[action*="/' . $supId . '/reverter"]')->eq(1)->form();
+
+        $this->trocarNumero($supId, '22222', 'MG');
+
+        $client->submit($form);
+        self::assertResponseRedirects();
+        $depois = $this->recarregarInscricao($supId);
+        self::assertSame(['MG', StatusOab::NaoVerificada], [$depois->getUf(), $depois->getStatus()], 'só o efeito da troca, não o Divergente pedido');
+
+        $client->followRedirect();
+        self::assertAnySelectorTextContains('.alert', 'A inscrição mudou depois que a fila foi aberta. Confira de novo.');
+    }
+
+    #[TestDox('Confirmar sem o número e a UF exibidos (POST montado à mão) é recusado com aviso')]
+    public function testConfirmarSemNumeroExibidoRecusa(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+        $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
+        $adv   = $this->criarAdvogado(StatusOab::NaoVerificada);
+        $supId = (int) $this->adicionarSuplementar($adv, 'RJ', StatusOab::NaoVerificada)->getId();
+
+        $client->request('POST', '/admin/platform/oab/' . $supId . '/confirmar', ['_token' => 'TOKEN_oab_confirmar_' . $supId]);
+
+        self::assertResponseRedirects();
+        self::assertSame(StatusOab::NaoVerificada, $this->recarregarInscricao($supId)->getStatus());
+    }
+
     #[TestDox('Confirmar com CSRF inválido → 403 e situação inalterada')]
     public function testCsrfInvalidoRecusa(): void
     {
@@ -337,6 +418,38 @@ final class OabReviewTest extends JusPrimeWebTestCase
     }
 
     // ----------------------------------------------------------------- helpers
+
+    /** As três ações sobre uma suplementar recebem 403 (com CSRF e número/UF válidos) e ela não muda. */
+    private function assertAcoesRecusadas(KernelBrowser $client): void
+    {
+        $adv = $this->criarAdvogado(StatusOab::NaoVerificada);
+        $sup = $this->adicionarSuplementar($adv, 'RJ', StatusOab::Divergente);
+        $id  = (int) $sup->getId();
+
+        foreach (['confirmar' => [], 'reverter' => ['destino' => 'nao_verificada'], 'reverificar' => []] as $acao => $extra) {
+            $client->request('POST', '/admin/platform/oab/' . $id . '/' . $acao, [
+                '_token' => 'TOKEN_oab_' . $acao . '_' . $id,
+                'numero' => $sup->getNumero(),
+                'uf'     => $sup->getUf(),
+            ] + $extra);
+            self::assertResponseStatusCodeSame(403, 'ação ' . $acao);
+        }
+        self::assertSame(StatusOab::Divergente, $this->recarregarInscricao($id)->getStatus());
+    }
+
+    /** O que o perfil faz quando o titular edita a inscrição: `alterar` mantém o id e volta a Pendente. */
+    private function trocarNumero(int $inscricaoId, string $numero, string $uf): void
+    {
+        $em        = static::getContainer()->get(EntityManagerInterface::class);
+        $inscricao = $em->getRepository(InscricaoOab::class)->find($inscricaoId);
+        self::assertNotNull($inscricao);
+        $inscricao->alterar($numero, $uf);
+        if ($inscricao->ehPrincipal()) {
+            $inscricao->espelharNoUsuario();
+        }
+        $em->flush();
+        $em->clear();
+    }
 
     private function logar(KernelBrowser $client, User $user): void
     {

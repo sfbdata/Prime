@@ -8,6 +8,7 @@ use App\Auth\DTO\AceitarConvitePlataformaInput;
 use App\Auth\DTO\IniciarCadastroPublicoInput;
 use App\Auth\Entity\InscricaoOab;
 use App\Auth\Enum\StatusOab;
+use App\Auth\Enum\TipoInscricaoOab;
 use App\Auth\Repository\InscricaoOabRepository;
 use App\Auth\Service\EspelhoDaOabPrincipal;
 use App\Auth\UseCase\AceitarConvitePlataformaUseCase;
@@ -113,6 +114,47 @@ final class PrincipalNosFluxosDeCadastroTest extends KernelTestCase
         $input->nome = 'Banca Dias ' . uniqid();
         $c->get(CriarEscritorioUseCase::class)->executar($input, $user);
 
+        $this->assertNaFila($user, [StatusOab::Confirmada], '49613', 'DF', StatusOab::Confirmada);
+    }
+
+    #[TestDox('Criar escritório com a principal já existente: não duplica, a Confirmada segue Confirmada e as suplementares ficam intactas')]
+    public function testCriarEscritorioComPrincipalExistenteSoAcompanha(): void
+    {
+        $c  = static::getContainer();
+        $em = $c->get(EntityManagerInterface::class);
+
+        $user = new User();
+        $user->setEmail('dono_' . uniqid() . '@adv.com');
+        $user->setFullName('Dra. Carla Dias');
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword('x');
+        $em->persist($user);
+
+        $verificadaEm = new \DateTimeImmutable('2026-10-01 10:00:00');
+        $principal    = new InscricaoOab($user, '49613', 'DF', TipoInscricaoOab::Principal);
+        $principal->registrarVerificacao(StatusOab::Confirmada, 'CARLA DIAS', $verificadaEm);
+        $principal->espelharNoUsuario();
+        $em->persist($principal);
+        $sup = new InscricaoOab($user, '700', 'GO', TipoInscricaoOab::Suplementar);
+        $sup->registrarVerificacao(StatusOab::Divergente, null);
+        $em->persist($sup);
+        $em->flush();
+        $principalId = (int) $principal->getId();
+
+        $input       = new CriarEscritorioInput();
+        $input->nome = 'Banca Dias ' . uniqid();
+        $c->get(CriarEscritorioUseCase::class)->executar($input, $user);
+        $em->clear();
+
+        $linhas = $em->getConnection()->fetchAllAssociative(
+            'SELECT id, numero, uf, tipo, status, nome_oficial, verificada_em FROM inscricao_oab WHERE user_id = ? ORDER BY uf',
+            [$user->getId()],
+        );
+        self::assertSame([
+            ['id' => $principalId, 'numero' => '49613', 'uf' => 'DF', 'tipo' => 'principal', 'status' => 'confirmada', 'nome_oficial' => 'CARLA DIAS', 'verificada_em' => '2026-10-01 10:00:00'],
+            ['id' => (int) $sup->getId(), 'numero' => '700', 'uf' => 'GO', 'tipo' => 'suplementar', 'status' => 'divergente', 'nome_oficial' => null, 'verificada_em' => $linhas[1]['verificada_em']],
+        ], $linhas);
         $this->assertNaFila($user, [StatusOab::Confirmada], '49613', 'DF', StatusOab::Confirmada);
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\Service;
 
 use App\Auth\Entity\InscricaoOab;
+use App\Auth\Enum\StatusOab;
 use App\Auth\Enum\TipoInscricaoOab;
 use App\Auth\Repository\InscricaoOabRepository;
 use App\Entity\Auth\User;
@@ -53,9 +54,11 @@ final class EspelhoDaOabPrincipal
 
     /**
      * Toda pessoa com OAB no espelho tem a inscrição principal. Usuário ainda não gravado (cadastro, convite): cria a
-     * principal e só faz `persist`. Usuário já gravado: a principal existente acompanha número, UF e situação do User;
-     * se não há nenhuma inscrição, cria. Não usa o SQL do `inscricoesDe`, que lê o User do banco e não veria o que o
-     * caso de uso ainda não gravou.
+     * principal e só faz `persist` (ninguém mais enxerga esse usuário, não há corrida). Usuário já gravado (criar
+     * escritório): se não há nenhuma inscrição, cria a principal com os valores em memória por INSERT ... ON CONFLICT
+     * DO NOTHING (duas abas ao mesmo tempo não estouram o índice único); depois a principal acompanha número, UF e
+     * situação do User. Não usa o SQL do `inscricoesDe`, que lê o User do banco e não veria o que o caso de uso ainda
+     * não gravou.
      */
     public function garantirPrincipal(User $usuario): void
     {
@@ -63,8 +66,19 @@ final class EspelhoDaOabPrincipal
             return;
         }
 
-        $existentes = $usuario->getId() === null ? [] : $this->inscricoes->doUsuario($usuario);
-        if ($existentes !== []) {
+        if ($usuario->getId() !== null) {
+            $existentes = $this->inscricoes->doUsuario($usuario);
+            if ($existentes === []) {
+                $this->inscricoes->criarPrincipalSeFaltar(
+                    $usuario,
+                    trim((string) $usuario->getOabNumero()),
+                    strtoupper(trim((string) $usuario->getOabUf())),
+                    $usuario->getOabStatus() ?? StatusOab::NaoVerificada,
+                    $usuario->getOabNomeOficial(),
+                    $usuario->getOabVerificadaEm(),
+                );
+                $existentes = $this->inscricoes->doUsuario($usuario);
+            }
             foreach ($existentes as $inscricao) {
                 if ($inscricao->ehPrincipal()) {
                     $inscricao->alterar(trim((string) $usuario->getOabNumero()), strtoupper(trim((string) $usuario->getOabUf())));
