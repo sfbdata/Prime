@@ -1,6 +1,18 @@
 /* Card "Pontos do relatório inicial" (trilho da aba Detalhes da pasta).
-   Desenho 02 - EXPEDIENTES - VS 18.10.26, dc L.2520-2527 e `ri` (L.6932). As cores saem dos
-   tokens `--ps-*` do pasta-show.css, que já têm o par do tema escuro. */
+   Desenho 02 - EXPEDIENTES - VS 18.10.26, dc L.2520-2527 e `ri` (L.6932). No tema claro as cores
+   são os valores do desenho; no escuro valem os tokens `--ps-*` do pasta-show.css. */
+.ps-pontos-relatorio {
+    --ppr-ok-text: #1e7b45;
+    --ppr-ok-bg: #e6f4ec;
+    --ppr-pend-bg: #fdecea;
+    --ppr-hover-bg: #d6eaf4;
+}
+[data-bs-theme="dark"] .ps-pontos-relatorio {
+    --ppr-ok-text: var(--ps-ok-text);
+    --ppr-ok-bg: var(--ps-ok-bg);
+    --ppr-pend-bg: var(--ps-danger-bg);
+    --ppr-hover-bg: var(--ps-accent-bg-hv);
+}
 .ps-pontos-relatorio { padding: 15px 17px; }
 .ps-pontos-relatorio-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
 .ps-pontos-relatorio-cab h2 { flex: 1; margin: 0; font-size: 13.5px; font-weight: 600; }
@@ -12,8 +24,8 @@
     letter-spacing: .04em;
     white-space: nowrap;
 }
-.ps-pontos-relatorio-selo.is-completo { color: var(--ps-ok-text); background: var(--ps-ok-bg); }
-.ps-pontos-relatorio-selo.is-pendente { color: var(--ps-danger-text); background: var(--ps-danger-bg); }
+.ps-pontos-relatorio-selo.is-completo { color: var(--ppr-ok-text); background: var(--ppr-ok-bg); }
+.ps-pontos-relatorio-selo.is-pendente { color: var(--ps-danger-text); background: var(--ppr-pend-bg); }
 
 .ps-pontos-relatorio-lista { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .ps-pontos-relatorio-item { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.45; }
@@ -42,5 +54,5 @@
     cursor: pointer;
 }
 .ps-pontos-relatorio-completar:hover,
-.ps-pontos-relatorio-completar:focus-visible { background: var(--ps-accent-bg-hv); }
+.ps-pontos-relatorio-completar:focus-visible { background: var(--ppr-hover-bg); }
 .ps-pontos-relatorio-completar i { font-size: 13px; }

@@ -118,6 +118,31 @@ final class PastaPontosRelatorioTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('#pastaTabs > #detalhes-tab.ps-aba--pend'));
     }
 
+    #[TestDox('mais de 100 observações: o relatório inicial, a mais antiga, ainda conta (a lista da tela tem teto de 100)')]
+    public function testRelatorioAlemDoTetoDaLista(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->observar($pasta, $user, $tenant, '<p>O cliente pretende anular o contrato.</p>');
+        $this->em()->createQuery('UPDATE ' . PastaObservacaoDetalhes::class . ' o SET o.criadaEm = :antes WHERE o.pasta = :pasta')
+            ->setParameter('antes', new \DateTimeImmutable('-1 year'))
+            ->setParameter('pasta', $pasta)
+            ->execute();
+        for ($i = 0; $i < 100; ++$i) {
+            $obs = new PastaObservacaoDetalhes();
+            $obs->setPasta($pasta)->setAutor($user)->setTenant($tenant)->setConteudo('<p>Andamento ' . $i . '.</p>');
+            $this->em()->persist($obs);
+        }
+        $this->em()->flush();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $this->abrir($client, $pasta);
+
+        self::assertCount(1, $crawler->filter(self::CARD . ' li.is-ok[data-ponto="objetivos"]'));
+        self::assertSame('2 pendentes', trim($crawler->filter(self::CARD . ' .ps-pontos-relatorio-selo')->text()));
+    }
+
     #[TestDox('quem só vê a pasta vê o card e o selo, mas não o Completar (não há compositor onde escrever)')]
     public function testLeitorNaoTemCompletar(): void
     {

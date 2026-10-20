@@ -10,6 +10,7 @@ use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
@@ -381,8 +382,7 @@ class PastaController extends AbstractController
         $observacoesDetalhes     = $tenant !== null
             ? $this->observacaoDetalhesRepository->findByPasta($pasta, $tenant)
             : [];
-        // Card "Pontos do relatório inicial" e a pendência da aba Detalhes (desenho, `relInicial()`).
-        $pontosDoRelatorio = PontosDoRelatorioInicial::dasObservacoes($observacoesDetalhes);
+        $pontosDoRelatorio = $this->pontosDoRelatorioInicial($pasta, $tenant, $observacoesDetalhes);
 
         $checklistItens      = $tenant !== null ? $this->checklistRepository->findByPasta($pasta, $tenant) : [];
         $totalChecklist      = count($checklistItens);
@@ -2657,4 +2657,18 @@ class PastaController extends AbstractController
         }
     }
 
+    /**
+     * Card "Pontos do relatório inicial" e a pendência da aba Detalhes (desenho, `relInicial()`).
+     * A lista de exibição tem teto de 100; só quando ela bate no teto lê-se o relatório inteiro.
+     *
+     * @param PastaObservacaoDetalhes[] $observacoesDetalhes
+     */
+    private function pontosDoRelatorioInicial(Pasta $pasta, ?Tenant $tenant, array $observacoesDetalhes): PontosDoRelatorioInicial
+    {
+        if ($tenant !== null && count($observacoesDetalhes) >= 100) {
+            return PontosDoRelatorioInicial::dosTextos($this->observacaoDetalhesRepository->conteudosDaPasta($pasta, $tenant));
+        }
+
+        return PontosDoRelatorioInicial::dasObservacoes($observacoesDetalhes);
+    }
 }

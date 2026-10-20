@@ -140,6 +140,17 @@ final class PontosDoRelatorioInicialTest extends TestCase
         self::assertFalse(PontosDoRelatorioInicial::dosTextos(['<p>O que ele busca</p><p>Indenização</p>'])->itens[0]['ok']);
     }
 
+    #[TestDox('a palavra-gatilho formatada (<em>, <strong>, <u>) ou seguida de &nbsp; ainda casa')]
+    public function testFormatacaoDeLinhaNaoSeparaPalavras(): void
+    {
+        self::assertTrue(PontosDoRelatorioInicial::dosTextos(['<p>Ele <em>busca</em> reparação.</p>'])->itens[0]['ok']);
+        self::assertTrue(PontosDoRelatorioInicial::dosTextos(['<p>Ficou <strong>definido</strong> o envio.</p>'])->itens[1]['ok']);
+        self::assertTrue(PontosDoRelatorioInicial::dosTextos(['<p>Espera <u>que</u> ganhe.</p>'])->itens[2]['ok']);
+        self::assertTrue(PontosDoRelatorioInicial::dosTextos(['<p>Ele busca&nbsp;reparação.</p>'])->itens[0]['ok']);
+        // A quebra de linha (<br>) separa, como parágrafo.
+        self::assertFalse(PontosDoRelatorioInicial::dosTextos(['<p>O que ele busca<br>Indenização</p>'])->itens[0]['ok']);
+    }
+
     #[TestDox('"buscando" não casa "busca " (o espaço do padrão do desenho), e entidade HTML é decodificada')]
     public function testBuscandoNaoCasaEEntidadeDecodifica(): void
     {

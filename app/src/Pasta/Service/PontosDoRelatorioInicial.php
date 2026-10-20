@@ -23,9 +23,9 @@ use App\Pasta\Entity\PastaObservacaoDetalhes;
  *
  * É regra de palavra, não prova: "objetivo" em qualquer frase conta como registrado. O
  * conteúdo chega em HTML sanitizado (editor rico) com tokens `@[Nome](user:ID)`: as tags
- * viram quebra de linha (os parágrafos do desenho se juntam com "\n", e assim as palavras de
- * parágrafos vizinhos não colam), as entidades são decodificadas e o token vira "@Nome",
- * que é o que a tela mostra.
+ * de bloco viram quebra de linha (os parágrafos do desenho se juntam com "\n", e assim as
+ * palavras de parágrafos vizinhos não colam), as de linha somem, as entidades são
+ * decodificadas e o token vira "@Nome", que é o que a tela mostra.
  */
 final readonly class PontosDoRelatorioInicial
 {
@@ -132,8 +132,13 @@ final readonly class PontosDoRelatorioInicial
     private static function textoPuro(string $conteudo): string
     {
         $semMencao = (string) preg_replace('/@\[([^\]]*)\]\(user:\d+\)/u', '@$1', $conteudo);
-        $semTags   = strip_tags((string) preg_replace('/<[^>]*>/u', "\n$0", $semMencao));
+        // Só as tags de BLOCO separam linhas (os parágrafos do desenho se juntam com "\n"). As de
+        // linha (<strong>, <em>, <u>, <a>) somem sem deixar nada: "Ele <em>busca</em> reparação"
+        // é "Ele busca reparação" na tela, e o padrão `busca(r)? ` precisa casar.
+        $comQuebras = (string) preg_replace('#<(?:/?(?:p|div|li|ul|ol|h[1-6]|blockquote|pre)\b[^>]*|br\s*/?)>#iu', "\n$0", $semMencao);
+        $texto      = html_entity_decode(strip_tags($comQuebras), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        return html_entity_decode($semTags, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // O espaço inquebrável (`&nbsp;` do editor) é espaço para os padrões.
+        return str_replace("\u{00A0}", ' ', $texto);
     }
 }
