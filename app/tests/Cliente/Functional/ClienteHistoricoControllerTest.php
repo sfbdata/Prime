@@ -10,8 +10,10 @@ use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClienteHistorico;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Service\HistoricoDoCliente;
+use App\Cliente\UseCase\AtualizarContatoDoClienteUseCase;
 use App\Cliente\UseCase\CriarClienteDaPastaUseCase;
 use App\Cliente\UseCase\SalvarCadastroDoClienteUseCase;
+use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -30,7 +32,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * Aba "Histórico" da janela de Cadastro (desenho 1.2.3, `cq.hist`; E12 fatia 3d): o que grava (salvar, criar pela
- * pasta, anexar e remover documento), o que mostra (mais nova primeiro, vazio com o texto do desenho) e o isolamento
+ * pasta, pelo cadastro antigo da pasta, ficha antiga, contato, anexar, editar e remover documento), o que mostra (mais nova primeiro, vazio com o texto do desenho) e o isolamento
  * entre escritórios. O texto nunca leva o valor do campo nem o nome do arquivo.
  */
 #[CoversClass(ClienteCadastroController::class)]
@@ -38,6 +40,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(SalvarCadastroDoClienteUseCase::class)]
 #[CoversClass(CriarClienteDaPastaUseCase::class)]
 #[CoversClass(HistoricoDoCliente::class)]
+#[CoversClass(AtualizarContatoDoClienteUseCase::class)]
+#[CoversClass(PastaController::class)]
 final class ClienteHistoricoControllerTest extends JusPrimeWebTestCase
 {
     private const PDF = "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n";
@@ -254,6 +258,94 @@ final class ClienteHistoricoControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Bruno Lima', (string) $this->client->getResponse()->getContent());
     }
 
+    #[TestDox('criar o cliente pelo "Cadastrar cliente" antigo da pasta (pasta_cliente_novo) grava "criou o cadastro"')]
+    public function testCriarPeloCadastroAntigoDaPasta(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'Ana Souza');
+        $pasta = $this->criarPastaSemCliente($tenant, $gestor, 'Welton');
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $this->em()->clear();
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/cliente/novo', [
+            '_token' => 'TOKEN_pasta_cliente_novo_' . $pasta->getId(), 'tipo' => 'pf', 'nomeCompleto' => 'Welton Alves',
+            'cpf' => '529.982.247-25', 'rg' => '123', 'rgOrgaoExpedidor' => 'SSP/DF', 'email' => 'w_' . uniqid() . '@t.com',
+            'cep' => '70000-000', 'endereco' => 'SQS 110', 'cidade' => 'Brasília', 'estado' => 'DF',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $id = (int) $this->em()->getConnection()->fetchOne("SELECT c.id FROM cliente c JOIN cliente_pf p ON p.id = c.id WHERE c.tenant_id = ? AND p.cpf = '529.982.247-25'", [$tenant->getId()]);
+        self::assertSame(['Ana Souza criou o cadastro'], array_column($this->linhas($id), 'texto'));
+    }
+
+    #[TestDox('ficha antiga (cliente_edit): grava "alterou <rótulos>" dos campos que mudaram; reenviar igual não grava')]
+    public function testFichaAntiga(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'Ana Souza');
+        $cliente = $this->criarClientePF($tenant, 'Maria das Dores');
+        $id = (int) $cliente->getId();
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $this->em()->clear();
+        $form = $this->client->request('GET', '/clientes/' . $id . '/editar')->selectButton('Salvar Alterações')->form();
+        $this->client->submit($form);
+        self::assertResponseRedirects('/clientes/' . $id);
+        self::assertSame([], $this->linhas($id), 'nada mudou');
+
+        $this->em()->clear();
+        $form = $this->client->request('GET', '/clientes/' . $id . '/editar')->selectButton('Salvar Alterações')->form();
+        $form['cliente_pf[estadoCivil]'] = 'CASADO';
+        $form['cliente_pf[complemento]'] = 'Apto 101';
+        $form['cliente_pf[telefoneFixo]'] = '(61) 3425-8844';
+        $this->client->submit($form);
+
+        self::assertResponseRedirects('/clientes/' . $id);
+        $textos = array_column($this->linhas($id), 'texto');
+        self::assertSame(['Ana Souza alterou estado civil, complemento, telefone fixo'], $textos);
+        self::assertStringNotContainsString('101', $textos[0]);
+    }
+
+    #[TestDox('editar os dados do documento (cliente_documento_edit) grava "alterou <tipo>"; reenviar igual não grava')]
+    public function testEditarDocumento(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'Ana Souza');
+        $cliente = $this->criarClientePF($tenant, 'Maria das Dores');
+        $doc = (new ClienteDocumento())->setCliente($cliente)->setTenant($tenant)->setCategoria(ClienteDocumento::CATEGORIA_IDENTIFICACAO)
+            ->setTitulo('rg.pdf')->setNomeOriginal('rg.pdf')->setCaminhoArquivo('fake/' . uniqid() . '.pdf')->setMimeType('application/pdf')->setTamanhoBytes(10);
+        $this->em()->persist($doc);
+        $this->em()->flush();
+        $docId = (int) $doc->getId();
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $this->editarDocumento($docId, ['categoria' => 'IDENTIFICACAO']);
+        self::assertSame([], $this->linhas((int) $cliente->getId()), 'nada mudou');
+
+        $this->editarDocumento($docId, ['categoria' => 'IDENTIFICACAO', 'numero' => '529.982.247-25', 'nomeBase' => 'rg-maria']);
+
+        $textos = array_column($this->linhas((int) $cliente->getId()), 'texto');
+        self::assertSame(['Ana Souza alterou documento de identificação'], $textos);
+        self::assertStringNotContainsString('529', $textos[0]);
+        self::assertStringNotContainsString('maria', $textos[0]);
+    }
+
+    #[TestDox('contato pela janela Detalhes do cliente (cliente_contatos) grava "alterou telefone fixo"')]
+    public function testContato(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'Ana Souza');
+        $cliente = $this->criarClientePF($tenant, 'Maria das Dores');
+        $id = (int) $cliente->getId();
+        $this->logarComTenant($this->client, $gestor, $tenant);
+
+        $this->em()->clear();
+        $this->client->request('POST', '/clientes/' . $id . '/contatos', ['campo' => 'fixo', 'valor' => '6134258844', '_token' => 'TOKEN_cliente_contatos_' . $id]);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['Ana Souza alterou telefone fixo'], array_column($this->linhas($id), 'texto'));
+    }
+
     // ----------------------------------------------------------------- helpers
 
     /** @return list<array{0: string, 1: string}> */
@@ -287,6 +379,14 @@ final class ClienteHistoricoControllerTest extends JusPrimeWebTestCase
         $this->client->request('POST', '/clientes/' . $clienteId . '/documento/upload', [
             '_token' => 'TOKEN_upload_documento_cliente_' . $clienteId, 'categorias' => [0 => $categoria],
         ], ['arquivos' => [0 => new UploadedFile($origem, $nomeOriginal, null, null, true)]]);
+    }
+
+    /** @param array<string, string> $campos */
+    private function editarDocumento(int $docId, array $campos): void
+    {
+        $this->em()->clear();
+        $this->client->request('POST', '/clientes/documento/' . $docId . '/editar', $campos + ['_token' => 'TOKEN_edit_doc_cliente_' . $docId]);
+        self::assertResponseRedirects();
     }
 
     /** @param array<string, string> $campos */

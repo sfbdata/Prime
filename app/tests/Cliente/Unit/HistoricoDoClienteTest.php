@@ -9,6 +9,7 @@ use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClienteHistorico;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Repository\ClienteHistoricoRepository;
+use App\Cliente\Service\CamposDoCadastro;
 use App\Cliente\Service\HistoricoDoCliente;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -22,6 +23,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(HistoricoDoCliente::class)]
 #[CoversClass(ClienteHistorico::class)]
+#[CoversClass(CamposDoCadastro::class)]
 final class HistoricoDoClienteTest extends TestCase
 {
     /** @var list<ClienteHistorico> */
@@ -94,6 +96,26 @@ final class HistoricoDoClienteTest extends TestCase
         foreach ($this->gravadas as $h) {
             self::assertStringNotContainsString('rg-maria', $h->getTexto());
         }
+    }
+
+    #[TestDox('documento alterado entra pelo tipo que tinha antes; rótulo de campo fora da janela (telefone fixo) é aceito')]
+    public function testDocumentoAlteradoECampoForaDaJanela(): void
+    {
+        [$sut, $cliente, $tenant, $autor] = $this->montar();
+
+        $sut->documentoAlterado($this->documento($cliente, $tenant, ClienteDocumento::CATEGORIA_PROCURACAO), $autor, ClienteDocumento::CATEGORIA_CONTRATO);
+        $sut->camposAlterados($cliente, $autor, $tenant, ['telefone fixo', 'emissão do RG']);
+
+        self::assertSame(['Ana Souza alterou contrato', 'Ana Souza alterou telefone fixo, emissão do RG'], array_map(static fn (ClienteHistorico $h): string => $h->getTexto(), $this->gravadas));
+    }
+
+    #[TestDox('rotulosAlterados: só os campos que mudaram, pelo rótulo, na ordem da fotografia')]
+    public function testRotulosAlterados(): void
+    {
+        $antes = ['nome' => 'ANA', 'cpf' => '52998224725', 'bairro' => '', 'telefone_fixo' => ''];
+        $depois = ['nome' => 'ANA', 'cpf' => '11144477735', 'bairro' => 'ASA SUL', 'telefone_fixo' => '(61) 3425-8844', 'desconhecido' => 'x'];
+
+        self::assertSame(['CPF', 'bairro', 'telefone fixo'], CamposDoCadastro::rotulosAlterados($antes, $depois));
     }
 
     #[TestDox('cliente de outro escritório: recusa, nada gravado')]

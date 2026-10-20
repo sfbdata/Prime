@@ -45,7 +45,10 @@ final class HistoricoDoCliente
         $this->gravar($cliente, $autor, $tenant, self::nomeDe($autor) . ' criou o cadastro');
     }
 
-    /** @param list<string> $rotulos rótulos de {@see CamposDoCadastro::ROTULOS}; vazio (ou só desconhecidos) não grava */
+    /**
+     * @param list<string> $rotulos rótulos de {@see CamposDoCadastro::ROTULOS} (ou de ROTULOS_FORA_DA_JANELA); vazio (ou
+     *                              só desconhecidos) não grava
+     */
     public function camposAlterados(Cliente $cliente, User $autor, Tenant $tenant, array $rotulos): void
     {
         $texto = self::textoDeAlteracao(self::nomeDe($autor), $rotulos);
@@ -58,6 +61,12 @@ final class HistoricoDoCliente
     public function documentoAnexado(ClienteDocumento $documento, User $autor): void
     {
         $this->gravarDoDocumento($documento, $autor, 'anexou');
+    }
+
+    /** Metadados do documento mudaram (tipo, descrição, número, nome): entra pelo tipo que ele tinha antes. */
+    public function documentoAlterado(ClienteDocumento $documento, User $autor, string $categoriaAnterior): void
+    {
+        $this->gravarDoDocumento($documento, $autor, 'alterou', $categoriaAnterior);
     }
 
     /** Chame ANTES de remover: depois do flush o documento não diz mais de quem era. */
@@ -86,7 +95,8 @@ final class HistoricoDoCliente
     /** @param list<string> $rotulos */
     public static function textoDeAlteracao(string $autor, array $rotulos): ?string
     {
-        $validos = array_values(array_unique(array_intersect($rotulos, CamposDoCadastro::ROTULOS)));
+        $conhecidos = array_merge(array_values(CamposDoCadastro::ROTULOS), array_values(CamposDoCadastro::ROTULOS_FORA_DA_JANELA));
+        $validos = array_values(array_unique(array_intersect($rotulos, $conhecidos)));
 
         return $validos === [] ? null : $autor . ' alterou ' . implode(', ', $validos);
     }
@@ -99,14 +109,14 @@ final class HistoricoDoCliente
         $this->repositorio->registrar(new ClienteHistorico($tenant, $cliente, $autor, $texto));
     }
 
-    private function gravarDoDocumento(ClienteDocumento $documento, User $autor, string $verbo): void
+    private function gravarDoDocumento(ClienteDocumento $documento, User $autor, string $verbo, ?string $categoria = null): void
     {
         $cliente = $documento->getCliente();
         $tenant = $documento->getTenant();
         if ($cliente === null || $tenant === null) {
             throw new \DomainException('Documento sem cliente ou sem escritório.');
         }
-        $this->gravar($cliente, $autor, $tenant, self::nomeDe($autor) . ' ' . $verbo . ' ' . self::documento($documento->getCategoria()));
+        $this->gravar($cliente, $autor, $tenant, self::nomeDe($autor) . ' ' . $verbo . ' ' . self::documento($categoria ?? $documento->getCategoria()));
     }
 
     private static function nomeDe(User $autor): string

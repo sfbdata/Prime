@@ -11,6 +11,7 @@ use App\Cliente\Entity\ClientePJ;
 use App\Cliente\Form\ClientePFType;
 use App\Cliente\Form\ClientePJType;
 use App\Cliente\Repository\ClienteRepository;
+use App\Cliente\Service\CamposDoCadastro;
 use App\Cliente\Service\HistoricoDoCliente;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
@@ -100,6 +101,7 @@ class ClienteController extends AbstractController
         private readonly EntregaDeArquivo $entrega,
         private readonly CompressaoDeArquivoArmazenado $compressao,
         private readonly HistoricoDoCliente $historico,
+        private readonly CamposDoCadastro $campos,
     ) {}
 
     #[Route('/{id}', name: 'cliente_show', methods: ['GET'])]
@@ -150,9 +152,11 @@ class ClienteController extends AbstractController
             $form = $this->createForm(ClientePJType::class, $cliente);
         }
 
+        $antes = $this->campos->fotografar($cliente);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $this->historico->camposAlterados($cliente, $currentUser, $cliente->getTenant() ?? throw $this->createNotFoundException('Cliente não encontrado'), CamposDoCadastro::rotulosAlterados($antes, $this->campos->fotografar($cliente)));
             $this->em->flush();
             return $this->redirectToRoute('cliente_show', ['id' => $cliente->getId()]);
         }
@@ -425,6 +429,7 @@ class ClienteController extends AbstractController
         $numero    = trim((string) $request->request->get('numero', ''));
         $nomeBase  = trim((string) $request->request->get('nomeBase', ''));
 
+        $antes = [$doc->getCategoria(), $doc->getDescricao(), $doc->getNumero(), $doc->getNomeOriginal()];
         $doc->setCategoria($categoria);
         $doc->setDescricao($descricao !== '' ? $descricao : null);
         $doc->setNumero($numero !== '' ? $numero : null);
@@ -432,6 +437,9 @@ class ClienteController extends AbstractController
             $extensao = pathinfo($doc->getNomeOriginal(), PATHINFO_EXTENSION);
             $nomeComExtensao = $nomeBase . ($extensao !== '' ? '.' . $extensao : '');
             $doc->setNomeOriginal($nomeComExtensao);
+        }
+        if ($antes !== [$doc->getCategoria(), $doc->getDescricao(), $doc->getNumero(), $doc->getNomeOriginal()]) {
+            $this->historico->documentoAlterado($doc, $currentUser, $antes[0]);
         }
 
         $this->em->flush();
