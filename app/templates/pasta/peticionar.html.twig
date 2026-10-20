@@ -3,6 +3,11 @@
 {% set pastaInfoNup = pasta.nup %}
 {% set pastaInfoCliente = nomeCliente %}
 
+{# Pasta excluída (lápide) abre só para leitura, mesmo para quem pode editar: o servidor já recusa
+   a escrita (PastaSomenteLeituraListener), e a tela não oferece o que seria recusado. Fica fora
+   dos blocos porque o content e o javascripts usam. #}
+{% set podeEditarPasta = not pasta.estaExcluida() and can_access_resource('pasta', pasta.id, 'edit') %}
+
 {% block title %}Peticionar | {{ pasta.nup }}{% endblock %}
 
 {% block stylesheets %}
@@ -18,10 +23,6 @@
    id="peticVoltarPasta"
    title="Voltar para a pasta"
    hidden><i class="bi bi-arrow-left"></i>Voltar à pasta</a>
-
-{# Pasta excluída (lápide) abre só para leitura, mesmo para quem pode editar: o servidor já recusa
-   a escrita (PastaSomenteLeituraListener), e a tela não oferece o que seria recusado. #}
-{% set podeEditarPasta = not pasta.estaExcluida() and can_access_resource('pasta', pasta.id, 'edit') %}
 
 {# Formatos do "Adicionar peça": o mesmo accept vale para o modal e para soltar arquivos na lista,
    e o ícone de cada um vem do arquivo_icone() (a linha nova, montada no navegador, usa o mesmo). #}
@@ -155,12 +156,17 @@
                     <div class="petic-tl-vazio">
                         <i class="bi bi-folder2-open"></i>
                         Nenhum documento na pasta.
+                        {% if podeEditarPasta %}
                         <span class="petic-tl-vazio-dica">Use "Adicionar peça" ou arraste arquivos para cá.</span>
+                        {% endif %}
                     </div>
                 {% endfor %}
             </div>
         </div>
 
+        {# "Adicionar peça" (anexo ou texto) só para quem pode escrever na pasta: o leitor e a pasta
+           excluída não o recebem, nem os tokens de envio do JS abaixo. #}
+        {% if podeEditarPasta %}
         <div class="petic-timeline-footer">
             <div class="dropup w-100">
                 <button type="button"
@@ -184,6 +190,7 @@
                 </ul>
             </div>
         </div>
+        {% endif %}
 
     </div>
 
@@ -453,7 +460,9 @@
     'use strict';
 
     const uploadUrl  = {{ path('pasta_peticionar_upload', {id: pasta.id})|json_encode|raw }};
-    const csrfToken  = {{ csrf_token('peticionar_upload_' ~ pasta.id)|json_encode|raw }};
+    // Quem não pode escrever (leitor, pasta excluída) não recebe token nem abre o editor.
+    const podeEditar = {{ podeEditarPasta ? 'true' : 'false' }};
+    const csrfToken  = {{ (podeEditarPasta ? csrf_token('peticionar_upload_' ~ pasta.id) : '')|json_encode|raw }};
 
     // ── Elementos ────────────────────────────────────────────────────────────
 
@@ -508,15 +517,17 @@
         const dlUrl   = item.dataset.downloadUrl;
         const titulo  = item.dataset.titulo;
 
-        // Texto HTML: delegar ao módulo do editor (definido abaixo)
-        if (mime === 'text/html') {
+        // Texto HTML: delegar ao módulo do editor (definido abaixo). Quem não pode editar não
+        // abre o editor: a peça é mostrada no visualizador, como o PDF (a rota de visualizar a
+        // entrega sob a CSP de sandbox).
+        if (mime === 'text/html' && podeEditar) {
             if (typeof abrirEditorParaEditar === 'function') abrirEditorParaEditar(item);
             return;
         }
 
         ocultarTodosPaineis();
 
-        if (mime === 'application/pdf') {
+        if (mime === 'application/pdf' || mime === 'text/html') {
             iframe.src           = viewUrl;
             iframe.style.display = 'block';
         } else if (mime === 'image/jpeg' || mime === 'image/png') {
@@ -595,10 +606,13 @@
         modalOverlay.classList.remove('aberto');
     }
 
-    document.getElementById('btnOpcaoAnexo').addEventListener('click', abrirModal);
+    // Os botões só existem para quem pode editar (o "Adicionar peça" não vai ao leitor).
+    const btnOpcaoAnexo = document.getElementById('btnOpcaoAnexo');
+    if (btnOpcaoAnexo) btnOpcaoAnexo.addEventListener('click', abrirModal);
 
     // ── Botão Texto — delegar para módulo do editor (definido abaixo) ────────
-    document.getElementById('btnOpcaoTexto').addEventListener('click', function () {
+    const btnOpcaoTexto = document.getElementById('btnOpcaoTexto');
+    if (btnOpcaoTexto) btnOpcaoTexto.addEventListener('click', function () {
         if (typeof abrirEditor === 'function') abrirEditor();
     });
     btnFechar.addEventListener('click', fecharModal);
@@ -697,11 +711,12 @@
         fd.set('_token', csrfToken);
 
         try {
-            const resp = await fetch(uploadUrl, { method: 'POST', body: fd });
+            // Com o X-Requested-With a recusa da pasta excluída vem em JSON ({mensagem}), não em 302.
+            const resp = await fetch(uploadUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
             const data = await resp.json();
 
             if (!data.success) {
-                uploadErro.textContent = data.error ?? 'Erro ao enviar o arquivo.';
+                uploadErro.textContent = data.mensagem || data.error || data.erro || 'Erro ao enviar o arquivo.';
                 uploadErro.classList.remove('d-none');
                 return;
             }
@@ -728,7 +743,7 @@
     // ── URLs e tokens ─────────────────────────────────────────────────────────
 
     const criarTextoUrl      = {{ path('pasta_peticionar_texto', {id: pasta.id})|json_encode|raw }};
-    const csrfTexto          = {{ csrf_token('peticionar_texto_' ~ pasta.id)|json_encode|raw }};
+    const csrfTexto          = {{ (podeEditarPasta ? csrf_token('peticionar_texto_' ~ pasta.id) : '')|json_encode|raw }};
     const exportarUrlTemplate = '/pasta/documento/__ID__/exportar/__FMT__';
 
     // ── Estado do editor ──────────────────────────────────────────────────────
@@ -800,13 +815,14 @@
                 images_upload_handler: async (blobInfo) => {
                     const formData = new FormData();
                     formData.append('imagem', blobInfo.blob(), blobInfo.filename());
-                    formData.append('_token', {{ csrf_token('upload_imagem_editor_' ~ pasta.id)|json_encode|raw }});
+                    formData.append('_token', {{ (podeEditarPasta ? csrf_token('upload_imagem_editor_' ~ pasta.id) : '')|json_encode|raw }});
                     const resp = await fetch({{ path('pasta_peticionar_upload_imagem', {id: pasta.id})|json_encode|raw }}, {
                         method: 'POST',
                         body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
                     });
                     const data = await resp.json();
-                    if (!resp.ok) throw new Error(data.erro ?? 'Erro ao fazer upload da imagem.');
+                    if (!resp.ok) throw new Error(data.mensagem || data.error || data.erro || 'Erro ao fazer upload da imagem.');
                     return data.url;
                 },
                 content_style: [
@@ -1054,13 +1070,13 @@
         try {
             const resp = await fetch(editarTextoUrl, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 body: JSON.stringify({ _token: currentCsrfEditar, conteudo, titulo }),
             });
             const data = await resp.json();
 
             if (!data.success) {
-                alert(data.error ?? 'Erro ao salvar.');
+                alert(data.mensagem || data.error || data.erro || 'Erro ao salvar.');
                 return;
             }
 
@@ -1178,11 +1194,11 @@
         fd.append('secao_id', secaoEl ? secaoEl.value : '');
 
         try {
-            const resp = await fetch(criarTextoUrl, { method: 'POST', body: fd });
+            const resp = await fetch(criarTextoUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
             const data = await resp.json();
 
             if (!data.success) {
-                textoErro.textContent = data.error ?? 'Erro ao salvar.';
+                textoErro.textContent = data.mensagem || data.error || data.erro || 'Erro ao salvar.';
                 textoErro.classList.remove('d-none');
                 return;
             }

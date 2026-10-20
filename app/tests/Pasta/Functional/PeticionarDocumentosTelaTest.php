@@ -179,6 +179,7 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         // Os tokens de escrita não vão para quem só vê: nem os da lista (excluir, enviar), nem os
         // da linha (renomear/classificar, salvar texto).
         $this->assertSemTokensDeEscrita($crawler, [(int) $doc->getId(), (int) $texto->getId()]);
+        $this->assertSemAdicionarPecaNemTokensDoScript($crawler, $client);
         // Ler continua: a linha, o menu (Abrir e Baixar) e o download.
         $row = $this->linha($crawler, (int) $doc->getId());
         self::assertCount(1, $row->filter('.petic-tl-row > .petic-tl-card > button.petic-doc-mais'));
@@ -203,6 +204,15 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         $row = $this->linha($crawler, $id);
         self::assertTokenValido('edit_documento_' . $id, $row->attr('data-csrf-documento'));
         self::assertTokenValido('peticionar_editar_' . $id, $row->attr('data-csrf-editar'));
+
+        // "Adicionar peça" (anexo e texto) e os três tokens do script da tela.
+        self::assertCount(1, $crawler->filter('.petic-timeline > .petic-timeline-footer #btnAbrirUpload'));
+        self::assertCount(1, $crawler->filter('#btnOpcaoAnexo'));
+        self::assertCount(1, $crawler->filter('#btnOpcaoTexto'));
+        $html = (string) $client->getResponse()->getContent();
+        foreach (self::TOKENS_DO_SCRIPT as $prefixo => $padrao) {
+            self::assertTokenValido($prefixo . $pasta->getId(), self::tokenDoScript($html, $padrao));
+        }
     }
 
     #[TestDox('pasta excluída abre SÓ LEITURA, mesmo para quem pode editar: sem Excluir, sem Editar e sem tokens de escrita')]
@@ -221,6 +231,7 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('#peticSelbar > button[data-acao="excluir"]'));
         self::assertCount(0, $crawler->filter('#peticSelbar > button[data-acao="editar"]'));
         $this->assertSemTokensDeEscrita($crawler, [(int) $doc->getId(), (int) $texto->getId()]);
+        $this->assertSemAdicionarPecaNemTokensDoScript($crawler, $client);
         // Consultar continua: a linha e o Baixar.
         self::assertCount(1, $this->linha($crawler, (int) $doc->getId())->filter('.petic-tl-row > .petic-tl-card > button.petic-doc-mais'));
         self::assertCount(1, $crawler->filter('#peticSelbar > button[data-acao="baixar"]'));
@@ -268,6 +279,40 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $row, "linha do documento {$id}");
 
         return $row;
+    }
+
+    /**
+     * Os tokens que o script embutido da tela usa para escrever: id do token => onde ele está.
+     *
+     * @var array<string, string>
+     */
+    private const TOKENS_DO_SCRIPT = [
+        'peticionar_upload_'     => '~const csrfToken\s*=\s*("(?:[^"\\\\]|\\\\.)*");~',
+        'peticionar_texto_'      => '~const csrfTexto\s*=\s*("(?:[^"\\\\]|\\\\.)*");~',
+        'upload_imagem_editor_'  => '~formData\.append\(\'_token\',\s*("(?:[^"\\\\]|\\\\.)*")\);~',
+    ];
+
+    /** O valor (literal JSON) que o script embutido recebeu para aquele token. */
+    private static function tokenDoScript(string $html, string $padrao): string
+    {
+        self::assertSame(1, preg_match($padrao, $html, $m), "script sem o ponto do token ({$padrao})");
+        $valor = json_decode($m[1], true);
+        self::assertIsString($valor);
+
+        return $valor;
+    }
+
+    /** Sem o "Adicionar peça" e com os três tokens do script vazios. */
+    private function assertSemAdicionarPecaNemTokensDoScript(Crawler $crawler, KernelBrowser $client): void
+    {
+        self::assertCount(0, $crawler->filter('#btnAbrirUpload'), 'sem o "Adicionar peça"');
+        self::assertCount(0, $crawler->filter('#btnOpcaoAnexo'));
+        self::assertCount(0, $crawler->filter('#btnOpcaoTexto'));
+
+        $html = (string) $client->getResponse()->getContent();
+        foreach (self::TOKENS_DO_SCRIPT as $prefixo => $padrao) {
+            self::assertSame('', self::tokenDoScript($html, $padrao), "o script não recebe o token {$prefixo}");
+        }
     }
 
     /**

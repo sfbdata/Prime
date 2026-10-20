@@ -501,10 +501,12 @@
         const row = linhaAtiva();
         const texto = !!row && ehTexto(row);
         // A peça de texto abre no editor (no lugar do preview): a barra vai junto, no topo dele.
-        const casa = texto ? editorPanel : previewPanel;
+        // Quem não pode editar vê a peça de texto no preview, então a barra fica nele.
+        const noEditor = texto && cfg.podeEditar;
+        const casa = noEditor ? editorPanel : previewPanel;
         if (casa && barra.raiz.parentElement !== casa) casa.insertBefore(barra.raiz, casa.firstChild);
         barra.raiz.hidden = !row;
-        if (previewPanel) previewPanel.classList.toggle('petic-preview--com-barra', !!row && !texto);
+        if (previewPanel) previewPanel.classList.toggle('petic-preview--com-barra', !!row && !noEditor);
         if (barra.editar) barra.editar.hidden = !texto;
         if (!row) return;
 
