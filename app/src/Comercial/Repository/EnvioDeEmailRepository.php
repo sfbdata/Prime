@@ -129,6 +129,65 @@ class EnvioDeEmailRepository extends ServiceEntityRepository
         );
     }
 
+    /** A campanha foi encerrada antes de o envio sair (spec §8.1.5): não sai mais. */
+    public function marcarCancelado(int $id): void
+    {
+        $this->conexao()->executeStatement(
+            "UPDATE comercial_envio SET situacao = 'cancelado', proxima_tentativa_em = NULL
+             WHERE id = :id AND situacao IN ('enfileirado', 'enviando')",
+            ['id' => $id],
+        );
+    }
+
+    /**
+     * O freio do console (spec §8.1.5): os envios desta origem que ainda esperam o worker (`enfileirado`) viram
+     * `cancelado` (a reivindicação do handler só pega `enfileirado`) e o conteúdo some. O `enviando` não é tocado: o
+     * worker já está com ele (se parar, a recuperação o marca `incerto`). Devolve quantos.
+     */
+    public function cancelarNaFilaDaOrigem(string $origem): int
+    {
+        $ids = $this->conexao()->fetchFirstColumn(
+            "UPDATE comercial_envio SET situacao = 'cancelado', proxima_tentativa_em = NULL
+             WHERE origem = :origem AND situacao = 'enfileirado' RETURNING id",
+            ['origem' => $origem],
+        );
+        foreach ($ids as $id) {
+            $this->apagarConteudo((int) $id);
+        }
+
+        return \count($ids);
+    }
+
+    /** Campanha "no máximo uma vez" (spec §8.5): a exceção do SMTP deixa o envio `incerto`, sem nova tentativa. */
+    public function marcarIncerto(int $id): void
+    {
+        $this->conexao()->executeStatement(
+            "UPDATE comercial_envio SET situacao = 'incerto', proxima_tentativa_em = NULL WHERE id = :id AND situacao = 'enviando'",
+            ['id' => $id],
+        );
+    }
+
+    /** Contrapressão do expansor (spec §8.5): os envios de campanha que ainda esperam o worker. */
+    public function contarDeCampanhaNaFila(): int
+    {
+        return (int) $this->conexao()->fetchOne(
+            "SELECT COUNT(*) FROM comercial_envio WHERE situacao IN ('enfileirado', 'enviando') AND origem LIKE 'campanha:%'",
+        );
+    }
+
+    /**
+     * Teto diário das campanhas (spec §8.5): os envios de campanha registrados desde o instante dado, sem os que não
+     * saíram nem vão sair (bloqueados pelo descadastro, cancelados).
+     */
+    public function contarDeCampanhaDesde(\DateTimeImmutable $desde): int
+    {
+        return (int) $this->conexao()->fetchOne(
+            "SELECT COUNT(*) FROM comercial_envio WHERE origem LIKE 'campanha:%' AND criado_em >= :desde
+               AND situacao NOT IN ('bloqueado_descadastro', 'cancelado')",
+            ['desde' => self::data($desde)],
+        );
+    }
+
     /** O corpo pode levar credencial (o link do `lemb`): não sobra depois do estado final (N1). */
     public function apagarConteudo(int $id): void
     {
@@ -235,14 +294,37 @@ class EnvioDeEmailRepository extends ServiceEntityRepository
         return array_map('intval', $ids);
     }
 
-    /** Para a varredura (M-c): `enviando` parado desde antes do instante dado volta a `enfileirado`, disponível já. */
+    /**
+     * Para a varredura (M-c): `enviando` parado desde antes do instante dado volta a `enfileirado`, disponível já
+     * ("pelo menos uma vez"). Menos o de campanha (`campanha:*`), que é "no máximo uma vez": esse fica de fora aqui e
+     * vira `incerto` em {@see self::marcarCampanhaIncerta()}.
+     */
     public function devolverEnviandoParados(\DateTimeImmutable $antesDe, ?\DateTimeImmutable $agora = null): int
     {
         return (int) $this->conexao()->executeStatement(
             "UPDATE comercial_envio SET situacao = 'enfileirado', proxima_tentativa_em = :agora
-             WHERE situacao = 'enviando' AND tentativa_em < :antes",
+             WHERE situacao = 'enviando' AND tentativa_em < :antes AND origem NOT LIKE 'campanha:%'",
             ['antes' => self::data($antesDe), 'agora' => self::data($agora ?? new \DateTimeImmutable())],
         );
+    }
+
+    /**
+     * Campanha em massa é "no máximo uma vez" (decisão do coordenador, spec §8.5): o `enviando` de campanha parado desde
+     * antes do instante dado pode ter saído pelo SMTP sem o registro; vira `incerto`, não volta à fila e o conteúdo
+     * some. Devolve quantos.
+     */
+    public function marcarCampanhaIncerta(\DateTimeImmutable $antesDe): int
+    {
+        $ids = $this->conexao()->fetchFirstColumn(
+            "UPDATE comercial_envio SET situacao = 'incerto', proxima_tentativa_em = NULL
+             WHERE situacao = 'enviando' AND tentativa_em < :antes AND origem LIKE 'campanha:%' RETURNING id",
+            ['antes' => self::data($antesDe)],
+        );
+        foreach ($ids as $id) {
+            $this->apagarConteudo((int) $id);
+        }
+
+        return \count($ids);
     }
 
     /**

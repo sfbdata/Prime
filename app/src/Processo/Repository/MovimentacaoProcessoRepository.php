@@ -2,6 +2,7 @@
 
 namespace App\Processo\Repository;
 
+use App\Entity\Tenant\Tenant;
 use App\Processo\Entity\MovimentacaoProcesso;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -32,5 +33,38 @@ class MovimentacaoProcessoRepository extends ServiceEntityRepository
         if ($flush) {
             $this->getEntityManager()->flush();
         }
+    }
+
+    /**
+     * A data da movimentação mais recente de cada processo pedido (relatório de pastas paradas).
+     * Uma consulta para o lote, com o tenant explícito: o comando roda sem TenantFilter.
+     *
+     * @param list<int> $processoIds
+     *
+     * @return array<int, \DateTimeImmutable> processoId => data da última movimentação
+     */
+    public function ultimasPorProcesso(array $processoIds, Tenant $tenant): array
+    {
+        if ($processoIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('m')
+            ->select('IDENTITY(m.processo) AS processo_id', 'MAX(m.dataMovimentacao) AS ultima')
+            ->andWhere('m.tenant = :tenant')
+            ->andWhere('IDENTITY(m.processo) IN (:ids)')
+            ->andWhere('m.dataMovimentacao IS NOT NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $processoIds)
+            ->groupBy('m.processo')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porProcesso = [];
+        foreach ($linhas as $l) {
+            $porProcesso[(int) $l['processo_id']] = new \DateTimeImmutable((string) $l['ultima']);
+        }
+
+        return $porProcesso;
     }
 }

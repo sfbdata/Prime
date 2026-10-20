@@ -158,7 +158,12 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
 - **PR da 1a: #99** (rascunho, base `push-avisar-quando-chegar` = #87; merge depois de #82 e #87). Revisão aprovada com
   ressalvas, corrigidas e re-revisadas (aprovada); suíte da frente 10457 verdes. Fica em rascunho até o #56 entrar e a
   tela ser conferida contra o 05.
-- **Fatia 2a implementada (19/10, branch `comercial-2`, sem PR):** `ModelosDeCampanha` (os fixos do dc L.504-515, com
+- **PRs da frente (20/10):** #99 (1a, `comercial-1a` sobre `push-avisar-quando-chegar`), #116 (2a, `comercial-2` sobre
+  `comercial-1a`) e #121 (2b, `comercial-2b` sobre `comercial-2`), todos abertos; o merge segue a pilha.
+- **Premissa de operação (2b):** um worker só no transporte `comercial`. Os tetos (vazão por minuto e dia, teto das
+  campanhas, contrapressão, teto de testes) são contagens, não reservas atômicas; com dois workers no mesmo transporte
+  podem passar um pouco. Não muda o docker-compose.
+- **Fatia 2a implementada (19/10, branch `comercial-2`, PR #116):** `ModelosDeCampanha` (os fixos do dc L.504-515, com
   as cópias em blocos das automações; o `validar` sem o código 482 917), `comercial_modelo` (modelos próprios, trilha
   manual `modelo_new/upd/del` com `{nome, modo}`), `RenderizadorDeBlocos` (dc L.484-500, 1:1), sanitização do HTML
   importado (`symfony/html-sanitizer` configurado em código, mais o sanitizador do `style`), `LayoutDoEmail` (`padrao`,
@@ -171,6 +176,25 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   como o dc (o envio usa o primeiro nome); (3) o bloco da campanha fica ANTES das Automações, na posição do dc;
   (4) os marcadores das URLs do parcial passaram a casar com o requisito das rotas (`xchavex`, `xidx`): com
   `__chave__`, o parcial da 1a não renderizava em dev nem em teste (`strict_requirements`).
+- **Fatia 2b implementada (19/10, branch `comercial-2b`, empilhada sobre `comercial-2`, PR #121):** públicos
+  (`PublicosDaCampanha`, `CadastradosRepository`, o CSV lido no servidor com a regra do dc L.545 em `ListaInformada`),
+  B1 e reply-to em `PoliticaDeDestinatarios`, "Enviar campanha" com a chave de idempotência e a chave
+  `COMERCIAL_CAMPANHAS_LIGADAS` (`ChaveDasCampanhas`, padrão desligada), o expansor (`ExpandirCampanhas`,
+  `ExpansorDeCampanhas`, `comercial_expansor`), a situação nova `cancelado` em `comercial_envio` (o handler não envia
+  o que é de campanha cancelada), o comando `app:comercial:encerrar-campanha`, a lista de campanhas no bloco
+  Monitoramento e a retenção de 24 meses de `comercial_campanha_destino`. Migration `Version20261020129990`.
+  Decisões da implementação: (1) secundário = vínculo ativo sem papel de sistema, mesmo que a pessoa seja primária em
+  outro escritório (letra da §8.5); "Todos" é a união sem repetidos; (2) o "usuário ativo cadastrado" do B1 usa o
+  mesmo vínculo válido dos públicos de sistema (vínculo e usuário ativos, escritório nem suspenso nem excluído); (3) nada é recuperado vale também para a `na_fila` com mais de 24 h de atraso; a recorrente com até
+  24 h de atraso executa uma vez; (4) o nome de todo destinatário (não só do CSV) é limpo de `;:()<>"'`; (5) o teto
+  diário das campanhas conta os envios de campanha registrados no dia, sem os bloqueados e os cancelados; (6) a frase
+  de sucesso volta a "registra entregas, aberturas e cliques." se as duas chaves do rastreio ligarem; (7) o
+  descadastro é consultado um endereço por vez (contrato da 0d); uma consulta em lote, pedida à 0d, é follow-up para
+  públicos grandes. Revisão da 2b (19/10): com a chave desligada o `EnviarEmailHandler` não envia nada de
+  `campanha:*` (marca `cancelado`); o comando de encerrar alcança também a `enviada` com envios na fila e cancela
+  esses envios; os cancelamentos automáticos (chave e atraso) gravam `camp_canc` `{motivo, total}`, um por campanha;
+  "Baixar HTML" sai sempre com o exemplo fixo do dc; a Base de contatos e o B1 comparam o e-mail confirmado em
+  minúsculas.
 - **Próximo passo:** depois do #56 no master, verificação visual do bloco Automações contra o 05 e tirar o #99 do
   rascunho; a 1b quando o #87 com o #99, ou o #74, entrar no master; o follow-up da 9b depois do merge das duas.
 
@@ -272,7 +296,8 @@ sem registro órfão):
    AND situacao = 'enfileirado'`. Zero linhas: outro worker pegou, ou já saiu; para.
    **Recuperação (M-c):** a varredura devolve a `enfileirado` todo `enviando` com `tentativa_em` de mais de 15 min, e
    **despacha de novo** `EnviarEmail` para todo `enfileirado` de mais de 30 min (a mensagem original pode ter morrido
-   em `failed`); a reivindicação torna o redespacho inofensivo.
+   em `failed`); a reivindicação torna o redespacho inofensivo. **Exceção da 2b (§8.5):** o `enviando` parado de
+   origem `campanha:*` não volta à fila; vira `incerto` (pode ter saído pelo SMTP) e não é reenviado.
 2. `lista`: consulta o descadastro DE NOVO; descadastrado vira `bloqueado_descadastro`.
 3. **Vazão** (§3.6): sem vaga, volta a `enfileirado` e reenfileira com `DelayStamp`.
 4. Monta com o layout (§3.7), aplica `IdentidadeDeEmail` (o `replyTo` do DTO tem precedência), em `lista` acrescenta
@@ -716,6 +741,13 @@ primeira execução). (A9) Rótulos e cores do dc (L586) para
   conta e os opt-ins), **teto diário de campanhas 1.000** (configurável, abaixo dos 1.500 globais), e **contrapressão**:
   o próximo lote só sai se os envios de campanha ainda `enfileirado` ou `enviando` forem menos que um lote. Assim o conteúdo não se
   acumula em `comercial_envio_conteudo`.
+- **No máximo uma vez** (decisão do coordenador, 20/10): campanha em massa nunca sai duas vezes para a mesma pessoa.
+  O handler marca `enviando` (a reivindicação) antes do SMTP; se o worker morre ali, a recuperação de 15 min marca o
+  envio de campanha como `incerto` (nova situação de `comercial_envio`, coluna VARCHAR sem CHECK, sem migration), apaga o
+  conteúdo e não reenvia. Uma exceção do SMTP num envio de campanha também vira `incerto`, com o conteúdo apagado, e
+  não relança para o retry do Messenger (um timeout depois de o servidor aceitar duplicaria a mensagem). O `incerto` não conta na contrapressão e conta no teto diário. Os transacionais, os
+  consumidores e o `teste_campanha` continuam "pelo menos uma vez" (§3.1). O freio do console só cancela o
+  `enfileirado`; o `enviando` fica com o worker.
 - **Retenção** (R9): `comercial_campanha_destino` segue a da §3.2 (P4, 24 meses; depois `email` vira hash e `nome`
   nulo); `publico_parametros` é apagado quando a campanha vira `enviada` ou `cancelada`.
 
@@ -756,6 +788,8 @@ recorrente pula, +1 mês no fim do mês, comando de encerrar).
 12. Para a 2b (revisão da 2a): `{nome}` vindo do CSV entra no `style`/`href` do HTML importado só escapado para HTML;
     atinge só o e-mail da própria pessoa, mas a 2b sanitiza o nome do CSV (sem `;:()<>"'`). O teto de 10 testes por
     hora não é atômico (só o Master chega lá; o limite por minuto vale).
+13. A recorrente com até 24 h de atraso executa uma vez; com mais, pula (mesma tolerância da agendada).
+14. Desempenho: a contagem e a execução consultam o descadastro um endereço por vez; consulta em lote com a 0d é follow-up.
 
 ### 8.9 Inventário do dc (19/10), para conferir item a item
 

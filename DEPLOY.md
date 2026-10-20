@@ -277,6 +277,30 @@ CRON_TZ=America/Sao_Paulo
 >
 > Configurar o cron é do dono (D5).
 
+### Relatório mensal de pastas paradas (crontab na VPS)
+
+Avisa cada responsável das pastas dele que estão sem movimentação há mais de 30 dias (para dizer se
+vão receber movimentação ou ser arquivadas), e a Controladoria e os primários da lista inteira (spec
+`docs/specs/pastas-paradas.md`, "Envio automático"). O cron roda **todo dia às 10h15 de Brasília**;
+quem decide se é dia de envio é o próprio comando: só na **primeira segunda-feira do mês**, a partir
+das 10h, e **uma vez por mês por escritório** (a gravação em `relatorio_pastas_paradas_envio` vem antes
+dos avisos e trava a repetição). Nos outros dias ele passa e não envia nada.
+
+```
+CRON_TZ=America/Sao_Paulo
+15 10 * * * docker exec jusprime_php_prod php bin/console app:pastas:relatorio-pastas-paradas >> /var/log/jusprime-relatorio-pastas-paradas.log 2>&1
+```
+
+> Se o cron da VPS não aceitar `CRON_TZ` e o relógio dela estiver em UTC, use `15 13 * * *`
+> (10h15 em Brasília, sem horário de verão).
+>
+> **Antes de agendar:** rode uma vez em simulação: `docker exec jusprime_php_prod php bin/console
+> app:pastas:relatorio-pastas-paradas --dry-run` (não grava nada). A simulação só conta as pastas
+> paradas e os avisos no dia do envio (primeira segunda-feira do mês, a partir das 10h); em outro dia,
+> só mostra o motivo de não enviar. Para um escritório só: `--tenant=1`.
+>
+> Configurar o cron é do dono.
+
 ### Personalizar configuração
 
 Variáveis de ambiente que sobrescrevem os padrões do script:

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Functional;
 
+use App\Comercial\Campanha\ChaveDasCampanhas;
 use App\Comercial\Envio\LayoutDoEmail;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
 use App\Comercial\Message\EnviarEmail;
 use App\Comercial\MessageHandler\EnviarEmailHandler;
+use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\EnvioDeEmailRepository;
 use App\Comercial\Service\Carteiro;
 use App\Repository\TenantRepository;
@@ -70,6 +72,8 @@ final class EnviarEmailHandlerTest extends KernelTestCase
             new NullLogger(),
             $porMinuto,
             $teto,
+            $c->get(CampanhaDeEmailRepository::class),
+            new ChaveDasCampanhas(true),
         );
     }
 
@@ -301,10 +305,10 @@ final class EnviarEmailHandlerTest extends KernelTestCase
         self::assertEmailHtmlBodyNotContains($email, 'padding:28px 30px 8px;font:15px/1.6');
     }
 
-    #[TestDox('Exceção no envio: volta a enfileirado (próxima tentativa agora), conteúdo guardado e relança')]
+    #[TestDox('Exceção no envio (fora de campanha): volta a enfileirado (próxima tentativa agora), conteúdo guardado e relança')]
     public function testExcecaoDevolveAFila(): void
     {
-        $id = $this->enfileirar();
+        $id = $this->enfileirar(TipoDeEnvio::Transacional, 'automacao:val');
         $mailer = new MailerQueFalha();
 
         try {
@@ -318,6 +322,36 @@ final class EnviarEmailHandlerTest extends KernelTestCase
         self::assertSame(self::AGORA, $this->proximaTentativa($id));
         self::assertTrue($this->temConteudo($id), 'o retry precisa do corpo');
         self::assertTrue($this->envios->reivindicar($id, $this->relogio->now()), 'o retry consegue reivindicar de novo');
+    }
+
+    #[TestDox('Exceção no envio do teste_campanha: pelo menos uma vez, volta à fila e relança')]
+    public function testExcecaoNoTesteDaCampanhaDevolveAFila(): void
+    {
+        $id = $this->enfileirar(TipoDeEnvio::Lista, 'teste_campanha');
+
+        try {
+            ($this->handler(mailer: new MailerQueFalha()))(new EnviarEmail($id));
+            self::fail('A exceção do envio devia ser relançada.');
+        } catch (TransportException) {
+        }
+
+        self::assertSame('enfileirado', $this->situacao($id));
+        self::assertTrue($this->temConteudo($id));
+    }
+
+    #[TestDox('Exceção no envio de campanha: no máximo uma vez, vira incerto, o conteúdo some e não relança (sem retry)')]
+    public function testExcecaoNaCampanhaFicaIncerto(): void
+    {
+        $id = $this->enfileirar(TipoDeEnvio::Lista, 'campanha:1');
+        $mailer = new MailerQueFalha();
+
+        ($this->handler(mailer: $mailer))(new EnviarEmail($id));
+        ($this->handler(mailer: $mailer))(new EnviarEmail($id));
+
+        self::assertSame(1, $mailer->tentativas, 'a segunda entrega não reivindica o incerto');
+        self::assertSame('incerto', $this->situacao($id));
+        self::assertFalse($this->temConteudo($id));
+        self::assertSame([], $this->bus->envelopes, 'nada é reenfileirado');
     }
 
     #[TestDox('Mensagem de envio que não existe (ou já saiu) não faz nada')]
