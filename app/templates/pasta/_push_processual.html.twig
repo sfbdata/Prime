@@ -113,7 +113,8 @@
         <div class="ps-push-vazio-linha" id="push-vazio-sem-processo">
             Esta pasta não tem processo vinculado.
             O Push Processual acompanha as publicações pelo número do processo.
-            <button type="button" class="ps-push-link" data-ps-ir-aba="processo-tab">Vincule um processo</button>
+            {# Atalho para aba oculta não é renderizado (ocultar aba): fica o texto, sem botão. #}
+            {% if 'processo' not in abasOcultas|default([]) %}<button type="button" class="ps-push-link" data-ps-ir-aba="processo-tab">Vincule um processo</button>{% else %}Vincule um processo{% endif %}
             para que as publicações dele apareçam aqui.
         </div>
     {% elseif push.total == 0 %}

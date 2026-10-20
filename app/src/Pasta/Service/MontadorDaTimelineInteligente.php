@@ -16,6 +16,7 @@ use App\Pasta\DTO\FiltroDaTimelineInput;
 use App\Pasta\DTO\TimelineInteligenteOutput;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
+use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
@@ -62,6 +63,7 @@ final class MontadorDaTimelineInteligente
         private readonly NotificacaoRepository $notificacaoRepository,
         private readonly PastaTimelineVisitaRepository $visitaRepository,
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
+        private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
         private readonly RegrasDaTimelineInteligente $regras,
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly ClockInterface $clock,
@@ -73,6 +75,7 @@ final class MontadorDaTimelineInteligente
         $agora    = $this->clock->now();
         $limite   = $filtro->limite;
         $truncado = false;
+        $ocultas  = array_map(static fn (AbaDaPasta $a): string => $a->value, $this->visibilidadeDasAbas->abasOcultasPara($pasta, $usuario));
 
         // 1. Mensagens + audit_log.
         $itens = $this->assembler->montar(
@@ -81,6 +84,7 @@ final class MontadorDaTimelineInteligente
             (int) $tenant->getId(),
             $pasta->getProcessoPrincipal()?->getId(),
             $limite,
+            abasOcultas: $ocultas,
         );
         if (count($itens) >= $limite) {
             $truncado = true;
@@ -194,7 +198,7 @@ final class MontadorDaTimelineInteligente
             );
         }
 
-        $eventos = $this->regras->ordenar($this->regras->aplicarMarcos($eventos, $pushCompleto, $financeiroQuitado));
+        $eventos = $this->regras->ordenar($this->regras->aplicarMarcos($this->semAbasOcultas($eventos, $ocultas), $pushCompleto, $financeiroQuitado));
 
         $filtrados = $this->regras->filtrar($eventos, $filtro, $agora);
 
@@ -218,6 +222,29 @@ final class MontadorDaTimelineInteligente
             novosPorCategoria: $this->regras->contagemPorCategoria($novos),
             resumoDesde: $foraDesde !== null ? $this->regras->resumir($this->regras->depoisDe($filtrados, $foraDesde)) : null,
         );
+    }
+
+    /**
+     * Abas ocultas para quem lê (spec pasta-ocultar-aba §5): fora o que vem delas, pela regra única
+     * `VisibilidadeDasAbasDaPasta::abasDoEvento`. O `tipo` decide primeiro (publicação é do Push mesmo
+     * na categoria "processo"); sem aba pelo tipo, vale a categoria (auditoria de documento, meta…).
+     *
+     * @param list<EventoDaTimelineOutput> $eventos
+     * @param list<string>                 $ocultas
+     *
+     * @return list<EventoDaTimelineOutput>
+     */
+    private function semAbasOcultas(array $eventos, array $ocultas): array
+    {
+        if ($ocultas === []) {
+            return $eventos;
+        }
+
+        return array_values(array_filter($eventos, static function (EventoDaTimelineOutput $e) use ($ocultas): bool {
+            $familia = VisibilidadeDasAbasDaPasta::abasDoEvento($e->tipo) !== [] ? $e->tipo : $e->categoria;
+
+            return VisibilidadeDasAbasDaPasta::eventoVisivel($familia, $ocultas);
+        }));
     }
 
     /**
@@ -252,7 +279,7 @@ final class MontadorDaTimelineInteligente
                 id: 'a' . $n,
                 tipo: $tipo,
                 categoria: match ($item->origem) {
-                    'documento' => 'documento',
+                    'documento', 'contrato' => 'documento',
                     'meta'      => 'meta',
                     'processo'  => 'processo',
                     default     => 'cadastro',

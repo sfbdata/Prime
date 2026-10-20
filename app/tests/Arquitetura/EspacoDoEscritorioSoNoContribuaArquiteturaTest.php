@@ -20,7 +20,17 @@ final class EspacoDoEscritorioSoNoContribuaArquiteturaTest extends TestCase
         'src/Tenant/UseCase/PurgarEscritorioUseCase.php',
     ];
 
-    #[TestDox('fora do Contribua ninguém cita EspacoDoEscritorio, o repositório dele ou a tabela (salvo a purga)')]
+    /**
+     * Acordado com a f6 em 19/10: só o nome da classe, para a trilha da auditoria. Estes arquivos do Master
+     * citam `EspacoDoEscritorio::class` (filtro do `audit_log` por `entity_class` e rótulo do `changes`
+     * gravado) e continuam proibidos de citar o repositório ou a tabela.
+     */
+    private const SO_O_NOME_DA_CLASSE = [
+        'src/Master/Repository/PainelMasterRepository.php',
+        'src/Master/Service/RotuloDeAuditoriaDoEspaco.php',
+    ];
+
+    #[TestDox('fora do Contribua ninguém cita EspacoDoEscritorio, o repositório dele ou a tabela (salvo a purga e o nome da classe na trilha)')]
     public function testSoOContribuaConsultaOEspaco(): void
     {
         $achados = array_filter(
@@ -28,7 +38,18 @@ final class EspacoDoEscritorioSoNoContribuaArquiteturaTest extends TestCase
             static fn (string $arquivo): bool => !str_starts_with($arquivo, 'src/Contribua/'),
         );
 
-        self::assertSame(self::FORA_DO_CONTRIBUA_PERMITIDOS, array_values($achados));
+        self::assertSame([...self::SO_O_NOME_DA_CLASSE, ...self::FORA_DO_CONTRIBUA_PERMITIDOS], array_values($achados));
+    }
+
+    #[TestDox('a trilha do Master cita só a classe: nem o repositório, nem a tabela, nem consulta à entidade')]
+    public function testTrilhaCitaSoONomeDaClasse(): void
+    {
+        $achados = array_filter(
+            $this->arquivosQueCasam('/\bEspacoDoEscritorioRepository\b|contribua_espaco_do_escritorio|getRepository\s*\(\s*EspacoDoEscritorio::class|FROM\s+[\\\\\w]*EspacoDoEscritorio\b/'),
+            static fn (string $arquivo): bool => in_array($arquivo, self::SO_O_NOME_DA_CLASSE, true),
+        );
+
+        self::assertSame([], array_values($achados));
     }
 
     #[TestDox('dentro do Contribua, só o repositório monta consulta à entidade')]
