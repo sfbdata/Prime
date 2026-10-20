@@ -111,11 +111,11 @@ final class ConsultasDoPainelTest extends KernelTestCase
         foreach (['titular painel', 'secundario painel', '123.456.789-00', '12345678900'] as $proibido) {
             self::assertStringNotContainsString($proibido, $json);
         }
-        self::assertSame(['kpis', 'crescimento', 'mapa', 'idades', 'geradoEm'], array_keys($this->visao()));
+        self::assertSame(['kpis', 'crescimento', 'mapa', 'idades', 'armazenamento', 'registrosDeAuditoria', 'geradoEm'], array_keys($this->visao()));
         self::assertSame(['A', 'C', 'tend', 'semLoc', 'total'], array_keys($this->visao()['mapa']['pessoas']['geral']));
     }
 
-    #[TestDox('Contas: uma linha por escritório fora da quarentena, com titular, usuários, pastas e consumo')]
+    #[TestDox('Contas: uma linha por escritório, com titular, usuários, pastas e consumo; a quarentena só como "Em quarentena"')]
     public function testContas(): void
     {
         $this->montarCenario();
@@ -135,7 +135,13 @@ final class ConsultasDoPainelTest extends KernelTestCase
         self::assertSame(2, $b['usuarios']);
         self::assertSame(0, $b['bytes']);
 
-        self::assertArrayNotHasKey($this->cenario['q']->getId(), $contas, 'escritório na quarentena não aparece');
+        // C4b (spec perfis-1.2-contas): a quarentena entra à parte, só para a opção "Em quarentena" do filtro.
+        $q = $contas[$this->cenario['q']->getId()];
+        self::assertSame('Em quarentena', $q['situacao'], 'escritório na quarentena não conta como Ativa nem Suspensa');
+        self::assertNotNull($q['purgaEm']);
+        self::assertSame(1, $q['usuarios'], 'os vínculos da conta em quarentena continuam até a purga: a contagem é a real');
+        self::assertSame(0, $q['pastas'], 'pastas e consumo continuam fora da quarentena');
+        self::assertNull($a['purgaEm']);
     }
 
     #[TestDox('OABs: normaliza, conta não validadas e lista pendências por conta, sem nome de pessoa')]

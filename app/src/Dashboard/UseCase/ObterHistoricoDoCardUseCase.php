@@ -70,8 +70,9 @@ final class ObterHistoricoDoCardUseCase
 
     /**
      * @param array<string, mixed> $filtros responsavel (userId), cargo (nome ou CARGO_SEM) — os do painel
+     * @param list<int>            $pastasOcultas pastas ocultas pelo cadeado para quem olha: não contam, como no card
      */
-    public function executar(Tenant $tenant, string $card, \DateTimeImmutable $referencia, array $filtros = []): HistoricoDoCardOutput
+    public function executar(Tenant $tenant, string $card, \DateTimeImmutable $referencia, array $filtros = [], array $pastasOcultas = []): HistoricoDoCardOutput
     {
         $config = self::CONFIG[$card] ?? self::CONFIG['pastas'];
 
@@ -99,6 +100,7 @@ final class ObterHistoricoDoCardUseCase
             array_map(static fn (User $u): int => (int) $u->getId(), $universo),
             new \DateTimeImmutable(sprintf('%d-01-01 00:00:00', $primeiro)),
             new \DateTimeImmutable(sprintf('%d-12-31 23:59:59', $anoAtual)),
+            $pastasOcultas,
         );
 
         $series = [];

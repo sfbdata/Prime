@@ -11,7 +11,7 @@
 </div>
 
 {# `data-perfil-sons`: "Sons de alerta" do Meu Perfil; com "0" o central-flutuante.js não toca som nenhum. #}
-<div class="bj-flutuante" data-central-flutuante data-eu-id="{{ app.user.id }}" data-perfil-sons="{{ perfil_sons() ? '1' : '0' }}" data-print="hide">
+<div class="bj-flutuante {{ recurso_marca('chat') }}" data-recurso="chat" data-central-flutuante data-eu-id="{{ app.user.id }}" data-perfil-sons="{{ perfil_sons() ? '1' : '0' }}" data-print="hide">
     <button type="button" class="bj-flutuante-lancador" data-flutuante-lancador data-estado="calmo"
             aria-expanded="false" aria-label="Central de Comunicação, tudo em dia"
             title="Central de Comunicação · tudo em dia">

@@ -10,6 +10,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
+use App\Shared\Prazo\RegraDoPrazo;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TarefaRepository::class)]
@@ -284,17 +285,18 @@ class Tarefa implements Auditavel, TenantAware
     }
 
     /**
+     * A contagem de dias é a da RegraDoPrazo (dias de calendário; a hora gravada no prazo não conta), para a
+     * meta dar o mesmo veredito aqui e na Pasta. $hoje existe para os testes; sem ele, é hoje.
+     *
      * @return array{dias: int|null, cor: string, texto: string}
      */
-    public function getPrazoInfo(): array
+    public function getPrazoInfo(?\DateTimeImmutable $hoje = null): array
     {
         if ($this->prazo === null || $this->status === self::STATUS_CONCLUIDA) {
             return ['dias' => null, 'cor' => '', 'texto' => '-'];
         }
 
-        $hoje = new \DateTimeImmutable('today');
-        $diff = $hoje->diff($this->prazo);
-        $dias = (int) $diff->format('%r%a');
+        $dias = RegraDoPrazo::diasAte($this->prazo, $hoje);
 
         if ($dias > 3) {
             $cor = 'success';

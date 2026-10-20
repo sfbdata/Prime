@@ -19,10 +19,14 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use App\Auth\Event\CadastroConfirmado;
 
 #[CoversClass(ConfirmarCadastroUseCase::class)]
 final class ConfirmarCadastroUseCaseTest extends TestCase
 {
+    private EventDispatcher $eventos;
+
     private EntityManagerInterface&MockObject $em;
     private CadastroPendenteRepository&MockObject $cadastroRepository;
     private UserRepository&MockObject $userRepository;
@@ -48,6 +52,7 @@ final class ConfirmarCadastroUseCaseTest extends TestCase
             $this->userRepository,
             $this->bootstrap,
             $registrarAceite,
+            $this->eventos = new EventDispatcher(),
         );
 
         // Executa a closure da transação diretamente.
@@ -62,6 +67,8 @@ final class ConfirmarCadastroUseCaseTest extends TestCase
     #[TestDox('Confirma: cria User ativo com OAB, dispara bootstrap e marca o cadastro como confirmado')]
     public function testConfirmaCriaConta(): void
     {
+        $capturados = [];
+        $this->eventos->addListener(CadastroConfirmado::class, static function (object $e) use (&$capturados): void { $capturados[] = $e; });
         $cadastro = $this->pendente();
         $this->cadastroRepository->method('encontrarPorToken')->willReturn($cadastro);
         $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
@@ -76,6 +83,7 @@ final class ConfirmarCadastroUseCaseTest extends TestCase
         self::assertTrue($user->isActive());
         self::assertContains('ROLE_USER', $user->getRoles());
         self::assertSame('confirmado', $cadastro->getStatus());
+        self::assertCount(1, $capturados, 'o evento das boas-vindas sai uma vez, depois da transação');
     }
 
     #[TestDox('Falha quando o token não existe')]
@@ -126,12 +134,18 @@ final class ConfirmarCadastroUseCaseTest extends TestCase
     #[TestDox('Corrida na confirmação (UNIQUE de user.email) vira DomainException, nunca 500')]
     public function testCorridaDeEmailViraDomainException(): void
     {
+        $capturados = [];
+        $this->eventos->addListener(CadastroConfirmado::class, static function (object $e) use (&$capturados): void { $capturados[] = $e; });
         $cadastro = $this->pendente();
         $this->cadastroRepository->method('encontrarPorToken')->willReturn($cadastro);
         $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
         $this->em->method('flush')->willThrowException($this->createStub(UniqueConstraintViolationException::class));
 
-        $this->expectException(\DomainException::class);
-        $this->useCase->executar('tok');
+        try {
+            $this->useCase->executar('tok');
+            self::fail('A corrida de e-mail deveria virar DomainException.');
+        } catch (\DomainException) {
+        }
+        self::assertSame([], $capturados, 'sem conta criada, nada de boas-vindas');
     }
 }

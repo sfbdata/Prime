@@ -35,6 +35,18 @@ class MensagemDemanda
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $em;
 
+    /** Apagada para todos pelo autor (até 60 min) ou pelo Master: continua na conversa, sem o texto. */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $apagadaEm = null;
+
+    /** Quem apagou, como aparece no chat ("Mensagem apagada por X em …", desenho l.1240). */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $apagadaPor = null;
+
+    /** O perfil de quem apagou: decide como o nome aparece para cada leitor (`mask` do desenho). */
+    #[ORM\Column(enumType: Perfil::class, length: 20, nullable: true)]
+    private ?Perfil $apagadaPorPerfil = null;
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: DemandaExterna::class, inversedBy: 'mensagens')]
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -84,5 +96,41 @@ class MensagemDemanda
     public function getEm(): \DateTimeImmutable
     {
         return $this->em;
+    }
+
+    /** Qualquer mensagem, menos o registro do sistema, e uma vez só (desenho l.1233). */
+    public function podeSerApagada(): bool
+    {
+        return $this->apagadaEm === null && $this->tipo !== TipoMensagem::Sistema;
+    }
+
+    public function apagar(Autor $por, \DateTimeImmutable $agora): void
+    {
+        if (!$this->podeSerApagada()) {
+            throw new \DomainException('Esta mensagem não pode ser apagada.');
+        }
+        $this->apagadaEm = $agora;
+        $this->apagadaPor = mb_substr($por->nome, 0, 255);
+        $this->apagadaPorPerfil = $por->perfil;
+    }
+
+    public function getApagadaPorPerfil(): ?Perfil
+    {
+        return $this->apagadaPorPerfil;
+    }
+
+    public function getApagadaEm(): ?\DateTimeImmutable
+    {
+        return $this->apagadaEm;
+    }
+
+    public function getApagadaPor(): ?string
+    {
+        return $this->apagadaPor;
+    }
+
+    public function foiApagada(): bool
+    {
+        return $this->apagadaEm !== null;
     }
 }
