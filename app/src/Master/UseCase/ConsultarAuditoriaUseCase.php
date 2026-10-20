@@ -36,7 +36,7 @@ final class ConsultarAuditoriaUseCase
 
         $registros = [];
         foreach ($linhas as $l) {
-            $rotulo = RotuloDeAuditoria::traduzir($l['acao'], $l['entidade'], $l['mudancas']);
+            $rotulo = RotuloDeAuditoria::traduzir($l['acao'], $l['entidade'], $l['mudancas'], $l['recurso']);
             $registros[] = [
                 'quando'  => (new \DateTimeImmutable($l['criadoEm']))->format(\DATE_ATOM),
                 'quem'    => self::responsavel($l['responsavel'], $l['responsavelId']),
