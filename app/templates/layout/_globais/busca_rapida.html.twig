@@ -1,9 +1,15 @@
-{# Busca rápida da pasta (Ctrl + K). Desenho: docs/design/redesign-19-10-26/02 - EXPEDIENTES - VS 18.10.26.dc.html,
-   L405-421. Os resultados vêm de expediente_busca_rapida e são montados por public/js/pasta-busca-rapida.js
-   (createElement + textContent; nada de innerHTML com dado).
+{# Busca rápida (Ctrl + K) em toda página logada. Incluída por layout/_globais.html.twig, que o base só
+   inclui quando há usuário logado (login, /p/ do push e cadastro não têm a busca).
+   Desenho: docs/design/redesign-19-10-26/02 - EXPEDIENTES - VS 18.10.26.dc.html, L405-421. Os resultados vêm de
+   expediente_busca_rapida e são montados por public/js/pasta-busca-rapida.js (createElement + textContent; nada
+   de innerHTML com dado). "Abrir" leva para pasta_show em qualquer página.
    O bloco de sigilo (.pbr-sigilo) não está no desenho: é a janela de pasta trancada da Lista do Expediente
    (expediente/_modais_lista.html.twig, #expSigilo), com o mesmo texto e o mesmo "Pedir acesso"
-   (rota expediente_pasta_pedir_acesso, token expediente_lista). #}
+   (rota expediente_pasta_pedir_acesso, token expediente_lista).
+   O CSS vem aqui, no body (rel=stylesheet é permitido no body), para não mexer no base: a janela nasce
+   escondida, então não há salto visual até ele chegar. #}
+{% if app.user and current_tenant() and can_access_module('pastas') %}
+<link rel="stylesheet" href="{{ asset('css/pasta-busca-rapida.css') }}">
 <div class="pbr" id="pastaBuscaRapida" hidden data-url="{{ path('expediente_busca_rapida') }}"
      data-url-pedir="{{ path('expediente_pasta_pedir_acesso', {id: 0}) }}" data-csrf-pedir="{{ csrf_token('expediente_lista') }}">
     <div class="pbr-fundo"></div>
@@ -31,3 +37,5 @@
         <div class="pbr-rodape"><span>↑ ↓ navegar</span><span>Enter abrir</span><span>Ctrl + K abrir ou fechar</span></div>
     </div>
 </div>
+<script src="{{ asset('js/pasta-busca-rapida.js') }}"></script>
+{% endif %}
