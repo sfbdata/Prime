@@ -14,6 +14,10 @@ use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\HomeOfficeResolver;
+use App\Ponto\Service\EntradaAbertaEmOutroEscritorio;
+use App\Ponto\Service\EsquecimentosRegistrados;
+use App\Ponto\Service\SedesDaCercaDoPonto;
+use App\Ponto\UseCase\ObterEstadoDoPontoDoDiaUseCase;
 use App\Ponto\Service\InicioContagemResolver;
 use App\Ponto\Service\JornadaResolver;
 use App\Ponto\Form\JustificativaPontoType;
@@ -79,7 +83,7 @@ final class PontoController extends AbstractController
         JustificativaPontoRepository $justificativaRepository,
         FolhaPontoBuilder $folhaPontoBuilder,
         HomeOfficeResolver $homeOfficeResolver,
-        SedeRepository $sedeRepository,
+        SedesDaCercaDoPonto $sedesDaCerca,
         CalculadoraJornada $calculadoraJornada,
     ): Response {
         /** @var User $user */
@@ -182,44 +186,15 @@ final class PontoController extends AbstractController
         // template): uma verificação só no navegador é contornável em segundos.
         //
         // Espelha as duas exclusões do servidor: sede sem coordenada e raio não positivo não
-        // delimitam nada e ficam de fora nos dois lados.
-        $sedesDaTela = [];
-        foreach ($sedeRepository->findBy(['tenant' => $tenant]) as $sede) {
-            if ($sede->getLatitude() === null || $sede->getLongitude() === null) {
-                continue;
-            }
-            if ((int) $sede->getRaioPermitido() <= 0) {
-                continue;
-            }
-            $sedesDaTela[] = [
-                'nome'      => $sede->getNome(),
-                'latitude'  => (float) $sede->getLatitude(),
-                'longitude' => (float) $sede->getLongitude(),
-                'raio'      => (int) $sede->getRaioPermitido(),
-            ];
-        }
+        // delimitam nada e ficam de fora nos dois lados. Mesmo serviço do atalho do cabeçalho.
+        $sedesDaTela = $sedesDaCerca->doEscritorio($tenant);
 
         $justificativasDaCompetencia = $justificativaRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
 
         // Atalho "+" da folha: célula que já tem esquecimento pendente ou abonado não oferece o
-        // botão de novo, para não gerar fila duplicada no gestor. 'abonado' entra porque a
-        // aprovação em lote não cria o RegistroPonto — a célula segue vazia com a justificativa
-        // já deferida. Reaproveita a lista acima; nenhuma query nova.
-        $esquecimentosRegistrados = [];
-        foreach ($justificativasDaCompetencia as $justificativaDaCompetencia) {
-            if ($justificativaDaCompetencia->getTipo() !== 'esquecimento_registro') {
-                continue;
-            }
-            if (!in_array($justificativaDaCompetencia->getStatus(), ['pendente', 'abonado'], true)) {
-                continue;
-            }
-            $tipoEsquecido = $justificativaDaCompetencia->getTipoRegistroEsquecido();
-            $dataEsquecida = $justificativaDaCompetencia->getData();
-            if ($tipoEsquecido === null || $dataEsquecida === null) {
-                continue;
-            }
-            $esquecimentosRegistrados[$dataEsquecida->format('Y-m-d') . '|' . $tipoEsquecido] = true;
-        }
+        // botão de novo (condição 8). Reaproveita a lista acima; nenhuma query nova. Mesma regra do
+        // "Regularizar ponto de ontem" do atalho do cabeçalho (`EsquecimentosRegistrados`).
+        $esquecimentosRegistrados = EsquecimentosRegistrados::dasJustificativas($justificativasDaCompetencia);
 
         return $this->render('ponto/index.html.twig', [
             'homeOfficeHoje' => $homeOfficeHoje,
@@ -571,6 +546,28 @@ final class PontoController extends AbstractController
         return $this->json($this->verificadorAlerta->verificar($user, new \DateTimeImmutable(), $jornadaTenant));
     }
 
+    /**
+     * O ponto de hoje da própria pessoa, para o atalho do cabeçalho (spec `presenca-e-ponto-no-cabecalho.md` §3). Só
+     * leitura, com as mesmas guardas da batida: quem não pode bater não lê o estado.
+     */
+    #[Route('/estado-do-dia', name: 'ponto_estado_do_dia', methods: ['GET'])]
+    public function estadoDoDia(ObterEstadoDoPontoDoDiaUseCase $estadoDoDia): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json(['success' => false, 'message' => 'Usuário não autenticado.'], 401);
+        }
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
+            return $this->json(['success' => false, 'message' => 'Sem permissão para registrar ponto.'], 403);
+        }
+        if ($tenant === null) {
+            return $this->json(['success' => false, 'message' => 'Usuário sem tenant configurado.'], 403);
+        }
+
+        return $this->json($estadoDoDia->executar($user, $tenant));
+    }
+
     #[Route('/batida', name: 'ponto_batida', methods: ['POST'])]
     public function batida(
         Request $request,
@@ -578,6 +575,7 @@ final class PontoController extends AbstractController
         SedeRepository $sedeRepository,
         RegistroPontoRepository $registroRepository,
         HomeOfficeResolver $homeOfficeResolver,
+        EntradaAbertaEmOutroEscritorio $entradaAberta,
     ): JsonResponse {
         /** @var User $user */
         $user = $this->getUser();
@@ -629,6 +627,9 @@ final class PontoController extends AbstractController
         }
 
         $hoje = new \DateTimeImmutable();
+        if ($tipo === RegistroPonto::TIPO_ENTRADA && ($travada = $entradaAberta->mensagem($user, $tenant, $hoje)) !== null) {
+            return $this->json(['success' => false, 'message' => $travada], 422);   // ponto aberto em outro escritório
+        }
 
         // Home office: se o colaborador está liberado hoje (config do tenant atual), pula o geofencing —
         // a batida entra sem GPS nem sede. O resolver reautoriza sempre no servidor.
@@ -721,7 +722,7 @@ final class PontoController extends AbstractController
         }
 
         if ($tipo === RegistroPonto::TIPO_RETORNO && ($jornadaTenant?->isValidacaoRepousoHabilitada() ?? true)) {
-            $repousoDoDia = $registroRepository->findRepousoDoDia($user, $hoje);
+            $repousoDoDia = $registroRepository->findRepousoDoDia($user, $tenant, $hoje);
             if ($repousoDoDia !== null) {
                 $minimoMin   = $jornadaTenant?->getMinimoMinutosRepouso() ?? 60;
                 $diffMinutos = (int) round(
@@ -741,7 +742,7 @@ final class PontoController extends AbstractController
         }
 
         if ($tipo === RegistroPonto::TIPO_ENTRADA && ($jornadaTenant?->isValidacaoInterjornadaHabilitada() ?? true)) {
-            $ultimaSaida = $registroRepository->findUltimaSaida($user);
+            $ultimaSaida = $registroRepository->findUltimaSaida($user, $tenant);
             if ($ultimaSaida !== null) {
                 $minimoInterjornada = $jornadaTenant?->getMinimoMinutosInterjornada() ?? 660;
                 $diffMinutos = (int) round(

@@ -7,8 +7,10 @@ namespace App\Agenda\Controller;
 use App\Agenda\DTO\CompromissoInput;
 use App\Agenda\Exception\CompromissoNaoEncontradoException;
 use App\Agenda\Exception\SemPermissaoNoCompromissoException;
+use App\Agenda\UseCase\AlterarStatusDoCompromissoUseCase;
 use App\Agenda\UseCase\AvisarNoChatUseCase;
 use App\Agenda\UseCase\ExcluirCompromissoUseCase;
+use App\Agenda\UseCase\MoverCompromissoUseCase;
 use App\Agenda\UseCase\SalvarCompromissoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -34,6 +36,8 @@ final class CompromissoController extends AbstractController
         private readonly SalvarCompromissoUseCase $salvar,
         private readonly ExcluirCompromissoUseCase $excluir,
         private readonly AvisarNoChatUseCase $avisarNoChat,
+        private readonly MoverCompromissoUseCase $mover,
+        private readonly AlterarStatusDoCompromissoUseCase $alterarStatus,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly ValidatorInterface $validator,
@@ -69,6 +73,36 @@ final class CompromissoController extends AbstractController
             $ids = CompromissoInput::doJson(['avisados' => $request->toArray()['ids'] ?? []])->avisados;
 
             return $this->json(['ok' => true, 'avisados' => $this->avisarNoChat->executar($id, $ids, $eu, $tenant)]);
+        });
+    }
+
+    /** Arrastar e soltar na grade: {data: AAAA-MM-DD, hora?: HH:MM}. */
+    #[Route('/agenda/compromissos/{id}/mover', name: 'app_agenda_compromisso_mover', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function moverPara(Request $request, int $id): JsonResponse
+    {
+        return $this->comAcesso($request, function (User $eu, Tenant $tenant) use ($request, $id): JsonResponse {
+            $j = $request->toArray();
+            $dia = is_string($j['data'] ?? null) ? $j['data'] : '';
+            $hora = is_string($j['hora'] ?? null) && '' !== $j['hora'] ? $j['hora'] : null;
+            $lido = \DateTimeImmutable::createFromFormat('!Y-m-d', $dia);
+            $diaOk = false !== $lido && $lido->format('Y-m-d') === $dia;
+            if (!$diaOk || (null !== $hora && 1 !== preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $hora))) {
+                return $this->json(['erro' => 'Dia ou hora inválidos.'], 422);
+            }
+
+            return $this->json(['ok' => true, 'data' => $this->mover->executar($id, $dia, $hora, $eu, $tenant)]);
+        });
+    }
+
+    /** Concluir, cancelar (avisa os participantes) ou reabrir: {status: agendado|concluido|cancelado}. */
+    #[Route('/agenda/compromissos/{id}/status', name: 'app_agenda_compromisso_status', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function status(Request $request, int $id): JsonResponse
+    {
+        return $this->comAcesso($request, function (User $eu, Tenant $tenant) use ($request, $id): JsonResponse {
+            $status = $request->toArray()['status'] ?? '';
+            $this->alterarStatus->executar($id, is_string($status) ? $status : '', $eu, $tenant);
+
+            return $this->json(['ok' => true]);
         });
     }
 

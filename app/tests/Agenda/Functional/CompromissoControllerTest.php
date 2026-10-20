@@ -77,6 +77,10 @@ final class CompromissoControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
         $this->postar($client, '/agenda/compromissos/' . $deB . '/excluir', []);
         self::assertResponseStatusCodeSame(404);
+        $this->postar($client, '/agenda/compromissos/' . $deB . '/mover', ['data' => '2030-03-12']);
+        self::assertResponseStatusCodeSame(404);
+        $this->postar($client, '/agenda/compromissos/' . $deB . '/status', ['status' => 'cancelado']);
+        self::assertResponseStatusCodeSame(404);
         if ($this->em()->getFilters()->isEnabled('tenant')) {
             $this->em()->getFilters()->disable('tenant');
         }
@@ -96,13 +100,45 @@ final class CompromissoControllerTest extends JusPrimeWebTestCase
         $this->em()->flush();
         $this->logarComTenant($client, $this->criarUsuario($tenant, true), $tenant);
 
-        foreach (['salvar' => self::CORPO, 'excluir' => [], 'avisar' => ['ids' => [$dono->getId()]]] as $acao => $corpo) {
+        foreach (['salvar' => self::CORPO, 'excluir' => [], 'avisar' => ['ids' => [$dono->getId()]], 'mover' => ['data' => '2030-03-12'], 'status' => ['status' => 'concluido']] as $acao => $corpo) {
             $this->postar($client, '/agenda/compromissos/' . $id . '/' . $acao, $corpo);
             self::assertResponseStatusCodeSame(404, $acao);
         }
     }
 
-    #[TestDox('Só o criador (ou quem administra usuários) exclui; o colega comum recebe 403')]
+    #[TestDox('Arrastar move o compromisso; cancelar avisa o participante; situação inválida dá 422')]
+    public function testMoverECancelar(): void
+    {
+        $client = $this->cliente();
+        $tenant = $this->criarTenant();
+        $eu = $this->criarUsuario($tenant, true);
+        $colega = $this->criarUsuario($tenant, true);
+        $id = $this->criarEvento($tenant, $eu);
+        $evento = $this->em()->find(Evento::class, $id);
+        $evento->addParticipante($colega);
+        $this->em()->flush();
+        $this->logarComTenant($client, $eu, $tenant);
+
+        $r = $this->postar($client, '/agenda/compromissos/' . $id . '/mover', ['data' => '2030-03-15', 'hora' => '16:00']);
+        self::assertSame('2030-03-15', $r['data']);
+        $this->postar($client, '/agenda/compromissos/' . $id . '/mover', ['data' => '15/03/2030']);
+        self::assertResponseStatusCodeSame(422);
+        $this->postar($client, '/agenda/compromissos/' . $id . '/mover', ['data' => '2030-02-31']);
+        self::assertResponseStatusCodeSame(422, 'data impossível não pode rolar para março');
+        $this->postar($client, '/agenda/compromissos/' . $id . '/status', ['status' => 'cancelado']);
+        self::assertResponseIsSuccessful();
+        $this->postar($client, '/agenda/compromissos/' . $id . '/status', ['status' => 'arquivado']);
+        self::assertResponseStatusCodeSame(422);
+
+        $this->em()->clear();
+        $salvo = $this->em()->find(Evento::class, $id);
+        self::assertSame('2030-03-15 16:00 2030-03-15 17:00', $salvo->getDataInicio()->format('Y-m-d H:i') . ' ' . $salvo->getDataFim()->format('Y-m-d H:i'));
+        self::assertSame(Evento::STATUS_CANCELADO, $salvo->getStatus());
+        $avisos = $this->em()->getRepository(Notificacao::class)->findBy(['usuario' => $colega, 'tipo' => Notificacao::TIPO_EVENTO_CANCELADO]);
+        self::assertCount(1, $avisos);
+    }
+
+    #[TestDox('Só o criador (ou quem administra usuários) exclui, move e muda a situação; o colega comum recebe 403')]
     public function testExcluir(): void
     {
         $client = $this->cliente();
@@ -113,6 +149,10 @@ final class CompromissoControllerTest extends JusPrimeWebTestCase
 
         $this->logarComTenant($client, $colega, $tenant);
         $this->postar($client, '/agenda/compromissos/' . $id . '/excluir', []);
+        self::assertResponseStatusCodeSame(403);
+        $this->postar($client, '/agenda/compromissos/' . $id . '/mover', ['data' => '2030-03-12']);
+        self::assertResponseStatusCodeSame(403);
+        $this->postar($client, '/agenda/compromissos/' . $id . '/status', ['status' => 'concluido']);
         self::assertResponseStatusCodeSame(403);
 
         $this->logarComTenant($client, $criador, $tenant);
@@ -140,7 +180,7 @@ final class CompromissoControllerTest extends JusPrimeWebTestCase
         self::assertSame([1, 0], [$r1['avisados'], $r2['avisados']]);
         $avisos = $this->em()->getRepository(Notificacao::class)->findBy(['usuario' => $colega]);
         self::assertCount(1, $avisos);
-        self::assertStringContainsString('#ev=ev-' . $id . '-2030-03-10', (string) $avisos[0]->getUrl());
+        self::assertSame('/agenda#ev=ev-' . $id . '-2030-03-10', (string) $avisos[0]->getUrl());
         self::assertCount(0, $this->em()->getRepository(Notificacao::class)->findBy(['usuario' => $deFora]));
     }
 
