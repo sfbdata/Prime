@@ -159,11 +159,12 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         self::assertNotNull($editar->attr('hidden'));
     }
 
-    #[TestDox('quem só pode VER: data-pode-editar="0", sem Excluir, sem Editar e sem token de envio por arrastar')]
+    #[TestDox('quem só pode VER: data-pode-editar="0", sem Excluir, sem Editar e sem nenhum token de escrita')]
     public function testQuemSoVeNaoRecebeEscrita(): void
     {
         [$client, $pasta, $tenant] = $this->cenario();
         $doc    = $this->documento($pasta, $tenant, 'contrato.pdf', 'application/pdf', 1024);
+        $texto  = $this->documento($pasta, $tenant, 'Minha Petição.html', 'text/html', 300);
         $leitor = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'modules.pastas.view']);
         $this->logarComTenant($client, $leitor, $tenant);
 
@@ -175,9 +176,53 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         self::assertSame('0', $crawler->filter('.petic-timeline > #timelineList')->attr('data-pode-editar'));
         self::assertCount(0, $crawler->filter('#peticSelbar > button[data-acao="excluir"]'));
         self::assertCount(0, $crawler->filter('#peticSelbar > button[data-acao="editar"]'));
+        // Os tokens de escrita não vão para quem só vê: nem os da lista (excluir, enviar), nem os
+        // da linha (renomear/classificar, salvar texto).
+        $this->assertSemTokensDeEscrita($crawler, [(int) $doc->getId(), (int) $texto->getId()]);
         // Ler continua: a linha, o menu (Abrir e Baixar) e o download.
         $row = $this->linha($crawler, (int) $doc->getId());
         self::assertCount(1, $row->filter('.petic-tl-row > .petic-tl-card > button.petic-doc-mais'));
+        self::assertCount(1, $crawler->filter('#peticSelbar > button[data-acao="baixar"]'));
+    }
+
+    #[TestDox('quem edita recebe os tokens de escrita na lista e na linha (inclusive o de salvar texto)')]
+    public function testQuemEditaRecebeTokensDeEscrita(): void
+    {
+        [$client, $pasta, $tenant] = $this->cenario();
+        $texto = $this->documento($pasta, $tenant, 'Minha Petição.html', 'text/html', 300);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+        self::assertResponseIsSuccessful();
+
+        $lista = $crawler->filter('.petic-timeline > #timelineList');
+        self::assertSame('1', $lista->attr('data-pode-editar'));
+        self::assertTokenValido('pex_lote_' . $pasta->getId(), $lista->attr('data-csrf-lote'));
+        self::assertTokenValido('peticionar_upload_' . $pasta->getId(), $lista->attr('data-csrf-upload'));
+
+        $id  = (int) $texto->getId();
+        $row = $this->linha($crawler, $id);
+        self::assertTokenValido('edit_documento_' . $id, $row->attr('data-csrf-documento'));
+        self::assertTokenValido('peticionar_editar_' . $id, $row->attr('data-csrf-editar'));
+    }
+
+    #[TestDox('pasta excluída abre SÓ LEITURA, mesmo para quem pode editar: sem Excluir, sem Editar e sem tokens de escrita')]
+    public function testPastaExcluidaAbreSoLeituraParaQuemEdita(): void
+    {
+        [$client, $pasta, $tenant, $gestor] = $this->cenario();
+        $doc   = $this->documento($pasta, $tenant, 'contrato.pdf', 'application/pdf', 1024);
+        $texto = $this->documento($pasta, $tenant, 'Minha Petição.html', 'text/html', 300);
+        $pasta->marcarExcluida($gestor, new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+        self::assertResponseIsSuccessful();
+
+        self::assertSame('0', $crawler->filter('.petic-timeline > #timelineList')->attr('data-pode-editar'));
+        self::assertCount(0, $crawler->filter('#peticSelbar > button[data-acao="excluir"]'));
+        self::assertCount(0, $crawler->filter('#peticSelbar > button[data-acao="editar"]'));
+        $this->assertSemTokensDeEscrita($crawler, [(int) $doc->getId(), (int) $texto->getId()]);
+        // Consultar continua: a linha e o Baixar.
+        self::assertCount(1, $this->linha($crawler, (int) $doc->getId())->filter('.petic-tl-row > .petic-tl-card > button.petic-doc-mais'));
         self::assertCount(1, $crawler->filter('#peticSelbar > button[data-acao="baixar"]'));
     }
 
@@ -223,6 +268,25 @@ final class PeticionarDocumentosTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $row, "linha do documento {$id}");
 
         return $row;
+    }
+
+    /**
+     * Nenhum data-csrf-* de escrita: o da lista (excluir em lote, enviar) e o das linhas
+     * (renomear/classificar, salvar a peça de texto).
+     *
+     * @param list<int> $idsDasLinhas
+     */
+    private function assertSemTokensDeEscrita(Crawler $crawler, array $idsDasLinhas): void
+    {
+        $lista = $crawler->filter('.petic-timeline > #timelineList');
+        self::assertNull($lista->attr('data-csrf-lote'), 'sem token de excluir em lote');
+        self::assertNull($lista->attr('data-csrf-upload'), 'sem token de envio');
+
+        foreach ($idsDasLinhas as $id) {
+            $row = $this->linha($crawler, $id);
+            self::assertNull($row->attr('data-csrf-documento'), "linha {$id}: sem token de renomear/classificar");
+            self::assertNull($row->attr('data-csrf-editar'), "linha {$id}: sem token de salvar texto");
+        }
     }
 
     /** @return array{KernelBrowser, Pasta, Tenant, User} */

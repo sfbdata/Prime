@@ -326,7 +326,7 @@
             descricao: row.dataset.descricao || '',
             numero:    row.dataset.numero || '',
         }).then(function (res) {
-            if (!res.ok || !res.j.ok || !res.j.documento) throw new Error((res.j && res.j.erro) || 'Não foi possível salvar.');
+            if (!res.ok || !res.j.ok || !res.j.documento) throw new Error((res.j && (res.j.erro || res.j.mensagem)) || 'Não foi possível salvar.');
             return res.j.documento;
         });
     }
@@ -455,7 +455,7 @@
         confirmar(pergunta).then(function (sim) {
             if (!sim) return;
             postJson(cfg.urlExcluir, { _token: cfg.csrfLote, documentos: [Number(row.dataset.docId)], secoes: [] }).then(function (res) {
-                if (!res.ok || !res.j.ok) throw new Error((res.j && res.j.erro) || 'Não foi possível excluir.');
+                if (!res.ok || !res.j.ok) throw new Error((res.j && (res.j.erro || res.j.mensagem)) || 'Não foi possível excluir.');
                 removerLinha(row);
                 avisar('Peça excluída');
             }).catch(function (err) { avisar(err.message || 'Erro de comunicação.', true); });
@@ -606,9 +606,10 @@
             fd.append('secao_id', '');
             fd.append('_token', cfg.csrfUpload);
             try {
-                const r = await fetch(cfg.urlUpload, { method: 'POST', body: fd });
+                // Com o X-Requested-With a recusa da pasta excluída vem em JSON ({mensagem}), não em 302.
+                const r = await fetch(cfg.urlUpload, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const j = await r.json().catch(function () { return {}; });
-                if (!j.success || !j.documento) { erros.push(f.name + ': ' + (j.error || 'erro ao enviar.')); continue; }
+                if (!j.success || !j.documento) { erros.push(f.name + ': ' + (j.error || j.mensagem || 'erro ao enviar.')); continue; }
                 novos.push(inserirLinha(j.documento));
             } catch (err) {
                 erros.push(f.name + ': erro de comunicação.');

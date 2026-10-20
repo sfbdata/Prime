@@ -19,7 +19,9 @@
    title="Voltar para a pasta"
    hidden><i class="bi bi-arrow-left"></i>Voltar à pasta</a>
 
-{% set podeEditarPasta = can_access_resource('pasta', pasta.id, 'edit') %}
+{# Pasta excluída (lápide) abre só para leitura, mesmo para quem pode editar: o servidor já recusa
+   a escrita (PastaSomenteLeituraListener), e a tela não oferece o que seria recusado. #}
+{% set podeEditarPasta = not pasta.estaExcluida() and can_access_resource('pasta', pasta.id, 'edit') %}
 
 {# Formatos do "Adicionar peça": o mesmo accept vale para o modal e para soltar arquivos na lista,
    e o ícone de cada um vem do arquivo_icone() (a linha nova, montada no navegador, usa o mesmo). #}
@@ -78,9 +80,12 @@
              id="timelineList"
              data-pode-editar="{{ podeEditarPasta ? '1' : '0' }}"
              data-url-excluir="{{ path('pasta_documentos_excluir_lote', {id: pasta.id})|e('html_attr') }}"
+             {# Os tokens de escrita só vão para quem pode editar (e nunca na pasta excluída). #}
+             {% if podeEditarPasta %}
              data-csrf-lote="{{ csrf_token('pex_lote_' ~ pasta.id)|e('html_attr') }}"
-             data-url-upload="{{ path('pasta_peticionar_upload', {id: pasta.id})|e('html_attr') }}"
              data-csrf-upload="{{ csrf_token('peticionar_upload_' ~ pasta.id)|e('html_attr') }}"
+             {% endif %}
+             data-url-upload="{{ path('pasta_peticionar_upload', {id: pasta.id})|e('html_attr') }}"
              data-url-editar-tpl="{{ path('pasta_documento_edit', {id: '__ID__'})|e('html_attr') }}"
              data-categorias="{{ categoriaLabels|json_encode|e('html_attr') }}"
              data-classificaveis="{{ constant('App\\Pasta\\DTO\\ExploradorDeDocumentosOutput::CATEGORIAS')|keys|json_encode|e('html_attr') }}"
@@ -121,9 +126,13 @@
                          data-descricao="{{ (doc.descricao ?? '')|e('html_attr') }}"
                          data-numero="{{ (doc.numero ?? '')|e('html_attr') }}"
                          data-editar-documento-url="{{ path('pasta_documento_edit', {id: doc.id})|e('html_attr') }}"
+                         {% if podeEditarPasta %}
                          data-csrf-documento="{{ csrf_token('edit_documento_' ~ doc.id)|e('html_attr') }}"
+                         {% endif %}
                          {% if ehTexto %}
+                         {% if podeEditarPasta %}
                          data-csrf-editar="{{ csrf_token('peticionar_editar_' ~ doc.id) }}"
+                         {% endif %}
                          data-editar-url="{{ path('pasta_documento_editar_texto', {id: doc.id}) }}"
                          {% endif %}>
                         <div class="petic-tl-dot {{ dotClass }}"></div>
