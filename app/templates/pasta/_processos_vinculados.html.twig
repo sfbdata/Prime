@@ -114,11 +114,13 @@
             <i class="bi bi-link-45deg"></i><span>Vincular processo</span>
         </button>
         {% endif %}
+        {% if recurso_visivel('peticionar') %}
         <a href="{{ path('pasta_peticionar', {id: pasta.id}) }}"
            target="_blank" rel="noopener"
-           class="ps-btn ps-btn--primario ps-btn--caps" title="Peticionar na pasta" aria-label="Peticionar na pasta">
+           class="ps-btn ps-btn--primario ps-btn--caps {{ recurso_marca('peticionar') }}" title="Peticionar na pasta" aria-label="Peticionar na pasta">
             <i class="bi bi-file-earmark-text"></i><span>Peticionar na pasta</span>
         </a>
+        {% endif %}
     </div>
     {% if podeMexerNoVinculo %}
     <div class="ps-processo-menu" id="psProcHdMenu{{ pasta.id }}" role="menu" hidden>

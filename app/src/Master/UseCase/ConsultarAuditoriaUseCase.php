@@ -43,7 +43,7 @@ final class ConsultarAuditoriaUseCase
         $registros = [];
         foreach ($linhas as $l) {
             $plano = RotuloDeAuditoriaDoEspaco::ehLimiteDaConta($l['entidade']) && $l['tenantId'] !== null ? ($planos[$l['tenantId']] ?? null) : null;
-            $rotulo = RotuloDeAuditoria::traduzir($l['acao'], $l['entidade'], $l['mudancas'], $plano);
+            $rotulo = RotuloDeAuditoria::traduzir($l['acao'], $l['entidade'], $l['mudancas'], $plano, $l['recurso']);
             $registros[] = [
                 'quando'  => (new \DateTimeImmutable($l['criadoEm']))->format(\DATE_ATOM),
                 'quem'    => self::responsavel($l['responsavel'], $l['responsavelId']),

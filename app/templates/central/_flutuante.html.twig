@@ -10,7 +10,7 @@
     {% include 'central/_janela.html.twig' with {eu: app.user, modo: 'flutuante'} only %}
 </div>
 
-<div class="bj-flutuante" data-central-flutuante data-eu-id="{{ app.user.id }}" data-print="hide">
+<div class="bj-flutuante {{ recurso_marca('chat') }}" data-recurso="chat" data-central-flutuante data-eu-id="{{ app.user.id }}" data-print="hide">
     <button type="button" class="bj-flutuante-lancador" data-flutuante-lancador data-estado="calmo"
             aria-expanded="false" aria-label="Central de Comunicação, tudo em dia"
             title="Central de Comunicação · tudo em dia">

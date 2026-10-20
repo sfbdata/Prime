@@ -1,7 +1,8 @@
 /* BlueJus · Painel do Master (desenho docs/design/perfis-1.0/05 - Perfis 1.0.dc.html, aba "Painel do sistema").
    Abas abertas pelo hash como no desenho docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html (linha 481):
-   #aba=perm abre Permissões e #sec=contas abre a seção (é para onde voltam promover e remover Master).
-   O bloco "Masters do sistema" da aba Permissões é do public/js/master/masters.js.
+   #aba=perm abre Permissões, #aba=rec abre Telas e recursos e #sec=contas abre a seção (é para onde voltam promover e
+   remover Master). Vale qualquer aba que exista no HTML ([data-aba]).
+   O bloco "Masters do sistema" da aba Permissões é do public/js/master/masters.js; a aba Telas e recursos, do recursos.js.
    Lógica portada do componente do desenho (kpis, gráfico com curva monotônica, mapa, faltam, auditoria, PDF).
    Regra do dono: nada inventado. Dado que não existe aparece como "sem informação" ou no estado vazio do desenho.
    Os dados vêm de /master/dados/* (só leitura, ROLE_SUPER_ADMIN no servidor).
@@ -34,6 +35,10 @@
   const SECS = [['visao', 'Visão geral', 'bi-speedometer2'], ['contas', 'Contas e escritórios', 'bi-buildings'], ['oab', 'Usuários e OABs', 'bi-person-vcard'],
     ['arm', 'Armazenamento', 'bi-hdd-stack'], ['planos', 'Planos e limites', 'bi-sliders'], ['custos', 'Custos e infraestrutura', 'bi-cash-coin'],
     ['desemp', 'Desempenho', 'bi-activity'], ['audit', 'Segurança e auditoria', 'bi-journal-check'], ['config', 'Configurações globais', 'bi-gear']];
+  // Seções de outras frentes (desenho 1.2): entram só quando o parcial delas existe e trouxe conteúdo.
+  const EXTERNAS = {};
+  raiz.querySelectorAll('[data-sec-externa]').forEach(el => { if (el.innerHTML.trim()) EXTERNAS[el.dataset.secExterna] = el; });
+  if (EXTERNAS.com) SECS.push(['com', 'Comercial e e-mails', 'bi-megaphone']);
   const VAZIAS = {
     custos: ['bi-cash-coin', 'Custos e infraestrutura', 'Mostra quanto custa manter o BlueJus e o impacto de cada conta, separando custos medidos, importados de fornecedores e estimados. Sem integração financeira, os valores podem ser lançados manualmente, com origem identificada.', ['Armazenamento', 'Banco de dados', 'Hospedagem', 'Tráfego', 'Backups', 'APIs de IA', 'Notificações', 'Receita recorrente', 'Custo por conta', 'Custo por GB', 'Margem por plano', 'Projeção 3, 6 e 12 meses']],
     desemp: ['bi-activity', 'Desempenho e disponibilidade', 'Saúde técnica da plataforma, com histórico filtrável por gravidade, período e categoria. Métricas não coletadas aparecem como indisponíveis, nunca estimadas.', ['Disponibilidade', 'Tempo de resposta', 'Erros', 'Falhas de upload', 'Falhas de login', 'Último backup', 'Teste de restauração', 'CPU e memória', 'Integrações', 'Incidentes']],
@@ -93,6 +98,10 @@
 
   function renderSecao() {
     const sec = S.sec, falta = deps(sec).filter(d => !D[d]);
+    Object.keys(EXTERNAS).forEach(k => { EXTERNAS[k].hidden = k !== sec; });
+    elSecao.hidden = !!EXTERNAS[sec];
+    raiz.dispatchEvent(new CustomEvent('mp:secao', { detail: { sec } }));
+    if (EXTERNAS[sec]) return;
     if (falta.length) { elSecao.innerHTML = aguardando(falta.find(d => ERRO[d] === 'falhou') || falta[0]); falta.forEach(d => carregar(d, urlDe[d])); return; }
     if (VAZIAS[sec]) { elSecao.innerHTML = vazia(VAZIAS[sec]); return; }
     if (sec === 'visao') return montarVisao();
