@@ -11,6 +11,7 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Pasta\Controller\PastaPrazoController;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\EventListener\PrazosDosRegistrosListener;
 use App\Pasta\Service\DiasUteisDoEscritorio;
 use App\Pasta\Service\PrazosDosRegistros;
@@ -31,6 +32,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(PrazosDosRegistrosListener::class)]
 final class PrazosDosRegistrosTest extends JusPrimeWebTestCase
 {
+    private const MARCO = 'PRAZOS_CALENDARIO_DESDE';
+
     private KernelBrowser $client;
 
     protected function setUp(): void
@@ -39,6 +42,12 @@ final class PrazosDosRegistrosTest extends JusPrimeWebTestCase
         $this->client = static::createClient();
         $this->client->disableReboot();
         $this->instalarCsrfStorage();
+    }
+
+    protected function tearDown(): void
+    {
+        unset($_ENV[self::MARCO], $_SERVER[self::MARCO]);
+        parent::tearDown();
     }
 
     #[TestDox('"Prazo DD/MM/AAAA e prazo DD/MM/AAAA" no Registro cria dois prazos lidos, com o autor como responsável')]
@@ -194,7 +203,82 @@ final class PrazosDosRegistrosTest extends JusPrimeWebTestCase
         self::assertSame(['2026-09-18'], array_column($this->lidos($alagoas), 'data'));
     }
 
+    #[TestDox('fiação: PRAZOS_CALENDARIO_DESDE válida no container liga o modo novo para o registro posterior ao marco')]
+    public function testFiacaoComMarcoValidoNoContainer(): void
+    {
+        $this->religarComMarco('2026-03-01');
+        $prazos = static::getContainer()->get(PrazosDosRegistros::class);
+
+        self::assertSame('2026-03-01', static::getContainer()->getParameter('prazos_calendario_desde'));
+        self::assertNull($prazos->calendarioDoRegistro(new \DateTimeImmutable('2026-02-28 23:59:59'), 'AL'));
+        self::assertNotNull($prazos->calendarioDoRegistro(new \DateTimeImmutable('2026-03-01 00:00'), 'AL'));
+        $pasta = $this->pastaComRegistroDe('2026-03-30 10:00:00', 'Prazo de 5 dias para manifestação.');
+        self::assertSame(['2026-04-07'], array_column($this->lidos($pasta), 'data'), 'Sexta-feira Santa não conta');
+    }
+
+    #[TestDox('listener com o marco ligado: salvar um registro novo grava a data nova (07/04, não 06/04)')]
+    public function testListenerComMarcoGravaDataNova(): void
+    {
+        $this->religarComMarco('2026-03-01');
+        [$user, $tenant] = $this->criarAdmin();
+        $tenant->setEstado('AL');
+        $pasta = $this->criarPasta($tenant);
+
+        $registro = (new PastaMensagem())->setPasta($pasta)->setTenant($tenant)->setAutor($user)->setConteudo('Prazo de 5 dias para manifestação.');
+        // Registro escrito em 30/03/2026 (a base do leitor), salvo agora: o listener relê a pasta no postFlush.
+        (new \ReflectionProperty(PastaMensagem::class, 'criadaEm'))->setValue($registro, new \DateTimeImmutable('2026-03-30 10:00:00'));
+        $this->em()->persist($registro);
+        $this->em()->flush();
+
+        self::assertSame(['2026-04-07'], array_column($this->lidos($pasta), 'data'));
+    }
+
+    #[TestDox('troca de UF do escritório depois do marco: o registro posterior ao marco é relido com a UF nova (esperado pela spec: a UF é a do escritório no momento da leitura)')]
+    public function testTrocaDeUfReleComAUfNova(): void
+    {
+        $this->religarComMarco('2026-03-01');
+        $pasta = $this->pastaComRegistroDe('2026-09-15 09:00:00', 'Prazo de 2 dias para manifestação.');
+        self::assertSame(['2026-09-18'], array_column($this->lidos($pasta), 'data'), 'AL: 16/09 é feriado estadual');
+
+        $this->em()->clear();
+        $this->em()->find(Tenant::class, $this->em()->find(Pasta::class, $pasta->getId())?->getTenant()?->getId())?->setEstado('SP');
+        $this->em()->flush();
+
+        self::assertSame(['criados' => 1, 'apagados' => 1], $this->sincronizar($pasta, static::getContainer()->get(PrazosDosRegistros::class)));
+        self::assertSame(['2026-09-17'], array_column($this->lidos($pasta), 'data'), 'SP: 16/09 é dia útil');
+    }
+
+    #[TestDox('editar depois do marco um registro anterior a ele: continua no cálculo antigo (a base é o criadaEm do registro, não a data da edição)')]
+    public function testEdicaoDeRegistroAntigoContinuaNoCalculoAntigo(): void
+    {
+        $this->religarComMarco('2026-04-01');
+        $pasta = $this->pastaComRegistroDe('2026-03-30 10:00:00', 'Prazo de 5 dias para manifestação.');
+        self::assertSame(['2026-04-06'], array_column($this->lidos($pasta), 'data'));
+        $id = (int) $this->em()->getConnection()->fetchOne('SELECT id FROM pasta_mensagem WHERE pasta_id = ? AND sistema IS NULL', [$pasta->getId()]);
+
+        $this->em()->clear();
+        $this->em()->find(PastaMensagem::class, $id)?->setConteudo('Prazo de 5 dias para contestação.')->setEditadaEm(new \DateTimeImmutable());
+        $this->em()->flush();
+
+        $lidos = $this->lidos($pasta);
+        self::assertSame(['Prazo para contestação'], array_column($lidos, 'titulo'), 'a edição foi relida pelo listener');
+        self::assertSame(['2026-04-06'], array_column($lidos, 'data'), 'cálculo antigo: com o calendário seria 07/04');
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────
+
+    /**
+     * O marco é env lida em tempo de execução: com outro valor, o kernel novo monta o PrazosDosRegistros do container
+     * (e o do listener) com ele. O tearDown limpa a env.
+     */
+    private function religarComMarco(string $desde): void
+    {
+        self::ensureKernelShutdown();
+        $_ENV[self::MARCO] = $_SERVER[self::MARCO] = $desde;
+        $this->client = static::createClient();
+        $this->client->disableReboot();
+        $this->instalarCsrfStorage();
+    }
 
     /** Pasta de escritório em AL com um registro escrito em $criadaEm (o leitor usa essa data como base). */
     private function pastaComRegistroDe(string $criadaEm, string $texto): Pasta

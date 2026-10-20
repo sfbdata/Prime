@@ -77,6 +77,30 @@ final class LeitorDeDatasComCalendarioTest extends TestCase
         }
     }
 
+    #[TestDox('"prazo de 0 dias corridos": no sábado vai à segunda com o calendário (CPC, art. 224, §1º); em dia útil é o próprio dia; sem calendário, a base como hoje')]
+    public function testZeroDiasCorridos(): void
+    {
+        $sabado = new \DateTimeImmutable('2026-04-18');
+        $segunda = new \DateTimeImmutable('2026-04-20');
+        $al = $this->dias->daUf('AL');
+
+        self::assertSame('2026-04-20', LeitorDeDatas::ler('Prazo de 0 dias corridos.', $sabado, $al)[0]['data']);
+        self::assertSame('2026-04-20', LeitorDeDatas::ler('Prazo de 0 dias corridos.', $segunda, $al)[0]['data']);
+        self::assertSame('2026-04-18', LeitorDeDatas::ler('Prazo de 0 dias corridos.', $sabado)[0]['data']);
+        self::assertSame('2026-04-20', LeitorDeDatas::ler('Prazo de 0 dias corridos.', $segunda)[0]['data']);
+    }
+
+    #[TestDox('"prazo de 0 dias" (úteis) num sábado vai para segunda com o calendário (CPC 224 §1º); sem calendário, o de hoje')]
+    public function testZeroDiasUteis(): void
+    {
+        $sabado = new \DateTimeImmutable('2026-04-18');
+        $al = $this->dias->daUf('AL');
+
+        self::assertSame('2026-04-20', LeitorDeDatas::ler('Prazo de 0 dias para manifestação.', $sabado, $al)[0]['data']);
+        self::assertSame('2026-04-20', LeitorDeDatas::ler('Prazo de 0 dias para manifestação.', new \DateTimeImmutable('2026-04-20'), $al)[0]['data']);
+        self::assertSame('2026-04-18', LeitorDeDatas::ler('Prazo de 0 dias para manifestação.', $sabado)[0]['data']);
+    }
+
     #[TestDox('"amanhã" não é estimativa e não muda, mesmo caindo no sábado')]
     public function testAmanhaNaoMuda(): void
     {

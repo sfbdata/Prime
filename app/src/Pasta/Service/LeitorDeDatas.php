@@ -215,6 +215,7 @@ final class LeitorDeDatas
         }
         $d = $base->setTime(0, 0);
         if (!$uteis) {
+            // CPC, art. 224, §1º: termo em dia não útil prorroga ao próximo útil (com N = 0, o termo é a própria base).
             return $calendario->proximoUtil($d->modify('+' . $n . ' days'));
         }
         for ($c = 0; $c < $n;) {
@@ -224,7 +225,8 @@ final class LeitorDeDatas
             }
         }
 
-        return $d;
+        // Mesmo §1º: com N = 0 úteis o termo é a base, que pode cair em dia não útil; com N > 0 já é útil.
+        return $calendario->proximoUtil($d);
     }
 
     private static function normalizar(string $s): string

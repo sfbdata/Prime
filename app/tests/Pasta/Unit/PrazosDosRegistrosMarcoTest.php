@@ -57,8 +57,22 @@ final class PrazosDosRegistrosMarcoTest extends TestCase
         // Sexta-feira Santa e corridos no sábado: os dois casos que só mudam no modo novo.
         self::assertSame('2026-04-06', $this->ler($prazos, 'Prazo de 5 dias para manifestação.', new \DateTimeImmutable('2026-03-30 10:00'))[0]['data']);
         self::assertSame('2026-04-18', $this->ler($prazos, 'Prazo de 10 dias corridos.', new \DateTimeImmutable('2026-04-08 10:00'))[0]['data']);
-        $hojeSemCalendario = LeitorDeDatas::ler('Prazo de 10 dias corridos.', $agora);
-        self::assertSame($hojeSemCalendario, $this->ler($prazos, 'Prazo de 10 dias corridos.', $agora));
+        // Registro criado agora ou depois: Sexta-feira Santa do ano que vem e corridos que caem num sábado futuro.
+        // As bases saem do calendário, e a premissa (os dois modos dão datas diferentes) é conferida antes.
+        $ano = (int) $agora->format('Y') + 1;
+        $segundaSanta = (new CalendarioDoSistema())->pascoa($ano)->modify('-6 days');
+        $sabado = $agora->setTime(0, 0)->modify('+10 days')->modify('next saturday');
+        $casos = [
+            ['Prazo de 5 dias para manifestação.', $segundaSanta->setTime(10, 0)],
+            ['Prazo de 10 dias corridos.', $sabado->modify('-10 days')->setTime(10, 0)],
+        ];
+        $calendario = new DiasUteisDoEscritorio(new CalendarioDoSistema());
+        foreach ($casos as [$texto, $criadoEm]) {
+            self::assertGreaterThanOrEqual($agora->setTime(0, 0), $criadoEm);
+            $antigo = LeitorDeDatas::ler($texto, $criadoEm)[0]['data'];
+            self::assertNotSame($antigo, LeitorDeDatas::ler($texto, $criadoEm, $calendario->daUf('AL'))[0]['data'], 'premissa: o modo novo daria outra data');
+            self::assertSame($antigo, $this->ler($prazos, $texto, $criadoEm)[0]['data'], $texto);
+        }
     }
 
     #[TestDox('marco inválido desliga e avisa no log; vazio e válido não avisam')]
