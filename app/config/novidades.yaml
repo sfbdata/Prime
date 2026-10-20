@@ -1,6 +1,18 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.3.0"
+  data: "2026-10-19"
+  itens:
+    - "Compromissos marcados como \"Só eu\" na Agenda agora ficam particulares também na Auditoria: quem administra vê que houve uma alteração, mas não o conteúdo do compromisso. Vale para as alterações feitas a partir desta versão."
+    - "No Expediente, o botão direito agora funciona também na visualização em lista e em cartões."
+    - "A busca de pastas encontra pelo nome do réu, e a coluna Réu ordena com um clique."
+    - "Reforçamos a proteção contra tentativas repetidas de acesso e de cadastro."
+    - "O menu do seu nome, no alto da tela, foi reorganizado: agora mostra seu papel no escritório e reúne a troca de conta numa janela própria."
+    - "Quando a conta do escritório estiver suspensa, a tela de seleção de escritório passa a explicar o motivo e a quem recorrer."
+    - "A tela de Perfis mostra um resumo no topo (quantos perfis e usuários) e, em cada perfil, quantas permissões ele tem do total, com uma barra."
+    - "No avatar do topo, um selo verde mostra quantos colegas estão on-line; clique para ver quem está on-line, ausente ou desligado."
+    - "Agora dá para enviar ao cliente um link para ele acompanhar o andamento do processo pelo celular, sem login, por 30 dias, com código de acesso e contagem de quem abriu."
 - versao: "2.2.2"
   data: "2026-10-18"
   itens:

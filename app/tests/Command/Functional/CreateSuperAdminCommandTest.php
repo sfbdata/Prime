@@ -15,8 +15,8 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**
- * `app:create-super-admin` não cria um segundo Master (spec perfis-master D2): a troca é do
- * `app:master:definir`.
+ * `app:create-super-admin` cria só o PRIMEIRO Master, já primário (spec perfis-1.2-masters §4.2).
+ * Havendo Master, recusa: secundário se promove pela tela e a troca do primário é do `app:master:definir`.
  */
 #[CoversClass(CreateSuperAdminCommand::class)]
 final class CreateSuperAdminCommandTest extends KernelTestCase
@@ -56,7 +56,7 @@ final class CreateSuperAdminCommandTest extends KernelTestCase
     {
         // Rollback do DAMA desfaz: tira o papel de quem o tenha no banco de teste.
         $this->em->getConnection()->executeStatement(
-            "UPDATE \"user\" SET roles = '[]' WHERE CAST(roles AS TEXT) LIKE '%\"ROLE_SUPER_ADMIN\"%'"
+            "UPDATE \"user\" SET roles = '[]' WHERE CAST(roles AS TEXT) LIKE '%\"ROLE_SUPER_ADMIN\"%' OR CAST(roles AS TEXT) LIKE '%\"ROLE_MASTER_PRIMARIO\"%'"
         );
 
         $email  = uniqid('novo_') . '@test.com';
@@ -64,10 +64,11 @@ final class CreateSuperAdminCommandTest extends KernelTestCase
         $tester->execute(['email' => $email, 'password' => 'Senha#2026']);
         $tester->assertCommandIsSuccessful();
 
-        self::assertStringContainsString('Master criado', $tester->getDisplay());
+        self::assertStringContainsString('Master primário criado', $tester->getDisplay());
         $criado = $this->em->getRepository(User::class)->findOneBy(['email' => $email]);
         self::assertNotNull($criado);
         self::assertContains('ROLE_SUPER_ADMIN', $criado->getRoles());
+        self::assertContains('ROLE_MASTER_PRIMARIO', $criado->getRoles(), 'o primeiro Master já nasce primário');
     }
 
     private function tester(): CommandTester

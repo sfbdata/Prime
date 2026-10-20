@@ -11,6 +11,7 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Service\RegraDosMasters;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
@@ -66,29 +67,60 @@ final class PainelMasterRepository
     }
 
     /**
-     * Escritórios fora da quarentena, com o nome do titular (`tenant.criado_por_id`).
+     * Escritórios fora da quarentena, com o nome do titular (`tenant.criado_por_id`) e se é a conta do
+     * Master (`do_master`, spec perfis-1.2-contas C5: não se suspende nem exclui). Mesma regra de
+     * RegraDosMasters::ehContaDoMaster(): titular Master; sem titular, algum Master com vínculo ativo.
      *
-     * @return list<array{id: int, nome: string, cidade: ?string, estado: ?string, criado_em: string, ativo: bool, titular: ?string}>
+     * @return list<array{id: int, nome: string, cidade: ?string, estado: ?string, criado_em: string, ativo: bool, titular: ?string, do_master: bool, excluido_em: ?string}>
      */
     public function escritorios(): array
     {
+        return $this->escritoriosOnde('t.excluido_em IS NULL');
+    }
+
+    /**
+     * Escritórios NA quarentena (excluídos e ainda não purgados), para a opção "Em quarentena" da lista
+     * de contas (spec perfis-1.2-contas C4b). Mesmo formato de {@see escritorios()}, com `excluido_em`.
+     * Só esta consulta enxerga a quarentena; as contagens do painel continuam fora dela.
+     *
+     * @return list<array{id: int, nome: string, cidade: ?string, estado: ?string, criado_em: string, ativo: bool, titular: ?string, do_master: bool, excluido_em: ?string}>
+     */
+    public function escritoriosEmQuarentena(): array
+    {
+        return $this->escritoriosOnde('t.excluido_em IS NOT NULL');
+    }
+
+    /**
+     * @param string $filtro recorte FIXO da quarentena (nunca dado de fora): um dos dois acima
+     *
+     * @return list<array{id: int, nome: string, cidade: ?string, estado: ?string, criado_em: string, ativo: bool, titular: ?string, do_master: bool, excluido_em: ?string}>
+     */
+    private function escritoriosOnde(string $filtro): array
+    {
         $linhas = $this->conexao->fetchAllAssociative(
             'SELECT t.id, t.name AS nome, t.cidade, t.estado, t.created_at AS criado_em, t.is_active AS ativo,
-                    u.full_name AS titular
+                    t.excluido_em, u.full_name AS titular,
+                    CASE WHEN u.id IS NOT NULL THEN u.roles::text LIKE :papel
+                         ELSE EXISTS (SELECT 1 FROM user_tenant ut JOIN "user" m ON m.id = ut.user_id
+                                       WHERE ut.tenant_id = t.id AND ut.is_active = TRUE AND m.roles::text LIKE :papel)
+                    END AS do_master
                FROM tenant t
           LEFT JOIN "user" u ON u.id = t.criado_por_id
-              WHERE t.excluido_em IS NULL
+              WHERE ' . $filtro . '
            ORDER BY t.name',
+            ['papel' => '%"' . RegraDosMasters::PAPEL_MASTER . '"%'],
         );
 
         return array_map(static fn (array $l): array => [
-            'id'        => (int) $l['id'],
-            'nome'      => (string) $l['nome'],
-            'cidade'    => $l['cidade'] !== null ? (string) $l['cidade'] : null,
-            'estado'    => $l['estado'] !== null ? (string) $l['estado'] : null,
-            'criado_em' => (string) $l['criado_em'],
-            'ativo'     => (bool) $l['ativo'],
-            'titular'   => $l['titular'] !== null ? (string) $l['titular'] : null,
+            'id'          => (int) $l['id'],
+            'nome'        => (string) $l['nome'],
+            'cidade'      => $l['cidade'] !== null ? (string) $l['cidade'] : null,
+            'estado'      => $l['estado'] !== null ? (string) $l['estado'] : null,
+            'criado_em'   => (string) $l['criado_em'],
+            'ativo'       => (bool) $l['ativo'],
+            'titular'     => $l['titular'] !== null ? (string) $l['titular'] : null,
+            'do_master'   => (bool) $l['do_master'],
+            'excluido_em' => $l['excluido_em'] !== null ? (string) $l['excluido_em'] : null,
         ], $linhas);
     }
 
@@ -159,11 +191,32 @@ final class PainelMasterRepository
      */
     public function usuariosPorEscritorio(): array
     {
+        return $this->usuariosOnde('t.excluido_em IS NULL');
+    }
+
+    /**
+     * A mesma contagem para as contas EM QUARENTENA (spec perfis-1.2-contas C4b): os vínculos continuam
+     * até a purga, e a lista "Em quarentena" mostra quantas pessoas a conta ainda tem.
+     *
+     * @return array<int, array{usuarios: int, ultimoAcesso: ?string}>
+     */
+    public function usuariosPorEscritorioEmQuarentena(): array
+    {
+        return $this->usuariosOnde('t.excluido_em IS NOT NULL');
+    }
+
+    /**
+     * @param string $filtro recorte FIXO da quarentena (nunca dado de fora): um dos dois acima
+     *
+     * @return array<int, array{usuarios: int, ultimoAcesso: ?string}>
+     */
+    private function usuariosOnde(string $filtro): array
+    {
         $linhas = $this->conexao->fetchAllAssociative(
             'SELECT ut.tenant_id, COUNT(DISTINCT ut.user_id) AS usuarios, MAX(ut.last_login_at) AS ultimo_acesso
                FROM user_tenant ut
                JOIN "user" u ON u.id = ut.user_id AND u.is_active = TRUE
-               JOIN tenant t ON t.id = ut.tenant_id AND t.excluido_em IS NULL
+               JOIN tenant t ON t.id = ut.tenant_id AND ' . $filtro . '
               WHERE ut.is_active = TRUE
            GROUP BY ut.tenant_id',
         );
@@ -277,25 +330,66 @@ final class PainelMasterRepository
     }
 
     /**
-     * Usuários com `ROLE_SUPER_ADMIN` (o Master). `roles` é json: a busca é textual pelo nome exato
-     * entre aspas, como o Symfony grava.
+     * Masters do sistema (`ROLE_SUPER_ADMIN`), o primário (`ROLE_MASTER_PRIMARIO`) primeiro, depois
+     * os secundários por nome (spec perfis-1.2-masters §4.1). `roles` é json: a busca é textual pelo
+     * nome exato entre aspas, como o Symfony grava.
      *
-     * @return list<array{id: int, nome: string, email: string, oabNumero: ?string, oabUf: ?string}>
+     * @return list<array{id: int, nome: string, email: string, oabNumero: ?string, oabUf: ?string, primario: bool}>
      */
     public function masters(): array
     {
         $linhas = $this->conexao->fetchAllAssociative(
-            'SELECT u.id, u.full_name, u.email, u.oab_numero, u.oab_uf
+            'SELECT u.id, u.full_name, u.email, u.oab_numero, u.oab_uf,
+                    (u.roles::text LIKE :primario) AS primario
                FROM "user" u
               WHERE u.roles::text LIKE :papel
-           ORDER BY u.id',
-            ['papel' => '%"ROLE_SUPER_ADMIN"%'],
+           ORDER BY primario DESC, u.full_name, u.id',
+            [
+                'papel'    => '%"' . RegraDosMasters::PAPEL_MASTER . '"%',
+                'primario' => '%"' . RegraDosMasters::PAPEL_MASTER_PRIMARIO . '"%',
+            ],
         );
 
         return array_map(static fn (array $l): array => [
             'id'        => (int) $l['id'],
             'nome'      => (string) $l['full_name'],
             'email'     => (string) $l['email'],
+            'oabNumero' => self::textoOuNulo($l['oab_numero']),
+            'oabUf'     => self::textoOuNulo($l['oab_uf']),
+            'primario'  => (bool) $l['primario'],
+        ], $linhas);
+    }
+
+    /**
+     * Quem pode ser promovido a Master secundário (spec perfis-1.2-masters M5): vínculo ATIVO com o
+     * escritório informado (o da sessão do Master), perfil que não é de sistema (sem perfil também
+     * conta como secundário), conta ativa e ainda sem `ROLE_SUPER_ADMIN`. Recorte por escritório:
+     * nada de outro escritório entra na lista.
+     *
+     * @return list<array{id: int, nome: string, email: string, perfil: ?string, oabNumero: ?string, oabUf: ?string}>
+     */
+    public function candidatosAMaster(int $tenantId): array
+    {
+        $linhas = $this->conexao->fetchAllAssociative(
+            'SELECT u.id, u.full_name, u.email, u.oab_numero, u.oab_uf, tr.name AS perfil
+               FROM user_tenant ut
+               JOIN "user" u ON u.id = ut.user_id
+          LEFT JOIN tenant_role tr ON tr.id = ut.tenant_role_id
+              WHERE ut.tenant_id = :tenant
+                AND ut.is_active = TRUE
+                AND u.is_active = TRUE
+                AND COALESCE(tr.is_system, FALSE) = FALSE
+                AND u.roles::text NOT LIKE :papel
+           ORDER BY u.full_name, u.id',
+            ['tenant' => $tenantId, 'papel' => '%"' . RegraDosMasters::PAPEL_MASTER . '"%'],
+            ['tenant' => ParameterType::INTEGER],
+        );
+
+        return array_map(static fn (array $l): array => [
+            'id'        => (int) $l['id'],
+            'nome'      => (string) $l['full_name'],
+            'email'     => (string) $l['email'],
+            'perfil'    => self::textoOuNulo($l['perfil']),
             'oabNumero' => self::textoOuNulo($l['oab_numero']),
             'oabUf'     => self::textoOuNulo($l['oab_uf']),
         ], $linhas);

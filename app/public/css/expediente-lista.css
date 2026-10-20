@@ -47,6 +47,7 @@
     --ex-avatar:       #0a6fa0;   /* avatar com iniciais na Lista, dc L.330 `avBg` */
     --ex-avatar-vazio-bg: #eef2f5; --ex-avatar-vazio-tx: #62798a;   /* "?" sem responsável, dc L.330/524 */
     --ex-menu-titulo:  #62798a;
+    --ex-menu-subtitulo: #7a8e9b;
     --ex-menu-hover:   #e6f2fa;  --ex-menu-hover-tx: #0b4f75;
     --ex-perigo-hover: #fbecec;  --ex-perigo-hover-tx: #8a1d24;
     /* Hover da linha (dc L.28-35) */
@@ -95,6 +96,7 @@
     --ex-avatar:       #2b7fb8;
     --ex-avatar-vazio-bg: rgba(255,255,255,.08); --ex-avatar-vazio-tx: var(--bs-secondary-color);
     --ex-menu-titulo:  var(--bs-secondary-color);
+    --ex-menu-subtitulo: var(--bs-secondary-color);
     --ex-menu-hover:   rgba(77,163,234,.14);  --ex-menu-hover-tx: #8cc4f0;
     --ex-perigo-hover: rgba(192,57,47,.20);   --ex-perigo-hover-tx: #f08a84;
     --ex-prio-normal-bg: rgba(255,255,255,.08); --ex-prio-normal-tx: var(--bs-body-color);
@@ -157,9 +159,11 @@
     padding: 12px 22px;
     margin: 0 !important;
 }
+/* O título é clicável e ganha fundo no hover: a caixa tem o tamanho do conteúdo (não `flex: 1`, que esticava o
+   realce até o Nova Pasta, pedido do dono 19/10); o `margin-right: auto` é quem empurra os botões para a direita. */
 .exp-body .exp-barra-titulo {
-    flex: 1; min-width: 200px;
-    margin: 0; display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+    flex: 0 1 auto; min-width: 0;
+    margin: 0; margin-right: auto; display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
     font-size: 17px; font-weight: 400; color: var(--ex-texto);
 }
 .exp-body .exp-barra-titulo > .bi { color: var(--ex-texto-2); }
@@ -212,7 +216,10 @@
     background-color: var(--ex-campo);
     box-shadow: 0 0 0 2px rgba(10,111,160,.35);   /* o desenho tira o foco; aqui ele fica visível */
 }
-.exp-body .pasta-filtros-busca .bi-search { color: var(--ex-muted); }
+.exp-body .pasta-filtros-busca .bi-search { color: var(--ex-muted); font-size: 16px; }   /* dc L.144: herda os 16px */
+/* dc L.11: o calendário do campo de data é o indicador nativo, 12px e meio apagado. Aqui é botão próprio (a data é
+   digitada em dd/mm/aaaa), com a mesma cara. */
+.exp-body .pasta-filtros-periodo .pasta-data-btn .bi { font-size: 12px; opacity: .5; }
 
 /* E8b: Período num bloco só (dc L.109): um campo cinza de 34px com as duas datas e "a" no meio. O foco
    fica no bloco (o desenho tira; aqui ele segue visível, como nos outros filtros). */
@@ -240,6 +247,8 @@
     transition: background .18s, color .18s, transform .18s;
 }
 .exp-body .pagination .page-item { margin: 0 1px; }
+/* Passo de 28px do dc (26 + 2): o Bootstrap ainda encosta um link no outro com -1px. */
+.exp-body .pagination .page-item .page-link { margin-left: 0; }
 .exp-body .pagination .page-item.active .page-link { background: var(--ex-azul); color: #fff; font-weight: 700; }
 .exp-body .pagination .page-item:not(.disabled):not(.active) .page-link:hover { background: var(--ex-azul); color: #fff; transform: scale(1.1); }
 .exp-body .pagination .page-item.disabled .page-link { color: var(--ex-seta-ordem); background: transparent; cursor: default; }
@@ -286,10 +295,13 @@
    prioridade 1, período 1.8 até 250px), com os mínimos de 70/70/60/120px. */
 @media (min-width: 768px) {
     .exp-body .pasta-filtros-linha { flex-wrap: nowrap; }
-    .exp-body .pasta-filtros-busca { flex: 2.2 1 0; min-width: 70px; max-width: none; }
+    /* No dc a busca é uma <label> com 12px de recuo dos dois lados e o período tem 4px: o recuo entra na conta das
+       proporções (medido no dc: 246 · 131 · 101 · 189). Aqui o recuo da busca mora no <input>, então a base de
+       24px e 8px reproduz a mesma conta. */
+    .exp-body .pasta-filtros-busca { flex: 2.2 1 24px; min-width: 70px; max-width: none; }
     .exp-body .exp-filtro--resp { flex: 1.3 1 0; min-width: 70px; }
     .exp-body .exp-filtro--prio { flex: 1 1 0; min-width: 60px; }
-    .exp-body .pasta-filtros-periodo { flex: 1.8 1 0; }
+    .exp-body .pasta-filtros-periodo { flex: 1.8 1 8px; }
 }
 /* Responsável e Prioridade com cara de botão (dc L.102, L.108): seta de 10px, texto #34505f, bandeira na cor
    do valor. Continuam <select> nativos. */
@@ -391,20 +403,21 @@
    tabela cabe sem rolagem lateral (com 1100 rolava 32px). De 901 a 1280px vale o piso maior (AUD-29, abaixo):
    nomes legíveis e a rolagem só dentro da tabela. */
 .exp-body #tabelaPastas { min-width: 1148px; }   /* E12: + Réu (mínimo 120px) */
-/* Colunas do desenho: 96 · 2fr · 1.5fr · 120 · 220 · 76 · 190 · 116. E8b: Cliente e Ação dividem o resto em
-   2:1.5. `calc` com % é ignorado no <col>; em percentual (40:30) o navegador mantém as fixas e reparte a sobra
-   nessa razão enquanto a tabela tiver menos de ~2700px (medido: 185/139 a 1440px). Os mínimos do dc
-   (minmax 220/190) não entram, por decisão do dono: somam 1228px e fazem a tabela do próprio dc estourar
-   a 1440px (Situação cortada). */
-.exp-body #tabelaPastas col[data-col="nup"]     { width: 96px !important; }
-.exp-body #tabelaPastas col[data-col="cliente"] { width: 40% !important; }
-.exp-body #tabelaPastas col[data-col="reu"]     { width: 30% !important; }   /* E12: Réu (dc 1.5fr) */
-.exp-body #tabelaPastas col[data-col="acao"]    { width: 28% !important; }
-.exp-body #tabelaPastas col[data-col="prio"]    { width: 120px !important; }
-.exp-body #tabelaPastas col[data-col="resp"]    { width: 200px !important; }
-.exp-body #tabelaPastas col[data-col="metas"]   { width: 76px !important; }
-.exp-body #tabelaPastas col[data-col="marc"]    { width: 170px !important; }
-.exp-body #tabelaPastas col[data-col="sit"]     { width: 116px !important; }
+/* Colunas do desenho VS 18.10.26 (dc L.594 `COLW`): todas em fração com mínimo, NUP minmax(74,.6fr) · Cliente
+   (140,2fr) · Réu (120,1.5fr) · Ação (100,1.4fr) · Prioridade (104,.95fr) · Responsável (124,1.6fr) · Metas
+   (82,.6fr) · Marcadores (116,1.2fr) · Situação (98,.85fr). Na largura de referência (tabela de 1212px) a grade
+   do dc deixa NUP, Prioridade, Metas e Situação no mínimo (medido: 74, 105, 82, 98) e reparte o resto entre as
+   outras na razão 2:1.5:1.4:1.6:1.2. `calc` e `max()` com % são ignorados no <col>; em percentual o navegador
+   mantém as fixas e reparte a sobra nessa razão, o que dá as larguras medidas do dc (222, 166, 155, 177, 133). */
+.exp-body #tabelaPastas col[data-col="nup"]     { width: 74px !important; }
+.exp-body #tabelaPastas col[data-col="cliente"] { width: 26% !important; }
+.exp-body #tabelaPastas col[data-col="reu"]     { width: 19.5% !important; }
+.exp-body #tabelaPastas col[data-col="acao"]    { width: 18.2% !important; }
+.exp-body #tabelaPastas col[data-col="prio"]    { width: 105px !important; }
+.exp-body #tabelaPastas col[data-col="resp"]    { width: 20.8% !important; }
+.exp-body #tabelaPastas col[data-col="metas"]   { width: 82px !important; }
+.exp-body #tabelaPastas col[data-col="marc"]    { width: 15.5% !important; }
+.exp-body #tabelaPastas col[data-col="sit"]     { width: 98px !important; }
 /* Nos mesmos cortes em que o `_tabela` esconde células (≤900px: Ação, Responsável, Metas; ≤768px: Marcadores),
    sai também o <col>. Célula escondida sai da grade e a seguinte herdava o <col> dela (medido: a 900px a
    Situação ficava com os 220px do Responsável), e o piso de 1100px deixava um vazio de ~600px a 768px. */
@@ -434,24 +447,26 @@
     background: var(--ex-cab-tabela);
     border-bottom: 1px solid var(--ex-borda);
     box-shadow: 0 2px 6px -2px rgba(15,32,43,.14);
-    padding: 12px 14px;
-    font-size: 11px; font-weight: 700; letter-spacing: 1.3px; line-height: 14px;   /* 12 + 14 + 12 + borda = 40px, dc L.146 */
+    padding: 12px 8px;   /* VS 18.10.26 (dc L.200): 12px 8px e .4px; o 1.1 tinha 12px 14px e 1.3px */
+    font-size: 11px; font-weight: 700; letter-spacing: .4px; line-height: 14px;   /* 12 + 14 + 12 + borda = 40px */
     color: var(--ex-rotulo);
-    overflow: visible;
+    overflow: hidden; white-space: nowrap;
 }
+/* dc L.200: ícone e seta fixos, o rótulo corta com reticências ("PRIORI…") quando a coluna é estreita. */
+.exp-body #tabelaPastas thead th > .exp-th { display: flex; align-items: center; gap: 0; min-width: 0; }
+.exp-body #tabelaPastas thead th > .exp-th > .bi { flex: none; }
+.exp-body #tabelaPastas thead th > .exp-th > .exp-th-rot { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.exp-body #tabelaPastas thead th[data-col="metas"] > .exp-th,
+.exp-body #tabelaPastas thead th[data-col="marc"] > .exp-th,
+.exp-body #tabelaPastas thead th[data-col="sit"] > .exp-th { justify-content: center; }
 /* AUD-21: SITUAÇÃO centralizada como as células (dc `just` center); a regra antiga mirava um data-col que sumiu. */
-.exp-body #tabelaPastas thead th:last-child { text-align: center; }
+.exp-body #tabelaPastas thead th:last-child { text-align: center; padding-left: 8px; padding-right: 8px; }   /* dc L.200; vence o 14px do <style> legado do _lista */
 /* AUD-18 (dc L.148, L.516): seta bi-chevron-expand de 10px em #a7b6c0, a 6px do rótulo; na coluna que ordena,
    o triângulo cheio em azul (a classe vem do servidor). */
-.exp-body #tabelaPastas thead .sort-icon { font-size: 10px; opacity: 1; margin-left: 6px; color: var(--ex-seta-ordem); vertical-align: 1px; }
-/* Colunas estreitas (Prioridade, Metas, Situação): como no dc, o rótulo inteiro e a seta só quando a
-   coluna ordena ou está sob o mouse — senão a seta empurra o rótulo para cima da coluna vizinha. */
-.exp-body #tabelaPastas thead th[data-col="prio"],
-.exp-body #tabelaPastas thead th[data-col="metas"],
-.exp-body #tabelaPastas thead th[data-col="sit"] { padding-left: 10px; padding-right: 6px; }
-.exp-body #tabelaPastas thead th[data-col="prio"]:not(.asc):not(.desc):not(:hover) .sort-icon,
-.exp-body #tabelaPastas thead th[data-col="sit"]:not(.asc):not(.desc):not(:hover) .sort-icon { display: none; }
-.exp-body #tabelaPastas thead th .bi:not(.sort-icon) { font-size: 13px; }
+.exp-body #tabelaPastas thead .sort-icon { font-size: 9px; opacity: 1; margin-left: 4px; color: var(--ex-seta-ordem); vertical-align: 1px; }
+/* VS 18.10.26: a seta aparece em todas as colunas que ordenam (dc `data-hseta`); só some abaixo de 1180px, junto
+   com os ícones (expediente-lista-12.css). */
+.exp-body #tabelaPastas thead th .bi:not(.sort-icon) { font-size: 12px; }   /* dc L.200 */
 .exp-body #tabelaPastas thead th.sortable:hover,
 .exp-body #tabelaPastas thead th.asc,
 .exp-body #tabelaPastas thead th.desc { color: var(--ex-azul); background: var(--ex-cab-tabela); }
@@ -594,6 +609,12 @@
 .exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover .js-toggle-situacao::before { background: #fff; color: #fff; }
 .exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover .resp-avatar { background: transparent !important; color: #fff !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.7); }
 .exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover .js-mover-para { border-color: rgba(255,255,255,.6) !important; }
+/* O botão do responsável sob o mouse, dentro da linha azul (dc L.44-45): fundo branco translúcido e borda. Os
+   `:not()` repetem os do reset acima só para vencer a especificidade dele. */
+.exp-body #tabelaPastas tbody tr.pasta-row-link:not(.pasta-excluida):hover > td .pasta-resp-chip:hover:not(.resp-avatar):not(.pasta-favorita-estrela) {
+    background: rgba(255,255,255,.2) !important;
+    border-color: rgba(255,255,255,.65) !important;
+}
 /* O hover antigo (cinza) sai. */
 .exp-body #tabelaPastas tbody tr:hover { background: transparent; }
 
@@ -622,15 +643,18 @@
 .exp-ctx-titulo {
     margin: 0 0 4px; padding: 7px 14px 8px;
     border-bottom: 1px solid var(--ex-div-linha, #eef2f5);
-    font-size: 12px; color: var(--ex-menu-titulo, #62798a);
+    font-size: 12px; line-height: normal; color: var(--ex-menu-titulo, #62798a);   /* dc L.402: sem o 1.5 do Bootstrap */
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* Subfrase do menu de colunas (dc L.288): quebra a linha em vez de cortar. */
+.exp-ctx-subtitulo { display: block; margin-top: 2px; font-size: 11px; color: var(--ex-menu-subtitulo); white-space: normal; }
 .exp-ctx-item {
     width: 100%; display: flex; align-items: center; gap: 10px;
     padding: 8px 14px; border: 0; border-radius: 0;
     background: transparent; color: inherit;
     font: inherit; line-height: normal; text-align: left; cursor: pointer; text-decoration: none;
 }
+.exp-ctx--colunas .exp-ctx-item { padding-top: 7px; padding-bottom: 7px; }   /* dc L.290: 7px 14px (passo de 30px) */
 .exp-ctx-item .bi { width: 16px; color: inherit; }
 .exp-ctx-item:hover,
 .exp-ctx-item:focus-visible { background: var(--ex-menu-hover, #e6f2fa); color: var(--ex-menu-hover-tx, #0b4f75); outline: none; text-decoration: none; }

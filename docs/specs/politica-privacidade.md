@@ -63,7 +63,7 @@ documento não existia. Fora do login, a Política não era citada em lugar nenh
   pesquisável é a HTML.
 - **Nenhum teste sabe o dia do deploy.** `DATA_PUBLICACAO` é literal no teste para que mudá-la
   seja ato consciente, mas trocá-la no deploy é item de checklist, não de suíte.
-- **`getClientIp()` devolve o IP do nginx** enquanto `SYMFONY_TRUSTED_PROXIES` não for confirmado
+- **`getClientIp()` devolve o IP do nginx** enquanto `SYMFONY_TRUSTED_PROXIES` não for confirmado **(Corrigido em 19/10/2026: em FastCGI o `REMOTE_ADDR` que o PHP recebe é o do cliente, não o do nginx; confiar nele deixava forjar o IP. Ver `docs/guias/ip-do-cliente-em-producao.md`.)**
   na VPS: o limitador tem uma chave só para todos. Daí o limite folgado.
 
 ## Três frases ajustadas porque o sistema não fazia o que prometiam (20/08)

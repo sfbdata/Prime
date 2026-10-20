@@ -16,7 +16,8 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**
- * `app:master:definir <email> [--confirmar]`: deixa exatamente um ROLE_SUPER_ADMIN (spec D2, §7).
+ * `app:master:definir <email> [--confirmar]`: define o Master primário (ROLE_SUPER_ADMIN e
+ * ROLE_MASTER_PRIMARIO); os demais Masters perdem os dois papéis (spec perfis-1.2-masters §4.2, M4).
  */
 #[CoversClass(DefinirMasterCommand::class)]
 final class DefinirMasterCommandTest extends KernelTestCase
@@ -40,20 +41,22 @@ final class DefinirMasterCommandTest extends KernelTestCase
         $tester->assertCommandIsSuccessful();
 
         $saida = $tester->getDisplay();
-        self::assertStringContainsString('Ganha o papel de Master: ' . $novo->getEmail(), $saida);
+        self::assertStringContainsString('Ganha o papel de Master primário: ' . $novo->getEmail(), $saida);
         self::assertStringContainsString('Perde o papel de Master: ' . $atual->getEmail(), $saida);
         self::assertStringContainsString('--confirmar', $saida);
 
         $this->em->clear();
         self::assertContains('ROLE_SUPER_ADMIN', $this->recarregar($atual)->getRoles());
         self::assertNotContains('ROLE_SUPER_ADMIN', $this->recarregar($novo)->getRoles());
+        self::assertNotContains('ROLE_MASTER_PRIMARIO', $this->recarregar($novo)->getRoles());
     }
 
-    #[TestDox('com --confirmar deixa EXATAMENTE um Master, o do e-mail, e preserva os outros papéis de quem perde')]
+    #[TestDox('com --confirmar o do e-mail vira o Master primário; o primário anterior e os secundários perdem os dois papéis e mantêm os outros')]
     public function testConfirmarDeixaUmUnicoMaster(): void
     {
-        $atual = $this->criarUsuario(['ROLE_SUPER_ADMIN', 'ROLE_ALGUM_OUTRO']);
-        $novo  = $this->criarUsuario([]);
+        $atual      = $this->criarUsuario(['ROLE_SUPER_ADMIN', 'ROLE_MASTER_PRIMARIO', 'ROLE_ALGUM_OUTRO']);
+        $secundario = $this->criarUsuario(['ROLE_SUPER_ADMIN']);
+        $novo       = $this->criarUsuario([]);
 
         $tester = $this->tester();
         $tester->execute(['email' => $novo->getEmail(), '--confirmar' => true]);
@@ -62,12 +65,31 @@ final class DefinirMasterCommandTest extends KernelTestCase
         $this->em->clear();
         $masters = static::getContainer()->get(UserRepository::class)->findComPapelGlobal('ROLE_SUPER_ADMIN');
         self::assertSame([$novo->getId()], array_map(static fn (User $u): ?int => $u->getId(), $masters));
+        $primarios = static::getContainer()->get(UserRepository::class)->findComPapelGlobal('ROLE_MASTER_PRIMARIO');
+        self::assertSame([$novo->getId()], array_map(static fn (User $u): ?int => $u->getId(), $primarios));
         self::assertSame(['ROLE_ALGUM_OUTRO', 'ROLE_USER'], array_values($this->recarregar($atual)->getRoles()));
+        self::assertSame(['ROLE_USER'], array_values($this->recarregar($secundario)->getRoles()));
 
         // Idempotente: rodar de novo não muda nada.
         $tester->execute(['email' => $novo->getEmail(), '--confirmar' => true]);
         $tester->assertCommandIsSuccessful();
         self::assertStringContainsString('Nada a fazer', $tester->getDisplay());
+    }
+
+    #[TestDox('Master secundário escolhido vira o primário; o primário anterior perde os dois papéis')]
+    public function testSecundarioViraPrimario(): void
+    {
+        $atual      = $this->criarUsuario(['ROLE_SUPER_ADMIN', 'ROLE_MASTER_PRIMARIO']);
+        $secundario = $this->criarUsuario(['ROLE_SUPER_ADMIN']);
+
+        $tester = $this->tester();
+        $tester->execute(['email' => $secundario->getEmail(), '--confirmar' => true]);
+        $tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('Ganha o papel de Master primário: ' . $secundario->getEmail(), $tester->getDisplay());
+
+        $this->em->clear();
+        self::assertSame(['ROLE_SUPER_ADMIN', 'ROLE_MASTER_PRIMARIO', 'ROLE_USER'], array_values($this->recarregar($secundario)->getRoles()));
+        self::assertSame(['ROLE_USER'], array_values($this->recarregar($atual)->getRoles()));
     }
 
     #[TestDox('e-mail inexistente: falha sem mexer em ninguém')]
