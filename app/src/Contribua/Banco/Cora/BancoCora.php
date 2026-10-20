@@ -91,6 +91,10 @@ final class BancoCora implements BancoPix
     private function credenciais(): CredenciaisCora
     {
         $i = $this->integracoes->atual();
+        // As credenciais guardadas são do banco configurado: nunca vão para outro banco.
+        if ($i->getBanco() !== $this->codigo()) {
+            throw new FalhaNoBanco('A integração foi trocada para outro banco; esta cobrança não é mais consultada automaticamente.', 0, null, false);
+        }
         if (null === $i->getClientId() || '' === $i->getClientId() || !$i->temCertificado()) {
             throw new FalhaNoBanco('Informe o Client ID e envie o certificado antes de testar.');
         }

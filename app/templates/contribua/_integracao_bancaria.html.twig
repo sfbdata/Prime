@@ -1,7 +1,9 @@
 {#
     Integração bancária (API), só o Master (desenho 08, L80-101). Ponto de inclusão da f6, entre #apoie e
-    "Quem somos". O certificado e a chave nunca voltam à tela: só os nomes dos arquivos enviados.
-    Lógica em public/js/contribua-cora.js; estilo em public/css/contribua-cora.css (cópia do desenho).
+    "Quem somos". O certificado e a chave nunca voltam à tela: só os nomes dos arquivos enviados. O Client
+    Secret e a app key também não: a tela só sabe se estão definidos (D4 da C4b).
+    Campos extras (D4, omissos no desenho, no estilo dos campos dele): aparecem só para o banco que os pede
+    (data-cc-para). Lógica em public/js/contribua-cora.js; estilo em public/css/contribua-cora.css.
 #}
 {% set i = contribua_integracao_bancaria() %}
 {% if i %}
@@ -28,11 +30,9 @@
             </div>
             <div class="cc-par">
                 <label class="cc-campo">BANCO<select data-cc-banco>
-                    <option value="cora" selected>Cora SCFI (403)</option>
-                    {# Inter, BB e Outro entram nas etapas C4b e C4c (D9). #}
-                    <option value="inter" disabled>Banco Inter (077)</option>
-                    <option value="bb" disabled>Banco do Brasil (001)</option>
-                    <option value="outro" disabled>Outro (API PIX padrão BACEN)</option>
+                    {% for codigo, rotulo in {cora: 'Cora SCFI (403)', inter: 'Banco Inter (077)', bb: 'Banco do Brasil (001)', outro: 'Outro (API PIX padrão BACEN)'} %}
+                        <option value="{{ codigo }}"{{ i.banco == codigo ? ' selected' }}>{{ rotulo }}</option>
+                    {% endfor %}
                 </select></label>
                 <label class="cc-campo">AMBIENTE<select data-cc-ambiente>
                     <option value="sandbox"{{ i.ambiente == 'sandbox' ? ' selected' }}>Testes (sandbox)</option>
@@ -40,6 +40,17 @@
                 </select></label>
             </div>
             <label class="cc-campo">CLIENT ID<input data-cc-cid value="{{ i.clientId }}" placeholder="Fornecido pelo banco ao criar a integração" autocomplete="off"></label>
+            <label class="cc-campo" data-cc-para="inter bb outro"{{ i.banco not in ['inter', 'bb', 'outro'] ? ' hidden' }}>CLIENT SECRET<input type="password" data-cc-secret placeholder="Fornecido pelo banco junto com o Client ID" autocomplete="new-password">
+                <span class="cc-ajuda" data-cc-secret-txt>{{ i.clientSecretDefinido ? 'Definido. Deixe em branco para manter.' : 'Não definido.' }}</span></label>
+            <label class="cc-campo" data-cc-para="inter bb outro"{{ i.banco not in ['inter', 'bb', 'outro'] ? ' hidden' }}>CHAVE PIX DA CONTA<input data-cc-chave-pix value="{{ i.chavePix }}" maxlength="77" placeholder="CNPJ, e-mail, telefone ou chave aleatória da conta que recebe" autocomplete="off"></label>
+            <label class="cc-campo" data-cc-para="inter"{{ i.banco != 'inter' ? ' hidden' }}>CONTA CORRENTE<input data-cc-conta-corrente value="{{ i.contaCorrente }}" maxlength="20" inputmode="numeric" pattern="[0-9]*" placeholder="Só se a integração tiver acesso a mais de uma conta" autocomplete="off">
+                <span class="cc-ajuda">Opcional. Só números, incluindo o dígito.</span></label>
+            <label class="cc-campo" data-cc-para="bb"{{ i.banco != 'bb' ? ' hidden' }}>APP KEY<input type="password" data-cc-app-key placeholder="Da aplicação no Portal do Desenvolvedor BB" autocomplete="new-password">
+                <span class="cc-ajuda" data-cc-app-key-txt>{{ i.appKeyDefinida ? 'Definida. Deixe em branco para manter.' : 'Não definida.' }}</span></label>
+            <label class="cc-campo" data-cc-para="outro"{{ i.banco != 'outro' ? ' hidden' }}>URL BASE DA API PIX<input type="url" data-cc-url-base value="{{ i.urlBase }}" maxlength="255" placeholder="https://api.seubanco.com.br/pix/v2" autocomplete="off"></label>
+            <label class="cc-campo" data-cc-para="outro"{{ i.banco != 'outro' ? ' hidden' }}>URL DO TOKEN<input type="url" data-cc-url-token value="{{ i.urlToken }}" maxlength="255" placeholder="https://api.seubanco.com.br/oauth/token" autocomplete="off"></label>
+            <label class="cc-campo" data-cc-para="bb outro"{{ i.banco not in ['bb', 'outro'] ? ' hidden' }}>SENHA DO CERTIFICADO (.PFX)<input type="password" data-cc-senha-cert placeholder="Só se o .pfx ou .p12 tiver senha" autocomplete="new-password">
+                <span class="cc-ajuda">Informe antes de escolher o arquivo. Usada só para abrir o certificado no servidor e nunca guardada.</span></label>
             <label class="cc-campo">CERTIFICADO E CHAVE PRIVADA
                 <span class="cc-arquivo"><i class="bi bi-file-lock"></i><span data-cc-cert-txt>{{ i.arquivos ? i.arquivos|join(', ') : 'Selecionar arquivos .pem / .key / .p12' }}</span><input type="file" multiple accept=".pem,.key,.crt,.p12,.pfx" data-cc-cert hidden></span>
                 <span class="cc-ajuda">Enviado direto ao servidor e guardado em cofre. O conteúdo nunca aparece na tela nem fica no navegador.</span>

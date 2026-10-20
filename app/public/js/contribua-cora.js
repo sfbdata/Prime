@@ -31,10 +31,14 @@
     function iniciarIntegracao(sec) {
         const banco = $('[data-cc-banco]', sec);
         const hook = () => { $('[data-cc-hook]', sec).textContent = sec.dataset.webhookBase + banco.value + '/pix'; };
+        /* Campos extras (C4b): só os do banco escolhido aparecem. */
+        const extras = () => { sec.querySelectorAll('[data-cc-para]').forEach(el => { el.hidden = !el.dataset.ccPara.split(' ').includes(banco.value); }); };
+        const valor = s => { const el = $(s, sec); return el ? el.value.trim() : ''; };
         const estado = e => { const el = $('[data-cc-estado]', sec); el.className = 'cc-estado ' + ESTADOS[e][1]; $('span', el).textContent = ESTADOS[e][0]; };
         let temCert = sec.dataset.temCertificado === '1';
         hook();
-        banco.addEventListener('change', hook);
+        extras();
+        banco.addEventListener('change', () => { hook(); extras(); });
         sec.addEventListener('click', async ev => {
             const t = ev.target;
             const rec = t.closest('[data-cc-recurso]');
@@ -64,10 +68,27 @@
                 if (!cid) { avisar('Informe o Client ID fornecido pelo banco.'); return; }
                 const dados = new FormData();
                 dados.append('ambiente', $('[data-cc-ambiente]', sec).value);
+                dados.append('banco', banco.value);
                 dados.append('clientId', cid);
+                /* Segredo em branco mantém o que o servidor já guardou; ele nunca volta para a tela. */
+                dados.append('clientSecret', valor('[data-cc-secret]'));
+                dados.append('chavePix', valor('[data-cc-chave-pix]'));
+                dados.append('appKey', valor('[data-cc-app-key]'));
+                dados.append('urlBase', valor('[data-cc-url-base]'));
+                dados.append('urlToken', valor('[data-cc-url-token]'));
+                dados.append('contaCorrente', valor('[data-cc-conta-corrente]'));
                 sec.querySelectorAll('[data-cc-recurso]').forEach(r => dados.append('recursos[' + r.dataset.ccRecurso + ']', r.getAttribute('aria-pressed') === 'true' ? '1' : '0'));
                 salvar.disabled = true;
-                try { const j = await postar(sec.dataset.urlSalvar, dados); estado(temCert ? 'pend' : 'off'); avisar(j.mensagem); } catch (e) { avisar(e.message); }
+                try {
+                    const j = await postar(sec.dataset.urlSalvar, dados);
+                    [['[data-cc-secret]', '[data-cc-secret-txt]', 'Definido'], ['[data-cc-app-key]', '[data-cc-app-key-txt]', 'Definida']].forEach(([campo, txt, rotulo]) => {
+                        const el = $(campo, sec);
+                        if (el && el.value.trim()) { $(txt, sec).textContent = rotulo + '. Deixe em branco para manter.'; }
+                        if (el) { el.value = ''; }
+                    });
+                    estado(temCert ? 'pend' : 'off');
+                    avisar(j.mensagem);
+                } catch (e) { avisar(e.message); }
                 salvar.disabled = false;
             }
         });
@@ -76,6 +97,10 @@
             if (!arquivos.length) { return; }
             const dados = new FormData();
             arquivos.forEach(f => dados.append('arquivos[]', f, f.name));
+            /* Senha do .pfx (D7 da C4b): vai junto só para abrir o arquivo no servidor e some do campo. */
+            const senha = $('[data-cc-senha-cert]', sec);
+            if (senha && senha.value) { dados.append('senhaDoCertificado', senha.value); }
+            if (senha) { senha.value = ''; }
             try {
                 const j = await postar(sec.dataset.urlCertificado, dados);
                 $('[data-cc-cert-txt]', sec).textContent = j.arquivos.join(', ');

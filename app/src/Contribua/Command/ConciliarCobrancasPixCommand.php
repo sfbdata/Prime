@@ -16,11 +16,13 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Conciliação (desenho 08, "Conciliação automática"): reconsulta as cobranças abertas dos últimos 30 dias,
- * para o aviso que se perdeu. Cron do dono a cada 15 minutos (C5). Só roda com o recurso ligado.
+ * Conciliação (desenho 08, "Conciliação automática"): reconsulta as cobranças abertas dos últimos 30 dias
+ * do banco ativo (Cora, Inter, BB ou Outro; D8 da C4b), para o aviso que se perdeu. Cron do dono a cada 15
+ * minutos (C5). Só roda com o recurso ligado. `app:cora:conciliar` continua valendo como apelido (o cron
+ * antigo não quebra).
  */
-#[AsCommand(name: 'app:cora:conciliar', description: 'Confere na Cora as cobranças PIX abertas e confirma os apoios pagos')]
-final class ConciliarCoraCommand extends Command
+#[AsCommand(name: 'app:contribua:conciliar', description: 'Confere no banco ativo as cobranças PIX abertas e confirma os apoios pagos', aliases: ['app:cora:conciliar'])]
+final class ConciliarCobrancasPixCommand extends Command
 {
     private const DIAS = 30;
 
@@ -43,9 +45,10 @@ final class ConciliarCoraCommand extends Command
             return Command::SUCCESS;
         }
         [$confirmados, $falhas] = [0, 0];
-        foreach ($this->cobrancas->abertasDesde('cora', $integracao->getAmbiente(), new \DateTimeImmutable('-' . self::DIAS . ' days')) as $cobranca) {
+        $banco = $integracao->getBanco();
+        foreach ($this->cobrancas->abertasDesde($banco, $integracao->getAmbiente(), new \DateTimeImmutable('-' . self::DIAS . ' days')) as $cobranca) {
             try {
-                $confirmados += $this->confirmar->executar('cora', (string) $cobranca->getIdNoBanco()) ? 1 : 0;
+                $confirmados += $this->confirmar->executar($banco, (string) $cobranca->getIdNoBanco()) ? 1 : 0;
             } catch (FalhaNoBanco|\DomainException $e) {
                 ++$falhas;
                 $io->warning('Cobrança ' . $cobranca->getCodigo() . ': ' . $e->getMessage());

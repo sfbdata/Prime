@@ -21,7 +21,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * História: o escritório pagou o PIX da cobrança da conta. O banco avisa (webhook) ou a conciliação passa;
  * nos dois casos reconsultamos o banco por mTLS, e só a resposta dele confirma (o aviso da Cora vem sem
  * corpo e sem assinatura). Regras:
- * - só se consulta a cobrança do ambiente configurado agora (as credenciais são do ambiente);
+ * - só se consulta a cobrança do banco e do ambiente configurados agora (as credenciais são deles);
  * - o código devolvido pelo banco tem de ser o da cobrança;
  * - no ambiente de testes (sandbox) nenhum apoio nasce: a cobrança fica paga e o Master é avisado do teste;
  * - em produção, um pagamento é um apoio: se a conta já tinha informado ("Já contribuí") e o banco ainda não
@@ -48,8 +48,11 @@ final class ConfirmarCobrancaPeloBancoUseCase
     {
         $cobranca = $this->cobrancas->doBanco($codigoDoBanco, $idNoBanco);
         $banco = $this->bancos->doCodigo($codigoDoBanco);
+        $integracao = $this->integracoes->atual();
+        // Só se consulta o banco configurado agora: as credenciais são dele (trocou de banco, a cobrança do
+        // anterior fica sem confirmação automática, e nada sai para o banco errado).
         if (null === $cobranca || null === $banco || CobrancaPixDaConta::ABERTA !== $cobranca->getSituacao()
-            || $cobranca->getAmbiente() !== $this->integracoes->atual()->getAmbiente()) {
+            || $codigoDoBanco !== $integracao->getBanco() || $cobranca->getAmbiente() !== $integracao->getAmbiente()) {
             return false;
         }
         $situacao = $banco->consultar($idNoBanco);
@@ -111,7 +114,8 @@ final class ConfirmarCobrancaPeloBancoUseCase
     {
         $cobranca->marcarPaga();
         $this->em->flush();
-        $this->avisar($cobranca, AvisoAoMaster::TIPO_APOIO_CONFIRMADO, 'Teste da Cora (sandbox): pagamento confirmado de %s (conta Nº %s), %s. Nenhum apoio foi registrado.', $situacao->valorPagoCentavos ?: $cobranca->getValorCentavos());
+        $teste = 'cora' === $cobranca->getBanco() ? 'Teste da Cora' : 'Teste do banco';
+        $this->avisar($cobranca, AvisoAoMaster::TIPO_APOIO_CONFIRMADO, $teste . ' (sandbox): pagamento confirmado de %s (conta Nº %s), %s. Nenhum apoio foi registrado.', $situacao->valorPagoCentavos ?: $cobranca->getValorCentavos());
 
         return false;
     }

@@ -9,9 +9,11 @@ use App\Entity\Auth\User;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * Integração bancária da BlueJus (desenho 08, só o Master): uma linha global. O certificado e a chave
- * privada ficam CIFRADOS (CofreDeCertificado; a chave de cifra mora no ambiente) e nunca voltam à tela: a
- * tela mostra os nomes dos arquivos e se estão presentes. Fora da auditoria (técnica, com segredo).
+ * Integração bancária da BlueJus (desenho 08, só o Master): uma linha global. O certificado, a chave
+ * privada, o Client Secret e a app key ficam CIFRADOS (CofreDeCertificado; a chave de cifra mora no
+ * ambiente) e nunca voltam à tela: a tela mostra os nomes dos arquivos e se cada segredo está definido.
+ * Fora da auditoria (técnica, com segredo). O banco é escolhido no seletor (D5 da C4b); os campos extras
+ * (D4) só valem para os bancos da API Pix do BACEN.
  */
 #[ORM\Entity(repositoryClass: IntegracaoBancariaRepository::class)]
 #[ORM\Table(name: 'contribua_integracao_bancaria')]
@@ -23,6 +25,10 @@ class IntegracaoBancaria
     public const AMBIENTES = ['sandbox', 'producao'];
     /** Chaves do desenho (L249): cobrança por conta, conciliação, boleto, relatório. */
     public const RECURSOS_PADRAO = ['cob' => true, 'conc' => true, 'bol' => false, 'rel' => true];
+    /** Tamanho máximo de uma chave PIX (a aleatória tem 36; o e-mail vai até 77). */
+    public const TAMANHO_CHAVE_PIX = 77;
+    /** Tamanho máximo da conta corrente do Inter (só números, com o dígito). */
+    public const TAMANHO_CONTA_CORRENTE = 20;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -46,6 +52,33 @@ class IntegracaoBancaria
 
     #[ORM\Column(name: 'chave_cifrada', type: 'text', nullable: true)]
     private ?string $chaveCifrada = null;
+
+    /** Client Secret do OAuth2 (Inter, BB, Outro), cifrado. */
+    #[ORM\Column(name: 'client_secret_cifrado', type: 'text', nullable: true)]
+    private ?string $clientSecretCifrado = null;
+
+    /** A chave PIX da conta que recebe (vai em toda cobrança da API Pix do BACEN). Não é segredo. */
+    #[ORM\Column(name: 'chave_pix', length: 77, nullable: true)]
+    private ?string $chavePix = null;
+
+    /** App key do Portal do Desenvolvedor do BB, cifrada. */
+    #[ORM\Column(name: 'app_key_cifrada', type: 'text', nullable: true)]
+    private ?string $appKeyCifrada = null;
+
+    /** "Outro": a URL base da API Pix do PSP (sem a barra final). */
+    #[ORM\Column(name: 'url_base', length: 255, nullable: true)]
+    private ?string $urlBase = null;
+
+    /** "Outro": a URL do token OAuth2 do PSP. */
+    #[ORM\Column(name: 'url_token', length: 255, nullable: true)]
+    private ?string $urlToken = null;
+
+    /**
+     * Inter: a conta corrente do cabeçalho `x-conta-corrente`, só números (com o dígito, sem zeros à
+     * esquerda). Opcional: só quando a integração tem acesso a mais de uma conta. Não é segredo.
+     */
+    #[ORM\Column(name: 'conta_corrente', length: 20, nullable: true)]
+    private ?string $contaCorrente = null;
 
     /** @var list<string> */
     #[ORM\Column(type: 'json')]
@@ -84,6 +117,65 @@ class IntegracaoBancaria
         $this->tocar($quem);
     }
 
+    /**
+     * O banco do seletor (D5). Quem chama confere que ele existe em BancosPix; aqui só o formato. Trocar
+     * de banco desfaz a conexão: o teste valia para o banco anterior.
+     */
+    public function escolherBanco(string $codigo): void
+    {
+        if (1 !== preg_match('/^[a-z]{2,20}$/', $codigo)) {
+            throw new \DomainException('Banco inválido.');
+        }
+        if ($codigo !== $this->banco && self::ESTADO_CONECTADA === $this->estado) {
+            $this->estado = self::ESTADO_AGUARDANDO;
+        }
+        $this->banco = $codigo;
+    }
+
+    /** Chave PIX e, no "Outro", as URLs do PSP. Confere tudo antes de gravar (nada muda se uma falhar). */
+    public function definirEnderecos(string $chavePix, string $urlBase, string $urlToken): void
+    {
+        $chavePix = trim($chavePix);
+        if (mb_strlen($chavePix) > self::TAMANHO_CHAVE_PIX) {
+            throw new \DomainException('A chave PIX tem no máximo 77 caracteres.');
+        }
+        $urlBase = rtrim(self::url($urlBase, 'URL base da API Pix'), '/');
+        $urlToken = self::url($urlToken, 'URL do token');
+        $this->chavePix = '' === $chavePix ? null : $chavePix;
+        $this->urlBase = '' === $urlBase ? null : $urlBase;
+        $this->urlToken = '' === $urlToken ? null : $urlToken;
+    }
+
+    /** Conta corrente do Inter (só números); vazia apaga. Os zeros à esquerda saem, como pede o Inter. */
+    public function definirContaCorrente(string $conta): void
+    {
+        $conta = trim($conta);
+        if ('' === $conta) {
+            $this->contaCorrente = null;
+
+            return;
+        }
+        $semZeros = ltrim($conta, '0');
+        if (1 !== preg_match('/^\d+$/', $conta) || '' === $semZeros || strlen($semZeros) > self::TAMANHO_CONTA_CORRENTE) {
+            throw new \DomainException('Informe a conta corrente só com números, incluindo o dígito.');
+        }
+        $this->contaCorrente = $semZeros;
+    }
+
+    /** Troca de banco ou de endereço: o segredo guardado era do anterior e não pode ir para o novo. */
+    public function esquecerSegredos(): void
+    {
+        $this->clientSecretCifrado = null;
+        $this->appKeyCifrada = null;
+    }
+
+    /** Segredos já cifrados; `null` mantém o que estava (campo deixado em branco na tela). */
+    public function guardarSegredos(?string $clientSecretCifrado, ?string $appKeyCifrada): void
+    {
+        $this->clientSecretCifrado = $clientSecretCifrado ?? $this->clientSecretCifrado;
+        $this->appKeyCifrada = $appKeyCifrada ?? $this->appKeyCifrada;
+    }
+
     /** @param list<string> $nomes */
     public function guardarCertificado(string $certificadoCifrado, string $chaveCifrada, array $nomes, User $quem): void
     {
@@ -110,6 +202,48 @@ class IntegracaoBancaria
     public function temCertificado(): bool
     {
         return null !== $this->certificadoCifrado && null !== $this->chaveCifrada;
+    }
+
+    public function temClientSecret(): bool
+    {
+        return null !== $this->clientSecretCifrado;
+    }
+
+    public function temAppKey(): bool
+    {
+        return null !== $this->appKeyCifrada;
+    }
+
+    /** Vazia ou `https://` com host (a URL vai para o servidor chamar: nada de http, arquivo ou outro esquema). */
+    private static function url(string $url, string $rotulo): string
+    {
+        $url = trim($url);
+        if ('' === $url) {
+            return '';
+        }
+        $host = parse_url($url, \PHP_URL_HOST);
+        if (mb_strlen($url) > 255 || !str_starts_with(strtolower($url), 'https://') || !is_string($host) || '' === $host || false === filter_var($url, \FILTER_VALIDATE_URL)) {
+            throw new \DomainException('A ' . $rotulo . ' precisa ser um endereço https:// completo.');
+        }
+        if (self::redeInterna($host)) {
+            throw new \DomainException('A ' . $rotulo . ' não pode apontar para a rede interna (localhost, IP privado, de loopback ou link-local).');
+        }
+
+        return $url;
+    }
+
+    /** localhost e IP literal privado, reservado (loopback, link-local...), v4 ou v6. O nome que resolve para dentro não é pego aqui. */
+    private static function redeInterna(string $host): bool
+    {
+        $host = strtolower(rtrim(trim($host, '[]'), '.'));
+        if ('localhost' === $host || str_ends_with($host, '.localhost')) {
+            return true;
+        }
+        if (false === filter_var($host, \FILTER_VALIDATE_IP)) {
+            return false;
+        }
+
+        return false === filter_var($host, \FILTER_VALIDATE_IP, \FILTER_FLAG_NO_PRIV_RANGE | \FILTER_FLAG_NO_RES_RANGE);
     }
 
     private function tocar(User $quem): void
@@ -151,6 +285,36 @@ class IntegracaoBancaria
     public function getChaveCifrada(): ?string
     {
         return $this->chaveCifrada;
+    }
+
+    public function getClientSecretCifrado(): ?string
+    {
+        return $this->clientSecretCifrado;
+    }
+
+    public function getChavePix(): ?string
+    {
+        return $this->chavePix;
+    }
+
+    public function getAppKeyCifrada(): ?string
+    {
+        return $this->appKeyCifrada;
+    }
+
+    public function getUrlBase(): ?string
+    {
+        return $this->urlBase;
+    }
+
+    public function getUrlToken(): ?string
+    {
+        return $this->urlToken;
+    }
+
+    public function getContaCorrente(): ?string
+    {
+        return $this->contaCorrente;
     }
 
     /** @return list<string> */

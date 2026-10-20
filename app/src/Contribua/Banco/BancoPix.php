@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Contribua\Banco;
 
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+
 /**
- * Banco que recebe o apoio por PIX com QR dinâmico (desenho 08, "Integração bancária"). A Cora é o primeiro;
- * Inter, Banco do Brasil e "Outro" (API PIX do BACEN) entram depois atrás desta mesma interface (D9).
+ * Banco que recebe o apoio por PIX com QR dinâmico (desenho 08, "Integração bancária"): a Cora e, atrás
+ * desta mesma interface, Inter, Banco do Brasil e "Outro" (API PIX do BACEN, C4b/C4c). Toda implementação
+ * entra sozinha em BancosPix (tag pelo nome da interface).
  */
+#[AutoconfigureTag]
 interface BancoPix
 {
     /** Código do banco no seletor e no endereço do webhook (`/api/webhooks/<codigo>/pix`). */

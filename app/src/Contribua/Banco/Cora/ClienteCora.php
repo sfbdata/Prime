@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Contribua\Banco\Cora;
 
+use App\Contribua\Banco\ClienteHttpDosBancos;
 use App\Contribua\Banco\CofreDeCertificado;
 use App\Contribua\Banco\FalhaNoBanco;
 use App\Shared\Armazenamento\AreaTemporariaPrivada;
@@ -27,6 +28,8 @@ class ClienteCora
     private const TEMPO_SEGUNDOS = 15;
 
     public function __construct(
+        /** Sem logger e sem redirecionamento (ClienteHttpDosBancos): a URL e o segredo não vão para o log. */
+        #[Autowire(service: ClienteHttpDosBancos::class)]
         private readonly HttpClientInterface $http,
         #[Autowire(service: 'cache.app')]
         private readonly CacheItemPoolInterface $cache,
@@ -70,7 +73,7 @@ class ClienteCora
     private function chamar(CredenciaisCora $c, array $mtls, string $metodo, string $caminho, array $opcoes, string $token): array
     {
         try {
-            $r = $this->http->request($metodo, $c->base() . $caminho, $mtls + $opcoes + ['auth_bearer' => $token, 'timeout' => self::TEMPO_SEGUNDOS]);
+            $r = $this->http->request($metodo, $c->base() . $caminho, $mtls + $opcoes + ['auth_bearer' => $token, 'timeout' => self::TEMPO_SEGUNDOS, 'max_redirects' => 0]);
 
             return [$r->getStatusCode(), $r->toArray(false)];
         } catch (ExceptionInterface $e) {
@@ -98,6 +101,7 @@ class ClienteCora
             $r = $this->http->request('POST', $c->base() . '/token', $mtls + [
                 'body' => ['grant_type' => 'client_credentials', 'client_id' => $c->clientId],
                 'timeout' => self::TEMPO_SEGUNDOS,
+                'max_redirects' => 0,
             ]);
             $status = $r->getStatusCode();
             $corpo = $r->toArray(false);

@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Contribua\DTO;
 
-/** O que a seção "Integração bancária" mostra ao Master. Nunca o certificado: só os nomes e se está presente. */
+/**
+ * O que a seção "Integração bancária" mostra ao Master. Nunca o certificado nem os segredos (Client Secret,
+ * app key): só os nomes dos arquivos e se cada segredo está definido. Chave PIX, URLs e conta corrente não são segredo.
+ */
 final readonly class IntegracaoBancariaView
 {
     /**
@@ -21,6 +24,12 @@ final readonly class IntegracaoBancariaView
         public array $recursos,
         public string $estado,
         public ?string $resultadoDoTeste,
+        public bool $clientSecretDefinido = false,
+        public string $chavePix = '',
+        public bool $appKeyDefinida = false,
+        public string $urlBase = '',
+        public string $urlToken = '',
+        public string $contaCorrente = '',
     ) {
     }
 }
