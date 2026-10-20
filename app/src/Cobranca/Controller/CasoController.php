@@ -46,6 +46,7 @@ use App\Cobranca\UseCase\ExcluirAnotacaoUseCase;
 use App\Cobranca\UseCase\RegistrarAnotacaoUseCase;
 use App\Cobranca\UseCase\RegistrarTentativaCobrancaUseCase;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\Repository\PastaRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -247,7 +248,7 @@ final class CasoController extends AbstractController
         return $this->json([
             'results' => array_map(
                 static fn (array $linha): array => ['id' => $linha['id'], 'text' => $linha['texto']],
-                $this->pastaRepository->buscarParaVinculo((string) $request->query->get('q', ''), $tenant, 20, $idsJaVinculados),
+                $this->pastaRepository->buscarParaVinculo((string) $request->query->get('q', ''), $tenant, 20, $idsJaVinculados, $this->usuarioLogado()),
             ),
         ]);
     }
@@ -326,7 +327,7 @@ final class CasoController extends AbstractController
                     }
                     $this->addFlash('success', 'Caso judicializado.');
                 }
-            } catch (CasoNaoEncontradoException | CasoEncerradoException | CasoJaJudicializadoException | PastaNaoEncontradaException | PastaJaVinculadaAOutroCasoException $e) {
+            } catch (CasoNaoEncontradoException | CasoEncerradoException | CasoJaJudicializadoException | PastaNaoEncontradaException | PastaJaVinculadaAOutroCasoException | SemPermissaoParaEditarPastaException $e) {
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {

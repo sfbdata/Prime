@@ -20,6 +20,7 @@ use App\Central\Repository\MensagemRepository;
 use App\Central\Repository\ParticipanteRepository;
 use App\Central\Service\AcessoACentral;
 use App\Central\Service\AvisoDeDespachoUrgente;
+use App\Central\Service\GuardaDoEncaminhamento;
 use App\Central\Service\AvisoDeMencaoNaCentral;
 use App\Central\Service\MencoesDaCentral;
 use App\Central\UseCase\AbrirConversaUseCase;
@@ -36,6 +37,7 @@ use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
 use App\Tests\Central\Support\MontaEncaminhamentoTrait;
 use App\Tests\Inteligencia\Support\DefineId;
+use App\Tests\Central\Support\MontaLeituraDasMensagensTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -53,6 +55,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 final class EncaminharItemDaPastaUseCaseTest extends TestCase
 {
     use MontaEncaminhamentoTrait;
+    use MontaLeituraDasMensagensTrait;
 
     private const INDIVIDUAL = 40;
     private const GRUPO = 41;
@@ -71,6 +74,9 @@ final class EncaminharItemDaPastaUseCaseTest extends TestCase
 
     /** @var list<string> o conteúdo de cada mensagem gravada */
     private array $enviadas = [];
+
+    /** @var list<Mensagem> cada mensagem gravada, inteira */
+    private array $gravadas = [];
 
     protected function setUp(): void
     {
@@ -242,6 +248,41 @@ final class EncaminharItemDaPastaUseCaseTest extends TestCase
         self::assertSame(['Despacho: Pasta PASTA-50'], $this->enviadas, 'no tipo pasta a linha da pasta não se repete');
     }
 
+    #[TestDox('A mensagem do despacho leva a referência: a pasta e o tipo do item, gravados junto com o texto')]
+    public function testMensagemLevaAReferencia(): void
+    {
+        $this->montar([1, 2])->executar($this->eu, $this->tenant, $this->pedido(TipoDeItemEncaminhado::Pasta, null, usuarioId: 2));
+
+        self::assertCount(1, $this->gravadas);
+        self::assertTrue($this->gravadas[0]->isDespacho());
+        self::assertSame(50, $this->gravadas[0]->getDespachoPastaId());
+        self::assertSame(TipoDeItemEncaminhado::Pasta, $this->gravadas[0]->getDespachoTipo());
+    }
+
+    #[TestDox('1:1 pela conversa com colega sem vínculo ativo, e grupo em que só eu sigo no escritório: recusa, nada gravado')]
+    public function testConversaSemNinguemQueReceba(): void
+    {
+        foreach ([self::INDIVIDUAL, self::GRUPO] as $conversaId) {
+            try {
+                $this->montar([1, 2, 3], ativos: [$this->eu])
+                    ->executar($this->eu, $this->tenant, $this->pedido(TipoDeItemEncaminhado::Pasta, null, conversaId: $conversaId));
+                self::fail('devia recusar a conversa ' . $conversaId);
+            } catch (PedidoInvalidoNaCentralException $e) {
+                self::assertSame(GuardaDoEncaminhamento::MOTIVO_SEM_DESTINATARIO, $e->getMessage());
+            }
+        }
+        self::assertSame([], $this->enviadas);
+    }
+
+    #[TestDox('Registro do Financeiro: quem envia sem ver o financeiro da pasta recebe 404, sem ler o item')]
+    public function testFinanceiroQueEuNaoVejo(): void
+    {
+        $this->expectException(ItemEncaminhadoNaoEncontradoException::class);
+
+        $this->montar([1, 2], quemVeOFinanceiro: [2])
+            ->executar($this->eu, $this->tenant, $this->pedido(TipoDeItemEncaminhado::RegistroFinanceiro, 31, usuarioId: 2));
+    }
+
     #[TestDox('Destino: um colega OU uma conversa; os dois juntos ou nenhum é recusado')]
     public function testDestinoExclusivo(): void
     {
@@ -301,6 +342,7 @@ final class EncaminharItemDaPastaUseCaseTest extends TestCase
     /**
      * @param list<int>       $quemVe ids de quem vê a pasta
      * @param list<User>|null $ativos quem tem vínculo ativo (padrão: os três)
+     * @param list<int>|null  $quemVeOFinanceiro ids de quem vê o financeiro (padrão: todos)
      */
     private function montar(
         array $quemVe,
@@ -309,6 +351,7 @@ final class EncaminharItemDaPastaUseCaseTest extends TestCase
         ?AuditoriaDoDespacho $auditoria = null,
         ?PastaMensagem $registro = null,
         ?EntityManagerInterface $em = null,
+        ?array $quemVeOFinanceiro = null,
     ): EncaminharItemDaPastaUseCase {
         $participantes = $this->participantes();
         $acesso = $this->acessoACentral($ativos ?? [$this->eu, $this->bruno, $this->carla], $participantes);
@@ -319,7 +362,7 @@ final class EncaminharItemDaPastaUseCaseTest extends TestCase
 
         return new EncaminharItemDaPastaUseCase(
             $acesso,
-            $this->guarda($this->pasta, $this->acessoAPasta($quemVe), $participantes),
+            $this->guarda($this->pasta, $this->acessoAPasta($quemVe), $participantes, $quemVeOFinanceiro),
             $this->itens($registros),
             $usuarios,
             $this->abrir($acesso, $usuarios, $participantes),
@@ -356,6 +399,7 @@ final class EncaminharItemDaPastaUseCaseTest extends TestCase
         $mensagens = $this->createStub(MensagemRepository::class);
         $mensagens->method('salvar')->willReturnCallback(function (Mensagem $m): void {
             $this->enviadas[] = $m->getConteudo();
+            $this->gravadas[] = $m;
         });
         $em = $this->transacao();
         $aviso = new AvisoDeMencaoNaCentral(
@@ -365,7 +409,7 @@ final class EncaminharItemDaPastaUseCaseTest extends TestCase
             $this->createStub(TravaDosAvisosDeMencao::class),
         );
 
-        return new EnviarMensagemUseCase($acesso, $mensagens, $em, $this->relogio(), new MencoesDaCentral(), $aviso);
+        return new EnviarMensagemUseCase($acesso, $mensagens, $em, $this->relogio(), new MencoesDaCentral(), $aviso, $this->leituraDasMensagens());
     }
 
     /** O EM de mentira roda o bloco da transação e deixa a exceção dele subir, como o de verdade. */

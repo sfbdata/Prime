@@ -232,6 +232,10 @@
             avisarVisibilidade();
         }
 
+        // Outras telas pedem a janela aberta (ex.: "Enviar no Chat I.A" da observação, dc L.6872): só abre, não muda
+        // de conversa; já aberta, nada a fazer.
+        document.addEventListener('bj-central:abrir', function () { if (!ui.aberto) { abrir(); } });
+
         function fechar() {   // fechar não marca nada como lido (L6345)
             // Destacada: Fechar devolve a Central ao BlueJus e fecha a janela de fora. (No protótipo o Fechar destacado
             // deixa a janela de fora vazia e aberta, L6345. Decisão desta entrega, levada ao dono: HANDOFF §12.)

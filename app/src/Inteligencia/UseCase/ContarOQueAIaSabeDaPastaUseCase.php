@@ -9,6 +9,7 @@ use App\Inteligencia\Contexto\FonteDeContagensDaPasta;
 use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
 use App\Inteligencia\DTO\ContagensDaPasta;
 use App\Inteligencia\DTO\OQueAIaSabeOutput;
+use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
 
 /**
@@ -38,9 +39,31 @@ final class ContarOQueAIaSabeDaPastaUseCase
     ) {
     }
 
-    public function executar(Pasta $pasta, Tenant $tenant): OQueAIaSabeOutput
+    /**
+     * `$abasOcultas`: as abas ocultas para quem vê o painel (ocultar aba). A contagem de uma aba
+     * oculta é zero, como o que o agente receberia dela pedindo por essa pessoa
+     * (`SecaoDoContexto::abaDaPasta`): documentos (Documentos), metas e prazos (Metas), anotações
+     * (Dados) e observações (Detalhes).
+     *
+     * @param list<string> $abasOcultas
+     */
+    public function executar(Pasta $pasta, Tenant $tenant, array $abasOcultas = []): OQueAIaSabeOutput
     {
-        return self::doQueAIaRecebe($this->contagens->contar($tenant, $pasta));
+        return self::doQueAIaRecebe(self::semAbasOcultas($this->contagens->contar($tenant, $pasta), $abasOcultas));
+    }
+
+    /** @param list<string> $abasOcultas */
+    public static function semAbasOcultas(ContagensDaPasta $c, array $abasOcultas): ContagensDaPasta
+    {
+        $oculta = static fn (AbaDaPasta $aba): bool => \in_array($aba->value, $abasOcultas, true);
+
+        return new ContagensDaPasta(
+            documentos: $oculta(AbaDaPasta::Documentos) ? 0 : $c->documentos,
+            metas: $oculta(AbaDaPasta::Tarefas) ? 0 : $c->metas,
+            metasAbertasComPrazo: $oculta(AbaDaPasta::Tarefas) ? 0 : $c->metasAbertasComPrazo,
+            anotacoes: $oculta(AbaDaPasta::Dados) ? 0 : $c->anotacoes,
+            observacoes: $oculta(AbaDaPasta::Detalhes) ? 0 : $c->observacoes,
+        );
     }
 
     /**

@@ -100,8 +100,13 @@ final class ListarDestinosDoEncaminhamentoUseCase
      */
     private function grupo(Conversa $grupo, User $eu, Tenant $tenant, array $ativos, \Closure $ve): DestinoDoEncaminhamentoOutput
     {
-        $quemNaoVe = array_filter($this->guarda->quemRecebe($grupo, $eu, $tenant, $ativos), static fn (User $u): bool => !$ve($u));
-        $todosVeem = $quemNaoVe === [];
+        $recebem = $this->guarda->quemRecebe($grupo, $eu, $tenant, $ativos);
+        $quemNaoVe = array_filter($recebem, static fn (User $u): bool => !$ve($u));
+        $motivo = match (true) {
+            $recebem === [] => GuardaDoEncaminhamento::MOTIVO_SEM_DESTINATARIO,
+            $quemNaoVe !== [] => GuardaDoEncaminhamento::MOTIVO_GRUPO,
+            default => null,
+        };
 
         return new DestinoDoEncaminhamentoOutput(
             tipo: DestinoDoEncaminhamentoOutput::CONVERSA,
@@ -109,8 +114,8 @@ final class ListarDestinosDoEncaminhamentoUseCase
             usuarioId: null,
             nome: (string) $grupo->getNome(),
             grupo: true,
-            disponivel: $todosVeem,
-            motivo: $todosVeem ? null : GuardaDoEncaminhamento::MOTIVO_GRUPO,
+            disponivel: $motivo === null,
+            motivo: $motivo,
         );
     }
 

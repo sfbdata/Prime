@@ -51,7 +51,9 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
     on-line = batimento há < 60 s (`PresencaRepository::ONLINE_SEGUNDOS`). "Em aberto" de cada colega (decisão do dono:
     visível a todos) = não lidas na Central + não lidas do sino NESTE escritório; só números saem, nunca texto.
     Grave e compare sempre pelo relógio do PHP: `NOW()` do Postgres está em outro fuso. Status efetivo: Não perturbe →
-    `ocupado`; sem atividade há `Presenca::INATIVO_APOS_MINUTOS` → `inativo`; senão o manual. O batimento responde
+    `ocupado`; sem atividade há o limite do escritório (`ConfiguracaoDePresencaRepository::minutosAusente`, escolhido
+    pelo primário entre `Presenca::OPCOES_DE_AUSENCIA`; sem escolha, `Presenca::INATIVO_APOS_MINUTOS`) → `inativo`;
+    senão o manual. O batimento responde
     quem está on-line (só ids, status e minutos) para o selo do cabeçalho (`templates/menu_usuario/_presenca.html.twig`,
     `presenca-cabecalho.js`; spec `docs/specs/presenca-e-ponto-no-cabecalho.md`).
 
@@ -64,12 +66,19 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
     `Notificacao` `central_despacho` sem texto, com o link da conversa; a auditoria é uma linha manual
     (`action = 'despacho'`, entidade Pasta) só com tipo, item_id, conversa_id e prioridade, nunca texto. Abrir a 1:1,
     mensagem, avisos e auditoria numa transação só (`wrapInTransaction` do UseCase, flush dele). Pasta excluída = 404.
+    Conversa sem ninguém que receba é recusada (`todosVeem([])` é falso). Registro do Financeiro: quem envia e quem
+    recebe também passam por `VisibilidadeDoFinanceiroDaPasta::podeVer`.
+    **Na leitura:** a mensagem guarda a referência (`despacho_pasta_id`, `despacho_tipo`) e TODA saída do texto de
+    mensagem (`MensagemOutput`, `RespostaOutput`) nasce em `LeituraDasMensagens`, que confere a pasta para quem lê
+    naquela hora (memória só durante a leitura; pasta buscada com o escritório explícito). Não vê, pasta apagada ou
+    excluída: "Item de pasta sem acesso", sem a referência (`despacho` nulo, `ocultoPorPermissao`). Consulta nova que
+    devolva mensagem à tela passa por ela; nunca monte a saída com `Mensagem::getConteudo()` direto.
 
 ## Modelo
 
 `central_conversa` (individual: par ordenado `usuario_menor`/`usuario_maior`, único por escritório; grupo: par nulo,
 `nome` 1–60 e `administrador_id`) → `central_participante` (cursor `ultima_lida_id`, nunca recua; `marcada_nao_lida`
-à parte; `saiu_em`; `fixada`/`silenciada`/`arquivada` por pessoa; `limpa_ate_id` = "excluí até aqui", nunca recua) → `central_mensagem` (índices `(conversa_id, id)` e
+à parte; `saiu_em`; `fixada`/`silenciada`/`arquivada` por pessoa; `limpa_ate_id` = "excluí até aqui", nunca recua) → `central_mensagem` (despacho do Encaminhar: `despacho_pasta_id` e `despacho_tipo`, conferidos na leitura, regra 13; índices `(conversa_id, id)` e
 `(tenant_id, criada_em)` da janela do polling; `resposta_a_id` só da MESMA conversa; `sistema` = linha "Ana adicionou
 Bruno", montada pelo servidor). Não lida = mensagem de OUTRA pessoa, não de sistema, acima do cursor. Polling: id acima
 do cursor OU criada nos últimos 30 s (a tela descarta as vistas). As três tabelas estão na purga de escritório.

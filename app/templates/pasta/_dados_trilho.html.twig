@@ -13,7 +13,7 @@
    Cabeçalho dos cartões no padrão PJe: faixa cinza, título 13.5/700, contagem
    em pílula azul e o chevron › que leva à aba (botão, não link morto).
 
-   Contexto: `pasta`, `proximosPrazos`, `unidadeCobrada`.
+   Contexto: `pasta`, `proximosPrazos`, `unidadeCobrada`, `abasOcultas` (ids das abas ocultas para quem vê).
    ============================================================================ #}
 
 {# Alto do trilho: Ação, Processo vinculado e Cobrança (saíram do cabeçalho, como o desenho). #}
@@ -24,6 +24,10 @@
    (PastaPrazoOutput::daPasta, E12b). Meta sem prazo não entra: não tem lugar numa lista ordenada por data. #}
 {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
 {% set podeRegistrarPrazo = podeEditarPasta and not pasta.estaExcluida %}
+{# Os prazos são da aba Metas: com ela oculta, o cartão e a janela somem (spec pasta-ocultar-aba §5;
+   as rotas `pasta_prazo_*` também recusam). Idem o cartão Documentos com a aba Documentos oculta. #}
+{% set abasOcultas = abasOcultas|default([]) %}
+{% if 'tarefas' not in abasOcultas %}
 <section class="ps-card" data-trilho="prazos"
          data-url-prazos="{{ path('pasta_prazo_salvar', {id: pasta.id}) }}"
          data-csrf-prazos="{{ csrf_token('pasta_prazos_' ~ pasta.id) }}">
@@ -159,6 +163,7 @@
     </div>
 </div>
 {% endif %}
+{% endif %}
 
 {# ── Clientes ─────────────────────────────────────────────────────────────
    O miolo (#clientesList, .cliente-linha, o bloco #clientesOutros dos "outros") é o mesmo
@@ -227,6 +232,7 @@
     {# `data-nome-cliente`: o JS do show remonta o vazio deste bloco (abaixo) ao desvincular o último cliente. #}
     <div id="clientesList" data-nome-cliente="{{ pasta.nomeCliente }}">
         {% set clientePrincipal = pasta.clientePrincipal %}
+        {% set idsDuplicados = pasta_clientes_duplicados(pasta) %}
         {% if pasta.clientes|length > 0 %}
             {% set outros = pasta.clientes|filter(c => not clientePrincipal or c.id != clientePrincipal.id) %}
 
@@ -238,7 +244,7 @@
             {% if clientePrincipal %}
                 <div class="cliente-principal">
                     {{ include('pasta/_cliente_linha.html.twig', {
-                        pasta: pasta, cliente: clientePrincipal, ehPrincipal: true, podeMexerNoCliente: podeMexerNoCliente,
+                        pasta: pasta, cliente: clientePrincipal, ehPrincipal: true, podeMexerNoCliente: podeMexerNoCliente, cpfDuplicado: clientePrincipal.id in idsDuplicados,
                     }) }}
                 </div>
             {% endif %}
@@ -247,7 +253,7 @@
                 <div class="clientes-outros ps-clientes-rolagem" id="clientesOutros">
                     {% for cliente in outros %}
                         {{ include('pasta/_cliente_linha.html.twig', {
-                            pasta: pasta, cliente: cliente, ehPrincipal: false, podeMexerNoCliente: podeMexerNoCliente,
+                            pasta: pasta, cliente: cliente, ehPrincipal: false, podeMexerNoCliente: podeMexerNoCliente, cpfDuplicado: cliente.id in idsDuplicados,
                         }) }}
                     {% endfor %}
                 </div>
@@ -277,12 +283,15 @@
    O ícone é o do TIPO do arquivo (PDF vermelho, Word azul…), via `arquivo_icone`:
    família e cores do Guia visual, as mesmas da aba Documentos; a cor sai pela classe
    `ps-doc-icone--<tipo>` (tokens com par escuro no pasta-show.css), nunca inline. #}
-{% set docsRecentes = pasta.documentos|sort((a, b) => b.carregadoEm <=> a.carregadoEm)|slice(0, 3) %}
+{# O contrato de honorários some com o Financeiro oculto (regra `documentoVisivel`, ocultar aba). #}
+{% set docsDoCartao = abasDaPasta is defined and abasDaPasta ? pasta.documentos|filter(d => abasDaPasta.documentoVisivel(d.categoria)) : pasta.documentos %}
+{% set docsRecentes = docsDoCartao|sort((a, b) => b.carregadoEm <=> a.carregadoEm)|slice(0, 3) %}
+{% if 'documentos' not in abasOcultas %}
 <section class="ps-card" data-trilho="documentos">
     <div class="ps-card-cab">
         <h2>Documentos</h2>
-        {% if pasta.documentos|length > 0 %}
-            <span class="ps-contagem">{{ pasta.documentos|length }}</span>
+        {% if docsDoCartao|length > 0 %}
+            <span class="ps-contagem">{{ docsDoCartao|length }}</span>
         {% endif %}
         <span class="ps-cab-espaco"></span>
         <button type="button" class="ps-card-cab-link" data-ps-ir-aba="documentos-tab"
@@ -317,6 +326,7 @@
         {% endfor %}
     {% endif %}
 </section>
+{% endif %}
 
 {# Comportamento do L7 (janela do cliente, copiar, .ics). Fica no parcial do
    trilho, e não no show, porque é só o trilho que precisa dele; `defer` o faz

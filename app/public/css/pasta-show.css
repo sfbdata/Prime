@@ -1840,6 +1840,21 @@ span.ps-situacao-pill { cursor: default; }
     border-radius: 4px;
     flex-shrink: 0;
 }
+/* Selo "CPF duplicado" (desenho 02 VS 18.10.26, L1509): cores do documento no claro;
+   no escuro, os tokens de perigo (o desenho não tem o par escuro). */
+.ps-selo-duplicado {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: #b03a2e;
+    background: #fbeceb;
+    padding: 2px 7px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+[data-bs-theme="dark"] .ps-selo-duplicado { color: var(--ps-danger-text); background: var(--ps-danger-bg); }
 .ps-cliente-abrir { font-size: 12px; font-weight: 600; flex-shrink: 0; }
 
 /* A rolagem mora na lista, nao no cartao: com muitos clientes o trilho cresceria
@@ -3883,8 +3898,8 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 
 /* Trilho da aba Metas (desenho): andamento, o que precisa de atencao e quem
    responde pelas metas. Tudo vem de `PastaMetasResumoOutput`. */
-.ps-metas-andamento, .ps-metas-pessoas, .ps-como-usar { padding: 16px 17px; }
-.ps-metas-andamento h2, .ps-metas-pessoas h2, .ps-como-usar h2, .ps-registro-pasta h2 { margin: 0; font-size: 13.5px; font-weight: 600; }
+.ps-metas-andamento, .ps-metas-pessoas { padding: 16px 17px; }
+.ps-metas-andamento h2, .ps-metas-pessoas h2, .ps-registro-pasta h2 { margin: 0; font-size: 13.5px; font-weight: 600; }
 .ps-metas-andamento h2 { margin-bottom: 13px; }
 .ps-metas-progresso { display: flex; align-items: baseline; gap: 8px; }
 .ps-metas-progresso-num { font-size: 26px; font-weight: 500; letter-spacing: -.01em; }
@@ -3975,7 +3990,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
     .ps-detalhes-obs .ps-obs-menu { animation: none; }
 }
-/* Trilho da aba Detalhes (desenho): "Registro da pasta" e "Como usar esta aba". */
+/* Trilho da aba Detalhes (desenho): "Registro da pasta" (o card "Pontos do relatório inicial" mora em pasta-pontos-relatorio.css). */
 .ps-registro-pasta { padding: 17px; }
 .ps-registro-pasta h2 { margin-bottom: 14px; }
 .ps-registro-pasta-campos { display: flex; flex-direction: column; gap: 14px; }
@@ -3985,10 +4000,6 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-registro-pasta .ps-btn { height: 32px; gap: 8px; }
 /* Alinhado a esquerda, 0 12px (dc 2386, auditoria 2 T4). */
 .ps-btn--largo { width: 100%; justify-content: flex-start; padding: 0 12px; }
-.ps-como-usar h2 { margin-bottom: 11px; }
-.ps-como-usar p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--ps-text-3); text-wrap: pretty; }
-.ps-como-usar { padding: 17px; } /* dc 2399 (auditoria 2 T7) */
-.ps-como-usar strong { color: var(--ps-forte-2); font-weight: 700; }
 
 /* ── Aba Push: tipo da publicacao em pilula ── */
 .ps-push-titulo {

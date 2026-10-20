@@ -140,7 +140,8 @@ final class ItemDoEncaminhamentoTest extends JusPrimeWebTestCase
         $raiz = '[data-central][data-modo="flutuante"]'
             . '[data-url-encaminhar-item="/central/encaminhar/item"]'
             . '[data-url-encaminhar-destinos="/central/encaminhar/destinos"]'
-            . '[data-url-encaminhar="/central/encaminhar"]';
+            . '[data-url-encaminhar="/central/encaminhar"]'
+            . '[data-url-pasta-base="/pasta/"]';
         self::assertSelectorExists($raiz);
         self::assertSelectorExists($raiz . ' > [data-central-tela-info] + [data-central-tela-despacho].bj-central-despacho[hidden]');
         self::assertSame('', trim($client->getCrawler()->filter('[data-central-tela-despacho]')->text('')), 'montada pelo central.js');

@@ -7,6 +7,7 @@ namespace App\Dashboard\Controller;
 use App\Dashboard\UseCase\ObterHistoricoDoCardUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Service\AcessoAPasta;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -28,6 +29,7 @@ final class HistoricoDoDashboardController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
         private readonly ObterHistoricoDoCardUseCase $obterHistorico,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
@@ -43,7 +45,10 @@ final class HistoricoDoDashboardController extends AbstractController
             'cargo'       => (string) $request->query->get('cargo', ''),
         ];
 
-        $saida = $this->obterHistorico->executar($tenant, $card, new \DateTimeImmutable(), $filtros);
+        // Cadeado (spec pasta-cadeado D1): a pasta oculta para quem olha não conta, como no card. Uma consulta só.
+        $pastasOcultas = $this->acessoAPasta->idsOcultosPara($usuario, (int) $tenant->getId());
+
+        $saida = $this->obterHistorico->executar($tenant, $card, new \DateTimeImmutable(), $filtros, $pastasOcultas);
 
         return $this->json($saida->paraArray());
     }

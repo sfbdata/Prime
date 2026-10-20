@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Central\UseCase;
 
 use App\Central\DTO\MensagemOutput;
+use App\Central\DTO\ReferenciaDeDespacho;
 use App\Central\Entity\Mensagem;
 use App\Central\Exception\ConversaNaoEncontradaException;
 use App\Central\Exception\PedidoInvalidoNaCentralException;
@@ -12,6 +13,7 @@ use App\Central\Exception\SemAcessoACentralException;
 use App\Central\Repository\MensagemRepository;
 use App\Central\Service\AcessoACentral;
 use App\Central\Service\AvisoDeMencaoNaCentral;
+use App\Central\Service\LeituraDasMensagens;
 use App\Central\Service\MencoesDaCentral;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -26,6 +28,9 @@ use Psr\Clock\ClockInterface;
  * A2 (`docs/specs/central-comunicacao-a2.md`): pode responder a uma mensagem DESTA conversa (a de outra, ou de
  * outro escritório, é 422 — sem dizer se existe); as @menções são conferidas contra quem pode ser mencionado
  * (participante, ativo, não o autor) e cada mencionado ganha um aviso no sino, sem o texto — tudo no mesmo flush.
+ *
+ * Despacho (`docs/specs/encaminhar-via-chat-ia.md` §3): `$despacho` grava na mensagem a referência da pasta e o tipo
+ * do item, na mesma transação. Só o `EncaminharItemDaPastaUseCase` passa (a rota de enviar não tem como).
  */
 final class EnviarMensagemUseCase
 {
@@ -36,6 +41,7 @@ final class EnviarMensagemUseCase
         private readonly ClockInterface $clock,
         private readonly MencoesDaCentral $mencoes,
         private readonly AvisoDeMencaoNaCentral $aviso,
+        private readonly LeituraDasMensagens $leitura,
     ) {
     }
 
@@ -44,7 +50,7 @@ final class EnviarMensagemUseCase
      * @throws ConversaNaoEncontradaException
      * @throws PedidoInvalidoNaCentralException
      */
-    public function executar(User $eu, ?Tenant $tenant, int $conversaId, string $conteudo, ?int $respostaAId = null): MensagemOutput
+    public function executar(User $eu, ?Tenant $tenant, int $conversaId, string $conteudo, ?int $respostaAId = null, ?ReferenciaDeDespacho $despacho = null): MensagemOutput
     {
         $tenant = $this->acesso->exigirVinculoAtivo($eu, $tenant);
         $participacao = $this->acesso->participacao($conversaId, $eu, $tenant);
@@ -71,6 +77,9 @@ final class EnviarMensagemUseCase
         $agora = $this->clock->now();
         try {
             $mensagem = new Mensagem($tenant, $conversa, $eu, $resolvidas->conteudo, $agora, $respostaA);
+            if ($despacho !== null) {
+                $mensagem->referenciarDespacho($despacho->pasta, $despacho->tipo);
+            }
         } catch (\DomainException $e) {
             throw new PedidoInvalidoNaCentralException($e->getMessage());
         }
@@ -85,6 +94,6 @@ final class EnviarMensagemUseCase
             $this->entityManager->flush();
         });
 
-        return MensagemOutput::fromEntity($mensagem, $eu);
+        return $this->leitura->umaParaLeitor($mensagem, $eu);
     }
 }
