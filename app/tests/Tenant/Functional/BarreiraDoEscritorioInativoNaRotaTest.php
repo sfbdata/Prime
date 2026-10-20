@@ -46,7 +46,7 @@ final class BarreiraDoEscritorioInativoNaRotaTest extends JusPrimeWebTestCase
         $this->adminDeA = $this->criarUsuario('Admin de A', ['ROLE_USER'], [$this->escritorioA, $this->escritorioB]);
     }
 
-    #[TestDox('Escritório da URL suspenso: cada rota recusa quem não é Master (tela 403, API 403 JSON) com o aviso de conta suspensa')]
+    #[TestDox('Escritório da URL suspenso: cada rota recusa o admin dele que não é Master, com a página 403 e o aviso de conta suspensa')]
     public function testTodasAsRotasRecusamComEscritorioSuspenso(): void
     {
         $this->escritorioA->setIsActive(false);
@@ -54,7 +54,7 @@ final class BarreiraDoEscritorioInativoNaRotaTest extends JusPrimeWebTestCase
         $this->logarComTenant($this->client, $this->adminDeA, $this->escritorioB);
 
         $rotas = $this->rotasComEscritorio();
-        self::assertGreaterThanOrEqual(42, count($rotas), 'as 42 rotas do levantamento de 20/10');
+        self::assertGreaterThanOrEqual(43, count($rotas), 'as 43 rotas do levantamento de 20/10 (40 com tenantId e as 3 do R2)');
 
         $falhas = [];
         foreach ($rotas as $nome => $rota) {
@@ -91,10 +91,36 @@ final class BarreiraDoEscritorioInativoNaRotaTest extends JusPrimeWebTestCase
         $this->em->flush();
         $this->logarComTenant($this->client, $this->adminDeA, $this->escritorioB);
 
-        $this->client->request('POST', "/tenant/{$this->escritorioA->getId()}/user/{$this->adminDeA->getId()}/ponto/add");
+        $this->client->request('POST', "/tenant/{$this->escritorioA->getId()}/user/{$this->adminDeA->getId()}/ponto/add", [], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
 
         self::assertResponseStatusCodeSame(403);
-        self::assertSame(['erro' => AvisoDeContaSuspensa::paraExcluida('Escritório A suspenso')], $this->json());
+        self::assertSame(['erro' => AvisoDeContaSuspensa::paraExcluida('Escritório A suspenso')], $this->json(), 'chamada de script recebe JSON');
+    }
+
+    #[TestDox('Quem não tem vínculo com o escritório suspenso não vê o nome nem a situação dele: segue para a recusa de sempre do controller')]
+    public function testSemVinculoNaoVeONomeNemASituacao(): void
+    {
+        $escritorioC = $this->criarEscritorio('Escritório C de fora');
+        $deFora = $this->criarUsuario('Pessoa de fora', ['ROLE_USER'], [$escritorioC]);
+        $this->escritorioA->setIsActive(false);
+        $this->em->flush();
+        $this->logarComTenant($this->client, $deFora, $escritorioC);
+
+        $this->client->request('GET', "/tenant/{$this->escritorioA->getId()}/users");
+
+        self::assertFalse($this->foiRecusadaPelaBarreira());
+        self::assertStringNotContainsString('Escritório A suspenso', (string) $this->client->getResponse()->getContent());
+        self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode(), 'o controller recusa como sempre');
+    }
+
+    #[TestDox('As rotas do R2 (id do próprio escritório) existem no roteador: renomear uma delas quebra este teste')]
+    public function testRotasDoR2Existem(): void
+    {
+        $colecao = static::getContainer()->get(RouterInterface::class)->getRouteCollection();
+        foreach (BarreiraDoEscritorioInativoNaRota::ROTAS_COM_ID_DO_ESCRITORIO as $nome) {
+            self::assertNotNull($colecao->get($nome), $nome);
+            self::assertStringContainsString('{id}', (string) $colecao->get($nome)?->getPath(), $nome);
+        }
     }
 
     #[TestDox('O Master passa com o escritório suspenso (é quem suspende e reativa)')]
@@ -161,13 +187,9 @@ final class BarreiraDoEscritorioInativoNaRotaTest extends JusPrimeWebTestCase
             return sprintf('%s (%s): status %d', $nome, $metodo, $resposta->getStatusCode());
         }
 
-        if ($metodo === 'GET') {
-            $mensagem = $this->client->getCrawler()->filter('[data-escritorio-indisponivel] .js-escritorio-indisponivel-mensagem');
+        $mensagem = $this->client->getCrawler()->filter('[data-escritorio-indisponivel] .js-escritorio-indisponivel-mensagem');
 
-            return $mensagem->count() === 1 && $mensagem->text() === $aviso ? null : sprintf('%s (GET): sem a página de recusa', $nome);
-        }
-
-        return $this->json() === ['erro' => $aviso] ? null : sprintf('%s (%s): JSON diferente', $nome, $metodo);
+        return $mensagem->count() === 1 && $mensagem->text() === $aviso ? null : sprintf('%s (%s): sem a página de recusa', $nome, $metodo);
     }
 
     private function foiRecusadaPelaBarreira(): bool

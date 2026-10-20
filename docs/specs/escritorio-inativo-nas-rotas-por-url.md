@@ -16,7 +16,9 @@ O defeito vale para a suspensão pelo Master, que já está em produção (spec 
 ## Regra
 
 **R1.** Se uma rota age sobre um escritório que não está ativo (`Tenant::isActive() !== true`: suspenso, ou
-excluído e em quarentena), ela recusa quem não é Master.
+excluído e em quarentena), ela recusa quem tem vínculo ativo com ele e não é Master. Quem não tem vínculo segue
+para o controller, que já o recusa como sempre (403/404 genérico): o nome e a situação da conta não vazam para
+fora do escritório.
 
 **R2.** O escritório da rota é:
 - o parâmetro `tenantId` do caminho, em qualquer rota que o tenha;
@@ -28,9 +30,10 @@ precisa ver a conta. A barreira da sessão (C12, sem bypass) continua como está
 
 **R4.** `escritorio_sair` fica fora. Sair de um escritório tira o próprio acesso, e tirar acesso nunca trava.
 
-**R5.** A recusa segue o padrão do `BloqueioDeRecursoDesativado`:
-- chamada de API (método não seguro, `Accept: application/json` ou XHR) recebe **403 JSON** `{erro}`;
-- tela recebe **403** com a página "Escritório indisponível".
+**R5.** A recusa:
+- chamada de script (XHR, `Accept: application/json` ou corpo JSON) recebe **403 JSON** `{erro}`;
+- tela e formulário enviado pela tela recebem **403** com a página solta "Escritório indisponível" (sem o
+  layout do sistema: nesse ponto o filtro de dados já está preso no escritório da URL).
 
 O texto é o aviso de conta suspensa ou excluída (`AvisoDeContaSuspensa`), o mesmo da barreira da sessão.
 
@@ -45,8 +48,10 @@ controller lembrar de checar.
 
 ## Testes
 
-- Funcional, por rota: as 42 rotas com escritório no caminho. Com A suspenso e B na sessão, o admin de A
-  (não Master) recebe a recusa. Com A ativo, a mesma chamada não passa pela recusa.
+- Funcional, por rota: as 43 rotas com escritório no caminho (40 com `tenantId` e as 3 do R2). Com A suspenso
+  e B na sessão, o admin de A (não Master) recebe a recusa. Com A ativo, a mesma chamada não passa pela recusa.
+- Usuário sem vínculo com A: não vê o nome nem a situação de A (segue para o controller).
+- Chamada de script: 403 JSON.
 - Excluído (em quarentena): recusado do mesmo jeito.
 - Master: passa com A suspenso.
 - `escritorio_sair`: passa com A suspenso.
@@ -57,3 +62,8 @@ controller lembrar de checar.
 
 - Item 7 do #125 (`existePendente` em toda página): anotado pelo coordenador.
 - Perguntas (a), (b) e (c) da revisão: vão ao pacote do dono.
+- Conta "suspensa a pedido" do #125: o Tenant segue ativo, então esta barreira não a cobre. A lacuna está
+  registrada no próprio #125.
+- Trabalho Externo: o Convidado age, sem escritório, sobre a demanda de um escritório suspenso (rotas
+  `trabalho_externo_*`, liberadas sem escritório na barreira da sessão). É o mesmo tipo de defeito, sem o
+  escritório na URL: fica registrado para uma frente própria.

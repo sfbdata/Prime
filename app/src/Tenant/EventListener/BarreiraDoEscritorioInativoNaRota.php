@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Master\Service\RegraDosMasters;
 use App\Repository\TenantRepository;
+use App\Repository\UserTenantRepository;
 use App\Tenant\Service\AvisoDeContaSuspensa;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -24,7 +25,9 @@ use Twig\Environment;
  *
  * O TenantContextValidatorListener só olha o escritório da SESSÃO. As rotas `/tenant/{tenantId}/...`
  * agem sobre o escritório da URL: sem esta barreira, o admin do escritório A suspenso, com B na sessão,
- * seguia mexendo na equipe e no ponto de A. Quem não é Master é recusado; o Master passa (R3).
+ * seguia mexendo na equipe e no ponto de A. Quem tem vínculo ativo com A e não é Master é recusado; o Master
+ * passa (R3). Quem não tem vínculo com A segue para o controller, que já o recusa como sempre: a mensagem com o
+ * nome e a situação da conta não vaza para fora do escritório (R1).
  *
  * Prioridade 3: depois do roteamento (32), do firewall (8), da barreira da sessão (6), do TenantFilter (5) e
  * do TenantUrlScopeListener (4), que só ESCOPA os dados no `{tenantId}` e não autoriza nada.
@@ -44,6 +47,7 @@ final class BarreiraDoEscritorioInativoNaRota
     public function __construct(
         private readonly Security $security,
         private readonly TenantRepository $tenants,
+        private readonly UserTenantRepository $vinculos,
         private readonly RegraDosMasters $regraDosMasters,
         private readonly Environment $twig,
     ) {
@@ -67,7 +71,7 @@ final class BarreiraDoEscritorioInativoNaRota
         }
 
         $escritorio = $this->tenants->find($escritorioId);
-        if ($escritorio === null || $escritorio->isActive() === true) {
+        if ($escritorio === null || $escritorio->isActive() === true || !$this->vinculos->existeVinculoAtivo($usuario, $escritorio)) {
             return;
         }
 
@@ -101,10 +105,11 @@ final class BarreiraDoEscritorioInativoNaRota
         ]), Response::HTTP_FORBIDDEN);
     }
 
+    /** Chamada de script (fetch/XHR ou JSON): 403 JSON. Formulário enviado pela tela recebe a página (R5). */
     private function ehChamadaDeApi(Request $request): bool
     {
-        return !$request->isMethodSafe()
+        return $request->isXmlHttpRequest()
             || str_contains((string) $request->headers->get('Accept', ''), 'application/json')
-            || $request->isXmlHttpRequest();
+            || str_contains((string) $request->headers->get('Content-Type', ''), 'application/json');
     }
 }
