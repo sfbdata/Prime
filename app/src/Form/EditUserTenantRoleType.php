@@ -8,6 +8,7 @@ use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\TenantRole;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\RepeatedType;
@@ -70,6 +71,23 @@ class EditUserTenantRoleType extends AbstractType
                 'first_options'   => ['label' => 'Nova senha'],
                 'second_options'  => ['label' => 'Confirmar nova senha'],
             ]);
+
+        if ($options['pode_marcar_controladoria'] === true) {
+            $this->adicionarControladoria($builder);
+        }
+    }
+
+    /**
+     * Spec relatorio-processos-controladoria, D1 e revisão de permissão: só o Master ou um primário
+     * marca quem é Controladoria. Para os demais o campo nem existe no form (o POST forjado é ignorado).
+     */
+    private function adicionarControladoria(FormBuilderInterface $builder): void
+    {
+        $builder->add('controladoria', CheckboxType::class, [
+            'label'    => 'Controladoria',
+            'required' => false,
+            'help'     => 'Recebe o relatório mensal de pastas sem processo e a cópia dos avisos à Controladoria. Para abrir o relatório, a pessoa precisa do módulo Expediente.',
+        ]);
     }
 
     public function configureOptions(OptionsResolver $resolver): void
@@ -80,11 +98,13 @@ class EditUserTenantRoleType extends AbstractType
             'tenant_cargos'   => [],
             'tenant_lotacoes' => [],
             'data_admissao'   => null,
+            'pode_marcar_controladoria' => false,
         ]);
 
         $resolver->setAllowedTypes('tenant_roles',    ['array']);
         $resolver->setAllowedTypes('tenant_cargos',   ['array']);
         $resolver->setAllowedTypes('tenant_lotacoes', ['array']);
         $resolver->setAllowedTypes('data_admissao',   ['null', \DateTimeInterface::class]);
+        $resolver->setAllowedTypes('pode_marcar_controladoria', 'bool');
     }
 }

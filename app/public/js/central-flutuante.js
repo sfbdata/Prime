@@ -232,6 +232,10 @@
             avisarVisibilidade();
         }
 
+        // Outras telas pedem a janela aberta (ex.: "Enviar no Chat I.A" da observação, dc L.6872): só abre, não muda
+        // de conversa; já aberta, nada a fazer.
+        document.addEventListener('bj-central:abrir', function () { if (!ui.aberto) { abrir(); } });
+
         function fechar() {   // fechar não marca nada como lido (L6345)
             // Destacada: Fechar devolve a Central ao BlueJus e fecha a janela de fora. (No protótipo o Fechar destacado
             // deixa a janela de fora vazia e aberta, L6345. Decisão desta entrega, levada ao dono: HANDOFF §12.)
@@ -665,6 +669,29 @@
         central.addEventListener('bj-central:aviso', function (ev) {
             if (ev.detail && ev.detail.texto) { avisar(ev.detail.texto); }
         });
+
+        // ── API da janela para o resto do sistema (window.BJCentral, BC:6645-6646; spec encaminhar-via-chat-ia §4.1) ──
+        // Só existe onde o lançador está na página. Só identificadores entram; o central.js relê tudo no servidor.
+        function abrirSeFechada() {
+            if (!ui.aberto) { abrir(); }
+        }
+        function despacharItem(item) {   /* despachar, BC:6645: abre a janela na tela "Despachar via Chat I.A" */
+            var d = item || {};
+            abrirSeFechada();
+            central.dispatchEvent(new CustomEvent('bj-central:janela-despachar', { detail: { pastaId: d.pastaId, tipo: d.tipo, itemId: d.itemId === undefined ? null : d.itemId } }));
+        }
+        function conversarCom(userId) {   /* conversar, BC:6646: abre a janela e vai para a 1:1 (si mesmo: só abre) */
+            abrirSeFechada();
+            central.dispatchEvent(new CustomEvent('bj-central:janela-conversar', { detail: { userId: userId } }));
+        }
+        window.BJCentral = {
+            abrir: abrirSeFechada,
+            despachar: despacharItem,
+            conversar: conversarCom
+        };
+        // Por evento, para quem carrega antes da janela ou não quer depender do global.
+        document.addEventListener('bj-central:despachar', function (ev) { despacharItem(ev.detail); });
+        document.addEventListener('bj-central:conversar', function (ev) { conversarCom(ev.detail && ev.detail.userId); });
 
         btnMinimizar.addEventListener('click', minimizar);
         btnMaximizar.addEventListener('click', alternarMaximizar);

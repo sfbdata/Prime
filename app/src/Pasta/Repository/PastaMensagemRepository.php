@@ -56,4 +56,44 @@ class PastaMensagemRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Os registros escritos por pessoas (sem os cartões do sistema) das pastas pedidas, para o
+     * relatório de pastas sem processo: o texto (ainda com HTML), o autor e quando. Uma consulta
+     * para o lote; tenant pela pasta.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, list<array{conteudo: string, autor: string, em: \DateTimeImmutable}>> pastaId => registros
+     */
+    public function registrosParaAnaliseSemProcesso(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('m')
+            ->select('IDENTITY(m.pasta) AS pasta_id', 'm.conteudo', 'm.criadaEm', 'a.fullName', 'a.email')
+            ->join('m.pasta', 'p')
+            ->leftJoin('m.autor', 'a')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            ->andWhere('m.sistema IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->orderBy('m.id', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPasta = [];
+        foreach ($linhas as $l) {
+            $porPasta[(int) $l['pasta_id']][] = [
+                'conteudo' => (string) $l['conteudo'],
+                'autor'    => (string) ($l['fullName'] ?? $l['email'] ?? ''),
+                'em'       => $l['criadaEm'],
+            ];
+        }
+
+        return $porPasta;
+    }
 }

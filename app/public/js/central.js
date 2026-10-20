@@ -25,6 +25,12 @@
     var BATIMENTO_MS = 20000;
     // Resolvidas (RES_JANELA, L91): com a lista à vista, o tempo da baixa anda a cada minuto sem ir ao servidor.
     var RELOGIO_DAS_RESOLVIDAS_MS = 60000;
+    // Encaminhar via Chat I.A (docs/specs/encaminhar-via-chat-ia.md §4.1).
+    // Ícone do cartão por tipo (BC:6221) e os nossos tipos (TipoDeItemEncaminhado) levados aos do desenho.
+    var ICONE_DO_DESPACHO = { meta: 'bi-check2-square', documento: 'bi-file-earmark-text', push: 'bi-broadcast', registro: 'bi-journal-text', pasta: 'bi-folder2', processo: 'bi-bank' };
+    var TIPO_DO_DESENHO = { registro_dados: 'registro', registro_detalhes: 'registro', registro_financeiro: 'registro', secao: 'pasta', prazo: 'meta', nota_tecnica: 'push' };
+    var PRIORIDADES = [['normal', 'Normal'], ['urgente', 'Urgente'], ['para_hoje', 'Para hoje']];   /* BC:6226 ('hoje' do desenho = para_hoje) */
+    var INSTRUCAO_MAXIMA = 1000;   /* EncaminharItemInput::INSTRUCAO_MAXIMA */
 
     function corNome(id) {   // L5815 — a mesma cor para a mesma pessoa
         var h = String(id).split('').reduce(function (t, ch) { return (t * 31 + ch.charCodeAt(0)) | 0; }, 7);
@@ -42,7 +48,11 @@
             avisos: raiz.dataset.urlAvisos,
             lerTudo: raiz.dataset.urlLerTudo,
             limparLidos: raiz.dataset.urlLimparLidos,
-            presenca: raiz.dataset.urlPresenca
+            presenca: raiz.dataset.urlPresenca,
+            encaminharItem: raiz.dataset.urlEncaminharItem,          /* Encaminhar via Chat I.A (spec §4.1) */
+            encaminharDestinos: raiz.dataset.urlEncaminharDestinos,
+            encaminhar: raiz.dataset.urlEncaminhar,
+            pastaBase: raiz.dataset.urlPastaBase   /* "/pasta/": o chip "Pasta N" abre a pasta (BC:6041) */
         };
         var meuNome = raiz.dataset.euNome || '';
         var tamanhoMaximo = Number(raiz.dataset.tamanhoMaximo) || 4000;   // Mensagem::TAMANHO_MAXIMO
@@ -75,6 +85,7 @@
             ocultarArquivadas: raiz.querySelector('[data-central-ocultar-arquivadas]'),
             telaNovoGrupo: raiz.querySelector('[data-central-tela-novo-grupo]'),
             telaInfo: raiz.querySelector('[data-central-tela-info]'),
+            telaDespacho: raiz.querySelector('[data-central-tela-despacho]'),
             abas: raiz.querySelectorAll('[data-central-aba]'),
             abaContador: raiz.querySelector('[data-central-aba-contador]'),
             filtros: raiz.querySelector('[data-central-filtros]'),
@@ -99,7 +110,8 @@
             menu: null,            // {fundo, caixa, origem} quando um menu de contexto está aberto
             painelMenu: null,      // B1: {caixa} quando o ⋮ está aberto (menu(), L6244)
             confirma: null,        // B1: {fundo, origem} quando a confirmação da janela está aberta (L6394)
-            tela: 'lista',         // B: 'lista' | 'conversa' | 'novoGrupo' | 'info'
+            tela: 'lista',         /* B: 'lista' | 'conversa' | 'novoGrupo' | 'info' | 'despacho' */
+            despacho: null,        /* Encaminhar: {pastaId, tipo, itemId, prio, enviando} com a tela de despacho à vista (ui.despacho, BC:6645) */
             verArquivadas: false,  // B: "Ver conversas arquivadas" (desenho L6260)
             vistas: new Set(),     // B: ids já entregues — a janela do polling repete as recentes (spec B §6)
             aba: 'entrada',        // lançador: 'entrada' | 'painel' (desenho L6366)
@@ -230,11 +242,14 @@
                 }
                 return r.json().catch(function () { return {}; }).then(function (dados) {
                     if (!r.ok) {
-                        var erro = new Error(dados.erro || 'Falha na Central.');
+                        // 401 = sessão vencida: o login responde em JSON aos pedidos de dados (não redireciona mais).
+                        var erro = new Error(r.status === 401
+                            ? 'Sua sessão nesta Central terminou. Recarregue a página para continuar.'
+                            : (dados.erro || 'Falha na Central.'));
                         erro.status = r.status;
                         // 403 sem `codigo` = sem vínculo com o escritório (sessão); com `sem_permissao_no_grupo` é regra
                         // do grupo (B): a sessão continua.
-                        erro.sessao = r.status === 403 && dados.codigo !== 'sem_permissao_no_grupo';
+                        erro.sessao = r.status === 401 || (r.status === 403 && dados.codigo !== 'sem_permissao_no_grupo');
                         throw erro;
                     }
                     return dados;
@@ -263,13 +278,15 @@
 
         function atualizarCabecalho() {
             // O ⋮ fica no cabeçalho da lista e da conversa, como no desenho (L6339); some nas telas de grupo.
-            el.mais.hidden = estado.tela !== 'lista' && estado.tela !== 'conversa';
-            el.cabEu.hidden = !(estado.tela === 'lista' && !estado.aberta);
+            // A tela de despacho fica sob o cabeçalho da lista, como no desenho (BC:6330: sem conversa, o da lista).
+            var comoLista = estado.tela === 'lista' || estado.tela === 'despacho';
+            el.mais.hidden = !comoLista && estado.tela !== 'conversa';
+            el.cabEu.hidden = !(comoLista && !estado.aberta);
             // F2: ponto do MEU status no avatar e a pílula "N on-line" (L6337), só no cabeçalho da lista.
             var meu = statusManual();
             el.cabPonto.style.background = STATUS[meu][1];
             el.cabPonto.title = STATUS[meu][0];
-            el.online.hidden = !(estado.tela === 'lista' && !estado.aberta && estado.equipe);
+            el.online.hidden = !(comoLista && !estado.aberta && estado.equipe);
             if (estado.equipe) {
                 el.onlineTexto.textContent = estado.equipe.online + ' on-line';
                 el.online.title = 'Ver quem está on-line: ' + estado.equipe.equipe.filter(function (m) { return m.online; })
@@ -352,7 +369,8 @@
             } else if (grupo) {
                 previa = plural(c.participantes, 'participante', 'participantes');
             }
-            baixo.appendChild(criar('span', 'bj-central-previa', previa));
+            /* Última mensagem é um despacho que eu não vejo: "Item de pasta sem acesso", apagado como no balão. */
+            baixo.appendChild(criar('span', 'bj-central-previa' + (c.ultima && c.ultima.ocultoPorPermissao ? ' bj-central-oculto-trecho' : ''), previa));
             if (c.naoLidas > 0) {
                 // Silenciada: o selo fica cinza (L5693) e a conversa sai do total do cabeçalho.
                 var selo = criar('span', 'bj-central-selo' + (c.silenciada ? ' bj-central-selo--mudo' : ''), String(c.naoLidas));
@@ -1010,12 +1028,25 @@
                 cit.type = 'button';
                 if (!m.minha) { cit.style.borderLeftColor = corNome(m.respostaA.autorId); }   // no balão próprio: branca
                 cit.appendChild(criar('span', 'bj-central-citacao-autor', '↩ ' + (m.respostaA.minha ? 'Você' : m.respostaA.autorNome)));
-                cit.appendChild(criar('span', 'bj-central-citacao-trecho', m.respostaA.trecho));
+                /* Citação de um despacho que eu não vejo: o servidor manda "Item de pasta sem acesso"; aqui, apagada. */
+                cit.appendChild(criar('span', 'bj-central-citacao-trecho' + (m.respostaA.ocultoPorPermissao ? ' bj-central-oculto-trecho' : ''), m.respostaA.trecho));
                 cit.title = 'Ir para a mensagem respondida';
                 cit.addEventListener('click', function () { irParaMensagem(m.respostaA.id); });
                 corpoBolha.appendChild(cit);
             }
-            pintarTexto(corpoBolha, m.conteudo);
+            if (m.ocultoPorPermissao) {
+                /* Despacho de pasta que eu não vejo: o servidor já trocou o texto; apagado, sem chip (BC:6039). */
+                var oculto = criar('span', 'bj-central-oculto');   /* "Mensagem excluída", BC:6039 */
+                var icOculto = icone('bi-slash-circle');
+                icOculto.classList.add('bj-central-oculto-ico');
+                oculto.appendChild(icOculto);
+                oculto.appendChild(document.createTextNode(m.conteudo));
+                corpoBolha.appendChild(oculto);
+            } else {
+                var chip = chipDaPasta(m.despacho);
+                pintarTexto(corpoBolha, chip ? semALinhaDaPasta(m.conteudo, m.despacho) : m.conteudo);
+                if (chip) { corpoBolha.appendChild(chip); }
+            }
             corpoBolha.addEventListener('contextmenu', function (ev) { ev.preventDefault(); menuDaMensagem(m, ev.clientX, ev.clientY, corpoBolha); });
             corpoBolha.addEventListener('keydown', function (ev) {
                 if (ev.key === 'ContextMenu' || (ev.shiftKey && ev.key === 'F10')) {
@@ -1121,13 +1152,15 @@
             }
         }
 
-        // Só uma tela à vista: lista, conversa, novo grupo ou informações.
+        // Só uma tela à vista: lista, conversa, novo grupo, informações ou despacho.
         function mostrarTela(nome) {
             estado.tela = nome;
             el.telaLista.hidden = nome !== 'lista';
             el.telaConversa.hidden = nome !== 'conversa';
             el.telaNovoGrupo.hidden = nome !== 'novoGrupo';
             el.telaInfo.hidden = nome !== 'info';
+            el.telaDespacho.hidden = nome !== 'despacho';
+            if (nome !== 'despacho') { estado.despacho = null; }   /* saiu da tela: a resposta que chegar depois é ignorada */
             atualizarCabecalho();
         }
 
@@ -1183,15 +1216,16 @@
             }).catch(function () { /* o botão continua lá para tentar de novo */ });
         }
 
-        function iniciarConversaCom(contato, tentativa) {
+        // `calado`: BJCentral.conversar (spec §4.1). Si mesmo ou colega fora do escritório só abre a janela, sem aviso.
+        function iniciarConversaCom(contato, tentativa, calado) {
             pedir(urls.conversas, { metodo: 'POST', corpo: { destinatarioId: contato.id } }).then(function (dados) {
                 el.busca.value = '';
                 abrirConversa(dados.conversa);
                 carregarConversas().catch(tratarFalha);
             }).catch(function (e) {
-                if (e.status === 409 && !tentativa) { iniciarConversaCom(contato, true); return; }
+                if (e.status === 409 && !tentativa) { iniciarConversaCom(contato, true, calado); return; }
                 if (e.sessao) { tratarFalha(e); return; }
-                avisar(e.message);
+                if (!calado) { avisar(e.message); }
             });
         }
 
@@ -1904,8 +1938,225 @@
             if (focarNome) { nome.focus(); nome.select(); }
         }
 
+        // ── Despachar via Chat I.A (telaDespacho, BC:6218-6238; spec encaminhar-via-chat-ia §4.1) ──────────────────
+        // Só identificadores vêm de fora (BJCentral.despachar): o cartão e os destinos são relidos no servidor.
+        function abrirDespacho(pedido) {   /* despachar, BC:6645: sai da conversa e de qualquer painel */
+            var p = pedido || {};
+            var pastaId = Number(p.pastaId);
+            var tipo = typeof p.tipo === 'string' ? p.tipo : '';
+            var itemId = tipo === 'pasta' || p.itemId === null || p.itemId === undefined ? null : Number(p.itemId);
+            if (!Number.isInteger(pastaId) || pastaId <= 0 || tipo === '' || (itemId !== null && (!Number.isInteger(itemId) || itemId <= 0))) { return; }
+            fecharMenu(false);
+            fecharPainelMenu(false);
+            fecharConfirmacao(false);
+            fecharSugestoes();
+            if (estado.aberta) {
+                cancelarResposta();
+                estado.aberta = null;
+                estado.escolhidas = [];
+                var aviso = el.telaConversa.querySelector('.bj-central-aviso');
+                if (aviso) { aviso.remove(); }
+            }
+            estado.verOnline = false;
+            estado.ajuda = false;
+            mostrarTela('despacho');
+            var d = { pastaId: pastaId, tipo: tipo, itemId: itemId, prio: 'normal', enviando: false };
+            estado.despacho = d;
+            desenharDespacho(d);
+        }
+
+        function icone(classe) {
+            var i = criar('i', 'bi ' + classe);
+            i.setAttribute('aria-hidden', 'true');
+            return i;
+        }
+
+        function desenharDespacho(d) {
+            var p = el.telaDespacho;
+            p.replaceChildren();
+            var topo = criar('div', 'bj-central-despacho-topo');   /* BC:6222 */
+            var cab = criar('div', 'bj-central-despacho-cab');     /* BC:6223 */
+            var ic = icone('bi-send');
+            ic.classList.add('bj-central-despacho-cab-ico');
+            cab.appendChild(ic);
+            cab.appendChild(criar('span', 'bj-central-despacho-titulo', 'Despachar via Chat I.A'));
+            cab.appendChild(botao('bj-central-despacho-cancelar', 'Cancelar', sairDoDespacho));
+            topo.appendChild(cab);
+
+            var cartao = criar('div', 'bj-central-despacho-cartao');   /* BC:6224 */
+            var icTipo = icone(ICONE_DO_DESPACHO[TIPO_DO_DESENHO[d.tipo] || d.tipo] || 'bi-send');
+            icTipo.classList.add('bj-central-despacho-cartao-ico');
+            cartao.appendChild(icTipo);
+            var textos = criar('div', 'bj-central-despacho-cartao-textos');
+            var titulo = criar('span', 'bj-central-despacho-cartao-titulo', '');
+            var sub = criar('span', 'bj-central-despacho-cartao-sub', '');
+            textos.appendChild(titulo);
+            textos.appendChild(sub);
+            cartao.appendChild(textos);
+            topo.appendChild(cartao);
+
+            var instrucao = criar('textarea', 'bj-central-despacho-instrucao');   /* BC:6225 */
+            instrucao.placeholder = 'Instrução (opcional). Ex.: favor concluir até sexta.';
+            instrucao.setAttribute('aria-label', 'Instrução (opcional)');
+            instrucao.maxLength = INSTRUCAO_MAXIMA;   /* em UTF-16: mais estrito que o servidor (emoji conta 2), nunca recusado */
+            topo.appendChild(instrucao);
+
+            var prios = criar('div', 'bj-central-despacho-prioridades');   /* BC:6226 */
+            PRIORIDADES.forEach(function (par) {
+                var b = botao('bj-central-despacho-prio', par[1], function () {
+                    d.prio = par[0];
+                    prios.querySelectorAll('.bj-central-despacho-prio').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+                });
+                b.setAttribute('aria-pressed', String(d.prio === par[0]));
+                prios.appendChild(b);
+            });
+            topo.appendChild(prios);
+            p.appendChild(topo);
+
+            var erro = criar('div', 'bj-central-despacho-erro');
+            erro.setAttribute('role', 'alert');
+            erro.hidden = true;
+            p.appendChild(erro);
+            p.appendChild(criar('div', 'bj-central-despacho-rotulo', 'Para quem?'));   /* BC:6228 */
+            var lista = criar('div', 'bj-central-despacho-destinos');
+            p.appendChild(lista);
+            d.instrucao = instrucao;
+            d.erro = erro;
+            d.lista = lista;
+
+            var consulta = '?pasta=' + encodeURIComponent(d.pastaId);
+            var doItem = consulta + '&tipo=' + encodeURIComponent(d.tipo) + (d.itemId !== null ? '&item=' + encodeURIComponent(d.itemId) : '');
+            pedir(urls.encaminharItem + doItem).then(function (item) {
+                if (estado.despacho !== d) { return; }
+                titulo.textContent = item.titulo || '';
+                sub.textContent = item.resumo || '';
+                return pedir(urls.encaminharDestinos + consulta).then(function (dados) {
+                    if (estado.despacho !== d) { return; }
+                    var destinos = Array.isArray(dados.destinos) ? dados.destinos : [];
+                    destinos.forEach(function (dest) { lista.appendChild(linhaDoDestino(d, dest)); });
+                    if (!destinos.length) { lista.appendChild(vazio('bi-people', 'Ninguém para receber.', 'Só aparece quem vê esta pasta.')); }
+                });
+            }).catch(function (e) { falhaDoDespacho(d, e); });
+            instrucao.focus();
+        }
+
+        function linhaDoDestino(d, dest) {   /* BC:6230 e BC:6237 */
+            var travado = dest.disponivel === false;
+            var b = criar('button', 'bj-central-despacho-destino' + (travado ? ' bj-central-despacho-destino--travado' : ''));
+            b.type = 'button';
+            var membro = !dest.grupo && dest.usuarioId ? membroDaEquipe(dest.usuarioId) : null;
+            var av = dest.grupo
+                ? criar('span', 'bj-central-avatar bj-central-avatar--grupo', iniciais(dest.nome))
+                : avatarDe({ nome: dest.nome, foto: membro ? membro.foto : null }, '');
+            av.setAttribute('aria-hidden', 'true');
+            b.appendChild(av);
+            b.appendChild(criar('span', 'bj-central-despacho-destino-nome', dest.nome));
+            // Grupo: "Grupo" (BC:6237); travado, o motivo no lugar. Pessoa: a função do desenho é o cargo da equipe (F2).
+            b.appendChild(criar('span', 'bj-central-despacho-destino-sub', travado ? (dest.motivo || '') : (dest.grupo ? 'Grupo' : (membro && membro.cargo) || '')));
+            if (travado) {
+                b.disabled = true;
+                b.title = dest.motivo || '';
+                return b;
+            }
+            b.addEventListener('click', function () { despachar(d, dest); });
+            return b;
+        }
+
+        function despachar(d, dest) {   /* BC:6231-6236: envia, abre a conversa do destino e avisa */
+            if (d.enviando || estado.despacho !== d) { return; }
+            d.enviando = true;
+            d.erro.hidden = true;
+            travarDestinos(d, true);
+            var instrucao = d.instrucao.value.trim();
+            var corpo = { pastaId: d.pastaId, tipo: d.tipo, itemId: d.itemId, instrucao: instrucao === '' ? null : instrucao, prioridade: d.prio };
+            if (dest.tipo === 'colega') { corpo.usuarioId = dest.usuarioId; } else { corpo.conversaId = dest.conversaId; }
+            pedir(urls.encaminhar, { metodo: 'POST', corpo: corpo }).then(function (r) {
+                /* Despacho feito sempre avisa, mesmo se a pessoa saiu da tela no meio (pelo ⋮ ou pelo BJCentral). */
+                avisar('Despachado para ' + (r.destinoNome || dest.nome) + '.');
+                var aindaAqui = estado.despacho === d;
+                carregarConversas().then(function () {
+                    if (!aindaAqui || estado.despacho !== d) { return; }
+                    var c = estado.conversas.filter(function (x) { return x.id === r.conversaId; })[0];
+                    if (c) { abrirConversa(c); } else { mostrarTela('lista'); desenharLista(); }
+                }).catch(function (e) {
+                    /* A lista não veio: a tela não fica presa no despacho já feito. */
+                    if (estado.despacho === d) { mostrarTela('lista'); desenharLista(); }
+                    tratarFalha(e);
+                });
+            }, function (e) {
+                d.enviando = false;
+                travarDestinos(d, false);
+                falhaDoDespacho(d, e);
+            });
+        }
+
+        // Cancelar e Esc: com o envio em andamento ficam travados (o despacho pode já ter sido feito no servidor).
+        function sairDoDespacho() {
+            if (estado.despacho && estado.despacho.enviando) { return; }
+            mostrarTela('lista');
+            desenharLista();
+        }
+
+        function travarDestinos(d, sim) {
+            d.lista.querySelectorAll('.bj-central-despacho-destino:not(.bj-central-despacho-destino--travado)').forEach(function (b) { b.disabled = sim; });
+        }
+
+        function falhaDoDespacho(d, e) {   /* o `erro` do servidor, na própria tela */
+            if (estado.despacho !== d) { return; }
+            d.erro.textContent = e && e.message ? e.message : 'Falha na Central.';
+            d.erro.hidden = false;
+            if (e && e.sessao) { tratarFalha(e); }
+        }
+
+        // BJCentral.conversar (spec §4.1, conversar BC:6646): vai para a 1:1; si mesmo ou id torto só abre a janela.
+        function conversarCom(userId) {
+            var id = Number(userId);
+            if (!Number.isInteger(id) || id <= 0 || String(id) === String(raiz.dataset.euId || '') || estado.semSessao) { return; }
+            iniciarConversaCom({ id: id }, false, true);
+        }
+
+        /**
+         * Chip "Pasta N" (BC:6041) da mensagem de despacho. Sai SÓ da referência que o servidor manda (`despacho`,
+         * `{pastaId, nup}`, presente quando eu vejo a pasta agora), nunca do texto: quem digita no mesmo formato não
+         * ganha chip. Abre a pasta, como o `bj-navegar` do desenho.
+         */
+        function chipDaPasta(despacho) {
+            var id = despacho ? Number(despacho.pastaId) : NaN;
+            if (!Number.isInteger(id) || id <= 0) { return null; }
+            var nup = typeof despacho.nup === 'string' && despacho.nup !== '' ? despacho.nup : null;
+            var rotulo = 'Pasta ' + (nup !== null ? nup : String(id));
+            var chip = criar('a', 'bj-central-chip-pasta');
+            chip.href = urls.pastaBase + String(id);
+            chip.appendChild(icone('bi-folder2-open'));
+            chip.appendChild(document.createTextNode(rotulo));
+            chip.title = rotulo;
+            chip.addEventListener('click', function (ev) {
+                /* Ctrl, Cmd, Shift, Alt ou outro botão: o padrão do navegador, em qualquer modo. */
+                if (ev.button !== 0 || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) { return; }
+                /* Destacada: aba nova, e a Central segue aberta (navegar a página de origem fecharia o pop-up). */
+                if (vista() !== window) { ev.preventDefault(); window.open(chip.href, '_blank', 'noopener'); }
+            });
+            return chip;
+        }
+
+        /**
+         * O servidor sempre põe a linha "Pasta NUP" (ou "Pasta #id") no fim do primeiro bloco do despacho. Com o chip
+         * à vista ela sairia duas vezes: tira só essa linha, e só se for IGUAL à da referência (comparação exata, sem
+         * regex). No tipo pasta o título já é a pasta e o texto fica inteiro.
+         */
+        function semALinhaDaPasta(conteudo, despacho) {
+            var texto = String(conteudo || '');
+            var linha = ('Pasta ' + (despacho.nup ? despacho.nup : '#' + despacho.pastaId)).split('@[').join('@ [');   /* rotuloDaPasta, desarmado */
+            var fim = texto.indexOf('\n\n');
+            var bloco = fim === -1 ? texto : texto.slice(0, fim);
+            var corte = bloco.lastIndexOf('\n');
+            if (corte === -1 || bloco.slice(corte + 1) !== linha) { return texto; }
+            return bloco.slice(0, corte) + (fim === -1 ? '' : texto.slice(fim));
+        }
+
         function voltar() {
             if (estado.tela === 'info' && estado.aberta) { mostrarTela('conversa'); ajustarCompositor(); return; }
+            if (estado.tela === 'despacho') { sairDoDespacho(); return; }
             if (estado.tela === 'novoGrupo') { mostrarTela('lista'); desenharLista(); return; }
             fecharConversa();
         }
@@ -1913,14 +2164,19 @@
         function menuDaMensagem(m, x, y, origem) {   // menuMensagem, L5873 — Responder, Copiar, Mencionar
             if (m.sistema) { return; }
             var itens = [];
-            if (podeEscrever()) {
+            /* Despacho de pasta que eu não vejo: nada útil a citar ou copiar; só "Mencionar" o autor. */
+            var oculta = !!m.ocultoPorPermissao;
+            if (podeEscrever() && !oculta) {
                 itens.push({ icone: 'bi-reply', rotulo: 'Responder', acao: function () { responderA(m); } });
             }
-            itens.push({ icone: 'bi-clipboard', rotulo: 'Copiar', acao: function () { copiar(comoTexto(m.conteudo)); } });
+            if (!oculta) {
+                itens.push({ icone: 'bi-clipboard', rotulo: 'Copiar', acao: function () { copiar(comoTexto(m.conteudo)); } });
+            }
             var autor = !m.minha && podeEscrever() ? mencionavel(m.autorId) : null;
             if (autor) {
                 itens.push({ icone: 'bi-at', rotulo: 'Mencionar ' + primeiroNome(autor.nome), acao: function () { mencionar(autor); } });
             }
+            if (!itens.length) { return; }
             abrirMenu(itens, x, y, origem);
         }
 
@@ -2044,6 +2300,9 @@
             carregarAvisos().catch(function () { /* idem, no próximo polling */ });
             primeira.then(function () { return verificarNovidades(); }).then(marcarLida).catch(tratarFalha);
         });
+        // BJCentral (central-flutuante.js) pede a tela de despacho ou a 1:1 com um colega, já com a janela aberta.
+        raiz.addEventListener('bj-central:janela-despachar', function (ev) { if (!estado.semSessao) { abrirDespacho(ev.detail); } });
+        raiz.addEventListener('bj-central:janela-conversar', function (ev) { conversarCom(ev.detail && ev.detail.userId); });
         el.mais.addEventListener('click', alternarPainelMenu);
         el.online.addEventListener('click', function () {
             estado.verOnline = !estado.verOnline;
@@ -2104,7 +2363,7 @@
             if (estado.painelMenu) { fecharPainelMenu(true); return; }
             if (estado.menu) { fecharMenu(true); return; }
             if (estado.respondendo) { cancelarResposta(); return; }
-            if (estado.tela === 'info' || estado.tela === 'novoGrupo' || estado.aberta) { voltar(); }
+            if (estado.tela === 'info' || estado.tela === 'novoGrupo' || estado.tela === 'despacho' || estado.aberta) { voltar(); }
         });
         window.addEventListener('resize', function () { fecharMenu(false); });
         window.addEventListener('scroll', function () { fecharMenu(false); }, true);

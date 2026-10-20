@@ -8,6 +8,201 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.7.0] - 2026-10-20
+
+### Adicionado
+
+- Agenda: lembretes por push com o navegador fechado (Service Worker `sw-lembretes.js`, inscrição em `POST /agenda/push/inscrever`, varredura a cada minuto pelo Messenger sem cron, envio sem repetição); comando `app:agenda:push-varredura`; tabelas `agenda_push_inscricao`, `agenda_push_enviado` e `agenda_push_varredura`; dependência `minishlink/web-push`.
+- Master: seção "Comercial e e-mails", com o bloco "Automações" do desenho 05: ligar e desligar cada automação, escolher o atraso, "Simular novo cadastro", "Últimos disparos" (com o destinatário mascarado) e a prévia de cada modelo.
+- E-mails: envio pela fila própria do Comercial, com limite por minuto e por dia, rodapé legal em todo e-mail, link "Não quero mais receber" e cabeçalhos de descadastro em um clique.
+- E-mails: boas-vindas ao confirmar o cadastro e ao aceitar um convite, uma vez só por pessoa e escritório; dicas 7 dias depois (nascem desligadas).
+- LGPD: confirmação de endereço (double opt-in) reaproveitável por qualquer lista, com a prova do consentimento guardada; o rastreio de aberturas e cliques fica desligado até a Política de Privacidade citá-lo.
+- Explorador de documentos da pasta: o menu de um item ganha "Encaminhar via Chat I.A" (desenho 02, D:5071), logo depois de "Copiar caminho". Numa pasta do explorador encaminha a seção; num arquivo, o documento. Abre a tela "Despachar via Chat I.A" da Central. Só aparece com a Central na página e fora da pasta excluída.
+- "Encaminhar via Chat I.A" nos registros da pasta (desenho 02, D:1405, D:1936, D:2463, D:6305, D:6869 e D:6958): botão ↪ espelhado no cartão de registro das abas Dados, Detalhes e Financeiro, item no menu do registro (Dados e Financeiro, depois de Copiar texto), no ⋮ da observação de Detalhes (entre Copiar texto e Citar no novo registro) e no ⋮ do arquivo do Financeiro (depois de Copiar nome do arquivo). O clique dispara `bj-central:despachar` com `{pastaId, tipo, itemId}` (`public/js/pasta-encaminhar.js`); só aparece com a Central disponível e fora da pasta excluída.
+- "Encaminhar via Chat I.A" nas metas e nos prazos (desenho 02, D:3737 e D:6561): item no ⋮ da meta da aba Metas (depois de Editar nome, antes de Copiar link), no ⋮ do prazo do trilho "Próximos prazos" da aba Dados (logo depois de Ver nas metas; a meta vai como `meta`, o prazo registrado como `prazo`). O clique dispara `bj-central:despachar` com `{pastaId, tipo, itemId}`; só aparece com a Central disponível e fora da pasta excluída.
+- Minhas Metas: item "Encaminhar via Chat I.A" por último no ⋮ de cada cartão (R223). O clique dispara `bj-central:despachar` com a pasta e a meta; só aparece com a Central disponível e fora da pasta excluída.
+- Pasta, aba Metas: em "Responsáveis nas metas", cada pessoa vira um botão que abre a conversa 1:1 no Chat I.A (desenho 02, L.1686; `bj-central:conversar`). O resumo agrupa pelo usuário, não mais pelo nome.
+- Tela "Despachar via Chat I.A" na janela da Central (desenho BC:6218-6238): cartão do item relido pelo servidor (`GET /central/encaminhar/item`), instrução, prioridade Normal, Urgente ou Para hoje e "Para quem?" só com quem vê a pasta; ao escolher, envia, abre a conversa e avisa "Despachado para NOME.".
+- API da janela `window.BJCentral` (`abrir`, `despachar`, `conversar`) e os eventos `bj-central:despachar` e `bj-central:conversar`, onde o lançador flutuante está na página. Os itens de menu nas telas da pasta vêm nos próximos PRs.
+- Mensagem de despacho mostra o chip "Pasta N" (BC:6041), que abre a pasta, a partir da referência do servidor; despacho de pasta sem acesso aparece apagado como "Item de pasta sem acesso".
+
+### Corrigido
+
+- Login: o painel de contas do menu e os mapas do Master não viram mais destino depois de entrar; um quadro interno com a sessão vencida mostra a tela de login em vez de uma mensagem técnica.
+- Login: depois de entrar, o sistema só volta para uma página de verdade (Expediente, Agenda, pasta, Clientes, Cobrança e as demais telas); endereço de dados, download ou exportação leva à página inicial.
+- Login com várias abas abertas: um aviso automático de outra aba não apaga mais a página que a pessoa tentava abrir.
+- Sessão vencida: o sino de notificações e o alerta do ponto param de consultar o servidor até a pessoa entrar de novo.
+- Cadastro do cliente: o seletor de autores da pasta tem ordem fixa (o principal primeiro, depois o nome e, no empate, o id). Antes a ordem vinha da tabela de ligação sem ordenação e podia trocar entre aberturas, o que também deixava instável o teste `ClienteCadastroControllerTest::testAutores`.
+
+## [2.6.0] - 2026-10-20
+
+### Adicionado
+
+- Agenda: botão direito nas datas do sistema (feriados, recesso, tribunais, comemorativas, aniversários) com Editar nome, Ocultar da agenda, Acrescentar feriado ou data e Restaurar datas do sistema; vale para o escritório e exige a permissão de Feriados e Folgas. Não altera a tabela de feriados do Ponto nem o cálculo da jornada.
+- Banco: tabela `agenda_data_ajuste`.
+- Agenda: lembretes com som em qualquer tela (cartão no canto com "Ver na agenda" ou "Abrir pasta" e "Lembrar em 10 min", e notificação do navegador quando permitida), para os compromissos da pessoa e os prazos e audiências de hoje com hora; endpoint `GET /agenda/lembretes`; "Testar lembretes" na lateral da Agenda.
+- Busca rápida (Ctrl + K) em toda página logada, não só na pasta: a janela, o CSS e o JS entram pelo parcial global `layout/_globais/busca_rapida.html.twig` (para quem tem o módulo Pastas e um escritório atual) e saíram do `pasta/show.html.twig`. Abrir leva para a pasta; pasta trancada continua com o aviso de sigilo e o "Pedir acesso".
+- Única exceção: com o foco na descrição ou no comentário do cartão do Kanban (Quill com botão de link, que usa Ctrl + K para inserir link), o atalho fica com o editor.
+- Busca rápida na página da pasta (Ctrl + K): janela do desenho 02 Expedientes que acha pasta pelo número (ou "Pasta <número>"), cliente pelo nome ou CPF/CNPJ (com ou sem pontuação) e processo pelo número (todos os vinculados), sem acento e sem caixa. Até 8 resultados, só das pastas do alcance da pessoa. Pasta trancada pelo cadeado para quem busca aparece com o cadeado e só com número, cliente e CPF/CNPJ: casa só por eles (nunca pelo processo nem pela ação) e abre na tela "Pasta trancada", com o pedido de acesso de lá.
+- Rota nova `GET /expediente/busca-rapida?q=` (`expediente_busca_rapida`), JSON, exige o módulo Pastas.
+- Cabeçalho: no painel "quem está on-line", o usuário primário escolhe depois de quanto tempo sem atividade a equipe aparece ausente (15 min, 30 min, 1 h ou 2 h), como no desenho 03. Sem escolha, continua 1 hora.
+
+### Corrigido
+
+- Dashboard da equipe com cadeado de pasta (spec pasta-cadeado, D1 e D3): as metas de pasta Oculta para quem olha saem do card "Metas ativas", da "Meta global batida" e das colunas de metas da tabela (total, ativas, vencidas, prazo próximo, período anterior, "Em revisão" e "Tempo médio"), como já saíam da lista /tarefas/equipe a que os números levam. Os ids das pastas ocultas vêm de AcessoAPasta::idsOcultosPara, numa consulta por requisição. O primário e quem tem nível na pasta continuam contando tudo.
+- Dashboard da equipe com cadeado de pasta (D1): as pastas Ocultas para quem olha também saem do card "Demandas urgentes", das colunas "Total demandas" e "Demandas ativas" (e do período anterior), do extra "Pastas urgentes" e do histórico do card "Pastas criadas", como já saíam das listas do Expediente a que os números levam. A foto diária (comando de fotografia) continua contando o escritório inteiro.
+- Quem tem ao menos uma pasta Oculta não recebe as setas de Vencidas e Prazo próximo (nem as pílulas do Total) que comparam com a foto diária do escritório inteiro: a diferença revelaria a meta oculta. Quem não tem pasta oculta segue vendo as setas como antes.
+- Tarefa::getPrazoInfo conta os dias pela RegraDoPrazo (dias de calendário, sem a hora gravada no prazo): um prazo de ontem às 23:59 não aparece mais como "Vence hoje" na tela da meta enquanto a Pasta mostra "Vencido há 1 dia". O formato do retorno (dias, cor, texto) não muda.
+- Login: depois de entrar, o sistema não leva mais a uma página de dados (como o contador do sino); com a sessão vencida, os pedidos automáticos da tela recebem aviso de sessão terminada em vez de virar o destino do login.
+
+## [2.5.0] - 2026-10-20
+
+### Adicionado
+
+- Agenda nova (`/agenda/nova`): modal de criar e editar compromisso do desenho 09, com tipo (Compromisso, Audiência, Reunião, Prazo), dia inteiro, "Equipe do escritório" ou "Só eu", pasta pelo número, lembrete, repetição, participantes e "Avisar no Chat I.A" com @colega; pergunta "Compartilhar com a equipe?" ao criar em Minha agenda; "Avisar no Chat" e "Excluir" no detalhe.
+- Agenda: endpoints `POST /agenda/compromissos/novo`, `/{id}/salvar`, `/{id}/excluir` e `/{id}/avisar`.
+- Agenda: a entidade Evento passa ao domínio `App\Agenda\Entity`; o histórico da auditoria acompanha a troca de nome da classe.
+- Banco: colunas `tipo`, `pasta_id`, `lembrete_minutos` e `avisados` na tabela `evento`.
+- Tela de entrada refeita pelo desenho 10: painel "Segurança e privacidade", selo de criptografia, frase do dia, aviso de Caps Lock e "Manter conectado".
+- Recuperação de senha por código de 6 números enviado por e-mail, válido por 15 minutos, com 5 tentativas; trocar a senha encerra as outras sessões.
+- "Criar minha conta e escritório" na própria tela: a conta nasce já logada, sem OAB; o e-mail de confirmação segue em paralelo e a conta fica com o e-mail "a confirmar" até o clique.
+- O cadastro grava o aceite dos Termos de Uso e a ciência da Política de Privacidade, cada um com versão e data.
+- "Falar com suporte" na tela de entrada: a mensagem fica registrada e avisa no sino quem o Master escolheu.
+- Ferramentas só do Master na tela de entrada: editar, ocultar e restaurar os links do rodapé e escolher quem recebe o suporte.
+- Depois do login, a pessoa volta para a página que tentou abrir (endereços de fora do sistema são recusados).
+- Cadeado completo da pasta (spec docs/specs/pasta-cadeado.md): o Master e o primário escolhem, pelo ⋮ da pasta ("Acesso · Primário"), ocultar a pasta para toda a equipe ou dar Ocultar, Visualizar ou Editar por pessoa. Substitui a tranca binária da Lista (`pasta.trancada_em/por`), migrada para o cadeado "Ocultar para todos" e removida.
+- Teto do cadeado no `PermissionChecker::canAccessResource` para `pasta` (depois dos bypasses e antes do `ResourceAccess`): um pedido de acesso genérico aprovado não fura o cadeado. Barreira de rota (`BarreiraDoCadeadoListener`) com o resolvedor de pasta compartilhado (`PastaDaRota`) e teste de arquitetura das rotas de pasta.
+- Tela "Pasta trancada" para quem está oculto, faixa de somente visualização com "Pedir para editar" e pedido de acesso com estados (pendente, liberado para visualizar ou editar, recusado), janela de 24 horas e avisos no sino para os primários e para quem pediu.
+- Fora da pasta: a Lista, a busca, o CSV, a tela do processo e a busca do agente de IA mostram da pasta oculta só o número e o cliente; o Push global e as Minhas Metas deixam de mostrar o que é dela; a auditoria do escritório esconde o conteúdo das linhas dela; a imagem embutida em peça dela é recusada; pasta com cadeado sai do sync do Drive.
+- Modal Marcadores da pasta: a busca ganha a linha "Criar marcador" quando o texto não bate com nenhum marcador; cria pela rota `expediente_marcador_criar` (módulo Expediente e CSRF), e o novo marcador já entra marcado. A busca passa a ignorar acento.
+- Aba Detalhes da pasta: card "Pontos do relatório inicial" (objetivos do cliente, acordos iniciais, resultado esperado), com selo e botão "Completar no relatório", calculado por `PontosDoRelatorioInicial` sobre todas as observações do Relatório inicial de Atendimento.
+- O card se atualiza sozinho quando a pessoa envia, responde, edita ou exclui uma observação (rota GET `pasta_detalhes_pontos_relatorio`, mesma permissão de ver a pasta), e acende ou apaga a pendência da aba Detalhes.
+- Linha vermelha da aba Detalhes quando falta algum ponto do relatório inicial (`PastaPendenciasOutput`); a mesma pendência entra no resumo impresso da pasta. Decisão do dono (T2, 20/10): a linha vermelha fica como no desenho, mesmo acendendo em cerca de 83% das pastas ativas.
+- Sai da aba Detalhes o card "Como usar esta aba", que o desenho não tem.
+- Cabeçalho: atalho de bater ponto na sua linha do painel de presença (desenho 03 VS 18.10.26): "Bater ponto", "Em intervalo desde", "Em jornada desde" e "Jornada X às Y". Usa a batida de sempre (`POST /ponto/batida`), com a mesma cerca permissiva, prazos e avisos da tela do ponto; não aparece na própria tela do ponto.
+- Atalho de ponto: "Regularizar ponto de ontem" quando ontem ficou com entrada e sem saída num dia em que a folha oferece o "+" (leva ao pedido de esquecimento já preenchido); a confirmação da saída avisa o descanso mínimo do escritório antes da próxima entrada, quando a validação de interjornada está ligada.
+- Ponto: rota de leitura `GET /ponto/estado-do-dia` com o estado do ponto de hoje da própria pessoa (a escolha da folha, tenant explícito).
+- Ponto: a lógica pura da batida (posição com prazo, cerca, atraso, envio e leitura da resposta) saiu do script da tela para `public/js/ponto-batida.js`, sem mudar o comportamento; a tela avisa se o módulo não carregar.
+- Aba Push da pasta: cartão "Avisar cliente" na coluna direita (desenho de 18/10), com os e-mails do cliente principal da pasta (lista por cliente, vale em todas as pastas dele): até 5, um principal (estrela), rótulos Pessoal, Trabalho, Familiar e Outro, switch "Recebendo avisos" / "Pausado" e remover com confirmação. O e-mail da ficha do cliente aparece como "Cadastro · principal" até a primeira alteração. E-mail descadastrado pelo cliente (assunto push_cliente) aparece com o selo "Descadastrado pelo cliente" e o switch travado. Histórico de envios da pasta (6 mais recentes). Rotas em /pasta/{id}/push/cliente (exigem editar a pasta e CSRF).
+- Cartão da Análise IA: "Enviar ao cliente" / "Reenviar ao cliente" e "Enviado dd/mm às HH:MM", só na análise concluída e não interna. Modal "Enviar ao cliente" com Para, Cópia (CC) da Controladoria travada, Assunto, Mensagem padrão editável e o checkbox obrigatório "Revisei e corrigi o conteúdo". O envio sai um e-mail por destinatário (cópia da Controladoria só no primeiro), Responder para o responsável da pasta, remetente com o nome do escritório e o link "Não quero mais receber estes avisos" (List-Unsubscribe). Sem Controladoria cadastrada, envia e avisa o primário no sino. Limites: assunto até 200 caracteres, mensagem até 20.000, no máximo 10 envios por pasta por hora, e a mesma análise ao mesmo e-mail em 2 minutos não sai de novo. Exige editar a pasta e a BlueJus IA.
+- Controladoria e envio isolados atrás de ControladoriaDoEscritorioInterface (provisória: ninguém, até o #75) e EnvioDeEmailAoClienteInterface (provisória: Symfony Mailer síncrono, espelhando a MensagemDeEmail do Carteiro da frente Comercial e e-mails).
+- Migration: tabelas cliente_email e envio_ao_cliente (incluídas na purga do escritório).
+- Aba Push da pasta, cartão "Avisar cliente": bloco "Envio automático" (desenho de 18/10) com as chaves "Novas movimentações", "Audiências e intimações" e "Resumo semanal", por cliente (valem em todas as pastas de que ele é o cliente principal) e desligadas por padrão, e a linha fixa "Análise da BlueJus IA" com o selo "Só manual". Sem e-mail cadastrado, as chaves ficam esmaecidas e o clique abre o cadastro. Rota POST /pasta/{id}/push/cliente/automatico (editar a pasta e CSRF).
+- Ao fim de cada captação do DJEN, o cliente com "Novas movimentações" ligada recebe por e-mail as movimentações novas da pasta (tipo, data, órgão e o texto oficial até 4.000 caracteres); com "Audiências e intimações", só as intimações e as designações de audiência. Um e-mail por e-mail ativo do cliente (pausado e descadastrado ficam de fora), cópia da Controladoria na primeira mensagem, Responder para o responsável da pasta, remetente com o nome do escritório e o "Não quero mais receber estes avisos". Segredo de justiça não leva conteúdo. A mesma movimentação não sai duas vezes para o mesmo cliente. Sem Controladoria, envia e avisa o primário uma vez por execução.
+- Comando app:push:resumo-semanal-cliente (--tenant, --dry-run): toda segunda-feira, o resumo das movimentações da semana anterior de cada pasta cujo cliente ligou a chave, uma vez por semana. Linha de cron no DEPLOY.md.
+- Histórico de envios da pasta: "Envio automático: intimação de dd/mm", "…: movimentação de dd/mm", "…: resumo semanal de dd/mm a dd/mm".
+- Migration: tabela cliente_envio_automatico (auditada; incluída na purga do escritório).
+
+### Alterado
+
+- Agenda: `/agenda` passa a abrir a tela nova (desenho 09); o calendário antigo (FullCalendar) sai. Lista, detalhe, novo e editar antigos continuam no ar.
+- Agenda: arrastar e soltar compromissos na grade (Mês, Semana, Dia) e botões Concluir, Cancelar compromisso (avisa os participantes) e Reabrir no detalhe.
+- Agenda: o editor de legendas de cor sai, substituído pelos calendários com cor fixa do desenho; a cor dos eventos antigos é preservada.
+- Ponto: quem está com o ponto aberto hoje em outro escritório não bate a entrada neste; a resposta diz em qual escritório registrar a saída antes. Só valem os escritórios com vínculo ativo e módulo de ponto; a virada do dia solta a trava, e o pedido de esquecimento pendente não solta (decisão do dono, 19/10).
+- Ponto: a interjornada e o repouso mínimo passam a ser contados com o escritório explícito na consulta, sem depender do filtro de escritório.
+
+## [2.4.0] - 2026-10-20
+
+### Adicionado
+
+- Carteira (desenho 1B): item "Exportar lista (.xlsx)" no menu "⋮" do cabeçalho (rota GET `cobranca_carteira_exportar`). A planilha traz a lista de cobranças da tela inteira, sem paginação, com a busca, o filtro de Estado e a ordenação atuais; colunas da tela (identificação e descrição do objeto, pessoa cobrada, estado, pronto para encerrar, saldo, vencido, tem documentos), valores em número e nome de arquivo `carteira-{id}-{data}.xlsx`. Teto de 5.000 linhas: acima disso, volta para a carteira com aviso para recortar a lista. Mesma guarda da tela da carteira; o "⋮" passa a aparecer também para quem só lê a carteira, só com o exportar.
+- Objeto (desenho 1A): a área vazia da aba Documentos mostra os chips de exemplo do desenho (Boletos, Notificações, Acordos assinados, Comprovantes).
+- Contribua C2: página "Quem somos e contribua" (/contribua) com espaço e planos, apoio voluntário por PIX (QR e copia e cola gerados no servidor), pergunta anônima de motivo, Quem somos, Suporte e Sugestões (o Master atende e responde).
+- Item "Contribua · PIX" no menu do avatar e título na barra azul.
+- Aviso de espaço no topo de toda tela para o usuário primário, a partir da faixa Alerta (padrão 90%), uma vez por dia.
+- Contribua C1: planos de espaço (Free 10 GB, Essencial 20 GB, Profissional 50 GB, Avançado 100 GB), espaço por escritório com limite próprio do Master ou sem limite, e faixas de uso 70/90/95/100.
+- Bloqueio de novos envios quando o escritório passa do limite, num ponto único do armazenamento; consultar, baixar e excluir continuam liberados. O bloqueio nasce desligado e o Master o liga quando quiser. O escritório do dono do sistema (id 1 em produção) nasce sem limite.
+- A importação do Drive interrompe a pasta ao encontrar o espaço esgotado, em vez de baixar os arquivos seguintes à toa.
+- Pasta, aba Detalhes: item "Enviar no Chat I.A" no menu da observação (desenho 02, L.6872). Ele abre a Central de Comunicação flutuante (evento `bj-central:abrir`) e copia "Pasta N · autor · data" e o texto (até 900 caracteres) para colar na conversa.
+- Toda janela, menu ou pop-up sem botão de fechar ganha um X no canto (protótipo do Designer, "X de fechar em toda janelinha"): fecha pelo botão próprio da janela, ou com Esc e um clique fora. Reconhece o fechar do Bootstrap e respeita `data-sem-x="1"`. Script e CSS globais em `public/js/fechar-janelas.js` e `public/css/fechar-janelas.css`, pelo parcial `layout/_globais/fechar.html.twig`.
+- Pasta, trilho de Clientes: selo "CPF duplicado" (ou "CNPJ duplicado" para PJ) quando outro cliente vinculado à mesma pasta tem o mesmo documento, comparado só pelos dígitos (serviço `ClientesDuplicadosDaPasta`, desenho 02 VS 18.10.26).
+- Pasta, cartões do Registro, do Financeiro e de Detalhes: presença do autor (ponto no avatar e rótulo Disponível, Ocupado, Ausente ou Off-line), a partir do batimento da Central; clicar no próprio rótulo abre o Chat I.A.
+- Ocultar aba da pasta: o usuário primário (ou o Master) clica com o botão direito em qualquer aba da pasta e escolhe "Ocultar para toda a equipe", "Ocultar para…" (marca quem deixa de ver) ou "Mostrar para todos". A regra vale só para aquela pasta.
+- Para quem está oculto, a aba e o conteúdo dela não aparecem e as ações daquela aba são recusadas pelo servidor. Com o Financeiro oculto, o financeiro também sai do resumo impresso, das pendências e da análise; com o Push oculto, sai o link externo do Push.
+- Quem configura vê um ícone de olho cortado na aba com regra, com quantas pessoas ela está oculta.
+- Painel do Master, "Planos e limites": cartões com os planos do catálogo (Free, Essencial, Profissional e Avançado), preço por mês, espaço, usuários e quantas contas usam cada um; "Editar plano" muda nome, espaço, preço, limite de usuários, descrição e situação (o Free continua grátis e ativo).
+- Menu da conta: "Editar limite de armazenamento" (ou sem limite) e "Definir limite de usuários", com justificativa obrigatória que vai para a auditoria da conta.
+- "Contas e escritórios" e "Armazenamento" mostram o plano, o limite, a % da cota, a faixa e a previsão de cada conta; o ranking ganha "Editar limite".
+- Faixas de alerta configuráveis (Atenção, Alerta, Crítico, Bloqueio) e a chave do bloqueio de envio, desligada, com o aviso ao lado.
+- Visão geral: o KPI de armazenamento mostra o espaço contratado, o livre e a barra pela faixa; o botão "Segurança e auditoria" já abre com o total de registros.
+- Trilha do Master: "Limite de armazenamento", "Limite de usuários", "Plano alterado", "Faixas de alerta alteradas" e o "Alerta de consumo" do Sistema.
+- Convite do escritório: com o bloqueio ligado, o escritório que chegou ao limite de usuários não convida mais ninguém.
+- Painel do Master, nova aba "Telas e recursos" (desenho Perfis 1.2): o Master liga e desliga, para todas as contas, 19 itens do catálogo (10 telas, 7 itens do menu do usuário e 2 funções). Desligar pede o motivo exibido aos usuários e, opcionalmente, a data em que volta sozinho; religar é um clique. Expediente (lista de pastas) e Meu Perfil são essenciais e não desligam.
+- Nova tabela global recurso_estado (uma linha por chave; sem linha = ativo). Desligado com data volta a valer como ativo no dia seguinte, sem tarefa agendada.
+- Quem não é Master deixa de ver o item desligado (menu lateral, barra de atalhos, menu do usuário, botão Peticionar, BlueJus Intelligence da pasta) e, ao abrir a rota de uma tela desligada, recebe a página "em preparação" (503); chamadas de API da mesma função recebem 503 em JSON. O link público de convite do Trabalho Externo e a Política de Privacidade continuam abertos.
+- O Master continua vendo tudo: o item desligado aparece apagado com contorno vermelho tracejado e a tela desligada mostra uma faixa vermelha fixa.
+- Cada desligar e religar vai para a trilha de auditoria do painel como "Desativou X" e "Reativou X".
+- Peticionar (desenho 07): botão "Voltar à pasta" no cabeçalho; menu de três pontos e de botão direito em cada documento (Abrir, Renomear, Baixar, Classificar e Excluir para a lixeira), pelas rotas que a aba Documentos já usa (`pasta_documento_edit` e `pasta_documentos_excluir_lote`).
+- Peticionar: barra do documento selecionado com nome (duplo clique renomeia), tamanho e data, Baixar e Excluir; tamanho do arquivo e ícone por tipo em cada linha.
+- Peticionar: soltar arquivos na lista envia pela rota do "Adicionar peça" (`pasta_peticionar_upload`), com os mesmos formatos, token e categoria padrão do modal; dica do desenho na lista vazia.
+- Peticionar: a lista mostra o nome do arquivo da aba Documentos (o que o Renomear grava), e não mais o título antigo.
+- Aba Push da pasta: cartão "Avisar quando chegar" na coluna direita (desenho 1.2.3), com três chaves por pasta: "Responsável da pasta", "Por e-mail" e "Análise da BlueJus IA" (POST /pasta/{id}/push/avisos com a chave e o estado desejado, exige editar a pasta). Por e-mail só vale com o aviso ao responsável ligado; a IA só com a IA da plataforma e do escritório ligadas e com o responsável da pasta podendo usá-la. Processo sob segredo de justiça: o e-mail sai só com uma linha genérica. Padrões: responsável e e-mail ligados, IA desligada.
+- Ao fim de cada captação do DJEN (comando diário e "Buscar agora"), cada pasta viva com publicação nova vinculada avisa o responsável ativo: um aviso no sino por pasta (tipo push_publicacao_pasta) e, se ligado, um e-mail com a lista das movimentações (tipo, data, órgão e resumo de até 220 caracteres), o botão "Abrir a pasta" e o link "Não quero mais receber estes avisos". Com a chave da IA ligada, pede o resumo do Push da pasta. O aviso sai uma vez por execução (no comando diário, uma vez por escritório ao fim das duas fases). Falha de e-mail ou de IA vai ao log e não interrompe a captação.
+- Descadastro de e-mail reaproveitável em Shared (DescadastroDeEmailInterface: verificar, registrar e gerar o link assinado), por remetente (escritório, ou a plataforma), endereço e assunto, com o opt-out total "todos" no mesmo escopo. Rota pública /email/descadastro: o GET só mostra o pedido (endereço mascarado, botão "Confirmar" e a opção de não receber nenhum e-mail do remetente); o POST na URL assinada grava, inclusive pelo one-click do List-Unsubscribe-Post.
+- Migration: tabelas pasta_aviso_push e email_descadastro.
+- Aba Push da pasta em duas colunas (desenho 1.2.3): à direita, o cartão de Monitoramento com o switch do processo principal e um switch para cada outro processo da pasta (POST /pasta/{id}/push/monitoramento com o id do processo, exige editar a pasta), os números com máscara CNJ, quem pausou e quando, e a última verificação no DJEN.
+- "Buscar agora" (POST /pasta/{id}/push/buscar, exige ver a pasta): consulta o DJEN pelo número de cada processo da pasta com monitoramento ativo, nos últimos 30 dias, com a mesma deduplicação e reconciliação da captação; uma busca por pasta a cada minuto (429) e parada no limite do DJEN.
+- A captação do DJEN pula os processos com monitoramento pausado e grava a última verificação de cada número consultado. Migration: colunas monitoramento_pausado_em, monitoramento_alterado_por_id, monitoramento_alterado_em e ultima_verificacao_em em processo; tabela previsao_processual (por pasta).
+- "Situação atual": previsão por regras (porte das REGRAS_PROC do desenho) com fase, próximo ato, prazo em dias úteis nacionais (feriados do calendário do sistema e recesso de 20/12 a 20/01), data provável, confiança e a taxa de acertos das previsões anteriores, guardada no servidor.
+- Relatório geral de processos das pastas (aba Processo, menu ⋮ do cabeçalho e de cada processo): analisa registros, documentos, metas e checklist de cada pasta ativa e separa as que deveriam ter processo, as administrativas que merecem revisão, as sem classificação e as administrativas coerentes, com sugestão, selo de confiança, metas em dias úteis, resumo para despacho e evolução mês a mês. Prévia com cabeçalho e tamanho do texto, impressão, cópia do texto e PDF gerado no servidor (GET /expediente/relatorio-processos e /pdf). Cada leitor vê só as pastas que pode ver.
+- "Enviar à Controladoria agora" (POST /expediente/relatorio-processos/enviar, quem edita a pasta): avisa no sino e na Caixa da Central (tipo relatorio_sem_processo) a Controladoria e os primários com o resumo, e cada responsável com as pastas dele que pedem atenção; só quem tem o módulo Expediente recebe, e o envio manual tem teto de um a cada 30 minutos por escritório.
+- Envio automático pelo comando app:pastas:relatorio-sem-processo (primeira segunda-feira do mês, uma vez por escritório; --dry-run e --tenant), com histórico para a evolução. Linha do cron em DEPLOY.md.
+- Marcação "Controladoria" na edição do colaborador do escritório (coluna user_tenant.controladoria), só pelo Master ou por um primário.
+- Marcar ou desmarcar "Administrativo sem processo" numa pasta com termos judiciais grava a decisão da equipe, que ajusta a leitura do relatório.
+- Geração de PDF (Dompdf) extraída para o serviço compartilhado GeradorDePdf, usado também pelo resumo da pasta.
+
+### Alterado
+
+- A opção "Animações" do Guia visual (reduzidas) passa a valer no sistema inteiro: o `base.html.twig` põe `jp-sem-anim` no `<html>` pela preferência do usuário (`animacoes_reduzidas()`), e o `app.css` desliga transições e animações por ela.
+- Quem pede movimento reduzido no sistema operacional (`prefers-reduced-motion`) ganha o mesmo em todas as telas.
+- Trocar a opção no Dashboard aplica na hora, sem recarregar.
+- Objeto (desenho 1A): o botão "⋯" e o botão direito na linha da obrigação abrem o mesmo menu, com a descrição no topo e os itens Receber, Marcar para cobrança em lote, Copiar valor e descrição (com aviso "Copiado"), Ver memória de cálculo, Editar (corrigir) e Excluir lançamento. Editar e Excluir seguem abrindo os modais de antes.
+- Carteira (desenho 1B de 19/10): cantos de 4px em cartões, botões, campos, menus, modais e selos; o selo do topo mostra "CARTEIRA" com o número; o rodapé do popover de frescor diz qual relatório importar (o de emissão mais antiga); novo menu "⋮" no cabeçalho com "Editar configuração".
+- Cantos de até 4px (padrão PJe) nas telas que ainda tinham cartões, botões e campos mais arredondados: Sedes, criar escritório, Kanban, Notificações, lista antiga de pastas, Demandas, aceite do termo, painel da plataforma, Política de privacidade e aviso de ZIP recusado. Pílulas de contador e etiqueta continuam pílulas.
+- Expediente: dicas do desenho 03 no cabeçalho (Menu, Notificações, Tela cheia), na paginação ("Página N de M") e no responsável da linha ("NOME · clique para alterar").
+- Expediente: o menu de responsável da linha segue o desenho 03, com "Filtrar responsável", X de fechar, ✓ na opção atual e "Nenhum responsável encontrado".
+- Expediente: com um menu aberto, clicar numa linha só fecha o menu, sem abrir a pasta.
+- Expediente: depois de salvar a Nova Pasta, a lista volta ao número mais recente e avisa "Pasta N aberta para CLIENTE", em vez de abrir a pasta.
+- Expediente: o Limpar dos filtros não zera mais a Situação da pasta, como no desenho.
+- Expediente: de 901 a 1280px a tabela segue o desenho 03: saem Ação, Responsável e Metas, e o Réu aparece (decisão do dono de 19/10, que substitui a de 15/10). O piso da tabela cai de 1262px para 742px.
+- Expediente: nas larguras menores, NUP, Prioridade e Situação mantêm a largura do desenho, e até 900px a coluna do Réu sai junto com a célula (antes a Prioridade herdava a largura do Réu).
+- Expediente (desenho 03, L.64 e L.67): o nome do escritório e o selo de presença no cabeçalho usam a dica do desenho (`data-tip`) dentro do Expediente; nas outras telas continua a dica do navegador.
+- Expediente (desenho 03): o campo de busca ganha a dica "Buscar por número da pasta, nome do cliente, ação ou número do processo" (dc L.144). No filtro Responsável, o avatar mostra a foto de quem tem foto, no menu e no botão (dc L.146-148 e L.652, `avBg`); sem foto, ficam as iniciais.
+- Documentos sugeridos da pasta: a fase do processo usada na sugestão passa a vir da última movimentação do Push Processual quando ela indica a fase (como o cálculo de prazo do Push); sem isso, segue pela classe processual, como antes.
+- Motor da análise do prazo da meta (sem tela ainda): lê a data escrita na meta ("dd/mm", "hoje", "amanhã", "em N dias", "até sexta"), conta a publicação como o Push e conta "N dias" sem qualificador em dias úteis (CPC art. 219); só "dias corridos" escrito conta corridos.
+- Minhas Metas (desenho 04 Minhas Metas 1.0 de 19/10): cada grupo vira um cartão próprio, com cabeçalho 15/20 em #f5f8fa, contador em #e2e9ee e ponto de 7px; Atrasadas em #a3232b e "Vencem em 7 dias" (antes "Próximos 7 dias") em #c08a12, com tokens próprios do grupo. A ordem dos grupos não mudou.
+- Minhas Metas: a linha inteira da meta abre a página da meta (o título continua sendo o link; marcador, menu e link da pasta seguem com a ação deles). A pasta aparece com o nº em negrito azul e o nome inteiro do cliente; "criada dd/mm/aaaa" sem a data de modificação.
+- Minhas Metas: lista vazia numa caixa só ("Nenhuma meta com esses filtros." quando há filtro), com o trilho ao lado. "Precisa de atenção" aparece sempre, e cada item é um link de largura inteira para a meta.
+- Minhas Metas: grade lista + trilho de 340px com 16px; H1 de 36px sem ícone, subtítulo novo; busca e selects da barra com 36px, raio 4 e borda #e2e9ee (só nesta tela); marcador #98a9b4/#0a6fa0 com as dicas "Acompanhar esta meta" e "Parar de acompanhar".
+- Minhas Metas: a busca passa a achar a meta também pelo nº da pasta e pelo nome do cliente, sem acento (a descrição continua entrando); "%" e "_" digitados são procurados como texto.
+- Minhas Metas: "Precisa de atenção" lista as atrasadas pela regra do prazo, e na aba Criei passa a mostrar as metas delegadas que estão atrasadas.
+- Minhas Metas: Ctrl, Cmd, Shift ou o botão do meio na linha abrem a meta em outra aba; busca, Status, Prioridade e Prazo ficam numa linha só em tela larga.
+- Link externo do Push com a tela "Push compartilhado" desligada pelo Master: revogar um link continua liberado (tirar acesso nunca fica travado); gerar e renovar seguem barrados.
+- Com a tela desligada, o menu do botão direito da aba Push some para quem não é Master, como o item do menu ⋮ da pasta.
+- O Master que abre o link público com a tela desligada vê a faixa vermelha "Só o Master está vendo", como nas telas internas.
+
+### Corrigido
+
+- Auditoria: migration `Version20261019235500` tira o título, a descrição e o local dos registros ANTIGOS (anteriores ao #81) de compromissos "Só eu" da Agenda e marca `conteudo_particular`, como os registros novos. Vale para o registro que mostra a visibilidade "Só eu" e para todos os registros de um compromisso que foi ou é "Só eu"; os dois nomes da classe do `Evento` (antes e depois do #63). Irreversível; autorizada pelo dono em 19/10/2026 (87 registros em produção nesta data, um escritório: 77 com o conteúdo e 10 de mudança de participantes com o título no rótulo do dono).
+- Corrige o nome da classe da migration do Contribua C2 (Version20261019235600): o arquivo tinha sido renomeado, mas a classe continuava com o nome antigo, e o Doctrine a registrava fora da ordem da fila.
+- Menu do usuário: "Instalar aplicativo" sem o pedido de instalação do navegador mostra como instalar ("no Chrome ou Edge, use o ícone de instalar na barra de endereço; no celular, Adicionar à tela inicial"), como no desenho 03, em vez de não fazer nada.
+- Dashboard: as colunas "Vencidas" e "Prazos próximos" passam a contar por dia, com a mesma regra da Pasta. A meta que vence hoje conta como prazo próximo o dia inteiro (antes, a partir de 00:01 ela já contava como vencida), e a janela de prazos próximos vai de hoje até daqui a 7 dias. A lista "Metas da equipe" aberta por esses números segue a mesma regra.
+- Dashboard: metas de pasta excluída deixam de entrar nas colunas e nas listas de metas, e meta em revisão deixa de contar como vencida ou prazo próximo, como em Minhas Metas.
+
+## [2.3.1] - 2026-10-20
+
+### Corrigido
+
+- O convite de plataforma abria o formulário de convite de escritório: o tipo era gravado como "platform" e lido como "plataforma".
+- "Meus convites" nunca listava convite de escritório: o tipo era gravado como "office" e filtrado como "escritorio". Os dois lados usam agora as mesmas constantes.
+- O aceite de convite (plataforma e escritório) recusa senha com menos de 8 caracteres também no servidor; os dois aparam e exigem o nome; o de plataforma recusa convite de outro tipo; senha longa demais vira mensagem, não erro.
+- Documento renomeado com barra no nome (por exemplo "Contrato 01/2026") não abre mais com erro ao baixar ou visualizar. O nome novo é gravado com hífen no lugar da barra ("Contrato 01-2026"), e os documentos que já estavam com barra no nome voltam a baixar e abrir normalmente. Vale para a aba Documentos e para o Peticionar.
+
+### Segurança
+
+- Janela de vincular processo ("Buscar no CNJ"): os dados que vêm do Datajud (nome, documento e papel das partes; data, descrição, tipo e órgão das movimentações) passam a ser escapados antes de entrar no HTML das linhas. Antes, um texto com `"><script>` vindo da base externa virava HTML na tela.
+- Escritório suspenso ou excluído não pode mais ser alterado por quem tem acesso a outro escritório. Antes, o administrador de um escritório suspenso que também tinha outro escritório continuava mexendo na equipe, no ponto manual, nas justificativas, nas horas pagas e nas sedes do escritório suspenso, pelas telas de administração. Agora essas telas recusam com o aviso de conta suspensa. O Master continua com acesso, e sair do escritório continua liberado.
+
 ## [2.3.0] - 2026-10-19
 
 ### Adicionado
@@ -196,7 +391,12 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.3.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.7.0...HEAD
+[2.7.0]: https://github.com/sfbdata/Prime/compare/v2.6.0...v2.7.0
+[2.6.0]: https://github.com/sfbdata/Prime/compare/v2.5.0...v2.6.0
+[2.5.0]: https://github.com/sfbdata/Prime/compare/v2.4.0...v2.5.0
+[2.4.0]: https://github.com/sfbdata/Prime/compare/v2.3.1...v2.4.0
+[2.3.1]: https://github.com/sfbdata/Prime/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/sfbdata/Prime/compare/v2.2.2...v2.3.0
 [2.2.2]: https://github.com/sfbdata/Prime/compare/v2.2.1...v2.2.2
 [2.2.1]: https://github.com/sfbdata/Prime/compare/v2.2.0...v2.2.1

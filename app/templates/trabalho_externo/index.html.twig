@@ -43,7 +43,13 @@
      data-url-marcacoes="{{ path('trabalho_externo_marcacoes') }}"
      data-url-mensagens-marcacoes="{{ path('trabalho_externo_mensagens_marcacoes', {codigo: marcador}) }}"
      data-url-mensagem-apagar="{{ path('trabalho_externo_mensagem_apagar', {codigo: marcador, id: 0}) }}"
-     data-url-configuracao="{{ path('trabalho_externo_configuracao') }}">
+     data-url-configuracao="{{ path('trabalho_externo_configuracao') }}"
+     {#- Conta com o e-mail a confirmar não convida (spec login-desenho-10): o JS mostra o aviso e o botão de reenviar o link. #}
+     {%- if app.user is not null and not app.user.emailConfirmado %}
+     data-recusa-email-a-confirmar="{{ constant('App\\Auth\\UseCase\\CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR') }}"
+     data-url-reenviar-confirmacao="{{ path('conta_confirmacao_reenviar') }}"
+     data-csrf-reenviar-confirmacao="{{ csrf_token('conta_confirmacao_reenviar') }}"
+     {%- endif %}>
 
     <div class="te-titulo-linha">
         <h1 class="te-titulo">

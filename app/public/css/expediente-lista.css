@@ -400,8 +400,8 @@
 .exp-body .pastas-tabela-wrap.card { border: 0; border-top: 1px solid var(--ex-div); border-radius: 0; box-shadow: none; margin: 0 -22px; background: transparent; }
 /* LX-TAB-03, decisão do dono (15/10): responsividade primeiro. O piso não é o 1100px do dc: é a soma das
    colunas fixas (818px) mais um mínimo legível para Cliente (120) e Ação (90), 1028px. Medido: a 1366px a
-   tabela cabe sem rolagem lateral (com 1100 rolava 32px). De 901 a 1280px vale o piso maior (AUD-29, abaixo):
-   nomes legíveis e a rolagem só dentro da tabela. */
+   tabela cabe sem rolagem lateral (com 1100 rolava 32px). De 901 a 1280px valem as colunas do desenho 03
+   (AUD-29, abaixo). */
 .exp-body #tabelaPastas { min-width: 1148px; }   /* E12: + Réu (mínimo 120px) */
 /* Colunas do desenho VS 18.10.26 (dc L.594 `COLW`): todas em fração com mínimo, NUP minmax(74,.6fr) · Cliente
    (140,2fr) · Réu (120,1.5fr) · Ação (100,1.4fr) · Prioridade (104,.95fr) · Responsável (124,1.6fr) · Metas
@@ -418,25 +418,37 @@
 .exp-body #tabelaPastas col[data-col="metas"]   { width: 82px !important; }
 .exp-body #tabelaPastas col[data-col="marc"]    { width: 15.5% !important; }
 .exp-body #tabelaPastas col[data-col="sit"]     { width: 98px !important; }
-/* Nos mesmos cortes em que o `_tabela` esconde células (≤900px: Ação, Responsável, Metas; ≤768px: Marcadores),
+/* Nos mesmos cortes em que o `_tabela` esconde células (≤900px: Réu, Ação, Responsável, Metas; ≤768px: Marcadores),
    sai também o <col>. Célula escondida sai da grade e a seguinte herdava o <col> dela (medido: a 900px a
    Situação ficava com os 220px do Responsável), e o piso de 1100px deixava um vazio de ~600px a 768px. */
-/* AUD-29, decisão do dono (15/10): de 901 a 1280px, nomes e colunas legíveis, com a rolagem lateral só dentro
-   da tabela. Piso = fixas (818px) + Ação 190 (o mínimo do dc) + Cliente 254 (2:1.5 da sobra) = 1262px (com 1261 a divisão dava 189,86px). Até
-   900px (Ação, Responsável e Metas escondidas) o Cliente fica com os 220px do mínimo do dc: 522 + 220 = 742px. */
+/* AUD-29, decisão do dono (19/10, substitui a de 15/10): de 901 a 1280px segue o desenho 03. Saem Ação,
+   Responsável e Metas (célula, cabeçalho e <col>), e o Réu aparece. Piso = as fixas que ficam (NUP 74, Prioridade
+   105, Situação 98: 277px) + a sobra em que Cliente, Réu e Marcadores, na razão 2:1.5:1.2, passam dos mínimos do dc
+   (140, 120, 116): 465px. Dá 742px, o mesmo piso de até 900px.
+   Em cada corte as porcentagens das colunas que ficam voltam a somar 100%, na mesma razão de cima: somando menos, o
+   navegador repartia a sobra também com as fixas (medido: a 1280px a NUP ia a 95px; a 900px, a 116px). */
 @media (min-width: 901px) and (max-width: 1280px) {
-    .exp-body #tabelaPastas { min-width: 1262px; }
-    .exp-body #tabelaPastas [data-col="reu"] { display: none; }   /* E12: o Réu cede primeiro (dc esconde colunas no container ≤960) */
+    .exp-body #tabelaPastas { min-width: 742px; }
+    .exp-body #tabelaPastas col[data-col="cliente"] { width: 42.6% !important; }
+    .exp-body #tabelaPastas col[data-col="reu"]     { width: 32% !important; }
+    .exp-body #tabelaPastas col[data-col="marc"]    { width: 25.4% !important; }
+    .exp-body #tabelaPastas [data-col="acao"],
+    .exp-body #tabelaPastas [data-col="resp"],
+    .exp-body #tabelaPastas [data-col="metas"] { display: none; }
 }
 @media (max-width: 900px) {
     .exp-body #tabelaPastas { min-width: 742px; }
+    .exp-body #tabelaPastas col[data-col="reu"],
     .exp-body #tabelaPastas col[data-col="acao"],
     .exp-body #tabelaPastas col[data-col="resp"],
     .exp-body #tabelaPastas col[data-col="metas"] { display: none; }
+    .exp-body #tabelaPastas col[data-col="cliente"] { width: 62.7% !important; }
+    .exp-body #tabelaPastas col[data-col="marc"]    { width: 37.3% !important; }
 }
 @media (max-width: 768px) {
     .exp-body #tabelaPastas { min-width: 452px; }
     .exp-body #tabelaPastas col[data-col="marc"] { display: none; }
+    .exp-body #tabelaPastas col[data-col="cliente"] { width: 100% !important; }
 }
 /* LX-TAB-02 (dc L.145): o cabeçalho fica sob o topo fixo do sistema enquanto a tabela passa. O
    `.table-responsive` rola nos dois eixos e prende qualquer `sticky`; por isso o `expediente-lista.js`
