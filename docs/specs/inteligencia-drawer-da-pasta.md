@@ -14,7 +14,12 @@ lido; do cliente sai só o nome) e, do coordenador, **nada roda sozinho em lote*
 - F1+F2: PR #114 (rascunho, base #68), suíte completa e visual feitos. Commits já enviados.
 - F3 Perguntar: PR #122 (rascunho, base #114), suíte completa OK (10788), revisão aprovada com ressalvas corrigidas.
   Migration provisória `Version20261021110000`. Auditoria "quem perguntou e quando, sem texto": regra do "Só eu" (coordenador).
-- F4 Documentos: branch `ia-drawer-f4` (sobre `ia-drawer-f3`), sem migration. F5 Criar tarefa: a fazer.
+- F4 Documentos: PR #129 (rascunho, base #122), sem migration. Conflito no GitHub só em `FluxoDaAnaliseDaPasta.php`
+  (o mesmo filtro da anterior entrou por cherry-pick no F3 e no F4): resolver trazendo o master depois do #122, ficando
+  com a versão do F4.
+- F5 Criar tarefa: branch `ia-drawer-f5` (sobre `ia-drawer-f4`), sem migration. O "Criar tarefa da providência" saiu do
+  menu ⋮ do cartão e virou o botão "Criar tarefa" embaixo do resultado (dc L1101-1105), com o mesmo modal pré-preenchido
+  (uma por clique; quem confirma é a pessoa no modal). "Criar prazo", "Enviar para revisão" e "Criar N tarefas" não entram.
 
 ## O que o desenho tem, e o que pode entrar
 
