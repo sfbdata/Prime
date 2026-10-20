@@ -24,6 +24,7 @@ use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\EnfileiradorDeAnalise;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\Entity\AbaDaPasta;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Service\PermissionChecker;
@@ -71,20 +72,7 @@ final class SolicitarAnaliseDaPastaUseCase
      */
     public function executar(SolicitarAnaliseDaPastaInput $input, User $user, Tenant $tenant, ?callable $antesDeCriar = null): AnaliseOutput
     {
-        $pasta = $this->pastas->findOneBy(['id' => $input->pastaId, 'tenant' => $tenant]);
-        if ($pasta === null) {
-            throw new PastaNaoEncontradaException($input->pastaId);
-        }
-
-        if (!$this->permissionChecker->canAccessResource($user, $tenant, 'pasta', (int) $pasta->getId(), 'view')) {
-            throw new AccessDeniedException('Sem permissão para ver esta pasta.');
-        }
-
-        $disponibilidade = $this->disponibilidade->para($user, $tenant);
-        if (!$disponibilidade->estaDisponivel()) {
-            throw new InteligenciaIndisponivelException($disponibilidade);
-        }
-
+        $pasta = $this->carregarPastaLiberada($input->pastaId, $user, $tenant);
         $comando = $input->comando;
         $agente = $input->agenteEfetivo();
         $alvoId = (int) $pasta->getId();
@@ -126,6 +114,26 @@ final class SolicitarAnaliseDaPastaUseCase
         $this->enfileirador->enfileirar($analise, $tenant);
 
         return AnaliseOutput::fromEntity($analise);
+    }
+
+    /** A pasta do escritório que quem pede pode ver, com a IA disponível para ele. */
+    private function carregarPastaLiberada(int $pastaId, User $user, Tenant $tenant): Pasta
+    {
+        $pasta = $this->pastas->findOneBy(['id' => $pastaId, 'tenant' => $tenant]);
+        if ($pasta === null) {
+            throw new PastaNaoEncontradaException($pastaId);
+        }
+
+        if (!$this->permissionChecker->canAccessResource($user, $tenant, 'pasta', (int) $pasta->getId(), 'view')) {
+            throw new AccessDeniedException('Sem permissão para ver esta pasta.');
+        }
+
+        $disponibilidade = $this->disponibilidade->para($user, $tenant);
+        if (!$disponibilidade->estaDisponivel()) {
+            throw new InteligenciaIndisponivelException($disponibilidade);
+        }
+
+        return $pasta;
     }
 
     /** Aviso da idempotência "em andamento": com comando, o rótulo dele; sem, o nome do agente. */
