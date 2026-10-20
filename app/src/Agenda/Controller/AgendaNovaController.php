@@ -50,6 +50,7 @@ final class AgendaNovaController extends AbstractController
         return $this->render('agenda/nova.html.twig', [
             'eu'     => ['id' => $user->getId(), 'nome' => $user->getFullName()],
             'podeVerPastas' => $this->permissionChecker->canAccessModule($user, $tenant, 'pastas'),
+            'tenantId'      => $tenant->getId(),
             'equipe' => array_map(
                 static fn (User $u): array => ['id' => $u->getId(), 'nome' => $u->getFullName()],
                 $this->usuarios->findColaboradoresAtivosPorTenant($tenant),

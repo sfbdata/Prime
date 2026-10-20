@@ -276,6 +276,32 @@ global). Proposta: entidade `ConfiguracaoDePresenca` (tenant único, `minutosAus
 escritório como as outras tabelas da Central. O parcial lê o valor e o `central.js` usa no lugar dos 60 min. Fila:
 depois da C1 da Contribua. O PR #52 (`perfis-masters`) mexe no conceito de Master: conferir antes de abrir.
 
+**Implementação (19/10, frente `presenca-ausencia`, do master):**
+- Entidade `App\Central\Entity\ConfiguracaoDePresenca` (`central_configuracao_presenca`): `TenantAware`, uma linha por
+  escritório (UNIQUE `tenant_id`, criada na primeira alteração; sem linha = 60), `minutos_ausente`, `alterado_por`,
+  `alterado_em`. `Auditavel`: a troca do primário fica na trilha.
+- `ConfiguracaoDePresencaRepository::minutosAusente(Tenant): int` (60 sem linha). `Presenca::INATIVO_APOS_MINUTOS` vira
+  o padrão (60) e as opções ficam em `Presenca::OPCOES_DE_AUSENCIA = [15, 30, 60, 120]` (dc L.685).
+- `AlterarAusenciaDoEscritorioUseCase(User, Tenant, int)`: só valores das opções; só o primário (vínculo ativo, usuário
+  ativo, perfil de sistema: `RegraDosPrimarios::ehPrimario`). Rota `POST /central/presenca/ausencia` (JSON
+  `{minutos}`, CSRF `ajax` no header como as outras da Central), 403 para quem não é primário, 422 para valor fora da
+  lista, 409 se dois primários gravarem a primeira escolha do escritório no mesmo instante (a UNIQUE segura; o
+  outro venceu). Erros pela `AusenciaRecusadaException` (`motivo`).
+- A mudança vale para quem carregar a página depois: o navegador recebe o limite no `data-inativo-apos-min` e não
+  o relê a cada batimento (quem está com a página aberta segue no valor antigo até recarregar). O "sem atividade há N
+  min" do servidor já usa o novo no batimento seguinte.
+- Seletor: o painel não se redesenha enquanto o seletor está em foco (a lista aberta não fecha nem perde o foco); Esc
+  nele fecha só a lista. Sucesso só com JSON 2xx sem redirecionamento (sessão expirada não conta); na falha volta ao
+  último valor aceito, e só a resposta da escolha mais nova decide.
+- Quem usa o valor: o `central.js` (o `data-inativo-apos-min` do `_janela` passa a ser o do escritório) e o
+  `ListarPresencaDoEscritorioUseCase` ("sem atividade há N min" = minutos desde o `inativo` + o limite do escritório).
+- Tela: no painel de presença, a linha do dc L.306 (ícone `bi-clock-history`, "Ausente após sem atividade" e o
+  `<select>` 15 min, 30 min, 1 h, 2 h), depois da nota das horas, **só para o primário**. O parcial `_presenca` passa o
+  valor, a URL e se a pessoa é primária; o script troca o valor por POST e avisa a falha.
+- Purga do escritório: `central_configuracao_presenca` entra na `ORDEM_DELECAO` com as outras da Central.
+- Migration: no fim da fila (coordenador, 19/10: depois das da Agenda e da limpeza da auditoria); timestamp renomeado
+  na vez.
+
 ## 5. Decisões e perguntas
 
 Decididas pelo coordenador (19/10), por delegação do dono para dúvida de produto:
