@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace App\Agenda\UseCase;
 
 use App\Agenda\DTO\CompromissoOutput as C;
+use App\Agenda\Repository\AjusteDeDataRepository;
 use App\Agenda\Repository\EventoDaAgendaRepository;
+use App\Agenda\Enum\TipoDeAjuste;
 use App\Agenda\Service\OcorrenciasDoEvento;
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Repository\PastaPrazoRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Profile\Repository\UserProfileRepository;
 use App\Repository\LegendaCorRepository;
 
@@ -33,16 +36,19 @@ final class ListarCompromissosUseCase
         private readonly PastaPrazoRepository $prazos,
         private readonly UserProfileRepository $perfis,
         private readonly LegendaCorRepository $legendas,
+        private readonly AjusteDeDataRepository $ajustes,
+        // Cadeado (spec pasta-cadeado D3): prazos e audiências de pasta oculta para quem olha não entram.
+        private readonly ?AcessoAPasta $acessoAPasta = null,
     ) {
     }
 
     /** @return list<C> */
-    public function executar(Tenant $tenant, User $eu, \DateTimeImmutable $de, \DateTimeImmutable $ate, bool $soMinha, bool $verPastas): array
+    public function executar(Tenant $tenant, User $eu, \DateTimeImmutable $de, \DateTimeImmutable $ate, bool $soMinha, bool $verPastas, bool $administra = false): array
     {
         $ateFim = $ate->setTime(23, 59, 59);
         $itens = [
-            ...$this->dosEventos($tenant, $eu, $de, $ateFim, $soMinha),
-            ...($verPastas ? $this->dosPrazos($tenant, $de, $ate) : []),
+            ...$this->dosEventos($tenant, $eu, $de, $ateFim, $soMinha, $administra, $verPastas),
+            ...($verPastas ? $this->dosPrazos($tenant, $de, $ate, $this->acessoAPasta?->idsOcultosPara($eu, (int) $tenant->getId()) ?? []) : []),
             ...$this->dosAniversarios($tenant, $de, $ate),
         ];
         usort($itens, static fn (C $a, C $b): int => [$a->data, $a->dia ? '' : $a->h1] <=> [$b->data, $b->dia ? '' : $b->h1]);
@@ -51,14 +57,14 @@ final class ListarCompromissosUseCase
     }
 
     /** @return list<C> */
-    private function dosEventos(Tenant $tenant, User $eu, \DateTimeImmutable $de, \DateTimeImmutable $ate, bool $soMinha): array
+    private function dosEventos(Tenant $tenant, User $eu, \DateTimeImmutable $de, \DateTimeImmutable $ate, bool $soMinha, bool $administra, bool $verPastas): array
     {
         $calPorCor = $this->calendarioPorCor($tenant);
         $saida = [];
         foreach ($this->eventos->doEscritorioNoPeriodo($tenant, $eu, $de, $ate, $soMinha) as $evento) {
             foreach ($this->ocorrencias->noPeriodo($evento, $de, $ate) as $o) {
                 foreach ($this->diasDaOcorrencia($evento, $o['inicio'], $o['fim'], $de, $ate) as $dia) {
-                    $saida[] = $this->compromisso($evento, $eu, $dia, $o['inicio'], $o['fim'], $calPorCor);
+                    $saida[] = $this->compromisso($evento, $eu, $dia, $o['inicio'], $o['fim'], $calPorCor, $administra, $verPastas);
                 }
             }
         }
@@ -91,7 +97,7 @@ final class ListarCompromissosUseCase
     }
 
     /** @param array<string, string> $calPorCor */
-    private function compromisso(Evento $evento, User $eu, string $dia, \DateTimeImmutable $inicio, \DateTimeImmutable $fim, array $calPorCor): C
+    private function compromisso(Evento $evento, User $eu, string $dia, \DateTimeImmutable $inicio, \DateTimeImmutable $fim, array $calPorCor, bool $administra, bool $verPastas): C
     {
         $id = (int) $evento->getId();
         $obs = trim(implode("\n", array_filter([(string) $evento->getLocal(), (string) $evento->getDescricao()])));
@@ -100,7 +106,7 @@ final class ListarCompromissosUseCase
             id: 'ev-' . $id . '-' . $dia,
             data: $dia,
             titulo: $evento->getTitulo(),
-            calendario: $calPorCor[strtolower($evento->getCor())] ?? C::CAL_MEUS,
+            calendario: $evento->getTipo()->value ?? $calPorCor[strtolower($evento->getCor())] ?? C::CAL_MEUS,
             origem: C::ORIGEM_AGENDA,
             dia: $evento->isDiaInteiro(),
             h1: $evento->isDiaInteiro() ? '' : $inicio->format('H:i'),
@@ -112,6 +118,17 @@ final class ListarCompromissosUseCase
             status: $evento->getStatus(),
             recorrente: $evento->isRecorrente(),
             eventoId: $id,
+            pastaId: $verPastas ? $evento->getPasta()?->getId() : null,
+            pastaNup: $verPastas ? $evento->getPasta()?->getNup() : null,
+            tipo: $evento->getTipo()?->value,
+            lembreteMinutos: $evento->getLembreteMinutos(),
+            avisados: $evento->getAvisados(),
+            participantes: array_values(array_map(static fn (User $u): int => (int) $u->getId(), $evento->getParticipantes()->toArray())),
+            repetir: $evento->isRecorrente() ? $evento->getTipoRecorrencia() : null,
+            repetirAte: $evento->getFimRecorrencia()?->format('Y-m-d'),
+            editavel: $administra || $evento->getCriador()?->getId() === $eu->getId(),
+            inicioOriginal: $evento->getDataInicio()?->format('Y-m-d\TH:i'),
+            fimOriginal: $evento->getDataFim()?->format('Y-m-d\TH:i'),
         );
     }
 
@@ -144,8 +161,12 @@ final class ListarCompromissosUseCase
         return $mapa;
     }
 
-    /** @return list<C> */
-    private function dosPrazos(Tenant $tenant, \DateTimeImmutable $de, \DateTimeImmutable $ate): array
+    /**
+     * @param list<int> $pastasOcultas
+     *
+     * @return list<C>
+     */
+    private function dosPrazos(Tenant $tenant, \DateTimeImmutable $de, \DateTimeImmutable $ate, array $pastasOcultas = []): array
     {
         return array_map(static function (PastaPrazo $z): C {
             $nup = (string) $z->getPasta()->getNup();
@@ -163,7 +184,7 @@ final class ListarCompromissosUseCase
                 pastaId: $z->getPasta()->getId(),
                 pastaNup: $nup,
             );
-        }, $this->prazos->abertosDoEscritorioNoPeriodo($tenant, $de, $ate));
+        }, $this->prazos->abertosDoEscritorioNoPeriodo($tenant, $de, $ate, $pastasOcultas));
     }
 
     /** @return list<C> */
@@ -171,18 +192,46 @@ final class ListarCompromissosUseCase
     {
         $ini = $de->format('Y-m-d');
         $fim = $ate->format('Y-m-d');
+        [$ocultos, $nomes] = $this->ajustesDeAniversario($tenant);
         $saida = [];
         foreach ($this->perfis->aniversariantesDoEscritorio($tenant) as $p) {
             for ($ano = (int) $de->format('Y'); $ano <= (int) $ate->format('Y'); ++$ano) {
                 $md = $p['nascimento']->format('m-d');
                 $data = $ano . '-' . ('02-29' === $md && !checkdate(2, 29, $ano) ? '02-28' : $md);
-                if ($data >= $ini && $data <= $fim) {
+                $id = 'aniv-' . $p['id'] . '-' . $data;
+                if ($data >= $ini && $data <= $fim && !isset($ocultos[$id])) {
                     $curto = implode(' ', array_slice(explode(' ', trim($p['nome'])), 0, 2));
-                    $saida[] = new C('aniv-' . $p['id'] . '-' . $data, $data, '🎂 Aniversário de ' . $curto, C::CAL_ANIV, C::ORIGEM_ANIV, true, usuarioId: $p['id'], donoNome: $p['nome']);
+                    $saida[] = new C($id, $data, $nomes[$id] ?? '🎂 Aniversário de ' . $curto, C::CAL_ANIV, C::ORIGEM_ANIV, true, usuarioId: $p['id'], donoNome: $p['nome'], editado: isset($nomes[$id]));
                 }
             }
         }
 
         return $saida;
+    }
+
+    /**
+     * Aniversário também é data do sistema no botão direito (desenho: ORG inclui "aniv"): pode ser
+     * ocultado ou renomeado pelo escritório.
+     *
+     * @return array{array<string, true>, array<string, string>}
+     */
+    private function ajustesDeAniversario(Tenant $tenant): array
+    {
+        $ocultos = [];
+        $nomes = [];
+        foreach ($this->ajustes->doEscritorio($tenant) as $a) {
+            $id = (string) $a->getDataId();
+            if (!str_starts_with($id, 'aniv-')) {
+                continue;
+            }
+            if (TipoDeAjuste::Ocultar === $a->getTipo()) {
+                $ocultos[$id] = true;
+            }
+            if (TipoDeAjuste::Renomear === $a->getTipo()) {
+                $nomes[$id] = (string) $a->getTitulo();
+            }
+        }
+
+        return [$ocultos, $nomes];
     }
 }

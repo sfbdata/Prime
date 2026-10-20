@@ -14,6 +14,13 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
   não há API nesta fatia), tela "Despachar via Chat I.A" no `central.js` (`mostrarTela('despacho')`) e o chip "Pasta N"
   **só como texto**: a mensagem não guarda o id da pasta, o chip sai da linha "Pasta NUP" e não abre a pasta (link
   depende da coluna `referencia`, §5). Pendente: smoke do dono e o Playwright comparativo.
+- **20/10, PR2 sobre a referência:** o chip "Pasta N" sai de `mensagem.despacho` e abre a pasta; a extração por regex do
+  texto saiu (chip forjado não existe mais); `ocultoPorPermissao` apagado no balão, na citação e na prévia.
+- **20/10, PR1, correção de segurança (bloqueante da revisão):** quem entrava no grupo depois do despacho (ou perdia
+  o acesso à pasta) lia no histórico o título, o trecho do teor e o NUP. Agora a mensagem guarda a referência
+  (`despacho_pasta_id`, `despacho_tipo`; migration `Version20261020129000`) e toda leitura confere a pasta na hora
+  (`LeituraDasMensagens`); o contrato novo da `MensagemOutput` está em §4.1. Também: conversa sem ninguém que receba é
+  recusada, e o registro do Financeiro pede o financeiro de quem envia e de quem recebe.
 - **20/10, PR4a implementado (em revisão):** branch `encaminhar-menus-registros`, empilhada sobre `encaminhar-tela`.
   O ↪ espelhado (D:1405, D:1936, D:2463) nos cartões de Dados (`registro_dados`), Detalhes (`registro_detalhes`) e
   Financeiro (`registro_financeiro`), depois do Responder e antes da hora; o item "Encaminhar via Chat I.A" (`bi-send`)
@@ -68,8 +75,11 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
 1. Destinatário que não vê a pasta **some da lista** (desvio de segurança, ver "Para o dono").
 2. Aba oculta não restringe: item do Financeiro pode ir para quem tem o Financeiro oculto (aba oculta é organização).
 3. Grupo com algum membro que não vê a pasta: **o grupo inteiro fica fora**, com o motivo.
-4. v1 com o chip "Pasta N" que abre a pasta, como o desenho mostra. Sem link para o registro exato, sem migration.
-5. Quem perde o acesso depois mantém o texto já entregue.
+4. v1 com o chip "Pasta N" que abre a pasta, como o desenho mostra. Sem link para o registro exato. (20/10: a
+   referência da pasta passou a ser gravada, com migration, por causa da correção de segurança; §3.)
+5. ~~Quem perde o acesso depois mantém o texto já entregue.~~ **Substituída (20/10, revisão cruzada da b5):** a
+   leitura confere a pasta na hora; quem não vê (inclusive quem entrou no grupo depois ou perdeu o acesso) lê "Item
+   de pasta sem acesso" (ressalva do dono na spec central-comunicacao-b; §3).
 6. **Segue o desenho:** prefixo com 🔴 e 🟠. "Urgente" gera aviso no sino de tipo novo `central_despacho`; "Para hoje" é só o prefixo.
 7. Auditoria só com tipo, item #id e destinatário #id, sem texto (regra 3 da Central).
 8. "Enviar no Chat I.A" (D:6872) **entra**, em fatia própria.
@@ -92,10 +102,27 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
     escritório = 404. No tipo `pasta` o `itemId` é ignorado e a auditoria grava `item_id = null`.
   - Texto: `[🔴 URGENTE · | 🟠 PARA HOJE · ]Despacho: TÍTULO` + `\nRESUMO` (se houver) + `\nPasta NUP` (sempre; no
     tipo `pasta` ela já é o título e não se repete) + `\n\nINSTRUÇÃO` (se houver). Os resumos por tipo não repetem a
-    pasta. O chip "Pasta N" do PR2 sai dessa linha OU de uma coluna futura (`referencia`, §5); a decisão é do PR2.
+    pasta. O chip "Pasta N" sai da referência gravada (`MensagemOutput::$despacho`, §4.1), nunca dessa linha.
   - Uma transação só: abrir a 1:1, a mensagem, os avisos e a auditoria entram juntos ou não entram. A corrida de dois
     abrindo a mesma 1:1 segue em 409 (`ConversaCriadaAoMesmoTempoException`).
   - Exige: eu vejo a pasta; o destino (cada participante ativo, no grupo) vê a pasta. Senão recusa com o motivo.
+    Conversa sem ninguém que receba (a 1:1 com quem saiu do escritório, o grupo em que só eu fiquei) é recusada com
+    "Ninguém mais nesta conversa pode receber." (`todosVeem([])` é falso; na lista de destinos o grupo fica
+    indisponível com esse motivo). Colega de outro escritório pelo `usuarioId`: a mesma recusa de um id que não existe
+    (422 "Colega não encontrado neste escritório."), sem dizer se ele existe.
+  - Registro do Financeiro (`registro_financeiro`): quem envia e cada um que recebe também passam por
+    `VisibilidadeDoFinanceiroDaPasta::podeVer` (quem envia sem ver = 404; destinatário sem ver = 422 com o motivo).
+    A lista de destinos não recebe o tipo e segue filtrando só pela pasta (hoje as duas regras coincidem).
+  - **Referência e conferência na leitura (20/10).** A mensagem do despacho grava `despacho_pasta_id` (FK para a pasta,
+    `ON DELETE SET NULL`) e `despacho_tipo` (o `TipoDeItemEncaminhado`), pelo `EnviarMensagemUseCase` (parâmetro
+    `ReferenciaDeDespacho`), na mesma transação; a mensagem comum fica com as duas nulas. Toda saída do texto de uma
+    mensagem (histórico, novidades e janela de 30 s, prévia da lista, trecho citado de `respostaA`, a própria resposta
+    do envio) passa por `LeituraDasMensagens`: com `despacho_tipo`, quem lê precisa ver a pasta NAQUELA HORA
+    (`AcessoAPasta::podeVer`; no Financeiro também o financeiro). Pasta apagada (nula), excluída (lápide) ou de outro
+    escritório conta como não vê. Quem não vê recebe "Item de pasta sem acesso" e nenhuma referência. A pasta é buscada
+    com o escritório da mensagem explícito; a resposta fica em memória só durante aquela leitura. Isto substitui a
+    decisão 2.5 ("quem perde o acesso depois mantém o texto já entregue") e o "recheck na leitura" de §5, por causa
+    da ressalva do dono na spec B (o histórico respeita as permissões, inclusive para participantes novos).
   - Abre ou reaproveita a 1:1 (`AbrirConversaUseCase`) e grava a mensagem pelo caminho do `EnviarMensagemUseCase`
     (participação, menções, limite de 4000).
   - Urgente: `Notificacao` tipo `central_despacho` para cada membro, sem o texto do item (só "Despacho urgente de
@@ -112,6 +139,19 @@ observação para colar ("Chat I.A aberto. Texto copiado para colar na conversa"
 
 1. **PR1, backend:** os dois use cases, rotas, tipo `despacho` em `TiposDeAvisoDaCentral`, testes (unit + functional
    + isolamento sem `TenantFilter`).
+
+   **Contrato da `MensagemOutput` para a tela (PR2 em diante).** Toda mensagem que a Central devolve (histórico
+   `GET /central/conversas/{id}/mensagens`, `GET /central/novidades`, `ultima` de `GET /central/conversas`, a resposta
+   de `POST /central/conversas/{id}/mensagens`) leva dois campos novos:
+
+   - `despacho`: `{"pastaId": int, "nup": string|null}` só quando a mensagem é um despacho E quem lê vê a pasta agora;
+     `null` na mensagem comum e no despacho que o leitor não vê. O chip "Pasta N" sai daqui (`nup`, ou o id quando
+     `nup` é nulo), nunca do texto.
+   - `ocultoPorPermissao`: `true` quando é despacho e o leitor não vê a pasta; então `conteudo` é
+     "Item de pasta sem acesso" e `despacho` é `null`. `false` em todo o resto.
+
+   A citação (`respostaA`) ganha `ocultoPorPermissao` também: citação de um despacho que o leitor não vê traz `trecho`
+   = "Item de pasta sem acesso". A tela não deve tentar reconstruir a pasta a partir do texto.
 2. **PR2, tela de despacho e API da janela** (`central.js`, flutuante, `_janela`): espera a base de presença entrar
    (arquivo quente em ~10 PRs).
 3. **PR3, "Responsáveis nas metas" abre a conversa:** `PastaMetasResumoOutput` leva o `userId`.
@@ -147,9 +187,12 @@ título e resumo; "Instrução (opcional). Ex.: favor concluir até sexta."; pri
 "Para quem?" com os destinos (grupo travado mostra o motivo, sem clique); ao escolher, envia, abre a conversa com o
 destino e avisa "Despachado para NOME.". Erro do servidor: o `erro` da resposta, na própria tela. "Cancelar" volta à
 lista (BC:6223 só zera o despacho). Desvio registrado: a busca e as abas da lista, que no protótipo ficam à vista e
-inertes atrás da tela (BC:6362-6372), não aparecem no despacho. O chip "Pasta N" sai da linha "Pasta NUP" do texto,
-só como texto (sem o id da pasta na mensagem, não abre a pasta; abrir exige a coluna `referencia` da §5).
+inertes atrás da tela (BC:6362-6372), não aparecem no despacho. O chip "Pasta N" sai da referência `despacho`
+(`{pastaId, nup}`) da mensagem, nunca do texto: rótulo "Pasta " + nup (ou o id sem nup), link para `/pasta/{pastaId}`
+(BC:6041, `bj-navegar` no protótipo). A linha "Pasta NUP" do texto some da tela só quando é igual à da referência.
+Com `ocultoPorPermissao`, balão, citação e prévia mostram "Item de pasta sem acesso" apagado e sem chip.
 
 ## 5. Fora
 
-- Link para o registro exato e recheck na leitura (§2.4); entram com uma coluna `referencia` numa fase futura.
+- Link para o registro exato (§2.4). O recheck na leitura e a referência da pasta (`despacho_pasta_id`,
+  `despacho_tipo`) já entraram (20/10, §3).

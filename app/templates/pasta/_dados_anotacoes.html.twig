@@ -264,7 +264,9 @@
     <article class="ps-anotacao{{ doSistema ? ' ps-anotacao--sistema' : '' }}{{ item.ehResposta ? ' ps-anotacao--resposta' : '' }}{{ extra ? ' ps-anotacao--extra d-none' : '' }}"
              {% if item.mensagemId %}id="pasta-msg-{{ item.mensagemId }}"
              data-janela-ate="{{ item.dataHora|date('U') + comentario_janela_minutos() * 60 }}"
-             data-do-autor="{{ app.user and item.usuarioId == app.user.id ? '1' : '0' }}"{% endif %}>
+             data-do-autor="{{ app.user and item.usuarioId == app.user.id ? '1' : '0' }}"{% endif %}
+             {#- Presença do autor (pasta-presenca-autor.js). O registro do sistema também tem autor (dc `autoReg`, L6170). #}
+             {%- if item.usuarioId %} data-autor-id="{{ item.usuarioId }}"{% endif %}>
         {% if item.ehResposta %}
             {# O desenho grava o rótulo em caixa alta; quem põe em maiúsculas é o CSS. #}
             <div class="ps-anotacao-resposta-rot">

@@ -7,6 +7,7 @@ namespace App\Central\UseCase;
 use App\Central\DTO\PresencaOnlineOutput;
 use App\Central\Entity\Presenca;
 use App\Central\Exception\SemAcessoACentralException;
+use App\Central\Repository\ConfiguracaoDePresencaRepository;
 use App\Central\Repository\PresencaRepository;
 use App\Central\Service\AcessoACentral;
 use App\Entity\Auth\User;
@@ -27,6 +28,7 @@ final class ListarPresencaDoEscritorioUseCase
         private readonly UserRepository $usuarios,
         private readonly PresencaRepository $presencas,
         private readonly ClockInterface $clock,
+        private readonly ConfiguracaoDePresencaRepository $configuracoes,
     ) {
     }
 
@@ -41,11 +43,12 @@ final class ListarPresencaDoEscritorioUseCase
         $ids = array_map(static fn (User $u): int => (int) $u->getId(), $this->usuarios->findColaboradoresAtivosPorTenant($tenant));
         $agora = $this->clock->now();
         $limite = $agora->modify(sprintf('-%d seconds', PresencaRepository::ONLINE_SEGUNDOS));
+        $minutosAusente = $this->configuracoes->minutosAusente($tenant);   // fase 3: o limite do escritório
 
         $online = [];
         foreach ($this->presencas->doEscritorio($tenant, $ids) as $id => $presenca) {
             if ($presenca['ultimaAtividade'] > $limite) {
-                $online[] = new PresencaOnlineOutput($id, $presenca['status'], $this->semAtividadeMin($presenca, $agora));
+                $online[] = new PresencaOnlineOutput($id, $presenca['status'], $this->semAtividadeMin($presenca, $agora, $minutosAusente));
             }
         }
 
@@ -54,16 +57,16 @@ final class ListarPresencaDoEscritorioUseCase
 
     /**
      * O navegador passa a `inativo` quando completa o limite sem atividade; `status_desde` é esse instante (com erro de
-     * até um batimento). Daí: minutos desde então mais o limite.
+     * até um batimento). Daí: minutos desde então mais o limite do escritório.
      *
      * @param array{status: string, statusDesde: \DateTimeImmutable} $presenca
      */
-    private function semAtividadeMin(array $presenca, \DateTimeImmutable $agora): ?int
+    private function semAtividadeMin(array $presenca, \DateTimeImmutable $agora, int $limite): ?int
     {
         if ($presenca['status'] !== Presenca::INATIVO) {
             return null;
         }
 
-        return intdiv(max(0, $agora->getTimestamp() - $presenca['statusDesde']->getTimestamp()), 60) + Presenca::INATIVO_APOS_MINUTOS;
+        return intdiv(max(0, $agora->getTimestamp() - $presenca['statusDesde']->getTimestamp()), 60) + $limite;
     }
 }

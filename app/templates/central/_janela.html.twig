@@ -14,9 +14,10 @@
          data-url-encaminhar-item="{{ path('central_encaminhar_item') }}"
          data-url-encaminhar-destinos="{{ path('central_encaminhar_destinos') }}"
          data-url-encaminhar="{{ path('central_encaminhar') }}"
+         data-url-pasta-base="{{ path('pasta_show', {id: 0})|slice(0, -1) }}"
          data-eu-nome="{{ eu.fullName }}"
          data-eu-id="{{ eu.id }}"
-         data-inativo-apos-min="{{ constant('App\\Central\\Entity\\Presenca::INATIVO_APOS_MINUTOS') }}"
+         data-inativo-apos-min="{{ presenca_ausente_apos_min() }}"
          data-tamanho-maximo="{{ constant('App\\Central\\Entity\\Mensagem::TAMANHO_MAXIMO') }}"
          {% if abrirConversa is defined and abrirConversa %}data-abrir-conversa="{{ abrirConversa }}"{% endif %}
          data-modo="{{ modo|default('pagina') }}"

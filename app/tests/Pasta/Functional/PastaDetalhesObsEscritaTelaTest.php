@@ -92,7 +92,7 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
             $itens = $crawler->filter("#detalhes-obs-{$id} > .ps-anotacao-topo > #psObsMenu{$id} > .ps-processo-menu-item")->each(
                 static fn ($i): string => trim(preg_replace('/\s+/u', ' ', $i->text()) ?? ''),
             );
-            self::assertSame(['Copiar texto', 'Encaminhar via Chat I.A', 'Imprimir'], $itens);
+            self::assertSame(['Copiar texto', 'Encaminhar via Chat I.A', 'Enviar no Chat I.A', 'Imprimir'], $itens);
             self::assertCount(0, $crawler->filter("#psObsMenu{$id} > .ps-processo-menu-sep"));
         }
 

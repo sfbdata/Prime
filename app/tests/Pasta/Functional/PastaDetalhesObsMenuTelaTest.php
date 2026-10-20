@@ -79,6 +79,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
             'Encaminhar via Chat I.A',
             'Citar no novo registro',
             'Criar meta a partir deste registro',
+            'Enviar no Chat I.A',
             'Imprimir',
             'Editar · 10 min',
             'Excluir comentário · 10 min',
@@ -86,8 +87,8 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
 
         $id = $obs->getId();
         self::assertCount(1, $menu->filter("#psObsMenu{$id} > .js-obs-citar + .js-obs-criar-meta[role=\"menuitem\"] > i.bi-check2-square"));
-        // C6-EDT-04 (dc L.5958): os extras (Citar, Criar meta, Imprimir) vêm antes do separador.
-        self::assertCount(1, $menu->filter("#psObsMenu{$id} > .js-obs-criar-meta + .js-obs-imprimir + .ps-processo-menu-sep[role=\"separator\"] + .js-obs-editar"));
+        // C6-EDT-04 (dc L.5958): os extras (Citar, Criar meta, Enviar no Chat I.A, Imprimir) vêm antes do separador.
+        self::assertCount(1, $menu->filter("#psObsMenu{$id} > .js-obs-criar-meta + .js-obs-enviar-chat + .js-obs-imprimir + .ps-processo-menu-sep[role=\"separator\"] + .js-obs-editar"));
         self::assertCount(1, $menu->filter("#psObsMenu{$id} > .js-obs-editar[data-obs-id=\"{$id}\"] > i.bi-pencil"));
         self::assertCount(1, $menu->filter("#psObsMenu{$id} > .js-obs-excluir[data-obs-id=\"{$id}\"] > i.bi-trash3"));
         self::assertCount(0, $menu->filter('[disabled], .bi-lock'));
@@ -111,7 +112,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
         [$menu, $itens] = $this->menu($crawler, $obs);
-        self::assertSame(['Responder', 'Copiar texto', 'Encaminhar via Chat I.A', 'Citar no novo registro', 'Criar meta a partir deste registro', 'Imprimir', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
+        self::assertSame(['Responder', 'Copiar texto', 'Encaminhar via Chat I.A', 'Citar no novo registro', 'Criar meta a partir deste registro', 'Enviar no Chat I.A', 'Imprimir', 'Editar · bloqueado', 'Excluir · bloqueado'], $itens);
         $bloqueados = $menu->filter('.ps-obs-menu > .ps-processo-menu-item[aria-disabled="true"]');
         self::assertCount(2, $bloqueados);
         self::assertCount(2, $bloqueados->filter('i.bi-lock'));
@@ -184,7 +185,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         [$menu, $itens] = $this->menu($crawler, $obs);
-        self::assertSame(['Copiar texto', 'Imprimir'], $itens, 'na lápide só leitura: Imprimir fica');
+        self::assertSame(['Copiar texto', 'Enviar no Chat I.A', 'Imprimir'], $itens, 'na lápide só leitura: Enviar no Chat I.A (cópia) e Imprimir ficam');
         self::assertCount(0, $menu->filter('.ps-processo-menu-sep'));
         // PAS-039: nem o item Responder nem o botão do cartão.
         self::assertCount(0, $crawler->filter('#detalhesObsLista .btn-responder-obs-det, #detalhesObsLista .js-obs-responder'));
@@ -204,7 +205,7 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         $ini      = strpos($html, 'function inserirItem(data)');
         self::assertNotFalse($ini);
         $montador = substr($html, $ini, (int) strpos($html, 'obsLista.insertAdjacentHTML', $ini) - $ini);
-        $ordem    = ['js-obs-copiar', 'js-obs-citar', 'js-obs-criar-meta', 'js-obs-imprimir', 'ps-processo-menu-sep', 'js-obs-editar', 'js-obs-excluir'];
+        $ordem    = ['js-obs-copiar', 'js-obs-citar', 'js-obs-criar-meta', 'js-obs-enviar-chat', 'js-obs-imprimir', 'ps-processo-menu-sep', 'js-obs-editar', 'js-obs-excluir'];
         $pos      = array_map(static fn (string $c): int|false => strpos($montador, $c), $ordem);
         self::assertNotContains(false, $pos, 'falta item no cartão do JS');
         $ordenado = $pos;
@@ -227,6 +228,44 @@ final class PastaDetalhesObsMenuTelaTest extends JusPrimeWebTestCase
         $acionar = substr($html, (int) strpos($html, 'function acionarDoCartao(item, seletor)'), 500);
         self::assertStringContainsString("querySelector('.ps-anotacao-acoes ' + seletor)", $acionar);
         self::assertStringContainsString('alvo.click()', $acionar);
+    }
+
+    #[TestDox('dc L.6872: "Enviar no Chat I.A" no ⋮ da observação, entre "Criar meta…" e "Imprimir", com o NUP da pasta; o script abre a Central (bj-central:abrir) e copia "Pasta N · cabeçalho" + 900 caracteres')]
+    public function testEnviarNoChat(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $obs             = $this->criarObs($pasta, $tenant, $user, '-5 minutes');
+        // NUP é texto livre: com crase e ${...} ele não pode entrar cru no template JS do cartão novo (XSS).
+        $pasta->setNup('10`A ${ALERTA}');
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+        self::assertSame('10`A ${ALERTA}', $crawler->filter('#detalhesObsLista')->attr('data-pasta-nup'), 'o NUP vem da lista, em atributo HTML');
+
+        [$menu] = $this->menu($crawler, $obs);
+        $id     = $obs->getId();
+        $item   = $menu->filter("#psObsMenu{$id} > .js-obs-criar-meta + .js-obs-enviar-chat[role=\"menuitem\"]");
+        self::assertCount(1, $menu->filter("#psObsMenu{$id} > .js-obs-enviar-chat + .js-obs-imprimir"));
+        self::assertSame('Enviar no Chat I.A', trim($item->text()));
+        self::assertNull($item->attr('data-pasta-nup'));
+        self::assertCount(1, $item->filter('i.bi-chat-dots'));
+
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('${ALERTA}', substr($html, (int) strpos($html, 'function inserirItem(data)'), 20000), 'o NUP não entra no script');
+        self::assertStringContainsString("if (itemChat) { enviarObsNoChat(itemChat); return; }", $html);
+        $fn = substr($html, (int) strpos($html, 'function enviarObsNoChat(item)'), 1500);
+        self::assertStringContainsString("new CustomEvent('bj-central:abrir')", $fn);
+        self::assertStringContainsString(".slice(0, 900)", $fn);
+        self::assertStringContainsString("getElementById('detalhesObsLista')", $fn);
+        self::assertStringContainsString("'Pasta ' + nup + ' · ' + cab", $fn);
+        self::assertStringContainsString('Chat I.A aberto. Texto copiado para colar na conversa', $fn);
+
+        $flutuante = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/central-flutuante.js');
+        self::assertStringContainsString("document.addEventListener('bj-central:abrir', function () { if (!ui.aberto) { abrir(); } });", $flutuante);
     }
 
     #[TestDox('PAS-039: a resposta fica recuada sob a raiz, com "Resposta a NOME"; a contagem é só das raízes')]
