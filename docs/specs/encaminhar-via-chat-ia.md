@@ -9,6 +9,11 @@ Risco **MÉDIO**: leva conteúdo de pasta a outra pessoa. Desenho: `docs/design/
 - **19/10, PR1 (backend):** implementado na branch `encaminhar-chat-ia` (commit 82327702), em revisão.
 - **19/10, PR2:** a base de presença (#61) entrou; PR2 (tela de despacho e API da janela, §4.1) na branch
   `encaminhar-tela`, empilhada sobre `encaminhar-chat-ia` (#108).
+- **19/10, PR2 implementado (em revisão):** `GET /central/encaminhar/item` (`ObterItemDoEncaminhamentoUseCase`, as
+  guardas e o leitor do envio), `window.BJCentral` no `central-flutuante.js` (só com o lançador na página; na `/central`
+  não há API nesta fatia), tela "Despachar via Chat I.A" no `central.js` (`mostrarTela('despacho')`) e o chip "Pasta N"
+  **só como texto**: a mensagem não guarda o id da pasta, o chip sai da linha "Pasta NUP" e não abre a pasta (link
+  depende da coluna `referencia`, §5). Pendente: smoke do dono e o Playwright comparativo.
 
 ### Para o dono
 
