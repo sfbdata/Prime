@@ -5,7 +5,7 @@
 ## Estado da frente
 
 - 19/10 noite: spec e contratos escritos; implementação em quatro blocos (A senha, B cadastro, C suporte e ajustes, D tela).
-- Migration: UMA para a frente toda, `Version20261020091500` (a 090000 colidia com o #87), na fila logo depois do #56 (coordenador). Renomear de novo para o momento, se preciso, na hora do merge.
+- Migration: UMA para a frente toda, `Version20261020123000` (renomeada em 20/10 a pedido do coordenador: a 091500 ficou antes da 110000 do master; a 090000 colidia com o #87).
 - Arquivo quente tocado: `app/config/packages/framework.yaml` (um limitador novo, `suporte_entrada`). Avisado ao coordenador.
   `security.yaml`, `doctrine.yaml` e `base.html.twig` **não** são tocados: as rotas novas moram sob `/login`, `/senha` e
   `/cadastro`, que já são `PUBLIC_ACCESS`; as entidades novas ficam em `Auth/Entity` e `Termo/Entity`, já mapeadas.
