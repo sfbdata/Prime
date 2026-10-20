@@ -122,16 +122,58 @@ final class EncaminharNaJanelaJsTest extends TestCase
         self::assertDoesNotMatchRegularExpression('#\.(test|match|exec|replace)\(\s*/|new RegExp#', $chip, 'chip e linha da pasta sem regex');
     }
 
-    #[TestDox('ocultoPorPermissao: balão, citação e prévia mostram o texto do servidor apagado, sem chip')]
+    #[TestDox('ocultoPorPermissao: balão como "Mensagem excluída" (BC:6039), citação e prévia só o texto, sem chip')]
     public function testOcultoPorPermissao(): void
     {
         $js = self::js('central.js');
-        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/central.css');
+        $css = self::css();
 
         self::assertStringContainsString("if (m.ocultoPorPermissao) {", $js);
-        self::assertStringContainsString("corpoBolha.appendChild(criar('span', 'bj-central-oculto', m.conteudo));\n            } else {\n                var chip = chipDaPasta(m.despacho);", $js, 'oculto não tem chip');
-        self::assertStringContainsString("(m.respostaA.ocultoPorPermissao ? ' bj-central-oculto' : ''), m.respostaA.trecho)", $js);
-        self::assertStringContainsString("(c.ultima && c.ultima.ocultoPorPermissao ? ' bj-central-oculto' : ''), previa)", $js);
-        self::assertMatchesRegularExpression('/\.bj-central-oculto \{\s+font-style: italic;\s+color: var\(--bjc-texto-suave\);/', $css);
+        self::assertStringContainsString("var icOculto = icone('bi-slash-circle');\n                icOculto.classList.add('bj-central-oculto-ico');\n                oculto.appendChild(icOculto);\n                oculto.appendChild(document.createTextNode(m.conteudo));", $js);
+        self::assertStringContainsString("corpoBolha.appendChild(oculto);\n            } else {\n                var chip = chipDaPasta(m.despacho);", $js, 'oculto não tem chip');
+        self::assertStringContainsString("(m.respostaA.ocultoPorPermissao ? ' bj-central-oculto-trecho' : ''), m.respostaA.trecho)", $js);
+        self::assertStringContainsString("(c.ultima && c.ultima.ocultoPorPermissao ? ' bj-central-oculto-trecho' : ''), previa)", $js);
+        self::assertMatchesRegularExpression('/\.bj-central-oculto \{\s+font-style: italic;\s+opacity: \.7;\s+\}/', $css);
+        self::assertMatchesRegularExpression('/\.bj-central-oculto-ico \{\s+margin-right: 5px;\s+\}/', $css);
+        self::assertMatchesRegularExpression('/\.bj-central-oculto-trecho \{\s+font-style: italic;\s+\}/', $css);
+    }
+
+    #[TestDox('Menu da mensagem oculta: sem Responder e sem Copiar; Mencionar continua; sem itens, sem menu')]
+    public function testMenuDaMensagemOculta(): void
+    {
+        $menu = self::trecho(self::js('central.js'), 'function menuDaMensagem(', 'function falhaDeAcao(');
+
+        self::assertStringContainsString('var oculta = !!m.ocultoPorPermissao;', $menu);
+        self::assertStringContainsString("if (podeEscrever() && !oculta) {\n                itens.push({ icone: 'bi-reply', rotulo: 'Responder'", $menu);
+        self::assertStringContainsString("if (!oculta) {\n                itens.push({ icone: 'bi-clipboard', rotulo: 'Copiar'", $menu);
+        self::assertStringContainsString("var autor = !m.minha && podeEscrever() ? mencionavel(m.autorId) : null;", $menu, 'Mencionar não depende do oculto');
+        self::assertStringContainsString('if (!itens.length) { return; }', $menu);
+    }
+
+    #[TestDox('Chip na destacada abre aba nova (noopener) e a Central fica; Ctrl/Cmd/Shift/Alt e outro botão seguem o navegador')]
+    public function testCliqueDoChip(): void
+    {
+        $chip = self::trecho(self::js('central.js'), 'function chipDaPasta(despacho) {', 'function semALinhaDaPasta(');
+
+        self::assertStringContainsString('if (ev.button !== 0 || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) { return; }', $chip);
+        self::assertStringContainsString("if (vista() !== window) { ev.preventDefault(); window.open(chip.href, '_blank', 'noopener'); }", $chip);
+        self::assertStringNotContainsString('location.assign', $chip, 'navegar a origem fecharia a Central destacada');
+    }
+
+    #[TestDox('Tema escuro: chip dos outros com par próprio legível (7,5:1); o claro e o balão próprio não mudam')]
+    public function testChipNoTemaEscuro(): void
+    {
+        $css = self::css();
+
+        self::assertStringContainsString("--bjc-chip-pasta-fundo: #1b4a63;\n    --bjc-chip-pasta-texto: #cfe8f6;", $css);
+        foreach (['', ':hover', ':focus'] as $estado) {
+            self::assertStringContainsString('html[data-bs-theme="dark"] .bj-central .bj-central-msg:not(.bj-central-msg--minha) .bj-central-chip-pasta' . $estado, $css);
+        }
+        self::assertMatchesRegularExpression('/\n\.bj-central-chip-pasta \{[^}]*background: var\(--bjc-selecionado\);\s+color: var\(--bjc-petroleo\);/', $css, 'claro: o do BC:6041');
+    }
+
+    private static function css(): string
+    {
+        return (string) file_get_contents(__DIR__ . '/../../../public/css/central.css');
     }
 }

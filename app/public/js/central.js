@@ -367,7 +367,7 @@
                 previa = plural(c.participantes, 'participante', 'participantes');
             }
             /* Última mensagem é um despacho que eu não vejo: "Item de pasta sem acesso", apagado como no balão. */
-            baixo.appendChild(criar('span', 'bj-central-previa' + (c.ultima && c.ultima.ocultoPorPermissao ? ' bj-central-oculto' : ''), previa));
+            baixo.appendChild(criar('span', 'bj-central-previa' + (c.ultima && c.ultima.ocultoPorPermissao ? ' bj-central-oculto-trecho' : ''), previa));
             if (c.naoLidas > 0) {
                 // Silenciada: o selo fica cinza (L5693) e a conversa sai do total do cabeçalho.
                 var selo = criar('span', 'bj-central-selo' + (c.silenciada ? ' bj-central-selo--mudo' : ''), String(c.naoLidas));
@@ -1026,14 +1026,19 @@
                 if (!m.minha) { cit.style.borderLeftColor = corNome(m.respostaA.autorId); }   // no balão próprio: branca
                 cit.appendChild(criar('span', 'bj-central-citacao-autor', '↩ ' + (m.respostaA.minha ? 'Você' : m.respostaA.autorNome)));
                 /* Citação de um despacho que eu não vejo: o servidor manda "Item de pasta sem acesso"; aqui, apagada. */
-                cit.appendChild(criar('span', 'bj-central-citacao-trecho' + (m.respostaA.ocultoPorPermissao ? ' bj-central-oculto' : ''), m.respostaA.trecho));
+                cit.appendChild(criar('span', 'bj-central-citacao-trecho' + (m.respostaA.ocultoPorPermissao ? ' bj-central-oculto-trecho' : ''), m.respostaA.trecho));
                 cit.title = 'Ir para a mensagem respondida';
                 cit.addEventListener('click', function () { irParaMensagem(m.respostaA.id); });
                 corpoBolha.appendChild(cit);
             }
             if (m.ocultoPorPermissao) {
                 /* Despacho de pasta que eu não vejo: o servidor já trocou o texto; apagado, sem chip (BC:6039). */
-                corpoBolha.appendChild(criar('span', 'bj-central-oculto', m.conteudo));
+                var oculto = criar('span', 'bj-central-oculto');   /* "Mensagem excluída", BC:6039 */
+                var icOculto = icone('bi-slash-circle');
+                icOculto.classList.add('bj-central-oculto-ico');
+                oculto.appendChild(icOculto);
+                oculto.appendChild(document.createTextNode(m.conteudo));
+                corpoBolha.appendChild(oculto);
             } else {
                 var chip = chipDaPasta(m.despacho);
                 pintarTexto(corpoBolha, chip ? semALinhaDaPasta(m.conteudo, m.despacho) : m.conteudo);
@@ -2123,8 +2128,10 @@
             chip.appendChild(document.createTextNode(rotulo));
             chip.title = rotulo;
             chip.addEventListener('click', function (ev) {
-                /* Destacada, a Central mora em outra janela: a pasta abre na página do BlueJus, não no pop-up. */
-                if (vista() !== window) { ev.preventDefault(); window.location.assign(chip.href); }
+                /* Ctrl, Cmd, Shift, Alt ou outro botão: o padrão do navegador, em qualquer modo. */
+                if (ev.button !== 0 || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) { return; }
+                /* Destacada: aba nova, e a Central segue aberta (navegar a página de origem fecharia o pop-up). */
+                if (vista() !== window) { ev.preventDefault(); window.open(chip.href, '_blank', 'noopener'); }
             });
             return chip;
         }
@@ -2154,14 +2161,19 @@
         function menuDaMensagem(m, x, y, origem) {   // menuMensagem, L5873 — Responder, Copiar, Mencionar
             if (m.sistema) { return; }
             var itens = [];
-            if (podeEscrever()) {
+            /* Despacho de pasta que eu não vejo: nada útil a citar ou copiar; só "Mencionar" o autor. */
+            var oculta = !!m.ocultoPorPermissao;
+            if (podeEscrever() && !oculta) {
                 itens.push({ icone: 'bi-reply', rotulo: 'Responder', acao: function () { responderA(m); } });
             }
-            itens.push({ icone: 'bi-clipboard', rotulo: 'Copiar', acao: function () { copiar(comoTexto(m.conteudo)); } });
+            if (!oculta) {
+                itens.push({ icone: 'bi-clipboard', rotulo: 'Copiar', acao: function () { copiar(comoTexto(m.conteudo)); } });
+            }
             var autor = !m.minha && podeEscrever() ? mencionavel(m.autorId) : null;
             if (autor) {
                 itens.push({ icone: 'bi-at', rotulo: 'Mencionar ' + primeiroNome(autor.nome), acao: function () { mencionar(autor); } });
             }
+            if (!itens.length) { return; }
             abrirMenu(itens, x, y, origem);
         }
 
