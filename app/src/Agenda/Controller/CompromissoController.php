@@ -9,6 +9,7 @@ use App\Agenda\Exception\CompromissoNaoEncontradoException;
 use App\Agenda\Exception\SemPermissaoNoCompromissoException;
 use App\Agenda\UseCase\AlterarStatusDoCompromissoUseCase;
 use App\Agenda\UseCase\AvisarNoChatUseCase;
+use App\Agenda\UseCase\AvisarPrazoNoChatUseCase;
 use App\Agenda\UseCase\ExcluirCompromissoUseCase;
 use App\Agenda\UseCase\MoverCompromissoUseCase;
 use App\Agenda\UseCase\SalvarCompromissoUseCase;
@@ -25,7 +26,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
- * Ações do modal da Agenda nova: criar, editar, excluir e avisar no Chat. JSON, CSRF no cabeçalho
+ * Ações do modal da Agenda nova: criar, editar, excluir e avisar no Chat (compromisso e prazo de pasta). JSON, CSRF no cabeçalho
  * X-CSRF-Token (injetado pelo base.html.twig).
  */
 final class CompromissoController extends AbstractController
@@ -41,6 +42,7 @@ final class CompromissoController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly ValidatorInterface $validator,
+        private readonly AvisarPrazoNoChatUseCase $avisarPrazoNoChat,
     ) {
     }
 
@@ -73,6 +75,20 @@ final class CompromissoController extends AbstractController
             $ids = CompromissoInput::doJson(['avisados' => $request->toArray()['ids'] ?? []])->avisados;
 
             return $this->json(['ok' => true, 'avisados' => $this->avisarNoChat->executar($id, $ids, $eu, $tenant)]);
+        });
+    }
+
+    /** Prazo ou audiência de pasta (desenho 09, L238): só para quem vê as pastas, como na grade. */
+    #[Route('/agenda/prazos/{id}/avisar', name: 'app_agenda_prazo_avisar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function avisarPrazo(Request $request, int $id): JsonResponse
+    {
+        return $this->comAcesso($request, function (User $eu, Tenant $tenant) use ($request, $id): JsonResponse {
+            if (!$this->permissionChecker->canAccessModule($eu, $tenant, 'pastas')) {
+                throw new CompromissoNaoEncontradoException();
+            }
+            $ids = CompromissoInput::doJson(['avisados' => $request->toArray()['ids'] ?? []])->avisados;
+
+            return $this->json(['ok' => true, 'avisados' => $this->avisarPrazoNoChat->executar($id, $ids, $eu, $tenant)]);
         });
     }
 

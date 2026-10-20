@@ -14,6 +14,8 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Pasta\Entity\PastaPrazo;
+use App\Tests\Factory\Pasta\PastaFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -182,6 +184,41 @@ final class CompromissoControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $avisos);
         self::assertSame('/agenda#ev=ev-' . $id . '-2030-03-10', (string) $avisos[0]->getUrl());
         self::assertCount(0, $this->em()->getRepository(Notificacao::class)->findBy(['usuario' => $deFora]));
+    }
+
+    #[TestDox('Avisar no Chat também vale para prazo de pasta (desenho 09, L238): atalho para a pasta; sem acesso às pastas ou de outro escritório, 404')]
+    public function testAvisarPrazo(): void
+    {
+        $client = $this->cliente();
+        $tenant = $this->criarTenant();
+        $outro = $this->criarTenant();
+        $eu = $this->criarUsuario($tenant, true);
+        $colega = $this->criarUsuario($tenant, true);
+        $soAgenda = $this->criarUsuario($tenant, false, ['modules.agenda.view']);
+        $pasta = PastaFactory::createOne(['tenant' => $tenant, 'nup' => 'AV-0001'])->_real();
+        $prazo = new PastaPrazo($tenant, $pasta, null);
+        $prazo->definir(PastaPrazo::TIPO_PRAZO, 'Contestação', new \DateTimeImmutable('2030-03-16'), null, null);
+        $this->em()->persist($prazo);
+        $this->em()->flush();
+        $deOutro = PastaFactory::createOne(['tenant' => $outro, 'nup' => 'AV-0002'])->_real();
+        $prazoDeOutro = new PastaPrazo($outro, $deOutro, null);
+        $prazoDeOutro->definir(PastaPrazo::TIPO_PRAZO, 'Réplica', new \DateTimeImmutable('2030-03-16'), null, null);
+        $this->em()->persist($prazoDeOutro);
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $eu, $tenant);
+        $r = $this->postar($client, '/agenda/prazos/' . $prazo->getId() . '/avisar', ['ids' => [$colega->getId()]]);
+        $this->postar($client, '/agenda/prazos/' . $prazoDeOutro->getId() . '/avisar', ['ids' => [$colega->getId()]]);
+        $deFora = $client->getResponse()->getStatusCode();
+        $this->logarComTenant($client, $soAgenda, $tenant);
+        $this->postar($client, '/agenda/prazos/' . $prazo->getId() . '/avisar', ['ids' => [$colega->getId()]]);
+
+        self::assertSame(1, $r['avisados']);
+        self::assertSame([404, 404], [$deFora, $client->getResponse()->getStatusCode()]);
+        $avisos = $this->em()->getRepository(Notificacao::class)->findBy(['usuario' => $colega]);
+        self::assertCount(1, $avisos);
+        self::assertSame('/pasta/' . $pasta->getId(), (string) $avisos[0]->getUrl());
+        self::assertStringContainsString('um prazo: Contestação · sáb, 16/03 · Pasta AV-0001', (string) $avisos[0]->getMensagem());
     }
 
     private function cliente(): KernelBrowser
