@@ -1755,7 +1755,7 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
     cursor: pointer;
 }
 
-/* ── Documentos do objeto: chips de categoria na área vazia (desenho Objeto 1A, aba Documentos) ──
+/* ── Documentos do objeto: chips de exemplo na área vazia (desenho Objeto 1A, aba Documentos) ──
    Medidas e cores do desenho: fila centralizada e quebrável, 7px entre chips, 14px abaixo da dica;
    chip em pílula de 11.5px, texto #8a9aa6 sobre #f1f5f7 com borda #e2eaef. No tema escuro, as mesmas
    proporções sobre as cores do tema (o cinza claro do desenho viraria um clarão no fundo escuro). */

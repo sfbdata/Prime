@@ -5,21 +5,20 @@ declare(strict_types=1);
 namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\Controller\ObjetoController;
-use App\Cobranca\Enum\CategoriaDocumentoCobranca;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
- * Chips de categoria na área vazia da aba Documentos do objeto (desenho Objeto 1A). O desenho mostra
- * 4 chips; a fonte é o enum `CategoriaDocumentoCobranca`, que tem 6, e valem os do enum, na ordem dele.
+ * Chips de exemplo na área vazia da aba Documentos do objeto (desenho Objeto 1A, L424-429). O desenho
+ * manda: exatamente os 4 chips, com o texto e a ordem dele (dica visual, não o enum de categoria).
  * Arranjo testado por FILHO DIRETO: os chips moram dentro da área vazia do gerenciador, logo abaixo da
  * dica, e não "em algum lugar da página".
  */
 #[CoversClass(ObjetoController::class)]
 final class DocumentosObjetoChipsCategoriaTest extends CobrancaWebTestCase
 {
-    #[TestDox('A área vazia dos documentos traz um chip por categoria do enum, depois da dica')]
-    public function testAreaVaziaTrazOsChipsDoEnum(): void
+    #[TestDox('A área vazia dos documentos traz os 4 chips do desenho, na ordem dele, depois da dica')]
+    public function testAreaVaziaTrazOsChipsDoDesenho(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -36,12 +35,6 @@ final class DocumentosObjetoChipsCategoriaTest extends CobrancaWebTestCase
 
         $chips = $crawler->filter('#fmArquivosVazio > .fm-vazio-categorias > span.fm-vazio-categoria')
             ->each(static fn ($no): string => trim($no->text()));
-        $esperado = array_map(
-            static fn (CategoriaDocumentoCobranca $c): string => $c->rotulo(),
-            CategoriaDocumentoCobranca::cases(),
-        );
-        self::assertSame($esperado, $chips);
-        self::assertContains('Boleto', $chips);
-        self::assertContains('Comprovante', $chips);
+        self::assertSame(['Boletos', 'Notificações', 'Acordos assinados', 'Comprovantes'], $chips);
     }
 }

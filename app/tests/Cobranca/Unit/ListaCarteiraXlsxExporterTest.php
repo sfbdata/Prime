@@ -10,22 +10,30 @@ use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(ListaCarteiraXlsxExporter::class)]
 final class ListaCarteiraXlsxExporterTest extends TestCase
 {
-    private function caso(string $identificacao, int $saldo, int $vencido, bool $pronto = false, bool $docs = false): CasoResumoOutput
-    {
+    private function caso(
+        string $identificacao,
+        int $saldo,
+        int $vencido,
+        bool $pronto = false,
+        bool $docs = false,
+        ?string $descricao = null,
+        string $pessoa = 'Fulana',
+    ): CasoResumoOutput {
         return new CasoResumoOutput(
             id: 1,
             objetoId: 1,
             objetoIdentificacao: $identificacao,
-            objetoDescricao: null,
+            objetoDescricao: $descricao,
             carteiraId: 1,
             carteiraNome: 'Carteira',
-            pessoaCobradaNome: 'Fulana',
+            pessoaCobradaNome: $pessoa,
             statusLabel: 'Ativo',
             statusBadgeClass: 'bg-primary',
             prontoParaEncerrar: $pronto,
@@ -84,14 +92,36 @@ final class ListaCarteiraXlsxExporterTest extends TestCase
         self::assertSame('Sim', $aba->getCell('E3')->getValue());
     }
 
-    #[TestDox('Texto começado por "=" não vira fórmula e "05-03" não vira data')]
-    public function testTextoFicaTexto(): void
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function inicioDeFormula(): iterable
     {
-        $aba = $this->gerar([$this->caso('=HYPERLINK("http://x")', 0, 0), $this->caso('05-03', 0, 0)]);
+        yield 'igual' => ['=HYPERLINK("http://x")'];
+        yield 'mais' => ['+1+1'];
+        yield 'menos' => ['-2+3'];
+        yield 'arroba' => ['@SUM(1,1)'];
+    }
+
+    #[DataProvider('inicioDeFormula')]
+    #[TestDox('Texto começado por $_dataName não vira fórmula na identificação, na descrição nem na pessoa')]
+    public function testTextoComInicioDeFormulaFicaTexto(string $conteudo): void
+    {
+        $aba = $this->gerar([$this->caso($conteudo, 0, 0, descricao: $conteudo, pessoa: $conteudo)]);
+
+        foreach (['A2', 'B2', 'C2'] as $celula) {
+            self::assertSame(DataType::TYPE_STRING, $aba->getCell($celula)->getDataType(), $celula);
+            self::assertSame($conteudo, $aba->getCell($celula)->getValue(), $celula);
+        }
+    }
+
+    #[TestDox('Identificação como "05-03" não vira data')]
+    public function testIdentificacaoNaoViraData(): void
+    {
+        $aba = $this->gerar([$this->caso('05-03', 0, 0)]);
 
         self::assertSame(DataType::TYPE_STRING, $aba->getCell('A2')->getDataType());
-        self::assertSame('=HYPERLINK("http://x")', $aba->getCell('A2')->getValue());
-        self::assertSame('05-03', $aba->getCell('A3')->getValue());
+        self::assertSame('05-03', $aba->getCell('A2')->getValue());
     }
 
     #[TestDox('Resposta de download: tipo .xlsx, anexo com o nome pedido e sem cache')]

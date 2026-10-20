@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Controller;
 
+use App\Cobranca\Exception\ListaGrandeDemaisParaExportarException;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Service\ListaCarteiraXlsxExporter;
 use App\Cobranca\UseCase\ListarCasosParaExportarCarteiraUseCase;
@@ -59,7 +60,17 @@ final class CarteiraExportacaoController extends AbstractController
         $direcao = strtolower((string) $request->query->get('direcao', 'desc')) === 'asc' ? 'asc' : 'desc';
         $estado = (string) $request->query->get('estado', '');
 
-        $lista = $this->listarCasos->executar($carteira, $busca, $ordenar, $direcao, $estado);
+        try {
+            $lista = $this->listarCasos->executar($carteira, $busca, $ordenar, $direcao, $estado);
+        } catch (ListaGrandeDemaisParaExportarException $e) {
+            // Volta para a tela com o MESMO recorte, para o usuário estreitá-lo a partir de onde estava.
+            $this->addFlash('warning', $e->getMessage());
+
+            return $this->redirectToRoute('cobranca_carteira_show', array_filter(
+                ['id' => $id, 'busca' => $busca, 'estado' => $estado, 'ordenar' => $ordenar, 'direcao' => $direcao],
+                static fn (int|string $valor): bool => $valor !== '',
+            ));
+        }
 
         // Nome sem dado pessoal: nem credor, nem devedor, nem quem exportou. Só o número da carteira e o dia.
         $nomeArquivo = sprintf('carteira-%d-%s.xlsx', $id, (new \DateTimeImmutable('today'))->format('Y-m-d'));

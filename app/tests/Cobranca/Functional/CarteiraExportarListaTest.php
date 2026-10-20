@@ -7,8 +7,10 @@ namespace App\Tests\Cobranca\Functional;
 use App\Cobranca\Controller\CarteiraExportacaoController;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Enum\StatusCaso;
+use App\Cobranca\Exception\ListaGrandeDemaisParaExportarException;
 use App\Cobranca\Service\ListaCarteiraXlsxExporter;
 use App\Cobranca\UseCase\ListarCasosParaExportarCarteiraUseCase;
+use App\Cobranca\UseCase\MontarVisaoCarteiraUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Factory\Cliente\ClientePFFactory;
 use App\Tests\Factory\Cobranca\CarteiraFactory;
@@ -266,5 +268,77 @@ final class CarteiraExportarListaTest extends CobrancaWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(3, $this->linhas($this->planilha($client)));
+    }
+
+    #[TestDox('O teto conta as linhas do RECORTE, não a carteira inteira')]
+    public function testTetoContaORecorte(): void
+    {
+        self::assertSame(5000, ListarCasosParaExportarCarteiraUseCase::LIMITE_LINHAS);
+
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteira = $this->carteira($tenant);
+
+        // Teto reduzido para 1 (a carteira tem 2 casos): o mesmo UseCase, com o teto injetado.
+        $container = static::getContainer();
+        $container->set(
+            ListarCasosParaExportarCarteiraUseCase::class,
+            new ListarCasosParaExportarCarteiraUseCase($container->get(MontarVisaoCarteiraUseCase::class), 1),
+        );
+
+        $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId() . '/exportar?estado=ativo');
+        // A carteira tem 2 casos (acima do teto 1), mas o Estado "ativo" deixa 1: dentro do teto.
+        self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
+
+    #[TestDox('Acima do teto: redirect para a carteira com o mesmo recorte e o aviso, sem planilha')]
+    public function testAcimaDoTetoRedirecionaComAviso(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteira = $this->carteira($tenant);
+
+        $container = static::getContainer();
+        $container->set(
+            ListarCasosParaExportarCarteiraUseCase::class,
+            new ListarCasosParaExportarCarteiraUseCase($container->get(MontarVisaoCarteiraUseCase::class), 1),
+        );
+
+        $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId() . '/exportar?busca=a&ordenar=objeto&direcao=asc');
+
+        self::assertResponseRedirects('/cobrancas/carteiras/' . $carteira->getId() . '?busca=a&ordenar=objeto&direcao=asc');
+        self::assertResponseHeaderNotSame('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        $crawler = $client->followRedirect();
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString(
+            'A lista tem mais de 1 linhas. Use a busca ou o filtro de Estado para exportar em partes.',
+            $crawler->text(),
+        );
+    }
+
+    #[TestDox('A mensagem do teto de produção diz 5.000, como pedido')]
+    public function testMensagemDoTetoDeProducao(): void
+    {
+        self::assertSame(
+            'A lista tem mais de 5.000 linhas. Use a busca ou o filtro de Estado para exportar em partes.',
+            (new ListaGrandeDemaisParaExportarException(ListarCasosParaExportarCarteiraUseCase::LIMITE_LINHAS))->getMessage(),
+        );
+    }
+
+    #[TestDox('Rótulo do objeto vazio cai em "Objeto", como na tela')]
+    public function testRotuloVazioViraObjeto(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteira = CarteiraFactory::createOne([
+            'tenant' => $tenant, 'cliente' => ClientePFFactory::createOne(['tenant' => $tenant]), 'rotuloObjeto' => '',
+        ])->_real();
+
+        $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId() . '/exportar');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Objeto', $this->linhas($this->planilha($client))[0][0]);
     }
 }

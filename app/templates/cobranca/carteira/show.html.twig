@@ -432,19 +432,33 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.target.closest('button, a, form, input, select')) { return; }
         window.location.href = tr.dataset.href;
     });
-    /* "Exportar lista (.xlsx)": monta o href na hora do clique com o recorte ATUAL do formulário da
-       lista (busca, Estado, ordenação), que muda por XHR sem recarregar a página. */
-    document.addEventListener('click', function (e) {
-        var link = e.target.closest('a[data-exportar-lista]');
-        var form = document.querySelector('[data-filtro-form]');
-        if (!link || !form) { return; }
-        var params = new URLSearchParams();
-        new FormData(form).forEach(function (valor, nome) {
-            if (String(valor).trim() !== '') { params.append(nome, valor); }
+    /* "Exportar lista (.xlsx)": o href acompanha o recorte ATUAL do formulário da lista (busca, Estado,
+       ordenação), que muda por XHR sem recarregar a página. É refeito quando o formulário muda, depois
+       de cada troca do fragmento pelo XHR (é aí que ordenação, chips e "limpar" já gravaram os campos
+       escondidos) e, por garantia, em todo gesto sobre o próprio link: clique, clique do meio, menu de
+       contexto ("copiar link") e foco por teclado. */
+    var linkExportar = document.querySelector('a[data-exportar-lista]');
+    var formFiltro = document.querySelector('[data-filtro-form]');
+    if (linkExportar && formFiltro) {
+        var atualizarExportar = function () {
+            var params = new URLSearchParams();
+            new FormData(formFiltro).forEach(function (valor, nome) {
+                if (String(valor).trim() !== '') { params.append(nome, valor); }
+            });
+            var query = params.toString();
+            linkExportar.href = linkExportar.dataset.exportarBase + (query ? '?' + query : '');
+        };
+        ['input', 'change', 'submit'].forEach(function (tipo) {
+            formFiltro.addEventListener(tipo, atualizarExportar);
         });
-        var query = params.toString();
-        link.href = link.dataset.exportarBase + (query ? '?' + query : '');
-    });
+        ['click', 'auxclick', 'contextmenu', 'mousedown', 'focus'].forEach(function (tipo) {
+            linkExportar.addEventListener(tipo, atualizarExportar);
+        });
+        var resultadoFiltro = document.querySelector('[data-filtro-resultado]');
+        if (resultadoFiltro && window.MutationObserver) {
+            new MutationObserver(atualizarExportar).observe(resultadoFiltro, { childList: true });
+        }
+    }
     /* Não há tooltip do Bootstrap nesta tela: o desenho usa `title` nativo, que sobrevive à
        troca do fragmento sem precisar ser religado a cada busca. */
 });

@@ -205,6 +205,13 @@ final class CarteiraCabecalhoDesenho1910Test extends CobrancaWebTestCase
         self::assertSame('101', $query['busca'] ?? null);
         self::assertSame('ativo', $query['estado'] ?? null);
         self::assertArrayNotHasKey('page', $query, 'A planilha não pagina');
+
+        // O recorte muda por XHR sem recarregar: o script refaz o href também no clique do meio e no
+        // menu de contexto ("copiar link"), além da troca do formulário e do fragmento.
+        $html = (string) $client->getResponse()->getContent();
+        foreach (["'auxclick'", "'contextmenu'", "'change'", 'MutationObserver'] as $gancho) {
+            self::assertStringContainsString($gancho, $html);
+        }
     }
 
     #[TestDox('Sem gerenciar carteira, o ⋮ fica só com o exportar: nunca aponta para um modal que não existe')]
