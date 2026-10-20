@@ -82,7 +82,7 @@ abstract class BuscaRapidaWebTestCase extends JusPrimeWebTestCase
     protected function criarPasta(Tenant $tenant, ?string $nomeAcao = null, ?string $nomeCliente = null): Pasta
     {
         $pasta = new Pasta();
-        $pasta->setNup('BRF' . (++$this->seq) . 'X' . strtoupper(substr(uniqid(), -7)));
+        $pasta->setNup(self::nupSemDigitos(++$this->seq));
         $pasta->setTenant($tenant);
         $pasta->setNomeAcao($nomeAcao);
         $pasta->setNomeCliente($nomeCliente);
@@ -90,6 +90,21 @@ abstract class BuscaRapidaWebTestCase extends JusPrimeWebTestCase
         $this->em()->flush();
 
         return $pasta;
+    }
+
+    /**
+     * NUP único e SEM DÍGITOS. A busca casa os dígitos do termo (3 ou mais) com CPF e número de processo; um NUP
+     * com dígitos aleatórios (o `uniqid` de antes) às vezes casava com o CPF ou o processo do cenário e trazia
+     * uma ocorrência a mais (teste instável na suíte paralela).
+     */
+    private static function nupSemDigitos(int $seq): string
+    {
+        $letras = '';
+        foreach (str_split(str_pad((string) $seq, 3, '0', STR_PAD_LEFT) . bin2hex(random_bytes(5))) as $c) {
+            $letras .= chr(ord('A') + hexdec($c));
+        }
+
+        return 'BRF' . $letras;
     }
 
     protected function darAcessoProprio(User $user, Tenant $tenant, Pasta $pasta, bool $podeVer = true): void
