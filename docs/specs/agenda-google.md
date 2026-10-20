@@ -218,3 +218,42 @@ do sistema não são enviados.
    `SYNC_CRYPTO_KEY` já existe (é a do Drive) e cifra o token.
 3. Worker da fila `async` rodando (o mesmo da 5b). Depois do deploy, `php bin/console
    app:agenda:google-varredura` para não esperar a primeira consulta de lembretes.
+
+## 7. Prazos e audiências no Google (78b-2, decisão M7 do dono)
+
+Risco BAIXO (Agenda; a permissão é a do #180, só lida aqui). Branch `agenda-google-prazos`, base master,
+migration `Version20261020134200`.
+
+- **Quem recebe:** cada pessoa conectada que tem a permissão "Ver prazos na agenda" (`PermissoesDaAgenda::verPrazos`)
+  recebe na agenda do escritório na conta dela os prazos e audiências **abertos** das pastas do escritório, de 30
+  dias atrás a um ano à frente, fora da lixeira e fora das pastas ocultas para ela pelo cadeado. É a mesma regra
+  dos lembretes (`abertosDoEscritorioNoPeriodo` + `idsOcultosPara`).
+- **Como vai:** título igual ao da grade ("Audiência · Pasta 0001", "Contestação · Pasta 0001"); com hora, uma
+  hora a partir dela; sem hora, dia inteiro. Descrição: "Prazo da pasta <NUP> no BlueJus. Para mudar, abra a
+  pasta no BlueJus: o que for mudado aqui volta como está lá." ("Audiência da pasta" na audiência) mais o
+  responsável, se houver. Id no Google
+  `bjt<escritório>p<prazo>` (base32hex, determinístico, como o dos compromissos).
+- **Só leitura** (como a cópia do participante, decisão b): mexido no Google, volta como está aqui; apagado lá,
+  fica apagado até o prazo mudar aqui. Nunca vira compromisso no BlueJus.
+- **Sai do Google** quando deixa de valer para a pessoa: cumprido, excluído, pasta na lixeira, pasta oculta para
+  ela (também quando trancada depois do envio), fora da janela, ou ela perdeu a permissão.
+- **Apagado lá e mudado aqui na mesma volta:** a marca de "apagado lá" guarda o resumo do último envio, então a
+  mudança feita aqui antes da sincronia ainda vai.
+- **Custo:** cada sincronia de uma conexão com a permissão lê os prazos abertos do escritório na janela (uma
+  consulta, com a pasta, sem N+1) e compara resumos; só o que mudou vai ao Google.
+- **Quem sai do escritório ou perde a Agenda:** a conexão é desfeita sem apagar a agenda dela no Google (como os
+  compromissos, §0 M6); os eventos de prazo ficam lá parados. Pergunta aberta ao coordenador.
+- **Quando:** na sincronia normal da conexão (a cada 5 min e depois de cada mudança na Agenda). Mudança só no
+  prazo da pasta chega na próxima varredura de 5 min (sem gancho no domínio Pasta).
+- **Dados:** tabela própria `agenda_google_prazo` (tenant, conexão, prazo, `google_id`, `hash`), não a
+  `agenda_google_ligacao`. Motivo: a ligação de compromisso tem `evento_id` obrigatório e é lida em todo o
+  caminho de trazer e de levar; deixá-la nula espalharia `null` pela sincronia dos compromissos, que acabou de ser
+  revisada. Únicos (conexão, prazo) e (conexão, google_id). Apaga junto com a conexão; o prazo excluído deixa
+  `prazo_id` nulo (SET NULL) para a próxima sincronia apagar o evento lá antes de esquecer a linha.
+- **Agenda nova ou troca de conta:** as linhas da conexão são esquecidas, como as ligações (vão de novo).
+- **Eco:** o resumo guardado é o do corpo normalizado (título, descrição, local, início e fim em hora de Brasília);
+  item igual a ele é eco.
+
+**Testes** (`SincronizacaoDePrazosComGoogleTest`): vai a quem tem a permissão e não a quem não tem; pasta oculta
+não vai; mexido no Google volta; apagado lá fica até mudar; cumprido, excluído e perda da permissão tiram do
+Google; agenda nova manda de novo; o id de prazo nunca vira compromisso importado.
