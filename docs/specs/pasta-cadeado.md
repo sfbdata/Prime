@@ -9,9 +9,21 @@ Frente `pasta-cadeado` · base `origin/master` · risco **MÉDIO** (permissão p
 - 5d, dona da tranca liga/desliga de hoje: o cadeado é construído sobre a tranca e a substitui; a 5d não mexe
   mais nela.
 - 5d, "Encaminhar via Chat I.A": o destinatário passa por `AcessoAPasta::podeVer(User, Pasta)` (§3). Se a 5d
-  precisar antes, cria um serviço provisório com esse mesmo nome.
+  precisar antes, cria um serviço provisório com esse mesmo nome. **Colisão combinada (20/10):** se o PR da 5d
+  entrar no master antes deste, no merge do `origin/master` fica a versão DESTA frente do
+  `app/src/Pasta/Service/AcessoAPasta.php`, que é superconjunto; `podeVer(User, Pasta)` mantém a mesma
+  assinatura e a mesma semântica (vê = não `Oculto` + permissão de ver a pasta, isto é, o `canAccessResource`
+  de `view`, que já aplica o teto).
+- 5d, Lista do Expediente (#85): o `expediente-lista.js` desta frente mexe só perto do `abrirOuAvisar` e
+  preserva os trechos do #85 (`ExpMenu.abertoNoToque`, `menuAbertoNoToque`, `#pastaRespMenu:not([hidden])`).
 - 0d, "ocultar aba" (#68, aberto): é um eixo separado, que só subtrai (§4). O resolvedor de pasta pela rota fica
-  compartilhado.
+  compartilhado. O #68 entra no master ANTES deste PR; ao trazer o master, este PR adapta o
+  `BarreiraDeAbaOcultaListener` dela ao `PastaDaRota`, e o `BarreiraDeAbaOcultaMapaTest` tem de continuar verde.
+- 9b, busca Ctrl+K (#106, SQL nativo): usa `AcessoAPasta::idsOcultosPara()` e `niveisEmLote()` (§3). Quando
+  este PR entrar, a 9b troca a regra provisória dela (`BuscarRapidoUseCase::calcularVisibilidade`) e a rota de
+  "Pedir acesso" (hoje `expediente_pasta_pedir_acesso`) pelas desta frente. A rota nova do pedido,
+  `pasta_acesso_pedir` (POST `/pasta/{id}/acesso/pedidos`, campos `nivel`, `motivo`, `_token` =
+  `pasta_acesso_<id>`; JSON em XHR), serve à Lista e à busca e não exige o módulo Expediente.
 
 **Produção (20/10):** 0 pastas trancadas, 0 `resource_access` de pasta e 0 pedidos de acesso, em 1.214 pastas.
 Nenhum comportamento atual muda para ninguém.
@@ -50,7 +62,21 @@ Nenhum comportamento atual muda para ninguém.
   - sem cadeado → `Editar`;
   - `Todos` → `Oculto`;
   - `PorPessoa` → o nível da pessoa, ou `Oculto`.
-- Atalhos `podeVer()` e `podeEditar()`. Memória por request; uma consulta por pasta.
+- Atalhos `podeVer()` e `podeEditar()`: o `canAccessResource` completo (`view`/`edit`) da pasta, com o teto
+  dentro (vê = não `Oculto` + permissão de ver a pasta). Memória por request; uma consulta por pasta.
+- Para listas e buscas (combinado com a 9b, 20/10):
+  - `niveisEmLote(User, array $pastas): array<int, NivelDeAcesso>`, indexado pelo id da pasta, uma consulta
+    de cadeados para N pastas;
+  - `restringirAoVisivel(QueryBuilder, string $aliasPasta, User): void`, uso (a): só as pastas que a pessoa
+    vê (sem cadeado, ou `Visualizar`/`Editar`); Master e primário veem tudo;
+  - `criterioDeVisivel(QueryBuilder, string $aliasPasta, User): ?string`, uso (b): o mesmo critério em DQL,
+    com os parâmetros já postos, para combinar. A busca da Lista usa assim: a pasta oculta continua listada
+    e casa só por número da pasta e cliente (D1);
+  - `idsOcultosPara(User, int $tenantId): list<int>`, para SQL nativo (#106): os ids das pastas do escritório
+    ocultas para a pessoa, numa consulta só (vazio para primário e Master). Quem usa aplica
+    `p.id NOT IN (:ocultos)` nos dados completos e limita os campos de busca dessas ao número, cliente e CPF.
+- A regra do nível mora em `NivelNoCadeado`, separado só para o `PermissionChecker` não depender de quem
+  depende dele; o `AcessoAPasta` é a fachada que todo o resto usa.
 - **Teto dentro de `PermissionChecker::canAccessResource`**, quando `resourceType === 'pasta'`, depois dos bypasses
   e ANTES do `ResourceAccess`/fallback: `view` exige pelo menos `Visualizar`, e `edit`/`delete` exigem `Editar`.
   Assim um pedido genérico aprovado (`AccessRequest`) nunca fura o cadeado. Isso cobre os ~40 pontos que já
@@ -61,6 +87,12 @@ Nenhum comportamento atual muda para ninguém.
   - `Visualizar`: recusa os métodos não seguros nas rotas de pasta.
 
   Fica travada por um teste de arquitetura no molde do `PastaSomenteLeituraRotasArquiteturaTest`.
+- **Resolvedor** `App\Pasta\Service\PastaDaRota` (combinado com a 0d, 20/10): acha a pasta pelo argumento
+  `Pasta`, por uma filha com `getPasta()` (ou neta pela meta, `TarefaMensagem`), por `#[PastaPelaFilha]` e por
+  `#[PastaPorId]`. Entrega também a ENTIDADE FILHA (`PastaDaRequisicao::$filha`), não só a pasta: o contrato
+  com o Financeiro oculto (`recusaDoContrato`) usa a filha `PastaDocumento`. As buscas declaradas são por id E
+  escritório da sessão; pasta de outro escritório passa reto pelas barreiras e quem dá o 404 é a action
+  (`ehDoEscritorioDaSessao()`). Usado pela lápide, pelo cadeado e, depois do merge do #68, pela aba oculta.
 
 ## 4. Relação com o "ocultar aba" (#68)
 
@@ -86,6 +118,28 @@ configura os dois é o mesmo grupo (K1).
 - **D5** (imagem embutida na peça, `/uploads/pastas/{nome}`). Passa a conferir `podeVer` na pasta dona da imagem.
 - **D6** (Drive sync). Pasta com cadeado não é exportada para o Drive de quem não vê, mas o sync é do escritório;
   na primeira versão, pasta com cadeado sai do sync. Confirmar na implementação.
+
+### Decisões da implementação (20/10)
+
+- **D6 confirmada:** pasta com cadeado, de qualquer modo, sai do sync do Drive (não cria, não envia, não
+  baixa, não renomeia); remover o cadeado a devolve.
+- **D1, janela do cliente:** o `ClienteResumoController` já esconde inteira a pasta que a pessoa não pode
+  abrir; com o teto, a pasta oculta também some dali (mais restritivo que D1). Sugestões da Nova Pasta só
+  mostram nomes de cliente, que D1 permite.
+- **D3, metas:** a lista das Minhas Metas tira a meta da pasta oculta; as contagens do topo e a tela de metas
+  da equipe (`/tarefas/equipe`) ainda contam. Para quem só visualiza, as rotas de escrita da meta da pasta
+  são recusadas (a meta tem `getPasta()` e entra na barreira).
+- **K5, onde o primário decide:** o desenho decide na conversa com a BlueJus IA, que não existe no sistema.
+  O aviso no sino leva à pasta (`#cadeado-pedidos`), onde uma faixa no estilo da de somente visualização
+  traz os três botões do desenho. É a convenção do link externo do Push (o pedido de renovação leva à aba).
+- **K5, quem pode pedir:** quem veria a pasta se ela estivesse livre (`canAccessResourceIgnoringPastaLock`);
+  quem nem assim veria recebe 403. O pedido avisa os primários ativos e os Masters com vínculo ativo no
+  escritório.
+- **K6:** o histórico da pasta é o cartão do sistema no Registro ("Cadeado: …", `RegistroDoSistemaNaPasta`);
+  a auditoria da conta vem das entidades auditáveis (`CadeadoDaPasta`, `AcessoAPastaTrancada`,
+  `PedidoDeAcessoAPasta`).
+- **Lista do Expediente:** "Trancar pasta" do botão direito abre o cadeado "Ocultar para todos";
+  "Destrancar" remove o cadeado de qualquer modo (o ajuste por pessoa é no modal da pasta).
 
 ## 6. Telas (o desenho manda)
 

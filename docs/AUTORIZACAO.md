@@ -471,6 +471,58 @@ o router e falha se uma rota de escrita que envolva pasta (nome `pasta_*`,
 pasta ou filha) não for alcançada nem for exceção. Rota com o id da pasta só no
 corpo da requisição não é vista por nenhum dos dois.
 
+### Cadeado da pasta: teto por pasta (spec `docs/specs/pasta-cadeado.md`)
+
+O cadeado é uma **restrição** (decisão D3, 20/10/2026): ele tira acesso de quem teria pelas camadas
+acima e nunca dá acesso a ninguém. O ponto único é `App\Pasta\Service\AcessoAPasta`:
+
+- `nivel(User, Pasta)` devolve `Oculto`, `Visualizar` ou `Editar` (`NivelNoCadeado`): Master ou
+  primário ativo do escritório da pasta → `Editar`; sem vínculo ativo → `Oculto`; pasta sem cadeado
+  → `Editar`; cadeado `Todos` → `Oculto`; `PorPessoa` → o nível gravado da pessoa, ou `Oculto` (quem
+  não está na lista, inclusive quem entrar depois);
+- `podeVer()`/`podeEditar()` são o `canAccessResource` completo (`view`/`edit`) da pasta, com o teto
+  dentro: vê = não `Oculto` + permissão de ver a pasta;
+- para listas e buscas: `niveisEmLote()` (uma consulta para N pastas), `restringirAoVisivel()` (só
+  as visíveis) e `criterioDeVisivel()` (o critério em DQL, para combinar: a pasta oculta continua na
+  busca da Lista, mas só casa por número e cliente).
+
+**Quem configura** (abre, altera, remove o cadeado e decide os pedidos): o Master e o primário com
+vínculo ativo, pelo mesmo critério de `RegraDosPrimarios::podeGerirPrimarios()`. Quem configura nunca
+é restringido. O antigo `PermissionChecker::isAdministradorDoEscritorio()` saiu: a Lista do
+Expediente pergunta ao `AcessoAPasta::podeConfigurar()`.
+
+**Onde o teto vale:**
+
+1. `PermissionChecker::canAccessResource()` com `resourceType = 'pasta'`: **depois** dos bypasses
+   (2a e 2b, que já são `Editar` no cadeado) e **antes** do `ResourceAccess` e do fallback por tipo
+   (5b). `view` exige pelo menos `Visualizar`; `edit` e `delete` exigem `Editar`. Por isso um
+   `AccessRequest` aprovado (seção 6) nunca fura o cadeado. Para o pedido de acesso há
+   `canAccessResourceIgnoringPastaLock()`: a permissão sem o teto, só para saber se a pessoa veria a
+   pasta livre (quem não veria nem livre não tem o que pedir).
+2. `BarreiraDoCadeadoListener` (`kernel.controller_arguments`), em TODA rota de pasta, de leitura ou
+   escrita: `Oculto` recebe 403 em tudo menos `pasta_show` (que desenha a tela "Pasta trancada") e o
+   pedido de acesso; `Visualizar` recebe 403 nos métodos não seguros, menos as preferências pessoais
+   e as leituras por POST (`ROTAS_DO_VISUALIZAR`, com o motivo de cada uma). A pasta sai do mesmo
+   resolvedor da lápide e da aba oculta, `App\Pasta\Service\PastaDaRota` (argumento `Pasta`, filha
+   com `getPasta()`, neta pela meta, `#[PastaPelaFilha]`, `#[PastaPorId]`; entrega também a filha).
+   Pasta de outro escritório passa reto: a action responde o 404 dela. O alcance é travado por
+   `app/tests/Arquitetura/BarreiraDoCadeadoRotasArquiteturaTest.php`, que olha todas as rotas de
+   pasta (de qualquer método).
+3. Fora da pasta (spec §5): a Lista, a busca, o CSV e a tela do processo mostram da pasta oculta só
+   o número e o cliente (D1); a busca de pastas do agente de IA também (D2); o Push global e as
+   Minhas Metas não mostram o que é dela, e qualquer cadeado desliga o link externo do Push (D3); a
+   auditoria do escritório mostra a linha sem o conteúdo e sem "desfazer" (D4); a imagem embutida em
+   peça dela é recusada (D5); pasta com cadeado sai do sync do Drive (D6).
+
+**Precedência com o "ocultar aba"** (#68): são dois eixos e os dois só subtraem. O cadeado é o teto da
+pasta inteira; a aba oculta é **organização** e tira abas dentro do que o cadeado permite. Com
+`Oculto`, a aba não importa (a pasta toda está fechada); com `Visualizar`, as abas visíveis ficam em
+leitura; com `Editar`, vale só o que a aba oculta tirar. Quem configura os dois é o mesmo grupo.
+
+**Ainda não cobre:** a tela de metas da equipe (`/tarefas/equipe`, módulo `bi`) e as contagens do
+topo das Minhas Metas continuam contando as metas da pasta oculta; a janela do cliente
+(`ClienteResumoController`) segue escondendo inteira a pasta que a pessoa não pode abrir.
+
 ---
 
 ## 8. Falhas Conhecidas
