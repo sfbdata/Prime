@@ -171,7 +171,7 @@
                             {% if current_tenant() and _escritorios|length > 0 %}
                                 <div class="navtop-action">
                                     <button type="button" class="navtop-avatar-btn mu-escritorio" data-mu-conta="trocar"
-                                            aria-label="{{ current_tenant().name }}: trocar de conta" title="{{ current_tenant().name }}">
+                                            aria-label="{{ current_tenant().name }}: trocar de conta" {% if 'exp-body' in block('body_class') %}data-tip{% else %}title{% endif %}="{{ current_tenant().name }}">
                                         <i class="bi bi-building"></i>
                                         <span class="navtop-escritorio-nome d-none d-lg-inline">{{ current_tenant().name }}</span>
                                     </button>
