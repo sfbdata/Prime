@@ -113,6 +113,37 @@ final class BarreiraDoEscritorioInativoNaRotaTest extends JusPrimeWebTestCase
         self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode(), 'o controller recusa como sempre');
     }
 
+    #[TestDox('Ex-membro (vínculo inativo com o escritório suspenso) não vê o nome nem a situação dele')]
+    public function testVinculoInativoNaoVeONomeNemASituacao(): void
+    {
+        $exMembro = $this->criarUsuario('Ex-membro de A', ['ROLE_USER'], [$this->escritorioA, $this->escritorioB]);
+        $vinculo = $this->em->getRepository(UserTenant::class)->findOneBy(['user' => $exMembro, 'tenant' => $this->escritorioA]);
+        self::assertNotNull($vinculo);
+        $this->escritorioA->setIsActive(false);
+        $this->em->flush();
+        // Vínculo removido do escritório: a entidade não expõe a desativação, então vai direto no banco.
+        $this->em->getConnection()->executeStatement('UPDATE user_tenant SET is_active = false WHERE id = :id', ['id' => $vinculo->getId()]);
+        $this->logarComTenant($this->client, $exMembro, $this->escritorioB);
+
+        $this->client->request('GET', "/tenant/{$this->escritorioA->getId()}/users");
+
+        self::assertFalse($this->foiRecusadaPelaBarreira());
+        self::assertStringNotContainsString('Escritório A suspenso', (string) $this->client->getResponse()->getContent());
+    }
+
+    #[TestDox('fetch com Accept: application/json (sem XHR), como as abas de jornada e home office: 403 JSON')]
+    public function testFetchComAcceptJsonRecebeJson(): void
+    {
+        $this->escritorioA->setIsActive(false);
+        $this->em->flush();
+        $this->logarComTenant($this->client, $this->adminDeA, $this->escritorioB);
+
+        $this->client->request('GET', "/tenant/{$this->escritorioA->getId()}/user/{$this->adminDeA->getId()}/jornada-colaborador", [], [], ['HTTP_ACCEPT' => 'application/json']);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(['erro' => AvisoDeContaSuspensa::para('Escritório A suspenso')], $this->json());
+    }
+
     #[TestDox('As rotas do R2 (id do próprio escritório) existem no roteador: renomear uma delas quebra este teste')]
     public function testRotasDoR2Existem(): void
     {

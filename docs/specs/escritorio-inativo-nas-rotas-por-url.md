@@ -6,10 +6,15 @@ cruzada do #125 feita pela b5 (item 3). Base: master. Sem migration.
 ## Defeito
 
 O `TenantContextValidatorListener` barra a conta suspensa (`isActive=false`) ou excluída (em quarentena) só
-quando ela é o escritório **da sessão**. As rotas que recebem o escritório no caminho (`/tenant/{tenantId}/...`:
-equipe, cargos, ponto manual, justificativas, horas pagas, jornada, home office, feriados, sedes, editar) agem
-sobre o escritório da URL, não o da sessão. Por isso, o admin do escritório A suspenso que tem acesso ao
-escritório B entra com B na sessão e continua mexendo na equipe e no **ponto** de A.
+quando ela é o escritório **da sessão**. Parte das rotas que recebem o escritório no caminho autoriza pelo
+vínculo com o escritório da URL, sem olhar a sessão: no `TenantController` (equipe, editar com cargos e lotações,
+papel e nome do colaborador, remover, ponto manual, justificativas, anexo, acessos, sedes), no
+`HorasPagasController`, no `TenantUserProfileController` (dados pessoais) e no `escritorio_excluir`. Por isso, o
+admin do escritório A suspenso que tem acesso ao escritório B entra com B na sessão e continua mexendo na equipe e
+no **ponto** de A.
+
+As demais (perfis, feriados, jornada e home office) já exigiam que o escritório da URL fosse o da sessão, e aí a
+barreira da sessão recusava: nelas, esta barreira só troca a recusa genérica pelo aviso de conta suspensa.
 
 O defeito vale para a suspensão pelo Master, que já está em produção (spec `perfis-1.2-contas.md` C1, C2).
 
