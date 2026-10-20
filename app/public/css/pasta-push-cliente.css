@@ -229,3 +229,20 @@
 .ps-push .ps-ia-enviado { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; color: var(--ps-ok-text); }
 .ps-push .ps-ia-enviado[hidden] { display: none; }
 .ps-push .ps-ia-enviado i { font-size: 12px; }
+
+/* ── Envio automático (spec push-envio-automatico §2; dc N:2805-2814 e `autos` N:5270) ── */
+.ps-push-cliente-auto-titulo { font-size: 11px; font-weight: 700; color: var(--ps-label); } /* dc N:2805 */
+/* Uma chave (dc N:2807): a linha inteira é o switch; o switch é o do e-mail (`sw`, 36x20). */
+.ps-push-cliente-auto { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 0; border: none; background: transparent; cursor: pointer; font-family: inherit; text-align: left; }
+.ps-push-cliente-auto-rotulo { flex: 1; font-size: 13px; color: var(--ps-body); } /* dc N:2808 */
+.ps-push-cliente-auto.is-on .ps-push-cliente-sw { background: var(--ps-accent); }
+.ps-push-cliente-auto.is-on .ps-push-switch-bola { left: 18px; }
+/* Sem e-mail cadastrado: o switch esmaecido (dc N:5270, `opacity:.5`); o clique abre o formulário. */
+.ps-push-cliente-auto.is-sem-email .ps-push-cliente-sw { opacity: .5; }
+.ps-push-cliente-auto:disabled { cursor: default; }
+.ps-push-cliente-auto:disabled .ps-push-cliente-sw { opacity: .4; }
+.ps-push-cliente-auto:focus-visible { outline: 2px solid var(--ps-accent); outline-offset: 2px; }
+/* "Análise da BlueJus IA · Só manual" (dc N:2811-2814): linha fixa, selo roxo com cadeado. */
+.ps-push-cliente-auto-ia { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.ps-push-cliente-so-manual { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: var(--pc-roxo); background: var(--pc-roxo-bg); padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+.ps-push-cliente-so-manual i { font-size: 10px; }

@@ -144,4 +144,14 @@ class EnvioAoCliente implements TenantAware
     {
         return $this->envioIds;
     }
+
+    /**
+     * Mais um destinatário que recebeu o mesmo envio (o automático grava cada um logo depois que o
+     * e-mail sai, para nada sair sem registro; spec push-envio-automatico §3).
+     */
+    public function acrescentarDestinatario(string $email, ?int $envioId): void
+    {
+        $this->para[] = $email;
+        $this->envioIds[] = $envioId;
+    }
 }
