@@ -47,6 +47,15 @@ segundo adapta: `GruposDoEnvioAutomatico::pastaLiberada` deixa de usar `estaTran
 execução de `CadeadoDaPastaRepository::idsDasPastasComCadeado`; o caso de teste "pasta trancada" vira
 `testPastaComCadeadoNaoEnvia`.
 
+**Junção com a Agenda (4b, pilha #63 → #70 → #86 → agenda-desenho):** quem entra por segundo aplica. Os dois
+pontos levam o comentário "Aplicar idsOcultosPara quando o #120 entrar":
+- `ListarCompromissosUseCase::dosPrazos`: o `$pastasOcultas` vai como 4º argumento de
+  `PastaPrazoRepository::doEscritorioNoPeriodo` (o método novo da grade, com os prazos cumpridos).
+- `ListarLembretesUseCase::dosPrazosDeHoje`: `?AcessoAPasta $acessoAPasta = null` no fim do construtor e
+  `idsOcultosPara` como 4º argumento de `abertosDoEscritorioNoPeriodo`, com teste (Oculta na pasta não recebe o
+  lembrete do prazo).
+O `AcessoAPasta` fica opcional nos dois construtores: os testes da Agenda montam sem ele.
+
 **Acompanhamento depois dos merges (revisão do #153, 20/10):**
 - **Dashboard da equipe:** as consultas de metas não aplicam `semPastasOcultas`, então o gestor vê o título de meta
   de pasta Oculta para ele. **Decisão pela D1:** a pasta oculta mostra só número, cliente e CPF, e metas estão
