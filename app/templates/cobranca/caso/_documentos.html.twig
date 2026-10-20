@@ -135,6 +135,14 @@
                 <div class="fm-vazio-icone"><i class="bi bi-cloud-arrow-up"></i></div>
                 <div class="fm-vazio-titulo">Nenhum arquivo aqui</div>
                 <div class="fm-vazio-dica">Arraste arquivos do computador para esta área ou clique em <strong>Enviar</strong>.</div>
+                {# Chips do desenho Objeto 1A (aba Documentos, área vazia): o que costuma entrar aqui. Saem
+                   do enum de categoria (fonte única), não de uma lista escrita no template; o desenho
+                   mostra 4, o enum tem 6, e valem os do enum. Só informam: não filtram nem classificam. #}
+                <div class="fm-vazio-categorias" aria-label="Categorias de documento">
+                    {% for categoria in enum_cases('App\\Cobranca\\Enum\\CategoriaDocumentoCobranca') %}
+                    <span class="fm-vazio-categoria">{{ categoria.rotulo() }}</span>
+                    {% endfor %}
+                </div>
             </div>
         </div>
     </div>{# /fm-body #}
