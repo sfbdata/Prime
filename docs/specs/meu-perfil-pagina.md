@@ -40,8 +40,8 @@ compactação de contexto, releia antes de continuar.
 
 **Fila de migrations** (a coordenação controla; renomear o timestamp para o atual antes de cada merge)
 - #60 `Version20261020131000` (renomeada em 20/10 a pedido da coordenação; master 88912605), primeiro da pilha.
-- #65 `Version20261020131500` (renomeada em 20/10), depois do #60 (mergeado em feeedb23).
-- #69 `Version20261019134246`, depois do #65.
+- #65 `Version20261020131500` (renomeada em 20/10), depois do #60 (mergeado em feeedb23; #65 mergeado em 5d339f1f).
+- #69 `Version20261020132000` (renomeada em 20/10), depois do #65.
 
 **Pendências**
 - Com a coordenação: terceiro campo do convite, Cargo (desenho) ou Perfil (implementado no #69).

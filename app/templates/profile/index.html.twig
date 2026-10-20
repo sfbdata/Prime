@@ -242,7 +242,7 @@ input[type="range"].img-slider {
     <div class="mu-abas-perfil-miolo">
         <a href="{{ path('app_profile') }}" class="mu-aba-perfil on" aria-current="page"><i class="bi bi-person"></i>Meu Perfil</a>
         {% if current_tenant() and (eh_usuario_primario() or _ehMasterAba) %}
-            <a href="{{ path('auth_gerenciar_convites') }}" class="mu-aba-perfil"><i class="bi bi-envelope-paper"></i>Convites do escritório</a>
+            <a href="{{ path('auth_gerenciar_convites') }}" class="mu-aba-perfil" data-mu-conta="conta"><i class="bi bi-envelope-paper"></i>Convites do escritório</a>
         {% endif %}
         {% if current_tenant() %}
             <button type="button" class="mu-aba-perfil" data-mu-conta="trocar"><i class="bi bi-arrow-left-right"></i>Trocar de conta</button>
@@ -252,7 +252,7 @@ input[type="range"].img-slider {
                 <button type="button" class="mu-aba-perfil mu-aba-perfil-master" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
                     <i class="bi bi-star-fill"></i>Master<i class="bi bi-chevron-down"></i>
                 </button>
-                <div class="dropdown-menu mu-master-menu" role="menu">
+                <div class="dropdown-menu mu-master-menu" role="menu" data-sem-x="1">
                     <div class="mu-grupo-rotulo"><i class="bi bi-star-fill"></i>EXCLUSIVO DO MASTER</div>
                     <button type="button" class="mu-menu-x mu-menu-x-escuro" data-mu-fechar-menu aria-label="Fechar menu"><i class="bi bi-x-lg"></i></button>
                     {% include 'menu_usuario/_itens_master.html.twig' with {classe_item: 'dropdown-item mu-item', papel: 'menuitem'} only %}
