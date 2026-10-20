@@ -116,6 +116,12 @@
         cvF: null,
         cvDoc: null,
         cvDel: null,
+        // Painel do Master (spec VS 18.10.26 §4.9, fatia F3b-1)
+        cvVista: null,
+        cvPn: null,
+        grModo: 'mes',
+        grAno: null,
+        grOn: {},
         // Candidatura (spec VS 18.10.26 §4.6, fatia F2b)
         candSel: null,
         mcFiltro: '',
@@ -4071,6 +4077,8 @@
     ];
     /** Filtro "Situação OAB" do banco (`SIT` curto, l.1120). */
     var CV_SIT_FILTRO = [['adv', 'Advogado(a)'], ['estOab', 'Estagiário(a) com OAB'], ['est', 'Estudante'], ['bach', 'Bacharel(a)']];
+    /** Filtro do KPI "COM OAB" (§4.9, lacuna 1): `adv` e `estOab` juntos. */
+    var CV_SIT_COM_OAB = 'oab';
     /** Filtro "Termo" (`cvTerOps`, l.1148); até a F3b todo currículo é "sem". */
     var CV_TERMO_FILTRO = [['sem', 'Sem termo'], ['enviado', 'Termo aguardando'], ['aceito', 'Termo aceito']];
     /** Botões de situação do formulário (`tfSitOps`, l.1173). */
@@ -4198,6 +4206,10 @@
             renderModulos();
             renderCurriculos();
             agendarEngajamento();
+            // O painel do Master (§4.9) recarrega junto com a lista, se estiver à vista.
+            if (moduloAtual() === 'cv' && vistaCv() === 'painel') {
+                carregarPainelCv();
+            }
             if (aviso) {
                 mostrarToast({ tit: 'Lista atualizada', txt: '', hora: '' });
             }
@@ -4300,7 +4312,8 @@
     function cvFiltrados() {
         var q = S.cvBusca.trim().toLowerCase();
         return doFiltroCv(filtroDeCv()).filter(function (x) {
-            return (!S.cvSit || x.situacao === S.cvSit)
+            // "oab" é o filtro do KPI COM OAB (§4.9, lacuna 1): advogado(a) e estagiário(a) com OAB.
+            return (!S.cvSit || x.situacao === S.cvSit || (S.cvSit === CV_SIT_COM_OAB && (x.situacao === 'adv' || x.situacao === 'estOab')))
                 && (!S.cvUf || x.uf === S.cvUf)
                 && (!S.cvTer || (x.termo || 'sem') === S.cvTer)
                 && (!S.cvArea || (x.areas || []).indexOf(S.cvArea) >= 0)
@@ -4378,6 +4391,8 @@
             oninput: function (e) { S.cvBusca = e.target.value; renderCurriculos(); }
         });
         c.appendChild(el('div', { class: 'te-cv-topo', id: 'teCvTopo' }));
+        // Painel do Master (l.172 a 193), entre a linha de cima e a barra do banco.
+        c.appendChild(el('div', { class: 'te-pn', id: 'teCvPainel', hidden: true }));
         c.appendChild(el('div', { class: 'te-cv-barra' }, [
             el('div', { class: 'te-vg-sel', id: 'teCvSel' }),
             el('label', { class: 'te-vg-busca' }, [ic('bi-search'), busca]),
@@ -4402,20 +4417,32 @@
         var vistos = L.map(function (x) { return x.codigo; });
         S.cvSel = S.cvSel.filter(function (c) { return vistos.indexOf(c) >= 0; });
         renderCvTopo(L);
+        renderCvPainel();
         renderCvSel(L);
         renderCvFiltros();
         renderCvSelects();
-        renderCvLote();
-        renderCvLista(L);
+        // Na vista Painel, a barra do banco fica (l.194) e a lista some (`cvLista`, l.195).
+        var lista = vistaCv() === 'lista';
+        $('teCvLote').hidden = !lista;
+        $('teCvLista').hidden = !lista;
+        if (lista) {
+            renderCvLote();
+            renderCvLista(L);
+        } else {
+            limpar($('teCvLote'));
+            limpar($('teCvLista'));
+        }
     }
 
     /**
-     * Linha de cima (l.171): para a Equipe, o aviso de que as estatísticas são só do Master (o painel
-     * do Master é da F3b: até lá ele vê só a lista); "Limpar filtros" com algum filtro e o CSV.
+     * Linha de cima (l.171): o seletor Painel/Lista do Master (§4.9) ou, para a Equipe, o aviso de que
+     * as estatísticas são só do Master; "Limpar filtros" com algum filtro e o CSV.
      */
     function renderCvTopo(L) {
         var alvo = limpar($('teCvTopo'));
-        if (!cvMaster()) {
+        if (temPainelCv()) {
+            alvo.appendChild(renderVistasCv());
+        } else if (!cvMaster()) {
             alvo.appendChild(el('span', { class: 'te-cv-cadeado' }, [ic('bi-lock'), 'Estatísticas disponíveis só para o Master']));
         }
         alvo.appendChild(el('span', { class: 'te-flex1' }));
@@ -4424,6 +4451,600 @@
         }
         if (cvPodeGerir()) {
             alvo.appendChild(el('button', { type: 'button', class: 'te-cv-csv', onclick: exportarCsv }, [ic('bi-filetype-csv'), 'Exportar ' + L.length + ' currículo(s)']));
+        }
+    }
+
+    /* =============================================================================
+       PAINEL DO MASTER (spec VS 18.10.26 §4.9, fatia F3b-1)
+       Desenho "06 - Trabalho Externo - VS 18.10.26": seletor Painel/Lista (l.171), KPIs (l.173),
+       gráficos de barras (l.175), "Crescimento do banco de talentos" (l.175 a 193), `_contar`
+       (l.887) e a lógica do `renderVals()` (l.1120 a 1146). Números, rótulos e cliques dos KPIs e
+       das barras vêm prontos do servidor (GET painel, só Master); daqui saem a pintura, os cliques e
+       as contas do gráfico de crescimento a partir das contagens por mês.
+       ============================================================================= */
+
+    var PN_AZUL = '#0a6fa0';
+    var PN_MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    /** `CORES_A` (l.1126): uma cor por ano em "Todos os anos". */
+    var PN_CORES_ANOS = ['#0a6fa0', '#c76a12', '#1e7b45', '#5b3f9e', '#a3235f', '#6b8494'];
+    /** Séries do gráfico (l.1127): chave, rótulo, cor e o campo de `crescimento` da resposta. */
+    var PN_SERIES = [['cv', 'Currículos recebidos', '#0a6fa0', 'cvs'], ['cand', 'Candidaturas', '#5b3f9e', 'cands'], ['vol', 'Voluntários', '#a3235f', 'vols']];
+    var PN_SVG = 'http://www.w3.org/2000/svg';
+    var pnPedido = 0;
+
+    /** Só o Master tem o painel (`cvViewsTem`, l.1136); sem a URL no template, fica a lista. */
+    function temPainelCv() { return cvMaster() && !!D.urlCurriculosPainel; }
+
+    function chaveVistaCv() { return 'bj-te-cv-vista-' + euId(); }
+
+    /** Vista do banco (`cvView`, l.1122): padrão Painel para o Master, lembrada por usuário; os demais só têm a Lista. */
+    function vistaCv() {
+        if (!temPainelCv()) {
+            return 'lista';
+        }
+        if (S.cvVista !== 'painel' && S.cvVista !== 'lista') {
+            S.cvVista = lerLocal(chaveVistaCv(), 'painel') === 'lista' ? 'lista' : 'painel';
+        }
+        return S.cvVista;
+    }
+
+    /** O seletor grava a escolha; o clique num KPI ou numa barra só troca a vista desta vez. */
+    function trocarVistaCv(v, lembrar) {
+        if (v === vistaCv()) {
+            return;
+        }
+        S.cvVista = v;
+        if (lembrar) {
+            gravarLocal(chaveVistaCv(), v);
+        }
+        S.cvSel = [];
+        renderCurriculos();
+        if (v === 'painel') {
+            carregarPainelCv();
+        }
+    }
+
+    /** `cvViews` (l.171 e l.1136): Painel e Lista. */
+    function renderVistasCv() {
+        var at = vistaCv();
+        return el('div', { class: 'te-pn-vistas', attrs: { role: 'group', 'aria-label': 'Vista dos currículos' } }, [
+            ['painel', 'Painel', 'bi-bar-chart'],
+            ['lista', 'Lista', 'bi-list-ul']
+        ].map(function (x) {
+            var on = at === x[0];
+            return el('button', {
+                type: 'button', class: 'te-pn-vista' + (on ? ' is-ativo' : ''),
+                attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                onclick: function () { trocarVistaCv(x[0], true); }
+            }, [ic(x[2]), x[1]]);
+        }));
+    }
+
+    function listaPn(v) { return Array.isArray(v) ? v : []; }
+    function mapaPn(v) { return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+    /** A cor entra em gradiente e ganha transparência (`cor + '14'`, `cor + 'cc'`): só #rrggbb. */
+    function corPn(c, padrao) { return /^#[0-9a-f]{6}$/i.test(String(c || '')) ? String(c) : (padrao || PN_AZUL); }
+    function iconePn(n, padrao) { return /^bi-[a-z0-9-]+$/.test(String(n || '')) ? String(n) : padrao; }
+    function numeroPn(v) { var n = +v; return isFinite(n) ? n : 0; }
+
+    /**
+     * GET do painel (só Master; 403 para os demais): ao abrir o Painel e ao recarregar os currículos.
+     * Resposta pedida por outro perfil, ou superada por um pedido mais novo, é descartada.
+     */
+    function carregarPainelCv() {
+        if (!temPainelCv()) {
+            return Promise.resolve(null);
+        }
+        var como = S.como, n = ++pnPedido;
+        return pedirCv('GET', comComo(D.urlCurriculosPainel)).then(function (r) {
+            if (como !== S.como || n !== pnPedido) {
+                return r;
+            }
+            if (!r.ok) {
+                if (moduloAtual() === 'cv' && vistaCv() === 'painel') {
+                    toastErro(r.mensagem);
+                }
+                return r;
+            }
+            var P = r.painel && typeof r.painel === 'object' && !Array.isArray(r.painel) ? r.painel : r;
+            S.cvPn = {
+                kpis: listaPn(P.kpis), barras: listaPn(P.barras),
+                crescimento: mapaPn(P.crescimento), inscritos: numeroPn(P.inscritos)
+            };
+            renderCvPainel();
+            return r;
+        });
+    }
+
+    /**
+     * Clique num KPI ou numa barra (`ir` do servidor): filtro nos currículos e a Lista; `mod: vagas`
+     * com o filtro `vf`; `acao: alertasCsv` baixa a lista de alertas (l.1137).
+     */
+    function irDoPainel(ir) {
+        if (!ir || typeof ir !== 'object') {
+            return;
+        }
+        if (ir.acao === 'alertasCsv') {
+            baixarAlertasCsv();
+            return;
+        }
+        var m = moduloDaChave(ir.mod);
+        if (m === 'vagas') {
+            // `vf` é o do contrato; um `filtro` em texto (como nos chips do engajamento) também vale.
+            irPara('vagas', ir.vf ? String(ir.vf) : typeof ir.filtro === 'string' && ir.filtro ? ir.filtro : null);
+            return;
+        }
+        if (m !== 'cv') {
+            return;
+        }
+        var f = mapaPn(ir.filtro);
+        if (f.cf !== undefined) {
+            // A aba "Voluntários" é `vol` aqui e `voluntarios` no servidor (CSV): aceita as duas.
+            S.cvFiltro = String(f.cf || 'ativos') === 'voluntarios' ? 'vol' : String(f.cf || 'ativos');
+        }
+        if (f.cs !== undefined) {
+            S.cvSit = situacaoDoPainel(f.cs);
+        }
+        if (f.ca !== undefined) {
+            S.cvArea = String(f.ca || '');
+        }
+        if (f.cu !== undefined) {
+            S.cvUf = String(f.cu || '');
+        }
+        if (f.busca !== undefined) {
+            S.cvBusca = String(f.busca || '');
+            var b = $('teCvBusca');
+            if (b) {
+                b.value = S.cvBusca;
+            }
+        }
+        S.cvSel = [];
+        S.cvVista = 'lista';
+        if (moduloAtual() === 'cv') {
+            renderCurriculos();
+        } else {
+            irModulo('cv');
+        }
+    }
+
+    /** COM OAB filtra `adv` e `estOab` (lacuna 1): aceita "oab" ou a lista das duas. */
+    function situacaoDoPainel(cs) {
+        if (Array.isArray(cs)) {
+            if (cs.indexOf('adv') >= 0 && cs.indexOf('estOab') >= 0) {
+                return CV_SIT_COM_OAB;
+            }
+            return String(cs[0] || '');
+        }
+        return String(cs || '') === 'comOab' ? CV_SIT_COM_OAB : String(cs || '');
+    }
+
+    function nomeDoAnexo(disp) {
+        var m = /filename\*=UTF-8''([^;]+)/i.exec(String(disp || '')) || /filename="?([^";]+)"?/i.exec(String(disp || ''));
+        if (!m) {
+            return '';
+        }
+        try {
+            return decodeURIComponent(m[1]);
+        } catch (e) {
+            return m[1];
+        }
+    }
+
+    /**
+     * "ALERTAS POR E-MAIL" (l.1137): baixa o CSV do servidor. 404 com JSON = ninguém inscrito, com o
+     * toast do desenho; com sucesso, "Lista exportada" com o número de inscritos do painel.
+     */
+    function baixarAlertasCsv() {
+        var url = String(D.urlAlertasCsv || '');
+        if (!url) {
+            toastErro();
+            return;
+        }
+        fetch(url, { method: 'GET', credentials: 'same-origin', headers: { 'Accept': 'text/csv, application/json', 'X-Requested-With': 'XMLHttpRequest' } }).then(function (r) {
+            var tipo = (r.headers.get('Content-Type') || '').toLowerCase();
+            if (!r.ok || tipo.indexOf('json') >= 0) {
+                return r.json().then(function (j) { return j; }, function () { return null; }).then(function (j) {
+                    if (r.status === 404 && j && typeof j === 'object') {
+                        mostrarToast({ tit: 'Ainda sem inscritos', txt: 'Compartilhe vagas para começar a captar e-mails.', hora: '' });
+                        return;
+                    }
+                    toastErro(j && j.mensagem);
+                });
+            }
+            var nome = nomeDoAnexo(r.headers.get('Content-Disposition')) || 'alertas-vagas-bluejus.csv';
+            return r.blob().then(function (blob) {
+                var u = URL.createObjectURL(blob);
+                var a = el('a', { href: u, attrs: { download: nome } });
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(function () { URL.revokeObjectURL(u); }, 1000);
+                mostrarToast({ tit: 'Lista exportada', txt: (S.cvPn ? S.cvPn.inscritos : 0) + ' e-mail(s) inscrito(s).', hora: '' });
+            });
+        }).then(null, function () {
+            toastErro();
+        });
+    }
+
+    /**
+     * `_contar()` (l.887): conta de 0 até o número em 900 ms (easeOutCubic), só quando o número do
+     * elemento muda. Um pedido novo no mesmo elemento encerra o anterior.
+     */
+    function contarPn(raizPn) {
+        Array.prototype.forEach.call(raizPn.querySelectorAll('[data-cnt]'), function (n) {
+            var fim = +n.getAttribute('data-cnt');
+            if (isNaN(fim) || n._cntFim === fim) {
+                return;
+            }
+            n._cntFim = fim;
+            var vez = (n._cntVez || 0) + 1, ini = performance.now(), dur = 900;
+            n._cntVez = vez;
+            var passo = function (t) {
+                if (n._cntVez !== vez) {
+                    return;
+                }
+                var k = Math.max(0, Math.min(1, (t - ini) / dur)), e = 1 - Math.pow(1 - k, 3);
+                n.textContent = String(Math.round(fim * e));
+                if (k < 1) {
+                    requestAnimationFrame(passo);
+                }
+            };
+            requestAnimationFrame(passo);
+        });
+    }
+
+    /**
+     * O painel (`cvPainel`, l.172): monta ao entrar na vista Painel (as animações de entrada rodam
+     * como no desenho) e, com a vista aberta, atualiza no lugar quando os dados mudam.
+     */
+    function renderCvPainel() {
+        var caixa = $('teCvPainel');
+        if (!caixa) {
+            return;
+        }
+        var on = vistaCv() === 'painel';
+        caixa.hidden = !on;
+        if (!on || !S.cvPn) {
+            limpar(caixa);
+            return;
+        }
+        if (!caixa.firstChild) {
+            caixa.appendChild(el('div', { class: 'te-pn-kpis', id: 'teCvPnKpis' }));
+            caixa.appendChild(el('div', { class: 'te-pn-grafs', id: 'teCvPnGrafs' }, [el('div', { class: 'te-pn-gr', id: 'teCvPnGr' })]));
+        }
+        renderPnKpis();
+        renderPnBarras();
+        renderPnCrescimento();
+        contarPn(caixa);
+    }
+
+    /** KPIs (`cvKpis`, l.173 e l.1137): rótulo, ícone, cor, número animado, subtítulo e o clique. */
+    function renderPnKpis() {
+        var alvo = $('teCvPnKpis'), K = S.cvPn.kpis;
+        var chaves = K.map(function (k, i) { return String(k && k.k !== undefined ? k.k : i); }).join('|');
+        if (alvo.getAttribute('data-chaves') !== chaves) {
+            limpar(alvo);
+            alvo.setAttribute('data-chaves', chaves);
+            K.forEach(function (k, i) {
+                var b = el('button', {
+                    type: 'button', class: 'te-pn-kpi', style: { 'animation-delay': (i * 70) + 'ms' },
+                    onclick: function () { irDoPainel(b._ir); }
+                }, [
+                    el('span', { class: 'te-pn-kpi-faixa' }),
+                    el('span', { class: 'te-pn-kpi-rot' }, [el('span', { class: 'te-pn-kpi-ic' }, el('i', { class: 'bi' })), el('span', { class: 'te-pn-kpi-rot-txt' })]),
+                    el('b', { class: 'te-pn-kpi-n', text: '0' }),
+                    el('span', { class: 'te-pn-kpi-sub' })
+                ]);
+                alvo.appendChild(b);
+            });
+        }
+        K.forEach(function (k, i) {
+            var b = alvo.children[i];
+            if (!b || !k) {
+                return;
+            }
+            var cor = corPn(k.cor);
+            b._ir = k.ir || null;
+            b.style.setProperty('--te-pn-cor', cor);
+            b.style.setProperty('--te-pn-cor-bg', cor + '14');
+            b.querySelector('.te-pn-kpi-ic > i').className = 'bi ' + iconePn(k.ic, 'bi-bar-chart');
+            b.querySelector('.te-pn-kpi-rot-txt').textContent = String(k.rot || '');
+            b.querySelector('.te-pn-kpi-n').setAttribute('data-cnt', String(Math.round(numeroPn(k.n))));
+            b.querySelector('.te-pn-kpi-sub').textContent = String(k.sub || '');
+        });
+    }
+
+    /**
+     * Gráficos de barras (`cvGraf`, l.175 e l.1124): top 8, barra relativa ao maior da caixa,
+     * "Sem dados ainda." quando tudo é zero (as linhas zeradas continuam, como no desenho).
+     * Mesma estrutura (títulos e rótulos): atualiza no lugar e a largura anda pela transição.
+     */
+    function renderPnBarras() {
+        var grade = $('teCvPnGrafs'), gr = $('teCvPnGr');
+        var B = S.cvPn.barras.filter(function (g) { return g && typeof g === 'object'; }).map(function (g) {
+            return { g: g, itens: listaPn(g.itens).filter(function (i) { return i && typeof i === 'object'; }).slice(0, 8) };
+        });
+        var estrutura = JSON.stringify(B.map(function (x) { return [x.g.tit, x.g.ic, x.itens.map(function (i) { return i.rot; })]; }));
+        var montar = grade.getAttribute('data-estrutura') !== estrutura;
+        if (montar) {
+            Array.prototype.slice.call(grade.children).forEach(function (c) {
+                if (c !== gr) {
+                    c.remove();
+                }
+            });
+            grade.setAttribute('data-estrutura', estrutura);
+        }
+        B.forEach(function (x, gi) {
+            var g = x.g, itens = x.itens;
+            var mx = Math.max.apply(null, [1].concat(itens.map(function (i) { return numeroPn(i.n); })));
+            var semDados = !itens.length || itens.every(function (i) { return !numeroPn(i.n); });
+            var card;
+            if (montar) {
+                card = el('div', { class: 'te-pn-graf', style: { 'animation-delay': (380 + gi * 80) + 'ms' } }, [
+                    el('div', { class: 'te-pn-graf-cab' }, [
+                        ic(iconePn(g.ic, 'bi-bar-chart')),
+                        el('b', { class: 'te-pn-graf-tit', text: String(g.tit || '') }),
+                        el('span', { class: 'te-pn-graf-dica', text: 'clique para filtrar' })
+                    ]),
+                    el('div', { class: 'te-pn-graf-vazio', text: 'Sem dados ainda.' })
+                ].concat(itens.map(function (it, ii) {
+                    var b = el('button', {
+                        type: 'button', class: 'te-pn-bar',
+                        onclick: function () { irDoPainel(b._ir); }
+                    }, [
+                        el('span', { class: 'te-pn-bar-rot', text: String(it.rot || ''), title: String(it.rot || '') }),
+                        el('span', { class: 'te-pn-bar-trilho' }, el('span', { class: 'te-pn-bar-fill', style: { 'animation-delay': (520 + gi * 80 + ii * 60) + 'ms' } })),
+                        el('b', { class: 'te-pn-bar-n' })
+                    ]);
+                    return b;
+                })));
+                grade.insertBefore(card, gr);
+            } else {
+                card = grade.children[gi];
+            }
+            if (!card) {
+                return;
+            }
+            card.querySelector('.te-pn-graf-vazio').hidden = !semDados;
+            var botoes = card.querySelectorAll('.te-pn-bar');
+            itens.forEach(function (it, ii) {
+                var b = botoes[ii];
+                if (!b) {
+                    return;
+                }
+                var n = numeroPn(it.n), cor = corPn(it.cor, corPn(g.cor));
+                b._ir = it.ir || null;
+                b.querySelector('.te-pn-bar-n').textContent = String(n);
+                var fill = b.querySelector('.te-pn-bar-fill');
+                fill.style.setProperty('--te-pn-cor', cor);
+                fill.style.setProperty('--te-pn-cor-cc', cor + 'cc');
+                fill.style.width = Math.round(n / mx * 100) + '%';
+            });
+        });
+    }
+
+    function contaPn(mapa, prefixo) {
+        return Object.keys(mapa).reduce(function (a, k) { return String(k).indexOf(prefixo) === 0 ? a + numeroPn(mapa[k]) : a; }, 0);
+    }
+
+    function mesPn(ano, i) { return ano + '-' + String(i + 1).padStart(2, '0'); }
+
+    /** `curva` (l.1129): Catmull-Rom em Bézier cúbica, tensão .18. */
+    function curvaPn(P) {
+        if (P.length < 2) {
+            return P.length ? 'M' + P[0].join(',') : '';
+        }
+        return P.reduce(function (d, pt, i) {
+            if (!i) {
+                return 'M' + pt[0] + ',' + pt[1];
+            }
+            var a = P[i - 2] || P[i - 1], b = P[i - 1], c2 = pt, d2 = P[i + 1] || pt, t = .18;
+            return d + ' C' + (b[0] + (c2[0] - a[0]) * t).toFixed(1) + ',' + (b[1] + (c2[1] - a[1]) * t).toFixed(1)
+                + ' ' + (c2[0] - (d2[0] - b[0]) * t).toFixed(1) + ',' + (c2[1] - (d2[1] - b[1]) * t).toFixed(1)
+                + ' ' + c2[0].toFixed(1) + ',' + c2[1].toFixed(1);
+        }, '');
+    }
+
+    /**
+     * As contas do "Crescimento do banco de talentos" (l.1123 a 1135), a partir das contagens por
+     * AAAA-MM. Correções da §4.9 (lacuna 6): em "Todos os anos" a variação compara o ano atual com o
+     * anterior; no Mensal do ano corrente, com o mesmo período do ano anterior; sem série ligada,
+     * o resumo some.
+     */
+    function calcularCrescimento(C) {
+        var cvs = mapaPn(C.cvs), mapas = { cvs: cvs, cands: mapaPn(C.cands), vols: mapaPn(C.vols) };
+        var hoje = hojeEmBrasilia(), anoAt = +hoje.slice(0, 4), mesAt = +hoje.slice(5, 7);
+        var anosDe = function (m) { return Object.keys(m).map(function (k) { return +String(k).slice(0, 4); }); };
+        var anos = anosDe(cvs).concat(anosDe(mapas.cands)).concat([anoAt])
+            .filter(function (a, i, A) { return a > 0 && A.indexOf(a) === i; })
+            .sort(function (a, b) { return a - b; });
+        var gm = S.grModo === 'ano' ? 'ano' : 'mes';
+        var todos = gm === 'mes' && S.grAno === 'todos';
+        var ga = todos ? anoAt : (+S.grAno || anoAt);
+        if (anos.indexOf(ga) < 0) {
+            ga = anoAt;
+        }
+        var on = Object.assign({ cv: true, cand: true, vol: true }, S.grOn || {});
+        var buckets;
+        if (gm === 'mes') {
+            buckets = PN_MESES.map(function (r, i) { return { rot: r, k: mesPn(ga, i) }; });
+        } else {
+            var a0 = Math.min.apply(null, anos), a1 = Math.max.apply(null, anos.concat([a0 + 1]));
+            buckets = [];
+            for (var a = a0; a <= a1; a++) {
+                buckets.push({ rot: String(a), k: String(a) });
+            }
+        }
+        var SER = todos
+            ? anos.slice().reverse().map(function (a, i) {
+                return { k: 'a' + a, r: String(a), cor: PN_CORES_ANOS[i % PN_CORES_ANOS.length], vals: PN_MESES.map(function (_, m) { return contaPn(cvs, mesPn(a, m)); }) };
+            })
+            : PN_SERIES.map(function (x) {
+                return { k: x[0], r: x[1], cor: x[2], vals: buckets.map(function (b) { return contaPn(mapas[x[3]], b.k); }) };
+            });
+        var ativos = SER.filter(function (x) { return on[x.k] !== false; });
+        var mx = Math.max.apply(null, [4].concat([].concat.apply([], ativos.map(function (x) { return x.vals; }))));
+        var stepY = Math.ceil(mx / 4), topo = stepY * 4, X0 = 60, X1 = 975, Y0 = 210, Y1 = 14, n = buckets.length;
+        var xs = function (i) { return n === 1 ? (X0 + X1) / 2 : X0 + (X1 - X0) * i / (n - 1); };
+        var ys = function (v) { return Y0 - (Y0 - Y1) * v / topo; };
+        var linhas = ativos.map(function (x, li) {
+            var P = x.vals.map(function (v, i) { return [xs(i), ys(v)]; }), d = curvaPn(P);
+            return {
+                k: x.k, delay: (li * 150) + 'ms', gid: 'teGrG' + x.k, cor: x.cor, d: d,
+                area: d ? d + ' L' + xs(n - 1) + ',' + Y0 + ' L' + xs(0) + ',' + Y0 + ' Z' : '',
+                pts: P.map(function (pt, i) {
+                    return {
+                        delay: (700 + li * 150 + i * 55) + 'ms', x: pt[0].toFixed(1), y: pt[1].toFixed(1),
+                        tit: (todos ? 'Currículos ' : x.r + ' · ') + buckets[i].rot + (todos ? '/' + x.r : gm === 'mes' ? '/' + ga : '') + ': ' + x.vals[i]
+                    };
+                })
+            };
+        });
+        var totS = function (k) { var x = SER.filter(function (y) { return y.k === k; })[0]; return x ? x.vals.reduce(function (s, v) { return s + v; }, 0) : 0; };
+        var cvV = todos ? PN_MESES.map(function (_, m) { return SER.reduce(function (s, x) { return s + x.vals[m]; }, 0); }) : SER[0].vals;
+        var ult = cvV.filter(function (v) { return v; }).length;
+        var melhor = cvV.reduce(function (m3, v, i) { return v > m3.v ? { v: v, i: i } : m3; }, { v: 0, i: -1 });
+        var atual = todos ? contaPn(cvs, '') : totS('cv');
+        // Variação (lacuna 6): o ano de comparação e os dois totais comparados.
+        var cmp = 0, ant = 0, anoBase = ga - 1;
+        if (todos) {
+            cmp = contaPn(cvs, String(anoAt));
+            ant = contaPn(cvs, String(anoAt - 1));
+            anoBase = anoAt - 1;
+        } else if (gm === 'mes' && ga === anoAt) {
+            for (var m = 0; m < mesAt; m++) {
+                cmp += contaPn(cvs, mesPn(ga, m));
+                ant += contaPn(cvs, mesPn(ga - 1, m));
+            }
+        } else if (gm === 'mes') {
+            cmp = atual;
+            ant = contaPn(cvs, String(ga - 1));
+        }
+        var varTxt = gm === 'mes' && ant ? (cmp >= ant ? '+' : '') + Math.round((cmp - ant) / ant * 100) + '% em relação a ' + anoBase : '';
+        var resumo = !ativos.length ? [] : [
+            { v: atual, t: 'currículo(s) ' + (todos ? 'no total' : gm === 'mes' ? 'em ' + ga : 'no total') },
+            { v: todos ? anos.length : totS('cand'), t: todos ? 'ano(s) comparados' : 'candidatura(s)' },
+            { v: melhor.i >= 0 ? buckets[melhor.i].rot : '·', t: 'melhor ' + (gm === 'mes' ? 'mês' : 'ano') + (melhor.i >= 0 ? ' (' + melhor.v + ')' : '') }
+        ].concat(varTxt ? [{ v: varTxt.split(' ')[0], t: varTxt.split(' ').slice(1).join(' ') }] : [])
+            .concat([{ v: ult ? (atual / ult).toFixed(1).replace('.', ',') : '0', t: 'por ' + (gm === 'mes' ? 'mês' : 'ano') + ' com recebimento' }]);
+        return {
+            gm: gm, todos: todos, ga: ga, anos: anos, on: on, SER: SER, totS: totS, linhas: linhas, buckets: buckets,
+            sub: todos ? 'currículos mês a mês, comparando os anos' : gm === 'mes' ? 'mês a mês em ' + ga : 'ano a ano',
+            grade: [0, 1, 2, 3, 4].map(function (i) { return { y: ys(stepY * i).toFixed(1), top: (ys(stepY * i) / 240 * 100).toFixed(2) + '%', v: stepY * i }; }),
+            eixoX: buckets.map(function (b, i) { return { left: (xs(i) / 10).toFixed(2) + '%', top: (222 / 240 * 100).toFixed(2) + '%', rot: b.rot }; }),
+            vazio: !ativos.some(function (x) { return x.vals.some(function (v) { return v; }); }),
+            resumo: resumo
+        };
+    }
+
+    function svgPn(tag, attrs, filhos) {
+        var n = document.createElementNS(PN_SVG, tag);
+        Object.keys(attrs || {}).forEach(function (k) {
+            if (k === 'style') {
+                Object.keys(attrs.style).forEach(function (p) { n.style.setProperty(p, attrs.style[p]); });
+            } else if (attrs[k] !== undefined && attrs[k] !== null) {
+                n.setAttribute(k, String(attrs[k]));
+            }
+        });
+        (filhos || []).forEach(function (f) { if (f) { n.appendChild(f); } });
+        return n;
+    }
+
+    /**
+     * "Crescimento do banco de talentos" (l.175 a 193): séries com total e toggle, Mensal/Anual,
+     * o ano ou "Todos os anos" no Mensal, eixos, curvas, pontos com dica, vazio e resumo. Redesenha
+     * só quando os dados ou a escolha mudam (o SVG novo refaz as animações, como o `key` do desenho).
+     */
+    function renderPnCrescimento() {
+        var gr = $('teCvPnGr'), C = S.cvPn.crescimento;
+        var sig = JSON.stringify([C, S.grModo, S.grAno, S.grOn, hojeEmBrasilia().slice(0, 7)]);
+        if (gr.getAttribute('data-sig') === sig) {
+            return;
+        }
+        gr.setAttribute('data-sig', sig);
+        limpar(gr);
+        var M = calcularCrescimento(C);
+        var series = el('div', { class: 'te-pn-gr-series' }, M.SER.map(function (x) {
+            var ok = M.on[x.k] !== false;
+            return el('button', {
+                type: 'button', class: 'te-pn-gr-serie' + (ok ? '' : ' is-off'), style: { '--te-pn-cor': x.cor },
+                attrs: { 'aria-pressed': ok ? 'true' : 'false' },
+                onclick: function () {
+                    var o = {};
+                    o[x.k] = !ok;
+                    S.grOn = Object.assign({}, M.on, o);
+                    renderPnCrescimento();
+                }
+            }, [el('span', { class: 'te-pn-gr-cor' }), x.r + ' ', el('span', { class: 'te-pn-gr-tot', text: String(M.totS(x.k)) })]);
+        }));
+        var modos = el('div', { class: 'te-pn-gr-modos' }, [['mes', 'Mensal'], ['ano', 'Anual']].map(function (x) {
+            var on = M.gm === x[0];
+            return el('button', {
+                type: 'button', class: 'te-pn-gr-modo' + (on ? ' is-ativo' : ''), text: x[1],
+                attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                onclick: function () { S.grModo = x[0]; renderPnCrescimento(); }
+            });
+        }));
+        var anoSel = M.gm === 'mes' ? el('select', {
+            class: 'te-pn-gr-ano', value: M.todos ? 'todos' : String(M.ga), attrs: { 'aria-label': 'Ano do gráfico' },
+            onchange: function (e) { S.grAno = e.target.value; renderPnCrescimento(); }
+        }, [el('option', { value: 'todos', text: 'Todos os anos' })].concat(M.anos.slice().reverse().map(function (a) {
+            return el('option', { value: String(a), text: String(a) });
+        }))) : null;
+        gr.appendChild(el('div', { class: 'te-pn-gr-cab' }, [
+            ic('bi-graph-up-arrow'),
+            el('b', { class: 'te-pn-gr-tit', text: 'Crescimento do banco de talentos' }),
+            el('span', { class: 'te-pn-gr-sub', text: M.sub }),
+            el('span', { class: 'te-flex1' }),
+            series, modos, anoSel
+        ]));
+
+        var defs = svgPn('defs', null, M.linhas.map(function (l) {
+            return svgPn('linearGradient', { id: l.gid, x1: '0', y1: '0', x2: '0', y2: '1' }, [
+                svgPn('stop', { offset: '0', 'stop-color': l.cor, 'stop-opacity': '.22' }),
+                svgPn('stop', { offset: '1', 'stop-color': l.cor, 'stop-opacity': '0' })
+            ]);
+        }));
+        var filhosSvg = [defs].concat(M.grade.map(function (y) {
+            return svgPn('line', { class: 'te-pn-gr-grade', x1: '46', x2: '990', y1: y.y, y2: y.y, stroke: '#eef2f5', 'stroke-width': '1' });
+        }));
+        M.linhas.forEach(function (l) {
+            filhosSvg.push(svgPn('path', { class: 'te-pn-gr-area-p', d: l.area, fill: 'url(#' + l.gid + ')' }));
+            filhosSvg.push(svgPn('path', {
+                class: 'te-pn-gr-linha', d: l.d, pathLength: '1', fill: 'none', stroke: l.cor, 'stroke-width': '2.5',
+                'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke', style: { 'animation-delay': l.delay }
+            }));
+            l.pts.forEach(function (p) {
+                filhosSvg.push(svgPn('circle', {
+                    class: 'te-pn-gr-pto', cx: p.x, cy: p.y, r: '4', fill: '#fff', stroke: l.cor, 'stroke-width': '2',
+                    'vector-effect': 'non-scaling-stroke', style: { 'animation-delay': p.delay }
+                }));
+            });
+        });
+        var svg = svgPn('svg', { class: 'teGc te-pn-gr-svg', viewBox: '0 0 1000 240', preserveAspectRatio: 'none', 'aria-hidden': 'true' }, filhosSvg);
+        var area = el('div', { class: 'te-pn-gr-area' }, [svg]);
+        M.grade.forEach(function (y) {
+            area.appendChild(el('span', { class: 'te-pn-gr-y', style: { top: y.top }, text: String(y.v) }));
+        });
+        M.eixoX.forEach(function (x) {
+            area.appendChild(el('span', { class: 'te-pn-gr-x', style: { left: x.left, top: x.top }, text: x.rot }));
+        });
+        M.linhas.forEach(function (l) {
+            l.pts.forEach(function (p) {
+                area.appendChild(el('span', {
+                    class: 'te-pn-gr-pt', title: p.tit, attrs: { 'data-tip': p.tit },
+                    style: { left: (p.x / 10).toFixed(2) + '%', top: (p.y / 240 * 100).toFixed(2) + '%' }
+                }));
+            });
+        });
+        if (M.vazio) {
+            area.appendChild(el('div', { class: 'te-pn-gr-vazio', text: 'Sem registros neste período. A curva cresce conforme os currículos chegam.' }));
+        }
+        gr.appendChild(area);
+        if (M.resumo.length) {
+            gr.appendChild(el('div', { class: 'te-pn-gr-resumo' }, M.resumo.map(function (r) {
+                return el('span', null, [el('b', { text: String(r.v) }), ' ' + r.t]);
+            })));
         }
     }
 
@@ -4477,7 +5098,8 @@
             }, [el('option', { value: '', text: primeiro })].concat(ops.map(function (o) { return el('option', { value: o[0], text: o[1] }); })));
         };
         alvo.appendChild(sel('cvArea', 'Todas as áreas', (Lt.areas || []).map(function (a) { return [a, a]; }), ' is-area'));
-        alvo.appendChild(sel('cvSit', 'Situação OAB', CV_SIT_FILTRO));
+        // A opção "Com OAB" só existe enquanto o filtro veio do KPI (o select do desenho não a tem).
+        alvo.appendChild(sel('cvSit', 'Situação OAB', S.cvSit === CV_SIT_COM_OAB ? [[CV_SIT_COM_OAB, 'Com OAB']].concat(CV_SIT_FILTRO) : CV_SIT_FILTRO));
         alvo.appendChild(sel('cvUf', 'Todas as UFs', (Lt.ufs || []).map(function (u) { return [u, u]; })));
         alvo.appendChild(sel('cvTer', 'Termo', CV_TERMO_FILTRO));
     }
