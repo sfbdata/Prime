@@ -3435,6 +3435,13 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    /* O que vem do Datajud é texto de fora: escapado antes de entrar no HTML das linhas (P5d). */
+    function mpEsc(valor) {
+        return String(valor == null ? '' : valor).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
     /* ── Busca DataJud ── */
     document.getElementById('mp-btn-datajud').addEventListener('click', async function () {
         var numeroProcesso = document.getElementById('mp-numeroProcesso').value;
@@ -3490,11 +3497,11 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <option value="PROMOTOR" ${(parte.tipo||'')==='PROMOTOR'?'selected':''}>Promotor</option>
                             </select></div>
                         <div class="col-md-5"><label class="form-label">Nome</label>
-                            <input type="text" name="partes[${idx}][nome]" class="form-control" value="${parte.nome||''}" placeholder="Nome da parte"></div>
+                            <input type="text" name="partes[${idx}][nome]" class="form-control" value="${mpEsc(parte.nome)}" placeholder="Nome da parte"></div>
                         <div class="col-md-2"><label class="form-label">Documento</label>
-                            <input type="text" name="partes[${idx}][documento]" class="form-control" value="${parte.documento||''}" placeholder="CPF/CNPJ"></div>
+                            <input type="text" name="partes[${idx}][documento]" class="form-control" value="${mpEsc(parte.documento)}" placeholder="CPF/CNPJ"></div>
                         <div class="col-md-2"><label class="form-label">Papel</label>
-                            <input type="text" name="partes[${idx}][papel]" class="form-control" value="${parte.papel||''}" placeholder="Polo ativo/passivo"></div>
+                            <input type="text" name="partes[${idx}][papel]" class="form-control" value="${mpEsc(parte.papel)}" placeholder="Polo ativo/passivo"></div>
                     </div>
                     <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
                             style="display: ${partesList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
@@ -3509,13 +3516,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 movContainer.insertAdjacentHTML('beforeend', `<div class="mp-movimentacao-row card mb-2 p-3" style="position: relative;">
                     <div class="row g-2">
                         <div class="col-md-3"><label class="form-label">Data</label>
-                            <input type="date" name="movimentacoes[${idx}][dataMovimentacao]" class="form-control" value="${mov.dataMovimentacao||''}"></div>
+                            <input type="date" name="movimentacoes[${idx}][dataMovimentacao]" class="form-control" value="${mpEsc(mov.dataMovimentacao)}"></div>
                         <div class="col-md-4"><label class="form-label">Descrição</label>
-                            <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control" value="${mov.descricao||''}" placeholder="Descrição da movimentação"></div>
+                            <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control" value="${mpEsc(mov.descricao)}" placeholder="Descrição da movimentação"></div>
                         <div class="col-md-3"><label class="form-label">Tipo</label>
-                            <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control" value="${mov.tipo||''}" placeholder="Tipo de movimento"></div>
+                            <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control" value="${mpEsc(mov.tipo)}" placeholder="Tipo de movimento"></div>
                         <div class="col-md-2"><label class="form-label">Órgão</label>
-                            <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control" value="${mov.orgao||''}" placeholder="Órgão"></div>
+                            <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control" value="${mpEsc(mov.orgao)}" placeholder="Órgão"></div>
                     </div>
                     <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
                             style="display: ${movsList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
