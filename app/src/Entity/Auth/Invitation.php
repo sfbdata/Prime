@@ -20,6 +20,10 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_invitation_tenant_status', columns: ['tenant_id', 'status'])]
 class Invitation implements Auditavel
 {
+    /** Valores gravados em `type`. Use sempre as constantes: o nome em inglês é o que está no banco. */
+    public const TIPO_ESCRITORIO = 'office';
+    public const TIPO_PLATAFORMA = 'platform';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]

@@ -29,6 +29,8 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_SERVICEDESK_NOVO = 'servicedesk_novo';
     public const TIPO_SERVICEDESK_ATRIBUICAO = 'servicedesk_atribuicao';
     public const TIPO_DJEN_PUBLICACAO = 'djen_publicacao';
+    /** Movimentação nova numa pasta da qual o destinatário é o responsável ("Avisar quando chegar" do Push). */
+    public const TIPO_PUSH_PUBLICACAO_PASTA = 'push_publicacao_pasta';
     /** Alguém respondeu, no Registro da pasta, um comentário do destinatário. */
     public const TIPO_PASTA_RESPOSTA_REGISTRO = 'pasta_resposta_registro';
     /** Alguém @mencionou o destinatário num registro (ou resposta) do Registro da pasta. */
@@ -41,6 +43,8 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_CENTRAL_MENCAO = 'central_mencao';
     /** Alguém adicionou o destinatário a um grupo da Central de Comunicação. */
     public const TIPO_CENTRAL_GRUPO_ADICIONADO = 'central_grupo_adicionado';
+    /** Quem recebeu o link externo do Push pediu a renovação; vai para quem criou o link. */
+    public const TIPO_PUSH_LINK_RENOVACAO = 'push_link_renovacao';
 
     /** Categorias de notificação (derivadas do tipo). */
     public const CATEGORIA_PESSOAL = 'pessoal';
@@ -217,7 +221,7 @@ class Notificacao implements Auditavel, TenantAware
             self::TIPO_PONTO_JUSTIFICATIVA_REJEITADA => 'bi-x-circle text-danger',
             self::TIPO_SERVICEDESK_NOVO => 'bi-ticket-detailed text-primary',
             self::TIPO_SERVICEDESK_ATRIBUICAO => 'bi-person-check text-info',
-            self::TIPO_DJEN_PUBLICACAO => 'bi-newspaper text-primary',
+            self::TIPO_DJEN_PUBLICACAO, self::TIPO_PUSH_PUBLICACAO_PASTA => 'bi-newspaper text-primary',
             // Desenho (bluejus-central.js, tipo "direcionada"): `bi-person-check` em âmbar.
             self::TIPO_PASTA_RESPOSTA_REGISTRO => 'bi-person-check text-warning',
             // Desenho (bluejus-central.js, tipo "mencao"): `bi-at` em azul.

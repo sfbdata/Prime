@@ -19,6 +19,13 @@ framework:
             policy: sliding_window
             limit: 20
             interval: '1 minute'
+        # Página pública do link externo do Push (`/p/<endereco>`): chave = IP. Freia a varredura
+        # de endereços e o chute do código de acesso (que ainda tem o bloqueio próprio: 5 erros
+        # seguidos travam o link por 15 min). 30/minuto pelo mesmo motivo do bloco de senha abaixo.
+        push_publico:
+            policy: sliding_window
+            limit: 30
+            interval: '1 minute'
         convite_criar:
             policy: sliding_window
             limit: 10
@@ -83,6 +90,13 @@ framework:
             policy: sliding_window
             limit: 30
             interval: '10 minutes'
+        # "Buscar agora" do painel do Push (spec push-painel-monitoramento §2): chave = escritório +
+        # PASTA, não usuário. Cada busca consulta o DJEN uma vez por processo da pasta, e o DJEN
+        # aceita ~20 requisições por IP na janela: dois cliques na mesma pasta não podem gastar a cota.
+        pasta_push_buscar:
+            policy: fixed_window
+            limit: 1
+            interval: '1 minute'
 
     # Note that the session will be started ONLY if you read or write from it.
     session: true

@@ -1,0 +1,231 @@
+/* =============================================================================
+   pasta-push-cliente.css: cartão "Avisar cliente", modal "Enviar ao cliente" e o botão do
+   envio no cartão da Análise IA (spec push-avisar-cliente §2 e §3).
+   Desenho de 18/10: docs/design/redesign-19-10-26/02 - EXPEDIENTES - VS 18.10.26.dc.html
+   (fora do git). Cada regra traz a linha de onde saiu ("dc N:linha"); raio de 4px como no desenho.
+
+   Tokens: no tema CLARO cada cor é o hex do desenho (os `--ps-*` que já valem o mesmo hex são
+   reusados; os demais nascem aqui como `--pc-*`). O ESCURO redefine os novos em cima do sistema
+   de cor do Bootstrap, como o pasta-push-painel.css faz com os dele.
+   ============================================================================= */
+.ps-body,
+.ps-page {
+    --pc-sombra:          0 1px 2px rgba(16,42,58,.04);   /* dc N:2766 */
+    --pc-caixa:           #f6f9fb;                        /* dc N:2775 e N:2789 */
+    --pc-caixa-tx:        #5f7684;
+    --pc-icone-off:       #9aabb6;                        /* dc N:2775 e N:5261 */
+    --pc-hover:           #f4f8fb;                        /* dc N:2778 */
+    --pc-estrela:         #c8952a;                        /* dc N:5262 */
+    --pc-estrela-off:     #b5c3cc;
+    --pc-estrela-hover:   #fdf4dc;
+    --pc-perigo:          #b03a2e;                        /* dc N:2785 e N:2797 */
+    --pc-perigo-bg:       #fbeceb;
+    --pc-campo:           #fff;
+    --pc-campo-borda:     #d3dde5;                        /* dc N:2792 */
+    --pc-chip-tx:         #4f6878;                        /* dc N:5267 */
+    --pc-cinza-hover:     #e9eff3;                        /* dc N:2800 */
+    --pc-forte:           #34505f;                        /* dc N:2809 */
+    --pc-chip-cc:         #eef2f5;
+    --pc-hist-tx:         #4f6878;                        /* dc N:2826 */
+    --pc-cont-tx:         #0b5f86;                        /* dc N:5260 `contSt` */
+    --pc-cont-bg:         #e5f1f7;
+    --pc-cont-vazio-tx:   #8a5a12;
+    --pc-cont-vazio-bg:   #fdf1dc;
+    --pc-fundo-modal:     rgba(10,30,45,.42);             /* dc N:2832 */
+    --pc-sombra-modal:    0 24px 60px -20px rgba(10,30,45,.55);
+    --pc-faixa:           linear-gradient(180deg,#0d80a3,#0a6f8f); /* dc N:2835 */
+    --pc-chip-off-bg:     #f3f6f8;                        /* dc N:5274 `envPara` */
+    --pc-roxo:            #5b3fb0;                        /* dc N:2856 */
+    --pc-roxo-bg:         #f1ecfc;
+    --pc-revisei-bg:      #fdf8ec;                        /* dc N:2859 */
+    --pc-revisei-tx:      #5c4512;
+    --pc-revisei-ico:     #8a5a12;
+    --pc-enviar-off:      #9fb7c6;                        /* dc N:5278 `envBtnSt` */
+    --pc-enviar-hover:    #0b5f86;
+}
+
+[data-bs-theme="dark"] .ps-body,
+[data-bs-theme="dark"] .ps-page {
+    --pc-sombra:          none;
+    --pc-caixa:           var(--bs-secondary-bg);
+    --pc-caixa-tx:        var(--bs-secondary-color);
+    --pc-icone-off:       var(--bs-secondary-color);
+    --pc-hover:           var(--bs-secondary-bg);
+    --pc-estrela:         #e9be6c;
+    --pc-estrela-off:     var(--bs-secondary-color);
+    --pc-estrela-hover:   rgba(200,149,42,.16);
+    --pc-perigo:          #f08a84;
+    --pc-perigo-bg:       rgba(192,57,47,.18);
+    --pc-campo:           var(--bs-body-bg);
+    --pc-campo-borda:     var(--bs-border-color);
+    --pc-chip-tx:         var(--bs-body-color);
+    --pc-cinza-hover:     var(--bs-secondary-bg);
+    --pc-forte:           var(--bs-body-color);
+    --pc-chip-cc:         var(--bs-secondary-bg);
+    --pc-hist-tx:         var(--bs-secondary-color);
+    --pc-cont-tx:         #8fd0ea;
+    --pc-cont-bg:         rgba(69,176,214,.16);
+    --pc-cont-vazio-tx:   #e9be6c;
+    --pc-cont-vazio-bg:   rgba(200,149,42,.16);
+    --pc-fundo-modal:     rgba(0,0,0,.6);
+    --pc-sombra-modal:    0 24px 60px -20px rgba(0,0,0,.8);
+    --pc-chip-off-bg:     var(--bs-secondary-bg);
+    --pc-roxo:            #c3b2f2;
+    --pc-roxo-bg:         rgba(124,92,214,.2);
+    --pc-revisei-bg:      rgba(200,149,42,.14);
+    --pc-revisei-tx:      #ecd6a6;
+    --pc-revisei-ico:     #e9be6c;
+    --pc-enviar-off:      var(--bs-secondary-bg);
+    --pc-enviar-hover:    #086a96;
+}
+
+/* ── Cartão (dc N:2766) ─────────────────────────────────────────────────── */
+.ps-push-cliente {
+    background: var(--ps-card);
+    border: 1px solid var(--ps-border);
+    border-radius: 4px;
+    box-shadow: var(--pc-sombra);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+/* Cabeçalho (dc N:2767-2773). */
+.ps-push-cliente-cab { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 7px; margin-bottom: 2px; }
+.ps-push-cliente-cab-ico { font-size: 14px; color: var(--ps-accent); }
+.ps-push-cliente-titulo { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ps-label); white-space: nowrap; }
+/* Chip contador (dc N:5260 `contSt`): azul, âmbar no zero. */
+.ps-push-cliente-cont { font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; color: var(--pc-cont-tx); background: var(--pc-cont-bg); }
+.ps-push-cliente-cont.is-vazio { color: var(--pc-cont-vazio-tx); background: var(--pc-cont-vazio-bg); }
+.ps-push-cliente-espaco { flex: 1; }
+/* "Cadastrar e-mail" (dc N:2772). */
+.ps-push-cliente-cadastrar {
+    display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 8px; margin-right: -6px;
+    border: none; border-radius: 4px; background: transparent; color: var(--ps-accent);
+    font-family: inherit; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    cursor: pointer; white-space: nowrap;
+}
+.ps-push-cliente-cadastrar i { font-size: 13px; }
+.ps-push-cliente-cadastrar:hover:not(:disabled) { background: var(--ps-accent-bg); }
+.ps-push-cliente-cadastrar:disabled { cursor: default; opacity: .5; }
+
+/* Vazio (dc N:2775). */
+.ps-push-cliente-vazio { display: flex; gap: 9px; align-items: flex-start; padding: 9px 10px; background: var(--pc-caixa); border-radius: 4px; font-size: 12.5px; line-height: 1.45; color: var(--pc-caixa-tx); }
+.ps-push-cliente-vazio i { font-size: 15px; color: var(--pc-icone-off); margin-top: 1px; }
+
+/* Um e-mail (dc N:2778-2787; `lista` N:5261-5265). */
+.ps-push-cliente-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 0 -8px; border-radius: 4px; transition: background .15s; }
+.ps-push-cliente-item:hover { background: var(--pc-hover); }
+.ps-push-cliente-ico { font-size: 15px; flex-shrink: 0; color: var(--pc-icone-off); }
+.ps-push-cliente-ico.is-on { color: var(--ps-accent); }
+.ps-push-cliente-texto { min-width: 0; flex: 1; }
+.ps-push-cliente-email { font-size: 13px; color: var(--ps-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ps-push-cliente-sub { font-size: 11px; color: var(--ps-label); }
+/* Selo do descadastro (spec §2; sem lastro no desenho: o tom de alerta do `contSt` vazio). */
+.ps-push-cliente-selo { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px; font-size: 10.5px; font-weight: 700; color: var(--pc-cont-vazio-tx); background: var(--pc-cont-vazio-bg); }
+/* Estrela (dc N:5262 `prSt`). */
+.ps-push-cliente-estrela { width: 26px; height: 26px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: none; border-radius: 4px; background: transparent; cursor: pointer; font-size: 12px; color: var(--pc-estrela-off); }
+.ps-push-cliente-estrela.is-principal { color: var(--pc-estrela); }
+.ps-push-cliente-estrela:hover:not(:disabled) { background: var(--pc-estrela-hover); }
+.ps-push-cliente-estrela:disabled { cursor: default; }
+/* Switch (dc N:2784 e `sw` N:5251: 36x20, bola 16px a 2px/18px). */
+.ps-push-cliente-switch { border: none; background: transparent; padding: 0; cursor: pointer; display: flex; }
+.ps-push-cliente-sw { position: relative; width: 36px; height: 20px; border-radius: 999px; flex-shrink: 0; transition: background .2s; background: var(--pp-switch-off, #cfd9e0); }
+.ps-push-cliente-switch.is-on .ps-push-cliente-sw { background: var(--ps-accent); }
+.ps-push-cliente-switch.is-on .ps-push-switch-bola { left: 18px; }
+.ps-push-cliente-switch:disabled { cursor: default; }
+.ps-push-cliente-switch:disabled .ps-push-cliente-sw { opacity: .4; }
+.ps-push-cliente-switch:focus-visible { outline: 2px solid var(--ps-accent); outline-offset: 2px; }
+/* Remover (dc N:2785). */
+.ps-push-cliente-remover { width: 26px; height: 26px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: none; border-radius: 4px; background: transparent; color: var(--pc-icone-off); cursor: pointer; }
+.ps-push-cliente-remover i { font-size: 12px; }
+.ps-push-cliente-remover:hover:not(:disabled) { background: var(--pc-perigo-bg); color: var(--pc-perigo); }
+.ps-push-cliente-remover:disabled { cursor: default; opacity: .5; }
+
+/* Formulário (dc N:2789-2804). */
+.ps-push-cliente-form { display: flex; flex-direction: column; gap: 7px; padding: 10px; margin-top: 2px; background: var(--pc-caixa); border-radius: 4px; }
+.ps-push-cliente-form[hidden] { display: none; }
+.ps-push-cliente-campo { position: relative; }
+.ps-push-cliente-campo i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--ps-label); }
+.ps-push-cliente-campo input { width: 100%; box-sizing: border-box; height: 34px; padding: 0 10px 0 31px; border: none; border-radius: 4px; background: var(--pc-campo); box-shadow: inset 0 0 0 1px var(--pc-campo-borda); font-family: inherit; font-size: 13px; color: var(--ps-text); outline: none; }
+.ps-push-cliente-rotulos { display: flex; gap: 4px; flex-wrap: wrap; }
+/* Chip do rótulo (dc N:5267 `rotulos.st`). */
+.ps-push-cliente-rotulo { height: 26px; padding: 0 10px; border: none; border-radius: 4px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; background: var(--pc-campo); color: var(--pc-chip-tx); box-shadow: inset 0 0 0 1px var(--pc-campo-borda); }
+.ps-push-cliente-rotulo.is-ativo { background: var(--ps-accent); color: #fff; box-shadow: none; }
+.ps-push-cliente-erro { font-size: 12px; color: var(--pc-perigo); display: flex; gap: 5px; align-items: center; } /* dc N:2797 */
+.ps-push-cliente-erro[hidden] { display: none; }
+.ps-push-cliente-form-acoes { display: flex; justify-content: flex-end; gap: 6px; }
+.ps-push-cliente-cancelar { height: 30px; padding: 0 12px; border: none; border-radius: 4px; background: transparent; color: var(--pc-chip-tx); font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; } /* dc N:2800 */
+.ps-push-cliente-cancelar:hover { background: var(--pc-cinza-hover); }
+.ps-push-cliente-adicionar { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border: none; border-radius: 4px; background: var(--ps-accent); color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; } /* dc N:2801 */
+.ps-push-cliente-adicionar:hover { background: var(--pc-enviar-hover); }
+
+/* Divisor e Cópia para a Controladoria (dc N:2806-2807). */
+.ps-push-cliente-divisor { height: 1px; background: var(--ps-div-strong); margin: 6px 0 2px; }
+.ps-push-cliente-cc { display: flex; align-items: center; gap: 8px; padding: 6px 0 10px; font-size: 12px; color: var(--pc-caixa-tx); border-bottom: 1px solid var(--ps-div-strong); margin-bottom: 8px; }
+.ps-push-cliente-cc > i { font-size: 13px; color: var(--ps-accent); flex-shrink: 0; }
+.ps-push-cliente-cc-txt { flex: 1; min-width: 0; }
+.ps-push-cliente-cc-txt strong { color: var(--pc-forte); font-weight: 600; }
+.ps-push-cliente-sempre { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; color: var(--pc-forte); background: var(--pc-chip-cc); padding: 2px 7px; border-radius: 3px; white-space: nowrap; }
+.ps-push-cliente-sempre i { font-size: 9px; }
+
+/* Histórico de envios (dc N:2819-2828). */
+.ps-push-cliente-hist-botao { display: flex; align-items: center; gap: 6px; margin-top: 2px; padding: 0; border: none; background: transparent; color: var(--ps-accent); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.ps-push-cliente-hist-botao i { font-size: 12px; }
+.ps-push-cliente-hist { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.ps-push-cliente-hist[hidden] { display: none; }
+.ps-push-cliente-hist-item { display: flex; gap: 8px; font-size: 12px; line-height: 1.4; color: var(--pc-hist-tx); }
+.ps-push-cliente-hist-item > i { font-size: 12px; color: var(--ps-label); margin-top: 2px; }
+.ps-push-cliente-hist-texto { min-width: 0; }
+.ps-push-cliente-hist-t { color: var(--ps-body); }
+.ps-push-cliente-hist-sub { color: var(--ps-label); overflow-wrap: anywhere; }
+
+/* ── Modal "Enviar ao cliente" (dc N:2831-2866) ─────────────────────────── */
+.ps-push-envio-fundo { position: fixed; inset: 0; z-index: 300; background: var(--pc-fundo-modal); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ps-push-envio-fundo[hidden] { display: none; }
+.ps-push-envio { width: min(620px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: var(--ps-card); border-radius: 4px; box-shadow: var(--pc-sombra-modal); display: flex; flex-direction: column; }
+.ps-push-envio-cab { display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: var(--pc-faixa); color: #fff; } /* dc N:2835 */
+.ps-push-envio-cab > i { font-size: 18px; }
+.ps-push-envio-cab-texto { min-width: 0; flex: 1; }
+.ps-push-envio-titulo { font-size: 15px; font-weight: 700; }
+.ps-push-envio-sub { font-size: 12px; opacity: .85; }
+.ps-push-envio-x { width: 30px; height: 30px; border: none; border-radius: 4px; background: rgba(255,255,255,.14); color: #fff; cursor: pointer; } /* dc N:2838 */
+.ps-push-envio-corpo { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+.ps-push-envio-rotulo { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ps-label); margin-bottom: 6px; } /* dc N:2842 */
+.ps-push-envio-rotulo--cc { display: flex; align-items: center; gap: 6px; }
+.ps-push-envio-rotulo--cc i { font-size: 10px; color: var(--ps-label); }
+.ps-push-envio-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Chip do "Para" (dc N:5274 `envPara.st`). */
+.ps-push-envio-para { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; border: none; border-radius: 4px; font-family: inherit; font-size: 12.5px; cursor: pointer; background: var(--pc-chip-off-bg); color: var(--ps-label); }
+.ps-push-envio-para.is-on { background: var(--ps-accent-bg); color: var(--pc-cont-tx); font-weight: 600; }
+.ps-push-envio-para i { font-size: 12px; }
+/* Chip da Controladoria (dc N:2850) e o aviso sem ninguém (dc N:2851). */
+.ps-push-envio-cc { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; border-radius: 4px; background: var(--pc-chip-cc); color: var(--pc-forte); font-size: 12.5px; font-weight: 600; }
+.ps-push-envio-cc i { font-size: 12px; color: var(--ps-accent); }
+.ps-push-envio-sem-cc { font-size: 12px; color: var(--ps-danger-text); }
+.ps-push-envio-assunto { width: 100%; box-sizing: border-box; height: 36px; padding: 0 11px; border: none; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--pc-campo-borda); background: var(--pc-campo); font-family: inherit; font-size: 13.5px; color: var(--ps-text); outline: none; } /* dc N:2855 */
+.ps-push-envio-msg-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; } /* dc N:2858 */
+.ps-push-envio-msg-cab .ps-push-envio-rotulo { margin-bottom: 0; }
+.ps-push-envio-selo-ia { font-size: 11px; color: var(--pc-roxo); background: var(--pc-roxo-bg); padding: 2px 7px; border-radius: 4px; }
+.ps-push-envio-texto { width: 100%; box-sizing: border-box; padding: 10px 11px; border: none; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--pc-campo-borda); background: var(--pc-campo); font-family: inherit; font-size: 13.5px; line-height: 1.55; color: var(--ps-text); outline: none; resize: vertical; } /* dc N:2859 */
+.ps-push-envio-revisei { display: flex; align-items: flex-start; gap: 9px; padding: 10px 11px; border: none; border-radius: 4px; background: var(--pc-revisei-bg); text-align: left; font-family: inherit; font-size: 13px; line-height: 1.45; color: var(--pc-revisei-tx); cursor: pointer; } /* dc N:2861 */
+.ps-push-envio-revisei i { font-size: 16px; color: var(--pc-revisei-ico); margin-top: 1px; }
+.ps-push-envio-erro { font-size: 12.5px; color: var(--pc-perigo); display: flex; gap: 6px; align-items: center; } /* dc N:2862 */
+.ps-push-envio-erro[hidden] { display: none; }
+.ps-push-envio-rodape { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--ps-div-strong); background: var(--ps-soft); } /* dc N:2864 */
+.ps-push-envio-cancelar { height: 36px; padding: 0 14px; border: none; border-radius: 4px; background: transparent; color: var(--pc-chip-tx); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.ps-push-envio-cancelar:hover { background: var(--pc-cinza-hover); }
+/* "Enviar e-mail" (dc N:5278 `envBtnSt`): azul só com o checkbox e ao menos um destinatário. */
+.ps-push-envio-enviar { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 16px; border: none; border-radius: 4px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; color: #fff; background: var(--pc-enviar-off); }
+.ps-push-envio-enviar.is-pronto { background: var(--ps-accent); }
+.ps-push-envio-enviar i { font-size: 13px; }
+
+/* ── Cartão da Análise IA: "Enviar ao cliente" e "Enviado" (dc N:2618-2619) ── */
+.ps-push .ps-ia-botao--cliente { color: var(--ps-accent); font-weight: 700; }
+.ps-push .ps-ia-botao--cliente > i { font-size: 13px; }
+.ps-push .ps-ia-botao--cliente:hover,
+.ps-push .ps-ia-botao--cliente:focus-visible { background: var(--ps-accent-bg); }
+.ps-push .ps-ia-botao--cliente[aria-disabled="true"] { opacity: .5; cursor: default; }
+.ps-push .ps-ia-enviado { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; color: var(--ps-ok-text); }
+.ps-push .ps-ia-enviado[hidden] { display: none; }
+.ps-push .ps-ia-enviado i { font-size: 12px; }

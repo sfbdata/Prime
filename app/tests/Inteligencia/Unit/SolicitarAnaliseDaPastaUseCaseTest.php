@@ -170,7 +170,21 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
             $montador,
             $this->analises,
             new EnfileiradorDeAnalise($this->analises, $this->bus, new NullLogger()),
+            $this->visibilidadeDasAbas(),
         );
+    }
+
+    /** @var list<\App\Pasta\Entity\AbaOcultaDaPasta> regras de aba oculta da pasta (ocultar aba) */
+    private array $regrasDeAba = [];
+
+    private function visibilidadeDasAbas(): \App\Pasta\Service\VisibilidadeDasAbasDaPasta
+    {
+        $regras = $this->createStub(\App\Pasta\Repository\AbaOcultaDaPastaRepository::class);
+        $regras->method('daPasta')->willReturn($this->regrasDeAba);
+        $vinculos = $this->createStub(\App\Repository\UserTenantRepository::class);
+        $primarios = new \App\Tenant\Service\RegraDosPrimarios($vinculos);
+
+        return new \App\Pasta\Service\VisibilidadeDasAbasDaPasta($regras, $primarios, new \App\Pasta\Service\EquipeQuePodeTerAbaOculta($vinculos, $primarios));
     }
 
     private function input(Agente $agente = Agente::Gestor, int $pastaId = self::PASTA_ID): SolicitarAnaliseDaPastaInput
@@ -348,6 +362,22 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
         $resumo = $salvas[0]->getContextoResumo();
         self::assertFalse($resumo['financeiro']);
         self::assertArrayNotHasKey('financeiro', $resumo['secoes']);
+    }
+
+    #[TestDox('aba oculta para quem pede: a solicitação grava as abas ocultas e a seção delas não é montada')]
+    public function testAbaOcultaFicaForaEGravada(): void
+    {
+        $this->regrasDeAba = [\App\Pasta\Entity\AbaOcultaDaPasta::paraTodaAEquipe($this->tenant, $this->pasta, \App\Pasta\Entity\AbaDaPasta::Tarefas, $this->user, new \DateTimeImmutable())];
+        $this->analises->method('findPendenteDoAlvo')->willReturn(null);
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturn(null);
+        $salvas = $this->capturarSalva();
+
+        $this->sut()->executar($this->input(Agente::Gestor), $this->user, $this->tenant);
+
+        $resumo = $salvas[0]->getContextoResumo();
+        self::assertSame(['tarefas'], $resumo['abasOcultas']);
+        self::assertArrayNotHasKey('metas', $resumo['secoes']);
+        self::assertSame(1, $resumo['secoes']['movimentacoes']);
     }
 
     #[TestDox('agente que não lê financeiro nem pergunta pela visibilidade')]
