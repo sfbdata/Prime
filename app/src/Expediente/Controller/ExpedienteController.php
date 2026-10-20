@@ -16,18 +16,21 @@ use App\Expediente\UseCase\SincronizarMarcadoresDaPastaUseCase;
 use App\Expediente\Service\CsvDaListaDoExpediente;
 use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\DTO\PedirAcessoInput;
+use App\Pasta\Entity\NivelDeAcesso;
+use App\Pasta\Exception\CadeadoRecusadoException;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\Exception\SemPermissaoParaVerPastaException;
 use App\Pasta\Repository\PastaDestaqueRepository;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Pasta\Service\NumeracaoDePastaInterface;
 use App\Pasta\UseCase\AlternarTrancaDaPastaUseCase;
 use App\Pasta\UseCase\DestacarPastaUseCase;
-use App\Pasta\UseCase\PedirAcessoAPastaTrancadaUseCase;
+use App\Pasta\UseCase\PedirAcessoAPastaUseCase;
 use App\Pasta\UseCase\RenomearClienteDaPastaUseCase;
 use App\Repository\UserRepository;
-use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -64,10 +67,11 @@ final class ExpedienteController extends AbstractController
         private readonly RenomearClienteDaPastaUseCase $renomearClienteUseCase,
         private readonly AlternarTrancaDaPastaUseCase $alternarTrancaUseCase,
         private readonly DestacarPastaUseCase $destacarPastaUseCase,
-        private readonly PedirAcessoAPastaTrancadaUseCase $pedirAcessoUseCase,
+        private readonly PedirAcessoAPastaUseCase $pedirAcessoUseCase,
         private readonly PastaDestaqueRepository $destaqueRepository,
         private readonly NumeracaoDePastaInterface $numeracaoDePasta,
         private readonly CsvDaListaDoExpediente $csvDaLista,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
@@ -90,7 +94,7 @@ final class ExpedienteController extends AbstractController
 
         return $this->render('expediente/index.html.twig', $this->dadosDoTrilho($tenant) + [
             'painelInicial'    => $this->painelInicialDoDeepLink($request),
-            'souAdministrador' => $this->permissionChecker->isAdministradorDoEscritorio($user, $tenant),
+            'souAdministrador' => $this->acessoAPasta->podeConfigurar($user, $tenant),
         ]);
     }
 
@@ -280,7 +284,7 @@ final class ExpedienteController extends AbstractController
         $page = max(1, $request->query->getInt('page', 1));
 
         $totalItems = $hasFilters
-            ? $this->pastaRepository->countByFiltrosEMarcador($filters, $marcador, $tenant)
+            ? $this->pastaRepository->countByFiltrosEMarcador($filters, $marcador, $tenant, $user)
             : $this->pastaRepository->countPorMarcador($marcador, $tenant);
 
         $porPagina  = $this->porPaginaDaRequest($request);
@@ -288,7 +292,7 @@ final class ExpedienteController extends AbstractController
         $page       = min($page, $totalPages);
 
         $pastas = $hasFilters
-            ? $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant, $page, $porPagina, $ordenar, $direcao, $user)
+            ? $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant, $page, $porPagina, $ordenar, $direcao, $user, $user)
             : $this->pastaRepository->findPorMarcador($marcador, $tenant, $page, $porPagina, $ordenar, $direcao, $user);
 
         $urlPainel = $this->generateUrl('expediente_marcador_pastas', ['id' => $id]);
@@ -409,17 +413,17 @@ final class ExpedienteController extends AbstractController
         }
 
         try {
-            $trancada = $this->alternarTrancaUseCase->executar($pasta, $user, $tenant);
+            $cadeado = $this->alternarTrancaUseCase->executar($pasta, $user, $tenant);
         } catch (PastaDeOutroEscritorioException) {
             return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
-        } catch (AccessDeniedException $e) {
+        } catch (CadeadoRecusadoException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         }
 
         return $this->json([
-            'trancada' => $trancada,
-            'por'      => $pasta->getTrancadaPor()?->getFullName(),
-            'em'       => $pasta->getTrancadaEm()?->format('d/m/Y'),
+            'trancada' => $cadeado->temCadeado,
+            'por'      => $cadeado->temCadeado ? $user->getFullName() : null,
+            'em'       => $cadeado->temCadeado ? (new \DateTimeImmutable())->format('d/m/Y') : null,
         ]);
     }
 
@@ -461,7 +465,7 @@ final class ExpedienteController extends AbstractController
         }
 
         try {
-            $avisados = $this->pedirAcessoUseCase->executar($pasta, $user, $tenant, $this->generateUrl('pasta_show', ['id' => $pasta->getId()]));
+            $pedido = $this->pedirAcessoUseCase->executar(new PedirAcessoInput($pasta, $user, $tenant, NivelDeAcesso::Editar, null));
         } catch (PastaDeOutroEscritorioException) {
             return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
         } catch (SemPermissaoParaVerPastaException $e) {
@@ -470,7 +474,7 @@ final class ExpedienteController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        return $this->json(['avisados' => $avisados]);
+        return $this->json(['avisados' => $pedido->avisados]);
     }
 
     /**
@@ -494,15 +498,19 @@ final class ExpedienteController extends AbstractController
             if ($marcador === null) {
                 throw $this->createNotFoundException('Marcador não encontrado.');
             }
-            $total  = $this->pastaRepository->countByFiltrosEMarcador($filters, $marcador, $tenant);
-            $pastas = $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant, 1, max(1, $total), $ordenar, $direcao, $user);
+            $total  = $this->pastaRepository->countByFiltrosEMarcador($filters, $marcador, $tenant, $user);
+            $pastas = $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant, 1, max(1, $total), $ordenar, $direcao, $user, $user);
         } else {
-            $total  = $this->pastaRepository->countByFilters($filters, $tenant);
-            $pastas = $this->pastaRepository->findByFilters($filters, $tenant, 1, max(1, $total), $ordenar, $direcao, $user);
+            $total  = $this->pastaRepository->countByFilters($filters, $tenant, $user);
+            $pastas = $this->pastaRepository->findByFilters($filters, $tenant, 1, max(1, $total), $ordenar, $direcao, $user, $user);
         }
 
         $ids = array_map(static fn (Pasta $p): int => (int) $p->getId(), $pastas);
-        $csv = $this->csvDaLista->gerar($pastas, $colunas, $this->pastaRepository->reusPorPasta($ids, $tenant));
+        $ocultas = array_map(static fn (): bool => true, array_filter(
+            $this->acessoAPasta->niveisEmLote($user, $pastas),
+            static fn (NivelDeAcesso $n): bool => !$n->podeVer(),
+        ));
+        $csv = $this->csvDaLista->gerar($pastas, $colunas, $this->pastaRepository->reusPorPasta($ids, $tenant), $ocultas);
 
         return new Response($csv, Response::HTTP_OK, [
             'Content-Type'        => 'text/csv; charset=utf-8',
@@ -550,11 +558,11 @@ final class ExpedienteController extends AbstractController
 
         $page = max(1, $request->query->getInt('page', 1));
 
-        $totalItems = $this->pastaRepository->countByFilters($filters, $tenant);
+        $totalItems = $this->pastaRepository->countByFilters($filters, $tenant, $user);
         $porPagina  = $this->porPaginaDaRequest($request);
         $totalPages = max(1, (int) ceil($totalItems / $porPagina));
         $page       = min($page, $totalPages);
-        $pastas     = $this->pastaRepository->findByFilters($filters, $tenant, $page, $porPagina, $ordenar, $direcao, $user);
+        $pastas     = $this->pastaRepository->findByFilters($filters, $tenant, $page, $porPagina, $ordenar, $direcao, $user, $user);
 
         return $this->render('expediente/_acervo_geral.html.twig', [
             'pastas'       => $pastas,
@@ -620,9 +628,36 @@ final class ExpedienteController extends AbstractController
             'reusPorPasta'      => $this->pastaRepository->reusPorPasta($ids, $tenant),
             'pastasPorCliente'  => $this->pastaRepository->totalDePastasPorClientePrincipal($clientes, $tenant),
             'destaques'         => $this->destaqueRepository->coresDoUsuario($user, $tenant),
-            'souAdministrador'  => $this->permissionChecker->isAdministradorDoEscritorio($user, $tenant),
+            'souAdministrador'  => $this->acessoAPasta->podeConfigurar($user, $tenant),
+            'cadeados'          => $this->cadeadosDaPagina($pastas, $user, $tenant),
             'csrfLista'         => $this->csrfTokenManager->getToken(self::CSRF_LISTA)->getValue(),
         ];
+    }
+
+    /**
+     * O cadeado de cada pasta da página, para a linha (spec pasta-cadeado D1 e §6): `[pastaId => ['nivel' =>
+     * 'oculto'|'visualizar'|'editar', 'por' => nome, 'em' => data]]`. Só entra pasta com cadeado; uma
+     * consulta para a página inteira.
+     *
+     * @param Pasta[] $pastas
+     * @return array<int, array{nivel: string, por: ?string, em: string}>
+     */
+    private function cadeadosDaPagina(array $pastas, User $user, Tenant $tenant): array
+    {
+        $niveis   = $this->acessoAPasta->niveisEmLote($user, $pastas);
+        $cadeados = [];
+        foreach ($pastas as $pasta) {
+            $cadeado = $this->acessoAPasta->cadeadoDe($pasta);
+            if ($cadeado !== null) {
+                $cadeados[(int) $pasta->getId()] = [
+                    'nivel' => ($niveis[(int) $pasta->getId()] ?? NivelDeAcesso::Oculto)->value,
+                    'por'   => $cadeado->getCriadoPor()?->getFullName(),
+                    'em'    => $cadeado->getCriadoEm()->format('d/m/Y'),
+                ];
+            }
+        }
+
+        return $cadeados;
     }
 
     /**

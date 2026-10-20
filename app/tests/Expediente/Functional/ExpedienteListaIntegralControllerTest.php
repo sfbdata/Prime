@@ -15,6 +15,9 @@ use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Expediente\Controller\ExpedienteController;
 use App\Expediente\Entity\Marcador;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
+use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDestaque;
 use App\Pasta\Entity\PastaMensagem;
@@ -229,8 +232,7 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
         $this->post('/expediente/pasta/' . $pasta->getId() . '/trancar');
 
         self::assertResponseStatusCodeSame(403);
-        $this->em()->clear();
-        self::assertFalse($this->em()->find(Pasta::class, $pasta->getId())->estaTrancada());
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_cadeado WHERE pasta_id = ?', [$pasta->getId()]));
     }
 
     // ── Destacar ────────────────────────────────────────────────────────
@@ -272,7 +274,7 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
         [$admin, $tenant] = $this->criarAdmin();
         $colaborador = $this->criarColaborador($tenant, ['resources.pasta.view']);
         $pasta = $this->criarPasta($tenant);
-        $pasta->trancar($admin, new \DateTimeImmutable());
+        $this->trancar($pasta, $admin);
         $this->em()->flush();
         $this->logarComTenant($this->client, $colaborador, $tenant);
 
@@ -318,7 +320,7 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
     {
         [$user, $tenant] = $this->criarAdmin();
         $pasta = $this->criarPasta($tenant);
-        $pasta->trancar($user, new \DateTimeImmutable());
+        $this->trancar($pasta, $user);
         $this->em()->flush();
         $this->logarComTenant($this->client, $user, $tenant);
 
@@ -334,7 +336,7 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
         [$user, $tenant] = $this->criarAdmin();
         [$outroAdmin, $outroTenant] = $this->criarAdmin();
         $dele = $this->criarPasta($outroTenant);
-        $dele->trancar($outroAdmin, new \DateTimeImmutable());
+        $this->trancar($dele, $outroAdmin);
         $this->em()->flush();
         $this->logarComTenant($this->client, $user, $tenant);
 
@@ -342,26 +344,44 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(404);
         $conn = $this->em()->getConnection();
-        self::assertNotNull($conn->fetchOne('SELECT trancada_em FROM pasta WHERE id = ?', [$dele->getId()]), 'continua trancada');
+        self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM pasta_cadeado WHERE pasta_id = ?', [$dele->getId()]), 'continua trancada');
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM pasta_destaque WHERE pasta_id = ?', [$dele->getId()]));
         self::assertSame(0, (int) $conn->fetchOne("SELECT COUNT(*) FROM notificacao WHERE tipo = 'pasta_pedido_acesso' AND usuario_id = ?", [$outroAdmin->getId()]));
     }
 
-    #[TestDox('colaborador que só VÊ a pasta não usa o F2 (precisa editar), mas destaca e pede acesso')]
+    #[TestDox('colaborador oculto pelo cadeado não usa o F2 nem destaca, mas pede acesso')]
     public function testColaboradorSoVe(): void
     {
         [$admin, $tenant] = $this->criarAdmin();
         $leitor = $this->criarColaborador($tenant, ['resources.pasta.view']);
         $pasta = $this->criarPasta($tenant);
-        $pasta->trancar($admin, new \DateTimeImmutable());
+        $this->trancar($pasta, $admin);
         $this->em()->flush();
         $this->logarComTenant($this->client, $leitor, $tenant);
 
         $this->post('/expediente/pasta/' . $pasta->getId() . '/nome', ['nome' => 'NAO PODE']);
         self::assertResponseStatusCodeSame(403);
         $this->post('/expediente/pasta/' . $pasta->getId() . '/destaque', ['cor' => 'rosa']);
-        self::assertResponseIsSuccessful();
+        self::assertResponseStatusCodeSame(403);
         $this->post('/expediente/pasta/' . $pasta->getId() . '/pedir-acesso');
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('colaborador que só visualiza pelo cadeado destaca a linha (preferência pessoal), mas não usa o F2')]
+    public function testColaboradorQueVisualizaDestaca(): void
+    {
+        [$admin, $tenant] = $this->criarAdmin();
+        $leitor = $this->criarColaborador($tenant, ['resources.pasta.view', 'resources.pasta.edit']);
+        $pasta = $this->criarPasta($tenant);
+        $cadeado = new CadeadoDaPasta($tenant, $pasta, ModoDoCadeado::PorPessoa, $admin, new \DateTimeImmutable());
+        $cadeado->definirPorPessoa([[$leitor, NivelDeAcesso::Visualizar]], $admin, new \DateTimeImmutable());
+        $this->em()->persist($cadeado);
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $leitor, $tenant);
+
+        $this->post('/expediente/pasta/' . $pasta->getId() . '/nome', ['nome' => 'NAO PODE']);
+        self::assertResponseStatusCodeSame(403);
+        $this->post('/expediente/pasta/' . $pasta->getId() . '/destaque', ['cor' => 'rosa']);
         self::assertResponseIsSuccessful();
     }
 
@@ -371,7 +391,7 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
         [$admin, $tenant] = $this->criarAdmin();
         $estranho = $this->criarColaborador($tenant);
         $pasta = $this->criarPasta($tenant);
-        $pasta->trancar($admin, new \DateTimeImmutable());
+        $this->trancar($pasta, $admin);
         $this->em()->flush();
         $this->logarComTenant($this->client, $estranho, $tenant);
 
@@ -814,5 +834,11 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
         };
 
         static::getContainer()->set('security.csrf.token_storage', $storage);
+    }
+
+    /** A tranca da Lista é o cadeado "Ocultar para todos" (spec pasta-cadeado K7). */
+    private function trancar(Pasta $pasta, User $por): void
+    {
+        $this->em()->persist(new CadeadoDaPasta($pasta->getTenant(), $pasta, ModoDoCadeado::Todos, $por, new \DateTimeImmutable()));
     }
 }
