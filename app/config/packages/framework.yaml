@@ -57,6 +57,13 @@ framework:
             policy: sliding_window
             limit: 10
             interval: '1 minute'
+        # Clique em "Criar conta" na página pública de vagas (POST /vagas-juridicas/cta, sem login nem
+        # CSRF): é só um contador anônimo, e o limite por IP impede que alguém infle o número. 30 por
+        # minuto cobre quem abre e volta à página várias vezes.
+        vagas_cta:
+            policy: sliding_window
+            limit: 30
+            interval: '1 minute'
         # Recuperação de senha: dois limites somados, com papéis diferentes.
         #
         # O de e-mail é a defesa REAL da vítima: não importa de onde venha o pedido.

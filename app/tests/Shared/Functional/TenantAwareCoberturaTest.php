@@ -43,6 +43,7 @@ use App\TrabalhoExterno\Entity\LeituraDemanda;
 use App\TrabalhoExterno\Entity\MarcacaoDeMensagem;
 use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
+use App\TrabalhoExterno\Entity\MetricaPublica;
 use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
 use App\TrabalhoExterno\Entity\Vaga;
@@ -129,6 +130,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         PreferenciaDoUsuario::class, // do usuário (última visita às vagas, ofertante padrão); toda leitura recebe o usuário logado (VagasDoTrabalhoExternoTest::testNovaEVista)
         LinkDeVagas::class,   // link público, sem escritório por natureza; só se acha pelo hash do token e a página só mostra vagas abertas sem dado de escritório (VagasPublicasTest)
         InteressadoEmVagas::class, // visitante da página pública, sem conta nem escritório; só a inscrição grava e nenhuma rota lê (VagasPublicasTest::testInscricaoNosAlertas)
+        MetricaPublica::class, // contador anônimo da página pública (dia, link, visitas, cliques), sem escritório nem pessoa; só o painel do Master lê, e só a soma (PainelDoTrabalhoExternoTest::testSoOMasterVeOPainel)
         Curriculo::class,     // currículo do usuário externo, da plataforma (um por usuário); a Central lê o banco inteiro e o externo só alcança o dele pelo LocalizadorDeCurriculo (CurriculosDoTrabalhoExternoTest::testExternoCriaEditaEExclui)
         Candidatura::class,   // candidatura de um currículo a uma vaga, ambos da plataforma; só é lida pela vaga já localizada no escopo ou pelo currículo do próprio usuário, e o dono da vaga só vê as enviadas a ele (CandidaturasDoTrabalhoExternoTest::testEnvioEDono)
     ];
@@ -144,9 +146,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     private const MAX_PENDENTE = 14;
     // 8 → 18 com o Trabalho Externo (15/10/2026); 18 → 20 com as marcações pessoais dele
     // (19/10/2026); 20 → 25 com as vagas, as preferências do usuário e a página pública (19/10/2026); 25 → 26
-    // com o currículo do banco de talentos (19/10/2026); 26 → 27 com a candidatura às vagas (19/10/2026):
-    // exceções permanentes e justificadas acima.
-    private const MAX_FORA_DO_ESCOPO = 27;
+    // com o currículo do banco de talentos (19/10/2026); 26 → 27 com a candidatura às vagas (19/10/2026);
+    // 27 → 28 com os contadores anônimos da página pública (19/10/2026): exceções permanentes e
+    // justificadas acima.
+    private const MAX_FORA_DO_ESCOPO = 28;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
