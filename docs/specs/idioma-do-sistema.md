@@ -16,7 +16,7 @@ Sessão 0d, 21/10/2026. Itens marcados **DONO** são decisões dele; o resto seg
     `perfis` (88 chaves) e o glossário comum `termos` (9). Detalhes em §8.
   - **P2 Painel do Master:** `master/painel.html.twig`, `painel.js` e os mapas; possivelmente em dois PRs (P2a, P2b).
   - **P3:** Notificações, Indicações (sem o include da Central), `masters.js` e `recursos.js`.
-- Quem tem o quê fora da b5: o Comercial é da 5d (prefixo `master.comercial.*`); o Relatório do Comercial e os
+- Quem tem o quê fora da b5: o Comercial é da 5d (bloco de topo próprio `comercial:`, chaves `comercial.*`; um segundo `master:` de topo duplicaria a chave no YAML); o Relatório do Comercial e os
   Temas são da 9b.
 
 
