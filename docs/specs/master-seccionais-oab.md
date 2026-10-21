@@ -3,26 +3,29 @@
 Sessão f6 (corte da b5). Risco BAIXO/MÉDIO: só o Master (`ROLE_SUPER_ADMIN`) vê e escreve.
 
 Desenho: `docs/design/perfis-1.2/vs-21-10-26/05 - Perfis 1.2 - VS 21.10.26.dc.html`, template L116-127 (bloco `ehOab`
-abaixo da tabela de UFs). **O arquivo chegou truncado em 256 KiB:** o template está inteiro, mas a lógica (`ehOab`,
-`secChips`, `secEditar`, o registro de divulgação no mapa e os dados das 27 sedes) ficou no trecho que falta. O dono vai
-mandar o arquivo inteiro. Até lá, o que é inferência está marcado **DONO** e segue a convenção do sistema.
+abaixo da tabela de UFs), lógica L898-905. Desenho conferido inteiro em 21/10/2026 (286394 bytes).
 
 ## Estado da frente
 
 - 21/10: spec escrita, worktree `master-seccionais-oab` (base master). Migration reservada `Version20261020148400`
   (pedir outra se o master passar dela na hora do PR).
+- 21/10: spec conferida com o desenho inteiro (seção no fim). O que já foi implementado precisa ser revisto contra
+  esta conferência.
 
 ## O que o desenho mostra (template L116-127)
 
 Embaixo da tabela de UFs do mapa, um bloco "SECCIONAIS VISÍVEIS":
 
-1. Cabeçalho "SECCIONAIS VISÍVEIS" com o botão "Mostrar todas" (`secTodas`/`secTodasTxt`; o texto alterna).
+1. Cabeçalho "SECCIONAIS VISÍVEIS" com o botão `secTodas`/`secTodasTxt` ("Mostrar todas" com filtro, "Todas
+   visíveis" sem filtro; desenho L902).
 2. Grade com os 27 chips de UF (`secChips`, 34px de largura mínima, 22px de altura):
-   - clique: abre o cartão da sede da seccional (`x.ver`);
+   - clique: abre o cartão da sede da seccional; segundo clique no mesmo chip fecha (`x.ver`, desenho L902);
    - botão direito: mostra ou oculta a seccional no mapa (`x.tgCtx`);
-   - ponto colorido no chip: seccional já trabalhada (`x.mkTem`, `x.mkCor`).
-3. Cartão da sede (`secTem`): faixa azul com `bi-bank`, o título (`secTit`) e o X; linhas `bi-people` com "N usuários"
-   (`secN`), `bi-geo-alt` com o endereço (`secEnd`), `bi-telephone` com o telefone (`secTel`, só se houver) e o link
+   - ponto colorido no chip: seccional já trabalhada (`x.mkTem`, `x.mkCor`);
+   - chip selecionado com contorno `2px solid #0a6fa0`; chip visível com borda `#0a6fa0`, fundo `#e5f1f7`, texto
+     `#0a6fa0`; oculto com borda `#d3dde4`, fundo `#fff`, texto `#9aabb7` (desenho L902).
+3. Cartão da sede (`secTem`): faixa azul com `bi-bank`, o título (`secTit`) e o X; linhas `bi-people` com
+   "N inscrição(ões) de usuários do BlueJus" (`secN`), `bi-geo-alt` com o endereço (`secEnd`), `bi-telephone` com o telefone (`secTel`, só se houver) e o link
    "Site da seccional" (`secSite`, só se houver); botões "Endereço oficial (CFOAB)" (link fixo
    https://www.oab.org.br/institucionalconselhofederal/asiseccional) e "Editar sede" (só Master, `souMasterB`).
 4. Nota literal: "Clique numa seccional para ver a sede. Botão direito na lista mostra ou oculta no mapa; botão direito
@@ -31,32 +34,48 @@ Embaixo da tabela de UFs do mapa, um bloco "SECCIONAIS VISÍVEIS":
 
 ## Contrato
 
-- **Quando o bloco aparece (`ehOab`). DONO.** A condição está no trecho truncado. Convenção até lá: aparece no mapa do
-  Brasil, na visão "Pessoas" (o mapa da advocacia), e some no Mundo e em "Escritórios".
-- **"N usuários" (`secN`).** Pessoas com vínculo ativo inscritas naquela seccional, pela tabela `inscricao_oab`
-  (principal e suplementar, `COUNT(DISTINCT user_id)` por UF). Não é a contagem da tabela de UFs (essa localiza a pessoa
-  pela lotação primeiro). Texto: "1 usuário" / "N usuários". **DONO:** se conta só inscrição ativa ou todas.
-- **Dados das sedes.** Tabela de plataforma com as 27 seccionais (UF, nome, endereço, telefone, site). A carga da
-  migration grava só a UF e o nome ("OAB Seccional <Estado>"); endereço, telefone e site ficam vazios. Não inventar
-  endereço: o cartão mostra "Endereço não cadastrado. Confira no CFOAB." e o link oficial. **DONO:** a carga dos
-  endereços (do arquivo inteiro do desenho ou da lista pública do CFOAB), que o Master também pode fazer pelo "Editar sede".
-- **Editar sede.** Só Master. Janela com endereço (até 255), telefone (até 40) e site (só `https://`, até 255). POST com
-  CSRF, UseCase dentro de `EscopoDeAuditoriaDePlataforma::executar()` (auditoria de plataforma, sem escritório).
-- **Mostrar ou ocultar no mapa (botão direito no chip) e "Mostrar todas".** Conveniência de quem olha: guardado no
-  navegador (`localStorage`, com try/catch), não no banco. Oculta o marcador da seccional no mapa. Com tudo visível, o
-  botão diz "Ocultar todas"; com alguma oculta, "Mostrar todas". **DONO:** se deve ser compartilhado entre Masters.
-- **Marcador da seccional no mapa.** Um ponto na UF (centroide do estado no GeoJSON local; **DONO:** a posição exata da
-  sede, que depende de coordenada que o desenho não mostra), com o título da seccional no tooltip.
-- **Registro de divulgação (botão direito no mapa).** O menu de botão direito que já existe no `mapa-brasil.js` (paleta de
-  cores em `localStorage`) ganha, em cima das cores, "Registrar divulgação" com os três tipos do desenho: "Material
-  enviado", "Reunião", "Parceria", mais uma nota opcional (até 500) e a data (hoje por padrão). Grava no banco: tabela de
-  plataforma com UF, tipo, data, nota, autor e criação. A paleta de cores continua como está (marca visual local).
-  **DONO:** os campos da divulgação além desses três tipos.
-- **Ponto colorido no chip ("já trabalhada").** A seccional com ao menos uma divulgação registrada tem o ponto, na cor do
-  tipo da última (Material enviado azul `#0a6fa0`, Reunião âmbar `#b7791f`, Parceria verde `#2f855a`; **DONO**: cores
-  do trecho truncado). O cartão da sede lista as últimas 5 divulgações (tipo, data, autor, nota).
+- **Quando o bloco aparece (`ehOab`, desenho L902, L905).** O seletor "quem" do mapa do Brasil ganha um terceiro modo:
+  "Pessoas" (`bi-people`), "Escritórios" (`bi-buildings`) e "OAB" (`bi-bank`), nessa ordem; o padrão continua
+  "Escritórios". O bloco das seccionais só aparece no modo "OAB". O seletor só existe no Brasil (L114), então no Mundo
+  não há bloco. (Antes: a spec punha o bloco na visão "Pessoas".)
+- **Tabela de UFs no modo OAB (desenho L875, L898, L900).** Subtítulo do mapa "inscrições por seccional da OAB"; título
+  da coluna "Inscrições"; nome de cada linha "OAB/<UF> · <Estado>", com cursor de mão; clique na linha abre o cartão da
+  sede daquela UF. Nos outros modos a linha não tem ação nem mão. O mapa recebe o modo `oab`.
+- **Número da linha e `secN`.** O número da linha no modo OAB é a contagem de inscrições de usuários do BlueJus naquela
+  seccional, pela tabela `inscricao_oab` (principal e suplementar). O cartão repete o mesmo número: "N inscrição(ões)
+  de usuários do BlueJus" (texto literal do desenho L903, sem flexionar). **DONO:** se conta só inscrição ativa ou
+  todas. (Antes: "N usuários" com `COUNT(DISTINCT user_id)`.)
+- **Título do cartão (`secTit`, L903).** "OAB/<UF> · Seccional <Estado>".
+- **Dados das sedes.** Tabela de plataforma com as 27 seccionais (UF, nome, endereço, telefone, site). O desenho não
+  traz endereços: tudo é cadastrado pelo Master no "Editar sede". A carga da migration grava só a UF e o nome;
+  endereço, telefone e site ficam vazios. Sem endereço o cartão mostra "Endereço da sede: consulte a página oficial"
+  (L903) e o link oficial. **DONO:** a carga dos endereços das 27 sedes (lista pública do CFOAB) ou deixar para o
+  Master.
+- **Editar sede (L904).** Só Master. Formulário do sistema (modal) com os rótulos do desenho: "Endereço da sede da
+  OAB/<UF> (copie da página oficial do CFOAB):" (até 255), "Telefone da seccional (opcional):" (até 40) e "Site oficial
+  da seccional (https://...), opcional:" (até 255). Site aceito se começa com `http://` ou `https://`; senão fica vazio
+  (antes: só `https://`). POST com CSRF, UseCase dentro de `EscopoDeAuditoriaDePlataforma::executar()` (auditoria de
+  plataforma, sem escritório).
+- **Mostrar ou ocultar no mapa (botão direito no chip) e o botão do cabeçalho (L902).** Filtro de seccionais visíveis:
+  sem filtro todas aparecem e o botão diz "Todas visíveis"; com filtro diz "Mostrar todas". O clique no botão sempre
+  limpa o filtro. Não existe "Ocultar todas". Convenção: guardado no banco, compartilhado entre os Masters.
+  **DONO:** se o filtro é compartilhado entre Masters ou de cada um.
+- **Tooltip do chip (L902).** "OAB/<UF> · <Estado>[ · <status> em dd/mm/aaaa] · clique para ver a sede, botão direito
+  para mostrar ou ocultar no mapa" (o trecho entre colchetes só quando há divulgação registrada).
+- **Marcador da seccional no mapa.** Um ponto na UF (centroide do estado no GeoJSON local), com o título da seccional
+  no tooltip. **DONO:** a posição exata, que mora no `mapa-brasil.html` do protótipo (fora da pasta do desenho).
+- **Registro de divulgação (botão direito no mapa, L902).** Por UF, guarda a cor escolhida na paleta e a informação
+  {status, data}. Os 6 status do desenho: "Material enviado", "Reunião ou evento", "Em negociação", "Parceria
+  firmada", "Retornar depois", "Convênio feito". Grava no banco (tabela de plataforma com UF, status, data, cor, autor
+  e criação). **DONO:** o menu de botão direito no mapa e a paleta, que moram no `mapa-brasil.html` (fora da pasta).
+  (Antes: 3 tipos, "Material enviado", "Reunião", "Parceria", com nota.)
+- **Ponto colorido no chip ("já trabalhada", L902).** Aparece só quando a UF tem status e cor registrados; a cor é a
+  escolhida para a UF na paleta, não uma cor por tipo. (Antes: cor fixa por tipo.)
+- **Histórico de divulgações. DONO.** O desenho não mostra as 5 últimas divulgações no cartão nem nota ou autor da
+  divulgação; fica fora da tela até o dono decidir.
 - **Dados para a tela.** Um GET de plataforma (`/master/dados/seccionais`) com as 27 seccionais: UF, nome, endereço,
-  telefone, site, N usuários, última divulgação e as 5 últimas. O painel e o iframe usam o mesmo endpoint.
+  telefone, site, número de inscrições e a divulgação atual (status, data, cor). O painel e o iframe usam o mesmo
+  endpoint.
 
 ## Fora do escopo
 
@@ -70,3 +89,15 @@ Embaixo da tabela de UFs do mapa, um bloco "SECCIONAIS VISÍVEIS":
 - `master/painel.html.twig` e `master.css` são compartilhados: mudança mínima (uma URL no bloco `urls`, CSS em bloco novo
   no fim) e aviso no PR.
 - Migration `Version20261020148400`: as duas tabelas e a carga das 27 UFs (só UF e nome).
+
+## Conferência com o desenho inteiro (21/10/2026)
+
+- O bloco aparece no modo "OAB" do seletor "quem" (terceiro modo), não em "Pessoas".
+- Modo OAB: subtítulo, título "Inscrições", linhas "OAB/<UF> · <Estado>" clicáveis que abrem o cartão.
+- `secN`: "N inscrição(ões) de usuários do BlueJus", o mesmo número da linha.
+- `secTit`: "OAB/<UF> · Seccional <Estado>"; sede vazia: "Endereço da sede: consulte a página oficial".
+- Desenho não traz endereços das sedes.
+- Botão do cabeçalho: "Mostrar todas" / "Todas visíveis"; não há "Ocultar todas".
+- Chip: segundo clique fecha o cartão; tooltip literal registrado.
+- "Editar sede": rótulos do desenho; site aceita `http://` e `https://`.
+- Divulgação: 6 status, cor da paleta por UF; sai a cor por tipo, a nota e as 5 últimas no cartão.
