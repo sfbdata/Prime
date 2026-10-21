@@ -282,3 +282,39 @@ Google; agenda nova manda de novo; o id de prazo nunca vira compromisso importad
   a trava e uma conexão que falha não segura as outras.
 - **Ambiente:** `.env.prod.example` documenta `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`, `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET`
   e `SYNC_CRYPTO_KEY`.
+
+## 9. Feriados e recessos do sistema no Google (proposta, 21/10/2026)
+
+Pedido do dono: os feriados e recessos que a Agenda mostra sem ninguém cadastrar vão também à agenda do
+escritório no Google. **Muda o desenho:** o painel do Google diz hoje "feriados do sistema não são enviados"
+(seção 1) e a seção 2 dizia "Não vão: datas do sistema". Risco BAIXO. Precisa de migration (tabela nova).
+
+**Proposta (recomendações; os pontos [dono] decidem):**
+
+- **O que vai [dono]:** recomendo feriados nacionais e pontos facultativos, feriados estaduais, recesso forense
+  (20/12 a 20/01), os feriados do escritório cadastrados no Ponto e as datas que o escritório acrescentou na
+  Agenda. **Não vão:** datas comemorativas e datas de tribunais e eleições (são muitas e não são "feriado ou
+  recesso"; se o dono quiser, entram com uma linha). Valem os ajustes do escritório (oculta não vai; renomeada vai
+  com o nome novo). É a mesma regra da grade (`ListarDatasDoSistemaUseCase`), sem cópia.
+- **Para quem:** toda pessoa conectada ao Google naquele escritório, sem permissão própria (são datas públicas).
+  As UFs são as da pessoa (lotação dela; senão o estado do escritório), como na grade dela.
+- **Como vai:** dia inteiro, `transparency: transparent` (não ocupa o horário de ninguém), título igual ao da grade.
+  Descrição: "Data do sistema no BlueJus (feriado/recesso). Para mudar, ajuste na Agenda do BlueJus: o que for mudado
+  aqui volta como está lá." mais a observação da data (ex.: "Prazos processuais suspensos de 20/12 a 20/01 (CPC,
+  art. 220)"). Recesso de vários dias vai como um evento só, do primeiro ao último dia.
+- **Só leitura**, como os prazos (§7): mexido lá volta; apagado lá fica apagado até a data mudar aqui. Nunca vira
+  compromisso.
+- **Sai do Google** quando deixa de valer: oculta pelo escritório, fora da janela, data apagada.
+- **Janela:** de 30 dias atrás a um ano à frente (a mesma dos prazos). Cerca de 30 datas por pessoa por ano.
+- **Quando:** na sincronia normal (5 min). Ajuste do escritório (ocultar, renomear, acrescentar) chega na varredura
+  seguinte.
+- **Dados:** tabela própria `agenda_google_data` (tenant, conexão, `chave` da data, `google_id`, `hash`), no molde
+  da `agenda_google_prazo`; única (conexão, chave) e (conexão, google_id); apaga com a conexão; esquecida em agenda
+  nova ou troca de conta. Id no Google `bjt<escritório>d<sha1 da chave>` (base32hex). Migration: número a pedir
+  ao coordenador.
+- **Texto do painel [dono]:** troca "feriados do sistema não são enviados" por "feriados e recessos vão como dia
+  inteiro, sem ocupar a sua agenda".
+
+**Testes:** vai o feriado nacional e o recesso, não vai a comemorativa; oculta pelo escritório sai do Google; a
+renomeada vai com o nome novo; UF da lotação da pessoa; mexido lá volta; apagado lá fica até mudar; agenda nova manda
+de novo; o id de data nunca vira compromisso; `transparency` transparente.
