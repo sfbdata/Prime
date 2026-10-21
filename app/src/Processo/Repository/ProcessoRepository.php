@@ -496,4 +496,33 @@ class ProcessoRepository extends ServiceEntityRepository
         }
         return $numeros;
     }
+
+    /**
+     * Os valores de `orgao_julgador` com a acentuação estragada pelo mapper antigo ("Ã"/"Â" + U+0080..U+00BF, ou o "Μ"
+     * grego do "õ"), com a quantidade de cada um. Todos os escritórios: é o reparo do comando
+     * `app:processo:corrigir-acentuacao-do-orgao`, e o nome do órgão é público.
+     *
+     * @return array<string, int> valor → quantidade
+     */
+    public function orgaosJulgadoresComAcentuacaoEstragada(): array
+    {
+        $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            "SELECT orgao_julgador AS valor, count(*) AS n FROM processo WHERE orgao_julgador ~ ('[ÃÂ][' || chr(128) || '-' || chr(191) || chr(924) || ']') GROUP BY orgao_julgador ORDER BY count(*) DESC, orgao_julgador",
+        );
+
+        $valores = [];
+        foreach ($linhas as $linha) {
+            $valores[(string) $linha['valor']] = (int) $linha['n'];
+        }
+
+        return $valores;
+    }
+
+    /** Troca um valor de `orgao_julgador` por outro em todos os escritórios (reparo da acentuação); devolve quantos mudaram. */
+    public function trocarOrgaoJulgador(string $antes, string $depois): int
+    {
+        return (int) $this->getEntityManager()->createQuery(
+            'UPDATE App\Processo\Entity\Processo e SET e.orgaoJulgador = :depois WHERE e.orgaoJulgador = :antes',
+        )->setParameter('antes', $antes)->setParameter('depois', $depois)->execute();
+    }
 }
