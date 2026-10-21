@@ -9,6 +9,7 @@ use App\Auth\DTO\CriarSenhaPeloLinkInput;
 use App\Auth\Enum\SituacaoDoLinkDeConfirmacao;
 use App\Auth\Service\ContaAConfirmar;
 use App\Auth\Service\LinkDeConfirmacaoDeEmail;
+use App\Auth\Service\PaginaDeEntrada;
 use App\Auth\UseCase\ConfirmarCadastroUseCase;
 use App\Auth\UseCase\CriarContaEEscritorioUseCase;
 use App\Auth\UseCase\CriarSenhaPeloLinkUseCase;
@@ -41,6 +42,7 @@ final class CadastroController extends AbstractController
         private readonly ConfirmarCadastroUseCase $confirmarCadastro,
         private readonly RateLimiterFactoryInterface $cadastroAutoLimiter,
         private readonly ContaAConfirmar $contaAConfirmar,
+        private readonly PaginaDeEntrada $paginaDeEntrada,
     ) {}
 
     #[Route('/cadastro', name: 'auth_cadastro', methods: ['GET'])]
@@ -96,7 +98,10 @@ final class CadastroController extends AbstractController
         return $this->telaDoLink(['situacao' => $situacao, 'token' => $token]);
     }
 
-    /** "Criar senha e confirmar": erro de senha volta ao formulário sem consumir o link. Não faz login. */
+    /**
+     * "Criar senha e confirmar": a caixa "Li e aceito" é obrigatória e grava um aceite novo (D2 da spec). Erro de
+     * aceite ou de senha volta ao formulário sem consumir o link. Não faz login.
+     */
     #[Route('/cadastro/confirmar-email/{token}', name: 'auth_cadastro_criar_senha', requirements: ['token' => '[a-f0-9]{64}'], methods: ['POST'])]
     public function criarSenha(Request $request, string $token): Response
     {
@@ -104,7 +109,14 @@ final class CadastroController extends AbstractController
             return $this->csrfInvalido($token);
         }
 
-        $input = new CriarSenhaPeloLinkInput($token, (string) $request->request->get('senha'), (string) $request->request->get('confirmacao'));
+        $input = new CriarSenhaPeloLinkInput(
+            token: $token,
+            senha: (string) $request->request->get('senha'),
+            confirmacao: (string) $request->request->get('confirmacao'),
+            aceite: $request->request->getBoolean('aceite'),
+            ip: (string) $request->getClientIp(),
+            userAgent: $request->headers->get('User-Agent'),
+        );
 
         try {
             $situacao = $this->criarSenha->executar($input);
@@ -159,7 +171,10 @@ final class CadastroController extends AbstractController
      */
     private function telaDoLink(array $dados, int $status = Response::HTTP_OK): Response
     {
-        $resposta = $this->render(self::TELA_DO_LINK, $dados + ['motivo' => null, 'situacao' => null, 'token' => null, 'erro' => null]);
+        $dados += ['motivo' => null, 'situacao' => null, 'token' => null, 'erro' => null];
+        // Com o formulário, a caixa "Li e aceito" leva aos mesmos Termos e Política da tela de entrada.
+        $dados['pagina'] = $dados['token'] !== null ? $this->paginaDeEntrada->montar(null) : null;
+        $resposta = $this->render(self::TELA_DO_LINK, $dados);
         $resposta->setStatusCode($status);
         $resposta->headers->set('Referrer-Policy', 'no-referrer');
         $resposta->headers->set('Cache-Control', 'no-store, private');

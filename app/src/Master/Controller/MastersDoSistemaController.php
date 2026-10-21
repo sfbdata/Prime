@@ -16,6 +16,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Bloco "Masters do sistema" da aba Permissões de /master (desenho 05 - Perfis 1.2, spec
@@ -25,12 +26,16 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Duas camadas: ROLE_SUPER_ADMIN na classe (quem não é Master recebe 403) e, nos UseCases, a regra
  * de que só o Master PRIMÁRIO promove e remove (o secundário recebe a recusa no flash).
  * Volta sempre para /master#aba=perm, que o painel.js abre direto na aba Permissões.
+ *
+ * Idioma (spec idioma-do-sistema, P3 da b5): os flashes saem do catálogo (master.masters.*) no idioma da requisição,
+ * a recusa pela chave da OperacaoDeMasterRecusada; o termo Master vem de termos.master por parâmetro.
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class MastersDoSistemaController extends AbstractController
 {
     public function __construct(
         private readonly TenantContext $tenantContext,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -45,9 +50,9 @@ final class MastersDoSistemaController extends AbstractController
                 $this->tenantContext->getCurrentTenant(),
                 $request->request->getInt('usuario'),
             ));
-            $this->addFlash('success', sprintf('"%s" agora é Master secundário.', $promovido->nome));
+            $this->addFlash('success', $this->texto('master.masters.promovido', $promovido->nome));
         } catch (OperacaoDeMasterRecusada $e) {
-            $this->addFlash('error', $e->getMessage());
+            $this->addFlash('error', $this->texto($e->chave()));
         }
 
         return $this->voltarParaPermissoes();
@@ -60,12 +65,17 @@ final class MastersDoSistemaController extends AbstractController
 
         try {
             $removido = $remover->executar(new RemoverMasterInput($this->ator(), $userId));
-            $this->addFlash('success', sprintf('"%s" deixou de ser Master.', $removido->nome));
+            $this->addFlash('success', $this->texto('master.masters.removido', $removido->nome));
         } catch (OperacaoDeMasterRecusada $e) {
-            $this->addFlash('error', $e->getMessage());
+            $this->addFlash('error', $this->texto($e->chave()));
         }
 
         return $this->voltarParaPermissoes();
+    }
+
+    private function texto(string $chave, string $nome = ''): string
+    {
+        return $this->tradutor->trans($chave, ['nome' => $nome, 'papel' => $this->tradutor->trans('termos.master')]);
     }
 
     private function exigirCsrf(string $id, Request $request): void

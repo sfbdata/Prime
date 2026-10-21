@@ -37,7 +37,7 @@
    `show` e as respostas AJAX) herdam a mesma ordem, e a ficha da pessoa não é afetada. #}
 {% set telefonesEmOrdem = ficha.telefones|filter(t => t.atual)|merge(ficha.telefones|filter(t => not t.atual)) %}
 <div class="cob-resp-telefones mt-3">
-    <h6 class="mb-2"><i class="bi bi-telephone me-1"></i>Telefones <span class="badge text-bg-secondary">{{ ficha.telefones|length }}</span></h6>
+    <h6 class="mb-2"><i class="bi bi-telephone me-1"></i>{{ 'cobranca_objeto.telefones.titulo'|trans }} <span class="badge text-bg-secondary">{{ ficha.telefones|length }}</span></h6>
     {% if ficha.telefones|length > 0 %}
     {# A lista encolhe até o conteúdo (`width: fit-content` no CSS): esticada na largura toda ela
        deixava um vão morto enorme à direita de números de 8-9 dígitos. #}
@@ -64,12 +64,12 @@
                 {% set destino = t.numero|telefone_url(t.tipo) %}
                 <a href="{{ destino }}"
                    {% if destino starts with 'https:' %}target="_blank" rel="noopener"{% endif %}
-                   title="{{ t.tipo ? t.tipo.label() : 'Telefone' }}">{{ t.numero|telefone_br }}</a>
-                <span class="small text-secondary">· cadastrado em {{ t.criadoEm|date('d/m/Y') }}</span>
+                   title="{{ t.tipo ? t.tipo.label() : 'cobranca_objeto.telefones.telefone'|trans }}">{{ t.numero|telefone_br }}</a>
+                <span class="small text-secondary">{{ 'cobranca_objeto.telefones.cadastrado_em'|trans({data: t.criadoEm|date('d/m/Y')}) }}</span>
                 {# O selo `Atual` é INFORMAÇÃO, não ação: mudou de lado junto com o hover das ações
                    (2026-07-28). No grupo de ações ele sumiria com os botões, e o "qual é o número bom"
                    é justamente o que a linha precisa dizer sem passar o mouse. #}
-                {% if t.atual %}<span class="badge text-bg-success ms-1" data-selo="telefone-atual">Atual</span>{% endif %}
+                {% if t.atual %}<span class="badge text-bg-success ms-1" data-selo="telefone-atual">{{ 'cobranca_objeto.telefones.atual'|trans }}</span>{% endif %}
             </div>
             {# Ações: fora do fluxo e transparentes até o hover/foco da linha (§CSS `.cob-resp-telefone-acoes`).
                Fora do fluxo porque, reservando espaço, a linha voltaria a ser tão larga quanto antes. #}
@@ -81,7 +81,7 @@
                 <form method="POST" action="{{ path('cobranca_objeto_telefone_atual', {id: objetoId, itemId: t.id}) }}"
                       data-form="marcar-telefone" data-disable-on-submit="true">
                     <input type="hidden" name="_token" value="{{ csrf_token('marcar_telefone_atual_' ~ t.id) }}">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary" data-acao="marcar-telefone-atual">Marcar como atual</button>
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" data-acao="marcar-telefone-atual">{{ 'cobranca_objeto.telefones.marcar_atual'|trans }}</button>
                 </form>
                 {% endif %}
                 {# Editar e excluir GANHARAM ROTA em 2026-07-28 (antes eram botões desabilitados).
@@ -91,14 +91,14 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary"
                         data-bs-toggle="collapse" data-bs-target="#editarTelefone{{ t.id }}"
                         aria-expanded="false" aria-controls="editarTelefone{{ t.id }}"
-                        data-acao="editar-telefone" aria-label="Editar telefone" title="Corrigir este número">
+                        data-acao="editar-telefone" aria-label="{{ 'cobranca_objeto.telefones.editar'|trans }}" title="{{ 'cobranca_objeto.telefones.corrigir_dica'|trans }}">
                     <i class="bi bi-pencil"></i>
                 </button>
                 {# A confirmação de exclusão é um modal compartilhado no `show` (mesmo padrão da
                    anotação): o clique injeta ação, token e o número que vai sumir. `confirm()` do
                    navegador não diria QUAL número está prestes a ir embora. #}
                 <button type="button" class="btn btn-sm btn-outline-danger js-excluir-telefone"
-                        data-acao="excluir-telefone" aria-label="Excluir telefone" title="Excluir este número"
+                        data-acao="excluir-telefone" aria-label="{{ 'cobranca_objeto.telefones.excluir'|trans }}" title="{{ 'cobranca_objeto.telefones.excluir_dica'|trans }}"
                         data-url="{{ path('cobranca_objeto_telefone_excluir', {id: objetoId, itemId: t.id}) }}"
                         data-token="{{ csrf_token('excluir_telefone_' ~ t.id) }}"
                         data-numero="{{ t.numero|e('html_attr') }}"
@@ -118,11 +118,11 @@
                     <input type="hidden" name="_token" value="{{ csrf_token('editar_telefone_' ~ t.id) }}">
                     <input type="text" name="numero" value="{{ t.numero|telefone_br }}" maxlength="20"
                            inputmode="tel" data-mascara="telefone" placeholder="(00) 00000-0000"
-                           class="form-control form-control-sm" aria-label="Número do telefone">
+                           class="form-control form-control-sm" aria-label="{{ 'cobranca_objeto.telefones.numero'|trans }}">
                     {# Os dois tipos (2026-07-28). Nenhum vem marcado quando o telefone é LEGADO (tipo
                        nulo): assim quem abriu a edição só para corrigir um dígito não sai declarando
                        "isto é fixo" sem ter dito nada — o UseCase lê tipo ausente como "não mexer". #}
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Tipo do telefone">
+                    <div class="btn-group btn-group-sm" role="group" aria-label="{{ 'cobranca_objeto.telefones.tipo'|trans }}">
                         {% for opcao in tiposDeTelefone %}
                         <input type="radio" class="btn-check" name="tipo" value="{{ opcao.value }}"
                                id="tipoTel{{ t.id }}{{ opcao.value }}" autocomplete="off"
@@ -132,9 +132,9 @@
                         </label>
                         {% endfor %}
                     </div>
-                    <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Salvar</button>
+                    <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_objeto.telefones.salvar'|trans }}</button>
                     <button type="button" class="btn btn-sm btn-outline-secondary"
-                            data-bs-toggle="collapse" data-bs-target="#editarTelefone{{ t.id }}">Cancelar</button>
+                            data-bs-toggle="collapse" data-bs-target="#editarTelefone{{ t.id }}">{{ 'cobranca_objeto.comum.cancelar'|trans }}</button>
                 </form>
             </div>
             {% endif %}
@@ -142,7 +142,7 @@
         {% endfor %}
     </ul>
     {% else %}
-    <p class="text-muted small mb-0">Nenhum telefone cadastrado.</p>
+    <p class="text-muted small mb-0">{{ 'cobranca_objeto.telefones.vazio'|trans }}</p>
     {% endif %}
 
     {# Mini-form inline de adicionar (§2.3). A rota é a do OBJETO (`cobranca_objeto_telefone_adicionar`),
@@ -173,10 +173,10 @@
         <button type="button" class="btn btn-sm cob-resp-telefone-add"
                 data-bs-toggle="collapse" data-bs-target="#cobRespTelefoneNovo"
                 aria-expanded="false" aria-controls="cobRespTelefoneNovo"
-                data-acao="abrir-novo-telefone" aria-label="Adicionar telefone" title="Adicionar telefone">
+                data-acao="abrir-novo-telefone" aria-label="{{ 'cobranca_objeto.telefones.adicionar'|trans }}" title="{{ 'cobranca_objeto.telefones.adicionar'|trans }}">
             <i class="bi bi-plus-lg"></i>
         </button>
-        <span class="cob-resp-telefone-dica" data-dica="adicionar-telefone" aria-hidden="true">Clique em + para adicionar.</span>
+        <span class="cob-resp-telefone-dica" data-dica="adicionar-telefone" aria-hidden="true">{{ 'cobranca_objeto.telefones.dica_adicionar'|trans }}</span>
     </div>
 
     <div class="collapse cob-resp-telefone-novo mt-2" id="cobRespTelefoneNovo">
@@ -199,12 +199,12 @@
             'inputmode': 'tel',
             'data-mascara': 'telefone',
             'placeholder': '(00) 00000-0000',
-            'aria-label': 'Novo telefone',
+            'aria-label': 'cobranca_objeto.telefones.novo'|trans,
         }}) }}
         {# Os dois tipos, renderizados um a um para virarem `btn-check` do Bootstrap (o widget inteiro
            sairia como rádio solto do tema de formulário). Aqui `Fixo` VEM MARCADO — é o default do
            Input DTO e o comportamento de hoje: quem não tocar no campo cadastra o que já cadastrava. #}
-        <div class="btn-group btn-group-sm" role="group" aria-label="Tipo do telefone">
+        <div class="btn-group btn-group-sm" role="group" aria-label="{{ 'cobranca_objeto.telefones.tipo'|trans }}">
             {% for opcao in formTelefoneCobrada.tipo %}
             {% set caso = tiposDeTelefone|filter(c => c.value == opcao.vars.value)|first %}
             {# Mesmo motivo do campo acima: id próprio, senão o `for` do label do modal casa com o rádio
@@ -217,7 +217,7 @@
             </label>
             {% endfor %}
         </div>
-        <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-plus-lg me-1"></i>Adicionar telefone</button>
+        <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_objeto.telefones.adicionar'|trans }}</button>
         {# O token sai explícito só para levar id próprio — mesmo motivo dos campos acima. Renderizado
            aqui, o `form_end` não o repete (campo já renderizado não volta no `form_rest`). #}
         {{ form_widget(formTelefoneCobrada._token, {id: 'cobRespTelefoneToken'}) }}

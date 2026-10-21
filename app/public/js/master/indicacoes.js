@@ -6,6 +6,8 @@
    - A chave pausa ou libera os convites de todos; os três campos gravam ao mudar (onChange do dc), sempre os três.
    - POST JSON com X-CSRF-Token; a resposta traz o estado novo e a tela se redesenha. Recusa: a mensagem do servidor
      aparece e o campo volta ao último valor gravado.
+   - Textos no catálogo (master.js.indicacoes.*, entregue pelo painel com catalogo_js), lidos por BJ_T.t na hora de
+     usar; números por window.BJFormato.
    Nenhuma regra mora só aqui: o servidor recusa limite menor que 1 e valor que não seja inteiro. */
 (() => {
   'use strict';
@@ -19,7 +21,9 @@
   const elChaveTxt = raiz.querySelector('[data-mi-pausa-txt]');
   const elMsg = raiz.querySelector('[data-mi-msg]');
   const campos = Array.from(raiz.querySelectorAll('[data-mi-limite]'));
-  const num = n => Number(n || 0).toLocaleString('pt-BR');
+  const num = n => window.BJFormato.numero(n);
+  // O catálogo e o BJ_T entram depois deste arquivo (fim do base): ler só na hora de usar.
+  const T = (chave, params) => window.BJ_T.t(chave, params);
   let estado = null;
   let carregado = false;
   let ocupado = false;
@@ -37,11 +41,11 @@
 
   function desenhar(d) {
     estado = d;
-    elResumo.textContent = num(d.enviadas) + ' enviadas · ' + num(d.hoje) + ' hoje · ' + num(d.viraramConta) + ' viraram conta';
+    elResumo.textContent = T('master.js.indicacoes.resumo', { enviadas: num(d.enviadas), hoje: num(d.hoje), conta: num(d.viraramConta) });
     const pausado = !!d.limites.pausadoParaTodos;
     elChave.setAttribute('aria-checked', pausado ? 'true' : 'false');
-    elChave.setAttribute('aria-label', pausado ? 'Liberar os convites para todos' : 'Pausar os convites para todos');
-    elChaveTxt.textContent = pausado ? 'Convites pausados para todos' : 'Convites liberados';
+    elChave.setAttribute('aria-label', pausado ? T('master.js.indicacoes.liberar_todos') : T('master.js.indicacoes.pausar_todos'));
+    elChaveTxt.textContent = pausado ? T('master.js.indicacoes.pausados') : T('master.js.indicacoes.liberados');
     campos.forEach(c => { c.value = String(d.limites[c.dataset.miLimite]); });
     elCaixa.removeAttribute('aria-busy');
   }
@@ -52,7 +56,7 @@
     return fetch(raiz.dataset.urlDados, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(d => { desenhar(d); travar(false); })
-      .catch(() => { carregado = false; avisar('Não foi possível carregar as indicações. Recarregue a página.'); });
+      .catch(() => { carregado = false; avisar(T('master.js.indicacoes.erro_carregar')); });
   }
 
   function postar(url, corpo) {
@@ -64,9 +68,9 @@
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': TOKEN },
       body: JSON.stringify(corpo),
     })
-      .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || 'Não foi possível salvar.')))))
+      .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || T('master.js.indicacoes.erro_salvar'))))))
       .then(d => desenhar(d))
-      .catch(e => { avisar(e.message || 'Não foi possível salvar.'); if (estado) desenhar(estado); })
+      .catch(e => { avisar(e.message || T('master.js.indicacoes.erro_salvar')); if (estado) desenhar(estado); })
       .finally(() => travar(false));
   }
 
@@ -86,5 +90,9 @@
   if (painel) {
     painel.addEventListener('mp:secao', e => { if (e.detail && e.detail.sec === 'ind' && !carregado) carregar(); });
   }
-  if (/[#&]sec=ind\b/.test(location.hash)) carregar();
+  // Já aberta pelo hash: espera o fim da página, onde entram o catálogo, o BJ_T e o BJFormato.
+  if (/[#&]sec=ind\b/.test(location.hash)) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { if (!carregado) carregar(); });
+    else carregar();
+  }
 })();

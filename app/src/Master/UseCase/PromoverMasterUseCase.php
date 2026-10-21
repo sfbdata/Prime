@@ -60,14 +60,14 @@ final class PromoverMasterUseCase
     private function exigirMasterPrimario(User $ator): void
     {
         if (!$this->regraDosMasters->ehMasterPrimario($ator)) {
-            throw new OperacaoDeMasterRecusada('Só o Master primário pode promover ou remover Masters.');
+            throw new OperacaoDeMasterRecusada(OperacaoDeMasterRecusada::RECUSA_SO_PRIMARIO);
         }
     }
 
     private function exigirEscritorio(?Tenant $escritorio): Tenant
     {
         if ($escritorio === null) {
-            throw new OperacaoDeMasterRecusada('Entre no escritório do usuário secundário para promovê-lo a Master.');
+            throw new OperacaoDeMasterRecusada(OperacaoDeMasterRecusada::RECUSA_OUTRO_ESCRITORIO);
         }
 
         return $escritorio;
@@ -77,15 +77,15 @@ final class PromoverMasterUseCase
     {
         $alvo = $alvoId > 0 ? $this->userRepository->find($alvoId) : null;
         if ($alvo === null) {
-            throw new OperacaoDeMasterRecusada('Escolha um usuário secundário cadastrado.');
+            throw new OperacaoDeMasterRecusada(OperacaoDeMasterRecusada::RECUSA_SEM_ESCOLHA);
         }
 
         if (!$alvo->isActive()) {
-            throw new OperacaoDeMasterRecusada('A conta deste usuário está desativada.');
+            throw new OperacaoDeMasterRecusada(OperacaoDeMasterRecusada::RECUSA_CONTA_DESATIVADA);
         }
 
         if ($this->regraDosMasters->ehMaster($alvo)) {
-            throw new OperacaoDeMasterRecusada('Este usuário já é Master.');
+            throw new OperacaoDeMasterRecusada(OperacaoDeMasterRecusada::RECUSA_JA_MASTER);
         }
 
         return $alvo;
@@ -95,11 +95,11 @@ final class PromoverMasterUseCase
     {
         $vinculo = $this->userTenantRepository->findAtivoPorUserETenant($alvo, $escritorio);
         if ($vinculo === null || !$vinculo->isActive() || !$this->mesmoEscritorio($vinculo->getTenant(), $escritorio)) {
-            throw new OperacaoDeMasterRecusada('Só usuários secundários ativos desta conta podem ser promovidos a Master.');
+            throw new OperacaoDeMasterRecusada(OperacaoDeMasterRecusada::RECUSA_SO_SECUNDARIO_ATIVO);
         }
 
         if ($vinculo->getTenantRole()?->isSystem() === true) {
-            throw new OperacaoDeMasterRecusada('O primário do escritório não pode ser promovido a Master. Só usuários secundários da conta.');
+            throw new OperacaoDeMasterRecusada(OperacaoDeMasterRecusada::RECUSA_PRIMARIO_DO_ESCRITORIO);
         }
     }
 

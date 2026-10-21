@@ -113,7 +113,8 @@ final class PainelMenuDaContaJsTest extends TestCase
         self::assertStringContainsString("qs('[data-mp-conf-ok]', conf).disabled = entrada.value.trim() !== palavraExigida;", $masters, 'só habilita quando a palavra bate');
         self::assertStringContainsString('.mp .mp-conf-ok:disabled { background: #9fb3c0; cursor: not-allowed; }', (string) file_get_contents(self::RAIZ . 'public/css/master.css'), 'desabilitado na convenção do desenho (linha 625)');
         self::assertStringContainsString('if (palavraExigida && digitado !== palavraExigida) return;', $masters);
-        self::assertStringContainsString("'Digite ' + palavraExigida + ' para confirmar'", $masters);
+        self::assertStringContainsString("T('master.js.masters.digite', { palavra: palavraExigida })", $masters);
+        self::assertSame('Digite {palavra} para confirmar', self::catalogo('master.js.masters.digite'));
 
         $twig = (string) file_get_contents(self::RAIZ . 'templates/master/painel.html.twig');
         self::assertStringContainsString("contaExcluir: path('master_conta_excluir', {id: 0})", $twig);

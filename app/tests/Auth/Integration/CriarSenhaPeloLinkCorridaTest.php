@@ -10,6 +10,11 @@ use App\Auth\Enum\SituacaoDoLinkDeConfirmacao;
 use App\Auth\Repository\ConfirmacaoEmailRepository;
 use App\Auth\UseCase\CriarSenhaPeloLinkUseCase;
 use App\Entity\Auth\User;
+use App\Legal\PoliticaPrivacidadeVigente;
+use App\Termo\Entity\AceiteTermo;
+use App\Termo\Entity\CienciaPolitica;
+use App\Termo\Enum\OrigemDoAceite;
+use App\Termo\TermoVigente;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -20,7 +25,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 /**
  * A corrida de dois "Criar senha e confirmar" ao mesmo tempo (spec `cadastro-senha-no-link.md`), com o banco de
  * verdade. Os dois pedidos leram a conta ainda a confirmar; o primeiro grava. O segundo chega ao UPDATE condicional
- * com o objeto velho na memória: não acha mais a pendência e não grava a senha dele.
+ * com o objeto velho na memória: não acha mais a pendência e não grava a senha dele nem o aceite (D2).
  */
 #[CoversClass(ConfirmacaoEmailRepository::class)]
 #[CoversClass(CriarSenhaPeloLinkUseCase::class)]
@@ -62,15 +67,36 @@ final class CriarSenhaPeloLinkCorridaTest extends KernelTestCase
         return $linha;
     }
 
-    #[TestDox('Repositório: o segundo UPDATE não acha a pendência e não troca a senha gravada pelo primeiro')]
+    private static function aceite(User $user, string $ip): AceiteTermo
+    {
+        return new AceiteTermo($user, TermoVigente::VERSAO, $ip, 'UA', null, OrigemDoAceite::LinkConfirmacao);
+    }
+
+    private static function ciencia(User $user, string $ip): CienciaPolitica
+    {
+        return new CienciaPolitica($user, PoliticaPrivacidadeVigente::VERSAO, $ip, 'UA', new \DateTimeImmutable(), OrigemDoAceite::LinkConfirmacao);
+    }
+
+    /** @return list<string> os IPs gravados na tabela, por origem link_confirmacao */
+    private static function ipsDoLink(string $tabela, int $userId): array
+    {
+        return static::getContainer()->get(Connection::class)->fetchFirstColumn(
+            'SELECT ip FROM ' . $tabela . " WHERE user_id = :id AND origem = 'link_confirmacao'",
+            ['id' => $userId],
+        );
+    }
+
+    #[TestDox('Repositório: o segundo UPDATE não acha a pendência e não troca a senha nem grava o aceite do primeiro')]
     public function testSoOPrimeiroGravaASenha(): void
     {
         $confirmacao = $this->contaAConfirmar();
         $repositorio = static::getContainer()->get(ConfirmacaoEmailRepository::class);
         $agora = new \DateTimeImmutable();
 
-        self::assertTrue($repositorio->criarSenhaEConfirmarComLink($confirmacao, 'hash-do-primeiro', $agora));
-        self::assertFalse($repositorio->criarSenhaEConfirmarComLink($confirmacao, 'hash-do-segundo', $agora));
+        $user = $confirmacao->getUser();
+
+        self::assertTrue($repositorio->criarSenhaEConfirmarComLink($confirmacao, 'hash-do-primeiro', $agora, self::aceite($user, '10.0.0.1'), self::ciencia($user, '10.0.0.1')));
+        self::assertFalse($repositorio->criarSenhaEConfirmarComLink($confirmacao, 'hash-do-segundo', $agora, self::aceite($user, '10.0.0.2'), self::ciencia($user, '10.0.0.2')));
 
         $linha = $this->linhaDoUsuario((int) $confirmacao->getUser()->getId());
         self::assertSame('hash-do-primeiro', $linha['password']);
@@ -78,6 +104,8 @@ final class CriarSenhaPeloLinkCorridaTest extends KernelTestCase
         $usadoEm = static::getContainer()->get(Connection::class)
             ->fetchOne('SELECT usado_em FROM confirmacao_email WHERE id = :id', ['id' => $confirmacao->getId()]);
         self::assertNotNull($usadoEm);
+        self::assertSame(['10.0.0.1'], self::ipsDoLink('aceite_termo', (int) $user->getId()));
+        self::assertSame(['10.0.0.1'], self::ipsDoLink('ciencia_politica', (int) $user->getId()));
     }
 
     #[TestDox('Caso de uso: quem chega ao UPDATE depois do outro recebe "já confirmado" e a senha do primeiro fica')]
@@ -96,9 +124,11 @@ final class CriarSenhaPeloLinkCorridaTest extends KernelTestCase
         self::assertFalse($confirmacao->getUser()->isEmailConfirmado(), 'o objeto em memória ainda está a confirmar');
 
         $situacao = static::getContainer()->get(CriarSenhaPeloLinkUseCase::class)
-            ->executar(new CriarSenhaPeloLinkInput($this->token, 'segundaSenha2', 'segundaSenha2'));
+            ->executar(new CriarSenhaPeloLinkInput($this->token, 'segundaSenha2', 'segundaSenha2', true, '10.0.0.2', 'UA'));
 
         self::assertSame(SituacaoDoLinkDeConfirmacao::JaConfirmado, $situacao);
         self::assertSame($hashDoPrimeiro, $this->linhaDoUsuario($id)['password']);
+        self::assertSame([], self::ipsDoLink('aceite_termo', $id), 'quem perde a corrida não grava aceite');
+        self::assertSame([], self::ipsDoLink('ciencia_politica', $id));
     }
 }

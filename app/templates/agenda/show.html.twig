@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Evento - {{ evento.titulo }}{% endblock %}
+{% block title %}{{ 'agenda.show.titulo_pagina'|trans({titulo: evento.titulo}) }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
@@ -14,9 +14,9 @@
             </div>
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-end">
-                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
-                    <li class="breadcrumb-item"><a href="{{ path('agenda_index') }}">Agenda</a></li>
-                    <li class="breadcrumb-item active">Detalhes</li>
+                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">{{ 'agenda.comum.home'|trans }}</a></li>
+                    <li class="breadcrumb-item"><a href="{{ path('agenda_index') }}">{{ 'agenda.comum.agenda'|trans }}</a></li>
+                    <li class="breadcrumb-item active">{{ 'agenda.show.detalhes'|trans }}</li>
                 </ol>
             </div>
         </div>
@@ -28,7 +28,7 @@
         {% if evento.status == 'cancelado' %}
         <div class="alert alert-danger d-flex align-items-center" role="alert">
             <i class="bi bi-x-circle me-2"></i>
-            <div>Este evento foi <strong>cancelado</strong>.</div>
+            <div>{{ 'agenda.show.cancelado_inicio'|trans }} <strong>{{ 'agenda.show.cancelado_destaque'|trans }}</strong>{{ 'agenda.show.cancelado_fim'|trans }}</div>
         </div>
         {% endif %}
 
@@ -36,7 +36,7 @@
             <div class="col-md-8">
                 <div class="card card-primary card-outline">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-calendar-event me-1"></i> Detalhes do Evento</h3>
+                        <h3 class="card-title"><i class="bi bi-calendar-event me-1"></i> {{ 'agenda.show.detalhes_evento'|trans }}</h3>
                         <div class="card-tools">
                             <span class="badge {{ evento.statusBadgeClass }}">{{ evento.statusLabel }}</span>
                         </div>
@@ -47,11 +47,11 @@
                             <div class="col-12 col-sm-4">
                                 <div class="info-box bg-body-tertiary">
                                     <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Início</span>
+                                        <span class="info-box-text text-center text-muted">{{ 'agenda.comum.inicio'|trans }}</span>
                                         <span class="info-box-number text-center text-muted mb-0">
-                                            {{ evento.dataInicio|date('d/m/Y') }}
+                                            {{ evento.dataInicio|data }}
                                             {% if not evento.diaInteiro %}
-                                            <br><small>{{ evento.dataInicio|date('H:i') }}</small>
+                                            <br><small>{{ evento.dataInicio|hora }}</small>
                                             {% endif %}
                                         </span>
                                     </div>
@@ -60,11 +60,11 @@
                             <div class="col-12 col-sm-4">
                                 <div class="info-box bg-body-tertiary">
                                     <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Fim</span>
+                                        <span class="info-box-text text-center text-muted">{{ 'agenda.comum.fim'|trans }}</span>
                                         <span class="info-box-number text-center text-muted mb-0">
-                                            {{ evento.dataFim|date('d/m/Y') }}
+                                            {{ evento.dataFim|data }}
                                             {% if not evento.diaInteiro %}
-                                            <br><small>{{ evento.dataFim|date('H:i') }}</small>
+                                            <br><small>{{ evento.dataFim|hora }}</small>
                                             {% endif %}
                                         </span>
                                     </div>
@@ -73,7 +73,7 @@
                             <div class="col-12 col-sm-4">
                                 <div class="info-box bg-body-tertiary">
                                     <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Participantes</span>
+                                        <span class="info-box-text text-center text-muted">{{ 'agenda.comum.participantes'|trans }}</span>
                                         <span class="info-box-number text-center text-muted mb-0">{{ evento.participantes|length }}</span>
                                     </div>
                                 </div>
@@ -84,15 +84,15 @@
 
                         <div class="row">
                             <div class="col-md-12">
-                                <h5><i class="bi bi-text-paragraph me-1"></i> Descrição</h5>
-                                <p class="text-muted">{{ evento.descricao ?: 'Sem descrição.' }}</p>
+                                <h5><i class="bi bi-text-paragraph me-1"></i> {{ 'agenda.show.descricao'|trans }}</h5>
+                                <p class="text-muted">{{ evento.descricao ?: 'agenda.show.sem_descricao'|trans }}</p>
                             </div>
                         </div>
 
                         {% if evento.local %}
                         <div class="row mt-3">
                             <div class="col-md-12">
-                                <h5><i class="bi bi-geo-alt me-1"></i> Local</h5>
+                                <h5><i class="bi bi-geo-alt me-1"></i> {{ 'agenda.comum.local'|trans }}</h5>
                                 <p>{{ evento.local }}</p>
                             </div>
                         </div>
@@ -101,7 +101,7 @@
                         {% if evento.participantes|length > 0 %}
                         <div class="row mt-3">
                             <div class="col-md-12">
-                                <h5><i class="bi bi-people me-1"></i> Participantes</h5>
+                                <h5><i class="bi bi-people me-1"></i> {{ 'agenda.comum.participantes'|trans }}</h5>
                                 <ul class="list-unstyled">
                                     {% for participante in evento.participantes %}
                                     <li><i class="bi bi-person me-1"></i> {{ participante.fullName }} ({{ participante.email }})</li>
@@ -114,11 +114,11 @@
                         {% if evento.recorrente %}
                         <div class="row mt-3">
                             <div class="col-md-12">
-                                <h5><i class="bi bi-arrow-repeat me-1"></i> Recorrência</h5>
+                                <h5><i class="bi bi-arrow-repeat me-1"></i> {{ 'agenda.comum.recorrencia'|trans }}</h5>
                                 <p>
-                                    Repetir: <strong>{{ evento.tipoRecorrencia|capitalize }}</strong>
+                                    {{ 'agenda.show.repetir'|trans }} <strong>{{ evento.tipoRecorrencia|capitalize }}</strong>
                                     {% if evento.fimRecorrencia %}
-                                    até {{ evento.fimRecorrencia|date('d/m/Y') }}
+                                    {{ 'agenda.show.repetir_ate'|trans({data: evento.fimRecorrencia|data}) }}
                                     {% endif %}
                                 </p>
                             </div>
@@ -128,12 +128,12 @@
                     <div class="card-footer">
                         <a href="{{ path('agenda_editar', {id: evento.id}) }}"
                            class="btn btn-outline-primary btn-sm"
-                           title="Editar evento"
-                           aria-label="Editar evento">
-                            <i class="bi bi-pencil me-1"></i> Editar
+                           title="{{ 'agenda.comum.editar_evento'|trans }}"
+                           aria-label="{{ 'agenda.comum.editar_evento'|trans }}">
+                            <i class="bi bi-pencil me-1"></i> {{ 'agenda.comum.editar'|trans }}
                         </a>
                         <a href="{{ path('agenda_index') }}" class="btn btn-secondary">
-                            <i class="bi bi-arrow-left me-1"></i> Voltar ao Calendário
+                            <i class="bi bi-arrow-left me-1"></i> {{ 'agenda.show.voltar_calendario'|trans }}
                         </a>
                     </div>
                 </div>
@@ -142,17 +142,17 @@
             <div class="col-md-4">
                 <div class="card card-outline card-secondary">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-info-circle me-1"></i> Informações</h3>
+                        <h3 class="card-title"><i class="bi bi-info-circle me-1"></i> {{ 'agenda.comum.informacoes'|trans }}</h3>
                     </div>
                     <div class="card-body">
-                        <p><strong>Criado por:</strong> {{ evento.criador.fullName }}</p>
-                        <p><strong>Criado em:</strong> {{ evento.criadoEm|date('d/m/Y H:i') }}</p>
+                        <p><strong>{{ 'agenda.comum.criado_por'|trans }}</strong> {{ evento.criador.fullName }}</p>
+                        <p><strong>{{ 'agenda.comum.criado_em'|trans }}</strong> {{ evento.criadoEm|data_hora }}</p>
                         {% if evento.modificadoEm %}
-                        <p><strong>Modificado em:</strong> {{ evento.modificadoEm|date('d/m/Y H:i') }}</p>
+                        <p><strong>{{ 'agenda.comum.modificado_em'|trans }}</strong> {{ evento.modificadoEm|data_hora }}</p>
                         {% endif %}
-                        <p><strong>Cor:</strong> <span class="badge" style="background-color: {{ evento.cor }};">&nbsp;&nbsp;&nbsp;</span></p>
+                        <p><strong>{{ 'agenda.show.cor'|trans }}</strong> <span class="badge" style="background-color: {{ evento.cor }};">&nbsp;&nbsp;&nbsp;</span></p>
                         {% if evento.diaInteiro %}
-                        <p><i class="bi bi-check-circle text-success me-1"></i> Evento de dia inteiro</p>
+                        <p><i class="bi bi-check-circle text-success me-1"></i> {{ 'agenda.show.dia_inteiro'|trans }}</p>
                         {% endif %}
                     </div>
                 </div>
@@ -160,22 +160,22 @@
                 {% if evento.status != 'cancelado' %}
                 <div class="card card-outline card-danger">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-exclamation-triangle me-1"></i> Ações</h3>
+                        <h3 class="card-title"><i class="bi bi-exclamation-triangle me-1"></i> {{ 'agenda.comum.acoes'|trans }}</h3>
                     </div>
                     <div class="card-body">
                         <form method="POST" action="{{ path('agenda_cancelar', {id: evento.id}) }}" class="mb-2">
                             <input type="hidden" name="_token" value="{{ csrf_token('cancelar' ~ evento.id) }}">
-                            <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Tem certeza que deseja cancelar este evento?')">
-                                <i class="bi bi-x-circle me-1"></i> Cancelar Evento
+                            <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('{{ 'agenda.comum.cancelar_confirmar'|trans|e('js') }}')">
+                                <i class="bi bi-x-circle me-1"></i> {{ 'agenda.comum.cancelar_evento'|trans }}
                             </button>
                         </form>
                         <form method="POST" action="{{ path('agenda_excluir', {id: evento.id}) }}">
                             <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ evento.id) }}">
                             <button type="submit"
                                     class="btn btn-outline-danger w-100"
-                                    aria-label="Excluir evento permanentemente"
-                                    onclick="return confirm('Tem certeza que deseja EXCLUIR permanentemente este evento?')">
-                                <i class="bi bi-trash me-1"></i> Excluir Evento
+                                    aria-label="{{ 'agenda.comum.excluir_permanentemente'|trans }}"
+                                    onclick="return confirm('{{ 'agenda.comum.excluir_confirmar'|trans|e('js') }}')">
+                                <i class="bi bi-trash me-1"></i> {{ 'agenda.comum.excluir_evento'|trans }}
                             </button>
                         </form>
                     </div>

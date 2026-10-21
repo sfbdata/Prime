@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Seção "Indicações do BlueJus" do Painel do Master (desenho docs/design/perfis-1.2/vs-21-10-26/05 - Perfis 1.2 -
@@ -26,15 +27,20 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * JSON. Os POST levam o token CSRF `master_indicacoes` no header `X-CSRF-Token` (o padrão das outras seções do
  * /master) e respondem o mesmo corpo do GET, já com o estado novo; recusa em 422 com `{erro}`.
  * O desenho de 21/10 tirou a tabela por pessoa e a lista de alertas: o corpo leva só o cabeçalho e os limites.
+ *
+ * Idioma (spec idioma-do-sistema, P3 da b5): as recusas próprias saem do catálogo (master.indicacoes.*) no idioma da
+ * requisição. A do validador e a do UseCase (domínio Indicacao, compartilhado com o lado do usuário) vão como estão.
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class IndicacoesDoMasterController extends AbstractController
 {
     public const TOKEN = 'master_indicacoes';
-    private const CSRF_INVALIDO = 'Token CSRF inválido. Recarregue a página.';
+    private const CSRF_INVALIDO = 'master.indicacoes.token_invalido';
 
-    public function __construct(private readonly ObterPainelDeIndicacoesUseCase $painel)
-    {
+    public function __construct(
+        private readonly ObterPainelDeIndicacoesUseCase $painel,
+        private readonly TranslatorInterface $tradutor,
+    ) {
     }
 
     #[Route('/master/indicacoes', name: 'master_indicacoes_dados', methods: ['GET'])]
@@ -48,11 +54,11 @@ final class IndicacoesDoMasterController extends AbstractController
     public function pausa(Request $request, PausarIndicacoesParaTodosUseCase $pausar): JsonResponse
     {
         if (!$this->tokenValido($request)) {
-            return $this->json(['erro' => self::CSRF_INVALIDO], Response::HTTP_FORBIDDEN);
+            return $this->recusa(self::CSRF_INVALIDO, Response::HTTP_FORBIDDEN);
         }
         $corpo = self::corpo($request);
         if (!is_bool($corpo['pausar'] ?? null)) {
-            return $this->json(['erro' => 'Informe se os convites ficam pausados ou liberados.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->recusa('master.indicacoes.informe_pausa', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
         $pausar->executar($corpo['pausar'], $this->master());
 
@@ -64,12 +70,12 @@ final class IndicacoesDoMasterController extends AbstractController
     public function limites(Request $request, AlterarLimitesDeIndicacaoUseCase $alterar, ValidatorInterface $validador): JsonResponse
     {
         if (!$this->tokenValido($request)) {
-            return $this->json(['erro' => self::CSRF_INVALIDO], Response::HTTP_FORBIDDEN);
+            return $this->recusa(self::CSRF_INVALIDO, Response::HTTP_FORBIDDEN);
         }
         $corpo = self::corpo($request);
         $valores = array_map(self::inteiro(...), [$corpo['porDia'] ?? null, $corpo['porMes'] ?? null, $corpo['alertaEm24h'] ?? null]);
         if (in_array(null, $valores, true)) {
-            return $this->json(['erro' => 'Informe os limites em números inteiros.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->recusa('master.indicacoes.informe_inteiros', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
         /** @var array{int, int, int} $valores */
         $input = new AlterarLimitesDeIndicacaoInput(...$valores);
@@ -103,6 +109,11 @@ final class IndicacoesDoMasterController extends AbstractController
     private static function limitesEmJson(LimitesDeIndicacaoOutput $l): array
     {
         return ['pausadoParaTodos' => $l->pausadoParaTodos, 'porDia' => $l->porDia, 'porMes' => $l->porMes, 'alertaEm24h' => $l->alertaEm24h];
+    }
+
+    private function recusa(string $chave, int $status): JsonResponse
+    {
+        return $this->json(['erro' => $this->tradutor->trans($chave)], $status);
     }
 
     private function tokenValido(Request $request): bool
