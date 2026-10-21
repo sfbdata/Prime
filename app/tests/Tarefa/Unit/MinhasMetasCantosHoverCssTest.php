@@ -78,8 +78,8 @@ final class MinhasMetasCantosHoverCssTest extends TestCase
         $regra = $this->regras('.mm-meta:hover');
 
         self::assertMatchesRegularExpression('/background:\s*var\(--mm-linha-hover-bg\)/', $regra);
-        self::assertMatchesRegularExpression('/border-left-color:\s*var\(--mm-linha-hover-barra\)/', $regra);
-        self::assertStringContainsString('0 4px 12px rgba(10,111,160,.16)', $regra);
+        self::assertStringContainsString('box-shadow: inset 4px 0 0 var(--mm-linha-hover-barra), 0 4px 12px rgba(10,111,160,.16);', $regra, 'faixa e sombra na mesma declaração');
+        self::assertStringNotContainsString('border-left', $regra);
         self::assertMatchesRegularExpression('/z-index:\s*1;/', $regra);
         self::assertMatchesRegularExpression('/--mm-linha-hover-bg:\s*#3b8fc2;/', $this->css());
         self::assertMatchesRegularExpression('/--mm-linha-hover-barra:\s*#1f6f9c;/', $this->css());
@@ -108,10 +108,15 @@ final class MinhasMetasCantosHoverCssTest extends TestCase
         self::assertMatchesRegularExpression('/margin-right:\s*10px;/', $regra);
     }
 
-    #[TestDox('E5b: linha com faixa de 4px; atrasada com fundo rosado #fdf3f3 (dc L84, FUNDO.atr); o hover continua vencendo')]
+    #[TestDox('E5b: linha com faixa de 4px em sombra interna (dc L88), sem border-left; atrasada com fundo rosado #fdf3f3 (dc L84, FUNDO.atr); o hover continua vencendo')]
     public function testLinhaAtrasadaEFaixa(): void
     {
-        self::assertMatchesRegularExpression('/border-left:\s*4px solid transparent;/', $this->regras('.mm-meta'));
+        // Faixa do dc L88: sombra interna de 4px, não borda (a borda empurrava o texto 4px além dos 20px).
+        $linha = $this->regras('.mm-meta');
+        self::assertStringNotContainsString('border-left', $linha);
+        self::assertMatchesRegularExpression('/padding:\s*\.875rem \.75rem \.875rem 20px;/', $linha);
+        self::assertMatchesRegularExpression('/transition:\s*background \.15s, box-shadow \.15s;/', $linha);
+        self::assertStringNotContainsString('border-left', (string) preg_replace('#/\*.*?\*/#s', '', (string) file_get_contents(self::CSS)), 'border-left não volta em lugar nenhum da folha');
         self::assertMatchesRegularExpression('/background:\s*var\(--mm-linha-atrasada-bg\)/', $this->regras('.mm-meta.tom-danger'));
         self::assertMatchesRegularExpression('/--mm-linha-atrasada-bg:\s*#fdf3f3;/', $this->css());
         self::assertGreaterThan(strpos($this->css(), '.mm-meta.tom-danger'), strpos($this->css(), '.mm-meta:hover {'), 'hover depois dos tons');

@@ -678,6 +678,40 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Meta em lista', (string) $client->getResponse()->getContent());
     }
 
+    #[TestDox('Modo lista (desenho 04, P:154): cada separador leva `mm-grupo-<chave>` e o rótulo traduzido, na ordem do desenho')]
+    public function testModoListaSeparadoresDosGrupos(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $this->criarMeta($tenant, $usuario, 'Folgada')->setPrazo(new \DateTimeImmutable('+30 days'));
+        $this->criarMeta($tenant, $usuario, 'Sem data');
+        $this->criarMeta($tenant, $usuario, 'Entregue', Tarefa::STATUS_EM_REVISAO);
+        $this->criarMeta($tenant, $usuario, 'Atrasada')->setPrazo(new \DateTimeImmutable('-2 days'));
+        $this->criarMeta($tenant, $usuario, 'Feita', Tarefa::STATUS_CONCLUIDA)->setDataConclusao(new \DateTimeImmutable());
+        $this->criarMeta($tenant, $usuario, 'Vence logo')->setPrazo(new \DateTimeImmutable('+2 days'));
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $client->request('GET', '/tarefas/minhas', ['modo' => 'lista']);
+        self::assertResponseIsSuccessful();
+        $separadores = $client->getCrawler()->filter('.mm-tabela > .mm-separador');
+
+        self::assertSame(
+            [
+                ['mm-grupo-atrasadas', 'Atrasadas'],
+                ['mm-grupo-proximas', 'Vencem em 7 dias'],
+                ['mm-grupo-em_revisao', 'Aguardando revisão'],
+                ['mm-grupo-depois', 'No prazo'],
+                ['mm-grupo-sem_prazo', 'Sem prazo'],
+                ['mm-grupo-concluidas', 'Concluídas'],
+            ],
+            $separadores->each(static fn ($s): array => [
+                trim(str_replace('mm-separador', '', (string) $s->attr('class'))),
+                trim($s->filter('.mm-grupo-nome')->text()),
+            ]),
+        );
+        self::assertStringNotContainsString('metas.grupos.', (string) $client->getResponse()->getContent(), 'nenhuma chave crua do catálogo');
+    }
+
     #[TestDox('Os quatro KPIs aparecem no topo com as contagens do usuário')]
     public function testKpisNoTopo(): void
     {
@@ -1080,7 +1114,13 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
             $c->filter('[data-filtro-root] > .mm-barra-cartao > form[data-filtro-form] > .filtro-linha > select')->each(static fn ($s): string => (string) $s->attr('name')),
         );
         self::assertCount(1, $c->filter('.mm-coluna-lista article.mm-meta'), 'a meta aberta continua na lista: o status da URL não filtra');
-        self::assertCount(0, $c->filter('.mm-vazio-caixa'), 'nem conta como filtro ativo');
+
+        // Lista vazia (ninguém marcou nada para acompanhar) com `status` na URL: o vazio é o da aba, não o "com filtro".
+        $client->request('GET', '/tarefas/minhas', ['aba' => 'acompanhando', 'status' => 'x']);
+        self::assertResponseIsSuccessful();
+        $caixa = trim(preg_replace('/\s+/', ' ', $client->getCrawler()->filter('.mm-vazio-caixa')->text()) ?? '');
+        self::assertStringStartsWith('Nenhuma meta em acompanhamento.', $caixa, '`status` não conta como filtro ativo');
+        self::assertStringNotContainsString('com esses filtros', $caixa);
     }
 
     #[TestDox('Isolamento: meta ATRASADA do escritório B com o usuário de A como responsável não entra no "X de Y", na legenda nem no "Precisa de atenção" de A')]

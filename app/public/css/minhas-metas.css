@@ -123,7 +123,7 @@
     --mm-linha-atrasada-bg: rgba(224,103,92,.10);
     --mm-sem-text:      var(--bs-secondary-color);
     --mm-sem-bg:        rgba(255,255,255,.06);
-    --mm-faixa-andamento: #2fa36b;
+    --mm-faixa-andamento: #6ddaa2;   /* o mesmo verde de No prazo e Concluídas no escuro (7,7:1 sobre o cartão) */
     --mm-faixa-atencao: #e0675c;
     --mm-ponto-vivo:    #2fa36b;
     --mm-aba-texto:         var(--bs-secondary-color);
@@ -608,19 +608,19 @@ body.layout-fixed .app-main:has(.mm-page) { overflow: visible; }
     display: flex;
     gap: .8125rem;
     align-items: flex-start;
-    padding: .875rem .75rem .875rem 1.25rem;
+    padding: .875rem .75rem .875rem 20px;   /* 20px do dc L88: a faixa é sombra interna, não ocupa espaço */
     border-bottom: 1px solid var(--mm-div-row);
-    border-left: 4px solid transparent;   /* faixa do grupo: 4px, como o `inset 4px` do dc */
-    transition: background .2s;
+    /* Faixa do grupo (dc L88): `box-shadow: inset 4px 0 0 <cor>`, posta pelos tons abaixo. */
+    transition: background .15s, box-shadow .15s;
     cursor: pointer;   /* a linha inteira abre a meta (dc L88; delegação em minhas.html.twig) */
 }
 .mm-meta:last-child { border-bottom: none; }
-.mm-meta.tom-danger { border-left-color: var(--mm-grupo-cor, var(--mm-danger-dot)); background: var(--mm-linha-atrasada-bg); }
-.mm-meta.tom-warn   { border-left-color: var(--mm-grupo-cor, var(--mm-warn-dot)); }
-.mm-meta.tom-accent { border-left-color: var(--mm-grupo-cor, var(--mm-accent)); }
-.mm-meta.tom-cinza  { border-left-color: var(--mm-grupo-cor, var(--mm-cinza-dot)); }
+.mm-meta.tom-danger { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-danger-dot)); background: var(--mm-linha-atrasada-bg); }
+.mm-meta.tom-warn   { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-warn-dot)); }
+.mm-meta.tom-accent { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-accent)); }
+.mm-meta.tom-cinza  { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-cinza-dot)); }
 /* Fundo branco em todas as linhas; só a atrasada tem fundo próprio (desenho 04, P:162 `FUNDO`). */
-.mm-meta.tom-ok     { border-left-color: var(--mm-grupo-cor, var(--mm-ok-dot)); }
+.mm-meta.tom-ok     { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-ok-dot)); }
 /* Hover do desenho (dc 04 Minhas Metas L17-18): linha azul cheia, faixa escura à esquerda, sombra
    que sobe por cima da vizinha, e todo o conteúdo em branco sem fundo nem borda própria. Vem DEPOIS
    dos tons para vencer o fundo da atrasada e a cor de faixa de cada grupo. */
@@ -628,8 +628,7 @@ body.layout-fixed .app-main:has(.mm-page) { overflow: visible; }
     position: relative;
     z-index: 1;
     background: var(--mm-linha-hover-bg);
-    border-left-color: var(--mm-linha-hover-barra);
-    box-shadow: 0 4px 12px rgba(10,111,160,.16);
+    box-shadow: inset 4px 0 0 var(--mm-linha-hover-barra), 0 4px 12px rgba(10,111,160,.16);
 }
 .mm-meta:hover .mm-meta-corpo *,
 .mm-meta:hover .mm-meta-lado *,

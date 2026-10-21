@@ -167,12 +167,17 @@ final class MinhasMetasDesenho1910CssTest extends TestCase
             self::assertSame($cor, $this->token('--mm-grupo-' . $token . '-cor'), 'desenho 04, P:154: ' . $chave);
             self::assertSame(2, substr_count($this->css(), '--mm-grupo-' . $token . '-cor:'), 'token claro e escuro: ' . $chave);
         }
-        foreach (['accent', 'cinza', 'ok'] as $tom) {
-            self::assertStringContainsString('border-left-color: var(--mm-grupo-cor,', $this->regras('.mm-meta.tom-' . $tom), 'faixa da linha na cor do grupo: ' . $tom);
+        foreach (['danger' => 'danger-dot', 'warn' => 'warn-dot', 'accent' => 'accent', 'cinza' => 'cinza-dot', 'ok' => 'ok-dot'] as $tom => $reserva) {
+            $regra = $this->regras('.mm-meta.tom-' . $tom);
+            self::assertStringContainsString('box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-' . $reserva . '))', $regra, 'faixa da linha na cor do grupo (dc L88): ' . $tom);
+            self::assertStringNotContainsString('border-left', $regra, $tom);
+        }
+        // Tema escuro: um verde só (No prazo, Concluídas e o ponto/faixa do andamento), 7,7:1 sobre o cartão.
+        foreach (['--mm-grupo-depois-cor', '--mm-grupo-concluidas-cor', '--mm-faixa-andamento'] as $verde) {
+            self::assertSame(1, preg_match('/\[data-bs-theme="dark"\] \.mm-page \{[^}]*' . preg_quote($verde, '/') . ':\s*([^;]+);/', $this->css(), $m), $verde . ' no escuro');
+            self::assertSame('#6ddaa2', trim($m[1]), $verde . ' no escuro');
         }
         self::assertDoesNotMatchRegularExpression('/background:/', $this->regras('.mm-meta.tom-ok'), 'fundo branco; só a atrasada tem fundo (P:162)');
-        self::assertStringContainsString('border-left-color: var(--mm-grupo-cor, var(--mm-danger-dot))', $this->regras('.mm-meta.tom-danger'));
-        self::assertStringContainsString('border-left-color: var(--mm-grupo-cor, var(--mm-warn-dot))', $this->regras('.mm-meta.tom-warn'));
         self::assertGreaterThan(strpos($this->css(), '.mm-meta.tom-warn'), strpos($this->css(), '.mm-meta:hover {'), 'hover depois dos tons');
         self::assertStringContainsString('var(--mm-danger-dot)', $this->regras('.mm-page .mm-titulo::after'), 'o traço do H1 não mudou de token');
     }

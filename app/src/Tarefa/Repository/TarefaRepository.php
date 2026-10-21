@@ -64,7 +64,7 @@ class TarefaRepository extends ServiceEntityRepository
      * `$pastasOcultas`: ids das pastas ocultas pelo cadeado para o usuário (spec pasta-cadeado D3); as metas
      * delas não entram aqui nem nas contagens abaixo.
      *
-     * @param array<string, string> $filtros  busca, status, prioridade, prazo
+     * @param array<string, string> $filtros  busca, prioridade (da meta), prazo
      * @param list<int>             $pastasOcultas
      * @return Tarefa[]
      */
