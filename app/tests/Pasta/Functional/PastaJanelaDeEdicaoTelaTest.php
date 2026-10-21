@@ -15,6 +15,7 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * A tela pergunta a janela de editar/excluir ao MESMO serviço que os UseCases usam
@@ -128,8 +129,13 @@ final class PastaJanelaDeEdicaoTelaTest extends JusPrimeWebTestCase
         $html = (string) $client->getResponse()->getContent();
 
         // Financeiro carrega o rótulo; o Registro (PAS-037) e Detalhes (C6-PAS-03) levam os minutos
-        // na dica do lápis.
-        self::assertSame(1, substr_count($html, '>· 15 min</span>'));
+        // na dica do lápis. Desde a extração do Financeiro (idioma-do-sistema) o rótulo e a dica vêm do
+        // catálogo do JS: a página leva a chave com os minutos do servidor, o catálogo o texto.
+        self::assertSame(1, substr_count($html, "BJ_T.t('pasta_financeiro.js.janela', { minutos: 15 })"));
+        self::assertSame(1, substr_count($html, "BJ_T.t('pasta_financeiro.js.janela_dica', { minutos: 15 })"));
+        $js = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_financeiro']['js'];
+        self::assertSame('· {minutos} min', $js['janela']);
+        self::assertSame('Edição e exclusão liberadas por mais {minutos} min', $js['janela_dica']);
         self::assertSame(1, substr_count($html, 'title="Editável por mais 15 minutos" aria-label="Editar registro"'));
         self::assertSame(1, substr_count($html, 'title="Editável por mais 15 minutos" aria-label="Editar observação"'));
     }

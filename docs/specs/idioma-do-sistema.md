@@ -134,3 +134,15 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
 - O rótulo ao lado do item Idioma do menu, que era "Português (Brasil)" fixo, passou a `idioma_atual().nome`, como no
   Meu Perfil (#199); com só o português liberado, a tela não muda (combinado com a 0d).
 
+## 9. Entrega 4: o Financeiro da pasta (branch `idioma-financeiro-pasta`, 21/10)
+
+Bloco `pasta_financeiro` do catálogo, 197 chaves: 92 do Twig (`comum`, `contrato`, `pro_bono`, `honorarios`, `media`,
+`relatorio`, `menu_registro`, `registro`, `arquivos`, `pagamentos`, `corpo`) e 105 dos scripts da aba
+(`pasta_financeiro.js`, entregue uma vez pelo `_financeiro.html.twig`). Os scripts inline rodam antes do `bj-traducao.js`
+(o base o carrega no fim do corpo), então só pedem texto dentro das funções, na hora do uso. Formatos: `|data` na data do
+arquivo, `|data_hora` no "Editado em" e `|hora` na hora do registro; o `title` da hora do registro segue `d/m/Y H:i`
+fixo (o JS compara o dia dele com o `criadaEm` que o servidor manda nesse formato), e a pílula do dia (`mesesFin`,
+`MESES`), o `toLocale*('pt-BR')` e o `R$` do JS ficam para o formato por idioma. Ficou de fora o texto que vem do PHP:
+`financeiro.mediaRotulo`, `linha.quando`, `linha.estado`, `linha.historicoDeCorrecoes`, o rótulo de `arquivo_icone`
+(e o espelho dele no JS, travado pelo `PastaFinanceiroIconeEspelhoFolhaTest`), o `meta` do upload e os `erro`/`mensagem`
+das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio) foi comparado antes e depois, sem diferença.

@@ -55,5 +55,16 @@
             "Outro motivo",
             "Content-Type"
         ]
+    },
+
+    "pasta_financeiro": {
+        "templates": [
+            "pasta/_financeiro.html.twig",
+            "pasta/_financeiro_obs_script.html.twig",
+            "pasta/_financeiro_pagamentos.html.twig",
+            "pasta/_financeiro_pagamentos_script.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
     }
 }
