@@ -17,6 +17,16 @@ enum OrigemDoAceite: string
     /** A página "Crie sua senha" do link de confirmação do e-mail. */
     case LinkConfirmacao = 'link_confirmacao';
 
-    /** O gate dos Termos, quando a versão vigente muda. */
+    /**
+     * O gate dos Termos: quando a versão vigente muda, ou quando o aceite do cadastro deixou de valer
+     * (CadastroNaoRatificado).
+     */
     case Reaceite = 'reaceite';
+
+    /**
+     * Aceite do cadastro de uma conta confirmada pelo código do "Esqueceu a senha?" (D2b da spec
+     * `cadastro-senha-no-link.md`): quem cadastrou pode ter sido um terceiro, então o registro fica no histórico mas
+     * não vale como aceite; na primeira entrada, a dona do e-mail passa pelo gate dos Termos.
+     */
+    case CadastroNaoRatificado = 'cadastro_nao_ratificado';
 }

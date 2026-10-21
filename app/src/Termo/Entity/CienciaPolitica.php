@@ -36,7 +36,7 @@ class CienciaPolitica
         private ?string $userAgent = null,
         #[ORM\Column(type: 'datetime_immutable')]
         private \DateTimeImmutable $cienteEm = new \DateTimeImmutable(),
-        #[ORM\Column(length: 20, enumType: OrigemDoAceite::class, options: ['default' => 'cadastro'])]
+        #[ORM\Column(length: 30, enumType: OrigemDoAceite::class, options: ['default' => 'cadastro'])]
         private OrigemDoAceite $origem = OrigemDoAceite::Cadastro,
     ) {
     }

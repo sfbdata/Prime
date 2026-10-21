@@ -31,11 +31,11 @@ final class Version20261020149400 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql("ALTER TABLE aceite_termo ADD origem VARCHAR(20) DEFAULT 'cadastro' NOT NULL");
+        $this->addSql("ALTER TABLE aceite_termo ADD origem VARCHAR(30) DEFAULT 'cadastro' NOT NULL");
         $this->addSql('CREATE UNIQUE INDEX uq_aceite_termo_user_versao_origem ON aceite_termo (user_id, versao, origem)');
         $this->addSql('DROP INDEX uq_aceite_termo_user_versao');
 
-        $this->addSql("ALTER TABLE ciencia_politica ADD origem VARCHAR(20) DEFAULT 'cadastro' NOT NULL");
+        $this->addSql("ALTER TABLE ciencia_politica ADD origem VARCHAR(30) DEFAULT 'cadastro' NOT NULL");
         $this->addSql('CREATE UNIQUE INDEX uq_ciencia_politica_user_versao_origem ON ciencia_politica (user_id, versao, origem)');
         $this->addSql('DROP INDEX uq_ciencia_politica_user_versao');
     }

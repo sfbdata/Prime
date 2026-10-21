@@ -40,7 +40,7 @@ class AceiteTermo
     #[ORM\JoinColumn(nullable: true)]
     private ?Tenant $tenant;
 
-    #[ORM\Column(length: 20, enumType: OrigemDoAceite::class, options: ['default' => 'cadastro'])]
+    #[ORM\Column(length: 30, enumType: OrigemDoAceite::class, options: ['default' => 'cadastro'])]
     private OrigemDoAceite $origem;
 
     public function __construct(

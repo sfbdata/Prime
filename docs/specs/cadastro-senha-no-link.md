@@ -27,6 +27,8 @@ Risco ALTO (identidade User). Decisão do dono (21/10/2026, via coordenador): op
   POST: CSRF, token, já confirmado, aceite, força, igualdade. O `CriarSenhaPeloLinkUseCase` monta o `AceiteTermo` e a
   `CienciaPolitica` (escritório: o mais antigo com `criadoPor` = a conta, ou nulo) e o
   `criarSenhaEConfirmarComLink` os grava dentro da transação, só quando ganha. Deploy da migration MANUAL.
+- 21/10: D2b feito na mesma frente (commit "Ratifica no gate o aceite de conta confirmada pelo código"); ver o item D2b
+  nas decisões.
 
 ## A brecha
 
@@ -85,6 +87,17 @@ coordenador).
   mensagem do cadastro e não consome o link. Com ela, na mesma transação da senha, grava-se um aceite novo dos Termos e
   a ciência da Política, pelo mesmo mecanismo do cadastro (versão vigente, momento, IP e user agent). Os aceites do
   cadastro continuam no histórico, sem apagar.
+
+- **D2b = a conta confirmada pelo código do "Esqueceu a senha?" ratifica o aceite no gate dos Termos** (decisão do
+  coordenador, achado da revisão; sem migration nova). Só quando o UPDATE condicional do `ConfirmarCodigoSenhaUseCase`
+  de fato confirma uma conta a confirmar, na mesma transação, o aceite dos Termos e a ciência da Política com origem
+  `cadastro` passam a `cadastro_nao_ratificado` (a linha fica; só o rótulo muda). `existeAceiteVigente` ignora essa
+  origem, então na primeira entrada o gate dos Termos para a pessoa e grava `reaceite`. O gate não cobria a Política:
+  para quem tem só a ciência `cadastro_nao_ratificado` da versão vigente, a caixa do gate diz "Li e aceito os Termos e
+  Condições Gerais de Uso do BlueJus e a Política de privacidade." (com o link) e o aceite grava também a ciência
+  `reaceite` (`RatificarCienciaPoliticaUseCase`). Para os outros, o gate não muda. Nada muda no link nem na troca de
+  senha de conta já confirmada. A coluna `origem` foi para VARCHAR(30) na própria `Version20261020149400` (ainda não
+  publicada), porque `cadastro_nao_ratificado` tem 23 caracteres.
 
 ## Testes
 

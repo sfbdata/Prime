@@ -110,6 +110,8 @@ final class TermoAceiteControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('input[name="aceito"]');
+        // Sem ciência do cadastro a ratificar (D2b), a caixa continua só dos Termos.
+        self::assertSelectorTextSame('label.aceite-check', 'Li e aceito os Termos e Condições Gerais de Uso do BlueJus.');
     }
 
     #[TestDox('POST aceite com checkbox marcado registra o aceite e libera o acesso')]

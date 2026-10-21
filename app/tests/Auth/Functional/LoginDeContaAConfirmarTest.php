@@ -15,6 +15,10 @@ use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Legal\PoliticaPrivacidadeVigente;
+use App\Termo\Entity\AceiteTermo;
+use App\Termo\Entity\CienciaPolitica;
+use App\Termo\TermoVigente;
 use App\Security\PedidoDeNavegacao;
 use App\Security\SessaoDeContaAConfirmarListener;
 use App\Security\UserChecker;
@@ -334,6 +338,86 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
 
         $this->enviarLogin($client, (string) $user->getEmail(), 'novaSenha456');
         self::assertEntrouPeloVeu($client);
+    }
+
+    /** O aceite e a ciência do cadastro, como o CriarContaEEscritorioUseCase grava. */
+    private function aceiteDoCadastro(User $user): void
+    {
+        $this->em()->persist(new AceiteTermo($user, TermoVigente::VERSAO, '198.51.100.1', 'Navegador do cadastro'));
+        $this->em()->persist(new CienciaPolitica($user, PoliticaPrivacidadeVigente::VERSAO, '198.51.100.1', 'Navegador do cadastro'));
+        $this->em()->flush();
+    }
+
+    /** @return list<string> as origens gravadas para a conta, em ordem */
+    private function origens(string $tabela, User $user): array
+    {
+        return $this->em()->getConnection()->fetchFirstColumn('SELECT origem FROM ' . $tabela . ' WHERE user_id = :id ORDER BY id', ['id' => $user->getId()]);
+    }
+
+    /** Troca a senha pelo código do "Esqueceu a senha?" (o código é gravado direto, como no teste acima). */
+    private function trocarSenhaPeloCodigo(KernelBrowser $client, User $user, string $senha): void
+    {
+        $segredo = (string) static::getContainer()->getParameter('kernel.secret');
+        $this->em()->persist(new RedefinicaoSenha(
+            user: $user,
+            tokenHash: SolicitarCodigoSenhaUseCase::hashDoCodigo((int) $user->getId(), '123456', $segredo),
+            expiraEm: new \DateTimeImmutable('+15 minutes'),
+            ip: '127.0.0.1',
+        ));
+        $this->em()->flush();
+        $token = (string) $client->request('GET', '/login')->filter('#lgRaiz')->attr('data-token-senha');
+        $client->jsonRequest('POST', '/senha/codigo/confirmar', [
+            'email' => $user->getEmail(), 'codigo' => '123456', 'senha' => $senha, 'confirmacao' => $senha, '_token' => $token,
+        ]);
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('D2b: conta a confirmar pelo código perde o valor do aceite do cadastro; na entrada, o gate pede Termos e Política e grava reaceite')]
+    public function testCodigoEmContaAConfirmarPassaPeloGate(): void
+    {
+        $client = static::createClient();
+        $user = $this->conta();
+        $this->aceiteDoCadastro($user);
+
+        $this->trocarSenhaPeloCodigo($client, $user, 'novaSenha456');
+
+        self::assertSame(['cadastro_nao_ratificado'], $this->origens('aceite_termo', $user));
+        self::assertSame(['cadastro_nao_ratificado'], $this->origens('ciencia_politica', $user));
+
+        $this->enviarLogin($client, (string) $user->getEmail(), 'novaSenha456');
+        self::assertEntrouPeloVeu($client);
+        $client->request('GET', '/');
+        self::assertResponseRedirects('/termos/aceitar');
+
+        $tela = $client->followRedirect();
+        $caixa = $tela->filter('label.aceite-check');
+        self::assertSame('Li e aceito os Termos e Condições Gerais de Uso do BlueJus e a Política de privacidade.', trim((string) preg_replace('/\s+/u', ' ', $caixa->text())));
+        self::assertCount(1, $caixa->filter('a[href="/politica-de-privacidade"][target="_blank"]'));
+        $form = $tela->selectButton('Aceitar e continuar')->form();
+        $form['aceito']->tick();
+        $client->submit($form);
+        self::assertResponseRedirects('/');
+
+        self::assertSame(['cadastro_nao_ratificado', 'reaceite'], $this->origens('aceite_termo', $user));
+        self::assertSame(['cadastro_nao_ratificado', 'reaceite'], $this->origens('ciencia_politica', $user));
+        $client->request('GET', '/');
+        self::assertFalse($client->getResponse()->isRedirect('/termos/aceitar'), 'depois do aceite, o gate não para mais');
+    }
+
+    #[TestDox('D2b: o código numa conta já confirmada não mexe no aceite do cadastro, e o gate fica só dos Termos')]
+    public function testCodigoEmContaConfirmadaNaoMudaOAceite(): void
+    {
+        $client = static::createClient();
+        $user = $this->conta(aConfirmar: false);
+        $this->aceiteDoCadastro($user);
+
+        $this->trocarSenhaPeloCodigo($client, $user, 'novaSenha456');
+
+        self::assertSame(['cadastro'], $this->origens('aceite_termo', $user));
+        self::assertSame(['cadastro'], $this->origens('ciencia_politica', $user));
+        $this->enviarLogin($client, (string) $user->getEmail(), 'novaSenha456');
+        $client->request('GET', '/');
+        self::assertFalse($client->getResponse()->isRedirect('/termos/aceitar'));
     }
 
     #[TestDox('Conta criada pelo convite de escritório nasce confirmada e entra')]

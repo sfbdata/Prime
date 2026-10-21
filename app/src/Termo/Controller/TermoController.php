@@ -10,6 +10,7 @@ use App\Service\Tenant\TenantContext;
 use App\Termo\DTO\RegistrarAceiteTermoInput;
 use App\Termo\Enum\OrigemDoAceite;
 use App\Termo\TermoVigente;
+use App\Termo\UseCase\RatificarCienciaPoliticaUseCase;
 use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,13 +24,18 @@ final class TermoController extends AbstractController
     public function __construct(
         private readonly RegistrarAceiteTermoUseCase $registrarAceite,
         private readonly TenantContext $tenantContext,
+        private readonly RatificarCienciaPoliticaUseCase $ratificarCiencia,
     ) {}
 
     #[Route('/termos/aceitar', name: 'termo_aceite', methods: ['GET'])]
     public function aceitar(): Response
     {
+        /** @var User $user */
+        $user = $this->getUser();
+
         return $this->render('termo/aceite.html.twig', [
             'versao' => TermoVigente::VERSAO,
+            'pedirPolitica' => $this->ratificarCiencia->precisa($user),
         ]);
     }
 
@@ -56,6 +62,8 @@ final class TermoController extends AbstractController
             tenant: $this->tenantContext->getCurrentTenant(),
             origem: OrigemDoAceite::Reaceite,
         ));
+        // D2b: quem confirmou a conta pelo código declara também a ciência da Política (a caixa diz isso).
+        $this->ratificarCiencia->executar($user, (string) $request->getClientIp(), $request->headers->get('User-Agent'));
 
         $request->getSession()->set(TermoAceiteListener::SESSION_KEY, TermoVigente::VERSAO);
 
