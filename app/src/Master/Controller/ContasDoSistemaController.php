@@ -10,6 +10,7 @@ use App\Master\DTO\ExcluirContaInput;
 use App\Master\DTO\SituacaoDaContaInput;
 use App\Master\Exception\ContaNaoEncontrada;
 use App\Master\Exception\OperacaoDeContaRecusada;
+use App\Tenant\Exception\PedidoDeExclusaoRecusado;
 use App\Master\UseCase\ExcluirContaPeloMasterUseCase;
 use App\Master\UseCase\ReativarContaUseCase;
 use App\Master\UseCase\SuspenderContaUseCase;
@@ -70,6 +71,9 @@ final class ContasDoSistemaController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         } catch (OperacaoDeContaRecusada $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (PedidoDeExclusaoRecusado $e) {
+            // Pedido decidido ao mesmo tempo pela desistência do primário (409).
+            return $this->json(['erro' => $e->getMessage()], $e->status);
         }
 
         return $this->json(['mensagem' => sprintf($mensagem, $conta->nome), 'conta' => ['id' => $conta->id, 'situacao' => $conta->situacao, 'purgaEm' => $conta->purgaEm]]);

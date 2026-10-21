@@ -47,6 +47,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
     // Entidades deliberadamente fora do escopo de Auditavel.
     // Toda entidade ausente desta lista E que não implemente Auditavel quebra o teste.
     private const NAO_AUDITAVEIS = [
+        // Código de 6 dígitos da exclusão da conta (PR 5): só o hash, vive 15 minutos e não diz nada a
+        // ninguém. O rastro é o do pedido (PedidoDeExclusaoDeConta, Auditavel).
+        \App\Tenant\Entity\CodigoDeExclusaoDeConta::class,
         // Contribua: motivo de ainda não apoiar. O desenho promete resposta ANÔNIMA; a trilha gravaria
         // quem respondeu (actor do audit_log) e desfaria o anonimato.
         \App\Contribua\Entity\MotivoDeNaoApoiar::class,
@@ -165,6 +168,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Agenda\Entity\PrazoNoGoogle::class,
         \App\Agenda\Entity\ExclusaoNoGoogle::class,
         \App\Agenda\Entity\VarreduraDoGoogle::class,
+        // Pergunta da aba Perguntar da BlueJus IA (drawer, F3, 19/10): a conversa é da pessoa, e o AuditLogSubscriber
+        // gravaria o texto da pergunta no audit_log, que quem administra o escritório lê (mesmo motivo da Central).
+        // A análise da pergunta continua auditada, sem o texto do modelo (ConteudoParticular).
+        \App\Inteligencia\Entity\PerguntaDaConversa::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,

@@ -9,6 +9,9 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Repository\UserTenantRepository;
 use App\Tenant\Repository\EquipeDoEscritorioRepository;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
+use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
+use App\Tenant\Service\RegraDosPrimarios;
 use App\Tenant\UseCase\ListarMinhasContasUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -30,7 +33,7 @@ final class ListarMinhasContasUseCaseTest extends TestCase
         $equipe = $this->createMock(EquipeDoEscritorioRepository::class);
         $equipe->expects(self::once())->method('contarAtivosPorTenant')->with([10, 20])->willReturn([10 => 8, 20 => 1]);
 
-        $contas = (new ListarMinhasContasUseCase($vinculos, $equipe))->executar($eu, 10);
+        $contas = (new ListarMinhasContasUseCase($vinculos, $equipe, $this->semPedido()))->executar($eu, 10);
 
         self::assertSame(['Alfa Advocacia', 'Bravo Advogados'], array_map(static fn ($c): string => $c->nome, $contas));
         self::assertTrue($contas[0]->souTitular);
@@ -49,7 +52,7 @@ final class ListarMinhasContasUseCaseTest extends TestCase
         $equipe = $this->createMock(EquipeDoEscritorioRepository::class);
         $equipe->method('contarAtivosPorTenant')->with([])->willReturn([]);
 
-        self::assertSame([], (new ListarMinhasContasUseCase($vinculos, $equipe))->executar($this->usuario(1, 'X'), null));
+        self::assertSame([], (new ListarMinhasContasUseCase($vinculos, $equipe, $this->semPedido()))->executar($this->usuario(1, 'X'), null));
     }
 
     private function usuario(int $id, string $nome): User
@@ -69,5 +72,11 @@ final class ListarMinhasContasUseCaseTest extends TestCase
         (new \ReflectionProperty(Tenant::class, 'id'))->setValue($t, $id);
 
         return $t;
+    }
+
+    /** Sem pedido de exclusão pendente: nenhuma conta é barrada (PR 5). */
+    private function semPedido(): BloqueioPorPedidoDeExclusao
+    {
+        return new BloqueioPorPedidoDeExclusao($this->createStub(PedidoDeExclusaoDeContaRepository::class), new RegraDosPrimarios($this->createStub(UserTenantRepository::class)));
     }
 }
