@@ -1,17 +1,17 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Lista de Eventos{% endblock %}
+{% block title %}{{ 'agenda.lista.titulo'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0"><i class="bi bi-list-ul me-2"></i>Lista de Eventos</h1>
+        <h1 class="m-0"><i class="bi bi-list-ul me-2"></i>{{ 'agenda.lista.titulo'|trans }}</h1>
         <div class="d-flex gap-2">
             <a href="{{ path('agenda_index') }}" class="btn btn-outline-primary">
-                <i class="bi bi-calendar3 me-1"></i> Ver Calendário
+                <i class="bi bi-calendar3 me-1"></i> {{ 'agenda.lista.ver_calendario'|trans }}
             </a>
             <a href="{{ path('agenda_novo') }}" class="btn btn-success">
-                <i class="bi bi-plus-lg me-1"></i> Novo Evento
+                <i class="bi bi-plus-lg me-1"></i> {{ 'agenda.lista.novo_evento'|trans }}
             </a>
         </div>
     </div>
@@ -22,7 +22,7 @@
         {# Filtros #}
         <div class="card card-outline card-primary mb-3">
             <div class="card-header">
-                <h3 class="card-title"><i class="bi bi-funnel me-1"></i> Filtros</h3>
+                <h3 class="card-title"><i class="bi bi-funnel me-1"></i> {{ 'agenda.lista.filtros'|trans }}</h3>
             </div>
             <div class="card-body">
                 <form method="GET" action="{{ path('agenda_lista') }}">
@@ -34,20 +34,20 @@
                     {% endif %}
                     <div class="row g-3">
                         <div class="col-md-3">
-                            <label for="filter_status" class="form-label">Status</label>
+                            <label for="filter_status" class="form-label">{{ 'agenda.comum.status'|trans }}</label>
                             <select id="filter_status" name="status" class="form-control">
-                                <option value="">Todos</option>
-                                <option value="agendado" {% if statusFiltro == 'agendado' %}selected{% endif %}>Agendado</option>
-                                <option value="concluido" {% if statusFiltro == 'concluido' %}selected{% endif %}>Concluído</option>
-                                <option value="cancelado" {% if statusFiltro == 'cancelado' %}selected{% endif %}>Cancelado</option>
+                                <option value="">{{ 'agenda.lista.status_todos'|trans }}</option>
+                                <option value="agendado" {% if statusFiltro == 'agendado' %}selected{% endif %}>{{ 'agenda.lista.status_agendado'|trans }}</option>
+                                <option value="concluido" {% if statusFiltro == 'concluido' %}selected{% endif %}>{{ 'agenda.lista.status_concluido'|trans }}</option>
+                                <option value="cancelado" {% if statusFiltro == 'cancelado' %}selected{% endif %}>{{ 'agenda.lista.status_cancelado'|trans }}</option>
                             </select>
                         </div>
                         <div class="col-md-2 d-flex align-items-end gap-2">
                             <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-search me-1"></i> Filtrar
+                                <i class="bi bi-search me-1"></i> {{ 'agenda.lista.filtrar'|trans }}
                             </button>
                             <a href="{{ path('agenda_lista') }}" class="btn btn-secondary">
-                                <i class="bi bi-x-lg me-1"></i> Limpar
+                                <i class="bi bi-x-lg me-1"></i> {{ 'agenda.lista.limpar'|trans }}
                             </a>
                         </div>
                     </div>
@@ -56,14 +56,14 @@
         </div>
 
         <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="text-muted" data-agenda-total="{{ eventos|length }}"><i class="bi bi-calendar-event me-1"></i> {{ eventos|length }} evento(s) encontrado(s)
+            <span class="text-muted" data-agenda-total="{{ eventos|length }}"><i class="bi bi-calendar-event me-1"></i> {{ 'agenda.lista.encontrados'|trans({total: eventos|length ~ ''}) }}
                 {%- if filtroPessoa is defined %}
-                    <span data-agenda-filtro-pessoa> na agenda de {{ filtroPessoa.nome ?? 'pessoa não encontrada neste escritório' }}
-                    {%- if filtroPessoa.data_de != '' or filtroPessoa.data_ate != '' %} · {{ filtroPessoa.data_de != '' ? 'de ' ~ filtroPessoa.data_de|date('d/m/Y') : '' }}{{ filtroPessoa.data_ate != '' ? ' até ' ~ filtroPessoa.data_ate|date('d/m/Y') : '' }}{% endif %}
-                    · em que a pessoa é criadora ou participante, sem cancelados e sem os "Somente para mim"
+                    <span data-agenda-filtro-pessoa> {{ 'agenda.lista.na_agenda_de'|trans({nome: filtroPessoa.nome ?? 'agenda.lista.pessoa_nao_encontrada'|trans}) }}
+                    {%- if filtroPessoa.data_de != '' or filtroPessoa.data_ate != '' %} · {{ filtroPessoa.data_de != '' ? 'agenda.lista.periodo_de'|trans({data: filtroPessoa.data_de|data}) : '' }}{{ filtroPessoa.data_ate != '' ? ' ' ~ 'agenda.lista.periodo_ate'|trans({data: filtroPessoa.data_ate|data}) : '' }}{% endif %}
+                    · {{ 'agenda.lista.filtro_criadora_ou_participante'|trans }} "{{ 'agenda.lista.filtro_somente_para_mim'|trans }}"
                     {#- SEC-016: só os que VOCÊ pode ver — "Para Todos" com participantes é do criador e
                         dos participantes. Por isso o total pode ser menor que o número do Dashboard. #}
-                    · só os eventos que você pode ver</span>
+                    · {{ 'agenda.lista.filtro_so_os_que_voce_ve'|trans }}</span>
                 {%- endif -%}
             </span>
         </div>
@@ -74,14 +74,14 @@
                 <table class="table table-striped table-hover mb-0">
                     <thead>
                         <tr>
-                            <th><i class="bi bi-card-heading me-1"></i> Título</th>
-                            <th><i class="bi bi-calendar-event me-1"></i> Início</th>
-                            <th><i class="bi bi-calendar-check me-1"></i> Fim</th>
-                            <th><i class="bi bi-geo-alt me-1"></i> Local</th>
-                            <th><i class="bi bi-flag me-1"></i> Status</th>
-                            <th><i class="bi bi-person me-1"></i> Criador</th>
-                            <th><i class="bi bi-people me-1"></i> Participantes</th>
-                            <th><i class="bi bi-gear me-1"></i> Ações</th>
+                            <th><i class="bi bi-card-heading me-1"></i> {{ 'agenda.comum.titulo'|trans }}</th>
+                            <th><i class="bi bi-calendar-event me-1"></i> {{ 'agenda.comum.inicio'|trans }}</th>
+                            <th><i class="bi bi-calendar-check me-1"></i> {{ 'agenda.comum.fim'|trans }}</th>
+                            <th><i class="bi bi-geo-alt me-1"></i> {{ 'agenda.comum.local'|trans }}</th>
+                            <th><i class="bi bi-flag me-1"></i> {{ 'agenda.comum.status'|trans }}</th>
+                            <th><i class="bi bi-person me-1"></i> {{ 'agenda.lista.criador'|trans }}</th>
+                            <th><i class="bi bi-people me-1"></i> {{ 'agenda.comum.participantes'|trans }}</th>
+                            <th><i class="bi bi-gear me-1"></i> {{ 'agenda.comum.acoes'|trans }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -91,11 +91,11 @@
                                 <span class="badge" style="background-color: {{ evento.cor }};">&nbsp;</span>
                                 {{ evento.titulo }}
                                 {% if evento.diaInteiro %}
-                                    <small class="text-muted">(dia inteiro)</small>
+                                    <small class="text-muted">{{ 'agenda.lista.dia_inteiro'|trans }}</small>
                                 {% endif %}
                             </td>
-                            <td>{{ evento.dataInicio|date('d/m/Y H:i') }}</td>
-                            <td>{{ evento.dataFim|date('d/m/Y H:i') }}</td>
+                            <td>{{ evento.dataInicio|data_hora }}</td>
+                            <td>{{ evento.dataFim|data_hora }}</td>
                             <td>{{ evento.local ?: '-' }}</td>
                             <td>
                                 <span class="badge {{ evento.statusBadgeClass }}">{{ evento.statusLabel }}</span>
@@ -103,7 +103,7 @@
                             <td>{{ evento.criador.fullName }}</td>
                             <td>
                                 {% if evento.participantes|length > 0 %}
-                                    {{ evento.participantes|length }} pessoa(s)
+                                    {{ 'agenda.lista.pessoas'|trans({total: evento.participantes|length ~ ''}) }}
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}
@@ -112,14 +112,14 @@
                                 <div class="acoes-grupo">
                                     <a href="{{ path('agenda_show', {id: evento.id}) }}"
                                        class="btn-action btn-action-view"
-                                       title="Visualizar evento"
-                                       aria-label="Visualizar evento">
+                                       title="{{ 'agenda.lista.visualizar_evento'|trans }}"
+                                       aria-label="{{ 'agenda.lista.visualizar_evento'|trans }}">
                                         <i class="bi bi-eye"></i>
                                     </a>
                                     <a href="{{ path('agenda_editar', {id: evento.id}) }}"
                                        class="btn-action btn-action-edit"
-                                       title="Editar evento"
-                                       aria-label="Editar evento">
+                                       title="{{ 'agenda.comum.editar_evento'|trans }}"
+                                       aria-label="{{ 'agenda.comum.editar_evento'|trans }}">
                                         <i class="bi bi-pencil"></i>
                                     </a>
                                     {% if evento.status != 'cancelado' %}
@@ -127,9 +127,9 @@
                                         <input type="hidden" name="_token" value="{{ csrf_token('cancelar' ~ evento.id) }}">
                                         <button type="submit"
                                                 class="btn-action btn-action-delete"
-                                                title="Cancelar evento"
-                                                aria-label="Cancelar evento"
-                                                onclick="return confirm('Cancelar este evento?')">
+                                                title="{{ 'agenda.lista.cancelar_evento'|trans }}"
+                                                aria-label="{{ 'agenda.lista.cancelar_evento'|trans }}"
+                                                onclick="return confirm('{{ 'agenda.lista.cancelar_confirmar'|trans|e('js') }}')">
                                             <i class="bi bi-x-circle"></i>
                                         </button>
                                     </form>
@@ -142,7 +142,7 @@
                 </table>
                 {% else %}
                 <div class="p-3">
-                    <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum evento encontrado.</div>
+                    <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> {{ 'agenda.lista.nenhum_evento'|trans }}</div>
                 </div>
                 {% endif %}
             </div>

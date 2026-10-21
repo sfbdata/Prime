@@ -1,19 +1,19 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Novo Evento{% endblock %}
+{% block title %}{{ 'agenda.form.novo_titulo'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid">
         <div class="row mb-2">
             <div class="col-sm-6">
-                <h1 class="m-0"><i class="bi bi-calendar-plus me-2"></i>Novo Evento</h1>
+                <h1 class="m-0"><i class="bi bi-calendar-plus me-2"></i>{{ 'agenda.form.novo_titulo'|trans }}</h1>
             </div>
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-end">
-                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
-                    <li class="breadcrumb-item"><a href="{{ path('agenda_index') }}">Agenda</a></li>
-                    <li class="breadcrumb-item active">Novo Evento</li>
+                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">{{ 'agenda.comum.home'|trans }}</a></li>
+                    <li class="breadcrumb-item"><a href="{{ path('agenda_index') }}">{{ 'agenda.comum.agenda'|trans }}</a></li>
+                    <li class="breadcrumb-item active">{{ 'agenda.form.novo_titulo'|trans }}</li>
                 </ol>
             </div>
         </div>
@@ -26,7 +26,7 @@
             <div class="col-md-8">
                 <div class="card card-primary">
                     <div class="card-header">
-                        <h3 class="card-title">Informações do Evento</h3>
+                        <h3 class="card-title">{{ 'agenda.form.novo_cartao'|trans }}</h3>
                     </div>
                     {{ form_start(form, {'attr': {'novalidate': 'novalidate'}}) }}
                     <div class="card-body">
@@ -75,19 +75,19 @@
                         </div>
 
                         <hr>
-                        <h5><i class="bi bi-eye me-1"></i> Visibilidade</h5>
+                        <h5><i class="bi bi-eye me-1"></i> {{ 'agenda.form.visibilidade'|trans }}</h5>
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 {{ form_row(form.visibilidade, {'attr': {'class': 'form-select', 'id': 'evento_visibilidade'}}) }}
                             </div>
                         </div>
                         <div id="participantes-section">
-                            <h5><i class="bi bi-people me-1"></i> Participantes</h5>
+                            <h5><i class="bi bi-people me-1"></i> {{ 'agenda.comum.participantes'|trans }}</h5>
                             {{ form_row(form.participantes, {'attr': {'class': 'form-control select2-participantes'}}) }}
                         </div>
 
                         <hr>
-                        <h5><i class="bi bi-arrow-repeat me-1"></i> Recorrência</h5>
+                        <h5><i class="bi bi-arrow-repeat me-1"></i> {{ 'agenda.comum.recorrencia'|trans }}</h5>
                         <div class="row">
                             <div class="col-md-3">
                                 <div class="form-check">
@@ -107,10 +107,10 @@
                     </div>
                     <div class="card-footer">
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-lg me-1"></i> Salvar Evento
+                            <i class="bi bi-check-lg me-1"></i> {{ 'agenda.form.salvar_evento'|trans }}
                         </button>
                         <a href="{{ path('agenda_index') }}" class="btn btn-secondary">
-                            <i class="bi bi-x-lg me-1"></i> Cancelar
+                            <i class="bi bi-x-lg me-1"></i> {{ 'agenda.form.cancelar'|trans }}
                         </a>
                     </div>
                     {{ form_end(form) }}
@@ -120,13 +120,13 @@
             <div class="col-md-4">
                 <div class="card card-info">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-info-circle me-1"></i> Dicas</h3>
+                        <h3 class="card-title"><i class="bi bi-info-circle me-1"></i> {{ 'agenda.form.dicas'|trans }}</h3>
                     </div>
                     <div class="card-body">
-                        <p class="small"><i class="bi bi-check-circle text-success me-1"></i> Preencha o título e as datas do evento.</p>
-                        <p class="small"><i class="bi bi-check-circle text-success me-1"></i> Adicione participantes para notificá-los.</p>
-                        <p class="small"><i class="bi bi-check-circle text-success me-1"></i> Use cores diferentes para categorizar eventos.</p>
-                        <p class="small"><i class="bi bi-check-circle text-success me-1"></i> Configure recorrência para eventos repetitivos.</p>
+                        <p class="small"><i class="bi bi-check-circle text-success me-1"></i> {{ 'agenda.form.dica_titulo_datas'|trans }}</p>
+                        <p class="small"><i class="bi bi-check-circle text-success me-1"></i> {{ 'agenda.form.dica_participantes'|trans }}</p>
+                        <p class="small"><i class="bi bi-check-circle text-success me-1"></i> {{ 'agenda.form.dica_cores'|trans }}</p>
+                        <p class="small"><i class="bi bi-check-circle text-success me-1"></i> {{ 'agenda.form.dica_recorrencia'|trans }}</p>
                     </div>
                 </div>
             </div>
@@ -137,11 +137,12 @@
 
 {% block javascripts %}
 {{ parent() }}
+{{ catalogo_js('agenda.form.js') }}
 <script>
 $(document).ready(function() {
     // Select2 para participantes
     $('.select2-participantes').select2({
-        placeholder: 'Selecione os participantes...',
+        placeholder: BJ_T.t('agenda.form.js.participantes_placeholder'),
         allowClear: true,
         width: '100%'
     });
