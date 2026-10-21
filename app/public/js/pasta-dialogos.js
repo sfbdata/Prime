@@ -605,6 +605,9 @@
     window.confirmarUIPs = confirmarUIPs;
     window.psConfirmarEnvio = psConfirmarEnvio;
     window.avisarPs = avisarPs;
+    /* O aviso de erro da tela no lugar do alert() do navegador (vistoria do desenho 02, c5). Quem roda também fora
+       da pasta chama `(window.avisarErroPs || window.alert)(...)`: sem este arquivo, volta o alert. */
+    window.avisarErroPs = function (mensagem) { avisarPs(mensagem, 'erro'); };
 
     contadores();
     seletorDeResponsaveis();

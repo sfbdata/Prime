@@ -477,7 +477,7 @@ final class AnaliseDaPastaControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('<b>parada</b>', $html);
         self::assertStringNotContainsString('<i>parada</i>', $html);
         self::assertStringContainsString('Dra. Ana', $html);
-        self::assertSame(1, $cartaoGestor->filter('.ia-menu [data-ia-criar-meta]')->count());
+        self::assertSame(1, $cartaoGestor->filter('.ia-res-acoes > [data-ia-criar-meta]')->count());
         self::assertSame(1, $cartaoGestor->filter('form[data-ia-acao="interna"]')->count());
         self::assertSame($prazos->getId(), (int) $crawler->filter('.ia-comando[data-ia-comando="verificar_prazos"] .ia-cartao')->attr('data-ia-analise'));
     }

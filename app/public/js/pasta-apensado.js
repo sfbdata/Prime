@@ -95,7 +95,7 @@
 
     function avisarErro(mensagem) {
         if (window.avisarPs) { window.avisarPs(mensagem, 'erro'); return; }
-        window.alert(mensagem);
+        (window.avisarErroPs || window.alert)(mensagem);
     }
 
     function desvincularApensado() {
