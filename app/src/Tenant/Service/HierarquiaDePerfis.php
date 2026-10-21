@@ -37,6 +37,19 @@ final class HierarquiaDePerfis implements ResetInterface
     public const RECUSA_ALVO_ACIMA_DO_SEU = 'Seu perfil não pode mexer em quem tem permissões que ele não tem.';
     public const RECUSA_SENHA_DE_OUTRO_ESCRITORIO = 'Esta pessoa também usa outro escritório. A senha só pode ser trocada por ela, em Meu Perfil, ou pelo suporte.';
 
+    /**
+     * A chave de cada recusa no catálogo (spec idioma-do-sistema): o texto acima continua sendo o português, a fonte
+     * (e o que os testes comparam); quem leva a recusa à tela traduz pela chave. O CatalogoDasRecusasTest garante
+     * que o português do catálogo é igual ao daqui.
+     */
+    public const CHAVE_DA_RECUSA = [
+        self::RECUSA_MESMO_NIVEL_OU_ACIMA => 'perfis.recusa.mesmo_nivel_ou_acima',
+        self::RECUSA_PROPRIO_PERFIL => 'perfis.recusa.proprio_perfil',
+        self::RECUSA_PERFIL_ACIMA_DO_SEU => 'perfis.recusa.perfil_acima_do_seu',
+        self::RECUSA_ALVO_ACIMA_DO_SEU => 'perfis.recusa.alvo_acima_do_seu',
+        self::RECUSA_SENHA_DE_OUTRO_ESCRITORIO => 'perfis.recusa.senha_de_outro_escritorio',
+    ];
+
     /** @var array<string, int> nível do ator por "usuário:escritório", calculado uma vez por requisição */
     private array $niveis = [];
 
