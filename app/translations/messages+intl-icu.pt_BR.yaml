@@ -1154,6 +1154,296 @@ perfis:
         remover_titulo: Remover primário
         remover_texto: '"{nome}" deixa de ser primário e volta a ser secundário. A remoção fica na auditoria da conta.'
 
+# ---- master: Painel do Master (master/painel.html.twig e painel.js), da série da b5. P2a: a moldura do painel (abas,
+# Permissões, Telas e recursos) e a Visão geral do painel.js (KPIs, gráfico, mapa, estados que faltam, seccionais e
+# janela da OAB), com as respostas das seccionais. As outras seções do painel.js ficam para a P2b; o Comercial da 5d tem
+# bloco de topo próprio (comercial:). O termo solto ou numa frase curta vem de termos.* por parâmetro.
+master:
+    painel:
+        titulo_pagina: 'Editar Perfil | {papel} do Sistema'
+        titulo: 'Editar Perfil: {papel} do Sistema'
+        voltar: Voltar
+        cancelar: Cancelar
+        aba:
+            painel: Painel do sistema
+            permissoes: Permissões
+            recursos: Telas e recursos
+        faixa: Painel exclusivo do Master. Mostra metadados das contas (quantidades, consumo, situação), nunca o conteúdo jurídico dos escritórios.
+        carregando: Carregando o painel…
+        masters:
+            titulo: Masters do sistema
+            contagem: '{n} Master(s)'
+            tag: '{papel} {nivel}'
+            primario_dica: O Master primário não pode ser excluído
+            remover: Remover este Master
+            vazio: Nenhum usuário com o papel de Master.
+            oab: 'OAB {numero}'
+            sem_oab: sem OAB
+            sem_perfil: sem perfil
+            promover_titulo: 'Promover a {papel}'
+            promover_campo: Usuário secundário a promover a Master
+            promover_escolha: Escolha um usuário secundário da conta *
+            promover_info: Precisa estar cadastrado antes como usuário secundário.
+            promover_msg: Master secundário tem os poderes do sistema, mas não pode excluir o Master primário. Toda promoção e remoção vai para a auditoria.
+            promover: Promover
+        poderes:
+            titulo: Poderes exclusivos do Master
+            fixos_dica: Fixos, não podem ser removidos nem transferidos
+            ver_contas: Ver e administrar todas as contas do BlueJus
+            suspender: Suspender, reativar e excluir contas
+            limites: Definir limites de armazenamento e usuários
+            planos: Criar e alterar planos e franquias
+            configuracoes: Configurações globais do sistema
+            auditoria: Acessar toda a trilha de auditoria do sistema
+            masters: Promover e remover Masters secundários
+            sem_tempo: Sem restrição de tempo para editar ou excluir
+            rodape: Esses poderes só existem no perfil Master. Primários e secundários dos escritórios nunca os recebem.
+        papeis:
+            titulo: Atribuições por papel
+            faz: 'Faz:'
+            nao_faz: 'Não faz:'
+            master_quem: O criador do BlueJus (Master primário) e quem ele promover (Master secundário).
+            master_faz: 'administra a plataforma: contas, limites, planos, custos, infraestrutura, configurações globais e auditoria do sistema.'
+            master_nao_faz: não atua dentro dos escritórios nem lê o conteúdo jurídico das contas; não tem perfil de primário nem de secundário.
+            primario_quem: Quem abriu a conta (titular) e os sócios que ele promover.
+            primario_faz: 'gere o próprio escritório: convida e administra secundários, cria perfis, define permissões, configura módulos e audita a conta.'
+            primario_nao_faz: não vê nem altera outras contas, limites contratados ou configurações do sistema.
+            secundario_quem: Colaborador convidado pelo primário.
+            secundario_faz: trabalha nas pastas, processos e módulos liberados pelo seu perfil.
+            secundario_nao_faz: não administra usuários, perfis ou configurações, nem acessa o painel do sistema.
+            rodape: Cada papel tem competências separadas. O Master não recebe permissões de escritório e o primário não recebe poderes do sistema.
+        recursos:
+            titulo: Telas e recursos do sistema
+            texto: Desative uma tela ou função enquanto não estiver pronta, por regularidade ética ou por falha. Quem não é Master deixa de ver; o Master continua vendo, marcado em vermelho.
+            desativados: '{n} desativado(s) para os usuários'
+            tudo_ativo: Tudo ativo
+            busca: Buscar tela ou função
+    seccionais:
+        nao_encontrada: Seccional não encontrada.
+        token_invalido: Token CSRF inválido. Recarregue a página.
+        subsecao_adicionada: 'Subseção adicionada na {seccional}.'
+        subsecao_removida: 'Subseção removida da {seccional}.'
+        nota_salva: 'Nota da {seccional} salva.'
+        nota_apagada: 'Nota da {seccional} apagada.'
+        sede_atualizada: 'Sede da {seccional} atualizada.'
+        divulgacao_registrada: 'Divulgação registrada na {seccional}: {tipo}.'
+    # Chaves do painel.js: vão cruas ao navegador (só {nome}, sem plural do ICU).
+    js:
+        carregando: Carregando…
+        erro_secao: Não foi possível carregar esta seção agora. Recarregue a página.
+        sem_informacao: sem informação
+        gb_menos: 'menos de {n} GB'
+        cancelar: Cancelar
+        fechar: Fechar
+        campo:
+            nome: NOME
+            endereco: ENDEREÇO
+            telefone: TELEFONE
+            site: SITE
+        secao:
+            visao: Visão geral
+            contas: Contas e escritórios
+            oab: Usuários e OABs
+            arm: Armazenamento
+            planos: Planos e limites
+            custos: Custos e infraestrutura
+            desemp: Desempenho
+            audit: Segurança e auditoria
+            config: Configurações globais
+            com: Comercial e e-mails
+            ind: Indicações do BlueJus
+            notif: Central de Notificações
+        vazia:
+            aviso: DADO AINDA NÃO COLETADO · DEPENDE DE INTEGRAÇÃO NO SERVIDOR
+            custos:
+                texto: Mostra quanto custa manter o BlueJus e o impacto de cada conta, separando custos medidos, importados de fornecedores e estimados. Sem integração financeira, os valores podem ser lançados manualmente, com origem identificada.
+                armazenamento: Armazenamento
+                banco: Banco de dados
+                hospedagem: Hospedagem
+                trafego: Tráfego
+                backups: Backups
+                apis_ia: APIs de IA
+                notificacoes: Notificações
+                receita: Receita recorrente
+                custo_conta: Custo por conta
+                custo_gb: Custo por GB
+                margem: Margem por plano
+                projecao: Projeção 3, 6 e 12 meses
+            desemp:
+                titulo: Desempenho e disponibilidade
+                texto: Saúde técnica da plataforma, com histórico filtrável por gravidade, período e categoria. Métricas não coletadas aparecem como indisponíveis, nunca estimadas.
+                disponibilidade: Disponibilidade
+                tempo_resposta: Tempo de resposta
+                erros: Erros
+                falhas_upload: Falhas de upload
+                falhas_login: Falhas de login
+                ultimo_backup: Último backup
+                teste_restauracao: Teste de restauração
+                cpu_memoria: CPU e memória
+                integracoes: Integrações
+                incidentes: Incidentes
+            config:
+                texto: Parâmetros que valem para todas as contas. Cada alteração exige confirmação e fica na auditoria.
+                faixas: Faixas de alerta padrão
+                periodo_teste: Período de teste
+                excedente: Política de excedente
+                excecoes: Exceções temporárias
+                autenticacao: Autenticação reforçada
+                retencao: Retenção de auditoria
+        visao:
+            kpi:
+                escritorios: ESCRITÓRIOS
+                escritorios_desc: '{ativas} ativa · {suspensas} suspensa'
+                primarios: USUÁRIOS PRIMÁRIOS
+                primarios_desc: quem abriu o escritório e os sócios
+                secundarios: USUÁRIOS SECUNDÁRIOS
+                secundarios_desc: convidados em todas as contas
+                oab: OABs ÚNICAS
+                oab_desc: '{registros} registros · {duplicados} duplicado(s)'
+                pastas: PASTAS
+                pastas_desc: soma de todas as contas
+                documentos: DOCUMENTOS
+                documentos_desc: arquivos armazenados
+                armazenamento: ARMAZENAMENTO
+                arm_sem_dado: 'contratado: sem informação · ponto e tarefas não medidos'
+                arm_desc: 'de {cota} GB contratados · livre {livre}'
+                arm_sem_limite: '+ {gb} em {n} conta(s) sem limite'
+                receita: RECEITA MENSAL
+                receita_desc: sem integração financeira ainda
+            grafico:
+                titulo: Crescimento
+                tit_contas: contas cadastradas
+                tit_usuarios: usuários (primários + secundários)
+                tit_pastas: pastas no sistema
+                tit_gb: armazenamento em GB
+                met_contas: Contas
+                met_usuarios: Usuários
+                met_pastas: Pastas
+                met_gb: Armazenamento (GB)
+                por_mes: Por mês
+                por_ano: Por ano
+                continua: Linha contínua
+                acumulado: Acumulado
+                novos: Novos no mês
+                todos_anos: Todos os anos
+                mes:
+                    jan: jan
+                    fev: fev
+                    mar: mar
+                    abr: abr
+                    mai: mai
+                    jun: jun
+                    jul: jul
+                    ago: ago
+                    set: set
+                    out: out
+                    nov: nov
+                    dez: dez
+            idades:
+                titulo: Faixa etária dos usuários
+                media: 'idade média {valor}'
+                anos: '{n} anos'
+                nota: Calculada pela data de nascimento do Meu Perfil. {n} usuário(s) sem data não entram na conta.
+                menores: '{n} com menos de 18 anos não entram nas faixas.'
+        mapa:
+            titulo: Onde estamos atuando
+            por_estado: usuários por estado
+            por_pais: usuários por país
+            total: '{n} no total'
+            pessoas: Pessoas
+            escritorios: Escritórios
+            primarios: Primários
+            geral: Geral
+            so_primarios: Só primários
+            brasil: Brasil
+            mundo: Mundo
+            estado: Estado
+            pais: País
+            outros_paises: Outros países
+            sem_endereco: Sem endereço no cadastro
+            sem_localizacao: Sem localização no cadastro
+            sem_localizacao_dica: Sem lotação Cidade/UF, sem UF da OAB e sem estado do escritório
+            total_geral: Total geral
+            tendencia: '{ag} nos últimos 30 dias · {an} nos 30 anteriores'
+            tendencia_so_pessoas: Tendência medida só para pessoas
+            escala_menos: menos
+            escala_mais: mais
+            malha: 'Malha dos estados: IBGE'
+            iframe_brasil: Mapa do Brasil por estado
+            iframe_mundo: Mapa mundial por país
+            regiao:
+                norte: Norte
+                nordeste: Nordeste
+                centro_oeste: Centro-Oeste
+                sudeste: Sudeste
+                sul: Sul
+                america_sul: América do Sul
+                america_norte: América do Norte e Central
+                europa: Europa
+                lusofonia: Lusofonia
+        faltam:
+            dica: Mostrar onde ainda não temos usuários
+            ocultar: Ocultar o que falta
+            estados: Estados que faltam
+            paises: Países que faltam
+            cobertura: 'Cobertura:'
+            cobertura_valor: '{feitos} de {total} ({pct}%)'
+            faltam: 'faltam {n} para alcançar {meta}'
+            meta_estados: 'os {n} estados'
+            meta_paises: 'os {n} países-alvo'
+            rodape: Oportunidades de expansão
+        seccionais:
+            carregando: Carregando as seccionais…
+            erro_carga: Não foi possível carregar as seccionais agora. Recarregue a página.
+            erro_salvar: Não foi possível salvar agora. Recarregue a página.
+            titulo: SECCIONAIS VISÍVEIS
+            mostrar_todas: Mostrar todas
+            ocultar_todas: Ocultar todas
+            nota: 'Clique numa seccional para ver a sede. Botão direito na lista mostra ou oculta no mapa; botão direito no mapa registra a divulgação (material enviado, reunião, parceria). O ponto colorido indica seccional já trabalhada. Fonte: Conselho Federal da OAB.'
+            oculta: oculta no mapa
+            visivel: visível no mapa
+            ultima: 'última divulgação: {rotulo} em {data}'
+            usuario_um: 1 usuário
+            usuarios: '{n} usuários'
+            sem_endereco: Endereço não cadastrado. Confira no CFOAB.
+            site: Site da seccional
+            cfoab: Endereço oficial (CFOAB)
+            editar_sede: Editar sede
+            salvar_sede: Salvar sede
+            sede_ajuda: Confira os dados no site do CFOAB. Campo vazio fica sem informação. A alteração fica registrada na auditoria.
+            site_invalido: 'Informe o site completo, começando com https://.'
+            divulgacoes: ÚLTIMAS DIVULGAÇÕES
+            autor_removido: autor removido
+            sem_divulgacao: Nenhuma divulgação registrada. Use o botão direito no mapa.
+        janela_oab:
+            dica: Ver endereços da OAB e escrever nota
+            exemplo: 'Ex.: contato com a presidente da subseção, enviar material em novembro'
+            so_brasil: A janela da OAB vale só para os estados do Brasil.
+            subtitulo: '{uf} · {quantos} no BlueJus'
+            sem: 'sem {unidade}'
+            escritorios: escritórios
+            primarios: primários
+            usuarios: usuários
+            subsecao: subseção
+            subsecoes: subseções
+            sem_endereco: sem endereço
+            tem_nota: Tem nota
+            sede: SECCIONAL · SEDE
+            editar: Editar
+            ver_mapa: Ver no mapa
+            site_oficial: Site oficial
+            subsecoes_titulo: SUBSEÇÕES
+            adicionar_endereco: Adicionar endereço
+            subs_vazio: 'Nenhuma subseção cadastrada. {link} e adicionar.'
+            pesquisar: Pesquisar o endereço oficial
+            remover: Remover
+            adicionar: Adicionar
+            nota: NOTA EXPLICATIVA
+            salvar_nota: Salvar nota
+            atualizada: 'Atualizada em {data}'
+            remover_titulo: Remover subseção
+            remover_texto: 'O endereço "{nome}" sai da lista da seccional. A remoção fica registrada na auditoria.'
+
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro
 # ('perfis.x'|trans({papel: 'termos.master'|trans})).

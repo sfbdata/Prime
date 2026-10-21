@@ -139,5 +139,13 @@
         "permitidos": [
             "Escape"
         ]
+    },
+
+    "master": {
+        "templates": [
+            "master/painel.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
     }
 }
