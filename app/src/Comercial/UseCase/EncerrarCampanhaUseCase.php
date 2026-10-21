@@ -16,10 +16,14 @@ use Psr\Clock\ClockInterface;
  * envios viram `cancelado` aqui mesmo (o handler só reivindica `enfileirado`). Os parâmetros do público somem. A trilha
  * manual (`camp_fim`, `{publico, frequencia, total}`) vai na mesma transação, sem autor (o console não tem sessão). É o
  * freio enquanto "Pausar" e "Encerrar" na tela esperam o dono (A3).
+ *
+ * O "Cancelar envio" do Relatório (spec `comercial-relatorio.md`) usa o mesmo caso de uso com o motivo
+ * {@see self::MOTIVO_DO_MASTER} e o autor na trilha; o console segue com {@see self::MOTIVO} e sem autor.
  */
 final class EncerrarCampanhaUseCase
 {
     public const MOTIVO = 'Encerrada pelo console';
+    public const MOTIVO_DO_MASTER = 'Cancelada pelo Master';
     public const NAO_ATIVA = 'Campanha não encontrada ou já encerrada.';
 
     public function __construct(
@@ -29,15 +33,15 @@ final class EncerrarCampanhaUseCase
     ) {
     }
 
-    public function executar(int $id): string
+    public function executar(int $id, string $motivo = self::MOTIVO, ?int $porId = null, ?string $porEmail = null): string
     {
         $agora = $this->relogio->now();
-        $naFila = $this->campanhas->emTransacao(function () use ($id, $agora): ?int {
-            $changes = $this->campanhas->encerrar($id, self::MOTIVO) ?? $this->campanhas->encerrarEnviadaComFila($id, self::MOTIVO);
+        $naFila = $this->campanhas->emTransacao(function () use ($id, $agora, $motivo, $porId, $porEmail): ?int {
+            $changes = $this->campanhas->encerrar($id, $motivo) ?? $this->campanhas->encerrarEnviadaComFila($id, $motivo);
             if ($changes === null) {
                 return null;
             }
-            $this->campanhas->auditar($id, CampanhaDeEmailRepository::ENCERRADA, $changes, null, null, $agora);
+            $this->campanhas->auditar($id, CampanhaDeEmailRepository::ENCERRADA, $changes, $porId, $porEmail, $agora);
 
             return $this->envios->cancelarNaFilaDaOrigem('campanha:' . $id);
         });

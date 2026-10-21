@@ -15,6 +15,7 @@ use App\Pasta\Service\ConteudoDoPushCompartilhado;
 use App\Pasta\Service\GeradorDeEnderecoDoLinkExterno;
 use App\Pasta\Service\MontadorDeLinksExternos;
 use App\Pasta\UseCase\GerarLinkExternoDoPushUseCase;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -51,9 +52,9 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
 
         return new GerarLinkExternoDoPushUseCase(
             $this->links,
-            new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises, $this->cadeados()),
+            new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises, $this->createStub(PedidoDeExclusaoDeContaRepository::class), $this->cadeados()),
             new GeradorDeEnderecoDoLinkExterno($this->links),
-            new MontadorDeLinksExternos($acessos, $this->urlGenerator(), new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class), $this->cadeados())),
+            new MontadorDeLinksExternos($acessos, $this->urlGenerator(), new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class), $this->createStub(PedidoDeExclusaoDeContaRepository::class), $this->cadeados())),
             new MockClock($this->agora()),
         );
     }
@@ -74,6 +75,13 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
         yield 'processo em segredo de justiça' => [static function (self $t): Pasta {
             $processo = $t->processo($t->tenant());
             $processo->setNivelSigilo(1);
+
+            return $t->pastaComProcesso($t->tenant(), $processo);
+        }, 'O processo está em segredo de justiça: o link externo fica indisponível.'];
+        yield 'segredo marcado "Sim" no cartão (P5b), sem sigilo do tribunal' => [static function (self $t): Pasta {
+            $processo = $t->processo($t->tenant());
+            $processo->setNivelSigilo(0);
+            $processo->definirDadosManuais(new \App\Processo\DTO\DadosManuaisDoProcesso(segredo: true), $t->usuario());
 
             return $t->pastaComProcesso($t->tenant(), $processo);
         }, 'O processo está em segredo de justiça: o link externo fica indisponível.'];

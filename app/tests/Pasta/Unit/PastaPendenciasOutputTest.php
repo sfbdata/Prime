@@ -188,11 +188,11 @@ final class PastaPendenciasOutputTest extends TestCase
             'todo item marcado tem arquivo (o filtro removeu tudo): sem pendência',
         );
         self::assertSame(
-            ['n' => 1, 'txt' => '1 item do checklist marcado sem anexo'],
+            ['n' => 1, 'txt' => '1 item marcado sem anexo'],
             PastaPendenciasOutput::montar($this->pastaRegular(), 0, [], $hoje, 1)->porAba['documentos'],
         );
         self::assertSame(
-            ['n' => 3, 'txt' => '3 itens do checklist marcados sem anexo'],
+            ['n' => 3, 'txt' => '3 itens marcados sem anexo'],
             PastaPendenciasOutput::montar($this->pastaRegular(), 0, [], $hoje, 3)->porAba['documentos'],
         );
         self::assertSame(['documentos'], array_keys(PastaPendenciasOutput::montar($this->pastaRegular(), 0, [], $hoje, 2)->porAba));

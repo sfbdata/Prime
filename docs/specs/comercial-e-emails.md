@@ -16,8 +16,8 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   - **1a.** Infraestrutura de envio, registro, confirmação de endereço, rastreio (desligado até a Política), e as
     automações do ciclo da conta (`cad`, `lemb`, `val`, `conv`, `dica`). Empilhada sobre o **#87** da 0d
     (`push-avisar-quando-chegar`, que traz `email_descadastro`).
-  - **1b.** As automações de espaço (`e90`, `e100`, `ped`). Empilhada sobre `contribua-c2` (#74, que contém o #64), da
-    f6, depois da 1a (ou sobre a 1a, se a 1a entrar antes).
+  - **1b.** As automações de espaço (`e90`, `e100`, `ped`). Branch `comercial-1b`, cortada do master em 21/10 (o #74 e
+    o #99 já entraram), migration `Version20261020147100` (nome do coordenador).
   - **2.** Campanhas: modelos, editor de blocos, públicos, agendamento, teste. Spec em §8 (19/10), em dois PRs (2a e
     2b), na branch `comercial-2` empilhada sobre a `comercial-1a` (#99).
   - **3.** Monitoramento (números e CSV por campanha) e Descadastrados.
@@ -540,6 +540,16 @@ verdade, N5). Todos `transacional` (aviso do serviço contratado), escopo plataf
 faixa `Bloqueio` só é atingida quando o uso fecha exatamente no teto. Pedido à f6 (pergunta Q6): um evento
 `EnvioRecusadoPorEspaco(tenantId)` na primeira recusa, que dispara o `e100`.
 
+**Decisões da implementação (21/10, técnicas, da 5d):**
+- O título e o texto do `e90` usam o limite escolhido (80, 85 ou 90). O dc mostra o padrão, 90%; dizer "90%" a quem
+  cruzou 80 seria falso. A prévia do Master também mostra o limite escolhido.
+- A f6 entregou o `EnvioRecusadoPorEspaco` (Q6). Ele sai na hora, antes da exceção. Numa porta, a cópia de documentos
+  da pasta (`CopiarDocumentosDaPastaUseCase`), a recusa acontece dentro de uma transação, e o rollback levaria junto a
+  reserva e o envio (o transporte `comercial` é Doctrine na mesma conexão). Por isso, com transação aberta, o ouvinte
+  guarda a recusa e manda no fim da requisição, do comando ou da mensagem do worker, com ou sem erro.
+- Reserva e envio numa transação própria do ouvinte: se o envio falhar, a reserva volta e o aviso pode sair no
+  próximo evento. Desligada, a automação não consome a vez.
+
 ## 5. Testes
 
 **1a.** Unit: Carteiro (descadastrado não envia; transacional não consulta; DTO incoerente recusado; registro e
@@ -800,3 +810,165 @@ descadastro (`comercial_campanhas`); G9 contagens brutas e K global (8.5); G10 b
 importado (8.3); G15 URLs (8.3); G16 CSV (8.5); G17 teste (8.4); G18 auditoria (8.2, 8.4); G19 `MODELOS[mk].r` quebra
 com próprio (a campanha guarda `modelo_nome`); G20 rastreio (`rastrear = true`, vale com a constante da 1a); G21
 "Baixar HTML" (8.3); G22 teto diário (8.5).
+
+## 9. F2: motor dos filtros da campanha (desenho 05 VS 21.10.26)
+
+Desenho: `docs/design/perfis-1.2/vs-21-10-26/05 - Perfis 1.2 - VS 21.10.26.dc.html`, "Filtrar destinatários" (template
+L258-264, script L631-671). Frente 5d; a tela é a F3. Depende da F1 da 7d (#188, gênero e atuação no Meu Perfil). Risco
+MÉDIO (envio em massa). Sem migration: o filtro fica congelado no `publico_parametros`.
+
+### O que o desenho pede (e entra inteiro)
+- Nove campos, cada um um select de valor único (vazio = todos), combinados com E: busca livre (e-mail ou nome; termos
+  separados por espaço, vírgula ou ponto e vírgula, com OU entre eles), Gênero (F, M), Idade (18 a 24, 25 a 34, 35 a
+  44, 45 a 54, 55 ou mais, em anos completos), Estado (as 27 UFs), Perfil (primário, secundário), Cargo (Advogado(a),
+  Estagiário(a), Controladoria, Financeiro, Administrativo, Outros), OAB (confirmada, pendente, sem), Plano e
+  Aniversário (este mês, próximo mês). Chaves de troca com a tela: `q gen id uf papel cargo oab plano aniv`.
+- Os atalhos (Só mulheres, Só homens, Advogados, Estagiários, Primários, Aniversariantes do mês) trocam o filtro
+  inteiro: são da tela (F3).
+- "N de M atendem ao filtro · K sem essa informação no cadastro (ficam de fora)": M é a lista depois de tirar
+  repetidos, descadastrados e o B1; K conta cada pessoa uma vez, no primeiro campo ativo cujo dado falta, na ordem do
+  dc (gênero, idade, UF, cargo, aniversário). Perfil, OAB e plano não contam como falta: quem não tem conta só não
+  atende. A grade de "2 · PARA QUEM" continua sem o filtro (dc L640).
+
+### Decisões do coordenador (21/10, por delegação do dono; o dono pode rever)
+- **D1. Listas sem cadastro:** os e-mails do CSV, do Individual e da Base de contatos são cruzados com as contas: quem
+  tem conta ganha os dados dela; quem não tem fica sem informação.
+- **D2. UF:** a regra do mapa do Master (`LocalizacaoDaPessoa`): lotação "Cidade/UF", depois a OAB, depois o estado do
+  escritório.
+- **D3. Pessoa em vários escritórios:** Perfil = primário se é primário em algum; Plano bate se algum escritório válido
+  tem o plano.
+- **D4. Opções de Plano:** as do catálogo (inclui o Avançado), e não só as três do dc. Sem espaço gravado = Free.
+- **D5. Cargo:** só a atuação declarada no Meu Perfil (F1, sem backfill), sem deduzir do vínculo. No começo quase todos
+  ficam sem informação, como o dono pediu ("o filtro tem que corresponder à realidade do sistema").
+- **D6. OAB pendente:** não verificada ou divergente.
+- **D7. Idade e aniversário:** calculados na execução; numa campanha recorrente, cada mês pega os aniversariantes da vez.
+
+### Como funciona
+- `FiltroDoPublico` (DTO, valida os valores do dc), `AtributosDosDestinatarios` (três leituras em lote: vínculos
+  válidos, Meu Perfil e o plano pelo Contribua, que é o dono do espaço) e `FiltroDeDestinatarios` (puro, na ordem do dc).
+- O filtro roda no fim do `PublicosDaCampanha::resolver`, só quando está ativo.
+- A contagem devolve `filtro: {ativo, quantos, base, atendem, semInformacao}` para a tela.
+- **Congelamento:** sem filtro, a campanha guarda o que guardava (a lista do CSV ou do Individual já resolvida). Com
+  filtro, guarda `{informados, filtro}`, com a lista que chegou ao filtro (sem repetidos, descadastrados e barrados pelo
+  B1: não guarda quem nunca vai receber), e o expansor reaplica os dois a cada execução.
+  O repositório lê os dois formatos. O `publico_parametros` já era apagado ao terminar; a busca livre (nomes e e-mails)
+  segue a mesma regra. A trilha `camp_conf` continua só com `{publico, frequencia, total}` (R6).
+- **Robustez (revisão de 21/10):** filtro congelado que não passa mais na validação cancela a campanha com motivo
+  próprio (tirar o filtro alargaria o público); os IN vão em blocos de 10 mil (limite de parâmetros do PostgreSQL);
+  nascimento no futuro conta como sem a informação; "Prefiro não informar" (`nao_informado`) também (contrato da F1);
+  OAB com número e sem status é pendente, como no dc; plano fora do catálogo não atende ninguém, sem erro.
+
+## 10. F3: a tela da Central de envios (desenho 05 VS 21.10.26)
+
+Divisão (coordenador, 21/10): F3a editor (selo e nome na prévia, emojis, barra de ações com "Programar envio", "Ver
+como vai chegar" computador e celular, "Salvar como meu modelo", linha de destinatários com repetidos e inválidos), F3b
+UI dos filtros, F3c KPIs embaixo e Descadastrados, F3d e F3e relatório em caixa de entrada (da 9b), F3f teste novo e
+gravado, F3g confirmação de leitura, F3h modo venda na seção Indicações, F3i imagem no modo simples, F4 Datas
+comemorativas. Com migration: F3e, F3g e, provavelmente, F3i e F4 (números pedidos na vez).
+
+### Decisões do coordenador (21/10, por delegação do dono; o dono pode rever)
+- O teste gravado conta no KPI "Campanhas", como no dc.
+- Confirmação de leitura por campanha com o rastreio global desligado (Política): a chave aparece desligada, com a
+  explicação, e Lidos e Taxa de leitura mostram "—".
+- "Entregue" (✓ verde) = enviado sem falha, até haver provedor com recibo.
+- "Reenviar a quem não leu" = uma campanha nova, com confirmação, só com o rastreio ligado.
+- "Excluir do relatório" só oculta (a trilha e a retenção de 24 meses ficam). Estrela e Arquivar são por usuário
+  Master.
+- Descadastrados: lista `comercial_campanhas` e `todos`; "Registrar pedido" grava em `comercial_campanhas`; "Excluir"
+  (reativar) é um por vez, com confirmação e auditoria.
+- "E-mails na fila" = o que está de fato na fila (envios enfileirados), não a soma do total das campanhas.
+- Modo venda: "Cadastrar e-mail" manda a confirmação do endereço (dupla), como já existe; o relatório na seção
+  Indicações mostra tudo, como no dc.
+- Nome na prévia: o primeiro nome do primeiro destinatário, como no dc; "Dra. Ana" quando não há ninguém.
+- Exportar destinatários (CSV): auditado, sem os e-mails já com hash (depois de 24 meses).
+- "Cancelar envio" de recorrente = Encerrar (A3); o dc não tem "Pausar".
+
+### Com o dono (não implementar a parte em dúvida; o controle fica desabilitado ou de fora)
+- Teste para qualquer endereço (dc L668, "Encaminhar para um e-mail"): contraria a C4 (só o Master logado).
+- Imagem no modo simples: o dc grava como `data:`, que o Gmail bloqueia; hospedar no servidor exige decidir tamanho,
+  retenção e URL pública.
+- "Limpar lista" dos Descadastrados (reativação em massa, risco LGPD).
+- Datas comemorativas: o A2 (o dc liga todas; a decisão anterior era desligadas e só primários).
+- Remetente: mostrar o real (`nao-responda@`) ou passar a enviar de `contato@` como no dc. Até a resposta, a tela
+  mostra o remetente real.
+
+### F3b (entregue)
+- O painel "Filtrar destinatários" logo abaixo da grade de públicos (L260): fechado, o selo com quantos campos estão
+  preenchidos (a busca conta) e "N de M com filtro" ou "Todos (M)"; aberto, a busca, os 7 atalhos (L664, cada um troca
+  o filtro inteiro), os 8 selects (Plano pelo catálogo, D4) e "N de M atendem ao filtro · K sem essa informação no
+  cadastro (ficam de fora)" ou "Enviando para todos da lista (M)", com "Limpar filtro". O `filtro` vai na contagem e na
+  confirmação; quem conta é o servidor (F2). O modo venda (só busca e Estado) é da F3h.
+
+### F3a (entregue)
+- Cabeçalho "Central de envios · nova campanha" (L251) com o botão "Descadastrados (N)": dispara
+  `mc:descadastrados-abrir` (o bloco é da F3c, do 0d) e lê o N do `mc:resumo`.
+- "Salvar como meu modelo" no modelo fixo (L653): pede o nome (padrão "<nome> (meu)") e guarda a cópia em Meus
+  modelos no MESMO modo (`SalvarComoMeuModeloUseCase`, ação `salvar_como`); o "Duplicar" continua convertendo em blocos.
+- Selo (em maiúsculas ao digitar) e "Nome na prévia" entre Assunto e Título (L270); o nome digitado troca o `{nome}`
+  como foi escrito, só na prévia (`nomeDaPrevia`). Os 10 emojis entram no fim do texto simples (L274). A imagem do
+  mesmo trecho está com o dono.
+- Linha de destinatários do L665: "N destinatário(s) · X descadastrado(s) retirado(s) · Y repetido(s) removido(s) · Z
+  inválido(s) ignorado(s)" ou "· lista limpa"; o B1 entra no mesmo tom. Para contar os inválidos, a leitura do CSV e do
+  Individual passou a manter os endereços errados (o CSV só os que têm "@"); quem filtra é o `PublicosDaCampanha`.
+- Barra (L287-292): "Enviar" ou "Programar envio" com a seta do PROGRAMAR ENVIO (data, REPETIR, Concluir); ver, testar
+  e baixar em ícones; a LGPD na dica do escudo; o relógio com a data e a repetição na linha de destinatários.
+- "Como o destinatário vai receber" (L499-501): computador e celular (375 × 640), o remetente real do sistema.
+- Ganchos para as outras partes: `window.McCampanha.modeloAtual()` (teste da F3f, 7d) e
+  `window.McCampanha.extrasDoEnvio` (F3g, 0d: funções que devolvem um objeto para mesclar no "Enviar campanha").
+
+### F3h: modo venda na seção Indicações (b5, combinado com a 5d em 21/10)
+
+Desenho 05 VS 21.10.26: `secCentral = sec === 'com' || sec === 'ind'` e `venda = sec === 'ind'` (dc L627-645 e o
+render). A mesma Central de envios aparece na seção "Indicações do BlueJus", abaixo do resumo e dos limites (#185/#190).
+Escrita depois da F3a, em cima do código dela; a 5d revisa.
+
+**Tela (modo `venda`):**
+1. Modelos só `convite`, `vagas`, `news` e `novidades`, mais os do usuário; padrão `convite`. O seletor de modelo não
+   aparece (`cmMostraModelo: sec !== 'ind'`) e os passos viram 1 PARA QUEM e 2 MENSAGEM (`cmNPara`/`cmNMsg`).
+2. Públicos só `leads` (rótulo "Novos contatos (base)", descrição "Interessados ainda sem conta"), `csv` e `indiv`, em
+   3 colunas (`cmPubCols`). Público fora da lista volta para `leads`.
+3. Botão "Cadastrar e-mail" no cabeçalho do PARA QUEM (`cmLeadAdd`, borda tracejada do dc).
+4. Filtro (F3b) só com a busca e o Estado: os selects e os atalhos somem.
+5. Relatório: o mesmo da seção Comercial, mostrando tudo (sem origem na campanha; spec §10, sem migration).
+
+**Contrato com o código da 5d:**
+- Os ganchos globais da F3a (`window.McCampanha.modeloAtual()`, `window.McCampanha.extrasDoEnvio`) continuam
+  apontando para a instância do modo `com` (a F3f e a F3g dependem deles); a instância `venda` não se registra neles.
+- `_comercial.html.twig` recebe `modo` (padrão `'com'`) e põe `data-modo` na raiz.
+- `comercial-campanha.js` deixa de ser singleton: roda por raiz (`[data-mc-campanha]`), cada uma com o seu token, as
+  suas URLs e ids únicos, e carrega com `sec === 'com'` ou `sec === 'ind'` conforme a raiz. Uma tabela única
+  `MODOS = {com: {...}, venda: {modelos, publicos, filtros, passos}}`.
+- Não mexer no motor do filtro (`FiltroDoPublico`, `FiltroDeDestinatarios`, `AtributosDosDestinatarios`) nem no
+  relatório da 9b.
+
+**Servidor:**
+- "Cadastrar e-mail": `CadastrarContatoDoMasterUseCase` (Comercial, só Master), que chama
+  `ConfirmacaoDeEnderecoInterface::pedir(...)` para a lista `comercial_campanhas` (`ComposicaoDaCampanha::LISTA`): a
+  confirmação dupla da 1a, com os limitadores (e-mail, IP, global). Quem se descadastrou da lista NÃO recebe o pedido
+  por aqui, nem depois de 30 dias (LGPD, coordenação 21/10): conta à parte na resposta, sem o endereço.
+  Origem `cadastro-manual-master` (rótulo "pela equipe do BlueJus, em um cadastro manual" em `RotulosDoConsentimento`).
+  Vários e-mails separados por vírgula, espaço ou ponto e vírgula; a resposta diz quantos pedidos saíram, quantos já
+  existiam, quantos foram barrados e quantos são descadastrados (`descadastrados`), sem travessão. O texto do dc ("Só cadastre quem autorizou receber (LGPD)") aparece no campo.
+- `modo: 'venda'` no pedido de contagem e de envio, validado no `PedidoDePublico` e no `PedidoDeCampanha`: público fora
+  de `leads`/`csv`/`indiv` ou modelo fora dos quatro (e dos do usuário) é recusado (422). É coerência, não barreira:
+  `modo` e o `cu<id>` são rótulos que o próprio cliente manda (o Master pode enviar pela seção Comercial de qualquer
+  forma). No modo venda, o filtro aceita só busca e Estado (o resto recusado).
+
+**Testes:** a seção ind tem a Central como filho direto (combinador), com `data-modo="venda"`; os dois modos na mesma
+página não se confundem (token, URLs, ids); a recusa no servidor (público, modelo, filtro); o UseCase do cadastro
+(confirmação pedida, limitadores, origem, descadastrado); 403 para quem não é Master; CSRF.
+
+**Estado (21/10, implementado na branch `comercial-f3h`, a revisar pela 5d):**
+- Feito: `_comercial.html.twig` com `modo` (raiz da venda `.mc.mc-venda[data-mc-venda][data-modo="venda"]`, sem
+  `data-mc`, ids com prefixo `mc-venda-`), incluído pelo `_indicacoes.html.twig` como filho direto do `[data-mi]`;
+  `comercial-campanha.js` por raiz, com `MODOS`; `PedidoDePublico::modo` e as recusas da venda no `PedidoDePublico` e
+  no `PedidoDeCampanha`; `CadastrarContatoDoMasterUseCase` em `POST /master/comercial/contatos` (origem
+  `cadastro-manual-master`, rótulos da origem e da lista `comercial_campanhas` no `RotulosDoConsentimento`).
+- Limite por IP do cadastro: `comercial_contatos_master` (20 por hora) no `framework.yaml`, 429 com mensagem.
+- Cada raiz expõe `raiz.mcModeloAtual` (o modelo da própria instância; o teste da F3f lê o da instância do clique).
+- Depois do #223, em PRs próprios (coordenação, 21/10): o Relatório na venda (9b, include no `_comercial.html.twig`
+  dentro da raiz) e o botão "Descadastrados (N)" na venda (0d, o mesmo bloco movido para antes da Central do clique;
+  `raiz.mcExtrasDoEnvio` para a confirmação de leitura).
+- Coordenação, 21/10 (o dono pode rever): o descadastrado não recebe o pedido pelo cadastro do Master; no e-mail do
+  cadastro manual, a segunda frase é "Se não quiser receber, é só ignorar este e-mail." (as outras origens seguem com
+  "Se não foi você, ignore este e-mail.").

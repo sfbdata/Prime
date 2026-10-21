@@ -36,13 +36,20 @@ final readonly class RegistroDeAuditoriaOutput
     ) {
     }
 
-    /** O rótulo da análise na trilha: o do comando do drawer, senão o nome do agente, senão o do tipo. */
+    /**
+     * O rótulo da análise na trilha: o do comando do drawer, senão o nome do agente, senão o do tipo.
+     * A pergunta da aba Perguntar (F3) é "Pergunta à IA" mesmo tendo o Gestor como agente: a trilha
+     * diz quem perguntou e quando, nunca o texto da pergunta (que é da pessoa).
+     */
     public static function rotuloDaAnalise(?Agente $agente, TipoDeAnalise $tipo, ?Comando $comando = null): string
     {
+        if ($tipo === TipoDeAnalise::PerguntaLivre) {
+            return 'Pergunta à IA';
+        }
+
         return $comando?->rotulo() ?? $agente?->nome() ?? match ($tipo) {
             TipoDeAnalise::ResumoPush => 'Análise IA do Push',
             TipoDeAnalise::AnalisePasta => 'Análise de agente',
-            TipoDeAnalise::PerguntaLivre => 'Pergunta à IA',
             TipoDeAnalise::ResumoDocumento => 'Resumo de documento',
         };
     }

@@ -218,6 +218,24 @@ Roda **depois** do backup das 02:00, para que o dump da noite ainda contenha o e
 > A carência de quarentena (padrão 365 dias) é configurável sem deploy via
 > `TENANT_CARENCIA_PURGA_DIAS` no `.env.prod`.
 
+### Cobrança automática do checklist das pastas (crontab na VPS)
+
+Job de manhã, de segunda a sexta (desenho 02, aba Documentos): cobra do responsável os documentos pendentes
+do checklist (no máximo 2 por pasta por dia, o tom sobe a cada aviso, a controladoria vai junto no 4º),
+avisa itens marcados sem o documento anexado e lembra de revisar checklist desativado há 30 dias. Cada
+escritório pula feriado (calendário da Agenda). Idempotente no dia.
+
+```
+# segunda a sexta, 12h UTC = 9h de Brasília
+0 12 * * 1-5 docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:cobrar-checklist >> /var/log/jusprime-checklist.log 2>&1
+```
+
+> **Primeira rodada (piloto):** simule num escritório antes de ligar o cron. O `--simular` lista quem seria
+> cobrado e não envia nem grava nada; depois, rode de verdade só nele:
+> `docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:cobrar-checklist --escritorio=ID --simular`
+> `docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:cobrar-checklist --escritorio=ID`
+> A primeira rodada audita todo item já marcado sem anexo e começa a cobrar toda pasta com pendência.
+
 ### Resumo semanal ao cliente (crontab na VPS)
 
 Toda segunda-feira, às 8h de Brasília, manda aos clientes com o "Resumo semanal" ligado as movimentações da semana anterior (spec `docs/specs/push-envio-automatico.md` §3; simule antes com `--dry-run`; configurar é do dono):
@@ -273,6 +291,43 @@ dos avisos e trava a repetição). Nos outros dias ele passa e não envia nada.
 > só mostra o motivo de não enviar. Para um escritório só: `--tenant=1`.
 >
 > Configurar o cron é do dono.
+
+### Resumo diário por e-mail (crontab na VPS)
+
+Manda a cada pessoa, por escritório, os prazos, as audiências e as metas do dia, para quem deixou ligado o "Resumo
+diário por e-mail" no Meu Perfil (spec `docs/specs/resumo-diario-por-email.md`). O cron roda **todo dia às 8h de
+Brasília**; o comando só envia em **dia útil do escritório** (sábado, domingo e feriado passam), não manda e-mail vazio
+e grava em `resumo_diario_envio` antes de cada envio, então rodar de novo no mesmo dia não manda outra vez.
+
+```
+# todo dia, 11h UTC = 8h de Brasília
+0 11 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:perfil:resumo-diario >> /var/log/jusprime-resumo-diario.log 2>&1
+```
+
+> **Antes de agendar:** rode uma vez em simulação: `docker exec -w /var/www/app jusprime_php_prod php bin/console
+> app:perfil:resumo-diario --dry-run` (não grava nem envia; mostra, por escritório, quantos receberiam). Para um
+> escritório só: `--tenant=1`.
+>
+> Configurar o cron é do dono.
+
+### Número das metas antigas (uma vez, depois da publicação)
+
+As metas ganham um número no escritório ("Nº 0001") ao serem criadas. As que já existiam nascem sem
+número (e a tela não mostra o selo) até este comando rodar. Rode **uma vez depois da publicação** da
+versão com a migration `Version20261020148700`:
+
+```
+docker exec -w /var/www/app jusprime_php_prod php bin/console app:tarefa:numerar-metas --dry-run
+docker exec -w /var/www/app jusprime_php_prod php bin/console app:tarefa:numerar-metas
+```
+
+O `--dry-run` lista quantas metas cada escritório teria numeradas e não grava nada. A numeração é por
+escritório, em ordem de criação, a partir do próximo número livre; rodar de novo não muda nada. Para um
+escritório só: `--escritorio=ID`. Não vai para o cron.
+
+Rode logo depois da publicação: as metas criadas entre a publicação e o comando já nascem com 1, 2, 3... e as
+antigas ficam com os números seguintes (não há colisão, só a ordem fica trocada). O comando grava por SQL direto,
+então a numeração das antigas não aparece na trilha de auditoria (só o número muda; nada mais na meta).
 
 ### Personalizar configuração
 

@@ -11,9 +11,13 @@ use App\Pasta\Entity\MotivoDesativacaoChecklist;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
+use App\Pasta\Service\AvisoDoChecklist;
+use App\Pasta\Service\ControladoriaDoEscritorioInterface;
+use App\Pasta\Service\MensagensDaCobrancaDoChecklist;
 use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Liga ou desliga o checklist de documentação de uma pasta (DOC-73; interruptor "Ativo" do
@@ -29,7 +33,8 @@ use Psr\Clock\ClockInterface;
  * linha de auditoria — e, em particular, desativar o que já está desativado NÃO troca o motivo
  * nem o autor da desativação que existe.
  *
- * Fora daqui, de propósito (S-6): notificação à controladoria, lembrete de 30 dias, cobrança.
+ * Ao desativar, a controladoria é avisada (desenho 02; a D-DOC-S6 "adiar" foi superada em 19/10). O
+ * lembrete de 30 dias e a cobrança ficam com a rotina diária (`CobrarChecklistDoEscritorioUseCase`).
  *
  * Guardas, nesta ordem:
  *   1. a pasta é do escritório da sessão — senão {@see PastaDeOutroEscritorioException} (404);
@@ -49,6 +54,9 @@ final class AlterarEstadoDoChecklistUseCase
         private readonly EntityManagerInterface $em,
         private readonly PermissionChecker $permissionChecker,
         private readonly ClockInterface $clock,
+        private readonly ?ControladoriaDoEscritorioInterface $controladoria = null,
+        private readonly ?AvisoDoChecklist $aviso = null,
+        private readonly ?UrlGeneratorInterface $urls = null,
     ) {
     }
 
@@ -83,8 +91,21 @@ final class AlterarEstadoDoChecklistUseCase
         }
 
         $pasta->desativarChecklist($motivoEscolhido, $usuario, $this->clock->now());
+        $this->avisarControladoria($pasta, $motivoEscolhido, $usuario, $tenant);
         $this->em->flush();
 
         return true;
+    }
+
+    /** Desenho 02 (dc 4247-4248): a controladoria fica sabendo, com o motivo e as pendências em aberto. */
+    private function avisarControladoria(Pasta $pasta, MotivoDesativacaoChecklist $motivo, User $usuario, Tenant $tenant): void
+    {
+        if ($this->controladoria === null || $this->aviso === null || $this->urls === null) {
+            return;
+        }
+        $pendentes = \count(array_filter($pasta->getChecklistItens()->toArray(), static fn ($item): bool => !$item->isConcluido()));
+        $quem = (string) ($usuario->getFullName() ?: $usuario->getEmail());
+        $url = $this->urls->generate('pasta_show', ['id' => $pasta->getId(), 'aba' => 'documentos']);
+        $this->aviso->avisarVarias($this->controladoria->pessoas($tenant), $usuario, $tenant, AvisoDoChecklist::TIPO_PROVIDENCIA, MensagensDaCobrancaDoChecklist::desativado($pasta, $quem, $motivo->rotulo(), $pendentes), $url);
     }
 }

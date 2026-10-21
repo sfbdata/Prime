@@ -3,11 +3,14 @@
 namespace App\Cliente\Entity;
 
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\PastaDocumento;
 use App\Repository\ClienteDocumentoRepository;
 use App\Shared\Contract\TenantAware;
+use Doctrine\ORM\EntityNotFoundException;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ClienteDocumentoRepository::class)]
+#[ORM\UniqueConstraint(name: 'uniq_cliente_documento_vinculo', columns: ['cliente_id', 'pasta_documento_id'])]
 class ClienteDocumento implements TenantAware
 {
     public const CATEGORIA_IDENTIFICACAO          = 'IDENTIFICACAO';
@@ -55,6 +58,16 @@ class ClienteDocumento implements TenantAware
     #[ORM\ManyToOne(targetEntity: Tenant::class)]
     #[ORM\JoinColumn(nullable: false)]
     private ?Tenant $tenant = null;
+
+    /**
+     * Documento VINCULADO a partir do menu Documentos (Inteligência cadastral, F-A): aponta para o arquivo da pasta,
+     * sem cópia. O vinculado não tem arquivo próprio (`caminhoArquivo` vazio, `tamanhoBytes` 0): abrir e baixar usam o
+     * do {@see PastaDocumento}, com a permissão da pasta; remover o vínculo nunca apaga o arquivo da pasta. A purga do
+     * documento da pasta derruba o vínculo (`ON DELETE CASCADE`); na lixeira, ele só some da tela ({@see estaDisponivel}).
+     */
+    #[ORM\ManyToOne(targetEntity: PastaDocumento::class)]
+    #[ORM\JoinColumn(name: 'pasta_documento_id', nullable: true, onDelete: 'CASCADE')]
+    private ?PastaDocumento $pastaDocumento = null;
 
     public function __construct()
     {
@@ -189,5 +202,42 @@ class ClienteDocumento implements TenantAware
         $this->tenant = $tenant;
 
         return $this;
+    }
+
+    /** Liga ao documento da pasta, sem arquivo próprio (ver {@see $pastaDocumento}). */
+    public static function vinculadoA(PastaDocumento $origem, Cliente $cliente, Tenant $tenant): self
+    {
+        $doc = (new self())->setCliente($cliente)->setTenant($tenant)->setTitulo($origem->getTitulo())
+            ->setCategoria($origem->getCategoria())->setNomeOriginal($origem->getNomeOriginal())
+            ->setMimeType($origem->getMimeType())->setCaminhoArquivo('')->setTamanhoBytes(0);
+        $doc->pastaDocumento = $origem;
+
+        return $doc;
+    }
+
+    public function getPastaDocumento(): ?PastaDocumento
+    {
+        return $this->pastaDocumento;
+    }
+
+    public function isVinculado(): bool
+    {
+        return $this->pastaDocumento !== null;
+    }
+
+    /**
+     * O vinculado só aparece enquanto o documento da pasta está vivo. Na lixeira, o `LixeiraFilter` esconde a linha e
+     * a carga preguiçosa dele falha (`EntityNotFoundException`): para a tela, é o mesmo que excluído.
+     */
+    public function estaDisponivel(): bool
+    {
+        if ($this->pastaDocumento === null) {
+            return true;
+        }
+        try {
+            return !$this->pastaDocumento->estaNaLixeira();
+        } catch (EntityNotFoundException) {
+            return false;
+        }
     }
 }

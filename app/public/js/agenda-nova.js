@@ -949,6 +949,10 @@
         if (alvo('#agGoogleSair')) { googleDesconectar(); }
         if (alvo('[data-google-sair="cancelar"]')) { document.getElementById('agPerg').innerHTML = ''; }
         if (alvo('[data-google-sair="ok"]')) { confirmarDesconectar(); }
+        if (alvo('[data-google-perm="fechar"]')) { document.getElementById('agPerg').innerHTML = ''; }
+        if (alvo('[data-google-perm="tentar"]')) { document.getElementById('agPerg').innerHTML = ''; irAoGoogle(); }
+        if (alvo('[data-google-ir="cancelar"]')) { document.getElementById('agPerg').innerHTML = ''; }
+        if (alvo('[data-google-ir="continuar"]')) { document.getElementById('agPerg').innerHTML = ''; irAoGoogle(); }
     });
 
     raiz.addEventListener('contextmenu', ev => {
@@ -1138,10 +1142,25 @@
         falhou: 'Não foi possível conectar ao Google Agenda. Tente de novo.',
         limite: 'Muitas tentativas com o Google Agenda. Tente de novo em alguns minutos.',
     };
-    function googleSincronizar() {
+    function irAoGoogle() {
         const u = url.googleConectar;
-        if (u) { location.href = u + (u.includes('?') ? '&' : '?') + 'volta=' + encodeURIComponent(location.href.split('#')[0]); return; }
-        avisar('A sincronização com o Google Agenda será liberada assim que a conexão for configurada no servidor do BlueJus.');
+        location.href = u + (u.includes('?') ? '&' : '?') + 'volta=' + encodeURIComponent(location.href.split('#')[0]);
+    }
+    /* Antes de ir ao Google (decisão do dono, 21/10/2026): avisa da permissão da agenda, que o Google mostra como caixinha. */
+    function googleSincronizar() {
+        if (!url.googleConectar) {
+            avisar('A sincronização com o Google Agenda será liberada assim que a conexão for configurada no servidor do BlueJus.');
+            return;
+        }
+        // Só na primeira conexão: quem já está conectado vai direto.
+        if ('conectado' === raiz.dataset.google) { irAoGoogle(); return; }
+        document.getElementById('agPerg').innerHTML = '<div class="ag-perg-fundo"></div><div class="ag-modal-caixa ag-perg-caixa"><div class="ag-perg" role="dialog" aria-modal="true" aria-label="Conectar o Google Agenda">'
+            + '<div class="ag-perg-cab"><i class="bi bi-google"></i> Conectar o Google Agenda</div>'
+            + '<div class="ag-perg-txt">Na próxima tela, o Google pede para você marcar a permissão da agenda. Deixe-a marcada: é ela que deixa o BlueJus criar a agenda do escritório na sua conta.</div>'
+            + '<div class="ag-perg-rodape"><button type="button" class="ag-mbtn ag-perg-nao" data-google-ir="cancelar"><i class="bi bi-x"></i>Cancelar</button>'
+            + '<button type="button" class="ag-mbtn is-pri" data-google-ir="continuar"><i class="bi bi-google"></i>Continuar no Google</button></div></div></div>';
+        const continuar = document.querySelector('#agPerg [data-google-ir="continuar"]');
+        if (continuar) { continuar.focus(); }
     }
     /* Desconectar (decisão do dono, 20/10/2026): pergunta se apaga também a agenda do escritório no Google,
        com "Não, manter" marcado; mantida, ela fica lá parada. */
@@ -1165,10 +1184,21 @@
             location.reload();
         } catch (e) { avisar(e.message); }
     }
+    /* Voltou do Google sem a permissão da agenda (a caixinha desmarcada no consentimento): explica e oferece tentar de novo. */
+    function googleSemPermissao() {
+        document.getElementById('agPerg').innerHTML = '<div class="ag-perg-fundo"></div><div class="ag-modal-caixa ag-perg-caixa"><div class="ag-perg" role="dialog" aria-modal="true" aria-label="Falta a permissão da agenda">'
+            + '<div class="ag-perg-cab"><i class="bi bi-google"></i> Falta a permissão da agenda</div>'
+            + '<div class="ag-perg-txt">Marque a permissão da agenda na tela do Google e tente de novo. Sem ela, o BlueJus não consegue criar a agenda do escritório na sua conta Google.</div>'
+            + '<div class="ag-perg-rodape"><button type="button" class="ag-mbtn ag-perg-nao" data-google-perm="fechar"><i class="bi bi-x"></i>Agora não</button>'
+            + '<button type="button" class="ag-mbtn is-pri" data-google-perm="tentar"><i class="bi bi-google"></i>Tentar de novo</button></div></div></div>';
+        const tentar = document.querySelector('#agPerg [data-google-perm="tentar"]');
+        if (tentar) { tentar.focus(); }
+    }
     function avisoDaVoltaDoGoogle() {
-        const m = location.hash.match(/google=(conectado|cancelado|falhou|limite)/);
+        const m = location.hash.match(/google=(conectado|cancelado|falhou|limite|sem-permissao)/);
         if (!m) { return; }
         history.replaceState(null, '', location.pathname + location.search);
+        if ('sem-permissao' === m[1]) { googleSemPermissao(); return; }
         avisar(AVISOS_GOOGLE[m[1]]);
     }
 

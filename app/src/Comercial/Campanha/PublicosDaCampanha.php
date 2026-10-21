@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Comercial\Campanha;
 
 use App\Comercial\DTO\DestinatarioDaCampanha;
+use App\Comercial\DTO\FiltroDoPublico;
 use App\Comercial\DTO\PublicoResolvido;
 use App\Comercial\Repository\CadastradosRepository;
 use App\Comercial\Repository\ConfirmacaoDeEnderecoRepository;
 use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
+use Psr\Clock\ClockInterface;
 
 /**
  * Os públicos da campanha (dc L.237-239 e L.534-539; spec §8.5), na confirmação e de novo a cada execução:
@@ -38,17 +40,33 @@ final class PublicosDaCampanha
         private readonly ConfirmacaoDeEnderecoRepository $confirmacoes,
         private readonly DescadastroDeEmailInterface $descadastro,
         private readonly PoliticaDeDestinatarios $politica,
+        private readonly AtributosDosDestinatarios $atributos,
+        private readonly ClockInterface $relogio,
     ) {
     }
 
-    /** @param list<DestinatarioDaCampanha> $informados a lista do CSV ou do Individual (ignorada nos outros) */
-    public function resolver(string $publico, array $informados = []): PublicoResolvido
+    /**
+     * O público que recebe: sem repetidos, sem descadastrados, B1 e, por último, o "Filtrar destinatários" (§9), que
+     * só busca os atributos quando há filtro. A idade e o aniversário contam a partir de `$hoje` (a execução da vez).
+     *
+     * @param list<DestinatarioDaCampanha> $informados a lista do CSV ou do Individual (ignorada nos outros)
+     */
+    public function resolver(string $publico, array $informados = [], ?FiltroDoPublico $filtro = null, ?\DateTimeImmutable $hoje = null): PublicoResolvido
     {
-        $unicos = self::semRepetidos($this->fonte($publico, $informados));
+        $fonte = $this->fonte($publico, $informados);
+        $unicos = self::semRepetidos($fonte);
+        // dc 21.10 L665: "Y repetido(s) removido(s) · Z inválido(s) ignorado(s)".
+        $invalidos = \count(array_filter($fonte, static fn (DestinatarioDaCampanha $d): bool => !$d->valido()));
+        $repetidos = \count($fonte) - $invalidos - \count($unicos);
         $liberados = array_values(array_filter($unicos, fn (DestinatarioDaCampanha $d): bool => !$this->descadastrado($d)));
         $autorizados = $this->autorizados($publico, $liberados);
+        if ($filtro === null || !$filtro->ativo()) {
+            return new PublicoResolvido($autorizados, \count($unicos) - \count($liberados), \count($liberados) - \count($autorizados), repetidos: $repetidos, invalidos: $invalidos);
+        }
+        $atributos = $this->atributos->de(array_map(static fn (DestinatarioDaCampanha $d): string => $d->email, $autorizados));
+        [$atendem, $semInformacao] = FiltroDeDestinatarios::aplicar($autorizados, $atributos, $filtro, $hoje ?? $this->relogio->now());
 
-        return new PublicoResolvido($autorizados, \count($unicos) - \count($liberados), \count($liberados) - \count($autorizados));
+        return new PublicoResolvido($atendem, \count($unicos) - \count($liberados), \count($liberados) - \count($autorizados), \count($autorizados), $semInformacao, $autorizados, $repetidos, $invalidos);
     }
 
     /**
@@ -67,8 +85,8 @@ final class PublicosDaCampanha
         return [
             'leads' => \count($this->confirmacoes->confirmadosDaLista(ComposicaoDaCampanha::LISTA)),
             'prim' => \count($prim), 'sec' => \count($sec), 'todos' => \count(array_unique([...$prim, ...$sec])),
-            'csv' => $publico === 'csv' ? \count($informados) : 0,
-            'indiv' => $publico === 'indiv' ? \count($informados) : 0,
+            'csv' => $publico === 'csv' ? self::validos($informados) : 0,
+            'indiv' => $publico === 'indiv' ? self::validos($informados) : 0,
         ];
     }
 
@@ -104,6 +122,12 @@ final class PublicosDaCampanha
         $permitidos = array_flip([...$this->cadastrados->ativosEntre($emails), ...$this->confirmacoes->confirmadosDaLista(ComposicaoDaCampanha::LISTA)]);
 
         return array_values(array_filter($lista, static fn (DestinatarioDaCampanha $d): bool => isset($permitidos[$d->email])));
+    }
+
+    /** @param list<DestinatarioDaCampanha> $lista */
+    private static function validos(array $lista): int
+    {
+        return \count(array_filter($lista, static fn (DestinatarioDaCampanha $d): bool => $d->valido()));
     }
 
     private function descadastrado(DestinatarioDaCampanha $d): bool

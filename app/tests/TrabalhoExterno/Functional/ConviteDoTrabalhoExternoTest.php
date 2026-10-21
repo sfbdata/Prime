@@ -7,9 +7,16 @@ namespace App\Tests\TrabalhoExterno\Functional;
 use App\Auth\UseCase\CriarConviteEscritorioUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\TrabalhoExterno\Controller\ConviteController;
 use App\TrabalhoExterno\Entity\ConviteDemanda;
+use App\TrabalhoExterno\Enum\Perfil;
+use App\TrabalhoExterno\Exception\DadosInvalidos;
+use App\TrabalhoExterno\Repository\ConfiguracaoCentralRepository;
+use App\TrabalhoExterno\Service\Contexto;
+use App\TrabalhoExterno\UseCase\ConvidarProfissionalUseCase;
+use App\TrabalhoExterno\UseCase\ReenviarConviteUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -284,27 +291,43 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertSame(0, count($this->mensagensDeEmail()));
     }
 
-    #[TestDox('conta com o e-mail a confirmar não convida nem reenvia: 422 com o texto da recusa e nenhum e-mail')]
+    /**
+     * Desde a spec `cadastro-exige-confirmacao.md`, a conta a confirmar não fica logada: a sessão termina no primeiro
+     * pedido (`SessaoDeContaAConfirmarListener`). A recusa dos casos de uso fica como defesa e é provada aqui, chamando
+     * os dois direto com o contexto do Master.
+     */
+    #[TestDox('conta com o e-mail a confirmar: a sessão termina antes do convite, e os casos de uso recusam (defesa) sem convidar')]
     public function testEmailAConfirmarNaoConvidaNemReenvia(): void
     {
-        [$client, $codigo, $master] = $this->demandaEmExecucao();
+        [$client, $codigo, $master, $central] = $this->demandaEmExecucao();
         $this->convidar($client, $codigo, 'antes@test.com');
         $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
         $id = $this->json($client)['demanda']['convites'][0]['id'];
         $this->em()->find(User::class, $master->getId())?->marcarEmailAConfirmar(new \DateTimeImmutable('-1 hour'));
         $this->em()->flush();
 
-        $resposta = $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/convites", ['nome' => 'X', 'email' => 'depois@test.com']);
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR, $resposta['mensagem']);
-        // O registro de e-mails do mailer é zerado a cada requisição: o que sobra é só o desta.
-        self::assertSame([], $this->mensagensDeEmail(), 'a recusa não manda e-mail');
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/convites", ['nome' => 'X', 'email' => 'depois@test.com']);
+        self::assertResponseRedirects('/login');
+        self::assertNull($client->getContainer()->get('security.token_storage')->getToken());
+        self::assertSame([], $this->mensagensDeEmail(), 'a sessão encerrada não manda e-mail');
         self::assertNull($this->em()->getRepository(ConviteDemanda::class)->findOneBy(['email' => 'depois@test.com']));
 
-        $resposta = $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/convites/$id/reenviar");
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR, $resposta['mensagem']);
-        self::assertSame([], $this->mensagensDeEmail(), 'o reenvio recusado não manda e-mail');
+        $usuario = $this->em()->find(User::class, $master->getId());
+        self::assertNotNull($usuario);
+        $ctx = new Contexto($usuario, $this->em()->find(Tenant::class, $central->getId()), Perfil::Master, static::getContainer()->get(ConfiguracaoCentralRepository::class)->atual());
+        $chamadas = [
+            'convidar' => fn () => static::getContainer()->get(ConvidarProfissionalUseCase::class)->executar($ctx, $codigo, ['nome' => 'X', 'email' => 'depois@test.com']),
+            'reenviar' => fn () => static::getContainer()->get(ReenviarConviteUseCase::class)->executar($ctx, $codigo, $id),
+        ];
+        foreach ($chamadas as $nome => $chamada) {
+            try {
+                $chamada();
+                self::fail("o caso de uso de $nome tinha de recusar");
+            } catch (DadosInvalidos $e) {
+                self::assertSame(CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR, $e->getMessage());
+            }
+        }
+        self::assertNull($this->em()->getRepository(ConviteDemanda::class)->findOneBy(['email' => 'depois@test.com']));
     }
 
     #[TestDox('A: o aviso "Abrir conversa" e as não lidas do convidado só contam o que ele pode ler no chat')]

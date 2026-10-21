@@ -109,3 +109,13 @@ Domínio novo `App\Indicacao`. Tudo de plataforma (sem tenant); autorização de
    desenho ou deixar o alerta só no card.
 6. Prazo de guarda do e-mail e do nome do indicado em `indicacao`: hoje sem prazo; o "viraram conta" depende do e-mail.
 7. A vazão do Carteiro é global (1.500/dia): as indicações disputam com o Push e os alertas.
+
+## Desvio aprovado (dono, 21/10/2026)
+
+- Limites da seção "Indicações do BlueJus" do Painel do Master (#185): o desenho de 21/10 transforma limite 0 ou
+  vazio em 1 em silêncio (`Math.max(1, …)`). O sistema RECUSA com 422 e a mensagem do `AlterarLimitesDeIndicacaoInput`
+  ("… precisa ser de pelo menos 1.") e a tela volta ao último valor gravado. Decisão do dono: fica como está.
+- A seção do painel de 21/10 mostra só o cabeçalho e os limites (sem a tabela por pessoa e sem os alertas); ela lê
+  `ObterPainelDeIndicacoesUseCase::resumo()`, que não consulta a página de indicadores nem os alertas.
+- O alerta de disparo alto vai para a Central de Notificações do Master (decisão do dono, 21/10), como a origem
+  `alerta_indicacao` (spec `master-central-de-notificacoes.md`), com o link "Abrir Indicações" para pausar a pessoa.

@@ -114,6 +114,8 @@ final class VisibilidadeDasAbasDaPasta
      * Famílias: a `origem` do `PastaTimelineAssembler` (documento, contrato, meta, processo, pasta),
      * `registro` (anotação da aba Dados) e o `tipo` dos eventos próprios da Timeline inteligente.
      * `contrato` é documento de honorários: é das duas abas, Documentos e Financeiro.
+     * `registro_financeiro` é o cartão do sistema de pró-bono ou contrato no Registro
+     * (`RegistroDoSistemaNaPasta::DO_FINANCEIRO`): das abas Dados e Financeiro.
      *
      * @return list<AbaDaPasta>
      */
@@ -121,6 +123,7 @@ final class VisibilidadeDasAbasDaPasta
     {
         return match ($familia) {
             'registro'                                                   => [AbaDaPasta::Dados],
+            'registro_financeiro'                                        => [AbaDaPasta::Dados, AbaDaPasta::Financeiro],
             'documento'                                                  => [AbaDaPasta::Documentos],
             'contrato'                                                   => [AbaDaPasta::Documentos, AbaDaPasta::Financeiro],
             'meta', 'meta_concluida', 'metas_concluidas', 'prazo_meta'   => [AbaDaPasta::Tarefas],

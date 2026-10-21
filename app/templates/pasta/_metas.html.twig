@@ -154,7 +154,7 @@
                             <div class="ps-meta-titulo">
                                 {%- if concluida %}<i class="bi bi-check-circle-fill" title="Meta concluída"></i>{% endif -%}
                                 <span class="ps-meta-num ps-num" title="Meta {{ linha.numero }} desta pasta">{{ linha.numero }}.</span>
-                                <span class="ps-meta-titulo-tx">{{ tarefa.titulo }}</span>
+                                <span class="ps-meta-titulo-tx">{{ tarefa.titulo }}{{ include('tarefa/_numero_global.html.twig', {numero: tarefa.numero, local: linha.numero}) }}</span>
                             </div>
                             <div class="ps-meta-linha">
                                 <span title="Autor"><i class="bi bi-person"></i>{{ tarefa.criadoPor ? tarefa.criadoPor.fullName : 'Não informado' }}</span>

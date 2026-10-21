@@ -1,7 +1,7 @@
 {# Uma meta no modo cartões.
    `meta` = App\Entity\Tarefa\Tarefa · `tom` = tom do grupo que a contém (pinta a faixa lateral)
    O número antes do título é o da meta NA PASTA (R239, decisão do dono 14/10), o mesmo da aba Metas da
-   pasta; vem pré-carregado em `painel.numeroNaPasta`. Número global não existe por escritório: não aparece. #}
+   pasta; vem pré-carregado em `painel.numeroNaPasta`. Depois do título, o selo "Nº 0001" (nº da meta no escritório). #}
 {# Vem pré-carregado do UseCase: perguntar à entidade custaria uma consulta por linha. #}
 {% set acompanhando = painel.estaAcompanhando(meta.id) %}
 
@@ -15,7 +15,7 @@
     <div class="mm-meta-corpo">
         <div class="mm-meta-topo">
             {% set numPasta = painel.numeroNaPasta(meta.id) %}
-            <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-meta-titulo" title="{{ meta.titulo }}">{% if numPasta %}<span class="mm-meta-num" title="Meta {{ numPasta }} da pasta {{ meta.pasta.nup }}">{{ numPasta }}.</span>{% endif %}{{ meta.titulo }}</a>
+            <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-meta-titulo" title="{{ meta.titulo }}">{% if numPasta %}<span class="mm-meta-num" title="{{ 'metas.cartao.num_na_pasta_dica'|trans({numero: numPasta ~ '', nup: meta.pasta.nup ~ ''}) }}">{{ numPasta }}.</span>{% endif %}{{ meta.titulo }}</a>{{ include('tarefa/_numero_global.html.twig', {numero: meta.numero, local: numPasta}) }}
             {% if meta.pasta.prioridade.value != 'normal' %}
                 <span class="mm-prioridade tom-{{ meta.pasta.prioridade.value == 'urgente' ? 'danger' : 'warn' }}">
                     <i class="bi bi-flag-fill"></i>{{ meta.pasta.prioridadeLabel }}
@@ -26,29 +26,29 @@
         <div class="mm-meta-linha2">
             {# Pasta do desenho (dc L92): bi-folder2, nº em negrito azul, " · " e o nome inteiro do
                cliente (a linha quebra se precisar). Continua sendo o link para a pasta. #}
-            <a href="{{ path('pasta_show', {id: meta.pasta.id}) }}" class="mm-meta-info mm-meta-pasta" title="Abrir a pasta">
+            <a href="{{ path('pasta_show', {id: meta.pasta.id}) }}" class="mm-meta-info mm-meta-pasta" title="{{ 'metas.cartao.abrir_a_pasta'|trans }}">
                 <i class="bi bi-folder2"></i><b class="mm-meta-pasta-num">{{ meta.pasta.nup }}</b>{% if meta.pasta.nomeCliente %} · {{ meta.pasta.nomeCliente }}{% endif %}
             </a>
 
             {% if painel.aba.value == 'responsavel' %}
-                <span class="mm-meta-info" title="Quem delegou esta meta">
-                    <i class="bi bi-person"></i>{{ meta.criadoPor ? 'de ' ~ meta.criadoPor.fullName : 'sem criador' }}
+                <span class="mm-meta-info" title="{{ 'metas.cartao.quem_delegou'|trans }}">
+                    <i class="bi bi-person"></i>{{ meta.criadoPor ? 'metas.comum.de_criador'|trans({nome: meta.criadoPor.fullName}) : 'metas.cartao.sem_criador'|trans }}
                 </span>
             {% elseif meta.responsaveis|length > 0 %}
-                <span class="mm-meta-info" title="Responsáveis: {{ meta.responsaveis|map(r => r.fullName)|join(', ') }}">
+                {% set nomesResponsaveis = meta.responsaveis|map(r => r.fullName)|join(', ') %}<span class="mm-meta-info" title="{{ 'metas.cartao.responsaveis_dica'|trans({nomes: nomesResponsaveis}) }}">
                     <i class="bi bi-people"></i>{{ (meta.responsaveis|first).fullName }}{% if meta.responsaveis|length > 1 %} +{{ meta.responsaveis|length - 1 }}{% endif %}
                 </span>
             {% else %}
-                <span class="mm-meta-info"><i class="bi bi-people"></i>sem responsável</span>
+                <span class="mm-meta-info"><i class="bi bi-people"></i>{{ 'metas.cartao.sem_responsavel'|trans }}</span>
             {% endif %}
 
-            <span class="mm-prazo{{ prazo.atrasado ? ' is-atrasado' : '' }}"{% if meta.prazo %} title="Prazo: {{ meta.prazo|date('d/m/Y') }}"{% endif %}>
+            <span class="mm-prazo{{ prazo.atrasado ? ' is-atrasado' : '' }}"{% if meta.prazo %} title="{{ 'metas.cartao.prazo_dica'|trans({data: meta.prazo|data}) }}"{% endif %}>
                 <i class="bi bi-calendar-event"></i>{{ prazo.texto }}
             </span>
 
             {% set comentarios = painel.totalDeMensagens(meta.id) %}
             {% if comentarios > 0 %}
-                <span class="mm-meta-info" title="Comentários na meta">
+                <span class="mm-meta-info" title="{{ 'metas.cartao.comentarios'|trans }}">
                     <i class="bi bi-chat"></i>{{ comentarios }}
                 </span>
             {% endif %}
@@ -58,7 +58,7 @@
     <div class="mm-meta-lado">
         <span class="mm-pilula tom-{{ status.tom }}">{{ status.rotulo }}</span>
         <span class="mm-meta-datas">
-            criada {{ meta.dataCriacao|date('d/m/Y') }}
+            {{ 'metas.cartao.criada_em'|trans({data: meta.dataCriacao|data}) }}
         </span>
     </div>
 
@@ -68,7 +68,7 @@
                 data-acompanhar="{{ path('tarefa_acompanhar', {id: meta.id}) }}"
                 data-token="{{ csrf_token('acompanhar_tarefa_' ~ meta.id) }}"
                 aria-pressed="{{ acompanhando ? 'true' : 'false' }}"
-                title="{{ acompanhando ? 'Parar de acompanhar' : 'Acompanhar esta meta' }}">
+                title="{{ acompanhando ? 'metas.marcador.parar_de_acompanhar'|trans : 'metas.marcador.acompanhar_esta_meta'|trans }}">
             <i class="bi {{ acompanhando ? 'bi-bookmark-fill' : 'bi-bookmark' }}"></i>
         </button>
         {# ⋮ "Opções" do desenho (dc L98) com os itens que a especificação pede (R118, R236) e que já
@@ -83,18 +83,18 @@
            clicável ignora os dois.
            `strategy: fixed` tira o menu do recorte do cartão (`overflow: hidden`). #}
         <div class="dropdown mm-menu">
-            <button type="button" class="mm-acao-icone" title="Opções" aria-label="Opções da meta"
+            <button type="button" class="mm-acao-icone" title="{{ 'metas.cartao.opcoes'|trans }}" aria-label="{{ 'metas.cartao.opcoes_da_meta'|trans }}"
                     data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
                 <i class="bi bi-three-dots-vertical"></i>
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item mm-menu-item" href="{{ path('tarefa_show', {id: meta.id}) }}"><i class="bi bi-file-earmark-text"></i>Abrir relatório completo</a></li>
-                <li><a class="dropdown-item mm-menu-item" href="{{ path('pasta_show', {id: meta.pasta.id, meta: meta.id}) }}#tarefas"><i class="bi bi-folder2-open"></i>Ir para a aba Metas da pasta</a></li>
+                <li><a class="dropdown-item mm-menu-item" href="{{ path('tarefa_show', {id: meta.id}) }}"><i class="bi bi-file-earmark-text"></i>{{ 'metas.cartao.menu.abrir_relatorio'|trans }}</a></li>
+                <li><a class="dropdown-item mm-menu-item" href="{{ path('pasta_show', {id: meta.pasta.id, meta: meta.id}) }}#tarefas"><i class="bi bi-folder2-open"></i>{{ 'metas.cartao.menu.ir_para_aba_metas'|trans }}</a></li>
                 {% if not meta.pasta.estaExcluida %}
-                    <li><a class="dropdown-item mm-menu-item" href="{{ path('pasta_show', {id: meta.pasta.id, meta: meta.id, acao: 'renomear'}) }}#tarefas"><i class="bi bi-pencil"></i>Editar nome</a></li>
+                    <li><a class="dropdown-item mm-menu-item" href="{{ path('pasta_show', {id: meta.pasta.id, meta: meta.id, acao: 'renomear'}) }}#tarefas"><i class="bi bi-pencil"></i>{{ 'metas.cartao.menu.editar_nome'|trans }}</a></li>
                 {% endif %}
                 {% if encaminharMetas|default(false) and not meta.pasta.estaExcluida %}
-                    <li><button type="button" class="dropdown-item mm-menu-item js-mm-encaminhar" data-encaminhar-pasta="{{ meta.pasta.id }}" data-encaminhar-tipo="meta" data-encaminhar-id="{{ meta.id }}"><i class="bi bi-send"></i>Encaminhar via Chat I.A</button></li>
+                    <li><button type="button" class="dropdown-item mm-menu-item js-mm-encaminhar" data-encaminhar-pasta="{{ meta.pasta.id }}" data-encaminhar-tipo="meta" data-encaminhar-id="{{ meta.id }}"><i class="bi bi-send"></i>{{ 'metas.cartao.menu.encaminhar_chat_ia'|trans }}</button></li>
                 {% endif %}
             </ul>
         </div>

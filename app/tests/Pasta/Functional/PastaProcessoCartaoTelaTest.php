@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Functional;
 
 use App\Controller\PastaController;
-use App\Pasta\Controller\PastaResumoController;
+use App\Processo\Service\ResumoDoProcesso;
 use App\Pasta\Entity\Pasta;
 use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\Processo;
@@ -80,7 +80,7 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
     // Resumo
     // =========================================================================
 
-    #[TestDox('Resumo: Órgão julgador, Valor da causa (da pasta), Distribuição e Instância aparecem no cartão quando existem')]
+    #[TestDox('Resumo do desenho: Órgão julgador, Valor da causa (da pasta), Última distribuição e a Instância quando existe')]
     public function testResumoComCampos(): void
     {
         $client          = static::createClient();
@@ -93,7 +93,7 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
 
         $resumo = $cartao->filter('article.ps-processo > .ps-processo-resumo > .ps-processo-dado');
         self::assertSame(
-            ['Órgão julgador', 'Valor da causa', 'Distribuição', 'Instância'],
+            ['Órgão julgador', 'Valor da causa', 'Última distribuição', 'Instância'],
             $this->textos($resumo->filter('.ps-processo-dado > .ps-rotulo')),
         );
         self::assertSame(
@@ -167,9 +167,9 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             self::assertSame('Não informado', trim($valor->text()));
         }
         self::assertCount(0, $cartao->filter('[data-proc-campo="instancia"]'));
-        self::assertStringNotContainsString('Não informado', $cartao->filter('.ps-processo-detalhes')->text(''));
-        // A faixa de cima não muda: Classe/Tribunal/Situação seguem com "Não informado(a)".
-        self::assertCount(3, $cartao->filter('article.ps-processo > .ps-processo-dados > .ps-processo-dado'));
+        // A faixa de cima do desenho (P5d): Ação · Classe · Tribunal · Situação, com "Não informado(a)".
+        self::assertCount(4, $cartao->filter('article.ps-processo > .ps-processo-dados > .ps-processo-dado'));
+        self::assertSame('Não informada', trim($cartao->filter('article.ps-processo > .ps-processo-dados > [data-proc-campo="acao"] > .ps-processo-valor.ps-dado--vazio')->text()));
     }
 
     #[TestDox('Resumo: valor da causa ZERO é dado (entra na média por CPF) e aparece como R$ 0,00; só o nulo some')]
@@ -218,7 +218,7 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         self::assertNotNull($painel->attr('hidden'), 'fechado na carga');
     }
 
-    #[TestDox('Ver todas: o painel traz os campos reais (sigilo como rótulo, partes com o polo, baixa, origem, atualização) e omite os vazios')]
+    #[TestDox('Ver todas (P5b): os 11 campos do desenho sempre, com "Não informado"; depois os do Datajud que houver (partes, baixa, origem, atualização)')]
     public function testPainelComCamposReais(): void
     {
         $client          = static::createClient();
@@ -246,15 +246,24 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         $painel = $cartao->filter('article.ps-processo > .ps-processo-detalhes');
         $campos = $painel->filter('.ps-processo-detalhes > .ps-processo-campo');
         self::assertSame(
-            ['classe', 'orgao', 'distribuicao', 'valor', 'instancia', 'tribunal', 'situacao', 'baixa', 'sigilo', 'origem', 'partes', 'atualizacao'],
+            ['classe', 'assuntos', 'jurisdicao', 'orgao', 'distribuicao', 'valorCausa', 'segredo', 'digital', 'gratuita', 'tutela', 'prioridade',
+                'instancia', 'tribunal', 'situacao', 'baixa', 'origem', 'partes', 'atualizacao'],
             $campos->each(static fn (Crawler $n): string => (string) $n->attr('data-proc-campo')),
-            'sem assunto, sistema e formato: os vazios não entram',
+            'os 11 do desenho, na ordem; depois só os do Datajud com dado (sem sistema e formato)',
+        );
+        self::assertSame(
+            ['Classe judicial', 'Assunto', 'Jurisdição', 'Órgão julgador', 'Última distribuição', 'Valor da causa',
+                'Segredo de justiça?', 'Juízo 100% digital?', 'Justiça gratuita?', 'Tutela/liminar?', 'Prioridade?'],
+            array_slice($this->textos($campos->filter('.ps-processo-campo > .ps-rotulo')), 0, 11),
         );
 
         self::assertSame('PROCEDIMENTO COMUM (7)', trim($painel->filter('[data-proc-campo="classe"] > .ps-processo-campo-valor')->text()));
-        $selo = $painel->filter('[data-proc-campo="sigilo"] > .ps-processo-selo');
-        self::assertSame('Segredo de justiça', trim($selo->text()), 'o rótulo da entidade, não o número');
+        self::assertSame('Não informado', trim($painel->filter('[data-proc-campo="jurisdicao"] > .ps-processo-campo-valor.ps-dado--vazio')->text()));
+        $selo = $painel->filter('[data-proc-campo="segredo"] > .ps-processo-selo');
+        self::assertSame('SIM', trim($selo->text()), 'o sigilo do tribunal vira o "Sim" do desenho');
         self::assertStringContainsString('ps-processo-selo--sim', (string) $selo->attr('class'));
+        self::assertSame('Não informado', trim($painel->filter('[data-proc-campo="gratuita"] > .ps-dado--vazio')->text()));
+        self::assertCount(0, $painel->filter('.ps-processo-manual'), 'sem edição manual, sem selo "manual"');
         self::assertSame('20/01/2026', trim($painel->filter('[data-proc-campo="baixa"] > .ps-processo-campo-valor')->text()));
         self::assertSame('0709999-00.2024.8.07.0001', trim($painel->filter('[data-proc-campo="origem"] > .ps-processo-campo-valor')->text()));
         self::assertSame(
@@ -262,9 +271,11 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             $this->textos($painel->filter('[data-proc-campo="partes"] > .ps-processo-partes > li')),
         );
         self::assertSame('30/09/2026 10:15', trim($painel->filter('[data-proc-campo="atualizacao"] > .ps-processo-campo-valor')->text()));
+        // Marcas: só a flag efetiva "Sim" (o segredo do tribunal).
+        self::assertSame(['Segredo de justiça'], $this->textos($cartao->filter('article.ps-processo > .ps-processo-marcas > .ps-processo-marca')));
     }
 
-    #[TestDox('Ver todas: nível de sigilo 0 vira "Público", sem o selo de "sim"')]
+    #[TestDox('Ver todas: nível de sigilo 0 vira "NÃO" no "Segredo de justiça?", sem o selo de "sim" e sem marca')]
     public function testSigiloPublico(): void
     {
         $client          = static::createClient();
@@ -276,14 +287,15 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         $this->vincular($pasta, $processo);
 
         $this->logarComTenant($client, $user, $tenant);
-        $selo = $this->cartao($this->abrir($client, $pasta))
-            ->filter('article.ps-processo > .ps-processo-detalhes > [data-proc-campo="sigilo"] > .ps-processo-selo');
+        $cartao = $this->cartao($this->abrir($client, $pasta));
+        $selo = $cartao->filter('article.ps-processo > .ps-processo-detalhes > [data-proc-campo="segredo"] > .ps-processo-selo');
 
-        self::assertSame('Público', trim($selo->text()));
+        self::assertSame('NÃO', trim($selo->text()));
         self::assertStringNotContainsString('ps-processo-selo--sim', (string) $selo->attr('class'));
+        self::assertCount(0, $cartao->filter('.ps-processo-marcas'));
     }
 
-    #[TestDox('Ver todas: processo sem nenhum dado no cadastro não oferece o botão, o painel nem o item do ⋮')]
+    #[TestDox('Ver todas (P5b): mesmo sem nenhum dado no cadastro, o botão e o painel existem (os 11 campos com "Não informado") e a linha de fonte diz que o PJe não está configurado')]
     public function testSemDadoNaoHaVerTodas(): void
     {
         $client          = static::createClient();
@@ -297,10 +309,12 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $cartao = $this->cartao($this->abrir($client, $pasta));
 
-        self::assertCount(0, $cartao->filter('.js-proc-alternar'));
-        self::assertCount(0, $cartao->filter('.ps-processo-detalhes'));
-        self::assertCount(0, $cartao->filter('.js-proc-alternar-menu'));
-        self::assertCount(1, $cartao->filter('article.ps-processo > .ps-processo-menu'), 'o ⋮ continua: nota, Push e copiar não dependem do cadastro');
+        self::assertCount(1, $cartao->filter('article.ps-processo > .ps-processo-mais-linha > .js-proc-alternar'));
+        self::assertCount(11, $cartao->filter('article.ps-processo > .ps-processo-detalhes > .ps-processo-campo > .ps-dado--vazio'));
+        $fonte = $cartao->filter('article.ps-processo > .ps-processo-mais-linha > .ps-processo-fonte');
+        self::assertSame('Integração com o PJe não configurada. Preencha manualmente.', trim($fonte->text()));
+        self::assertCount(1, $fonte->filter('i.bi-cloud-slash'));
+        self::assertStringNotContainsString('Dados do PJe', $cartao->text());
     }
 
     // =========================================================================
@@ -330,11 +344,11 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         self::assertNotNull($menu->attr('hidden'));
         self::assertSame('Processo ' . self::NUMERO_MASCARA, trim($menu->filter('.ps-processo-menu > .ps-processo-menu-titulo')->text()));
 
-        // Ordem do procMenu do desenho (dc L.2914); o único processo é o principal, então não
+        // Ordem do procMenu do desenho (dc L.2914; o Encaminhar via Chat I.A de L3069 entra com a Central); o único processo é o principal, então não
         // há "Tornar processo principal". Desvincular é o último, como no desenho. "Editar dados
         // do processo" (PMC-004) aparece porque o admin tem EDIT no processo.
         self::assertSame(
-            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Editar dados do processo', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Relatório geral de processos', 'Imprimir resumo', 'Desvincular da pasta'],
+            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Editar dados do processo', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Encaminhar via Chat I.A', 'Relatório geral de processos', 'Imprimir resumo', 'Desvincular da pasta'],
             $this->textos($menu->filter('.ps-processo-menu .ps-processo-menu-item')),
         );
         self::assertSame(
@@ -445,7 +459,6 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             'Tribunal: TJDFT',
             'Situação: Em andamento',   // E4: rótulo legível, mesmo do PDF (SituacaoProcessoRotulo)
             'Órgão julgador: 1ª VARA CÍVEL DE BRASÍLIA',
-            'Distribuição: 14/03/2025',
             'Valor da causa: R$ 15.234,50',
             'Pasta ' . $pasta->getNup(),
         ], $linhas);
@@ -458,7 +471,7 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         // EDT-005/PMC-003 (dc L.2930): "Imprimir resumo" depois de Compartilhar e do "Relatório geral de
         // processos" (spec relatorio-processos-controladoria), com o MESMO resumo (o pasta-processo.js
         // reaproveita `linhasDoResumo`) e o título "Processo N".
-        $imprimir = $menu->filter('.ps-processo-menu > .js-proc-compartilhar + a.js-relatorio-processos + button.js-proc-imprimir[role="menuitem"]');
+        $imprimir = $menu->filter('.ps-processo-menu > .js-proc-compartilhar + button.js-encaminhar + a.js-relatorio-processos + button.js-proc-imprimir[role="menuitem"]');
         self::assertCount(1, $imprimir);
         self::assertSame('Imprimir resumo', trim($imprimir->text()));
         self::assertCount(1, $imprimir->filter('i.bi.bi-printer'));
@@ -470,12 +483,12 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         // tela — juntando rótulo e valor como o "Copiar resumo", o texto é idêntico.
         $doServidor = array_map(
             static fn (array $l): string => $l['rotulo'] . ($l['valor'] !== '' ? ': ' . $l['valor'] : ''),
-            PastaResumoController::linhasDoProcesso($pasta, $processo),
+            static::getContainer()->get(ResumoDoProcesso::class)->linhas($this->em()->find(Pasta::class, $pasta->getId()), $this->em()->find(Processo::class, $processo->getId())),
         );
         self::assertSame($linhas, $doServidor);
     }
 
-    #[TestDox('⋮ Copiar resumo: processo sem dados não ganha "Não informado" — só número e pasta')]
+    #[TestDox('⋮ Copiar resumo (P5d): processo sem dados mostra as linhas do desenho com "Não informado"')]
     public function testCopiarResumoSemDados(): void
     {
         $client          = static::createClient();
@@ -490,7 +503,17 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         $menu = $this->cartao($this->abrir($client, $pasta))->filter('article.ps-processo > .ps-processo-menu');
 
         $linhas = json_decode((string) $menu->filter('.js-proc-copiar[data-resumo]')->attr('data-resumo'), true, flags: \JSON_THROW_ON_ERROR);
-        self::assertSame(['Processo ' . self::NUMERO_MASCARA, 'Pasta ' . $pasta->getNup()], $linhas);
+        // P5d (desenho, procMenu N:3059): as linhas do desenho sempre, com "Não informado".
+        self::assertSame([
+            'Processo ' . self::NUMERO_MASCARA,
+            'Ação: Não informado',
+            'Classe: Não informado',
+            'Tribunal: Não informado',
+            'Situação: Não informado',
+            'Órgão julgador: Não informado',
+            'Valor da causa: Não informado',
+            'Pasta ' . $pasta->getNup(),
+        ], $linhas);
     }
 
     // =========================================================================
@@ -602,5 +625,36 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         };
 
         static::getContainer()->set('security.csrf.token_storage', $storage);
+    }
+
+    #[TestDox('P5d: faixa Ação · Classe · Tribunal · Situação (Ação da pasta no principal) e a janela de vincular com os campos e as listas do desenho')]
+    public function testFaixaEJanelaDoDesenho02(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $pasta->setNomeAcao('Cobrança de taxas condominiais');
+        $this->em()->flush();
+        $this->processoCompleto($pasta);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $pagina = $this->abrir($client, $pasta);
+        $cartao = $this->cartao($pagina);
+
+        self::assertSame(['Ação', 'Classe', 'Tribunal', 'Situação'], $this->textos($cartao->filter('article.ps-processo > .ps-processo-dados > .ps-processo-dado > .ps-rotulo')));
+        self::assertSame('COBRANÇA DE TAXAS CONDOMINIAIS', trim($cartao->filter('article.ps-processo > .ps-processo-dados > [data-proc-campo="acao"] > .ps-processo-valor')->text()));
+
+        $janela = $pagina->filter('#modalVincularProcesso');
+        self::assertSame('Vincular processo', trim($janela->filter('#modalVincularProcessoLabel')->text()));
+        self::assertSame('R$ 0,00', $janela->filter('input[name="valorCausa"]')->attr('placeholder'));
+        self::assertSame('Ex.: Brasília · Fórum Des. Joaquim Sousa Neto', $janela->filter('input[name="jurisdicao"]')->attr('placeholder'));
+        foreach (['segredo', 'digital', 'gratuita', 'tutela', 'prioridade'] as $flag) {
+            self::assertSame(['Não informado', 'Sim', 'Não'], $this->textos($janela->filter('select[name="' . $flag . '"] > option')), $flag);
+        }
+        self::assertSame(['Em andamento', 'Suspenso', 'Arquivado', 'Baixado', 'Transitado em julgado'], $this->textos($janela->filter('select[name="situacaoProcesso"] > option')));
+        self::assertSame(['G1 - Primeira Instância', 'G2 - Segunda Instância', 'Turma Recursal', 'Tribunal Superior'], $this->textos($janela->filter('select[name="instancia"] > option')));
+        self::assertSame(['Parte', 'Advogado', 'Terceiro interessado', 'Ministério Público', 'Perito'], $this->textos($janela->filter('select[name="partes[0][tipo]"] > option')));
+        self::assertStringContainsString('"Buscar no CNJ" (aba Informações) importa as movimentações do PJe e dos diários oficiais. Depois de vinculado, o Push processual passa a monitorar o processo.', $janela->text());
+        self::assertSame('Abrir a tela de peticionamento desta pasta (anexos e textos)', $pagina->filter('.ps-processos a[aria-label="Peticionar na pasta"]')->attr('title'));
     }
 }

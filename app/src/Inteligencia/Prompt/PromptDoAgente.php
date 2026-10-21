@@ -7,6 +7,7 @@ namespace App\Inteligencia\Prompt;
 use App\Inteligencia\DTO\ContextoDaPasta;
 use App\Inteligencia\DTO\PedidoDeLinguagem;
 use App\Inteligencia\DTO\SecaoDeContexto;
+use App\Inteligencia\Enum\Agente;
 use App\Inteligencia\Service\NeutralizadorDeConteudo;
 
 /**
@@ -50,26 +51,50 @@ final class PromptDoAgente
 
     public function montar(ContextoDaPasta $contexto, ?string $resumoAnterior = null): PedidoDeLinguagem
     {
-        $c = static fn (string $chave, string $padrao): string => self::dado($contexto->cabecalho[$chave] ?? '', $padrao);
-
         $blocos = [
             'PEDIDO: ' . ($contexto->comando?->pedido() ?? $contexto->agente->pedido()),
+            ...$this->blocosDoContexto($contexto),
+        ];
+
+        $resumoAnterior = self::dado((string) $resumoAnterior, '');
+        if ($resumoAnterior !== '') {
+            $blocos[] = "ANÁLISE ANTERIOR DESTE AGENTE (não repetir):\n<analise_anterior>\n" . $resumoAnterior . "\n</analise_anterior>";
+        }
+
+        return new PedidoDeLinguagem(
+            sistema: $this->sistemaPara($contexto->agente),
+            mensagens: [['papel' => 'usuario', 'conteudo' => implode("\n\n", $blocos)]],
+            maxTokens: self::MAX_TOKENS,
+            temperatura: self::TEMPERATURA,
+            exigeJson: true,
+            rotuloDeUso: self::ROTULO_DE_USO . '/' . $contexto->agente->value
+                . ($contexto->comando !== null ? '/' . $contexto->comando->value : '')
+                . '/' . self::VERSAO,
+        );
+    }
+
+    /**
+     * As regras do sistema com o papel do agente. Público para o `PromptDaPergunta` (F3 do drawer)
+     * partir das mesmas regras e acrescentar o MODO CONVERSA, sem cópia do texto.
+     */
+    public function sistemaPara(Agente $agente): string
+    {
+        return self::SISTEMA . "\nPapel: " . $agente->papel();
+    }
+
+    /**
+     * Os blocos de dado da pasta, delimitados e neutralizados: data de hoje, `<pasta>`,
+     * `<processos_vinculados>`, uma tag por seção e o aviso do financeiro não incluído. Público para
+     * o `PromptDaPergunta` montar a mensagem com o mesmo contexto.
+     *
+     * @return list<string>
+     */
+    public function blocosDoContexto(ContextoDaPasta $contexto): array
+    {
+        $blocos = [
             'DATA DE HOJE: ' . (new \DateTimeImmutable('today'))->format('d/m/Y') . ' | TELA: pasta (priorize esta pasta)',
-            "DADOS DA PASTA [nível 7, cadastro]:\n<pasta>\n" . sprintf(
-                "• Pasta %s · situação %s · prioridade %s · aberta em %s\n• Ação/objeto: %s\n• Responsável pela pasta: %s\n• Equipe do escritório: %s",
-                $c('pasta', 'sem número'),
-                $c('situacao', 'não informada'),
-                $c('prioridade', 'normal'),
-                $c('abertura', 'sem data'),
-                $c('acao', 'não informada'),
-                $c('responsavel', 'SEM RESPONSÁVEL'),
-                $c('equipe', 'não informada'),
-            ) . "\n</pasta>",
-            "PROCESSOS VINCULADOS (partes contrárias, vara e juiz NÃO constam nesta base):\n<processos_vinculados>\n"
-                . ($contexto->processos === []
-                    ? '• NENHUM processo vinculado'
-                    : implode("\n", array_map(static fn (string $linha): string => '• ' . self::dado($linha, 'sem dados'), $contexto->processos)))
-                . "\n</processos_vinculados>",
+            self::blocoDaPasta($contexto),
+            self::blocoDosProcessos($contexto),
         ];
 
         foreach ($contexto->secoes as $secao) {
@@ -80,21 +105,32 @@ final class PromptDoAgente
             $blocos[] = 'FINANCEIRO: os dados financeiros desta pasta não fazem parte desta análise (não incluídos). Não os suponha.';
         }
 
-        $resumoAnterior = self::dado((string) $resumoAnterior, '');
-        if ($resumoAnterior !== '') {
-            $blocos[] = "ANÁLISE ANTERIOR DESTE AGENTE (não repetir):\n<analise_anterior>\n" . $resumoAnterior . "\n</analise_anterior>";
-        }
+        return $blocos;
+    }
 
-        return new PedidoDeLinguagem(
-            sistema: self::SISTEMA . "\nPapel: " . $contexto->agente->papel(),
-            mensagens: [['papel' => 'usuario', 'conteudo' => implode("\n\n", $blocos)]],
-            maxTokens: self::MAX_TOKENS,
-            temperatura: self::TEMPERATURA,
-            exigeJson: true,
-            rotuloDeUso: self::ROTULO_DE_USO . '/' . $contexto->agente->value
-                . ($contexto->comando !== null ? '/' . $contexto->comando->value : '')
-                . '/' . self::VERSAO,
-        );
+    private static function blocoDaPasta(ContextoDaPasta $contexto): string
+    {
+        $c = static fn (string $chave, string $padrao): string => self::dado($contexto->cabecalho[$chave] ?? '', $padrao);
+
+        return "DADOS DA PASTA [nível 7, cadastro]:\n<pasta>\n" . sprintf(
+            "• Pasta %s · situação %s · prioridade %s · aberta em %s\n• Ação/objeto: %s\n• Responsável pela pasta: %s\n• Equipe do escritório: %s",
+            $c('pasta', 'sem número'),
+            $c('situacao', 'não informada'),
+            $c('prioridade', 'normal'),
+            $c('abertura', 'sem data'),
+            $c('acao', 'não informada'),
+            $c('responsavel', 'SEM RESPONSÁVEL'),
+            $c('equipe', 'não informada'),
+        ) . "\n</pasta>";
+    }
+
+    private static function blocoDosProcessos(ContextoDaPasta $contexto): string
+    {
+        return "PROCESSOS VINCULADOS (partes contrárias, vara e juiz NÃO constam nesta base):\n<processos_vinculados>\n"
+            . ($contexto->processos === []
+                ? '• NENHUM processo vinculado'
+                : implode("\n", array_map(static fn (string $linha): string => '• ' . self::dado($linha, 'sem dados'), $contexto->processos)))
+            . "\n</processos_vinculados>";
     }
 
     private static function bloco(SecaoDeContexto $secao): string

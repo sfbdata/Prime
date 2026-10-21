@@ -54,8 +54,8 @@ final class CorrigirPastaJudicialDuplicadaUseCaseTest extends TestCase
             $this->casoRepository,
             $this->eventoRepository,
             $this->pastaRepository,
-            new CriarPastaUseCase($this->em, new GerarNumeroDePasta($this->createMock(NumeracaoDePastaInterface::class))),
-            new NormalizadorDePastaJudicial($comporNome, new ResolvedorClienteDoResponsavel($this->createMock(ClientePFRepository::class))),
+            new CriarPastaUseCase($this->em, new GerarNumeroDePasta($this->createMock(NumeracaoDePastaInterface::class)), $this->createStub(PastaRepository::class)),
+            new NormalizadorDePastaJudicial($comporNome, new ResolvedorClienteDoResponsavel($this->createMock(ClientePFRepository::class), new \App\Cliente\Service\HistoricoDoCliente($this->createMock(\App\Cliente\Repository\ClienteHistoricoRepository::class)))),
             new RegistrarEventoHistorico($this->eventoRepository),
             $this->em,
         );

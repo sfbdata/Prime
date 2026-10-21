@@ -26,6 +26,7 @@ use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaPagamento;
+use App\Processo\DTO\DadosManuaisDoProcesso;
 use App\Processo\Entity\Processo;
 use App\Tests\Inteligencia\Support\DefineId;
 use App\Tests\Inteligencia\Support\FonteDeDadosDaPastaFalsa;
@@ -324,6 +325,25 @@ final class MontadorDeContextoDaPastaTest extends TestCase
         self::assertStringNotContainsString('Parcelado', $texto);
     }
 
+    #[TestDox('cartões do sistema de pró-bono e contrato são financeiro: só entram nas anotações com o financeiro permitido')]
+    public function testCartoesFinanceirosDoRegistro(): void
+    {
+        foreach (['probono' => 'Pró-bono: pasta marcada como pró-bono.', 'contrato' => 'Contrato: marcado como assinado.', 'fase' => 'Andamento: fase alterada.'] as $tipo => $texto) {
+            $m = $this->anotacao('<p>' . $texto . '</p>');
+            $m->setSistema($tipo);
+            $this->dados->anotacoes[] = $m;
+        }
+
+        $sem = implode("\n", self::secao($this->sut()->para($this->tenant, $this->pasta, Agente::Gestor, false), SecaoDoContexto::Anotacoes)->linhas);
+        self::assertStringNotContainsString('pró-bono', $sem);
+        self::assertStringNotContainsString('marcado como assinado', $sem);
+        self::assertStringContainsString('Andamento: fase alterada.', $sem);
+
+        $com = implode("\n", self::secao($this->sut()->para($this->tenant, $this->pasta, Agente::Gestor, true), SecaoDoContexto::Anotacoes)->linhas);
+        self::assertStringContainsString('Pró-bono: pasta marcada como pró-bono.', $com);
+        self::assertStringContainsString('Contrato: marcado como assinado.', $com);
+    }
+
     #[TestDox('abas ocultas para quem pediu (ocultar aba, desenho L.4218): as seções delas não entram e o resumo registra quais')]
     public function testAbasOcultasNaoEntram(): void
     {
@@ -451,6 +471,22 @@ final class MontadorDeContextoDaPastaTest extends TestCase
         $this->expectException(ContextoBloqueadoException::class);
 
         $this->sut()->para($this->tenant, $this->pasta, Agente::Documental, true);
+    }
+
+    #[TestDox('P5b: o "Sim" manual de segredo de justiça no cartão bloqueia como o sigilo do tribunal (agentes e Push)')]
+    public function testSegredoManualBloqueia(): void
+    {
+        $this->processo->setNivelSigilo(0);
+        $this->processo->definirDadosManuais(new DadosManuaisDoProcesso(segredo: true), $this->user);
+
+        try {
+            $this->sut()->para($this->tenant, $this->pasta, Agente::Gestor, true);
+            self::fail('agente: o "Sim" manual tem de bloquear');
+        } catch (ContextoBloqueadoException) {
+        }
+
+        $this->expectException(ContextoBloqueadoException::class);
+        (new MontadorDeContextoDoPush($this->movimentacoes, $this->configuracoes, new MascaradorDeDadosPessoais()))->para($this->tenant, $this->pasta);
     }
 
     #[TestDox('processo de OUTRO escritório vinculado à pasta é ignorado em silêncio')]

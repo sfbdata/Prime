@@ -10,7 +10,6 @@ use App\Auth\Entity\ConfirmacaoEmail;
 use App\Auth\Event\ContaCriadaPeloCadastro;
 use App\Auth\Repository\ConfirmacaoEmailRepository;
 use App\Auth\Service\CadastroMailer;
-use App\Auth\Service\ForcaDaSenha;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Legal\PoliticaPrivacidadeVigente;
@@ -36,6 +35,10 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  * seed), aceite dos Termos, ciência da Política e o link de confirmação do e-mail. Depois do commit: o e-mail de
  * confirmação (falha só vai para o log) e o evento ContaCriadaPeloCadastro. O token em claro só vai para o e-mail.
  *
+ * A senha digitada no cadastro é ignorada (spec `cadastro-senha-no-link.md`): a conta nasce com uma senha
+ * inutilizável e quem clica no link de confirmação cria a senha (CriarSenhaPeloLinkUseCase). Assim um terceiro que
+ * cadastra o e-mail de outra pessoa não entra com a senha que escolheu.
+ *
  * Validação na ordem e com os textos do desenho: \InvalidArgumentException; e-mail já usado: \DomainException.
  */
 final class CriarContaEEscritorioUseCase
@@ -45,9 +48,6 @@ final class CriarContaEEscritorioUseCase
     public const ERRO_EMAIL = 'Informe um e-mail válido.';
     public const ERRO_ACEITE = 'É preciso aceitar os Termos e a Política de privacidade.';
     public const ERRO_EMAIL_EXISTENTE = 'Já existe uma conta com este e-mail. Faça login para criar o escritório por dentro.';
-
-    /** Acima disso o hasher do Symfony recusa a senha com exceção; a mensagem é a mesma da senha fraca. */
-    private const SENHA_MAXIMA = 4096;
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -98,7 +98,6 @@ final class CriarContaEEscritorioUseCase
             !self::nomeCompleto($input->nome) => self::ERRO_NOME,
             !self::escritorioValido($input->escritorio) => self::ERRO_ESCRITORIO,
             !self::emailValido($input->email) => self::ERRO_EMAIL,
-            strlen($input->senha) > self::SENHA_MAXIMA || !ForcaDaSenha::aceita($input->senha) => ForcaDaSenha::ERRO,
             !$input->aceite => self::ERRO_ACEITE,
             default => null,
         };
@@ -169,11 +168,20 @@ final class CriarContaEEscritorioUseCase
         $user->setFullName(trim($input->nome));
         $user->setIsActive(true);
         $user->setRoles(['ROLE_USER']);
-        $user->setPassword($this->passwordHasher->hashPassword($user, $input->senha));
+        $user->setPassword($this->senhaInutilizavel($user));
         $user->marcarEmailAConfirmar($agora);
         $this->em->persist($user);
 
         return $user;
+    }
+
+    /**
+     * 32 bytes aleatórios jogados fora: ninguém conhece a senha, então ninguém entra antes de criar a sua pelo link
+     * (ou pelo código do "Esqueci a senha"). Em hexadecimal porque o bcrypt recusa o byte nulo.
+     */
+    private function senhaInutilizavel(User $user): string
+    {
+        return $this->passwordHasher->hashPassword($user, bin2hex(random_bytes(32)));
     }
 
     /** Decisão b: a caixa única grava o aceite dos Termos E a ciência da Política, cada um com a sua versão. */
@@ -194,7 +202,7 @@ final class CriarContaEEscritorioUseCase
         ));
     }
 
-    /** Decisão c: a conta já existe e já entra; o e-mail não pode travar nada. */
+    /** A conta já existe e espera o link (cadastro-senha-no-link): uma falha no envio não desfaz o cadastro; o reenvio cobre. */
     private function enviarConfirmacao(User $user, string $token): void
     {
         try {

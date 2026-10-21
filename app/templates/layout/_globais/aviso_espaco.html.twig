@@ -10,12 +10,12 @@
         <div class="ae-aviso{{ aviso.vermelho ? ' ae-aviso--cheio' }}" data-aviso-espaco data-cheio="{{ aviso.cheio ? '1' : '0' }}" data-print="hide" role="status" hidden>
             <span class="ae-icone" aria-hidden="true">{{ aviso.vermelho ? '⛔' : '⚠️' }}</span>
             <div class="ae-texto">
-                <b>{{ aviso.cheio ? 'Espaço esgotado: novos envios estão pausados' : 'Seu espaço está ' ~ aviso.percentual ~ '% ocupado' }}</b>
-                <div>{{ aviso.uso }} de {{ aviso.limite }} no plano {{ aviso.plano }}. {{ aviso.cheio ? 'Consultar e baixar arquivos continua liberado.' : (aviso.faltam ? 'Faltam ' ~ aviso.faltam ~ '. ' : '') ~ 'Recomendamos aumentar o espaço para não interromper o envio de documentos.' }}</div>
+                <b>{{ aviso.cheio ? 'moldura.aviso_espaco.titulo_esgotado'|trans : 'moldura.aviso_espaco.titulo_ocupado'|trans({percentual: aviso.percentual ~ ''}) }}</b>
+                <div>{{ 'moldura.aviso_espaco.uso_do_plano'|trans({uso: aviso.uso, limite: aviso.limite, plano: aviso.plano}) }} {{ aviso.cheio ? 'moldura.aviso_espaco.consulta_liberada'|trans : (aviso.faltam ? 'moldura.aviso_espaco.faltam'|trans({faltam: aviso.faltam}) ~ ' ' : '') ~ 'moldura.aviso_espaco.recomendacao'|trans }}</div>
                 <div class="ae-barra"><div style="width: {{ aviso.largura }}"></div></div>
             </div>
-            <a class="ae-aumentar" href="{{ path('contribua_index') }}#espaco">Aumentar espaço</a>
-            {% if not aviso.cheio %}<button type="button" class="ae-fechar" data-fechar-aviso-espaco title="Lembrar amanhã" aria-label="Lembrar amanhã">×</button>{% endif %}
+            <a class="ae-aumentar" href="{{ path('contribua_index') }}#espaco">{{ 'moldura.aviso_espaco.aumentar'|trans }}</a>
+            {% if not aviso.cheio %}<button type="button" class="ae-fechar" data-fechar-aviso-espaco title="{{ 'moldura.aviso_espaco.lembrar_amanha'|trans }}" aria-label="{{ 'moldura.aviso_espaco.lembrar_amanha'|trans }}">×</button>{% endif %}
         </div>
         <script src="{{ asset('js/aviso-espaco.js') }}" defer></script>
     {% endif %}

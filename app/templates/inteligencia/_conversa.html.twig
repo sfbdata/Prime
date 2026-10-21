@@ -1,0 +1,58 @@
+{# ============================================================================
+   Conversa da aba "Perguntar" do drawer BlueJus IA (spec inteligencia-drawer-
+   da-pasta, F3; desenho dc L1072-1092 e L5972-5974).
+
+   Mensagens em coluna: as minhas à direita em degradê, as da IA à esquerda em
+   branco com borda (`max-width:88%`, `pre-wrap`), tudo ESCAPADO (sem |raw: a
+   resposta é texto do modelo). Sem mensagens, o texto do desenho; as quatro
+   sugestões literais do desenho ficam sempre embaixo (clique envia, pelo
+   pasta-ia-conversa.js). Pergunta em andamento: nenhuma resposta inventada,
+   só o cartão "Consultando os dados desta pasta" (dc L1086-1092) até o
+   polling trazer a resposta. Falha diz a falha (regra 1).
+
+   Só a conversa da pessoa logada (o UseCase consulta por autor).
+   `data-ia-em-andamento` é o que o polling lê.
+
+   Renderizado em dois lugares: dentro do drawer, com `conversa = null`
+   ("carregando"), e sozinho por `GET /pasta/{id}/ia/conversa`
+   (`inteligencia_conversa_listar`), que o JS busca e troca inteiro.
+
+   Contexto: `conversa` (App\Inteligencia\DTO\ConversaDaPastaOutput ou null),
+   `pastaId` (int).
+   ============================================================================ #}
+{% set ia = ia_disponibilidade() %}
+{% set emAndamento = conversa is not null and conversa.temEmAndamento %}
+{% set sugestoes = ['Esse processo está parado?', 'O que falta fazer?', 'Veja se existe prazo', 'Existe algum risco?'] %}
+<div class="ia-conversa" data-ia-conversa
+     data-ia-carregado="{{ conversa is null ? '0' : '1' }}"
+     data-ia-em-andamento="{{ emAndamento ? '1' : '0' }}">
+    {% if conversa is null %}
+        <p class="ia-ag-vazio" data-ia-carregando>Carregando a conversa…</p>
+    {% else %}
+        <div class="ia-conversa-msgs" data-ia-mensagens>
+            {% for m in conversa.mensagens %}
+                <div class="ia-conversa-msg ia-conversa-msg--eu" data-ia-pergunta="{{ m.perguntaId }}">{{ m.texto }}</div>
+                {% if m.resposta is not null %}
+                    <div class="ia-conversa-msg ia-conversa-msg--ia" data-ia-resposta="{{ m.perguntaId }}">{{ m.resposta }}</div>
+                {% elseif m.falha is not null %}
+                    <div class="ia-conversa-msg ia-conversa-msg--ia is-falha" data-ia-resposta="{{ m.perguntaId }}">{{ m.falha }}</div>
+                {% endif %}
+            {% endfor %}
+            {% if conversa.vazia %}
+                <p class="ia-conversa-vazia">Pergunte sobre esta pasta. A IA já conhece o cliente, o processo, os prazos, as metas, os registros e os documentos.</p>
+            {% endif %}
+            <div class="ia-conversa-sugestoes" role="group" aria-label="Sugestões de pergunta">
+                {% for s in sugestoes %}
+                    <button type="button" class="ia-conversa-sugestao" data-ia-sugestao="{{ s }}"{{ emAndamento or not ia.estaDisponivel ? ' disabled' : '' }}>{{ s }}</button>
+                {% endfor %}
+            </div>
+        </div>
+        {% if emAndamento %}
+            <div class="ia-conversa-carregando" role="status" data-ia-consultando>
+                <div class="ia-conversa-etapa"><i class="bi bi-stars" aria-hidden="true"></i>Consultando os dados desta pasta</div>
+                <div class="ia-conversa-shim" aria-hidden="true"></div>
+                <div class="ia-conversa-shim ia-conversa-shim--curto" aria-hidden="true"></div>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>

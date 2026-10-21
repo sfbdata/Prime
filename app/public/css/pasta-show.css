@@ -172,6 +172,14 @@
     --ps-shadow-gm:       0 10px 30px rgba(16,42,58,.2); /* menu generico `gm` (M7, P12) */
     --ps-proc-mais-hv:    #d6eaf4;               /* hover do "Ver todas as informacoes" (P10) */
     --ps-proc-det-bg:     #f5f8fa;               /* painel de detalhes do processo (P11) */
+    --ps-proc-manual-tx:  #8a6400;               /* selo "manual" (P5b, desenho N:1781) */
+    --ps-proc-manual-bg:  #fdf5d8;
+    --ps-proc-ed-borda:   #d3dde4;               /* campos da edição no cartão (N:1802) */
+    --ps-proc-ed-campo:   #fff;
+    --ps-proc-flag-bg:    #eef1f3;               /* Sim / Não / Não informado (N:1806) */
+    --ps-proc-flag-on:    #fff;
+    --ps-proc-flag-sombra: 0 1px 2px rgba(16,42,58,.14);
+    --ps-proc-cancelar-hv: #e3e8ec;
     --ps-div-fin:         #e7edf2;               /* moldura dos arquivos e trilho da barra (F10, F13) */
     --ps-div-fin-fraca:   #f1f4f7;               /* separador entre arquivos (F10) */
     --ps-accent-bg-hv:    #d8eaf3;               /* hover do "Adicionar pagamento" (F4) */
@@ -360,6 +368,14 @@
     --ps-shadow-gm:       0 10px 30px rgba(0,0,0,.55);
     --ps-proc-mais-hv:    rgba(69,176,214,.24);
     --ps-proc-det-bg:     rgba(255,255,255,.04);
+    --ps-proc-manual-tx:  #e8c96a;
+    --ps-proc-manual-bg:  rgba(138,100,0,.3);
+    --ps-proc-ed-borda:   var(--bs-border-color);
+    --ps-proc-ed-campo:   var(--bs-body-bg);
+    --ps-proc-flag-bg:    rgba(255,255,255,.06);
+    --ps-proc-flag-on:    var(--bs-tertiary-bg);
+    --ps-proc-flag-sombra: 0 1px 2px rgba(0,0,0,.4);
+    --ps-proc-cancelar-hv: rgba(255,255,255,.1);
     --ps-div-fin:         var(--bs-border-color);
     --ps-div-fin-fraca:   var(--bs-border-color-translucent);
     --ps-accent-bg-hv:    rgba(69,176,214,.24);
@@ -3320,6 +3336,95 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 .ps-processo-partes li::before { content: '•'; position: absolute; left: 0; top: 0; color: var(--ps-accent); }
 .ps-processo-parte-papel { font-weight: 500; color: var(--ps-muted); }
 
+/* P5b (docs/specs/processo-cartao-edicao.md). Marcas (N:1763-1769): chips das flags "Sim". */
+.ps-processo-marcas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.ps-processo-marca {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 4px;
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--ps-chip-text);
+    background: var(--ps-accent-bg);
+}
+.ps-processo-marca i { font-size: 11px; }
+/* Linha de fonte ao lado do "Ver todas" (N:1771). */
+.ps-processo-fonte { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--ps-label); text-wrap: pretty; }
+.ps-processo-fonte i { font-size: 12px; }
+/* Selo "manual" no rótulo do campo (N:1781). */
+.ps-processo-campo .ps-rotulo { display: flex; align-items: center; gap: 6px; }
+.ps-processo-manual {
+    font-size: 9.5px;
+    letter-spacing: .04em;
+    color: var(--ps-proc-manual-tx);
+    background: var(--ps-proc-manual-bg);
+    border-radius: 3px;
+    padding: 1px 5px;
+}
+.ps-processo-assuntos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.ps-processo-assuntos li { position: relative; padding-left: 12px; font-size: 13.5px; font-weight: 600; color: var(--ps-text); line-height: 1.4; overflow-wrap: anywhere; }
+.ps-processo-assuntos li::before { content: '•'; position: absolute; left: 0; top: 0; color: var(--ps-accent); }
+
+/* Edição no cartão (N:1794-1818). */
+.ps-processo-edicao { margin-top: 12px; padding: 14px 16px; background: var(--ps-proc-det-bg); border-radius: 4px; animation: psProcEntra .18s var(--ps-ease) backwards; }
+.ps-processo-edicao[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+    .ps-processo-edicao { animation: none; }
+}
+.ps-processo-edicao-dica { margin: 0 0 12px; font-size: 12px; color: var(--ps-muted); }
+.ps-processo-edicao-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 12px 18px; }
+.ps-processo-edicao-campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.ps-processo-edicao-campo .ps-rotulo { margin: 0; padding: 0; letter-spacing: .08em; float: none; width: auto; }
+.ps-processo-edicao-campo input[type="text"],
+.ps-processo-edicao-campo textarea {
+    min-width: 0;
+    padding: 0 10px;
+    border: 1px solid var(--ps-proc-ed-borda);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--ps-text);
+    background: var(--ps-proc-ed-campo);
+    outline: none;
+}
+.ps-processo-edicao-campo input[type="text"] { height: 34px; }
+.ps-processo-edicao-campo textarea { padding: 8px 10px; resize: vertical; }
+.ps-processo-edicao-campo input[type="text"]:focus,
+.ps-processo-edicao-campo textarea:focus { border-color: var(--ps-accent); box-shadow: 0 0 0 3px var(--ps-foco-anel); }
+.ps-processo-flag { display: flex; gap: 4px; padding: 3px; background: var(--ps-proc-flag-bg); border-radius: 3px; }
+.ps-processo-flag-op { flex: 1; position: relative; margin: 0; }
+.ps-processo-flag-op input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.ps-processo-flag-op span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    padding: 0 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--ps-muted);
+    cursor: pointer;
+}
+.ps-processo-flag-op input:checked + span { background: var(--ps-proc-flag-on); color: var(--ps-chip-text); box-shadow: var(--ps-proc-flag-sombra); }
+.ps-processo-flag-op input:focus-visible + span { box-shadow: 0 0 0 3px var(--ps-foco-anel); }
+.ps-processo-edicao-acoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.ps-processo-edicao-cancelar,
+.ps-processo-edicao-salvar { height: 32px; border: none; border-radius: 4px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.ps-processo-edicao-cancelar { padding: 0 14px; background: var(--ps-proc-flag-bg); color: var(--ps-body); }
+.ps-processo-edicao-cancelar:hover,
+.ps-processo-edicao-cancelar:focus-visible { background: var(--ps-proc-cancelar-hv); }
+.ps-processo-edicao-salvar { padding: 0 16px; background: var(--ps-accent); color: #fff; }
+.ps-processo-edicao-salvar:hover,
+.ps-processo-edicao-salvar:focus-visible { background: var(--ps-lermais-hover); }
+.ps-processo-edicao-salvar:disabled { opacity: .6; cursor: progress; }
+
 /* ⋮ do cartao (desenho: 32px, icone 16px) e o menu fixo que ele abre. */
 .ps-processo-menu-gatilho {
     width: 32px;
@@ -3428,8 +3533,8 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-meta-titulo { display: flex; align-items: flex-start; gap: 8px; font-size: 14.5px; font-weight: 600; line-height: 1.35; text-wrap: pretty; color: var(--ps-text); }
 .ps-meta-titulo i { font-size: 15px; line-height: 1.35; color: var(--ps-ok-dot); flex-shrink: 0; }
 /* Numero local da meta (desenho: "1." 14.5/700 azul, algarismos tabulares). O
-   numero global do desenho (tarefa.id) nao entra: e a sequencia de TODOS os
-   escritorios. */
+   selo "Nº 0001" depois do titulo e o numero da meta no escritorio (nunca o id):
+   estilo em meta-numero-global.css. */
 .ps-meta-num { flex-shrink: 0; min-width: 20px; font-size: 14.5px; font-weight: 700; line-height: 1.35; color: var(--ps-meta-num); font-variant-numeric: tabular-nums; }
 .ps-meta-titulo-tx { flex: 1; min-width: 0; }
 /* So o TEXTO e riscado (desenho): o numero continua legivel. */
@@ -4446,7 +4551,8 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-processos .ps-btn--primario.ps-btn--caps:focus-visible { border-color: var(--ps-env-hv); background: var(--ps-env-hv); }
 /* Valor vazio do cartao: 13.5/500, italico, mais apagado (dc 2871). So no cartao
    de processo — a faixa do cabecalho tem o tom proprio (C8). */
-.ps-processos .ps-processo-valor.ps-dado--vazio { font-size: 13.5px; font-weight: 500; font-style: italic; color: var(--ps-vazio-italico); }
+.ps-processos .ps-processo-valor.ps-dado--vazio,
+.ps-processos .ps-processo-campo-valor.ps-dado--vazio { font-size: 13.5px; font-weight: 500; font-style: italic; color: var(--ps-vazio-italico); }
 
 /* ── Financeiro: vazio de Pagamentos em linha (auditoria 2 F5) ──
    "Nenhum lançamento. Use Adicionar pagamento." (dc 1920), abaixo do total zerado. */
@@ -5464,4 +5570,124 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     font-size: 11.5px;
     font-weight: 700;
     cursor: pointer;
+}
+
+/* "Destacar comentário" (spec pasta-destacar-comentario.md; dc02 L6306): o cartão ganha o fundo da cor e uma faixa
+   à esquerda; sobre cor escura o texto fica claro (data-destaque-tom). A paleta é a do dc L262-266. */
+.ps-anotacao[data-destaque],
+.ps-registro .ps-anotacao[data-destaque],
+.ps-registro .ps-anotacao[data-destaque]:hover {
+    background: var(--ps-destaque);
+    box-shadow: inset 3px 0 0 rgba(0, 0, 0, .28), 0 1px 2px rgba(16, 42, 58, .08);
+}
+.ps-anotacao[data-destaque-tom="claro"] .ps-anotacao-autor,
+.ps-anotacao[data-destaque-tom="claro"] .ql-editor {
+    color: #12242f;
+}
+/* dc L26-30: sobre cor escura todo o texto fica branco; quem tem fundo próprio (selos, avatar) mantém as cores. */
+.ps-anotacao[data-destaque-tom="escuro"] :not([style*="background"]):not(.badge):not(.ps-avatar) {
+    color: #fff !important;
+}
+.ps-anotacao[data-destaque-tom="escuro"] a {
+    color: #cfe8ff !important;
+}
+.ps-anotacao[data-destaque-tom="escuro"] button,
+.ps-anotacao[data-destaque-tom="escuro"] button * {
+    color: rgba(255, 255, 255, .85) !important;
+}
+.ps-destaque-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483590;
+}
+.ps-destaque-paleta {
+    position: fixed;
+    z-index: 2147483600;
+    width: 196px;
+    padding: 10px;
+    background: #fff;
+    border: 1px solid #dde5eb;
+    border-radius: 4px;
+    box-shadow: 0 12px 32px rgba(16, 42, 58, .2);
+    outline: none;
+}
+.ps-destaque-paleta-titulo {
+    margin: 0 0 8px 2px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #7b93a2;
+}
+.ps-destaque-paleta-grade {
+    display: grid;
+    grid-template-columns: repeat(5, 32px);
+    gap: 6px;
+}
+.ps-destaque-cor {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid rgba(0, 0, 0, .18);
+    border-radius: 3px;
+    cursor: pointer;
+}
+.ps-destaque-cor.is-atual {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #0a7aad;
+}
+.ps-destaque-sem-cor {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 9px;
+    padding: 7px 6px;
+    border: none;
+    border-top: 1px solid #eef2f5;
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+    color: #34505f;
+    text-align: left;
+    cursor: pointer;
+}
+.ps-destaque-sem-cor:hover {
+    background: #f4f8fb;
+}
+.ps-destaque-sem-cor > span {
+    width: 20px;
+    height: 20px;
+    border: 1px solid #c3d2dd;
+    border-radius: 3px;
+    background: linear-gradient(135deg, #fff 45%, #cf3f36 47%, #cf3f36 53%, #fff 55%);
+}
+
+/* =============================================================================
+   Tag fixa "Observação" dos registros de Detalhes (desenho 02, dc L2458 `o.tagSt`
+   e dc L6275 `COR['Observação']`): 10,5px, 700, caixa alta com .06em, 2px 8px,
+   cantos de 4px, roxo #6b5bb0 sobre #efecfa. Fica depois do autor (e da
+   presença) e antes de "editado". A etiqueta variável (Combinado, Ligação,
+   Atendimento) segue pendente (PAS-029).
+   ============================================================================= */
+.ps-body,
+.ps-page {
+    --ps-obs-tag-tx: #6b5bb0;
+    --ps-obs-tag-bg: #efecfa;
+}
+[data-bs-theme="dark"] .ps-body,
+[data-bs-theme="dark"] .ps-page {
+    --ps-obs-tag-tx: #c9bff2;
+    --ps-obs-tag-bg: rgba(107, 91, 176, .28);
+}
+.detalhes-obs-tag {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--ps-obs-tag-bg);
+    color: var(--ps-obs-tag-tx);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
 }

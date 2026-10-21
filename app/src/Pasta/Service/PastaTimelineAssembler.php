@@ -141,7 +141,9 @@ class PastaTimelineAssembler
         }
 
         return array_values(array_filter($items, static fn (TimelineItemDTO $i): bool => VisibilidadeDasAbasDaPasta::eventoVisivel(
-            $i->tipo === TimelineItemType::MENSAGEM ? 'registro' : $i->origem,
+            $i->tipo === TimelineItemType::MENSAGEM
+                ? (\in_array($i->sistema, RegistroDoSistemaNaPasta::DO_FINANCEIRO, true) ? 'registro_financeiro' : 'registro')
+                : $i->origem,
             $abasOcultas,
         )));
     }

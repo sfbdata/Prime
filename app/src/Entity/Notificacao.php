@@ -49,6 +49,8 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_CENTRAL_DESPACHO = 'central_despacho';
     /** Quem recebeu o link externo do Push pediu a renovação; vai para quem criou o link. */
     public const TIPO_PUSH_LINK_RENOVACAO = 'push_link_renovacao';
+    /** Um primário pediu a exclusão da conta do escritório (PR 5); vai para os Masters. */
+    public const TIPO_CONTA_PEDIDO_EXCLUSAO = 'conta_pedido_exclusao';
 
     // Trabalho Externo (F4): avisos de vagas e candidaturas.
     public const TIPO_TRABALHO_EXTERNO_PEDIDO_DE_VAGA = 'trabalho_externo_pedido_de_vaga';
@@ -237,10 +239,11 @@ class Notificacao implements Auditavel, TenantAware
     public function getIcone(): string
     {
         // Trabalho Externo (F4): avisos de vagas e candidaturas.
-        if (isset(self::ICONES_DO_TRABALHO_EXTERNO[$this->tipo])) {
-            return self::ICONES_DO_TRABALHO_EXTERNO[$this->tipo];
-        }
+        return self::ICONES_DO_TRABALHO_EXTERNO[$this->tipo] ?? $this->iconeDosDemaisTipos();
+    }
 
+    private function iconeDosDemaisTipos(): string
+    {
         return match ($this->tipo) {
             self::TIPO_TAREFA_CRIADA => 'bi-plus-circle text-primary',
             self::TIPO_TAREFA_EM_REVISAO => 'bi-hourglass-split text-warning',

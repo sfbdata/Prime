@@ -16,6 +16,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[CoversClass(TarefaController::class)]
@@ -586,22 +587,71 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('E5c (revisão): na aba Criei — que agrupa por etapa e não tem grupo "Atrasadas" — a legenda conta as delegadas atrasadas, como o desenho, e a folgada fica em "em aberto" sem contar duas vezes')]
-    public function testLegendaDaAbaCrieiContaAsAtrasadas(): void
+    #[TestDox('Desenho 04 (P:112-118, P:176-177): com filtro ativo e em outra aba, "Seu andamento" mantém o título e conta TODAS as metas da pessoa, também na recarga parcial')]
+    public function testAndamentoContaTodasAsMetasComFiltroEmOutraAba(): void
     {
         $client             = static::createClient();
         [$usuario, $tenant] = $this->autenticar($client);
         $colega             = $this->criarColega($tenant);
+        $em                 = static::getContainer()->get(EntityManagerInterface::class);
         $this->criarMetaDelegada($tenant, $usuario, $colega, 'Delegada atrasada')->setPrazo(new \DateTimeImmutable('-2 days'));
         $this->criarMetaDelegada($tenant, $usuario, $colega, 'Delegada folgada')->setPrazo(new \DateTimeImmutable('+20 days'));
-        static::getContainer()->get(EntityManagerInterface::class)->flush();
+        $this->criarMeta($tenant, $usuario, 'Comigo, entregue', Tarefa::STATUS_EM_REVISAO);
+        $this->criarMeta($tenant, $usuario, 'Comigo, feita', Tarefa::STATUS_CONCLUIDA)->setDataConclusao(new \DateTimeImmutable('-1 day'));
+        $this->criarMeta($tenant, $colega, 'Só do colega')->setPrazo(new \DateTimeImmutable('-4 days'));
+        $em->flush();
+
+        $esperado = ['1 concluída(s)', '1 em aberto', '1 atrasada(s)', '1 em revisão'];
+        foreach (['criei', 'responsavel', 'acompanhando'] as $aba) {
+            $client->request('GET', '/tarefas/minhas', ['aba' => $aba, 'busca' => 'nada-casa-com-isto', 'prazo' => 'sem']);
+            self::assertResponseIsSuccessful();
+            $this->assertAndamento($client->getCrawler(), '1 de 4', $esperado, $aba);
+        }
+
+        $client->xmlHttpRequest('GET', '/tarefas/minhas', ['aba' => 'criei', 'busca' => 'folgada', 'status' => 'pendente']);
+        self::assertResponseIsSuccessful();
+        $this->assertAndamento($client->getCrawler(), '1 de 4', $esperado, 'XHR');
+    }
+
+    /** @param list<string> $fatias */
+    private function assertAndamento(Crawler $c, string $xDeY, array $fatias, string $onde): void
+    {
+        $cartao = $c->filter('.mm-arranjo > .mm-trilho > .mm-cartao.mm-trilho-andamento');
+        self::assertSame('Seu andamento', trim($cartao->filter('.mm-trilho-andamento > div > h2.mm-cartao-titulo')->text()), $onde);
+        self::assertSame($xDeY, trim($cartao->filter('.mm-progresso-numero')->text()), $onde);
+        self::assertSame(
+            $fatias,
+            $cartao->filter('.mm-trilho-andamento > .mm-fatias > .mm-fatia')->each(static fn ($f): string => trim(preg_replace('/\s+/', ' ', $f->text()) ?? '')),
+            $onde,
+        );
+    }
+
+    #[TestDox('Desenho 04 (P:151-154): a aba Criei mostra os grupos por prazo, na ordem atual das outras abas, e não mais por etapa da revisão')]
+    public function testAbaCrieiAgrupaPorPrazo(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $colega             = $this->criarColega($tenant);
+        $em                 = static::getContainer()->get(EntityManagerInterface::class);
+        $this->criarMetaDelegada($tenant, $usuario, $colega, 'Atrasada')->setPrazo(new \DateTimeImmutable('-2 days'));
+        $this->criarMetaDelegada($tenant, $usuario, $colega, 'Vence logo')->setPrazo(new \DateTimeImmutable('+2 days'));
+        $this->criarMetaDelegada($tenant, $usuario, $colega, 'Folgada')->setPrazo(new \DateTimeImmutable('+30 days'));
+        $this->criarMetaDelegada($tenant, $usuario, $colega, 'Sem data');
+        $this->criarMetaDelegada($tenant, $usuario, $colega, 'Voltou para mim')->setStatus(Tarefa::STATUS_EM_REVISAO);
+        $this->criarMetaDelegada($tenant, $usuario, $colega, 'Aprovei')->setStatus(Tarefa::STATUS_CONCLUIDA)->setDataConclusao(new \DateTimeImmutable());
+        $em->flush();
 
         $client->request('GET', '/tarefas/minhas?aba=criei');
         self::assertResponseIsSuccessful();
+        $c = $client->getCrawler();
+
         self::assertSame(
-            ['0 concluída(s)', '1 em aberto', '1 atrasada(s)', '0 em revisão'],
-            $client->getCrawler()->filter('.mm-trilho-andamento .mm-fatias > .mm-fatia')->each(static fn ($f): string => trim(preg_replace('/\s+/', ' ', $f->text()) ?? '')),
+            ['Atrasadas', 'Vencem em 7 dias', 'Depois', 'Sem prazo', 'Enviadas para revisão', 'Concluídas'],
+            $c->filter('.mm-arranjo > .mm-coluna-lista > section.mm-grupo > .mm-grupo-cabeca > .mm-grupo-nome')->each(static fn ($n): string => trim($n->text())),
         );
+        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-atrasadas > article.mm-meta.tom-danger'));
+        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-concluidas > button.mm-grupo-cabeca + .collapse > article.mm-meta'), 'Concluídas segue recolhido');
+        self::assertCount(0, $c->filter('.mm-grupo-aguardando, .mm-grupo-andamento'), 'os grupos por etapa saíram');
     }
 
     #[TestDox('O modo lista troca os cartões pela tabela e dispensa o trilho')]
@@ -768,7 +818,9 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString("document.addEventListener('auxclick', abrirMetaPelaLinha)", $corpo, 'botão do meio abre em outra aba');
         self::assertStringContainsString("meio || e.ctrlKey || e.metaKey || e.shiftKey", $corpo);
         self::assertStringContainsString("window.open(titulo.href, '_blank', 'noopener')", $corpo);
-        self::assertStringContainsString("'Parar de acompanhar' : 'Acompanhar esta meta'", $corpo, 'o JS do marcador troca para as dicas do desenho');
+        self::assertStringContainsString("BJ_T.t('metas.js.parar_de_acompanhar') : BJ_T.t('metas.js.acompanhar_esta_meta')", $corpo, 'o JS do marcador troca para as dicas do desenho');
+        // Desde a extração do idioma o texto vem no catálogo do JS que a própria página entrega.
+        self::assertStringContainsString('"metas.js.acompanhar_esta_meta":"Acompanhar esta meta","metas.js.parar_de_acompanhar":"Parar de acompanhar"', $corpo);
     }
 
     #[TestDox('MENU-02: meta acompanhada mostra "Parar de acompanhar" no marcador, nos cartões e na lista')]
@@ -817,7 +869,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $c = $client->getCrawler();
         self::assertCount(1, $c->filter('.mm-arranjo > .mm-trilho > .mm-cartao.mm-trilho-atencao > .mm-cartao-cabeca > h2.mm-cartao-titulo'));
-        self::assertSame('Nada pedindo atenção nesta lista.', trim($c->filter('.mm-trilho > .mm-trilho-atencao > .mm-atencao-vazio')->text()));
+        self::assertSame('Nada pedindo atenção.', trim($c->filter('.mm-trilho > .mm-trilho-atencao > .mm-atencao-vazio')->text()));
         self::assertCount(0, $c->filter('.mm-trilho-atencao > .mm-trilho-rodape'));
     }
 
@@ -883,7 +935,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Outra meta', $corpo);
     }
 
-    #[TestDox('"Precisa de atenção" sai das atrasadas pela regra (dc `atencao`): na aba Criei a delegada atrasada aparece, de quem é, e a legenda conta 1')]
+    #[TestDox('"Precisa de atenção" (dc `atencao`) traz as atrasadas de todas as metas: na aba Criei a delegada atrasada aparece, "de <criador>" como em qualquer aba, e a legenda conta 1')]
     public function testAtencaoNaAbaCrieiPelaRegra(): void
     {
         $client             = static::createClient();
@@ -901,12 +953,14 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $itens);
         self::assertSame('/tarefas/' . $atrasada->getId(), $itens->attr('href'));
         self::assertSame('Delegada atrasada · Pasta ' . $atrasada->getPasta()->getNup(), trim(preg_replace('/\s+/', ' ', $itens->filter('.mm-atencao-titulo')->text()) ?? ''));
-        self::assertStringEndsWith('· Colega de Escritório', trim(preg_replace('/\s+/', ' ', $itens->filter('.mm-atencao-meta')->text()) ?? ''), 'na aba Criei mostra com quem está');
+        self::assertStringEndsWith('· de Usuário Metas', trim(preg_replace('/\s+/', ' ', $itens->filter('.mm-atencao-meta')->text()) ?? ''), 'dc P:178: sempre "de <criador>", também na aba Criei');
+        $client->request('GET', '/tarefas/minhas?aba=responsavel');
+        self::assertStringEndsWith('· de Usuário Metas', trim(preg_replace('/\s+/', ' ', $client->getCrawler()->filter('.mm-trilho > .mm-cartao.mm-trilho-atencao > a.mm-atencao-item .mm-atencao-meta')->text()) ?? ''), 'o mesmo item em outra aba');
         self::assertCount(0, $c->filter('.mm-trilho-atencao > .mm-atencao-vazio'));
         self::assertContains('1 atrasada(s)', $c->filter('.mm-trilho-andamento .mm-fatias > .mm-fatia')->each(static fn ($f): string => trim(preg_replace('/\s+/', ' ', $f->text()) ?? '')));
     }
 
-    #[TestDox('"Precisa de atenção" nas outras abas segue igual: atrasadas da aba, da que venceu primeiro, e a em revisão vencida fica de fora')]
+    #[TestDox('"Precisa de atenção" é o mesmo em qualquer aba: atrasadas de todas as metas, da que venceu primeiro, e a em revisão vencida fica de fora')]
     public function testAtencaoNasOutrasAbasNaoMuda(): void
     {
         $client             = static::createClient();
@@ -916,7 +970,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         $this->criarMeta($tenant, $usuario, 'Em revisão vencida', Tarefa::STATUS_EM_REVISAO)->setPrazo(new \DateTimeImmutable('-3 days'));
         static::getContainer()->get(EntityManagerInterface::class)->flush();
 
-        foreach (['responsavel', 'todas'] as $aba) {
+        foreach (['responsavel', 'todas', 'criei', 'acompanhando'] as $aba) {
             $client->request('GET', '/tarefas/minhas?aba=' . $aba);
             self::assertResponseIsSuccessful();
             self::assertSame(
@@ -924,6 +978,88 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
                 $client->getCrawler()->filter('.mm-trilho-atencao > a.mm-atencao-item .mm-atencao-titulo')->each(static fn ($t): string => trim((string) preg_replace('/ · Pasta .*$/', '', trim($t->text())))),
                 $aba,
             );
+        }
+    }
+
+    #[TestDox('Desenho 04 (P:119-127, P:178): "Precisa de atenção" mostra no máximo 4, sem "Ver todas" e sem a frase de rodapé')]
+    public function testAtencaoNoMaximoQuatroSemLink(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        foreach ([1, 2, 3, 4, 5, 6] as $dias) {
+            $this->criarMeta($tenant, $usuario, 'Venceu há ' . $dias)->setPrazo(new \DateTimeImmutable('-' . $dias . ' days'));
+        }
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $client->request('GET', '/tarefas/minhas');
+        self::assertResponseIsSuccessful();
+        $c      = $client->getCrawler();
+        $cartao = $c->filter('.mm-arranjo > .mm-trilho > .mm-cartao.mm-trilho-atencao');
+
+        self::assertSame(
+            ['Venceu há 6', 'Venceu há 5', 'Venceu há 4', 'Venceu há 3'],
+            $cartao->filter('.mm-trilho-atencao > a.mm-atencao-item > .mm-atencao-texto > .mm-atencao-titulo')->each(static fn ($t): string => trim((string) preg_replace('/ · Pasta .*$/', '', trim($t->text())))),
+        );
+        self::assertCount(0, $cartao->filter('.mm-trilho-rodape'));
+        // O cabeçalho do layout tem "Ver todas as notificações": a conferência é só no trilho.
+        $trilho = $c->filter('.mm-arranjo > .mm-trilho')->text();
+        self::assertStringNotContainsString('Ver todas', $trilho);
+        self::assertStringNotContainsString('continuam contando dias', $trilho);
+        self::assertCount(0, $cartao->filter('a[href*="prazo=vencidas"]'), 'sem link para a lista das atrasadas');
+    }
+
+    #[TestDox('Desenho 04 (P:78-79): o select de prazo diz "Atrasadas", "Vencem em 7 dias" e "Sem prazo" (valores de sempre) e o botão de limpar diz "Limpar filtros"')]
+    public function testRotulosDoFiltroDePrazoELimpar(): void
+    {
+        $client = static::createClient();
+        $this->autenticar($client);
+
+        $client->request('GET', '/tarefas/minhas?prazo=vencidas');
+        self::assertResponseIsSuccessful();
+        $c = $client->getCrawler();
+
+        $opcoes = $c->filter('[data-filtro-root] > .mm-barra-cartao > form[data-filtro-form] > .filtro-linha > select[name="prazo"] > option');
+        self::assertSame(
+            [['', 'Prazo'], ['vencidas', 'Atrasadas'], ['proximas', 'Vencem em 7 dias'], ['sem', 'Sem prazo']],
+            $opcoes->each(static fn ($o): array => [(string) $o->attr('value'), trim($o->text())]),
+        );
+        self::assertSame('vencidas', $c->filter('select[name="prazo"] > option[selected]')->attr('value'), 'o KPI continua abrindo a faceta pelo valor de sempre');
+        self::assertSame('Limpar filtros', $c->filter('[data-filtro-root]')->attr('data-ft-rotulo-limpar'));
+        self::assertStringNotContainsString('Próximas (7 dias)', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('Isolamento: meta ATRASADA do escritório B com o usuário de A como responsável não entra no "X de Y", na legenda nem no "Precisa de atenção" de A')]
+    public function testTrilhoNaoContaMetaDeOutroEscritorio(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $em                 = static::getContainer()->get(EntityManagerInterface::class);
+        $this->criarMeta($tenant, $usuario, 'Minha atrasada')->setPrazo(new \DateTimeImmutable('-2 days'));
+
+        $outro = new Tenant();
+        $outro->setName('Escritório B ' . uniqid());
+        $em->persist($outro);
+        $em->flush();
+        // O vínculo que atravessa escritórios: a meta é de B, mas o responsável é o usuário de A.
+        $deB = $this->criarMeta($outro, $usuario, 'Atrasada do escritório B');
+        $deB->setPrazo(new \DateTimeImmutable('-9 days'));
+        $em->flush();
+        $em->clear();
+        $gravada = $em->find(Tarefa::class, $deB->getId());
+        self::assertSame($outro->getId(), $gravada?->getTenant()?->getId(), 'premissa: a meta é mesmo do escritório B');
+        self::assertTrue($gravada->getResponsaveis()->exists(static fn ($k, User $u): bool => $u->getId() === $usuario->getId()), 'premissa: o usuário de A é responsável');
+
+        foreach (['todas', 'responsavel'] as $aba) {
+            $client->request('GET', '/tarefas/minhas?aba=' . $aba);
+            self::assertResponseIsSuccessful();
+            $c = $client->getCrawler();
+            $this->assertAndamento($c, '0 de 1', ['0 concluída(s)', '0 em aberto', '1 atrasada(s)', '0 em revisão'], $aba);
+            self::assertSame(
+                ['Minha atrasada'],
+                $c->filter('.mm-trilho > .mm-cartao.mm-trilho-atencao > a.mm-atencao-item .mm-atencao-titulo')->each(static fn ($t): string => trim((string) preg_replace('/ · Pasta .*$/', '', trim($t->text())))),
+                $aba,
+            );
+            self::assertStringNotContainsString('Atrasada do escritório B', (string) $client->getResponse()->getContent(), $aba);
         }
     }
 

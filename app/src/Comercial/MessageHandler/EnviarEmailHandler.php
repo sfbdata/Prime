@@ -50,6 +50,8 @@ final class EnviarEmailHandler
         'automacao:cad', 'automacao:lemb', 'automacao:val', 'automacao:conv',
         'automacao:e90', 'automacao:e100', 'automacao:ped',
         'teste_campanha',
+        // Resumo diário do Meu Perfil (decisão do coordenador, 21/10/2026): não disputa o teto com as campanhas.
+        'resumo_diario',
     ];
 
     public function __construct(

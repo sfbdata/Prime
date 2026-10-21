@@ -215,7 +215,7 @@ final class PastaResumoPdfControllerTest extends JusPrimeWebTestCase
         return $obs;
     }
 
-    #[TestDox('C6-EDT-06: o registro baixa PDF montado pelo servidor — "Registro do expediente", autor · data · Atendimento e o texto')]
+    #[TestDox('C6-EDT-06: o registro baixa PDF montado pelo servidor — "Registro do expediente", autor · data · Observação e o texto')]
     public function testBaixaOPdfDaObservacao(): void
     {
         $client          = static::createClient();
@@ -236,7 +236,8 @@ final class PastaResumoPdfControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Registro do expediente', $texto);
         self::assertStringContainsString((string) $user->getFullName(), $texto);
         self::assertStringContainsString($obs->getCriadaEm()->format('d/m/Y'), $texto);
-        self::assertStringContainsString('Atendimento', $texto);
+        self::assertStringContainsString('Observação', $texto);
+        self::assertStringNotContainsString('Atendimento', $texto, 'a tag é a fixa "Observação", como no ⋮');
         self::assertStringContainsString('Cliente ligou pedindo atualização do caso', $texto);
         self::assertStringNotContainsString('<p>', $texto, 'o HTML do registro vira texto, não marcação crua');
     }

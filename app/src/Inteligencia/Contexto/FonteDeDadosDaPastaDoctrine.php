@@ -14,6 +14,7 @@ use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -85,9 +86,26 @@ final class FonteDeDadosDaPastaDoctrine implements FonteDeDadosDaPasta
         return array_merge($abertas, $concluidas);
     }
 
-    public function anotacoesDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array
+    public function anotacoesDaPasta(Tenant $tenant, Pasta $pasta, int $limite, bool $comFinanceiro = true): array
     {
-        return $this->daPasta(PastaMensagem::class, $tenant, $pasta, $limite, 'criadaEm', 'DESC');
+        if ($comFinanceiro) {
+            return $this->daPasta(PastaMensagem::class, $tenant, $pasta, $limite, 'criadaEm', 'DESC');
+        }
+
+        return $this->em->createQueryBuilder()
+            ->select('x')
+            ->from(PastaMensagem::class, 'x')
+            ->andWhere('x.pasta = :pasta')
+            ->andWhere('x.tenant = :tenant')
+            ->andWhere('x.sistema IS NULL OR x.sistema NOT IN (:doFinanceiro)')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('doFinanceiro', RegistroDoSistemaNaPasta::DO_FINANCEIRO)
+            ->orderBy('x.criadaEm', 'DESC')
+            ->addOrderBy('x.id', 'DESC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
     }
 
     public function observacoesDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array
@@ -98,6 +116,27 @@ final class FonteDeDadosDaPastaDoctrine implements FonteDeDadosDaPasta
     public function documentosDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array
     {
         return $this->daPasta(PastaDocumento::class, $tenant, $pasta, $limite, 'carregadoEm', 'DESC');
+    }
+
+    public function documentosDaPastaPorIds(Tenant $tenant, Pasta $pasta, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->em->createQueryBuilder()
+            ->select('x')
+            ->from(PastaDocumento::class, 'x')
+            ->andWhere('x.pasta = :pasta')
+            ->andWhere('x.tenant = :tenant')
+            ->andWhere('x.id IN (:ids)')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $ids)
+            ->orderBy('x.carregadoEm', 'DESC')
+            ->addOrderBy('x.id', 'DESC')
+            ->getQuery()
+            ->getResult();
     }
 
     public function checklistDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array

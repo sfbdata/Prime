@@ -20,7 +20,11 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * Master numa CONTA DO MASTER, nunca no escritório de um cliente (o texto iria parar no audit_log que o cliente lê).
  * Conta do Master: o criador (`Tenant.criadoPor`) é Master; sem criador registrado, vale porque o próprio Master tem
  * vínculo ativo com ela. É a regra do `RegraDosMasters::ehContaDoMaster` (perfis-1.2-contas C5), que ainda não está
- * nesta base: replicada só no necessário. Master sem conta dele fica sem o aviso no sino (o alerta continua no card).
+ * nesta base: replicada só no necessário. Master sem conta dele fica sem o aviso no sino.
+ *
+ * O alerta gravado em `indicacao_alerta` aparece na Central de Notificações do Master (origem `alerta_indicacao`,
+ * decisão do dono no #185), e o sino leva à seção Indicações do painel (`#aba=painel&sec=ind`), onde o Master pausa a
+ * pessoa.
  */
 final class AvisoDeDisparoAlto
 {
@@ -40,7 +44,7 @@ final class AvisoDeDisparoAlto
     /** Grava (sem flush: entra na transação de quem chama) uma notificação para cada Master ativo. */
     public function avisar(string $texto): void
     {
-        $url = $this->urls->generate('master_painel') . '#aba=painel&sec=com';
+        $url = $this->urls->generate('master_painel') . '#aba=painel&sec=ind';
         foreach ($this->mastersAtivos() as $master) {
             $escritorio = $this->contaDoMaster($master);
             if ($escritorio === null) {

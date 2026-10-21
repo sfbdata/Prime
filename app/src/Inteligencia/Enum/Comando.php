@@ -16,6 +16,10 @@ namespace App\Inteligencia\Enum;
  * separa "FATO ENCONTRADO NOS DADOS", não "NO DOCUMENTO"); e nenhum pedido carrega dado da pasta
  * (os dados vão nos blocos delimitados do prompt, nunca no pedido).
  *
+ * O "Índice inteligente" da aba Documentos (F4) é um comando à parte ({@see daAbaDocumentos()}): fora da
+ * grade de 10 comandos e dos relatórios, pedido pelo Agente Documental só sobre os documentos que a
+ * pessoa marcou, e só pelos metadados (o conteúdo dos arquivos não é lido, regra 7 do domínio).
+ *
  * Fora daqui: o "Relatório do cliente" do desenho (todas as pastas do cliente) espera a decisão D12.
  *
  * O valor do case é o segmento da rota (`/pasta/{id}/ia/comandos/{comando}/analises`) e o conteúdo
@@ -42,8 +46,17 @@ enum Comando: string
     case RelatorioRisco = 'relatorio_risco';
     case RelatorioLinhaDoTempo = 'relatorio_linha_do_tempo';
 
+    // Aba Documentos (F4)
+    case IndiceDosDocumentos = 'indice_documentos';
+
     /** Frase que a Jurídica e o Raio-X acrescentam: o que está nos arquivos não chega ao modelo. */
     private const SEM_CONTEUDO_DE_ARQUIVO = 'O conteúdo dos arquivos não foi lido: use só os metadados dos documentos e não descreva o que está dentro deles.';
+
+    /**
+     * O pedido canônico do Documental (`Agente::pedido`) restrito aos documentos marcados na aba, com a
+     * frase de não leitura. A lista dos marcados vai no bloco de documentos do contexto, nunca aqui.
+     */
+    private const PEDIDO_DO_INDICE = 'Monte um índice inteligente dos documentos selecionados, que são os listados em DOCUMENTOS JUNTADOS, com: documento, data, tipo, relevância, processo relacionado, providência. Indique documentos faltantes ou duplicados, se houver base no checklist e nos metadados. O conteúdo dos arquivos não foi lido: não descreva o que está dentro deles.';
 
     public static function deRota(string $valor): ?self
     {
@@ -53,7 +66,13 @@ enum Comando: string
     /** @return list<self> os 10 comandos da aba Análise, na ordem do desenho */
     public static function comandos(): array
     {
-        return array_values(array_filter(self::cases(), static fn (self $c): bool => !$c->ehRelatorio()));
+        return array_values(array_filter(self::cases(), static fn (self $c): bool => !$c->ehRelatorio() && !$c->ehDaAbaDocumentos()));
+    }
+
+    /** O comando da aba Documentos (F4): o "Índice inteligente" dos documentos marcados. */
+    public static function daAbaDocumentos(): self
+    {
+        return self::IndiceDosDocumentos;
     }
 
     /** @return list<self> os 5 relatórios da aba Relatórios, na ordem do desenho */
@@ -64,15 +83,15 @@ enum Comando: string
 
     /**
      * Onde a tela mostra uma análise antiga, de antes dos comandos (`comando` nulo): no comando que
-     * herdou o pedido canônico do agente. O Documental (índice dos documentos pelos metadados) não
-     * tem comando próprio na aba Análise; o mais próximo é o Raio-X, que verifica os documentos.
+     * herdou o pedido canônico do agente. O Documental (índice dos documentos pelos metadados) cai no
+     * "Índice inteligente" da aba Documentos (F4), que é o mesmo pedido restrito aos marcados.
      */
     public static function doAgenteLegado(Agente $agente): self
     {
         return match ($agente) {
             Agente::Gestor => self::AnalisarPasta,
             Agente::Processual => self::ProcessoParado,
-            Agente::Documental => self::RaioX,
+            Agente::Documental => self::IndiceDosDocumentos,
             Agente::Prazos => self::VerificarPrazos,
             Agente::Relatorios => self::RelatorioPasta,
             Agente::Cliente => self::AnalisarHistorico,
@@ -94,6 +113,12 @@ enum Comando: string
         };
     }
 
+    /** O comando que só existe na aba Documentos e só roda com documentos marcados. */
+    public function ehDaAbaDocumentos(): bool
+    {
+        return $this === self::IndiceDosDocumentos;
+    }
+
     public function rotulo(): string
     {
         return match ($this) {
@@ -112,6 +137,7 @@ enum Comando: string
             self::RelatorioPrazos => 'Relatório de prazos',
             self::RelatorioRisco => 'Relatório de risco',
             self::RelatorioLinhaDoTempo => 'Linha do tempo',
+            self::IndiceDosDocumentos => 'Índice inteligente',
         };
     }
 
@@ -147,6 +173,7 @@ enum Comando: string
             self::RelatorioPrazos => 'bi-alarm',
             self::RelatorioRisco => 'bi-shield-exclamation',
             self::RelatorioLinhaDoTempo => 'bi-clock-history',
+            self::IndiceDosDocumentos => 'bi-list-columns-reverse',
         };
     }
 
@@ -160,6 +187,7 @@ enum Comando: string
             self::Briefing, self::RelatorioPasta, self::ResumoCliente => Agente::Relatorios,
             self::AnalisarHistorico => Agente::Cliente,
             self::AnaliseJuridica => Agente::Juridico,
+            self::IndiceDosDocumentos => Agente::Documental,
         };
     }
 
@@ -184,6 +212,7 @@ enum Comando: string
             self::LinhaDoTempo => 'Monte a linha do tempo do caso com as datas disponíveis.',
             self::AnalisarHistorico => 'Analise o histórico de registros e atendimento desta pasta.',
             self::RaioX => 'Faça o raio-X jurídico: verifique documentos, prazos, decisões, manifestações, movimentações, tarefas, cadastro e histórico, classificando cada item como OK, ATENÇÃO, PENDÊNCIA, INCONSISTÊNCIA ou URGENTE. ' . self::SEM_CONTEUDO_DE_ARQUIVO,
+            self::IndiceDosDocumentos => self::PEDIDO_DO_INDICE,
             self::AnaliseJuridica => 'Faça a análise jurídica profunda: 1 contexto, 2 fatos relevantes, 3 questão jurídica, 4 documentos relevantes, 5 fase processual, 6 fundamentos jurídicos identificados, 7 argumentos favoráveis, 8 argumentos contrários, 9 pontos de atenção, 10 riscos, 11 providências possíveis, 12 documentos necessários, 13 próximas tarefas. Separe FATO ENCONTRADO NOS DADOS, INTERPRETAÇÃO DA IA, ARGUMENTO JURÍDICO e SUGESTÃO. Não cite jurisprudência ou artigo que não esteja nos dados; quando precisar, diga quais informações faltam. ' . self::SEM_CONTEUDO_DE_ARQUIVO,
             default => throw new \LogicException('Relatório sem pedido.'),
         };

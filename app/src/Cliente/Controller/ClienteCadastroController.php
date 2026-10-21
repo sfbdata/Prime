@@ -13,8 +13,11 @@ use App\Cliente\Exception\SemPermissaoParaEditarClienteException;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Repository\ClientePFRepository;
 use App\Cliente\Repository\ClientePJRepository;
+use App\Cliente\Service\DocumentosVisiveisDoCadastro;
+use App\Cliente\Service\HistoricoDoCliente;
 use App\Cliente\Service\PendenciasDoCadastro;
 use App\Cliente\Service\QualificacaoDoCliente;
+use App\Cliente\UseCase\CriarClienteAvulsoUseCase;
 use App\Cliente\UseCase\CriarClienteDaPastaUseCase;
 use App\Cliente\UseCase\SalvarCadastroDoClienteUseCase;
 use App\Cliente\Entity\ClientePJ;
@@ -63,7 +66,78 @@ final class ClienteCadastroController extends AbstractController
         private readonly SalvarCadastroDoClienteUseCase $salvar,
         private readonly PastaReuRepository $reuRepository,
         private readonly CriarClienteDaPastaUseCase $criarCliente,
+        private readonly HistoricoDoCliente $historico,
+        private readonly DocumentosVisiveisDoCadastro $documentosVisiveis,
+        private readonly CriarClienteAvulsoUseCase $criarAvulso,
     ) {}
+
+    /**
+     * "Cadastrar cliente" do modal Nova carteira (decisão do dono, 21/10/2026): a mesma janela do "Novo cliente", sem
+     * pasta. `?tipo=pj` troca para empresa. Só para quem gerencia carteiras ({@see CriarClienteAvulsoUseCase}).
+     */
+    #[Route('/clientes/cadastro/novo', name: 'cliente_cadastro_novo', methods: ['GET'])]
+    public function novoAvulso(Request $request): Response
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant = $this->tenantAvulso($usuario);
+        $cliente = $request->query->get('tipo') === 'pj' ? CriarClienteDaPastaUseCase::pjEmBranco() : CriarClienteDaPastaUseCase::pfEmBranco();
+
+        return $this->renderJanela($cliente, null, $usuario, $tenant, $request, true, true);
+    }
+
+    #[Route('/clientes/cadastro/novo', name: 'cliente_cadastro_novo_salvar', methods: ['POST'])]
+    public function criarAvulso(Request $request): JsonResponse
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant = $this->tenantAvulso($usuario);
+        if (!$this->isCsrfTokenValid('cliente_cadastro_novo', (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Sessão expirada. Recarregue a página e tente de novo.'], Response::HTTP_FORBIDDEN);
+        }
+        $campos = $request->request->all();
+        unset($campos['_token'], $campos['pasta'], $campos['tipo']);
+        try {
+            $cliente = $this->criarAvulso->executar($request->request->get('tipo') === 'pj' ? 'pj' : 'pf',
+                array_map('strval', array_filter($campos, 'is_scalar')), $usuario, $tenant);
+        } catch (SemPermissaoParaEditarClienteException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        } catch (DocumentoJaCadastradoException $e) {
+            $visivel = $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_CLIENTE, (int) $e->existente->getId(), AccessRequest::ACTION_VIEW);
+
+            return $this->json(['erro' => $e->getMessage(), 'existente' => $visivel ? $this->resumoDe($e->existente) : null], Response::HTTP_CONFLICT);
+        } catch (CadastroInvalidoException $e) {
+            return $this->json(['erro' => $e->getMessage(), 'aba' => $e->aba], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json([
+            'ok'        => true,
+            'criado'    => true,
+            'mensagem'  => 'Cadastro salvo.',
+            'urlJanela' => $this->generateUrl('cliente_cadastro', ['id' => $cliente->getId()]),
+        ], Response::HTTP_CREATED);
+    }
+
+    /** Aviso ao sair do campo CPF/CNPJ no cadastro sem pasta: o documento já é de outro cadastro do escritório? */
+    #[Route('/clientes/cadastro/novo/documento', name: 'cliente_cadastro_novo_documento', methods: ['GET'])]
+    public function documentoAvulso(Request $request): JsonResponse
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant = $this->tenantAvulso($usuario);
+
+        return $this->json(['existente' => $this->existenteVisivel((string) $request->query->get('doc', ''), null, $usuario, $tenant)]);
+    }
+
+    private function tenantAvulso(User $usuario): Tenant
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || !$this->permissionChecker->hasPermission($usuario, $tenant, CriarClienteAvulsoUseCase::CAPACIDADE)) {
+            throw $this->createAccessDeniedException('Sem permissão para cadastrar cliente.');
+        }
+
+        return $tenant;
+    }
 
     #[Route('/clientes/{id}/cadastro', name: 'cliente_cadastro', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function janela(int $id, Request $request): Response
@@ -189,12 +263,14 @@ final class ClienteCadastroController extends AbstractController
             'pasta'        => $pasta,
             'podeVincular' => $pasta !== null && !$pasta->estaExcluida() && $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_EDIT),
             'estadosCivis' => SalvarCadastroDoClienteUseCase::ESTADOS_CIVIS,
-            'docs'         => $novo ? [] : $this->documentosDoCadastro($cliente),
+            'docs'         => $novo ? [] : $this->documentosDoCadastro($cliente, $usuario, $tenant),
+            // Aba Histórico (E12 3d): as 40 mais novas, primeiro a mais nova; cadastro novo mostra o vazio.
+            'historico'    => $novo ? [] : $this->historico->paraTela($cliente, $tenant),
             // Aba Réu (E12h): só com a pasta de contexto, porque o réu é da pasta, não do cliente.
             'reus'         => $pasta !== null ? PastaReuController::paraTela($this->reuRepository->daPasta($pasta, $tenant)) : null,
             // Seletor de autores (decisão do dono, E12i): os clientes da pasta, para trocar sem fechar a janela.
             'autores'      => $autores,
-            'abaInicial'   => \in_array($request->query->get('aba'), ['pessoais', 'reu', 'endereco', 'contato', 'docs', 'qual'], true) ? $request->query->get('aba') : 'pessoais',
+            'abaInicial'   => \in_array($request->query->get('aba'), ['pessoais', 'reu', 'endereco', 'contato', 'docs', 'qual', 'hist'], true) ? $request->query->get('aba') : 'pessoais',
             'mostrarOcr'   => $request->query->get('ocr') === '1',
         ]);
     }
@@ -286,10 +362,11 @@ final class ClienteCadastroController extends AbstractController
      *
      * @return array<string, ?ClienteDocumento>
      */
-    private function documentosDoCadastro(Cliente $cliente): array
+    private function documentosDoCadastro(Cliente $cliente, User $usuario, Tenant $tenant): array
     {
         $docs = [ClienteDocumento::CATEGORIA_IDENTIFICACAO => null, ClienteDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA => null];
-        foreach ($cliente->getDocumentos() as $doc) {
+        // O vinculado da lixeira ou de pasta que o usuário não vê some da aba (sem link quebrado).
+        foreach ($this->documentosVisiveis->de($cliente, $usuario, $tenant) as $doc) {
             $cat = $doc->getCategoria();
             if (\array_key_exists($cat, $docs) && ($docs[$cat] === null || $doc->getUploadedAt() > $docs[$cat]->getUploadedAt())) {
                 $docs[$cat] = $doc;

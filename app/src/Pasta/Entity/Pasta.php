@@ -193,6 +193,10 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\Column(name: 'checklist_motivo', length: 40, nullable: true, enumType: MotivoDesativacaoChecklist::class)]
     private ?MotivoDesativacaoChecklist $checklistMotivo = null;
 
+    /** Último "Revisar checklist" (desenho 02, `ckLembrete`: a cada 30 dias desativado). Nasce na desativação. */
+    #[ORM\Column(name: 'checklist_lembrete_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $checklistLembreteEm = null;
+
     /**
      * Valor da causa, em reais. Nulo significa "ninguém preencheu" — que é
      * diferente de R$ 0,00 (causa sem valor econômico). A tela e a média por CPF
@@ -877,8 +881,19 @@ $this->documentos = new ArrayCollection();
         $this->checklistDesativadoEm  = $em;
         $this->checklistDesativadoPor = $por;
         $this->checklistMotivo        = $motivo;
+        $this->checklistLembreteEm    = $em;
 
         return $this;
+    }
+
+    public function getChecklistLembreteEm(): ?\DateTimeImmutable
+    {
+        return $this->checklistLembreteEm;
+    }
+
+    public function registrarLembreteDoChecklist(\DateTimeImmutable $em): void
+    {
+        $this->checklistLembreteEm = $em;
     }
 
     /** Reativa: limpa os três campos. Recusa reativar o que já está ativo. */
@@ -891,6 +906,7 @@ $this->documentos = new ArrayCollection();
         $this->checklistDesativadoEm  = null;
         $this->checklistDesativadoPor = null;
         $this->checklistMotivo        = null;
+        $this->checklistLembreteEm    = null;
 
         return $this;
     }

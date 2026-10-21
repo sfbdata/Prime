@@ -32,6 +32,14 @@
             <div class="modal-body">
                 {{ form_row(formCriarCarteira.nome) }}
                 {{ form_row(formCriarCarteira.clienteId) }}
+                {# Credor ainda sem cadastro (decisão do dono, 21/10/2026): abre a janela de Cadastro sem pasta
+                   (cliente-cadastro.js); ao fechar depois de salvar, a página recarrega com o cliente no select. #}
+                <p class="small mt-n2 mb-3">
+                    Cliente não está na lista?
+                    <a href="#" class="js-cad-abrir" data-url="{{ path('cliente_cadastro_novo') }}" data-bs-dismiss="modal">
+                        <i class="bi bi-person-plus me-1" aria-hidden="true"></i>Cadastrar cliente
+                    </a>
+                </p>
                 {{ include('cobranca/carteira/_campos_config.html.twig', { form: formCriarCarteira }) }}
             </div>
             <div class="modal-footer">
@@ -71,12 +79,15 @@
 {{ parent() }}
 <link rel="stylesheet" href="{{ asset('css/filtro-tabela.css') }}">
 <link rel="stylesheet" href="{{ asset('css/cobrancas.css') }}">
+<link rel="stylesheet" href="{{ asset('css/cliente-cadastro.css') }}">
 {% endblock %}
 
 {% block javascripts %}
 {{ parent() }}
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
 <script src="{{ asset('js/cobranca-carteira-form.js') }}"></script>
+{{ catalogo_js('cliente.js') }}
+<script src="{{ asset('js/cliente-cadastro.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     /* Linhas clicáveis — delegado no document, sobrevive à troca do fragmento */

@@ -39,6 +39,7 @@ final class DestinoPosLoginTest extends KernelTestCase
     public static function paginasDaLista(): iterable
     {
         yield 'homepage' => ['homepage', '/'];
+        yield 'tenant_selecionar' => ['tenant_selecionar', '/escritorio/selecionar'];
         yield 'dashboard_index' => ['dashboard_index', '/dashboard'];
         yield 'expediente_index' => ['expediente_index', '/expediente'];
         yield 'expediente_relatorio_processos' => ['expediente_relatorio_processos', '/expediente/relatorio-processos'];
@@ -238,7 +239,6 @@ final class DestinoPosLoginTest extends KernelTestCase
         yield 'mensagens da Central' => ['/central/conversas/7/mensagens'];
         yield 'busca rápida' => ['/expediente/busca-rapida?q=silva'];
         yield 'trilho do Expediente (pedaço de tela)' => ['/expediente/trilho'];
-        yield 'eventos da agenda' => ['/agenda/eventos'];
         yield 'lembretes da agenda' => ['/agenda/lembretes'];
         yield 'compromissos da agenda' => ['/agenda/compromissos'];
         yield 'linha do tempo da pasta' => ['/pasta/7/timeline'];
@@ -257,7 +257,7 @@ final class DestinoPosLoginTest extends KernelTestCase
         yield 'arquivo de mensagem de tarefa' => ['/tarefas/mensagem/7/arquivo/download'];
         yield 'política em PDF' => ['/politica-de-privacidade.pdf'];
         // Rota que só aceita POST, rota inexistente, rota interna e arquivo estático.
-        yield 'rota só de POST' => ['/agenda/criar-ajax'];
+        yield 'rota só de POST' => ['/agenda/compromissos/novo'];
         yield 'rota inexistente' => ['/nao-existe'];
         yield 'parecido com login, mas sem rota' => ['/loginx'];
         // Fragmento e iframe: carregados por fetch ou dentro de outra página, nunca abertos sozinhos.
@@ -270,7 +270,6 @@ final class DestinoPosLoginTest extends KernelTestCase
         yield 'imagem' => ['/images/logo/bluejus.png'];
         // Telas de entrada e públicas não são destino.
         yield 'termos' => ['/termos/aceitar'];
-        yield 'seleção de escritório' => ['/escritorio/selecionar'];
         yield 'convite' => ['/convite/abc'];
     }
 

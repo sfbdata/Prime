@@ -2,25 +2,28 @@
    Janela "Cadastro e qualificação do cliente" (desenho 1.2.3, `cadAbrir`/`cadVals`; E12f fatia 3a).
    Fragmento devolvido por `cliente_cadastro`; quem monta e controla é public/js/cliente-cadastro.js.
 
-   Abas: Cliente, Endereço, Contato, Documentos (3b), Qualificação. Réu e Histórico entram nas fatias 3c e 3d
-   (spec E12, §13). Pessoa jurídica usa a mesma janela adaptada (decisão do dono, sem desenho próprio).
-   As regras de pendência vêm do servidor (`PendenciasDoCadastro`): cada campo obrigatório leva o texto e a aba
+   Abas: Cliente, Réu (3c), Endereço, Contato, Documentos (3b), Qualificação e Histórico (3d: o histórico próprio do
+   cadastro, só rótulos, nunca valores; `HistoricoDoCliente`). Spec E12, §13. Pessoa jurídica usa a mesma janela
+   adaptada (decisão do dono, sem desenho próprio).
+   Nenhum campo é obrigatório para salvar (decisão do dono, 21/10/2026); o que falta vira pendência, sem asterisco.
+   As regras de pendência vêm do servidor (`PendenciasDoCadastro`): cada campo cobrado leva o texto e a aba
    da pendência dele em data-*, para o JS recalcular a cada tecla como o desenho; as de documento chegam prontas.
    Sem permissão de EDITAR o cliente, os campos vêm travados e não há Salvar.
 
-   Contexto: cliente, novo (Novo cliente: sem id, pela pasta), autores, pf, pendencias, pendenciasDocs, qualificacao, podeEditar, pasta, podeVincular, estadosCivis, docs,
-   abaInicial, mostrarOcr, reus (null sem pasta de contexto).
+   Contexto: cliente, novo (Novo cliente: sem id, pela pasta ou, sem pasta, pelo modal Nova carteira), autores, pf, pendencias, pendenciasDocs, qualificacao, podeEditar, pasta, podeVincular, estadosCivis, docs,
+   abaInicial, mostrarOcr, reus (null sem pasta de contexto), historico (lista de {q, t}, a mais nova primeiro).
    ============================================================================ #}
 {% set novo = novo ?? false %}
 {% set autores = autores ?? [] %}
+{% set historico = historico ?? [] %}
 {% set travado = not podeEditar %}
 {% set documento = pf ? cliente.cpf : cliente.cnpj %}
-{% set ROTULO_CIVIL = {SOLTEIRO: 'Solteiro(a)', CASADO: 'Casado(a)', DIVORCIADO: 'Divorciado(a)', SEPARADO: 'Separado(a)', VIUVO: 'Viúvo(a)', UNIAO_ESTAVEL: 'União estável'} %}
+{% set ROTULO_CIVIL = {SOLTEIRO: 'cliente.cadastro.civil.solteiro'|trans, CASADO: 'cliente.cadastro.civil.casado'|trans, DIVORCIADO: 'cliente.cadastro.civil.divorciado'|trans, SEPARADO: 'cliente.cadastro.civil.separado'|trans, VIUVO: 'cliente.cadastro.civil.viuvo'|trans, UNIAO_ESTAVEL: 'cliente.cadastro.civil.uniao_estavel'|trans} %}
 {% set UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'] %}
 {% macro campo(rotulo, nome, valor, larg, opcoes = {}) %}
     {% set o = {obrig: null, aba: 'pessoais', tipo: 'text', placeholder: '', mascara: null, travado: false, inputmode: null, maxlength: 100}|merge(opcoes) %}
     <label class="cad-campo cad-campo--{{ larg }}">
-        <span class="cad-rotulo">{{ rotulo }}{% if o.obrig %} <b aria-hidden="true">*</b>{% endif %}</span>
+        <span class="cad-rotulo">{{ rotulo }}</span>
         <input type="{{ o.tipo }}" name="{{ nome }}" value="{{ valor }}" class="cad-input" autocomplete="off"
                {% if o.placeholder %}placeholder="{{ o.placeholder }}"{% endif %}
                {% if o.mascara %}data-mascara="{{ o.mascara }}"{% endif %}
@@ -33,7 +36,13 @@
 {% import _self as f %}
 <div class="cad-veu" data-cad-janela
      data-url-cadastro="{{ path('cliente_cadastro', {id: 0}) }}"
-     {% if novo %}
+     {% if novo and not pasta %}
+     data-novo="1"
+     data-url-salvar="{{ path('cliente_cadastro_novo_salvar') }}"
+     data-url-documento="{{ path('cliente_cadastro_novo_documento') }}"
+     data-csrf="{{ csrf_token('cliente_cadastro_novo') }}"
+     data-url-janela="{{ path('cliente_cadastro_novo') }}"
+     {% elseif novo %}
      data-novo="1"
      data-url-salvar="{{ path('pasta_cadastro_novo_salvar', {id: pasta.id}) }}"
      data-url-documento="{{ path('pasta_cadastro_novo_documento', {id: pasta.id}) }}"
@@ -58,46 +67,47 @@
      data-url-principal="{{ path('pasta_cliente_principal', {id: pasta.id, cliente: 0}) }}"
      {% endif %}
      data-pend-docs="{{ pendenciasDocs|json_encode|e('html_attr') }}">
-    <div class="cad-janela" role="dialog" aria-modal="true" aria-label="Cadastro e qualificação do cliente">
+    <div class="cad-janela" role="dialog" aria-modal="true" aria-label="{{ 'cliente.cadastro.titulo'|trans }}">
         <header class="cad-topo">
             <span class="cad-topo-icone" aria-hidden="true"><i class="bi bi-person-vcard"></i></span>
             <div class="cad-topo-texto">
-                <div class="cad-topo-nome js-cad-nome">{{ cliente.nomeExibicao ? cliente.nomeExibicao|upper : 'Novo cliente' }}</div>
+                <div class="cad-topo-nome js-cad-nome">{{ cliente.nomeExibicao ? cliente.nomeExibicao|upper : 'cliente.cadastro.novo_cliente'|trans }}</div>
                 <div class="cad-topo-sub">
-                    <span class="js-cad-doc">{{ documento ? documento|documento_br_rotulo ~ ' ' ~ documento|documento_br : (pf ? 'CPF não informado' : 'CNPJ não informado') }}</span>
+                    <span class="js-cad-doc">{{ documento ? documento|documento_br_rotulo ~ ' ' ~ documento|documento_br : (pf ? 'cliente.cadastro.pend.cpf'|trans : 'cliente.cadastro.pend.cnpj'|trans) }}</span>
                     <span class="cad-status js-cad-status"><span class="cad-status-ponto" aria-hidden="true"></span><span class="js-cad-status-texto"></span></span>
                 </div>
             </div>
-            <button type="button" class="cad-fechar js-cad-fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+            <button type="button" class="cad-fechar js-cad-fechar" aria-label="{{ 'cliente.comum.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
         </header>
 
         {# Seletor de autores (decisão do dono, E12i): os clientes da pasta; clicar troca de cadastro sem fechar a
            janela (com alteração não salva, pede para salvar antes). "Novo autor" abre um cadastro novo ligado à pasta. #}
         {% if pasta and (autores|length > 1 or (podeVincular and autores is not empty)) %}
-            <div class="cad-autores" role="group" aria-label="Autores da pasta">
-                <span class="cad-autores-rotulo">Autores</span>
+            <div class="cad-autores" role="group" aria-label="{{ 'cliente.cadastro.autores.grupo'|trans }}">
+                <span class="cad-autores-rotulo">{{ 'cliente.cadastro.autores.rotulo'|trans }}</span>
                 {% for a in autores %}
                     <button type="button" class="cad-autor js-cad-autor{{ not novo and a.id == cliente.id ? ' is-ativo' : '' }}"
                             data-url="{{ path('cliente_cadastro', {id: a.id, pasta: pasta.id}) }}"
                             {% if not novo and a.id == cliente.id %}aria-current="true"{% endif %}>
-                        {{ a.nome|upper }}{% if a.principal %}<span class="cad-autor-tag">Principal</span>{% endif %}
+                        {{ a.nome|upper }}{% if a.principal %}<span class="cad-autor-tag">{{ 'cliente.cadastro.autores.principal'|trans }}</span>{% endif %}
                     </button>
                 {% endfor %}
                 {% if podeVincular %}
                     <button type="button" class="cad-autor cad-autor--novo js-cad-autor{{ novo ? ' is-ativo' : '' }}"
-                            data-url="{{ path('pasta_cadastro_novo', {id: pasta.id, autor: 1}) }}"><i class="bi bi-plus-lg" aria-hidden="true"></i>Novo autor</button>
+                            data-url="{{ path('pasta_cadastro_novo', {id: pasta.id, autor: 1}) }}"><i class="bi bi-plus-lg" aria-hidden="true"></i>{{ 'cliente.cadastro.autores.novo'|trans }}</button>
                 {% endif %}
             </div>
         {% endif %}
 
         <nav class="cad-abas" role="tablist">
             {% for aba in [
-                {k: 'pessoais', rotulo: pf ? 'Cliente' : 'Empresa', icone: 'bi-person'},
-                {k: 'reu',      rotulo: 'Réu',      icone: 'bi-person-x', so: reus is not null},
-                {k: 'endereco', rotulo: 'Endereço', icone: 'bi-geo-alt'},
-                {k: 'contato',  rotulo: 'Contato',  icone: 'bi-telephone'},
-                {k: 'docs',     rotulo: 'Documentos', icone: 'bi-paperclip', so: not novo},
-                {k: 'qual',     rotulo: 'Qualificação', icone: 'bi-file-text'},
+                {k: 'pessoais', rotulo: pf ? 'cliente.cadastro.aba.cliente'|trans : 'cliente.cadastro.aba.empresa'|trans, icone: 'bi-person'},
+                {k: 'reu',      rotulo: 'cliente.cadastro.aba.reu'|trans,      icone: 'bi-person-x', so: reus is not null},
+                {k: 'endereco', rotulo: 'cliente.cadastro.aba.endereco'|trans, icone: 'bi-geo-alt'},
+                {k: 'contato',  rotulo: 'cliente.cadastro.aba.contato'|trans,  icone: 'bi-telephone'},
+                {k: 'docs',     rotulo: 'cliente.cadastro.aba.documentos'|trans, icone: 'bi-paperclip', so: not novo},
+                {k: 'qual',     rotulo: 'cliente.cadastro.aba.qualificacao'|trans, icone: 'bi-file-text'},
+                {k: 'hist',     rotulo: 'cliente.cadastro.aba.historico'|trans, icone: 'bi-clock-history'},
             ]|filter(a => a.so ?? true) %}
                 <button type="button" class="cad-aba{{ aba.k == abaInicial ? ' is-ativa' : '' }}" role="tab" data-cad-aba="{{ aba.k }}"
                         aria-selected="{{ aba.k == abaInicial ? 'true' : 'false' }}">
@@ -110,39 +120,39 @@
             <section class="cad-painel cad-grade" data-cad-painel="pessoais"{{ abaInicial != 'pessoais' ? ' hidden' : '' }}>
                 {% if novo and podeEditar %}
                     {# Novo cadastro: pessoa física ou empresa (a janela adaptada para PJ, decisão do dono). #}
-                    <div class="cad-campo cad-campo--6 cad-tipo" role="radiogroup" aria-label="Tipo de cliente">
-                        {% for t in [{v: 'pf', rotulo: 'Pessoa física'}, {v: 'pj', rotulo: 'Empresa'}] %}
+                    <div class="cad-campo cad-campo--6 cad-tipo" role="radiogroup" aria-label="{{ 'cliente.cadastro.tipo.grupo'|trans }}">
+                        {% for t in [{v: 'pf', rotulo: 'cliente.cadastro.tipo.pf'|trans}, {v: 'pj', rotulo: 'cliente.cadastro.aba.empresa'|trans}] %}
                             <button type="button" class="cad-tipo-op js-cad-tipo{{ (t.v == 'pf') == pf ? ' is-ativo' : '' }}" role="radio"
                                     aria-checked="{{ (t.v == 'pf') == pf ? 'true' : 'false' }}"
-                                    data-url="{{ path('pasta_cadastro_novo', {id: pasta.id, tipo: t.v, autor: app.request.query.get('autor')}) }}">{{ t.rotulo }}</button>
+                                    data-url="{{ pasta ? path('pasta_cadastro_novo', {id: pasta.id, tipo: t.v, autor: app.request.query.get('autor')}) : path('cliente_cadastro_novo', {tipo: t.v}) }}">{{ t.rotulo }}</button>
                         {% endfor %}
                     </div>
                 {% endif %}
                 {% if pf %}
-                    {{ f.campo('Nome completo', 'nome', cliente.nomeCompleto, 6, {obrig: 'Nome completo não informado', travado: travado, maxlength: 150}) }}
+                    {{ f.campo('cliente.cadastro.campo.nome_completo'|trans, 'nome', cliente.nomeCompleto, 6, {obrig: 'cliente.cadastro.pend.nome_completo'|trans, travado: travado, maxlength: 150}) }}
                     <label class="cad-campo cad-campo--2">
-                        <span class="cad-rotulo">CPF <b aria-hidden="true">*</b></span>
+                        <span class="cad-rotulo">{{ 'cliente.cadastro.campo.cpf'|trans }}</span>
                         <input type="text" name="cpf" value="{{ cliente.cpf|documento_br }}" class="cad-input js-cad-cpf" autocomplete="off"
-                               inputmode="numeric" placeholder="000.000.000-00" data-mascara="cpf" data-obrig="CPF não informado" data-aba="pessoais"
+                               inputmode="numeric" placeholder="000.000.000-00" data-mascara="cpf" data-obrig="{{ 'cliente.cadastro.pend.cpf'|trans }}" data-aba="pessoais"
                                {% if travado %}disabled{% endif %}>
-                        <span class="cad-aviso js-cad-cpf-aviso" hidden>CPF inválido: confira os dígitos.</span>
+                        <span class="cad-aviso js-cad-cpf-aviso" hidden>{{ 'cliente.cadastro.aviso.cpf_invalido'|trans }}</span>
                     </label>
                     <div class="cad-campo cad-campo--2 cad-campo--par">
                         <label class="cad-sub">
-                            <span class="cad-rotulo">RG <b aria-hidden="true">*</b></span>
-                            <input type="text" name="rg" value="{{ cliente.rg }}" class="cad-input" autocomplete="off" placeholder="Número" maxlength="20"
-                                   data-obrig="RG não informado" data-aba="pessoais" {% if travado %}disabled{% endif %}>
+                            <span class="cad-rotulo">{{ 'cliente.cadastro.campo.rg'|trans }}</span>
+                            <input type="text" name="rg" value="{{ cliente.rg }}" class="cad-input" autocomplete="off" placeholder="{{ 'cliente.comum.numero'|trans }}" maxlength="20"
+                                   data-obrig="{{ 'cliente.cadastro.pend.rg'|trans }}" data-aba="pessoais" {% if travado %}disabled{% endif %}>
                         </label>
                         <label class="cad-sub">
-                            <span class="cad-rotulo">Órgão</span>
-                            <input type="text" name="rg_orgao" value="{{ cliente.rgOrgaoExpedidor }}" class="cad-input" autocomplete="off" placeholder="SSP/DF"
+                            <span class="cad-rotulo">{{ 'cliente.cadastro.campo.orgao'|trans }}</span>
+                            <input type="text" name="rg_orgao" value="{{ cliente.rgOrgaoExpedidor }}" class="cad-input" autocomplete="off" placeholder="{{ 'cliente.cadastro.campo.orgao_exemplo'|trans }}"
                                    {% if travado %}disabled{% endif %}>
                         </label>
                     </div>
-                    {{ f.campo('Nascimento', 'nascimento', cliente.dataNascimento ? cliente.dataNascimento|date('Y-m-d') : '', 2, {tipo: 'date', travado: travado}) }}
+                    {{ f.campo('cliente.cadastro.campo.nascimento'|trans, 'nascimento', cliente.dataNascimento ? cliente.dataNascimento|date('Y-m-d') : '', 2, {tipo: 'date', travado: travado}) }}
                     <label class="cad-campo cad-campo--2">
-                        <span class="cad-rotulo">Estado civil <b aria-hidden="true">*</b></span>
-                        <select name="estado_civil" class="cad-input" data-obrig="Estado civil não informado" data-aba="pessoais" {% if travado %}disabled{% endif %}>
+                        <span class="cad-rotulo">{{ 'cliente.cadastro.campo.estado_civil'|trans }}</span>
+                        <select name="estado_civil" class="cad-input" data-obrig="{{ 'cliente.cadastro.pend.estado_civil'|trans }}" data-aba="pessoais" {% if travado %}disabled{% endif %}>
                             <option value=""></option>
                             {% for codigo in estadosCivis %}
                                 <option value="{{ codigo }}" {{ cliente.estadoCivil == codigo ? 'selected' : '' }}>{{ ROTULO_CIVIL[codigo] }}</option>
@@ -152,32 +162,32 @@
                             {% endif %}
                         </select>
                     </label>
-                    {{ f.campo('Profissão', 'profissao', cliente.profissao|capitalize, 2, {obrig: 'Profissão não informada', travado: travado}) }}
-                    {{ f.campo('Nacionalidade', 'nacionalidade', cliente.nacionalidade ?? 'brasileiro(a)', 1, {travado: travado, maxlength: 50}) }}
+                    {{ f.campo('cliente.cadastro.campo.profissao'|trans, 'profissao', cliente.profissao|capitalize, 2, {obrig: 'cliente.cadastro.pend.profissao'|trans, travado: travado}) }}
+                    {{ f.campo('cliente.cadastro.campo.nacionalidade'|trans, 'nacionalidade', cliente.nacionalidade ?? 'brasileiro(a)', 1, {travado: travado, maxlength: 50}) }}
                     <label class="cad-campo cad-campo--1">
-                        <span class="cad-rotulo">Gênero</span>
+                        <span class="cad-rotulo">{{ 'cliente.cadastro.campo.genero'|trans }}</span>
                         <select name="genero" class="cad-input" {% if travado %}disabled{% endif %}>
                             <option value=""></option>
-                            <option value="MASCULINO" {{ cliente.genero == 'MASCULINO' ? 'selected' : '' }}>Masculino</option>
-                            <option value="FEMININO" {{ cliente.genero == 'FEMININO' ? 'selected' : '' }}>Feminino</option>
+                            <option value="MASCULINO" {{ cliente.genero == 'MASCULINO' ? 'selected' : '' }}>{{ 'cliente.cadastro.genero.masculino'|trans }}</option>
+                            <option value="FEMININO" {{ cliente.genero == 'FEMININO' ? 'selected' : '' }}>{{ 'cliente.cadastro.genero.feminino'|trans }}</option>
                         </select>
                     </label>
                 {% else %}
-                    {{ f.campo('Razão social', 'razao_social', cliente.razaoSocial, 6, {obrig: 'Razão social não informada', travado: travado}) }}
+                    {{ f.campo('cliente.cadastro.campo.razao_social'|trans, 'razao_social', cliente.razaoSocial, 6, {obrig: 'cliente.cadastro.pend.razao_social'|trans, travado: travado}) }}
                     <label class="cad-campo cad-campo--2">
-                        <span class="cad-rotulo">CNPJ <b aria-hidden="true">*</b></span>
+                        <span class="cad-rotulo">{{ 'cliente.cadastro.campo.cnpj'|trans }}</span>
                         <input type="text" name="cnpj" value="{{ cliente.cnpj|documento_br }}" class="cad-input js-cad-cpf" autocomplete="off"
-                               inputmode="numeric" placeholder="00.000.000/0000-00" data-mascara="cnpj" data-obrig="CNPJ não informado" data-aba="pessoais"
+                               inputmode="numeric" placeholder="00.000.000/0000-00" data-mascara="cnpj" data-obrig="{{ 'cliente.cadastro.pend.cnpj'|trans }}" data-aba="pessoais"
                                {% if travado %}disabled{% endif %}>
-                        <span class="cad-aviso js-cad-cpf-aviso" hidden>CNPJ inválido: confira os dígitos.</span>
+                        <span class="cad-aviso js-cad-cpf-aviso" hidden>{{ 'cliente.cadastro.aviso.cnpj_invalido'|trans }}</span>
                     </label>
-                    {{ f.campo('Nome fantasia', 'nome_fantasia', cliente.nomeFantasia, 4, {travado: travado}) }}
-                    {{ f.campo('Inscrição estadual', 'inscricao_estadual', cliente.inscricaoEstadual, 2, {travado: travado}) }}
-                    {{ f.campo('Inscrição municipal', 'inscricao_municipal', cliente.inscricaoMunicipal, 2, {travado: travado}) }}
-                    {{ f.campo('Cargo do representante', 'representante_cargo', cliente.representanteCargo, 2, {travado: travado}) }}
-                    {{ f.campo('Representante legal', 'representante_legal', cliente.representanteLegal, 4, {obrig: 'Representante legal não informado', travado: travado}) }}
-                    {{ f.campo('CPF do representante', 'representante_cpf', cliente.representanteCpf|documento_br, 2, {obrig: 'CPF do representante não informado', mascara: 'cpf', inputmode: 'numeric', placeholder: '000.000.000-00', travado: travado}) }}
-                    {{ f.campo('RG do representante', 'representante_rg', cliente.representanteRg, 2, {travado: travado}) }}
+                    {{ f.campo('cliente.cadastro.campo.nome_fantasia'|trans, 'nome_fantasia', cliente.nomeFantasia, 4, {travado: travado}) }}
+                    {{ f.campo('cliente.cadastro.campo.inscricao_estadual'|trans, 'inscricao_estadual', cliente.inscricaoEstadual, 2, {travado: travado}) }}
+                    {{ f.campo('cliente.cadastro.campo.inscricao_municipal'|trans, 'inscricao_municipal', cliente.inscricaoMunicipal, 2, {travado: travado}) }}
+                    {{ f.campo('cliente.cadastro.campo.representante_cargo'|trans, 'representante_cargo', cliente.representanteCargo, 2, {travado: travado}) }}
+                    {{ f.campo('cliente.cadastro.campo.representante_legal'|trans, 'representante_legal', cliente.representanteLegal, 4, {obrig: 'cliente.cadastro.pend.representante_legal'|trans, travado: travado}) }}
+                    {{ f.campo('cliente.cadastro.campo.representante_cpf'|trans, 'representante_cpf', cliente.representanteCpf|documento_br, 2, {obrig: 'cliente.cadastro.pend.representante_cpf'|trans, mascara: 'cpf', inputmode: 'numeric', placeholder: '000.000.000-00', travado: travado}) }}
+                    {{ f.campo('cliente.cadastro.campo.representante_rg'|trans, 'representante_rg', cliente.representanteRg, 2, {travado: travado}) }}
                 {% endif %}
             </section>
 
@@ -189,20 +199,20 @@
                          data-url-reu="{{ path('pasta_reu_adicionar', {id: pasta.id}) }}"
                          data-csrf-reu="{{ csrf_token('pasta_reus_' ~ pasta.id) }}"
                          data-pode-reu="{{ podeVincular ? '1' : '' }}">
-                    <p class="cad-nota cad-nota--topo">Parte adversa desta pasta. O primeiro réu aparece na coluna <strong>Réu</strong> da lista do Expediente; havendo mais de um, aparece "e outros".</p>
+                    <p class="cad-nota cad-nota--topo">{{ 'cliente.cadastro.reu.nota_antes'|trans }} <strong>{{ 'cliente.cadastro.aba.reu'|trans }}</strong> {{ 'cliente.cadastro.reu.nota_meio'|trans }} "{{ 'cliente.cadastro.reu.nota_e_outros'|trans }}".</p>
                     {% if podeVincular %}
                         <div class="cad-grade cad-reu-form">
                             <label class="cad-campo cad-campo--4">
-                                <span class="cad-rotulo">Nome / razão social <b aria-hidden="true">*</b></span>
-                                <input type="text" class="cad-input js-cad-reu-nome" placeholder="Ex.: Banco do Brasil S.A." maxlength="255" autocomplete="off">
+                                <span class="cad-rotulo">{{ 'cliente.cadastro.reu.nome'|trans }} <b aria-hidden="true">*</b></span>
+                                <input type="text" class="cad-input js-cad-reu-nome" placeholder="{{ 'cliente.cadastro.reu.nome_exemplo'|trans }}" maxlength="255" autocomplete="off">
                             </label>
                             <label class="cad-campo cad-campo--2">
-                                <span class="cad-rotulo">CPF / CNPJ</span>
-                                <input type="text" class="cad-input js-cad-reu-doc" placeholder="Opcional" inputmode="numeric" maxlength="18" autocomplete="off">
+                                <span class="cad-rotulo">{{ 'cliente.cadastro.reu.documento'|trans }}</span>
+                                <input type="text" class="cad-input js-cad-reu-doc" placeholder="{{ 'cliente.cadastro.reu.opcional'|trans }}" inputmode="numeric" maxlength="18" autocomplete="off">
                             </label>
                             <div class="cad-campo cad-campo--6 cad-reu-linha-acao">
                                 <span class="cad-aviso js-cad-reu-aviso" hidden></span>
-                                <button type="button" class="cad-btn cad-btn--pri is-pronto js-cad-reu-add"><i class="bi bi-plus-lg" aria-hidden="true"></i>Adicionar réu</button>
+                                <button type="button" class="cad-btn cad-btn--pri is-pronto js-cad-reu-add"><i class="bi bi-plus-lg" aria-hidden="true"></i>{{ 'cliente.cadastro.reu.adicionar'|trans }}</button>
                             </div>
                         </div>
                     {% endif %}
@@ -211,30 +221,30 @@
             {% endif %}
 
             <section class="cad-painel cad-grade" data-cad-painel="endereco"{{ abaInicial != 'endereco' ? ' hidden' : '' }}>
-                {{ f.campo('CEP', 'cep', cliente.cep|length == 8 ? cliente.cep|slice(0, 5) ~ '-' ~ cliente.cep|slice(5) : cliente.cep, 2, {obrig: 'CEP não informado', aba: 'endereco', mascara: 'cep', inputmode: 'numeric', placeholder: '00000-000', travado: travado, maxlength: 9}) }}
-                {{ f.campo('Logradouro', 'logradouro', cliente.endereco, 4, {obrig: 'Logradouro não informado', aba: 'endereco', travado: travado}) }}
-                {{ f.campo('Número', 'numero', cliente.numero, 1, {obrig: 'Número não informado', aba: 'endereco', travado: travado, maxlength: 20}) }}
-                {{ f.campo('Complemento', 'complemento', cliente.complemento, 2, {travado: travado}) }}
-                {{ f.campo('Bairro', 'bairro', cliente.bairro, 3, {obrig: 'Bairro não informado', aba: 'endereco', travado: travado}) }}
-                {{ f.campo('Cidade', 'cidade', cliente.cidade, 4, {obrig: 'Cidade não informada', aba: 'endereco', travado: travado}) }}
+                {{ f.campo('cliente.cadastro.campo.cep'|trans, 'cep', cliente.cep|length == 8 ? cliente.cep|slice(0, 5) ~ '-' ~ cliente.cep|slice(5) : cliente.cep, 2, {obrig: 'cliente.cadastro.pend.cep'|trans, aba: 'endereco', mascara: 'cep', inputmode: 'numeric', placeholder: '00000-000', travado: travado, maxlength: 9}) }}
+                {{ f.campo('cliente.cadastro.campo.logradouro'|trans, 'logradouro', cliente.endereco, 4, {obrig: 'cliente.cadastro.pend.logradouro'|trans, aba: 'endereco', travado: travado}) }}
+                {{ f.campo('cliente.comum.numero'|trans, 'numero', cliente.numero, 1, {obrig: 'cliente.cadastro.pend.numero'|trans, aba: 'endereco', travado: travado, maxlength: 20}) }}
+                {{ f.campo('cliente.cadastro.campo.complemento'|trans, 'complemento', cliente.complemento, 2, {travado: travado}) }}
+                {{ f.campo('cliente.cadastro.campo.bairro'|trans, 'bairro', cliente.bairro, 3, {obrig: 'cliente.cadastro.pend.bairro'|trans, aba: 'endereco', travado: travado}) }}
+                {{ f.campo('cliente.cadastro.campo.cidade'|trans, 'cidade', cliente.cidade, 4, {obrig: 'cliente.cadastro.pend.cidade'|trans, aba: 'endereco', travado: travado}) }}
                 <label class="cad-campo cad-campo--2">
-                    <span class="cad-rotulo">UF <b aria-hidden="true">*</b></span>
-                    <select name="uf" class="cad-input" data-obrig="UF não informada" data-aba="endereco" {% if travado %}disabled{% endif %}>
+                    <span class="cad-rotulo">{{ 'cliente.cadastro.campo.uf'|trans }}</span>
+                    <select name="uf" class="cad-input" data-obrig="{{ 'cliente.cadastro.pend.uf'|trans }}" data-aba="endereco" {% if travado %}disabled{% endif %}>
                         <option value=""></option>
                         {% for uf in UFS %}<option value="{{ uf }}" {{ cliente.estado|upper == uf ? 'selected' : '' }}>{{ uf }}</option>{% endfor %}
                     </select>
                 </label>
-                <p class="cad-nota js-cad-cep-nota" hidden>Endereço preenchido pelo CEP. Confira e informe o número.</p>
+                <p class="cad-nota js-cad-cep-nota" hidden>{{ 'cliente.cadastro.aviso.cep_preenchido'|trans }}</p>
             </section>
 
             <section class="cad-painel cad-grade js-cad-contatos" data-cad-painel="contato"{{ abaInicial != 'contato' ? ' hidden' : '' }}>
-                {{ f.campo('Telefone', 'telefone', cliente.telefoneCelular, 2, {tipo: 'tel', mascara: 'tel', travado: travado, maxlength: 20}) }}
-                {{ f.campo('WhatsApp', 'whatsapp', cliente.whatsapp, 2, {tipo: 'tel', mascara: 'tel', travado: travado, maxlength: 20}) }}
+                {{ f.campo('cliente.cadastro.campo.telefone'|trans, 'telefone', cliente.telefoneCelular, 2, {tipo: 'tel', mascara: 'tel', travado: travado, maxlength: 20}) }}
+                {{ f.campo('cliente.cadastro.campo.whatsapp'|trans, 'whatsapp', cliente.whatsapp, 2, {tipo: 'tel', mascara: 'tel', travado: travado, maxlength: 20}) }}
                 <label class="cad-campo cad-campo--2">
-                    <span class="cad-rotulo">E-mail</span>
-                    <input type="email" name="email" value="{{ cliente.email }}" class="cad-input js-cad-email" autocomplete="off" placeholder="nome@email.com"
+                    <span class="cad-rotulo">{{ 'cliente.cadastro.campo.email'|trans }}</span>
+                    <input type="email" name="email" value="{{ cliente.email }}" class="cad-input js-cad-email" autocomplete="off" placeholder="{{ 'cliente.cadastro.campo.email_exemplo'|trans }}"
                            {% if travado %}disabled{% endif %}>
-                    <span class="cad-aviso js-cad-email-aviso" hidden>E-mail em formato inválido.</span>
+                    <span class="cad-aviso js-cad-email-aviso" hidden>{{ 'cliente.cadastro.aviso.email_invalido'|trans }}</span>
                 </label>
             </section>
 
@@ -243,9 +253,15 @@
                permissão de EDITAR o cliente e o CSRF. "Substituir" envia o novo e só depois exclui o antigo. #}
             {% if not novo %}
             <section class="cad-painel" data-cad-painel="docs"{{ abaInicial != 'docs' ? ' hidden' : '' }}>
+                {# Inteligência cadastral (desenho 02, l.740 a 791; spec cliente-inteligencia-cadastral, F-A): carregada ao abrir
+                   a aba (`cliente_inteligencia_cadastral`), desenhada pelo JS. Só com CPF/CNPJ válido; sem leitura de
+                   documento, sem sugestões e sem "Atualizar sozinho" (fatias futuras). #}
+                <div class="cad-ii js-cad-ii" hidden
+                     data-url="{{ path('cliente_inteligencia_cadastral', {id: cliente.id}) }}"
+                     data-url-vincular="{{ path('cliente_inteligencia_cadastral_vincular', {id: cliente.id, documentoId: 0}) }}"></div>
                 {% for cat, info in {
-                    IDENTIFICACAO: {titulo: 'Documento de identificação', sub: 'CNH ou RG', icone: 'bi-person-badge'},
-                    COMPROVANTE_RESIDENCIA: {titulo: 'Comprovante de residência', sub: 'Conta de consumo, contrato de locação ou similar', icone: 'bi-house-door'},
+                    IDENTIFICACAO: {titulo: 'cliente.cadastro.doc.identificacao'|trans, sub: 'cliente.cadastro.doc.identificacao_sub'|trans, icone: 'bi-person-badge'},
+                    COMPROVANTE_RESIDENCIA: {titulo: 'cliente.cadastro.doc.residencia'|trans, sub: 'cliente.cadastro.doc.residencia_sub'|trans, icone: 'bi-house-door'},
                 } %}
                     {% set doc = docs[cat] %}
                     <div class="cad-doc{{ doc ? ' is-anexado' : '' }}" data-cad-doc="{{ cat }}"{% if doc %} data-doc-id="{{ doc.id }}"{% endif %}>
@@ -253,34 +269,34 @@
                         <div class="cad-doc-texto">
                             <div class="cad-doc-titulo">{{ info.titulo }}</div>
                             <div class="cad-doc-info">
-                                {% if doc %}{{ doc.nomeOriginal }} · anexado em {{ doc.uploadedAt|date('d/m/Y') }} · {{ (doc.tamanhoBytes / 1024)|round(0, 'ceil') }} KB{% else %}{{ info.sub }} · não anexado{% endif %}
+                                {% if doc and doc.vinculado %}{{ doc.nomeOriginal }} · {{ 'cliente.cadastro.doc.anexado_em'|trans({data: doc.pastaDocumento.carregadoEm|data}) }}{% elseif doc %}{{ doc.nomeOriginal }} · {{ 'cliente.cadastro.doc.anexado_em'|trans({data: doc.uploadedAt|data}) }} · {{ 'cliente.cadastro.doc.tamanho_kb'|trans({n: (doc.tamanhoBytes / 1024)|round(0, 'ceil') ~ ''}) }}{% else %}{{ info.sub }} · {{ 'cliente.cadastro.doc.nao_anexado'|trans }}{% endif %}
                             </div>
                         </div>
                         <div class="cad-doc-acoes">
                             {% if doc %}
-                                <a class="cad-btn cad-btn--sec" href="{{ path('cliente_documento_view', {id: doc.id}) }}" target="_blank" rel="noopener">Visualizar</a>
-                                <a class="cad-btn cad-btn--sec" href="{{ path('cliente_documento_download', {id: doc.id}) }}">Baixar</a>
+                                <a class="cad-btn cad-btn--sec" href="{{ path('cliente_documento_view', {id: doc.id}) }}" target="_blank" rel="noopener">{{ 'cliente.comum.visualizar'|trans }}</a>
+                                <a class="cad-btn cad-btn--sec" href="{{ path('cliente_documento_download', {id: doc.id}) }}">{{ 'cliente.cadastro.doc.baixar'|trans }}</a>
                                 {% if podeEditar %}
-                                    <button type="button" class="cad-btn cad-btn--sec js-cad-doc-anexar" data-substituir="1">Substituir</button>
+                                    <button type="button" class="cad-btn cad-btn--sec js-cad-doc-anexar" data-substituir="1">{{ 'cliente.cadastro.doc.substituir'|trans }}</button>
                                     <button type="button" class="cad-btn cad-btn--sec js-cad-doc-excluir"
                                             data-url="{{ path('cliente_documento_delete', {id: doc.id}) }}"
-                                            data-csrf="{{ csrf_token('delete_doc_cliente_' ~ doc.id) }}">Excluir</button>
+                                            data-csrf="{{ csrf_token('delete_doc_cliente_' ~ doc.id) }}">{{ 'cliente.comum.excluir'|trans }}</button>
                                 {% endif %}
                             {% elseif podeEditar %}
-                                <button type="button" class="cad-btn cad-btn--pri is-pronto js-cad-doc-anexar">Anexar</button>
+                                <button type="button" class="cad-btn cad-btn--pri is-pronto js-cad-doc-anexar">{{ 'cliente.cadastro.doc.anexar'|trans }}</button>
                             {% endif %}
                         </div>
                         <div class="cad-doc-confirma js-cad-doc-confirma" hidden>
-                            <span>Excluir {{ doc ? doc.nomeOriginal : '' }} do cadastro?</span>
-                            <button type="button" class="cad-btn cad-btn--perigo js-cad-doc-excluir-sim">Excluir</button>
-                            <button type="button" class="cad-btn cad-btn--link js-cad-doc-excluir-nao">Cancelar</button>
+                            <span>{{ 'cliente.cadastro.doc.excluir_confirma'|trans({nome: doc ? doc.nomeOriginal : ''}) }}</span>
+                            <button type="button" class="cad-btn cad-btn--perigo js-cad-doc-excluir-sim">{{ 'cliente.comum.excluir'|trans }}</button>
+                            <button type="button" class="cad-btn cad-btn--link js-cad-doc-excluir-nao">{{ 'cliente.comum.cancelar'|trans }}</button>
                         </div>
                     </div>
                 {% endfor %}
                 {% if mostrarOcr %}
                     <div class="cad-ocr">
-                        <div class="cad-ocr-titulo"><i class="bi bi-magic" aria-hidden="true"></i>Leitura automática do documento</div>
-                        <p>O serviço de leitura (OCR) não está configurado neste ambiente. Quando estiver ativo, nome, CPF, RG e nascimento são sugeridos aqui para você conferir antes de salvar.</p>
+                        <div class="cad-ocr-titulo"><i class="bi bi-magic" aria-hidden="true"></i>{{ 'cliente.cadastro.ocr.titulo'|trans }}</div>
+                        <p>{{ 'cliente.cadastro.ocr.texto'|trans }}</p>
                     </div>
                 {% endif %}
                 {% if podeEditar %}
@@ -292,31 +308,45 @@
 
             <section class="cad-painel" data-cad-painel="qual"{{ abaInicial != 'qual' ? ' hidden' : '' }}>
                 <div class="cad-qual js-cad-qual">{{ qualificacao }}</div>
-                <p class="cad-nota">Texto gerado com os campos preenchidos, pronto para contratos, procurações e petições. Documentos já gerados não mudam quando o cadastro é atualizado.</p>
+                <p class="cad-nota">{{ 'cliente.cadastro.qualificacao_nota'|trans }}</p>
+            </section>
+
+            {# Aba Histórico (desenho 1.2.3, `cq.hist`; E12 fatia 3d): quem fez o quê no cadastro, a mais nova primeiro, as
+               40 mais novas. Só rótulos ("alterou nome, CPF"), nunca o valor. O bloco Pendências some nesta aba. #}
+            <section class="cad-painel" data-cad-painel="hist"{{ abaInicial != 'hist' ? ' hidden' : '' }}>
+                {% if historico is empty %}
+                    <div class="cad-hist-vazio">{{ 'cliente.cadastro.historico_vazio'|trans }}</div>
+                {% else %}
+                    <ul class="cad-hist">
+                        {% for h in historico %}
+                            <li class="cad-hist-linha"><span class="cad-hist-q">{{ h.q }}</span><span class="cad-hist-t">{{ h.t }}</span></li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
             </section>
 
             <div class="cad-existente js-cad-existente" role="alert" hidden>
-                <div class="cad-existente-titulo"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>Este {{ pf ? 'CPF' : 'CNPJ' }} já possui cadastro no sistema.</div>
+                <div class="cad-existente-titulo"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>{{ pf ? 'cliente.cadastro.existente.titulo_cpf'|trans : 'cliente.cadastro.existente.titulo_cnpj'|trans }}</div>
                 <div class="cad-existente-quem js-cad-existente-quem"></div>
                 <div class="cad-existente-acoes">
-                    <button type="button" class="cad-btn cad-btn--sec js-cad-existente-abrir">Abrir cadastro</button>
-                    {% if podeVincular %}<button type="button" class="cad-btn cad-btn--pri js-cad-existente-usar">Utilizar cadastro existente</button>{% endif %}
-                    <button type="button" class="cad-btn cad-btn--link js-cad-existente-cancelar">Cancelar</button>
+                    <button type="button" class="cad-btn cad-btn--sec js-cad-existente-abrir">{{ 'cliente.cadastro.existente.abrir'|trans }}</button>
+                    {% if podeVincular %}<button type="button" class="cad-btn cad-btn--pri js-cad-existente-usar">{{ 'cliente.cadastro.existente.usar'|trans }}</button>{% endif %}
+                    <button type="button" class="cad-btn cad-btn--link js-cad-existente-cancelar">{{ 'cliente.comum.cancelar'|trans }}</button>
                 </div>
             </div>
 
             <div class="cad-pend js-cad-pend" hidden>
-                <div class="cad-pend-titulo">Pendências</div>
+                <div class="cad-pend-titulo">{{ 'cliente.cadastro.pendencias'|trans }}</div>
                 <div class="cad-pend-lista js-cad-pend-lista"></div>
             </div>
         </form>
 
         <footer class="cad-rodape">
             <span class="cad-msg js-cad-msg" aria-live="polite"></span>
-            <button type="button" class="cad-btn cad-btn--sec js-cad-fechar">Fechar</button>
-            <button type="button" class="cad-btn cad-btn--sec js-cad-copiar"><i class="bi bi-clipboard" aria-hidden="true"></i>Copiar qualificação</button>
+            <button type="button" class="cad-btn cad-btn--sec js-cad-fechar">{{ 'cliente.comum.fechar'|trans }}</button>
+            <button type="button" class="cad-btn cad-btn--sec js-cad-copiar"><i class="bi bi-clipboard" aria-hidden="true"></i>{{ 'cliente.comum.copiar_qualificacao'|trans }}</button>
             {% if podeEditar %}
-                <button type="button" class="cad-btn cad-btn--pri js-cad-salvar"><i class="bi bi-check2" aria-hidden="true"></i>Salvar</button>
+                <button type="button" class="cad-btn cad-btn--pri js-cad-salvar"><i class="bi bi-check2" aria-hidden="true"></i>{{ 'cliente.comum.salvar'|trans }}</button>
             {% endif %}
         </footer>
     </div>

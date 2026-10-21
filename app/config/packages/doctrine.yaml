@@ -105,6 +105,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Termo/Entity'
                 prefix: 'App\Termo\Entity'
                 alias: AppTermo
+            AppTenant:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Tenant/Entity'
+                prefix: 'App\Tenant\Entity'
+                alias: AppTenant
             AppPonto:
                 type: attribute
                 is_bundle: false
@@ -166,6 +172,13 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Comercial/Entity'
                 prefix: 'App\Comercial\Entity'
                 alias: AppComercial
+            # Metas: o contador da sequência por escritório (a Tarefa em si ainda mora no legado src/Entity).
+            AppTarefa:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Tarefa/Entity'
+                prefix: 'App\Tarefa\Entity'
+                alias: AppTarefa
             # Descadastro de e-mail reaproveitável (spec push-avisar-quando-chegar D3): mora em Shared.
             AppSharedEmailDescadastro:
                 type: attribute

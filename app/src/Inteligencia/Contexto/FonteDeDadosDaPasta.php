@@ -42,11 +42,12 @@ interface FonteDeDadosDaPasta
     public function tarefasDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array;
 
     /**
-     * Anotações internas (aba Dados), mais recente primeiro.
+     * Anotações internas (aba Dados), mais recente primeiro. Sem `$comFinanceiro`, os cartões do sistema que
+     * são dado financeiro (`RegistroDoSistemaNaPasta::DO_FINANCEIRO`: pró-bono e contrato) ficam de fora.
      *
      * @return list<PastaMensagem>
      */
-    public function anotacoesDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array;
+    public function anotacoesDaPasta(Tenant $tenant, Pasta $pasta, int $limite, bool $comFinanceiro = true): array;
 
     /**
      * Observações da aba Detalhes, mais recente primeiro.
@@ -61,6 +62,17 @@ interface FonteDeDadosDaPasta
      * @return list<PastaDocumento>
      */
     public function documentosDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array;
+
+    /**
+     * Os documentos desta pasta com estes ids (o "Índice inteligente", F4), mais recente primeiro. Id de
+     * outra pasta ou de outro escritório não volta. Sem limite de recência: um documento novo depois do
+     * pedido não tira um marcado do prompt.
+     *
+     * @param list<int> $ids
+     *
+     * @return list<PastaDocumento>
+     */
+    public function documentosDaPastaPorIds(Tenant $tenant, Pasta $pasta, array $ids): array;
 
     /**
      * Itens do checklist de documentação, na ordem da tela.

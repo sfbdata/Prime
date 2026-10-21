@@ -1,0 +1,7 @@
+{#- Selo do número da meta no escritório (desenho 02 L1559 e L6682): "Nº 0001", logo depois do título.
+    `numero` = Tarefa::getNumero() (sequência do escritório, nunca o id) · `local` = o nº da meta na pasta.
+    Sem número (meta antiga antes do app:tarefa:numerar-metas) não sai nada. Estilo: css/meta-numero-global.css.
+    A dica diz "do escritório" (o desenho diz "geral do sistema"): a sequência é por escritório, nunca global (PMC-035). -#}
+{%- if numero is not null -%}
+<span class="meta-num-global" title="{{ 'metas.numero.dica'|trans({local: local ~ '', numero: numero ~ ''}) }}">{{ 'metas.numero.selo'|trans({numero: '%04d'|format(numero)}) }}</span>
+{%- endif -%}

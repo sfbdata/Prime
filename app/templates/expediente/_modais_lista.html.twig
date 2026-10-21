@@ -8,32 +8,32 @@
     <div class="exp-modal exp-modal--marcador" role="dialog" aria-modal="true" aria-labelledby="expMkTitulo">
         <div class="exp-modal-cab">
             <i class="bi bi-tags" aria-hidden="true"></i>
-            <b id="expMkTitulo">Novo marcador</b>
-            <button type="button" class="exp-modal-x js-mk-fechar" aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            <b id="expMkTitulo">{{ 'expediente.modais.marcador.titulo_novo'|trans }}</b>
+            <button type="button" class="exp-modal-x js-mk-fechar" aria-label="{{ 'expediente.modais.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
         <div class="exp-modal-corpo">
-            <label class="exp-campo">NOME
-                <input type="text" id="expMkNome" maxlength="100" autocomplete="off" placeholder="Ex.: 7. Revisar">
+            <label class="exp-campo">{{ 'expediente.modais.marcador.campo_nome'|trans }}
+                <input type="text" id="expMkNome" maxlength="100" autocomplete="off" placeholder="{{ 'expediente.modais.marcador.campo_nome_exemplo'|trans }}">
             </label>
-            <label class="exp-campo">DESCRIÇÃO (OPCIONAL)
-                <input type="text" id="expMkDescricao" maxlength="255" autocomplete="off" placeholder="Para que serve este marcador">
+            <label class="exp-campo">{{ 'expediente.modais.marcador.campo_descricao'|trans }}
+                <input type="text" id="expMkDescricao" maxlength="255" autocomplete="off" placeholder="{{ 'expediente.modais.marcador.campo_descricao_exemplo'|trans }}">
             </label>
-            <label class="exp-campo">DENTRO DE (SUBMARCADOR)
-                <select id="expMkPai"><option value="">Nenhum · marcador principal</option></select>
+            <label class="exp-campo">{{ 'expediente.modais.marcador.campo_pai'|trans }}
+                <select id="expMkPai"><option value="">{{ 'expediente.modais.marcador.pai_nenhum'|trans }}</option></select>
             </label>
-            <div class="exp-campo">COR
-                <div class="exp-mk-cores" role="radiogroup" aria-label="Cor">
+            <div class="exp-campo">{{ 'expediente.modais.marcador.campo_cor'|trans }}
+                <div class="exp-mk-cores" role="radiogroup" aria-label="{{ 'expediente.modais.marcador.cor'|trans }}">
                     {% for cor in coresDesenho %}
-                        <button type="button" class="exp-mk-cor" role="radio" aria-checked="false" aria-label="Cor" data-cor="{{ cor }}" style="background: {{ cor }};"><i class="bi" aria-hidden="true"></i></button>
+                        <button type="button" class="exp-mk-cor" role="radio" aria-checked="false" aria-label="{{ 'expediente.modais.marcador.cor'|trans }}" data-cor="{{ cor }}" style="background: {{ cor }};"><i class="bi" aria-hidden="true"></i></button>
                     {% endfor %}
                 </div>
             </div>
-            <div class="exp-mk-previa-linha">Prévia<span class="exp-mk-previa" id="expMkPrevia"><i class="bi bi-folder-fill" aria-hidden="true"></i><span>Nome do marcador</span></span></div>
+            <div class="exp-mk-previa-linha">{{ 'expediente.modais.marcador.previa'|trans }}<span class="exp-mk-previa" id="expMkPrevia"><i class="bi bi-folder-fill" aria-hidden="true"></i><span>{{ 'expediente.modais.marcador.previa_nome'|trans }}</span></span></div>
             <div class="exp-modal-erro" id="expMkErro" role="alert"></div>
         </div>
         <div class="exp-modal-rodape">
-            <button type="button" class="exp-btn exp-btn--cinza js-mk-fechar">Cancelar</button>
-            <button type="button" class="exp-btn exp-btn--azul" id="expMkSalvar">Salvar</button>
+            <button type="button" class="exp-btn exp-btn--cinza js-mk-fechar">{{ 'expediente.modais.cancelar'|trans }}</button>
+            <button type="button" class="exp-btn exp-btn--azul" id="expMkSalvar">{{ 'expediente.modais.salvar'|trans }}</button>
         </div>
     </div>
 </div>
@@ -44,13 +44,13 @@
         <div class="exp-modal-faixa"></div>
         <div class="exp-sigilo-corpo">
             <div class="exp-sigilo-circulo"><i class="bi bi-lock" aria-hidden="true"></i></div>
-            <div class="exp-sigilo-titulo" id="expSigiloTitulo">Pasta <span class="js-sigilo-nup"></span> protegida</div>
-            <div class="exp-sigilo-texto" id="expSigiloTexto">Esta pasta contém <b>documentos sigilosos</b>. O acesso não é recomendado no momento.</div>
-            <div class="exp-sigilo-nota">Somente o usuário primário pode liberar o acesso.</div>
+            <div class="exp-sigilo-titulo" id="expSigiloTitulo">{{ 'expediente.modais.sigilo.titulo_inicio'|trans }} <span class="js-sigilo-nup"></span> {{ 'expediente.modais.sigilo.titulo_fim'|trans }}</div>
+            <div class="exp-sigilo-texto" id="expSigiloTexto">{{ 'expediente.modais.sigilo.texto_inicio'|trans }} <b>{{ 'expediente.modais.sigilo.texto_destaque'|trans }}</b>{{ 'expediente.modais.sigilo.texto_fim'|trans }}</div>
+            <div class="exp-sigilo-nota">{{ 'expediente.modais.sigilo.nota'|trans }}</div>
         </div>
         <div class="exp-modal-rodape exp-modal-rodape--centro">
-            <button type="button" class="exp-btn exp-btn--cinza js-sigilo-fechar">Entendi</button>
-            <button type="button" class="exp-btn exp-btn--azul js-sigilo-pedir"><i class="bi bi-key" aria-hidden="true"></i>Pedir acesso</button>
+            <button type="button" class="exp-btn exp-btn--cinza js-sigilo-fechar">{{ 'expediente.modais.sigilo.entendi'|trans }}</button>
+            <button type="button" class="exp-btn exp-btn--azul js-sigilo-pedir"><i class="bi bi-key" aria-hidden="true"></i>{{ 'expediente.modais.sigilo.pedir_acesso'|trans }}</button>
         </div>
     </div>
 </div>

@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace App\Comercial\Controller;
 
+use App\Comercial\DTO\CadastroDeContatosInput;
 use App\Comercial\DTO\DisparoOutput;
 use App\Comercial\DTO\EstadoDaAutomacao;
 use App\Comercial\Enum\Automacao;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
 use App\Comercial\Exception\AutomacaoRecusada;
+use App\Comercial\Exception\CampanhaRecusada;
+use App\Comercial\Repository\AutomacaoDeEmailRepository;
 use App\Comercial\Service\ModelosDeAutomacao;
 use App\Comercial\Service\MontadorDeEmail;
 use App\Comercial\UseCase\AlterarAutomacaoUseCase;
+use App\Comercial\UseCase\CadastrarContatoDoMasterUseCase;
 use App\Comercial\UseCase\ListarAutomacoesUseCase;
 use App\Comercial\UseCase\SimularNovoCadastroUseCase;
 use App\Entity\Auth\User;
@@ -20,12 +24,14 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * O bloco "Automações" da seção "Comercial e e-mails" do /master (desenho 05 L.262-268; spec
- * comercial-e-emails.md §3.5). Só o Master. JSON, com o token CSRF `master_comercial` no header `X-CSRF-Token`.
+ * comercial-e-emails.md §3.5) e o "Cadastrar e-mail" da Central em modo venda (F3h, seção Indicações). Só o Master.
+ * JSON, com o token CSRF `master_comercial` no header `X-CSRF-Token`.
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class ComercialDoMasterController extends AbstractController
@@ -74,17 +80,48 @@ final class ComercialDoMasterController extends AbstractController
     }
 
     /**
+     * "Cadastrar e-mail" (F3h; desenho 05 VS 21.10.26, `cmLeadAdd` L644): `{emails}` com um ou mais endereços; cada um
+     * recebe o pedido de confirmação dupla da Base de contatos. Responde quantos pedidos saíram, quantos já existiam e
+     * quantos foram barrados; recusa em 422 com `{erro}`.
+     */
+    #[Route('/master/comercial/contatos', name: 'master_comercial_contatos_cadastrar', methods: ['POST'])]
+    public function cadastrarContatos(Request $request, CadastrarContatoDoMasterUseCase $cadastrar, RateLimiterFactoryInterface $comercialContatosMasterLimiter): JsonResponse
+    {
+        if (!$this->isCsrfTokenValid(self::TOKEN, (string) $request->headers->get('X-CSRF-Token', ''))) {
+            return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
+        }
+        if (!$comercialContatosMasterLimiter->create($request->getClientIp() ?? 'desconhecido')->consume()->isAccepted()) {
+            return $this->json(['erro' => 'Muitos cadastros em pouco tempo. Tente de novo mais tarde.'], Response::HTTP_TOO_MANY_REQUESTS);
+        }
+        $corpo = json_decode($request->getContent(), true);
+        $usuario = $this->getUser();
+        try {
+            $saida = $cadastrar->executar(
+                CadastroDeContatosInput::doTexto(is_array($corpo) ? ($corpo['emails'] ?? null) : null),
+                $usuario instanceof User ? $usuario : throw new CampanhaRecusada('Sessão inválida.'),
+            );
+        } catch (CampanhaRecusada $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json($saida->paraArray());
+    }
+
+    /**
      * A prévia só de leitura do modelo de uma automação (o botão do modelo, dc L.564), com o nome e o endereço de
-     * exemplo do dc (L.537). Os avisos de espaço chegam com a fatia 1b. Nada é enviado nem gravado.
+     * exemplo do dc (L.537). O `e90` mostra o limite escolhido. Nada é enviado nem gravado.
      */
     #[Route('/master/comercial/automacoes/{chave}/previa', name: 'master_comercial_previa', requirements: ['chave' => '[a-z0-9]{2,10}'], methods: ['GET'])]
-    public function previa(string $chave, ModelosDeAutomacao $modelos, MontadorDeEmail $montador): Response
+    public function previa(string $chave, ModelosDeAutomacao $modelos, MontadorDeEmail $montador, AutomacaoDeEmailRepository $automacoes): Response
     {
         $automacao = Automacao::tryFrom($chave);
-        if ($automacao === null || in_array($automacao, [Automacao::E90, Automacao::E100, Automacao::Ped], true)) {
-            return new Response('<p style="font-family:sans-serif;color:#5b7383;padding:16px;">O modelo deste aviso entra com os avisos de espaço.</p>');
+        if ($automacao === null) {
+            throw $this->createNotFoundException();
         }
-        $modelo = $modelos->montar($automacao, 'Dra. Ana', ['urlDeConfirmacao' => '#']);
+        $modelo = $modelos->montar($automacao, 'Dra. Ana', [
+            'urlDeConfirmacao' => '#',
+            'limite' => (string) ($automacao === Automacao::E90 ? $automacoes->estado($automacao)->atraso : ''),
+        ]);
         $ehDica = $automacao === Automacao::Dica;
         $email = $montador->montar(new MensagemDeEmail(
             para: 'teste@bluejus.com.br',
