@@ -6,12 +6,12 @@ Itens marcados **DONO** são decisões dele; o resto segue a convenção do sist
 ## 1. O que o desenho mostra
 
 Fontes: `docs/design/perfis-1.2/vs-21-10-26/bj-idioma.js` (8 KB, completo) e o desenho "07 - Meu Perfil -
-VS 18.10.26" (L96-98 e L257). O trecho que temos do "05 - Perfis 1.2 - VS 21.10.26" (cortado em 256 KB) não
-carrega o `bj-idioma.js` nem fala de idioma; a b5 foi consultada sobre a parte cortada.
+VS 18.10.26" (L96-98 e L257). O "05 - Perfis 1.2 - VS 21.10.26" só carrega o `bj-idioma.js` (L15), sem
+seletor próprio nem escolha no painel do Master (confirmado pela b5, 21/10).
 
-- **Onde se escolhe:** menu do usuário ("Idioma") e Meu Perfil, bloco "Preferências · Valem só para você",
-  item "Idioma do sistema · Muda todas as telas, menus e o Chat I.A", com o nome do idioma atual. Os dois abrem
-  o modal "Idioma do sistema": grade de 2 colunas, sigla + nome, o atual marcado com ✓.
+- **Onde se escolhe:** Meu Perfil (desenho 07), bloco "Preferências · Valem só para você",
+  item "Idioma do sistema · Muda todas as telas, menus e o Chat I.A", com o nome do idioma atual. O item
+  "Idioma" do menu do usuário, que já existe, veio do desenho 03 (`menu-usuario.js`). Os dois abrem o modal "Idioma do sistema": grade de 2 colunas, sigla + nome, o atual marcado com ✓.
 - **Idiomas (10):** Português (Brasil), English, Español, Français, Italiano, Deutsch, Русский, 中文, 日本語,
   العربية (árabe da direita para a esquerda: `dir="rtl"`).
 - **Regra do texto do modal:** "Vale só para você e muda todas as telas, menus, avisos e o Chat I.A. Nomes de
@@ -97,4 +97,5 @@ enquanto a extração não termina (**DONO**: ou só liberar o idioma depois de 
 
 `app/templates/base.html.twig`, `_sidebar`, `menu_usuario/*`, CSS global (rtl), `app/config/packages/*.yaml`
 (`framework`, `translation`), `composer.json` (se entrar `twig/intl-extra`), e quase todos os templates nas
-fases 4..N. Por isso, cada PR de extração precisa de aviso de sobreposição e de ir rápido ao merge.
+fases 4..N. Por isso, cada PR de extração precisa de aviso de sobreposição e de ir rápido ao merge. O Meu
+Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela antes de tocar a tela.
