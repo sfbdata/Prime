@@ -100,6 +100,28 @@ moldura:
     js:
         busca_sem_resultado: Nenhum resultado
         instalar_sem_pedido: 'Para instalar: no Chrome ou Edge, use o ícone de instalar na barra de endereço. No celular, "Adicionar à tela inicial".'
+        lembretes:
+            tipo_audiencia: AUDIÊNCIA
+            tipo_reuniao: REUNIÃO DE EQUIPE
+            tipo_prazo: PRAZO
+            tipo_compromisso: COMPROMISSO
+            dica_audiencia: Confira a pauta, os documentos e o link da sala virtual.
+            dica_reuniao: A equipe vai se reunir. Leve as pendências da semana.
+            dica_prazo: 'Prazo com horário: confirme o protocolo antes do limite.'
+            em_horas: Em {horas}h · {hora}
+            em_minutos: Em {minutos} min · às {hora}
+            agora: Agora · {hora}
+            comecou: Começou às {hora}
+            notificacao_titulo: BlueJus · {titulo}
+            regiao: Lembretes
+            dispensar: Dispensar
+            abrir_pasta: Abrir pasta
+            ver_na_agenda: Ver na agenda
+            lembrar_em_10_min: Lembrar em 10 min
+            exemplo_audiencia: Audiência de conciliação · Pasta 1180
+            exemplo_reuniao: Reunião de equipe semanal
+            exemplo_prazo: Prazo de contestação · Pasta 1180
+            exemplo_compromisso: Atendimento ao cliente
 
 # ---- menu do usuário (menu_usuario/*, menu-usuario.js)
 menu:
@@ -1073,6 +1095,396 @@ perfis:
         promover_confirmar: Confirmar promoção
         remover_titulo: Remover primário
         remover_texto: '"{nome}" deixa de ser primário e volta a ser secundário. A remoção fica na auditoria da conta.'
+
+# ---- Agenda (agenda/nova, lista, novo, editar, show; agenda-nova.js)
+agenda:
+    comum:
+        home: Home
+        agenda: Agenda
+        status: Status
+        titulo: Título
+        inicio: Início
+        fim: Fim
+        local: Local
+        participantes: Participantes
+        acoes: Ações
+        recorrencia: Recorrência
+        editar: Editar
+        editar_evento: Editar evento
+        informacoes: Informações
+        criado_por: 'Criado por:'
+        criado_em: 'Criado em:'
+        modificado_em: 'Modificado em:'
+        cancelar_evento: Cancelar Evento
+        cancelar_confirmar: Tem certeza que deseja cancelar este evento?
+        excluir_evento: Excluir Evento
+        excluir_permanentemente: Excluir evento permanentemente
+        excluir_confirmar: Tem certeza que deseja EXCLUIR permanentemente este evento?
+    nova:
+        titulo_pagina: Agenda · BlueJus
+        titulo: Agenda
+        novo_compromisso: Novo compromisso
+        calendarios: CALENDÁRIOS
+        feriados_estaduais_de: 'Feriados estaduais de:'
+        feriados_estaduais_origem: pela lotação do Meu Perfil e pelo estado do escritório
+        testar_lembretes: TESTAR LEMBRETES
+        teste_audiencia: Audiência
+        teste_reuniao: Reunião
+        teste_prazo: Prazo
+        teste_compromisso: Compromisso
+        google_agenda: GOOGLE AGENDA
+        google_sincronizado: Sincronizado com o Google Agenda
+        google_sincronizar: Sincronizar com o Google Agenda
+        google_conectado: Conectado · atualiza automaticamente
+        google_nao_conectado: Não conectado
+        google_indisponivel: Disponível quando o servidor liberar a conexão
+        google_desconectar: Desconectar
+        google_explicacao_inicio: 'Ao conectar sua conta Google, os compromissos ficam iguais nos dois lados: o que você criar, editar ou excluir aqui aparece no Google Agenda e vice-versa. Compromissos'
+        google_explicacao_so_eu: Só eu
+        google_explicacao_fim: continuam particulares e os feriados do sistema não são enviados.
+        hoje: Hoje
+        anterior: Anterior
+        proximo: Próximo
+        buscar: Buscar na agenda
+        proximos_feriados: Próximos feriados
+        proximos_feriados_regra: prazos que vencem em feriado passam para o próximo dia útil
+    lista:
+        titulo: Lista de Eventos
+        ver_calendario: Ver Calendário
+        novo_evento: Novo Evento
+        filtros: Filtros
+        status_todos: Todos
+        status_agendado: Agendado
+        status_concluido: Concluído
+        status_cancelado: Cancelado
+        filtrar: Filtrar
+        limpar: Limpar
+        encontrados: '{total} evento(s) encontrado(s)'
+        na_agenda_de: na agenda de {nome}
+        pessoa_nao_encontrada: pessoa não encontrada neste escritório
+        periodo_de: de {data}
+        periodo_ate: até {data}
+        filtro_criadora_ou_participante: em que a pessoa é criadora ou participante, sem cancelados e sem os
+        filtro_somente_para_mim: Somente para mim
+        filtro_so_os_que_voce_ve: só os eventos que você pode ver
+        criador: Criador
+        dia_inteiro: (dia inteiro)
+        pessoas: '{total} pessoa(s)'
+        visualizar_evento: Visualizar evento
+        cancelar_evento: Cancelar evento
+        cancelar_confirmar: Cancelar este evento?
+        nenhum_evento: Nenhum evento encontrado.
+    form:
+        novo_titulo: Novo Evento
+        novo_cartao: Informações do Evento
+        editar_titulo: Editar Evento
+        editar_cartao: Editar Informações do Evento
+        visibilidade: Visibilidade
+        salvar_evento: Salvar Evento
+        salvar_alteracoes: Salvar Alterações
+        salvar_alteracoes_rotulo: Salvar alterações
+        cancelar: Cancelar
+        dicas: Dicas
+        dica_titulo_datas: Preencha o título e as datas do evento.
+        dica_participantes: Adicione participantes para notificá-los.
+        dica_cores: Use cores diferentes para categorizar eventos.
+        dica_recorrencia: Configure recorrência para eventos repetitivos.
+        js:
+            participantes_placeholder: Selecione os participantes...
+    show:
+        titulo_pagina: Evento - {titulo}
+        detalhes: Detalhes
+        cancelado_inicio: Este evento foi
+        cancelado_destaque: cancelado
+        cancelado_fim: .
+        detalhes_evento: Detalhes do Evento
+        descricao: Descrição
+        sem_descricao: Sem descrição.
+        repetir: 'Repetir:'
+        repetir_ate: até {data}
+        voltar_calendario: Voltar ao Calendário
+        cor: 'Cor:'
+        dia_inteiro: Evento de dia inteiro
+    js:
+        comum:
+            dia_inteiro: Dia inteiro
+            fechar: Fechar
+            cancelar: Cancelar
+            salvar: Salvar
+            excluir: Excluir
+            minha_agenda: Minha agenda
+            equipe_escritorio: Equipe do escritório
+            avisar_chat_ia: AVISAR NO CHAT I.A
+        calendario:
+            meus: Meus compromissos
+            aud: Audiências
+            prazo: Prazos das pastas
+            reun: Reuniões
+            fer: Feriados nacionais
+            est: Feriados do estado
+            forense: Recesso forense
+            com: Datas comemorativas
+            trib: Tribunais e eleições
+            aniv: Aniversários da equipe
+        datas:
+            mes:
+                janeiro: janeiro
+                fevereiro: fevereiro
+                marco: março
+                abril: abril
+                maio: maio
+                junho: junho
+                julho: julho
+                agosto: agosto
+                setembro: setembro
+                outubro: outubro
+                novembro: novembro
+                dezembro: dezembro
+            semana:
+                dom: DOM
+                seg: SEG
+                ter: TER
+                qua: QUA
+                qui: QUI
+                sex: SEX
+                sab: SÁB
+            letra:
+                dom: D
+                seg: S
+                ter: T
+                qua: Q
+                qui: Q
+                sex: S
+                sab: S
+        periodo:
+            mes: '{mes} de {ano}'
+            dia: '{dia} de {mes} de {ano}'
+            semana: '{dia1} a {dia2} de {mes2} de {ano}'
+            semana_dois_meses: '{dia1} de {mes1} a {dia2} de {mes2} de {ano}'
+            lista: Próximos 60 dias
+        grade:
+            hora_ate: '{inicio} às {fim}'
+            mais: + {n} mais
+        lateral:
+            ufs_separador: ' e '
+            nenhum_estado: nenhum estado cadastrado
+        resumo:
+            prazos_hoje: Prazos hoje
+            prazos_hoje_dica: Prazos que vencem hoje
+            amanha: Amanhã
+            amanha_dica: Prazos que vencem amanhã
+            proximos_7: Nos próximos 7 dias
+            proximos_7_dica: Prazos de hoje até {data}
+            audiencias_hoje: Audiências hoje
+            audiencias_hoje_dica: Audiências marcadas para hoje
+        mini:
+            mes_anterior: Mês anterior
+            proximo_mes: Próximo mês
+        vista:
+            dia: DIA
+            semana: SEMANA
+            mes: MÊS
+            lista: LISTA
+        aniversario:
+            hoje: Hoje é aniversário de {nomes}!
+            parabens: Que tal mandar os parabéns no Chat?
+        lista:
+            completa: Lista completa, com eventos passados e filtros
+            vazia: Nenhum compromisso nos próximos 60 dias.
+        feriados:
+            inicio_recesso: Início do recesso forense
+            titulo: Próximos feriados · {mes1} e {mes2}
+            vazio: Nenhum feriado neste mês nem no próximo.
+            hoje: hoje
+            amanha: amanhã
+            em_dias: em {n} dias
+            ponte: PONTE
+            ponte_dica: 'Feriado em terça ou quinta: possível ponte'
+        tipo_feriado:
+            estadual: Estadual · {uf}
+            forense: Forense
+            ponto_facultativo: Ponto facultativo
+            escritorio: Escritório
+            nacional: Nacional
+        origem:
+            nome_alterado: Nome alterado pelo escritório.
+            dica_botao_direito: Clique com o botão direito no dia para editar ou ocultar.
+            conta_no_ponto: Conta como feriado no ponto.
+            nao_conta_no_ponto: 'Não conta no ponto: para contar, cadastre em Feriados e Folgas.'
+            acrescentada: 'Incluído pelo escritório na Agenda. Não conta no ponto: para contar, cadastre em Feriados e Folgas.'
+            pasta: Vem dos prazos e audiências registrados na pasta. Para alterar, edite na pasta.
+            feriado_escritorio: Feriado cadastrado pelo escritório em Feriados e Folgas. Conta como feriado no ponto.
+            ponto_facultativo: Ponto facultativo, já incluído pelo sistema.
+            feriado_nacional: Feriado nacional, já incluído pelo sistema.
+            feriado_estadual: Feriado estadual incluído pela localização cadastrada ({uf}).
+            recesso: Recesso forense incluído pelo sistema.
+            comemorativa: Data comemorativa incluída pelo sistema.
+            tribunais: Data dos tribunais incluída pelo sistema.
+            aniversario: Aniversário cadastrado no Meu Perfil.
+            google: Importado do Google Agenda.
+            bluejus: Criado na agenda do BlueJus.
+        detalhe:
+            titulo: Compromisso
+            fonte: 'Fonte: {fonte}.'
+            google_pasta: Pasta {nup} · BlueJus
+            ate_data: até {data}
+            ate_data_hora: até {data} às {hora}
+            dia_inteiro: dia inteiro
+            as_hora: às {hora}
+            agenda_de: Agenda de {nome}
+            so_voce_ve: Só você vê
+            visivel_equipe: Visível para a equipe do escritório
+            repete: 'Repete: {frequencia}'
+            repete_ate: 'Repete: {frequencia} até {data}'
+            frequencia:
+                diario: todo dia
+                semanal: toda semana
+                mensal: todo mês
+                anual: todo ano
+                sim: sim
+            abrir_pasta: Abrir a Pasta {nup}
+            avisados_chat: 'Avisados no Chat: {nomes}'
+            cadastrar_feriado: Cadastrar em Feriados e Folgas, para contar no ponto
+            google_agenda: Google Agenda
+        situacao:
+            concluido: Concluído
+            cancelado: Cancelado
+        acoes:
+            avisar_chat: Avisar no Chat
+            concluir: Concluir
+            cancelar_compromisso: Cancelar compromisso
+            reabrir: Reabrir
+            editar: Editar
+        menu:
+            abrir_compromisso: Abrir compromisso
+            ver_detalhes: Ver detalhes
+            editar_nome: Editar nome
+            ocultar: Ocultar da agenda
+            acrescentar_em: Acrescentar feriado ou data em {data}
+            novo_em: Novo compromisso em {data}
+            restaurar: Restaurar datas do sistema
+        form:
+            novo_titulo: Novo compromisso
+            editar_titulo: Editar compromisso
+            titulo_placeholder: Título
+            tipo_prazo: Prazo
+            vis:
+                participantes_veem: Só os participantes e você veem
+                todos_veem: Todos da conta veem
+                so_eu: Só eu
+                ninguem_ve: Ninguém mais vê, nem o primário
+            rotulo:
+                data: DATA
+                inicio: INÍCIO
+                fim: FIM
+                pasta: PASTA (NUP, OPCIONAL)
+                lembrete: LEMBRETE
+                repetir: REPETIR
+                repetir_ate: ATÉ (OPCIONAL)
+            lembrete:
+                sem: Sem lembrete
+                min_10: 10 min antes
+                min_15: 15 min antes
+                min_30: 30 min antes
+                hora_1: 1 hora antes
+                dia_1: 1 dia antes
+            repetir:
+                nao: Não repete
+                diario: Todo dia
+                semanal: Toda semana
+                mensal: Todo mês
+                anual: Todo ano
+            termina_em: Termina em {data} ({dias} dia(s) depois do início).
+            mesmo_dia: Terminar no mesmo dia
+            serie: 'Este compromisso se repete: a alteração vale para todas as repetições.'
+            pasta_placeholder: 'Ex.: número da pasta'
+            participantes: PARTICIPANTES
+            participantes_dica_privado: em "Só eu" os participantes não veem nem são avisados
+            participantes_dica: só eles e você veem o compromisso
+            avisar_dica_privado: em "Só eu" ninguém é avisado
+            avisar_dica: cada @pessoa recebe o resumo e o atalho
+            obs_placeholder: Local, link da reunião ou observações
+            serao_avisados: 'Serão avisados: {nomes}'
+            arroba_vazio: Nenhum colaborador com esse nome
+        erros:
+            salvar: Não foi possível salvar. Tente de novo.
+            titulo: Informe o título.
+            data: Informe a data.
+            fim_antes: O fim precisa ser depois do início.
+            repeticao_antes: A repetição precisa terminar depois do início.
+            nome: Informe o nome.
+        compartilhar:
+            titulo: Compartilhar com a equipe?
+            texto: Você está em {agenda}. Deseja que {titulo} apareça também na {equipe}?
+            nao: Não, só eu
+            sim: Sim, compartilhar
+        confirmar:
+            excluir: Excluir este compromisso?
+            excluir_serie: Excluir este compromisso e todas as repetições?
+            concluir: Concluir este compromisso?
+            reabrir: Reabrir este compromisso?
+            cancelar: Cancelar este compromisso?
+            participantes_avisados: Os participantes serão avisados.
+            vale_serie: Vale para todas as repetições.
+            restaurar: Restaurar todos os feriados e datas que você ocultou ou editou?
+        aviso_chat:
+            dica: cada pessoa recebe o resumo e o atalho
+            sem_colegas: Nenhum colega no escritório.
+            ja_avisado: Já avisado
+            avisar: Avisar
+            avisar_n: Avisar {n}
+        avisos:
+            carregar_falhou: Não foi possível carregar a agenda. Tente de novo em instantes.
+            salvo: Compromisso salvo.
+            lembrete: Você será lembrado com aviso e som.
+            pessoas_avisadas: '{n} pessoa(s) avisada(s) no Chat I.A.'
+            ja_avisadas: Essas pessoas já tinham sido avisadas.
+            excluido: Compromisso excluído.
+            concluido: Compromisso concluído.
+            cancelado: Compromisso cancelado.
+            reaberto: Compromisso reaberto.
+            movido: Compromisso movido para {data}.
+            movido_hora: Compromisso movido para {data} às {hora}.
+            incluido_em: Incluído em {data}.
+            removido: '"{titulo}" removido da agenda.'
+            restaure: Restaure quando quiser.
+            continua_no_ponto: Ele continua contando no ponto.
+            restauradas: Datas do sistema restauradas.
+            nao_encontrado: Compromisso não encontrado. Ele pode ter sido excluído ou não estar visível para você.
+        data_form:
+            acrescentar_titulo: Acrescentar feriado ou data
+            tipo_rotulo: TIPO
+            tipo:
+                fer: Nacional
+                est: Estadual
+                trib: Tribunal
+                com: Comemorativa
+            nome_rotulo: NOME
+            nome_placeholder: 'Ex.: Feriado municipal, Suspensão de expediente no TJ'
+            fonte_rotulo: FONTE (OPCIONAL)
+            fonte_placeholder: Portaria, lei ou link
+            nota: 'Vale para a Agenda de todo o escritório. Não muda o ponto: para contar como feriado na jornada, cadastre em Feriados e Folgas.'
+            incluir: Incluir
+        google:
+            volta:
+                conectado: Google Agenda conectado. Os compromissos já estão sendo sincronizados.
+                cancelado: A conexão com o Google Agenda foi cancelada.
+                falhou: Não foi possível conectar ao Google Agenda. Tente de novo.
+                limite: Muitas tentativas com o Google Agenda. Tente de novo em alguns minutos.
+            nao_configurado: A sincronização com o Google Agenda será liberada assim que a conexão for configurada no servidor do BlueJus.
+            conectar_titulo: Conectar o Google Agenda
+            conectar_texto: 'Na próxima tela, o Google pede para você marcar a permissão da agenda. Deixe-a marcada: é ela que deixa o BlueJus criar a agenda do escritório na sua conta.'
+            continuar: Continuar no Google
+            nome_padrao: do escritório
+            desconectar_titulo: Desconectar o Google Agenda?
+            desconectar_texto: Os compromissos param de sincronizar. Apagar também a agenda “{nome}” do seu Google?
+            manter: Não, manter
+            apagar: Sim, apagar a agenda “{nome}” do Google
+            desconectar: Desconectar
+            sem_permissao_titulo: Falta a permissão da agenda
+            sem_permissao_texto: Marque a permissão da agenda na tela do Google e tente de novo. Sem ela, o BlueJus não consegue criar a agenda do escritório na sua conta Google.
+            agora_nao: Agora não
+            tentar_de_novo: Tentar de novo
 
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro

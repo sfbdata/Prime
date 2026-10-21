@@ -125,5 +125,22 @@
         "permitidos": [
             "Escape"
         ]
+    },
+
+    "agenda": {
+        "templates": [
+            "agenda/nova.html.twig",
+            "agenda/lista.html.twig",
+            "agenda/novo.html.twig",
+            "agenda/editar.html.twig",
+            "agenda/show.html.twig"
+        ],
+        "js": [
+            "lembretes.js",
+            "agenda-nova.js"
+        ],
+        "permitidos": [
+            "ag-body"
+        ]
     }
 }

@@ -200,3 +200,20 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   `Tarefa::prazoInfo`, fatias do andamento, prioridade da pasta, título e descrição das listas da equipe),
   `filtro-tabela.js` e `pasta-metas.js` (vão com a Pasta) e o placeholder padrão do `_partials/_filtro_barra`.
 
+## 11. Extração da Agenda (7d, 21/10)
+
+- **Escopo:** `templates/agenda/nova`, `lista`, `novo`, `editar` e `show` (as telas antigas continuam com link: a lista
+  pela Agenda nova e pelo Dashboard, o show pelos avisos do sino; confirmado pela 4b), `agenda-nova.js` e `lembretes.js`
+  (global). Bloco `agenda` com 344 chaves (o JS em `agenda.js.*`, entregue pelo `nova`; o placeholder do Select2 de
+  novo/editar em `agenda.form.js.*`) e `moldura.js.lembretes.*` (21, entregue pelo base).
+- **Sem mudança visível:** o HTML de 10 telas (Agenda nova, lista e passados, novo, show e editar de evento simples, dia
+  inteiro e recorrente com local) saiu igual; mudaram só os `confirm()` dos `onclick`, agora `|trans|e('js')` (o mesmo
+  texto, escapado para JS) e um valor padrão de hora que vem do relógio.
+- **Formatos:** datas e horas da lista, do show e do editar viraram `|data`, `|data_hora` e `|hora`; no JS,
+  `toLocaleTimeString`/`toLocaleDateString('pt-BR')` curtos viraram `BJFormato`; nomes de mês e dia da semana viraram
+  listas de chaves. Ficaram: a data longa do detalhe (`weekday: 'long'`, o `BJFormato` não tem formato longo), o dd/mm do
+  próximo feriado, as horas da grade e o mês abreviado da lista (corte em 3 letras do nome traduzido).
+- **Ficou para depois:** rótulos do `EventoType` (formulário legado), `statusLabel` e `tipoRecorrencia` cru no show,
+  mensagens de erro do servidor, e o texto do PHP listado pela 4b (`AvisoDoCompromisso`, `VarrerLembretesDePushUseCase`,
+  `CompromissoNoGoogle`, `PrazoParaOGoogle`, `GoogleAgendaController`).
+
