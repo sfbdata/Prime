@@ -15,7 +15,7 @@ use Doctrine\Migrations\AbstractMigration;
  * nula em `pasta` (o último lembrete de 30 dias do checklist desativado). Nenhum dado existente muda. A
  * versão é provisória: renomear na vez da fila de migrations (coordenação).
  */
-final class Version20261021090000 extends AbstractMigration
+final class Version20261020138200 extends AbstractMigration
 {
     public function getDescription(): string
     {

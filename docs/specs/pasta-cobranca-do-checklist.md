@@ -16,7 +16,7 @@ Frente `pasta-exito-cobranca`, sessão f6, aberta em 19/10/2026 a pedido do coor
   antes da resposta.
 - **D-DOC-S6 ("adiar: sem cobrança") foi SUPERADA** pela regra do dono de 19/10 ("tudo que está no desenho
   entra"), registrada pelo coordenador.
-- Migration: `Version20261021090000` (provisória), na FIM da fila (depois do cadeado da b5); renomear na vez.
+- Migration: `Version20261020138200` (provisória), na FIM da fila (depois do cadeado da b5); renomear na vez.
 - Revisão (19/10): aprovada com ressalvas, corrigidas: rotina pasta a pasta (carrega, grava e solta), comando
   que reabre o EntityManager depois de erro de banco, arquivada e cancelada fora (convenção das listas do
   Expediente; o desenho é omisso), responsável só com vínculo ativo no escritório, lembrete por dia e não por
