@@ -296,6 +296,9 @@ escritório no Google. **Muda o desenho:** o painel do Google diz hoje "feriados
   comemorativas, feriados do escritório do Ponto, datas acrescentadas pelo escritório e os aniversários da equipe.
   Valem os ajustes do escritório (oculta não vai; renomeada vai com o nome novo), inclusive nos aniversários. Mesmas
   regras da grade (`ListarDatasDoSistemaUseCase` e os aniversários do `ListarCompromissosUseCase`), sem cópia.
+  **Aniversários e LGPD (decisão do dono, 21/10/2026):** o nome e a data de aniversário dos colegas vão para a conta
+  Google de cada pessoa conectada, que pode ser pessoal; o dono está ciente. O escritório que não quiser usa o
+  "ocultar" da Agenda (vale para cada aniversário).
 - **Para quem:** toda pessoa conectada ao Google naquele escritório, sem permissão própria (são datas públicas).
   As UFs são as da grade dela: a da lotação mais a do estado do escritório (spec agenda-vs-18-10-26, V6).
 - **Como vai:** dia inteiro, `transparency: transparent` (não ocupa o horário de ninguém), título igual ao da grade.
