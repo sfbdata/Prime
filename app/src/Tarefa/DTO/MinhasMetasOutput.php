@@ -165,7 +165,7 @@ final class MinhasMetasOutput
     /** Verdadeiro quando o vazio veio de um filtro, e não de a aba não ter nada. */
     public function temFiltroAtivo(): bool
     {
-        foreach (['busca', 'status', 'prioridade', 'prazo'] as $campo) {
+        foreach (['busca', 'prioridade', 'prazo'] as $campo) {
             if (($this->filtros[$campo] ?? '') !== '') {
                 return true;
             }

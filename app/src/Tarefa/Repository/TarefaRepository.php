@@ -512,11 +512,6 @@ class TarefaRepository extends ServiceEntityRepository
             $this->aplicarBuscaDaTela($qb, $busca);
         }
 
-        if (!empty($filtros['status'])) {
-            $qb->andWhere('t.status = :statusFiltro')
-               ->setParameter('statusFiltro', $filtros['status']);
-        }
-
         if ($prioridade !== null) {
             $qb->andWhere('p_tela.prioridade = :prioridade')
                ->setParameter('prioridade', $prioridade);

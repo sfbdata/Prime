@@ -101,8 +101,8 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
         self::assertSame($achavel->getId(), $resultado[0]->getId());
     }
 
-    #[TestDox('Faceta de status estreita para o status pedido')]
-    public function testFacetaStatus(): void
+    #[TestDox('Sem faceta de status (desenho 04, dono 21/10): `status` nos filtros é ignorado')]
+    public function testStatusNosFiltrosEhIgnorado(): void
     {
         $tenant = TenantFactory::createOne()->_real();
         $pasta  = PastaFactory::createOne(['tenant' => $tenant])->_real();
@@ -113,12 +113,10 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
         $concluida = TarefaFactory::createOne(['pasta' => $pasta, 'status' => Tarefa::STATUS_CONCLUIDA])->_real();
         $concluida->addResponsavel($eu);
         // A tela corta concluídas com mais de 30 dias, e usa `dataConclusao` como referência.
-        // O fluxo real (ExcluirTarefa/concluir) sempre grava essa data; a factory não.
         $concluida->setDataConclusao(new \DateTimeImmutable('-1 day'));
         $this->em->flush();
 
-        self::assertCount(1, $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['status' => Tarefa::STATUS_CONCLUIDA]));
-        self::assertCount(1, $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['status' => Tarefa::STATUS_PENDENTE]));
+        self::assertCount(2, $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['status' => Tarefa::STATUS_CONCLUIDA]));
     }
 
     #[TestDox('Faceta de prioridade filtra pela prioridade da pasta vinculada')]

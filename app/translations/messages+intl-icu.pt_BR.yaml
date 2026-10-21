@@ -1071,7 +1071,6 @@ metas:
         sem_prazo: Sem prazo
     status:
         pendente: Pendente
-        para_revisao: Para Revisão
         em_revisao: Em revisão
         concluida: Concluída
         atrasada: Atrasada
@@ -1095,7 +1094,6 @@ metas:
     filtros:
         limpar: Limpar filtros
         busca_placeholder: Buscar por título, pasta ou cliente
-        status: Status
         prioridade: Prioridade
         prazo: Prazo
     modos:

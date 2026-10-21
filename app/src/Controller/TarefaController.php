@@ -73,8 +73,8 @@ final class TarefaController extends AbstractController
         $tenant  = $this->assertAccess($usuario);
 
         $filtros = [
+            // Sem `status`: o desenho 04 (P:69-80) não tem o filtro Status (dono, 21/10).
             'busca'      => trim((string) $request->query->get('busca', '')),
-            'status'     => (string) $request->query->get('status', ''),
             'prioridade' => (string) $request->query->get('prioridade', ''),
             'prazo'      => (string) $request->query->get('prazo', ''),
         ];

@@ -2,7 +2,7 @@
 
 {#
    Tela "Minhas Metas" — reorganizada por PAPEL (abas).
-   Desenho aprovado: docs/design/minhas-metas/ · Spec: docs/specs/minhas-metas-abas.md
+   Desenho-alvo: docs/design/redesign-19-10-26/04 - Minhas Metas 1.0.dc.html (dono, 21/10) · Spec: docs/specs/minhas-metas-abas.md
 
    O que fica FORA de [data-filtro-resultado] (título, KPIs, abas, barra de filtro) não recarrega
    ao filtrar — é o que mantém o foco no campo de busca, padrão do Expediente.
@@ -104,11 +104,6 @@
                 busca_placeholder: 'metas.filtros.busca_placeholder'|trans,
                 filtros: filtros,
                 facetas: [
-                    { name: 'status', rotulo: 'metas.filtros.status'|trans, tipo: 'select', opcoes: [
-                        { valor: 'pendente', label: 'metas.status.pendente'|trans },
-                        { valor: 'em_revisao', label: 'metas.status.para_revisao'|trans },
-                        { valor: 'concluida', label: 'metas.status.concluida'|trans }
-                    ] },
                     { name: 'prioridade', rotulo: 'metas.filtros.prioridade'|trans, tipo: 'select', opcoes: [
                         { valor: 'normal', label: 'metas.prioridade.normal'|trans },
                         { valor: 'prioridade', label: 'metas.prioridade.prioridade'|trans },

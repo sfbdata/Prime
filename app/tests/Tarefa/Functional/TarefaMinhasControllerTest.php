@@ -1033,6 +1033,26 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Próximas (7 dias)', (string) $client->getResponse()->getContent());
     }
 
+    #[TestDox('Desenho 04 (P:69-80, P:174): a barra tem só Prioridade e Prazo, sem o filtro Status; `status` na URL é ignorado')]
+    public function testBarraSemFiltroStatus(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $this->criarMeta($tenant, $usuario, 'Aberta comigo');
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $client->request('GET', '/tarefas/minhas', ['status' => 'concluida']);
+        self::assertResponseIsSuccessful();
+        $c = $client->getCrawler();
+
+        self::assertSame(
+            ['prioridade', 'prazo'],
+            $c->filter('[data-filtro-root] > .mm-barra-cartao > form[data-filtro-form] > .filtro-linha > select')->each(static fn ($s): string => (string) $s->attr('name')),
+        );
+        self::assertCount(1, $c->filter('.mm-coluna-lista article.mm-meta'), 'a meta aberta continua na lista: o status da URL não filtra');
+        self::assertCount(0, $c->filter('.mm-vazio-caixa'), 'nem conta como filtro ativo');
+    }
+
     #[TestDox('Isolamento: meta ATRASADA do escritório B com o usuário de A como responsável não entra no "X de Y", na legenda nem no "Precisa de atenção" de A')]
     public function testTrilhoNaoContaMetaDeOutroEscritorio(): void
     {
