@@ -1,6 +1,8 @@
 {#
     Link de confirmação do e-mail (spec docs/specs/cadastro-senha-no-link.md).
     situacao: Pendente (formulário "Crie sua senha"), JaConfirmado, SenhaCriada; motivo: link inválido ou vencido.
+    pagina (só com o formulário): os endereços dos Termos e da Política, os mesmos da tela de entrada. A caixa
+    "Li e aceito" é a do cadastro (D2 da spec) e é obrigatória: o servidor recusa sem ela.
     A régua de força repete a da troca de senha por código; o comportamento mora em /js/auth/criar-senha.js.
 #}
 {% extends 'base.html.twig' %}
@@ -32,6 +34,12 @@
             <div class="mb-3">
                 <label class="form-label" for="criarSenhaConf">Confirmar nova senha</label>
                 <input class="form-control" id="criarSenhaConf" name="confirmacao" type="password" autocomplete="new-password">
+            </div>
+            {%- set termos_href = pagina.termosUrl matches '{^https?://}i' ? pagina.termosUrl : '#' -%}
+            {%- set priv_href = pagina.privUrl matches '{^https?://}i' ? pagina.privUrl : '#' -%}
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="criarSenhaAceite" name="aceite" value="1">
+                <label class="form-check-label" for="criarSenhaAceite">Li e aceito os <a href="{{ termos_href }}" target="_blank" rel="noopener">Termos de uso</a> e a <a href="{{ priv_href }}" target="_blank" rel="noopener">Política de privacidade</a>.</label>
             </div>
             {% if erro %}
                 <div class="alert alert-danger criar-senha__erro" role="alert">{{ erro }}</div>

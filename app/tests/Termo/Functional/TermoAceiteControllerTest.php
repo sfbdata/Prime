@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Termo\Controller\TermoController;
 use App\Termo\Entity\AceiteTermo;
+use App\Termo\Enum\OrigemDoAceite;
 use App\Termo\Repository\AceiteTermoRepository;
 use App\Termo\TermoVigente;
 use Doctrine\ORM\EntityManagerInterface;
@@ -128,6 +129,7 @@ final class TermoAceiteControllerTest extends JusPrimeWebTestCase
 
         $repo = static::getContainer()->get(AceiteTermoRepository::class);
         self::assertTrue($repo->existeAceiteVigente($user, TermoVigente::VERSAO));
+        self::assertSame(OrigemDoAceite::Reaceite, $repo->findOneBy(['user' => $user, 'versao' => TermoVigente::VERSAO])?->getOrigem());
     }
 
     #[TestDox('POST aceite sem marcar o checkbox volta para a tela de aceite')]

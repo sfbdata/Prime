@@ -6,12 +6,13 @@ namespace App\Termo\Entity;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Termo\Enum\OrigemDoAceite;
 use App\Termo\Repository\AceiteTermoRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: AceiteTermoRepository::class)]
 #[ORM\Table(name: 'aceite_termo')]
-#[ORM\UniqueConstraint(name: 'uq_aceite_termo_user_versao', columns: ['user_id', 'versao'])]
+#[ORM\UniqueConstraint(name: 'uq_aceite_termo_user_versao_origem', columns: ['user_id', 'versao', 'origem'])]
 class AceiteTermo
 {
     #[ORM\Id]
@@ -39,18 +40,23 @@ class AceiteTermo
     #[ORM\JoinColumn(nullable: true)]
     private ?Tenant $tenant;
 
+    #[ORM\Column(length: 20, enumType: OrigemDoAceite::class, options: ['default' => 'cadastro'])]
+    private OrigemDoAceite $origem;
+
     public function __construct(
         User $user,
         string $versao,
         string $ip,
         ?string $userAgent = null,
         ?Tenant $tenant = null,
+        OrigemDoAceite $origem = OrigemDoAceite::Cadastro,
     ) {
         $this->user = $user;
         $this->versao = $versao;
         $this->ip = $ip;
         $this->userAgent = $userAgent;
         $this->tenant = $tenant;
+        $this->origem = $origem;
         $this->aceitoEm = new \DateTimeImmutable();
     }
 
@@ -87,5 +93,10 @@ class AceiteTermo
     public function getTenant(): ?Tenant
     {
         return $this->tenant;
+    }
+
+    public function getOrigem(): OrigemDoAceite
+    {
+        return $this->origem;
     }
 }

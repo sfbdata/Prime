@@ -20,6 +20,13 @@ Risco ALTO (identidade User). Decisão do dono (21/10/2026, via coordenador): op
   modal perdeu o `#lgCdSenha` e a régua; o `entrada.js` não exige nem envia a senha. O D2 espera a migration: os
   UNIQUE `(user_id, versao)` de `aceite_termo` e `ciencia_politica` impedem gravar um aceite novo da mesma versão sem
   apagar o do cadastro.
+- 21/10: D2 feito na mesma frente (commit "Grava o aceite dos Termos no link de confirmação"), com a migration
+  `Version20261020149400` liberada pelo coordenador: coluna `origem` (enum `App\Termo\Enum\OrigemDoAceite`:
+  `cadastro`, `link_confirmacao`, `reaceite`; DEFAULT `cadastro` no banco e no mapeamento) nas duas tabelas e o
+  UNIQUE trocado por (user_id, versao, origem). `existeAceiteVigente` continua olhando só (user, versao). Ordem do
+  POST: CSRF, token, já confirmado, aceite, força, igualdade. O `CriarSenhaPeloLinkUseCase` monta o `AceiteTermo` e a
+  `CienciaPolitica` (escritório: o mais antigo com `criadoPor` = a conta, ou nulo) e o
+  `criarSenhaEConfirmarComLink` os grava dentro da transação, só quando ganha. Deploy da migration MANUAL.
 
 ## A brecha
 

@@ -249,6 +249,7 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         $form = $client->request('GET', '/cadastro/confirmar-email/' . $token)->selectButton('Criar senha e confirmar')->form();
         $form['senha'] = $senha;
         $form['confirmacao'] = $senha;
+        $form['aceite']->tick();
         $client->submit($form);
         self::assertSelectorTextContains('.confirmacao-email', 'Sua senha foi criada.');
     }
@@ -392,6 +393,13 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         $client->request('GET', '/cadastro/confirmar-email/' . $link[1]);
         self::assertSelectorTextSame('.confirmacao-email h3', 'Crie sua senha');
         $this->criarSenhaPeloLink($client, $link[1], 'novaSenha456');
+        // D2: o aceite do link entra ao lado do do cadastro, sem apagar.
+        $origens = fn (string $tabela): array => $this->em()->getConnection()->fetchFirstColumn(
+            'SELECT origem FROM ' . $tabela . ' WHERE user_id = :id ORDER BY id',
+            ['id' => $user->getId()],
+        );
+        self::assertSame(['cadastro', 'link_confirmacao'], $origens('aceite_termo'));
+        self::assertSame(['cadastro', 'link_confirmacao'], $origens('ciencia_politica'));
         $this->enviarLogin($client, $email, self::SENHA);
         self::assertResponseRedirects('/login');
         self::assertFalse($this->entrou($client));

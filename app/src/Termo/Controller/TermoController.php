@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\EventListener\TermoAceiteListener;
 use App\Service\Tenant\TenantContext;
 use App\Termo\DTO\RegistrarAceiteTermoInput;
+use App\Termo\Enum\OrigemDoAceite;
 use App\Termo\TermoVigente;
 use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -53,6 +54,7 @@ final class TermoController extends AbstractController
             ip: (string) $request->getClientIp(),
             userAgent: $request->headers->get('User-Agent'),
             tenant: $this->tenantContext->getCurrentTenant(),
+            origem: OrigemDoAceite::Reaceite,
         ));
 
         $request->getSession()->set(TermoAceiteListener::SESSION_KEY, TermoVigente::VERSAO);
