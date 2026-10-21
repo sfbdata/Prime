@@ -2,7 +2,7 @@
 
 Desenho: `docs/design/redesign-19-10-26/02 - EXPEDIENTES - VS 18.10.26.dc.html`, modal L260-270, regra L4593-4607,
 menu L6305, cartão L6306 e L1392/L1923/L2451. Pedido do dono (21/10, vistoria da pasta); a frente era a F-D planejada
-da 9b e passou à 5d (coordenador, 21/10). Risco BAIXO. Migration `Version20261020145500` (nome do coordenador).
+da 9b e passou à 5d (coordenador, 21/10). Risco BAIXO. Migration `Version20261020147200` (nome do coordenador).
 
 ## Regra
 - **Onde:** os comentários das três abas que têm registro: Dados da pasta ("Registro dos expedientes"), Detalhes

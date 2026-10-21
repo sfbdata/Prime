@@ -7,6 +7,7 @@ namespace App\Pasta\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\DestaqueDoComentarioOutput;
+use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaComentarioDestaque;
 use App\Pasta\Entity\PastaMensagem;
@@ -14,6 +15,7 @@ use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Exception\DestaqueDeComentarioRecusadoException;
 use App\Pasta\Repository\PastaComentarioDestaqueRepository;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -21,7 +23,9 @@ use Psr\Clock\ClockInterface;
 /**
  * "Destacar comentário" (spec pasta-destacar-comentario.md; dc02 L4593-4607). Quem pode editar a pasta escolhe uma
  * cor para um comentário de Dados, Detalhes ou Financeiro; o último destaque da aba prevalece e o anterior é desfeito.
- * Sem cor, tira o destaque daquele comentário (se for ele o destacado). A pasta fica travada durante a escrita.
+ * Sem cor, tira o destaque daquele comentário (se for ele o destacado). A aba oculta para quem pede é recusada como na
+ * barreira (a aba vem no corpo, não no nome da rota). O comentário é lido já com a pasta travada: excluído no meio
+ * do caminho, vira 404 em vez de estourar a FK.
  */
 final class DestacarComentarioUseCase
 {
@@ -35,6 +39,7 @@ final class DestacarComentarioUseCase
         private readonly PastaComentarioDestaqueRepository $destaques,
         private readonly EntityManagerInterface $em,
         private readonly PermissionChecker $permissoes,
+        private readonly VisibilidadeDasAbasDaPasta $visibilidade,
         private readonly ClockInterface $relogio,
     ) {
     }
@@ -43,13 +48,23 @@ final class DestacarComentarioUseCase
     {
         $this->exigirPastaDoEscritorio($pasta, $tenant);
         $this->exigirEdicao($pasta, $quem, $tenant);
-        $comentario = $this->comentarioDaPasta($aba, $comentarioId, $pasta, $tenant);
+        $this->exigirAbaVisivel($pasta, $aba, $quem);
         $cor = $cor === null || trim($cor) === '' ? null : $this->corValida($cor);
 
-        /** @var DestaqueDoComentarioOutput */
-        return $this->destaques->comTravaDaPasta($pasta, fn (): DestaqueDoComentarioOutput => $cor === null
-            ? $this->tirar($pasta, $aba, $comentario, $tenant)
-            : $this->destacar($pasta, $aba, $comentario, $cor, $quem, $tenant));
+        /** @var DestaqueDoComentarioOutput|null $resultado */
+        $resultado = $this->destaques->comTravaDaPasta($pasta, function () use ($pasta, $aba, $comentarioId, $cor, $quem, $tenant): ?DestaqueDoComentarioOutput {
+            $comentario = $this->comentarioDaPasta($aba, $comentarioId, $pasta, $tenant);
+            if ($comentario === null) {
+                return null;
+            }
+
+            return $cor === null
+                ? $this->tirar($pasta, $aba, $comentario, $tenant)
+                : $this->destacar($pasta, $aba, $comentario, $cor, $quem, $tenant);
+        });
+
+        // Fora da transação: uma exceção dentro dela fecharia o EntityManager.
+        return $resultado ?? throw DestaqueDeComentarioRecusadoException::naoEncontrado();
     }
 
     private function destacar(Pasta $pasta, string $aba, PastaMensagem|PastaObservacaoDetalhes|PastaObservacaoFinanceira $comentario, string $cor, User $quem, Tenant $tenant): DestaqueDoComentarioOutput
@@ -92,15 +107,24 @@ final class DestacarComentarioUseCase
         }
     }
 
-    private function comentarioDaPasta(string $aba, int $id, Pasta $pasta, Tenant $tenant): PastaMensagem|PastaObservacaoDetalhes|PastaObservacaoFinanceira
+    private function exigirAbaVisivel(Pasta $pasta, string $aba, User $quem): void
     {
-        $classe = self::CLASSES[$aba] ?? throw DestaqueDeComentarioRecusadoException::invalido('Esta aba não tem comentários para destacar.');
-        $comentario = $this->em->getRepository($classe)->findOneBy(['id' => $id, 'pasta' => $pasta, 'tenant' => $tenant]);
-        if (!$comentario instanceof PastaMensagem && !$comentario instanceof PastaObservacaoDetalhes && !$comentario instanceof PastaObservacaoFinanceira) {
-            throw DestaqueDeComentarioRecusadoException::naoEncontrado();
+        if (!isset(self::CLASSES[$aba])) {
+            throw DestaqueDeComentarioRecusadoException::invalido('Esta aba não tem comentários para destacar.');
         }
+        $daPasta = AbaDaPasta::from($aba);
+        if ($this->visibilidade->ocultaPara($pasta, $daPasta, $quem)) {
+            throw DestaqueDeComentarioRecusadoException::abaOculta($daPasta->rotulo());
+        }
+    }
 
-        return $comentario;
+    private function comentarioDaPasta(string $aba, int $id, Pasta $pasta, Tenant $tenant): PastaMensagem|PastaObservacaoDetalhes|PastaObservacaoFinanceira|null
+    {
+        $comentario = $this->em->getRepository(self::CLASSES[$aba])->findOneBy(['id' => $id, 'pasta' => $pasta, 'tenant' => $tenant]);
+
+        return $comentario instanceof PastaMensagem || $comentario instanceof PastaObservacaoDetalhes || $comentario instanceof PastaObservacaoFinanceira
+            ? $comentario
+            : null;
     }
 
     private function corValida(string $cor): string

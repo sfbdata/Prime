@@ -9,17 +9,20 @@
     var raiz = document.getElementById('psDestaques');
     if (!raiz) { return; }
 
-    var CORES = [['#ffe94d', 'Amarelo'], ['#86e08a', 'Verde claro'], ['#7fdcef', 'Ciano'], ['#f59bcb', 'Rosa'],
-        ['#6eaef2', 'Azul'], ['#e5534b', 'Vermelho'], ['#1f3a6e', 'Azul-marinho'], ['#0f7c7a', 'Verde-petróleo'],
-        ['#2e7d32', 'Verde'], ['#6a3fa0', 'Roxo'], ['#8e2430', 'Vinho'], ['#8a8526', 'Oliva'], ['#8a959c', 'Cinza'],
-        ['#cfd6db', 'Cinza claro'], ['#1b1f22', 'Preto']];
+    /* A paleta do dc (DEST_CORES, L4590) vem do servidor (PastaComentarioDestaque::CORES): uma cópia só. */
+    var CORES = [];
+    try {
+        var cores = JSON.parse(raiz.dataset.cores || '{}') || {};
+        CORES = Object.keys(cores).map(function (hex) { return [hex, cores[hex]]; });
+    } catch (e) { CORES = []; }
     var PREFIXO = { dados: 'pasta-msg-', detalhes: 'detalhes-obs-', financeiro: 'financeiro-obs-' };
-    var ROTULO_ABA = { dados: 'Dados da pasta', detalhes: 'Detalhes', financeiro: 'Financeiro' };
     var pode = raiz.dataset.pode === '1';
     var mapa = {};
     try { mapa = JSON.parse(raiz.dataset.mapa || '{}') || {}; } catch (e) { mapa = {}; }
     if (Array.isArray(mapa)) { mapa = {}; }
     var paleta = null;
+    var fundo = null;
+    var devolverFoco = null;
 
     function avisar(texto, tipo) {
         if (typeof window.avisarPs === 'function') { window.avisarPs(texto, tipo || 'ok'); }
@@ -115,22 +118,40 @@
         destacar.querySelector('span').textContent = cor ? 'Destacar · ' + nomeDaCor(cor).toLowerCase() : 'Destacar';
     }
 
+    /* Como o Esc: cada menu (Dados, Detalhes e Financeiro) fecha e limpa o próprio estado. */
     function fecharMenus(menu) {
-        document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
+        /* No body: há ouvintes de teclado que leem e.target.closest, e o document não tem closest. */
+        document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
         if (menu) { menu.hidden = true; }
     }
 
     function fecharPaleta() {
         if (paleta) { paleta.remove(); paleta = null; }
+        if (fundo) { fundo.remove(); fundo = null; }
+        if (devolverFoco) { devolverFoco.focus({ preventScroll: true }); devolverFoco = null; }
+    }
+
+    /* dc L261: um fundo de tela inteira fecha a paleta no clique e no botão direito, sem acionar o que está embaixo. */
+    function abrirFundo() {
+        fundo = document.createElement('div');
+        fundo.className = 'ps-destaque-fundo';
+        ['click', 'contextmenu'].forEach(function (tipo) {
+            fundo.addEventListener(tipo, function (e) { e.preventDefault(); e.stopPropagation(); fecharPaleta(); });
+        });
+        document.body.appendChild(fundo);
     }
 
     function abrirPaleta(cartao, aba, x, y) {
         fecharPaleta();
         var atual = corDe(aba, idDoCartao(cartao, aba));
+        devolverFoco = cartao.querySelector('.js-reg-menu, .js-obs-menu') || null;
+        abrirFundo();
         paleta = document.createElement('div');
         paleta.className = 'ps-destaque-paleta';
         paleta.setAttribute('role', 'dialog');
         paleta.setAttribute('aria-label', 'Cor do destaque');
+        /* dc L262: a paleta não tem X; fecha no fundo (abrirFundo) e no Esc. */
+        paleta.setAttribute('data-sem-x', '1');
         paleta.tabIndex = -1;
         var titulo = document.createElement('div');
         titulo.className = 'ps-destaque-paleta-titulo';
@@ -202,7 +223,7 @@
         var nome = nomeDaCor(cor).toLowerCase();
         if (resposta.desfeito) {
             avisar('Comentário destacado em ' + nome + '. O destaque anterior' + (resposta.desfeito.autor ? ' (comentário de ' + resposta.desfeito.autor + ')' : '')
-                + ' foi desfeito: só o último destaque de ' + ROTULO_ABA[aba] + ' prevalece.');
+                + ' foi desfeito: só o último destaque desta aba prevalece.');
             return;
         }
         avisar('Comentário destacado em ' + nome);
@@ -211,10 +232,7 @@
     /* Em captura: lê o cartão e a posição antes de o próprio menu tratar o clique e fechar. */
     document.addEventListener('click', function (e) {
         var botao = e.target.closest ? e.target.closest('.js-destacar, .js-destacar-remover') : null;
-        if (!botao) {
-            if (paleta && !paleta.contains(e.target)) { fecharPaleta(); }
-            return;
-        }
+        if (!botao) { return; }
         var menu = botao.closest('[data-destaque-alvo]');
         var cartao = menu ? document.getElementById(menu.dataset.destaqueAlvo) : null;
         var aba = menu ? menu.dataset.destaqueAba : '';

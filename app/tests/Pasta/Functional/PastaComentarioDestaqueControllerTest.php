@@ -7,6 +7,8 @@ namespace App\Tests\Pasta\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Controller\PastaComentarioDestaqueController;
+use App\Pasta\Entity\AbaDaPasta;
+use App\Pasta\Entity\AbaOcultaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
@@ -130,8 +132,8 @@ final class PastaComentarioDestaqueControllerTest extends JusPrimeWebTestCase
         $this->trancar($this->pasta, $this->primario);
         $this->entrar($editor, $this->tenant);
         $this->destacar('dados', $msg->getId(), '#ffe94d');
-        // A barreira do cadeado responde antes do controller (redireciona quem não vê a pasta).
-        self::assertContains($this->client->getResponse()->getStatusCode(), [302, 403]);
+        // A barreira do cadeado responde antes do controller: redireciona quem não vê a pasta.
+        self::assertResponseRedirects();
         self::assertCount(0, $this->destaquesDaPasta());
     }
 
@@ -156,6 +158,42 @@ final class PastaComentarioDestaqueControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
         self::assertCount(0, $this->destaquesDaPasta());
         unset($outroPrimario);
+    }
+
+    #[TestDox('Aba oculta para quem pede: o POST é recusado como na barreira (403) e a tela não manda o destaque dela')]
+    public function testAbaOculta(): void
+    {
+        $obs = $this->observacaoFinanceira('Honorários');
+        $this->entrar($this->primario, $this->tenant);
+        $this->destacar('financeiro', $obs->getId(), '#ffe94d');
+        $editor = $this->criarColaborador($this->tenant, 'Edu Editor');
+        $this->em()->persist(AbaOcultaDaPasta::paraTodaAEquipe($this->tenant, $this->pasta, AbaDaPasta::Financeiro, $this->primario, new \DateTimeImmutable()));
+        $this->em()->flush();
+
+        $this->entrar($editor, $this->tenant);
+        $json = $this->destacar('financeiro', $obs->getId(), '#e5534b');
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('A aba Financeiro está oculta para você nesta pasta.', $json['erro']);
+        $raiz = $this->client->request('GET', '/pasta/' . $this->pasta->getId())->filter('#psDestaques');
+        self::assertSame([], json_decode((string) $raiz->attr('data-mapa'), true));
+        self::assertSame('#ffe94d', $this->destaquesDaPasta()[0]['cor'], 'nada mudou');
+    }
+
+    #[TestDox('Comentário de uma aba mandado com o nome de outra é 404; o destaque fica no audit_log')]
+    public function testAbaTrocadaEAuditoria(): void
+    {
+        $obs = $this->observacaoDetalhes('Relatório inicial');
+        $this->entrar($this->primario, $this->tenant);
+
+        $this->destacar('dados', $obs->getId(), '#ffe94d');
+        self::assertResponseStatusCodeSame(404);
+
+        $this->destacar('detalhes', $obs->getId(), '#ffe94d');
+        self::assertResponseIsSuccessful();
+        $trilha = (int) $this->em()->getConnection()->fetchOne(
+            "SELECT COUNT(*) FROM audit_log WHERE entity_class LIKE '%PastaComentarioDestaque'",
+        );
+        self::assertGreaterThan(0, $trilha);
     }
 
     /** @return array<string, mixed> */

@@ -29,6 +29,12 @@ final class DestaqueDeComentarioRecusadoException extends \DomainException
         return new self('Só quem pode editar a pasta destaca comentários.', self::SEM_PERMISSAO);
     }
 
+    /** O mesmo texto da barreira de aba oculta (BarreiraDeAbaOcultaListener). */
+    public static function abaOculta(string $rotulo): self
+    {
+        return new self('A aba ' . $rotulo . ' está oculta para você nesta pasta.', self::SEM_PERMISSAO);
+    }
+
     public static function invalido(string $mensagem): self
     {
         return new self($mensagem, self::INVALIDO);

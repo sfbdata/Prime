@@ -4470,7 +4470,8 @@ document.addEventListener('DOMContentLoaded', function () {
      data-url="{{ path('pasta_comentario_destaque', {id: pasta.id}) }}"
      data-token="{{ csrf_token('pasta_comentario_destaque_' ~ pasta.id) }}"
      data-pode="{{ podeEditarPasta and not pasta.estaExcluida ? '1' : '0' }}"
-     data-mapa="{{ destaques_dos_comentarios(pasta)|json_encode|e('html_attr') }}"></div>
+     data-mapa="{{ destaques_dos_comentarios(pasta)|json_encode|e('html_attr') }}"
+     data-cores="{{ cores_de_destaque()|json_encode|e('html_attr') }}"></div>
 {% endblock %}
 
 {% block javascripts %}
