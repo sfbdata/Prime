@@ -81,12 +81,14 @@ final class ParcialDoComercialTest extends KernelTestCase
         return $this->doc->filter($seletor)->each(static fn (Crawler $c): string => trim((string) preg_replace('/\s+/', ' ', $c->text())));
     }
 
-    #[TestDox('A campanha vem antes das Automações, como no dc (L.229 e L.262), com o cabeçalho literal')]
+    #[TestDox('F3a: a Central vem antes das Automações, com o cabeçalho do dc 21.10 (L251) e o botão "Descadastrados (N)"')]
     public function testPosicaoECabecalho(): void
     {
         self::assertSame(['mc-cp-titulo', 'mc-auto-titulo', 'relatorio'], $this->doc->filter('[data-mc] > section')->each(static fn (Crawler $c): string => $c->attr('data-mc-relatorio') !== null ? 'relatorio' : (string) $c->attr('aria-labelledby')));
         self::assertSame(1, $this->doc->filter('section.mc-cp > .mc-cabeca > i.bi-megaphone')->count());
-        self::assertSame(['Nova campanha de e-mail'], $this->textos('section.mc-cp > .mc-cabeca > b'));
+        self::assertSame(['Central de envios · nova campanha'], $this->textos('section.mc-cp > .mc-cabeca > b'));
+        self::assertSame(['Descadastrados (0)'], $this->textos('section.mc-cp > .mc-cabeca > button.mc-cp-descad'));
+        self::assertSame(1, $this->doc->filter('section.mc-cp > .mc-cabeca > button.mc-cp-descad > i.bi-slash-circle')->count());
         self::assertSame(['convites, ofertas, agradecimentos e novidades · individual ou em grande escala'], $this->textos('section.mc-cp > .mc-cabeca > span'));
     }
 
@@ -101,12 +103,28 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertStringContainsString('.mc-cp-grade { padding: 16px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 18px; align-items: start; }', $css, 'os 340px do dc, sem passar da caixa em tela estreita');
     }
 
-    #[TestDox('As ações do modelo na ordem do dc (L.235); Salvar e Excluir só para o próprio')]
+    #[TestDox('As ações do modelo (dc 21.10 L256): no fixo, "Salvar como meu modelo"; no próprio, Salvar e Excluir')]
     public function testAcoesDoModelo(): void
     {
-        self::assertSame(['Novo modelo', 'Duplicar', 'Importar HTML', 'Salvar modelo', 'Excluir'], $this->textos('.mc-cp-editor > .mc-cp-acoes > .mc-cp-acao'));
+        self::assertSame(['Novo modelo', 'Duplicar', 'Importar HTML', 'Salvar como meu modelo', 'Salvar modelo', 'Excluir'], $this->textos('.mc-cp-editor > .mc-cp-acoes > .mc-cp-acao'));
         self::assertSame(2, $this->doc->filter('.mc-cp-editor > .mc-cp-acoes > [data-mc-cp-so-proprio][hidden]')->count());
+        self::assertSame(1, $this->doc->filter('.mc-cp-editor > .mc-cp-acoes > [data-mc-cp-so-fixo][data-mc-cp-salvar-como]')->count());
         self::assertSame('.html,.htm', $this->doc->filter('.mc-cp-acoes > label > input[type="file"]')->attr('accept'));
+    }
+
+    #[TestDox('F3a: Selo e Nome na prévia entre Assunto e Título (dc 21.10 L270); os 10 emojis no texto simples (L274), sem a imagem (com o dono)')]
+    public function testSeloNomeEEmojis(): void
+    {
+        $editor = '.mc-cp-grade > .mc-cp-editor';
+        $filhos = $this->doc->filter($editor . ' > *')->each(static fn (Crawler $c): string => (string) $c->attr('class'));
+        $par = array_search('mc-cp-par', $filhos, true);
+        self::assertNotFalse($par);
+        self::assertSame(['SELO (ACIMA DO TÍTULO)', 'NOME NA PRÉVIA substitui {nome} só aqui'], array_map(static fn (string $t): string => trim($t), $this->doc->filter($editor . ' > .mc-cp-par > label')->each(static fn (Crawler $c): string => trim((string) preg_replace('/\s+/', ' ', $c->text())))));
+        self::assertSame(['Ex.: CONVITE · BLUEJUS', 'Dra. Ana'], $this->doc->filter($editor . ' > .mc-cp-par > label > input')->each(static fn (Crawler $c): string => (string) $c->attr('placeholder')));
+        self::assertStringStartsWith('ASSUNTO', $this->doc->filter($editor . ' > *')->eq($par - 1)->text());
+        self::assertStringStartsWith('TÍTULO', $this->doc->filter($editor . ' > *')->eq($par + 1)->text());
+        self::assertSame(['⚖️', '📅', '✅', '📌', '🎉', '💼', '📈', '🔒', '👉', '🙏'], $this->textos($editor . ' > [data-mc-cp-simples] > .mc-cp-emojis > .mc-cp-emoji'));
+        self::assertSame(0, $this->doc->filter('input[type="file"][accept="image/*"]')->count(), 'a imagem do modo simples está com o dono');
     }
 
     #[TestDox('Os campos da mensagem (L.242-247) com os rótulos e as dicas literais')]
@@ -118,18 +136,18 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertSame(['monte o layout; a prévia atualiza na hora'], $this->textos('[data-mc-cp-blocos] > .mc-cp-blocos-titulo > .mc-cp-dica'));
     }
 
-    #[TestDox('A prévia é um iframe sandbox=""; a linha L.254 traz Agendar, Baixar HTML, Enviar teste e Enviar campanha, nesta ordem')]
+    #[TestDox('F3a: a barra do dc 21.10 (L287-292): Enviar com a seta do "Programar envio", os ícones Ver, Teste e Baixar, e a LGPD na dica do escudo')]
     public function testPreviaEBotoes(): void
     {
         $quadro = $this->doc->filter('.mc-cp-lado > iframe.mc-cp-previa');
         self::assertSame(['', 'Prévia do e-mail'], [$quadro->attr('sandbox'), $quadro->attr('title')]);
-        self::assertSame(['Baixar HTML', 'Enviar teste', 'Enviar campanha'], $this->textos('.mc-cp-lado > .mc-cp-botoes > button'));
-        self::assertSame(1, $this->doc->filter('.mc-cp-lado > .mc-cp-botoes > button > i.bi-filetype-html')->count());
-        self::assertSame(1, $this->doc->filter('.mc-cp-lado > .mc-cp-botoes > button > i.bi-send-check')->count());
-        self::assertSame(1, $this->doc->filter('.mc-cp-lado > .mc-cp-botoes > button.mc-cp-enviar > i.bi-send')->count());
-        $filhos = $this->doc->filter('.mc-cp-lado > .mc-cp-botoes > *')->each(static fn (Crawler $c): string => (string) $c->attr('class'));
-        self::assertSame(['mc-cp-agenda', 'mc-cp-vao', 'mc-cp-botao', 'mc-cp-botao', 'mc-cp-enviar'], $filhos);
-        self::assertStringStartsWith('LGPD: só recebe quem se cadastrou ou autorizou.', $this->textos('.mc-cp-lado > .mc-cp-lgpd')[0]);
+        $barra = '.mc-cp-lado > .mc-cp-barra';
+        self::assertSame(['mc-cp-enviar-grupo', 'mc-cp-vao', 'mc-cp-icone', 'mc-cp-icone', 'mc-cp-icone', 'mc-cp-vao', 'mc-cp-lgpd', 'mc-cp-programar'], $this->doc->filter($barra . ' > *')->each(static fn (Crawler $c): string => (string) $c->attr('class')));
+        self::assertSame(['Enviar'], $this->textos($barra . ' > .mc-cp-enviar-grupo > button[data-mc-cp-enviar]'));
+        self::assertSame('Programar envio e frequência', $this->doc->filter($barra . ' > .mc-cp-enviar-grupo > button[data-mc-cp-mais]')->attr('title'));
+        self::assertSame(['Ver como vai chegar', 'Enviar teste', 'Baixar HTML'], $this->doc->filter($barra . ' > .mc-cp-icone')->each(static fn (Crawler $c): string => (string) $c->attr('title')));
+        self::assertSame(['bi bi-eye', 'bi bi-send-check', 'bi bi-download'], $this->doc->filter($barra . ' > .mc-cp-icone > i')->each(static fn (Crawler $c): string => (string) $c->attr('class')));
+        self::assertStringStartsWith('LGPD: só recebe quem se cadastrou ou autorizou.', (string) $this->doc->filter($barra . ' > .mc-cp-lgpd')->attr('title'));
     }
 
     #[TestDox('2 · PARA QUEM (L.237-239): os 6 públicos do dc em 2 colunas, com ícone, rótulo, descrição e número; o CSV e o Individual escondidos')]
@@ -155,21 +173,32 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertStringContainsString('.mc-cp-publicos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }', $css);
     }
 
-    #[TestDox('Coluna da direita (L.250-256): prévia, destinatários, Frequência com as 4 opções do dc, a linha de Agendar, a mensagem e a LGPD')]
+    #[TestDox('F3a: coluna da direita (dc 21.10 L282-293): prévia, destinatários com o relógio, a barra e o PROGRAMAR ENVIO com o REPETIR')]
     public function testColunaDaDireita(): void
     {
         $ordem = $this->doc->filter('.mc-cp-grade > .mc-cp-lado > *')->each(static fn (Crawler $c): string => (string) $c->attr('class'));
-        self::assertSame(['mc-cp-passo', 'mc-cp-previa', 'mc-cp-dest', 'mc-cp-freq', 'mc-cp-botoes', 'mc-cp-msg', 'mc-cp-lgpd'], $ordem);
+        self::assertSame(['mc-cp-passo', 'mc-cp-previa', 'mc-cp-dest', 'mc-cp-barra', 'mc-cp-msg'], $ordem);
         self::assertSame(1, $this->doc->filter('.mc-cp-lado > .mc-cp-dest > i.bi-people')->count());
-        self::assertSame(['Frequência'], $this->textos('.mc-cp-lado > .mc-cp-freq > .mc-cp-freq-rot'));
-        self::assertSame(1, $this->doc->filter('.mc-cp-lado > .mc-cp-freq > .mc-cp-freq-rot > i.bi-arrow-repeat')->count());
-        self::assertSame(['Envio único', 'Semanal', 'Quinzenal', 'Mensal'], $this->textos('.mc-cp-lado > .mc-cp-freq > .mc-cp-freq-ops > button'));
-        self::assertSame(['Agendar'], $this->textos('.mc-cp-lado > .mc-cp-botoes > label.mc-cp-agenda > span'));
-        self::assertSame(1, $this->doc->filter('.mc-cp-lado > .mc-cp-botoes > label.mc-cp-agenda > i.bi-calendar-event')->count());
-        self::assertSame(1, $this->doc->filter('.mc-cp-lado > .mc-cp-botoes > label.mc-cp-agenda > input[type="datetime-local"]')->count());
+        self::assertSame(1, $this->doc->filter('.mc-cp-lado > .mc-cp-dest > .mc-cp-ag[hidden] > i.bi-clock')->count());
+        $programar = '.mc-cp-lado > .mc-cp-barra > .mc-cp-programar';
+        self::assertSame(['PROGRAMAR ENVIO', 'REPETIR'], $this->textos($programar . ' > .mc-cp-programar-rot'));
+        self::assertSame(1, $this->doc->filter($programar . ' > input[type="datetime-local"][data-mc-cp-agenda]')->count());
+        self::assertSame(['Envio único', 'Semanal', 'Quinzenal', 'Mensal'], $this->textos($programar . ' > .mc-cp-freq-ops > button'));
+        self::assertSame(['Concluir'], $this->textos($programar . ' > button.mc-cp-concluir'));
         $css = $this->css();
-        self::assertStringContainsString('.mc-cp-enviar { height: 34px; padding: 0 16px; border: none; border-radius: 3px; background: var(--mc-cp-enviar-bg); color: #fff;', $css);
         self::assertStringContainsString('--mc-cp-enviar-bg: #0a6fa0; --mc-cp-enviar-hover: #0b5f86;', $css);
+    }
+
+    #[TestDox('F3a: "Como o destinatário vai receber" (dc 21.10 L499-501): computador e celular, o remetente real (com o dono) e o quadro sem scripts')]
+    public function testVerComoVaiChegar(): void
+    {
+        $janela = 'section.mc-cp > .mc-cp-ver[hidden] > .mc-cp-ver-caixa';
+        self::assertSame(['Como o destinatário vai receber'], $this->textos($janela . ' > .mc-cp-ver-cabeca > b'));
+        self::assertSame(['Computador', 'Celular'], $this->textos($janela . ' > .mc-cp-ver-cabeca > .mc-cp-ver-dev > button'));
+        self::assertSame(['B'], $this->textos($janela . ' > .mc-cp-ver-env > .mc-cp-ver-av'));
+        self::assertStringContainsString('<', $this->textos($janela . ' > .mc-cp-ver-env > .mc-cp-ver-info [data-mc-cp-ver-de]')[0], 'o remetente real, "Nome <endereço>"');
+        self::assertSame('', $this->doc->filter($janela . ' > .mc-cp-ver-quadro > iframe')->attr('sandbox'));
+        self::assertStringContainsString('.mc-cp-ver-quadro[data-dev="cel"] > iframe { width: 375px; height: 640px; }', $this->css());
     }
 
     #[TestDox('"Baixar HTML" pede a prévia sem o exemplo (sai sempre com "Dra. Ana" e teste@bluejus.com.br); a prévia na tela leva o primeiro destinatário')]

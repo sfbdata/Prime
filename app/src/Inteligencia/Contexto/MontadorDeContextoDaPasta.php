@@ -116,7 +116,7 @@ final class MontadorDeContextoDaPasta
             if (($secao->exigeVisibilidadeDoFinanceiro() && !$incluirFinanceiro) || \in_array($secao->abaDaPasta()?->value, $abasOcultas, true)) {
                 continue; // a decisão foi tomada na solicitação; aqui só se obedece
             }
-            $secoes[] = $this->caber($this->montarSecao($secao, $tenant, $pasta, $mascarar, $abasOcultas, $documentosSelecionados), $gasto);
+            $secoes[] = $this->caber($this->montarSecao($secao, $tenant, $pasta, $mascarar, $abasOcultas, $documentosSelecionados, $incluirFinanceiro), $gasto);
         }
 
         $numeros = array_map(static fn (Processo $p): string => $p->getNumeroProcesso(), $processos);
@@ -171,13 +171,13 @@ final class MontadorDeContextoDaPasta
      * @param list<string>   $abasOcultas
      * @param list<int>|null $documentosSelecionados
      */
-    private function montarSecao(SecaoDoContexto $secao, Tenant $tenant, Pasta $pasta, bool $mascarar, array $abasOcultas, ?array $documentosSelecionados): SecaoDeContexto
+    private function montarSecao(SecaoDoContexto $secao, Tenant $tenant, Pasta $pasta, bool $mascarar, array $abasOcultas, ?array $documentosSelecionados, bool $incluirFinanceiro): SecaoDeContexto
     {
         return match ($secao) {
             SecaoDoContexto::Clientes => $this->clientes($tenant, $pasta, $mascarar),
             SecaoDoContexto::Movimentacoes => $this->movimentacoes($tenant, $pasta),
             SecaoDoContexto::Metas => $this->metas($tenant, $pasta, $mascarar),
-            SecaoDoContexto::Anotacoes => $this->anotacoes($tenant, $pasta, $mascarar),
+            SecaoDoContexto::Anotacoes => $this->anotacoes($tenant, $pasta, $mascarar, $incluirFinanceiro),
             SecaoDoContexto::Observacoes => $this->observacoes($tenant, $pasta, $mascarar),
             SecaoDoContexto::Documentos => $this->documentos($tenant, $pasta, $mascarar, $abasOcultas, $documentosSelecionados),
             SecaoDoContexto::Checklist => $this->checklist($tenant, $pasta, $mascarar),
@@ -275,11 +275,12 @@ final class MontadorDeContextoDaPasta
         return new SecaoDeContexto(SecaoDoContexto::Metas, $linhas, $this->excedente($todas, self::LIMITE_METAS), $assinaturas);
     }
 
-    private function anotacoes(Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
+    /** Sem o financeiro, os cartões de pró-bono e contrato do Registro não entram (regra da aba Financeiro). */
+    private function anotacoes(Tenant $tenant, Pasta $pasta, bool $mascarar, bool $incluirFinanceiro): SecaoDeContexto
     {
         $linhas = [];
         $assinaturas = [];
-        $todas = $this->dados->anotacoesDaPasta($tenant, $pasta, self::LIMITE_ANOTACOES + 1);
+        $todas = $this->dados->anotacoesDaPasta($tenant, $pasta, self::LIMITE_ANOTACOES + 1, $incluirFinanceiro);
         foreach (array_slice($todas, 0, self::LIMITE_ANOTACOES) as $mensagem) {
             $conteudo = $this->texto($mensagem->getConteudo(), self::TAMANHO_MAXIMO_DA_ANOTACAO, $mascarar);
             if ($conteudo === '') {

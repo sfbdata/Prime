@@ -40,7 +40,7 @@ final class CampanhaDoRelatorio
         return [
             ['rotulo' => 'Destinatários', 'valor' => (string) $this->metricas->destinatarios, 'icone' => 'bi-people'],
             ['rotulo' => 'Enviados', 'valor' => (string) $this->metricas->enviados, 'icone' => 'bi-check2'],
-            ['rotulo' => 'Lidos', 'valor' => (string) $this->metricas->lidos, 'icone' => 'bi-check2-all'],
+            ['rotulo' => 'Lidos', 'valor' => $this->metricas->lidosNoKpi(), 'icone' => 'bi-check2-all'],
             ['rotulo' => 'Taxa de leitura', 'valor' => $this->metricas->taxaDeLeitura(), 'icone' => 'bi-graph-up'],
         ];
     }

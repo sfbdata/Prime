@@ -25,7 +25,8 @@ use Doctrine\Persistence\ManagerRegistry;
  *     assunto: string, selo: string, titulo: string, conteudo: string, publico: string,
  *     publico_parametros: list<array{email: string, nome: string}>, publico_filtro: array<string, string>,
  *     frequencia: string, agendada_para: ?string,
- *     proxima_execucao: ?string, estado: string, motivo: ?string, execucoes: int, total: int, criada_em: string
+ *     proxima_execucao: ?string, estado: string, motivo: ?string, execucoes: int, total: int, criada_em: string,
+ *     rastrear_leitura: bool
  * }
  *
  * @extends ServiceEntityRepository<CampanhaDeEmail>
@@ -37,7 +38,8 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
     public const CANCELADA = 'camp_canc';
 
     private const COLUNAS = 'id, chave_idempotencia, nome, modelo_chave, modelo_nome, modo, assunto, selo, titulo, conteudo,
-        publico, publico_parametros, frequencia, agendada_para, proxima_execucao, estado, motivo, execucoes, total, criada_em';
+        publico, publico_parametros, frequencia, agendada_para, proxima_execucao, estado, motivo, execucoes, total, criada_em,
+        rastrear_leitura';
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -68,22 +70,28 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
         return $this->uma('WHERE id = :id', ['id' => $id]);
     }
 
+    /** As campanhas enviadas ou agendadas, com as de teste: todas menos as canceladas (o KPI "Campanhas" do Comercial). */
+    public function contarNaoCanceladas(): int
+    {
+        return (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_campanha WHERE estado <> :cancelada', ['cancelada' => CampanhaDeEmail::CANCELADA]);
+    }
+
     /**
      * Grava a campanha confirmada. Null se a chave de idempotência já existia (clique duplo: nada novo é gravado).
      *
      * @param array{chave: string, assunto: string, modelo_chave: string, modelo_nome: string, modo: string, selo: string,
      *     titulo: string, conteudo: string, publico: string, parametros: list<array{email: string, nome: string}>|array{informados: ?list<array{email: string, nome: string}>, filtro: array<string, string>}|null,
      *     frequencia: string, agendada_para: ?\DateTimeImmutable, proxima: \DateTimeImmutable, estado: string,
-     *     total: int, criada_por: ?int, agora: \DateTimeImmutable} $c
+     *     total: int, criada_por: ?int, agora: \DateTimeImmutable, rastrear_leitura?: bool} $c
      */
     public function inserir(array $c): ?int
     {
         $id = $this->conexao()->fetchOne(
             'INSERT INTO comercial_campanha (chave_idempotencia, nome, modelo_chave, modelo_nome, modo, assunto, selo, titulo,
                  conteudo, publico, publico_parametros, frequencia, agendada_para, proxima_execucao, estado, execucoes, total,
-                 criada_por_id, criada_em)
+                 criada_por_id, criada_em, rastrear_leitura)
              VALUES (:chave, :nome, :mchave, :mnome, :modo, :assunto, :selo, :titulo, :conteudo, :publico, :parametros,
-                 :frequencia, :agendada, :proxima, :estado, 0, :total, :por, :agora)
+                 :frequencia, :agendada, :proxima, :estado, 0, :total, :por, :agora, :rastrear)
              ON CONFLICT (chave_idempotencia) DO NOTHING RETURNING id',
             [
                 'chave' => $c['chave'], 'nome' => mb_substr($c['assunto'], 0, 255), 'mchave' => mb_substr($c['modelo_chave'], 0, 40),
@@ -92,6 +100,7 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
                 'publico' => $c['publico'], 'parametros' => $c['parametros'] === null ? null : json_encode($c['parametros'], JSON_THROW_ON_ERROR),
                 'frequencia' => $c['frequencia'], 'agendada' => self::dataOuNulo($c['agendada_para']), 'proxima' => self::data($c['proxima']),
                 'estado' => $c['estado'], 'total' => $c['total'], 'por' => $c['criada_por'], 'agora' => self::data($c['agora']),
+                'rastrear' => ($c['rastrear_leitura'] ?? false) ? 'true' : 'false',
             ],
         );
 
@@ -311,7 +320,7 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
             'frequencia' => (string) $l['frequencia'], 'agendada_para' => self::textoOuNulo($l['agendada_para']),
             'proxima_execucao' => self::textoOuNulo($l['proxima_execucao']), 'estado' => (string) $l['estado'],
             'motivo' => self::textoOuNulo($l['motivo']), 'execucoes' => (int) $l['execucoes'], 'total' => (int) $l['total'],
-            'criada_em' => (string) $l['criada_em'],
+            'criada_em' => (string) $l['criada_em'], 'rastrear_leitura' => (bool) $l['rastrear_leitura'],
         ];
     }
 

@@ -8,6 +8,7 @@ use App\Comercial\DTO\LinhaDoRelatorio;
 use App\Comercial\DTO\PedidoDoRelatorio;
 use App\Comercial\DTO\RelatorioDeCampanhas;
 use App\Comercial\Repository\RelatorioDeCampanhasRepository;
+use App\Comercial\Service\RastreioDaLeitura;
 use App\Comercial\UseCase\ListarRelatorioDeCampanhasUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -40,7 +41,7 @@ final class ListarRelatorioDeCampanhasUseCaseTest extends TestCase
         $repo->expects(self::once())->method('pagina')->with(7, 'ag', 'natal', 50, 100)->willReturn([self::campanha(9)]);
         $repo->expects(self::once())->method('metricas')->with([9])->willReturn([]);
 
-        $saida = (new ListarRelatorioDeCampanhasUseCase($repo))->executar(new PedidoDoRelatorio('ag', 'natal', 9), 7);
+        $saida = (new ListarRelatorioDeCampanhasUseCase($repo, new RastreioDaLeitura(true, true)))->executar(new PedidoDoRelatorio('ag', 'natal', 9), 7);
 
         self::assertSame([3, 3, '101 a 120 de 120'], [$saida->pagina, $saida->paginas(), $saida->faixa()]);
         self::assertSame($abas, $saida->paraArray()['abas']);
@@ -55,7 +56,7 @@ final class ListarRelatorioDeCampanhasUseCaseTest extends TestCase
         $repo->expects(self::never())->method('pagina');
         $repo->method('metricas')->willReturn([]);
 
-        $saida = (new ListarRelatorioDeCampanhasUseCase($repo))->executar(new PedidoDoRelatorio(), 7);
+        $saida = (new ListarRelatorioDeCampanhasUseCase($repo, new RastreioDaLeitura(true, true)))->executar(new PedidoDoRelatorio(), 7);
 
         self::assertSame(['0 de 0', [], 1], [$saida->faixa(), $saida->linhas, $saida->pagina]);
     }
@@ -74,7 +75,7 @@ final class ListarRelatorioDeCampanhasUseCaseTest extends TestCase
             5 => ['destinatarios' => 4, 'na_fila' => 0, 'enviados' => 4, 'entregues' => 4, 'lidos' => 1, 'rejeitados' => 0, 'clicaram' => 0],
         ]);
 
-        [$teste, $naFila] = (new ListarRelatorioDeCampanhasUseCase($repo))->executar(new PedidoDoRelatorio(), 7)->linhas;
+        [$teste, $naFila] = (new ListarRelatorioDeCampanhasUseCase($repo, new RastreioDaLeitura(true, true)))->executar(new PedidoDoRelatorio(), 7)->linhas;
 
         self::assertSame(['Teste', 'Convite · mensal', 'Individual', '2031-04-05T08:30:00', '25%'], [$teste->rotulo, $teste->sub, $teste->publico, $teste->data, $teste->metricas->taxaDeLeitura()]);
         self::assertSame(['Na fila', 'Convite', 12, 12], [$naFila->rotulo, $naFila->sub, $naFila->metricas->destinatarios, $naFila->metricas->naFila]);
@@ -92,7 +93,7 @@ final class ListarRelatorioDeCampanhasUseCaseTest extends TestCase
         return array_merge([
             'id' => $id, 'nome' => 'Assunto ' . $id, 'assunto' => 'Assunto ' . $id, 'titulo' => 'Título', 'modelo_nome' => 'Convite',
             'publico' => 'indiv', 'frequencia' => 'unica', 'estado' => 'na_fila', 'total' => 4, 'execucoes' => 1,
-            'agendada_para' => null, 'criada_em' => '2026-10-21 10:00:00', 'estrela' => false,
+            'agendada_para' => null, 'criada_em' => '2026-10-21 10:00:00', 'rastrear_leitura' => true, 'estrela' => false,
         ], $troca);
     }
 }

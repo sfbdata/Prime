@@ -140,7 +140,7 @@ final class VisibilidadeDasAbasDaPastaTest extends TestCase
     public function testAbaDoEvento(): void
     {
         $esperado = [
-            'registro' => ['dados'], 'documento' => ['documentos'], 'contrato' => ['documentos', 'financeiro'],
+            'registro' => ['dados'], 'registro_financeiro' => ['dados', 'financeiro'], 'documento' => ['documentos'], 'contrato' => ['documentos', 'financeiro'],
             'meta' => ['tarefas'], 'prazo_meta' => ['tarefas'], 'metas_concluidas' => ['tarefas'], 'meta_concluida' => ['tarefas'],
             'processo' => ['processo'], 'publicacao' => ['push'], 'observacao_detalhes' => ['detalhes'],
             'observacao_financeira' => ['financeiro'], 'pagamento_vencido' => ['financeiro'],

@@ -898,3 +898,20 @@ comemorativas. Com migration: F3e, F3g e, provavelmente, F3i e F4 (números pedi
   o filtro inteiro), os 8 selects (Plano pelo catálogo, D4) e "N de M atendem ao filtro · K sem essa informação no
   cadastro (ficam de fora)" ou "Enviando para todos da lista (M)", com "Limpar filtro". O `filtro` vai na contagem e na
   confirmação; quem conta é o servidor (F2). O modo venda (só busca e Estado) é da F3h.
+
+### F3a (entregue)
+- Cabeçalho "Central de envios · nova campanha" (L251) com o botão "Descadastrados (N)": dispara
+  `mc:descadastrados-abrir` (o bloco é da F3c, do 0d) e lê o N do `mc:resumo`.
+- "Salvar como meu modelo" no modelo fixo (L653): pede o nome (padrão "<nome> (meu)") e guarda a cópia em Meus
+  modelos no MESMO modo (`SalvarComoMeuModeloUseCase`, ação `salvar_como`); o "Duplicar" continua convertendo em blocos.
+- Selo (em maiúsculas ao digitar) e "Nome na prévia" entre Assunto e Título (L270); o nome digitado troca o `{nome}`
+  como foi escrito, só na prévia (`nomeDaPrevia`). Os 10 emojis entram no fim do texto simples (L274). A imagem do
+  mesmo trecho está com o dono.
+- Linha de destinatários do L665: "N destinatário(s) · X descadastrado(s) retirado(s) · Y repetido(s) removido(s) · Z
+  inválido(s) ignorado(s)" ou "· lista limpa"; o B1 entra no mesmo tom. Para contar os inválidos, a leitura do CSV e do
+  Individual passou a manter os endereços errados (o CSV só os que têm "@"); quem filtra é o `PublicosDaCampanha`.
+- Barra (L287-292): "Enviar" ou "Programar envio" com a seta do PROGRAMAR ENVIO (data, REPETIR, Concluir); ver, testar
+  e baixar em ícones; a LGPD na dica do escudo; o relógio com a data e a repetição na linha de destinatários.
+- "Como o destinatário vai receber" (L499-501): computador e celular (375 × 640), o remetente real do sistema.
+- Ganchos para as outras partes: `window.McCampanha.modeloAtual()` (teste da F3f, 7d) e
+  `window.McCampanha.extrasDoEnvio` (F3g, 0d: funções que devolvem um objeto para mesclar no "Enviar campanha").

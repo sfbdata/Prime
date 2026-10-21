@@ -156,6 +156,35 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('onerror', $cru);
     }
 
+    #[TestDox('Salvar como meu modelo (dc 21.10 L653): a cópia do fixo com o nome dado e no mesmo modo; sem nome, 422; o fixo continua')]
+    public function testSalvarComoMeuModelo(): void
+    {
+        $client = $this->clienteMaster();
+        $convite = $this->convite();
+        $this->postar($client, '/master/comercial/modelos', ['acao' => 'salvar_como', 'modelo' => $convite, 'nome' => '  Convite   do Ricardo  ']);
+
+        self::assertResponseIsSuccessful();
+        $saida = $this->json($client);
+        self::assertSame('Modelo "Convite do Ricardo" salvo em Meus modelos.', $saida['mensagem']);
+        $id = (int) $saida['modelo']['id'];
+        $linha = $this->conexao()->fetchAssociative('SELECT nome, modo, assunto FROM comercial_modelo WHERE id = ?', [$id]);
+        self::assertSame(['Convite do Ricardo', $convite['modo'], $convite['assunto']], [$linha['nome'] ?? null, $linha['modo'] ?? null, $linha['assunto'] ?? null], 'o mesmo modo do fixo (o Duplicar converte em blocos)');
+        self::assertSame(['nome' => 'Convite do Ricardo', 'modo' => $convite['modo']], $this->trilha('modelo_new', $id));
+
+        $this->postar($client, '/master/comercial/modelos', ['acao' => 'salvar_como', 'modelo' => $convite, 'nome' => '   ']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Dê um nome ao seu modelo.', $this->json($client)['erro']);
+    }
+
+    #[TestDox('Prévia com o "Nome na prévia" (dc 21.10 L270): o nome digitado troca o {nome} como foi escrito, só na prévia')]
+    public function testPreviaComNomeDigitado(): void
+    {
+        $client = $this->clienteMaster();
+        $this->postar($client, '/master/comercial/previa-campanha', ['modo' => 'html', 'assunto' => 'X', 'html' => '<p>Oi {nome}</p>', 'nomeDaPrevia' => 'Dr. Paulo Lima']);
+
+        self::assertStringContainsString('<p>Oi Dr. Paulo Lima</p>', (string) $this->json($client)['html']);
+    }
+
     #[TestDox('Enviar teste: vai ao Master logado, lista comercial_campanhas, origem teste_campanha, layout do modo')]
     public function testEnviarTeste(): void
     {

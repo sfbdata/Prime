@@ -37,15 +37,19 @@ final class ListaInformada
             throw new CampanhaRecusada(self::CSV_LONGO);
         }
 
-        return array_values(array_filter(array_map(self::linhaDoCsv(...), $linhas), static fn (DestinatarioDaCampanha $d): bool => $d->valido()));
+        // Os inválidos seguem na lista para a contagem dizer "Z inválido(s) ignorado(s)" (dc 21.10 L665); só conta a linha
+        // que tem uma coluna com "@" (o cabeçalho da planilha não é um e-mail errado). Quem filtra é o PublicosDaCampanha.
+        return array_values(array_filter(array_map(self::linhaDoCsv(...), $linhas), static fn (DestinatarioDaCampanha $d): bool => str_contains($d->email, '@')));
     }
 
     /** @return list<DestinatarioDaCampanha> */
     public static function doIndividual(string $texto): array
     {
         $partes = preg_split('/[\s,;]+/', mb_substr($texto, 0, self::CARACTERES_DO_INDIVIDUAL)) ?: [];
-        $lista = array_values(array_filter(array_map(static fn (string $p): DestinatarioDaCampanha => new DestinatarioDaCampanha($p), $partes), static fn (DestinatarioDaCampanha $d): bool => $d->valido()));
-        if (\count(array_unique(array_map(static fn (DestinatarioDaCampanha $d): string => $d->email, $lista))) > self::MAXIMO_INDIVIDUAL) {
+        // Os inválidos seguem na lista para a contagem (dc 21.10 L665); o limite conta só os válidos.
+        $lista = array_values(array_filter(array_map(static fn (string $p): DestinatarioDaCampanha => new DestinatarioDaCampanha($p), $partes), static fn (DestinatarioDaCampanha $d): bool => $d->email !== ''));
+        $validos = array_filter($lista, static fn (DestinatarioDaCampanha $d): bool => $d->valido());
+        if (\count(array_unique(array_map(static fn (DestinatarioDaCampanha $d): string => $d->email, $validos))) > self::MAXIMO_INDIVIDUAL) {
             throw new CampanhaRecusada(self::INDIVIDUAL_LONGO);
         }
 

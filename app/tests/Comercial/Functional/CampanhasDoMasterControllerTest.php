@@ -12,7 +12,6 @@ use App\Comercial\Message\ExpandirCampanhas;
 use App\Comercial\Repository\CadastradosRepository;
 use App\Comercial\UseCase\ConfirmarCampanhaUseCase;
 use App\Comercial\UseCase\ContarPublicosUseCase;
-use App\Comercial\UseCase\ListarCampanhasUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -37,7 +36,6 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(CampanhaDoMasterController::class)]
 #[CoversClass(ContarPublicosUseCase::class)]
 #[CoversClass(ConfirmarCampanhaUseCase::class)]
-#[CoversClass(ListarCampanhasUseCase::class)]
 #[CoversClass(CadastradosRepository::class)]
 final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
 {
@@ -57,8 +55,6 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         $em->persist(new UserTenant($comum, $tenant));
         $em->flush();
         $this->logarComTenant($client, $comum, $tenant);
-        $client->request('GET', '/master/comercial/campanhas');
-        self::assertResponseStatusCodeSame(403);
         $client->request('POST', '/master/comercial/campanhas', [], [], ['CONTENT_TYPE' => 'application/json'], '{}');
         self::assertResponseStatusCodeSame(403);
         self::assertSame(0, $this->contar('comercial_campanha'));
@@ -100,6 +96,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertIsArray($campanha);
         self::assertSame(['na_fila', 'indiv', 'unica', 1, 'Convite · novos escritórios', 'convite', null], [$campanha['estado'], $campanha['publico'], $campanha['frequencia'], $campanha['total'], $campanha['modelo_nome'], $campanha['modelo_chave'], $campanha['agendada_para']]);
         self::assertSame([['email' => $ana->getEmail(), 'nome' => '']], json_decode((string) $campanha['publico_parametros'], true));
+        self::assertFalse($campanha['rastrear_leitura'], 'F3g: sem a escolha no pedido, a campanha fica sem confirmação de leitura');
         $trilha = (string) $this->conexao()->fetchOne("SELECT changes FROM audit_log WHERE action = 'camp_conf' AND entity_id = ?", [(string) $saida['id']]);
         self::assertSame(['publico' => 'indiv', 'frequencia' => 'unica', 'total' => 1], json_decode($trilha, true));
         self::assertStringNotContainsString((string) $campanha['assunto'], $trilha);
@@ -107,6 +104,16 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         $fila = static::getContainer()->get('messenger.transport.comercial');
         \assert($fila instanceof InMemoryTransport);
         self::assertCount(1, array_filter($fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof ExpandirCampanhas));
+    }
+
+    #[TestDox('F3g: a escolha "Confirmação de leitura" do pedido fica gravada na campanha')]
+    public function testConfirmarGravaAConfirmacaoDeLeitura(): void
+    {
+        $client = $this->clienteMaster();
+        $this->postar($client, '/master/comercial/campanhas', $this->pedido([(string) $this->cadastradoAtivo('bia')->getEmail()], ['rastrearLeitura' => true]));
+
+        self::assertResponseIsSuccessful();
+        self::assertTrue((bool) $this->conexao()->fetchOne('SELECT rastrear_leitura FROM comercial_campanha WHERE id = ?', [$this->json($client)['id']]));
     }
 
     #[TestDox('Contagem com filtro (§9): "N de M atendem", K sem a informação; o selo conta os campos; a grade não muda')]
@@ -141,6 +148,18 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         $parametros = json_decode((string) $campanha['publico_parametros'], true);
         self::assertSame(['q' => 'ana', 'gen' => 'F'], $parametros['filtro'] ?? null);
         self::assertSame($emails, array_column($parametros['informados'], 'email'));
+    }
+
+    #[TestDox('Contagem (dc 21.10 L665): os repetidos removidos e os inválidos ignorados vêm à parte')]
+    public function testContagemComRepetidosEInvalidos(): void
+    {
+        $client = $this->clienteMaster();
+        $ana = (string) $this->cadastradoAtivo('ana', 'Ana')->getEmail();
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'indiv', 'individual' => $ana . ', ' . strtoupper($ana) . ', nao-e-email, outro@']);
+
+        self::assertResponseIsSuccessful();
+        $saida = $this->json($client);
+        self::assertSame([1, 1, 2], [$saida['destinatarios'], $saida['repetidos'], $saida['invalidos']]);
     }
 
     #[TestDox('Filtro com valor fora do desenho é recusado (422)')]
@@ -330,25 +349,6 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
 
         self::assertSame([1, 0], [$indiv['destinatarios'], $indiv['semAutorizacao']]);
         self::assertContains(strtolower($email), [$leads['exemplo']['email'] ?? null]);
-    }
-
-    #[TestDox('Lista de campanhas: as 12 últimas, da mais nova; sub "modelo · público[ · frequência]", data, total e o rótulo do estado')]
-    public function testListaDeCampanhas(): void
-    {
-        $client = $this->clienteMaster();
-        for ($i = 0; $i < 12; ++$i) {
-            $this->campanha(['a@exemplo.com']);
-        }
-        $ultima = $this->campanha(['a@exemplo.com', 'b@exemplo.com'], ['estado' => 'recorrente', 'frequencia' => 'quinzenal', 'publico' => 'prim', 'agendada_para' => new \DateTimeImmutable('2031-04-05 08:30'), 'proxima' => new \DateTimeImmutable('2031-04-05 08:30'), 'total' => 2]);
-        $client->request('GET', '/master/comercial/campanhas');
-
-        $campanhas = $this->json($client)['campanhas'];
-        self::assertCount(12, $campanhas);
-        self::assertSame([
-            'id' => $ultima, 'nome' => 'Seu escritório 100% digital, de graça', 'sub' => 'Convite · Usuários primários · quinzenal',
-            'em' => '05/04/2031 08:30', 'total' => 2, 'estado' => 'recorrente', 'rotulo' => 'Recorrente',
-        ], $campanhas[0]);
-        self::assertSame(['Convite · Individual', 'na_fila', 'Na fila'], [$campanhas[1]['sub'], $campanhas[1]['estado'], $campanhas[1]['rotulo']]);
     }
 
     #[TestDox('Prévia com o primeiro destinatário (dc L.537): o primeiro nome dele; sem nome, "Dra. Ana"')]
