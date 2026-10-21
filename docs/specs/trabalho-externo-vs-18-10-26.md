@@ -8,13 +8,17 @@
 3. `trabalho-externo-vagas-publicas` (F2c, página pública e compartilhar) → **PR #84 em rascunho**,
    base `trabalho-externo-vagas`.
    Migration `Version20261019160801`.
+4. `trabalho-externo-curriculos` (F3a, §4.5) → **PR #96 em rascunho**, base `trabalho-externo-vagas-publicas`.
+5. `trabalho-externo-candidatura` (F2b, §4.6) → **PR #105 em rascunho**, base `trabalho-externo-curriculos`.
+   Migration `Version20261019231700`.
+   Migration `Version20261019213000`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
 rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e classe), trocar a
 base do PR para `master` e tirar do rascunho.
 
 **Fila de merge** (coordenador, 19/10, depois do master a7433b93): #56 → #60 → #65 → #69 → #64 → #74 →
-#62 → #83 → #84. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
+#62 → #83 → #84 → #96 → #105. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
 F2c: as duas são renomeadas na vez. Teto do FORA_DO_ESCOPO: quando o #56 entrar, somar as entradas dele.
 
 **Decisões do dono** (via coordenador, 19/10): tudo do desenho entra, mesmo que abra frente nova; o
@@ -44,6 +48,10 @@ o compartilhar entram como fatia própria.
   - Double opt-in: `ConfirmacaoDeEnderecoInterface` da 5d (`pedir()`, `confirmar()`, `estaConfirmado()`).
     A inscrição de alertas chama `pedir()`; **nada é enviado antes de `estaConfirmado()`**.
   - Envio: `CarteiroInterface` da 5d, tipo lista, assunto `vagas_alerta`.
+  - PR da 5d: **#99** (rascunho, sobre o #87 da 0d), assinatura final igual à combinada; origem
+    `pagina-publica-vagas`; rota pública GET/POST `/e/confirmar/{token}` (o GET só mostra, o botão grava).
+    A F2d não empilha sobre o #99 (a inscrição está no #84): sai num PR pequeno quando a primeira das
+    duas pilhas entrar no master, empilhado sobre a outra.
   - Contrato fechado com a bluejus-5d em 19/10 (spec dela `docs/specs/comercial-e-emails.md` §3.1 e
     §3.3, branch `comercial-emails`): ver §4.3. A fatia 1 dela ainda não tem PR e vai empilhada sobre
     a da 0d; o #84 segue sem enviar nada, e a F2d liga tudo num PR pequeno depois do dela. Envio só
@@ -51,7 +59,11 @@ o compartilhar entram como fatia própria.
 - `security.yaml`: linha própria `^/vagas-juridicas`; 0d e f6 acrescentam as delas.
 - Teto `MAX_FORA_DO_ESCOPO` em `TenantAwareCoberturaTest`: o #56 (b5) também sobe; quem entrar depois
   soma as entradas das duas listas. Cada entrada tem a justificativa ao lado.
-- Contribua C6 (f6): "preferência de assinante" na ordem das propostas; contrato a combinar.
+- Contribua C6 (f6, desenho 08 "Preferência no Trabalho Externo"): serviço pronto na `contribua-c3`,
+  `App\Contribua\Service\ApoiadoresDoBlueJus::apoiadores(list<int> $tenantIds, $agora)` e
+  `ehApoiador(int $tenantId, $agora)` (apoio PIX confirmado nos últimos 30 dias). O 06 não tem disputa
+  de propostas entre escritórios: onde o benefício vale é decisão de produto, com o coordenador
+  (opções: ordem dos convidados, ordem dos candidatos da F2b, só o selo, fora do Trabalho Externo).
 - Limite por IP da página pública só vale em produção depois do PR #77 (IP do cliente).
 
 **Pendências**:
@@ -77,9 +89,12 @@ Conferido no navegador (8107): modal de várias vagas e de uma, detalhe, menu.
 
 **Para o dono** (depende dele): merges da pilha na ordem acima; smoke na tela do "Divulgar vaga(s)"
 (WhatsApp e e-mail abrem fora do navegador de teste, não conferidos); decidir se quer conta de pessoa
-física (pendência abaixo).
+física (pendência abaixo); F3a: minimização (esconder e-mail,
+telefone e arquivos do currículo da Equipe sem `talentos`, recomendação do decisor; hoje segue o
+desenho, toda a Equipe vê); prazo de retenção do Termo de Voluntariado aceito depois que o currículo
+é excluído (o termo fica ligado ao usuário).
 
-**Próximo passo**: F3a Currículos (§4.4), empilhada sobre o #84; depois F2b Candidatura, F4 visão
+**Próximo passo**: F4 (§4.4), empilhada sobre o #105, com as notificações pelo sino da Central; depois
 externa (abas e banner) e os KPIs da página pública. Conferência final do 06 inteiro no fim, com a
 lista do que não tem dono. A F2d (§4.3) espera o PR da 5d.
 
@@ -387,6 +402,214 @@ currículo (`candidatar()` l.974 abre o formulário se não houver) e a visão e
 - **F2c**: §4.2. A campanha por e-mail usa a infraestrutura da frente "Comercial e e-mails"
   (contrato pelo coordenador).
 - **F2b**: candidatura, depois do F3 e da P1.
+
+## 4.5 F3a: Currículos e banco de talentos (desenho 06, 19/10)
+
+Branch `trabalho-externo-curriculos`, empilhada sobre `trabalho-externo-vagas-publicas` (#84). Risco
+**MÉDIO**. Inventário do desenho feito em 19/10 (linhas citadas abaixo). Fora desta fatia: candidatura
+(F2b), painel/KPIs/gráficos e Termo (F3b), barra de engajamento, lembrete diário e boas-vindas (F4).
+
+### Quem
+- **Externo** (Solicitante de qualquer escritório ou Convidado): "Meu currículo", **um por usuário**.
+  Interno não tem "Meu currículo": o servidor recusa (decisão 18).
+- **Interno** (Master ou Equipe): aba "Currículos" com o banco. **Toda a Equipe vê** tudo, como o
+  desenho (contato e arquivos inclusive; coordenador 19/10). **Agir** (status, nota, lote de
+  marcações vale para todos porque é pessoal; CSV, status e nota exigem `talentos`). Excluir
+  currículo de outra pessoa: **só o Master** (l.1000).
+- Nenhum externo vê currículo de outra pessoa nesta fatia (o dono da vaga verá na F2b, sem nota e sem
+  status, decisão 1 da §4.4).
+
+### Modelo
+`Curriculo` (tabela `trabalho_externo_curriculo`, sem tenant: é da plataforma, como a vaga):
+`usuario` (único), código `CV-0001` (id com 4 dígitos), `status` `StatusCurriculo` (novo, analise,
+entrevista, favorito, arquivado; rótulos e cores CST l.845), `nota` (texto interno), `situacao`
+`SituacaoAcademica` (adv, estOab, est, bach), nome, email, tel, oabNum, oabUf, inst, sem, cargo,
+cidade, uf, modalidade, anos, resumo, pretensao, vol (sim, talvez, nao ou vazio), insta, tituloP,
+linkedin, lattes, habs, `exps` [{cargo, org, ini, fim, desc}], `forms` [{curso, inst, ini, fim}],
+`idis` [{lng, nivel}], `areas` (de AREAS), os quatro arquivos (foto, carteira da OAB, comprovante,
+currículo: chave no armazenamento + nome original), consentimento LGPD (data e versão do texto),
+`recebidoEm` (primeiro envio, imutável) e `atualizadoEm` (cada edição) (decisão 1).
+Marcações pessoais: `TipoItemMarcado::Curriculo` na tabela de marcações da F1.
+
+### Formulário (`tmCvForm`, l.254 a 283; valores l.1171 a 1189; validação l.1006)
+Ordem, rótulos, placeholders e textos exatamente como o inventário (foto, Instagram, nome, e-mail,
+telefone, situação em 4 botões, bloco OAB se adv ou estOab, bloco curso se est, estOab ou bach com os
+rótulos de bach, cargo, cidade, UF, modalidade, anos, pretensão, voluntário Sim/Talvez/Não com clique
+que limpa, áreas, resumo, "APRESENTAÇÃO DO CURRÍCULO", experiências, formação, idiomas, habilidades,
+arquivo do currículo, LGPD). Títulos: "Cadastrar currículo" / "Editar currículo". Rodapé: Cancelar,
+Pré-visualizar, Salvar currículo, Excluir meu currículo (confirmação "Excluir seu currículo e todas as
+suas candidaturas? Esta ação não pode ser desfeita."). Toast "Currículo salvo" / "Use-o para se
+candidatar às vagas.".
+Validações do servidor, na ordem e com o texto do desenho: "Informe o nome completo.", "Informe um
+e-mail válido.", "Informe sua situação: advogado(a), estagiário(a) com OAB, estudante ou
+bacharel(a).", "Informe o número de inscrição na OAB." (adv, estOab), "Informe a instituição de
+ensino." (est, estOab), "É preciso autorizar o uso dos dados (LGPD) para enviar o currículo.".
+Decisão 5 (lacunas): carteira, comprovante e currículo até 1,5 MB, recusa com "O arquivo passa de
+1,5 MB. Envie um arquivo menor."; tipos pelo conteúdo (currículo PDF, DOC, DOCX; carteira e
+comprovante PDF, JPG, PNG); foto JPG ou PNG até 5 MB, guardada em 256×256 no servidor; OAB só
+dígitos (1 a 7); UF válida quando informada; LinkedIn só https em linkedin.com, Lattes só https em
+lattes.cnpq.br. Arquivos pela skill `armazenamento-de-arquivos`; download sempre por controller com
+permissão, `attachment` e `nosniff` (foto inline).
+
+### "Meu currículo" do externo (l.214 a 221, 999, 1013, 1014)
+Cartão com "Ver e baixar" e "Editar"; vazio com o texto e "Cadastrar currículo"; linhas do `cvItem`;
+"Atualizado em" (usa `atualizadoEm`); percentual de 11 itens (nome, email, tel, sit, cidade, cargo,
+resumo, arquivo, foto, áreas, documento conforme sit), cores ≥ 90% #1e7b45, ≥ 60% #0a6fa0, senão
+#c76a12, "Complete: …" na ordem do desenho. O percentual sai do servidor.
+
+### Banco interno (l.170 a 213, 995, 1000, 1038, 1049 a 1052, 1114 a 1119, 1148 a 1151)
+Barra (seleção, "Selecionar por", Atualizar, busca "Buscar nome, OAB, área ou cidade" em nome, OAB,
+cidade, UF, cargo, áreas), abas Ativos, Novos, Favoritos, Voluntários, Arquivados, ★ Estrela,
+Importantes, Lixeira, **contando o que a lista mostra** (decisão 6), selects área, "Situação OAB",
+UF, Termo (Termo fica "Sem termo" até a F3b), "Limpar filtros", "Exportar {N} currículo(s)".
+Tabela com as colunas e larguras do desenho, importância `impC` (+2 candidaturas: 0 até a F2b),
+lote e snackbar iguais aos das vagas, menu de contexto (Abrir currículo, Ver currículo formatado /
+PDF, os status CST que não são o atual, Excluir currículo só Master; "Gerar termo" entra na F3b).
+Vazio: "Nenhum currículo recebido" só com o banco vazio; com filtro, "Nenhum currículo neste filtro."
+e "Limpar filtros" (decisão 7). Ordenação por `recebidoEm` decrescente.
+Detalhe `tmCv` "Currículo · {nome}" (l.301 a 312) com "SITUAÇÃO NO BANCO DE TALENTOS" e "NOTA INTERNA
+(SÓ MASTER E EQUIPE)" gravada ~800 ms depois da última tecla e ao sair do campo (decisão 8).
+CSV `curriculos-bluejus.csv` com as colunas do desenho (l.1150), `;`, aspas e BOM, da lista filtrada.
+Equipe sem talentos e o painel do Master: a Equipe vê "Estatísticas disponíveis só para o Master"; o
+painel em si é da F3b (até lá, o Master vê só a lista).
+
+### PDF (`cvHTML`, l.920 a 938)
+Twig fiel ao `cvHTML` (A4, barra lateral 72 mm #0a6fa0, seções do desenho), servido como HTML para
+a pré-visualização ("Currículo · pré-visualização", 960px, iframe) e como PDF pelo Dompdf em "Baixar
+PDF" (decisão 12c). "Disponibilidade" some quando vazia; `tituloP` dividido em "|" (decisão 9).
+Pré-visualizar no formulário manda os dados ainda não salvos e recebe o HTML.
+
+### Rotas (contrato entre servidor e tela; JSON como as vagas, CSRF no header)
+- `GET /trabalho-externo/api/curriculos` `trabalho_externo_curriculos`: `{interno, podeGerir,
+  ehMaster, meu (externo: detalhe ou null, percentual, faltas), curriculos (interno: cartões), agora}`.
+- `GET /api/curriculos/{codigo}` `trabalho_externo_curriculo` (CV-\d+): detalhe; externo só o seu.
+- `POST /api/curriculos/meu` `trabalho_externo_curriculo_salvar`: cria ou edita o próprio (JSON).
+- `POST /api/curriculos/meu/arquivos/{tipo}` `trabalho_externo_curriculo_arquivo` (foto, oab,
+  matricula, curriculo; multipart `arquivo`) e `.../{tipo}/remover`.
+- `POST /api/curriculos/meu/excluir` `trabalho_externo_curriculo_excluir_meu`.
+- `POST /api/curriculos/{codigo}/excluir` `trabalho_externo_curriculo_excluir` (só Master).
+- `POST /api/curriculos/{codigo}/status` `trabalho_externo_curriculo_status` `{status}` (talentos).
+- `POST /api/curriculos/{codigo}/nota` `trabalho_externo_curriculo_nota` `{nota}` (talentos).
+- `POST /api/curriculos/marcacoes` `trabalho_externo_curriculos_marcacoes` `{codigos, op}`.
+- `GET /trabalho-externo/curriculos/{codigo}/arquivos/{tipo}` `trabalho_externo_curriculo_baixar`.
+- `GET /trabalho-externo/curriculos/{codigo}/documento` (HTML) e `/pdf` (Dompdf);
+  `POST /api/curriculos/previa` (HTML do formulário não salvo).
+- `GET /trabalho-externo/curriculos/exportar.csv` `trabalho_externo_curriculos_csv` (talentos; mesmos
+  filtros da lista na query).
+**Formato JSON** (contrato fixo; servidor e tela não mudam sem o orquestrador):
+- Cartão do banco (`curriculos[]`): `codigo, nome, iniciais, fotoUrl|null, cargo, situacao (adv|estOab|est|bach),
+  situacaoRotulo (curto do filtro: Advogado(a), Estagiário(a) com OAB, Estudante, Bacharel(a)), oab (texto da coluna
+  OAB, "OAB 12345/DF" ou "Sem OAB"), areas[], local ("Cidade/UF" ou "Brasil"), uf, recebido (dd/mm/aaaa),
+  recebidoEm (ISO), status, statusRotulo, statusCor, vol, voluntario (bool, vol = sim), termo ("sem"), estrela,
+  lixeira, vista, importancia {nivel, motivos[]}, candidaturas (0)`.
+- Detalhe (`curriculo`, GET do código e respostas das escritas): o cartão + `email, tel, insta, oabNum, oabUf,
+  inst, sem, cidade, modalidade, anos, resumo, pretensao, tituloP, linkedin, lattes, habs, exps[], forms[],
+  idis[], arquivos {foto|oab|matricula|curriculo: {nome, url}|null}, nota (só interno; null para o externo),
+  situacaoLonga (detalhe: Advogado(a), Estagiário(a) com OAB, Estudante de Direito, Bacharel(a) sem OAB),
+  oabTxt (texto do `cvItem`), volTxt, experienciaTxt ("Advogado(a) · 3 ano(s) de experiência"), atualizado
+  (dd/mm/aaaa), atualizadoEm (ISO), percentual {pct, cor, faltas[]}, podeEditar, podeGerir, podeExcluir,
+  documentoUrl, pdfUrl, candidaturasVagas[] (vazio até a F2b)`.
+- Lista: `{interno, podeGerir, ehMaster, meu, curriculos, agora}`; erro como as vagas (`{ok:false, mensagem}`,
+  422/403/404). Arquivo enviado: resposta `{curriculo}`. Marcações: mesmo corpo e resposta das vagas.
+- Ações de status `{status}` respondem `{curriculo}`; nota `{nota}` responde `{ok:true}`.
+- `index.html.twig` ganha `data-url-curriculos`, `-curriculo` (com `CV-0`), `-curriculo-salvar`,
+  `-curriculo-arquivo` (com `__tipo__`), `-curriculo-excluir-meu`, `-curriculo-excluir` (CV-0), `-curriculo-status`
+  (CV-0), `-curriculo-nota` (CV-0), `-curriculos-marcacoes`, `-curriculo-previa`, `-curriculos-csv`.
+  A aba "Currículos"/"Meu currículo" (`bi-person-vcard`) entra nos módulos, com o badge dos novos só no interno.
+
+Excluir: apaga marcações, arquivos (depois do commit) e, na F2b, as candidaturas; Termo aceito fica
+com o usuário (coordenador 19/10, retenção com o dono).
+
+Revisão de 19/10 (corrigido): busca igual à do CSV; anexo do bloco que sumiu é apagado ao salvar;
+foto até 12 milhões de pixels; consentimento grava a data do primeiro aceite (e de novo só com versão
+nova); exclusão das marcações e do currículo numa transação; corrida do primeiro salvar vira 409.
+Pendente: apagar o `User` leva o currículo (CASCADE) mas deixa os arquivos e as marcações; tratar na
+frente "Excluir conta" (quarentena de 365 dias).
+
+Fica para depois e registrado: currículo em Word (sem botão no desenho, decisão 10); texto do toast
+da candidatura para "Meu currículo" (F2b, decisão 11); KPI "COM OAB" filtra adv e estOab (F3b).
+
+## 4.6 F2b: Candidatura (desenho 06, 19/10)
+
+Branch `trabalho-externo-candidatura`, empilhada sobre `trabalho-externo-curriculos` (#96). Risco
+**MÉDIO**. Inventário de 19/10 (linhas abaixo). Fora: notificações (decididas pelo coordenador em 19/10: entram na F4 pelo sino da Central,
+`TiposDeAvisoDaCentral` conforme `app/src/Central/CLAUDE.md`; e-mail só se o desenho mostrar, pelo Carteiro da 5d), painel/funil
+(F3b), chips de engajamento, QUASE por evento entre abas e bem-vindo (F4).
+
+### Modelo
+`Candidatura` (tabela `trabalho_externo_candidatura`, sem tenant): `vaga` (FK CASCADE), `curriculo`
+(FK CASCADE), única por (vaga, currículo), `status` `StatusCandidatura` (recebida, analise, entrevista,
+aprovado, contratado, nao; rótulos e cores AST l.846), `enviadaEm`, `datas` por etapa (analise,
+enviado, entrevista, aprovado, contratado, nao), `enviadoAoEscritorio` (bool + data), `aceiteDeOferta`
+(bool). A vaga ganha `aceitesNaRodada` derivado das candidaturas de aceite desde o `inicio` atual.
+Marcações pessoais: `TipoItemMarcado::Candidatura`.
+
+### Regras (l.974 a 985, 1003, 1006, 1039 a 1047, 1095, 1103, 1154; decisões nas lacunas)
+- **Candidatar-se** (externo com currículo): cria `recebida`, histórico da vaga `bi-send` #0a6fa0
+  "Candidatura de {nome}". Toast "Candidatura enviada" / "Acompanhe em Meu currículo · Minhas
+  candidaturas." (texto ajustado à aba que o externo vê, decisão 11 da F3a). Já existe: "Candidatura já
+  enviada" / "Você já se candidatou a esta vaga.". Sem currículo: o servidor responde `semCurriculo` e a
+  tela abre o formulário "Seu currículo para candidatura" com "Salvar e candidatar-se"; o salvar segue
+  o mesmo caso de uso (com histórico, e o toast "Currículo salvo e candidatura enviada" só quando criou).
+- **Servidor recusa** (lacunas 1 e 2): vaga que não está aberta ou com prazo de inscrição vencido
+  ("As inscrições desta vaga estão encerradas."), vaga própria ("Você não pode se candidatar à sua
+  própria vaga."), interno ("Só profissionais externos se candidatam às vagas."). OAB exigida segue
+  informativa (decisão 2 da §4.4). Na tela, a vaga própria não mostra "Candidatar-se".
+- **Aceite de oferta** (`aceitar`, l.978): sob trava da linha da vaga (`SELECT … FOR UPDATE`), confere
+  aberta, tempo e `aceites da rodada < qtd`; cria candidatura em `aprovado` (com `datas.aprovado`),
+  histórico "Aceita por {nome} ({n} de {qtd})"; ao completar, vaga `preenchida` e "Oferta preenchida em
+  {mm:ss} min". Toasts "Oferta aceita" / "A vaga está reservada para você. O escritório já foi avisado.",
+  "Você já aceitou" / "Sua vaga está garantida.", "Vaga indisponível" / "Esta vaga já foi preenchida ou
+  encerrada." (com `motiv` ligado, o modal QUASE do desenho, l.392 a 400 e 839).
+  Decidido pelo coordenador (19/10): **cada rodada** ("Ofertar novamente", "Reabrir") conta os aceites do
+  zero; os aceites anteriores continuam `aprovado`. Aceite em vaga **com dono** entra direto nos
+  enviados ao escritório (o toast promete que o escritório sabe).
+- **Status** (`aStatus`): qualquer AST para qualquer outro, só com `talentos` (decisão 3 da §4.4).
+- **Envio ao escritório** (`enviarCands`, l.981): só vaga com dono e só `talentos`; seleção **por vaga**
+  (lacuna 9); `recebida` vira `analise`; histórico "{n} candidato(s) enviado(s) ao escritório por
+  {quem}"; toast "Candidatos enviados" / "{n} currículo(s) disponível(is) para {escritório}."; sem
+  seleção, "Selecione candidatos" / "Marque quem será enviado ao escritório."; abaixo de `minEnvio`, a
+  confirmação do sistema (`abrirConf`) com o texto "O padrão é enviar pelo menos {min} candidatos.
+  Enviar mesmo assim {total}?". Sem "desenviar".
+- **Dono externo da vaga** vê só os enviados (título "CANDIDATOS INDICADOS PELO BLUEJUS ({n}) · O
+  BLUEJUS ATUALIZA O ANDAMENTO", sem botões de status), abre o currículo formatado e o detalhe do
+  candidato **sem** nota interna, sem situação no banco e sem as outras candidaturas (decisão 1 da §4.4).
+  Card: "{n} indicado(s) pelo BlueJus".
+- **Linha do tempo** `etapas` calculada no servidor (passos, estado, datas dd/mm/aa, dias); com `nao`,
+  o último passo alcançado aparece feito (lacuna 16) e entra o passo "Não selecionado".
+- **Minhas candidaturas** (l.221 a 224, 1103, 1154): lista, filtros Todas / ★ Estrela / Lixeira, lote,
+  importância (marcada 3; entrevista ou aprovado 2, como l.1154; senão 1), abrir marca como vista.
+- **Compatibilidade** `compat` (l.1011): áreas 60, UF/sem UF/Remoto 25, cargo 15; selo
+  "{N}% compatível" (≥70 #1e7b45, ≥40 #0a6fa0, senão #6b8494) e ordem do externo (ofertas ao vivo,
+  depois compatibilidade); entra no `impV` (+2 com ≥70) e as candidaturas recebidas no `impV` do
+  interno (+min(3, n)); `impC` +2 com candidaturas.
+- Excluir vaga ou currículo apaga as candidaturas (FK), como o desenho.
+- Revisão de 19/10 (corrigido): "Salvar e candidatar-se" recusado devolve `curriculoSalvo` e a tela trata
+  o currículo como salvo; ações da Central na vaga pegam a mesma trava do aceite; unit dos casos de uso.
+  Decisão registrada: a vaga já publicada e fechada responde 422 ("Inscrições encerradas") em vez de 404,
+  para quem tem o link; não mostra título nem dado. O dono da vaga baixa os arquivos do candidato
+  ENVIADO a ele (o modal `tmCv` do desenho mostra; o consentimento LGPD cobre).
+
+### Contrato JSON (fixo)
+- `POST /trabalho-externo/api/vagas/{codigo}/candidatura` `trabalho_externo_vaga_candidatura`: candidata
+  ou aceita (o servidor decide pela oferta). 200 `{vaga, toast: {titulo, texto}}`; 409 `{ok:false,
+  semCurriculo:true}`; 422 `{ok:false, titulo, mensagem, quase?: bool}`.
+- `POST /trabalho-externo/api/vagas/{codigo}/enviar` `trabalho_externo_vaga_enviar` `{candidaturas:[id]}`:
+  `{vaga, toast}`.
+- `POST /trabalho-externo/api/candidaturas/{id}/status` `trabalho_externo_candidatura_status` `{status}`:
+  `{vaga}` quando veio do detalhe da vaga.
+- `POST /trabalho-externo/api/candidaturas/marcacoes` `trabalho_externo_candidaturas_marcacoes`: como as vagas.
+- Detalhe da vaga ganha: `candidatos[]` `{id, codigoCv, nome, iniciais, fotoUrl, info ("OAB …/UF ·
+  local · enviada em dd/mm/aaaa"), status, statusRotulo, statusCor, enviado, etapas, documentoUrl}`,
+  `candTitulo`, `envioInfo`, `podeEnviar`, `podeMudarStatus`, `minEnvio`, `enviadosN`,
+  `minhaCandidatura` (externo: `{status, statusRotulo, statusCor, etapas, total}` ou null),
+  `botaoExterno` (`candidatar`|`aceitar`|`enviada`|`indisponivel`|null), `compat`.
+- Cartão da vaga ganha: `compat`, `jaFoi`, `indicadosN` (dono).
+- `etapas`: `{passos:[{k, rot, ic, estado (feito|atual|futuro|nao), data, dias}], total}`.
+- Lista de currículos do externo ganha `minhas[]` `{id, codigoVaga, titulo, enviadaEm, status,
+  statusRotulo, statusCor, etapas, estrela, lixeira, vista, importancia}`.
+- `index.html.twig` ganha `data-url-vaga-candidatura` (VG-0), `-vaga-enviar` (VG-0),
+  `-candidatura-status` (com 0), `-candidaturas-marcacoes`.
 
 ## 5. Verificação
 

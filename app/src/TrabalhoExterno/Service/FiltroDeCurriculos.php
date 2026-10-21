@@ -1,0 +1,77 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\TrabalhoExterno\Service;
+
+use App\TrabalhoExterno\Entity\Curriculo;
+use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
+use App\TrabalhoExterno\Enum\StatusCurriculo;
+
+/**
+ * Os filtros da lista do banco de talentos (desenho 06 l.993 a 995), os mesmos que a tela aplica,
+ * para o CSV sair "da lista filtrada" (l.1150). `filtro` é a aba (Ativos, Novos, Favoritos,
+ * Voluntários, Arquivados, Estrela, Importantes, Lixeira); estrela, importantes e lixeira são as
+ * marcações pessoais de quem exporta. O termo fica "sem" até a F3b.
+ */
+final class FiltroDeCurriculos
+{
+    public const ABAS = ['ativos', 'novo', 'favorito', 'voluntarios', 'arquivado', 'estrela', 'imp', 'lix'];
+
+    public function __construct(
+        private readonly CalculadoraDeImportanciaDoCurriculo $importancia,
+    ) {
+    }
+
+    /**
+     * @param list<Curriculo>                $curriculos
+     * @param array<int, MarcacaoDoUsuario>  $marcas     id do currículo → marcação de quem filtra
+     * @param array<string, string>          $filtros    filtro, busca, area, situacao, uf, termo
+     * @param array<int, int>                $candidaturas id do currículo → candidaturas (pesa na aba Importantes)
+     *
+     * @return list<Curriculo>
+     */
+    public function aplicar(array $curriculos, array $marcas, array $filtros, \DateTimeImmutable $agora, array $candidaturas = []): array
+    {
+        $aba = in_array($filtros['filtro'] ?? '', self::ABAS, true) ? $filtros['filtro'] : 'ativos';
+
+        return array_values(array_filter(
+            $curriculos,
+            fn (Curriculo $cv): bool => $this->passaNaAba($cv, $marcas[(int) $cv->getId()] ?? null, $aba, $agora, $candidaturas[(int) $cv->getId()] ?? 0)
+                && $this->passaNosCampos($cv, $filtros),
+        ));
+    }
+
+    /** `espF` e o filtro de aba (l.995): a marcação pessoal manda nas abas especiais. */
+    private function passaNaAba(Curriculo $cv, ?MarcacaoDoUsuario $m, string $aba, \DateTimeImmutable $agora, int $candidaturas): bool
+    {
+        if ($m?->excluida() === true || ($aba === 'lix') !== ($m?->naLixeira() ?? false)) {
+            return false;
+        }
+
+        return match ($aba) {
+            'lix' => true,
+            'estrela' => $m?->temEstrela() ?? false,
+            'imp' => $this->importancia->calcular($cv, $m?->getImportante(), $agora, $candidaturas)['nivel'] >= 2,
+            'ativos' => $cv->getStatus() !== StatusCurriculo::Arquivado,
+            'voluntarios' => $cv->texto('vol') === 'sim' && $cv->getStatus() !== StatusCurriculo::Arquivado,
+            default => $cv->getStatus()->value === $aba,
+        };
+    }
+
+    /** @param array<string, string> $f */
+    private function passaNosCampos(Curriculo $cv, array $f): bool
+    {
+        $busca = mb_strtolower(trim($f['busca'] ?? ''));
+        $texto = mb_strtolower(implode(' ', [
+            $cv->texto('nome'), $cv->texto('oabNum'), $cv->texto('oabUf'), $cv->texto('cidade'),
+            $cv->texto('uf'), $cv->texto('cargo'), implode(' ', $cv->getAreas()),
+        ]));
+
+        return (($f['situacao'] ?? '') === '' || $cv->getSituacao()->value === $f['situacao'])
+            && (($f['uf'] ?? '') === '' || $cv->texto('uf') === $f['uf'])
+            && in_array($f['termo'] ?? '', ['', 'sem'], true)
+            && (($f['area'] ?? '') === '' || in_array($f['area'], $cv->getAreas(), true))
+            && ($busca === '' || str_contains($texto, $busca));
+    }
+}
