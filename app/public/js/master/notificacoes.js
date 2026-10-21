@@ -160,7 +160,8 @@
     $('[data-nf-ver-ini]').textContent = iniciais(m.de);
     $('[data-nf-ver-de]').textContent = deCompleto(m);
     $('[data-nf-ver-txt]').textContent = m.texto;
-    $('[data-nf-ir-ind]').hidden = m.tipo !== 'alerta';
+    // Só o alerta do Indicar o BlueJus leva às Indicações; os outros alertas (consumo, exclusão de conta) não.
+    $('[data-nf-ir-ind]').hidden = m.origem !== 'alerta_indicacao';
     $('[data-nf-est-um-ic]').className = 'bi ' + (m.estrela ? 'bi-star-fill' : 'bi-star');
     $('[data-nf-arq-um]').title = m.arquivada ? 'Desarquivar' : 'Arquivar';
     $('[data-nf-arq-um]').setAttribute('aria-label', m.arquivada ? 'Desarquivar' : 'Arquivar');
