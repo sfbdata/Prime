@@ -12,6 +12,8 @@ final class ResultadoDoResumoDiario
         public readonly int $semNada = 0,
         public readonly int $desligados = 0,
         public readonly int $jaEnviados = 0,
+        public readonly int $descadastrados = 0,
+        public readonly int $falhas = 0,
         public readonly ?string $motivo = null,
     ) {
     }

@@ -21,7 +21,9 @@ use App\Profile\UseCase\EnviarResumoDiarioDoEscritorioUseCase;
 use App\Repository\UserTenantRepository;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Pasta\Functional\CriaCenarioDoCadeadoFuncionalTrait;
+use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use Doctrine\DBAL\Connection;
+use Psr\Log\NullLogger;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\Clock\MockClock;
@@ -138,7 +140,7 @@ final class ResumoDiarioPorEmailTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Audiência de conciliação', $corpo);
     }
 
-    private function executar(string $agora, bool $simular = false): \App\Profile\DTO\ResultadoDoResumoDiario
+    private function executar(string $agora, bool $simular = false, ?CarteiroInterface $carteiro = null): \App\Profile\DTO\ResultadoDoResumoDiario
     {
         $c = static::getContainer();
         $sut = new EnviarResumoDiarioDoEscritorioUseCase(
@@ -147,13 +149,44 @@ final class ResumoDiarioPorEmailTest extends JusPrimeWebTestCase
             $c->get(ColetorDoResumoDiario::class),
             $c->get(ResumoDiarioEnvioRepository::class),
             $c->get(DiaUtilDoEscritorio::class),
-            $c->get(CarteiroInterface::class),
+            $carteiro ?? $c->get(CarteiroInterface::class),
             $c->get(Environment::class),
             $c->get(UrlGeneratorInterface::class),
             new MockClock(new \DateTimeImmutable($agora)),
+            new NullLogger(),
         );
 
         return $sut->executar($this->tenant, $simular);
+    }
+
+    #[TestDox('a audiência ligada a pasta oculta pelo cadeado também some; conta inativa e e-mail por confirmar não recebem')]
+    public function testCadeadoNaAgendaEContasForaDoEnvio(): void
+    {
+        $this->em()->createQuery('UPDATE ' . Evento::class . ' e SET e.pasta = :p WHERE e.titulo = :t')
+            ->setParameter('p', $this->pasta)->setParameter('t', 'Audiência de conciliação')->execute();
+        $this->trancar($this->pasta, $this->primario);
+        $r = $this->executar(self::QUARTA);
+        self::assertFalse($this->envioPara($this->ana), 'tudo da Ana era da pasta oculta');
+        self::assertSame(1, $r->semNada);
+
+        $this->primario->marcarEmailAConfirmar(new \DateTimeImmutable());
+        $this->em()->flush();
+        $outra = $this->executar(self::QUARTA);
+        self::assertSame([0, 0, 1], [$outra->enviados, $outra->jaEnviados, $outra->semNada], 'a primária, com o e-mail por confirmar, fica de fora (nem conta como já enviada)');
+    }
+
+    #[TestDox('falha do Carteiro: cada pessoa falha sozinha e o registro é desfeito; a rodada seguinte envia, e o descadastrado conta à parte')]
+    public function testFalhaEDescadastro(): void
+    {
+        $quebrado = $this->createStub(CarteiroInterface::class);
+        $quebrado->method('enviar')->willThrowException(new \RuntimeException('fila fora do ar'));
+        $falhou = $this->executar(self::QUARTA, false, $quebrado);
+        self::assertSame([2, 0], [$falhou->falhas, $falhou->enviados], 'ninguém derruba os outros');
+        self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM resumo_diario_envio WHERE tenant_id = ?', [$this->tenant->getId()]), 'registro desfeito');
+
+        static::getContainer()->get(DescadastroDeEmailInterface::class)->descadastrar($this->tenant, (string) $this->ana->getEmail(), EnviarResumoDiarioDoEscritorioUseCase::LISTA, 'teste');
+        $r = $this->executar(self::QUARTA);
+        self::assertSame([1, 1, 0], [$r->enviados, $r->descadastrados, $r->falhas], 'a rodada seguinte envia de novo; a Ana descadastrou pelo rodapé');
     }
 
     /** @return array<string, mixed>|false */

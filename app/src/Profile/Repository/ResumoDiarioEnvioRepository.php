@@ -29,6 +29,15 @@ class ResumoDiarioEnvioRepository extends ServiceEntityRepository
         ) === 1;
     }
 
+    /** Desfaz o registro do dia quando o e-mail não saiu: a próxima rodada tenta de novo. */
+    public function desfazer(int $tenantId, int $userId, \DateTimeImmutable $dia): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'DELETE FROM resumo_diario_envio WHERE tenant_id = :t AND user_id = :u AND dia = :d',
+            ['t' => $tenantId, 'u' => $userId, 'd' => $dia->format('Y-m-d')],
+        );
+    }
+
     public function jaEnviado(int $tenantId, int $userId, \DateTimeImmutable $dia): bool
     {
         return (bool) $this->getEntityManager()->getConnection()->fetchOne(

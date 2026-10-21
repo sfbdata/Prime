@@ -83,7 +83,8 @@ final class ResumoDiarioCommand extends Command
             }
             try {
                 $r = $this->enviar->executar($tenant, $simular);
-                $linhas[] = [$id, (string) $tenant->getName(), $r->enviados, $r->semNada, $r->desligados, $r->jaEnviados, $r->motivo ?? ''];
+                $linhas[] = [$id, (string) $tenant->getName(), $r->enviados, $r->semNada, $r->desligados, $r->jaEnviados, $r->descadastrados, $r->falhas, $r->motivo ?? ''];
+                $falhas += $r->falhas > 0 ? 1 : 0;
             } catch (\Throwable $e) {
                 ++$falhas;
                 $io->error(sprintf('Falha no escritório #%d: %s', $id, $e->getMessage()));
@@ -95,7 +96,7 @@ final class ResumoDiarioCommand extends Command
             }
         }
         if ($linhas !== []) {
-            $io->table(['ID', 'Escritório', 'Enviados', 'Sem nada', 'Desligados', 'Já enviados', 'Motivo'], $linhas);
+            $io->table(['ID', 'Escritório', 'Enviados', 'Sem nada', 'Desligados', 'Já enviados', 'Descadastrados', 'Falhas', 'Motivo'], $linhas);
         }
 
         return $falhas > 0 ? Command::FAILURE : Command::SUCCESS;

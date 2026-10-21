@@ -44,8 +44,12 @@ final class ColetorDoResumoDiario
         $dia = $hoje->setTime(0, 0);
         $ocultas = $this->acessoAPasta->idsOcultosPara($pessoa, (int) $tenant->getId());
 
+        $prazos = [...$this->prazosDasPastas($tenant, $pessoa, $dia, $ocultas), ...$this->daAgenda($tenant, $pessoa, $dia, $ocultas)];
+        // Pela hora; os de dia inteiro (sem hora) primeiro.
+        usort($prazos, static fn (array $a, array $b): int => strcmp((string) $a['hora'], (string) $b['hora']));
+
         return new ItensDoResumoDiario(
-            [...$this->prazosDasPastas($tenant, $pessoa, $dia, $ocultas), ...$this->daAgenda($tenant, $pessoa, $dia, $ocultas)],
+            $prazos,
             array_map(static fn ($t): array => ['titulo' => $t->getTitulo(), 'pasta' => self::rotuloDaPasta($t->getPasta())], $this->tarefas->abertasDoResponsavelNoDia($tenant, $pessoa, $dia, $ocultas)),
         );
     }

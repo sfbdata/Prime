@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Profile\UseCase;
 
 use App\Comercial\Envio\CarteiroInterface;
+use App\Comercial\Envio\ResultadoDoEnvio;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
 use App\Dashboard\Repository\PreferenciaDoUsuarioRepository;
@@ -18,6 +19,7 @@ use App\Profile\Repository\ResumoDiarioEnvioRepository;
 use App\Profile\Service\ColetorDoResumoDiario;
 use App\Repository\UserTenantRepository;
 use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Twig\Environment;
 
@@ -28,7 +30,8 @@ use Twig\Environment;
  * Decisões do coordenador (21/10/2026): só em dia útil do escritório (feriado não envia); só para quem tem vínculo
  * ativo e conta ativa e deixou a chave ligada (padrão: ligada); dia sem nada não envia; o cadeado vale (pasta oculta
  * para a pessoa não aparece); uma vez por pessoa e dia (`resumo_diario_envio` grava antes do e-mail). Vai pelo
- * Carteiro, na lista `resumo_diario` (o descadastro do rodapé também vale), fora do teto diário das campanhas.
+ * Carteiro, na lista `resumo_diario` (o descadastro do rodapé também vale), fora do teto diário das campanhas. Uma
+ * falha (e-mail inválido, Carteiro) só afeta a pessoa: o registro do dia é desfeito, os outros seguem.
  */
 final class EnviarResumoDiarioDoEscritorioUseCase
 {
@@ -47,6 +50,7 @@ final class EnviarResumoDiarioDoEscritorioUseCase
         private readonly Environment $twig,
         private readonly UrlGeneratorInterface $urls,
         private readonly ClockInterface $relogio,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -57,10 +61,11 @@ final class EnviarResumoDiarioDoEscritorioUseCase
             return ResultadoDoResumoDiario::semEnvio('Hoje não é dia útil no escritório.');
         }
         $desligaram = $this->preferencias->idsQueDesligaram($tenant, CatalogoDePreferenciasDoPerfil::RESUMO_EMAIL);
-        $contagem = ['enviados' => 0, 'semNada' => 0, 'desligados' => 0, 'jaEnviados' => 0];
+        $contagem = ['enviados' => 0, 'semNada' => 0, 'desligados' => 0, 'jaEnviados' => 0, 'descadastrados' => 0, 'falhas' => 0];
         foreach ($this->vinculos->findAtivosComPerfilPorTenant($tenant) as $vinculo) {
             $pessoa = $vinculo->getUser();
-            if ($pessoa->isActive()) {
+            // Conta inativa ou e-mail ainda por confirmar não recebe.
+            if ($pessoa->isActive() && $pessoa->isEmailConfirmado()) {
                 ++$contagem[$this->paraPessoa($tenant, $pessoa, $agora, $desligaram, $simular)];
             }
         }
@@ -71,7 +76,7 @@ final class EnviarResumoDiarioDoEscritorioUseCase
     /**
      * @param list<int> $desligaram
      *
-     * @return 'enviados'|'semNada'|'desligados'|'jaEnviados'
+     * @return 'enviados'|'semNada'|'desligados'|'jaEnviados'|'descadastrados'|'falhas'
      */
     private function paraPessoa(Tenant $tenant, User $pessoa, \DateTimeImmutable $agora, array $desligaram, bool $simular): string
     {
@@ -89,9 +94,23 @@ final class EnviarResumoDiarioDoEscritorioUseCase
         if (!$this->envios->registrarSeNovo((int) $tenant->getId(), (int) $pessoa->getId(), $dia, $agora)) {
             return 'jaEnviados';
         }
-        $this->carteiro->enviar($this->mensagem($tenant, $pessoa, $dia, $itens));
 
-        return 'enviados';
+        return $this->enviarOuDesfazer($tenant, $pessoa, $dia, $itens);
+    }
+
+    /** @return 'enviados'|'descadastrados'|'falhas' */
+    private function enviarOuDesfazer(Tenant $tenant, User $pessoa, \DateTimeImmutable $dia, ItensDoResumoDiario $itens): string
+    {
+        try {
+            $envio = $this->carteiro->enviar($this->mensagem($tenant, $pessoa, $dia, $itens));
+        } catch (\Throwable $e) {
+            $this->envios->desfazer((int) $tenant->getId(), (int) $pessoa->getId(), $dia);
+            $this->logger->error('Resumo diário: o e-mail não saiu; tenta de novo na próxima rodada.', ['tenant' => $tenant->getId(), 'usuario' => $pessoa->getId(), 'erro' => $e->getMessage()]);
+
+            return 'falhas';
+        }
+
+        return $envio->situacao === ResultadoDoEnvio::BLOQUEADO_DESCADASTRO ? 'descadastrados' : 'enviados';
     }
 
     private function mensagem(Tenant $tenant, User $pessoa, \DateTimeImmutable $dia, ItensDoResumoDiario $itens): MensagemDeEmail

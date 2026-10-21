@@ -10,12 +10,13 @@ Migration `Version20261020148900` (nome dado pela coordenação).
    responsável do prazo é texto livre; o da pasta é a pessoa); os compromissos de hoje do tipo Prazo ou Audiência na
    agenda dela (que criou ou de que participa), ainda agendados; as metas abertas (fora de revisão e concluída) que
    vencem hoje em que ela é responsável.
-2. **Teto diário do Carteiro:** a origem `resumo_diario` fica fora do teto de 1.500 por dia (não disputa com as
-   campanhas).
+2. **Teto diário do Carteiro:** a origem `resumo_diario` fica fora do teto de 1.500 por dia: o resumo nunca é barrado
+   por ele. Como as outras origens isentas, ele entra na contagem do dia (as campanhas do mesmo dia têm o que sobra).
 3. **Dia sem nada:** não envia.
 4. **Só em dia útil do escritório** (`DiaUtilDoEscritorio`: sábado, domingo e feriado passam).
 5. **Cadeado:** pasta oculta para a pessoa (`AcessoAPasta::idsOcultosPara`) não aparece (nem o prazo, nem a meta, nem
-   o compromisso ligado). E só para quem tem vínculo ativo no escritório e conta ativa.
+   o compromisso ligado). E só para quem tem vínculo ativo no escritório e conta ativa; quem ainda não confirmou o
+   e-mail também não recebe.
 
 ## Como funciona
 
@@ -27,4 +28,10 @@ Migration `Version20261020148900` (nome dado pela coordenação).
   hoje, dd/mm", corpo `templates/email/perfil/resumo_diario.html.twig`, botão "Abrir o BlueJus" (Expediente).
 - Uma vez por pessoa, escritório e dia: `resumo_diario_envio` (UNIQUE tenant, usuário, dia), gravado por `INSERT ...
   ON CONFLICT DO NOTHING` ANTES do e-mail; quem não gravou não envia. Rodar de novo no mesmo dia não manda outra vez.
+- Os prazos e os compromissos saem pela hora (os de dia inteiro primeiro).
+- Falha de uma pessoa (e-mail inválido, Carteiro) só afeta ela: o registro do dia é desfeito, os outros seguem, e o
+  comando sai com falha para o log do cron; a próxima rodada tenta de novo. Quem se descadastrou pelo rodapé conta à
+  parte ("Descadastrados"), não como enviado.
+- Pendência para o dono: quem se descadastra pelo link do rodapé continua vendo a chave ligada no Meu Perfil, e ligar
+  ou desligar a chave não desfaz o descadastro (só o `reativar` do descadastro).
 - Fora da auditoria (`NAO_AUDITAVEIS`: o envio já fica em `comercial_envio`); entra na purga do escritório.
