@@ -46,7 +46,7 @@ final class DesfazerAlteracaoAuditLogUseCase
         \App\Entity\ServiceDesk\Chamado::class,
         \App\Entity\ServiceDesk\ChamadoAnexo::class,
         \App\Entity\ServiceDesk\ChamadoInteracao::class,
-        \App\Entity\Agenda\Evento::class,
+        \App\Agenda\Entity\Evento::class,
         \App\Entity\Agenda\LegendaCor::class,
         \App\Entity\Notificacao::class,
         \App\Entity\Tenant\Cargo::class,

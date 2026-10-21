@@ -48,6 +48,9 @@ final readonly class AnaliseOutput
         public ?string $agenteNome = null,
         /** Análise integral do agente (formato do Designer); nulo no Push. */
         public ?string $textoDaAnalise = null,
+        /** Comando ou relatório do drawer que gerou a análise; nulo no Push e nas análises antigas. */
+        public ?string $comando = null,
+        public ?string $comandoRotulo = null,
     ) {
     }
 
@@ -94,6 +97,8 @@ final readonly class AnaliseOutput
             agente: $analise->getAgente()?->value,
             agenteNome: $analise->getAgente()?->nome(),
             textoDaAnalise: $analise->getTextoDaAnalise(),
+            comando: $analise->getComando()?->value,
+            comandoRotulo: $analise->getComando()?->rotulo(),
         );
     }
 
@@ -109,6 +114,7 @@ final readonly class AnaliseOutput
             'totalMovimentacoes' => $this->totalMovimentacoes,
             'aviso' => $this->aviso,
             'agente' => $this->agente,
+            'comando' => $this->comando,
         ];
     }
 }

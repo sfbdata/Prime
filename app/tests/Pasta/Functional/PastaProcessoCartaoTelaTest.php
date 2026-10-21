@@ -348,7 +348,7 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         // há "Tornar processo principal". Desvincular é o último, como no desenho. "Editar dados
         // do processo" (PMC-004) aparece porque o admin tem EDIT no processo.
         self::assertSame(
-            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Editar dados do processo', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Imprimir resumo', 'Desvincular da pasta'],
+            ['Adicionar nota técnica', 'Ver processo completo', 'Ver todas as informações', 'Editar dados do processo', 'Ver movimentações (Push)', 'Copiar número', 'Copiar resumo do processo', 'Compartilhar', 'Relatório geral de processos', 'Imprimir resumo', 'Desvincular da pasta'],
             $this->textos($menu->filter('.ps-processo-menu .ps-processo-menu-item')),
         );
         self::assertSame(
@@ -412,11 +412,15 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             self::assertSame(['button'], $acoes->children()->each(static fn (Crawler $n): string => $n->nodeName()));
             self::assertCount(1, $acoes->filter('.ps-processo-acoes > button.js-proc-menu-gatilho'));
             self::assertCount(1, $cartao->filter('article.ps-processo > .ps-processo-topo > .ps-copiar[data-copy]'));
-            self::assertCount(0, $cartao->filter('.ps-processo-topo form, .ps-processo-topo .bi-trash, .ps-processo-topo .bi-star, .ps-processo-topo .bi-box-arrow-up-right'));
+            // P4f (desenho N:1725): o único form no topo é o X do APENSADO; o principal não tem nenhum.
+            $ehApensado = $proc === $outro;
+            self::assertCount($ehApensado ? 1 : 0, $cartao->filter('.ps-processo-topo form'));
+            self::assertCount($ehApensado ? 1 : 0, $cartao->filter('.ps-processo-topo > form.js-desvincular-apensado'));
+            self::assertCount(0, $cartao->filter('.ps-processo-topo .bi-trash, .ps-processo-topo .bi-star, .ps-processo-topo .bi-box-arrow-up-right'));
 
-            // Os forms com CSRF continuam, agora como itens do ⋮.
+            // Os forms com CSRF continuam, agora como itens do ⋮ (no apensado, o do apensado: P4f).
             $menu = $cartao->filter('article.ps-processo > .ps-processo-menu');
-            $desv = $menu->filter('.ps-processo-menu > form.js-ajax-desvincular-processo');
+            $desv = $menu->filter($ehApensado ? '.ps-processo-menu > form.js-desvincular-apensado' : '.ps-processo-menu > form.js-ajax-desvincular-processo');
             self::assertCount(1, $desv);
             self::assertSame((string) $proc->getId(), $desv->filter('input[name="processo_id"]')->attr('value'));
             self::assertNotSame('', (string) $desv->filter('input[name="_token"]')->attr('value'));
@@ -464,9 +468,10 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             'Compartilhar envia o mesmo resumo',
         );
 
-        // EDT-005/PMC-003 (dc L.2930): "Imprimir resumo" logo depois de Compartilhar, com o MESMO
-        // resumo (o pasta-processo.js reaproveita `linhasDoResumo`) e o título "Processo N".
-        $imprimir = $menu->filter('.ps-processo-menu > .js-proc-compartilhar + button.js-proc-imprimir[role="menuitem"]');
+        // EDT-005/PMC-003 (dc L.2930): "Imprimir resumo" depois de Compartilhar e do "Relatório geral de
+        // processos" (spec relatorio-processos-controladoria), com o MESMO resumo (o pasta-processo.js
+        // reaproveita `linhasDoResumo`) e o título "Processo N".
+        $imprimir = $menu->filter('.ps-processo-menu > .js-proc-compartilhar + a.js-relatorio-processos + button.js-proc-imprimir[role="menuitem"]');
         self::assertCount(1, $imprimir);
         self::assertSame('Imprimir resumo', trim($imprimir->text()));
         self::assertCount(1, $imprimir->filter('i.bi.bi-printer'));
@@ -545,7 +550,9 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $cartao->filter('article.ps-processo > .ps-processo-menu'));
         // Os contratos do XHR continuam.
         self::assertCount(1, $html->filter('form.js-ajax-processo-principal'), 'só o outro processo oferece "tornar principal"');
-        self::assertCount(2, $html->filter('form.js-ajax-desvincular-processo'));
+        // O promovido desvincula pelo form de sempre; o antigo principal virou apensado (P4f).
+        self::assertCount(1, $html->filter('form.js-ajax-desvincular-processo'));
+        self::assertCount(2, $html->filter('form.js-desvincular-apensado'), 'o X e o ⋮ do apensado');
         // Ids do ⋮ e do painel são únicos por processo.
         $ids = $html->filter('.ps-processo-menu, .ps-processo-detalhes')->each(static fn (Crawler $n): string => (string) $n->attr('id'));
         self::assertSame($ids, array_values(array_unique($ids)));

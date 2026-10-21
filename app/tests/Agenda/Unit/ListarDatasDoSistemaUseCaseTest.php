@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Agenda\Unit;
 
 use App\Agenda\DTO\DataDoSistemaOutput as D;
+use App\Agenda\Repository\AjusteDeDataRepository;
 use App\Agenda\Service\CalendarioDoSistema;
 use App\Agenda\Service\UfsDaAgenda;
 use App\Agenda\UseCase\ListarDatasDoSistemaUseCase;
@@ -99,7 +100,7 @@ final class ListarDatasDoSistemaUseCaseTest extends TestCase
         $tenant->setEstado('DF');
         $repo = $this->createStub(FeriadoRepository::class);
         $repo->method('findByTenant')->willReturn([]);
-        $sut = new ListarDatasDoSistemaUseCase(new CalendarioDoSistema(), new UfsDaAgenda(), $repo);
+        $sut = new ListarDatasDoSistemaUseCase(new CalendarioDoSistema(), new UfsDaAgenda(), $repo, $this->semAjustes());
 
         $r = $sut->executar($tenant, 'Maceió/AL', new \DateTimeImmutable('2026-06-24'), new \DateTimeImmutable('2026-06-24'));
 
@@ -116,7 +117,7 @@ final class ListarDatasDoSistemaUseCaseTest extends TestCase
     {
         $repo = $this->createStub(FeriadoRepository::class);
         $repo->method('findByTenant')->willReturn($feriados);
-        $sut = new ListarDatasDoSistemaUseCase(new CalendarioDoSistema(), new UfsDaAgenda(), $repo);
+        $sut = new ListarDatasDoSistemaUseCase(new CalendarioDoSistema(), new UfsDaAgenda(), $repo, $this->semAjustes());
 
         return $sut->executar(new Tenant(), null, new \DateTimeImmutable($de), new \DateTimeImmutable($ate));
     }
@@ -134,5 +135,13 @@ final class ListarDatasDoSistemaUseCaseTest extends TestCase
     private function so(array $datas, string $calendario): array
     {
         return array_values(array_filter($datas, static fn (D $d): bool => $d->calendario === $calendario));
+    }
+
+    private function semAjustes(): AjusteDeDataRepository
+    {
+        $repo = $this->createStub(AjusteDeDataRepository::class);
+        $repo->method('doEscritorio')->willReturn([]);
+
+        return $repo;
     }
 }

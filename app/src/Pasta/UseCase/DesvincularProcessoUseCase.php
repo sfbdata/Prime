@@ -16,11 +16,17 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Quem: usuário com permissão de edição na pasta. O quê: remover um processo da pasta — o
  * registro do Processo permanece (pode estar vinculado a outras pastas). Idempotente: se o
- * processo não estava vinculado, é no-op. Se o desvinculado era o principal e ainda restam
- * processos, o primeiro remanescente é promovido a principal.
+ * processo não estava vinculado, é no-op. Se o desvinculado era o principal, só é promovido o
+ * primeiro vínculo SEM tipo de apenso (vínculo antigo); apensado com tipo nunca vira principal, então a
+ * pasta com principal e apensados fica sem principal e com os apensados intactos (decisão do P4f,
+ * spec §2: embargos não é a ação principal).
  *
- * Registro (P5d, desenho `autoReg('proc', 'processo N desvinculado da pasta.')`): o cartão do sistema na
- * timeline, em nome de quem desvinculou; auditado pelo AuditLogSubscriber (PastaMensagem).
+ * Apensado (P4f): desvincular um apensado não mexe no principal e escreve o cartão do sistema
+ * "apensado X desvinculado." na timeline de Dados (`SYS.proc`, N:6711), em nome de quem desvinculou.
+ *
+ * Os demais (P5d, desenho `autoReg('proc', 'processo N desvinculado da pasta.')`): o cartão do sistema
+ * "processo N desvinculado da pasta." na timeline, em nome de quem desvinculou. Os dois cartões são
+ * auditados pelo AuditLogSubscriber (PastaMensagem).
  */
 final class DesvincularProcessoUseCase
 {
@@ -34,9 +40,14 @@ final class DesvincularProcessoUseCase
     public function executar(Pasta $pasta, Processo $processo, ?User $usuario = null): void
     {
         $estava = $pasta->temProcesso($processo);
+        $eraApensado = $pasta->ehApensado($processo);
+
         $pasta->desvincularProcesso($processo);
         if ($estava && $usuario !== null) {
-            $this->registro?->registrar($pasta, $usuario, 'proc', 'processo ' . $this->numero->numeroCnj($processo->getNumeroProcesso()) . ' desvinculado da pasta.');
+            $numero = $this->numero->numeroCnj($processo->getNumeroProcesso());
+            // Apensado com o texto do P4f (#91); os demais com o do P5d.
+            $texto = $eraApensado ? 'apensado ' . $numero . ' desvinculado.' : 'processo ' . $numero . ' desvinculado da pasta.';
+            $this->registro?->registrar($pasta, $usuario, 'proc', $texto);
         }
         $this->em->flush();
     }

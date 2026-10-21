@@ -24,8 +24,11 @@
    `.db-page` fica FORA da região que o XHR troca, então as classes sobrevivem a cada filtro. O
    dashboard-preferencias.js lê o estado de `data-preferencias` e grava pelo endpoint.
    `data-ia-avancado-escolhido`: o usuário já gravou o Modo avançado? Se não, ligar pede a
-   confirmação "Ativar Modo Avançado?" (só na primeira vez). #}
+   confirmação "Ativar Modo Avançado?" (só na primeira vez).
+   `data-perfil-sons`: "Sons de alerta" do Meu Perfil (perfil_sons()); com "0" o calendário do
+   dashboard-filtros.js fica mudo, mesmo com `dashboard.sons` ligado. #}
 <section class="db-page{{ preferencias.classesCss() != '' ? ' ' ~ preferencias.classesCss() : '' }}"
+         data-perfil-sons="{{ perfil_sons() ? '1' : '0' }}"
          data-preferencias="{{ preferencias.paraArray()|json_encode|e('html_attr') }}"
          data-preferencias-endpoint="{{ path('dashboard_preferencias_salvar') }}"
          data-ia-avancado-escolhido="{{ preferencias.iaAvancadoEscolhido ? 'sim' : 'nao' }}">

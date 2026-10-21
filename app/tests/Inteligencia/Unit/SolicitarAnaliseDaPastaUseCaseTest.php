@@ -13,6 +13,7 @@ use App\Inteligencia\DTO\SolicitarAnaliseDaPastaInput;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Enum\TipoDeAnalise;
@@ -170,7 +171,21 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
             $montador,
             $this->analises,
             new EnfileiradorDeAnalise($this->analises, $this->bus, new NullLogger()),
+            $this->visibilidadeDasAbas(),
         );
+    }
+
+    /** @var list<\App\Pasta\Entity\AbaOcultaDaPasta> regras de aba oculta da pasta (ocultar aba) */
+    private array $regrasDeAba = [];
+
+    private function visibilidadeDasAbas(): \App\Pasta\Service\VisibilidadeDasAbasDaPasta
+    {
+        $regras = $this->createStub(\App\Pasta\Repository\AbaOcultaDaPastaRepository::class);
+        $regras->method('daPasta')->willReturn($this->regrasDeAba);
+        $vinculos = $this->createStub(\App\Repository\UserTenantRepository::class);
+        $primarios = new \App\Tenant\Service\RegraDosPrimarios($vinculos);
+
+        return new \App\Pasta\Service\VisibilidadeDasAbasDaPasta($regras, $primarios, new \App\Pasta\Service\EquipeQuePodeTerAbaOculta($vinculos, $primarios));
     }
 
     private function input(Agente $agente = Agente::Gestor, int $pastaId = self::PASTA_ID): SolicitarAnaliseDaPastaInput
@@ -350,6 +365,22 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
         self::assertArrayNotHasKey('financeiro', $resumo['secoes']);
     }
 
+    #[TestDox('aba oculta para quem pede: a solicitação grava as abas ocultas e a seção delas não é montada')]
+    public function testAbaOcultaFicaForaEGravada(): void
+    {
+        $this->regrasDeAba = [\App\Pasta\Entity\AbaOcultaDaPasta::paraTodaAEquipe($this->tenant, $this->pasta, \App\Pasta\Entity\AbaDaPasta::Tarefas, $this->user, new \DateTimeImmutable())];
+        $this->analises->method('findPendenteDoAlvo')->willReturn(null);
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturn(null);
+        $salvas = $this->capturarSalva();
+
+        $this->sut()->executar($this->input(Agente::Gestor), $this->user, $this->tenant);
+
+        $resumo = $salvas[0]->getContextoResumo();
+        self::assertSame(['tarefas'], $resumo['abasOcultas']);
+        self::assertArrayNotHasKey('metas', $resumo['secoes']);
+        self::assertSame(1, $resumo['secoes']['movimentacoes']);
+    }
+
     #[TestDox('agente que não lê financeiro nem pergunta pela visibilidade')]
     public function testAgenteSemFinanceiroNaoConsultaVisibilidade(): void
     {
@@ -404,5 +435,167 @@ final class SolicitarAnaliseDaPastaUseCaseTest extends TestCase
         $this->expectException(ContextoBloqueadoException::class);
 
         $this->sut()->executar($this->input(), $this->user, $this->tenant);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Comandos do drawer (spec inteligencia-drawer-da-pasta, F1/F2)
+    // ---------------------------------------------------------------------------------------
+
+    private function analiseDoComando(Comando $comando, string $hash, bool $concluida): AnaliseDeInteligencia
+    {
+        $a = new AnaliseDeInteligencia($this->tenant, $this->user, TipoDeAnalise::AnalisePasta, AnaliseDeInteligencia::ALVO_PASTA, self::PASTA_ID, PromptDoAgente::VERSAO, $hash, ['total' => 1], $comando->agente(), $comando);
+        DefineId::em($a, 200);
+        if ($concluida) {
+            $a->iniciarProcessamento();
+            $a->concluir('Resumo do comando.', [], null, '{}', 'falso', 'falso-1', 1, 1, 1, 'TEXTO DO COMANDO');
+        }
+
+        return $a;
+    }
+
+    #[TestDox('comando: o agente é o do comando, a linha grava o comando e o resumo do contexto o leva')]
+    public function testComandoGravaOComandoEUsaOAgenteDele(): void
+    {
+        $this->analises->method('findPendenteDoAlvo')->willReturn(null);
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturn(null);
+        $salvas = $this->capturarSalva();
+
+        // O agente do input é ignorado quando há comando: vale o do comando.
+        $input = new SolicitarAnaliseDaPastaInput(self::PASTA_ID, Agente::Juridico, Comando::IdentificarRiscos);
+        $saida = $this->sut()->executar($input, $this->user, $this->tenant);
+
+        self::assertCount(1, $salvas);
+        /** @var AnaliseDeInteligencia $gravada */
+        $gravada = $salvas[0];
+        self::assertSame(Comando::IdentificarRiscos, $gravada->getComando());
+        self::assertSame(Agente::Gestor, $gravada->getAgente());
+        self::assertSame('identificar_riscos', $gravada->getContextoResumo()['comando']);
+        self::assertSame('identificar_riscos', $saida->comando);
+        self::assertSame('Identificar riscos', $saida->comandoRotulo);
+        self::assertSame('gestor', $saida->agente);
+        self::assertCount(1, $this->despachadas);
+    }
+
+    #[TestDox('comando: a consulta de idempotência vai POR COMANDO (o repositório recebe o comando)')]
+    public function testIdempotenciaConsultaPorComando(): void
+    {
+        $vistos = [];
+        $this->analises->method('findPendenteDoAlvo')->willReturnCallback(
+            static function (Tenant $t, string $alvo, int $id, TipoDeAnalise $tipo, ?Agente $agente = null, ?Comando $comando = null) use (&$vistos): ?AnaliseDeInteligencia {
+                $vistos[] = ['pendente', $agente, $comando];
+
+                return null;
+            },
+        );
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturnCallback(
+            static function (Tenant $t, string $alvo, int $id, TipoDeAnalise $tipo, ?Agente $agente = null, ?Comando $comando = null) use (&$vistos): ?AnaliseDeInteligencia {
+                $vistos[] = ['ultima', $agente, $comando];
+
+                return null;
+            },
+        );
+        $this->capturarSalva();
+
+        $this->sut()->executar(SolicitarAnaliseDaPastaInput::doComando(self::PASTA_ID, Comando::VerificarPrazos), $this->user, $this->tenant);
+
+        self::assertSame([
+            ['pendente', Agente::Prazos, Comando::VerificarPrazos],
+            ['ultima', Agente::Prazos, Comando::VerificarPrazos],
+        ], $vistos);
+    }
+
+    #[TestDox('comando: pendente do MESMO comando → devolve a mesma com o rótulo do comando no aviso, sem novo dispatch')]
+    public function testPendenteDoMesmoComando(): void
+    {
+        $pendente = $this->analiseDoComando(Comando::IdentificarRiscos, 'h', false);
+        $this->analises->method('findPendenteDoAlvo')->willReturnCallback(
+            static fn (Tenant $t, string $alvo, int $id, TipoDeAnalise $tipo, ?Agente $agente = null, ?Comando $comando = null): ?AnaliseDeInteligencia => $comando === Comando::IdentificarRiscos ? $pendente : null,
+        );
+        $this->analises->expects($this->never())->method('salvar');
+
+        $saida = $this->sut()->executar(SolicitarAnaliseDaPastaInput::doComando(self::PASTA_ID, Comando::IdentificarRiscos), $this->user, $this->tenant);
+
+        self::assertSame(200, $saida->id);
+        self::assertSame('Já existe uma análise "Identificar riscos" em andamento.', $saida->aviso);
+        self::assertSame([], $this->despachadas);
+    }
+
+    #[TestDox('comando: pendente de OUTRO comando do mesmo agente não trava este')]
+    public function testPendenteDeOutroComandoDoMesmoAgenteNaoTrava(): void
+    {
+        $pendenteDeAnalisar = $this->analiseDoComando(Comando::AnalisarPasta, 'h', false);
+        $this->analises->method('findPendenteDoAlvo')->willReturnCallback(
+            static fn (Tenant $t, string $alvo, int $id, TipoDeAnalise $tipo, ?Agente $agente = null, ?Comando $comando = null): ?AnaliseDeInteligencia => $comando === Comando::AnalisarPasta ? $pendenteDeAnalisar : null,
+        );
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturn(null);
+        $salvas = $this->capturarSalva();
+
+        $saida = $this->sut()->executar(SolicitarAnaliseDaPastaInput::doComando(self::PASTA_ID, Comando::IdentificarRiscos), $this->user, $this->tenant);
+
+        self::assertCount(1, $salvas);
+        self::assertSame('identificar_riscos', $saida->comando);
+        self::assertCount(1, $this->despachadas);
+    }
+
+    #[TestDox('comando: contexto igual ao da última concluída do comando → "Nada novo" com o rótulo do comando')]
+    public function testNadaNovoPorComando(): void
+    {
+        $this->analises->method('findPendenteDoAlvo')->willReturn(null);
+        $salvas = $this->capturarSalva();
+        $this->sut()->executar(SolicitarAnaliseDaPastaInput::doComando(self::PASTA_ID, Comando::RelatorioPrazos), $this->user, $this->tenant);
+        $hash = $salvas[0]->getContextoHash();
+
+        $this->setUp();
+        $ultima = $this->analiseDoComando(Comando::RelatorioPrazos, $hash, true);
+        $this->analises->method('findPendenteDoAlvo')->willReturn(null);
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturnCallback(
+            static fn (Tenant $t, string $alvo, int $id, TipoDeAnalise $tipo, ?Agente $agente = null, ?Comando $comando = null): ?AnaliseDeInteligencia => $comando === Comando::RelatorioPrazos ? $ultima : null,
+        );
+        $this->analises->expects($this->never())->method('salvar');
+
+        $saida = $this->sut()->executar(SolicitarAnaliseDaPastaInput::doComando(self::PASTA_ID, Comando::RelatorioPrazos), $this->user, $this->tenant);
+
+        self::assertSame(200, $saida->id);
+        self::assertSame('Nada novo desde a última análise "Relatório de prazos".', $saida->aviso);
+        self::assertSame([], $this->despachadas);
+    }
+
+    #[TestDox('o comando entra no hash: dois comandos do mesmo agente, mesmos dados, hashes diferentes; sem comando, o hash de antes')]
+    public function testComandoEntraNoHash(): void
+    {
+        $this->analises->method('findPendenteDoAlvo')->willReturn(null);
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturn(null);
+        $salvas = $this->capturarSalva();
+
+        $this->sut()->executar(SolicitarAnaliseDaPastaInput::doComando(self::PASTA_ID, Comando::AnalisarPasta), $this->user, $this->tenant);
+        $this->sut()->executar(SolicitarAnaliseDaPastaInput::doComando(self::PASTA_ID, Comando::IdentificarRiscos), $this->user, $this->tenant);
+        $this->sut()->executar($this->input(Agente::Gestor), $this->user, $this->tenant);
+
+        self::assertCount(3, $salvas);
+        self::assertNotSame($salvas[0]->getContextoHash(), $salvas[1]->getContextoHash());
+        self::assertNotSame($salvas[0]->getContextoHash(), $salvas[2]->getContextoHash());
+    }
+
+    #[TestDox('compatibilidade: sem comando, o pedido continua por agente (repositório sem comando, linha e resumo sem comando)')]
+    public function testSemComandoContinuaPorAgente(): void
+    {
+        $comandosVistos = [];
+        $this->analises->method('findPendenteDoAlvo')->willReturnCallback(
+            static function (Tenant $t, string $alvo, int $id, TipoDeAnalise $tipo, ?Agente $agente = null, ?Comando $comando = null) use (&$comandosVistos): ?AnaliseDeInteligencia {
+                $comandosVistos[] = $comando;
+
+                return null;
+            },
+        );
+        $this->analises->method('findUltimaConcluidaDoAlvo')->willReturn(null);
+        $salvas = $this->capturarSalva();
+
+        $saida = $this->sut()->executar($this->input(Agente::Prazos), $this->user, $this->tenant);
+
+        self::assertSame([null], $comandosVistos);
+        self::assertNull($salvas[0]->getComando());
+        self::assertSame(Agente::Prazos, $salvas[0]->getAgente());
+        self::assertArrayNotHasKey('comando', $salvas[0]->getContextoResumo());
+        self::assertNull($saida->comando);
     }
 }

@@ -6,11 +6,11 @@ namespace App\Central\UseCase;
 
 use App\Central\DTO\ContatoOutput;
 use App\Central\DTO\ConversaResumoOutput;
-use App\Central\DTO\MensagemOutput;
 use App\Central\Exception\SemAcessoACentralException;
 use App\Central\Repository\MensagemRepository;
 use App\Central\Repository\ParticipanteRepository;
 use App\Central\Service\AcessoACentral;
+use App\Central\Service\LeituraDasMensagens;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 
@@ -22,6 +22,7 @@ use App\Entity\Tenant\Tenant;
  * B: grupos entram na mesma lista (participação ativa), fixadas primeiro; as arquivadas vêm marcadas e a tela decide
  * mostrar ou não ("Ver conversas arquivadas").
  * Conversa limpa ("Excluir", `LimparConversaUseCase`) fica fora até chegar mensagem depois da limpeza.
+ * A prévia da última mensagem sai por {@see LeituraDasMensagens} (despacho de pasta que eu não vejo não vaza na lista).
  */
 final class ListarConversasUseCase
 {
@@ -29,6 +30,7 @@ final class ListarConversasUseCase
         private readonly AcessoACentral $acesso,
         private readonly ParticipanteRepository $participantes,
         private readonly MensagemRepository $mensagens,
+        private readonly LeituraDasMensagens $leitura,
     ) {
     }
 
@@ -48,6 +50,7 @@ final class ListarConversasUseCase
         $ativos = $this->acesso->idsComVinculoAtivo($tenant);
         $pessoasPorConversa = $this->participantes->ativosPorConversa($ids, $tenant);
 
+        $memoria = [];
         $lista = [];
         foreach ($participacoes as $participacao) {
             $conversa = $participacao->getConversa();
@@ -59,7 +62,7 @@ final class ListarConversasUseCase
             $lista[] = new ConversaResumoOutput(
                 id: $id,
                 outro: $outro !== null ? new ContatoOutput((int) $outro->getId(), (string) $outro->getFullName()) : null,
-                ultima: isset($ultimas[$id]) ? MensagemOutput::fromEntity($ultimas[$id], $eu) : null,
+                ultima: isset($ultimas[$id]) ? $this->leitura->saida($ultimas[$id], $eu, $memoria) : null,
                 naoLidas: $naoLidas[$id] ?? 0,
                 outroAtivo: $outro === null || isset($ativos[(int) $outro->getId()]),
                 marcadaNaoLida: $participacao->isMarcadaNaoLida(),

@@ -11,6 +11,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\InvitationRepository;
+use App\Tests\Auth\Doubles\VagaNoEscritorioDublada;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
@@ -24,10 +25,15 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use App\Auth\Event\ConviteDeEscritorioAceito;
 
 #[CoversClass(AceitarConviteEscritorioSemContaUseCase::class)]
 final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
 {
+    use VagaNoEscritorioDublada;
+    private EventDispatcher $eventos;
+
     private InvitationRepository&MockObject $invitationRepo;
     private UserRepository&MockObject $userRepo;
     private EntityManagerInterface&MockObject $em;
@@ -56,6 +62,8 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
             $this->hasher,
             $registrarAceite,
             new RegraDosPrimarios($this->userTenantRepo),
+            $this->eventos = new EventDispatcher(),
+            $this->vagaNoEscritorio(),
         );
         $this->tenant = new Tenant();
     }
@@ -83,6 +91,8 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
 
     public function testHappyPathFullNameNoInputCriaUserEUserTenant(): void
     {
+        $capturados = [];
+        $this->eventos->addListener(ConviteDeEscritorioAceito::class, static function (object $e) use (&$capturados): void { $capturados[] = $e; });
         $invitation = $this->makeInvitation();
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
         $this->userRepo->method('findOneBy')->willReturn(null);
@@ -103,6 +113,8 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
         self::assertSame('accepted', $invitation->getStatus());
         self::assertSame($resultado, $invitation->getAcceptedAsUser());
         self::assertCount(2, $persistidos);
+        self::assertCount(1, $capturados);
+        self::assertFalse($capturados[0]->comoPrimario);
     }
 
     public function testFullNameVazioUsaNomeDaInvitation(): void
@@ -169,7 +181,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
 
         $this->expectException(\DomainException::class);
 
-        $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('invalido', 'Nome', 'senha'));
+        $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('invalido', 'Nome', 'senha123'));
     }
 
     public function testStatusNaoPendingLancaExcecao(): void
@@ -181,7 +193,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
 
         $this->expectException(\DomainException::class);
 
-        $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha'));
+        $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha123'));
     }
 
     public function testInvitationExpiradaLancaExcecao(): void
@@ -193,7 +205,19 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('expirado');
 
-        $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha'));
+        $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha123'));
+    }
+
+    public function testSenhaCurtaLancaExcecao(): void
+    {
+        $invitation = $this->makeInvitation();
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        $this->em->expects($this->never())->method('persist');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('A senha deve ter ao menos 8 caracteres.');
+
+        $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'curta', aceiteTermos: true));
     }
 
     public function testEmailJaTemContaLancaExcecao(): void
@@ -206,7 +230,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('Já existe uma conta');
 
-        $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha'));
+        $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha123'));
     }
 
     public function testFullNameVazioEInvitationNullLancaExcecao(): void
@@ -219,7 +243,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Nome completo é obrigatório');
 
-        $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('tok123', '', 'senha'));
+        $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('tok123', '', 'senha123'));
     }
 
     public function testInvitationSemTenantLancaExcecao(): void
@@ -238,7 +262,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('escritório não encontrado');
 
-        $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha'));
+        $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha123'));
     }
 
     public function testSemAceitarTermosLancaExcecao(): void

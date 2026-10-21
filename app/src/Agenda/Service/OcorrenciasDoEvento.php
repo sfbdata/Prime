@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Agenda\Service;
 
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 
 /**
  * Ocorrências de um evento num período. Mesma regra da agenda antiga
