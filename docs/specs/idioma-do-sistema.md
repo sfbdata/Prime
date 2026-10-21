@@ -131,6 +131,6 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   outras áreas (`central/_flutuante`, `ponto/_modal_alerta_ponto`, `_recurso_faixa_master`,
   `layout/_cabecalho_acoes`, `contribua/*`); o "App já instalado ✓" do script inline do base (roda antes do
   `bj-traducao.js`).
-- **Para o dono decidir depois:** o rótulo "Português (Brasil)" ao lado do item Idioma do menu está fixo no template;
-  o certo é `idioma_atual().nome`, mas trocar muda comportamento e ficou fora desta entrega.
+- O rótulo ao lado do item Idioma do menu, que era "Português (Brasil)" fixo, passou a `idioma_atual().nome`, como no
+  Meu Perfil (#199); com só o português liberado, a tela não muda (combinado com a 0d).
 

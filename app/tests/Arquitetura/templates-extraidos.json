@@ -32,7 +32,6 @@
             "menu-usuario.js"
         ],
         "permitidos": [
-            "Português (Brasil)",
             "PIX",
             "Content-Type",
             "Escape"

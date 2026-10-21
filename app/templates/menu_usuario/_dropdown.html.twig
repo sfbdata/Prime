@@ -75,7 +75,7 @@
         {% if recurso_visivel('idioma') %}
         <button type="button" class="dropdown-item mu-item {{ recurso_marca('idioma') }}" role="menuitem" data-mu-idioma>
             <i class="bi bi-translate"></i><span class="mu-item-texto"><span class="mu-item-titulo">{{ 'menu.usuario.dropdown.idioma'|trans }}</span></span>
-            <span class="mu-item-dir">Português (Brasil)</span>
+            <span class="mu-item-dir">{{ idioma_atual().nome }}</span>
         </button>
         {% endif %}
         {% if recurso_visivel('instalar') %}
