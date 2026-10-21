@@ -1136,6 +1136,7 @@
         conectado: 'Google Agenda conectado. Os compromissos já estão sendo sincronizados.',
         cancelado: 'A conexão com o Google Agenda foi cancelada.',
         falhou: 'Não foi possível conectar ao Google Agenda. Tente de novo.',
+        limite: 'Muitas tentativas com o Google Agenda. Tente de novo em alguns minutos.',
     };
     function googleSincronizar() {
         const u = url.googleConectar;
@@ -1165,7 +1166,7 @@
         } catch (e) { avisar(e.message); }
     }
     function avisoDaVoltaDoGoogle() {
-        const m = location.hash.match(/google=(conectado|cancelado|falhou)/);
+        const m = location.hash.match(/google=(conectado|cancelado|falhou|limite)/);
         if (!m) { return; }
         history.replaceState(null, '', location.pathname + location.search);
         avisar(AVISOS_GOOGLE[m[1]]);
