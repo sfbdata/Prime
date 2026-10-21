@@ -29,6 +29,7 @@ final class CadastroController extends AbstractController
         private readonly ConfirmarEmailDaContaUseCase $confirmarEmail,
         private readonly ConfirmarCadastroUseCase $confirmarCadastro,
         private readonly RateLimiterFactoryInterface $cadastroAutoLimiter,
+        private readonly ContaAConfirmar $contaAConfirmar,
     ) {}
 
     #[Route('/cadastro', name: 'auth_cadastro', methods: ['GET'])]
@@ -66,7 +67,7 @@ final class CadastroController extends AbstractController
         }
 
         // Sem login: a tela mostra "Confirme seu e-mail". A sessão guarda a conta para o botão de reenviar o link.
-        ContaAConfirmar::guardar($request->getSession(), $conta->user);
+        $this->contaAConfirmar->guardar($request->getSession(), $conta->user);
 
         return $this->json(['ok' => true, 'confirmar' => true, 'email' => $conta->user->getEmail()]);
     }

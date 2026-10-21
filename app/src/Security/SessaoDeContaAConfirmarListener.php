@@ -49,6 +49,7 @@ final class SessaoDeContaAConfirmarListener
     public function __construct(
         private readonly Security $security,
         private readonly UrlGeneratorInterface $urlGenerator,
+        private readonly ContaAConfirmar $contaAConfirmar,
     ) {
     }
 
@@ -67,7 +68,7 @@ final class SessaoDeContaAConfirmarListener
         // O logout invalida a sessão; a chave do reenvio vai para a sessão nova, depois dele.
         $this->security->logout(false);
         if ($request->hasSession()) {
-            ContaAConfirmar::guardar($request->getSession(), $user);
+            $this->contaAConfirmar->guardar($request->getSession(), $user);
         }
 
         $event->setResponse(PedidoDeNavegacao::eNavegacao($request) || PedidoDeNavegacao::eQuadroInterno($request)

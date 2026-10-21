@@ -34,7 +34,7 @@ final class SecurityController extends AbstractController
      * com as ferramentas SÓ MASTER; qualquer outro logado segue para o sistema.
      */
     #[Route(path: '/login', name: 'app_login')]
-    public function login(AuthenticationUtils $authenticationUtils, PaginaDeEntrada $paginaDeEntrada, Request $request, UserRepository $userRepository): Response
+    public function login(AuthenticationUtils $authenticationUtils, PaginaDeEntrada $paginaDeEntrada, Request $request, UserRepository $userRepository, ContaAConfirmar $contaAConfirmar): Response
     {
         $logado = $this->getUser();
         $usuario = $logado instanceof User ? $logado : null;
@@ -47,7 +47,7 @@ final class SecurityController extends AbstractController
         return $this->render('security/login.html.twig', [
             'last_username' => $authenticationUtils->getLastUsername(),
             'error' => $erro,
-            'a_confirmar' => $this->contaAConfirmar($request, $erro, $userRepository),
+            'a_confirmar' => $this->avisoDeContaAConfirmar($request, $erro, $userRepository, $contaAConfirmar),
             'pagina' => $paginaDeEntrada->montar($usuario),
             'abrir' => $this->passoParaAbrir($request),
             'frase' => self::FRASES[intdiv(time(), 86400) % count(self::FRASES)],
@@ -59,13 +59,13 @@ final class SecurityController extends AbstractController
      * quando a sessão guarda uma conta ainda a confirmar e o erro da tela, se houver, é essa mesma recusa. Outro erro
      * (senha errada de outra conta, por exemplo) não leva o botão. Conta que já confirmou sai da sessão.
      */
-    private function contaAConfirmar(Request $request, ?AuthenticationException $erro, UserRepository $userRepository): ?string
+    private function avisoDeContaAConfirmar(Request $request, ?AuthenticationException $erro, UserRepository $userRepository, ContaAConfirmar $contaAConfirmar): ?string
     {
         if (!$request->hasSession() || ($erro !== null && !$erro instanceof CustomUserMessageAccountStatusException)) {
             return null;
         }
 
-        $id = ContaAConfirmar::idNaSessao($request->getSession());
+        $id = $contaAConfirmar->idNaSessao($request->getSession());
         $conta = $id === null ? null : $userRepository->find($id);
         if (!$conta instanceof User || $conta->isEmailConfirmado()) {
             ContaAConfirmar::esquecer($request->getSession());

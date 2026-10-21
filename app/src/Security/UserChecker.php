@@ -14,6 +14,7 @@ class UserChecker implements UserCheckerInterface
 {
     public function __construct(
         private readonly RequestStack $requestStack,
+        private readonly ContaAConfirmar $contaAConfirmar,
     ) {
     }
 
@@ -41,7 +42,7 @@ class UserChecker implements UserCheckerInterface
 
         $request = $this->requestStack->getMainRequest();
         if ($request !== null && $request->hasSession()) {
-            ContaAConfirmar::guardar($request->getSession(), $user);
+            $this->contaAConfirmar->guardar($request->getSession(), $user);
         }
 
         throw new CustomUserMessageAccountStatusException(ContaAConfirmar::MENSAGEM_LOGIN, ['{email}' => (string) $user->getEmail()]);

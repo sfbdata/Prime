@@ -14,7 +14,9 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
@@ -79,7 +81,7 @@ final class ReenvioPublicoDeConfirmacaoTest extends JusPrimeWebTestCase
     private function guardarNaSessao(int $id): void
     {
         $sessao = $this->client->getSession();
-        $sessao->set(ContaAConfirmar::CHAVE_SESSAO, $id);
+        $sessao->set(ContaAConfirmar::CHAVE_SESSAO, ['id' => $id, 'em' => time()]);
         $sessao->save();
     }
 
@@ -242,6 +244,21 @@ final class ReenvioPublicoDeConfirmacaoTest extends JusPrimeWebTestCase
         $this->pedir();
 
         self::assertSame(['info' => [ContaAConfirmar::SEM_CONTA_NA_SESSAO]], $this->flashes());
+        self::assertFalse($this->client->getRequest()->getSession()->has(ContaAConfirmar::CHAVE_SESSAO));
+    }
+
+    #[TestDox('Chave de mais de 30 minutos: resposta neutra, nada enviado e a chave sai da sessão')]
+    public function testChaveVencida(): void
+    {
+        $relogio = new MockClock(new \DateTimeImmutable());
+        static::getContainer()->set(ClockInterface::class, $relogio);
+        $user = $this->conta();
+        $this->guardarNaSessao((int) $user->getId());
+        $relogio->sleep(31 * 60);
+
+        self::assertSame(['ok' => true, 'mensagem' => ContaAConfirmar::SEM_CONTA_NA_SESSAO], $this->pedirJson());
+        self::assertSame([], $this->emailsEnviados());
+        self::assertSame(0, $this->linksDa($user));
         self::assertFalse($this->client->getRequest()->getSession()->has(ContaAConfirmar::CHAVE_SESSAO));
     }
 }

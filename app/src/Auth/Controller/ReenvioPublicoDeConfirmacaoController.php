@@ -33,6 +33,7 @@ final class ReenvioPublicoDeConfirmacaoController extends AbstractController
         private readonly ReenviarConfirmacaoDeEmailUseCase $reenviar,
         private readonly TetoDoReenvioDeConfirmacao $teto,
         private readonly UserRepository $userRepository,
+        private readonly ContaAConfirmar $contaAConfirmar,
     ) {
     }
 
@@ -71,7 +72,7 @@ final class ReenvioPublicoDeConfirmacaoController extends AbstractController
     /** A conta guardada na sessão, se ainda existe e está ativa; senão, esquece a chave. */
     private function contaDaSessao(SessionInterface $sessao): ?User
     {
-        $id = ContaAConfirmar::idNaSessao($sessao);
+        $id = $this->contaAConfirmar->idNaSessao($sessao);
         $user = $id === null ? null : $this->userRepository->find($id);
         if ($user instanceof User && $user->isActive()) {
             return $user;

@@ -151,7 +151,7 @@ final class ContaConfirmacaoControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseRedirects('/login');
         self::assertNull(static::getContainer()->get('security.token_storage')->getToken());
-        self::assertSame($user->getId(), $this->client->getRequest()->getSession()->get(ContaAConfirmar::CHAVE_SESSAO));
+        self::assertSame($user->getId(), $this->client->getRequest()->getSession()->get(ContaAConfirmar::CHAVE_SESSAO)['id'] ?? null);
         self::assertSame([], $this->emailsEnviados());
         self::assertSame(0, $this->linksDa($user));
     }

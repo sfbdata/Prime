@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\Service;
 
 use App\Entity\Auth\User;
+use Psr\Clock\ClockInterface;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 
 /**
@@ -15,10 +16,16 @@ use Symfony\Component\HttpFoundation\Session\SessionInterface;
  * A chave só é gravada por quem já provou ser a dona da conta neste navegador: o cadastro que acabou de criá-la, o
  * login com a senha certa (`UserChecker::checkPostAuth`) e a sessão já aberta que é encerrada
  * (`SessaoDeContaAConfirmarListener`). O reenvio público lê dali, nunca de um e-mail digitado.
+ *
+ * Num navegador compartilhado a chave não pode ficar para a próxima pessoa: ela guarda o momento e vale por
+ * `VALIDADE` (30 minutos), e sai quando outra conta entra com sucesso (`EsquecerContaAConfirmarNoLoginListener`).
  */
 final class ContaAConfirmar
 {
     public const CHAVE_SESSAO = 'conta_a_confirmar';
+
+    /** Quanto tempo a chave vale depois de gravada. */
+    public const VALIDADE = '+30 minutes';
 
     /** Intenção do CSRF do reenvio público (formulário da tela de entrada e modal do cadastro). */
     public const CSRF = 'confirmacao_reenviar_publico';
@@ -42,16 +49,34 @@ final class ContaAConfirmar
         return strtr(self::MENSAGEM_LOGIN, ['{email}' => $email]);
     }
 
-    public static function guardar(SessionInterface $sessao, User $user): void
-    {
-        $sessao->set(self::CHAVE_SESSAO, $user->getId());
+    public function __construct(
+        private readonly ClockInterface $relogio,
+    ) {
     }
 
-    public static function idNaSessao(SessionInterface $sessao): ?int
+    public function guardar(SessionInterface $sessao, User $user): void
     {
-        $id = $sessao->get(self::CHAVE_SESSAO);
+        $sessao->set(self::CHAVE_SESSAO, ['id' => $user->getId(), 'em' => $this->relogio->now()->getTimestamp()]);
+    }
 
-        return is_int($id) && $id > 0 ? $id : null;
+    /** O id da conta guardada, se a chave é válida e não venceu; senão, esquece a chave e devolve null. */
+    public function idNaSessao(SessionInterface $sessao): ?int
+    {
+        $valor = $sessao->get(self::CHAVE_SESSAO);
+        if ($valor === null) {
+            return null;
+        }
+
+        $id = is_array($valor) ? ($valor['id'] ?? null) : null;
+        $em = is_array($valor) ? ($valor['em'] ?? null) : null;
+        $agora = $this->relogio->now();
+        if (!is_int($id) || $id <= 0 || !is_int($em) || $agora > $agora->setTimestamp($em)->modify(self::VALIDADE)) {
+            self::esquecer($sessao);
+
+            return null;
+        }
+
+        return $id;
     }
 
     public static function esquecer(SessionInterface $sessao): void

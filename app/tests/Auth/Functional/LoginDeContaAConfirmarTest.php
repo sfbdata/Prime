@@ -22,8 +22,11 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
@@ -93,9 +96,23 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         self::assertCount(1, $tela->filter('form#lgReenvio[method="post"][action="/login/reenviar-confirmacao"] > input[name="_token"]'));
     }
 
+    /** O id guardado na chave do reenvio (a chave guarda também o momento). */
     private function chaveNaSessao(KernelBrowser $client): mixed
     {
-        return $client->getRequest()->getSession()->get(ContaAConfirmar::CHAVE_SESSAO);
+        $valor = $client->getRequest()->getSession()->get(ContaAConfirmar::CHAVE_SESSAO);
+
+        return is_array($valor) ? ($valor['id'] ?? null) : $valor;
+    }
+
+    /** A resposta manda o cookie do lembrar-me vencido (o Symfony apaga com expiração no passado). */
+    private static function assertApagouOLembrarMe(KernelBrowser $client): void
+    {
+        $lembrar = array_values(array_filter(
+            $client->getResponse()->headers->getCookies(),
+            static fn (Cookie $c): bool => $c->getName() === 'REMEMBERME',
+        ));
+        self::assertCount(1, $lembrar, 'a resposta tem de apagar o cookie do lembrar-me');
+        self::assertTrue($lembrar[0]->isCleared(), 'o REMEMBERME volta com expiração no passado');
     }
 
     #[TestDox('Login pelo formulário de conta a confirmar, com a senha certa: recusado com a mensagem e o botão de reenviar')]
@@ -168,6 +185,7 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         $client->request('GET', '/termos/aceitar');
 
         self::assertResponseRedirects('http://localhost/login');
+        self::assertApagouOLembrarMe($client);
         self::assertFalse($this->entrou($client));
         self::assertSame($user->getId(), $this->chaveNaSessao($client));
         self::assertTelaPedeConfirmacao($client->followRedirect(), $user);
@@ -184,6 +202,7 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         $client->request('GET', '/expediente');
 
         self::assertResponseRedirects('/login');
+        self::assertApagouOLembrarMe($client);
         self::assertFalse($this->entrou($client));
         self::assertTelaPedeConfirmacao($client->followRedirect(), $user);
 
@@ -320,6 +339,48 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         self::assertSelectorTextContains('.confirmacao-email h3', 'E-mail confirmado.');
         $this->enviarLogin($client, $email, self::SENHA);
         self::assertEntrouPeloVeu($client);
+    }
+
+    #[TestDox('Navegador compartilhado: outra conta entra com sucesso e a chave sai; o /login não mostra mais o aviso nem o botão')]
+    public function testOutraContaEntraEAChaveSai(): void
+    {
+        $client = static::createClient();
+        $user = $this->conta();
+        $this->enviarLogin($client, (string) $user->getEmail(), self::SENHA);
+        self::assertSame($user->getId(), $this->chaveNaSessao($client));
+
+        // O Master logado continua vendo a tela de entrada: é por ela que se confere o que sobrou da outra pessoa.
+        $master = $this->conta(aConfirmar: false)->setRoles(['ROLE_SUPER_ADMIN']);
+        $this->em()->flush();
+        $this->enviarLogin($client, (string) $master->getEmail(), self::SENHA);
+        self::assertEntrouPeloVeu($client);
+        self::assertNull($this->chaveNaSessao($client));
+
+        $tela = $client->request('GET', '/login');
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $tela->filter('#lgReenviar, form#lgReenvio'));
+        self::assertStringNotContainsString((string) $user->getEmail(), (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('A chave vale 30 minutos: depois, o /login não mostra o aviso e o reenvio público responde o texto neutro')]
+    public function testChaveVenceEmTrintaMinutos(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $relogio = new MockClock(new \DateTimeImmutable());
+        static::getContainer()->set(ClockInterface::class, $relogio);
+        $user = $this->conta();
+        $this->enviarLogin($client, (string) $user->getEmail(), self::SENHA);
+        self::assertTelaPedeConfirmacao($client->followRedirect(), $user);
+
+        $relogio->sleep(31 * 60);
+        $tela = $client->request('GET', '/login');
+
+        self::assertCount(0, $tela->filter('#lgReenviar, form#lgReenvio'));
+        self::assertSame('', trim($tela->filter('#lgErro')->text()));
+        $client->jsonRequest('POST', '/login/reenviar-confirmacao', ['_token' => (string) $tela->filter('#lgRaiz')->attr('data-token-reenvio')], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+        self::assertSame(['ok' => true, 'mensagem' => ContaAConfirmar::SEM_CONTA_NA_SESSAO], json_decode((string) $client->getResponse()->getContent(), true));
+        self::assertEmailCount(0);
     }
 
     #[TestDox('O modal do cadastro tem o estado "Confirme seu e-mail" com os textos da spec, o reenvio e o "Ir para o login"')]

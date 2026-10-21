@@ -13,6 +13,11 @@ com o e-mail "a confirmar", o que deixa um terceiro cadastrar e usar o e-mail de
   para o `TetoDoReenvioDeConfirmacao`; `SessaoDeContaAConfirmarListener` encerra a sessão aberta. A tela de entrada
   mostra a mensagem e o botão sempre que a sessão guarda uma conta ainda a confirmar (inclusive depois do lembrar-me
   e da sessão encerrada, sem flash duplicado). Testes direcionados verdes; falta o smoke do dono na tela.
+- 22/10: ressalvas da revisão. A chave `conta_a_confirmar` guarda o momento e vale 30 minutos
+  (`ContaAConfirmar::VALIDADE`, com o relógio); sai quando outra conta entra com sucesso
+  (`EsquecerContaAConfirmarNoLoginListener`, `LoginSuccessEvent` do firewall main), para o navegador compartilhado não
+  mostrar o e-mail de uma pessoa à próxima. Testes provam também que o cookie REMEMBERME volta vencido na recusa do
+  lembrar-me e na sessão encerrada. A ordem com o gate dos Termos ficou como estava (ressalva aceita).
 
 ## Produção hoje (MCP jusprime-prod, 22/10, só contagens)
 

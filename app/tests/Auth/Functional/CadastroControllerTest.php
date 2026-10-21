@@ -175,7 +175,7 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         // só para o botão de reenviar o link.
         self::assertNull($client->getContainer()->get('security.token_storage')->getToken());
         self::assertNull($client->getRequest()->getSession()->get('current_tenant_id'));
-        self::assertSame($user->getId(), $client->getRequest()->getSession()->get(ContaAConfirmar::CHAVE_SESSAO));
+        self::assertSame($user->getId(), $client->getRequest()->getSession()->get(ContaAConfirmar::CHAVE_SESSAO)['id'] ?? null);
         $client->request('GET', '/cadastro');
         self::assertResponseRedirects('/login?abrir=cadastro');
     }
