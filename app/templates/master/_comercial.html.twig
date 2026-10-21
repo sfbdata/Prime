@@ -8,17 +8,31 @@
    na posição do dc: 1 · MODELO, 3 · MENSAGEM, a PRÉVIA DO E-MAIL, "Baixar HTML" e "Enviar teste" (ao Master logado).
    Fatia 2b: "2 · PARA QUEM" (dc L.236-239), a linha de destinatários (L.252), a Frequência (L.253), "Agendar" ou
    "Primeiro envio" e "Enviar campanha" (L.254), e o bloco Monitoramento com a lista de campanhas (L.282-286), sem as
-   métricas (fatia 3). Descadastrados, indicações e datas vêm nas seguintes. #}
+   métricas (fatia 3). Descadastrados, indicações e datas vêm nas seguintes.
+   F3h (spec §10, "F3h: modo venda"): `modo` = 'com' (padrão, esta seção) ou 'venda' (a mesma Central de envios na seção
+   Indicações, incluída pelo _indicacoes.html.twig; dc 05 VS 21.10.26 L627-645 e L846). A raiz leva `data-modo`. No
+   modo venda: sem o seletor de modelo (`cmMostraModelo`), passos 1 PARA QUEM e 2 MENSAGEM (`cmNPara`/`cmNMsg`), só
+   3 públicos em 3 colunas (`cmPubCols`), o botão "Cadastrar e-mail" (`cmLeadAdd`) e o filtro só com a busca e o
+   Estado (`cmNaoVenda`). Cada modo tem a sua raiz, o seu token, as suas URLs e ids próprios (prefixo `mc-venda-`); a
+   raiz da venda não usa `data-mc`, que é dos scripts da seção Comercial (Automações, Descadastrados, Relatório). #}
+{% set modo = modo|default('com') %}
+{% set venda = modo == 'venda' %}
+{% set ids = venda ? 'mc-venda' : 'mc' %}
+{% set passos = venda ? {para: 1, msg: 2} : {para: 2, msg: 3} %}
 <link rel="stylesheet" href="{{ asset('css/master-comercial.css') }}">
-<div class="mc" data-mc
+{% if venda %}
+<div class="mc mc-venda" data-mc-venda data-modo="venda" data-token="{{ csrf_token('master_comercial') }}">
+{% else %}
+<div class="mc" data-mc data-modo="com"
      data-url-automacoes="{{ path('master_comercial_automacoes') }}"
      data-url-alterar="{{ path('master_comercial_automacao', {chave: 'xchavex'}) }}"
      data-url-simular="{{ path('master_comercial_simular') }}"
      data-url-previa="{{ path('master_comercial_previa', {chave: 'xchavex'}) }}"
      data-token="{{ csrf_token('master_comercial') }}">
     {{ include('master/_comercial_descadastrados.html.twig') }}
+{% endif %}
     {# Nova campanha de e-mail (dc L.229-260). Os textos e a ordem são do dc; o JS desenha a grade e os blocos. #}
-    <section class="mc-caixa mc-cp" data-mc-campanha aria-labelledby="mc-cp-titulo"
+    <section class="mc-caixa mc-cp" data-mc-campanha aria-labelledby="{{ ids }}-cp-titulo"
              data-url-modelos="{{ path('master_comercial_modelos') }}"
              data-url-criar="{{ path('master_comercial_modelo_criar') }}"
              data-url-salvar="{{ path('master_comercial_modelo_salvar', {id: 'xidx'}) }}"
@@ -26,16 +40,22 @@
              data-url-previa="{{ path('master_comercial_previa_campanha') }}"
              data-url-teste="{{ path('master_comercial_teste') }}"
              data-url-contagem="{{ path('master_comercial_publicos_contagem') }}"
-             data-url-campanha="{{ path('master_comercial_campanha_confirmar') }}">
+             data-url-campanha="{{ path('master_comercial_campanha_confirmar') }}"{% if venda %}
+             data-url-contatos="{{ path('master_comercial_contatos_cadastrar') }}"{% endif %}>
         <div class="mc-cabeca mc-cp-cabeca">
             <i class="bi bi-megaphone mc-cp-cabeca-ic" aria-hidden="true"></i>
-            <b class="mc-cabeca-titulo" id="mc-cp-titulo">Central de envios · nova campanha</b>
-            {# dc 21.10 L251: abre o bloco Descadastrados (F3c, do 0d) pelo evento `mc:descadastrados-abrir`; o N vem do `mc:resumo`. #}
+            <b class="mc-cabeca-titulo" id="{{ ids }}-cp-titulo">Central de envios · nova campanha</b>
+            {# dc 21.10 L251: abre o bloco Descadastrados (F3c, do 0d) pelo evento `mc:descadastrados-abrir`; o N vem do `mc:resumo`.
+               F3h: o bloco Descadastrados mora na seção Comercial; no modo venda o botão fica de fora (ver o relatório da F3h). #}
+            {% if not venda %}
             <button type="button" class="mc-cp-descad" data-mc-cp-descad title="E-mails que pediram para não receber"><i class="bi bi-slash-circle" aria-hidden="true"></i>Descadastrados (<span data-mc-cp-descad-n>0</span>)</button>
+            {% endif %}
             <span class="mc-cabeca-sub">convites, ofertas, agradecimentos e novidades · individual ou em grande escala</span>
         </div>
         <div class="mc-cp-grade">
             <div class="mc-cp-col mc-cp-editor">
+                {# dc L254 `cmMostraModelo`: o seletor de modelo e as ações dele só na seção Comercial. #}
+                {% if not venda %}
                 <div class="mc-cp-passo">1 · MODELO</div>
                 <div class="mc-cp-modelos" data-mc-cp-modelos aria-busy="true"></div>
                 <div class="mc-cp-acoes">
@@ -47,18 +67,28 @@
                     <button type="button" class="mc-cp-acao mc-cp-acao-salvar" data-mc-cp-salvar data-mc-cp-so-proprio hidden><i class="bi bi-check2" aria-hidden="true"></i>Salvar modelo</button>
                     <button type="button" class="mc-cp-acao mc-cp-acao-excluir" data-mc-cp-excluir data-mc-cp-so-proprio hidden><i class="bi bi-trash" aria-hidden="true"></i>Excluir</button>
                 </div>
+                {% endif %}
                 {# 2 · PARA QUEM (dc L.236-239): os 6 públicos com os rótulos, os ícones e as descrições literais do dc (L.539). O número
                    vem da contagem do servidor. #}
-                <div class="mc-cp-passo mc-cp-passo-seguinte">2 · PARA QUEM</div>
-                <div class="mc-cp-publicos" data-mc-cp-publicos>
+                {% if venda %}
+                {# dc L258: no modo venda o cabeçalho do PARA QUEM leva o "Cadastrar e-mail" (`cmLeadAdd`, borda tracejada). #}
+                <div class="mc-cp-para-cabeca">
+                    <span class="mc-cp-passo"><span data-mc-cp-passo-n="para">{{ passos.para }}</span> · PARA QUEM</span>
+                    <button type="button" class="mc-cp-lead-add" data-mc-cp-lead-add title="Só cadastre quem autorizou receber (LGPD)"><i class="bi bi-person-plus" aria-hidden="true"></i> Cadastrar e-mail</button>
+                </div>
+                {% else %}
+                <div class="mc-cp-passo mc-cp-passo-seguinte"><span data-mc-cp-passo-n="para">{{ passos.para }}</span> · PARA QUEM</div>
+                {% endif %}
+                {# dc L640-645: no modo venda, só a base (com o rótulo e a descrição da venda), o CSV e o Individual, em 3 colunas. #}
+                <div class="mc-cp-publicos{{ venda ? ' mc-cp-publicos-3' }}" data-mc-cp-publicos>
                     {% for p in [
-                        ['leads', 'Base de contatos', 'bi-person-lines-fill', 'Inscritos pela página de vagas e campanhas'],
+                        ['leads', venda ? 'Novos contatos (base)' : 'Base de contatos', 'bi-person-lines-fill', venda ? 'Interessados ainda sem conta' : 'Inscritos pela página de vagas e campanhas'],
                         ['prim', 'Usuários primários', 'bi-person-badge', 'Quem abriu conta, em todas as contas'],
                         ['sec', 'Usuários secundários', 'bi-people', 'Convidados de todas as contas'],
                         ['todos', 'Todos os cadastrados', 'bi-buildings', 'Primários e secundários'],
                         ['csv', 'Importar lista (CSV)', 'bi-filetype-csv', 'Planilha com e-mail e nome'],
                         ['indiv', 'Individual', 'bi-person', 'Digite um ou mais e-mails'],
-                    ] %}
+                    ]|filter(p => not venda or p[0] in ['leads', 'csv', 'indiv']) %}
                         <button type="button" class="mc-cp-publico" data-mc-cp-publico="{{ p[0] }}" aria-pressed="{{ loop.first ? 'true' : 'false' }}"><i class="bi {{ p[2] }}" aria-hidden="true"></i><span class="mc-cp-publico-texto"><span class="mc-cp-publico-rot">{{ p[1] }}</span><span class="mc-cp-publico-desc">{{ p[3] }}</span></span><b class="mc-cp-publico-n" data-mc-cp-n></b></button>
                     {% endfor %}
                 </div>
@@ -66,15 +96,17 @@
                    campos estão preenchidos e "N de M com filtro" ou "Todos (M)"; aberto, a busca, os atalhos (L664), os
                    selects e a linha "N de M atendem ao filtro". Quem conta é o servidor (F2). #}
                 <div class="mc-cf" data-mc-cf>
-                    <button type="button" class="mc-cf-cabeca" data-mc-cf-abrir aria-expanded="false" aria-controls="mc-cf-painel">
+                    <button type="button" class="mc-cf-cabeca" data-mc-cf-abrir aria-expanded="false" aria-controls="{{ ids }}-cf-painel">
                         <i class="bi bi-funnel" aria-hidden="true"></i><b class="mc-cf-titulo">FILTRAR DESTINATÁRIOS</b>
                         <span class="mc-cf-selo" data-mc-cf-selo hidden></span>
                         <span class="mc-cf-espaco"></span>
                         <span class="mc-cf-curto" data-mc-cf-curto></span>
                         <i class="bi bi-chevron-down mc-cf-seta" data-mc-cf-seta aria-hidden="true"></i>
                     </button>
-                    <div class="mc-cf-painel" id="mc-cf-painel" data-mc-cf-painel hidden>
+                    <div class="mc-cf-painel" id="{{ ids }}-cf-painel" data-mc-cf-painel hidden>
                         <label class="mc-cf-busca"><i class="bi bi-envelope" aria-hidden="true"></i><input type="text" data-mc-cf-campo="q" maxlength="500" placeholder="E-mail ou nome específico (separe vários por vírgula)" aria-label="E-mail ou nome específico"></label>
+                        {# dc L262 `cmNaoVenda`: os atalhos e os selects (menos o Estado) só na seção Comercial. #}
+                        {% if not venda %}
                         <div class="mc-cf-atalhos" data-mc-cf-atalhos>
                             {% for a in [
                                 ['Todos', {}], ['Só mulheres', {gen: 'F'}], ['Só homens', {gen: 'M'}], ['Advogados', {cargo: 'adv'}],
@@ -83,6 +115,7 @@
                                 <button type="button" class="mc-cf-atalho" data-mc-cf-atalho="{{ a[1]|json_encode|e('html_attr') }}" aria-pressed="false">{{ a[0] }}</button>
                             {% endfor %}
                         </div>
+                        {% endif %}
                         <div class="mc-cf-selects">
                             {% set selects = [
                                 ['gen', 'Gênero: todos', [['F', 'Feminino'], ['M', 'Masculino']]],
@@ -94,7 +127,7 @@
                                 ['plano', 'Plano: todos', comercial_planos_do_filtro()|map(p => [p.codigo, p.nome])],
                                 ['aniv', 'Aniversário: todos', [['mes', 'Aniversariantes deste mês'], ['prox', 'Aniversariantes do próximo mês']]],
                             ] %}
-                            {% for s in selects %}
+                            {% for s in selects|filter(s => not venda or s[0] == 'uf') %}
                                 <select class="mc-cf-select" data-mc-cf-campo="{{ s[0] }}" aria-label="{{ s[1]|split(':')|first }}">
                                     <option value="">{{ s[1] }}</option>
                                     {% for o in s[2] %}<option value="{{ o[0] }}">{{ o[1] }}</option>{% endfor %}
@@ -106,7 +139,7 @@
                 </div>
                 <label class="mc-cp-csv" data-mc-cp-csv hidden><i class="bi bi-upload" aria-hidden="true"></i><span class="mc-cp-csv-txt" data-mc-cp-csv-txt>Selecionar arquivo .csv</span><input type="file" accept=".csv,.txt" class="mc-cp-arquivo" data-mc-cp-csv-arquivo></label>
                 <textarea class="mc-cp-individual" rows="2" placeholder="E-mails separados por vírgula" aria-label="E-mails separados por vírgula" data-mc-cp-individual hidden></textarea>
-                <div class="mc-cp-passo mc-cp-passo-seguinte">3 · MENSAGEM</div>
+                <div class="mc-cp-passo mc-cp-passo-seguinte"><span data-mc-cp-passo-n="msg">{{ passos.msg }}</span> · MENSAGEM</div>
                 <label class="mc-cp-campo">ASSUNTO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="assunto" maxlength="255"></label>
                 {# dc 21.10 L270: o selo acima do título (em maiúsculas ao digitar) e o nome só da prévia. #}
                 <div class="mc-cp-par">
@@ -141,7 +174,7 @@
                 <div class="mc-cp-barra">
                     <div class="mc-cp-enviar-grupo">
                         <button type="button" class="mc-cp-enviar" data-mc-cp-enviar><i class="bi bi-send" aria-hidden="true"></i><span data-mc-cp-enviar-txt>Enviar</span></button>
-                        <button type="button" class="mc-cp-enviar mc-cp-mais" data-mc-cp-mais title="Programar envio e frequência" aria-label="Programar envio e frequência" aria-expanded="false" aria-controls="mc-cp-programar"><i class="bi bi-caret-down-fill" aria-hidden="true"></i></button>
+                        <button type="button" class="mc-cp-enviar mc-cp-mais" data-mc-cp-mais title="Programar envio e frequência" aria-label="Programar envio e frequência" aria-expanded="false" aria-controls="{{ ids }}-cp-programar"><i class="bi bi-caret-down-fill" aria-hidden="true"></i></button>
                     </div>
                     <span class="mc-cp-vao"></span>
                     <button type="button" class="mc-cp-icone" data-mc-cp-ver title="Ver como vai chegar" aria-label="Ver como vai chegar"><i class="bi bi-eye" aria-hidden="true"></i></button>
@@ -150,7 +183,7 @@
                     <span class="mc-cp-vao"></span>
                     {{ include('master/_comercial_leitura.html.twig') }}
                     <span class="mc-cp-lgpd" tabindex="0" title="LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link 'Não quero mais receber', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam." aria-label="LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link 'Não quero mais receber', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam."><i class="bi bi-shield-check" aria-hidden="true"></i></span>
-                    <div class="mc-cp-programar" id="mc-cp-programar" data-mc-cp-programar data-sem-x="1" role="dialog" aria-label="Programar envio" hidden>
+                    <div class="mc-cp-programar" id="{{ ids }}-cp-programar" data-mc-cp-programar data-sem-x="1" role="dialog" aria-label="Programar envio" hidden>
                         <div class="mc-cp-programar-rot">PROGRAMAR ENVIO</div>
                         <input type="datetime-local" class="mc-cp-agenda-data" data-mc-cp-agenda aria-label="Data e hora do envio">
                         <div class="mc-cp-programar-rot">REPETIR</div>
@@ -167,11 +200,11 @@
         </div>
         {# dc 21.10 L499-501, L670: "Como o destinatário vai receber", em computador ou celular. O remetente é o real do
            sistema até o dono decidir (spec §10). #}
-        <div class="mc-cp-ver" data-mc-cp-ver-janela data-sem-x="1" role="dialog" aria-modal="true" aria-labelledby="mc-cp-ver-titulo" hidden>
+        <div class="mc-cp-ver" data-mc-cp-ver-janela data-sem-x="1" role="dialog" aria-modal="true" aria-labelledby="{{ ids }}-cp-ver-titulo" hidden>
             <div class="mc-cp-ver-fundo" data-mc-cp-ver-fechar></div>
             <div class="mc-cp-ver-caixa">
                 <div class="mc-cp-ver-cabeca">
-                    <i class="bi bi-envelope-open" aria-hidden="true"></i><b id="mc-cp-ver-titulo">Como o destinatário vai receber</b>
+                    <i class="bi bi-envelope-open" aria-hidden="true"></i><b id="{{ ids }}-cp-ver-titulo">Como o destinatário vai receber</b>
                     <div class="mc-cp-ver-dev" role="group" aria-label="Aparelho">
                         <button type="button" class="mc-cp-ver-op" data-mc-cp-ver-dev="pc" aria-pressed="true"><i class="bi bi-laptop" aria-hidden="true"></i> Computador</button>
                         <button type="button" class="mc-cp-ver-op" data-mc-cp-ver-dev="cel" aria-pressed="false"><i class="bi bi-phone" aria-hidden="true"></i> Celular</button>
@@ -186,6 +219,9 @@
             </div>
         </div>
     </section>
+    {# dc L324 (`secCom`): os KPIs, as Automações e o Relatório só na seção Comercial. O Relatório do dc também aparece na
+       venda (`secCentral`), mas o script dele (9b) é de uma instância só: fica de fora no modo venda (ver o relatório da F3h). #}
+    {% if not venda %}
     {{ include('master/_comercial_kpis.html.twig') }}
     <section class="mc-caixa" aria-labelledby="mc-auto-titulo">
         <div class="mc-cabeca">
@@ -206,6 +242,10 @@
         </div>
     </section>
     {% include 'master/_comercial_relatorio.html.twig' %}
+    {% endif %}
 </div>
+{% if not venda %}
 <script src="{{ asset('js/master/comercial.js') }}"></script>
+{% endif %}
+{# Carregado nos dois modos: cada execução só inicia as raízes ainda não iniciadas (a da venda vem depois no HTML). #}
 <script src="{{ asset('js/master/comercial-campanha.js') }}"></script>
