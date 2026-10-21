@@ -6,7 +6,8 @@
    - Prévia: 30 s só neste navegador (localStorage bj-tema-previa = {id, ate}), com o contador no status e o
      "Parar prévia". Quem pinta a página é o public/js/tema-comemorativo.js, avisado pelo evento
      "bj-tema-comemorativo" (também depois de salvar, com o tema novo do servidor).
-   Nada de innerHTML: a grade vem do servidor e aqui só mudam classes, atributos e textContent. */
+   Textos no catálogo (`temas.js`, spec idioma-do-sistema §8), lidos por BJ_T.t; o nome e o ícone do tema vêm do
+   servidor. Nada de innerHTML: a grade vem do servidor e aqui só mudam classes, atributos e textContent. */
 (() => {
   'use strict';
   const raiz = document.querySelector('[data-mp-temas]');
@@ -51,13 +52,13 @@
     if (previa) {
       const t = tema(previa.id);
 
-      return 'Prévia: ' + t.ic + ' ' + t.r + ' (termina sozinha em ' + Math.ceil((previa.ate - Date.now()) / 1000) + ' s)';
+      return BJ_T.t('temas.js.previa', { icone: t.ic, tema: t.r, s: Math.ceil((previa.ate - Date.now()) / 1000) });
     }
     const ativo = tema(estado.ativo);
-    if (ativo) return ativo.ic + ' ' + ativo.r + ' está ativo agora';
-    if (estado.modo === 'desligado') return 'Temas desligados: cores padrão do BlueJus';
+    if (ativo) return BJ_T.t('temas.js.ativo', { icone: ativo.ic, tema: ativo.r });
+    if (estado.modo === 'desligado') return BJ_T.t('temas.js.desligados');
 
-    return 'Nenhum tema hoje: cores padrão do BlueJus';
+    return BJ_T.t('temas.js.nenhum');
   }
 
   function render() {
@@ -99,7 +100,7 @@
     try {
       localStorage.setItem(CHAVE_PREVIA, JSON.stringify({ id, ate: Date.now() + SEGUNDOS_PREVIA * 1000 }));
     } catch (e) {
-      avisar('Não foi possível mostrar a prévia neste navegador.');
+      avisar(BJ_T.t('temas.js.previa_indisponivel'));
 
       return;
     }
@@ -124,11 +125,11 @@
     })
       .then(r => r.json().catch(() => ({})).then(dados => ({ ok: r.ok, dados })))
       .then(({ ok, dados }) => {
-        if (!ok || !Array.isArray(dados.temas)) { avisar(dados.erro || 'Não foi possível alterar agora. Recarregue a página.'); return; }
+        if (!ok || !Array.isArray(dados.temas)) { avisar(dados.erro || BJ_T.t('temas.js.erro_alterar')); return; }
         estado = dados;
         avisarPagina({ tema: tema(estado.ativo) });
       })
-      .catch(() => avisar('Não foi possível alterar agora. Recarregue a página.'))
+      .catch(() => avisar(BJ_T.t('temas.js.erro_alterar')))
       .finally(() => { ocupado = false; raiz.removeAttribute('aria-busy'); render(); });
   }
 

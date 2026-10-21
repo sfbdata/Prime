@@ -14,6 +14,12 @@ final class ForcaDaSenha
     public const MINIMO = 8;
     public const ERRO = 'Use pelo menos 8 caracteres, com letras e números.';
 
+    /**
+     * Acima disso o hasher do Symfony recusa a senha com exceção (proteção contra DoS no hash). Em BYTES, como o
+     * hasher conta: em caracteres, acento passaria e daria 500. Quem passa disso recebe a mesma mensagem da fraca.
+     */
+    public const MAXIMO_EM_BYTES = 4096;
+
     public static function pontos(string $senha): int
     {
         if ($senha === '') {

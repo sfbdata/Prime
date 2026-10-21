@@ -52,6 +52,7 @@
 {# "Ver todas as informações" e o ⋮ do cartão: delegação no `document`, então o
    cartão que volta por XHR já nasce funcionando. #}
 <script src="{{ asset('js/pasta-processo.js') }}" defer></script>
+{{ catalogo_js('pasta_processo.js') }}
 {# "Administrativo sem processo" (desenho 1.2.3, `admSPtoggle`, dc L.1580): interruptor no
    cabeçalho, entre o espaço e "Vincular processo". É um form comum (POST + CSRF →
    PastaAdministrativaController): sem JS, recarrega e volta para a aba Processo. Com JS,
@@ -67,7 +68,7 @@
 {% set vinculos = pasta.pastaProcessos %}
 <section class="ps-card ps-processos">
     <div class="ps-card-cab ps-card-cab--painel">
-        <h2>Processos vinculados</h2>
+        <h2>{{ 'pasta_processo.titulo'|trans }}</h2>
         {% if vinculos|length > 0 %}<span class="ps-contagem">{{ vinculos|length }}</span>{% endif %}
         <span class="ps-cab-espaco"></span>
         {# P4f: sem principal mas com apensado, a confirmação também vale; cita o principal ou, sem ele,
@@ -75,7 +76,7 @@
         {% set principalAdm = vinculos|length > 0 ? (pasta.vinculoPrincipal ?? vinculos|first) : null %}
         {% set confirmaAdm = null %}
         {% if not administrativa and principalAdm %}
-            {% set confirmaAdm = 'A Pasta ' ~ pasta.nup ~ ' tem o processo ' ~ principalAdm.processo.numeroProcesso|numero_cnj ~ " vinculado.\nMarcar mesmo assim como \"Administrativo sem processo\"? O andamento passa para a via administrativa." %}
+            {% set confirmaAdm = 'pasta_processo.administrativa.confirmar_com_processo'|trans({pasta: pasta.nup, processo: principalAdm.processo.numeroProcesso|numero_cnj}) %}
         {% endif %}
         {% if not podeMexerNoVinculo %}
             {# PAS-049b: quem não pode mudar continua VENDO se a pasta é administrativa (com
@@ -84,8 +85,8 @@
             <button type="button" role="switch" aria-checked="{{ administrativa ? 'true' : 'false' }}"
                     class="ps-adm-sw ps-adm-sw--leitura{{ administrativa ? ' is-ligado' : '' }}"
                     disabled aria-disabled="true"
-                    title="{{ administrativa ? 'Pasta administrativa: não terá processo judicial' : 'Pasta não marcada como administrativa' }}">
-                <span class="ps-adm-sw-rotulo">Administrativo sem processo</span>
+                    title="{{ administrativa ? 'pasta_processo.administrativa.dica_ligada'|trans : 'pasta_processo.administrativa.dica_desligada'|trans }}">
+                <span class="ps-adm-sw-rotulo">{{ 'pasta_processo.administrativa.rotulo'|trans }}</span>
                 <span class="ps-adm-sw-trilho" aria-hidden="true"><span class="ps-adm-sw-bola"></span></span>
             </button>
         {% else %}
@@ -96,8 +97,8 @@
             <input type="hidden" name="administrativa" value="{{ administrativa ? '0' : '1' }}">
             <button type="submit" role="switch" aria-checked="{{ administrativa ? 'true' : 'false' }}"
                     class="ps-adm-sw{{ administrativa ? ' is-ligado' : '' }}"
-                    title="Marque quando a pasta é administrativa (consultoria, extrajudicial, contrato) e não terá processo judicial">
-                <span class="ps-adm-sw-rotulo">Administrativo sem processo</span>
+                    title="{{ 'pasta_processo.administrativa.dica_alternar'|trans }}">
+                <span class="ps-adm-sw-rotulo">{{ 'pasta_processo.administrativa.rotulo'|trans }}</span>
                 <span class="ps-adm-sw-trilho" aria-hidden="true"><span class="ps-adm-sw-bola"></span></span>
             </button>
         </form>
@@ -110,48 +111,48 @@
            pasta-processo.js como o clique no interruptor (spec relatorio-processos-controladoria §3-4).
            Abre pelo mesmo mecanismo do ⋮ do cartão (`.js-proc-menu-gatilho` + `aria-controls`). #}
         <button type="button" class="ps-processo-menu-gatilho js-proc-menu-gatilho"
-                title="Mais opções" aria-label="Mais opções de processos"
+                title="{{ 'pasta_processo.cabecalho.mais_opcoes'|trans }}" aria-label="{{ 'pasta_processo.cabecalho.mais_opcoes_rotulo'|trans }}"
                 aria-haspopup="menu" aria-expanded="false" aria-controls="psProcHdMenu{{ pasta.id }}">
             <i class="bi bi-three-dots-vertical"></i>
         </button>
-        <button type="button" class="ps-btn ps-btn--suave" title="Vincular processo" aria-label="Vincular processo"
+        <button type="button" class="ps-btn ps-btn--suave" title="{{ 'pasta_processo.cabecalho.vincular'|trans }}" aria-label="{{ 'pasta_processo.cabecalho.vincular'|trans }}"
                 data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">
-            <i class="bi bi-link-45deg"></i><span>Vincular processo</span>
+            <i class="bi bi-link-45deg"></i><span>{{ 'pasta_processo.cabecalho.vincular'|trans }}</span>
         </button>
         {# P4f (desenho N:1710, `procAbrirApenso` N:4517): abre o MESMO modal em modo apenso
            (pasta-apensado.js lê o `data-vincular-modo` do botão que abriu). #}
-        <button type="button" class="ps-btn ps-btn--suave ps-btn--apenso" title="Vincular processo apensado (embargos, agravo, execução…)"
-                aria-label="Vincular apensado" data-bs-toggle="modal" data-bs-target="#modalVincularProcesso" data-vincular-modo="apenso">
-            <i class="bi bi-paperclip"></i><span>Vincular apensado</span>
+        <button type="button" class="ps-btn ps-btn--suave ps-btn--apenso" title="{{ 'pasta_processo.cabecalho.vincular_apensado_dica'|trans }}"
+                aria-label="{{ 'pasta_processo.cabecalho.vincular_apensado'|trans }}" data-bs-toggle="modal" data-bs-target="#modalVincularProcesso" data-vincular-modo="apenso">
+            <i class="bi bi-paperclip"></i><span>{{ 'pasta_processo.cabecalho.vincular_apensado'|trans }}</span>
         </button>
         {% endif %}
         {% if recurso_visivel('peticionar') %}
         <a href="{{ path('pasta_peticionar', {id: pasta.id}) }}"
            target="_blank" rel="noopener"
-           class="ps-btn ps-btn--primario ps-btn--caps {{ recurso_marca('peticionar') }}" title="Abrir a tela de peticionamento desta pasta (anexos e textos)" aria-label="Peticionar na pasta">
-            <i class="bi bi-file-earmark-text"></i><span>Peticionar na pasta</span>
+           class="ps-btn ps-btn--primario ps-btn--caps {{ recurso_marca('peticionar') }}" title="{{ 'pasta_processo.cabecalho.peticionar_dica'|trans }}" aria-label="{{ 'pasta_processo.cabecalho.peticionar'|trans }}">
+            <i class="bi bi-file-earmark-text"></i><span>{{ 'pasta_processo.cabecalho.peticionar'|trans }}</span>
         </a>
         {% endif %}
     </div>
     {% if podeMexerNoVinculo %}
     <div class="ps-processo-menu" id="psProcHdMenu{{ pasta.id }}" role="menu" hidden>
-        <div class="ps-processo-menu-titulo">Processos · Pasta {{ pasta.nup ?? ('#' ~ pasta.id) }}</div>
+        <div class="ps-processo-menu-titulo">{{ 'pasta_processo.cabecalho.menu_titulo'|trans({pasta: pasta.nup ?? ('#' ~ pasta.id)}) }}</div>
         {% if can_access_module('expediente') %}
             <a href="{{ path('expediente_relatorio_processos') }}" target="_blank" rel="noopener"
                class="ps-processo-menu-item js-relatorio-processos" role="menuitem">
-                <i class="bi bi-file-earmark-bar-graph"></i><span>Relatório geral de processos</span>
+                <i class="bi bi-file-earmark-bar-graph"></i><span>{{ 'pasta_processo.menu.relatorio'|trans }}</span>
             </a>
         {% endif %}
         <form method="post" action="{{ path('expediente_relatorio_processos_enviar') }}" class="js-relatorio-enviar m-0">
             <input type="hidden" name="_token" value="{{ csrf_token('expediente_relatorio_processos_enviar') }}">
             <input type="hidden" name="pasta" value="{{ pasta.id }}">
             <button type="submit" class="ps-processo-menu-item" role="menuitem">
-                <i class="bi bi-send"></i><span>Enviar à Controladoria agora</span>
+                <i class="bi bi-send"></i><span>{{ 'pasta_processo.cabecalho.enviar_controladoria'|trans }}</span>
             </button>
         </form>
         <div class="ps-processo-menu-sep" role="separator"></div>
         <button type="submit" form="psAdmForm{{ pasta.id }}" class="ps-processo-menu-item js-proc-hd-adm" role="menuitem">
-            <i class="bi bi-briefcase"></i><span>{{ administrativa ? 'Desmarcar administrativo sem processo' : 'Marcar como administrativo sem processo' }}</span>
+            <i class="bi bi-briefcase"></i><span>{{ administrativa ? 'pasta_processo.administrativa.desmarcar'|trans : 'pasta_processo.administrativa.marcar'|trans }}</span>
         </button>
     </div>
     {% endif %}
@@ -165,7 +166,7 @@
                 {% set proc = vinculo.processo %}
                 {% set ehPrincipal = vinculoPrincipal and proc.id == vinculoPrincipal.processo.id %}
                 {# P4f: todo vínculo que não é o principal é apensado (sem tipo gravado, "Outro"). #}
-                {% set confirmaApenso = "Desvincular o apensado " ~ proc.numeroProcesso|numero_cnj ~ " da pasta? O registro fica no histórico." %}
+                {% set confirmaApenso = 'pasta_processo.cartao.confirmar_desvincular_apensado'|trans({processo: proc.numeroProcesso|numero_cnj}) %}
                 {% set menuId      = 'psProcMenu' ~ proc.id %}
                 {% set botaoMaisId = 'psProcMais' ~ proc.id %}
                 {% set detalhesId  = 'psProcDetalhes' ~ proc.id %}
@@ -194,30 +195,30 @@
                    os vínculos feitos pela tela têm `vinculadoPor`. Sem ele, o rótulo neutro do
                    próprio desenho — também para os vínculos automáticos do DJEN. #}
                 <div class="ps-dia"><span class="ps-dia-pilula">
-                    {%- if vinculo.vinculadoPor %}Vinculado em {{ vinculo.vinculadoEm|date('d/m/Y') }}{% else %}Processo vinculado{% endif -%}
+                    {%- if vinculo.vinculadoPor %}{{ 'pasta_processo.cartao.vinculado_em'|trans({data: vinculo.vinculadoEm|data}) }}{% else %}{{ 'pasta_processo.cartao.processo_vinculado'|trans }}{% endif -%}
                 </span></div>
                 {# Botão direito no cartão abre o ⋮ no cursor (PMC-001; desenho dc L.1589, com o
                    mesmo title). Quem escuta é o pasta-processo.js, por `data-ps-menu-contexto`. #}
                 <article class="ps-anotacao ps-processo{{ ehPrincipal ? ' ps-processo--principal' : '' }}" data-processo-id="{{ proc.id }}"
-                         data-ps-menu-contexto="{{ menuId }}" title="Clique com o botão direito para mais opções">
+                         data-ps-menu-contexto="{{ menuId }}" title="{{ 'pasta_processo.cartao.dica_botao_direito'|trans }}">
                     <span class="ps-processo-ponto" aria-hidden="true"></span>
                     <span class="ps-anotacao-seta" aria-hidden="true"></span>
                     <div class="ps-processo-topo">
                         {# Mesma máscara do cabeçalho: header e aba Processo NÃO podem divergir. #}
                         <a href="{{ path('processo_show', {id: proc.id}) }}" class="ps-processo-numero ps-num">{{ proc.numeroProcesso|numero_cnj }}</a>
-                        <i class="bi bi-copy copy-btn ps-copiar" role="button" data-copy="{{ proc.numeroProcesso }}" title="Copiar número do processo"></i>
+                        <i class="bi bi-copy copy-btn ps-copiar" role="button" data-copy="{{ proc.numeroProcesso }}" title="{{ 'pasta_processo.cartao.copiar_numero_dica'|trans }}"></i>
                         {% if ehPrincipal %}
-                            <span class="ps-processo-principal"><i class="bi bi-star-fill"></i>Principal</span>
+                            <span class="ps-processo-principal"><i class="bi bi-star-fill"></i>{{ 'pasta_processo.cartao.principal'|trans }}</span>
                         {% else %}
                             {# Desenho N:1725: etiqueta "Apensado · Tipo" no lugar de "Principal" e o X que
                                desvincula ESTE apensado (confirmação vermelha, pasta-apensado.js). #}
-                            <span class="ps-processo-apenso"><i class="bi bi-link-45deg"></i>Apensado · {{ vinculo.tipoApensoRotulo }}</span>
+                            <span class="ps-processo-apenso"><i class="bi bi-link-45deg"></i>{{ 'pasta_processo.cartao.apensado'|trans({tipo: vinculo.tipoApensoRotulo}) }}</span>
                             {% if podeMexerNoVinculo %}
                                 <form method="post" action="{{ path('pasta_desvincular_processo', {id: pasta.id}) }}" class="js-desvincular-apensado m-0"
                                       data-confirmar-texto="{{ confirmaApenso }}">
                                     <input type="hidden" name="_token" value="{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}">
                                     <input type="hidden" name="processo_id" value="{{ proc.id }}">
-                                    <button type="submit" class="ps-processo-apenso-x" title="Desvincular este apensado" aria-label="Desvincular este apensado">
+                                    <button type="submit" class="ps-processo-apenso-x" title="{{ 'pasta_processo.cartao.desvincular_apensado'|trans }}" aria-label="{{ 'pasta_processo.cartao.desvincular_apensado'|trans }}">
                                         <i class="bi bi-x-lg"></i>
                                     </button>
                                 </form>
@@ -228,7 +229,7 @@
                            Tornar principal, abrir o processo e desvincular moram no ⋮. #}
                         <div class="ps-processo-acoes">
                             <button type="button" class="ps-processo-menu-gatilho js-proc-menu-gatilho"
-                                    title="Mais opções" aria-label="Mais opções do processo"
+                                    title="{{ 'pasta_processo.cartao.mais_opcoes'|trans }}" aria-label="{{ 'pasta_processo.cartao.mais_opcoes_rotulo'|trans }}"
                                     aria-haspopup="menu" aria-expanded="false" aria-controls="{{ menuId }}">
                                 <i class="bi bi-three-dots-vertical"></i>
                             </button>
@@ -244,20 +245,20 @@
                        existia no cartão) e "Desvincular da pasta". As duas são forms com CSRF,
                        interceptados pelo submit delegado do show.html.twig (`.js-ajax-*`). #}
                     <div class="ps-processo-menu" id="{{ menuId }}" role="menu" hidden>
-                        <div class="ps-processo-menu-titulo">Processo {{ proc.numeroProcesso|numero_cnj }}</div>
+                        <div class="ps-processo-menu-titulo">{{ 'pasta_processo.menu.titulo'|trans({processo: proc.numeroProcesso|numero_cnj}) }}</div>
                         {# Mesmo gatilho do botão do bloco de notas (nota-tecnica.js aceita `data-notas`). #}
                         <button type="button" class="ps-processo-menu-item js-nota-nova" role="menuitem"
                                 data-notas="#notas-processo-{{ proc.id }}">
-                            <i class="bi bi-journal-plus"></i><span>Adicionar nota técnica</span>
+                            <i class="bi bi-journal-plus"></i><span>{{ 'pasta_processo.menu.nota_tecnica'|trans }}</span>
                         </button>
                         <div class="ps-processo-menu-sep" role="separator"></div>
                         <a href="{{ path('processo_show', {id: proc.id}) }}" class="ps-processo-menu-item" role="menuitem">
-                            <i class="bi bi-box-arrow-up-right"></i><span>Ver processo completo</span>
+                            <i class="bi bi-box-arrow-up-right"></i><span>{{ 'pasta_processo.menu.ver_completo'|trans }}</span>
                         </a>
                         {% if temDetalhe %}
                             <button type="button" class="ps-processo-menu-item js-proc-alternar-menu" role="menuitem"
                                     data-botao="#{{ botaoMaisId }}">
-                                <i class="bi bi-card-list"></i><span>Ver todas as informações</span>
+                                <i class="bi bi-card-list"></i><span>{{ 'pasta_processo.menu.ver_todas'|trans }}</span>
                             </button>
                         {% endif %}
                         {# "Editar dados do processo" (desenho, procMenu N:3062): abre a edição NO CARTÃO (P5b).
@@ -265,29 +266,29 @@
                         {% if podeEditarProcesso %}
                             <button type="button" class="ps-processo-menu-item js-proc-editar" role="menuitem"
                                     data-edicao="#{{ edicaoId }}">
-                                <i class="bi bi-pencil"></i><span>Editar dados do processo</span>
+                                <i class="bi bi-pencil"></i><span>{{ 'pasta_processo.menu.editar'|trans }}</span>
                             </button>
                         {% endif %}
                         <button type="button" class="ps-processo-menu-item js-proc-ver-movimentacoes" role="menuitem"
                                 data-aba="push-tab">
-                            <i class="bi bi-broadcast"></i><span>Ver movimentações (Push)</span>
+                            <i class="bi bi-broadcast"></i><span>{{ 'pasta_processo.menu.ver_movimentacoes'|trans }}</span>
                         </button>
                         <div class="ps-processo-menu-sep" role="separator"></div>
                         <button type="button" class="ps-processo-menu-item js-proc-copiar" role="menuitem"
-                                data-copiar="{{ proc.numeroProcesso }}" data-aviso="Número do processo copiado">
-                            <i class="bi bi-copy"></i><span>Copiar número</span>
+                                data-copiar="{{ proc.numeroProcesso }}" data-aviso="{{ 'pasta_processo.menu.numero_copiado'|trans }}">
+                            <i class="bi bi-copy"></i><span>{{ 'pasta_processo.menu.copiar_numero'|trans }}</span>
                         </button>
                         <button type="button" class="ps-processo-menu-item js-proc-copiar" role="menuitem"
-                                data-resumo="{{ resumo|json_encode|e('html_attr') }}" data-aviso="Resumo do processo copiado">
-                            <i class="bi bi-clipboard"></i><span>Copiar resumo do processo</span>
+                                data-resumo="{{ resumo|json_encode|e('html_attr') }}" data-aviso="{{ 'pasta_processo.menu.resumo_copiado'|trans }}">
+                            <i class="bi bi-clipboard"></i><span>{{ 'pasta_processo.menu.copiar_resumo'|trans }}</span>
                         </button>
                         {# Compartilhar (EDT-006/PMC-002, dc L.2928): Web Share do navegador onde existe;
                            sem ele o item continua e copia o resumo, com o aviso do desenho. #}
                         <button type="button" class="ps-processo-menu-item js-proc-compartilhar" role="menuitem"
-                                data-titulo="Processo {{ proc.numeroProcesso|numero_cnj }}"
+                                data-titulo="{{ 'pasta_processo.menu.titulo'|trans({processo: proc.numeroProcesso|numero_cnj}) }}"
                                 data-resumo="{{ resumo|json_encode|e('html_attr') }}"
-                                data-aviso="Resumo copiado para compartilhar">
-                            <i class="bi bi-share"></i><span>Compartilhar</span>
+                                data-aviso="{{ 'pasta_processo.menu.resumo_copiado_compartilhar'|trans }}">
+                            <i class="bi bi-share"></i><span>{{ 'pasta_processo.menu.compartilhar'|trans }}</span>
                         </button>
                         {# "Encaminhar via Chat I.A" (desenho procMenu dc L3069, depois de Compartilhar; a6 da spec
                            processo-cadastro-pela-pasta): o pasta-encaminhar.js dispara `bj-central:despachar` com
@@ -297,22 +298,22 @@
                             <button type="button" class="ps-processo-menu-item js-encaminhar" role="menuitem"
                                     data-encaminhar-pasta="{{ pasta.id }}" data-encaminhar-tipo="processo"
                                     data-encaminhar-id="{{ proc.id }}">
-                                <i class="bi bi-send"></i><span>Encaminhar via Chat I.A</span>
+                                <i class="bi bi-send"></i><span>{{ 'pasta_processo.menu.encaminhar'|trans }}</span>
                             </button>
                         {% endif %}
                         {% if can_access_module('expediente') %}
                             <a href="{{ path('expediente_relatorio_processos') }}" target="_blank" rel="noopener"
                                class="ps-processo-menu-item js-relatorio-processos" role="menuitem">
-                                <i class="bi bi-file-earmark-bar-graph"></i><span>Relatório geral de processos</span>
+                                <i class="bi bi-file-earmark-bar-graph"></i><span>{{ 'pasta_processo.menu.relatorio'|trans }}</span>
                             </a>
                         {% endif %}
                         {# Imprimir resumo (desenho procMenu dc L.2930, `gmImprimir`; EDT-005): a tabela
                            rótulo/valor do MESMO resumo do "Copiar resumo", na janela de impressão da
                            pasta (pasta-impressao.js). Montada por DOM, com textContent. #}
                         <button type="button" class="ps-processo-menu-item js-proc-imprimir" role="menuitem"
-                                data-titulo="Processo {{ proc.numeroProcesso|numero_cnj }}"
+                                data-titulo="{{ 'pasta_processo.menu.titulo'|trans({processo: proc.numeroProcesso|numero_cnj}) }}"
                                 data-resumo="{{ resumo|json_encode|e('html_attr') }}">
-                            <i class="bi bi-printer"></i><span>Imprimir resumo</span>
+                            <i class="bi bi-printer"></i><span>{{ 'pasta_processo.menu.imprimir'|trans }}</span>
                         </button>
                         {% if podeMexerNoVinculo %}
                         <div class="ps-processo-menu-sep" role="separator"></div>
@@ -321,7 +322,7 @@
                                 <input type="hidden" name="_token" value="{{ csrf_token('pasta_definir_principal_processo_' ~ pasta.id) }}">
                                 <input type="hidden" name="processo_id" value="{{ proc.id }}">
                                 <button type="submit" class="ps-processo-menu-item" role="menuitem">
-                                    <i class="bi bi-star"></i><span>Tornar processo principal</span>
+                                    <i class="bi bi-star"></i><span>{{ 'pasta_processo.menu.tornar_principal'|trans }}</span>
                                 </button>
                             </form>
                         {% endif %}
@@ -329,11 +330,11 @@
                         {# P4f: no apensado, o ⋮ desvincula O APENSADO, com a mesma confirmação do X (o
                            protótipo escondia o principal aqui, N:3075). #}
                         <form method="post" action="{{ path('pasta_desvincular_processo', {id: pasta.id}) }}" class="{{ ehPrincipal ? 'js-ajax-desvincular-processo' : 'js-desvincular-apensado' }} m-0"
-                              {% if ehPrincipal %}data-confirmar="{{ 'Desvincular o processo ' ~ proc.numeroProcesso|numero_cnj ~ ' da Pasta ' ~ (pasta.nup ?? ('#' ~ pasta.id)) ~ "?\nOs dados do processo continuam salvos e você pode vincular de novo." }}"{% else %}data-confirmar-texto="{{ confirmaApenso }}"{% endif %}>
+                              {% if ehPrincipal %}data-confirmar="{{ 'pasta_processo.menu.confirmar_desvincular'|trans({processo: proc.numeroProcesso|numero_cnj, pasta: pasta.nup ?? ('#' ~ pasta.id)}) }}"{% else %}data-confirmar-texto="{{ confirmaApenso }}"{% endif %}>
                             <input type="hidden" name="_token" value="{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}">
                             <input type="hidden" name="processo_id" value="{{ proc.id }}">
                             <button type="submit" class="ps-processo-menu-item" role="menuitem">
-                                <i class="bi bi-x-lg"></i><span>Desvincular da pasta</span>
+                                <i class="bi bi-x-lg"></i><span>{{ 'pasta_processo.menu.desvincular'|trans }}</span>
                             </button>
                         </form>
                         {% endif %}
@@ -347,26 +348,26 @@
                     {% set acaoFaixa = (ehPrincipal and pasta.nomeAcao) ? pasta.nomeAcao : assuntoFaixa %}
                     <div class="ps-processo-dados">
                         <div class="ps-processo-dado" data-proc-campo="acao">
-                            <div class="ps-rotulo">Ação</div>
-                            <div class="ps-processo-valor{{ acaoFaixa ? '' : ' ps-dado--vazio' }}">{{ acaoFaixa ?: 'Não informada' }}</div>
+                            <div class="ps-rotulo">{{ 'pasta_processo.dados.acao'|trans }}</div>
+                            <div class="ps-processo-valor{{ acaoFaixa ? '' : ' ps-dado--vazio' }}">{{ acaoFaixa ?: 'pasta_processo.dados.nao_informada'|trans }}</div>
                         </div>
                         <div class="ps-processo-dado">
-                            <div class="ps-rotulo">Classe</div>
+                            <div class="ps-rotulo">{{ 'pasta_processo.dados.classe'|trans }}</div>
                             {# Classe na faixa: a manual, se houver; senão a do cadastro (sem o código, como sempre foi). #}
                             {% set classeFaixa = ef.classe.manual ? ef.classe.texto : proc.classeProcessual %}
-                            <div class="ps-processo-valor{{ classeFaixa ? '' : ' ps-dado--vazio' }}">{{ classeFaixa ?: 'Não informada' }}</div>
+                            <div class="ps-processo-valor{{ classeFaixa ? '' : ' ps-dado--vazio' }}">{{ classeFaixa ?: 'pasta_processo.dados.nao_informada'|trans }}</div>
                         </div>
                         <div class="ps-processo-dado">
-                            <div class="ps-rotulo">Tribunal</div>
-                            <div class="ps-processo-valor{{ proc.siglaTribunal ? '' : ' ps-dado--vazio' }}">{{ proc.siglaTribunal ?: 'Não informado' }}</div>
+                            <div class="ps-rotulo">{{ 'pasta_processo.dados.tribunal'|trans }}</div>
+                            <div class="ps-processo-valor{{ proc.siglaTribunal ? '' : ' ps-dado--vazio' }}">{{ proc.siglaTribunal ?: 'pasta_processo.dados.nao_informado'|trans }}</div>
                         </div>
                         <div class="ps-processo-dado">
-                            <div class="ps-rotulo">Situação</div>
+                            <div class="ps-rotulo">{{ 'pasta_processo.dados.situacao'|trans }}</div>
                             {# O cadastro (Datajud) usa EM_ANDAMENTO / ENCERRADO: só "em andamento" fica verde — a cor
                                segue o CÓDIGO; o texto mostra o rótulo (`situacao_processo`, dc de 13/10: "Em andamento"). #}
                             {% set sitAtiva = 'ANDAMENTO' in proc.situacaoProcesso|upper %}
                             <div class="ps-processo-valor ps-processo-situacao{{ sitAtiva ? ' ps-processo-situacao--ativa' : '' }}{{ proc.situacaoProcesso ? '' : ' ps-dado--vazio' }}">
-                                <span class="ps-processo-sit-ponto" aria-hidden="true"></span>{{ proc.situacaoProcesso ? proc.situacaoProcesso|situacao_processo : 'Não informada' }}
+                                <span class="ps-processo-sit-ponto" aria-hidden="true"></span>{{ proc.situacaoProcesso ? proc.situacaoProcesso|situacao_processo : 'pasta_processo.dados.nao_informada'|trans }}
                             </div>
                         </div>
                     </div>
@@ -378,12 +379,12 @@
                             {% set chaveResumo = ['orgao', 'valor', 'distribuicao'][loop.index0] %}
                             <div class="ps-processo-dado" data-proc-campo="{{ chaveResumo }}">
                                 <div class="ps-rotulo">{{ r.rotulo }}</div>
-                                <div class="ps-processo-valor{{ r.valor is null ? ' ps-dado--vazio' : (chaveResumo != 'orgao' ? ' ps-num' : '') }}">{{ r.valor ?? 'Não informado' }}</div>
+                                <div class="ps-processo-valor{{ r.valor is null ? ' ps-dado--vazio' : (chaveResumo != 'orgao' ? ' ps-num' : '') }}">{{ r.valor ?? 'pasta_processo.dados.nao_informado'|trans }}</div>
                             </div>
                         {% endfor %}
                         {% if proc.instancia %}
                             <div class="ps-processo-dado" data-proc-campo="instancia">
-                                <div class="ps-rotulo">Instância</div>
+                                <div class="ps-rotulo">{{ 'pasta_processo.dados.instancia'|trans }}</div>
                                 <div class="ps-processo-valor">{{ proc.instanciaRotulo }}</div>
                             </div>
                         {% endif %}
@@ -400,7 +401,7 @@
                         <div class="ps-processo-mais-linha">
                             <button type="button" class="ps-processo-mais js-proc-alternar" id="{{ botaoMaisId }}"
                                     aria-expanded="false" aria-controls="{{ detalhesId }}">
-                                <i class="bi bi-chevron-down" aria-hidden="true"></i><span>Ver todas as informações</span>
+                                <i class="bi bi-chevron-down" aria-hidden="true"></i><span>{{ 'pasta_processo.menu.ver_todas'|trans }}</span>
                             </button>
                             {# Linha de fonte (N:1771, `pjeFonte`): sem integração com o PJe (P5a), os dois textos do
                                desenho para esse estado; nunca "Dados do PJe". #}
@@ -412,71 +413,71 @@
                         <div class="ps-processo-detalhes" id="{{ detalhesId }}" hidden>
                             {% for c in dp.campos %}
                                 <div class="ps-processo-campo" data-proc-campo="{{ c.chave }}">
-                                    <div class="ps-rotulo">{{ c.rotulo }}{% if c.manual %}<span class="ps-processo-manual" title="Preenchido manualmente">manual</span>{% endif %}</div>
+                                    <div class="ps-rotulo">{{ c.rotulo }}{% if c.manual %}<span class="ps-processo-manual" title="{{ 'pasta_processo.dados.manual_dica'|trans }}">{{ 'pasta_processo.dados.manual'|trans }}</span>{% endif %}</div>
                                     {% if c.tipo == 'flag' %}
                                         {% if c.flag is null %}
-                                            <div class="ps-processo-campo-valor ps-dado--vazio">Não informado</div>
+                                            <div class="ps-processo-campo-valor ps-dado--vazio">{{ 'pasta_processo.dados.nao_informado'|trans }}</div>
                                         {% else %}
-                                            <span class="ps-processo-selo{{ c.flag ? ' ps-processo-selo--sim' : '' }}">{{ c.flag ? 'SIM' : 'NÃO' }}</span>
+                                            <span class="ps-processo-selo{{ c.flag ? ' ps-processo-selo--sim' : '' }}">{{ c.flag ? 'pasta_processo.dados.selo_sim'|trans : 'pasta_processo.dados.selo_nao'|trans }}</span>
                                         {% endif %}
                                     {% elseif c.tipo == 'area' %}
                                         {% if c.itens is empty %}
-                                            <div class="ps-processo-campo-valor ps-dado--vazio">Não informado</div>
+                                            <div class="ps-processo-campo-valor ps-dado--vazio">{{ 'pasta_processo.dados.nao_informado'|trans }}</div>
                                         {% else %}
                                             <ul class="ps-processo-assuntos">
                                                 {% for item in c.itens %}<li>{{ item }}</li>{% endfor %}
                                             </ul>
                                         {% endif %}
                                     {% else %}
-                                        <div class="ps-processo-campo-valor{{ c.texto is null ? ' ps-dado--vazio' : (c.chave in ['distribuicao', 'valorCausa'] ? ' ps-num' : '') }}">{{ c.texto ?? 'Não informado' }}</div>
+                                        <div class="ps-processo-campo-valor{{ c.texto is null ? ' ps-dado--vazio' : (c.chave in ['distribuicao', 'valorCausa'] ? ' ps-num' : '') }}">{{ c.texto ?? 'pasta_processo.dados.nao_informado'|trans }}</div>
                                     {% endif %}
                                 </div>
                             {% endfor %}
                             {% if proc.instancia %}
                                 <div class="ps-processo-campo" data-proc-campo="instancia">
-                                    <div class="ps-rotulo">Instância</div>
+                                    <div class="ps-rotulo">{{ 'pasta_processo.dados.instancia'|trans }}</div>
                                     <div class="ps-processo-campo-valor">{{ proc.instanciaRotulo }}</div>
                                 </div>
                             {% endif %}
                             {% if proc.siglaTribunal %}
                                 <div class="ps-processo-campo" data-proc-campo="tribunal">
-                                    <div class="ps-rotulo">Tribunal</div>
+                                    <div class="ps-rotulo">{{ 'pasta_processo.dados.tribunal'|trans }}</div>
                                     <div class="ps-processo-campo-valor">{{ proc.siglaTribunal }}</div>
                                 </div>
                             {% endif %}
                             {% if proc.situacaoProcesso %}
                                 <div class="ps-processo-campo" data-proc-campo="situacao">
-                                    <div class="ps-rotulo">Situação</div>
+                                    <div class="ps-rotulo">{{ 'pasta_processo.dados.situacao'|trans }}</div>
                                     <div class="ps-processo-campo-valor">{{ proc.situacaoProcesso|situacao_processo }}</div>
                                 </div>
                             {% endif %}
                             {% if proc.dataBaixa %}
                                 <div class="ps-processo-campo" data-proc-campo="baixa">
-                                    <div class="ps-rotulo">Data da baixa</div>
-                                    <div class="ps-processo-campo-valor ps-num">{{ proc.dataBaixa|date('d/m/Y') }}</div>
+                                    <div class="ps-rotulo">{{ 'pasta_processo.dados.data_baixa'|trans }}</div>
+                                    <div class="ps-processo-campo-valor ps-num">{{ proc.dataBaixa|data }}</div>
                                 </div>
                             {% endif %}
                             {% if proc.sistema %}
                                 <div class="ps-processo-campo" data-proc-campo="sistema">
-                                    <div class="ps-rotulo">Sistema</div>
+                                    <div class="ps-rotulo">{{ 'pasta_processo.dados.sistema'|trans }}</div>
                                     <div class="ps-processo-campo-valor">{{ proc.sistema }}</div>
                                 </div>
                             {% endif %}
                             {% if proc.formato %}
                                 <div class="ps-processo-campo" data-proc-campo="formato">
-                                    <div class="ps-rotulo">Formato</div>
+                                    <div class="ps-rotulo">{{ 'pasta_processo.dados.formato'|trans }}</div>
                                     <div class="ps-processo-campo-valor">{{ proc.formato }}</div>
                                 </div>
                             {% endif %}
                             {% if proc.processoPai %}
                                 <div class="ps-processo-campo" data-proc-campo="origem">
-                                    <div class="ps-rotulo">Processo de origem</div>
+                                    <div class="ps-rotulo">{{ 'pasta_processo.dados.origem'|trans }}</div>
                                     <div class="ps-processo-campo-valor ps-num">{{ proc.processoPai|numero_cnj }}</div>
                                 </div>
                             {% endif %}
                             {% if partes|length > 0 %}
                                 <div class="ps-processo-campo ps-processo-campo--largo" data-proc-campo="partes">
-                                    <div class="ps-rotulo">Partes</div>
+                                    <div class="ps-rotulo">{{ 'pasta_processo.dados.partes'|trans }}</div>
                                     <ul class="ps-processo-partes">
                                         {% for parte in partes %}
                                             <li>{{ parte.nome }}{% if parte.papel %} <span class="ps-processo-parte-papel">· {{ parte.papel }}</span>{% endif %}</li>
@@ -486,8 +487,8 @@
                             {% endif %}
                             {% if proc.dataAtualizacao %}
                                 <div class="ps-processo-campo" data-proc-campo="atualizacao">
-                                    <div class="ps-rotulo">Última atualização no tribunal</div>
-                                    <div class="ps-processo-campo-valor ps-num">{{ proc.dataAtualizacao|date('d/m/Y H:i') }}</div>
+                                    <div class="ps-rotulo">{{ 'pasta_processo.dados.atualizacao'|trans }}</div>
+                                    <div class="ps-processo-campo-valor ps-num">{{ proc.dataAtualizacao|data_hora }}</div>
                                 </div>
                             {% endif %}
                         </div>
@@ -498,7 +499,7 @@
                         <form method="post" action="{{ path('pasta_processo_dados_salvar', {id: pasta.id, processoId: proc.id}) }}"
                               class="ps-processo-edicao js-proc-edicao" id="{{ edicaoId }}" hidden>
                             <input type="hidden" name="_token" value="{{ csrf_token('processo_dados_' ~ proc.id) }}">
-                            <p class="ps-processo-edicao-dica">Preencha apenas o que você confirmou nos autos. Campos vazios ficam como "Não informado".</p>
+                            <p class="ps-processo-edicao-dica">{{ 'pasta_processo.edicao.dica'|trans }}</p>
                             <div class="ps-processo-edicao-grade">
                                 {% for c in dp.campos %}
                                     {% set campoId = edicaoId ~ '-' ~ c.chave %}
@@ -506,7 +507,7 @@
                                         <fieldset class="ps-processo-edicao-campo">
                                             <legend class="ps-rotulo">{{ c.rotulo }}</legend>
                                             <div class="ps-processo-flag">
-                                                {% for op in [{rotulo: 'Sim', valor: '1', marca: true}, {rotulo: 'Não', valor: '0', marca: false}, {rotulo: 'Não informado', valor: '', marca: null}] %}
+                                                {% for op in [{rotulo: 'pasta_processo.edicao.sim'|trans, valor: '1', marca: true}, {rotulo: 'pasta_processo.edicao.nao'|trans, valor: '0', marca: false}, {rotulo: 'pasta_processo.edicao.nao_informado'|trans, valor: '', marca: null}] %}
                                                     <label class="ps-processo-flag-op">
                                                         <input type="radio" name="{{ c.chave }}" value="{{ op.valor }}"{{ c.formulario is same as(op.marca) ? ' checked' : '' }}>
                                                         <span>{{ op.rotulo }}</span>
@@ -527,8 +528,8 @@
                                 {% endfor %}
                             </div>
                             <div class="ps-processo-edicao-acoes">
-                                <button type="button" class="ps-processo-edicao-cancelar js-proc-edicao-cancelar">Cancelar</button>
-                                <button type="submit" class="ps-processo-edicao-salvar">Salvar</button>
+                                <button type="button" class="ps-processo-edicao-cancelar js-proc-edicao-cancelar">{{ 'pasta_processo.edicao.cancelar'|trans }}</button>
+                                <button type="submit" class="ps-processo-edicao-salvar">{{ 'pasta_processo.edicao.salvar'|trans }}</button>
                             </div>
                         </form>
                     {% endif %}
@@ -548,24 +549,24 @@
            no cabeçalho; o texto não cita botão nenhum, então vale também para o só leitura. #}
         <div class="ps-vazio ps-vazio--administrativa">
             <i class="bi bi-briefcase"></i>
-            <div class="ps-vazio-titulo">Administrativo sem processo</div>
+            <div class="ps-vazio-titulo">{{ 'pasta_processo.administrativa.rotulo'|trans }}</div>
             <div class="ps-vazio-nota">
-                {% if pasta.nomeAcao %}Ação registrada: <strong>{{ pasta.nomeAcao }}</strong>. {% endif %}Pasta administrativa (consultoria, extrajudicial, contrato): não terá processo judicial.
+                {% if pasta.nomeAcao %}{{ 'pasta_processo.vazio.acao_registrada'|trans }} <strong>{{ pasta.nomeAcao }}</strong>. {% endif %}{{ 'pasta_processo.administrativa.vazio_nota'|trans }}
             </div>
         </div>
     {% else %}
         <div class="ps-vazio">
             <i class="bi bi-bank"></i>
-            <div class="ps-vazio-titulo">Nenhum processo judicial vinculado</div>
+            <div class="ps-vazio-titulo">{{ 'pasta_processo.vazio.titulo'|trans }}</div>
             <div class="ps-vazio-nota">
-                {% if pasta.nomeAcao %}Ação registrada: <strong>{{ pasta.nomeAcao }}</strong>. {% endif %}
+                {% if pasta.nomeAcao %}{{ 'pasta_processo.vazio.acao_registrada'|trans }} <strong>{{ pasta.nomeAcao }}</strong>. {% endif %}
                 {#- PAS-049b: o botão só existe para quem edita a pasta viva. -#}
-                {% if podeMexerNoVinculo %}Vincule um processo pelo botão acima.{% else %}Quem edita a pasta pode vincular um processo a ela.{% endif %}
+                {% if podeMexerNoVinculo %}{{ 'pasta_processo.vazio.vincule'|trans }}{% else %}{{ 'pasta_processo.vazio.quem_edita'|trans }}{% endif %}
             </div>
         </div>
     {% endif %}
     <div class="ps-processos-nota">
         <i class="bi bi-info-circle" aria-hidden="true"></i>
-        <span>O processo principal é o que aparece no cabeçalho da pasta e nas listagens. Uma pasta pode ter vários processos vinculados.</span>
+        <span>{{ 'pasta_processo.nota'|trans }}</span>
     </div>
 </section>

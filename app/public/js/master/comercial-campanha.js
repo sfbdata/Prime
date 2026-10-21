@@ -251,7 +251,9 @@
     }
 
     function pedidoDoPublico() {
-      const corpo = { publico, csv: publico === 'csv' ? csvTexto : '', individual: publico === 'indiv' ? individual : '', filtro: filtroLimpo() };
+      /* spec §11: a chave do modelo em edição (a mesma que o envio manda, nos dois modos); com `vagas`, a Base de
+         contatos inclui quem autorizou os alertas de vagas. */
+      const corpo = { publico, csv: publico === 'csv' ? csvTexto : '', individual: publico === 'indiv' ? individual : '', filtro: filtroLimpo(), modelo: atual().chave || '' };
       // F3h: o servidor confere o modo venda (público, modelo e filtro) na contagem e no envio.
       return MODO === 'venda' ? Object.assign(corpo, { modo: 'venda' }) : corpo;
     }
@@ -405,7 +407,8 @@
           if (!modelos.some(m => m.chave === mk)) mk = 'convite';
           ed = null;
           desenhar();
-          if (!contagem) contar();
+          // spec §11: a contagem depende do modelo, que o carregamento pode ter trocado.
+          contar();
         })
         .catch(() => avisar('Não foi possível carregar os modelos. Recarregue a página.'));
     }
@@ -451,7 +454,7 @@
     raiz.addEventListener('click', e => {
       const modelo = e.target.closest('[data-mc-cp-modelo]');
       // dc L.542: trocar de modelo não limpa a mensagem.
-      if (modelo) { mk = modelo.dataset.mcCpModelo; ed = null; desenhar(); return; }
+      if (modelo) { mk = modelo.dataset.mcCpModelo; ed = null; desenhar(); contar(); return; }
       const botaoDoPublico = e.target.closest('[data-mc-cp-publico]');
       if (botaoDoPublico) { publico = botaoDoPublico.dataset.mcCpPublico; desenharPublicos(); contar(); return; }
       if (e.target.closest('[data-mc-cp-lead-add]')) { cadastrarContatos(); return; }

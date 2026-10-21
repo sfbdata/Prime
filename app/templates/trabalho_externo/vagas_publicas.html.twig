@@ -14,6 +14,8 @@
 {% set ufsVagas = pagina.ufsDasVagas %}
 {% set urlCand = path('auth_cadastro') %}
 {% set urlDivulgar = path('auth_cadastro') %}
+{# Todo CTA de cadastro conta um clique anônimo (spec §4.9): o JS manda `{token}` por sendBeacon. #}
+{% set urlCta = path('vagas_publicas_cta') %}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -35,8 +37,8 @@
         <img src="/images/logo/bluejus-white-transparent-nav.png" alt="BlueJus" class="vp-logo">
         <span class="vp-flex"></span>
         <a href="{{ path('app_login') }}" class="vp-entrar">Entrar</a>
-        <a href="{{ urlCand }}" class="vp-criar" data-so="cand">Criar conta grátis</a>
-        <a href="{{ urlDivulgar }}" class="vp-criar" data-so="esc">Criar conta grátis</a>
+        <a href="{{ urlCand }}" data-url-cta="{{ urlCta }}" class="vp-criar" data-so="cand">Criar conta grátis</a>
+        <a href="{{ urlDivulgar }}" data-url-cta="{{ urlCta }}" class="vp-criar" data-so="esc">Criar conta grátis</a>
     </header>
 
     <section class="vp-hero" data-screen-label="Topo">
@@ -60,9 +62,9 @@
                     <span data-so="esc">Divulgue grátis para advogados, estagiários, correspondentes e equipe jurídica de todo o Brasil. A equipe BlueJus revisa a vaga e entrega a você uma seleção dos candidatos mais compatíveis.</span>
                 </p>
                 <div class="vp-hero-ctas">
-                    <a href="{{ urlCand }}" class="vp-cta" data-so="cand"><i class="bi bi-person-plus"></i>Criar conta grátis e me candidatar</a>
+                    <a href="{{ urlCand }}" data-url-cta="{{ urlCta }}" class="vp-cta" data-so="cand"><i class="bi bi-person-plus"></i>Criar conta grátis e me candidatar</a>
                     <a href="#alertas" class="vp-cta2" data-so="cand"><i class="bi bi-bell"></i>Receber vagas por e-mail</a>
-                    <a href="{{ urlDivulgar }}" class="vp-cta" data-so="esc"><i class="bi bi-megaphone"></i>Divulgar minha vaga grátis</a>
+                    <a href="{{ urlDivulgar }}" data-url-cta="{{ urlCta }}" class="vp-cta" data-so="esc"><i class="bi bi-megaphone"></i>Divulgar minha vaga grátis</a>
                     <a href="#passos" class="vp-cta2" data-so="esc"><i class="bi bi-play-circle"></i>Como funciona</a>
                 </div>
             </div>
@@ -85,7 +87,7 @@
             <div class="vp-preenchidas" data-so="cand">
                 <span class="vp-preenchidas-ic"><i class="bi bi-hourglass-split"></i></span>
                 <div class="vp-preenchidas-txt"><b>As vagas deste link já foram preenchidas</b><div>Novas vagas entram na Central o tempo todo. Crie sua conta e ative os avisos para chegar primeiro na próxima.</div></div>
-                <a href="{{ urlCand }}" class="vp-btn"><i class="bi bi-person-plus"></i>Criar conta grátis</a>
+                <a href="{{ urlCand }}" data-url-cta="{{ urlCta }}" class="vp-btn"><i class="bi bi-person-plus"></i>Criar conta grátis</a>
             </div>
         {% endif %}
 
@@ -100,9 +102,9 @@
                             <div class="vp-card-areas">{% for a in v.areas %}<span>{{ a }}</span>{% endfor %}</div>
                             <div class="vp-card-bloq">
                                 <div class="vp-card-borrado" aria-hidden="true">Remuneração: R$ ●●●●<br>Escritório: ●●●●●●●● ●●●●●<br>Requisitos e atividades da vaga ●●●●●●</div>
-                                <a href="{{ urlCand }}"><i class="bi bi-lock-fill"></i>Crie sua conta para ver os detalhes</a>
+                                <a href="{{ urlCand }}" data-url-cta="{{ urlCta }}"><i class="bi bi-lock-fill"></i>Crie sua conta para ver os detalhes</a>
                             </div>
-                            <a href="{{ urlCand }}" class="vp-card-cta"><i class="bi bi-send"></i>Quero me candidatar</a>
+                            <a href="{{ urlCand }}" data-url-cta="{{ urlCta }}" class="vp-card-cta"><i class="bi bi-send"></i>Quero me candidatar</a>
                         </div>
                     {% endfor %}
                 </div>
@@ -110,7 +112,7 @@
         {% endif %}
 
         <section id="passos" class="vp-esc" data-screen-label="Para escritórios" data-so="esc">
-            <div><div class="vp-esc-k">PARA ESCRITÓRIOS DE ADVOCACIA</div><h2>Divulgue sua vaga grátis e receba os melhores candidatos</h2><p>Você envia a vaga, a equipe BlueJus revisa, divulga para advogados, estagiários e correspondentes e entrega uma seleção dos candidatos mais compatíveis. Sem anúncio pago, sem triagem de centenas de currículos.</p><a href="{{ urlDivulgar }}" class="vp-btn-verde"><i class="bi bi-megaphone"></i>Divulgar minha vaga grátis</a></div>
+            <div><div class="vp-esc-k">PARA ESCRITÓRIOS DE ADVOCACIA</div><h2>Divulgue sua vaga grátis e receba os melhores candidatos</h2><p>Você envia a vaga, a equipe BlueJus revisa, divulga para advogados, estagiários e correspondentes e entrega uma seleção dos candidatos mais compatíveis. Sem anúncio pago, sem triagem de centenas de currículos.</p><a href="{{ urlDivulgar }}" data-url-cta="{{ urlCta }}" class="vp-btn-verde"><i class="bi bi-megaphone"></i>Divulgar minha vaga grátis</a></div>
             <div class="vp-esc-passos">
                 {% for p in [['1', 'Crie a conta do escritório', 'Leva 2 minutos e é gratuito.'], ['2', 'Envie a vaga', 'Formulário padrão: cargo, local, requisitos e por quanto tempo divulgar.'], ['3', 'BlueJus revisa e divulga', 'Publicada na Central e compartilhada com a rede.'], ['4', 'Receba os melhores candidatos', 'A equipe seleciona os mais compatíveis e envia para você.']] %}
                     <div class="vp-passo"><span>{{ p[0] }}</span><span><b>{{ p[1] }}</b>{{ p[2] }}</span></div>
@@ -135,7 +137,7 @@
                 <span class="vp-lead-ok-ic"><i class="bi bi-envelope-check"></i></span>
                 <div class="vp-lead-ok-tit">Pronto! Você vai receber as vagas por e-mail</div>
                 <div class="vp-lead-ok-txt" id="vpLeadTxt"></div>
-                <a href="{{ urlCand }}" class="vp-btn"><i class="bi bi-person-plus"></i>Criar conta agora</a>
+                <a href="{{ urlCand }}" data-url-cta="{{ urlCta }}" class="vp-btn"><i class="bi bi-person-plus"></i>Criar conta agora</a>
             </div>
             <div class="vp-lead-form">
                 <div class="vp-lead-cab"><span><i class="bi bi-bell"></i></span><div><h2>Receba vagas da sua área por e-mail</h2><p>Seja um dos primeiros a saber. Você pode cancelar quando quiser.</p></div></div>
@@ -160,7 +162,7 @@
 
     <section class="vp-sistema" data-screen-label="Sistema BlueJus">
         <div class="vp-sistema-in">
-            <div><div class="vp-sistema-k">MAIS QUE UMA CENTRAL DE VAGAS</div><h2>O sistema que organiza o escritório inteiro</h2><p>Pastas e expedientes, prazos e publicações do PJe, metas da equipe, financeiro e um assistente com inteligência artificial que avisa o que precisa de atenção. Tudo em um só lugar.</p><a href="{{ urlDivulgar }}" class="vp-btn-branco"><i class="bi bi-rocket-takeoff"></i>Criar conta e conhecer</a></div>
+            <div><div class="vp-sistema-k">MAIS QUE UMA CENTRAL DE VAGAS</div><h2>O sistema que organiza o escritório inteiro</h2><p>Pastas e expedientes, prazos e publicações do PJe, metas da equipe, financeiro e um assistente com inteligência artificial que avisa o que precisa de atenção. Tudo em um só lugar.</p><a href="{{ urlDivulgar }}" data-url-cta="{{ urlCta }}" class="vp-btn-branco"><i class="bi bi-rocket-takeoff"></i>Criar conta e conhecer</a></div>
             <div class="vp-recursos">
                 {% for r in [['bi-folder2-open', 'Pastas e expedientes', 'Tudo do cliente em um lugar.'], ['bi-alarm', 'Prazos e PJe', 'Publicações e prazos sob controle.'], ['bi-stars', 'Assistente com IA', 'Avisa o que precisa de atenção.'], ['bi-graph-up', 'Metas e financeiro', 'Produtividade e honorários.']] %}
                     <div class="vp-recurso"><i class="bi {{ r[0] }}"></i><b>{{ r[1] }}</b><span>{{ r[2] }}</span></div>
@@ -179,8 +181,8 @@
     </section>
 
     <div class="vp-barra">
-        <a href="{{ urlCand }}" class="vp-barra-1"><i class="bi bi-person-plus"></i>Procuro vaga</a>
-        <a href="{{ urlDivulgar }}" class="vp-barra-2"><i class="bi bi-megaphone"></i>Quero divulgar vaga</a>
+        <a href="{{ urlCand }}" data-url-cta="{{ urlCta }}" class="vp-barra-1"><i class="bi bi-person-plus"></i>Procuro vaga</a>
+        <a href="{{ urlDivulgar }}" data-url-cta="{{ urlCta }}" class="vp-barra-2"><i class="bi bi-megaphone"></i>Quero divulgar vaga</a>
     </div>
     <footer class="vp-rodape">BlueJus · gestão para escritórios de advocacia · As vagas são publicadas por escritórios da rede e revisadas pela equipe BlueJus.</footer>
 </div>

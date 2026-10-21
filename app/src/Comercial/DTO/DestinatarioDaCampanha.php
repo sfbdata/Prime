@@ -4,10 +4,16 @@ declare(strict_types=1);
 
 namespace App\Comercial\DTO;
 
+use App\Comercial\Campanha\ComposicaoDaCampanha;
+
 /**
  * Um destinatário de campanha: o e-mail normalizado (minúsculo, sem espaços) e o nome, já limpo dos caracteres
  * `;:()<>"'` (spec §8.8, item 12: o `{nome}` entra só escapado no `style` e no `href` do HTML importado). Nome vazio =
  * sem nome (o envio usa "colega", a prévia "Dra. Ana", como a 1a e o dc).
+ *
+ * `lista` é a lista de consentimento pela qual ele entrou no público (spec §11): `comercial_campanhas` por padrão, ou
+ * `vagas_alerta` para quem só autorizou vagas e recebe o modelo `vagas`. Ela decide o link de descadastro, o
+ * List-Unsubscribe e a checagem do Carteiro. Não entra no {@see self::paraArray()} (o público guardado não muda).
  */
 final class DestinatarioDaCampanha
 {
@@ -17,7 +23,7 @@ final class DestinatarioDaCampanha
     public readonly string $email;
     public readonly string $nome;
 
-    public function __construct(string $email, ?string $nome = '')
+    public function __construct(string $email, ?string $nome = '', public readonly string $lista = ComposicaoDaCampanha::LISTA)
     {
         $this->email = mb_strtolower(trim($email));
         $this->nome = self::limparNome((string) $nome);

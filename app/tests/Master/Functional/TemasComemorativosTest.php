@@ -226,6 +226,37 @@ final class TemasComemorativosTest extends JusPrimeWebTestCase
         self::assertSame('/master/temas/modo', $card->attr('data-url-modo'));
         self::assertSame('/master/temas/idtema/ligado', $card->attr('data-url-ligar'));
         self::assertNotEmpty($card->attr('data-token'));
+
+        // Os textos do JS vêm do catálogo (bloco temas.js, spec idioma-do-sistema §8), uma vez, logo antes do script.
+        self::assertCount(1, $card->filter('script[data-bj-t] + script[src*="js/master/temas.js"]'));
+        $chaves = json_decode((string) $card->filter('script[data-bj-t]')->text(), true);
+        self::assertSame('Temas desligados: cores padrão do BlueJus', $chaves['temas.js.desligados'] ?? null);
+        self::assertSame([], array_filter(array_keys($chaves), static fn (string $c): bool => !str_starts_with($c, 'temas.js.')));
+    }
+
+    #[TestDox('JS do card: os textos pelo catálogo (BJ_T.t), sem texto fixo nem travessão')]
+    public function testJsPeloCatalogo(): void
+    {
+        $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/temas.js');
+        foreach (["BJ_T.t('temas.js.previa', { icone: t.ic, tema: t.r, s: Math.ceil((previa.ate - Date.now()) / 1000) })",
+            "BJ_T.t('temas.js.ativo', { icone: ativo.ic, tema: ativo.r })", "BJ_T.t('temas.js.desligados')", "BJ_T.t('temas.js.nenhum')",
+            "avisar(BJ_T.t('temas.js.previa_indisponivel'))", "avisar(dados.erro || BJ_T.t('temas.js.erro_alterar'))"] as $trecho) {
+            self::assertStringContainsString($trecho, $js);
+        }
+        self::assertStringNotContainsString('está ativo agora', $js);
+        self::assertSame(0, preg_match('/[—–]/u', $js));
+
+        $tradutor = static::getContainer()->get('translator');
+        foreach ([
+            'previa' => ['Prévia: 🎈 Dia das Crianças (termina sozinha em 12 s)', ['icone' => '🎈', 'tema' => 'Dia das Crianças', 's' => 12]],
+            'ativo' => ['🎈 Dia das Crianças está ativo agora', ['icone' => '🎈', 'tema' => 'Dia das Crianças']],
+            'desligados' => ['Temas desligados: cores padrão do BlueJus', []],
+            'nenhum' => ['Nenhum tema hoje: cores padrão do BlueJus', []],
+            'previa_indisponivel' => ['Não foi possível mostrar a prévia neste navegador.', []],
+            'erro_alterar' => ['Não foi possível alterar agora. Recarregue a página.', []],
+        ] as $chave => [$texto, $parametros]) {
+            self::assertSame($texto, $tradutor->trans('temas.js.' . $chave, $parametros, null, 'pt_BR'), $chave);
+        }
     }
 
     #[TestDox('status do card: desligado e sem tema hoje')]
