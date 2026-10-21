@@ -270,7 +270,7 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertFalse($this->recarregarVinculo($this->advogado)->getTenantRole()?->isSystem());
     }
 
-    #[TestDox('secundário COM admin.roles.manage vê a lista mas não promove ninguém a primário (nem a si)')]
+    #[TestDox('secundário COM admin.roles.manage vê a lista mas não promove ninguém a primário (nem a si) nem abre o perfil primário')]
     public function testSecundarioComGestaoDePerfisNaoPromove(): void
     {
         $this->darPermissao($this->perfilAdvogado, 'admin.roles.manage');
@@ -287,12 +287,10 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         $this->client->request('GET', $this->urlLista());
         self::assertResponseIsSuccessful();
 
-        // M3: ele vê os primários, mas sem promover nem lixeira.
-        $crawler = $this->client->request('GET', $this->urlEdicao($this->perfilPrimario));
-        self::assertResponseIsSuccessful();
-        self::assertCount(2, $crawler->filter('[data-pf-primarios] > [data-pf-primario]'));
-        self::assertCount(0, $crawler->filter('[data-pf-form-promover]'));
-        self::assertCount(0, $crawler->filter('[data-pf-remover-primario]'));
+        // Hierarquia (spec perfis-1.2-permissoes-e-hierarquia C2/C3): o perfil primário está acima do secundário,
+        // que não o vê na lista nem abre a edição dele. Antes (M3) ele via os primários só para leitura.
+        $this->client->request('GET', $this->urlEdicao($this->perfilPrimario));
+        self::assertResponseStatusCodeSame(403);
     }
 
     // ── §4.2 Edição ────────────────────────────────────────────────────────

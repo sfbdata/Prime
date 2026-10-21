@@ -247,4 +247,15 @@ final class PastaPushMenuContextoJsTest extends TestCase
         self::assertStringContainsString("window.addEventListener('resize'", $bloco);
         self::assertStringContainsString("'ps:fechar-popovers'", $bloco);
     }
+
+    #[TestDox('FPN-016: "Encaminhar via Chat I.A" dispara bj-central:despachar com a pasta do item, tipo push e o id do cartão clicado')]
+    public function testEncaminharDisparaOEventoDaCentral(): void
+    {
+        $bloco = $this->blocoDoMenu();
+
+        self::assertStringContainsString("opcao.classList.contains('js-push-menu-encaminhar')", $bloco);
+        self::assertStringContainsString("Number(opcao.getAttribute('data-encaminhar-pasta'))", $bloco);
+        self::assertStringContainsString("Number(de.item.getAttribute('data-push-id'))", $bloco);
+        self::assertMatchesRegularExpression("/new CustomEvent\\('bj-central:despachar', \\{\\s*detail: \\{ pastaId: pastaDoEnvio, tipo: 'push', itemId: publicacaoId \\}/", $bloco);
+    }
 }

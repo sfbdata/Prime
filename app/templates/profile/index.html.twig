@@ -394,7 +394,7 @@ input[type="range"].img-slider {
             <button type="button" class="mp-pref" data-mu-idioma>
                 <i class="bi bi-translate"></i>
                 <span class="mp-pref-texto"><span>Idioma do sistema</span><small>Muda todas as telas, menus e o Chat I.A</small></span>
-                <span class="mp-pref-valor">Português (Brasil)</span><i class="bi bi-chevron-right mp-pref-seta"></i>
+                <span class="mp-pref-valor">{{ idioma_atual().nome }}</span><i class="bi bi-chevron-right mp-pref-seta"></i>
             </button>
             {% for p in [
                 {chave: 'perfil.notificacoes', icone: 'bi-bell', rotulo: 'Notificações no sistema', sub: 'Sininho de prazos, metas e menções'},

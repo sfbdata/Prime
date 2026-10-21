@@ -8,7 +8,6 @@ use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Pasta\Controller\PastaLinkExternoController;
 use App\Pasta\Entity\LinkExternoDoPush;
-use App\Pasta\UseCase\GerarLinkExternoDoPushUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -114,7 +113,11 @@ final class PastaLinkExternoControllerTest extends JusPrimeWebTestCase
         self::assertArrayNotHasKey('confirmacao', $this->corpo($client), 'outro motivo de 422 não leva o reenvio da confirmação');
     }
 
-    #[TestDox('Gerar com o e-mail da conta a confirmar: 422 com o texto da recusa, a rota e o token do reenvio, e nada gravado')]
+    /**
+     * Desde a spec `cadastro-exige-confirmacao.md`, a conta a confirmar não fica logada: a sessão termina antes do
+     * controller. A recusa do caso de uso fica como defesa, provada no `GerarLinkExternoDoPushUseCaseTest`.
+     */
+    #[TestDox('Gerar com o e-mail da conta a confirmar: a sessão termina antes, e nada é gravado')]
     public function testGerarComEmailAConfirmar(): void
     {
         $client = $this->cliente();
@@ -127,11 +130,8 @@ final class PastaLinkExternoControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $client->request('POST', "/pasta/{$pasta->getId()}/push/links", ['_token' => 'TOKEN_pasta_push_link_' . $pasta->getId()]);
 
-        self::assertResponseStatusCodeSame(422);
-        $corpo = $this->corpo($client);
-        self::assertSame(GerarLinkExternoDoPushUseCase::RECUSA_EMAIL_A_CONFIRMAR, $corpo['erro']);
-        self::assertSame('/conta/confirmacao/reenviar', $corpo['confirmacao']['url']);
-        self::assertNotSame('', $corpo['confirmacao']['token']);
+        self::assertResponseRedirects('/login');
+        self::assertNull($client->getContainer()->get('security.token_storage')->getToken());
         self::assertSame(0, $this->em()->getRepository(LinkExternoDoPush::class)->count(['pasta' => $pasta->getId()]));
     }
 

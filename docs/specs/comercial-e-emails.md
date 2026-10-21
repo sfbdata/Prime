@@ -810,3 +810,50 @@ descadastro (`comercial_campanhas`); G9 contagens brutas e K global (8.5); G10 b
 importado (8.3); G15 URLs (8.3); G16 CSV (8.5); G17 teste (8.4); G18 auditoria (8.2, 8.4); G19 `MODELOS[mk].r` quebra
 com próprio (a campanha guarda `modelo_nome`); G20 rastreio (`rastrear = true`, vale com a constante da 1a); G21
 "Baixar HTML" (8.3); G22 teto diário (8.5).
+
+## 9. F2: motor dos filtros da campanha (desenho 05 VS 21.10.26)
+
+Desenho: `docs/design/perfis-1.2/vs-21-10-26/05 - Perfis 1.2 - VS 21.10.26.dc.html`, "Filtrar destinatários" (template
+L258-264, script L631-671). Frente 5d; a tela é a F3. Depende da F1 da 7d (#188, gênero e atuação no Meu Perfil). Risco
+MÉDIO (envio em massa). Sem migration: o filtro fica congelado no `publico_parametros`.
+
+### O que o desenho pede (e entra inteiro)
+- Nove campos, cada um um select de valor único (vazio = todos), combinados com E: busca livre (e-mail ou nome; termos
+  separados por espaço, vírgula ou ponto e vírgula, com OU entre eles), Gênero (F, M), Idade (18 a 24, 25 a 34, 35 a
+  44, 45 a 54, 55 ou mais, em anos completos), Estado (as 27 UFs), Perfil (primário, secundário), Cargo (Advogado(a),
+  Estagiário(a), Controladoria, Financeiro, Administrativo, Outros), OAB (confirmada, pendente, sem), Plano e
+  Aniversário (este mês, próximo mês). Chaves de troca com a tela: `q gen id uf papel cargo oab plano aniv`.
+- Os atalhos (Só mulheres, Só homens, Advogados, Estagiários, Primários, Aniversariantes do mês) trocam o filtro
+  inteiro: são da tela (F3).
+- "N de M atendem ao filtro · K sem essa informação no cadastro (ficam de fora)": M é a lista depois de tirar
+  repetidos, descadastrados e o B1; K conta cada pessoa uma vez, no primeiro campo ativo cujo dado falta, na ordem do
+  dc (gênero, idade, UF, cargo, aniversário). Perfil, OAB e plano não contam como falta: quem não tem conta só não
+  atende. A grade de "2 · PARA QUEM" continua sem o filtro (dc L640).
+
+### Decisões do coordenador (21/10, por delegação do dono; o dono pode rever)
+- **D1. Listas sem cadastro:** os e-mails do CSV, do Individual e da Base de contatos são cruzados com as contas: quem
+  tem conta ganha os dados dela; quem não tem fica sem informação.
+- **D2. UF:** a regra do mapa do Master (`LocalizacaoDaPessoa`): lotação "Cidade/UF", depois a OAB, depois o estado do
+  escritório.
+- **D3. Pessoa em vários escritórios:** Perfil = primário se é primário em algum; Plano bate se algum escritório válido
+  tem o plano.
+- **D4. Opções de Plano:** as do catálogo (inclui o Avançado), e não só as três do dc. Sem espaço gravado = Free.
+- **D5. Cargo:** só a atuação declarada no Meu Perfil (F1, sem backfill), sem deduzir do vínculo. No começo quase todos
+  ficam sem informação, como o dono pediu ("o filtro tem que corresponder à realidade do sistema").
+- **D6. OAB pendente:** não verificada ou divergente.
+- **D7. Idade e aniversário:** calculados na execução; numa campanha recorrente, cada mês pega os aniversariantes da vez.
+
+### Como funciona
+- `FiltroDoPublico` (DTO, valida os valores do dc), `AtributosDosDestinatarios` (três leituras em lote: vínculos
+  válidos, Meu Perfil e o plano pelo Contribua, que é o dono do espaço) e `FiltroDeDestinatarios` (puro, na ordem do dc).
+- O filtro roda no fim do `PublicosDaCampanha::resolver`, só quando está ativo.
+- A contagem devolve `filtro: {ativo, quantos, base, atendem, semInformacao}` para a tela.
+- **Congelamento:** sem filtro, a campanha guarda o que guardava (a lista do CSV ou do Individual já resolvida). Com
+  filtro, guarda `{informados, filtro}`, com a lista que chegou ao filtro (sem repetidos, descadastrados e barrados pelo
+  B1: não guarda quem nunca vai receber), e o expansor reaplica os dois a cada execução.
+  O repositório lê os dois formatos. O `publico_parametros` já era apagado ao terminar; a busca livre (nomes e e-mails)
+  segue a mesma regra. A trilha `camp_conf` continua só com `{publico, frequencia, total}` (R6).
+- **Robustez (revisão de 21/10):** filtro congelado que não passa mais na validação cancela a campanha com motivo
+  próprio (tirar o filtro alargaria o público); os IN vão em blocos de 10 mil (limite de parâmetros do PostgreSQL);
+  nascimento no futuro conta como sem a informação; "Prefiro não informar" (`nao_informado`) também (contrato da F1);
+  OAB com número e sem status é pendente, como no dc; plano fora do catálogo não atende ninguém, sem erro.

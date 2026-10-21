@@ -295,7 +295,11 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
         self::assertSelectorExists('.alert-erro');
     }
 
-    #[TestDox('E-mail a confirmar: criar convite é recusado com o pedido de confirmação e nada é gravado')]
+    /**
+     * Desde a spec `cadastro-exige-confirmacao.md`, a conta a confirmar não fica logada: a sessão termina antes do
+     * controller. A recusa do caso de uso fica como defesa, provada no `CriarConviteEscritorioUseCaseTest`.
+     */
+    #[TestDox('E-mail a confirmar: a sessão termina antes de criar o convite, e nada é gravado nem enviado')]
     public function testEmailAConfirmarNaoCriaConvite(): void
     {
         $client = static::createClient();
@@ -315,18 +319,15 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
             '_token'         => $this->gerarCsrf('convite_novo'),
         ]);
 
-        self::assertResponseRedirects('/escritorio/convites');
+        self::assertResponseRedirects('/login');
+        self::assertNull($client->getContainer()->get('security.token_storage')->getToken());
         self::assertEmailCount(0);
-        $client->followRedirect();
-        self::assertSelectorTextContains('.alert-erro', 'Confirme o seu e-mail para convidar pessoas.');
-        // Junto da recusa, o botão que reenvia o link de confirmação (POST com o CSRF próprio).
-        self::assertSelectorExists('.aviso-email-a-confirmar form[method="post"][action="/conta/confirmacao/reenviar"] input[name="_token"]');
-        self::assertSelectorTextContains('.aviso-email-a-confirmar button[type="submit"]', 'Reenviar o link de confirmação');
         $em->clear();
         self::assertNull($em->getRepository(Invitation::class)->findOneBy(['email' => $email]));
     }
 
-    #[TestDox('E-mail a confirmar: reenviar convite é recusado e o convite não muda')]
+    /** Mesmo caso do anterior; a recusa do caso de uso se prova no `ReenviarConviteUseCaseTest`. */
+    #[TestDox('E-mail a confirmar: a sessão termina antes de reenviar o convite, e o convite não muda')]
     public function testEmailAConfirmarNaoReenviaConvite(): void
     {
         $client = static::createClient();
@@ -351,10 +352,9 @@ final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
             '_token' => $this->gerarCsrf('convite_reenviar_' . $invitation->getToken()),
         ]);
 
-        self::assertResponseRedirects('/escritorio/convites');
+        self::assertResponseRedirects('/login');
+        self::assertNull($client->getContainer()->get('security.token_storage')->getToken());
         self::assertEmailCount(0);
-        $client->followRedirect();
-        self::assertSelectorTextContains('.alert-erro', 'Confirme o seu e-mail para convidar pessoas.');
         $em->clear();
         self::assertSame(0, $em->find(Invitation::class, $invitation->getId())->getReenvioCount());
     }
