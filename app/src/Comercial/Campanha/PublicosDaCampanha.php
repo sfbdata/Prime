@@ -53,16 +53,20 @@ final class PublicosDaCampanha
      */
     public function resolver(string $publico, array $informados = [], ?FiltroDoPublico $filtro = null, ?\DateTimeImmutable $hoje = null): PublicoResolvido
     {
-        $unicos = self::semRepetidos($this->fonte($publico, $informados));
+        $fonte = $this->fonte($publico, $informados);
+        $unicos = self::semRepetidos($fonte);
+        // dc 21.10 L665: "Y repetido(s) removido(s) · Z inválido(s) ignorado(s)".
+        $invalidos = \count(array_filter($fonte, static fn (DestinatarioDaCampanha $d): bool => !$d->valido()));
+        $repetidos = \count($fonte) - $invalidos - \count($unicos);
         $liberados = array_values(array_filter($unicos, fn (DestinatarioDaCampanha $d): bool => !$this->descadastrado($d)));
         $autorizados = $this->autorizados($publico, $liberados);
         if ($filtro === null || !$filtro->ativo()) {
-            return new PublicoResolvido($autorizados, \count($unicos) - \count($liberados), \count($liberados) - \count($autorizados));
+            return new PublicoResolvido($autorizados, \count($unicos) - \count($liberados), \count($liberados) - \count($autorizados), repetidos: $repetidos, invalidos: $invalidos);
         }
         $atributos = $this->atributos->de(array_map(static fn (DestinatarioDaCampanha $d): string => $d->email, $autorizados));
         [$atendem, $semInformacao] = FiltroDeDestinatarios::aplicar($autorizados, $atributos, $filtro, $hoje ?? $this->relogio->now());
 
-        return new PublicoResolvido($atendem, \count($unicos) - \count($liberados), \count($liberados) - \count($autorizados), \count($autorizados), $semInformacao, $autorizados);
+        return new PublicoResolvido($atendem, \count($unicos) - \count($liberados), \count($liberados) - \count($autorizados), \count($autorizados), $semInformacao, $autorizados, $repetidos, $invalidos);
     }
 
     /**
