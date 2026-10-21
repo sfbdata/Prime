@@ -5,6 +5,8 @@
    - Desligar: os dois prompt() do desenho (motivo; data AAAA-MM-DD, inválida vira "sem data"). Religar: um clique.
    - POST /master/recursos/{chave} (JSON, X-CSRF-Token master_recursos); a resposta traz o estado novo e a aba se
      redesenha sem recarregar. As duas linhas de "Contribua" dividem a chave e mudam juntas.
+   - Textos no catálogo (master.js.recursos.*, entregue pelo painel com catalogo_js); datas por window.BJFormato. O
+     nome, o grupo e a descrição de cada linha vêm do servidor.
    Nenhuma decisão mora só aqui: o servidor recusa chave desconhecida e tela essencial. */
 (() => {
   'use strict';
@@ -25,8 +27,11 @@
   let ocupado = false;
   let timerAviso = null;
 
-  const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
-  const dataBr = iso => String(iso).split('-').reverse().join('/');
+  // As aspas pelo código (\x22, \x27): o literal delas desalinha a leitura das strings do detector de texto fixo.
+  const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '\x22': '&quot;', '\x27': '&#39;' };
+  const esc = t => String(t == null ? '' : t).replace(/[&<>\x22\x27]/g, m => ESC[m]);
+  const T = (chave, params) => window.BJ_T.t(chave, params);
+  const dataBr = iso => { const p = String(iso).split('-'); return p.length === 3 ? window.BJFormato.data(new Date(+p[0], +p[1] - 1, +p[2])) : String(iso); };
 
   function avisar(texto) {
     elAviso.textContent = texto;
@@ -36,19 +41,19 @@
   }
 
   function info(e) {
-    return (e.motivo ? e.motivo : 'Sem motivo informado') + (e.ate ? ' · volta em ' + dataBr(e.ate) : '');
+    return (e.motivo ? e.motivo : T('master.js.recursos.sem_motivo')) + (e.ate ? ' · ' + T('master.js.recursos.volta_em', { data: dataBr(e.ate) }) : '');
   }
 
   function item(l) {
     const e = ESTADO[l.chave];
     const on = e.ativo;
-    const desc = l.d || (l.tela ? 'Tela inteira' : 'Item do menu da foto');
+    const desc = l.d || (l.tela ? T('master.js.recursos.tela_inteira') : T('master.js.recursos.item_menu'));
     return '<button type="button" class="mp-rec-item' + (on ? '' : ' is-off') + '" data-chave="' + esc(l.chave) + '" aria-pressed="' + (on ? 'true' : 'false') + '">'
       + '<i class="bi ' + esc(l.ic) + ' mp-rec-item-ic"></i>'
-      + '<span class="mp-rec-item-corpo"><span class="mp-rec-item-titulo">' + esc(l.t) + (l.base ? '<i class="bi bi-lock-fill" title="Essencial"></i>' : '') + '</span>'
+      + '<span class="mp-rec-item-corpo"><span class="mp-rec-item-titulo">' + esc(l.t) + (l.base ? '<i class="bi bi-lock-fill" title="' + esc(T('master.js.recursos.essencial')) + '"></i>' : '') + '</span>'
       + '<span class="mp-rec-item-desc">' + esc(desc) + '</span>'
       + (on ? '' : '<span class="mp-rec-item-info">' + esc(info(e)) + '</span>') + '</span>'
-      + '<span class="mp-rec-item-st">' + (on ? 'Ativo' : 'Desativado') + '</span>'
+      + '<span class="mp-rec-item-st">' + esc(on ? T('master.js.recursos.ativo') : T('master.js.recursos.desativado')) + '</span>'
       + '<span class="mp-rec-chave"><span></span></span></button>';
   }
 
@@ -58,10 +63,10 @@
     LINHAS.filter(l => !q || (l.t + ' ' + l.g).toLowerCase().includes(q)).forEach(l => { (grupos[l.g] = grupos[l.g] || []).push(l); });
     const html = Object.keys(grupos).map(g => '<div class="mp-rec-grupo-titulo">' + esc(g) + ' · ' + grupos[g].length + '</div>'
       + '<div class="mp-rec-grade">' + grupos[g].map(item).join('') + '</div>').join('');
-    elGrupos.innerHTML = html || '<div class="mp-rec-vazio">Nenhuma tela ou função encontrada.</div>';
+    elGrupos.innerHTML = html || '<div class="mp-rec-vazio">' + esc(T('master.js.recursos.vazio')) + '</div>';
 
     const off = LINHAS.filter(l => !ESTADO[l.chave].ativo).length;
-    elResumo.textContent = off ? off + ' desativado(s) para os usuários' : 'Tudo ativo';
+    elResumo.textContent = off ? T('master.js.recursos.desativados', { n: off }) : T('master.js.recursos.tudo_ativo');
     elResumo.classList.toggle('is-off', off > 0);
   }
 
@@ -76,22 +81,22 @@
     })
       .then(r => r.json().catch(() => ({})).then(dados => ({ ok: r.ok, dados })))
       .then(({ ok, dados }) => {
-        if (!ok) { avisar(dados.erro || 'Não foi possível alterar agora. Recarregue a página.'); return; }
+        if (!ok) { avisar(dados.erro || T('master.js.recursos.erro')); return; }
         ESTADO[chave] = { ativo: dados.ativo, motivo: dados.motivo, ate: dados.ate };
       })
-      .catch(() => avisar('Não foi possível alterar agora. Recarregue a página.'))
+      .catch(() => avisar(T('master.js.recursos.erro')))
       .finally(() => { ocupado = false; render(); });
   }
 
   function alternar(chave) {
     const l = LINHAS.find(x => x.chave === chave);
     if (!l || ocupado) return;
-    if (l.base) { avisar('Tela essencial: não pode ser desativada.'); return; }
+    if (l.base) { avisar(T('master.js.recursos.essencial_recusa')); return; }
     if (!ESTADO[chave].ativo) { enviar(chave, { ativo: true }); return; }
 
-    const motivo = prompt('Motivo exibido aos usuários (opcional). Ex.: "Tela em preparação", "Revisão ética", "Correção de falha":', 'Tela em preparação');
+    const motivo = prompt(T('master.js.recursos.pergunta_motivo'), T('master.js.recursos.motivo_padrao'));
     if (motivo === null) return;
-    const ate = prompt('Reativar automaticamente em (AAAA-MM-DD), ou deixe em branco:', '') || '';
+    const ate = prompt(T('master.js.recursos.pergunta_data'), '') || '';
     enviar(chave, { ativo: false, motivo, ate: /^\d{4}-\d{2}-\d{2}$/.test(ate) ? ate : '' });
   }
 
