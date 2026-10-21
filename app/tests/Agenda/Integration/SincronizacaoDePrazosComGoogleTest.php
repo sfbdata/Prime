@@ -21,6 +21,8 @@ use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPrazo;
 use App\Sync\Service\CifradorDeSegredo;
+use App\Agenda\Contract\DatasParaOGoogle;
+use App\Tests\Agenda\DatasParaOGoogleFalsas;
 use App\Tests\Agenda\GoogleFalso;
 use App\Tests\Factory\Pasta\PastaFactory;
 use Doctrine\ORM\EntityManagerInterface;
@@ -42,6 +44,8 @@ final class SincronizacaoDePrazosComGoogleTest extends KernelTestCase
     {
         $this->google = new GoogleFalso();
         static::getContainer()->set(GoogleAgendaApi::class, $this->google->api());
+        // As datas do sistema têm teste próprio (SincronizacaoDeDatasComGoogleTest).
+        static::getContainer()->set(DatasParaOGoogle::class, new DatasParaOGoogleFalsas());
     }
 
     #[TestDox('Vai a quem tem "Ver prazos na agenda", com o título da grade e a hora; não vai a quem não tem; pasta oculta não vai')]
