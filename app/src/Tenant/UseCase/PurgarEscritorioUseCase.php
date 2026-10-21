@@ -266,6 +266,8 @@ final class PurgarEscritorioUseCase
         ['comercial_envio', 'tenant_id = :tenant'],
         ['comercial_confirmacao_endereco', 'tenant_id = :tenant'],
         ['comercial_ciclo_conta', 'tenant_id = :tenant'],
+        // A vez dos avisos de espaço do escritório (comercial-e-emails.md §4): FK NO ACTION, nada a referencia.
+        ['comercial_aviso_espaco', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],
