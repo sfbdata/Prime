@@ -21,7 +21,7 @@ use Doctrine\Migrations\AbstractMigration;
  *
  * Aplicar também no banco de teste (`migrations:execute --up`, nunca `schema:update`).
  */
-final class Version20261021100000 extends AbstractMigration
+final class Version20261020138000 extends AbstractMigration
 {
     public function getDescription(): string
     {
