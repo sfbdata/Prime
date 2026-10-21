@@ -146,7 +146,16 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         );
         self::assertSame(
             ['perfis', 'usuários', 'fixos do sistema', 'personalizados'],
-            $crawler->filter('.pf-page > .pf-chips > .pf-chip > span')->each(static fn ($n): string => trim($n->text())),
+            $crawler->filter('.pf-page > .pf-chips > .pf-chip > .pf-chip-txt > .pf-chip-rot')->each(static fn ($n): string => trim($n->text())),
+        );
+        // Arranjo de 21/10 (L54): rótulo em cima, número embaixo (no mesmo bloco) e o ícone por último, à direita.
+        self::assertSame(
+            ['span', 'i'],
+            $crawler->filter('.pf-page > .pf-chips > .pf-chip')->first()->children()->each(static fn ($n): string => $n->nodeName()),
+        );
+        self::assertSame(
+            ['span', 'b'],
+            $crawler->filter('.pf-page > .pf-chips > .pf-chip > .pf-chip-txt')->first()->children()->each(static fn ($n): string => $n->nodeName()),
         );
         self::assertSame(
             ['bi-diagram-3', 'bi-people', 'bi-lock', 'bi-person-gear'],

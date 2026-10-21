@@ -8,6 +8,7 @@ use App\Ponto\Entity\JustificativaPonto;
 use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Profile\Service\SilencioDoSininho;
 use App\Repository\NotificacaoRepository;
 use App\Pasta\Service\NivelNoCadeado;
 use App\Repository\UserRepository;
@@ -31,6 +32,7 @@ class NotificacaoService
         private readonly UserRepository $userRepository,
         private readonly PermissionChecker $permissionChecker,
         private readonly ?NivelNoCadeado $nivelNoCadeado = null,
+        private readonly ?SilencioDoSininho $silencio = null,
     ) {
     }
 
@@ -221,7 +223,7 @@ class NotificacaoService
      */
     public function getNotificacoesNaoLidas(User $usuario, ?string $categoria = null, int $limit = 10): array
     {
-        return $this->notificacaoRepository->findNaoLidasByUsuario($usuario, $categoria, $limit, $this->pastasOcultasDe($usuario));
+        return $this->notificacaoRepository->findNaoLidasByUsuario($usuario, $categoria, $limit, $this->pastasOcultasDe($usuario), $this->silencio?->tiposQueContam($usuario));
     }
 
     /**
@@ -229,7 +231,8 @@ class NotificacaoService
      */
     public function contarNaoLidas(User $usuario, ?string $categoria = null): int
     {
-        return $this->notificacaoRepository->countNaoLidasByUsuario($usuario, $categoria, $this->pastasOcultasDe($usuario));
+        // Sininho em silêncio (preferência do Meu Perfil): só os tipos que pedem ação contam; "Ver todas" mostra tudo.
+        return $this->notificacaoRepository->countNaoLidasByUsuario($usuario, $categoria, $this->pastasOcultasDe($usuario), $this->silencio?->tiposQueContam($usuario));
     }
 
     /**

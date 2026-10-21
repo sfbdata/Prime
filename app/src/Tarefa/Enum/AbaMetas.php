@@ -60,10 +60,4 @@ enum AbaMetas: string
             default           => 'Responsável',
         };
     }
-
-    /** A aba "Criei" agrupa por etapa da revisão; as demais, por urgência do prazo. */
-    public function agrupaPorEtapaDaRevisao(): bool
-    {
-        return $this === self::CRIEI;
-    }
 }
