@@ -204,7 +204,9 @@
         vagaEditar: function (c) { return D.urlVagaEditar.replace(MARCADOR_VAGA, encodeURIComponent(c)); },
         vagaExcluir: function (c) { return D.urlVagaExcluir.replace(MARCADOR_VAGA, encodeURIComponent(c)); },
         vagasVisita: function () { return D.urlVagasVisita; },
-        vagasMarcacoes: function () { return D.urlVagasMarcacoes; }
+        vagasMarcacoes: function () { return D.urlVagasMarcacoes; },
+        vagasCompartilhar: function () { return D.urlVagasCompartilhar; },
+        vagasDivulgacao: function () { return D.urlVagasDivulgacao; }
     };
 
     /* ---------------------------------------------------------------- HTTP */
@@ -2602,6 +2604,13 @@
         if (!podeEscreverVaga()) {
             return;
         }
+        if (vagas().some(function (x) { return x.podeCompartilhar; })) {
+            var dicaSh = 'Compartilhe as vagas abertas por WhatsApp, e-mail ou LinkedIn';
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-vg-share', title: dicaSh, attrs: { 'data-tip': dicaSh },
+                onclick: function () { abrirShare(null); }
+            }, [ic('bi-share'), 'Compartilhar vagas']));
+        }
         if (V.podeDivulgar) {
             var dica = 'Envie a vaga do seu escritório. A equipe BlueJus revisa e divulga na Central.';
             alvo.appendChild(el('button', {
@@ -2842,7 +2851,8 @@
     /**
      * Menu do cartão (`vMenu`, l.1001), com o título da vaga e sem as marcações. Interno: Abrir vaga,
      * aprovar e não aprovar, Editar vaga, os demais botões de situação e Excluir vaga. Externo: Ver vaga.
-     * Divulgar e Compartilhar (F2c) e Candidatar-se ou Aceitar oferta (F2b) ainda não existem.
+     * "Divulgar vaga" (interno) e "Compartilhar vaga" (externo) na aberta; Candidatar-se ou Aceitar
+     * oferta entram na F2b.
      */
     function menuDaVaga(caixa, codigo) {
         var v = vagaDe(codigo);
@@ -2858,11 +2868,17 @@
         caixa.appendChild(el('div', { class: 'te-menu-tit', text: v.titulo }));
         if (!vgInterno()) {
             item('Ver vaga', 'bi-box-arrow-up-right', function () { abrirVaga(codigo); });
+            if (v.podeCompartilhar && podeEscreverVaga()) {
+                item('Compartilhar vaga', 'bi-share', function () { abrirShare([codigo]); });
+            }
             return;
         }
         item('Abrir vaga', 'bi-box-arrow-up-right', function () { abrirVaga(codigo); });
         if (!podeEscreverVaga()) {
             return;
+        }
+        if (v.podeCompartilhar) {
+            item('Divulgar vaga', 'bi-share', function () { abrirShare([codigo]); });
         }
         var botoes = v.botoes || [];
         var daAprovacao = function (b) { return b.k === 'aprovar' || b.k === 'reprovar'; };
@@ -3042,6 +3058,174 @@
         });
     }
 
+    /* ---------------------------------------------------------------- divulgar vaga(s) (tmShare) */
+
+    /** Mensagem padrão (`msgPadrao`, l.1075): uma vaga com cargo, local e quantidade; várias por cargo. */
+    function msgPadrao(L) {
+        var qtd = function (v) { return v.qtd || 1; };
+        if (L.length === 1) {
+            var v = L[0], loc = [v.cidade, v.uf].filter(Boolean).join('/') || 'Brasil';
+            return '⚖️ Vaga na área jurídica: ' + v.titulo + '\n\n💼 ' + v.cargo + (v.contrato ? ' · ' + v.contrato : '')
+                + '\n📍 ' + (v.modalidade ? v.modalidade + ' · ' : '') + loc + (qtd(v) > 1 ? '\n👥 ' + qtd(v) + ' vagas' : '')
+                + '\n\nAproveite! Crie sua conta gratuita no BlueJus para ver os detalhes e se candidatar:\n{link}';
+        }
+        var total = L.reduce(function (a, x) { return a + qtd(x); }, 0);
+        return '⚖️ Vagas para Advogados e área Jurídica disponíveis!\n\n' + total + ' vaga(s) abertas agora na Central BlueJus:\n'
+            + porCargo(L).map(function (c) { return '• ' + c[1] + ' × ' + c[0]; }).join('\n')
+            + '\n\nAproveite! Crie sua conta gratuita para ver os detalhes e se candidatar:\n{link}';
+    }
+
+    /** [[cargo, soma das quantidades], ...] na ordem em que aparecem. */
+    function porCargo(L) {
+        var cg = {}, ordem = [];
+        L.forEach(function (v) {
+            if (!(v.cargo in cg)) {
+                cg[v.cargo] = 0;
+                ordem.push(v.cargo);
+            }
+            cg[v.cargo] += v.qtd || 1;
+        });
+        return ordem.map(function (k) { return [k, cg[k]]; });
+    }
+
+    /** `abrirShare` (l.1076): `codigos` nulo = todas as abertas. O link vem do servidor (token próprio). */
+    function abrirShare(codigos) {
+        fecharMenu();
+        var L = vagas().filter(function (v) { return v.podeCompartilhar && (!codigos || codigos.indexOf(v.codigo) >= 0); });
+        if (!L.length) {
+            mostrarToast({ tit: 'Nenhuma vaga aberta', txt: 'Só vagas abertas podem ser divulgadas.', hora: '' });
+            return;
+        }
+        var cods = L.map(function (v) { return v.codigo; });
+        pedir('POST', ROTA.vagasCompartilhar(), { codigos: cods }).then(function (r) {
+            if (!r.ok || !r.url) {
+                toastErro(r.mensagem);
+                return;
+            }
+            S.tlm = 'share';
+            S.vgDet = null;
+            S.sh = { vagas: L, codigos: cods, link: r.url, msg: msgPadrao(L), copiou: '' };
+            renderShare();
+        });
+    }
+
+    /** Cada canal soma uma divulgação e vai ao histórico (`regShare`, l.1077); a falha não trava o canal. */
+    function registrarDivulgacao(canal) {
+        var sh = S.sh;
+        pedir('POST', ROTA.vagasDivulgacao(), { codigos: sh.codigos, canal: canal });
+    }
+
+    function copiarDoShare(texto, k) {
+        var marcar = function () {
+            if (S.sh) {
+                S.sh.copiou = k;
+                renderShare();
+            }
+        };
+        var reserva = function () {
+            var ta = document.createElement('textarea');
+            ta.value = texto;
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) { /* o navegador recusou; o texto segue na tela */ }
+            ta.remove();
+            marcar();
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto).then(marcar, reserva);
+        } else {
+            reserva();
+        }
+    }
+
+    /** Os cinco canais (`shCanais`, l.1167), com o texto já com o link no lugar de {link}. */
+    function canaisDoShare() {
+        var sh = S.sh, L = sh.vagas, link = sh.link;
+        var txt = function () { return sh.msg.replace('{link}', link); };
+        var assunto = L.length === 1 ? 'Vaga jurídica: ' + L[0].titulo : 'Vagas para Advogados e área Jurídica no BlueJus';
+        return [
+            ['WhatsApp', 'bi-whatsapp', '#1e7b45', function () { registrarDivulgacao('WhatsApp'); window.open('https://wa.me/?text=' + encodeURIComponent(txt()), '_blank', 'noopener'); }],
+            ['E-mail', 'bi-envelope', '#0a6fa0', function () { registrarDivulgacao('E-mail'); window.open('mailto:?subject=' + encodeURIComponent(assunto) + '&body=' + encodeURIComponent(txt()), '_self'); }],
+            ['LinkedIn', 'bi-linkedin', '#0b5f86', function () { registrarDivulgacao('LinkedIn'); copiarDoShare(txt(), 'li'); window.open('https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(link), '_blank', 'noopener'); }],
+            [sh.copiou === 'msg' ? 'Mensagem copiada' : 'Copiar mensagem', sh.copiou === 'msg' ? 'bi-check2' : 'bi-chat-left-text', '#5b3f9e', function () { registrarDivulgacao('mensagem copiada'); copiarDoShare(txt(), 'msg'); }],
+            [sh.copiou === 'link' ? 'Link copiado' : 'Copiar link', sh.copiou === 'link' ? 'bi-check2' : 'bi-link-45deg', '#34505f', function () { registrarDivulgacao('link'); copiarDoShare(link, 'link'); }]
+        ].map(function (k) {
+            return el('button', { type: 'button', class: 'te-sh-canal', style: { color: k[2] }, onclick: k[3] }, [ic(k[1]), k[0]]);
+        });
+    }
+
+    /** Prévia do link (l.344 a 353): o cartão como as redes mostram, com cargos e UFs. */
+    function previaDoShare() {
+        var L = S.sh.vagas, cg = porCargo(L), total = L.reduce(function (a, v) { return a + (v.qtd || 1); }, 0);
+        var ufs = L.map(function (v) { return v.uf; }).filter(function (u, i, a) { return u && a.indexOf(u) === i; });
+        var sub = total + ' vaga(s) · ' + cg.length + ' cargo(s)' + (ufs.length ? ' · ' + ufs.slice(0, 4).join(', ') + (ufs.length > 4 ? '…' : '') : '');
+        var dominio = (function () { try { return new URL(S.sh.link).host; } catch (e) { return location.host; } })() || 'bluejus.com.br';
+        return el('div', { class: 'te-sh-col' }, [
+            el('div', { class: 'te-sh-rot', text: 'PRÉVIA DO LINK' }),
+            el('div', { class: 'te-sh-moldura' }, el('div', { class: 'te-sh-cartao' }, [
+                el('div', { class: 'te-sh-capa' }, [
+                    el('span', { class: 'te-sh-bola1' }), el('span', { class: 'te-sh-bola2' }),
+                    el('img', { attrs: { src: D.urlSimbolo || '/images/logo/bluejus_simbolo.svg', alt: '' } }),
+                    el('div', { class: 'te-sh-marca' }, [el('div', { text: 'CENTRAL DE VAGAS JURÍDICAS' }), el('div', { text: 'BlueJus' })])
+                ]),
+                el('div', { class: 'te-sh-info' }, [
+                    el('div', { class: 'te-sh-dom', text: dominio }),
+                    el('b', { text: L.length === 1 ? L[0].titulo : 'Vagas para Advogados e área Jurídica' }),
+                    el('div', { class: 'te-sh-sub', text: sub }),
+                    el('div', { class: 'te-sh-cargos' }, cg.slice(0, 6).map(function (c) { return el('span', { text: c[1] + ' × ' + c[0] }); }))
+                ])
+            ])),
+            el('div', { class: 'te-sh-nota' }, [ic('bi-shield-lock'), ' A página pública mostra só cargo, local e tipo. Detalhes, remuneração, contatos e candidatura ficam liberados depois de criar a conta.'])
+        ]);
+    }
+
+    function mensagemDoShare() {
+        var sh = S.sh;
+        var area = el('textarea', { class: 'te-sh-msg', attrs: { rows: '10', 'aria-label': 'Mensagem' } });
+        area.value = sh.msg;
+        area.addEventListener('input', function (e) {
+            sh.msg = e.target.value;
+            var antes = sh.copiou;
+            sh.copiou = '';
+            if (antes || (sh.msg.indexOf('{link}') < 0) !== !!$('teShSemLink')) {
+                renderShare(true);
+            }
+        });
+        return el('div', { class: 'te-sh-col' }, [
+            el('div', { class: 'te-sh-cab' }, [
+                el('span', { class: 'te-sh-rot', text: 'MENSAGEM' }),
+                el('button', { type: 'button', class: 'te-sh-padrao', onclick: function () { sh.msg = msgPadrao(sh.vagas); sh.copiou = ''; renderShare(); } }, [ic('bi-arrow-counterclockwise'), ' Mensagem padrão'])
+            ]),
+            area,
+            sh.msg.indexOf('{link}') < 0 ? el('div', { class: 'te-sh-semlink', id: 'teShSemLink' }, [ic('bi-exclamation-triangle'), ' Inclua {link} no texto para o link entrar na mensagem.']) : null,
+            el('div', { class: 'te-sh-canais' }, canaisDoShare())
+        ]);
+    }
+
+    /** `tmShare` (l.343 a 362), 960px, com "Fechar" e "Ver página pública" (l.1098). `manterFoco` devolve o cursor à mensagem. */
+    function renderShare(manterFoco) {
+        var sh = S.sh;
+        if (!sh || S.tlm !== 'share') {
+            return;
+        }
+        var ativo = document.activeElement, pos = ativo && ativo.classList && ativo.classList.contains('te-sh-msg') ? ativo.selectionStart : null;
+        modalVaga({
+            titulo: 'Divulgar vaga' + (sh.vagas.length > 1 ? 's' : '') + ' · WhatsApp, e-mail e redes',
+            icone: 'bi-share',
+            largura: '960px',
+            corpo: [el('div', { class: 'te-sh' }, [previaDoShare(), mensagemDoShare()])],
+            botoes: [
+                botaoTlm('Fechar', 'bi-x', '', fecharTlm),
+                botaoTlm('Ver página pública', 'bi-box-arrow-up-right', 'pri', function () { window.open(sh.link, '_blank', 'noopener'); })
+            ]
+        });
+        var nova = document.querySelector('#teVagaModal .te-sh-msg');
+        if (manterFoco && nova && pos !== null) {
+            nova.focus();
+            nova.setSelectionRange(pos, pos);
+        }
+    }
+
     /* ---------------------------------------------------------------- modal genérico (tlm) */
 
     function fecharTlm() {
@@ -3053,6 +3237,7 @@
         S.vgDet = null;
         S.vf = null;
         S.vgDel = null;
+        S.sh = null;
         relogiosDetalhe = [];
         limpar($('teVagaModal'));
     }
@@ -3138,6 +3323,8 @@
         relogiosDetalhe = [];
         var of = v.ofertante || { nome: v.escritorio, info: [], oculto: false };
         var corpo = [
+            // "Compartilhar esta vaga" (`tvPodeShare`, l.286): na aberta, para quem a vê.
+            v.podeCompartilhar && podeEscreverVaga() ? el('button', { type: 'button', class: 'te-tv-share', onclick: function () { abrirShare([v.codigo]); } }, [ic('bi-whatsapp'), 'Compartilhar esta vaga']) : null,
             el('div', { class: 'te-tv-of' }, [
                 el('span', { class: 'te-tv-of-ic' }, ic('bi-building')),
                 el('div', { class: 'te-tv-of-textos' }, [

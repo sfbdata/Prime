@@ -54,6 +54,10 @@ final class TenantContextValidatorListener
         'push_compartilhado',
         'push_compartilhado_codigo',
         'push_compartilhado_renovacao',
+        // Página pública de vagas: sem login por desenho; quem está logado lê igual a quem não está.
+        'trabalho_externo_vagas_publicas',
+        'trabalho_externo_vagas_link',
+        'trabalho_externo_vagas_alertas',
         // Indicar o BlueJus (spec indicar-bluejus.md): o menu oferece a janela a todo logado, com ou sem
         // escritório (o Convidado do Trabalho Externo também). O dado é da pessoa, sem tenant; o controller só
         // usa o escritório da sessão com vínculo ativo, conferido por ele mesmo.

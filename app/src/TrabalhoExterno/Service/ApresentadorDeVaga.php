@@ -59,7 +59,18 @@ final class ApresentadorDeVaga
             'podeCompartilhar' => $this->politica->podeCompartilhar($ctx, $v, $agora),
             'rotuloEditar' => $this->rotuloEditar($ctx, $v),
             'botoes' => $this->politica->botoes($ctx, $v, $agora),
-        ] + $this->faixa($ctx, $v, $s) + $this->tempo($ctx, $v, $s);
+        ] + $this->faixa($ctx, $v, $s) + $this->tempo($ctx, $v, $s) + $this->crus($v);
+    }
+
+    /** Os dados crus, para a mensagem padrão do "Divulgar vaga(s)" (`msgPadrao`, l.1075). @return array<string, string> */
+    private function crus(Vaga $v): array
+    {
+        return [
+            'contrato' => $v->getContratacao(),
+            'modalidade' => $v->getModalidade(),
+            'cidade' => $v->getCidade(),
+            'uf' => $v->getUf(),
+        ];
     }
 
     /** @return array<string, mixed> */
@@ -68,7 +79,6 @@ final class ApresentadorDeVaga
         $interno = $this->politica->ehInterno($ctx);
 
         return $this->cartao($ctx, $v, $marca, $ultimaVisita, $agora) + [
-            'modalidade' => $v->getModalidade(),
             'requisitos' => $v->getRequisitos() !== '' ? $v->getRequisitos() : 'Sem descrição.',
             'oab' => $v->isExigeOab() ? 'Exige OAB ativa' : 'OAB não obrigatória',
             'prazoDetalhe' => $this->prazoDoDetalhe($v),

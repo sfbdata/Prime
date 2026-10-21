@@ -19,6 +19,8 @@ use App\TrabalhoExterno\Service\FabricaDeContexto;
 use App\TrabalhoExterno\Service\LocalizadorDeVaga;
 use App\TrabalhoExterno\Service\PreviaDePerfil;
 use App\TrabalhoExterno\UseCase\AplicarAcaoNaVagaUseCase;
+use App\TrabalhoExterno\UseCase\CompartilharVagasUseCase;
+use App\TrabalhoExterno\UseCase\RegistrarDivulgacaoUseCase;
 use App\TrabalhoExterno\UseCase\EditarVagaUseCase;
 use App\TrabalhoExterno\UseCase\ExcluirVagaUseCase;
 use App\TrabalhoExterno\UseCase\RegistrarVisitaAsVagasUseCase;
@@ -29,6 +31,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * A aba Vagas (spec VS 18.10.26 §4.1), toda em JSON. Escritas com CSRF no header `X-CSRF-Token`,
@@ -126,6 +129,34 @@ final class VagasController extends AbstractController
             $codigos = is_array($corpo['codigos'] ?? null) ? array_values(array_map('strval', array_filter($corpo['codigos'], 'is_scalar'))) : [];
 
             return $marcar->executar($ctx, $codigos, $op);
+        });
+    }
+
+    /** "Compartilhar vagas" (`tmShare`, spec §4.2): o link público com as vagas abertas escolhidas. */
+    #[Route('/compartilhar', name: 'trabalho_externo_vagas_compartilhar', methods: ['POST'])]
+    public function compartilhar(Request $request, CompartilharVagasUseCase $compartilhar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $compartilhar): array {
+            $corpo = $this->corpo($request);
+            $codigos = is_array($corpo['codigos'] ?? null) ? array_values(array_map('strval', array_filter($corpo['codigos'], 'is_scalar'))) : [];
+            $link = $compartilhar->executar($ctx, $codigos);
+
+            return [
+                'url' => $this->generateUrl('trabalho_externo_vagas_link', ['token' => $link['token']], UrlGeneratorInterface::ABSOLUTE_URL),
+                'vagas' => $link['vagas'],
+            ];
+        });
+    }
+
+    /** Cada canal clicado no modal de divulgar (WhatsApp, E-mail, LinkedIn, mensagem copiada, link): histórico e contador. */
+    #[Route('/divulgacao', name: 'trabalho_externo_vagas_divulgacao', methods: ['POST'])]
+    public function divulgacao(Request $request, RegistrarDivulgacaoUseCase $registrar): JsonResponse
+    {
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $registrar): array {
+            $corpo = $this->corpo($request);
+            $codigos = is_array($corpo['codigos'] ?? null) ? array_values(array_map('strval', array_filter($corpo['codigos'], 'is_scalar'))) : [];
+
+            return ['registradas' => $registrar->executar($ctx, $codigos, is_string($corpo['canal'] ?? null) ? $corpo['canal'] : '')];
         });
     }
 
