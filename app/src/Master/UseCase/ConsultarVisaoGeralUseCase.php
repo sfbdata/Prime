@@ -21,6 +21,8 @@ use Psr\Clock\ClockInterface;
  * limites do RetratoDoEspaco das contas fora da quarentena COM limite, com a faixa da função `faixa()` do
  * desenho; as contas sem limite vêm à parte (quantas e quanto usam). Nulo quando nenhuma conta tem limite. `registrosDeAuditoria`
  * é o selo do botão "Segurança e auditoria" desde a abertura do painel (linha 678; P10).
+ *
+ * A seta de tendência do mapa é o saldo de entradas menos saídas da equipe (C6; regras no {@see MapaDeAtuacao}).
  */
 final class ConsultarVisaoGeralUseCase
 {
@@ -48,7 +50,7 @@ final class ConsultarVisaoGeralUseCase
         return [
             'kpis'        => $this->kpis($escritorios, $pessoas, $consumo, $pastas),
             'crescimento' => self::crescimento($this->repositorio->entradasPorMes(), $hoje),
-            'mapa'        => MapaDeAtuacao::montar($pessoas, $escritorios, $hoje),
+            'mapa'        => MapaDeAtuacao::montar($pessoas, $escritorios, $hoje, $this->saidasDaTendencia($hoje)),
             'idades'      => FaixaEtaria::distribuir(array_column($pessoas, 'nascimento'), $hoje),
             'armazenamento' => $this->armazenamentoContratado($escritorios, $consumo),
             'registrosDeAuditoria' => $this->repositorio->contarTrilhaAdministrativa(
@@ -118,7 +120,21 @@ final class ConsultarVisaoGeralUseCase
      */
     public function mapa(): array
     {
-        return MapaDeAtuacao::montar($this->repositorio->pessoas(), $this->repositorio->escritorios(), $this->relogio->now());
+        $hoje = $this->relogio->now();
+
+        return MapaDeAtuacao::montar($this->repositorio->pessoas(), $this->repositorio->escritorios(), $hoje, $this->saidasDaTendencia($hoje));
+    }
+
+    /**
+     * Saídas da equipe das duas janelas da seta de tendência (60 dias até agora; spec perfis-1.2-planos-e-limites
+     * §5, C6). O fim é o segundo seguinte ao de agora porque o banco guarda `saiu_em` em segundos inteiros: assim a
+     * saída deste segundo entra. As bordas de 30 e 60 dias são do {@see MapaDeAtuacao}, as mesmas das entradas.
+     *
+     * @return list<array{saiuEm: string, eraPrimario: bool, tenantId: int, userId: ?int, oabUf: ?string, estado: ?string}>
+     */
+    private function saidasDaTendencia(\DateTimeImmutable $hoje): array
+    {
+        return $this->repositorio->saidasRecentes($hoje->modify('-60 days'), $hoje->modify('+1 second'));
     }
 
     /**

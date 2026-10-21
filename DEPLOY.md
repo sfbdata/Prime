@@ -218,6 +218,24 @@ Roda **depois** do backup das 02:00, para que o dump da noite ainda contenha o e
 > A carência de quarentena (padrão 365 dias) é configurável sem deploy via
 > `TENANT_CARENCIA_PURGA_DIAS` no `.env.prod`.
 
+### Cobrança automática do checklist das pastas (crontab na VPS)
+
+Job de manhã, de segunda a sexta (desenho 02, aba Documentos): cobra do responsável os documentos pendentes
+do checklist (no máximo 2 por pasta por dia, o tom sobe a cada aviso, a controladoria vai junto no 4º),
+avisa itens marcados sem o documento anexado e lembra de revisar checklist desativado há 30 dias. Cada
+escritório pula feriado (calendário da Agenda). Idempotente no dia.
+
+```
+# segunda a sexta, 12h UTC = 9h de Brasília
+0 12 * * 1-5 docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:cobrar-checklist >> /var/log/jusprime-checklist.log 2>&1
+```
+
+> **Primeira rodada (piloto):** simule num escritório antes de ligar o cron. O `--simular` lista quem seria
+> cobrado e não envia nem grava nada; depois, rode de verdade só nele:
+> `docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:cobrar-checklist --escritorio=ID --simular`
+> `docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:cobrar-checklist --escritorio=ID`
+> A primeira rodada audita todo item já marcado sem anexo e começa a cobrar toda pasta com pendência.
+
 ### Resumo semanal ao cliente (crontab na VPS)
 
 Toda segunda-feira, às 8h de Brasília, manda aos clientes com o "Resumo semanal" ligado as movimentações da semana anterior (spec `docs/specs/push-envio-automatico.md` §3; simule antes com `--dry-run`; configurar é do dono):

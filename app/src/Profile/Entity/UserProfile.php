@@ -3,6 +3,8 @@ declare(strict_types=1);
 namespace App\Profile\Entity;
 
 use App\Entity\Auth\User;
+use App\Profile\Enum\Atuacao;
+use App\Profile\Enum\Genero;
 use App\Profile\Repository\UserProfileRepository;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -40,6 +42,14 @@ class UserProfile
     /** Telefone / WhatsApp, só dígitos (desenho 07, VS 18.10.26). */
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $telefone = null;
+
+    /** Gênero declarado (desenho 05 de 21/10); nulo = não preenchido. Sem backfill. */
+    #[ORM\Column(length: 20, nullable: true, enumType: Genero::class)]
+    private ?Genero $genero = null;
+
+    /** Atuação declarada (desenho 05 de 21/10, filtro Cargo); nulo = não preenchida. Sem backfill. */
+    #[ORM\Column(length: 20, nullable: true, enumType: Atuacao::class)]
+    private ?Atuacao $atuacao = null;
 
     /** Última vez em que a pessoa confirmou, na revisão mensal, que o cadastro está certo. */
     #[ORM\Column(type: 'date_immutable', nullable: true)]
@@ -155,6 +165,30 @@ class UserProfile
     public function setSerie(?string $serie): static
     {
         $this->serie = $serie;
+
+        return $this;
+    }
+
+    public function getGenero(): ?Genero
+    {
+        return $this->genero;
+    }
+
+    public function setGenero(?Genero $genero): static
+    {
+        $this->genero = $genero;
+
+        return $this;
+    }
+
+    public function getAtuacao(): ?Atuacao
+    {
+        return $this->atuacao;
+    }
+
+    public function setAtuacao(?Atuacao $atuacao): static
+    {
+        $this->atuacao = $atuacao;
 
         return $this;
     }

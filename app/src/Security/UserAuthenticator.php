@@ -8,6 +8,7 @@ use App\Auth\Service\DestinoPosLogin;
 use App\Entity\Auth\User;
 use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
+use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -33,6 +34,7 @@ final class UserAuthenticator extends AbstractLoginFormAuthenticator
         private readonly EntityManagerInterface $em,
         private readonly UserTenantRepository $userTenantRepository,
         private readonly TenantContext $tenantContext,
+        private readonly BloqueioPorPedidoDeExclusao $bloqueioPorPedido,
         private readonly DestinoPosLogin $destinoPosLogin,
     ) {}
 
@@ -106,7 +108,8 @@ final class UserAuthenticator extends AbstractLoginFormAuthenticator
 
     private function destinoDoUsuario(User $user, ?string $alvo): string
     {
-        $tenants = $this->userTenantRepository->findActiveByUser($user);
+        // "Suspensa a pedido" (PR 5): o escritório barrado não é escolhido sozinho (sem laço com a barreira).
+        $tenants = $this->bloqueioPorPedido->permitidos($this->userTenantRepository->findActiveByUser($user));
 
         if (count($tenants) === 1) {
             $userTenant = $tenants[0];

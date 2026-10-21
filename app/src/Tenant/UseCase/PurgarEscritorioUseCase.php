@@ -96,6 +96,8 @@ final class PurgarEscritorioUseCase
         ['bloco_jornada', 'jornada_tenant_id IN (SELECT id FROM jornada_tenant WHERE tenant_id = :tenant)'],
         ['tenant_role_permission', 'tenant_role_id IN (SELECT id FROM tenant_role WHERE tenant_id = :tenant)'],
         ['cliente_documento', 'tenant_id = :tenant'],
+        // Histórico do cadastro (E12 3d): cairia pela CASCADE de `cliente`, mas a FK de tenant é NO ACTION.
+        ['cliente_historico', 'tenant_id = :tenant'],
         // Favoritos de arquivo/subpasta da aba Documentos (por usuário): cairiam pela CASCADE de
         // `pasta_documento`/`pasta_secao`, mas a FK de tenant é NO ACTION — deleção explícita
         // ANTES do documento, para a cobertura ficar visível aqui.
@@ -104,6 +106,7 @@ final class PurgarEscritorioUseCase
         ['movimentacao_processo', 'tenant_id = :tenant'],
         ['parte_processo', 'tenant_id = :tenant'],
         ['assunto_processo', 'tenant_id = :tenant'],
+        ['saida_da_equipe', 'tenant_id = :tenant'],
         ['user_tenant', 'tenant_id = :tenant'],
         // Notas técnicas do processo (tenant_id direto). Cairiam por cascata do processo, mas a FK à
         // publicação é SET NULL: apagar antes evita o UPDATE inútil e deixa a deleção explícita.
@@ -122,7 +125,9 @@ final class PurgarEscritorioUseCase
         // (bloqueia apagar o tenant) + tenant_id direto → deleção explícita. Apaga o segredo junto.
         ['sync_drive_conexao', 'tenant_id = :tenant'],
         // BlueJus IA — análises e configuração do escritório (tenant_id direto; FK tenant NO ACTION,
-        // FKs a "user" SET NULL; nada as referencia). Deleção explícita antes de apagar o tenant.
+        // FKs a "user" SET NULL). Deleção explícita antes de apagar o tenant. As perguntas da aba
+        // Perguntar (F3) referenciam a análise (CASCADE) e o tenant (NO ACTION): saem ANTES dela.
+        ['inteligencia_pergunta', 'tenant_id = :tenant'],
         ['inteligencia_analise', 'tenant_id = :tenant'],
         ['inteligencia_configuracao', 'tenant_id = :tenant'],
         // Contribua — plano e limites de espaço do escritório (tenant_id direto; FK tenant NO ACTION, nada a
@@ -191,6 +196,8 @@ final class PurgarEscritorioUseCase
         ['pasta_favorita', 'tenant_id = :tenant'],
         // Destaque de linha da Lista do Expediente (por usuário, E12): mesmo caso do favorito.
         ['pasta_destaque', 'tenant_id = :tenant'],
+        // Destaque de comentário da pasta (spec pasta-destacar-comentario.md): FK de tenant NO ACTION; nada o referencia.
+        ['pasta_comentario_destaque', 'tenant_id = :tenant'],
         // Chaves do "Avisar quando chegar" do Push (por pasta): cairiam pela CASCADE de `pasta`, mas a FK
         // de tenant é NO ACTION; deleção explícita aqui.
         ['pasta_aviso_push', 'tenant_id = :tenant'],
@@ -207,6 +214,8 @@ final class PurgarEscritorioUseCase
         ['pasta_andamento', 'tenant_id = :tenant'],
         // Réus cadastrados na pasta (E12h): mesmo caso.
         ['pasta_reu', 'tenant_id = :tenant'],
+        // Cobrança automática do checklist (por item): cairia pela CASCADE do item; FK de tenant NO ACTION.
+        ['pasta_checklist_cobranca', 'tenant_id = :tenant'],
         // Visitas à Timeline inteligente (por usuário, PAS-043): mesmo caso do favorito — cairiam
         // pela CASCADE de `pasta`, mas a FK de tenant é NO ACTION; deleção explícita aqui.
         ['pasta_timeline_visita', 'tenant_id = :tenant'],
@@ -228,6 +237,10 @@ final class PurgarEscritorioUseCase
         // Relatório de pastas paradas (spec pastas-paradas): o envio do mês cairia pela CASCADE de
         // tenant, mas a purga apaga explicitamente, como o histórico do relatório irmão.
         ['relatorio_pastas_paradas_envio', 'tenant_id = :tenant'],
+        // Pedido de exclusão da conta e os códigos da etapa 2 (PR 5): FKs de tenant NO ACTION. O histórico
+        // do pedido fica no audit_log (retido); o motivo é texto do cliente e sai com o escritório.
+        ['codigo_exclusao_conta', 'tenant_id = :tenant'],
+        ['pedido_exclusao_conta', 'tenant_id = :tenant'],
         // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o
         // usuário não é apagado na purga e a de tenant é NO ACTION — sai aqui, explicitamente.
         ['preferencia_usuario', 'tenant_id = :tenant'],
@@ -255,6 +268,8 @@ final class PurgarEscritorioUseCase
         ['comercial_envio', 'tenant_id = :tenant'],
         ['comercial_confirmacao_endereco', 'tenant_id = :tenant'],
         ['comercial_ciclo_conta', 'tenant_id = :tenant'],
+        // A vez dos avisos de espaço do escritório (comercial-e-emails.md §4): FK NO ACTION, nada a referencia.
+        ['comercial_aviso_espaco', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],
@@ -318,12 +333,14 @@ final class PurgarEscritorioUseCase
      * @var array<string, array{0: CategoriaDeArquivo, 1: string}>
      */
     private const ARQUIVOS_POR_REGISTRO = [
+        // O documento VINCULADO do cadastro (pasta_documento_id) não tem arquivo próprio: o arquivo é o da pasta.
         'cliente_documento' => [
             CategoriaDeArquivo::CLIENTE_DOCUMENTO,
             'SELECT d.caminho_arquivo AS nome, bool_or(o.id IS NOT NULL) AS compartilhado
              FROM cliente_documento d
              LEFT JOIN cliente_documento o ON o.caminho_arquivo = d.caminho_arquivo AND o.tenant_id IS DISTINCT FROM d.tenant_id
-             WHERE d.tenant_id = :tenant
+                                           AND o.pasta_documento_id IS NULL
+             WHERE d.tenant_id = :tenant AND d.pasta_documento_id IS NULL
              GROUP BY d.caminho_arquivo',
         ],
         'pasta_documento' => [

@@ -15,7 +15,8 @@ Namespace `App\Inteligencia` · módulo de permissão `inteligencia` (`modules.i
    revalida o `tenantId` da mensagem contra a linha antes de agir (padrão do Sync).
 3. **Nunca o prompt no log.** Canal monolog `inteligencia` recebe ids, tenant, tipo, provedor, tokens,
    duração e classe do erro. O texto do pedido carrega conteúdo processual.
-4. **`nivelSigilo > 0` nunca sai.** `MontadorDeContextoDoPush` lança `ContextoBloqueadoException` antes de
+4. **Segredo de justiça nunca sai** (`Processo::emSegredoDeJustica()`: `nivelSigilo > 0` do tribunal OU "Sim"
+   manual no cartão do processo, P5b). `MontadorDeContextoDoPush` lança `ContextoBloqueadoException` antes de
    qualquer leitura; o UseCase recusa (409) e o handler marca `falhou` sem chamar o provedor.
    **Desligar corta a fila (IA-034L):** o handler reconfere `DisponibilidadeDeInteligencia::paraProcessamento`
    (plataforma, escritório, módulo de quem pediu; a cota não) antes do fluxo e do provedor. Indisponível →
@@ -24,7 +25,8 @@ Namespace `App\Inteligencia` · módulo de permissão `inteligencia` (`modules.i
    órgão, tribunal, nomes, tipo/fonte/texto das movimentações, metas, anotações, documentos, resposta
    anterior do modelo) entra no prompt dentro de um bloco delimitado — `<processo>`, `<equipe>`,
    `<movimentacoes>`, `<analise_anterior>` (Push) e `<pasta>`, `<processos_vinculados>`, `<clientes>`,
-   `<metas>`, `<anotacoes>`, `<observacoes>`, `<documentos>`, `<checklist>`, `<financeiro>` (agentes) — e
+   `<metas>`, `<anotacoes>`, `<observacoes>`, `<documentos>`, `<checklist>`, `<financeiro>` (agentes),
+   `<conversa_anterior>`, `<pergunta>` (aba Perguntar) — e
    passa pelo `NeutralizadorDeConteudo` (tag delimitadora vira texto inerte; controle/zero-width/bidi
    saem). Campo novo no prompt = campo neutralizado, dentro de um bloco, com o nome do bloco em
    `NeutralizadorDeConteudo::DELIMITADORES`. A resposta é renderizada **escapada** (sem `|raw`).
@@ -48,6 +50,13 @@ mesmo handler → `FluxoDaAnaliseDaPasta` (`MontadorDeContextoDaPasta` lê as se
 explícito → `PromptDoAgente`) → provedor → `InterpretadorDeRespostaDoAgente` → `concluida` com
 `texto_da_analise`. Status/lida/excluir/interna são as rotas por id do Push. O handler escolhe o
 `FluxoDeAnalise` pelo `tipo` da linha; tipo novo = fluxo novo, não `if` no handler.
+
+Perguntar (drawer, F3): `ConversaDaPastaController::perguntar` (`/pasta/{id}/ia/conversa/perguntas`) →
+`PerguntarSobreAPastaUseCase` (mesmas guardas; texto 1 a 2000 → senão 422; uma em andamento por pessoa e
+pasta) → análise `pergunta_livre` do Gestor + `inteligencia_pergunta` → mesmo handler →
+`FluxoDaPerguntaLivre` (contexto do Gestor + últimas 4 concluídas da MESMA pessoa na pasta, neutralizadas
+e mascaradas → `PromptDaPergunta`). A conversa é da pessoa: lista por autor e, nas rotas por id, a
+análise `pergunta_livre` só abre para quem perguntou (`VisibilidadeDaAnaliseDaPasta::podeLer`).
 
 As consultas por alvo do repositório filtram por `tipo` (e `agente`): uma pendente de agente não trava o
 Push nem vira "análise anterior" dele.

@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="{{ asset('css/pasta-prazos.css') }}">
 <link rel="stylesheet" href="{{ asset('css/cliente-cadastro.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-andamento.css') }}">
+<link rel="stylesheet" href="{{ asset('css/pasta-apensados.css') }}">
 {# Link externo do Push: menu da aba, modal e painel de acessos (pasta/_push_link_externo.html.twig). #}
 <link rel="stylesheet" href="{{ asset('css/pasta-push-link.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-cadeado.css') }}">
@@ -1759,17 +1760,29 @@
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title" id="modalVincularProcessoLabel">
-                    <i class="bi bi-briefcase me-1"></i> Vincular Processo
+                    <i class="bi bi-briefcase me-1"></i> <span id="mp-titulo-texto">Vincular processo</span>
                 </h6>
-                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                {# Desenho N:292: X branco num quadrado translúcido (pasta-apensados.css). #}
+                <button type="button" class="mp-fechar" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
             <form method="POST" id="formVincularProcesso"
                   action="{{ path('pasta_vincular_processo', {id: pasta.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('vincular_processo_' ~ pasta.id) }}">
+                {# P4f: o mesmo modal vincula APENSADO (`modo=apenso`); pasta-apensado.js troca o modo pelo
+                   botão que abriu e mostra o "Tipo de apenso" (desenho N:294, padrão Embargos). #}
+                <input type="hidden" name="modo" id="mp-modo" value="principal">
                 <div class="modal-body py-3">
+                    <label class="mp-apenso-tipo" id="mp-apenso-tipo" hidden>
+                        <span class="mp-apenso-tipo-rotulo">Tipo de apenso <span class="mp-apenso-obrig">*</span></span>
+                        <select name="tipo_apenso" id="mp-tipoApenso" class="mp-apenso-select" disabled>
+                            {% for tipoApenso in enum_cases('App\\Pasta\\Entity\\TipoDeApenso') %}
+                                <option value="{{ tipoApenso.value }}"{{ loop.first ? ' selected' : '' }}>{{ tipoApenso.rotulo }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
 
                     {# Seletor de modo: buscar processo existente x cadastrar novo via CNJ #}
-                    <div class="btn-group w-100 mb-3" role="group" aria-label="Modo de vínculo de processo">
+                    <div class="btn-group w-100 mb-3 mp-abas" role="group" aria-label="Modo de vínculo de processo">
                         <input type="radio" class="btn-check" name="mp-modo" id="mp-modo-existente" autocomplete="off" checked>
                         <label class="btn btn-outline-primary btn-sm" for="mp-modo-existente"><i class="bi bi-search me-1"></i> Buscar processo existente</label>
                         <input type="radio" class="btn-check" name="mp-modo" id="mp-modo-novo" autocomplete="off">
@@ -1806,10 +1819,10 @@
                         <div class="row g-3">
                             <div class="col-md-8">
                                 <label for="mp-numeroProcesso" class="form-label">
-                                    Número do Processo <span class="text-danger">*</span>
+                                    Número do processo <span class="text-danger">*</span>
                                 </label>
                                 <input type="text" id="mp-numeroProcesso" name="numeroProcesso" class="form-control"
-                                       placeholder="Ex: 1234567-89.2024.1.23.4567" required>
+                                       placeholder="Ex.: 1234567-89.2024.1.23.4567" required>
                                 <div class="form-text">Formato: NNNNNNN-DD.AAAA.J.TT.OOOO</div>
                             </div>
                             <div class="col-md-4 d-flex align-items-end">
@@ -1817,6 +1830,10 @@
                                         data-bs-toggle="tooltip" title="Busca o processo na base de dados do CNJ">
                                     <i class="bi bi-search me-1"></i> Buscar no CNJ
                                 </button>
+                            </div>
+                            {# Desenho N:315: confirmação depois da busca (o JS preenche o número). #}
+                            <div class="col-12 d-none" id="mp-cnj-ok">
+                                <span class="text-success small"><i class="bi bi-check2"></i> Dados localizados · <span data-mp-cnj-movs>0</span> movimentação(ões)</span>
                             </div>
                             <div class="col-md-6">
                                 <label for="mp-siglaTribunal" class="form-label">
@@ -1828,29 +1845,31 @@
                             </div>
                             <div class="col-md-6">
                                 <label for="mp-orgaoJulgador" class="form-label">
-                                    Órgão Julgador <span class="text-danger">*</span>
+                                    Órgão julgador <span class="text-danger">*</span>
                                 </label>
                                 <input type="text" id="mp-orgaoJulgador" name="orgaoJulgador" class="form-control" required>
                             </div>
                             <div class="col-md-6">
                                 <label for="mp-classeProcessual" class="form-label">
-                                    Classe Processual <span class="text-danger">*</span>
+                                    Classe processual <span class="text-danger">*</span>
                                 </label>
                                 <input type="text" id="mp-classeProcessual" name="classeProcessual" class="form-control" required>
                             </div>
                             <div class="col-md-6">
                                 <label for="mp-assuntoProcessual" class="form-label">
-                                    Assunto Processual <span class="text-danger">*</span>
+                                    Assunto processual <span class="text-danger">*</span>
                                 </label>
                                 <input type="text" id="mp-assuntoProcessual" name="assuntoProcessual" class="form-control" required>
                             </div>
                             <div class="col-md-4">
                                 <label for="mp-situacaoProcesso" class="form-label">Situação <span class="text-danger">*</span></label>
                                 <select id="mp-situacaoProcesso" name="situacaoProcesso" class="form-select" required>
-                                    <option value="EM_ANDAMENTO" selected>Em Andamento</option>
-                                    <option value="ENCERRADO">Encerrado</option>
+                                    {# Opções do desenho 02 (P5d); o código gravado tem rótulo em SituacaoProcessoRotulo. #}
+                                    <option value="EM_ANDAMENTO" selected>Em andamento</option>
                                     <option value="SUSPENSO">Suspenso</option>
-                                    <option value="PARALISADO">Paralisado</option>
+                                    <option value="ARQUIVADO">Arquivado</option>
+                                    <option value="BAIXADO">Baixado</option>
+                                    <option value="TRANSITADO_EM_JULGADO">Transitado em julgado</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
@@ -1858,13 +1877,33 @@
                                 <select id="mp-instancia" name="instancia" class="form-select" required>
                                     <option value="G1" selected>G1 - Primeira Instância</option>
                                     <option value="G2">G2 - Segunda Instância</option>
-                                    <option value="ST">ST - Superior Tribunal</option>
+                                    <option value="TR">Turma Recursal</option>
+                                    <option value="ST">Tribunal Superior</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label for="mp-dataDistribuicao" class="form-label">Data de Distribuição</label>
+                                <label for="mp-dataDistribuicao" class="form-label">Data de distribuição</label>
                                 <input type="date" id="mp-dataDistribuicao" name="dataDistribuicao" class="form-control">
                             </div>
+                            {# Desenho N:322-327 (P5d): gravados como dados MANUAIS do processo (selo "manual" no cartão). #}
+                            <div class="col-md-4">
+                                <label for="mp-valorCausa" class="form-label">Valor da causa</label>
+                                <input type="text" id="mp-valorCausa" name="valorCausa" class="form-control" placeholder="R$ 0,00" inputmode="numeric" autocomplete="off" maxlength="22">
+                            </div>
+                            <div class="col-md-8">
+                                <label for="mp-jurisdicao" class="form-label">Jurisdição</label>
+                                <input type="text" id="mp-jurisdicao" name="jurisdicao" class="form-control" placeholder="Ex.: Brasília · Fórum Des. Joaquim Sousa Neto" maxlength="255">
+                            </div>
+                            {% for flag in [['segredo', 'Segredo de justiça?'], ['digital', 'Juízo 100% digital?'], ['gratuita', 'Justiça gratuita?'], ['tutela', 'Tutela/liminar?'], ['prioridade', 'Prioridade?']] %}
+                                <div class="col-md">
+                                    <label for="mp-flag-{{ flag[0] }}" class="form-label">{{ flag[1] }}</label>
+                                    <select id="mp-flag-{{ flag[0] }}" name="{{ flag[0] }}" class="form-select">
+                                        <option value="" selected>Não informado</option>
+                                        <option value="1">Sim</option>
+                                        <option value="0">Não</option>
+                                    </select>
+                                </div>
+                            {% endfor %}
                         </div>
                     </div>{# fim tab-modal-proc-info #}
 
@@ -1872,7 +1911,7 @@
                     <div class="processo-modal-tab-content pt-3" id="tab-modal-proc-partes">
                         <div class="d-flex justify-content-end mb-2">
                             <button type="button" id="mp-btn-add-parte" class="btn btn-sm btn-warning">
-                                <i class="bi bi-plus-lg me-1"></i> Adicionar Parte
+                                <i class="bi bi-plus-lg me-1"></i> Adicionar parte
                             </button>
                         </div>
                         <div id="mp-partesContainer">
@@ -1883,8 +1922,9 @@
                                         <select name="partes[0][tipo]" class="form-select">
                                             <option value="PARTE">Parte</option>
                                             <option value="ADVOGADO">Advogado</option>
-                                            <option value="JUIZ">Juiz</option>
-                                            <option value="PROMOTOR">Promotor</option>
+                                            <option value="TERCEIRO">Terceiro interessado</option>
+                                            <option value="MINISTERIO_PUBLICO">Ministério Público</option>
+                                            <option value="PERITO">Perito</option>
                                         </select>
                                     </div>
                                     <div class="col-md-5">
@@ -1902,7 +1942,7 @@
                                 </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
                                         style="display: none; position: absolute; top: 8px; right: 12px;"
-                                        title="Remover"><i class="bi bi-trash"></i></button>
+                                        title="Remover linha"><i class="bi bi-trash"></i></button>
                             </div>
                         </div>
                     </div>{# fim tab-modal-proc-partes #}
@@ -1911,7 +1951,7 @@
                     <div class="processo-modal-tab-content pt-3" id="tab-modal-proc-movimentacoes">
                         <div class="d-flex justify-content-end mb-2">
                             <button type="button" id="mp-btn-add-movimentacao" class="btn btn-sm btn-info">
-                                <i class="bi bi-plus-lg me-1"></i> Adicionar Movimentação
+                                <i class="bi bi-plus-lg me-1"></i> Adicionar movimentação
                             </button>
                         </div>
                         <div id="mp-movimentacoesContainer">
@@ -1936,33 +1976,39 @@
                                 </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
                                         style="display: none; position: absolute; top: 8px; right: 12px;"
-                                        title="Remover"><i class="bi bi-trash"></i></button>
+                                        title="Remover linha"><i class="bi bi-trash"></i></button>
                             </div>
                         </div>
+                        <p class="small text-muted mb-0">"Buscar no CNJ" (aba Informações) importa as movimentações do PJe e dos diários oficiais. Depois de vinculado, o Push processual passa a monitorar o processo.</p>
                     </div>{# fim tab-modal-proc-movimentacoes #}
 
                     {# Modal de carregamento DataJud (interno ao modal de processo) #}
                     <div id="mp-loadingOverlay" class="d-none text-center py-3">
                         <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Buscando...</span>
+                            <span class="visually-hidden">Buscando…</span>
                         </div>
-                        <p class="mt-2 mb-0 small">Buscando processo no DataJud...</p>
+                        <p class="mt-2 mb-0 small">Buscando…</p>
                     </div>
 
-                    <div id="mp-feedbackAlerta" class="d-none mt-3"></div>
-
                     </div>{# fim modal-modo-novo #}
+
+                    {# Fora do bloco "Cadastrar novo": o aviso "Selecione um processo para vincular." (desenho
+                       N:347, `pvVals.aviso`) também aparece na aba "Buscar processo existente". #}
+                    <div id="mp-feedbackAlerta" class="d-none mt-3"></div>
                 </div>
                 <div class="modal-footer py-2">
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="bi bi-check-lg me-1"></i> Vincular Processo
+                        <i class="bi bi-check-lg me-1"></i> <span id="mp-salvar-texto">Vincular processo</span>
                     </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+{# P4f: modo apenso do modal acima, X do apensado e a dica da pílula da aba Dados. #}
+<script src="{{ asset('js/pasta-apensado.js') }}" defer></script>
 
 {# Modal: Preview de Documento (único reutilizável) — o conteúdo é montado por
    public/js/visualizador-documento.js (PDF, imagem, áudio, vídeo, DOCX, planilha, texto). #}
@@ -2650,6 +2696,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const dataEl  = cartao.querySelector('.ps-anotacao-data');
         menuReg.querySelector('.js-reg-menu-titulo').textContent =
             (autorEl ? autorEl.textContent.trim() : '') + (dataEl && dataEl.title ? ' · ' + dataEl.title : '');
+        // "Destacar" e "Remover destaque" (dc L6305), só para quem edita: pasta-destaque.js.
+        if (window.PastaDestaque) { window.PastaDestaque.pintarMenu(menuReg, cartao, 'dados'); }
 
         // PAS-025b: na pasta excluída o menu nasce sem Responder, Editar e Excluir.
         const responder = menuReg.querySelector('.js-reg-responder');
@@ -3314,7 +3362,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         processResults: function (data) { return { results: data.results || [] }; }
                     },
                     language: {
-                        noResults: function () { return 'Nenhum processo encontrado'; },
+                        noResults: function () { return 'Nenhum processo encontrado. Use "Cadastrar novo (CNJ)".'; },
                         searching: function () { return 'Buscando…'; },
                         inputTooShort: function () { return 'Digite ao menos 2 caracteres'; }
                     }
@@ -3366,6 +3414,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (resp.ok && dados.sucesso) {
                 window.mpSwapProcessos(dados.html);
+                document.dispatchEvent(new CustomEvent('mp:processo-vinculado')); // P4f: aviso do apensado (pasta-apensado.js)
                 bootstrap.Modal.getInstance(modalEl)?.hide();
                 return;
             }
@@ -3391,6 +3440,7 @@ document.addEventListener('DOMContentLoaded', function () {
         mpUpdateRemoveButtons();
         document.getElementById('mp-feedbackAlerta').className = 'd-none mt-3';
         document.getElementById('mp-feedbackAlerta').innerHTML = '';
+        document.getElementById('mp-cnj-ok').classList.add('d-none'); // a confirmação da busca é desta abertura
         document.querySelectorAll('.processo-modal-tab').forEach(function (t) { t.classList.remove('active'); });
         document.querySelectorAll('.processo-modal-tab-content').forEach(function (c) { c.classList.remove('active'); });
         document.querySelector('.processo-modal-tab[data-modal-tab="modal-proc-info"]').classList.add('active');
@@ -3412,8 +3462,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     <select name="partes[${idx}][tipo]" class="form-select">
                         <option value="PARTE">Parte</option>
                         <option value="ADVOGADO">Advogado</option>
-                        <option value="JUIZ">Juiz</option>
-                        <option value="PROMOTOR">Promotor</option>
+                        <option value="TERCEIRO">Terceiro interessado</option>
+                        <option value="MINISTERIO_PUBLICO">Ministério Público</option>
+                        <option value="PERITO">Perito</option>
                     </select>
                 </div>
                 <div class="col-md-5">
@@ -3431,7 +3482,7 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
             <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
                     style="display: none; position: absolute; top: 8px; right: 12px;"
-                    title="Remover"><i class="bi bi-trash"></i></button>
+                    title="Remover linha"><i class="bi bi-trash"></i></button>
         </div>`;
     }
 
@@ -3457,7 +3508,7 @@ document.addEventListener('DOMContentLoaded', function () {
             </div>
             <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
                     style="display: none; position: absolute; top: 8px; right: 12px;"
-                    title="Remover"><i class="bi bi-trash"></i></button>
+                    title="Remover linha"><i class="bi bi-trash"></i></button>
         </div>`;
     }
 
@@ -3509,6 +3560,20 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    /* Valor da causa: máscara "R$ 1.234,56" (desenho `onValor`, N:3145). */
+    var mpValor = document.getElementById('mp-valorCausa');
+    if (mpValor) {
+        mpValor.addEventListener('input', function () {
+            var d = mpValor.value.replace(/\D/g, '');
+            mpValor.value = d ? 'R$ ' + (Number(d) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '';
+        });
+    }
+
+    /* Número editado: a confirmação da busca anterior já não vale (desenho: `up('numero')` zera o cnj). */
+    document.getElementById('mp-numeroProcesso').addEventListener('input', function () {
+        document.getElementById('mp-cnj-ok').classList.add('d-none');
+    });
+
     /* ── Busca DataJud ── */
     document.getElementById('mp-btn-datajud').addEventListener('click', async function () {
         var numeroProcesso = document.getElementById('mp-numeroProcesso').value;
@@ -3518,9 +3583,12 @@ document.addEventListener('DOMContentLoaded', function () {
         feedbackEl.className = 'd-none mt-3';
         feedbackEl.innerHTML = '';
 
-        if (!numeroProcesso) {
+        var cnjOk = document.getElementById('mp-cnj-ok');
+        if (cnjOk) { cnjOk.classList.add('d-none'); }
+        // Desenho (P5d): o número inteiro (20 dígitos) antes de buscar.
+        if (numeroProcesso.replace(/\D/g, '').length !== 20) {
             feedbackEl.className = 'alert alert-warning mt-3';
-            feedbackEl.textContent = 'Informe o número do processo.';
+            feedbackEl.textContent = 'Informe o número completo no formato NNNNNNN-DD.AAAA.J.TT.OOOO.';
             return;
         }
 
@@ -3536,8 +3604,12 @@ document.addEventListener('DOMContentLoaded', function () {
             loadingEl.classList.add('d-none');
 
             if (!response.ok || !data.success) {
-                feedbackEl.className = 'alert alert-danger mt-3';
-                feedbackEl.textContent = data.error || 'Erro ao buscar processo no CNJ/DataJud.';
+                feedbackEl.className = response.status === 404 ? 'alert alert-warning mt-3' : 'alert alert-danger mt-3';
+                // 404: o texto do desenho e, depois, o motivo do servidor (dígito verificador, atraso da base,
+                // segredo ou arquivado), que ajuda a achar número mal digitado.
+                feedbackEl.textContent = response.status === 404
+                    ? 'Processo não localizado no CNJ/diário. Preencha os dados manualmente.' + (data.error ? ' ' + data.error : '')
+                    : (data.error || 'Erro ao buscar processo no CNJ/DataJud.');
                 return;
             }
 
@@ -3560,8 +3632,9 @@ document.addEventListener('DOMContentLoaded', function () {
                             <select name="partes[${idx}][tipo]" class="form-select">
                                 <option value="PARTE" ${(parte.tipo||'')==='PARTE'?'selected':''}>Parte</option>
                                 <option value="ADVOGADO" ${(parte.tipo||'')==='ADVOGADO'?'selected':''}>Advogado</option>
-                                <option value="JUIZ" ${(parte.tipo||'')==='JUIZ'?'selected':''}>Juiz</option>
-                                <option value="PROMOTOR" ${(parte.tipo||'')==='PROMOTOR'?'selected':''}>Promotor</option>
+                                <option value="TERCEIRO" ${(parte.tipo||'')==='TERCEIRO'?'selected':''}>Terceiro interessado</option>
+                                <option value="MINISTERIO_PUBLICO" ${(parte.tipo||'')==='MINISTERIO_PUBLICO'?'selected':''}>Ministério Público</option>
+                                <option value="PERITO" ${(parte.tipo||'')==='PERITO'?'selected':''}>Perito</option>
                             </select></div>
                         <div class="col-md-5"><label class="form-label">Nome</label>
                             <input type="text" name="partes[${idx}][nome]" class="form-control" value="${mpEsc(parte.nome)}" placeholder="Nome da parte"></div>
@@ -3572,7 +3645,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                     <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
                             style="display: ${partesList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
-                            title="Remover"><i class="bi bi-trash"></i></button>
+                            title="Remover linha"><i class="bi bi-trash"></i></button>
                 </div>`);
             });
 
@@ -3593,15 +3666,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                     <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
                             style="display: ${movsList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
-                            title="Remover"><i class="bi bi-trash"></i></button>
+                            title="Remover linha"><i class="bi bi-trash"></i></button>
                 </div>`);
             });
 
             mpAttachRemovePartes();
             mpAttachRemoveMovimentacoes();
 
-            feedbackEl.className = 'alert alert-success mt-3';
-            feedbackEl.textContent = 'Processo carregado com sucesso! Verifique os dados antes de salvar.';
+            // Desenho N:315: "Dados localizados · N movimentação(ões)".
+            if (cnjOk) {
+                cnjOk.querySelector('[data-mp-cnj-movs]').textContent = String((pd.movimentacoes || []).length);
+                cnjOk.classList.remove('d-none');
+            }
 
         } catch (e) {
             loadingEl.classList.add('d-none');
@@ -4443,6 +4519,14 @@ document.addEventListener('DOMContentLoaded', function () {
          data-nome="{{ qualCliente.nomeExibicao }}"
          data-pendencias="{{ cliente_pendencias(qualCliente)|length }}"></div>
 {% endif %}
+{# "Destacar comentário" (spec pasta-destacar-comentario.md): o mapa da pasta, a rota e o token; os menus de Dados,
+   Detalhes e Financeiro chamam PastaDestaque.pintarMenu. Depois do pasta-dialogos.js (avisarPs). #}
+<div id="psDestaques" hidden
+     data-url="{{ path('pasta_comentario_destaque', {id: pasta.id}) }}"
+     data-token="{{ csrf_token('pasta_comentario_destaque_' ~ pasta.id) }}"
+     data-pode="{{ podeEditarPasta and not pasta.estaExcluida ? '1' : '0' }}"
+     data-mapa="{{ destaques_dos_comentarios(pasta)|json_encode|e('html_attr') }}"
+     data-cores="{{ cores_de_destaque()|json_encode|e('html_attr') }}"></div>
 {% endblock %}
 
 {% block javascripts %}
@@ -4472,4 +4556,6 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-clientes-duplicados.js') }}" defer></script>
 {# "Encaminhar via Chat I.A" (↪ dos registros e ⋮ do arquivo do Financeiro): dispara `bj-central:despachar`. #}
 <script src="{{ asset('js/pasta-encaminhar.js') }}"></script>
+{# "Destacar comentário": a raiz #psDestaques fica no fim do bloco body. #}
+<script src="{{ asset('js/pasta-destaque.js') }}"></script>
 {% endblock %}

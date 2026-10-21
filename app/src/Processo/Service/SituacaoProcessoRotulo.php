@@ -25,6 +25,11 @@ final class SituacaoProcessoRotulo
         'ENCERRADO'    => 'Encerrado',
         'SUSPENSO'     => 'Suspenso',
         'PARALISADO'   => 'Paralisado',
+        // Opções da janela de vincular do desenho 02 (P5d): Em andamento, Suspenso, Arquivado, Baixado,
+        // Transitado em julgado.
+        'ARQUIVADO'             => 'Arquivado',
+        'BAIXADO'               => 'Baixado',
+        'TRANSITADO_EM_JULGADO' => 'Transitado em julgado',
     ];
 
     public static function de(string $situacao): string

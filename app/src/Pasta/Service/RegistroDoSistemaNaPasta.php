@@ -23,6 +23,8 @@ final class RegistroDoSistemaNaPasta
         'contrato' => 'Contrato',
         'situacao' => 'Situação da pasta',
         'cadastro' => 'Cadastro do cliente',
+        // Apensado vinculado/desvinculado (P4f): `SYS.proc` do desenho, N:6168.
+        'proc'     => 'Processo',
         'cadeado'  => 'Cadeado',
     ];
 
