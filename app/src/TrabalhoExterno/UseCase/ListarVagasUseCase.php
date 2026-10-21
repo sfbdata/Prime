@@ -14,16 +14,18 @@ use App\TrabalhoExterno\Enum\TipoItemMarcado;
 use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
 use App\TrabalhoExterno\Repository\PreferenciaDoUsuarioRepository;
 use App\TrabalhoExterno\Service\ApresentadorDeVaga;
+use App\TrabalhoExterno\Service\CandidaturasDaVaga;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeVaga;
 use App\TrabalhoExterno\Service\PoliticaDaVaga;
+use App\TrabalhoExterno\Service\ResumoDasCandidaturas;
 
 /**
  * A aba Vagas de uma vez (spec VS 18.10.26 §4.1, desenho 06 l.1113–1118): os cartões que o perfil vê
  * (menos os que ele excluiu da lista), o que ele pode fazer, as listas do formulário, o padrão de "QUEM
  * ESTÁ OFERECENDO" e, para o Master, a configuração interna. O interno vê pela data, a mais nova
- * primeiro; o externo vê as ofertas ao vivo antes (l.1117). Consulta: não grava nada (a visita é
- * gravada por `RegistrarVisitaAsVagasUseCase`).
+ * primeiro; o externo vê as ofertas ao vivo antes e, depois, as mais compatíveis com o currículo dele
+ * (l.1117). Consulta: não grava nada (a visita é gravada por `RegistrarVisitaAsVagasUseCase`).
  */
 final class ListarVagasUseCase
 {
@@ -33,6 +35,7 @@ final class ListarVagasUseCase
         private readonly ApresentadorDeVaga $apresentador,
         private readonly MarcacaoDoUsuarioRepository $marcacoes,
         private readonly PreferenciaDoUsuarioRepository $preferencias,
+        private readonly ResumoDasCandidaturas $resumo,
     ) {
     }
 
@@ -40,7 +43,9 @@ final class ListarVagasUseCase
     public function executar(Contexto $ctx): array
     {
         $agora = new \DateTimeImmutable();
-        $vagas = $this->ordenar($ctx, $this->localizador->visiveis($ctx, $agora), $agora);
+        $visiveis = $this->localizador->visiveis($ctx, $agora);
+        $resumos = $this->resumo->paraLista($ctx, $visiveis);
+        $vagas = $this->ordenar($ctx, $visiveis, $resumos, $agora);
         $marcas = $ctx->previa ? [] : $this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Vaga, array_map(static fn (Vaga $v): int => (int) $v->getId(), $vagas));
         $ultimaVisita = $this->ultimaVisita($ctx);
 
@@ -48,7 +53,7 @@ final class ListarVagasUseCase
         foreach ($vagas as $v) {
             $marca = $marcas[(int) $v->getId()] ?? null;
             if ($marca?->excluida() !== true) {
-                $cartoes[] = $this->apresentador->cartao($ctx, $v, $marca, $ultimaVisita, $agora);
+                $cartoes[] = $this->apresentador->cartao($ctx, $v, $marca, $ultimaVisita, $agora, $resumos[(int) $v->getId()] ?? null);
             }
         }
 
@@ -68,26 +73,26 @@ final class ListarVagasUseCase
     }
 
     /**
-     * @param list<Vaga> $vagas
+     * @param list<Vaga>                        $vagas
+     * @param array<int, CandidaturasDaVaga>    $resumos
      *
      * @return list<Vaga>
      */
-    private function ordenar(Contexto $ctx, array $vagas, \DateTimeImmutable $agora): array
+    private function ordenar(Contexto $ctx, array $vagas, array $resumos, \DateTimeImmutable $agora): array
     {
         if ($this->politica->ehInterno($ctx)) {
             return $vagas;
         }
         $aoVivo = static fn (Vaga $v): int => (int) ($v->isOferta() && $v->situacaoEm($agora) === SituacaoVaga::Aberta);
-        usort($vagas, static fn (Vaga $a, Vaga $b): int => $aoVivo($b) <=> $aoVivo($a) ?: (int) $b->getId() <=> (int) $a->getId());
+        $compat = static fn (Vaga $v): int => $resumos[(int) $v->getId()]->compat ?? 0;
+        usort($vagas, static fn (Vaga $a, Vaga $b): int => $aoVivo($b) <=> $aoVivo($a) ?: $compat($b) <=> $compat($a) ?: (int) $b->getId() <=> (int) $a->getId());
 
         return $vagas;
     }
 
     private function ultimaVisita(Contexto $ctx): ?\DateTimeImmutable
     {
-        $em = $this->preferencias->doUsuario($ctx->usuario, PreferenciaDoUsuario::ULTIMA_VISITA_VAGAS)?->getValor()['em'] ?? null;
-
-        return is_string($em) ? (new \DateTimeImmutable($em)) : null;
+        return $this->preferencias->doUsuario($ctx->usuario, PreferenciaDoUsuario::ULTIMA_VISITA_VAGAS)?->visitaAnterior();
     }
 
     /** @return array<string, list<mixed>> */

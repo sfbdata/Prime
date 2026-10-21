@@ -14,6 +14,7 @@ use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Exception\TransicaoInvalida;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
 use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
+use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
@@ -27,6 +28,7 @@ use App\TrabalhoExterno\Service\PoliticaDaDemanda;
  * grava. "Excluir rascunho" apaga a demanda e, depois do COMMIT, os arquivos dela.
  * Alternativos: ação fora do perfil → AcaoNaoPermitida (403); fora do estado ou sem motivo →
  * TransicaoInvalida (409); demanda de outro escritório → DemandaNaoEncontrada (404).
+ * "Solicitar informações" avisa quem solicitou no sino (desenho 06 l.784, spec §4.7).
  */
 final class AplicarAcaoNaDemandaUseCase
 {
@@ -36,6 +38,7 @@ final class AplicarAcaoNaDemandaUseCase
         private readonly DemandaExternaRepository $repositorio,
         private readonly RemocaoAposTransacao $remocao,
         private readonly MarcacaoDoUsuarioRepository $marcacoes,
+        private readonly AvisosDoTrabalhoExterno $avisos,
     ) {
     }
 
@@ -59,6 +62,9 @@ final class AplicarAcaoNaDemandaUseCase
 
         // O papel da autoria: o Master que age pelo escritório dele fica registrado como Solicitante.
         $demanda->aplicar($acao, Autor::de($ctx->usuario, $this->politica->papelNaAcao($ctx, $demanda, $acao)), $motivo);
+        if ($acao === AcaoDemanda::SolicitarInformacoes) {
+            $this->avisos->pedidoDeInformacoes($ctx, $demanda);
+        }
         $this->repositorio->salvar($demanda, flush: true);
 
         return $demanda;

@@ -3,7 +3,7 @@
    do `_analises_agente.html.twig` para servir também ao `_analises_comando`
    (spec inteligencia-drawer-da-pasta, F1/F2): selo com o rótulo do comando (ou
    o nome do agente, nas análises antigas), aviso, cadeado, menu, resumo,
-   pontos, quem age, "Análise completa", base e ações.
+   pontos, quem age, "Análise completa", "Criar tarefa" (F5), base e ações.
 
    Tudo escapado: a resposta do modelo nunca é HTML (`|raw` proibido aqui).
 
@@ -78,19 +78,6 @@
                             <button type="submit" class="ia-menu-item" role="menuitem"><i class="bi bi-check2-all" aria-hidden="true"></i>Marcar como não lido</button>
                         </form>
                     {% endif %}
-                    {% if a.status == 'concluida' and iaPodeCriarTarefa %}
-                        <button type="button" class="ia-menu-item" role="menuitem"
-                                data-ia-criar-meta
-                                data-meta-titulo="{{ pontoDeAcao ? pontoDeAcao.texto|slice(0, 90) : 'Providência indicada pelo ' ~ (a.agenteNome ?? 'agente da IA') }}"
-                                data-meta-rotulo="{{ pontoDeAcao ? pontoDeAcao.rotulo : '' }}"
-                                data-meta-ponto="{{ pontoDeAcao ? pontoDeAcao.texto : '' }}"
-                                data-meta-resumo="{{ a.resumo }}"
-                                data-meta-quem="{{ a.quemAge }}"
-                                data-meta-agente="{{ a.agenteNome }}"
-                                data-meta-quando="{{ a.criadaEm|date('d/m/Y H:i') }}">
-                            <i class="bi bi-check2-square" aria-hidden="true"></i>Criar tarefa da providência
-                        </button>
-                    {% endif %}
                     <form method="post" action="{{ path('inteligencia_analise_excluir', {id: pastaId, analiseId: a.id}) }}" class="ia-acao" data-ia-acao="excluir"
                           data-ia-confirmar="Excluir esta análise da IA? Os dados da pasta não são alterados.">
                         <input type="hidden" name="_token" value="{{ csrfAnalise }}">
@@ -126,6 +113,25 @@
                     <summary><i class="bi bi-journal-text" aria-hidden="true"></i>Análise completa</summary>
                     <pre class="ia-texto">{{ a.textoDaAnalise }}</pre>
                 </details>
+            {% endif %}
+            {% if iaPodeCriarTarefa %}
+                {# F5 (dc L1101-1105): "Criar tarefa" visível embaixo do resultado. Abre a nova meta da pasta
+                   pré-preenchida, uma por clique; quem confirma é a pessoa, no modal. "Criar prazo" (D-PRAZOS)
+                   e "Enviar para revisão" (sem fluxo de revisão) não entram. #}
+                <div class="ia-res-acoes">
+                    <button type="button" class="ia-res-acao"
+                            data-ia-criar-meta
+                            data-meta-titulo="{{ pontoDeAcao ? pontoDeAcao.texto|slice(0, 90) : (a.comandoRotulo ?? ('Providência indicada pelo ' ~ (a.agenteNome ?? 'agente da IA'))) }}"
+                            data-meta-rotulo="{{ pontoDeAcao ? pontoDeAcao.rotulo : '' }}"
+                            data-meta-ponto="{{ pontoDeAcao ? pontoDeAcao.texto : '' }}"
+                            data-meta-resumo="{{ a.resumo }}"
+                            data-meta-quem="{{ a.quemAge }}"
+                            data-meta-agente="{{ a.agenteNome }}"
+                            data-meta-quando="{{ a.criadaEm|date('d/m/Y H:i') }}"
+                            title="Abre a nova meta desta pasta preenchida com esta análise">
+                        <i class="bi bi-check2-square" aria-hidden="true"></i>Criar tarefa
+                    </button>
+                </div>
             {% endif %}
             <p class="ia-base">Base: {{ a.totalMovimentacoes }} {{ a.totalMovimentacoes == 1 ? 'item' : 'itens' }} desta pasta. Confira os documentos originais antes de agir.</p>
         {% elseif a.status == 'falhou' %}

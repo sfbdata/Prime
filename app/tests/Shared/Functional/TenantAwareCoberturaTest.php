@@ -35,6 +35,7 @@ use App\TrabalhoExterno\Entity\ContatoWhatsapp;
 use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
+use App\TrabalhoExterno\Entity\Candidatura;
 use App\TrabalhoExterno\Entity\Curriculo;
 use App\TrabalhoExterno\Entity\HistoricoVaga;
 use App\TrabalhoExterno\Entity\InteressadoEmVagas;
@@ -154,6 +155,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         LinkDeVagas::class,   // link público, sem escritório por natureza; só se acha pelo hash do token e a página só mostra vagas abertas sem dado de escritório (VagasPublicasTest)
         InteressadoEmVagas::class, // visitante da página pública, sem conta nem escritório; só a inscrição grava e nenhuma rota lê (VagasPublicasTest::testInscricaoNosAlertas)
         Curriculo::class,     // currículo do usuário externo, da plataforma (um por usuário); a Central lê o banco inteiro e o externo só alcança o dele pelo LocalizadorDeCurriculo (CurriculosDoTrabalhoExternoTest::testExternoCriaEditaEExclui)
+        Candidatura::class,   // candidatura de um currículo a uma vaga, ambos da plataforma; só é lida pela vaga já localizada no escopo ou pelo currículo do próprio usuário, e o dono da vaga só vê as enviadas a ele (CandidaturasDoTrabalhoExternoTest::testEnvioEDono)
 
         // Comercial e e-mails (docs/specs/comercial-e-emails.md §3): dado do Master, de escopo plataforma, que cruza
         // escritórios (envios, consentimentos, automações, ciclo da conta, varredura). O escritório, quando há, é uma
@@ -166,6 +168,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\AutomacaoDeEmail::class,
         \App\Comercial\Entity\CicloDaConta::class,
         \App\Comercial\Entity\VarreduraComercial::class,
+        // Fatia 1b (§4): a vez dos avisos de espaço é lida e gravada só por SQL no ouvinte, que roda sem sessão (o
+        // escritório vem do evento e vai na consulta à mão); nunca é listada para ninguém.
+        \App\Comercial\Entity\AvisoDeEspaco::class,
         // Fatia 2a (§8.2): os modelos próprios de campanha são do Master, de escopo plataforma, sem escritório.
         \App\Comercial\Entity\ModeloDeCampanha::class,
         // Fatia 2b (§8.4 e §8.5): as campanhas, os destinatários de cada execução e o controle do expansor são do
@@ -224,8 +229,10 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 47 → 50 com as vagas e as preferências do usuário do Trabalho Externo (19/10/2026): Vaga, HistoricoVaga e PreferenciaDoUsuario, justificadas acima.
     // 50 → 52 com a página pública de vagas do Trabalho Externo (19/10/2026): LinkDeVagas e InteressadoEmVagas, justificados acima.
     // 52 → 53 com o currículo do banco de talentos do Trabalho Externo (19/10/2026): Curriculo, justificado acima.
-    // 53 → 54 com os temas comemorativos (21/10/2026): TemaConfig, configuração global da plataforma, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 54;
+    // 53 → 54 com a candidatura às vagas do Trabalho Externo (19/10/2026): Candidatura, justificada acima.
+    // 54 → 55 com a fatia 1b do Comercial (21/10/2026): a vez dos avisos de espaço, justificada acima.
+    // 55 → 56 com os temas comemorativos (21/10/2026): TemaConfig, configuração global da plataforma, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 56;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

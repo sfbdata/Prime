@@ -9,13 +9,13 @@ use App\TrabalhoExterno\Enum\SituacaoVaga;
 
 /**
  * Importância da vaga, 0 a 3, com os motivos da dica (`impV`, desenho 06 l.1037). A escolha manual
- * vence. A compatibilidade com o currículo (+2) entra na F3 e as candidaturas para analisar (até +3)
- * na F2b; o resto é do desenho.
+ * vence. A compatibilidade com o currículo de quem lê (+2 a partir de 70%) é do externo; as
+ * candidaturas recebidas para analisar (até +3) são do interno.
  */
 final class CalculadoraDeImportanciaDaVaga
 {
     /** @return array{nivel: int, motivos: list<string>} */
-    public function calcular(Vaga $v, ?bool $escolha, bool $novaDesdeAUltimaVisita, \DateTimeImmutable $agora): array
+    public function calcular(Vaga $v, ?bool $escolha, bool $novaDesdeAUltimaVisita, \DateTimeImmutable $agora, ?int $compat = null, int $recebidas = 0): array
     {
         if ($escolha !== null) {
             return $escolha
@@ -24,23 +24,14 @@ final class CalculadoraDeImportanciaDaVaga
         }
 
         $aberta = $v->situacaoEm($agora) === SituacaoVaga::Aberta;
-        $pontos = [];
-        if ($v->isOferta() && $aberta) {
-            $pontos['oferta ao vivo'] = 3;
-        }
-        $prazo = $v->getInscricoesAte();
-        if ($aberta && $prazo !== null) {
-            $dias = (int) $agora->setTime(12, 0)->diff($prazo->setTime(12, 0))->format('%r%a');
-            if ($dias >= 0 && $dias <= 3) {
-                $pontos['inscrições terminam em até 3 dias'] = 2;
-            }
-        }
-        if ($novaDesdeAUltimaVisita) {
-            $pontos['publicada desde sua última visita'] = 1;
-        }
-        if ($v->getRemuneracao() !== '') {
-            $pontos['remuneração informada'] = 1;
-        }
+        $pontos = array_filter([
+            'oferta ao vivo' => $v->isOferta() && $aberta ? 3 : 0,
+            'inscrições terminam em até 3 dias' => $aberta && $this->prazoPerto($v, $agora) ? 2 : 0,
+            $compat . '% compatível com você' => $compat !== null && $compat >= CompatibilidadeDaVaga::ALTA ? 2 : 0,
+            $recebidas . ' candidatura(s) para analisar' => min(3, $recebidas),
+            'publicada desde sua última visita' => $novaDesdeAUltimaVisita ? 1 : 0,
+            'remuneração informada' => $v->getRemuneracao() !== '' ? 1 : 0,
+        ]);
 
         $soma = $aberta ? array_sum($pontos) : min(array_sum($pontos), 1);
         $nivel = match (true) {
@@ -50,6 +41,17 @@ final class CalculadoraDeImportanciaDaVaga
             default => 0,
         };
 
-        return ['nivel' => $nivel, 'motivos' => array_keys($pontos)];
+        return ['nivel' => $nivel, 'motivos' => array_map('strval', array_keys($pontos))];
+    }
+
+    private function prazoPerto(Vaga $v, \DateTimeImmutable $agora): bool
+    {
+        $prazo = $v->getInscricoesAte();
+        if ($prazo === null) {
+            return false;
+        }
+        $dias = (int) $agora->setTime(12, 0)->diff($prazo->setTime(12, 0))->format('%r%a');
+
+        return $dias >= 0 && $dias <= 3;
     }
 }

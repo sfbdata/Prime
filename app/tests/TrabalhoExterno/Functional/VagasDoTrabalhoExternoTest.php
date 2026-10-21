@@ -143,7 +143,7 @@ final class VagasDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    #[TestDox('"NOVA" é desde a última visita; marcar estrela não conta como "vista"')]
+    #[TestDox('"NOVA" é desde a visita anterior (o aviso de visita da mesma visita não apaga); marcar estrela não conta como "vista"')]
     public function testNovaEVista(): void
     {
         $client = static::createClient();
@@ -156,12 +156,15 @@ final class VagasDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $doB, $b);
         $this->postarJson($client, self::VAGAS . '/visita');
         self::assertResponseIsSuccessful();
-        sleep(1);
+        // A referência de "NOVA" é a visita ANTERIOR, que só avança depois de 30 min (spec §4.7).
+        $this->em()->getConnection()->executeStatement("UPDATE trabalho_externo_preferencia SET valor = ? WHERE chave = 'vagas.ultimaVisita'", [json_encode(['em' => (new \DateTimeImmutable('-1 hour'))->format(\DATE_ATOM), 'anterior' => null])]);
+        $this->postarJson($client, self::VAGAS . '/visita');
 
         $this->logarComTenant($client, $master, $sede);
         $codigo = $this->postarJson($client, self::VAGAS, self::vaga('Controladoria'))['codigo'];
 
         $this->logarComTenant($client, $doB, $b);
+        $this->postarJson($client, self::VAGAS . '/visita');
         $this->postarJson($client, self::VAGAS . '/marcacoes', ['codigos' => [$codigo], 'op' => 'estrela']);
         $cartao = $this->cartao($client, $codigo);
         self::assertTrue($cartao['nova']);

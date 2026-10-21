@@ -100,7 +100,7 @@ final class PastaAdministrativaJsTest extends TestCase
         $falha = substr($falha, 0, (int) strpos($falha, "document.addEventListener('submit'"));
         self::assertStringContainsString('pintarInterruptor(botao, ligadoAntes)', $falha);
         self::assertStringContainsString('botao.disabled = false', $falha);
-        self::assertStringContainsString('window.alert(', $falha);
+        self::assertStringContainsString('(window.avisarErroPs || window.alert)(', $falha, 'o aviso da tela; o alert só sem o pasta-dialogos.js');
 
         $corpo = $this->submit();
         self::assertStringContainsString("falhaAdministrativa(form, botao, ligadoAntes, typeof r.dados.erro === 'string' ? r.dados.erro : '')", $corpo);
