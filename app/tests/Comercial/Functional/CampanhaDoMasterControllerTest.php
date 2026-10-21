@@ -224,6 +224,11 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/master/comercial/relatorio?aba=env&q=&p=1');
         $linha = array_column((array) $this->json($client)['campanhas'], null, 'id')[(int) $campanha['id']] ?? null;
         self::assertSame(['Teste', 'Teste · 1 e-mail(s)'], [$linha['rotulo'] ?? null, $linha['publico'] ?? null], 'o Relatório mostra a linha com o selo e o público do desenho (L717)');
+        self::assertNull($this->conexao()->fetchOne('SELECT publico_parametros FROM comercial_campanha WHERE id = ?', [$campanha['id']]), 'o endereço só fica no destino, que a retenção anonimiza');
+
+        $client->request('GET', '/master/comercial/campanhas/' . $campanha['id']);
+        $visto = $this->json($client);
+        self::assertSame(['E-mail de teste', 'Teste · 1 e-mail(s)'], [$visto['situacao'] ?? null, $visto['publico'] ?? null], 'o visualizador mostra o mesmo público da lista (L709)');
     }
 
     #[TestDox('Enviar teste: o 11º na mesma hora é recusado com a mensagem da spec')]

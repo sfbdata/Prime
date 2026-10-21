@@ -11,6 +11,7 @@
   const TOKEN = (caixa && caixa.dataset.token) || '';
   const elErro = raiz.querySelector('[data-mc-tst-erro]');
   const elEnviar = raiz.querySelector('[data-mc-tst-enviar]');
+  let origem = null;
 
   function mostrarErro(texto) {
     elErro.textContent = texto || '';
@@ -18,6 +19,7 @@
   }
 
   function abrir() {
+    origem = document.activeElement;
     mostrarErro('');
     ok.hidden = true;
     raiz.hidden = false;
@@ -27,6 +29,8 @@
   function fechar() {
     raiz.hidden = true;
     ok.hidden = true;
+    if (origem && typeof origem.focus === 'function') { origem.focus(); }
+    origem = null;
   }
 
   function enviar() {
@@ -38,11 +42,12 @@
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': TOKEN },
       body: JSON.stringify(modelo),
     })
-      .then(r => r.json().then(j => (r.ok ? j : Promise.reject(new Error(j.erro || 'Não foi possível enviar o teste.')))))
+      .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || 'Não foi possível enviar o teste.')))))
       .then(() => {
         raiz.hidden = true;
         ok.querySelector('[data-mc-tst-ok-para]').textContent = raiz.querySelector('[data-mc-tst-para]').value;
         ok.hidden = false;
+        ok.querySelector('[data-mc-tst-fechar].mc-tst-enviar').focus();
         document.dispatchEvent(new CustomEvent('mc:relatorio-recarregar'));
       })
       .catch(e => mostrarErro(e.message))

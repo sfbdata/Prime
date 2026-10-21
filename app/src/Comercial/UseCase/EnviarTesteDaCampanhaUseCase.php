@@ -27,7 +27,8 @@ use Psr\Clock\ClockInterface;
  *
  * F3f (desenho 05 VS 21.10.26, L497-498, L668-669, L709, L717; decisão 2 da coordenação): o assunto chega com
  * "[TESTE]" e o teste fica GRAVADO como uma linha de `comercial_campanha` com estado `teste` (fora de ATIVAS: o
- * expansor nunca a pega), público `teste`, o destinatário em `comercial_campanha_destino` ligado ao envio. Assim o
+ * expansor nunca a pega), público `teste`, o destinatário em `comercial_campanha_destino` ligado ao envio (o endereço não vai para
+ * `publico_parametros`: ali não haveria anonimização, e o destino já é anonimizado pela retenção). Assim o
  * Relatório mostra a linha com o selo "Teste" e o KPI "Campanhas" a conta. O destino continua só o Master logado (o
  * "qualquer endereço" está com o dono). Descadastrado: o Carteiro registra o bloqueio e não há linha de teste.
  */
@@ -37,6 +38,7 @@ final class EnviarTesteDaCampanhaUseCase
     public const TETO_POR_HORA = 10;
     public const TETO_ATINGIDO = 'Limite de 10 testes por hora atingido.';
     public const DESCADASTRADO = 'Você está descadastrado da lista de campanhas; o teste não foi enviado.';
+    public const NAO_REGISTRADO = 'O teste foi enviado, mas não entrou no Relatório. Não precisa enviar de novo.';
     public const PREFIXO = '[TESTE] ';
     public const PUBLICO = 'teste';
 
@@ -63,9 +65,22 @@ final class EnviarTesteDaCampanhaUseCase
         if (!$envio->foiEnfileirado()) {
             throw new CampanhaRecusada(self::DESCADASTRADO);
         }
-        $this->campanhas->emTransacao(fn () => $this->gravar($teste, $email, $master, $envio->envioId));
+        $this->registrar($teste, $email, $master, $envio->envioId);
 
         return 'Teste enviado para ' . $email->para . '.';
+    }
+
+    /**
+     * O e-mail já saiu (o Carteiro fecha a própria transação): se a gravação falhar, a tela diz isso em vez de um 500,
+     * para o Master não reenviar achando que nada aconteceu.
+     */
+    private function registrar(MensagemDaCampanha $teste, MensagemDeEmail $email, User $master, int $envioId): void
+    {
+        try {
+            $this->campanhas->emTransacao(fn () => $this->gravar($teste, $email, $master, $envioId));
+        } catch (\Throwable $e) {
+            throw new CampanhaRecusada(self::NAO_REGISTRADO, 0, $e);
+        }
     }
 
     /**
@@ -79,7 +94,7 @@ final class EnviarTesteDaCampanhaUseCase
             'chave' => 'teste_' . bin2hex(random_bytes(16)), 'assunto' => $teste->assunto, 'modelo_chave' => $teste->chave,
             'modelo_nome' => $teste->nome, 'modo' => $teste->modo, 'selo' => $teste->selo, 'titulo' => $teste->titulo,
             'conteudo' => $this->composicao->congelar($teste), 'publico' => self::PUBLICO,
-            'parametros' => [['email' => $email->para, 'nome' => (string) $master->getFullName()]],
+            'parametros' => null,
             'frequencia' => CampanhaDeEmail::UNICA, 'agendada_para' => null, 'proxima' => $agora,
             'estado' => Relatorio::TESTE, 'total' => 1, 'criada_por' => $master->getId(), 'agora' => $agora,
         ]) ?? throw new CampanhaRecusada('Pedido inválido.');

@@ -25,3 +25,8 @@ KPI "Campanhas" (decisão 2); o destino segue só o Master logado ("qualquer end
 - O Relatório mostra a linha em Enviadas com o selo "Teste" e o público "Teste · N e-mail(s)" (L717); o KPI "Campanhas"
   (`contarNaoCanceladas`) a conta (L690).
 - O teto continua 10 por hora por Master (contado pelo destinatário na origem `teste_campanha`).
+- O visualizador (`/master/comercial/campanhas/{id}`, L709) usa o mesmo rótulo de público da lista
+  (`ListarRelatorioDeCampanhasUseCase::rotuloDoPublico`).
+- O endereço do Master não vai para `publico_parametros` (nulo): ali a retenção não anonimiza; o destino já é anonimizado.
+- Se a gravação falhar depois do envio, o e-mail já saiu: a tela recebe a recusa "O teste foi enviado, mas não entrou no
+  Relatório. Não precisa enviar de novo." em vez de um 500.

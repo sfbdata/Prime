@@ -6,7 +6,6 @@ namespace App\Comercial\UseCase;
 
 use App\Comercial\Service\RastreioDaLeitura;
 use App\Comercial\Campanha\ComposicaoDaCampanha;
-use App\Comercial\Campanha\PublicosDaCampanha;
 use App\Comercial\DTO\CampanhaDoRelatorio;
 use App\Comercial\DTO\DestinatarioDoRelatorio;
 use App\Comercial\Entity\CampanhaDeEmail;
@@ -62,7 +61,7 @@ final class AbrirCampanhaDoRelatorioUseCase
             $c['estado'],
             self::situacao($c['estado'], $c['frequencia']),
             $this->remetente(),
-            PublicosDaCampanha::ROTULOS[$c['publico']] ?? $c['publico'],
+            ListarRelatorioDeCampanhasUseCase::rotuloDoPublico($c['publico'], $c['total']),
             $c['modelo_nome'],
             (new \DateTimeImmutable($c['agendada_para'] ?? $c['criada_em']))->format('d/m/Y H:i'),
             self::cancelavel($c['estado']),
