@@ -291,11 +291,11 @@ escritório no Google. **Muda o desenho:** o painel do Google diz hoje "feriados
 
 **Proposta (recomendações; os pontos [dono] decidem):**
 
-- **O que vai [dono]:** recomendo feriados nacionais e pontos facultativos, feriados estaduais, recesso forense
-  (20/12 a 20/01), os feriados do escritório cadastrados no Ponto e as datas que o escritório acrescentou na
-  Agenda. **Não vão:** datas comemorativas e datas de tribunais e eleições (são muitas e não são "feriado ou
-  recesso"; se o dono quiser, entram com uma linha). Valem os ajustes do escritório (oculta não vai; renomeada vai
-  com o nome novo). É a mesma regra da grade (`ListarDatasDoSistemaUseCase`), sem cópia.
+- **O que vai (decidido pelo dono, 21/10/2026): TUDO o que a Agenda mostra sem ninguém cadastrar**, sem restrição:
+  feriados nacionais e pontos facultativos, estaduais, recesso forense, datas dos tribunais e eleições, datas
+  comemorativas, feriados do escritório do Ponto, datas acrescentadas pelo escritório e os aniversários da equipe.
+  Valem os ajustes do escritório (oculta não vai; renomeada vai com o nome novo), inclusive nos aniversários. Mesmas
+  regras da grade (`ListarDatasDoSistemaUseCase` e os aniversários do `ListarCompromissosUseCase`), sem cópia.
 - **Para quem:** toda pessoa conectada ao Google naquele escritório, sem permissão própria (são datas públicas).
   As UFs são as da pessoa (lotação dela; senão o estado do escritório), como na grade dela.
 - **Como vai:** dia inteiro, `transparency: transparent` (não ocupa o horário de ninguém), título igual ao da grade.
@@ -315,6 +315,6 @@ escritório no Google. **Muda o desenho:** o painel do Google diz hoje "feriados
 - **Texto do painel [dono]:** troca "feriados do sistema não são enviados" por "feriados e recessos vão como dia
   inteiro, sem ocupar a sua agenda".
 
-**Testes:** vai o feriado nacional e o recesso, não vai a comemorativa; oculta pelo escritório sai do Google; a
+**Testes:** vão o feriado nacional, o recesso, a comemorativa, a data de tribunal e o aniversário; oculta pelo escritório sai do Google; a
 renomeada vai com o nome novo; UF da lotação da pessoa; mexido lá volta; apagado lá fica até mudar; agenda nova manda
 de novo; o id de data nunca vira compromisso; `transparency` transparente.
