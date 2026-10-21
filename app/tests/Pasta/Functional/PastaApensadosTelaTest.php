@@ -523,6 +523,10 @@ final class PastaApensadosTelaTest extends JusPrimeWebTestCase
         $this->client->request('POST', '/pasta/' . $pasta->getId() . '/processo/vincular', $dados + [
             '_token' => 'TOKEN_vincular_processo_' . $pasta->getId(),
             'modo'   => 'apenso',
+            // Obrigatórios do cadastro novo (desenho 02, "Preencha: ..."); processo existente não os usa.
+            'orgaoJulgador' => '1ª Vara Cível',
+            'classeProcessual' => 'Embargos à Execução',
+            'assuntoProcessual' => 'Efeito Suspensivo',
         ], [], self::XHR);
     }
 
