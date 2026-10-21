@@ -20,6 +20,7 @@ use App\Processo\DTO\DadosDoProcessoInput;
 use App\Processo\Exception\DadosDoProcessoInvalidosException;
 use App\Processo\DTO\CadastroDoProcessoInput;
 use App\Processo\UseCase\CadastrarProcessoPelaPastaUseCase;
+use App\Processo\Service\ConsultasDoCnjGuardadas;
 use App\Processo\Entity\Processo;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Repository\ClientePFRepository;
@@ -1224,7 +1225,7 @@ class PastaController extends AbstractController
     }
 
     #[Route('/{id}/processo/vincular', name: 'pasta_vincular_processo', methods: ['POST'])]
-    public function vincularProcesso(Pasta $pasta, Request $request, CadastrarProcessoPelaPastaUseCase $cadastrarProcesso, VincularApensadoUseCase $vincularApensado): Response
+    public function vincularProcesso(Pasta $pasta, Request $request, CadastrarProcessoPelaPastaUseCase $cadastrarProcesso, ConsultasDoCnjGuardadas $consultasDoCnj, VincularApensadoUseCase $vincularApensado): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1244,7 +1245,7 @@ class PastaController extends AbstractController
             return $this->redirectToRoute('pasta_show', ['id' => $pastaId]);
         }
 
-        $resolvido = $this->processoParaVincular($request, $currentUser, $cadastrarProcesso, $isXhr, $pastaId);
+        $resolvido = $this->processoParaVincular($request, $currentUser, $cadastrarProcesso, $consultasDoCnj, $isXhr, $pastaId);
         if ($resolvido instanceof Response) {
             return $resolvido;
         }
@@ -1271,7 +1272,7 @@ class PastaController extends AbstractController
      *
      * @return Response|array{0: Processo, 1: ?string} a resposta de erro, ou o processo e o aviso
      */
-    private function processoParaVincular(Request $request, User $usuario, CadastrarProcessoPelaPastaUseCase $cadastrarProcesso, bool $isXhr, int $pastaId): Response|array
+    private function processoParaVincular(Request $request, User $usuario, CadastrarProcessoPelaPastaUseCase $cadastrarProcesso, ConsultasDoCnjGuardadas $consultasDoCnj, bool $isXhr, int $pastaId): Response|array
     {
         $tenant = $this->tenantContext->getCurrentTenant();
         $data = $request->request->all();
@@ -1289,8 +1290,11 @@ class PastaController extends AbstractController
             return $this->respostaErroProcesso($isXhr, 'Informe o número do processo.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        // a1: o que o "Buscar no CNJ" desta sessão guardou no servidor para o número (nunca o que o navegador manda).
+        $input = CadastroDoProcessoInput::fromRequest($request);
+        $consultaDoCnj = $consultasDoCnj->buscar($tenant, $usuario, $request->getSession()->getId(), $input->numeroSoDigitos());
         try {
-            $cadastro = $cadastrarProcesso->executar(CadastroDoProcessoInput::fromRequest($request), $tenant, $usuario);
+            $cadastro = $cadastrarProcesso->executar($input, $tenant, $usuario, $consultaDoCnj);
         } catch (DadosDoProcessoInvalidosException $e) {
             return $this->respostaErroProcesso($isXhr, $e->getMessage(), $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
         }

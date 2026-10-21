@@ -10,6 +10,7 @@ use App\Processo\DTO\CadastroDoProcessoInput;
 use App\Processo\Entity\Processo;
 use App\Processo\Exception\DadosDoProcessoInvalidosException;
 use App\Processo\Repository\ProcessoRepository;
+use App\Processo\Service\DatajudProcessoMapper;
 use App\Processo\Service\TribunalCnjResolver;
 use App\Processo\UseCase\CadastrarProcessoPelaPastaUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -34,7 +35,7 @@ final class CadastrarProcessoPelaPastaUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->repositorio = $this->createMock(ProcessoRepository::class);
-        $this->useCase = new CadastrarProcessoPelaPastaUseCase($this->repositorio, new TribunalCnjResolver());
+        $this->useCase = new CadastrarProcessoPelaPastaUseCase($this->repositorio, new TribunalCnjResolver(), new DatajudProcessoMapper($this->repositorio));
         $this->tenant = new Tenant();
         $this->usuario = new User();
     }
@@ -65,6 +66,34 @@ final class CadastrarProcessoPelaPastaUseCaseTest extends TestCase
         self::assertNull($processo->getPartes()->first()->getDocumento());
         self::assertCount(1, $processo->getMovimentacoes());
         self::assertNull($processo->getMovimentacoes()->first()->getTipo());
+    }
+
+    #[TestDox('com a consulta do CNJ: o mapper traz sigilo, sistema, id e assuntos; a janela vence nos campos; partes da janela; movimentação igual à do CNJ é reaproveitada')]
+    public function testConsultaDoCnjEntraPrimeiroEAJanelaVence(): void
+    {
+        $consulta = [
+            'id' => 'TJDFT_G1_x', 'nivelSigilo' => 2, 'sistema' => ['codigo' => 1, 'nome' => 'PJe'],
+            'orgaoJulgador' => ['codigo' => 55, 'nome' => 'Vara do CNJ'],
+            'assuntos' => [['codigo' => 1, 'nome' => 'Indenização']],
+            'partes' => [['tipo' => 'PARTE', 'nome' => 'Parte que a pessoa tirou']],
+            'movimentos' => [['codigo' => 26, 'nome' => 'Distribuído', 'dataHora' => '2024-03-05T10:00:00Z', 'orgaoJulgador' => ['codigo' => '55', 'nomeOrgao' => 'Vara do CNJ']]],
+        ];
+
+        $processo = $this->useCase->executar($this->input([
+            'partes' => [['tipo' => 'PARTE', 'nome' => 'Ana Souza', 'documento' => '', 'papel' => '']],
+            'movimentacoes' => [['dataMovimentacao' => '2024-03-05', 'descricao' => 'Distribuído', 'tipo' => '26', 'orgao' => 'VARA DO CNJ']],
+        ]), $this->tenant, $this->usuario, $consulta)->processo;
+
+        self::assertSame(2, $processo->getNivelSigilo());
+        self::assertSame('PJe', $processo->getSistema());
+        self::assertSame('TJDFT_G1_x', $processo->getDatajudId());
+        self::assertSame($consulta, $processo->getDatajudRaw());
+        self::assertCount(1, $processo->getAssuntos());
+        self::assertSame('2ª VARA CÍVEL', $processo->getOrgaoJulgador(), 'a janela vence');
+        self::assertSame(self::DIGITOS, $processo->getNumeroProcesso());
+        self::assertSame(['ANA SOUZA'], array_values(array_map(static fn ($p) => $p->getNome(), $processo->getPartes()->toArray())));
+        self::assertCount(1, $processo->getMovimentacoes());
+        self::assertSame('55', $processo->getMovimentacoes()->first()->getOrgaoCodigo(), 'a do CNJ guarda o código do órgão');
     }
 
     #[TestDox('situação e instância vazias viram "Em andamento" e "G1"; parte sem tipo vira "Parte"')]

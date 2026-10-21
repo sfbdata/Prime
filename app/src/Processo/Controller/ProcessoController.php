@@ -17,6 +17,7 @@ use App\Processo\Enum\MotivoFalhaDatajud;
 use App\Processo\Exception\ConsultaDatajudException;
 use App\Processo\Exception\TribunalNaoIdentificadoException;
 use App\Processo\Service\DatajudClient;
+use App\Processo\Service\ConsultasDoCnjGuardadas;
 use App\Processo\Service\DatajudProcessoMapper;
 use App\Processo\Service\TribunalCnjResolver;
 use App\Processo\Service\ValidadorNumeroCnj;
@@ -288,7 +289,7 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/api/search', name: 'api_datajud_search', methods: ['POST'])]
-    public function datajudSearch(Request $request, DatajudClient $datajudClient, DatajudProcessoMapper $mapper, EntityManagerInterface $em, PermissionChecker $permissionChecker, LoggerInterface $logger, ValidadorNumeroCnj $validadorNumeroCnj): JsonResponse
+    public function datajudSearch(Request $request, DatajudClient $datajudClient, DatajudProcessoMapper $mapper, EntityManagerInterface $em, PermissionChecker $permissionChecker, LoggerInterface $logger, ValidadorNumeroCnj $validadorNumeroCnj, ConsultasDoCnjGuardadas $consultasDoCnj): JsonResponse
     {
         // Gateia pela permissão do módulo: a action dispara consulta à API externa do CNJ — sem
         // guard, qualquer logado abusaria do custo/rate-limit. Não persiste nada (B8).
@@ -325,6 +326,7 @@ class ProcessoController extends AbstractController
             }
 
             $processData = $hits[0]['_source'] ?? [];
+            $this->guardarConsulta($consultasDoCnj, $request, $user, $numeroProcesso, $processData);
 
             // Criar um processo temporário para mapping
             $processo = new Processo();
@@ -399,6 +401,18 @@ class ProcessoController extends AbstractController
                 'Não conseguimos concluir a consulta agora. Tente novamente; se persistir, avise o suporte.',
                 500
             );
+        }
+    }
+
+    /**
+     * Guarda o `_source` no servidor (30 min, por escritório, pessoa, sessão e número) para o cadastro pela janela
+     * da pasta aplicar o que a resposta não leva de volta (a1). O navegador nunca devolve esses dados.
+     */
+    private function guardarConsulta(ConsultasDoCnjGuardadas $consultasDoCnj, Request $request, \App\Entity\Auth\User $usuario, string $numeroSoDigitos, mixed $source): void
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant !== null && is_array($source)) {
+            $consultasDoCnj->guardar($tenant, $usuario, $request->getSession()->getId(), $numeroSoDigitos, $source);
         }
     }
 

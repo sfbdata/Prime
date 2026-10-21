@@ -14,6 +14,8 @@ use App\Processo\Entity\Processo;
 use App\Processo\Exception\DadosDoProcessoInvalidosException;
 use App\Processo\Exception\TribunalNaoIdentificadoException;
 use App\Processo\Repository\ProcessoRepository;
+use App\Processo\Service\ConsultasDoCnjGuardadas;
+use App\Processo\Service\DatajudProcessoMapper;
 use App\Processo\Service\TribunalCnjResolver;
 
 /**
@@ -26,6 +28,12 @@ use App\Processo\Service\TribunalCnjResolver;
  * Linha de parte sem nome e de movimentação sem descrição é ignorada, como no desenho.
  *
  * Número que já existe no escritório: devolve o existente (`jaExistia`), sem aplicar nada do que foi digitado.
+ *
+ * Com a consulta do CNJ guardada no servidor ({@see ConsultasDoCnjGuardadas}, nunca vinda do navegador), o
+ * `DatajudProcessoMapper` entra primeiro e traz o que a janela não carrega (assuntos, sigilo, formato, sistema,
+ * códigos, id e o bruto do Datajud); depois a janela vence, campo a campo: o que a pessoa editou é o que vale.
+ * Partes e movimentações são as da janela (a pessoa pode ter tirado linhas); a movimentação que veio igual do
+ * CNJ guarda os códigos e os complementos do Datajud.
  *
  * Persiste sem flush: o vínculo grava na mesma transação, e a recusa de qualquer passo não deixa processo solto.
  *
@@ -40,10 +48,12 @@ final class CadastrarProcessoPelaPastaUseCase
     public function __construct(
         private readonly ProcessoRepository $processoRepository,
         private readonly TribunalCnjResolver $tribunalResolver,
+        private readonly DatajudProcessoMapper $mapper,
     ) {
     }
 
-    public function executar(CadastroDoProcessoInput $input, Tenant $tenant, User $usuario): ProcessoDoCadastro
+    /** @param array<mixed>|null $consultaDoCnj o `_source` guardado no servidor para este número, se houver */
+    public function executar(CadastroDoProcessoInput $input, Tenant $tenant, User $usuario, ?array $consultaDoCnj = null): ProcessoDoCadastro
     {
         $numero = $this->exigirNumeroCnj($input);
         $existente = $this->processoRepository->findByNumeroProcessoDoTenant($numero, $tenant);
@@ -53,7 +63,8 @@ final class CadastrarProcessoPelaPastaUseCase
 
         $this->exigirObrigatorios($input);
         $processo = (new Processo())->setTenant($tenant);
-        $this->aplicarDadosDaJanela($processo, $input, $numero, $tenant);
+        $movimentacoesDoCnj = $consultaDoCnj !== null ? $this->aplicarConsultaDoCnj($processo, $consultaDoCnj) : [];
+        $this->aplicarDadosDaJanela($processo, $input, $numero, $tenant, $movimentacoesDoCnj);
         $processo->setCriadoPor($usuario);
         $this->processoRepository->save($processo);
 
@@ -83,7 +94,32 @@ final class CadastrarProcessoPelaPastaUseCase
         }
     }
 
-    private function aplicarDadosDaJanela(Processo $processo, CadastroDoProcessoInput $input, string $numero, Tenant $tenant): void
+    /**
+     * O mapper preenche tudo; partes e movimentações saem do processo (a janela decide quais ficam), e as
+     * movimentações do CNJ voltam indexadas para a janela reaproveitar a que veio igual.
+     *
+     * @param array<mixed> $consultaDoCnj
+     *
+     * @return array<string, MovimentacaoProcesso>
+     */
+    private function aplicarConsultaDoCnj(Processo $processo, array $consultaDoCnj): array
+    {
+        $this->mapper->mapFromSource($processo, $consultaDoCnj);
+        foreach ($processo->getPartes()->toArray() as $parte) {
+            $processo->removeParte($parte);
+        }
+
+        $doCnj = [];
+        foreach ($processo->getMovimentacoes()->toArray() as $movimentacao) {
+            $processo->removeMovimentacao($movimentacao);
+            $doCnj[self::chaveDaMovimentacao($movimentacao->getDataMovimentacao()?->format('Y-m-d') ?? '', $movimentacao->getDescricao(), $movimentacao->getTipo() ?? '', $movimentacao->getOrgao() ?? '')] ??= $movimentacao;
+        }
+
+        return $doCnj;
+    }
+
+    /** @param array<string, MovimentacaoProcesso> $movimentacoesDoCnj */
+    private function aplicarDadosDaJanela(Processo $processo, CadastroDoProcessoInput $input, string $numero, Tenant $tenant, array $movimentacoesDoCnj): void
     {
         $processo->setNumeroProcesso($numero);
         $this->aplicarTribunal($processo, $numero);
@@ -94,7 +130,7 @@ final class CadastrarProcessoPelaPastaUseCase
         $processo->setInstancia(self::opcao($input->instancia, self::INSTANCIAS, 'Instância inválida.'));
         $this->aplicarDatas($processo, $input);
         $this->aplicarPartes($processo, $input->partes, $tenant);
-        $this->aplicarMovimentacoes($processo, $input->movimentacoes, $tenant);
+        $this->aplicarMovimentacoes($processo, $input->movimentacoes, $tenant, $movimentacoesDoCnj);
     }
 
     /** Sigla derivada do número (padrão CNJ); número de tribunal desconhecido deixa a sigla vazia. */
@@ -136,14 +172,19 @@ final class CadastrarProcessoPelaPastaUseCase
         }
     }
 
-    /** @param list<array<string, string>> $linhas */
-    private function aplicarMovimentacoes(Processo $processo, array $linhas, Tenant $tenant): void
+    /**
+     * @param list<array<string, string>>        $linhas
+     * @param array<string, MovimentacaoProcesso> $doCnj a movimentação que veio igual do CNJ é reaproveitada
+     */
+    private function aplicarMovimentacoes(Processo $processo, array $linhas, Tenant $tenant, array $doCnj): void
     {
         foreach ($linhas as $linha) {
             if (($linha['descricao'] ?? '') === '') {
                 continue;
             }
-            $movimentacao = new MovimentacaoProcesso();
+            $chave = self::chaveDaMovimentacao($linha['dataMovimentacao'] ?? '', $linha['descricao'], $linha['tipo'] ?? '', $linha['orgao'] ?? '');
+            $movimentacao = $doCnj[$chave] ?? new MovimentacaoProcesso();
+            unset($doCnj[$chave]);
             $movimentacao->setDescricao(self::limitado($linha['descricao'], 255, 'Descrição da movimentação'));
             $movimentacao->setTipo(self::opcional($linha['tipo'] ?? '', 100, 'Tipo da movimentação'));
             $movimentacao->setOrgao(self::opcional($linha['orgao'] ?? '', 100, 'Órgão da movimentação'));
@@ -151,6 +192,12 @@ final class CadastrarProcessoPelaPastaUseCase
             $movimentacao->setTenant($tenant);
             $processo->addMovimentacao($movimentacao);
         }
+    }
+
+    /** Sem diferença de caixa: a entidade guarda os textos em maiúsculas e a janela pode mostrar de outro jeito. */
+    private static function chaveDaMovimentacao(string $data, string $descricao, string $tipo, string $orgao): string
+    {
+        return mb_strtoupper(implode("\x1F", [$data, trim($descricao), trim($tipo), trim($orgao)]));
     }
 
     /** @param list<string> $opcoes a primeira é o padrão do campo vazio */
@@ -180,12 +227,13 @@ final class CadastrarProcessoPelaPastaUseCase
         return $valor === '' ? null : self::limitado($valor, $limite, $rotulo);
     }
 
-    private static function data(string $valor, string $erro): ?\DateTimeImmutable
+    /** `\DateTime` mutável: as colunas são do tipo `date` do Doctrine, que recusa o imutável. */
+    private static function data(string $valor, string $erro): ?\DateTime
     {
         if ($valor === '') {
             return null;
         }
-        $data = \DateTimeImmutable::createFromFormat('!Y-m-d', $valor);
+        $data = \DateTime::createFromFormat('!Y-m-d', $valor);
         if ($data === false || $data->format('Y-m-d') !== $valor) {
             throw new DadosDoProcessoInvalidosException($erro);
         }

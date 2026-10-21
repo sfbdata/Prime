@@ -10,6 +10,7 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Processo\Entity\Processo;
+use App\Processo\Service\DatajudClient;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -298,6 +299,107 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         $client->request('POST', "/pasta/{$outra->getId()}/processo/vincular", ['_token' => $this->gerarCsrf('vincular_processo_' . $outra->getId()), 'numeroProcesso' => '5555555-55.2024.1.23.4567', 'modo' => 'apenso', 'tipo_apenso' => 'embargos', ...self::OBRIGATORIOS], [], self::XHR);
         self::assertResponseIsSuccessful();
         self::assertArrayNotHasKey('aviso', json_decode((string) $client->getResponse()->getContent(), true));
+    }
+
+    #[TestDox('a1: "Buscar no CNJ" guarda a consulta no servidor; o cadastro aplica o que a janela não leva (assuntos, sigilo, formato, sistema, códigos, id, bruto) e a janela vence campo a campo')]
+    public function testCadastroAplicaAConsultaDoCnjGuardada(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->autenticar($client, $user, $tenant);
+        $this->simularCnj();
+
+        $client->request('POST', '/processos/api/search', [], [], ['CONTENT_TYPE' => 'application/json'], (string) json_encode(['numeroProcesso' => '0001234-56.2020.8.26.0100']));
+        self::assertResponseIsSuccessful();
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/processo/vincular", [
+            '_token' => $this->gerarCsrf('vincular_processo_' . $pasta->getId()),
+            'numeroProcesso' => '0001234-56.2020.8.26.0100',
+            'orgaoJulgador' => 'Vara editada na janela',
+            'classeProcessual' => 'Procedimento Comum Cível',
+            'assuntoProcessual' => 'Dano Moral',
+            'partes' => [['tipo' => 'PARTE', 'nome' => 'Ana Souza', 'documento' => '', 'papel' => 'Polo ativo']],
+            'movimentacoes' => [
+                ['dataMovimentacao' => '2020-05-04', 'descricao' => 'Distribuído por sorteio', 'tipo' => '26', 'orgao' => 'VARA CIVEL 1'],
+                ['dataMovimentacao' => '2020-06-01', 'descricao' => 'Anotação do escritório', 'tipo' => '', 'orgao' => ''],
+            ],
+        ], [], self::XHR);
+
+        self::assertResponseIsSuccessful();
+        $conn = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        $linha = $conn->fetchAssociative("SELECT id, orgao_julgador, nivel_sigilo, formato, sistema, sistema_codigo, classe_codigo, datajud_id, datajud_raw FROM processo WHERE numero_processo = '00012345620208260100' AND tenant_id = :t", ['t' => $tenant->getId()]);
+        self::assertNotFalse($linha);
+        self::assertSame('VARA EDITADA NA JANELA', $linha['orgao_julgador'], 'o editado na janela vence o CNJ');
+        self::assertSame(1, $linha['nivel_sigilo']);
+        self::assertSame('Eletrônico', $linha['formato']);
+        self::assertSame('PJe', $linha['sistema']);
+        self::assertSame(1, $linha['sistema_codigo']);
+        self::assertSame(7, $linha['classe_codigo']);
+        self::assertSame('TJSP_G1_00012345620208260100', $linha['datajud_id']);
+        self::assertNotNull($linha['datajud_raw']);
+        self::assertSame(['DANO MORAL', 'INDENIZAÇÃO'], $conn->fetchFirstColumn('SELECT nome FROM assunto_processo WHERE processo_id = :p ORDER BY nome', ['p' => $linha['id']]));
+        self::assertSame(['ANA SOUZA'], $conn->fetchFirstColumn('SELECT nome FROM parte_processo WHERE processo_id = :p', ['p' => $linha['id']]), 'as partes são as da janela');
+        $movs = $conn->fetchAllAssociative('SELECT descricao, orgao_codigo FROM movimentacao_processo WHERE processo_id = :p ORDER BY descricao', ['p' => $linha['id']]);
+        self::assertSame([['descricao' => 'ANOTAÇÃO DO ESCRITÓRIO', 'orgao_codigo' => null], ['descricao' => 'DISTRIBUÍDO POR SORTEIO', 'orgao_codigo' => '1001']], $movs, 'a que veio igual do CNJ guarda o código do órgão; a que a pessoa tirou da janela não entra');
+    }
+
+    #[TestDox('a1: dados do Datajud mandados pelo navegador são ignorados; sem consulta guardada (ou de outro número), o cadastro fica só com a janela')]
+    public function testDadosDoDatajudDoNavegadorSaoIgnorados(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->autenticar($client, $user, $tenant);
+        $this->simularCnj();
+        $client->request('POST', '/processos/api/search', [], [], ['CONTENT_TYPE' => 'application/json'], (string) json_encode(['numeroProcesso' => '0001234-56.2020.8.26.0100']));
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/processo/vincular", [
+            '_token' => $this->gerarCsrf('vincular_processo_' . $pasta->getId()),
+            'numeroProcesso' => '6666666-66.2024.1.23.4567',
+            ...self::OBRIGATORIOS,
+            'nivelSigilo' => '5',
+            'datajudId' => 'forjado',
+            'datajudRaw' => '{"forjado":true}',
+            'assuntos' => [['codigo' => '1', 'nome' => 'Forjado']],
+        ], [], self::XHR);
+
+        self::assertResponseIsSuccessful();
+        $linha = static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchAssociative(
+            "SELECT id, nivel_sigilo, datajud_id, datajud_raw FROM processo WHERE numero_processo = '66666666620241234567' AND tenant_id = :t",
+            ['t' => $tenant->getId()],
+        );
+        self::assertNotFalse($linha);
+        self::assertNull($linha['nivel_sigilo']);
+        self::assertNull($linha['datajud_id']);
+        self::assertNull($linha['datajud_raw']);
+        self::assertSame(0, (int) static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchOne('SELECT count(*) FROM assunto_processo WHERE processo_id = :p', ['p' => $linha['id']]));
+    }
+
+    /** O CNJ de mentira (o cliente HTTP é nosso): um processo do TJSP com o que a janela não leva de volta. */
+    private function simularCnj(): void
+    {
+        $datajud = $this->createMock(DatajudClient::class);
+        $datajud->method('searchByNumeroProcesso')->willReturn(['hits' => ['hits' => [['_source' => [
+            'id' => 'TJSP_G1_00012345620208260100',
+            'numeroProcesso' => '00012345620208260100',
+            'tribunal' => 'TJSP',
+            'grau' => 'G1',
+            'nivelSigilo' => 1,
+            'classe' => ['codigo' => 7, 'nome' => 'Procedimento Comum Cível'],
+            'formato' => ['codigo' => 1, 'nome' => 'Eletrônico'],
+            'sistema' => ['codigo' => 1, 'nome' => 'PJe'],
+            'orgaoJulgador' => ['codigo' => 1001, 'nome' => '1ª Vara Cível'],
+            'assuntos' => [['codigo' => 10433, 'nome' => 'Indenização'], ['codigo' => 10434, 'nome' => 'Dano Moral']],
+            'dataAjuizamento' => '20200504000000',
+            'movimentos' => [
+                ['codigo' => 26, 'nome' => 'Distribuído por sorteio', 'dataHora' => '2020-05-04T10:00:00.000Z', 'orgaoJulgador' => ['codigo' => '1001', 'nomeOrgao' => 'Vara Civel 1']],
+                ['codigo' => 51, 'nome' => 'Conclusos para despacho', 'dataHora' => '2020-05-10T10:00:00.000Z', 'orgaoJulgador' => ['codigo' => '1001', 'nomeOrgao' => 'Vara Civel 1']],
+            ],
+        ]]]]]);
+        static::getContainer()->set(DatajudClient::class, $datajud);
     }
 
     /** @return list<string> o conteúdo dos cartões do sistema "proc" da pasta, na ordem */
