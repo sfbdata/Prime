@@ -39,7 +39,7 @@
   const EXTERNAS = {};
   raiz.querySelectorAll('[data-sec-externa]').forEach(el => { if (el.innerHTML.trim()) EXTERNAS[el.dataset.secExterna] = el; });
   if (EXTERNAS.com) SECS.push(['com', 'Comercial e e-mails', 'bi-megaphone']);
-
+  if (EXTERNAS.ind) SECS.push(['ind', 'Indicações do BlueJus', 'bi-share']);
   if (EXTERNAS.notif) SECS.push(['notif', 'Central de Notificações', 'bi-bell']);
   const VAZIAS = {
     custos: ['bi-cash-coin', 'Custos e infraestrutura', 'Mostra quanto custa manter o BlueJus e o impacto de cada conta, separando custos medidos, importados de fornecedores e estimados. Sem integração financeira, os valores podem ser lançados manualmente, com origem identificada.', ['Armazenamento', 'Banco de dados', 'Hospedagem', 'Tráfego', 'Backups', 'APIs de IA', 'Notificações', 'Receita recorrente', 'Custo por conta', 'Custo por GB', 'Margem por plano', 'Projeção 3, 6 e 12 meses']],
