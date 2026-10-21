@@ -972,3 +972,41 @@ página não se confundem (token, URLs, ids); a recusa no servidor (público, mo
 - Coordenação, 21/10 (o dono pode rever): o descadastrado não recebe o pedido pelo cadastro do Master; no e-mail do
   cadastro manual, a segunda frase é "Se não quiser receber, é só ignorar este e-mail." (as outras origens seguem com
   "Se não foi você, ignore este e-mail.").
+
+## 11. F3.3 (a): quem autorizou vagas recebe o modelo de vagas (dono, 21/10)
+
+Decisões do dono (21/10): F3.1 (a), `COMERCIAL_CAMPANHAS_LIGADAS` nasce desligada (como já está); F3.3, as duas
+saídas: (a) já, (b) a caixa "aceito novidades" quando houver desenho; F3.9 (b), o rótulo da Base de contatos passa a
+"Contatos que autorizaram campanhas". Risco MÉDIO (envio em massa, consentimento). Migration `Version20261020149600`.
+
+### Regra
+- Público `leads` ("Base de contatos"):
+  - com o modelo `vagas` ("Ofertas · vagas abertas", dc L506): a união sem repetidos dos confirmados de
+    `comercial_campanhas` e de `vagas_alerta`, nessa ordem;
+  - com qualquer outro modelo, inclusive cópias `cu<id>`: só os confirmados de `comercial_campanhas`, como hoje.
+- Cada destinatário leva a lista pela qual entrou: quem está nas duas sai por `comercial_campanhas`, e quem só autorizou
+  vagas sai por `vagas_alerta`. Essa lista decide o link de descadastro, o List-Unsubscribe e a checagem do Carteiro.
+- No modelo `vagas`, quem se descadastrou de QUALQUER uma das duas listas fica de fora, para que o "não quero mais" de
+  uma não volte pela outra.
+- Âncora no servidor (decisão técnica): com a chave `vagas`, a campanha só é aceita no modo `simples` com o botão
+  apontando para as vagas (`link = vagas`). O texto continua editável. Fora disso, a campanha é recusada com uma
+  mensagem clara. Isso não é barreira contra o Master, porque a rota é só dele. Serve para o consentimento de vagas
+  não sair num e-mail que não leva às vagas.
+- A lista de cada destino fica gravada na fila (`comercial_campanha_destino.lista`, padrão `comercial_campanhas`). A
+  recorrente e a agendada resolvem o público com o `modelo_chave` gravado na campanha.
+- A contagem recebe o modelo: a tela manda `modelo` e reconta ao trocar de modelo.
+- Ficam como estão: o B1 do CSV e do Individual (só `comercial_campanhas`) e o KPI "Base de contatos" do painel.
+
+### Confirmações do dono (21/10) sobre o §8.8
+- Item 1: confirmado (a chave nasce desligada). Item 3: revisto por esta seção. Item 9: o rótulo muda para "Contatos que
+  autorizaram campanhas". Item 12: confirmado (a limpeza dos sinais do nome do CSV fica). Item 13: confirmado (a
+  recorrente com até 24 h de atraso sai uma vez; com mais, pula aquela vez).
+
+### Decisões técnicas da implementação
+- A âncora vale na confirmação e no envio de teste; a prévia não recusa, porque roda a cada edição. A URL completa das
+  vagas não substitui o `link = vagas`.
+- No modelo `vagas`, o descadastro das duas listas vale para qualquer público, não só para a Base de contatos.
+
+### Para o dono (nota, sem bloquear)
+- Sair pelo link de uma campanha de vagas também desliga os alertas de vagas, porque é o mesmo consentimento.
+- Uma campanha recorrente de vagas cresce sozinha conforme a lista `vagas_alerta` cresce.

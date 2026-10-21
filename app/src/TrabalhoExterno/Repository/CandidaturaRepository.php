@@ -237,6 +237,25 @@ class CandidaturaRepository extends ServiceEntityRepository
         ], $linhas);
     }
 
+    /**
+     * O status e a data de envio de todas as candidaturas, sem dado do candidato: o funil e a curva de
+     * candidaturas do painel do Master (spec §4.9). Quem chama confere que é o Master.
+     *
+     * @return list<array{status: string, enviadaEm: \DateTimeImmutable}>
+     */
+    public function statusEEnvios(): array
+    {
+        $linhas = $this->createQueryBuilder('c')
+            ->select('c.status AS status', 'c.enviadaEm AS enviadaEm')
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $l): array => [
+            'status' => $l['status'] instanceof \BackedEnum ? (string) $l['status']->value : (string) $l['status'],
+            'enviadaEm' => $l['enviadaEm'] instanceof \DateTimeImmutable ? $l['enviadaEm'] : new \DateTimeImmutable((string) $l['enviadaEm']),
+        ], $linhas);
+    }
+
     /** @return list<int> os ids das candidaturas da vaga, para apagar as marcações antes dela */
     public function idsDaVaga(Vaga $vaga): array
     {

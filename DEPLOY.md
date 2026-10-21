@@ -329,6 +329,23 @@ Rode logo depois da publicação: as metas criadas entre a publicação e o coma
 antigas ficam com os números seguintes (não há colisão, só a ordem fica trocada). O comando grava por SQL direto,
 então a numeração das antigas não aparece na trilha de auditoria (só o número muda; nada mais na meta).
 
+### Prioridade das metas antigas (uma vez, depois da publicação)
+
+As metas ganharam prioridade própria (Normal, Alta, Urgente), que é o que o filtro "Prioridade" de Minhas
+Metas usa. A migration `Version20261020149300` cria a coluna com `normal` para todas; a meta nova já nasce com
+a prioridade da pasta. Para as que já existiam herdarem a da pasta, rode **uma vez depois da publicação**:
+
+```
+docker exec -w /var/www/app jusprime_php_prod php bin/console app:tarefa:herdar-prioridade-da-pasta --dry-run
+docker exec -w /var/www/app jusprime_php_prod php bin/console app:tarefa:herdar-prioridade-da-pasta
+```
+
+Pasta `urgente` vira meta Urgente, pasta `prioridade` vira meta Alta, o resto fica Normal. O `--dry-run` lista
+quantas metas cada escritório teria atualizadas e não grava nada. Só mexe em meta ainda `normal`, então rodar
+de novo não muda nada. Para um escritório só: `--escritorio=ID`. Não vai para o cron. Enquanto o comando não
+roda, o filtro "Prioridade" só acha as metas criadas depois da publicação. O comando grava por SQL direto,
+então a mudança não aparece na trilha de auditoria da meta.
+
 ### Personalizar configuração
 
 Variáveis de ambiente que sobrescrevem os padrões do script:

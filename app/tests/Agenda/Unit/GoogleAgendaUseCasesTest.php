@@ -8,6 +8,7 @@ use App\Agenda\Entity\ConexaoGoogleAgenda;
 use App\Agenda\Exception\GoogleAgendaException;
 use App\Agenda\Infra\GoogleAgendaApi;
 use App\Agenda\Repository\ConexaoGoogleAgendaRepository;
+use App\Agenda\Repository\DataNoGoogleRepository;
 use App\Agenda\Repository\EventoDaAgendaRepository;
 use App\Agenda\Repository\ExclusaoNoGoogleRepository;
 use App\Agenda\Repository\LigacaoComGoogleRepository;
@@ -16,6 +17,7 @@ use App\Agenda\Repository\VarreduraDoGoogleRepository;
 use App\Agenda\Service\CompromissoNoGoogle;
 use App\Agenda\Service\GarantirVarreduraDoGoogle;
 use App\Agenda\Service\LevarAoGoogle;
+use App\Agenda\Service\LevarDatasAoGoogle;
 use App\Agenda\Service\LevarPrazosAoGoogle;
 use App\Agenda\Service\ParticipantesDoGoogle;
 use App\Agenda\Service\PermissoesDaAgenda;
@@ -172,6 +174,9 @@ final class GoogleAgendaUseCasesTest extends TestCase
             new NullLogger(),
             new LevarPrazosAoGoogle($api, new PrazoParaOGoogle(), $this->createStub(PastaPrazoRepository::class), $this->createStub(PrazoNoGoogleRepository::class), new PermissoesDaAgenda($permissoes), $em, new NullLogger()),
             $this->createStub(PrazoNoGoogleRepository::class),
+            // Nunca chamado aqui (Google desligado ou trava ocupada).
+            (new \ReflectionClass(LevarDatasAoGoogle::class))->newInstanceWithoutConstructor(),
+            $this->createStub(DataNoGoogleRepository::class),
         );
 
         self::assertSame(['trazidos' => 0, 'enviados' => 0, 'apagados' => 0], $montar(new GoogleAgendaApi(new MockHttpClient()))->executar(1, new \DateTimeImmutable()));

@@ -52,11 +52,12 @@ final class PedidoDeCampanha
     public static function deArray(array $dados): self
     {
         $modelo = $dados['modelo'] ?? null;
+        $mensagem = MensagemDaCampanha::deArray(\is_array($modelo) ? $modelo : throw new CampanhaRecusada('Pedido inválido.'));
 
         return new self(
             \is_string($dados['chave'] ?? null) ? $dados['chave'] : '',
-            MensagemDaCampanha::deArray(\is_array($modelo) ? $modelo : throw new CampanhaRecusada('Pedido inválido.')),
-            PedidoDePublico::deArray($dados),
+            $mensagem,
+            PedidoDePublico::deArray($dados, $mensagem->chave),
             \is_string($dados['frequencia'] ?? null) ? $dados['frequencia'] : CampanhaDeEmail::UNICA,
             self::data($dados['agendar'] ?? ''),
             ($dados['rastrearLeitura'] ?? false) === true,

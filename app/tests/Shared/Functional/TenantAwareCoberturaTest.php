@@ -45,6 +45,7 @@ use App\TrabalhoExterno\Entity\LeituraDemanda;
 use App\TrabalhoExterno\Entity\MarcacaoDeMensagem;
 use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
+use App\TrabalhoExterno\Entity\MetricaPublica;
 use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
 use App\TrabalhoExterno\Entity\Vaga;
@@ -154,6 +155,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         PreferenciaDoUsuario::class, // do usuário (última visita às vagas, ofertante padrão); toda leitura recebe o usuário logado (VagasDoTrabalhoExternoTest::testNovaEVista)
         LinkDeVagas::class,   // link público, sem escritório por natureza; só se acha pelo hash do token e a página só mostra vagas abertas sem dado de escritório (VagasPublicasTest)
         InteressadoEmVagas::class, // visitante da página pública, sem conta nem escritório; só a inscrição grava e nenhuma rota lê (VagasPublicasTest::testInscricaoNosAlertas)
+        MetricaPublica::class, // contador anônimo da página pública (dia, link, visitas, cliques), sem escritório nem pessoa; só o painel do Master lê, e só a soma (PainelDoTrabalhoExternoTest::testSoOMasterVeOPainel)
         Curriculo::class,     // currículo do usuário externo, da plataforma (um por usuário); a Central lê o banco inteiro e o externo só alcança o dele pelo LocalizadorDeCurriculo (CurriculosDoTrabalhoExternoTest::testExternoCriaEditaEExclui)
         Candidatura::class,   // candidatura de um currículo a uma vaga, ambos da plataforma; só é lida pela vaga já localizada no escopo ou pelo currículo do próprio usuário, e o dono da vaga só vê as enviadas a ele (CandidaturasDoTrabalhoExternoTest::testEnvioEDono)
 
@@ -258,7 +260,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 60 → 62 com a janela da OAB dos estados que faltam (21/10/2026): SubsecaoOab e NotaDaSeccional (plataforma),
     // justificadas acima.
     // 62 → 63 com as marcas do Relatório da Central de envios (21/10/2026): CampanhaMarca, do Master, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 63;
+    // 63 → 64 com a métrica anônima da página pública do Trabalho Externo (19/10/2026): MetricaPublica, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 64;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
