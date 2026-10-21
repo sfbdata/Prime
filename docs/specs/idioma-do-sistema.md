@@ -227,3 +227,7 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   links, e os erros e avisos do JSON dos controllers); a mensagem de `ia_disponibilidade()`; os parciais de outros
   domínios incluídos pela aba (`inteligencia/_analises_push` e `processo/_notas_tecnicas`) e o `pasta-ia-push.js`; o
   `title` da aba no `pasta/show` (o `pasta-push.js` reescreve o mesmo texto pelo catálogo).
+- **Permitidos fora da regra:** as 10 letras acentuadas do `|replace` que tira o acento do tipo da comunicação
+  (`_push_processual`) são técnicas e não vão à tela; como a lista vale para os 10 arquivos do bloco, um literal de
+  uma letra acentuada nesses arquivos passa pelo detector. O mesmo `catalogo_js` sai duas vezes quando os dois
+  parciais estão na página (o `BJ_T` junta os blocos; só pesa no tamanho).
