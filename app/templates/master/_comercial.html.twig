@@ -16,6 +16,7 @@
      data-url-simular="{{ path('master_comercial_simular') }}"
      data-url-previa="{{ path('master_comercial_previa', {chave: 'xchavex'}) }}"
      data-token="{{ csrf_token('master_comercial') }}">
+    {{ include('master/_comercial_descadastrados.html.twig') }}
     {# Nova campanha de e-mail (dc L.229-260). Os textos e a ordem são do dc; o JS desenha a grade e os blocos. #}
     <section class="mc-caixa mc-cp" data-mc-campanha aria-labelledby="mc-cp-titulo"
              data-url-modelos="{{ path('master_comercial_modelos') }}"
@@ -101,6 +102,7 @@
             </div>
         </div>
     </section>
+    {{ include('master/_comercial_kpis.html.twig') }}
     <section class="mc-caixa" aria-labelledby="mc-auto-titulo">
         <div class="mc-cabeca">
             <i class="bi bi-lightning-charge mc-cabeca-ic" aria-hidden="true"></i>
