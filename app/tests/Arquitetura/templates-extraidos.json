@@ -57,6 +57,46 @@
         ]
     },
 
+    "expediente": {
+        "templates": [
+            "expediente/index.html.twig",
+            "expediente/_lista.html.twig",
+            "expediente/_paginacao.html.twig",
+            "expediente/_modais_lista.html.twig",
+            "expediente/_acervo_geral.html.twig",
+            "expediente/_painel_marcador.html.twig",
+            "expediente/_trilho.html.twig",
+            "expediente/_relatorio_processos_modal.html.twig",
+            "expediente/relatorio_processos.html.twig",
+            "expediente/pastas_paradas.html.twig"
+        ],
+        "js": [
+            "expediente-lista.js",
+            "expediente-trilho.js"
+        ],
+        "permitidos": [
+            "exp-body",
+            "aria-sort=\"\"",
+            "10,5 pt",
+            "BLUEJUS",
+            "App\\\\Pasta\\\\DTO\\\\AnaliseSemProcessoDaPasta::ADMINISTRATIVA",
+            "Crítico",
+            "Atenção",
+            "Acompanhar",
+            "App\\\\Pasta\\\\DTO\\\\RelatorioPastasParadasOutput::NENHUMA",
+            "App\\\\Pasta\\\\DTO\\\\RelatorioPastasParadasOutput::NOTA_FINAL",
+            "Content-Type",
+            "Escape",
+            "Enter",
+            "Tab",
+            "ArrowDown",
+            "ArrowUp",
+            "Home",
+            "End",
+            "ContextMenu"
+        ]
+    },
+
     "metas": {
         "templates": [
             "tarefa/minhas.html.twig",
