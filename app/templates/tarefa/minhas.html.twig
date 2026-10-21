@@ -17,14 +17,17 @@
 <div class="content-header">
     <div class="container-fluid">
         <div class="d-flex align-items-end gap-3 flex-wrap mb-2">
-            <div class="min-w-0">
-                <div class="d-flex align-items-center flex-wrap gap-3">
-                    <h1 class="mm-titulo"><i class="bi bi-check2-square me-2"></i>Minhas Metas</h1>
+            {# Cabeçalho do desenho (dc L46-51): H1 36px sem ícone, 18px até "Atualizado às" e o
+               subtítulo 8px abaixo. `.mm-cabecalho` escopa o tamanho: a tela de Equipe usa o mesmo
+               `.mm-titulo` e não muda. #}
+            <div class="mm-cabecalho min-w-0">
+                <div class="mm-cabecalho-linha">
+                    <h1 class="mm-titulo">Minhas Metas</h1>
                     {# Hora em que o servidor leu as metas — informação real; a recarga parcial do filtro
                        traz a hora da nova leitura (`data-mm-lido-as` no fragmento) e o script abaixo a copia. #}
                     <span class="mm-atualizado"><span class="mm-atualizado-ponto" aria-hidden="true"></span>Atualizado às <span data-mm-atualizado-hora>{{ 'now'|date('H:i') }}</span></span>
                 </div>
-                <p class="mm-subtitulo">O que está com você, o que você delegou, o que você marcou para acompanhar, ou tudo junto.</p>
+                <p class="mm-subtitulo">O que está com você, o que você delegou e o que você acompanha.</p>
             </div>
             <div class="flex-grow-1"></div>
             <ol class="breadcrumb mb-0">
@@ -95,7 +98,7 @@
                 </div>
                 <span class="mm-barra-sep" aria-hidden="true"></span>
             {{ include('_partials/_filtro_barra.html.twig', {
-                busca_placeholder: 'Buscar por título ou descrição da meta…',
+                busca_placeholder: 'Buscar por título, pasta ou cliente',
                 filtros: filtros,
                 facetas: [
                     { name: 'status', rotulo: 'Status', tipo: 'select', opcoes: [
@@ -220,7 +223,7 @@ document.addEventListener('click', function (e) {
         botao.classList.toggle('is-marcada', d.acompanhando);
         var icone = botao.querySelector('i');
         if (icone) { icone.className = d.acompanhando ? 'bi bi-bookmark-fill' : 'bi bi-bookmark'; }
-        botao.title = d.acompanhando ? 'Deixar de acompanhar' : 'Acompanhar';
+        botao.title = d.acompanhando ? 'Parar de acompanhar' : 'Acompanhar esta meta';
         botao.setAttribute('aria-pressed', d.acompanhando ? 'true' : 'false');
 
         // O clique muda o conteúdo de OUTRA aba, então o badge dela tem de acompanhar na
@@ -246,6 +249,7 @@ document.addEventListener('click', function (e) {
                 while (grupo && !grupo.matches('.mm-grupo-cabeca, .mm-separador')) {
                     grupo = grupo.previousElementSibling;
                 }
+                // Cada grupo é uma <section> própria (dc L83): o cabeçalho segue irmão das linhas.
                 var contador = grupo ? grupo.querySelector('.mm-grupo-contagem') : null;
                 if (contador) {
                     contador.textContent = Math.max(0, parseInt(contador.textContent, 10) - 1);
@@ -258,6 +262,47 @@ document.addEventListener('click', function (e) {
         }
     })
     .finally(function () { botao.disabled = false; });
+});
+
+// Linha inteira clicável (dc L88, LIS-15): o clique em qualquer ponto da linha abre a META, o
+// mesmo destino do título (decisão do dono de 14/10: a pasta não). O título continua sendo o
+// link real, focável pelo teclado e lido pelo leitor de tela; a linha só delega o clique para
+// ele. Controles internos (marcador, ⋮, link da pasta, itens do menu) seguem com a ação deles,
+// e quem está selecionando texto não é levado para outra página. Como num link: Ctrl, Cmd,
+// Shift ou o botão do meio (que chega como `auxclick`) abrem em outra aba ou janela.
+function abrirMetaPelaLinha(e) {
+    var linha = e.target.closest('[data-mm-linha-clicavel]');
+    if (!linha || e.defaultPrevented) { return; }
+    var meio = e.type === 'auxclick';
+    if (meio ? e.button !== 1 : e.button !== 0) { return; }
+    if (e.target.closest('a, button, input, select, textarea, label, .dropdown-menu')) { return; }
+    var selecao = window.getSelection ? String(window.getSelection()) : '';
+    if (selecao !== '') { return; }
+
+    var titulo = linha.querySelector('a.mm-meta-titulo');
+    if (!titulo) { return; }
+    if (meio || e.ctrlKey || e.metaKey || e.shiftKey) {
+        e.preventDefault();
+        window.open(titulo.href, '_blank', 'noopener');
+        return;
+    }
+    titulo.click();
+}
+document.addEventListener('click', abrirMetaPelaLinha);
+document.addEventListener('auxclick', abrirMetaPelaLinha);
+
+/* "Encaminhar via Chat I.A" no ⋮ do cartão (R223): só ids, lidos dos `data-*` que o Twig renderizou; o despacho é da
+   janela da Central (`bj-central:despachar`, spec encaminhar-via-chat-ia §4.1). O dropdown fecha sozinho. */
+document.addEventListener('click', function (e) {
+    var item = e.target.closest('.js-mm-encaminhar');
+    if (!item) { return; }
+    var pastaId = Number(item.getAttribute('data-encaminhar-pasta'));
+    var itemId  = Number(item.getAttribute('data-encaminhar-id'));
+    if (!pastaId || !itemId || item.getAttribute('data-encaminhar-tipo') !== 'meta') { return; }
+    e.preventDefault();
+    document.dispatchEvent(new CustomEvent('bj-central:despachar', {
+        detail: { pastaId: pastaId, tipo: 'meta', itemId: itemId }
+    }));
 });
 </script>
 {% endblock %}

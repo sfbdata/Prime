@@ -97,10 +97,18 @@
 /* dc `bjTip .3s` no subtítulo: só ao abrir o painel. O painel se redesenha a cada 4 e 20 s; repetir a animação faria a
    linha piscar (no dc o React mantém o nó e ela roda uma vez). */
 .presenca-painel.is-abrindo .presenca-sub { animation: pcAparece .3s ease-out; }
+.presenca-sub--ponto.is-acao { font-weight: bold; cursor: pointer; }   /* dc `subPeso`, `subCur` */
+.presenca-sub--ponto.is-ocupado { opacity: .6; cursor: progress; }   /* enquanto a batida corre: posição, releitura e envio */
+.presenca-sub--ponto.is-acao:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; border-radius: 2px; }
 .presenca-dir { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .presenca-status { font-size: 11px; font-weight: bold; white-space: nowrap; }
 .presenca-horas { font-size: 11px; color: var(--pc-sub); white-space: nowrap; }
 .presenca-nota { padding: 7px 14px; font-size: 11px; color: var(--pc-nota); border-top: 1px solid var(--pc-div); }
+/* Fase 3, dc L.306: "Ausente após sem atividade", só o primário. Cores do dc (#4a6373, #fafcfd, #d3dde4) em tokens. */
+.presenca-regra { display: flex; align-items: center; gap: 8px; padding: 9px 14px; font-size: 12px; color: var(--pc-regra-tx, #4a6373); background: var(--pc-regra-bg, #fafcfd); }
+.presenca-regra-rotulo { flex: 1; margin: 0; font-weight: normal; }
+.presenca-regra-seletor { height: 28px; border: 1px solid var(--pc-regra-borda, #d3dde4); border-radius: 3px; font: inherit; font-size: 12px; background: var(--pc-fundo, #fff); color: inherit; }
+[data-bs-theme="dark"] .presenca-regra { --pc-regra-tx: var(--bs-secondary-color); --pc-regra-bg: var(--bs-tertiary-bg); --pc-regra-borda: var(--bs-border-color); }
 .presenca-vazio { padding: 14px; font-size: 13px; color: var(--pc-sub); }
 
 @media (prefers-reduced-motion: reduce) {

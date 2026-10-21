@@ -16,6 +16,10 @@
     var chave = raiz.getAttribute('data-chave') || '0:0';
     var euId = Number(raiz.getAttribute('data-eu-id')) || 0;
     var urlEquipe = raiz.getAttribute('data-url-equipe');
+    // Fase 3 (dc L.306 e L.685): só o primário recebe a URL; o seletor mostra o limite do escritório.
+    var urlAusencia = raiz.getAttribute('data-ausencia-url');
+    var ausenciaMin = Number(raiz.getAttribute('data-ausencia-min')) || 60;
+    var OPCOES_AUSENCIA = [15, 30, 60, 120];
 
     // dc L.665 `ST`: rótulo, cor e ordem do grupo.
     var ST = { on: ['On-line', '#2ecc71', 1], ausente: ['Ausente', '#f0b429', 2], ocupado: ['Não perturbe', '#e74c3c', 3], off: ['Desligado', '#b7c4cd', 4] };
@@ -28,6 +32,8 @@
     var evento = '';
     var painel = null;
     var veu = null;
+    var alternar = false;     // dc `_alt`: a sua linha alterna "Você" e o ponto a cada 4 s quando o ponto não tem ação
+    function ponto() { return window.PresencaPonto || null; }
 
     function ler(armazem, k, padrao) {
         try { var v = JSON.parse(armazem.getItem(k)); return v === null ? padrao : v; } catch (e) { return padrao; }
@@ -70,6 +76,64 @@
         b.addEventListener('click', function (e) { e.stopPropagation(); fechar(); selo.focus(); });
 
         return b;
+    }
+
+    /* ── Regra do escritório: "Ausente após sem atividade" (dc L.306, só o primário) ─────────────────────────── */
+    var ausenciaConfirmada = ausenciaMin;   // o último valor que o servidor aceitou
+    var pedidoDeAusencia = 0;               // só a resposta da escolha mais nova decide
+    var redesenhoPendente = false;
+    function seletorDeAusenciaEmUso() {
+        return document.activeElement && document.activeElement.id === 'presencaAusencia';
+    }
+    function regraDeAusencia() {
+        var linha = el('div', 'presenca-regra');
+        linha.appendChild(icone('bi-clock-history'));
+        var rotulo = el('label', 'presenca-regra-rotulo', 'Ausente após sem atividade');
+        var seletor = el('select', 'presenca-regra-seletor');
+        seletor.id = 'presencaAusencia';
+        rotulo.htmlFor = seletor.id;
+        OPCOES_AUSENCIA.forEach(function (n) {
+            var op = el('option', null, n < 60 ? n + ' min' : (n / 60) + ' h');
+            op.value = String(n);
+            op.selected = n === ausenciaMin;
+            seletor.appendChild(op);
+        });
+        seletor.addEventListener('click', function (e) { e.stopPropagation(); });
+        // Esc com a lista aberta fecha só a lista: o painel continua (o keydown do documento não o vê).
+        seletor.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); } });
+        seletor.addEventListener('change', function () { mudarAusencia(Number(seletor.value)); });
+        // Enquanto o seletor está em uso o painel não se redesenha (fecharia a lista); ao sair, põe o atraso em dia.
+        seletor.addEventListener('blur', function () {
+            if (redesenhoPendente) { redesenhoPendente = false; window.setTimeout(desenharPainel, 0); }
+        });
+        linha.appendChild(rotulo);
+        linha.appendChild(seletor);
+
+        return linha;
+    }
+    function respostaJsonDeSucesso(r) {   // sessão expirada redireciona para o login com 200: não é sucesso
+        if (!r.ok || r.redirected || (r.headers.get('Content-Type') || '').indexOf('application/json') === -1) {
+            throw new Error(String(r.status));
+        }
+
+        return r.json();
+    }
+    function mudarAusencia(minutos) {
+        var meu = ++pedidoDeAusencia;
+        ausenciaMin = minutos;   // o redesenho de 4 e 20 s mantém a escolha
+        fetch(urlAusencia, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ minutos: minutos }),
+        }).then(respostaJsonDeSucesso)
+            .then(function (d) { ausenciaConfirmada = d && d.minutos ? d.minutos : minutos; })
+            .catch(function () {
+                if (meu !== pedidoDeAusencia) { return; }   // uma escolha mais nova já está a caminho
+                ausenciaMin = ausenciaConfirmada;
+                var atual = document.getElementById('presencaAusencia');   // o seletor da tela, não o de antes do redesenho
+                if (atual) { atual.value = String(ausenciaConfirmada); }
+                if (window.bjAviso) { window.bjAviso('Não foi possível salvar o tempo de ausência. Tente de novo.'); }
+            });
     }
 
     /* ── Equipe (nomes e cargos), na sessão do navegador ─────────────────────── */
@@ -147,8 +211,10 @@
     var CHAVE_BIPE = 'presenca-bipe:' + chave;
     var audio = null;
     function somLigado() { return ler(window.localStorage, CHAVE_SOM, 'on') !== 'off'; }
+    // "Sons de alerta" do Meu Perfil (perfil.sons, no servidor): com "0" nenhum bipe; ligado, vale o botão do painel.
+    var perfilSons = raiz.getAttribute('data-perfil-sons') !== '0';
     function bipe(sobe) {
-        if (!somLigado()) { return; }
+        if (!perfilSons || !somLigado()) { return; }
         try {
             var ctx = audio || (audio = new (window.AudioContext || window.webkitAudioContext)());
             var t = ctx.currentTime;
@@ -195,7 +261,8 @@
         selo.textContent = String(n);
         selo.hidden = n < 1;
         var nomes = ligados.map(function (x) { return primeiroNome(x.m.nome); });
-        selo.title = n + ' on-line' + (nomes.length ? ': ' + nomes.join(', ') : '');
+        /* dc 03 L.67: no Expediente a dica é a do desenho (data-tip, a azul); fora dele, a do navegador. */
+        selo.setAttribute(document.body.classList.contains('exp-body') ? 'data-tip' : 'title', n + ' on-line' + (nomes.length ? ': ' + nomes.join(', ') : ''));
         selo.setAttribute('aria-label', 'Quem está on-line: ' + n);
     }
 
@@ -215,7 +282,7 @@
         l.appendChild(av);
         var tx = el('span', 'presenca-textos');
         tx.appendChild(el('b', 'presenca-nome', x.m.nome));
-        tx.appendChild(el('span', 'presenca-sub', detalhe(x.m, x.k)));
+        tx.appendChild(subtitulo(x));
         l.appendChild(tx);
         var dir = el('span', 'presenca-dir');
         var st = el('span', 'presenca-status', ST[x.k][0]);
@@ -233,9 +300,33 @@
 
         return frag;
     }
+    /* Subtítulo da linha; na sua, o atalho de ponto (presenca-ponto.js, dc `pontoDe`): fixo quando tem ação. */
+    function subtitulo(x) {
+        var pt = x.eu && ponto() ? ponto().linha() : null;
+        if (!pt || !(pt.acao || alternar)) { return el('span', 'presenca-sub', detalhe(x.m, x.k)); }
+        var ocupado = ponto().ocupado();
+        var sub = el('span', 'presenca-sub presenca-sub--ponto' + (pt.acao ? ' is-acao' : '') + (ocupado ? ' is-ocupado' : ''));
+        sub.style.color = pt.cor;
+        sub.appendChild(icone(pt.icone));
+        sub.appendChild(document.createTextNode(pt.texto));
+        if (pt.acao) {
+            sub.setAttribute('role', 'button');
+            sub.setAttribute('tabindex', '0');
+            sub.setAttribute('aria-busy', ocupado ? 'true' : 'false');
+            sub.title = pt.dica;
+            var bater = function (e) { e.stopPropagation(); ponto().bater(); };
+            sub.addEventListener('click', bater);
+            sub.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bater(e); } });
+        }
+
+        return sub;
+    }
+
     function desenharPainel() {
         if (!painel) { return; }
+        if (seletorDeAusenciaEmUso()) { redesenhoPendente = true; return; }
         var focoNoSom = document.activeElement && document.activeElement.classList.contains('presenca-som');
+        var focoNoPonto = document.activeElement && document.activeElement.classList.contains('presenca-sub--ponto');
         var lista = pessoas();
         var nOn = lista.filter(function (x) { return x.k === 'on'; }).length;
         var nAus = lista.filter(function (x) { return x.k === 'ausente'; }).length;
@@ -271,8 +362,11 @@
         nota.appendChild(icone('bi-info-circle'));
         nota.appendChild(document.createTextNode(' ' + NOTA));
         painel.appendChild(nota);
+        if (urlAusencia) { painel.appendChild(regraDeAusencia()); }
         if (equipe && lista.length <= 1) { painel.appendChild(el('div', 'presenca-vazio', 'Só você está na equipe por enquanto.')); }
         if (focoNoSom) { som.focus(); }   // redesenhar a cada 20 s não tira o foco de quem está no botão
+        var novoPonto = focoNoPonto ? painel.querySelector('.presenca-sub--ponto.is-acao') : null;
+        if (novoPonto) { novoPonto.focus(); }   // nem do atalho de ponto (revisão: perdia o foco em até 4 s)
     }
     function fecharMenuDoAvatar() {   // dc `onTg`: abrir o painel fecha o menu do avatar
         document.querySelectorAll('[data-mu-toggle]').forEach(function (t) {
@@ -291,6 +385,7 @@
         document.body.appendChild(veu);
         document.body.appendChild(painel);
         selo.setAttribute('aria-expanded', 'true');
+        if (ponto()) { ponto().atualizar(); }
         desenharPainel();
         var som = painel.querySelector('.presenca-som');
         if (som) { som.focus(); }   // o foco entra no painel (Esc fecha e volta ao selo)
@@ -314,6 +409,7 @@
     /* ── Batimento da Central ──────────────────────────────────────────── */
     document.addEventListener('bj-central:presenca', function (ev) {
         online = (ev.detail && ev.detail.online) || [];
+        if (painel && ponto()) { ponto().atualizar(); }   // com o painel aberto, o ponto é relido a cada batimento
         var desconhecido = online.some(function (o) { return !pessoaDe(o.id); });
         (equipe && !desconhecido ? Promise.resolve() : carregarEquipe()).then(function () {
             detectarEvento();
@@ -321,6 +417,9 @@
             desenharPainel();
         });
     });
+
+    if (ponto()) { ponto().aoMudar(function () { desenharPainel(); }); }
+    window.setInterval(function () { if (painel) { alternar = !alternar; desenharPainel(); } }, 4000);   // dc `_altT`
 
     // Relógio próprio das horas: segue com a aba oculta (dc), o navegador só o espaça.
     contarHoras();

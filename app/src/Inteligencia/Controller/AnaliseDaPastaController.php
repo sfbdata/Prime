@@ -15,6 +15,7 @@ use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\PastaNaoEncontradaException;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
+use App\Inteligencia\Service\VisibilidadeDaAnaliseDaPasta;
 use App\Inteligencia\UseCase\ContarOQueAIaSabeDaPastaUseCase;
 use App\Inteligencia\UseCase\ListarAnalisesDosAgentesUseCase;
 use App\Inteligencia\UseCase\SolicitarAnaliseDaPastaUseCase;
@@ -53,17 +54,19 @@ final class AnaliseDaPastaController extends AbstractController
         private readonly ContarOQueAIaSabeDaPastaUseCase $contarOQueSabe,
         // Interface (não a classe) pelo mesmo motivo do AnalisePushController: dublê em teste.
         private readonly RateLimiterFactoryInterface $inteligenciaSolicitarLimiter,
+        private readonly VisibilidadeDaAnaliseDaPasta $visibilidadeDaAnalise,
     ) {
     }
 
     #[Route('', name: 'inteligencia_agentes_painel', methods: ['GET'])]
     public function painel(Pasta $pasta): Response
     {
-        [, $tenant] = $this->guardar($pasta);
+        [$user, $tenant] = $this->guardar($pasta);
+        $ocultas = $this->visibilidadeDaAnalise->abasOcultasPara($pasta, $user);
 
         return $this->render('inteligencia/_agentes_painel.html.twig', [
-            'painel' => $this->listar->executar($pasta, $tenant),
-            'sabe' => $this->contarOQueSabe->executar($pasta, $tenant),
+            'painel' => $this->listar->executar($pasta, $tenant, $ocultas),
+            'sabe' => $this->contarOQueSabe->executar($pasta, $tenant, $ocultas),
             'pastaId' => (int) $pasta->getId(),
         ]);
     }
@@ -107,11 +110,11 @@ final class AnaliseDaPastaController extends AbstractController
     #[Route('/{agente}/analises', name: 'inteligencia_agente_listar', requirements: ['agente' => '[a-z]+'], methods: ['GET'])]
     public function listar(Pasta $pasta, string $agente): Response
     {
-        [, $tenant] = $this->guardar($pasta);
+        [$user, $tenant] = $this->guardar($pasta);
         $agenteEscolhido = $this->agenteDaRota($agente);
 
         return $this->render('inteligencia/_analises_agente.html.twig', [
-            'saida' => $this->listar->executarParaAgente($pasta, $tenant, $agenteEscolhido),
+            'saida' => $this->listar->executarParaAgente($pasta, $tenant, $agenteEscolhido, $this->visibilidadeDaAnalise->abasOcultasPara($pasta, $user)),
             'pastaId' => (int) $pasta->getId(),
         ]);
     }
