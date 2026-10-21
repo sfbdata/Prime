@@ -20,6 +20,17 @@
   }
   window.bjAviso = window.bjAviso || aviso;
 
+  /* Idioma do sistema (spec idioma-do-sistema, entrega 1): grava no perfil e recarrega no idioma novo. */
+  function escolherIdioma(botao) {
+    if (botao.disabled || botao.classList.contains('atual')) return;
+    const token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+    botao.disabled = true;
+    fetch('/perfil/idioma', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token }, body: JSON.stringify({ idioma: botao.dataset.muIdiomaEscolher }) })
+      .then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => { if (ok) { location.reload(); return; } botao.disabled = false; aviso(d.erro || 'Não foi possível trocar o idioma.'); })
+      .catch(() => { botao.disabled = false; aviso('Não foi possível trocar o idioma.'); });
+  }
+
   /* ---------- tema escuro (chave liga/desliga; persiste em localStorage 'tema', lido pelo anti-flash do base) ---------- */
   function sincronizarTema() {
     const escuro = document.documentElement.getAttribute('data-bs-theme') === 'dark', b = document.getElementById('toggleTema');
@@ -128,6 +139,8 @@
     const aba = t.closest('[data-mu-aba]');
     if (aba) return abrirAba(aba.dataset.muAba);
     if (t.closest('[data-mu-idioma]')) { e.preventDefault(); fecharMenu(); const m = modal('modalIdioma'); if (m) m.show(); return; }
+    const idioma = t.closest('[data-mu-idioma-escolher]');
+    if (idioma) { e.preventDefault(); return escolherIdioma(idioma); }
     if (t.closest('[data-mu-ajuda]')) { e.preventDefault(); fecharMenu(); return aviso(AJUDA); }
     const prep = t.closest('[data-em-preparacao]');
     if (prep) { e.preventDefault(); fecharMenu(); return emPreparacao(prep.dataset.emPreparacao); }

@@ -45,25 +45,26 @@ final class PastaPushMenuContextoTelaTest extends JusPrimeWebTestCase
 
         $itens = $menu->filter('#pushMenuContexto > button.ps-push-menu-item[role="menuitem"]');
         self::assertSame(
-            ['Adicionar nota técnica', 'Criar tarefa', 'Marcar como lida', 'Abrir documento', 'Copiar texto'],
+            ['Adicionar nota técnica', 'Criar tarefa', 'Encaminhar via Chat I.A', 'Marcar como lida', 'Abrir documento', 'Copiar texto'],
             $itens->each(static fn ($b): string => trim($b->text())),
         );
         self::assertSame(
-            ['bi bi-journal-plus', 'bi bi-check2-square', 'bi bi-envelope-open', 'bi bi-file-earmark-text', 'bi bi-clipboard'],
+            ['bi bi-journal-plus', 'bi bi-check2-square', 'bi bi-send', 'bi bi-envelope-open', 'bi bi-file-earmark-text', 'bi bi-clipboard'],
             $itens->each(static fn ($b): ?string => $b->filter('i')->attr('class')),
         );
-        foreach (['js-push-menu-nota', 'js-push-menu-tarefa', 'js-push-menu-lida', 'js-push-menu-documento', 'js-push-menu-copiar'] as $i => $classe) {
+        foreach (['js-push-menu-nota', 'js-push-menu-tarefa', 'js-push-menu-encaminhar', 'js-push-menu-lida', 'js-push-menu-documento', 'js-push-menu-copiar'] as $i => $classe) {
             self::assertStringContainsString($classe, (string) $itens->eq($i)->attr('class'));
         }
         // Separadores entre os grupos, como no desenho ('-'): nota | tarefa, lida, documento | copiar.
         $filhos = $menu->filter('#pushMenuContexto > .ps-push-menu-item, #pushMenuContexto > .ps-push-menu-sep')
             ->each(static fn ($n): string => str_contains((string) $n->attr('class'), 'ps-push-menu-sep') ? '-' : 'i');
-        self::assertSame(['i', '-', 'i', 'i', 'i', '-', 'i'], $filhos);
+        self::assertSame(['i', '-', 'i', 'i', 'i', 'i', '-', 'i'], $filhos);
+        // FPN-016 (dc L5641): o Encaminhar leva a pasta; o id da movimentação vem do cartão clicado, no JS.
+        self::assertSame((string) $pasta->getId(), $menu->filter('#pushMenuContexto > .js-push-menu-encaminhar')->attr('data-encaminhar-pasta'));
         self::assertCount(2, $menu->filter('#pushMenuContexto > .ps-push-menu-sep[role="separator"]'));
         // O item lida grava com o MESMO token do botão do teor (pasta_push_lida_<pasta>).
         self::assertNotSame('', (string) $menu->attr('data-lida-token'));
-        // Itens do desenho sem lastro aqui não aparecem.
-        self::assertStringNotContainsString('Encaminhar', $menu->text());
+        // Item do desenho sem lastro aqui não aparece.
         self::assertStringNotContainsString('Link externo', $menu->text());
     }
 
@@ -141,7 +142,7 @@ final class PastaPushMenuContextoTelaTest extends JusPrimeWebTestCase
         // Irmão: o admin (edita) recebe tudo, e o cartão aceita nota.
         $this->logarComTenant($client, $admin, $tenant);
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
-        self::assertSame(['Adicionar nota técnica', 'Criar tarefa', 'Marcar como lida', 'Abrir documento', 'Copiar texto'], $this->itensDoMenu($crawler));
+        self::assertSame(['Adicionar nota técnica', 'Criar tarefa', 'Encaminhar via Chat I.A', 'Marcar como lida', 'Abrir documento', 'Copiar texto'], $this->itensDoMenu($crawler));
         $item = $crawler->filter('.ps-push-item[data-push-id="' . $pub->getId() . '"]');
         self::assertSame('1', $item->attr('data-push-aceita-nota'));
         self::assertSame('Clique com o botão direito para adicionar uma nota técnica', $item->filter('.ps-push-cab')->attr('title'));
@@ -150,7 +151,7 @@ final class PastaPushMenuContextoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $leitor, $tenant);
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
         self::assertResponseIsSuccessful();
-        self::assertSame(['Marcar como lida', 'Abrir documento', 'Copiar texto'], $this->itensDoMenu($crawler));
+        self::assertSame(['Encaminhar via Chat I.A', 'Marcar como lida', 'Abrir documento', 'Copiar texto'], $this->itensDoMenu($crawler));
         self::assertCount(1, $crawler->filter('#pushMenuContexto > .ps-push-menu-sep'), 'sem nota, sem o separador dela');
         $item = $crawler->filter('.ps-push-item[data-push-id="' . $pub->getId() . '"]');
         self::assertSame('0', $item->attr('data-push-aceita-nota'));
@@ -185,10 +186,41 @@ final class PastaPushMenuContextoTelaTest extends JusPrimeWebTestCase
         $acoes = $crawler->filter('.ps-push-acoes > button')->each(static function ($b): string {
             $classe = (string) $b->attr('class');
 
-            return str_contains($classe, 'js-push-criar-meta') ? 'tarefa' : (str_contains($classe, 'js-push-lida') ? 'lida' : $classe);
+            return match (true) {
+                str_contains($classe, 'js-push-criar-meta') => 'tarefa',
+                str_contains($classe, 'js-encaminhar') => 'encaminhar',
+                str_contains($classe, 'js-push-lida') => 'lida',
+                default => $classe,
+            };
         });
 
         return [$acoes, $crawler->filter('#notas-publicacao-' . $pubId . ' .js-nota-nova')->count() === 1];
+    }
+
+    #[TestDox('FPN-016: sem a Central (vínculo inativo) e na lápide, nem o menu nem o teor têm o Encaminhar')]
+    public function testEncaminharSoComCentralEPastaViva(): void
+    {
+        $client          = static::createClient();
+        [$admin, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, self::NUMERO_DA_PASTA);
+        $this->vincular($pasta, $processo);
+        $pub = $this->criarPublicacao($tenant, '73000031', self::NUMERO_DA_PASTA, '2026-08-20', $processo);
+        $this->logarComTenant($client, $admin, $tenant);
+        $this->em()->getConnection()->executeStatement('UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?', [$admin->getId(), $tenant->getId()]);
+
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('#pushMenuContexto .js-push-menu-encaminhar'), 'sem a Central');
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}/push/{$pub->getId()}");
+        self::assertCount(0, $crawler->filter('.ps-push-acoes .js-encaminhar'), 'sem a Central, no teor');
+
+        $this->em()->getConnection()->executeStatement('UPDATE user_tenant SET is_active = true WHERE user_id = ? AND tenant_id = ?', [$admin->getId(), $tenant->getId()]);
+        $pasta = $this->em()->find(\App\Pasta\Entity\Pasta::class, $pasta->getId());
+        $pasta->marcarExcluida($this->em()->find(\App\Entity\Auth\User::class, $admin->getId()), new \DateTimeImmutable());
+        $this->em()->flush();
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+        self::assertCount(0, $crawler->filter('#pushMenuContexto .js-push-menu-encaminhar'), 'na lápide');
     }
 
     #[TestDox('FPN-040: no teor, quem edita recebe Criar tarefa, lida e a nova nota; quem só vê recebe só a lida')]
@@ -206,12 +238,18 @@ final class PastaPushMenuContextoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $admin, $tenant);
         $crawler = $client->request('GET', $url);
         self::assertResponseIsSuccessful();
-        self::assertSame([['tarefa', 'lida'], true], $this->acoesDoTeor($crawler, (int) $pub->getId()));
+        self::assertSame([['tarefa', 'encaminhar', 'lida'], true], $this->acoesDoTeor($crawler, (int) $pub->getId()));
+        $encaminhar = $crawler->filter('.ps-push-acoes > .js-push-criar-meta + button.js-encaminhar');
+        self::assertCount(1, $crawler->filter('.ps-push-acoes > button.js-encaminhar + .js-push-lida'), 'Criar tarefa, Encaminhar, lida: a ordem do desenho (dc L2658)');
+        self::assertSame(['push', (string) $pub->getId(), (string) $pasta->getId(), 'Encaminhar via Chat I.A', 'Encaminhar'], [
+            $encaminhar->attr('data-encaminhar-tipo'), $encaminhar->attr('data-encaminhar-id'), $encaminhar->attr('data-encaminhar-pasta'), $encaminhar->attr('title'), trim($encaminhar->text()),
+        ]);
+        self::assertCount(1, $encaminhar->filter('i.bi.bi-send'));
 
         $this->logarComTenant($client, $leitor, $tenant);
         $crawler = $client->request('GET', $url);
         self::assertResponseIsSuccessful();
-        self::assertSame([['lida'], false], $this->acoesDoTeor($crawler, (int) $pub->getId()));
+        self::assertSame([['encaminhar', 'lida'], false], $this->acoesDoTeor($crawler, (int) $pub->getId()), 'encaminhar não escreve na pasta: fica para quem só vê');
         self::assertCount(0, $crawler->filter('#notas-publicacao-' . $pub->getId()), 'sem nota nenhuma, o bloco seria só o botão de criar');
     }
 

@@ -6,6 +6,7 @@ namespace App\Contribua\DTO;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Tenant\Service\NumeroDaConta;
 
 /**
  * Quem está agindo no Contribua: a pessoa, o escritório da sessão e os dois papéis que mudam o que a
@@ -26,10 +27,10 @@ final readonly class Solicitante
         return (int) $this->escritorio->getId();
     }
 
-    /** Conta Nº do desenho: o id do escritório com 6 dígitos. */
+    /** Conta Nº do desenho: o id do escritório com 6 dígitos (o ponto comum é o NumeroDaConta). */
     public function numeroDaConta(): string
     {
-        return str_pad((string) $this->escritorio->getId(), 6, '0', \STR_PAD_LEFT);
+        return NumeroDaConta::daConta($this->escritorio);
     }
 
     public function nome(): string

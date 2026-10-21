@@ -6,6 +6,7 @@ namespace App\Tarefa\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
+use App\Tarefa\DTO\AndamentoDasMetasOutput;
 use App\Tarefa\DTO\MinhasMetasOutput;
 use App\Tarefa\Enum\AbaMetas;
 use App\Tarefa\Repository\TarefaRepository;
@@ -19,7 +20,8 @@ use App\Tarefa\Service\AgrupadorDeMetas;
  * colega a quem soubesse trocar o número (IDOR).
  *
  * **O quê:** a lista de metas do papel escolhido (a aba), já quebrada nos blocos que a tela
- * desenha, mais as contagens de cada aba e os quatro KPIs do topo.
+ * desenha, mais as contagens de cada aba e os quatro KPIs do topo. O trilho ("Seu andamento" e
+ * "Precisa de atenção") olha TODAS as metas do usuário, sem a aba e sem os filtros (desenho 04).
  *
  * **Por quê:** a tela unia dois papéis numa lista só, e quem delega perdia a própria fila de
  * trabalho dentro do que tinha delegado. Ver `docs/specs/minhas-metas-abas.md`.
@@ -72,6 +74,10 @@ final class ListarMinhasMetasUseCase
             acompanhadas: $marcadores['acompanhadas'],
             mensagensPorMeta: $marcadores['mensagens'],
             numerosNaPasta: $this->repository->numerosNaPasta($ids),
+            // O trilho também é redesenhado na recarga parcial (ele mora no fragmento), então estes
+            // dois não dependem de `$soAListagem`: só o modo lista, que não desenha trilho, os dispensa.
+            andamento: $modoLista ? new AndamentoDasMetasOutput() : $this->repository->contarAndamento($usuario, $pastasOcultas),
+            atencao: $modoLista ? [] : $this->repository->findAtrasadasParaAtencao($usuario, MinhasMetasOutput::TETO_ATENCAO, $pastasOcultas),
         );
     }
 }
