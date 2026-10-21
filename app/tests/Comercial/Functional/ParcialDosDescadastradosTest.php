@@ -70,7 +70,7 @@ final class ParcialDosDescadastradosTest extends KernelTestCase
     #[TestDox('KPIs: logo antes das Automações, os 4 do desenho, e o DESCADASTRADOS é o único clicável')]
     public function testKpis(): void
     {
-        self::assertCount(1, $this->doc->filter('[data-mc] > .mc-kpis + script + section[aria-labelledby="mc-auto-titulo"]'));
+        self::assertCount(1, $this->doc->filter('[data-mc] > .mc-kpis + script + script + section[aria-labelledby="mc-auto-titulo"]'));
         $kpis = $this->doc->filter('[data-mc] > .mc-kpis > .mc-kpi');
         self::assertSame(['CAMPANHAS', 'E-MAILS NA FILA', 'BASE DE CONTATOS', 'DESCADASTRADOS'], $kpis->each(static fn (Crawler $k): string => trim($k->filter('.mc-kpi-rotulo')->text())));
         self::assertSame(
