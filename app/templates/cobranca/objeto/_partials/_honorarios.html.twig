@@ -19,10 +19,10 @@
 <div class="jp-secao">
     <div class="jp-lista mb-3">
         <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap p-3 border-bottom">
-            <h5 class="mb-0"><i class="bi bi-percent me-1"></i>Honorários</h5>
+            <h5 class="mb-0"><i class="bi bi-percent me-1"></i>{{ 'cobranca_objeto.honorarios.titulo'|trans }}</h5>
             {% if podeGerenciar and formConfigEncargos %}
             <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalConfigEncargosObjeto">
-                <i class="bi bi-sliders me-1"></i>Editar configuração de encargos
+                <i class="bi bi-sliders me-1"></i>{{ 'cobranca_objeto.honorarios.editar_config'|trans }}
             </button>
             {% endif %}
         </div>
@@ -38,18 +38,18 @@
        honorário, e somá-los produziria um número que não significa nada. #}
         <div class="cob-hon-faixa">
             <div>
-                <span class="cob-hon-card-rot">A receber</span>
+                <span class="cob-hon-card-rot">{{ 'cobranca_objeto.honorarios.a_receber'|trans }}</span>
                 <span class="cob-hon-card-val">{{ caso.honorariosEmAberto|centavos }}</span>
-                <span class="cob-hon-card-nota">honorários das obrigações ainda em aberto</span>
+                <span class="cob-hon-card-nota">{{ 'cobranca_objeto.honorarios.a_receber_nota'|trans }}</span>
             </div>
             <div>
-                <span class="cob-hon-card-rot">Já recebido</span>
+                <span class="cob-hon-card-rot">{{ 'cobranca_objeto.honorarios.ja_recebido'|trans }}</span>
                 <span class="cob-hon-card-val is-recebido {{ caso.honorariosRecebidos == 0 ? 'is-zero' }}">{{ caso.honorariosRecebidos|centavos }}</span>
                 <span class="cob-hon-card-nota">
                     {% if caso.pagamentos|length > 0 %}
-                        em {{ caso.pagamentos|length }} recebimento{{ caso.pagamentos|length > 1 ? 's' : '' }}
+                        {{ (1 < caso.pagamentos|length ? 'cobranca_objeto.honorarios.em_recebimentos' : 'cobranca_objeto.honorarios.em_recebimento')|trans({n: caso.pagamentos|length ~ ''}) }}
                     {% else %}
-                        nenhum recebimento ainda
+                        {{ 'cobranca_objeto.honorarios.nenhum_recebimento_ainda'|trans }}
                     {% endif %}
                 </span>
             </div>
@@ -57,21 +57,21 @@
                e um rótulo de seção sobre quatro rótulos de campo seria rótulo de rótulo. #}
             <div class="cob-hon-config">
                 <div class="cob-hon-item">
-                    <span class="cob-hon-rot">Forma configurada</span>
+                    <span class="cob-hon-rot">{{ 'cobranca_objeto.honorarios.forma'|trans }}</span>
                     <span class="cob-hon-val">{{ caso.formaHonorariosLabel }}</span>
                 </div>
                 <div class="cob-hon-item">
-                    <span class="cob-hon-rot">Percentual</span>
+                    <span class="cob-hon-rot">{{ 'cobranca_objeto.honorarios.percentual'|trans }}</span>
                     {# O DTO carrega o decimal cru ("15.00"); a vírgula é só apresentação, como no resto da tela. #}
-                    <span class="cob-hon-val">{% if caso.percentualHonorarios %}{{ caso.percentualHonorarios|replace({'.': ','}) }}%{% else %}<span class="text-muted small">Não informado</span>{% endif %}</span>
+                    <span class="cob-hon-val">{% if caso.percentualHonorarios %}{{ caso.percentualHonorarios|replace({'.': ','}) }}%{% else %}<span class="text-muted small">{{ 'cobranca_objeto.comum.nao_informado'|trans }}</span>{% endif %}</span>
                 </div>
                 <div class="cob-hon-item">
-                    <span class="cob-hon-rot">Base de cálculo</span>
-                    <span class="cob-hon-val">{{ caso.baseHonorariosComposta ? 'Composta' : 'Principal' }}</span>
+                    <span class="cob-hon-rot">{{ 'cobranca_objeto.honorarios.base'|trans }}</span>
+                    <span class="cob-hon-val">{{ (caso.baseHonorariosComposta ? 'cobranca_objeto.honorarios.base_composta' : 'cobranca_objeto.honorarios.base_principal')|trans }}</span>
                 </div>
                 <div class="cob-hon-item">
-                    <span class="cob-hon-rot">Carência</span>
-                    <span class="cob-hon-val">{% if caso.carenciaHonorariosDias is not null %}{{ caso.carenciaHonorariosDias }} dia(s){% else %}<span class="text-muted small">Não informado</span>{% endif %}</span>
+                    <span class="cob-hon-rot">{{ 'cobranca_objeto.honorarios.carencia'|trans }}</span>
+                    <span class="cob-hon-val">{% if caso.carenciaHonorariosDias is not null %}{{ 'cobranca_objeto.honorarios.carencia_dias'|trans({n: caso.carenciaHonorariosDias ~ ''}) }}{% else %}<span class="text-muted small">{{ 'cobranca_objeto.comum.nao_informado'|trans }}</span>{% endif %}</span>
                 </div>
             </div>
         </div>
@@ -82,11 +82,9 @@
        enquanto cada linha mostra o honorário GRAVADO na obrigação, que pode ter taxa própria
        (`taxa_honorarios_bp`). Sem dizer isso, quem conferir "percentual × base" contra a lista encontra
        divergência que não existe — o mesmo engano que o card do juros já custou uma correção. #}
-    <h6 class="mb-1">Por obrigação</h6>
+    <h6 class="mb-1">{{ 'cobranca_objeto.honorarios.por_obrigacao'|trans }}</h6>
     <p class="small text-secondary mb-2">
-        A configuração acima é a que vale hoje para novas incidências. Cada obrigação pode ter taxa
-        própria, definida em <em>Editar configuração de encargos</em>. Por isso um valor da lista pode
-        não bater com o percentual exibido.
+        {{ 'cobranca_objeto.honorarios.aviso.inicio'|trans }} <em>{{ 'cobranca_objeto.honorarios.editar_config'|trans }}</em>{{ 'cobranca_objeto.honorarios.aviso.fim'|trans }}
     </p>
     {# `set` dentro de `for` não escapa do laço no Twig — a lista vazia é decidida ANTES, pelos dois
        conjuntos que a alimentam. #}
@@ -96,9 +94,9 @@
             <li{% if o.quitada %} class="is-quitada"{% endif %}>
                 <span class="cob-hon-desc">
                     {{ o.descricao }}
-                    {% if o.quitada %}<span class="badge text-bg-success">Quitada</span>{% endif %}
+                    {% if o.quitada %}<span class="badge text-bg-success">{{ 'cobranca_objeto.honorarios.quitada'|trans }}</span>{% endif %}
                 </span>
-                <span class="cob-hon-venc">venc. {{ o.vencimentoOriginal|date('d/m/Y') }}</span>
+                <span class="cob-hon-venc">{{ 'cobranca_objeto.honorarios.venc'|trans({data: o.vencimentoOriginal|date('d/m/Y')}) }}</span>
                 <span class="cob-hon-num col-honorarios">{{ o.honorarios|centavos }}</span>
             </li>
         {% endfor %}
@@ -106,43 +104,43 @@
             {% for p in grupo.parcelas %}
                 <li{% if p.quitada %} class="is-quitada"{% endif %}>
                     <span class="cob-hon-desc">
-                        {{ p.descricao }} <span class="jp-chip">acordo #{{ grupo.acordoId }}</span>
-                        {% if p.quitada %}<span class="badge text-bg-success">Quitada</span>{% endif %}
+                        {{ p.descricao }} <span class="jp-chip">{{ 'cobranca_objeto.honorarios.acordo_chip'|trans({id: grupo.acordoId ~ ''}) }}</span>
+                        {% if p.quitada %}<span class="badge text-bg-success">{{ 'cobranca_objeto.honorarios.quitada'|trans }}</span>{% endif %}
                     </span>
-                    <span class="cob-hon-venc">venc. {{ p.vencimentoOriginal|date('d/m/Y') }}</span>
+                    <span class="cob-hon-venc">{{ 'cobranca_objeto.honorarios.venc'|trans({data: p.vencimentoOriginal|date('d/m/Y')}) }}</span>
                     <span class="cob-hon-num col-honorarios">{{ p.honorarios|centavos }}</span>
                 </li>
             {% endfor %}
         {% endfor %}
         {% if semObrigacoes %}
-        <li class="text-muted">Nenhuma obrigação registrada.</li>
+        <li class="text-muted">{{ 'cobranca_objeto.honorarios.sem_obrigacoes'|trans }}</li>
         {% else %}
         {# O rodapé soma TODAS as linhas acima, quitadas inclusive — é o que se confere a olho. O recorte
            "a receber" (só o não quitado) está no card do topo. #}
         <li class="cob-hon-total">
-            <span class="cob-hon-desc">Total das obrigações</span>
+            <span class="cob-hon-desc">{{ 'cobranca_objeto.honorarios.total_obrigacoes'|trans }}</span>
             <span class="cob-hon-num col-honorarios">{{ caso.honorariosDasObrigacoes|centavos }}</span>
         </li>
         {% endif %}
     </ul>
 
     {# ── Por recebimento: o mesmo valor já exibido no extrato ── #}
-    <h6 class="mb-2">Por recebimento</h6>
+    <h6 class="mb-2">{{ 'cobranca_objeto.honorarios.por_recebimento'|trans }}</h6>
     <ul class="cob-hon-lista mb-0" data-lista="recebimentos">
         {% for p in caso.pagamentos %}
         <li>
-            <span class="cob-hon-desc">Recebimento de {{ p.valorTotal|centavos }}{% if p.foiCorrigido %} <span class="jp-chip">corrigido</span>{% endif %}</span>
+            <span class="cob-hon-desc">{{ 'cobranca_objeto.honorarios.recebimento_de'|trans({valor: p.valorTotal|centavos}) }}{% if p.foiCorrigido %} <span class="jp-chip">{{ 'cobranca_objeto.honorarios.corrigido'|trans }}</span>{% endif %}</span>
             <span class="cob-hon-venc">{{ p.data|date('d/m/Y') }}</span>
             <span class="cob-hon-num col-honorarios">{{ p.valorHonorarios|centavos }}</span>
         </li>
         {% endfor %}
         {% if caso.pagamentos|length > 0 %}
         <li class="cob-hon-total">
-            <span class="cob-hon-desc">Total recebido</span>
+            <span class="cob-hon-desc">{{ 'cobranca_objeto.honorarios.total_recebido'|trans }}</span>
             <span class="cob-hon-num col-honorarios">{{ caso.honorariosRecebidos|centavos }}</span>
         </li>
         {% else %}
-        <li class="text-muted">Nenhum recebimento registrado.</li>
+        <li class="text-muted">{{ 'cobranca_objeto.honorarios.sem_recebimentos'|trans }}</li>
         {% endif %}
     </ul>
 </div>
