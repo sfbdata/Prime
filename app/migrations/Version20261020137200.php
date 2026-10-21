@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Só acrescenta colunas anuláveis ao `processo` (nulo = sem valor manual); nenhuma linha existente
  * muda e o Datajud continua gravando nas colunas dele.
  */
-final class Version20261020140000 extends AbstractMigration
+final class Version20261020137200 extends AbstractMigration
 {
     public function getDescription(): string
     {
