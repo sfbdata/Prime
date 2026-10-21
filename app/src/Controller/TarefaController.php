@@ -73,11 +73,13 @@ final class TarefaController extends AbstractController
         $usuario = $this->getUser();
         $tenant  = $this->assertAccess($usuario);
 
+        // Prioridade da meta (desenho 04); valor fora do enum (o antigo `prioridade` da pasta) vira vazio.
+        $prioridade = PrioridadeDaMeta::tryFrom((string) $request->query->get('prioridade', ''));
+
         $filtros = [
             // Sem `status`: o desenho 04 (P:69-80) não tem o filtro Status (dono, 21/10).
             'busca'      => trim((string) $request->query->get('busca', '')),
-            // Prioridade da meta (desenho 04); valor fora do enum (o antigo `prioridade` da pasta) vira vazio.
-            'prioridade' => PrioridadeDaMeta::tryFrom((string) $request->query->get('prioridade', ''))?->value ?? '',
+            'prioridade' => $prioridade === null ? '' : $prioridade->value,
             'prazo'      => (string) $request->query->get('prazo', ''),
         ];
 
