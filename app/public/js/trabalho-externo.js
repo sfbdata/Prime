@@ -25,6 +25,7 @@
     var D = raiz.dataset;
     var MARCADOR = D.codigoMarcador || 'TE-0';
     var MARCADOR_VAGA = 'VG-0';
+    var MARCADOR_CV = 'CV-0';
     var FALHA = 'Não foi possível concluir. Tente de novo.';
 
     var MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -101,7 +102,20 @@
         vgSel: [],
         vgDet: null,
         tlm: null,
-        vf: null
+        vf: null,
+        // Currículos e banco de talentos (spec VS 18.10.26 §4.5, fatia F3a)
+        cv: null,
+        cvFiltro: 'ativos',
+        cvBusca: '',
+        cvArea: '',
+        cvSit: '',
+        cvUf: '',
+        cvTer: '',
+        cvSel: [],
+        cvDet: null,
+        cvF: null,
+        cvDoc: null,
+        cvDel: null
     };
 
     /* ---------------------------------------------------------------- utilidades */
@@ -206,7 +220,21 @@
         vagasVisita: function () { return D.urlVagasVisita; },
         vagasMarcacoes: function () { return D.urlVagasMarcacoes; },
         vagasCompartilhar: function () { return D.urlVagasCompartilhar; },
-        vagasDivulgacao: function () { return D.urlVagasDivulgacao; }
+        vagasDivulgacao: function () { return D.urlVagasDivulgacao; },
+        // Currículos (§4.5): as rotas com {codigo} vêm com o marcador CV-0 (o requisito da rota é CV-\d+).
+        curriculos: function () { return comComo(D.urlCurriculos); },
+        curriculo: function (c) { return comComo(D.urlCurriculo.replace(MARCADOR_CV, encodeURIComponent(c))); },
+        curriculoSalvar: function () { return D.urlCurriculoSalvar; },
+        curriculoArquivo: function (t) { return D.urlCurriculoArquivo.replace('__tipo__', encodeURIComponent(t)); },
+        // Sem data-url próprio: a rota de remover é a do arquivo com "/remover" no fim (contrato da §4.5).
+        curriculoArquivoRemover: function (t) { return D.urlCurriculoArquivo.replace('__tipo__', encodeURIComponent(t)) + '/remover'; },
+        curriculoExcluirMeu: function () { return D.urlCurriculoExcluirMeu; },
+        curriculoExcluir: function (c) { return D.urlCurriculoExcluir.replace(MARCADOR_CV, encodeURIComponent(c)); },
+        curriculoStatus: function (c) { return D.urlCurriculoStatus.replace(MARCADOR_CV, encodeURIComponent(c)); },
+        curriculoNota: function (c) { return D.urlCurriculoNota.replace(MARCADOR_CV, encodeURIComponent(c)); },
+        curriculosMarcacoes: function () { return D.urlCurriculosMarcacoes; },
+        curriculoPrevia: function () { return D.urlCurriculoPrevia; },
+        curriculosCsv: function (q) { return comComo(D.urlCurriculosCsv + (q ? (D.urlCurriculosCsv.indexOf('?') >= 0 ? '&' : '?') + q : '')); }
     };
 
     /* ---------------------------------------------------------------- HTTP */
@@ -315,13 +343,18 @@
         // As vagas também vêm no recorte do perfil: some a aba até o servidor dizer se ele a vê.
         S.vg = null;
         S.vgSel = [];
+        // O banco de currículos também: some a aba até a resposta no novo recorte.
+        S.cv = null;
+        S.cvSel = [];
         renderModulos();
         carregarVagas();
+        carregarCurriculos();
         pedir('GET', comComo(D.urlPainel)).then(function (r) {
             if (!r.ok || !r.painel) {
                 S.como = antes;
                 toastErro(r.mensagem);
                 carregarVagas();
+                carregarCurriculos();
                 return;
             }
             S.painel = r.painel;
@@ -908,6 +941,29 @@
         if (m.tipo === 'vaga') {
             caixa.style.width = m.largura + 'px';
             menuDaVaga(caixa, m.codigo);
+            alvo.appendChild(caixa);
+
+            return;
+        }
+        if (m.tipo === 'cvselpor') {
+            caixa.style.width = m.largura + 'px';
+            CV_SEL_OPS.forEach(function (o) {
+                caixa.appendChild(el('button', {
+                    type: 'button', class: 'te-menu-item', text: o[0],
+                    onclick: function () {
+                        fecharMenu();
+                        S.cvSel = cvFiltrados().filter(o[1]).map(function (x) { return x.codigo; });
+                        renderCurriculos();
+                    }
+                }));
+            });
+            alvo.appendChild(caixa);
+
+            return;
+        }
+        if (m.tipo === 'cv') {
+            caixa.style.width = m.largura + 'px';
+            menuDoCv(caixa, m.codigo);
             alvo.appendChild(caixa);
 
             return;
@@ -2366,12 +2422,16 @@
     /* ---------------------------------------------------------------- módulos: Demandas | Vagas */
 
     var MODULO_CHAVE = 'bj-te-modulo';
-    /** Faixa `mods` (desenho, l.1105): Demandas sem número; Vagas com o selo `m.n`. */
-    var MODULOS = [['demandas', 'Demandas', 'bi-briefcase'], ['vagas', 'Vagas', 'bi-megaphone']];
+    /**
+     * Faixa `mods` (desenho, l.1105): Demandas sem número; Vagas com o selo `m.n`; "Currículos" para o
+     * interno (selo dos novos) e "Meu currículo" para o externo (sem selo).
+     */
+    var MODULOS = [['demandas', 'Demandas', 'bi-briefcase'], ['vagas', 'Vagas', 'bi-megaphone'], ['cv', 'Currículos', 'bi-person-vcard']];
 
     function moduloSalvo() {
         try {
-            return window.sessionStorage.getItem(MODULO_CHAVE) === 'vagas' ? 'vagas' : 'demandas';
+            var m = window.sessionStorage.getItem(MODULO_CHAVE);
+            return m === 'vagas' || m === 'cv' ? m : 'demandas';
         } catch (e) {
             return 'demandas';
         }
@@ -2386,7 +2446,12 @@
     }
 
     function veVagas() { return !!(S.vg && S.vg.veAba); }
-    function moduloAtual() { return S.modulo === 'vagas' && veVagas() ? 'vagas' : 'demandas'; }
+    function moduloAtual() {
+        if (S.modulo === 'vagas' && veVagas()) {
+            return 'vagas';
+        }
+        return S.modulo === 'cv' && veCv() ? 'cv' : 'demandas';
+    }
 
     /** Selo da aba Vagas: os pedidos pendentes (interno, se houver), senão as abertas (l.1105). */
     function numeroDaAbaVagas() {
@@ -2397,22 +2462,29 @@
         return vagas().filter(function (v) { return v.situacao === 'aberta'; }).length;
     }
 
-    /** A faixa só aparece a quem vê a aba Vagas (`veAba`); com a tela bloqueada, nenhum painel aparece. */
+    /**
+     * A faixa só aparece a quem vê a aba Vagas (`veAba`) ou o módulo de currículos (a lista respondeu);
+     * com a tela bloqueada, nenhum painel aparece.
+     */
     function renderModulos() {
         var alvo = limpar($('teModulos'));
         var bloq = !!S.painel.bloqueio, mod = moduloAtual();
         $('teLiberado').hidden = bloq || mod !== 'demandas';
         $('teVagas').hidden = bloq || mod !== 'vagas';
-        if (bloq || !veVagas()) {
+        caixaCv().hidden = bloq || mod !== 'cv';
+        if (bloq || (!veVagas() && !veCv())) {
             return;
         }
-        alvo.appendChild(el('div', { class: 'te-mods', attrs: { role: 'tablist', 'aria-label': 'Módulos do Trabalho Externo' } }, MODULOS.map(function (m) {
-            var on = mod === m[0], n = m[0] === 'vagas' ? numeroDaAbaVagas() : 0;
+        var visivel = function (m) { return m[0] === 'demandas' || (m[0] === 'vagas' ? veVagas() : veCv()); };
+        alvo.appendChild(el('div', { class: 'te-mods', attrs: { role: 'tablist', 'aria-label': 'Módulos do Trabalho Externo' } }, MODULOS.filter(visivel).map(function (m) {
+            var on = mod === m[0];
+            var n = m[0] === 'vagas' ? numeroDaAbaVagas() : m[0] === 'cv' ? numeroDaAbaCv() : 0;
+            var rot = m[0] === 'cv' && !cvInterno() ? 'Meu currículo' : m[1];
             return el('button', {
                 type: 'button', class: 'te-mod' + (on ? ' is-ativo' : ''),
                 attrs: { role: 'tab', 'aria-selected': on ? 'true' : 'false' },
                 onclick: function () { irModulo(m[0]); }
-            }, [ic(m[2]), m[1], n > 0 ? el('span', { class: 'te-mod-n', text: n }) : null]);
+            }, [ic(m[2]), rot, n > 0 ? el('span', { class: 'te-mod-n', text: n }) : null]);
         })));
     }
 
@@ -2427,6 +2499,9 @@
         if (m === 'vagas') {
             renderVagas();
             carregarVagas();
+        } else if (m === 'cv') {
+            renderCurriculos();
+            carregarCurriculos();
         }
     }
 
@@ -3229,17 +3304,28 @@
     /* ---------------------------------------------------------------- modal genérico (tlm) */
 
     function fecharTlm() {
-        // Fechar no meio do envio esconderia a vaga criada: espera a resposta.
-        if ((S.vf && S.vf.enviando) || (S.vgDel && S.vgDel.enviando)) {
+        // Fechar no meio do envio esconderia a vaga (ou o currículo) gravado: espera a resposta.
+        if ((S.vf && S.vf.enviando) || (S.vgDel && S.vgDel.enviando) || (S.cvF && S.cvF.enviando) || (S.cvDel && S.cvDel.enviando)) {
             return;
         }
+        // A nota interna que ainda esperava os 800 ms vai agora, antes de o campo sumir.
+        gravarNotaJa();
+        // Arquivo enviado no formulário já está no servidor: "Meu currículo" precisa refletir mesmo sem salvar.
+        var recarregarCv = !!(S.cvF && S.cvF.mudouArquivo);
         S.tlm = null;
         S.vgDet = null;
         S.vf = null;
         S.vgDel = null;
         S.sh = null;
+        S.cvDet = null;
+        S.cvF = null;
+        S.cvDoc = null;
+        S.cvDel = null;
         relogiosDetalhe = [];
         limpar($('teVagaModal'));
+        if (recarregarCv) {
+            carregarCurriculos();
+        }
     }
 
     /** Cabeçalho azul, corpo com rolagem e rodapé com os botões (`tlmBtns`). Redesenhar guarda a rolagem. */
@@ -3858,6 +3944,1417 @@
         });
     }
 
+    /* =============================================================================
+       CURRÍCULOS E BANCO DE TALENTOS (spec VS 18.10.26 §4.5, fatia F3a)
+       Desenho "06 - Trabalho Externo - VS 18.10.26": banco interno (l.170 a 213), "Meu currículo"
+       do externo (l.214 a 224), formulário `tmCvForm` (l.254 a 283), detalhe `tmCv` (l.301 a 312),
+       pré-visualização `tmCvDoc` (l.370) e o menu de contexto (l.423 a 428). Lógica do
+       `renderVals()`: l.987, 995 a 1014, 1038, 1048 a 1052, 1062 a 1066, 1094, 1100, 1101, 1105,
+       1108 a 1120, 1148 a 1156 e 1171 a 1190. Painel, KPIs, gráficos e Termo (F3b), candidaturas
+       (F2b) e engajamento (F4) ficam de fora.
+       O servidor decide tudo (quem vê, quem age, percentual, textos de OAB e local); a prévia do
+       Master (`?como=`) só lê.
+       ============================================================================= */
+
+    /** Situação no banco de talentos (`CST`, l.845): rótulo e cor. A ordem é a dos botões do detalhe. */
+    var CST = [
+        ['novo', 'Novo', '#0a6fa0'],
+        ['analise', 'Em análise', '#9a5b00'],
+        ['entrevista', 'Entrevista', '#5b3f9e'],
+        ['favorito', 'Favorito', '#1e7b45'],
+        ['arquivado', 'Arquivado', '#6b8494']
+    ];
+    /** Filtro "Situação OAB" do banco (`SIT` curto, l.1120). */
+    var CV_SIT_FILTRO = [['adv', 'Advogado(a)'], ['estOab', 'Estagiário(a) com OAB'], ['est', 'Estudante'], ['bach', 'Bacharel(a)']];
+    /** Filtro "Termo" (`cvTerOps`, l.1148); até a F3b todo currículo é "sem". */
+    var CV_TERMO_FILTRO = [['sem', 'Sem termo'], ['enviado', 'Termo aguardando'], ['aceito', 'Termo aceito']];
+    /** Botões de situação do formulário (`tfSitOps`, l.1173). */
+    var CV_SIT_OPS = [
+        ['adv', 'Advogado(a) inscrito(a)', 'bi-award'],
+        ['estOab', 'Estagiário(a) com OAB', 'bi-mortarboard-fill'],
+        ['est', 'Estudante de Direito', 'bi-mortarboard'],
+        ['bach', 'Bacharel(a) sem OAB', 'bi-journal-bookmark']
+    ];
+    /** Trabalho voluntário (`tfVolOps`, l.1187): clicar de novo no escolhido limpa. */
+    var CV_VOL_OPS = [['sim', 'Sim'], ['talvez', 'Talvez'], ['nao', 'Não']];
+    var CV_NIVEIS = ['Básico', 'Intermediário', 'Avançado', 'Fluente', 'Nativo'];
+    var CV_LGPD = 'Autorizo o BlueJus a guardar meus dados e compartilhá-los apenas com quem publica as vagas a que eu me candidatar (LGPD). Posso excluir meu currículo a qualquer momento.';
+    var NOTA_MS = 800;
+
+    /* ---------------------------------------------------------------- dados e HTTP do módulo */
+
+    function veCv() { return !!S.cv && !S.painel.bloqueio; }
+    function cvInterno() { return !!(S.cv && S.cv.interno); }
+    function cvMaster() { return !!(S.cv && S.cv.ehMaster); }
+    /** Prévia do Master: nada de escrita (marcações, status, nota, formulário, exclusão). */
+    function podeEscreverCv() { return !previa(); }
+    /** Status, nota e CSV exigem `talentos` (o servidor manda `podeGerir`). */
+    function cvPodeGerir() { return !!(S.cv && S.cv.podeGerir) && podeEscreverCv(); }
+    function curriculos() { return (S.cv && S.cv.curriculos) || []; }
+    function cvDe(codigo) { return curriculos().filter(function (x) { return x.codigo === codigo; })[0] || null; }
+    function nivelDoCv(x) { return Math.max(0, Math.min(3, +((x.importancia || {}).nivel) || 0)); }
+    function cvImportante(x) { return nivelDoCv(x) >= 2; }
+    /** Áreas, UFs, cargos e modalidades: as mesmas listas da aba Vagas (a resposta das vagas traz `listas`). */
+    function listasCv() { return (S.cv && S.cv.listas) || listasVg(); }
+
+    /** Selo da aba no interno: os currículos com situação "Novo" (`novosCv`, l.1105). O externo não tem selo. */
+    function numeroDaAbaCv() {
+        return cvInterno() ? curriculos().filter(function (x) { return x.status === 'novo'; }).length : 0;
+    }
+
+    /**
+     * Como o `pedir()`, mas aceita a resposta 2xx sem `ok` (o contrato da §4.5 só garante `ok` no erro
+     * e na nota). Erro: `{ok:false, mensagem}` com 422, 403 ou 404.
+     */
+    function pedirCv(metodo, url, corpo) {
+        var op = { method: metodo, credentials: 'same-origin', headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } };
+        if (corpo instanceof FormData) {
+            op.body = corpo;
+        } else if (corpo !== undefined) {
+            op.headers['Content-Type'] = 'application/json';
+            op.body = JSON.stringify(corpo);
+        }
+        return fetch(url, op).then(function (r) {
+            return r.json().then(function (j) {
+                if (!j || typeof j !== 'object') {
+                    return { ok: false, mensagem: FALHA };
+                }
+                if (!r.ok || j.ok === false) {
+                    return { ok: false, mensagem: j.mensagem || FALHA };
+                }
+                j.ok = true;
+                return j;
+            }, function () {
+                return { ok: false, mensagem: FALHA };
+            });
+        }, function () {
+            return { ok: false, mensagem: FALHA };
+        });
+    }
+
+    /** O documento do currículo (HTML do `cvHTML`): GET do salvo ou POST da prévia do formulário. */
+    function pedirHtml(metodo, url, corpo) {
+        var op = { method: metodo, credentials: 'same-origin', headers: { 'Accept': 'text/html, application/json', 'X-Requested-With': 'XMLHttpRequest' } };
+        if (corpo !== undefined) {
+            op.headers['Content-Type'] = 'application/json';
+            op.body = JSON.stringify(corpo);
+        }
+        return fetch(url, op).then(function (r) {
+            var tipo = (r.headers.get('Content-Type') || '').toLowerCase();
+            if (tipo.indexOf('json') >= 0) {
+                return r.json().then(function (j) {
+                    if (!r.ok || !j || j.ok === false || typeof j.html !== 'string') {
+                        return { ok: false, mensagem: (j && j.mensagem) || FALHA };
+                    }
+                    return { ok: true, html: j.html };
+                }, function () { return { ok: false, mensagem: FALHA }; });
+            }
+            if (!r.ok) {
+                return { ok: false, mensagem: FALHA };
+            }
+            return r.text().then(function (h) { return { ok: true, html: h }; }, function () { return { ok: false, mensagem: FALHA }; });
+        }, function () {
+            return { ok: false, mensagem: FALHA };
+        });
+    }
+
+    /**
+     * GET da lista no recorte do perfil (com `?como=` na prévia). Resposta pedida por outro perfil é
+     * descartada. Sem acesso (403), o módulo simplesmente não aparece. `aviso`: o toast "Lista atualizada".
+     */
+    function carregarCurriculos(aviso) {
+        var como = S.como;
+        if (!D.urlCurriculos) {
+            return Promise.resolve({ ok: false });
+        }
+        return pedirCv('GET', ROTA.curriculos()).then(function (r) {
+            if (como !== S.como) {
+                return r;
+            }
+            if (!r.ok) {
+                if (moduloAtual() === 'cv') {
+                    toastErro(r.mensagem);
+                }
+                return r;
+            }
+            // Tolera a lista embrulhada como a das vagas (`{ok, curriculos: {...}}`).
+            var L = r.curriculos && !Array.isArray(r.curriculos) && typeof r.curriculos === 'object' ? r.curriculos : r;
+            S.cv = {
+                interno: !!L.interno, podeGerir: !!L.podeGerir, ehMaster: !!L.ehMaster,
+                meu: L.meu || null, curriculos: Array.isArray(L.curriculos) ? L.curriculos : [],
+                listas: L.listas || null, agora: L.agora || null
+            };
+            renderModulos();
+            renderCurriculos();
+            if (aviso) {
+                mostrarToast({ tit: 'Lista atualizada', txt: '', hora: '' });
+            }
+            return r;
+        });
+    }
+
+    /** O contêiner do módulo: o do template, se existir; senão nasce logo depois de #teVagas. */
+    function caixaCv() {
+        var c = $('teCurriculos');
+        if (!c) {
+            c = el('div', { id: 'teCurriculos', hidden: true });
+            var vg = $('teVagas');
+            vg.parentNode.insertBefore(c, vg.nextSibling);
+        }
+        return c;
+    }
+
+    /* ---------------------------------------------------------------- utilidades de tela */
+
+    function iniciaisDe(nome) {
+        return String(nome || '?').split(' ').filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
+    }
+
+    function fotoDe(x) {
+        return (x && (x.fotoUrl || (x.arquivos && x.arquivos.foto && x.arquivos.foto.url))) || null;
+    }
+
+    /** Avatar (`avBg`, l.998): a foto cobre o círculo; sem foto, as iniciais no azul. */
+    function avatarCv(x, extra) {
+        var foto = fotoDe(x);
+        var a = el('span', { class: 'te-cv-av' + (extra || '') + (foto ? ' is-foto' : ''), text: foto ? '' : (x.iniciais || iniciaisDe(x.nome)) });
+        if (foto) {
+            a.style.backgroundImage = 'url("' + String(foto).replace(/["\\\n\r]/g, function (c) { return encodeURIComponent(c); }) + '")';
+        }
+        return a;
+    }
+
+    /** O "@usuario" do Instagram abre o perfil (`abrirInsta`, l.999). */
+    function botaoInsta(insta, extra) {
+        if (vazio(insta)) {
+            return null;
+        }
+        return el('button', {
+            type: 'button', class: 'te-cv-insta' + (extra || ''),
+            onclick: function (e) {
+                e.stopPropagation();
+                window.open('https://instagram.com/' + encodeURIComponent(insta), '_blank', 'noopener');
+            }
+        }, [ic('bi-instagram'), '@' + insta]);
+    }
+
+    function dadoCv(icone, texto) {
+        return el('span', { class: 'te-cv-dado' }, [ic(icone), texto]);
+    }
+
+    /** Baixa pelo controller (attachment): o navegador não sai da página. */
+    function baixar(url) {
+        if (vazio(url)) {
+            return;
+        }
+        var a = el('a', { href: url, attrs: { download: '' } });
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }
+
+    function stCv(k) { return CST.filter(function (c) { return c[0] === k; })[0] || [k, k, '#6b8494']; }
+
+    /* ---------------------------------------------------------------- banco interno: filtros */
+
+    /**
+     * Abas do banco (`cvFiltros`, l.1119), contando o que a lista mostraria em cada uma (decisão 6):
+     * fora da Lixeira, nada do que está nela aparece; a Lixeira mostra só o que está nela.
+     */
+    function filtrosDeCv() {
+        var st = function (s) { return function (x) { return x.status === s; }; };
+        return [
+            ['ativos', 'Ativos', function (x) { return x.status !== 'arquivado'; }],
+            ['novo', 'Novos', st('novo')],
+            ['favorito', 'Favoritos', st('favorito')],
+            ['vol', 'Voluntários', function (x) { return !!x.voluntario && x.status !== 'arquivado'; }],
+            ['arquivado', 'Arquivados', st('arquivado')],
+            ['estrela', '★ Estrela', function (x) { return !!x.estrela; }],
+            ['imp', 'Importantes', cvImportante],
+            ['lix', 'Lixeira', null]
+        ];
+    }
+
+    function doFiltroCv(f) {
+        return curriculos().filter(function (x) { return f[2] ? !x.lixeira && f[2](x) : !!x.lixeira; });
+    }
+
+    function filtroDeCv() {
+        var vis = filtrosDeCv();
+        return vis.filter(function (f) { return f[0] === S.cvFiltro; })[0] || vis[0];
+    }
+
+    /** Selects e busca (l.995): nome, oabNum, oabUf, cidade, uf, cargo e áreas, como o servidor. A ordem é a do servidor (recebidoEm). */
+    function cvFiltrados() {
+        var q = S.cvBusca.trim().toLowerCase();
+        return doFiltroCv(filtroDeCv()).filter(function (x) {
+            return (!S.cvSit || x.situacao === S.cvSit)
+                && (!S.cvUf || x.uf === S.cvUf)
+                && (!S.cvTer || (x.termo || 'sem') === S.cvTer)
+                && (!S.cvArea || (x.areas || []).indexOf(S.cvArea) >= 0)
+                && (!q || [x.nome, x.oabNum, x.oabUf, x.cidade, x.uf, x.cargo, (x.areas || []).join(' ')].join(' ').toLowerCase().indexOf(q) >= 0);
+        });
+    }
+
+    /** `cvFiltroAtivo` (l.1149). */
+    function cvFiltroAtivo() {
+        return !!(S.cvSit || S.cvUf || S.cvTer || S.cvArea || S.cvBusca.trim() || S.cvFiltro !== 'ativos');
+    }
+
+    /** `cvLimpar` (l.1149). */
+    function limparFiltrosCv() {
+        S.cvSit = '';
+        S.cvUf = '';
+        S.cvTer = '';
+        S.cvArea = '';
+        S.cvBusca = '';
+        S.cvFiltro = 'ativos';
+        S.cvSel = [];
+        var b = $('teCvBusca');
+        if (b) {
+            b.value = '';
+        }
+        renderCurriculos();
+    }
+
+    /** CSV da lista filtrada (l.1150): o servidor monta com os mesmos filtros, enviados na query. */
+    function exportarCsv() {
+        var aba = filtroDeCv()[0];
+        var q = [['filtro', aba === 'vol' ? 'voluntarios' : aba], ['busca', S.cvBusca.trim()], ['area', S.cvArea], ['situacao', S.cvSit], ['uf', S.cvUf], ['termo', S.cvTer]]
+            .filter(function (p) { return !vazio(p[1]); })
+            .map(function (p) { return encodeURIComponent(p[0]) + '=' + encodeURIComponent(p[1]); }).join('&');
+        baixar(ROTA.curriculosCsv(q));
+        mostrarToast({ tit: 'Planilha exportada', txt: cvFiltrados().length + ' currículo(s) com os filtros atuais.', hora: '' });
+    }
+
+    /** "Selecionar por" do banco (`cvBulk.ops`, l.1051), sempre dentro da lista à vista. */
+    var CV_SEL_OPS = [
+        ['Todos', function () { return true; }],
+        ['Nenhum', function () { return false; }],
+        ['Vistos', function (x) { return !!x.vista; }],
+        ['Não vistos', function (x) { return !x.vista; }],
+        ['Com estrela', function (x) { return !!x.estrela; }],
+        ['Importantes', cvImportante]
+    ];
+
+    function cvSelecionado(codigo) { return S.cvSel.indexOf(codigo) >= 0; }
+
+    function alternarCvSel(codigo) {
+        S.cvSel = cvSelecionado(codigo) ? S.cvSel.filter(function (c) { return c !== codigo; }) : S.cvSel.concat([codigo]);
+        renderCurriculos();
+    }
+
+    /* ---------------------------------------------------------------- render do módulo */
+
+    /**
+     * Monta o esqueleto uma vez por modo (banco ou "Meu currículo"): a busca não pode ser recriada
+     * a cada tecla, senão perde o foco.
+     */
+    function montarCv() {
+        var c = caixaCv(), modo = cvInterno() ? 'banco' : 'meu';
+        if (c.getAttribute('data-modo') === modo) {
+            return;
+        }
+        limpar(c);
+        c.setAttribute('data-modo', modo);
+        if (modo === 'meu') {
+            c.appendChild(el('div', { class: 'te-cv-ext', id: 'teCvMeu' }));
+            return;
+        }
+        var busca = el('input', {
+            type: 'text', id: 'teCvBusca', placeholder: 'Buscar nome, OAB, área ou cidade', autocomplete: 'off', value: S.cvBusca,
+            oninput: function (e) { S.cvBusca = e.target.value; renderCurriculos(); }
+        });
+        c.appendChild(el('div', { class: 'te-cv-topo', id: 'teCvTopo' }));
+        c.appendChild(el('div', { class: 'te-cv-barra' }, [
+            el('div', { class: 'te-vg-sel', id: 'teCvSel' }),
+            el('label', { class: 'te-vg-busca' }, [ic('bi-search'), busca]),
+            el('div', { class: 'te-vg-filtros', id: 'teCvFiltros' }),
+            el('div', { class: 'te-cv-selects', id: 'teCvSelects' })
+        ]));
+        c.appendChild(el('div', { id: 'teCvLote' }));
+        c.appendChild(el('div', { id: 'teCvLista' }));
+    }
+
+    function renderCurriculos() {
+        if (!S.cv) {
+            limpar(caixaCv()).removeAttribute('data-modo');
+            return;
+        }
+        montarCv();
+        if (!cvInterno()) {
+            renderMeuCv();
+            return;
+        }
+        var L = cvFiltrados();
+        var vistos = L.map(function (x) { return x.codigo; });
+        S.cvSel = S.cvSel.filter(function (c) { return vistos.indexOf(c) >= 0; });
+        renderCvTopo(L);
+        renderCvSel(L);
+        renderCvFiltros();
+        renderCvSelects();
+        renderCvLote();
+        renderCvLista(L);
+    }
+
+    /**
+     * Linha de cima (l.171): para a Equipe, o aviso de que as estatísticas são só do Master (o painel
+     * do Master é da F3b: até lá ele vê só a lista); "Limpar filtros" com algum filtro e o CSV.
+     */
+    function renderCvTopo(L) {
+        var alvo = limpar($('teCvTopo'));
+        if (!cvMaster()) {
+            alvo.appendChild(el('span', { class: 'te-cv-cadeado' }, [ic('bi-lock'), 'Estatísticas disponíveis só para o Master']));
+        }
+        alvo.appendChild(el('span', { class: 'te-flex1' }));
+        if (cvFiltroAtivo()) {
+            alvo.appendChild(el('button', { type: 'button', class: 'te-cv-limpar', onclick: limparFiltrosCv }, [ic('bi-x-circle'), ' Limpar filtros']));
+        }
+        if (cvPodeGerir()) {
+            alvo.appendChild(el('button', { type: 'button', class: 'te-cv-csv', onclick: exportarCsv }, [ic('bi-filetype-csv'), 'Exportar ' + L.length + ' currículo(s)']));
+        }
+    }
+
+    /** Selecionar, "Selecionar por" e Atualizar (l.195), como na aba Vagas. */
+    function renderCvSel(L) {
+        var alvo = limpar($('teCvSel'));
+        if (podeEscreverCv()) {
+            var todas = L.length > 0 && S.cvSel.length === L.length;
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-sel-btn' + (S.cvSel.length ? ' is-on' : ''), title: 'Selecionar',
+                attrs: { 'aria-label': todas ? 'Limpar seleção' : 'Selecionar todos' },
+                onclick: function () {
+                    S.cvSel = todas ? [] : L.map(function (x) { return x.codigo; });
+                    renderCurriculos();
+                }
+            }, ic(todas ? 'bi-check-square-fill' : S.cvSel.length ? 'bi-dash-square-fill' : 'bi-square')));
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-sel-caret', title: 'Selecionar por', attrs: { 'aria-haspopup': 'menu' },
+                onclick: function (e) {
+                    var r = e.currentTarget.getBoundingClientRect();
+                    abrirMenuEspecial({ tipo: 'cvselpor' }, r.left - 30, r.bottom + 4, 170);
+                }
+            }, ic('bi-caret-down-fill')));
+        }
+        alvo.appendChild(el('button', {
+            type: 'button', class: 'te-sel-atualizar', title: 'Atualizar',
+            onclick: function () { carregarCurriculos(true); }
+        }, ic('bi-arrow-clockwise')));
+    }
+
+    function renderCvFiltros() {
+        var alvo = limpar($('teCvFiltros')), atual = filtroDeCv();
+        filtrosDeCv().forEach(function (f) {
+            var on = f[0] === atual[0];
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-vg-filtro' + (on ? ' is-ativo' : ''),
+                attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                onclick: function () { S.cvFiltro = f[0]; S.cvSel = []; renderCurriculos(); }
+            }, [f[1] + ' ', el('span', { class: 'te-vg-filtro-n', text: doFiltroCv(f).length })]));
+        });
+    }
+
+    /** Selects da barra (l.195): áreas, "Situação OAB", UFs e Termo. */
+    function renderCvSelects() {
+        var alvo = limpar($('teCvSelects')), Lt = listasCv();
+        var sel = function (k, primeiro, ops, extra) {
+            return el('select', {
+                class: 'te-cv-select' + (extra || ''), value: S[k] || '',
+                attrs: { 'aria-label': primeiro },
+                onchange: function (e) { S[k] = e.target.value; S.cvSel = []; renderCurriculos(); }
+            }, [el('option', { value: '', text: primeiro })].concat(ops.map(function (o) { return el('option', { value: o[0], text: o[1] }); })));
+        };
+        alvo.appendChild(sel('cvArea', 'Todas as áreas', (Lt.areas || []).map(function (a) { return [a, a]; }), ' is-area'));
+        alvo.appendChild(sel('cvSit', 'Situação OAB', CV_SIT_FILTRO));
+        alvo.appendChild(sel('cvUf', 'Todas as UFs', (Lt.ufs || []).map(function (u) { return [u, u]; })));
+        alvo.appendChild(sel('cvTer', 'Termo', CV_TERMO_FILTRO));
+    }
+
+    /** Barra de lote (`cvBulk`, l.1052), igual à das vagas; e o aviso da lixeira. */
+    function renderCvLote() {
+        var alvo = limpar($('teCvLote'));
+        var naLixeira = filtroDeCv()[0] === 'lix';
+        if (S.cvSel.length && podeEscreverCv()) {
+            var sel = curriculos().filter(function (x) { return cvSelecionado(x.codigo); });
+            var algumNaoVisto = sel.some(function (x) { return !x.vista; });
+            var todosEstrela = sel.length > 0 && sel.every(function (x) { return !!x.estrela; });
+            var acoes = naLixeira
+                ? [
+                    ['restaurar', 'Restaurar', 'bi-arrow-counterclockwise', null],
+                    ['definitivo', 'Excluir da minha lista', 'bi-x-octagon', '#a3232b']
+                ]
+                : [
+                    ['lixeira', 'Mover para a lixeira', 'bi-trash', null],
+                    algumNaoVisto ? ['lida', 'Marcar como visto', 'bi-eye', null] : ['naolida', 'Marcar como não visto', 'bi-eye-slash', null],
+                    todosEstrela ? ['semestrela', 'Remover estrela', 'bi-star-fill', '#e0a106'] : ['estrela', 'Adicionar estrela', 'bi-star', null],
+                    ['imp', 'Marcar como importante', 'bi-chevron-double-right', '#0a6fa0'],
+                    ['naoimp', 'Marcar como não importante', 'bi-chevron-right', null]
+                ];
+            var codigos = S.cvSel.slice();
+            alvo.appendChild(el('div', { class: 'te-lote', attrs: { role: 'toolbar', 'aria-label': 'Ações nos currículos selecionados' } }, [
+                el('b', { class: 'te-lote-n', text: S.cvSel.length + ' selecionado(s)' })
+            ].concat(acoes.map(function (a) {
+                return el('button', {
+                    type: 'button', class: 'te-lote-btn', title: a[1],
+                    style: a[3] ? { color: a[3] } : null,
+                    attrs: { 'data-tip': a[1], 'aria-label': a[1] },
+                    onclick: function () { loteCv(codigos, a[0]); }
+                }, ic(a[2]));
+            })).concat([
+                el('span', { class: 'te-espaco' }),
+                el('button', { type: 'button', class: 'te-lote-cancelar', text: 'Cancelar', onclick: function () { S.cvSel = []; renderCurriculos(); } })
+            ])));
+        }
+        if (naLixeira) {
+            alvo.appendChild(el('div', { class: 'te-lix-aviso' }, [ic('bi-info-circle'), ' A lixeira é só sua: os itens continuam para os demais. Restaure quando quiser.']));
+        }
+    }
+
+    /** Colunas do desenho (l.200): 86px | 2fr | 130px | 1.6fr | 150px | 110px | 120px | 40px. */
+    function renderCvLista(L) {
+        var alvo = limpar($('teCvLista'));
+        if (!curriculos().length) {
+            alvo.appendChild(el('div', { class: 'te-vg-vazio' }, [
+                ic('bi-person-vcard'),
+                el('div', { class: 'te-vg-vazio-tit', text: 'Nenhum currículo recebido' }),
+                el('div', { class: 'te-vg-vazio-txt', text: 'Os currículos enviados por advogados e escritórios que usam o BlueJus aparecem aqui, com OAB, área de atuação e local.' })
+            ]));
+            return;
+        }
+        if (!L.length) {
+            // Decisão 7: com filtro e nada à vista, o texto curto e o atalho para limpar.
+            alvo.appendChild(el('div', { class: 'te-vg-vazio' }, [
+                ic('bi-person-vcard'),
+                el('div', { class: 'te-vg-vazio-tit', text: 'Nenhum currículo neste filtro.' }),
+                el('button', { type: 'button', class: 'te-cv-limpar is-vazio', onclick: limparFiltrosCv }, [ic('bi-x-circle'), ' Limpar filtros'])
+            ]));
+            return;
+        }
+        var cab = el('div', { class: 'te-cv-grade te-cv-cab' }, [
+            el('span'), el('span', { class: 'is-prof', text: 'PROFISSIONAL' }), el('span', { text: 'OAB' }), el('span', { text: 'ÁREAS' }),
+            el('span', { text: 'LOCAL' }), el('span', { text: 'RECEBIDO' }), el('span', { text: 'SITUAÇÃO' }), el('span')
+        ]);
+        alvo.appendChild(el('div', { class: 'te-cv-tabela' }, el('div', { class: 'te-cv-tabela-in' }, [cab].concat(L.map(linhaCv)))));
+    }
+
+    /** Linha do banco (l.202 a 209): o clique abre o detalhe e marca visto; o botão direito e o ⋮ abrem o menu. */
+    function linhaCv(x) {
+        var sel = cvSelecionado(x.codigo), pv = !podeEscreverCv();
+        var nv = nivelDoCv(x), I = IMPORTANCIA[nv], dica = dicaDeImportancia(nv, x.importancia);
+        var parar = function (fn) { return function (e) { e.stopPropagation(); if (fn) { fn(); } }; };
+        var menu = function (cx, cy) { abrirMenuEspecial({ tipo: 'cv', codigo: x.codigo }, cx, cy, 230); };
+        return el('div', {
+            class: 'te-cv-grade te-cv-linha' + (sel ? ' is-sel' : ''),
+            attrs: { 'data-codigo': x.codigo },
+            onclick: function () { marcarCvVisto(x); abrirCv(x.codigo); },
+            oncontextmenu: function (e) { e.preventDefault(); menu(e.clientX, e.clientY); }
+        }, [
+            el('span', { class: 'te-cv-marca', onclick: parar(null) }, [
+                pv ? null : el('button', {
+                    type: 'button', class: 'te-sel-btn' + (sel ? ' is-on' : ''), title: 'Selecionar',
+                    attrs: { 'aria-pressed': sel ? 'true' : 'false' },
+                    onclick: parar(function () { alternarCvSel(x.codigo); })
+                }, ic(sel ? 'bi-check-square-fill' : 'bi-square')),
+                el('button', {
+                    type: 'button', class: 'te-estrela' + (x.estrela ? ' is-on' : ''), title: 'Estrela', disabled: pv,
+                    attrs: { 'aria-pressed': x.estrela ? 'true' : 'false' },
+                    onclick: parar(function () { loteCv([x.codigo], x.estrela ? 'semestrela' : 'estrela'); })
+                }, ic(x.estrela ? 'bi-star-fill' : 'bi-star')),
+                el('button', {
+                    type: 'button', class: 'te-imp te-vg-imp', title: dica, disabled: pv,
+                    style: { background: I.bg, color: I.cor },
+                    attrs: { 'data-tip': dica, 'aria-label': dica },
+                    onclick: parar(function () { loteCv([x.codigo], nv >= 2 ? 'naoimp' : 'imp'); })
+                }, ic(I.ic))
+            ]),
+            el('span', { class: 'te-cv-prof' }, [
+                avatarCv(x),
+                el('span', { class: 'te-min0' }, [
+                    el('b', { class: 'te-cv-nome' + (x.vista ? '' : ' is-naovisto'), text: x.nome || '' }),
+                    el('span', { class: 'te-cv-cargo', text: x.cargo || 'Cargo não informado' }),
+                    x.voluntario ? el('span', { class: 'te-cv-vol' }, [ic('bi-heart-fill'), 'Voluntário']) : null
+                ])
+            ]),
+            el('span', { class: 'te-cv-cel', text: x.oab || '' }),
+            el('span', { class: 'te-cv-cel te-reticencias', text: (x.areas || []).join(', ') || 'Áreas não informadas' }),
+            el('span', { class: 'te-cv-cel te-reticencias', text: x.local || '' }),
+            el('span', { class: 'te-cv-cel is-fraco', text: x.recebido || '' }),
+            el('span', { class: 'te-cv-cel' }, seloSituacao(x.statusRotulo || stCv(x.status)[1], x.statusCor || stCv(x.status)[2])),
+            el('button', {
+                type: 'button', class: 'te-cv-mais', title: 'Mais opções',
+                onclick: function (e) { e.stopPropagation(); var r = e.currentTarget.getBoundingClientRect(); menu(r.left - 200, r.bottom + 4); }
+            }, ic('bi-three-dots-vertical'))
+        ]);
+    }
+
+    /* ---------------------------------------------------------------- menu, marcações, status e exclusão */
+
+    /**
+     * Menu da linha (`cvMenu`, l.1000): Abrir currículo, Ver currículo formatado / PDF, "Marcar como …"
+     * para as situações diferentes da atual (com `talentos`) e Excluir currículo (só o Master).
+     * "Gerar termo de voluntariado" é da F3b.
+     */
+    function menuDoCv(caixa, codigo) {
+        var x = cvDe(codigo);
+        if (!x) {
+            return;
+        }
+        var item = function (rot, icone, acao, perigo) {
+            caixa.appendChild(el('button', {
+                type: 'button', class: 'te-menu-item' + (perigo ? ' is-perigo' : ''),
+                onclick: function () { fecharMenu(); acao(); }
+            }, [ic(icone), rot]));
+        };
+        caixa.appendChild(el('div', { class: 'te-menu-tit', text: x.nome || '' }));
+        item('Abrir currículo', 'bi-box-arrow-up-right', function () { marcarCvVisto(x); abrirCv(codigo); });
+        item('Ver currículo formatado / PDF', 'bi-file-earmark-pdf', function () { verCvDoCodigo(codigo); });
+        if (cvPodeGerir()) {
+            CST.filter(function (c) { return c[0] !== x.status; }).forEach(function (c) {
+                item('Marcar como ' + c[1].toLowerCase(), c[0] === 'favorito' ? 'bi-star' : c[0] === 'arquivado' ? 'bi-archive' : 'bi-flag', function () { mudarStatusCv(codigo, c[0]); });
+            });
+        }
+        if (cvMaster() && podeEscreverCv()) {
+            item('Excluir currículo', 'bi-trash', function () {
+                pedirExclusaoCv(ROTA.curriculoExcluir(codigo), 'Excluir o currículo de ' + (x.nome || '') + '? As candidaturas ligadas a ele também serão removidas. Esta ação não pode ser desfeita.');
+            }, true);
+        }
+    }
+
+    /** As mesmas operações do lote das vagas, gravadas só para o usuário logado. */
+    function loteCv(codigos, op) {
+        if (!codigos.length || !podeEscreverCv()) {
+            return;
+        }
+        fecharMenu();
+        if (op === 'definitivo') {
+            abrirConf(null, {
+                k: '__definitivo_cv__',
+                confirmacao: {
+                    titulo: 'Excluir da minha lista',
+                    texto: 'Excluir ' + codigos.length + ' item(ns) da sua lista definitivamente? Continuam existindo para os demais.',
+                    botao: 'Excluir', motivo: false, perigo: true
+                },
+                executar: function () { return enviarLoteCv(codigos, op); }
+            });
+            return;
+        }
+        enviarLoteCv(codigos, op);
+    }
+
+    function enviarLoteCv(codigos, op) {
+        return pedirCv('POST', ROTA.curriculosMarcacoes(), { codigos: codigos, op: op }).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return r;
+            }
+            S.cvSel = [];
+            mostrarDesfazer(r.texto, op === 'lixeira' ? function () { enviarLoteCv(codigos, 'restaurar'); } : null);
+            carregarCurriculos();
+            return r;
+        });
+    }
+
+    /** Abrir a linha marca o currículo como visto (o nome deixa de ficar em negrito), sem aviso. */
+    function marcarCvVisto(x) {
+        if (x.vista || !podeEscreverCv()) {
+            return;
+        }
+        x.vista = true;
+        pedirCv('POST', ROTA.curriculosMarcacoes(), { codigos: [x.codigo], op: 'lida' }).then(function (r) {
+            if (!r.ok) {
+                x.vista = false;
+            }
+            renderCurriculos();
+        });
+    }
+
+    /** `cStatus` (l.984): grava e atualiza o detalhe aberto e a lista, sem aviso. */
+    function mudarStatusCv(codigo, status) {
+        if (!cvPodeGerir()) {
+            return;
+        }
+        fecharMenu();
+        pedirCv('POST', ROTA.curriculoStatus(codigo), { status: status }).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return;
+            }
+            if (S.tlm === 'cv' && S.cvDet && S.cvDet.codigo === codigo && r.curriculo) {
+                // A nota digitada é a mais nova: a resposta do status não a sobrescreve.
+                r.curriculo.nota = S.cvDet.nota;
+                S.cvDet = r.curriculo;
+                renderDetalheCv();
+            }
+            carregarCurriculos();
+        });
+    }
+
+    /** Confirmação do desenho (`delPedir` + `tmDel`, l.371), para o Master e para "Excluir meu currículo". */
+    function pedirExclusaoCv(url, txt) {
+        if (!podeEscreverCv()) {
+            return;
+        }
+        fecharMenu();
+        gravarNotaJa();
+        S.tlm = 'cvDel';
+        S.vgDet = null;
+        S.vf = null;
+        S.vgDel = null;
+        S.cvDet = null;
+        S.cvF = null;
+        S.cvDoc = null;
+        S.cvDel = { url: url, txt: txt, erro: '', enviando: false };
+        relogiosDetalhe = [];
+        limpar($('teVagaModal'));
+        renderExclusaoCv();
+    }
+
+    function renderExclusaoCv() {
+        var X = S.cvDel;
+        if (!X || S.tlm !== 'cvDel') {
+            return;
+        }
+        modalVaga({
+            icone: 'bi-trash', titulo: 'Confirmar exclusão', largura: '720px',
+            corpo: [
+                el('div', { class: 'te-tlm-del' }, [ic('bi-exclamation-triangle'), el('span', { text: X.txt })]),
+                erroTlm(X.erro)
+            ],
+            botoes: [
+                botaoTlm('Cancelar', 'bi-x', '', fecharTlm),
+                botaoTlm('Excluir', 'bi-trash', 'perigo', function (e) {
+                    if (X.enviando) {
+                        return;
+                    }
+                    X.enviando = true;
+                    e.currentTarget.disabled = true;
+                    pedirCv('POST', X.url, {}).then(function (r) {
+                        X.enviando = false;
+                        if (S.cvDel !== X) {
+                            return;
+                        }
+                        if (!r.ok) {
+                            X.erro = r.mensagem;
+                            renderExclusaoCv();
+                            return;
+                        }
+                        fecharTlm();
+                        mostrarToast({ tit: 'Currículo excluído', txt: '', hora: '' });
+                        carregarCurriculos();
+                    });
+                })
+            ]
+        });
+    }
+
+    /* ---------------------------------------------------------------- detalhe (tmCv) */
+
+    function abrirCv(codigo) {
+        fecharMenu();
+        return pedirCv('GET', ROTA.curriculo(codigo)).then(function (r) {
+            if (!r.ok || !r.curriculo) {
+                toastErro(r.mensagem);
+                return;
+            }
+            gravarNotaJa();
+            S.tlm = 'cv';
+            S.cvDet = r.curriculo;
+            S.vgDet = null;
+            S.vf = null;
+            S.vgDel = null;
+            S.cvF = null;
+            S.cvDoc = null;
+            S.cvDel = null;
+            relogiosDetalhe = [];
+            limpar($('teVagaModal'));
+            renderDetalheCv();
+        });
+    }
+
+    /** Botão de arquivo do detalhe (carteira, comprovante): baixa pelo controller com permissão. */
+    function botaoArquivoCv(a, icone, rot, classe) {
+        return a && a.url ? el('button', { type: 'button', class: classe || 'te-cv-doc-btn', onclick: function () { baixar(a.url); } }, [ic(icone), rot]) : null;
+    }
+
+    /** Detalhe "Currículo · {nome}" (l.301 a 312; `tc`, l.1004) e o rodapé (l.1101). */
+    function renderDetalheCv() {
+        var x = S.cvDet;
+        if (!x || S.tlm !== 'cv') {
+            return;
+        }
+        var A = x.arquivos || {}, st = stCv(x.status);
+        var curso = !vazio(x.inst) ? x.inst + (!vazio(x.sem) ? ' · ' + x.sem : '') : '';
+        var corpo = [
+            el('div', { class: 'te-cv-det-cab' }, [
+                avatarCv(x, ' is-56'),
+                el('div', { class: 'te-flex1 te-min0' }, [
+                    el('b', { class: 'te-cv-det-nome', text: x.nome || '' }),
+                    el('div', { class: 'te-cv-det-sub', text: x.experienciaTxt || '' }),
+                    botaoInsta(x.insta, ' is-det')
+                ]),
+                seloSituacao(x.statusRotulo || st[1], x.statusCor || st[2])
+            ]),
+            el('div', { class: 'te-cv-dados' }, [
+                dadoCv('bi-award', x.oabTxt || x.oab || ''),
+                dadoCv('bi-geo-alt', x.local || ''),
+                dadoCv('bi-laptop', x.modalidade || 'Sem preferência'),
+                dadoCv('bi-envelope', x.email || ''),
+                dadoCv('bi-telephone', x.tel || 'Não informado'),
+                dadoCv('bi-calendar3', 'Recebido em ' + (x.recebido || '')),
+                dadoCv('bi-cash-coin', x.pretensao || 'Pretensão não informada'),
+                dadoCv('bi-heart', x.volTxt || '')
+            ]),
+            (x.areas || []).length ? el('div', { class: 'te-vg-areas' }, x.areas.map(function (a) { return el('span', { class: 'te-vg-area', text: a }); })) : null,
+            el('div', { class: 'te-tv-req', text: x.resumo || 'Sem resumo.' }),
+            el('div', { class: 'te-cv-docs' }, [
+                x.situacao ? el('span', { class: 'te-cv-sit' }, [ic('bi-mortarboard'), x.situacaoLonga || '']) : null,
+                curso ? el('span', { class: 'te-cv-curso', text: curso }) : null,
+                botaoArquivoCv(A.oab, 'bi-person-badge', 'Carteira da OAB'),
+                botaoArquivoCv(A.matricula, 'bi-file-earmark-text', 'Comprovante de curso')
+            ]),
+            botaoArquivoCv(A.curriculo, 'bi-file-earmark-arrow-down', A.curriculo ? A.curriculo.nome || '' : '', 'te-cv-arq-btn')
+        ];
+        // Situação no banco e nota interna: só o interno recebe a nota (o externo recebe null, decisão 1).
+        if (x.nota !== null && x.nota !== undefined) {
+            var age = !!x.podeGerir && cvPodeGerir();
+            corpo.push(el('div', { class: 'te-cv-sec', text: 'SITUAÇÃO NO BANCO DE TALENTOS' }));
+            corpo.push(el('div', { class: 'te-cv-sts' }, CST.map(function (c) {
+                var on = x.status === c[0];
+                return el('button', {
+                    type: 'button', class: 'te-cv-st-btn' + (on ? ' is-on' : ''), disabled: !age,
+                    style: on ? { background: c[2], 'border-color': c[2] } : null,
+                    attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                    onclick: function () { if (!on) { mudarStatusCv(x.codigo, c[0]); } }
+                }, c[1]);
+            })));
+            corpo.push(campoNota(x, age));
+        }
+        if ((x.candidaturasVagas || []).length) {
+            corpo.push(el('div', { class: 'te-cv-cands' }, [el('b', { text: 'Candidaturas:' }), ' ' + x.candidaturasVagas.join(', ')]));
+        }
+        modalVaga({
+            icone: 'bi-person-vcard', titulo: 'Currículo · ' + (x.nome || ''), largura: '720px', corpo: corpo,
+            botoes: [
+                botaoTlm('Fechar', 'bi-x', '', fecharTlm),
+                botaoTlm('Ver currículo formatado', 'bi-file-earmark-person', '', function () { verCvDe(x, false); })
+            ]
+        });
+    }
+
+    /* ---------------------------------------------------------------- nota interna (decisão 8) */
+
+    var notaPendente = null;
+
+    /** "NOTA INTERNA (SÓ MASTER E EQUIPE)": grava 800 ms depois da última tecla e ao sair do campo. */
+    function campoNota(x, age) {
+        var salvo = el('span', { class: 'te-cv-salvo', attrs: { 'aria-live': 'polite' } });
+        var area = el('textarea', {
+            class: 'te-vf-ctl te-cv-nota-ctl', rows: 3, placeholder: 'Impressões, entrevista, indicação…',
+            readOnly: !age, value: x.nota || ''
+        });
+        if (age) {
+            area.addEventListener('input', function (e) {
+                x.nota = e.target.value;
+                salvo.textContent = '';
+                clearTimeout(notaPendente && notaPendente.t);
+                notaPendente = { codigo: x.codigo, nota: x.nota, salvo: salvo, t: setTimeout(gravarNotaJa, NOTA_MS) };
+            });
+            area.addEventListener('blur', gravarNotaJa);
+        }
+        return el('label', { class: 'te-cv-nota' }, [
+            el('span', { class: 'te-cv-nota-cab' }, [el('span', null, [ic('bi-lock'), ' NOTA INTERNA (SÓ MASTER E EQUIPE)']), salvo]),
+            area
+        ]);
+    }
+
+    function gravarNotaJa() {
+        var p = notaPendente;
+        if (!p) {
+            return;
+        }
+        clearTimeout(p.t);
+        notaPendente = null;
+        pedirCv('POST', ROTA.curriculoNota(p.codigo), { nota: p.nota }).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return;
+            }
+            if (p.salvo && p.salvo.isConnected && !notaPendente) {
+                p.salvo.textContent = 'Salvo';
+            }
+        });
+    }
+
+    /* ---------------------------------------------------------------- pré-visualização (tmCvDoc) */
+
+    /** Do menu da linha: o documento vem do detalhe (`documentoUrl` e `pdfUrl`). */
+    function verCvDoCodigo(codigo) {
+        pedirCv('GET', ROTA.curriculo(codigo)).then(function (r) {
+            if (!r.ok || !r.curriculo) {
+                toastErro(r.mensagem);
+                return;
+            }
+            verCvDe(r.curriculo, false);
+        });
+    }
+
+    /** `verCv` (l.1063): HTML do servidor no iframe. `volta`: veio do formulário ("Voltar a editar"). */
+    function verCvDe(x, volta) {
+        if (vazio(x.documentoUrl)) {
+            toastErro(null);
+            return;
+        }
+        pedirHtml('GET', comComo(x.documentoUrl)).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return;
+            }
+            abrirDocCv(r.html, x.pdfUrl || '', volta);
+        });
+    }
+
+    function abrirDocCv(html, pdfUrl, volta) {
+        gravarNotaJa();
+        if (!volta) {
+            S.cvF = null;
+        }
+        S.tlm = 'cvDoc';
+        S.cvDet = null;
+        S.vgDet = null;
+        S.vf = null;
+        S.vgDel = null;
+        S.cvDel = null;
+        S.cvDoc = { html: html, pdfUrl: pdfUrl, volta: !!volta };
+        relogiosDetalhe = [];
+        limpar($('teVagaModal'));
+        renderDocCv();
+    }
+
+    /** "Currículo · pré-visualização" (l.370, 960px; rodapé l.1100). */
+    function renderDocCv() {
+        var X = S.cvDoc;
+        if (!X || S.tlm !== 'cvDoc') {
+            return;
+        }
+        // Sem scripts no documento: só o HTML e as imagens do próprio sistema.
+        var quadro = el('iframe', { class: 'te-cv-doc', title: 'Currículo', attrs: { sandbox: 'allow-same-origin' } });
+        quadro.srcdoc = X.html;
+        var botoes = [X.volta
+            ? botaoTlm('Voltar a editar', 'bi-arrow-left', '', function () { S.tlm = 'cvForm'; S.cvDoc = null; limpar($('teVagaModal')); renderFormCv(); })
+            : botaoTlm('Fechar', 'bi-x', '', fecharTlm)];
+        if (!vazio(X.pdfUrl)) {
+            botoes.push(botaoTlm('Baixar PDF', 'bi-file-earmark-pdf', 'pri', function () { baixar(X.pdfUrl); }));
+        }
+        modalVaga({ icone: 'bi-file-earmark-person', titulo: 'Currículo · pré-visualização', largura: '960px', corpo: [quadro], botoes: botoes });
+    }
+
+    /* ---------------------------------------------------------------- "Meu currículo" do externo */
+
+    /** Cartão "Meu currículo" (l.214 a 221; `cvItem`, l.999; percentual l.1013, 1014 e 1108) e "Minhas candidaturas". */
+    function renderMeuCv() {
+        var alvo = limpar($('teCvMeu')), m = S.cv.meu, escreve = podeEscreverCv();
+        var botaoCard = function (rot, icone, acao) { return el('button', { type: 'button', class: 'te-cv-card-btn', onclick: acao }, [ic(icone), rot]); };
+        var conteudo;
+        if (!m) {
+            conteudo = el('div', { class: 'te-cv-card-vazio' }, [
+                el('div', { class: 'te-cv-card-vazio-txt', text: 'Cadastre seu currículo uma vez e use para se candidatar às vagas publicadas na Central.' }),
+                escreve ? el('button', { type: 'button', class: 'te-cv-cadastrar', onclick: abrirFormCv }, [ic('bi-plus-lg'), 'Cadastrar currículo']) : null
+            ]);
+        } else {
+            var P = m.percentual || {}, n = Math.max(0, Math.min(100, parseInt(P.pct, 10) || 0));
+            var cor = P.cor || (n >= 90 ? '#1e7b45' : n >= 60 ? '#0a6fa0' : '#c76a12');
+            var faltas = P.faltas || m.faltas || [];
+            var arq = (m.arquivos || {}).curriculo;
+            conteudo = el('div', { class: 'te-cv-meu' }, [
+                el('div', { class: 'te-cv-meu-topo' }, [
+                    avatarCv(m, ' is-52'),
+                    el('div', { class: 'te-min0' }, [el('b', { class: 'te-cv-meu-nome', text: m.nome || '' }), botaoInsta(m.insta, ' is-bloco')])
+                ]),
+                dadoCv('bi-person-badge', m.cargo || 'Cargo não informado'),
+                dadoCv('bi-award', m.oabTxt || m.oab || ''),
+                dadoCv('bi-geo-alt', m.local || ''),
+                dadoCv('bi-bookmark', (m.areas || []).join(', ') || 'Áreas não informadas'),
+                dadoCv('bi-cash-coin', m.pretensao || 'Pretensão não informada'),
+                dadoCv('bi-heart', m.volTxt || ''),
+                arq && !vazio(arq.nome) ? dadoCv('bi-paperclip', arq.nome) : null,
+                el('span', { class: 'te-cv-em', text: 'Atualizado em ' + (m.atualizado || '') }),
+                el('div', { class: 'te-cv-pct' }, [
+                    el('div', { class: 'te-cv-pct-cab' }, [el('b', { text: 'Currículo completo' }), el('b', { style: { color: cor }, text: n + '%' })]),
+                    el('div', { class: 'te-cv-pct-trilho' }, el('div', { class: 'te-cv-pct-barra', style: { width: n + '%', background: cor } })),
+                    faltas.length ? el('div', { class: 'te-cv-falta', text: 'Complete: ' + faltas.join(', ') }) : null
+                ])
+            ]);
+        }
+        alvo.appendChild(el('div', { class: 'te-cv-card' }, [
+            el('div', { class: 'te-cv-card-cab' }, [
+                ic('bi-person-vcard'),
+                el('b', { text: 'Meu currículo' }),
+                m ? botaoCard('Ver e baixar', 'bi-file-earmark-pdf', function () { verCvDe(m, false); }) : null,
+                m && escreve ? botaoCard('Editar', 'bi-pencil', abrirFormCv) : null
+            ]),
+            conteudo
+        ]));
+        // "Minhas candidaturas" (l.222 a 224) é da F2b: por enquanto, só o vazio do desenho.
+        alvo.appendChild(el('div', { class: 'te-cv-card is-2' }, [
+            el('div', { class: 'te-cv-card-cab is-cand' }, [ic('bi-send-check'), el('b', { text: 'Minhas candidaturas' })]),
+            el('div', { class: 'te-cv-cand-vazio', text: 'Você ainda não se candidatou. Veja as vagas abertas na aba Vagas.' })
+        ]));
+    }
+
+    /* ---------------------------------------------------------------- formulário (tmCvForm) */
+
+    /** `editarCv` (l.987): o próprio currículo do externo, preenchido com o detalhe de `meu`. */
+    function abrirFormCv() {
+        if (!podeEscreverCv() || !S.cv || cvInterno()) {
+            return;
+        }
+        fecharMenu();
+        var m = S.cv.meu, v = function (k) { return m && m[k] !== null && m[k] !== undefined ? String(m[k]) : ''; };
+        var copia = function (L, campos) {
+            return (L || []).map(function (it) {
+                var o = {};
+                campos.forEach(function (k) { o[k] = it && it[k] !== null && it[k] !== undefined ? String(it[k]) : ''; });
+                return o;
+            });
+        };
+        S.cvF = {
+            edicao: !!m,
+            f: {
+                nome: v('nome'), email: v('email'), tel: v('tel'), insta: v('insta'), situacao: v('situacao'),
+                oabNum: v('oabNum'), oabUf: v('oabUf'), inst: v('inst'), sem: v('sem'), cargo: v('cargo'),
+                cidade: v('cidade'), uf: v('uf'), modalidade: v('modalidade'), anos: v('anos'), pretensao: v('pretensao'),
+                vol: v('vol'), areas: ((m && m.areas) || []).slice(), resumo: v('resumo'), tituloP: v('tituloP'),
+                linkedin: v('linkedin'), lattes: v('lattes'), habs: v('habs'),
+                exps: copia(m && m.exps, ['cargo', 'org', 'ini', 'fim', 'desc']),
+                forms: copia(m && m.forms, ['curso', 'inst', 'ini', 'fim']),
+                idis: copia(m && m.idis, ['lng', 'nivel']),
+                // Quem já tem currículo já autorizou no primeiro envio.
+                lgpd: !!m
+            },
+            arquivos: Object.assign({}, (m && m.arquivos) || {}),
+            fotoUrl: fotoDe(m),
+            fotoLocal: null,
+            subindo: {},
+            // Sem currículo salvo, o servidor recusa anexo (422): os escolhidos esperam o primeiro "Salvar".
+            pendentes: {},
+            mudouArquivo: false,
+            rolagem: 0,
+            erro: '',
+            enviando: false
+        };
+        gravarNotaJa();
+        S.tlm = 'cvForm';
+        S.vgDet = null;
+        S.vf = null;
+        S.vgDel = null;
+        S.cvDet = null;
+        S.cvDoc = null;
+        S.cvDel = null;
+        relogiosDetalhe = [];
+        limpar($('teVagaModal'));
+        renderFormCv();
+    }
+
+    /**
+     * Anexo do formulário (carteira, comprovante, currículo): vai ao servidor assim que escolhido
+     * (multipart `arquivo`); o servidor valida tipo e tamanho e o erro dele aparece no rodapé do corpo.
+     */
+    function campoAnexo(tipo, texto, aceita) {
+        var F = S.cvF, a = F.arquivos[tipo];
+        var nome = F.subindo[tipo] || (F.pendentes[tipo] && F.pendentes[tipo].name) || (a && a.nome) || texto;
+        return el('span', { class: 'te-cv-anexo' }, [
+            ic('bi-paperclip'),
+            el('span', { class: 'te-flex1 te-reticencias', text: nome }),
+            el('input', { type: 'file', attrs: { accept: aceita }, onchange: function (e) { enviarArquivoCv(tipo, e.target); } })
+        ]);
+    }
+
+    function enviarArquivoCv(tipo, input) {
+        var F = S.cvF, arq = input.files && input.files[0];
+        if (!F || !arq || !podeEscreverCv()) {
+            return;
+        }
+        F.rolagem = ($('teTlmCorpo') || {}).scrollTop || 0;
+        F.erro = '';
+        if (tipo === 'foto') {
+            if (F.fotoLocal && window.URL && URL.revokeObjectURL) {
+                URL.revokeObjectURL(F.fotoLocal);
+            }
+            F.fotoLocal = window.URL && URL.createObjectURL ? URL.createObjectURL(arq) : null;
+        }
+        if (!F.edicao) {
+            // Primeiro cadastro: guarda e mostra como escolhido; vai ao servidor depois do primeiro salvar.
+            F.pendentes[tipo] = arq;
+            renderFormCv();
+            return;
+        }
+        F.subindo[tipo] = arq.name;
+        renderFormCv();
+        var fd = new FormData();
+        fd.append('arquivo', arq);
+        pedirCv('POST', ROTA.curriculoArquivo(tipo), fd).then(function (r) {
+            if (S.cvF !== F) {
+                return;
+            }
+            delete F.subindo[tipo];
+            if (tipo === 'foto') {
+                F.fotoLocal = null;
+            }
+            if (!r.ok) {
+                F.erro = r.mensagem;
+                renderFormCv();
+                return;
+            }
+            var c = r.curriculo || {};
+            F.arquivos = Object.assign({}, F.arquivos, c.arquivos || {});
+            F.fotoUrl = fotoDe(c) || F.fotoUrl;
+            F.mudouArquivo = true;
+            renderFormCv();
+        });
+    }
+
+    function removerFotoCv(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var F = S.cvF;
+        if (!F || !podeEscreverCv()) {
+            return;
+        }
+        if (F.pendentes.foto) {
+            // Foto só escolhida (ainda não enviada): basta esquecê-la.
+            delete F.pendentes.foto;
+            if (F.fotoLocal && window.URL && URL.revokeObjectURL) {
+                URL.revokeObjectURL(F.fotoLocal);
+            }
+            F.fotoLocal = null;
+            renderFormCv();
+            return;
+        }
+        pedirCv('POST', ROTA.curriculoArquivoRemover('foto'), {}).then(function (r) {
+            if (S.cvF !== F) {
+                return;
+            }
+            if (!r.ok) {
+                F.erro = r.mensagem;
+                renderFormCv();
+                return;
+            }
+            F.arquivos = Object.assign({}, F.arquivos, { foto: null });
+            F.fotoUrl = null;
+            F.mudouArquivo = true;
+            renderFormCv();
+        });
+    }
+
+    /** Listas de experiência, formação e idiomas (l.1179 a 1181): cada campo grava no item; a lixeira remove. */
+    function itensCv(k, montar, novo, rotAdd) {
+        var F = S.cvF, L = F.f[k];
+        var rm = function (i) {
+            return el('button', {
+                type: 'button', class: 'te-cv-rm', title: 'Remover',
+                onclick: function (e) { e.preventDefault(); F.f[k] = F.f[k].filter(function (_, j) { return j !== i; }); renderFormCv(); }
+            }, ic('bi-trash'));
+        };
+        return L.map(function (it, i) { return montar(it, rm(i)); }).concat([
+            el('button', {
+                type: 'button', class: 'te-cv-add',
+                onclick: function () { F.f[k] = F.f[k].concat([Object.assign({}, novo)]); renderFormCv(); }
+            }, [ic('bi-plus-lg'), rotAdd])
+        ]);
+    }
+
+    function secaoCv(icone, texto) {
+        return el('div', { class: 'te-cv-secao' }, [ic(icone), texto]);
+    }
+
+    function pequeno(texto, controle) { return rotuloVf(texto, controle, ' is-pequeno'); }
+
+    /** O formulário na ordem do desenho (l.254 a 283), com os blocos condicionais por situação (l.1174). */
+    function renderFormCv() {
+        var F = S.cvF;
+        if (!F || S.tlm !== 'cvForm') {
+            return;
+        }
+        var f = F.f, Lt = listasCv(), sit = f.situacao;
+        var temOab = sit === 'adv' || sit === 'estOab', temCurso = sit === 'est' || sit === 'estOab' || sit === 'bach';
+        var foto = F.fotoLocal || F.fotoUrl;
+        var circulo = el('label', { class: 'te-cv-foto' + (foto ? ' is-foto' : ''), title: 'Escolher foto' }, [
+            foto ? null : ic('bi-camera'),
+            el('span', { class: 'te-cv-foto-lapis' }, ic('bi-pencil')),
+            el('input', { type: 'file', attrs: { accept: 'image/*' }, onchange: function (e) { enviarArquivoCv('foto', e.target); } })
+        ]);
+        if (foto) {
+            circulo.style.backgroundImage = 'url("' + String(foto).replace(/["\\\n\r]/g, function (c) { return encodeURIComponent(c); }) + '")';
+        }
+        var insta = el('input', {
+            class: 'te-cv-insta-ctl', value: f.insta, placeholder: 'usuario',
+            // `tfOnInsta` (l.1178): sem @, sem o endereço do Instagram, sem o resto da URL e sem espaço.
+            oninput: function (e) {
+                var limpo = e.target.value.replace(/^@+/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/[\/?#].*$/, '').replace(/\s/g, '');
+                f.insta = limpo;
+                if (e.target.value !== limpo) {
+                    e.target.value = limpo;
+                }
+            }
+        });
+
+        var corpo = [
+            el('div', { class: 'te-cv-foto-linha' }, [
+                circulo,
+                el('div', { class: 'te-cv-foto-txt' }, [
+                    el('b', { text: 'Foto de perfil' }),
+                    el('span', { text: 'JPG ou PNG. Aparece para o escritório junto com seu currículo.' }),
+                    foto && !F.subindo.foto ? el('button', { type: 'button', class: 'te-cv-foto-rm', onclick: removerFotoCv }, [ic('bi-trash'), ' Remover foto']) : null
+                ]),
+                el('label', { class: 'te-vf-rot te-cv-insta-campo' }, [
+                    'INSTAGRAM',
+                    el('span', { class: 'te-cv-insta-box' }, [el('span', { class: 'te-cv-insta-pre' }, [ic('bi-instagram'), el('b', { text: '@' })]), insta])
+                ])
+            ]),
+            el('div', { class: 'te-vf-grade' }, [
+                rotuloVf('NOME COMPLETO *', ctlVf('input', f, 'nome', { type: 'text' })),
+                rotuloVf('E-MAIL *', ctlVf('input', f, 'email', { type: 'email' })),
+                rotuloVf('TELEFONE / WHATSAPP', ctlVf('input', f, 'tel', { type: 'tel' }))
+            ]),
+            el('div', { class: 'te-vf-rot' }, [
+                'SITUAÇÃO ACADÊMICA E NA OAB',
+                el('div', { class: 'te-cv-sits' }, CV_SIT_OPS.map(function (o) {
+                    var on = sit === o[0];
+                    return el('button', {
+                        type: 'button', class: 'te-cv-sit-op' + (on ? ' is-on' : ''),
+                        attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                        onclick: function () { f.situacao = o[0]; F.erro = ''; renderFormCv(); }
+                    }, [ic(o[2]), o[1]]);
+                }))
+            ]),
+            temOab ? el('div', { class: 'te-vf-grade is-base' }, [
+                rotuloVf(sit === 'estOab' ? 'INSCRIÇÃO DE ESTAGIÁRIO' : 'OAB Nº', ctlVf('input', f, 'oabNum', { type: 'text', placeholder: 'Somente números', inputMode: 'numeric' })),
+                rotuloVf('OAB UF', selectVf(f, 'oabUf', Lt.ufs)),
+                rotuloVf('CARTEIRA DA OAB', campoAnexo('oab', 'Anexar carteira (PDF ou foto)', '.pdf,.jpg,.jpeg,.png'))
+            ]) : null,
+            temCurso ? el('div', { class: 'te-vf-grade is-base' }, [
+                rotuloVf('INSTITUIÇÃO DE ENSINO', ctlVf('input', f, 'inst', { type: 'text', placeholder: 'Nome da faculdade' })),
+                rotuloVf(sit === 'bach' ? 'ANO DE CONCLUSÃO' : 'SEMESTRE ATUAL', ctlVf('input', f, 'sem', { type: 'text', placeholder: sit === 'bach' ? 'Ano' : 'Semestre' })),
+                rotuloVf(sit === 'bach' ? 'DIPLOMA OU CERTIFICADO DE CONCLUSÃO' : 'COMPROVANTE DE MATRÍCULA', campoAnexo('matricula', 'Anexar comprovante (PDF ou foto)', '.pdf,.jpg,.jpeg,.png'))
+            ]) : null,
+            el('div', { class: 'te-vf-grade' }, [rotuloVf('CARGO PRETENDIDO', selectVf(f, 'cargo', Lt.cargos))]),
+            el('div', { class: 'te-vf-grade' }, [
+                rotuloVf('CIDADE', ctlVf('input', f, 'cidade', { type: 'text' })),
+                rotuloVf('UF', selectVf(f, 'uf', Lt.ufs)),
+                rotuloVf('MODALIDADE PREFERIDA', selectVf(f, 'modalidade', Lt.modalidades)),
+                rotuloVf('ANOS DE EXPERIÊNCIA', ctlVf('input', f, 'anos', { type: 'number', min: 0 }))
+            ]),
+            el('div', { class: 'te-vf-grade is-base' }, [
+                rotuloVf('PRETENSÃO SALARIAL', ctlVf('input', f, 'pretensao', { type: 'text', placeholder: 'Valor mensal ou A combinar' })),
+                el('div', { class: 'te-vf-rot' }, [
+                    'TRABALHO VOLUNTÁRIO',
+                    el('div', { class: 'te-cv-vol-seg' }, CV_VOL_OPS.map(function (o) {
+                        var on = f.vol === o[0];
+                        return el('button', {
+                            type: 'button', class: 'te-cv-vol-op' + (on ? ' is-on' : ''),
+                            attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                            onclick: function () { f.vol = on ? '' : o[0]; renderFormCv(); }
+                        }, o[1]);
+                    }))
+                ])
+            ]),
+            el('div', { class: 'te-vf-rot' }, [
+                'ÁREAS DE ATUAÇÃO',
+                el('div', { class: 'te-vf-areas' }, (Lt.areas || []).map(function (a) {
+                    var on = f.areas.indexOf(a) >= 0;
+                    return el('button', {
+                        type: 'button', class: 'te-cv-area' + (on ? ' is-on' : ''),
+                        attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                        onclick: function () {
+                            f.areas = on ? f.areas.filter(function (y) { return y !== a; }) : f.areas.concat([a]);
+                            renderFormCv();
+                        }
+                    }, a);
+                }))
+            ]),
+            rotuloVf('RESUMO PROFISSIONAL', ctlVf('textarea', f, 'resumo', { rows: 4, placeholder: 'Formação, experiência e diferenciais' })),
+            secaoCv('bi-file-earmark-person', 'APRESENTAÇÃO DO CURRÍCULO'),
+            el('div', { class: 'te-vf-grade' }, [
+                pequeno('TÍTULO PROFISSIONAL', ctlVf('input', f, 'tituloP', { type: 'text', placeholder: 'Profissões separadas por |' })),
+                pequeno('LINKEDIN', ctlVf('input', f, 'linkedin', { type: 'text', placeholder: 'Endereço do perfil' })),
+                pequeno('CURRÍCULO LATTES', ctlVf('input', f, 'lattes', { type: 'text', placeholder: 'Endereço do Lattes (opcional)' }))
+            ]),
+            secaoCv('bi-briefcase', 'EXPERIÊNCIA PROFISSIONAL')
+        ].concat(itensCv('exps', function (it, rm) {
+            return el('div', { class: 'te-cv-item' }, [
+                el('div', { class: 'te-cv-item-exp' }, [
+                    pequeno('CARGO / FUNÇÃO', ctlVf('input', it, 'cargo', { type: 'text' })),
+                    pequeno('EMPRESA / INSTITUIÇÃO', ctlVf('input', it, 'org', { type: 'text' })),
+                    pequeno('INÍCIO', ctlVf('input', it, 'ini', { type: 'text', placeholder: 'Ano' })),
+                    pequeno('FIM', ctlVf('input', it, 'fim', { type: 'text', placeholder: 'Ano ou Atual' })),
+                    rm
+                ]),
+                pequeno('ATIVIDADES', ctlVf('textarea', it, 'desc', { rows: 2, placeholder: 'Principais atividades e resultados' }))
+            ]);
+        }, { cargo: '', org: '', ini: '', fim: '', desc: '' }, 'Adicionar experiência')).concat([
+            secaoCv('bi-mortarboard', 'FORMAÇÃO ACADÊMICA E CURSOS')
+        ]).concat(itensCv('forms', function (it, rm) {
+            return el('div', { class: 'te-cv-item te-cv-item-form' }, [
+                pequeno('CURSO / NÍVEL', ctlVf('input', it, 'curso', { type: 'text' })),
+                pequeno('INSTITUIÇÃO', ctlVf('input', it, 'inst', { type: 'text' })),
+                pequeno('INÍCIO', ctlVf('input', it, 'ini', { type: 'text', placeholder: 'Ano' })),
+                pequeno('CONCLUSÃO', ctlVf('input', it, 'fim', { type: 'text', placeholder: 'Ano' })),
+                rm
+            ]);
+        }, { curso: '', inst: '', ini: '', fim: '' }, 'Adicionar formação ou curso')).concat([
+            secaoCv('bi-translate', 'IDIOMAS E HABILIDADES')
+        ]).concat(itensCv('idis', function (it, rm) {
+            return el('div', { class: 'te-cv-item-idi' }, [
+                pequeno('IDIOMA', ctlVf('input', it, 'lng', { type: 'text' })),
+                pequeno('NÍVEL', selectVf(it, 'nivel', CV_NIVEIS)),
+                rm
+            ]);
+        }, { lng: '', nivel: '' }, 'Adicionar idioma')).concat([
+            pequeno('HABILIDADES PROFISSIONAIS', ctlVf('input', f, 'habs', { type: 'text', placeholder: 'Separe por vírgula' })),
+            rotuloVf('CURRÍCULO EM PDF OU WORD', campoAnexo('curriculo', 'Anexar arquivo (opcional)', '.pdf,.doc,.docx')),
+            el('label', { class: 'te-cv-lgpd' }, [
+                el('input', { type: 'checkbox', checked: !!f.lgpd, onchange: function (e) { f.lgpd = e.target.checked; } }),
+                el('span', { text: CV_LGPD })
+            ]),
+            erroTlm(F.erro)
+        ]);
+
+        var botoes = [
+            botaoTlm('Cancelar', 'bi-x', '', fecharTlm),
+            botaoTlm('Pré-visualizar', 'bi-eye', '', previaDoFormCv),
+            botaoTlm('Salvar currículo', 'bi-check2', 'pri', salvarCv)
+        ];
+        if (F.edicao) {
+            botoes.push(botaoTlm('Excluir meu currículo', 'bi-trash', '', function () {
+                pedirExclusaoCv(ROTA.curriculoExcluirMeu(), 'Excluir seu currículo e todas as suas candidaturas? Esta ação não pode ser desfeita.');
+            }));
+        }
+        modalVaga({ icone: 'bi-person-vcard', titulo: F.edicao ? 'Editar currículo' : 'Cadastrar currículo', largura: '720px', corpo: corpo, botoes: botoes });
+        if (F.rolagem) {
+            $('teTlmCorpo').scrollTop = F.rolagem;
+            F.rolagem = 0;
+        }
+    }
+
+    /**
+     * Corpo do POST (salvar e prévia): as listas só com os itens preenchidos (l.1006 e 1094). A situação
+     * vai como `sit` (nome do desenho, lido pelo DadosDoCurriculo) e repetida em `situacao` (nome da resposta).
+     */
+    function corpoDoCv(f) {
+        var t = function (x) { return String(x || '').trim(); };
+        return {
+            nome: t(f.nome), email: t(f.email), tel: t(f.tel), insta: t(f.insta), sit: f.situacao || '', situacao: f.situacao || '',
+            oabNum: t(f.oabNum), oabUf: f.oabUf || '', inst: t(f.inst), sem: t(f.sem), cargo: f.cargo || '',
+            cidade: t(f.cidade), uf: f.uf || '', modalidade: f.modalidade || '', anos: t(f.anos), resumo: t(f.resumo),
+            pretensao: t(f.pretensao), vol: f.vol || '', tituloP: t(f.tituloP), linkedin: t(f.linkedin), lattes: t(f.lattes),
+            habs: t(f.habs), areas: f.areas.slice(),
+            exps: f.exps.filter(function (x) { return !vazio(x.cargo) || !vazio(x.org); }),
+            forms: f.forms.filter(function (x) { return !vazio(x.curso) || !vazio(x.inst); }),
+            idis: f.idis.filter(function (x) { return !vazio(x.lng); }),
+            lgpd: !!f.lgpd
+        };
+    }
+
+    /** Validação na ordem do `salvarCv()` (l.1006); o servidor repete e responde 422 com as mesmas mensagens. */
+    function erroDoFormCv(f) {
+        if (vazio(f.nome)) {
+            return 'Informe o nome completo.';
+        }
+        if (!/^\S+@\S+\.\S+$/.test(String(f.email || '').trim())) {
+            return 'Informe um e-mail válido.';
+        }
+        if (!f.situacao) {
+            return 'Informe sua situação: advogado(a), estagiário(a) com OAB, estudante ou bacharel(a).';
+        }
+        if ((f.situacao === 'adv' || f.situacao === 'estOab') && vazio(f.oabNum)) {
+            return 'Informe o número de inscrição na OAB.';
+        }
+        if ((f.situacao === 'est' || f.situacao === 'estOab') && vazio(f.inst)) {
+            return 'Informe a instituição de ensino.';
+        }
+        return f.lgpd ? '' : 'É preciso autorizar o uso dos dados (LGPD) para enviar o currículo.';
+    }
+
+    function travarRodape(sim) {
+        Array.prototype.forEach.call(document.querySelectorAll('#teVagaModal .te-tlm-rodape button'), function (b) { b.disabled = sim; });
+    }
+
+    function salvarCv() {
+        var F = S.cvF;
+        if (!F || F.enviando || !podeEscreverCv()) {
+            return;
+        }
+        var erro = erroDoFormCv(F.f);
+        if (erro) {
+            F.erro = erro;
+            F.rolagem = 1e6;
+            renderFormCv();
+            return;
+        }
+        F.enviando = true;
+        travarRodape(true);
+        pedirCv('POST', ROTA.curriculoSalvar(), corpoDoCv(F.f)).then(function (r) {
+            if (S.cvF !== F) {
+                return;
+            }
+            F.enviando = false;
+            if (!r.ok) {
+                F.erro = r.mensagem;
+                F.rolagem = 1e6;
+                renderFormCv();
+                return;
+            }
+            var pendentes = F.pendentes;
+            F.mudouArquivo = false;
+            F.pendentes = {};
+            fecharTlm();
+            mostrarToast({ tit: 'Currículo salvo', txt: 'Use-o para se candidatar às vagas.', hora: '' });
+            enviarPendentesCv(pendentes).then(function () { carregarCurriculos(); });
+        });
+    }
+
+    /**
+     * Depois do primeiro "Salvar currículo": envia, um de cada vez, os arquivos escolhidos antes de o
+     * currículo existir. O erro de cada envio sai em toast (o formulário já fechou).
+     */
+    function enviarPendentesCv(pendentes) {
+        return ['foto', 'oab', 'matricula', 'curriculo'].filter(function (t) { return !!pendentes[t]; }).reduce(function (fila, t) {
+            return fila.then(function () {
+                var fd = new FormData();
+                fd.append('arquivo', pendentes[t]);
+                return pedirCv('POST', ROTA.curriculoArquivo(t), fd).then(function (r) {
+                    if (!r.ok) {
+                        toastErro(r.mensagem);
+                    }
+                });
+            });
+        }, Promise.resolve());
+    }
+
+    /** "Pré-visualizar" (l.1094): manda os dados ainda não salvos e mostra o HTML; volta ao formulário. */
+    function previaDoFormCv() {
+        var F = S.cvF;
+        if (!F || F.enviando || !podeEscreverCv()) {
+            return;
+        }
+        F.rolagem = ($('teTlmCorpo') || {}).scrollTop || 0;
+        travarRodape(true);
+        pedirHtml('POST', ROTA.curriculoPrevia(), corpoDoCv(F.f)).then(function (r) {
+            if (S.cvF !== F || S.tlm !== 'cvForm') {
+                return;
+            }
+            if (!r.ok) {
+                travarRodape(false);
+                F.erro = r.mensagem;
+                F.rolagem = 1e6;
+                renderFormCv();
+                return;
+            }
+            // O PDF é sempre do currículo salvo: só aparece quando ele já existe.
+            abrirDocCv(r.html, (S.cv && S.cv.meu && S.cv.meu.pdfUrl) || '', true);
+        });
+    }
+
     /* ---------------------------------------------------------------- aviso no canto */
 
     var temporizadorToast = null;
@@ -3950,6 +5447,7 @@
     // A aba Vagas só aparece depois que o servidor disser `veAba`; sem resposta, fica só Demandas.
     if (!S.painel.bloqueio) {
         carregarVagas();
+        carregarCurriculos();
     }
 
     if (S.painel.avisoDeMensagem) {

@@ -124,6 +124,8 @@ final readonly class ResolvedorDeCaminhoLocal
             CategoriaDeArquivo::FOTO_PERFIL         => $this->raiz($this->fotosPerfilDir),
             CategoriaDeArquivo::KANBAN_ANEXO        => $this->raiz($this->kanbanUploadsDir),
             CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO => $this->trabalhoExternoRaiz(),
+            // Subpasta da mesma raiz: os currículos não se misturam com os documentos das demandas.
+            CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO => $this->trabalhoExternoRaiz() . '/curriculos',
 
             CategoriaDeArquivo::PASTA_IMAGEM_EDITOR,
             CategoriaDeArquivo::COBRANCA_DOCUMENTO  => throw new \LogicException('resolvidas por prefixoDe()'),
