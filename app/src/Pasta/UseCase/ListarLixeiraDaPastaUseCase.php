@@ -9,6 +9,7 @@ use App\Pasta\DTO\LixeiraDaPastaOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Shared\Doctrine\Filter\AcessoALixeira;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
@@ -30,7 +31,13 @@ final class ListarLixeiraDaPastaUseCase
     ) {
     }
 
-    public function executar(Pasta $pasta, Tenant $tenant): LixeiraDaPastaOutput
+    /**
+     * `$abasOcultas`: as abas ocultas para quem lê; com o Financeiro oculto o contrato de honorários
+     * não aparece na lixeira (regra `VisibilidadeDasAbasDaPasta::documentosVisiveis`).
+     *
+     * @param list<string> $abasOcultas
+     */
+    public function executar(Pasta $pasta, Tenant $tenant, array $abasOcultas = []): LixeiraDaPastaOutput
     {
         if ($pasta->getTenant() !== $tenant) {
             throw new AccessDeniedException('Pasta não pertence ao tenant do usuário.');
@@ -38,7 +45,7 @@ final class ListarLixeiraDaPastaUseCase
 
         return $this->lixeira->comLixeiraVisivel(fn (): LixeiraDaPastaOutput => LixeiraDaPastaOutput::montar(
             $this->secoes->listarLixeiraDaPasta($pasta, $tenant),
-            $this->documentos->listarLixeiraDaPasta($pasta, $tenant),
+            VisibilidadeDasAbasDaPasta::documentosVisiveis($this->documentos->listarLixeiraDaPasta($pasta, $tenant), $abasOcultas),
         ));
     }
 }

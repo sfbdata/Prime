@@ -14,8 +14,10 @@
    novo é montado LÁ, em JS (`inserirMensagem`), com a MESMA estrutura daqui:
    mudou aqui, muda lá — senão o registro recém-enviado aparece com outra cara.
 
-   O que o desenho mostra e é função nova NÃO aparece: encaminhar via Chat I.A,
-   destacar, etiqueta do registro, presença do autor. Já existem: a janela de
+   O que o desenho mostra e é função nova NÃO aparece: destacar, etiqueta do registro,
+   presença do autor. "Encaminhar via Chat I.A" existe (D:1405 e D:6305): o ↪ espelhado do
+   cartão (`.js-encaminhar`, depois do Responder) e o item do menu, entre Copiar texto e o
+   separador; só com a Central (`central_disponivel()`) e fora da lápide. Já existem: a janela de
    edição de 15 minutos (`comentario_editavel`; os minutos na dica do lápis, PAS-037) e o RESPONDER — a
    resposta fica recuada sob a raiz (`.ps-respostas[data-resposta-de]`), com a
    faixa "Resposta a NOME"; um nível só (responder a uma resposta liga à raiz).
@@ -25,14 +27,15 @@
 
    Menu do registro (PAS-025; desenho dc L.5958, `menu` de `regsLinha`): botão direito no
    cartão abre um menu só (#psRegMenu), preenchido com o cartão clicado — Responder, Copiar
-   texto, — , "Editar · N min" e "Excluir comentário · N min", ou "· bloqueado" com `bi-lock`
-   e o motivo na dica. Os itens clicam os botões que o cartão já tem (a ação real, o CSRF e a
-   URL de sempre). Encaminhar e Destacar não existem aqui. O desenho não tem ⋮ no cartão; para
+   texto, Encaminhar via Chat I.A, separador, "Editar · N min" e "Excluir comentário · N min", ou
+   "· bloqueado" com `bi-lock` e o motivo na dica. Os itens clicam os botões que o cartão já
+   tem (a ação real, o CSRF e a URL de sempre); o Encaminhar clica o ↪ do cartão, que dispara
+   `bj-central:despachar` (pasta-encaminhar.js). Destacar não existe aqui. O desenho não tem ⋮ no cartão; para
    teclado e toque o cartão ganha um ⋮ discreto (`.js-reg-menu`, 28×28 como o da observação)
    que abre o MESMO menu. Os minutos saem de `data-janela-ate` (fim da janela, epoch) no
    momento de abrir; `data-do-autor` escolhe o motivo do bloqueio. Contrato com o JS do
    show.html.twig: #psRegMenu · .js-reg-menu · .js-reg-responder · .js-reg-copiar ·
-   .js-reg-editar · .js-reg-excluir. Sem "Imprimir": no desenho (dc L.6454-6466) ele mora só no ⋮
+   .js-reg-encaminhar · .js-reg-editar · .js-reg-excluir. Sem "Imprimir": no desenho (dc L.6454-6466) ele mora só no ⋮
    da observação de Detalhes.
 
    Contexto: `pasta`, `anotacoes` (TimelineItemDTO do tipo MENSAGEM),
@@ -53,6 +56,9 @@
    `|date` do Twig não dá. O JS que monta o registro novo usa a mesma lista. #}
 {% set meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'] %}
 {% set fotos = fotosResponsaveis|default({}) %}
+{# "Encaminhar via Chat I.A": a Central conferida UMA vez (cada chamada consulta o vínculo). Na
+   lápide o servidor dá 404 ao despacho (spec §2.11): nada a oferecer. É o id da pasta ou null. #}
+{% set encaminharPasta = central_disponivel() and not pasta.estaExcluida ? pasta.id : null %}
 
 <style>
     /* PAS-025: o ⋮ do registro copia o da observação (dc L.2335: 28×28, #8496a3, 14px). */
@@ -146,7 +152,8 @@
     {# ── Linha do tempo ──
        `data-hoje` é a chave do dia de HOJE no fuso do servidor: o JS compara com a
        primeira pílula para decidir se o registro novo abre um dia novo. #}
-    <div id="timelineList" class="ps-registro{{ anotacoes|length == 0 ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}">
+    <div id="timelineList" class="ps-registro{{ anotacoes|length == 0 ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}"
+         {%- if encaminharPasta %} data-encaminhar-pasta="{{ encaminharPasta }}"{% endif %}>
         {% if anotacoes|length == 0 %}
             <div class="ps-vazio" id="timelineVazio">
                 <i class="bi bi-chat-left-text"></i>
@@ -171,14 +178,14 @@
                     {% set diaAnterior = dia %}
                 {% endif %}
 
-                {{ registro.cartao(item, null, pasta, fotos, extra) }}
+                {{ registro.cartao(item, null, pasta, fotos, extra, encaminharPasta) }}
 
                 {# As respostas, recuadas sob a raiz, da mais antiga à mais nova. Escondem e
                    aparecem junto com a raiz (mesma classe `--extra`). #}
                 {% if item.respostas|length > 0 %}
                     <div class="ps-respostas{{ extra ? ' ps-anotacao--extra d-none' : '' }}" data-resposta-de="{{ item.mensagemId }}">
                         {% for resposta in item.respostas %}
-                            {{ registro.cartao(resposta, item, pasta, fotos, false) }}
+                            {{ registro.cartao(resposta, item, pasta, fotos, false, encaminharPasta) }}
                         {% endfor %}
                     </div>
                 {% endif %}
@@ -205,6 +212,12 @@
         <button type="button" class="ps-processo-menu-item js-reg-copiar" role="menuitem">
             <i class="bi bi-clipboard"></i><span>Copiar texto</span>
         </button>
+        {# D:6305: entre "Copiar texto" e "Destacar" (que não existe aqui); clica o ↪ do cartão. #}
+        {% if encaminharPasta %}
+            <button type="button" class="ps-processo-menu-item js-reg-encaminhar" role="menuitem">
+                <i class="bi bi-send"></i><span>Encaminhar via Chat I.A</span>
+            </button>
+        {% endif %}
         {% if not pasta.estaExcluida %}
             <div class="ps-processo-menu-sep" role="separator"></div>
             <button type="button" class="ps-processo-menu-item js-reg-editar" role="menuitem">
@@ -221,8 +234,9 @@
    Um cartão do registro. `raiz` é o item respondido quando o cartão é uma
    resposta pendurada nele (null para a raiz e para a resposta solta — a órfã,
    cuja original foi excluída, ou a que responde a algo fora do limite).
+   `encaminharPasta`: o id da pasta quando o ↪ "Encaminhar via Chat I.A" entra, ou null.
 #}
-{% macro cartao(item, raiz, pasta, fotos, extra) %}
+{% macro cartao(item, raiz, pasta, fotos, extra, encaminharPasta) %}
     {% set autor = item.autorNome ?? item.autorEmail ?? '' %}
     {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
     {% set iniciais = partes|length > 0
@@ -250,7 +264,9 @@
     <article class="ps-anotacao{{ doSistema ? ' ps-anotacao--sistema' : '' }}{{ item.ehResposta ? ' ps-anotacao--resposta' : '' }}{{ extra ? ' ps-anotacao--extra d-none' : '' }}"
              {% if item.mensagemId %}id="pasta-msg-{{ item.mensagemId }}"
              data-janela-ate="{{ item.dataHora|date('U') + comentario_janela_minutos() * 60 }}"
-             data-do-autor="{{ app.user and item.usuarioId == app.user.id ? '1' : '0' }}"{% endif %}>
+             data-do-autor="{{ app.user and item.usuarioId == app.user.id ? '1' : '0' }}"{% endif %}
+             {#- Presença do autor (pasta-presenca-autor.js). O registro do sistema também tem autor (dc `autoReg`, L6170). #}
+             {%- if item.usuarioId %} data-autor-id="{{ item.usuarioId }}"{% endif %}>
         {% if item.ehResposta %}
             {# O desenho grava o rótulo em caixa alta; quem põe em maiúsculas é o CSS. #}
             <div class="ps-anotacao-resposta-rot">
@@ -304,6 +320,18 @@
                         data-resposta-nome="{{ alvoNome ?: 'Autor desconhecido' }}"
                         {%- if raiz and item.usuarioId and autor %} data-resposta-autor-id="{{ item.usuarioId }}" data-resposta-autor-nome="{{ autor }}"{% endif %}>
                     <i class="bi bi-reply-fill"></i>
+                </button>
+            {% endif %}
+            {% if encaminharPasta and item.mensagemId %}
+                {# D:1405: o ↪ espelhado, 28×26, depois do Responder e antes da hora; aparece com o
+                   cartão sob o mouse, como o Responder (`data-acao`). Só ids: o servidor relê o registro. #}
+                <button type="button"
+                        class="ps-anotacao-acao ps-anotacao-acao--responder js-encaminhar"
+                        title="Encaminhar via Chat I.A" aria-label="Encaminhar via Chat I.A"
+                        data-encaminhar-pasta="{{ encaminharPasta }}"
+                        data-encaminhar-tipo="registro_dados"
+                        data-encaminhar-id="{{ item.mensagemId }}">
+                    <i class="bi bi-reply-fill" style="display:inline-block;transform:scaleX(-1)"></i>
                 </button>
             {% endif %}
             {# Só a hora: o dia está na pílula acima. O title traz a data inteira. #}

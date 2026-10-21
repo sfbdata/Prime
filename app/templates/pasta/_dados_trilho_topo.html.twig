@@ -43,9 +43,12 @@
                aba Processo), a ação e "classe · tribunal · situação". #}
             {% set apensados = pasta.apensados %}
             <div class="ps-cab-proc-acoes">
+                {# Sem o atalho com a aba Processo oculta para quem vê (ocultar aba). #}
+                {% if 'processo' not in abasOcultas|default([]) %}
                 <button type="button" class="ps-link-btn" data-ps-ir-aba="processo-tab" title="Ir à aba Processo">
                     <i class="bi bi-arrow-left-right"></i>trocar
                 </button>
+                {% endif %}
                 {% if apensados|length > 0 %}
                     <button type="button" class="ps-chip-vinc ps-chip-vinc--apensados" data-ps-toggle="psProcessosVinculados"
                             aria-expanded="false" aria-controls="psProcessosVinculados"

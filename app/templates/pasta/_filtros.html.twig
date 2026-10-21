@@ -20,7 +20,8 @@
         <input type="hidden" name="expediente" value="{{ filters.expediente ?? '' }}">
         <input type="hidden" name="por_pagina" value="{{ pagination.per_page ?? '' }}">
         <div class="pasta-filtros-linha">
-            <div class="pasta-filtros-busca">
+            {# dc L.144: a dica da busca diz o que ela procura. #}
+            <div class="pasta-filtros-busca" data-tip="Buscar por número da pasta, nome do cliente, ação ou número do processo">
                 <i class="bi bi-search"></i>
                 <input type="text" name="busca" class="form-control form-control-sm js-pasta-busca"
                        placeholder="Buscar pasta, cliente, ação ou processo"
@@ -36,8 +37,11 @@
                     data-rotulo="Responsável" aria-label="Filtrar por responsável" tabindex="-1">
                 <option value="">Responsável</option>
                 <option value="sem" {% if filters.responsavel == 'sem' %}selected{% endif %}>Sem responsável</option>
+                {# dc L.146-148 e L.652 (`avBg`): com foto, o avatar do menu e do botão é a foto; sem, as iniciais. #}
+                {% set fotosDoFiltro = fotosResponsaveis|default({}) %}
                 {% for usuario in responsaveis %}
-                    <option value="{{ usuario.id }}" {% if filters.responsavel == usuario.id ~ '' %}selected{% endif %}>{{ usuario.fullName }}</option>
+                    {% set fotoF = fotosDoFiltro[usuario.id]|default(null) %}
+                    <option value="{{ usuario.id }}" {% if filters.responsavel == usuario.id ~ '' %}selected{% endif %}{% if fotoF %} data-foto="{{ path('app_profile_foto_serve', {nome: fotoF}) }}"{% endif %}>{{ usuario.fullName }}</option>
                 {% endfor %}
             </select>
             <i class="bi bi-chevron-down exp-filtro-seta" aria-hidden="true"></i>

@@ -41,6 +41,7 @@ class MensagemDemandaRepository extends ServiceEntityRepository
             ->andWhere('m.demanda IN (:demandas)')
             ->andWhere('m.autor IS NULL OR m.autor <> :usuario')
             ->andWhere('m.id > COALESCE(l.ultimaMensagemLida, 0)')
+            ->andWhere('m.apagadaEm IS NULL')
             ->setParameter('usuario', $usuario)
             ->setParameter('demandas', $demandas)
             ->groupBy('m.demanda');

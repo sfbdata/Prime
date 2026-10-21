@@ -25,6 +25,7 @@ final class RegistroDoSistemaNaPasta
         'cadastro' => 'Cadastro do cliente',
         // Apensado vinculado/desvinculado (P4f): `SYS.proc` do desenho, N:6168.
         'proc'     => 'Processo',
+        'cadeado'  => 'Cadeado',
     ];
 
     public function __construct(
