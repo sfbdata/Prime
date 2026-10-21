@@ -57,6 +57,19 @@ final class AlterarResponsavelDaPastaUseCaseTest extends TestCase
         self::assertStringContainsString('alterado de &quot;Ana&quot; para &quot;Sem responsável&quot;.', (string) $this->cartao()->getConteudo());
     }
 
+    #[TestDox('colaborador sem nome aparece como "Usuário sem nome": o e-mail nunca vai para o cartão')]
+    public function testSemNomeNaoGravaEmail(): void
+    {
+        [$pasta, $tenant, $autor] = $this->cenario();
+        $semNome = (new User())->setEmail('sigiloso@exemplo.com');
+
+        $this->useCase($this->em(1))->executar($pasta, $semNome, $autor, $tenant);
+
+        $conteudo = $this->cartao()->getConteudo();
+        self::assertStringContainsString('para &quot;Usuário sem nome&quot;.', $conteudo);
+        self::assertStringNotContainsString('sigiloso@exemplo.com', $conteudo);
+    }
+
     #[TestDox('escolher quem já é o responsável (ou nenhum, quando não há) não grava nem escreve cartão')]
     public function testSemMudanca(): void
     {

@@ -624,7 +624,7 @@
     }
 
     /* C6-PAS-04 (PAS-033): ao salvar uma edição, o "editado" entra (ou é atualizado) logo depois do
-       autor, com a MESMA dica do Twig. A hora de publicação sai do title da hora do cartão
+       autor (e da tag "Observação", quando há: desenho 02, dc L2458), com a MESMA dica do Twig. A hora de publicação sai do title da hora do cartão
        ("dd/mm/aaaa HH:MM"); a edição é a `editadaEm` do servidor ("dd/mm/aaaa HH:MM"). */
     function marcarEditadoObs(artigo, editadaEm) {
         const topo = artigo ? artigo.querySelector(':scope > .ps-anotacao-topo') : null;
@@ -634,8 +634,8 @@
             marca = document.createElement('span');
             marca.className = 'ps-anotacao-editado detalhes-obs-editado';
             marca.textContent = 'editado';
-            const autor = topo.querySelector(':scope > .ps-anotacao-autor');
-            if (autor) { autor.after(marca); } else { topo.appendChild(marca); }
+            const ancora = topo.querySelector(':scope > .detalhes-obs-tag') || topo.querySelector(':scope > .ps-anotacao-autor');
+            if (ancora) { ancora.after(marca); } else { topo.appendChild(marca); }
         }
         const publicado = (((topo.querySelector(':scope > .ps-anotacao-data') || {}).title) || '').slice(-5);
         const partes    = String(editadaEm || '').split(' ');

@@ -7,6 +7,7 @@ namespace App\Tests\Inteligencia\Support;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Contexto\FonteDeDadosDaPasta;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Service\RegistroDoSistemaNaPasta;
 
 /**
  * Fonte canned para os testes de unidade do montador/UseCase dos agentes: devolve o que o teste
@@ -49,9 +50,14 @@ final class FonteDeDadosDaPastaFalsa implements FonteDeDadosDaPasta
         return array_slice($this->tarefas, 0, $limite);
     }
 
-    public function anotacoesDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array
+    public function anotacoesDaPasta(Tenant $tenant, Pasta $pasta, int $limite, bool $comFinanceiro = true): array
     {
-        return array_slice($this->anotacoes, 0, $limite);
+        $anotacoes = $comFinanceiro ? $this->anotacoes : array_values(array_filter(
+            $this->anotacoes,
+            static fn ($m): bool => !\in_array($m->getSistema(), RegistroDoSistemaNaPasta::DO_FINANCEIRO, true),
+        ));
+
+        return array_slice($anotacoes, 0, $limite);
     }
 
     public function observacoesDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array

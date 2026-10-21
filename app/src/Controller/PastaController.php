@@ -1622,7 +1622,11 @@ class PastaController extends AbstractController
             }
         }
         // Grava e, só quando mudou, escreve o cartão "Responsável" no Registro (desenho 02, dc L3118).
-        $alterarResponsavel->executar($pasta, $responsavel, $currentUser, $tenant);
+        try {
+            $alterarResponsavel->executar($pasta, $responsavel, $currentUser, $tenant);
+        } catch (PastaDeOutroEscritorioException) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         $responsavel = $pasta->getResponsavel();
 
@@ -1947,7 +1951,11 @@ class PastaController extends AbstractController
         }
 
         // Só quando mudou: o cartão "Pró-bono" no Registro (desenho 02, dc L6986).
-        $alterarProBono->executar($pasta, $proBono, $currentUser, $this->tenantContext->getCurrentTenant() ?? throw new \LogicException('Tenant ausente.'));
+        try {
+            $alterarProBono->executar($pasta, $proBono, $currentUser, $this->tenantContext->getCurrentTenant() ?? throw new \LogicException('Tenant ausente.'));
+        } catch (PastaDeOutroEscritorioException) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
 
         return $this->json(['proBono' => $pasta->isProBono()]);
     }

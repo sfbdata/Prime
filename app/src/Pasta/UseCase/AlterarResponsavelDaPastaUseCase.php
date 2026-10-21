@@ -20,6 +20,7 @@ use Doctrine\ORM\EntityManagerInterface;
 final class AlterarResponsavelDaPastaUseCase
 {
     public const SEM_RESPONSAVEL = 'Sem responsável';
+    public const SEM_NOME = 'Usuário sem nome';
 
     public function __construct(
         private readonly RegistroDoSistemaNaPasta $registro,
@@ -61,6 +62,7 @@ final class AlterarResponsavelDaPastaUseCase
             return self::SEM_RESPONSAVEL;
         }
 
-        return $usuario->getFullName() ?: ($usuario->getEmail() ?? self::SEM_RESPONSAVEL);
+        // Nunca o e-mail: o cartão fica no Registro de toda a equipe e na análise da I.A.
+        return $usuario->getFullName() ?: self::SEM_NOME;
     }
 }

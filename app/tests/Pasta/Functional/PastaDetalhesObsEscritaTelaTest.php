@@ -246,6 +246,12 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString("'Publicado às ' + publicado + ' · '", $fn);
         self::assertStringContainsString("'última edição ' + edicao", $fn);
         self::assertStringContainsString("partes[0] + ' às ' + partes[1]", $fn);
+        // Ordem do desenho 02 (dc L2458): autor, tag "Observação", editado. A âncora é a tag e, sem ela, o autor.
+        self::assertMatchesRegularExpression(
+            "/const ancora = topo\\.querySelector\\(':scope > \\.detalhes-obs-tag'\\) \\|\\| topo\\.querySelector\\(':scope > \\.ps-anotacao-autor'\\);\\s*if \\(ancora\\) \\{ ancora\\.after\\(marca\\); \\}/",
+            $fn,
+        );
+        self::assertStringNotContainsString('autor.after(marca)', $fn);
     }
 
     #[TestDox('C6-PAS-05: o cartão leva data-janela-ate = criadaEm + 15 min (epoch) e data-do-autor; o ⋮ recalcula ao abrir')]

@@ -32,6 +32,14 @@ final class RegistroDoSistemaNaPasta
         'pasta'    => 'Dados da pasta',
     ];
 
+    /**
+     * Cartões do sistema que são dado FINANCEIRO (pró-bono e contrato, inclusive os do andamento): seguem a aba
+     * Financeiro além da Dados. Somem da timeline e do Registro de quem tem o Financeiro oculto
+     * (`VisibilidadeDasAbasDaPasta::abasDoEvento('registro_financeiro')`) e do contexto da I.A. sem o financeiro
+     * (`FonteDeDadosDaPasta::anotacoesDaPasta`).
+     */
+    public const DO_FINANCEIRO = ['probono', 'contrato'];
+
     public function __construct(
         private readonly EntityManagerInterface $em,
     ) {
