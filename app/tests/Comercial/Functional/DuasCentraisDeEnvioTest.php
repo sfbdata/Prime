@@ -79,6 +79,21 @@ final class DuasCentraisDeEnvioTest extends KernelTestCase
         }
     }
 
+    #[TestDox('F3f: cada raiz tem o seu modal de teste (a seção aberta mostra o dela), com ids próprios; o JS liga uma vez e usa o modal e o token da raiz do clique')]
+    public function testModalDoTesteNasDuas(): void
+    {
+        self::assertCount(1, $this->doc->filter('[data-sec-externa="com"] > .mc[data-mc] > div.mc-tst[data-mc-tst] + div.mc-tst[data-mc-tst-ok]'));
+        self::assertCount(1, $this->doc->filter('[data-sec-externa="ind"] .mc[data-mc-venda] > div.mc-tst[data-mc-tst] + div.mc-tst[data-mc-tst-ok]'));
+        self::assertSame(['mc-tst-titulo', 'mc-venda-tst-titulo'], $this->doc->filter('.mc-tst-cabeca > b')->each(static fn (Crawler $b): string => (string) $b->attr('id')));
+        $ids = $this->doc->filter('[id]')->each(static fn (Crawler $n): string => (string) $n->attr('id'));
+        self::assertSame($ids, array_values(array_unique($ids)), 'nenhum id repetido entre as duas Centrais');
+
+        $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/comercial-teste.js');
+        self::assertStringContainsString('if (window.McTeste) { return; }', $js, 'o script vem nos dois modos e só liga os ouvintes uma vez');
+        self::assertStringContainsString("modalDaRaiz(alvo ? alvo.closest('.mc')", $js);
+        self::assertStringContainsString("'X-CSRF-Token': aberto.token", $js);
+    }
+
     #[TestDox('JS: o envio mescla os ganchos globais (só na com) e os da própria raiz; a chave registra por raiz; o bloco anota a Central do clique')]
     public function testJsPorRaiz(): void
     {
