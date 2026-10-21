@@ -83,10 +83,11 @@ O mesmo caminho do login por senha, sem cópia:
 - Autenticador `AbstractAuthenticator` puro (com dois `AbstractLoginFormAuthenticator` o container não sobe:
   armadilha 1 da spec de 31/08).
 - Limitador próprio em `/login/google` por IP (bloco em arquivo próprio, como o `agenda_google`).
-- **Master pelo Google [dono]. Recomendação: não.** O Master manda na plataforma inteira e o BlueJus não tem
-  2FA: entrar só por senha mantém um fator que o BlueJus controla, e uma conta Google comprometida não vira
-  acesso à plataforma. Conta com `ROLE_SUPER_ADMIN` que voltar do Google é recusada com "Entre com e-mail e
-  senha." (o `sub` não é gravado).
+- **Master pelo Google: SIM (decisão do dono, 21/10/2026).** O Master entra pelo Google como qualquer conta,
+  com as mesmas conferências. **Risco registrado:** o BlueJus não tem 2FA, então a segurança do Master passa a
+  depender também da conta Google dele (uma conta Google comprometida vira acesso à plataforma inteira). A
+  recomendação anterior era recusar o Master pelo Google; o dono decidiu aceitar. Sugestão para o Master: ligar
+  a verificação em duas etapas na própria conta Google.
 - Nada do Google é guardado além do `sub` (sem token, sem foto).
 
 ## 6. Onde aparece o botão (o desenho 10 não tem) **[dono]**
@@ -135,8 +136,8 @@ muda: o botão do Google é um link para `/login/google`, fora dos campos do for
 
 ## 8. Material do dono
 
-1. Responder os pontos **[dono]**: seção 3 (A ou B), "Master pelo Google", posição do botão (seção 6) e,
-   se quiser opinar, as duas recomendações da seção 2 e 4 (confirmar e-mail; "Manter conectado").
+1. Responder os pontos que faltam: posição do botão (seção 6), confirmar e-mail pelo Google (seção 2) e
+   "Manter conectado" (seção 4). Já decididos em 21/10: seção 3 = (B) em duas entregas; Master pelo Google = sim.
 2. Criar no Google Cloud a credencial "Aplicativo da Web" do login, com o redirecionamento
    `https://<domínio>/login/google/callback`, e pôr as duas variáveis no `.env.prod`. Passo a passo vai junto
    com o PR.
