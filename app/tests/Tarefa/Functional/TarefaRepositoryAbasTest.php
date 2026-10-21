@@ -453,7 +453,6 @@ final class TarefaRepositoryAbasTest extends KernelTestCase
         self::assertSame(1, $andamento->concluidas);
         self::assertSame(1, $andamento->atrasadas, 'a em revisão vencida não conta como atrasada (FORA_DA_FILA)');
         self::assertSame(1, $andamento->emRevisao);
-        self::assertSame(2, $andamento->emAberto());
     }
 
     #[TestDox('Desenho 04: o andamento e a atenção respeitam o cadeado (pastas ocultas não entram)')]

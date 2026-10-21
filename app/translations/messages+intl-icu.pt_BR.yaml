@@ -1069,15 +1069,24 @@ metas:
         atrasadas: Atrasadas
         vencem_em_7_dias: Vencem em 7 dias
         sem_prazo: Sem prazo
+    grupos:
+        atrasadas: Atrasadas
+        proximas: Vencem em 7 dias
+        em_revisao: Aguardando revisão
+        depois: No prazo
+        sem_prazo: Sem prazo
+        concluidas: Concluídas
     status:
         pendente: Pendente
-        para_revisao: Para Revisão
         em_revisao: Em revisão
         concluida: Concluída
         atrasada: Atrasada
+        vence_em_breve: Vence em breve
+        no_prazo: No prazo
+        sem_prazo: Sem prazo
     prioridade:
         normal: Normal
-        prioridade: Prioridade
+        alta: Alta
         urgente: Urgente
     kpis:
         ver: 'Ver {rotulo}'
@@ -1095,7 +1104,6 @@ metas:
     filtros:
         limpar: Limpar filtros
         busca_placeholder: Buscar por título, pasta ou cliente
-        status: Status
         prioridade: Prioridade
         prazo: Prazo
     modos:
@@ -1146,6 +1154,10 @@ metas:
         x_de_y: '{concluidas} de {total}'
         concluidas: concluídas
         percentual_concluidas: Percentual de metas concluídas
+        legenda:
+            concluidas: '{total} concluída(s)'
+            atrasadas: '{total} atrasada(s)'
+            em_revisao: '{total} em revisão'
     atencao:
         titulo: Precisa de atenção
         titulo_e_pasta: '{titulo} · Pasta {nup}'

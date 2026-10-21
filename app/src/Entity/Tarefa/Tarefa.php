@@ -11,6 +11,7 @@ use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use App\Shared\Prazo\RegraDoPrazo;
+use App\Tarefa\Enum\PrioridadeDaMeta;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TarefaRepository::class)]
@@ -52,6 +53,10 @@ class Tarefa implements Auditavel, TenantAware
 
     #[ORM\Column(length: 20)]
     private string $status = self::STATUS_PENDENTE;
+
+    /** Prioridade própria da meta (desenho 04); nasce herdada da pasta (`PrioridadeDaMeta::daPasta`). */
+    #[ORM\Column(length: 20, enumType: PrioridadeDaMeta::class, options: ['default' => 'normal'])]
+    private PrioridadeDaMeta $prioridade = PrioridadeDaMeta::Normal;
 
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $dataCriacao;
@@ -172,6 +177,18 @@ class Tarefa implements Auditavel, TenantAware
     public function setStatus(string $status): self
     {
         $this->status = $status;
+        return $this;
+    }
+
+    public function getPrioridade(): PrioridadeDaMeta
+    {
+        return $this->prioridade;
+    }
+
+    public function setPrioridade(PrioridadeDaMeta $prioridade): self
+    {
+        $this->prioridade = $prioridade;
+
         return $this;
     }
 
