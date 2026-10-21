@@ -61,11 +61,18 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Pasta\Entity\PastaDestaque::class,
         // Estrela de arquivo/subpasta na aba Documentos (D2): mesma natureza do favorito de pasta.
         \App\Pasta\Entity\PastaDocumentoFavorito::class,
+        // Cobrança automática do checklist (desenho 02): estado operacional da rotina (datas dos envios,
+        // previsão); cada aviso que sai já fica na caixa da pessoa. Auditar daria uma linha por dia por item.
+        \App\Pasta\Entity\PastaChecklistCobranca::class,
 
         // Preferência pessoal de tela (densidade, animações, setas, colunas ocultas do Dashboard):
         // estilo de quem olha, sem efeito sobre dado nenhum do escritório. Auditar cada clique no
         // menu ⋮ encheria o audit_log de ruído sem valor de prova.
         \App\Dashboard\Entity\PreferenciaDoUsuario::class,
+
+        // Saída da equipe: o próprio registro já é a trilha (só inclusão, nunca alterado), e a remoção que o
+        // cria já entra no audit_log (RemoverColaboradorDoEscritorioUseCase::registrarAuditoria).
+        \App\Tenant\Entity\SaidaDaEquipe::class,
         // Foto diária do estoque do Dashboard: dado DERIVADO de tarefa/pasta (contagens), regravado
         // pelo cron. Não é ato de ninguém e não prova nada — auditar só duplicaria números.
         \App\Dashboard\Entity\DashboardFoto::class,

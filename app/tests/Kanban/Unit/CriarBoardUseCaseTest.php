@@ -13,6 +13,7 @@ use App\Kanban\Repository\KanbanBoardRepository;
 use App\Kanban\Repository\KanbanColunaRepository;
 use App\Kanban\UseCase\CriarBoardUseCase;
 use App\Repository\UserRepository;
+use App\Tenant\Service\ColaboradoresAtribuiveis;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -50,7 +51,7 @@ final class CriarBoardUseCaseTest extends TestCase
         $input        = new CriarBoardInput();
         $input->nome  = 'Projetos 2026';
 
-        $useCase = new CriarBoardUseCase($boardRepo, $colunaRepo, $userRepo, $em);
+        $useCase = new CriarBoardUseCase($boardRepo, $colunaRepo, new ColaboradoresAtribuiveis($userRepo), $em);
         $useCase->executar($input, $criador, $tenant);
 
         self::assertCount(4, $colunasSalvas);
@@ -86,7 +87,7 @@ final class CriarBoardUseCaseTest extends TestCase
         $input->nome = 'Mural de Tarefas';
         $input->cor  = '#3b82f6';
 
-        $useCase = new CriarBoardUseCase($boardRepo, $colunaRepo, $userRepo, $em);
+        $useCase = new CriarBoardUseCase($boardRepo, $colunaRepo, new ColaboradoresAtribuiveis($userRepo), $em);
         $useCase->executar($input, $criador, $tenant);
 
         self::assertNotNull($boardCapturado);

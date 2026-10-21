@@ -10,7 +10,10 @@ use App\Entity\Tenant\Tenant;
 use App\Repository\UserTenantRepository;
 use App\Tenant\DTO\OrigemRemocao;
 use App\Tenant\DTO\RemoverColaboradorInput;
+use App\Tenant\Entity\SaidaDaEquipe;
+use App\Tenant\Enum\MotivoDaSaida;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
+use App\Tenant\Repository\SaidaDaEquipeRepository;
 use App\Tenant\Service\RegraDosPrimarios;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -27,6 +30,7 @@ final class RemoverColaboradorDoEscritorioUseCase
         private readonly EntityManagerInterface $em,
         private readonly UserTenantRepository $userTenantRepository,
         private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly SaidaDaEquipeRepository $saidas,
     ) {}
 
     public function executar(RemoverColaboradorInput $input): void
@@ -52,6 +56,7 @@ final class RemoverColaboradorDoEscritorioUseCase
             $this->revogarAcessos($input);
 
             $this->registrarAuditoria($input, $vinculo);
+            $this->registrarSaida($input, $vinculo);
 
             $this->em->remove($vinculo);
             $this->em->flush();
@@ -62,6 +67,17 @@ final class RemoverColaboradorDoEscritorioUseCase
 
             throw $e;
         }
+    }
+
+    /** A data da saída sobrevive ao vínculo apagado (spec docs/specs/saida-da-equipe.md; painel do Master, b5). */
+    private function registrarSaida(RemoverColaboradorInput $input, UserTenant $vinculo): void
+    {
+        $this->saidas->registrar(new SaidaDaEquipe(
+            $input->tenant,
+            $input->colaborador,
+            $input->origem === OrigemRemocao::Saida ? MotivoDaSaida::Saiu : MotivoDaSaida::Removido,
+            $vinculo->getTenantRole()?->isSystem() === true,
+        ));
     }
 
     private function validar(RemoverColaboradorInput $input, UserTenant $vinculo): void

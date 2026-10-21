@@ -254,6 +254,22 @@
 #pexChecklist .pex-ck-sem-anexo[hidden] { display: none; }
 #pexChecklist .pex-ck-sem-anexo > .bi { font-size: 9px; }
 
+/* Selo "cobrado Nx" (dc 2311, 6745-6749): mesmo formato do "sem anexo"; âmbar, vermelho a partir de 3. */
+#pexChecklist .pex-ck-cobrado {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    padding-left: 8px;
+    flex-shrink: 0;
+    font-size: 10.5px;
+    font-weight: 700;
+    white-space: nowrap;
+    color: #a8661a;
+}
+#pexChecklist .pex-ck-cobrado--vermelho { color: #c0392b; }
+#pexChecklist .pex-ck-cobrado > .bi { font-size: 9px; }
+
 /* ── Modo de edição: lixeira do desenho (L2177) + alça e renomear (só o sistema) ── */
 #pexChecklist .pex-ck-lista.editando .pex-ck-linha { cursor: default; padding-left: 30px; padding-right: 40px; }
 #pexChecklist .pex-ck-alca {
