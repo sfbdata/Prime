@@ -13,6 +13,7 @@ use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Pasta\Entity\LinkExternoDoPush;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\LinkExternoDoPushException;
+use App\Pasta\Repository\CadeadoDaPastaRepository;
 use App\Processo\Entity\Processo;
 
 /**
@@ -35,6 +36,7 @@ final class ConteudoDoPushCompartilhado
     public function __construct(
         private readonly PublicacaoDjenRepository $publicacoes,
         private readonly AnaliseDeInteligenciaRepository $analises,
+        private readonly CadeadoDaPastaRepository $cadeados,
     ) {
     }
 
@@ -94,7 +96,8 @@ final class ConteudoDoPushCompartilhado
         if ($pasta->getSituacao() === Pasta::SITUACAO_ARQUIVADA) {
             return LinkExternoDoPushException::PASTA_ARQUIVADA;
         }
-        if ($pasta->estaTrancada()) {
+        // Qualquer cadeado, de qualquer modo, desliga o link externo (spec pasta-cadeado D3).
+        if ($this->cadeados->existeNaPasta($pasta)) {
             return LinkExternoDoPushException::PASTA_TRANCADA;
         }
         if ($this->temProcessoEmSegredo($pasta)) {
@@ -111,7 +114,7 @@ final class ConteudoDoPushCompartilhado
     /**
      * A regra única de "o link ainda pode mostrar alguma coisa", usada pela página e pelo pedido de
      * renovação. Qualquer mudança da pasta depois de criar o link que impediria GERAR um link novo
-     * também desliga o existente (decisão do orquestrador, 19/10): excluída, trancada, cancelada,
+     * também desliga o existente (decisão do orquestrador, 19/10): excluída, com cadeado, cancelada,
      * arquivada, processo em segredo, ou o processo do link desvinculado da pasta.
      */
     public function linkVisivel(LinkExternoDoPush $link): bool
@@ -119,7 +122,7 @@ final class ConteudoDoPushCompartilhado
         $pasta = $link->getPasta();
         if (
             $pasta->estaExcluida()
-            || $pasta->estaTrancada()
+            || $this->cadeados->existeNaPasta($pasta)
             || \in_array($pasta->getSituacao(), [Pasta::SITUACAO_CANCELADA, Pasta::SITUACAO_ARQUIVADA], true)
             || $this->temProcessoEmSegredo($pasta)
         ) {

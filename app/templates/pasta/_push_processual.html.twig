@@ -26,6 +26,11 @@
 {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
 {% set pushPastaViva = not pasta.estaExcluida %}
 {% set pushPodeEscrever = pushPastaViva and podeEditarPasta %}
+{# Grade de duas colunas do desenho (dc L.6595 `pushAnim`: `minmax(0,1fr) minmax(0,300px)`, gap 16):
+   a lista à esquerda e, à direita, o cartão de Monitoramento e Situação atual (spec
+   push-painel-monitoramento §4, e o "Avisar quando chegar", push-avisar-quando-chegar §2; o
+   "Avisar cliente" chega no P4c). Em tela estreita a coluna desce para baixo da lista (pasta-push-painel.css). #}
+<div class="ps-push-grade">
 <section class="ps-card ps-push" data-aba="push">
     <div class="ps-card-cab ps-card-cab--faixa">
         <h2>Movimentações recebidas</h2>
@@ -108,7 +113,8 @@
         <div class="ps-push-vazio-linha" id="push-vazio-sem-processo">
             Esta pasta não tem processo vinculado.
             O Push Processual acompanha as publicações pelo número do processo.
-            <button type="button" class="ps-push-link" data-ps-ir-aba="processo-tab">Vincule um processo</button>
+            {# Atalho para aba oculta não é renderizado (ocultar aba): fica o texto, sem botão. #}
+            {% if 'processo' not in abasOcultas|default([]) %}<button type="button" class="ps-push-link" data-ps-ir-aba="processo-tab">Vincule um processo</button>{% else %}Vincule um processo{% endif %}
             para que as publicações dele apareçam aqui.
         </div>
     {% elseif push.total == 0 %}
@@ -304,6 +310,18 @@
         {% endif %}
     {% endif %}
 </section>
+{% if pushPainel is defined and pushPainel is not null %}
+    {% include 'pasta/_push_painel.html.twig' with {pasta: pasta, painel: pushPainel, avisos: pushAvisos ?? null, podeEditarPasta: podeEditarPasta} only %}
+{% endif %}
+</div>
+{# Modal "Enviar ao cliente" da Análise IA (P4c, spec push-avisar-cliente §3): fora da grade de duas
+   colunas (é `position: fixed`); o cartão "Avisar cliente" da coluna fornece os e-mails. #}
+{% if pushPainel is defined and pushPainel is not null %}
+    {% set avisarClienteModal = avisar_cliente(pasta.id) %}
+    {% if avisarClienteModal is not null %}
+        {% include 'pasta/_push_cliente_modal.html.twig' with {pasta: pasta, cliente: avisarClienteModal} only %}
+    {% endif %}
+{% endif %}
 {# Filtro, selo da aba, copiar ID, marcar (não) lida, criar tarefa a partir da publicação e o
    menu do botão direito no cartão. #}
 <script src="{{ asset('js/pasta-push.js') }}" defer></script>

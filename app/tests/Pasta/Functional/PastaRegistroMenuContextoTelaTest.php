@@ -54,7 +54,7 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         return substr($html, $ini, $tamanho);
     }
 
-    #[TestDox('PAS-025: o menu único #psRegMenu tem, na ordem do desenho, Responder, Copiar texto, separador, Editar e Excluir comentário, com os ícones')]
+    #[TestDox('PAS-025: o menu único #psRegMenu tem, na ordem do desenho, Responder, Copiar texto, Encaminhar via Chat I.A, separador, Editar e Excluir comentário, com os ícones')]
     public function testMenuUnicoComOsItensDoDesenho(): void
     {
         $client          = static::createClient();
@@ -72,10 +72,10 @@ final class PastaRegistroMenuContextoTelaTest extends JusPrimeWebTestCase
         $itens = $menu->filter('#psRegMenu > .ps-processo-menu-item')->each(
             static fn ($i): string => trim(preg_replace('/\s+/u', ' ', $i->text()) ?? ''),
         );
-        self::assertSame(['Responder', 'Copiar texto', 'Editar', 'Excluir comentário'], $itens);
+        self::assertSame(['Responder', 'Copiar texto', 'Encaminhar via Chat I.A', 'Editar', 'Excluir comentário'], $itens);
         self::assertCount(1, $menu->filter('#psRegMenu > .js-reg-responder > i.bi-reply-fill'));
         self::assertCount(1, $menu->filter('#psRegMenu > .js-reg-copiar > i.bi-clipboard'));
-        self::assertCount(1, $menu->filter('#psRegMenu > .js-reg-copiar + .ps-processo-menu-sep[role="separator"] + .js-reg-editar > i.bi-pencil'));
+        self::assertCount(1, $menu->filter('#psRegMenu > .js-reg-copiar + .js-reg-encaminhar + .ps-processo-menu-sep[role="separator"] + .js-reg-editar > i.bi-pencil'));
         self::assertCount(1, $menu->filter('#psRegMenu > .js-reg-excluir > i.bi-trash3'));
         self::assertCount(1, $menu->filter('#psRegMenu > .ps-processo-menu-titulo.js-reg-menu-titulo'));
     }

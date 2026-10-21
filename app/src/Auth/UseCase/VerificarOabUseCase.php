@@ -6,6 +6,7 @@ namespace App\Auth\UseCase;
 
 use App\Auth\DTO\ResultadoVerificacaoOab;
 use App\Auth\Enum\StatusOab;
+use App\Auth\Service\EspelhoDaOabPrincipal;
 use App\Auth\Service\ValidadorOab;
 use App\Entity\Auth\User;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,6 +27,7 @@ final class VerificarOabUseCase
     public function __construct(
         private readonly ValidadorOab $validadorOab,
         private readonly EntityManagerInterface $em,
+        private readonly EspelhoDaOabPrincipal $espelho,
     ) {
     }
 
@@ -45,6 +47,8 @@ final class VerificarOabUseCase
         $user->setOabVerificadaEm(
             $resultado->status === StatusOab::NaoVerificada ? null : new \DateTimeImmutable(),
         );
+        // A verificação do User é a da principal: a inscrição principal acompanha (spec meu-perfil-oab §3).
+        $this->espelho->doUsuarioParaPrincipal($user);
 
         $this->em->flush();
 

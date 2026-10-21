@@ -17,6 +17,7 @@ use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\Service\NomesDeEntradaDoZip;
 use App\Pasta\Service\SelecaoDeItensDaPasta;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Shared\Armazenamento\AreaTemporariaPrivada;
 use App\Shared\Armazenamento\ArquivoEmprestado;
 use App\Shared\Armazenamento\ArquivoGeradoParaEntrega;
@@ -113,13 +114,15 @@ final class MontarZipDeDocumentosUseCase
      * @param list<PastaDocumento> $documentos
      * @param list<PastaSecao>     $secoes
      *
+     * @param list<string>         $abasOcultas abas ocultas para quem pede (o contrato fica de fora das seções)
+     *
      * @throws SelecaoAcimaDoTetoException acima de um dos tetos (nada foi aberto)
      * @throws \InvalidArgumentException   seleção vazia, de outra pasta, ou sem arquivo nenhum
      */
-    public function executar(Pasta $pasta, array $documentos, array $secoes, User $autor, Tenant $tenant): ZipDeDocumentosOutput
+    public function executar(Pasta $pasta, array $documentos, array $secoes, User $autor, Tenant $tenant, array $abasOcultas = []): ZipDeDocumentosOutput
     {
         $selecao = SelecaoDeItensDaPasta::de($documentos, $secoes, $pasta, $tenant);
-        $plano   = $this->planejar($pasta, $selecao, $tenant);
+        $plano   = $this->planejar($pasta, $selecao, $tenant, $abasOcultas);
 
         if ($plano['arquivos'] === []) {
             throw new \InvalidArgumentException('A seleção não tem arquivos para baixar.');
@@ -226,7 +229,8 @@ final class MontarZipDeDocumentosUseCase
      *
      * @return array{arquivos: list<array{documento: PastaDocumento, entrada: string}>, pastas: list<string>, diretorios: int, bytes: int}
      */
-    private function planejar(Pasta $pasta, SelecaoDeItensDaPasta $selecao, Tenant $tenant): array
+    /** @param list<string> $abasOcultas */
+    private function planejar(Pasta $pasta, SelecaoDeItensDaPasta $selecao, Tenant $tenant, array $abasOcultas): array
     {
         $nomes = new NomesDeEntradaDoZip();
         $nomes->reservar('', self::NOME_DO_LEIA_ME); // o LEIA-ME fica com o nome dele; o do usuário vira "(2)"
@@ -250,7 +254,8 @@ final class MontarZipDeDocumentosUseCase
             $filhasPor[$secao->getPai()?->getId() ?? 0][] = $secao;
         }
         $documentosPor = [];
-        foreach ($this->documentoRepository->findByPastaComSecao($pasta, $tenant) as $documento) {
+        // Seção escolhida não leva o contrato de honorários de quem tem o Financeiro oculto (ocultar aba).
+        foreach (VisibilidadeDasAbasDaPasta::documentosVisiveis($this->documentoRepository->findByPastaComSecao($pasta, $tenant), $abasOcultas) as $documento) {
             $documentosPor[$documento->getSecao()?->getId() ?? 0][] = $documento;
         }
 
