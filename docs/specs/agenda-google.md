@@ -297,15 +297,15 @@ escritório no Google. **Muda o desenho:** o painel do Google diz hoje "feriados
   Valem os ajustes do escritório (oculta não vai; renomeada vai com o nome novo), inclusive nos aniversários. Mesmas
   regras da grade (`ListarDatasDoSistemaUseCase` e os aniversários do `ListarCompromissosUseCase`), sem cópia.
 - **Para quem:** toda pessoa conectada ao Google naquele escritório, sem permissão própria (são datas públicas).
-  As UFs são as da pessoa (lotação dela; senão o estado do escritório), como na grade dela.
+  As UFs são as da grade dela: a da lotação mais a do estado do escritório (spec agenda-vs-18-10-26, V6).
 - **Como vai:** dia inteiro, `transparency: transparent` (não ocupa o horário de ninguém), título igual ao da grade.
-  Descrição: "Data do sistema no BlueJus (feriado/recesso). Para mudar, ajuste na Agenda do BlueJus: o que for mudado
-  aqui volta como está lá." mais a observação da data (ex.: "Prazos processuais suspensos de 20/12 a 20/01 (CPC,
+  Descrição: "Data do sistema na Agenda do BlueJus. Para mudar, ajuste na Agenda do BlueJus: o que for mudado aqui
+  volta como está lá." mais a observação da data (ex.: "Prazos processuais suspensos de 20/12 a 20/01 (CPC,
   art. 220)"). O recesso vai um evento por dia, como na grade (cada dia pode ser ocultado ou renomeado).
 - **Só leitura**, como os prazos (§7): mexido lá volta; apagado lá fica apagado até a data mudar aqui. Nunca vira
   compromisso.
 - **Sai do Google** quando deixa de valer: oculta pelo escritório, fora da janela, data apagada.
-- **Janela:** de 30 dias atrás a um ano à frente (a mesma dos prazos). Cerca de 30 datas por pessoa por ano.
+- **Janela:** de 30 dias atrás a um ano à frente (a mesma dos prazos). Cerca de 67 datas por pessoa nessa janela (32 delas do recesso, um evento por dia) mais um aniversário por pessoa da equipe; a primeira sincronia leva todas, com gravação por item (uma falha no meio continua na volta seguinte).
 - **Quando:** na sincronia normal (5 min). Ajuste do escritório (ocultar, renomear, acrescentar) chega na varredura
   seguinte.
 - **Dados:** tabela própria `agenda_google_data` (tenant, conexão, `chave` da data, `google_id`, `hash`), no molde
