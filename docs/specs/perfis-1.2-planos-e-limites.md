@@ -136,7 +136,7 @@ Implementação (21/10, branch `master-saidas-tendencia`; decisões aprovadas pe
 - (c) UF da saída pela mesma `LocalizacaoDaPessoa`: OAB, depois o estado do escritório de onde saiu (a lotação do
   vínculo removido não existe mais). Com `user_id` nulo, vale a UF do escritório. Sem UF, a saída é ignorada;
 - (d) "Só primários" conta só `era_primario = true`;
-- (e) decisão da implementação, para o orquestrador confirmar: a mesma pessoa conta UMA saída por modo (a mais
+- (e) confirmada pela b5 (21/10): a mesma pessoa conta UMA saída por modo (a mais
   recente), como a entrada conta uma vez; quem é removido de dois escritórios deixou a plataforma uma vez. Linhas
   com `user_id` nulo não se agrupam e contam uma a uma;
 - title da seta como no desenho (L721): `+N nos últimos 30 dias · +N nos 30 anteriores`, com o sinal do número.
