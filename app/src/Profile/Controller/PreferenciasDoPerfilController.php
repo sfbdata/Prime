@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Profile\Controller;
 
 use App\Entity\Auth\User;
+use App\Profile\EventListener\IdiomaDaRequisicaoListener;
+use App\Profile\Exception\IdiomaIndisponivelException;
 use App\Profile\UseCase\ConfirmarRevisaoDoCadastroUseCase;
+use App\Profile\UseCase\DefinirIdiomaDoPerfilUseCase;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Profile\UseCase\SalvarPreferenciaDoPerfilUseCase;
 use App\Service\Tenant\TenantContext;
@@ -27,6 +30,7 @@ final class PreferenciasDoPerfilController extends AbstractController
         private readonly ConfirmarRevisaoDoCadastroUseCase $confirmarRevisao,
         private readonly ObterOuCriarPerfilUseCase $obterOuCriarPerfil,
         private readonly TenantContext $tenantContext,
+        private readonly DefinirIdiomaDoPerfilUseCase $definirIdioma,
     ) {
     }
 
@@ -55,6 +59,33 @@ final class PreferenciasDoPerfilController extends AbstractController
         }
 
         return new JsonResponse(['ok' => true, 'chave' => $dados['chave'], 'ligado' => $dados['ligado']]);
+    }
+
+    /**
+     * "Idioma do sistema" (desenho 07; spec idioma-do-sistema, entrega 1): grava no perfil e na sessão; a página
+     * recarrega no idioma novo. Vale só para a pessoa, com ou sem escritório escolhido.
+     */
+    #[Route('/idioma', name: '_idioma', methods: ['POST'])]
+    public function definirIdioma(Request $request): JsonResponse
+    {
+        if (!$this->isCsrfTokenValid('ajax', (string) $request->headers->get('X-CSRF-Token'))) {
+            return new JsonResponse(['erro' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
+        }
+        $dados = json_decode($request->getContent(), true);
+        if (!is_array($dados) || !is_string($dados['idioma'] ?? null)) {
+            return new JsonResponse(['erro' => 'Pedido inválido.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        /** @var User $user */
+        $user = $this->getUser();
+        try {
+            $idioma = $this->definirIdioma->executar($user, $dados['idioma']);
+        } catch (IdiomaIndisponivelException $e) {
+            return new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        IdiomaDaRequisicaoListener::lembrar($request, $user, $idioma);
+
+        return new JsonResponse(['ok' => true, 'idioma' => $idioma->value]);
     }
 
     #[Route('/revisao', name: '_revisao', methods: ['POST'])]

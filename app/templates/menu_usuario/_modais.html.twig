@@ -51,15 +51,16 @@
                 <b id="modalIdiomaTitulo">Idioma do sistema</b>
                 <button type="button" class="mu-modal-x" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
+            {# A lista e o liberado vêm do enum Idioma (spec idioma-do-sistema, entrega 1); o clique num idioma liberado
+               grava no perfil (POST /perfil/idioma, menu-usuario.js) e recarrega. #}
+            {% set idiomaAtual = idioma_atual() %}
             <div class="mu-idiomas">
-                {% for idioma in [
-                    ['pt-BR', 'Português (Brasil)', 'PT'], ['en', 'English', 'EN'], ['es', 'Español', 'ES'], ['fr', 'Français', 'FR'],
-                    ['it', 'Italiano', 'IT'], ['de', 'Deutsch', 'DE'], ['ru', 'Русский', 'RU'], ['zh', '中文', 'ZH'], ['ja', '日本語', 'JA'], ['ar', 'العربية', 'AR']
-                ] %}
-                    <button type="button" class="mu-idioma{{ loop.first ? ' atual' : '' }}" {{ loop.first ? '' : 'disabled' }} lang="{{ idioma[0] }}">
-                        <span class="mu-idioma-sigla">{{ idioma[2] }}</span>
-                        <span class="mu-idioma-nome">{{ idioma[1] }}</span>
-                        {% if loop.first %}<i class="bi bi-check-lg"></i>{% else %}<span class="mu-idioma-breve">em breve</span>{% endif %}
+                {% for idioma in idiomas() %}
+                    {% set eAtual = idioma == idiomaAtual %}
+                    <button type="button" class="mu-idioma{{ eAtual ? ' atual' : '' }}" {{ idioma.ativo ? '' : 'disabled' }} lang="{{ idioma.value }}" data-mu-idioma-escolher="{{ idioma.value }}">
+                        <span class="mu-idioma-sigla">{{ idioma.sigla }}</span>
+                        <span class="mu-idioma-nome">{{ idioma.nome }}</span>
+                        {% if eAtual %}<i class="bi bi-check-lg"></i>{% elseif not idioma.ativo %}<span class="mu-idioma-breve">em breve</span>{% endif %}
                     </button>
                 {% endfor %}
             </div>
