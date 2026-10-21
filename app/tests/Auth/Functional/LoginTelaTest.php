@@ -228,6 +228,21 @@ final class LoginTelaTest extends JusPrimeWebTestCase
         self::assertSame('Como podemos ajudar?', $crawler->filter('#lgSupMsg')->attr('placeholder'));
     }
 
+    #[TestDox('O passo "Criar conta" não pede senha nem mostra a régua (D1 da spec cadastro-senha-no-link)')]
+    public function testCadastroSemCampoDeSenha(): void
+    {
+        $client = static::createClient();
+        $crawler = $client->request('GET', '/login');
+
+        $cad = $crawler->filter('#lgMdForm > .lg-md__passo[data-passo="cad"]');
+        self::assertCount(1, $cad);
+        self::assertCount(1, $cad->filter('#lgCdEmail'));
+        self::assertCount(1, $cad->filter('#lgCdAceite'));
+        self::assertCount(0, $cad->filter('input[type="password"]'));
+        self::assertCount(0, $cad->filter('.lg-forca'));
+        self::assertCount(0, $crawler->filter('#lgCdSenha'));
+    }
+
     #[TestDox('Arranjo do desenho: tarja, cartão, painel e rodapé nos lugares certos')]
     public function testArranjoDoDesenho(): void
     {

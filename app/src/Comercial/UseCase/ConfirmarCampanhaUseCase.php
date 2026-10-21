@@ -24,7 +24,8 @@ use Psr\Clock\ClockInterface;
  *
  *   1. a chave da instalação desligada recusa ("O envio de campanhas está desligado nesta instalação.");
  *   2. a chave de idempotência já usada devolve a mesma campanha (clique duplo não cria duas);
- *   3. confere a mensagem, a data ("Escolha uma data futura.") e o público ("Nenhum destinatário nesta lista.");
+ *   3. confere a mensagem, a âncora do modelo `vagas` (§11: só no modo simples com o botão para as vagas), a data
+ *      ("Escolha uma data futura.") e o público ("Nenhum destinatário nesta lista."), resolvido com o modelo;
  *   4. grava a cópia congelada, o público (no CSV e no Individual, só os e-mails que passaram) e a trilha manual
  *      (`camp_conf`, `{publico, frequencia, total}`), numa transação;
  *   5. acorda o expansor.
@@ -59,7 +60,7 @@ final class ConfirmarCampanhaUseCase
         }
         $agora = $this->relogio->now();
         $this->exigirMensagemEData($pedido, $agora);
-        $publico = $this->publicos->resolver($pedido->publico->publico, $pedido->publico->informados, $pedido->publico->filtro, $agora);
+        $publico = $this->publicos->resolver($pedido->publico->publico, $pedido->publico->informados, $pedido->publico->filtro, $agora, $pedido->mensagem->chave);
         if ($publico->total() === 0) {
             throw new CampanhaRecusada(self::SEM_DESTINATARIOS);
         }
@@ -73,6 +74,7 @@ final class ConfirmarCampanhaUseCase
     {
         // Monta uma vez para um endereço de conferência: assunto ou conteúdo vazio é recusado com a mensagem da 2a.
         $this->composicao->mensagemPara($pedido->mensagem, self::ENDERECO_DE_CONFERENCIA, null, 'campanha:0');
+        ComposicaoDaCampanha::exigirAncoraDeVagas($pedido->mensagem);
         if ($pedido->agendarPara !== null && $pedido->agendarPara <= $agora) {
             throw new CampanhaRecusada(self::DATA_PASSADA);
         }

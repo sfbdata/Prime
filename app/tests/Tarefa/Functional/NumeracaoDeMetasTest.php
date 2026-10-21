@@ -6,6 +6,8 @@ namespace App\Tests\Tarefa\Functional;
 
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\PrioridadePasta;
+use App\Tarefa\Enum\PrioridadeDaMeta;
 use App\Tarefa\Service\NumeracaoDeMetas;
 use App\Tarefa\UseCase\GravarMetaNovaUseCase;
 use App\Tests\Factory\Pasta\PastaFactory;
@@ -43,9 +45,9 @@ final class NumeracaoDeMetasTest extends KernelTestCase
     }
 
     /** Cria a meta pelo caminho de produção (o UseCase), que é o que dá o número. */
-    private function criarMeta(Tenant $tenant, string $titulo = 'Meta'): Tarefa
+    private function criarMeta(Tenant $tenant, string $titulo = 'Meta', PrioridadePasta $prioridadeDaPasta = PrioridadePasta::Normal): Tarefa
     {
-        $pasta = PastaFactory::createOne(['tenant' => $tenant])->_real();
+        $pasta = PastaFactory::createOne(['tenant' => $tenant, 'prioridade' => $prioridadeDaPasta])->_real();
 
         $meta = new Tarefa();
         $meta->setTitulo($titulo);
@@ -55,6 +57,40 @@ final class NumeracaoDeMetasTest extends KernelTestCase
         static::getContainer()->get(GravarMetaNovaUseCase::class)->executar($meta);
 
         return $meta;
+    }
+
+    #[TestDox('Desenho 04: a meta nova herda a prioridade da pasta (urgente vira Urgente, prioridade vira Alta, normal fica Normal) e grava')]
+    public function testMetaNovaHerdaAPrioridadeDaPasta(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $metas  = [
+            'urgente'    => $this->criarMeta($tenant, 'Da urgente', PrioridadePasta::Urgente),
+            'alta'       => $this->criarMeta($tenant, 'Da prioridade', PrioridadePasta::Prioridade),
+            'normal'     => $this->criarMeta($tenant, 'Da normal', PrioridadePasta::Normal),
+        ];
+        $this->em()->clear();
+
+        foreach ($metas as $esperado => $meta) {
+            $gravada = $this->em()->find(Tarefa::class, $meta->getId());
+            self::assertSame($esperado, $gravada?->getPrioridade()->value, 'gravada no banco: ' . $esperado);
+        }
+    }
+
+    #[TestDox('Prioridade já escolhida antes de gravar não é sobrescrita pela da pasta')]
+    public function testPrioridadeJaEscolhidaNaoEhSobrescrita(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'prioridade' => PrioridadePasta::Urgente])->_real();
+        $meta   = new Tarefa();
+        $meta->setTitulo('Escolhida');
+        $meta->setDescricao('...');
+        $meta->setPasta($pasta);
+        $meta->setTenant($tenant);
+        $meta->setPrioridade(PrioridadeDaMeta::Alta);
+
+        static::getContainer()->get(GravarMetaNovaUseCase::class)->executar($meta);
+
+        self::assertSame(PrioridadeDaMeta::Alta, $meta->getPrioridade());
     }
 
     #[TestDox('Escritório sem nenhuma meta numerada começa no 1')]

@@ -149,7 +149,7 @@ final class AgrupadorDeMetasTest extends TestCase
         self::assertSame(['Atrasada há 30 dias', 'Atrasada há 9 dias', 'Atrasada há 2 dias'], $mapa['atrasadas']);
     }
 
-    #[TestDox('Desenho 04 (P:151-154): a aba Criei agrupa por prazo, com os mesmos grupos, nomes, ordem e tons das outras abas')]
+    #[TestDox('Desenho 04 (P:151-154, LIS-07/08/10): todas as abas têm os mesmos grupos, na ordem Atrasadas, Vencem em 7 dias, Aguardando revisão, No prazo, Sem prazo, Concluídas, rótulos do catálogo')]
     public function testAbaCrieiAgrupaPorPrazo(): void
     {
         $metas = [
@@ -161,53 +161,38 @@ final class AgrupadorDeMetasTest extends TestCase
             $this->meta('Já aprovei', '2026-09-05', Tarefa::STATUS_CONCLUIDA),
         ];
 
-        $criei       = $this->agrupador->agrupar($metas, AbaMetas::CRIEI, $this->hoje);
-        $responsavel = $this->agrupador->agrupar($metas, AbaMetas::RESPONSAVEL, $this->hoje);
-
         $resumo = static fn (array $grupos): array => array_map(
-            static fn (GrupoDeMetasOutput $g): array => [$g->chave, $g->rotulo, $g->tom, $g->recolhido],
+            static fn (GrupoDeMetasOutput $g): array => [$g->chave, $g->rotulo, $g->tom],
             $grupos,
         );
-        self::assertSame([
-            ['atrasadas', 'Atrasadas', 'danger', false],
-            ['proximas', 'Vencem em 7 dias', 'warn', false],
-            ['depois', 'Depois', 'cinza', false],
-            ['sem_prazo', 'Sem prazo', 'cinza', false],
-            ['em_revisao', 'Enviadas para revisão', 'accent', false],
-            ['concluidas', 'Concluídas', 'ok', true],
-        ], $resumo($criei));
-        self::assertSame($resumo($responsavel), $resumo($criei), 'a aba não muda o agrupamento');
+        $esperado = [
+            ['atrasadas', 'metas.grupos.atrasadas', 'danger'],
+            ['proximas', 'metas.grupos.proximas', 'warn'],
+            ['em_revisao', 'metas.grupos.em_revisao', 'accent'],
+            ['depois', 'metas.grupos.depois', 'cinza'],
+            ['sem_prazo', 'metas.grupos.sem_prazo', 'cinza'],
+            ['concluidas', 'metas.grupos.concluidas', 'ok'],
+        ];
+        foreach (AbaMetas::cases() as $aba) {
+            self::assertSame($esperado, $resumo($this->agrupador->agrupar($metas, $aba, $this->hoje)), $aba->value);
+        }
+        $criei = $this->agrupador->agrupar($metas, AbaMetas::CRIEI, $this->hoje);
         self::assertSame(['Voltou para mim'], $this->mapa($criei)['em_revisao']);
         self::assertArrayNotHasKey('aguardando', $this->mapa($criei), 'o agrupamento por etapa saiu');
     }
 
-    #[TestDox('Na aba Criei a nota de "Enviadas para revisão" fala com quem criou; nas outras abas continua "aguardando quem criou a meta"')]
-    public function testNotaDaRevisaoPorAba(): void
-    {
-        $metas = [$this->meta('Voltou', '2026-09-20', Tarefa::STATUS_EM_REVISAO)];
-        $nota  = fn (AbaMetas $aba): ?string => $this->agrupador->agrupar($metas, $aba, $this->hoje)[0]->nota;
-
-        self::assertSame('o responsável terminou e enviou para você revisar', $nota(AbaMetas::CRIEI));
-        foreach ([AbaMetas::RESPONSAVEL, AbaMetas::ACOMPANHANDO, AbaMetas::TODAS] as $aba) {
-            self::assertSame('aguardando quem criou a meta', $nota($aba), $aba->value);
-        }
-    }
-
-    #[TestDox('Concluídas vem recolhido; os demais grupos, abertos')]
-    public function testApenasConcluidasVemRecolhido(): void
+    #[TestDox('Grupo vazio não aparece; a ordem dos que sobram não muda')]
+    public function testGrupoVazioSome(): void
     {
         $metas = [
-            $this->meta('Aberta', '2026-09-01'),
             $this->meta('Fechada', '2026-09-01', Tarefa::STATUS_CONCLUIDA),
+            $this->meta('Sem data', null),
+            $this->meta('Voltou', '2026-09-20', Tarefa::STATUS_EM_REVISAO),
         ];
 
-        foreach ($this->agrupador->agrupar($metas, AbaMetas::RESPONSAVEL, $this->hoje) as $grupo) {
-            self::assertSame(
-                $grupo->chave === 'concluidas',
-                $grupo->recolhido,
-                "Grupo '{$grupo->chave}' com estado de recolhimento errado.",
-            );
-        }
+        $chaves = array_map(static fn (GrupoDeMetasOutput $g): string => $g->chave, $this->agrupador->agrupar($metas, AbaMetas::RESPONSAVEL, $this->hoje));
+
+        self::assertSame(['em_revisao', 'sem_prazo', 'concluidas'], $chaves);
     }
 
     #[TestDox('Sem metas, não há grupos')]

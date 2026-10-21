@@ -244,7 +244,6 @@
         if ($('lgCdNome').value.trim().split(/\s+/).length < 2) { return 'Informe seu nome completo.'; }
         if (!$('lgCdEsc').value.trim()) { return 'Informe o nome do escritório.'; }
         if (!REGEX_EMAIL.test($('lgCdEmail').value.trim())) { return 'Informe um e-mail válido.'; }
-        if (!senhaAceita($('lgCdSenha').value)) { return 'Use pelo menos 8 caracteres, com letras e números.'; }
         if (!$('lgCdAceite').checked) { return 'É preciso aceitar os Termos e a Política de privacidade.'; }
 
         return '';
@@ -276,7 +275,6 @@
             nome: $('lgCdNome').value.trim(),
             escritorio: $('lgCdEsc').value.trim(),
             email: em,
-            senha: $('lgCdSenha').value,
             aceite: $('lgCdAceite').checked,
             _token: tokens.cadastro,
         });
@@ -302,8 +300,6 @@
     /* A conta nasceu sem login: o modal pede a confirmação do e-mail e oferece o reenvio do link. */
     const cfAviso = $('lgCfAviso');
     const mostrarConfirmacao = (em) => {
-        $('lgCdSenha').value = '';
-        repintarForca();
         $('lgCfEmail').textContent = em;
         cfAviso.textContent = '';
         mostrar(cfAviso, false);

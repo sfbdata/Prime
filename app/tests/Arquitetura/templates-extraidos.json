@@ -166,6 +166,41 @@
         ]
     },
 
+    "pasta_push": {
+        "templates": [
+            "pasta/_push_processual.html.twig",
+            "pasta/_push_painel.html.twig",
+            "pasta/_push_cliente.html.twig",
+            "pasta/_push_cliente_modal.html.twig",
+            "pasta/_push_teor.html.twig",
+            "pasta/_push_link_externo.html.twig"
+        ],
+        "js": [
+            "pasta-push.js",
+            "pasta-push-painel.js",
+            "pasta-push-cliente.js",
+            "pasta-push-link.js"
+        ],
+        "permitidos": [
+            "Accept",
+            "Escape",
+            "Tab",
+            "ContextMenu",
+            "ArrowDown",
+            "ArrowUp",
+            "ç",
+            "ã",
+            "á",
+            "â",
+            "é",
+            "ê",
+            "í",
+            "ó",
+            "õ",
+            "ú"
+        ]
+    },
+
     "master": {
         "templates": [
             "master/painel.html.twig"
@@ -321,6 +356,59 @@
             "Content-Type",
             "Escape",
             "Polygon"
+        ]
+    },
+
+    "dashboard": {
+        "templates": [
+            "dashboard/index.html.twig",
+            "dashboard/_resultado.html.twig",
+            "dashboard/_desempenho_cards.html.twig",
+            "dashboard/_extras.html.twig",
+            "dashboard/_tendencia.html.twig",
+            "dashboard/_inteligencia.html.twig"
+        ],
+        "js": [
+            "dashboard.js",
+            "dashboard-filtros.js",
+            "dashboard-historico.js",
+            "dashboard-janelas.js",
+            "dashboard-preferencias.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "Intelligence",
+            "BlueJus Intelligence",
+            "db-body",
+            "sóci",
+            "Atenção imediata",
+            "Acompanhamento",
+            "App\\\\Dashboard\\\\Preferencia\\\\ColunasExtrasDoDashboard::CATALOGO",
+            "App\\\\Dashboard\\\\Preferencia\\\\ColunasExtrasDoDashboard::TENDENCIA",
+            "Accept",
+            "Content-Type",
+            "Escape",
+            "Enter",
+            "Tab",
+            "ArrowDown",
+            "ArrowUp"
+        ]
+    },
+
+    "agenda": {
+        "templates": [
+            "agenda/nova.html.twig",
+            "agenda/lista.html.twig",
+            "agenda/novo.html.twig",
+            "agenda/editar.html.twig",
+            "agenda/show.html.twig"
+        ],
+        "js": [
+            "lembretes.js",
+            "agenda-nova.js"
+        ],
+        "permitidos": [
+            "ag-body"
         ]
     }
 }
