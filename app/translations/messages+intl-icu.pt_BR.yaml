@@ -400,4 +400,98 @@ perfil:
         erro_salvar_foto: Erro ao salvar foto.
         erro_comunicacao: Erro de comunicação.
 
+# ---- Pasta, aba Processo (pasta/_processos_vinculados, pasta-processo.js)
+pasta_processo:
+    titulo: Processos vinculados
+    administrativa:
+        rotulo: Administrativo sem processo
+        dica_alternar: Marque quando a pasta é administrativa (consultoria, extrajudicial, contrato) e não terá processo judicial
+        dica_ligada: 'Pasta administrativa: não terá processo judicial'
+        dica_desligada: Pasta não marcada como administrativa
+        confirmar_com_processo: "A Pasta {pasta} tem o processo {processo} vinculado.\nMarcar mesmo assim como \"Administrativo sem processo\"? O andamento passa para a via administrativa."
+        marcar: Marcar como administrativo sem processo
+        desmarcar: Desmarcar administrativo sem processo
+        vazio_nota: 'Pasta administrativa (consultoria, extrajudicial, contrato): não terá processo judicial.'
+    cabecalho:
+        mais_opcoes: Mais opções
+        mais_opcoes_rotulo: Mais opções de processos
+        vincular: Vincular processo
+        vincular_apensado: Vincular apensado
+        vincular_apensado_dica: Vincular processo apensado (embargos, agravo, execução…)
+        peticionar: Peticionar na pasta
+        peticionar_dica: Abrir a tela de peticionamento desta pasta (anexos e textos)
+        menu_titulo: 'Processos · Pasta {pasta}'
+        enviar_controladoria: Enviar à Controladoria agora
+    cartao:
+        vinculado_em: 'Vinculado em {data}'
+        processo_vinculado: Processo vinculado
+        dica_botao_direito: Clique com o botão direito para mais opções
+        copiar_numero_dica: Copiar número do processo
+        principal: Principal
+        apensado: 'Apensado · {tipo}'
+        desvincular_apensado: Desvincular este apensado
+        confirmar_desvincular_apensado: 'Desvincular o apensado {processo} da pasta? O registro fica no histórico.'
+        mais_opcoes: Mais opções
+        mais_opcoes_rotulo: Mais opções do processo
+    menu:
+        titulo: 'Processo {processo}'
+        nota_tecnica: Adicionar nota técnica
+        ver_completo: Ver processo completo
+        ver_todas: Ver todas as informações
+        editar: Editar dados do processo
+        ver_movimentacoes: Ver movimentações (Push)
+        copiar_numero: Copiar número
+        numero_copiado: Número do processo copiado
+        copiar_resumo: Copiar resumo do processo
+        resumo_copiado: Resumo do processo copiado
+        compartilhar: Compartilhar
+        resumo_copiado_compartilhar: Resumo copiado para compartilhar
+        encaminhar: Encaminhar via Chat I.A
+        relatorio: Relatório geral de processos
+        imprimir: Imprimir resumo
+        tornar_principal: Tornar processo principal
+        desvincular: Desvincular da pasta
+        confirmar_desvincular: "Desvincular o processo {processo} da Pasta {pasta}?\nOs dados do processo continuam salvos e você pode vincular de novo."
+    dados:
+        acao: Ação
+        classe: Classe
+        tribunal: Tribunal
+        situacao: Situação
+        instancia: Instância
+        data_baixa: Data da baixa
+        sistema: Sistema
+        formato: Formato
+        origem: Processo de origem
+        partes: Partes
+        atualizacao: Última atualização no tribunal
+        nao_informado: Não informado
+        nao_informada: Não informada
+        manual: manual
+        manual_dica: Preenchido manualmente
+        selo_sim: SIM
+        selo_nao: NÃO
+    edicao:
+        dica: 'Preencha apenas o que você confirmou nos autos. Campos vazios ficam como "Não informado".'
+        sim: Sim
+        nao: Não
+        nao_informado: Não informado
+        cancelar: Cancelar
+        salvar: Salvar
+    vazio:
+        acao_registrada: 'Ação registrada:'
+        titulo: Nenhum processo judicial vinculado
+        vincule: Vincule um processo pelo botão acima.
+        quem_edita: Quem edita a pasta pode vincular um processo a ela.
+    nota: O processo principal é o que aparece no cabeçalho da pasta e nas listagens. Uma pasta pode ter vários processos vinculados.
+    js:
+        mostrar_menos: Mostrar menos
+        ver_todas: Ver todas as informações
+        copiado: Copiado
+        copiar_falhou: Não foi possível copiar
+        administrativa_falhou: 'Não foi possível alterar "Administrativo sem processo". Tente de novo.'
+        administrativa_titulo: Marcar como administrativo
+        administrativa_sem_comunicacao: Erro de comunicação. A marcação pode não ter sido salva. Recarregue a página.
+        dados_falhou: Não foi possível salvar os dados do processo.
+        dados_sem_comunicacao: Erro de comunicação. Os dados podem não ter sido salvos. Recarregue a página.
+
 # ---- fim

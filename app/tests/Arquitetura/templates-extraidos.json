@@ -55,5 +55,18 @@
             "Outro motivo",
             "Content-Type"
         ]
+    },
+
+    "pasta_processo": {
+        "templates": [
+            "pasta/_processos_vinculados.html.twig"
+        ],
+        "js": [
+            "pasta-processo.js"
+        ],
+        "permitidos": [
+            "Escape",
+            "Accept"
+        ]
     }
 }

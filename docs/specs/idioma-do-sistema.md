@@ -134,3 +134,19 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
 - O rótulo ao lado do item Idioma do menu, que era "Português (Brasil)" fixo, passou a `idioma_atual().nome`, como no
   Meu Perfil (#199); com só o português liberado, a tela não muda (combinado com a 0d).
 
+
+## 9. A Pasta, aba Processo (0d, 21/10)
+
+- **Blocos de topo por aba**, combinados com a f6: `pasta_processo` (este), `pasta_push` (próximo PR da 0d) e
+  `pasta_financeiro` (f6). O JS de cada aba lê `<bloco>.js`; o `catalogo_js` mora no próprio parcial, sem tocar o
+  `pasta/show.html.twig`. O parcial que volta por XHR traz o bloco de novo, e o `BJ_T` relê (§8).
+- **Extraídos:** `pasta/_processos_vinculados.html.twig` e `pasta-processo.js`. Os dois `|date` viraram `|data` e
+  `|data_hora` (os dois com guarda de nulo).
+- **Sem mudança visível:** o DOM da aba (texto e atributos, como o navegador lê) foi comparado antes e depois em
+  quatro cenários (processo completo com apensado, partes, campos manuais e o formulário de edição; vazia com ação;
+  administrativa sem e com processo). Só mudaram os tokens CSRF das notas técnicas, que são aleatórios. Os ramos só
+  leitura foram renderizados à parte, iguais. No código-fonte, as aspas da dica da edição saem como `&quot;` (o
+  autoescape do `|trans`); a tela é a mesma.
+- **Ficou de fora:** o texto que vem do PHP (rótulos e placeholders de `dados_do_processo`, `resumo_do_processo`, a
+  linha de fonte, o tipo do apensado, a instância e o filtro `situacao_processo`) e o `processo/_notas_tecnicas`, que
+  é do domínio Processo e aparece também no teor do Push.
