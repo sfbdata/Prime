@@ -201,7 +201,7 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   `filtro-tabela.js` e `pasta-metas.js` (vão com a Pasta) e o placeholder padrão do `_partials/_filtro_barra`.
 
 
-## 11. A Pasta, aba Push (0d, 21/10)
+## 12. A Pasta, aba Push (0d, 21/10)
 
 - **Bloco `pasta_push`** (269 chaves): `processual`, `painel`, `cliente`, `envio`, `teor`, `link` e `js`. Os quatro JS
   da aba (`pasta-push.js`, `pasta-push-painel.js`, `pasta-push-cliente.js` e `pasta-push-link.js`) leem `pasta_push.js`.
