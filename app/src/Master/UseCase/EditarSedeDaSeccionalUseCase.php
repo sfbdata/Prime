@@ -39,7 +39,7 @@ final class EditarSedeDaSeccionalUseCase
 
     public function executar(EditarSedeDaSeccionalInput $input): SeccionalOab
     {
-        $seccional = $this->repositorio->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada('Seccional não encontrada.');
+        $seccional = $this->repositorio->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada(SeccionalNaoEncontrada::RECUSA);
         $this->exigirTamanhos($input);
         $this->exigirSiteSeguro($input->site);
 
@@ -52,15 +52,15 @@ final class EditarSedeDaSeccionalUseCase
     private function exigirTamanhos(EditarSedeDaSeccionalInput $input): void
     {
         if (mb_strlen((string) $input->endereco) > SeccionalOab::ENDERECO_MAXIMO) {
-            throw new SeccionalRecusada(sprintf('O endereço passa de %d caracteres.', SeccionalOab::ENDERECO_MAXIMO));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_ENDERECO_LONGO, ['limite' => SeccionalOab::ENDERECO_MAXIMO]);
         }
 
         if (mb_strlen((string) $input->telefone) > SeccionalOab::TELEFONE_MAXIMO) {
-            throw new SeccionalRecusada(sprintf('O telefone passa de %d caracteres.', SeccionalOab::TELEFONE_MAXIMO));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_TELEFONE_LONGO, ['limite' => SeccionalOab::TELEFONE_MAXIMO]);
         }
 
         if (mb_strlen((string) $input->site) > SeccionalOab::SITE_MAXIMO) {
-            throw new SeccionalRecusada(sprintf('O site passa de %d caracteres.', SeccionalOab::SITE_MAXIMO));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_SITE_LONGO, ['limite' => SeccionalOab::SITE_MAXIMO]);
         }
     }
 
@@ -75,7 +75,7 @@ final class EditarSedeDaSeccionalUseCase
             && strtolower((string) parse_url($site, \PHP_URL_SCHEME)) === 'https'
             && (string) parse_url($site, \PHP_URL_HOST) !== '';
         if (!$valido) {
-            throw new SeccionalRecusada('Informe o site completo, começando com https://.');
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_SITE_SEM_HTTPS);
         }
     }
 }

@@ -45,8 +45,8 @@ Dono da frente: sessão b5. Migration reservada: `Version20261020147500`.
 ## 1. Fontes
 
 - Desenho: `docs/design/perfis-1.2/vs-21-10-26/05 - Perfis 1.2 - VS 21.10.26.dc.html`, seção `notif` em `SECS`
-  (L565), template L309-322, lógica `nfVals` L724-749. O arquivo foi baixado truncado em 256 KiB; esta seção está
-  inteira no trecho baixado.
+  (L565), template L309-322, lógica `nfVals` L724-749. `nfVals` já estava inteiro no trecho lido; o trecho que
+  faltava (desenho conferido inteiro em 21/10/2026, 286394 bytes) não tem nada da Central de Notificações.
 - No protótipo a caixa junta `bj-contribua.sugs`, `bj-suporte-fila`, `bj-alertas-master` e `bj-pedidos-plano`, e
   guarda o estado em `bj-notif-master` (`lido`, `est`, `arq`, `resp`).
 

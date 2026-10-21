@@ -37,7 +37,7 @@
 
         var rotulo = botao.querySelector('span');
         var icone  = botao.querySelector('i');
-        if (rotulo) { rotulo.textContent = abrir ? 'Mostrar menos' : 'Ver todas as informações'; }
+        if (rotulo) { rotulo.textContent = abrir ? BJ_T.t('pasta_processo.js.mostrar_menos') : BJ_T.t('pasta_processo.js.ver_todas'); }
         if (icone)  { icone.className = 'bi ' + (abrir ? 'bi-chevron-up' : 'bi-chevron-down'); }
     }
 
@@ -70,7 +70,7 @@
             var exp   = !!botao && botao.getAttribute('aria-expanded') === 'true';
             var span  = item.querySelector('span');
             var icone = item.querySelector('i');
-            if (span)  { span.textContent = exp ? 'Mostrar menos' : 'Ver todas as informações'; }
+            if (span)  { span.textContent = exp ? BJ_T.t('pasta_processo.js.mostrar_menos') : BJ_T.t('pasta_processo.js.ver_todas'); }
             if (icone) { icone.className = 'bi ' + (exp ? 'bi-chevron-up' : 'bi-card-list'); }
         }
     }
@@ -126,11 +126,11 @@
 
         if (texto && navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(texto).then(
-                function () { avisar(item.getAttribute('data-aviso') || 'Copiado'); },
-                function () { avisar('Não foi possível copiar'); }
+                function () { avisar(item.getAttribute('data-aviso') || BJ_T.t('pasta_processo.js.copiado')); },
+                function () { avisar(BJ_T.t('pasta_processo.js.copiar_falhou')); }
             );
         } else {
-            avisar('Não foi possível copiar');
+            avisar(BJ_T.t('pasta_processo.js.copiar_falhou'));
         }
     }
 
@@ -314,7 +314,7 @@
         botao.disabled = false;
         botao.removeAttribute('aria-busy');
         delete form.dataset.enviando;
-        (window.avisarErroPs || window.alert)(mensagem || 'Não foi possível alterar "Administrativo sem processo". Tente de novo.');
+        (window.avisarErroPs || window.alert)(mensagem || BJ_T.t('pasta_processo.js.administrativa_falhou'));
         botao.focus();
     }
 
@@ -322,7 +322,7 @@
        desenho ("Marcar como administrativo", dc L.6878 `admSPtoggle`); sem ela, o confirm do navegador. */
     function perguntarAdministrativa(texto) {
         if (window.confirmarUIPs) {
-            return window.confirmarUIPs('Marcar como administrativo\n' + texto.replace(/\s*\n\s*/g, ' '), false);
+            return window.confirmarUIPs(BJ_T.t('pasta_processo.js.administrativa_titulo') + '\n' + texto.replace(/\s*\n\s*/g, ' '), false);
         }
 
         return Promise.resolve(window.confirm(texto));
@@ -368,7 +368,7 @@
         }, function () {
             // Só a falha de REDE desfaz aqui: um erro depois da troca não pode
             // "desligar" na tela o que o servidor já gravou.
-            falhaAdministrativa(form, botao, ligadoAntes, 'Erro de comunicação. A marcação pode não ter sido salva. Recarregue a página.');
+            falhaAdministrativa(form, botao, ligadoAntes, BJ_T.t('pasta_processo.js.administrativa_sem_comunicacao'));
             return null;
         }).then(function (r) {
             if (!r) { return; }
@@ -454,7 +454,7 @@
             if (!r.ok || r.dados.sucesso !== true || typeof r.dados.html !== 'string') {
                 // `erro` do controller; `mensagem` da recusa da pasta excluída (PastaSomenteLeituraListener).
                 var motivo = typeof r.dados.erro === 'string' ? r.dados.erro : (typeof r.dados.mensagem === 'string' ? r.dados.mensagem : '');
-                avisar(motivo || 'Não foi possível salvar os dados do processo.', 'erro');
+                avisar(motivo || BJ_T.t('pasta_processo.js.dados_falhou'), 'erro');
                 if (salvar) { salvar.disabled = false; }
                 return;
             }
@@ -466,7 +466,7 @@
             }
             if (typeof r.dados.aviso === 'string') { avisar(r.dados.aviso, 'ok'); }
         }, function () {
-            avisar('Erro de comunicação. Os dados podem não ter sido salvos. Recarregue a página.', 'erro');
+            avisar(BJ_T.t('pasta_processo.js.dados_sem_comunicacao'), 'erro');
             if (salvar) { salvar.disabled = false; }
         });
     });

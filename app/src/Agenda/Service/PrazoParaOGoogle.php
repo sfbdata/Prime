@@ -44,13 +44,7 @@ final class PrazoParaOGoogle
     /** @param array<string, mixed> $item o evento como o Google devolve (ou o nosso corpo) */
     public function resumoDoItem(array $item): string
     {
-        return hash('sha256', (string) json_encode([
-            (string) ($item['summary'] ?? ''),
-            (string) ($item['description'] ?? ''),
-            (string) ($item['location'] ?? ''),
-            $this->ponta($item['start'] ?? null),
-            $this->ponta($item['end'] ?? null),
-        ]));
+        return (new ResumoDoEventoSoLeitura())->de($item);
     }
 
     private function titulo(PastaPrazo $prazo): string
@@ -83,27 +77,5 @@ final class PrazoParaOGoogle
             'start' => ['dateTime' => $inicio->format('Y-m-d\TH:i:s'), 'timeZone' => CompromissoNoGoogle::FUSO],
             'end'   => ['dateTime' => $inicio->modify('+1 hour')->format('Y-m-d\TH:i:s'), 'timeZone' => CompromissoNoGoogle::FUSO],
         ];
-    }
-
-    /** Início ou fim comparável: dia inteiro pela data; com hora, na hora de parede de Brasília. */
-    private function ponta(mixed $ponta): string
-    {
-        if (!is_array($ponta)) {
-            return '';
-        }
-        if (is_string($ponta['date'] ?? null)) {
-            return 'd:' . $ponta['date'];
-        }
-        if (!is_string($ponta['dateTime'] ?? null)) {
-            return '';
-        }
-        try {
-            $fuso = new \DateTimeZone(CompromissoNoGoogle::FUSO);
-            $momento = new \DateTimeImmutable($ponta['dateTime'], is_string($ponta['timeZone'] ?? null) ? new \DateTimeZone($ponta['timeZone']) : $fuso);
-
-            return 'h:' . $momento->setTimezone($fuso)->format('Y-m-d\TH:i:s');
-        } catch (\Exception) {
-            return '';
-        }
     }
 }

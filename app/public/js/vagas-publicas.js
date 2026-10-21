@@ -16,6 +16,49 @@
         b.addEventListener('click', function () { pagina.setAttribute('data-publico', b.getAttribute('data-publico')); });
     });
 
+    /* ------------------------------------------------ clique em "Criar conta" (spec VS 18.10.26 §4.9) */
+    /*
+     * Contador anônimo do KPI "ALERTAS POR E-MAIL": todo link de cadastro com `data-url-cta` avisa
+     * `POST /vagas-juridicas/cta` com o token do link (ou nada, sem token). sendBeacon não segura a
+     * navegação; sem ele, fetch com keepalive. Qualquer falha é ignorada: o link segue sempre.
+     */
+    function tokenDaPagina(a) {
+        var alertas = document.getElementById('alertas');
+        return a.getAttribute('data-token') || pagina.getAttribute('data-token') || (alertas && alertas.getAttribute('data-token')) || null;
+    }
+    function avisarCta(a) {
+        var url = a.getAttribute('data-url-cta');
+        if (!url) {
+            return;
+        }
+        var corpo = JSON.stringify({ token: tokenDaPagina(a) });
+        try {
+            if (navigator.sendBeacon && navigator.sendBeacon(url, new Blob([corpo], { type: 'application/json' }))) {
+                return;
+            }
+        } catch (e) {
+            // Cai no fetch abaixo.
+        }
+        try {
+            fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', keepalive: true, body: corpo })
+                .catch(function () { /* contador: falha não importa */ });
+        } catch (e) {
+            // Contador: falha não importa.
+        }
+    }
+    // Clique normal e clique do meio (nova aba), sem preventDefault: a navegação nunca espera.
+    ['click', 'auxclick'].forEach(function (tipo) {
+        document.addEventListener(tipo, function (e) {
+            if (tipo === 'auxclick' && e.button !== 1) {
+                return;
+            }
+            var a = e.target && e.target.closest ? e.target.closest('[data-url-cta]') : null;
+            if (a) {
+                avisarCta(a);
+            }
+        }, true);
+    });
+
     /* ------------------------------------------------ perguntas frequentes: uma aberta por vez */
     var itens = Array.prototype.slice.call(pagina.querySelectorAll('.vp-faq-item'));
     itens.forEach(function (item) {

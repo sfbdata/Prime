@@ -22,6 +22,27 @@ final class FaixaEtaria
     ];
 
     /**
+     * Chave do rótulo no catálogo (spec idioma-do-sistema, P2b): "18 a 24" é master.faixa_etaria.intervalo com
+     * {min} e {max}; a última faixa, aberta ("55 ou +"), é master.faixa_etaria.ou_mais com {min}. Rótulo que não é
+     * de uma faixa devolve nulo (quem traduz deixa como veio). O CatalogoDasRecusasDoMasterTest confere que o
+     * português do catálogo é o rótulo de FAIXAS.
+     *
+     * @return array{0: string, 1: array<string, int>}|null
+     */
+    public static function chaveDoRotulo(string $rotulo): ?array
+    {
+        foreach (self::FAIXAS as $i => [$daFaixa, $min, $max]) {
+            if ($daFaixa === $rotulo) {
+                return $i === array_key_last(self::FAIXAS)
+                    ? ['master.faixa_etaria.ou_mais', ['min' => $min]]
+                    : ['master.faixa_etaria.intervalo', ['min' => $min, 'max' => $max]];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @param list<?string> $nascimentos datas 'Y-m-d' (ou nulas)
      *
      * @return array{faixas: list<array{rot: string, n: int}>, media: ?int, semData: int, menores: int}

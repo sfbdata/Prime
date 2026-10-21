@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Unit;
 
+use App\Auth\Entity\ConfirmacaoEmail;
 use App\Comercial\Campanha\ModelosDeCampanha;
 use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\Exception\CampanhaRecusada;
@@ -38,8 +39,18 @@ final class ModelosDeCampanhaTest extends TestCase
 
         self::assertNotNull($validar);
         self::assertStringNotContainsString('482 917', (string) json_encode($validar, JSON_UNESCAPED_UNICODE));
-        self::assertSame("O link vale por 24 horas.\n\nSe você não criou esta conta, ignore este e-mail.", $validar['blocos'][2]['a'] ?? null);
+        self::assertSame("O link vale por 7 dias.\n\nSe você não criou esta conta, ignore este e-mail.", $validar['blocos'][2]['a'] ?? null);
         self::assertSame('validar', $validar['blocos'][1]['b'] ?? null);
+        self::assertSame('Confirmar e criar minha senha', $validar['blocos'][1]['a'] ?? null);
+    }
+
+    #[TestDox('O "vale por 7 dias" do validar e do lembrete acompanha a validade do link de confirmação do cadastro')]
+    public function testPrazoDoTextoIgualAoDoLink(): void
+    {
+        self::assertSame('+7 days', ConfirmacaoEmail::VALIDADE, 'mudou a validade do link: troque o "7 dias" no modelo validar e no lembrete_confirmacao');
+        $lembrete = (string) file_get_contents(__DIR__ . '/../../../templates/email/comercial/automacao/lembrete_confirmacao.html.twig');
+        self::assertStringContainsString('O link vale por 7 dias.', $lembrete);
+        self::assertStringContainsString("b.botao('Confirmar e criar minha senha', urlDeConfirmacao)", $lembrete);
     }
 
     #[TestDox('A mensagem da tela: modo desconhecido, campo que não é texto e bloco de tipo desconhecido são recusados')]

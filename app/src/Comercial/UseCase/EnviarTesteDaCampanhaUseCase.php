@@ -24,6 +24,7 @@ use Psr\Clock\ClockInterface;
  * Isento do teto diário (`EnviarEmailHandler::ORIGENS_ISENTAS_DO_TETO_DIARIO`), sujeito ao limite por minuto, e com
  * teto próprio de 10 por hora por Master (contado no registro dos envios, que sobrevive a deploy). Quem se
  * descadastrou da lista não recebe: o Carteiro registra o bloqueio e a tela diz por quê.
+ * O modelo `vagas` passa pela mesma âncora da confirmação (§11): o teste sai como a campanha sairia.
  *
  * F3f (desenho 05 VS 21.10.26, L497-498, L668-669, L709, L717; decisão 2 da coordenação): o assunto chega com
  * "[TESTE]" e o teste fica GRAVADO como uma linha de `comercial_campanha` com estado `teste` (fora de ATIVAS: o
@@ -59,6 +60,7 @@ final class EnviarTesteDaCampanhaUseCase
         if ($this->envios->contarDaOrigemParaDesde(self::ORIGEM, $para, $desde) >= self::TETO_POR_HORA) {
             throw new CampanhaRecusada(self::TETO_ATINGIDO);
         }
+        ComposicaoDaCampanha::exigirAncoraDeVagas($mensagem);
         $teste = self::comPrefixo($mensagem);
         $email = $this->composicao->mensagemPara($teste, $para, $master->getFullName(), self::ORIGEM);
         $envio = $this->carteiro->enviar($email);
