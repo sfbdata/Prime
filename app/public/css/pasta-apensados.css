@@ -1,0 +1,119 @@
+/* Processos apensados da pasta (P4f, spec docs/specs/processo-apensados.md). Medidas do desenho
+   "02 - EXPEDIENTES - VS 18.10.26", linhas citadas como N:. Par escuro no fim, com os tokens `--ps-*`. */
+
+/* "Vincular apensado" (N:1710): o mesmo botão suave do "Vincular processo", com o hover cheio do desenho. */
+.ps-btn--apenso:hover,
+.ps-btn--apenso:focus-visible { background: #0a6fa0; color: #fff; }
+
+/* Etiqueta "Apensado · Tipo" e X do cartão do apensado (N:1725). */
+.ps-processo-apenso {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 4px;
+    background: #eef2f5;
+    color: #34505f;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.ps-processo-apenso-x {
+    height: 22px;
+    padding: 0 8px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #7b93a2;
+    font-size: 11.5px;
+    cursor: pointer;
+}
+.ps-processo-apenso-x:hover,
+.ps-processo-apenso-x:focus-visible { background: #fdecea; color: #a3232b; }
+
+/* "Tipo de apenso *" no modal de vínculo (N:294). */
+.mp-apenso-tipo { display: flex; flex-direction: column; gap: 5px; min-width: 0; max-width: 320px; margin: 0 0 12px; font-size: 12.5px; font-weight: 700; color: #34505f; }
+.mp-apenso-tipo[hidden] { display: none; }
+.mp-apenso-tipo-rotulo { white-space: nowrap; }
+.mp-apenso-obrig { color: #c0392b; }
+.mp-apenso-select {
+    height: 34px;
+    box-sizing: border-box;
+    width: 100%;
+    border: 1px solid #d3dde4;
+    border-radius: 4px;
+    padding: 0 10px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    color: #12242f;
+    background: #fff;
+}
+
+/* Pílula "N apensados" e a lista aberta na aba Dados (N:1437-1446). */
+.ps-chip-vinc--apensados { border-radius: 4px; }
+.ps-chip-vinc--apensados:hover { filter: none; background: #dcebf3; }
+.ps-cab-apensado .ps-rotulo--mini i { font-size: 12px; color: #0c7a9c; }
+.ps-cab-apensado > a { font-size: 14.5px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ps-cab-apensado-acao { font-size: 13.5px; font-weight: 700; color: #12242f; line-height: 1.35; margin-top: 2px; }
+.ps-cab-apensado .ps-dado-sub { font-size: 12.5px; color: #6b8494; line-height: 1.4; margin-top: 1px; }
+
+/* Chips por processo na aba Push (N:2546-2548, estilo em N:5683): antes de Todas/Novas/Geram prazo. */
+.ps-push-procs { display: flex; gap: 4px; flex-wrap: wrap; }
+.ps-push-proc {
+    height: 28px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    background: #eef2f5;
+    color: #34505f;
+}
+.ps-push-proc.is-ativo { background: #0a6fa0; color: #fff; }
+
+/* Modal "Vincular processo / Vincular apensado" (#modalVincularProcesso), desenho N:289-354 e `pvVals`
+   N:3135-3151. Escopo no id do modal: nada aqui vale fora dele. */
+#modalVincularProcesso .modal-content { border: none; border-radius: 4px; overflow: hidden; box-shadow: 0 18px 50px rgba(16,42,58,.22); }
+/* Cabeçalho azul, ícone e título brancos (N:292). */
+#modalVincularProcesso .modal-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #0a6fa0; color: #fff; border-bottom: none; }
+#modalVincularProcesso .modal-title { flex: 1; margin: 0; font-size: 15px; font-weight: 700; color: #fff; }
+#modalVincularProcesso .modal-title .bi { color: #fff; }
+.mp-fechar { width: 30px; height: 30px; flex-shrink: 0; border: none; border-radius: 4px; background: rgba(255,255,255,.16); color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.mp-fechar:hover, .mp-fechar:focus-visible { background: rgba(255,255,255,.28); }
+/* Abas "Buscar processo existente" / "Cadastrar novo (CNJ)" (N:295, `tabSt` N:3136). */
+#modalVincularProcesso .mp-abas { display: flex; border: 1px solid #0a6fa0; border-radius: 4px; overflow: hidden; }
+#modalVincularProcesso .mp-abas > .btn { flex: 1; height: 34px; display: flex; align-items: center; justify-content: center; gap: 7px; margin: 0; border: none; border-radius: 0; font-family: inherit; font-size: 13.5px; font-weight: 700; background: #fff; color: #0a6fa0; box-shadow: none; transition: background .15s, color .15s; }
+#modalVincularProcesso .mp-abas > .btn .bi { margin: 0 !important; }
+#modalVincularProcesso .mp-abas > .btn-check:checked + .btn { background: #0a6fa0; color: #fff; }
+#modalVincularProcesso .mp-abas > .btn-check:focus-visible + .btn { outline: 2px solid #0a6fa0; outline-offset: -4px; }
+/* Aviso amarelo e erro vermelho (`avisoSt`, N:3148). */
+#modalVincularProcesso #mp-feedbackAlerta.alert { padding: 10px 12px; border-radius: 4px; font-size: 13px; }
+#modalVincularProcesso #mp-feedbackAlerta.alert-warning { background: #fff7e6; color: #7a5200; border: 1px solid #f1e2bf; }
+#modalVincularProcesso #mp-feedbackAlerta.alert-danger { background: #fdeceb; color: #a3232b; border: 1px solid #f2c9c6; }
+/* Rodapé: Cancelar cinza-claro e o botão principal azul (N:351). */
+#modalVincularProcesso .modal-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 16px; border-top: 1px solid #eef2f5; background: #fafcfd; }
+#modalVincularProcesso .modal-footer > * { margin: 0; }
+#modalVincularProcesso .modal-footer .btn { height: 36px; display: inline-flex; align-items: center; gap: 7px; border: none; border-radius: 4px; font-family: inherit; font-size: 13.5px; font-weight: 700; }
+#modalVincularProcesso .modal-footer .btn .bi { margin: 0 !important; }
+#modalVincularProcesso .modal-footer .btn-secondary { padding: 0 16px; background: #eef2f5; color: #34505f; }
+#modalVincularProcesso .modal-footer .btn-secondary:hover { background: #e3e9ee; color: #34505f; }
+#modalVincularProcesso .modal-footer .btn-primary { padding: 0 18px; background: #0a6fa0; color: #fff; }
+#modalVincularProcesso .modal-footer .btn-primary:hover { background: #085a83; color: #fff; }
+
+[data-bs-theme="dark"] .ps-processo-apenso,
+[data-bs-theme="dark"] .ps-push-proc:not(.is-ativo) { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+[data-bs-theme="dark"] .ps-chip-vinc--apensados:hover { background: var(--ps-chip-bg); filter: brightness(1.15); }
+[data-bs-theme="dark"] .ps-cab-apensado-acao { color: var(--bs-body-color); }
+[data-bs-theme="dark"] .ps-cab-apensado .ps-dado-sub { color: var(--bs-secondary-color); }
+[data-bs-theme="dark"] .mp-apenso-tipo { color: var(--bs-body-color); }
+[data-bs-theme="dark"] .mp-apenso-select { background: var(--bs-body-bg); color: var(--bs-body-color); border-color: var(--bs-border-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .mp-abas > .btn-check:not(:checked) + .btn { background: var(--bs-body-bg); color: #6fb6dc; }
+[data-bs-theme="dark"] #modalVincularProcesso .modal-footer { background: var(--bs-tertiary-bg); border-top-color: var(--bs-border-color); }
+[data-bs-theme="dark"] #modalVincularProcesso .modal-footer .btn-secondary { background: var(--bs-secondary-bg); color: var(--bs-body-color); }

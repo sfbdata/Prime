@@ -36,6 +36,35 @@ final class ColaboradoresAtribuiveisTest extends TestCase
         self::assertCount(1, (new ColaboradoresAtribuiveis($repo))->doEscritorio(new Tenant()));
     }
 
+    #[TestDox('gravar: aceita aprovado e quem já está no registro; recusa suspenso novo e id de outro escritório')]
+    public function testResolver(): void
+    {
+        [$ana, $suspensa] = [$this->usuario(1, 'Ana'), $this->usuario(3, 'Carla Suspensa')];
+        $repo = $this->createStub(UserRepository::class);
+        $repo->method('findColaboradorAtivoPorIdETenant')->willReturnCallback(static fn (int $id): ?User => $id === 1 ? $ana : null);
+        $sut = new ColaboradoresAtribuiveis($repo);
+
+        self::assertSame($ana, $sut->resolver(1, new Tenant()));
+        self::assertSame($suspensa, $sut->resolver(3, new Tenant(), [null, $suspensa]));
+        self::assertNull($sut->resolver(3, new Tenant()), 'suspensa que não estava no registro não entra');
+        self::assertNull($sut->resolver(99, new Tenant(), [$suspensa]));
+    }
+
+    #[TestDox('gravar vários: sem repetir, o que não pode fica de fora, e os atuais podem vir de um gerador')]
+    public function testResolverVarios(): void
+    {
+        [$ana, $suspensa] = [$this->usuario(1, 'Ana'), $this->usuario(3, 'Carla Suspensa')];
+        $repo = $this->createStub(UserRepository::class);
+        $repo->method('findColaboradorAtivoPorIdETenant')->willReturnCallback(static fn (int $id): ?User => $id === 1 ? $ana : null);
+        $atuais = (static function () use ($suspensa): \Generator {
+            yield $suspensa;
+        })();
+
+        $lista = (new ColaboradoresAtribuiveis($repo))->resolverVarios([1, 3, 1, 4], new Tenant(), $atuais);
+
+        self::assertSame([$ana, $suspensa], $lista);
+    }
+
     private function usuario(int $id, string $nome): User
     {
         $u = new User();

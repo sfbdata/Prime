@@ -12,9 +12,9 @@ lido; do cliente sai só o nome) e, do coordenador, **nada roda sozinho em lote*
 ## Estado da frente (19/10, sessão f6)
 
 - F1+F2: PR #114 (rascunho, base #68), suíte completa e visual feitos. Commits já enviados.
-- F3 Perguntar: PR #122 (rascunho, base #114), suíte completa OK (10788), revisão aprovada com ressalvas corrigidas.
-  Migration provisória `Version20261020138100`. Auditoria "quem perguntou e quando, sem texto": regra do "Só eu" (coordenador).
-- F4 Documentos: branch `ia-drawer-f4` (sobre `ia-drawer-f3`), sem migration. F5 Criar tarefa: a fazer.
+- F1+F2 (#114) e F3 Perguntar (#122) no master (21/10), migrations `Version20261020138000` e `Version20261020138100`.
+  Auditoria "quem perguntou e quando, sem texto": regra do "Só eu" (coordenador).
+- F4 Documentos: PR #129, base master, sem migration. F5 Criar tarefa: PR #134, sobre o #129.
 
 ## O que o desenho tem, e o que pode entrar
 

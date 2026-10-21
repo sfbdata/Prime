@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Auth\Controller;
 
 use App\Auth\Service\DestinoPosLogin;
+use App\Repository\UserTenantRepository;
+use App\Service\Tenant\TenantContext;
 use App\Entity\Auth\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,6 +25,8 @@ final class EntradaController extends AbstractController
 {
     public function __construct(
         private readonly DestinoPosLogin $destinoPosLogin,
+        private readonly TenantContext $tenantContext,
+        private readonly UserTenantRepository $userTenantRepository,
     ) {
     }
 
@@ -37,6 +41,11 @@ final class EntradaController extends AbstractController
         $para = $request->query->get('para');
         $destino = $this->destinoPosLogin->validar(is_string($para) ? $para : null, $request)
             ?? $this->generateUrl('expediente_index');
+        // Sem escritório na sessão (vários vínculos, ou o "lembrar-me", que não passa pelo autenticador) e com
+        // vínculo ativo: a seleção vem antes de qualquer tela do escritório.
+        if (!$this->tenantContext->hasCurrentTenant() && $this->userTenantRepository->findActiveByUser($user) !== []) {
+            $destino = $this->generateUrl('tenant_selecionar');
+        }
 
         return $this->render('security/entrando.html.twig', [
             'destino' => $destino,

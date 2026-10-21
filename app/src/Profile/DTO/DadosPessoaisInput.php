@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Profile\DTO;
 
+use App\Profile\Enum\Atuacao;
+use App\Profile\Enum\Genero;
 use App\Profile\Enum\VinculoColaborador;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -31,6 +33,11 @@ final class DadosPessoaisInput
 
     public ?\DateTimeInterface $dataNascimento = null;
 
+    /** Desenho 05 de 21/10 (filtros): declarado pela pessoa; nulo = não preenchido. */
+    public ?Genero $genero = null;
+
+    public ?Atuacao $atuacao = null;
+
     public ?VinculoColaborador $vinculo = null;
 
     #[Assert\Length(max: 20)]
@@ -56,6 +63,8 @@ final class DadosPessoaisInput
         $input->telefone       = $perfil->telefone;
         $input->cpf            = $perfil->cpf;
         $input->dataNascimento = $perfil->dataNascimento;
+        $input->genero         = $perfil->genero;
+        $input->atuacao        = $perfil->atuacao;
         $input->vinculo        = $perfil->vinculo;
         $input->ctps           = $perfil->ctps;
         $input->serie          = $perfil->serie;
