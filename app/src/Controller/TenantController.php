@@ -43,6 +43,7 @@ use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
 use App\Tenant\DTO\RemoverColaboradorInput;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
+use App\Tenant\Service\HierarquiaDePerfis;
 use App\Tenant\Service\RegraDosPrimarios;
 use App\Tenant\UseCase\RemoverColaboradorDoEscritorioUseCase;
 use App\Tenant\Exception\PedidoDeExclusaoRecusado;
@@ -463,11 +464,12 @@ final class TenantController extends AbstractController
         ObterOuCriarPerfilUseCase $obterOuCriarPerfil,
         TenantRepository $tenantRepository,
         UserTenantRepository $userTenantRepository,
-        RegraDosPrimarios $regraDosPrimarios
+        RegraDosPrimarios $regraDosPrimarios,
+        HierarquiaDePerfis $hierarquia
     ): Response {
         $currentUser = $this->getUser();
 
-        if (!$currentUser) {
+        if (!$currentUser instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
@@ -517,6 +519,7 @@ final class TenantController extends AbstractController
                 ? [$perfilAnterior]
                 : array_values(array_filter($tenantRoles, static fn ($r): bool => !$r->isSystem()));
         }
+        $tenantRoles = $hierarquia->perfisAtribuiveis($currentUser, $tenant, $user, $tenantRoles, $perfilAnterior); // C5: subconjunto e próprio perfil
 
         $form = $this->createForm(EditUserTenantRoleType::class, $userTenant, [
             'tenant_roles'    => $tenantRoles,
@@ -537,6 +540,8 @@ final class TenantController extends AbstractController
             } elseif ($eraPrimario !== $seraPrimario && !$podeGerirPrimarios) {
                 // Cinto do select: um POST forjado com o id do perfil de sistema cai aqui.
                 $erroDePerfil = 'Só o primário do escritório ou o Master pode dar ou tirar o perfil de usuário primário.';
+            } elseif (($recusaDaHierarquia = $hierarquia->recusaAoAtribuir($currentUser, $tenant, $user, $perfilAnterior, $userTenant->getTenantRole())) !== null) {
+                $erroDePerfil = $recusaDaHierarquia; // C5: cinto do select, para o POST forjado
             } elseif ($eraPrimario && !$seraPrimario) {
                 // Spec §5 E1: esta porta não rebaixa o titular nem o último primário.
                 try {

@@ -285,7 +285,7 @@
       + '<select class="mp-select mp-select-34" data-f-sit><option value="">Todas as situações</option><option value="Ativa"' + (S.fSit === 'Ativa' ? ' selected' : '') + '>Ativa</option><option value="Suspensa"' + (S.fSit === 'Suspensa' ? ' selected' : '') + '>Suspensa</option>'
       // C4b: as contas excluídas só aparecem nesta opção, com a data da purga.
       + '<option value="' + QUARENTENA + '"' + (S.fSit === QUARENTENA ? ' selected' : '') + '>Em quarentena</option></select>'
-      + '<label class="mp-busca"><i class="bi bi-search"></i><input data-busca value="' + esc(S.busca) + '" placeholder="Buscar conta ou primário" aria-label="Buscar conta ou primário"></label></div>'
+      + '<label class="mp-busca"><i class="bi bi-search"></i><input data-busca value="' + esc(S.busca) + '" placeholder="Buscar nº, conta ou primário" aria-label="Buscar nº, conta ou primário"></label></div>'
       + '<div id="mp-contas-aviso"></div><div class="mp-rolagem"><div class="mp-contas-grade"><div class="mp-contas-cab"><div>CONTA</div><div>PRIMÁRIO · PLANO</div><div>USUÁRIOS</div><div>PASTAS</div><div>DOCS</div><div>ARMAZENAMENTO</div><div>30 DIAS</div><div>PREVISÃO</div><div>SITUAÇÃO</div><div></div></div>'
       + '<div id="mp-contas-lista"></div></div></div></div>'
       // O menu da conta mora FORA do card e da rolagem (overflow), em posição fixa na janela: nunca é cortado.
@@ -398,16 +398,24 @@
     return '<div class="mp-conta-prev mp-hv" style="--cor:' + (mes < 3 ? '#a3232b' : '#4a6373') + '">' + (mes < 1 ? 'menos de 1 mês' : '≈ ' + n + (n === 1 ? ' mês' : ' meses')) + '</div>';
   }
 
+  // Busca da lista (desenho L752): nome, primário e o número da conta. Só dígitos casa o número com ou sem
+  // os zeros à esquerda ("123" e "000123" acham a conta Nº 000123).
+  function casaNaBusca(c, b) {
+    if (/^\d+$/.test(b) && Number(b) === Number(c.numero)) return true;
+
+    return ('nº ' + c.numero + ' ' + c.nome + ' ' + (c.titular || '')).toLowerCase().includes(b);
+  }
+
   function renderContasLista() {
-    const b = S.busca.toLowerCase();
-    const contas = D.contas.contas.filter(c => (S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA) && (!b || (c.nome + ' ' + (c.titular || '')).toLowerCase().includes(b)));
+    const b = S.busca.toLowerCase().trim();
+    const contas = D.contas.contas.filter(c => (S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA) && (!b || casaNaBusca(c, b)));
     document.getElementById('mp-contas-n').textContent = num(contas.length) + ' · botão direito na linha para ações';
     // Resultado de suspender/reativar: uma linha acima da tabela, até trocar de seção.
     document.getElementById('mp-contas-aviso').innerHTML = avisoHtml();
     document.getElementById('mp-contas-lista').innerHTML = contas.length ? contas.map(c => {
       const cor = ST[c.situacao] || '#4a6373';
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
-        + '<div class="mp-conta-nome mp-hv"><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b><span>desde ' + esc(c.desde) + ' · último acesso ' + esc(acessoRelativo(c.ultimoAcesso)) + '</span></div>'
+        + '<div class="mp-conta-nome mp-hv"><span class="mp-conta-titulo"><span class="mp-conta-nro" title="Número da conta (ordem de abertura)">Nº ' + esc(c.numero) + '</span><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b></span><span>desde ' + esc(c.desde) + ' · último acesso ' + esc(acessoRelativo(c.ultimoAcesso)) + '</span></div>'
         + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || 'titular não registrado') + '</span><span>' + esc(c.espaco.planoNome) + '</span></div>'
         + '<div class="mp-conta-usu mp-hv"><b>' + num(c.usuarios) + '</b><span> / ' + (c.espaco.limiteUsuarios === null ? 'sem limite' : num(c.espaco.limiteUsuarios)) + '</span></div>'
         + '<div class="mp-conta-num mp-hv">' + num(c.pastas) + '</div><div class="mp-conta-num mp-hv">' + num(c.documentos) + '</div>'

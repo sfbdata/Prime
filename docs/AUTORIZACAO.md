@@ -169,6 +169,28 @@ tela de seleção de escritório.
   `RemoverColaboradorDoEscritorioUseCase`): "O titular do escritório não pode sair. Fale com o suporte
   do BlueJus." (D4: o titular nunca é rebaixado nem removido). A barra superior nem mostra o botão
   "Sair deste escritório" para o titular do escritório atual (`base.html.twig`).
+- **Hierarquia de perfis** (spec `docs/specs/perfis-1.2-permissoes-e-hierarquia.md`, parte C): a regra mora
+  num lugar só, `App\Tenant\Service\HierarquiaDePerfis`, que usa a `RegraDosMasters` (nível 3, Master) e a
+  `RegraDosPrimarios::podeGerirPrimarios()` (nível 2, primário ativo); os demais são nível 1. O perfil de
+  sistema é nível 2; os secundários, nível 1. Só mexe em perfil quem tem nível MAIOR que o dele, no servidor:
+  - lista (`TenantRoleController::index`): primário, Master ou `admin.roles.manage`; mostra só perfis de nível
+    até o do ator (o secundário não vê o perfil de sistema). Quem não tem acesso recebe a tela "Acesso
+    restrito" (403) com "Pedir acesso", que avisa os primários ativos pela Central (tipo
+    `perfis_pedido_acesso`), um pedido por pessoa por dia (o teto é o próprio aviso: o link dele é o edit-role
+    de quem pediu). Vale também no GET de `new` e `edit`;
+  - criar (`new`): só nível >= 2 (o perfil novo é sempre secundário);
+  - editar (`edit`) e excluir (`delete`): só perfil de nível abaixo do ator. Na prática, o secundário com
+    `admin.roles.manage` fica só com a leitura da lista de secundários: não edita nem exclui nenhum perfil,
+    nem o próprio. A tela do perfil de sistema continua sendo a gestão de primários (`podeGerirPrimarios`,
+    sem mudança). Recusa: 403 com "Seu perfil não pode editar um perfil do mesmo nível ou acima.";
+  - **subconjunto** no edit-role (`TenantController::editUserRole`, `admin.users.manage`) e no convite
+    (`GerenciarConvitesController` + `CriarConviteEscritorioUseCase`, `admin.users.invite`): quem não é
+    primário nem Master não troca o próprio perfil e só atribui perfil cujas permissões estão TODAS no perfil
+    dele (`HierarquiaDePerfis::podeAtribuirPerfil`). Sem vínculo ativo ou com perfil nulo, só o perfil vazio
+    cabe. Manter o perfil atual do alvo não é atribuir. Primário e Master atribuem qualquer secundário; o perfil
+    de sistema segue a regra dos primários acima. O select esconde o que não pode e o POST forjado é recusado.
+    **Não cobre:** o aceite do convite não revalida o subconjunto (só a regra dos primários); o convite do
+    Trabalho Externo é outro fluxo.
 - **Excluir perfil secundário em uso** (`TenantRoleController::delete`) solta antes todos os vínculos
   (ativos e inativos) que o usam: eles ficam com perfil nulo, e **perfil nulo nega toda permissão de perfil** no
   `PermissionChecker` (módulos, admin e `resources.*` por tipo) até alguém atribuir outro. Só
@@ -273,7 +295,7 @@ canAccessModule($u, $t, 'clientes')          == hasPermission($u, $t, 'modules.c
 
 | Permissão | Controller | Tipo de proteção | Observação |
 |---|---|---|---|
-| `admin.roles.manage` | `TenantRoleController::assertAccess()` | Listagem + CRUD de roles | Um guard cobre tudo |
+| `admin.roles.manage` | `TenantRoleController` via `HierarquiaDePerfis::podeVerALista()` | Só a leitura da lista de secundários | Criar, editar e excluir exigem nível acima do perfil (primário ou Master); ver §2b, Hierarquia de perfis |
 | `admin.users.manage` | `TenantController::listUsers()` (l. 329) + `TenantUserProfileController` (l. 54) + ações em `TenantController` | Listagem + ações de gestão | Mistura "ver lista" e "executar ação" numa permissão só |
 | `admin.users.invite` | `GerenciarConvitesController::assertAccess()` | Listagem + CRUD de convites | — |
 | `admin.access_requests.approve` | `AccessRequestController` (l. 50) | Listagem + aprovação | — |

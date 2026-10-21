@@ -24,7 +24,12 @@
                 <button type="button" class="pf-ver-como-btn" data-pf-visao="primario">Primário</button>
             </div>
         {% endif %}
-        <a href="{{ path('app_tenant_role_new', {tenantId: tenantId}) }}" class="pf-btn-cinza"><i class="bi bi-plus-lg"></i>Novo Perfil</a>
+        {# C3: perfil novo é secundário; quem não está acima dele vê o botão desabilitado, com a mensagem do desenho. #}
+        {% if podeCriar %}
+            <a href="{{ path('app_tenant_role_new', {tenantId: tenantId}) }}" class="pf-btn-cinza"><i class="bi bi-plus-lg"></i>Novo Perfil</a>
+        {% else %}
+            <button type="button" class="pf-btn-cinza is-desabilitado" aria-disabled="true" title="{{ recusaDeNivel }}" data-pf-recusa="{{ recusaDeNivel }}"><i class="bi bi-plus-lg"></i>Novo Perfil</button>
+        {% endif %}
     </div>
 
     {#
@@ -70,8 +75,9 @@
             {% for perfil in perfis %}
                 {% set urlEditar = path('app_tenant_role_edit', {tenantId: tenantId, id: perfil.id}) %}
                 {% set largura = totalDoCatalogo > 0 ? min(100, (perfil.permissoes / totalDoCatalogo * 100)|round) : 0 %}
-                <div class="pf-grade pf-linha" data-pf-linha data-href="{{ urlEditar }}">
-                    {{ _self.colunaPerfil(perfil.nome, perfil.descricao, not perfil.podeExcluir) }}
+                {# C3/C6: sem poder editar, a linha não abre a edição e o clique mostra a mensagem do desenho. #}
+                <div class="pf-grade pf-linha" data-pf-linha {% if perfil.podeEditar %}data-href="{{ urlEditar }}"{% else %}data-pf-recusa="{{ recusaDeNivel }}"{% endif %}>
+                    {{ _self.colunaPerfil(perfil.nome, perfil.descricao, perfil.fixo) }}
                     <div class="pf-col-classe">
                         {% if perfil.classificacao == 'primario' %}
                             <span class="pf-selo pf-selo-primario"><i class="bi bi-person-badge"></i>PRIMÁRIO</span>
@@ -82,13 +88,19 @@
                     {{ _self.colunaPermissoes(perfil.permissoes ~ ' permissões', 'de ' ~ totalDoCatalogo, largura) }}
                     <div class="pf-col-usu"><b>{{ perfil.usuarios }}</b></div>
                     <div class="pf-col-acoes">
-                        <a href="{{ urlEditar }}" class="pf-acao pf-acao-editar" title="Editar perfil" aria-label="Editar perfil"><i class="bi bi-pencil"></i></a>
+                        {% if perfil.podeEditar %}
+                            <a href="{{ urlEditar }}" class="pf-acao pf-acao-editar" title="Editar perfil" aria-label="Editar perfil"><i class="bi bi-pencil"></i></a>
+                        {% else %}
+                            <button type="button" class="pf-acao pf-acao-editar is-desabilitada" aria-disabled="true" title="{{ recusaDeNivel }}" aria-label="Editar perfil" data-pf-recusa="{{ recusaDeNivel }}"><i class="bi bi-pencil"></i></button>
+                        {% endif %}
                         {% if perfil.podeExcluir %}
                             <form method="post" action="{{ path('app_tenant_role_delete', {tenantId: tenantId, id: perfil.id}) }}" class="d-inline" data-pf-form-excluir>
                                 <input type="hidden" name="_token" value="{{ csrf_token('delete_role_' ~ perfil.id) }}">
                                 <button type="button" class="pf-acao pf-acao-excluir" title="Excluir perfil" aria-label="Excluir perfil"
                                         data-pf-excluir data-nome="{{ perfil.nome }}" data-usuarios="{{ perfil.vinculos }}"><i class="bi bi-trash3"></i></button>
                             </form>
+                        {% elseif not perfil.fixo %}
+                            <button type="button" class="pf-acao pf-acao-excluir is-desabilitada" aria-disabled="true" title="{{ recusaDeNivel }}" aria-label="Excluir perfil" data-pf-recusa="{{ recusaDeNivel }}"><i class="bi bi-trash3"></i></button>
                         {% endif %}
                     </div>
                 </div>
@@ -99,6 +111,7 @@
     </div>
 
     {% include 'tenant_role/_confirmacao.html.twig' %}
+    <div class="pf-aviso" role="status" aria-live="polite" hidden data-pf-aviso></div>
 </div>
 {% endblock %}
 
