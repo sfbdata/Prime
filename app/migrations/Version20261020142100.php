@@ -17,7 +17,7 @@ use Doctrine\Migrations\AbstractMigration;
  * fatia). As vagas que já existem ganham o início da rodada atual: o da oferta (fim menos a duração)
  * ou, na vaga comum, a publicação.
  */
-final class Version20261020135400 extends AbstractMigration
+final class Version20261020142100 extends AbstractMigration
 {
     public function getDescription(): string
     {
