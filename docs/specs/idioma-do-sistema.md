@@ -24,7 +24,12 @@ Sessão 0d, 21/10/2026. Itens marcados **DONO** são decisões dele; o resto seg
     `PlanosELimitesController` e os rótulos da faixa etária e do tipo de divulgação; o `painel.js` inteiro entrou no
     `templates-extraidos.json`. Bloco `master` com 450 chaves (a P2b somou 191: `js` 165, `seccionais` 15, `contas` 4,
     `planos` 5, `faixa_etaria` 2). Detalhes em §8. Os mapas (`mapa_brasil`, `mapa_mundo`, `mapa-*.js`) ficam para a P3.
-  - **P3:** Notificações, Indicações (sem o include da Central), `masters.js` e `recursos.js`.
+  - **P3** (branch `idioma-master-c`): a Central de Notificações (`_notificacoes`, `notificacoes.js`), a seção
+    Indicações (`_indicacoes`, sem o include da Central de envios; `indicacoes.js`), `masters.js`, `recursos.js` e o
+    mapa mundial (`mapa_mundo`, `mapa-mundo.js`), com as respostas e recusas do `CentralDeNotificacoesController`, do
+    `IndicacoesDoMasterController` e do `MastersDoSistemaController` e as recusas com chave da `RespostaRecusada` e da
+    `OperacaoDeMasterRecusada`. Bloco `master` com 584 chaves (a P3 somou 134: `notificacoes` 34, `indicacoes` 14,
+    `masters` 11, `mapa` 4, `js` 71). O mapa do Brasil (`mapa_brasil`, `mapa-brasil.js`) fica com a 4b. Detalhes em §8.
 - Quem tem o quê fora da b5: o Comercial é da 5d (bloco de topo próprio `comercial:`, chaves `comercial.*`; um segundo `master:` de topo duplicaria a chave no YAML); o Relatório do Comercial e os
   Temas são da 9b.
 
@@ -244,6 +249,47 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   seccionais, e a da Contribua e a do Tenant são de outros domínios. A situação da conta, o nome do plano e a ação da
   trilha vêm do PHP como texto em português (dado): traduzi-los pede um código no JSON. Os nomes de estado e de país
   (dado, ver a P2a). O "R$" e a moeda BRL. Os mapas, `masters.js` e `recursos.js` (P3).
+
+- **P3 (b5):** as chaves das áreas novas moram em sub-blocos próprios do `master:` (`notificacoes`, `indicacoes`,
+  `masters`, `mapa`, e no JS `js.notificacoes`, `js.indicacoes`, `js.masters`, `js.recursos`, `js.mapa_mundo`; o
+  `js.mapa` já era da Visão geral). O `notificacoes.js` e o `indicacoes.js` são carregados pelo parcial, antes do
+  catálogo e do `bj-traducao.js` (fim do base): leem o texto só na hora de usar, e a carga pelo hash espera o
+  `DOMContentLoaded`. O `masters.js` e o `recursos.js` usam o catálogo do painel (`master.js`, `termos`). O
+  `mapa_mundo` (iframe sem o base) ganhou o próprio `catalogo_js('master.js.mapa_mundo')` e o `bj-traducao.js`; o
+  `PainelMasterControllerTest::testCsp` passou a aceitar o bloco `type="application/json"` (dado, o navegador não
+  executa). Datas e números pelo `BJFormato` (`dataHora`, `hora`, `numero`, `data`). Texto do catálogo que entra em
+  HTML montado passa por `esc()`/`escH()`; o `esc()` do `recursos.js` escreve as aspas pelo código, como o do painel.
+  O termo Master entra por `{papel}` nas frases do JS e nos flashes dos Masters. "(s)" fica como está.
+- **Recusas com chave (P3):** `RespostaRecusada` (Central) e `OperacaoDeMasterRecusada` (promover e remover Master)
+  ganharam as `RECUSA_*` em português e o `CHAVE_DA_RECUSA`, como as das seccionais (sem parâmetro; recusa fora das
+  constantes dá `LogicException`); os UseCases lançam pelas constantes e os controllers traduzem pela `chave()`. O
+  `CatalogoDasRecusasDoMasterTest` amarra as duas ao catálogo.
+- **Sem mudança visível (P3):** o HTML de `/master` (Master primário) e de `/master/mapa/mundo` foi comparado antes e
+  depois (templates da HEAD contra os novos, com tokens normalizados): o painel ficou igual (o catálogo `master.js`
+  só ganhou as chaves novas) e o mapa mundial só ganhou o `<script data-bj-t>` e o `bj-traducao.js`. O texto que os
+  cinco JS montam foi comparado num DOM falso, HEAD contra o novo, em 62 fotos (Central: lista, seleção, abas,
+  páginas, estrela, falhas, mensagem com e sem e-mail, histórico nos três canais, respostas por e-mail e pela Central,
+  recusa e falha; Indicações: carga, pausa, recusa e falha dos limites, carga que falha; Masters: sem escolha,
+  promover, remover, confirmação com e sem palavra; Telas e recursos: essencial, prompts, desligar, recusas, falha,
+  religar, busca vazia e por grupo, tudo ativo; mapa mundial: dicas de país, estado e município, painéis de país,
+  estado e região, trilha, vazios e falhas), iguais letra a letra, incluindo os textos dos `prompt()` e os corpos dos
+  POST, sem nenhuma chave faltando.
+- **Permitidos (P3):** o bloco `master` passou a 71: entram as regiões (`Norte`, `Nordeste`, `Centro-Oeste`,
+  `Sudeste`, `Sul`), os países do mapa mundial que o painel não tinha (`Austrália`, `Japão`, `China`) e `Polygon`
+  (tipo de geometria do d3).
+- **Nomes de lugar (DONO, 21/10):** os nomes de estado, de país e de região ficam em português nesta série; a tradução
+  deles vira entrega própria depois (resolve a dívida da P2b).
+- **Ficou fora da P3:** o mapa do Brasil (`mapa_brasil.html.twig` e `mapa-brasil.js`) fica com a 4b, que está mudando
+  os dois e extrai o texto deles quando terminar; o `mapa-dados.js` (menu de dados públicos, OAB e IBGE), que o mapa
+  do Brasil também carrega e que pediria o catálogo lá; o `mapa-agregado.js` e o `bj-dica.js` não têm texto (o
+  `bj-dica.js` entrou no `templates-extraidos.json`; o `mapa-agregado.js` não, por ser também do mapa do Brasil). O
+  conteúdo da Central (rótulo do tipo, "Sistema BlueJus", "Equipe", "Conta Nº", assuntos e textos montados nos
+  leitores de `app/src/Master/Notificacoes/`, e o rótulo da sugestão, que vem do `TipoDeSugestao` do Contribua): a
+  busca da caixa compara esse português e o assunto vai também ao e-mail e ao aviso da resposta, então traduzir pede
+  um código no JSON e a busca no idioma da tela. As recusas do validador e do `AlterarLimitesDeIndicacaoUseCase`
+  (domínio Indicacao, compartilhado com o lado do usuário). As `RECUSA_*` da `RegraDosMasters` (o
+  `EscritorioController` do Tenant também usa). As respostas do `RecursosDoSistemaController` e do `RecursoRecusado`
+  (fora do escopo desta etapa). O `lang="pt-BR"` fixo do `mapa_mundo`.
 
 - **Termos comuns (21/10, depois do #231):** os selos MASTER e SECUNDÁRIO do menu e do Meu Perfil, o papel "Master"
   (Minha conta e aba do Meu Perfil) e o "primário" do JS do menu vêm de `termos.*` (`|upper` onde é caixa alta; o base

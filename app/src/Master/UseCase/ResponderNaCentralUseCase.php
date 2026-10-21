@@ -51,8 +51,8 @@ final class ResponderNaCentralUseCase
     public function executar(User $master, string $origem, int $idOrigem, string $texto): RespostaDaCentralOutput
     {
         $texto = $this->exigirTexto($texto);
-        $leitor = $this->origens->da($origem) ?? throw new RespostaRecusada('Mensagem não encontrada.');
-        $mensagem = $leitor->uma($idOrigem) ?? throw new RespostaRecusada('Mensagem não encontrada.');
+        $leitor = $this->origens->da($origem) ?? throw new RespostaRecusada(RespostaRecusada::RECUSA_NAO_ENCONTRADA);
+        $mensagem = $leitor->uma($idOrigem) ?? throw new RespostaRecusada(RespostaRecusada::RECUSA_NAO_ENCONTRADA);
         $destino = $this->exigirDestino($leitor, $mensagem);
 
         $resposta = $this->naConta($mensagem, fn (): CentralMasterResposta => $this->respostas->emTransacao(
@@ -66,10 +66,10 @@ final class ResponderNaCentralUseCase
     {
         $texto = trim($texto);
         if ($texto === '') {
-            throw new RespostaRecusada('Escreva a resposta.');
+            throw new RespostaRecusada(RespostaRecusada::RECUSA_SEM_TEXTO);
         }
         if (mb_strlen($texto) > self::TAMANHO_MAXIMO) {
-            throw new RespostaRecusada('A resposta passou de 5.000 caracteres.');
+            throw new RespostaRecusada(RespostaRecusada::RECUSA_TEXTO_LONGO);
         }
 
         return $texto;
@@ -78,11 +78,11 @@ final class ResponderNaCentralUseCase
     private function exigirDestino(OrigemDaCentral $leitor, MensagemDaCentral $mensagem): DestinoDaResposta
     {
         if (!$mensagem->podeResponder) {
-            throw new RespostaRecusada('Esta mensagem não aceita resposta.');
+            throw new RespostaRecusada(RespostaRecusada::RECUSA_NAO_ACEITA);
         }
         $destino = $leitor->destinoDaResposta($mensagem->idOrigem);
         if ($destino === null || (!$destino->porEmail() && !$destino->pelaCentral())) {
-            throw new RespostaRecusada('Não há mais a quem responder esta mensagem.');
+            throw new RespostaRecusada(RespostaRecusada::RECUSA_SEM_DESTINO);
         }
 
         return $destino;
@@ -135,8 +135,8 @@ final class ResponderNaCentralUseCase
 
     private function pelaCentral(MensagemDaCentral $m, DestinoDaResposta $destino, string $texto, User $master): CentralMasterResposta
     {
-        $usuario = $destino->usuario ?? throw new RespostaRecusada('Não há mais a quem responder esta mensagem.');
-        $escritorio = $destino->escritorio ?? throw new RespostaRecusada('Não há mais a quem responder esta mensagem.');
+        $usuario = $destino->usuario ?? throw new RespostaRecusada(RespostaRecusada::RECUSA_SEM_DESTINO);
+        $escritorio = $destino->escritorio ?? throw new RespostaRecusada(RespostaRecusada::RECUSA_SEM_DESTINO);
         $this->notificacoes->criarNotificacao(
             $usuario,
             $escritorio,
