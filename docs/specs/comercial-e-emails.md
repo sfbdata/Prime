@@ -16,8 +16,8 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
   - **1a.** Infraestrutura de envio, registro, confirmação de endereço, rastreio (desligado até a Política), e as
     automações do ciclo da conta (`cad`, `lemb`, `val`, `conv`, `dica`). Empilhada sobre o **#87** da 0d
     (`push-avisar-quando-chegar`, que traz `email_descadastro`).
-  - **1b.** As automações de espaço (`e90`, `e100`, `ped`). Empilhada sobre `contribua-c2` (#74, que contém o #64), da
-    f6, depois da 1a (ou sobre a 1a, se a 1a entrar antes).
+  - **1b.** As automações de espaço (`e90`, `e100`, `ped`). Branch `comercial-1b`, cortada do master em 21/10 (o #74 e
+    o #99 já entraram), migration `Version20261020145000` (nome do coordenador).
   - **2.** Campanhas: modelos, editor de blocos, públicos, agendamento, teste. Spec em §8 (19/10), em dois PRs (2a e
     2b), na branch `comercial-2` empilhada sobre a `comercial-1a` (#99).
   - **3.** Monitoramento (números e CSV por campanha) e Descadastrados.
@@ -539,6 +539,16 @@ verdade, N5). Todos `transacional` (aviso do serviço contratado), escopo plataf
 **`e100` raro com o bloqueio ligado (I2):** com o bloqueio ligado, o envio que estoura é recusado antes do evento, e a
 faixa `Bloqueio` só é atingida quando o uso fecha exatamente no teto. Pedido à f6 (pergunta Q6): um evento
 `EnvioRecusadoPorEspaco(tenantId)` na primeira recusa, que dispara o `e100`.
+
+**Decisões da implementação (21/10, técnicas, da 5d):**
+- O título e o texto do `e90` usam o limite escolhido (80, 85 ou 90). O dc mostra o padrão, 90%; dizer "90%" a quem
+  cruzou 80 seria falso. A prévia do Master também mostra o limite escolhido.
+- A f6 entregou o `EnvioRecusadoPorEspaco` (Q6). Ele sai na hora, antes da exceção. Numa porta, a cópia de documentos
+  da pasta (`CopiarDocumentosDaPastaUseCase`), a recusa acontece dentro de uma transação, e o rollback levaria junto a
+  reserva e o envio (o transporte `comercial` é Doctrine na mesma conexão). Por isso, com transação aberta, o ouvinte
+  guarda a recusa e manda no fim da requisição, do comando ou da mensagem do worker, com ou sem erro.
+- Reserva e envio numa transação própria do ouvinte: se o envio falhar, a reserva volta e o aviso pode sair no
+  próximo evento. Desligada, a automação não consome a vez.
 
 ## 5. Testes
 

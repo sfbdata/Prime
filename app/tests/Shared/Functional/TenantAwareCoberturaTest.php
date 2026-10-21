@@ -164,6 +164,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\AutomacaoDeEmail::class,
         \App\Comercial\Entity\CicloDaConta::class,
         \App\Comercial\Entity\VarreduraComercial::class,
+        // Fatia 1b (§4): a vez dos avisos de espaço é lida e gravada só por SQL no ouvinte, que roda sem sessão (o
+        // escritório vem do evento e vai na consulta à mão); nunca é listada para ninguém.
+        \App\Comercial\Entity\AvisoDeEspaco::class,
         // Fatia 2a (§8.2): os modelos próprios de campanha são do Master, de escopo plataforma, sem escritório.
         \App\Comercial\Entity\ModeloDeCampanha::class,
         // Fatia 2b (§8.4 e §8.5): as campanhas, os destinatários de cada execução e o controle do expansor são do
@@ -218,7 +221,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 46 → 47 com as inscrições na OAB do Meu Perfil (19/10/2026): InscricaoOab é da pessoa, não do escritório.
     // 47 → 50 com as vagas e as preferências do usuário do Trabalho Externo (19/10/2026): Vaga, HistoricoVaga e PreferenciaDoUsuario, justificadas acima.
     // 50 → 52 com a página pública de vagas do Trabalho Externo (19/10/2026): LinkDeVagas e InteressadoEmVagas, justificados acima.
-    private const MAX_FORA_DO_ESCOPO = 52;
+    // 52 → 53 com a fatia 1b do Comercial (21/10/2026): a vez dos avisos de espaço, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 53;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

@@ -10,6 +10,7 @@ use App\Comercial\Enum\Automacao;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
 use App\Comercial\Exception\AutomacaoRecusada;
+use App\Comercial\Repository\AutomacaoDeEmailRepository;
 use App\Comercial\Service\ModelosDeAutomacao;
 use App\Comercial\Service\MontadorDeEmail;
 use App\Comercial\UseCase\AlterarAutomacaoUseCase;
@@ -75,16 +76,19 @@ final class ComercialDoMasterController extends AbstractController
 
     /**
      * A prévia só de leitura do modelo de uma automação (o botão do modelo, dc L.564), com o nome e o endereço de
-     * exemplo do dc (L.537). Os avisos de espaço chegam com a fatia 1b. Nada é enviado nem gravado.
+     * exemplo do dc (L.537). O `e90` mostra o limite escolhido. Nada é enviado nem gravado.
      */
     #[Route('/master/comercial/automacoes/{chave}/previa', name: 'master_comercial_previa', requirements: ['chave' => '[a-z0-9]{2,10}'], methods: ['GET'])]
-    public function previa(string $chave, ModelosDeAutomacao $modelos, MontadorDeEmail $montador): Response
+    public function previa(string $chave, ModelosDeAutomacao $modelos, MontadorDeEmail $montador, AutomacaoDeEmailRepository $automacoes): Response
     {
         $automacao = Automacao::tryFrom($chave);
-        if ($automacao === null || in_array($automacao, [Automacao::E90, Automacao::E100, Automacao::Ped], true)) {
-            return new Response('<p style="font-family:sans-serif;color:#5b7383;padding:16px;">O modelo deste aviso entra com os avisos de espaço.</p>');
+        if ($automacao === null) {
+            throw $this->createNotFoundException();
         }
-        $modelo = $modelos->montar($automacao, 'Dra. Ana', ['urlDeConfirmacao' => '#']);
+        $modelo = $modelos->montar($automacao, 'Dra. Ana', [
+            'urlDeConfirmacao' => '#',
+            'limite' => (string) ($automacao === Automacao::E90 ? $automacoes->estado($automacao)->atraso : ''),
+        ]);
         $ehDica = $automacao === Automacao::Dica;
         $email = $montador->montar(new MensagemDeEmail(
             para: 'teste@bluejus.com.br',
