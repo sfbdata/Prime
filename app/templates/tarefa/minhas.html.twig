@@ -81,8 +81,11 @@
         {% set comModo = painel.modoLista ? base|merge({modo: 'lista'}) : base %}
         {# ── Abas + filtros + modo, num cartão só (dc L65-75), e o resultado ──
            As abas moram dentro da raiz do filtro só pela caixa visual: o filtro-tabela.js reage a
-           campos e às classes `js-filtro-*`, não a elas. #}
-        <div data-filtro-root data-filtro-endpoint="{{ path('tarefa_minhas') }}">
+           campos e às classes `js-filtro-*`, não a elas.
+           Rótulos do prazo do desenho (dc L78); os valores `vencidas`/`proximas`/`sem` não mudam (KPIs).
+           "Limpar filtros" (dc L79): o motor só desenha o botão com filtro ativo e zera busca e selects,
+           não a aba (campo oculto sem `js-filtro-campo`). #}
+        <div data-filtro-root data-filtro-endpoint="{{ path('tarefa_minhas') }}" data-ft-rotulo-limpar="Limpar filtros">
             <div class="mm-barra-cartao">
                 <div class="mm-abas" role="tablist" aria-label="Papel nas metas">
                     {% for a in abas %}
@@ -112,8 +115,8 @@
                         { valor: 'urgente', label: 'Urgente' }
                     ] },
                     { name: 'prazo', rotulo: 'Prazo', tipo: 'select', opcoes: [
-                        { valor: 'vencidas', label: 'Vencidas' },
-                        { valor: 'proximas', label: 'Próximas (7 dias)' },
+                        { valor: 'vencidas', label: 'Atrasadas' },
+                        { valor: 'proximas', label: 'Vencem em 7 dias' },
                         { valor: 'sem', label: 'Sem prazo' }
                     ] }
                 ]
