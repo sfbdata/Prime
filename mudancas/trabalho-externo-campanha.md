@@ -10,6 +10,7 @@ tipo: novidade
 - `POST /trabalho-externo/campanha/email.html` (`trabalho_externo_campanha_html`, CSRF, anexo `email-campanha-bluejus.html`) e `POST /trabalho-externo/api/campanha/registro` (`trabalho_externo_campanha_registro`, `{acao: "copiar"}`, CSRF, devolve o HTML para a tela copiar): o e-mail do desenho (tabelas e estilos inline, gerado por Twig, texto escapado) com um link de vagas próprio com as vagas abertas nos filtros e o marcador `{{descadastrar}}` no rodapé para a ferramenta de envio trocar.
 - Só o Master de verdade: Equipe, externo e prévia `?como=` recebem 403 em JSON. Cada exportação (CSV, baixar e copiar o HTML) fica no log de auditoria (canal `audit`) com quem, quando, público, filtros e quantidade, nunca a lista. Sem migration.
 - O download da lista de alertas por e-mail (§4.9) também passa a registrar no canal `audit`: no canal padrão, a produção descartava o registro.
+- O item "Campanha por e-mail" do menu do Master (e da aba Master do Meu Perfil) deixa de abrir "em preparação" e leva ao modal da campanha no Trabalho Externo (`#camp=1`, desenho 06 l.1078).
 
 ## Para o cliente
 - O Master agora monta uma campanha por e-mail das vagas abertas: escolhe o público, a UF, a área e o assunto, vê a prévia do e-mail e baixa o HTML. A lista de destinatários fica vazia até a definição de quem autorizou receber campanhas.
