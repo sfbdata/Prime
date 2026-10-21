@@ -3533,8 +3533,8 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-meta-titulo { display: flex; align-items: flex-start; gap: 8px; font-size: 14.5px; font-weight: 600; line-height: 1.35; text-wrap: pretty; color: var(--ps-text); }
 .ps-meta-titulo i { font-size: 15px; line-height: 1.35; color: var(--ps-ok-dot); flex-shrink: 0; }
 /* Numero local da meta (desenho: "1." 14.5/700 azul, algarismos tabulares). O
-   numero global do desenho (tarefa.id) nao entra: e a sequencia de TODOS os
-   escritorios. */
+   selo "Nº 0001" depois do titulo e o numero da meta no escritorio (nunca o id):
+   estilo em meta-numero-global.css. */
 .ps-meta-num { flex-shrink: 0; min-width: 20px; font-size: 14.5px; font-weight: 700; line-height: 1.35; color: var(--ps-meta-num); font-variant-numeric: tabular-nums; }
 .ps-meta-titulo-tx { flex: 1; min-width: 0; }
 /* So o TEXTO e riscado (desenho): o numero continua legivel. */

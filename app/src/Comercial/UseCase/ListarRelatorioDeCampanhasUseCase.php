@@ -70,6 +70,12 @@ final class ListarRelatorioDeCampanhasUseCase
         return MetricasDaCampanha::deArray($m, $c['execucoes'] === 0 ? $c['total'] : 0, $rastreiaLeitura);
     }
 
+    /** O público como a lista e o visualizador mostram; o teste (F3f, dc L669/L709/L717) diz quantos e-mails. */
+    public static function rotuloDoPublico(string $publico, int $total): string
+    {
+        return $publico === self::TESTE ? 'Teste · ' . $total . ' e-mail(s)' : (PublicosDaCampanha::ROTULOS[$publico] ?? $publico);
+    }
+
     /**
      * @param LinhaDaCampanha $c
      * @param array{destinatarios: int, na_fila: int, enviados: int, entregues: int, lidos: int, rejeitados: int, clicaram: int}|null $m
@@ -83,7 +89,7 @@ final class ListarRelatorioDeCampanhasUseCase
             $c['id'],
             $c['nome'],
             $sub,
-            PublicosDaCampanha::ROTULOS[$c['publico']] ?? $c['publico'],
+            self::rotuloDoPublico($c['publico'], $c['total']),
             $c['total'],
             $c['estado'],
             self::ROTULOS[$c['estado']] ?? $c['estado'],

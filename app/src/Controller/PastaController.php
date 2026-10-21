@@ -289,6 +289,7 @@ class PastaController extends AbstractController
         $dto = new CriarPastaDTO(
             nomeCliente: $nomeCliente,
             nomeAcao: $nomeAcao,
+            vincularAoCadastroDoMesmoNome: true,
         );
 
         try {

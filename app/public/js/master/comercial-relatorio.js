@@ -353,4 +353,6 @@
     painel.addEventListener('mp:secao', e => { if (e.detail && e.detail.sec === 'com' && !carregado) carregar(); });
   }
   if (/[#&]sec=com\b/.test(location.hash)) carregar();
+  // F3f (dc L669): depois do "Enviar teste", a aba Enviadas volta com a linha nova ("Teste").
+  document.addEventListener('mc:relatorio-recarregar', () => { estado.aba = 'env'; estado.p = 1; carregar(); });
 })();

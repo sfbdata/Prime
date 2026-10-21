@@ -15,6 +15,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TarefaRepository::class)]
 #[ORM\HasLifecycleCallbacks]
+#[ORM\UniqueConstraint(name: 'uniq_tarefa_tenant_numero', columns: ['tenant_id', 'numero'])]
 class Tarefa implements Auditavel, TenantAware
 {
     public const STATUS_PENDENTE    = 'pendente';
@@ -31,6 +32,14 @@ class Tarefa implements Auditavel, TenantAware
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
+
+    /**
+     * Número da meta na sequência do ESCRITÓRIO ("Nº 0001", desenho 02 L1559). Nunca o id, que é global
+     * e expõe o volume dos outros escritórios (PMC-035). Atribuído ao criar pelo `GravarMetaNovaUseCase`;
+     * nulo nas metas antigas até o `app:tarefa:numerar-metas` rodar.
+     */
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $numero = null;
 
     #[ORM\Column(length: 255)]
     private string $titulo;
@@ -100,6 +109,26 @@ class Tarefa implements Auditavel, TenantAware
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getNumero(): ?int
+    {
+        return $this->numero;
+    }
+
+    /** O número é dado uma vez só: trocar o de uma meta já numerada a desligaria do que já foi citado. */
+    public function numerar(int $numero): self
+    {
+        if ($this->numero !== null) {
+            throw new \LogicException('Esta meta já tem número.');
+        }
+        if ($numero < 1) {
+            throw new \InvalidArgumentException('O número da meta começa em 1.');
+        }
+
+        $this->numero = $numero;
+
+        return $this;
     }
 
     public function getTitulo(): string
