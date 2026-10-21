@@ -106,8 +106,9 @@ RUN --mount=type=secret,id=composer_auth \
 
 COPY app/ ./
 
-# ENV fake só para build
-RUN printf "APP_ENV=prod\nAPP_SECRET=build_placeholder\nDATABASE_URL=pgsql://u:p@db:5432/db\nMAILER_DSN=null://null\nDATAJUD_API_KEY=x\nDATAJUD_BASE_URL=x\nDEFAULT_URI=http://localhost\n" > .env
+# ENV fake só para build. Toda %env(NOME)% sem default:: da config entra aqui ou no .env.prod.example
+# (EnvDoBuildArquiteturaTest): o cache:warmup instancia serviços (extensões do Twig) e morre sem ela.
+RUN printf "APP_ENV=prod\nAPP_SECRET=build_placeholder\nDATABASE_URL=pgsql://u:p@db:5432/db\nMAILER_DSN=null://null\nDATAJUD_API_KEY=x\nDATAJUD_BASE_URL=x\nDEFAULT_URI=http://localhost\nMAILER_FROM=nao-responda@bluejus.com.br\nDJEN_BASE_URL=x\n" > .env
 
 RUN composer dump-autoload --classmap-authoritative --no-dev --no-interaction \
     && APP_ENV=prod APP_DEBUG=0 php -d memory_limit=512M bin/console cache:warmup
