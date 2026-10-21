@@ -199,7 +199,6 @@
     "Controller/PastaController.php::editar": 60,
     "Controller/PastaController.php::editarMensagem": 42,
     "Controller/PastaController.php::enviarMensagem": 68,
-    "Controller/PastaController.php::fillProcessoFromData": 48,
     "Controller/PastaController.php::financeiroEditarObservacao": 42,
     "Controller/PastaController.php::financeiroEnviarObservacao": 62,
     "Controller/PastaController.php::financeiroUpload": 95,

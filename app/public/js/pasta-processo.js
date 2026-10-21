@@ -314,7 +314,7 @@
         botao.disabled = false;
         botao.removeAttribute('aria-busy');
         delete form.dataset.enviando;
-        window.alert(mensagem || 'Não foi possível alterar "Administrativo sem processo". Tente de novo.');
+        (window.avisarErroPs || window.alert)(mensagem || 'Não foi possível alterar "Administrativo sem processo". Tente de novo.');
         botao.focus();
     }
 

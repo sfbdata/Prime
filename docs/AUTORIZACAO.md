@@ -240,6 +240,12 @@ Exemplos confirmados:
 - `ExpedienteController::assertAccess()` — `canAccessModule('expediente')`
   (`app/src/Expediente/Controller/ExpedienteController.php`, l. 262)
 
+Exceção registrada (spec `processo-cadastro-pela-pasta`, a4, 21/10/2026): o "Buscar no CNJ"
+(`ProcessoController::datajudSearch`, `POST /processos/api/search`) exige o módulo `processos`, **ou** chega
+encaminhado pela pasta: `POST /pasta/{id}/processo/buscar-cnj` exige EDIT na pasta (`canAccessResource`, com o
+cadeado) e faz `forward` com o atributo `_cnj_pela_pasta`, que só nasce no servidor. Quem pode vincular processo
+na pasta consulta o CNJ por ela, mesmo sem o módulo; fora da pasta, nada muda.
+
 ### Twig — função de template
 
 `can_access_module('chave')` em `app/templates/_sidebar.html.twig`.
