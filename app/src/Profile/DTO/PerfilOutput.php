@@ -7,6 +7,8 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Profile\Entity\UserProfile;
 use App\Profile\Entity\VinculoNoEscritorio;
+use App\Profile\Enum\Atuacao;
+use App\Profile\Enum\Genero;
 use App\Profile\Enum\VinculoColaborador;
 
 final class PerfilOutput
@@ -36,6 +38,8 @@ final class PerfilOutput
         public readonly ?\DateTimeImmutable $contratoInicio = null,
         public readonly ?string $cnpj = null,
         public readonly ?\DateTimeImmutable $revisadoEm = null,
+        public readonly ?Genero $genero = null,
+        public readonly ?Atuacao $atuacao = null,
     ) {
     }
 
@@ -70,6 +74,8 @@ final class PerfilOutput
             contratoInicio: $vinculo?->getContratoInicio(),
             cnpj: $vinculo?->getCnpj(),
             revisadoEm: $perfil->getRevisadoEm(),
+            genero: $perfil->getGenero(),
+            atuacao: $perfil->getAtuacao(),
         );
     }
 

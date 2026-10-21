@@ -225,7 +225,7 @@
       linhas = Object.entries(ATUA).sort((a, b) => b[1] - a[1]).map(([uf, n]) => {
         const t = S.mapaQuem === 'esc' ? { ag: 0, an: 0 } : (G.tend[uf] || { ag: 0, an: 0 }), dl = t.ag - t.an;
         const ic = dl > 0 ? 'bi-arrow-up-right' : dl < 0 ? 'bi-arrow-down-right' : 'bi-arrow-right', cor = dl > 0 ? '#1e7b45' : dl < 0 ? '#a3232b' : '#9aabb7';
-        const tit = S.mapaQuem === 'esc' ? 'Tendência medida só para pessoas' : '+' + t.ag + ' nos últimos 30 dias · +' + t.an + ' nos 30 anteriores · só entradas: saídas ainda não são medidas';
+        const tit = S.mapaQuem === 'esc' ? 'Tendência medida só para pessoas' : (t.ag >= 0 ? '+' : '') + t.ag + ' nos últimos 30 dias · ' + (t.an >= 0 ? '+' : '') + t.an + ' nos 30 anteriores';
         return '<div class="mp-uf-lin"><span class="mp-uf-barra" style="--w:' + pct(n, maxAt) + '"></span><span class="mp-uf-nome">' + esc(NM[uf] || uf) + '</span><b>' + num(n) + '</b><i class="bi ' + ic + ' mp-uf-seta" style="--cor:' + cor + '" title="' + esc(tit) + '"></i></div>';
       }).join('');
     }

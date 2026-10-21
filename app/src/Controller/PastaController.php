@@ -22,6 +22,7 @@ use App\Processo\Entity\MovimentacaoProcesso;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Repository\ClientePFRepository;
 use App\Cliente\Repository\ClientePJRepository;
+use App\Cliente\Service\HistoricoDoCliente;
 use App\Cliente\Service\PendenciasDoCadastro;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaDocumentoRepository;
@@ -34,10 +35,10 @@ use App\Processo\Exception\TribunalNaoIdentificadoException;
 use App\Processo\Service\TribunalCnjResolver;
 use App\Entity\Permission\AccessRequest;
 use App\Repository\UserRepository;
-use App\Repository\UserTenantRepository;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Armazenamento\Sha256DeArquivo;
+use App\Tenant\Service\ColaboradoresAtribuiveis;
 use Psr\Log\LoggerInterface;
 use App\Twig\ArquivoIconeExtension;
 use App\Service\PermissionChecker;
@@ -112,6 +113,7 @@ use App\Pasta\UseCase\ExcluirPastaUseCase;
 use App\Pasta\UseCase\ResultadoExclusaoPasta;
 use App\Pasta\UseCase\RestaurarPastaUseCase;
 use App\Pasta\UseCase\ReordenarChecklistItensUseCase;
+use App\Pasta\Service\CobrancasDoChecklistDaPasta;
 use App\Pasta\UseCase\ToggleChecklistItemUseCase;
 use App\Pasta\Repository\PastaChecklistItemRepository;
 use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
@@ -197,7 +199,6 @@ class PastaController extends AbstractController
         private readonly ReordenarChecklistItensUseCase $reordenarChecklistItensUseCase,
         private readonly AlterarPrioridadeUseCase $alterarPrioridadeUseCase,
         private readonly PastaSecaoRepository $secaoRepository,
-        private readonly UserTenantRepository $userTenantRepo,
         private readonly CriarPastaUseCase $criarPastaUseCase,
         private readonly EditarPastaUseCase $editarPastaUseCase,
         private readonly ExcluirPastaUseCase $excluirPastaUseCase,
@@ -212,6 +213,7 @@ class PastaController extends AbstractController
         private readonly PastaPrazoRepository $pastaPrazoRepository,
         private readonly AndamentoDaPasta $andamentoDaPasta,
         private readonly DefinirSituacaoDaPastaUseCase $definirSituacao,
+        private readonly HistoricoDoCliente $historicoDoCliente,
         private readonly TelaDoCadeado $telaDoCadeado,
     ) {}
 
@@ -328,8 +330,10 @@ class PastaController extends AbstractController
         PastaDocumentoFavoritoRepository $favoritosDeDocumento,
         VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         NotaTecnicaRepository $notaTecnicaRepository,
+        CobrancasDoChecklistDaPasta $cobrancasDoChecklist,
         VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
         MontarPainelDoPushUseCase $montarPainelDoPush,
+        ColaboradoresAtribuiveis $atribuiveis,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -371,7 +375,7 @@ class PastaController extends AbstractController
         );
 
         $usuarios = $tenant !== null
-            ? $this->userRepository->findColaboradoresAtivosPorTenant($tenant)
+            ? $atribuiveis->doEscritorio($tenant, [$pasta->getResponsavel()])
             : [];
 
         // Fotos do menu de responsável, num mapa userId => fotoUrl. Uma consulta para
@@ -517,7 +521,8 @@ class PastaController extends AbstractController
             ...$this->paineisDoPush($pasta, $tenant, $montarPainelDoPush),
             'analisesIa'                  => $analisesIa,
             ...$this->pendenciasEPontosDoRelatorio($pasta, $tenant, $observacoesDetalhes, $push->naoLidas, $pagamentosDaPasta,
-                $conferenciaChecklist->totalMarcadosSemAnexo(), $tenant !== null && $visibilidadeDoFinanceiro->podeVer($currentUser, $tenant, $pasta)),
+                $conferenciaChecklist->totalMarcadosSemAnexo(), $tenant !== null && $visibilidadeDoFinanceiro->podeVer($currentUser, $tenant, $pasta),
+                $cobrancasDoChecklist->cobradosPendentes($pasta)),
             'metasResumo'                 => PastaMetasResumoOutput::montar($pasta),
             'abasDaPasta'                 => $abasDaPasta,
             // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
@@ -722,6 +727,7 @@ class PastaController extends AbstractController
 
         $this->em->persist($cliente);
         $pasta->addCliente($cliente);
+        $this->historicoDoCliente->cadastroCriado($cliente, $currentUser, $tenant);
         $this->em->flush();
 
         if ($isXhr) {
@@ -1520,7 +1526,7 @@ class PastaController extends AbstractController
     }
 
     #[Route('/{id}/responsavel', name: 'pasta_atualizar_responsavel', methods: ['PATCH'])]
-    public function atualizarResponsavel(Pasta $pasta, Request $request): JsonResponse
+    public function atualizarResponsavel(Pasta $pasta, Request $request, ColaboradoresAtribuiveis $atribuiveis): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1539,9 +1545,9 @@ class PastaController extends AbstractController
         if ($responsavelId === '' || $responsavelId === null) {
             $pasta->setResponsavel(null);
         } else {
-            $responsavel = $this->userRepository->find((int) $responsavelId);
             $tenant = $this->tenantContext->getCurrentTenant() ?? throw new \LogicException('Tenant ausente.');
-            if ($responsavel === null || !$this->userTenantRepo->existeVinculoAtivo($responsavel, $tenant)) {
+            $responsavel = $atribuiveis->resolver((int) $responsavelId, $tenant, [$pasta->getResponsavel()]);
+            if ($responsavel === null) {
                 return $this->json(['erro' => 'Usuário não encontrado.'], Response::HTTP_NOT_FOUND);
             }
             $pasta->setResponsavel($responsavel);
@@ -2531,7 +2537,7 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
         }
 
-        $this->toggleChecklistItemUseCase->executar($item);
+        $this->toggleChecklistItemUseCase->executar($item, $currentUser);
 
         return $this->json(['ok' => true, 'concluido' => $item->isConcluido()]);
     }
@@ -2767,12 +2773,12 @@ class PastaController extends AbstractController
      *
      * @return array{pendencias: PastaPendenciasOutput, pontosDoRelatorio: PontosDoRelatorioInicial}
      */
-    private function pendenciasEPontosDoRelatorio(Pasta $pasta, ?Tenant $tenant, array $observacoesDetalhes, int $pushNaoLidas, array $pagamentos, int $semAnexo, bool $veFinanceiro): array
+    private function pendenciasEPontosDoRelatorio(Pasta $pasta, ?Tenant $tenant, array $observacoesDetalhes, int $pushNaoLidas, array $pagamentos, int $semAnexo, bool $veFinanceiro, int $documentosCobrados = 0): array
     {
         $pontos = $this->pontosDoRelatorioInicial($pasta, $tenant, $observacoesDetalhes);
 
         return [
-            'pendencias'        => PastaPendenciasOutput::montar($pasta, $pushNaoLidas, $pagamentos, itensMarcadosSemAnexo: $semAnexo, veFinanceiro: $veFinanceiro, relatorioInicial: $pontos),
+            'pendencias'        => PastaPendenciasOutput::montar($pasta, $pushNaoLidas, $pagamentos, itensMarcadosSemAnexo: $semAnexo, veFinanceiro: $veFinanceiro, documentosCobrados: $documentosCobrados, relatorioInicial: $pontos),
             'pontosDoRelatorio' => $pontos,
         ];
     }

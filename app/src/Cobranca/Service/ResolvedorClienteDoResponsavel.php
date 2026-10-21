@@ -6,6 +6,7 @@ namespace App\Cobranca\Service;
 
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Repository\ClientePFRepository;
+use App\Cliente\Service\HistoricoDoCliente;
 use App\Cobranca\Entity\Pessoa;
 use App\Cobranca\Enum\EstadoCivil;
 use App\Entity\Auth\User;
@@ -36,6 +37,8 @@ use App\Entity\Tenant\Tenant;
  * **Só PF.** `ClientePJ` exige razão social, endereço de sede e QUATRO campos do representante legal,
  * todos `NOT NULL` e nenhum deles existe na ficha da cobrança — seriam cinco campos em branco em vez
  * de dois. Como as pessoas cobradas com CNPJ são ZERO hoje, o caminho PJ não existe aqui.
+ *
+ * Cliente criado aqui ganha no Histórico do cadastro "<quem judicializou> criou o cadastro"; o reusado não ganha nada.
  */
 final class ResolvedorClienteDoResponsavel
 {
@@ -44,6 +47,7 @@ final class ResolvedorClienteDoResponsavel
 
     public function __construct(
         private readonly ClientePFRepository $clientePFRepository,
+        private readonly HistoricoDoCliente $historicoDoCliente,
     ) {
     }
 
@@ -94,6 +98,8 @@ final class ResolvedorClienteDoResponsavel
         $cliente->setProfissao($responsavel->getProfissao());
 
         $this->clientePFRepository->save($cliente);
+        // Histórico do cadastro (E12 3d): quem judicializa criou o cadastro; vai no flush da judicialização.
+        $this->historicoDoCliente->cadastroCriado($cliente, $usuario, $tenant);
 
         return $cliente;
     }

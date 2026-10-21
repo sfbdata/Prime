@@ -9,6 +9,7 @@ use App\Contribua\Service\AvisoAoMaster;
 use App\Entity\Notificacao;
 use App\Indicacao\Service\AvisoDeDisparoAlto;
 use App\Inteligencia\MessageHandler\ProcessarAnaliseDeInteligenciaHandler;
+use App\Pasta\Service\AvisoDoChecklist;
 use App\Pasta\UseCase\EnviarRelatorioPastasParadasUseCase;
 use App\Pasta\UseCase\EnviarRelatorioSemProcessoUseCase;
 use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
@@ -48,8 +49,12 @@ final class TiposDeAvisoDaCentral
             Notificacao::TIPO_CENTRAL_DESPACHO => ['grupo' => 'atencao', 'rotulo' => 'Despacho', 'icone' => 'bi-person-check', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_DJEN_PUBLICACAO, Notificacao::TIPO_PUSH_PUBLICACAO_PASTA => ['grupo' => 'atencao', 'rotulo' => 'Publicação', 'icone' => 'bi-newspaper', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_PUSH_LINK_RENOVACAO => ['grupo' => 'atencao', 'rotulo' => 'Renovação', 'icone' => 'bi-arrow-clockwise', 'cor' => self::AMBAR, 'nivel' => 2],
+            Notificacao::TIPO_CONTA_PEDIDO_EXCLUSAO => ['grupo' => 'atencao', 'rotulo' => 'Pedido de exclusão', 'icone' => 'bi-trash3', 'cor' => self::AMBAR, 'nivel' => 2],
             // Agenda: como o tipo `agenda` do bluejus-central.js de 18/10 (L12 e TIPOS): azul, nível 2.
             Notificacao::TIPO_EVENTO_CRIADO, Notificacao::TIPO_EVENTO_CANCELADO => ['grupo' => 'atencao', 'rotulo' => 'Agenda', 'icone' => 'bi-calendar-event', 'cor' => self::AZUL, 'nivel' => 2],
+            // Cobrança automática do checklist da pasta (desenho 02: tipos "cobranca" e "conformidade").
+            AvisoDoChecklist::TIPO_COBRANCA => ['grupo' => 'urgente', 'rotulo' => 'Cobrança de documento', 'icone' => 'bi-megaphone-fill', 'cor' => '#c0392f', 'nivel' => 3],
+            AvisoDoChecklist::TIPO_PROVIDENCIA => ['grupo' => 'atencao', 'rotulo' => 'Providência', 'icone' => 'bi-clipboard2-check', 'cor' => self::AMBAR, 'nivel' => 2],
             // Relatório de pastas sem processo (spec relatorio-processos-controladoria §4): o "Enviar à Controladoria" do desenho.
             EnviarRelatorioSemProcessoUseCase::TIPO_NOTIFICACAO => ['grupo' => 'atencao', 'rotulo' => 'Relatório', 'icone' => 'bi-file-earmark-bar-graph', 'cor' => self::AMBAR, 'nivel' => 2],
             // Contribua (desenho 08 / bluejus-central.js: tipo "contribua"): sugestão, apoio, motivo e pedido de espaço.

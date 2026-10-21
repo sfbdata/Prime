@@ -87,7 +87,7 @@ final class JudicializarCasoComCadeadoTest extends TestCase
             new RegistrarEventoHistorico($this->createMock(EventoHistoricoRepository::class)),
             new CriarPastaUseCase($this->createMock(EntityManagerInterface::class), new GerarNumeroDePasta($this->createMock(NumeracaoDePastaInterface::class))),
             $comporNome,
-            new NormalizadorDePastaJudicial($comporNome, new ResolvedorClienteDoResponsavel($this->createMock(ClientePFRepository::class))),
+            new NormalizadorDePastaJudicial($comporNome, new ResolvedorClienteDoResponsavel($this->createMock(ClientePFRepository::class), new \App\Cliente\Service\HistoricoDoCliente($this->createMock(\App\Cliente\Repository\ClienteHistoricoRepository::class)))),
             $this->acessoAPasta(),
         );
     }
