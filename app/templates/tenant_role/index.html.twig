@@ -47,10 +47,13 @@
     {% set resumoVisivel = resumo.master ?? resumo.primario %}
     <div class="pf-chips" data-pf-chips>
         {% for chip in chips %}
+            {# 21/10 (L54): rótulo em maiúsculas em cima, número grande embaixo e o ícone à direita. #}
             <div class="pf-chip" data-pf-chip="{{ chip.chave }}">
+                <span class="pf-chip-txt">
+                    <span class="pf-chip-rot">{{ chip.rotulo }}</span>
+                    <b data-pf-chip-n data-primario="{{ resumo.primario[chip.chave] }}"{% if resumo.master %} data-master="{{ resumo.master[chip.chave] }}"{% endif %}>{{ resumoVisivel[chip.chave] }}</b>
+                </span>
                 <i class="bi {{ chip.icone }}"></i>
-                <b data-pf-chip-n data-primario="{{ resumo.primario[chip.chave] }}"{% if resumo.master %} data-master="{{ resumo.master[chip.chave] }}"{% endif %}>{{ resumoVisivel[chip.chave] }}</b>
-                <span>{{ chip.rotulo }}</span>
             </div>
         {% endfor %}
     </div>
