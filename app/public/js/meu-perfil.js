@@ -99,6 +99,15 @@
   document.addEventListener('click', e => {
     const t = e.target;
     if (t.closest('[data-mp-editar]')) { const m = modal('modalDadosPessoais'); if (m) m.show(); return; }
+    // Sugestão de atuação (desenho 05, F1): só preenche o campo quando a pessoa pede; grava ao salvar.
+    const usar = t.closest('[data-mp-usar-sugestao]');
+    if (usar) {
+      e.preventDefault();
+      const dica = usar.closest('[data-mp-atuacao-sugerida]');
+      const campo = dica && dica.closest('.mp-campo') ? dica.closest('.mp-campo').querySelector('select') : null;
+      if (campo) { campo.value = dica.dataset.mpAtuacaoSugerida; campo.dispatchEvent(new Event('change', { bubbles: true })); }
+      return;
+    }
     const copiar = t.closest('[data-mp-copiar]');
     if (copiar) {
       e.preventDefault();

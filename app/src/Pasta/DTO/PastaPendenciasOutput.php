@@ -28,9 +28,9 @@ use App\Pasta\Service\PontosDoRelatorioInicial;
  *                 (`PontosDoRelatorioInicial`, a heurística `relInicial()` do desenho);
  *  · Push       → publicação não lida.
  *
- * Da regra de Documentos do desenho só entra a metade "marcado sem anexo": a outra
- * metade ("documento cobrado e ainda não anexado") depende da cobrança automática do
- * checklist, que não existe no sistema (DOC-75, decisão S-6 do dono). Detalhes só acende
+ * Documentos junta as duas metades do desenho: "N documentos cobrados e ainda não anexados"
+ * (cobrança automática do checklist, spec pasta-cobranca-do-checklist) e "N itens marcados sem
+ * anexo". Detalhes só acende
  * quando quem chama manda os pontos do relatório: a pasta_show e o resumo impresso mandam
  * (o `imprimirResumo()` do desenho, dc L.4832, lista as pendências de todas as abas).
  */
@@ -62,6 +62,7 @@ final readonly class PastaPendenciasOutput
         ?\DateTimeImmutable $hoje = null,
         int $itensMarcadosSemAnexo = 0,
         bool $veFinanceiro = false,
+        int $documentosCobrados = 0,
         ?PontosDoRelatorioInicial $relatorioInicial = null,
     ): self {
         $porAba = [];
@@ -102,15 +103,8 @@ final readonly class PastaPendenciasOutput
 
         // Checklist desativado (DOC-73): a conferência "sem anexo" está pausada e não é pendência.
         // O gate mora AQUI, e não em quem chama, para a tela e o resumo impresso obedecerem juntos.
-        if ($itensMarcadosSemAnexo > 0 && $pasta->isChecklistAtivo()) {
-            $porAba['documentos'] = [
-                'n'   => $itensMarcadosSemAnexo,
-                'txt' => self::plural(
-                    $itensMarcadosSemAnexo,
-                    'item do checklist marcado sem anexo',
-                    'itens do checklist marcados sem anexo',
-                ),
-            ];
+        if ($itensMarcadosSemAnexo + $documentosCobrados > 0 && $pasta->isChecklistAtivo()) {
+            $porAba['documentos'] = self::pendenciaDosDocumentos($documentosCobrados, $itensMarcadosSemAnexo);
         }
 
         if (($detalhes = $relatorioInicial?->pendenciaDaAba()) !== null) {
@@ -125,6 +119,22 @@ final readonly class PastaPendenciasOutput
         }
 
         return new self($porAba);
+    }
+
+    /**
+     * Desenho 02 (dc 5496-5498): "N documentos cobrados e ainda não anexados" e "N itens marcados sem
+     * anexo", juntos com " e ".
+     *
+     * @return array{n: int, txt: string}
+     */
+    private static function pendenciaDosDocumentos(int $cobrados, int $semAnexo): array
+    {
+        $partes = array_filter([
+            $cobrados > 0 ? self::plural($cobrados, 'documento cobrado e ainda não anexado', 'documentos cobrados e ainda não anexados') : '',
+            $semAnexo > 0 ? self::plural($semAnexo, 'item marcado sem anexo', 'itens marcados sem anexo') : '',
+        ]);
+
+        return ['n' => $cobrados + $semAnexo, 'txt' => implode(' e ', $partes)];
     }
 
     /**

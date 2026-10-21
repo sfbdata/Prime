@@ -251,4 +251,18 @@ final class DatajudProcessoMapperTest extends TestCase
         self::assertNull($processo->getOrgaoJulgadorCodigo());
         self::assertNull($processo->getOrgaoJulgadorMunicipioIbge());
     }
+
+    #[TestDox('P5b: a sincronização do Datajud não toca nos dados manuais do cartão (o manual prevalece)')]
+    public function testNaoTocaOsDadosManuais(): void
+    {
+        $processo = new Processo();
+        $manual = new \App\Processo\DTO\DadosManuaisDoProcesso(classe: 'Classe do advogado', orgao: 'Órgão do advogado', segredo: true, gratuita: true);
+        $processo->definirDadosManuais($manual, new \App\Entity\Auth\User());
+        $em = $processo->getDadosManuaisEm();
+
+        $this->mapper()->mapFromSource($processo, $this->sourceReal());
+
+        self::assertEquals($manual, $processo->getDadosManuais());
+        self::assertSame($em, $processo->getDadosManuaisEm());
+    }
 }
