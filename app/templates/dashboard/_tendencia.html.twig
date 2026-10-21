@@ -30,15 +30,15 @@
         {%- set dir = 'igual' -%}
         {%- set qual = 'igual' -%}
         {%- set texto = '0%' -%}
-        {%- set titulo = 'Sem movimento nos dois períodos' -%}
-        {%- set de = 'sem movimento' -%}
+        {%- set titulo = 'dashboard.tendencia.sem_movimento_titulo'|trans -%}
+        {%- set de = 'dashboard.tendencia.sem_movimento'|trans -%}
         {%- set vazio = true -%}
     {%- elseif anterior == 0 -%}
         {%- set dir = 'sobe' -%}
         {%- set qual = sentido == 'fila' ? 'igual' : (sentido == 'baixa' ? 'ruim' : 'bom') -%}
-        {%- set texto = 'novo' -%}
-        {%- set titulo = 'Período anterior: 0' -%}
-        {%- set de = 'antes: 0 → agora: ' ~ atual -%}
+        {%- set texto = 'dashboard.tendencia.novo'|trans -%}
+        {%- set titulo = 'dashboard.tendencia.anterior_zero'|trans -%}
+        {%- set de = 'dashboard.tendencia.antes_agora'|trans({anterior: '0', atual: atual ~ ''}) -%}
     {%- else -%}
         {%- set diff = atual - anterior -%}
         {%- set pct = (diff|abs * 100 / anterior)|round -%}
@@ -47,8 +47,8 @@
         {%- set melhorou = sentido == 'baixa' ? dir == 'desce' : dir == 'sobe' -%}
         {%- set qual = (dir == 'igual' or sentido == 'fila') ? 'igual' : (melhorou ? 'bom' : 'ruim') -%}
         {%- set texto = pct == 0 ? '0%' : ((diff > 0 ? '+' : '−') ~ pct ~ '%') -%}
-        {%- set titulo = (dir == 'sobe' ? 'Subiu ' : (dir == 'desce' ? 'Caiu ' : 'Estável, ')) ~ pct ~ '% em relação ao período anterior (' ~ anterior ~ ' → ' ~ atual ~ ')' -%}
-        {%- set de = 'antes: ' ~ anterior ~ ' → agora: ' ~ atual -%}
+        {%- set titulo = (dir == 'sobe' ? 'dashboard.tendencia.subiu' : (dir == 'desce' ? 'dashboard.tendencia.caiu' : 'dashboard.tendencia.estavel'))|trans({pct: pct ~ '', anterior: anterior ~ '', atual: atual ~ ''}) -%}
+        {%- set de = 'dashboard.tendencia.antes_agora'|trans({anterior: anterior ~ '', atual: atual ~ ''}) -%}
     {%- endif -%}
     {%- set icone = dir == 'sobe' ? 'bi-arrow-up-right' : (dir == 'desce' ? 'bi-arrow-down-right' : 'bi-arrow-right') -%}
     {%- if modo == 'pilula' -%}

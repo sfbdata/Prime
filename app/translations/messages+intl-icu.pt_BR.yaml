@@ -1069,15 +1069,24 @@ metas:
         atrasadas: Atrasadas
         vencem_em_7_dias: Vencem em 7 dias
         sem_prazo: Sem prazo
+    grupos:
+        atrasadas: Atrasadas
+        proximas: Vencem em 7 dias
+        em_revisao: Aguardando revisão
+        depois: No prazo
+        sem_prazo: Sem prazo
+        concluidas: Concluídas
     status:
         pendente: Pendente
-        para_revisao: Para Revisão
         em_revisao: Em revisão
         concluida: Concluída
         atrasada: Atrasada
+        vence_em_breve: Vence em breve
+        no_prazo: No prazo
+        sem_prazo: Sem prazo
     prioridade:
         normal: Normal
-        prioridade: Prioridade
+        alta: Alta
         urgente: Urgente
     kpis:
         ver: 'Ver {rotulo}'
@@ -1095,7 +1104,6 @@ metas:
     filtros:
         limpar: Limpar filtros
         busca_placeholder: Buscar por título, pasta ou cliente
-        status: Status
         prioridade: Prioridade
         prazo: Prazo
     modos:
@@ -1146,6 +1154,10 @@ metas:
         x_de_y: '{concluidas} de {total}'
         concluidas: concluídas
         percentual_concluidas: Percentual de metas concluídas
+        legenda:
+            concluidas: '{total} concluída(s)'
+            atrasadas: '{total} atrasada(s)'
+            em_revisao: '{total} em revisão'
     atencao:
         titulo: Precisa de atenção
         titulo_e_pasta: '{titulo} · Pasta {nup}'
@@ -2284,6 +2296,262 @@ cliente:
             numero_opcional: Número (opcional)
             remover: Remover
 
+# ---- Dashboard (dashboard/*, dashboard.js, dashboard-filtros.js, dashboard-historico.js, dashboard-janelas.js)
+dashboard:
+    titulo: Dashboard
+    atualizado_as: 'Atualizado às {hora}'
+    sem_cargo: Sem cargo
+    exportar_pdf: Exportar PDF
+    exportar_pdf_titulo: Exportar relatório em PDF
+    impressao:
+        marca: BlueJus · Dashboard
+        titulo: Relatório de desempenho
+        periodo: Período
+        intervalo: '{de} a {ate}'
+        inicio: início
+        hoje: hoje
+        busca: 'Busca: {termo}'
+        gerado_em: Gerado em
+        data_as_hora: '{data} às {hora}'
+        por: 'por {nome}'
+        rodape: Documento gerado pelo BlueJus para uso interno do escritório.
+    periodo:
+        rotulo: Período
+        este_mes: Este mês
+        d60: 60 dias
+        d90: 90 dias
+        este_ano: Este ano
+    filtros:
+        limpar: Limpar filtros
+        buscar_colaborador: Buscar colaborador
+        de: De
+        ate: Até
+        ate_separador: até
+        responsavel: Responsável
+        cargo: Cargo
+        data_inicial: Data inicial
+        data_final: Data final
+        sem_data: sem data
+        dd_mm_aaaa: dd/mm/aaaa
+        escolher: 'Escolher {campo}'
+        todos_responsaveis: Todos os responsáveis
+        todos_cargos: Todos os cargos
+        buscar_pessoa: Buscar pessoa
+        nenhum_resultado: Nenhum resultado.
+        pessoa: pessoa
+        pessoas: pessoas
+    cards:
+        pastas_criadas: Pastas criadas
+        metas_ativas: Metas ativas
+        demandas_urgentes: Demandas urgentes
+        meta_global_batida: Meta global batida
+        ver_pastas: ver pastas
+        ver_metas: ver metas
+        abrir_pastas_criadas: 'Abrir: Expediente · pastas criadas'
+        abrir_metas_ativas: 'Abrir: Metas da equipe · metas ativas'
+        abrir_pastas_urgentes: 'Abrir: Expediente · pastas urgentes'
+        legenda_metas_ativas: tarefas ainda não concluídas
+        legenda_urgentes: pastas com prioridade Urgente
+        legenda_global_de: de
+        legenda_global_metas_concluidas: metas concluídas
+    tabela:
+        titulo: Desempenho
+        um_colaborador: 1 colaborador
+        n_colaboradores: '{n} colaboradores'
+        colaborador: Colaborador
+        cargo: Cargo
+        total_metas: Total metas
+        metas_ativas: Metas ativas
+        metas_vencidas: Metas vencidas
+        vencidas: Vencidas
+        prazos_proximos: Prazos próximos
+        total_demandas: Total demandas
+        demandas_ativas: Demandas ativas
+        pastas_criadas: Pastas criadas
+        total: Total
+        vazio: Nenhum colaborador com esses filtros.
+        nota: Uma meta com vários responsáveis conta para cada um deles, por isso a soma das linhas pode passar do total do card. Vencidas e prazos próximos são sempre relativos a hoje, não ao período filtrado.
+        abrir_metas: 'Abrir: Metas de {nome}'
+        abrir_metas_ativas: 'Abrir: Metas ativas de {nome}'
+        abrir_metas_vencidas: 'Abrir: Metas vencidas de {nome}'
+        abrir_prazo_proximo: 'Abrir: Metas com prazo próximo de {nome}'
+        abrir_pastas: 'Abrir: Expediente · pastas de {nome}'
+        abrir_pastas_ativas: 'Abrir: Expediente · pastas ativas de {nome}'
+        abrir_pastas_criadas: 'Abrir: Expediente · pastas criadas por {nome}'
+    celular:
+        ordenar: Ordenar
+        ordem_crescente: Ordem crescente
+        ordem_decrescente: Ordem decrescente
+    extras:
+        sem_dado: Sem dado
+        sem_dado_no_periodo: Sem dado no período
+        valor_dias: '{n}d'
+        abrir_pastas_urgentes: 'Abrir: Expediente · pastas urgentes de {nome}'
+        abrir_metas_concluidas: 'Abrir: Metas concluídas de {nome}'
+        abrir_taxa_conclusao: 'Abrir: Taxa de conclusão de {nome}'
+        abrir_tempo_medio: 'Abrir: Tempo médio de {nome}'
+        abrir_metas_revisao: 'Abrir: Metas em revisão de {nome}'
+        abrir_eventos_agenda: 'Abrir: Eventos na agenda de {nome}'
+    tendencia:
+        sem_movimento_titulo: Sem movimento nos dois períodos
+        sem_movimento: sem movimento
+        novo: novo
+        anterior_zero: 'Período anterior: 0'
+        antes_agora: 'antes: {anterior} → agora: {atual}'
+        subiu: 'Subiu {pct}% em relação ao período anterior ({anterior} → {atual})'
+        caiu: 'Caiu {pct}% em relação ao período anterior ({anterior} → {atual})'
+        estavel: 'Estável, {pct}% em relação ao período anterior ({anterior} → {atual})'
+    pref:
+        opcoes_da_tabela: Opções da tabela
+        ajustes_salvos_para: Ajustes salvos só para
+        meu_estilo: Meu estilo
+        densidade: Densidade
+        normal: Normal
+        compacta: Compacta
+        sons: Sons
+        animacoes: Animações
+        exibicao: Exibição
+        setas: Setas de tendência
+        colunas: Colunas
+        mostrar_todas: Mostrar todas
+        fixa: fixa
+        coluna_extra: '{rotulo} (extra)'
+        adicionar_coluna: Adicionar coluna
+        todas_na_tabela: Todas as colunas disponíveis já estão na tabela.
+        restaurar: Restaurar padrão
+    ia:
+        abrir: Abrir BlueJus Intelligence
+        ponto_de_atencao: '{n} ponto de atenção'
+        pontos_de_atencao: '{n} pontos de atenção'
+        leitura_do_periodo: Leitura do período
+        legenda: Leitura automática dos números do período, por regras fixas
+        atualizada_hoje_as: 'Atualizada hoje às {hora}'
+        fechar: Fechar
+        visao_da_equipe: Visão da equipe
+        analises_ampliadas: Análises ampliadas do escritório
+        modo_avancado: Modo avançado
+        confirma:
+            titulo: Ativar Modo Avançado?
+            texto: A BlueJus Intelligence passará a fazer análises ampliadas do escritório, usando apenas os dados disponíveis ao seu perfil de acesso.
+            podera_analisar: Poderá analisar
+            escopo:
+                tarefas: Tarefas
+                prazos: Prazos
+                equipes: Equipes
+                gargalos: Gargalos
+                indicadores: Indicadores
+                riscos_operacionais: Riscos operacionais
+            agora_nao: Agora não
+            ativar: Ativar Modo Avançado
+        av:
+            titulo: Visão estratégica do escritório
+            lema: Entenda. Antecipe. Aja. Evolua.
+            hoje_hora: 'Hoje, {hora}'
+            qualidade_regras: 'Nota por regras: −6 por colaborador sem cargo, −15 no início do período (ou −6 em andamento), −20 com menos de 3 colaboradores, −4 fixo; mínimo 40'
+            qualidade: Qualidade da análise
+            central: Central de Inteligência
+            como_montada: Como esta leitura foi montada
+            dados_analisados: Dados analisados
+            fatores: Fatores da classificação
+            sem_alerta: Nenhum alerta com os números atuais.
+            distribuicao: Distribuição da equipe
+            ativas: ativas
+            vencidas: vencidas
+            ativas_vencidas: '{ativas} ativas, {vencidas} vencidas'
+            media_da_equipe: 'Traço: média da equipe ({media} ativas por pessoa)'
+            visao_estrategica: Visão estratégica da equipe
+            principais_riscos: Principais riscos
+            sem_risco: Nenhum risco relevante identificado.
+            perguntas: Perguntas guiadas
+        dia_de: 'dia {dia} de {total}'
+        entram_por_dia: Entram por dia
+        concluidas_por_dia: Concluídas por dia
+        por_dia: /dia
+        abertas_no_periodo: Abertas no período
+        metas: Metas
+        concluidas: Concluídas
+        ativas: Ativas
+        vencidas: Vencidas
+        pct_metas_concluidas: '{taxa}% das metas concluídas'
+        concluida_minusculo: concluída
+        concluidas_minusculo: concluídas
+        pct_das: '{taxa}% das {n}'
+        abertas_no_periodo_minusculo: abertas no período
+        metas_minusculo: metas
+        o_que_acontece: O que está acontecendo
+        por_que: Por que
+        o_que_fazer: O que fazer agora
+        proximas_acoes: Próximas ações
+        limites: O que este painel não faz
+        nota_numeros: 'Números: somas das linhas visíveis da tabela Desempenho (uma meta com vários responsáveis conta para cada um); vencidas e prazos próximos são relativos a hoje; urgentes vêm do card Demandas urgentes.'
+        teaser:
+            titulo: Conhecer o Modo avançado
+            sub: Visão estratégica, riscos e Central de Inteligência.
+        rodape: Acompanhar novamente em 24 horas
+    js:
+        impressao:
+            intervalo: '{de} a {ate}'
+            inicio: início
+            hoje: hoje
+            todos_responsaveis: Todos os responsáveis
+            todos_cargos: Todos os cargos
+            busca: 'Busca: {termo}'
+            data_as_hora: '{data} às {hora}'
+            nome_do_arquivo: 'BlueJus Relatorio de desempenho {data}'
+        filtros:
+            responsavel: Responsável
+            cargo: Cargo
+            titulo_mes: '{mes} de {ano}'
+            mes_anterior: Mês anterior
+            proximo_mes: Próximo mês
+            dia: '{semana}, {dia} de {mes} de {ano}'
+            dia_hoje: '{semana}, {dia} de {mes} de {ano} (hoje)'
+            limpar: Limpar
+            hoje: Hoje
+            dd_mm_aaaa: dd/mm/aaaa
+            data_inicial: Data inicial
+            data_final: Data final
+            sem_data: sem data
+            mes_1: janeiro
+            mes_2: fevereiro
+            mes_3: março
+            mes_4: abril
+            mes_5: maio
+            mes_6: junho
+            mes_7: julho
+            mes_8: agosto
+            mes_9: setembro
+            mes_10: outubro
+            mes_11: novembro
+            mes_12: dezembro
+            semana_curta_0: D
+            semana_curta_1: S
+            semana_curta_2: T
+            semana_curta_3: Q
+            semana_curta_4: Q
+            semana_curta_5: S
+            semana_curta_6: S
+            semana_longa_0: domingo
+            semana_longa_1: segunda
+            semana_longa_2: terça
+            semana_longa_3: quarta
+            semana_longa_4: quinta
+            semana_longa_5: sexta
+            semana_longa_6: sábado
+        historico:
+            pastas_criadas: Pastas criadas
+            metas_ativas: Metas ativas
+            demandas_urgentes: Demandas urgentes
+            meta_global_batida: Meta global batida
+            subtitulo: Histórico mensal
+            ano: Ano
+            carregando: Carregando…
+            sem_historico: Ainda não há histórico deste número.
+            erro: Não foi possível carregar o histórico. Feche a janela e tente de novo.
+        janelas:
+            arraste_para_mover: Arraste para mover
+            fechar: Fechar
+
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro
 # ('perfis.x'|trans({papel: 'termos.master'|trans})).
@@ -2297,5 +2565,310 @@ termos:
     colaborador: colaborador
     pasta: pasta
     processo: processo
+
+# ---- Pasta, aba Push (pasta/_push_*, pasta-push*.js)
+pasta_push:
+    processual:
+        titulo: Movimentações recebidas
+        ver_no_modulo: ver no módulo
+        ia:
+            analisando: Analisando…
+            gerar_nova: Gerar nova análise
+            resumir: Resumir com IA
+            dica_primeira: A IA lê as movimentações e indica prazos e providências
+            dica_nao_analisadas: '{n} movimentação(ões) ainda não analisada(s)'
+            dica_nova: Nova análise considerando o histórico
+        filtros:
+            por_processo: Filtrar por processo
+            todos_dica: Movimentações de todos os processos da pasta
+            somente: 'Somente {numero}'
+            rotulo: Filtrar movimentações
+            todas: Todas
+            novas: Novas
+            prazo: Geram prazo
+        vazio:
+            sem_processo: Esta pasta não tem processo vinculado.
+            sem_processo_como: O Push Processual acompanha as publicações pelo número do processo.
+            vincule: Vincule um processo
+            vincule_resto: para que as publicações dele apareçam aqui.
+            sem_publicacao: Nenhuma publicação captada para este caso.
+            sem_publicacao_como: O sistema capta o que sai no DJEN para as OABs monitoradas do escritório.
+            sem_publicacao_oab: Se o processo não estiver sob uma OAB monitorada, nada chega aqui.
+            filtro: Nenhuma movimentação neste filtro.
+        # Pílula do dia do cartão ("5 out 2026"): a abreviação de cada mês.
+        meses:
+            jan: jan
+            fev: fev
+            mar: mar
+            abr: abr
+            mai: mai
+            jun: jun
+            jul: jul
+            ago: ago
+            set: set
+            out: out
+            nov: nov
+            dez: dez
+        cartao:
+            sem_data: Sem data
+            ponto_juizo: Ato do juízo (decisão, despacho, sentença, mandado)
+            ponto_cartorio: Cartório / servidor (certidão, diligência, intimação)
+            dica_nota: Clique com o botão direito para adicionar uma nota técnica
+            publicacao: Publicação
+            nao_lida: Não lida
+            novo: Novo
+            djen: DJEN
+            apensado: 'Apensado · {tipo} {numero}'
+        menu:
+            rotulo: Ações da movimentação
+            nota: Adicionar nota técnica
+            tarefa: Criar tarefa
+            encaminhar: Encaminhar via Chat I.A
+            marcar_lida: Marcar como lida
+            documento: Abrir documento
+            copiar: Copiar texto
+        teto:
+            exibindo: 'Exibindo as {total} publicações mais recentes deste caso.'
+            ver_todas: Ver todas no módulo
+    painel:
+        rotulo: Monitoramento do processo
+        switch: Monitoramento
+        switch_do_processo: 'Monitoramento do processo {numero}'
+        excluida: 'Pasta excluída: somente leitura.'
+        so_quem_edita: Só quem edita a pasta pausa ou retoma o monitoramento
+        principal: Principal
+        sem_processo: Sem processo vinculado
+        buscar: Buscar agora
+        buscar_dica: 'Busca, lê e audita o processo: prazos, decursos, pendências e próximos atos'
+        situacao:
+            titulo: Situação atual
+            ultimo: Último evento
+            proximo: Próximo ato
+            quem: Quem age
+            prazo: Prazo
+            previsao: Previsão
+            proxima: Próxima etapa provável
+            confianca: 'Confiança {conf}'
+            base: 'Base: {base}'
+            rodape: 'Previsão da I.A, não é ato oficial. {aprendizado}.'
+        avisos:
+            titulo: Avisar quando chegar
+            so_quem_edita: Só quem edita a pasta muda os avisos.
+    cliente:
+        titulo: Avisar cliente
+        excluida: 'Pasta excluída: somente leitura.'
+        so_quem_edita: Só quem edita a pasta muda os e-mails do cliente.
+        cadastrar: Cadastrar e-mail
+        cadastrar_dica: Cadastrar e-mail do cliente
+        sem_cliente: A pasta não tem cliente vinculado.
+        vazio: 'Nenhum e-mail cadastrado para {cliente}. Cadastre para manter o cliente informado sobre o processo.'
+        descadastrado: Descadastrado pelo cliente
+        email_principal: E-mail principal
+        tornar_principal: Tornar principal
+        avisos_para: 'Avisos para {email}'
+        remover: Remover e-mail
+        form:
+            exemplo: email@cliente.com.br
+            email: E-mail do cliente
+            rotulo: Rótulo do e-mail
+            pessoal: Pessoal
+            trabalho: Trabalho
+            familiar: Familiar
+            outro: Outro
+            cancelar: Cancelar
+            adicionar: Adicionar
+        controladoria:
+            dica: Todo e-mail ao cliente sai com cópia para a Controladoria, para conferência e controle dos atos
+            copia: 'Cópia para a Controladoria:'
+            sempre: Sempre
+        automatico:
+            titulo: Envio automático
+            ia: Análise da BlueJus IA
+            ia_dica: A análise depende de correção e revisão do advogado antes de chegar ao cliente
+            so_manual: Só manual
+    envio:
+        rotulo: Enviar análise ao cliente
+        titulo: Enviar ao cliente
+        fechar: Fechar
+        para: Para
+        cc: Cópia (CC) · Controladoria
+        cc_dica: 'Cópia obrigatória: garante a conferência e o controle dos atos enviados ao cliente'
+        cc_obrigatoria: Cópia obrigatória, não pode ser removida
+        sem_cc: Nenhum usuário com perfil de Controladoria cadastrado.
+        assunto: Assunto
+        mensagem: Mensagem
+        selo_ia: texto da análise, revise antes de enviar
+        revisei: Revisei e corrigi o conteúdo. Autorizo o envio ao cliente em nome do escritório.
+        cancelar: Cancelar
+        enviar: Enviar e-mail
+    teor:
+        publicacao: Publicação
+        documento: Documento
+        rotulo_doc: '{documento} - {tipo}'
+        abrir_documento: Abrir documento no PJe
+        copiar_id_dica: Copiar ID do documento
+        copiar_id: Copiar ID
+        abrir_pje: Abrir no PJe
+        criar_tarefa: Criar tarefa
+        encaminhar_dica: Encaminhar via Chat I.A
+        encaminhar: Encaminhar
+        marcar_lida: Marcar como lida
+        marcar_nao_lida: Marcar como não lida
+        sem_teor: Esta publicação não trouxe teor textual.
+        abrir_no_modulo: Abrir no módulo
+    link:
+        fechar: Fechar
+        pasta: 'Pasta {nup}'
+        acessos_no_total: acessos no total
+        menu:
+            titulo: Push Processual
+            fechar_dica: Fechar (Esc)
+            copiar: Copiar link externo ativo
+            acessos: Ver acessos ao link
+            gerar: Gerar link externo do Push
+            indisponivel: Link externo indisponível
+            carregando: Carregando…
+        modal:
+            titulo: Link externo do Push
+            processo: 'Processo {numero}'
+            sem_processo: Esta pasta não tem processo vinculado. Vincule um processo para compartilhar o Push.
+            aviso_antes: Quem receber o link vê
+            aviso_destaque: somente o Push Processual
+            aviso_depois: deste processo, sem login e sem poder alterar nada. Documentos, financeiro, metas e registros internos da pasta não aparecem.
+            gerar: Gerar e copiar link
+        criado:
+            titulo: Link criado e copiado
+            endereco: Endereço do link externo
+            copiar: Copiar
+            codigo: Código de acesso
+            codigo_dica: Envie por outro canal, separado do link.
+            ver_como_terceiro: Ver como terceiro
+            criar_outro: Criar outro
+        form:
+            validade: Válido por 30 dias.
+            validade_depois: Depois disso, quem tiver o link pode pedir renovação e você recebe um aviso para aceitar ou não.
+            o_que_ve: O que o terceiro vê
+            movimentacoes: Movimentações oficiais do processo
+            hoje: hoje · atualiza sozinho
+            codigo: Exigir código de acesso
+            codigo_desc: Gera um código de 6 dígitos para enviar separado do link.
+            cliente: Mostrar o nome do cliente
+            cliente_desc: Sem isso, o link mostra só o número do processo.
+            ia: Incluir Análises IA
+            ia_sem: Esta pasta ainda não tem Análise IA.
+        lista:
+            titulo: Links desta pasta
+            abrir_acessos: Abrir o painel de acessos
+        acessos:
+            titulo: Acessos ao link do Push
+            nenhum: Nenhum acesso ainda
+            rodape: Conta cada abertura do link (depois do código, quando houver).
+    # O JS (pasta-push.js, pasta-push-painel.js, pasta-push-cliente.js e pasta-push-link.js) lê este bloco
+    # pelo catalogo_js('pasta_push.js'): só {x}, sem plural ICU (o singular e o plural são chaves separadas).
+    js:
+        aba_titulo: Push Processual
+        aba_titulo_uma_nova: Push Processual · 1 movimentação nova sem leitura
+        aba_titulo_novas: 'Push Processual · {n} movimentações novas sem leitura'
+        nao_lida: Não lida
+        novo: Novo
+        id_copiado: 'ID {id} copiado'
+        copiar_falhou: Não foi possível copiar
+        marcar_lida: Marcar como lida
+        marcar_nao_lida: Marcar como não lida
+        marcada_lida: Marcada como lida
+        marcada_nao_lida: Marcada como não lida
+        lida_falhou: Não foi possível atualizar a publicação.
+        texto_falhou: Não foi possível copiar o texto.
+        texto_copiado: Texto copiado
+        sem_teor: Esta publicação não trouxe teor textual.
+        teor_falhou: Não foi possível carregar o teor. Tente de novo.
+        sem_documento: Esta movimentação não tem documento para abrir.
+        tarefa_falhou: Não foi possível criar a tarefa por aqui.
+        sem_nota: Esta movimentação não aceita nota técnica.
+        tarefa:
+            publicacao: Publicação
+            titulo: 'Providência: {tipo}'
+            titulo_com_data: 'Providência: {tipo} de {data}'
+            recebida: Movimentação recebida pelo Push Processual.
+            tipo: 'Tipo: {tipo}'
+            orgao: 'Órgão: {orgao}'
+            processo: 'Processo: {processo}'
+            disponibilizada: 'Disponibilizada em: {data}'
+            documento: 'ID do documento: {documento}'
+            link: 'Documento no PJe: {link}'
+        painel:
+            monitoramento_falhou: Não foi possível alterar o monitoramento.
+            lendo: Lendo o processo...
+            buscar: Buscar agora
+            buscar_falhou: Não foi possível buscar agora.
+            aviso_falhou: Não foi possível alterar o aviso.
+        cliente:
+            sem_email: Cadastre um e-mail para enviar a análise.
+            sem_permissao_cadastrar: Sem permissão para cadastrar e-mail.
+            cadastrar_falhou: Não foi possível cadastrar o e-mail.
+            email_falhou: Não foi possível alterar o e-mail.
+            automatico_falhou: Não foi possível alterar o envio automático.
+            remover_pergunta: 'Remover {email} dos avisos ao cliente?'
+        envio:
+            enviando: Enviando…
+            enviar: Enviar e-mail
+            sem_permissao: Sem permissão para enviar ao cliente.
+            sem_destinatario: Escolha ao menos um destinatário.
+            vazio: Assunto e mensagem não podem ficar vazios.
+            sem_revisao: Confirme que revisou o conteúdo antes de enviar.
+            reenviar: Reenviar ao cliente
+            falhou: Falha no envio. O texto foi mantido; tente de novo.
+        link:
+            erro_geral: Não foi possível falar com o servidor. Tente de novo.
+            carregar_falhou: Não foi possível carregar os links desta pasta.
+            um_link_ativo: 1 link ativo
+            links_ativos: '{n} links ativos'
+            reenviar_confirmacao: Reenviar o link de confirmação
+            ia_com: '{n} análise(s) desta pasta. Marcadas como análise, não ato oficial.'
+            criado_copiado: Link criado e copiado
+            criado: Link criado
+            copiado: Copiado
+            copiar: Copiar
+            valido_ate: 'Válido até {data}'
+            indisponivel: Link externo indisponível.
+            ninguem_abriu: Ninguém abriu este link ainda.
+            um_acesso: 1 acesso
+            acessos: '{n} acessos'
+            acesso: acesso
+            acessos_sem_numero: acessos
+            ultimos_acessos: Últimos acessos
+            ate: 'até {data}'
+            expirou_em: 'expirou em {data}'
+            criado_por: 'Criado por {quem} em {quando}'
+            com_codigo: com código
+            sem_codigo: sem código
+            renovacao_pedida: 'Renovação pedida por {quem} em {quando}'
+            quem_recebeu: quem recebeu o link
+            ultimo_em: 'último em {data}'
+            clique_detalhes: clique para ver os detalhes
+            copiar_link: Copiar link
+            revogar: Revogar
+            renovar: Renovar 30 dias
+            nao_renovar: Não renovar
+            acesso_no_total: acesso no total
+            acessos_no_total: acessos no total
+            revogar_titulo: Revogar link externo
+            revogar_pergunta: Revogar este link? Quem tiver o endereço perde o acesso na hora.
+            revogado: Link revogado
+            copiar_falhou_lista: Não foi possível copiar. Copie o endereço pela lista do link externo.
+            copiar_falhou_selecione: Não foi possível copiar. Selecione o endereço e copie.
+            copiado_aviso: Link copiado
+            renovado: Link renovado por 30 dias
+            recusado: Renovação recusada
+            pasta: 'Pasta {nup}'
+            um_link: 1 link
+            links: '{n} links'
+            ultimo_acesso_em: 'Último acesso em {data}'
+            nenhum_acesso: Nenhum acesso ainda
+            ver_acessos: Ver acessos ao link
+            gerar_novo: Gerar novo link externo
+            gerar: Gerar link externo do Push
+            copiado_menu: 'Link copiado · válido até {data}. Análises com cadeado fechado não aparecem.'
+            copiado_menu_com_codigo: 'Link copiado · válido até {data} · com código de acesso. Análises com cadeado fechado não aparecem.'
 
 # ---- fim

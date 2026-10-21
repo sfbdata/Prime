@@ -331,7 +331,7 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   `filtro-tabela.js` e `pasta-metas.js` (vão com a Pasta) e o placeholder padrão do `_partials/_filtro_barra`.
 
 
-## 9. A Pasta, aba Processo (0d, 21/10)
+## 11. A Pasta, aba Processo (0d, 21/10)
 
 - **Blocos de topo por aba**, combinados com a f6: `pasta_processo` (este), `pasta_push` (próximo PR da 0d) e
   `pasta_financeiro` (f6). O JS de cada aba lê `<bloco>.js`; o `catalogo_js` mora no próprio parcial, sem tocar o
@@ -376,3 +376,66 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
 - **Qualificação no JS:** os pedaços da qualificação ao vivo (`cliente.js.qual.*`, estado civil minúsculo) espelham o
   `QualificacaoDoCliente` do PHP, que ainda não lê o catálogo. Na fase de tradução os dois mudam juntos; o truque do
   gênero (`(a)` → `a`/vazio) só vale para o português e terá de ser revisto ali.
+
+## 12. Extração do Dashboard (7d, 21/10)
+
+- **Escopo:** `templates/dashboard/*` (casca com o cabeçalho do PDF, segmentado de período, selects e calendário
+  próprios e menu ⋮; cards e tabela; lista do celular; colunas extras; tendência; painel BlueJus Intelligence) e os
+  JS `dashboard.js`, `dashboard-filtros.js`, `dashboard-historico.js`, `dashboard-janelas.js` e
+  `dashboard-preferencias.js` (este sem texto visível). Bloco `dashboard` do catálogo, 234 chaves; o JS lê
+  `dashboard.js.*` (impressão, calendário, janela Histórico e janelas flutuantes), entregue pelo
+  `{{ catalogo_js('dashboard.js') }}` do `index` antes dos scripts. Os meses e os dias da semana do calendário são
+  chaves (`mes_1` a `mes_12`, `semana_curta_*`, `semana_longa_*`), lidas na hora de desenhar; o texto traduzido que
+  entra no `innerHTML` do calendário passa por `esc()`.
+- **Sem mudança visível:** o HTML de 18 respostas (primário com dados, com período do mês, com período do ano e
+  ordem, com filtros de responsável/cargo/busca, "Sem cargo", busca vazia, fragmento XHR, com todas as colunas extras
+  e o Modo avançado ligado, extras no XHR, secundário, escritório vazio com e sem período, e o JSON do Histórico dos
+  4 cards) saiu igual; mudaram só tokens, horas, o catálogo do JS e a cor do avatar, que segue o id do usuário
+  (`userId % 9`) e muda entre duas rodadas do teste.
+- **Guarda:** dois `>` dentro de expressão (`ritmo.vencidas > 0`, `extras|length >= 2`) viraram `0 < ...` e
+  `2 <= ...`, sem mudar o resultado, porque o detector lia o `>` como fim de tag. Em `permitidos`: a marca
+  (BlueJus, Intelligence), as constantes `ColunasExtrasDoDashboard::CATALOGO/TENDENCIA`, o trecho `sóci` do mapa de
+  ícone do cargo, `db-body` e os grupos `Atenção imediata`/`Acompanhamento`, que o template compara com o texto que
+  vem do PHP (`LeituraDoRitmo`) para escolher a classe.
+- **Formatos:** `'now'|date('d/m/Y')` do cabeçalho do PDF virou `|data`; `'now'|date('H:i')` (Atualizado às, PDF) e
+  `geradaEm|date('H:i')` do painel, `|hora`. Ficaram: as datas `aaaa-mm-dd` dos filtros montadas por
+  `split/reverse/join`, o `ui.fmt` do painel (`round(1)` com vírgula: o `|numero(1)` escreveria "2,0" onde hoje sai
+  "2"), o arco do card global (`number_format(2, '.', '')`, valor de SVG) e, no JS, as datas e a hora do cabeçalho
+  do PDF e do nome do arquivo, montadas à mão (`p2`), sem `toLocale*`.
+- **Ficou para depois:** os textos que vêm do PHP: rótulo, ajuda e nota das colunas extras
+  (`ColunasExtrasDoDashboard::CATALOGO`), toda a leitura do BlueJus Intelligence (`MontarLeituraDoDashboard`,
+  `MotorAvancado`, `MotorDeRitmo`, `NivelDeAlerta::rotulo`, período, alertas, perguntas, riscos, ações, limites), o
+  Histórico dos cards (`ObterHistoricoDoCardUseCase`: título, subtítulo, nota, meses, indicadores) e a recusa
+  `Sem acesso ao módulo Dashboard.`. Os parciais de outras áreas que a casca usa: `_partials/_filtro_barra` (chips,
+  rótulos e botões internos) e `filtro-tabela.js`. O `|lower` do nível no painel continua sobre o rótulo do PHP.
+
+## 14. A Pasta, aba Push (0d, 21/10)
+
+- **Bloco `pasta_push`** (269 chaves): `processual`, `painel`, `cliente`, `envio`, `teor`, `link` e `js`. Os quatro JS
+  da aba (`pasta-push.js`, `pasta-push-painel.js`, `pasta-push-cliente.js` e `pasta-push-link.js`) leem `pasta_push.js`.
+  O `catalogo_js` mora no `_push_processual` (antes do `pasta-push.js`; o painel e o cliente são incluídos por ele) e no
+  `_push_link_externo` (o `pasta-push-link.js` é carregado pelo `pasta/show`, depois do parcial), sem tocar o show. Com
+  a aba oculta, nenhum dos dois sai, e o `pasta-push-link.js` para no começo, sem o modal.
+- **Extraídos:** `pasta/_push_processual`, `_push_painel`, `_push_cliente`, `_push_cliente_modal`, `_push_teor` e
+  `_push_link_externo`, e os quatro JS. Não havia `|date` nesses parciais. A abreviação dos meses da pílula do dia
+  ("5 out 2026") virou `pasta_push.processual.meses.*`. Contagem e plural do JS viraram pares de chaves (`um_acesso` e
+  `acessos` com `{n}`), sem plural ICU. O "Esta pasta ainda não tem Análise IA." do link externo não entra no
+  `pasta_push.js` (que vai à página de quem não vê IA): o JS guarda o texto que o parcial traz, só para quem vê IA.
+- **Permitidos:** nomes de tecla e cabeçalho HTTP (`Accept`, `Escape`, `Tab`, `ContextMenu`, `ArrowDown`, `ArrowUp`) e
+  as letras acentuadas do mapa que tira o acento do tipo da comunicação para escolher a cor (`ç`, `ã`, `á`...), que não
+  vão à tela.
+- **Sem mudança visível:** o HTML da aba (com o painel, o "Avisar cliente", o modal de envio e as três peças do link
+  externo) foi comparado antes e depois em seis cenários (sem processo; sem publicação; completo com apensado, filtro
+  por processo, publicação lida e não lida, sem teor e com análise da IA; o mesmo sem IA; quem só vê; pasta excluída),
+  mais o teor de três publicações e o cartão e o modal do cliente renderizados à parte (com e sem e-mails,
+  descadastrado, Controladoria e histórico). Só mudaram os tokens CSRF das notas técnicas, que são aleatórios.
+- **Ficou de fora:** o texto que vem do PHP (status, subtítulo e última busca do painel, a Situação atual, os rótulos e
+  dicas dos avisos e do envio automático, a sublinha e as dicas dos e-mails do cliente, o histórico, o subtítulo do
+  modal, os rótulos dos filtros por processo, o tipo do apensado, o `estadoRotulo`, o `resumo` e o `motivoBloqueio` dos
+  links, e os erros e avisos do JSON dos controllers); a mensagem de `ia_disponibilidade()`; os parciais de outros
+  domínios incluídos pela aba (`inteligencia/_analises_push` e `processo/_notas_tecnicas`) e o `pasta-ia-push.js`; o
+  `title` da aba no `pasta/show` (o `pasta-push.js` reescreve o mesmo texto pelo catálogo).
+- **Permitidos fora da regra:** as 10 letras acentuadas do `|replace` que tira o acento do tipo da comunicação
+  (`_push_processual`) são técnicas e não vão à tela; como a lista vale para os 10 arquivos do bloco, um literal de
+  uma letra acentuada nesses arquivos passa pelo detector. O mesmo `catalogo_js` sai duas vezes quando os dois
+  parciais estão na página (o `BJ_T` junta os blocos; só pesa no tamanho).

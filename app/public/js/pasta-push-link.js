@@ -23,7 +23,11 @@
     var URL_LINKS = raiz.getAttribute('data-url-links');
     var CSRF = raiz.getAttribute('data-csrf');
     var NUP = raiz.getAttribute('data-pasta-nup') || '';
-    var ERRO_GERAL = 'Não foi possível falar com o servidor. Tente de novo.';
+    var ERRO_GERAL = BJ_T.t('pasta_push.js.link.erro_geral');
+    // O "sem Análise IA" é o texto que o parcial já traz (só para quem vê IA): fora do catálogo do JS,
+    // que vai à página de todos (o teste de quem não vê IA procura "Análise IA" na resposta inteira).
+    var iaDescInicial = raiz.querySelector('.js-ppl-op-ia-desc');
+    var IA_SEM = iaDescInicial ? iaDescInicial.textContent : '';
 
     var menu = document.getElementById('pushLinkMenu');
     var painel = document.getElementById('pushLinkAcessos');
@@ -106,7 +110,7 @@
         }).then(lerJson).then(function (r) {
             estado.pedido = null;
             if (!r.ok || !r.corpo || !Array.isArray(r.corpo.links)) {
-                throw new Error((r.corpo && r.corpo.erro) || 'Não foi possível carregar os links desta pasta.');
+                throw new Error((r.corpo && r.corpo.erro) || BJ_T.t('pasta_push.js.link.carregar_falhou'));
             }
             estado.dados = r.corpo;
             desenharTudo();
@@ -153,7 +157,7 @@
         var n = estado.dados.totalAtivos || 0;
         selo.textContent = String(n);
         selo.hidden = n === 0;
-        selo.title = n + plural(n, ' link ativo', ' links ativos');
+        selo.title = plural(n, BJ_T.t('pasta_push.js.link.um_link_ativo'), BJ_T.t('pasta_push.js.link.links_ativos', { n: String(n) }));
     }
 
     /* ── Modal ── */
@@ -178,7 +182,7 @@
         token.type = 'hidden';
         token.name = '_token';
         token.value = confirmacao.token || '';
-        var botao = el('button', 'btn btn-sm btn-outline-primary mt-2', 'Reenviar o link de confirmação');
+        var botao = el('button', 'btn btn-sm btn-outline-primary mt-2', BJ_T.t('pasta_push.js.link.reenviar_confirmacao'));
         botao.type = 'submit';
         form.appendChild(token);
         form.appendChild(botao);
@@ -202,8 +206,8 @@
         if (n === 0) { estado.form.incluir_analises = false; }
         // Textos do desenho, `ops` ([EXP] L.5205).
         q('.js-ppl-op-ia-desc').textContent = n > 0
-            ? n + ' análise(s) desta pasta. Marcadas como análise, não ato oficial.'
-            : 'Esta pasta ainda não tem Análise IA.';
+            ? BJ_T.t('pasta_push.js.link.ia_com', { n: String(n) })
+            : IA_SEM;
     }
 
     function desenharCriado() {
@@ -214,13 +218,13 @@
         if (caixa) { caixa.hidden = !c; }
         if (form) { form.hidden = !!c; }
         if (!c || !caixa) { return; }
-        q('.js-ppl-criado-titulo').textContent = estado.copiado ? 'Link criado e copiado' : 'Link criado';
+        q('.js-ppl-criado-titulo').textContent = estado.copiado ? BJ_T.t('pasta_push.js.link.criado_copiado') : BJ_T.t('pasta_push.js.link.criado');
         q('.js-ppl-criado-url').value = c.url;
-        q('.js-ppl-criado-copiar-txt').textContent = estado.copiado ? 'Copiado' : 'Copiar';
+        q('.js-ppl-criado-copiar-txt').textContent = estado.copiado ? BJ_T.t('pasta_push.js.link.copiado') : BJ_T.t('pasta_push.js.link.copiar');
         q('.js-ppl-criado-copiar-ic').className = 'bi ' + (estado.copiado ? 'bi-check2' : 'bi-clipboard') + ' js-ppl-criado-copiar-ic';
         q('.js-ppl-criado-codigo-linha').hidden = !c.codigo;
         q('.js-ppl-criado-codigo').textContent = c.codigo || '';
-        q('.js-ppl-criado-validade').textContent = 'Válido até ' + c.expiraEm;
+        q('.js-ppl-criado-validade').textContent = BJ_T.t('pasta_push.js.link.valido_ate', { data: c.expiraEm });
         if (gerar) { gerar.hidden = true; }
     }
 
@@ -230,7 +234,7 @@
         var d = estado.dados;
         var bloqueado = !!(d && !d.podeGerar);
         if (caixa) {
-            caixa.textContent = bloqueado ? (d.motivoBloqueio || 'Link externo indisponível.') : '';
+            caixa.textContent = bloqueado ? (d.motivoBloqueio || BJ_T.t('pasta_push.js.link.indisponivel')) : '';
             caixa.hidden = !bloqueado || !!estado.criado;
         }
         var form = q('.js-ppl-form');
@@ -336,16 +340,16 @@
     /** Dias (até 7) e últimos acessos (até 5): o mesmo bloco da linha e do painel. */
     function preencherAcessos(caixa, acessos) {
         if (!acessos || !acessos.total) {
-            caixa.appendChild(el('span', 'ppl-nenhum', 'Ninguém abriu este link ainda.'));
+            caixa.appendChild(el('span', 'ppl-nenhum', BJ_T.t('pasta_push.js.link.ninguem_abriu')));
             return;
         }
         var dias = el('div', 'ppl-dias');
         (acessos.porDia || []).slice(0, 7).forEach(function (d) {
-            dias.appendChild(el('span', 'ppl-dia', d.dia + ' · ' + d.total + plural(d.total, ' acesso', ' acessos')));
+            dias.appendChild(el('span', 'ppl-dia', d.dia + ' · ' + plural(d.total, BJ_T.t('pasta_push.js.link.um_acesso'), BJ_T.t('pasta_push.js.link.acessos', { n: String(d.total) }))));
         });
         caixa.appendChild(dias);
         var ultimos = el('div', 'ppl-ultimos');
-        ultimos.appendChild(el('strong', null, 'Últimos acessos'));
+        ultimos.appendChild(el('strong', null, BJ_T.t('pasta_push.js.link.ultimos_acessos')));
         (acessos.ultimos || []).slice(0, 5).forEach(function (h) { ultimos.appendChild(el('span', null, h)); });
         caixa.appendChild(ultimos);
     }
@@ -361,9 +365,9 @@
        "expirou em …" depois. Revogado e indisponível seguem a mesma regra, pela data. */
     function subDaLinha(link) {
         var validade = link.estado === 'ativo' || !jaPassou(link.expiraEm)
-            ? 'até ' + link.expiraEm
-            : 'expirou em ' + link.expiraEm;
-        return 'Criado por ' + link.criadoPor + ' em ' + link.criadoEm + ' · ' + (link.comCodigo ? 'com código' : 'sem código') + ' · ' + validade;
+            ? BJ_T.t('pasta_push.js.link.ate', { data: link.expiraEm })
+            : BJ_T.t('pasta_push.js.link.expirou_em', { data: link.expiraEm });
+        return BJ_T.t('pasta_push.js.link.criado_por', { quem: link.criadoPor, quando: link.criadoEm }) + ' · ' + (link.comCodigo ? BJ_T.t('pasta_push.js.link.com_codigo') : BJ_T.t('pasta_push.js.link.sem_codigo')) + ' · ' + validade;
     }
 
     function botao(classe, texto, ic) {
@@ -386,7 +390,7 @@
         textos.appendChild(el('span', 'ppl-linha-sub', subDaLinha(link)));
         var ren = link.renovacao;
         if (ren && ren.pendente) {
-            var pedido = 'Renovação pedida por ' + (ren.nome || 'quem recebeu o link') + ' em ' + ren.pedidaEm + (ren.mensagem ? ': ' + ren.mensagem : '');
+            var pedido = BJ_T.t('pasta_push.js.link.renovacao_pedida', { quem: ren.nome || BJ_T.t('pasta_push.js.link.quem_recebeu'), quando: ren.pedidaEm }) + (ren.mensagem ? ': ' + ren.mensagem : '');
             textos.appendChild(el('span', 'ppl-linha-pedido', pedido));
         }
         topo.appendChild(textos);
@@ -395,7 +399,7 @@
         var aberto = !!estado.abertos[link.id];
         var ac = el('button', 'ppl-linha-ac js-ppl-linha-ac' + (total ? ' tem-acesso' : ''));
         ac.type = 'button';
-        ac.title = total + plural(total, ' acesso', ' acessos') + (link.acessos && link.acessos.ultimo ? ' · último em ' + link.acessos.ultimo : '') + ' · clique para ver os detalhes';
+        ac.title = plural(total, BJ_T.t('pasta_push.js.link.um_acesso'), BJ_T.t('pasta_push.js.link.acessos', { n: String(total) })) + (link.acessos && link.acessos.ultimo ? ' · ' + BJ_T.t('pasta_push.js.link.ultimo_em', { data: link.acessos.ultimo }) : '') + ' · ' + BJ_T.t('pasta_push.js.link.clique_detalhes');
         ac.setAttribute('aria-expanded', aberto ? 'true' : 'false');
         ac.setAttribute('aria-controls', 'pplAcessos' + link.id);
         ac.appendChild(icone('bi bi-eye'));
@@ -407,19 +411,19 @@
         // abre mais) não tem o que copiar, mas continua revogável.
         if (link.estado === 'ativo') {
             var cp = botao('ppl-linha-copiar js-ppl-linha-copiar', null, 'bi bi-clipboard');
-            cp.title = 'Copiar link';
-            cp.setAttribute('aria-label', 'Copiar link');
+            cp.title = BJ_T.t('pasta_push.js.link.copiar_link');
+            cp.setAttribute('aria-label', BJ_T.t('pasta_push.js.link.copiar_link'));
             topo.appendChild(cp);
         }
         if ((link.estado === 'ativo' || link.estado === 'indisponivel') && link.podeRevogar) {
-            topo.appendChild(botao('ppl-btn ppl-btn--perigo js-ppl-linha-revogar', 'Revogar'));
+            topo.appendChild(botao('ppl-btn ppl-btn--perigo js-ppl-linha-revogar', BJ_T.t('pasta_push.js.link.revogar')));
         }
         // Renovar e Não renovar empilhados na mesma coluna: lado a lado, o segundo quebrava sozinho
         // para uma linha nova (conferido na tela, 19/10).
         if (link.podeRenovar || link.podeRecusar) {
             var decisao = el('div', 'ppl-linha-decisao');
-            if (link.podeRenovar) { decisao.appendChild(botao('ppl-btn ppl-btn--renovar js-ppl-linha-renovar', 'Renovar 30 dias', 'bi bi-arrow-clockwise')); }
-            if (link.podeRecusar) { decisao.appendChild(botao('ppl-btn ppl-btn--recusar js-ppl-linha-recusar', 'Não renovar', 'bi bi-x-lg')); }
+            if (link.podeRenovar) { decisao.appendChild(botao('ppl-btn ppl-btn--renovar js-ppl-linha-renovar', BJ_T.t('pasta_push.js.link.renovar'), 'bi bi-arrow-clockwise')); }
+            if (link.podeRecusar) { decisao.appendChild(botao('ppl-btn ppl-btn--recusar js-ppl-linha-recusar', BJ_T.t('pasta_push.js.link.nao_renovar'), 'bi bi-x-lg')); }
             topo.appendChild(decisao);
         }
 
@@ -436,7 +440,7 @@
         if (!lista.length) { return; }
         var total = estado.dados.totalAcessos || 0;
         q('.js-ppl-ac-total').textContent = String(total);
-        q('.js-ppl-ac-total-txt').textContent = plural(total, ' acesso no total', ' acessos no total');
+        q('.js-ppl-ac-total-txt').textContent = ' ' + plural(total, BJ_T.t('pasta_push.js.link.acesso_no_total'), BJ_T.t('pasta_push.js.link.acessos_no_total'));
         q('.js-ppl-resumo').textContent = estado.dados.resumo || '';
         var ul = q('.js-ppl-lista');
         ul.replaceChildren.apply(ul, lista.map(linhaDaLista));
@@ -463,21 +467,21 @@
     function revogar(link, gatilho) {
         var pergunta = typeof window.confirmarPs === 'function'
             ? window.confirmarPs({
-                titulo: 'Revogar link externo',
-                texto: 'Revogar este link? Quem tiver o endereço perde o acesso na hora.',
-                rotulo: 'Revogar',
+                titulo: BJ_T.t('pasta_push.js.link.revogar_titulo'),
+                texto: BJ_T.t('pasta_push.js.link.revogar_pergunta'),
+                rotulo: BJ_T.t('pasta_push.js.link.revogar'),
                 icone: 'bi-x-circle',
                 foco: gatilho,
             })
-            : Promise.resolve(window.confirm('Revogar este link? Quem tiver o endereço perde o acesso na hora.'));
+            : Promise.resolve(window.confirm(BJ_T.t('pasta_push.js.link.revogar_pergunta')));
         pergunta.then(function (sim) {
-            if (sim) { acaoNoLink(link, 'revogar', 'Link revogado'); }
+            if (sim) { acaoNoLink(link, 'revogar', BJ_T.t('pasta_push.js.link.revogado')); }
         });
     }
 
     function copiarLink(link, mensagem) {
         copiarTexto(link.textoParaCopiar).then(function (ok) {
-            if (ok) { avisar(mensagem); } else { avisar('Não foi possível copiar. Copie o endereço pela lista do link externo.', 'erro'); }
+            if (ok) { avisar(mensagem); } else { avisar(BJ_T.t('pasta_push.js.link.copiar_falhou_lista'), 'erro'); }
         });
     }
 
@@ -505,7 +509,7 @@
             copiarTexto(estado.criado.textoParaCopiar).then(function (ok) {
                 estado.copiado = !!ok;
                 desenharCriado();
-                if (!ok) { avisar('Não foi possível copiar. Selecione o endereço e copie.', 'erro'); }
+                if (!ok) { avisar(BJ_T.t('pasta_push.js.link.copiar_falhou_selecione'), 'erro'); }
             });
             return;
         }
@@ -535,10 +539,10 @@
             if (volta) { volta.focus(); }
             return;
         }
-        if (alvo.closest('.js-ppl-linha-copiar')) { copiarLink(link, 'Link copiado'); return; }
+        if (alvo.closest('.js-ppl-linha-copiar')) { copiarLink(link, BJ_T.t('pasta_push.js.link.copiado_aviso')); return; }
         if (alvo.closest('.js-ppl-linha-revogar')) { revogar(link, alvo.closest('button')); return; }
-        if (alvo.closest('.js-ppl-linha-renovar')) { acaoNoLink(link, 'renovar', 'Link renovado por 30 dias'); return; }
-        if (alvo.closest('.js-ppl-linha-recusar')) { acaoNoLink(link, 'recusar', 'Renovação recusada'); }
+        if (alvo.closest('.js-ppl-linha-renovar')) { acaoNoLink(link, 'renovar', BJ_T.t('pasta_push.js.link.renovado')); return; }
+        if (alvo.closest('.js-ppl-linha-recusar')) { acaoNoLink(link, 'recusar', BJ_T.t('pasta_push.js.link.recusado')); }
     });
 
     /* Tab fica dentro da janela; Esc fecha (`pl.tecla`). Com o painel de acessos ou a
@@ -575,10 +579,10 @@
         if (!painel || !estado.dados) { return; }
         var lista = links();
         var total = estado.dados.totalAcessos || 0;
-        q('.js-ppl-ac-sub', painel).textContent = 'Pasta ' + NUP + ' · ' + lista.length + plural(lista.length, ' link', ' links');
+        q('.js-ppl-ac-sub', painel).textContent = BJ_T.t('pasta_push.js.link.pasta', { nup: NUP }) + ' · ' + plural(lista.length, BJ_T.t('pasta_push.js.link.um_link'), BJ_T.t('pasta_push.js.link.links', { n: String(lista.length) }));
         q('.js-ppl-ac-n', painel).textContent = String(total);
-        q('.js-ppl-ac-n-txt', painel).textContent = plural(total, 'acesso no total', 'acessos no total');
-        q('.js-ppl-ac-ultimo', painel).textContent = estado.dados.ultimoAcesso ? 'Último acesso em ' + estado.dados.ultimoAcesso : 'Nenhum acesso ainda';
+        q('.js-ppl-ac-n-txt', painel).textContent = plural(total, BJ_T.t('pasta_push.js.link.acesso_no_total'), BJ_T.t('pasta_push.js.link.acessos_no_total'));
+        q('.js-ppl-ac-ultimo', painel).textContent = estado.dados.ultimoAcesso ? BJ_T.t('pasta_push.js.link.ultimo_acesso_em', { data: estado.dados.ultimoAcesso }) : BJ_T.t('pasta_push.js.link.nenhum_acesso');
 
         var caixa = q('.js-ppl-ac-lista', painel);
         caixa.replaceChildren.apply(caixa, lista.map(function (link) {
@@ -588,9 +592,9 @@
             topo.appendChild(el('span', 'ppl-ac-estado ppl-ac-estado--' + link.estado, link.estadoRotulo));
             topo.appendChild(el('span', 'ppl-ac-cartao-nome', semEsquema(link.url)));
             topo.appendChild(el('span', 'ppl-ac-cartao-n', String(n)));
-            topo.appendChild(el('span', 'ppl-ac-cartao-n-txt', plural(n, 'acesso', 'acessos')));
+            topo.appendChild(el('span', 'ppl-ac-cartao-n-txt', plural(n, BJ_T.t('pasta_push.js.link.acesso'), BJ_T.t('pasta_push.js.link.acessos_sem_numero'))));
             cartao.appendChild(topo);
-            cartao.appendChild(el('span', 'ppl-ac-cartao-por', 'Criado por ' + link.criadoPor + ' em ' + link.criadoEm + (link.comCodigo ? ' · com código' : '')));
+            cartao.appendChild(el('span', 'ppl-ac-cartao-por', BJ_T.t('pasta_push.js.link.criado_por', { quem: link.criadoPor, quando: link.criadoEm }) + (link.comCodigo ? ' · ' + BJ_T.t('pasta_push.js.link.com_codigo') : '')));
             preencherAcessos(cartao, link.acessos);
             return cartao;
         }));
@@ -651,8 +655,8 @@
         gerarItem.hidden = bloqueado;
         indisponivel.hidden = !bloqueado;
         var n = d.totalAcessos || 0;
-        q('.js-ppl-menu-acessos-rotulo', menu).textContent = 'Ver acessos ao link · ' + n + plural(n, ' acesso', ' acessos');
-        q('.js-ppl-menu-gerar-rotulo', menu).textContent = ativo ? 'Gerar novo link externo' : 'Gerar link externo do Push';
+        q('.js-ppl-menu-acessos-rotulo', menu).textContent = BJ_T.t('pasta_push.js.link.ver_acessos') + ' · ' + plural(n, BJ_T.t('pasta_push.js.link.um_acesso'), BJ_T.t('pasta_push.js.link.acessos', { n: String(n) }));
+        q('.js-ppl-menu-gerar-rotulo', menu).textContent = ativo ? BJ_T.t('pasta_push.js.link.gerar_novo') : BJ_T.t('pasta_push.js.link.gerar');
     }
 
     /** x = borda DIREITA do menu; y = topo. Sempre dentro da janela (`gmVals`, [EXP] L.4367). */
@@ -759,7 +763,9 @@
                 fecharMenu(true);
                 if (!ativo) { return; }
                 // Texto do `gmAviso` do desenho ([EXP] L.4392): " · com código de acesso" só quando há código.
-                copiarLink(ativo, 'Link copiado · válido até ' + dataSo(ativo.expiraEm) + (ativo.comCodigo ? ' · com código de acesso' : '') + '. Análises com cadeado fechado não aparecem.');
+                copiarLink(ativo, ativo.comCodigo
+                    ? BJ_T.t('pasta_push.js.link.copiado_menu_com_codigo', { data: dataSo(ativo.expiraEm) })
+                    : BJ_T.t('pasta_push.js.link.copiado_menu', { data: dataSo(ativo.expiraEm) }));
                 return;
             }
             if (alvo.closest('.js-ppl-menu-acessos')) { fecharMenu(false); abrirPainel(aba); return; }
@@ -767,7 +773,7 @@
             if (alvo.closest('.js-ppl-menu-indisponivel')) {
                 fecharMenu(true);
                 var motivo = estado.dados && estado.dados.motivoBloqueio;
-                avisar(motivo || 'Link externo indisponível.', 'erro');
+                avisar(motivo || BJ_T.t('pasta_push.js.link.indisponivel'), 'erro');
             }
         });
     }

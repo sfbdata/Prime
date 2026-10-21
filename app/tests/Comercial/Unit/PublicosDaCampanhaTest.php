@@ -29,6 +29,9 @@ final class PublicosDaCampanhaTest extends TestCase
     /** @var list<string> */
     private array $descadastrados = [];
 
+    /** @var array<string, list<string>> os descadastrados de uma lista só (lista => e-mails) */
+    private array $descadastradosDaLista = [];
+
     /** @var list<array{0: ?object, 1: string, 2: string}> */
     private array $consultas = [];
 
@@ -86,25 +89,79 @@ final class PublicosDaCampanhaTest extends TestCase
         self::assertSame([], $publicos->resolver('csv', [])->destinatarios);
     }
 
+    #[TestDox('Modelo vagas (§11): Base de contatos = comercial_campanhas e depois vagas_alerta, cada um com a sua lista')]
+    public function testVagasUneAsDuasListas(): void
+    {
+        $publicos = $this->publicos(confirmados: ['lead@exemplo.com', 'dupla@exemplo.com'], vagas: ['dupla@exemplo.com', 'vaga@exemplo.com']);
+
+        $resolvido = $publicos->resolver('leads', modelo: PublicosDaCampanha::MODELO_DE_VAGAS);
+
+        self::assertSame(
+            [['lead@exemplo.com', 'comercial_campanhas'], ['dupla@exemplo.com', 'comercial_campanhas'], ['vaga@exemplo.com', 'vagas_alerta']],
+            array_map(static fn (DestinatarioDaCampanha $d): array => [$d->email, $d->lista], $resolvido->destinatarios),
+            'quem está nas duas entra uma vez, pela comercial_campanhas',
+        );
+        self::assertSame(1, $resolvido->repetidos);
+        self::assertSame(3, $publicos->tamanhos('leads', [], 'vagas')['leads']);
+    }
+
+    #[TestDox('Modelo vagas: quem saiu de qualquer uma das duas listas fica de fora')]
+    public function testVagasDescadastradoDeQualquerLista(): void
+    {
+        $this->descadastradosDaLista = ['vagas_alerta' => ['lead@exemplo.com'], 'comercial_campanhas' => ['vaga@exemplo.com']];
+        $publicos = $this->publicos(confirmados: ['lead@exemplo.com', 'fica@exemplo.com'], vagas: ['vaga@exemplo.com', 'outra@exemplo.com']);
+
+        $resolvido = $publicos->resolver('leads', modelo: 'vagas');
+
+        self::assertSame(['fica@exemplo.com', 'outra@exemplo.com'], self::emails($resolvido->destinatarios));
+        self::assertSame(2, $resolvido->descadastrados);
+    }
+
+    #[TestDox('Outro modelo e as cópias cu<id> não trazem vagas_alerta; o descadastro só de vagas não pesa')]
+    public function testOutroModeloNaoTrazVagas(): void
+    {
+        $this->descadastradosDaLista = ['vagas_alerta' => ['lead@exemplo.com']];
+        $publicos = $this->publicos(confirmados: ['lead@exemplo.com'], vagas: ['vaga@exemplo.com']);
+
+        foreach (['', 'convite', 'cu12', 'news'] as $modelo) {
+            $resolvido = $publicos->resolver('leads', modelo: $modelo);
+            self::assertSame(['lead@exemplo.com'], self::emails($resolvido->destinatarios), $modelo);
+            self::assertSame(['comercial_campanhas'], array_map(static fn (DestinatarioDaCampanha $d): string => $d->lista, $resolvido->destinatarios));
+            self::assertSame(1, $publicos->tamanhos('leads', [], $modelo)['leads'], $modelo);
+        }
+        self::assertNotContains('vagas_alerta', array_column($this->consultas, 2));
+    }
+
+    #[TestDox('Modelo vagas nos outros públicos: a fonte não muda, a lista é comercial_campanhas')]
+    public function testVagasNosCadastrados(): void
+    {
+        $publicos = $this->publicos(primarios: [['email' => 'ana@exemplo.com', 'nome' => 'Ana']], vagas: ['vaga@exemplo.com']);
+
+        $resolvido = $publicos->resolver('prim', modelo: 'vagas');
+
+        self::assertSame([['ana@exemplo.com', 'comercial_campanhas']], array_map(static fn (DestinatarioDaCampanha $d): array => [$d->email, $d->lista], $resolvido->destinatarios));
+    }
+
     /**
      * @param list<array{email: string, nome: string}> $primarios
      * @param list<array{email: string, nome: string}> $secundarios
      * @param list<string>                             $confirmados
      * @param list<string>                             $ativos
+     * @param list<string>                             $vagas       os confirmados de `vagas_alerta`
      */
-    private function publicos(array $primarios = [], array $secundarios = [], array $confirmados = [], array $ativos = []): PublicosDaCampanha
+    private function publicos(array $primarios = [], array $secundarios = [], array $confirmados = [], array $ativos = [], array $vagas = []): PublicosDaCampanha
     {
         $cadastrados = $this->createStub(CadastradosRepository::class);
         $cadastrados->method('primarios')->willReturn($primarios);
         $cadastrados->method('secundarios')->willReturn($secundarios);
         $cadastrados->method('ativosEntre')->willReturnCallback(static fn (array $emails): array => array_values(array_intersect($emails, $ativos)));
         $confirmacoes = $this->createStub(ConfirmacaoDeEnderecoRepository::class);
-        $confirmacoes->method('confirmadosDaLista')->willReturn($confirmados);
+        $confirmacoes->method('confirmadosDaLista')->willReturnCallback(static fn (string $lista): array => $lista === PublicosDaCampanha::LISTA_DE_VAGAS ? $vagas : $confirmados);
         $descadastro = $this->createStub(DescadastroDeEmailInterface::class);
         $descadastro->method('estaDescadastrado')->willReturnCallback(function (?object $escopo, string $email, string $lista): bool {
             $this->consultas[] = [$escopo, $email, $lista];
 
-            return \in_array($email, $this->descadastrados, true);
+            return \in_array($email, $this->descadastrados, true) || \in_array($email, $this->descadastradosDaLista[$lista] ?? [], true);
         });
 
         // Sem filtro, os atributos nunca são lidos: o SituacaoDoEspaco (final) entra sem construtor.

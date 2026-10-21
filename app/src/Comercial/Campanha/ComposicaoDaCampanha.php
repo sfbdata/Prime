@@ -16,7 +16,8 @@ use App\Comercial\Service\MontadorDeEmail;
 /**
  * Transforma a mensagem da campanha no e-mail do Carteiro (spec `comercial-e-emails.md` §8.3 e §8.4): os blocos e o
  * simples pelo {@see RenderizadorDeBlocos} (layout `linhas`), o HTML importado pelo {@see SanitizadorDeHtmlDeEmail}
- * (layout `cru`; o montador sanitiza de novo). Sempre `lista` na lista `comercial_campanhas`.
+ * (layout `cru`; o montador sanitiza de novo). Sempre `lista`: na lista `comercial_campanhas`, ou na lista pela qual o
+ * destinatário entrou (§11: `vagas_alerta` no modelo `vagas`), que o expansor informa.
  *
  * A prévia (dc L.537) usa o nome e o e-mail do primeiro destinatário do público escolhido (o primeiro nome, como o dc);
  * sem público, ou sem nome, os de exemplo do dc ("Dra. Ana", teste@bluejus.com.br). Sai do mesmo montador do envio,
@@ -32,6 +33,9 @@ final class ComposicaoDaCampanha
     public const LISTA = 'comercial_campanhas';
     public const NOME_DE_EXEMPLO = 'Dra. Ana';
     public const EMAIL_DE_EXEMPLO = 'teste@bluejus.com.br';
+    public const ANCORA_DE_VAGAS = 'O modelo de vagas só pode ser enviado no modo simples, com o botão apontando para as vagas.';
+    /** A chave de link do botão que leva às vagas ({@see RenderizadorDeBlocos}). */
+    public const LINK_DE_VAGAS = 'vagas';
 
     public function __construct(
         private readonly RenderizadorDeBlocos $renderizador,
@@ -43,8 +47,9 @@ final class ComposicaoDaCampanha
     /**
      * O e-mail para um destinatário (o `{nome}` fica para o montador trocar pelo primeiro nome). A campanha pede o
      * rastreio (só vale com as duas chaves da 1a) e o reply-to da {@see PoliticaDeDestinatarios}; o teste, não.
+     * `$lista` é a lista pela qual o destinatário entrou (null = `comercial_campanhas`).
      */
-    public function mensagemPara(MensagemDaCampanha $m, string $para, ?string $nome, string $origem, bool $rastrear = false, ?string $replyTo = null): MensagemDeEmail
+    public function mensagemPara(MensagemDaCampanha $m, string $para, ?string $nome, string $origem, bool $rastrear = false, ?string $replyTo = null, ?string $lista = null): MensagemDeEmail
     {
         try {
             return new MensagemDeEmail(
@@ -53,7 +58,7 @@ final class ComposicaoDaCampanha
                 $this->corpo($m),
                 TipoDeEnvio::Lista,
                 $origem,
-                self::LISTA,
+                $lista ?? self::LISTA,
                 nome: $nome,
                 selo: $m->selo,
                 titulo: $m->titulo,
@@ -118,6 +123,17 @@ final class ComposicaoDaCampanha
         $conteudo = \is_array($conteudo) ? $conteudo : [];
 
         return MensagemDaCampanha::deArray($base + ($campanha['modo'] === 'blocos' ? ['blocos' => array_values($conteudo)] : $conteudo));
+    }
+
+    /**
+     * Âncora do consentimento de vagas (§11): o modelo `vagas` alcança quem só autorizou os alertas de vagas, então só
+     * sai no modo simples com o botão (texto não vazio) para as vagas; o texto continua editável. Recusa o resto.
+     */
+    public static function exigirAncoraDeVagas(MensagemDaCampanha $m): void
+    {
+        if ($m->chave === PublicosDaCampanha::MODELO_DE_VAGAS && ($m->modo !== 'simples' || $m->link !== self::LINK_DE_VAGAS || trim($m->cta) === '')) {
+            throw new CampanhaRecusada(self::ANCORA_DE_VAGAS);
+        }
     }
 
     /** @return array{0: string, 1: string} o nome e o e-mail da prévia */
