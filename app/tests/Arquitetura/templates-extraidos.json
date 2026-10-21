@@ -139,5 +139,23 @@
         "permitidos": [
             "Escape"
         ]
+    },
+
+    "cliente": {
+        "templates": [
+            "cliente/show.html.twig",
+            "cliente/editPF.html.twig",
+            "cliente/editPJ.html.twig",
+            "cliente/_cadastro.html.twig",
+            "cliente/_resumo.html.twig"
+        ],
+        "js": [
+            "cliente-cadastro.js"
+        ],
+        "permitidos": [
+            "Accept",
+            "Enter",
+            "Escape"
+        ]
     }
 }
