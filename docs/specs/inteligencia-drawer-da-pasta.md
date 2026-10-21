@@ -13,9 +13,8 @@ lido; do cliente sai só o nome) e, do coordenador, **nada roda sozinho em lote*
 
 - F1+F2 (#114) e F3 Perguntar (#122) no master (21/10), migrations `Version20261020138000` e `Version20261020138100`.
   Auditoria "quem perguntou e quando, sem texto": regra do "Só eu" (coordenador).
-- F4 Documentos: PR #129, sem migration, com o master trazido (conflito em `FluxoDaAnaliseDaPasta.php` resolvido com a
-  versão do F4).
-- F5 Criar tarefa: PR #134, sobre o #129, sem migration. O "Criar tarefa da providência" saiu do menu ⋮ do cartão e
+- F4 Documentos (#129) no master (21/10), sem migration.
+- F5 Criar tarefa: PR #134, base master, sem migration. O "Criar tarefa da providência" saiu do menu ⋮ do cartão e
   virou o botão "Criar tarefa" embaixo do resultado (dc L1101-1105), com o mesmo modal pré-preenchido (uma por clique;
   quem confirma é a pessoa no modal). "Criar prazo", "Enviar para revisão" e "Criar N tarefas" não entram.
 
