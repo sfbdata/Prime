@@ -17,7 +17,7 @@ desenho mostra diferente do sistema, o desenho manda; desviar exige perguntar an
     automações do ciclo da conta (`cad`, `lemb`, `val`, `conv`, `dica`). Empilhada sobre o **#87** da 0d
     (`push-avisar-quando-chegar`, que traz `email_descadastro`).
   - **1b.** As automações de espaço (`e90`, `e100`, `ped`). Branch `comercial-1b`, cortada do master em 21/10 (o #74 e
-    o #99 já entraram), migration `Version20261020145000` (nome do coordenador).
+    o #99 já entraram), migration `Version20261020147100` (nome do coordenador).
   - **2.** Campanhas: modelos, editor de blocos, públicos, agendamento, teste. Spec em §8 (19/10), em dois PRs (2a e
     2b), na branch `comercial-2` empilhada sobre a `comercial-1a` (#99).
   - **3.** Monitoramento (números e CSV por campanha) e Descadastrados.
