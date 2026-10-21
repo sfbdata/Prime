@@ -713,30 +713,24 @@ input[type="range"].img-slider {
 {# ══════════════════════════════════════════════
    MODAL: Alterar senha
 ══════════════════════════════════════════════ #}
-<div class="modal fade" id="modalSenha" tabindex="-1" aria-labelledby="modalSenhaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+<div class="modal fade mp-modal" id="modalSenha" tabindex="-1" aria-labelledby="modalSenhaLabel" aria-hidden="true">
+    {# Desenho 07 (ED.senha, L203): o mesmo modal dos outros, com cabeçalho azul, os três campos e Cancelar/Salvar. #}
+    <div class="modal-dialog modal-dialog-centered mp-modal-largo">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalSenhaLabel">
-                    <i class="bi bi-key me-2"></i>Alterar senha
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="mp-modal-topo">
+                <i class="bi bi-key"></i><b id="modalSenhaLabel">Alterar senha</b>
+                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
-            {{ form_start(form_senha, {'attr': {'id': 'formSenha'}}) }}
-                <div class="modal-body">
-                    <p class="text-muted small mb-3">
-                        Confirme sua senha atual e escolha uma nova, com pelo menos 8 caracteres.
-                    </p>
-                    {{ form_row(form_senha.senhaAtual, {'attr': {'class': 'form-control', 'autocomplete': 'current-password'}}) }}
-                    {{ form_row(form_senha.senha.first, {'attr': {'class': 'form-control', 'autocomplete': 'new-password'}}) }}
-                    {{ form_row(form_senha.senha.second, {'attr': {'class': 'form-control', 'autocomplete': 'new-password'}}) }}
+            {{ form_start(form_senha, {attr: {id: 'formSenha'}}) }}
+                <div class="mp-campos">
+                    <label class="mp-campo"><span>SENHA ATUAL</span>{{ form_widget(form_senha.senhaAtual, {attr: {autocomplete: 'current-password'}}) }}</label>
+                    <label class="mp-campo"><span>NOVA SENHA</span>{{ form_widget(form_senha.senha.first, {attr: {autocomplete: 'new-password', placeholder: 'Mínimo 8 caracteres'}}) }}</label>
+                    <label class="mp-campo"><span>CONFIRMAR NOVA SENHA</span>{{ form_widget(form_senha.senha.second, {attr: {autocomplete: 'new-password'}}) }}</label>
                     {{ form_rest(form_senha) }}
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-lg me-1"></i>Salvar nova senha
-                    </button>
+                <div class="mp-modal-rodape">
+                    <button type="button" class="mp-btn-cinza" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="mp-btn-azul"><i class="bi bi-check2"></i>Salvar</button>
                 </div>
             {{ form_end(form_senha) }}
         </div>
