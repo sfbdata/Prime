@@ -105,9 +105,7 @@ moldura:
 menu:
     usuario:
         dropdown:
-            selo_master: MASTER
             selo_primario: USUÁRIO PRIMÁRIO
-            selo_secundario: SECUNDÁRIO
             fechar_menu: Fechar menu
             meu_perfil: Meu Perfil
             convites: Convites do escritório
@@ -154,10 +152,8 @@ menu:
             escritorio: Escritório
             voce: Você
             papel_primario: Usuário primário
-            papel_master: Master
             equipe_rotulo: EQUIPE DA CONTA ({n})
             selo_primario: PRIMÁRIO
-            selo_secundario: SECUNDÁRIO
             situacao: Situação
             opcoes: Opções
             opcoes_de: Opções de {nome}
@@ -206,7 +202,6 @@ menu:
                 aprovado: aprovado
                 em_analise: em análise
                 suspenso: suspenso
-            membro_primario: primário
             acao_reativar: Reativar (aprovar)
             acao_aprovar: Aprovar
             acao_voltar_analise: Voltar para análise
@@ -229,7 +224,6 @@ perfil:
         meu_perfil: Meu Perfil
         convites: Convites do escritório
         trocar_conta: Trocar de conta
-        master: Master
         exclusivo_master: EXCLUSIVO DO MASTER
         fechar_menu: Fechar menu
     acoes:
@@ -239,9 +233,7 @@ perfil:
     identificacao:
         trocar_foto: Trocar foto
         foto_alt: Foto de perfil
-        selo_master: MASTER
         usuario_primario: USUÁRIO PRIMÁRIO
-        secundario: SECUNDÁRIO
         cargo_nao_definido: Cargo não definido
         lotacao_nao_definida: Lotação não definida
         editar: Editar informações
@@ -399,6 +391,115 @@ perfil:
         foto_atual_alt: Foto atual
         erro_salvar_foto: Erro ao salvar foto.
         erro_comunicacao: Erro de comunicação.
+
+# ---- Relatório da Central de envios do /master (master/_comercial_relatorio, master/comercial-relatorio.js)
+# O que vem do PHP (rótulos de estado, KPIs, dica e leitura da MetricasDaCampanha, recusas) fica fora.
+comercial_relatorio:
+    rotulo: Relatório de campanhas
+    barra:
+        selecionar: Selecionar
+        atualizar: Atualizar
+        arquivar: Arquivar
+        estrela_dica: Marcar com estrela
+        estrela: Estrela
+        remover: Remover do relatório
+        buscar: Buscar campanha ou e-mail
+        faixa_vazia: 0 de 0
+        pagina_anterior: Página anterior
+        proxima_pagina: Próxima página
+    abas:
+        rotulo: Campanhas
+        env:
+            rotulo: Enviadas
+            sub: Na fila e já enviadas
+        ag:
+            rotulo: Agendadas
+            sub: Com data programada
+        rec:
+            rotulo: Recorrentes
+            sub: Semanais, quinzenais e mensais
+        est:
+            rotulo: Com estrela
+            sub: Campanhas marcadas
+        arq:
+            rotulo: Arquivadas
+            sub: Fora das listas
+    ver:
+        voltar: Voltar
+        duplicar: Duplicar
+        reenviar: Reenviar a quem não leu
+        exportar: Exportar destinatários
+        cancelar: Cancelar envio
+        para: para
+        modelo: modelo
+        quadro: Campanha
+        destinatarios: DESTINATÁRIOS
+    menu:
+        abrir: Abrir campanha
+        duplicar: Duplicar como nova
+        reenviar: Reenviar a quem não leu
+        encaminhar: Encaminhar para um e-mail
+        encaminhar_motivo: Aguardando a decisão sobre enviar teste para outros endereços.
+        estrela: Marcar com estrela
+        arquivar: Arquivar
+        exportar: Exportar destinatários (CSV)
+        excluir: Excluir do relatório
+    js:
+        erro_concluir: Não foi possível concluir. Recarregue a página.
+        linha_dica: Abrir · botão direito para mais opções
+        selecionar: Selecionar
+        estrela_marcar: Marcar com estrela
+        estrela_remover: Remover estrela
+        selecionadas: '{n} selecionada(s)'
+        arquivar: Arquivar
+        desarquivar: Desarquivar
+        vazia: Nenhuma campanha nesta aba.
+        faixa_vazia: 0 de 0
+        erro_carregar: Não foi possível carregar as campanhas. Recarregue a página.
+        previa_indisponivel: Prévia não disponível para campanhas antigas.
+        lista_nao_registrada: Lista não registrada nesta campanha.
+        lista_ao_comecar: A lista é montada quando o envio começar.
+        mais_destinatarios: '+ {n} destinatário(s)'
+        duplicada_visualizador: 'Campanha duplicada: ajuste e envie de novo.'
+        duplicada_menu: 'Campanha duplicada: ajuste e envie.'
+        editor_indisponivel: Não foi possível abrir o editor da campanha.
+        confirmar_cancelar: Cancelar o envio programado desta campanha?
+        confirmar_remover: 'Remover {n} campanha(s) do relatório?'
+        confirmar_excluir: Excluir esta campanha do relatório?
+        reenvio_menu_rastreada: Reenvio disponível quando o servidor registrar as leituras.
+        reenvio_menu_sem_rastreio: Esta campanha não rastreou leitura.
+        reenvio_rastreada: Reenvio para quem não leu fica disponível assim que o servidor registrar as leituras.
+        reenvio_sem_rastreio: 'Esta campanha não rastreou leitura; não dá para saber quem não leu.'
+        erro_exportar: Não foi possível exportar. Recarregue a página.
+
+# ---- Temas comemorativos do painel do Master (master/_recursos_tema, master/temas.js)
+# O nome, o ícone, a data e a mensagem de cada tema vêm do PHP (CatalogoDeTemas) e ficam fora.
+temas:
+    titulo: Temas comemorativos
+    descricao: 'Muda a cor do sistema e mostra uma mensagem nas datas especiais. Vale para todos os usuários; cada um pode fechar a mensagem.'
+    status:
+        ativo: '{icone} {tema} está ativo agora'
+        desligados: 'Temas desligados: cores padrão do BlueJus'
+        nenhum: 'Nenhum tema hoje: cores padrão do BlueJus'
+    modos:
+        rotulo: Modo dos temas
+        automatico: Automático pelo calendário
+        manual: Escolher um tema
+        desligado: Desligado
+    dica: Clique num tema para deixá-lo fixo.
+    parar_previa: Parar prévia
+    ativo: ATIVO
+    previa: Prévia
+    previa_dica: Ver como fica por 1 minuto
+    chave: Ligar ou desligar
+    chave_rotulo: 'Ligar ou desligar {tema}'
+    js:
+        previa: 'Prévia: {icone} {tema} (termina sozinha em {s} s)'
+        ativo: '{icone} {tema} está ativo agora'
+        desligados: 'Temas desligados: cores padrão do BlueJus'
+        nenhum: 'Nenhum tema hoje: cores padrão do BlueJus'
+        previa_indisponivel: Não foi possível mostrar a prévia neste navegador.
+        erro_alterar: Não foi possível alterar agora. Recarregue a página.
 
 # ---- Expediente (lista, acervo, paginação, modais, trilho, relatório de processos, pastas paradas)
 expediente:
@@ -855,6 +956,130 @@ expediente:
             arquivar: Arquivar
             responsavel_pela_decisao: 'Responsável pela decisão: ____________________'
 
+# ---- Minhas Metas (tarefa/minhas, _metas_lista, _meta_cartao, _resultado, equipe, _numero_global)
+metas:
+    titulo: Minhas Metas
+    subtitulo: O que está com você, o que você delegou e o que você acompanha.
+    atualizado_as: Atualizado às
+    migalha:
+        home: Home
+    comum:
+        nao_informado: Não informado
+        sem_prazo: sem prazo
+        abrir_a_meta: Abrir a meta
+        de_criador: 'de {nome}'
+    marcador:
+        parar_de_acompanhar: Parar de acompanhar
+        acompanhar_esta_meta: Acompanhar esta meta
+    prazo:
+        atrasadas: Atrasadas
+        vencem_em_7_dias: Vencem em 7 dias
+        sem_prazo: Sem prazo
+    status:
+        pendente: Pendente
+        para_revisao: Para Revisão
+        em_revisao: Em revisão
+        concluida: Concluída
+        atrasada: Atrasada
+    prioridade:
+        normal: Normal
+        prioridade: Prioridade
+        urgente: Urgente
+    kpis:
+        ver: 'Ver {rotulo}'
+        sob_sua_responsabilidade: sob sua responsabilidade
+        ainda_da_tempo: ainda dá tempo
+        aguardando_sua_revisao: Aguardando sua revisão
+        criadas_por_voce: criadas por você
+        abertas_sem_data: abertas sem data definida
+    abas:
+        rotulo: Papel nas metas
+        responsavel: Sou responsável
+        criei: Criei
+        acompanhando: Em acompanhamento
+        todas: Todas
+    filtros:
+        limpar: Limpar filtros
+        busca_placeholder: Buscar por título, pasta ou cliente
+        status: Status
+        prioridade: Prioridade
+        prazo: Prazo
+    modos:
+        rotulo: Modo de exibição
+        cartoes: Cartões
+        lista: Lista
+    lista:
+        cabecalho:
+            meta: Meta
+            delegada_por: Delegada por
+            responsavel: Responsável
+            prazo: Prazo
+            status: Status
+            atualizada: Atualizada
+            criada: Criada
+        mostrando_uma: 'Mostrando {total} meta nesta aba.'
+        mostrando_varias: 'Mostrando {total} metas nesta aba.'
+    cartao:
+        num_na_pasta_dica: 'Meta {numero} da pasta {nup}'
+        abrir_a_pasta: Abrir a pasta
+        quem_delegou: Quem delegou esta meta
+        sem_criador: sem criador
+        responsaveis_dica: 'Responsáveis: {nomes}'
+        sem_responsavel: sem responsável
+        prazo_dica: 'Prazo: {data}'
+        comentarios: Comentários na meta
+        criada_em: 'criada {data}'
+        opcoes: Opções
+        opcoes_da_meta: Opções da meta
+        menu:
+            abrir_relatorio: Abrir relatório completo
+            ir_para_aba_metas: Ir para a aba Metas da pasta
+            editar_nome: Editar nome
+            encaminhar_chat_ia: Encaminhar via Chat I.A
+    numero:
+        dica: 'Meta {local} desta pasta · nº {numero} na sequência do escritório'
+        selo: 'Nº {numero}'
+    vazio:
+        com_filtro: Nenhuma meta com esses filtros.
+        responsavel: Nenhuma meta atribuída a você. Quando alguém delegar uma meta para você, ela aparece aqui.
+        criei: Você ainda não criou nenhuma meta. Metas são criadas de dentro da pasta, na aba Metas.
+        acompanhando_antes: Nenhuma meta em acompanhamento. Use o marcador
+        acompanhando_depois: em qualquer meta para acompanhá-la aqui.
+        todas: Nenhuma meta por aqui. Nada atribuído, criado ou marcado por você.
+    trilho:
+        seu_andamento: Seu andamento
+        ultimos_30_dias: últimos 30 dias
+        x_de_y: '{concluidas} de {total}'
+        concluidas: concluídas
+        percentual_concluidas: Percentual de metas concluídas
+    atencao:
+        titulo: Precisa de atenção
+        titulo_e_pasta: '{titulo} · Pasta {nup}'
+        prazo: 'prazo {data}'
+        prazo_nao_informado: não informado
+        vazio: Nada pedindo atenção.
+    pessoas:
+        quem_delegou: Quem delegou para você
+        com_quem_estao: Com quem estão
+        abertas: '{total} abertas'
+        atrasadas_uma: '{total} atrasada'
+        atrasadas_varias: '{total} atrasadas'
+        e_mais_uma: 'e mais {total} pessoa'
+        e_mais_varias: 'e mais {total} pessoas'
+    equipe:
+        migalha_dashboard: Dashboard
+        migalha_atual: Metas da equipe
+        vazio_titulo: Nenhuma meta encontrada com esses filtros
+        vazio_sub: Volte ao Dashboard e escolha outro colaborador, cargo ou período.
+        total_uma: '{total} meta'
+        total_varias: '{total} metas'
+        paginacao: Paginação das metas
+        pagina_anterior: Página anterior
+        proxima_pagina: Próxima página
+    js:
+        parar_de_acompanhar: Parar de acompanhar
+        acompanhar_esta_meta: Acompanhar esta meta
+
 # ---- perfis: Perfis do escritório (tenant_role/*, perfis.js), com os flashes, as recusas da hierarquia e o aviso do
 # pedido de acesso. O termo que entra numa frase curta (selo, nome da linha Master) vem de termos.* por parâmetro.
 perfis:
@@ -957,6 +1182,296 @@ perfis:
         promover_confirmar: Confirmar promoção
         remover_titulo: Remover primário
         remover_texto: '"{nome}" deixa de ser primário e volta a ser secundário. A remoção fica na auditoria da conta.'
+
+# ---- master: Painel do Master (master/painel.html.twig e painel.js), da série da b5. P2a: a moldura do painel (abas,
+# Permissões, Telas e recursos) e a Visão geral do painel.js (KPIs, gráfico, mapa, estados que faltam, seccionais e
+# janela da OAB), com as respostas das seccionais. As outras seções do painel.js ficam para a P2b; o Comercial da 5d tem
+# bloco de topo próprio (comercial:). O termo solto ou numa frase curta vem de termos.* por parâmetro.
+master:
+    painel:
+        titulo_pagina: 'Editar Perfil | {papel} do Sistema'
+        titulo: 'Editar Perfil: {papel} do Sistema'
+        voltar: Voltar
+        cancelar: Cancelar
+        aba:
+            painel: Painel do sistema
+            permissoes: Permissões
+            recursos: Telas e recursos
+        faixa: Painel exclusivo do Master. Mostra metadados das contas (quantidades, consumo, situação), nunca o conteúdo jurídico dos escritórios.
+        carregando: Carregando o painel…
+        masters:
+            titulo: Masters do sistema
+            contagem: '{n} Master(s)'
+            tag: '{papel} {nivel}'
+            primario_dica: O Master primário não pode ser excluído
+            remover: Remover este Master
+            vazio: Nenhum usuário com o papel de Master.
+            oab: 'OAB {numero}'
+            sem_oab: sem OAB
+            sem_perfil: sem perfil
+            promover_titulo: 'Promover a {papel}'
+            promover_campo: Usuário secundário a promover a Master
+            promover_escolha: Escolha um usuário secundário da conta *
+            promover_info: Precisa estar cadastrado antes como usuário secundário.
+            promover_msg: Master secundário tem os poderes do sistema, mas não pode excluir o Master primário. Toda promoção e remoção vai para a auditoria.
+            promover: Promover
+        poderes:
+            titulo: Poderes exclusivos do Master
+            fixos_dica: Fixos, não podem ser removidos nem transferidos
+            ver_contas: Ver e administrar todas as contas do BlueJus
+            suspender: Suspender, reativar e excluir contas
+            limites: Definir limites de armazenamento e usuários
+            planos: Criar e alterar planos e franquias
+            configuracoes: Configurações globais do sistema
+            auditoria: Acessar toda a trilha de auditoria do sistema
+            masters: Promover e remover Masters secundários
+            sem_tempo: Sem restrição de tempo para editar ou excluir
+            rodape: Esses poderes só existem no perfil Master. Primários e secundários dos escritórios nunca os recebem.
+        papeis:
+            titulo: Atribuições por papel
+            faz: 'Faz:'
+            nao_faz: 'Não faz:'
+            master_quem: O criador do BlueJus (Master primário) e quem ele promover (Master secundário).
+            master_faz: 'administra a plataforma: contas, limites, planos, custos, infraestrutura, configurações globais e auditoria do sistema.'
+            master_nao_faz: não atua dentro dos escritórios nem lê o conteúdo jurídico das contas; não tem perfil de primário nem de secundário.
+            primario_quem: Quem abriu a conta (titular) e os sócios que ele promover.
+            primario_faz: 'gere o próprio escritório: convida e administra secundários, cria perfis, define permissões, configura módulos e audita a conta.'
+            primario_nao_faz: não vê nem altera outras contas, limites contratados ou configurações do sistema.
+            secundario_quem: Colaborador convidado pelo primário.
+            secundario_faz: trabalha nas pastas, processos e módulos liberados pelo seu perfil.
+            secundario_nao_faz: não administra usuários, perfis ou configurações, nem acessa o painel do sistema.
+            rodape: Cada papel tem competências separadas. O Master não recebe permissões de escritório e o primário não recebe poderes do sistema.
+        recursos:
+            titulo: Telas e recursos do sistema
+            texto: Desative uma tela ou função enquanto não estiver pronta, por regularidade ética ou por falha. Quem não é Master deixa de ver; o Master continua vendo, marcado em vermelho.
+            desativados: '{n} desativado(s) para os usuários'
+            tudo_ativo: Tudo ativo
+            busca: Buscar tela ou função
+    seccionais:
+        nao_encontrada: Seccional não encontrada.
+        token_invalido: Token CSRF inválido. Recarregue a página.
+        subsecao_adicionada: 'Subseção adicionada na {seccional}.'
+        subsecao_removida: 'Subseção removida da {seccional}.'
+        nota_salva: 'Nota da {seccional} salva.'
+        nota_apagada: 'Nota da {seccional} apagada.'
+        sede_atualizada: 'Sede da {seccional} atualizada.'
+        divulgacao_registrada: 'Divulgação registrada na {seccional}: {tipo}.'
+    # Chaves do painel.js: vão cruas ao navegador (só {nome}, sem plural do ICU).
+    js:
+        carregando: Carregando…
+        erro_secao: Não foi possível carregar esta seção agora. Recarregue a página.
+        sem_informacao: sem informação
+        gb_menos: 'menos de {n} GB'
+        cancelar: Cancelar
+        fechar: Fechar
+        campo:
+            nome: NOME
+            endereco: ENDEREÇO
+            telefone: TELEFONE
+            site: SITE
+        secao:
+            visao: Visão geral
+            contas: Contas e escritórios
+            oab: Usuários e OABs
+            arm: Armazenamento
+            planos: Planos e limites
+            custos: Custos e infraestrutura
+            desemp: Desempenho
+            audit: Segurança e auditoria
+            config: Configurações globais
+            com: Comercial e e-mails
+            ind: Indicações do BlueJus
+            notif: Central de Notificações
+        vazia:
+            aviso: DADO AINDA NÃO COLETADO · DEPENDE DE INTEGRAÇÃO NO SERVIDOR
+            custos:
+                texto: Mostra quanto custa manter o BlueJus e o impacto de cada conta, separando custos medidos, importados de fornecedores e estimados. Sem integração financeira, os valores podem ser lançados manualmente, com origem identificada.
+                armazenamento: Armazenamento
+                banco: Banco de dados
+                hospedagem: Hospedagem
+                trafego: Tráfego
+                backups: Backups
+                apis_ia: APIs de IA
+                notificacoes: Notificações
+                receita: Receita recorrente
+                custo_conta: Custo por conta
+                custo_gb: Custo por GB
+                margem: Margem por plano
+                projecao: Projeção 3, 6 e 12 meses
+            desemp:
+                titulo: Desempenho e disponibilidade
+                texto: Saúde técnica da plataforma, com histórico filtrável por gravidade, período e categoria. Métricas não coletadas aparecem como indisponíveis, nunca estimadas.
+                disponibilidade: Disponibilidade
+                tempo_resposta: Tempo de resposta
+                erros: Erros
+                falhas_upload: Falhas de upload
+                falhas_login: Falhas de login
+                ultimo_backup: Último backup
+                teste_restauracao: Teste de restauração
+                cpu_memoria: CPU e memória
+                integracoes: Integrações
+                incidentes: Incidentes
+            config:
+                texto: Parâmetros que valem para todas as contas. Cada alteração exige confirmação e fica na auditoria.
+                faixas: Faixas de alerta padrão
+                periodo_teste: Período de teste
+                excedente: Política de excedente
+                excecoes: Exceções temporárias
+                autenticacao: Autenticação reforçada
+                retencao: Retenção de auditoria
+        visao:
+            kpi:
+                escritorios: ESCRITÓRIOS
+                escritorios_desc: '{ativas} ativa · {suspensas} suspensa'
+                primarios: USUÁRIOS PRIMÁRIOS
+                primarios_desc: quem abriu o escritório e os sócios
+                secundarios: USUÁRIOS SECUNDÁRIOS
+                secundarios_desc: convidados em todas as contas
+                oab: OABs ÚNICAS
+                oab_desc: '{registros} registros · {duplicados} duplicado(s)'
+                pastas: PASTAS
+                pastas_desc: soma de todas as contas
+                documentos: DOCUMENTOS
+                documentos_desc: arquivos armazenados
+                armazenamento: ARMAZENAMENTO
+                arm_sem_dado: 'contratado: sem informação · ponto e tarefas não medidos'
+                arm_desc: 'de {cota} GB contratados · livre {livre}'
+                arm_sem_limite: '+ {gb} em {n} conta(s) sem limite'
+                receita: RECEITA MENSAL
+                receita_desc: sem integração financeira ainda
+            grafico:
+                titulo: Crescimento
+                tit_contas: contas cadastradas
+                tit_usuarios: usuários (primários + secundários)
+                tit_pastas: pastas no sistema
+                tit_gb: armazenamento em GB
+                met_contas: Contas
+                met_usuarios: Usuários
+                met_pastas: Pastas
+                met_gb: Armazenamento (GB)
+                por_mes: Por mês
+                por_ano: Por ano
+                continua: Linha contínua
+                acumulado: Acumulado
+                novos: Novos no mês
+                todos_anos: Todos os anos
+                mes:
+                    jan: jan
+                    fev: fev
+                    mar: mar
+                    abr: abr
+                    mai: mai
+                    jun: jun
+                    jul: jul
+                    ago: ago
+                    set: set
+                    out: out
+                    nov: nov
+                    dez: dez
+            idades:
+                titulo: Faixa etária dos usuários
+                media: 'idade média {valor}'
+                anos: '{n} anos'
+                nota: Calculada pela data de nascimento do Meu Perfil. {n} usuário(s) sem data não entram na conta.
+                menores: '{n} com menos de 18 anos não entram nas faixas.'
+        mapa:
+            titulo: Onde estamos atuando
+            por_estado: usuários por estado
+            por_pais: usuários por país
+            total: '{n} no total'
+            pessoas: Pessoas
+            escritorios: Escritórios
+            primarios: Primários
+            geral: Geral
+            so_primarios: Só primários
+            brasil: Brasil
+            mundo: Mundo
+            estado: Estado
+            pais: País
+            outros_paises: Outros países
+            sem_endereco: Sem endereço no cadastro
+            sem_localizacao: Sem localização no cadastro
+            sem_localizacao_dica: Sem lotação Cidade/UF, sem UF da OAB e sem estado do escritório
+            total_geral: Total geral
+            tendencia: '{ag} nos últimos 30 dias · {an} nos 30 anteriores'
+            tendencia_so_pessoas: Tendência medida só para pessoas
+            escala_menos: menos
+            escala_mais: mais
+            malha: 'Malha dos estados: IBGE'
+            iframe_brasil: Mapa do Brasil por estado
+            iframe_mundo: Mapa mundial por país
+            regiao:
+                norte: Norte
+                nordeste: Nordeste
+                centro_oeste: Centro-Oeste
+                sudeste: Sudeste
+                sul: Sul
+                america_sul: América do Sul
+                america_norte: América do Norte e Central
+                europa: Europa
+                lusofonia: Lusofonia
+        faltam:
+            dica: Mostrar onde ainda não temos usuários
+            ocultar: Ocultar o que falta
+            estados: Estados que faltam
+            paises: Países que faltam
+            cobertura: 'Cobertura:'
+            cobertura_valor: '{feitos} de {total} ({pct}%)'
+            faltam: 'faltam {n} para alcançar {meta}'
+            meta_estados: 'os {n} estados'
+            meta_paises: 'os {n} países-alvo'
+            rodape: Oportunidades de expansão
+        seccionais:
+            carregando: Carregando as seccionais…
+            erro_carga: Não foi possível carregar as seccionais agora. Recarregue a página.
+            erro_salvar: Não foi possível salvar agora. Recarregue a página.
+            titulo: SECCIONAIS VISÍVEIS
+            mostrar_todas: Mostrar todas
+            ocultar_todas: Ocultar todas
+            nota: 'Clique numa seccional para ver a sede. Botão direito na lista mostra ou oculta no mapa; botão direito no mapa registra a divulgação (material enviado, reunião, parceria). O ponto colorido indica seccional já trabalhada. Fonte: Conselho Federal da OAB.'
+            oculta: oculta no mapa
+            visivel: visível no mapa
+            ultima: 'última divulgação: {rotulo} em {data}'
+            usuario_um: 1 usuário
+            usuarios: '{n} usuários'
+            sem_endereco: Endereço não cadastrado. Confira no CFOAB.
+            site: Site da seccional
+            cfoab: Endereço oficial (CFOAB)
+            editar_sede: Editar sede
+            salvar_sede: Salvar sede
+            sede_ajuda: Confira os dados no site do CFOAB. Campo vazio fica sem informação. A alteração fica registrada na auditoria.
+            site_invalido: 'Informe o site completo, começando com https://.'
+            divulgacoes: ÚLTIMAS DIVULGAÇÕES
+            autor_removido: autor removido
+            sem_divulgacao: Nenhuma divulgação registrada. Use o botão direito no mapa.
+        janela_oab:
+            dica: Ver endereços da OAB e escrever nota
+            exemplo: 'Ex.: contato com a presidente da subseção, enviar material em novembro'
+            so_brasil: A janela da OAB vale só para os estados do Brasil.
+            subtitulo: '{uf} · {quantos} no BlueJus'
+            sem: 'sem {unidade}'
+            escritorios: escritórios
+            primarios: primários
+            usuarios: usuários
+            subsecao: subseção
+            subsecoes: subseções
+            sem_endereco: sem endereço
+            tem_nota: Tem nota
+            sede: SECCIONAL · SEDE
+            editar: Editar
+            ver_mapa: Ver no mapa
+            site_oficial: Site oficial
+            subsecoes_titulo: SUBSEÇÕES
+            adicionar_endereco: Adicionar endereço
+            subs_vazio: 'Nenhuma subseção cadastrada. {link} e adicionar.'
+            pesquisar: Pesquisar o endereço oficial
+            remover: Remover
+            adicionar: Adicionar
+            nota: NOTA EXPLICATIVA
+            salvar_nota: Salvar nota
+            atualizada: 'Atualizada em {data}'
+            remover_titulo: Remover subseção
+            remover_texto: 'O endereço "{nome}" sai da lista da seccional. A remoção fica registrada na auditoria.'
 
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro

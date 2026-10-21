@@ -6,6 +6,7 @@ namespace App\Tests\Master\Unit;
 
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Bloco "SECCIONAIS VISÍVEIS" do mapa (desenho 05, Perfis 1.2, VS 21.10.26, L116-127; spec master-seccionais-oab),
@@ -20,6 +21,20 @@ final class PainelSeccionaisOabJsTest extends TestCase
     private static function arquivo(string $caminho): string
     {
         return (string) file_get_contents(self::RAIZ . $caminho);
+    }
+
+    /** Texto em português (a fonte) de uma chave do catálogo: o literal do desenho mora lá desde a P2a do idioma. */
+    private static function texto(string $chave): string
+    {
+        $no = Yaml::parseFile(self::RAIZ . 'translations/messages+intl-icu.pt_BR.yaml');
+        foreach (explode('.', $chave) as $parte) {
+            self::assertIsArray($no, $chave);
+            self::assertArrayHasKey($parte, $no, $chave);
+            $no = $no[$parte];
+        }
+        self::assertIsString($no, $chave);
+
+        return $no;
     }
 
     /** O trecho do painel.js entre o comentário do bloco e o renderIdades. */
@@ -48,11 +63,16 @@ final class PainelSeccionaisOabJsTest extends TestCase
     {
         $bloco = self::bloco();
 
-        self::assertStringContainsString('<b>SECCIONAIS VISÍVEIS</b>', $bloco);
-        self::assertStringContainsString("(algumaOculta ? 'Mostrar todas' : 'Ocultar todas')", $bloco);
-        self::assertStringContainsString("const SEC_NOTA = '" . self::NOTA . "';", $bloco);
-        self::assertStringContainsString("esc(s.endereco || 'Endereço não cadastrado. Confira no CFOAB.')", $bloco);
-        self::assertStringContainsString("(n === 1 ? '1 usuário' : num(n) + ' usuários')", $bloco);
+        self::assertStringContainsString("<b>' + T('master.js.seccionais.titulo') + '</b>", $bloco);
+        self::assertSame('SECCIONAIS VISÍVEIS', self::texto('master.js.seccionais.titulo'));
+        self::assertStringContainsString("(algumaOculta ? T('master.js.seccionais.mostrar_todas') : T('master.js.seccionais.ocultar_todas'))", $bloco);
+        self::assertSame(['Mostrar todas', 'Ocultar todas'], [self::texto('master.js.seccionais.mostrar_todas'), self::texto('master.js.seccionais.ocultar_todas')]);
+        self::assertStringContainsString("const SEC_NOTA = T('master.js.seccionais.nota');", $bloco);
+        self::assertSame(self::NOTA, self::texto('master.js.seccionais.nota'));
+        self::assertStringContainsString("esc(s.endereco || SEC_SEM_ENDERECO)", $bloco);
+        self::assertSame('Endereço não cadastrado. Confira no CFOAB.', self::texto('master.js.seccionais.sem_endereco'));
+        self::assertStringContainsString("(n === 1 ? T('master.js.seccionais.usuario_um') : T('master.js.seccionais.usuarios', { n: num(n) }))", $bloco);
+        self::assertSame(['1 usuário', '{n} usuários'], [self::texto('master.js.seccionais.usuario_um'), self::texto('master.js.seccionais.usuarios')]);
         self::assertDoesNotMatchRegularExpression('/[—–]/u', $bloco, 'sem travessão em texto novo');
     }
 
@@ -64,12 +84,13 @@ final class PainelSeccionaisOabJsTest extends TestCase
         self::assertNotFalse($inicio);
         $cartao = substr($bloco, $inicio, (int) strpos($bloco, 'secDivulgacoes(s.ultimas)', $inicio) - $inicio);
 
-        $marcas = ['bi-bank', 'esc(s.nome)', 'bi-x-lg', 'bi-people', 'bi-geo-alt', 'bi-telephone', 'bi-globe2"></i>Site da seccional', 'bi-box-arrow-up-right"></i>Endereço oficial (CFOAB)', 'bi-pencil"></i> Editar sede'];
+        $marcas = ['bi-bank', 'esc(s.nome)', 'bi-x-lg', 'bi-people', 'bi-geo-alt', 'bi-telephone', "bi-globe2\"></i>' + T('master.js.seccionais.site')", "bi-box-arrow-up-right\"></i>' + T('master.js.seccionais.cfoab')", "bi-pencil\"></i> ' + T('master.js.seccionais.editar_sede')"];
         $posicoes = array_map(static fn (string $m): int|false => strpos($cartao, $m), $marcas);
         self::assertNotContains(false, $posicoes, 'todos os itens do desenho');
         $ordenadas = $posicoes;
         sort($ordenadas);
         self::assertSame($ordenadas, $posicoes);
+        self::assertSame(['Site da seccional', 'Endereço oficial (CFOAB)', 'Editar sede'], [self::texto('master.js.seccionais.site'), self::texto('master.js.seccionais.cfoab'), self::texto('master.js.seccionais.editar_sede')]);
         self::assertStringContainsString("const SEC_CFOAB = 'https://www.oab.org.br/institucionalconselhofederal/asiseccional';", $bloco);
         self::assertStringContainsString('target="_blank" rel="noopener"', $cartao);
         self::assertStringContainsString("/^https:\\/\\//i.test(s.site || '')", $cartao, 'o link do site só sai com https://');
@@ -80,7 +101,7 @@ final class PainelSeccionaisOabJsTest extends TestCase
     {
         $bloco = self::bloco();
 
-        foreach (['esc(s.nome)', 'esc(s.telefone)', 'esc(site)', 'esc(s.uf)', 'esc(d.rotulo)', "esc(d.autor || 'autor removido')", 'esc(d.nota)', 'esc(tit)'] as $trecho) {
+        foreach (['esc(s.nome)', 'esc(s.telefone)', 'esc(site)', 'esc(s.uf)', 'esc(d.rotulo)', "esc(d.autor || T('master.js.seccionais.autor_removido'))", 'esc(d.nota)', 'esc(tit)'] as $trecho) {
             self::assertStringContainsString($trecho, $bloco);
         }
         self::assertDoesNotMatchRegularExpression('/\'\s*\+\s*(s|d)\.(nome|endereco|telefone|site|autor|nota|rotulo)\b/', $bloco, 'campo concatenado cru');
@@ -104,8 +125,9 @@ final class PainelSeccionaisOabJsTest extends TestCase
     {
         $bloco = self::bloco();
 
-        self::assertStringContainsString("caixa('bi-bank', 'Editar sede',", $bloco);
-        self::assertStringContainsString("campo('SITE', 'type=\"url\" maxlength=\"255\" placeholder=\"https://\"", $bloco);
+        self::assertStringContainsString("caixa('bi-bank', T('master.js.seccionais.editar_sede'),", $bloco);
+        self::assertStringContainsString("campo(T('master.js.campo.site'), 'type=\"url\" maxlength=\"255\" placeholder=\"https://\"", $bloco);
+        self::assertSame('SITE', self::texto('master.js.campo.site'));
         self::assertStringContainsString("'X-CSRF-Token': SEC.dados.token", $bloco);
         self::assertStringContainsString("SEC.dados.urlSede.replace('/XX/', '/' + uf + '/')", $bloco);
     }

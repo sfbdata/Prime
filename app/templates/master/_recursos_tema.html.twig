@@ -3,7 +3,9 @@
    L834-839). Incluído como primeiro filho de .mp-rec em master/painel.html.twig.
    O servidor desenha a grade; public/js/master/temas.js troca modo, tema fixado e interruptores (POST JSON com o
    token master_temas) e redesenha só classes e textos, a partir do estado que a rota devolve. A prévia (30 s) fica
-   no navegador do Master (localStorage bj-tema-previa), sem gravar no banco. CSS e JS próprios, dentro do card. #}
+   no navegador do Master (localStorage bj-tema-previa), sem gravar no banco. CSS e JS próprios, dentro do card.
+   Os textos moram no catálogo (bloco `temas`, spec idioma-do-sistema §8); o nome, o ícone e a data de cada tema vêm
+   do PHP (CatalogoDeTemas) e ficam como estão. #}
 {% set tm = tema_comemorativo_painel() %}
 {% set tmAtivo = tm.temas|filter(t => t.id == tm.ativo)|first %}
 <div class="mp-tm" data-mp-temas
@@ -15,28 +17,28 @@
     <div class="mp-tm-cab">
         <i class="bi bi-palette"></i>
         <div class="mp-tm-cab-texto">
-            <b>Temas comemorativos</b>
-            <div>Muda a cor do sistema e mostra uma mensagem nas datas especiais. Vale para todos os usuários; cada um pode fechar a mensagem.</div>
+            <b>{{ 'temas.titulo'|trans }}</b>
+            <div>{{ 'temas.descricao'|trans }}</div>
         </div>
         <span class="mp-tm-status" data-mp-tm-status>
             {%- if tmAtivo -%}
-                {{ tmAtivo.ic }} {{ tmAtivo.r }} está ativo agora
+                {{ 'temas.status.ativo'|trans({icone: tmAtivo.ic, tema: tmAtivo.r}) }}
             {%- elseif tm.modo == 'desligado' -%}
-                Temas desligados: cores padrão do BlueJus
+                {{ 'temas.status.desligados'|trans }}
             {%- else -%}
-                Nenhum tema hoje: cores padrão do BlueJus
+                {{ 'temas.status.nenhum'|trans }}
             {%- endif -%}
         </span>
     </div>
     <div class="mp-tm-barra">
-        <div class="mp-tm-modos" role="group" aria-label="Modo dos temas">
-            {% for m in [['automatico', 'Automático pelo calendário'], ['manual', 'Escolher um tema'], ['desligado', 'Desligado']] %}
+        <div class="mp-tm-modos" role="group" aria-label="{{ 'temas.modos.rotulo'|trans }}">
+            {% for m in [['automatico', 'temas.modos.automatico'|trans], ['manual', 'temas.modos.manual'|trans], ['desligado', 'temas.modos.desligado'|trans]] %}
                 <button type="button" class="mp-tm-modo{{ tm.modo == m[0] ? ' is-on' }}" data-modo="{{ m[0] }}" aria-pressed="{{ tm.modo == m[0] ? 'true' : 'false' }}">{{ m[1] }}</button>
             {% endfor %}
         </div>
-        <span class="mp-tm-dica" data-mp-tm-dica{{ tm.modo != 'manual' ? ' hidden' }}>Clique num tema para deixá-lo fixo.</span>
+        <span class="mp-tm-dica" data-mp-tm-dica{{ tm.modo != 'manual' ? ' hidden' }}>{{ 'temas.dica'|trans }}</span>
         <span class="mp-tm-espaco"></span>
-        <button type="button" class="mp-tm-parar" data-mp-tm-parar hidden><i class="bi bi-stop-fill"></i> Parar prévia</button>
+        <button type="button" class="mp-tm-parar" data-mp-tm-parar hidden><i class="bi bi-stop-fill"></i> {{ 'temas.parar_previa'|trans }}</button>
     </div>
     <div class="mp-tm-aviso" data-mp-tm-aviso role="status" hidden></div>
     <div class="mp-tm-grade">
@@ -47,12 +49,13 @@
                 <span class="mp-tm-ic{{ t.icTexto ? ' is-texto' }}" style="background-color: {{ t.p }};">{{ t.ic }}</span>
                 <span class="mp-tm-corpo"><b>{{ t.r }}</b><span class="mp-tm-quando">{{ t.quando }}</span></span>
                 <span class="mp-tm-acoes">
-                    <span class="mp-tm-ativo" data-mp-tm-ativo{{ tm.ativo != t.id ? ' hidden' }}>ATIVO</span>
-                    <button type="button" class="mp-tm-previa" data-mp-tm-previa title="Ver como fica por 1 minuto">Prévia</button>
-                    <button type="button" class="mp-tm-chave{{ t.ligado ? ' is-on' }}" data-mp-tm-chave title="Ligar ou desligar" aria-label="Ligar ou desligar {{ t.r }}" aria-pressed="{{ t.ligado ? 'true' : 'false' }}"><span></span></button>
+                    <span class="mp-tm-ativo" data-mp-tm-ativo{{ tm.ativo != t.id ? ' hidden' }}>{{ 'temas.ativo'|trans }}</span>
+                    <button type="button" class="mp-tm-previa" data-mp-tm-previa title="{{ 'temas.previa_dica'|trans }}">{{ 'temas.previa'|trans }}</button>
+                    <button type="button" class="mp-tm-chave{{ t.ligado ? ' is-on' }}" data-mp-tm-chave title="{{ 'temas.chave'|trans }}" aria-label="{{ 'temas.chave_rotulo'|trans({tema: t.r}) }}" aria-pressed="{{ t.ligado ? 'true' : 'false' }}"><span></span></button>
                 </span>
             </div>
         {% endfor %}
     </div>
+    {{ catalogo_js('temas.js') }}
     <script src="{{ asset('js/master/temas.js') }}"></script>
 </div>
