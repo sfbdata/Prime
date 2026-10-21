@@ -15,8 +15,8 @@ use Twig\Environment;
  * O arranjo do bloco "Nova campanha de e-mail" no parcial do /master contra o desenho 05 (dc L.229-260), com
  * combinador de filho direto: a posição antes das Automações, a grade em duas colunas (1 · MODELO, 2 · PARA QUEM e
  * 3 · MENSAGEM à esquerda; PRÉVIA, destinatários, Frequência e a linha de "Agendar" à direita), a ordem dos botões e os
- * textos literais. Fatia 2b: os 6 públicos, a Frequência, "Agendar" e "Enviar campanha", e o Monitoramento depois das
- * Automações (dc L.282-286).
+ * textos literais. Fatia 2b: os 6 públicos, a Frequência, "Agendar" e "Enviar campanha". O antigo Monitoramento deu
+ * lugar ao Relatório (F3d), depois das Automações; o arranjo dele está no ParcialDoRelatorioTest.
  */
 #[CoversNothing]
 final class ParcialDoComercialTest extends KernelTestCase
@@ -84,7 +84,7 @@ final class ParcialDoComercialTest extends KernelTestCase
     #[TestDox('F3a: a Central vem antes das Automações, com o cabeçalho do dc 21.10 (L251) e o botão "Descadastrados (N)"')]
     public function testPosicaoECabecalho(): void
     {
-        self::assertSame(['mc-cp-titulo', 'mc-auto-titulo', 'mc-mon-titulo'], $this->doc->filter('[data-mc] > section')->each(static fn (Crawler $c): string => (string) $c->attr('aria-labelledby')));
+        self::assertSame(['mc-cp-titulo', 'mc-auto-titulo', 'relatorio'], $this->doc->filter('[data-mc] > section')->each(static fn (Crawler $c): string => $c->attr('data-mc-relatorio') !== null ? 'relatorio' : (string) $c->attr('aria-labelledby')));
         self::assertSame(1, $this->doc->filter('section.mc-cp > .mc-cabeca > i.bi-megaphone')->count());
         self::assertSame(['Central de envios · nova campanha'], $this->textos('section.mc-cp > .mc-cabeca > b'));
         self::assertSame(['Descadastrados (0)'], $this->textos('section.mc-cp > .mc-cabeca > button.mc-cp-descad'));
@@ -201,23 +201,6 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertStringContainsString('.mc-cp-ver-quadro[data-dev="cel"] > iframe { width: 375px; height: 640px; }', $this->css());
     }
 
-    #[TestDox('Monitoramento (L.282-286) depois das Automações: cabeçalho literal e a lista que o JS preenche; as colunas da linha seguem o dc')]
-    public function testMonitoramento(): void
-    {
-        self::assertSame(1, $this->doc->filter('[data-mc] > section.mc-mon > .mc-cabeca > i.bi-graph-up')->count());
-        self::assertSame(['Monitoramento'], $this->textos('[data-mc] > section.mc-mon > .mc-cabeca > b'));
-        self::assertSame(['entregas, aberturas, cliques e descadastros por campanha'], $this->textos('[data-mc] > section.mc-mon > .mc-cabeca > span'));
-        self::assertSame(1, $this->doc->filter('[data-mc] > section.mc-mon > .mc-camps[data-mc-camps]')->count());
-        $css = $this->css();
-        self::assertStringContainsString('.mc-camp { display: grid; grid-template-columns: minmax(200px,2fr) 130px 90px 110px minmax(150px,1fr); align-items: center; gap: 10px; padding: 11px 18px;', $css);
-        foreach (['--mc-st-fila-bg: #fff4d6; --mc-st-fila-tx: #9a5b00;', '--mc-st-agendada-bg: #efeaf8; --mc-st-agendada-tx: #5b3f9e;', '--mc-st-recorrente-bg: #e9f6ee; --mc-st-recorrente-tx: #1e7b45;'] as $cor) {
-            self::assertStringContainsString($cor, $css);
-        }
-        $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/comercial-monitoramento.js');
-        self::assertStringContainsString('<div class="mc-camps-vazio">Nenhuma campanha ainda.</div>', $js);
-        self::assertStringContainsString('Métricas: aguarda servidor', $js);
-    }
-
     #[TestDox('"Baixar HTML" pede a prévia sem o exemplo (sai sempre com "Dra. Ana" e teste@bluejus.com.br); a prévia na tela leva o primeiro destinatário')]
     public function testBaixarSemDestinatarioReal(): void
     {
@@ -240,6 +223,6 @@ final class ParcialDoComercialTest extends KernelTestCase
         $scripts = $this->doc->filter('script');
         self::assertSame(0, $scripts->reduce(static fn (Crawler $s): bool => $s->attr('src') === null)->count());
         self::assertSame(1, $this->doc->filter('script[src*="js/master/comercial-campanha.js"]')->count());
-        self::assertSame(1, $this->doc->filter('script[src*="js/master/comercial-monitoramento.js"]')->count());
+        self::assertSame(1, $this->doc->filter('script[src*="js/master/comercial-relatorio.js"]')->count());
     }
 }

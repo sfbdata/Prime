@@ -7,7 +7,9 @@ namespace App\Tests\Master\Unit;
 use App\Master\Entity\SeccionalOab;
 use App\Master\Enum\TipoDeDivulgacao;
 use App\Master\Repository\DivulgacaoNaSeccionalRepository;
+use App\Master\Repository\NotaDaSeccionalRepository;
 use App\Master\Repository\SeccionalOabRepository;
+use App\Master\Repository\SubsecaoOabRepository;
 use App\Master\UseCase\ListarSeccionaisUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -32,7 +34,7 @@ final class ListarSeccionaisUseCaseTest extends TestCase
         $linhas = $this->useCase([$ac, $sp], ['SP' => 3], ['SP' => [self::div('reuniao', '2026-10-20', 'Ana', 'Café'), self::div('material', '2026-10-01', null, null)]])->executar();
 
         self::assertSame(['AC', 'SP'], array_column($linhas, 'uf'));
-        self::assertSame(['uf' => 'AC', 'nome' => 'OAB Seccional Acre', 'endereco' => null, 'telefone' => null, 'site' => null, 'usuarios' => 0, 'ultima' => null, 'ultimas' => []], $linhas[0]);
+        self::assertSame(['uf' => 'AC', 'nome' => 'OAB Seccional Acre', 'endereco' => null, 'telefone' => null, 'site' => null, 'usuarios' => 0, 'ultima' => null, 'ultimas' => [], 'subsecoes' => [], 'nota' => null], $linhas[0]);
         self::assertSame(3, $linhas[1]['usuarios']);
         self::assertSame('Praça da Sé', $linhas[1]['endereco']);
         self::assertSame('https://exemplo.test', $linhas[1]['site']);
@@ -52,11 +54,32 @@ final class ListarSeccionaisUseCaseTest extends TestCase
         $seccionais->method('todasEmOrdem')->willReturn([new SeccionalOab('DF', 'OAB Seccional Distrito Federal')]);
         $seccionais->method('usuariosPorUf')->willReturn([]);
 
-        $linha = (new ListarSeccionaisUseCase($seccionais, $divulgacoes))->executar()[0];
+        $linha = (new ListarSeccionaisUseCase($seccionais, $divulgacoes, $this->createStub(SubsecaoOabRepository::class), $this->createStub(NotaDaSeccionalRepository::class)))->executar()[0];
 
         self::assertCount(5, $linha['ultimas']);
         self::assertSame('2026-10-20', $linha['ultima']['data']);
         self::assertSame('Parceria', $linha['ultima']['rotulo']);
+    }
+
+    #[TestDox('janela da OAB: subseções e nota de cada UF vêm junto (lista vazia e nota nula quando não há)')]
+    public function testSubsecoesENota(): void
+    {
+        $subsecoes = $this->createStub(SubsecaoOabRepository::class);
+        $subsecoes->method('todasPorUf')->willReturn(['RR' => [['id' => 4, 'nome' => 'Subseção', 'endereco' => 'Rua', 'telefone' => null]]]);
+        $notas = $this->createStub(NotaDaSeccionalRepository::class);
+        $notas->method('todasPorUf')->willReturn(['RR' => ['texto' => 'Ligar em novembro', 'atualizadaEm' => '2026-10-21', 'autor' => 'Ana']]);
+        $seccionais = $this->createStub(SeccionalOabRepository::class);
+        $seccionais->method('todasEmOrdem')->willReturn([new SeccionalOab('AP', 'OAB Seccional Amapá'), new SeccionalOab('RR', 'OAB Seccional Roraima')]);
+        $seccionais->method('usuariosPorUf')->willReturn([]);
+        $divulgacoes = $this->createStub(DivulgacaoNaSeccionalRepository::class);
+        $divulgacoes->method('ultimasPorUf')->willReturn([]);
+
+        [$ap, $rr] = (new ListarSeccionaisUseCase($seccionais, $divulgacoes, $subsecoes, $notas))->executar();
+
+        self::assertSame([], $ap['subsecoes']);
+        self::assertNull($ap['nota']);
+        self::assertSame([['id' => 4, 'nome' => 'Subseção', 'endereco' => 'Rua', 'telefone' => null]], $rr['subsecoes']);
+        self::assertSame(['texto' => 'Ligar em novembro', 'atualizadaEm' => '2026-10-21', 'autor' => 'Ana'], $rr['nota']);
     }
 
     /**
@@ -72,7 +95,7 @@ final class ListarSeccionaisUseCaseTest extends TestCase
         $repoDivulgacoes = $this->createStub(DivulgacaoNaSeccionalRepository::class);
         $repoDivulgacoes->method('ultimasPorUf')->willReturn($ultimas);
 
-        return new ListarSeccionaisUseCase($repoSeccionais, $repoDivulgacoes);
+        return new ListarSeccionaisUseCase($repoSeccionais, $repoDivulgacoes, $this->createStub(SubsecaoOabRepository::class), $this->createStub(NotaDaSeccionalRepository::class));
     }
 
     /** @return array{tipo: string, data: string, nota: ?string, autor: ?string} */

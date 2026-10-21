@@ -794,6 +794,37 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Metas abertas da pessoa com prazo no dia (resumo diário por e-mail, spec docs/specs/resumo-diario-por-email.md):
+     * os mesmos critérios dos números acima (pasta do escritório e fora da lixeira, fora da fila em revisão ou
+     * concluída) e o cadeado. Tenant explícito: no comando de console o TenantFilter não vale.
+     *
+     * @param list<int> $pastasOcultas
+     *
+     * @return list<Tarefa>
+     */
+    public function abertasDoResponsavelNoDia(Tenant $tenant, User $responsavel, \DateTimeImmutable $dia, array $pastasOcultas = []): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->addSelect('p')
+            ->join('t.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('t.status NOT IN (:foraDaFila)')
+            ->andWhere(':responsavel MEMBER OF t.responsaveis')
+            ->andWhere('t.prazo >= :de AND t.prazo < :ate')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
+            ->setParameter('responsavel', $responsavel)
+            ->setParameter('de', RegraDoPrazo::inicioDoDia($dia))
+            ->setParameter('ate', RegraDoPrazo::inicioDoDia($dia)->modify('+1 day'))
+            ->orderBy('t.prazo', 'ASC')
+            ->addOrderBy('t.id', 'ASC');
+        $this->semPastasOcultas($qb, $pastasOcultas);
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
      * Lista "Metas da equipe" (/tarefas/equipe): as metas que cada número da tabela Desempenho
      * do Dashboard conta. Os critérios de status são OS MESMOS dos count*PorResponsavel acima —
      * se um mudar, o outro muda junto, senão o número clicado deixa de bater com a lista

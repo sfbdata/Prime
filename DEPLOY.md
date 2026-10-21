@@ -292,6 +292,24 @@ dos avisos e trava a repetição). Nos outros dias ele passa e não envia nada.
 >
 > Configurar o cron é do dono.
 
+### Resumo diário por e-mail (crontab na VPS)
+
+Manda a cada pessoa, por escritório, os prazos, as audiências e as metas do dia, para quem deixou ligado o "Resumo
+diário por e-mail" no Meu Perfil (spec `docs/specs/resumo-diario-por-email.md`). O cron roda **todo dia às 8h de
+Brasília**; o comando só envia em **dia útil do escritório** (sábado, domingo e feriado passam), não manda e-mail vazio
+e grava em `resumo_diario_envio` antes de cada envio, então rodar de novo no mesmo dia não manda outra vez.
+
+```
+# todo dia, 11h UTC = 8h de Brasília
+0 11 * * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:perfil:resumo-diario >> /var/log/jusprime-resumo-diario.log 2>&1
+```
+
+> **Antes de agendar:** rode uma vez em simulação: `docker exec -w /var/www/app jusprime_php_prod php bin/console
+> app:perfil:resumo-diario --dry-run` (não grava nem envia; mostra, por escritório, quantos receberiam). Para um
+> escritório só: `--tenant=1`.
+>
+> Configurar o cron é do dono.
+
 ### Personalizar configuração
 
 Variáveis de ambiente que sobrescrevem os padrões do script:

@@ -1,0 +1,66 @@
+{# "Relatório como caixa de entrada" da Central de envios (F3d; desenho 05 VS 21.10.26, marcação L300-305 e L502-514,
+   lógica L698-717; spec docs/specs/comercial-relatorio.md). Incluído pelo _comercial.html.twig no lugar do antigo
+   bloco "Monitoramento", dentro do [data-mc]. Traz o próprio <link> e <script>, sem script inline (o HTML da
+   campanha vai num iframe sandbox="", que não executa script). A lista, as contagens e o visualizador vêm por JSON quando a seção abre.
+   A URL do visualizador leva o marcador 9999999999 (casa com o requisito `[1-9]\d{0,9}` da rota; o JS o troca).
+   Fora desta fatia: a estrela, o arquivo, o menu do botão direito, "Reenviar a quem não leu" e "Exportar
+   destinatários" (dependem de gravar no servidor; ver a spec). #}
+<link rel="stylesheet" href="{{ asset('css/master-comercial-relatorio.css') }}">
+<section class="mc-caixa mc-rl" aria-label="Relatório de campanhas" data-mc-relatorio
+         data-url-lista="{{ path('master_comercial_relatorio') }}"
+         data-url-campanha="{{ path('master_comercial_campanha', {id: 9999999999}) }}"
+         data-url-cancelar="{{ path('master_comercial_campanha_cancelar', {id: 9999999999}) }}"
+         data-token="{{ csrf_token('master_comercial') }}">
+    {# L301: selecionar, atualizar, a seleção, a busca e a faixa da página. #}
+    <div class="mc-rl-barra">
+        <button type="button" class="mc-rl-ic" title="Selecionar" aria-label="Selecionar" data-mc-rl-sel-todos><i class="bi bi-square" aria-hidden="true" data-mc-rl-sel-ic></i></button>
+        <button type="button" class="mc-rl-ic mc-rl-redondo" title="Atualizar" aria-label="Atualizar" data-mc-rl-atualizar><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
+        <span class="mc-rl-sel-n" data-mc-rl-sel-n hidden></span>
+        <span class="mc-rl-vao"></span>
+        <label class="mc-rl-busca"><i class="bi bi-search" aria-hidden="true"></i><input type="search" placeholder="Buscar campanha ou e-mail" aria-label="Buscar campanha ou e-mail" maxlength="120" data-mc-rl-busca></label>
+        <span class="mc-rl-faixa" data-mc-rl-faixa>0 de 0</span>
+        <button type="button" class="mc-rl-ic mc-rl-redondo" title="Página anterior" aria-label="Página anterior" data-mc-rl-pagina="-1" disabled><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+        <button type="button" class="mc-rl-ic mc-rl-redondo" title="Próxima página" aria-label="Próxima página" data-mc-rl-pagina="1" disabled><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+    </div>
+    {# L302: as abas com a contagem, os rótulos, os ícones, os subtítulos e as cores do dc (L700). #}
+    <div class="mc-rl-abas" role="tablist" aria-label="Campanhas">
+        {% for a in [
+            ['env', 'Enviadas', 'bi-send', 'Na fila e já enviadas'],
+            ['ag', 'Agendadas', 'bi-clock', 'Com data programada'],
+            ['rec', 'Recorrentes', 'bi-arrow-repeat', 'Semanais, quinzenais e mensais'],
+        ] %}
+            <button type="button" role="tab" class="mc-rl-aba mc-rl-aba-{{ a[0] }}" data-mc-rl-aba="{{ a[0] }}" aria-selected="{{ loop.first ? 'true' : 'false' }}"><i class="bi {{ a[2] }}" aria-hidden="true"></i><span class="mc-rl-aba-texto"><b class="mc-rl-aba-rot">{{ a[1] }}<span class="mc-rl-aba-n" data-mc-rl-n hidden></span></b><span class="mc-rl-aba-sub">{{ a[3] }}</span></span></button>
+        {% endfor %}
+    </div>
+    <div class="mc-rl-msg" role="status" data-mc-rl-msg hidden><i class="bi bi-info-circle" aria-hidden="true"></i> <span data-mc-rl-msg-texto></span></div>
+    <div class="mc-rl-lista" role="tabpanel" data-mc-rl-lista aria-busy="true"></div>
+    {# L502-514: o visualizador da campanha, preenchido pelo JS. #}
+    <div class="mc-rl-ver" data-mc-rl-ver hidden>
+        <div class="mc-rl-ver-fundo" data-mc-rl-fechar></div>
+        <div class="mc-rl-ver-caixa" role="dialog" aria-modal="true" aria-labelledby="mc-rl-ver-assunto">
+            <div class="mc-rl-ver-barra">
+                <button type="button" class="mc-rl-ver-voltar" title="Voltar" aria-label="Voltar" data-mc-rl-fechar><i class="bi bi-arrow-left" aria-hidden="true"></i></button>
+                <span class="mc-rl-vao"></span>
+                <button type="button" class="mc-rl-ver-acao" data-mc-rl-duplicar><i class="bi bi-files" aria-hidden="true"></i>Duplicar</button>
+                <button type="button" class="mc-rl-ver-acao mc-rl-ver-cancelar" data-mc-rl-cancelar hidden><i class="bi bi-x-circle" aria-hidden="true"></i>Cancelar envio</button>
+            </div>
+            <div class="mc-rl-ver-corpo">
+                <div class="mc-rl-ver-titulo"><span id="mc-rl-ver-assunto" data-mc-rl-v="assunto"></span> <span class="mc-rl-ver-st" data-mc-rl-v="situacao"></span></div>
+                <div class="mc-rl-ver-de">
+                    <span class="mc-rl-ver-avatar" aria-hidden="true">B</span>
+                    <span class="mc-rl-ver-quem"><b data-mc-rl-v="nome"></b> <span data-mc-rl-v="endereco"></span><br>para <span data-mc-rl-v="publico"></span> · modelo <span data-mc-rl-v="modelo"></span></span>
+                    <span class="mc-rl-ver-quando" data-mc-rl-v="quando"></span>
+                </div>
+                <div class="mc-rl-ver-kpis" data-mc-rl-kpis></div>
+                <div class="mc-rl-ver-grade">
+                    <iframe class="mc-rl-ver-html" title="Campanha" sandbox="" data-mc-rl-html></iframe>
+                    <div class="mc-rl-ver-dest">
+                        <div class="mc-rl-ver-dest-titulo">DESTINATÁRIOS</div>
+                        <div class="mc-rl-ver-dest-lista" data-mc-rl-dest></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<script src="{{ asset('js/master/comercial-relatorio.js') }}"></script>
