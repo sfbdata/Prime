@@ -32,8 +32,8 @@ final class AgrupadorDeMetas
     {
         $hoje = ($hoje ?? new \DateTimeImmutable())->setTime(0, 0);
 
-        // A aba fica na assinatura: é o contrato com quem chama, e o agrupamento não depende mais dela.
-        $grupos = $this->porUrgencia($metas, $hoje);
+        // A aba não muda os grupos (nome, ordem, cor); muda só a nota de "Enviadas para revisão".
+        $grupos = $this->porUrgencia($metas, $hoje, $aba);
 
         return array_values(array_filter($grupos, static fn (GrupoDeMetasOutput $g): bool => !$g->estaVazio()));
     }
@@ -42,7 +42,7 @@ final class AgrupadorDeMetas
      * @param Tarefa[] $metas
      * @return GrupoDeMetasOutput[]
      */
-    private function porUrgencia(array $metas, \DateTimeImmutable $hoje): array
+    private function porUrgencia(array $metas, \DateTimeImmutable $hoje, AbaMetas $aba): array
     {
         $baldes = ['atrasadas' => [], 'proximas' => [], 'depois' => [], 'sem_prazo' => [], 'em_revisao' => [], 'concluidas' => []];
 
@@ -64,7 +64,8 @@ final class AgrupadorDeMetas
                 'Enviadas para revisão',
                 'accent',
                 $baldes['em_revisao'],
-                nota: 'aguardando quem criou a meta',
+                // Na aba Criei quem lê é quem criou: a meta voltou para ele revisar.
+                nota: $aba === AbaMetas::CRIEI ? 'o responsável terminou e enviou para você revisar' : 'aguardando quem criou a meta',
             ),
             new GrupoDeMetasOutput(
                 'concluidas',

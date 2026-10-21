@@ -59,7 +59,9 @@ some meta concluída legítima da tela.
 P:151-154: os grupos `G` são os mesmos em qualquer aba; a aba só escolhe quais metas entram). Até o
 acerto do desenho 04 (21/10) ela agrupava por etapa da revisão ("Aguardando sua revisão", "Em
 andamento", "Concluídas"); o que voltou para a revisão de quem criou fica agora em "Enviadas para
-revisão". Nomes, ordem e cores dos grupos são os de cima (decisão do dono, LIS-07/08).
+revisão". Nomes, ordem e cores dos grupos são os de cima (decisão do dono, LIS-07/08). Só a nota
+desse grupo muda na aba `criei`, porque quem lê é quem criou: "o responsável terminou e enviou para
+você revisar" (nas outras abas, "aguardando quem criou a meta").
 
 Um item aparece em **exatamente um** grupo. `em_revisao` tem precedência sobre a urgência do prazo em
 todas as abas; sem essa precedência a mesma meta cairia em dois blocos.
@@ -141,10 +143,24 @@ GET /tarefas/minhas?aba=&modo=&busca=&status=&prioridade=&prazo=
   → TarefaController::minhas
     → ListarMinhasMetasUseCase::executar(User, Tenant, AbaMetas, filtros)
       → TarefaRepository::findParaMinhasMetas(...)   (lista, já escopada pela aba)
-      → TarefaRepository::contarPainelMinhasMetas(...) (KPIs + fatias do trilho)
+      → TarefaRepository::contarPainelMinhasMetas(...) (os quatro KPIs)
       → TarefaRepository::contarPorAba(...)          (número em cada aba)
+      → TarefaRepository::contarAndamento(...)       ("Seu andamento": X de Y e fatias, todas as metas)
+      → TarefaRepository::findAtrasadasParaAtencao(...) ("Precisa de atenção": até 4 atrasadas, todas as metas)
     → MinhasMetasOutput  (grupos montados, KPIs, trilho)
 ```
+
+`contarAndamento` e `findAtrasadasParaAtencao` partem do mesmo universo (`universoDoAndamento`: aba
+`todas`, sem cadeado, concluídas dos últimos 30 dias, sem os filtros da tela) e rodam também na
+recarga parcial; só o modo lista os dispensa. O isolamento entre escritórios vem do TenantFilter: meta
+de outro escritório com o usuário como responsável não entra (`testTrilhoNaoContaMetaDeOutroEscritorio`).
+
+**Barra de filtro (desenho 04, P:78-79):** o select de prazo mostra "Atrasadas", "Vencem em 7 dias"
+e "Sem prazo", com os valores de sempre (`vencidas`, `proximas`, `sem`, que os KPIs usam). O botão do
+motor compartilhado diz "Limpar filtros" (`data-ft-rotulo-limpar` no root), é de texto, fica na
+linha dos selects e só aparece com filtro ativo; zera busca e selects, não a aba. Os chips dos filtros
+ativos não aparecem nesta barra (o desenho não os tem; continuam no DOM). Tudo por CSS local em
+`.mm-barra-cartao`: `filtro-tabela.js` e `filtro-tabela.css` não mudam.
 
 - `AbaMetas` é um enum `string` em `src/Tarefa/Enum/`, com `tryFrom` + padrão — o controller nunca
   repassa string crua ao repositório.

@@ -1026,6 +1026,41 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Próximas (7 dias)', (string) $client->getResponse()->getContent());
     }
 
+    #[TestDox('Isolamento: meta ATRASADA do escritório B com o usuário de A como responsável não entra no "X de Y", na legenda nem no "Precisa de atenção" de A')]
+    public function testTrilhoNaoContaMetaDeOutroEscritorio(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $em                 = static::getContainer()->get(EntityManagerInterface::class);
+        $this->criarMeta($tenant, $usuario, 'Minha atrasada')->setPrazo(new \DateTimeImmutable('-2 days'));
+
+        $outro = new Tenant();
+        $outro->setName('Escritório B ' . uniqid());
+        $em->persist($outro);
+        $em->flush();
+        // O vínculo que atravessa escritórios: a meta é de B, mas o responsável é o usuário de A.
+        $deB = $this->criarMeta($outro, $usuario, 'Atrasada do escritório B');
+        $deB->setPrazo(new \DateTimeImmutable('-9 days'));
+        $em->flush();
+        $em->clear();
+        $gravada = $em->find(Tarefa::class, $deB->getId());
+        self::assertSame($outro->getId(), $gravada?->getTenant()?->getId(), 'premissa: a meta é mesmo do escritório B');
+        self::assertTrue($gravada->getResponsaveis()->exists(static fn ($k, User $u): bool => $u->getId() === $usuario->getId()), 'premissa: o usuário de A é responsável');
+
+        foreach (['todas', 'responsavel'] as $aba) {
+            $client->request('GET', '/tarefas/minhas?aba=' . $aba);
+            self::assertResponseIsSuccessful();
+            $c = $client->getCrawler();
+            $this->assertAndamento($c, '0 de 1', ['0 concluída(s)', '0 em aberto', '1 atrasada(s)', '0 em revisão'], $aba);
+            self::assertSame(
+                ['Minha atrasada'],
+                $c->filter('.mm-trilho > .mm-cartao.mm-trilho-atencao > a.mm-atencao-item .mm-atencao-titulo')->each(static fn ($t): string => trim((string) preg_replace('/ · Pasta .*$/', '', trim($t->text())))),
+                $aba,
+            );
+            self::assertStringNotContainsString('Atrasada do escritório B', (string) $client->getResponse()->getContent(), $aba);
+        }
+    }
+
     private function criarColega(Tenant $tenant): User
     {
         $container = static::getContainer();

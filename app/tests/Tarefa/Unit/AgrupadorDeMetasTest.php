@@ -181,6 +181,18 @@ final class AgrupadorDeMetasTest extends TestCase
         self::assertArrayNotHasKey('aguardando', $this->mapa($criei), 'o agrupamento por etapa saiu');
     }
 
+    #[TestDox('Na aba Criei a nota de "Enviadas para revisão" fala com quem criou; nas outras abas continua "aguardando quem criou a meta"')]
+    public function testNotaDaRevisaoPorAba(): void
+    {
+        $metas = [$this->meta('Voltou', '2026-09-20', Tarefa::STATUS_EM_REVISAO)];
+        $nota  = fn (AbaMetas $aba): ?string => $this->agrupador->agrupar($metas, $aba, $this->hoje)[0]->nota;
+
+        self::assertSame('o responsável terminou e enviou para você revisar', $nota(AbaMetas::CRIEI));
+        foreach ([AbaMetas::RESPONSAVEL, AbaMetas::ACOMPANHANDO, AbaMetas::TODAS] as $aba) {
+            self::assertSame('aguardando quem criou a meta', $nota($aba), $aba->value);
+        }
+    }
+
     #[TestDox('Concluídas vem recolhido; os demais grupos, abertos')]
     public function testApenasConcluidasVemRecolhido(): void
     {
