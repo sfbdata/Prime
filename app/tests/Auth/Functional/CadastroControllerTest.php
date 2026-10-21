@@ -443,6 +443,23 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertSelectorNotExists('form');
     }
 
+    #[TestDox('CSRF inválido com o e-mail já confirmado: 403 com "E-mail confirmado.", sem o formulário e sem trocar a senha')]
+    public function testCsrfInvalidoComEmailJaConfirmado(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $user = $this->pendenteDeConfirmacao($token);
+        $user->confirmarEmail();
+        $this->em()->flush();
+
+        $client->request('POST', '/cadastro/confirmar-email/' . $token, ['senha' => 'novaSenha456', 'confirmacao' => 'novaSenha456', '_token' => 'forjado']);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSelectorTextContains('h3', 'E-mail confirmado.');
+        self::assertSelectorNotExists('form');
+        self::assertTrue($this->senhaValida((int) $user->getId(), 'x'));
+    }
+
     /** @return iterable<string, array{string, string, string}> */
     public static function senhasRecusadas(): iterable
     {

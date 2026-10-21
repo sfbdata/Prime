@@ -80,3 +80,9 @@ coordenador).
 - Functional: o GET não confirma; o POST com CSRF; sem CSRF não muda nada; a senha do cadastro não entra (login com
   ela falha antes e depois de confirmar); depois de criar a senha, entra com a nova; o REMEMBERME antigo cai; a
   corrida (dois POSTs) só grava uma senha; textos do modal e do e-mail.
+
+## Fora
+
+- O caminho antigo `/cadastro/confirmar/{token}` (`ConfirmarCadastroUseCase`, `CadastroPendente`) ainda grava a senha
+  escolhida no cadastro, mas está morto: nada cria `CadastroPendente` desde o desenho 10, e a tabela
+  `cadastro_pendente` está vazia em produção (consulta de 21/10). Aposentar a rota fica para uma limpeza à parte.
