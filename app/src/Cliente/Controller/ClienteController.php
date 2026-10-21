@@ -453,11 +453,7 @@ class ClienteController extends AbstractController
         $doc->setCategoria($categoria);
         $doc->setDescricao($descricao !== '' ? $descricao : null);
         $doc->setNumero($numero !== '' ? $numero : null);
-        if ($nomeBase !== '') {
-            $extensao = pathinfo($doc->getNomeOriginal(), PATHINFO_EXTENSION);
-            $nomeComExtensao = $nomeBase . ($extensao !== '' ? '.' . $extensao : '');
-            $doc->setNomeOriginal($nomeComExtensao);
-        }
+        $this->renomearDocumento($doc, $nomeBase);
         if ($antes !== [$doc->getCategoria(), $doc->getDescricao(), $doc->getNumero(), $doc->getNomeOriginal()]) {
             $this->historico->documentoAlterado($doc, $currentUser, $antes[0]);
         }
@@ -484,6 +480,17 @@ class ClienteController extends AbstractController
         if ($doc->isVinculado()) { // os dados são os do documento da pasta
             throw $this->createAccessDeniedException('Documento vinculado do menu Documentos não é editado aqui.');
         }
+    }
+
+    /** Troca o nome mantendo a extensão do arquivo; nome vazio não muda nada. */
+    private function renomearDocumento(ClienteDocumento $doc, string $nomeBase): void
+    {
+        if ($nomeBase === '') {
+            return;
+        }
+
+        $extensao = pathinfo($doc->getNomeOriginal(), PATHINFO_EXTENSION);
+        $doc->setNomeOriginal($nomeBase . ($extensao !== '' ? '.' . $extensao : ''));
     }
 
     #[Route('/documento/{id}/deletar', name: 'cliente_documento_delete', methods: ['POST'])]
