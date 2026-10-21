@@ -15,6 +15,16 @@ divulgações e o GET `/master/dados/seccionais`. Esta frente reaproveita a sede
 ## Estado da frente
 
 - 21/10: spec escrita, worktree `master-oab-faltam` (base master). Implementação delegada; revisão antes do PR.
+- 21/10: implementado (commit local, sem PR): `SubsecaoOab` e `NotaDaSeccional` (migration `Version20261020148800`),
+  três UseCases (adicionar e remover subseção, salvar nota), três POST no `SeccionaisOabController`, GET das
+  seccionais com subseções e nota por UF, janela da OAB no `painel.js` (bloco das seccionais) e estilos no
+  `master-seccionais.css`. Suíte direcionada e `scripts/qa.sh` verdes. Falta: revisão e o smoke do dono na tela.
+- **Pendente (DONO, espera o arquivo inteiro do desenho):** o seletor de modos (L134, `faltamModos`), não
+  implementado; formato exato de `oabNotaEm` e `oabSecCor`; se a subseção guarda site e se o Master pode editá-la.
+- **Convenções tomadas (DONO, revisar com o arquivo inteiro):** subtítulo da janela aberta pela linha da UF
+  "<UF> · N usuários no BlueJus" (ou "N escritórios" na visão Escritórios; o estado que falta na visão Escritórios
+  diz "sem escritórios"); no Mundo, o item dos que faltam fica sem tooltip e sem a seta; a data da nota sai sem o
+  autor (o autor vem no GET).
 
 ## O que o desenho mostra
 
