@@ -1,0 +1,403 @@
+# Catálogo do português, a fonte do texto da tela (spec docs/specs/idioma-do-sistema.md, entrega 3 em diante).
+# Um bloco por área, na ordem das entregas; cada PR de área mexe só no seu bloco.
+# Formato ICU: parâmetro é {nome}; apóstrofo se escreve ''. Chave do JS (sob <area>.js) vai crua ao navegador: só usa
+# {nome}, sem plural, e o apóstrofo fica simples (lá ninguém desfaz o '').
+# Não entram: nomes dos idiomas (cada um no próprio idioma), nomes de pessoas, números, CPF/CNPJ, citações de lei.
+
+# ---- moldura: base, barra lateral e avisos comuns (layout/_globais)
+moldura:
+    comum:
+        fechar: Fechar
+    cabecalho:
+        menu_lateral_alternar: Abrir/fechar menu
+        menu_lateral_dica: Menu
+        titulo_pagina:
+            clientes: Clientes
+            processos: Processos
+            pastas: Pastas
+            metas: Metas
+            agenda: Agenda
+            service_desk: Service Desk
+            perfis: Perfis
+            tenants: Tenants
+            auditoria: Auditoria
+            convidar_usuarios: Convidar Usuários
+            meu_perfil: Meu Perfil
+            expediente: Expediente
+            cobrancas: Cobranças
+            quem_somos_e_contribua: Quem somos e contribua
+        escritorio_trocar_conta: '{escritorio}: trocar de conta'
+        instalar_aplicativo: Instalar aplicativo
+        tela_cheia: Tela cheia
+        menu_usuario: Menu do usuário
+        subnav:
+            expediente: Expediente
+            demandas: Demandas
+            minhas_metas: Minhas Metas
+            agenda: Agenda
+            trabalho_externo: Trabalho Externo
+    notificacoes:
+        rotulo: Notificações
+        aba_minhas: Minhas
+        aba_gestao: Gestão
+        contagem_sufixo: notificação(ões)
+        nenhuma: Nenhuma notificação
+        ver_todas: Ver todas as notificações
+    instalar_ios:
+        titulo: Instalar BlueJus
+        introducao: 'Para instalar o BlueJus no seu iPhone ou iPad:'
+        passo1_inicio: Toque no botão
+        passo1_compartilhar: Compartilhar
+        passo1_fim: na barra do Safari
+        passo2_inicio: Role para baixo e toque em
+        passo2_adicionar_tela_inicio: Adicionar à Tela de Início
+        passo3_inicio: Toque em
+        passo3_adicionar: Adicionar
+        passo3_fim: para confirmar
+    menu_lateral:
+        busca: Acesso rápido
+        dashboard: Dashboard
+        expediente: Expediente
+        push_processual: Push Processual
+        processos: Processos
+        trabalho_externo: Trabalho Externo
+        selo_novo: NOVO
+        cobrancas: Cobranças
+        minhas_metas: Minhas Metas
+        demandas: Demandas
+        agenda: Agenda
+        kanban: Kanban
+        service_desk: Service Desk
+        ponto_eletronico: Ponto Eletrônico
+        secao_admin: ADMIN
+        convidar_usuarios: Convidar Usuários
+        colaboradores: Colaboradores
+        meu_escritorio: Meu Escritório
+        perfis: Perfis
+        solicitacoes_acesso: Solicitações de Acesso
+        service_desk_ti: Service Desk (TI)
+        sedes_ponto: Sedes (Ponto)
+        feriados_folgas: Feriados e Folgas
+        bluejus_ia: BlueJus IA
+        trilha_auditoria: Trilha de Auditoria
+    aviso_espaco:
+        titulo_esgotado: 'Espaço esgotado: novos envios estão pausados'
+        titulo_ocupado: Seu espaço está {percentual}% ocupado
+        uso_do_plano: '{uso} de {limite} no plano {plano}.'
+        consulta_liberada: Consultar e baixar arquivos continua liberado.
+        faltam: Faltam {faltam}.
+        recomendacao: Recomendamos aumentar o espaço para não interromper o envio de documentos.
+        aumentar: Aumentar espaço
+        lembrar_amanha: Lembrar amanhã
+    busca_rapida:
+        rotulo: Busca rápida
+        campo: Buscar pasta, cliente, CPF ou processo
+        resultados: Resultados da busca rápida
+        nada_encontrado: Nada encontrado.
+        dica_navegar: ↑ ↓ navegar
+        dica_abrir: Enter abrir
+        dica_alternar: Ctrl + K abrir ou fechar
+    js:
+        busca_sem_resultado: Nenhum resultado
+        instalar_sem_pedido: 'Para instalar: no Chrome ou Edge, use o ícone de instalar na barra de endereço. No celular, "Adicionar à tela inicial".'
+
+# ---- menu do usuário (menu_usuario/*, menu-usuario.js)
+menu:
+    usuario:
+        dropdown:
+            selo_master: MASTER
+            selo_primario: USUÁRIO PRIMÁRIO
+            selo_secundario: SECUNDÁRIO
+            fechar_menu: Fechar menu
+            meu_perfil: Meu Perfil
+            convites: Convites do escritório
+            convites_dir: equipe
+            indicar: Indicar o BlueJus
+            indicar_dir: nova conta
+            trocar_conta: Trocar de conta
+            exclusivo_master: EXCLUSIVO DO MASTER
+            tema_escuro: Tema escuro
+            idioma: Idioma
+            instalar: Instalar aplicativo
+            novidades: Novidades
+            novidades_selo: novo
+            ajuda: Ajuda e atalhos
+            privacidade: Política de Privacidade
+            contribua: Contribua
+            sair: Sair
+        master:
+            painel:
+                titulo: Painel do Master
+                sub: Visão geral do sistema
+            contas:
+                titulo: Contas e escritórios
+                sub: Suspender, reativar e limites
+            armazenamento:
+                titulo: Planos e armazenamento
+                sub: Franquias e consumo por conta
+            auditoria:
+                titulo: Segurança e auditoria
+                sub: Registro de ações e PDF
+            permissoes:
+                titulo: Permissões e Masters
+                sub: Promover ou remover Master
+            vagas:
+                titulo: Central de vagas e currículos
+                sub: Pedidos de divulgação e candidatos
+            campanha:
+                titulo: Campanha por e-mail
+                sub: Enviar vagas para a base de contatos
+            configuracoes:
+                titulo: Configurações globais
+                sub: Regras que valem para todas as contas
+        minha_conta:
+            escritorio: Escritório
+            voce: Você
+            papel_primario: Usuário primário
+            papel_master: Master
+            equipe_rotulo: EQUIPE DA CONTA ({n})
+            selo_primario: PRIMÁRIO
+            selo_secundario: SECUNDÁRIO
+            situacao: Situação
+            opcoes: Opções
+            opcoes_de: Opções de {nome}
+            convidar_rotulo: CONVIDAR (ENTRA COMO SECUNDÁRIO)
+            ver_convites: Ver convites pendentes
+            nota_convidar: Clique com o botão direito (ou em ⋮) numa pessoa para aprovar, suspender, voltar para análise ou demitir.
+            sem_perfil: Para convidar, cadastre antes um perfil secundário em
+            sem_perfil_link: Perfis do escritório
+            campo_nome: Nome
+            campo_email: E-mail
+            campo_perfil: Perfil
+            enviar_convite: Enviar convite
+        conta:
+            titulo: Conta do escritório
+            aba_minha_conta: Minha conta
+            aba_abrir_conta: Abrir conta
+            aba_trocar_conta: Trocar conta
+            carregando: Carregando…
+            nova_texto_antes: Quem abre a conta se torna o
+            nova_texto_destaque: usuário primário
+            nova_texto_depois: (gestor do escritório). As pessoas convidadas depois entram como secundárias. Os dados de cada conta ficam separados e não são vistos por outras contas.
+            botao_abrir_conta: Abrir conta
+        modal:
+            fechar: Fechar
+        idioma:
+            titulo: Idioma do sistema
+            em_breve: em breve
+            regra: Vale só para você e muda todas as telas, menus, avisos e o Chat I.A. Por enquanto só o Português (Brasil) está disponível; os demais idiomas chegam em breve.
+        preparacao:
+            titulo_sufixo: em preparação
+            texto: Estamos finalizando esta tela para ela chegar com tudo funcionando. Volte em breve.
+        presenca:
+            selo: 'Quem está on-line: {n}'
+        trocar_conta:
+            usuarios: '{n} usuário(s)'
+            primario: 'primário: {nome}'
+            atual: ATUAL
+            vazio: Você ainda não faz parte de nenhuma conta.
+            nota: Cada pessoa só vê as contas a que pertence. Os dados de cada conta ficam separados.
+            sair_confirmar: Deseja realmente sair de {nome}? Você perderá o acesso a este escritório.
+            sair: Sair deste escritório
+        js:
+            idioma_erro: Não foi possível trocar o idioma.
+            aba_erro: Não foi possível carregar agora. Recarregue a página e tente de novo.
+            situacao:
+                aprovado: aprovado
+                em_analise: em análise
+                suspenso: suspenso
+            membro_primario: primário
+            acao_reativar: Reativar (aprovar)
+            acao_aprovar: Aprovar
+            acao_voltar_analise: Voltar para análise
+            acao_suspender: Suspender acesso
+            acao_demitir: Demitir (remover da conta)
+            sem_acoes: Sem ações disponíveis
+            confirmar_demitir: Demitir {nome}? A pessoa perde o acesso a esta conta. É a mesma ação de "Remover do escritório" da tela de equipe.
+            confirmar_suspender: Suspender o acesso de {nome}? Os dados e o histórico continuam guardados.
+            feito: Feito
+            acao_erro: Não foi possível concluir agora.
+            ajuda: 'Atalhos: clique direito numa linha para ações, Esc fecha janelas, ⋮ abre as opções de cada área.'
+            confirmar_sair: Sair do BlueJus?
+
+# ---- Meu Perfil (profile/*, meu-perfil.js)
+perfil:
+    titulo: Meu Perfil
+    nao_informado: Não informado
+    abas:
+        rotulo: Abas do perfil
+        meu_perfil: Meu Perfil
+        convites: Convites do escritório
+        trocar_conta: Trocar de conta
+        master: Master
+        exclusivo_master: EXCLUSIVO DO MASTER
+        fechar_menu: Fechar menu
+    acoes:
+        fechar: Fechar
+        cancelar: Cancelar
+        salvar: Salvar
+    identificacao:
+        trocar_foto: Trocar foto
+        foto_alt: Foto de perfil
+        selo_master: MASTER
+        usuario_primario: USUÁRIO PRIMÁRIO
+        secundario: SECUNDÁRIO
+        cargo_nao_definido: Cargo não definido
+        lotacao_nao_definida: Lotação não definida
+        editar: Editar informações
+        frase_vazia: Adicione uma frase ao seu perfil
+    incompleto:
+        titulo: Seu cadastro está incompleto
+        percentual: '{pct}% preenchido'
+        falta: 'Falta:'
+        completar: Completar agora
+    grade:
+        email: E-mail
+        vinculo: Vínculo
+        vinculo_bate_ponto: '{vinculo} · bate ponto'
+        vinculo_sem_ponto: '{vinculo} · sem ponto'
+        cpf: CPF
+        ctps: CTPS
+        serie: Série
+        admissao: Admissão
+        cnpj: CNPJ
+        nascimento: Nascimento
+        membro_desde: Membro desde
+        telefone: Telefone
+        copiar: Copiar
+        copiar_campo: 'Copiar {campo}'
+    oab:
+        titulo: Registro OAB
+        sub_varias: '{total} inscrições · {suplementares} suplementar(es)'
+        sub_ordem: Ordem dos Advogados do Brasil
+        adicionar_titulo: Adicionar inscrição suplementar
+        adicionar: Adicionar OAB
+        verificada_em: 'Verificada em {data}'
+        aguardando_validacao: Aguardando validação do Master
+        selo_principal: PRINCIPAL
+        selo_suplementar: SUPLEMENTAR
+        vazio: 'Nenhuma inscrição informada. Use "Adicionar OAB" para cadastrar a principal.'
+        modal:
+            titulo: Inscrição na OAB
+            tipo: TIPO DE INSCRIÇÃO
+            tipo_principal: Principal
+            tipo_suplementar: Suplementar
+            ajuda_principal: 'Seccional do seu domicílio profissional. Só pode haver uma; se você mudar, a atual passa a suplementar.'
+            ajuda_suplementar: Para atuar com habitualidade em outro estado. Uma por seccional.
+            numero: NÚMERO DA OAB
+            numero_placeholder: Somente números
+            uf: UF (SECCIONAL)
+            uf_vazio: UF
+            remover: Remover esta inscrição
+    preferencias:
+        titulo: Preferências
+        sub: Valem só para você
+        idioma_rotulo: Idioma do sistema
+        idioma_sub: Muda todas as telas, menus e o Chat I.A
+        notificacoes_rotulo: Notificações no sistema
+        notificacoes_sub: Sininho de prazos, metas e menções
+        sons_rotulo: Sons de alerta
+        sons_sub: Toque ao receber mensagem ou alerta
+        resumo_email_rotulo: Resumo diário por e-mail
+        resumo_email_sub: Prazos e metas do dia, às 8h
+    seguranca:
+        titulo: Segurança
+        sub: Senha de acesso à sua conta
+        aviso: 'Ao alterar a senha, todas as outras sessões conectadas são encerradas, inclusive as que usam "manter conectado".'
+        alterar_senha: Alterar senha
+    exclusao:
+        titulo: Excluir conta do escritório
+        pendente_sub: 'Pedido feito em {data} · motivo: {motivo}. A equipe está sem acesso até o Master concluir.'
+        sub: Suspende a conta para toda a equipe e envia o pedido ao Master do BlueJus, que decide a exclusão. Exclusivo do usuário primário.
+        suspensa: Suspensa · aguardando o Master
+        desistir: Desistir e reativar
+        excluir: Excluir conta
+        motivo:
+            nao_uso: Não uso mais
+            caro: Achei caro
+            faltou_recurso: Faltou um recurso
+            mudei_sistema: Mudei de sistema
+            encerrando: Encerrando o escritório
+            outro: Outro motivo
+        modal:
+            etapa_antes: Excluir conta · etapa
+            etapa_depois: de 2
+            motivo_pedido: Conte em poucas palavras o motivo. Isso nos ajuda a melhorar.
+            motivo_rotulo: Motivo
+            observacao: Algo a mais? (opcional)
+            info_antes: A conta fica
+            info_suspensa: suspensa
+            info_depois: 'até o BlueJus analisar o pedido. Depois da exclusão, os dados ficam guardados por 365 dias e o suporte do BlueJus pode recuperá-la nesse prazo; depois disso, tudo é apagado. Os usuários não são apagados.'
+            codigo_enviado: Enviamos um código de 6 dígitos para
+            codigo_digite: '. Digite o código e a palavra'
+            codigo_palavra: EXCLUIR
+            codigo_confirmar: para confirmar.
+            codigo_rotulo: CÓDIGO
+            palavra_rotulo: DIGITE EXCLUIR
+            manter: Manter conta
+            continuar: Continuar
+    foto:
+        titulo: Foto de perfil
+        atual_alt: Foto atual
+        alterar: Alterar imagem
+        editar: Editar imagem
+        editar_titulo: Editar imagem
+        cropper_alt: Editar foto
+        zoom: Zoom
+        rotacao: Rotação
+        salvar: Salvar foto
+    editar:
+        titulo: Editar informações
+        vinculo: VÍNCULO COM O ESCRITÓRIO
+        vinculo_travado: Definido pelo escritório. Para alterar, fale com o usuário primário.
+        nome_completo: NOME COMPLETO
+        frase: FRASE DO PERFIL
+        telefone: TELEFONE / WHATSAPP
+        cpf: CPF
+        cpf_placeholder: Somente números
+        cpf_ajuda: Usado nos relatórios e estatísticas do escritório
+        nascimento: NASCIMENTO
+        genero: GÊNERO
+        genero_ajuda: Usado nas estatísticas do escritório
+        atuacao: ATUAÇÃO
+        atuacao_sugestao: 'Sugestão do sistema: {rotulo}.'
+        atuacao_usar: Usar
+        ctps: CTPS
+        ctps_ajuda: Só para empregado CLT
+        serie: SÉRIE
+        data_admissao: DATA DE ADMISSÃO
+        cnpj: CNPJ (SE HOUVER)
+        contrato_inicio_ajuda: Data em que o vínculo começou
+    revisao:
+        titulo: Seu cadastro está atualizado?
+        mensal: Revisão mensal
+        ultima_confirmacao: 'Última confirmação: {data}'
+        primeira: Primeira revisão do cadastro
+        texto_completo: Confira se telefone, vínculo e documentos continuam corretos. Esses dados alimentam relatórios, estatísticas e o controle de ponto do escritório.
+        texto_faltam: 'Faltam: {itens}. Esses dados alimentam relatórios, estatísticas e o controle de ponto do escritório.'
+        telefone: Telefone
+        vinculo: Vínculo
+        oab_principal: OAB principal
+        oab_nao_informada: Não informada
+        tudo_certo: Está tudo certo
+        atualizar: Atualizar agora
+    senha:
+        titulo: Alterar senha
+        atual: SENHA ATUAL
+        nova: NOVA SENHA
+        nova_placeholder: Mínimo 8 caracteres
+        confirmar: CONFIRMAR NOVA SENHA
+    js:
+        confirmar_remover_oab: 'Remover a inscrição OAB/{uf}?'
+        preferencia_falhou: Não foi possível gravar a preferência agora.
+        revisao_confirmada: Obrigado! Cadastro confirmado para este mês.
+        revisao_falhou: Não foi possível confirmar agora. Tente de novo.
+        copiado: Copiado
+        imagem_carregando: A imagem ainda está carregando. Aguarde um instante e tente novamente.
+        imagem_falhou: Não foi possível processar a imagem. Tente novamente.
+        foto_alt: Foto de perfil
+        foto_atual_alt: Foto atual
+        erro_salvar_foto: Erro ao salvar foto.
+        erro_comunicacao: Erro de comunicação.
+
+# ---- fim
