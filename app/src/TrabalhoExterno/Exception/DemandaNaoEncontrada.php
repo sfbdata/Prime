@@ -10,8 +10,8 @@ namespace App\TrabalhoExterno\Exception;
  */
 final class DemandaNaoEncontrada extends \DomainException
 {
-    public function __construct()
+    public function __construct(string $mensagem = 'Demanda não encontrada.')
     {
-        parent::__construct('Demanda não encontrada.');
+        parent::__construct($mensagem);
     }
 }

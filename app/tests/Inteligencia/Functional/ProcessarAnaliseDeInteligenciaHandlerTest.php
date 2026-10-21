@@ -662,6 +662,27 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertFalse($this->reler($analise)->getContextoResumo()['financeiro']);
     }
 
+    #[TestDox('agente: abas ocultas gravadas na solicitação (ocultar aba) → o worker obedece: o Push não vai ao provedor')]
+    public function testAgenteObedeceAsAbasOcultas(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $this->criarPagamento($tenant, $pasta, 'Honorários visíveis');
+        $analise = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor, financeiro: true, abasOcultas: ['push']);
+        $falso = new ProvedorFalso();
+        $falso->responderCom('{"resumo":"ok","pontos":[],"quem":"","texto":"CONCLUSÃO\n• ok"}');
+
+        $this->handler($falso)($this->mensagem($analise));
+
+        self::assertSame(StatusDaAnalise::Concluida, $this->reler($analise)->getStatus());
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringNotContainsString('<movimentacoes>', $texto);
+        self::assertStringContainsString('Honorários visíveis', $texto, 'o resto segue');
+        self::assertSame(['push'], $this->reler($analise)->getContextoResumo()['abasOcultas']);
+    }
+
     #[TestDox('agente: processo com nivelSigilo > 0 → falhou "contexto bloqueado", provedor NÃO chamado (mesmo para o Documental)')]
     public function testAgenteSigiloBloqueia(): void
     {

@@ -45,6 +45,35 @@ final class DisponibilidadeDeInteligencia
     }
 
     /**
+     * Só os dois primeiros níveis (plataforma → escritório), sem usuário nem cota: a pergunta de quem
+     * configura algo que vale para o ESCRITÓRIO ou para a pasta, não para quem está na tela (a chave
+     * "Análise da BlueJus IA" do "Avisar quando chegar" do Push). A permissão e a cota continuam com
+     * quem pede a análise, na hora do pedido.
+     */
+    public function paraEscritorio(Tenant $tenant): Disponibilidade
+    {
+        return $this->plataformaEEscritorio($tenant)[0];
+    }
+
+    /**
+     * @return array{0: Disponibilidade, 1: ?ConfiguracaoDeInteligencia} a configuração só vem com os
+     *                                                                   dois níveis liberados
+     */
+    private function plataformaEEscritorio(Tenant $tenant): array
+    {
+        if (!$this->plataformaConfigurada()) {
+            return [Disponibilidade::NaoConfiguradaNaPlataforma, null];
+        }
+
+        $configuracao = $this->configuracoes->findDoTenant($tenant);
+        if ($configuracao === null || !$configuracao->isHabilitada()) {
+            return [Disponibilidade::DesligadaNoEscritorio, null];
+        }
+
+        return [Disponibilidade::Disponivel, $configuracao];
+    }
+
+    /**
      * Os três primeiros níveis (plataforma → escritório → permissão), sem a cota. É a pergunta do
      * worker antes de chamar o provedor (IA-034L): desligar a IA tem de cortar também o que já está
      * na fila. A cota fica de fora porque a análise que o worker vai processar já foi contada na
@@ -61,13 +90,9 @@ final class DisponibilidadeDeInteligencia
      */
     private function semCota(User $user, Tenant $tenant): array
     {
-        if (!$this->plataformaConfigurada()) {
-            return [Disponibilidade::NaoConfiguradaNaPlataforma, null];
-        }
-
-        $configuracao = $this->configuracoes->findDoTenant($tenant);
-        if ($configuracao === null || !$configuracao->isHabilitada()) {
-            return [Disponibilidade::DesligadaNoEscritorio, null];
+        [$doEscritorio, $configuracao] = $this->plataformaEEscritorio($tenant);
+        if ($configuracao === null) {
+            return [$doEscritorio, null];
         }
 
         if (!$this->permissionChecker->canAccessModule($user, $tenant, self::MODULO)) {
