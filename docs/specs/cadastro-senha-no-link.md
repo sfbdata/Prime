@@ -15,6 +15,7 @@ Risco ALTO (identidade User). Decisão do dono (21/10/2026, via coordenador): op
   `Referrer-Policy: no-referrer` e `Cache-Control: no-store`. A régua da página é um JS próprio
   (`public/js/auth/criar-senha.js`) sobre a barra do Bootstrap. `SessaoDeContaAConfirmarListener` libera a rota nova.
   Testes direcionados e de arquitetura verdes; falta o smoke do dono na tela.
+- 21/10: #246 no master (sem D1 e D2). D1 e D2 decididos pelo dono; implementação na frente `cadastro-sem-senha-e-aceite`.
 
 ## A brecha
 
@@ -63,15 +64,16 @@ coordenador).
    nova. O link delas pede a senha e substitui a antiga. Sem tratamento especial.
 9. **Convites e Google:** nada muda (as contas de convite nascem confirmadas; o Google está em standby).
 
-## Decisões em aberto (dono, via coordenador)
+## Decisões do dono (21/10/2026, via coordenador), PR seguinte ao #246
 
-- **D1. O campo Senha no formulário de cadastro.** Recomendação da 9b: **tirar** o campo e a régua de força do
-  passo "Criar conta" (desvio do desenho 10). Pedir uma senha que vai ser jogada fora engana quem se cadastra e a
-  faz digitar duas vezes. Até a resposta, o campo fica e o servidor o ignora; se aprovado, sai num commit separado.
-- **D2. Termos e Política.** O aceite gravado no cadastro foi dado por quem cadastrou, que pode não ser a dona do
-  e-mail. Recomendação: a página "Crie sua senha" diz "Ao criar a senha, você aceita os Termos de Uso e declara ciência
-  da Política de Privacidade" (com os links) e grava um aceite novo no momento da criação da senha. Até a resposta,
-  nada disso entra e o aceite do cadastro continua valendo.
+- **D1 = tirar o campo Senha do cadastro** (desvio do desenho 10, aprovado pelo dono). O passo "Criar conta" do modal
+  perde o campo "Senha" e a régua de força; o JS não exige nem envia senha; o servidor continua ignorando `senha` se
+  vier (cliente antigo em cache).
+- **D2 = pedir e gravar um aceite novo na página "Crie sua senha".** A página ganha a mesma caixa do cadastro ("Li e
+  aceito os Termos de uso e a Política de privacidade", com os links), obrigatória. Sem ela, o POST recusa com a
+  mensagem do cadastro e não consome o link. Com ela, na mesma transação da senha, grava-se um aceite novo dos Termos e
+  a ciência da Política, pelo mesmo mecanismo do cadastro (versão vigente, momento, IP e user agent). Os aceites do
+  cadastro continuam no histórico, sem apagar.
 
 ## Testes
 
