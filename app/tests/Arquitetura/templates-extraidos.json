@@ -326,5 +326,25 @@
             "ArrowDown",
             "ArrowUp"
         ]
+    },
+
+    "cobranca_pessoa": {
+        "templates": [
+            "cobranca/pessoa/show.html.twig",
+            "cobranca/pessoa/_partials/_ficha_abas.html.twig",
+            "cobranca/pessoa/_partials/_qualificacao.html.twig",
+            "cobranca/pessoa/_partials/_lista_enderecos.html.twig",
+            "cobranca/pessoa/_partials/_lista_telefones.html.twig",
+            "cobranca/pessoa/_partials/_lista_emails.html.twig",
+            "cobranca/central/index.html.twig",
+            "cobranca/central/_aba_atividade.html.twig",
+            "cobranca/central/_detalhe_pessoa.html.twig",
+            "cobranca/central/_lista_eventos.html.twig",
+            "cobranca/central/_momento.html.twig",
+            "cobranca/_partials/_subnav.html.twig"
+        ],
+        "permitidos": [
+            "App\\\\Cobranca\\\\Enum\\\\TipoTelefone"
+        ]
     }
 }

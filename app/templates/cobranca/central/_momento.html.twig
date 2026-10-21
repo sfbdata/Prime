@@ -8,5 +8,5 @@
 {%- if momento|date('Y-m-d') == 'now'|date('Y-m-d') -%}
     {{ momento|date('H:i') }}
 {%- else -%}
-    {{ momento|date('d/m/Y H:i') }}
+    {{ momento|data_hora }}
 {%- endif -%}

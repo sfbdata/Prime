@@ -2708,4 +2708,111 @@ pasta_push:
             copiado_menu: 'Link copiado · válido até {data}. Análises com cadeado fechado não aparecem.'
             copiado_menu_com_codigo: 'Link copiado · válido até {data} · com código de acesso. Análises com cadeado fechado não aparecem.'
 
+# ---- Cobrança: pessoa, central e subnav (cobranca/pessoa, central, _partials/_subnav)
+cobranca_pessoa:
+    subnav:
+        rotulo: Seções de Cobranças
+        painel: Painel
+        carteiras: Carteiras
+        alertas: Alertas
+        central: Central
+    comum:
+        adicionar: Adicionar
+        atual: Atual
+        marcar_atual: Marcar como atual
+        desde: 'desde {data}'
+        salvar: Salvar
+        cancelar: Cancelar
+    ficha:
+        titulo_pagina: 'Cobranças · {pessoa}'
+        voltar: Voltar
+        subtitulo: 'Ficha completa da pessoa: qualificação e histórico de endereços, telefones e e-mails.'
+    abas:
+        qualificacao: Qualificação
+        enderecos: Endereços
+        contatos: Telefones e E-mails
+    qualificacao:
+        titulo: Qualificação
+        salvar: Salvar qualificação
+    enderecos:
+        titulo: Endereços
+        cep: 'CEP {cep}'
+        vazio: Nenhum endereço cadastrado
+        salvar: Salvar endereço
+    telefones:
+        titulo: Telefones
+        telefone: Telefone
+        editar: Editar telefone
+        corrigir_dica: Corrigir este número
+        excluir: Excluir telefone
+        excluir_dica: Excluir este número
+        excluir_confirmar_atual: 'Excluir {numero}? Este é o telefone atual. O mais recente que sobrar passa a ser o atual.'
+        excluir_confirmar: 'Excluir {numero}? Não dá para desfazer.'
+        numero: Número do telefone
+        tipo: Tipo do telefone
+        vazio: Nenhum telefone cadastrado
+        salvar: Salvar telefone
+    emails:
+        titulo: E-mails
+        vazio: Nenhum e-mail cadastrado
+        salvar: Salvar e-mail
+    central:
+        titulo_pagina: 'Cobranças · Central'
+        titulo: Cobranças
+        filtro:
+            periodo: Período
+            de: De
+            ate: Até
+            carteira: Carteira
+            todas_carteiras: Todas as carteiras
+            aplicar: Aplicar
+        periodo:
+            hoje: Hoje
+            ontem: Ontem
+            semana: Esta semana
+            mes: Este mês
+            personalizado: Personalizado
+        abas:
+            atividade: Atividade
+            resultado: Resultado
+            pendencias: Pendências
+            extrato: Extrato do devedor
+        em_construcao: '{aba}: em construção'
+        em_construcao_texto: Esta aba entra numa próxima fatia da Central.
+    atividade:
+        sem_pessoas: Nenhuma pessoa com acesso ao módulo de Cobranças
+        sem_pessoas_texto: Libere o módulo para a equipe e a atividade dela aparece aqui.
+        vazia: 'Nenhum trabalho de cobrança registrado no período selecionado. Lançamentos de cadastro e importação não entram nesta conta: a tela mostra o que a equipe registra, então a linha zerada também pode ser trabalho não registrado.'
+        contatos_no_periodo: 'Contatos no período:'
+        coluna:
+            quem: Quem
+            contatos: Contatos
+            atendidos: Falou com o devedor
+            acordos: Acordos fechados
+            baixas: Baixas registradas
+            ultima_acao: Última ação
+        total_do_setor: Total do setor
+        sem_registro: Sem registro
+        sem_responsavel_dica: Eventos cujo autor não está mais registrado. Nunca são atribuídos a alguém.
+    detalhe:
+        contatos_do_periodo: contatos do período
+        sem_contato: Nenhum contato registrado no período.
+        desfecho: Desfecho
+        canal: Canal
+        sem_trabalho: Nenhum trabalho de cobrança registrado por esta pessoa no período.
+        truncado: 'Mostrando os {limite} eventos mais recentes do período. Há mais além destes.'
+        lancamentos_um: '{total} lançamento de cadastro/importação'
+        lancamentos_varios: '{total} lançamentos de cadastro/importação'
+        nao_contam: (não contam como trabalho de cobrança).
+        truncado_cadastro: 'Mostrando os {limite} mais recentes.'
+    eventos:
+        quando: Quando
+        o_que: O que
+        objeto: Objeto
+        resumo: Resumo
+    js:
+        carregando: Carregando…
+        erro_cadastro: não foi possível carregar
+        erro_detalhe: Não foi possível carregar o detalhe. Tente de novo.
+
 # ---- fim

@@ -5,9 +5,9 @@
 ─────────────────────────────────────────────────────────────────────────── #}
 <div class="card cobranca-card mb-3">
     <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
-        <span><i class="bi bi-geo-alt me-1"></i>Endereços <span class="badge text-bg-secondary">{{ pessoa.enderecos|length }}</span></span>
+        <span><i class="bi bi-geo-alt me-1"></i>{{ 'cobranca_pessoa.enderecos.titulo'|trans }} <span class="badge text-bg-secondary">{{ pessoa.enderecos|length }}</span></span>
         <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="collapse" data-bs-target="#formAdicionarEndereco" aria-expanded="false" aria-controls="formAdicionarEndereco">
-            <i class="bi bi-plus-lg me-1"></i>Adicionar
+            <i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_pessoa.comum.adicionar'|trans }}
         </button>
     </div>
     <div class="card-body">
@@ -18,15 +18,15 @@
                 <i class="bi {{ e.atual ? 'bi-geo-alt-fill text-success' : 'bi-geo-alt text-secondary' }} mt-1" aria-hidden="true"></i>
                 <div class="flex-grow-1" style="min-width: 0;">
                     <div>{{ e.logradouro }}, {{ e.numero }}{% if e.complemento %}, {{ e.complemento }}{% endif %}</div>
-                    <div class="small text-secondary">{{ e.bairro }} · {{ e.cidade }}/{{ e.uf }} · CEP {{ e.cep }} · desde {{ e.criadoEm|date('d/m/Y') }}</div>
+                    <div class="small text-secondary">{{ e.bairro }} · {{ e.cidade }}/{{ e.uf }} · {{ 'cobranca_pessoa.enderecos.cep'|trans({cep: e.cep ~ ''}) }} · {{ 'cobranca_pessoa.comum.desde'|trans({data: e.criadoEm|date('d/m/Y')}) }}</div>
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
                     {% if e.atual %}
-                        <span class="badge text-bg-success">Atual</span>
+                        <span class="badge text-bg-success">{{ 'cobranca_pessoa.comum.atual'|trans }}</span>
                     {% else %}
                         <form method="POST" action="{{ path('cobranca_pessoa_endereco_atual', {id: pessoa.id, itemId: e.id}) }}" data-disable-on-submit="true">
                             <input type="hidden" name="_token" value="{{ csrf_token('marcar_endereco_atual_' ~ e.id) }}">
-                            <button type="submit" class="btn btn-sm btn-outline-secondary">Marcar como atual</button>
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'cobranca_pessoa.comum.marcar_atual'|trans }}</button>
                         </form>
                     {% endif %}
                 </div>
@@ -36,7 +36,7 @@
         {% else %}
         <div class="jp-vazio py-3">
             <i class="bi bi-geo-alt"></i>
-            <div class="jp-vazio-titulo">Nenhum endereço cadastrado</div>
+            <div class="jp-vazio-titulo">{{ 'cobranca_pessoa.enderecos.vazio'|trans }}</div>
         </div>
         {% endif %}
 
@@ -55,7 +55,7 @@
                 <div class="col-md-4">{{ form_row(formEndereco.cep) }}</div>
             </div>
             <div class="mt-2">
-                <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Salvar endereço</button>
+                <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_pessoa.enderecos.salvar'|trans }}</button>
             </div>
             {{ form_end(formEndereco) }}
         </div>
