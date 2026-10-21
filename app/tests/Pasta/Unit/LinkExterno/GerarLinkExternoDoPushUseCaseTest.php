@@ -77,6 +77,13 @@ final class GerarLinkExternoDoPushUseCaseTest extends TestCase
 
             return $t->pastaComProcesso($t->tenant(), $processo);
         }, 'O processo está em segredo de justiça: o link externo fica indisponível.'];
+        yield 'segredo marcado "Sim" no cartão (P5b), sem sigilo do tribunal' => [static function (self $t): Pasta {
+            $processo = $t->processo($t->tenant());
+            $processo->setNivelSigilo(0);
+            $processo->definirDadosManuais(new \App\Processo\DTO\DadosManuaisDoProcesso(segredo: true), $t->usuario());
+
+            return $t->pastaComProcesso($t->tenant(), $processo);
+        }, 'O processo está em segredo de justiça: o link externo fica indisponível.'];
     }
 
     /** @param callable(self): Pasta $pasta */

@@ -14,10 +14,11 @@
    Valor da causa · Distribuição, + Instância) com o que o DataJud já trouxe e o
    `Pasta.valorCausa`; "Ver todas as informações" abre o painel com TODOS os
    campos reais do cadastro. No resumo, os três campos do desenho ficam sempre e o
-   vazio diz "Não informado" (PMC-007); no painel completo, campo vazio não aparece.
-   O ⋮ só tem o que já funciona hoje (pasta-processo.js).
-   O que é função nova NÃO aparece: integração com o PJe (abrir/atualizar/
-   editar), marcas (gratuita, tutela, prioridade, 100% digital) e encaminhar via
+   vazio diz "Não informado" (PMC-007). P5b (docs/specs/processo-cartao-edicao.md): os
+   11 campos do desenho (`PJE_CAMPOS`) com o valor manual prevalecendo, o selo "manual",
+   as marcas, a linha de fonte e a edição no cartão; o painel completo mostra os 11
+   sempre e, depois, os campos do Datajud que houver. Sem integração com o PJe (P5a,
+   com o dono): fora o "Abrir no PJe" e o "Atualizar". Fora também: encaminhar via
    Chat. "Administrativo sem processo"
    (`Pasta.administrativa`) é o interruptor do cabeçalho — ver abaixo.
 
@@ -168,24 +169,30 @@
                 {% set menuId      = 'psProcMenu' ~ proc.id %}
                 {% set botaoMaisId = 'psProcMais' ~ proc.id %}
                 {% set detalhesId  = 'psProcDetalhes' ~ proc.id %}
-                {# Valor da causa é da PASTA (`Pasta.valorCausa`, decimal em string). Zero é dado
-                   (entra na média por CPF); só o nulo some. #}
-                {% set valorCausa = pasta.valorCausa is not null ? 'R$ ' ~ pasta.valorCausa|number_format(2, ',', '.') : null %}
-                {% set distribuicao = proc.dataDistribuicao ? proc.dataDistribuicao|date('d/m/Y') : null %}
+                {# P5b (docs/specs/processo-cartao-edicao.md): os 11 campos do desenho (`PJE_CAMPOS`) com o
+                   valor EFETIVO: o manual prevalece; sem ele, o base (Datajud no processo e, no valor da
+                   causa, o `Pasta.valorCausa` desta pasta; zero é dado); sem os dois, "Não informado".
+                   `ef` indexa por chave. #}
+                {% set dp = dados_do_processo(proc, pasta) %}
+                {% set ef = {} %}
+                {% for c in dp.campos %}{% set ef = ef|merge({(c.chave): c}) %}{% endfor %}
+                {% set valorCausa = ef.valorCausa.texto %}
+                {% set distribuicao = ef.distribuicao.texto %}
                 {% set partes = proc.partes %}
-                {# "Ver todas as informações" só existe quando há o que mostrar. #}
-                {% set temDetalhe = proc.classeProcessual or proc.assuntoProcessual or proc.orgaoJulgador
-                    or distribuicao or valorCausa or proc.instancia or proc.siglaTribunal or proc.situacaoProcesso
-                    or proc.dataBaixa or proc.nivelSigiloLabel or proc.sistema or proc.formato or proc.processoPai
-                    or partes|length > 0 or proc.dataAtualizacao %}
+                {# "Ver todas as informações" sempre existe: o painel do desenho mostra os 11 campos, com
+                   "Não informado" nos vazios. #}
+                {% set temDetalhe = true %}
+                {# Editar no cartão: a guarda do `processo_edit` (EDIT no processo), nunca na lápide. #}
+                {% set podeEditarProcesso = not pasta.estaExcluida and can_access_resource('processo', proc.id, 'edit') %}
+                {% set edicaoId = 'psProcEdicao' ~ proc.id %}
                 {# Texto do "Copiar resumo" (desenho: procMenu), montado só com dado real: linha
                    sem valor não entra. O JS junta as linhas com quebra. #}
                 {% set resumo = ['Processo ' ~ proc.numeroProcesso|numero_cnj] %}
                 {% if pasta.nomeAcao %}{% set resumo = resumo|merge(['Ação: ' ~ pasta.nomeAcao]) %}{% endif %}
-                {% if proc.classeProcessual %}{% set resumo = resumo|merge(['Classe: ' ~ proc.classeProcessual]) %}{% endif %}
+                {% if ef.classe.texto %}{% set resumo = resumo|merge(['Classe: ' ~ ef.classe.texto]) %}{% endif %}
                 {% if proc.siglaTribunal %}{% set resumo = resumo|merge(['Tribunal: ' ~ proc.siglaTribunal]) %}{% endif %}
                 {% if proc.situacaoProcesso %}{% set resumo = resumo|merge(['Situação: ' ~ proc.situacaoProcesso|situacao_processo]) %}{% endif %}
-                {% if proc.orgaoJulgador %}{% set resumo = resumo|merge(['Órgão julgador: ' ~ proc.orgaoJulgador]) %}{% endif %}
+                {% if ef.orgao.texto %}{% set resumo = resumo|merge(['Órgão julgador: ' ~ ef.orgao.texto]) %}{% endif %}
                 {% if distribuicao %}{% set resumo = resumo|merge(['Distribuição: ' ~ distribuicao]) %}{% endif %}
                 {% if valorCausa %}{% set resumo = resumo|merge(['Valor da causa: ' ~ valorCausa]) %}{% endif %}
                 {% set resumo = resumo|merge(['Pasta ' ~ (pasta.nup ?? ('#' ~ pasta.id)) ~ (pasta.nomeCliente ? ' · ' ~ pasta.nomeCliente : '')]) %}
@@ -260,14 +267,13 @@
                                 <i class="bi bi-card-list"></i><span>Ver todas as informações</span>
                             </button>
                         {% endif %}
-                        {# "Editar dados do processo" (desenho, procMenu dc L.2922): o desenho edita no
-                           cartão (PMC-005, frente própria); aqui leva à página de cadastro do processo.
-                           Só para quem tem EDIT no processo — a mesma decisão do `processo_edit` — e
-                           nunca na lápide, que é somente-leitura. #}
-                        {% if not pasta.estaExcluida and can_access_resource('processo', proc.id, 'edit') %}
-                            <a href="{{ path('processo_edit', {id: proc.id}) }}" class="ps-processo-menu-item js-proc-editar" role="menuitem">
+                        {# "Editar dados do processo" (desenho, procMenu N:3062): abre a edição NO CARTÃO (P5b).
+                           Só para quem tem EDIT no processo (a guarda do `processo_edit`) e nunca na lápide. #}
+                        {% if podeEditarProcesso %}
+                            <button type="button" class="ps-processo-menu-item js-proc-editar" role="menuitem"
+                                    data-edicao="#{{ edicaoId }}">
                                 <i class="bi bi-pencil"></i><span>Editar dados do processo</span>
-                            </a>
+                            </button>
                         {% endif %}
                         <button type="button" class="ps-processo-menu-item js-proc-ver-movimentacoes" role="menuitem"
                                 data-aba="push-tab">
@@ -333,12 +339,15 @@
                     <div class="ps-processo-dados">
                         <div class="ps-processo-dado">
                             <div class="ps-rotulo">Classe</div>
-                            <div class="ps-processo-valor{{ proc.classeProcessual ? '' : ' ps-dado--vazio' }}">{{ proc.classeProcessual ?: 'Não informada' }}</div>
+                            {# Classe na faixa: a manual, se houver; senão a do cadastro (sem o código, como sempre foi). #}
+                            {% set classeFaixa = ef.classe.manual ? ef.classe.texto : proc.classeProcessual %}
+                            <div class="ps-processo-valor{{ classeFaixa ? '' : ' ps-dado--vazio' }}">{{ classeFaixa ?: 'Não informada' }}</div>
                         </div>
-                        {% if proc.assuntoProcessual %}
+                        {% set assuntoFaixa = ef.assuntos.manual ? ef.assuntos.itens|join(', ') : proc.assuntoProcessual %}
+                        {% if assuntoFaixa %}
                             <div class="ps-processo-dado">
                                 <div class="ps-rotulo">Assunto</div>
-                                <div class="ps-processo-valor">{{ proc.assuntoProcessual }}</div>
+                                <div class="ps-processo-valor">{{ assuntoFaixa }}</div>
                             </div>
                         {% endif %}
                         <div class="ps-processo-dado">
@@ -355,23 +364,17 @@
                             </div>
                         </div>
                     </div>
-                    {# Resumo do desenho (Órgão julgador · Valor da causa · Distribuição) + Instância.
-                       PMC-007: os três do desenho (dc:2897) estão SEMPRE presentes; o vazio diz
-                       "Não informado" em itálico (`.ps-dado--vazio`, mesmo token da Situação).
-                       A Instância não está no resumo do desenho: só aparece quando há dado. #}
+                    {# Resumo do desenho (N:3040): Órgão julgador · Valor da causa · Última distribuição, com o
+                       valor efetivo; o vazio diz "Não informado" em itálico (`.ps-dado--vazio`). A Instância não
+                       está no resumo do desenho: só aparece quando há dado. #}
                     <div class="ps-processo-resumo">
-                        <div class="ps-processo-dado" data-proc-campo="orgao">
-                            <div class="ps-rotulo">Órgão julgador</div>
-                            <div class="ps-processo-valor{{ proc.orgaoJulgador ? '' : ' ps-dado--vazio' }}">{{ proc.orgaoJulgador ?: 'Não informado' }}</div>
-                        </div>
-                        <div class="ps-processo-dado" data-proc-campo="valor">
-                            <div class="ps-rotulo">Valor da causa</div>
-                            <div class="ps-processo-valor{{ valorCausa ? ' ps-num' : ' ps-dado--vazio' }}">{{ valorCausa ?: 'Não informado' }}</div>
-                        </div>
-                        <div class="ps-processo-dado" data-proc-campo="distribuicao">
-                            <div class="ps-rotulo">Distribuição</div>
-                            <div class="ps-processo-valor{{ distribuicao ? ' ps-num' : ' ps-dado--vazio' }}">{{ distribuicao ?: 'Não informado' }}</div>
-                        </div>
+                        {% for r in dp.resumo %}
+                            {% set chaveResumo = ['orgao', 'valor', 'distribuicao'][loop.index0] %}
+                            <div class="ps-processo-dado" data-proc-campo="{{ chaveResumo }}">
+                                <div class="ps-rotulo">{{ r.rotulo }}</div>
+                                <div class="ps-processo-valor{{ r.valor is null ? ' ps-dado--vazio' : (chaveResumo != 'orgao' ? ' ps-num' : '') }}">{{ r.valor ?? 'Não informado' }}</div>
+                            </div>
+                        {% endfor %}
                         {% if proc.instancia %}
                             <div class="ps-processo-dado" data-proc-campo="instancia">
                                 <div class="ps-rotulo">Instância</div>
@@ -379,46 +382,50 @@
                             </div>
                         {% endif %}
                     </div>
+                    {# Marcas (N:3041-3042): só as flags efetivas "Sim", na ordem do desenho. #}
+                    {% if dp.marcas is not empty %}
+                        <div class="ps-processo-marcas">
+                            {% for m in dp.marcas %}
+                                <span class="ps-processo-marca"><i class="bi {{ m.icone }}" aria-hidden="true"></i>{{ m.rotulo }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                     {% if temDetalhe %}
                         <div class="ps-processo-mais-linha">
                             <button type="button" class="ps-processo-mais js-proc-alternar" id="{{ botaoMaisId }}"
                                     aria-expanded="false" aria-controls="{{ detalhesId }}">
                                 <i class="bi bi-chevron-down" aria-hidden="true"></i><span>Ver todas as informações</span>
                             </button>
+                            {# Linha de fonte (N:1771, `pjeFonte`): sem integração com o PJe (P5a), os dois textos do
+                               desenho para esse estado; nunca "Dados do PJe". #}
+                            <span class="ps-processo-fonte"><i class="bi {{ dp.fonteIcone }}" aria-hidden="true"></i>{{ dp.fonteTexto }}</span>
                         </div>
-                        {# Painel "todas as informações" (desenho: verDetalhes): os campos reais do
-                           cadastro do processo, um por célula; os vazios não entram. #}
+                        {# Painel "todas as informações" (desenho `verDetalhes`, N:1777-1793): os 11 campos do
+                           desenho sempre, com o selo "manual" e "Não informado" nos vazios; depois, os campos do
+                           cadastro (Datajud) que o desenho não tem, só quando há dado. #}
                         <div class="ps-processo-detalhes" id="{{ detalhesId }}" hidden>
-                            {% if proc.classeProcessual %}
-                                <div class="ps-processo-campo" data-proc-campo="classe">
-                                    <div class="ps-rotulo">Classe judicial</div>
-                                    <div class="ps-processo-campo-valor">{{ proc.classeProcessual }}{% if proc.classeCodigo is not null %} ({{ proc.classeCodigo }}){% endif %}</div>
+                            {% for c in dp.campos %}
+                                <div class="ps-processo-campo" data-proc-campo="{{ c.chave }}">
+                                    <div class="ps-rotulo">{{ c.rotulo }}{% if c.manual %}<span class="ps-processo-manual" title="Preenchido manualmente">manual</span>{% endif %}</div>
+                                    {% if c.tipo == 'flag' %}
+                                        {% if c.flag is null %}
+                                            <div class="ps-processo-campo-valor ps-dado--vazio">Não informado</div>
+                                        {% else %}
+                                            <span class="ps-processo-selo{{ c.flag ? ' ps-processo-selo--sim' : '' }}">{{ c.flag ? 'SIM' : 'NÃO' }}</span>
+                                        {% endif %}
+                                    {% elseif c.tipo == 'area' %}
+                                        {% if c.itens is empty %}
+                                            <div class="ps-processo-campo-valor ps-dado--vazio">Não informado</div>
+                                        {% else %}
+                                            <ul class="ps-processo-assuntos">
+                                                {% for item in c.itens %}<li>{{ item }}</li>{% endfor %}
+                                            </ul>
+                                        {% endif %}
+                                    {% else %}
+                                        <div class="ps-processo-campo-valor{{ c.texto is null ? ' ps-dado--vazio' : (c.chave in ['distribuicao', 'valorCausa'] ? ' ps-num' : '') }}">{{ c.texto ?? 'Não informado' }}</div>
+                                    {% endif %}
                                 </div>
-                            {% endif %}
-                            {% if proc.assuntoProcessual %}
-                                <div class="ps-processo-campo" data-proc-campo="assunto">
-                                    <div class="ps-rotulo">Assunto</div>
-                                    <div class="ps-processo-campo-valor">{{ proc.assuntoProcessual }}</div>
-                                </div>
-                            {% endif %}
-                            {% if proc.orgaoJulgador %}
-                                <div class="ps-processo-campo" data-proc-campo="orgao">
-                                    <div class="ps-rotulo">Órgão julgador</div>
-                                    <div class="ps-processo-campo-valor">{{ proc.orgaoJulgador }}</div>
-                                </div>
-                            {% endif %}
-                            {% if distribuicao %}
-                                <div class="ps-processo-campo" data-proc-campo="distribuicao">
-                                    <div class="ps-rotulo">Distribuição</div>
-                                    <div class="ps-processo-campo-valor ps-num">{{ distribuicao }}</div>
-                                </div>
-                            {% endif %}
-                            {% if valorCausa %}
-                                <div class="ps-processo-campo" data-proc-campo="valor">
-                                    <div class="ps-rotulo">Valor da causa</div>
-                                    <div class="ps-processo-campo-valor ps-num">{{ valorCausa }}</div>
-                                </div>
-                            {% endif %}
+                            {% endfor %}
                             {% if proc.instancia %}
                                 <div class="ps-processo-campo" data-proc-campo="instancia">
                                     <div class="ps-rotulo">Instância</div>
@@ -441,14 +448,6 @@
                                 <div class="ps-processo-campo" data-proc-campo="baixa">
                                     <div class="ps-rotulo">Data da baixa</div>
                                     <div class="ps-processo-campo-valor ps-num">{{ proc.dataBaixa|date('d/m/Y') }}</div>
-                                </div>
-                            {% endif %}
-                            {% if proc.nivelSigiloLabel %}
-                                {# Rótulo da entidade (0 = Público; maior = Segredo de justiça), em selo como
-                                   as marcas SIM/NÃO do desenho. #}
-                                <div class="ps-processo-campo" data-proc-campo="sigilo">
-                                    <div class="ps-rotulo">Nível de sigilo</div>
-                                    <span class="ps-processo-selo{{ proc.nivelSigilo > 0 ? ' ps-processo-selo--sim' : '' }}">{{ proc.nivelSigiloLabel }}</span>
                                 </div>
                             {% endif %}
                             {% if proc.sistema %}
@@ -486,6 +485,46 @@
                                 </div>
                             {% endif %}
                         </div>
+                    {% endif %}
+                    {% if podeEditarProcesso %}
+                        {# Edição no cartão (N:1794-1818). Sem JS, POST comum; com JS, o pasta-processo.js envia
+                           por XHR e troca o cartão. Flags "Sim / Não / Não informado" como rádios. #}
+                        <form method="post" action="{{ path('pasta_processo_dados_salvar', {id: pasta.id, processoId: proc.id}) }}"
+                              class="ps-processo-edicao js-proc-edicao" id="{{ edicaoId }}" hidden>
+                            <input type="hidden" name="_token" value="{{ csrf_token('processo_dados_' ~ proc.id) }}">
+                            <p class="ps-processo-edicao-dica">Preencha apenas o que você confirmou nos autos. Campos vazios ficam como "Não informado".</p>
+                            <div class="ps-processo-edicao-grade">
+                                {% for c in dp.campos %}
+                                    {% set campoId = edicaoId ~ '-' ~ c.chave %}
+                                    {% if c.tipo == 'flag' %}
+                                        <fieldset class="ps-processo-edicao-campo">
+                                            <legend class="ps-rotulo">{{ c.rotulo }}</legend>
+                                            <div class="ps-processo-flag">
+                                                {% for op in [{rotulo: 'Sim', valor: '1', marca: true}, {rotulo: 'Não', valor: '0', marca: false}, {rotulo: 'Não informado', valor: '', marca: null}] %}
+                                                    <label class="ps-processo-flag-op">
+                                                        <input type="radio" name="{{ c.chave }}" value="{{ op.valor }}"{{ c.formulario is same as(op.marca) ? ' checked' : '' }}>
+                                                        <span>{{ op.rotulo }}</span>
+                                                    </label>
+                                                {% endfor %}
+                                            </div>
+                                        </fieldset>
+                                    {% else %}
+                                        <div class="ps-processo-edicao-campo">
+                                            <label class="ps-rotulo" for="{{ campoId }}">{{ c.rotulo }}</label>
+                                            {% if c.tipo == 'area' %}
+                                                <textarea id="{{ campoId }}" name="{{ c.chave }}" rows="3" placeholder="{{ c.placeholder }}">{{ c.formulario }}</textarea>
+                                            {% else %}
+                                                <input type="text" id="{{ campoId }}" name="{{ c.chave }}" value="{{ c.formulario }}" placeholder="{{ c.placeholder }}" maxlength="255">
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                            <div class="ps-processo-edicao-acoes">
+                                <button type="button" class="ps-processo-edicao-cancelar js-proc-edicao-cancelar">Cancelar</button>
+                                <button type="submit" class="ps-processo-edicao-salvar">Salvar</button>
+                            </div>
+                        </form>
                     {% endif %}
                 </article>
                 {{ include('processo/_notas_tecnicas.html.twig', {

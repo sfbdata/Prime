@@ -28,7 +28,7 @@ use Psr\Clock\ClockInterface;
  * itens e de caracteres, PII mascarada (se o escritório não desligou), tudo neutralizado, e um
  * orçamento total — o corte é DECLARADO (contagem de omitidos por seção), nunca silencioso.
  *
- * REGRA (D4): processo com `nivelSigilo > 0` → {@see ContextoBloqueadoException} antes de ler
+ * REGRA (D4): processo em segredo (`nivelSigilo > 0` ou "Sim" manual; `Processo::emSegredoDeJustica`) → {@see ContextoBloqueadoException} antes de ler
  * qualquer outra coisa. Nunca sai.
  *
  * `<financeiro>` só entra se a solicitação disse que a pessoa pode ver o financeiro da pasta
@@ -429,7 +429,7 @@ final class MontadorDeContextoDaPasta
                 continue;
             }
 
-            if (($processo->getNivelSigilo() ?? 0) > 0) {
+            if ($processo->emSegredoDeJustica()) { // tribunal OU "Sim" manual do cartão (P5b)
                 throw new ContextoBloqueadoException($processo->getNumeroProcesso());
             }
 
