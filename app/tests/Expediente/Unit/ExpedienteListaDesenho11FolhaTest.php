@@ -6,6 +6,7 @@ namespace App\Tests\Expediente\Unit;
 
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * E8d da frente de fidelidade: as 30 divergências da auditoria da Lista do Expediente contra o desenho 1.1
@@ -16,6 +17,17 @@ use PHPUnit\Framework\TestCase;
 final class ExpedienteListaDesenho11FolhaTest extends TestCase
 {
     private const DIR = __DIR__ . '/../../../';
+
+    /** O texto da chave no catálogo do português (desde a extração do idioma, o template e o JS só têm a chave). */
+    private static function texto(string $chave): string
+    {
+        $no = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+        foreach (explode('.', $chave) as $parte) {
+            $no = $no[$parte];
+        }
+
+        return $no;
+    }
 
     private static function ler(string $arquivo): string
     {
@@ -96,9 +108,12 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         self::assertStringContainsString('padding: 8px 14px; border: 0; border-radius: 0;', self::bloco($css, '.exp-ctx-item'));
 
         $js = self::js();
-        self::assertStringContainsString("abrir(editando ? '' : 'Pasta ' + nup + (temNome ? ' · ' + nome : ''), lista, x, y, espelho || linha, editando ? 'editando' : null);", $js);
-        self::assertStringContainsString("window.ExpMenu.abrir(el.dataset.nome + ' · ' + (el.dataset.n || '0') + ' pasta(s)', lista, x, y, el, 'marcador');", self::ler('public/js/expediente-trilho.js'));
-        foreach (["icone: 'bi-person-badge'", "icone: 'bi-funnel'", "icone: 'bi-plus-lg'", "rotulo: 'Copiar número da pasta'", "rotulo: 'Copiar nome do cliente'"] as $trecho) {
+        self::assertStringContainsString("abrir(editando ? '' : (temNome ? BJ_T.t('expediente.js.lista.menu.titulo_com_nome', {nup: nup, nome: nome}) : BJ_T.t('expediente.js.lista.menu.titulo', {nup: nup})), lista, x, y, espelho || linha, editando ? 'editando' : null);", $js);
+        self::assertSame(['Pasta {nup}', 'Pasta {nup} · {nome}'], [self::texto('expediente.js.lista.menu.titulo'), self::texto('expediente.js.lista.menu.titulo_com_nome')]);
+        self::assertStringContainsString("window.ExpMenu.abrir(BJ_T.t('expediente.js.trilho.menu_titulo_marcador', { nome: el.dataset.nome, n: el.dataset.n || '0' }), lista, x, y, el, 'marcador');", self::ler('public/js/expediente-trilho.js'));
+        self::assertSame('{nome} · {n} pasta(s)', self::texto('expediente.js.trilho.menu_titulo_marcador'));
+        self::assertSame(['Copiar número da pasta', 'Copiar nome do cliente'], [self::texto('expediente.js.lista.menu.copiar_numero'), self::texto('expediente.js.lista.menu.copiar_nome')]);
+        foreach (["icone: 'bi-person-badge'", "icone: 'bi-funnel'", "icone: 'bi-plus-lg'", "rotulo: BJ_T.t('expediente.js.lista.menu.copiar_numero')", "rotulo: BJ_T.t('expediente.js.lista.menu.copiar_nome')"] as $trecho) {
             self::assertStringContainsString($trecho, $js . self::ler('public/js/expediente-trilho.js'));
         }
         self::assertStringNotContainsString('bi-person-gear', $js);
@@ -248,8 +263,10 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
     {
         $js = self::js();
         self::assertStringContainsString("t.getAttribute('data-chave-colunas')", $js);
-        self::assertStringContainsString("{ icone: 'bi-person-lock', texto: 'Ajuste só seu: não muda para o resto da equipe' }", $js);
-        self::assertStringContainsString("'BlueJus I.A · '", $js);
+        self::assertStringContainsString("{ icone: 'bi-person-lock', texto: BJ_T.t('expediente.js.lista.colunas.ajuste_seu') }", $js);
+        self::assertSame('Ajuste só seu: não muda para o resto da equipe', self::texto('expediente.js.lista.colunas.ajuste_seu'));
+        self::assertStringContainsString("BJ_T.t('expediente.js.lista.ia.rotulo', {nome: d.nome || BJ_T.t('expediente.js.lista.ia.assistente')})", $js);
+        self::assertSame(['BlueJus I.A · {nome}', 'Assistente de pastas'], [self::texto('expediente.js.lista.ia.rotulo'), self::texto('expediente.js.lista.ia.assistente')]);
         $css = self::css();
         self::assertStringContainsString('> td .pasta-resp-chip:hover:not(.resp-avatar):not(.pasta-favorita-estrela) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.65) !important; }', $css);
         self::assertStringContainsString('placeholder="Buscar pasta, cliente, ação ou processo"', self::ler('templates/pasta/_filtros.html.twig'));
