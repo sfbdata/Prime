@@ -3413,6 +3413,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (resp.ok && dados.sucesso) {
                 window.mpSwapProcessos(dados.html);
                 document.dispatchEvent(new CustomEvent('mp:processo-vinculado')); // P4f: aviso do apensado (pasta-apensado.js)
+                // Número que já era do escritório: vinculou o existente e avisa que o digitado não foi aplicado.
+                if (dados.aviso && window.avisarPs) { window.avisarPs(dados.aviso); }
                 bootstrap.Modal.getInstance(modalEl)?.hide();
                 return;
             }

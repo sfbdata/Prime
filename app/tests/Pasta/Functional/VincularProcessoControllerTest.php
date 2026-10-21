@@ -271,6 +271,35 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         ));
     }
 
+    #[TestDox('a2: número que já existe no escritório vincula o existente, devolve o aviso e não sobrescreve nada; por id ou número novo, sem aviso')]
+    public function testNumeroJaCadastradoAvisa(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $outra           = $this->criarPasta($tenant);
+        $existente       = $this->criarProcesso($tenant, '12345678920241234567');
+        $orgaoAntes      = $existente->getOrgaoJulgador();
+        $this->autenticar($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/processo/vincular", ['_token' => $this->gerarCsrf('vincular_processo_' . $pasta->getId()), 'numeroProcesso' => '1234567-89.2024.1.23.4567', 'orgaoJulgador' => 'Vara digitada'], [], self::XHR);
+
+        self::assertResponseIsSuccessful();
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(PastaController::AVISO_PROCESSO_JA_CADASTRADO, $json['aviso'] ?? null);
+        $conn = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        self::assertSame($orgaoAntes, $conn->fetchOne('SELECT orgao_julgador FROM processo WHERE id = :id', ['id' => $existente->getId()]));
+        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM pasta_processo WHERE pasta_id = :p AND processo_id = :id', ['p' => $pasta->getId(), 'id' => $existente->getId()]));
+
+        $client->request('POST', "/pasta/{$outra->getId()}/processo/vincular", ['_token' => $this->gerarCsrf('vincular_processo_' . $outra->getId()), 'processo_id' => $existente->getId()], [], self::XHR);
+        self::assertArrayNotHasKey('aviso', json_decode((string) $client->getResponse()->getContent(), true));
+
+        $client->request('POST', "/pasta/{$outra->getId()}/processo/vincular", ['_token' => $this->gerarCsrf('vincular_processo_' . $outra->getId()), 'numeroProcesso' => '5555555-55.2024.1.23.4567', 'modo' => 'apenso', 'tipo_apenso' => 'embargos', ...self::OBRIGATORIOS], [], self::XHR);
+        self::assertResponseIsSuccessful();
+        self::assertArrayNotHasKey('aviso', json_decode((string) $client->getResponse()->getContent(), true));
+    }
+
     /** @return list<string> o conteúdo dos cartões do sistema "proc" da pasta, na ordem */
     private function registros(Pasta $pasta): array
     {

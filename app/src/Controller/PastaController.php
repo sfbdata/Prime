@@ -1244,37 +1244,58 @@ class PastaController extends AbstractController
             return $this->redirectToRoute('pasta_show', ['id' => $pastaId]);
         }
 
-        $tenant = $this->tenantContext->getCurrentTenant();
-        $data = $request->request->all();
-        $processoId     = (int) ($data['processo_id'] ?? 0);
-        $numeroProcesso = trim((string) ($data['numeroProcesso'] ?? ''));
-
-        if ($processoId > 0) {
-            // Lookup tenant-scoped: NÃO usar find() por PK, que ignora o filtro de tenant.
-            $processo = $this->processoRepository->findOneByIdDoTenant($processoId, $tenant);
-            if (!$processo instanceof Processo) {
-                return $this->respostaErroProcesso($isXhr, 'Processo não encontrado.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
-            }
-        } elseif ($numeroProcesso !== '') {
-            try {
-                $processo = $cadastrarProcesso->executar(CadastroDoProcessoInput::fromRequest($request), $tenant, $currentUser)->processo;
-            } catch (DadosDoProcessoInvalidosException $e) {
-                return $this->respostaErroProcesso($isXhr, $e->getMessage(), $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
-            }
-        } else {
-            return $this->respostaErroProcesso($isXhr, 'Informe o número do processo.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
+        $resolvido = $this->processoParaVincular($request, $currentUser, $cadastrarProcesso, $isXhr, $pastaId);
+        if ($resolvido instanceof Response) {
+            return $resolvido;
         }
+        [$processo, $aviso] = $resolvido;
 
         if ($erro = $this->vincularNoModoPedido($pasta, $processo, $currentUser, $request, $vincularApensado, $isXhr)) {
             return $erro;
         }
 
         if ($isXhr) {
-            return $this->respostaProcessosVinculados($pasta);
+            return $this->respostaProcessosVinculados($pasta, $aviso);
         }
 
         $this->addFlash('success', 'Processo vinculado com sucesso.');
+        if ($aviso !== null) {
+            $this->addFlash('warning', $aviso);
+        }
         return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
+    }
+
+    /**
+     * O processo do pedido: o escolhido na lista (por id, do escritório) ou o do cadastro pela janela. Número que
+     * já existe no escritório volta com o aviso (a2): os dados digitados não foram aplicados, nada é sobrescrito.
+     *
+     * @return Response|array{0: Processo, 1: ?string} a resposta de erro, ou o processo e o aviso
+     */
+    private function processoParaVincular(Request $request, User $usuario, CadastrarProcessoPelaPastaUseCase $cadastrarProcesso, bool $isXhr, int $pastaId): Response|array
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        $data = $request->request->all();
+        $processoId = (int) ($data['processo_id'] ?? 0);
+
+        if ($processoId > 0) {
+            // Lookup tenant-scoped: NÃO usar find() por PK, que ignora o filtro de tenant.
+            $processo = $this->processoRepository->findOneByIdDoTenant($processoId, $tenant);
+
+            return $processo instanceof Processo
+                ? [$processo, null]
+                : $this->respostaErroProcesso($isXhr, 'Processo não encontrado.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        if (trim((string) ($data['numeroProcesso'] ?? '')) === '') {
+            return $this->respostaErroProcesso($isXhr, 'Informe o número do processo.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $cadastro = $cadastrarProcesso->executar(CadastroDoProcessoInput::fromRequest($request), $tenant, $usuario);
+        } catch (DadosDoProcessoInvalidosException $e) {
+            return $this->respostaErroProcesso($isXhr, $e->getMessage(), $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return [$cadastro->processo, $cadastro->jaExistia ? self::AVISO_PROCESSO_JA_CADASTRADO : null];
     }
 
     #[Route('/{id}/processo/desvincular', name: 'pasta_desvincular_processo', methods: ['POST'])]
@@ -1429,17 +1450,18 @@ class PastaController extends AbstractController
         }
     }
 
-    private function respostaProcessosVinculados(Pasta $pasta): JsonResponse
+    private function respostaProcessosVinculados(Pasta $pasta, ?string $aviso = null): JsonResponse
     {
-        return $this->json([
+        return $this->json(array_filter([
             'sucesso' => true,
+            'aviso'   => $aviso,
             'html'    => $this->renderView('pasta/_processos_vinculados.html.twig', [
                 'pasta'           => $pasta,
                 // PAS-049: a mesma decisão do show, para o cartão que volta pelo XHR esconder as
                 // ações de escrita de quem não tem EDIT na pasta.
                 'podeEditarPasta' => $this->podeEditarPasta($pasta),
             ]),
-        ]);
+        ], static fn (mixed $valor): bool => $valor !== null));
     }
 
     private function podeEditarPasta(Pasta $pasta): bool
@@ -1753,6 +1775,9 @@ class PastaController extends AbstractController
      * vez de deixar o usuário achar que aquilo é tudo.
      */
     private const PUSH_LIMITE = 100;
+
+    /** a2 (vistoria do desenho 02): o número digitado já era de um processo do escritório. */
+    public const AVISO_PROCESSO_JA_CADASTRADO = 'Este processo já estava cadastrado no escritório. Os dados digitados não foram aplicados.';
 
     private const DOCUMENT_TYPES = [
         PastaDocumento::CATEGORIA_PECA                  => 'Peça',
