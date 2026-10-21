@@ -1194,7 +1194,8 @@
         cliente.classList.toggle('is-preenchido', tem);
         var n = ultimos[v.toUpperCase()];
         existe.hidden = !n;
-        if (n) { existe.querySelector('span').textContent = 'Cliente já cadastrado em ' + n + ' pasta(s).'; }
+        /* A segunda frase só quando o servidor vai mesmo ligar a pasta ao cadastro (um cadastro só por trás do nome). */
+        if (n) { existe.querySelector('span').textContent = 'Cliente já cadastrado em ' + n.total + ' pasta(s).' + (n.cadastro ? ' A nova pasta será vinculada ao mesmo cadastro.' : ''); }
     }
 
     modal.addEventListener('show.bs.modal', function () {
@@ -1220,7 +1221,7 @@
                 if (!d) { return; }
                 while (lista.firstChild) { lista.removeChild(lista.firstChild); }
                 d.clientes.forEach(function (c) {
-                    ultimos[c.nome.toUpperCase()] = c.total;
+                    ultimos[c.nome.toUpperCase()] = { total: c.total, cadastro: !!c.cadastro };
                     var op = document.createElement('option');
                     op.value = c.nome;
                     lista.appendChild(op);

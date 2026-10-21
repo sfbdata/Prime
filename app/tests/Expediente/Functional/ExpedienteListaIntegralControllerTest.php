@@ -23,6 +23,7 @@ use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDestaque;
 use App\Pasta\Entity\PastaMensagem;
+use App\Tests\Factory\Cliente\ClientePFFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -627,7 +628,34 @@ final class ExpedienteListaIntegralControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $dados = $this->resposta();
         self::assertSame('12', $dados['proximoNumero']);
-        self::assertSame([['nome' => 'JOANA PRADO', 'total' => 2]], $dados['clientes']);
+        self::assertSame([['nome' => 'JOANA PRADO', 'total' => 2, 'cadastro' => false]], $dados['clientes']);
+    }
+
+    #[TestDox('sugestões da Nova Pasta dizem se o nome tem um cadastro só (a segunda frase do aviso)')]
+    public function testSugestoesDizemQuandoHaCadastroUnico(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $unico = ClientePFFactory::createOne(['tenant' => $tenant, 'nomeCompleto' => 'Lia Unica'])->_real();
+        foreach ([['LIA UNICA', $unico], ['LIA UNICA', null], ['LIA HOMONIMA', null], ['LIA HOMONIMA', null]] as [$nome, $cad]) {
+            $p = $this->criarPasta($tenant, '', false);
+            $p->setNomeCliente($nome);
+            if ($cad !== null) {
+                $p->addCliente($cad);
+            }
+        }
+        foreach (['Lia Homonima', 'Lia Homonima'] as $i => $n) {
+            $c = ClientePFFactory::createOne(['tenant' => $tenant, 'nomeCompleto' => $n])->_real();
+            $p = $this->criarPasta($tenant, 'H' . $i, false);
+            $p->setNomeCliente('LIA HOMONIMA');
+            $p->addCliente($c);
+        }
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $this->client->request('GET', '/expediente/nova-pasta/sugestoes?q=lia');
+
+        $porNome = array_column($this->resposta()['clientes'], 'cadastro', 'nome');
+        self::assertSame(['LIA HOMONIMA' => false, 'LIA UNICA' => true], $porNome);
     }
 
     // ── helpers ─────────────────────────────────────────────────────────
