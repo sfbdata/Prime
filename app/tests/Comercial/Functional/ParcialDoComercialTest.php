@@ -156,7 +156,7 @@ final class ParcialDoComercialTest extends KernelTestCase
         $quadro = $this->doc->filter('.mc-cp-lado > iframe.mc-cp-previa');
         self::assertSame(['', 'Prévia do e-mail'], [$quadro->attr('sandbox'), $quadro->attr('title')]);
         $barra = '.mc-cp-lado > .mc-cp-barra';
-        self::assertSame(['mc-cp-enviar-grupo', 'mc-cp-vao', 'mc-cp-icone', 'mc-cp-icone', 'mc-cp-icone', 'mc-cp-vao', 'mc-cp-lgpd', 'mc-cp-programar'], $this->doc->filter($barra . ' > *')->each(static fn (Crawler $c): string => (string) $c->attr('class')));
+        self::assertSame(['mc-cp-enviar-grupo', 'mc-cp-vao', 'mc-cp-icone', 'mc-cp-icone', 'mc-cp-icone', 'mc-cp-vao', 'mc-cp-leitura', 'mc-cp-lgpd', 'mc-cp-programar'], $this->doc->filter($barra . ' > *')->each(static fn (Crawler $c): string => (string) $c->attr('class')));
         self::assertSame(['Enviar'], $this->textos($barra . ' > .mc-cp-enviar-grupo > button[data-mc-cp-enviar]'));
         self::assertSame('Programar envio e frequência', $this->doc->filter($barra . ' > .mc-cp-enviar-grupo > button[data-mc-cp-mais]')->attr('title'));
         self::assertSame(['Ver como vai chegar', 'Enviar teste', 'Baixar HTML'], $this->doc->filter($barra . ' > .mc-cp-icone')->each(static fn (Crawler $c): string => (string) $c->attr('title')));
@@ -219,10 +219,10 @@ final class ParcialDoComercialTest extends KernelTestCase
     public function testBaixarSemDestinatarioReal(): void
     {
         $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/comercial-campanha.js');
-        self::assertSame(1, preg_match('/function baixar\(\) \{(.*?)\n  \}/s', $js, $baixar));
+        self::assertSame(1, preg_match('/function baixar\(\) \{(.*?)\n {2,4}\}/s', $js, $baixar));
         self::assertStringContainsString('postar(ROTAS.urlPrevia, pedido())', $baixar[1]);
         self::assertStringNotContainsString('exemplo', $baixar[1]);
-        self::assertSame(1, preg_match('/function atualizarPrevia\(\) \{(.*?)\n  \}/s', $js, $previa));
+        self::assertSame(1, preg_match('/function atualizarPrevia\(\) \{(.*?)\n {2,4}\}/s', $js, $previa));
         self::assertStringContainsString('contagem.exemplo', $previa[1]);
     }
 

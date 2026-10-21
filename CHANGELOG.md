@@ -8,6 +8,14 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.11.1] - 2026-10-21
+
+### Corrigido
+
+- Build de produção: o `.env` de mentira do `cache:warmup` no Dockerfile ganhou `MAILER_FROM` (endereço válido, a `IdentidadeDeEmail` valida) e `DJEN_BASE_URL`. Sem o `MAILER_FROM`, o warmup do Twig instanciava a `FiltroDaCampanhaExtension` e o build da v2.11.0 caía em "Environment variable not found". O CI não via porque usa o `.env` do repositório.
+- Teste de arquitetura `EnvDoBuildArquiteturaTest`: toda `%env(NOME)%` sem `default:` nos YAML de `config/` (fora de `when@dev`/`when@test`) precisa estar no printf do Dockerfile.
+- Meu Perfil: depois de salvar a foto nova, a tela mostrava "Erro de comunicação." e o recorte não fechava (o script procurava o avatar antigo, `.perfil-foto-btn`). Agora o recorte fecha e a foto troca no avatar, no modal e no cabeçalho; o aviso de comunicação fica só para falha de rede.
+
 ## [2.11.0] - 2026-10-21
 
 ### Adicionado
@@ -619,7 +627,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.11.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.11.1...HEAD
+[2.11.1]: https://github.com/sfbdata/Prime/compare/v2.11.0...v2.11.1
 [2.11.0]: https://github.com/sfbdata/Prime/compare/v2.10.0...v2.11.0
 [2.10.0]: https://github.com/sfbdata/Prime/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/sfbdata/Prime/compare/v2.8.0...v2.9.0

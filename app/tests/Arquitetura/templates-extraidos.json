@@ -1,0 +1,59 @@
+{
+    "_leia": "Templates cujo texto já mora no catálogo (spec idioma-do-sistema). Texto novo neles entra por |trans. 'permitidos' são textos que ficam como estão (marca, sigla, exemplo).",
+
+    "moldura": {
+        "templates": [
+            "base.html.twig",
+            "_sidebar.html.twig",
+            "layout/_globais.html.twig",
+            "layout/_globais/aviso_espaco.html.twig",
+            "layout/_globais/busca_rapida.html.twig",
+            "layout/_globais/fechar.html.twig",
+            "layout/_globais/lembretes.html.twig",
+            "layout/_globais/tema_comemorativo.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "BlueJus",
+            "Esc"
+        ]
+    },
+
+    "menu": {
+        "templates": [
+            "menu_usuario/_dropdown.html.twig",
+            "menu_usuario/_itens_master.html.twig",
+            "menu_usuario/_minha_conta.html.twig",
+            "menu_usuario/_modais.html.twig",
+            "menu_usuario/_presenca.html.twig",
+            "menu_usuario/_trocar_conta.html.twig"
+        ],
+        "js": [
+            "menu-usuario.js"
+        ],
+        "permitidos": [
+            "PIX",
+            "Content-Type",
+            "Escape"
+        ]
+    },
+
+    "perfil": {
+        "templates": [
+            "profile/index.html.twig"
+        ],
+        "js": [
+            "meu-perfil.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "Não uso mais",
+            "Achei caro",
+            "Faltou um recurso",
+            "Mudei de sistema",
+            "Encerrando o escritório",
+            "Outro motivo",
+            "Content-Type"
+        ]
+    }
+}

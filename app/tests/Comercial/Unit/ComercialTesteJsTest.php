@@ -24,7 +24,7 @@ final class ComercialTesteJsTest extends TestCase
         self::assertStringContainsString('}, true);', $js, 'ouvinte em captura');
         self::assertStringContainsString('window.McCampanha.modeloAtual()', $js);
         self::assertStringContainsString("closest('[data-mc-campanha]')", $js, 'o modelo vem da seção do clique (Comercial ou Indicações)');
-        self::assertStringContainsString('secao.mcModeloAtual()', $js);
+        self::assertStringContainsString('atual.secao.mcModeloAtual()', $js);
         self::assertStringContainsString("new CustomEvent('mc:relatorio-recarregar')", $js);
         self::assertStringContainsString("document.addEventListener('mc:relatorio-recarregar'", self::js('comercial-relatorio.js'));
     }

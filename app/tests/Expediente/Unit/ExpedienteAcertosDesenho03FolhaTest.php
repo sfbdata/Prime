@@ -6,6 +6,7 @@ namespace App\Tests\Expediente\Unit;
 
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Acertos finais do Expediente contra o desenho 03 VS 18.10.26 (conferência de 19/10): as dicas do cabeçalho e da
@@ -24,10 +25,16 @@ final class ExpedienteAcertosDesenho03FolhaTest extends TestCase
     #[TestDox('Cabeçalho: as dicas "Menu", "Notificações" e "Tela cheia" do desenho (dc L.59, 65, 66)')]
     public function testDicasDoCabecalho(): void
     {
+        // Desde a entrega 3 do idioma o texto mora no catálogo: o template tem a chave, o catálogo o texto do desenho.
         $base = self::ler('templates/base.html.twig');
-        self::assertStringContainsString('aria-label="Abrir/fechar menu" data-tip="Menu"', $base);
-        self::assertStringContainsString('aria-label="Notificações" data-tip="Notificações"', $base);
-        self::assertStringContainsString('aria-label="Tela cheia" data-tip="Tela cheia"', $base);
+        self::assertStringContainsString("aria-label=\"{{ 'moldura.cabecalho.menu_lateral_alternar'|trans }}\" data-tip=\"{{ 'moldura.cabecalho.menu_lateral_dica'|trans }}\"", $base);
+        self::assertStringContainsString("aria-label=\"{{ 'moldura.notificacoes.rotulo'|trans }}\" data-tip=\"{{ 'moldura.notificacoes.rotulo'|trans }}\"", $base);
+        self::assertStringContainsString("aria-label=\"{{ 'moldura.cabecalho.tela_cheia'|trans }}\" data-tip=\"{{ 'moldura.cabecalho.tela_cheia'|trans }}\"", $base);
+        $catalogo = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml');
+        self::assertSame(['Abrir/fechar menu', 'Menu', 'Notificações', 'Tela cheia'], [
+            $catalogo['moldura']['cabecalho']['menu_lateral_alternar'], $catalogo['moldura']['cabecalho']['menu_lateral_dica'],
+            $catalogo['moldura']['notificacoes']['rotulo'], $catalogo['moldura']['cabecalho']['tela_cheia'],
+        ]);
     }
 
     #[TestDox('Cabeçalho no Expediente: o escritório (dc L.64) e o selo de presença (dc L.67) usam a dica do desenho (data-tip); fora do Expediente, a do navegador (title)')]
