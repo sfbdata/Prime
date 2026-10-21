@@ -21,6 +21,7 @@ use App\Kanban\UseCase\MoverCardUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
+use App\Tenant\Service\ColaboradoresAtribuiveis;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -98,7 +99,7 @@ final class KanbanCardController extends AbstractController
     }
 
     #[Route('/card/{id}', name: 'kanban_card_detalhes', methods: ['GET'], requirements: ['id' => '\d+'])]
-    public function detalhes(int $id): JsonResponse
+    public function detalhes(int $id, ColaboradoresAtribuiveis $atribuiveis): JsonResponse
     {
         /** @var User $user */
         $user   = $this->getUser();
@@ -113,7 +114,11 @@ final class KanbanCardController extends AbstractController
             fn($m) => \App\Kanban\DTO\MarcadorOutput::fromEntity($m),
             $this->marcadorRepository->findPorBoard($card->getBoard())
         );
-        $output = CardDetalheOutput::fromEntity($card, $user, $marcadoresDisponiveis);
+        $atribuiveisIds = array_map(
+            static fn (User $u): int => (int) $u->getId(),
+            $atribuiveis->doEscritorio($tenant, $card->getResponsaveis()),
+        );
+        $output = CardDetalheOutput::fromEntity($card, $user, $marcadoresDisponiveis, $atribuiveisIds);
         $html   = $this->renderView('kanban/_partials/_card_modal_body.html.twig', ['card' => $output]);
 
         return $this->json(['sucesso' => true, 'html' => $html, 'card' => [

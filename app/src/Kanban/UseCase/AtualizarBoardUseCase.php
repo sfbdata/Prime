@@ -8,12 +8,12 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Kanban\DTO\AtualizarBoardInput;
 use App\Kanban\Entity\KanbanBoard;
-use App\Repository\UserRepository;
+use App\Tenant\Service\ColaboradoresAtribuiveis;
 
 final class AtualizarBoardUseCase
 {
     public function __construct(
-        private readonly UserRepository $userRepository,
+        private readonly ColaboradoresAtribuiveis $atribuiveis,
     ) {
     }
 
@@ -27,13 +27,13 @@ final class AtualizarBoardUseCase
         $board->setDescricao($input->descricao);
         $board->setCor($input->cor);
 
-        foreach ($board->getParticipantes()->toArray() as $participante) {
+        $atuais = $board->getParticipantes()->toArray();
+        foreach ($atuais as $participante) {
             $board->removerParticipante($participante);
         }
 
-        foreach ($input->participantesIds as $userId) {
-            $user = $this->userRepository->findPorIdETenant($userId, $tenant);
-            if ($user !== null && $user !== $board->getCriadoPor()) {
+        foreach ($this->atribuiveis->resolverVarios($input->participantesIds, $tenant, $atuais) as $user) {
+            if ($user !== $board->getCriadoPor()) {
                 $board->adicionarParticipante($user);
             }
         }
