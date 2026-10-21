@@ -1,0 +1,69 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Comercial\MessageHandler;
+
+use App\Comercial\Message\VarrerAutomacoes;
+use App\Comercial\Service\RecuperacaoDeEnvios;
+use App\Comercial\Service\SementeDoExpansor;
+use App\Comercial\Service\VarreduraDeAutomacoes;
+use Doctrine\DBAL\Connection;
+use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
+
+/**
+ * Um passo da cadeia de varredura (spec comercial-e-emails.md §3.4): reivindica a vez na linha 1 de
+ * `comercial_varredura` (zero linhas = outra cadeia já passou, e esta morre sem se reagendar), roda o `lemb`, a
+ * `dica`, a recuperação de envios parados e a rede de segurança do expansor de campanhas (§8.5: despacha a cadeia dele
+ * se há campanha ativa e ela está mais de 5 min atrasada), e se reagenda em 15 min.
+ */
+#[AsMessageHandler]
+final class VarrerAutomacoesHandler
+{
+    public const INTERVALO_SEGUNDOS = 900;
+
+    public function __construct(
+        private readonly Connection $conexao,
+        private readonly VarreduraDeAutomacoes $varredura,
+        private readonly RecuperacaoDeEnvios $recuperacao,
+        private readonly SementeDoExpansor $expansor,
+        private readonly MessageBusInterface $bus,
+        private readonly ClockInterface $clock,
+        private readonly LoggerInterface $logger,
+    ) {
+    }
+
+    public function __invoke(VarrerAutomacoes $mensagem): void
+    {
+        $agora = $this->clock->now();
+        if (!$this->reivindicar($agora)) {
+            return;
+        }
+        // Cada passo isolado: uma falha na dica não pula a recuperação dos envios, e a cadeia sempre se reagenda.
+        $this->passo('dica', fn () => $this->varredura->mandarDicas($agora));
+        $this->passo('recuperacao', fn () => $this->recuperacao->recuperar($agora));
+        $this->passo('campanhas', fn () => $this->expansor->socorrer($agora));
+        $this->bus->dispatch(new VarrerAutomacoes(), [new DelayStamp(self::INTERVALO_SEGUNDOS * 1000)]);
+    }
+
+    private function passo(string $nome, callable $passo): void
+    {
+        try {
+            $passo();
+        } catch (\Throwable $erro) {
+            $this->logger->error('Comercial: passo da varredura falhou.', ['passo' => $nome, 'erro' => $erro::class]);
+        }
+    }
+
+    private function reivindicar(\DateTimeImmutable $agora): bool
+    {
+        return $this->conexao->executeStatement(
+            'UPDATE comercial_varredura SET executada_em = :agora, proxima_em = :proxima WHERE id = 1 AND proxima_em <= :agora',
+            ['agora' => $agora->format('Y-m-d H:i:s'), 'proxima' => $agora->modify('+' . (self::INTERVALO_SEGUNDOS - 60) . ' seconds')->format('Y-m-d H:i:s')],
+        ) === 1;
+    }
+}

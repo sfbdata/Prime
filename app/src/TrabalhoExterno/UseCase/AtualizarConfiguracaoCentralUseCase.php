@@ -16,7 +16,7 @@ use App\TrabalhoExterno\Service\Contexto;
 /**
  * Menu ⋮ "Opções do Master" e modal "Equipe e privacidade": visibilidade da aba, disponibilidade
  * da central, motivo da suspensão, permissões da Equipe, privacidade para externos e "aceitar só
- * rascunhos com a central suspensa". Só o Master. Cada clique grava (o desenho não tem "Salvar").
+ * rascunhos com a central suspensa", e a configuração interna das vagas (modal `tmCfgV`). Só o Master. Cada clique grava (o desenho não tem "Salvar").
  */
 final class AtualizarConfiguracaoCentralUseCase
 {
@@ -52,6 +52,9 @@ final class AtualizarConfiguracaoCentralUseCase
             }
             foreach ((array) ($alteracoes['privacidade'] ?? []) as $chave => $valor) {
                 $cfg->definirPrivacidade((string) $chave, (bool) $valor);
+            }
+            if (is_array($alteracoes['vagas'] ?? null)) {
+                $cfg->definirVagas($alteracoes['vagas']);
             }
         } catch (\ValueError|\InvalidArgumentException) {
             throw new DadosInvalidos('Opção de configuração inválida.');

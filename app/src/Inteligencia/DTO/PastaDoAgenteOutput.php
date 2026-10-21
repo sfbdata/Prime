@@ -35,7 +35,34 @@ final class PastaDoAgenteOutput
         public readonly string $prioridade,
         public readonly string $abertaEm,
         public readonly bool $excluida,
+        public readonly bool $oculta = false,
     ) {
+    }
+
+    /**
+     * Pasta oculta pelo cadeado para quem conversa com o agente (spec pasta-cadeado D2, desenho L4383): só
+     * o número e o cliente, e `oculta` para o agente dizer que ela está trancada em vez de inventar.
+     */
+    public static function oculta(Pasta $pasta, ?string $identificador): self
+    {
+        $identificador = $identificador !== null && $identificador !== '' ? $identificador : null;
+
+        return new self(
+            id: (int) $pasta->getId(),
+            nup: $pasta->getNup(),
+            identificador: $identificador,
+            clientes: $identificador === null
+                ? array_values(array_map(static fn (Cliente $c): string => $c->getNomeExibicao(), $pasta->getClientes()->toArray()))
+                : [],
+            acao: null,
+            responsavel: null,
+            marcadores: [],
+            situacao: '',
+            prioridade: '',
+            abertaEm: '',
+            excluida: false,
+            oculta: true,
+        );
     }
 
     public static function fromEntity(Pasta $pasta, ?string $identificador): self

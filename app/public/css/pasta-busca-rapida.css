@@ -1,0 +1,168 @@
+/* Busca rápida da pasta (Ctrl + K). Desenho: docs/design/redesign-19-10-26/02 - EXPEDIENTES - VS 18.10.26.dc.html,
+   janela L405-421, keyframes pcIn (L46) e menuIn (L56). Marcação em templates/layout/_globais/busca_rapida.html.twig (toda página logada),
+   comportamento em public/js/pasta-busca-rapida.js. */
+
+@keyframes pbrFundoIn { from { opacity: 0; transform: translate3d(0, 10px, 0); } to { opacity: 1; transform: none; } }
+@keyframes pbrJanelaIn { from { opacity: 0; transform: translate3d(0, -6px, 0) scale(.98); } to { opacity: 1; transform: none; } }
+
+.pbr[hidden] { display: none; }
+
+/* z-index: o desenho usa 200/201 na pilha dele; aqui a janela precisa ficar acima do cabeçalho do AdminLTE
+   (1034) e das outras janelas da pasta (1055 a 1060). */
+.pbr-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 1070;
+    background: rgba(10, 30, 45, .38);
+    animation: pbrFundoIn .18s both;
+}
+
+/* Centrada por margem, não por translateX: a animação termina em `transform: none` e desfaria o centro. */
+.pbr-janela {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 12vh;
+    margin: 0 auto;
+    z-index: 1071;
+    width: min(560px, calc(100vw - 24px));
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(16, 42, 58, .08), 0 30px 60px -20px rgba(10, 40, 60, .5);
+    overflow: hidden;
+    animation: pbrJanelaIn .2s cubic-bezier(.22, .8, .3, 1) both;
+}
+
+.pbr-topo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #dfe4e8;
+    background: #f5f6f7;
+}
+
+.pbr-lupa { font-size: 16px; color: #7b93a2; }
+
+.pbr-campo {
+    flex: 1;
+    min-width: 0;
+    height: 32px;
+    border: none;
+    outline: none;
+    font-family: inherit;
+    font-size: 15px;
+    color: #12242f;
+    background: transparent;
+}
+
+.pbr-esc {
+    font-size: 11px;
+    font-weight: 700;
+    color: #5f7684;
+    background: #eef2f5;
+    border-radius: 3px;
+    padding: 3px 7px;
+    white-space: nowrap;
+}
+
+.pbr-lista {
+    padding: 6px;
+    max-height: min(420px, 60vh);
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pbr-opcoes { display: flex; flex-direction: column; gap: 2px; }
+
+.pbr-opcoes:empty { display: none; }
+
+.pbr-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 9px 12px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    background: transparent;
+}
+
+.pbr-item.is-selecionado { background: #e5f1f7; }
+
+.pbr-item:focus-visible { outline: 2px solid #0b5f86; outline-offset: -2px; }
+
+.pbr-icone {
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #0b5f86;
+    background: #f1f6f9;
+}
+
+.pbr-item.is-selecionado .pbr-icone { background: #fff; }
+
+/* Altura de linha normal como no desenho (o 1.5 do Bootstrap deixava cada item ~10px mais alto). */
+.pbr-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: normal; }
+
+.pbr-titulo {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1d3441;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pbr-cadeado { margin-left: 6px; font-size: 12px; color: #7b93a2; }
+
+.pbr-subtitulo {
+    font-size: 12px;
+    color: #7b93a2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pbr-grupo {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: #7b93a2;
+    flex-shrink: 0;
+}
+
+.pbr-vazio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 26px 10px;
+    color: #6b8494;
+    font-size: 13px;
+}
+
+.pbr-vazio[hidden] { display: none; }
+
+.pbr-vazio .bi { font-size: 20px; color: #b8c6cf; }
+
+.pbr-rodape {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 9px 16px;
+    border-top: 1px solid #eef2f5;
+    font-size: 11.5px;
+    color: #7b93a2;
+}

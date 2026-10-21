@@ -19,7 +19,8 @@
    - laço (retângulo) a partir do espaço vazio da lista; Ctrl soma à seleção;
    - teclado: setas/Home/End, Shift+setas, Ctrl+A, Esc, F2, Del, Ctrl+X/Ctrl+C/Ctrl+V;
    - menu de contexto (botão direito, ⋮ no toque) por item, por vários e no fundo,
-     na ordem do desenho — SEM os itens E (Chat I.A);
+     na ordem do desenho; "Encaminhar via Chat I.A" (desenho 02 VS 18.10.26, D:5071) só no menu de UM item e
+     só com a Central na página (PR4d, spec encaminhar-via-chat-ia);
    - barra de seleção, toast, criar/renomear inline, arraste nativo da SELEÇÃO
      para pasta (pasta→pasta inclusive), ações em lote por mover-lote/excluir-lote
      (um token por pasta: `csrfLote`), upload inserindo a linha sem recarregar.
@@ -1915,7 +1916,8 @@
 
     // --------------------------------------------------- menu de contexto ---
     /* dc `ctxItens` (L4797-4834), na ordem do desenho, só com o que tem ação hoje:
-       - "Encaminhar via Chat I.A" é item E e não é renderizado;
+       - "Encaminhar via Chat I.A" (PR4d) logo depois de "Copiar caminho", só no menu de um item
+         (o de vários do desenho não tem); ver opEncaminhar;
        - "Baixar como .zip (N)" (vários) e "Baixar como .zip" (uma pasta) são do L8 (D5);
        - Copiar (L8, D6) fica sempre no lugar do desenho; sem ARQUIVO no alvo (uma pasta, ou
          vários só de pastas) ele vem DESABILITADO com o porquê no title — o servidor não copia pastas;
@@ -1930,7 +1932,7 @@
        de escrita nova sem a marca é pega pelo PastaExploradorSomenteLeituraJsTest, não pelo rótulo. */
     function op(rotulo, ico, acao, extra) {
         extra = extra || {};
-        return { rotulo: rotulo, icone: ico, acao: acao, atalho: extra.atalho || '', perigo: !!extra.perigo, desabilitado: !!extra.desabilitado, titulo: extra.titulo || '', escrita: extra.escrita === true };
+        return { rotulo: rotulo, icone: ico, acao: acao, atalho: extra.atalho || '', perigo: !!extra.perigo, desabilitado: !!extra.desabilitado, titulo: extra.titulo || '', classe: extra.classe || '', escrita: extra.escrita === true };
     }
     function opcoesDoMenu(alvo) {
         const sel = itensSelecionados();
@@ -1990,6 +1992,9 @@
                 // "Mover para…" (modal de destino) é função do sistema (§16.7); o desenho é omisso.
                 op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); }, { escrita: true }),
                 op('Copiar caminho', 'bi-signpost', function () { copiarCaminhos([alvo]); }),
+            ])
+            .concat(opEncaminhar(alvo))
+            .concat([
                 opFavorito([alvo]),
                 SEP,
                 op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2', escrita: true }),
@@ -2000,6 +2005,20 @@
                 SEP,
                 op('Propriedades', 'bi-info-square', mostrarPainel),
             ]);
+    }
+    /* "Encaminhar via Chat I.A" (desenho 02 VS 18.10.26, D:5071; spec encaminhar-via-chat-ia §3 e §4.1). Só aparece com a
+       Central na página (`window.BJCentral`, exposto pelo lançador flutuante) e fora da lápide da Pasta;
+       item na lixeira não chega aqui (não está na lista, e o servidor relê sem ele). A "pasta" do
+       explorador é uma PastaSecao (tipo `secao`) e o arquivo é um PastaDocumento (`documento`). Só ids
+       numéricos saem daqui, pelo evento `bj-central:despachar`: o servidor relê o item e o título. */
+    function opEncaminhar(alvo) {
+        const pasta = Number(pastaId);
+        const id = Number(alvo && alvo.id);
+        if (cfg.pastaExcluida || !window.BJCentral || !Number.isInteger(pasta) || pasta <= 0 || !Number.isInteger(id) || id <= 0) return [];
+        const tipo = alvo.tipo === 'pasta' ? 'secao' : 'documento';
+        return [op('Encaminhar via Chat I.A', 'bi-send', function () {
+            document.dispatchEvent(new CustomEvent('bj-central:despachar', { detail: { pastaId: pasta, tipo: tipo, itemId: id } }));
+        }, { classe: 'js-explorador-encaminhar' })];
     }
     // Copiar (dc L4803/L4817): sem arquivo no alvo, o item continua no lugar, desabilitado.
     const COPIAR_SO_PASTAS = 'Pastas não são copiadas';
@@ -2034,6 +2053,7 @@
             if (o.perigo) n.classList.add('pex-ctx-item--perigo');
             if (o.desabilitado) { n.disabled = true; n.setAttribute('aria-disabled', 'true'); }
             if (o.titulo) n.title = o.titulo;
+            if (o.classe) n.classList.add(o.classe);
             n.dataset.pexMenuI = String(menuAcoes.length);
             menuAcoes.push(o.acao);
             frag.appendChild(n);

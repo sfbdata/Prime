@@ -10,7 +10,7 @@ mesmo que precise de frente nova.
 **PRs abertos e ordem de merge (fila de migrations do coordenador):**
 1. #55 `push-link-externo`: link externo do Push. Migration Version20261019183000. Entra depois do #52 (de outra
    sessão); o #77 (trusted proxies, b5) também entra antes por mexer no framework.yaml.
-2. #68 `pasta-ocultar-aba`: EMPILHADO sobre o #55 (base push-link-externo). Migration Version20261019200000.
+2. #68 `pasta-ocultar-aba`: EMPILHADO sobre o #55 (base push-link-externo). Migration Version20261019235520 (renomeada na vez dela: era 20261019200000).
 3. #75 `relatorio-processos-controladoria`: base master. Migration Version20261019233000.
 4. #82 `push-painel-monitoramento` (P4a): base master. Migration Version20261019234500.
 5. P4b `push-avisar-quando-chegar`: em implementação, EMPILHADO sobre o #82.
