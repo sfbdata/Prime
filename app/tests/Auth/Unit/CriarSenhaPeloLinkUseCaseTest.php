@@ -11,8 +11,16 @@ use App\Auth\Event\EmailDaContaConfirmado;
 use App\Auth\Repository\ConfirmacaoEmailRepository;
 use App\Auth\Service\ForcaDaSenha;
 use App\Auth\Service\LinkDeConfirmacaoDeEmail;
+use App\Auth\UseCase\CriarContaEEscritorioUseCase;
 use App\Auth\UseCase\CriarSenhaPeloLinkUseCase;
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
+use App\Legal\PoliticaPrivacidadeVigente;
+use App\Repository\TenantRepository;
+use App\Termo\Entity\AceiteTermo;
+use App\Termo\Entity\CienciaPolitica;
+use App\Termo\Enum\OrigemDoAceite;
+use App\Termo\TermoVigente;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -37,6 +45,7 @@ final class CriarSenhaPeloLinkUseCaseTest extends TestCase
     private const SENHA = 'novaSenha456';
 
     private ConfirmacaoEmailRepository&MockObject $repository;
+    private TenantRepository&MockObject $tenants;
     private EventDispatcher $eventos;
     private UserPasswordHasher $hasher;
 
@@ -46,6 +55,7 @@ final class CriarSenhaPeloLinkUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->repository = $this->createMock(ConfirmacaoEmailRepository::class);
+        $this->tenants = $this->createMock(TenantRepository::class);
         $this->eventos = new EventDispatcher();
         $this->eventos->addListener(EmailDaContaConfirmado::class, function (EmailDaContaConfirmado $evento): void {
             $this->despachados[] = $evento;
@@ -66,6 +76,8 @@ final class CriarSenhaPeloLinkUseCaseTest extends TestCase
             $this->eventos,
             new NullLogger(),
             $relogio,
+            new TermoVigente(),
+            $this->tenants,
         );
     }
 
@@ -81,9 +93,9 @@ final class CriarSenhaPeloLinkUseCaseTest extends TestCase
         return new ConfirmacaoEmail($user, ConfirmacaoEmail::hashDoToken('tok'), new \DateTimeImmutable($expiraEm));
     }
 
-    private static function input(string $senha = self::SENHA, ?string $confirmacao = null): CriarSenhaPeloLinkInput
+    private static function input(string $senha = self::SENHA, ?string $confirmacao = null, bool $aceite = true): CriarSenhaPeloLinkInput
     {
-        return new CriarSenhaPeloLinkInput('tok', $senha, $confirmacao ?? $senha);
+        return new CriarSenhaPeloLinkInput('tok', $senha, $confirmacao ?? $senha, $aceite, '203.0.113.9', 'Navegador do link');
     }
 
     #[TestDox('Token válido: grava o hash da senha nova na mesma chamada que confirma, marca o link e despacha o evento uma vez')]
@@ -93,7 +105,7 @@ final class CriarSenhaPeloLinkUseCaseTest extends TestCase
         $this->repository->method('encontrarPorToken')->with('tok')->willReturn($confirmacao);
         $hashGravado = null;
         $this->repository->expects($this->once())->method('criarSenhaEConfirmarComLink')
-            ->willReturnCallback(static function (ConfirmacaoEmail $c, string $hash, \DateTimeImmutable $agora) use ($confirmacao, &$hashGravado): bool {
+            ->willReturnCallback(static function (ConfirmacaoEmail $c, string $hash, \DateTimeImmutable $agora, AceiteTermo $aceite, CienciaPolitica $ciencia) use ($confirmacao, &$hashGravado): bool {
                 self::assertSame($confirmacao, $c);
                 self::assertEquals(new \DateTimeImmutable(self::AGORA), $agora);
                 $hashGravado = $hash;
@@ -112,6 +124,86 @@ final class CriarSenhaPeloLinkUseCaseTest extends TestCase
         self::assertEquals(new \DateTimeImmutable(self::AGORA), $confirmacao->getUsadoEm());
         self::assertCount(1, $this->despachados);
         self::assertSame(42, $this->despachados[0]->userId);
+    }
+
+    #[TestDox('Com a caixa marcada: o aceite dos Termos e a ciência da Política vão na mesma chamada que grava a senha (origem link, versão vigente, IP, user agent, escritório do dono)')]
+    public function testComAceiteGravaOsDoisRegistros(): void
+    {
+        $confirmacao = $this->confirmacao();
+        $escritorio = new Tenant();
+        $this->repository->method('encontrarPorToken')->willReturn($confirmacao);
+        $this->tenants->expects($this->once())->method('findOneBy')
+            ->with(['criadoPor' => $confirmacao->getUser()], ['id' => 'ASC'])->willReturn($escritorio);
+        $gravados = [];
+        $this->repository->expects($this->once())->method('criarSenhaEConfirmarComLink')
+            ->willReturnCallback(static function (ConfirmacaoEmail $c, string $h, \DateTimeImmutable $a, AceiteTermo $aceite, CienciaPolitica $ciencia) use (&$gravados): bool {
+                $gravados = [$aceite, $ciencia];
+
+                return true;
+            });
+
+        $this->useCase()->executar(self::input());
+
+        [$aceite, $ciencia] = $gravados;
+        self::assertSame($confirmacao->getUser(), $aceite->getUser());
+        self::assertSame(TermoVigente::VERSAO, $aceite->getVersao());
+        self::assertSame(OrigemDoAceite::LinkConfirmacao, $aceite->getOrigem());
+        self::assertSame('203.0.113.9', $aceite->getIp());
+        self::assertSame('Navegador do link', $aceite->getUserAgent());
+        self::assertSame($escritorio, $aceite->getTenant());
+        self::assertSame($confirmacao->getUser(), $ciencia->getUser());
+        self::assertSame(PoliticaPrivacidadeVigente::VERSAO, $ciencia->getVersao());
+        self::assertSame(OrigemDoAceite::LinkConfirmacao, $ciencia->getOrigem());
+        self::assertSame('203.0.113.9', $ciencia->getIp());
+        self::assertSame('Navegador do link', $ciencia->getUserAgent());
+        self::assertEquals(new \DateTimeImmutable(self::AGORA), $ciencia->getCienteEm());
+    }
+
+    #[TestDox('Sem escritório de que seja dona: o aceite vai sem escritório')]
+    public function testSemEscritorioOAceiteVaiSemTenant(): void
+    {
+        $this->repository->method('encontrarPorToken')->willReturn($this->confirmacao());
+        $this->tenants->method('findOneBy')->willReturn(null);
+        $tenant = false;
+        $this->repository->method('criarSenhaEConfirmarComLink')
+            ->willReturnCallback(static function (ConfirmacaoEmail $c, string $h, \DateTimeImmutable $a, AceiteTermo $aceite) use (&$tenant): bool {
+                $tenant = $aceite->getTenant();
+
+                return true;
+            });
+
+        $this->useCase()->executar(self::input());
+
+        self::assertNull($tenant);
+    }
+
+    #[TestDox('Sem a caixa marcada: a mensagem do cadastro, o link não é consumido e nada é gravado (antes da régua da senha)')]
+    public function testSemAceiteRecusaSemConsumirOLink(): void
+    {
+        $confirmacao = $this->confirmacao();
+        $this->repository->method('encontrarPorToken')->willReturn($confirmacao);
+        $this->repository->expects($this->never())->method('criarSenhaEConfirmarComLink');
+
+        try {
+            $this->useCase()->executar(self::input('fraca', 'outra', aceite: false));
+            self::fail('Esperava InvalidArgumentException.');
+        } catch (\InvalidArgumentException $e) {
+            self::assertSame(CriarContaEEscritorioUseCase::ERRO_ACEITE, $e->getMessage());
+        }
+
+        self::assertNull($confirmacao->getUsadoEm());
+        self::assertFalse($confirmacao->getUser()->isEmailConfirmado());
+        self::assertSame(self::SENHA_ANTIGA, $confirmacao->getUser()->getPassword());
+        self::assertSame([], $this->despachados);
+    }
+
+    #[TestDox('Conta já confirmada e sem a caixa: "já confirmado", sem olhar o aceite')]
+    public function testJaConfirmadoNaoOlhaOAceite(): void
+    {
+        $this->repository->method('encontrarPorToken')->willReturn($this->confirmacao(confirmado: true));
+        $this->repository->expects($this->never())->method('criarSenhaEConfirmarComLink');
+
+        self::assertSame(SituacaoDoLinkDeConfirmacao::JaConfirmado, $this->useCase()->executar(self::input(aceite: false)));
     }
 
     #[TestDox('Token desconhecido: link inválido ou expirado, nada gravado')]

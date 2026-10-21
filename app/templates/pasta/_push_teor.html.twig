@@ -43,28 +43,28 @@
 {% set teorPastaViva = not (pastaExcluida ?? false) %}
 {% set teorPodeEscrever = teorPastaViva and (podeEditarPasta ?? false) %}
 {% set linkDoc = (publicacao.link and (publicacao.link starts with 'https://' or publicacao.link starts with 'http://')) ? publicacao.link : null %}
-{% set tipoDoc = publicacao.tipoComunicacao ?: 'Publicação' %}
+{% set tipoDoc = publicacao.tipoComunicacao ?: 'pasta_push.teor.publicacao'|trans %}
 <div class="ps-push-teor-corpo">
     {% if numeroComunicacao or linkDoc %}
-        {% set rotuloDoc = (numeroComunicacao ?: 'Documento') ~ ' - ' ~ tipoDoc %}
+        {% set rotuloDoc = 'pasta_push.teor.rotulo_doc'|trans({documento: numeroComunicacao ?: 'pasta_push.teor.documento'|trans, tipo: tipoDoc}) %}
         <div class="ps-push-doc">
             <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
             {% if linkDoc %}
                 <a class="ps-push-doc-link" href="{{ linkDoc|e('html_attr') }}" target="_blank" rel="noopener noreferrer"
-                   title="Abrir documento no PJe">{{ rotuloDoc }}</a>
+                   title="{{ 'pasta_push.teor.abrir_documento'|trans }}">{{ rotuloDoc }}</a>
             {% else %}
                 <span class="ps-push-doc-link">{{ rotuloDoc }}</span>
             {% endif %}
             {% if numeroComunicacao %}
                 <button type="button" class="ps-push-doc-btn js-push-copiar-id"
                         data-copiar-id="{{ numeroComunicacao }}"
-                        title="Copiar ID do documento" aria-label="Copiar ID">
+                        title="{{ 'pasta_push.teor.copiar_id_dica'|trans }}" aria-label="{{ 'pasta_push.teor.copiar_id'|trans }}">
                     <i class="bi bi-clipboard" aria-hidden="true"></i>
                 </button>
             {% endif %}
             {% if linkDoc %}
                 <a class="ps-push-doc-btn" href="{{ linkDoc|e('html_attr') }}" target="_blank" rel="noopener noreferrer"
-                   title="Abrir no PJe" aria-label="Abrir no PJe">
+                   title="{{ 'pasta_push.teor.abrir_pje'|trans }}" aria-label="{{ 'pasta_push.teor.abrir_pje'|trans }}">
                     <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
                 </a>
             {% endif %}
@@ -81,13 +81,13 @@
                 data-meta-processo="{{ publicacao.numeroProcessoExibicao ?? '' }}"
                 data-meta-documento="{{ numeroComunicacao ?? '' }}"
                 data-meta-link="{{ linkDoc ?? '' }}">
-            <i class="bi bi-check2-square" aria-hidden="true"></i><span>Criar tarefa</span>
+            <i class="bi bi-check2-square" aria-hidden="true"></i><span>{{ 'pasta_push.teor.criar_tarefa'|trans }}</span>
         </button>
         {% endif %}
         {% if central_disponivel() %}
-        <button type="button" class="ps-push-acao js-encaminhar" title="Encaminhar via Chat I.A"
+        <button type="button" class="ps-push-acao js-encaminhar" title="{{ 'pasta_push.teor.encaminhar_dica'|trans }}"
                 data-encaminhar-pasta="{{ pastaId }}" data-encaminhar-tipo="push" data-encaminhar-id="{{ publicacao.id }}">
-            <i class="bi bi-send" aria-hidden="true"></i><span>Encaminhar</span>
+            <i class="bi bi-send" aria-hidden="true"></i><span>{{ 'pasta_push.teor.encaminhar'|trans }}</span>
         </button>
         {% endif %}
         <button type="button" class="ps-push-acao js-push-lida"
@@ -95,7 +95,7 @@
                 data-token="{{ csrf_token('pasta_push_lida_' ~ pastaId) }}"
                 data-lida="{{ publicacao.lida ? '1' : '0' }}">
             <i class="bi {{ publicacao.lida ? 'bi-envelope' : 'bi-envelope-open' }}" aria-hidden="true"></i>
-            <span class="js-push-lida-rotulo">{{ publicacao.lida ? 'Marcar como não lida' : 'Marcar como lida' }}</span>
+            <span class="js-push-lida-rotulo">{{ publicacao.lida ? 'pasta_push.teor.marcar_nao_lida'|trans : 'pasta_push.teor.marcar_lida'|trans }}</span>
         </button>
         <span class="ps-push-acao-erro" role="alert" hidden></span>
     </div>
@@ -105,14 +105,14 @@
         {# Sanitizado no controller pelo HtmlSanitizer 'djen' — o mesmo caminho da tela do módulo. #}
         <div class="djen-teor">{{ publicacao.textoHtml|raw }}</div>
     {% else %}
-        <p class="ps-push-sem-teor">Esta publicação não trouxe teor textual.</p>
+        <p class="ps-push-sem-teor">{{ 'pasta_push.teor.sem_teor'|trans }}</p>
     {% endif %}
 
     {# O "Inteiro teor na origem" que morava aqui virou a linha do documento, acima:
        era o mesmo `link`, e três atalhos para um destino só confundiriam. #}
     {% if can_access_module('djen') %}
         <div class="ps-push-teor-pe">
-            <a href="{{ path('push_processual_show', {id: publicacao.id, voltar: voltarPara}) }}">Abrir no módulo</a>
+            <a href="{{ path('push_processual_show', {id: publicacao.id, voltar: voltarPara}) }}">{{ 'pasta_push.teor.abrir_no_modulo'|trans }}</a>
         </div>
     {% endif %}
 

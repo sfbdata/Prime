@@ -2,7 +2,7 @@
 
 {#
    Tela "Minhas Metas" — reorganizada por PAPEL (abas).
-   Desenho aprovado: docs/design/minhas-metas/ · Spec: docs/specs/minhas-metas-abas.md
+   Desenho-alvo: docs/design/redesign-19-10-26/04 - Minhas Metas 1.0.dc.html (dono, 21/10) · Spec: docs/specs/minhas-metas-abas.md
 
    O que fica FORA de [data-filtro-resultado] (título, KPIs, abas, barra de filtro) não recarrega
    ao filtrar — é o que mantém o foco no campo de busca, padrão do Expediente.
@@ -82,6 +82,7 @@
         {# ── Abas + filtros + modo, num cartão só (dc L65-75), e o resultado ──
            As abas moram dentro da raiz do filtro só pela caixa visual: o filtro-tabela.js reage a
            campos e às classes `js-filtro-*`, não a elas.
+           Prioridade: a da META (desenho 04, P:77), valores normal/alta/urgente, não a da pasta.
            Rótulos do prazo do desenho (dc L78); os valores `vencidas`/`proximas`/`sem` não mudam (KPIs).
            "Limpar filtros" (dc L79): o motor só desenha o botão com filtro ativo e zera busca e selects,
            não a aba (campo oculto sem `js-filtro-campo`). #}
@@ -104,14 +105,9 @@
                 busca_placeholder: 'metas.filtros.busca_placeholder'|trans,
                 filtros: filtros,
                 facetas: [
-                    { name: 'status', rotulo: 'metas.filtros.status'|trans, tipo: 'select', opcoes: [
-                        { valor: 'pendente', label: 'metas.status.pendente'|trans },
-                        { valor: 'em_revisao', label: 'metas.status.para_revisao'|trans },
-                        { valor: 'concluida', label: 'metas.status.concluida'|trans }
-                    ] },
                     { name: 'prioridade', rotulo: 'metas.filtros.prioridade'|trans, tipo: 'select', opcoes: [
                         { valor: 'normal', label: 'metas.prioridade.normal'|trans },
-                        { valor: 'prioridade', label: 'metas.prioridade.prioridade'|trans },
+                        { valor: 'alta', label: 'metas.prioridade.alta'|trans },
                         { valor: 'urgente', label: 'metas.prioridade.urgente'|trans }
                     ] },
                     { name: 'prazo', rotulo: 'metas.filtros.prazo'|trans, tipo: 'select', opcoes: [
@@ -246,10 +242,8 @@ document.addEventListener('click', function (e) {
         if (!d.acompanhando && ABA_ATUAL === 'acompanhando') {
             var linha = botao.closest('.mm-meta, .mm-linha');
             if (linha) {
-                // No bloco "Concluídas" as metas ficam dentro de um .collapse, então o
-                // cabeçalho do grupo não é irmão da linha: sobe-se um nível antes de procurar.
-                var ancora = linha.closest('.collapse') || linha;
-                var grupo  = ancora.previousElementSibling;
+                // Todos os grupos ficam abertos (Concluídas inclusive, desenho 04): o cabeçalho é irmão da linha.
+                var grupo  = linha.previousElementSibling;
                 while (grupo && !grupo.matches('.mm-grupo-cabeca, .mm-separador')) {
                     grupo = grupo.previousElementSibling;
                 }

@@ -360,22 +360,27 @@
         var quando  = root.querySelector('.db-print-quando');
 
         if (periodo && campos) {
-            periodo.textContent = (dataBr(campos.de.value) || 'início') + ' a ' + (dataBr(campos.ate.value) || 'hoje');
+            periodo.textContent = window.BJ_T.t('dashboard.js.impressao.intervalo', {
+                de: dataBr(campos.de.value) || window.BJ_T.t('dashboard.js.impressao.inicio'),
+                ate: dataBr(campos.ate.value) || window.BJ_T.t('dashboard.js.impressao.hoje')
+            });
         }
         if (facetas) {
-            facetas.textContent = textoDoSelect(form, 'responsavel', 'Todos os responsáveis')
-                + ' · ' + textoDoSelect(form, 'cargo', 'Todos os cargos');
+            facetas.textContent = textoDoSelect(form, 'responsavel', window.BJ_T.t('dashboard.js.impressao.todos_responsaveis'))
+                + ' · ' + textoDoSelect(form, 'cargo', window.BJ_T.t('dashboard.js.impressao.todos_cargos'));
             // desenho (printFiltros): "· Busca: <texto>" só quando há busca
             var busca = form ? form.querySelector('.js-filtro-busca') : null;
             var termo = busca ? busca.value.trim() : '';
             if (termo !== '') {
-                facetas.textContent += ' · Busca: ' + termo;
+                facetas.textContent += ' · ' + window.BJ_T.t('dashboard.js.impressao.busca', { termo: termo });
             }
         }
         if (quando) {
             var d = new Date();
-            quando.textContent = p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear()
-                + ' às ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+            quando.textContent = window.BJ_T.t('dashboard.js.impressao.data_as_hora', {
+                data: p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear(),
+                hora: p2(d.getHours()) + ':' + p2(d.getMinutes())
+            });
         }
     }
 
@@ -422,7 +427,7 @@
             }
             var tituloAntes = document.title;
             var d = new Date();
-            document.title = 'BlueJus Relatorio de desempenho ' + p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear();
+            document.title = window.BJ_T.t('dashboard.js.impressao.nome_do_arquivo', { data: p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + '.' + d.getFullYear() });
             window.setTimeout(function () {
                 window.print();
                 window.setTimeout(function () { document.title = tituloAntes; }, 400);
