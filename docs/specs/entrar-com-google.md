@@ -1,0 +1,122 @@
+# Entrar com o Google (proposta, 21/10/2026)
+
+**Risco: ALTO** (identidade `User`/`Tenant`: segundo autenticador no firewall, coluna nova em `user`,
+conta casada por e-mail). **Proposta read-only:** nada de código até o dono decidir os pontos marcados
+**[dono]** e a 9b concordar com o encaixe no login dela (desenho 10, #101).
+
+Parte da spec de 31/08 ([`login-com-google.md`](login-com-google.md)), que continua valendo onde não
+conflita com esta. Ela ficou desatualizada em três pontos: pedia OAB no cadastro (o desenho 10 tirou),
+citava o `ConfirmarCadastroUseCase` (hoje o cadastro é o `CriarContaEEscritorioUseCase`) e é anterior ao
+Google Agenda (#78, #182, #183), que já tem cliente OAuth próprio. **Esta substitui aquela** quando aprovada.
+
+## 1. Escopos e cliente OAuth
+
+- Login pede só `openid email profile`. Sem `access_type=offline`, sem `consent`, sem `refresh_token`:
+  só identidade. `prompt=select_account` (o seletor de contas aparece sempre).
+- **Cliente OAuth do login separado do da Agenda.** A Agenda continua pedindo `calendar.app.created` só na
+  hora de conectar a agenda, com o cliente dela (`GOOGLE_CALENDAR_OAUTH_CLIENT_ID`), e já manda
+  `include_granted_scopes=false` (#183): o login não herda a agenda e a agenda não herda o login.
+  Revogar a autorização de um não derruba o outro.
+- Variáveis próprias: `GOOGLE_LOGIN_OAUTH_CLIENT_ID` e `GOOGLE_LOGIN_OAUTH_CLIENT_SECRET` (credencial
+  "Aplicativo da Web" no mesmo projeto do Google Cloud). Faltando uma, o botão não aparece (como o painel
+  do Google na Agenda); nada quebra.
+- `openid email profile` não é escopo sensível: sem tela de "app não verificado" e sem limite de 100
+  usuários (apurado na spec de 31/08).
+
+## 2. Ligar à conta existente
+
+Ordem de casamento, na volta do Google:
+
+1. por `user.google_sub` (id estável do Google, coluna nova, única);
+2. sem ninguém com esse `sub`: por `lower(email)`, **só se `email_verified` for verdadeiro**; o `sub` é
+   gravado nesse primeiro login e prende a conta dali em diante;
+3. `sub` já ligado a outra pessoa: recusa.
+
+- E-mail ainda "a confirmar" no BlueJus (cadastro do #101 sem clicar no link): o Google provou o e-mail,
+  então o login pelo Google **marca o e-mail como confirmado** (dispara `EmailDaContaConfirmado`, que a 5d
+  já ouve). Recomendação; se o dono preferir, só entra e deixa o aviso de confirmação como está.
+- Conta só-Google pode criar senha pelo "Esqueceu a senha?" (já funciona; vira teste).
+- Usuário inativo, conta suspensa ou em quarentena de exclusão: mesmas barreiras do login por senha
+  (`UserChecker` do firewall e `TenantContextValidatorListener`).
+
+## 3. Conta nova pelo Google **[dono]**
+
+E-mail do Google que não tem conta no BlueJus. Duas opções:
+
+- **(A) Só entra quem já tem conta.** Volta ao login com "Não encontramos conta com este e-mail. Crie sua
+  conta e escritório." e abre o cadastro com nome e e-mail já preenchidos.
+- **(B) Cria a conta e o escritório como o cadastro do #101**, com nome e e-mail vindos do Google
+  (travados), **sem senha**, pedindo o nome do escritório e o aceite dos Termos e da Política (gravado com IP
+  e User-Agent, como hoje). E-mail já nasce confirmado. Mesmo `CriarContaEEscritorioUseCase`, sem
+  duplicar a criação.
+
+**Recomendação: (B), em duas entregas:** primeiro o login de quem já tem conta (seções 2 e 4, que valem nas
+duas opções); depois o cadastro pelo Google. O cadastro continua pedindo o que o desenho 10 pede (escritório
+e aceite); o Google só tira a senha e a digitação do e-mail, que é onde nascem os erros ("gmail.comm" na
+spec de 31/08). Na primeira entrega, o caso "sem conta" já se comporta como (A).
+
+## 4. Depois do login
+
+O mesmo caminho do login por senha, sem cópia:
+
+- a lógica de destino do `UserAuthenticator` (`destinoDoUsuario`: 1 escritório entra direto, Master sem
+  escritório vai ao painel, vários vão à seleção) é **extraída para um serviço** e usada pelos dois
+  autenticadores;
+- tudo passa pelo véu `/login/entrando?para=` (destino revalidado pelo `DestinoPosLogin`), como na 9b;
+- aceite de Termos pendente: o `TermoAceiteListener` leva ao aceite, como hoje;
+- convidado do Trabalho Externo sem escritório: o `EntradaDoConvidadoListener` passa a reconhecer também o
+  autenticador do Google (hoje só olha o `UserAuthenticator`);
+- "Manter conectado": o botão do Google respeita a caixa marcada no formulário (vai como parâmetro na ida e
+  volta pela sessão). Recomendação; a alternativa é nunca lembrar.
+- As rotas novas entram nas duas listas brancas (`TermoAceiteListener::ROTAS_IGNORADAS` e
+  `TenantContextValidatorListener`), senão há laço de redirecionamento.
+
+## 5. Segurança
+
+- `state` aleatório na sessão, conferido com `hash_equals`; **PKCE S256**; **`nonce`** na ida, conferido no
+  `id_token` da volta.
+- `id_token` vindo direto do endpoint de token (TLS, OIDC Core 3.1.3.7): confere `aud` (o cliente do login),
+  `iss` (`accounts.google.com`), `exp`, `nonce` e `email_verified`. Mesmo conferente do #183, sem cópia.
+- Autenticador `AbstractAuthenticator` puro (com dois `AbstractLoginFormAuthenticator` o container não sobe:
+  armadilha 1 da spec de 31/08).
+- Limitador próprio em `/login/google` por IP (bloco em arquivo próprio, como o `agenda_google`).
+- **Master pelo Google [dono]. Recomendação: não.** O Master manda na plataforma inteira e o BlueJus não tem
+  2FA: entrar só por senha mantém um fator que o BlueJus controla, e uma conta Google comprometida não vira
+  acesso à plataforma. Conta com `ROLE_SUPER_ADMIN` que voltar do Google é recusada com "Entre com e-mail e
+  senha." (o `sub` não é gravado).
+- Nada do Google é guardado além do `sub` (sem token, sem foto).
+
+## 6. Onde aparece o botão (o desenho 10 não tem) **[dono]**
+
+O desenho 10 não mostra o Google; por isso a posição precisa de aprovação antes de entrar (regra do desenho).
+Proposta, a mais discreta:
+
+- **No cartão de login**, logo abaixo do botão "Entrar" e acima do selo de segurança: uma linha fina com "ou"
+  e um botão secundário de contorno, da largura do "Entrar", com o "G" do Google e o texto **"Entrar com o
+  Google"** (seguindo as regras de marca do Google para o botão). O "Entrar" continua sendo o principal.
+- **No modal de cadastro** (só na entrega do cadastro, se (B)): o mesmo botão, "Continuar com o Google", acima
+  dos campos, com "ou preencha abaixo".
+- Nada muda no rodapé nem nas ferramentas "SÓ MASTER".
+
+## 7. Combinado com a 9b (dona do login do desenho 10)
+
+Toca: `security.yaml` (lista de autenticadores), `UserAuthenticator` (extração do destino),
+`templates/security/login.html.twig` e o CSS do login, `CadastroController` (entrega 2). O contrato do
+formulário de senha (`email`, `password`, `_csrf_token`, `_remember_me`, um `a[href="/senha/esqueci"]`) não
+muda: o botão do Google é um link para `/login/google`, fora dos campos do formulário.
+
+## 8. Material do dono
+
+1. Responder os pontos **[dono]**: seção 3 (A ou B), "Master pelo Google", posição do botão (seção 6) e,
+   se quiser opinar, as duas recomendações da seção 2 e 4 (confirmar e-mail; "Manter conectado").
+2. Criar no Google Cloud a credencial "Aplicativo da Web" do login, com o redirecionamento
+   `https://<domínio>/login/google/callback`, e pôr as duas variáveis no `.env.prod`. Passo a passo vai junto
+   com o PR.
+
+## 9. Testes (quando implementar)
+
+Cada invariante da spec de 31/08 continua (e-mail não verificado recusa; `state` errado recusa; inativo não
+entra; e-mail desconhecido não vira conta na entrega 1; conta só-Google não entra por senha; `sub` de outro
+recusa; 2+ escritórios vão à seleção; rotas nas duas listas brancas; caixa do e-mail). Mais: `nonce`,
+`aud`, `iss` e `exp` errados recusam; Master recusado pelo Google; e-mail "a confirmar" vira confirmado;
+convidado do Trabalho Externo vai ao lugar certo; sem as variáveis, o botão some.
