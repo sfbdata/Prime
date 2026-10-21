@@ -12,6 +12,8 @@ use App\Auth\Repository\RedefinicaoSenhaRepository;
 use App\Auth\Service\ForcaDaSenha;
 use App\Entity\Auth\User;
 use App\Repository\UserRepository;
+use App\Termo\Repository\AceiteTermoRepository;
+use App\Termo\Repository\CienciaPoliticaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -35,6 +37,9 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
  *
  * Trocar a senha pelo código confirma o e-mail da conta; se ela estava com o e-mail a confirmar, sai o
  * EmailDaContaConfirmado depois do commit, uma vez só (o UPDATE condicional decide, como no clique do link).
+ * Só quem confirma agora, na mesma transação, tira o valor do aceite dos Termos e da ciência da Política do cadastro
+ * (D2b da spec `cadastro-senha-no-link.md`): quem cadastrou pode ter sido um terceiro. As linhas ficam como
+ * `cadastro_nao_ratificado`, e na primeira entrada a dona do e-mail passa pelo gate dos Termos.
  */
 final class ConfirmarCodigoSenhaUseCase
 {
@@ -55,6 +60,8 @@ final class ConfirmarCodigoSenhaUseCase
         private readonly ConfirmacaoEmailRepository $confirmacaoEmailRepository,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly LoggerInterface $logger,
+        private readonly AceiteTermoRepository $aceiteTermoRepository,
+        private readonly CienciaPoliticaRepository $cienciaPoliticaRepository,
     ) {
     }
 
@@ -136,6 +143,10 @@ final class ConfirmarCodigoSenhaUseCase
             // O UPDATE condicional diz se FOI ESTA troca que confirmou; o objeto só se alinha ao banco.
             $confirmou = $this->confirmacaoEmailRepository->confirmarEmailDaConta($user);
             $user->confirmarEmail();
+            if ($confirmou) {
+                $this->aceiteTermoRepository->desratificarCadastro($user);
+                $this->cienciaPoliticaRepository->desratificarCadastro($user);
+            }
 
             $this->redefinicaoRepository->invalidarPendentesDoUsuario($user, exceto: $pedido);
             $this->redefinicaoRepository->salvar($pedido, flush: true);

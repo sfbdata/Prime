@@ -226,10 +226,19 @@
 
     "master": {
         "templates": [
-            "master/painel.html.twig"
+            "master/painel.html.twig",
+            "master/_notificacoes.html.twig",
+            "master/_indicacoes.html.twig",
+            "master/mapa_mundo.html.twig"
         ],
         "js": [
-            "master/painel.js"
+            "master/painel.js",
+            "master/notificacoes.js",
+            "master/indicacoes.js",
+            "master/masters.js",
+            "master/recursos.js",
+            "master/mapa-mundo.js",
+            "master/bj-dica.js"
         ],
         "permitidos": [
             "Rondônia",
@@ -291,6 +300,15 @@
             "São Tomé e Príncipe",
             "Timor-Leste",
             "Brasil",
+            "Austrália",
+            "Japão",
+            "China",
+            "Norte",
+            "Nordeste",
+            "Centro-Oeste",
+            "Sudeste",
+            "Sul",
+            "Polygon",
             "Content-Type",
             "Escape",
             "Enter"
@@ -312,6 +330,29 @@
             "Accept",
             "Enter",
             "Escape"
+        ]
+    },
+
+    "cobranca_objeto": {
+        "templates": [
+            "cobranca/objeto/show.html.twig",
+            "cobranca/objeto/_partials/_divida.html.twig",
+            "cobranca/objeto/_partials/_movimentos.html.twig",
+            "cobranca/objeto/_partials/_responsaveis.html.twig",
+            "cobranca/objeto/_partials/_telefones_cobrada.html.twig",
+            "cobranca/objeto/_partials/_painel_qualificacao.html.twig",
+            "cobranca/objeto/_partials/_honorarios.html.twig",
+            "cobranca/objeto/_partials/_anotacao_acoes.html.twig",
+            "cobranca/objeto/_partials/_campos_config_encargos.html.twig",
+            "cobranca/caso/index.html.twig",
+            "cobranca/caso/_resultado.html.twig",
+            "cobranca/caso/_documentos.html.twig",
+            "cobranca/caso/_acoes_modais.html.twig",
+            "cobranca/caso/_acoes_modais_financeiro.html.twig",
+            "cobranca/acordo/show.html.twig"
+        ],
+        "permitidos": [
+            "App\\\\Cobranca\\\\Enum\\\\TipoTelefone"
         ]
     },
 
@@ -348,6 +389,23 @@
             "Tab",
             "ArrowDown",
             "ArrowUp"
+        ]
+    },
+
+    "agenda": {
+        "templates": [
+            "agenda/nova.html.twig",
+            "agenda/lista.html.twig",
+            "agenda/novo.html.twig",
+            "agenda/editar.html.twig",
+            "agenda/show.html.twig"
+        ],
+        "js": [
+            "lembretes.js",
+            "agenda-nova.js"
+        ],
+        "permitidos": [
+            "ag-body"
         ]
     }
 }

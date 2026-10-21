@@ -17,11 +17,16 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * A seção "Central de Notificações" do Painel do Master (desenho 05 VS 21.10.26; spec
  * master-central-de-notificacoes.md). Só o Master (D2). JSON, com o token CSRF `master_notificacoes` no header
  * `X-CSRF-Token` em todo POST. Abrir é POST porque marca a mensagem como lida.
+ *
+ * Idioma (spec idioma-do-sistema, P3 da b5): as recusas saem do catálogo (master.notificacoes.*) no idioma da
+ * requisição; a do UseCase pela chave da RespostaRecusada. O conteúdo da caixa (rótulo do tipo, remetente, assunto e
+ * texto, montados nos leitores de app/src/Master/Notificacoes) vai como está, em português (spec §8).
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 #[Route('/master/notificacoes')]
@@ -29,6 +34,10 @@ final class CentralDeNotificacoesController extends AbstractController
 {
     public const TOKEN = 'master_notificacoes';
     private const ORIGEM = '[a-z_]{3,20}';
+
+    public function __construct(private readonly TranslatorInterface $tradutor)
+    {
+    }
 
     #[Route('', name: 'master_notificacoes_listar', methods: ['GET'])]
     public function listar(Request $request, ListarCentralDoMasterUseCase $listar): JsonResponse
@@ -47,11 +56,11 @@ final class CentralDeNotificacoesController extends AbstractController
     public function marcar(Request $request, MarcarNaCentralUseCase $marcar): JsonResponse
     {
         if (!$this->tokenValido($request)) {
-            return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
+            return $this->recusa('master.notificacoes.token_invalido', Response::HTTP_FORBIDDEN);
         }
         $input = MarcarNaCentralInput::doCorpo($this->corpo($request));
         if ($input === null) {
-            return $this->json(['erro' => 'Escolha as mensagens e a ação.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->recusa('master.notificacoes.escolha_mensagens', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return $this->json(['marcadas' => $marcar->executar($this->master(), $input)]);
@@ -61,12 +70,12 @@ final class CentralDeNotificacoesController extends AbstractController
     public function abrir(string $origem, int $id, Request $request, AbrirMensagemDaCentralUseCase $abrir): JsonResponse
     {
         if (!$this->tokenValido($request)) {
-            return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
+            return $this->recusa('master.notificacoes.token_invalido', Response::HTTP_FORBIDDEN);
         }
         $aberta = $abrir->executar($this->master(), $origem, $id);
 
         return $aberta === null
-            ? $this->json(['erro' => 'Mensagem não encontrada.'], Response::HTTP_NOT_FOUND)
+            ? $this->recusa(RespostaRecusada::CHAVE_DA_RECUSA[RespostaRecusada::RECUSA_NAO_ENCONTRADA], Response::HTTP_NOT_FOUND)
             : $this->json($aberta->emJson());
     }
 
@@ -74,16 +83,21 @@ final class CentralDeNotificacoesController extends AbstractController
     public function responder(string $origem, int $id, Request $request, ResponderNaCentralUseCase $responder): JsonResponse
     {
         if (!$this->tokenValido($request)) {
-            return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
+            return $this->recusa('master.notificacoes.token_invalido', Response::HTTP_FORBIDDEN);
         }
         $texto = $this->corpo($request)['texto'] ?? '';
         try {
             $resposta = $responder->executar($this->master(), $origem, $id, is_string($texto) ? $texto : '');
         } catch (RespostaRecusada $e) {
-            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->recusa($e->chave(), Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return $this->json($resposta->emJson());
+    }
+
+    private function recusa(string $chave, int $status): JsonResponse
+    {
+        return $this->json(['erro' => $this->tradutor->trans($chave)], $status);
     }
 
     private function master(): User

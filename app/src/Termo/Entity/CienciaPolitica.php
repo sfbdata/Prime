@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Termo\Entity;
 
 use App\Entity\Auth\User;
+use App\Termo\Enum\OrigemDoAceite;
 use App\Termo\Repository\CienciaPoliticaRepository;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -15,7 +16,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity(repositoryClass: CienciaPoliticaRepository::class)]
 #[ORM\Table(name: 'ciencia_politica')]
-#[ORM\UniqueConstraint(name: 'uq_ciencia_politica_user_versao', columns: ['user_id', 'versao'])]
+#[ORM\UniqueConstraint(name: 'uq_ciencia_politica_user_versao_origem', columns: ['user_id', 'versao', 'origem'])]
 class CienciaPolitica
 {
     #[ORM\Id]
@@ -35,6 +36,8 @@ class CienciaPolitica
         private ?string $userAgent = null,
         #[ORM\Column(type: 'datetime_immutable')]
         private \DateTimeImmutable $cienteEm = new \DateTimeImmutable(),
+        #[ORM\Column(length: 30, enumType: OrigemDoAceite::class, options: ['default' => 'cadastro'])]
+        private OrigemDoAceite $origem = OrigemDoAceite::Cadastro,
     ) {
     }
 
@@ -66,5 +69,10 @@ class CienciaPolitica
     public function getCienteEm(): \DateTimeImmutable
     {
         return $this->cienteEm;
+    }
+
+    public function getOrigem(): OrigemDoAceite
+    {
+        return $this->origem;
     }
 }
