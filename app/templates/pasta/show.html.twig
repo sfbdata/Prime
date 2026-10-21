@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="{{ asset('css/pasta-prazos.css') }}">
 <link rel="stylesheet" href="{{ asset('css/cliente-cadastro.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-andamento.css') }}">
+<link rel="stylesheet" href="{{ asset('css/pasta-apensados.css') }}">
 {# Link externo do Push: menu da aba, modal e painel de acessos (pasta/_push_link_externo.html.twig). #}
 <link rel="stylesheet" href="{{ asset('css/pasta-push-link.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-cadeado.css') }}">
@@ -1759,17 +1760,29 @@
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title" id="modalVincularProcessoLabel">
-                    <i class="bi bi-briefcase me-1"></i> Vincular Processo
+                    <i class="bi bi-briefcase me-1"></i> <span id="mp-titulo-texto">Vincular processo</span>
                 </h6>
-                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                {# Desenho N:292: X branco num quadrado translúcido (pasta-apensados.css). #}
+                <button type="button" class="mp-fechar" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
             <form method="POST" id="formVincularProcesso"
                   action="{{ path('pasta_vincular_processo', {id: pasta.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('vincular_processo_' ~ pasta.id) }}">
+                {# P4f: o mesmo modal vincula APENSADO (`modo=apenso`); pasta-apensado.js troca o modo pelo
+                   botão que abriu e mostra o "Tipo de apenso" (desenho N:294, padrão Embargos). #}
+                <input type="hidden" name="modo" id="mp-modo" value="principal">
                 <div class="modal-body py-3">
+                    <label class="mp-apenso-tipo" id="mp-apenso-tipo" hidden>
+                        <span class="mp-apenso-tipo-rotulo">Tipo de apenso <span class="mp-apenso-obrig">*</span></span>
+                        <select name="tipo_apenso" id="mp-tipoApenso" class="mp-apenso-select" disabled>
+                            {% for tipoApenso in enum_cases('App\\Pasta\\Entity\\TipoDeApenso') %}
+                                <option value="{{ tipoApenso.value }}"{{ loop.first ? ' selected' : '' }}>{{ tipoApenso.rotulo }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
 
                     {# Seletor de modo: buscar processo existente x cadastrar novo via CNJ #}
-                    <div class="btn-group w-100 mb-3" role="group" aria-label="Modo de vínculo de processo">
+                    <div class="btn-group w-100 mb-3 mp-abas" role="group" aria-label="Modo de vínculo de processo">
                         <input type="radio" class="btn-check" name="mp-modo" id="mp-modo-existente" autocomplete="off" checked>
                         <label class="btn btn-outline-primary btn-sm" for="mp-modo-existente"><i class="bi bi-search me-1"></i> Buscar processo existente</label>
                         <input type="radio" class="btn-check" name="mp-modo" id="mp-modo-novo" autocomplete="off">
@@ -1949,20 +1962,25 @@
                         <p class="mt-2 mb-0 small">Buscando processo no DataJud...</p>
                     </div>
 
-                    <div id="mp-feedbackAlerta" class="d-none mt-3"></div>
-
                     </div>{# fim modal-modo-novo #}
+
+                    {# Fora do bloco "Cadastrar novo": o aviso "Selecione um processo para vincular." (desenho
+                       N:347, `pvVals.aviso`) também aparece na aba "Buscar processo existente". #}
+                    <div id="mp-feedbackAlerta" class="d-none mt-3"></div>
                 </div>
                 <div class="modal-footer py-2">
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="bi bi-check-lg me-1"></i> Vincular Processo
+                        <i class="bi bi-check-lg me-1"></i> <span id="mp-salvar-texto">Vincular processo</span>
                     </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+{# P4f: modo apenso do modal acima, X do apensado e a dica da pílula da aba Dados. #}
+<script src="{{ asset('js/pasta-apensado.js') }}" defer></script>
 
 {# Modal: Preview de Documento (único reutilizável) — o conteúdo é montado por
    public/js/visualizador-documento.js (PDF, imagem, áudio, vídeo, DOCX, planilha, texto). #}
@@ -3366,6 +3384,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (resp.ok && dados.sucesso) {
                 window.mpSwapProcessos(dados.html);
+                document.dispatchEvent(new CustomEvent('mp:processo-vinculado')); // P4f: aviso do apensado (pasta-apensado.js)
                 bootstrap.Modal.getInstance(modalEl)?.hide();
                 return;
             }
