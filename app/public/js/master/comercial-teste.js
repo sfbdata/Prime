@@ -12,7 +12,7 @@
   const elErro = raiz.querySelector('[data-mc-tst-erro]');
   const elEnviar = raiz.querySelector('[data-mc-tst-enviar]');
   let origem = null;
-  let secao = null; // a raiz .mc[data-modo] de onde veio o clique (Comercial ou Indicações, #223)
+  let secao = null; // a section[data-mc-campanha] de onde veio o clique (Comercial ou Indicações, #223)
 
   function mostrarErro(texto) {
     elErro.textContent = texto || '';
@@ -20,7 +20,7 @@
   }
 
   function abrir(e) {
-    secao = (e && e.target && e.target.closest) ? e.target.closest('.mc[data-modo]') : null;
+    secao = (e && e.target && e.target.closest) ? e.target.closest('[data-mc-campanha]') : null;
     origem = document.activeElement;
     mostrarErro('');
     ok.hidden = true;
@@ -35,7 +35,7 @@
     origem = null;
   }
 
-  // Contrato com a 5d: cada raiz .mc[data-modo] expõe mcModeloAtual(); o window.McCampanha fica por compatibilidade.
+  // Contrato com a 5d: cada section[data-mc-campanha] expõe mcModeloAtual(); o window.McCampanha fica por compatibilidade.
   function modeloDaSecao() {
     if (secao && typeof secao.mcModeloAtual === 'function') { return secao.mcModeloAtual(); }
     return window.McCampanha && typeof window.McCampanha.modeloAtual === 'function' ? window.McCampanha.modeloAtual() : null;
