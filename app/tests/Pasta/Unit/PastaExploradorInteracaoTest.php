@@ -110,7 +110,7 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString("if (k === 'Delete') { if (sel.length) {", $js);
     }
 
-    #[TestDox('menu de contexto: na ordem do desenho (favorito do L6 depois de Copiar caminho; zip e Copiar do L8), SEM Desfazer no menu nem o Chat I.A (E)')]
+    #[TestDox('menu de contexto: na ordem do desenho (Encaminhar via Chat I.A e o favorito do L6 depois de Copiar caminho; zip e Copiar do L8), SEM Desfazer no menu')]
     public function testItensDoMenuDeContexto(): void
     {
         $js    = $this->js();
@@ -121,9 +121,10 @@ final class PastaExploradorInteracaoTest extends TestCase
         // Vários itens (dc L4797-4808): "Baixar como .zip (N)" abre; Copiar logo depois de Recortar (L8).
         // "Mover para…" (modal de destino) é função do sistema (§16.7) e mora aqui, não na barra.
         $multi = ["op('Baixar como .zip (' + sel.length + ')', 'bi-file-earmark-zip', function () { baixarZip(sel); })", "op('Copiar links'", "op('Recortar', 'bi-scissors', function () { recortar(sel); }, { atalho: 'Ctrl+X', escrita: true })", 'opCopiar(sel),', "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino(sel); }, { escrita: true })", "op('Copiar caminhos'", 'opFavorito(sel),', "op('Excluir ' + sel.length + ' itens', 'bi-trash3', function () { excluirItens(sel); }, { atalho: 'Del', perigo: true, escrita: true })", "op('Propriedades', 'bi-info-square', mostrarPainel)"];
-        // Um item (dc L4809-4826), sem Chat; o favorito (L6, dc L4820) logo depois de Copiar caminho.
+        // Um item (dc L4809-4826): depois de Copiar caminho, o Encaminhar via Chat I.A (desenho 02 VS 18.10.26,
+        // D:5071, PR4d) e o favorito (L6, dc L4820), nessa ordem.
         // Pasta: "Baixar como .zip" no lugar do Baixar; arquivo: Copiar depois de Recortar (L8).
-        $item = ["op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right'", "op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); })", "op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' })", "op('Baixar', 'bi-download'", "op('Copiar link', 'bi-link-45deg'", "op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X', escrita: true })", '.concat([opCopiar([alvo])])', "op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); }, { escrita: true })", "op('Copiar caminho', 'bi-signpost'", 'opFavorito([alvo]),', "op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2', escrita: true })", "op('Editar…', 'bi-pencil', function () { abrirEditar(a); }, { escrita: true })", "op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true, escrita: true })"];
+        $item = ["op('Abrir', ehPasta ? 'bi-folder2-open' : 'bi-box-arrow-up-right'", "op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); })", "op('Visualizar', 'bi-eye', function () { abrirPreviewDe(a); }, { atalho: 'Espaço' })", "op('Baixar', 'bi-download'", "op('Copiar link', 'bi-link-45deg'", "op('Recortar', 'bi-scissors', function () { recortar([alvo]); }, { atalho: 'Ctrl+X', escrita: true })", '.concat([opCopiar([alvo])])', "op('Colar', 'bi-clipboard', function () { colarEm(alvo.id); }, { atalho: 'Ctrl+V', desabilitado: !areaDeTransferencia, escrita: true })", "op('Mover para…', 'bi-folder-symlink', function () { escolherDestino([alvo]); }, { escrita: true })", "op('Copiar caminho', 'bi-signpost'", '.concat(opEncaminhar(alvo))', 'opFavorito([alvo]),', "op('Renomear', 'bi-input-cursor-text', function () { iniciarRenomear(alvo); }, { atalho: 'F2', escrita: true })", "op('Editar…', 'bi-pencil', function () { abrirEditar(a); }, { escrita: true })", "op('Excluir', 'bi-trash3', function () { excluirItens([alvo]); }, { atalho: 'Del', perigo: true, escrita: true })"];
         $pos = -1;
         foreach (array_merge($fundo, $multi, $item) as $trecho) {
             $p = strpos($corpo, $trecho, $pos + 1);
@@ -131,8 +132,8 @@ final class PastaExploradorInteracaoTest extends TestCase
             $pos = $p;
         }
 
-        // Não renderizados: item E, o Desfazer (é do toast) e o "Compartilhar" do protótipo (S-12).
-        foreach (["op('Encaminhar via Chat", "'Desfazer'", "op('Compartilhar"] as $proibido) {
+        // Não renderizados: o Desfazer (é do toast) e o "Compartilhar" do protótipo (S-12).
+        foreach (["'Desfazer'", "op('Compartilhar"] as $proibido) {
             self::assertStringNotContainsString($proibido, $js, "{$proibido} é de outro lote");
         }
         // Botão direito num item fora da seleção: ele vira a seleção (dc L4759); dentro dela, o menu é o de vários.
@@ -148,6 +149,45 @@ final class PastaExploradorInteracaoTest extends TestCase
         self::assertStringContainsString("if (b && b.isConnected) { b.setAttribute('aria-expanded', 'false'); b.focus({ preventScroll: true }); }", $js);
         self::assertStringContainsString("'aria-haspopup': 'menu', 'aria-expanded': 'false'", $js);
         self::assertStringContainsString("if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); fecharMenu(); return; }", $js);
+    }
+
+    #[TestDox('PR4d: "Encaminhar via Chat I.A" (D:5071) só no menu de UM item, com a Central na página e fora da lápide; pasta vai como secao, arquivo como documento, só ids numéricos')]
+    public function testEncaminharViaChatIa(): void
+    {
+        $js        = $this->js();
+        $corpo     = $this->funcao('opcoesDoMenu');
+        $encaminha = $this->funcao('opEncaminhar');
+
+        // Uma chamada só, no menu de um item, logo depois de "Copiar caminho" e antes do favorito (D:5070-5072).
+        self::assertSame(1, substr_count($corpo, 'opEncaminhar('), 'só o menu de UM item tem o Encaminhar (o de vários do desenho não tem)');
+        self::assertStringContainsString("op('Copiar caminho', 'bi-signpost', function () { copiarCaminhos([alvo]); }),\n            ])\n            .concat(opEncaminhar(alvo))\n            .concat([\n                opFavorito([alvo]),", $corpo);
+        $multi = substr($corpo, (int) strpos($corpo, 'if (multi) {'), (int) strpos($corpo, 'const ehPasta') - (int) strpos($corpo, 'if (multi) {'));
+        self::assertStringNotContainsString('Encaminhar', $multi);
+
+        // Ícone e texto do desenho; classe própria (nunca a .js-encaminhar do PR4a, que daria dois despachos).
+        self::assertStringContainsString("op('Encaminhar via Chat I.A', 'bi-send', function () {", $encaminha);
+        self::assertStringContainsString("{ classe: 'js-explorador-encaminhar' }", $encaminha);
+        self::assertStringNotContainsString("'js-encaminhar'", $js);
+        self::assertStringContainsString('if (o.classe) n.classList.add(o.classe);', $this->funcao('abrirMenu'));
+        // Leitura: o só leitor também encaminha (basta ver a pasta; o servidor confere).
+        self::assertStringNotContainsString('escrita', $encaminha);
+
+        // Ausente sem a Central (window.BJCentral do lançador) e na lápide; id torto também não sai.
+        // A guarda vem ANTES do op(): sem ela o item nem é montado.
+        $guarda = "if (cfg.pastaExcluida || !window.BJCentral || !Number.isInteger(pasta) || pasta <= 0 || !Number.isInteger(id) || id <= 0) return [];";
+        self::assertStringContainsString($guarda, $encaminha);
+        self::assertLessThan(strpos($encaminha, "op('Encaminhar"), strpos($encaminha, $guarda));
+        self::assertStringContainsString('const pasta = Number(pastaId);', $encaminha);
+        self::assertStringContainsString('const id = Number(alvo && alvo.id);', $encaminha);
+        // Item na lixeira não entra na lista (o servidor monta o #pexDados só com os vivos; LixeiraFilter).
+        self::assertStringNotContainsString('opEncaminhar', $this->funcao('montarModalDaLixeira'));
+
+        // A "pasta" do explorador é uma PastaSecao; o arquivo, um PastaDocumento (spec §3).
+        self::assertStringContainsString("const tipo = alvo.tipo === 'pasta' ? 'secao' : 'documento';", $encaminha);
+        // Só identificadores, pelo evento do PR2 (spec §4.1); nada de título, nome ou template literal.
+        self::assertStringContainsString("document.dispatchEvent(new CustomEvent('bj-central:despachar', { detail: { pastaId: pasta, tipo: tipo, itemId: id } }));", $encaminha);
+        self::assertStringNotContainsString('`', $encaminha);
+        self::assertStringNotContainsString('nome', $encaminha);
     }
 
     #[TestDox('"Copiar link" (S-12): a URL interna de visualização, absoluta, pela Clipboard API com fallback')]

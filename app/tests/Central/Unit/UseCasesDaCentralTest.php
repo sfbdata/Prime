@@ -28,6 +28,7 @@ use App\Repository\NotificacaoRepository;
 use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
 use App\Repository\UserTenantRepository;
+use App\Tests\Central\Support\MontaLeituraDasMensagensTrait;
 use App\Tests\Inteligencia\Support\DefineId;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -47,6 +48,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 #[CoversClass(LimparConversaUseCase::class)]
 final class UseCasesDaCentralTest extends TestCase
 {
+    use MontaLeituraDasMensagensTrait;
+
     private function usuario(int $id): User
     {
         $u = new User();
@@ -182,7 +185,7 @@ final class UseCasesDaCentralTest extends TestCase
 
         (new EnviarMensagemUseCase(
             $this->acesso(static fn (User $u): bool => $u === $eu, $participantes), $mensagens, $this->createStub(EntityManagerInterface::class), $this->relogio(),
-            new MencoesDaCentral(), $this->aviso(),
+            new MencoesDaCentral(), $this->aviso(), $this->leituraDasMensagens(),
         ))->executar($eu, $tenant, 9, 'oi');
     }
 
@@ -204,7 +207,7 @@ final class UseCasesDaCentralTest extends TestCase
 
         (new EnviarMensagemUseCase(
             $this->acesso(static fn (): bool => true, $participantes), $mensagens, $this->createStub(EntityManagerInterface::class), $this->relogio(),
-            new MencoesDaCentral(), $this->aviso($notificacoes),
+            new MencoesDaCentral(), $this->aviso($notificacoes), $this->leituraDasMensagens(),
         ))->executar($eu, $tenant, 9, 'oi @[Pessoa 2](user:2)', 555);
     }
 
@@ -305,7 +308,7 @@ final class UseCasesDaCentralTest extends TestCase
         $mensagens->method('ultimoIdVisivelPara')->willReturn(77);
         $mensagens->method('naoLidasPorConversa')->willReturn([3 => 2, 5 => 1]);
 
-        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio(), $this->createStub(ParticipanteRepository::class), $this->aviso()))
+        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio(), $this->createStub(ParticipanteRepository::class), $this->aviso(), $this->leituraDasMensagens()))
             ->executar($this->usuario(1), new Tenant(), null);
 
         self::assertSame([], $saida->mensagens);
@@ -323,7 +326,7 @@ final class UseCasesDaCentralTest extends TestCase
         $mensagens->expects(self::never())->method('ultimoIdVisivelPara');
         $mensagens->method('naoLidasPorConversa')->willReturn([]);
 
-        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio(), $this->createStub(ParticipanteRepository::class), $this->aviso()))->executar($eu, $tenant, 0);
+        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio(), $this->createStub(ParticipanteRepository::class), $this->aviso(), $this->leituraDasMensagens()))->executar($eu, $tenant, 0);
 
         self::assertSame(0, $saida->cursor);
         self::assertTrue($saida->completo);
@@ -347,7 +350,7 @@ final class UseCasesDaCentralTest extends TestCase
         $mensagens->method('recentesAbaixoDoCursor')->willReturn($repetidas);
         $mensagens->method('naoLidasPorConversa')->willReturn([]);
 
-        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio(), $this->createStub(ParticipanteRepository::class), $this->aviso()))
+        $saida = (new ObterNovidadesDaCentralUseCase($this->acesso(static fn (): bool => true), $mensagens, $this->relogio(), $this->createStub(ParticipanteRepository::class), $this->aviso(), $this->leituraDasMensagens()))
             ->executar($eu, $tenant, 500);
 
         self::assertTrue($saida->completo);

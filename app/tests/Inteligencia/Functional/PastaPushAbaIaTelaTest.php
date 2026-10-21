@@ -29,7 +29,7 @@ final class PastaPushAbaIaTelaTest extends JusPrimeWebTestCase
 {
     use CriaFixturesInteligenciaTrait;
 
-    private const BOTAO = '#push > .ps-push > .ps-card-cab > button.ps-ia-gerar';
+    private const BOTAO = '#push > .ps-push-grade > .ps-push > .ps-card-cab > button.ps-ia-gerar';
 
     private function cliente(): KernelBrowser
     {
@@ -117,10 +117,10 @@ final class PastaPushAbaIaTelaTest extends JusPrimeWebTestCase
         self::assertNotEmpty($botao->attr('data-ia-token'));
 
         // Posição do desenho (dc L.2416): imediatamente antes dos filtros.
-        self::assertSame(1, $crawler->filter('#push > .ps-push > .ps-card-cab > .ps-ia-gerar + .ps-push-filtros')->count());
+        self::assertSame(1, $crawler->filter('#push > .ps-push-grade > .ps-push > .ps-card-cab > .ps-ia-gerar + .ps-push-filtros')->count());
 
         // A lista (ainda vazia) vem logo abaixo do cabeçalho; o script e a folha da IA são carregados.
-        self::assertSame(1, $crawler->filter('#push > .ps-push > .ps-card-cab + .ps-ia-msg[hidden] + .ps-ia-lista[data-ia-lista]')->count());
+        self::assertSame(1, $crawler->filter('#push > .ps-push-grade > .ps-push > .ps-card-cab + .ps-ia-msg[hidden] + .ps-ia-lista[data-ia-lista]')->count());
         self::assertSame(0, $crawler->filter('.ps-ia-lista > .ps-ia-cartao')->count());
         self::assertSame(1, $crawler->filter('#push > script[src*="js/pasta-ia-push.js"]')->count());
         self::assertSame(1, $crawler->filter('#push > link[href*="css/pasta-ia.css"]')->count());
@@ -146,7 +146,7 @@ final class PastaPushAbaIaTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Gerar nova análise', $botao->text());
         self::assertMatchesRegularExpression('/^\d+ movimentação\(ões\) ainda não analisada\(s\)$/', (string) $botao->attr('title'));
 
-        $cartao = $crawler->filter('#push > .ps-push > .ps-ia-lista > .ps-ia-cartao[data-ia-analise="' . $analise->getId() . '"]');
+        $cartao = $crawler->filter('#push > .ps-push-grade > .ps-push > .ps-ia-lista > .ps-ia-cartao[data-ia-analise="' . $analise->getId() . '"]');
         self::assertSame(1, $cartao->count());
         self::assertSame('✦ Análise IA', trim($cartao->filter('.ps-ia-corpo > .ps-ia-cab > .ps-ia-selo')->text()));
         self::assertStringContainsString(
@@ -211,7 +211,7 @@ final class PastaPushAbaIaTelaTest extends JusPrimeWebTestCase
 
         $crawler = $this->abrirPasta($client, (int) $pasta->getId());
 
-        self::assertSame(1, $crawler->filter('#push > .ps-push')->count(), 'a aba Push continua lá');
+        self::assertSame(1, $crawler->filter('#push > .ps-push-grade > .ps-push')->count(), 'a aba Push continua lá');
         self::assertSame(1, $crawler->filter('.ps-push-lista > .ps-push-item')->count(), 'e as publicações também');
         self::assertSame(0, $crawler->filter('.ps-ia-gerar')->count());
         self::assertSame(0, $crawler->filter('.ps-ia-lista')->count());
@@ -235,7 +235,7 @@ final class PastaPushAbaIaTelaTest extends JusPrimeWebTestCase
 
         $crawler = $this->abrirPasta($client, (int) $pastaA->getId());
 
-        self::assertSame(1, $crawler->filter('#push > .ps-push > .ps-ia-lista')->count(), 'a lista existe…');
+        self::assertSame(1, $crawler->filter('#push > .ps-push-grade > .ps-push > .ps-ia-lista')->count(), 'a lista existe…');
         self::assertSame(0, $crawler->filter('.ps-ia-cartao')->count(), '…mas sem a análise alheia');
         self::assertStringContainsString('Resumir com IA', $crawler->filter(self::BOTAO)->text(), 'nem conta como análise desta pasta');
         self::assertStringNotContainsString((string) $alheia->getResumo(), (string) $client->getResponse()->getContent());

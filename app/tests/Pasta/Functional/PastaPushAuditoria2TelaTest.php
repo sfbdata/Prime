@@ -108,15 +108,15 @@ final class PastaPushAuditoria2TelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
         self::assertResponseIsSuccessful();
 
-        $vazio = $crawler->filter('#push > .ps-push > #push-vazio-sem-processo.ps-push-vazio-linha');
+        $vazio = $crawler->filter('#push > .ps-push-grade > .ps-push > #push-vazio-sem-processo.ps-push-vazio-linha');
         self::assertCount(1, $vazio);
         self::assertCount(0, $vazio->filter('i, .ps-vazio-titulo, .ps-vazio-nota'));
         self::assertStringContainsString('Esta pasta não tem processo vinculado', $vazio->text());
         // O atalho para a aba Processo continua no texto.
         self::assertCount(1, $vazio->filter('button.ps-push-link[data-ps-ir-aba="processo-tab"]'));
-        self::assertCount(0, $crawler->filter('#push > .ps-push > .ps-vazio'));
+        self::assertCount(0, $crawler->filter('#push > .ps-push-grade > .ps-push > .ps-vazio'));
 
-        self::assertSame('0', trim($crawler->filter('#push > .ps-push > .ps-card-cab > .ps-contagem')->text()));
+        self::assertSame('0', trim($crawler->filter('#push > .ps-push-grade > .ps-push > .ps-card-cab > .ps-contagem')->text()));
     }
 
     #[TestDox('U4 + U8: com processo e sem publicação, o outro vazio em linha e contagem 0 — publicação de OUTRO escritório não conta')]
@@ -135,11 +135,11 @@ final class PastaPushAuditoria2TelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
         self::assertResponseIsSuccessful();
 
-        $vazio = $crawler->filter('#push > .ps-push > #push-vazio-sem-publicacao.ps-push-vazio-linha');
+        $vazio = $crawler->filter('#push > .ps-push-grade > .ps-push > #push-vazio-sem-publicacao.ps-push-vazio-linha');
         self::assertCount(1, $vazio);
         self::assertStringContainsString('Nenhuma publicação captada para este caso', $vazio->text());
         self::assertCount(0, $crawler->filter('.ps-push-lista'));
-        self::assertSame('0', trim($crawler->filter('#push > .ps-push > .ps-card-cab > .ps-contagem')->text()));
+        self::assertSame('0', trim($crawler->filter('#push > .ps-push-grade > .ps-push > .ps-card-cab > .ps-contagem')->text()));
     }
 
     #[TestDox('U4 + U8: com publicação, a contagem mostra o total e o vazio do filtro é linha simples escondida')]
@@ -157,8 +157,8 @@ final class PastaPushAuditoria2TelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
         self::assertResponseIsSuccessful();
 
-        self::assertSame('2', trim($crawler->filter('#push > .ps-push > .ps-card-cab > .ps-contagem')->text()));
-        $filtro = $crawler->filter('#push > .ps-push > #push-vazio-filtro.ps-push-vazio-linha[hidden]');
+        self::assertSame('2', trim($crawler->filter('#push > .ps-push-grade > .ps-push > .ps-card-cab > .ps-contagem')->text()));
+        $filtro = $crawler->filter('#push > .ps-push-grade > .ps-push > #push-vazio-filtro.ps-push-vazio-linha[hidden]');
         self::assertCount(1, $filtro);
         self::assertSame('Nenhuma movimentação neste filtro.', trim($filtro->text()));
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Inteligencia\DTO;
 
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 
 /**
  * O contexto montado para UMA análise de agente: cabeçalho da pasta, processos vinculados e as
@@ -21,6 +22,7 @@ final readonly class ContextoDaPasta
      * @param list<string>           $processos           uma linha por processo vinculado
      * @param list<SecaoDeContexto>  $secoes              na ordem do agente
      * @param list<string>           $numerosDosProcessos
+     * @param list<string>           $abasOcultas         abas da pasta ocultas para quem pediu (seções fora)
      */
     public function __construct(
         public Agente $agente,
@@ -30,6 +32,9 @@ final readonly class ContextoDaPasta
         public string $hash,
         public bool $incluiFinanceiro,
         public array $numerosDosProcessos = [],
+        public array $abasOcultas = [],
+        /** Comando ou relatório do drawer que pediu a análise; nulo no pedido por agente (rotas antigas). */
+        public ?Comando $comando = null,
     ) {
     }
 
@@ -44,8 +49,11 @@ final readonly class ContextoDaPasta
      * @param array<string, string> $cabecalho
      * @param list<string>          $processos
      * @param list<SecaoDeContexto> $secoes
+     *
+     * O comando entra no hash quando há: dois comandos do mesmo agente leem os mesmos dados, mas
+     * cada um tem a sua trilha de "nada novo".
      */
-    public static function hashDe(Agente $agente, array $cabecalho, array $processos, array $secoes): string
+    public static function hashDe(Agente $agente, array $cabecalho, array $processos, array $secoes, ?Comando $comando = null): string
     {
         $base = [
             'agente' => $agente->value,
@@ -56,6 +64,11 @@ final readonly class ContextoDaPasta
                 $secoes,
             ),
         ];
+        // Só com comando: o hash do pedido por agente continua o mesmo de antes (o "nada novo" das
+        // análises antigas segue valendo).
+        if ($comando !== null) {
+            $base['comando'] = $comando->value;
+        }
 
         return hash('sha256', (string) json_encode($base, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
@@ -84,10 +97,10 @@ final readonly class ContextoDaPasta
 
     /**
      * O que fica gravado em `contexto_resumo`: contagens, nunca o texto. `total` é lido pelo
-     * `AnaliseOutput` (base da análise); `financeiro` é a decisão tomada na solicitação, que o
-     * worker obedece.
+     * `AnaliseOutput` (base da análise); `financeiro` e `abasOcultas` são decisões tomadas na
+     * solicitação, que o worker obedece.
      *
-     * @return array{agente: string, secoes: array<string, int>, omitidas: array<string, int>, total: int, processos: list<string>, financeiro: bool}
+     * @return array{agente: string, secoes: array<string, int>, omitidas: array<string, int>, total: int, processos: list<string>, financeiro: bool, abasOcultas: list<string>, comando?: string}
      */
     public function resumo(): array
     {
@@ -100,13 +113,19 @@ final readonly class ContextoDaPasta
             }
         }
 
-        return [
+        $resumo = [
             'agente' => $this->agente->value,
             'secoes' => $secoes,
             'omitidas' => $omitidas,
             'total' => $this->totalDeItens(),
             'processos' => $this->numerosDosProcessos,
             'financeiro' => $this->incluiFinanceiro,
+            'abasOcultas' => $this->abasOcultas,
         ];
+        if ($this->comando !== null) {
+            $resumo['comando'] = $this->comando->value;
+        }
+
+        return $resumo;
     }
 }

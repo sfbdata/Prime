@@ -67,8 +67,9 @@ final class ListarMetasDaEquipeUseCase
     /**
      * @param array<string, mixed> $filtros  status, responsavel (userId), cargo (nome), data_de, data_ate (Y-m-d),
      *                                       escopo (`card` = critério do card Metas ativas)
+     * @param list<int>            $pastasOcultas ids das pastas ocultas pelo cadeado para quem olha (D3)
      */
-    public function executar(Tenant $tenant, \DateTimeImmutable $referencia, array $filtros, int $pagina = 1): MetasDaEquipeOutput
+    public function executar(Tenant $tenant, \DateTimeImmutable $referencia, array $filtros, int $pagina = 1, array $pastasOcultas = []): MetasDaEquipeOutput
     {
         $status = (string) ($filtros['status'] ?? '');
         if (!isset(self::STATUS[$status])) {
@@ -92,8 +93,8 @@ final class ListarMetasDaEquipeUseCase
         $pagina  = max(1, $pagina);
 
         $buscar = fn (int $p) => $doCard
-            ? $this->tarefaRepository->findMetasAtivasDoCardPaginado($tenant, $periodo + ['responsavel' => $respId > 0 ? (string) $respId : ''], $p, self::POR_PAGINA)
-            : $this->tarefaRepository->findMetasDaEquipePaginado($tenant, $ids, $status, $periodo, $referencia, $p, self::POR_PAGINA);
+            ? $this->tarefaRepository->findMetasAtivasDoCardPaginado($tenant, $periodo + ['responsavel' => $respId > 0 ? (string) $respId : ''], $p, self::POR_PAGINA, $pastasOcultas)
+            : $this->tarefaRepository->findMetasDaEquipePaginado($tenant, $ids, $status, $periodo, $referencia, $p, self::POR_PAGINA, $pastasOcultas);
 
         $paginador = $buscar($pagina);
         $total     = count($paginador);

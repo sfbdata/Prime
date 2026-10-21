@@ -10,6 +10,8 @@ use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
+use App\Entity\Tenant\Tenant;
+use App\Pasta\Service\TelaDoCadeado;
 use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
@@ -63,15 +65,19 @@ use App\Pasta\DTO\PastaPagamentosOutput;
 use App\Pasta\DTO\PastaMetasResumoOutput;
 use App\Pasta\DTO\PastaPendenciasOutput;
 use App\Pasta\DTO\PastaPushOutput;
+use App\Pasta\UseCase\MontarPainelDoPushUseCase;
+use App\Pasta\UseCase\MontarAvisosDoPushUseCase;
 use App\Pasta\DTO\ExploradorDeDocumentosOutput;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Inteligencia\DTO\AnalisesDaPastaOutput;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
+use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Inteligencia\UseCase\ListarAnalisesDaPastaUseCase;
 use App\Pasta\DTO\PastaPrazoOutput;
 use App\Pasta\DTO\AndamentoDaPastaOutput;
 use App\Pasta\Service\AndamentoDaPasta;
+use App\Pasta\Service\PontosDoRelatorioInicial;
 use App\Pasta\Repository\PastaPrazoRepository;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
@@ -84,6 +90,9 @@ use App\Pasta\UseCase\DefinirProcessoPrincipalUseCase;
 use App\Pasta\UseCase\DesvincularProcessoUseCase;
 use App\Pasta\UseCase\EditarPastaUseCase;
 use App\Pasta\UseCase\VincularProcessoUseCase;
+use App\Pasta\UseCase\VincularApensadoUseCase;
+use App\Pasta\Entity\TipoDeApenso;
+use App\Pasta\Exception\ApensadoInvalidoException;
 use App\Pasta\UseCase\AlterarPrioridadeUseCase;
 use App\Pasta\UseCase\AlterarSituacaoContratoUseCase;
 use App\Pasta\UseCase\AtualizarValorCausaUseCase;
@@ -161,6 +170,7 @@ class PastaController extends AbstractController
         private readonly EditarMensagemPastaUseCase $editarMensagemUseCase,
         private readonly ExcluirMensagemPastaUseCase $excluirMensagemUseCase,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
+        private readonly MontarAvisosDoPushUseCase $montarAvisosDoPush,
         private readonly MarcadorRepository $marcadorRepository,
         private readonly CasoCobrancaRepository $casoCobrancaRepository,
         private readonly AlterarSituacaoContratoUseCase $alterarSituacaoContratoUseCase,
@@ -202,6 +212,7 @@ class PastaController extends AbstractController
         private readonly PastaPrazoRepository $pastaPrazoRepository,
         private readonly AndamentoDaPasta $andamentoDaPasta,
         private readonly DefinirSituacaoDaPastaUseCase $definirSituacao,
+        private readonly TelaDoCadeado $telaDoCadeado,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -299,6 +310,8 @@ class PastaController extends AbstractController
             return new JsonResponse([
                 'status'   => 'ok',
                 'redirect' => $this->generateUrl('pasta_show', ['id' => $pasta->getId()]),
+                'nup'      => $pasta->getNup(),   // o Expediente fica na lista e avisa (desenho 03, dc `salvarNovaFn`)
+                'cliente'  => mb_strtoupper((string) $pasta->getNomeCliente()),
             ]);
         }
 
@@ -315,13 +328,15 @@ class PastaController extends AbstractController
         PastaDocumentoFavoritoRepository $favoritosDeDocumento,
         VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         NotaTecnicaRepository $notaTecnicaRepository,
+        VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
+        MontarPainelDoPushUseCase $montarPainelDoPush,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($redirect = $this->telaDaPastaTrancada($pasta, $currentUser) ?? $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $redirect;
         }
 
@@ -329,7 +344,8 @@ class PastaController extends AbstractController
         $tenantId  = $tenant?->getId() ?? 0;
         $processoId = $pasta->getProcessoPrincipal()?->getId();
 
-        $timelineItems   = $this->timelineAssembler->montar($pasta, $tenant, $tenantId, $processoId);
+        $abasDaPasta     = $visibilidadeDasAbas->estadoParaTela($pasta, $currentUser); // abas ocultas (spec pasta-ocultar-aba §5)
+        $timelineItems   = $this->timelineAssembler->montar($pasta, $tenant, $tenantId, $processoId, abasOcultas: $abasDaPasta->ocultas);
         $todosMarcadores = $this->marcadorRepository->findTodosPorTenant($tenant);
 
         // O redesenho parte a timeline em dois destinos que antes disputavam a
@@ -393,7 +409,7 @@ class PastaController extends AbstractController
         // "contém 3 subpastas e 127 arquivos" precisa delas ANTES do clique — saem em memória.
         $explorador = ExploradorDeDocumentosOutput::montar(
             $secoes,
-            $tenant !== null ? $this->pastaDocumentoRepository->findByPastaComSecao($pasta, $tenant) : [],
+            $tenant !== null ? VisibilidadeDasAbasDaPasta::documentosVisiveis($this->pastaDocumentoRepository->findByPastaComSecao($pasta, $tenant), $abasDaPasta->ocultas) : [], // contrato some com o Financeiro oculto
             self::DOCUMENT_TYPES,
             fn (string $rota, array $params): string => $this->generateUrl($rota, $params),
             fn (string $idDoToken): string => $this->csrfTokenManager->getToken($idDoToken)->getValue(),
@@ -450,7 +466,7 @@ class PastaController extends AbstractController
             && $this->permissionChecker->canAccessModule($currentUser, $tenant, DisponibilidadeDeInteligencia::MODULO)
         ) {
             $analisesIa = $disponibilidadeIa->plataformaConfigurada()
-                ? $listarAnalisesIa->executar($pasta, $tenant)
+                ? $listarAnalisesIa->executar($pasta, $tenant, $abasDaPasta->ocultas)
                 : AnalisesDaPastaOutput::semInteligenciaNaPlataforma($push->total);
         }
 
@@ -498,17 +514,12 @@ class PastaController extends AbstractController
             'secoes'                      => $secoes,
             'explorador'                  => $explorador,
             'push'                        => $push,
+            ...$this->paineisDoPush($pasta, $tenant, $montarPainelDoPush),
             'analisesIa'                  => $analisesIa,
-            // Linha vermelha sob as abas (desenho 1.2.3): calculada aqui, a tela só mostra.
-            // A do Financeiro ("… e N pagamentos vencidos") só para quem vê o financeiro.
-            'pendencias'                  => PastaPendenciasOutput::montar(
-                $pasta,
-                $push->naoLidas,
-                $pagamentosDaPasta,
-                itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo(),
-                veFinanceiro: $tenant !== null && $visibilidadeDoFinanceiro->podeVer($currentUser, $tenant, $pasta),
-            ),
+            ...$this->pendenciasEPontosDoRelatorio($pasta, $tenant, $observacoesDetalhes, $push->naoLidas, $pagamentosDaPasta,
+                $conferenciaChecklist->totalMarcadosSemAnexo(), $tenant !== null && $visibilidadeDoFinanceiro->podeVer($currentUser, $tenant, $pasta)),
             'metasResumo'                 => PastaMetasResumoOutput::montar($pasta),
+            'abasDaPasta'                 => $abasDaPasta,
             // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
             // judicialização (6 das 1.099 em produção). `null` nas demais, e o cabeçalho
             // simplesmente não desenha o campo.
@@ -1206,7 +1217,7 @@ class PastaController extends AbstractController
     }
 
     #[Route('/{id}/processo/vincular', name: 'pasta_vincular_processo', methods: ['POST'])]
-    public function vincularProcesso(Pasta $pasta, Request $request, TribunalCnjResolver $tribunalResolver): Response
+    public function vincularProcesso(Pasta $pasta, Request $request, TribunalCnjResolver $tribunalResolver, VincularApensadoUseCase $vincularApensado): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1251,7 +1262,9 @@ class PastaController extends AbstractController
             return $this->respostaErroProcesso($isXhr, 'Informe o número do processo.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $this->vincularProcessoUseCase->executar($pasta, $processo, $currentUser);
+        if ($erro = $this->vincularNoModoPedido($pasta, $processo, $currentUser, $data, $vincularApensado, $isXhr)) {
+            return $erro;
+        }
 
         if ($isXhr) {
             return $this->respostaProcessosVinculados($pasta);
@@ -1285,7 +1298,7 @@ class PastaController extends AbstractController
             return $this->respostaErroProcesso($isXhr, 'Processo não está vinculado a esta pasta.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $this->desvincularProcessoUseCase->executar($pasta, $processo);
+        $this->desvincularProcessoUseCase->executar($pasta, $processo, $currentUser);
 
         if ($isXhr) {
             return $this->respostaProcessosVinculados($pasta);
@@ -1354,6 +1367,35 @@ class PastaController extends AbstractController
         ], $processos);
 
         return $this->json(['results' => $results]);
+    }
+
+    /**
+     * O modal "Vincular processo" também vincula APENSADO (P4f): com `modo=apenso`, o processo já
+     * resolvido (existente ou cadastrado pelo CNJ) entra como apensado do tipo escolhido. Devolve a
+     * resposta de erro (422, texto do desenho) ou null quando vinculou.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function vincularNoModoPedido(Pasta $pasta, Processo $processo, User $usuario, array $data, VincularApensadoUseCase $vincularApensado, bool $isXhr): ?Response
+    {
+        if (($data['modo'] ?? '') !== 'apenso') {
+            $this->vincularProcessoUseCase->executar($pasta, $processo, $usuario);
+
+            return null;
+        }
+
+        $tipo = TipoDeApenso::tryFrom((string) ($data['tipo_apenso'] ?? ''));
+        if ($tipo === null) {
+            return $this->respostaErroProcesso($isXhr, 'Selecione o tipo de apenso.', (int) $pasta->getId(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $vincularApensado->executar($pasta, $processo, $tipo, $usuario);
+        } catch (ApensadoInvalidoException $e) {
+            return $this->respostaErroProcesso($isXhr, $e->getMessage(), (int) $pasta->getId(), Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return null;
     }
 
     private function respostaProcessosVinculados(Pasta $pasta): JsonResponse
@@ -2407,6 +2449,33 @@ class PastaController extends AbstractController
         return $this->json(['sucesso' => true]);
     }
 
+    // ── Detalhes: Pontos do relatório inicial ─────────────────────────────────
+
+    /**
+     * O card "Pontos do relatório inicial" se redesenha depois que a própria pessoa envia, responde,
+     * edita ou exclui uma observação (evento `ps:detalhes-obs-alterada`), como o `relInicial()` do
+     * desenho. Leitura: a MESMA decisão da `pasta_show` (VIEW na pasta), mais a posse explícita.
+     * Lê o relatório inteiro (`conteudosDaPasta`), não a lista de exibição com teto.
+     */
+    #[Route('/{id}/detalhes/pontos-relatorio', name: 'pasta_detalhes_pontos_relatorio', methods: ['GET'])]
+    public function detalhesPontosRelatorio(Pasta $pasta): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant      = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || $pasta->getTenant()?->getId() !== $tenant->getId()) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'view')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $pontos = PontosDoRelatorioInicial::dosTextos($this->observacaoDetalhesRepository->conteudosDaPasta($pasta, $tenant));
+
+        return $this->json($pontos->paraResposta());
+    }
+
     // ── Checklist dinâmico ────────────────────────────────────────────────────
 
     #[Route('/{id}/checklist', name: 'pasta_checklist_adicionar', methods: ['POST'])]
@@ -2652,4 +2721,73 @@ class PastaController extends AbstractController
         }
     }
 
+
+    /**
+     * Cadeado (spec pasta-cadeado K3): quem está `Oculto` numa pasta COM cadeado, e a veria se ela estivesse
+     * livre, vê só o cabeçalho (cliente e CPF) e a tela "Pasta trancada", com o pedido de acesso. Os demais,
+     * a pasta de outro escritório e a pasta sem cadeado seguem o caminho de sempre (o
+     * `denyResourceAccessUnlessGranted`, com o redirect, e o 404).
+     */
+    private function telaDaPastaTrancada(Pasta $pasta, \App\Entity\Auth\User $pessoa): ?Response
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || $pasta->getTenant() !== $tenant) {
+            return null;
+        }
+
+        $cadeado = $this->telaDoCadeado->montar($pasta, $pessoa, $tenant);
+
+        return $this->telaDoCadeado->mostraATelaTrancada($pasta, $pessoa, $cadeado)
+            ? $this->render('pasta/trancada.html.twig', ['pasta' => $pasta, 'cad' => $cadeado])
+            : null;
+    }
+
+    /**
+     * Card "Pontos do relatório inicial" e a pendência da aba Detalhes (desenho, `relInicial()`).
+     * A lista de exibição tem teto de 100; só quando ela bate no teto lê-se o relatório inteiro.
+     *
+     * @param PastaObservacaoDetalhes[] $observacoesDetalhes
+     */
+    private function pontosDoRelatorioInicial(Pasta $pasta, ?Tenant $tenant, array $observacoesDetalhes): PontosDoRelatorioInicial
+    {
+        if ($tenant !== null && count($observacoesDetalhes) >= 100) {
+            return PontosDoRelatorioInicial::dosTextos($this->observacaoDetalhesRepository->conteudosDaPasta($pasta, $tenant));
+        }
+
+        return PontosDoRelatorioInicial::dasObservacoes($observacoesDetalhes);
+    }
+
+    /**
+     * Linha vermelha sob as abas (desenho 1.2.3): calculada aqui, a tela só mostra. A do Financeiro
+     * ("… e N pagamentos vencidos") só para quem vê o financeiro; a de Detalhes sai dos pontos do
+     * relatório inicial, que o card do trilho também mostra.
+     *
+     * @param PastaObservacaoDetalhes[]                $observacoesDetalhes
+     * @param \App\Pasta\Entity\PastaPagamento[]       $pagamentos
+     *
+     * @return array{pendencias: PastaPendenciasOutput, pontosDoRelatorio: PontosDoRelatorioInicial}
+     */
+    private function pendenciasEPontosDoRelatorio(Pasta $pasta, ?Tenant $tenant, array $observacoesDetalhes, int $pushNaoLidas, array $pagamentos, int $semAnexo, bool $veFinanceiro): array
+    {
+        $pontos = $this->pontosDoRelatorioInicial($pasta, $tenant, $observacoesDetalhes);
+
+        return [
+            'pendencias'        => PastaPendenciasOutput::montar($pasta, $pushNaoLidas, $pagamentos, itensMarcadosSemAnexo: $semAnexo, veFinanceiro: $veFinanceiro, relatorioInicial: $pontos),
+            'pontosDoRelatorio' => $pontos,
+        ];
+    }
+
+    /**
+     * Os painéis da aba Push na tela da pasta: o painel lateral de monitoramento (push-painel-monitoramento) e o
+     * "Avisar quando chegar" (push-avisar-quando-chegar). Sem escritório na sessão, nenhum dos dois.
+     *
+     * @return array{pushPainel: mixed, pushAvisos: mixed}
+     */
+    private function paineisDoPush(Pasta $pasta, ?Tenant $tenant, MontarPainelDoPushUseCase $montarPainelDoPush): array
+    {
+        return [
+            'pushPainel' => $tenant !== null ? $montarPainelDoPush->executar($pasta, $tenant) : null,
+            'pushAvisos' => $tenant !== null ? $this->montarAvisosDoPush->executar($pasta, $tenant) : null,
+        ];
+    }
 }

@@ -8,8 +8,11 @@
 
    Arranjo do desenho 1.2.3 (dc L.2427-2497): coluna da marca (✦ + dia) à
    esquerda; no corpo, a linha do selo com o cadeado e o menu ⋮; resumo, pontos,
-   quem deve agir, base; ações em linha. Edição e "enviar ao cliente" do desenho
-   não existem no sistema e não são desenhadas.
+   quem deve agir, base; ações em linha. A edição do desenho não existe no sistema e
+   não é desenhada. "Enviar ao cliente" / "Reenviar ao cliente" e o "Enviado dd/mm às
+   HH:MM" (dc L.2618-2619, `mailIAVals`; spec push-avisar-cliente §3) vêm de
+   `avisar_cliente()`: só na análise concluída, para quem edita a pasta viva e tem a IA;
+   a análise interna mostra o botão travado com o motivo (o modal é do pasta-push-cliente.js).
 
    Recolher/expandir (IA-010, dc L2440 e L2452): chevron no cabeçalho e, recolhida,
    uma prévia de uma linha ("resumo · N ponto(s)") no lugar do conteúdo. A escolha
@@ -32,6 +35,8 @@
    lápide vem de `nota_tecnica_somente_leitura`, o ponto único "pasta lápide ou alheia" por id;
    `can_access_resource` guarda a resposta por requisição. #}
 {% set iaPodeCriarTarefa = not nota_tecnica_somente_leitura(pastaId) and can_access_resource('pasta', pastaId, 'edit') %}
+{# P4c: o envio ao cliente segue a mesma regra de escrita, mais o acesso à BlueJus IA. #}
+{% set avisarClienteIa = iaPodeCriarTarefa and can_access_module('inteligencia') ? avisar_cliente(pastaId) : null %}
 <div class="ps-ia-lista" id="ia-analises"
      data-ia-lista
      data-pasta-id="{{ pastaId }}"
@@ -176,6 +181,21 @@
                             <input type="hidden" name="_token" value="{{ csrfAnalise }}">
                             <button type="submit" class="ps-ia-botao"><i class="bi bi-envelope" aria-hidden="true"></i> Marcar como não lido</button>
                         </form>
+                    {% endif %}
+                    {% if a.status == 'concluida' and avisarClienteIa is not null %}
+                        {% set envioIa = avisarClienteIa.envioDaAnalise(a.id) %}
+                        <button type="button" class="ps-ia-botao ps-ia-botao--cliente"
+                                data-cliente-enviar="{{ a.id }}"
+                                data-assunto="{{ avisarClienteIa.assuntoPadrao }}"
+                                data-corpo="{{ avisarClienteIa.corpoPadrao(a) }}"
+                                data-sub="{{ avisarClienteIa.subDoModal }}"
+                                {% if a.internaDoEscritorio %}aria-disabled="true" data-cliente-interna="1"{% endif %}
+                                title="{{ a.internaDoEscritorio ? 'Análise interna do escritório: libere o cadeado para enviar ao cliente.' : avisarClienteIa.dicaDoEnvio }}">
+                            <i class="bi bi-envelope-paper" aria-hidden="true"></i><span data-cliente-enviar-txt>{{ envioIa ? 'Reenviar ao cliente' : 'Enviar ao cliente' }}</span>
+                        </button>
+                        <span class="ps-ia-enviado" data-cliente-enviado title="{{ envioIa ? envioIa.dica : '' }}"{{ envioIa ? '' : ' hidden' }}>
+                            <i class="bi bi-envelope-check" aria-hidden="true"></i><span data-cliente-enviado-txt>{{ envioIa ? envioIa.quando : '' }}</span>
+                        </span>
                     {% endif %}
                 </footer>
                 {% if recolhivel %}

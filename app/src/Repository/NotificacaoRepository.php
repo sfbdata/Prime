@@ -24,6 +24,35 @@ class NotificacaoRepository extends ServiceEntityRepository
      * Aplica o filtro de categoria (derivada do tipo) ao QueryBuilder.
      * null = todas as categorias.
      */
+    /**
+     * Cadeado (spec pasta-cadeado): aviso ligado a pasta oculta para a pessoa (pela meta ou pela URL
+     * `/pasta/{id}`) não sai nem conta, mesmo gravado antes do cadeado. A resposta ao pedido de acesso
+     * (`pasta_acesso_decidido`) sempre sai: é para quem está do lado de fora.
+     *
+     * @param list<int> $pastasOcultas
+     */
+    private function semAvisosDasPastasOcultas(QueryBuilder $qb, array $pastasOcultas): void
+    {
+        if ($pastasOcultas === []) {
+            return;
+        }
+
+        $qb->leftJoin('n.tarefa', 'n_meta')
+            ->andWhere('n_meta.id IS NULL OR IDENTITY(n_meta.pasta) NOT IN (:pastasOcultasDoAviso) OR n.tipo = :avisoDecidido')
+            ->setParameter('pastasOcultasDoAviso', $pastasOcultas)
+            ->setParameter('avisoDecidido', Notificacao::TIPO_PASTA_ACESSO_DECIDIDO);
+        foreach ($pastasOcultas as $i => $pastaId) {
+            $qb->andWhere(sprintf(
+                'n.tipo = :avisoDecidido OR n.url IS NULL OR (n.url <> :avisoUrl%1$d AND n.url NOT LIKE :avisoUrlBarra%1$d AND n.url NOT LIKE :avisoUrlAncora%1$d AND n.url NOT LIKE :avisoUrlQuery%1$d)',
+                $i,
+            ))
+                ->setParameter('avisoUrl' . $i, '/pasta/' . $pastaId)
+                ->setParameter('avisoUrlBarra' . $i, '/pasta/' . $pastaId . '/%')
+                ->setParameter('avisoUrlAncora' . $i, '/pasta/' . $pastaId . '#%')
+                ->setParameter('avisoUrlQuery' . $i, '/pasta/' . $pastaId . '?%');
+        }
+    }
+
     private function aplicarCategoria(QueryBuilder $qb, ?string $categoria): void
     {
         if ($categoria === Notificacao::CATEGORIA_GESTAO) {
@@ -39,8 +68,10 @@ class NotificacaoRepository extends ServiceEntityRepository
      * Retorna notificações não lidas do usuário (opcionalmente de uma categoria)
      *
      * @return Notificacao[]
+     *
+     * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function findNaoLidasByUsuario(User $usuario, ?string $categoria = null, int $limit = 10): array
+    public function findNaoLidasByUsuario(User $usuario, ?string $categoria = null, int $limit = 10, array $pastasOcultas = []): array
     {
         $qb = $this->createQueryBuilder('n')
             ->where('n.usuario = :usuario')
@@ -49,14 +80,17 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->orderBy('n.criadaEm', 'DESC')
             ->setMaxResults($limit);
         $this->aplicarCategoria($qb, $categoria);
+        $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
 
         return $qb->getQuery()->getResult();
     }
 
     /**
      * Conta notificações não lidas do usuário (opcionalmente de uma categoria)
+     *
+     * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function countNaoLidasByUsuario(User $usuario, ?string $categoria = null): int
+    public function countNaoLidasByUsuario(User $usuario, ?string $categoria = null, array $pastasOcultas = []): int
     {
         $qb = $this->createQueryBuilder('n')
             ->select('COUNT(n.id)')
@@ -64,6 +98,7 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->andWhere('n.lida = false')
             ->setParameter('usuario', $usuario);
         $this->aplicarCategoria($qb, $categoria);
+        $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
 
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
@@ -73,8 +108,10 @@ class NotificacaoRepository extends ServiceEntityRepository
      * ordenadas da mais recente para a mais antiga.
      *
      * @return Notificacao[]
+     *
+     * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function findPaginadasByUsuario(User $usuario, ?string $categoria, int $page, int $perPage): array
+    public function findPaginadasByUsuario(User $usuario, ?string $categoria, int $page, int $perPage, array $pastasOcultas = []): array
     {
         $qb = $this->createQueryBuilder('n')
             ->where('n.usuario = :usuario')
@@ -83,6 +120,7 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage);
         $this->aplicarCategoria($qb, $categoria);
+        $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
 
         return $qb->getQuery()->getResult();
     }
@@ -90,14 +128,17 @@ class NotificacaoRepository extends ServiceEntityRepository
     /**
      * Conta o total de notificações do usuário (opcionalmente de uma categoria),
      * para o cálculo de páginas.
+     *
+     * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function countByUsuario(User $usuario, ?string $categoria = null): int
+    public function countByUsuario(User $usuario, ?string $categoria = null, array $pastasOcultas = []): int
     {
         $qb = $this->createQueryBuilder('n')
             ->select('COUNT(n.id)')
             ->where('n.usuario = :usuario')
             ->setParameter('usuario', $usuario);
         $this->aplicarCategoria($qb, $categoria);
+        $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
 
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
@@ -335,5 +376,23 @@ class NotificacaoRepository extends ServiceEntityRepository
         }
 
         return $porUsuario;
+    }
+
+    /**
+     * Existe aviso deste tipo no escritório criado a partir de `$desde`? É o teto do envio manual do
+     * relatório de pastas sem processo (um a cada 30 minutos por escritório).
+     */
+    public function existeDoTipoNoEscritorioDesde(Tenant $tenant, string $tipo, \DateTimeImmutable $desde): bool
+    {
+        return (int) $this->createQueryBuilder('n')
+            ->select('COUNT(n.id)')
+            ->andWhere('n.tenant = :tenant')
+            ->andWhere('n.tipo = :tipo')
+            ->andWhere('n.criadaEm >= :desde')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('tipo', $tipo)
+            ->setParameter('desde', $desde)
+            ->getQuery()
+            ->getSingleScalarResult() > 0;
     }
 }
