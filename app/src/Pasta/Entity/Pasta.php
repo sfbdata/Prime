@@ -104,17 +104,6 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\JoinColumn(name: 'excluida_por_id', nullable: true, onDelete: 'SET NULL')]
     private ?User $excluidaPor = null;
 
-    /**
-     * Pasta trancada (E12): só o administrador do escritório tranca e destranca. A proteção é a do desenho,
-     * um aviso na Lista para quem não é administrador; não há bloqueio da pasta_show no servidor.
-     */
-    #[ORM\Column(name: 'trancada_em', type: 'datetime_immutable', nullable: true)]
-    private ?\DateTimeImmutable $trancadaEm = null;
-
-    #[ORM\ManyToOne]
-    #[ORM\JoinColumn(name: 'trancada_por_id', nullable: true, onDelete: 'SET NULL')]
-    private ?User $trancadaPor = null;
-
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: true)]
     private ?User $criadoPor = null;
@@ -417,37 +406,6 @@ $this->documentos = new ArrayCollection();
         $this->excluidaEm  = null;
         $this->excluidaPor = null;
         $this->situacao    = self::SITUACAO_ATIVA;
-
-        return $this;
-    }
-
-    public function estaTrancada(): bool
-    {
-        return $this->trancadaEm !== null;
-    }
-
-    public function getTrancadaEm(): ?\DateTimeImmutable
-    {
-        return $this->trancadaEm;
-    }
-
-    public function getTrancadaPor(): ?User
-    {
-        return $this->trancadaPor;
-    }
-
-    public function trancar(User $por, \DateTimeImmutable $em): self
-    {
-        $this->trancadaEm  = $em;
-        $this->trancadaPor = $por;
-
-        return $this;
-    }
-
-    public function destrancar(): self
-    {
-        $this->trancadaEm  = null;
-        $this->trancadaPor = null;
 
         return $this;
     }

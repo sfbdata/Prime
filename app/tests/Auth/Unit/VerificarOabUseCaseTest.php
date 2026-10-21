@@ -13,6 +13,8 @@ use App\Tests\Auth\Doubles\OabWebServiceClientFake;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use App\Auth\Repository\InscricaoOabRepository;
+use App\Auth\Service\EspelhoDaOabPrincipal;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(VerificarOabUseCase::class)]
@@ -37,7 +39,7 @@ final class VerificarOabUseCaseTest extends TestCase
         $em   = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::once())->method('flush');
 
-        $resultado = (new VerificarOabUseCase(new ValidadorOab($fake), $em))->executar($user);
+        $resultado = (new VerificarOabUseCase(new ValidadorOab($fake), $em, $this->espelho()))->executar($user);
 
         self::assertNotNull($resultado);
         self::assertSame(StatusOab::NaoVerificada, $user->getOabStatus());
@@ -53,7 +55,7 @@ final class VerificarOabUseCaseTest extends TestCase
         $em   = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::once())->method('flush');
 
-        (new VerificarOabUseCase(new ValidadorOab($fake), $em))->executar($user);
+        (new VerificarOabUseCase(new ValidadorOab($fake), $em, $this->espelho()))->executar($user);
 
         self::assertSame(StatusOab::Confirmada, $user->getOabStatus());
         self::assertSame('JOÃO DA SILVA', $user->getOabNomeOficial());
@@ -67,7 +69,7 @@ final class VerificarOabUseCaseTest extends TestCase
         $fake = (new OabWebServiceClientFake())->comResultado(new ConsultaOabResultado(true, 'OUTRO NOME QUALQUER', 'Regular'));
         $em   = $this->createMock(EntityManagerInterface::class);
 
-        (new VerificarOabUseCase(new ValidadorOab($fake), $em))->executar($user);
+        (new VerificarOabUseCase(new ValidadorOab($fake), $em, $this->espelho()))->executar($user);
 
         self::assertSame(StatusOab::Divergente, $user->getOabStatus());
         self::assertSame('OUTRO NOME QUALQUER', $user->getOabNomeOficial());
@@ -85,9 +87,15 @@ final class VerificarOabUseCaseTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::never())->method('flush');
 
-        $resultado = (new VerificarOabUseCase(new ValidadorOab(new OabWebServiceClientFake()), $em))->executar($user);
+        $resultado = (new VerificarOabUseCase(new ValidadorOab(new OabWebServiceClientFake()), $em, $this->espelho()))->executar($user);
 
         self::assertNull($resultado);
         self::assertSame(StatusOab::Confirmada, $user->getOabStatus()); // inalterado
+    }
+
+    /** Espelho da OAB sobre um repositório sem inscrições: o UseCase cria a principal a partir do User. */
+    private function espelho(): EspelhoDaOabPrincipal
+    {
+        return new EspelhoDaOabPrincipal($this->createStub(InscricaoOabRepository::class));
     }
 }

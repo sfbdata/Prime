@@ -37,6 +37,14 @@ class UserProfile
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $serie = null;
 
+    /** Telefone / WhatsApp, só dígitos (desenho 07, VS 18.10.26). */
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $telefone = null;
+
+    /** Última vez em que a pessoa confirmou, na revisão mensal, que o cadastro está certo. */
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $revisadoEm = null;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $criadoEm;
 
@@ -149,6 +157,30 @@ class UserProfile
         $this->serie = $serie;
 
         return $this;
+    }
+
+    public function getTelefone(): ?string
+    {
+        return $this->telefone;
+    }
+
+    /** Guarda só os dígitos; vazio vira null. */
+    public function setTelefone(?string $telefone): static
+    {
+        $digitos        = preg_replace('/\D/', '', (string) $telefone) ?? '';
+        $this->telefone = $digitos === '' ? null : $digitos;
+
+        return $this;
+    }
+
+    public function getRevisadoEm(): ?\DateTimeImmutable
+    {
+        return $this->revisadoEm;
+    }
+
+    public function confirmarRevisao(\DateTimeImmutable $quando): void
+    {
+        $this->revisadoEm = $quando;
     }
 
     public function getCriadoEm(): \DateTimeImmutable
