@@ -29,3 +29,13 @@ preenchida), cor (hex da paleta), destacado_por (SET NULL) e destacado_em. UNIQU
 `POST /pasta/{id}/comentario/destaque` com `aba`, `comentario`, `cor` (vazio = sem cor) e `_token`
 (`pasta_comentario_destaque_{id}`). Devolve `{cor, desfeito: {comentario, autor} | null}`. 404 fora do tenant ou
 comentário de outra pasta; 403 sem EDIT ou token inválido; 422 cor ou aba inválidas.
+
+## Decisões da revisão (21/10, técnicas, da 5d)
+- **Aba oculta:** a aba vem no corpo do POST, então a `BarreiraDeAbaOcultaListener` (que lê o nome da rota) não a vê.
+  O caso de uso recusa com o mesmo 403 e o mesmo texto da barreira, e o mapa da tela tira as abas ocultas para quem vê.
+- **Comentário lido com a pasta travada:** excluído no meio do caminho vira 404, e não 500 na FK. A exceção sai fora da
+  transação, porque dentro dela o Doctrine fecharia o EntityManager.
+- **Paleta:** vem do servidor (`cores_de_destaque()`), uma cópia só. Sem o X global (`data-sem-x`), como no dc L262;
+  fecha no fundo de tela inteira (dc L261) e no Esc.
+- **Sem teste unitário do caso de uso:** dois dos três repositórios de comentário são `final` (legado, não se
+  padroniza) e o EntityManager não se mocka. O caso de uso é coberto pelo teste funcional, contra o banco.
