@@ -72,7 +72,14 @@
      data-url-curriculos-marcacoes="{{ path('trabalho_externo_curriculos_marcacoes') }}"
      data-url-curriculo-previa="{{ path('trabalho_externo_curriculo_previa') }}"
      data-url-curriculos-csv="{{ path('trabalho_externo_curriculos_csv') }}"
-     data-url-simbolo="{{ asset('images/logo/bluejus_simbolo.svg') }}">
+     data-url-simbolo="{{ asset('images/logo/bluejus_simbolo.svg') }}"
+     data-url-simbolo="{{ asset('images/logo/bluejus_simbolo.svg') }}"
+     {#- Conta com o e-mail a confirmar não convida (spec login-desenho-10): o JS mostra o aviso e o botão de reenviar o link. #}
+     {%- if app.user is not null and not app.user.emailConfirmado %}
+     data-recusa-email-a-confirmar="{{ constant('App\\Auth\\UseCase\\CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR') }}"
+     data-url-reenviar-confirmacao="{{ path('conta_confirmacao_reenviar') }}"
+     data-csrf-reenviar-confirmacao="{{ csrf_token('conta_confirmacao_reenviar') }}"
+     {%- endif %}>
 
     <div class="te-titulo-linha">
         <h1 class="te-titulo">

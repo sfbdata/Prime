@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Central\Functional;
 
+use App\Central\Entity\ConfiguracaoDePresenca;
 use App\Central\Entity\Conversa;
 use App\Central\Entity\Mensagem;
 use App\Central\Entity\Participante;
+use App\Central\Repository\ConfiguracaoDePresencaRepository;
 use App\Central\Repository\MensagemRepository;
 use App\Central\Entity\Presenca;
 use App\Central\Repository\ParticipanteRepository;
@@ -28,6 +30,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 #[CoversClass(MensagemRepository::class)]
 #[CoversClass(PresencaRepository::class)]
 #[CoversClass(NotificacaoRepository::class)]
+#[CoversClass(ConfiguracaoDePresencaRepository::class)]
 final class IsolamentoDosRepositoriosDaCentralTest extends JusPrimeWebTestCase
 {
     use CriaFixturesInteligenciaTrait;
@@ -50,6 +53,9 @@ final class IsolamentoDosRepositoriosDaCentralTest extends JusPrimeWebTestCase
         $this->em()->persist(new Mensagem($escritorioB, $grupo, $dora, 'SEGREDO-DO-B', $agora));
         $this->em()->persist((new Notificacao())->setUsuario($ana)->setTenant($escritorioB)->setTipo('teste')->setTitulo('Aviso do B'));
         $this->em()->persist(new Presenca($escritorioB, $ana, $agora));
+        $limiteDoB = new ConfiguracaoDePresenca($escritorioB);
+        $limiteDoB->alterar(15, $dora, $agora);
+        $this->em()->persist($limiteDoB);
         $this->em()->flush();
 
         if ($this->em()->getFilters()->isEnabled('tenant')) {
@@ -80,5 +86,11 @@ final class IsolamentoDosRepositoriosDaCentralTest extends JusPrimeWebTestCase
         self::assertCount(1, $mensagens->recentesAbaixoDoCursor($ana, $escritorioB, PHP_INT_MAX >> 33, new \DateTimeImmutable('-1 day'), 200), 'controle: no B a janela a vê');
         self::assertSame(0, $mensagens->ultimoIdVisivelPara($ana, $escritorioA));
         self::assertSame([], $participantes->daConversaInteira($grupo, $escritorioA));
+        // Fase 3: o limite de ausência que o primário do B escolheu não vale no A (o A fica no padrão).
+        /** @var ConfiguracaoDePresencaRepository $configuracoes */
+        $configuracoes = $this->em()->getRepository(ConfiguracaoDePresenca::class);
+        self::assertNull($configuracoes->doEscritorio($escritorioA));
+        self::assertSame(Presenca::INATIVO_APOS_MINUTOS, $configuracoes->minutosAusente($escritorioA));
+        self::assertSame(15, $configuracoes->minutosAusente($escritorioB), 'controle: no B vale a escolha');
     }
 }

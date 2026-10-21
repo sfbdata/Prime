@@ -13,7 +13,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Twig\Environment;
 
 /**
- * E-mail com o link de redefinição de senha. Espelha o CadastroMailer.
+ * E-mails de redefinição de senha: o código de 6 números (desenho 10) e o link do fluxo
+ * antigo. Espelha o CadastroMailer.
  *
  * O link é ABSOLUTE_URL: o host vem do `DEFAULT_URI` (config/packages/routing.yaml).
  * Se esse valor estiver errado no ambiente, o link nasce quebrado e o usuário não
@@ -47,6 +48,30 @@ final class RedefinicaoSenhaMailer implements RedefinicaoSenhaMailerInterface
             ->html($html);
         $this->identidadeDeEmail->aplicar($email, 'Redefinição de senha no BlueJus');
 
+        $this->enviar($email);
+    }
+
+    public function enviarCodigo(User $user, string $codigo): void
+    {
+        $html = $this->twig->render('email/codigo_senha.html.twig', [
+            'nome'   => $user->getFullName() ?? $user->getEmail(),
+            'codigo' => $codigo,
+        ]);
+
+        $email = (new Email())
+            ->to((string) $user->getEmail())
+            ->html($html);
+        $this->identidadeDeEmail->aplicar($email, 'Seu código BlueJus');
+
+        // O assunto é o do desenho 10, sem o prefixo institucional "[BlueJus]": o código
+        // aparece já na notificação do celular, e o nome BlueJus está no próprio texto.
+        $email->subject('Seu código BlueJus: ' . $codigo);
+
+        $this->enviar($email);
+    }
+
+    private function enviar(Email $email): void
+    {
         try {
             $this->mailer->send($email);
         } catch (TransportExceptionInterface $e) {

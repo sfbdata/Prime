@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Agenda\Unit;
 
 use App\Agenda\Service\OcorrenciasDoEvento;
-use App\Entity\Agenda\Evento;
+use App\Agenda\Entity\Evento;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
