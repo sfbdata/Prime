@@ -68,6 +68,12 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
         return $this->uma('WHERE id = :id', ['id' => $id]);
     }
 
+    /** As campanhas enviadas ou agendadas, com as de teste: todas menos as canceladas (o KPI "Campanhas" do Comercial). */
+    public function contarNaoCanceladas(): int
+    {
+        return (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_campanha WHERE estado <> :cancelada', ['cancelada' => CampanhaDeEmail::CANCELADA]);
+    }
+
     /**
      * Grava a campanha confirmada. Null se a chave de idempotência já existia (clique duplo: nada novo é gravado).
      *
