@@ -8,6 +8,7 @@ use App\Pasta\Entity\Pasta;
 use App\Processo\DTO\DadosDoProcessoNoCartao;
 use App\Processo\Entity\Processo;
 use App\Processo\Service\MontadorDosDadosDoProcesso;
+use App\Processo\Service\ResumoDoProcesso;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
@@ -20,6 +21,7 @@ final class DadosDoProcessoExtension extends AbstractExtension
 {
     public function __construct(
         private readonly MontadorDosDadosDoProcesso $montador,
+        private readonly ResumoDoProcesso $resumo,
     ) {
     }
 
@@ -27,6 +29,8 @@ final class DadosDoProcessoExtension extends AbstractExtension
     {
         return [
             new TwigFunction('dados_do_processo', [$this, 'dados']),
+            // P5d: as linhas do "Copiar/Imprimir resumo", as mesmas do PDF do servidor.
+            new TwigFunction('resumo_do_processo', [$this->resumo, 'texto']),
         ];
     }
 

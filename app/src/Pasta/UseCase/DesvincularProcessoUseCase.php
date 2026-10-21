@@ -23,6 +23,10 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Apensado (P4f): desvincular um apensado não mexe no principal e escreve o cartão do sistema
  * "apensado X desvinculado." na timeline de Dados (`SYS.proc`, N:6711), em nome de quem desvinculou.
+ *
+ * Os demais (P5d, desenho `autoReg('proc', 'processo N desvinculado da pasta.')`): o cartão do sistema
+ * "processo N desvinculado da pasta." na timeline, em nome de quem desvinculou. Os dois cartões são
+ * auditados pelo AuditLogSubscriber (PastaMensagem).
  */
 final class DesvincularProcessoUseCase
 {
@@ -35,11 +39,15 @@ final class DesvincularProcessoUseCase
 
     public function executar(Pasta $pasta, Processo $processo, ?User $usuario = null): void
     {
+        $estava = $pasta->temProcesso($processo);
         $eraApensado = $pasta->ehApensado($processo);
 
         $pasta->desvincularProcesso($processo);
-        if ($eraApensado && $usuario !== null) {
-            $this->registro?->registrar($pasta, $usuario, 'proc', 'apensado ' . $this->numero->numeroCnj($processo->getNumeroProcesso()) . ' desvinculado.');
+        if ($estava && $usuario !== null) {
+            $numero = $this->numero->numeroCnj($processo->getNumeroProcesso());
+            // Apensado com o texto do P4f (#91); os demais com o do P5d.
+            $texto = $eraApensado ? 'apensado ' . $numero . ' desvinculado.' : 'processo ' . $numero . ' desvinculado da pasta.';
+            $this->registro?->registrar($pasta, $usuario, 'proc', $texto);
         }
         $this->em->flush();
     }
