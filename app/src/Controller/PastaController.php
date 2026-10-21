@@ -16,6 +16,8 @@ use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
 use App\Pasta\Entity\PastaDocumento;
+use App\Processo\DTO\DadosDoProcessoInput;
+use App\Processo\Exception\DadosDoProcessoInvalidosException;
 use App\Processo\Entity\Processo;
 use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\MovimentacaoProcesso;
@@ -172,6 +174,7 @@ class PastaController extends AbstractController
         private readonly EditarMensagemPastaUseCase $editarMensagemUseCase,
         private readonly ExcluirMensagemPastaUseCase $excluirMensagemUseCase,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
+        private readonly \App\Processo\UseCase\SalvarDadosManuaisDoProcessoUseCase $salvarDadosManuais,
         private readonly MontarAvisosDoPushUseCase $montarAvisosDoPush,
         private readonly MarcadorRepository $marcadorRepository,
         private readonly CasoCobrancaRepository $casoCobrancaRepository,
@@ -1268,7 +1271,7 @@ class PastaController extends AbstractController
             return $this->respostaErroProcesso($isXhr, 'Informe o número do processo.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        if ($erro = $this->vincularNoModoPedido($pasta, $processo, $currentUser, $data, $vincularApensado, $isXhr)) {
+        if ($erro = $this->vincularNoModoPedido($pasta, $processo, $currentUser, $request, $vincularApensado, $isXhr)) {
             return $erro;
         }
 
@@ -1377,31 +1380,59 @@ class PastaController extends AbstractController
 
     /**
      * O modal "Vincular processo" também vincula APENSADO (P4f): com `modo=apenso`, o processo já
-     * resolvido (existente ou cadastrado pelo CNJ) entra como apensado do tipo escolhido. Devolve a
-     * resposta de erro (422, texto do desenho) ou null quando vinculou.
-     *
-     * @param array<string, mixed> $data
+     * resolvido (existente ou cadastrado pelo CNJ) entra como apensado do tipo escolhido. Processo cadastrado
+     * agora pela janela leva os dados manuais do cadastro (P5d): valor da causa, jurisdição e as cinco flags.
+     * Devolve a resposta de erro (422, texto do desenho ou do dado que não passa) ou null quando vinculou.
      */
-    private function vincularNoModoPedido(Pasta $pasta, Processo $processo, User $usuario, array $data, VincularApensadoUseCase $vincularApensado, bool $isXhr): ?Response
+    private function vincularNoModoPedido(Pasta $pasta, Processo $processo, User $usuario, Request $request, VincularApensadoUseCase $vincularApensado, bool $isXhr): ?Response
     {
-        if (($data['modo'] ?? '') !== 'apenso') {
-            $this->vincularProcessoUseCase->executar($pasta, $processo, $usuario);
-
-            return null;
-        }
-
-        $tipo = TipoDeApenso::tryFrom((string) ($data['tipo_apenso'] ?? ''));
-        if ($tipo === null) {
-            return $this->respostaErroProcesso($isXhr, 'Selecione o tipo de apenso.', (int) $pasta->getId(), Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
+        $data = $request->request->all();
+        $dadosDoCadastro = $processo->getId() === null ? DadosDoProcessoInput::fromRequest($request) : null;
 
         try {
-            $vincularApensado->executar($pasta, $processo, $tipo, $usuario);
-        } catch (ApensadoInvalidoException $e) {
+            if (($data['modo'] ?? '') !== 'apenso') {
+                $this->vincularProcessoUseCase->executar($pasta, $processo, $usuario, $dadosDoCadastro);
+
+                return null;
+            }
+
+            $tipo = TipoDeApenso::tryFrom((string) ($data['tipo_apenso'] ?? ''));
+            if ($tipo === null) {
+                return $this->respostaErroProcesso($isXhr, 'Selecione o tipo de apenso.', (int) $pasta->getId(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $this->vincularApensadoComDados($pasta, $processo, $tipo, $usuario, $vincularApensado, $dadosDoCadastro);
+        } catch (ApensadoInvalidoException|DadosDoProcessoInvalidosException $e) {
             return $this->respostaErroProcesso($isXhr, $e->getMessage(), (int) $pasta->getId(), Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         return null;
+    }
+
+    /**
+     * Apensado cadastrado pelo CNJ grava os manuais, como no desenho (`procSalvarVinc`): vínculo e dados na
+     * mesma transação, para um dado que não passa não deixar o apensado vinculado pela metade.
+     */
+    private function vincularApensadoComDados(Pasta $pasta, Processo $processo, TipoDeApenso $tipo, User $usuario, VincularApensadoUseCase $vincularApensado, ?DadosDoProcessoInput $dadosDoCadastro): void
+    {
+        $tenant = $pasta->getTenant();
+        if ($dadosDoCadastro === null || $tenant === null) {
+            $vincularApensado->executar($pasta, $processo, $tipo, $usuario);
+
+            return;
+        }
+
+        $conexao = $this->em->getConnection();
+        $conexao->beginTransaction();
+        try {
+            $vincularApensado->executar($pasta, $processo, $tipo, $usuario);
+            $this->salvarDadosManuais->executar($processo, $pasta, $dadosDoCadastro, $usuario, $tenant);
+            $conexao->commit();
+        } catch (\Throwable $e) {
+            $conexao->rollBack();
+
+            throw $e;
+        }
     }
 
     private function respostaProcessosVinculados(Pasta $pasta): JsonResponse
