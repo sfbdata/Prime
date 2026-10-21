@@ -50,8 +50,12 @@
     --mm-grupo-cabeca-borda: #e6edf2;
     --mm-grupo-texto:        #34505f;
     --mm-grupo-contagem-bg:  #e2e9ee;
-    --mm-grupo-atrasadas-cor: #a3232b;  /* G.atr do dc */
-    --mm-grupo-proximas-cor:  #c08a12;  /* G.vence do dc */
+    --mm-grupo-atrasadas-cor:  #a3232b;  /* G.atr do dc */
+    --mm-grupo-proximas-cor:   #c08a12;  /* G.vence do dc */
+    --mm-grupo-em-revisao-cor: #0a6fa0;  /* G.rev do dc (desenho 04, P:154) */
+    --mm-grupo-depois-cor:     #1e7b45;  /* G.prazo do dc ("No prazo") */
+    --mm-grupo-sem-prazo-cor:  #7d909d;  /* G.sem do dc */
+    --mm-grupo-concluidas-cor: #1e7b45;  /* G.conc do dc */
     --mm-linha-info:         #4a6373;   /* pasta, criador e comentários da linha (dc L91) */
     --mm-criada-texto:       #7d909d;   /* "criada dd/mm/aaaa" (dc L99) */
     --mm-vazio-borda:        #d6e0e7;   /* caixa do vazio (dc L107) */
@@ -119,7 +123,7 @@
     --mm-linha-atrasada-bg: rgba(224,103,92,.10);
     --mm-sem-text:      var(--bs-secondary-color);
     --mm-sem-bg:        rgba(255,255,255,.06);
-    --mm-faixa-andamento: #2fa36b;
+    --mm-faixa-andamento: #6ddaa2;   /* o mesmo verde de No prazo e Concluídas no escuro (7,7:1 sobre o cartão) */
     --mm-faixa-atencao: #e0675c;
     --mm-ponto-vivo:    #2fa36b;
     --mm-aba-texto:         var(--bs-secondary-color);
@@ -136,8 +140,12 @@
     --mm-grupo-cabeca-borda: var(--bs-border-color-translucent);
     --mm-grupo-texto:        var(--bs-secondary-color);
     --mm-grupo-contagem-bg:  rgba(255,255,255,.08);
-    --mm-grupo-atrasadas-cor: #e0675c;
-    --mm-grupo-proximas-cor:  #e9be6c;
+    --mm-grupo-atrasadas-cor:  #e0675c;
+    --mm-grupo-proximas-cor:   #e9be6c;
+    --mm-grupo-em-revisao-cor: #4da3ea;
+    --mm-grupo-depois-cor:     #6ddaa2;
+    --mm-grupo-sem-prazo-cor:  #9fb0bc;
+    --mm-grupo-concluidas-cor: #6ddaa2;
     --mm-linha-info:         var(--bs-secondary-color);
     --mm-criada-texto:       var(--bs-secondary-color);
     --mm-vazio-borda:        var(--bs-border-color);
@@ -539,9 +547,14 @@ body.layout-fixed .app-main:has(.mm-page) { overflow: visible; }
     overflow: hidden;
     min-width: 0;
 }
-/* A cor do grupo (ponto do cabeçalho e faixa das linhas): Atrasadas e Vencem em 7 dias com a do dc. */
-.mm-grupo-atrasadas { --mm-grupo-cor: var(--mm-grupo-atrasadas-cor); }
-.mm-grupo-proximas  { --mm-grupo-cor: var(--mm-grupo-proximas-cor); }
+/* A cor do grupo (ponto do cabeçalho e faixa das linhas), a do dc para os seis grupos (desenho 04, P:154).
+   Vale também no separador do modo lista, que leva a mesma classe. */
+.mm-grupo-atrasadas  { --mm-grupo-cor: var(--mm-grupo-atrasadas-cor); }
+.mm-grupo-proximas   { --mm-grupo-cor: var(--mm-grupo-proximas-cor); }
+.mm-grupo-em_revisao { --mm-grupo-cor: var(--mm-grupo-em-revisao-cor); }
+.mm-grupo-depois     { --mm-grupo-cor: var(--mm-grupo-depois-cor); }
+.mm-grupo-sem_prazo  { --mm-grupo-cor: var(--mm-grupo-sem-prazo-cor); }
+.mm-grupo-concluidas { --mm-grupo-cor: var(--mm-grupo-concluidas-cor); }
 /* Cabeçalho do grupo (dc L85): 15/20, fundo #f5f8fa, só a borda de baixo, 12px negrito 1.4px. */
 .mm-grupo-cabeca {
     display: flex;
@@ -590,39 +603,32 @@ body.layout-fixed .app-main:has(.mm-page) { overflow: visible; }
 .mm-grupo-nota { font-size: .75rem; color: var(--mm-muted); }
 .mm-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-button.mm-grupo-cabeca { border: 0; border-bottom: 1px solid var(--mm-grupo-cabeca-borda); cursor: pointer; }
-/* Recolhido, o cabeçalho é a última coisa do cartão: a borda do próprio cartão já fecha. */
-button.mm-grupo-cabeca[aria-expanded="false"] { border-bottom-color: transparent; }
-button.mm-grupo-cabeca:hover { background: var(--mm-hover); }
-.mm-grupo-seta { margin-left: auto; color: var(--mm-faint); transition: transform .2s; }
-button.mm-grupo-cabeca[aria-expanded="true"] .mm-grupo-seta { transform: rotate(90deg); }
-
 /* ── Linha de meta (cartões) ──────────────────────────────────────────────── */
 .mm-meta {
     display: flex;
     gap: .8125rem;
     align-items: flex-start;
-    padding: .875rem .75rem .875rem 1.25rem;
+    padding: .875rem .75rem .875rem 20px;   /* 20px do dc L88: a faixa é sombra interna, não ocupa espaço */
     border-bottom: 1px solid var(--mm-div-row);
-    border-left: 4px solid transparent;   /* faixa do grupo: 4px, como o `inset 4px` do dc */
-    transition: background .2s;
+    /* Faixa do grupo (dc L88): `box-shadow: inset 4px 0 0 <cor>`, posta pelos tons abaixo. */
+    transition: background .15s, box-shadow .15s;
     cursor: pointer;   /* a linha inteira abre a meta (dc L88; delegação em minhas.html.twig) */
 }
 .mm-meta:last-child { border-bottom: none; }
-.mm-meta.tom-danger { border-left-color: var(--mm-grupo-cor, var(--mm-danger-dot)); background: var(--mm-linha-atrasada-bg); }
-.mm-meta.tom-warn   { border-left-color: var(--mm-grupo-cor, var(--mm-warn-dot)); }
-.mm-meta.tom-accent { border-left-color: var(--mm-accent); }
-.mm-meta.tom-cinza  { border-left-color: var(--mm-cinza-dot); }
-.mm-meta.tom-ok     { border-left-color: var(--mm-ok-dot); background: var(--mm-soft); }
+.mm-meta.tom-danger { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-danger-dot)); background: var(--mm-linha-atrasada-bg); }
+.mm-meta.tom-warn   { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-warn-dot)); }
+.mm-meta.tom-accent { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-accent)); }
+.mm-meta.tom-cinza  { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-cinza-dot)); }
+/* Fundo branco em todas as linhas; só a atrasada tem fundo próprio (desenho 04, P:162 `FUNDO`). */
+.mm-meta.tom-ok     { box-shadow: inset 4px 0 0 var(--mm-grupo-cor, var(--mm-ok-dot)); }
 /* Hover do desenho (dc 04 Minhas Metas L17-18): linha azul cheia, faixa escura à esquerda, sombra
    que sobe por cima da vizinha, e todo o conteúdo em branco sem fundo nem borda própria. Vem DEPOIS
-   dos tons para vencer o fundo de `.tom-ok` e a cor de faixa de cada grupo. */
+   dos tons para vencer o fundo da atrasada e a cor de faixa de cada grupo. */
 .mm-meta:hover {
     position: relative;
     z-index: 1;
     background: var(--mm-linha-hover-bg);
-    border-left-color: var(--mm-linha-hover-barra);
-    box-shadow: 0 4px 12px rgba(10,111,160,.16);
+    box-shadow: inset 4px 0 0 var(--mm-linha-hover-barra), 0 4px 12px rgba(10,111,160,.16);
 }
 .mm-meta:hover .mm-meta-corpo *,
 .mm-meta:hover .mm-meta-lado *,
@@ -742,22 +748,6 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
 .mm-pilula.tom-accent { color: var(--mm-accent);      background: var(--mm-accent-bg); border-color: var(--mm-accent-border); }
 .mm-pilula.tom-cinza  { color: var(--mm-sem-text);    background: var(--mm-sem-bg); }
 
-.mm-prioridade {
-    display: inline-flex;
-    align-items: center;
-    gap: .25rem;
-    font-size: .656rem;
-    font-weight: 600;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    padding: .125rem .5rem;
-    border-radius: 3px;
-    border: 1px solid transparent;
-    flex-shrink: 0;
-}
-.mm-prioridade.tom-danger { color: var(--mm-danger-text); background: var(--mm-danger-bg); border-color: var(--mm-danger-border); }
-.mm-prioridade.tom-warn   { color: var(--mm-warn-text);   background: var(--mm-warn-bg);   border-color: var(--mm-warn-border); }
-
 /* ── Marcador de acompanhamento ───────────────────────────────────────────── */
 .mm-marcador {
     width: 30px; height: 30px;
@@ -824,7 +814,6 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
 .mm-fatia { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--mm-text-2); }
 .mm-fatia .mm-dot { width: 7px; height: 7px; background: var(--mm-cinza-dot); }
 .mm-fatia.tom-ok .mm-dot     { background: var(--mm-faixa-andamento); }
-.mm-fatia.tom-warn .mm-dot   { background: var(--mm-warn-dot); }
 .mm-fatia.tom-danger .mm-dot { background: var(--mm-faixa-atencao); }
 .mm-fatia.tom-accent .mm-dot { background: var(--mm-aba-ativa-texto); }
 

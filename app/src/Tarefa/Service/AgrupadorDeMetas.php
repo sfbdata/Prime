@@ -11,10 +11,11 @@ use App\Tarefa\Enum\AbaMetas;
 /**
  * Quebra a lista plana de metas nos blocos que a tela mostra.
  *
- * Todas as abas agrupam por urgência do prazo, com os mesmos grupos, na mesma ordem (desenho 04,
- * dc L151-154: a aba Criei só muda QUAIS metas entram, não como se agrupam). A aba Criei agrupava
- * por etapa da revisão até o acerto do desenho 04; o que voltou para revisão de quem criou continua
- * no grupo "Enviadas para revisão".
+ * Todas as abas agrupam por urgência do prazo, com os mesmos grupos, na mesma ordem, sem nota e todos
+ * abertos (desenho 04, dc P:148, P:154 e P:163; LIS-07/08/10, decisão do dono de 21/10): Atrasadas,
+ * Vencem em 7 dias, Aguardando revisão, No prazo, Sem prazo, Concluídas. A aba só muda QUAIS metas
+ * entram. As chaves (`depois`, `em_revisao`...) ficaram as de antes porque CSS, JS e seletores as usam;
+ * o rótulo é chave do catálogo (`metas.grupos.*`), traduzida no Twig.
  *
  * Invariante: cada meta cai em EXATAMENTE um grupo. `em_revisao` e `concluida` vencem a
  * urgência do prazo — uma meta entregue e atrasada apareceria nos dois blocos se a ordem de
@@ -24,7 +25,20 @@ final class AgrupadorDeMetas
 {
     private const JANELA_PROXIMOS_DIAS = 7;
 
+    /** Chave do grupo => tom da linha, na ordem de leitura da tela (dc `G`, P:154). */
+    private const GRUPOS = [
+        'atrasadas'  => 'danger',
+        'proximas'   => 'warn',
+        'em_revisao' => 'accent',
+        'depois'     => 'cinza',
+        'sem_prazo'  => 'cinza',
+        'concluidas' => 'ok',
+    ];
+
     /**
+     * A aba não muda os grupos (nome, ordem, cor) desde o desenho 04; fica na assinatura porque é
+     * o contrato do UseCase.
+     *
      * @param Tarefa[] $metas
      * @return GrupoDeMetasOutput[]  só os grupos não vazios, na ordem de leitura da tela
      */
@@ -32,50 +46,21 @@ final class AgrupadorDeMetas
     {
         $hoje = ($hoje ?? new \DateTimeImmutable())->setTime(0, 0);
 
-        // A aba não muda os grupos (nome, ordem, cor); muda só a nota de "Enviadas para revisão".
-        $grupos = $this->porUrgencia($metas, $hoje, $aba);
-
-        return array_values(array_filter($grupos, static fn (GrupoDeMetasOutput $g): bool => !$g->estaVazio()));
-    }
-
-    /**
-     * @param Tarefa[] $metas
-     * @return GrupoDeMetasOutput[]
-     */
-    private function porUrgencia(array $metas, \DateTimeImmutable $hoje, AbaMetas $aba): array
-    {
-        $baldes = ['atrasadas' => [], 'proximas' => [], 'depois' => [], 'sem_prazo' => [], 'em_revisao' => [], 'concluidas' => []];
-
+        $baldes = array_fill_keys(array_keys(self::GRUPOS), []);
         foreach ($metas as $meta) {
             $baldes[self::classificar($meta, $hoje)][] = $meta;
         }
 
-        foreach (['atrasadas', 'proximas', 'depois'] as $chave) {
-            $baldes[$chave] = $this->ordenarPorPrazo($baldes[$chave]);
+        $grupos = [];
+        foreach (self::GRUPOS as $chave => $tom) {
+            if ($baldes[$chave] === []) {
+                continue;
+            }
+            $doGrupo  = in_array($chave, ['atrasadas', 'proximas', 'depois'], true) ? $this->ordenarPorPrazo($baldes[$chave]) : $baldes[$chave];
+            $grupos[] = new GrupoDeMetasOutput($chave, 'metas.grupos.' . $chave, $tom, $doGrupo);
         }
 
-        return [
-            new GrupoDeMetasOutput('atrasadas', 'Atrasadas', 'danger', $baldes['atrasadas']),
-            new GrupoDeMetasOutput('proximas', 'Vencem em 7 dias', 'warn', $baldes['proximas']),
-            new GrupoDeMetasOutput('depois', 'Depois', 'cinza', $baldes['depois']),
-            new GrupoDeMetasOutput('sem_prazo', 'Sem prazo', 'cinza', $baldes['sem_prazo']),
-            new GrupoDeMetasOutput(
-                'em_revisao',
-                'Enviadas para revisão',
-                'accent',
-                $baldes['em_revisao'],
-                // Na aba Criei quem lê é quem criou: a meta voltou para ele revisar.
-                nota: $aba === AbaMetas::CRIEI ? 'o responsável terminou e enviou para você revisar' : 'aguardando quem criou a meta',
-            ),
-            new GrupoDeMetasOutput(
-                'concluidas',
-                'Concluídas',
-                'ok',
-                $baldes['concluidas'],
-                recolhido: true,
-                nota: 'nos últimos 30 dias',
-            ),
-        ];
+        return $grupos;
     }
 
     /**
