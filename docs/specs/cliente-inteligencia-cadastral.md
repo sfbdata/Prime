@@ -6,7 +6,7 @@
   depois do #112. Risco **MÉDIO** (dado pessoal e identidade do cliente).
 - Fatia em andamento: **F-A** (só regras internas, sem fonte externa e sem IA).
 - F-B, F-C e F-D **esperam o dono** (D1 a D4 abaixo).
-- **PR em rascunho** (base `cliente-historico`, #112), migration `Version20261021150000`. Suíte completa OK (10509).
+- **PR em rascunho** (base `cliente-historico`, #112), migration `Version20261020139500`. Suíte completa OK (10509).
 - **Revisão cruzada da f6 (20/10)**: aprovado com ressalvas, nada ALTO. Corrigido: título e ícone neutros
   ("Conferência do cadastro", `bi-clipboard-check`; o nome fica com o dono, item 8 do pacote); a pendência do
   cadastro não conta o vínculo de pasta que quem olha não vê (§2.3); o POST de "Vincular" repete as regras da
@@ -116,7 +116,7 @@ tempo da identidade (F-B, D1 e D3); "Atualizar sozinho" (F-C, D2); confirmação
   (CSRF no header; edição do cliente e leitura da pasta; 404 se o documento não é de uma pasta viva do
   cliente). Resposta `{ok, vinculado, mensagem}`: `vinculado: false` quando o vínculo já existia, inclusive
   em dois pedidos simultâneos (o índice único recusa o segundo; 200, não 500).
-- Migration `Version20261021150000`: coluna `pasta_documento_id` em `cliente_documento`, FK com
+- Migration `Version20261020139500`: coluna `pasta_documento_id` em `cliente_documento`, FK com
   **`ON DELETE CASCADE`** (decidido: a purga do documento da pasta derruba o vínculo, que não tem arquivo
   próprio; na lixeira o vínculo fica e só some da tela) e índice único `(cliente_id, pasta_documento_id)`.
 
