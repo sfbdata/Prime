@@ -310,8 +310,8 @@ escritório no Google. **Muda o desenho:** o painel do Google diz hoje "feriados
   seguinte.
 - **Dados:** tabela própria `agenda_google_data` (tenant, conexão, `chave` da data, `google_id`, `hash`), no molde
   da `agenda_google_prazo`; única (conexão, chave) e (conexão, google_id); apaga com a conexão; esquecida em agenda
-  nova ou troca de conta. Id no Google `bjt<escritório>d<sha1 da chave>` (base32hex). Migration: número a pedir
-  ao coordenador.
+  nova ou troca de conta. Id no Google `bjt<escritório>d<sha1 da chave>` (base32hex). Migration:
+  `Version20261020149200` (dada pelo coordenador). Código só depois das respostas do dono.
 - **Texto do painel [dono]:** troca "feriados do sistema não são enviados" por "feriados e recessos vão como dia
   inteiro, sem ocupar a sua agenda".
 
