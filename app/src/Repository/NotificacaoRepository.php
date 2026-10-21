@@ -25,6 +25,19 @@ class NotificacaoRepository extends ServiceEntityRepository
      * null = todas as categorias.
      */
     /**
+     * Sininho em silêncio (preferência "Notificações no sistema" do Meu Perfil): só os tipos da lista contam e aparecem
+     * no sino. Nulo = todos.
+     *
+     * @param list<string>|null $soTipos
+     */
+    private function soDosTipos(QueryBuilder $qb, ?array $soTipos): void
+    {
+        if ($soTipos !== null) {
+            $qb->andWhere('n.tipo IN (:soTipos)')->setParameter('soTipos', $soTipos);
+        }
+    }
+
+    /**
      * Cadeado (spec pasta-cadeado): aviso ligado a pasta oculta para a pessoa (pela meta ou pela URL
      * `/pasta/{id}`) não sai nem conta, mesmo gravado antes do cadeado. A resposta ao pedido de acesso
      * (`pasta_acesso_decidido`) sempre sai: é para quem está do lado de fora.
@@ -71,7 +84,7 @@ class NotificacaoRepository extends ServiceEntityRepository
      *
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function findNaoLidasByUsuario(User $usuario, ?string $categoria = null, int $limit = 10, array $pastasOcultas = []): array
+    public function findNaoLidasByUsuario(User $usuario, ?string $categoria = null, int $limit = 10, array $pastasOcultas = [], ?array $soTipos = null): array
     {
         $qb = $this->createQueryBuilder('n')
             ->where('n.usuario = :usuario')
@@ -81,6 +94,7 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->setMaxResults($limit);
         $this->aplicarCategoria($qb, $categoria);
         $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
+        $this->soDosTipos($qb, $soTipos);
 
         return $qb->getQuery()->getResult();
     }
@@ -90,7 +104,7 @@ class NotificacaoRepository extends ServiceEntityRepository
      *
      * @param list<int> $pastasOcultas ids das pastas ocultas pelo cadeado para o usuário
      */
-    public function countNaoLidasByUsuario(User $usuario, ?string $categoria = null, array $pastasOcultas = []): int
+    public function countNaoLidasByUsuario(User $usuario, ?string $categoria = null, array $pastasOcultas = [], ?array $soTipos = null): int
     {
         $qb = $this->createQueryBuilder('n')
             ->select('COUNT(n.id)')
@@ -99,6 +113,7 @@ class NotificacaoRepository extends ServiceEntityRepository
             ->setParameter('usuario', $usuario);
         $this->aplicarCategoria($qb, $categoria);
         $this->semAvisosDasPastasOcultas($qb, $pastasOcultas);
+        $this->soDosTipos($qb, $soTipos);
 
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
