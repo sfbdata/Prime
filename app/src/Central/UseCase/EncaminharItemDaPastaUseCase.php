@@ -76,25 +76,30 @@ final class EncaminharItemDaPastaUseCase
     {
         $tenant = $this->acesso->exigirVinculoAtivo($eu, $tenant);
         $pasta = $this->guarda->pastaQueEuVejo($input->pastaId, $eu, $tenant);
-        if (!$this->guarda->podeVer($eu, $pasta, $input->tipo)) {
+        $acesso = $this->itens->tipoDoAcesso($tenant, $pasta, $input->tipo, $input->itemId);
+        if (!$this->guarda->podeVer($eu, $pasta, $acesso)) {
             throw new ItemEncaminhadoNaoEncontradoException();
         }
         $item = $this->itens->resumir($tenant, $pasta, $input->tipo, $input->itemId);
 
         /** @var EncaminhamentoOutput $saida */
-        $saida = $this->entityManager->wrapInTransaction(fn (): EncaminhamentoOutput => $this->despachar($eu, $tenant, $pasta, $item, $input));
+        $saida = $this->entityManager->wrapInTransaction(fn (): EncaminhamentoOutput => $this->despachar($eu, $tenant, $pasta, $item, $input, $acesso));
 
         return $saida;
     }
 
-    /** Dentro da transação: o destino (abrindo a 1:1 se preciso), a mensagem, os avisos, a auditoria e o flush. */
-    private function despachar(User $eu, Tenant $tenant, Pasta $pasta, ItemEncaminhado $item, EncaminharItemInput $input): EncaminhamentoOutput
+    /**
+     * Dentro da transação: o destino (abrindo a 1:1 se preciso), a mensagem, os avisos, a auditoria e o flush. Quem recebe
+     * e a referência gravada seguem o `$acesso` (o cartão financeiro do Registro vale como Financeiro); a auditoria guarda
+     * o tipo pedido, que é o dono do item_id.
+     */
+    private function despachar(User $eu, Tenant $tenant, Pasta $pasta, ItemEncaminhado $item, EncaminharItemInput $input, TipoDeItemEncaminhado $acesso): EncaminhamentoOutput
     {
         ['conversaId' => $conversaId, 'nome' => $nome, 'pessoas' => $pessoas] = $input->usuarioId !== null
-            ? $this->conversaComOColega($eu, $tenant, $pasta, $input->tipo, $input->usuarioId)
-            : $this->conversaQueTodosVeem($eu, $tenant, $pasta, $input->tipo, (int) $input->conversaId);
+            ? $this->conversaComOColega($eu, $tenant, $pasta, $acesso, $input->usuarioId)
+            : $this->conversaQueTodosVeem($eu, $tenant, $pasta, $acesso, (int) $input->conversaId);
 
-        $this->enviarMensagem->executar($eu, $tenant, $conversaId, self::texto($item, $pasta, $input), null, new ReferenciaDeDespacho($pasta, $input->tipo));
+        $this->enviarMensagem->executar($eu, $tenant, $conversaId, self::texto($item, $pasta, $input), null, new ReferenciaDeDespacho($pasta, $acesso));
         $this->avisarSeUrgente($input->prioridade, $conversaId, $eu, $tenant, $pessoas);
         $itemId = $input->tipo === TipoDeItemEncaminhado::Pasta ? null : $input->itemId;
         $this->auditoria->registrar($eu, $tenant, $pasta, $input->tipo, $itemId, $conversaId, $input->prioridade);
