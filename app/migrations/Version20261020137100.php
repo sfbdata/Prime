@@ -13,7 +13,7 @@ use Doctrine\Migrations\AbstractMigration;
  * A edição do advogado mora em colunas próprias, ao lado da saída do modelo (`resumo`, `pontos`,
  * `texto_bruto` continuam intactos). Só acrescenta colunas anuláveis: nenhuma linha existente muda.
  */
-final class Version20261020130000 extends AbstractMigration
+final class Version20261020137100 extends AbstractMigration
 {
     public function getDescription(): string
     {
