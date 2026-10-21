@@ -16,6 +16,10 @@ use Doctrine\ORM\Mapping as ORM;
  * unicidade do principal é mantido pela própria Pasta (ver Pasta::vincularProcesso,
  * desvincularProcesso e definirProcessoPrincipal). Não é TenantAware: o isolamento de
  * tenant vem da Pasta dona do vínculo.
+ *
+ * Apensado (P4f): todo vínculo que não é o principal. `tipoApenso` guarda o tipo escolhido ao vincular
+ * pelo "Vincular apensado"; vínculo antigo (ou vindo do "Vincular processo") fica sem tipo e é lido
+ * como "Outro". Não há processo pai: o vínculo é pela pasta, como no desenho.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'pasta_processo')]
@@ -37,6 +41,9 @@ class PastaProcesso
 
     #[ORM\Column(options: ['default' => false])]
     private bool $principal = false;
+
+    #[ORM\Column(name: 'tipo_apenso', length: 40, nullable: true, enumType: TipoDeApenso::class)]
+    private ?TipoDeApenso $tipoApenso = null;
 
     #[ORM\Column(name: 'vinculado_em', type: 'datetime_immutable')]
     private \DateTimeImmutable $vinculadoEm;
@@ -78,6 +85,24 @@ class PastaProcesso
         $this->principal = $principal;
 
         return $this;
+    }
+
+    public function getTipoApenso(): ?TipoDeApenso
+    {
+        return $this->tipoApenso;
+    }
+
+    public function setTipoApenso(?TipoDeApenso $tipoApenso): self
+    {
+        $this->tipoApenso = $tipoApenso;
+
+        return $this;
+    }
+
+    /** Rótulo do tipo do apensado; sem tipo gravado (vínculo antigo) é "Outro" (spec P4f §1). */
+    public function getTipoApensoRotulo(): string
+    {
+        return ($this->tipoApenso ?? TipoDeApenso::Outro)->rotulo();
     }
 
     public function getVinculadoEm(): \DateTimeImmutable

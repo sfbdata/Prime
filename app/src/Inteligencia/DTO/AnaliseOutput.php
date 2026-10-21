@@ -52,6 +52,9 @@ final readonly class AnaliseOutput
         public bool $editada = false,
         public ?\DateTimeImmutable $editadaEm = null,
         public ?string $editadaPorNome = null,
+        /** Comando ou relatório do drawer que gerou a análise; nulo no Push e nas análises antigas. */
+        public ?string $comando = null,
+        public ?string $comandoRotulo = null,
     ) {
     }
 
@@ -98,6 +101,8 @@ final readonly class AnaliseOutput
             editada: $analise->foiEditada(),
             editadaEm: $analise->getEditadaEm(),
             editadaPorNome: $analise->getEditadaPor()?->getFullName(),
+            comando: $analise->getComando()?->value,
+            comandoRotulo: $analise->getComando()?->rotulo(),
         );
     }
 
@@ -113,6 +118,7 @@ final readonly class AnaliseOutput
             'totalMovimentacoes' => $this->totalMovimentacoes,
             'aviso' => $this->aviso,
             'agente' => $this->agente,
+            'comando' => $this->comando,
         ];
     }
 }

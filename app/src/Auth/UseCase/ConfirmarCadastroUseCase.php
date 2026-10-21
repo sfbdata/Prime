@@ -7,6 +7,7 @@ namespace App\Auth\UseCase;
 use App\Auth\Enum\StatusOab;
 use App\Auth\Event\CadastroConfirmado;
 use App\Auth\Repository\CadastroPendenteRepository;
+use App\Auth\Service\EspelhoDaOabPrincipal;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Repository\UserRepository;
@@ -30,8 +31,16 @@ final class ConfirmarCadastroUseCase
         private readonly UserRepository $userRepository,
         private readonly TenantBootstrapService $bootstrap,
         private readonly RegistrarAceiteTermoUseCase $registrarAceite,
+        private readonly EspelhoDaOabPrincipal $espelhoOab,
         private readonly EventDispatcherInterface $eventos,
     ) {}
+
+    /** A inscrição principal nasce junto (a fila de revisão do Master é por inscrição); o flush é o do caso de uso. */
+    private function persistirComAPrincipal(User $user): void
+    {
+        $this->em->persist($user);
+        $this->espelhoOab->garantirPrincipal($user);
+    }
 
     public function executar(string $token): User
     {
@@ -76,7 +85,7 @@ final class ConfirmarCadastroUseCase
                     $user->setOabVerificadaEm(new \DateTimeImmutable());
                 }
 
-                $this->em->persist($user);
+                $this->persistirComAPrincipal($user);
 
                 $tenant = new Tenant();
                 $tenant->setName($cadastro->getNomeEscritorio());

@@ -11,7 +11,7 @@ use App\Kanban\Entity\KanbanBoard;
 use App\Kanban\Entity\KanbanColuna;
 use App\Kanban\Repository\KanbanBoardRepository;
 use App\Kanban\Repository\KanbanColunaRepository;
-use App\Repository\UserRepository;
+use App\Tenant\Service\ColaboradoresAtribuiveis;
 use Doctrine\ORM\EntityManagerInterface;
 
 final class CriarBoardUseCase
@@ -19,7 +19,7 @@ final class CriarBoardUseCase
     public function __construct(
         private readonly KanbanBoardRepository $boardRepository,
         private readonly KanbanColunaRepository $colunaRepository,
-        private readonly UserRepository $userRepository,
+        private readonly ColaboradoresAtribuiveis $atribuiveis,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -30,9 +30,8 @@ final class CriarBoardUseCase
         $board->setDescricao($input->descricao);
         $board->setCor($input->cor);
 
-        foreach ($input->participantesIds as $userId) {
-            $user = $this->userRepository->findPorIdETenant($userId, $tenant);
-            if ($user !== null && $user !== $criador) {
+        foreach ($this->atribuiveis->resolverVarios($input->participantesIds, $tenant) as $user) {
+            if ($user !== $criador) {
                 $board->adicionarParticipante($user);
             }
         }

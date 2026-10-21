@@ -36,6 +36,8 @@ use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
 use App\TrabalhoExterno\Entity\HistoricoVaga;
+use App\TrabalhoExterno\Entity\InteressadoEmVagas;
+use App\TrabalhoExterno\Entity\LinkDeVagas;
 use App\TrabalhoExterno\Entity\HistoricoDemanda;
 use App\TrabalhoExterno\Entity\LeituraDemanda;
 use App\TrabalhoExterno\Entity\MarcacaoDeMensagem;
@@ -148,6 +150,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         Vaga::class,          // vaga publicada pela Central para todos os escritórios; VagaRepository só consulta escopado e LocalizadorDeVaga confere a PoliticaDaVaga (VagasDoTrabalhoExternoTest::testFluxoDeDivulgacao)
         HistoricoVaga::class, // só é lido pela vaga já localizada no escopo, e só pelo interno (ApresentadorDeVaga::detalhe, desenho l.1190)
         PreferenciaDoUsuario::class, // do usuário (última visita às vagas, ofertante padrão); toda leitura recebe o usuário logado (VagasDoTrabalhoExternoTest::testNovaEVista)
+        LinkDeVagas::class,   // link público, sem escritório por natureza; só se acha pelo hash do token e a página só mostra vagas abertas sem dado de escritório (VagasPublicasTest)
+        InteressadoEmVagas::class, // visitante da página pública, sem conta nem escritório; só a inscrição grava e nenhuma rota lê (VagasPublicasTest::testInscricaoNosAlertas)
 
         // Comercial e e-mails (docs/specs/comercial-e-emails.md §3): dado do Master, de escopo plataforma, que cruza
         // escritórios (envios, consentimentos, automações, ciclo da conta, varredura). O escritório, quando há, é uma
@@ -213,7 +217,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // Google Agenda (19/10/2026), justificada acima.
     // 46 → 47 com as inscrições na OAB do Meu Perfil (19/10/2026): InscricaoOab é da pessoa, não do escritório.
     // 47 → 50 com as vagas e as preferências do usuário do Trabalho Externo (19/10/2026): Vaga, HistoricoVaga e PreferenciaDoUsuario, justificadas acima.
-    private const MAX_FORA_DO_ESCOPO = 50;
+    // 50 → 52 com a página pública de vagas do Trabalho Externo (19/10/2026): LinkDeVagas e InteressadoEmVagas, justificados acima.
+    private const MAX_FORA_DO_ESCOPO = 52;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

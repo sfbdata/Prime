@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Auth\DTO;
 
+use App\Auth\Entity\InscricaoOab;
 use App\Auth\Enum\StatusOab;
-use App\Entity\Auth\User;
+use App\Auth\Enum\TipoInscricaoOab;
 
 /**
- * Linha da tela de revisão de OAB do super-admin. `User` global (sem tenant).
+ * Linha da tela de revisão de OAB do super-admin: UMA inscrição (principal ou suplementar), com o nome e o
+ * e-mail do usuário dono dela. `id` é o id da inscrição (as ações agem por ele). Global, sem tenant.
  */
 final class OabReviewOutput
 {
@@ -16,25 +18,29 @@ final class OabReviewOutput
         public readonly int $id,
         public readonly string $nome,
         public readonly string $email,
-        public readonly ?string $oabNumero,
-        public readonly ?string $oabUf,
-        public readonly ?StatusOab $oabStatus,
+        public readonly string $oabNumero,
+        public readonly string $oabUf,
+        public readonly StatusOab $oabStatus,
         public readonly ?string $oabNomeOficial,
         public readonly ?\DateTimeImmutable $oabVerificadaEm,
+        public readonly TipoInscricaoOab $tipo,
     ) {
     }
 
-    public static function fromUser(User $user): self
+    public static function fromInscricao(InscricaoOab $inscricao): self
     {
+        $usuario = $inscricao->getUsuario();
+
         return new self(
-            id: (int) $user->getId(),
-            nome: (string) $user->getFullName(),
-            email: (string) $user->getEmail(),
-            oabNumero: $user->getOabNumero(),
-            oabUf: $user->getOabUf(),
-            oabStatus: $user->getOabStatus(),
-            oabNomeOficial: $user->getOabNomeOficial(),
-            oabVerificadaEm: $user->getOabVerificadaEm(),
+            id: (int) $inscricao->getId(),
+            nome: (string) $usuario->getFullName(),
+            email: (string) $usuario->getEmail(),
+            oabNumero: $inscricao->getNumero(),
+            oabUf: $inscricao->getUf(),
+            oabStatus: $inscricao->getStatus(),
+            oabNomeOficial: $inscricao->getNomeOficial(),
+            oabVerificadaEm: $inscricao->getVerificadaEm(),
+            tipo: $inscricao->getTipo(),
         );
     }
 }

@@ -7,6 +7,7 @@ namespace App\Inteligencia\Entity;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
@@ -167,6 +168,12 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
         /** Qual agente da pasta gerou a análise (`analise_pasta`); nulo no Push e nos demais tipos. */
         #[ORM\Column(length: 20, nullable: true, enumType: Agente::class)]
         private ?Agente $agente = null,
+        /**
+         * Qual comando ou relatório do drawer gerou a análise; nulo no Push e nas análises de agente
+         * anteriores aos comandos (a tela as mostra em `Comando::doAgenteLegado`).
+         */
+        #[ORM\Column(length: 30, nullable: true, enumType: Comando::class)]
+        private ?Comando $comando = null,
     ) {
         $this->criadaEm = new \DateTimeImmutable();
     }
@@ -394,6 +401,11 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
     public function getAgente(): ?Agente
     {
         return $this->agente;
+    }
+
+    public function getComando(): ?Comando
+    {
+        return $this->comando;
     }
 
     public function getTextoDaAnalise(): ?string

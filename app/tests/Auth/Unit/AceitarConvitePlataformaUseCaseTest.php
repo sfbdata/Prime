@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Auth\Unit;
 
 use App\Auth\DTO\AceitarConvitePlataformaInput;
+use App\Auth\Repository\InscricaoOabRepository;
+use App\Auth\Service\EspelhoDaOabPrincipal;
 use App\Auth\Service\ValidadorOab;
 use App\Auth\UseCase\AceitarConvitePlataformaUseCase;
 use App\Entity\Auth\Invitation;
@@ -53,6 +55,7 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
             $this->hasher,
             $registrarAceite,
             new ValidadorOab((new OabWebServiceClientFake())->indisponivel()),
+            new EspelhoDaOabPrincipal($this->createStub(InscricaoOabRepository::class)),
             $this->eventos = new EventDispatcher(),
         );
     }

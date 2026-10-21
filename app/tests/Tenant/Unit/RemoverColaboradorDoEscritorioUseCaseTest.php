@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Tenant\Unit;
 
+use App\Tenant\Repository\SaidaDaEquipeRepository;
 use App\Tenant\Service\RegraDosPrimarios;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
@@ -34,7 +35,7 @@ final class RemoverColaboradorDoEscritorioUseCaseTest extends TestCase
         $this->conn                 = $this->createMock(Connection::class);
         $this->userTenantRepository = $this->createMock(UserTenantRepository::class);
         $this->em->method('getConnection')->willReturn($this->conn);
-        $this->useCase = new RemoverColaboradorDoEscritorioUseCase($this->em, $this->userTenantRepository, new RegraDosPrimarios($this->userTenantRepository));
+        $this->useCase = new RemoverColaboradorDoEscritorioUseCase($this->em, $this->userTenantRepository, new RegraDosPrimarios($this->userTenantRepository), $this->createStub(SaidaDaEquipeRepository::class));
     }
 
     private function criarUsuario(string $nome = 'Teste'): User

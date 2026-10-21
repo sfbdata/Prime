@@ -8,6 +8,7 @@ use App\Cliente\Entity\Cliente;
 use App\Cliente\Exception\ClienteNaoEncontradoException;
 use App\Cliente\Exception\SemPermissaoParaEditarClienteException;
 use App\Cliente\Service\CamposDoCadastro;
+use App\Cliente\Service\HistoricoDoCliente;
 use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
@@ -22,7 +23,8 @@ use Doctrine\ORM\EntityManagerInterface;
  * História: a advogada abre a pasta de Gleisson, vê o ponto laranja no Cadastro e completa estado civil, número e
  * bairro. Ao salvar, o cadastro mestre do cliente muda (vale para todas as pastas dele), o cabeçalho passa a mostrar o
  * nome salvo e o Registro desta pasta ganha "Cadastro do cliente: GLEISSON BRUNO GABRIEL: estado civil, número,
- * bairro alterado(s).". Pendência não impede salvar ("Cadastro salvo. Ainda há pendências."); impedem: nome vazio,
+ * bairro alterado(s).", e o Histórico do cadastro ganha "Ana Souza alterou estado civil, número, bairro" (só os
+ * rótulos, nunca os valores). Pendência não impede salvar ("Cadastro salvo. Ainda há pendências."); impedem: nome vazio,
  * CPF/CNPJ inválido e CPF/CNPJ que já é de outro cadastro do escritório (a tela oferece abrir ou usar esse cadastro).
  *
  * Só mexe no campo que veio no envio: campo ausente fica como está. Precisa poder EDITAR o cliente.
@@ -36,6 +38,7 @@ final class SalvarCadastroDoClienteUseCase
         private readonly CamposDoCadastro $campos,
         private readonly RegistroDoSistemaNaPasta $registro,
         private readonly EntityManagerInterface $em,
+        private readonly HistoricoDoCliente $historico,
     ) {
     }
 
@@ -59,6 +62,7 @@ final class SalvarCadastroDoClienteUseCase
         }
 
         $cliente->setModificadoEm(new \DateTimeImmutable());
+        $this->historico->camposAlterados($cliente, $usuario, $tenant, $alterados);
         if ($pasta !== null && $pasta->getTenant()?->getId() === $tenant->getId() && $pasta->getClientes()->contains($cliente)) {
             $this->registro->registrar($pasta, $usuario, 'cadastro', $cliente->getNomeExibicao() . ': ' . implode(', ', $alterados) . ' alterado(s).');
         }

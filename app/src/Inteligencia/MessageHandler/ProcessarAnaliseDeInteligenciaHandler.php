@@ -292,6 +292,7 @@ final class ProcessarAnaliseDeInteligenciaHandler
             'tenant' => $analise->getTenant()?->getId(),
             'tipo' => $analise->getTipo()->value,
             'agente' => $analise->getAgente()?->value,
+            'comando' => $analise->getComando()?->value,
             'provedor' => $this->provedor->nome(),
             'tentativas' => $analise->getTentativas(),
         ];

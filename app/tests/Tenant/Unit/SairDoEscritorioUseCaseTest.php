@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Tenant\Unit;
 
+use App\Tenant\Repository\SaidaDaEquipeRepository;
 use App\Tenant\Service\RegraDosPrimarios;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -41,7 +42,7 @@ final class SairDoEscritorioUseCaseTest extends TestCase
         $this->userTenantRepository = $this->createMock(UserTenantRepository::class);
         $this->em->method('getConnection')->willReturn($this->conn);
 
-        $remover        = new RemoverColaboradorDoEscritorioUseCase($this->em, $this->userTenantRepository, new RegraDosPrimarios($this->userTenantRepository));
+        $remover        = new RemoverColaboradorDoEscritorioUseCase($this->em, $this->userTenantRepository, new RegraDosPrimarios($this->userTenantRepository), $this->createStub(SaidaDaEquipeRepository::class));
         $this->useCase  = new SairDoEscritorioUseCase($remover);
     }
 

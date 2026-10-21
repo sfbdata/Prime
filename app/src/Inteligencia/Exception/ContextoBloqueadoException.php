@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Inteligencia\Exception;
 
 /**
- * O contexto NÃO pode sair do escritório: a pasta tem processo com `nivelSigilo > 0` (segredo de
- * justiça). Lançada ANTES de qualquer chamada ao provedor — é a regra D4 da spec.
+ * O contexto NÃO pode sair do escritório: a pasta tem processo em segredo de justiça
+ * (`Processo::emSegredoDeJustica()`: `nivelSigilo > 0` ou "Sim" manual no cartão). Lançada ANTES de qualquer chamada ao provedor — é a regra D4 da spec.
  */
 final class ContextoBloqueadoException extends \DomainException
 {

@@ -6,6 +6,7 @@ namespace App\Auth\UseCase;
 
 use App\Auth\DTO\AceitarConvitePlataformaInput;
 use App\Auth\Enum\StatusOab;
+use App\Auth\Service\EspelhoDaOabPrincipal;
 use App\Auth\Event\ConvitePlataformaAceito;
 use App\Auth\Service\DadosDaContaDoConvite;
 use App\Auth\Service\ValidadorOab;
@@ -28,6 +29,7 @@ final class AceitarConvitePlataformaUseCase
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly RegistrarAceiteTermoUseCase $registrarAceite,
         private readonly ValidadorOab $validadorOab,
+        private readonly EspelhoDaOabPrincipal $espelhoOab,
         private readonly EventDispatcherInterface $eventos,
     ) {}
 
@@ -90,6 +92,8 @@ final class AceitarConvitePlataformaUseCase
         $invitation->aceitar($user);
 
         $this->em->persist($user);
+        // A inscrição principal nasce junto (fila de revisão do Master é por inscrição); o flush é o daqui.
+        $this->espelhoOab->garantirPrincipal($user);
         $this->em->flush();
 
         $this->registrarAceite->executar(new RegistrarAceiteTermoInput(
