@@ -14,13 +14,15 @@
    Migration `Version20261019231700`.
 6. `trabalho-externo-engajamento` (F4, §4.7) → **PR #113 em rascunho**, base `trabalho-externo-candidatura`.
    Migration `Version20261019235800`.
+7. `trabalho-externo-painel-termo` (F3b-1, §4.9) → **PR #117 em rascunho**, base `trabalho-externo-engajamento`.
+   Migration `Version20261019235900`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
 rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e classe), trocar a
 base do PR para `master` e tirar do rascunho.
 
 **Fila de merge** (coordenador, 19/10, depois do master a7433b93): #56 → #60 → #65 → #69 → #64 → #74 →
-#62 → #83 → #84 → #96 → #105 → #113. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
+#62 → #83 → #84 → #96 → #105 → #113 → #117. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
 F2c: as duas são renomeadas na vez. Teto do FORA_DO_ESCOPO: quando o #56 entrar, somar as entradas dele.
 
 **Decisões do dono** (via coordenador, 19/10): tudo do desenho entra, mesmo que abra frente nova; o
@@ -95,7 +97,14 @@ física (pendência abaixo); F3a: minimização (esconder e-mail,
 telefone e arquivos do currículo da Equipe sem `talentos`, recomendação do decisor; hoje segue o
 desenho, toda a Equipe vê); prazo de retenção do Termo de Voluntariado aceito depois que o currículo
 é excluído (o termo fica ligado ao usuário). Decidir se "Salvar edição" e "Novo escritório" do bloco SOLICITANTE da
-Nova solicitação (06 l.640, 641) entram (§4.8).
+Nova solicitação (06 l.640, 641) entram (§4.8). **Termo de Voluntariado (F3b-2) parado por ponto
+jurídico** (coordenador, 19/10): pela Lei 9.608/1998, art. 1º, serviço voluntário é o prestado a
+entidade pública ou instituição privada sem fins lucrativos; escritório de advocacia e a BlueJus LTDA
+têm fins lucrativos, e o termo pode configurar vínculo de emprego. Vai ao dono e ao advogado, junto com:
+quem é o "ESCRITÓRIO" do termo (Central, escritório da vaga ou escolha) e quem vê CPF e RG do
+voluntário. Já decidido para quando andar: aceite forte no servidor (usuário, data e hora ISO, IP,
+navegador, versão e hash do texto congelado) e apagar o termo enviado e não aceito ao excluir o
+currículo. Até lá, o painel mostra "0 termo(s) aceito(s) · 0 aguardando" e o filtro "Termo" só "Sem termo".
 
 **Próximo passo** (coordenador, 19/10): a F3b, empilhada sobre o #113 (painel e
 Termo de Voluntariado, com os avisos do Termo pelo sino); depois os KPIs da página pública. Ao fim da
@@ -706,6 +715,52 @@ apoiador (f6, decisão de produto com o coordenador).
 | 4 | Avisos do Termo de Voluntariado | 1032, 1033 | F3b, pelo sino da F4 |
 | 5 | Currículo atualizado "aparece primeiro" | 839, 1021, 1059 | entra na F4: o banco ordena por `atualizadoEm` (como l.995 e 1006); RECEBIDO e "Novos na semana" seguem por `recebidoEm` |
 | 6 | Contratos de `bj-dica.js` e `bluejus-central.js` | 15, 17 | registrados acima |
+
+## 4.9 F3b-1: painel do Master e KPIs da página pública (desenho 06, 19/10)
+
+Branch `trabalho-externo-painel-termo`, empilhada sobre `trabalho-externo-engajamento` (#113). Risco
+**BAIXO** (leitura agregada, só Master; dois contadores anônimos). O Termo de Voluntariado é a F3b-2,
+depois das decisões de produto (enviadas ao coordenador em 19/10).
+
+### Tela (l.171 a 194, 887, 1120 a 1146; desenho manda)
+- Seletor **Painel/Lista** só do Master, padrão Painel; a Equipe segue com o aviso "Estatísticas
+  disponíveis só para o Master" e só a lista. Clicar num KPI ou numa barra vai para a Lista com o filtro.
+- **8 KPIs** com rótulos, ícones, cores, subtítulos e cliques do inventário, número animado (`_contar`,
+  900 ms, easeOutCubic, só quando o número muda). Bases coerentes (lacuna 2): "ativos" = status
+  diferente de arquivado em todos os KPIs de currículo. COM OAB conta e filtra adv e estOab (lacuna 1).
+  VOLUNTÁRIOS: "{n} termo(s) aceito(s) · {n} aguardando" fica 0/0 até a F3b-2 (último termo por
+  currículo). ALERTAS POR E-MAIL: inscritos de `InteressadoEmVagas`, visitas pelo link e cliques em
+  "criar conta" (abaixo); o clique, sem campanha (5d), segue o desenho: CSV `alertas-vagas-bluejus.csv`
+  (E-mail; UF; Áreas; Inscrito em; Origem) ou o toast "Ainda sem inscritos" / "Compartilhe vagas para
+  começar a captar e-mails.". VAGAS COMPARTILHADAS: soma de `divulgacoes`. OFERTAS COM TEMPO: % com
+  aceite e média do primeiro aceite da rodada.
+- **6 gráficos de barras** (top 8, "clique para filtrar", "Sem dados ainda.") com os cliques do desenho.
+- **Crescimento do banco de talentos**: séries, Mensal/Anual, ano ou "Todos os anos", curvas, tooltip,
+  vazio e resumo do desenho. Correções (lacuna 6): em "Todos os anos" a variação compara o ano atual com
+  o anterior; no Mensal do ano corrente compara com o mesmo período do ano anterior; sem séries ligadas
+  o resumo some.
+
+### KPIs da página pública
+- Contadores anônimos por dia, sem dado pessoal: **visitas pelo link** (cada GET de
+  `/vagas-juridicas/{token}` válido) e **cliques em "Criar conta"** na página pública (com e sem token),
+  por `POST /vagas-juridicas/cta` (sem sessão, limitador de taxa por IP, sem CSRF porque não grava
+  nada pessoal; `navigator.sendBeacon`). Robôs conhecidos (User-Agent) não contam.
+- Revisão de 19/10: a visita também tem teto por IP e token (acima dele a página abre, só não conta);
+  o clique só conta vindo da própria origem (`Sec-Fetch-Site`/`Origin`); falha do contador nunca derruba
+  a página; robôs por padrão de User-Agent sem pegar celular (ex.: Cubot); o download do CSV de inscritos
+  fica no log (quem e quando, sem os e-mails); a variação em "Todos os anos" compara o mesmo período.
+- Tabela `trabalho_externo_metrica_publica` (dia, link opcional, visitas, cliques), um registro por dia
+  e link, somado com UPSERT.
+
+### Contrato (fixo)
+- `GET /trabalho-externo/api/curriculos/painel` `trabalho_externo_curriculos_painel` (só Master; 403 para
+  os demais): `{kpis: [{k, rot, ic, cor, n, sub, ir: {mod, filtro?: {cf?, cs?, ca?, cu?, busca?}, vf?} |
+  {acao: "alertasCsv"}}], barras: [{tit, ic, cor?, itens: [{rot, n, cor?, ir}]}], crescimento: {cvs:
+  {"AAAA-MM": n}, cands: {...}, vols: {...}}, inscritos: n}`.
+- `GET /trabalho-externo/curriculos/alertas.csv` `trabalho_externo_alertas_csv` (só Master).
+- `POST /vagas-juridicas/cta` `vagas_publicas_cta` (204).
+- `index.html.twig`: `data-url-curriculos-painel`, `data-url-alertas-csv`; `vagas_publicas.html.twig`:
+  `data-url-cta` no botão "Criar conta".
 
 ## 5. Verificação
 
