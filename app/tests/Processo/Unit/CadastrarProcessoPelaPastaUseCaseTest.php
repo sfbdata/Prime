@@ -142,6 +142,15 @@ final class CadastrarProcessoPelaPastaUseCaseTest extends TestCase
         self::assertSame('2023-01-10', $processo->getDataBaixa()?->format('Y-m-d'));
     }
 
+    #[TestDox('a baixa do CNJ também não pode ficar antes da distribuição da janela')]
+    public function testBaixaDoCnjAntesDaDistribuicaoDaJanela(): void
+    {
+        $this->expectException(DadosDoProcessoInvalidosException::class);
+        $this->expectExceptionMessage('A data de baixa não pode ser anterior à distribuição.');
+
+        $this->useCase->executar($this->input(['dataDistribuicao' => '2024-05-01']), $this->tenant, $this->usuario, ['dataBaixa' => '2023-01-10']);
+    }
+
     /** @param array<string, mixed> $campos */
     #[DataProvider('recusas')]
     #[TestDox('recusa com a mensagem e nada é gravado: $mensagem')]

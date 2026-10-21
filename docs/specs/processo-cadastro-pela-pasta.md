@@ -19,8 +19,10 @@ Sessão 0d, 21/10/2026. Origem: vistoria da 5d no desenho "02 - EXPEDIENTES - VS
 - Número completo no padrão CNJ (20 dígitos), órgão julgador, classe e assunto obrigatórios, numa lista só,
   como o desenho: "Preencha: número do processo, órgão julgador, classe processual, assunto processual." (só os
   que faltam).
-- O número existente é procurado antes da validação: o processo antigo com número fora do padrão continua
-  sendo achado (a2).
+- O número existente é procurado antes da validação, por igualdade exata dos dígitos e só no escritório: o
+  processo antigo com número fora do padrão continua sendo achado (a2). Número curto que coincida exatamente
+  com um antigo vincula esse antigo, com o aviso do a2.
+- A regra da baixa compara a baixa que fica no processo (a digitada ou, sem ela, a do CNJ).
 - Situação e instância só nas opções da janela; vazio vira "Em andamento" e "G1".
 - Datas válidas (AAAA-MM-DD); baixa não anterior à distribuição.
 - Limites das colunas viram mensagem ("<Campo> passa de N caracteres."), não erro de banco.

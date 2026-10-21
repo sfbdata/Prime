@@ -141,7 +141,9 @@ final class CadastrarProcessoPelaPastaUseCase
     {
         $distribuicao = self::data($input->dataDistribuicao, 'Data de distribuição inválida.');
         $baixa = self::data($input->dataBaixa, 'Data de baixa inválida.');
-        if ($distribuicao !== null && $baixa !== null && $baixa < $distribuicao) {
+        // A baixa que fica: a digitada ou, sem ela, a do CNJ (a janela não tem o campo).
+        $baixaFinal = $baixa ?? $processo->getDataBaixa();
+        if ($distribuicao !== null && $baixaFinal !== null && $baixaFinal < $distribuicao) {
             throw new DadosDoProcessoInvalidosException('A data de baixa não pode ser anterior à distribuição.');
         }
 
