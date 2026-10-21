@@ -17,6 +17,17 @@ final class ExpedienteAcertosDesenho03FolhaTest extends TestCase
 {
     private const DIR = __DIR__ . '/../../../';
 
+    /** O texto da chave no catálogo do português (desde a extração do idioma, o template e o JS só têm a chave). */
+    private static function texto(string $chave): string
+    {
+        $no = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+        foreach (explode('.', $chave) as $parte) {
+            $no = $no[$parte];
+        }
+
+        return $no;
+    }
+
     private static function ler(string $arquivo): string
     {
         return (string) file_get_contents(self::DIR . $arquivo);
@@ -51,10 +62,12 @@ final class ExpedienteAcertosDesenho03FolhaTest extends TestCase
     public function testDicasDaPaginacao(): void
     {
         $pag = self::ler('templates/expediente/_paginacao.html.twig');
-        foreach (['Primeira página', 'Página anterior', 'Próxima página', 'Última página'] as $dica) {
-            self::assertStringContainsString('data-tip="' . $dica . '"', $pag);
+        foreach (['primeira' => 'Primeira página', 'anterior' => 'Página anterior', 'proxima' => 'Próxima página', 'ultima' => 'Última página'] as $chave => $dica) {
+            self::assertStringContainsString("data-tip=\"{{ 'expediente.paginacao." . $chave . "'|trans }}\"", $pag);
+            self::assertSame($dica, self::texto('expediente.paginacao.' . $chave));
         }
-        self::assertStringContainsString('data-tip="Página {{ p }} de {{ total }}"', $pag);
+        self::assertStringContainsString("data-tip=\"{{ 'expediente.paginacao.pagina_n_de_m'|trans({pagina: p ~ '', total: total ~ ''}) }}\"", $pag);
+        self::assertSame('Página {pagina} de {total}', self::texto('expediente.paginacao.pagina_n_de_m'));
     }
 
     #[TestDox('Com um menu aberto (filtro, responsável ou contexto), o clique na linha só fecha o menu e não há dica (dc `abrir` e `_ov`)')]
@@ -82,6 +95,7 @@ final class ExpedienteAcertosDesenho03FolhaTest extends TestCase
         self::assertStringContainsString("document.addEventListener('exp:pasta-criada', function (e) {", $index);
         self::assertStringContainsString("if (ord) ord.value = 'nup';", $index);
         self::assertStringContainsString("if (dir) dir.value = 'desc';", $index);
-        self::assertStringContainsString("avisarOuAlertar('Pasta ' + e.detail.nup + ' aberta para ' + e.detail.cliente);", $index);
+        self::assertStringContainsString("avisarOuAlertar(BJ_T.t('expediente.js.lista.pasta_criada', {nup: e.detail.nup, cliente: e.detail.cliente}));", $index);
+        self::assertSame('Pasta {nup} aberta para {cliente}', self::texto('expediente.js.lista.pasta_criada'));
     }
 }

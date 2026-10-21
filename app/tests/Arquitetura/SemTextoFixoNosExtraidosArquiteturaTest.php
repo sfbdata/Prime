@@ -62,6 +62,7 @@ final class SemTextoFixoNosExtraidosArquiteturaTest extends TestCase
             <i class="bi bi-x"></i> <em>BlueJus</em> <!-- Aviso fora -->
             <script>const x = 'Fora do Twig';</script>
             {% include 'menu/_a.html.twig' with {classe: 'btn btn-primary', titulo: 'Minha conta'} %}
+            {% set estiloFolha %}body { font-family: Arial; } .Titulo { color: red; }{% endset %}
             TWIG;
 
         self::assertSame(
@@ -85,7 +86,8 @@ final class SemTextoFixoNosExtraidosArquiteturaTest extends TestCase
      */
     public static function textosFixosNoTwig(string $twig, array $permitidos): array
     {
-        $sem = preg_replace(['/\{#.*?#\}/s', '/<!--.*?-->/s', '/<(script|style|svg)\b.*?<\/\1>/si'], '', $twig) ?? '';
+        // CSS guardado numa variável ({% set estiloFolha %}...{% endset %}, folha que vai à tela e ao PDF) conta como <style>.
+        $sem = preg_replace(['/\{#.*?#\}/s', '/<!--.*?-->/s', '/<(script|style|svg)\b.*?<\/\1>/si', '/\{%-?\s*set\s+(?:estilo|css)\w*\s*-?%\}.*?\{%-?\s*endset\s*-?%\}/s'], '', $twig) ?? '';
         $achados = [];
         preg_match_all('/\b(' . self::ATRIBUTOS_LIDOS . ')="([^"]*)"/', $sem, $atributos, PREG_SET_ORDER);
         foreach ($atributos as [, $nome, $valor]) {
