@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Comercial\Functional;
 
 use App\Comercial\Controller\RelatorioDoMasterController;
+use App\Comercial\Repository\CampanhaMarcaRepository;
 use App\Comercial\Repository\RelatorioDeCampanhasRepository;
 use App\Comercial\UseCase\AbrirCampanhaDoRelatorioUseCase;
 use App\Comercial\UseCase\EncerrarCampanhaUseCase;
+use App\Comercial\UseCase\ExportarDestinatariosUseCase;
 use App\Comercial\UseCase\ListarRelatorioDeCampanhasUseCase;
+use App\Comercial\UseCase\MarcarCampanhasDoRelatorioUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -25,13 +28,17 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  * O "Relatório como caixa de entrada" pela tela (F3d; desenho 05 VS 21.10.26, L300-305 e L502-514; spec
  * comercial-relatorio.md): só o Master, CSRF no POST, a lista com as abas e as métricas agregadas do envio, a busca e a
  * página no SQL, o visualizador com KPIs, o HTML remontado e os destinatários, e o "Cancelar envio" sobre o
- * EncerrarCampanhaUseCase.
+ * EncerrarCampanhaUseCase. Da F3e (spec comercial-marcas.md): as marcas de cada Master (estrela, arquivo e remoção),
+ * as abas Com estrela e Arquivadas e o "Exportar destinatários" em CSV.
  */
 #[CoversClass(RelatorioDoMasterController::class)]
 #[CoversClass(ListarRelatorioDeCampanhasUseCase::class)]
 #[CoversClass(AbrirCampanhaDoRelatorioUseCase::class)]
 #[CoversClass(RelatorioDeCampanhasRepository::class)]
 #[CoversClass(EncerrarCampanhaUseCase::class)]
+#[CoversClass(MarcarCampanhasDoRelatorioUseCase::class)]
+#[CoversClass(CampanhaMarcaRepository::class)]
+#[CoversClass(ExportarDestinatariosUseCase::class)]
 final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
 {
     use CriaCampanhas;
@@ -59,6 +66,12 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
         $client->request('POST', '/master/comercial/campanhas/' . $id . '/cancelar', [], [], ['CONTENT_TYPE' => 'application/json'], '{}');
         self::assertResponseStatusCodeSame(403);
         self::assertSame('na_fila', $this->estado($id));
+        $client->request('POST', '/master/comercial/relatorio/marcas', [], [], ['CONTENT_TYPE' => 'application/json'], (string) json_encode(['ids' => [$id], 'acao' => 'estrela']));
+        self::assertResponseStatusCodeSame(403);
+        $client->request('GET', '/master/comercial/campanhas/' . $id . '/destinatarios.csv');
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_campanha_marca WHERE campanha_id = ?', [$id]));
+        self::assertSame(0, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM audit_log WHERE action = 'camp_csv' AND entity_id = ?", [(string) $id]));
     }
 
     #[TestDox('Cancelar sem o token CSRF: 403 e a campanha segue na fila')]
@@ -90,7 +103,7 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $d = $this->json($client);
 
-        self::assertSame(['env' => 2, 'ag' => 1, 'rec' => 1], $d['abas']);
+        self::assertSame(['env' => 2, 'ag' => 1, 'rec' => 1, 'est' => 0, 'arq' => 0], $d['abas']);
         self::assertSame(['env', '1 a 2 de 2'], [$d['aba'], $d['faixa']]);
         self::assertSame([$enviada, $teste], array_column($d['campanhas'], 'id'));
         self::assertSame(['Enviada', 'Teste'], array_column($d['campanhas'], 'rotulo'));
@@ -133,7 +146,7 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/master/comercial/relatorio?p=9');
         $p2 = $this->json($client);
         self::assertSame([2, '51 a 51 de 51', [$natal]], [$p2['pagina'], $p2['faixa'], array_column($p2['campanhas'], 'id')]);
-        self::assertSame(['env' => 51, 'ag' => 0, 'rec' => 0], $p2['abas']);
+        self::assertSame(['env' => 51, 'ag' => 0, 'rec' => 0, 'est' => 0, 'arq' => 0], $p2['abas']);
     }
 
     #[TestDox('O visualizador: os 4 KPIs, o HTML remontado do conteúdo congelado e os destinatários com o estado; inexistente é 404')]
@@ -202,6 +215,132 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
         $this->cancelar($client, $id);
         self::assertResponseStatusCodeSame(422);
         self::assertSame('enviada', $this->estado($id));
+    }
+
+    #[TestDox('Marcas sem o token CSRF: 403 e nada é gravado')]
+    public function testCsrfDasMarcas(): void
+    {
+        $client = $this->clienteMaster();
+        $id = $this->campanha(['a@exemplo.com']);
+        $client->request('POST', '/master/comercial/relatorio/marcas', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'errado'], (string) json_encode(['ids' => [$id], 'acao' => 'estrela']));
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_campanha_marca WHERE campanha_id = ?', [$id]));
+    }
+
+    #[TestDox('Abas Com estrela e Arquivadas: a arquivada só aparece em Arquivadas, a estrela arquivada não conta em Com estrela, e as contagens seguem cada regra')]
+    public function testAbasDasMarcas(): void
+    {
+        $client = $this->clienteMaster();
+        $env = $this->campanha(['a@exemplo.com']);
+        $estrelada = $this->campanha(['a@exemplo.com'], ['estado' => 'agendada', 'agendada_para' => new \DateTimeImmutable('+2 days')]);
+        $arquivada = $this->campanha(['a@exemplo.com'], ['estado' => 'recorrente', 'frequencia' => 'mensal']);
+
+        $this->marcar($client, [$estrelada, $arquivada], 'estrela');
+        self::assertResponseIsSuccessful();
+        self::assertSame(['marcadas' => 2], $this->json($client));
+        $this->marcar($client, [$arquivada], 'arquivar');
+
+        self::assertSame(['env' => 1, 'ag' => 1, 'rec' => 0, 'est' => 1, 'arq' => 1], $this->aba($client, 'env')['abas']);
+        self::assertSame([$env], array_column($this->aba($client, 'env')['campanhas'], 'id'));
+        self::assertSame([[$estrelada, true]], array_map(static fn (array $c): array => [$c['id'], $c['estrela']], $this->aba($client, 'est')['campanhas']));
+        self::assertSame([$arquivada], array_column($this->aba($client, 'arq')['campanhas'], 'id'));
+        self::assertSame([], $this->aba($client, 'rec')['campanhas']);
+        self::assertFalse($this->aba($client, 'env')['campanhas'][0]['estrela']);
+
+        $this->marcar($client, [$arquivada], 'desarquivar');
+        $this->marcar($client, [$estrelada], 'sem_estrela');
+        self::assertSame(['env' => 1, 'ag' => 1, 'rec' => 1, 'est' => 1, 'arq' => 0], $this->aba($client, 'env')['abas']);
+        self::assertSame([$arquivada], array_column($this->aba($client, 'est')['campanhas'], 'id'));
+    }
+
+    #[TestDox('Remover esconde a campanha de todas as abas e das contagens só para quem removeu; nada da campanha é apagado')]
+    public function testRemoverSoParaQuemRemoveu(): void
+    {
+        $client = $this->clienteMaster();
+        $removida = $this->campanha(['a@exemplo.com']);
+        $fica = $this->campanha(['a@exemplo.com']);
+        $this->marcar($client, [$removida], 'estrela');
+        $this->marcar($client, [$removida], 'remover');
+
+        $lista = $this->aba($client, 'env');
+        self::assertSame([[$fica], 1, 0], [array_column($lista['campanhas'], 'id'), $lista['abas']['env'], $lista['abas']['est']]);
+        self::assertSame(0, $this->aba($client, 'est')['total']);
+        self::assertSame('na_fila', $this->estado($removida), 'a campanha continua lá');
+
+        $outro = $this->usuario('master2');
+        $outro->setRoles(['ROLE_SUPER_ADMIN']);
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+        $client->loginUser($outro);
+        $this->marcarTermosAceitos($client);
+        $lista = $this->aba($client, 'env');
+        self::assertSame([$fica, $removida], array_column($lista['campanhas'], 'id'));
+        self::assertSame([false, false], array_column($lista['campanhas'], 'estrela'), 'a estrela é de quem marcou');
+        self::assertSame(0, $lista['abas']['est']);
+    }
+
+    #[TestDox('Marcas recusadas em 422 (ação inválida, mais de 50, corpo que não é JSON); id inexistente é ignorado')]
+    public function testMarcasRecusadas(): void
+    {
+        $client = $this->clienteMaster();
+        $id = $this->campanha(['a@exemplo.com']);
+
+        $this->marcar($client, [$id], 'apagar');
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => 'Ação inválida.'], $this->json($client));
+        $this->marcar($client, range(1, 51), 'estrela');
+        self::assertResponseStatusCodeSame(422);
+        $client->request('POST', '/master/comercial/relatorio/marcas', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_master_comercial'], 'não é json');
+        self::assertResponseStatusCodeSame(422);
+
+        $this->marcar($client, [999999999, $id], 'arquivar');
+        self::assertResponseIsSuccessful();
+        self::assertSame(['marcadas' => 1], $this->json($client));
+    }
+
+    #[TestDox('Exportar destinatários: o CSV completo e o só de e-mails, com BOM, todos os destinatários (sem o anonimizado) e a auditoria camp_csv sem e-mails')]
+    public function testExportarDestinatarios(): void
+    {
+        $client = $this->clienteMaster();
+        $id = $this->campanha(['a@exemplo.com'], ['estado' => 'enviada']);
+        $this->destino($id, 'lido@exemplo.com', 'enviado', aberto: true);
+        $this->destino($id, 'recusado@exemplo.com', 'falhou', erro: '550');
+        $this->destino($id, 'fila@exemplo.com', null);
+        $this->destino($id, str_repeat('b', 64), 'enviado');
+
+        $client->request('GET', '/master/comercial/campanhas/' . $id . '/destinatarios.csv');
+        self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Type', 'text/csv; charset=utf-8');
+        self::assertSame('attachment; filename=destinatarios-' . $id . '.csv', $client->getResponse()->headers->get('Content-Disposition'));
+        self::assertSame(
+            "\u{FEFF}E-mail;Enviado;Leitura\nlido@exemplo.com;sim;não rastreada\nrecusado@exemplo.com;sim;não rastreada\nfila@exemplo.com;não;não rastreada\n",
+            $client->getResponse()->getContent(),
+        );
+
+        $client->request('GET', '/master/comercial/campanhas/' . $id . '/destinatarios.csv?formato=emails');
+        self::assertSame("\u{FEFF}E-mail\nlido@exemplo.com\nrecusado@exemplo.com\nfila@exemplo.com\n", $client->getResponse()->getContent());
+
+        $auditoria = $this->conexao()->fetchAllAssociative("SELECT changes, actor_user_id FROM audit_log WHERE action = 'camp_csv' AND entity_id = ? ORDER BY id", [(string) $id]);
+        self::assertSame([['linhas' => 3, 'formato' => 'completo'], ['linhas' => 3, 'formato' => 'emails']], array_map(static fn (array $l): mixed => json_decode((string) $l['changes'], true), $auditoria));
+        self::assertSame((string) $this->master->getId(), (string) $auditoria[0]['actor_user_id']);
+        self::assertStringNotContainsString('@exemplo.com', (string) json_encode(array_column($auditoria, 'changes')));
+
+        $client->request('GET', '/master/comercial/campanhas/999999999/destinatarios.csv');
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    /** @param list<int> $ids */
+    private function marcar(KernelBrowser $client, array $ids, string $acao): void
+    {
+        $client->request('POST', '/master/comercial/relatorio/marcas', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_master_comercial'], (string) json_encode(['ids' => $ids, 'acao' => $acao]));
+    }
+
+    /** @return array<string, mixed> */
+    private function aba(KernelBrowser $client, string $aba): array
+    {
+        $client->request('GET', '/master/comercial/relatorio?aba=' . $aba);
+
+        return $this->json($client);
     }
 
     private function cancelar(KernelBrowser $client, int $id): void

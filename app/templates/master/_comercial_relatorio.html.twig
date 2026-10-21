@@ -3,18 +3,26 @@
    bloco "Monitoramento", dentro do [data-mc]. Traz o próprio <link> e <script>, sem script inline (o HTML da
    campanha vai num iframe sandbox="", que não executa script). A lista, as contagens e o visualizador vêm por JSON quando a seção abre.
    A URL do visualizador leva o marcador 9999999999 (casa com o requisito `[1-9]\d{0,9}` da rota; o JS o troca).
-   Fora desta fatia: a estrela, o arquivo, o menu do botão direito, "Reenviar a quem não leu" e "Exportar
-   destinatários" (dependem de gravar no servidor; ver a spec). #}
+   F3e (spec docs/specs/comercial-marcas.md): a estrela, o arquivo e a remoção (marcas de cada Master, no servidor), os
+   botões da seleção, as abas Com estrela e Arquivadas, o menu do botão direito (dc L504), "Reenviar a quem não leu"
+   (só aviso) e "Exportar destinatários" (CSV pelo servidor). "Encaminhar para um e-mail" fica no menu, desabilitado,
+   até o dono decidir. #}
 <link rel="stylesheet" href="{{ asset('css/master-comercial-relatorio.css') }}">
 <section class="mc-caixa mc-rl" aria-label="Relatório de campanhas" data-mc-relatorio
          data-url-lista="{{ path('master_comercial_relatorio') }}"
          data-url-campanha="{{ path('master_comercial_campanha', {id: 9999999999}) }}"
          data-url-cancelar="{{ path('master_comercial_campanha_cancelar', {id: 9999999999}) }}"
+         data-url-marcas="{{ path('master_comercial_relatorio_marcas') }}"
+         data-url-csv="{{ path('master_comercial_campanha_destinatarios', {id: 9999999999}) }}"
          data-token="{{ csrf_token('master_comercial') }}">
-    {# L301: selecionar, atualizar, a seleção, a busca e a faixa da página. #}
+    {# L301: selecionar, atualizar, com algo selecionado Arquivar (Desarquivar na aba Arquivadas), Estrela e a lixeira,
+       a contagem da seleção, a busca e a faixa da página. #}
     <div class="mc-rl-barra">
         <button type="button" class="mc-rl-ic" title="Selecionar" aria-label="Selecionar" data-mc-rl-sel-todos><i class="bi bi-square" aria-hidden="true" data-mc-rl-sel-ic></i></button>
         <button type="button" class="mc-rl-ic mc-rl-redondo" title="Atualizar" aria-label="Atualizar" data-mc-rl-atualizar><i class="bi bi-arrow-clockwise" aria-hidden="true"></i></button>
+        <button type="button" class="mc-rl-acao" title="Arquivar" data-mc-rl-marcar="arquivar" hidden><i class="bi bi-archive" aria-hidden="true"></i> <span data-mc-rl-arq-txt>Arquivar</span></button>
+        <button type="button" class="mc-rl-acao" title="Marcar com estrela" data-mc-rl-marcar="estrela" hidden><i class="bi bi-star" aria-hidden="true"></i> Estrela</button>
+        <button type="button" class="mc-rl-ic mc-rl-redondo mc-rl-lixeira" title="Remover do relatório" aria-label="Remover do relatório" data-mc-rl-marcar="remover" hidden><i class="bi bi-trash3" aria-hidden="true"></i></button>
         <span class="mc-rl-sel-n" data-mc-rl-sel-n hidden></span>
         <span class="mc-rl-vao"></span>
         <label class="mc-rl-busca"><i class="bi bi-search" aria-hidden="true"></i><input type="search" placeholder="Buscar campanha ou e-mail" aria-label="Buscar campanha ou e-mail" maxlength="120" data-mc-rl-busca></label>
@@ -28,6 +36,8 @@
             ['env', 'Enviadas', 'bi-send', 'Na fila e já enviadas'],
             ['ag', 'Agendadas', 'bi-clock', 'Com data programada'],
             ['rec', 'Recorrentes', 'bi-arrow-repeat', 'Semanais, quinzenais e mensais'],
+            ['est', 'Com estrela', 'bi-star', 'Campanhas marcadas'],
+            ['arq', 'Arquivadas', 'bi-archive', 'Fora das listas'],
         ] %}
             <button type="button" role="tab" class="mc-rl-aba mc-rl-aba-{{ a[0] }}" data-mc-rl-aba="{{ a[0] }}" aria-selected="{{ loop.first ? 'true' : 'false' }}"><i class="bi {{ a[2] }}" aria-hidden="true"></i><span class="mc-rl-aba-texto"><b class="mc-rl-aba-rot">{{ a[1] }}<span class="mc-rl-aba-n" data-mc-rl-n hidden></span></b><span class="mc-rl-aba-sub">{{ a[3] }}</span></span></button>
         {% endfor %}
@@ -42,6 +52,8 @@
                 <button type="button" class="mc-rl-ver-voltar" title="Voltar" aria-label="Voltar" data-mc-rl-fechar><i class="bi bi-arrow-left" aria-hidden="true"></i></button>
                 <span class="mc-rl-vao"></span>
                 <button type="button" class="mc-rl-ver-acao" data-mc-rl-duplicar><i class="bi bi-files" aria-hidden="true"></i>Duplicar</button>
+                <button type="button" class="mc-rl-ver-acao" data-mc-rl-reenviar><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Reenviar a quem não leu</button>
+                <button type="button" class="mc-rl-ver-acao" data-mc-rl-csv="completo"><i class="bi bi-filetype-csv" aria-hidden="true"></i>Exportar destinatários</button>
                 <button type="button" class="mc-rl-ver-acao mc-rl-ver-cancelar" data-mc-rl-cancelar hidden><i class="bi bi-x-circle" aria-hidden="true"></i>Cancelar envio</button>
             </div>
             <div class="mc-rl-ver-corpo">
@@ -60,6 +72,26 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+    {# L504: o menu do botão direito na linha. O título é o nome da campanha; fecha no clique fora, no botão direito
+       fora e no Esc. Itens e separadores na ordem do dc (L704). "Encaminhar para um e-mail" fica desabilitado até o
+       dono decidir (mandar teste para qualquer endereço contraria a regra C4). #}
+    <div class="mc-rl-ctx" data-mc-rl-ctx hidden>
+        <div class="mc-rl-ctx-fundo" data-mc-rl-ctx-fechar></div>
+        <div class="mc-rl-ctx-caixa" role="menu" aria-labelledby="mc-rl-ctx-titulo">
+            <div class="mc-rl-ctx-titulo" id="mc-rl-ctx-titulo" data-mc-rl-ctx-titulo></div>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="abrir"><i class="bi bi-envelope-open" aria-hidden="true"></i>Abrir campanha</button>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="duplicar"><i class="bi bi-files" aria-hidden="true"></i>Duplicar como nova</button>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="reenviar"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Reenviar a quem não leu</button>
+            <div class="mc-rl-ctx-sep" role="separator"></div>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item mc-rl-ctx-off" disabled aria-disabled="true" title="Aguardando a decisão sobre enviar teste para outros endereços."><i class="bi bi-forward" aria-hidden="true"></i>Encaminhar para um e-mail</button>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="estrela"><i class="bi bi-star" aria-hidden="true" data-mc-rl-ctx-estrela-ic></i><span data-mc-rl-ctx-estrela-txt>Marcar com estrela</span></button>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="arquivar"><i class="bi bi-archive" aria-hidden="true"></i><span data-mc-rl-ctx-arq-txt>Arquivar</span></button>
+            <div class="mc-rl-ctx-sep" role="separator"></div>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="csv"><i class="bi bi-filetype-csv" aria-hidden="true"></i>Exportar destinatários (CSV)</button>
+            <div class="mc-rl-ctx-sep" role="separator"></div>
+            <button type="button" role="menuitem" class="mc-rl-ctx-item mc-rl-ctx-excluir" data-mc-rl-ctx-acao="excluir"><i class="bi bi-trash3" aria-hidden="true"></i>Excluir do relatório</button>
         </div>
     </div>
 </section>

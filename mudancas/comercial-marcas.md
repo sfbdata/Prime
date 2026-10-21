@@ -1,0 +1,5 @@
+---
+tipo: novidade
+---
+## Changelog
+- Comercial (F3e): o Relatório da Central de envios ganha as marcas de cada Master, como no desenho 05 de 21/10. Abas "Com estrela" e "Arquivadas" com a contagem; a estrela em cada linha (marca e desmarca sem abrir a campanha); com campanhas selecionadas, "Arquivar" (ou "Desarquivar"), "Estrela" e a lixeira "Remover do relatório" (só esconde para quem removeu, nada é apagado). O botão direito na linha abre o menu: Abrir campanha, Duplicar como nova, Reenviar a quem não leu (por enquanto só avisa, a campanha não rastreou leitura), Encaminhar para um e-mail (desabilitado, aguardando decisão), estrela, arquivo, Exportar destinatários (CSV) e Excluir do relatório. O visualizador ganha "Reenviar a quem não leu" e "Exportar destinatários": o CSV vem do servidor com todos os destinatários (sem os endereços anonimizados), protegido contra fórmulas de planilha, e cada exportação fica registrada na auditoria. Rotas `POST /master/comercial/relatorio/marcas` e `GET /master/comercial/campanhas/{id}/destinatarios.csv`, só para o Master; tabela nova `comercial_campanha_marca`.

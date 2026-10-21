@@ -8,6 +8,17 @@ linha) e L503-514 (visualizador e menu do botão direito), lógica L698-717. Con
 ## Estado da frente
 
 - 21/10: spec; implementação começando.
+- 21/10: implementado na branch `comercial-marcas` (commit local, sem PR): a tabela `comercial_campanha_marca`
+  (migration 149000, entidade `CampanhaMarca`, `CampanhaMarcaRepository`), as abas Com estrela e Arquivadas com as
+  contagens por Master, a estrela da linha, os botões da seleção, o menu do botão direito, "Reenviar a quem não leu"
+  (só aviso) e "Exportar destinatários" (CSV pelo servidor, com a auditoria `camp_csv`). Rotas novas em
+  `RelatorioDoMasterController`. "Encaminhar para um e-mail" ficou desabilitado no menu (regra 7, decisão do
+  coordenador em 21/10).
+- Desvios e preenchimentos: do visualizador, "Reenviar a quem não leu" fecha o visualizador antes do aviso também sem
+  rastreio (o dc deixa aberto; aqui o aviso mora na lista, atrás do visualizador, e não seria visto). O "Duplicar como
+  nova" do menu busca a campanha pelo GET do visualizador (a linha não traz o título). A lixeira e o Excluir do menu
+  gravam a mesma ação `remover`. O CSV traz uma linha por destinatário de cada execução (na recorrente, o mesmo e-mail
+  aparece uma vez por execução, como no visualizador).
 
 ## Divisão com a F3g (0d)
 
@@ -63,23 +74,19 @@ Não há desfazer na tela (o desenho não tem).
    `@`, fica de fora). Célula que começa com `=`, `+`, `-`, `@`, tab ou CR leva `'` na frente (injeção de fórmula).
    Cada exportação grava no `audit_log` (`camp_csv`, entidade `CampanhaDeEmail`, `changes` = {linhas, formato}, o
    Master como autor), sem os e-mails.
-7. **Encaminhar para um e-mail:** pelo servidor, a campanha remontada da cópia congelada (`descongelar`) vai **só**
-   ao e-mail digitado, pelo Carteiro, como o "Enviar teste" (sem rastreio, origem própria `encaminhar_campanha`,
-   lista `comercial_campanhas`, descadastrado não recebe). E-mail validado. Teto: 10 por hora por Master, contado no
-   `audit_log` (`camp_enc`, com o destino em `changes`, que é dado do Master). Sem isenção do teto diário (o
-   `EnviarEmailHandler` não muda). Recusas em 422 com o texto: e-mail inválido "Informe um e-mail válido.", teto
-   "Limite de 10 encaminhamentos por hora atingido.", descadastrado "Este e-mail está descadastrado da lista de
-   campanhas; nada foi enviado.", campanha sem cópia "Esta campanha não pode ser encaminhada."
+7. **Encaminhar para um e-mail: desabilitado** até o dono decidir (é a pergunta 1 da 5d: teste para qualquer
+   endereço contraria a C4). O item aparece no menu, desabilitado, com o motivo no title. Sem rota de envio.
 8. **Rotas** (todas `ROLE_SUPER_ADMIN`; POST com CSRF `master_comercial` no header `X-CSRF-Token`):
    - `GET /master/comercial/relatorio?aba=est|arq` (as abas novas na rota da F3d);
    - `POST /master/comercial/relatorio/marcas` com JSON `{ids: [..], acao: estrela|sem_estrela|arquivar|desarquivar|remover}`
      (até 50 ids; id inexistente é ignorado; ação inválida 422);
-   - `GET /master/comercial/campanhas/{id}/destinatarios.csv?formato=completo|emails` (404 se não existe);
-   - `POST /master/comercial/campanhas/{id}/encaminhar` com JSON `{email}`.
+   - `GET /master/comercial/campanhas/{id}/destinatarios.csv?formato=completo|emails` (404 se não existe).
 
 ## Fora
 
 - "Reenviar a quem não leu" de verdade (depende do rastreio, F3g e Política).
 - Desfazer a remoção.
+- "Encaminhar para um e-mail" de verdade (envio da campanha a um endereço digitado): espera a decisão do dono sobre
+  a C4 (pergunta 1 da 5d).
 - Limpeza do comentário solto em `RelatorioDeCampanhasRepository` (sobra da F3d, antes do `filtro()`): sai nesta
   frente.
