@@ -438,6 +438,45 @@ final class CriarTarefaControllerTest extends JusPrimeWebTestCase
         return $user;
     }
 
+    #[TestDox('A meta criada pelo modal ganha o número da sequência do ESCRITÓRIO (nunca o id), um escritório sem interferir no outro')]
+    public function testMetaCriadaGanhaONumeroDoEscritorio(): void
+    {
+        $client  = static::createClient();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $autorA  = $this->criarUsuario($tenantA, 'autorA_' . uniqid() . '@test.com');
+        $autorB  = $this->criarUsuario($tenantB, 'autorB_' . uniqid() . '@test.com');
+        $pastaA  = (int) $this->criarPasta($tenantA, $autorA)->getId();
+        $pastaB  = (int) $this->criarPasta($tenantB, $autorB)->getId();
+
+        // Três POSTs no mesmo cliente: sem reiniciar o kernel entre eles, o CSRF previsível continua valendo.
+        $client->disableReboot();
+        $this->instalarCsrfStorage();
+        $criar = function (int $pastaId, string $titulo) use ($client): int {
+            $client->request('POST', "/tarefas/pasta/{$pastaId}/criar", [
+                '_token'    => $this->gerarCsrf('tarefa_criar_' . $pastaId),
+                'titulo'    => $titulo,
+                'descricao' => 'Numerada ao nascer',
+            ]);
+            self::assertResponseIsSuccessful();
+
+            return (int) json_decode((string) $client->getResponse()->getContent(), true)['id'];
+        };
+
+        $this->logarComTenant($client, $autorA, $tenantA);
+        $primeiraA = $criar($pastaA, 'Primeira de A');
+        $segundaA  = $criar($pastaA, 'Segunda de A');
+        $this->logarComTenant($client, $autorB, $tenantB);
+        $primeiraB = $criar($pastaB, 'Primeira de B');
+
+        $numero = static fn (int $id): ?int => ($n = static::getContainer()->get(EntityManagerInterface::class)->getConnection()
+            ->fetchOne('SELECT numero FROM tarefa WHERE id = ?', [$id])) === null ? null : (int) $n;
+
+        self::assertSame(1, $numero($primeiraA));
+        self::assertSame(2, $numero($segundaA));
+        self::assertSame(1, $numero($primeiraB), 'B começa a própria sequência: as metas de A não contam');
+    }
+
     private function contarMetasDaPasta(int $pastaId): int
     {
         return (int) static::getContainer()->get(EntityManagerInterface::class)->getConnection()

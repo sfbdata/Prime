@@ -310,6 +310,25 @@ e grava em `resumo_diario_envio` antes de cada envio, então rodar de novo no me
 >
 > Configurar o cron é do dono.
 
+### Número das metas antigas (uma vez, depois da publicação)
+
+As metas ganham um número no escritório ("Nº 0001") ao serem criadas. As que já existiam nascem sem
+número (e a tela não mostra o selo) até este comando rodar. Rode **uma vez depois da publicação** da
+versão com a migration `Version20261020148700`:
+
+```
+docker exec -w /var/www/app jusprime_php_prod php bin/console app:tarefa:numerar-metas --dry-run
+docker exec -w /var/www/app jusprime_php_prod php bin/console app:tarefa:numerar-metas
+```
+
+O `--dry-run` lista quantas metas cada escritório teria numeradas e não grava nada. A numeração é por
+escritório, em ordem de criação, a partir do próximo número livre; rodar de novo não muda nada. Para um
+escritório só: `--escritorio=ID`. Não vai para o cron.
+
+Rode logo depois da publicação: as metas criadas entre a publicação e o comando já nascem com 1, 2, 3... e as
+antigas ficam com os números seguintes (não há colisão, só a ordem fica trocada). O comando grava por SQL direto,
+então a numeração das antigas não aparece na trilha de auditoria (só o número muda; nada mais na meta).
+
 ### Personalizar configuração
 
 Variáveis de ambiente que sobrescrevem os padrões do script:
