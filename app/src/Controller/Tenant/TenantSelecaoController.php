@@ -76,8 +76,7 @@ final class TenantSelecaoController extends AbstractController
         return $this->render('tenant/selecionar.html.twig', [
             'vinculos' => $vinculos,
             'convites' => $convites,
-            'avisosDeConta' => $this->avisosDeContaForaDoAr($request, $user, $vinculos, $convites),
-            'avisosDePedido' => $this->avisosDePedido($request, $suspensosAPedido),
+            ...$this->avisosDeEscritorio($request, $user, $vinculos, $convites, $suspensosAPedido),
             'bloqueados' => $this->equipe->mensagensDeAcessoBloqueado($user), // em análise ou suspensos: o porquê (equipe-da-conta §3)
         ]);
     }
@@ -93,6 +92,24 @@ final class TenantSelecaoController extends AbstractController
         $todos = $this->userTenantRepository->findActiveByUser($user);
 
         return [$this->bloqueioPorPedido->permitidos($todos), $this->bloqueioPorPedido->nomesBloqueados($todos)];
+    }
+
+    /**
+     * Os avisos sobre escritórios que não entram na escolha: conta suspensa ou excluída (C9, C9b) e conta
+     * "suspensa a pedido" (PR 5).
+     *
+     * @param list<UserTenant> $vinculos
+     * @param list<Invitation> $convites
+     * @param list<string>     $suspensosAPedido
+     *
+     * @return array{avisosDeConta: mixed, avisosDePedido: mixed}
+     */
+    private function avisosDeEscritorio(Request $request, User $user, array $vinculos, array $convites, array $suspensosAPedido): array
+    {
+        return [
+            'avisosDeConta' => $this->avisosDeContaForaDoAr($request, $user, $vinculos, $convites),
+            'avisosDePedido' => $this->avisosDePedido($request, $suspensosAPedido),
+        ];
     }
 
     /**
