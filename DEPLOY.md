@@ -225,19 +225,15 @@ do checklist (no máximo 2 por pasta por dia, o tom sobe a cada aviso, a control
 avisa itens marcados sem o documento anexado e lembra de revisar checklist desativado há 30 dias. Cada
 escritório pula feriado (calendário da Agenda). Idempotente no dia.
 
-O horário é o de **Brasília**, fixado na própria linha com `CRON_TZ`: não depende do relógio da VPS (que pode
-estar em UTC). Sem suporte a `CRON_TZ` no cron da VPS, use `0 12 * * 1-5` (12h UTC = 9h de Brasília, sem
-horário de verão desde 2019).
-
 ```
-CRON_TZ=America/Sao_Paulo
-0 9 * * 1-5 docker exec jusprime_php_prod php bin/console app:pasta:cobrar-checklist >> /var/log/jusprime-checklist.log 2>&1
+# segunda a sexta, 12h UTC = 9h de Brasília
+0 12 * * 1-5 docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:cobrar-checklist >> /var/log/jusprime-checklist.log 2>&1
 ```
 
 > **Primeira rodada (piloto):** simule num escritório antes de ligar o cron. O `--simular` lista quem seria
 > cobrado e não envia nem grava nada; depois, rode de verdade só nele:
-> `docker exec jusprime_php_prod php bin/console app:pasta:cobrar-checklist --escritorio=ID --simular`
-> `docker exec jusprime_php_prod php bin/console app:pasta:cobrar-checklist --escritorio=ID`
+> `docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:cobrar-checklist --escritorio=ID --simular`
+> `docker exec -w /var/www/app jusprime_php_prod php bin/console app:pasta:cobrar-checklist --escritorio=ID`
 > A primeira rodada audita todo item já marcado sem anexo e começa a cobrar toda pasta com pendência.
 
 ### Resumo semanal ao cliente (crontab na VPS)

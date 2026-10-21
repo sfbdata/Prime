@@ -27,8 +27,9 @@ Frente `pasta-exito-cobranca`, sessão f6, aberta em 19/10/2026 a pedido do coor
 2. Volume do primeiro dia: a primeira rodada audita todo item já marcado sem anexo (aviso "A pasta será auditada"
    por item) e passa a cobrar toda pasta com procuração ou contrato pendente. Ligar o cron com um escritório
    piloto, ou em data combinada?
-3. Cron em horário de Brasília fixado na linha (`CRON_TZ=America/Sao_Paulo`; sem suporte, `0 12` UTC), não
-   no relógio da VPS (coordenador, 19/10). Para o piloto, o comando tem `--escritorio=ID` e `--simular`.
+3. Cron com a linha JÁ EM UTC (`0 12 * * 1-5` = 9h de Brasília, hora de Brasília em comentário), sem
+   `CRON_TZ`: o cron da VPS está em UTC e não garante o `CRON_TZ` (padrão do DEPLOY.md desde o #179). Para o
+   piloto, o comando tem `--escritorio=ID` e `--simular`.
 4. A contagem "pendente há N dias" começa na primeira rodada (o item não guarda a data de criação), como no
    desenho.
 
