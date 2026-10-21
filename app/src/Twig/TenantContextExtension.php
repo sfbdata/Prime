@@ -8,6 +8,7 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
+use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Contracts\Service\ResetInterface;
 use Twig\Extension\AbstractExtension;
@@ -26,6 +27,7 @@ final class TenantContextExtension extends AbstractExtension implements ResetInt
         private readonly TenantContext $tenantContext,
         private readonly UserTenantRepository $userTenantRepository,
         private readonly Security $security,
+        private readonly BloqueioPorPedidoDeExclusao $bloqueioPorPedido,
     ) {}
 
     public function getFunctions(): array
@@ -60,7 +62,8 @@ final class TenantContextExtension extends AbstractExtension implements ResetInt
         if ($this->vinculosDaRequisicao === null || $this->vinculosDaRequisicao['userId'] !== $user->getId()) {
             $this->vinculosDaRequisicao = [
                 'userId'   => $user->getId(),
-                'vinculos' => $this->userTenantRepository->findActiveByUser($user),
+                // "Suspensa a pedido" (PR 5): o seletor não oferece o escritório barrado.
+                'vinculos' => $this->bloqueioPorPedido->permitidos($this->userTenantRepository->findActiveByUser($user)),
             ];
         }
 

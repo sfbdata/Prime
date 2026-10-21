@@ -49,6 +49,7 @@ final class TiposDeAvisoDaCentral
             Notificacao::TIPO_CENTRAL_DESPACHO => ['grupo' => 'atencao', 'rotulo' => 'Despacho', 'icone' => 'bi-person-check', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_DJEN_PUBLICACAO, Notificacao::TIPO_PUSH_PUBLICACAO_PASTA => ['grupo' => 'atencao', 'rotulo' => 'Publicação', 'icone' => 'bi-newspaper', 'cor' => self::AMBAR, 'nivel' => 2],
             Notificacao::TIPO_PUSH_LINK_RENOVACAO => ['grupo' => 'atencao', 'rotulo' => 'Renovação', 'icone' => 'bi-arrow-clockwise', 'cor' => self::AMBAR, 'nivel' => 2],
+            Notificacao::TIPO_CONTA_PEDIDO_EXCLUSAO => ['grupo' => 'atencao', 'rotulo' => 'Pedido de exclusão', 'icone' => 'bi-trash3', 'cor' => self::AMBAR, 'nivel' => 2],
             // Agenda: como o tipo `agenda` do bluejus-central.js de 18/10 (L12 e TIPOS): azul, nível 2.
             Notificacao::TIPO_EVENTO_CRIADO, Notificacao::TIPO_EVENTO_CANCELADO => ['grupo' => 'atencao', 'rotulo' => 'Agenda', 'icone' => 'bi-calendar-event', 'cor' => self::AZUL, 'nivel' => 2],
             // Cobrança automática do checklist da pasta (desenho 02: tipos "cobranca" e "conformidade").

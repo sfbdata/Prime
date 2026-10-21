@@ -22,6 +22,7 @@ use App\Processo\Entity\MovimentacaoProcesso;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Repository\ClientePFRepository;
 use App\Cliente\Repository\ClientePJRepository;
+use App\Cliente\Service\HistoricoDoCliente;
 use App\Cliente\Service\PendenciasDoCadastro;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaDocumentoRepository;
@@ -212,6 +213,7 @@ class PastaController extends AbstractController
         private readonly PastaPrazoRepository $pastaPrazoRepository,
         private readonly AndamentoDaPasta $andamentoDaPasta,
         private readonly DefinirSituacaoDaPastaUseCase $definirSituacao,
+        private readonly HistoricoDoCliente $historicoDoCliente,
         private readonly TelaDoCadeado $telaDoCadeado,
     ) {}
 
@@ -725,6 +727,7 @@ class PastaController extends AbstractController
 
         $this->em->persist($cliente);
         $pasta->addCliente($cliente);
+        $this->historicoDoCliente->cadastroCriado($cliente, $currentUser, $tenant);
         $this->em->flush();
 
         if ($isXhr) {
