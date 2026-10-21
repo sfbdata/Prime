@@ -17,6 +17,7 @@ use App\Auth\Enum\StatusOab;
 use App\Profile\Enum\Atuacao;
 use App\Profile\Enum\Genero;
 use App\Profile\Enum\VinculoColaborador;
+use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -215,6 +216,29 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertFalse($gravado['perfil.sons']);
 
         self::assertSame('false', $this->abrir($this->primario)->filter('.mp-prefs > button[data-mp-pref="perfil.sons"]')->attr('aria-checked'));
+    }
+
+    #[TestDox('Resumo diário: o descadastro do rodapé desliga a chave; religar pelo Meu Perfil reativa só o resumo, mesmo com "todos"')]
+    public function testResumoDiarioSegueODescadastro(): void
+    {
+        $descadastro = static::getContainer()->get(DescadastroDeEmailInterface::class);
+        $email = (string) $this->primario->getEmail();
+        $chave = '.mp-prefs > button[data-mp-pref="perfil.resumo_email"]';
+        self::assertSame('true', $this->abrir($this->primario)->filter($chave)->attr('aria-checked'));
+
+        $descadastro->descadastrar($this->tenant, $email, DescadastroDeEmailInterface::ASSUNTO_TODOS, 'link_do_email');
+        $tela = $this->abrir($this->primario);
+        self::assertSame('false', $tela->filter($chave)->attr('aria-checked'), 'quem disse "não quero nada" vê o resumo desligado');
+
+        $this->postarJson('/perfil/preferencia', $tela, ['chave' => 'perfil.resumo_email', 'ligado' => true]);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($descadastro->estaDescadastrado($this->tenant, $email, 'resumo_diario'), 'religar libera o resumo');
+        self::assertTrue($descadastro->estaDescadastrado($this->tenant, $email, 'outro_assunto'), 'e só ele: o "todos" continua para o resto');
+        self::assertSame('true', $this->abrir($this->primario)->filter($chave)->attr('aria-checked'));
+
+        $this->postarJson('/perfil/preferencia', $this->abrir($this->primario), ['chave' => 'perfil.resumo_email', 'ligado' => false]);
+        self::assertTrue($descadastro->estaDescadastrado($this->tenant, $email, 'resumo_diario'), 'desligar descadastra');
+        self::assertSame('false', $this->abrir($this->primario)->filter($chave)->attr('aria-checked'));
     }
 
     #[TestDox('preferências: chave fora do catálogo responde 400; sem o token AJAX, 403')]

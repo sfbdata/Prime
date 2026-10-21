@@ -16,8 +16,9 @@ use App\Shared\Service\DigitoVerificador;
 
 /**
  * Regras dos campos da janela de Cadastro (desenho 1.2.3; E12f), as mesmas para editar e para criar ("Novo cliente",
- * E12i): limites, e-mail, nome e CPF/CNPJ obrigatórios e válidos, CPF/CNPJ de outro cadastro do escritório, CEP e
- * e-mail que não viram "alteração" por formato. Só o campo enviado muda. Não grava: quem chama dá o flush.
+ * E12i): limites, e-mail, CPF/CNPJ válidos quando informados, CPF/CNPJ de outro cadastro do escritório, CEP e
+ * e-mail que não viram "alteração" por formato. Nenhum campo é obrigatório (decisão do dono, 21/10/2026: o cadastro
+ * nasce com o que se tem, o resto vira pendência). Só o campo enviado muda. Não grava: quem chama dá o flush.
  */
 final class CamposDoCadastro
 {
@@ -106,9 +107,6 @@ final class CamposDoCadastro
     private function aplicarPessoaFisica(ClientePF $cliente, array $c, Tenant $tenant): void
     {
         if (array_key_exists('nome', $c)) {
-            if ($c['nome'] === '') {
-                throw new CadastroInvalidoException('Informe o nome completo.');
-            }
             if (mb_strlen($c['nome']) > 150) {
                 throw new CadastroInvalidoException('O nome completo passa de 150 letras.');
             }
@@ -116,15 +114,15 @@ final class CamposDoCadastro
         }
         if (array_key_exists('cpf', $c)) {
             $digitos = DigitoVerificador::digitos($c['cpf']);
-            if (!DigitoVerificador::cpfValido($digitos)) {
-                throw new CadastroInvalidoException('Informe um CPF válido. Ele identifica o cliente no sistema.');
+            if ($digitos !== '' && !DigitoVerificador::cpfValido($digitos)) {
+                throw new CadastroInvalidoException('CPF inválido: confira os dígitos.');
             }
             if ($digitos !== DigitoVerificador::digitos($cliente->getCpf())) {
-                $outro = $this->pfRepository->findOneByCpfDoTenant($digitos, $tenant);
+                $outro = $digitos === '' ? null : $this->pfRepository->findOneByCpfDoTenant($digitos, $tenant);
                 if ($outro !== null && $outro->getId() !== $cliente->getId()) {
                     throw new DocumentoJaCadastradoException($outro);
                 }
-                $cliente->setCpf(self::mascaraCpf($digitos));
+                $cliente->setCpf($digitos === '' ? '' : self::mascaraCpf($digitos));
             }
         }
         if (array_key_exists('rg', $c)) {
@@ -163,18 +161,15 @@ final class CamposDoCadastro
     private function aplicarPessoaJuridica(ClientePJ $cliente, array $c, Tenant $tenant): void
     {
         if (array_key_exists('razao_social', $c)) {
-            if ($c['razao_social'] === '') {
-                throw new CadastroInvalidoException('Informe a razão social.');
-            }
             $cliente->setRazaoSocial((string) preg_replace('/\s+/u', ' ', $c['razao_social']));
         }
         if (array_key_exists('cnpj', $c)) {
             $digitos = DigitoVerificador::digitos($c['cnpj']);
-            if (!DigitoVerificador::cnpjValido($digitos)) {
-                throw new CadastroInvalidoException('Informe um CNPJ válido. Ele identifica o cliente no sistema.');
+            if ($digitos !== '' && !DigitoVerificador::cnpjValido($digitos)) {
+                throw new CadastroInvalidoException('CNPJ inválido: confira os dígitos.');
             }
             if ($digitos !== DigitoVerificador::digitos($cliente->getCnpj())) {
-                $outro = $this->pjRepository->findOneByCnpjDoTenant($digitos, $tenant);
+                $outro = $digitos === '' ? null : $this->pjRepository->findOneByCnpjDoTenant($digitos, $tenant);
                 if ($outro !== null && $outro->getId() !== $cliente->getId()) {
                     throw new DocumentoJaCadastradoException($outro);
                 }

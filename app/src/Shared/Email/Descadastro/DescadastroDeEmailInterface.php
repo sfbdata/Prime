@@ -96,11 +96,24 @@ interface DescadastroDeEmailInterface
 
     /**
      * Os descadastros ATIVOS do escopo, do mais recente para o mais antigo. `busca` filtra o e-mail
-     * (contém, sem diferenciar caixa); `pagina` começa em 1; `porPagina` vai de 1 a 100.
+     * (contém, sem diferenciar caixa); `pagina` começa em 1; `porPagina` vai de 1 a 100; `assuntos`
+     * recorta os assuntos (vazio = todos; ex.: a lista do Comercial pede `comercial_campanhas` e `todos`).
      *
      * @param Tenant|null $tenant o escritório remetente; null = a plataforma
      */
-    public function listar(?Tenant $tenant, ?string $busca, int $pagina, int $porPagina): ListaDeDescadastros;
+    /** @param list<string> $assuntos */
+    public function listar(?Tenant $tenant, ?string $busca, int $pagina, int $porPagina, array $assuntos = []): ListaDeDescadastros;
+
+    /**
+     * Dos endereços pedidos, os que não querem receber este assunto deste remetente: a mesma regra de
+     * {@see self::estaDescadastrado()}, numa consulta por lote (ex.: tirar os descadastrados da base de contatos).
+     *
+     * @param Tenant|null  $tenant o escritório remetente; null = a plataforma
+     * @param list<string> $emails
+     *
+     * @return list<string> os descadastrados, normalizados (minúsculos, sem espaços nas pontas)
+     */
+    public function filtrarDescadastrados(?Tenant $tenant, array $emails, string $assunto): array;
 
     /**
      * URL ABSOLUTA e assinada da rota pública de descadastro, para pôr no e-mail.
