@@ -67,7 +67,9 @@ permissão de módulo** (D3: usa quem tem vínculo ativo com o escritório).
     (`action = 'despacho'`, entidade Pasta) só com tipo, item_id, conversa_id e prioridade, nunca texto. Abrir a 1:1,
     mensagem, avisos e auditoria numa transação só (`wrapInTransaction` do UseCase, flush dele). Pasta excluída = 404.
     Conversa sem ninguém que receba é recusada (`todosVeem([])` é falso). Registro do Financeiro: quem envia e quem
-    recebe também passam por `VisibilidadeDoFinanceiroDaPasta::podeVer`.
+    recebe também passam por `VisibilidadeDoFinanceiroDaPasta::podeVer`, e a prévia (`/central/encaminhar/item`) também.
+    O cartão do sistema de pró-bono ou contrato no Registro de Dados vale como registro do Financeiro
+    (`ItensEncaminhaveisDaPasta::tipoDoAcesso`): o envio confere por esse tipo e o grava em `despacho_tipo`.
     **Na leitura:** a mensagem guarda a referência (`despacho_pasta_id`, `despacho_tipo`) e TODA saída do texto de
     mensagem (`MensagemOutput`, `RespostaOutput`) nasce em `LeituraDasMensagens`, que confere a pasta para quem lê
     naquela hora (memória só durante a leitura; pasta buscada com o escritório explícito). Não vê, pasta apagada ou
