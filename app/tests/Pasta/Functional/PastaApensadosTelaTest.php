@@ -292,7 +292,7 @@ final class PastaApensadosTelaTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('Desvincular o principal não escreve cartão de apensado')]
+    #[TestDox('Desvincular o principal não escreve cartão de apensado: escreve o do P5d, "processo N desvinculado da pasta."')]
     public function testDesvincularPrincipalSemCartaoDeApensado(): void
     {
         [$user, $tenant] = $this->criarAdmin();
@@ -304,7 +304,9 @@ final class PastaApensadosTelaTest extends JusPrimeWebTestCase
         ], [], self::XHR);
 
         self::assertResponseIsSuccessful();
-        self::assertSame('', $this->ultimoCartao($pasta));
+        $cartao = $this->ultimoCartao($pasta);
+        self::assertStringNotContainsString('apensado', $cartao);
+        self::assertStringContainsString('desvinculado da pasta.', $cartao);
     }
 
     // ── Tela ─────────────────────────────────────────────────────────────────

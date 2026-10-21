@@ -8,6 +8,7 @@ use App\Indicacao\DTO\AlertaDeIndicacaoOutput;
 use App\Indicacao\DTO\IndicadorOutput;
 use App\Indicacao\DTO\LimitesDeIndicacaoOutput;
 use App\Indicacao\DTO\PainelDeIndicacoesOutput;
+use App\Indicacao\DTO\ResumoDeIndicacoesOutput;
 use App\Indicacao\Repository\IndicacaoAlertaRepository;
 use App\Indicacao\Repository\IndicacaoConfigRepository;
 use App\Indicacao\Repository\IndicacaoRepository;
@@ -48,6 +49,22 @@ final class ObterPainelDeIndicacoesUseCase
             totalDeIndicadores: $this->indicacoes->contarIndicadores(),
             pagina: $pagina,
             porPagina: $porPagina,
+        );
+    }
+
+    /**
+     * Só o cabeçalho e os limites (a seção do Painel do Master de 21/10): sem a página de indicadores nem os alertas,
+     * que a tela não mostra.
+     */
+    public function resumo(): ResumoDeIndicacoesOutput
+    {
+        $totais = $this->indicacoes->totais($this->relogio->now()->modify('-24 hours'));
+
+        return new ResumoDeIndicacoesOutput(
+            enviadas: $totais['enviadas'],
+            ultimas24h: $totais['ultimas24h'],
+            viraramConta: $totais['viraramConta'],
+            limites: LimitesDeIndicacaoOutput::fromEntity($this->configs->obter()),
         );
     }
 
