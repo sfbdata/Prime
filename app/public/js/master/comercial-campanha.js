@@ -303,9 +303,10 @@
         if (!chave) chave = novaChave();
         const botao = el('[data-mc-cp-enviar]');
         botao.disabled = true;
-        // O que outras partes da Central acrescentam ao envio (ex.: a confirmação de leitura da F3g, do 0d).
-        // Só a instância `com` usa os ganchos globais (F3h).
-        const extras = (M.ganchos && window.McCampanha ? window.McCampanha.extrasDoEnvio || [] : []).map(f => { try { return f() || {}; } catch (x) { return {}; } });
+        // O que outras partes da Central acrescentam ao envio (ex.: a confirmação de leitura da F3g, do 0d): os ganchos
+        // globais, só na instância `com` (F3h), e os desta instância, pendurados na raiz (`raiz.mcExtrasDoEnvio`).
+        const globais = (M.ganchos && window.McCampanha && window.McCampanha.extrasDoEnvio) || [];
+        const extras = [...globais, ...(raiz.mcExtrasDoEnvio || [])].map(f => { try { return f() || {}; } catch (x) { return {}; } });
         postar(ROTAS.urlCampanha, Object.assign(pedidoDoPublico(), ...extras, { chave, modelo: pedido(), frequencia, agendar: agenda }))
           .then(r => {
             chave = '';
@@ -490,7 +491,7 @@
       if (e.target.closest('[data-mc-cp-salvar]')) { salvar(); return; }
       if (e.target.closest('[data-mc-cp-excluir]')) { excluir(); return; }
       if (e.target.closest('[data-mc-cp-baixar]')) { baixar(); return; }
-      if (e.target.closest('[data-mc-cp-teste]')) { postar(ROTAS.urlTeste, pedido()).then(r => avisar(r.mensagem)).catch(err => avisar(err.message)); }
+      // O ícone de teste abre o modal do comercial-teste.js (F3f, dc L497-498); o envio é feito lá.
     });
 
     raiz.addEventListener('input', e => {
