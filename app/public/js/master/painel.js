@@ -1,10 +1,14 @@
 /* BlueJus · Painel do Master (desenho docs/design/perfis-1.0/05 - Perfis 1.0.dc.html, aba "Painel do sistema").
    Abas abertas pelo hash como no desenho docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html (linha 481):
-   #aba=perm abre Permissões e #sec=contas abre a seção (é para onde voltam promover e remover Master).
-   O bloco "Masters do sistema" da aba Permissões é do public/js/master/masters.js.
+   #aba=perm abre Permissões, #aba=rec abre Telas e recursos e #sec=contas abre a seção (é para onde voltam promover e
+   remover Master). Vale qualquer aba que exista no HTML ([data-aba]).
+   O bloco "Masters do sistema" da aba Permissões é do public/js/master/masters.js; a aba Telas e recursos, do recursos.js.
    Lógica portada do componente do desenho (kpis, gráfico com curva monotônica, mapa, faltam, auditoria, PDF).
    Regra do dono: nada inventado. Dado que não existe aparece como "sem informação" ou no estado vazio do desenho.
-   Os dados vêm de /master/dados/* (só leitura, ROLE_SUPER_ADMIN no servidor). */
+   Os dados vêm de /master/dados/* (só leitura, ROLE_SUPER_ADMIN no servidor).
+   Planos e limites (spec docs/specs/perfis-1.2-planos-e-limites.md P1 a P6, desenho 1.2 linhas 194-210, 397-410 e 726-735):
+   cartões dos planos, modal "Editar plano", itens de limite no menu da conta, modal de limite, faixas de alerta e
+   ranking com plano, limite, % e faixa do RetratoDoEspaco da Contribua. As regras moram no servidor. */
 (() => {
   'use strict';
   const raiz = document.getElementById('master-painel');
@@ -24,24 +28,32 @@
   const agora = () => dataHora(new Date().toISOString());
 
   const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'pes', mapaUsu: 'geral',
-    faltamOn: false, busca: '', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, aviso: null };
-  const D = { visao: null, contas: null, oab: null, audit: null };
+    faltamOn: false, busca: '', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, aviso: null, fx: null, fxMsg: null };
+  const D = { visao: null, contas: null, oab: null, audit: null, planos: null };
   const ERRO = {};
 
   const SECS = [['visao', 'Visão geral', 'bi-speedometer2'], ['contas', 'Contas e escritórios', 'bi-buildings'], ['oab', 'Usuários e OABs', 'bi-person-vcard'],
     ['arm', 'Armazenamento', 'bi-hdd-stack'], ['planos', 'Planos e limites', 'bi-sliders'], ['custos', 'Custos e infraestrutura', 'bi-cash-coin'],
     ['desemp', 'Desempenho', 'bi-activity'], ['audit', 'Segurança e auditoria', 'bi-journal-check'], ['config', 'Configurações globais', 'bi-gear']];
+  // Seções de outras frentes (desenho 1.2): entram só quando o parcial delas existe e trouxe conteúdo.
+  const EXTERNAS = {};
+  raiz.querySelectorAll('[data-sec-externa]').forEach(el => { if (el.innerHTML.trim()) EXTERNAS[el.dataset.secExterna] = el; });
+  if (EXTERNAS.com) SECS.push(['com', 'Comercial e e-mails', 'bi-megaphone']);
   const VAZIAS = {
     custos: ['bi-cash-coin', 'Custos e infraestrutura', 'Mostra quanto custa manter o BlueJus e o impacto de cada conta, separando custos medidos, importados de fornecedores e estimados. Sem integração financeira, os valores podem ser lançados manualmente, com origem identificada.', ['Armazenamento', 'Banco de dados', 'Hospedagem', 'Tráfego', 'Backups', 'APIs de IA', 'Notificações', 'Receita recorrente', 'Custo por conta', 'Custo por GB', 'Margem por plano', 'Projeção 3, 6 e 12 meses']],
     desemp: ['bi-activity', 'Desempenho e disponibilidade', 'Saúde técnica da plataforma, com histórico filtrável por gravidade, período e categoria. Métricas não coletadas aparecem como indisponíveis, nunca estimadas.', ['Disponibilidade', 'Tempo de resposta', 'Erros', 'Falhas de upload', 'Falhas de login', 'Último backup', 'Teste de restauração', 'CPU e memória', 'Integrações', 'Incidentes']],
-    config: ['bi-gear', 'Configurações globais', 'Parâmetros que valem para todas as contas. Cada alteração exige confirmação e fica na auditoria.', ['Faixas de alerta padrão', 'Período de teste', 'Política de excedente', 'Exceções temporárias', 'Autenticação reforçada', 'Retenção de auditoria']],
-    // Planos (decisão D1 do dono): não há plano no banco, então a seção usa o estado vazio em vez dos cartões de exemplo.
-    planos: ['bi-sliders', 'Planos e limites', 'Planos, franquias de armazenamento e limites de usuários por conta ainda não existem no sistema. Quando forem cadastrados, cada plano aparece aqui com as contas que o usam.', ['Planos', 'Preço mensal', 'Franquia de armazenamento', 'Limite de usuários', 'Contas por plano', 'Contas perto da franquia']]
+    config: ['bi-gear', 'Configurações globais', 'Parâmetros que valem para todas as contas. Cada alteração exige confirmação e fica na auditoria.', ['Faixas de alerta padrão', 'Período de teste', 'Política de excedente', 'Exceções temporárias', 'Autenticação reforçada', 'Retenção de auditoria']]
   };
   const NM = { RO: 'Rondônia', AC: 'Acre', AM: 'Amazonas', RR: 'Roraima', PA: 'Pará', AP: 'Amapá', TO: 'Tocantins', MA: 'Maranhão', PI: 'Piauí', CE: 'Ceará', RN: 'Rio Grande do Norte', PB: 'Paraíba', PE: 'Pernambuco', AL: 'Alagoas', SE: 'Sergipe', BA: 'Bahia', MG: 'Minas Gerais', ES: 'Espírito Santo', RJ: 'Rio de Janeiro', SP: 'São Paulo', PR: 'Paraná', SC: 'Santa Catarina', RS: 'Rio Grande do Sul', MS: 'Mato Grosso do Sul', MT: 'Mato Grosso', GO: 'Goiás', DF: 'Distrito Federal' };
   const ST = { Ativa: '#1e7b45', Suspensa: '#a3232b', 'Em quarentena': '#5b7383' };
   const QUARENTENA = 'Em quarentena';
   const dataBr = ymd => { const p = String(ymd || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : ''; };
+  // Faixa do RetratoDoEspaco (Contribua) com o rótulo e a cor da função faixa() do desenho (linha 593).
+  const FAIXA = { livre: ['Normal', '#1e7b45'], atencao: ['Atenção', '#c08a12'], alerta: ['Alerta', '#c0392b'], critico: ['Crítico', '#a3232b'], bloqueio: ['Limite atingido', '#7a1b22'] };
+  const ORDEM_FAIXA = { livre: 0, atencao: 1, alerta: 2, critico: 3, bloqueio: 4 };
+  const faixaDe = c => FAIXA[c.espaco.faixa] || FAIXA.livre;
+  // "Perto ou acima da franquia" conta pela faixa de Alerta (desenho, linha 697: FX[1]).
+  const pertoDaFranquia = c => c.espaco.percentual !== null && ORDEM_FAIXA[c.espaco.faixa] >= ORDEM_FAIXA.alerta;
 
   /* ---------- carga ---------- */
   const carregar = (chave, url) => {
@@ -49,11 +61,13 @@
     ERRO[chave] = 'carregando';
     fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then(j => { D[chave] = j; ERRO[chave] = null; renderSecs(); if (precisa[S.sec] === chave) renderSecao(); })
-      .catch(() => { ERRO[chave] = 'falhou'; if (precisa[S.sec] === chave) renderSecao(); });
+      .then(j => { D[chave] = j; ERRO[chave] = null; renderSecs(); if (deps(S.sec).includes(chave)) renderSecao(); })
+      .catch(() => { ERRO[chave] = 'falhou'; if (deps(S.sec).includes(chave)) renderSecao(); });
   };
-  const precisa = { visao: 'visao', contas: 'contas', arm: 'contas', oab: 'oab', audit: 'audit' };
-  const urlDe = { visao: URLS.visao, contas: URLS.contas, oab: URLS.oab, audit: URLS.auditoria };
+  // Armazenamento e Planos leem as contas (plano, limite, faixa) e o catálogo com as faixas de alerta.
+  const precisa = { visao: ['visao'], contas: ['contas'], arm: ['contas', 'planos'], planos: ['planos', 'contas'], oab: ['oab'], audit: ['audit'] };
+  const deps = sec => precisa[sec] || [];
+  const urlDe = { visao: URLS.visao, contas: URLS.contas, oab: URLS.oab, audit: URLS.auditoria, planos: URLS.planos };
   const aguardando = chave => (ERRO[chave] === 'falhou'
     ? '<div class="mp-card mp-carregando">Não foi possível carregar esta seção agora. Recarregue a página.</div>'
     : '<div class="mp-carregando">Carregando…</div>');
@@ -73,21 +87,28 @@
 
   /* ---------- seções ---------- */
   function renderSecs() {
-    const nAud = D.audit ? D.audit.registros.length : 0;
+    // Selo desde a abertura (desenho 1.2, linha 678; spec P10): o total vem com a Visão geral; aberta a trilha, vale a lista.
+    // Recarga pendente (D.visao ou D.audit zerados depois de uma ação) mantém o último número conhecido.
+    const nAud = S.nAud = D.audit ? D.audit.registros.length : D.visao ? D.visao.registrosDeAuditoria || 0 : S.nAud || 0;
     elSecs.innerHTML = SECS.map(([k, rot, icone]) => '<button type="button" class="mp-sec' + (S.sec === k ? ' on' : '') + '" data-sec="' + k + '"><i class="bi ' + icone + '"></i>' + esc(rot)
       + (k === 'audit' && nAud > 0 ? '<span class="mp-sec-n">' + num(nAud) + '</span>' : '') + '</button>').join('');
   }
   elSecs.addEventListener('click', e => { const b = e.target.closest('[data-sec]'); if (b) irPara(b.dataset.sec); });
-  function irPara(sec) { S.sec = sec; S.menu = null; S.menuPos = null; S.aviso = null; renderSecs(); renderSecao(); }
+  function irPara(sec) { S.sec = sec; S.menu = null; S.menuPos = null; S.aviso = null; S.fxMsg = null; renderSecs(); renderSecao(); }
 
   function renderSecao() {
-    const sec = S.sec, dep = precisa[sec];
-    if (dep && !D[dep]) { elSecao.innerHTML = aguardando(dep); carregar(dep, urlDe[dep]); return; }
+    const sec = S.sec, falta = deps(sec).filter(d => !D[d]);
+    Object.keys(EXTERNAS).forEach(k => { EXTERNAS[k].hidden = k !== sec; });
+    elSecao.hidden = !!EXTERNAS[sec];
+    raiz.dispatchEvent(new CustomEvent('mp:secao', { detail: { sec } }));
+    if (EXTERNAS[sec]) return;
+    if (falta.length) { elSecao.innerHTML = aguardando(falta.find(d => ERRO[d] === 'falhou') || falta[0]); falta.forEach(d => carregar(d, urlDe[d])); return; }
     if (VAZIAS[sec]) { elSecao.innerHTML = vazia(VAZIAS[sec]); return; }
     if (sec === 'visao') return montarVisao();
     if (sec === 'contas') return montarContas();
     if (sec === 'oab') return montarOab();
     if (sec === 'arm') return montarArm();
+    if (sec === 'planos') return montarPlanos();
     if (sec === 'audit') return montarAudit();
   }
 
@@ -116,13 +137,24 @@
       { rot: 'OABs ÚNICAS', n: num(k.oabUnicas), desc: num(k.oabRegistros) + ' registros · ' + num(k.oabRegistros - k.oabUnicas) + ' duplicado(s)', icone: 'bi-person-vcard', cor: '#7a3e8f', bg: '#f3e9f7', ir: 'oab' },
       { rot: 'PASTAS', n: num(k.pastas), desc: 'soma de todas as contas', icone: 'bi-folder2-open', cor: '#1e7b45', bg: '#e6f4ec', ir: 'contas' },
       { rot: 'DOCUMENTOS', n: num(k.documentos), desc: 'arquivos armazenados', icone: 'bi-file-earmark-text', cor: '#1e7b45', bg: '#e6f4ec', ir: 'contas' },
-      { rot: 'ARMAZENAMENTO', n: gb(k.bytes), desc: 'contratado: sem informação · ponto e tarefas não medidos', icone: 'bi-hdd-stack', cor: '#c08a12', bg: '#fbf1dc', ir: 'arm' },
+      kpiArmazenamento(k, D.visao.armazenamento),
       { rot: 'RECEITA MENSAL', n: 'sem informação', texto: true, desc: 'sem integração financeira ainda', icone: 'bi-cash-coin', cor: '#7d909d', bg: '#eef2f5', ir: 'custos' }
     ];
     document.getElementById('mp-kpis').innerHTML = kpis.map(x => '<button type="button" class="mp-kpi" data-ir="' + x.ir + '" style="--cor:' + x.cor + ';--bg:' + x.bg + '">'
       + '<span class="mp-kpi-ico"><i class="bi ' + x.icone + '"></i></span><span class="mp-kpi-rot">' + esc(x.rot) + '</span>'
       + '<span class="mp-kpi-n' + (x.texto ? ' mp-kpi-n-texto' : '') + '">' + esc(x.n) + '</span><span class="mp-kpi-desc">' + esc(x.desc) + '</span>'
+      + (x.pct ? '<div class="mp-barra-6 mp-kpi-barra"><div style="--w:' + x.pct + '"></div></div>' : '')
       + '<span class="mp-kpi-base"></span><span class="mp-kpi-brilho"></span></button>').join('');
+  }
+
+  // KPI ARMAZENAMENTO (desenho 1.2, linha 688; spec P9): cota = soma dos limites das contas com limite, cor e barra pela faixa.
+  function kpiArmazenamento(k, a) {
+    const base = { rot: 'ARMAZENAMENTO', n: gb(k.bytes), icone: 'bi-hdd-stack', bg: '#fbf1dc', ir: 'arm' };
+    if (!a) return Object.assign(base, { desc: 'contratado: sem informação · ponto e tarefas não medidos', cor: '#c08a12' });
+    // Número, descrição e barra somam só as contas com limite, como no desenho (a cota é delas); o uso das contas
+    // sem limite vem no sufixo. Sem nenhuma conta com limite, fica o texto antigo, com o uso total.
+    const sem = a.contasSemLimite > 0 ? ' · + ' + gb(a.bytesSemLimite) + ' em ' + num(a.contasSemLimite) + ' conta(s) sem limite' : '';
+    return Object.assign(base, { n: gb(a.bytesUsados), desc: 'de ' + num(a.cotaGb) + ' GB contratados · livre ' + gb(a.bytesLivres) + sem, cor: (FAIXA[a.faixa] || FAIXA.livre)[1], pct: a.percentual + '%' });
   }
 
   /* ---------- Crescimento (gráfico SVG do desenho) ---------- */
@@ -260,11 +292,12 @@
     renderContasLista();
   }
 
-  // Menu da conta (desenho 1.2, linha 735), na ordem: [limites: frente própria, ocultos até lá], Estatísticas,
-  // Histórico, Suspender OU Reativar (conforme a situação) e Excluir conta (oculto na conta do Master, C5).
-  // Conta em quarentena (C4b): só Estatísticas, Histórico e Reativar conta.
+  // Menu da conta (desenho 1.2, linha 735), na ordem: Editar limite de armazenamento, Definir limite de usuários,
+  // Estatísticas, Histórico, Suspender OU Reativar (conforme a situação) e Excluir conta (oculto na conta do Master, C5).
+  // Conta em quarentena (C4b): só Estatísticas, Histórico e Reativar conta (não há o que limitar até a purga).
   const opMenu = (op, classe, icone, rotulo, c) => '<button type="button" class="mp-menu-op' + classe + '" data-op="' + op + '" data-conta-id="' + c.id + '"><i class="bi ' + icone + '"></i>' + rotulo + '</button>';
   const menuDaConta = c => '<div class="mp-menu" data-parar><div class="mp-menu-cab">' + esc(c.nome) + '</div>'
+    + (c.situacao !== QUARENTENA ? opMenu('limArm', '', 'bi-hdd', 'Editar limite de armazenamento', c) + opMenu('limUsu', '', 'bi-people', 'Definir limite de usuários', c) : '')
     + opMenu('estat', '', 'bi-bar-chart', 'Estatísticas de uso', c)
     + opMenu('hist', '', 'bi-clock-history', 'Histórico de alterações', c)
     + (c.situacao === 'Ativa'
@@ -344,6 +377,24 @@
     S.aviso = { ok, msg: msg || (ok ? 'Situação da conta atualizada.' : 'Não foi possível concluir a ação. Recarregue a página.') };
     renderSecs();
     if (S.sec === 'contas') renderContasLista();
+    if (S.sec === 'arm') renderRanking();
+  }
+
+  // Armazenamento da linha (desenho 1.2, linhas 166 e 733): "<uso> de <limite>", %, barra e "<faixa> · livre <livre>".
+  // Em quarentena o uso não é medido: só o plano e os limites fazem sentido. Sem limite: o uso e "sem limite".
+  const livreDe = c => Math.max(0, c.espaco.limiteGb * GB - c.bytes);
+  function celulaArm(c) {
+    if (c.purgaEm) return '<div class="mp-conta-arm mp-hv" style="--cor:#5b7383"><span><span>uso não medido</span><b></b></span><span>conta em quarentena</span></div>';
+    if (c.espaco.semLimite) return '<div class="mp-conta-arm mp-hv" style="--cor:#4a6373"><span><span>' + esc(gb(c.bytes)) + ' em uso</span><b></b></span><span>sem limite</span></div>';
+    const [rotulo, cor] = faixaDe(c), p = c.espaco.percentual;
+    return '<div class="mp-conta-arm mp-hv" style="--cor:' + cor + '"><span><span>' + esc(gb(c.bytes)) + ' de ' + num(c.espaco.limiteGb) + ' GB</span><b>' + p + '%</b></span>'
+      + '<div class="mp-barra-6"><div style="--w:' + Math.min(100, p) + '%"></div></div><span>' + esc(rotulo) + ' · livre ' + esc(gb(livreDe(c))) + '</span></div>';
+  }
+  // Previsão (desenho, linha 733): meses até o limite no ritmo dos últimos 30 dias. Plural: convenção ("≈ 1 mês").
+  function previsao(c) {
+    if (c.espaco.semLimite || !(c.bytesRecentes > 0)) return '<div class="mp-conta-prev mp-hv">sem previsão</div>';
+    const mes = (c.espaco.limiteGb * GB - c.bytes) / c.bytesRecentes, n = Math.round(mes);
+    return '<div class="mp-conta-prev mp-hv" style="--cor:' + (mes < 3 ? '#a3232b' : '#4a6373') + '">' + (mes < 1 ? 'menos de 1 mês' : '≈ ' + n + (n === 1 ? ' mês' : ' meses')) + '</div>';
   }
 
   function renderContasLista() {
@@ -351,18 +402,17 @@
     const contas = D.contas.contas.filter(c => (S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA) && (!b || (c.nome + ' ' + (c.titular || '')).toLowerCase().includes(b)));
     document.getElementById('mp-contas-n').textContent = num(contas.length) + ' · botão direito na linha para ações';
     // Resultado de suspender/reativar: uma linha acima da tabela, até trocar de seção.
-    document.getElementById('mp-contas-aviso').innerHTML = S.aviso ? '<div class="mp-aviso ' + (S.aviso.ok ? 'is-ok' : 'is-erro') + '" role="status" data-mp-aviso><i class="bi '
-      + (S.aviso.ok ? 'bi-check-circle' : 'bi-exclamation-circle') + '"></i>' + esc(S.aviso.msg) + '</div>' : '';
+    document.getElementById('mp-contas-aviso').innerHTML = avisoHtml();
     document.getElementById('mp-contas-lista').innerHTML = contas.length ? contas.map(c => {
       const cor = ST[c.situacao] || '#4a6373';
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
         + '<div class="mp-conta-nome mp-hv"><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b><span>desde ' + esc(c.desde) + ' · último acesso ' + esc(acessoRelativo(c.ultimoAcesso)) + '</span></div>'
-        + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || 'titular não registrado') + '</span><span>sem plano</span></div>'
-        + '<div class="mp-conta-usu mp-hv"><b>' + num(c.usuarios) + '</b><span> / sem limite</span></div>'
+        + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || 'titular não registrado') + '</span><span>' + esc(c.espaco.planoNome) + '</span></div>'
+        + '<div class="mp-conta-usu mp-hv"><b>' + num(c.usuarios) + '</b><span> / ' + (c.espaco.limiteUsuarios === null ? 'sem limite' : num(c.espaco.limiteUsuarios)) + '</span></div>'
         + '<div class="mp-conta-num mp-hv">' + num(c.pastas) + '</div><div class="mp-conta-num mp-hv">' + num(c.documentos) + '</div>'
-        + '<div class="mp-conta-arm mp-hv" style="--cor:#4a6373"><span><span>' + esc(gb(c.bytes)) + ' em uso</span><b></b></span><span>sem cota definida</span></div>'
+        + celulaArm(c)
         + '<div class="mp-conta-cresc mp-hv">' + (c.bytesRecentes > 0 ? '+' + esc(gb(c.bytesRecentes)) : 'estável') + '</div>'
-        + '<div class="mp-conta-prev mp-hv">sem previsão</div>'
+        + (c.purgaEm ? '<div class="mp-conta-prev mp-hv">sem previsão</div>' : previsao(c))
         + '<div class="mp-conta-st mp-hv">' + (c.purgaEm
           // Quarentena: a situação e, abaixo, a data da purga em duas linhas curtas que não quebram (coluna de 100px).
           ? '<div class="mp-conta-st-bloco"><span class="mp-conta-sit" style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span>'
@@ -400,15 +450,260 @@
   }
 
   /* ================= ARMAZENAMENTO ================= */
+  // Faixas de alerta (desenho 1.2, linhas 195-198 e 695): chips com a cor do desenho. A chave do bloqueio, o aviso ao
+  // lado dela e o botão de salvar são convenção (spec P6). Ordem crescente, de 1 a 100: a Contribua revalida.
+  const CHIPS = [['atencao', 'Atenção', '#8a5a12', '#fbf1dc'], ['alerta', 'Alerta', '#a3232b', '#fbe7e7'], ['critico', 'Crítico', '#7a1b22', '#f6dcdc'], ['bloqueio', 'Bloqueio', '#fff', '#7a1b22']];
+  const AVISO_BLOQUEIO = 'Antes de ligar, confira os escritórios acima do plano e defina sem limite ou uma cota própria.';
+  const ERRO_FAIXAS = 'As faixas precisam crescer em ordem, de 1% a 100%.';
+  const fxDoServidor = () => Object.assign({}, D.planos.faixas, { bloqueioAtivo: D.planos.bloqueioAtivo });
+  const fxValidas = f => { const v = CHIPS.map(([k]) => f[k]); return v.every(Number.isInteger) && v[0] > 0 && v[0] < v[1] && v[1] < v[2] && v[2] < v[3] && v[3] <= 100; };
+  const fxMudou = () => { const o = fxDoServidor(); return CHIPS.some(([k]) => S.fx[k] !== o[k]) || S.fx.bloqueioAtivo !== o.bloqueioAtivo; };
+
   function montarArm() {
-    const contas = D.contas.contas.filter(c => c.situacao !== QUARENTENA).sort((a, b) => b.bytes - a.bytes), mx = Math.max(1, ...contas.map(c => c.bytes));
-    elSecao.innerHTML = '<div class="mp-card mp-ranking"><div class="mp-cab-simples"><b>Contas por consumo</b></div>'
-      + (contas.length ? contas.map(c => '<div class="mp-rank" style="--cor:#0a6fa0"><span title="' + esc(c.nome) + '">' + esc(c.nome) + '</span><div class="mp-barra-8"><div style="--w:' + pct(c.bytes, mx) + '"></div></div><b>' + esc(gb(c.bytes)) + '</b><span>sem cota definida</span></div>').join('') : '<div class="mp-vazio-linha">Nenhuma conta.</div>')
-      + '</div><span class="mp-nota">Soma dos arquivos com tamanho gravado (pastas fora da lixeira, clientes, processos, cobrança, chamados e kanban). Justificativas de ponto e anexos de tarefa não têm tamanho no banco: não medidos.</span>';
+    if (!S.fx) S.fx = fxDoServidor();
+    elSecao.innerHTML = '<div class="mp-card mp-faixas"><b class="mp-faixas-tit">Faixas de alerta de consumo <span>(configuráveis)</span></b>'
+      + '<div class="mp-faixas-chips">' + CHIPS.map(([k, rot, cor, bg]) => '<label class="mp-faixa-chip" style="--cor:' + cor + ';--bg:' + bg + '"><span>' + rot + ' a partir de</span>'
+        + '<input type="number" min="1" max="100" step="1" data-faixa="' + k + '" value="' + esc(S.fx[k]) + '" aria-label="' + rot + ' a partir de">%</label>').join('') + '</div>'
+      + '<span class="mp-faixas-nota">No limite (100%), novos uploads acima da capacidade ficam bloqueados. Consulta, download e exportação continuam liberados. Nenhum documento é apagado automaticamente.</span>'
+      + '<div class="mp-faixas-bloqueio"><label class="mp-chave"><input type="checkbox" data-faixa-bloqueio' + (S.fx.bloqueioAtivo ? ' checked' : '') + '><span>Bloquear novos envios na faixa Bloqueio</span></label>'
+      + '<span class="mp-faixas-aviso"><i class="bi bi-exclamation-triangle"></i>' + esc(AVISO_BLOQUEIO) + '</span></div>'
+      + '<div class="mp-faixas-rodape"><span class="mp-faixas-msg" data-faixas-msg></span><button type="button" class="mp-btn-azul" data-faixas-salvar>Salvar faixas</button></div></div>'
+      + '<div class="mp-card mp-ranking"><div class="mp-cab-simples"><b>Contas por consumo</b></div><div id="mp-arm-aviso"></div><div id="mp-ranking-lista"></div></div>'
+      + '<span class="mp-nota">Soma dos arquivos com tamanho gravado (pastas fora da lixeira, clientes, processos, cobrança, chamados e kanban). Justificativas de ponto e anexos de tarefa não têm tamanho no banco: não medidos.</span>';
+    atualizarFaixas();
+    renderRanking();
+  }
+
+  function atualizarFaixas() {
+    const msg = elSecao.querySelector('[data-faixas-msg]'), btn = elSecao.querySelector('[data-faixas-salvar]'); if (!msg || !btn) return;
+    const valida = fxValidas(S.fx), erro = !valida ? ERRO_FAIXAS : S.fxMsg && !S.fxMsg.ok ? S.fxMsg.texto : null;
+    msg.textContent = erro || (S.fxMsg && S.fxMsg.ok ? S.fxMsg.texto : '');
+    msg.style.setProperty('--cor', erro ? '#a3232b' : '#1e7b45');
+    btn.disabled = !valida || !fxMudou() || !!S.fxEnviando;
+  }
+
+  // Ranking (desenho, linhas 200-201 e 696): por % da cota, decrescente; sem limite no fim, pelo uso. "Editar limite" abre o modal.
+  function renderRanking() {
+    const el = document.getElementById('mp-ranking-lista'); if (!el) return;
+    const chave = c => (c.espaco.percentual === null ? -1 : c.bytes / (c.espaco.limiteGb * GB));
+    const contas = D.contas.contas.filter(c => c.situacao !== QUARENTENA).sort((a, b) => chave(b) - chave(a) || b.bytes - a.bytes);
+    document.getElementById('mp-arm-aviso').innerHTML = avisoHtml();
+    el.innerHTML = contas.length ? contas.map(c => {
+      const sem = c.espaco.percentual === null, [rotulo, cor] = sem ? ['sem limite', '#4a6373'] : faixaDe(c), p = sem ? 0 : c.bytes / (c.espaco.limiteGb * GB) * 100;
+      return '<div class="mp-rank" style="--cor:' + cor + '"><span title="' + esc(c.nome) + '">' + esc(c.nome) + '</span><div class="mp-barra-8"><div style="--w:' + Math.min(100, p) + '%"></div></div>'
+        + '<b>' + (sem ? '' : c.espaco.percentual + '%') + '</b><span>' + esc(rotulo) + '</span><button type="button" class="mp-rank-btn" data-lim-arm="' + c.id + '">Editar limite</button></div>';
+    }).join('') : '<div class="mp-vazio-linha">Nenhuma conta.</div>';
+  }
+
+  function salvarFaixas() {
+    if (!fxValidas(S.fx) || !fxMudou() || S.fxEnviando) return;
+    const corpo = new FormData();
+    corpo.append('_token', D.planos.tokenFaixas || '');
+    CHIPS.forEach(([k]) => corpo.append(k, String(S.fx[k])));
+    corpo.append('bloqueioAtivo', S.fx.bloqueioAtivo ? '1' : '0');
+    S.fxEnviando = true; atualizarFaixas();
+    postar(URLS.faixas, corpo, j => {
+      // O catálogo, as faixas e as contas (a faixa de cada uma muda) recarregam; a trilha também.
+      S.fxEnviando = false; S.fx = null; S.fxMsg = { ok: true, texto: j.mensagem }; D.planos = null; D.contas = null; ERRO.planos = null; ERRO.contas = null; recarregarVisaoETrilha();
+      if (S.sec === 'arm') renderSecao();
+    }, erro => { S.fxEnviando = false; S.fxMsg = { ok: false, texto: erro }; atualizarFaixas(); });
+  }
+
+  /* ================= PLANOS E LIMITES ================= */
+  // Cartões (desenho 1.2, linhas 205-210 e 697). Cores do desenho; o 4º plano (Avançado) é convenção, o desenho tem 3.
+  const COR_PLANO = { free: '#c08a12', essencial: '#0a6fa0', profissional: '#1e7b45', avancado: '#7a3e8f' };
+  const reais = cent => 'R$ ' + (cent % 100 === 0 ? num(cent / 100) : (cent / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+  const nomeDoPlano = p => (p.codigo === 'free' ? 'Plano ' + p.nome : p.nome);
+  // "usuários sem limite", e não "sem limite usuários" (o desenho sempre acrescenta " usuários"): convenção.
+  const usuariosDoPlano = p => (p.limiteUsuarios === null ? 'usuários sem limite' : num(p.limiteUsuarios) + ' usuários');
+
+  function montarPlanos() {
+    const ativas = D.contas.contas.filter(c => c.situacao !== QUARENTENA);
+    elSecao.innerHTML = '<div id="mp-planos-aviso"></div><div class="mp-planos">' + D.planos.planos.map(p => {
+      const acima = ativas.filter(c => c.espaco.planoCodigo === p.codigo && pertoDaFranquia(c)).length;
+      return '<div class="mp-card mp-plano" style="--cor:' + (COR_PLANO[p.codigo] || '#4a6373') + '"><div class="mp-plano-topo"><b>' + esc(nomeDoPlano(p)) + '</b>'
+        + (p.codigo === 'free' ? '<span class="mp-plano-tag">Padrão: toda conta nova começa aqui</span>' : '')
+        + (p.ativo ? '' : '<span class="mp-plano-inativo">inativo</span>') + '</div>'
+        + '<span class="mp-plano-preco">' + esc(reais(p.precoCentavos)) + '<span> / mês</span></span>'
+        + '<span class="mp-plano-cap">' + num(p.cotaGb) + ' GB · ' + esc(usuariosDoPlano(p)) + '</span>'
+        + '<span class="mp-plano-contas">' + num(p.escritorios) + ' conta(s) · ' + num(acima) + ' perto ou acima da franquia</span>'
+        + '<button type="button" class="mp-rank-btn mp-plano-editar" data-plano-editar="' + esc(p.codigo) + '"><i class="bi bi-pencil"></i>Editar plano</button></div>';
+    }).join('') + '</div>'
+      + '<span class="mp-nota">Toda conta nova entra no Plano Free (10 GB). A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail recomendando ampliar o espaço; em 100% novos envios ficam bloqueados, mas consultar e baixar arquivos continua liberado. Mudanças de plano com impacto comercial exigem confirmação e ficam registradas na auditoria.</span>';
+    document.getElementById('mp-planos-aviso').innerHTML = avisoHtml();
+  }
+
+  /* ---------- modal (limite e plano), no host #mp-modal do template ---------- */
+  const elModal = document.getElementById('mp-modal');
+  let modal = null;
+  const fecharModal = () => { modal = null; if (elModal) elModal.innerHTML = ''; };
+  const caixa = (icone, titulo, corpo, botao) => '<div class="mp-lim-fundo" data-lim-fundo><div class="mp-lim" role="dialog" aria-modal="true" aria-labelledby="mpLimTitulo">'
+    + '<div class="mp-lim-cab"><i class="bi ' + icone + '"></i><span id="mpLimTitulo">' + esc(titulo) + '</span></div><div class="mp-lim-corpo">' + corpo + '</div>'
+    + '<div class="mp-lim-rodape"><button type="button" class="mp-lim-cancelar" data-lim-cancelar>Cancelar</button><button type="button" class="mp-lim-ok" data-lim-ok disabled>' + esc(botao) + '</button></div></div></div>';
+  const campo = (rotulo, attrs) => '<label class="mp-lim-campo"><span>' + rotulo + '</span><input ' + attrs + '></label>';
+  const quadros = itens => '<div class="mp-lim-info">' + itens.map(([rot, val]) => '<div><div>' + rot + '</div><div>' + esc(val) + '</div></div>').join('') + '</div>';
+
+  // Modal de limite (desenho 1.2, linhas 397-410 e 726-732): o campo vem com o limite atual e a justificativa vazia.
+  // "Sem limite" (spec P4, contrato semLimite) só no armazenamento: libera o espaço e os usuários da conta.
+  function abrirLimite(tipo, id) {
+    const c = D.contas && D.contas.contas.find(x => x.id === id); if (!c || !elModal) return;
+    const arm = tipo === 'arm', atual = arm ? c.espaco.limiteGb : c.espaco.limiteUsuarios;
+    modal = { tipo: 'lim', lim: tipo, c, atual, erro: null, enviando: false };
+    const info = arm
+      ? [['EM USO', gb(c.bytes)], ['LIMITE ATUAL', atual === null ? 'sem limite' : num(atual) + ' GB'], ['LIVRE', atual === null ? 'sem limite' : gb(livreDe(c))]]
+      : [['USUÁRIOS', num(c.usuarios)], ['LIMITE ATUAL', atual === null ? 'sem limite' : num(atual)], ['VAGAS', atual === null ? 'sem limite' : num(Math.max(0, atual - c.usuarios))]];
+    elModal.innerHTML = caixa(arm ? 'bi-hdd' : 'bi-people', arm ? 'Editar limite de armazenamento' : 'Definir limite de usuários',
+      '<b class="mp-lim-conta">' + esc(c.nome) + '</b>' + quadros(info)
+      + campo(arm ? 'NOVO LIMITE (GB)' : 'NOVO LIMITE DE USUÁRIOS', 'type="number" min="1" step="1" data-lim-novo value="' + (atual === null ? '' : atual) + '"')
+      + (arm ? '<label class="mp-lim-sem"><input type="checkbox" data-lim-sem' + (c.espaco.semLimite ? ' checked' : '') + '>Sem limite (espaço e usuários)</label>' : '')
+      + '<span class="mp-lim-msg" data-lim-msg></span>'
+      + (!arm && c.espaco.semLimite ? '<span class="mp-lim-nota">Esta conta está sem limite: o limite de usuários só passa a valer quando ela voltar a ter limite de espaço.</span>' : '')
+      + campo('JUSTIFICATIVA', 'type="text" maxlength="500" data-lim-just placeholder="Obrigatória, fica na auditoria"'), 'Confirmar alteração');
+    atualizarLimite();
+    elModal.querySelector('[data-lim-novo]').focus();
+  }
+
+  // Regras do desenho (linhas 622-623 e 729-731): valor <= 0, abaixo do uso ou justificativa vazia (só espaços contam
+  // como vazia) bloqueiam o botão. Repetir o limite atual é permitido ("Diferença: +0 GB.").
+  function estadoDoLimite() {
+    const m = modal, arm = m.lim === 'arm', bruto = elModal.querySelector('[data-lim-novo]').value, novo = +bruto || 0;
+    const sem = arm && elModal.querySelector('[data-lim-sem]').checked, just = elModal.querySelector('[data-lim-just]').value;
+    const abaixo = !sem && (arm ? novo * GB < m.c.bytes : novo < m.c.usuarios);
+    const inteiro = Number.isInteger(novo);
+    const bloq = (!sem && (novo <= 0 || abaixo || !inteiro)) || !just.trim() || m.enviando;
+    const unidade = arm ? ' GB' : ' usuário(s)', fim = '. A alteração fica registrada na auditoria.';
+    let msg;
+    if (sem) msg = 'Sem limite: a conta deixa de ter limite de espaço e de usuários' + fim;
+    else if (abaixo) msg = arm ? 'O novo limite é menor que o volume em uso (' + gb(m.c.bytes) + '). Reduzir não apaga arquivos, por isso não é permitido abaixo do uso.' : 'Menor que os usuários já cadastrados.';
+    else if (!inteiro) msg = 'Informe um número inteiro.';
+    else if (m.atual === null) msg = 'Passa de sem limite para ' + novo + (arm ? ' GB' : ' usuários') + fim;
+    else { const d = novo - m.atual; msg = 'Diferença: ' + (d >= 0 ? '+' : '') + d + unidade + fim; }
+    return { novo, sem, just, abaixo, bloq, msg };
+  }
+
+  function atualizarLimite() {
+    const e = estadoDoLimite(), entrada = elModal.querySelector('[data-lim-novo]'), msg = elModal.querySelector('[data-lim-msg]');
+    entrada.disabled = e.sem;
+    entrada.style.setProperty('--borda', e.abaixo ? '#a3232b' : '#d6e0e7');
+    msg.textContent = modal.erro || e.msg;
+    msg.style.setProperty('--cor', modal.erro || e.abaixo ? '#a3232b' : '#4a6373');
+    elModal.querySelector('[data-lim-ok]').disabled = e.bloq;
+  }
+
+  function salvarLimite() {
+    const e = estadoDoLimite(), m = modal; if (e.bloq) return;
+    const corpo = new FormData();
+    corpo.append('_token', m.c.token || '');
+    corpo.append('valor', e.sem ? '' : String(e.novo));
+    corpo.append('semLimite', e.sem ? '1' : '0');
+    corpo.append('justificativa', e.just);
+    m.enviando = true; m.erro = null; atualizarLimite();
+    const url = (m.lim === 'arm' ? URLS.contaLimiteArm : URLS.contaLimiteUsu).replace('/0/', '/' + m.c.id + '/');
+    postar(url, corpo, j => {
+      if (!j.conta || !j.conta.espaco) return falhaNoModal(null);
+      m.c.espaco = j.conta.espaco;
+      // KPI, selo e trilha recarregam; os cartões de plano ("perto ou acima da franquia") leem a conta já trocada.
+      recarregarVisaoETrilha();
+      fecharModal();
+      S.aviso = { ok: true, msg: j.mensagem };
+      renderSecs(); renderSecao();
+    }, falhaNoModal);
+  }
+
+  // Recusa do servidor (\DomainException da Contribua, com o texto do desenho) aparece no próprio modal.
+  function falhaNoModal(erro) {
+    if (!modal) return;
+    modal.enviando = false; modal.erro = erro || 'Não foi possível concluir a ação. Recarregue a página.';
+    if (modal.tipo === 'lim') atualizarLimite(); else atualizarPlano();
+  }
+
+  // Editar plano (spec P2; o desenho não tem este modal: convenção, no mesmo molde do modal de limite).
+  // O código não muda. Free: continua grátis e ativo (a Contribua recusa com a mensagem dela).
+  function abrirPlano(codigo) {
+    const p = D.planos && D.planos.planos.find(x => x.codigo === codigo); if (!p || !elModal) return;
+    modal = { tipo: 'plano', p, erro: null, enviando: false };
+    const preco = (p.precoCentavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: p.precoCentavos % 100 === 0 ? 0 : 2, maximumFractionDigits: 2, useGrouping: false });
+    elModal.innerHTML = caixa('bi-sliders', 'Editar plano', '<b class="mp-lim-conta">' + esc(nomeDoPlano(p)) + '</b>'
+      + campo('NOME', 'type="text" maxlength="60" data-plano-nome value="' + esc(p.nome) + '"')
+      + '<div class="mp-lim-duas">' + campo('ESPAÇO (GB)', 'type="number" min="1" step="1" data-plano-cota value="' + p.cotaGb + '"')
+      + campo('PREÇO (R$)', 'type="text" inputmode="decimal" data-plano-preco value="' + esc(preco) + '"') + '</div>'
+      + campo('LIMITE DE USUÁRIOS', 'type="number" min="1" step="1" data-plano-usuarios placeholder="vazio para sem limite" value="' + (p.limiteUsuarios === null ? '' : p.limiteUsuarios) + '"')
+      + campo('DESCRIÇÃO', 'type="text" maxlength="120" data-plano-descricao value="' + esc(p.descricao) + '"')
+      + '<label class="mp-lim-sem"><input type="checkbox" data-plano-ativo' + (p.ativo ? ' checked' : '') + '>Plano ativo</label>'
+      + '<span class="mp-lim-msg" data-lim-msg></span>', 'Salvar plano');
+    atualizarPlano();
+    elModal.querySelector('[data-plano-nome]').focus();
+  }
+
+  // Preço em reais ("19,90", "19.90" ou "19") para centavos; nulo se não for um valor válido.
+  const centavos = v => (/^\d{1,7}([.,]\d{1,2})?$/.test(String(v).trim()) ? Math.round(parseFloat(String(v).trim().replace(',', '.')) * 100) : null);
+
+  function estadoDoPlano() {
+    const v = sel => elModal.querySelector(sel);
+    const cota = v('[data-plano-cota]').value.trim(), usuarios = v('[data-plano-usuarios]').value.trim(), preco = centavos(v('[data-plano-preco]').value);
+    const ok = v('[data-plano-nome]').value.trim() !== '' && /^\d+$/.test(cota) && preco !== null && (usuarios === '' || /^\d+$/.test(usuarios));
+    return { ok, cota, usuarios, preco, nome: v('[data-plano-nome]').value, descricao: v('[data-plano-descricao]').value, ativo: v('[data-plano-ativo]').checked };
+  }
+
+  function atualizarPlano() {
+    const e = estadoDoPlano(), msg = elModal.querySelector('[data-lim-msg]');
+    const texto = modal.erro || (e.ok ? 'O código do plano (' + modal.p.codigo + ') não muda. A alteração fica registrada na auditoria.' : 'Preencha o nome, o espaço em GB e o preço em reais (por exemplo 19,90). Usuários: vazio para sem limite.');
+    msg.textContent = texto;
+    msg.style.setProperty('--cor', modal.erro ? '#a3232b' : '#4a6373');
+    elModal.querySelector('[data-lim-ok]').disabled = !e.ok || modal.enviando;
+  }
+
+  function salvarPlano() {
+    const e = estadoDoPlano(), m = modal; if (!e.ok || m.enviando) return;
+    const corpo = new FormData();
+    [['_token', m.p.token || ''], ['nome', e.nome], ['cotaGb', e.cota], ['precoCentavos', String(e.preco)], ['limiteUsuarios', e.usuarios], ['descricao', e.descricao], ['ativo', e.ativo ? '1' : '0']]
+      .forEach(([k, val]) => corpo.append(k, val));
+    m.enviando = true; m.erro = null; atualizarPlano();
+    postar(URLS.planoAlterar.replace(/\/codigo$/, '/' + encodeURIComponent(m.p.codigo)), corpo, j => {
+      // Catálogo, contas (nome e limite do plano em cada linha) e trilha recarregam.
+      D.planos = null; D.contas = null; ERRO.planos = null; ERRO.contas = null; recarregarVisaoETrilha();
+      fecharModal();
+      S.aviso = { ok: true, msg: j.mensagem };
+      renderSecs(); renderSecao();
+    }, falhaNoModal);
+  }
+
+  // Depois de salvar limite, plano ou faixas: o KPI ARMAZENAMENTO e o selo da auditoria não podem ficar velhos.
+  // A Visão geral volta já (o selo usa S.nAud, o último número, enquanto isso); a trilha, quando for aberta.
+  function recarregarVisaoETrilha() {
+    D.visao = null; D.audit = null; ERRO.visao = null; ERRO.audit = null;
+    carregar('visao', URLS.visao);
+  }
+
+  // POST com o mesmo critério do menu da conta: só é sucesso o JSON direto do servidor com `mensagem`.
+  function postar(url, corpo, aoDarCerto, aoFalhar) {
+    fetch(url, { method: 'POST', body: corpo, credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(r => r.json().catch(() => null).then(j => ({ r, j })))
+      .then(({ r, j }) => {
+        const json = !r.redirected && j !== null && typeof j === 'object';
+        if (json && r.ok && j.mensagem) return aoDarCerto(j);
+        aoFalhar(json && !r.ok ? j.erro : null);
+      })
+      .catch(() => aoFalhar(null));
+  }
+
+  const avisoHtml = () => (S.aviso ? '<div class="mp-aviso ' + (S.aviso.ok ? 'is-ok' : 'is-erro') + '" role="status" data-mp-aviso><i class="bi '
+    + (S.aviso.ok ? 'bi-check-circle' : 'bi-exclamation-circle') + '"></i>' + esc(S.aviso.msg) + '</div>' : '');
+
+  if (elModal) {
+    elModal.addEventListener('click', e => {
+      if (e.target.matches('[data-lim-fundo]') || e.target.closest('[data-lim-cancelar]')) return fecharModal();
+      if (!e.target.closest('[data-lim-ok]') || !modal) return;
+      return modal.tipo === 'lim' ? salvarLimite() : salvarPlano();
+    });
+    const aoMudar = () => { if (!modal) return; modal.erro = null; return modal.tipo === 'lim' ? atualizarLimite() : atualizarPlano(); };
+    elModal.addEventListener('input', aoMudar);
+    elModal.addEventListener('change', aoMudar);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal) fecharModal(); });
   }
 
   /* ================= SEGURANÇA E AUDITORIA ================= */
-  const AI = a => (/Limite/.test(a) ? ['bi-hdd', '#0a6fa0'] : /reativada|reativado|Exclusão de conta cancelada/i.test(a) ? ['bi-play-circle', '#1e7b45'] : /suspensa|excluída|excluído|removido|retirada|desativado/i.test(a) ? ['bi-slash-circle', '#a3232b'] : /Master|primário|Papel no sistema/i.test(a) ? ['bi-stars', '#7a3e8f'] : /Alerta/.test(a) ? ['bi-exclamation-triangle', '#c08a12'] : ['bi-journal-check', '#4a6373']);
+  const AI = a => (/Limite/.test(a) ? ['bi-hdd', '#0a6fa0'] : /reativada|reativado|Exclusão de conta cancelada/i.test(a) ? ['bi-play-circle', '#1e7b45'] : /suspensa|excluída|excluído|removido|retirada|desativado/i.test(a) ? ['bi-slash-circle', '#a3232b'] : /Master|primário|Papel no sistema/i.test(a) ? ['bi-stars', '#7a3e8f'] : /Alerta/.test(a) ? ['bi-exclamation-triangle', '#c08a12'] : /^Plano|^Faixas de alerta/.test(a) ? ['bi-sliders', '#0a6fa0'] : ['bi-journal-check', '#4a6373']);
   const audFiltrada = () => D.audit.registros.filter(r => (S.audConta === null || r.contaId === S.audConta) && (!S.audTipo || r.acao === S.audTipo));
 
   function montarAudit() {
@@ -457,9 +752,13 @@
     if (op) {
       e.stopPropagation(); fecharMenuDaConta();
       if (op.dataset.op === 'estat') return irPara('arm');
+      if (op.dataset.op === 'limArm' || op.dataset.op === 'limUsu') return abrirLimite(op.dataset.op === 'limArm' ? 'arm' : 'usu', +op.dataset.contaId);
       if (CONF_CONTA[op.dataset.op]) return pedirAcaoNaConta(op.dataset.op, +op.dataset.contaId);
       S.audConta = +op.dataset.contaId; S.audTipo = ''; return irPara('audit');
     }
+    const limArm = t.closest('[data-lim-arm]'); if (limArm) return abrirLimite('arm', +limArm.dataset.limArm);
+    const plano = t.closest('[data-plano-editar]'); if (plano) return abrirPlano(plano.dataset.planoEditar);
+    if (t.closest('[data-faixas-salvar]')) return salvarFaixas();
     if (t.closest('[data-pdf]')) return gerarPdf();
     if (t.closest('[data-aud-todas]')) { S.audConta = null; return montarAudit(); }
   });
@@ -472,8 +771,12 @@
     if (t.matches('[data-gr-met]')) { S.grMet = t.value; return renderGrafico(); }
     if (t.matches('[data-f-sit]')) { S.fSit = t.value; fecharMenuDaConta(); return renderContasLista(); }
     if (t.matches('[data-aud-tipo]')) { S.audTipo = t.value; return montarAudit(); }
+    if (t.matches('[data-faixa-bloqueio]')) { S.fx.bloqueioAtivo = t.checked; S.fxMsg = null; return atualizarFaixas(); }
   });
-  elSecao.addEventListener('input', e => { if (e.target.matches('[data-busca]')) { S.busca = e.target.value; fecharMenuDaConta(); renderContasLista(); } });
+  elSecao.addEventListener('input', e => {
+    if (e.target.matches('[data-busca]')) { S.busca = e.target.value; fecharMenuDaConta(); renderContasLista(); }
+    if (e.target.matches('[data-faixa]')) { S.fx[e.target.dataset.faixa] = +e.target.value || 0; S.fxMsg = null; atualizarFaixas(); }
+  });
   // Fecha o menu: clique fora, Esc, rolagem da página OU da tabela (captura: o scroll não borbulha) e janela redimensionada.
   document.addEventListener('click', e => { if (!e.target.closest('[data-parar]')) fecharMenuDaConta(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharMenuDaConta(); });
@@ -482,5 +785,6 @@
 
   renderSecs();
   renderSecao();
-  // A trilha de auditoria só é carregada quando a seção é aberta (o contador aparece a partir daí).
+  // A trilha só é carregada quando a seção é aberta; o contador vem antes, com a Visão geral (P10).
+  carregar('visao', URLS.visao);
 })();

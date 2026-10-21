@@ -22,6 +22,7 @@ final class TenantSelecaoController extends AbstractController
         private readonly UserTenantRepository $userTenantRepository,
         private readonly TenantContext $tenantContext,
         private readonly InvitationRepository $invitationRepository,
+        private readonly \App\Tenant\Repository\EquipeDoEscritorioRepository $equipe,
     ) {}
 
     #[Route('/escritorio/selecionar', name: 'tenant_selecionar', methods: ['GET', 'POST'])]
@@ -67,12 +68,14 @@ final class TenantSelecaoController extends AbstractController
             return $this->redirectToRoute('admin_platform_dashboard');
         }
 
-        $convites = $this->invitationRepository->encontrarPendentesPorEmail($user->getEmail());
+        // E-mail ainda a confirmar não vê convite (o token sairia para quem talvez não seja dono da caixa).
+        $convites = $user->isEmailConfirmado() ? $this->invitationRepository->encontrarPendentesPorEmail($user->getEmail()) : [];
 
         return $this->render('tenant/selecionar.html.twig', [
             'vinculos' => $vinculos,
             'convites' => $convites,
             'avisosDeConta' => $this->avisosDeContaForaDoAr($request, $user, $vinculos, $convites),
+            'bloqueados' => $this->equipe->mensagensDeAcessoBloqueado($user), // em análise ou suspensos: o porquê (equipe-da-conta §3)
         ]);
     }
 

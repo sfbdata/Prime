@@ -260,4 +260,16 @@ final class SugestorDeDocumentosTest extends TestCase
     {
         self::assertEqualsWithDelta($esperado, SugestorDeDocumentos::similaridade($a, $b), 0.0001);
     }
+
+    #[TestDox('Fase pela última movimentação do Push: vale sobre a classe e diz de onde veio; fase desconhecida cai na classe')]
+    public function testFaseDoPush(): void
+    {
+        $s = $this->sugestor->sugerir(self::acao('Indenização'), 'Procedimento Comum', null, [], [], faseDoPush: ['fase' => 'replica', 'situacao' => 'Prazo para réplica']);
+
+        self::assertSame('replica', $s->faseChave);
+        self::assertStringContainsString('pela última movimentação do Push: prazo para réplica', (string) $s->base);
+
+        $semPush = $this->sugestor->sugerir(self::acao('Indenização'), 'Procedimento Comum', null, [], [], faseDoPush: ['fase' => 'inexistente', 'situacao' => 'X']);
+        self::assertSame('inicial', $semPush->faseChave);
+    }
 }

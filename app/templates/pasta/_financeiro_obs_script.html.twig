@@ -170,10 +170,23 @@
            que o SERVIDOR gravou (`criadaEmEpoch`), como o `|date('U')` do macro do Twig: o ⋮
            recalcula os minutos por ele a cada abertura. `data.criadaEm` vem formatado ("d/m/Y H:i"). */
         const janelaAte  = Number(data.criadaEmEpoch) + {{ comentario_janela_minutos() }} * 60;
+        /* "Encaminhar via Chat I.A" (D:1936): o id da pasta vem do atributo que o Twig põe na lista
+           (só com a Central e fora da lápide); o do registro é o número do servidor. */
+        const encaminharPasta = Number(obsLista.dataset.encaminharPasta || 0);
+        const btnEncaminhar   = encaminharPasta
+            ? `<button type="button"
+                            class="ps-anotacao-acao ps-anotacao-acao--responder js-encaminhar"
+                            title="Encaminhar via Chat I.A" aria-label="Encaminhar via Chat I.A"
+                            data-encaminhar-pasta="${encaminharPasta}"
+                            data-encaminhar-tipo="registro_financeiro"
+                            data-encaminhar-id="${Number(data.id)}">
+                        <i class="bi bi-reply-fill" style="display:inline-block;transform:scaleX(-1)"></i>
+                    </button>`
+            : '';
 
         return `
             <article class="ps-anotacao${ehResposta ? ' ps-anotacao--resposta' : ''}" id="financeiro-obs-${data.id}" data-obs-do-autor="1"
-                     data-janela-ate="${janelaAte}">
+                     data-janela-ate="${janelaAte}" data-autor-id="${esc(data.autorId ?? '')}">
                 ${faixa}
                 <span class="ps-anotacao-ponto" aria-hidden="true"></span>
                 <span class="ps-anotacao-seta" aria-hidden="true"></span>
@@ -209,6 +222,7 @@
                             data-resposta-nome="${esc(alvoNome)}"${autorResp}>
                         <i class="bi bi-reply-fill"></i>
                     </button>
+                    ${btnEncaminhar}
                     <span class="ps-anotacao-data ps-num" title="${esc(criadaEm)}">${esc(horaDaResposta(criadaEm, raiz))}</span>
                 </div>
                 <div class="ps-anotacao-corpo">

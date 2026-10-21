@@ -13,6 +13,7 @@ use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Service\PermissionChecker;
 use App\Pasta\Entity\PastaAndamento;
 use App\Pasta\Repository\PastaAndamentoRepository;
+use App\Pasta\Service\RegistroDeDecisaoSemProcesso;
 use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -36,6 +37,10 @@ use Doctrine\ORM\EntityManagerInterface;
  * Auditoria: `Pasta` implementa `Auditavel`; a troca do campo entra no `audit_log` pelo
  * subscriber, como qualquer outra edição da pasta.
  *
+ * Aprendizado do relatório de pastas sem processo (`spMarcar` L4510): se a pasta tinha termos
+ * judiciais, a decisão (`administrativo` ao marcar, `precisa` ao desmarcar) é gravada DEPOIS do flush
+ * da marcação, por upsert ({@see RegistroDeDecisaoSemProcesso}): só existe decisão de marcação gravada.
+ *
  * @return bool true quando o valor mudou
  */
 final class DefinirPastaAdministrativaUseCase
@@ -45,6 +50,7 @@ final class DefinirPastaAdministrativaUseCase
         private readonly PermissionChecker $permissionChecker,
         private readonly ?RegistroDoSistemaNaPasta $registro = null,
         private readonly ?PastaAndamentoRepository $andamentos = null,
+        private readonly ?RegistroDeDecisaoSemProcesso $decisoes = null,
     ) {
     }
 
@@ -70,6 +76,7 @@ final class DefinirPastaAdministrativaUseCase
                 ? 'pasta voltou para a via judicial: o andamento judicial anterior foi restaurado.'
                 : 'pasta voltou para a via judicial.'));
         $this->em->flush();
+        $this->decisoes?->registrar($pasta, $administrativa, $usuario, $tenant);
 
         return true;
     }
