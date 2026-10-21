@@ -23,6 +23,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\DomCrawler\Form;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
@@ -171,6 +172,9 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertSame('Navegador de teste', $ciencia->getUserAgent());
         self::assertCount(1, $em->getRepository(ConfirmacaoEmail::class)->findBy(['user' => $user, 'lembrete' => false]));
 
+        // A senha digitada é ignorada (spec cadastro-senha-no-link): a conta nasce sem senha que alguém conheça.
+        self::assertFalse(static::getContainer()->get(UserPasswordHasherInterface::class)->isPasswordValid($user, $dados['senha']));
+
         // Não entrou (spec cadastro-exige-confirmacao): sem token, sem escritório na sessão; a sessão guarda a conta
         // só para o botão de reenviar o link.
         self::assertNull($client->getContainer()->get('security.token_storage')->getToken());
@@ -191,7 +195,6 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         yield 'e-mail longo demais' => [['email' => str_repeat('a', 173) . '@adv.com'], 'Informe um e-mail válido.'];
         yield 'e-mail com cópia na query' => [['email' => 'a@b.com?cc=c@d.com'], 'Informe um e-mail válido.'];
         yield 'dois e-mails com vírgula' => [['email' => 'a@b.com,c@d.com'], 'Informe um e-mail válido.'];
-        yield 'senha fraca' => [['senha' => 'abcdefgh'], ForcaDaSenha::ERRO];
         yield 'sem aceite' => [['aceite' => false], 'É preciso aceitar os Termos e a Política de privacidade.'];
         yield 'campo ausente' => [['nome' => null], 'Informe seu nome completo.'];
     }
@@ -288,25 +291,188 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         return $user;
     }
 
-    #[TestDox('O link do e-mail confirma a conta; o segundo clique continua dizendo que está confirmado')]
-    public function testConfirmarEmailIdempotente(): void
+    /** O e-mail que o cadastro mandou, com o texto da spec cadastro-senha-no-link. */
+    #[TestDox('O e-mail de confirmação pede para confirmar e criar a senha, com o botão "Confirmar e criar minha senha"')]
+    public function testEmailDeConfirmacaoPedeASenha(): void
+    {
+        $client = static::createClient();
+        $this->prepararCsrf($client);
+
+        $client->jsonRequest('POST', '/cadastro/criar', self::dados());
+
+        self::assertResponseIsSuccessful();
+        $html = (string) self::getMailerMessage()?->getHtmlBody();
+        $texto = (string) preg_replace('/\s+/u', ' ', strip_tags($html));
+        self::assertStringContainsString('Sua conta no BlueJus foi criada. Para ativá-la, confirme que este e-mail é seu e crie a sua senha. O link vale por 7 dias.', $texto);
+        self::assertSame(1, preg_match('#<a href="[^"]*/cadastro/confirmar-email/[a-f0-9]{64}"[^>]*>Confirmar e criar minha senha</a>#', $html));
+        self::assertStringNotContainsString('já pode usar', $texto);
+        self::assertStringContainsString('Se você não criou esta conta, ignore este e-mail.', $texto);
+    }
+
+    /** Abre o link e devolve o formulário "Crie sua senha" preenchido. */
+    private function formularioDoLink(KernelBrowser $client, string $token, string $senha, ?string $confirmacao = null): Form
+    {
+        $form = $client->request('GET', '/cadastro/confirmar-email/' . $token)->selectButton('Criar senha e confirmar')->form();
+        $form['senha'] = $senha;
+        $form['confirmacao'] = $confirmacao ?? $senha;
+
+        return $form;
+    }
+
+    private function senhaValida(int $id, string $senha): bool
+    {
+        $this->em()->clear();
+        $user = $this->em()->find(User::class, $id);
+        self::assertNotNull($user);
+
+        return static::getContainer()->get(UserPasswordHasherInterface::class)->isPasswordValid($user, $senha);
+    }
+
+    /** Nada mudou: e-mail a confirmar, senha antiga ('x') e o link sem a marca de uso. */
+    private function assertNadaMudou(int $id): void
+    {
+        self::assertTrue($this->senhaValida($id, 'x'));
+        $user = $this->em()->find(User::class, $id);
+        self::assertFalse($user?->isEmailConfirmado());
+        self::assertNull($this->em()->getRepository(ConfirmacaoEmail::class)->findOneBy(['user' => $user])?->getUsadoEm());
+    }
+
+    #[TestDox('O GET do link não confirma nada: mostra "Crie sua senha" com a régua, sem Referer nem cache')]
+    public function testGetDoLinkNaoConfirma(): void
     {
         $client = static::createClient();
         $token = bin2hex(random_bytes(32));
-        $id = $this->pendenteDeConfirmacao($token)->getId();
+        $id = (int) $this->pendenteDeConfirmacao($token)->getId();
 
-        $client->request('GET', '/cadastro/confirmar-email/' . $token);
+        $tela = $client->request('GET', '/cadastro/confirmar-email/' . $token);
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.confirmacao-email h3', 'E-mail confirmado.');
+        self::assertSame('no-referrer', $client->getResponse()->headers->get('Referrer-Policy'));
+        self::assertStringContainsString('no-store', (string) $client->getResponse()->headers->get('Cache-Control'));
+        self::assertSelectorTextSame('.confirmacao-email h3', 'Crie sua senha');
+        $form = $tela->filter('.confirmacao-email > form.criar-senha[method="post"][action="/cadastro/confirmar-email/' . $token . '"]');
+        self::assertCount(1, $form);
+        self::assertSame('Nova senha', trim($form->filter('label[for="criarSenhaNova"]')->text()));
+        self::assertSame('Mínimo de 8 caracteres', $form->filter('input#criarSenhaNova[name="senha"][type="password"]')->attr('placeholder'));
+        self::assertCount(1, $form->filter('[data-forca="criarSenhaNova"] .criar-senha__barra'));
+        self::assertSame('Confirmar nova senha', trim($form->filter('label[for="criarSenhaConf"]')->text()));
+        self::assertCount(1, $form->filter('input#criarSenhaConf[name="confirmacao"][type="password"]'));
+        self::assertCount(1, $form->filter('input[type="hidden"][name="_token"]'));
+        self::assertSame('Criar senha e confirmar', trim($form->filter('button[type="submit"]')->text()));
+        self::assertCount(1, $tela->filter('script[src*="/js/auth/criar-senha.js"]'));
+        self::assertCount(0, $tela->filter('.confirmacao-email a[href="/login"]'));
+        $this->assertNadaMudou($id);
+    }
+
+    #[TestDox('Criar a senha confirma o e-mail, marca o link e grava a senha nova; não entra; o segundo clique só diz que está confirmado')]
+    public function testCriarSenhaConfirma(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $id = (int) $this->pendenteDeConfirmacao($token)->getId();
+
+        $client->submit($this->formularioDoLink($client, $token, 'novaSenha456'));
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('E-mail confirmado. Sua senha foi criada.', trim((string) preg_replace('/\s+/u', ' ', $client->getCrawler()->filter('.confirmacao-email > .text-center')->text())));
         self::assertSelectorExists('.confirmacao-email a[href="/login"]');
-        $this->em()->clear();
-        self::assertTrue($this->em()->find(User::class, $id)?->isEmailConfirmado());
+        self::assertSelectorNotExists('form.criar-senha');
+        self::assertNull($client->getContainer()->get('security.token_storage')->getToken(), 'não faz login sozinho');
+        self::assertTrue($this->senhaValida($id, 'novaSenha456'));
+        self::assertFalse($this->senhaValida($id, 'x'));
+        $user = $this->em()->find(User::class, $id);
+        self::assertTrue($user?->isEmailConfirmado());
+        self::assertNotNull($this->em()->getRepository(ConfirmacaoEmail::class)->findOneBy(['user' => $user])?->getUsadoEm());
 
         $client->request('GET', '/cadastro/confirmar-email/' . $token);
 
+        self::assertSelectorTextSame('.confirmacao-email h3', 'E-mail confirmado.');
+        self::assertSelectorTextNotContains('.confirmacao-email', 'Sua senha foi criada.');
+        self::assertSelectorNotExists('form.criar-senha');
+    }
+
+    #[TestDox('Dois POSTs do mesmo link: o segundo recebe "E-mail confirmado." e não troca a senha criada pelo primeiro')]
+    public function testSegundoPostNaoTrocaASenha(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $id = (int) $this->pendenteDeConfirmacao($token)->getId();
+        $primeiro = $this->formularioDoLink($client, $token, 'primeiraSenha1');
+        $segundo = $this->formularioDoLink($client, $token, 'segundaSenha2');
+
+        $client->submit($primeiro);
+        self::assertSelectorTextContains('.confirmacao-email', 'Sua senha foi criada.');
+        $client->submit($segundo);
+
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.confirmacao-email h3', 'E-mail confirmado.');
+        self::assertSelectorTextSame('.confirmacao-email h3', 'E-mail confirmado.');
+        self::assertSelectorTextNotContains('.confirmacao-email', 'Sua senha foi criada.');
+        self::assertTrue($this->senhaValida($id, 'primeiraSenha1'));
+        self::assertFalse($this->senhaValida($id, 'segundaSenha2'));
+    }
+
+    #[TestDox('POST sem o CSRF certo: 403, o formulário volta com o aviso e nada muda')]
+    public function testCriarSenhaSemCsrf(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $id = (int) $this->pendenteDeConfirmacao($token)->getId();
+        $client->request('GET', '/cadastro/confirmar-email/' . $token);
+
+        $client->request('POST', '/cadastro/confirmar-email/' . $token, ['senha' => 'novaSenha456', 'confirmacao' => 'novaSenha456', '_token' => 'forjado']);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSelectorTextSame('.criar-senha__erro', 'Sessão expirada. Recarregue a página.');
+        $this->assertNadaMudou($id);
+
+        $client->request('POST', '/cadastro/confirmar-email/' . $token, ['senha' => 'novaSenha456', 'confirmacao' => 'novaSenha456']);
+
+        self::assertResponseStatusCodeSame(403);
+        $this->assertNadaMudou($id);
+    }
+
+    /** @return iterable<string, array{string, string, string}> */
+    public static function senhasRecusadas(): iterable
+    {
+        yield 'fraca' => ['abcdefgh', 'abcdefgh', ForcaDaSenha::ERRO];
+        yield 'acima do máximo' => ['Ab1' . str_repeat('x', ForcaDaSenha::MAXIMO_EM_BYTES), 'Ab1' . str_repeat('x', ForcaDaSenha::MAXIMO_EM_BYTES), ForcaDaSenha::ERRO];
+        yield 'confirmação diferente' => ['novaSenha456', 'novaSenha457', 'As senhas não conferem.'];
+    }
+
+    #[DataProvider('senhasRecusadas')]
+    #[TestDox('Senha recusada ($mensagem): 422, o formulário volta com a mensagem e o link continua valendo')]
+    public function testSenhaRecusadaNaoConsomeOLink(string $senha, string $confirmacao, string $mensagem): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $id = (int) $this->pendenteDeConfirmacao($token)->getId();
+
+        $client->submit($this->formularioDoLink($client, $token, $senha, $confirmacao));
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextSame('.criar-senha__erro', $mensagem);
+        self::assertSelectorExists('form.criar-senha');
+        $this->assertNadaMudou($id);
+
+        $client->submit($this->formularioDoLink($client, $token, 'novaSenha456'));
+
+        self::assertSelectorTextContains('.confirmacao-email', 'Sua senha foi criada.');
+    }
+
+    #[TestDox('POST num link desconhecido mostra o erro do link e não grava nada')]
+    public function testCriarSenhaLinkInvalido(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $id = (int) $this->pendenteDeConfirmacao($token)->getId();
+        $form = $this->formularioDoLink($client, $token, 'novaSenha456');
+
+        $client->request('POST', '/cadastro/confirmar-email/' . bin2hex(random_bytes(32)), $form->getValues());
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.confirmacao-email', 'Este link de confirmação é inválido ou expirou.');
+        self::assertSelectorNotExists('form.criar-senha');
+        $this->assertNadaMudou($id);
     }
 
     #[TestDox('Link de confirmação desconhecido mostra o erro sem confirmar nada')]

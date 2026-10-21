@@ -6,6 +6,15 @@ Risco ALTO (identidade User). Decisão do dono (21/10/2026, via coordenador): op
 ## Estado da frente
 
 - 21/10: spec; implementação começando. Pendentes do dono (via coordenador): itens D1 e D2.
+- 21/10: implementada na branch `cadastro-senha-no-link` (commit local, sem push), sem D1 nem D2. O cadastro grava o
+  hash de 32 bytes aleatórios e não valida mais a senha digitada. O GET do link só olha
+  (`LinkDeConfirmacaoDeEmail`, as regras do token extraídas do antigo `ConfirmarEmailDaContaUseCase`, que saiu por
+  não ter mais quem o chame); o POST (`auth_cadastro_criar_senha`, mesma URL, CSRF `cadastro_criar_senha`) chama o
+  `CriarSenhaPeloLinkUseCase`, e a senha vai no mesmo UPDATE condicional que confirma
+  (`ConfirmacaoEmailRepository::criarSenhaEConfirmarComLink`, no lugar do `confirmarComLink`). A página leva
+  `Referrer-Policy: no-referrer` e `Cache-Control: no-store`. A régua da página é um JS próprio
+  (`public/js/auth/criar-senha.js`) sobre a barra do Bootstrap. `SessaoDeContaAConfirmarListener` libera a rota nova.
+  Testes direcionados e de arquitetura verdes; falta o smoke do dono na tela.
 
 ## A brecha
 
