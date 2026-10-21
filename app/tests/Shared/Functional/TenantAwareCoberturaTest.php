@@ -35,6 +35,7 @@ use App\TrabalhoExterno\Entity\ContatoWhatsapp;
 use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
+use App\TrabalhoExterno\Entity\Candidatura;
 use App\TrabalhoExterno\Entity\Curriculo;
 use App\TrabalhoExterno\Entity\HistoricoVaga;
 use App\TrabalhoExterno\Entity\InteressadoEmVagas;
@@ -154,6 +155,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         LinkDeVagas::class,   // link público, sem escritório por natureza; só se acha pelo hash do token e a página só mostra vagas abertas sem dado de escritório (VagasPublicasTest)
         InteressadoEmVagas::class, // visitante da página pública, sem conta nem escritório; só a inscrição grava e nenhuma rota lê (VagasPublicasTest::testInscricaoNosAlertas)
         Curriculo::class,     // currículo do usuário externo, da plataforma (um por usuário); a Central lê o banco inteiro e o externo só alcança o dele pelo LocalizadorDeCurriculo (CurriculosDoTrabalhoExternoTest::testExternoCriaEditaEExclui)
+        Candidatura::class,   // candidatura de um currículo a uma vaga, ambos da plataforma; só é lida pela vaga já localizada no escopo ou pelo currículo do próprio usuário, e o dono da vaga só vê as enviadas a ele (CandidaturasDoTrabalhoExternoTest::testEnvioEDono)
 
         // Comercial e e-mails (docs/specs/comercial-e-emails.md §3): dado do Master, de escopo plataforma, que cruza
         // escritórios (envios, consentimentos, automações, ciclo da conta, varredura). O escritório, quando há, é uma
@@ -221,7 +223,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 47 → 50 com as vagas e as preferências do usuário do Trabalho Externo (19/10/2026): Vaga, HistoricoVaga e PreferenciaDoUsuario, justificadas acima.
     // 50 → 52 com a página pública de vagas do Trabalho Externo (19/10/2026): LinkDeVagas e InteressadoEmVagas, justificados acima.
     // 52 → 53 com o currículo do banco de talentos do Trabalho Externo (19/10/2026): Curriculo, justificado acima.
-    private const MAX_FORA_DO_ESCOPO = 53;
+    // 53 → 54 com a candidatura às vagas do Trabalho Externo (19/10/2026): Candidatura, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 54;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
 use App\Inteligencia\DTO\AnaliseOutput;
+use App\Inteligencia\DTO\ContextoDaPasta;
 use App\Inteligencia\DTO\SolicitarAnaliseDaPastaInput;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\Agente;
@@ -18,6 +19,7 @@ use App\Inteligencia\Exception\ContextoVazioException;
 use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\PastaNaoEncontradaException;
+use App\Inteligencia\Exception\SelecaoDeDocumentosInvalidaException;
 use App\Inteligencia\Prompt\PromptDoAgente;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
@@ -25,6 +27,7 @@ use App\Inteligencia\Service\EnfileiradorDeAnalise;
 use App\Inteligencia\Service\VisibilidadeDoFinanceiroDaPasta;
 use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
 use App\Service\PermissionChecker;
@@ -42,6 +45,9 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * Com COMANDO (drawer, spec inteligencia-drawer-da-pasta F1/F2): o agente é o do comando e a
  * idempotência é POR COMANDO (dois comandos do mesmo agente não se travam). Sem comando, o
  * comportamento por agente continua (rotas `/ia/agentes/{agente}`).
+ * "Índice inteligente" da aba Documentos (F4): os ids marcados são validados AQUI, antes de qualquer
+ * gasto (seleção vazia ou id fora da lista que a aba mostra para quem pede → 422), e vão ordenados em
+ * `contexto_resumo.documentosSelecionados`, que o worker obedece. Nos outros comandos o campo é ignorado.
  * Pós-condição: linha `pendente` com `agente` (e `comando`, quando houver) e `contexto_resumo.financeiro` (a decisão sobre o
  * financeiro é tomada AQUI, com sessão — o worker só obedece) + 1 mensagem no `async`.
  *
@@ -50,6 +56,7 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * @throws InteligenciaIndisponivelException
  * @throws ContextoBloqueadoException
  * @throws ContextoVazioException
+ * @throws SelecaoDeDocumentosInvalidaException
  * @throws FilaIndisponivelException
  */
 final class SolicitarAnaliseDaPastaUseCase
@@ -75,15 +82,16 @@ final class SolicitarAnaliseDaPastaUseCase
         $pasta = $this->carregarPastaLiberada($input->pastaId, $user, $tenant);
         $comando = $input->comando;
         $agente = $input->agenteEfetivo();
+        $ocultas = array_map(static fn (AbaDaPasta $a): string => $a->value, $this->abas->abasOcultasPara($pasta, $user));
+        $selecionados = $this->selecaoValidada($input, $tenant, $pasta, $ocultas);
         $alvoId = (int) $pasta->getId();
         $emAndamento = $this->analises->findPendenteDoAlvo($tenant, AnaliseDeInteligencia::ALVO_PASTA, $alvoId, TipoDeAnalise::AnalisePasta, $agente, $comando);
         if ($emAndamento !== null) {
-            return AnaliseOutput::fromEntity($emAndamento, self::avisoEmAndamento($agente, $comando));
+            return AnaliseOutput::fromEntity($emAndamento, self::avisoEmAndamento($agente, $comando, $emAndamento, $selecionados));
         }
 
         $incluirFinanceiro = $agente->leFinanceiro() && $this->financeiro->podeVer($user, $tenant, $pasta);
-        $ocultas = array_map(static fn (AbaDaPasta $a): string => $a->value, $this->abas->abasOcultasPara($pasta, $user));
-        $contexto = $this->montador->para($tenant, $pasta, $agente, $incluirFinanceiro, $ocultas, $comando);
+        $contexto = $this->montador->para($tenant, $pasta, $agente, $incluirFinanceiro, $ocultas, $comando, $selecionados);
         if ($contexto->vazio()) {
             throw ContextoVazioException::semDadosParaOAgente();
         }
@@ -97,6 +105,12 @@ final class SolicitarAnaliseDaPastaUseCase
             $antesDeCriar();
         }
 
+        return $this->criar($tenant, $user, $alvoId, $contexto, $comando);
+    }
+
+    /** A linha `pendente` com o contexto decidido aqui, e a mensagem no `async`. */
+    private function criar(Tenant $tenant, User $user, int $alvoId, ContextoDaPasta $contexto, ?Comando $comando): AnaliseOutput
+    {
         $analise = new AnaliseDeInteligencia(
             tenant: $tenant,
             solicitante: $user,
@@ -106,7 +120,7 @@ final class SolicitarAnaliseDaPastaUseCase
             versaoDoPrompt: PromptDoAgente::VERSAO,
             contextoHash: $contexto->hash,
             contextoResumo: $contexto->resumo(),
-            agente: $agente,
+            agente: $contexto->agente,
             comando: $comando,
         );
         $this->analises->salvar($analise, true);
@@ -114,6 +128,36 @@ final class SolicitarAnaliseDaPastaUseCase
         $this->enfileirador->enfileirar($analise, $tenant);
 
         return AnaliseOutput::fromEntity($analise);
+    }
+
+    /**
+     * Os documentos marcados no "Índice inteligente" (F4), ordenados e sem repetição, depois de
+     * conferir que cada um está na lista que a aba Documentos mostra para quem pede: da pasta, do
+     * escritório, visível pelas abas e entre os mais recentes (a mesma regra do contexto). Nulo nos
+     * outros comandos, que ignoram o campo.
+     *
+     * @param list<string> $ocultas
+     *
+     * @return list<int>|null
+     */
+    private function selecaoValidada(SolicitarAnaliseDaPastaInput $input, Tenant $tenant, Pasta $pasta, array $ocultas): ?array
+    {
+        $pedidos = $input->documentosDoPedido();
+        if ($pedidos === null) {
+            return null;
+        }
+        if ($pedidos === []) {
+            throw SelecaoDeDocumentosInvalidaException::vazia();
+        }
+
+        $mostrados = array_map(static fn (PastaDocumento $d): int => (int) $d->getId(), $this->montador->documentosMostrados($tenant, $pasta, $ocultas));
+        $ids = array_values(array_unique($pedidos));
+        sort($ids);
+        if (array_diff($ids, $mostrados) !== []) {
+            throw SelecaoDeDocumentosInvalidaException::foraDaLista();
+        }
+
+        return $ids;
     }
 
     /** A pasta do escritório que quem pede pode ver, com a IA disponível para ele. */
@@ -136,9 +180,18 @@ final class SolicitarAnaliseDaPastaUseCase
         return $pasta;
     }
 
-    /** Aviso da idempotência "em andamento": com comando, o rótulo dele; sem, o nome do agente. */
-    private static function avisoEmAndamento(Agente $agente, ?Comando $comando): string
+    /**
+     * Aviso da idempotência "em andamento": com comando, o rótulo dele; sem, o nome do agente. No
+     * Índice (F4) com OUTRA seleção, diz que a seleção pedida não é a que está rodando.
+     *
+     * @param list<int>|null $selecionados
+     */
+    private static function avisoEmAndamento(Agente $agente, ?Comando $comando, AnaliseDeInteligencia $emAndamento, ?array $selecionados): string
     {
+        if ($selecionados !== null && ($emAndamento->getContextoResumo()['documentosSelecionados'] ?? null) !== $selecionados) {
+            return 'Já há um índice em andamento com outra seleção de documentos. Espere terminar para pedir outro.';
+        }
+
         return $comando !== null
             ? sprintf('Já existe uma análise "%s" em andamento.', $comando->rotulo())
             : sprintf('Já existe uma análise do %s em andamento.', $agente->nome());

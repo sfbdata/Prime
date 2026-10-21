@@ -16,11 +16,13 @@ use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\MuitasSolicitacoesException;
 use App\Inteligencia\Exception\PastaNaoEncontradaException;
+use App\Inteligencia\Exception\SelecaoDeDocumentosInvalidaException;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\Service\VisibilidadeDaAnaliseDaPasta;
 use App\Inteligencia\UseCase\ContarOQueAIaSabeDaPastaUseCase;
 use App\Inteligencia\UseCase\ListarAnalisesDosAgentesUseCase;
 use App\Inteligencia\UseCase\ListarAnalisesDosComandosUseCase;
+use App\Inteligencia\UseCase\ListarDocumentosDoIndiceUseCase;
 use App\Inteligencia\UseCase\SolicitarAnaliseDaPastaUseCase;
 use App\Pasta\Entity\Pasta;
 use App\Service\PermissionChecker;
@@ -39,10 +41,13 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * Contrato para a tela:
  *   GET  /pasta/{id}/ia/agentes                      → fragmento `inteligencia/_agentes_painel.html.twig`
- *                                                      (abas Análise e Relatórios: grade "O que a IA sabe",
- *                                                      comandos e relatórios com as análises de cada um)
+ *                                                      (abas Análise, Documentos e Relatórios: grade "O que a IA
+ *                                                      sabe", comandos e relatórios com as análises de cada um e a
+ *                                                      lista de documentos do "Índice inteligente", F4)
  *   POST /pasta/{id}/ia/comandos/{comando}/analises  → 202 {id, status, …} | 200 se devolveu a última ("nada novo")
  *                                                      409 {motivo, mensagem} indisponível/bloqueado/sem dados · 429 cota/ritmo · 503 fila
+ *                                                      `documentos[]` (ids): só no `indice_documentos`; vazio ou fora
+ *                                                      da lista → 422 `selecao_invalida`, sem gastar o limitador
  *   GET  /pasta/{id}/ia/comandos/{comando}/analises  → fragmento `inteligencia/_analises_comando.html.twig`
  *   POST /pasta/{id}/ia/agentes/{agente}/analises    → idem, por agente (rotas anteriores aos comandos, mantidas)
  *   GET  /pasta/{id}/ia/agentes/{agente}/analises    → fragmento `inteligencia/_analises_agente.html.twig`
@@ -62,6 +67,7 @@ final class AnaliseDaPastaController extends AbstractController
         // Interface (não a classe) pelo mesmo motivo do AnalisePushController: dublê em teste.
         private readonly RateLimiterFactoryInterface $inteligenciaSolicitarLimiter,
         private readonly VisibilidadeDaAnaliseDaPasta $visibilidadeDaAnalise,
+        private readonly ListarDocumentosDoIndiceUseCase $listarDocumentos,
     ) {
     }
 
@@ -74,6 +80,7 @@ final class AnaliseDaPastaController extends AbstractController
         return $this->render('inteligencia/_agentes_painel.html.twig', [
             'painel' => $this->listarComandos->executar($pasta, $tenant, $ocultas),
             'sabe' => $this->contarOQueSabe->executar($pasta, $tenant, $ocultas),
+            'documentos' => $this->listarDocumentos->executar($pasta, $tenant, $ocultas),
             'pastaId' => (int) $pasta->getId(),
         ]);
     }
@@ -90,8 +97,10 @@ final class AnaliseDaPastaController extends AbstractController
     public function solicitarComando(Pasta $pasta, string $comando, Request $request): JsonResponse
     {
         [$user, $tenant] = $this->guardar($pasta);
+        $escolhido = $this->comandoDaRota($comando);
+        $input = SolicitarAnaliseDaPastaInput::doComando((int) $pasta->getId(), $escolhido, $this->documentosDe($request, $escolhido));
 
-        return $this->pedir($pasta, SolicitarAnaliseDaPastaInput::doComando((int) $pasta->getId(), $this->comandoDaRota($comando)), $user, $tenant, $request);
+        return $this->pedir($pasta, $input, $user, $tenant, $request);
     }
 
     #[Route('/comandos/{comando}/analises', name: 'inteligencia_comando_listar', requirements: ['comando' => '[a-z_]+'], methods: ['GET'])]
@@ -124,6 +133,8 @@ final class AnaliseDaPastaController extends AbstractController
 
         try {
             $saida = $this->solicitar->executar($input, $user, $tenant, $antesDeCriar);
+        } catch (SelecaoDeDocumentosInvalidaException $e) {
+            return $this->recusa($e->motivo(), $e->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (MuitasSolicitacoesException) {
             return $this->recusa('muitas_solicitacoes', 'Muitos pedidos em sequência. Aguarde um instante.', Response::HTTP_TOO_MANY_REQUESTS);
         } catch (PastaNaoEncontradaException $e) {
@@ -190,6 +201,22 @@ final class AnaliseDaPastaController extends AbstractController
     private function comandoDaRota(string $comando): Comando
     {
         return Comando::deRota($comando) ?? throw $this->createNotFoundException('Comando não encontrado.');
+    }
+
+    /**
+     * Os `documentos[]` do POST, só para o comando da aba Documentos (F4); nos outros, ignorados.
+     * Um valor solto (não lista) vira lista de um: a validação do UseCase recusa o que não for id.
+     *
+     * @return list<mixed>
+     */
+    private function documentosDe(Request $request, Comando $comando): array
+    {
+        if (!$comando->ehDaAbaDocumentos()) {
+            return [];
+        }
+        $valor = $request->request->all()['documentos'] ?? [];
+
+        return \is_array($valor) ? array_values($valor) : [$valor];
     }
 
     private function tokenDe(Request $request): string
