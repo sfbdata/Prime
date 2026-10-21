@@ -14,7 +14,7 @@ Releia esta seção antes de continuar se a sessão for compactada.
   empilha o bloco "Pedidos de exclusão de conta" do painel do Master sobre este PR e lê `pendentes()`. Neste PR
   entram as duas chamadas do lado do Master (`marcarReativada` no `ReativarContaUseCase`, que deixa de recusar conta
   ativa com pedido pendente; `marcarExcluida` no `ExcluirContaPeloMasterUseCase`).
-- Migration `Version20261020150000`, no fim da fila (coordenador, 20/10). Mapeamento novo `AppTenant` no
+- Migration `Version20261020137300` (renomeada na vez dela em 21/10: era `Version20261020150000`). Mapeamento novo `AppTenant` no
   `doctrine.yaml` (arquivo quente).
 - 20/10: revisão (4 bloqueantes corrigidos) e re-revisão aprovada; suíte completa verde (10.505); visual conferido
   contra o 07. PR aberto sobre `meu-perfil-oab`; a b5 empilha o bloco do painel do Master.

@@ -14,7 +14,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Um pedido PENDENTE por conta: índice único parcial (`WHERE estado = 'pendente'`), escrito à mão porque o
  * mapeamento não representa índice parcial. Tabelas novas: nenhuma linha existente muda.
  */
-final class Version20261020150000 extends AbstractMigration
+final class Version20261020137300 extends AbstractMigration
 {
     public function getDescription(): string
     {
