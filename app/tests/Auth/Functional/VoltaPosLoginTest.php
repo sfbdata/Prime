@@ -310,6 +310,9 @@ final class VoltaPosLoginTest extends JusPrimeWebTestCase
         $this->marcarTermosAceitos($client);
         $client->request('GET', '/master');
         self::assertFalse($client->getResponse()->isRedirect('/escritorio/selecionar'), 'o painel do Master não exige escritório');
+        // O sino do layout do painel (pedido de dados) não é desviado nem escolhe escritório por baixo.
+        $client->request('GET', '/notificacoes/count', [], [], ['HTTP_SEC_FETCH_MODE' => 'cors', 'HTTP_SEC_FETCH_DEST' => 'empty', 'HTTP_ACCEPT' => 'application/json']);
+        self::assertFalse($client->getResponse()->isRedirect('/escritorio/selecionar'), 'pedido de dados do painel não vai à seleção');
 
         $semVinculo = $this->criarUsuario(escritorios: 0, roles: ['ROLE_USER', 'ROLE_SUPER_ADMIN']);
         $client->loginUser($semVinculo);

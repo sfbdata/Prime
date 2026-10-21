@@ -6,12 +6,14 @@ namespace App\EventListener;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Repository\UserTenantRepository;
+use App\Security\PedidoDeNavegacao;
 use App\Service\Tenant\TenantContext;
 use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tenant\Service\AvisoDeContaSuspensa;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\RouterInterface;
@@ -102,7 +104,7 @@ final class TenantContextValidatorListener
         }
 
         if (!$this->tenantContext->hasCurrentTenant()) {
-            if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true) && !$this->masterPrecisaDaSelecao($route, $user)) {
+            if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true) && !$this->masterPrecisaDaSelecao($event->getRequest(), $route, $user)) {
                 return;
             }
             // Só no ramo SEM escritório: com escritório na sessão, o vínculo continua conferido
@@ -180,10 +182,16 @@ final class TenantContextValidatorListener
     /**
      * O Master sem escritório na sessão usa o painel dele livremente. Fora do painel, se tem vínculo ativo, escolhe
      * o escritório antes: sem isso, quem entrava pelo "lembrar-me" ou pelo véu com vários escritórios caía no
-     * Expediente sem escritório e levava 403 (v2.9.0). Sem vínculo nenhum, continua passando.
+     * Expediente sem escritório e levava 403 (v2.9.0). Sem vínculo nenhum, continua passando. Só a navegação de
+     * página é desviada: o sino, o avatar e os outros pedidos de dados das telas do painel seguem como antes (sem
+     * escolher escritório por baixo e sem uma consulta a cada sondagem).
      */
-    private function masterPrecisaDaSelecao(string $route, User $user): bool
+    private function masterPrecisaDaSelecao(Request $request, string $route, User $user): bool
     {
+        if (!PedidoDeNavegacao::eNavegacao($request)) {
+            return false;
+        }
+
         foreach (self::PREFIXOS_DO_PAINEL_DO_MASTER as $prefixo) {
             if (str_starts_with($route, $prefixo)) {
                 return false;
