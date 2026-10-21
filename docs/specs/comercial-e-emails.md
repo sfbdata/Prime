@@ -997,6 +997,16 @@ saídas: (a) já, (b) a caixa "aceito novidades" quando houver desenho; F3.9 (b)
 - A contagem recebe o modelo: a tela manda `modelo` e reconta ao trocar de modelo.
 - Ficam como estão: o B1 do CSV e do Individual (só `comercial_campanhas`) e o KPI "Base de contatos" do painel.
 
+### Confirmações do dono (21/10) sobre o §8.8
+- Item 1: confirmado (a chave nasce desligada). Item 3: revisto por esta seção. Item 9: o rótulo muda para "Contatos que
+  autorizaram campanhas". Item 12: confirmado (a limpeza dos sinais do nome do CSV fica). Item 13: confirmado (a
+  recorrente com até 24 h de atraso sai uma vez; com mais, pula aquela vez).
+
+### Decisões técnicas da implementação
+- A âncora vale na confirmação e no envio de teste; a prévia não recusa, porque roda a cada edição. A URL completa das
+  vagas não substitui o `link = vagas`.
+- No modelo `vagas`, o descadastro das duas listas vale para qualquer público, não só para a Base de contatos.
+
 ### Para o dono (nota, sem bloquear)
 - Sair pelo link de uma campanha de vagas também desliga os alertas de vagas, porque é o mesmo consentimento.
 - Uma campanha recorrente de vagas cresce sozinha conforme a lista `vagas_alerta` cresce.
