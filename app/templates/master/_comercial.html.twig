@@ -28,7 +28,9 @@
              data-url-campanha="{{ path('master_comercial_campanha_confirmar') }}">
         <div class="mc-cabeca mc-cp-cabeca">
             <i class="bi bi-megaphone mc-cp-cabeca-ic" aria-hidden="true"></i>
-            <b class="mc-cabeca-titulo" id="mc-cp-titulo">Nova campanha de e-mail</b>
+            <b class="mc-cabeca-titulo" id="mc-cp-titulo">Central de envios · nova campanha</b>
+            {# dc 21.10 L251: abre o bloco Descadastrados (F3c, do 0d) pelo evento `mc:descadastrados-abrir`; o N vem do `mc:resumo`. #}
+            <button type="button" class="mc-cp-descad" data-mc-cp-descad title="E-mails que pediram para não receber"><i class="bi bi-slash-circle" aria-hidden="true"></i>Descadastrados (<span data-mc-cp-descad-n>0</span>)</button>
             <span class="mc-cabeca-sub">convites, ofertas, agradecimentos e novidades · individual ou em grande escala</span>
         </div>
         <div class="mc-cp-grade">
@@ -39,6 +41,8 @@
                     <button type="button" class="mc-cp-acao" data-mc-cp-novo><i class="bi bi-plus-lg" aria-hidden="true"></i>Novo modelo</button>
                     <button type="button" class="mc-cp-acao" data-mc-cp-duplicar><i class="bi bi-copy" aria-hidden="true"></i>Duplicar</button>
                     <label class="mc-cp-acao"><i class="bi bi-upload" aria-hidden="true"></i>Importar HTML<input type="file" accept=".html,.htm" class="mc-cp-arquivo" data-mc-cp-importar></label>
+                    {# dc 21.10 L256/L653: no fixo, "Salvar como meu modelo" (pede o nome; o fixo continua guardado); no próprio, "Salvar modelo". #}
+                    <button type="button" class="mc-cp-acao mc-cp-acao-salvar" data-mc-cp-salvar-como data-mc-cp-so-fixo><i class="bi bi-check2" aria-hidden="true"></i>Salvar como meu modelo</button>
                     <button type="button" class="mc-cp-acao mc-cp-acao-salvar" data-mc-cp-salvar data-mc-cp-so-proprio hidden><i class="bi bi-check2" aria-hidden="true"></i>Salvar modelo</button>
                     <button type="button" class="mc-cp-acao mc-cp-acao-excluir" data-mc-cp-excluir data-mc-cp-so-proprio hidden><i class="bi bi-trash" aria-hidden="true"></i>Excluir</button>
                 </div>
@@ -103,10 +107,21 @@
                 <textarea class="mc-cp-individual" rows="2" placeholder="E-mails separados por vírgula" aria-label="E-mails separados por vírgula" data-mc-cp-individual hidden></textarea>
                 <div class="mc-cp-passo mc-cp-passo-seguinte">3 · MENSAGEM</div>
                 <label class="mc-cp-campo">ASSUNTO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="assunto" maxlength="255"></label>
+                {# dc 21.10 L270: o selo acima do título (em maiúsculas ao digitar) e o nome só da prévia. #}
+                <div class="mc-cp-par">
+                    <label class="mc-cp-campo">SELO (ACIMA DO TÍTULO)<input type="text" class="mc-cp-entrada" data-mc-cp-campo="selo" maxlength="120" placeholder="Ex.: CONVITE · BLUEJUS"></label>
+                    <label class="mc-cp-campo">NOME NA PRÉVIA <span class="mc-cp-dica">substitui {nome} só aqui</span><input type="text" class="mc-cp-entrada" data-mc-cp-nome-previa maxlength="60" placeholder="Dra. Ana"></label>
+                </div>
                 <label class="mc-cp-campo">TÍTULO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="titulo" maxlength="255"></label>
                 <label class="mc-cp-campo" data-mc-cp-so-proprio hidden>NOME DO MODELO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="nome" maxlength="40"></label>
                 <div class="mc-cp-modo" data-mc-cp-simples>
                     <label class="mc-cp-campo">TEXTO <span class="mc-cp-dica">use {nome} para o primeiro nome</span><textarea class="mc-cp-texto" rows="5" data-mc-cp-campo="corpo"></textarea></label>
+                    {# dc 21.10 L274: os emojis que entram no fim do texto. A imagem do mesmo trecho está com o dono (spec §10). #}
+                    <div class="mc-cp-emojis"><span class="mc-cp-vao"></span><span class="mc-cp-emojis-rot">Inserir:</span>
+                        {% for e in [['⚖️', 'Balança'], ['📅', 'Agenda'], ['✅', 'Confirmado'], ['📌', 'Destaque'], ['🎉', 'Comemoração'], ['💼', 'Trabalho'], ['📈', 'Crescimento'], ['🔒', 'Segurança'], ['👉', 'Indicação'], ['🙏', 'Agradecimento']] %}
+                            <button type="button" class="mc-cp-emoji" data-mc-cp-emoji="{{ e[0] }}" title="{{ e[1] }}" aria-label="{{ e[1] }}">{{ e[0] }}</button>
+                        {% endfor %}
+                    </div>
                     <label class="mc-cp-campo">BOTÃO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="cta" maxlength="120"></label>
                 </div>
                 <div class="mc-cp-modo" data-mc-cp-blocos hidden>
@@ -119,27 +134,53 @@
             <div class="mc-cp-col mc-cp-lado">
                 <div class="mc-cp-passo">PRÉVIA DO E-MAIL</div>
                 <iframe class="mc-cp-previa" title="Prévia do e-mail" sandbox="" data-mc-cp-previa></iframe>
-                {# L.252: K desta lista, os descadastrados e os sem autorização que saíram (o JS escreve a frase). #}
-                <div class="mc-cp-dest"><i class="bi bi-people" aria-hidden="true"></i> <span data-mc-cp-dest></span></div>
-                {# L.253: a frequência, com os rótulos do dc (L.557). #}
-                <div class="mc-cp-freq">
-                    <span class="mc-cp-freq-rot"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Frequência</span>
-                    <div class="mc-cp-freq-ops" role="group" aria-label="Frequência">
-                        {% for f in [['unica', 'Envio único'], ['semanal', 'Semanal'], ['quinzenal', 'Quinzenal'], ['mensal', 'Mensal']] %}
-                            <button type="button" class="mc-cp-freq-op" data-mc-cp-freq="{{ f[0] }}" aria-pressed="{{ loop.first ? 'true' : 'false' }}">{{ f[1] }}</button>
-                        {% endfor %}
+                {# dc 21.10 L285: a linha de destinatários e, com agendamento ou repetição, o relógio. #}
+                <div class="mc-cp-dest"><i class="bi bi-people" aria-hidden="true"></i> <span data-mc-cp-dest></span><span class="mc-cp-ag" data-mc-cp-ag hidden><i class="bi bi-clock" aria-hidden="true"></i><span data-mc-cp-ag-txt></span></span></div>
+                {# dc 21.10 L287-293: Enviar (ou "Programar envio") com o menu PROGRAMAR ENVIO; ver, testar e baixar em ícones; a LGPD na dica do escudo. #}
+                <div class="mc-cp-barra">
+                    <div class="mc-cp-enviar-grupo">
+                        <button type="button" class="mc-cp-enviar" data-mc-cp-enviar><i class="bi bi-send" aria-hidden="true"></i><span data-mc-cp-enviar-txt>Enviar</span></button>
+                        <button type="button" class="mc-cp-enviar mc-cp-mais" data-mc-cp-mais title="Programar envio e frequência" aria-label="Programar envio e frequência" aria-expanded="false" aria-controls="mc-cp-programar"><i class="bi bi-caret-down-fill" aria-hidden="true"></i></button>
+                    </div>
+                    <span class="mc-cp-vao"></span>
+                    <button type="button" class="mc-cp-icone" data-mc-cp-ver title="Ver como vai chegar" aria-label="Ver como vai chegar"><i class="bi bi-eye" aria-hidden="true"></i></button>
+                    <button type="button" class="mc-cp-icone" data-mc-cp-teste title="Enviar teste" aria-label="Enviar teste"><i class="bi bi-send-check" aria-hidden="true"></i></button>
+                    <button type="button" class="mc-cp-icone" data-mc-cp-baixar title="Baixar HTML" aria-label="Baixar HTML"><i class="bi bi-download" aria-hidden="true"></i></button>
+                    <span class="mc-cp-vao"></span>
+                    <span class="mc-cp-lgpd" tabindex="0" title="LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link 'Não quero mais receber', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam." aria-label="LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link 'Não quero mais receber', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam."><i class="bi bi-shield-check" aria-hidden="true"></i></span>
+                    <div class="mc-cp-programar" id="mc-cp-programar" data-mc-cp-programar role="dialog" aria-label="Programar envio" hidden>
+                        <div class="mc-cp-programar-rot">PROGRAMAR ENVIO</div>
+                        <input type="datetime-local" class="mc-cp-agenda-data" data-mc-cp-agenda aria-label="Data e hora do envio">
+                        <div class="mc-cp-programar-rot">REPETIR</div>
+                        <div class="mc-cp-freq-ops" role="group" aria-label="Repetir">
+                            {% for f in [['unica', 'Envio único'], ['semanal', 'Semanal'], ['quinzenal', 'Quinzenal'], ['mensal', 'Mensal']] %}
+                                <button type="button" class="mc-cp-freq-op" data-mc-cp-freq="{{ f[0] }}" aria-pressed="{{ loop.first ? 'true' : 'false' }}">{{ f[1] }}</button>
+                            {% endfor %}
+                        </div>
+                        <button type="button" class="mc-cp-concluir" data-mc-cp-concluir>Concluir</button>
                     </div>
                 </div>
-                {# L.254: "Agendar" (ou "Primeiro envio" na recorrente, L.557), Baixar HTML, Enviar teste e Enviar campanha. #}
-                <div class="mc-cp-botoes">
-                    <label class="mc-cp-agenda"><i class="bi bi-calendar-event" aria-hidden="true"></i><span data-mc-cp-agenda-rot>Agendar</span><input type="datetime-local" class="mc-cp-agenda-data" data-mc-cp-agenda></label>
-                    <span class="mc-cp-vao"></span>
-                    <button type="button" class="mc-cp-botao" data-mc-cp-baixar><i class="bi bi-filetype-html" aria-hidden="true"></i>Baixar HTML</button>
-                    <button type="button" class="mc-cp-botao" data-mc-cp-teste><i class="bi bi-send-check" aria-hidden="true"></i>Enviar teste</button>
-                    <button type="button" class="mc-cp-enviar" data-mc-cp-enviar><i class="bi bi-send" aria-hidden="true"></i>Enviar campanha</button>
-                </div>
                 <div class="mc-cp-msg" role="status" data-mc-cp-aviso hidden><i class="bi bi-info-circle" aria-hidden="true"></i> <span data-mc-cp-msg></span></div>
-                <div class="mc-cp-lgpd"><i class="bi bi-shield-check" aria-hidden="true"></i> LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link "Não quero mais receber", repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam.</div>
+            </div>
+        </div>
+        {# dc 21.10 L499-501, L670: "Como o destinatário vai receber", em computador ou celular. O remetente é o real do
+           sistema até o dono decidir (spec §10). #}
+        <div class="mc-cp-ver" data-mc-cp-ver-janela role="dialog" aria-modal="true" aria-labelledby="mc-cp-ver-titulo" hidden>
+            <div class="mc-cp-ver-fundo" data-mc-cp-ver-fechar></div>
+            <div class="mc-cp-ver-caixa">
+                <div class="mc-cp-ver-cabeca">
+                    <i class="bi bi-envelope-open" aria-hidden="true"></i><b id="mc-cp-ver-titulo">Como o destinatário vai receber</b>
+                    <div class="mc-cp-ver-dev" role="group" aria-label="Aparelho">
+                        <button type="button" class="mc-cp-ver-op" data-mc-cp-ver-dev="pc" aria-pressed="true"><i class="bi bi-laptop" aria-hidden="true"></i> Computador</button>
+                        <button type="button" class="mc-cp-ver-op" data-mc-cp-ver-dev="cel" aria-pressed="false"><i class="bi bi-phone" aria-hidden="true"></i> Celular</button>
+                    </div>
+                    <button type="button" class="mc-cp-ver-x" data-mc-cp-ver-fechar aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                </div>
+                <div class="mc-cp-ver-env">
+                    <span class="mc-cp-ver-av" aria-hidden="true">B</span>
+                    <span class="mc-cp-ver-info"><b data-mc-cp-ver-assunto></b><span><b>De:</b> <span data-mc-cp-ver-de>{{ comercial_remetente() }}</span></span><span><b>Para:</b> <span data-mc-cp-ver-para></span></span><span class="mc-cp-ver-resumo" data-mc-cp-ver-resumo></span></span>
+                </div>
+                <div class="mc-cp-ver-quadro" data-mc-cp-ver-quadro data-dev="pc"><iframe title="E-mail" sandbox="" data-mc-cp-ver-iframe></iframe></div>
             </div>
         </div>
     </section>

@@ -7,18 +7,22 @@ namespace App\Comercial\Twig;
 use App\Contribua\DTO\PlanoDoCatalogo;
 use App\Contribua\Service\CatalogoDePlanos;
 use App\Master\Service\LocalizacaoDaPessoa;
+use App\Shared\Email\IdentidadeDeEmail;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
 /**
  * As opções dos selects de "Filtrar destinatários" que vêm do sistema (desenho 05 VS 21.10.26, L263; spec
  * comercial-e-emails.md §9): o Plano pelo catálogo do Contribua (D4: os ativos e os que ainda têm escritório) e as 27
- * UFs na ordem do dc. As outras opções são fixas do dc e ficam no template.
+ * UFs na ordem do dc. As outras opções são fixas do dc e ficam no template. Também o remetente real, para o "Ver como
+ * vai chegar" (dc L500; o dc mostra contato@, e a troca está com o dono, spec §10).
  */
 final class FiltroDaCampanhaExtension extends AbstractExtension
 {
-    public function __construct(private readonly CatalogoDePlanos $catalogo)
-    {
+    public function __construct(
+        private readonly CatalogoDePlanos $catalogo,
+        private readonly IdentidadeDeEmail $identidade,
+    ) {
     }
 
     public function getFunctions(): array
@@ -26,6 +30,7 @@ final class FiltroDaCampanhaExtension extends AbstractExtension
         return [
             new TwigFunction('comercial_planos_do_filtro', $this->planos(...)),
             new TwigFunction('comercial_ufs_do_filtro', static fn (): array => LocalizacaoDaPessoa::UFS),
+            new TwigFunction('comercial_remetente', fn (): string => $this->identidade->remetente()),
         ];
     }
 

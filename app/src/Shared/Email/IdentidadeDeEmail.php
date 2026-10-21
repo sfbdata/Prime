@@ -27,6 +27,12 @@ final class IdentidadeDeEmail
             : $this->validarEndereco($mailerReplyTo, 'MAILER_REPLY_TO');
     }
 
+    /** O remetente como o destinatário o vê ("BlueJus <endereço>"), para as telas que mostram o e-mail (Comercial, §10). */
+    public function remetente(): string
+    {
+        return $this->from->toString();
+    }
+
     public function aplicar(Email $email, string $assunto): Email
     {
         $assunto = trim($assunto);

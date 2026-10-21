@@ -85,8 +85,8 @@ final class PublicosDaCampanha
         return [
             'leads' => \count($this->confirmacoes->confirmadosDaLista(ComposicaoDaCampanha::LISTA)),
             'prim' => \count($prim), 'sec' => \count($sec), 'todos' => \count(array_unique([...$prim, ...$sec])),
-            'csv' => $publico === 'csv' ? \count($informados) : 0,
-            'indiv' => $publico === 'indiv' ? \count($informados) : 0,
+            'csv' => $publico === 'csv' ? self::validos($informados) : 0,
+            'indiv' => $publico === 'indiv' ? self::validos($informados) : 0,
         ];
     }
 
@@ -122,6 +122,12 @@ final class PublicosDaCampanha
         $permitidos = array_flip([...$this->cadastrados->ativosEntre($emails), ...$this->confirmacoes->confirmadosDaLista(ComposicaoDaCampanha::LISTA)]);
 
         return array_values(array_filter($lista, static fn (DestinatarioDaCampanha $d): bool => isset($permitidos[$d->email])));
+    }
+
+    /** @param list<DestinatarioDaCampanha> $lista */
+    private static function validos(array $lista): int
+    {
+        return \count(array_filter($lista, static fn (DestinatarioDaCampanha $d): bool => $d->valido()));
     }
 
     private function descadastrado(DestinatarioDaCampanha $d): bool

@@ -143,6 +143,18 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame($emails, array_column($parametros['informados'], 'email'));
     }
 
+    #[TestDox('Contagem (dc 21.10 L665): os repetidos removidos e os inválidos ignorados vêm à parte')]
+    public function testContagemComRepetidosEInvalidos(): void
+    {
+        $client = $this->clienteMaster();
+        $ana = (string) $this->cadastradoAtivo('ana', 'Ana')->getEmail();
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'indiv', 'individual' => $ana . ', ' . strtoupper($ana) . ', nao-e-email, outro@']);
+
+        self::assertResponseIsSuccessful();
+        $saida = $this->json($client);
+        self::assertSame([1, 1, 2], [$saida['destinatarios'], $saida['repetidos'], $saida['invalidos']]);
+    }
+
     #[TestDox('Filtro com valor fora do desenho é recusado (422)')]
     public function testFiltroInvalido(): void
     {
