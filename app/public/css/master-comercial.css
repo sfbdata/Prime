@@ -182,6 +182,35 @@
 .mc-camp-st-texto { padding: 0; font-weight: normal; color: var(--mc-sub); }
 .mc-camp-met { font-size: 12px; color: var(--mc-apagado); }
 
+/* F3b: "Filtrar destinatários" (desenho 05 VS 21.10.26, L260-264). Cores do dc com par escuro. */
+.mc { --mc-cf-borda: #e1e8ed; --mc-cf-bg: #fbfcfd; --mc-cf-hover: #f2f7fa; --mc-cf-titulo: #4a6373; --mc-cf-texto: #34505f;
+      --mc-cf-campo: #d3dde4; --mc-cf-icone: #7a8e9b; --mc-cf-div: #eef2f5; }
+[data-bs-theme="dark"] .mc { --mc-cf-borda: var(--bs-border-color); --mc-cf-bg: var(--bs-tertiary-bg); --mc-cf-hover: rgba(77, 163, 234, .08);
+      --mc-cf-titulo: var(--bs-secondary-color); --mc-cf-texto: var(--bs-body-color); --mc-cf-campo: var(--bs-border-color);
+      --mc-cf-icone: var(--bs-secondary-color); --mc-cf-div: var(--bs-border-color); }
+.mc-cf { border: 1px solid var(--mc-cf-borda); border-radius: 4px; background: var(--mc-cf-bg); overflow: hidden; }
+.mc-cf [hidden] { display: none !important; }
+.mc-cf-cabeca { width: 100%; display: flex; align-items: center; gap: 8px; border: none; background: transparent; padding: 9px 12px; font: inherit; font-size: 12.5px; color: var(--mc-cf-texto); cursor: pointer; text-align: left; }
+.mc-cf-cabeca:hover { background: var(--mc-cf-hover); }
+.mc-cf-cabeca > .bi-funnel { color: var(--mc-azul); }
+.mc-cf-titulo { font-size: 11.5px; letter-spacing: .5px; color: var(--mc-cf-titulo); }
+.mc-cf-selo { height: 18px; padding: 0 6px; border-radius: 9px; background: var(--mc-azul); color: #fff; font-size: 10.5px; font-weight: bold; display: inline-flex; align-items: center; }
+.mc-cf-espaco { flex: 1; }
+.mc-cf-curto { color: var(--mc-sub); }
+.mc-cf-seta { font-size: 12px; color: var(--mc-cf-icone); }
+.mc-cf-painel { padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--mc-cf-div); }
+.mc-cf-busca { display: flex; align-items: center; gap: 7px; height: 32px; border: 1px solid var(--mc-cf-campo); border-radius: 3px; background: var(--mc-fundo); padding: 0 9px; margin: 0; }
+.mc-cf-busca > i { color: var(--mc-cf-icone); }
+.mc-cf-busca > input { border: none; outline: none; flex: 1; min-width: 0; font: inherit; font-size: 12.5px; background: transparent; color: var(--mc-texto); }
+.mc-cf-atalhos { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mc-cf-atalho { height: 24px; padding: 0 9px; border: 1px solid var(--mc-cf-campo); border-radius: 12px; background: var(--mc-fundo); color: var(--mc-cf-texto); font: inherit; font-size: 11.5px; cursor: pointer; }
+.mc-cf-atalho[aria-pressed="true"] { border-color: var(--mc-azul); background: var(--mc-azul); color: #fff; }
+.mc-cf-selects { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.mc-cf-select { height: 32px; border: 1px solid var(--mc-cf-campo); border-radius: 3px; padding: 0 6px; font: inherit; font-size: 12.5px; background: var(--mc-fundo); color: var(--mc-texto); min-width: 0; }
+.mc-cf-resultado { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--mc-cf-texto); }
+.mc-cf-resultado > i { color: var(--mc-azul); }
+.mc-cf-resultado > span { flex: 1; }
+.mc-cf-limpar { border: none; background: none; color: var(--mc-azul); font: inherit; font-size: 12px; cursor: pointer; padding: 0; }
 /* ── F3c (0d): Descadastrados (dc L245-249) e KPIs (dc L325). Prefixos .mc-dsc- e .mc-kpi-, combinados com a 5d. ── */
 .mc-dsc { background: var(--mc-fundo); border: 1px solid var(--mc-azul); border-radius: 4px; overflow: hidden; margin-bottom: 14px; color: var(--mc-texto); }
 .mc-dsc-cabeca { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 18px; background: #f2f8fc; border-bottom: 1px solid #cfe3f0; }
