@@ -1,11 +1,11 @@
 /* =============================================================================
    BlueJus IA — drawer da pasta (specs inteligencia-agentes-da-pasta §5 e
-   inteligencia-drawer-da-pasta F1/F2).
+   inteligencia-drawer-da-pasta F1/F2/F4).
 
      1. abre/fecha o drawer do cabeçalho (botão, X, fundo, Esc) e, na PRIMEIRA
         abertura, carrega o painel (GET `inteligencia_agentes_painel`) no lugar
         da lista estática;
-     1b. abas Análise e Relatórios (`data-ia-aba` → `data-ia-aba-painel`, setas
+     1b. abas Análise, Documentos e Relatórios (`data-ia-aba` → `data-ia-aba-painel`, setas
         do teclado no tablist) e a escolha do comando/relatório na grade
         (`data-ia-escolher` → `data-ia-comando`); aba e escolhas sobrevivem à
         troca do painel;
@@ -13,6 +13,10 @@
         (`inteligencia_comando_solicitar`) e o retorno honesto (202 em andamento,
         200 "nada novo", 409/429 motivo); motivo de disponibilidade trava TODOS
         os botões até a página recarregar;
+     2b. aba Documentos (F4): marcar e desmarcar (`data-ia-doc`), "Selecionar
+        todos" (`data-ia-docs-todos`), a contagem "N de M" e o "Índice
+        inteligente" (`data-ia-exige-selecao`) liberado só com seleção; o POST
+        leva os ids marcados como `documentos[]`;
      3. polling do status (GET `inteligencia_analise_status`) enquanto houver
         análise pendente/processando no drawer — 2 s, 5 s depois de 30 s, 10 s
         depois de 2 min; PAUSA com a página oculta ou o drawer fechado —, e
@@ -269,7 +273,7 @@
 
         function botaoCarregando(botao, sim) {
             if (!botao || botao.getAttribute('data-ia-disponivel') !== '1') { return; }
-            botao.disabled = !!sim;
+            botao.disabled = !!sim || semSelecao(botao);
             botao.classList.toggle('is-carregando', !!sim);
             if (sim) { rotuloDoBotao(botao, 'Analisando…'); }
         }
@@ -300,6 +304,7 @@
             var deNovo = botao.getAttribute('data-ia-rotulo-de-novo') || 'Gerar nova análise';
             rotuloDoBotao(botao, temConcluida ? deNovo : rotulo);
             botao.title = temConcluida ? 'Nova análise considerando o histórico' : 'Lê os dados desta pasta e responde';
+            if (botao.hasAttribute('data-ia-exige-selecao')) { botao.title = tituloDoIndice(botao); }
         }
 
         // Um 409/429 de disponibilidade vale para todos os botões até a página recarregar.
@@ -417,15 +422,66 @@
             retomar();
         });
 
+        /* ── 2b. Seleção de documentos (aba Documentos, F4) ──────────────── */
+        // A seleção mora no DOM (aria-pressed das linhas): a lista só é trocada com o painel inteiro.
+        function linhasDeDocumento() { return drawer.querySelectorAll('[data-ia-doc]'); }
+
+        function idsMarcados() {
+            return Array.prototype.filter.call(linhasDeDocumento(), function (l) {
+                return l.getAttribute('aria-pressed') === 'true';
+            }).map(function (l) { return l.getAttribute('data-ia-doc'); });
+        }
+
+        // Só o botão que exige seleção (o "Índice inteligente") fica preso sem documento marcado.
+        function semSelecao(botao) {
+            return botao.hasAttribute('data-ia-exige-selecao') && idsMarcados().length === 0;
+        }
+
+        // O title do Índice segue a seleção, não o histórico (o índice nunca recebe o anterior).
+        function tituloDoIndice(botao) {
+            return semSelecao(botao) ? 'Marque os documentos do índice' : 'Monta o índice dos documentos marcados';
+        }
+
+        function atualizarSelecao() {
+            var total = linhasDeDocumento().length;
+            var marcados = idsMarcados().length;
+            var contagem = drawer.querySelector('[data-ia-docs-contagem]');
+            var todos = drawer.querySelector('[data-ia-docs-todos]');
+            if (contagem) { contagem.textContent = marcados + ' de ' + total; }
+            if (todos) { todos.setAttribute('aria-pressed', total > 0 && marcados === total ? 'true' : 'false'); }
+            drawer.querySelectorAll('[data-ia-gerar][data-ia-exige-selecao]').forEach(function (botao) {
+                if (botao.getAttribute('data-ia-disponivel') !== '1' || botao.classList.contains('is-carregando')) { return; }
+                botao.disabled = marcados === 0;
+                botao.title = tituloDoIndice(botao);
+            });
+        }
+
+        drawer.addEventListener('click', function (e) {
+            var linha = e.target.closest('[data-ia-doc]');
+            var todos = e.target.closest('[data-ia-docs-todos]');
+            if (!linha && !todos) { return; }
+            if (linha) {
+                linha.setAttribute('aria-pressed', linha.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+            } else {
+                var marcarTodos = idsMarcados().length !== linhasDeDocumento().length;
+                linhasDeDocumento().forEach(function (l) { l.setAttribute('aria-pressed', marcarTodos ? 'true' : 'false'); });
+            }
+            atualizarSelecao();
+        });
+
         /* ── 2. Gerar análise ─────────────────────────────────────────────── */
         drawer.addEventListener('click', function (e) {
             var botao = e.target.closest('[data-ia-gerar]');
             if (!botao || !drawer.contains(botao)) { return; }
             if (botao.disabled || botao.getAttribute('data-ia-disponivel') !== '1') { return; }
+            if (semSelecao(botao)) { return; }
             var secao = secaoDe(botao);
 
             var dados = new FormData();
             dados.append('_token', drawer.getAttribute('data-ia-token') || '');
+            if (botao.hasAttribute('data-ia-exige-selecao')) {
+                idsMarcados().forEach(function (id) { dados.append('documentos[]', id); });
+            }
 
             avisar('');
             botaoCarregando(botao, true);

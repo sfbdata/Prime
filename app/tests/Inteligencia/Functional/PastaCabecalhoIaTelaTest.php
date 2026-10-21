@@ -16,10 +16,10 @@ use Symfony\Component\DomCrawler\Crawler;
 /**
  * O botão "BlueJus Intelligence" no cabeçalho da pasta e o drawer da BlueJus IA (specs
  * inteligencia-agentes-da-pasta §5 e inteligencia-drawer-da-pasta F1/F2/F3). O botão nunca finge:
- * carrega o motivo REAL da `Disponibilidade`; dentro do drawer, as abas Análise, Relatórios e
- * Perguntar do desenho, e cada comando/relatório mostra "Gerar análise" (ou "Gerar <relatório>")
- * habilitado ou o motivo, desabilitado. Documentos ainda não funciona e não aparece. Sem
- * `modules.inteligencia.view`, nada de IA no cabeçalho.
+ * carrega o motivo REAL da `Disponibilidade`; dentro do drawer, as abas Análise, Documentos,
+ * Relatórios e Perguntar do desenho, e cada comando/relatório mostra "Gerar análise" (ou "Gerar
+ * <relatório>") habilitado ou o motivo, desabilitado. Documentos (F4) some para quem tem a aba
+ * Documentos da pasta oculta. Sem `modules.inteligencia.view`, nada de IA no cabeçalho.
  *
  * Arranjo com combinador de FILHO DIRETO (`.ps-cabecalho > .ps-cab-cliente > .ps-cab-ia`): "existe
  * na página" seria verdade com o botão no lugar errado. Estilo e JS não são visíveis aqui.
@@ -34,6 +34,7 @@ final class PastaCabecalhoIaTelaTest extends JusPrimeWebTestCase
     private const DRAWER = 'aside.ia-drawer#psIaDrawer[data-ia-drawer]';
     private const ANALISE = self::DRAWER . ' > .ia-drawer-corpo > .ia-agentes[data-ia-painel] > .ia-aba-painel[data-ia-aba-painel="analise"]';
     private const RELATORIOS = self::DRAWER . ' > .ia-drawer-corpo > .ia-agentes[data-ia-painel] > .ia-aba-painel[data-ia-aba-painel="relatorios"]';
+    private const DOCUMENTOS = self::DRAWER . ' > .ia-drawer-corpo > .ia-agentes[data-ia-painel] > .ia-aba-painel[data-ia-aba-painel="documentos"]';
 
     private function cliente(): KernelBrowser
     {
@@ -51,7 +52,7 @@ final class PastaCabecalhoIaTelaTest extends JusPrimeWebTestCase
         return $crawler;
     }
 
-    #[TestDox('Sem provedor: botão à direita da linha do cliente, com o motivo real; o drawer existe (oculto) com os 15 comandos e relatórios travados')]
+    #[TestDox('Sem provedor: botão à direita da linha do cliente, com o motivo real; o drawer existe (oculto) com os 15 comandos e relatórios e o Índice travados')]
     public function testSemProvedor(): void
     {
         $client = $this->cliente();
@@ -82,7 +83,7 @@ final class PastaCabecalhoIaTelaTest extends JusPrimeWebTestCase
         self::assertSame(10, $crawler->filter(self::ANALISE . ' > .ia-comando[data-ia-comando]')->count());
         self::assertSame(5, $crawler->filter(self::RELATORIOS . ' > .ia-comando[data-ia-comando]')->count());
         $ctas = $drawer->filter('.ia-comando > button.ia-cta[data-ia-gerar]');
-        self::assertSame(15, $ctas->count());
+        self::assertSame(16, $ctas->count(), '10 comandos, 5 relatórios e o "Índice inteligente" da aba Documentos');
         $ctas->each(static function (Crawler $cta): void {
             self::assertNotNull($cta->attr('disabled'), 'sem provedor nenhum comando é clicável');
             self::assertSame('0', $cta->attr('data-ia-disponivel'));
@@ -209,7 +210,7 @@ final class PastaCabecalhoIaTelaTest extends JusPrimeWebTestCase
     // Abas, comandos e relatórios (spec inteligencia-drawer-da-pasta, F1/F2)
     // =========================================================================
 
-    #[TestDox('Abas do desenho no cabeçalho do drawer (filho direto): Análise, Relatórios e Perguntar, com ícones; sem Documentos')]
+    #[TestDox('Abas do desenho no cabeçalho do drawer (filho direto), na ordem: Análise, Documentos, Relatórios e Perguntar, com ícones')]
     public function testAbas(): void
     {
         $client = $this->cliente();
@@ -221,28 +222,38 @@ final class PastaCabecalhoIaTelaTest extends JusPrimeWebTestCase
         $crawler = $this->abrirPasta($client, (int) $pasta->getId());
 
         $abas = $crawler->filter(self::DRAWER . ' > .ia-drawer-cab > .ia-abas[role="tablist"] > button.ia-aba[role="tab"]');
-        self::assertSame(3, $abas->count());
-        self::assertSame(['Análise', 'Relatórios', 'Perguntar'], $abas->each(static fn (Crawler $a): string => trim($a->text())));
-        self::assertSame(['analise', 'relatorios', 'perguntar'], $abas->each(static fn (Crawler $a): ?string => $a->attr('data-ia-aba')));
+        self::assertSame(4, $abas->count());
+        self::assertSame(['Análise', 'Documentos', 'Relatórios', 'Perguntar'], $abas->each(static fn (Crawler $a): string => trim($a->text())));
+        self::assertSame(['analise', 'documentos', 'relatorios', 'perguntar'], $abas->each(static fn (Crawler $a): ?string => $a->attr('data-ia-aba')));
         self::assertSame(1, $abas->eq(0)->filter('i.bi-activity')->count());
-        self::assertSame(1, $abas->eq(1)->filter('i.bi-bar-chart-line')->count());
-        self::assertSame(1, $abas->eq(2)->filter('i.bi-chat-dots')->count());
+        self::assertSame(1, $abas->eq(1)->filter('i.bi.bi-file-earmark-text')->count());
+        self::assertSame(1, $abas->eq(2)->filter('i.bi-bar-chart-line')->count());
+        self::assertSame(1, $abas->eq(3)->filter('i.bi-chat-dots')->count());
         self::assertSame('true', $abas->eq(0)->attr('aria-selected'));
         self::assertSame('false', $abas->eq(1)->attr('aria-selected'));
         self::assertSame('false', $abas->eq(2)->attr('aria-selected'));
+        self::assertSame('false', $abas->eq(3)->attr('aria-selected'));
         self::assertSame('ia-aba-analise', $abas->eq(0)->attr('aria-controls'));
-        self::assertSame('ia-aba-relatorios', $abas->eq(1)->attr('aria-controls'));
-        self::assertSame('ia-aba-perguntar', $abas->eq(2)->attr('aria-controls'));
+        self::assertSame('ia-aba-documentos', $abas->eq(1)->attr('aria-controls'));
+        self::assertSame('ia-aba-relatorios', $abas->eq(2)->attr('aria-controls'));
+        self::assertSame('ia-aba-perguntar', $abas->eq(3)->attr('aria-controls'));
 
         // Os painéis das abas, filhos diretos do painel; Relatórios nasce oculto.
         self::assertSame(1, $crawler->filter(self::ANALISE . '#ia-aba-analise[role="tabpanel"]')->count());
         self::assertNull($crawler->filter(self::ANALISE)->attr('hidden'));
         self::assertSame(1, $crawler->filter(self::RELATORIOS . '#ia-aba-relatorios[role="tabpanel"]')->count());
         self::assertNotNull($crawler->filter(self::RELATORIOS)->attr('hidden'));
+        self::assertSame(1, $crawler->filter(self::DOCUMENTOS . '#ia-aba-documentos[role="tabpanel"]')->count());
+        self::assertNotNull($crawler->filter(self::DOCUMENTOS)->attr('hidden'));
+        // Os painéis na ordem do desenho: Análise, Documentos, Relatórios.
+        self::assertSame(
+            ['analise', 'documentos', 'relatorios'],
+            $crawler->filter(self::DRAWER . ' > .ia-drawer-corpo > .ia-agentes[data-ia-painel] > .ia-aba-painel')->each(static fn (Crawler $p): ?string => $p->attr('data-ia-aba-painel')),
+        );
 
         $html = (string) $client->getResponse()->getContent();
         $drawer = $crawler->filter(self::DRAWER);
-        self::assertSame(0, $drawer->filter('[data-ia-aba="docs"], [data-ia-aba="documentos"], [data-ia-aba="chat"]')->count(), 'Documentos espera a F4');
+        self::assertSame(0, $drawer->filter('[data-ia-aba="docs"], [data-ia-aba="chat"]')->count());
         self::assertStringNotContainsString('Relatório do cliente', $html, 'D12: espera a decisão do dono');
     }
 
