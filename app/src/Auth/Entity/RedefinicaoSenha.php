@@ -32,6 +32,10 @@ class RedefinicaoSenha
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $usadoEm = null;
 
+    /** Códigos errados digitados contra este pedido (senha por código do desenho 10). */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $tentativas = 0;
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: User::class)]
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -92,6 +96,13 @@ class RedefinicaoSenha
     public function estaValido(?\DateTimeImmutable $agora = null): bool
     {
         return !$this->isUsado() && !$this->isExpirado($agora);
+    }
+
+    public function getTentativas(): int { return $this->tentativas; }
+
+    public function registrarTentativaErrada(): void
+    {
+        ++$this->tentativas;
     }
 
     public function marcarUsado(?\DateTimeImmutable $agora = null): void

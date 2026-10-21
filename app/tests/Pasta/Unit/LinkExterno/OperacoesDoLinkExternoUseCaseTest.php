@@ -37,7 +37,7 @@ final class OperacoesDoLinkExternoUseCaseTest extends TestCase
 
     private function conteudo(): ConteudoDoPushCompartilhado
     {
-        return new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class));
+        return new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class), $this->cadeados());
     }
 
     private function montador(): MontadorDeLinksExternos
@@ -45,7 +45,7 @@ final class OperacoesDoLinkExternoUseCaseTest extends TestCase
         $acessos = $this->createMock(AcessoAoLinkExternoDoPushRepository::class);
         $acessos->method('estatisticasDosLinks')->willReturn([]);
 
-        return new MontadorDeLinksExternos($acessos, $this->urlGenerator(), new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class)));
+        return new MontadorDeLinksExternos($acessos, $this->urlGenerator(), new ConteudoDoPushCompartilhado($this->createMock(PublicacaoDjenRepository::class), $this->createMock(AnaliseDeInteligenciaRepository::class), $this->cadeados()));
     }
 
     private function relogio(): MockClock

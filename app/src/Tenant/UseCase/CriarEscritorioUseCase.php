@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tenant\UseCase;
 
 use App\Auth\Enum\StatusOab;
+use App\Auth\Service\EspelhoDaOabPrincipal;
 use App\Auth\Service\ValidadorOab;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -31,6 +32,7 @@ final class CriarEscritorioUseCase
         private readonly TenantBootstrapService $bootstrap,
         private readonly ValidadorOab $validadorOab,
         private readonly int $tenantMaxPorUsuario,
+        private readonly EspelhoDaOabPrincipal $espelhoOab,
     ) {}
 
     public function executar(CriarEscritorioInput $input, User $criador): Tenant
@@ -69,6 +71,10 @@ final class CriarEscritorioUseCase
                 $criador->setOabVerificadaEm(new \DateTimeImmutable());
             }
         }
+
+        // A inscrição principal existe e acompanha a OAB gravada no User, também quando ela já era confirmada; sem
+        // ela a pessoa sai da fila de revisão do Master (spec oab-revisao-por-inscricao).
+        $this->espelhoOab->garantirPrincipal($criador);
 
         $tenant = new Tenant();
         $tenant->setName($input->nome);

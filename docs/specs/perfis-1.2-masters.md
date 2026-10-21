@@ -33,7 +33,7 @@
 - #72 Contas: suspender, reativar e excluir (empilhado sobre o #52, sem migration).
 - #59 Lista de perfis (base master, sem migration).
 - #77 IP do cliente (base master, sem migration; depois do merge, o dono troca `SYMFONY_TRUSTED_PROXIES=127.0.0.1` na VPS).
-- #56 Telas e recursos (empilhado sobre o #52; migration `Version20261019150000`).
+- #56 Telas e recursos (empilhado sobre o #52; migration `Version20261019172536`).
 - Ordem: #52 → #72; #59 e #77 a qualquer momento; #56 quando a fila de migrations chegar.
 
 **Fila de migrations:** #52 → Push (0d) → #56 → PR 2 da 7d → C1 da f6. Antes do merge do #56, renomear a migration dele com o timestamp do momento, porque o #55 entra antes.

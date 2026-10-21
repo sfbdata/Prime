@@ -9,6 +9,7 @@ use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Repository\NotificacaoRepository;
+use App\Pasta\Service\NivelNoCadeado;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
@@ -28,8 +29,29 @@ class NotificacaoService
         private readonly EntityManagerInterface $entityManager,
         private readonly NotificacaoRepository $notificacaoRepository,
         private readonly UserRepository $userRepository,
-        private readonly PermissionChecker $permissionChecker
+        private readonly PermissionChecker $permissionChecker,
+        private readonly ?NivelNoCadeado $nivelNoCadeado = null,
     ) {
+    }
+
+    /**
+     * Cadeado (spec pasta-cadeado D3): quem está `Oculto` na pasta da meta não recebe aviso dela (o título
+     * da meta já diria o que a pasta tem).
+     */
+    /**
+     * As pastas ocultas pelo cadeado para o usuário no escritório da sessão: os avisos ligados a elas não
+     * aparecem nem contam no sino e em "Ver todas" (mesmo gravados antes do cadeado).
+     *
+     * @return list<int>
+     */
+    public function pastasOcultasDe(User $usuario): array
+    {
+        return $this->nivelNoCadeado?->idsDasPastasOcultasNaSessao($usuario) ?? [];
+    }
+
+    public function veAPastaDaMeta(Tarefa $tarefa, User $usuario): bool
+    {
+        return $this->nivelNoCadeado?->nivel($usuario, $tarefa->getPasta())->podeVer() ?? true;
     }
 
     /**
@@ -61,14 +83,15 @@ class NotificacaoService
      * por escritório para usuários multi-tenant. Quem chama deriva o tenant da entidade de
      * origem (o evento, o chamado, a justificativa).
      */
-    public function criarNotificacao(User $usuario, Tenant $tenant, string $tipo, string $mensagem, ?string $url = null): Notificacao
+    public function criarNotificacao(User $usuario, Tenant $tenant, string $tipo, string $mensagem, ?string $url = null, ?string $texto = null): Notificacao
     {
         $notificacao = new Notificacao();
         $notificacao->setUsuario($usuario);
         $notificacao->setTenant($tenant);
         $notificacao->setTipo($tipo);
         $notificacao->setTitulo($mensagem);
-        $notificacao->setMensagem($mensagem);
+        // $texto: corpo mais longo que o título (sem ele, os dois são iguais); a Central mostra os dois.
+        $notificacao->setMensagem($texto ?? $mensagem);
         $notificacao->setUrl($url);
 
         $this->entityManager->persist($notificacao);
@@ -104,6 +127,9 @@ class NotificacaoService
     {
         $tenant = $tarefa->getTenant();
         foreach ($usuarios as $usuario) {
+            if (!$this->veAPastaDaMeta($tarefa, $usuario)) {
+                continue;
+            }
             $this->criar(
                 $usuario,
                 $tenant,
@@ -124,7 +150,7 @@ class NotificacaoService
     public function notificarTarefaEmRevisao(Tarefa $tarefa): void
     {
         $criador = $tarefa->getCriadoPor();
-        if ($criador === null) {
+        if ($criador === null || !$this->veAPastaDaMeta($tarefa, $criador)) {
             return;
         }
 
@@ -148,6 +174,9 @@ class NotificacaoService
     {
         $tenant = $tarefa->getTenant();
         foreach ($tarefa->getResponsaveis() as $usuario) {
+            if (!$this->veAPastaDaMeta($tarefa, $usuario)) {
+                continue;
+            }
             $this->criar(
                 $usuario,
                 $tenant,
@@ -169,6 +198,9 @@ class NotificacaoService
     {
         $tenant = $tarefa->getTenant();
         foreach ($tarefa->getResponsaveis() as $usuario) {
+            if (!$this->veAPastaDaMeta($tarefa, $usuario)) {
+                continue;
+            }
             $this->criar(
                 $usuario,
                 $tenant,
@@ -189,7 +221,7 @@ class NotificacaoService
      */
     public function getNotificacoesNaoLidas(User $usuario, ?string $categoria = null, int $limit = 10): array
     {
-        return $this->notificacaoRepository->findNaoLidasByUsuario($usuario, $categoria, $limit);
+        return $this->notificacaoRepository->findNaoLidasByUsuario($usuario, $categoria, $limit, $this->pastasOcultasDe($usuario));
     }
 
     /**
@@ -197,7 +229,7 @@ class NotificacaoService
      */
     public function contarNaoLidas(User $usuario, ?string $categoria = null): int
     {
-        return $this->notificacaoRepository->countNaoLidasByUsuario($usuario, $categoria);
+        return $this->notificacaoRepository->countNaoLidasByUsuario($usuario, $categoria, $this->pastasOcultasDe($usuario));
     }
 
     /**

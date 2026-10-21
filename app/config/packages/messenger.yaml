@@ -27,6 +27,16 @@ framework:
                     delay: 2000        # 2s, dobrando a cada tentativa (erros transitórios da API do Drive)
                     multiplier: 2
                     max_delay: 60000
+            # Comercial e e-mails (docs/specs/comercial-e-emails.md §3.6): fila própria, para um lote de e-mails não
+            # atrasar o Drive e a IA. O worker de produção consome `comercial async`, nesta ordem (a vazão faz um
+            # lote esperar com DelayStamp em vez de ocupar o worker).
+            comercial:
+                dsn: 'doctrine://default?queue_name=comercial'
+                retry_strategy:
+                    max_retries: 3
+                    delay: 30000       # 30 s, dobrando: o SMTP costuma voltar em minutos
+                    multiplier: 2
+                    max_delay: 600000
             failed: 'doctrine://default?queue_name=failed'
 
         routing:
@@ -34,6 +44,10 @@ framework:
             App\Sync\Message\SincronizarPastaNoDrive: async
             # BlueJus IA: a chamada ao provedor de linguagem leva segundos — vai para o worker.
             App\Inteligencia\Message\ProcessarAnaliseDeInteligencia: async
+            # Comercial: o envio de cada e-mail, a cadeia de varredura das automações e a do expansor de campanhas.
+            App\Comercial\Message\EnviarEmail: comercial
+            App\Comercial\Message\VarrerAutomacoes: comercial
+            App\Comercial\Message\ExpandirCampanhas: comercial
 
 # Nos testes: transport em memória — nada toca o banco de fila nem o Drive; o dispatch é inspecionável.
 when@test:
@@ -41,4 +55,5 @@ when@test:
         messenger:
             transports:
                 async: 'in-memory://'
+                comercial: 'in-memory://'
                 failed: 'in-memory://'

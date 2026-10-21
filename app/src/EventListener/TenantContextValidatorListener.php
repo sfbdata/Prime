@@ -6,6 +6,7 @@ namespace App\EventListener;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Service\Tenant\TenantContext;
+use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tenant\Service\AvisoDeContaSuspensa;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
@@ -42,6 +43,13 @@ final class TenantContextValidatorListener
         'trabalho_externo_convite',
         'trabalho_externo_convite_criar_conta',
         'trabalho_externo_convite_aceitar',
+        // Descadastro de e-mail: link assinado aberto por quem pode nem ter conta (ou estar logado
+        // em outro escritório). Não depende de termo nem de escritório; a guarda é a assinatura.
+        'email_descadastro',
+        'comercial_confirmar_endereco',
+        'comercial_confirmar_endereco_gravar',
+        'comercial_rastreio_abertura',
+        'comercial_rastreio_clique',
         // Link externo do Push: página pública de terceiro, não depende de termo nem de escritório.
         'push_compartilhado',
         'push_compartilhado_codigo',
@@ -51,6 +59,12 @@ final class TenantContextValidatorListener
         'trabalho_externo_vagas_link',
         'trabalho_externo_vagas_alertas',
         'vagas_publicas_cta',
+        // Indicar o BlueJus (spec indicar-bluejus.md): o menu oferece a janela a todo logado, com ou sem
+        // escritório (o Convidado do Trabalho Externo também). O dado é da pessoa, sem tenant; o controller só
+        // usa o escritório da sessão com vínculo ativo, conferido por ele mesmo.
+        'indicacao_janela',
+        'indicacao_email',
+        'indicacao_canal',
     ];
 
     /**
@@ -109,7 +123,7 @@ final class TenantContextValidatorListener
         $recusa = $this->barreiraDaConta($userTenant);
         // (b) pedido de exclusão pendente: entra aqui (frente 7d, PR 5).
         $recusa ??= $this->barreiraDoVinculo($userTenant);
-        // (d) situação do usuário no escritório: entra aqui (frente 7d, PR 4).
+        $recusa ??= $this->barreiraDaSituacao($userTenant, $user);
 
         if ($recusa === null) {
             return;
@@ -140,10 +154,27 @@ final class TenantContextValidatorListener
             : AvisoDeContaSuspensa::paraExcluida((string) $conta->getName());
     }
 
-    /** (c) O vínculo: removido ou desativado no escritório. */
+    /** (c) O vínculo: removido, ou inativo de legado (inativo sem ser por causa da situação na equipe). */
     private function barreiraDoVinculo(?UserTenant $userTenant): ?string
     {
-        return $userTenant !== null && $userTenant->isActive() ? null : self::ACESSO_INDISPONIVEL;
+        if ($userTenant === null) {
+            return self::ACESSO_INDISPONIVEL;
+        }
+
+        return !$userTenant->isActive() && $userTenant->getSituacao() === SituacaoNaEquipe::Aprovado ? self::ACESSO_INDISPONIVEL : null;
+    }
+
+    /**
+     * (d) Situação na equipe: em análise ou suspenso pelo primário (spec docs/specs/equipe-da-conta.md §3). O Master
+     * não passa por esta barreira.
+     */
+    private function barreiraDaSituacao(?UserTenant $userTenant, User $user): ?string
+    {
+        if ($userTenant === null || $userTenant->isActive() || in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+            return null;
+        }
+
+        return $userTenant->getSituacao()->mensagemDeAcesso((string) $userTenant->getTenant()->getName());
     }
 
     private function deveIgnorar(string $route): bool
