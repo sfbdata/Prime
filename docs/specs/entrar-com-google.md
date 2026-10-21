@@ -1,13 +1,26 @@
 # Entrar com o Google (proposta, 21/10/2026)
 
 **Risco: ALTO** (identidade `User`/`Tenant`: segundo autenticador no firewall, coluna nova em `user`,
-conta casada por e-mail). **Proposta read-only:** nada de código até o dono decidir os pontos marcados
-**[dono]** e a 9b concordar com o encaixe no login dela (desenho 10, #101).
+conta casada por e-mail). Todas as decisões fechadas pelo dono em 21/10/2026 (ver "Decisões do dono" abaixo); a 9b concordou
+com o encaixe no login dela (seção 7). Entrega 1 em andamento.
 
 Parte da spec de 31/08 ([`login-com-google.md`](login-com-google.md)), que continua valendo onde não
 conflita com esta. Ela ficou desatualizada em três pontos: pedia OAB no cadastro (o desenho 10 tirou),
 citava o `ConfirmarCadastroUseCase` (hoje o cadastro é o `CriarContaEEscritorioUseCase`) e é anterior ao
 Google Agenda (#78, #182, #183), que já tem cliente OAuth próprio. **Esta substitui aquela** quando aprovada.
+
+## Decisões do dono (21/10/2026)
+
+| Ponto | Decisão |
+|---|---|
+| Conta nova pelo Google (seção 3) | (B), em duas entregas: 1) login de quem já tem conta, sem conta age como (A); 2) criar conta e escritório |
+| Master pelo Google (seção 5) | Sim, com o risco registrado |
+| Botão (seção 6) | Abaixo do "Entrar", linha "ou", botão de contorno "Entrar com o Google" com o G; cadastro: "Continuar com o Google" |
+| E-mail "a confirmar" (seção 2) | Entrar pelo Google confirma |
+| "Manter conectado" (seção 4) | Vale também para o Google |
+
+Migration da entrega 1: `Version20261020148100` (coluna `user.google_sub`). Sem a credencial e as variáveis, o
+botão fica escondido; o dono cria a credencial depois.
 
 ## 1. Escopos e cliente OAuth
 
@@ -34,7 +47,7 @@ Ordem de casamento, na volta do Google:
 
 - E-mail ainda "a confirmar" no BlueJus (cadastro do #101 sem clicar no link): o Google provou o e-mail,
   então o login pelo Google **marca o e-mail como confirmado** (dispara `EmailDaContaConfirmado`, que a 5d
-  já ouve). Recomendação; se o dono preferir, só entra e deixa o aviso de confirmação como está.
+  já ouve). Decidido pelo dono.
 - Conta só-Google pode criar senha pelo "Esqueceu a senha?" (já funciona; vira teste).
 - Usuário inativo, conta suspensa ou em quarentena de exclusão: mesmas barreiras do login por senha
   (`UserChecker` do firewall e `TenantContextValidatorListener`).
@@ -70,7 +83,7 @@ O mesmo caminho do login por senha, sem cópia:
 - convidado do Trabalho Externo sem escritório: o `EntradaDoConvidadoListener` passa a reconhecer também o
   autenticador do Google (hoje só olha o `UserAuthenticator`);
 - "Manter conectado": o botão do Google respeita a caixa marcada no formulário (vai como parâmetro na ida e
-  volta pela sessão). Recomendação; a alternativa é nunca lembrar.
+  volta pela sessão). Decidido pelo dono.
 - As rotas novas entram nas duas listas brancas (`TermoAceiteListener::ROTAS_IGNORADAS` e
   `TenantContextValidatorListener`), senão há laço de redirecionamento.
 
@@ -138,8 +151,7 @@ muda: o botão do Google é um link para `/login/google`, fora dos campos do for
 
 ## 8. Material do dono
 
-1. Responder os pontos que faltam: confirmar e-mail pelo Google (seção 2) e "Manter conectado" (seção 4). Já
-   decididos em 21/10: seção 3 = (B) em duas entregas; Master pelo Google = sim; botão como na seção 6.
+1. Decisões: todas fechadas em 21/10 (tabela no topo).
 2. Criar no Google Cloud a credencial "Aplicativo da Web" do login, com o redirecionamento
    `https://<domínio>/login/google/callback`, e pôr as duas variáveis no `.env.prod`. Passo a passo vai junto
    com o PR.
