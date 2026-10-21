@@ -92,6 +92,20 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertSame(['convites, ofertas, agradecimentos e novidades · individual ou em grande escala'], $this->textos('section.mc-cp > .mc-cabeca > span'));
     }
 
+    #[TestDox('Enviar e-mail de teste (F3f, L497-498): o modal com o destino travado no Master e a nota, e o "Teste enviado"')]
+    public function testModalDoTeste(): void
+    {
+        $tst = $this->doc->filter('[data-mc] > div.mc-tst[data-mc-tst]');
+        self::assertCount(1, $tst);
+        self::assertSame(['Enviar e-mail de teste'], $this->textos('[data-mc] > div[data-mc-tst] > .mc-tst-caixa > .mc-tst-cabeca > b'));
+        self::assertSame(1, $tst->filter('.mc-tst-cabeca > i.bi-send-check')->count());
+        self::assertSame('ENVIAR PARA (separe vários por vírgula)', preg_replace('/\s+/', ' ', trim($tst->filter('.mc-tst-corpo > label')->text())));
+        self::assertNotNull($tst->filter('.mc-tst-corpo > input[data-mc-tst-para]')->attr('readonly'), 'o destino é só o Master (decisão da coordenação)');
+        self::assertStringContainsString('O teste chega com [TESTE] no assunto e não entra nas métricas da campanha.', $tst->filter('.mc-tst-corpo')->text());
+        self::assertSame(['Cancelar', 'Enviar teste'], array_map('trim', $tst->filter('.mc-tst-rodape > button')->each(static fn (Crawler $b): string => $b->text())));
+        self::assertSame(['Teste enviado'], $this->textos('[data-mc] > div[data-mc-tst-ok] > .mc-tst-caixa > b'));
+    }
+
     #[TestDox('Duas colunas na grade (L.231): 1 · MODELO, 2 · PARA QUEM e 3 · MENSAGEM à esquerda, PRÉVIA DO E-MAIL à direita')]
     public function testDuasColunas(): void
     {

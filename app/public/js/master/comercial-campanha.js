@@ -453,7 +453,7 @@
     if (e.target.closest('[data-mc-cp-salvar]')) { salvar(); return; }
     if (e.target.closest('[data-mc-cp-excluir]')) { excluir(); return; }
     if (e.target.closest('[data-mc-cp-baixar]')) { baixar(); return; }
-    if (e.target.closest('[data-mc-cp-teste]')) { postar(ROTAS.urlTeste, pedido()).then(r => avisar(r.mensagem)).catch(err => avisar(err.message)); }
+    // O ícone de teste abre o modal do comercial-teste.js (F3f, dc L497-498); o envio é feito lá.
   });
 
   raiz.addEventListener('input', e => {

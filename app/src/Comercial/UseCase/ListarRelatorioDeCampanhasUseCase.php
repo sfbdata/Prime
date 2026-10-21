@@ -82,7 +82,7 @@ final class ListarRelatorioDeCampanhasUseCase
             $c['id'],
             $c['nome'],
             $sub,
-            PublicosDaCampanha::ROTULOS[$c['publico']] ?? $c['publico'],
+            $c['publico'] === self::TESTE ? 'Teste · ' . $c['total'] . ' e-mail(s)' : (PublicosDaCampanha::ROTULOS[$c['publico']] ?? $c['publico']),
             $c['total'],
             $c['estado'],
             self::ROTULOS[$c['estado']] ?? $c['estado'],

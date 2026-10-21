@@ -1,0 +1,29 @@
+{#
+    "Enviar e-mail de teste" e "Teste enviado" (desenho 05 VS 21.10.26, L497-498 e L668-669; F3f). O destino é só o
+    Master logado (decisão da coordenação, 21/10/2026: "qualquer endereço" está com o dono): o campo vem preenchido e
+    travado, com a nota. O envio vai pela rota que já existe (`master_comercial_teste`); o modelo vem do editor
+    (`window.McCampanha.modeloAtual()`). public/js/master/comercial-teste.js.
+#}
+<div class="mc-tst" data-mc-tst hidden data-url="{{ path('master_comercial_teste') }}">
+    <div class="mc-tst-fundo" data-mc-tst-fechar></div>
+    <div class="mc-tst-caixa" role="dialog" aria-modal="true" aria-labelledby="mc-tst-titulo">
+        <div class="mc-tst-cabeca"><i class="bi bi-send-check" aria-hidden="true"></i><b id="mc-tst-titulo">Enviar e-mail de teste</b><button type="button" class="mc-tst-x" data-mc-tst-fechar aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+        <div class="mc-tst-corpo">
+            <label class="mc-tst-rotulo" for="mc-tst-para">ENVIAR PARA <span>(separe vários por vírgula)</span></label>
+            <input class="mc-tst-para" id="mc-tst-para" data-mc-tst-para value="{{ app.user ? app.user.email : '' }}" readonly aria-describedby="mc-tst-trava">
+            <div class="mc-tst-nota" id="mc-tst-trava" data-mc-tst-trava>Por enquanto o teste vai só para o seu e-mail; enviar para outros endereços depende de decisão.</div>
+            <div class="mc-tst-nota">O teste chega com [TESTE] no assunto e não entra nas métricas da campanha.</div>
+            <div class="mc-tst-erro" data-mc-tst-erro role="alert" hidden></div>
+        </div>
+        <div class="mc-tst-rodape"><button type="button" class="mc-tst-cancelar" data-mc-tst-fechar>Cancelar</button><button type="button" class="mc-tst-enviar" data-mc-tst-enviar><i class="bi bi-send" aria-hidden="true"></i> Enviar teste</button></div>
+    </div>
+</div>
+<div class="mc-tst" data-mc-tst-ok hidden>
+    <div class="mc-tst-fundo" data-mc-tst-fechar></div>
+    <div class="mc-tst-caixa mc-tst-ok" role="dialog" aria-modal="true" aria-labelledby="mc-tst-ok-titulo">
+        <div class="mc-tst-ok-ic"><i class="bi bi-check2-circle" aria-hidden="true"></i></div>
+        <b id="mc-tst-ok-titulo">Teste enviado</b>
+        <div class="mc-tst-ok-texto">Para <span data-mc-tst-ok-para></span>. Confira a caixa de entrada (e o spam) em instantes.</div>
+        <button type="button" class="mc-tst-enviar" data-mc-tst-fechar>Ok</button>
+    </div>
+</div>
