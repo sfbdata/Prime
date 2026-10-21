@@ -8,7 +8,7 @@ tela "Telas e recursos"). Risco BAIXO. Decisões do coordenador e da b5 em 21/10
 
 - 21/10: spec; implementação começando.
 - 21/10: implementado na branch `temas-comemorativos` (domínio Master): catálogo `CatalogoDeTemas`/`TemaComemorativo`,
-  `TemaDoDia`, entidade `TemaConfig` (Auditavel, escopo de plataforma), migration `Version20261020144000`,
+  `TemaDoDia`, entidade `TemaConfig` (Auditavel, escopo de plataforma), migration `Version20261020147400`,
   UseCases `DefinirModoDoTemaUseCase` e `AlternarTemaComemorativoUseCase`, rotas POST `master_temas_modo` e
   `master_tema_ligar` (CSRF `master_temas`), parciais `master/_recursos_tema.html.twig` e
   `layout/_globais/tema_comemorativo.html.twig`, CSS `tema-comemorativo.css` e `master-temas.css`, JS
@@ -49,7 +49,7 @@ dia, o primeiro não fraco; se não houver, o primeiro fraco (dia específico ve
 ## Onde guarda
 
 Tabela própria `tema_config`, linha única (id 1): `modo` (automatico/manual/desligado), `manual` (id do tema ou
-nulo), `desligados` (json com os ids), `alterado_por_id`, `alterado_em`. Migration `Version20261020144000`
+nulo), `desligados` (json com os ids), `alterado_por_id`, `alterado_em`. Migration `Version20261020147400`
 (reservada pelo coordenador). Não usa o RecursoEstado nem o CatalogoDeRecursos (combinado com a b5: o formato é
 outro). Sem a linha, vale o modo automático com todos ligados.
 

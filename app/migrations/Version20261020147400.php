@@ -16,7 +16,7 @@ use Doctrine\Migrations\AbstractMigration;
  * frente (messenger_messages, índices funcionais de cobrança, DROP DEFAULT de cobranca_pessoa_*,
  * uq_confirmacao_email_lembrete) não é desta frente e ficou de fora. Só a tabela nova.
  */
-final class Version20261020144000 extends AbstractMigration
+final class Version20261020147400 extends AbstractMigration
 {
     public function getDescription(): string
     {
