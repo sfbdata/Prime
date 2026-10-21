@@ -1074,6 +1074,262 @@ perfis:
         remover_titulo: Remover primário
         remover_texto: '"{nome}" deixa de ser primário e volta a ser secundário. A remoção fica na auditoria da conta.'
 
+# ---- Dashboard (dashboard/*, dashboard.js, dashboard-filtros.js, dashboard-historico.js, dashboard-janelas.js)
+dashboard:
+    titulo: Dashboard
+    atualizado_as: 'Atualizado às {hora}'
+    sem_cargo: Sem cargo
+    exportar_pdf: Exportar PDF
+    exportar_pdf_titulo: Exportar relatório em PDF
+    impressao:
+        marca: BlueJus · Dashboard
+        titulo: Relatório de desempenho
+        periodo: Período
+        intervalo: '{de} a {ate}'
+        inicio: início
+        hoje: hoje
+        busca: 'Busca: {termo}'
+        gerado_em: Gerado em
+        data_as_hora: '{data} às {hora}'
+        por: 'por {nome}'
+        rodape: Documento gerado pelo BlueJus para uso interno do escritório.
+    periodo:
+        rotulo: Período
+        este_mes: Este mês
+        d60: 60 dias
+        d90: 90 dias
+        este_ano: Este ano
+    filtros:
+        limpar: Limpar filtros
+        buscar_colaborador: Buscar colaborador
+        de: De
+        ate: Até
+        ate_separador: até
+        responsavel: Responsável
+        cargo: Cargo
+        data_inicial: Data inicial
+        data_final: Data final
+        sem_data: sem data
+        dd_mm_aaaa: dd/mm/aaaa
+        escolher: 'Escolher {campo}'
+        todos_responsaveis: Todos os responsáveis
+        todos_cargos: Todos os cargos
+        buscar_pessoa: Buscar pessoa
+        nenhum_resultado: Nenhum resultado.
+        pessoa: pessoa
+        pessoas: pessoas
+    cards:
+        pastas_criadas: Pastas criadas
+        metas_ativas: Metas ativas
+        demandas_urgentes: Demandas urgentes
+        meta_global_batida: Meta global batida
+        ver_pastas: ver pastas
+        ver_metas: ver metas
+        abrir_pastas_criadas: 'Abrir: Expediente · pastas criadas'
+        abrir_metas_ativas: 'Abrir: Metas da equipe · metas ativas'
+        abrir_pastas_urgentes: 'Abrir: Expediente · pastas urgentes'
+        legenda_metas_ativas: tarefas ainda não concluídas
+        legenda_urgentes: pastas com prioridade Urgente
+        legenda_global_de: de
+        legenda_global_metas_concluidas: metas concluídas
+    tabela:
+        titulo: Desempenho
+        um_colaborador: 1 colaborador
+        n_colaboradores: '{n} colaboradores'
+        colaborador: Colaborador
+        cargo: Cargo
+        total_metas: Total metas
+        metas_ativas: Metas ativas
+        metas_vencidas: Metas vencidas
+        vencidas: Vencidas
+        prazos_proximos: Prazos próximos
+        total_demandas: Total demandas
+        demandas_ativas: Demandas ativas
+        pastas_criadas: Pastas criadas
+        total: Total
+        vazio: Nenhum colaborador com esses filtros.
+        nota: Uma meta com vários responsáveis conta para cada um deles, por isso a soma das linhas pode passar do total do card. Vencidas e prazos próximos são sempre relativos a hoje, não ao período filtrado.
+        abrir_metas: 'Abrir: Metas de {nome}'
+        abrir_metas_ativas: 'Abrir: Metas ativas de {nome}'
+        abrir_metas_vencidas: 'Abrir: Metas vencidas de {nome}'
+        abrir_prazo_proximo: 'Abrir: Metas com prazo próximo de {nome}'
+        abrir_pastas: 'Abrir: Expediente · pastas de {nome}'
+        abrir_pastas_ativas: 'Abrir: Expediente · pastas ativas de {nome}'
+        abrir_pastas_criadas: 'Abrir: Expediente · pastas criadas por {nome}'
+    celular:
+        ordenar: Ordenar
+        ordem_crescente: Ordem crescente
+        ordem_decrescente: Ordem decrescente
+    extras:
+        sem_dado: Sem dado
+        sem_dado_no_periodo: Sem dado no período
+        valor_dias: '{n}d'
+        abrir_pastas_urgentes: 'Abrir: Expediente · pastas urgentes de {nome}'
+        abrir_metas_concluidas: 'Abrir: Metas concluídas de {nome}'
+        abrir_taxa_conclusao: 'Abrir: Taxa de conclusão de {nome}'
+        abrir_tempo_medio: 'Abrir: Tempo médio de {nome}'
+        abrir_metas_revisao: 'Abrir: Metas em revisão de {nome}'
+        abrir_eventos_agenda: 'Abrir: Eventos na agenda de {nome}'
+    tendencia:
+        sem_movimento_titulo: Sem movimento nos dois períodos
+        sem_movimento: sem movimento
+        novo: novo
+        anterior_zero: 'Período anterior: 0'
+        antes_agora: 'antes: {anterior} → agora: {atual}'
+        subiu: 'Subiu {pct}% em relação ao período anterior ({anterior} → {atual})'
+        caiu: 'Caiu {pct}% em relação ao período anterior ({anterior} → {atual})'
+        estavel: 'Estável, {pct}% em relação ao período anterior ({anterior} → {atual})'
+    pref:
+        opcoes_da_tabela: Opções da tabela
+        ajustes_salvos_para: Ajustes salvos só para
+        meu_estilo: Meu estilo
+        densidade: Densidade
+        normal: Normal
+        compacta: Compacta
+        sons: Sons
+        animacoes: Animações
+        exibicao: Exibição
+        setas: Setas de tendência
+        colunas: Colunas
+        mostrar_todas: Mostrar todas
+        fixa: fixa
+        coluna_extra: '{rotulo} (extra)'
+        adicionar_coluna: Adicionar coluna
+        todas_na_tabela: Todas as colunas disponíveis já estão na tabela.
+        restaurar: Restaurar padrão
+    ia:
+        abrir: Abrir BlueJus Intelligence
+        ponto_de_atencao: '{n} ponto de atenção'
+        pontos_de_atencao: '{n} pontos de atenção'
+        leitura_do_periodo: Leitura do período
+        legenda: Leitura automática dos números do período, por regras fixas
+        atualizada_hoje_as: 'Atualizada hoje às {hora}'
+        fechar: Fechar
+        visao_da_equipe: Visão da equipe
+        analises_ampliadas: Análises ampliadas do escritório
+        modo_avancado: Modo avançado
+        confirma:
+            titulo: Ativar Modo Avançado?
+            texto: A BlueJus Intelligence passará a fazer análises ampliadas do escritório, usando apenas os dados disponíveis ao seu perfil de acesso.
+            podera_analisar: Poderá analisar
+            escopo:
+                tarefas: Tarefas
+                prazos: Prazos
+                equipes: Equipes
+                gargalos: Gargalos
+                indicadores: Indicadores
+                riscos_operacionais: Riscos operacionais
+            agora_nao: Agora não
+            ativar: Ativar Modo Avançado
+        av:
+            titulo: Visão estratégica do escritório
+            lema: Entenda. Antecipe. Aja. Evolua.
+            hoje_hora: 'Hoje, {hora}'
+            qualidade_regras: 'Nota por regras: −6 por colaborador sem cargo, −15 no início do período (ou −6 em andamento), −20 com menos de 3 colaboradores, −4 fixo; mínimo 40'
+            qualidade: Qualidade da análise
+            central: Central de Inteligência
+            como_montada: Como esta leitura foi montada
+            dados_analisados: Dados analisados
+            fatores: Fatores da classificação
+            sem_alerta: Nenhum alerta com os números atuais.
+            distribuicao: Distribuição da equipe
+            ativas: ativas
+            vencidas: vencidas
+            ativas_vencidas: '{ativas} ativas, {vencidas} vencidas'
+            media_da_equipe: 'Traço: média da equipe ({media} ativas por pessoa)'
+            visao_estrategica: Visão estratégica da equipe
+            principais_riscos: Principais riscos
+            sem_risco: Nenhum risco relevante identificado.
+            perguntas: Perguntas guiadas
+        dia_de: 'dia {dia} de {total}'
+        entram_por_dia: Entram por dia
+        concluidas_por_dia: Concluídas por dia
+        por_dia: /dia
+        abertas_no_periodo: Abertas no período
+        metas: Metas
+        concluidas: Concluídas
+        ativas: Ativas
+        vencidas: Vencidas
+        pct_metas_concluidas: '{taxa}% das metas concluídas'
+        concluida_minusculo: concluída
+        concluidas_minusculo: concluídas
+        pct_das: '{taxa}% das {n}'
+        abertas_no_periodo_minusculo: abertas no período
+        metas_minusculo: metas
+        o_que_acontece: O que está acontecendo
+        por_que: Por que
+        o_que_fazer: O que fazer agora
+        proximas_acoes: Próximas ações
+        limites: O que este painel não faz
+        nota_numeros: 'Números: somas das linhas visíveis da tabela Desempenho (uma meta com vários responsáveis conta para cada um); vencidas e prazos próximos são relativos a hoje; urgentes vêm do card Demandas urgentes.'
+        teaser:
+            titulo: Conhecer o Modo avançado
+            sub: Visão estratégica, riscos e Central de Inteligência.
+        rodape: Acompanhar novamente em 24 horas
+    js:
+        impressao:
+            intervalo: '{de} a {ate}'
+            inicio: início
+            hoje: hoje
+            todos_responsaveis: Todos os responsáveis
+            todos_cargos: Todos os cargos
+            busca: 'Busca: {termo}'
+            data_as_hora: '{data} às {hora}'
+            nome_do_arquivo: 'BlueJus Relatorio de desempenho {data}'
+        filtros:
+            responsavel: Responsável
+            cargo: Cargo
+            titulo_mes: '{mes} de {ano}'
+            mes_anterior: Mês anterior
+            proximo_mes: Próximo mês
+            dia: '{semana}, {dia} de {mes} de {ano}'
+            dia_hoje: '{semana}, {dia} de {mes} de {ano} (hoje)'
+            limpar: Limpar
+            hoje: Hoje
+            dd_mm_aaaa: dd/mm/aaaa
+            data_inicial: Data inicial
+            data_final: Data final
+            sem_data: sem data
+            mes_1: janeiro
+            mes_2: fevereiro
+            mes_3: março
+            mes_4: abril
+            mes_5: maio
+            mes_6: junho
+            mes_7: julho
+            mes_8: agosto
+            mes_9: setembro
+            mes_10: outubro
+            mes_11: novembro
+            mes_12: dezembro
+            semana_curta_0: D
+            semana_curta_1: S
+            semana_curta_2: T
+            semana_curta_3: Q
+            semana_curta_4: Q
+            semana_curta_5: S
+            semana_curta_6: S
+            semana_longa_0: domingo
+            semana_longa_1: segunda
+            semana_longa_2: terça
+            semana_longa_3: quarta
+            semana_longa_4: quinta
+            semana_longa_5: sexta
+            semana_longa_6: sábado
+        historico:
+            pastas_criadas: Pastas criadas
+            metas_ativas: Metas ativas
+            demandas_urgentes: Demandas urgentes
+            meta_global_batida: Meta global batida
+            subtitulo: Histórico mensal
+            ano: Ano
+            carregando: Carregando…
+            sem_historico: Ainda não há histórico deste número.
+            erro: Não foi possível carregar o histórico. Feche a janela e tente de novo.
+        janelas:
+            arraste_para_mover: Arraste para mover
+            fechar: Fechar
+
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro
 # ('perfis.x'|trans({papel: 'termos.master'|trans})).
