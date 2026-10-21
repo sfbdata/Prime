@@ -400,6 +400,461 @@ perfil:
         erro_salvar_foto: Erro ao salvar foto.
         erro_comunicacao: Erro de comunicação.
 
+# ---- Expediente (lista, acervo, paginação, modais, trilho, relatório de processos, pastas paradas)
+expediente:
+    titulo: Expediente
+    lista:
+        placeholder: Selecione um grupo para visualizar os expedientes
+        drawer_abrir: Abrir menu de navegação
+        drawer_fechar_menu: Fechar menu
+        ordenar:
+            rotulo: Ordenar por
+            escolher: Ordenar por…
+            nup_asc: NUP (crescente)
+            nup_desc: NUP (decrescente)
+            cliente_asc: Cliente (A-Z)
+            cliente_desc: Cliente (Z-A)
+            prioridade_desc: Prioridade (maior primeiro)
+            prioridade_asc: Prioridade (menor primeiro)
+            acao_asc: Ação (A-Z)
+            responsavel_asc: Responsável (A-Z)
+            situacao_asc: Situação
+        visualizar:
+            rotulo: Visualizar
+            dica: Escolher como exibir as pastas
+            modo:
+                tabela: Detalhes
+                compacto: Detalhes compactos
+                simples: Lista
+                lista: Cartões
+                grandes: Cartões grandes
+            modo_dica:
+                tabela: Tabela com todas as colunas
+                compacto: Tabela com linhas mais baixas
+                simples: Uma linha por pasta
+                lista: Pastas em cartões
+                grandes: Cartões maiores, mais legíveis
+            por_pagina: Pastas por página
+            painel_marcadores: Painel de marcadores
+        colunas: Colunas da tabela
+        resumo:
+            intervalo: '{inicio} de {fim}'
+            total_uma: 'Total: {total} pasta'
+            total_varias: 'Total: {total} pastas'
+            contagem_uma: '{n} pasta'
+            contagem_varias: '{n} pastas'
+        prioridade:
+            normal: Normal
+            alta: Alta
+            urgente: Urgente
+        prioridade_dica:
+            normal: 'Prioridade normal: segue o fluxo padrão'
+            alta: 'Prioridade alta: tratar antes das demais'
+            urgente: 'Urgente: exige providência imediata'
+        situacao:
+            ativo: Ativo
+            suspenso: Suspenso
+            cancelado: Cancelado
+            arquivado: Arquivado
+        situacao_dica:
+            ativo: Pasta em andamento
+            suspenso: Andamento suspenso temporariamente
+            cancelado: Pasta cancelada
+            arquivado: Pasta encerrada e arquivada
+        situacao_dica_aberta: '{situacao} · aberta em {data}'
+        situacao_dica_alternar: '{situacao} · aberta em {data} · duplo clique alterna entre ativo e arquivado'
+        coluna:
+            nup: NUP
+            cliente: Cliente
+            reu: Réu
+            acao: Ação
+            prioridade: Prioridade
+            responsavel: Responsável
+            metas: Metas
+            marcadores: Marcadores
+            situacao: Situação
+        coluna_dica:
+            nup: Número único da pasta
+            cliente: Ordenar por cliente
+            reu: Parte adversa · ordenar por réu
+            acao: Ordenar por ação
+            prioridade: Ordenar por prioridade
+            responsavel: Ordenar por responsável
+            metas: Metas abertas na pasta
+            marcadores: Ordenar por marcador
+            situacao: Ordenar por situação
+        favorita: Fixada nos favoritos
+        favorito_tirar: Tirar dos favoritos
+        favorito_marcar: Marcar como favorito
+        pasta_trancada: Pasta trancada
+        cadeado_dica_por: Documentos sigilosos · pasta trancada por {por} em {em}
+        cadeado_dica_primario: Documentos sigilosos · pasta trancada pelo usuário primário em {em}
+        sem_cliente: Sem cliente
+        repetidas: '{n}x'
+        repetidas_dica: '{n} pastas com o mesmo nome e CPF'
+        reus_dica: 'Réus: {reus}'
+        reu_e_outros: e outros
+        reu_vazio: Não informado
+        reu_vazio_dica: Réu não informado no cadastro da pasta
+        acao_vazia: Não informada
+        sem_metas: Sem metas abertas
+        metas_dica: '{n} meta(s) aberta(s) nesta pasta'
+        adicionar_marcador: Adicionar marcador
+        excluida: Excluída
+        excluida_em: Excluída em {data}
+        excluida_em_por: Excluída em {data} por {nome}
+        sem_responsavel: Sem responsável
+        cartao_pasta: PASTA {nup}
+        vazio_filtros: Nenhuma pasta encontrada com esses filtros.
+        vazio: Nenhuma pasta cadastrada.
+    acervo:
+        voltar_dica: Voltar ao acervo geral (ordem padrão)
+        nova_pasta: Nova Pasta
+        nova_pasta_dica: Abrir uma nova pasta (o número é gerado automaticamente)
+        titulo:
+            geral: Acervo geral
+            resp10: Respondidos nos últimos 10 dias
+            findou: Prazo findou sem resposta
+            aud: Audiência
+            prazo: Expediente com prazo
+            metas: Metas não respondidas
+            protocolar: Protocolar
+    paginacao:
+        rotulo: Paginação
+        primeira: Primeira página
+        anterior: Página anterior
+        pagina_n_de_m: Página {pagina} de {total}
+        proxima: Próxima página
+        ultima: Última página
+    modais:
+        fechar: Fechar
+        cancelar: Cancelar
+        salvar: Salvar
+        marcador:
+            titulo_novo: Novo marcador
+            campo_nome: NOME
+            campo_nome_exemplo: 'Ex.: 7. Revisar'
+            campo_descricao: DESCRIÇÃO (OPCIONAL)
+            campo_descricao_exemplo: Para que serve este marcador
+            campo_pai: DENTRO DE (SUBMARCADOR)
+            pai_nenhum: Nenhum · marcador principal
+            campo_cor: COR
+            cor: Cor
+            previa: Prévia
+            previa_nome: Nome do marcador
+        sigilo:
+            titulo_inicio: Pasta
+            titulo_fim: protegida
+            texto_inicio: Esta pasta contém
+            texto_destaque: documentos sigilosos
+            texto_fim: . O acesso não é recomendado no momento.
+            nota: Somente o usuário primário pode liberar o acesso.
+            entendi: Entendi
+            pedir_acesso: Pedir acesso
+    js:
+        lista:
+            situacao:
+                titulo: SITUAÇÃO DA PASTA
+                todas: Todas
+                todas_desc: Todas as situações
+                ativo: Ativo
+                ativo_desc: Pasta em andamento
+                suspenso: Suspenso
+                suspenso_desc: Pausada temporariamente
+                cancelado: Cancelado
+                cancelado_desc: Encerrada sem conclusão
+                arquivado: Arquivado
+                arquivado_desc: Sai das listas de trabalho
+                erro: Não foi possível alterar a situação
+                falha_conexao: Falha de conexão ao alterar a situação
+            prioridade:
+                titulo: PRIORIDADE
+                rotulo: Prioridade
+                todas: Todas
+                todas_desc: Todas as prioridades
+                normal: Normal
+                normal_desc: Segue o fluxo padrão
+                alta: Alta
+                alta_desc: Tratar antes das demais
+                urgente: Urgente
+                urgente_desc: Exige providência imediata
+            responsavel:
+                rotulo: Responsável
+                sem: Sem responsável
+                filtrar: Filtrar responsável
+                nenhum: Nenhum responsável encontrado
+            drawer_abrir: Abrir menu de navegação
+            drawer_fechar: Fechar menu de navegação
+            todas_as_pastas: Todas as pastas
+            criado_por: Criado por
+            buscando: Só um instante, estamos buscando em todo o sistema…
+            carregando: Carregando...
+            erro_carregar: Erro ao carregar o conteúdo.
+            equipe: Equipe
+            equipe_cargo: Equipe · {cargo}
+            sem_cargo: Sem cargo
+            colaborador_id: 'colaborador #{id}'
+            chip_remover: Remover
+            chip_remover_filtro: Remover filtro
+            limpar_tudo: Limpar tudo
+            pasta_criada: Pasta {nup} aberta para {cliente}
+            favoritos_erro: Não foi possível alterar os favoritos.
+            favorito_tirar: Tirar dos favoritos
+            favorito_marcar: Marcar como favorito
+            favorita: Fixada nos favoritos
+            erro_comunicacao: Erro de comunicação. Tente novamente.
+            editar_nome: Editar nome rápido
+            fechar: Fechar
+            nada_encontrado: Nada encontrado
+            cor:
+                amarelo: Amarelo
+                verde: Verde
+                azul: Azul
+                rosa: Rosa
+                laranja: Laranja
+                lilas: Lilás
+            sigilo:
+                erro_pedir: Não foi possível pedir acesso
+                pedido_enviado: Pedido de acesso enviado ao usuário primário
+                sem_primario: Nenhum usuário primário ativo no escritório para receber o pedido
+                falha_conexao: Falha de conexão ao pedir acesso
+            editor:
+                rotulo: NOME DO CLIENTE · PASTA {nup}
+                campo: Nome do cliente
+                cancelar: Cancelar
+                salvar: Salvar
+                vazio: O nome do cliente não pode ficar vazio
+                erro: Não foi possível salvar o nome
+                atualizado: Nome do cliente da pasta {nup} atualizado
+                falha_conexao: Falha de conexão ao salvar o nome
+            destaque:
+                nenhum: Sem destaque
+                erro: Não foi possível destacar
+                aplicado: Pasta {nup} destacada em {cor}
+                removido: Destaque removido da pasta {nup}
+                falha_conexao: Falha de conexão ao destacar
+            trancar:
+                so_primario_aviso: Somente o usuário primário pode trancar ou destrancar pastas
+                erro: Não foi possível trancar a pasta
+                pasta_trancada: Pasta trancada
+                dica: Documentos sigilosos · pasta trancada
+                dica_por: '{dica} por {por}'
+                dica_em: '{dica} em {em}'
+                trancada_aviso: Pasta {nup} trancada · documentos sigilosos protegidos
+                destrancada_aviso: Pasta {nup} destrancada
+                falha_conexao: Falha de conexão ao trancar a pasta
+            menu:
+                abrir: Abrir pasta
+                abrir_nova_aba: Abrir em nova aba
+                da_cobranca: da cobrança
+                nome_da_cobranca: O nome desta pasta é montado a partir do credor da carteira e não se edita aqui
+                alterar_responsavel: Alterar responsável
+                alterar_marcador: Alterar marcador
+                copiar_numero: Copiar número da pasta
+                numero_copiado: Número {nup} copiado
+                copiar_nome: Copiar nome do cliente
+                nome_copiado: Nome do cliente copiado
+                destrancar: Destrancar pasta
+                trancar: Trancar pasta
+                so_primario: só primário
+                destacar_linha: DESTACAR LINHA
+                titulo: Pasta {nup}
+                titulo_com_nome: Pasta {nup} · {nome}
+            coluna:
+                nup: NUP
+                cliente: Cliente
+                reu: Réu
+                acao: Ação
+                prio: Prioridade
+                resp: Responsável
+                metas: Metas
+                marc: Marcadores
+                sit: Situação
+            colunas:
+                nup_fixo: O NUP fica sempre visível
+                mostrar_todas: Mostrar todas
+                essenciais: Só as essenciais
+                restaurar: Restaurar padrão
+                exportar_csv: Exportar colunas visíveis (CSV)
+                titulo: Colunas da tabela · {n} visíveis
+                ajuste_seu: 'Ajuste só seu: não muda para o resto da equipe'
+            marcador:
+                titulo: MARCADOR
+                nenhum: Nenhum marcador
+                remover: Remover marcador
+                erro: Não foi possível alterar o marcador
+                falha_conexao: Falha de conexão ao alterar o marcador
+            ia:
+                rotulo: BlueJus I.A · {nome}
+                assistente: Assistente de pastas
+            nova:
+                acao_exemplo: 'Ex.: Revisional de alimentos'
+                acao_sem_cliente: Informe primeiro o nome do cliente
+                cliente_existe: Cliente já cadastrado em {total} pasta(s).
+                cliente_vinculo: A nova pasta será vinculada ao mesmo cadastro.
+                proximo_numero: PASTA {numero}
+        trilho:
+            expandir_painel: Expandir painel
+            recolher_painel: Recolher painel
+            recolher_submarcadores: Recolher submarcadores
+            ver_n_submarcadores: Ver {n} submarcador(es)
+            todas_as_pastas: Todas as pastas
+            lista_atualizada: Lista atualizada · todas as pastas visíveis
+            fechar: Fechar
+            novo_marcador: Novo marcador
+            menu_titulo_marcador: '{nome} · {n} pasta(s)'
+            menu_titulo_cabecalho: Marcadores · {n} marcador(es)
+            menu_ver_pastas_do_marcador: Ver pastas do marcador
+            menu_novo_submarcador: Novo submarcador
+            menu_mover_para_cima: Mover para cima
+            menu_mover_para_baixo: Mover para baixo
+            menu_editar: Editar
+            menu_duplicar: Duplicar
+            menu_excluir_marcador: Excluir marcador
+            menu_ver_todas_as_pastas: Ver todas as pastas
+            reordenar_erro: Não foi possível reordenar
+            reordenar_ok: Ordem dos marcadores atualizada
+            reordenar_falha_conexao: Falha de conexão ao reordenar
+            arrastar_sub_mesmo_marcador: Submarcadores só podem ser reordenados dentro do mesmo marcador
+            arrastar_principal: Arraste para cima ou para baixo de outro marcador principal
+            modal_previa_nome: Nome do marcador
+            modal_titulo_editar: Editar marcador
+            modal_titulo_novo_sub: Novo submarcador em {nome}
+            modal_nome_obrigatorio: Informe o nome do marcador
+            modal_salvar_erro: Não foi possível salvar
+            modal_atualizado: Marcador atualizado
+            modal_criado: Marcador "{nome}" criado
+            modal_falha_conexao: Falha de conexão. Tente de novo.
+            duplicar_copia: '{nome} (cópia)'
+            duplicar_copia_n: '{nome} (cópia {n})'
+            excluir_irreversivel: Esta ação é irreversível.
+            excluir_com_pastas: As {n} pasta(s) com este marcador continuam no sistema, porém ficam sem este marcador.
+            excluir_sem_pastas: Nenhuma pasta está com este marcador.
+            excluir_subs: Os {n} submarcador(es) ({nomes}) também são excluídos, e as pastas marcadas com eles deixam de tê-los.
+            excluir_titulo: Excluir o marcador "{nome}"?
+            excluir_confirmar: Excluir mesmo assim
+            excluir_erro: Não foi possível excluir
+            excluir_ok: Marcador excluído · {n} pasta(s) ficaram sem marcador
+            excluir_falha_conexao: Falha de conexão ao excluir
+    trilho:
+        filtro:
+            resp10:
+                nome: Respondidos nos últimos 10 dias
+                nota: Pastas com comentário, meta, prazo ou ação registrada nos últimos 10 dias (cada pasta conta uma vez)
+            findou:
+                nome: Prazo findou nos últimos 10 dias sem resposta
+                nota: Um prazo (registrado na pasta ou de meta) venceu nos últimos 10 dias e não houve nenhuma ação na pasta depois da data
+            aud:
+                nome: Audiência
+                nota: Pastas com audiência marcada (hoje ou futura), registrada em Próximos prazos da pasta
+            prazo:
+                nome: Expediente com prazo
+                nota: 'Pastas com prazo em aberto de hoje em diante: registrado na pasta ou de meta'
+            metas:
+                nome: Metas não respondidas
+                nota: Pastas com meta aberta ainda sem resposta ou conclusão
+            protocolar:
+                nome: Protocolar
+                nota: 'Pastas pendentes de protocolo: a fase Protocolo não foi marcada no andamento e a pasta não está como Administrativo sem processo. Pasta com processo vinculado e sem andamento marcado conta como já protocolada'
+        todas_as_pastas: Todas as pastas
+        todas_dica: Todas as pastas · {total}
+        atualizar_dica: Atualizar e voltar ao início (todas as pastas, sem filtros)
+        atualizar_rotulo: Atualizar e voltar ao início
+        expedientes: Expedientes
+        cadeado_dica: 'Filtros do sistema: não podem ser editados nem excluídos'
+        filtros_do_sistema: Filtros do sistema
+        em_breve: em breve
+        em_breve_dica: '{nome} · em breve'
+        marcadores: Marcadores
+        opcoes_dos_marcadores: Opções dos marcadores
+        recolher_painel: Recolher painel
+        recolher_ou_expandir: Recolher ou expandir o painel
+        ver_n_submarcadores: Ver {n} submarcador(es)
+        ver_submarcadores: Ver submarcadores
+        opcoes_do_marcador: Opções do marcador
+    relatorio:
+        impressao:
+            imprimir: Imprimir
+            incluir_na_folha: Incluir na folha
+            cabecalho_do_escritorio: Cabeçalho do escritório
+            tamanho_do_texto: Tamanho do texto
+            diminuir: Diminuir
+            aumentar: Aumentar
+            nota_papel_inicio: Papel A4. Para gerar PDF, escolha
+            nota_papel_salvar_pdf: Salvar como PDF
+            nota_papel_fim: na janela de impressão.
+            baixar_pdf: Baixar PDF
+            copiar_texto: Copiar texto
+        folha:
+            gestao_juridica: Gestão jurídica
+            impresso_em: Impresso em {data}
+            impresso_por: por {nome}
+            rodape: Documento interno do escritório · BlueJus
+        barra:
+            rotulo: Relatório geral de processos
+            voltar_ao_expediente: Voltar ao Expediente
+        resumo_para_despacho: Resumo para despacho
+        abertura: Situação das pastas quanto ao processo vinculado em {data}. A BlueJus I.A lê registros, documentos, metas e checklist de cada pasta para indicar onde o cadastro precisa de atenção da Controladoria.
+        evolucao:
+            titulo: Evolução
+            mes: Mês
+            sem_processo: Sem processo
+            deveriam_ter: Deveriam ter
+            rever_cadastro: Rever cadastro
+            sem_classificacao: Sem classificação
+            hoje: Hoje
+            legenda: Verde = melhorou desde o último envio; vermelho = piorou.
+        secao:
+            titulo_deveria: 'Deveriam ter processo: cadastrar'
+            titulo_rever: Marcadas como administrativas, mas merecem revisão
+            titulo_classificar: 'Sem classificação: vincular processo ou marcar como administrativa'
+            titulo_admin: Administrativas sem processo (coerentes)
+            pasta: Pasta
+            cliente_responsavel: Cliente / responsável
+            analise_e_sugestao: Análise e sugestão
+            metas_sugeridas: Metas sugeridas (cronograma)
+            confianca: Confiança
+            evidencias: 'Evidências:'
+            decisao_anterior: 'Decisão anterior: {decisao} por {por}'
+        com_processo_vinculado: Com processo vinculado ({n})
+        nota_final:
+            inicio: Classificação gerada pela BlueJus I.A com os dados disponíveis no sistema;
+            provavel: Provável
+            e: e
+            hipotese: Hipótese
+            exigem_conferencia: exigem conferência.
+            decisoes_consideradas: '{n} decisão(ões) da equipe já foram consideradas para ajustar a leitura.'
+            cada_vez_inicio: Cada vez que a equipe marca ou desmarca
+            administrativo_sem_processo: Administrativo sem processo
+            cada_vez_fim: ', a leitura é ajustada.'
+            nao_substitui_pje: Não substitui a consulta ao PJe.
+    paradas:
+        barra:
+            rotulo: Pastas paradas
+        abertura:
+            inicio: Relação das pastas sem movimentação há mais de 30 dias em {data}. Para cada uma, informe ao responsável se a pasta deve
+            receber_movimentacao: receber movimentação
+            ou_ser: ou ser
+            arquivada: arquivada
+        tabela:
+            pasta: Pasta
+            cliente: Cliente
+            responsavel: Responsável
+            processo: Processo
+            ultima_mov: Última mov.
+            parada: Parada
+            sem_processo: sem processo
+            nenhuma: nenhuma
+            dias: '{n} dias'
+        cartao:
+            pasta_cliente: Pasta {numero} · {cliente}
+            responsavel: 'Responsável: {nome}'
+            pre_analise: Pré-análise
+            sugestao: Sugestão
+            movimentar: Movimentar
+            arquivar: Arquivar
+            responsavel_pela_decisao: 'Responsável pela decisão: ____________________'
+
 # ---- perfis: Perfis do escritório (tenant_role/*, perfis.js), com os flashes, as recusas da hierarquia e o aviso do
 # pedido de acesso. O termo que entra numa frase curta (selo, nome da linha Master) vem de termos.* por parâmetro.
 perfis:
