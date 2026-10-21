@@ -120,15 +120,11 @@
    escuro; cada regra cita a linha do dc. */
 .mc {
     --mc-cp-publico-tx: #243845; --mc-cp-publico-sel: #f2f8fc; --mc-cp-csv-borda: #b9c7d2; --mc-cp-csv-bg: #f9fbfc;
-    --mc-cp-enviar-bg: #0a6fa0; --mc-cp-enviar-hover: #0b5f86; --mc-camps-vazio: #6c757d;
-    --mc-st-fila-bg: #fff4d6; --mc-st-fila-tx: #9a5b00; --mc-st-agendada-bg: #efeaf8; --mc-st-agendada-tx: #5b3f9e;
-    --mc-st-recorrente-bg: #e9f6ee; --mc-st-recorrente-tx: #1e7b45;
+    --mc-cp-enviar-bg: #0a6fa0; --mc-cp-enviar-hover: #0b5f86;
 }
 [data-bs-theme="dark"] .mc {
     --mc-cp-publico-tx: var(--bs-body-color); --mc-cp-publico-sel: rgba(77, 163, 234, .1); --mc-cp-csv-borda: #4a5a66;
-    --mc-cp-csv-bg: var(--bs-tertiary-bg); --mc-camps-vazio: var(--bs-secondary-color);
-    --mc-st-fila-bg: rgba(242, 169, 59, .18); --mc-st-fila-tx: #f2c46b; --mc-st-agendada-bg: rgba(155, 125, 220, .2);
-    --mc-st-agendada-tx: #c3b0f0; --mc-st-recorrente-bg: rgba(95, 196, 138, .16); --mc-st-recorrente-tx: #5fc48a;
+    --mc-cp-csv-bg: var(--bs-tertiary-bg);
 }
 /* L.237 */
 .mc-cp-publicos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -157,25 +153,6 @@
 .mc-cp-enviar { height: 34px; padding: 0 16px; border: none; border-radius: 3px; background: var(--mc-cp-enviar-bg); color: #fff; font: inherit; font-size: 13.5px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; }
 .mc-cp-enviar:hover, .mc-cp-enviar:focus-visible { background: var(--mc-cp-enviar-hover); }
 .mc-cp-enviar:disabled { opacity: .7; cursor: wait; }
-/* L.282-283: o cabeçalho do Monitoramento */
-.mc-mon-ic { color: var(--mc-azul); font-size: 17px; }
-.mc-camps { overflow-x: auto; }
-/* L.284 */
-.mc-camps-vazio { padding: 26px; text-align: center; font-size: 13.5px; color: var(--mc-camps-vazio); }
-/* L.285 */
-.mc-camp { display: grid; grid-template-columns: minmax(200px,2fr) 130px 90px 110px minmax(150px,1fr); align-items: center; gap: 10px; padding: 11px 18px; border-bottom: 1px solid var(--mc-linha); font-size: 13px; }
-.mc-camp-nome { min-width: 0; }
-.mc-camp-nome > b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mc-camp-sub { font-size: 11.5px; color: var(--mc-sub); }
-.mc-camp-em { color: var(--mc-cp-rotulo); }
-.mc-camp-st { height: 22px; padding: 0 8px; border-radius: 3px; font-size: 11.5px; font-weight: bold; display: inline-flex; align-items: center; justify-self: start; }
-/* L.586: os 3 estados com selo; os demais em texto */
-.mc-camp-st-na_fila { background: var(--mc-st-fila-bg); color: var(--mc-st-fila-tx); }
-.mc-camp-st-agendada { background: var(--mc-st-agendada-bg); color: var(--mc-st-agendada-tx); }
-.mc-camp-st-recorrente { background: var(--mc-st-recorrente-bg); color: var(--mc-st-recorrente-tx); }
-.mc-camp-st-texto { padding: 0; font-weight: normal; color: var(--mc-sub); }
-.mc-camp-met { font-size: 12px; color: var(--mc-apagado); }
-
 /* F3b: "Filtrar destinatários" (desenho 05 VS 21.10.26, L260-264). Cores do dc com par escuro. */
 .mc { --mc-cf-borda: #e1e8ed; --mc-cf-bg: #fbfcfd; --mc-cf-hover: #f2f7fa; --mc-cf-titulo: #4a6373; --mc-cf-texto: #34505f;
       --mc-cf-campo: #d3dde4; --mc-cf-icone: #7a8e9b; --mc-cf-div: #eef2f5; }

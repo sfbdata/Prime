@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Comercial\Controller;
 
-use App\Comercial\DTO\CampanhaDaLista;
 use App\Comercial\DTO\DestinatarioDaCampanha;
 use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\DTO\ModeloSalvoOutput;
@@ -18,7 +17,6 @@ use App\Comercial\UseCase\DuplicarModeloDeCampanhaUseCase;
 use App\Comercial\UseCase\EnviarTesteDaCampanhaUseCase;
 use App\Comercial\UseCase\ExcluirModeloDeCampanhaUseCase;
 use App\Comercial\UseCase\ImportarModeloHtmlUseCase;
-use App\Comercial\UseCase\ListarCampanhasUseCase;
 use App\Comercial\UseCase\ListarModelosDeCampanhaUseCase;
 use App\Comercial\UseCase\PreviaDaCampanhaUseCase;
 use App\Comercial\UseCase\SalvarComoMeuModeloUseCase;
@@ -117,13 +115,6 @@ final class CampanhaDoMasterController extends AbstractController
 
             return new JsonResponse(['id' => $saida->id, 'total' => $saida->total, 'mensagem' => $saida->mensagem]);
         });
-    }
-
-    /** A lista de campanhas do Monitoramento (dc L.284-285, L.586): as 12 últimas, sem as métricas (fatia 3). */
-    #[Route('/master/comercial/campanhas', name: 'master_comercial_campanhas', methods: ['GET'])]
-    public function campanhas(ListarCampanhasUseCase $listar): JsonResponse
-    {
-        return $this->json(['campanhas' => array_map(static fn (CampanhaDaLista $c): array => (array) $c, $listar->executar())]);
     }
 
     /**
