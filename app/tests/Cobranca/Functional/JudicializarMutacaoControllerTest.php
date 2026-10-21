@@ -353,7 +353,7 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
     public function testJudicializarCadastraOResponsavelComoClientePrincipal(): void
     {
         $client = static::createClient();
-        [, $tenant] = $this->criarAdminLogado($client);
+        [$gestor, $tenant] = $this->criarAdminLogado($client);
         $pessoa = PessoaFactory::createOne([
             'tenant' => $tenant,
             'nome' => 'MARIA DA FICHA',
@@ -392,6 +392,11 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         self::assertSame('', $clientePrincipal->getRgOrgaoExpedidor());
         self::assertSame('maria@exemplo.test', $clientePrincipal->getEmail());
         self::assertSame('DF', $clientePrincipal->getEstado(), 'o endereço atual da ficha desceu para o cliente');
+        // Histórico do cadastro (E12 3d): quem judicializou criou o cadastro, no mesmo flush.
+        self::assertSame(
+            [['texto' => 'Gestor Cobrança criou o cadastro', 'autor_id' => $gestor->getId(), 'tenant_id' => $tenant->getId()]],
+            $em->getConnection()->fetchAllAssociative('SELECT texto, autor_id, tenant_id FROM cliente_historico WHERE cliente_id = ?', [$clientePrincipal->getId()]),
+        );
     }
 
     #[TestDox('VINCULAR normaliza a pasta existente: nome, ação e cliente principal')]
@@ -513,6 +518,7 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
             (int) $pasta->getClientePrincipal()->getId(),
             'reusa o cliente do mesmo CPF em vez de duplicar',
         );
+        self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM cliente_historico WHERE cliente_id = ?', [$jaCadastrado->getId()]), 'cliente reusado: nada no Histórico');
     }
 
     #[TestDox('Nome maior que 50 caracteres: a pasta nasce, o cliente NÃO')]

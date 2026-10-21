@@ -198,7 +198,20 @@
         if (!alvo || !alvo.closest) { return; }
 
         var botaoMais = alvo.closest('.js-proc-alternar');
-        if (botaoMais) { alternar(botaoMais); return; }
+        if (botaoMais) {
+            // Desenho (`alternar`): abrir ou fechar o painel encerra a edição em curso.
+            var emEdicao = cartaoEmEdicao(botaoMais);
+            if (emEdicao) { fecharEdicao(emEdicao, false); }
+            alternar(botaoMais);
+            return;
+        }
+
+        var cancelar = alvo.closest('.js-proc-edicao-cancelar');
+        if (cancelar) {
+            var formCancelar = cancelar.closest('form.js-proc-edicao');
+            if (formCancelar) { fecharEdicao(formCancelar, true); }
+            return;
+        }
 
         var gatilho = alvo.closest('.js-proc-menu-gatilho');
         if (gatilho) {
@@ -215,6 +228,12 @@
         if (item.classList.contains('js-proc-compartilhar'))   { compartilhar(item); return; }
         if (item.classList.contains('js-proc-imprimir'))       { imprimirResumo(item); return; }
         if (item.classList.contains('js-proc-ver-movimentacoes')) { irParaAba(item); return; }
+        if (item.classList.contains('js-proc-editar')) {
+            var gatilhoDoMenu = aberto ? aberto.gatilho : null;
+            fechar(false);
+            abrirEdicao(document.querySelector(item.getAttribute('data-edicao') || ''), gatilhoDoMenu);
+            return;
+        }
         if (item.classList.contains('js-proc-alternar-menu')) {
             var botao = document.querySelector(item.getAttribute('data-botao') || '');
             fechar(false);
@@ -365,6 +384,90 @@
             window.mpSwapProcessos(r.dados.html);
             var novo = document.querySelector('form.js-pasta-administrativa button[role="switch"]');
             if (novo) { novo.focus(); }
+        });
+    });
+
+    /* ── Editar dados do processo no cartão (P5b; desenho N:1794-1818) ────
+       O formulário já vem no cartão, escondido. Abrir esconde o painel "todas as
+       informações" (desenho: `verDetalhes = exp && !draft`); Cancelar e Esc voltam ao que
+       estava; Salvar manda por XHR e troca o cartão (`mpSwapProcessos`), abrindo o painel
+       do processo salvo, como o `salvar` do desenho. Sem JS, o form faz POST comum. */
+    function cartaoEmEdicao(dentro) {
+        var cartao = dentro.closest('article.ps-processo');
+        var form = cartao ? cartao.querySelector('form.js-proc-edicao') : null;
+        return form && !form.hidden ? form : null;
+    }
+
+    function abrirEdicao(form, voltarPara) {
+        if (!(form instanceof HTMLFormElement)) { return; }
+        var cartao = form.closest('article.ps-processo');
+        var botaoMais = cartao ? cartao.querySelector('.js-proc-alternar') : null;
+        if (botaoMais && botaoMais.getAttribute('aria-expanded') === 'true') { alternar(botaoMais); }
+        form.hidden = false;
+        form.psVoltarPara = voltarPara || null;
+        var primeiro = form.querySelector('input[type="text"], textarea');
+        if (primeiro) { primeiro.focus(); }
+    }
+
+    function fecharEdicao(form, devolverFoco) {
+        form.reset();
+        form.hidden = true;
+        if (devolverFoco) {
+            var cartao = form.closest('article.ps-processo');
+            var volta = form.psVoltarPara || (cartao ? cartao.querySelector('.js-proc-menu-gatilho') : null);
+            if (volta && document.contains(volta)) { volta.focus(); }
+        }
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape' || !e.target || !e.target.closest) { return; }
+        var form = e.target.closest('form.js-proc-edicao');
+        if (!form || form.hidden) { return; }
+        e.preventDefault();
+        fecharEdicao(form, true);
+    });
+
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!(form instanceof HTMLFormElement) || !form.matches('form.js-proc-edicao')) { return; }
+        if (typeof window.mpSwapProcessos !== 'function') { return; }
+        e.preventDefault();
+
+        var salvar = form.querySelector('.ps-processo-edicao-salvar');
+        if (salvar) { salvar.disabled = true; }
+        var cartao = form.closest('article.ps-processo');
+        var processoId = cartao ? cartao.getAttribute('data-processo-id') : null;
+        function avisar(texto, tipo) {
+            if (window.avisarPs) { window.avisarPs(texto, tipo); } else if (tipo === 'erro') { window.alert(texto); }
+        }
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: new FormData(form),
+        }).then(function (resp) {
+            return resp.json().catch(function () { return {}; }).then(function (dados) {
+                return { ok: resp.ok, dados: dados || {} };
+            });
+        }).then(function (r) {
+            if (!r.ok || r.dados.sucesso !== true || typeof r.dados.html !== 'string') {
+                // `erro` do controller; `mensagem` da recusa da pasta excluída (PastaSomenteLeituraListener).
+                var motivo = typeof r.dados.erro === 'string' ? r.dados.erro : (typeof r.dados.mensagem === 'string' ? r.dados.mensagem : '');
+                avisar(motivo || 'Não foi possível salvar os dados do processo.', 'erro');
+                if (salvar) { salvar.disabled = false; }
+                return;
+            }
+            window.mpSwapProcessos(r.dados.html);
+            var novo = processoId ? document.querySelector('article.ps-processo[data-processo-id="' + processoId + '"] .js-proc-alternar') : null;
+            if (novo) {
+                alternar(novo);
+                novo.focus();
+            }
+            if (typeof r.dados.aviso === 'string') { avisar(r.dados.aviso, 'ok'); }
+        }, function () {
+            avisar('Erro de comunicação. Os dados podem não ter sido salvos. Recarregue a página.', 'erro');
+            if (salvar) { salvar.disabled = false; }
         });
     });
 }());

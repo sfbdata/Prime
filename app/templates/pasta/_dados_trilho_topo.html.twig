@@ -38,33 +38,41 @@
                     {{- proc.siglaTribunal -}}
                 </div>
             {% endif %}
-            {% set outros = pasta.pastaProcessos|filter(pp => pp.processo.id != proc.id) %}
+            {# P4f (desenho N:1431-1455, `ap` N:7000): os apensados (todo vínculo que não é o principal),
+               com pílula "N apensado(s)" e chevron; aberta, cada um com "Apensado · Tipo", o número (abre a
+               aba Processo), a ação e "classe · tribunal · situação". #}
+            {% set apensados = pasta.apensados %}
             <div class="ps-cab-proc-acoes">
+                {# Sem o atalho com a aba Processo oculta para quem vê (ocultar aba). #}
+                {% if 'processo' not in abasOcultas|default([]) %}
                 <button type="button" class="ps-link-btn" data-ps-ir-aba="processo-tab" title="Ir à aba Processo">
                     <i class="bi bi-arrow-left-right"></i>trocar
                 </button>
-                {# O sistema não tem "tipo de apenso": o chip conta os OUTROS processos
-                   vinculados à pasta e abre a lista deles. #}
-                {% if outros|length > 0 %}
-                    <button type="button" class="ps-chip-vinc" data-ps-toggle="psProcessosVinculados"
+                {% endif %}
+                {% if apensados|length > 0 %}
+                    <button type="button" class="ps-chip-vinc ps-chip-vinc--apensados" data-ps-toggle="psProcessosVinculados"
                             aria-expanded="false" aria-controls="psProcessosVinculados"
-                            title="Outros processos vinculados a esta pasta">
-                        <i class="bi bi-paperclip"></i>{{ outros|length }} vinculado{{ outros|length > 1 ? 's' : '' }}<i class="bi bi-chevron-down"></i>
+                            title="Ver processos apensados"
+                            data-dica-aberto="Recolher processos apensados" data-dica-fechado="Ver processos apensados">
+                        <i class="bi bi-paperclip"></i>{{ apensados|length }} apensado{{ apensados|length > 1 ? 's' : '' }}<i class="bi bi-chevron-down"></i>
                     </button>
                 {% endif %}
             </div>
-            {% if outros|length > 0 %}
+            {% if apensados|length > 0 %}
                 <div class="ps-cab-vinculados" id="psProcessosVinculados" hidden>
-                    {% for pp in outros %}
+                    {% for pp in apensados %}
                         {% set outro = pp.processo %}
-                        <div class="ps-cab-vinculado">
-                            <div class="ps-rotulo ps-rotulo--mini"><i class="bi bi-link-45deg"></i>Vinculado</div>
-                            <a class="ps-num ps-dado--forte" href="{{ path('processo_show', {id: outro.id}) }}" title="Abrir processo vinculado">{{ outro.numeroProcesso|numero_cnj }}</a>
-                            {% if outro.classeProcessual or outro.siglaTribunal %}
+                        {% set subApenso = [outro.classeProcessual, outro.siglaTribunal]|filter(v => v) %}
+                        <div class="ps-cab-vinculado ps-cab-apensado">
+                            <div class="ps-rotulo ps-rotulo--mini"><i class="bi bi-link-45deg"></i>Apensado · {{ pp.tipoApensoRotulo }}</div>
+                            <a class="ps-num ps-dado--forte" href="#processo" data-ps-ir-aba="processo-tab" title="Abrir processo apensado">{{ outro.numeroProcesso|numero_cnj }}</a>
+                            {% if outro.assuntoProcessual %}
+                                <div class="ps-cab-apensado-acao">{{ outro.assuntoProcessual }}</div>
+                            {% endif %}
+                            {% if subApenso is not empty or outro.situacaoProcesso %}
                                 <div class="ps-dado-sub">
-                                    {{- outro.classeProcessual -}}
-                                    {%- if outro.classeProcessual and outro.siglaTribunal %} · {% endif -%}
-                                    {{- outro.siglaTribunal -}}
+                                    {{- subApenso|join(' · ') -}}
+                                    {%- if outro.situacaoProcesso %}{{ subApenso is not empty ? ' · ' : '' }}{{ outro.situacaoProcesso|situacao_processo }}{% endif -%}
                                 </div>
                             {% endif %}
                         </div>

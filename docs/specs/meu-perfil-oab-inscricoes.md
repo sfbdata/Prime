@@ -40,7 +40,7 @@ compactação de contexto, releia antes de continuar.
 
 **Fila de migrations** (a coordenação controla; renomear o timestamp para o atual antes de cada merge)
 - #60 `Version20261019120728`, depois de #55 → #56 (o #52 entrou em 19/10, master em a7433b93).
-- #65 `Version20261019130750`, depois do #60.
+- #65 `Version20261020131500` (renomeada em 20/10), depois do #60 (mergeado em feeedb23).
 - #69 `Version20261019134246`, depois do #65.
 
 **Pendências**

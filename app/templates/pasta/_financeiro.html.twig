@@ -33,6 +33,10 @@
 {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
 {% set finPastaLapide = pasta.estaExcluida %}
 {% set podeEscreverFin = podeEditarPasta and not finPastaLapide %}
+{# "Encaminhar via Chat I.A" (D:1936, D:6305 e D:6958): a Central conferida UMA vez (cada chamada
+   consulta o vínculo). Na lápide o servidor dá 404 ao despacho (spec §2.11): nada a oferecer. É o
+   id da pasta ou null. Aba oculta não restringe (spec §2.2). #}
+{% set encaminharPasta = central_disponivel() and not finPastaLapide ? pasta.id : null %}
 
 {% set contratoAssinado = pasta.situacaoContrato == 'REGULAR' %}
 {% set arquivosVisiveis = 3 %}
@@ -234,7 +238,8 @@
             {% endif %}
             <div id="financeiroObsErro" class="ps-compositor-erro d-none"></div>
 
-            <div id="financeiroObsLista" class="ps-registro ps-fin-obs-rolagem{{ observacoesFinanceiras is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}">
+            <div id="financeiroObsLista" class="ps-registro ps-fin-obs-rolagem{{ observacoesFinanceiras is empty ? ' ps-registro--vazio' : '' }}" data-hoje="{{ 'now'|date('Y-m-d') }}"
+                 {%- if encaminharPasta %} data-encaminhar-pasta="{{ encaminharPasta }}"{% endif %}>
                 {% if observacoesFinanceiras is empty %}
                     <div class="ps-vazio" id="financeiroObsVazio">
                         <i class="bi bi-cash-coin"></i>
@@ -264,13 +269,13 @@
                             {% set diaAnteriorFin = diaFin %}
                         {% endif %}
 
-                        {{ fin.registro(obs, null, pasta, podeEscreverFin) }}
+                        {{ fin.registro(obs, null, pasta, podeEscreverFin, encaminharPasta) }}
 
                         {% set respostasFin = observacoesFinanceiras|filter(o => o.respostaA is not null and o.respostaA.id == obs.id)|reverse %}
                         {% if respostasFin|length > 0 %}
                             <div class="ps-respostas" data-resposta-de="{{ obs.id }}">
                                 {% for resposta in respostasFin %}
-                                    {{ fin.registro(resposta, obs, pasta, podeEscreverFin) }}
+                                    {{ fin.registro(resposta, obs, pasta, podeEscreverFin, encaminharPasta) }}
                                 {% endfor %}
                             </div>
                         {% endif %}
@@ -288,8 +293,9 @@
                clica o botão de responder do cartão.
                C7-FPN-01: quem não escreve (só vê a pasta, ou lápide) não recebe Responder, nem
                Editar/Excluir, nem bloqueados — o motivo seria de permissão, não de prazo ou de
-               autoria (PAS-014/025c; igual a Detalhes). Fora do menu ficam "Encaminhar via Chat I.A"
-               (FPN-007) e "Destacar" (sem lastro). #}
+               autoria (PAS-014/025c; igual a Detalhes). "Encaminhar via Chat I.A" (D:6305, FPN-007)
+               vem logo depois de Copiar texto, só com a Central e fora da lápide, e clica o ↪ do
+               cartão (D:1936). Fora do menu fica "Destacar" (sem lastro). #}
             <div class="ps-fin-menu" id="financeiroObsMenu" role="menu" aria-label="Ações do registro" hidden>
                 <div class="ps-fin-menu-titulo"></div>
                 {% if podeEscreverFin %}
@@ -300,6 +306,11 @@
                 <button type="button" class="ps-fin-menu-item js-fin-obs-copiar" role="menuitem">
                     <i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar texto</span>
                 </button>
+                {% if encaminharPasta %}
+                    <button type="button" class="ps-fin-menu-item js-fin-obs-encaminhar" role="menuitem">
+                        <i class="bi bi-send" aria-hidden="true"></i><span>Encaminhar via Chat I.A</span>
+                    </button>
+                {% endif %}
                 {% if podeEscreverFin %}
                 <div class="ps-fin-menu-sep" role="separator"></div>
                 <button type="button" class="ps-fin-menu-item js-fin-obs-editar js-fin-obs-gerenciar" role="menuitem">
@@ -351,7 +362,7 @@
                 {% endif %}
             </div>
 
-            <div id="financeiro-docs-lista">
+            <div id="financeiro-docs-lista"{% if encaminharPasta %} data-encaminhar-pasta="{{ encaminharPasta }}"{% endif %}>
                 {% if documentosContrato is empty %}
                     <div class="ps-fin-doc-vazio" id="financeiro-docs-vazio">Nenhum arquivo financeiro anexado.</div>
                 {% else %}
@@ -369,8 +380,9 @@
                             {# Menu ⋮ do arquivo (desenho 1.2.3, "Mais ações do arquivo"). Só entram
                                as ações que têm função de verdade: abrir no visualizador, baixar,
                                copiar o nome, renomear, enviar por e-mail ao cliente (`mailto:`), ver
-                               no gerenciador e excluir. "Encaminhar via Chat I.A" do desenho depende
-                               de função nova e fica fora (§1.3 da spec).
+                               no gerenciador e excluir. "Encaminhar via Chat I.A" (D:6958) vem logo
+                               depois de "Copiar nome do arquivo", só com a Central e fora da
+                               lápide, e despacha o documento (pasta-encaminhar.js).
                                As classes `btn-renomear-doc`/`btn-excluir-doc` e os `data-*` são os
                                mesmos de antes: o JS deste arquivo escuta por delegação na lista.
                                A MESMA estrutura é montada em JS (`criarItemDoc`, abaixo). #}
@@ -408,6 +420,16 @@
                                             role="menuitem">
                                         <i class="bi bi-clipboard"></i><span>Copiar nome do arquivo</span>
                                     </button>
+                                    {% if encaminharPasta %}
+                                    <button type="button"
+                                            class="ps-fin-menu-item js-encaminhar"
+                                            role="menuitem"
+                                            data-encaminhar-pasta="{{ encaminharPasta }}"
+                                            data-encaminhar-tipo="documento"
+                                            data-encaminhar-id="{{ doc.id }}">
+                                        <i class="bi bi-send"></i><span>Encaminhar via Chat I.A</span>
+                                    </button>
+                                    {% endif %}
                                     {# C7-FPN-01: Renomear e Excluir exigem EDIT; quem não escreve não os recebe. #}
                                     {% if podeEscreverFin %}
                                     <button type="button"
@@ -459,7 +481,8 @@
             </div>
 
             {# Passou de 3, o resto não some da vista sem dizer para onde foi. #}
-            {% if documentosContrato|length > arquivosVisiveis %}
+            {# Sem o atalho quando a aba Documentos está oculta para quem vê (ocultar aba). #}
+            {% if documentosContrato|length > arquivosVisiveis and 'documentos' not in abasOcultas|default([]) %}
                 <div class="ps-fin-doc-excedente" id="financeiro-docs-excedente">
                     <button type="button" class="ps-fin-link" data-ps-ir-aba="documentos-tab">
                         ver os outros {{ documentosContrato|length - arquivosVisiveis }} no gerenciador
@@ -812,7 +835,8 @@
 
     /** Atalho para o gerenciador quando há mais arquivos do que o card mostra. */
     function mostrarExcedente() {
-        if (document.getElementById('financeiro-docs-excedente')) { return; }
+        // Sem a aba Documentos (oculta para quem vê), o atalho não existe.
+        if (document.getElementById('financeiro-docs-excedente') || !document.getElementById('documentos-tab')) { return; }
 
         const bloco = document.createElement('div');
         bloco.className = 'ps-fin-doc-excedente';
@@ -884,6 +908,19 @@
     }
 
     function criarItemDoc(id, titulo, mimeType, urlVisualizar, urlDownload, urlRenomear, csrfRenomear, urlExcluir, csrfExcluir, meta) {
+        /* "Encaminhar via Chat I.A" (D:6958): o id da pasta vem do atributo que o Twig põe na lista
+           (só com a Central e fora da lápide); o do documento é o número do servidor. */
+        const encaminharPasta = Number(docLista.dataset.encaminharPasta || 0);
+        const itemEncaminhar  = encaminharPasta
+            ? `<button type="button"
+                            class="ps-fin-menu-item js-encaminhar"
+                            role="menuitem"
+                            data-encaminhar-pasta="${encaminharPasta}"
+                            data-encaminhar-tipo="documento"
+                            data-encaminhar-id="${Number(id)}">
+                        <i class="bi bi-send"></i><span>Encaminhar via Chat I.A</span>
+                    </button>`
+            : '';
         const div = document.createElement('div');
         div.className = 'ps-fin-doc';
         div.id = 'financeiro-doc-' + id;
@@ -923,6 +960,7 @@
                     <button type="button" class="ps-fin-menu-item js-fin-doc-copiar-nome" role="menuitem">
                         <i class="bi bi-clipboard"></i><span>Copiar nome do arquivo</span>
                     </button>
+                    ${itemEncaminhar}
                     <button type="button"
                             class="ps-fin-menu-item btn-renomear-doc"
                             role="menuitem"
@@ -1450,10 +1488,11 @@
 
         fechar(false);
 
-        // Responder, Editar e Excluir do registro clicam os botões do próprio cartão: o
-        // handler deles (no _financeiro_obs_script) é o único caminho.
-        if (item.classList.contains('js-fin-obs-editar') || item.classList.contains('js-fin-obs-excluir') || item.classList.contains('js-fin-obs-responder')) {
+        // Responder, Encaminhar, Editar e Excluir do registro clicam os botões do próprio cartão: o
+        // handler deles (no _financeiro_obs_script e no pasta-encaminhar.js) é o único caminho.
+        if (item.classList.contains('js-fin-obs-editar') || item.classList.contains('js-fin-obs-excluir') || item.classList.contains('js-fin-obs-responder') || item.classList.contains('js-fin-obs-encaminhar')) {
             const seletor = item.classList.contains('js-fin-obs-responder') ? '.btn-responder-obs'
+                : item.classList.contains('js-fin-obs-encaminhar') ? '.js-encaminhar'
                 : (item.classList.contains('js-fin-obs-editar') ? '.btn-editar-obs' : '.btn-excluir-obs');
             // `:scope > .ps-anotacao-topo`: o botão do PRÓPRIO cartão.
             const botao = obsAlvo ? obsAlvo.querySelector(':scope > .ps-anotacao-topo ' + seletor) : null;
@@ -1548,8 +1587,9 @@
    que aparece com o cartão sob o mouse. O JS (`_financeiro_obs_script`) monta a MESMA marcação.
    `podeEscrever` (C7-FPN-01): EDIT na pasta e pasta viva. Sem ele, nem lápis/lixeira nem
    Responder — nem para o autor dentro da janela (a rota exige EDIT, a lápide recusa o POST).
+   `encaminharPasta`: o id da pasta quando o ↪ "Encaminhar via Chat I.A" entra, ou null.
 #}
-{% macro registro(obs, raiz, pasta, podeEscrever) %}
+{% macro registro(obs, raiz, pasta, podeEscrever, encaminharPasta) %}
     {% set autor = obs.autor.fullName ?? obs.autor.email ?? '' %}
     {% set partes = autor|trim|split(' ')|filter(p => p is not empty) %}
     {% set iniciais = partes|length > 0
@@ -1572,7 +1612,9 @@
        recalcula os minutos por ele a cada abertura, como em Detalhes. #}
     <article class="ps-anotacao{{ obs.resposta ? ' ps-anotacao--resposta' : '' }}" id="financeiro-obs-{{ obs.id }}"
              data-obs-do-autor="{{ obs.autor and app.user and obs.autor.id == app.user.id ? '1' : '0' }}"
-             data-janela-ate="{{ obs.criadaEm|date('U') + comentario_janela_minutos() * 60 }}">
+             data-janela-ate="{{ obs.criadaEm|date('U') + comentario_janela_minutos() * 60 }}"
+             {#- Presença do autor (pasta-presenca-autor.js). #}
+             {%- if obs.autor %} data-autor-id="{{ obs.autor.id }}"{% endif %}>
         {% if obs.resposta %}
             {# O desenho grava o rótulo em caixa alta; quem põe em maiúsculas é o CSS. #}
             <div class="ps-anotacao-resposta-rot">
@@ -1622,6 +1664,18 @@
                         data-resposta-nome="{{ alvoNome ?: 'Autor desconhecido' }}"
                         {%- if raiz and obs.autor and autor %} data-resposta-autor-id="{{ obs.autor.id }}" data-resposta-autor-nome="{{ autor }}"{% endif %}>
                     <i class="bi bi-reply-fill"></i>
+                </button>
+            {% endif %}
+            {% if encaminharPasta %}
+                {# D:1936: o ↪ espelhado, 28×26, depois do Responder e antes da hora; aparece com o
+                   cartão sob o mouse, como o Responder (`data-acao`). Só ids: o servidor relê o registro. #}
+                <button type="button"
+                        class="ps-anotacao-acao ps-anotacao-acao--responder js-encaminhar"
+                        title="Encaminhar via Chat I.A" aria-label="Encaminhar via Chat I.A"
+                        data-encaminhar-pasta="{{ encaminharPasta }}"
+                        data-encaminhar-tipo="registro_financeiro"
+                        data-encaminhar-id="{{ obs.id }}">
+                    <i class="bi bi-reply-fill" style="display:inline-block;transform:scaleX(-1)"></i>
                 </button>
             {% endif %}
             <span class="ps-anotacao-data ps-num" title="{{ obs.criadaEm|date('d/m/Y H:i') }}">{{ horaRotulo }}</span>

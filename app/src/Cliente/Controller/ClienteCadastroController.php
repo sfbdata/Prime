@@ -13,6 +13,7 @@ use App\Cliente\Exception\SemPermissaoParaEditarClienteException;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Repository\ClientePFRepository;
 use App\Cliente\Repository\ClientePJRepository;
+use App\Cliente\Service\HistoricoDoCliente;
 use App\Cliente\Service\PendenciasDoCadastro;
 use App\Cliente\Service\QualificacaoDoCliente;
 use App\Cliente\UseCase\CriarClienteDaPastaUseCase;
@@ -22,6 +23,7 @@ use App\Pasta\Exception\SemPermissaoParaEditarPastaException;
 use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Controller\PastaReuController;
 use App\Pasta\Repository\PastaRepository;
@@ -62,6 +64,7 @@ final class ClienteCadastroController extends AbstractController
         private readonly SalvarCadastroDoClienteUseCase $salvar,
         private readonly PastaReuRepository $reuRepository,
         private readonly CriarClienteDaPastaUseCase $criarCliente,
+        private readonly HistoricoDoCliente $historico,
     ) {}
 
     #[Route('/clientes/{id}/cadastro', name: 'cliente_cadastro', requirements: ['id' => '\d+'], methods: ['GET'])]
@@ -90,6 +93,7 @@ final class ClienteCadastroController extends AbstractController
      * para abrir; editá-la (e ela não estar excluída) para salvar.
      */
     #[Route('/pasta/{id}/cadastro/novo', name: 'pasta_cadastro_novo', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[PastaPorId('id')]
     public function novo(int $id, Request $request): Response
     {
         /** @var User $usuario */
@@ -144,6 +148,7 @@ final class ClienteCadastroController extends AbstractController
 
     /** Aviso ao sair do campo CPF/CNPJ no "Novo cliente": o documento já é de outro cadastro do escritório? */
     #[Route('/pasta/{id}/cadastro/novo/documento', name: 'pasta_cadastro_novo_documento', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[PastaPorId('id')]
     public function documentoNovo(int $id, Request $request): JsonResponse
     {
         /** @var User $usuario */
@@ -153,14 +158,26 @@ final class ClienteCadastroController extends AbstractController
         return $this->json(['existente' => $this->existenteVisivel((string) $request->query->get('doc', ''), null, $usuario, $tenant)]);
     }
 
-    private function renderJanela(Cliente $cliente, ?Pasta $pasta, User $usuario, Tenant $tenant, Request $request, bool $novo, bool $podeEditar): Response
+    /**
+     * Os clientes da pasta para o seletor de autores, numa ordem fixa: o principal primeiro, depois o nome e, no empate,
+     * o id. A coleção vem da tabela de ligação sem ordem, e o Postgres pode devolver os vínculos em qualquer ordem.
+     *
+     * @return list<array{id: int, nome: string, principal: bool}>
+     */
+    private static function autoresDaPasta(Pasta $pasta): array
     {
         $autores = [];
-        if ($pasta !== null) {
-            foreach ($pasta->getClientes() as $c) {
-                $autores[] = ['id' => (int) $c->getId(), 'nome' => $c->getNomeExibicao(), 'principal' => $pasta->getClientePrincipal() === $c];
-            }
+        foreach ($pasta->getClientes() as $c) {
+            $autores[] = ['id' => (int) $c->getId(), 'nome' => $c->getNomeExibicao(), 'principal' => $pasta->getClientePrincipal() === $c];
         }
+        usort($autores, static fn (array $a, array $b): int => [!$a['principal'], mb_strtolower($a['nome']), $a['id']] <=> [!$b['principal'], mb_strtolower($b['nome']), $b['id']]);
+
+        return $autores;
+    }
+
+    private function renderJanela(Cliente $cliente, ?Pasta $pasta, User $usuario, Tenant $tenant, Request $request, bool $novo, bool $podeEditar): Response
+    {
+        $autores = $pasta !== null ? self::autoresDaPasta($pasta) : [];
 
         return $this->render('cliente/_cadastro.html.twig', [
             'cliente'      => $cliente,
@@ -175,11 +192,13 @@ final class ClienteCadastroController extends AbstractController
             'podeVincular' => $pasta !== null && !$pasta->estaExcluida() && $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_EDIT),
             'estadosCivis' => SalvarCadastroDoClienteUseCase::ESTADOS_CIVIS,
             'docs'         => $novo ? [] : $this->documentosDoCadastro($cliente),
+            // Aba Histórico (E12 3d): as 40 mais novas, primeiro a mais nova; cadastro novo mostra o vazio.
+            'historico'    => $novo ? [] : $this->historico->paraTela($cliente, $tenant),
             // Aba Réu (E12h): só com a pasta de contexto, porque o réu é da pasta, não do cliente.
             'reus'         => $pasta !== null ? PastaReuController::paraTela($this->reuRepository->daPasta($pasta, $tenant)) : null,
             // Seletor de autores (decisão do dono, E12i): os clientes da pasta, para trocar sem fechar a janela.
             'autores'      => $autores,
-            'abaInicial'   => \in_array($request->query->get('aba'), ['pessoais', 'reu', 'endereco', 'contato', 'docs', 'qual'], true) ? $request->query->get('aba') : 'pessoais',
+            'abaInicial'   => \in_array($request->query->get('aba'), ['pessoais', 'reu', 'endereco', 'contato', 'docs', 'qual', 'hist'], true) ? $request->query->get('aba') : 'pessoais',
             'mostrarOcr'   => $request->query->get('ocr') === '1',
         ]);
     }

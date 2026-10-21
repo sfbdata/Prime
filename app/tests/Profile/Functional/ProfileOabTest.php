@@ -160,7 +160,7 @@ final class ProfileOabTest extends JusPrimeWebTestCase
         self::assertSame([['49613', 'DF', 'principal', 'confirmada']], $this->inscricoes($user));
     }
 
-    #[TestDox('revisão do Master por User: confirmar também confirma a inscrição principal')]
+    #[TestDox('revisão do Master por inscrição: confirmar a principal criada pelo perfil')]
     public function testMasterConfirmaPrincipal(): void
     {
         [$client, $user] = $this->logado(oabNumero: '49613', oabUf: 'DF', status: StatusOab::NaoVerificada);
@@ -178,9 +178,10 @@ final class ProfileOabTest extends JusPrimeWebTestCase
         $em->persist(new UserTenant($master, $tenant));
         $em->flush();
         $this->logarComTenant($client, $master, $tenant);
-        $fila  = $client->request('GET', '/admin/platform/oab?status=todas&q=' . urlencode((string) $user->getEmail()));
-        $token = (string) $fila->filter('form[action*="/admin/platform/oab/' . $user->getId() . '/confirmar"] input[name=_token]')->attr('value');
-        $client->request('POST', '/admin/platform/oab/' . $user->getId() . '/confirmar', ['_token' => $token]);
+        $principal = $this->idDa($user, 'DF');
+        $fila      = $client->request('GET', '/admin/platform/oab?status=todas&q=' . urlencode((string) $user->getEmail()));
+        $token     = (string) $fila->filter('form[action*="/admin/platform/oab/' . $principal . '/confirmar"] input[name=_token]')->attr('value');
+        $client->request('POST', '/admin/platform/oab/' . $principal . '/confirmar', ['_token' => $token, 'numero' => '49613', 'uf' => 'DF']);
 
         self::assertResponseRedirects();
         self::assertSame([['49613', 'DF', 'principal', 'confirmada']], $this->inscricoes($user));

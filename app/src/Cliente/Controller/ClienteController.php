@@ -11,8 +11,11 @@ use App\Cliente\Entity\ClientePJ;
 use App\Cliente\Form\ClientePFType;
 use App\Cliente\Form\ClientePJType;
 use App\Cliente\Repository\ClienteRepository;
+use App\Cliente\Service\CamposDoCadastro;
+use App\Cliente\Service\HistoricoDoCliente;
 use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Entity\Permission\AccessRequest;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -20,6 +23,7 @@ use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
+use App\Shared\Http\NomeSeguroDeArquivo;
 use App\Shared\Service\CompressaoDeArquivoArmazenado;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -98,10 +102,12 @@ class ClienteController extends AbstractController
         private readonly RemocaoAposTransacao $remocao,
         private readonly EntregaDeArquivo $entrega,
         private readonly CompressaoDeArquivoArmazenado $compressao,
+        private readonly HistoricoDoCliente $historico,
+        private readonly CamposDoCadastro $campos,
     ) {}
 
     #[Route('/{id}', name: 'cliente_show', methods: ['GET'])]
-    public function show(int $id): Response
+    public function show(int $id, AcessoAPasta $acessoAPasta): Response
     {
         $cliente = $this->clienteRepository->find($id);
 
@@ -120,6 +126,8 @@ class ClienteController extends AbstractController
         return $this->render('cliente/show.html.twig', [
             'cliente' => $cliente,
             'pastas' => $this->pastaRepository->findByCliente($cliente, $tenant),
+            // Cadeado (spec pasta-cadeado D1): da pasta oculta, só o número (sem a situação).
+            'pastasOcultas' => $tenant !== null ? array_flip($acessoAPasta->idsOcultosPara($currentUser, (int) $tenant->getId())) : [],
             'documentTypeOptions' => self::DOCUMENT_TYPES,
             'documentosPorTipo' => $this->groupDocumentsByType($cliente),
         ]);
@@ -148,9 +156,11 @@ class ClienteController extends AbstractController
             $form = $this->createForm(ClientePJType::class, $cliente);
         }
 
+        $antes = $this->campos->fotografar($cliente);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $this->historico->camposAlterados($cliente, $currentUser, $cliente->getTenant() ?? throw $this->createNotFoundException('Cliente não encontrado'), CamposDoCadastro::rotulosAlterados($antes, $this->campos->fotografar($cliente)));
             $this->em->flush();
             return $this->redirectToRoute('cliente_show', ['id' => $cliente->getId()]);
         }
@@ -307,6 +317,7 @@ class ClienteController extends AbstractController
             $doc->setTamanhoBytes($tamanhoFinal);
 
             $this->em->persist($doc);
+            $this->historico->documentoAnexado($doc, $currentUser);
             ++$salvos;
         }
 
@@ -420,15 +431,16 @@ class ClienteController extends AbstractController
 
         $descricao = trim((string) $request->request->get('descricao', ''));
         $numero    = trim((string) $request->request->get('numero', ''));
-        $nomeBase  = trim((string) $request->request->get('nomeBase', ''));
+        // Como o renomear da pasta: barra, contrabarra e controle saem (NomeSeguroDeArquivo).
+        $nomeBase  = NomeSeguroDeArquivo::sanear((string) $request->request->get('nomeBase', ''));
 
+        $antes = [$doc->getCategoria(), $doc->getDescricao(), $doc->getNumero(), $doc->getNomeOriginal()];
         $doc->setCategoria($categoria);
         $doc->setDescricao($descricao !== '' ? $descricao : null);
         $doc->setNumero($numero !== '' ? $numero : null);
-        if ($nomeBase !== '') {
-            $extensao = pathinfo($doc->getNomeOriginal(), PATHINFO_EXTENSION);
-            $nomeComExtensao = $nomeBase . ($extensao !== '' ? '.' . $extensao : '');
-            $doc->setNomeOriginal($nomeComExtensao);
+        $this->renomearDocumento($doc, $nomeBase);
+        if ($antes !== [$doc->getCategoria(), $doc->getDescricao(), $doc->getNumero(), $doc->getNomeOriginal()]) {
+            $this->historico->documentoAlterado($doc, $currentUser, $antes[0]);
         }
 
         $this->em->flush();
@@ -436,6 +448,17 @@ class ClienteController extends AbstractController
         $this->addFlash('success', 'Documento atualizado com sucesso.');
 
         return $this->redirectToRoute('cliente_show', ['id' => $doc->getCliente()?->getId()]);
+    }
+
+    /** Troca o nome mantendo a extensão do arquivo; nome vazio não muda nada. */
+    private function renomearDocumento(ClienteDocumento $doc, string $nomeBase): void
+    {
+        if ($nomeBase === '') {
+            return;
+        }
+
+        $extensao = pathinfo($doc->getNomeOriginal(), PATHINFO_EXTENSION);
+        $doc->setNomeOriginal($nomeBase . ($extensao !== '' ? '.' . $extensao : ''));
     }
 
     #[Route('/documento/{id}/deletar', name: 'cliente_documento_delete', methods: ['POST'])]
@@ -456,6 +479,7 @@ class ClienteController extends AbstractController
         }
 
         $chave = ChavesDeCliente::documento($doc);
+        $this->historico->documentoRemovido($doc, $currentUser);
         $this->em->remove($doc);
         $this->em->flush();
 

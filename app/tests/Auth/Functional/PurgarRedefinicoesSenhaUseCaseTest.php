@@ -37,9 +37,11 @@ final class PurgarRedefinicoesSenhaUseCaseTest extends KernelTestCase
         $agora = new \DateTimeImmutable('2026-07-01 12:00:00');
         $user  = $this->criarUsuario();
 
-        $vivo      = $this->criarPedido($user, $agora->modify('+30 minutes'));
-        $vencido   = $this->criarPedido($user, $agora->modify('-1 minute'));
-        $consumido = $this->criarPedido($user, $agora->modify('+30 minutes'));
+        $ontem = $agora->modify('-25 hours');
+
+        $vivo      = $this->criarPedido($user, $agora->modify('+30 minutes'), $ontem);
+        $vencido   = $this->criarPedido($user, $agora->modify('-1 minute'), $ontem);
+        $consumido = $this->criarPedido($user, $agora->modify('+30 minutes'), $ontem);
         $consumido->marcarUsado($agora->modify('-5 minutes'));
         $this->em->flush();
 
@@ -57,12 +59,28 @@ final class PurgarRedefinicoesSenhaUseCaseTest extends KernelTestCase
         self::assertNull($this->em->find(RedefinicaoSenha::class, $consumidoId), 'link consumido apagado');
     }
 
+    #[TestDox('Purga preserva o pedido criado nas últimas 24 h, mesmo consumido ou vencido (o teto diário conta)')]
+    public function testPurgaPreservaPedidosDoDia(): void
+    {
+        $agora = new \DateTimeImmutable('2026-07-01 12:00:00');
+        $user  = $this->criarUsuario();
+        $consumido = $this->criarPedido($user, $agora->modify('-1 minute'), $agora->modify('-23 hours'));
+        $consumido->marcarUsado($agora->modify('-22 hours'));
+        $this->em->flush();
+
+        self::assertSame(0, $this->sut->executar($agora, dryRun: true));
+        self::assertSame(0, $this->sut->executar($agora, dryRun: false));
+
+        $this->em->clear();
+        self::assertNotNull($this->em->find(RedefinicaoSenha::class, $consumido->getId()));
+    }
+
     #[TestDox('Dry-run conta o que seria purgado sem apagar nada')]
     public function testDryRunContaSemApagar(): void
     {
         $agora = new \DateTimeImmutable('2026-07-01 12:00:00');
         $user  = $this->criarUsuario();
-        $vencido = $this->criarPedido($user, $agora->modify('-1 minute'));
+        $vencido = $this->criarPedido($user, $agora->modify('-1 minute'), $agora->modify('-25 hours'));
         $this->em->flush();
 
         $contagem = $this->sut->executar($agora, dryRun: true);
@@ -87,7 +105,7 @@ final class PurgarRedefinicoesSenhaUseCaseTest extends KernelTestCase
         return $user;
     }
 
-    private function criarPedido(User $user, \DateTimeImmutable $expiraEm): RedefinicaoSenha
+    private function criarPedido(User $user, \DateTimeImmutable $expiraEm, \DateTimeImmutable $criadoEm): RedefinicaoSenha
     {
         $pedido = new RedefinicaoSenha(
             user: $user,
@@ -95,6 +113,7 @@ final class PurgarRedefinicoesSenhaUseCaseTest extends KernelTestCase
             expiraEm: $expiraEm,
             ip: '1.2.3.4',
             userAgent: 'UA',
+            criadoEm: $criadoEm,
         );
         $this->em->persist($pedido);
 

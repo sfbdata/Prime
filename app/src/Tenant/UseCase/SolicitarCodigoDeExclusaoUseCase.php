@@ -14,6 +14,7 @@ use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 use App\Tenant\Service\CodigoDeExclusaoMailerInterface;
 use App\Tenant\Service\GuardaDaExclusaoPeloPrimario;
 use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
@@ -37,6 +38,7 @@ final class SolicitarCodigoDeExclusaoUseCase
         private readonly CodigoDeExclusaoDeContaRepository $codigos,
         private readonly CodigoDeExclusaoMailerInterface $mailer,
         private readonly ClockInterface $relogio,
+        private readonly LoggerInterface $logger,
         #[Autowire('%kernel.secret%')]
         private readonly string $segredo,
     ) {
@@ -58,7 +60,8 @@ final class SolicitarCodigoDeExclusaoUseCase
 
         try {
             $this->mailer->enviar($usuario, (string) $tenant->getName(), $codigo);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            $this->logger->error('Falha ao enviar o código de exclusão da conta.', ['tenant' => $tenant->getId(), 'usuario' => $usuario->getId(), 'excecao' => $e]);
             $this->codigos->apagarDoPar($tenant, $usuario);
             throw new PedidoDeExclusaoRecusado('Não foi possível enviar o código. Tente de novo em instantes.', 503);
         }

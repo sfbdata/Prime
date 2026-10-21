@@ -14,7 +14,7 @@ Releia esta seção antes de continuar se a sessão for compactada.
   empilha o bloco "Pedidos de exclusão de conta" do painel do Master sobre este PR e lê `pendentes()`. Neste PR
   entram as duas chamadas do lado do Master (`marcarReativada` no `ReativarContaUseCase`, que deixa de recusar conta
   ativa com pedido pendente; `marcarExcluida` no `ExcluirContaPeloMasterUseCase`).
-- Migration `Version20261020150000`, no fim da fila (coordenador, 20/10). Mapeamento novo `AppTenant` no
+- Migration `Version20261020137300` (renomeada na vez dela em 21/10: era `Version20261020150000`). Mapeamento novo `AppTenant` no
   `doctrine.yaml` (arquivo quente).
 - 20/10: revisão (4 bloqueantes corrigidos) e re-revisão aprovada; suíte completa verde (10.505); visual conferido
   contra o 07. PR aberto sobre `meu-perfil-oab`; a b5 empilha o bloco do painel do Master.
@@ -92,6 +92,33 @@ Do desenho 07 (L111-161, L258-269), exatos, exceto onde o dono decidiu (sem "def
   "Código inválido.", "Digite EXCLUIR para confirmar." Aviso final: "Conta suspensa. O pedido de exclusão foi enviado
   ao Master."
 - E-mail do código: assunto "Código para excluir a conta", válido por 15 minutos.
+
+## Revisão cruzada da b5 (20/10/2026, corrigida no PR)
+
+- **Índice de um pendente por conta mapeado.** `uniq_pedido_exclusao_conta_pendente` entra no mapeamento da
+  entidade (`UniqueConstraint` com `where`, como o `InscricaoOab`). Sem ele, o `schema:update --dump-sql` devolvia
+  `DROP INDEX` e o próximo `make:migration` apagaria a única defesa contra dois pedidos pendentes. Agora o dump
+  não toca a tabela.
+- **Rota antiga `escritorio_excluir` com pedido pendente: só o Master decide** (decisão do coordenador,
+  independente da E6). Quem não é Master é recusado (403, flash na tela da conta), mesmo com outro escritório
+  na sessão.
+- **Decisão concorrente.** Desistência do primário e decisão do Master ao mesmo tempo:
+  `PedidoDeExclusaoDeContaRepository::gravarDecisaoSePendente` faz `UPDATE ... WHERE estado = 'pendente'` na
+  mesma transação do flush da conta. Quem chega depois recebe **409** ("Este pedido de exclusão já foi decidido.
+  Recarregue a página.") e não grava nada.
+- **Auditoria da rota antiga** na conta excluída (`executarComoConta`), não no escritório da sessão.
+- **Falha no envio do código** vai para o log (antes, o `catch` engolia a causa).
+- Anotado, fora deste PR: `existePendente` em toda página (item 7).
+- Acompanhamento (decisão do coordenador, 20/10): quando este PR e o #155 estiverem no master, um PR pequeno faz a
+  barreira das rotas pelo escritório da URL (`BarreiraDoEscritorioInativoNaRota`, #155) tratar também a conta
+  "suspensa a pedido" (Tenant ativo com pedido pendente). Hoje ela só barra o escritório inativo, e o admin com
+  outro escritório na sessão ainda age pela URL sobre a conta suspensa a pedido.
+- Risco residual conhecido (aceito pelo coordenador, 20/10): um não-Master na rota antiga lê "sem pedido" no
+  mesmo instante em que um primário confirma o pedido. A conta entra em quarentena e o pedido fica pendente no
+  painel do Master, que o resolve reativando ou excluindo. Efeito só visual. Correção, no PR de acompanhamento
+  da barreira: `SELECT ... FOR UPDATE` no tenant nos dois caminhos (pedir a exclusão e a exclusão pela rota antiga).
+- Os testes do 409 provam o UPDATE condicional e o rollback no repositório. Pelo HTTP não dá para intercalar a
+  leitura com a decisão concorrente; o mapeamento para 409 nos quatro controllers foi conferido por leitura.
 
 ## Modelo (contrato com a b5)
 

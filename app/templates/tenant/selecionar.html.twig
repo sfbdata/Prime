@@ -19,6 +19,12 @@
         </div>
     {% endfor %}
 
+    {% for mensagem in bloqueados|default([]) %}
+        <div class="alert alert-warning d-flex gap-2 align-items-start" data-acesso-bloqueado>
+            <i class="bi bi-lock fs-5"></i><div>{{ mensagem }}</div>
+        </div>
+    {% endfor %}
+
     {% if vinculos is empty %}
         {% set convites_escritorio = convites|default([])|filter(c => c.tenant is not null) %}
         {# avisosDeConta (C9 e C9b) só vem preenchido sem convite de escritório (TenantSelecaoController). #}
@@ -29,12 +35,15 @@
                     {{ aviso.texto }}
                 </div>
             {% endfor %}
-        {% elseif convites_escritorio is empty and avisosDePedido|default([]) is empty %}
+        {% elseif convites_escritorio is empty %}
+            {# Com acesso bloqueado (em análise ou suspenso) ou conta suspensa a pedido, a mensagem de cima já explica; não diz "nenhum escritório". #}
+            {% if bloqueados|default([]) is empty and avisosDePedido|default([]) is empty %}
             <div class="alert alert-warning text-center">
                 <i class="bi bi-building-x d-block fs-3 mb-2"></i>
                 Você ainda não faz parte de nenhum escritório.<br>
                 <small class="text-muted">Peça a um administrador para te convidar.</small>
             </div>
+            {% endif %}
         {% else %}
             <p class="text-center text-muted mb-3">
                 <i class="bi bi-envelope-paper me-1"></i>

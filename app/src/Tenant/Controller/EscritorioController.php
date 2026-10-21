@@ -13,6 +13,7 @@ use App\Service\Tenant\TenantContext;
 use App\Tenant\DTO\CriarEscritorioInput;
 use App\Tenant\Form\CriarEscritorioType;
 use App\Tenant\UseCase\CriarEscritorioUseCase;
+use App\Tenant\Exception\PedidoDeExclusaoRecusado;
 use App\Tenant\UseCase\ExcluirEscritorioUseCase;
 use App\Tenant\UseCase\SairDoEscritorioUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -43,6 +44,36 @@ final class EscritorioController extends AbstractController
         PermissionChecker $permissionChecker,
         UserTenantRepository $userTenantRepository,
     ): Response {
+        $usuario = $this->exigirQuemPodeExcluir($tenant, $request, $permissionChecker, $userTenantRepository);
+
+        $recusa = $this->regraDosMasters->recusaParaExcluir($tenant) ?? ($request->request->getString('confirmar_nome') !== (string) $tenant->getName() ? self::CONFIRMACAO_NAO_CONFERE : null);
+        if ($recusa !== null) {
+            $this->addFlash('danger', $recusa);
+
+            return $this->redirectToRoute('app_tenant_show', ['tenantId' => $tenant->getId()]);
+        }
+
+        try {
+            $this->excluirEscritorio->executar($tenant, $usuario);
+        } catch (PedidoDeExclusaoRecusado $e) {
+            // Pedido de exclusão pendente: só o Master decide (403); decidido ao mesmo tempo por outro (409).
+            $this->addFlash('danger', $e->getMessage());
+
+            return $this->redirectToRoute('app_tenant_show', ['tenantId' => $tenant->getId()]);
+        }
+
+        if ($this->tenantContext->getCurrentTenant()?->getId() === $tenant->getId()) {
+            $this->tenantContext->clearCurrentTenant();
+        }
+
+        $this->addFlash('success', 'Escritório excluído. Os dados ficam em quarentena e podem ser recuperados.');
+
+        return $this->redirectToRoute('tenant_selecionar');
+    }
+
+    /** Usuário logado, CSRF válido e SuperAdmin ou admin do escritório (vínculo ativo + admin.tenant.settings.manage). */
+    private function exigirQuemPodeExcluir(Tenant $tenant, Request $request, PermissionChecker $permissionChecker, UserTenantRepository $userTenantRepository): User
+    {
         $usuario = $this->getUser();
         if (!$usuario instanceof User) {
             throw $this->createAccessDeniedException();
@@ -60,22 +91,7 @@ final class EscritorioController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $recusa = $this->regraDosMasters->recusaParaExcluir($tenant) ?? ($request->request->getString('confirmar_nome') !== (string) $tenant->getName() ? self::CONFIRMACAO_NAO_CONFERE : null);
-        if ($recusa !== null) {
-            $this->addFlash('danger', $recusa);
-
-            return $this->redirectToRoute('app_tenant_show', ['tenantId' => $tenant->getId()]);
-        }
-
-        $this->excluirEscritorio->executar($tenant, $usuario);
-
-        if ($this->tenantContext->getCurrentTenant()?->getId() === $tenant->getId()) {
-            $this->tenantContext->clearCurrentTenant();
-        }
-
-        $this->addFlash('success', 'Escritório excluído. Os dados ficam em quarentena e podem ser recuperados.');
-
-        return $this->redirectToRoute('tenant_selecionar');
+        return $usuario;
     }
 
     #[Route('/escritorio/criar', name: 'escritorio_criar', methods: ['GET', 'POST'])]

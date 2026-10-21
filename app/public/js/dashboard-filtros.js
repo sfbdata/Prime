@@ -55,7 +55,11 @@
     var somContexto = null;
     var somUltimo = 0;
 
+    // "Sons de alerta" do Meu Perfil (perfil.sons, no servidor) vem antes: com `data-perfil-sons="0"` no
+    // `.db-page` o calendário fica mudo; ligado, vale a opção "Sons" do menu ⋮ como antes.
     function somLigado() {
+        if (document.querySelector('.db-page[data-perfil-sons="0"]')) { return false; }
+
         return !document.querySelector('.db-page.db-page--sem-som');
     }
 

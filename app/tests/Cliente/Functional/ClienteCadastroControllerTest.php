@@ -63,7 +63,7 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame('Cadastro e qualificação do cliente', $c->filter('.cad-janela')->attr('aria-label'));
-        self::assertSame(['pessoais', 'reu', 'endereco', 'contato', 'docs', 'qual'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
+        self::assertSame(['pessoais', 'reu', 'endereco', 'contato', 'docs', 'qual', 'hist'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
         self::assertSame('GLEISSON BRUNO GABRIEL', trim($c->filter('.js-cad-nome')->text()));
         self::assertSame('CPF ' . $cliente->getCpf(), trim($c->filter('.js-cad-doc')->text()), 'subtítulo com o número, não só o rótulo');
         self::assertSame('Número não informado', $c->filter('input[name="numero"]')->attr('data-obrig'));
@@ -397,7 +397,7 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
         self::assertSame('1', $c->filter('[data-cad-janela]')->attr('data-novo'));
         self::assertSame('WELTON ALVES DA SILVA', trim($c->filter('.js-cad-nome')->text()));
         self::assertSame('WELTON ALVES DA SILVA', $c->filter('input[name="nome"]')->attr('value'));
-        self::assertSame(['pessoais', 'reu', 'endereco', 'contato', 'qual'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
+        self::assertSame(['pessoais', 'reu', 'endereco', 'contato', 'qual', 'hist'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
         self::assertSame(['Pessoa física', 'Empresa'], $c->filter('.js-cad-tipo')->each(fn ($b) => trim($b->text())));
     }
 
@@ -478,6 +478,23 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
         $chips = $c->filter('.cad-autores .js-cad-autor');
         self::assertSame(['ANA AUTORAPrincipal', 'BRUNO AUTOR', 'Novo autor'], $chips->each(fn ($b) => trim(preg_replace('/\s+/', ' ', $b->text()))));
         self::assertSame('true', $c->filter('.js-cad-autor.is-ativo')->attr('aria-current'));
+    }
+
+    #[TestDox('autores numa ordem fixa: o principal primeiro mesmo fora da ordem alfabética, depois o nome')]
+    public function testAutoresPrincipalPrimeiro(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $zelia = $this->criarClientePF($tenant, 'Zélia Autora');
+        $pasta = $this->criarPasta($tenant, $gestor, $zelia);
+        $this->logarComTenant($this->client, $gestor, $tenant);
+        $this->criar($pasta, ['nome' => 'Bruno Autor', 'cpf' => '529.982.247-25']);
+        $this->criar($pasta, ['nome' => 'Amanda Autora', 'cpf' => '111.444.777-35']);
+
+        $this->em()->clear();
+        $c = $this->client->request('GET', '/clientes/' . $zelia->getId() . '/cadastro?pasta=' . $pasta->getId());
+
+        self::assertSame(['ZÉLIA AUTORAPrincipal', 'AMANDA AUTORA', 'BRUNO AUTOR', 'Novo autor'], $c->filter('.cad-autores .js-cad-autor')->each(fn ($b) => trim(preg_replace('/\s+/', ' ', $b->text()))));
     }
 
     #[TestDox('"Novo cliente" como empresa: aba Empresa e cria pessoa jurídica')]

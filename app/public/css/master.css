@@ -196,7 +196,7 @@
 .mp-barra-6 { height: 6px; border-radius: 3px; background: #e6edf2; overflow: hidden; }
 .mp-barra-6 > div, .mp-barra-8 > div { height: 100%; width: var(--w); background: var(--cor); }
 .mp-conta-cresc { text-align: center; font-size: 12.5px; color: #4a6373; }
-.mp-conta-prev { text-align: center; font-size: 12px; color: #4a6373; }
+.mp-conta-prev { text-align: center; font-size: 12px; color: var(--cor, #4a6373); }
 .mp-conta-st { display: flex; align-items: center; justify-content: center; }
 .mp-conta-st > span, .mp-conta-st-bloco > .mp-conta-sit { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: bold; color: var(--cor); white-space: nowrap; }
 .mp-conta-st > span > i, .mp-conta-st-bloco > .mp-conta-sit > i { width: 7px; height: 7px; border-radius: 50%; background: var(--cor); }
@@ -269,8 +269,65 @@
 .mp-rank { display: flex; align-items: center; gap: 14px; padding: 11px 20px; border-bottom: 1px solid #eef2f5; }
 .mp-rank > span:first-child { flex: 1; min-width: 0; font-size: 13.5px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp-rank > .mp-barra-8 { flex: none; width: 240px; }
-.mp-rank > b { width: 70px; text-align: right; font-size: 13px; color: var(--cor); }
-.mp-rank > span:last-child { width: 100px; font-size: 12px; color: var(--cor); }
+.mp-rank > b { width: 50px; text-align: right; font-size: 13px; color: var(--cor); }
+.mp-rank > span:nth-of-type(2) { width: 100px; font-size: 12px; color: var(--cor); }
+/* "Editar limite" do ranking (desenho 1.2, linha 201); o mesmo botão abre "Editar plano" nos cartões (convenção). */
+.mp .mp-rank-btn { height: 30px; border: none; border-radius: 4px; background: #e2e9ee; color: #243845; font-size: 12.5px; font-weight: bold; padding: 0 12px; cursor: pointer; }
+.mp .mp-rank-btn:hover { background: #0a6fa0; color: #fff; }
+
+/* Faixas de alerta de consumo (desenho 1.2, linhas 195-198). Chave do bloqueio, aviso e "Salvar faixas": convenção (spec P6). */
+.mp-faixas { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.mp-faixas-tit { font-size: 14px; }
+.mp-faixas-tit > span { font-weight: normal; color: #5b7383; font-size: 12.5px; }
+.mp-faixas-chips { display: flex; gap: 14px; flex-wrap: wrap; }
+.mp-faixa-chip { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 8px 12px; border-radius: 4px; background: var(--bg); color: var(--cor); font-weight: bold; margin: 0; }
+/* content-box como no desenho: 58x28 + padding + borda = 72x30 (o layout do sistema usa border-box). */
+.mp-faixa-chip > input { box-sizing: content-box; width: 58px; height: 28px; border: 1px solid #d6e0e7; border-radius: 3px; font: inherit; font-size: 13px; padding: 0 6px; color: #12242f; background: #fff; }
+.mp-faixas-nota { font-size: 12.5px; color: #4a6373; line-height: 1.5; }
+.mp-faixas-bloqueio { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #eef2f5; }
+.mp-chave { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; color: #243845; margin: 0; cursor: pointer; }
+.mp-faixas-aviso { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: #8a5a12; background: #fbf1dc; border-radius: 4px; padding: 6px 10px; }
+.mp-faixas-rodape { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.mp-faixas-msg { flex: 1; font-size: 12.5px; color: var(--cor, #4a6373); }
+.mp .mp-btn-azul { height: 34px; border: none; border-radius: 4px; background: #0a6fa0; color: #fff; font-size: 13.5px; font-weight: bold; padding: 0 16px; cursor: pointer; }
+.mp .mp-btn-azul:disabled { background: #9fb3c0; cursor: not-allowed; }
+
+/* ---------- Planos e limites (desenho 1.2, linhas 205-210) ---------- */
+.mp-planos { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+.mp-plano { padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; border-top: 3px solid var(--cor); }
+.mp-plano-topo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mp-plano-topo > b { font-size: 16px; }
+.mp-plano-tag { height: 20px; padding: 0 7px; border-radius: 3px; background: #fff4d6; color: #7a5200; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; }
+.mp-plano-inativo { height: 20px; padding: 0 7px; border-radius: 3px; background: #eef2f5; color: #5b7383; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; }
+.mp-plano-preco { font-size: 24px; font-weight: bold; }
+.mp-plano-preco > span { font-size: 12px; color: #5b7383; font-weight: normal; }
+.mp-plano-cap { font-size: 13px; color: #34505f; }
+.mp-plano-contas { font-size: 12.5px; color: #5b7383; }
+.mp .mp-plano-editar { align-self: flex-start; margin-top: 4px; display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---------- Modal de limite (desenho 1.2, linhas 397-410) e "Editar plano" no mesmo molde ---------- */
+.mp-lim-fundo { position: fixed; inset: 0; z-index: 1060; background: rgba(13,27,42,.35); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.mp-lim { width: 100%; max-width: 480px; background: #fff; border-radius: 4px; box-shadow: 0 20px 50px -12px rgba(13,27,42,.45); overflow: hidden; }
+.mp-lim-cab { background: #0a6fa0; color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 10px; font-weight: bold; }
+.mp-lim-corpo { padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; font-size: 13.5px; color: #34505f; }
+.mp-lim-conta { color: #12242f; }
+.mp-lim-info { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.mp-lim-info > div { background: #f5f8fa; border-radius: 4px; padding: 9px 10px; }
+.mp-lim-info > div > div:first-child { font-size: 10.5px; font-weight: bold; letter-spacing: 1px; color: #5b7383; }
+.mp-lim-info > div > div:last-child { font-size: 15px; font-weight: bold; color: #12242f; margin-top: 3px; }
+.mp-lim-campo { display: flex; flex-direction: column; gap: 5px; margin: 0; font-weight: normal; }
+.mp-lim-campo > span { font-size: 11px; font-weight: bold; letter-spacing: 1.1px; }
+.mp-lim-campo > input { box-sizing: content-box; height: 38px; border: 1px solid var(--borda, #d6e0e7); border-radius: 4px; padding: 0 12px; font: inherit; font-size: 14px; color: #12242f; }
+.mp-lim-campo > input:disabled { background: #f5f8fa; color: #7d909d; }
+.mp-lim-duas { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mp-lim-sem { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: normal; margin: 0; cursor: pointer; }
+.mp-lim-msg { font-size: 12.5px; color: var(--cor, #4a6373); }
+.mp-lim-nota { font-size: 12px; color: #8a5a12; }
+.mp-lim-rodape { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: #f5f8fa; }
+.mp .mp-lim-cancelar { height: 34px; border: none; background: transparent; font-size: 13.5px; padding: 0 14px; cursor: pointer; border-radius: 4px; color: #12242f; }
+.mp .mp-lim-cancelar:hover { background: #e2e9ee; }
+.mp .mp-lim-ok { height: 34px; border: none; background: #0a6fa0; color: #fff; font-size: 13.5px; font-weight: bold; padding: 0 16px; cursor: pointer; border-radius: 4px; }
+.mp .mp-lim-ok:disabled { background: #9fb3c0; cursor: not-allowed; }
 
 /* ---------- estado vazio (DADO AINDA NÃO COLETADO) ---------- */
 .mp-vazia { padding: 34px 28px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
@@ -367,3 +424,37 @@
 @media (max-width: 900px) {
   .mp-mapa-corpo, .mp-oab-duas, .mp-perm-duas { grid-template-columns: minmax(0,1fr); }
 }
+/* Barra do KPI ARMAZENAMENTO (desenho 1.2, linha 688): 6px, cor da faixa. */
+.mp-kpi-barra { margin-top: 2px; }
+.mp-kpi-barra > div { max-width: 100%; }
+
+/* ---------- Aba "Telas e recursos" (desenho 05 - Perfis 1.2, linhas 299-309; estilos inline portados 1:1) ---------- */
+.mp-rec-card { background: #fff; border: 1px solid #dde5eb; border-radius: 4px; overflow: hidden; margin-bottom: 16px; }
+.mp-rec-cab { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; background: #f5effa; border-bottom: 1px solid #e6dcf0; }
+.mp-rec-cab > .bi { color: #6b3fa0; font-size: 18px; }
+.mp-rec-cab-texto { flex: 1; min-width: 240px; }
+.mp-rec-cab-texto > b { font-size: 15px; }
+.mp-rec-cab-texto > div { font-size: 12.5px; color: #5b4a6e; }
+.mp-rec-resumo { font-size: 12.5px; color: #1e7b45; }
+.mp-rec-resumo.is-off { color: #a3232b; }
+.mp-rec-busca { box-sizing: content-box; height: 32px; width: 200px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 10px; font: inherit; font-size: 13px; }
+.mp-rec-aviso { margin: 10px 18px 0; padding: 9px 14px; border-radius: 4px; background: #fdecea; color: #a3232b; font-size: 13px; font-weight: bold; }
+.mp-rec-grupo-titulo { padding: 10px 18px 4px; font-size: 11.5px; font-weight: bold; color: #4a6373; letter-spacing: .6px; }
+.mp-rec-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 8px; padding: 4px 18px 14px; }
+.mp-rec-item { display: flex; align-items: center; gap: 12px; border: 1px solid #e6edf2; border-radius: 4px; background: #fff; padding: 10px 12px; font: inherit; color: #243845;
+    cursor: pointer; text-align: left; transition: background .15s, border-color .15s; }
+.mp-rec-item:hover { background: #f5fafd; border-color: #c9dbe6; }
+.mp-rec-item:disabled { cursor: progress; }
+.mp-rec-item-ic { color: #0a6fa0; font-size: 17px; width: 20px; }
+.mp-rec-item-corpo { flex: 1; min-width: 0; }
+.mp-rec-item-titulo { display: flex; align-items: center; gap: 6px; font-size: 13.5px; }
+.mp-rec-item-titulo > .bi-lock-fill { font-size: 11px; color: #9aabb7; }
+.mp-rec-item-desc { display: block; font-size: 11.5px; color: #5b7383; }
+.mp-rec-item-info { display: block; font-size: 11.5px; color: #a3232b; margin-top: 2px; }
+.mp-rec-item-st { font-size: 11.5px; font-weight: bold; color: #1e7b45; }
+.mp-rec-item.is-off .mp-rec-item-st { color: #a3232b; }
+.mp-rec-chave { width: 36px; height: 20px; flex: none; border-radius: 10px; background: #0a6fa0; position: relative; transition: background .2s; }
+.mp-rec-chave > span { position: absolute; top: 3px; left: 19px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left .2s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.mp-rec-item.is-off .mp-rec-chave { background: #c9d3da; }
+.mp-rec-item.is-off .mp-rec-chave > span { left: 3px; }
+.mp-rec-vazio { padding: 24px; text-align: center; color: #5b7383; font-size: 13px; }

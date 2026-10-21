@@ -9,6 +9,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -23,7 +24,8 @@ use Doctrine\Persistence\ManagerRegistry;
  * As consultas "por alvo" são também por TIPO (e por agente, quando houver): a mesma pasta tem
  * análises do Push (`resumo_push`) e dos agentes (`analise_pasta`, uma trilha por agente), e uma
  * pendente de um agente não pode travar o pedido do Push nem virar "análise anterior" dele. O
- * padrão `ResumoPush` mantém os chamadores da fatia 1 como estavam.
+ * padrão `ResumoPush` mantém os chamadores da fatia 1 como estavam. Com `comando` (drawer, F1/F2), a
+ * consulta é por COMANDO: dois comandos do mesmo agente têm trilhas separadas.
  *
  * @extends ServiceEntityRepository<AnaliseDeInteligencia>
  */
@@ -69,6 +71,30 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
         ?Agente $agente = null,
     ): array {
         return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, $tipo, $agente)
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * As análises de agente da pasta que a tela mostra num comando do drawer: as do comando e as
+     * antigas, de antes dos comandos (`comando` nulo), dos agentes que {@see Comando::doAgenteLegado}
+     * põe nele. Mais recente primeiro, sem as excluídas, tenant explícito.
+     *
+     * @return AnaliseDeInteligencia[]
+     */
+    public function listarPorComando(Tenant $tenant, string $alvoTipo, int $alvoId, Comando $comando, int $limite = 20): array
+    {
+        $qb = $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, TipoDeAnalise::AnalisePasta, null);
+        $legados = $comando->agentesLegados();
+        if ($legados === []) {
+            $qb->andWhere('a.comando = :comando');
+        } else {
+            $qb->andWhere('(a.comando = :comando OR (a.comando IS NULL AND a.agente IN (:legados)))')
+                ->setParameter('legados', array_map(static fn (Agente $a): string => $a->value, $legados), ArrayParameterType::STRING);
+        }
+
+        return $qb->setParameter('comando', $comando)
             ->setMaxResults($limite)
             ->getQuery()
             ->getResult();
@@ -125,7 +151,7 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
      *
      * @param list<string> $acoes
      *
-     * @return list<array{acao: string, analiseId: int, quando: \DateTimeImmutable, autorNome: ?string, agente: ?Agente, tipo: TipoDeAnalise}>
+     * @return list<array{acao: string, analiseId: int, quando: \DateTimeImmutable, autorNome: ?string, agente: ?Agente, tipo: TipoDeAnalise, comando: ?Comando}>
      */
     public function listarExportacoesDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId, array $acoes, int $limite): array
     {
@@ -157,6 +183,7 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
                 'autorNome' => $linha['autorNome'] ?? $linha['autorEmail'] ?? null,
                 'agente' => $analise['agente'],
                 'tipo' => $analise['tipo'],
+                'comando' => $analise['comando'],
             ];
         }
 
@@ -182,15 +209,16 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
-    /** A análise em andamento (pendente ou processando) do alvo/tipo/agente, se houver — idempotência do pedido. */
+    /** A análise em andamento (pendente ou processando) do alvo/tipo/agente/comando, se houver — idempotência do pedido. */
     public function findPendenteDoAlvo(
         Tenant $tenant,
         string $alvoTipo,
         int $alvoId,
         TipoDeAnalise $tipo = TipoDeAnalise::ResumoPush,
         ?Agente $agente = null,
+        ?Comando $comando = null,
     ): ?AnaliseDeInteligencia {
-        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, $tipo, $agente)
+        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, $tipo, $agente, $comando, semComandoQuandoNulo: true)
             ->andWhere('a.status IN (:emAndamento)')
             ->setParameter('emAndamento', [StatusDaAnalise::Pendente, StatusDaAnalise::Processando])
             ->setMaxResults(1)
@@ -198,15 +226,16 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
-    /** A última concluída do alvo/tipo/agente — base do "nada novo desde a última" e do [NOVA] do prompt. */
+    /** A última concluída do alvo/tipo/agente/comando — base do "nada novo desde a última" e do [NOVA] do prompt. */
     public function findUltimaConcluidaDoAlvo(
         Tenant $tenant,
         string $alvoTipo,
         int $alvoId,
         TipoDeAnalise $tipo = TipoDeAnalise::ResumoPush,
         ?Agente $agente = null,
+        ?Comando $comando = null,
     ): ?AnaliseDeInteligencia {
-        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, $tipo, $agente)
+        return $this->qbDoAlvo($tenant, $alvoTipo, $alvoId, $tipo, $agente, $comando, semComandoQuandoNulo: true)
             ->andWhere('a.status = :concluida')
             ->setParameter('concluida', StatusDaAnalise::Concluida)
             ->setMaxResults(1)
@@ -290,12 +319,12 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
      * As análises do alvo (inclusive excluídas: a trilha fica), indexadas pelo id em texto, com o
      * que o rótulo do registro precisa. Tenant explícito.
      *
-     * @return array<string, array{agente: ?Agente, tipo: TipoDeAnalise}>
+     * @return array<string, array{agente: ?Agente, tipo: TipoDeAnalise, comando: ?Comando}>
      */
     private function analisesDoAlvoPorId(Tenant $tenant, string $alvoTipo, int $alvoId): array
     {
         $linhas = $this->createQueryBuilder('a')
-            ->select('a.id AS id', 'a.agente AS agente', 'a.tipo AS tipo')
+            ->select('a.id AS id', 'a.agente AS agente', 'a.tipo AS tipo', 'a.comando AS comando')
             ->andWhere('a.tenant = :tenant')
             ->andWhere('a.alvoTipo = :alvoTipo')
             ->andWhere('a.alvoId = :alvoId')
@@ -309,9 +338,11 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
         foreach ($linhas as $linha) {
             $agente = $linha['agente'];
             $tipo = $linha['tipo'];
+            $comando = $linha['comando'] ?? null;
             $porId[(string) $linha['id']] = [
                 'agente' => $agente instanceof Agente ? $agente : ($agente === null ? null : Agente::tryFrom((string) $agente)),
                 'tipo' => $tipo instanceof TipoDeAnalise ? $tipo : TipoDeAnalise::from((string) $tipo),
+                'comando' => $comando instanceof Comando ? $comando : ($comando === null ? null : Comando::tryFrom((string) $comando)),
             ];
         }
 
@@ -338,7 +369,7 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
             ->setParameter('ids', $idsDasAnalises, ArrayParameterType::STRING);
     }
 
-    private function qbDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId, TipoDeAnalise $tipo, ?Agente $agente): QueryBuilder
+    private function qbDoAlvo(Tenant $tenant, string $alvoTipo, int $alvoId, TipoDeAnalise $tipo, ?Agente $agente, ?Comando $comando = null, bool $semComandoQuandoNulo = false): QueryBuilder
     {
         $qb = $this->createQueryBuilder('a')
             ->andWhere('a.tenant = :tenant')
@@ -355,6 +386,12 @@ class AnaliseDeInteligenciaRepository extends ServiceEntityRepository
 
         if ($agente !== null) {
             $qb->andWhere('a.agente = :agente')->setParameter('agente', $agente);
+        }
+        if ($comando !== null) {
+            $qb->andWhere('a.comando = :comando')->setParameter('comando', $comando);
+        } elseif ($semComandoQuandoNulo) {
+            // Pedido por agente (rota antiga, Push): não trava nem herda como "anterior" a linha de um comando.
+            $qb->andWhere('a.comando IS NULL');
         }
 
         return $qb;

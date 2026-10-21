@@ -7,6 +7,7 @@ namespace App\Pasta\DTO;
 use App\Entity\Tarefa\Tarefa;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPagamento;
+use App\Pasta\Service\PontosDoRelatorioInicial;
 
 /**
  * As pendências que acendem a linha vermelha sob as abas da pasta (desenho
@@ -23,18 +24,21 @@ use App\Pasta\Entity\PastaPagamento;
  *                 financeiro, na linha da aba e no resumo impresso;
  *  · Documentos → item do checklist MARCADO como entregue sem nenhum arquivo
  *                 correspondente na pasta (`ConferenciaDeAnexosDoChecklist`, DOC-74/76);
+ *  · Detalhes   → ponto do relatório inicial de atendimento sem registro
+ *                 (`PontosDoRelatorioInicial`, a heurística `relInicial()` do desenho);
  *  · Push       → publicação não lida.
  *
- * Da regra de Documentos do desenho só entra a metade "marcado sem anexo": a outra
- * metade ("documento cobrado e ainda não anexado") depende da cobrança automática do
- * checklist, que não existe no sistema (DOC-75, decisão S-6 do dono). Detalhes fica sem
- * pendência: o relatório inicial de atendimento ainda não existe como dado.
+ * Documentos junta as duas metades do desenho: "N documentos cobrados e ainda não anexados"
+ * (cobrança automática do checklist, spec pasta-cobranca-do-checklist) e "N itens marcados sem
+ * anexo". Detalhes só acende
+ * quando quem chama manda os pontos do relatório: a pasta_show e o resumo impresso mandam
+ * (o `imprimirResumo()` do desenho, dc L.4832, lista as pendências de todas as abas).
  */
 final readonly class PastaPendenciasOutput
 {
     /**
      * @param array<string, array{n: int, txt: string}> $porAba id da aba (`tarefas`, `processo`,
-     *                                                           `financeiro`, `documentos`, `push`) => pendência;
+     *                                                           `financeiro`, `documentos`, `detalhes`, `push`) => pendência;
      *                                                           só as abas que têm pendência
      */
     public function __construct(
@@ -48,6 +52,8 @@ final readonly class PastaPendenciasOutput
      *                                    `ConferenciaDeAnexosDoChecklist::totalMarcadosSemAnexo()`.
      *                                    `$veFinanceiro` é `VisibilidadeDoFinanceiroDaPasta::podeVer()`;
      *                                    o padrão é FECHADO: quem não diz, não vê.
+     *                                    `$relatorioInicial` são os pontos do relatório inicial de
+     *                                    atendimento (aba Detalhes); null = sem pendência de Detalhes.
      */
     public static function montar(
         Pasta $pasta,
@@ -56,6 +62,8 @@ final readonly class PastaPendenciasOutput
         ?\DateTimeImmutable $hoje = null,
         int $itensMarcadosSemAnexo = 0,
         bool $veFinanceiro = false,
+        int $documentosCobrados = 0,
+        ?PontosDoRelatorioInicial $relatorioInicial = null,
     ): self {
         $porAba = [];
 
@@ -95,15 +103,12 @@ final readonly class PastaPendenciasOutput
 
         // Checklist desativado (DOC-73): a conferência "sem anexo" está pausada e não é pendência.
         // O gate mora AQUI, e não em quem chama, para a tela e o resumo impresso obedecerem juntos.
-        if ($itensMarcadosSemAnexo > 0 && $pasta->isChecklistAtivo()) {
-            $porAba['documentos'] = [
-                'n'   => $itensMarcadosSemAnexo,
-                'txt' => self::plural(
-                    $itensMarcadosSemAnexo,
-                    'item do checklist marcado sem anexo',
-                    'itens do checklist marcados sem anexo',
-                ),
-            ];
+        if ($itensMarcadosSemAnexo + $documentosCobrados > 0 && $pasta->isChecklistAtivo()) {
+            $porAba['documentos'] = self::pendenciaDosDocumentos($documentosCobrados, $itensMarcadosSemAnexo);
+        }
+
+        if (($detalhes = $relatorioInicial?->pendenciaDaAba()) !== null) {
+            $porAba['detalhes'] = $detalhes;
         }
 
         if ($pushNaoLidas > 0) {
@@ -114,6 +119,33 @@ final readonly class PastaPendenciasOutput
         }
 
         return new self($porAba);
+    }
+
+    /**
+     * Desenho 02 (dc 5496-5498): "N documentos cobrados e ainda não anexados" e "N itens marcados sem
+     * anexo", juntos com " e ".
+     *
+     * @return array{n: int, txt: string}
+     */
+    private static function pendenciaDosDocumentos(int $cobrados, int $semAnexo): array
+    {
+        $partes = array_filter([
+            $cobrados > 0 ? self::plural($cobrados, 'documento cobrado e ainda não anexado', 'documentos cobrados e ainda não anexados') : '',
+            $semAnexo > 0 ? self::plural($semAnexo, 'item marcado sem anexo', 'itens marcados sem anexo') : '',
+        ]);
+
+        return ['n' => $cobrados + $semAnexo, 'txt' => implode(' e ', $partes)];
+    }
+
+    /**
+     * Sem as pendências das abas que a pessoa não vê (spec pasta-ocultar-aba §4): a folha impressa
+     * não pode contar o que a tela esconde.
+     *
+     * @param list<string> $abas ids das abas ocultas
+     */
+    public function semAbas(array $abas): self
+    {
+        return new self(array_diff_key($this->porAba, array_flip($abas)));
     }
 
     private static function plural(int $n, string $um, string $varios): string

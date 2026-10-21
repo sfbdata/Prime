@@ -60,8 +60,15 @@ final class ExcluirContaPeloMasterUseCase
         $conta->setIsActive(false);
         $conta->setExcluidoEm($this->relogio->now());
         // Pedido de exclusão PENDENTE (PR 5, C4): decidido aqui, na mesma transação da conta (o flush abaixo).
-        $this->pedidos->pendenteDoEscritorio($conta)?->marcarExcluida($input->ator, $this->relogio->now());
-        $this->escopoDeAuditoria->executarComoConta((int) $conta->getId(), fn () => $this->contas->salvar($conta, flush: true));
+        $gravar = fn () => $this->escopoDeAuditoria->executarComoConta((int) $conta->getId(), fn () => $this->contas->salvar($conta, flush: true));
+        $pedido = $this->pedidos->pendenteDoEscritorio($conta);
+        if ($pedido === null) {
+            $gravar();
+        } else {
+            // Decisão e desistência do primário ao mesmo tempo: quem chega depois recebe 409.
+            $pedido->marcarExcluida($input->ator, $this->relogio->now());
+            $this->pedidos->gravarDecisaoSePendente($pedido, $gravar);
+        }
 
         return ContaAlteradaOutput::fromEntity($conta, $this->carenciaPurgaDias);
     }

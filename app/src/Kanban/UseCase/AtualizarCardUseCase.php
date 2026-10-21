@@ -11,13 +11,13 @@ use App\Kanban\DTO\CardDetalheOutput;
 use App\Kanban\Entity\KanbanCard;
 use App\Kanban\Repository\KanbanCardRepository;
 use App\Kanban\Service\SanitizadorTextoKanban;
-use App\Repository\UserRepository;
+use App\Tenant\Service\ColaboradoresAtribuiveis;
 
 final class AtualizarCardUseCase
 {
     public function __construct(
         private readonly KanbanCardRepository $cardRepository,
-        private readonly UserRepository $userRepository,
+        private readonly ColaboradoresAtribuiveis $atribuiveis,
         private readonly SanitizadorTextoKanban $sanitizador,
     ) {
     }
@@ -36,15 +36,13 @@ final class AtualizarCardUseCase
             $card->setDataVencimento(null);
         }
 
-        foreach ($card->getResponsaveis()->toArray() as $responsavel) {
+        $atuais = $card->getResponsaveis()->toArray();
+        foreach ($atuais as $responsavel) {
             $card->removerResponsavel($responsavel);
         }
 
-        foreach ($input->responsaveisIds as $userId) {
-            $user = $this->userRepository->findPorIdETenant($userId, $tenant);
-            if ($user !== null) {
-                $card->adicionarResponsavel($user);
-            }
+        foreach ($this->atribuiveis->resolverVarios($input->responsaveisIds, $tenant, $atuais) as $user) {
+            $card->adicionarResponsavel($user);
         }
 
         $this->cardRepository->salvar($card, flush: true);
