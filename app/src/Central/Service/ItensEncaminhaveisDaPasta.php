@@ -25,6 +25,7 @@ use App\Pasta\Repository\PastaPrazoRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\Service\MencoesDoRegistro;
+use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use App\Processo\Repository\NotaTecnicaRepository;
 use App\Processo\Repository\ProcessoRepository;
 use App\Tarefa\Repository\TarefaRepository;
@@ -73,6 +74,24 @@ final class ItensEncaminhaveisDaPasta
             : $this->doTipo($tenant, $pasta, $tipo, $itemId ?? throw new ItemEncaminhadoNaoEncontradoException());
 
         return new ItemEncaminhado(self::neutralizarMencoes($item->titulo), self::neutralizarMencoes($item->resumo));
+    }
+
+    /**
+     * O tipo que decide quem pode ver o item. O cartão do sistema de pró-bono ou de contrato no Registro de Dados é dado
+     * financeiro (`RegistroDoSistemaNaPasta::DO_FINANCEIRO`): segue a regra do registro do Financeiro para quem envia,
+     * para quem recebe e, gravado na referência do despacho, para quem lê depois. Item ausente fica com o tipo pedido
+     * (o `resumir()` dá o 404).
+     */
+    public function tipoDoAcesso(Tenant $tenant, Pasta $pasta, TipoDeItemEncaminhado $tipo, ?int $itemId): TipoDeItemEncaminhado
+    {
+        if ($tipo !== TipoDeItemEncaminhado::RegistroDados || $itemId === null) {
+            return $tipo;
+        }
+        $mensagem = $this->mensagens->findByIdAndPastaAndTenant($itemId, $pasta, $tenant);
+
+        return $mensagem !== null && \in_array($mensagem->getSistema(), RegistroDoSistemaNaPasta::DO_FINANCEIRO, true)
+            ? TipoDeItemEncaminhado::RegistroFinanceiro
+            : $tipo;
     }
 
     /**
