@@ -20,9 +20,11 @@ final class ComercialTesteJsTest extends TestCase
     {
         self::assertStringNotContainsString("postar(ROTAS.urlTeste", self::js('comercial-campanha.js'));
         $js = self::js('comercial-teste.js');
-        self::assertStringContainsString("if (e.target.closest('[data-mc-cp-teste]')) { e.preventDefault(); abrir(); return; }", $js);
+        self::assertStringContainsString("if (e.target.closest('[data-mc-cp-teste]')) { e.preventDefault(); abrir(e); return; }", $js);
         self::assertStringContainsString('}, true);', $js, 'ouvinte em captura');
         self::assertStringContainsString('window.McCampanha.modeloAtual()', $js);
+        self::assertStringContainsString("closest('.mc[data-modo]')", $js, 'o modelo vem da seção do clique (Comercial ou Indicações)');
+        self::assertStringContainsString('secao.mcModeloAtual()', $js);
         self::assertStringContainsString("new CustomEvent('mc:relatorio-recarregar')", $js);
         self::assertStringContainsString("document.addEventListener('mc:relatorio-recarregar'", self::js('comercial-relatorio.js'));
     }

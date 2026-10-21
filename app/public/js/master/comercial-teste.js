@@ -12,13 +12,15 @@
   const elErro = raiz.querySelector('[data-mc-tst-erro]');
   const elEnviar = raiz.querySelector('[data-mc-tst-enviar]');
   let origem = null;
+  let secao = null; // a raiz .mc[data-modo] de onde veio o clique (Comercial ou Indicações, #223)
 
   function mostrarErro(texto) {
     elErro.textContent = texto || '';
     elErro.hidden = !texto;
   }
 
-  function abrir() {
+  function abrir(e) {
+    secao = (e && e.target && e.target.closest) ? e.target.closest('.mc[data-modo]') : null;
     origem = document.activeElement;
     mostrarErro('');
     ok.hidden = true;
@@ -33,8 +35,14 @@
     origem = null;
   }
 
+  // Contrato com a 5d: cada raiz .mc[data-modo] expõe mcModeloAtual(); o window.McCampanha fica por compatibilidade.
+  function modeloDaSecao() {
+    if (secao && typeof secao.mcModeloAtual === 'function') { return secao.mcModeloAtual(); }
+    return window.McCampanha && typeof window.McCampanha.modeloAtual === 'function' ? window.McCampanha.modeloAtual() : null;
+  }
+
   function enviar() {
-    const modelo = window.McCampanha && typeof window.McCampanha.modeloAtual === 'function' ? window.McCampanha.modeloAtual() : null;
+    const modelo = modeloDaSecao();
     if (!modelo) { mostrarErro('Abra um modelo no editor antes de enviar o teste.'); return; }
     elEnviar.disabled = true;
     fetch(raiz.dataset.url, {
@@ -56,7 +64,7 @@
 
   // Em captura: o editor não posta mais direto no clique do ícone (F3f tirou aquela linha do comercial-campanha.js).
   document.addEventListener('click', e => {
-    if (e.target.closest('[data-mc-cp-teste]')) { e.preventDefault(); abrir(); return; }
+    if (e.target.closest('[data-mc-cp-teste]')) { e.preventDefault(); abrir(e); return; }
     if (e.target.closest('[data-mc-tst-fechar]')) { fechar(); return; }
     if (e.target.closest('[data-mc-tst-enviar]') && !raiz.hidden) { enviar(); }
   }, true);
