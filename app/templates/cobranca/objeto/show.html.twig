@@ -90,7 +90,13 @@
                 <div class="cob-cab-identidade">
                     <div class="d-flex align-items-center gap-2 flex-wrap">
                         <span class="cob-cab-sobretitulo">Unidade</span>
-                        <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
+                        {# Desenho Objeto 1A L57: a cobrança em curso é o selo "Cobrança ativa" com o ponto; os
+                           outros estados (judicializado, encerrado) seguem no selo de sempre. #}
+                        {% if not caso.encerrado and not caso.judicializado %}
+                            <span class="cob-selo-ativa"><i class="bi bi-circle-fill" aria-hidden="true"></i>Cobrança ativa</span>
+                        {% else %}
+                            <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
+                        {% endif %}
                         {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success" data-bs-toggle="tooltip" title="Saldo exigível zerado: o gestor pode encerrar (SPEC §17)">Pronto para encerrar</span>{% endif %}
                     </div>
 
@@ -445,11 +451,17 @@
                 <div class="cob-cobranca-editor">
                 {% if podeGerenciar and not caso.encerrado and forms.registrarAnotacao is defined %}
                 <div class="cob-anotacao-nova mb-4">
-                    <h6 class="mb-2"><i class="bi bi-pencil-square me-1"></i>Nova anotação</h6>
+                    {# Desenho Objeto 1A L268-283: o subtítulo ao lado do título e, na linha do botão, a dica
+                       da janela de correção (a regra das 48 horas é a do `EditarAnotacaoUseCase`). #}
+                    <div class="cob-anotacao-nova-topo mb-2">
+                        <h6 class="m-0"><i class="bi bi-pencil-square me-1"></i>Nova anotação</h6>
+                        <span class="cob-anotacao-nova-sub">registra no histórico da cobrança</span>
+                    </div>
                     {{ form_start(forms.registrarAnotacao, {action: path('cobranca_anotacao_registrar', {id: caso.id}), attr: {class: 'js-form-anotacao'}}) }}
                     {{ form_widget(forms.registrarAnotacao.texto) }}
                     {{ form_errors(forms.registrarAnotacao.texto) }}
-                    <div class="d-flex justify-content-end mt-2">
+                    <div class="cob-anotacao-nova-rodape mt-2">
+                        <span class="cob-anotacao-nova-dica">Você pode corrigir a própria anotação nas 48 horas seguintes.</span>
                         <button type="submit" class="btn jp-btn-accent js-salvar-anotacao">
                             <i class="bi bi-check-lg me-1"></i>Salvar anotação
                         </button>

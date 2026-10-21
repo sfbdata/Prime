@@ -20,7 +20,7 @@ final class AlterarSenhaType extends AbstractType
             ->add('senha', RepeatedType::class, [
                 'type'            => PasswordType::class,
                 'first_options'   => ['label' => 'Nova senha'],
-                'second_options'  => ['label' => 'Repita a nova senha'],
+                'second_options'  => ['label' => 'Confirmar nova senha'],
                 'invalid_message' => 'As duas senhas não conferem.',
             ]);
     }

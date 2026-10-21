@@ -717,3 +717,18 @@ a.cs-mais-item, a.cs-mais-item:hover { color: var(--cs-body); text-decoration: n
     color: var(--cs-label); margin: 0 0 12px;
 }
 .cs-modal .cs-secao + * { margin-top: 0; }
+
+/* Área "Arraste o arquivo ou clique para escolher" do modal Adicionar documento (desenho Carteira 1B L457-461).
+   O input fica dentro do <label>, invisível mas no fluxo do form (o `required` continua valendo). */
+.cs-soltar {
+    position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 24px; border: 1px dashed var(--bs-border-color); border-radius: 4px;
+    background: var(--bs-tertiary-bg); cursor: pointer; text-align: center;
+}
+.cs-soltar .bi { font-size: 24px; color: var(--cs-muted); }
+.cs-soltar-titulo { font-size: 13.5px; font-weight: 600; }
+.cs-soltar-dica { font-size: 12px; color: var(--cs-muted); }
+.cs-soltar-nome { font-size: 12.5px; font-weight: 600; color: var(--bs-primary); word-break: break-all; }
+.cs-soltar.arrastando, .cs-soltar:hover { border-color: var(--bs-primary); }
+.cs-soltar:focus-within { outline: 2px solid var(--bs-primary); outline-offset: 2px; }
+.cs-soltar-input { position: absolute; inset: 0; opacity: 0; width: 1px; height: 1px; pointer-events: none; }

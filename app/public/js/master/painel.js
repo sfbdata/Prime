@@ -232,17 +232,20 @@
         const t = S.mapaQuem === 'esc' ? { ag: 0, an: 0 } : (G.tend[uf] || { ag: 0, an: 0 }), dl = t.ag - t.an;
         const ic = dl > 0 ? 'bi-arrow-up-right' : dl < 0 ? 'bi-arrow-down-right' : 'bi-arrow-right', cor = dl > 0 ? '#1e7b45' : dl < 0 ? '#a3232b' : '#9aabb7';
         const tit = S.mapaQuem === 'esc' ? 'Tendência medida só para pessoas' : (t.ag >= 0 ? '+' : '') + t.ag + ' nos últimos 30 dias · ' + (t.an >= 0 ? '+' : '') + t.an + ' nos 30 anteriores';
-        return '<div class="mp-uf-lin"><span class="mp-uf-barra" style="--w:' + pct(n, maxAt) + '"></span><span class="mp-uf-nome">' + esc(NM[uf] || uf) + '</span><b>' + num(n) + '</b><i class="bi ' + ic + ' mp-uf-seta" style="--cor:' + cor + '" title="' + esc(tit) + '"></i></div>';
+        // Linha clicável (desenho L118, `u.ir`/`u.cur`): no Brasil abre a janela da OAB da UF (spec master-oab-estados-que-faltam).
+        const oab = NM[uf] ? ' is-oab" role="button" tabindex="0" data-oab-uf="' + esc(uf) + '" data-oab-n="' + n + '"' : '"';
+        return '<div class="mp-uf-lin' + oab + '><span class="mp-uf-barra" style="--w:' + pct(n, maxAt) + '"></span><span class="mp-uf-nome">' + esc(NM[uf] || uf) + '</span><b>' + num(n) + '</b><i class="bi ' + ic + ' mp-uf-seta" style="--cor:' + cor + '" title="' + esc(tit) + '"></i></div>';
       }).join('');
     }
 
     let grupos, tot, meta;
     if (br) {
-      grupos = REG_BR.map(([rot, ufs]) => { const itens = ufs.filter(u => !ATUA[u]).map(u => NM[u]).sort((a, b) => a.localeCompare(b)); return { rot, n: itens.length, itens }; }).filter(g => g.n);
+      grupos = REG_BR.map(([rot, ufs]) => { const itens = ufs.filter(u => !ATUA[u]).map(u => ({ uf: u, r: NM[u] })).sort((a, b) => a.r.localeCompare(b.r)); return { rot, n: itens.length, itens }; }).filter(g => g.n);
       tot = 27; meta = 'os 27 estados';
+      secGarantir();
     } else {
       const tem = new Set(['Brasil'].concat(paisesExt.map(p => p[1])));
-      grupos = REG_MUNDO.map(([rot, ps]) => { const itens = ps.filter(p => !tem.has(p)).sort((a, b) => a.localeCompare(b)); return { rot, n: itens.length, itens }; }).filter(g => g.n);
+      grupos = REG_MUNDO.map(([rot, ps]) => { const itens = ps.filter(p => !tem.has(p)).sort((a, b) => a.localeCompare(b)).map(p => ({ uf: null, r: p })); return { rot, n: itens.length, itens }; }).filter(g => g.n);
       tot = REG_MUNDO.reduce((a, g) => a + g[1].length, 0); meta = 'os ' + tot + ' países-alvo';
     }
     const faltamN = grupos.reduce((a, g) => a + g.n, 0), feitos = tot - faltamN, on = S.faltamOn;
@@ -254,10 +257,11 @@
       + (S.mapaQuem === 'esc' && G.semEnd > 0 ? '<div class="mp-uf-semend"><span><i class="bi bi-geo"></i>Sem endereço no cadastro</span><b>' + num(G.semEnd) + '</b></div>' : '')
       + (ehPes && G.semLoc > 0 ? '<div class="mp-uf-semend" title="Sem lotação Cidade/UF, sem UF da OAB e sem estado do escritório"><span><i class="bi bi-geo"></i>Sem localização no cadastro</span><b>' + num(G.semLoc) + '</b></div>' : '')
       + '<div class="mp-uf-total"><span>Total geral</span><span>' + num(ufTotal) + '</span></div>'
+      + avisoHtml()
       + '<button type="button" class="mp-faltam-btn' + (on ? ' on' : '') + '" data-faltam title="Mostrar onde ainda não temos usuários"><i class="bi bi-bullseye"></i><span>' + (on ? 'Ocultar o que falta' : (br ? 'Estados que faltam' : 'Países que faltam')) + '</span><span class="mp-faltam-n">' + faltamN + '</span><i class="bi ' + (on ? 'bi-chevron-up' : 'bi-chevron-down') + '"></i></button>'
       + (on ? '<div class="mp-faltam"><div class="mp-faltam-cob">Cobertura: <b>' + feitos + ' de ' + tot + ' (' + Math.round(feitos / tot * 100) + '%)</b> · faltam ' + faltamN + ' para alcançar ' + meta + '</div>'
         + '<div class="mp-faltam-barra"><div style="--w:' + Math.round(feitos / tot * 100) + '%"></div></div><div class="mp-faltam-lista">'
-        + grupos.map(g => '<div class="mp-faltam-grupo">' + esc(g.rot) + ' · ' + g.n + '</div>' + g.itens.map(f => '<div class="mp-faltam-item"><i></i><span>' + esc(f) + '</span><span>0</span></div>').join('')).join('')
+        + grupos.map(g => '<div class="mp-faltam-grupo">' + esc(g.rot) + ' · ' + g.n + '</div>' + g.itens.map(faltamItem).join('')).join('')
         + '</div><div class="mp-faltam-rod">Oportunidades de expansão</div></div>' : '');
 
     // iframe: só troca o endereço quando os dados do mapa mudam (evita recarregar o mapa a cada clique).
@@ -290,8 +294,10 @@
       .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
       .then(j => { SEC.dados = j; SEC.estado = null; })
       .catch(() => { SEC.estado = 'falhou'; })
-      .finally(() => { if (S.sec === 'visao' && D.visao && document.getElementById('mp-uf-tab')) renderMapa(); });
+      .finally(() => { if (S.sec === 'visao' && D.visao && document.getElementById('mp-uf-tab')) renderMapa(); if (OAB.uf) renderOab(); });
   }
+  // Os estados que faltam e as linhas de UF leem subseções e nota daqui também (fora da visão Pessoas).
+  const secGarantir = () => { if (!SEC.dados && SEC.estado !== 'falhou') carregarSeccionais(); };
   // O iframe avisa depois de registrar uma divulgação (mesmo padrão do __bjFontesAuto do mapa-dados.js).
   window.__bjSeccionaisRecarregar = () => { SEC.estado = null; carregarSeccionais(); };
 
@@ -401,6 +407,174 @@
   // Outra aba (ou o iframe) mudou o que fica visível: o bloco acompanha.
   window.addEventListener('storage', e => { if (e.key === SEC_CHAVE && SEC.dados && document.getElementById('mp-uf-tab')) renderMapa(); });
 
+  /* ---------- Janela da OAB dos estados que faltam (desenho 05, Perfis 1.2, VS 21.10.26, L118, L140 e L481-495;
+     spec master-oab-estados-que-faltam) ----------
+     O estado que falta (L140) e a linha da UF (L118) abrem, só no Brasil, a janela da OAB daquela UF: a sede (o MESMO
+     "Editar sede" de cima), as subseções (adicionar e remover) e a nota explicativa. Tudo vem do GET das seccionais
+     (subseções e nota por UF); cada escrita é um POST com o token no header e recarrega as seccionais. No Mundo o
+     item tem o mesmo visual e o clique só avisa que a janela é dos estados do Brasil (DONO). O seletor de modos (L134) NÃO entra: os rótulos
+     e o efeito estão no trecho truncado do desenho (pendência da frente). */
+  const OAB_TOOLTIP = 'Ver endereços da OAB e escrever nota';
+  const OAB_SEM_ENDERECO = 'Endereço não cadastrado. Confira no CFOAB.';
+  const OAB_NOTA_EXEMPLO = 'Ex.: contato com a presidente da subseção, enviar material em novembro';
+  const OAB_MAPS = 'https://www.google.com/maps/search/?api=1&query=';
+  const OAB_SO_BRASIL = 'A janela da OAB vale só para os estados do Brasil.';
+  const OAB_SEM_CARGA = 'Não foi possível carregar as seccionais agora. Recarregue a página.';
+  const OAB = { uf: null, sub: '', rascunho: null, form: null, msg: null, enviando: false };
+  const conta = (n, um, varios) => (n === 1 ? '1 ' + um : num(n) + ' ' + varios);
+  // Unidade do número da linha (L118), coerente com a visão: Escritórios, Só primários ou Pessoas (spec, DONO).
+  const oabUnidade = () => (S.mapaQuem === 'esc' ? ['escritório', 'escritórios'] : S.mapaUsu === 'prim' ? ['primário', 'primários'] : ['usuário', 'usuários']);
+  const oabQuantos = n => { const [um, varios] = oabUnidade(); return n > 0 ? conta(n, um, varios) : 'sem ' + varios; };
+  // Subtítulo do item (`f.sub`, DONO): "N subseções" quando há alguma, senão "sem endereço" sem a sede, senão nada.
+  const faltamSub = s => (!s ? '' : s.subsecoes.length ? conta(s.subsecoes.length, 'subseção', 'subseções') : (s.endereco ? '' : 'sem endereço'));
+
+  // Item da lista dos que faltam (L140): ponto, nome, ícone de nota, subtítulo e seta. No Mundo, o mesmo visual do
+  // desenho (tooltip, seta, mão e realce); só a ação muda: o clique avisa que a janela é dos estados (DONO).
+  function faltamItem(f) {
+    if (!f.uf) return '<div class="mp-faltam-uf is-oab" role="button" tabindex="0" data-oab-mundo title="' + OAB_TOOLTIP + '"><span class="mp-faltam-ponto"></span><span class="mp-faltam-nome">' + esc(f.r) + '</span><span class="mp-faltam-sub"></span><i class="bi bi-chevron-right"></i></div>';
+    const sec = secDe(f.uf);
+    return '<div class="mp-faltam-uf is-oab" role="button" tabindex="0" data-oab-uf="' + esc(f.uf) + '" title="' + OAB_TOOLTIP + '"><span class="mp-faltam-ponto"></span><span class="mp-faltam-nome">' + esc(f.r) + '</span>'
+      + (sec && sec.nota ? '<i class="bi bi-sticky-fill" title="Tem nota"></i>' : '')
+      + '<span class="mp-faltam-sub">' + esc(faltamSub(sec)) + '</span><i class="bi bi-chevron-right"></i></div>';
+  }
+
+  // Host próprio da janela, dentro do #master-painel (o "Editar sede" e a confirmação sobem por cima, ver o CSS).
+  let elOab = null;
+  function oabHost() {
+    if (elOab) return elOab;
+    elOab = document.createElement('div');
+    elOab.className = 'mp-oab-host';
+    raiz.appendChild(elOab);
+    elOab.addEventListener('click', oabClique);
+    elOab.addEventListener('input', e => {
+      if (e.target.matches('[data-oab-nota]')) OAB.rascunho = e.target.value;
+      if (e.target.matches('[data-oab-form]') && OAB.form) OAB.form[e.target.dataset.oabForm] = e.target.value;
+    });
+    return elOab;
+  }
+
+  // Carga das seccionais falhada antes: o clique tenta de novo (se falhar outra vez, o renderOab avisa).
+  function abrirOab(uf, sub) {
+    Object.assign(OAB, { uf, sub, rascunho: null, form: null, msg: null, enviando: false });
+    if (SEC.estado === 'falhou') SEC.estado = null;
+    secGarantir();
+    renderOab();
+  }
+
+  function fecharOab() { OAB.uf = null; renderOab(); }
+
+  // Sem os dados ainda: espera a carga (o finally do carregarSeccionais chama de novo). Carga falhou: não abre e
+  // mostra o aviso de erro do painel.
+  function renderOab() {
+    const host = oabHost(), sec = OAB.uf ? secDe(OAB.uf) : null;
+    if (OAB.uf && !sec && SEC.estado === 'falhou') { OAB.uf = null; oabAvisar(OAB_SEM_CARGA); }
+    raiz.classList.toggle('mp-oab-aberta', !!sec);
+    host.innerHTML = sec ? oabJanela(sec) : '';
+  }
+
+  // L482-484 e L493: fundo, caixa, faixa azul com título e subtítulo e o X; rodapé com "Fechar" e "Salvar nota".
+  function oabJanela(sec) {
+    return '<div class="mp-oab-fundo" data-oab-fechar></div><div class="mp-oab-centro"><div class="mp-oab" role="dialog" aria-modal="true" aria-labelledby="mpOabTitulo">'
+      + '<div class="mp-oab-cab"><i class="bi bi-bank"></i><span class="mp-oab-cab-txt"><b id="mpOabTitulo">' + esc(sec.nome) + '</b><span>' + esc(OAB.sub) + '</span></span>'
+      + '<button type="button" data-oab-fechar title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button></div>'
+      + '<div class="mp-oab-corpo">' + oabSede(sec) + oabSubsecoes(sec) + oabNota(sec)
+      + (OAB.msg ? '<span class="mp-oab-msg' + (OAB.msg.ok ? ' is-ok' : '') + '" role="status">' + esc(OAB.msg.texto) + '</span>' : '') + '</div>'
+      + '<div class="mp-oab-rodape"><button type="button" class="mp-oab-fechar" data-oab-fechar>Fechar</button>'
+      + '<button type="button" class="mp-oab-salvar" data-oab-nota-salvar' + (OAB.enviando ? ' disabled' : '') + '><i class="bi bi-check2"></i> Salvar nota</button></div></div></div>';
+  }
+
+  // L486: SECCIONAL · SEDE com "Editar", endereço (cinza quando falta), telefone, "Ver no mapa" e "Site oficial".
+  function oabSede(sec) {
+    const site = /^https:\/\//i.test(sec.site || '') ? sec.site : null, mapa = sec.endereco ? OAB_MAPS + encodeURIComponent(sec.endereco) : null;
+    return '<div class="mp-oab-sede"><div class="mp-oab-tit"><b>SECCIONAL · SEDE</b><button type="button" class="mp-oab-editar" data-oab-editar><i class="bi bi-pencil"></i> Editar</button></div>'
+      + '<div class="mp-oab-end' + (sec.endereco ? '' : ' is-vazio') + '">' + esc(sec.endereco || OAB_SEM_ENDERECO) + '</div>'
+      + (sec.telefone ? '<div class="mp-oab-tel"><i class="bi bi-telephone"></i> ' + esc(sec.telefone) + '</div>' : '')
+      + '<div class="mp-oab-links">' + (mapa ? '<a href="' + esc(mapa) + '" target="_blank" rel="noopener"><i class="bi bi-geo-alt"></i> Ver no mapa</a>' : '')
+      + (site ? '<a href="' + esc(site) + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Site oficial</a>' : '') + '</div></div>';
+  }
+
+  // L487-489: SUBSEÇÕES com "Adicionar endereço", o formulário (convenção), o texto vazio do desenho e a lista.
+  function oabSubsecoes(sec) {
+    return '<div class="mp-oab-subs"><div class="mp-oab-tit"><b>SUBSEÇÕES</b><button type="button" class="mp-oab-add" data-oab-sub-add><i class="bi bi-plus-lg"></i> Adicionar endereço</button></div>'
+      + (OAB.form ? oabFormulario() : '')
+      + (sec.subsecoes.length ? '' : '<div class="mp-oab-subs-vazio">Nenhuma subseção cadastrada. <a href="' + SEC_CFOAB + '" target="_blank" rel="noopener">Pesquisar o endereço oficial</a> e adicionar.</div>')
+      + sec.subsecoes.map(x => '<div class="mp-oab-sub"><i class="bi bi-geo-alt"></i><span><b>' + esc(x.nome) + '</b><span>' + esc(x.endereco) + '</span>'
+        + (x.telefone ? '<span class="mp-oab-sub-tel">' + esc(x.telefone) + '</span>' : '') + '</span>'
+        + '<button type="button" title="Remover" aria-label="Remover" data-oab-sub-rm="' + esc(x.id) + '"><i class="bi bi-trash3"></i></button></div>').join('') + '</div>';
+  }
+
+  // "Adicionar endereço" abre o formulário na própria janela (spec: nome, endereço e telefone). O desenho não o mostra.
+  const oabCampo = (rotulo, chave, max) => '<label class="mp-oab-campo"><span>' + rotulo + '</span><input type="text" maxlength="' + max + '" data-oab-form="' + chave + '" value="' + esc(OAB.form[chave]) + '"></label>';
+  function oabFormulario() {
+    return '<div class="mp-oab-form">' + oabCampo('NOME', 'nome', 120) + oabCampo('ENDEREÇO', 'endereco', 255) + oabCampo('TELEFONE', 'telefone', 40)
+      + '<div class="mp-oab-form-acoes"><button type="button" class="mp-oab-form-cancelar" data-oab-form-cancelar>Cancelar</button>'
+      + '<button type="button" class="mp-oab-form-ok" data-oab-form-ok' + (OAB.enviando ? ' disabled' : '') + '>Adicionar</button></div></div>';
+  }
+
+  // L491: NOTA EXPLICATIVA, o campo com o exemplo do desenho e a data da última gravação (formato DONO).
+  function oabNota(sec) {
+    const texto = OAB.rascunho !== null ? OAB.rascunho : (sec.nota ? sec.nota.texto : '');
+    return '<label class="mp-oab-nota">NOTA EXPLICATIVA<textarea rows="3" maxlength="1000" data-oab-nota placeholder="' + OAB_NOTA_EXEMPLO + '">' + esc(texto) + '</textarea>'
+      + '<span>' + (sec.nota ? esc('Atualizada em ' + dataBr(sec.nota.atualizadaEm)) : '') + '</span></label>';
+  }
+
+  function oabClique(e) {
+    const t = e.target, sec = secDe(OAB.uf);
+    if (t.closest('[data-oab-fechar]')) return fecharOab();
+    if (!sec) return;
+    if (t.closest('[data-oab-editar]')) return secAbrirEdicao(sec);
+    if (t.closest('[data-oab-sub-add]')) { OAB.form = OAB.form || { nome: '', endereco: '', telefone: '' }; OAB.msg = null; renderOab(); return elOab.querySelector('[data-oab-form="nome"]').focus(); }
+    if (t.closest('[data-oab-form-cancelar]')) { OAB.form = null; return renderOab(); }
+    if (t.closest('[data-oab-form-ok]')) return oabEnviar(SEC.dados.urlSubsecoes.replace('/XX/', '/' + OAB.uf + '/'), OAB.form, () => { OAB.form = null; });
+    const rm = t.closest('[data-oab-sub-rm]'); if (rm) return oabPedirRemocao(sec, +rm.dataset.oabSubRm);
+    if (t.closest('[data-oab-nota-salvar]')) return oabEnviar(SEC.dados.urlNota.replace('/XX/', '/' + OAB.uf + '/'), { texto: elOab.querySelector('[data-oab-nota]').value }, () => {});
+  }
+
+  // "Remover" pede a confirmação do painel (BJMasterConf, que escreve o texto com textContent).
+  function oabPedirRemocao(sec, id) {
+    const escolhida = sec.subsecoes.find(v => v.id === id); if (!escolhida || !window.BJMasterConf) return;
+    const url = SEC.dados.urlSubsecaoRemover.replace('/XX/', '/' + sec.uf + '/').replace('/0/', '/' + id + '/');
+    window.BJMasterConf.abrir({ titulo: 'Remover subseção', icone: 'bi-trash3', cor: '#a3232b', botao: 'Remover',
+      texto: 'O endereço "' + escolhida.nome + '" sai da lista da seccional. A remoção fica registrada na auditoria.',
+      aoConfirmar: () => { window.BJMasterConf.fechar(); oabEnviar(url, {}, () => {}); } });
+  }
+
+  // Um envio por vez; o sucesso mostra a mensagem do servidor e recarrega as seccionais (a janela acompanha).
+  function oabEnviar(url, corpo, aoDarCerto) {
+    if (OAB.enviando) return;
+    OAB.enviando = true; OAB.msg = null; renderOab();
+    secPostar(url, corpo, j => {
+      OAB.enviando = false; aoDarCerto(); OAB.msg = { ok: true, texto: j.mensagem }; renderOab(); window.__bjSeccionaisRecarregar();
+    }, erro => { OAB.enviando = false; OAB.msg = { ok: false, texto: erro || 'Não foi possível salvar agora. Recarregue a página.' }; renderOab(); });
+  }
+
+  // Aviso do painel (avisoHtml), embaixo do total da tabela de UFs.
+  function oabAvisar(msg) {
+    S.aviso = msg ? { ok: false, msg } : null;
+    if (S.sec === 'visao' && D.visao && document.getElementById('mp-uf-tab')) renderMapa();
+  }
+
+  // Estado que falta e linha da UF: clique ou Enter/Espaço abrem a janela (Brasil); no Mundo, só o aviso.
+  // O número da linha (data-oab-n) é comparado como número: "0" ou 0 vira "sem usuários/escritórios/primários".
+  function oabPeloAlvo(alvo) {
+    if (alvo.hasAttribute('data-oab-mundo')) return oabAvisar(OAB_SO_BRASIL);
+    const uf = alvo.dataset.oabUf, n = Number(alvo.dataset.oabN || 0);
+    if (S.aviso) oabAvisar(null);
+    abrirOab(uf, uf + ' · ' + oabQuantos(n) + ' no BlueJus');
+  }
+  elSecao.addEventListener('click', e => { const alvo = e.target.closest('[data-oab-uf], [data-oab-mundo]'); if (alvo) oabPeloAlvo(alvo); });
+  elSecao.addEventListener('keydown', e => {
+    const alvo = (e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-oab-uf], [data-oab-mundo]');
+    if (alvo) { e.preventDefault(); oabPeloAlvo(alvo); }
+  });
+  // Esc fecha a janela só quando nada está aberto por cima (Editar sede ou a confirmação): captura, antes dos outros.
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !OAB.uf) return;
+    const modal = document.getElementById('mp-modal'), conf = raiz.querySelector('[data-mp-conf]');
+    if ((modal && modal.innerHTML !== '') || (conf && !conf.hidden)) return;
+    fecharOab();
+  }, true);
+
   function renderIdades() {
     const I = D.visao.idades, F = I.faixas, tot = F.reduce((a, x) => a + x.n, 0), mx = Math.max(1, ...F.map(x => x.n));
     document.getElementById('mp-idades').innerHTML = '<div class="mp-idades-topo"><b>Faixa etária dos usuários</b><span>idade média ' + (I.media === null ? 'sem informação' : I.media + ' anos') + '</span></div>'
@@ -425,7 +599,7 @@
       + '<select class="mp-select mp-select-34" data-f-sit><option value="">Todas as situações</option><option value="Ativa"' + (S.fSit === 'Ativa' ? ' selected' : '') + '>Ativa</option><option value="Suspensa"' + (S.fSit === 'Suspensa' ? ' selected' : '') + '>Suspensa</option>'
       // C4b: as contas excluídas só aparecem nesta opção, com a data da purga.
       + '<option value="' + QUARENTENA + '"' + (S.fSit === QUARENTENA ? ' selected' : '') + '>Em quarentena</option></select>'
-      + '<label class="mp-busca"><i class="bi bi-search"></i><input data-busca value="' + esc(S.busca) + '" placeholder="Buscar conta ou primário" aria-label="Buscar conta ou primário"></label></div>'
+      + '<label class="mp-busca"><i class="bi bi-search"></i><input data-busca value="' + esc(S.busca) + '" placeholder="Buscar nº, conta ou primário" aria-label="Buscar nº, conta ou primário"></label></div>'
       + '<div id="mp-contas-aviso"></div><div class="mp-rolagem"><div class="mp-contas-grade"><div class="mp-contas-cab"><div>CONTA</div><div>PRIMÁRIO · PLANO</div><div>USUÁRIOS</div><div>PASTAS</div><div>DOCS</div><div>ARMAZENAMENTO</div><div>30 DIAS</div><div>PREVISÃO</div><div>SITUAÇÃO</div><div></div></div>'
       + '<div id="mp-contas-lista"></div></div></div></div>'
       // O menu da conta mora FORA do card e da rolagem (overflow), em posição fixa na janela: nunca é cortado.
@@ -568,16 +742,26 @@
     return '<div class="mp-conta-prev mp-hv" style="--cor:' + (mes < 3 ? '#a3232b' : '#4a6373') + '">' + (mes < 1 ? 'menos de 1 mês' : '≈ ' + n + (n === 1 ? ' mês' : ' meses')) + '</div>';
   }
 
+  // Busca da lista (desenho L752): nome e primário por trecho; o número só EXATO (n === +q). Só dígitos, com ou
+  // sem "nº"/"n°" e zeros à esquerda antes, casa a conta daquele número: "123" e "nº 000123" acham a Nº 000123,
+  // "12" não acha a 000120 e "000" não acha todas.
+  function casaNaBusca(c, b) {
+    const q = b.replace(/^n\s*[º°o]?\s*/, '');
+    if (/^\d+$/.test(q) && Number(q) === Number(c.numero)) return true;
+
+    return (c.nome + ' ' + (c.titular || '')).toLowerCase().includes(b);
+  }
+
   function renderContasLista() {
-    const b = S.busca.toLowerCase();
-    const contas = D.contas.contas.filter(c => (S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA) && (!b || (c.nome + ' ' + (c.titular || '')).toLowerCase().includes(b)));
+    const b = S.busca.toLowerCase().trim();
+    const contas = D.contas.contas.filter(c => (S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA) && (!b || casaNaBusca(c, b)));
     document.getElementById('mp-contas-n').textContent = num(contas.length) + ' · botão direito na linha para ações';
     // Resultado de suspender/reativar: uma linha acima da tabela, até trocar de seção.
     document.getElementById('mp-contas-aviso').innerHTML = avisoHtml();
     document.getElementById('mp-contas-lista').innerHTML = contas.length ? contas.map(c => {
       const sit = situacaoVisivel(c), cor = ST[sit] || '#4a6373';
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
-        + '<div class="mp-conta-nome mp-hv"><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b><span>desde ' + esc(c.desde) + ' · último acesso ' + esc(acessoRelativo(c.ultimoAcesso)) + '</span></div>'
+        + '<div class="mp-conta-nome mp-hv"><span class="mp-conta-titulo"><span class="mp-conta-nro" title="Número da conta (ordem de abertura)">Nº ' + esc(c.numero) + '</span><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b></span><span>desde ' + esc(c.desde) + ' · último acesso ' + esc(acessoRelativo(c.ultimoAcesso)) + '</span></div>'
         + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || 'titular não registrado') + '</span><span>' + esc(c.espaco.planoNome) + '</span></div>'
         + '<div class="mp-conta-usu mp-hv"><b>' + num(c.usuarios) + '</b><span> / ' + (c.espaco.limiteUsuarios === null ? 'sem limite' : num(c.espaco.limiteUsuarios)) + '</span></div>'
         + '<div class="mp-conta-num mp-hv">' + num(c.pastas) + '</div><div class="mp-conta-num mp-hv">' + num(c.documentos) + '</div>'

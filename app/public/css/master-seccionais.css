@@ -61,3 +61,91 @@
 .mp-sec-div-vazio { font-size: 11px; color: var(--sec-nota); }
 
 .mp-sec-oab-nota { display: block; font-size: 10.5px; color: var(--sec-nota); margin-top: 6px; line-height: 1.4; }
+
+/* ---------- Janela da OAB dos estados que faltam (spec docs/specs/master-oab-estados-que-faltam.md) ----------
+   Desenho: o mesmo arquivo do bloco acima, L118 (linha da UF), L140 (item dos que faltam) e L481-495 (janela da OAB).
+   Estilos inline do desenho copiados 1:1 em classes, com a linha ao lado. Montado por public/js/master/painel.js
+   (faltamItem, oabJanela). O item usa classes próprias (mp-faltam-uf): as regras antigas de .mp-faltam-item do
+   master.css (filhos por posição, o "0") não servem ao item novo, que tem ícone de nota, subtítulo e seta. */
+
+/* L118: linha da UF, com o realce do desenho (style-hover) e a mão só onde há clique (`u.cur`, Brasil). */
+.mp-uf-lin:hover { background: #f5fafd; }
+.mp-uf-lin.is-oab { cursor: pointer; }
+
+/* L140: item dos que faltam. No Mundo, o mesmo visual (mão, realce e seta); o clique só mostra o aviso do painel. */
+.mp-faltam-uf { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 12px; color: #4f6878; }
+.mp-faltam-uf.is-oab { cursor: pointer; transition: background .12s; }
+.mp-faltam-uf.is-oab:hover, .mp-faltam-uf.is-oab:focus-visible { background: #e5f1f7; color: #0a6fa0; }
+.mp-faltam-uf > .mp-faltam-ponto { width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid #9cb3c2; flex: none; }
+.mp-faltam-uf > .mp-faltam-nome { flex: 1; }
+.mp-faltam-uf > .bi-sticky-fill { font-size: 11px; color: #c08a12; }
+.mp-faltam-uf > .mp-faltam-sub { font-size: 11px; color: #9aabb7; }
+.mp-faltam-uf > .bi-chevron-right { font-size: 10px; color: #b7c6d1; }
+
+/* Aviso do painel (.mp-aviso do master.css) embaixo do total da tabela de UFs: "só para os estados do Brasil" ou
+   a falha da carga das seccionais. Mais compacto, na medida das linhas da tabela. */
+.mp-uf-tab > .mp-aviso { padding: 6px 10px; font-size: 12px; }
+
+/* Com a janela aberta (z-index 9400 do desenho), o "Editar sede" e a confirmação do painel sobem por cima dela. */
+.mp.mp-oab-aberta .mp-lim-fundo, .mp.mp-oab-aberta .mp-conf-fundo { z-index: 9402; }
+
+/* L482-483: fundo e caixa. */
+.mp-oab-fundo { position: fixed; inset: 0; z-index: 9400; background: rgba(18, 36, 47, .35); }
+.mp-oab-centro { position: fixed; inset: 0; z-index: 9401; display: flex; align-items: center; justify-content: center; padding: 12px; pointer-events: none; }
+.mp-oab-centro > .mp-oab { pointer-events: auto; width: min(520px, 100%); max-height: 92vh; overflow: auto; background: #fff; border-radius: 4px; box-shadow: 0 20px 50px rgba(18, 36, 47, .25); }
+
+/* L484: faixa azul com bi-bank, título (oabPopTit), subtítulo (oabPopSub) e o X. */
+.mp-oab > .mp-oab-cab { background: #0a6fa0; color: #fff; padding: 12px 18px; display: flex; align-items: center; gap: 10px; }
+.mp-oab-cab > .mp-oab-cab-txt { flex: 1; min-width: 0; }
+.mp-oab-cab-txt > b { display: block; font-size: 15px; }
+.mp-oab-cab-txt > span { font-size: 12px; opacity: .85; }
+.mp-oab-cab > button { width: 30px; height: 30px; border: none; border-radius: 3px; background: rgba(255, 255, 255, .15); color: #fff; cursor: pointer; }
+
+/* L485: corpo em coluna. */
+.mp-oab > .mp-oab-corpo { padding: 14px 18px; display: flex; flex-direction: column; gap: 12px; }
+
+/* L486: SECCIONAL · SEDE. A cor do endereço (`oabSecCor`) é DONO: texto normal com endereço, cinza sem ele. */
+.mp-oab-corpo > .mp-oab-sede { border: 1px solid #e1e8ed; border-radius: 4px; padding: 10px 12px; }
+.mp-oab-sede > .mp-oab-tit, .mp-oab-subs > .mp-oab-tit { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.mp-oab-tit > b { flex: 1; font-size: 12px; letter-spacing: .5px; color: #4a6373; }
+.mp-oab-tit > .mp-oab-editar { height: 24px; padding: 0 8px; border: 1px solid #d3dde4; border-radius: 3px; background: #fff; color: #0a6fa0; font: inherit; font-size: 11.5px; cursor: pointer; }
+.mp-oab-sede > .mp-oab-end { font-size: 13.5px; color: #34505f; }
+.mp-oab-sede > .mp-oab-end.is-vazio { color: #7a8e9b; }
+.mp-oab-sede > .mp-oab-tel { font-size: 12.5px; color: #34505f; margin-top: 3px; }
+.mp-oab-sede > .mp-oab-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; font-size: 12.5px; }
+
+/* L487-489: SUBSEÇÕES, "Adicionar endereço", texto vazio e a lista com "Remover". */
+.mp-oab-subs > .mp-oab-tit { margin-bottom: 6px; }
+.mp-oab-tit > .mp-oab-add { height: 24px; padding: 0 8px; border: 1px dashed #9fc3d8; border-radius: 3px; background: #f5fafd; color: #0a6fa0; font: inherit; font-size: 11.5px; font-weight: bold; cursor: pointer; }
+.mp-oab-subs > .mp-oab-subs-vazio { font-size: 12.5px; color: #7a8e9b; }
+.mp-oab-subs > .mp-oab-sub { display: flex; gap: 8px; align-items: flex-start; padding: 7px 0; border-top: 1px solid #f0f4f7; }
+.mp-oab-sub > .bi-geo-alt { color: #0a6fa0; margin-top: 2px; }
+.mp-oab-sub > span { flex: 1; min-width: 0; font-size: 13px; }
+.mp-oab-sub > span > b { display: block; }
+.mp-oab-sub > span > span { color: #34505f; }
+.mp-oab-sub > span > .mp-oab-sub-tel { display: block; font-size: 12px; color: #5b7383; }
+.mp-oab-sub > button { width: 24px; height: 24px; border: none; background: transparent; color: #a3232b; cursor: pointer; }
+
+/* Formulário de "Adicionar endereço": o desenho não o mostra (convenção), nos tons e medidas da própria janela. */
+.mp-oab-subs > .mp-oab-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; padding: 8px 10px; border: 1px dashed #9fc3d8; border-radius: 3px; background: #f5fafd; }
+.mp-oab-form > .mp-oab-campo { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 11px; font-weight: bold; letter-spacing: .5px; color: #4a6373; }
+.mp-oab-campo > input { height: 32px; border: 1px solid #d3dde4; border-radius: 3px; padding: 0 9px; font: inherit; font-size: 13.5px; font-weight: normal; letter-spacing: 0; color: #12242f; }
+.mp-oab-form > .mp-oab-form-acoes { display: flex; justify-content: flex-end; gap: 8px; }
+.mp-oab-form-acoes > button { height: 28px; padding: 0 11px; border-radius: 3px; font: inherit; font-size: 12.5px; cursor: pointer; }
+.mp-oab-form-acoes > .mp-oab-form-cancelar { border: 1px solid #d3dde4; background: #fff; color: #34505f; }
+.mp-oab-form-acoes > .mp-oab-form-ok { border: none; background: #0a6fa0; color: #fff; font-weight: bold; }
+
+/* L491: NOTA EXPLICATIVA, o campo e a data da última gravação (`oabNotaEm`). */
+.mp-oab-corpo > .mp-oab-nota { display: flex; flex-direction: column; gap: 5px; margin: 0; font-size: 12px; font-weight: bold; letter-spacing: .5px; color: #4a6373; }
+.mp-oab-nota > textarea { border: 1px solid #d3dde4; border-radius: 3px; padding: 8px 9px; font: inherit; font-size: 13.5px; font-weight: normal; letter-spacing: 0; resize: vertical; }
+.mp-oab-nota > span { font-weight: normal; letter-spacing: 0; font-size: 11.5px; color: #7a8e9b; }
+
+/* Resposta do servidor (convenção): recusa em vermelho, sucesso em verde, como as mensagens do painel. */
+.mp-oab-corpo > .mp-oab-msg { font-size: 12.5px; color: #a3232b; }
+.mp-oab-corpo > .mp-oab-msg.is-ok { color: #1e7b45; }
+
+/* L493: rodapé com "Fechar" e "Salvar nota". */
+.mp-oab > .mp-oab-rodape { padding: 10px 18px; border-top: 1px solid #eef2f5; display: flex; justify-content: flex-end; gap: 8px; }
+.mp-oab-rodape > .mp-oab-fechar { height: 34px; padding: 0 13px; border: 1px solid #d3dde4; border-radius: 3px; background: #fff; color: #34505f; font: inherit; font-size: 13.5px; cursor: pointer; }
+.mp-oab-rodape > .mp-oab-salvar { height: 34px; padding: 0 15px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font: inherit; font-size: 13.5px; font-weight: bold; cursor: pointer; }
+.mp-oab button:disabled { opacity: .6; cursor: not-allowed; }
