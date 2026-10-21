@@ -70,9 +70,11 @@ final class CriarEscritorioUseCase
             if ($resultado->status === StatusOab::Confirmada) {
                 $criador->setOabVerificadaEm(new \DateTimeImmutable());
             }
-            // A inscrição principal (se já existe) acompanha a situação gravada no User (spec meu-perfil-oab §2).
-            $this->espelhoOab->doUsuarioParaPrincipal($criador);
         }
+
+        // A inscrição principal existe e acompanha a OAB gravada no User, também quando ela já era confirmada; sem
+        // ela a pessoa sai da fila de revisão do Master (spec oab-revisao-por-inscricao).
+        $this->espelhoOab->garantirPrincipal($criador);
 
         $tenant = new Tenant();
         $tenant->setName($input->nome);

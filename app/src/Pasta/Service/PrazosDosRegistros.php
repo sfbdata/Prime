@@ -11,6 +11,8 @@ use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaPrazo;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Mantém os prazos LIDOS dos registros da pasta (desenho 1.2.3, `pzLista` sobre os registros com `lerDatas`, E12c).
@@ -19,12 +21,30 @@ use Doctrine\ORM\EntityManagerInterface;
  * que já é prazo), passa cada texto pelo {@see LeitorDeDatas} com a data do próprio registro como base, tira os
  * repetidos (mesmo tipo e mesma data na pasta, como o desenho) e acerta a tabela: cria o que apareceu, apaga o que
  * sumiu, não mexe no que continua igual. Os prazos manuais não são tocados. Quem chama dá o flush.
+ *
+ * Calendário do sistema na estimativa (docs/specs/prazo-feriado-calendario.md): só para registro criado a partir de
+ * `PRAZOS_CALENDARIO_DESDE` (data AAAA-MM-DD), com a UF do escritório da pasta. Vazia ou inválida, desligado: todo
+ * registro usa o cálculo antigo, e registro mais antigo que o marco continua com ele mesmo relido, para nenhum prazo
+ * já gravado mudar de data.
  */
 final class PrazosDosRegistros
 {
+    private readonly ?\DateTimeImmutable $calendarioDesde;
+
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly DiasUteisDoEscritorio $diasUteis,
+        #[Autowire('%prazos_calendario_desde%')]
+        string $calendarioDesde = '',
+        ?LoggerInterface $logger = null,
     ) {
+        $desde = trim($calendarioDesde);
+        $marco = \DateTimeImmutable::createFromFormat('!Y-m-d', $desde);
+        $this->calendarioDesde = $marco !== false && $marco->format('Y-m-d') === $desde ? $marco : null;
+        if ($desde !== '' && $this->calendarioDesde === null) {
+            // Desligado do mesmo jeito (o lado seguro), mas quem configurou fica sabendo.
+            $logger?->warning('PRAZOS_CALENDARIO_DESDE inválida: use AAAA-MM-DD. O cálculo antigo continua valendo.', ['valor' => $desde]);
+        }
     }
 
     /** @return array{criados: int, apagados: int} */
@@ -38,7 +58,8 @@ final class PrazosDosRegistros
         $desejados = [];
         $vistos = [];
         foreach ($this->registros($pasta) as [$ref, $html, $escritoEm, $autor]) {
-            foreach (LeitorDeDatas::ler(LeitorDeDatas::textoDoHtml($html), $escritoEm) as $d) {
+            $calendario = $this->calendarioDoRegistro($escritoEm, $tenant->getEstado());
+            foreach (LeitorDeDatas::ler(LeitorDeDatas::textoDoHtml($html), $escritoEm, $calendario) as $d) {
                 $chaveDia = $d['tipo'] . $d['data'];
                 if (isset($vistos[$chaveDia])) {
                     continue;
@@ -66,6 +87,16 @@ final class PrazosDosRegistros
         }
 
         return ['criados' => count($desejados), 'apagados' => $apagados];
+    }
+
+    /** Null = cálculo antigo: marco vazio ou registro criado antes dele. */
+    public function calendarioDoRegistro(\DateTimeImmutable $criadoEm, ?string $uf): ?DiasUteisDaUf
+    {
+        if ($this->calendarioDesde === null || $criadoEm < $this->calendarioDesde) {
+            return null;
+        }
+
+        return $this->diasUteis->daUf($uf);
     }
 
     /**
