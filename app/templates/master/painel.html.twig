@@ -149,6 +149,7 @@
     {# Aba "Telas e recursos" (desenho linhas 299-309; spec docs/specs/perfis-1.2-telas-e-recursos.md §3). Os grupos e
        os itens são desenhados por public/js/master/recursos.js a partir de data-recursos (estado efetivo do servidor). #}
     <div class="mp-rec" data-painel-aba="rec" hidden>
+        {% include 'master/_recursos_tema.html.twig' %}
         <div class="mp-rec-card" data-mp-recursos
              data-recursos="{{ recursos|json_encode|e('html_attr') }}"
              data-url="{{ path('master_recurso_alternar', {chave: 'CHAVE'})|e('html_attr') }}"
