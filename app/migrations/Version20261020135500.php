@@ -16,7 +16,7 @@ use Doctrine\Migrations\AbstractMigration;
  * `escritorio_do_candidato` (o resto do dump já divergia antes e não é desta fatia). As candidaturas que
  * já existem ficam sem escritório.
  */
-final class Version20261019235800 extends AbstractMigration
+final class Version20261020135500 extends AbstractMigration
 {
     public function getDescription(): string
     {
