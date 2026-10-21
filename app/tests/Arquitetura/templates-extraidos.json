@@ -1,0 +1,18 @@
+{
+    "_leia": "Templates cujo texto já mora no catálogo (spec idioma-do-sistema). Texto novo neles entra por |trans. 'permitidos' são textos que ficam como estão (marca, sigla, exemplo).",
+
+    "moldura": {
+        "templates": [],
+        "permitidos": []
+    },
+
+    "menu": {
+        "templates": [],
+        "permitidos": []
+    },
+
+    "perfil": {
+        "templates": [],
+        "permitidos": []
+    }
+}

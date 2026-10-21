@@ -624,6 +624,8 @@
 
         {# Formatos de data e número pelo <html lang> (spec idioma-do-sistema, entrega 2); sem defer: quem usa pode vir antes. #}
         <script src="{{ asset('js/bj-formato.js') }}"></script>
+        {{ catalogo_js('moldura.js', 'menu.usuario.js') }}
+        <script src="{{ asset('js/bj-traducao.js') }}"></script>
         <script src="{{ asset('js/novidades.js') }}" defer></script>
         <script src="{{ asset('js/menu-usuario.js') }}" defer></script>
         {% block javascripts %}{% endblock %}

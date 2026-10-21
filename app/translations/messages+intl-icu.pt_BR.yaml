@@ -1,0 +1,15 @@
+# Catálogo do português, a fonte do texto da tela (spec docs/specs/idioma-do-sistema.md, entrega 3 em diante).
+# Um bloco por área, na ordem das entregas; cada PR de área mexe só no seu bloco.
+# Formato ICU: parâmetro é {nome}; apóstrofo se escreve ''. Chave do JS (sob <area>.js) só usa {nome}, sem plural.
+# Não entram: nomes dos idiomas (cada um no próprio idioma), nomes de pessoas, números, CPF/CNPJ, citações de lei.
+
+# ---- moldura: base, barra lateral e avisos comuns (layout/_globais)
+moldura: {}
+
+# ---- menu do usuário (menu_usuario/*, menu-usuario.js)
+menu: {}
+
+# ---- Meu Perfil (profile/*, meu-perfil.js)
+perfil: {}
+
+# ---- fim
