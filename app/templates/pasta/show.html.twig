@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="/css/pasta-explorador.css">
 {# Redesenho da tela de pasta — desenho aprovado em docs/design/pasta-show/. #}
 <link rel="stylesheet" href="/css/pasta-show.css">
+<link rel="stylesheet" href="{{ asset('css/meta-numero-global.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-prazos.css') }}">
 <link rel="stylesheet" href="{{ asset('css/cliente-cadastro.css') }}">
 <link rel="stylesheet" href="{{ asset('css/pasta-andamento.css') }}">
@@ -4553,6 +4554,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-prazos.js') }}"></script>
 {# Andamento da pasta em fases (E12b). #}
 <script src="{{ asset('js/pasta-andamento.js') }}"></script>
+{{ catalogo_js('cliente.js') }}
 <script src="{{ asset('js/cliente-cadastro.js') }}"></script>
 {# Presença do autor nos cartões (desenho 02, dc L1398): escuta o batimento da Central; `defer` porque a Central entra depois do bloco. #}
 <script src="{{ asset('js/pasta-presenca-autor.js') }}" defer></script>

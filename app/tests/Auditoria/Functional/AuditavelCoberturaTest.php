@@ -67,6 +67,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Cobrança automática do checklist (desenho 02): estado operacional da rotina (datas dos envios,
         // previsão); cada aviso que sai já fica na caixa da pessoa. Auditar daria uma linha por dia por item.
         \App\Pasta\Entity\PastaChecklistCobranca::class,
+        // Contador da sequência de metas do escritório: estado operacional (o último número entregue), gravado
+        // só por SQL. O número que vale fica na própria meta, que é Auditavel e já entra na trilha ao nascer.
+        \App\Tarefa\Entity\NumeracaoDeMetas::class,
 
         // Preferência pessoal de tela (densidade, animações, setas, colunas ocultas do Dashboard):
         // estilo de quem olha, sem efeito sobre dado nenhum do escritório. Auditar cada clique no
@@ -112,6 +115,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\CampanhaDeEmail::class,
         \App\Comercial\Entity\DestinoDaCampanha::class,
         \App\Comercial\Entity\ControleDoExpansor::class,
+        // Marcas do Relatório (comercial-marcas.md): estrela, arquivo e "remover" de cada Master, só organizam a lista
+        // dele e não mudam campanha nem envio. O que importa já tem trilha manual (camp_csv na exportação).
+        \App\Comercial\Entity\CampanhaMarca::class,
         // E-mails do cliente do "Avisar cliente" (push-avisar-cliente §1): dado pessoal que acompanha a decisão
         // do Cliente (não auditado). Auditar copiaria cada endereço para o audit_log, onde ele ficaria mesmo
         // depois de o escritório removê-lo; o cadastro já fica no histórico de envios da pasta.
@@ -178,6 +184,7 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Agenda\Entity\ConexaoGoogleAgenda::class,
         \App\Agenda\Entity\LigacaoComGoogle::class,
         \App\Agenda\Entity\PrazoNoGoogle::class,
+        \App\Agenda\Entity\DataNoGoogle::class,
         \App\Agenda\Entity\ExclusaoNoGoogle::class,
         \App\Agenda\Entity\VarreduraDoGoogle::class,
         // Pergunta da aba Perguntar da BlueJus IA (drawer, F3, 19/10): a conversa é da pessoa, e o AuditLogSubscriber

@@ -8,7 +8,7 @@
    ao filtrar — é o que mantém o foco no campo de busca, padrão do Expediente.
 #}
 
-{% block title %}Minhas Metas{% endblock %}
+{% block title %}{{ 'metas.titulo'|trans }}{% endblock %}
 
 {% set aba = painel.aba %}
 
@@ -22,17 +22,17 @@
                `.mm-titulo` e não muda. #}
             <div class="mm-cabecalho min-w-0">
                 <div class="mm-cabecalho-linha">
-                    <h1 class="mm-titulo">Minhas Metas</h1>
+                    <h1 class="mm-titulo">{{ 'metas.titulo'|trans }}</h1>
                     {# Hora em que o servidor leu as metas — informação real; a recarga parcial do filtro
                        traz a hora da nova leitura (`data-mm-lido-as` no fragmento) e o script abaixo a copia. #}
-                    <span class="mm-atualizado"><span class="mm-atualizado-ponto" aria-hidden="true"></span>Atualizado às <span data-mm-atualizado-hora>{{ 'now'|date('H:i') }}</span></span>
+                    <span class="mm-atualizado"><span class="mm-atualizado-ponto" aria-hidden="true"></span>{{ 'metas.atualizado_as'|trans }} <span data-mm-atualizado-hora>{{ 'now'|hora }}</span></span>
                 </div>
-                <p class="mm-subtitulo">O que está com você, o que você delegou e o que você acompanha.</p>
+                <p class="mm-subtitulo">{{ 'metas.subtitulo'|trans }}</p>
             </div>
             <div class="flex-grow-1"></div>
             <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
-                <li class="breadcrumb-item active">Minhas Metas</li>
+                <li class="breadcrumb-item"><a href="{{ path('homepage') }}">{{ 'metas.migalha.home'|trans }}</a></li>
+                <li class="breadcrumb-item active">{{ 'metas.titulo'|trans }}</li>
             </ol>
         </div>
     </div>
@@ -44,23 +44,23 @@
         {# ── KPIs: atalhos, não resumo do filtro ── #}
         {% set kpis = painel.kpis %}
         {% set atalhos = [
-            { chave: 'atrasadas',  rotulo: 'Atrasadas',           valor: kpis.atrasadas,          sub: 'sob sua responsabilidade',      tom: 'danger', icone: 'bi-exclamation-octagon', destino: { aba: 'responsavel', prazo: 'vencidas' } },
-            { chave: 'proximas',   rotulo: 'Vencem em 7 dias',    valor: kpis.proximas,           sub: 'ainda dá tempo',                tom: 'warn',   icone: 'bi-hourglass-split',     destino: { aba: 'responsavel', prazo: 'proximas' } },
-            { chave: 'revisao',    rotulo: 'Aguardando sua revisão', valor: kpis.aguardando_revisao, sub: 'criadas por você',           tom: 'accent', icone: 'bi-clipboard2-check',    destino: { aba: 'criei' } },
-            { chave: 'sem_prazo',  rotulo: 'Sem prazo',           valor: kpis.sem_prazo,          sub: 'abertas sem data definida',     tom: 'cinza',  icone: 'bi-calendar-x',          destino: { aba: 'responsavel', prazo: 'sem' } }
+            { chave: 'atrasadas',  rotulo: 'metas.prazo.atrasadas'|trans, valor: kpis.atrasadas,          sub: 'metas.kpis.sob_sua_responsabilidade'|trans, tom: 'danger', icone: 'bi-exclamation-octagon', destino: { aba: 'responsavel', prazo: 'vencidas' } },
+            { chave: 'proximas',   rotulo: 'metas.prazo.vencem_em_7_dias'|trans, valor: kpis.proximas,           sub: 'metas.kpis.ainda_da_tempo'|trans, tom: 'warn',   icone: 'bi-hourglass-split',     destino: { aba: 'responsavel', prazo: 'proximas' } },
+            { chave: 'revisao',    rotulo: 'metas.kpis.aguardando_sua_revisao'|trans, valor: kpis.aguardando_revisao, sub: 'metas.kpis.criadas_por_voce'|trans, tom: 'accent', icone: 'bi-clipboard2-check',    destino: { aba: 'criei' } },
+            { chave: 'sem_prazo',  rotulo: 'metas.prazo.sem_prazo'|trans, valor: kpis.sem_prazo,          sub: 'metas.kpis.abertas_sem_data'|trans, tom: 'cinza',  icone: 'bi-calendar-x',          destino: { aba: 'responsavel', prazo: 'sem' } }
         ] %}
         <div class="mm-kpis mb-3">
             {% for k in atalhos %}
                 {% set ativo = (k.destino.aba == aba.value) and ((k.destino.prazo|default('')) == filtros.prazo) and (k.destino.prazo is defined or filtros.prazo == '') %}
                 <a href="{{ path('tarefa_minhas', k.destino) }}"
                    class="mm-kpi tom-{{ k.tom }} {{ ativo and k.destino.prazo is defined ? 'is-ativo' : '' }}"
-                   title="Ver {{ k.rotulo|lower }}">
+                   title="{{ 'metas.kpis.ver'|trans({rotulo: k.rotulo|lower}) }}">
                     {# Indicador do desenho (dc L54-61): halo, ícone, rótulo sublinhado na cor, número
                        grande e faixa inferior. O número das atrasadas só fica vermelho se houver atrasadas. #}
                     <span class="mm-kpi-halo" aria-hidden="true"></span>
                     <span class="mm-kpi-icone" aria-hidden="true"><i class="bi {{ k.icone }}"></i></span>
                     <span class="mm-kpi-rotulo">{{ k.rotulo }}</span>
-                    <span class="mm-kpi-valor{{ k.chave == 'atrasadas' and k.valor > 0 ? ' is-alerta' : '' }}">{{ k.valor }}</span>
+                    <span class="mm-kpi-valor{{ k.chave == 'atrasadas' and 0 < k.valor ? ' is-alerta' : '' }}">{{ k.valor }}</span>
                     <span class="mm-kpi-sub">{{ k.sub }}</span>
                     <span class="mm-kpi-faixa" aria-hidden="true"></span>
                 </a>
@@ -70,10 +70,10 @@
         {# ── Abas (papel) + modo de exibição ── #}
         {% set contagens = painel.contagensPorAba %}
         {% set abas = [
-            { valor: 'responsavel',  rotulo: 'Sou responsável',   icone: 'bi-person-check' },
-            { valor: 'criei',        rotulo: 'Criei',             icone: 'bi-send' },
-            { valor: 'acompanhando', rotulo: 'Em acompanhamento', icone: 'bi-bookmark' },
-            { valor: 'todas',        rotulo: 'Todas',             icone: 'bi-layers' }
+            { valor: 'responsavel',  rotulo: 'metas.abas.responsavel'|trans, icone: 'bi-person-check' },
+            { valor: 'criei',        rotulo: 'metas.abas.criei'|trans, icone: 'bi-send' },
+            { valor: 'acompanhando', rotulo: 'metas.abas.acompanhando'|trans, icone: 'bi-bookmark' },
+            { valor: 'todas',        rotulo: 'metas.abas.todas'|trans, icone: 'bi-layers' }
         ] %}
         {# Só filtros preenchidos entram na URL — parâmetro vazio na barra de endereço é ruído,
            e `modo` só aparece quando não é o padrão (cartões). #}
@@ -85,9 +85,9 @@
            Rótulos do prazo do desenho (dc L78); os valores `vencidas`/`proximas`/`sem` não mudam (KPIs).
            "Limpar filtros" (dc L79): o motor só desenha o botão com filtro ativo e zera busca e selects,
            não a aba (campo oculto sem `js-filtro-campo`). #}
-        <div data-filtro-root data-filtro-endpoint="{{ path('tarefa_minhas') }}" data-ft-rotulo-limpar="Limpar filtros">
+        <div data-filtro-root data-filtro-endpoint="{{ path('tarefa_minhas') }}" data-ft-rotulo-limpar="{{ 'metas.filtros.limpar'|trans }}">
             <div class="mm-barra-cartao">
-                <div class="mm-abas" role="tablist" aria-label="Papel nas metas">
+                <div class="mm-abas" role="tablist" aria-label="{{ 'metas.abas.rotulo'|trans }}">
                     {% for a in abas %}
                         <a href="{{ path('tarefa_minhas', comModo|merge({aba: a.valor})) }}"
                            class="mm-aba {{ aba.value == a.valor ? 'is-ativa' : '' }}"
@@ -101,33 +101,33 @@
                 </div>
                 <span class="mm-barra-sep" aria-hidden="true"></span>
             {{ include('_partials/_filtro_barra.html.twig', {
-                busca_placeholder: 'Buscar por título, pasta ou cliente',
+                busca_placeholder: 'metas.filtros.busca_placeholder'|trans,
                 filtros: filtros,
                 facetas: [
-                    { name: 'status', rotulo: 'Status', tipo: 'select', opcoes: [
-                        { valor: 'pendente', label: 'Pendente' },
-                        { valor: 'em_revisao', label: 'Para Revisão' },
-                        { valor: 'concluida', label: 'Concluída' }
+                    { name: 'status', rotulo: 'metas.filtros.status'|trans, tipo: 'select', opcoes: [
+                        { valor: 'pendente', label: 'metas.status.pendente'|trans },
+                        { valor: 'em_revisao', label: 'metas.status.para_revisao'|trans },
+                        { valor: 'concluida', label: 'metas.status.concluida'|trans }
                     ] },
-                    { name: 'prioridade', rotulo: 'Prioridade', tipo: 'select', opcoes: [
-                        { valor: 'normal', label: 'Normal' },
-                        { valor: 'prioridade', label: 'Prioridade' },
-                        { valor: 'urgente', label: 'Urgente' }
+                    { name: 'prioridade', rotulo: 'metas.filtros.prioridade'|trans, tipo: 'select', opcoes: [
+                        { valor: 'normal', label: 'metas.prioridade.normal'|trans },
+                        { valor: 'prioridade', label: 'metas.prioridade.prioridade'|trans },
+                        { valor: 'urgente', label: 'metas.prioridade.urgente'|trans }
                     ] },
-                    { name: 'prazo', rotulo: 'Prazo', tipo: 'select', opcoes: [
-                        { valor: 'vencidas', label: 'Atrasadas' },
-                        { valor: 'proximas', label: 'Vencem em 7 dias' },
-                        { valor: 'sem', label: 'Sem prazo' }
+                    { name: 'prazo', rotulo: 'metas.filtros.prazo'|trans, tipo: 'select', opcoes: [
+                        { valor: 'vencidas', label: 'metas.prazo.atrasadas'|trans },
+                        { valor: 'proximas', label: 'metas.prazo.vencem_em_7_dias'|trans },
+                        { valor: 'sem', label: 'metas.prazo.sem_prazo'|trans }
                     ] }
                 ]
             }) }}
-                <div class="mm-modos" role="group" aria-label="Modo de exibição">
+                <div class="mm-modos" role="group" aria-label="{{ 'metas.modos.rotulo'|trans }}">
                     <a href="{{ path('tarefa_minhas', base|merge({aba: aba.value})) }}"
-                       class="mm-modo {{ painel.modoLista ? '' : 'is-ativo' }}" title="Cartões" aria-label="Cartões">
+                       class="mm-modo {{ painel.modoLista ? '' : 'is-ativo' }}" title="{{ 'metas.modos.cartoes'|trans }}" aria-label="{{ 'metas.modos.cartoes'|trans }}">
                         <i class="bi bi-grid-1x2"></i>
                     </a>
                     <a href="{{ path('tarefa_minhas', base|merge({aba: aba.value, modo: 'lista'})) }}"
-                       class="mm-modo {{ painel.modoLista ? 'is-ativo' : '' }}" title="Lista" aria-label="Lista">
+                       class="mm-modo {{ painel.modoLista ? 'is-ativo' : '' }}" title="{{ 'metas.modos.lista'|trans }}" aria-label="{{ 'metas.modos.lista'|trans }}">
                         <i class="bi bi-list-ul"></i>
                     </a>
                 </div>
@@ -145,6 +145,7 @@
 {% block javascripts %}
 {{ parent() }}
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
+{{ catalogo_js('metas.js') }}
 <script>
 // A aba e o modo são estado da tela, não filtro: entram no form de filtro como campos
 // ocultos para sobreviverem à recarga parcial. Sem isso, filtrar dentro de "Criei" jogaria
@@ -226,7 +227,7 @@ document.addEventListener('click', function (e) {
         botao.classList.toggle('is-marcada', d.acompanhando);
         var icone = botao.querySelector('i');
         if (icone) { icone.className = d.acompanhando ? 'bi bi-bookmark-fill' : 'bi bi-bookmark'; }
-        botao.title = d.acompanhando ? 'Parar de acompanhar' : 'Acompanhar esta meta';
+        botao.title = d.acompanhando ? BJ_T.t('metas.js.parar_de_acompanhar') : BJ_T.t('metas.js.acompanhar_esta_meta');
         botao.setAttribute('aria-pressed', d.acompanhando ? 'true' : 'false');
 
         // O clique muda o conteúdo de OUTRA aba, então o badge dela tem de acompanhar na
@@ -314,4 +315,5 @@ document.addEventListener('click', function (e) {
 {{ parent() }}
 <link rel="stylesheet" href="{{ asset('css/filtro-tabela.css') }}">
 <link rel="stylesheet" href="{{ asset('css/minhas-metas.css') }}">
+<link rel="stylesheet" href="{{ asset('css/meta-numero-global.css') }}">
 {% endblock %}

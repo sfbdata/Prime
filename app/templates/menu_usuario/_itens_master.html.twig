@@ -9,14 +9,14 @@
 #}
 {% set _painel = path('master_painel') %}
 {% set _itensMaster = [
-    {icone: 'bi-shield-check',  titulo: 'Painel do Master',              sub: 'Visão geral do sistema',                 href: _painel ~ '#aba=painel&sec=visao'},
-    {icone: 'bi-buildings',     titulo: 'Contas e escritórios',          sub: 'Suspender, reativar e limites',          href: _painel ~ '#aba=painel&sec=contas'},
-    {icone: 'bi-hdd-stack',     titulo: 'Planos e armazenamento',        sub: 'Franquias e consumo por conta',          href: _painel ~ '#aba=painel&sec=arm'},
-    {icone: 'bi-journal-check', titulo: 'Segurança e auditoria',         sub: 'Registro de ações e PDF',                href: _painel ~ '#aba=painel&sec=audit'},
-    {icone: 'bi-key',           titulo: 'Permissões e Masters',          sub: 'Promover ou remover Master',             href: _painel ~ '#aba=perm'},
-    {icone: 'bi-briefcase',     titulo: 'Central de vagas e currículos', sub: 'Pedidos de divulgação e candidatos',     href: path('trabalho_externo_index') ~ '#mod=vagas'},
-    {icone: 'bi-send',          titulo: 'Campanha por e-mail',           sub: 'Enviar vagas para a base de contatos',   href: path('trabalho_externo_index') ~ '#camp=1'},
-    {icone: 'bi-sliders',       titulo: 'Configurações globais',         sub: 'Regras que valem para todas as contas', href: _painel ~ '#aba=painel&sec=config'},
+    {icone: 'bi-shield-check',  titulo: 'menu.usuario.master.painel.titulo'|trans, sub: 'menu.usuario.master.painel.sub'|trans, href: _painel ~ '#aba=painel&sec=visao'},
+    {icone: 'bi-buildings',     titulo: 'menu.usuario.master.contas.titulo'|trans, sub: 'menu.usuario.master.contas.sub'|trans, href: _painel ~ '#aba=painel&sec=contas'},
+    {icone: 'bi-hdd-stack',     titulo: 'menu.usuario.master.armazenamento.titulo'|trans, sub: 'menu.usuario.master.armazenamento.sub'|trans, href: _painel ~ '#aba=painel&sec=arm'},
+    {icone: 'bi-journal-check', titulo: 'menu.usuario.master.auditoria.titulo'|trans, sub: 'menu.usuario.master.auditoria.sub'|trans, href: _painel ~ '#aba=painel&sec=audit'},
+    {icone: 'bi-key',           titulo: 'menu.usuario.master.permissoes.titulo'|trans, sub: 'menu.usuario.master.permissoes.sub'|trans, href: _painel ~ '#aba=perm'},
+    {icone: 'bi-briefcase',     titulo: 'menu.usuario.master.vagas.titulo'|trans, sub: 'menu.usuario.master.vagas.sub'|trans, href: path('trabalho_externo_index') ~ '#mod=vagas'},
+    {icone: 'bi-send',          titulo: 'menu.usuario.master.campanha.titulo'|trans, sub: 'menu.usuario.master.campanha.sub'|trans, href: path('trabalho_externo_index') ~ '#camp=1'},
+    {icone: 'bi-sliders',       titulo: 'menu.usuario.master.configuracoes.titulo'|trans, sub: 'menu.usuario.master.configuracoes.sub'|trans, href: _painel ~ '#aba=painel&sec=config'},
 ] %}
 {% for item in _itensMaster %}
     {% if item.href %}

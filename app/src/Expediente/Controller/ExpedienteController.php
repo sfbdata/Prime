@@ -494,7 +494,8 @@ final class ExpedienteController extends AbstractController
 
     /**
      * Nova Pasta do desenho 1.1 (E12): o próximo número, só informativo (o servidor numera de novo ao
-     * salvar, com trava), e os clientes parecidos com quantas pastas cada um já tem.
+     * salvar, com trava), e os clientes parecidos com quantas pastas cada um já tem e se há um cadastro só
+     * por trás do nome (é a ele que o pasta_new liga a nova pasta).
      */
     #[Route('/expediente/nova-pasta/sugestoes', name: 'expediente_nova_pasta_sugestoes', methods: ['GET'])]
     public function sugestoesDaNovaPasta(Request $request): JsonResponse
@@ -503,13 +504,19 @@ final class ExpedienteController extends AbstractController
         $user   = $this->getUser();
         $tenant = $this->assertAccess($user);
 
-        $nomes = $this->pastaRepository->nomesDeClienteParecidos((string) $request->query->get('q', ''), $tenant);
+        $nomes     = $this->pastaRepository->nomesDeClienteParecidos((string) $request->query->get('q', ''), $tenant);
+        $cadastros = $this->pastaRepository->cadastroUnicoPorNomeDeCliente(array_map('strval', array_keys($nomes)), $tenant);
 
         return $this->json([
             'proximoNumero' => (string) ($this->numeracaoDePasta->maiorNumero($tenant) + 1),
             'clientes'      => array_map(
-                static fn (string $nome, int $total): array => ['nome' => $nome, 'total' => $total],
-                array_keys($nomes),
+                static fn (string $nome, int $total): array => [
+                    'nome'     => $nome,
+                    'total'    => $total,
+                    // A segunda frase do aviso ("será vinculada ao mesmo cadastro") só aparece quando é verdade.
+                    'cadastro' => isset($cadastros[mb_strtoupper(trim($nome))]),
+                ],
+                array_map('strval', array_keys($nomes)),
                 array_values($nomes),
             ),
         ]);

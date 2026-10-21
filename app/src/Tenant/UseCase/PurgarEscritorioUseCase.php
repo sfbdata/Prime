@@ -276,6 +276,8 @@ final class PurgarEscritorioUseCase
         // não são TenantAware); sai explicitamente para não ficar órfão.
         ['central_master_estado', 'tenant_id = :tenant'],
         ['central_master_resposta', 'tenant_id = :tenant'],
+        // Contador da sequência de metas do escritório ("Nº 0001"): FK de tenant NO ACTION, nada o referencia.
+        ['tarefa_numeracao', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],
@@ -300,6 +302,7 @@ final class PurgarEscritorioUseCase
         // Agenda (6): conexões com o Google Agenda (refresh token cifrado), ligações e exclusões pendentes. FKs CASCADE; explícito por convenção.
         ['agenda_google_ligacao', 'tenant_id = :tenant'],
         ['agenda_google_prazo', 'tenant_id = :tenant'],
+        ['agenda_google_data', 'tenant_id = :tenant'],
         ['agenda_google_exclusao', 'tenant_id = :tenant'],
         ['agenda_google_conexao', 'tenant_id = :tenant'],
         ['jornada_tenant', 'tenant_id = :tenant'],

@@ -137,6 +137,13 @@ framework:
             policy: sliding_window
             limit: 600
             interval: '1 minute'
+        # "Cadastrar e-mail" do modo venda (spec comercial-e-emails §10, F3h): só o Master usa, e cada pedido leva
+        # até 50 endereços. Chave = IP, somada aos limitadores da confirmação (por e-mail, 30 dias do descadastrado e
+        # global). 20 por hora cobre o cadastro de uma lista inteira em lotes e põe teto num laço com sessão roubada.
+        comercial_contatos_master:
+            policy: sliding_window
+            limit: 20
+            interval: '1 hour'
 
     # Note that the session will be started ONLY if you read or write from it.
     session: true

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Master\Controller;
 
+use App\Master\Service\FaixaEtaria;
 use App\Master\UseCase\ConsultarAuditoriaUseCase;
 use App\Master\UseCase\ConsultarContasUseCase;
 use App\Master\UseCase\ConsultarPedidosDeExclusaoUseCase;
@@ -16,6 +17,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Dados das seções do Painel do Master, em JSON, só leitura. Metadados (contagens, tamanhos, datas,
@@ -27,15 +29,40 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * A lista de contas leva também os pedidos de exclusão pendentes (`pedidosExclusao`, de todas as contas),
  * para o bloco do desenho acima da tabela; cada pedido leva o token da conta dele, o mesmo da lista. E cada
  * conta leva `pedidoPendente`, para a situação "Suspensa a pedido" da tabela.
+ *
+ * Idioma (spec idioma-do-sistema, P2b): o rótulo das faixas etárias da Visão geral sai do catálogo no idioma da
+ * requisição ({@see FaixaEtaria::chaveDoRotulo()}). O resto é dado (nomes, situação gravada, ação da trilha).
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 #[Route('/master/dados')]
 final class PainelMasterDadosController extends AbstractController
 {
+    public function __construct(private readonly TranslatorInterface $tradutor)
+    {
+    }
+
     #[Route('/visao-geral', name: 'master_dados_visao_geral', methods: ['GET'])]
     public function visaoGeral(ConsultarVisaoGeralUseCase $useCase): JsonResponse
     {
-        return $this->json($useCase->executar());
+        $dados = $useCase->executar();
+        if (is_array($dados['idades'] ?? null) && is_array($dados['idades']['faixas'] ?? null)) {
+            $dados['idades']['faixas'] = array_map($this->traduzirFaixa(...), $dados['idades']['faixas']);
+        }
+
+        return $this->json($dados);
+    }
+
+    private function traduzirFaixa(mixed $faixa): mixed
+    {
+        if (!is_array($faixa) || !is_string($faixa['rot'] ?? null)) {
+            return $faixa;
+        }
+        $chave = FaixaEtaria::chaveDoRotulo($faixa['rot']);
+        if ($chave !== null) {
+            $faixa['rot'] = $this->tradutor->trans($chave[0], $chave[1]);
+        }
+
+        return $faixa;
     }
 
     #[Route('/mapa', name: 'master_dados_mapa', methods: ['GET'])]

@@ -1,12 +1,12 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Editar Cliente - Pessoa Jurídica{% endblock %}
+{% block title %}{{ 'cliente.editar.titulo_pj'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0">Editar Cliente - Pessoa Jurídica</h1>
-        <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="btn btn-secondary">Voltar</a>
+        <h1 class="m-0">{{ 'cliente.editar.titulo_pj'|trans }}</h1>
+        <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="btn btn-secondary">{{ 'cliente.editar.voltar'|trans }}</a>
     </div>
 </section>
 
@@ -19,7 +19,7 @@
 
     <!-- Dados da Empresa -->
     <div class="card mb-4">
-        <div class="card-header bg-primary text-white"><h5>Dados da Empresa</h5></div>
+        <div class="card-header bg-primary text-white"><h5>{{ 'cliente.editar.secao.dados_empresa'|trans }}</h5></div>
         <div class="card-body">
             <div class="mb-3">
                 {{ form_label(form.razaoSocial, null, {'label_attr': {'class': 'form-label'}}) }}
@@ -53,7 +53,7 @@
 
     <!-- Representante Legal -->
     <div class="card mb-4">
-        <div class="card-header bg-success text-white"><h5>Representante Legal</h5></div>
+        <div class="card-header bg-success text-white"><h5>{{ 'cliente.editar.secao.representante_legal'|trans }}</h5></div>
         <div class="card-body">
             <div class="mb-3">
                 {{ form_label(form.representanteLegal, null, {'label_attr': {'class': 'form-label'}}) }}
@@ -82,7 +82,7 @@
 
     <!-- Contato -->
     <div class="card mb-4">
-        <div class="card-header bg-info text-white"><h5>Contato</h5></div>
+        <div class="card-header bg-info text-white"><h5>{{ 'cliente.editar.secao.contato'|trans }}</h5></div>
         <div class="card-body">
             <div class="mb-3">
                 {{ form_label(form.email, null, {'label_attr': {'class': 'form-label'}}) }}
@@ -106,7 +106,7 @@
 
     <!-- Endereço -->
     <div class="card mb-4">
-        <div class="card-header bg-warning text-white"><h5>Endereço</h5></div>
+        <div class="card-header bg-warning text-white"><h5>{{ 'cliente.editar.secao.endereco'|trans }}</h5></div>
         <div class="card-body">
             <div class="mb-3">
                 {{ form_label(form.cep, null, {'label_attr': {'class': 'form-label'}}) }}
@@ -143,7 +143,7 @@
         </div>
     </div>
 
-    <button type="submit" class="btn btn-success mt-3">Salvar Alterações</button>
+    <button type="submit" class="btn btn-success mt-3">{{ 'cliente.editar.salvar'|trans }}</button>
     {{ form_end(form) }}
 
         </div>

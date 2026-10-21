@@ -180,6 +180,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\CampanhaDeEmail::class,
         \App\Comercial\Entity\DestinoDaCampanha::class,
         \App\Comercial\Entity\ControleDoExpansor::class,
+        // F3e (comercial-marcas.md): as marcas do Relatório são de cada Master sobre as campanhas da plataforma, sem
+        // escritório (a tabela não tem `tenant_id`).
+        \App\Comercial\Entity\CampanhaMarca::class,
         // Marca da varredura do push da Agenda (entrega 5b): uma linha só, global, que garante uma cadeia
         // única de envio para todos os escritórios. Não guarda dado de escritório nenhum.
         \App\Agenda\Entity\VarreduraDePush::class,
@@ -256,8 +259,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // Master, que lê todos os escritórios, justificadas acima.
     // 60 → 62 com a janela da OAB dos estados que faltam (21/10/2026): SubsecaoOab e NotaDaSeccional (plataforma),
     // justificadas acima.
-    // 62 → 63 com a métrica anônima da página pública do Trabalho Externo (19/10/2026): MetricaPublica, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 63;
+    // 62 → 63 com as marcas do Relatório da Central de envios (21/10/2026): CampanhaMarca, do Master, justificada acima.
+    // 63 → 64 com a métrica anônima da página pública do Trabalho Externo (19/10/2026): MetricaPublica, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 64;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

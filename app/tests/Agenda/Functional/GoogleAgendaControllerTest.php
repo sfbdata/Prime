@@ -144,7 +144,7 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
 
     #[TestDox('Identificação ou permissões que não conferem: $caso. Não conecta; permissões erradas são revogadas lá')]
     #[DataProvider('retornosRecusados')]
-    public function testRetornoQueNaoConfere(string $caso, string $propriedade, string|int $valor, bool $revoga): void
+    public function testRetornoQueNaoConfere(string $caso, string $propriedade, string|int $valor, bool $revoga, string $aviso = 'falhou'): void
     {
         $client = $this->cliente();
         [$eu, $tenant] = $this->entrar($client);
@@ -154,18 +154,59 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
 
         $client->request('GET', '/agenda/google/retorno?code=abc&state=' . $q['state']);
 
-        self::assertResponseRedirects('/agenda#google=falhou');
+        self::assertResponseRedirects('/agenda#google=' . $aviso);
         self::assertFalse($this->em()->getConnection()->fetchOne('SELECT id FROM agenda_google_conexao WHERE usuario_id = :u AND tenant_id = :t', ['u' => $eu->getId(), 't' => $tenant->getId()]));
         self::assertSame($revoga, in_array('POST /revoke', $this->google->pedidos, true));
     }
 
-    /** @return iterable<string, array{string, string, string|int, bool}> */
+    /** @return iterable<string, array{0: string, 1: string, 2: string|int, 3: bool, 4?: string}> */
     public static function retornosRecusados(): iterable
     {
         yield 'id_token de outro cliente' => ['id_token de outro cliente', 'audiencia', 'outro-cliente', false];
         yield 'id_token vencido' => ['id_token vencido', 'validadeDoIdToken', -60, false];
         yield 'escopo além do pedido' => ['escopo além do pedido', 'escoposConcedidos', 'openid email https://www.googleapis.com/auth/calendar.app.created https://www.googleapis.com/auth/drive', true];
-        yield 'sem o escopo da agenda' => ['sem o escopo da agenda', 'escoposConcedidos', 'openid email', true];
+        yield 'sem o escopo da agenda (a caixinha desmarcada no Google): volta com o aviso próprio' => ['sem o escopo da agenda', 'escoposConcedidos', 'openid email', true, 'sem-permissao'];
+    }
+
+    #[TestDox('A falha na volta do Google vai ao log de erro com o motivo (o código do OAuth, sem a descrição livre); escritório trocado no meio também')]
+    public function testFalhaNaVoltaVaiAoLog(): void
+    {
+        $client = $this->cliente();
+        [$eu, $tenant] = $this->entrar($client);
+        $this->google->erroDoToken = 'invalid_client';
+        $antes = $this->tamanhoDoLog();
+        $client->request('GET', '/agenda/google/conectar?volta=' . rawurlencode('/agenda'));
+        parse_str((string) parse_url((string) $client->getResponse()->headers->get('Location'), \PHP_URL_QUERY), $q);
+
+        $client->request('GET', '/agenda/google/retorno?code=abc&state=' . $q['state']);
+
+        self::assertResponseRedirects('/agenda#google=falhou');
+        $log = $this->logDesde($antes);
+        self::assertStringContainsString('Google Agenda: conexão falhou', $log);
+        self::assertStringContainsString('O Google recusou o pedido de token (401, invalid_client)', $log);
+        self::assertStringNotContainsString('Descrição livre do Google', $log);
+        self::assertStringNotContainsString('REFRESH-SECRETO', $log);
+
+        $outro = (new Tenant())->setName('Tenant GGL outro ' . uniqid());
+        $this->em()->persist($outro);
+        $papel = (new TenantRole())->setTenant($outro)->setName('Papel ' . uniqid())->setIsSystem(true);
+        $this->em()->persist($papel);
+        $vinculo = new UserTenant($this->em()->find(User::class, $eu->getId()), $outro);
+        $vinculo->setTenantRole($papel);
+        $this->em()->persist($vinculo);
+        $this->em()->flush();
+        $this->google->erroDoToken = '';
+        $antes = $this->tamanhoDoLog();
+        $client->request('GET', '/agenda/google/conectar?volta=' . rawurlencode('/agenda'));
+        parse_str((string) parse_url((string) $client->getResponse()->headers->get('Location'), \PHP_URL_QUERY), $q);
+        $sessao = $client->getSession();
+        $sessao->set('current_tenant_id', $outro->getId());
+        $sessao->save();
+
+        $client->request('GET', '/agenda/google/retorno?code=abc&state=' . $q['state']);
+
+        self::assertResponseRedirects('/agenda#google=falhou');
+        self::assertStringContainsString('Google Agenda: escritório trocado entre a ida e a volta do Google', $this->logDesde($antes));
     }
 
     #[TestDox('Permissões erradas numa conta já ligada em outro escritório: recusa sem revogar (derrubaria a de lá)')]
@@ -183,7 +224,7 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
 
         $client->request('GET', '/agenda/google/retorno?code=abc&state=' . $q['state']);
 
-        self::assertResponseRedirects('/agenda#google=falhou');
+        self::assertResponseRedirects('/agenda#google=sem-permissao');
         self::assertNotContains('POST /revoke', $this->google->pedidos);
     }
 
@@ -286,6 +327,25 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $eu, $tenant);
 
         return [$eu, $tenant];
+    }
+
+    private function arquivoDoLog(): string
+    {
+        return static::getContainer()->getParameter('kernel.logs_dir') . '/test' . (getenv('TESTE_PROCESSO') ?: '') . '.log';
+    }
+
+    private function tamanhoDoLog(): int
+    {
+        clearstatcache();
+
+        return is_file($this->arquivoDoLog()) ? (int) filesize($this->arquivoDoLog()) : 0;
+    }
+
+    private function logDesde(int $posicao): string
+    {
+        clearstatcache();
+
+        return is_file($this->arquivoDoLog()) ? (string) file_get_contents($this->arquivoDoLog(), false, null, $posicao) : '';
     }
 
     private function cliente(?GoogleAgendaApi $api = null): KernelBrowser
