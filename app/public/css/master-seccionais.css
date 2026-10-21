@@ -1,0 +1,63 @@
+/* BlueJus · Seccionais da OAB no mapa "Onde estamos atuando" do Painel do Master.
+   Desenho: docs/design/perfis-1.2/vs-21-10-26/05 - Perfis 1.2 - VS 21.10.26.dc.html, template L116-127 (bloco ehOab).
+   Spec: docs/specs/master-seccionais-oab.md. Montado por public/js/master/painel.js (blocoSeccionais).
+   Valores do documento em tokens. Os estados do chip (visível, oculto, aberto) e as cores dos tipos vêm do trecho
+   truncado do desenho: convenção até o arquivo inteiro (DONO). O painel do Master não tem tema escuro próprio
+   (master.css é só claro); o bloco segue o mesmo fundo claro do cartão do mapa. */
+.mp-sec-oab {
+    --sec-borda: #e2e9ee;
+    --sec-fundo: #fafcfd;
+    --sec-titulo: #4a6373;
+    --sec-azul: #0a6fa0;
+    --sec-texto: #34505f;
+    --sec-icone: #5b7383;
+    --sec-nota: #7a8e9b;
+    --sec-card-borda: #dbe6ee;
+    --sec-botao-borda: #c5d2db;
+    --sec-ponto-sombra: rgba(18, 36, 47, .35);
+    --sec-material: #0a6fa0;
+    --sec-reuniao: #b7791f;
+    --sec-parceria: #2f855a;
+    --sec-chip-bg: #e5f1f7;
+    --sec-chip-cor: #0b4f75;
+    --sec-chip-borda: #c5dbe8;
+    --sec-chip-oculta-bg: #fff;
+    --sec-chip-oculta-cor: #9aabb7;
+    --sec-chip-oculta-borda: #e2e9ee;
+    border-top: 1px solid var(--sec-borda);
+    padding: 8px 10px 10px;
+    background: var(--sec-fundo);
+}
+.mp-sec-oab-cab { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.mp-sec-oab-cab > b { flex: 1; font-size: 11px; letter-spacing: .6px; color: var(--sec-titulo); }
+.mp-sec-oab-cab > button { border: none; background: transparent; color: var(--sec-azul); font: inherit; font-size: 11.5px; font-weight: bold; cursor: pointer; padding: 0; }
+.mp-sec-oab-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 3px; }
+.mp-sec-chip {
+    height: 22px; outline: none; outline-offset: 1px; border: 1px solid var(--sec-chip-borda); border-radius: 2px;
+    background: var(--sec-chip-bg); color: var(--sec-chip-cor); font: inherit; font-size: 10.5px; font-weight: bold; cursor: pointer; padding: 0;
+}
+.mp-sec-chip.is-oculta { background: var(--sec-chip-oculta-bg); color: var(--sec-chip-oculta-cor); border-color: var(--sec-chip-oculta-borda); }
+.mp-sec-chip.is-aberta { outline: 2px solid var(--sec-azul); }
+.mp-sec-ponto { width: 7px; height: 7px; margin-left: 4px; border-radius: 50%; background: var(--cor); box-shadow: 0 0 0 1px var(--sec-ponto-sombra); display: inline-block; vertical-align: middle; }
+
+.mp-sec-card { margin-top: 10px; border: 1px solid var(--sec-card-borda); background: #fff; border-radius: 3px; overflow: hidden; }
+.mp-sec-card-cab { background: var(--sec-azul); color: #fff; padding: 6px 10px; display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: bold; }
+.mp-sec-card-cab > span { flex: 1; }
+.mp-sec-card-cab > button { border: none; background: transparent; color: #fff; cursor: pointer; padding: 0; }
+.mp-sec-card-corpo { padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--sec-texto); }
+/* No desenho (L122) o ícone é inline: o `width:16px` do <i> não vale num elemento inline, então não há recuo. */
+.mp-sec-card-corpo > span > .bi { color: var(--sec-icone); }
+.mp-sec-card-corpo > a { font-size: 12px; }
+.mp-sec-card-acoes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 3px; }
+.mp-sec-card-acoes > a { height: 24px; padding: 0 8px; border: 1px solid var(--sec-botao-borda); border-radius: 3px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
+.mp-sec-card-acoes > button { height: 24px; padding: 0 8px; border: 1px solid var(--sec-botao-borda); border-radius: 3px; background: #fff; color: var(--sec-texto); font: inherit; font-size: 11.5px; cursor: pointer; }
+
+/* Últimas 5 divulgações: convenção (o desenho truncado não mostra a lista), no tom da nota do bloco. */
+.mp-sec-divs { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--sec-borda); }
+.mp-sec-divs > b { font-size: 10.5px; letter-spacing: .6px; color: var(--sec-titulo); }
+.mp-sec-div { display: flex; align-items: flex-start; gap: 6px; font-size: 11.5px; line-height: 1.35; }
+.mp-sec-div > i { flex: none; width: 7px; height: 7px; margin-top: 4px; border-radius: 50%; background: var(--cor); box-shadow: 0 0 0 1px var(--sec-ponto-sombra); }
+.mp-sec-div-nota { display: block; color: var(--sec-icone); overflow-wrap: anywhere; }
+.mp-sec-div-vazio { font-size: 11px; color: var(--sec-nota); }
+
+.mp-sec-oab-nota { display: block; font-size: 10.5px; color: var(--sec-nota); margin-top: 6px; line-height: 1.4; }

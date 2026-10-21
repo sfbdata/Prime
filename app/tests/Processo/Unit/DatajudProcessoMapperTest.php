@@ -240,6 +240,41 @@ final class DatajudProcessoMapperTest extends TestCase
         self::assertSame('2024-01-15', $processo->getDataDistribuicao()->format('Y-m-d'));
     }
 
+    #[TestDox('órgão em UTF-8 correto passa intacto (processo e movimentação): não é recodificado de ISO-8859-1')]
+    public function testOrgaoEmUtf8NaoERecodificado(): void
+    {
+        $processo = $this->mapper()->mapFromSource(new Processo(), [
+            'numeroProcesso' => '0003',
+            'orgaoJulgador' => ['codigo' => 1, 'nome' => 'Vara de Família, Sucessões e Infância e Juventude'],
+            'movimentos' => [['codigo' => 26, 'nome' => 'Distribuído', 'dataHora' => '2024-01-15T10:00:00Z', 'orgaoJulgador' => ['codigo' => '1', 'nomeOrgao' => '6ª Vara do Trabalho de Brasília - DF']]],
+        ]);
+
+        self::assertSame('VARA DE FAMÍLIA, SUCESSÕES E INFÂNCIA E JUVENTUDE', $processo->getOrgaoJulgador());
+        self::assertSame('6ª VARA DO TRABALHO DE BRASÍLIA - DF', $processo->getMovimentacoes()->first()->getOrgao());
+    }
+
+    #[TestDox('órgão que chega em ISO-8859-1 (bytes que não são UTF-8) continua sendo convertido')]
+    public function testOrgaoEmIso88591EConvertido(): void
+    {
+        $processo = $this->mapper()->mapFromSource(new Processo(), [
+            'numeroProcesso' => '0004',
+            'orgaoJulgador' => ['nome' => mb_convert_encoding('1ª Vara Cível', 'ISO-8859-1', 'UTF-8')],
+        ]);
+
+        self::assertSame('1ª VARA CÍVEL', $processo->getOrgaoJulgador());
+    }
+
+    #[TestDox('texto UTF-8 com "?" não é recodificado (o "?" sozinho não prova encoding errado)')]
+    public function testTextoUtf8ComInterrogacaoNaoERecodificado(): void
+    {
+        $processo = $this->mapper()->mapFromSource(new Processo(), [
+            'numeroProcesso' => '0005',
+            'classe' => ['nome' => 'Ação Cível?'],
+        ]);
+
+        self::assertSame('AÇÃO CÍVEL?', $processo->getClasseProcessual());
+    }
+
     #[TestDox('orgaoJulgador em formato string (fallback legado) não quebra a leitura dos códigos')]
     public function testOrgaoJulgadorStringNaoQuebra(): void
     {

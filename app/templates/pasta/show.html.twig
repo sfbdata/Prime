@@ -3415,6 +3415,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (resp.ok && dados.sucesso) {
                 window.mpSwapProcessos(dados.html);
                 document.dispatchEvent(new CustomEvent('mp:processo-vinculado')); // P4f: aviso do apensado (pasta-apensado.js)
+                // Número que já era do escritório: vinculou o existente e avisa que o digitado não foi aplicado.
+                if (dados.aviso && window.avisarPs) { window.avisarPs(dados.aviso); }
                 bootstrap.Modal.getInstance(modalEl)?.hide();
                 return;
             }
@@ -3595,9 +3597,11 @@ document.addEventListener('DOMContentLoaded', function () {
         loadingEl.classList.remove('d-none');
         try {
             // O tribunal é derivado do número no servidor — não enviamos mais a sigla.
-            var response = await fetch('{{ path("api_datajud_search") }}', {
+            // a4: a consulta pela pasta vale para quem edita a pasta, mesmo sem o módulo de processos.
+            var response = await fetch('{{ path("pasta_processo_buscar_cnj", {id: pasta.id}) }}', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // X-Requested-With: as barreiras da pasta (cadeado, aba oculta, lápide) respondem 403 em JSON, não redirecionam.
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 body: JSON.stringify({ numeroProcesso: numeroProcesso })
             });
             var data = await response.json();
@@ -3609,7 +3613,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // segredo ou arquivado), que ajuda a achar número mal digitado.
                 feedbackEl.textContent = response.status === 404
                     ? 'Processo não localizado no CNJ/diário. Preencha os dados manualmente.' + (data.error ? ' ' + data.error : '')
-                    : (data.error || 'Erro ao buscar processo no CNJ/DataJud.');
+                    : (data.error || data.erro || data.mensagem || 'Erro ao buscar processo no CNJ/DataJud.'); // erro/mensagem: barreiras da pasta
                 return;
             }
 
