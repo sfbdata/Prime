@@ -28,6 +28,9 @@ final class AvisoDeDisparoAltoTest extends TestCase
     /** @var list<array{User, Tenant, ?string}> */
     private array $criadas = [];
 
+    /** @var list<Notificacao> */
+    private array $notificacoes = [];
+
     /** @param list<UserTenant> $vinculos */
     private function aviso(User $master, array $vinculos): AvisoDeDisparoAlto
     {
@@ -39,6 +42,7 @@ final class AvisoDeDisparoAltoTest extends TestCase
         $notificacoes->method('criar')->willReturnCallback(function (User $u, Tenant $t): Notificacao {
             $n = new Notificacao();
             $this->criadas[] = [$u, $t, null];
+            $this->notificacoes[] = $n;
 
             return $n;
         });
@@ -69,6 +73,17 @@ final class AvisoDeDisparoAltoTest extends TestCase
 
         self::assertCount(1, $this->criadas);
         self::assertSame($doMasterAntigo, $this->criadas[0][1]);
+    }
+
+    #[TestDox('o aviso leva o Master direto à seção Indicações do BlueJus do painel')]
+    public function testLinkDaSecaoDeIndicacoes(): void
+    {
+        $master = Pessoas::master();
+        $doMaster = Pessoas::escritorio(12, 'Do Master', $master);
+
+        $this->aviso($master, [self::vinculo(3, $master, $doMaster)])->avisar('texto');
+
+        self::assertSame('/master#aba=painel&sec=ind', $this->notificacoes[0]->getUrl());
     }
 
     #[TestDox('escritório sem criador registrado com vínculo ativo do Master conta como dele')]
