@@ -10,16 +10,20 @@ use App\Inteligencia\Contexto\MontadorDeContextoDoPush;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Fluxo\FluxoDaAnaliseDaPasta;
+use App\Inteligencia\Fluxo\FluxoDaPerguntaLivre;
 use App\Inteligencia\Fluxo\FluxoDoResumoDoPush;
 use App\Inteligencia\Message\ProcessarAnaliseDeInteligencia;
 use App\Inteligencia\MessageHandler\ProcessarAnaliseDeInteligenciaHandler;
+use App\Inteligencia\Prompt\PromptDaPergunta;
 use App\Inteligencia\Prompt\PromptDoAgente;
 use App\Inteligencia\Prompt\PromptResumoDoPush;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
+use App\Inteligencia\Repository\PerguntaDaConversaRepository;
 use App\Inteligencia\Service\InterpretadorDeRespostaDePush;
 use App\Inteligencia\Service\InterpretadorDeRespostaDoAgente;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
@@ -66,6 +70,7 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
             $repositorio,
             new FluxoDoResumoDoPush($c->get(MontadorDeContextoDoPush::class), new PromptResumoDoPush(), new InterpretadorDeRespostaDePush(), $repositorio),
             new FluxoDaAnaliseDaPasta($c->get(MontadorDeContextoDaPasta::class), new PromptDoAgente(), new InterpretadorDeRespostaDoAgente(), $repositorio),
+            new FluxoDaPerguntaLivre($c->get(MontadorDeContextoDaPasta::class), new PromptDaPergunta(new PromptDoAgente()), new InterpretadorDeRespostaDoAgente(), $c->get(PerguntaDaConversaRepository::class)),
             $provedor,
             $c->get(NotificacaoService::class),
             $c->get('router'),
@@ -640,6 +645,36 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         self::assertStringContainsString('Agente Gestor', (string) $notificacoes[0]->getMensagem());
     }
 
+    #[TestDox('comando: o worker monta o PEDIDO do comando, usa a anterior do MESMO comando e conclui; a de outro comando do agente não vira anterior')]
+    public function testComandoConcluiComAnteriorDoMesmoComando(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant, texto: 'Intimação para réplica em 15 dias.');
+        $this->ligarIaNoTenant($tenant, $user);
+        $resposta = (string) json_encode(['resumo' => 'Riscos mapeados.', 'pontos' => [], 'quem' => 'Dra. Ana', 'texto' => "CONCLUSÃO\nRiscos.\n\nNecessita de conferência do advogado."], JSON_UNESCAPED_UNICODE);
+
+        // Uma concluída de OUTRO comando do mesmo agente (Gestor): não pode entrar como anterior.
+        $outro = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::AnalisarPasta);
+        $falsoOutro = new ProvedorFalso();
+        $falsoOutro->responderCom((string) json_encode(['resumo' => 'Visão geral SEGREDO-DO-OUTRO.', 'pontos' => [], 'quem' => '', 'texto' => 'Texto SEGREDO-DO-OUTRO.'], JSON_UNESCAPED_UNICODE));
+        $this->handler($falsoOutro)($this->mensagem($outro));
+
+        $analise = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, comando: Comando::IdentificarRiscos);
+        $falso = new ProvedorFalso();
+        $falso->responderCom($resposta);
+        $this->handler($falso)($this->mensagem($analise));
+
+        $relida = $this->reler($analise);
+        self::assertSame(StatusDaAnalise::Concluida, $relida->getStatus());
+        self::assertSame(Comando::IdentificarRiscos, $relida->getComando());
+        $pedido = $falso->ultimoPedido();
+        self::assertNotNull($pedido);
+        self::assertStringStartsWith('PEDIDO: ' . Comando::IdentificarRiscos->pedido(), $pedido->textoDoUsuario());
+        self::assertStringNotContainsString('SEGREDO-DO-OUTRO', $pedido->textoDoUsuario(), 'a anterior é só do mesmo comando');
+        self::assertStringContainsString('identificar_riscos', $pedido->rotuloDeUso);
+    }
+
     #[TestDox('agente: financeiro gravado como false → o worker obedece e nada financeiro vai ao provedor')]
     public function testAgenteObedeceADecisaoSobreOFinanceiro(): void
     {
@@ -743,6 +778,28 @@ final class ProcessarAnaliseDeInteligenciaHandlerTest extends KernelTestCase
         $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
         self::assertStringContainsString("<analise_anterior>\nVisão anterior do gestor.\n</analise_anterior>", $texto);
         self::assertStringNotContainsString('Prazos anteriores.', $texto);
+    }
+
+    #[TestDox('agente: a anterior que leu o financeiro ou uma aba hoje oculta para quem pede NÃO volta ao provedor')]
+    public function testAnteriorQueLeuOQueQuemPedeNaoVeNaoVolta(): void
+    {
+        self::bootKernel();
+        [$user, $tenant] = $this->criarAdmin();
+        [$pasta] = $this->criarPastaComPublicacao($tenant);
+        $this->ligarIaNoTenant($tenant, $user);
+        $comFinanceiro = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor, financeiro: true);
+        $this->concluirAnalise($comFinanceiro, 'Honorários de 30 por cento.');
+        $falso = new ProvedorFalso();
+        $falso->responderCom('{"resumo":"nova","texto":"x"}');
+
+        $semFinanceiro = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor, financeiro: false);
+        $this->handler($falso)($this->mensagem($semFinanceiro));
+        self::assertStringNotContainsString('Honorários de 30 por cento.', (string) $falso->ultimoPedido()?->textoDoUsuario());
+
+        $comPushOculto = $this->criarAnaliseDoAgentePendente($tenant, $user, $pasta, Agente::Gestor, financeiro: true, abasOcultas: ['push']);
+        $this->handler($falso)($this->mensagem($comPushOculto));
+        $texto = (string) $falso->ultimoPedido()?->textoDoUsuario();
+        self::assertStringNotContainsString('<analise_anterior>', $texto, 'a anterior do Gestor leu o Push');
     }
 
     #[TestDox('IA-033: a análise anterior do Push volta ao provedor mascarada (CPF vira [CPF], CNJ intacto)')]

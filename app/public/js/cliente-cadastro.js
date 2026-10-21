@@ -4,8 +4,8 @@
  * controla: abas, máscaras (CPF, CNPJ, CEP, telefone), dígito verificador do CPF/CNPJ, aviso de e-mail, pendências
  * recalculadas a cada tecla (as regras vêm do servidor em data-*), qualificação ao vivo, busca de CEP no ViaCEP,
  * aviso "Este CPF já possui cadastro no sistema." ao sair do campo, Salvar (Ctrl/Cmd+S), Fechar com confirmação
- * quando há alteração (Esc também fecha) e Copiar qualificação. Salvou: ao fechar a tela recarrega, para o cabeçalho e o
- * Registro mostrarem o cadastro novo. */
+ * quando há alteração (Esc também fecha), Copiar qualificação e a aba Histórico (relida do servidor depois de
+ * salvar). Salvou: ao fechar a tela recarrega, para o cabeçalho e o Registro mostrarem o cadastro novo. */
 (function () {
     'use strict';
 
@@ -75,10 +75,26 @@
             if (!painel) { return; }
             veu.querySelectorAll('[data-cad-painel]').forEach(function (p) { p.hidden = p !== painel; });
             veu.querySelectorAll('[data-cad-aba]').forEach(function (b) { var on = b.dataset.cadAba === k; b.classList.toggle('is-ativa', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
-            veu.querySelector('.js-cad-pend').dataset.naQual = k === 'qual' ? '1' : '';
+            semPendencias(k);
             atualizar();
         }
+        /* O bloco Pendências não aparece na Qualificação nem no Histórico (desenho: `temPend` some em 'hist'). */
+        function semPendencias(k) { veu.querySelector('.js-cad-pend').dataset.naQual = k === 'qual' || k === 'hist' ? '1' : ''; }
         veu.querySelectorAll('[data-cad-aba]').forEach(function (b) { b.addEventListener('click', function () { irPara(b.dataset.cadAba); }); });
+        semPendencias((veu.querySelector('[data-cad-aba].is-ativa') || { dataset: {} }).dataset.cadAba);
+
+        /* Histórico (E12 3d): depois de salvar, a aba é relida do servidor (a linha nova é gravada lá). */
+        function recarregarHistorico() {
+            var painel = veu.querySelector('[data-cad-painel="hist"]');
+            if (!painel || !veu.dataset.urlJanela) { return; }
+            fetch(veu.dataset.urlJanela, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
+                .then(function (html) {
+                    var novo = new DOMParser().parseFromString(html, 'text/html').querySelector('[data-cad-painel="hist"]');
+                    if (novo) { painel.innerHTML = novo.innerHTML; }
+                })
+                .catch(function () {});
+        }
 
         /* Pendências: regras dos data-* (servidor) recalculadas no que está digitado. */
         function pendencias() {
@@ -256,6 +272,7 @@
                     }
                     if (res.status === 200) {
                         original = serial(); salvou = salvou || res.j.mudou;
+                        if (res.j.mudou) { recarregarHistorico(); }
                         veu.querySelector('.js-cad-nome').textContent = (valor(pf ? 'nome' : 'razao_social') || '').toUpperCase();
                         aviso(res.j.mensagem, 'ok');
                         atualizar();

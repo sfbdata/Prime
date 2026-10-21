@@ -24,7 +24,13 @@ use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
  *    Financeiro quando a solicitação o deixou de fora (`contexto_resumo.financeiro`). Os documentos
  *    lidos com o Financeiro visível incluem os de contrato, que são do Financeiro: a análise que leu
  *    documentos depende também dele nesse caso;
- *  - resumo de documento → Documentos; pergunta livre (sem seção declarada) → todas as abas.
+ *  - resumo de documento → Documentos;
+ *  - pergunta livre (aba Perguntar, F3 do drawer) → como a análise do agente que respondeu (o
+ *    Gestor), pela mesma regra; sem agente gravado (não existe pelo UseCase) → todas as abas.
+ *
+ * A pergunta livre tem uma regra a mais nas rotas por id ({@see podeLer()}): só quem perguntou a
+ * lê. A conversa é da pessoa (spec inteligencia-drawer-da-pasta, F3); um colega que adivinhe o id
+ * recebe o mesmo 404 da aba oculta.
  */
 final class VisibilidadeDaAnaliseDaPasta
 {
@@ -40,7 +46,7 @@ final class VisibilidadeDaAnaliseDaPasta
             TipoDeAnalise::ResumoPush      => [AbaDaPasta::Push],
             TipoDeAnalise::ResumoDocumento => [AbaDaPasta::Documentos],
             TipoDeAnalise::AnalisePasta    => self::abasDoAgente($analise),
-            TipoDeAnalise::PerguntaLivre   => AbaDaPasta::cases(),
+            TipoDeAnalise::PerguntaLivre   => self::abasDoAgente($analise),
         };
     }
 
@@ -68,6 +74,10 @@ final class VisibilidadeDaAnaliseDaPasta
 
     public function podeLer(AnaliseDeInteligencia $analise, Pasta $pasta, User $leitor): bool
     {
+        if ($analise->getTipo() === TipoDeAnalise::PerguntaLivre && $analise->getSolicitante()?->getId() !== $leitor->getId()) {
+            return false;
+        }
+
         return self::legivelCom($analise, $this->abasOcultasPara($pasta, $leitor));
     }
 

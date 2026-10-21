@@ -7,10 +7,12 @@ namespace App\Inteligencia\Entity;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\StatusDaAnalise;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\ConteudoParticular;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -30,6 +32,10 @@ use Doctrine\ORM\Mapping as ORM;
  * Índices nomeados à mão (inclusive os de FK) para a migration escrita à mão bater com o mapeamento
  * sem depender de nome gerado por hash. O `criada_em` do índice de alvo é ASC: o atributo não
  * representa DESC e o Postgres varre btree nos dois sentidos.
+ *
+ * A resposta de uma pergunta da aba Perguntar (`pergunta_livre`, F3 do drawer) é da conversa da
+ * pessoa: como {@see ConteudoParticular}, os campos com texto do modelo não vão para o `audit_log`
+ * (que quem administra o escritório lê). A trilha guarda que houve a análise, quem pediu e o status.
  */
 #[ORM\Entity(repositoryClass: AnaliseDeInteligenciaRepository::class)]
 #[ORM\Table(name: 'inteligencia_analise')]
@@ -40,7 +46,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_inteligencia_analise_solicitante', columns: ['solicitante_id'])]
 #[ORM\Index(name: 'idx_inteligencia_analise_lida_por', columns: ['lida_por_id'])]
 #[ORM\Index(name: 'idx_inteligencia_analise_excluida_por', columns: ['excluida_por_id'])]
-class AnaliseDeInteligencia implements TenantAware, Auditavel
+class AnaliseDeInteligencia implements TenantAware, Auditavel, ConteudoParticular
 {
     public const ALVO_PASTA = 'pasta';
 
@@ -148,6 +154,12 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
         /** Qual agente da pasta gerou a análise (`analise_pasta`); nulo no Push e nos demais tipos. */
         #[ORM\Column(length: 20, nullable: true, enumType: Agente::class)]
         private ?Agente $agente = null,
+        /**
+         * Qual comando ou relatório do drawer gerou a análise; nulo no Push e nas análises de agente
+         * anteriores aos comandos (a tela as mostra em `Comando::doAgenteLegado`).
+         */
+        #[ORM\Column(length: 30, nullable: true, enumType: Comando::class)]
+        private ?Comando $comando = null,
     ) {
         $this->criadaEm = new \DateTimeImmutable();
     }
@@ -312,6 +324,22 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
     }
 
     // ---------------------------------------------------------------------------------------
+    // Auditoria
+    // ---------------------------------------------------------------------------------------
+
+    /** Só a pergunta livre: a conversa é da pessoa (o tipo nunca muda depois de criada). */
+    public function ehParticular(array $mudancas = []): bool
+    {
+        return $this->tipo === TipoDeAnalise::PerguntaLivre;
+    }
+
+    /** O texto do modelo, em todas as formas em que a linha o guarda. */
+    public function camposParticulares(): array
+    {
+        return ['resumo', 'pontos', 'quemAge', 'textoDaAnalise', 'textoBruto'];
+    }
+
+    // ---------------------------------------------------------------------------------------
     // Leitura
     // ---------------------------------------------------------------------------------------
 
@@ -338,6 +366,11 @@ class AnaliseDeInteligencia implements TenantAware, Auditavel
     public function getAgente(): ?Agente
     {
         return $this->agente;
+    }
+
+    public function getComando(): ?Comando
+    {
+        return $this->comando;
     }
 
     public function getTextoDaAnalise(): ?string

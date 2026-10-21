@@ -24,7 +24,6 @@ use App\Shared\Service\SanitizadorTextoRico;
 use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
 use App\Tarefa\UseCase\ExcluirTarefaUseCase;
 use App\Tarefa\UseCase\ListarMinhasMetasUseCase;
-use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
@@ -33,6 +32,7 @@ use App\Tarefa\Service\CaminhoDeAnexoDeTarefa;
 use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
 use App\Tarefa\Service\ReaberturaDesfazivelDaMeta;
 use App\Tarefa\Service\TarefaTimelineAssembler;
+use App\Tenant\Service\ColaboradoresAtribuiveis;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -149,7 +149,7 @@ final class TarefaController extends AbstractController
         int $pastaId,
         Request $request,
         PastaRepository $pastaRepository,
-        UserRepository $userRepository,
+        ColaboradoresAtribuiveis $atribuiveis,
         EntityManagerInterface $entityManager
     ): JsonResponse {
         /** @var User $usuario */
@@ -202,7 +202,7 @@ final class TarefaController extends AbstractController
         }
 
         $responsavelIds = array_map('intval', $request->request->all('responsaveis'));
-        foreach ($userRepository->findPorIdsETenant($responsavelIds, $tenant) as $responsavel) {
+        foreach ($atribuiveis->resolverVarios($responsavelIds, $tenant) as $responsavel) {
             $tarefa->addResponsavel($responsavel);
         }
 
@@ -225,7 +225,7 @@ final class TarefaController extends AbstractController
      * Detalhe da tarefa.
      */
     #[Route('/{id}', name: 'tarefa_show', methods: ['GET'])]
-    public function show(Tarefa $tarefa, UserRepository $userRepository, ExcluirTarefaUseCase $excluirUseCase, AtualizarPrazoTarefaUseCase $prazoUseCase): Response
+    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, ExcluirTarefaUseCase $excluirUseCase, AtualizarPrazoTarefaUseCase $prazoUseCase): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -235,7 +235,7 @@ final class TarefaController extends AbstractController
         $tenantId = (int) $tenant->getId();
         $timelineItems = $this->timelineAssembler->montar($tarefa, $tenantId);
 
-        $users = $userRepository->findTodosPorTenant($tenant);
+        $users = $atribuiveis->doEscritorio($tenant, $tarefa->getResponsaveis());
 
         return $this->render('tarefa/show.html.twig', [
             'tarefa'         => $tarefa,
@@ -252,7 +252,7 @@ final class TarefaController extends AbstractController
      * Atualiza os responsáveis da tarefa.
      */
     #[Route('/{id}/responsaveis', name: 'tarefa_update_responsaveis', methods: ['POST'])]
-    public function updateResponsaveis(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager, UserRepository $userRepository): Response
+    public function updateResponsaveis(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager, ColaboradoresAtribuiveis $atribuiveis): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -264,7 +264,7 @@ final class TarefaController extends AbstractController
         }
 
         $userIds = array_map('intval', $request->request->all('responsaveis', []));
-        $users = $userRepository->findPorIdsETenant($userIds, $tenant);
+        $users = $atribuiveis->resolverVarios($userIds, $tenant, $tarefa->getResponsaveis());
 
         $idsAnteriores = array_map(
             static fn(User $u): int => (int) $u->getId(),

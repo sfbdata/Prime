@@ -17,9 +17,9 @@ use App\Kanban\UseCase\AtualizarBoardUseCase;
 use App\Kanban\UseCase\CriarBoardUseCase;
 use App\Kanban\UseCase\ExcluirBoardUseCase;
 use App\Kanban\UseCase\ListarBoardsUseCase;
-use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Tenant\Service\ColaboradoresAtribuiveis;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -36,7 +36,7 @@ final class KanbanBoardController extends AbstractController
         private readonly ExcluirBoardUseCase $excluirBoard,
         private readonly KanbanBoardRepository $boardRepository,
         private readonly KanbanMarcadorRepository $marcadorRepository,
-        private readonly UserRepository $userRepository,
+        private readonly ColaboradoresAtribuiveis $atribuiveis,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
     ) {
@@ -51,7 +51,7 @@ final class KanbanBoardController extends AbstractController
 
         $boards   = $this->listarBoards->executar($user, $tenant);
         $form     = $this->createForm(KanbanBoardType::class, new CriarBoardInput());
-        $usuarios = $this->userRepository->findTodosPorTenant($tenant);
+        $usuarios = $this->atribuiveis->doEscritorio($tenant);
 
         return $this->render('kanban/index.html.twig', [
             'boards'   => $boards,
@@ -104,7 +104,7 @@ final class KanbanBoardController extends AbstractController
         $editInput->descricao = $board->getDescricao();
         $editInput->cor       = $board->getCor();
         $formEdit     = $this->createForm(KanbanBoardEditType::class, $editInput);
-        $usuarios     = $this->userRepository->findTodosPorTenant($tenant);
+        $usuarios     = $this->atribuiveis->doEscritorio($tenant, [$board->getCriadoPor(), ...$board->getParticipantes()]);
 
         return $this->render('kanban/board.html.twig', [
             'board'      => $output,

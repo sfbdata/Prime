@@ -65,7 +65,7 @@ final class JudicializarCasoUseCaseTest extends TestCase
             $comporNome,
             new NormalizadorDePastaJudicial(
                 $comporNome,
-                new ResolvedorClienteDoResponsavel($this->createMock(ClientePFRepository::class)),
+                new ResolvedorClienteDoResponsavel($this->createMock(ClientePFRepository::class), new \App\Cliente\Service\HistoricoDoCliente($this->createMock(\App\Cliente\Repository\ClienteHistoricoRepository::class))),
             ),
         );
         $this->tenant = new Tenant();

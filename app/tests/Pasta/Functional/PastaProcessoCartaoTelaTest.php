@@ -80,7 +80,7 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
     // Resumo
     // =========================================================================
 
-    #[TestDox('Resumo: Órgão julgador, Valor da causa (da pasta), Distribuição e Instância aparecem no cartão quando existem')]
+    #[TestDox('Resumo do desenho: Órgão julgador, Valor da causa (da pasta), Última distribuição e a Instância quando existe')]
     public function testResumoComCampos(): void
     {
         $client          = static::createClient();
@@ -93,7 +93,7 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
 
         $resumo = $cartao->filter('article.ps-processo > .ps-processo-resumo > .ps-processo-dado');
         self::assertSame(
-            ['Órgão julgador', 'Valor da causa', 'Distribuição', 'Instância'],
+            ['Órgão julgador', 'Valor da causa', 'Última distribuição', 'Instância'],
             $this->textos($resumo->filter('.ps-processo-dado > .ps-rotulo')),
         );
         self::assertSame(
@@ -167,7 +167,6 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             self::assertSame('Não informado', trim($valor->text()));
         }
         self::assertCount(0, $cartao->filter('[data-proc-campo="instancia"]'));
-        self::assertStringNotContainsString('Não informado', $cartao->filter('.ps-processo-detalhes')->text(''));
         // A faixa de cima não muda: Classe/Tribunal/Situação seguem com "Não informado(a)".
         self::assertCount(3, $cartao->filter('article.ps-processo > .ps-processo-dados > .ps-processo-dado'));
     }
@@ -218,7 +217,7 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         self::assertNotNull($painel->attr('hidden'), 'fechado na carga');
     }
 
-    #[TestDox('Ver todas: o painel traz os campos reais (sigilo como rótulo, partes com o polo, baixa, origem, atualização) e omite os vazios')]
+    #[TestDox('Ver todas (P5b): os 11 campos do desenho sempre, com "Não informado"; depois os do Datajud que houver (partes, baixa, origem, atualização)')]
     public function testPainelComCamposReais(): void
     {
         $client          = static::createClient();
@@ -246,15 +245,24 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         $painel = $cartao->filter('article.ps-processo > .ps-processo-detalhes');
         $campos = $painel->filter('.ps-processo-detalhes > .ps-processo-campo');
         self::assertSame(
-            ['classe', 'orgao', 'distribuicao', 'valor', 'instancia', 'tribunal', 'situacao', 'baixa', 'sigilo', 'origem', 'partes', 'atualizacao'],
+            ['classe', 'assuntos', 'jurisdicao', 'orgao', 'distribuicao', 'valorCausa', 'segredo', 'digital', 'gratuita', 'tutela', 'prioridade',
+                'instancia', 'tribunal', 'situacao', 'baixa', 'origem', 'partes', 'atualizacao'],
             $campos->each(static fn (Crawler $n): string => (string) $n->attr('data-proc-campo')),
-            'sem assunto, sistema e formato: os vazios não entram',
+            'os 11 do desenho, na ordem; depois só os do Datajud com dado (sem sistema e formato)',
+        );
+        self::assertSame(
+            ['Classe judicial', 'Assunto', 'Jurisdição', 'Órgão julgador', 'Última distribuição', 'Valor da causa',
+                'Segredo de justiça?', 'Juízo 100% digital?', 'Justiça gratuita?', 'Tutela/liminar?', 'Prioridade?'],
+            array_slice($this->textos($campos->filter('.ps-processo-campo > .ps-rotulo')), 0, 11),
         );
 
         self::assertSame('PROCEDIMENTO COMUM (7)', trim($painel->filter('[data-proc-campo="classe"] > .ps-processo-campo-valor')->text()));
-        $selo = $painel->filter('[data-proc-campo="sigilo"] > .ps-processo-selo');
-        self::assertSame('Segredo de justiça', trim($selo->text()), 'o rótulo da entidade, não o número');
+        self::assertSame('Não informado', trim($painel->filter('[data-proc-campo="jurisdicao"] > .ps-processo-campo-valor.ps-dado--vazio')->text()));
+        $selo = $painel->filter('[data-proc-campo="segredo"] > .ps-processo-selo');
+        self::assertSame('SIM', trim($selo->text()), 'o sigilo do tribunal vira o "Sim" do desenho');
         self::assertStringContainsString('ps-processo-selo--sim', (string) $selo->attr('class'));
+        self::assertSame('Não informado', trim($painel->filter('[data-proc-campo="gratuita"] > .ps-dado--vazio')->text()));
+        self::assertCount(0, $painel->filter('.ps-processo-manual'), 'sem edição manual, sem selo "manual"');
         self::assertSame('20/01/2026', trim($painel->filter('[data-proc-campo="baixa"] > .ps-processo-campo-valor')->text()));
         self::assertSame('0709999-00.2024.8.07.0001', trim($painel->filter('[data-proc-campo="origem"] > .ps-processo-campo-valor')->text()));
         self::assertSame(
@@ -262,9 +270,11 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             $this->textos($painel->filter('[data-proc-campo="partes"] > .ps-processo-partes > li')),
         );
         self::assertSame('30/09/2026 10:15', trim($painel->filter('[data-proc-campo="atualizacao"] > .ps-processo-campo-valor')->text()));
+        // Marcas: só a flag efetiva "Sim" (o segredo do tribunal).
+        self::assertSame(['Segredo de justiça'], $this->textos($cartao->filter('article.ps-processo > .ps-processo-marcas > .ps-processo-marca')));
     }
 
-    #[TestDox('Ver todas: nível de sigilo 0 vira "Público", sem o selo de "sim"')]
+    #[TestDox('Ver todas: nível de sigilo 0 vira "NÃO" no "Segredo de justiça?", sem o selo de "sim" e sem marca')]
     public function testSigiloPublico(): void
     {
         $client          = static::createClient();
@@ -276,14 +286,15 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         $this->vincular($pasta, $processo);
 
         $this->logarComTenant($client, $user, $tenant);
-        $selo = $this->cartao($this->abrir($client, $pasta))
-            ->filter('article.ps-processo > .ps-processo-detalhes > [data-proc-campo="sigilo"] > .ps-processo-selo');
+        $cartao = $this->cartao($this->abrir($client, $pasta));
+        $selo = $cartao->filter('article.ps-processo > .ps-processo-detalhes > [data-proc-campo="segredo"] > .ps-processo-selo');
 
-        self::assertSame('Público', trim($selo->text()));
+        self::assertSame('NÃO', trim($selo->text()));
         self::assertStringNotContainsString('ps-processo-selo--sim', (string) $selo->attr('class'));
+        self::assertCount(0, $cartao->filter('.ps-processo-marcas'));
     }
 
-    #[TestDox('Ver todas: processo sem nenhum dado no cadastro não oferece o botão, o painel nem o item do ⋮')]
+    #[TestDox('Ver todas (P5b): mesmo sem nenhum dado no cadastro, o botão e o painel existem (os 11 campos com "Não informado") e a linha de fonte diz que o PJe não está configurado')]
     public function testSemDadoNaoHaVerTodas(): void
     {
         $client          = static::createClient();
@@ -297,10 +308,12 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $cartao = $this->cartao($this->abrir($client, $pasta));
 
-        self::assertCount(0, $cartao->filter('.js-proc-alternar'));
-        self::assertCount(0, $cartao->filter('.ps-processo-detalhes'));
-        self::assertCount(0, $cartao->filter('.js-proc-alternar-menu'));
-        self::assertCount(1, $cartao->filter('article.ps-processo > .ps-processo-menu'), 'o ⋮ continua: nota, Push e copiar não dependem do cadastro');
+        self::assertCount(1, $cartao->filter('article.ps-processo > .ps-processo-mais-linha > .js-proc-alternar'));
+        self::assertCount(11, $cartao->filter('article.ps-processo > .ps-processo-detalhes > .ps-processo-campo > .ps-dado--vazio'));
+        $fonte = $cartao->filter('article.ps-processo > .ps-processo-mais-linha > .ps-processo-fonte');
+        self::assertSame('Integração com o PJe não configurada. Preencha manualmente.', trim($fonte->text()));
+        self::assertCount(1, $fonte->filter('i.bi-cloud-slash'));
+        self::assertStringNotContainsString('Dados do PJe', $cartao->text());
     }
 
     // =========================================================================
@@ -398,11 +411,15 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             self::assertSame(['button'], $acoes->children()->each(static fn (Crawler $n): string => $n->nodeName()));
             self::assertCount(1, $acoes->filter('.ps-processo-acoes > button.js-proc-menu-gatilho'));
             self::assertCount(1, $cartao->filter('article.ps-processo > .ps-processo-topo > .ps-copiar[data-copy]'));
-            self::assertCount(0, $cartao->filter('.ps-processo-topo form, .ps-processo-topo .bi-trash, .ps-processo-topo .bi-star, .ps-processo-topo .bi-box-arrow-up-right'));
+            // P4f (desenho N:1725): o único form no topo é o X do APENSADO; o principal não tem nenhum.
+            $ehApensado = $proc === $outro;
+            self::assertCount($ehApensado ? 1 : 0, $cartao->filter('.ps-processo-topo form'));
+            self::assertCount($ehApensado ? 1 : 0, $cartao->filter('.ps-processo-topo > form.js-desvincular-apensado'));
+            self::assertCount(0, $cartao->filter('.ps-processo-topo .bi-trash, .ps-processo-topo .bi-star, .ps-processo-topo .bi-box-arrow-up-right'));
 
-            // Os forms com CSRF continuam, agora como itens do ⋮.
+            // Os forms com CSRF continuam, agora como itens do ⋮ (no apensado, o do apensado: P4f).
             $menu = $cartao->filter('article.ps-processo > .ps-processo-menu');
-            $desv = $menu->filter('.ps-processo-menu > form.js-ajax-desvincular-processo');
+            $desv = $menu->filter($ehApensado ? '.ps-processo-menu > form.js-desvincular-apensado' : '.ps-processo-menu > form.js-ajax-desvincular-processo');
             self::assertCount(1, $desv);
             self::assertSame((string) $proc->getId(), $desv->filter('input[name="processo_id"]')->attr('value'));
             self::assertNotSame('', (string) $desv->filter('input[name="_token"]')->attr('value'));
@@ -523,7 +540,9 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $cartao->filter('article.ps-processo > .ps-processo-menu'));
         // Os contratos do XHR continuam.
         self::assertCount(1, $html->filter('form.js-ajax-processo-principal'), 'só o outro processo oferece "tornar principal"');
-        self::assertCount(2, $html->filter('form.js-ajax-desvincular-processo'));
+        // O promovido desvincula pelo form de sempre; o antigo principal virou apensado (P4f).
+        self::assertCount(1, $html->filter('form.js-ajax-desvincular-processo'));
+        self::assertCount(2, $html->filter('form.js-desvincular-apensado'), 'o X e o ⋮ do apensado');
         // Ids do ⋮ e do painel são únicos por processo.
         $ids = $html->filter('.ps-processo-menu, .ps-processo-detalhes')->each(static fn (Crawler $n): string => (string) $n->attr('id'));
         self::assertSame($ids, array_values(array_unique($ids)));
