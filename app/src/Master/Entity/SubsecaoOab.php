@@ -16,6 +16,9 @@ use Doctrine\ORM\Mapping as ORM;
  * GLOBAL, sem tenant, como a {@see SeccionalOab} de que faz parte: é dado da PLATAFORMA (trabalho comercial do
  * BlueJus), lido e gravado só pelo Master (ROLE_SUPER_ADMIN). Só adicionar e remover (o desenho não mostra editar;
  * DONO). O autor fica nulo se a conta dele for apagada (SET NULL). Auditável, dentro do EscopoDeAuditoriaDePlataforma.
+ *
+ * Desenho 05 inteiro (Version20261020149500): a subseção é de uma cidade da UF. A coluna `cidade` nasceu nula para
+ * não mexer nas linhas que já existiam; o UseCase exige a cidade em toda subseção nova.
  */
 #[ORM\Entity(repositoryClass: SubsecaoOabRepository::class)]
 #[ORM\Table(name: 'master_subsecao_oab')]
@@ -24,6 +27,7 @@ use Doctrine\ORM\Mapping as ORM;
 class SubsecaoOab implements Auditavel
 {
     public const NOME_MAXIMO = 120;
+    public const CIDADE_MAXIMA = 120;
     public const ENDERECO_MAXIMO = 255;
     public const TELEFONE_MAXIMO = 40;
 
@@ -39,6 +43,8 @@ class SubsecaoOab implements Auditavel
         #[ORM\ManyToOne(targetEntity: SeccionalOab::class)]
         #[ORM\JoinColumn(name: 'seccional_id', nullable: false, onDelete: 'CASCADE')]
         private SeccionalOab $seccional,
+        #[ORM\Column(length: self::CIDADE_MAXIMA, nullable: true)]
+        private ?string $cidade,
         #[ORM\Column(length: self::NOME_MAXIMO)]
         private string $nome,
         #[ORM\Column(length: self::ENDERECO_MAXIMO)]
@@ -61,6 +67,11 @@ class SubsecaoOab implements Auditavel
     public function getSeccional(): SeccionalOab
     {
         return $this->seccional;
+    }
+
+    public function getCidade(): ?string
+    {
+        return $this->cidade;
     }
 
     public function getNome(): string

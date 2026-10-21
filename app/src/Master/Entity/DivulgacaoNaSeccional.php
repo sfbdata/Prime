@@ -18,6 +18,10 @@ use Doctrine\ORM\Mapping as ORM;
  * GLOBAL, sem tenant, como a {@see SeccionalOab}: é trabalho comercial da PLATAFORMA, só do Master.
  * Só inclusão (não há editar nem apagar nesta entrega). O autor fica nulo se a conta dele for apagada
  * (SET NULL): o registro continua valendo. Auditável, dentro do EscopoDeAuditoriaDePlataforma.
+ *
+ * OBSOLETO desde a Version20261020149500 (desenho 05 inteiro): a divulgação virou a marca da UF na própria
+ * SeccionalOab (status, cor e data). Nada mais lê nem grava aqui; a tabela `master_divulgacao_seccional` fica no
+ * banco até a limpeza combinada com o dono (o DROP vai nessa limpeza, não agora).
  */
 #[ORM\Entity(repositoryClass: DivulgacaoNaSeccionalRepository::class)]
 #[ORM\Table(name: 'master_divulgacao_seccional')]

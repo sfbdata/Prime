@@ -311,7 +311,33 @@
             "Polygon",
             "Content-Type",
             "Escape",
-            "Enter"
+            "Enter",
+            "Rio Branco",
+            "Maceió",
+            "Macapá",
+            "Manaus",
+            "Salvador",
+            "Fortaleza",
+            "Brasília",
+            "Vitória",
+            "Goiânia",
+            "São Luís",
+            "Cuiabá",
+            "Campo Grande",
+            "Belo Horizonte",
+            "Belém",
+            "João Pessoa",
+            "Curitiba",
+            "Recife",
+            "Teresina",
+            "Natal",
+            "Porto Alegre",
+            "Porto Velho",
+            "Boa Vista",
+            "Florianópolis",
+            "Aracaju",
+            "Palmas",
+            "America/Sao_Paulo"
         ]
     },
 
@@ -330,6 +356,47 @@
             "Accept",
             "Enter",
             "Escape"
+        ]
+    },
+
+    "mapa_brasil": {
+        "templates": [
+            "master/mapa_brasil.html.twig"
+        ],
+        "js": [
+            "master/mapa-brasil.js"
+        ],
+        "permitidos": [
+            "Rondônia",
+            "Acre",
+            "Amazonas",
+            "Roraima",
+            "Pará",
+            "Amapá",
+            "Tocantins",
+            "Maranhão",
+            "Piauí",
+            "Ceará",
+            "Rio Grande do Norte",
+            "Paraíba",
+            "Pernambuco",
+            "Alagoas",
+            "Sergipe",
+            "Bahia",
+            "Minas Gerais",
+            "Espírito Santo",
+            "Rio de Janeiro",
+            "São Paulo",
+            "Paraná",
+            "Santa Catarina",
+            "Rio Grande do Sul",
+            "Mato Grosso do Sul",
+            "Mato Grosso",
+            "Goiás",
+            "Distrito Federal",
+            "Content-Type",
+            "Escape",
+            "Polygon"
         ]
     },
 

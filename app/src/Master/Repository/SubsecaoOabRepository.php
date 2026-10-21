@@ -35,12 +35,12 @@ class SubsecaoOabRepository extends ServiceEntityRepository
     /**
      * Todas as subseções, por UF, na ordem de cadastro. Uma consulta só para as 27, sem carregar entidades.
      *
-     * @return array<string, list<array{id: int, nome: string, endereco: string, telefone: ?string}>> UF => lista
+     * @return array<string, list<array{id: int, cidade: ?string, nome: string, endereco: string, telefone: ?string}>> UF => lista
      */
     public function todasPorUf(): array
     {
         $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
-            'SELECT s.uf, x.id, x.nome, x.endereco, x.telefone
+            'SELECT s.uf, x.id, x.cidade, x.nome, x.endereco, x.telefone
                FROM master_subsecao_oab x
                JOIN master_seccional_oab s ON s.id = x.seccional_id
            ORDER BY s.uf, x.id',
@@ -50,6 +50,7 @@ class SubsecaoOabRepository extends ServiceEntityRepository
         foreach ($linhas as $l) {
             $porUf[(string) $l['uf']][] = [
                 'id'       => (int) $l['id'],
+                'cidade'   => $l['cidade'] !== null ? (string) $l['cidade'] : null,
                 'nome'     => (string) $l['nome'],
                 'endereco' => (string) $l['endereco'],
                 'telefone' => $l['telefone'] !== null ? (string) $l['telefone'] : null,
