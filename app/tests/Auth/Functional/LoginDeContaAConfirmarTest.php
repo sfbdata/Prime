@@ -402,6 +402,11 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         self::assertSame(['cadastro_nao_ratificado', 'reaceite'], $this->origens('ciencia_politica', $user));
         $client->request('GET', '/');
         self::assertFalse($client->getResponse()->isRedirect('/termos/aceitar'), 'depois do aceite, o gate não para mais');
+
+        // Duplo envio do gate: a segunda ciência `reaceite` não grava nem estoura o índice único.
+        $repo = static::getContainer()->get(\App\Termo\Repository\CienciaPoliticaRepository::class);
+        self::assertFalse($repo->registrarReaceite($user, \App\Legal\PoliticaPrivacidadeVigente::VERSAO, '127.0.0.1', null, new \DateTimeImmutable()));
+        self::assertSame(['cadastro_nao_ratificado', 'reaceite'], $this->origens('ciencia_politica', $user));
     }
 
     #[TestDox('D2b: o código numa conta já confirmada não mexe no aceite do cadastro, e o gate fica só dos Termos')]

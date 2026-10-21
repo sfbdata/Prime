@@ -6,8 +6,6 @@ namespace App\Termo\UseCase;
 
 use App\Entity\Auth\User;
 use App\Legal\PoliticaPrivacidadeVigente;
-use App\Termo\Entity\CienciaPolitica;
-use App\Termo\Enum\OrigemDoAceite;
 use App\Termo\Repository\CienciaPoliticaRepository;
 use Psr\Clock\ClockInterface;
 
@@ -36,15 +34,12 @@ final class RatificarCienciaPoliticaUseCase
             return false;
         }
 
-        $this->cienciaPoliticaRepository->salvar(new CienciaPolitica(
-            user: $user,
-            versao: PoliticaPrivacidadeVigente::VERSAO,
-            ip: $ip,
-            userAgent: $userAgent,
-            cienteEm: $this->relogio->now(),
-            origem: OrigemDoAceite::Reaceite,
-        ), flush: true);
-
-        return true;
+        return $this->cienciaPoliticaRepository->registrarReaceite(
+            $user,
+            PoliticaPrivacidadeVigente::VERSAO,
+            $ip,
+            $userAgent,
+            $this->relogio->now(),
+        );
     }
 }

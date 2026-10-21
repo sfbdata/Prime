@@ -39,6 +39,20 @@ class CienciaPoliticaRepository extends ServiceEntityRepository
     }
 
     /**
+     * D2b: a ciência `reaceite` do gate. `ON CONFLICT DO NOTHING` torna o duplo envio idempotente sem fechar o
+     * EntityManager (o aceite dos Termos vem depois, no mesmo pedido). Devolve se gravou.
+     */
+    public function registrarReaceite(User $user, string $versao, string $ip, ?string $userAgent, \DateTimeImmutable $em): bool
+    {
+        return $this->getEntityManager()->getConnection()->executeStatement(
+            'INSERT INTO ciencia_politica (user_id, versao, ip, user_agent, ciente_em, origem)
+             VALUES (:id, :versao, :ip, :ua, :em, :origem) ON CONFLICT (user_id, versao, origem) DO NOTHING',
+            ['id' => $user->getId(), 'versao' => $versao, 'ip' => $ip, 'ua' => $userAgent,
+                'em' => $em->format('Y-m-d H:i:s'), 'origem' => OrigemDoAceite::Reaceite->value],
+        ) > 0;
+    }
+
+    /**
      * A ciência da versão vigente que a pessoa tem é só a do cadastro não ratificado? Então o gate dos Termos pede a
      * Política junto. Quem não tem ciência nenhuma (contas anteriores à ciência, convites) não entra aqui.
      */

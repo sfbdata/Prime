@@ -55,6 +55,9 @@ final class TermoController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
 
+        // D2b: quem confirmou a conta pelo código declara também a ciência da Política (a caixa diz isso). Ela vem
+        // ANTES do aceite: se o aceite falhar, o gate (que olha os Termos) para a pessoa de novo e nada fica pela metade.
+        $this->ratificarCiencia->executar($user, (string) $request->getClientIp(), $request->headers->get('User-Agent'));
         $this->registrarAceite->executar(new RegistrarAceiteTermoInput(
             user: $user,
             ip: (string) $request->getClientIp(),
@@ -62,8 +65,6 @@ final class TermoController extends AbstractController
             tenant: $this->tenantContext->getCurrentTenant(),
             origem: OrigemDoAceite::Reaceite,
         ));
-        // D2b: quem confirmou a conta pelo código declara também a ciência da Política (a caixa diz isso).
-        $this->ratificarCiencia->executar($user, (string) $request->getClientIp(), $request->headers->get('User-Agent'));
 
         $request->getSession()->set(TermoAceiteListener::SESSION_KEY, TermoVigente::VERSAO);
 
