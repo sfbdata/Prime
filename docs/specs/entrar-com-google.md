@@ -90,7 +90,9 @@ O mesmo caminho do login por senha, sem cópia:
   a verificação em duas etapas na própria conta Google.
 - Nada do Google é guardado além do `sub` (sem token, sem foto).
 
-## 6. Onde aparece o botão (o desenho 10 não tem) **[dono]**
+## 6. Onde aparece o botão (o desenho 10 não tem)
+
+**Decidido pelo dono (21/10/2026): a proposta abaixo, como está.**
 
 O desenho 10 não mostra o Google; por isso a posição precisa de aprovação antes de entrar (regra do desenho).
 Proposta, a mais discreta:
@@ -136,8 +138,8 @@ muda: o botão do Google é um link para `/login/google`, fora dos campos do for
 
 ## 8. Material do dono
 
-1. Responder os pontos que faltam: posição do botão (seção 6), confirmar e-mail pelo Google (seção 2) e
-   "Manter conectado" (seção 4). Já decididos em 21/10: seção 3 = (B) em duas entregas; Master pelo Google = sim.
+1. Responder os pontos que faltam: confirmar e-mail pelo Google (seção 2) e "Manter conectado" (seção 4). Já
+   decididos em 21/10: seção 3 = (B) em duas entregas; Master pelo Google = sim; botão como na seção 6.
 2. Criar no Google Cloud a credencial "Aplicativo da Web" do login, com o redirecionamento
    `https://<domínio>/login/google/callback`, e pôr as duas variáveis no `.env.prod`. Passo a passo vai junto
    com o PR.
