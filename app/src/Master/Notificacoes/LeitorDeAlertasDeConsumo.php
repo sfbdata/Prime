@@ -16,7 +16,8 @@ use Doctrine\DBAL\ParameterType;
  * Origem `alerta_consumo`: o "Alerta de consumo" que o `AlertaDeConsumoNaTrilha` grava na trilha quando um envio faz
  * a conta subir de faixa (spec perfis-1.2-planos-e-limites P11; spec docs/specs/master-central-leitores-exclusao-e-consumo.md).
  * Lido da própria trilha (`audit_log`, sem tabela nova): vem do "Sistema BlueJus" e não aceita resposta (D7). O
- * assunto é o texto até os dois-pontos, como no desenho.
+ * assunto é o texto até os dois-pontos, como no desenho. Escritório purgado sai da caixa (JOIN): a purga apaga o estado
+ * da Central do escritório, e a linha da trilha, que fica, voltaria como não lida.
  */
 final class LeitorDeAlertasDeConsumo implements OrigemDaCentral
 {
@@ -24,7 +25,7 @@ final class LeitorDeAlertasDeConsumo implements OrigemDaCentral
 
     private const SELECT = 'SELECT a.id, a.tenant_id, a.changes, a.created_at, t.name AS escritorio
                               FROM audit_log a
-                         LEFT JOIN tenant t ON t.id = a.tenant_id
+                              JOIN tenant t ON t.id = a.tenant_id
                              WHERE a.action = :acao AND a.entity_class = :entidade';
 
     public function __construct(
@@ -85,6 +86,7 @@ final class LeitorDeAlertasDeConsumo implements OrigemDaCentral
         $conta = $tenantId === null ? 'Conta' : 'Conta Nº ' . str_pad((string) $tenantId, 6, '0', \STR_PAD_LEFT);
         $nome = is_string($l['escritorio']) && $l['escritorio'] !== '' ? $l['escritorio'] . ' (' . $conta . ')' : $conta;
         $uso = isset($dados['percentual']) && is_numeric($dados['percentual']) ? sprintf(' Uso atual: %d%%.', (int) $dados['percentual']) : '';
+        $faixa = isset($dados['limiar']) && is_numeric($dados['limiar']) ? sprintf('passou de %d%% do armazenamento', (int) $dados['limiar']) : 'subiu de faixa no armazenamento';
 
         return new MensagemDaCentral(
             origem: self::ORIGEM,
@@ -96,7 +98,7 @@ final class LeitorDeAlertasDeConsumo implements OrigemDaCentral
             escritorio: $tenantId === null ? '' : $conta,
             tenantId: $tenantId,
             assunto: 'Alerta de consumo',
-            texto: sprintf('Alerta de consumo: %s passou de %d%% do armazenamento.%s', $nome, (int) ($dados['limiar'] ?? 0), $uso),
+            texto: sprintf('Alerta de consumo: %s %s.%s', $nome, $faixa, $uso),
             em: new \DateTimeImmutable((string) $l['created_at']),
             podeResponder: false,
         );

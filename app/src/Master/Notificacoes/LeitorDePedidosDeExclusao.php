@@ -28,7 +28,7 @@ final class LeitorDePedidosDeExclusao implements OrigemDaCentral
     // Tipo visual do desenho (cor da etiqueta): o vermelho dos alertas; o rótulo diz o que é.
     public const TIPO   = 'alerta';
 
-    private const SELECT = 'SELECT p.id, p.tenant_id, p.pedido_por_id, p.motivo, p.criado_em, p.estado, t.name AS escritorio, t.is_active,
+    private const SELECT = 'SELECT p.id, p.tenant_id, p.pedido_por_id, p.motivo, p.criado_em, p.estado, t.name AS escritorio, t.excluido_em,
                                    u.full_name, u.email
                               FROM pedido_exclusao_conta p
                               JOIN tenant t ON t.id = p.tenant_id
@@ -111,20 +111,23 @@ final class LeitorDePedidosDeExclusao implements OrigemDaCentral
             escritorio: 'Conta Nº ' . str_pad((string) $l['tenant_id'], 6, '0', \STR_PAD_LEFT),
             tenantId: (int) $l['tenant_id'],
             assunto: 'Quer excluir a conta ' . $escritorio,
-            texto: sprintf("Motivo: %s\n\nSituação do pedido: %s. A decisão fica em Contas e escritórios.", (string) $l['motivo'], self::situacao($estado, (bool) $l['is_active'])),
+            texto: sprintf("Motivo: %s\n\nSituação do pedido: %s. A decisão fica em Contas e escritórios.", (string) $l['motivo'], self::situacao($estado, $l['excluido_em'] === null)),
             em: new \DateTimeImmutable((string) $l['criado_em']),
             podeResponder: $l['pedido_por_id'] !== null,
         );
     }
 
-    /** "excluida" com o escritório de volta ao ar = recuperada pelo Master (contrato com a b5). */
-    private static function situacao(?EstadoDoPedidoDeExclusao $estado, bool $escritorioAtivo): string
+    /**
+     * "excluida" com a data de exclusão limpa = recuperada pelo Master (o ReativarContaUseCase zera `excluido_em`). Pela
+     * data, não pelo `is_active`: a conta recuperada e depois suspensa continua recuperada da exclusão.
+     */
+    private static function situacao(?EstadoDoPedidoDeExclusao $estado, bool $exclusaoDesfeita): string
     {
         return match ($estado) {
             EstadoDoPedidoDeExclusao::Pendente  => 'aguardando a sua decisão (a conta está suspensa a pedido)',
             EstadoDoPedidoDeExclusao::Desistida => 'o primário desistiu',
             EstadoDoPedidoDeExclusao::Reativada => 'reativada pelo Master',
-            EstadoDoPedidoDeExclusao::Excluida  => $escritorioAtivo ? 'excluída e depois recuperada pelo Master' : 'excluída pelo Master (quarentena de 365 dias)',
+            EstadoDoPedidoDeExclusao::Excluida  => $exclusaoDesfeita ? 'excluída e depois recuperada pelo Master' : 'excluída pelo Master (quarentena de 365 dias)',
             null                                => 'desconhecida',
         };
     }

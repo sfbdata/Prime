@@ -86,6 +86,77 @@ final class CentralOrigensExtrasTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422);
     }
 
+    #[TestDox('situação do pedido: desistiu, reativada, excluída e recuperada (pela data de exclusão, não pelo ativo)')]
+    public function testSituacoesDoPedido(): void
+    {
+        $ator = $this->usuario(['ROLE_USER'], 'Ator Situação');
+        $casos = [
+            'desistiu'    => [fn (PedidoDeExclusaoDeConta $p) => $p->desistir($ator), null, 'o primário desistiu'],
+            'reativada'   => [fn (PedidoDeExclusaoDeConta $p) => $p->marcarReativada($ator), null, 'reativada pelo Master'],
+            'excluida'    => [fn (PedidoDeExclusaoDeConta $p) => $p->marcarExcluida($ator), new \DateTimeImmutable('-1 day'), 'excluída pelo Master (quarentena de 365 dias)'],
+            'recuperada'  => [fn (PedidoDeExclusaoDeConta $p) => $p->marcarExcluida($ator), null, 'excluída e depois recuperada pelo Master'],
+        ];
+        $ids = [];
+        foreach ($casos as $nome => [$decidir, $excluidoEm, $texto]) {
+            $escritorio = $this->escritorio('Situação ' . $nome . ' ' . $this->marca);
+            $escritorio->setExcluidoEm($excluidoEm);
+            if ($nome === 'recuperada') {
+                $escritorio->setIsActive(false); // recuperada e depois suspensa: continua recuperada da exclusão
+            }
+            $pedido = new PedidoDeExclusaoDeConta($escritorio, $ator, 'Motivo ' . $nome, new \DateTimeImmutable());
+            $decidir($pedido);
+            $this->em->persist($pedido);
+            $ids[$nome] = [$pedido, $texto];
+        }
+        $this->em->flush();
+        $this->entrarComoMaster();
+        $caixa = $this->listar($this->marca);
+
+        foreach ($ids as $nome => [$pedido, $texto]) {
+            $item = $this->item($caixa, 'exclusao_conta:' . $pedido->getId());
+            self::assertNotNull($item, $nome);
+            self::assertStringContainsString('Situação do pedido: ' . $texto . '.', $item['texto'], $nome);
+        }
+    }
+
+    #[TestDox('pedido sem quem pediu (usuário apagado): aparece, mas não aceita resposta')]
+    public function testPedidoSemAutor(): void
+    {
+        $pedido = new PedidoDeExclusaoDeConta($this->cliente, null, 'Motivo sem autor', new \DateTimeImmutable());
+        $this->em->persist($pedido);
+        $this->em->flush();
+        $this->entrarComoMaster();
+
+        $item = $this->item($this->listar($this->marca), 'exclusao_conta:' . $pedido->getId());
+
+        self::assertSame(['Usuário primário', false], [$item['de'] ?? null, $item['podeResponder'] ?? null]);
+        $this->postar('/master/notificacoes/exclusao_conta/' . $pedido->getId() . '/responder', ['texto' => 'Oi']);
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    #[TestDox('alerta de consumo de escritório que não existe mais sai da caixa; outra linha da trilha não abre como alerta')]
+    public function testAlertaDeEscritorioPurgadoEOutraLinha(): void
+    {
+        $conexao = $this->conexao();
+        $conexao->insert('audit_log', [
+            'action' => PainelMasterRepository::ACAO_ALERTA_DE_CONSUMO, 'entity_class' => PainelMasterRepository::ENTIDADE_ALERTA_DE_CONSUMO,
+            'entity_id' => '999999999', 'changes' => '{"limiar":90}', 'tenant_id' => 999999999, 'created_at' => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
+        ]);
+        $purgado = (int) $conexao->lastInsertId();
+        $conexao->insert('audit_log', [
+            'action' => 'update', 'entity_class' => Tenant::class, 'entity_id' => (string) $this->cliente->getId(),
+            'changes' => '{}', 'tenant_id' => $this->cliente->getId(), 'created_at' => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
+        ]);
+        $outra = (int) $conexao->lastInsertId();
+        $this->entrarComoMaster();
+
+        self::assertNull($this->item($this->listar(''), 'alerta_consumo:' . $purgado));
+        $this->postar('/master/notificacoes/alerta_consumo/' . $purgado . '/abrir', []);
+        self::assertResponseStatusCodeSame(404);
+        $this->postar('/master/notificacoes/alerta_consumo/' . $outra . '/abrir', []);
+        self::assertResponseStatusCodeSame(404);
+    }
+
     /** @return array<string, mixed> */
     private function listar(string $q): array
     {

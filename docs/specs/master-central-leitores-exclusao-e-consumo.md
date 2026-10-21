@@ -14,9 +14,12 @@ controller nem na tela, salvo a correção abaixo. Sem migration. O pedido de pl
 
 - Pedido de exclusão: de = o primário que pediu; escritório = "Conta Nº 000123"; assunto "Quer excluir a conta
   {escritório}"; texto com o motivo e a situação (aguardando a decisão, desistiu, reativada, excluída, ou excluída e
-  recuperada quando o escritório voltou ao ar). A decisão continua em Contas e escritórios.
+  recuperada, quando a data de exclusão do escritório foi limpa; pela data e não pelo "ativo", porque a conta
+  recuperada e depois suspensa continua recuperada da exclusão). A decisão continua em Contas e escritórios.
 - Alerta de consumo: de "Sistema BlueJus"; assunto "Alerta de consumo"; texto "Alerta de consumo: {escritório}
   (Conta Nº …) passou de N% do armazenamento. Uso atual: P%."
+- Alerta de escritório purgado sai da caixa: a purga apaga o estado da Central do escritório (lido, estrela,
+  arquivo), e a linha da trilha, que fica, voltaria como não lida.
 - As duas leem por SQL direto, de todos os escritórios: o pedido é TenantAware, e o filtro da sessão do Master o
   esconderia. O escritório da resposta vem pelo id da linha, pelo mesmo motivo.
 - Tipo visual: o desenho só tem as cores de sug, prob, falta, alerta, sup e fale. As duas origens usam o vermelho dos
