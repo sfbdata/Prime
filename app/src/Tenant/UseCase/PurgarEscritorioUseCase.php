@@ -231,6 +231,10 @@ final class PurgarEscritorioUseCase
         // Relatório de pastas paradas (spec pastas-paradas): o envio do mês cairia pela CASCADE de
         // tenant, mas a purga apaga explicitamente, como o histórico do relatório irmão.
         ['relatorio_pastas_paradas_envio', 'tenant_id = :tenant'],
+        // Pedido de exclusão da conta e os códigos da etapa 2 (PR 5): FKs de tenant NO ACTION. O histórico
+        // do pedido fica no audit_log (retido); o motivo é texto do cliente e sai com o escritório.
+        ['codigo_exclusao_conta', 'tenant_id = :tenant'],
+        ['pedido_exclusao_conta', 'tenant_id = :tenant'],
         // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o
         // usuário não é apagado na purga e a de tenant é NO ACTION — sai aqui, explicitamente.
         ['preferencia_usuario', 'tenant_id = :tenant'],
