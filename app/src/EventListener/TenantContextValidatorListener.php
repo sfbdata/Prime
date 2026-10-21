@@ -188,7 +188,7 @@ final class TenantContextValidatorListener
      */
     private function masterPrecisaDaSelecao(Request $request, string $route, User $user): bool
     {
-        if (!PedidoDeNavegacao::eNavegacao($request)) {
+        if (!self::eAberturaDePagina($request)) {
             return false;
         }
 
@@ -199,6 +199,17 @@ final class TenantContextValidatorListener
         }
 
         return $this->userTenantRepository->findActiveByUser($user) !== [];
+    }
+
+    /**
+     * Só a abertura de página pelo navegador: GET que pede HTML (`text/html` no Accept), sem XHR e sem cara de pedido
+     * de dados. POST, PUT e DELETE, sondagem, XHR e pedido sem Accept (os testes do KernelBrowser) seguem como antes.
+     */
+    private static function eAberturaDePagina(Request $request): bool
+    {
+        return $request->isMethod('GET')
+            && PedidoDeNavegacao::eNavegacao($request)
+            && str_contains(strtolower((string) $request->headers->get('Accept', '')), 'text/html');
     }
 
     private function deveIgnorar(string $route): bool

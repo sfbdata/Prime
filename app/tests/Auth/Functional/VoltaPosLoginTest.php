@@ -33,6 +33,7 @@ final class VoltaPosLoginTest extends JusPrimeWebTestCase
     private const TARGET_PATH = '_security.main.target_path';
 
     /** O que o `fetch()` de um navegador moderno manda (pedido de dados). */
+    private const PAGINA = ['HTTP_SEC_FETCH_MODE' => 'navigate', 'HTTP_SEC_FETCH_DEST' => 'document', 'HTTP_ACCEPT' => 'text/html,application/xhtml+xml'];
     private const FETCH = ['HTTP_SEC_FETCH_MODE' => 'cors', 'HTTP_SEC_FETCH_DEST' => 'empty', 'HTTP_ACCEPT' => 'application/json'];
 
     /** O que o navegador moderno manda ao abrir a página pela barra de endereço ou por link. */
@@ -276,9 +277,9 @@ final class VoltaPosLoginTest extends JusPrimeWebTestCase
         $this->marcarTermosAceitos($client);
         self::assertSame('/escritorio/selecionar', $this->submeter($client, $crawler, $master));
 
-        // Sem escritório na sessão, o véu já é desviado para a seleção (como para quem não é Master).
-        $client->followRedirect();
-        self::assertResponseRedirects('/escritorio/selecionar');
+        // O véu revalida o destino e, sem escritório na sessão, leva à seleção (não ao Expediente).
+        $crawler = $client->followRedirect();
+        self::assertSame('/escritorio/selecionar', json_decode((string) $crawler->filter('#veuEntrada')->attr('data-destino'), true));
 
         $this->escolherEscritorioEAbrirOExpediente($client);
     }
@@ -295,7 +296,8 @@ final class VoltaPosLoginTest extends JusPrimeWebTestCase
         $session->save();
         $this->marcarTermosAceitos($client);
 
-        $client->request('GET', '/expediente');
+        // Abertura de página como o navegador manda; sem o Accept de HTML (os testes de outras telas), nada muda.
+        $client->request('GET', '/expediente', [], [], self::PAGINA);
         self::assertResponseRedirects('/escritorio/selecionar');
 
         $this->escolherEscritorioEAbrirOExpediente($client);
