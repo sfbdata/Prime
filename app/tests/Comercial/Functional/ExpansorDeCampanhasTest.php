@@ -135,11 +135,11 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         self::assertSame(0, (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM comercial_campanha_destino WHERE campanha_id = ? AND envio_id IS NULL', [$id]));
     }
 
-    #[TestDox('O envio da campanha: lista comercial_campanhas, origem campanha:<id>, rastrear pedido, layout do modo, reply-to da política (null)')]
+    #[TestDox('O envio da campanha: lista comercial_campanhas, origem campanha:<id>, rastrear pedido (a confirmação de leitura da campanha), layout do modo, reply-to da política (null)')]
     public function testFormaDoEnvio(): void
     {
         [$email] = $this->emailsDeAtivos(1);
-        $id = $this->campanha([$email]);
+        $id = $this->campanha([$email], ['rastrear_leitura' => true]);
         $expansor = $this->expansor();
         $expansor->materializarDevidas(new \DateTimeImmutable());
         $expansor->liberarLote(new \DateTimeImmutable());
@@ -155,6 +155,21 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         ], $envio);
         $envios = array_filter($this->fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof EnviarEmail);
         self::assertCount(1, $envios);
+    }
+
+    #[TestDox('F3g: campanha sem confirmação de leitura não pede rastreio no envio')]
+    public function testSemConfirmacaoDeLeituraNaoPedeRastreio(): void
+    {
+        [$email] = $this->emailsDeAtivos(1);
+        $id = $this->campanha([$email]);
+        $expansor = $this->expansor();
+        $expansor->materializarDevidas(new \DateTimeImmutable());
+        $expansor->liberarLote(new \DateTimeImmutable());
+
+        self::assertFalse((bool) $this->conexao->fetchOne(
+            'SELECT c.rastrear FROM comercial_envio e JOIN comercial_envio_conteudo c ON c.envio_id = e.id WHERE e.origem = ?',
+            ['campanha:' . $id],
+        ));
     }
 
     #[TestDox('Queda no meio do lote: a transação desfaz tudo; nenhum envio sobra e nenhum destinatário fica marcado')]

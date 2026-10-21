@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Comercial\UseCase;
 
+use App\Comercial\Service\RastreioDaLeitura;
 use App\Comercial\Campanha\PublicosDaCampanha;
 use App\Comercial\DTO\LinhaDoRelatorio;
 use App\Comercial\DTO\MetricasDaCampanha;
@@ -32,8 +33,10 @@ final class ListarRelatorioDeCampanhasUseCase
         CampanhaDeEmail::CANCELADA => 'Cancelada',
     ];
 
-    public function __construct(private readonly RelatorioDeCampanhasRepository $relatorio)
-    {
+    public function __construct(
+        private readonly RelatorioDeCampanhasRepository $relatorio,
+        private readonly RastreioDaLeitura $rastreio,
+    ) {
     }
 
     public function executar(PedidoDoRelatorio $pedido): RelatorioDeCampanhas
@@ -47,7 +50,7 @@ final class ListarRelatorioDeCampanhasUseCase
         return new RelatorioDeCampanhas(
             $pedido->aba,
             $abas,
-            array_map(static fn (array $l): LinhaDoRelatorio => self::linha($l, $metricas[$l['id']] ?? null), $linhas),
+            array_map(fn (array $l): LinhaDoRelatorio => self::linha($l, $metricas[$l['id']] ?? null, $this->rastreio->efetivo($l['rastrear_leitura'])), $linhas),
             $total,
             $pagina,
             self::POR_PAGINA,
@@ -55,21 +58,22 @@ final class ListarRelatorioDeCampanhasUseCase
     }
 
     /**
-     * A métrica da campanha que ainda não começou: os destinatários confirmados, todos na fila.
+     * A métrica da campanha que ainda não começou: os destinatários confirmados, todos na fila. `rastreiaLeitura` é o
+     * efetivo (F3g, {@see RastreioDaLeitura::efetivo()}).
      *
      * @param array{total: int, execucoes: int} $c
      * @param array{destinatarios: int, na_fila: int, enviados: int, entregues: int, lidos: int, rejeitados: int, clicaram: int}|null $m
      */
-    public static function metricas(array $c, ?array $m): MetricasDaCampanha
+    public static function metricas(array $c, ?array $m, bool $rastreiaLeitura): MetricasDaCampanha
     {
-        return MetricasDaCampanha::deArray($m, $c['execucoes'] === 0 ? $c['total'] : 0);
+        return MetricasDaCampanha::deArray($m, $c['execucoes'] === 0 ? $c['total'] : 0, $rastreiaLeitura);
     }
 
     /**
      * @param LinhaDaCampanha $c
      * @param array{destinatarios: int, na_fila: int, enviados: int, entregues: int, lidos: int, rejeitados: int, clicaram: int}|null $m
      */
-    private static function linha(array $c, ?array $m): LinhaDoRelatorio
+    private static function linha(array $c, ?array $m, bool $rastreiaLeitura): LinhaDoRelatorio
     {
         $sub = $c['modelo_nome'] . ($c['frequencia'] !== CampanhaDeEmail::UNICA ? ' · ' . $c['frequencia'] : '');
         $data = (new \DateTimeImmutable($c['agendada_para'] ?? $c['criada_em']))->format('Y-m-d\TH:i:s');
@@ -83,7 +87,7 @@ final class ListarRelatorioDeCampanhasUseCase
             $c['estado'],
             self::ROTULOS[$c['estado']] ?? $c['estado'],
             $data,
-            self::metricas($c, $m),
+            self::metricas($c, $m, $rastreiaLeitura),
         );
     }
 }

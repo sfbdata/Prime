@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Comercial\UseCase;
 
+use App\Comercial\Service\RastreioDaLeitura;
 use App\Comercial\Campanha\ComposicaoDaCampanha;
 use App\Comercial\Campanha\PublicosDaCampanha;
 use App\Comercial\DTO\CampanhaDoRelatorio;
@@ -41,6 +42,7 @@ final class AbrirCampanhaDoRelatorioUseCase
         private readonly RelatorioDeCampanhasRepository $relatorio,
         private readonly ComposicaoDaCampanha $composicao,
         private readonly string $mailerFrom,
+        private readonly RastreioDaLeitura $rastreio,
     ) {
     }
 
@@ -50,7 +52,7 @@ final class AbrirCampanhaDoRelatorioUseCase
         if ($c === null) {
             return null;
         }
-        $metricas = ListarRelatorioDeCampanhasUseCase::metricas($c, $this->relatorio->metricas([$id])[$id] ?? null);
+        $metricas = ListarRelatorioDeCampanhasUseCase::metricas($c, $this->relatorio->metricas([$id])[$id] ?? null, $this->rastreio->efetivo($c['rastrear_leitura']));
         $destinatarios = array_map(self::destinatario(...), $this->relatorio->destinatarios($id, CampanhaDoRelatorio::LIMITE));
 
         return new CampanhaDoRelatorio(

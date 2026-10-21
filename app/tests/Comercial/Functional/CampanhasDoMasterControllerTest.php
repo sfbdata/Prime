@@ -100,6 +100,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertIsArray($campanha);
         self::assertSame(['na_fila', 'indiv', 'unica', 1, 'Convite · novos escritórios', 'convite', null], [$campanha['estado'], $campanha['publico'], $campanha['frequencia'], $campanha['total'], $campanha['modelo_nome'], $campanha['modelo_chave'], $campanha['agendada_para']]);
         self::assertSame([['email' => $ana->getEmail(), 'nome' => '']], json_decode((string) $campanha['publico_parametros'], true));
+        self::assertFalse($campanha['rastrear_leitura'], 'F3g: sem a escolha no pedido, a campanha fica sem confirmação de leitura');
         $trilha = (string) $this->conexao()->fetchOne("SELECT changes FROM audit_log WHERE action = 'camp_conf' AND entity_id = ?", [(string) $saida['id']]);
         self::assertSame(['publico' => 'indiv', 'frequencia' => 'unica', 'total' => 1], json_decode($trilha, true));
         self::assertStringNotContainsString((string) $campanha['assunto'], $trilha);
@@ -107,6 +108,16 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         $fila = static::getContainer()->get('messenger.transport.comercial');
         \assert($fila instanceof InMemoryTransport);
         self::assertCount(1, array_filter($fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof ExpandirCampanhas));
+    }
+
+    #[TestDox('F3g: a escolha "Confirmação de leitura" do pedido fica gravada na campanha')]
+    public function testConfirmarGravaAConfirmacaoDeLeitura(): void
+    {
+        $client = $this->clienteMaster();
+        $this->postar($client, '/master/comercial/campanhas', $this->pedido([(string) $this->cadastradoAtivo('bia')->getEmail()], ['rastrearLeitura' => true]));
+
+        self::assertResponseIsSuccessful();
+        self::assertTrue((bool) $this->conexao()->fetchOne('SELECT rastrear_leitura FROM comercial_campanha WHERE id = ?', [$this->json($client)['id']]));
     }
 
     #[TestDox('Contagem com filtro (§9): "N de M atendem", K sem a informação; o selo conta os campos; a grade não muda')]

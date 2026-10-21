@@ -29,6 +29,14 @@ final class PedidoDeCampanhaTest extends TestCase
         self::assertSame('ana@exemplo.com', $pedido->publico->informados[0]->email);
     }
 
+    #[TestDox('F3g: rastrearLeitura só vale true quando vem true; ausente ou de outro tipo é false')]
+    public function testRastrearLeitura(): void
+    {
+        self::assertFalse(PedidoDeCampanha::deArray($this->dados([]))->rastrearLeitura);
+        self::assertTrue(PedidoDeCampanha::deArray($this->dados(['rastrearLeitura' => true]))->rastrearLeitura);
+        self::assertFalse(PedidoDeCampanha::deArray($this->dados(['rastrearLeitura' => '1']))->rastrearLeitura);
+    }
+
     /** @return iterable<string, array{array<string, mixed>, string}> */
     public static function recusas(): iterable
     {
