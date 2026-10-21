@@ -92,9 +92,7 @@ final class ListarVagasUseCase
 
     private function ultimaVisita(Contexto $ctx): ?\DateTimeImmutable
     {
-        $em = $this->preferencias->doUsuario($ctx->usuario, PreferenciaDoUsuario::ULTIMA_VISITA_VAGAS)?->getValor()['em'] ?? null;
-
-        return is_string($em) ? (new \DateTimeImmutable($em)) : null;
+        return $this->preferencias->doUsuario($ctx->usuario, PreferenciaDoUsuario::ULTIMA_VISITA_VAGAS)?->visitaAnterior();
     }
 
     /** @return array<string, list<mixed>> */

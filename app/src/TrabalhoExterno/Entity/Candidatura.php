@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Entity;
 
+use App\Entity\Tenant\Tenant;
 use App\TrabalhoExterno\Enum\StatusCandidatura;
 use App\TrabalhoExterno\Repository\CandidaturaRepository;
 use Doctrine\ORM\Mapping as ORM;
@@ -53,6 +54,14 @@ class Candidatura
     #[ORM\Column(nullable: true)]
     private ?int $rodada = null;
 
+    /**
+     * O escritório de quem se candidatou, no momento (o tenant do contexto): é nele que o candidato recebe
+     * o aviso de andamento (spec §4.7). Null para o Convidado sem escritório: sem aviso.
+     */
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(name: 'escritorio_do_candidato', nullable: true, onDelete: 'SET NULL')]
+    private ?Tenant $escritorioDoCandidato = null;
+
     private function __construct(
         #[ORM\ManyToOne(targetEntity: Vaga::class)]
         #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -66,18 +75,22 @@ class Candidatura
     }
 
     /** "Candidatar-se" (`candidatar`, l.974): entra como "Recebida". */
-    public static function candidatar(Vaga $vaga, Curriculo $curriculo, \DateTimeImmutable $agora): self
+    public static function candidatar(Vaga $vaga, Curriculo $curriculo, \DateTimeImmutable $agora, ?Tenant $escritorioDoCandidato = null): self
     {
-        return new self($vaga, $curriculo, $agora);
+        $c = new self($vaga, $curriculo, $agora);
+        $c->escritorioDoCandidato = $escritorioDoCandidato;
+
+        return $c;
     }
 
     /**
      * "Aceitar oferta" (`aceitar`, l.978): já em "Aprovado". Na vaga com dono, entra direto nos enviados
      * ao escritório, porque o toast promete que "O escritório já foi avisado" (coordenador, 19/10).
      */
-    public static function aceitarOferta(Vaga $vaga, Curriculo $curriculo, \DateTimeImmutable $agora): self
+    public static function aceitarOferta(Vaga $vaga, Curriculo $curriculo, \DateTimeImmutable $agora, ?Tenant $escritorioDoCandidato = null): self
     {
         $c = new self($vaga, $curriculo, $agora);
+        $c->escritorioDoCandidato = $escritorioDoCandidato;
         $c->aceiteDeOferta = true;
         $c->rodada = $vaga->getRodada();
         $c->mudarStatus(StatusCandidatura::Aprovado, $agora);
@@ -172,5 +185,10 @@ class Candidatura
     public function getRodada(): ?int
     {
         return $this->rodada;
+    }
+
+    public function getEscritorioDoCandidato(): ?Tenant
+    {
+        return $this->escritorioDoCandidato;
     }
 }
