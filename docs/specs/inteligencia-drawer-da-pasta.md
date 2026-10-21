@@ -13,7 +13,7 @@ lido; do cliente sai só o nome) e, do coordenador, **nada roda sozinho em lote*
 
 - F1+F2: PR #114 (rascunho, base #68), suíte completa e visual feitos. Commits já enviados.
 - F3 Perguntar: PR #122 (rascunho, base #114), suíte completa OK (10788), revisão aprovada com ressalvas corrigidas.
-  Migration provisória `Version20261021110000`. Auditoria "quem perguntou e quando, sem texto": regra do "Só eu" (coordenador).
+  Migration provisória `Version20261020138100`. Auditoria "quem perguntou e quando, sem texto": regra do "Só eu" (coordenador).
 - F4 Documentos: PR #129 (rascunho, base #122), sem migration. Conflito no GitHub só em `FluxoDaAnaliseDaPasta.php`
   (o mesmo filtro da anterior entrou por cherry-pick no F3 e no F4): resolver trazendo o master depois do #122, ficando
   com a versão do F4.
@@ -86,7 +86,7 @@ Desenho: aba "Perguntar" (`bi bi-chat-dots`, dc L5945), painel em L1072-1084, ro
   do desenho). Uma mensagem do usuário: os blocos do contexto, as últimas 4 perguntas concluídas da conversa com as
   respostas (8 mensagens, como o desenho) dentro de `<conversa_anterior>` e a pergunta dentro de `<pergunta>`, ambos
   neutralizados e passados pela máscara de dados pessoais. Nenhum texto de pergunta em log.
-- **Migration**: só a tabela nova (provisória `Version20261021110000`, depois da do F1).
+- **Migration**: só a tabela nova (provisória `Version20261020138100`, depois da do F1).
 
 ## F4 Documentos: contrato (19/10)
 
