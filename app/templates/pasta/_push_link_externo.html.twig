@@ -21,8 +21,11 @@
 {% set proc = pasta.processoPrincipal %}
 {% set totalMovs = push.total|default(0) %}
 
-{# ── 1. Menu da aba Push ([EXP] L.289-297 `gm`, itens L.4388-4395) ── #}
-<div class="ppl-menu" id="pushLinkMenu" role="menu" aria-labelledby="pushLinkMenuTitulo" hidden>
+{# ── 1. Menu da aba Push ([EXP] L.289-297 `gm`, itens L.4388-4395) ──
+   Com a tela `pushpub` desligada, some para quem não é Master, como o item do ⋮ (_cabecalho);
+   sem o #pushLinkMenu o JS não prende o botão direito e vale o menu do navegador. #}
+{% if recurso_visivel('pushpub') %}
+<div class="ppl-menu {{ recurso_marca('pushpub') }}" id="pushLinkMenu" role="menu" aria-labelledby="pushLinkMenuTitulo" hidden>
     <div class="ppl-menu-cab">
         <span class="ppl-menu-titulo" id="pushLinkMenuTitulo">Push Processual</span>
         <button type="button" class="ppl-menu-x js-ppl-menu-fechar" title="Fechar (Esc)" aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
@@ -41,6 +44,7 @@
     </button>
     <div class="ppl-menu-carregando js-ppl-menu-carregando" role="presentation">Carregando…</div>
 </div>
+{% endif %}
 
 {# ── 2. Modal ([EXP] L.506-552) ── #}
 <div class="ppl-fundo" id="modalLinkExternoPush" hidden

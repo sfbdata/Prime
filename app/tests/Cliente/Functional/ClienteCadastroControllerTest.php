@@ -480,6 +480,23 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
         self::assertSame('true', $c->filter('.js-cad-autor.is-ativo')->attr('aria-current'));
     }
 
+    #[TestDox('autores numa ordem fixa: o principal primeiro mesmo fora da ordem alfabética, depois o nome')]
+    public function testAutoresPrincipalPrimeiro(): void
+    {
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant);
+        $zelia = $this->criarClientePF($tenant, 'Zélia Autora');
+        $pasta = $this->criarPasta($tenant, $gestor, $zelia);
+        $this->logarComTenant($this->client, $gestor, $tenant);
+        $this->criar($pasta, ['nome' => 'Bruno Autor', 'cpf' => '529.982.247-25']);
+        $this->criar($pasta, ['nome' => 'Amanda Autora', 'cpf' => '111.444.777-35']);
+
+        $this->em()->clear();
+        $c = $this->client->request('GET', '/clientes/' . $zelia->getId() . '/cadastro?pasta=' . $pasta->getId());
+
+        self::assertSame(['ZÉLIA AUTORAPrincipal', 'AMANDA AUTORA', 'BRUNO AUTOR', 'Novo autor'], $c->filter('.cad-autores .js-cad-autor')->each(fn ($b) => trim(preg_replace('/\s+/', ' ', $b->text()))));
+    }
+
     #[TestDox('"Novo cliente" como empresa: aba Empresa e cria pessoa jurídica')]
     public function testNovoClienteEmpresa(): void
     {

@@ -324,6 +324,35 @@ final class MontadorDeContextoDaPastaTest extends TestCase
         self::assertStringNotContainsString('Parcelado', $texto);
     }
 
+    #[TestDox('abas ocultas para quem pediu (ocultar aba, desenho L.4218): as seções delas não entram e o resumo registra quais')]
+    public function testAbasOcultasNaoEntram(): void
+    {
+        $contexto = $this->sut()->para($this->tenant, $this->pasta, Agente::Gestor, true, ['push', 'documentos', 'detalhes', 'tarefas', 'dados']);
+
+        self::assertSame(['clientes', 'financeiro'], self::chaves($contexto));
+        self::assertSame(['push', 'documentos', 'detalhes', 'tarefas', 'dados'], $contexto->resumo()['abasOcultas']);
+        $texto = self::textoDe($contexto);
+        self::assertStringNotContainsString('réplica', $texto, 'movimentações (Push) e metas fora');
+        self::assertStringNotContainsString('Procuração', $texto, 'documentos e checklist fora');
+        self::assertStringNotContainsString('Atendimento presencial', $texto, 'observações (Detalhes) fora');
+        self::assertStringNotContainsString('Cliente ligou', $texto, 'anotações (Dados) fora');
+        self::assertSame([], $this->sut()->para($this->tenant, $this->pasta, Agente::Gestor, true)->resumo()['abasOcultas']);
+    }
+
+    #[TestDox('cada seção do contexto sabe a aba de onde vem (clientes é do cadastro)')]
+    public function testSecaoSabeAAba(): void
+    {
+        $abas = [];
+        foreach (\App\Inteligencia\Enum\SecaoDoContexto::cases() as $secao) {
+            $abas[$secao->value] = $secao->abaDaPasta()?->value;
+        }
+
+        self::assertSame([
+            'clientes' => null, 'movimentacoes' => 'push', 'metas' => 'tarefas', 'anotacoes' => 'dados',
+            'observacoes' => 'detalhes', 'documentos' => 'documentos', 'checklist' => 'documentos', 'financeiro' => 'financeiro',
+        ], $abas);
+    }
+
     #[TestDox('financeiro permitido: contrato, valor da causa, pagamento e observação financeira entram')]
     public function testFinanceiroComVisibilidadeEntra(): void
     {
@@ -626,12 +655,12 @@ final class MontadorDeContextoDaPastaTest extends TestCase
         self::assertSame([], $contexto->numerosDosProcessos);
     }
 
-    #[TestDox('o resumo gravado tem só contagens: agente, seções, omitidas, total, processos, financeiro')]
+    #[TestDox('o resumo gravado tem só contagens e decisões: agente, seções, omitidas, total, processos, financeiro, abas ocultas')]
     public function testResumoSoContagens(): void
     {
         $resumo = $this->sut()->para($this->tenant, $this->pasta, Agente::Relatorios, true)->resumo();
 
-        self::assertSame(['agente', 'secoes', 'omitidas', 'total', 'processos', 'financeiro'], array_keys($resumo));
+        self::assertSame(['agente', 'secoes', 'omitidas', 'total', 'processos', 'financeiro', 'abasOcultas'], array_keys($resumo));
         self::assertSame('relatorios', $resumo['agente']);
         self::assertSame(['clientes' => 1, 'movimentacoes' => 1, 'metas' => 1, 'observacoes' => 1, 'financeiro' => 3], $resumo['secoes']);
         self::assertSame(7, $resumo['total']);

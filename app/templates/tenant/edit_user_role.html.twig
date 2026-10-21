@@ -110,6 +110,20 @@
                                         {{ form_errors(form.dataAdmissao) }}
                                     </div>
 
+                                    {# Spec relatorio-processos-controladoria, D1: quem recebe o relatório mensal de
+                                       pastas sem processo e a cópia dos avisos à Controladoria. Só o Master ou um
+                                       primário marca: para os demais o campo não existe no form. #}
+                                    {% if form.controladoria is defined %}
+                                    <div class="mb-4">
+                                        <div class="form-check form-switch">
+                                            {{ form_widget(form.controladoria, {'attr': {'class': 'form-check-input', 'role': 'switch'}}) }}
+                                            {{ form_label(form.controladoria, null, {'label_attr': {'class': 'form-check-label fw-bold'}}) }}
+                                        </div>
+                                        <div class="form-text text-muted">{{ form.controladoria.vars.help }}</div>
+                                        {{ form_errors(form.controladoria) }}
+                                    </div>
+                                    {% endif %}
+
                                     <hr class="my-4">
 
                                     <h6 class="mb-3"><i class="bi bi-key me-1"></i>Alterar Senha (opcional)</h6>
