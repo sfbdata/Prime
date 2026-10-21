@@ -61,6 +61,15 @@ class MarcacaoDoUsuarioRepository extends ServiceEntityRepository
         return $mapa;
     }
 
+    /** Grava as marcações de um lote de uma vez (um flush). @param list<MarcacaoDoUsuario> $marcacoes */
+    public function salvarTodas(array $marcacoes): void
+    {
+        foreach ($marcacoes as $m) {
+            $this->getEntityManager()->persist($m);
+        }
+        $this->getEntityManager()->flush();
+    }
+
     /** Quem remove o item chama isto: `item_id` não tem FK (tabela polimórfica, spec §2). */
     public function removerDoItem(TipoItemMarcado $tipo, int $itemId): void
     {
@@ -70,6 +79,22 @@ class MarcacaoDoUsuarioRepository extends ServiceEntityRepository
             ->andWhere('m.itemId = :item')
             ->setParameter('tipo', $tipo)
             ->setParameter('item', $itemId)
+            ->getQuery()
+            ->execute();
+    }
+
+    /** Como {@see removerDoItem()}, para vários itens do mesmo tipo (as candidaturas da vaga ou do currículo removido). @param list<int> $itens */
+    public function removerDosItens(TipoItemMarcado $tipo, array $itens): void
+    {
+        if ($itens === []) {
+            return;
+        }
+        $this->createQueryBuilder('m')
+            ->delete()
+            ->andWhere('m.tipo = :tipo')
+            ->andWhere('m.itemId IN (:itens)')
+            ->setParameter('tipo', $tipo)
+            ->setParameter('itens', $itens)
             ->getQuery()
             ->execute();
     }

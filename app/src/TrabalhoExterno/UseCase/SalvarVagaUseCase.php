@@ -11,6 +11,7 @@ use App\TrabalhoExterno\Enum\Perfil;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Repository\PreferenciaDoUsuarioRepository;
 use App\TrabalhoExterno\Repository\VagaRepository;
+use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\PoliticaDaVaga;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,6 +22,8 @@ use Doctrine\ORM\EntityManagerInterface;
  * Convidado) envia para a Central aprovar. Só o Master escolhe o tipo (vaga comum ou oferta com
  * tempo) e "Até a vaga ser preenchida"; os demais ficam no teto de dias da configuração.
  * O "QUEM ESTÁ OFERECENDO" vira o padrão das próximas vagas desse usuário.
+ * Avisos (spec §4.7): o pedido vai para a Central aprovar; a vaga publicada pela Central, para quem
+ * ligou o aviso da área. O aviso precisa do código, então a vaga é gravada antes, na mesma transação.
  */
 final class SalvarVagaUseCase
 {
@@ -29,6 +32,7 @@ final class SalvarVagaUseCase
         private readonly VagaRepository $vagas,
         private readonly PreferenciaDoUsuarioRepository $preferencias,
         private readonly EntityManagerInterface $em,
+        private readonly AvisosDoTrabalhoExterno $avisos,
     ) {
     }
 
@@ -45,11 +49,21 @@ final class SalvarVagaUseCase
             $this->politica->podeDivulgar($ctx) => Vaga::doExterno($ctx->perfil === Perfil::Convidado ? null : $ctx->tenant, $ctx->usuario, $quem, $dados, $agora),
             default => throw new AcaoNaoPermitida('Você não pode publicar vagas.'),
         };
-        $this->vagas->salvar($vaga);
-        $this->guardarOfertante($ctx, $dados, $agora);
-        $this->em->flush();
+        $this->em->wrapInTransaction(function () use ($ctx, $dados, $vaga, $agora): void {
+            $this->vagas->salvar($vaga);
+            $this->guardarOfertante($ctx, $dados, $agora);
+            $this->em->flush();
+            $this->avisar($ctx, $vaga, $agora);
+        });
 
         return $vaga;
+    }
+
+    private function avisar(Contexto $ctx, Vaga $vaga, \DateTimeImmutable $agora): void
+    {
+        $vaga->ehDaCentral()
+            ? $this->avisos->vagaNaArea($ctx, $vaga, $agora)
+            : $this->avisos->pedidoDeDivulgacao($ctx, $vaga, false);
     }
 
     private function guardarOfertante(Contexto $ctx, DadosDaVaga $dados, \DateTimeImmutable $agora): void

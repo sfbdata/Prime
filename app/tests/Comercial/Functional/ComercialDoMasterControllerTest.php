@@ -121,7 +121,7 @@ final class ComercialDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame('n***@exemplo.com', $ultimos[0]['destinatario']);
     }
 
-    #[TestDox('Prévia do modelo: boas-vindas com o título do desenho e o rodapé legal; avisos de espaço ainda não; nada é enviado')]
+    #[TestDox('Prévia do modelo: boas-vindas com o título do desenho e o rodapé legal; avisos de espaço com o limite escolhido; nada é enviado')]
     public function testPrevia(): void
     {
         $client = $this->clienteMaster();
@@ -136,7 +136,24 @@ final class ComercialDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_envio'));
 
         $client->request('GET', '/master/comercial/automacoes/e90/previa');
-        self::assertStringContainsString('entra com os avisos de espaço', (string) $client->getResponse()->getContent());
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('Dra., sua conta chegou a 90% do espaço', $html, 'o padrão do dc');
+        self::assertStringContainsString('está com 90% ocupado', $html);
+        self::assertStringContainsString('/contribua#espaco', $html);
+
+        $this->conexao()->executeStatement("UPDATE comercial_automacao SET atraso = '80' WHERE chave = 'e90'");
+        $client->request('GET', '/master/comercial/automacoes/e90/previa');
+        self::assertStringContainsString('Dra., sua conta chegou a 80% do espaço', (string) $client->getResponse()->getContent(), 'o limite escolhido, não o 90% fixo');
+
+        $client->request('GET', '/master/comercial/automacoes/e100/previa');
+        self::assertStringContainsString('Dra., o espaço da sua conta acabou', (string) $client->getResponse()->getContent());
+        $client->request('GET', '/master/comercial/automacoes/ped/previa');
+        self::assertStringContainsString('Obrigado, Dra.! Já estamos cuidando disso', (string) $client->getResponse()->getContent());
+        self::assertEmailCount(0);
+        self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_envio'));
+
+        $client->request('GET', '/master/comercial/automacoes/xyz/previa');
+        self::assertResponseStatusCodeSame(404);
     }
 
     /** @param array<string, mixed> $corpo */

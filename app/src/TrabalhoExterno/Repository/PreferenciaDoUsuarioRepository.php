@@ -39,4 +39,30 @@ class PreferenciaDoUsuarioRepository extends ServiceEntityRepository
     {
         return $this->doUsuario($usuario, $chave) ?? new PreferenciaDoUsuario($usuario, $chave);
     }
+
+    /**
+     * Os avisos de vaga nova LIGADOS, de todos (o envio procura quem quer receber). O `ligado` é lido no
+     * JSON pelo SQL; quem chama confere o escritório guardado em cada um.
+     *
+     * @return list<PreferenciaDoUsuario>
+     */
+    public function alertasDeVagasLigados(): array
+    {
+        $ids = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            "SELECT id FROM trabalho_externo_preferencia WHERE chave = :chave AND (valor::jsonb ->> 'ligado') = 'true' ORDER BY id",
+            ['chave' => PreferenciaDoUsuario::ALERTA_DE_VAGAS],
+        );
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('p')
+            ->addSelect('u')
+            ->join('p.usuario', 'u')
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('ids', array_map('intval', $ids))
+            ->orderBy('p.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

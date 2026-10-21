@@ -6,6 +6,7 @@ namespace App\TrabalhoExterno\UseCase;
 
 use App\TrabalhoExterno\Enum\TipoItemMarcado;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
+use App\TrabalhoExterno\Repository\CandidaturaRepository;
 use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeVaga;
@@ -14,7 +15,8 @@ use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * "Excluir vaga" da Central (menu da l.1001): some para todos, com o histórico. As marcações dos
- * usuários não têm FK para a vaga (tabela polimórfica) e saem aqui. As candidaturas entram na F2b.
+ * usuários não têm FK para a vaga (tabela polimórfica) e saem aqui, as das candidaturas também; as
+ * candidaturas saem pela FK (CASCADE), como o desenho apaga.
  */
 final class ExcluirVagaUseCase
 {
@@ -22,6 +24,7 @@ final class ExcluirVagaUseCase
         private readonly LocalizadorDeVaga $localizador,
         private readonly PoliticaDaVaga $politica,
         private readonly MarcacaoDoUsuarioRepository $marcacoes,
+        private readonly CandidaturaRepository $candidaturas,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -34,6 +37,7 @@ final class ExcluirVagaUseCase
         }
 
         $this->marcacoes->removerDoItem(TipoItemMarcado::Vaga, (int) $vaga->getId());
+        $this->marcacoes->removerDosItens(TipoItemMarcado::Candidatura, $this->candidaturas->idsDaVaga($vaga));
         $this->em->remove($vaga);
         $this->em->flush();
     }

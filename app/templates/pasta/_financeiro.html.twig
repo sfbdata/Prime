@@ -295,7 +295,7 @@
                Editar/Excluir, nem bloqueados — o motivo seria de permissão, não de prazo ou de
                autoria (PAS-014/025c; igual a Detalhes). "Encaminhar via Chat I.A" (D:6305, FPN-007)
                vem logo depois de Copiar texto, só com a Central e fora da lápide, e clica o ↪ do
-               cartão (D:1936). Fora do menu fica "Destacar" (sem lastro). #}
+               cartão (D:1936). "Destacar" e "Remover destaque" entram pelo pasta-destaque.js. #}
             <div class="ps-fin-menu" id="financeiroObsMenu" role="menu" aria-label="Ações do registro" hidden>
                 <div class="ps-fin-menu-titulo"></div>
                 {% if podeEscreverFin %}
@@ -1300,6 +1300,8 @@
     let obsAlvo = null;
     function prepararMenuObs(menu, registro) {
         obsAlvo = registro;
+        // "Destacar" e "Remover destaque" (dc L6305), só para quem edita: pasta-destaque.js.
+        if (window.PastaDestaque) { window.PastaDestaque.pintarMenu(menu, registro, 'financeiro'); }
         const autor = textoLimpo(registro.querySelector('.ps-anotacao-autor'));
         const data  = registro.querySelector('.ps-anotacao-data');
         const quando = data ? (data.getAttribute('title') || textoLimpo(data)) : '';

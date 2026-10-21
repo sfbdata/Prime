@@ -52,6 +52,29 @@ class Notificacao implements Auditavel, TenantAware
     /** Um primário pediu a exclusão da conta do escritório (PR 5); vai para os Masters. */
     public const TIPO_CONTA_PEDIDO_EXCLUSAO = 'conta_pedido_exclusao';
 
+    // Trabalho Externo (F4): avisos de vagas e candidaturas.
+    public const TIPO_TRABALHO_EXTERNO_PEDIDO_DE_VAGA = 'trabalho_externo_pedido_de_vaga';
+    public const TIPO_TRABALHO_EXTERNO_CANDIDATURA = 'trabalho_externo_candidatura';
+    public const TIPO_TRABALHO_EXTERNO_OFERTA_ACEITA = 'trabalho_externo_oferta_aceita';
+    public const TIPO_TRABALHO_EXTERNO_CANDIDATOS_ENVIADOS = 'trabalho_externo_candidatos_enviados';
+    public const TIPO_TRABALHO_EXTERNO_VAGA_APROVADA = 'trabalho_externo_vaga_aprovada';
+    public const TIPO_TRABALHO_EXTERNO_VAGA_REPROVADA = 'trabalho_externo_vaga_reprovada';
+    public const TIPO_TRABALHO_EXTERNO_CANDIDATURA_STATUS = 'trabalho_externo_candidatura_status';
+    public const TIPO_TRABALHO_EXTERNO_VAGA_NA_AREA = 'trabalho_externo_vaga_na_area';
+    public const TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES = 'trabalho_externo_demanda_informacoes';
+    /** Os ícones desses tipos no sino (fora do `match` de getIcone, que já está no limite de tamanho). */
+    public const ICONES_DO_TRABALHO_EXTERNO = [
+        self::TIPO_TRABALHO_EXTERNO_PEDIDO_DE_VAGA => 'bi-inbox text-warning',
+        self::TIPO_TRABALHO_EXTERNO_CANDIDATURA => 'bi-send-check text-primary',
+        self::TIPO_TRABALHO_EXTERNO_OFERTA_ACEITA => 'bi-hand-thumbs-up text-success',
+        self::TIPO_TRABALHO_EXTERNO_CANDIDATOS_ENVIADOS => 'bi-people text-primary',
+        self::TIPO_TRABALHO_EXTERNO_VAGA_APROVADA => 'bi-check2-circle text-success',
+        self::TIPO_TRABALHO_EXTERNO_VAGA_REPROVADA => 'bi-x-circle text-danger',
+        self::TIPO_TRABALHO_EXTERNO_CANDIDATURA_STATUS => 'bi-arrow-repeat text-info',
+        self::TIPO_TRABALHO_EXTERNO_VAGA_NA_AREA => 'bi-megaphone text-primary',
+        self::TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES => 'bi-question-circle text-warning',
+    ];
+
     /** Categorias de notificação (derivadas do tipo). */
     public const CATEGORIA_PESSOAL = 'pessoal';
     public const CATEGORIA_GESTAO  = 'gestao';
@@ -214,6 +237,12 @@ class Notificacao implements Auditavel, TenantAware
     }
 
     public function getIcone(): string
+    {
+        // Trabalho Externo (F4): avisos de vagas e candidaturas.
+        return self::ICONES_DO_TRABALHO_EXTERNO[$this->tipo] ?? $this->iconeDosDemaisTipos();
+    }
+
+    private function iconeDosDemaisTipos(): string
     {
         return match ($this->tipo) {
             self::TIPO_TAREFA_CRIADA => 'bi-plus-circle text-primary',

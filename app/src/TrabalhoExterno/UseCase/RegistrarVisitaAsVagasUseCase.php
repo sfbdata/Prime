@@ -10,7 +10,8 @@ use App\TrabalhoExterno\Service\Contexto;
 
 /**
  * Guarda a visita à aba Vagas (`bj-te-visto-<perfil>`, desenho 06 l.1008): a tela chama ao entrar,
- * DEPOIS de listar. "NOVA" é a vaga criada depois da visita anterior a esta. Na prévia, nada.
+ * DEPOIS de listar. "NOVA" é a vaga criada depois da visita anterior a esta, que só avança quando a
+ * guardada tem mais de 30 min ({@see PreferenciaDoUsuario::registrarVisita()}). Na prévia, nada.
  */
 final class RegistrarVisitaAsVagasUseCase
 {
@@ -26,7 +27,7 @@ final class RegistrarVisitaAsVagasUseCase
         }
         $agora = new \DateTimeImmutable();
         $visita = $this->preferencias->obter($ctx->usuario, PreferenciaDoUsuario::ULTIMA_VISITA_VAGAS);
-        $visita->definir(['em' => $agora->format(\DATE_ATOM)], $agora);
+        $visita->registrarVisita($agora);
         $this->preferencias->salvar($visita, flush: true);
     }
 }

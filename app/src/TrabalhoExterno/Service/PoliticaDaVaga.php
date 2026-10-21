@@ -108,6 +108,24 @@ final class PoliticaDaVaga
         return !$ctx->previa && $this->podeVer($ctx, $v, $agora) && $v->situacaoEm($agora) === SituacaoVaga::Aberta;
     }
 
+    /** Mudar o status de um candidato e enviar candidatos: só a Central com `talentos` (decisão 3 da §4.4). */
+    public function podeGerirCandidatos(Contexto $ctx): bool
+    {
+        return !$ctx->previa && $this->veAba($ctx) && $this->ehDaCentral($ctx);
+    }
+
+    /** "Enviar N ao escritório" (`enviarCands`, l.981): só na vaga com dono. */
+    public function podeEnviarCandidatos(Contexto $ctx, Vaga $v): bool
+    {
+        return $this->podeGerirCandidatos($ctx) && $v->temDono();
+    }
+
+    /** A lista de candidatos (`candOn`, l.1003): o interno vê todos; o dono externo, só os enviados a ele. */
+    public function veCandidatos(Contexto $ctx, Vaga $v): bool
+    {
+        return $ctx->ehInterno() || $this->ehDono($ctx, $v);
+    }
+
     /**
      * As ações de situação da vaga, na situação de agora (o vencimento já contado), na ordem do menu.
      *

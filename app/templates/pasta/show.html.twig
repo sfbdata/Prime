@@ -2696,6 +2696,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const dataEl  = cartao.querySelector('.ps-anotacao-data');
         menuReg.querySelector('.js-reg-menu-titulo').textContent =
             (autorEl ? autorEl.textContent.trim() : '') + (dataEl && dataEl.title ? ' · ' + dataEl.title : '');
+        // "Destacar" e "Remover destaque" (dc L6305), só para quem edita: pasta-destaque.js.
+        if (window.PastaDestaque) { window.PastaDestaque.pintarMenu(menuReg, cartao, 'dados'); }
 
         // PAS-025b: na pasta excluída o menu nasce sem Responder, Editar e Excluir.
         const responder = menuReg.querySelector('.js-reg-responder');
@@ -4521,6 +4523,14 @@ document.addEventListener('DOMContentLoaded', function () {
          data-nome="{{ qualCliente.nomeExibicao }}"
          data-pendencias="{{ cliente_pendencias(qualCliente)|length }}"></div>
 {% endif %}
+{# "Destacar comentário" (spec pasta-destacar-comentario.md): o mapa da pasta, a rota e o token; os menus de Dados,
+   Detalhes e Financeiro chamam PastaDestaque.pintarMenu. Depois do pasta-dialogos.js (avisarPs). #}
+<div id="psDestaques" hidden
+     data-url="{{ path('pasta_comentario_destaque', {id: pasta.id}) }}"
+     data-token="{{ csrf_token('pasta_comentario_destaque_' ~ pasta.id) }}"
+     data-pode="{{ podeEditarPasta and not pasta.estaExcluida ? '1' : '0' }}"
+     data-mapa="{{ destaques_dos_comentarios(pasta)|json_encode|e('html_attr') }}"
+     data-cores="{{ cores_de_destaque()|json_encode|e('html_attr') }}"></div>
 {% endblock %}
 
 {% block javascripts %}
@@ -4550,4 +4560,6 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="{{ asset('js/pasta-clientes-duplicados.js') }}" defer></script>
 {# "Encaminhar via Chat I.A" (↪ dos registros e ⋮ do arquivo do Financeiro): dispara `bj-central:despachar`. #}
 <script src="{{ asset('js/pasta-encaminhar.js') }}"></script>
+{# "Destacar comentário": a raiz #psDestaques fica no fim do bloco body. #}
+<script src="{{ asset('js/pasta-destaque.js') }}"></script>
 {% endblock %}
