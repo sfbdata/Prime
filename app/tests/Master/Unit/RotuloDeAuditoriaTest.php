@@ -8,7 +8,9 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Entity\DivulgacaoNaSeccional;
 use App\Master\Entity\RecursoEstado;
+use App\Master\Entity\SeccionalOab;
 use App\Master\Service\RotuloDeAuditoria;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -92,5 +94,12 @@ final class RotuloDeAuditoriaTest extends TestCase
 
         $semMotivoComHistorico = RotuloDeAuditoria::traduzir('update', RecursoEstado::class, '{"diff":{"changes":{"ativo":{"from":true,"to":false},"alteradoEm":{"from":"a","to":"b"}}}}', recurso: 'peticionar');
         self::assertSame('Sem motivo informado', $semMotivoComHistorico['detalhe'], 'saindo de ativo, motivo fora do diff continuou nulo');
+    }
+
+    #[TestDox('Seccionais da OAB (F8): a sede editada e a divulgação registrada têm rótulo próprio na trilha')]
+    public function testSeccionais(): void
+    {
+        self::assertSame('Sede da seccional alterada', RotuloDeAuditoria::traduzir('update', SeccionalOab::class, null)['acao']);
+        self::assertSame('Divulgação registrada na seccional', RotuloDeAuditoria::traduzir('create', DivulgacaoNaSeccional::class, null)['acao']);
     }
 }

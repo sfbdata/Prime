@@ -11,7 +11,9 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Entity\DivulgacaoNaSeccional;
 use App\Master\Entity\RecursoEstado;
+use App\Master\Entity\SeccionalOab;
 use App\Master\Repository\PainelMasterRepository;
 
 /**
@@ -62,6 +64,8 @@ final class RotuloDeAuditoria
         TenantRolePermission::class => ['Permissão concedida ao perfil', 'Permissão do perfil alterada', 'Permissão retirada do perfil'],
         Permission::class           => ['Permissão do sistema criada', 'Permissão do sistema alterada', 'Permissão do sistema excluída'],
         Invitation::class           => ['Convite enviado', 'Convite atualizado', 'Convite removido'],
+        SeccionalOab::class         => ['Seccional da OAB cadastrada', 'Sede da seccional alterada', 'Seccional da OAB removida'],
+        DivulgacaoNaSeccional::class => ['Divulgação registrada na seccional', 'Divulgação na seccional alterada', 'Divulgação na seccional removida'],
     ];
 
     /**
