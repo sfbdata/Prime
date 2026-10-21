@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Functional;
 
 use App\Controller\PastaController;
-use App\Pasta\Controller\PastaResumoController;
+use App\Processo\Service\ResumoDoProcesso;
 use App\Pasta\Entity\Pasta;
 use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\Processo;
@@ -167,8 +167,9 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             self::assertSame('Não informado', trim($valor->text()));
         }
         self::assertCount(0, $cartao->filter('[data-proc-campo="instancia"]'));
-        // A faixa de cima não muda: Classe/Tribunal/Situação seguem com "Não informado(a)".
-        self::assertCount(3, $cartao->filter('article.ps-processo > .ps-processo-dados > .ps-processo-dado'));
+        // A faixa de cima do desenho (P5d): Ação · Classe · Tribunal · Situação, com "Não informado(a)".
+        self::assertCount(4, $cartao->filter('article.ps-processo > .ps-processo-dados > .ps-processo-dado'));
+        self::assertSame('Não informada', trim($cartao->filter('article.ps-processo > .ps-processo-dados > [data-proc-campo="acao"] > .ps-processo-valor.ps-dado--vazio')->text()));
     }
 
     #[TestDox('Resumo: valor da causa ZERO é dado (entra na média por CPF) e aparece como R$ 0,00; só o nulo some')]
@@ -458,7 +459,6 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
             'Tribunal: TJDFT',
             'Situação: Em andamento',   // E4: rótulo legível, mesmo do PDF (SituacaoProcessoRotulo)
             'Órgão julgador: 1ª VARA CÍVEL DE BRASÍLIA',
-            'Distribuição: 14/03/2025',
             'Valor da causa: R$ 15.234,50',
             'Pasta ' . $pasta->getNup(),
         ], $linhas);
@@ -483,12 +483,12 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         // tela — juntando rótulo e valor como o "Copiar resumo", o texto é idêntico.
         $doServidor = array_map(
             static fn (array $l): string => $l['rotulo'] . ($l['valor'] !== '' ? ': ' . $l['valor'] : ''),
-            PastaResumoController::linhasDoProcesso($pasta, $processo),
+            static::getContainer()->get(ResumoDoProcesso::class)->linhas($this->em()->find(Pasta::class, $pasta->getId()), $this->em()->find(Processo::class, $processo->getId())),
         );
         self::assertSame($linhas, $doServidor);
     }
 
-    #[TestDox('⋮ Copiar resumo: processo sem dados não ganha "Não informado" — só número e pasta')]
+    #[TestDox('⋮ Copiar resumo (P5d): processo sem dados mostra as linhas do desenho com "Não informado"')]
     public function testCopiarResumoSemDados(): void
     {
         $client          = static::createClient();
@@ -503,7 +503,17 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         $menu = $this->cartao($this->abrir($client, $pasta))->filter('article.ps-processo > .ps-processo-menu');
 
         $linhas = json_decode((string) $menu->filter('.js-proc-copiar[data-resumo]')->attr('data-resumo'), true, flags: \JSON_THROW_ON_ERROR);
-        self::assertSame(['Processo ' . self::NUMERO_MASCARA, 'Pasta ' . $pasta->getNup()], $linhas);
+        // P5d (desenho, procMenu N:3059): as linhas do desenho sempre, com "Não informado".
+        self::assertSame([
+            'Processo ' . self::NUMERO_MASCARA,
+            'Ação: Não informado',
+            'Classe: Não informado',
+            'Tribunal: Não informado',
+            'Situação: Não informado',
+            'Órgão julgador: Não informado',
+            'Valor da causa: Não informado',
+            'Pasta ' . $pasta->getNup(),
+        ], $linhas);
     }
 
     // =========================================================================
@@ -615,5 +625,36 @@ final class PastaProcessoCartaoTelaTest extends JusPrimeWebTestCase
         };
 
         static::getContainer()->set('security.csrf.token_storage', $storage);
+    }
+
+    #[TestDox('P5d: faixa Ação · Classe · Tribunal · Situação (Ação da pasta no principal) e a janela de vincular com os campos e as listas do desenho')]
+    public function testFaixaEJanelaDoDesenho02(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $pasta->setNomeAcao('Cobrança de taxas condominiais');
+        $this->em()->flush();
+        $this->processoCompleto($pasta);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $pagina = $this->abrir($client, $pasta);
+        $cartao = $this->cartao($pagina);
+
+        self::assertSame(['Ação', 'Classe', 'Tribunal', 'Situação'], $this->textos($cartao->filter('article.ps-processo > .ps-processo-dados > .ps-processo-dado > .ps-rotulo')));
+        self::assertSame('COBRANÇA DE TAXAS CONDOMINIAIS', trim($cartao->filter('article.ps-processo > .ps-processo-dados > [data-proc-campo="acao"] > .ps-processo-valor')->text()));
+
+        $janela = $pagina->filter('#modalVincularProcesso');
+        self::assertSame('Vincular processo', trim($janela->filter('#modalVincularProcessoLabel')->text()));
+        self::assertSame('R$ 0,00', $janela->filter('input[name="valorCausa"]')->attr('placeholder'));
+        self::assertSame('Ex.: Brasília · Fórum Des. Joaquim Sousa Neto', $janela->filter('input[name="jurisdicao"]')->attr('placeholder'));
+        foreach (['segredo', 'digital', 'gratuita', 'tutela', 'prioridade'] as $flag) {
+            self::assertSame(['Não informado', 'Sim', 'Não'], $this->textos($janela->filter('select[name="' . $flag . '"] > option')), $flag);
+        }
+        self::assertSame(['Em andamento', 'Suspenso', 'Arquivado', 'Baixado', 'Transitado em julgado'], $this->textos($janela->filter('select[name="situacaoProcesso"] > option')));
+        self::assertSame(['G1 - Primeira Instância', 'G2 - Segunda Instância', 'Turma Recursal', 'Tribunal Superior'], $this->textos($janela->filter('select[name="instancia"] > option')));
+        self::assertSame(['Parte', 'Advogado', 'Terceiro interessado', 'Ministério Público', 'Perito'], $this->textos($janela->filter('select[name="partes[0][tipo]"] > option')));
+        self::assertStringContainsString('"Buscar no CNJ" (aba Informações) importa as movimentações do PJe e dos diários oficiais. Depois de vinculado, o Push processual passa a monitorar o processo.', $janela->text());
+        self::assertSame('Abrir a tela de peticionamento desta pasta (anexos e textos)', $pagina->filter('.ps-processos a[aria-label="Peticionar na pasta"]')->attr('title'));
     }
 }

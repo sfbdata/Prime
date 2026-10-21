@@ -40,7 +40,7 @@ final class AvisoDeDisparoAlto
     /** Grava (sem flush: entra na transação de quem chama) uma notificação para cada Master ativo. */
     public function avisar(string $texto): void
     {
-        $url = $this->urls->generate('master_painel') . '#aba=painel&sec=com';
+        $url = $this->urls->generate('master_painel') . '#aba=painel&sec=ind';
         foreach ($this->mastersAtivos() as $master) {
             $escritorio = $this->contaDoMaster($master);
             if ($escritorio === null) {
