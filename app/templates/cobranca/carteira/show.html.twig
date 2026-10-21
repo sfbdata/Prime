@@ -425,6 +425,7 @@
 <script src="{{ asset('js/cobranca-soltar-arquivo.js') }}"></script>
 {# Troca o <select> de Estado pelo botão com funil e menu do desenho. Melhoria progressiva:
    sem este script o <select> continua à vista e a tela filtra do mesmo jeito. #}
+{{ catalogo_js('cobranca_carteira.js') }}
 <script src="{{ asset('js/carteira-filtro-estado.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
