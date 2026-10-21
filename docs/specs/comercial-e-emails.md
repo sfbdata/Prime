@@ -955,3 +955,13 @@ Escrita depois da F3a, em cima do código dela; a 5d revisa.
 **Testes:** a seção ind tem a Central como filho direto (combinador), com `data-modo="venda"`; os dois modos na mesma
 página não se confundem (token, URLs, ids); a recusa no servidor (público, modelo, filtro); o UseCase do cadastro
 (confirmação pedida, limitadores, origem, descadastrado); 403 para quem não é Master; CSRF.
+
+**Estado (21/10, implementado na branch `comercial-f3h`, a revisar pela 5d):**
+- Feito: `_comercial.html.twig` com `modo` (raiz da venda `.mc.mc-venda[data-mc-venda][data-modo="venda"]`, sem
+  `data-mc`, ids com prefixo `mc-venda-`), incluído pelo `_indicacoes.html.twig` como filho direto do `[data-mi]`;
+  `comercial-campanha.js` por raiz, com `MODOS`; `PedidoDePublico::modo` e as recusas da venda no `PedidoDePublico` e
+  no `PedidoDeCampanha`; `CadastrarContatoDoMasterUseCase` em `POST /master/comercial/contatos` (origem
+  `cadastro-manual-master`, rótulos da origem e da lista `comercial_campanhas` no `RotulosDoConsentimento`).
+- De fora no modo venda, à espera de decisão: o Relatório (item 5) e o botão "Descadastrados (N)" do cabeçalho, porque
+  os scripts do Relatório (9b) e dos Descadastrados (0d) são de uma instância só; e o limite por IP do cadastro (pede
+  um limitador novo no `framework.yaml`; a rota é só do Master e vale o teto global de 200 pedidos por hora).

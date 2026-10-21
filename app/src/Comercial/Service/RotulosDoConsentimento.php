@@ -13,10 +13,14 @@ final class RotulosDoConsentimento
 {
     private const ORIGENS = [
         'pagina-publica-vagas' => 'na página de vagas do BlueJus',
+        // F3h: o "Cadastrar e-mail" do Master na seção Indicações (CadastrarContatoDoMasterUseCase::ORIGEM).
+        'cadastro-manual-master' => 'pela equipe do BlueJus, em um cadastro manual',
     ];
 
     private const LISTAS = [
         'vagas_alerta' => 'os alertas de vagas do BlueJus',
+        // A Base de contatos das campanhas (ComposicaoDaCampanha::LISTA): convites, ofertas e novidades.
+        'comercial_campanhas' => 'os convites, as ofertas e as novidades do BlueJus',
     ];
 
     private const ORIGEM_DESCONHECIDA = 'em um formulário do BlueJus';

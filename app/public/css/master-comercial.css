@@ -268,3 +268,12 @@
 .mc-kpi-rotulo { display: block; font-size: 11px; font-weight: bold; color: var(--mc-sub); letter-spacing: .6px; }
 .mc-kpi-valor { display: block; font-size: 26px; margin: 4px 0 2px; }
 .mc-kpi-desc { font-size: 12px; color: var(--mc-apagado); }
+
+/* F3h: a Central de envios em modo venda (seção Indicações; desenho 05 VS 21.10.26). */
+/* L258: o cabeçalho "1 · PARA QUEM" com o "Cadastrar e-mail" (`cmLeadAdd`), botão de borda tracejada. */
+.mc-cp-para-cabeca { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.mc-cp-para-cabeca > .mc-cp-passo { flex: 1; }
+.mc-cp-lead-add { height: 26px; padding: 0 10px; border: 1px dashed var(--mc-cp-novo-borda); border-radius: 13px; background: var(--mc-cp-novo-bg); color: var(--mc-azul); font: inherit; font-size: 12px; font-weight: bold; cursor: pointer; }
+.mc-cp-lead-add:hover, .mc-cp-lead-add:focus-visible { background: var(--mc-cp-sel-bg); }
+/* L259 `cmPubCols`: os 3 públicos da venda em 3 colunas (`repeat(3, minmax(0, 1fr))`). */
+.mc-cp-publicos.mc-cp-publicos-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }

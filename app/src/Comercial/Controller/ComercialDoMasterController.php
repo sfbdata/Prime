@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace App\Comercial\Controller;
 
+use App\Comercial\DTO\CadastroDeContatosInput;
 use App\Comercial\DTO\DisparoOutput;
 use App\Comercial\DTO\EstadoDaAutomacao;
 use App\Comercial\Enum\Automacao;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
 use App\Comercial\Exception\AutomacaoRecusada;
+use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\Repository\AutomacaoDeEmailRepository;
 use App\Comercial\Service\ModelosDeAutomacao;
 use App\Comercial\Service\MontadorDeEmail;
 use App\Comercial\UseCase\AlterarAutomacaoUseCase;
+use App\Comercial\UseCase\CadastrarContatoDoMasterUseCase;
 use App\Comercial\UseCase\ListarAutomacoesUseCase;
 use App\Comercial\UseCase\SimularNovoCadastroUseCase;
 use App\Entity\Auth\User;
@@ -26,7 +29,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * O bloco "Automações" da seção "Comercial e e-mails" do /master (desenho 05 L.262-268; spec
- * comercial-e-emails.md §3.5). Só o Master. JSON, com o token CSRF `master_comercial` no header `X-CSRF-Token`.
+ * comercial-e-emails.md §3.5) e o "Cadastrar e-mail" da Central em modo venda (F3h, seção Indicações). Só o Master.
+ * JSON, com o token CSRF `master_comercial` no header `X-CSRF-Token`.
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class ComercialDoMasterController extends AbstractController
@@ -72,6 +76,31 @@ final class ComercialDoMasterController extends AbstractController
         }
 
         return $this->json(['mensagem' => $simular->executar()]);
+    }
+
+    /**
+     * "Cadastrar e-mail" (F3h; desenho 05 VS 21.10.26, `cmLeadAdd` L644): `{emails}` com um ou mais endereços; cada um
+     * recebe o pedido de confirmação dupla da Base de contatos. Responde quantos pedidos saíram, quantos já existiam e
+     * quantos foram barrados; recusa em 422 com `{erro}`.
+     */
+    #[Route('/master/comercial/contatos', name: 'master_comercial_contatos_cadastrar', methods: ['POST'])]
+    public function cadastrarContatos(Request $request, CadastrarContatoDoMasterUseCase $cadastrar): JsonResponse
+    {
+        if (!$this->isCsrfTokenValid(self::TOKEN, (string) $request->headers->get('X-CSRF-Token', ''))) {
+            return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
+        }
+        $corpo = json_decode($request->getContent(), true);
+        $usuario = $this->getUser();
+        try {
+            $saida = $cadastrar->executar(
+                CadastroDeContatosInput::doTexto(is_array($corpo) ? ($corpo['emails'] ?? null) : null),
+                $usuario instanceof User ? $usuario : throw new CampanhaRecusada('Sessão inválida.'),
+            );
+        } catch (CampanhaRecusada $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json($saida->paraArray());
     }
 
     /**
