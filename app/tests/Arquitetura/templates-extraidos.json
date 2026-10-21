@@ -55,5 +55,18 @@
             "Outro motivo",
             "Content-Type"
         ]
+    },
+
+    "metas": {
+        "templates": [
+            "tarefa/minhas.html.twig",
+            "tarefa/_metas_lista.html.twig",
+            "tarefa/_meta_cartao.html.twig",
+            "tarefa/_resultado.html.twig",
+            "tarefa/equipe.html.twig",
+            "tarefa/_numero_global.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
     }
 }
