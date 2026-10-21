@@ -84,7 +84,7 @@ final class PainelPlanosELimitesJsTest extends TestCase
     {
         $js = self::js();
 
-        foreach (["[T('master.js.limite.em_uso'), gb(c.bytes)]", "[T('master.js.limite.limite_atual'),", "[T('master.js.limite.livre'),", "[T('master.js.limite.usuarios'), num(c.usuarios)]", "[T('master.js.limite.vagas'),", "T('master.js.limite.novo_arm') : T('master.js.limite.novo_usu')", "campo(T('master.js.limite.justificativa')", "placeholder=\"' + T('master.js.limite.justificativa_dica') + '\"", "T('master.js.limite.confirmar')", "arm ? T('master.js.menu.lim_arm') : T('master.js.menu.lim_usu')"] as $trecho) {
+        foreach (["[T('master.js.limite.em_uso'), gb(c.bytes)]", "[T('master.js.limite.limite_atual'),", "[T('master.js.limite.livre'),", "[T('master.js.limite.usuarios'), num(c.usuarios)]", "[T('master.js.limite.vagas'),", "T('master.js.limite.novo_arm') : T('master.js.limite.novo_usu')", "campo(T('master.js.limite.justificativa')", "placeholder=\"' + esc(T('master.js.limite.justificativa_dica')) + '\"", "T('master.js.limite.confirmar')", "arm ? T('master.js.menu.lim_arm') : T('master.js.menu.lim_usu')"] as $trecho) {
             self::assertStringContainsString($trecho, $js, $trecho);
         }
         foreach (['em_uso' => 'EM USO', 'limite_atual' => 'LIMITE ATUAL', 'livre' => 'LIVRE', 'usuarios' => 'USUÁRIOS', 'vagas' => 'VAGAS', 'novo_arm' => 'NOVO LIMITE (GB)', 'novo_usu' => 'NOVO LIMITE DE USUÁRIOS', 'justificativa' => 'JUSTIFICATIVA', 'justificativa_dica' => 'Obrigatória, fica na auditoria', 'confirmar' => 'Confirmar alteração'] as $chave => $texto) {

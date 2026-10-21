@@ -49,7 +49,7 @@ final class PainelNumeroDaContaJsTest extends TestCase
     {
         $js = self::js();
 
-        self::assertStringContainsString("placeholder=\"' + T('master.js.contas.busca') + '\" aria-label=\"' + T('master.js.contas.busca') + '\"", $js);
+        self::assertStringContainsString("placeholder=\"' + esc(T('master.js.contas.busca')) + '\" aria-label=\"' + esc(T('master.js.contas.busca')) + '\"", $js);
         self::assertSame('Buscar nº, conta ou primário', self::catalogo('master.js.contas.busca'));
         self::assertStringNotContainsString('"Buscar conta ou primário"', $js);
     }
@@ -58,7 +58,7 @@ final class PainelNumeroDaContaJsTest extends TestCase
     public function testSelo(): void
     {
         self::assertStringContainsString(
-            "'<div class=\"mp-conta-nome mp-hv\"><span class=\"mp-conta-titulo\"><span class=\"mp-conta-nro\" title=\"' + T('master.js.contas.numero_dica') + '\">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span><b title=\"' + esc(c.nome) + '\">' + esc(c.nome) + '</b></span><span>' + esc(T('master.js.contas.desde', ",
+            "'<div class=\"mp-conta-nome mp-hv\"><span class=\"mp-conta-titulo\"><span class=\"mp-conta-nro\" title=\"' + esc(T('master.js.contas.numero_dica')) + '\">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span><b title=\"' + esc(c.nome) + '\">' + esc(c.nome) + '</b></span><span>' + esc(T('master.js.contas.desde', ",
             self::js(),
         );
         self::assertSame('Número da conta (ordem de abertura)', self::catalogo('master.js.contas.numero_dica'));
