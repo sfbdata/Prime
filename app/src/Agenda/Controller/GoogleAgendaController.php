@@ -78,6 +78,8 @@ final class GoogleAgendaController extends AbstractController
         $volta = (string) $guardado['volta'];
         if (($guardado['tenant'] ?? null) !== $tenant->getId()) {
             // Trocou de escritório no meio da ida ao Google: a conexão não vai para o escritório errado.
+            $this->logger->error('Google Agenda: escritório trocado entre a ida e a volta do Google', ['tenant_ida' => $guardado['tenant'] ?? null, 'tenant_volta' => $tenant->getId()]);
+
             return $this->redirect($volta . '#google=falhou');
         }
         if ('' !== $request->query->getString('error') || '' === $request->query->getString('code')) {
@@ -86,7 +88,8 @@ final class GoogleAgendaController extends AbstractController
         try {
             $this->conectar->executar($tenant, $eu, $request->query->getString('code'), (string) $guardado['verificador'], $this->urlDeRetorno());
         } catch (GoogleAgendaException $e) {
-            $this->logger->warning('Google Agenda: conexão falhou', ['motivo' => $e->getMessage()]);
+            // Error, não warning: em produção o log só despeja com um error na requisição (fingers_crossed).
+            $this->logger->error('Google Agenda: conexão falhou', ['motivo' => $e->getMessage(), 'tipo' => (new \ReflectionClass($e))->getShortName()]);
 
             return $this->redirect($volta . '#google=falhou');
         }

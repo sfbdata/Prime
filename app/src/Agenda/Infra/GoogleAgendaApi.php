@@ -266,7 +266,9 @@ final class GoogleAgendaApi
             throw new AutorizacaoDoGoogleRecusadaException('O Google recusou a autorização.');
         }
         if (200 !== $status) {
-            throw new GoogleAgendaException('O Google recusou o pedido de token (' . $status . ').');
+            // Só o código de erro do OAuth (ex.: invalid_client, redirect_uri_mismatch), sem a descrição livre.
+            $codigo = is_string($j['error'] ?? null) ? preg_replace('/[^a-z_]/', '', $j['error']) : '';
+            throw new GoogleAgendaException('O Google recusou o pedido de token (' . $status . ('' !== $codigo ? ', ' . $codigo : '') . ').');
         }
 
         return $j;
