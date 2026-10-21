@@ -26,6 +26,10 @@ final class RegistroDoSistemaNaPasta
         // Apensado vinculado/desvinculado (P4f): `SYS.proc` do desenho, N:6168.
         'proc'     => 'Processo',
         'cadeado'  => 'Cadeado',
+        // Desenho 02, `Component.SYS` (dc L6168): responsável, pró-bono e "Editar dados da pasta".
+        'resp'     => 'Responsável',
+        'probono'  => 'Pró-bono',
+        'pasta'    => 'Dados da pasta',
     ];
 
     public function __construct(

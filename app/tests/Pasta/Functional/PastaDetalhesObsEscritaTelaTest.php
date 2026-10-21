@@ -228,7 +228,8 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
 
-        $editado = $crawler->filter('#detalhes-obs-' . $obs->getId() . ' > .ps-anotacao-topo > .ps-anotacao-autor + .ps-anotacao-editado');
+        // Desenho 02 (dc L2458): autor, tag fixa "Observação" e só então "editado".
+        $editado = $crawler->filter('#detalhes-obs-' . $obs->getId() . ' > .ps-anotacao-topo > .ps-anotacao-autor + .detalhes-obs-tag + .ps-anotacao-editado');
         self::assertCount(1, $editado);
         $ed = $obs->getEditadaEm();
         self::assertNotNull($ed);
