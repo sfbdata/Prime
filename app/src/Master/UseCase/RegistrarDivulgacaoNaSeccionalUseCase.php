@@ -42,7 +42,7 @@ final class RegistrarDivulgacaoNaSeccionalUseCase
 
     public function executar(RegistrarDivulgacaoNaSeccionalInput $input): SeccionalOab
     {
-        $seccional = $this->seccionais->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada('Seccional não encontrada.');
+        $seccional = $this->seccionais->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada(SeccionalNaoEncontrada::RECUSA);
         $status = StatusDaDivulgacao::tryFrom($input->status) ?? throw new SeccionalRecusada('Escolha o status da divulgação.');
         if (preg_match('/^#[0-9a-f]{6}$/i', $input->cor) !== 1) {
             throw new SeccionalRecusada('Escolha a cor da marca.');
@@ -61,11 +61,11 @@ final class RegistrarDivulgacaoNaSeccionalUseCase
         $valor ??= $hoje;
         $data = preg_match('/^\d{4}-\d{2}-\d{2}$/', $valor) === 1 ? \DateTimeImmutable::createFromFormat('!Y-m-d', $valor) : false;
         if ($data === false || $data->format('Y-m-d') !== $valor) {
-            throw new SeccionalRecusada('Informe a data no formato dia, mês e ano.');
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_DATA_FORMATO);
         }
 
         if ($valor > $hoje) {
-            throw new SeccionalRecusada('A data da divulgação não pode ser no futuro.');
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_DATA_NO_FUTURO);
         }
 
         return $data;

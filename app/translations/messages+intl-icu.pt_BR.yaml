@@ -1279,7 +1279,8 @@ perfis:
 
 # ---- master: Painel do Master (master/painel.html.twig e painel.js), da série da b5. P2a: a moldura do painel (abas,
 # Permissões, Telas e recursos) e a Visão geral do painel.js (KPIs, gráfico, mapa, estados que faltam, seccionais e
-# janela da OAB), com as respostas das seccionais. As outras seções do painel.js ficam para a P2b; o Comercial da 5d tem
+# janela da OAB), com as respostas das seccionais. P2b: as outras seções do painel.js, as recusas das seccionais, as
+# respostas das contas e dos planos e os rótulos da faixa etária e do tipo de divulgação; o Comercial da 5d tem
 # bloco de topo próprio (comercial:). O termo solto ou numa frase curta vem de termos.* por parâmetro.
 master:
     painel:
@@ -1353,6 +1354,45 @@ master:
         visivel: '{seccional} aparece no mapa.'
         oculta: '{seccional} oculta no mapa.'
         todas_visiveis: Todas as seccionais aparecem no mapa.
+        # P2b: as recusas dos UseCases das seccionais (a exceção leva a chave e os parâmetros; o português da
+        # constante RECUSA_* é o mesmo daqui, ver o CatalogoDasRecusasDoMasterTest). O limite vai como texto, sem
+        # separador de milhar ("1000"), como no sprintf de antes.
+        recusa:
+            tipo_de_divulgacao: 'Escolha o tipo: material enviado, reunião ou parceria.'
+            data_formato: Informe a data no formato dia, mês e ano.
+            data_no_futuro: A data da divulgação não pode ser no futuro.
+            nota_longa: 'A nota passa de {limite} caracteres.'
+            nome_obrigatorio: Informe o nome da subseção.
+            endereco_obrigatorio: Informe o endereço da subseção.
+            nome_longo: 'O nome passa de {limite} caracteres.'
+            endereco_longo: 'O endereço passa de {limite} caracteres.'
+            telefone_longo: 'O telefone passa de {limite} caracteres.'
+            site_longo: 'O site passa de {limite} caracteres.'
+            site_sem_https: 'Informe o site completo, começando com https://.'
+            subsecao_nao_encontrada: Subseção não encontrada.
+        # Rótulo do tipo de divulgação (TipoDeDivulgacao::rotulo() é o português).
+        tipo:
+            material: Material enviado
+            reuniao: Reunião
+            parceria: Parceria
+    # P2b: respostas do ContasDoSistemaController (suspender, reativar e excluir).
+    contas:
+        sessao_expirada: Sessão expirada. Recarregue a página.
+        suspensa: 'Conta "{nome}" suspensa.'
+        reativada: 'Conta "{nome}" reativada.'
+        excluida: 'Conta "{nome}" excluída. Fica em quarentena até a purga e pode ser recuperada pelo {papel}.'
+    # P2b: respostas do PlanosELimitesController (a sessão expirada é contas.sessao_expirada).
+    planos:
+        informe_espaco_e_preco: Informe o espaço em GB e o preço em reais.
+        plano_atualizado: 'Plano "{nome}" atualizado.'
+        faixas_atualizadas: Faixas de alerta atualizadas.
+        limite_arm_atualizado: Limite de armazenamento atualizado.
+        limite_usu_atualizado: Limite de usuários atualizado.
+    # P2b: rótulo das faixas etárias da Visão geral (FaixaEtaria::FAIXAS é o português), traduzido no
+    # PainelMasterDadosController.
+    faixa_etaria:
+        intervalo: '{min} a {max}'
+        ou_mais: '{min} ou +'
     # Chaves do painel.js: vão cruas ao navegador (só {nome}, sem plural do ICU).
     js:
         carregando: Carregando…
@@ -1569,6 +1609,520 @@ master:
             atualizada: 'Atualizada em {data}'
             remover_titulo: Remover subseção
             remover_texto: 'O endereço "{nome}" sai da lista da seccional. A remoção fica registrada na auditoria.'
+        # P2b: as outras seções do painel.js.
+        sem_limite: sem limite
+        erro_acao: Não foi possível concluir a ação. Recarregue a página.
+        # Rótulo da situação gravada da conta (o valor que o servidor manda é dado, em português).
+        situacao:
+            ativa: Ativa
+            suspensa: Suspensa
+            a_pedido: Suspensa a pedido
+            quarentena: Em quarentena
+        # Faixa do RetratoDoEspaco (Contribua); o chip da faixa de bloqueio tem rótulo próprio.
+        faixa:
+            livre: Normal
+            atencao: Atenção
+            alerta: Alerta
+            critico: Crítico
+            bloqueio: Limite atingido
+            chip_bloqueio: Bloqueio
+        contas:
+            convites: Convites
+            todas_situacoes: Todas as situações
+            busca: Buscar nº, conta ou primário
+            cab:
+                conta: CONTA
+                primario_plano: PRIMÁRIO · PLANO
+                usuarios: USUÁRIOS
+                pastas: PASTAS
+                docs: DOCS
+                armazenamento: ARMAZENAMENTO
+                dias30: 30 DIAS
+                previsao: PREVISÃO
+                situacao: SITUAÇÃO
+            contagem: '{n} · botão direito na linha para ações'
+            numero_dica: Número da conta (ordem de abertura)
+            numero: 'Nº {numero}'
+            desde: 'desde {desde} · último acesso {acesso}'
+            sem_registro: sem registro
+            hoje: hoje
+            ontem: ontem
+            ha_dias: 'há {n} dias'
+            titular_ausente: titular não registrado
+            estavel: estável
+            sem_previsao: sem previsão
+            prev_menos: menos de 1 mês
+            prev_mes: '≈ {n} mês'
+            prev_meses: '≈ {n} meses'
+            purga_dica: A purga automática roda às 03h, a partir desta data
+            purga: apagada a partir de
+            acoes: Ações da conta
+            nenhuma: Nenhuma conta encontrada.
+            arm_nao_medido: uso não medido
+            arm_quarentena: conta em quarentena
+            arm_em_uso: '{gb} em uso'
+            arm_de: '{gb} de {limite} GB'
+            arm_livre: '{faixa} · livre {livre}'
+            aviso_ok: Situação da conta atualizada.
+        pedidos:
+            titulo: 'Pedidos de exclusão de conta · {n}'
+            sub: contas suspensas aguardando sua decisão
+            autor_ausente: autor não registrado
+            reativar: Reativar
+            excluir: Excluir conta
+        menu:
+            lim_arm: Editar limite de armazenamento
+            lim_usu: Definir limite de usuários
+            estat: Estatísticas de uso
+            hist: Histórico de alterações
+            suspender: Suspender conta
+            reativar: Reativar conta
+            excluir: Excluir conta
+        # Confirmações do menu da conta e dos pedidos. A palavra EXCLUIR fica no painel.js: o servidor confere ela.
+        conf:
+            suspender:
+                titulo: Suspender conta
+                botao: Suspender
+                texto: 'Os usuários de "{nome}" ficam sem acesso até a reativação. Nenhum dado é apagado.'
+            reativar:
+                titulo: Reativar conta
+                botao: Reativar
+                texto: 'A conta "{nome}" volta a ter acesso normal.'
+            excluir:
+                titulo: Excluir conta
+                botao: Excluir conta
+                texto: 'A conta "{nome}" sai do ar agora e é apagada de vez em {dias} dias. Até lá, pode ser recuperada pelo {papel}.'
+        usuarios_oab:
+            kpi:
+                registros: COM OAB INFORMADA
+                registros_desc: registros nos cadastros
+                unicas: INSCRIÇÕES ÚNICAS
+                unicas_desc: após normalizar número e UF
+                duplicadas: DUPLICADAS
+                duplicadas_desc: mesma inscrição repetida
+                nao_validadas: NÃO VALIDADAS
+                nao_validadas_desc: não contam como advogado confirmado
+                ufs: UFs
+                ufs_desc: estados com inscrição
+            pend:
+                sem_uf: '{conta}: {inscricao} sem UF da OAB'
+                sem_numero: '{conta}: usuário sem número de OAB'
+                aguardando: '{conta}: {normalizada} aguardando validação'
+                divergente: '{conta}: {normalizada} divergente do cadastro da OAB'
+                formatacao: '{conta}: "{inscricao}" normalizado para {normalizada}'
+                tag_incompleto: INCOMPLETO
+                tag_nao_validada: NÃO VALIDADA
+                tag_formatacao: FORMATAÇÃO
+            distribuicao: Distribuição por UF
+            sem_inscricao: Nenhuma inscrição informada.
+            pendencias: Inscrições com pendência
+            sem_pendencia: Nenhuma pendência.
+            nota: 'Contagem normalizada: número sem pontos e zeros à esquerda + UF em maiúsculas. Inscrição só conta como confirmada após validação.'
+            revisao: Abrir a Revisão de OAB
+        arm:
+            faixas_titulo: Faixas de alerta de consumo
+            configuraveis: (configuráveis)
+            a_partir: '{faixa} a partir de'
+            faixas_nota: No limite (100%), novos uploads acima da capacidade ficam bloqueados. Consulta, download e exportação continuam liberados. Nenhum documento é apagado automaticamente.
+            bloquear: 'Bloquear novos envios na faixa {faixa}'
+            aviso_bloqueio: Antes de ligar, confira os escritórios acima do plano e defina sem limite ou uma cota própria.
+            erro_faixas: As faixas precisam crescer em ordem, de 1% a 100%.
+            salvar_faixas: Salvar faixas
+            ranking: Contas por consumo
+            nenhuma: Nenhuma conta.
+            editar_limite: Editar limite
+            nota: 'Soma dos arquivos com tamanho gravado (pastas fora da lixeira, clientes, processos, cobrança, chamados e kanban). Justificativas de ponto e anexos de tarefa não têm tamanho no banco: não medidos.'
+        planos:
+            plano_free: 'Plano {nome}'
+            padrao: 'Padrão: toda conta nova começa aqui'
+            inativo: inativo
+            por_mes: / mês
+            usuarios_sem_limite: usuários sem limite
+            usuarios: '{n} usuários'
+            cap: '{gb} GB · {usuarios}'
+            contas: '{n} conta(s) · {acima} perto ou acima da franquia'
+            editar: Editar plano
+            nota: Toda conta nova entra no Plano Free (10 GB). A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail recomendando ampliar o espaço; em 100% novos envios ficam bloqueados, mas consultar e baixar arquivos continua liberado. Mudanças de plano com impacto comercial exigem confirmação e ficam registradas na auditoria.
+        # Janela de limite (armazenamento e usuários); o título é o do item do menu (menu.lim_arm e menu.lim_usu).
+        limite:
+            em_uso: EM USO
+            limite_atual: LIMITE ATUAL
+            livre: LIVRE
+            usuarios: USUÁRIOS
+            vagas: VAGAS
+            novo_arm: NOVO LIMITE (GB)
+            novo_usu: NOVO LIMITE DE USUÁRIOS
+            sem_limite: Sem limite (espaço e usuários)
+            nota_sem_limite: 'Esta conta está sem limite: o limite de usuários só passa a valer quando ela voltar a ter limite de espaço.'
+            justificativa: JUSTIFICATIVA
+            justificativa_dica: Obrigatória, fica na auditoria
+            confirmar: Confirmar alteração
+            msg_sem: 'Sem limite: a conta deixa de ter limite de espaço e de usuários. A alteração fica registrada na auditoria.'
+            msg_abaixo_arm: 'O novo limite é menor que o volume em uso ({gb}). Reduzir não apaga arquivos, por isso não é permitido abaixo do uso.'
+            msg_abaixo_usu: Menor que os usuários já cadastrados.
+            msg_inteiro: Informe um número inteiro.
+            msg_de_sem_arm: 'Passa de sem limite para {n} GB. A alteração fica registrada na auditoria.'
+            msg_de_sem_usu: 'Passa de sem limite para {n} usuários. A alteração fica registrada na auditoria.'
+            msg_diferenca_arm: 'Diferença: {d} GB. A alteração fica registrada na auditoria.'
+            msg_diferenca_usu: 'Diferença: {d} usuário(s). A alteração fica registrada na auditoria.'
+        # Janela "Editar plano"; o título é planos.editar e o campo NOME é campo.nome.
+        plano_modal:
+            espaco: ESPAÇO (GB)
+            preco: PREÇO (R$)
+            limite_usuarios: LIMITE DE USUÁRIOS
+            vazio_sem_limite: vazio para sem limite
+            descricao: DESCRIÇÃO
+            ativo: Plano ativo
+            salvar: Salvar plano
+            msg_ok: 'O código do plano ({codigo}) não muda. A alteração fica registrada na auditoria.'
+            msg_preencha: 'Preencha o nome, o espaço em GB e o preço em reais (por exemplo 19,90). Usuários: vazio para sem limite.'
+        audit:
+            titulo: Trilha de auditoria
+            contagem: '{n} registro(s) · últimos {meses} meses'
+            truncado: 'mostrando os {n} mais recentes'
+            todas_acoes: Todas as ações
+            pdf: Gerar PDF
+            todas_contas: Mostrar todas as contas
+            resumo:
+                limites: Limites
+                contas: Contas
+                masters: Masters e primários
+                alertas: Alertas
+            cab:
+                data: DATA E HORA
+                responsavel: RESPONSÁVEL
+                acao: AÇÃO E CONTA
+                detalhe: DETALHE
+            vazio: Nenhum registro ainda. Alterações de limite, suspensões e exclusões aparecem aqui. Entradas no sistema (login) não são auditadas.
+        # PDF da trilha (janela de impressão); o cabeçalho da tabela é audit.cab.
+        pdf:
+            titulo_janela: Auditoria BlueJus
+            titulo: Trilha de auditoria do sistema
+            gerado: 'Gerado em {quando} por {quem} ({papel}) · {n} registro(s)'
+            filtro: 'filtro: {filtro}'
+            conta: 'conta: {conta}'
+            rodape: 'BlueJus · documento gerado pelo painel do {papel}. Contém apenas metadados administrativos.'
+
+# ---- Cliente (cliente/show, editPF, editPJ, _cadastro, _resumo, cliente-cadastro.js). O texto da qualificação no JS
+# espelha o QualificacaoDoCliente (PHP), que ainda não lê o catálogo: os dois mudam juntos na tradução.
+cliente:
+    comum:
+        copiar: Copiar
+        copiar_qualificacao: Copiar qualificação
+        fechar: Fechar
+        cancelar: Cancelar
+        salvar: Salvar
+        editar: Editar
+        excluir: Excluir
+        visualizar: Visualizar
+        tipo_documento: Tipo de documento
+        descricao: Descrição
+        descricao_opcional: Descrição (opcional)
+        numero: Número
+        numero_opcional: Número (opcional)
+    show:
+        titulo_pagina: 'Cliente - {nome}'
+        migalha:
+            inicio: Home
+            clientes: Clientes
+            detalhes: Detalhes
+        pessoa_fisica: Pessoa Física
+        pessoa_juridica: Pessoa Jurídica
+        tipo: Tipo
+        sigla_pf: PF
+        sigla_pj: PJ
+        aba:
+            dados: Dados do Cliente
+            detalhes: Detalhes
+        secao:
+            dados_pessoais: Dados Pessoais
+            documento_rg: Documento RG
+            dados_empresa: Dados da Empresa
+            representante_legal: Representante Legal
+            contato: Contato
+            endereco: Endereço
+        campo:
+            nome_completo: Nome Completo
+            cpf: CPF
+            data_nascimento: Data de Nascimento
+            estado_civil: Estado Civil
+            profissao: Profissão
+            rg: RG
+            orgao_expedidor: Órgão Expedidor
+            data_emissao: Data de Emissão
+            razao_social: Razão Social
+            nome_fantasia: Nome Fantasia
+            cnpj: CNPJ
+            inscricao_estadual: Inscrição Estadual
+            inscricao_municipal: Inscrição Municipal
+            nome: Nome
+            cargo: Cargo
+            email: E-mail
+            celular: Celular
+            telefone_fixo: Telefone Fixo
+            cep: CEP
+            endereco: Endereço
+            complemento: Complemento
+            cidade_estado: Cidade/Estado
+            criado_em: Criado em
+            modificado_em: Modificado em
+            criado_por: Criado por
+        vinculos:
+            titulo: Vínculos
+            processos: Processos
+            sem_processo: Nenhum processo cadastrado.
+            pastas: Pastas
+            sem_pasta: Nenhuma pasta vinculada.
+            cadeado_dica: Pasta trancada pelo usuário primário
+            cadeado: Pasta trancada
+        arquivos:
+            titulo: Arquivos do Cliente
+            adicionar: Adicionar arquivo
+            limpar: Limpar
+            reduzir: Reduzir tamanho dos arquivos (economiza espaço)
+            reduzir_nota: Mantenha desligado para preservar a qualidade original.
+            reduzir_aviso: PDFs assinados digitalmente podem ter a assinatura invalidada ao reduzir o tamanho.
+            enviar_todos: Enviar todos
+            numero: 'Nº {numero}'
+            na_pasta: 'na Pasta {nup}'
+            tamanho_kb: '{n} KB'
+            tamanho_mb: '{n} MB'
+            excluir_confirma: Deseja excluir este documento?
+        editar_cliente: Editar cliente
+        excluir_cliente: Excluir cliente
+        excluir_cliente_botao: Excluir Cliente
+        excluir_confirma: Tem certeza que deseja excluir este cliente?
+        previa:
+            baixar: Download
+        editar_doc:
+            titulo: Editar documento
+            nome: Nome do arquivo
+            extensao_antes: A extensão
+            extensao_depois: é preservada automaticamente.
+    editar:
+        titulo_pf: Editar Cliente - Pessoa Física
+        titulo_pj: Editar Cliente - Pessoa Jurídica
+        voltar: Voltar
+        salvar: Salvar Alterações
+        secao:
+            dados_pessoais: Dados Pessoais
+            rg: RG
+            dados_empresa: Dados da Empresa
+            representante_legal: Representante Legal
+            contato: Contato
+            endereco: Endereço
+    cadastro:
+        titulo: Cadastro e qualificação do cliente
+        novo_cliente: Novo cliente
+        autores:
+            grupo: Autores da pasta
+            rotulo: Autores
+            principal: Principal
+            novo: Novo autor
+        aba:
+            cliente: Cliente
+            empresa: Empresa
+            reu: Réu
+            endereco: Endereço
+            contato: Contato
+            documentos: Documentos
+            qualificacao: Qualificação
+            historico: Histórico
+        tipo:
+            grupo: Tipo de cliente
+            pf: Pessoa física
+        campo:
+            nome_completo: Nome completo
+            cpf: CPF
+            rg: RG
+            orgao: Órgão
+            orgao_exemplo: SSP/DF
+            nascimento: Nascimento
+            estado_civil: Estado civil
+            profissao: Profissão
+            nacionalidade: Nacionalidade
+            genero: Gênero
+            razao_social: Razão social
+            cnpj: CNPJ
+            nome_fantasia: Nome fantasia
+            inscricao_estadual: Inscrição estadual
+            inscricao_municipal: Inscrição municipal
+            representante_cargo: Cargo do representante
+            representante_legal: Representante legal
+            representante_cpf: CPF do representante
+            representante_rg: RG do representante
+            cep: CEP
+            logradouro: Logradouro
+            complemento: Complemento
+            bairro: Bairro
+            cidade: Cidade
+            uf: UF
+            telefone: Telefone
+            whatsapp: WhatsApp
+            email: E-mail
+            email_exemplo: nome@email.com
+        pend:
+            nome_completo: Nome completo não informado
+            cpf: CPF não informado
+            cnpj: CNPJ não informado
+            rg: RG não informado
+            estado_civil: Estado civil não informado
+            profissao: Profissão não informada
+            razao_social: Razão social não informada
+            representante_legal: Representante legal não informado
+            representante_cpf: CPF do representante não informado
+            cep: CEP não informado
+            logradouro: Logradouro não informado
+            numero: Número não informado
+            bairro: Bairro não informado
+            cidade: Cidade não informada
+            uf: UF não informada
+        civil:
+            solteiro: Solteiro(a)
+            casado: Casado(a)
+            divorciado: Divorciado(a)
+            separado: Separado(a)
+            viuvo: Viúvo(a)
+            uniao_estavel: União estável
+        genero:
+            masculino: Masculino
+            feminino: Feminino
+        aviso:
+            cpf_invalido: 'CPF inválido: confira os dígitos.'
+            cnpj_invalido: 'CNPJ inválido: confira os dígitos.'
+            email_invalido: E-mail em formato inválido.
+            cep_preenchido: Endereço preenchido pelo CEP. Confira e informe o número.
+        reu:
+            nota_antes: Parte adversa desta pasta. O primeiro réu aparece na coluna
+            nota_meio: da lista do Expediente; havendo mais de um, aparece
+            nota_e_outros: e outros
+            nome: Nome / razão social
+            nome_exemplo: 'Ex.: Banco do Brasil S.A.'
+            documento: CPF / CNPJ
+            opcional: Opcional
+            adicionar: Adicionar réu
+        doc:
+            identificacao: Documento de identificação
+            identificacao_sub: CNH ou RG
+            residencia: Comprovante de residência
+            residencia_sub: Conta de consumo, contrato de locação ou similar
+            anexado_em: 'anexado em {data}'
+            nao_anexado: não anexado
+            tamanho_kb: '{n} KB'
+            baixar: Baixar
+            substituir: Substituir
+            anexar: Anexar
+            excluir_confirma: 'Excluir {nome} do cadastro?'
+        ocr:
+            titulo: Leitura automática do documento
+            texto: O serviço de leitura (OCR) não está configurado neste ambiente. Quando estiver ativo, nome, CPF, RG e nascimento são sugeridos aqui para você conferir antes de salvar.
+        qualificacao_nota: Texto gerado com os campos preenchidos, pronto para contratos, procurações e petições. Documentos já gerados não mudam quando o cadastro é atualizado.
+        historico_vazio: Nenhuma alteração registrada ainda.
+        existente:
+            titulo_cpf: Este CPF já possui cadastro no sistema.
+            titulo_cnpj: Este CNPJ já possui cadastro no sistema.
+            abrir: Abrir cadastro
+            usar: Utilizar cadastro existente
+        pendencias: Pendências
+    resumo:
+        titulo: Detalhes do cliente
+        arrastar: Arraste para mover
+        nome: Nome
+        copiar_nome: Copiar nome
+        copiar_item: 'Copiar {item}'
+        editar_item: 'Editar {item}'
+        numero:
+            pasta: pasta
+            pastas: pastas
+            ativa: ativa
+            ativas: ativas
+            com_processo: com processo
+        pastas_mesmo: 'Pastas com o mesmo {item}'
+        pastas_mesmo_cliente: cliente
+        sem_pasta: Nenhuma pasta que você possa abrir.
+        desde: 'Cliente desde {data}'
+        cadastrado: Cliente cadastrado
+        sem_contato: Nenhum contato informado
+        mais_telefone: Telefone
+        mais_email: E-mail
+        qualificacao_dica: Copiar a qualificação jurídica completa
+        qualificacao_dica_pendencia: 'Copiar a qualificação. O cadastro ainda tem {n} pendência: {lista}'
+        qualificacao_dica_pendencias: 'Copiar a qualificação. O cadastro ainda tem {n} pendências: {lista}'
+        qualificacao_copiada: Qualificação copiada
+        editar_cadastro: Editar cadastro
+        tag:
+            atual: Atual
+            ativa: Ativa
+            arquivada: Arquivada
+    js:
+        cancelar: Cancelar
+        civil:
+            solteiro: solteiro(a)
+            casado: casado(a)
+            divorciado: divorciado(a)
+            separado: separado(a)
+            viuvo: viúvo(a)
+            uniao_estavel: união estável
+        erro:
+            abrir: Não foi possível abrir o cadastro.
+            comunicacao: Erro de comunicação com o servidor.
+            usar: Não foi possível usar esse cadastro.
+            principal: O cadastro foi vinculado, mas não virou o principal da pasta.
+            salvar: Não foi possível salvar.
+        pend:
+            sem_contato: Nenhum contato informado
+        status:
+            completo: Cadastro completo
+            incompleto_um: 'Cadastro incompleto · {n} pendência'
+            incompleto_varias: 'Cadastro incompleto · {n} pendências'
+        aviso:
+            nao_salvas: Alterações não salvas
+            salvar_antes_docs: Salve as alterações antes de mexer nos documentos.
+            salvar_antes_trocar: Salve as alterações antes de trocar.
+            fechar_descartar: Há alterações não salvas. Clique em Fechar de novo para descartar.
+        qual:
+            nascido: 'nascido(a) em {data}'
+            rg: 'portador(a) do RG nº {rg}'
+            cpf: 'inscrito(a) no CPF nº {cpf}'
+            cnpj: 'inscrita no CNPJ nº {cnpj}'
+            logradouro: 'na {logradouro}'
+            numero: ', nº {numero}'
+            bairro: 'Bairro {bairro}'
+            cep: 'CEP {cep}'
+            residente: 'residente e domiciliado(a) {endereco}'
+            sede: 'com sede {endereco}'
+            telefone: 'telefone {telefone}'
+            whatsapp: 'WhatsApp {whatsapp}'
+            email: 'e-mail {email}'
+            representada: 'neste ato representada por {nome}'
+        existente:
+            completo: cadastro completo
+            incompleto: cadastro incompleto
+            usando: 'Usando o cadastro existente de {nome}.'
+        doc:
+            enviando: Enviando o arquivo...
+            recusado: 'O arquivo não foi aceito: envie PDF ou imagem dentro do limite de tamanho.'
+            erro_anexar: Não foi possível anexar o arquivo.
+            erro_excluir: Não foi possível excluir o documento.
+        reu:
+            vazio: Nenhum réu cadastrado nesta pasta.
+            principal: Principal
+            subir: Tornar principal / subir
+            remover: Remover réu
+            remover_confirma: 'Remover {nome} dos réus desta pasta?'
+            remover_botao: Remover
+            erro: Não foi possível alterar os réus.
+        copiar:
+            ok: Qualificação copiada.
+            erro: Não foi possível copiar.
+        anexo:
+            selecione_tipo: Selecione o tipo
+            tipo_documento: Tipo de documento
+            descricao: Descrição
+            descricao_opcional: Descrição (opcional)
+            numero: Número
+            numero_opcional: Número (opcional)
+            remover: Remover
 
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro

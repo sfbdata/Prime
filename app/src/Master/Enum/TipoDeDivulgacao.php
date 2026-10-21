@@ -27,4 +27,13 @@ enum TipoDeDivulgacao: string
             self::Parceria => 'Parceria',
         };
     }
+
+    /**
+     * Chave do rótulo no catálogo (spec idioma-do-sistema, P2b): quem leva o tipo à tela traduz por ela; o rótulo()
+     * acima é o português (o CatalogoDasRecusasDoMasterTest confere que são iguais).
+     */
+    public function chave(): string
+    {
+        return 'master.seccionais.tipo.' . $this->value;
+    }
 }

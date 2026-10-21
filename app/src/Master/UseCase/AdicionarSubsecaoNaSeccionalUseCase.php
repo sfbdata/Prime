@@ -41,9 +41,9 @@ final class AdicionarSubsecaoNaSeccionalUseCase
 
     public function executar(AdicionarSubsecaoNaSeccionalInput $input): SubsecaoOab
     {
-        $seccional = $this->seccionais->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada('Seccional não encontrada.');
+        $seccional = $this->seccionais->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada(SeccionalNaoEncontrada::RECUSA);
         $cidade = $input->cidade ?? throw new SeccionalRecusada('Informe a cidade da subseção.');
-        $endereco = $input->endereco ?? throw new SeccionalRecusada('Informe o endereço da subseção.');
+        $endereco = $input->endereco ?? throw new SeccionalRecusada(SeccionalRecusada::RECUSA_ENDERECO_OBRIGATORIO);
         $nome = $input->nome ?? 'Subseção ' . $cidade;
         $this->exigirTamanhos($cidade, $nome, $endereco, $input->telefone);
 
@@ -60,15 +60,15 @@ final class AdicionarSubsecaoNaSeccionalUseCase
         }
 
         if (mb_strlen($nome) > SubsecaoOab::NOME_MAXIMO) {
-            throw new SeccionalRecusada(sprintf('O nome passa de %d caracteres.', SubsecaoOab::NOME_MAXIMO));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_NOME_LONGO, ['limite' => SubsecaoOab::NOME_MAXIMO]);
         }
 
         if (mb_strlen($endereco) > SubsecaoOab::ENDERECO_MAXIMO) {
-            throw new SeccionalRecusada(sprintf('O endereço passa de %d caracteres.', SubsecaoOab::ENDERECO_MAXIMO));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_ENDERECO_LONGO, ['limite' => SubsecaoOab::ENDERECO_MAXIMO]);
         }
 
         if (mb_strlen((string) $telefone) > SubsecaoOab::TELEFONE_MAXIMO) {
-            throw new SeccionalRecusada(sprintf('O telefone passa de %d caracteres.', SubsecaoOab::TELEFONE_MAXIMO));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_TELEFONE_LONGO, ['limite' => SubsecaoOab::TELEFONE_MAXIMO]);
         }
     }
 }
