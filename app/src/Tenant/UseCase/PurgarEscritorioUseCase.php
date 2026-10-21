@@ -107,6 +107,7 @@ final class PurgarEscritorioUseCase
         ['parte_processo', 'tenant_id = :tenant'],
         ['assunto_processo', 'tenant_id = :tenant'],
         ['saida_da_equipe', 'tenant_id = :tenant'],
+        ['resumo_diario_envio', 'tenant_id = :tenant'],
         ['user_tenant', 'tenant_id = :tenant'],
         // Notas técnicas do processo (tenant_id direto). Cairiam por cascata do processo, mas a FK à
         // publicação é SET NULL: apagar antes evita o UPDATE inútil e deixa a deleção explícita.
