@@ -70,6 +70,29 @@
         ]
     },
 
+    "comercial": {
+        "templates": [
+            "master/_comercial.html.twig",
+            "master/_comercial_descadastrados.html.twig",
+            "master/_comercial_kpis.html.twig",
+            "master/_comercial_leitura.html.twig",
+            "master/_comercial_teste.html.twig"
+        ],
+        "js": [
+            "master/comercial.js",
+            "master/comercial-campanha.js",
+            "master/comercial-descadastrados.js",
+            "master/comercial-leitura.js",
+            "master/comercial-teste.js"
+        ],
+        "permitidos": [
+            "B",
+            "Content-Type",
+            "Accept",
+            "Escape"
+        ]
+    },
+
     "comercial_relatorio": {
         "templates": [
             "master/_comercial_relatorio.html.twig"

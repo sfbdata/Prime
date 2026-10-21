@@ -53,7 +53,7 @@
 
   function enviar() {
     const modelo = modeloDaSecao();
-    if (!modelo) { erro('Abra um modelo no editor antes de enviar o teste.'); return; }
+    if (!modelo) { erro(BJ_T.t('comercial.js.teste_sem_modelo')); return; }
     const aberto = atual;
     const botao = aberto.raiz.querySelector('[data-mc-tst-enviar]');
     botao.disabled = true;
@@ -62,7 +62,7 @@
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': aberto.token },
       body: JSON.stringify(modelo),
     })
-      .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || 'Não foi possível enviar o teste.')))))
+      .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || BJ_T.t('comercial.js.teste_erro'))))))
       .then(() => {
         aberto.raiz.hidden = true;
         aberto.ok.querySelector('[data-mc-tst-ok-para]').textContent = aberto.raiz.querySelector('[data-mc-tst-para]').value;

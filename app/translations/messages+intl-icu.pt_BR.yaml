@@ -2964,6 +2964,250 @@ agenda:
             agora_nao: Agora não
             tentar_de_novo: Tentar de novo
 
+# ---- Comercial do Master (master/_comercial*, master/comercial*.js)
+comercial:
+    campanha:
+        titulo: Central de envios · nova campanha
+        descadastrados: Descadastrados
+        descadastrados_dica: E-mails que pediram para não receber
+        sub: convites, ofertas, agradecimentos e novidades · individual ou em grande escala
+        passo_modelo: 1 · MODELO
+        novo_modelo: Novo modelo
+        duplicar: Duplicar
+        importar_html: Importar HTML
+        salvar_como_meu: Salvar como meu modelo
+        salvar_modelo: Salvar modelo
+        excluir: Excluir
+        passo_para: · PARA QUEM
+        cadastrar_email: Cadastrar e-mail
+        cadastrar_email_dica: Só cadastre quem autorizou receber (LGPD)
+        publico:
+            leads: Base de contatos
+            leads_desc: Inscritos pela página de vagas e campanhas
+            leads_venda: Novos contatos (base)
+            leads_venda_desc: Interessados ainda sem conta
+            prim: Usuários primários
+            prim_desc: Quem abriu conta, em todas as contas
+            sec: Usuários secundários
+            sec_desc: Convidados de todas as contas
+            todos: Todos os cadastrados
+            todos_desc: Primários e secundários
+            csv: Importar lista (CSV)
+            csv_desc: Planilha com e-mail e nome
+            indiv: Individual
+            indiv_desc: Digite um ou mais e-mails
+        csv_selecionar: Selecionar arquivo .csv
+        individual: E-mails separados por vírgula
+        passo_msg: · MENSAGEM
+        assunto: ASSUNTO
+        selo: SELO (ACIMA DO TÍTULO)
+        selo_exemplo: 'Ex.: CONVITE · BLUEJUS'
+        nome_previa: NOME NA PRÉVIA
+        nome_previa_dica: "substitui '{nome}' só aqui"
+        nome_previa_exemplo: Dra. Ana
+        titulo_email: TÍTULO
+        nome_modelo: NOME DO MODELO
+        texto: TEXTO
+        texto_dica: "use '{nome}' para o primeiro nome"
+        inserir: 'Inserir:'
+        emoji:
+            balanca: Balança
+            agenda: Agenda
+            confirmado: Confirmado
+            destaque: Destaque
+            comemoracao: Comemoração
+            trabalho: Trabalho
+            crescimento: Crescimento
+            seguranca: Segurança
+            indicacao: Indicação
+            agradecimento: Agradecimento
+        botao: BOTÃO
+        blocos: BLOCOS
+        blocos_dica: monte o layout; a prévia atualiza na hora
+        html_importado: HTML IMPORTADO
+        previa: PRÉVIA DO E-MAIL
+        previa_titulo: Prévia do e-mail
+        enviar: Enviar
+        programar_e_frequencia: Programar envio e frequência
+        ver_como_chega: Ver como vai chegar
+        enviar_teste: Enviar teste
+        baixar_html: Baixar HTML
+        lgpd: "LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link ''Não quero mais receber'', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam."
+        programar_envio: Programar envio
+        programar_envio_rotulo: PROGRAMAR ENVIO
+        agenda_data: Data e hora do envio
+        repetir: Repetir
+        repetir_rotulo: REPETIR
+        freq:
+            unica: Envio único
+            semanal: Semanal
+            quinzenal: Quinzenal
+            mensal: Mensal
+        concluir: Concluir
+        ver_titulo: Como o destinatário vai receber
+        aparelho: Aparelho
+        computador: Computador
+        celular: Celular
+        fechar: Fechar
+        de: 'De:'
+        para: 'Para:'
+        email: E-mail
+    filtro:
+        titulo: FILTRAR DESTINATÁRIOS
+        busca: 'E-mail ou nome específico (separe vários por vírgula)'
+        busca_rotulo: E-mail ou nome específico
+        atalho:
+            todos: Todos
+            so_mulheres: Só mulheres
+            so_homens: Só homens
+            advogados: Advogados
+            estagiarios: Estagiários
+            primarios: Primários
+            aniversariantes: Aniversariantes do mês
+        genero: 'Gênero: todos'
+        genero_f: Feminino
+        genero_m: Masculino
+        idade: 'Idade: todas'
+        idade_a: 18 a 24
+        idade_b: 25 a 34
+        idade_c: 35 a 44
+        idade_d: 45 a 54
+        idade_e: 55 ou mais
+        estado: 'Estado: todos'
+        perfil: 'Perfil: todos'
+        perfil_prim: Usuário primário
+        perfil_sec: Usuário secundário
+        cargo: 'Cargo: todos'
+        cargo_adv: Advogado(a)
+        cargo_est: Estagiário(a)
+        cargo_ctl: Controladoria
+        cargo_fin: Financeiro
+        cargo_adm: Administrativo / assistente
+        cargo_out: Outros
+        oab: 'OAB: todas'
+        oab_conf: OAB confirmada
+        oab_pend: OAB pendente
+        oab_sem: Sem OAB
+        plano: 'Plano: todos'
+        aniversario: 'Aniversário: todos'
+        aniversario_mes: Aniversariantes deste mês
+        aniversario_prox: Aniversariantes do próximo mês
+        limpar: Limpar filtro
+    automacoes:
+        titulo: Automações
+        sub: e-mails enviados sozinhos a cada cadastro e confirmação
+        simular: Simular novo cadastro
+        ultimos: ÚLTIMOS DISPAROS
+        fechar_previa: Fechar a prévia
+    kpis:
+        campanhas: CAMPANHAS
+        campanhas_desc: enviadas ou agendadas
+        na_fila: E-MAILS NA FILA
+        na_fila_desc: somando todas as campanhas
+        base: BASE DE CONTATOS
+        base_desc: inscritos com autorização (LGPD)
+        descadastrados: DESCADASTRADOS
+        descadastrados_desc: pediram para não receber · clique para ver
+    descadastrados:
+        titulo: Descadastrados
+        sub: 'clicaram em "Não quero mais receber" e saem de todas as listas automaticamente'
+        buscar: Buscar e-mail
+        registrar: Registrar pedido
+        limpar_dica: Limpar a lista inteira depende de decisão do dono (LGPD). Por enquanto, exclua um por vez.
+        limpar: Limpar lista
+        csv: CSV
+        fechar: Fechar
+        vazio: Ninguém se descadastrou ainda.
+    teste:
+        titulo: Enviar e-mail de teste
+        fechar: Fechar
+        enviar_para: ENVIAR PARA
+        separe: (separe vários por vírgula)
+        trava: Por enquanto o teste vai só para o seu e-mail; enviar para outros endereços depende de decisão.
+        nota: O teste chega com [TESTE] no assunto e não entra nas métricas da campanha.
+        cancelar: Cancelar
+        enviar: Enviar teste
+        ok_titulo: Teste enviado
+        ok_para: Para
+        ok_resto: . Confira a caixa de entrada (e o spam) em instantes.
+        ok: Ok
+    leitura:
+        ligada: Confirmação de leitura
+        desligada: Sem confirmação de leitura
+        dica_ligada: Rastreando leitura (✓✓). Clique para somente enviar
+        dica_desligada: 'Confirmação de leitura desligada: o rastreio de leitura fica desligado até a Política de Privacidade tratar dele. A campanha sai sem confirmação de leitura.'
+    js:
+        # comercial.js (Automações)
+        atraso_dias: '{n} dias'
+        auto_obrigatoria: 'Obrigatório: sem ele ninguém consegue criar conta'
+        auto_alternar: Ligar ou desligar
+        auto_quando: Quando enviar
+        fila_vazia: Nenhum disparo ainda.
+        auto_erro_carregar: Não foi possível carregar as automações. Recarregue a página.
+        erro_salvar: Não foi possível salvar.
+        auto_editando: 'Editando o modelo da automação "{titulo}". Duplique para ajustar o texto.'
+        # comercial-campanha.js (Central de envios)
+        tipo_titulo: Título
+        tipo_texto: Texto
+        tipo_imagem: Imagem
+        tipo_botao: Botão
+        tipo_noticias: Notícias
+        tipo_colunas: 2 colunas
+        tipo_divisor: Divisor
+        ph_noticias: 'Uma notícia por linha: Título|Resumo'
+        ph_imagem: Endereço da imagem (https://...)
+        ph_botao: Texto do botão
+        ph_colunas: Coluna da esquerda
+        ph_botao_link: Link do botão
+        ph_colunas_direita: Coluna da direita
+        ph_imagem_descricao: Descrição da imagem
+        erro_concluir: Não foi possível concluir.
+        dest_descadastrados: '{n} descadastrado(s) retirado(s)'
+        dest_repetidos: '{n} repetido(s) removido(s)'
+        dest_invalidos: '{n} inválido(s) ignorado(s)'
+        dest_sem_autorizacao: '{n} sem autorização retirado(s)'
+        dest_total: '{n} destinatário(s)'
+        dest_lista_limpa: lista limpa
+        csv_lido: '{nome} · {n} e-mail(s)'
+        csv_selecionar: Selecionar arquivo .csv
+        filtro_curto: '{n} de {m} com filtro'
+        filtro_todos: 'Todos ({m})'
+        filtro_atendem: '{n} de {m} atendem ao filtro'
+        filtro_sem_info: '{n} sem essa informação no cadastro (ficam de fora)'
+        filtro_todos_lista: 'Enviando para todos da lista ({m})'
+        programar_envio: Programar envio
+        enviar: Enviar
+        freq_semanal: semanal
+        freq_quinzenal: quinzenal
+        freq_mensal: mensal
+        exemplo_nome: Dra. Ana
+        salvar_como_pergunta: 'Nome do seu modelo (o modelo padrão continua guardado):'
+        modelo: Modelo
+        modelo_meu: '{nome} (meu)'
+        contatos_pergunta: 'E-mail(s) de novos contatos (separe por vírgula). Só cadastre quem autorizou receber (LGPD):'
+        sem_destinatario: Nenhum destinatário nesta lista.
+        confirmar_envio_agora: 'Enviar "{assunto}" para {n} destinatário(s) agora?'
+        confirmar_envio_em: 'Enviar "{assunto}" para {n} destinatário(s) em {quando}?'
+        modelos_erro_carregar: Não foi possível carregar os modelos. Recarregue a página.
+        modelo_padrao: Modelos padrão não são alterados. Use Duplicar para criar a sua versão.
+        confirmar_excluir_modelo: 'Excluir o modelo "{nome}"?'
+        bloco_subir: Subir
+        bloco_descer: Descer
+        bloco_remover: Remover
+        # comercial-leitura.js
+        leitura_ligada: Confirmação de leitura
+        leitura_desligada: Sem confirmação de leitura
+        leitura_dica_ligada: Rastreando leitura (✓✓). Clique para somente enviar
+        leitura_dica_desligada: Clique para rastrear a leitura (✓✓)
+        # comercial-teste.js
+        teste_sem_modelo: Abra um modelo no editor antes de enviar o teste.
+        teste_erro: Não foi possível enviar o teste.
+        # comercial-descadastrados.js
+        dsc_erro: Não foi possível concluir. Tente de novo.
+        dsc_excluir: Excluir
+        dsc_confirmar_excluir: 'Excluir {email} da lista de descadastrados? Ele volta a poder receber e-mails. Faça isso só se o próprio contato pediu (LGPD).'
+        dsc_registrar_pergunta: 'E-mail que pediu para não receber (por telefone, WhatsApp etc.):'
+
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro
 # ('perfis.x'|trans({papel: 'termos.master'|trans})).

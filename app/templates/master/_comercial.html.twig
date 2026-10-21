@@ -20,6 +20,14 @@
 {% set ids = venda ? 'mc-venda' : 'mc' %}
 {% set passos = venda ? {para: 1, msg: 2} : {para: 2, msg: 3} %}
 <link rel="stylesheet" href="{{ asset('css/master-comercial.css') }}">
+{# Idioma (spec idioma-do-sistema): o catálogo do JS da seção e o bj-traducao.js vêm antes de qualquer script do Comercial
+   (o dos KPIs, do Relatório e o daqui do fim), que rodam no meio do corpo, antes do bj-traducao.js do base (que se
+   protege de carregar duas vezes). Só com a seção Comercial, que está sempre no DOM e vem antes da venda no HTML, como
+   os recursos do Relatório. #}
+{% if not venda %}
+{{ catalogo_js('comercial.js') }}
+<script src="{{ asset('js/bj-traducao.js') }}"></script>
+{% endif %}
 {% if venda %}
 <div class="mc mc-venda" data-mc-venda data-modo="venda" data-token="{{ csrf_token('master_comercial') }}">
 {% else %}
@@ -44,27 +52,27 @@
              data-url-contatos="{{ path('master_comercial_contatos_cadastrar') }}"{% endif %}>
         <div class="mc-cabeca mc-cp-cabeca">
             <i class="bi bi-megaphone mc-cp-cabeca-ic" aria-hidden="true"></i>
-            <b class="mc-cabeca-titulo" id="{{ ids }}-cp-titulo">Central de envios · nova campanha</b>
+            <b class="mc-cabeca-titulo" id="{{ ids }}-cp-titulo">{{ 'comercial.campanha.titulo'|trans }}</b>
             {# dc 21.10 L251: abre o bloco Descadastrados (F3c, do 0d) pelo evento `mc:descadastrados-abrir`; o N vem do `mc:resumo`.
                Nas duas seções (dc L251 é o mesmo cabeçalho): o bloco é um só, e o comercial-descadastrados.js o leva para
                logo antes da Central de onde veio o clique. #}
-            <button type="button" class="mc-cp-descad" data-mc-cp-descad title="E-mails que pediram para não receber"><i class="bi bi-slash-circle" aria-hidden="true"></i>Descadastrados (<span data-mc-cp-descad-n>0</span>)</button>
-            <span class="mc-cabeca-sub">convites, ofertas, agradecimentos e novidades · individual ou em grande escala</span>
+            <button type="button" class="mc-cp-descad" data-mc-cp-descad title="{{ 'comercial.campanha.descadastrados_dica'|trans }}"><i class="bi bi-slash-circle" aria-hidden="true"></i>{{ 'comercial.campanha.descadastrados'|trans }} (<span data-mc-cp-descad-n>0</span>)</button>
+            <span class="mc-cabeca-sub">{{ 'comercial.campanha.sub'|trans }}</span>
         </div>
         <div class="mc-cp-grade">
             <div class="mc-cp-col mc-cp-editor">
                 {# dc L254 `cmMostraModelo`: o seletor de modelo e as ações dele só na seção Comercial. #}
                 {% if not venda %}
-                <div class="mc-cp-passo">1 · MODELO</div>
+                <div class="mc-cp-passo">{{ 'comercial.campanha.passo_modelo'|trans }}</div>
                 <div class="mc-cp-modelos" data-mc-cp-modelos aria-busy="true"></div>
                 <div class="mc-cp-acoes">
-                    <button type="button" class="mc-cp-acao" data-mc-cp-novo><i class="bi bi-plus-lg" aria-hidden="true"></i>Novo modelo</button>
-                    <button type="button" class="mc-cp-acao" data-mc-cp-duplicar><i class="bi bi-copy" aria-hidden="true"></i>Duplicar</button>
-                    <label class="mc-cp-acao"><i class="bi bi-upload" aria-hidden="true"></i>Importar HTML<input type="file" accept=".html,.htm" class="mc-cp-arquivo" data-mc-cp-importar></label>
+                    <button type="button" class="mc-cp-acao" data-mc-cp-novo><i class="bi bi-plus-lg" aria-hidden="true"></i>{{ 'comercial.campanha.novo_modelo'|trans }}</button>
+                    <button type="button" class="mc-cp-acao" data-mc-cp-duplicar><i class="bi bi-copy" aria-hidden="true"></i>{{ 'comercial.campanha.duplicar'|trans }}</button>
+                    <label class="mc-cp-acao"><i class="bi bi-upload" aria-hidden="true"></i>{{ 'comercial.campanha.importar_html'|trans }}<input type="file" accept=".html,.htm" class="mc-cp-arquivo" data-mc-cp-importar></label>
                     {# dc 21.10 L256/L653: no fixo, "Salvar como meu modelo" (pede o nome; o fixo continua guardado); no próprio, "Salvar modelo". #}
-                    <button type="button" class="mc-cp-acao mc-cp-acao-salvar" data-mc-cp-salvar-como data-mc-cp-so-fixo><i class="bi bi-check2" aria-hidden="true"></i>Salvar como meu modelo</button>
-                    <button type="button" class="mc-cp-acao mc-cp-acao-salvar" data-mc-cp-salvar data-mc-cp-so-proprio hidden><i class="bi bi-check2" aria-hidden="true"></i>Salvar modelo</button>
-                    <button type="button" class="mc-cp-acao mc-cp-acao-excluir" data-mc-cp-excluir data-mc-cp-so-proprio hidden><i class="bi bi-trash" aria-hidden="true"></i>Excluir</button>
+                    <button type="button" class="mc-cp-acao mc-cp-acao-salvar" data-mc-cp-salvar-como data-mc-cp-so-fixo><i class="bi bi-check2" aria-hidden="true"></i>{{ 'comercial.campanha.salvar_como_meu'|trans }}</button>
+                    <button type="button" class="mc-cp-acao mc-cp-acao-salvar" data-mc-cp-salvar data-mc-cp-so-proprio hidden><i class="bi bi-check2" aria-hidden="true"></i>{{ 'comercial.campanha.salvar_modelo'|trans }}</button>
+                    <button type="button" class="mc-cp-acao mc-cp-acao-excluir" data-mc-cp-excluir data-mc-cp-so-proprio hidden><i class="bi bi-trash" aria-hidden="true"></i>{{ 'comercial.campanha.excluir'|trans }}</button>
                 </div>
                 {% endif %}
                 {# 2 · PARA QUEM (dc L.236-239): os 6 públicos com os rótulos, os ícones e as descrições literais do dc (L.539). O número
@@ -72,21 +80,21 @@
                 {% if venda %}
                 {# dc L258: no modo venda o cabeçalho do PARA QUEM leva o "Cadastrar e-mail" (`cmLeadAdd`, borda tracejada). #}
                 <div class="mc-cp-para-cabeca">
-                    <span class="mc-cp-passo"><span data-mc-cp-passo-n="para">{{ passos.para }}</span> · PARA QUEM</span>
-                    <button type="button" class="mc-cp-lead-add" data-mc-cp-lead-add title="Só cadastre quem autorizou receber (LGPD)"><i class="bi bi-person-plus" aria-hidden="true"></i> Cadastrar e-mail</button>
+                    <span class="mc-cp-passo"><span data-mc-cp-passo-n="para">{{ passos.para }}</span> {{ 'comercial.campanha.passo_para'|trans }}</span>
+                    <button type="button" class="mc-cp-lead-add" data-mc-cp-lead-add title="{{ 'comercial.campanha.cadastrar_email_dica'|trans }}"><i class="bi bi-person-plus" aria-hidden="true"></i> {{ 'comercial.campanha.cadastrar_email'|trans }}</button>
                 </div>
                 {% else %}
-                <div class="mc-cp-passo mc-cp-passo-seguinte"><span data-mc-cp-passo-n="para">{{ passos.para }}</span> · PARA QUEM</div>
+                <div class="mc-cp-passo mc-cp-passo-seguinte"><span data-mc-cp-passo-n="para">{{ passos.para }}</span> {{ 'comercial.campanha.passo_para'|trans }}</div>
                 {% endif %}
                 {# dc L640-645: no modo venda, só a base (com o rótulo e a descrição da venda), o CSV e o Individual, em 3 colunas. #}
                 <div class="mc-cp-publicos{{ venda ? ' mc-cp-publicos-3' }}" data-mc-cp-publicos>
                     {% for p in [
-                        ['leads', venda ? 'Novos contatos (base)' : 'Base de contatos', 'bi-person-lines-fill', venda ? 'Interessados ainda sem conta' : 'Inscritos pela página de vagas e campanhas'],
-                        ['prim', 'Usuários primários', 'bi-person-badge', 'Quem abriu conta, em todas as contas'],
-                        ['sec', 'Usuários secundários', 'bi-people', 'Convidados de todas as contas'],
-                        ['todos', 'Todos os cadastrados', 'bi-buildings', 'Primários e secundários'],
-                        ['csv', 'Importar lista (CSV)', 'bi-filetype-csv', 'Planilha com e-mail e nome'],
-                        ['indiv', 'Individual', 'bi-person', 'Digite um ou mais e-mails'],
+                        ['leads', venda ? 'comercial.campanha.publico.leads_venda'|trans : 'comercial.campanha.publico.leads'|trans, 'bi-person-lines-fill', venda ? 'comercial.campanha.publico.leads_venda_desc'|trans : 'comercial.campanha.publico.leads_desc'|trans],
+                        ['prim', 'comercial.campanha.publico.prim'|trans, 'bi-person-badge', 'comercial.campanha.publico.prim_desc'|trans],
+                        ['sec', 'comercial.campanha.publico.sec'|trans, 'bi-people', 'comercial.campanha.publico.sec_desc'|trans],
+                        ['todos', 'comercial.campanha.publico.todos'|trans, 'bi-buildings', 'comercial.campanha.publico.todos_desc'|trans],
+                        ['csv', 'comercial.campanha.publico.csv'|trans, 'bi-filetype-csv', 'comercial.campanha.publico.csv_desc'|trans],
+                        ['indiv', 'comercial.campanha.publico.indiv'|trans, 'bi-person', 'comercial.campanha.publico.indiv_desc'|trans],
                     ]|filter(p => not venda or p[0] in ['leads', 'csv', 'indiv']) %}
                         <button type="button" class="mc-cp-publico" data-mc-cp-publico="{{ p[0] }}" aria-pressed="{{ loop.first ? 'true' : 'false' }}"><i class="bi {{ p[2] }}" aria-hidden="true"></i><span class="mc-cp-publico-texto"><span class="mc-cp-publico-rot">{{ p[1] }}</span><span class="mc-cp-publico-desc">{{ p[3] }}</span></span><b class="mc-cp-publico-n" data-mc-cp-n></b></button>
                     {% endfor %}
@@ -96,20 +104,20 @@
                    selects e a linha "N de M atendem ao filtro". Quem conta é o servidor (F2). #}
                 <div class="mc-cf" data-mc-cf>
                     <button type="button" class="mc-cf-cabeca" data-mc-cf-abrir aria-expanded="false" aria-controls="{{ ids }}-cf-painel">
-                        <i class="bi bi-funnel" aria-hidden="true"></i><b class="mc-cf-titulo">FILTRAR DESTINATÁRIOS</b>
+                        <i class="bi bi-funnel" aria-hidden="true"></i><b class="mc-cf-titulo">{{ 'comercial.filtro.titulo'|trans }}</b>
                         <span class="mc-cf-selo" data-mc-cf-selo hidden></span>
                         <span class="mc-cf-espaco"></span>
                         <span class="mc-cf-curto" data-mc-cf-curto></span>
                         <i class="bi bi-chevron-down mc-cf-seta" data-mc-cf-seta aria-hidden="true"></i>
                     </button>
                     <div class="mc-cf-painel" id="{{ ids }}-cf-painel" data-mc-cf-painel hidden>
-                        <label class="mc-cf-busca"><i class="bi bi-envelope" aria-hidden="true"></i><input type="text" data-mc-cf-campo="q" maxlength="500" placeholder="E-mail ou nome específico (separe vários por vírgula)" aria-label="E-mail ou nome específico"></label>
+                        <label class="mc-cf-busca"><i class="bi bi-envelope" aria-hidden="true"></i><input type="text" data-mc-cf-campo="q" maxlength="500" placeholder="{{ 'comercial.filtro.busca'|trans }}" aria-label="{{ 'comercial.filtro.busca_rotulo'|trans }}"></label>
                         {# dc L262 `cmNaoVenda`: os atalhos e os selects (menos o Estado) só na seção Comercial. #}
                         {% if not venda %}
                         <div class="mc-cf-atalhos" data-mc-cf-atalhos>
                             {% for a in [
-                                ['Todos', {}], ['Só mulheres', {gen: 'F'}], ['Só homens', {gen: 'M'}], ['Advogados', {cargo: 'adv'}],
-                                ['Estagiários', {cargo: 'est'}], ['Primários', {papel: 'prim'}], ['Aniversariantes do mês', {aniv: 'mes'}],
+                                ['comercial.filtro.atalho.todos'|trans, {}], ['comercial.filtro.atalho.so_mulheres'|trans, {gen: 'F'}], ['comercial.filtro.atalho.so_homens'|trans, {gen: 'M'}], ['comercial.filtro.atalho.advogados'|trans, {cargo: 'adv'}],
+                                ['comercial.filtro.atalho.estagiarios'|trans, {cargo: 'est'}], ['comercial.filtro.atalho.primarios'|trans, {papel: 'prim'}], ['comercial.filtro.atalho.aniversariantes'|trans, {aniv: 'mes'}],
                             ] %}
                                 <button type="button" class="mc-cf-atalho" data-mc-cf-atalho="{{ a[1]|json_encode|e('html_attr') }}" aria-pressed="false">{{ a[0] }}</button>
                             {% endfor %}
@@ -117,14 +125,14 @@
                         {% endif %}
                         <div class="mc-cf-selects">
                             {% set selects = [
-                                ['gen', 'Gênero: todos', [['F', 'Feminino'], ['M', 'Masculino']]],
-                                ['id', 'Idade: todas', [['a', '18 a 24'], ['b', '25 a 34'], ['c', '35 a 44'], ['d', '45 a 54'], ['e', '55 ou mais']]],
-                                ['uf', 'Estado: todos', comercial_ufs_do_filtro()|map(u => [u, u])],
-                                ['papel', 'Perfil: todos', [['prim', 'Usuário primário'], ['sec', 'Usuário secundário']]],
-                                ['cargo', 'Cargo: todos', [['adv', 'Advogado(a)'], ['est', 'Estagiário(a)'], ['ctl', 'Controladoria'], ['fin', 'Financeiro'], ['adm', 'Administrativo / assistente'], ['out', 'Outros']]],
-                                ['oab', 'OAB: todas', [['conf', 'OAB confirmada'], ['pend', 'OAB pendente'], ['sem', 'Sem OAB']]],
-                                ['plano', 'Plano: todos', comercial_planos_do_filtro()|map(p => [p.codigo, p.nome])],
-                                ['aniv', 'Aniversário: todos', [['mes', 'Aniversariantes deste mês'], ['prox', 'Aniversariantes do próximo mês']]],
+                                ['gen', 'comercial.filtro.genero'|trans, [['F', 'comercial.filtro.genero_f'|trans], ['M', 'comercial.filtro.genero_m'|trans]]],
+                                ['id', 'comercial.filtro.idade'|trans, [['a', 'comercial.filtro.idade_a'|trans], ['b', 'comercial.filtro.idade_b'|trans], ['c', 'comercial.filtro.idade_c'|trans], ['d', 'comercial.filtro.idade_d'|trans], ['e', 'comercial.filtro.idade_e'|trans]]],
+                                ['uf', 'comercial.filtro.estado'|trans, comercial_ufs_do_filtro()|map(u => [u, u])],
+                                ['papel', 'comercial.filtro.perfil'|trans, [['prim', 'comercial.filtro.perfil_prim'|trans], ['sec', 'comercial.filtro.perfil_sec'|trans]]],
+                                ['cargo', 'comercial.filtro.cargo'|trans, [['adv', 'comercial.filtro.cargo_adv'|trans], ['est', 'comercial.filtro.cargo_est'|trans], ['ctl', 'comercial.filtro.cargo_ctl'|trans], ['fin', 'comercial.filtro.cargo_fin'|trans], ['adm', 'comercial.filtro.cargo_adm'|trans], ['out', 'comercial.filtro.cargo_out'|trans]]],
+                                ['oab', 'comercial.filtro.oab'|trans, [['conf', 'comercial.filtro.oab_conf'|trans], ['pend', 'comercial.filtro.oab_pend'|trans], ['sem', 'comercial.filtro.oab_sem'|trans]]],
+                                ['plano', 'comercial.filtro.plano'|trans, comercial_planos_do_filtro()|map(p => [p.codigo, p.nome])],
+                                ['aniv', 'comercial.filtro.aniversario'|trans, [['mes', 'comercial.filtro.aniversario_mes'|trans], ['prox', 'comercial.filtro.aniversario_prox'|trans]]],
                             ] %}
                             {% for s in selects|filter(s => not venda or s[0] == 'uf') %}
                                 <select class="mc-cf-select" data-mc-cf-campo="{{ s[0] }}" aria-label="{{ s[1]|split(':')|first }}">
@@ -133,65 +141,65 @@
                                 </select>
                             {% endfor %}
                         </div>
-                        <div class="mc-cf-resultado"><i class="bi bi-people" aria-hidden="true"></i><span data-mc-cf-resultado></span><button type="button" class="mc-cf-limpar" data-mc-cf-limpar hidden>Limpar filtro</button></div>
+                        <div class="mc-cf-resultado"><i class="bi bi-people" aria-hidden="true"></i><span data-mc-cf-resultado></span><button type="button" class="mc-cf-limpar" data-mc-cf-limpar hidden>{{ 'comercial.filtro.limpar'|trans }}</button></div>
                     </div>
                 </div>
-                <label class="mc-cp-csv" data-mc-cp-csv hidden><i class="bi bi-upload" aria-hidden="true"></i><span class="mc-cp-csv-txt" data-mc-cp-csv-txt>Selecionar arquivo .csv</span><input type="file" accept=".csv,.txt" class="mc-cp-arquivo" data-mc-cp-csv-arquivo></label>
-                <textarea class="mc-cp-individual" rows="2" placeholder="E-mails separados por vírgula" aria-label="E-mails separados por vírgula" data-mc-cp-individual hidden></textarea>
-                <div class="mc-cp-passo mc-cp-passo-seguinte"><span data-mc-cp-passo-n="msg">{{ passos.msg }}</span> · MENSAGEM</div>
-                <label class="mc-cp-campo">ASSUNTO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="assunto" maxlength="255"></label>
+                <label class="mc-cp-csv" data-mc-cp-csv hidden><i class="bi bi-upload" aria-hidden="true"></i><span class="mc-cp-csv-txt" data-mc-cp-csv-txt>{{ 'comercial.campanha.csv_selecionar'|trans }}</span><input type="file" accept=".csv,.txt" class="mc-cp-arquivo" data-mc-cp-csv-arquivo></label>
+                <textarea class="mc-cp-individual" rows="2" placeholder="{{ 'comercial.campanha.individual'|trans }}" aria-label="{{ 'comercial.campanha.individual'|trans }}" data-mc-cp-individual hidden></textarea>
+                <div class="mc-cp-passo mc-cp-passo-seguinte"><span data-mc-cp-passo-n="msg">{{ passos.msg }}</span> {{ 'comercial.campanha.passo_msg'|trans }}</div>
+                <label class="mc-cp-campo">{{ 'comercial.campanha.assunto'|trans }}<input type="text" class="mc-cp-entrada" data-mc-cp-campo="assunto" maxlength="255"></label>
                 {# dc 21.10 L270: o selo acima do título (em maiúsculas ao digitar) e o nome só da prévia. #}
                 <div class="mc-cp-par">
-                    <label class="mc-cp-campo">SELO (ACIMA DO TÍTULO)<input type="text" class="mc-cp-entrada" data-mc-cp-campo="selo" maxlength="120" placeholder="Ex.: CONVITE · BLUEJUS"></label>
-                    <label class="mc-cp-campo">NOME NA PRÉVIA <span class="mc-cp-dica">substitui {nome} só aqui</span><input type="text" class="mc-cp-entrada" data-mc-cp-nome-previa maxlength="60" placeholder="Dra. Ana"></label>
+                    <label class="mc-cp-campo">{{ 'comercial.campanha.selo'|trans }}<input type="text" class="mc-cp-entrada" data-mc-cp-campo="selo" maxlength="120" placeholder="{{ 'comercial.campanha.selo_exemplo'|trans }}"></label>
+                    <label class="mc-cp-campo">{{ 'comercial.campanha.nome_previa'|trans }} <span class="mc-cp-dica">{{ 'comercial.campanha.nome_previa_dica'|trans }}</span><input type="text" class="mc-cp-entrada" data-mc-cp-nome-previa maxlength="60" placeholder="{{ 'comercial.campanha.nome_previa_exemplo'|trans }}"></label>
                 </div>
-                <label class="mc-cp-campo">TÍTULO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="titulo" maxlength="255"></label>
-                <label class="mc-cp-campo" data-mc-cp-so-proprio hidden>NOME DO MODELO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="nome" maxlength="40"></label>
+                <label class="mc-cp-campo">{{ 'comercial.campanha.titulo_email'|trans }}<input type="text" class="mc-cp-entrada" data-mc-cp-campo="titulo" maxlength="255"></label>
+                <label class="mc-cp-campo" data-mc-cp-so-proprio hidden>{{ 'comercial.campanha.nome_modelo'|trans }}<input type="text" class="mc-cp-entrada" data-mc-cp-campo="nome" maxlength="40"></label>
                 <div class="mc-cp-modo" data-mc-cp-simples>
-                    <label class="mc-cp-campo">TEXTO <span class="mc-cp-dica">use {nome} para o primeiro nome</span><textarea class="mc-cp-texto" rows="5" data-mc-cp-campo="corpo"></textarea></label>
+                    <label class="mc-cp-campo">{{ 'comercial.campanha.texto'|trans }} <span class="mc-cp-dica">{{ 'comercial.campanha.texto_dica'|trans }}</span><textarea class="mc-cp-texto" rows="5" data-mc-cp-campo="corpo"></textarea></label>
                     {# dc 21.10 L274: os emojis que entram no fim do texto. A imagem do mesmo trecho está com o dono (spec §10). #}
-                    <div class="mc-cp-emojis"><span class="mc-cp-emojis-rot">Inserir:</span>
-                        {% for e in [['⚖️', 'Balança'], ['📅', 'Agenda'], ['✅', 'Confirmado'], ['📌', 'Destaque'], ['🎉', 'Comemoração'], ['💼', 'Trabalho'], ['📈', 'Crescimento'], ['🔒', 'Segurança'], ['👉', 'Indicação'], ['🙏', 'Agradecimento']] %}
+                    <div class="mc-cp-emojis"><span class="mc-cp-emojis-rot">{{ 'comercial.campanha.inserir'|trans }}</span>
+                        {% for e in [['⚖️', 'comercial.campanha.emoji.balanca'|trans], ['📅', 'comercial.campanha.emoji.agenda'|trans], ['✅', 'comercial.campanha.emoji.confirmado'|trans], ['📌', 'comercial.campanha.emoji.destaque'|trans], ['🎉', 'comercial.campanha.emoji.comemoracao'|trans], ['💼', 'comercial.campanha.emoji.trabalho'|trans], ['📈', 'comercial.campanha.emoji.crescimento'|trans], ['🔒', 'comercial.campanha.emoji.seguranca'|trans], ['👉', 'comercial.campanha.emoji.indicacao'|trans], ['🙏', 'comercial.campanha.emoji.agradecimento'|trans]] %}
                             <button type="button" class="mc-cp-emoji" data-mc-cp-emoji="{{ e[0] }}" title="{{ e[1] }}" aria-label="{{ e[1] }}">{{ e[0] }}</button>
                         {% endfor %}
                     </div>
-                    <label class="mc-cp-campo">BOTÃO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="cta" maxlength="120"></label>
+                    <label class="mc-cp-campo">{{ 'comercial.campanha.botao'|trans }}<input type="text" class="mc-cp-entrada" data-mc-cp-campo="cta" maxlength="120"></label>
                 </div>
                 <div class="mc-cp-modo" data-mc-cp-blocos hidden>
-                    <div class="mc-cp-blocos-titulo">BLOCOS <span class="mc-cp-dica">monte o layout; a prévia atualiza na hora</span></div>
+                    <div class="mc-cp-blocos-titulo">{{ 'comercial.campanha.blocos'|trans }} <span class="mc-cp-dica">{{ 'comercial.campanha.blocos_dica'|trans }}</span></div>
                     <div class="mc-cp-lista" data-mc-cp-lista></div>
                     <div class="mc-cp-novos" data-mc-cp-novos></div>
                 </div>
-                <label class="mc-cp-campo" data-mc-cp-html hidden>HTML IMPORTADO<textarea class="mc-cp-codigo" rows="8" data-mc-cp-campo="html" spellcheck="false"></textarea></label>
+                <label class="mc-cp-campo" data-mc-cp-html hidden>{{ 'comercial.campanha.html_importado'|trans }}<textarea class="mc-cp-codigo" rows="8" data-mc-cp-campo="html" spellcheck="false"></textarea></label>
             </div>
             <div class="mc-cp-col mc-cp-lado">
-                <div class="mc-cp-passo">PRÉVIA DO E-MAIL</div>
-                <iframe class="mc-cp-previa" title="Prévia do e-mail" sandbox="" data-mc-cp-previa></iframe>
+                <div class="mc-cp-passo">{{ 'comercial.campanha.previa'|trans }}</div>
+                <iframe class="mc-cp-previa" title="{{ 'comercial.campanha.previa_titulo'|trans }}" sandbox="" data-mc-cp-previa></iframe>
                 {# dc 21.10 L285: a linha de destinatários e, com agendamento ou repetição, o relógio. #}
                 <div class="mc-cp-dest"><i class="bi bi-people" aria-hidden="true"></i> <span data-mc-cp-dest></span><span class="mc-cp-ag" data-mc-cp-ag hidden><i class="bi bi-clock" aria-hidden="true"></i><span data-mc-cp-ag-txt></span></span></div>
                 {# dc 21.10 L287-293: Enviar (ou "Programar envio") com o menu PROGRAMAR ENVIO; ver, testar e baixar em ícones; a LGPD na dica do escudo. #}
                 <div class="mc-cp-barra">
                     <div class="mc-cp-enviar-grupo">
-                        <button type="button" class="mc-cp-enviar" data-mc-cp-enviar><i class="bi bi-send" aria-hidden="true"></i><span data-mc-cp-enviar-txt>Enviar</span></button>
-                        <button type="button" class="mc-cp-enviar mc-cp-mais" data-mc-cp-mais title="Programar envio e frequência" aria-label="Programar envio e frequência" aria-expanded="false" aria-controls="{{ ids }}-cp-programar"><i class="bi bi-caret-down-fill" aria-hidden="true"></i></button>
+                        <button type="button" class="mc-cp-enviar" data-mc-cp-enviar><i class="bi bi-send" aria-hidden="true"></i><span data-mc-cp-enviar-txt>{{ 'comercial.campanha.enviar'|trans }}</span></button>
+                        <button type="button" class="mc-cp-enviar mc-cp-mais" data-mc-cp-mais title="{{ 'comercial.campanha.programar_e_frequencia'|trans }}" aria-label="{{ 'comercial.campanha.programar_e_frequencia'|trans }}" aria-expanded="false" aria-controls="{{ ids }}-cp-programar"><i class="bi bi-caret-down-fill" aria-hidden="true"></i></button>
                     </div>
                     <span class="mc-cp-vao"></span>
-                    <button type="button" class="mc-cp-icone" data-mc-cp-ver title="Ver como vai chegar" aria-label="Ver como vai chegar"><i class="bi bi-eye" aria-hidden="true"></i></button>
-                    <button type="button" class="mc-cp-icone" data-mc-cp-teste title="Enviar teste" aria-label="Enviar teste"><i class="bi bi-send-check" aria-hidden="true"></i></button>
-                    <button type="button" class="mc-cp-icone" data-mc-cp-baixar title="Baixar HTML" aria-label="Baixar HTML"><i class="bi bi-download" aria-hidden="true"></i></button>
+                    <button type="button" class="mc-cp-icone" data-mc-cp-ver title="{{ 'comercial.campanha.ver_como_chega'|trans }}" aria-label="{{ 'comercial.campanha.ver_como_chega'|trans }}"><i class="bi bi-eye" aria-hidden="true"></i></button>
+                    <button type="button" class="mc-cp-icone" data-mc-cp-teste title="{{ 'comercial.campanha.enviar_teste'|trans }}" aria-label="{{ 'comercial.campanha.enviar_teste'|trans }}"><i class="bi bi-send-check" aria-hidden="true"></i></button>
+                    <button type="button" class="mc-cp-icone" data-mc-cp-baixar title="{{ 'comercial.campanha.baixar_html'|trans }}" aria-label="{{ 'comercial.campanha.baixar_html'|trans }}"><i class="bi bi-download" aria-hidden="true"></i></button>
                     <span class="mc-cp-vao"></span>
                     {{ include('master/_comercial_leitura.html.twig') }}
-                    <span class="mc-cp-lgpd" tabindex="0" title="LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link 'Não quero mais receber', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam." aria-label="LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link 'Não quero mais receber', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam."><i class="bi bi-shield-check" aria-hidden="true"></i></span>
-                    <div class="mc-cp-programar" id="{{ ids }}-cp-programar" data-mc-cp-programar data-sem-x="1" role="dialog" aria-label="Programar envio" hidden>
-                        <div class="mc-cp-programar-rot">PROGRAMAR ENVIO</div>
-                        <input type="datetime-local" class="mc-cp-agenda-data" data-mc-cp-agenda aria-label="Data e hora do envio">
-                        <div class="mc-cp-programar-rot">REPETIR</div>
-                        <div class="mc-cp-freq-ops" role="group" aria-label="Repetir">
-                            {% for f in [['unica', 'Envio único'], ['semanal', 'Semanal'], ['quinzenal', 'Quinzenal'], ['mensal', 'Mensal']] %}
+                    <span class="mc-cp-lgpd" tabindex="0" title="{{ 'comercial.campanha.lgpd'|trans }}" aria-label="{{ 'comercial.campanha.lgpd'|trans }}"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
+                    <div class="mc-cp-programar" id="{{ ids }}-cp-programar" data-mc-cp-programar data-sem-x="1" role="dialog" aria-label="{{ 'comercial.campanha.programar_envio'|trans }}" hidden>
+                        <div class="mc-cp-programar-rot">{{ 'comercial.campanha.programar_envio_rotulo'|trans }}</div>
+                        <input type="datetime-local" class="mc-cp-agenda-data" data-mc-cp-agenda aria-label="{{ 'comercial.campanha.agenda_data'|trans }}">
+                        <div class="mc-cp-programar-rot">{{ 'comercial.campanha.repetir_rotulo'|trans }}</div>
+                        <div class="mc-cp-freq-ops" role="group" aria-label="{{ 'comercial.campanha.repetir'|trans }}">
+                            {% for f in [['unica', 'comercial.campanha.freq.unica'|trans], ['semanal', 'comercial.campanha.freq.semanal'|trans], ['quinzenal', 'comercial.campanha.freq.quinzenal'|trans], ['mensal', 'comercial.campanha.freq.mensal'|trans]] %}
                                 <button type="button" class="mc-cp-freq-op" data-mc-cp-freq="{{ f[0] }}" aria-pressed="{{ loop.first ? 'true' : 'false' }}">{{ f[1] }}</button>
                             {% endfor %}
                         </div>
-                        <button type="button" class="mc-cp-concluir" data-mc-cp-concluir>Concluir</button>
+                        <button type="button" class="mc-cp-concluir" data-mc-cp-concluir>{{ 'comercial.campanha.concluir'|trans }}</button>
                     </div>
                 </div>
                 <div class="mc-cp-msg" role="status" data-mc-cp-aviso hidden><i class="bi bi-info-circle" aria-hidden="true"></i> <span data-mc-cp-msg></span></div>
@@ -203,18 +211,18 @@
             <div class="mc-cp-ver-fundo" data-mc-cp-ver-fechar></div>
             <div class="mc-cp-ver-caixa">
                 <div class="mc-cp-ver-cabeca">
-                    <i class="bi bi-envelope-open" aria-hidden="true"></i><b id="{{ ids }}-cp-ver-titulo">Como o destinatário vai receber</b>
-                    <div class="mc-cp-ver-dev" role="group" aria-label="Aparelho">
-                        <button type="button" class="mc-cp-ver-op" data-mc-cp-ver-dev="pc" aria-pressed="true"><i class="bi bi-laptop" aria-hidden="true"></i> Computador</button>
-                        <button type="button" class="mc-cp-ver-op" data-mc-cp-ver-dev="cel" aria-pressed="false"><i class="bi bi-phone" aria-hidden="true"></i> Celular</button>
+                    <i class="bi bi-envelope-open" aria-hidden="true"></i><b id="{{ ids }}-cp-ver-titulo">{{ 'comercial.campanha.ver_titulo'|trans }}</b>
+                    <div class="mc-cp-ver-dev" role="group" aria-label="{{ 'comercial.campanha.aparelho'|trans }}">
+                        <button type="button" class="mc-cp-ver-op" data-mc-cp-ver-dev="pc" aria-pressed="true"><i class="bi bi-laptop" aria-hidden="true"></i> {{ 'comercial.campanha.computador'|trans }}</button>
+                        <button type="button" class="mc-cp-ver-op" data-mc-cp-ver-dev="cel" aria-pressed="false"><i class="bi bi-phone" aria-hidden="true"></i> {{ 'comercial.campanha.celular'|trans }}</button>
                     </div>
-                    <button type="button" class="mc-cp-ver-x" data-mc-cp-ver-fechar aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                    <button type="button" class="mc-cp-ver-x" data-mc-cp-ver-fechar aria-label="{{ 'comercial.campanha.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
                 </div>
                 <div class="mc-cp-ver-env">
                     <span class="mc-cp-ver-av" aria-hidden="true">B</span>
-                    <span class="mc-cp-ver-info"><b data-mc-cp-ver-assunto></b><span><b>De:</b> <span data-mc-cp-ver-de>{{ comercial_remetente() }}</span></span><span><b>Para:</b> <span data-mc-cp-ver-para></span></span><span class="mc-cp-ver-resumo" data-mc-cp-ver-resumo></span></span>
+                    <span class="mc-cp-ver-info"><b data-mc-cp-ver-assunto></b><span><b>{{ 'comercial.campanha.de'|trans }}</b> <span data-mc-cp-ver-de>{{ comercial_remetente() }}</span></span><span><b>{{ 'comercial.campanha.para'|trans }}</b> <span data-mc-cp-ver-para></span></span><span class="mc-cp-ver-resumo" data-mc-cp-ver-resumo></span></span>
                 </div>
-                <div class="mc-cp-ver-quadro" data-mc-cp-ver-quadro data-dev="pc"><iframe title="E-mail" sandbox="" data-mc-cp-ver-iframe></iframe></div>
+                <div class="mc-cp-ver-quadro" data-mc-cp-ver-quadro data-dev="pc"><iframe title="{{ 'comercial.campanha.email'|trans }}" sandbox="" data-mc-cp-ver-iframe></iframe></div>
             </div>
         </div>
     </section>
@@ -224,19 +232,19 @@
     <section class="mc-caixa" aria-labelledby="mc-auto-titulo">
         <div class="mc-cabeca">
             <i class="bi bi-lightning-charge mc-cabeca-ic" aria-hidden="true"></i>
-            <b class="mc-cabeca-titulo" id="mc-auto-titulo">Automações</b>
-            <span class="mc-cabeca-sub">e-mails enviados sozinhos a cada cadastro e confirmação</span>
-            <button type="button" class="mc-botao" data-mc-simular><i class="bi bi-play-circle" aria-hidden="true"></i>Simular novo cadastro</button>
+            <b class="mc-cabeca-titulo" id="mc-auto-titulo">{{ 'comercial.automacoes.titulo'|trans }}</b>
+            <span class="mc-cabeca-sub">{{ 'comercial.automacoes.sub'|trans }}</span>
+            <button type="button" class="mc-botao" data-mc-simular><i class="bi bi-play-circle" aria-hidden="true"></i>{{ 'comercial.automacoes.simular'|trans }}</button>
         </div>
         <div class="mc-msg" data-mc-msg role="status" hidden></div>
         <div class="mc-autos" data-mc-autos aria-busy="true"></div>
         <div class="mc-fila">
-            <div class="mc-fila-titulo">ÚLTIMOS DISPAROS</div>
+            <div class="mc-fila-titulo">{{ 'comercial.automacoes.ultimos'|trans }}</div>
             <div data-mc-fila></div>
         </div>
         <div class="mc-previa" data-mc-previa hidden>
-            <div class="mc-previa-cabeca"><b data-mc-previa-titulo></b><button type="button" class="mc-botao" data-mc-previa-fechar aria-label="Fechar a prévia"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
-            <iframe class="mc-previa-quadro" data-mc-previa-quadro title="Prévia do e-mail" sandbox></iframe>
+            <div class="mc-previa-cabeca"><b data-mc-previa-titulo></b><button type="button" class="mc-botao" data-mc-previa-fechar aria-label="{{ 'comercial.automacoes.fechar_previa'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>
+            <iframe class="mc-previa-quadro" data-mc-previa-quadro title="{{ 'comercial.campanha.previa_titulo'|trans }}" sandbox></iframe>
         </div>
     </section>
     {% endif %}

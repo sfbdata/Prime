@@ -231,12 +231,14 @@ final class ParcialDoComercialTest extends KernelTestCase
         return (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/css/master-comercial.css');
     }
 
-    #[TestDox('Sem script inline (CSP do /master): o bloco traz o próprio arquivo de JS')]
+    #[TestDox('Sem script inline (CSP do /master): o bloco traz o próprio arquivo de JS; o catálogo do idioma é dado (application/json), não script')]
     public function testSemScriptInline(): void
     {
         // O catálogo do JS (`catalogo_js`, spec idioma-do-sistema §8) é <script type="application/json">: dado, não código.
         $scripts = $this->doc->filter('script:not([type="application/json"])');
         self::assertSame(0, $scripts->reduce(static fn (Crawler $s): bool => $s->attr('src') === null)->count());
+        // O catálogo comercial.js da seção (o do Relatório, comercial_relatorio.js, vem no parcial dele).
+        self::assertSame(1, $this->doc->filter('script[type="application/json"][data-bj-t]')->reduce(static fn (Crawler $s): bool => str_contains($s->text(), '"comercial.js.'))->count());
         self::assertSame(1, $this->doc->filter('script[src*="js/master/comercial-campanha.js"]')->count());
         self::assertSame(1, $this->doc->filter('script[src*="js/master/comercial-relatorio.js"]')->count());
     }

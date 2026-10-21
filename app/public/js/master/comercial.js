@@ -25,7 +25,7 @@
 
   const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   // Os rótulos do dc (L.564): 24h · 3 dias · 80%; "imediato" quando não há escolha.
-  const rotulo = v => /^\d+d$/.test(v) ? parseInt(v, 10) + ' dias' : /^\d+$/.test(v) ? v + '%' : v;
+  const rotulo = v => /^\d+d$/.test(v) ? BJ_T.t('comercial.js.atraso_dias', { n: parseInt(v, 10) }) : /^\d+$/.test(v) ? v + '%' : v;
 
   function avisar(texto) {
     elMsg.textContent = texto;
@@ -33,9 +33,9 @@
   }
 
   function linha(a) {
-    const dica = a.obrigatoria ? 'Obrigatório: sem ele ninguém consegue criar conta' : 'Ligar ou desligar';
+    const dica = a.obrigatoria ? BJ_T.t('comercial.js.auto_obrigatoria') : BJ_T.t('comercial.js.auto_alternar');
     const atrasos = a.opcoes.length > 1
-      ? '<div class="mc-atrasos" role="group" aria-label="Quando enviar">' + a.opcoes.map(v =>
+      ? '<div class="mc-atrasos" role="group" aria-label="' + esc(BJ_T.t('comercial.js.auto_quando')) + '">' + a.opcoes.map(v =>
         '<button type="button" class="mc-atraso" data-mc-atraso="' + esc(v) + '" aria-pressed="' + (a.atraso === v) + '">' + esc(rotulo(v)) + '</button>').join('') + '</div>'
       : '';
     return '<div class="mc-auto" data-mc-chave="' + esc(a.chave) + '">'
@@ -57,14 +57,14 @@
     raiz._automacoes = dados.automacoes;
     elAutos.innerHTML = dados.automacoes.map(linha).join('');
     elAutos.removeAttribute('aria-busy');
-    elFila.innerHTML = dados.ultimos.length ? dados.ultimos.map(disparo).join('') : '<div class="mc-fila-vazio">Nenhum disparo ainda.</div>';
+    elFila.innerHTML = dados.ultimos.length ? dados.ultimos.map(disparo).join('') : '<div class="mc-fila-vazio">' + esc(BJ_T.t('comercial.js.fila_vazia')) + '</div>';
   }
 
   function carregar() {
     return fetch(URL_LISTAR, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(d => { carregado = true; desenhar(d); })
-      .catch(() => avisar('Não foi possível carregar as automações. Recarregue a página.'));
+      .catch(() => avisar(BJ_T.t('comercial.js.auto_erro_carregar')));
   }
 
   function postar(url, corpo) {
@@ -72,7 +72,7 @@
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': TOKEN },
       body: JSON.stringify(corpo || {}),
-    }).then(r => r.json().then(j => (r.ok ? j : Promise.reject(new Error(j.erro || 'Não foi possível salvar.')))));
+    }).then(r => r.json().then(j => (r.ok ? j : Promise.reject(new Error(j.erro || BJ_T.t('comercial.js.erro_salvar'))))));
   }
 
   function alterar(chave, mudanca) {
@@ -92,7 +92,7 @@
     raiz.querySelector('[data-mc-previa-titulo]').textContent = a.modelo;
     raiz.querySelector('[data-mc-previa-quadro]').src = URL_PREVIA.replace('xchavex', encodeURIComponent(chave));
     elPrevia.hidden = false;
-    avisar('Editando o modelo da automação "' + a.titulo + '". Duplique para ajustar o texto.');
+    avisar(BJ_T.t('comercial.js.auto_editando', { titulo: a.titulo }));
   }
 
   raiz.addEventListener('click', e => {

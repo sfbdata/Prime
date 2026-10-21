@@ -7,6 +7,7 @@ namespace App\Tests\Comercial\Unit;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /** O comercial-leitura.js no gancho da F3a e com os textos do dc (L656). */
 #[CoversNothing]
@@ -31,8 +32,12 @@ final class ComercialLeituraJsTest extends TestCase
         $js = (string) file_get_contents(self::JS);
 
         self::assertStringContainsString('if (botao.disabled) return;', $js);
-        foreach (["'Confirmação de leitura'", "'Sem confirmação de leitura'", "'Rastreando leitura (✓✓). Clique para somente enviar'", "'Clique para rastrear a leitura (✓✓)'"] as $texto) {
-            self::assertStringContainsString($texto, $js);
-        }
+        self::assertStringContainsString("texto.textContent = ligada ? BJ_T.t('comercial.js.leitura_ligada') : BJ_T.t('comercial.js.leitura_desligada');", $js);
+        self::assertStringContainsString("botao.title = ligada ? BJ_T.t('comercial.js.leitura_dica_ligada') : BJ_T.t('comercial.js.leitura_dica_desligada');", $js);
+        $catalogo = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['comercial']['js'];
+        self::assertSame(
+            ['Confirmação de leitura', 'Sem confirmação de leitura', 'Rastreando leitura (✓✓). Clique para somente enviar', 'Clique para rastrear a leitura (✓✓)'],
+            [$catalogo['leitura_ligada'], $catalogo['leitura_desligada'], $catalogo['leitura_dica_ligada'], $catalogo['leitura_dica_desligada']],
+        );
     }
 }

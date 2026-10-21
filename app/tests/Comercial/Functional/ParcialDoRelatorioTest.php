@@ -204,7 +204,8 @@ final class ParcialDoRelatorioTest extends KernelTestCase
     #[TestDox('O catálogo do JS vem uma vez, antes do script, só com as chaves comercial_relatorio.js')]
     public function testCatalogoDoJs(): void
     {
-        $catalogo = $this->doc->filter('script[type="application/json"][data-bj-t]');
+        // O da seção (comercial.js, no topo do _comercial) é outro bloco; aqui só o do Relatório.
+        $catalogo = $this->doc->filter('script[type="application/json"][data-bj-t]')->reduce(static fn (Crawler $c): bool => str_contains($c->text(), 'comercial_relatorio.js.'));
         self::assertSame(1, $catalogo->count());
         self::assertSame(1, $this->doc->filter('script[data-bj-t] + script[src*="js/master/comercial-relatorio.js"]')->count());
         $chaves = array_keys((array) json_decode($catalogo->text(), true, flags: JSON_THROW_ON_ERROR));
