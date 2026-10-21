@@ -23,14 +23,14 @@
             <button class="nav-link active" id="abaFichaQualif{{ pessoa.id }}" data-bs-toggle="tab"
                     data-bs-target="#paneFichaQualif{{ pessoa.id }}" type="button" role="tab"
                     aria-controls="paneFichaQualif{{ pessoa.id }}" aria-selected="true" data-aba="qualificacao">
-                <i class="bi bi-person-badge me-1"></i>Qualificação
+                <i class="bi bi-person-badge me-1"></i>{{ 'cobranca_pessoa.abas.qualificacao'|trans }}
             </button>
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="abaFichaEnd{{ pessoa.id }}" data-bs-toggle="tab"
                     data-bs-target="#paneFichaEnd{{ pessoa.id }}" type="button" role="tab"
                     aria-controls="paneFichaEnd{{ pessoa.id }}" aria-selected="false" data-aba="enderecos">
-                <i class="bi bi-geo-alt me-1"></i>Endereços
+                <i class="bi bi-geo-alt me-1"></i>{{ 'cobranca_pessoa.abas.enderecos'|trans }}
                 <span class="badge text-bg-secondary ms-1">{{ pessoa.enderecos|length }}</span>
             </button>
         </li>
@@ -38,7 +38,7 @@
             <button class="nav-link" id="abaFichaCont{{ pessoa.id }}" data-bs-toggle="tab"
                     data-bs-target="#paneFichaCont{{ pessoa.id }}" type="button" role="tab"
                     aria-controls="paneFichaCont{{ pessoa.id }}" aria-selected="false" data-aba="contatos">
-                <i class="bi bi-telephone me-1"></i>Telefones e E-mails
+                <i class="bi bi-telephone me-1"></i>{{ 'cobranca_pessoa.abas.contatos'|trans }}
                 <span class="badge text-bg-secondary ms-1">{{ pessoa.telefones|length + pessoa.emails|length }}</span>
             </button>
         </li>

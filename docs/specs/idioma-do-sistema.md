@@ -528,3 +528,25 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   categorias de documento, motivos de rejeição da importação, rótulos dos Form types e os flashes), o
   `carteira-filtro-estado.js` (o rótulo do chip) e os parciais de outras pastas que estas telas incluem
   (`cobranca/_partials/_subnav`, `_partials/_filtro_barra` e `_filtro_paginacao`).
+
+## 19. Cobrança: pessoa, central e subnav (0d, 21/10)
+
+- **Escopo:** `cobranca/pessoa/show` e os cinco parciais de `pessoa/_partials` (`_ficha_abas`, `_qualificacao`,
+  `_lista_enderecos`, `_lista_telefones`, `_lista_emails`), `cobranca/central/*` (`index`, `_aba_atividade`,
+  `_detalhe_pessoa`, `_lista_eventos`, `_momento`) e `cobranca/_partials/_subnav`. Bloco `cobranca_pessoa` do catálogo,
+  87 chaves, com `cobranca_pessoa.js.*` (3) para o JS inline da Central (entregue por `catalogo_js('cobranca_pessoa.js')`
+  antes do `<script>`). A ficha da pessoa não tem JS com texto.
+- **Sem mudança visível:** o HTML da ficha completa e vazia (página e fragmento das abas), da Central com eventos, vazia,
+  da semana e do período personalizado, e do detalhe da pessoa (com e sem lançamentos de cadastro expandidos, sem
+  responsável e vazio) saiu igual. Mudaram só tokens CSRF, quebras de linha, o `<script data-bj-t>` e os literais
+  trocados por `BJ_T.t()` no JS inline. O `confirm()` de excluir telefone continua com `|json_encode`, que já escapava.
+- **Formatos:** só o `_momento` (chamado sempre sob guarda de nulo) passou a `|data_hora`. O `criadoEm` das listas e o
+  `ocorridoEm` dos eventos seguem com `|date` e entram como parâmetro já formatado.
+- **Escolhas:** "N lançamento(s) de cadastro/importação" virou duas chaves (`lancamentos_um`, `lancamentos_varios`)
+  escolhidas pelo mesmo `== 1` de antes, sem plural ICU. O `id` das abas em construção (`Resultado`, `Pendencias`,
+  `Extrato`, identificador do DOM) sai de `'resultado'|capitalize` para não parecer frase ao detector. O enum
+  `App\\Cobranca\\Enum\\TipoTelefone` (em `enum_cases`) ficou nos permitidos.
+- **Ficou de fora:** o texto do PHP (rótulos dos Form types `AdicionarEnderecoType`, `AdicionarTelefoneType`,
+  `AdicionarEmailType` e `EditarQualificacaoPessoaType`, `TipoTelefone::label()`, `tipoLabel` e `descricao` dos eventos,
+  rótulos de desfecho e canal, o nome "Sem responsável" da linha órfã, flashes e mensagens das rotas da ficha); o
+  `telefone-mascara.js` (sem texto) não entrou na guarda.
