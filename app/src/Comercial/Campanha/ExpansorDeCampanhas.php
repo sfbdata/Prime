@@ -19,8 +19,8 @@ use Psr\Log\LoggerInterface;
  * O trabalho de cada volta do expansor (spec `comercial-e-emails.md` §8.1 e §8.5), chamado pelo
  * {@see \App\Comercial\MessageHandler\ExpandirCampanhasHandler}:
  *   1. a chave da instalação: desligada, toda campanha ativa vira `cancelada` (parada de emergência);
- *   2. materializa a execução devida em `comercial_campanha_destino`, com o público resolvido de novo (B1 e descadastro
- *      reaplicados). Nada é recuperado: a única que acordou mais de 24 h atrasada é cancelada sem enviar; a recorrente
+ *   2. materializa a execução devida em `comercial_campanha_destino`, com o público resolvido de novo pelo modelo
+ *      gravado (`modelo_chave`; B1 e descadastro reaplicados) e a lista de cada destinatário (§11). Nada é recuperado: a única que acordou mais de 24 h atrasada é cancelada sem enviar; a recorrente
  *      que perdeu a vez pula para a próxima data futura;
  *   3. libera um lote numa transação da conexão (trava as linhas com `SKIP LOCKED`, entrega ao Carteiro, que vira
  *      savepoint, e grava o `envio_id`): queda no meio = nada gravado, nada duplicado;
@@ -182,7 +182,7 @@ final class ExpansorDeCampanhas
             }
             $informados = array_map(static fn (array $d): DestinatarioDaCampanha => new DestinatarioDaCampanha($d['email'], $d['nome']), $campanha['publico_parametros']);
             // O filtro congelado (§9) volta a valer, com a data desta execução (idade e aniversário).
-            $publico = $this->publicos->resolver($campanha['publico'], $informados, $filtro, $agora);
+            $publico = $this->publicos->resolver($campanha['publico'], $informados, $filtro, $agora, $campanha['modelo_chave']);
             $execucao = $campanha['execucoes'] + 1;
             $this->destinos->materializar($campanha['id'], $execucao, $publico->destinatarios, $agora);
             $recorrente = $campanha['estado'] === CampanhaDeEmail::RECORRENTE;
@@ -221,9 +221,9 @@ final class ExpansorDeCampanhas
 
     /**
      * O e-mail do destinatário, com a campanha descongelada uma vez por lote. Null se não vira e-mail (o conteúdo ou o
-     * endereço deixou de valer): o destinatário sai da execução em vez de travar o lote.
+     * endereço deixou de valer): o destinatário sai da execução em vez de travar o lote. A lista é a do destino (§11).
      *
-     * @param array{id: int, campanha_id: int, email: string, nome: ?string} $destino
+     * @param array{id: int, campanha_id: int, email: string, nome: ?string, lista: string} $destino
      * @param array<int, \App\Comercial\DTO\MensagemDaCampanha|null>          $mensagens
      */
     private function mensagem(array $destino, array &$mensagens): ?MensagemDeEmail
@@ -239,7 +239,7 @@ final class ExpansorDeCampanhas
             }
         }
         try {
-            return $mensagens[$id] === null ? null : $this->composicao->mensagemPara($mensagens[$id], $destino['email'], $destino['nome'], 'campanha:' . $id, $this->rastrearLeitura[$id] ?? false, $this->politica->replyToDaCampanha());
+            return $mensagens[$id] === null ? null : $this->composicao->mensagemPara($mensagens[$id], $destino['email'], $destino['nome'], 'campanha:' . $id, $this->rastrearLeitura[$id] ?? false, $this->politica->replyToDaCampanha(), $destino['lista']);
         } catch (CampanhaRecusada | \InvalidArgumentException) {
             $this->logger->error('Comercial: destinatário de campanha descartado (não vira e-mail).', ['campanhaId' => $id, 'destinoId' => $destino['id']]);
 

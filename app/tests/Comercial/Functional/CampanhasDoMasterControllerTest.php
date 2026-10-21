@@ -351,6 +351,49 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertContains(strtolower($email), [$leads['exemplo']['email'] ?? null]);
     }
 
+    #[TestDox('Contagem com o modelo (§11): vagas soma quem autorizou vagas_alerta, sem repetir; outro modelo não')]
+    public function testContagemComModeloDeVagas(): void
+    {
+        $client = $this->clienteMaster();
+        $marca = uniqid();
+        $this->confirmado('comercial_campanhas', "lead.$marca@exemplo.com");
+        $this->confirmado('comercial_campanhas', "dupla.$marca@exemplo.com");
+        $this->confirmado('vagas_alerta', "dupla.$marca@exemplo.com");
+        $this->confirmado('vagas_alerta', "vaga.$marca@exemplo.com");
+        static::getContainer()->get(DescadastroDeEmailInterface::class)->descadastrar(null, "lead.$marca@exemplo.com", 'vagas_alerta', 'link_do_email', null);
+
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'leads', 'modelo' => 'convite']);
+        $convite = $this->json($client);
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'leads', 'modelo' => 'vagas']);
+        $vagas = $this->json($client);
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'leads']);
+        $semModelo = $this->json($client);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame($convite, $semModelo, 'sem o campo modelo, como hoje');
+        self::assertSame($convite['publicos']['leads'] + 1, $vagas['publicos']['leads'], 'a grade soma só quem está apenas em vagas_alerta');
+        self::assertSame($convite['descadastrados'] + 1, $vagas['descadastrados'], 'quem saiu de vagas_alerta fica de fora no modelo vagas');
+        self::assertSame($convite['destinatarios'], $vagas['destinatarios'], 'entra a vaga, sai o lead descadastrado de vagas_alerta');
+    }
+
+    #[TestDox('Âncora do modelo vagas (§11): só no modo simples com o botão para as vagas; o texto continua editável')]
+    public function testAncoraDoModeloDeVagas(): void
+    {
+        $client = $this->clienteMaster();
+        $email = (string) $this->cadastradoAtivo()->getEmail();
+        $vagas = (array) (new ModelosDeCampanha())->fixo('vagas');
+        foreach (['link' => 'cadastro', 'cta' => '', 'modo' => 'blocos'] as $campo => $valor) {
+            $this->postar($client, '/master/comercial/campanhas', $this->pedido([$email], ['modelo' => [$campo => $valor] + $vagas]));
+            self::assertResponseStatusCodeSame(422);
+            self::assertSame(ComposicaoDaCampanha::ANCORA_DE_VAGAS, $this->json($client)['erro'], $campo);
+        }
+        self::assertSame(0, $this->contar('comercial_campanha'));
+
+        $this->postar($client, '/master/comercial/campanhas', $this->pedido([$email], ['modelo' => ['assunto' => 'Outro assunto', 'corpo' => 'Outro texto'] + $vagas]));
+        self::assertResponseIsSuccessful();
+        self::assertSame('vagas', $this->conexao()->fetchOne('SELECT modelo_chave FROM comercial_campanha WHERE id = ?', [$this->json($client)['id']]));
+    }
+
     #[TestDox('Prévia com o primeiro destinatário (dc L.537): o primeiro nome dele; sem nome, "Dra. Ana"')]
     public function testPreviaComExemplo(): void
     {
@@ -387,6 +430,12 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         $this->perfil($beto, Genero::Masculino);
 
         return [$ana, $beto, $this->cadastradoAtivo('caio', 'Caio Filtro')];
+    }
+
+    private function confirmado(string $lista, string $email): void
+    {
+        $agora = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+        $this->conexao()->insert('comercial_confirmacao_endereco', ['lista' => $lista, 'email' => $email, 'pedido_em' => $agora, 'confirmado_em' => $agora, 'tenant_id' => null]);
     }
 
     private function contar(string $tabela): int
