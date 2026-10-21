@@ -6,6 +6,7 @@ namespace App\Master\Controller;
 
 use App\Entity\Auth\User;
 use App\Master\DTO\AdicionarSubsecaoNaSeccionalInput;
+use App\Master\DTO\AlternarVisibilidadeDaSeccionalInput;
 use App\Master\DTO\EditarSedeDaSeccionalInput;
 use App\Master\DTO\RegistrarDivulgacaoNaSeccionalInput;
 use App\Master\DTO\RemoverSubsecaoDaSeccionalInput;
@@ -15,10 +16,13 @@ use App\Master\Exception\SeccionalRecusada;
 use App\Master\Exception\SubsecaoNaoEncontrada;
 use App\Master\Service\LocalizacaoDaPessoa;
 use App\Master\UseCase\AdicionarSubsecaoNaSeccionalUseCase;
+use App\Master\UseCase\AlternarVisibilidadeDaSeccionalUseCase;
 use App\Master\UseCase\EditarSedeDaSeccionalUseCase;
 use App\Master\UseCase\ListarSeccionaisUseCase;
+use App\Master\UseCase\MostrarTodasAsSeccionaisUseCase;
 use App\Master\UseCase\RegistrarDivulgacaoNaSeccionalUseCase;
 use App\Master\UseCase\RemoverSubsecaoDaSeccionalUseCase;
+use App\Master\UseCase\SalvarNotaDaCidadeOabUseCase;
 use App\Master\UseCase\SalvarNotaDaSeccionalUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -40,6 +44,10 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * Janela da OAB dos estados que faltam (spec docs/specs/master-oab-estados-que-faltam.md; desenho L481-495): o GET
  * traz também as subseções e a nota de cada UF e os moldes das URLs de subseção e de nota; os três POST (adicionar
  * subseção, remover subseção, salvar nota) seguem o mesmo contrato dos de cima.
+ *
+ * Desenho 05 inteiro (conferência de 21/10/2026): a divulgação grava a marca da UF (status, cor e data); o botão
+ * direito no chip alterna a visibilidade no mapa e "Mostrar todas" volta todas (POST de plataforma, como os outros);
+ * a nota leva a cidade quando é a da janela de uma cidade.
  *
  * Idioma (spec idioma-do-sistema, P2a da b5): a resposta e a recusa do próprio controller saem do catálogo
  * (master.seccionais.*) no idioma da requisição. A recusa dos UseCases (SeccionalRecusada, SeccionalNaoEncontrada,
@@ -66,6 +74,9 @@ final class SeccionaisOabController extends AbstractController
             'urlSubsecoes'       => $this->generateUrl('master_seccional_subsecao_adicionar', ['uf' => 'XX']),
             'urlSubsecaoRemover' => $this->generateUrl('master_seccional_subsecao_remover', ['uf' => 'XX', 'id' => 0]),
             'urlNota'            => $this->generateUrl('master_seccional_nota', ['uf' => 'XX']),
+            // Filtro de seccionais visíveis: alternar uma (XX é a UF) e mostrar todas.
+            'urlVisibilidade' => $this->generateUrl('master_seccional_visibilidade', ['uf' => 'XX']),
+            'urlMostrarTodas' => $this->generateUrl('master_seccionais_mostrar_todas'),
         ]);
     }
 
@@ -90,13 +101,14 @@ final class SeccionaisOabController extends AbstractController
     }
 
     #[Route('/master/seccionais/{uf}/nota', name: 'master_seccional_nota', requirements: ['uf' => '[A-Z]{2}'], methods: ['POST'])]
-    public function salvarNota(string $uf, Request $request, SalvarNotaDaSeccionalUseCase $salvar): JsonResponse
+    public function salvarNota(string $uf, Request $request, SalvarNotaDaSeccionalUseCase $doEstado, SalvarNotaDaCidadeOabUseCase $daCidade): JsonResponse
     {
-        return $this->gravar($uf, $request, function (array $corpo) use ($uf, $salvar): string {
+        return $this->gravar($uf, $request, function (array $corpo) use ($uf, $doEstado, $daCidade): string {
             $input = SalvarNotaDaSeccionalInput::doJson($this->ator(), $uf, $corpo);
-            $seccional = $salvar->executar($input);
+            $seccional = $input->cidade === null ? $doEstado->executar($input) : $daCidade->executar($input);
+            $onde = $input->cidade ?? $seccional->getNome();
 
-            return $this->tradutor->trans($input->texto === null ? 'master.seccionais.nota_apagada' : 'master.seccionais.nota_salva', ['seccional' => $seccional->getNome()]);
+            return $this->tradutor->trans($input->texto === null ? 'master.seccionais.nota_apagada' : 'master.seccionais.nota_salva', ['seccional' => $onde]);
         });
     }
 
@@ -114,16 +126,40 @@ final class SeccionaisOabController extends AbstractController
     public function divulgar(string $uf, Request $request, RegistrarDivulgacaoNaSeccionalUseCase $registrar): JsonResponse
     {
         return $this->gravar($uf, $request, function (array $corpo) use ($uf, $registrar): string {
-            $divulgacao = $registrar->executar(RegistrarDivulgacaoNaSeccionalInput::doJson($this->ator(), $uf, $corpo));
+            $seccional = $registrar->executar(RegistrarDivulgacaoNaSeccionalInput::doJson($this->ator(), $uf, $corpo));
 
-            return $this->tradutor->trans('master.seccionais.divulgacao_registrada', ['seccional' => $divulgacao->getSeccional()->getNome(), 'tipo' => $divulgacao->getTipo()->rotulo()]);
+            return $this->tradutor->trans('master.seccionais.divulgacao_registrada', ['seccional' => $seccional->getNome(), 'status' => $seccional->getMarcaStatus()?->rotulo() ?? '']);
         });
     }
 
-    /** @param callable(array<mixed>): string $acao */
-    private function gravar(string $uf, Request $request, callable $acao): JsonResponse
+    #[Route('/master/seccionais/{uf}/visibilidade', name: 'master_seccional_visibilidade', requirements: ['uf' => '[A-Z]{2}'], methods: ['POST'])]
+    public function alternarVisibilidade(string $uf, Request $request, AlternarVisibilidadeDaSeccionalUseCase $alternar): JsonResponse
     {
-        if (!in_array($uf, LocalizacaoDaPessoa::UFS, true)) {
+        return $this->gravar($uf, $request, function () use ($uf, $alternar): string {
+            $seccional = $alternar->executar(new AlternarVisibilidadeDaSeccionalInput($this->ator(), $uf));
+
+            return $this->tradutor->trans($seccional->isVisivel() ? 'master.seccionais.visivel' : 'master.seccionais.oculta', ['seccional' => $seccional->getNome()]);
+        });
+    }
+
+    #[Route('/master/seccionais/mostrar-todas', name: 'master_seccionais_mostrar_todas', methods: ['POST'])]
+    public function mostrarTodas(Request $request, MostrarTodasAsSeccionaisUseCase $mostrar): JsonResponse
+    {
+        return $this->gravar(null, $request, function () use ($mostrar): string {
+            $mostrar->executar();
+
+            return $this->tradutor->trans('master.seccionais.todas_visiveis');
+        });
+    }
+
+    /**
+     * `$uf` nulo é a ação sem UF ("Mostrar todas").
+     *
+     * @param callable(array<mixed>): string $acao
+     */
+    private function gravar(?string $uf, Request $request, callable $acao): JsonResponse
+    {
+        if ($uf !== null && !in_array($uf, LocalizacaoDaPessoa::UFS, true)) {
             return $this->json(['erro' => $this->tradutor->trans('master.seccionais.nao_encontrada')], Response::HTTP_NOT_FOUND);
         }
 

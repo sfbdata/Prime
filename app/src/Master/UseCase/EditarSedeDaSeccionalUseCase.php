@@ -23,7 +23,7 @@ use Psr\Clock\ClockInterface;
  * Fluxo principal: carrega a seccional, confere os tamanhos e o site, troca a sede inteira (campo vazio vira
  * nulo), grava quem e quando, e salva dentro do escopo de plataforma.
  * Fluxos alternativos: linha ausente (banco sem a carga) é 404; endereço acima de 255, telefone acima de 40,
- * site acima de 255 ou sem `https://` são recusados com a mensagem (422) e nada muda.
+ * site acima de 255 ou sem `http://` ou `https://` são recusados com a mensagem (422) e nada muda.
  * Pós-condições: o cartão passa a mostrar a sede nova para todos os Masters.
  * Auditoria: SeccionalOab é Auditavel; dentro do EscopoDeAuditoriaDePlataforma a linha do audit_log fica sem
  * escritório, só na trilha do Master ("Plataforma (sem conta)").
@@ -64,7 +64,7 @@ final class EditarSedeDaSeccionalUseCase
         }
     }
 
-    /** Só `https://` com um domínio: o link sai no cartão e abre em outra aba. */
+    /** `http://` ou `https://` com um domínio (desenho 05 L903-904: /^https?:\/\//): o link sai no cartão e abre em outra aba. */
     private function exigirSiteSeguro(?string $site): void
     {
         if ($site === null) {
@@ -72,10 +72,10 @@ final class EditarSedeDaSeccionalUseCase
         }
 
         $valido = filter_var($site, \FILTER_VALIDATE_URL) !== false
-            && strtolower((string) parse_url($site, \PHP_URL_SCHEME)) === 'https'
+            && in_array(strtolower((string) parse_url($site, \PHP_URL_SCHEME)), ['http', 'https'], true)
             && (string) parse_url($site, \PHP_URL_HOST) !== '';
         if (!$valido) {
-            throw new SeccionalRecusada('Informe o site completo, começando com https://.');
+            throw new SeccionalRecusada('Informe o site completo, começando com http:// ou https://.');
         }
     }
 }

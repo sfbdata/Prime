@@ -47,26 +47,24 @@ class NotaDaSeccionalRepository extends ServiceEntityRepository
     }
 
     /**
-     * A nota de cada seccional que tem uma, com a data (AAAA-MM-DD) e o nome de quem gravou por último.
-     * Uma consulta só para as 27, sem carregar entidades.
+     * A nota de cada seccional que tem uma, com a data e hora da última gravação (ISO 8601 com o fuso; a janela mostra
+     * "Nota salva em dd/mm/aaaa, hh:mm", sem autor). Uma consulta só para as 27, sem carregar entidades.
      *
-     * @return array<string, array{texto: string, atualizadaEm: string, autor: ?string}> UF => nota
+     * @return array<string, array{texto: string, atualizadaEm: string}> UF => nota
      */
     public function todasPorUf(): array
     {
         $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
-            'SELECT s.uf, n.texto, n.atualizada_em, u.full_name AS autor
+            'SELECT s.uf, n.texto, n.atualizada_em
                FROM master_nota_seccional n
-               JOIN master_seccional_oab s ON s.id = n.seccional_id
-          LEFT JOIN "user" u ON u.id = n.atualizada_por_id',
+               JOIN master_seccional_oab s ON s.id = n.seccional_id',
         );
 
         $porUf = [];
         foreach ($linhas as $l) {
             $porUf[(string) $l['uf']] = [
                 'texto'        => (string) $l['texto'],
-                'atualizadaEm' => substr((string) $l['atualizada_em'], 0, 10),
-                'autor'        => $l['autor'] !== null ? (string) $l['autor'] : null,
+                'atualizadaEm' => (new \DateTimeImmutable((string) $l['atualizada_em']))->format(\DATE_ATOM),
             ];
         }
 

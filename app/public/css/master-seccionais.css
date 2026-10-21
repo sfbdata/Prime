@@ -1,8 +1,8 @@
 /* BlueJus · Seccionais da OAB no mapa "Onde estamos atuando" do Painel do Master.
    Desenho: docs/design/perfis-1.2/vs-21-10-26/05 - Perfis 1.2 - VS 21.10.26.dc.html, template L116-127 (bloco ehOab).
    Spec: docs/specs/master-seccionais-oab.md. Montado por public/js/master/painel.js (blocoSeccionais).
-   Valores do documento em tokens. Os estados do chip (visível, oculto, aberto) e as cores dos tipos vêm do trecho
-   truncado do desenho: convenção até o arquivo inteiro (DONO). O painel do Master não tem tema escuro próprio
+   Valores do documento em tokens. Estados do chip (visível, oculto, aberto) pelo desenho inteiro (L902); a cor do
+   ponto é a da marca da UF (paleta do mapa), vinda do servidor. O painel do Master não tem tema escuro próprio
    (master.css é só claro); o bloco segue o mesmo fundo claro do cartão do mapa. */
 .mp-sec-oab {
     --sec-borda: #e2e9ee;
@@ -15,15 +15,12 @@
     --sec-card-borda: #dbe6ee;
     --sec-botao-borda: #c5d2db;
     --sec-ponto-sombra: rgba(18, 36, 47, .35);
-    --sec-material: #0a6fa0;
-    --sec-reuniao: #b7791f;
-    --sec-parceria: #2f855a;
     --sec-chip-bg: #e5f1f7;
-    --sec-chip-cor: #0b4f75;
-    --sec-chip-borda: #c5dbe8;
+    --sec-chip-cor: #0a6fa0;
+    --sec-chip-borda: #0a6fa0;
     --sec-chip-oculta-bg: #fff;
     --sec-chip-oculta-cor: #9aabb7;
-    --sec-chip-oculta-borda: #e2e9ee;
+    --sec-chip-oculta-borda: #d3dde4;
     border-top: 1px solid var(--sec-borda);
     padding: 8px 10px 10px;
     background: var(--sec-fundo);
@@ -52,14 +49,6 @@
 .mp-sec-card-acoes > a { height: 24px; padding: 0 8px; border: 1px solid var(--sec-botao-borda); border-radius: 3px; font-size: 11.5px; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
 .mp-sec-card-acoes > button { height: 24px; padding: 0 8px; border: 1px solid var(--sec-botao-borda); border-radius: 3px; background: #fff; color: var(--sec-texto); font: inherit; font-size: 11.5px; cursor: pointer; }
 
-/* Últimas 5 divulgações: convenção (o desenho truncado não mostra a lista), no tom da nota do bloco. */
-.mp-sec-divs { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--sec-borda); }
-.mp-sec-divs > b { font-size: 10.5px; letter-spacing: .6px; color: var(--sec-titulo); }
-.mp-sec-div { display: flex; align-items: flex-start; gap: 6px; font-size: 11.5px; line-height: 1.35; }
-.mp-sec-div > i { flex: none; width: 7px; height: 7px; margin-top: 4px; border-radius: 50%; background: var(--cor); box-shadow: 0 0 0 1px var(--sec-ponto-sombra); }
-.mp-sec-div-nota { display: block; color: var(--sec-icone); overflow-wrap: anywhere; }
-.mp-sec-div-vazio { font-size: 11px; color: var(--sec-nota); }
-
 .mp-sec-oab-nota { display: block; font-size: 10.5px; color: var(--sec-nota); margin-top: 6px; line-height: 1.4; }
 
 /* ---------- Janela da OAB dos estados que faltam (spec docs/specs/master-oab-estados-que-faltam.md) ----------
@@ -68,11 +57,17 @@
    (faltamItem, oabJanela). O item usa classes próprias (mp-faltam-uf): as regras antigas de .mp-faltam-item do
    master.css (filhos por posição, o "0") não servem ao item novo, que tem ícone de nota, subtítulo e seta. */
 
-/* L118: linha da UF, com o realce do desenho (style-hover) e a mão só onde há clique (`u.cur`, Brasil). */
+/* L118 e L898: linha da UF, com o realce do desenho (style-hover); a mão só no modo OAB (`u.cur`), onde o clique abre
+   o cartão da sede. */
 .mp-uf-lin:hover { background: #f5fafd; }
 .mp-uf-lin.is-oab { cursor: pointer; }
 
-/* L140: item dos que faltam. No Mundo, o mesmo visual (mão, realce e seta); o clique só mostra o aviso do painel. */
+/* L134 e L888: seletor "Estados" / "Capitais" dos que faltam, só no Brasil. */
+.mp-faltam > .mp-faltam-modos { display: flex; margin: 8px 10px 0; background: #e6edf2; border-radius: 4px; padding: 3px; gap: 2px; }
+.mp-faltam-modos > button { flex: 1; height: 24px; border: none; border-radius: 3px; background: transparent; color: #5b7383; box-shadow: none; font: inherit; font-size: 12px; font-weight: bold; cursor: pointer; }
+.mp-faltam-modos > button.on { background: #fff; color: #0a6fa0; box-shadow: 0 1px 2px rgba(18, 36, 47, .12); }
+
+/* L140: item dos que faltam. No Mundo, sem ação: sem mão e sem realce (L885). */
 .mp-faltam-uf { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 12px; color: #4f6878; }
 .mp-faltam-uf.is-oab { cursor: pointer; transition: background .12s; }
 .mp-faltam-uf.is-oab:hover, .mp-faltam-uf.is-oab:focus-visible { background: #e5f1f7; color: #0a6fa0; }
@@ -82,8 +77,8 @@
 .mp-faltam-uf > .mp-faltam-sub { font-size: 11px; color: #9aabb7; }
 .mp-faltam-uf > .bi-chevron-right { font-size: 10px; color: #b7c6d1; }
 
-/* Aviso do painel (.mp-aviso do master.css) embaixo do total da tabela de UFs: "só para os estados do Brasil" ou
-   a falha da carga das seccionais. Mais compacto, na medida das linhas da tabela. */
+/* Aviso do painel (.mp-aviso do master.css) embaixo do total da tabela de UFs: a falha da carga das seccionais ou
+   de uma gravação. Mais compacto, na medida das linhas da tabela. */
 .mp-uf-tab > .mp-aviso { padding: 6px 10px; font-size: 12px; }
 
 /* Com a janela aberta (z-index 9400 do desenho), o "Editar sede" e a confirmação do painel sobem por cima dela. */
@@ -104,13 +99,13 @@
 /* L485: corpo em coluna. */
 .mp-oab > .mp-oab-corpo { padding: 14px 18px; display: flex; flex-direction: column; gap: 12px; }
 
-/* L486: SECCIONAL · SEDE. A cor do endereço (`oabSecCor`) é DONO: texto normal com endereço, cinza sem ele. */
+/* L486 e L889: SECCIONAL · SEDE. Cor do endereço (`oabSecCor`): #243845 com endereço, #9aabb7 sem ele. */
 .mp-oab-corpo > .mp-oab-sede { border: 1px solid #e1e8ed; border-radius: 4px; padding: 10px 12px; }
 .mp-oab-sede > .mp-oab-tit, .mp-oab-subs > .mp-oab-tit { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .mp-oab-tit > b { flex: 1; font-size: 12px; letter-spacing: .5px; color: #4a6373; }
 .mp-oab-tit > .mp-oab-editar { height: 24px; padding: 0 8px; border: 1px solid #d3dde4; border-radius: 3px; background: #fff; color: #0a6fa0; font: inherit; font-size: 11.5px; cursor: pointer; }
-.mp-oab-sede > .mp-oab-end { font-size: 13.5px; color: #34505f; }
-.mp-oab-sede > .mp-oab-end.is-vazio { color: #7a8e9b; }
+.mp-oab-sede > .mp-oab-end { font-size: 13.5px; color: #243845; }
+.mp-oab-sede > .mp-oab-end.is-vazio { color: #9aabb7; }
 .mp-oab-sede > .mp-oab-tel { font-size: 12.5px; color: #34505f; margin-top: 3px; }
 .mp-oab-sede > .mp-oab-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; font-size: 12.5px; }
 

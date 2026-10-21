@@ -1349,7 +1349,10 @@ master:
         nota_salva: 'Nota da {seccional} salva.'
         nota_apagada: 'Nota da {seccional} apagada.'
         sede_atualizada: 'Sede da {seccional} atualizada.'
-        divulgacao_registrada: 'Divulgação registrada na {seccional}: {tipo}.'
+        divulgacao_registrada: 'Divulgação registrada na {seccional}: {status}.'
+        visivel: '{seccional} aparece no mapa.'
+        oculta: '{seccional} oculta no mapa.'
+        todas_visiveis: Todas as seccionais aparecem no mapa.
     # Chaves do painel.js: vão cruas ao navegador (só {nome}, sem plural do ICU).
     js:
         carregando: Carregando…
