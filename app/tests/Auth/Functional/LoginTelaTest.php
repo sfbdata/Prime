@@ -245,7 +245,8 @@ final class LoginTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('form#lgForm .lg-senha > input[name="password"] + button#lgOlho[type="button"][title="Mostrar senha"]'));
         self::assertCount(4, $crawler->filter('#lgSeg .lg-seg__corpo > .lg-seg__item'));
         self::assertCount(6, $crawler->filter('#lgSeg .lg-seg__corpo > .lg-lgpd > .lg-lgpd__grade > span'));
-        self::assertCount(4, $crawler->filter('#lgMd #lgMdForm > .lg-md__passo[data-passo]'));
+        // rs1, rs2, rs3, cad e o "Confirme seu e-mail" depois do cadastro (spec cadastro-exige-confirmacao).
+        self::assertCount(5, $crawler->filter('#lgMd #lgMdForm > .lg-md__passo[data-passo]'));
         self::assertCount(1, $crawler->filter('#lgRaiz > footer.lg-rodape > #lgSupBtn'));
         self::assertCount(4, $crawler->filter('#lgRaiz > footer.lg-rodape > #lgSup > #lgSupForm > .lg-sup__chips > button[data-assunto]'));
         self::assertCount(1, $crawler->filter('#lgSupForm > .lg-pote > input[name="site"]'));

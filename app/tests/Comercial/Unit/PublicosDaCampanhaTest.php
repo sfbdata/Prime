@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Unit;
 
+use App\Comercial\Campanha\AtributosDosDestinatarios;
 use App\Comercial\Campanha\PoliticaDeDestinatarios;
 use App\Comercial\Campanha\PublicosDaCampanha;
 use App\Comercial\DTO\DestinatarioDaCampanha;
 use App\Comercial\Repository\CadastradosRepository;
 use App\Comercial\Repository\ConfirmacaoDeEnderecoRepository;
+use App\Contribua\Service\SituacaoDoEspaco;
+use App\Profile\Repository\UserProfileRepository;
 use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 
 /**
  * Os públicos (spec §8.5): sem repetidos, sem os descadastrados da lista `comercial_campanhas` (consulta da 0d, escopo
@@ -103,7 +107,14 @@ final class PublicosDaCampanhaTest extends TestCase
             return \in_array($email, $this->descadastrados, true);
         });
 
-        return new PublicosDaCampanha($cadastrados, $confirmacoes, $descadastro, new PoliticaDeDestinatarios());
+        // Sem filtro, os atributos nunca são lidos: o SituacaoDoEspaco (final) entra sem construtor.
+        $atributos = new AtributosDosDestinatarios(
+            $cadastrados,
+            $this->createStub(UserProfileRepository::class),
+            (new \ReflectionClass(SituacaoDoEspaco::class))->newInstanceWithoutConstructor(),
+        );
+
+        return new PublicosDaCampanha($cadastrados, $confirmacoes, $descadastro, new PoliticaDeDestinatarios(), $atributos, new MockClock());
     }
 
     /**

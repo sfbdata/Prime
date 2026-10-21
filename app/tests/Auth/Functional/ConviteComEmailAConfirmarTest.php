@@ -14,8 +14,11 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
- * O cadastro do desenho 10 entra antes de o e-mail ser confirmado. Quem cria a conta com o e-mail de outra pessoa
- * não pode, por isso, ver o convite de escritório mandado para aquele e-mail: as listas entregam o token do aceite.
+ * Quem cria a conta com o e-mail de outra pessoa não pode ver o convite de escritório mandado para aquele e-mail: as
+ * listas entregam o token do aceite.
+ *
+ * Desde a spec `cadastro-exige-confirmacao.md`, a conta a confirmar nem fica logada: a sessão dela termina no
+ * primeiro pedido (`SessaoDeContaAConfirmarListener`). O filtro das listas (`isEmailConfirmado`) fica como defesa.
  */
 #[CoversClass(ConviteController::class)]
 final class ConviteComEmailAConfirmarTest extends JusPrimeWebTestCase
@@ -28,17 +31,19 @@ final class ConviteComEmailAConfirmarTest extends JusPrimeWebTestCase
     }
 
     #[DataProvider('listas')]
-    #[TestDox('E-mail a confirmar: o convite para o mesmo e-mail não aparece com o token')]
+    #[TestDox('E-mail a confirmar: a sessão termina antes da lista, e o convite para o mesmo e-mail não aparece com o token')]
     public function testEmailAConfirmarNaoVeOToken(string $lista): void
     {
         $client = static::createClient();
         [$user, $convite] = $this->cenario(emailConfirmado: false);
         $client->loginUser($user);
         $this->marcarTermosAceitos($client);
-        $client->followRedirects(true);
 
         $client->request('GET', $lista);
 
+        self::assertResponseRedirects('/login');
+        self::assertNull($client->getContainer()->get('security.token_storage')->getToken());
+        $client->followRedirect();
         self::assertResponseIsSuccessful();
         self::assertStringNotContainsString($convite->getToken(), (string) $client->getResponse()->getContent());
     }

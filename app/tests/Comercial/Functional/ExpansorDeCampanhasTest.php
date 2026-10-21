@@ -69,6 +69,47 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         $this->fila->reset();
     }
 
+    #[TestDox('O filtro congelado (§9) volta a valer na execução: só quem atende é materializado; a lista antiga (sem filtro) ainda lê')]
+    public function testFiltroCongeladoReaplicado(): void
+    {
+        $ana = $this->cadastradoAtivo('ana', 'Ana');
+        $this->perfil($ana, \App\Profile\Enum\Genero::Feminino);
+        $beto = $this->cadastradoAtivo('beto', 'Beto');
+        $this->perfil($beto, \App\Profile\Enum\Genero::Masculino);
+        $emails = [(string) $ana->getEmail(), (string) $beto->getEmail()];
+        $informados = array_map(static fn (string $e): array => ['email' => $e, 'nome' => ''], $emails);
+        $comFiltro = $this->campanha($emails, ['parametros' => ['informados' => $informados, 'filtro' => ['gen' => 'F']], 'total' => 1]);
+        $antiga = $this->campanha($emails);
+
+        $this->expansor()->materializarDevidas(new \DateTimeImmutable());
+
+        self::assertSame([(string) $ana->getEmail()], $this->destinosDe($comFiltro));
+        self::assertSame($emails, $this->destinosDe($antiga), 'sem filtro, a lista de antes, inteira');
+    }
+
+    #[TestDox('Filtro num público sem lista (primários): reaplicado na execução; filtro guardado inválido cancela a campanha com motivo próprio')]
+    public function testFiltroEmPublicoDeSistemaEFiltroInvalido(): void
+    {
+        $ana = $this->usuario('ana.prim');
+        $this->vincular($ana, true);
+        $prim = $this->campanha([], ['publico' => 'prim', 'parametros' => ['informados' => null, 'filtro' => ['q' => (string) $ana->getEmail()]], 'total' => 1]);
+        $ruim = $this->campanha([], ['publico' => 'prim', 'parametros' => ['informados' => null, 'filtro' => ['gen' => 'X']], 'total' => 1]);
+
+        $this->expansor()->materializarDevidas(new \DateTimeImmutable());
+
+        self::assertSame([(string) $ana->getEmail()], $this->destinosDe($prim));
+        self::assertSame([], $this->destinosDe($ruim));
+        $estado = $this->conexao->fetchAssociative('SELECT estado, motivo, publico_parametros FROM comercial_campanha WHERE id = ?', [$ruim]);
+        self::assertIsArray($estado);
+        self::assertSame(['cancelada', ExpansorDeCampanhas::MOTIVO_DO_FILTRO, null], [$estado['estado'], $estado['motivo'], $estado['publico_parametros']]);
+    }
+
+    /** @return list<string> */
+    private function destinosDe(int $campanha): array
+    {
+        return array_map('strval', $this->conexao->fetchFirstColumn('SELECT email FROM comercial_campanha_destino WHERE campanha_id = ? ORDER BY id', [$campanha]));
+    }
+
     #[TestDox('Materializa a execução uma vez só (UNIQUE), libera lotes de 10 com contrapressão e conclui a única como enviada')]
     public function testLoteContrapressaoEConclusao(): void
     {
