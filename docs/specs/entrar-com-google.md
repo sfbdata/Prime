@@ -28,8 +28,13 @@ re-revisão). Ao voltar: trazer o master, aplicar 9 e 10, re-revisar, PR.
 
 - **Decisão 9 (achado da revisão: conta "a confirmar" com dois donos).** O dono corrige pela raiz: conta criada pelo
   cadastro com e-mail só usa o sistema depois de confirmar pelo link do e-mail, como era antes (a 9b faz isso no
-  cadastro). Com isso, a conta "a confirmar" não é usada por ninguém antes da prova do e-mail. Ao voltar, conferir
-  como a 9b implementou e decidir com ela o que o Google faz com uma conta ainda não confirmada.
+  cadastro). Com isso, a conta "a confirmar" não é usada por ninguém antes da prova do e-mail.
+  **Combinado com a 9b (21/10):** o `UserChecker::checkPostAuth` dela barra toda conta "a confirmar", sem exceção para
+  o Google. **Cuidado:** o Google só confirmar o e-mail reabre o furo (a senha de quem cadastrou o e-mail alheio
+  passaria a valer). Na volta, o `GoogleAuthenticator::authenticate` trata a conta não confirmada antes do checker, de
+  um destes jeitos, **a decidir com o dono**: (a) recusar com "Confirme seu e-mail pelo link que enviamos"; ou
+  (b) confirmar e apagar a senha antiga no mesmo passo (como o confirmar pelo código da senha). Hoje o
+  `LigarContaAoGoogleUseCase` confirma no `onAuthenticationSuccess` (depois do checker): mudar.
 - **Decisão 10 (primeiro casamento por e-mail).** Segue o padrão do Google
   (developers.google.com/identity/account-linking/oauth-with-sign-in-linking): só e-mail `@gmail.com`, ou
   `email_verified` com `hd` (conta Workspace); os outros recebem "Entre com e-mail e senha." Depois de ligada, a
