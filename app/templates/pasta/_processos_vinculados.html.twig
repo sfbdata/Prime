@@ -289,6 +289,17 @@
                                 data-aviso="Resumo copiado para compartilhar">
                             <i class="bi bi-share"></i><span>Compartilhar</span>
                         </button>
+                        {# "Encaminhar via Chat I.A" (desenho procMenu dc L3069, depois de Compartilhar; a6 da spec
+                           processo-cadastro-pela-pasta): o pasta-encaminhar.js dispara `bj-central:despachar` com
+                           {pastaId, tipo 'processo', itemId} (spec encaminhar-via-chat-ia §4.1). Como nos registros:
+                           só com a Central na página e fora da lápide. #}
+                        {% if central_disponivel() and not pasta.estaExcluida %}
+                            <button type="button" class="ps-processo-menu-item js-encaminhar" role="menuitem"
+                                    data-encaminhar-pasta="{{ pasta.id }}" data-encaminhar-tipo="processo"
+                                    data-encaminhar-id="{{ proc.id }}">
+                                <i class="bi bi-send"></i><span>Encaminhar via Chat I.A</span>
+                            </button>
+                        {% endif %}
                         {% if can_access_module('expediente') %}
                             <a href="{{ path('expediente_relatorio_processos') }}" target="_blank" rel="noopener"
                                class="ps-processo-menu-item js-relatorio-processos" role="menuitem">

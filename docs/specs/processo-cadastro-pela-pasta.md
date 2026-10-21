@@ -10,8 +10,8 @@ Sessão 0d, 21/10/2026. Origem: vistoria da 5d no desenho "02 - EXPEDIENTES - VS
 | a3 | Cadastro com validação no servidor e UseCase | feito (`CadastrarProcessoPelaPastaUseCase`) |
 | a2 | Número que já existe no escritório | feito (vincula o existente e avisa) |
 | a1 | Dados completos do CNJ no cadastro | feito (consulta guardada no servidor) |
-| a4 | "Buscar no CNJ" para quem edita a pasta | esta spec, seção a4 |
-| a6 | "Encaminhar via Chat I.A" no menu do cartão | pendente |
+| a4 | "Buscar no CNJ" para quem edita a pasta | feito (rota da pasta; re-revisão por ser permissão) |
+| a6 | "Encaminhar via Chat I.A" no menu do cartão | feito (item no ⋮, `pasta-encaminhar.js`) |
 | a5 | Movimentações digitadas visíveis na pasta | fora: tela que o desenho não tem, na fila de decisões do dono |
 
 ## a3: validação (desenho `procSalvarVinc`, L4538-4542)
@@ -69,7 +69,9 @@ mesmo mandando `_cnj_pela_pasta` na query ou no corpo.
 
 Item no menu (⋮) do cartão do processo, pelo Encaminhar da 5d (#126):
 `BJCentral.despachar({pastaId, tipo: 'processo', itemId})` ou o evento `bj-central:despachar`
-(§4.1 de `encaminhar-via-chat-ia.md`). O tipo `processo` já existe no servidor.
+(§4.1 de `encaminhar-via-chat-ia.md`). O tipo `processo` já existe no servidor, que relê o processo e exige
+que ele esteja vinculado à pasta. Posição do desenho: depois de "Compartilhar", antes de "Relatório geral de
+processos", ícone `bi-send`. Como nos registros, só com a Central na página e fora da lápide.
 
 ## Achado fora do escopo
 
