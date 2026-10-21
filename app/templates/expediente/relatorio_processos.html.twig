@@ -113,7 +113,7 @@
         <h3 class="rsp-sec rsp-sec--{{ tom }}">{{ titulo }} ({{ itens|length }})</h3>
         <table class="rsp-tabela">
             <thead>
-                <tr><th class="rsp-c-pasta">Pasta</th><th class="rsp-c-cliente">Cliente / responsável</th><th class="rsp-c-analise">Análise e sugestão</th><th class="rsp-c-metas">Metas sugeridas (cronograma)</th><th class="rsp-c-conf">Confiança</th></tr>
+                <tr><th class="rsp-c-pasta">{{ 'expediente.relatorio.secao.pasta'|trans }}</th><th class="rsp-c-cliente">{{ 'expediente.relatorio.secao.cliente_responsavel'|trans }}</th><th class="rsp-c-analise">{{ 'expediente.relatorio.secao.analise_e_sugestao'|trans }}</th><th class="rsp-c-metas">{{ 'expediente.relatorio.secao.metas_sugeridas'|trans }}</th><th class="rsp-c-conf">{{ 'expediente.relatorio.secao.confianca'|trans }}</th></tr>
             </thead>
             <tbody>
                 {% for x in itens %}
@@ -123,10 +123,10 @@
                         <td class="rsp-sugestao">
                             {{- x.sugestao -}}
                             {% if x.termos|length > 0 %}
-                                <div class="rsp-nota-linha">Evidências: {% for t in x.termos|slice(0, 4) %}{{ t[0] }} ({{ t[1]|lower }}){{ not loop.last ? ', ' }}{% endfor %}</div>
+                                <div class="rsp-nota-linha">{{ 'expediente.relatorio.secao.evidencias'|trans }} {% for t in x.termos|slice(0, 4) %}{{ t[0] }} ({{ t[1]|lower }}){{ not loop.last ? ', ' }}{% endfor %}</div>
                             {% endif %}
                             {% if x.decisaoAnterior %}
-                                <div class="rsp-nota-linha">Decisão anterior: {{ x.decisaoAnterior.decisao }} por {{ x.decisaoAnterior.por }}</div>
+                                <div class="rsp-nota-linha">{{ 'expediente.relatorio.secao.decisao_anterior'|trans({decisao: x.decisaoAnterior.decisao, por: x.decisaoAnterior.por}) }}</div>
                             {% endif %}
                         </td>
                         <td class="rsp-metas">
@@ -163,8 +163,8 @@
                             <span>BLUEJUS</span>
                         </td>
                         <td class="rp-impresso">
-                            Gestão jurídica<br>
-                            Impresso em {{ impressoEm|date('d/m/Y, H:i:s') }}{% if impressoPor %} por {{ impressoPor }}{% endif %}
+                            {{ 'expediente.relatorio.folha.gestao_juridica'|trans }}<br>
+                            {{ 'expediente.relatorio.folha.impresso_em'|trans({data: impressoEm|date('d/m/Y, H:i:s')}) }}{% if impressoPor %} {{ 'expediente.relatorio.folha.impresso_por'|trans({nome: impressoPor}) }}{% endif %}
                         </td>
                     </tr>
                 </table>
@@ -191,7 +191,7 @@
             {# L4543 #}
             {% set despacho = relatorio.paraDespacho %}
             {% if despacho|length > 0 %}
-                <h3 class="rsp-h3">Resumo para despacho</h3>
+                <h3 class="rsp-h3">{{ 'expediente.relatorio.resumo_para_despacho'|trans }}</h3>
                 <div class="rsp-despacho">
                     {% for x in despacho %}
                         <table class="rsp-despacho-linha">
@@ -209,40 +209,40 @@
             {% endif %}
 
             {# L4544 #}
-            <p class="rsp-abertura">Situação das pastas quanto ao processo vinculado em {{ relatorio.hoje|date('d/m/Y') }}. A BlueJus I.A lê registros, documentos, metas e checklist de cada pasta para indicar onde o cadastro precisa de atenção da Controladoria.</p>
+            <p class="rsp-abertura">{{ 'expediente.relatorio.abertura'|trans({data: relatorio.hoje|data}) }}</p>
 
             {# L4546-4547: só com histórico de envios (e só para quem vê o escritório inteiro). #}
             {% if relatorio.historico|length > 0 %}
-                <h3 class="rsp-h3 rsp-h3--evolucao">Evolução</h3>
+                <h3 class="rsp-h3 rsp-h3--evolucao">{{ 'expediente.relatorio.evolucao.titulo'|trans }}</h3>
                 <table class="rsp-evolucao">
                     <thead>
-                        <tr><th>Mês</th><th>Sem processo</th><th>Deveriam ter</th><th>Rever cadastro</th><th>Sem classificação</th></tr>
+                        <tr><th>{{ 'expediente.relatorio.evolucao.mes'|trans }}</th><th>{{ 'expediente.relatorio.evolucao.sem_processo'|trans }}</th><th>{{ 'expediente.relatorio.evolucao.deveriam_ter'|trans }}</th><th>{{ 'expediente.relatorio.evolucao.rever_cadastro'|trans }}</th><th>{{ 'expediente.relatorio.evolucao.sem_classificacao'|trans }}</th></tr>
                     </thead>
                     <tbody>
                         {% for h in relatorio.historico %}
                             <tr><td>{{ h.mes }}</td><td>{{ h.resumo.sem }}</td><td>{{ h.resumo.deveria }}</td><td>{{ h.resumo.rever }}</td><td>{{ h.resumo.classificar }}</td></tr>
                         {% endfor %}
                         <tr class="rsp-hoje">
-                            <td>Hoje</td>
+                            <td>{{ 'expediente.relatorio.evolucao.hoje'|trans }}</td>
                             {% for campo in ['sem', 'deveria', 'rever', 'classificar'] %}
                                 <td>{{ relatorio.resumo.valor(campo) }} {{ rel.delta(relatorio.delta(campo)) }}</td>
                             {% endfor %}
                         </tr>
                     </tbody>
                 </table>
-                <p class="rsp-legenda">Verde = melhorou desde o último envio; vermelho = piorou.</p>
+                <p class="rsp-legenda">{{ 'expediente.relatorio.evolucao.legenda'|trans }}</p>
             {% endif %}
 
             {# L4549-4551 #}
-            {{ rel.secao('Deveriam ter processo: cadastrar', 'deveria', relatorio.daCategoria('deveria')) }}
-            {{ rel.secao('Marcadas como administrativas, mas merecem revisão', 'rever', relatorio.daCategoria('rever', 'inconsistente')) }}
-            {{ rel.secao('Sem classificação: vincular processo ou marcar como administrativa', 'classificar', relatorio.daCategoria('sugAdmin', 'classificar')) }}
-            {{ rel.secao('Administrativas sem processo (coerentes)', 'admin', relatorio.daCategoria(A)) }}
+            {{ rel.secao('expediente.relatorio.secao.titulo_deveria'|trans, 'deveria', relatorio.daCategoria('deveria')) }}
+            {{ rel.secao('expediente.relatorio.secao.titulo_rever'|trans, 'rever', relatorio.daCategoria('rever', 'inconsistente')) }}
+            {{ rel.secao('expediente.relatorio.secao.titulo_classificar'|trans, 'classificar', relatorio.daCategoria('sugAdmin', 'classificar')) }}
+            {{ rel.secao('expediente.relatorio.secao.titulo_admin'|trans, 'admin', relatorio.daCategoria(A)) }}
 
             {# L4552 #}
             {% set com = relatorio.daCategoria('com') %}
             {% if com|length > 0 %}
-                <h3 class="rsp-com-titulo">Com processo vinculado ({{ com|length }})</h3>
+                <h3 class="rsp-com-titulo">{{ 'expediente.relatorio.com_processo_vinculado'|trans({n: com|length ~ ''}) }}</h3>
                 <p class="rsp-com-lista">
                     {%- for x in com -%}
                         <b>{{ x.numero }}</b> {{ x.cliente }} · {{ x.processoNumero }}{% if not loop.last %}<br>{% endif %}
@@ -251,12 +251,12 @@
             {% endif %}
 
             {# L4553 #}
-            <p class="rsp-nota-final">Classificação gerada pela BlueJus I.A com os dados disponíveis no sistema; "Provável" e "Hipótese" exigem conferência.
-                {% if relatorio.totalDecisoes > 0 %}{{ relatorio.totalDecisoes }} decisão(ões) da equipe já foram consideradas para ajustar a leitura.{% else %}Cada vez que a equipe marca ou desmarca "Administrativo sem processo", a leitura é ajustada.{% endif %}
-                Não substitui a consulta ao PJe.</p>
+            <p class="rsp-nota-final">{{ 'expediente.relatorio.nota_final.inicio'|trans }} "{{ 'expediente.relatorio.nota_final.provavel'|trans }}" {{ 'expediente.relatorio.nota_final.e'|trans }} "{{ 'expediente.relatorio.nota_final.hipotese'|trans }}" {{ 'expediente.relatorio.nota_final.exigem_conferencia'|trans }}
+                {% if relatorio.totalDecisoes > 0 %}{{ 'expediente.relatorio.nota_final.decisoes_consideradas'|trans({n: relatorio.totalDecisoes ~ ''}) }}{% else %}{{ 'expediente.relatorio.nota_final.cada_vez_inicio'|trans }} "{{ 'expediente.relatorio.nota_final.administrativo_sem_processo'|trans }}"{{ 'expediente.relatorio.nota_final.cada_vez_fim'|trans }}{% endif %}
+                {{ 'expediente.relatorio.nota_final.nao_substitui_pje'|trans }}</p>
         </div>
 
-        <div class="rp-rodape" data-rp-parte="rodape">Documento interno do escritório · BlueJus</div>
+        <div class="rp-rodape" data-rp-parte="rodape">{{ 'expediente.relatorio.folha.rodape'|trans }}</div>
     </main>
 {% endset %}
 
@@ -329,12 +329,12 @@
     </style>
 </head>
 <body>
-    <div class="rp-barra" role="toolbar" aria-label="Relatório geral de processos">
+    <div class="rp-barra" role="toolbar" aria-label="{{ 'expediente.relatorio.barra.rotulo'|trans }}">
         <strong>{{ titulo }}</strong>
         <span class="rp-espaco"></span>
-        <a href="{{ path('expediente_index') }}">Voltar ao Expediente</a>
-        <a href="{{ path('expediente_relatorio_processos_pdf') }}">Baixar PDF</a>
-        <button type="button" class="rp-primario" id="rpImprimir">Imprimir</button>
+        <a href="{{ path('expediente_index') }}">{{ 'expediente.relatorio.barra.voltar_ao_expediente'|trans }}</a>
+        <a href="{{ path('expediente_relatorio_processos_pdf') }}">{{ 'expediente.relatorio.impressao.baixar_pdf'|trans }}</a>
+        <button type="button" class="rp-primario" id="rpImprimir">{{ 'expediente.relatorio.impressao.imprimir'|trans }}</button>
     </div>
 
     {{ folha }}

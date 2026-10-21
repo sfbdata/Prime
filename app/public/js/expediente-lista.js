@@ -45,7 +45,7 @@
         menu = document.createElement('div');
         menu.className = 'exp-ctx' + (variante ? ' exp-ctx--' + variante : '');
         menu.setAttribute('role', 'menu');
-        menu.setAttribute('aria-label', titulo || 'Editar nome rápido');
+        menu.setAttribute('aria-label', titulo || BJ_T.t('expediente.js.lista.editar_nome'));
 
         if (titulo) {
             var cab = document.createElement('div');
@@ -188,7 +188,7 @@
        Abrir pasta · Abrir em nova aba · Editar nome rápido (F2) · Alterar responsável · Alterar marcador ·
        Copiar número · Copiar nome · Trancar/Destrancar (só o administrador, o "primário" do desenho) ·
        Destacar linha (6 cores e sem destaque). Na lápide (somente leitura) só abrir e copiar. */
-    var DESTAQUES = [['amarelo', 'Amarelo'], ['verde', 'Verde'], ['azul', 'Azul'], ['rosa', 'Rosa'], ['laranja', 'Laranja'], ['lilas', 'Lilás']];
+    var DESTAQUES = [['amarelo', BJ_T.t('expediente.js.lista.cor.amarelo')], ['verde', BJ_T.t('expediente.js.lista.cor.verde')], ['azul', BJ_T.t('expediente.js.lista.cor.azul')], ['rosa', BJ_T.t('expediente.js.lista.cor.rosa')], ['laranja', BJ_T.t('expediente.js.lista.cor.laranja')], ['lilas', BJ_T.t('expediente.js.lista.cor.lilas')]];
     var linhaDoMenu = null;
     // Nos modos Lista e Cartões o menu age na linha da tabela (que tem os dados e as URLs) e reflete no item visível.
     var espelhoDoMenu = null;
@@ -239,9 +239,9 @@
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: corpoDoPedido.toString()
             }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (dados) { return { ok: r.ok, j: dados }; }); }).then(function (r) {
-                if (!r.ok) { avisar(r.j.mensagem || r.j.erro || 'Não foi possível pedir acesso'); return; }
-                avisar(r.j.avisados > 0 ? 'Pedido de acesso enviado ao usuário primário' : 'Nenhum usuário primário ativo no escritório para receber o pedido');
-            }, function () { avisar('Falha de conexão ao pedir acesso'); });
+                if (!r.ok) { avisar(r.j.mensagem || r.j.erro || BJ_T.t('expediente.js.lista.sigilo.erro_pedir')); return; }
+                avisar(r.j.avisados > 0 ? BJ_T.t('expediente.js.lista.sigilo.pedido_enviado') : BJ_T.t('expediente.js.lista.sigilo.sem_primario'));
+            }, function () { avisar(BJ_T.t('expediente.js.lista.sigilo.falha_conexao')); });
         }
     });
     document.addEventListener('keydown', function (e) {
@@ -272,32 +272,32 @@
         box.className = 'exp-ctx-editor';
         var rot = document.createElement('span');
         rot.className = 'exp-ctx-editor-rotulo';
-        rot.textContent = 'NOME DO CLIENTE · PASTA ' + nup;
+        rot.textContent = BJ_T.t('expediente.js.lista.editor.rotulo', {nup: nup});
         var campo = document.createElement('input');
         campo.type = 'text';
         campo.value = nome;
         campo.maxLength = 255;
-        campo.setAttribute('aria-label', 'Nome do cliente');
+        campo.setAttribute('aria-label', BJ_T.t('expediente.js.lista.editor.campo'));
         var acoes = document.createElement('div');
         acoes.className = 'exp-ctx-editor-acoes';
         var cancelar = document.createElement('button');
         cancelar.type = 'button';
         cancelar.className = 'exp-ctx-editor-cancelar';
-        cancelar.textContent = 'Cancelar';
+        cancelar.textContent = BJ_T.t('expediente.js.lista.editor.cancelar');
         var salvar = document.createElement('button');
         salvar.type = 'button';
         salvar.className = 'exp-ctx-editor-salvar';
-        salvar.textContent = 'Salvar';
+        salvar.textContent = BJ_T.t('expediente.js.lista.editor.salvar');
         acoes.appendChild(cancelar);
         acoes.appendChild(salvar);
         box.appendChild(rot); box.appendChild(campo); box.appendChild(acoes);
 
         var gravar = function () {
             var v = campo.value.replace(/\s+/g, ' ').trim();
-            if (!v) { avisar('O nome do cliente não pode ficar vazio'); campo.focus(); return; }
+            if (!v) { avisar(BJ_T.t('expediente.js.lista.editor.vazio')); campo.focus(); return; }
             fechar(false);
             postar(linha.getAttribute('data-url-nome'), { nome: v }).then(function (r) {
-                if (!r.ok) { avisar(r.j.erro || 'Não foi possível salvar o nome'); return; }
+                if (!r.ok) { avisar(r.j.erro || BJ_T.t('expediente.js.lista.editor.erro')); return; }
                 linha.setAttribute('data-nome', r.j.nome);
                 var el = linha.querySelector('.js-nome-cliente');
                 if (el) { el.textContent = r.j.nome; el.setAttribute('data-tip', r.j.nome); }
@@ -305,8 +305,8 @@
                     var cli = item.querySelector('.exp-simples-cli, .exp-cartao-cli');
                     if (cli) { cli.textContent = r.j.nome; cli.setAttribute('data-tip', r.j.nome); }
                 });
-                avisar('Nome do cliente da pasta ' + nup + ' atualizado');
-            }, function () { avisar('Falha de conexão ao salvar o nome'); });
+                avisar(BJ_T.t('expediente.js.lista.editor.atualizado', {nup: nup}));
+            }, function () { avisar(BJ_T.t('expediente.js.lista.editor.falha_conexao')); });
         };
         cancelar.addEventListener('click', function (e) { e.stopPropagation(); menuDaLinha(linha, parseInt(menu.style.left, 10), parseInt(menu.style.top, 10), false, espelho); });
         salvar.addEventListener('click', function (e) { e.stopPropagation(); gravar(); });
@@ -323,7 +323,7 @@
         var atual = linha.getAttribute('data-dest') || '';
         var box = document.createElement('div');
         box.className = 'exp-ctx-cores';
-        DESTAQUES.concat([['', 'Sem destaque']]).forEach(function (c) {
+        DESTAQUES.concat([['', BJ_T.t('expediente.js.lista.destaque.nenhum')]]).forEach(function (c) {
             var b = document.createElement('button');
             b.type = 'button';
             b.className = 'exp-ctx-cor';
@@ -337,10 +337,10 @@
             b.addEventListener('click', function () {
                 fechar(false);
                 postar(linha.getAttribute('data-url-destaque'), { cor: c[0] }).then(function (r) {
-                    if (!r.ok) { avisar(r.j.erro || 'Não foi possível destacar'); return; }
+                    if (!r.ok) { avisar(r.j.erro || BJ_T.t('expediente.js.lista.destaque.erro')); return; }
                     if (r.j.cor) { linha.setAttribute('data-dest', r.j.cor); } else { linha.removeAttribute('data-dest'); }
-                    avisar(r.j.cor ? 'Pasta ' + nup + ' destacada em ' + c[1].toLowerCase() : 'Destaque removido da pasta ' + nup);
-                }, function () { avisar('Falha de conexão ao destacar'); });
+                    avisar(r.j.cor ? BJ_T.t('expediente.js.lista.destaque.aplicado', {nup: nup, cor: c[1].toLowerCase()}) : BJ_T.t('expediente.js.lista.destaque.removido', {nup: nup}));
+                }, function () { avisar(BJ_T.t('expediente.js.lista.destaque.falha_conexao')); });
             });
             box.appendChild(b);
         });
@@ -349,9 +349,9 @@
     }
 
     function trancar(linha, nup) {
-        if (!souAdmin()) { avisar('Somente o usuário primário pode trancar ou destrancar pastas'); return; }
+        if (!souAdmin()) { avisar(BJ_T.t('expediente.js.lista.trancar.so_primario_aviso')); return; }
         postar(linha.getAttribute('data-url-trancar')).then(function (r) {
-            if (!r.ok) { avisar(r.j.erro || 'Não foi possível trancar a pasta'); return; }
+            if (!r.ok) { avisar(r.j.erro || BJ_T.t('expediente.js.lista.trancar.erro')); return; }
             linha.setAttribute('data-trancada', r.j.trancada ? '1' : '0');
             outrosModos(linha).forEach(function (item) {
                 item.setAttribute('data-trancada', r.j.trancada ? '1' : '0');
@@ -360,7 +360,7 @@
                 if (r.j.trancada && rotulo && !cadCartao) {
                     cadCartao = document.createElement('i');
                     cadCartao.className = 'bi bi-lock exp-cadeado';
-                    cadCartao.setAttribute('aria-label', 'Pasta trancada');
+                    cadCartao.setAttribute('aria-label', BJ_T.t('expediente.js.lista.trancar.pasta_trancada'));
                     rotulo.appendChild(document.createTextNode(' '));
                     rotulo.appendChild(cadCartao);
                 }
@@ -371,14 +371,19 @@
             if (r.j.trancada && cel && !cad) {
                 cad = document.createElement('i');
                 cad.className = 'bi bi-lock exp-cadeado js-cadeado';
-                cad.setAttribute('aria-label', 'Pasta trancada');
+                cad.setAttribute('aria-label', BJ_T.t('expediente.js.lista.trancar.pasta_trancada'));
                 cel.appendChild(cad);
             }
             if (cad) {
-                if (r.j.trancada) { cad.setAttribute('data-tip', 'Documentos sigilosos · pasta trancada' + (r.j.por ? ' por ' + r.j.por : '') + (r.j.em ? ' em ' + r.j.em : '')); } else { cad.remove(); }
+                if (r.j.trancada) {
+                    var dicaCad = BJ_T.t('expediente.js.lista.trancar.dica');
+                    if (r.j.por) { dicaCad = BJ_T.t('expediente.js.lista.trancar.dica_por', {dica: dicaCad, por: r.j.por}); }
+                    if (r.j.em) { dicaCad = BJ_T.t('expediente.js.lista.trancar.dica_em', {dica: dicaCad, em: r.j.em}); }
+                    cad.setAttribute('data-tip', dicaCad);
+                } else { cad.remove(); }
             }
-            avisar(r.j.trancada ? 'Pasta ' + nup + ' trancada · documentos sigilosos protegidos' : 'Pasta ' + nup + ' destrancada');
-        }, function () { avisar('Falha de conexão ao trancar a pasta'); });
+            avisar(r.j.trancada ? BJ_T.t('expediente.js.lista.trancar.trancada_aviso', {nup: nup}) : BJ_T.t('expediente.js.lista.trancar.destrancada_aviso', {nup: nup}));
+        }, function () { avisar(BJ_T.t('expediente.js.lista.trancar.falha_conexao')); });
     }
 
     function menuDaLinha(linha, x, y, editando, espelho) {
@@ -398,33 +403,33 @@
 
         var lista = [];
         if (editando) { lista.push({ no: editorDoNome(linha, nup, nome, espelho) }); }
-        lista.push({ rotulo: 'Abrir pasta', icone: 'bi-folder2-open', acao: function () { abrirOuAvisar(oculta, nup, pastaId, function () { window.location.href = href; }); } });
-        lista.push({ rotulo: 'Abrir em nova aba', icone: 'bi-box-arrow-up-right', acao: function () { abrirOuAvisar(oculta, nup, pastaId, function () { window.open(href, '_blank', 'noopener'); }); } });
+        lista.push({ rotulo: BJ_T.t('expediente.js.lista.menu.abrir'), icone: 'bi-folder2-open', acao: function () { abrirOuAvisar(oculta, nup, pastaId, function () { window.location.href = href; }); } });
+        lista.push({ rotulo: BJ_T.t('expediente.js.lista.menu.abrir_nova_aba'), icone: 'bi-box-arrow-up-right', acao: function () { abrirOuAvisar(oculta, nup, pastaId, function () { window.open(href, '_blank', 'noopener'); }); } });
         if (!excluida) {
             // Nome montado pela cobrança (credor e devedor) não se edita, como na tela da pasta.
             if (linha.getAttribute('data-nome-editavel') === '0') {
-                lista.push({ rotulo: 'Editar nome rápido', icone: 'bi-pencil', extra: 'da cobrança', apagado: true,
-                    acao: function () { avisar('O nome desta pasta é montado a partir do credor da carteira e não se edita aqui'); } });
+                lista.push({ rotulo: BJ_T.t('expediente.js.lista.editar_nome'), icone: 'bi-pencil', extra: BJ_T.t('expediente.js.lista.menu.da_cobranca'), apagado: true,
+                    acao: function () { avisar(BJ_T.t('expediente.js.lista.menu.nome_da_cobranca')); } });
             } else {
-                lista.push({ rotulo: 'Editar nome rápido', icone: 'bi-pencil', atalho: 'F2', acao: function () { menuDaLinha(linha, x, y, true, espelho); } });
+                lista.push({ rotulo: BJ_T.t('expediente.js.lista.editar_nome'), icone: 'bi-pencil', atalho: 'F2', acao: function () { menuDaLinha(linha, x, y, true, espelho); } });
             }
-            if (chip && !espelho) { lista.push({ rotulo: 'Alterar responsável', icone: 'bi-person-badge', acao: function () { chip.click(); } }); }
-            if (marcar && !espelho) { lista.push({ rotulo: 'Alterar marcador', icone: 'bi-tags', acao: function () { marcar.click(); } }); }
+            if (chip && !espelho) { lista.push({ rotulo: BJ_T.t('expediente.js.lista.menu.alterar_responsavel'), icone: 'bi-person-badge', acao: function () { chip.click(); } }); }
+            if (marcar && !espelho) { lista.push({ rotulo: BJ_T.t('expediente.js.lista.menu.alterar_marcador'), icone: 'bi-tags', acao: function () { marcar.click(); } }); }
         }
-        if (nup) { lista.push({ rotulo: 'Copiar número da pasta', icone: 'bi-hash', acao: function () { copiar(nup, 'Número ' + nup + ' copiado'); } }); }
-        if (temNome) { lista.push({ rotulo: 'Copiar nome do cliente', icone: 'bi-clipboard', acao: function () { copiar(nome, 'Nome do cliente copiado'); } }); }
+        if (nup) { lista.push({ rotulo: BJ_T.t('expediente.js.lista.menu.copiar_numero'), icone: 'bi-hash', acao: function () { copiar(nup, BJ_T.t('expediente.js.lista.menu.numero_copiado', {nup: nup})); } }); }
+        if (temNome) { lista.push({ rotulo: BJ_T.t('expediente.js.lista.menu.copiar_nome'), icone: 'bi-clipboard', acao: function () { copiar(nome, BJ_T.t('expediente.js.lista.menu.nome_copiado')); } }); }
         if (!excluida) {
             lista.push('-');
-            lista.push({ rotulo: trancada ? 'Destrancar pasta' : 'Trancar pasta', icone: trancada ? 'bi-unlock' : 'bi-lock', corIcone: '#141e5c',
-                extra: souAdmin() ? '' : 'só primário', apagado: !souAdmin(), acao: function () { trancar(linha, nup); } });
+            lista.push({ rotulo: trancada ? BJ_T.t('expediente.js.lista.menu.destrancar') : BJ_T.t('expediente.js.lista.menu.trancar'), icone: trancada ? 'bi-unlock' : 'bi-lock', corIcone: '#141e5c',
+                extra: souAdmin() ? '' : BJ_T.t('expediente.js.lista.menu.so_primario'), apagado: !souAdmin(), acao: function () { trancar(linha, nup); } });
             if (!espelho) {
                 lista.push('-');
-                lista.push({ secao: 'DESTACAR LINHA', icone: 'bi-highlighter' });
+                lista.push({ secao: BJ_T.t('expediente.js.lista.menu.destacar_linha'), icone: 'bi-highlighter' });
                 lista.push({ no: amostrasDeDestaque(linha, nup) });
             }
         }
 
-        abrir(editando ? '' : 'Pasta ' + nup + (temNome ? ' · ' + nome : ''), lista, x, y, espelho || linha, editando ? 'editando' : null);
+        abrir(editando ? '' : (temNome ? BJ_T.t('expediente.js.lista.menu.titulo_com_nome', {nup: nup, nome: nome}) : BJ_T.t('expediente.js.lista.menu.titulo', {nup: nup})), lista, x, y, espelho || linha, editando ? 'editando' : null);
     }
 
     /* Linha simples (div com data-href): Enter abre, como um link. */
@@ -777,8 +782,8 @@
         var cab = el('div', 'exp-pop-cab');
         var fecharB = el('button', 'exp-pop-x');
         fecharB.type = 'button';
-        fecharB.setAttribute('aria-label', 'Fechar');
-        fecharB.setAttribute('data-tip', 'Fechar');
+        fecharB.setAttribute('aria-label', BJ_T.t('expediente.js.lista.fechar'));
+        fecharB.setAttribute('data-tip', BJ_T.t('expediente.js.lista.fechar'));
         fecharB.appendChild(icone('bi-x-lg'));
         fecharB.addEventListener('click', function () { fecharPop(true); });
         var campo = null;
@@ -800,7 +805,7 @@
         var corpo = el('div', 'exp-pop-corpo');
         corpo.setAttribute('role', 'listbox');
         pop.appendChild(corpo);
-        var vazio = el('div', 'exp-pop-vazio', o.vazio || 'Nada encontrado');
+        var vazio = el('div', 'exp-pop-vazio', o.vazio || BJ_T.t('expediente.js.lista.nada_encontrado'));
         vazio.hidden = true;
 
         o.itens.forEach(function (it) {
@@ -885,21 +890,21 @@
         select.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
-    var SITUACOES = [['', 'Todas', 'Todas as situações', '#0a6fa0'], ['ativo', 'Ativo', 'Pasta em andamento', '#2fa35f'], ['suspenso', 'Suspenso', 'Pausada temporariamente', '#d18a12'],
-        ['cancelado', 'Cancelado', 'Encerrada sem conclusão', '#c0392b'], ['arquivado', 'Arquivado', 'Sai das listas de trabalho', '#62798a']];
-    var PRIORIDADES = [['', 'Todas', 'Todas as prioridades', '#0a6fa0'], ['normal', 'Normal', 'Segue o fluxo padrão', '#5f7684'],
-        ['prioridade', 'Alta', 'Tratar antes das demais', '#d18a12'], ['urgente', 'Urgente', 'Exige providência imediata', '#c0392b']];
+    var SITUACOES = [['', BJ_T.t('expediente.js.lista.situacao.todas'), BJ_T.t('expediente.js.lista.situacao.todas_desc'), '#0a6fa0'], ['ativo', BJ_T.t('expediente.js.lista.situacao.ativo'), BJ_T.t('expediente.js.lista.situacao.ativo_desc'), '#2fa35f'], ['suspenso', BJ_T.t('expediente.js.lista.situacao.suspenso'), BJ_T.t('expediente.js.lista.situacao.suspenso_desc'), '#d18a12'],
+        ['cancelado', BJ_T.t('expediente.js.lista.situacao.cancelado'), BJ_T.t('expediente.js.lista.situacao.cancelado_desc'), '#c0392b'], ['arquivado', BJ_T.t('expediente.js.lista.situacao.arquivado'), BJ_T.t('expediente.js.lista.situacao.arquivado_desc'), '#62798a']];
+    var PRIORIDADES = [['', BJ_T.t('expediente.js.lista.prioridade.todas'), BJ_T.t('expediente.js.lista.prioridade.todas_desc'), '#0a6fa0'], ['normal', BJ_T.t('expediente.js.lista.prioridade.normal'), BJ_T.t('expediente.js.lista.prioridade.normal_desc'), '#5f7684'],
+        ['prioridade', BJ_T.t('expediente.js.lista.prioridade.alta'), BJ_T.t('expediente.js.lista.prioridade.alta_desc'), '#d18a12'], ['urgente', BJ_T.t('expediente.js.lista.prioridade.urgente'), BJ_T.t('expediente.js.lista.prioridade.urgente_desc'), '#c0392b']];
 
     function popSituacao(caixa) {
         var sel = caixa.querySelector('select');
-        abrirPop(caixa, { titulo: 'SITUAÇÃO DA PASTA', icone: 'bi-toggles', largura: 290, alinhar: 'direita',
+        abrirPop(caixa, { titulo: BJ_T.t('expediente.js.lista.situacao.titulo'), icone: 'bi-toggles', largura: 290, alinhar: 'direita',
             itens: SITUACOES.map(function (s, i) {
                 return { rotulo: s[1], desc: s[2], ponto: s[3], atraso: (i * 0.25) + 's', marcado: sel.value === s[0], acao: function () { escolherNoSelect(sel, s[0]); } };
             }) });
     }
     function popPrioridade(caixa) {
         var sel = caixa.querySelector('select');
-        abrirPop(caixa, { titulo: 'PRIORIDADE', icone: 'bi-flag', largura: 250,
+        abrirPop(caixa, { titulo: BJ_T.t('expediente.js.lista.prioridade.titulo'), icone: 'bi-flag', largura: 250,
             itens: PRIORIDADES.map(function (p) {
                 return { rotulo: p[1], desc: p[2], bandeira: p[3], marcado: sel.value === p[0], acao: function () { escolherNoSelect(sel, p[0]); } };
             }) });
@@ -911,7 +916,7 @@
             return { rotulo: op.textContent.trim(), avatar: sem ? null : ini2(op.textContent), foto: op.getAttribute('data-foto') || '', marcado: sel.value === op.value,
                 acao: function () { escolherNoSelect(sel, sel.value === op.value ? '' : op.value); } };
         });
-        abrirPop(caixa, { busca: 'Filtrar responsável', largura: 300, itens: itens, vazio: 'Nenhum responsável encontrado' });
+        abrirPop(caixa, { busca: BJ_T.t('expediente.js.lista.responsavel.filtrar'), largura: 300, itens: itens, vazio: BJ_T.t('expediente.js.lista.responsavel.nenhum') });
     }
 
     /* dc `avBg` (L.458): com foto, o círculo é a foto (fundo, sem as iniciais por cima); a URL é a rota do servidor. */
@@ -931,7 +936,7 @@
             var rot = caixaR.querySelector('.exp-filtro-rotulo');
             if (!rot) { rot = el('span', 'exp-filtro-rotulo'); caixaR.insertBefore(rot, resp); }
             var op = resp.options[resp.selectedIndex];
-            var nome = resp.value === '' ? 'Responsável' : (resp.value === 'sem' ? 'Sem responsável' : op.textContent.trim().split(/\s+/).slice(0, 2).join(' '));
+            var nome = resp.value === '' ? BJ_T.t('expediente.js.lista.responsavel.rotulo') : (resp.value === 'sem' ? BJ_T.t('expediente.js.lista.responsavel.sem') : op.textContent.trim().split(/\s+/).slice(0, 2).join(' '));
             rot.textContent = '';
             if (resp.value !== '' && resp.value !== 'sem') {
                 var avR = el('span', 'exp-filtro-av', ini2(op.textContent));
@@ -946,7 +951,7 @@
             var rp = caixaP.querySelector('.exp-filtro-rotulo');
             if (!rp) { rp = el('span', 'exp-filtro-rotulo'); caixaP.insertBefore(rp, prio); }
             var achado = PRIORIDADES.filter(function (p) { return p[0] === prio.value; })[0];
-            rp.textContent = prio.value === '' ? 'Prioridade' : achado[1];
+            rp.textContent = prio.value === '' ? BJ_T.t('expediente.js.lista.prioridade.rotulo') : achado[1];
         }
         var sit = document.querySelector('.exp-situacao select[name="status"]');
         var caixaS = sit ? sit.closest('.exp-situacao') : null;
@@ -997,7 +1002,7 @@
     });
 
     /* ── Colunas da tabela (dc `colVis`, `colItens`, `colCsv`) ─────────── */
-    var COLUNAS = [['nup', 'NUP'], ['cliente', 'Cliente'], ['reu', 'Réu'], ['acao', 'Ação'], ['prio', 'Prioridade'], ['resp', 'Responsável'], ['metas', 'Metas'], ['marc', 'Marcadores'], ['sit', 'Situação']];
+    var COLUNAS = [['nup', BJ_T.t('expediente.js.lista.coluna.nup')], ['cliente', BJ_T.t('expediente.js.lista.coluna.cliente')], ['reu', BJ_T.t('expediente.js.lista.coluna.reu')], ['acao', BJ_T.t('expediente.js.lista.coluna.acao')], ['prio', BJ_T.t('expediente.js.lista.coluna.prio')], ['resp', BJ_T.t('expediente.js.lista.coluna.resp')], ['metas', BJ_T.t('expediente.js.lista.coluna.metas')], ['marc', BJ_T.t('expediente.js.lista.coluna.marc')], ['sit', BJ_T.t('expediente.js.lista.coluna.sit')]];
     var ESSENCIAIS = { nup: true, cliente: true, reu: false, acao: true, prio: false, resp: true, metas: false, marc: false, sit: true };
     /* Ajuste só de quem escolheu (dc `colKey`: conta + usuário), não do navegador. A chave antiga, sem usuário,
        ainda vale como ponto de partida de quem não gravou na nova. */
@@ -1047,7 +1052,7 @@
         var lista = COLUNAS.map(function (c) {
             var fixo = c[0] === 'nup';
             return { rotulo: c[1], icone: v[c[0]] ? 'bi-check-square-fill' : 'bi-square', corIcone: fixo ? '#9aabb7' : (v[c[0]] ? '#0a6fa0' : '#8aa0ae'),
-                dica: fixo ? 'O NUP fica sempre visível' : '', marcado: v[c[0]], manter: true, acao: function () {
+                dica: fixo ? BJ_T.t('expediente.js.lista.colunas.nup_fixo') : '', marcado: v[c[0]], manter: true, acao: function () {
                     if (fixo) { return; }
                     var atual = colunasVisiveis();
                     atual[c[0]] = !atual[c[0]];
@@ -1057,13 +1062,13 @@
                 } };
         });
         lista.push('-');
-        lista.push({ rotulo: 'Mostrar todas', icone: 'bi-eye', manter: true, acao: function () { gravarColunas({}); menuColunas(botao, x, y); } });
-        lista.push({ rotulo: 'Só as essenciais', icone: 'bi-funnel', manter: true, acao: function () { gravarColunas(ESSENCIAIS); menuColunas(botao, x, y); } });
-        lista.push({ rotulo: 'Restaurar padrão', icone: 'bi-arrow-counterclockwise', acao: function () { gravarColunas(null); } });
-        lista.push({ rotulo: 'Exportar colunas visíveis (CSV)', icone: 'bi-filetype-csv', acao: function () { window.location.href = urlCsv(botao); } });
+        lista.push({ rotulo: BJ_T.t('expediente.js.lista.colunas.mostrar_todas'), icone: 'bi-eye', manter: true, acao: function () { gravarColunas({}); menuColunas(botao, x, y); } });
+        lista.push({ rotulo: BJ_T.t('expediente.js.lista.colunas.essenciais'), icone: 'bi-funnel', manter: true, acao: function () { gravarColunas(ESSENCIAIS); menuColunas(botao, x, y); } });
+        lista.push({ rotulo: BJ_T.t('expediente.js.lista.colunas.restaurar'), icone: 'bi-arrow-counterclockwise', acao: function () { gravarColunas(null); } });
+        lista.push({ rotulo: BJ_T.t('expediente.js.lista.colunas.exportar_csv'), icone: 'bi-filetype-csv', acao: function () { window.location.href = urlCsv(botao); } });
         // Subfrase do dc (L.288): o ajuste é por usuário.
-        window.ExpMenu.abrir('Colunas da tabela · ' + n + ' visíveis', lista, x, y, botao, 'colunas',
-            { icone: 'bi-person-lock', texto: 'Ajuste só seu: não muda para o resto da equipe' });
+        window.ExpMenu.abrir(BJ_T.t('expediente.js.lista.colunas.titulo', {n: n}), lista, x, y, botao, 'colunas',
+            { icone: 'bi-person-lock', texto: BJ_T.t('expediente.js.lista.colunas.ajuste_seu') });
     }
     document.addEventListener('click', function (e) {
         var b = e.target.closest('.js-colunas');
@@ -1097,11 +1102,11 @@
             })
                 .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
                 .then(function (res) {
-                    if (!res.ok) { aviso(res.j.erro || 'Não foi possível alterar o marcador'); return; }
+                    if (!res.ok) { aviso(res.j.erro || BJ_T.t('expediente.js.lista.marcador.erro')); return; }
                     if (window.ExpPainel) { window.ExpPainel.recarregarResultados({ page: window.ExpPainel.paginaAtual ? window.ExpPainel.paginaAtual() : 1 }); }
                     if (window.ExpTrilho) { window.ExpTrilho.recarregar(); }
                 })
-                .catch(function () { aviso('Falha de conexão ao alterar o marcador'); });
+                .catch(function () { aviso(BJ_T.t('expediente.js.lista.marcador.falha_conexao')); });
         };
         var itens = Array.prototype.map.call(document.querySelectorAll('#expTrilho .exp-tri-marcador'), function (m) {
             var id = m.getAttribute('data-marcador-id');
@@ -1109,8 +1114,8 @@
             return { rotulo: m.getAttribute('data-nome'), pasta: m.getAttribute('data-cor-tela'), nivel: m.getAttribute('data-pai-id') ? 1 : 0, marcado: tem,
                 acao: function () { gravarMarc(tem ? ativos.filter(function (x) { return x !== id; }) : ativos.concat([id])); } };
         });
-        abrirPop(botao, { titulo: 'MARCADOR', icone: 'bi-tags', largura: 220, alinhar: 'centro', itens: itens, vazio: 'Nenhum marcador',
-            rodape: ativos.length ? { rotulo: 'Remover marcador', icone: 'bi-x-circle', acao: function () { gravarMarc([]); } } : null });
+        abrirPop(botao, { titulo: BJ_T.t('expediente.js.lista.marcador.titulo'), icone: 'bi-tags', largura: 220, alinhar: 'centro', itens: itens, vazio: BJ_T.t('expediente.js.lista.marcador.nenhum'),
+            rodape: ativos.length ? { rotulo: BJ_T.t('expediente.js.lista.marcador.remover'), icone: 'bi-x-circle', acao: function () { gravarMarc([]); } } : null });
         if (pop) { pop.classList.add('exp-pop--marcador'); }
     }
     document.addEventListener('click', function (e) {
@@ -1139,7 +1144,7 @@
         orbe.appendChild(nucleo);
         fx.appendChild(orbe);
         var rot = el('div', 'exp-ai-fx-rotulo');
-        rot.appendChild(el('span', null, 'BlueJus I.A · ' + (d.nome || 'Assistente de pastas')));
+        rot.appendChild(el('span', null, BJ_T.t('expediente.js.lista.ia.rotulo', {nome: d.nome || BJ_T.t('expediente.js.lista.ia.assistente')})));
         var barra = el('span', 'exp-ai-barra');
         barra.appendChild(el('span'));
         rot.appendChild(barra);
@@ -1188,14 +1193,14 @@
         var v = cliente.value.trim();
         var tem = v !== '';
         acao.disabled = !tem;
-        acao.placeholder = tem ? 'Ex.: Revisional de alimentos' : 'Informe primeiro o nome do cliente';
+        acao.placeholder = tem ? BJ_T.t('expediente.js.lista.nova.acao_exemplo') : BJ_T.t('expediente.js.lista.nova.acao_sem_cliente');
         acao.closest('.exp-nova-campo').classList.toggle('is-desligado', !tem);
         salvar.disabled = !tem;
         cliente.classList.toggle('is-preenchido', tem);
         var n = ultimos[v.toUpperCase()];
         existe.hidden = !n;
         /* A segunda frase só quando o servidor vai mesmo ligar a pasta ao cadastro (um cadastro só por trás do nome). */
-        if (n) { existe.querySelector('span').textContent = 'Cliente já cadastrado em ' + n.total + ' pasta(s).' + (n.cadastro ? ' A nova pasta será vinculada ao mesmo cadastro.' : ''); }
+        if (n) { existe.querySelector('span').textContent = BJ_T.t('expediente.js.lista.nova.cliente_existe', {total: n.total}) + (n.cadastro ? ' ' + BJ_T.t('expediente.js.lista.nova.cliente_vinculo') : ''); }
     }
 
     modal.addEventListener('show.bs.modal', function () {
@@ -1207,7 +1212,7 @@
         dlg.style.transform = '';
         prox.textContent = '';
         pintar();
-        buscar('').then(function (d) { if (d && d.proximoNumero) { prox.textContent = 'PASTA ' + d.proximoNumero; } });
+        buscar('').then(function (d) { if (d && d.proximoNumero) { prox.textContent = BJ_T.t('expediente.js.lista.nova.proximo_numero', {numero: d.proximoNumero}); } });
     });
     modal.addEventListener('shown.bs.modal', function () { cliente.focus(); });
 
