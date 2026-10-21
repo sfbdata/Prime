@@ -105,8 +105,8 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         self::assertSame($menuId, $crawler->filter($cab . ' > .js-proc-menu-gatilho')->attr('aria-controls'));
     }
 
-    #[TestDox('N5: o menu tem só o item com lastro (administrativo), que submete o MESMO form do interruptor')]
-    public function testMenuDoCabecalhoSoComAdministrativo(): void
+    #[TestDox('N5: o menu tem Relatório, Enviar à Controladoria e o administrativo, que submete o MESMO form do interruptor')]
+    public function testMenuDoCabecalhoComRelatorioEAdministrativo(): void
     {
         $client                       = static::createClient();
         [$em, $user, $tenant, $pasta] = $this->criarBase();
@@ -119,7 +119,8 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         $id   = $pasta->getId();
         $menu = $crawler->filter('#processo .ps-processos > #psProcHdMenu' . $id . '[role="menu"]');
         self::assertCount(1, $menu, 'o menu é filho direto do cartão (dentro dele, para voltar junto no XHR)');
-        self::assertCount(1, $menu->filter('[role="menuitem"]'), 'Relatório geral e Enviar à Controladoria não têm função: não entram');
+        // Relatório geral e Enviar à Controladoria entraram com a spec relatorio-processos-controladoria.
+        self::assertCount(3, $menu->filter('[role="menuitem"]'));
 
         $item = $menu->filter('#psProcHdMenu' . $id . ' > button[type="submit"][form="psAdmForm' . $id . '"]');
         self::assertCount(1, $item);
@@ -205,17 +206,18 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         self::assertGreaterThanOrEqual(3, count($itens));
         self::assertSame('Copiar texto', trim($menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-copiar')->text()));
 
-        // EDT-009 (dc L.6460): ordem do desenho — Citar vem depois de Copiar texto, com o ícone de aspas.
-        $citar = $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-copiar + button.js-obs-citar[role="menuitem"]');
-        self::assertCount(1, $citar, '"Citar no novo registro" é o item logo depois de "Copiar texto"');
+        // EDT-009 (dc L.6460) + D:6869: ordem do desenho: Copiar texto, Encaminhar via Chat I.A (com a
+        // Central) e então Citar, com o ícone de aspas.
+        $citar = $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-copiar + .js-obs-encaminhar + button.js-obs-citar[role="menuitem"]');
+        self::assertCount(1, $citar, '"Citar no novo registro" vem logo depois de "Copiar texto" e "Encaminhar via Chat I.A"');
         self::assertSame('Citar no novo registro', trim($citar->text()));
         self::assertCount(1, $citar->filter('i.bi.bi-quote'));
 
         // EDT-003 (dc L.6466) + C6-EDT-04 (dc L.5958): "Imprimir" fecha os extras — logo depois de
         // "Criar meta…" e antes do separador de Editar/Excluir —, com autor · data · tipo para a
         // linha da folha ("Atendimento" é o tipo do relatório de Detalhes no desenho).
-        $imprimir = $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-criar-meta + button.js-obs-imprimir[role="menuitem"]');
-        self::assertCount(1, $imprimir, '"Imprimir" vem logo depois de "Criar meta…"');
+        $imprimir = $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-criar-meta + .js-obs-enviar-chat + button.js-obs-imprimir[role="menuitem"]');
+        self::assertCount(1, $imprimir, '"Imprimir" vem depois de "Criar meta…" e "Enviar no Chat I.A" (dc L.6872)');
         self::assertCount(1, $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-imprimir + .ps-processo-menu-sep[role="separator"]'), 'e logo antes do separador');
         self::assertSame('Imprimir', trim($imprimir->text()));
         self::assertCount(1, $imprimir->filter('i.bi.bi-printer'));

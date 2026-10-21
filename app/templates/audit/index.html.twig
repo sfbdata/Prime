@@ -130,6 +130,9 @@
                         {% for log in auditLogs %}
                             {% set payload = log.changes ?? {} %}
                             {% set diff = payload.diff ?? payload %}
+                            {# Cadeado (spec pasta-cadeado D4): linha de pasta oculta para quem lê sai sem o conteúdo. #}
+                            {% set ocultaPeloCadeado = (ocultasPeloCadeado ?? {})[log.id] is defined %}
+                            {% if ocultaPeloCadeado %}{% set diff = {} %}{% endif %}
                             {% set context = payload.context ?? payload._meta ?? {} %}
                             {% set detailId = 'audit-detail-' ~ log.id %}
                             <tr>
@@ -162,6 +165,8 @@
                                         {{ diff.after|length }} campo(s) inicializado(s)
                                     {% elseif log.action == 'delete' and diff.before is defined and diff.before is iterable and diff.before|length > 0 %}
                                         {{ diff.before|length }} campo(s) removido(s)
+                                    {% elseif ocultaPeloCadeado %}
+                                        <i class="bi bi-lock me-1" aria-hidden="true"></i>Pasta trancada pelo usuário primário
                                     {% else %}
                                         Sem diff detalhado
                                     {% endif %}

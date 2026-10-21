@@ -14,6 +14,18 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class RedefinicaoSenhaRepository extends ServiceEntityRepository
 {
+    /**
+     * Janela do teto diário do SolicitarCodigoSenhaUseCase (pedidos por conta + IP). Fonte única: o UseCase e a
+     * retenção da purga leem daqui, para não divergirem.
+     */
+    public const JANELA_DO_TETO = '-24 hours';
+
+    /**
+     * A purga não apaga pedido criado dentro da janela do teto: o teto conta os pedidos pelas linhas desta tabela,
+     * e a purga das 3 h zeraria a conta no meio da janela.
+     */
+    public const RETENCAO_MINIMA = self::JANELA_DO_TETO;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, RedefinicaoSenha::class);
@@ -26,6 +38,37 @@ class RedefinicaoSenhaRepository extends ServiceEntityRepository
     public function encontrarPorToken(string $token): ?RedefinicaoSenha
     {
         return $this->findOneBy(['tokenHash' => RedefinicaoSenha::hashDoToken($token)]);
+    }
+
+    /**
+     * O pedido ainda não consumido mais novo do usuário (senha por código do desenho 10).
+     *
+     * O código de 6 números NÃO é chave de busca: com um milhão de valores possíveis, buscar
+     * pelo hash deixaria o atacante testar códigos contra todas as contas de uma vez. Busca-se
+     * o pedido da conta e compara-se o hash com hash_equals no UseCase, contando as tentativas.
+     * A validade (15 minutos) é conferida pelo chamador.
+     */
+    public function encontrarPendenteMaisNovoDoUsuario(User $user): ?RedefinicaoSenha
+    {
+        return $this->createQueryBuilder('r')
+            ->where('r.user = :user')
+            ->andWhere('r.usadoEm IS NULL')
+            ->setParameter('user', $user)
+            ->orderBy('r.criadoEm', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * Já existe linha com este hash (inclusive consumida, até a purga)? Serve para o código
+     * novo não colidir com o índice único de `token_hash` quando o mesmo número sai de novo
+     * para a mesma conta.
+     */
+    public function existeTokenHash(string $tokenHash): bool
+    {
+        return $this->count(['tokenHash' => $tokenHash]) > 0;
     }
 
     /**
@@ -48,6 +91,71 @@ class RedefinicaoSenhaRepository extends ServiceEntityRepository
             ->execute();
 
         return $linhas === 1;
+    }
+
+    /**
+     * Reserva uma das tentativas do pedido no próprio banco, ANTES de comparar o código: o UPDATE condicional
+     * decide quem ganha a vaga, então POSTs paralelos não comparam mais do que o máximo. Recarrega a entidade.
+     *
+     * @return bool true se esta chamada ganhou uma tentativa
+     */
+    public function reservarTentativa(RedefinicaoSenha $redefinicao, int $maximo): bool
+    {
+        $linhas = $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE redefinicao_senha SET tentativas = tentativas + 1 WHERE id = :id AND usado_em IS NULL AND tentativas < :maximo',
+            ['id' => $redefinicao->getId(), 'maximo' => $maximo],
+        );
+        $this->getEntityManager()->refresh($redefinicao);
+
+        return $linhas === 1;
+    }
+
+    /** Código errado na última vaga: queima o pedido (usado_em), e nenhum código passa mais. */
+    public function queimarSeEsgotado(RedefinicaoSenha $redefinicao, int $maximo, \DateTimeImmutable $agora): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE redefinicao_senha SET usado_em = :agora WHERE id = :id AND usado_em IS NULL AND tentativas >= :maximo',
+            ['id' => $redefinicao->getId(), 'maximo' => $maximo, 'agora' => $agora->format('Y-m-d H:i:s')],
+        );
+        $this->getEntityManager()->refresh($redefinicao);
+    }
+
+    /**
+     * Quantos pedidos da conta vieram de `$ip` desde `$desde`, consumidos, encerrados ou vivos (teto diário do código).
+     * Conta por conta + IP: quem martela a conta de outra pessoa só tranca o próprio IP, e o dono, de outro IP,
+     * continua recebendo código.
+     */
+    public function contarPedidosDesde(User $user, string $ip, \DateTimeImmutable $desde): int
+    {
+        return (int) $this->createQueryBuilder('r')
+            ->select('COUNT(r.id)')
+            ->where('r.user = :user')
+            ->andWhere('r.ip = :ip')
+            ->andWhere('r.criadoEm >= :desde')
+            ->setParameter('user', $user)
+            ->setParameter('ip', $ip)
+            ->setParameter('desde', $desde)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Encerra (marca `usado_em`) os pedidos ainda não consumidos da conta, sem apagar: é o RS02 do pedido de código.
+     * Diferente do `invalidarPendentesDoUsuario`, a linha fica até a purga, para o teto diário contar o pedido.
+     *
+     * @return int linhas encerradas
+     */
+    public function encerrarPendentesDoUsuario(User $user, \DateTimeImmutable $agora): int
+    {
+        return (int) $this->createQueryBuilder('r')
+            ->update()
+            ->set('r.usadoEm', ':agora')
+            ->where('r.user = :user')
+            ->andWhere('r.usadoEm IS NULL')
+            ->setParameter('agora', $agora)
+            ->setParameter('user', $user)
+            ->getQuery()
+            ->execute();
     }
 
     public function salvar(RedefinicaoSenha $redefinicao, bool $flush = false): void
@@ -88,14 +196,17 @@ class RedefinicaoSenhaRepository extends ServiceEntityRepository
 
     /**
      * Registros sem uso futuro que guardam PII (IP + user agent): os já consumidos e os
-     * que expiraram sem uso. Espelha o critério do CadastroPendenteRepository.
+     * que expiraram sem uso. Espelha o critério do CadastroPendenteRepository, menos os
+     * criados nas últimas 24 h (RETENCAO_MINIMA), que o teto diário ainda conta.
      */
     public function contarPurgaveis(\DateTimeImmutable $agora): int
     {
         return (int) $this->createQueryBuilder('r')
             ->select('COUNT(r.id)')
             ->where('r.usadoEm IS NOT NULL OR r.expiraEm < :agora')
+            ->andWhere('r.criadoEm < :retidoDesde')
             ->setParameter('agora', $agora)
+            ->setParameter('retidoDesde', $agora->modify(self::RETENCAO_MINIMA))
             ->getQuery()
             ->getSingleScalarResult();
     }
@@ -105,7 +216,9 @@ class RedefinicaoSenhaRepository extends ServiceEntityRepository
         return (int) $this->createQueryBuilder('r')
             ->delete()
             ->where('r.usadoEm IS NOT NULL OR r.expiraEm < :agora')
+            ->andWhere('r.criadoEm < :retidoDesde')
             ->setParameter('agora', $agora)
+            ->setParameter('retidoDesde', $agora->modify(self::RETENCAO_MINIMA))
             ->getQuery()
             ->execute();
     }

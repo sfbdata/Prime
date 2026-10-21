@@ -194,9 +194,17 @@
 
     // ── Polling ───────────────────────────────────────────────────────────────
 
+    // Pede JSON (com a sessão vencida, o servidor responde 401 e o pedido não vira destino do login) e para de
+    // sondar no 401.
+    var intervaloPolling = null;
+
     function verificarAlerta() {
-        fetch(ENDPOINT, { credentials: 'same-origin' })
+        fetch(ENDPOINT, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
             .then(function (r) {
+                if (r.status === 401 && intervaloPolling !== null) {
+                    clearInterval(intervaloPolling);
+                    intervaloPolling = null;
+                }
                 if (!r.ok) return null;
                 return r.json();
             })
@@ -212,7 +220,7 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         verificarAlerta();
-        setInterval(verificarAlerta, POLLING_INTERVALO_MS);
+        intervaloPolling = setInterval(verificarAlerta, POLLING_INTERVALO_MS);
     });
 }());
 </script>

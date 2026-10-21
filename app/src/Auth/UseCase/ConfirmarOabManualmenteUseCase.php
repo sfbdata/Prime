@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth\UseCase;
 
 use App\Auth\Enum\StatusOab;
+use App\Auth\Service\EspelhoDaOabPrincipal;
 use App\Entity\Auth\User;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -20,6 +21,7 @@ final class ConfirmarOabManualmenteUseCase
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly EspelhoDaOabPrincipal $espelho,
     ) {
     }
 
@@ -27,6 +29,8 @@ final class ConfirmarOabManualmenteUseCase
     {
         $alvo->setOabStatus(StatusOab::Confirmada);
         $alvo->setOabVerificadaEm(new \DateTimeImmutable());
+        // A fila do Master ainda trabalha por User: a inscrição principal acompanha (spec meu-perfil-oab §3).
+        $this->espelho->doUsuarioParaPrincipal($alvo);
 
         $this->em->flush();
     }

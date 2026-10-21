@@ -29,6 +29,9 @@ use PHPUnit\Framework\TestCase;
  *
  * Spec: `docs/specs/ponto-batida-nao-se-perde-no-navegador.md`.
  *
+ * `avaliarPosicao` mora em `public/js/ponto-batida.js` (usado pela tela e pelo atalho do cabeçalho)
+ * e recebe a posição e as sedes por parâmetro; a tela passa `currentLocation` e `SEDES`.
+ *
  * Confere o ARRANJO do JS no fonte, que é o que a suíte alcança: PHPUnit não executa JavaScript.
  * O escopo do dado que chega à tela é provado por `App\Tests\Ponto\Functional\CercaNaTelaDoPontoTest`.
  */
@@ -36,10 +39,12 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
 {
     private const CAMINHO_TELA = __DIR__ . '/../../../templates/ponto/index.html.twig';
 
+    private const CAMINHO_MODULO = __DIR__ . '/../../../public/js/ponto-batida.js';
+
     #[TestDox('a tela só bloqueia quem está fora mesmo descontando a margem de precisão do GPS')]
     public function testBloqueioDescontaAMargemDePrecisao(): void
     {
-        $corpo = $this->corpoDaFuncao('function avaliarPosicao(');
+        $corpo = $this->corpoDaFuncao('function avaliarPosicao(', self::CAMINHO_MODULO);
 
         self::assertMatchesRegularExpression(
             '/\(\s*menorExcedente\s*-\s*margem\s*\)\s*>\s*0/',
@@ -49,10 +54,10 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
         );
 
         // 🪤 Pinar a EXPRESSÃO INTEIRA, e não só a presença de `precisaoGps`. Um
-        // `Math.min(Number(currentLocation.precisaoGps) || 0, 30)` endurece a tela e passava nos
+        // `Math.min(Number(posicao.precisaoGps) || 0, 30)` endurece a tela e passava nos
         // dois asserts anteriores: a forma da comparação continuava a mesma e a string também.
         self::assertStringContainsString(
-            'const margem = Math.max(Number(currentLocation.precisaoGps) || 0, 0);',
+            'const margem = Math.max(Number(posicao.precisaoGps) || 0, 0);',
             $corpo,
             'a margem é a precisão real, sem teto e sem piso negativo: teto endurece a tela, '
             . 'precisão negativa somaria à distância e endureceria também'
@@ -79,7 +84,7 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
     #[TestDox('existe a situação indeterminada: precisão maior que a distância não é estar fora')]
     public function testExisteSituacaoIndeterminada(): void
     {
-        $corpo = $this->corpoDaFuncao('function avaliarPosicao(');
+        $corpo = $this->corpoDaFuncao('function avaliarPosicao(', self::CAMINHO_MODULO);
 
         self::assertStringContainsString(
             "'indeterminado'",
@@ -88,7 +93,7 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
             . 'tratar isso como "fora" é decidir contra a pessoa sem informação'
         );
         self::assertMatchesRegularExpression(
-            '/SEDES\.length === 0/',
+            '/sedes\.length === 0/',
             $corpo,
             'sem sede cadastrada a tela não tem como avaliar e não pode bloquear por conta própria'
         );
@@ -110,7 +115,7 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
             'o impedimento da tela tem que depender da avaliação com margem, não da distância crua'
         );
         self::assertStringContainsString(
-            'const onde = avaliarPosicao();',
+            'const onde = PontoBatida.avaliarPosicao(currentLocation, SEDES);',
             $corpo,
             'a cerca do clique precisa consultar `avaliarPosicao()`, que é quem desconta a margem'
         );
@@ -131,12 +136,28 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
         // handler, e apagar o guarda DA CERCA deixaria a asserção verde. O que precisa ser
         // provado é que a chamada da cerca está dentro do bloco condicionado ao home office.
         self::assertMatchesRegularExpression(
-            '/if \(!homeOfficeHoje\)\s*\{\s*const onde = avaliarPosicao\(\);/',
+            '/if \(!homeOfficeHoje\)\s*\{\s*const onde = PontoBatida\.avaliarPosicao\(currentLocation, SEDES\);/',
             $corpo,
             'a cerca do clique tem que estar DENTRO do `if (!homeOfficeHoje)`, senão quem está '
             . 'liberado do dia passa a ser bloqueado por estar em casa — a tela ficaria mais '
             . 'rígida que o servidor, que dispensa o geofencing nesse caso'
         );
+    }
+
+    #[TestDox('a tela não tem cópia própria da avaliação: a regra mora num lugar só')]
+    public function testTelaNaoTemCopiaDaAvaliacao(): void
+    {
+        $fonte = (string) file_get_contents(self::CAMINHO_TELA);
+
+        // Uma cópia na tela pode endurecer sem que os asserts acima (que leem o módulo) percebam,
+        // e a tela e o atalho do cabeçalho passariam a decidir diferente para a mesma posição.
+        foreach (['function avaliarPosicao(', 'function distanciaEmMetros('] as $assinatura) {
+            self::assertStringNotContainsString(
+                $assinatura,
+                $fonte,
+                sprintf('a tela voltou a declarar `%s`: a avaliação da cerca é a do módulo', $assinatura)
+            );
+        }
     }
 
     #[TestDox('a posição continua sendo atualizada com a página aberta, não só na carga')]
@@ -228,10 +249,10 @@ final class CercaDaTelaNaoEndureceARegraTest extends TestCase
         );
     }
 
-    /** Corpo de uma função do script, delimitado por contagem de chaves. */
-    private function corpoDaFuncao(string $assinatura): string
+    /** Corpo de uma função do script (da tela, salvo outro arquivo), delimitado por contagem de chaves. */
+    private function corpoDaFuncao(string $assinatura, string $caminho = self::CAMINHO_TELA): string
     {
-        $fonte  = (string) file_get_contents(self::CAMINHO_TELA);
+        $fonte  = (string) file_get_contents($caminho);
         $inicio = strpos($fonte, $assinatura);
         self::assertIsInt($inicio, sprintf('não achei `%s` na tela do ponto', $assinatura));
 

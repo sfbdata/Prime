@@ -49,9 +49,13 @@ final class LeitorDeDatas
     private const PASSADO = '/(realizad|ocorrid|cumprid|cancelad|protocolad[oa] em|juntad[oa] em|pag[oa] em|quitad|encerrad|decorrid)/';
 
     /**
+     * Sem $calendario, a estimativa é a de sempre (fim de semana, 9 feriados fixos e recesso). Com ele, conta pelo
+     * calendário do sistema e o prazo em dias corridos que cai em dia não útil vai ao próximo útil; data escrita e
+     * audiência nunca mudam (docs/specs/prazo-feriado-calendario.md).
+     *
      * @return list<array{tipo: string, titulo: string, data: string, hora: string, estimado: bool, frase: string}>
      */
-    public static function ler(string $texto, ?\DateTimeImmutable $base = null): array
+    public static function ler(string $texto, ?\DateTimeImmutable $base = null, ?DiasUteisDaUf $calendario = null): array
     {
         $base = ($base ?? new \DateTimeImmutable())->setTime(0, 0);
         $frases = preg_split('/\n+|(?<=[.;!?])\s+/u', $texto) ?: [];
@@ -118,7 +122,7 @@ final class LeitorDeDatas
             if ($achados === []) {
                 if (preg_match('/(?:prazo de|em|no prazo de|dentro de)\s*(\d{1,3})\s*(?:\(\w+\)\s*)?dias?\s*(uteis|corridos)?/', $f, $r, PREG_OFFSET_CAPTURE) === 1) {
                     $uteis = ($r[2][0] ?? '') !== 'corridos';
-                    $achados[] = ['x' => self::somarDias($base, (int) $r[1][0], $uteis), 'i' => $r[0][1]];
+                    $achados[] = ['x' => self::estimar($base, (int) $r[1][0], $uteis, $calendario), 'i' => $r[0][1]];
                     $estimado = true;
                 } elseif (preg_match('/\bamanha\b/', $f, $r, PREG_OFFSET_CAPTURE) === 1) {
                     $achados[] = ['x' => self::somarDias($base, 1, false), 'i' => $r[0][1]];
@@ -201,6 +205,28 @@ final class LeitorDeDatas
         }
 
         return $d;
+    }
+
+    /** "prazo de N dias": sem calendário, {@see somarDias()}; com ele, pelo calendário do sistema. */
+    private static function estimar(\DateTimeImmutable $base, int $n, bool $uteis, ?DiasUteisDaUf $calendario): \DateTimeImmutable
+    {
+        if ($calendario === null) {
+            return self::somarDias($base, $n, $uteis);
+        }
+        $d = $base->setTime(0, 0);
+        if (!$uteis) {
+            // CPC, art. 224, §1º: termo em dia não útil prorroga ao próximo útil (com N = 0, o termo é a própria base).
+            return $calendario->proximoUtil($d->modify('+' . $n . ' days'));
+        }
+        for ($c = 0; $c < $n;) {
+            $d = $d->modify('+1 day');
+            if ($calendario->ehUtil($d)) {
+                ++$c;
+            }
+        }
+
+        // Mesmo §1º: com N = 0 úteis o termo é a base, que pode cair em dia não útil; com N > 0 já é útil.
+        return $calendario->proximoUtil($d);
     }
 
     private static function normalizar(string $s): string

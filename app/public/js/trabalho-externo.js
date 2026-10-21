@@ -1382,6 +1382,10 @@
         if (dz.mostraConvites) {
             alvo.appendChild(el('div', { class: 'te-secao-rot te-conv-rot', text: 'PROFISSIONAIS CONVIDADOS' }));
             var convites = dz.convites || [];
+            var aviso = avisoEmailAConfirmar();
+            if (aviso && (dz.podeConvidar || convites.some(function (c) { return c.gerir; }))) {
+                alvo.appendChild(aviso);
+            }
             convites.forEach(function (c) {
                 alvo.appendChild(el('div', { class: 'te-conv' }, [
                     el('span', { class: 'te-conv-ini', text: c.ini }),
@@ -1412,6 +1416,24 @@
                 alvo.appendChild(formularioDeConvite(dz));
             }
         }
+    }
+
+    /**
+     * Conta com o e-mail a confirmar não convida nem reenvia (o servidor recusa com 422). O template só põe os
+     * data-* quando é o caso; aqui vira o aviso com o botão "Reenviar o link de confirmação" (POST comum, volta com
+     * flash). Sem os data-*, nada.
+     */
+    function avisoEmailAConfirmar() {
+        if (!D.urlReenviarConfirmacao) {
+            return null;
+        }
+        return el('div', { class: 'te-caixa te-conv-confirmar' }, [
+            el('div', { class: 'te-conv-form-txt', text: D.recusaEmailAConfirmar || '' }),
+            el('form', { attrs: { method: 'post', action: D.urlReenviarConfirmacao } }, [
+                el('input', { type: 'hidden', name: '_token', value: D.csrfReenviarConfirmacao || '' }),
+                el('button', { type: 'submit', class: 'te-btn-contorno', text: 'Reenviar o link de confirmação' })
+            ])
+        ]);
     }
 
     function gerirConvite(codigo, c, operacao, botao) {
