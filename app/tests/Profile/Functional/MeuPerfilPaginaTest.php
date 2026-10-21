@@ -67,6 +67,15 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertSame('SECUNDÁRIO', trim($this->abrir($this->secundario)->filter('.mp-nome-linha > .mp-selo-papel')->text()));
     }
 
+    #[TestDox('o avatar tem o #fotoPerfilAtual que o script da foto troca (sem foto, as iniciais), e nenhum .perfil-foto-btn')]
+    public function testAvatarQueOScriptDaFotoTroca(): void
+    {
+        $tela = $this->abrir($this->primario);
+
+        self::assertCount(1, $tela->filter('.mp-ident-linha > button.mp-avatar > span#fotoPerfilAtual.mp-avatar-ini'));
+        self::assertCount(0, $tela->filter('.perfil-foto-btn'));
+    }
+
     #[TestDox('cadastro vazio: alerta com 22% e os chips do que falta, na ordem do desenho')]
     public function testCadastroIncompleto(): void
     {
