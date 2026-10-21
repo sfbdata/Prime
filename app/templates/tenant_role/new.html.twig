@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Novo Perfil{% endblock %}
+{% block title %}{{ 'perfis.novo.titulo'|trans }}{% endblock %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/perfis.css') }}">
@@ -9,14 +9,15 @@
 {% block body %}
 <div class="pf-page">
     <div class="pf-cabecalho">
-        <h1 class="pf-titulo"><i class="bi bi-shield-lock"></i>Novo Perfil<span class="pf-selo-titulo pf-selo-secundario">SECUNDÁRIO</span><span class="pf-titulo-barra"></span></h1>
-        <a href="{{ path('app_tenant_role_index', {tenantId: tenantId}) }}" class="pf-btn-cinza"><i class="bi bi-arrow-left"></i>Voltar</a>
+        <h1 class="pf-titulo"><i class="bi bi-shield-lock"></i>{{ 'perfis.novo.titulo'|trans }}<span class="pf-selo-titulo pf-selo-secundario">{{ 'termos.secundario'|trans|upper }}</span><span class="pf-titulo-barra"></span></h1>
+        <a href="{{ path('app_tenant_role_index', {tenantId: tenantId}) }}" class="pf-btn-cinza"><i class="bi bi-arrow-left"></i>{{ 'perfis.voltar'|trans }}</a>
     </div>
 
-    {% include 'tenant_role/_form.html.twig' with {salvarRotulo: 'Salvar perfil'} %}
+    {% include 'tenant_role/_form.html.twig' with {salvarRotulo: 'perfis.novo.salvar'|trans} %}
 </div>
 {% endblock %}
 
 {% block javascripts %}
+{{ catalogo_js('perfis.js') }}
 <script src="{{ asset('js/perfis.js') }}" defer></script>
 {% endblock %}
