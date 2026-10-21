@@ -70,7 +70,8 @@ final class ParcialDoModoVendaTest extends KernelTestCase
         self::assertNotSame('', (string) $this->doc->filter(self::CENTRAL)->attr('data-token'));
         self::assertSame(['Central de envios · nova campanha'], $this->textos(self::CENTRAL . ' > section.mc-cp > .mc-cp-cabeca > .mc-cabeca-titulo'));
         // O que é só da seção Comercial (dc `secCom`): KPIs e Automações. Os scripts únicos dela também ficam de fora.
-        self::assertCount(0, $this->doc->filter(self::CENTRAL . ' [data-mc-kpis], ' . self::CENTRAL . ' [data-mc-autos], ' . self::CENTRAL . ' [data-mc-dsc], ' . self::CENTRAL . ' [data-mc-relatorio]'));
+        // O Relatório aparece nas duas (spec comercial-relatorio-venda.md; ver DuasInstanciasDoRelatorioTest).
+        self::assertCount(0, $this->doc->filter(self::CENTRAL . ' [data-mc-kpis], ' . self::CENTRAL . ' [data-mc-autos], ' . self::CENTRAL . ' [data-mc-dsc]'));
         self::assertCount(0, $this->doc->filter('[data-sec-externa="ind"] script[src*="js/master/comercial.js"]'));
         self::assertCount(1, $this->doc->filter('[data-sec-externa="ind"] script[src*="js/master/comercial-campanha.js"]'));
     }

@@ -173,7 +173,7 @@ final class ParcialDoRelatorioTest extends KernelTestCase
     public function testJs(): void
     {
         $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/comercial-relatorio.js');
-        self::assertStringContainsString("new CustomEvent('mc:duplicar-campanha', { cancelable: true, detail: detalhe })", $js);
+        self::assertStringContainsString("raiz.dispatchEvent(new CustomEvent('mc:duplicar-campanha', { bubbles: true, cancelable: true, detail: detalhe }))", $js);
         self::assertStringContainsString('Nenhuma campanha nesta aba.', $js);
         self::assertStringContainsString("'Cancelar o envio programado desta campanha?'", $js);
         foreach (["'Remover ' + ids.length + ' campanha(s) do relatório?'", "'Excluir esta campanha do relatório?'", "'Campanha duplicada: ajuste e envie.'",

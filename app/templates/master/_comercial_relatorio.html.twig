@@ -1,14 +1,21 @@
 {# "Relatório como caixa de entrada" da Central de envios (F3d; desenho 05 VS 21.10.26, marcação L300-305 e L502-514,
    lógica L698-717; spec docs/specs/comercial-relatorio.md). Incluído pelo _comercial.html.twig no lugar do antigo
-   bloco "Monitoramento", dentro do [data-mc]. Traz o próprio <link> e <script>, sem script inline (o HTML da
+   bloco "Monitoramento", dentro da raiz de cada modo (`.mc[data-modo]`). Traz o próprio <link> e <script>, sem script inline (o HTML da
    campanha vai num iframe sandbox="", que não executa script). A lista, as contagens e o visualizador vêm por JSON quando a seção abre.
    As URLs com id levam o marcador 999999999 (casa com o requisito `RelatorioDoMasterController::ID`; o JS o troca).
    F3e (spec docs/specs/comercial-marcas.md): a estrela, o arquivo e a remoção (marcas de cada Master, no servidor), os
    botões da seleção, as abas Com estrela e Arquivadas, o menu do botão direito (dc L504), "Reenviar a quem não leu"
    (só aviso) e "Exportar destinatários" (CSV pelo servidor). "Encaminhar para um e-mail" fica no menu, desabilitado,
-   até o dono decidir. #}
+   até o dono decidir.
+   Duas instâncias (spec docs/specs/comercial-relatorio-venda.md): `secao` ('com' na seção Comercial, 'ind' na seção
+   Indicações) vai no data-mc-relatorio e no sufixo dos ids; `recursos` (só na da seção Comercial) traz o <link> e o
+   <script>, para não repetirem na página. #}
+{% set secao = secao|default('com') %}
+{% set recursos = recursos is defined ? recursos : true %}
+{% if recursos %}
 <link rel="stylesheet" href="{{ asset('css/master-comercial-relatorio.css') }}">
-<section class="mc-caixa mc-rl" aria-label="Relatório de campanhas" data-mc-relatorio
+{% endif %}
+<section class="mc-caixa mc-rl" aria-label="Relatório de campanhas" data-mc-relatorio="{{ secao }}"
          data-url-lista="{{ path('master_comercial_relatorio') }}"
          data-url-campanha="{{ path('master_comercial_campanha', {id: 999999999}) }}"
          data-url-cancelar="{{ path('master_comercial_campanha_cancelar', {id: 999999999}) }}"
@@ -47,7 +54,7 @@
     {# L502-514: o visualizador da campanha, preenchido pelo JS. #}
     <div class="mc-rl-ver" data-mc-rl-ver hidden>
         <div class="mc-rl-ver-fundo" data-mc-rl-fechar></div>
-        <div class="mc-rl-ver-caixa" role="dialog" aria-modal="true" aria-labelledby="mc-rl-ver-assunto">
+        <div class="mc-rl-ver-caixa" role="dialog" aria-modal="true" aria-labelledby="mc-rl-ver-assunto-{{ secao }}">
             <div class="mc-rl-ver-barra">
                 <button type="button" class="mc-rl-ver-voltar" title="Voltar" aria-label="Voltar" data-mc-rl-fechar><i class="bi bi-arrow-left" aria-hidden="true"></i></button>
                 <span class="mc-rl-vao"></span>
@@ -57,7 +64,7 @@
                 <button type="button" class="mc-rl-ver-acao mc-rl-ver-cancelar" data-mc-rl-cancelar hidden><i class="bi bi-x-circle" aria-hidden="true"></i>Cancelar envio</button>
             </div>
             <div class="mc-rl-ver-corpo">
-                <div class="mc-rl-ver-titulo"><span id="mc-rl-ver-assunto" data-mc-rl-v="assunto"></span> <span class="mc-rl-ver-st" data-mc-rl-v="situacao"></span></div>
+                <div class="mc-rl-ver-titulo"><span id="mc-rl-ver-assunto-{{ secao }}" data-mc-rl-v="assunto"></span> <span class="mc-rl-ver-st" data-mc-rl-v="situacao"></span></div>
                 <div class="mc-rl-ver-de">
                     <span class="mc-rl-ver-avatar" aria-hidden="true">B</span>
                     <span class="mc-rl-ver-quem"><b data-mc-rl-v="nome"></b> <span data-mc-rl-v="endereco"></span><br>para <span data-mc-rl-v="publico"></span> · modelo <span data-mc-rl-v="modelo"></span></span>
@@ -79,8 +86,8 @@
        dono decidir (mandar teste para qualquer endereço contraria a regra C4). #}
     <div class="mc-rl-ctx" data-mc-rl-ctx hidden>
         <div class="mc-rl-ctx-fundo" data-mc-rl-ctx-fechar></div>
-        <div class="mc-rl-ctx-caixa" role="menu" aria-labelledby="mc-rl-ctx-titulo">
-            <div class="mc-rl-ctx-titulo" id="mc-rl-ctx-titulo" data-mc-rl-ctx-titulo></div>
+        <div class="mc-rl-ctx-caixa" role="menu" aria-labelledby="mc-rl-ctx-titulo-{{ secao }}">
+            <div class="mc-rl-ctx-titulo" id="mc-rl-ctx-titulo-{{ secao }}" data-mc-rl-ctx-titulo></div>
             <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="abrir"><i class="bi bi-envelope-open" aria-hidden="true"></i>Abrir campanha</button>
             <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="duplicar"><i class="bi bi-files" aria-hidden="true"></i>Duplicar como nova</button>
             <button type="button" role="menuitem" class="mc-rl-ctx-item" data-mc-rl-ctx-acao="reenviar"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Reenviar a quem não leu</button>
@@ -95,4 +102,6 @@
         </div>
     </div>
 </section>
+{% if recursos %}
 <script src="{{ asset('js/master/comercial-relatorio.js') }}"></script>
+{% endif %}

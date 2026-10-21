@@ -9,6 +9,10 @@ em 21/10/2026.
 ## Estado da frente
 
 - 21/10: spec; implementação começando.
+- 21/10: Parte 1 feita (commit local "Mostra o Relatório também na seção Indicações"): o include sai do
+  `{% if not venda %}` e fica na raiz de cada modo; o parcial ganhou `secao` (em `data-mc-relatorio="com|ind"` e no
+  sufixo dos ids) e `recursos`; o JS inicia uma instância por raiz (de novo no `DOMContentLoaded`, porque o script vem
+  com a seção Comercial, antes da raiz da venda no HTML). Teste novo `DuasInstanciasDoRelatorioTest`.
 
 ## Parte 1: duas instâncias
 
