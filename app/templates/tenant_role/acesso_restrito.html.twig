@@ -7,7 +7,7 @@
    tela mostra "Pedido enviado ao primário" no lugar do botão.
 #}
 
-{% block title %}Acesso restrito{% endblock %}
+{% block title %}{{ 'perfis.restrito.titulo'|trans }}{% endblock %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/perfis.css') }}">
@@ -18,16 +18,16 @@
     <div class="pf-restrito" data-pf-restrito>
         <div class="pf-restrito-cartao">
             <div class="pf-restrito-icone"><i class="bi bi-shield-lock"></i></div>
-            <div class="pf-restrito-titulo">Acesso restrito</div>
-            <div class="pf-restrito-texto">O menu Perfis é exclusivo do usuário primário do escritório e do Master. Para usar, peça a permissão ao primário.</div>
+            <div class="pf-restrito-titulo">{{ 'perfis.restrito.titulo'|trans }}</div>
+            <div class="pf-restrito-texto">{{ 'perfis.restrito.texto'|trans }}</div>
             <div class="pf-restrito-acoes">
-                <a href="{{ path('expediente_index') }}" class="pf-restrito-voltar">Voltar</a>
+                <a href="{{ path('expediente_index') }}" class="pf-restrito-voltar">{{ 'perfis.voltar'|trans }}</a>
                 {% if jaPediuHoje %}
-                    <span class="pf-restrito-enviado" data-pf-pedido-enviado><i class="bi bi-check2-circle"></i>Pedido enviado ao primário</span>
+                    <span class="pf-restrito-enviado" data-pf-pedido-enviado><i class="bi bi-check2-circle"></i>{{ 'perfis.restrito.enviado'|trans }}</span>
                 {% else %}
                     <form method="post" action="{{ path('app_tenant_role_pedir_acesso', {tenantId: tenantId}) }}" data-pf-form-pedir-acesso>
                         <input type="hidden" name="_token" value="{{ csrf_token('pedir_acesso_perfis_' ~ tenantId) }}">
-                        <button type="submit" class="pf-restrito-pedir">Pedir acesso</button>
+                        <button type="submit" class="pf-restrito-pedir">{{ 'perfis.restrito.pedir'|trans }}</button>
                     </form>
                 {% endif %}
             </div>

@@ -1,0 +1,163 @@
+{
+    "_leia": "Templates cujo texto já mora no catálogo (spec idioma-do-sistema). Texto novo neles entra por |trans. 'permitidos' são textos que ficam como estão (marca, sigla, exemplo).",
+
+    "moldura": {
+        "templates": [
+            "base.html.twig",
+            "_sidebar.html.twig",
+            "layout/_globais.html.twig",
+            "layout/_globais/aviso_espaco.html.twig",
+            "layout/_globais/busca_rapida.html.twig",
+            "layout/_globais/fechar.html.twig",
+            "layout/_globais/lembretes.html.twig",
+            "layout/_globais/tema_comemorativo.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "BlueJus",
+            "Esc"
+        ]
+    },
+
+    "menu": {
+        "templates": [
+            "menu_usuario/_dropdown.html.twig",
+            "menu_usuario/_itens_master.html.twig",
+            "menu_usuario/_minha_conta.html.twig",
+            "menu_usuario/_modais.html.twig",
+            "menu_usuario/_presenca.html.twig",
+            "menu_usuario/_trocar_conta.html.twig"
+        ],
+        "js": [
+            "menu-usuario.js"
+        ],
+        "permitidos": [
+            "PIX",
+            "Content-Type",
+            "Escape"
+        ]
+    },
+
+    "perfil": {
+        "templates": [
+            "profile/index.html.twig"
+        ],
+        "js": [
+            "meu-perfil.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "Não uso mais",
+            "Achei caro",
+            "Faltou um recurso",
+            "Mudei de sistema",
+            "Encerrando o escritório",
+            "Outro motivo",
+            "Content-Type"
+        ]
+    },
+
+    "comercial_relatorio": {
+        "templates": [
+            "master/_comercial_relatorio.html.twig"
+        ],
+        "js": [
+            "master/comercial-relatorio.js"
+        ],
+        "permitidos": [
+            "B",
+            "Content-Type",
+            "Escape"
+        ]
+    },
+
+    "temas": {
+        "templates": [
+            "master/_recursos_tema.html.twig"
+        ],
+        "js": [
+            "master/temas.js"
+        ],
+        "permitidos": [
+            "Content-Type"
+        ]
+    },
+
+    "expediente": {
+        "templates": [
+            "expediente/index.html.twig",
+            "expediente/_lista.html.twig",
+            "expediente/_paginacao.html.twig",
+            "expediente/_modais_lista.html.twig",
+            "expediente/_acervo_geral.html.twig",
+            "expediente/_painel_marcador.html.twig",
+            "expediente/_trilho.html.twig",
+            "expediente/_relatorio_processos_modal.html.twig",
+            "expediente/relatorio_processos.html.twig",
+            "expediente/pastas_paradas.html.twig"
+        ],
+        "js": [
+            "expediente-lista.js",
+            "expediente-trilho.js"
+        ],
+        "permitidos": [
+            "exp-body",
+            "aria-sort=\"\"",
+            "10,5 pt",
+            "BLUEJUS",
+            "App\\\\Pasta\\\\DTO\\\\AnaliseSemProcessoDaPasta::ADMINISTRATIVA",
+            "Crítico",
+            "Atenção",
+            "Acompanhar",
+            "App\\\\Pasta\\\\DTO\\\\RelatorioPastasParadasOutput::NENHUMA",
+            "App\\\\Pasta\\\\DTO\\\\RelatorioPastasParadasOutput::NOTA_FINAL",
+            "Content-Type",
+            "Escape",
+            "Enter",
+            "Tab",
+            "ArrowDown",
+            "ArrowUp",
+            "Home",
+            "End",
+            "ContextMenu"
+        ]
+    },
+
+    "metas": {
+        "templates": [
+            "tarefa/minhas.html.twig",
+            "tarefa/_metas_lista.html.twig",
+            "tarefa/_meta_cartao.html.twig",
+            "tarefa/_resultado.html.twig",
+            "tarefa/equipe.html.twig",
+            "tarefa/_numero_global.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
+    },
+
+    "perfis": {
+        "templates": [
+            "tenant_role/index.html.twig",
+            "tenant_role/edit.html.twig",
+            "tenant_role/new.html.twig",
+            "tenant_role/_form.html.twig",
+            "tenant_role/_confirmacao.html.twig",
+            "tenant_role/acesso_restrito.html.twig"
+        ],
+        "js": [
+            "perfis.js"
+        ],
+        "permitidos": [
+            "Escape"
+        ]
+    },
+
+    "master": {
+        "templates": [
+            "master/painel.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
+    }
+}

@@ -64,7 +64,7 @@
     const erro = formOab.querySelector('[data-mp-oab-erro]'); if (erro) { erro.querySelector('span').textContent = d.erro || ''; erro.hidden = false; }
   }
   function removerOab(botao) {
-    if (!window.confirm('Remover a inscrição OAB/' + botao.dataset.uf + '?')) return;
+    if (!window.confirm(BJ_T.t('perfil.js.confirmar_remover_oab', { uf: botao.dataset.uf }))) return;
     const f = document.getElementById('formOabRemover');
     f.action = f.dataset.acao.replace(/\/0\/remover$/, '/' + encodeURIComponent(botao.dataset.id) + '/remover');
     f.submit();
@@ -79,7 +79,7 @@
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ chave: botao.dataset.mpPref, ligado }),
     }).then(r => r.json().then(j => (r.ok ? j : Promise.reject(j))))
-      .catch(j => { botao.setAttribute('aria-checked', ligado ? 'false' : 'true'); aviso((j && j.erro) || 'Não foi possível gravar a preferência agora.'); });
+      .catch(j => { botao.setAttribute('aria-checked', ligado ? 'false' : 'true'); aviso((j && j.erro) || BJ_T.t('perfil.js.preferencia_falhou')); });
   }
 
   /* ---------- revisão mensal (uma vez por mês; "já mostrei" fica no navegador) ---------- */
@@ -92,8 +92,8 @@
   function confirmarRevisao() {
     fetch(raiz.dataset.urlRevisao, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then(r => (r.ok ? r.json() : Promise.reject()))
-      .then(() => { const m = modal('modalRevisao'); if (m) m.hide(); aviso('Obrigado! Cadastro confirmado para este mês.'); })
-      .catch(() => aviso('Não foi possível confirmar agora. Tente de novo.'));
+      .then(() => { const m = modal('modalRevisao'); if (m) m.hide(); aviso(BJ_T.t('perfil.js.revisao_confirmada')); })
+      .catch(() => aviso(BJ_T.t('perfil.js.revisao_falhou')));
   }
 
   document.addEventListener('click', e => {
@@ -111,7 +111,7 @@
     const copiar = t.closest('[data-mp-copiar]');
     if (copiar) {
       e.preventDefault();
-      (navigator.clipboard ? navigator.clipboard.writeText(copiar.dataset.mpCopiar) : Promise.reject()).then(() => aviso('Copiado'), () => {});
+      (navigator.clipboard ? navigator.clipboard.writeText(copiar.dataset.mpCopiar) : Promise.reject()).then(() => aviso(BJ_T.t('perfil.js.copiado')), () => {});
       return;
     }
     if (t.closest('[data-mp-oab-nova]')) return abrirOab(null);

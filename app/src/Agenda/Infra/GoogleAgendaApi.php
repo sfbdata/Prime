@@ -93,7 +93,7 @@ final class GoogleAgendaApi
         $conta = $this->emailDoIdToken((string) ($token['id_token'] ?? ''));
         $escopos = preg_split('/\s+/', trim((string) ($token['scope'] ?? self::ESCOPO))) ?: [];
         if (!in_array(self::ESCOPO, $escopos, true) || [] !== array_diff($escopos, self::ESCOPOS_ACEITOS)) {
-            throw new PermissoesDoGoogleRecusadasException($token['refresh_token'], $conta);
+            throw new PermissoesDoGoogleRecusadasException($token['refresh_token'], $conta, !in_array(self::ESCOPO, $escopos, true));
         }
 
         return ['refresh' => $token['refresh_token'], 'conta' => $conta];
@@ -266,7 +266,9 @@ final class GoogleAgendaApi
             throw new AutorizacaoDoGoogleRecusadaException('O Google recusou a autorização.');
         }
         if (200 !== $status) {
-            throw new GoogleAgendaException('O Google recusou o pedido de token (' . $status . ').');
+            // Só o código de erro do OAuth (ex.: invalid_client, redirect_uri_mismatch), sem a descrição livre.
+            $codigo = is_string($j['error'] ?? null) ? preg_replace('/[^a-z_]/', '', $j['error']) : '';
+            throw new GoogleAgendaException('O Google recusou o pedido de token (' . $status . ('' !== $codigo ? ', ' . $codigo : '') . ').');
         }
 
         return $j;

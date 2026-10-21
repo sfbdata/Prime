@@ -203,6 +203,34 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->contar('comercial_envio'), 'só uma pessoa');
     }
 
+    #[TestDox('Enviar teste (F3f): [TESTE] no assunto e o teste gravado como campanha "teste", com o destino ligado ao envio, fora das ativas e no KPI')]
+    public function testTesteGravado(): void
+    {
+        $client = $this->clienteMaster();
+        $antes = static::getContainer()->get(\App\Comercial\Repository\CampanhaDeEmailRepository::class)->contarNaoCanceladas();
+        $this->postar($client, '/master/comercial/teste', $this->convite());
+
+        self::assertResponseIsSuccessful();
+        $envio = $this->conexao()->fetchAssociative('SELECT id, assunto FROM comercial_envio');
+        self::assertStringStartsWith('[TESTE] ', (string) $envio['assunto']);
+        $campanha = $this->conexao()->fetchAssociative("SELECT id, nome, estado, publico, total, execucoes FROM comercial_campanha WHERE estado = 'teste'");
+        self::assertSame(['teste', 'teste', 1, 1], [$campanha['estado'], $campanha['publico'], (int) $campanha['total'], (int) $campanha['execucoes']]);
+        self::assertStringStartsWith('[TESTE] ', (string) $campanha['nome']);
+        $destino = $this->conexao()->fetchAssociative('SELECT email, envio_id FROM comercial_campanha_destino WHERE campanha_id = ?', [$campanha['id']]);
+        self::assertSame([$this->master->getEmail(), (int) $envio['id']], [$destino['email'], (int) $destino['envio_id']]);
+        self::assertNotContains('teste', \App\Comercial\Entity\CampanhaDeEmail::ATIVAS, 'o expansor nunca pega o teste');
+        self::assertSame($antes + 1, static::getContainer()->get(\App\Comercial\Repository\CampanhaDeEmailRepository::class)->contarNaoCanceladas(), 'o KPI Campanhas conta o teste');
+
+        $client->request('GET', '/master/comercial/relatorio?aba=env&q=&p=1');
+        $linha = array_column((array) $this->json($client)['campanhas'], null, 'id')[(int) $campanha['id']] ?? null;
+        self::assertSame(['Teste', 'Teste · 1 e-mail(s)'], [$linha['rotulo'] ?? null, $linha['publico'] ?? null], 'o Relatório mostra a linha com o selo e o público do desenho (L717)');
+        self::assertNull($this->conexao()->fetchOne('SELECT publico_parametros FROM comercial_campanha WHERE id = ?', [$campanha['id']]), 'o endereço só fica no destino, que a retenção anonimiza');
+
+        $client->request('GET', '/master/comercial/campanhas/' . $campanha['id']);
+        $visto = $this->json($client);
+        self::assertSame(['E-mail de teste', 'Teste · 1 e-mail(s)'], [$visto['situacao'] ?? null, $visto['publico'] ?? null], 'o visualizador mostra o mesmo público da lista (L709)');
+    }
+
     #[TestDox('Enviar teste: o 11º na mesma hora é recusado com a mensagem da spec')]
     public function testTetoPorHora(): void
     {
@@ -232,6 +260,7 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame('Você está descadastrado da lista de campanhas; o teste não foi enviado.', $this->json($client)['erro']);
         self::assertSame('bloqueado_descadastro', $this->conexao()->fetchOne('SELECT situacao FROM comercial_envio'));
         self::assertSame(0, $this->contar('comercial_envio_conteudo'));
+        self::assertSame(0, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_campanha WHERE estado = 'teste'"), 'sem envio, sem linha de teste');
     }
 
     /** @return array<string, mixed> o fixo "convite" como a tela manda */

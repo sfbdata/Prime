@@ -92,6 +92,20 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertSame(['convites, ofertas, agradecimentos e novidades · individual ou em grande escala'], $this->textos('section.mc-cp > .mc-cabeca > span'));
     }
 
+    #[TestDox('Enviar e-mail de teste (F3f, L497-498): o modal com o destino travado no Master e a nota, e o "Teste enviado"')]
+    public function testModalDoTeste(): void
+    {
+        $tst = $this->doc->filter('[data-mc] > div.mc-tst[data-mc-tst]');
+        self::assertCount(1, $tst);
+        self::assertSame(['Enviar e-mail de teste'], $this->textos('[data-mc] > div[data-mc-tst] > .mc-tst-caixa > .mc-tst-cabeca > b'));
+        self::assertSame(1, $tst->filter('.mc-tst-cabeca > i.bi-send-check')->count());
+        self::assertSame('ENVIAR PARA (separe vários por vírgula)', preg_replace('/\s+/', ' ', trim($tst->filter('.mc-tst-corpo > label')->text())));
+        self::assertNotNull($tst->filter('.mc-tst-corpo > input[data-mc-tst-para]')->attr('readonly'), 'o destino é só o Master (decisão da coordenação)');
+        self::assertStringContainsString('O teste chega com [TESTE] no assunto e não entra nas métricas da campanha.', $tst->filter('.mc-tst-corpo')->text());
+        self::assertSame(['Cancelar', 'Enviar teste'], array_map('trim', $tst->filter('.mc-tst-rodape > button')->each(static fn (Crawler $b): string => $b->text())));
+        self::assertSame(['Teste enviado'], $this->textos('[data-mc] > div[data-mc-tst-ok] > .mc-tst-caixa > b'));
+    }
+
     #[TestDox('Duas colunas na grade (L.231): 1 · MODELO, 2 · PARA QUEM e 3 · MENSAGEM à esquerda, PRÉVIA DO E-MAIL à direita')]
     public function testDuasColunas(): void
     {
@@ -142,7 +156,7 @@ final class ParcialDoComercialTest extends KernelTestCase
         $quadro = $this->doc->filter('.mc-cp-lado > iframe.mc-cp-previa');
         self::assertSame(['', 'Prévia do e-mail'], [$quadro->attr('sandbox'), $quadro->attr('title')]);
         $barra = '.mc-cp-lado > .mc-cp-barra';
-        self::assertSame(['mc-cp-enviar-grupo', 'mc-cp-vao', 'mc-cp-icone', 'mc-cp-icone', 'mc-cp-icone', 'mc-cp-vao', 'mc-cp-lgpd', 'mc-cp-programar'], $this->doc->filter($barra . ' > *')->each(static fn (Crawler $c): string => (string) $c->attr('class')));
+        self::assertSame(['mc-cp-enviar-grupo', 'mc-cp-vao', 'mc-cp-icone', 'mc-cp-icone', 'mc-cp-icone', 'mc-cp-vao', 'mc-cp-leitura', 'mc-cp-lgpd', 'mc-cp-programar'], $this->doc->filter($barra . ' > *')->each(static fn (Crawler $c): string => (string) $c->attr('class')));
         self::assertSame(['Enviar'], $this->textos($barra . ' > .mc-cp-enviar-grupo > button[data-mc-cp-enviar]'));
         self::assertSame('Programar envio e frequência', $this->doc->filter($barra . ' > .mc-cp-enviar-grupo > button[data-mc-cp-mais]')->attr('title'));
         self::assertSame(['Ver como vai chegar', 'Enviar teste', 'Baixar HTML'], $this->doc->filter($barra . ' > .mc-cp-icone')->each(static fn (Crawler $c): string => (string) $c->attr('title')));
@@ -220,7 +234,8 @@ final class ParcialDoComercialTest extends KernelTestCase
     #[TestDox('Sem script inline (CSP do /master): o bloco traz o próprio arquivo de JS')]
     public function testSemScriptInline(): void
     {
-        $scripts = $this->doc->filter('script');
+        // O catálogo do JS (`catalogo_js`, spec idioma-do-sistema §8) é <script type="application/json">: dado, não código.
+        $scripts = $this->doc->filter('script:not([type="application/json"])');
         self::assertSame(0, $scripts->reduce(static fn (Crawler $s): bool => $s->attr('src') === null)->count());
         self::assertSame(1, $this->doc->filter('script[src*="js/master/comercial-campanha.js"]')->count());
         self::assertSame(1, $this->doc->filter('script[src*="js/master/comercial-relatorio.js"]')->count());

@@ -27,6 +27,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Seccionais da OAB no mapa "Onde estamos atuando" do Painel do Master (spec docs/specs/master-seccionais-oab.md;
@@ -39,11 +40,19 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Janela da OAB dos estados que faltam (spec docs/specs/master-oab-estados-que-faltam.md; desenho L481-495): o GET
  * traz também as subseções e a nota de cada UF e os moldes das URLs de subseção e de nota; os três POST (adicionar
  * subseção, remover subseção, salvar nota) seguem o mesmo contrato dos de cima.
+ *
+ * Idioma (spec idioma-do-sistema, P2a da b5): a resposta e a recusa do próprio controller saem do catálogo
+ * (master.seccionais.*) no idioma da requisição. A recusa dos UseCases (SeccionalRecusada, SeccionalNaoEncontrada,
+ * SubsecaoNaoEncontrada) vai como está, em português, até ganhar chave própria (spec §8).
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class SeccionaisOabController extends AbstractController
 {
     public const CSRF = 'master_seccionais';
+
+    public function __construct(private readonly TranslatorInterface $tradutor)
+    {
+    }
 
     #[Route('/master/dados/seccionais', name: 'master_dados_seccionais', methods: ['GET'])]
     public function listar(ListarSeccionaisUseCase $listar, CsrfTokenManagerInterface $csrf): JsonResponse
@@ -66,7 +75,7 @@ final class SeccionaisOabController extends AbstractController
         return $this->gravar($uf, $request, function (array $corpo) use ($uf, $adicionar): string {
             $subsecao = $adicionar->executar(AdicionarSubsecaoNaSeccionalInput::doJson($this->ator(), $uf, $corpo));
 
-            return sprintf('Subseção adicionada na %s.', $subsecao->getSeccional()->getNome());
+            return $this->tradutor->trans('master.seccionais.subsecao_adicionada', ['seccional' => $subsecao->getSeccional()->getNome()]);
         });
     }
 
@@ -76,7 +85,7 @@ final class SeccionaisOabController extends AbstractController
         return $this->gravar($uf, $request, function () use ($uf, $id, $remover): string {
             $subsecao = $remover->executar(new RemoverSubsecaoDaSeccionalInput($this->ator(), $uf, $id));
 
-            return sprintf('Subseção removida da %s.', $subsecao->getSeccional()->getNome());
+            return $this->tradutor->trans('master.seccionais.subsecao_removida', ['seccional' => $subsecao->getSeccional()->getNome()]);
         });
     }
 
@@ -87,7 +96,7 @@ final class SeccionaisOabController extends AbstractController
             $input = SalvarNotaDaSeccionalInput::doJson($this->ator(), $uf, $corpo);
             $seccional = $salvar->executar($input);
 
-            return sprintf($input->texto === null ? 'Nota da %s apagada.' : 'Nota da %s salva.', $seccional->getNome());
+            return $this->tradutor->trans($input->texto === null ? 'master.seccionais.nota_apagada' : 'master.seccionais.nota_salva', ['seccional' => $seccional->getNome()]);
         });
     }
 
@@ -97,7 +106,7 @@ final class SeccionaisOabController extends AbstractController
         return $this->gravar($uf, $request, function (array $corpo) use ($uf, $editar): string {
             $seccional = $editar->executar(EditarSedeDaSeccionalInput::doJson($this->ator(), $uf, $corpo));
 
-            return sprintf('Sede da %s atualizada.', $seccional->getNome());
+            return $this->tradutor->trans('master.seccionais.sede_atualizada', ['seccional' => $seccional->getNome()]);
         });
     }
 
@@ -107,7 +116,7 @@ final class SeccionaisOabController extends AbstractController
         return $this->gravar($uf, $request, function (array $corpo) use ($uf, $registrar): string {
             $divulgacao = $registrar->executar(RegistrarDivulgacaoNaSeccionalInput::doJson($this->ator(), $uf, $corpo));
 
-            return sprintf('Divulgação registrada na %s: %s.', $divulgacao->getSeccional()->getNome(), $divulgacao->getTipo()->rotulo());
+            return $this->tradutor->trans('master.seccionais.divulgacao_registrada', ['seccional' => $divulgacao->getSeccional()->getNome(), 'tipo' => $divulgacao->getTipo()->rotulo()]);
         });
     }
 
@@ -115,11 +124,11 @@ final class SeccionaisOabController extends AbstractController
     private function gravar(string $uf, Request $request, callable $acao): JsonResponse
     {
         if (!in_array($uf, LocalizacaoDaPessoa::UFS, true)) {
-            return $this->json(['erro' => 'Seccional não encontrada.'], Response::HTTP_NOT_FOUND);
+            return $this->json(['erro' => $this->tradutor->trans('master.seccionais.nao_encontrada')], Response::HTTP_NOT_FOUND);
         }
 
         if (!$this->isCsrfTokenValid(self::CSRF, (string) $request->headers->get('X-CSRF-Token', ''))) {
-            return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
+            return $this->json(['erro' => $this->tradutor->trans('master.seccionais.token_invalido')], Response::HTTP_FORBIDDEN);
         }
 
         try {

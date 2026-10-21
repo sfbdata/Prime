@@ -46,10 +46,9 @@
             <i class="bi bi-megaphone mc-cp-cabeca-ic" aria-hidden="true"></i>
             <b class="mc-cabeca-titulo" id="{{ ids }}-cp-titulo">Central de envios · nova campanha</b>
             {# dc 21.10 L251: abre o bloco Descadastrados (F3c, do 0d) pelo evento `mc:descadastrados-abrir`; o N vem do `mc:resumo`.
-               F3h: o bloco Descadastrados mora na seção Comercial; no modo venda o botão fica de fora (ver o relatório da F3h). #}
-            {% if not venda %}
+               Nas duas seções (dc L251 é o mesmo cabeçalho): o bloco é um só, e o comercial-descadastrados.js o leva para
+               logo antes da Central de onde veio o clique. #}
             <button type="button" class="mc-cp-descad" data-mc-cp-descad title="E-mails que pediram para não receber"><i class="bi bi-slash-circle" aria-hidden="true"></i>Descadastrados (<span data-mc-cp-descad-n>0</span>)</button>
-            {% endif %}
             <span class="mc-cabeca-sub">convites, ofertas, agradecimentos e novidades · individual ou em grande escala</span>
         </div>
         <div class="mc-cp-grade">
@@ -181,6 +180,7 @@
                     <button type="button" class="mc-cp-icone" data-mc-cp-teste title="Enviar teste" aria-label="Enviar teste"><i class="bi bi-send-check" aria-hidden="true"></i></button>
                     <button type="button" class="mc-cp-icone" data-mc-cp-baixar title="Baixar HTML" aria-label="Baixar HTML"><i class="bi bi-download" aria-hidden="true"></i></button>
                     <span class="mc-cp-vao"></span>
+                    {{ include('master/_comercial_leitura.html.twig') }}
                     <span class="mc-cp-lgpd" tabindex="0" title="LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link 'Não quero mais receber', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam." aria-label="LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link 'Não quero mais receber', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam."><i class="bi bi-shield-check" aria-hidden="true"></i></span>
                     <div class="mc-cp-programar" id="{{ ids }}-cp-programar" data-mc-cp-programar data-sem-x="1" role="dialog" aria-label="Programar envio" hidden>
                         <div class="mc-cp-programar-rot">PROGRAMAR ENVIO</div>
@@ -218,8 +218,7 @@
             </div>
         </div>
     </section>
-    {# dc L324 (`secCom`): os KPIs, as Automações e o Relatório só na seção Comercial. O Relatório do dc também aparece na
-       venda (`secCentral`), mas o script dele (9b) é de uma instância só: fica de fora no modo venda (ver o relatório da F3h). #}
+    {# dc L324 (`secCom`): os KPIs e as Automações só na seção Comercial. #}
     {% if not venda %}
     {{ include('master/_comercial_kpis.html.twig') }}
     <section class="mc-caixa" aria-labelledby="mc-auto-titulo">
@@ -240,11 +239,17 @@
             <iframe class="mc-previa-quadro" data-mc-previa-quadro title="Prévia do e-mail" sandbox></iframe>
         </div>
     </section>
-    {% include 'master/_comercial_relatorio.html.twig' %}
     {% endif %}
+    {# O Relatório da Central de envios nas duas seções (dc `secCom` e `secCentral`; spec comercial-relatorio-venda.md),
+       dentro da raiz de cada modo e depois da Central. Os recursos (<link>, <script> e catálogo) vêm só com a da
+       seção Comercial, que está sempre no DOM e vem antes no HTML. #}
+    {{ include('master/_comercial_relatorio.html.twig', {secao: venda ? 'ind' : 'com', recursos: not venda}) }}
+    {# F3f: o modal do teste fica dentro da raiz de cada modo (as duas seções convivem no /master, uma escondida). #}
+    {% include 'master/_comercial_teste.html.twig' %}
 </div>
 {% if not venda %}
 <script src="{{ asset('js/master/comercial.js') }}"></script>
 {% endif %}
 {# Carregado nos dois modos: cada execução só inicia as raízes ainda não iniciadas (a da venda vem depois no HTML). #}
 <script src="{{ asset('js/master/comercial-campanha.js') }}"></script>
+<script src="{{ asset('js/master/comercial-teste.js') }}"></script>
