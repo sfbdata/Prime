@@ -105,6 +105,31 @@ Toca: `security.yaml` (lista de autenticadores), `UserAuthenticator` (extração
 formulário de senha (`email`, `password`, `_csrf_token`, `_remember_me`, um `a[href="/senha/esqueci"]`) não
 muda: o botão do Google é um link para `/login/google`, fora dos campos do formulário.
 
+**Contratos combinados com a 9b (21/10/2026; ela não tem PR aberto nesses arquivos):**
+
+1. **Forma do login** (`tests/Auth/Functional/LoginTelaTest.php`, por filho direto): seguem exatamente 1
+   `a[href="/senha/esqueci"]`, 1 `a[href="/cadastro"]`, 1 `button#lgEntrar > i.bi-box-arrow-in-right` e 1
+   `button.lg-selo` filho direto de `form#lgForm > .lg-cartao__corpo`. O Google entra como `<a>` (nunca um
+   segundo `button` com o ícone de entrar) entre o `#lgEntrar` e o selo, com teste próprio de posição por filho
+   direto.
+2. **Destino:** o serviço extraído leva o que o #184 acrescentou (vários vínculos vão à seleção; o
+   `EntradaController` manda à seleção se faltar escritório na sessão), senão o 403 do Master com vários
+   escritórios volta pelo Google. O autenticador do Google lê e limpa o `target_path` como o `lerAlvo` do
+   `UserAuthenticator` e passa sempre por `/login/entrando?para=` com o `DestinoPosLogin`.
+3. **Rotas:** `/login/google` e o callback públicos no `access_control`, nas `ROTAS_IGNORADAS` do
+   `TenantContextValidatorListener` (como `app_login`) e fora do portão dos Termos; o callback **não** entra
+   nas páginas aceitas como destino (`PAGINAS` do `DestinoPosLogin`).
+4. **E-mail a confirmar:** se confirmar pelo Google (seção 2), pelo mesmo caminho do
+   `ConfirmarCodigoSenhaUseCase`: o UPDATE condicional `ConfirmacaoEmailRepository::confirmarEmailDaConta` (não
+   confirma duas vezes) e o `EmailDaContaConfirmado` despachado uma vez, depois do commit (a 5d escuta).
+5. **Entrega 2 (cadastro pelo Google):** dispara o mesmo `ContaCriadaPeloCadastro` (o link de indicação
+   `/i/{codigo}` do #176 atribui a conta por ele), grava o aceite dos Termos e a ciência da Política
+   (`CienciaPolitica`) como a caixa do #101, e pede o nome do escritório (o Google não dá).
+6. **Proteção do callback:** o `login_throttling` só vale para o formulário; o callback se protege por `state`,
+   `nonce`, PKCE e o limitador próprio (seção 5).
+7. **"Manter conectado":** se o Google não respeitar a caixa, o comportamento muda em relação à senha; vai ao
+   dono junto com a recomendação da seção 4.
+
 ## 8. Material do dono
 
 1. Responder os pontos **[dono]**: seção 3 (A ou B), "Master pelo Google", posição do botão (seção 6) e,
