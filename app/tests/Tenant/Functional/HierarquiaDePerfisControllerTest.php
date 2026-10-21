@@ -538,7 +538,7 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
     /** @return list<string> números dos chips do resumo, na ordem do desenho */
     private function numerosDosChips(Crawler $crawler): array
     {
-        return $crawler->filter('.pf-page > .pf-chips > .pf-chip > b[data-pf-chip-n]')->each(static fn ($b): string => trim($b->text()));
+        return $crawler->filter('.pf-page > .pf-chips > .pf-chip > .pf-chip-txt > b[data-pf-chip-n]')->each(static fn ($b): string => trim($b->text()));
     }
 
     /** @return list<string> os códigos gravados no perfil, em ordem */
