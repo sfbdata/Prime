@@ -18,6 +18,7 @@ final class PedidoDePublico
     public function __construct(
         public readonly string $publico,
         public readonly array $informados = [],
+        public readonly FiltroDoPublico $filtro = new FiltroDoPublico(),
     ) {
         if (!\array_key_exists($publico, PublicosDaCampanha::ROTULOS)) {
             throw new CampanhaRecusada('Público inválido.');
@@ -29,11 +30,16 @@ final class PedidoDePublico
     {
         $publico = \is_string($dados['publico'] ?? null) ? $dados['publico'] : 'leads';
 
+        $filtro = $dados['filtro'] ?? [];
+        if (!\is_array($filtro)) {
+            throw new CampanhaRecusada('Filtro inválido.');
+        }
+
         return new self($publico, match ($publico) {
             'csv' => ListaInformada::doCsv(self::texto($dados['csv'] ?? '')),
             'indiv' => ListaInformada::doIndividual(self::texto($dados['individual'] ?? '')),
             default => [],
-        });
+        }, FiltroDoPublico::deArray($filtro));
     }
 
     private static function texto(mixed $valor): string

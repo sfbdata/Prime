@@ -9,6 +9,7 @@ use App\Comercial\Envio\CarteiroInterface;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\DTO\DestinatarioDaCampanha;
+use App\Comercial\DTO\FiltroDoPublico;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\DestinoDaCampanhaRepository;
 use App\Comercial\Repository\EnvioDeEmailRepository;
@@ -162,7 +163,8 @@ final class ExpansorDeCampanhas
                 return;
             }
             $informados = array_map(static fn (array $d): DestinatarioDaCampanha => new DestinatarioDaCampanha($d['email'], $d['nome']), $campanha['publico_parametros']);
-            $publico = $this->publicos->resolver($campanha['publico'], $informados);
+            // O filtro congelado (§9) volta a valer, com a data desta execução (idade e aniversário).
+            $publico = $this->publicos->resolver($campanha['publico'], $informados, FiltroDoPublico::deArray($campanha['publico_filtro']), $agora);
             $execucao = $campanha['execucoes'] + 1;
             $this->destinos->materializar($campanha['id'], $execucao, $publico->destinatarios, $agora);
             $recorrente = $campanha['estado'] === CampanhaDeEmail::RECORRENTE;

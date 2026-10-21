@@ -69,6 +69,30 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         $this->fila->reset();
     }
 
+    #[TestDox('O filtro congelado (§9) volta a valer na execução: só quem atende é materializado; a lista antiga (sem filtro) ainda lê')]
+    public function testFiltroCongeladoReaplicado(): void
+    {
+        $ana = $this->cadastradoAtivo('ana', 'Ana');
+        $this->perfil($ana, \App\Profile\Enum\Genero::Feminino);
+        $beto = $this->cadastradoAtivo('beto', 'Beto');
+        $this->perfil($beto, \App\Profile\Enum\Genero::Masculino);
+        $emails = [(string) $ana->getEmail(), (string) $beto->getEmail()];
+        $informados = array_map(static fn (string $e): array => ['email' => $e, 'nome' => ''], $emails);
+        $comFiltro = $this->campanha($emails, ['parametros' => ['informados' => $informados, 'filtro' => ['gen' => 'F']], 'total' => 1]);
+        $antiga = $this->campanha($emails);
+
+        $this->expansor()->materializarDevidas(new \DateTimeImmutable());
+
+        self::assertSame([(string) $ana->getEmail()], $this->destinosDe($comFiltro));
+        self::assertSame($emails, $this->destinosDe($antiga), 'sem filtro, a lista de antes, inteira');
+    }
+
+    /** @return list<string> */
+    private function destinosDe(int $campanha): array
+    {
+        return array_map('strval', $this->conexao->fetchFirstColumn('SELECT email FROM comercial_campanha_destino WHERE campanha_id = ? ORDER BY id', [$campanha]));
+    }
+
     #[TestDox('Materializa a execução uma vez só (UNIQUE), libera lotes de 10 com contrapressão e conclui a única como enviada')]
     public function testLoteContrapressaoEConclusao(): void
     {

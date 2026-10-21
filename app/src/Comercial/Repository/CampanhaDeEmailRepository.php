@@ -23,7 +23,8 @@ use Doctrine\Persistence\ManagerRegistry;
  * @phpstan-type Campanha array{
  *     id: int, chave_idempotencia: string, nome: string, modelo_chave: string, modelo_nome: string, modo: string,
  *     assunto: string, selo: string, titulo: string, conteudo: string, publico: string,
- *     publico_parametros: list<array{email: string, nome: string}>, frequencia: string, agendada_para: ?string,
+ *     publico_parametros: list<array{email: string, nome: string}>, publico_filtro: array<string, string>,
+ *     frequencia: string, agendada_para: ?string,
  *     proxima_execucao: ?string, estado: string, motivo: ?string, execucoes: int, total: int, criada_em: string
  * }
  *
@@ -71,7 +72,7 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
      * Grava a campanha confirmada. Null se a chave de idempotência já existia (clique duplo: nada novo é gravado).
      *
      * @param array{chave: string, assunto: string, modelo_chave: string, modelo_nome: string, modo: string, selo: string,
-     *     titulo: string, conteudo: string, publico: string, parametros: ?list<array{email: string, nome: string}>,
+     *     titulo: string, conteudo: string, publico: string, parametros: list<array{email: string, nome: string}>|array{informados: ?list<array{email: string, nome: string}>, filtro: array<string, string>}|null,
      *     frequencia: string, agendada_para: ?\DateTimeImmutable, proxima: \DateTimeImmutable, estado: string,
      *     total: int, criada_por: ?int, agora: \DateTimeImmutable} $c
      */
@@ -296,13 +297,17 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
     private static function campanha(array $l): array
     {
         $parametros = \is_string($l['publico_parametros']) ? json_decode($l['publico_parametros'], true, 4, JSON_THROW_ON_ERROR) : [];
+        $parametros = \is_array($parametros) ? $parametros : [];
+        // Com filtro (§9) a campanha guarda {informados, filtro}; sem filtro, só a lista (o formato de antes).
+        $comFiltro = !array_is_list($parametros);
 
         return [
             'id' => (int) $l['id'], 'chave_idempotencia' => (string) $l['chave_idempotencia'], 'nome' => (string) $l['nome'],
             'modelo_chave' => (string) $l['modelo_chave'], 'modelo_nome' => (string) $l['modelo_nome'], 'modo' => (string) $l['modo'],
             'assunto' => (string) $l['assunto'], 'selo' => (string) $l['selo'], 'titulo' => (string) $l['titulo'],
             'conteudo' => (string) $l['conteudo'], 'publico' => (string) $l['publico'],
-            'publico_parametros' => \is_array($parametros) ? self::destinatarios($parametros) : [],
+            'publico_parametros' => self::destinatarios($comFiltro ? (array) ($parametros['informados'] ?? []) : $parametros),
+            'publico_filtro' => $comFiltro ? self::filtro($parametros['filtro'] ?? []) : [],
             'frequencia' => (string) $l['frequencia'], 'agendada_para' => self::textoOuNulo($l['agendada_para']),
             'proxima_execucao' => self::textoOuNulo($l['proxima_execucao']), 'estado' => (string) $l['estado'],
             'motivo' => self::textoOuNulo($l['motivo']), 'execucoes' => (int) $l['execucoes'], 'total' => (int) $l['total'],
@@ -325,6 +330,12 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
         }
 
         return $saida;
+    }
+
+    /** @return array<string, string> */
+    private static function filtro(mixed $filtro): array
+    {
+        return \is_array($filtro) ? array_filter(array_map(static fn ($v): string => \is_string($v) ? $v : '', $filtro), static fn (string $v): bool => $v !== '') : [];
     }
 
     private static function textoOuNulo(mixed $valor): ?string

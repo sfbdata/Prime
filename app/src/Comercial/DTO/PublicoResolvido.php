@@ -11,12 +11,23 @@ namespace App\Comercial\DTO;
  */
 final class PublicoResolvido
 {
-    /** @param list<DestinatarioDaCampanha> $destinatarios */
+    /**
+     * @param list<DestinatarioDaCampanha> $destinatarios os que recebem (já filtrados)
+     * @param int|null                     $base          M do dc (L663): a lista antes do filtro; null = igual ao total
+     * @param int                          $semInformacao K do dc: ficaram de fora por falta do dado no cadastro
+     */
     public function __construct(
         public readonly array $destinatarios,
         public readonly int $descadastrados,
         public readonly int $semAutorizacao,
+        private readonly ?int $base = null,
+        public readonly int $semInformacao = 0,
     ) {
+    }
+
+    public function base(): int
+    {
+        return $this->base ?? $this->total();
     }
 
     public function total(): int

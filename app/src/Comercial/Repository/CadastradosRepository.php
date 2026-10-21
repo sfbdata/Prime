@@ -63,6 +63,37 @@ class CadastradosRepository
         ));
     }
 
+    /**
+     * Os vínculos válidos (o mesmo `VINCULO_VALIDO` dos públicos) destes endereços, um por linha, para o filtro da
+     * campanha (§9): papel, escritório, lotação, último acesso, a OAB da pessoa e o estado do escritório.
+     *
+     * @param list<string> $emails já em minúsculas
+     *
+     * @return list<array{email: string, userId: int, tenantId: int, primario: bool, lotacao: string, ultimoAcesso: string, oabNumero: ?string, oabUf: ?string, oabStatus: ?string, estado: ?string}>
+     */
+    public function vinculosDe(array $emails): array
+    {
+        if ($emails === []) {
+            return [];
+        }
+        $linhas = $this->conexao->fetchAllAssociative(
+            'SELECT LOWER(u.email) AS email, u.id AS user_id, ut.tenant_id, (r.is_system IS TRUE) AS primario,
+                    COALESCE(l.nome, \'\') AS lotacao, COALESCE(TO_CHAR(ut.last_login_at, \'YYYY-MM-DD HH24:MI:SS\'), \'\') AS ultimo,
+                    u.oab_numero, u.oab_uf, u.oab_status, t.estado '
+            . str_replace('LEFT JOIN tenant_role r', 'LEFT JOIN lotacao l ON l.id = ut.lotacao_id LEFT JOIN tenant_role r', self::VINCULO_VALIDO)
+            . ' AND LOWER(u.email) IN (:emails) ORDER BY u.id, ut.tenant_id',
+            ['emails' => $emails],
+            ['emails' => ArrayParameterType::STRING],
+        );
+
+        return array_map(static fn (array $l): array => [
+            'email' => (string) $l['email'], 'userId' => (int) $l['user_id'], 'tenantId' => (int) $l['tenant_id'],
+            'primario' => (bool) $l['primario'], 'lotacao' => (string) $l['lotacao'], 'ultimoAcesso' => (string) $l['ultimo'],
+            'oabNumero' => self::ouNulo($l['oab_numero']), 'oabUf' => self::ouNulo($l['oab_uf']),
+            'oabStatus' => self::ouNulo($l['oab_status']), 'estado' => self::ouNulo($l['estado']),
+        ], $linhas);
+    }
+
     /** @return list<array{email: string, nome: string}> */
     private function lista(string $filtro): array
     {
@@ -72,5 +103,12 @@ class CadastradosRepository
         );
 
         return array_map(static fn (array $l): array => ['email' => (string) $l['email'], 'nome' => (string) $l['nome']], $linhas);
+    }
+
+    private static function ouNulo(mixed $valor): ?string
+    {
+        $texto = trim((string) $valor);
+
+        return $texto === '' ? null : $texto;
     }
 }
