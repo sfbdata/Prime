@@ -867,7 +867,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $c = $client->getCrawler();
         self::assertCount(1, $c->filter('.mm-arranjo > .mm-trilho > .mm-cartao.mm-trilho-atencao > .mm-cartao-cabeca > h2.mm-cartao-titulo'));
-        self::assertSame('Nada pedindo atenção nesta lista.', trim($c->filter('.mm-trilho > .mm-trilho-atencao > .mm-atencao-vazio')->text()));
+        self::assertSame('Nada pedindo atenção.', trim($c->filter('.mm-trilho > .mm-trilho-atencao > .mm-atencao-vazio')->text()));
         self::assertCount(0, $c->filter('.mm-trilho-atencao > .mm-trilho-rodape'));
     }
 
@@ -933,7 +933,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Outra meta', $corpo);
     }
 
-    #[TestDox('"Precisa de atenção" (dc `atencao`) traz as atrasadas de todas as metas: na aba Criei a delegada atrasada aparece, com quem está, e a legenda conta 1')]
+    #[TestDox('"Precisa de atenção" (dc `atencao`) traz as atrasadas de todas as metas: na aba Criei a delegada atrasada aparece, "de <criador>" como em qualquer aba, e a legenda conta 1')]
     public function testAtencaoNaAbaCrieiPelaRegra(): void
     {
         $client             = static::createClient();
@@ -951,7 +951,9 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $itens);
         self::assertSame('/tarefas/' . $atrasada->getId(), $itens->attr('href'));
         self::assertSame('Delegada atrasada · Pasta ' . $atrasada->getPasta()->getNup(), trim(preg_replace('/\s+/', ' ', $itens->filter('.mm-atencao-titulo')->text()) ?? ''));
-        self::assertStringEndsWith('· Colega de Escritório', trim(preg_replace('/\s+/', ' ', $itens->filter('.mm-atencao-meta')->text()) ?? ''), 'na aba Criei mostra com quem está');
+        self::assertStringEndsWith('· de Usuário Metas', trim(preg_replace('/\s+/', ' ', $itens->filter('.mm-atencao-meta')->text()) ?? ''), 'dc P:178: sempre "de <criador>", também na aba Criei');
+        $client->request('GET', '/tarefas/minhas?aba=responsavel');
+        self::assertStringEndsWith('· de Usuário Metas', trim(preg_replace('/\s+/', ' ', $client->getCrawler()->filter('.mm-trilho > .mm-cartao.mm-trilho-atencao > a.mm-atencao-item .mm-atencao-meta')->text()) ?? ''), 'o mesmo item em outra aba');
         self::assertCount(0, $c->filter('.mm-trilho-atencao > .mm-atencao-vazio'));
         self::assertContains('1 atrasada(s)', $c->filter('.mm-trilho-andamento .mm-fatias > .mm-fatia')->each(static fn ($f): string => trim(preg_replace('/\s+/', ' ', $f->text()) ?? '')));
     }

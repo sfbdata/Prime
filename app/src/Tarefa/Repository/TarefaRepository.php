@@ -181,7 +181,7 @@ class TarefaRepository extends ServiceEntityRepository
      * que venceu primeiro, até `$limite`. Mesmo universo e mesmo recorte de `contarAndamento`.
      *
      * Duas idas ao banco, nenhuma por linha: os ids com o limite (o LIMIT não convive com junção de
-     * coleção) e depois as metas com pasta, criador e responsáveis já carregados, que o cartão lê.
+     * coleção) e depois as metas com pasta e criador já carregados, que o cartão lê.
      *
      * @param list<int> $pastasOcultas
      * @return Tarefa[]
@@ -205,10 +205,9 @@ class TarefaRepository extends ServiceEntityRepository
         }
 
         return $this->createQueryBuilder('t')
-            ->addSelect('p', 'c', 'r')
+            ->addSelect('p', 'c')
             ->leftJoin('t.pasta', 'p')
             ->leftJoin('t.criadoPor', 'c')
-            ->leftJoin('t.responsaveis', 'r')
             ->andWhere('t.id IN (:ids)')
             ->setParameter('ids', $ids)
             ->orderBy('t.prazo', 'ASC')

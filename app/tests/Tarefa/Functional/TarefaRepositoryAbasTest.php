@@ -493,6 +493,8 @@ final class TarefaRepositoryAbasTest extends KernelTestCase
         $atencao = $this->repo->findAtrasadasParaAtencao($eu, 4);
 
         self::assertSame(['Venceu há 9', 'Venceu há 6', 'Venceu há 3', 'Venceu há 2'], $this->titulos($atencao));
-        self::assertTrue($atencao[0]->getResponsaveis()->isInitialized(), 'responsáveis já carregados, sem ida ao banco por item');
+        $uow = $this->em->getUnitOfWork();
+        self::assertFalse($uow->isUninitializedObject($atencao[0]->getPasta()), 'pasta já carregada, sem ida ao banco por item');
+        self::assertFalse($uow->isUninitializedObject($atencao[0]->getCriadoPor()), 'criador já carregado, sem ida ao banco por item');
     }
 }

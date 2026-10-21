@@ -120,13 +120,13 @@
                             <span class="mm-atencao-titulo">{{ meta.titulo }} · Pasta {{ meta.pasta.nup }}</span>
                             <span class="mm-atencao-meta">
                                 prazo {{ meta.prazo ? meta.prazo|date('d/m/Y') : 'não informado' }} · {{ info.texto }}
-                                {%- if aba.value == 'criei' and meta.responsaveis|length > 0 %} · {{ (meta.responsaveis|first).fullName }}
-                                {%- elseif meta.criadoPor %} · de {{ meta.criadoPor.fullName }}{% endif %}
+                                {#- dc `atencao` (P:178): sempre "de <criador>", em qualquer aba; a lista não depende da aba. #}
+                                {%- if meta.criadoPor %} · de {{ meta.criadoPor.fullName }}{% endif %}
                             </span>
                         </span>
                     </a>
                 {% else %}
-                    <div class="mm-atencao-vazio">Nada pedindo atenção nesta lista.</div>
+                    <div class="mm-atencao-vazio">Nada pedindo atenção.</div>
                 {% endfor %}
             </div>
 
