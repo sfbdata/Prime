@@ -1,7 +1,7 @@
 {# Uma meta no modo cartões.
    `meta` = App\Entity\Tarefa\Tarefa · `tom` = tom do grupo que a contém (pinta a faixa lateral)
    O número antes do título é o da meta NA PASTA (R239, decisão do dono 14/10), o mesmo da aba Metas da
-   pasta; vem pré-carregado em `painel.numeroNaPasta`. Número global não existe por escritório: não aparece. #}
+   pasta; vem pré-carregado em `painel.numeroNaPasta`. Depois do título, o selo "Nº 0001" (nº da meta no escritório). #}
 {# Vem pré-carregado do UseCase: perguntar à entidade custaria uma consulta por linha. #}
 {% set acompanhando = painel.estaAcompanhando(meta.id) %}
 
@@ -15,7 +15,7 @@
     <div class="mm-meta-corpo">
         <div class="mm-meta-topo">
             {% set numPasta = painel.numeroNaPasta(meta.id) %}
-            <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-meta-titulo" title="{{ meta.titulo }}">{% if numPasta %}<span class="mm-meta-num" title="Meta {{ numPasta }} da pasta {{ meta.pasta.nup }}">{{ numPasta }}.</span>{% endif %}{{ meta.titulo }}</a>
+            <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-meta-titulo" title="{{ meta.titulo }}">{% if numPasta %}<span class="mm-meta-num" title="Meta {{ numPasta }} da pasta {{ meta.pasta.nup }}">{{ numPasta }}.</span>{% endif %}{{ meta.titulo }}</a>{{ include('tarefa/_numero_global.html.twig', {numero: meta.numero, local: numPasta}) }}
             {% if meta.pasta.prioridade.value != 'normal' %}
                 <span class="mm-prioridade tom-{{ meta.pasta.prioridade.value == 'urgente' ? 'danger' : 'warn' }}">
                     <i class="bi bi-flag-fill"></i>{{ meta.pasta.prioridadeLabel }}

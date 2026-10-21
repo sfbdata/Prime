@@ -275,6 +275,8 @@ final class PurgarEscritorioUseCase
         // não são TenantAware); sai explicitamente para não ficar órfão.
         ['central_master_estado', 'tenant_id = :tenant'],
         ['central_master_resposta', 'tenant_id = :tenant'],
+        // Contador da sequência de metas do escritório ("Nº 0001"): FK de tenant NO ACTION, nada o referencia.
+        ['tarefa_numeracao', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],

@@ -292,6 +292,21 @@ dos avisos e trava a repetição). Nos outros dias ele passa e não envia nada.
 >
 > Configurar o cron é do dono.
 
+### Número das metas antigas (uma vez, depois da publicação)
+
+As metas ganham um número no escritório ("Nº 0001") ao serem criadas. As que já existiam nascem sem
+número (e a tela não mostra o selo) até este comando rodar. Rode **uma vez depois da publicação** da
+versão com a migration `Version20261020148700`:
+
+```
+docker exec -w /var/www/app jusprime_php_prod php bin/console app:tarefa:numerar-metas --dry-run
+docker exec -w /var/www/app jusprime_php_prod php bin/console app:tarefa:numerar-metas
+```
+
+O `--dry-run` lista quantas metas cada escritório teria numeradas e não grava nada. A numeração é por
+escritório, em ordem de criação, a partir do próximo número livre; rodar de novo não muda nada. Para um
+escritório só: `--escritorio=ID`. Não vai para o cron.
+
 ### Personalizar configuração
 
 Variáveis de ambiente que sobrescrevem os padrões do script:
