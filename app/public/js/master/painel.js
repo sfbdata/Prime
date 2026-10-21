@@ -257,6 +257,7 @@
       + (S.mapaQuem === 'esc' && G.semEnd > 0 ? '<div class="mp-uf-semend"><span><i class="bi bi-geo"></i>Sem endereço no cadastro</span><b>' + num(G.semEnd) + '</b></div>' : '')
       + (ehPes && G.semLoc > 0 ? '<div class="mp-uf-semend" title="Sem lotação Cidade/UF, sem UF da OAB e sem estado do escritório"><span><i class="bi bi-geo"></i>Sem localização no cadastro</span><b>' + num(G.semLoc) + '</b></div>' : '')
       + '<div class="mp-uf-total"><span>Total geral</span><span>' + num(ufTotal) + '</span></div>'
+      + avisoHtml()
       + '<button type="button" class="mp-faltam-btn' + (on ? ' on' : '') + '" data-faltam title="Mostrar onde ainda não temos usuários"><i class="bi bi-bullseye"></i><span>' + (on ? 'Ocultar o que falta' : (br ? 'Estados que faltam' : 'Países que faltam')) + '</span><span class="mp-faltam-n">' + faltamN + '</span><i class="bi ' + (on ? 'bi-chevron-up' : 'bi-chevron-down') + '"></i></button>'
       + (on ? '<div class="mp-faltam"><div class="mp-faltam-cob">Cobertura: <b>' + feitos + ' de ' + tot + ' (' + Math.round(feitos / tot * 100) + '%)</b> · faltam ' + faltamN + ' para alcançar ' + meta + '</div>'
         + '<div class="mp-faltam-barra"><div style="--w:' + Math.round(feitos / tot * 100) + '%"></div></div><div class="mp-faltam-lista">'
@@ -411,21 +412,26 @@
      O estado que falta (L140) e a linha da UF (L118) abrem, só no Brasil, a janela da OAB daquela UF: a sede (o MESMO
      "Editar sede" de cima), as subseções (adicionar e remover) e a nota explicativa. Tudo vem do GET das seccionais
      (subseções e nota por UF); cada escrita é um POST com o token no header e recarrega as seccionais. No Mundo o
-     item segue sem clique (a janela é de seccional). O seletor de modos (L134) NÃO entra: os rótulos
+     item tem o mesmo visual e o clique só avisa que a janela é dos estados do Brasil (DONO). O seletor de modos (L134) NÃO entra: os rótulos
      e o efeito estão no trecho truncado do desenho (pendência da frente). */
   const OAB_TOOLTIP = 'Ver endereços da OAB e escrever nota';
   const OAB_SEM_ENDERECO = 'Endereço não cadastrado. Confira no CFOAB.';
   const OAB_NOTA_EXEMPLO = 'Ex.: contato com a presidente da subseção, enviar material em novembro';
   const OAB_MAPS = 'https://www.google.com/maps/search/?api=1&query=';
+  const OAB_SO_BRASIL = 'A janela da OAB vale só para os estados do Brasil.';
+  const OAB_SEM_CARGA = 'Não foi possível carregar as seccionais agora. Recarregue a página.';
   const OAB = { uf: null, sub: '', rascunho: null, form: null, msg: null, enviando: false };
   const conta = (n, um, varios) => (n === 1 ? '1 ' + um : num(n) + ' ' + varios);
-  const oabQuantos = n => (S.mapaQuem === 'esc' ? conta(n, 'escritório', 'escritórios') : conta(n, 'usuário', 'usuários'));
+  // Unidade do número da linha (L118), coerente com a visão: Escritórios, Só primários ou Pessoas (spec, DONO).
+  const oabUnidade = () => (S.mapaQuem === 'esc' ? ['escritório', 'escritórios'] : S.mapaUsu === 'prim' ? ['primário', 'primários'] : ['usuário', 'usuários']);
+  const oabQuantos = n => { const [um, varios] = oabUnidade(); return n > 0 ? conta(n, um, varios) : 'sem ' + varios; };
   // Subtítulo do item (`f.sub`, DONO): "N subseções" quando há alguma, senão "sem endereço" sem a sede, senão nada.
   const faltamSub = s => (!s ? '' : s.subsecoes.length ? conta(s.subsecoes.length, 'subseção', 'subseções') : (s.endereco ? '' : 'sem endereço'));
 
-  // Item da lista dos que faltam (L140): ponto, nome, ícone de nota, subtítulo e seta. No Mundo, sem clique nem seta.
+  // Item da lista dos que faltam (L140): ponto, nome, ícone de nota, subtítulo e seta. No Mundo, o mesmo visual do
+  // desenho (tooltip, seta, mão e realce); só a ação muda: o clique avisa que a janela é dos estados (DONO).
   function faltamItem(f) {
-    if (!f.uf) return '<div class="mp-faltam-uf"><span class="mp-faltam-ponto"></span><span class="mp-faltam-nome">' + esc(f.r) + '</span></div>';
+    if (!f.uf) return '<div class="mp-faltam-uf is-oab" role="button" tabindex="0" data-oab-mundo title="' + OAB_TOOLTIP + '"><span class="mp-faltam-ponto"></span><span class="mp-faltam-nome">' + esc(f.r) + '</span><span class="mp-faltam-sub"></span><i class="bi bi-chevron-right"></i></div>';
     const sec = secDe(f.uf);
     return '<div class="mp-faltam-uf is-oab" role="button" tabindex="0" data-oab-uf="' + esc(f.uf) + '" title="' + OAB_TOOLTIP + '"><span class="mp-faltam-ponto"></span><span class="mp-faltam-nome">' + esc(f.r) + '</span>'
       + (sec && sec.nota ? '<i class="bi bi-sticky-fill" title="Tem nota"></i>' : '')
@@ -447,18 +453,21 @@
     return elOab;
   }
 
+  // Carga das seccionais falhada antes: o clique tenta de novo (se falhar outra vez, o renderOab avisa).
   function abrirOab(uf, sub) {
     Object.assign(OAB, { uf, sub, rascunho: null, form: null, msg: null, enviando: false });
+    if (SEC.estado === 'falhou') SEC.estado = null;
     secGarantir();
     renderOab();
   }
 
   function fecharOab() { OAB.uf = null; renderOab(); }
 
-  // Sem os dados ainda: espera a carga (o finally do carregarSeccionais chama de novo). Carga falhou: não abre.
+  // Sem os dados ainda: espera a carga (o finally do carregarSeccionais chama de novo). Carga falhou: não abre e
+  // mostra o aviso de erro do painel.
   function renderOab() {
     const host = oabHost(), sec = OAB.uf ? secDe(OAB.uf) : null;
-    if (OAB.uf && !sec && SEC.estado === 'falhou') OAB.uf = null;
+    if (OAB.uf && !sec && SEC.estado === 'falhou') { OAB.uf = null; oabAvisar(OAB_SEM_CARGA); }
     raiz.classList.toggle('mp-oab-aberta', !!sec);
     host.innerHTML = sec ? oabJanela(sec) : '';
   }
@@ -539,14 +548,23 @@
     }, erro => { OAB.enviando = false; OAB.msg = { ok: false, texto: erro || 'Não foi possível salvar agora. Recarregue a página.' }; renderOab(); });
   }
 
-  // Estado que falta e linha da UF: clique ou Enter/Espaço abrem a janela (só itens com data-oab-uf, só no Brasil).
-  function oabPeloAlvo(alvo) {
-    const uf = alvo.dataset.oabUf, n = alvo.dataset.oabN;
-    abrirOab(uf, uf + ' · ' + (n ? oabQuantos(+n) : (S.mapaQuem === 'esc' ? 'sem escritórios' : 'sem usuários')) + ' no BlueJus');
+  // Aviso do painel (avisoHtml), embaixo do total da tabela de UFs.
+  function oabAvisar(msg) {
+    S.aviso = msg ? { ok: false, msg } : null;
+    if (S.sec === 'visao' && D.visao && document.getElementById('mp-uf-tab')) renderMapa();
   }
-  elSecao.addEventListener('click', e => { const alvo = e.target.closest('[data-oab-uf]'); if (alvo) oabPeloAlvo(alvo); });
+
+  // Estado que falta e linha da UF: clique ou Enter/Espaço abrem a janela (Brasil); no Mundo, só o aviso.
+  // O número da linha (data-oab-n) é comparado como número: "0" ou 0 vira "sem usuários/escritórios/primários".
+  function oabPeloAlvo(alvo) {
+    if (alvo.hasAttribute('data-oab-mundo')) return oabAvisar(OAB_SO_BRASIL);
+    const uf = alvo.dataset.oabUf, n = Number(alvo.dataset.oabN || 0);
+    if (S.aviso) oabAvisar(null);
+    abrirOab(uf, uf + ' · ' + oabQuantos(n) + ' no BlueJus');
+  }
+  elSecao.addEventListener('click', e => { const alvo = e.target.closest('[data-oab-uf], [data-oab-mundo]'); if (alvo) oabPeloAlvo(alvo); });
   elSecao.addEventListener('keydown', e => {
-    const alvo = (e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-oab-uf]');
+    const alvo = (e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-oab-uf], [data-oab-mundo]');
     if (alvo) { e.preventDefault(); oabPeloAlvo(alvo); }
   });
   // Esc fecha a janela só quando nada está aberto por cima (Editar sede ou a confirmação): captura, antes dos outros.

@@ -243,6 +243,24 @@ final class SeccionaisOabJanelaDaOabTest extends JusPrimeWebTestCase
         }
     }
 
+    #[TestDox('trilha: reescrever a nota mostra "Campos alterados: texto" (os carimbos de quem e quando não contam)')]
+    public function testTrilhaDaNotaReescrita(): void
+    {
+        $this->entrar($this->master);
+        $this->postar('/master/seccionais/AL/nota', ['texto' => 'Primeira']);
+        self::assertResponseIsSuccessful();
+        $this->postar('/master/seccionais/AL/nota', ['texto' => 'Segunda']);
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', '/master/dados/auditoria', server: ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseIsSuccessful();
+        $alteradas = array_values(array_filter($this->json()['registros'], static fn (array $r): bool => $r['acao'] === 'Nota da seccional alterada'));
+
+        self::assertNotEmpty($alteradas, 'a trilha mostra "Nota da seccional alterada"');
+        self::assertSame('Campos alterados: texto', $alteradas[0]['detalhe']);
+        self::assertSame('Plataforma (sem conta)', $alteradas[0]['conta']);
+    }
+
     /**
      * @param array<string, mixed> $json
      *

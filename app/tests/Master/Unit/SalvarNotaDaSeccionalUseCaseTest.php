@@ -45,12 +45,12 @@ final class SalvarNotaDaSeccionalUseCaseTest extends TestCase
         $this->seccionais->method('buscarPorUf')->willReturnCallback(fn (string $uf): ?SeccionalOab => $uf === 'AM' ? $this->seccional : null);
     }
 
-    #[TestDox('sem nota: cria a nota aparada com quem e quando, dentro do escopo de plataforma')]
+    #[TestDox('sem nota: cria a nota aparada com quem e quando, com a seccional travada e dentro do escopo de plataforma')]
     public function testCria(): void
     {
-        $this->notas->method('daSeccional')->willReturn(null);
+        $this->travaEntrega(null);
         $gravada = null;
-        $this->notas->expects($this->once())->method('salvar')->with(self::isInstanceOf(NotaDaSeccional::class), true)
+        $this->notas->expects($this->once())->method('salvar')->with(self::isInstanceOf(NotaDaSeccional::class))
             ->willReturnCallback(function (NotaDaSeccional $nota) use (&$gravada): void {
                 self::assertTrue($this->escopo->estaLigado(), 'grava dentro do escopo de plataforma');
                 $gravada = $nota;
@@ -66,12 +66,12 @@ final class SalvarNotaDaSeccionalUseCaseTest extends TestCase
         self::assertFalse($this->escopo->estaLigado());
     }
 
-    #[TestDox('com nota: reescreve a MESMA nota (uma por UF), com o novo autor e a nova data')]
+    #[TestDox('com nota: reescreve a MESMA nota (uma por UF), com o novo autor e a nova data, sem criar outra')]
     public function testReescreve(): void
     {
         $nota = new NotaDaSeccional($this->seccional, 'Antiga', null, new \DateTimeImmutable('2026-10-01'));
-        $this->notas->method('daSeccional')->with($this->seccional)->willReturn($nota);
-        $this->notas->expects($this->once())->method('salvar')->with($nota, true);
+        $this->travaEntrega($nota);
+        $this->notas->expects($this->never())->method('salvar');
 
         $this->useCase()->executar(new SalvarNotaDaSeccionalInput($this->master, 'AM', 'Nova'));
 
@@ -80,13 +80,28 @@ final class SalvarNotaDaSeccionalUseCaseTest extends TestCase
         self::assertSame('2026-10-21', $nota->getAtualizadaEm()->format('Y-m-d'));
     }
 
-    #[TestDox('texto vazio apaga a nota que houver, dentro do escopo de plataforma')]
+    #[TestDox('corrida da primeira nota: outra gravação criou a nota enquanto esta esperava a trava; reescreve (a última vence), sem inserir de novo')]
+    public function testCorridaDaPrimeiraNota(): void
+    {
+        // Antes da trava não havia nota; quem estava na frente da fila a criou. A leitura que vale é a de dentro da trava.
+        $daOutraGravacao = new NotaDaSeccional($this->seccional, 'Da primeira gravação', null, new \DateTimeImmutable('2026-10-21 08:59'));
+        $this->notas->expects($this->never())->method('daSeccional');
+        $this->travaEntrega($daOutraGravacao);
+        $this->notas->expects($this->never())->method('salvar');
+
+        $this->useCase()->executar(new SalvarNotaDaSeccionalInput($this->master, 'AM', 'Da segunda gravação'));
+
+        self::assertSame('Da segunda gravação', $daOutraGravacao->getTexto());
+        self::assertSame($this->master, $daOutraGravacao->getAtualizadaPor());
+    }
+
+    #[TestDox('texto vazio apaga a nota que houver, com a seccional travada e dentro do escopo de plataforma')]
     public function testVazioApaga(): void
     {
         $nota = new NotaDaSeccional($this->seccional, 'Antiga', null, new \DateTimeImmutable('2026-10-01'));
-        $this->notas->method('daSeccional')->willReturn($nota);
+        $this->travaEntrega($nota);
         $this->notas->expects($this->never())->method('salvar');
-        $this->notas->expects($this->once())->method('remover')->with($nota, true)
+        $this->notas->expects($this->once())->method('remover')->with($nota)
             ->willReturnCallback(fn () => self::assertTrue($this->escopo->estaLigado()));
 
         $this->useCase()->executar(SalvarNotaDaSeccionalInput::doJson($this->master, 'AM', ['texto' => "  \n "]));
@@ -95,17 +110,18 @@ final class SalvarNotaDaSeccionalUseCaseTest extends TestCase
     #[TestDox('texto vazio sem nota gravada: não faz nada')]
     public function testVazioSemNota(): void
     {
-        $this->notas->method('daSeccional')->willReturn(null);
+        $this->travaEntrega(null);
         $this->notas->expects($this->never())->method('salvar');
         $this->notas->expects($this->never())->method('remover');
 
         $this->useCase()->executar(SalvarNotaDaSeccionalInput::doJson($this->master, 'AM', []));
     }
 
-    #[TestDox('texto acima de 1000 caracteres: recusa com a mensagem e nada muda; 1000 exatos passam')]
+    #[TestDox('texto acima de 1000 caracteres: recusa com a mensagem e nem trava; 1000 exatos passam')]
     public function testLonga(): void
     {
-        $this->notas->method('daSeccional')->willReturn(null);
+        $this->notas->expects($this->once())->method('gravarComTrava')
+            ->willReturnCallback(fn (SeccionalOab $s, callable $acao) => $acao(null));
         $this->notas->expects($this->once())->method('salvar');
 
         $this->useCase()->executar(new SalvarNotaDaSeccionalInput($this->master, 'AM', str_repeat('ç', 1000)));
@@ -118,10 +134,20 @@ final class SalvarNotaDaSeccionalUseCaseTest extends TestCase
     #[TestDox('linha da seccional ausente: SeccionalNaoEncontrada')]
     public function testSemLinha(): void
     {
-        $this->notas->expects($this->never())->method('salvar');
+        $this->notas->expects($this->never())->method('gravarComTrava');
 
         $this->expectException(SeccionalNaoEncontrada::class);
         $this->useCase()->executar(new SalvarNotaDaSeccionalInput($this->master, 'SP', 'Texto'));
+    }
+
+    /** A trava da seccional entrega à ação a nota lida DENTRO dela (com o escopo de plataforma ligado). */
+    private function travaEntrega(?NotaDaSeccional $nota): void
+    {
+        $this->notas->expects($this->once())->method('gravarComTrava')->with($this->seccional)
+            ->willReturnCallback(function (SeccionalOab $s, callable $acao) use ($nota): void {
+                self::assertTrue($this->escopo->estaLigado(), 'a gravação travada roda dentro do escopo de plataforma');
+                $acao($nota);
+            });
     }
 
     private function useCase(): SalvarNotaDaSeccionalUseCase

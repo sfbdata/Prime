@@ -65,20 +65,33 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
         self::assertStringNotContainsString('<span>0</span>', $js, 'some o "0" de hoje');
         self::assertStringContainsString("const OAB_TOOLTIP = 'Ver endereços da OAB e escrever nota';", self::bloco());
         self::assertStringContainsString('<div class="mp-faltam-uf is-oab" role="button" tabindex="0" data-oab-uf="\' + esc(f.uf) + \'" title="\' + OAB_TOOLTIP + \'">', $item);
-        self::assertNaOrdem(substr($item, (int) strpos($item, 'is-oab')), ['mp-faltam-ponto', 'mp-faltam-nome', '<i class="bi bi-sticky-fill" title="Tem nota"></i>', 'mp-faltam-sub', 'bi-chevron-right']);
+        self::assertNaOrdem(substr($item, (int) strpos($item, 'const sec')), ['mp-faltam-ponto', 'mp-faltam-nome', '<i class="bi bi-sticky-fill" title="Tem nota"></i>', 'mp-faltam-sub', 'bi-chevron-right']);
         self::assertStringContainsString("(sec && sec.nota ? '<i class=\"bi bi-sticky-fill\"", $item, 'o ícone só com nota');
     }
 
-    #[TestDox('L140: no Mundo o item segue sem clique (sem data-oab-uf, sem tooltip, sem seta)')]
+    #[TestDox('L140: no Mundo o item tem o MESMO visual (tooltip, seta, mão e realce); o clique só mostra o aviso do painel')]
     public function testItemNoMundo(): void
     {
         $item = self::funcao('faltamItem');
         $mundo = substr($item, 0, (int) strpos($item, 'const sec'));
 
-        self::assertStringContainsString("if (!f.uf) return '<div class=\"mp-faltam-uf\">", $mundo);
-        self::assertStringNotContainsString('data-oab-uf', $mundo);
-        self::assertStringNotContainsString('bi-chevron-right', $mundo);
+        self::assertStringContainsString("if (!f.uf) return '<div class=\"mp-faltam-uf is-oab\" role=\"button\" tabindex=\"0\" data-oab-mundo title=\"' + OAB_TOOLTIP + '\">", $mundo);
+        self::assertStringContainsString('<i class="bi bi-chevron-right"></i></div>', $mundo);
+        self::assertStringNotContainsString('data-oab-uf', $mundo, 'no Mundo não há janela');
         self::assertStringContainsString('.map(p => ({ uf: null, r: p }))', self::arquivo('public/js/master/painel.js'));
+        self::assertStringContainsString("const OAB_SO_BRASIL = 'A janela da OAB vale só para os estados do Brasil.';", self::bloco());
+        self::assertStringContainsString("if (alvo.hasAttribute('data-oab-mundo')) return oabAvisar(OAB_SO_BRASIL);", self::funcao('oabPeloAlvo'));
+        self::assertStringContainsString("e.target.closest('[data-oab-uf], [data-oab-mundo]')", self::bloco());
+        self::assertStringContainsString("+ '<div class=\"mp-uf-total\"><span>Total geral</span><span>' + num(ufTotal) + '</span></div>'\n      + avisoHtml()", self::arquivo('public/js/master/painel.js'), 'o aviso do painel embaixo do total');
+    }
+
+    #[TestDox('carga das seccionais falhada: o clique tenta de novo e, se falhar outra vez, mostra o aviso de erro do painel')]
+    public function testCargaFalhada(): void
+    {
+        self::assertStringContainsString("if (SEC.estado === 'falhou') SEC.estado = null;\n    secGarantir();", self::funcao('abrirOab'));
+        self::assertStringContainsString("if (OAB.uf && !sec && SEC.estado === 'falhou') { OAB.uf = null; oabAvisar(OAB_SEM_CARGA); }", self::funcao('renderOab'));
+        self::assertStringContainsString("const OAB_SEM_CARGA = 'Não foi possível carregar as seccionais agora. Recarregue a página.';", self::bloco());
+        self::assertStringContainsString('S.aviso = msg ? { ok: false, msg } : null;', self::funcao('oabAvisar'));
     }
 
     #[TestDox('subtítulo do item (DONO): "N subseções", senão "sem endereço" sem a sede, senão vazio')]
@@ -97,14 +110,24 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
         self::assertStringContainsString('const oab = NM[uf] ? \' is-oab" role="button" tabindex="0" data-oab-uf="\' + esc(uf) + \'" data-oab-n="\' + n + \'"\' : \'"\';', $js);
         self::assertStringContainsString('.mp-uf-lin:hover { background: #f5fafd; }', $css);
         self::assertStringContainsString('.mp-uf-lin.is-oab { cursor: pointer; }', $css);
-        self::assertStringContainsString("elSecao.addEventListener('click', e => { const alvo = e.target.closest('[data-oab-uf]'); if (alvo) oabPeloAlvo(alvo); });", self::bloco());
+        self::assertStringContainsString("elSecao.addEventListener('click', e => { const alvo = e.target.closest('[data-oab-uf], [data-oab-mundo]'); if (alvo) oabPeloAlvo(alvo); });", self::bloco());
     }
 
     #[TestDox('título e subtítulo (DONO): o nome da seccional e "<UF> · sem usuários no BlueJus" para o estado que falta')]
     public function testTituloESubtitulo(): void
     {
         self::assertStringContainsString('<b id="mpOabTitulo">\' + esc(sec.nome) + \'</b><span>\' + esc(OAB.sub) + \'</span>', self::funcao('oabJanela'));
-        self::assertStringContainsString("abrirOab(uf, uf + ' · ' + (n ? oabQuantos(+n) : (S.mapaQuem === 'esc' ? 'sem escritórios' : 'sem usuários')) + ' no BlueJus');", self::funcao('oabPeloAlvo'));
+        self::assertStringContainsString("abrirOab(uf, uf + ' · ' + oabQuantos(n) + ' no BlueJus');", self::funcao('oabPeloAlvo'));
+    }
+
+    #[TestDox('subtítulo pela linha: número comparado como número ("0" vira "sem ..."), na unidade da visão (escritórios, primários, usuários)')]
+    public function testSubtituloPelaLinha(): void
+    {
+        $bloco = self::bloco();
+
+        self::assertStringContainsString("const uf = alvo.dataset.oabUf, n = Number(alvo.dataset.oabN || 0);", self::funcao('oabPeloAlvo'));
+        self::assertStringContainsString("const oabUnidade = () => (S.mapaQuem === 'esc' ? ['escritório', 'escritórios'] : S.mapaUsu === 'prim' ? ['primário', 'primários'] : ['usuário', 'usuários']);", $bloco);
+        self::assertStringContainsString("const oabQuantos = n => { const [um, varios] = oabUnidade(); return n > 0 ? conta(n, um, varios) : 'sem ' + varios; };", $bloco);
     }
 
     #[TestDox('L484-493: a caixa tem faixa, corpo e rodapé; o corpo, as três seções na ordem; o rodapé, Fechar e Salvar nota')]

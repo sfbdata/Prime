@@ -7,6 +7,7 @@ namespace App\Master\Repository;
 use App\Master\Entity\NotaDaSeccional;
 use App\Master\Entity\SeccionalOab;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -25,6 +26,24 @@ class NotaDaSeccionalRepository extends ServiceEntityRepository
     public function daSeccional(SeccionalOab $seccional): ?NotaDaSeccional
     {
         return $this->findOneBy(['seccional' => $seccional]);
+    }
+
+    /**
+     * Gravação idempotente da nota de UMA seccional: abre uma transação, trava a linha da seccional
+     * (SELECT ... FOR UPDATE) e só então lê a nota e entrega à `$acao`, que cria, reescreve ou apaga (sem flush;
+     * o flush e o commit são daqui). Duas gravações ao mesmo tempo na mesma UF ficam em fila na trava: a segunda
+     * já enxerga a nota criada pela primeira e a reescreve (a última gravação vence), em vez de bater na
+     * unicidade por seccional e virar 500. Tudo pelo ORM, então o AuditLogSubscriber continua vendo cada gravação.
+     *
+     * @param callable(?NotaDaSeccional): void $acao
+     */
+    public function gravarComTrava(SeccionalOab $seccional, callable $acao): void
+    {
+        $em = $this->getEntityManager();
+        $em->wrapInTransaction(function () use ($em, $seccional, $acao): void {
+            $em->lock($seccional, LockMode::PESSIMISTIC_WRITE);
+            $acao($this->daSeccional($seccional));
+        });
     }
 
     /**
@@ -54,19 +73,15 @@ class NotaDaSeccionalRepository extends ServiceEntityRepository
         return $porUf;
     }
 
-    public function salvar(NotaDaSeccional $nota, bool $flush = false): void
+    /** Sem flush: chamado dentro do {@see gravarComTrava()}, que faz o flush e o commit. */
+    public function salvar(NotaDaSeccional $nota): void
     {
         $this->getEntityManager()->persist($nota);
-        if ($flush) {
-            $this->getEntityManager()->flush();
-        }
     }
 
-    public function remover(NotaDaSeccional $nota, bool $flush = false): void
+    /** Sem flush: chamado dentro do {@see gravarComTrava()}, que faz o flush e o commit. */
+    public function remover(NotaDaSeccional $nota): void
     {
         $this->getEntityManager()->remove($nota);
-        if ($flush) {
-            $this->getEntityManager()->flush();
-        }
     }
 }

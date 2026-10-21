@@ -23,8 +23,20 @@ divulgações e o GET `/master/dados/seccionais`. Esta frente reaproveita a sede
   implementado; formato exato de `oabNotaEm` e `oabSecCor`; se a subseção guarda site e se o Master pode editá-la.
 - **Convenções tomadas (DONO, revisar com o arquivo inteiro):** subtítulo da janela aberta pela linha da UF
   "<UF> · N usuários no BlueJus" (ou "N escritórios" na visão Escritórios; o estado que falta na visão Escritórios
-  diz "sem escritórios"); no Mundo, o item dos que faltam fica sem tooltip e sem a seta; a data da nota sai sem o
+  diz "sem escritórios"); a data da nota sai sem o
   autor (o autor vem no GET).
+- 21/10, revisão do commit 61a007d9 (commit novo):
+  - **No Mundo (DONO):** o item dos que faltam mantém o visual literal de L140 (tooltip "Ver endereços da OAB e
+    escrever nota", seta, mão e realce); o clique mostra o aviso do painel "A janela da OAB vale só para os estados
+    do Brasil." (o desenho não diz a ação). Substitui a convenção anterior de item sem clique.
+  - **Subtítulo pela linha (DONO):** a unidade acompanha o número da linha: "N usuários" (Pessoas, Geral),
+    "N primários" (Só primários, "1 primário") e "N escritórios" (Escritórios); número 0 vira "sem usuários",
+    "sem primários" ou "sem escritórios".
+  - Carga das seccionais falhada: o clique tenta de novo; se falhar outra vez, o aviso de erro do painel aparece
+    embaixo do total da tabela de UFs.
+  - Nota: a gravação trava a linha da seccional (SELECT ... FOR UPDATE) antes de ler a nota, então duas
+    gravações ao mesmo tempo ficam em fila e a última vence, sem 500 pela unicidade. A trilha mostra só
+    "Campos alterados: texto" ao reescrever (os carimbos de quem e quando não contam).
 
 ## O que o desenho mostra
 

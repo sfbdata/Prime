@@ -72,7 +72,7 @@
 .mp-uf-lin:hover { background: #f5fafd; }
 .mp-uf-lin.is-oab { cursor: pointer; }
 
-/* L140: item dos que faltam. Mundo: o mesmo item sem clique (sem mão, sem realce, sem seta). */
+/* L140: item dos que faltam. No Mundo, o mesmo visual (mão, realce e seta); o clique só mostra o aviso do painel. */
 .mp-faltam-uf { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 12px; color: #4f6878; }
 .mp-faltam-uf.is-oab { cursor: pointer; transition: background .12s; }
 .mp-faltam-uf.is-oab:hover, .mp-faltam-uf.is-oab:focus-visible { background: #e5f1f7; color: #0a6fa0; }
@@ -81,6 +81,10 @@
 .mp-faltam-uf > .bi-sticky-fill { font-size: 11px; color: #c08a12; }
 .mp-faltam-uf > .mp-faltam-sub { font-size: 11px; color: #9aabb7; }
 .mp-faltam-uf > .bi-chevron-right { font-size: 10px; color: #b7c6d1; }
+
+/* Aviso do painel (.mp-aviso do master.css) embaixo do total da tabela de UFs: "só para os estados do Brasil" ou
+   a falha da carga das seccionais. Mais compacto, na medida das linhas da tabela. */
+.mp-uf-tab > .mp-aviso { padding: 6px 10px; font-size: 12px; }
 
 /* Com a janela aberta (z-index 9400 do desenho), o "Editar sede" e a confirmação do painel sobem por cima dela. */
 .mp.mp-oab-aberta .mp-lim-fundo, .mp.mp-oab-aberta .mp-conf-fundo { z-index: 9402; }
