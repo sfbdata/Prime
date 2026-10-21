@@ -33,8 +33,8 @@ final class ModelosDeCampanha
             'corpo' => "Recebemos a sua contribuição e queremos agradecer de verdade.\n\nEla vai direto para a manutenção, a segurança e as próximas melhorias do sistema. Continue contando com a gente, e conte o que mais ajudaria no dia a dia do seu escritório.", 'itens' => [], 'cta' => 'Enviar uma sugestão', 'link' => 'contribua'],
         'validar' => ['chave' => 'validar', 'nome' => 'Confirmar e-mail', 'icone' => 'bi-envelope-check', 'modo' => 'blocos', 'assunto' => 'Confirme seu e-mail para ativar o BlueJus', 'selo' => 'CONFIRMAÇÃO DE E-MAIL', 'titulo' => '{nome}, falta só confirmar o seu e-mail', 'blocos' => [
             ['t' => 'texto', 'a' => 'Recebemos o cadastro da sua conta no BlueJus. Para proteger o acesso e liberar todas as funções, confirme que este e-mail é seu.'],
-            ['t' => 'botao', 'a' => 'Confirmar meu e-mail', 'b' => 'validar'],
-            ['t' => 'texto', 'a' => "O link vale por 24 horas.\n\nSe você não criou esta conta, ignore este e-mail."],
+            ['t' => 'botao', 'a' => 'Confirmar e criar minha senha', 'b' => 'validar'],
+            ['t' => 'texto', 'a' => "O link vale por 7 dias.\n\nSe você não criou esta conta, ignore este e-mail."],
         ]],
         'boasvindas' => ['chave' => 'boasvindas', 'nome' => 'Boas-vindas', 'icone' => 'bi-emoji-smile', 'modo' => 'blocos', 'assunto' => 'Bem-vindo ao BlueJus, seu escritório digital', 'selo' => 'BEM-VINDO(A)', 'titulo' => 'Seja bem-vindo(a), {nome}!', 'blocos' => [
             ['t' => 'texto', 'a' => 'Seu e-mail foi confirmado e a sua conta está pronta. A partir de agora, prazos, processos, documentos e equipe ficam em um só lugar.'],

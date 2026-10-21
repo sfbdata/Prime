@@ -66,6 +66,7 @@ final class TermoAceiteListener
         'trabalho_externo_vagas_publicas',
         'trabalho_externo_vagas_link',
         'trabalho_externo_vagas_alertas',
+        'vagas_publicas_cta',
     ];
 
     public function __construct(

@@ -33,14 +33,14 @@
 {% set av = inteligencia.avancado %}
 {% set pontos = inteligencia.pontosDeAtencao %}
 {# Dica do botão (dc L2706): a contagem de riscos, sem atribuir a leitura a ninguém. #}
-{% set dica = inteligencia.temAlerta ? pontos ~ (pontos == 1 ? ' ponto de atenção' : ' pontos de atenção') : 'Leitura do período' %}
-{% set hora = inteligencia.geradaEm|date('H:i') %}
+{% set dica = inteligencia.temAlerta ? (pontos == 1 ? 'dashboard.ia.ponto_de_atencao' : 'dashboard.ia.pontos_de_atencao')|trans({n: pontos ~ ''}) : 'dashboard.ia.leitura_do_periodo'|trans %}
+{% set hora = inteligencia.geradaEm|hora %}
 {# Estado do Modo avançado do usuário logado. `preferencias` chega no render completo e no XHR;
    sem ela, o painel abre no modo básico, que é o padrão. #}
 {% set iaAvancado = preferencias is defined and preferencias.iaAvancadoLigado() %}
 
 <div class="db-ia">
-    <button type="button" class="db-ia-abrir{{ inteligencia.temAlerta ? ' is-alerta' : '' }}" popovertarget="dbIaPainel" aria-label="Abrir BlueJus Intelligence" aria-describedby="dbIaDica">
+    <button type="button" class="db-ia-abrir{{ inteligencia.temAlerta ? ' is-alerta' : '' }}" popovertarget="dbIaPainel" aria-label="{{ 'dashboard.ia.abrir'|trans }}" aria-describedby="dbIaDica">
         <span class="db-ia-estrela" aria-hidden="true">{{ ui.estrela(20) }}</span>
         <span class="db-ia-abrir-texto"><span class="db-ia-abrir-marca">BlueJus</span><span class="db-ia-abrir-nome">Intelligence</span></span>
     </button>
@@ -54,16 +54,16 @@
             <div class="db-ia-cab-texto">
                 <div class="db-ia-cab-marca" id="dbIaMarca">BlueJus Intelligence</div>
                 {# Legenda honesta: o que o painel é, sem vender o que não é. #}
-                <div class="db-ia-cab-legenda" id="dbIaLegenda">Leitura automática dos números do período, por regras fixas</div>
-                <div class="db-ia-cab-quando">Atualizada hoje às {{ hora }} · {{ inteligencia.periodoTexto }}</div>
+                <div class="db-ia-cab-legenda" id="dbIaLegenda">{{ 'dashboard.ia.legenda'|trans }}</div>
+                <div class="db-ia-cab-quando">{{ 'dashboard.ia.atualizada_hoje_as'|trans({hora: hora}) }} · {{ inteligencia.periodoTexto }}</div>
             </div>
-            <button type="button" class="db-ia-fechar" popovertarget="dbIaPainel" popovertargetaction="hide" aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            <button type="button" class="db-ia-fechar" popovertarget="dbIaPainel" popovertargetaction="hide" aria-label="{{ 'dashboard.ia.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
         <div class="db-ia-sub">
-            <span class="db-ia-titulo">Visão da equipe</span>
+            <span class="db-ia-titulo">{{ 'dashboard.ia.visao_da_equipe'|trans }}</span>
             {# Interruptor do Modo avançado (dc L872): na linha do título, à direita. Grava pelo
                dashboard-preferencias.js; o aria-checked sai do servidor no estado gravado. #}
-            <button type="button" class="db-ia-av-switch" role="switch" aria-checked="{{ iaAvancado ? 'true' : 'false' }}" aria-controls="dbIaAvancado" title="Análises ampliadas do escritório" data-ia-avancado-switch>Modo avançado<span class="db-ia-switch" aria-hidden="true"><span class="db-ia-switch-bola"></span></span></button>
+            <button type="button" class="db-ia-av-switch" role="switch" aria-checked="{{ iaAvancado ? 'true' : 'false' }}" aria-controls="dbIaAvancado" title="{{ 'dashboard.ia.analises_ampliadas'|trans }}" data-ia-avancado-switch>{{ 'dashboard.ia.modo_avancado'|trans }}<span class="db-ia-switch" aria-hidden="true"><span class="db-ia-switch-bola"></span></span></button>
         </div>
 
         {# Confirmação "Ativar Modo Avançado?" (dc L939-959): véu sobre o painel inteiro. Aparece na
@@ -74,21 +74,21 @@
            saíram Processos, Produtividade, Tendências e Histórico — o painel não lê processos,
            não mede produtividade nem tendência e não tem histórico (MotorAvancado, MotorDeRitmo). #}
         <div class="db-ia-confirma" hidden data-ia-confirma>
-            <div class="db-ia-confirma-caixa" role="alertdialog" aria-modal="true" aria-label="Ativar Modo Avançado" aria-describedby="dbIaConfirmaTexto">
+            <div class="db-ia-confirma-caixa" role="alertdialog" aria-modal="true" aria-label="{{ 'dashboard.ia.confirma.ativar'|trans }}" aria-describedby="dbIaConfirmaTexto">
                 <div class="db-ia-confirma-cab">
                     <span class="db-ia-confirma-icone" aria-hidden="true"><i class="bi bi-cpu"></i></span>
-                    <div class="db-ia-confirma-titulo">Ativar Modo Avançado?</div>
+                    <div class="db-ia-confirma-titulo">{{ 'dashboard.ia.confirma.titulo'|trans }}</div>
                 </div>
-                <div class="db-ia-confirma-texto" id="dbIaConfirmaTexto">A BlueJus Intelligence passará a fazer análises ampliadas do escritório, usando apenas os dados disponíveis ao seu perfil de acesso.</div>
-                <div class="db-ia-confirma-rotulo">Poderá analisar</div>
+                <div class="db-ia-confirma-texto" id="dbIaConfirmaTexto">{{ 'dashboard.ia.confirma.texto'|trans }}</div>
+                <div class="db-ia-confirma-rotulo">{{ 'dashboard.ia.confirma.podera_analisar'|trans }}</div>
                 <ul class="db-ia-confirma-escopo">
-                    {% for e in ['Tarefas', 'Prazos', 'Equipes', 'Gargalos', 'Indicadores', 'Riscos operacionais'] %}
+                    {% for e in ['dashboard.ia.confirma.escopo.tarefas'|trans, 'dashboard.ia.confirma.escopo.prazos'|trans, 'dashboard.ia.confirma.escopo.equipes'|trans, 'dashboard.ia.confirma.escopo.gargalos'|trans, 'dashboard.ia.confirma.escopo.indicadores'|trans, 'dashboard.ia.confirma.escopo.riscos_operacionais'|trans] %}
                         <li><i class="bi bi-check2" aria-hidden="true"></i>{{ e }}</li>
                     {% endfor %}
                 </ul>
                 <div class="db-ia-confirma-acoes">
-                    <button type="button" class="db-ia-confirma-nao" data-ia-confirma-cancelar>Agora não</button>
-                    <button type="button" class="db-ia-confirma-sim" data-ia-confirma-ativar>Ativar Modo Avançado</button>
+                    <button type="button" class="db-ia-confirma-nao" data-ia-confirma-cancelar>{{ 'dashboard.ia.confirma.agora_nao'|trans }}</button>
+                    <button type="button" class="db-ia-confirma-sim" data-ia-confirma-ativar>{{ 'dashboard.ia.confirma.ativar'|trans }}</button>
                 </div>
             </div>
         </div>
@@ -102,10 +102,10 @@
                 <div class="db-ia-av-corpo">
                     <div class="db-ia-av-cab">
                         <div>
-                            <div class="db-ia-h">Visão estratégica do escritório</div>
-                            <div class="db-ia-h-sub">Entenda. Antecipe. Aja. Evolua.</div>
+                            <div class="db-ia-h">{{ 'dashboard.ia.av.titulo'|trans }}</div>
+                            <div class="db-ia-h-sub">{{ 'dashboard.ia.av.lema'|trans }}</div>
                         </div>
-                        <span class="db-ia-carimbo">Hoje, {{ hora }}</span>
+                        <span class="db-ia-carimbo">{{ 'dashboard.ia.av.hoje_hora'|trans({hora: hora}) }}</span>
                     </div>
 
                     {# cockpit (bluejus-avancado.js L203-212, sem "Produtividade": depende do estado do ritmo) #}
@@ -121,9 +121,9 @@
                     {# qualidade dos dados (L192-200): nota por penalidades declaradas #}
                     {% set faixa = av.qualidadeNota >= 80 ? 'alta' : (av.qualidadeNota >= 60 ? 'media' : 'baixa') %}
                     <details class="db-ia-qual">
-                        <summary class="db-ia-qual-toggle" title="Nota por regras: −6 por colaborador sem cargo, −15 no início do período (ou −6 em andamento), −20 com menos de 3 colaboradores, −4 fixo; mínimo 40">
+                        <summary class="db-ia-qual-toggle" title="{{ 'dashboard.ia.av.qualidade_regras'|trans }}">
                             <i class="bi bi-shield-check" aria-hidden="true"></i>
-                            <span class="db-ia-qual-rotulo">Qualidade da análise</span>
+                            <span class="db-ia-qual-rotulo">{{ 'dashboard.ia.av.qualidade'|trans }}</span>
                             <span class="db-ia-qual-trilho" aria-hidden="true"><span class="db-ia-qual-barra db-ia-qual-barra--{{ faixa }}" style="width:{{ av.qualidadeNota }}%"></span></span>
                             <span class="db-ia-qual-nota">{{ av.qualidadeNota }}%</span>
                             <i class="bi bi-chevron-down db-ia-chevron" aria-hidden="true"></i>
@@ -135,7 +135,7 @@
 
                     {# Central de Inteligência (L33-189): alertas problema → evidência → causa → impacto → ação #}
                     <section class="db-ia-central">
-                        <div class="db-ia-secao-cab"><i class="bi bi-broadcast" aria-hidden="true"></i><span>Central de Inteligência</span></div>
+                        <div class="db-ia-secao-cab"><i class="bi bi-broadcast" aria-hidden="true"></i><span>{{ 'dashboard.ia.av.central'|trans }}</span></div>
                         <div class="db-ia-contagem">
                             {% for c in av.contagemPorNivel %}
                                 <span class="db-ia-chip db-ia-nivel--{{ c.nivel.value }}{{ c.total == 0 ? ' is-vazio' : '' }}"><b>{{ c.total }}</b> {{ c.nivel.rotulo|lower }}</span>
@@ -160,18 +160,18 @@
                                             <div class="db-ia-fatores">{% for f in a.fatores %}<span class="db-ia-fator">{{ f }}</span>{% endfor %}</div>
                                         {% endif %}
                                         <details class="db-ia-como">
-                                            <summary><i class="bi bi-diagram-3" aria-hidden="true"></i>Como esta leitura foi montada</summary>
+                                            <summary><i class="bi bi-diagram-3" aria-hidden="true"></i>{{ 'dashboard.ia.av.como_montada'|trans }}</summary>
                                             <div class="db-ia-como-corpo">
-                                                <div class="db-ia-como-h">Dados analisados</div>
+                                                <div class="db-ia-como-h">{{ 'dashboard.ia.av.dados_analisados'|trans }}</div>
                                                 {% for d in a.dados %}<div>→ {{ d }}</div>{% endfor %}
-                                                <div class="db-ia-como-h">Fatores da classificação</div>
+                                                <div class="db-ia-como-h">{{ 'dashboard.ia.av.fatores'|trans }}</div>
                                                 {% for f in a.fatores %}<div>→ {{ f }}</div>{% endfor %}
                                             </div>
                                         </details>
                                     </div>
                                 </details>
                             {% else %}
-                                <div class="db-ia-vazio">Nenhum alerta com os números atuais.</div>
+                                <div class="db-ia-vazio">{{ 'dashboard.ia.av.sem_alerta'|trans }}</div>
                             {% endfor %}
                         </div>
                     </section>
@@ -179,26 +179,26 @@
                     {# distribuição da equipe (L214-216) #}
                     <section class="db-ia-bloco db-ia-dist">
                         <div class="db-ia-secao-cab">
-                            <i class="bi bi-bar-chart-line" aria-hidden="true"></i><span>Distribuição da equipe</span>
+                            <i class="bi bi-bar-chart-line" aria-hidden="true"></i><span>{{ 'dashboard.ia.av.distribuicao'|trans }}</span>
                             <span class="db-ia-secao-espaco"></span>
-                            <span class="db-ia-legenda-cor"><span class="db-ia-cor db-ia-cor--ativas" aria-hidden="true"></span>ativas</span>
-                            <span class="db-ia-legenda-cor"><span class="db-ia-cor db-ia-cor--vencidas" aria-hidden="true"></span>vencidas</span>
+                            <span class="db-ia-legenda-cor"><span class="db-ia-cor db-ia-cor--ativas" aria-hidden="true"></span>{{ 'dashboard.ia.av.ativas'|trans }}</span>
+                            <span class="db-ia-legenda-cor"><span class="db-ia-cor db-ia-cor--vencidas" aria-hidden="true"></span>{{ 'dashboard.ia.av.vencidas'|trans }}</span>
                         </div>
                         {% for d in av.distribuicao %}
                             <div class="db-ia-dist-linha">
-                                <span class="db-ia-dist-nome" title="{{ d.ativas }} ativas, {{ d.vencidas }} vencidas">{{ d.nome }}</span>
+                                <span class="db-ia-dist-nome" title="{{ 'dashboard.ia.av.ativas_vencidas'|trans({ativas: d.ativas ~ '', vencidas: d.vencidas ~ ''}) }}">{{ d.nome }}</span>
                                 <span class="db-ia-dist-trilho" aria-hidden="true"><span class="db-ia-dist-ativas" style="width:{{ d.pctAtivas }}%"></span><span class="db-ia-dist-vencidas" style="width:{{ d.pctVencidas }}%"></span><span class="db-ia-dist-media" style="left:{{ av.mediaPct }}%"></span></span>
                                 <span class="db-ia-dist-num">{{ d.ativas }}</span>
                             </div>
                         {% else %}
-                            <div class="db-ia-vazio">Nenhum colaborador com esses filtros.</div>
+                            <div class="db-ia-vazio">{{ 'dashboard.tabela.vazio'|trans }}</div>
                         {% endfor %}
-                        <div class="db-ia-nota">Traço: média da equipe ({{ ui.fmt(av.mediaValor) }} ativas por pessoa)</div>
+                        <div class="db-ia-nota">{{ 'dashboard.ia.av.media_da_equipe'|trans({media: ui.fmt(av.mediaValor) ~ ''}) }}</div>
                     </section>
 
                     {# visão estratégica da equipe (dc L1324-1333; só as linhas com lastro) #}
                     <section class="db-ia-bloco db-ia-gestor">
-                        <div class="db-ia-secao-cab-min">Visão estratégica da equipe</div>
+                        <div class="db-ia-secao-cab-min">{{ 'dashboard.ia.av.visao_estrategica'|trans }}</div>
                         {% for g in av.visaoEstrategica %}
                             <div class="db-ia-gestor-linha"><span class="db-ia-gestor-p">{{ g.pergunta }}</span><span class="db-ia-gestor-r">{{ g.resposta }}</span></div>
                         {% endfor %}
@@ -206,17 +206,17 @@
 
                     {# principais riscos (dc L1340-1348; bluejus-intelligence.js L99-107) #}
                     <section class="db-ia-bloco db-ia-riscos">
-                        <div class="db-ia-secao-cab-min">Principais riscos</div>
+                        <div class="db-ia-secao-cab-min">{{ 'dashboard.ia.av.principais_riscos'|trans }}</div>
                         {% for r in ritmo.riscos %}
                             <div class="db-ia-risco db-ia-risco--{{ r.severidade }}" data-tipo="{{ r.tipo }}" data-numeros="{{ r.numeros|json_encode|e('html_attr') }}"><span class="db-ia-ponto" aria-hidden="true"></span><span>{{ r.texto }}</span></div>
                         {% else %}
-                            <div class="db-ia-vazio">Nenhum risco relevante identificado.</div>
+                            <div class="db-ia-vazio">{{ 'dashboard.ia.av.sem_risco'|trans }}</div>
                         {% endfor %}
                     </section>
 
                     {# perguntas guiadas (L218-226): respostas montadas só a partir dos achados #}
                     <section class="db-ia-bloco db-ia-perguntas">
-                        <div class="db-ia-secao-cab"><i class="bi bi-chat-square-text" aria-hidden="true"></i><span>Perguntas guiadas</span></div>
+                        <div class="db-ia-secao-cab"><i class="bi bi-chat-square-text" aria-hidden="true"></i><span>{{ 'dashboard.ia.av.perguntas'|trans }}</span></div>
                         {% for p in av.perguntas %}
                             <details class="db-ia-pergunta">
                                 <summary>{{ p.pergunta }}</summary>
@@ -234,21 +234,21 @@
             <section class="db-ia-bloco db-ia-ritmo">
                 {% if ritmo.tempo %}
                     {# "dia X de Y" no topo do bloco de ritmo, à direita (dc L1282-1286). #}
-                    <div class="db-ia-ritmo-topo"><span class="db-ia-dia">dia {{ ritmo.tempo.passados }} de {{ ritmo.tempo.total }}</span></div>
+                    <div class="db-ia-ritmo-topo"><span class="db-ia-dia">{{ 'dashboard.ia.dia_de'|trans({dia: ritmo.tempo.passados ~ '', total: ritmo.tempo.total ~ ''}) }}</span></div>
                     <div class="db-ia-ritmo-grade">
-                        <div class="db-ia-mini"><div class="db-ia-mini-rotulo">Entram por dia</div><div class="db-ia-mini-valor">{{ ui.fmt(ritmo.novasPorDia) }}<span class="db-ia-mini-un"> /dia</span></div></div>
-                        <div class="db-ia-mini"><div class="db-ia-mini-rotulo">Concluídas por dia</div><div class="db-ia-mini-valor">{{ ui.fmt(ritmo.ritmoAtual) }}<span class="db-ia-mini-un"> /dia</span></div></div>
+                        <div class="db-ia-mini"><div class="db-ia-mini-rotulo">{{ 'dashboard.ia.entram_por_dia'|trans }}</div><div class="db-ia-mini-valor">{{ ui.fmt(ritmo.novasPorDia) }}<span class="db-ia-mini-un"> {{ 'dashboard.ia.por_dia'|trans }}</span></div></div>
+                        <div class="db-ia-mini"><div class="db-ia-mini-rotulo">{{ 'dashboard.ia.concluidas_por_dia'|trans }}</div><div class="db-ia-mini-valor">{{ ui.fmt(ritmo.ritmoAtual) }}<span class="db-ia-mini-un"> {{ 'dashboard.ia.por_dia'|trans }}</span></div></div>
                     </div>
                 {% endif %}
                 <div class="db-ia-kpis">
-                    <div class="db-ia-kpi-min"><div class="db-ia-kpi-min-rotulo">{{ ritmo.tempo ? 'Abertas no período' : 'Metas' }}</div><div class="db-ia-kpi-min-valor">{{ ritmo.novas }}</div></div>
-                    <div class="db-ia-kpi-min"><div class="db-ia-kpi-min-rotulo">Concluídas</div><div class="db-ia-kpi-min-valor">{{ ritmo.concluidas }}</div></div>
-                    <div class="db-ia-kpi-min"><div class="db-ia-kpi-min-rotulo">Ativas</div><div class="db-ia-kpi-min-valor">{{ ritmo.ativas }}</div></div>
-                    <div class="db-ia-kpi-min"><div class="db-ia-kpi-min-rotulo">Vencidas</div><div class="db-ia-kpi-min-valor{{ ritmo.vencidas > 0 ? ' is-ruim' : '' }}">{{ ritmo.vencidas }}</div></div>
+                    <div class="db-ia-kpi-min"><div class="db-ia-kpi-min-rotulo">{{ ritmo.tempo ? 'dashboard.ia.abertas_no_periodo'|trans : 'dashboard.ia.metas'|trans }}</div><div class="db-ia-kpi-min-valor">{{ ritmo.novas }}</div></div>
+                    <div class="db-ia-kpi-min"><div class="db-ia-kpi-min-rotulo">{{ 'dashboard.ia.concluidas'|trans }}</div><div class="db-ia-kpi-min-valor">{{ ritmo.concluidas }}</div></div>
+                    <div class="db-ia-kpi-min"><div class="db-ia-kpi-min-rotulo">{{ 'dashboard.ia.ativas'|trans }}</div><div class="db-ia-kpi-min-valor">{{ ritmo.ativas }}</div></div>
+                    <div class="db-ia-kpi-min"><div class="db-ia-kpi-min-rotulo">{{ 'dashboard.ia.vencidas'|trans }}</div><div class="db-ia-kpi-min-valor{{ 0 < ritmo.vencidas ? ' is-ruim' : '' }}">{{ ritmo.vencidas }}</div></div>
                 </div>
                 {% set taxa = ritmo.novas > 0 ? (ritmo.concluidas * 100 / ritmo.novas)|round : 0 %}
-                <div class="db-ia-barra" role="img" aria-label="{{ taxa }}% das metas concluídas"><div class="db-ia-barra-fill" style="width:{{ taxa }}%"></div></div>
-                <div class="db-ia-barra-legenda"><span>{{ ritmo.concluidas }} {{ ritmo.concluidas == 1 ? 'concluída' : 'concluídas' }}</span><span>{{ taxa }}% das {{ ritmo.novas }} {{ ritmo.tempo ? 'abertas no período' : 'metas' }}</span></div>
+                <div class="db-ia-barra" role="img" aria-label="{{ 'dashboard.ia.pct_metas_concluidas'|trans({taxa: taxa ~ ''}) }}"><div class="db-ia-barra-fill" style="width:{{ taxa }}%"></div></div>
+                <div class="db-ia-barra-legenda"><span>{{ ritmo.concluidas }} {{ ritmo.concluidas == 1 ? 'dashboard.ia.concluida_minusculo'|trans : 'dashboard.ia.concluidas_minusculo'|trans }}</span><span>{{ 'dashboard.ia.pct_das'|trans({taxa: taxa ~ '', n: ritmo.novas ~ ''}) }} {{ ritmo.tempo ? 'dashboard.ia.abertas_no_periodo_minusculo'|trans : 'dashboard.ia.metas_minusculo'|trans }}</span></div>
             </section>
 
             {# s2: o que está acontecendo / por que / o que fazer agora (dc L1301-1312) #}
@@ -256,26 +256,26 @@
                 {% if ritmo.oQue %}
                     <div class="db-ia-q">
                         <span class="db-ia-q-icone db-ia-q-icone--oque" aria-hidden="true"><i class="bi bi-activity"></i></span>
-                        <div><div class="db-ia-q-titulo">O que está acontecendo</div><div class="db-ia-q-texto" data-tipo="{{ ritmo.oQue.tipo }}" data-numeros="{{ ritmo.oQue.numeros|json_encode|e('html_attr') }}">{{ ritmo.oQue.texto }}</div></div>
+                        <div><div class="db-ia-q-titulo">{{ 'dashboard.ia.o_que_acontece'|trans }}</div><div class="db-ia-q-texto" data-tipo="{{ ritmo.oQue.tipo }}" data-numeros="{{ ritmo.oQue.numeros|json_encode|e('html_attr') }}">{{ ritmo.oQue.texto }}</div></div>
                     </div>
                 {% endif %}
                 {% if ritmo.porQue %}
                     <div class="db-ia-q">
                         <span class="db-ia-q-icone db-ia-q-icone--porque" aria-hidden="true"><i class="bi bi-diagram-3"></i></span>
-                        <div><div class="db-ia-q-titulo">Por que</div><div class="db-ia-q-texto">{% for l in ritmo.porQue %}<span data-tipo="{{ l.tipo }}" data-numeros="{{ l.numeros|json_encode|e('html_attr') }}">{{ l.texto }}</span>{{ not loop.last ? ' ' }}{% endfor %}</div></div>
+                        <div><div class="db-ia-q-titulo">{{ 'dashboard.ia.por_que'|trans }}</div><div class="db-ia-q-texto">{% for l in ritmo.porQue %}<span data-tipo="{{ l.tipo }}" data-numeros="{{ l.numeros|json_encode|e('html_attr') }}">{{ l.texto }}</span>{{ not loop.last ? ' ' }}{% endfor %}</div></div>
                     </div>
                 {% endif %}
                 {% if ritmo.oQueFazer %}
                     <div class="db-ia-q">
                         <span class="db-ia-q-icone db-ia-q-icone--fazer" aria-hidden="true"><i class="bi bi-lightning-charge"></i></span>
-                        <div><div class="db-ia-q-titulo">O que fazer agora</div><div class="db-ia-q-texto" data-tipo="{{ ritmo.oQueFazer.tipo }}" data-numeros="{{ ritmo.oQueFazer.numeros|json_encode|e('html_attr') }}">{{ ritmo.oQueFazer.texto }}</div></div>
+                        <div><div class="db-ia-q-titulo">{{ 'dashboard.ia.o_que_fazer'|trans }}</div><div class="db-ia-q-texto" data-tipo="{{ ritmo.oQueFazer.tipo }}" data-numeros="{{ ritmo.oQueFazer.numeros|json_encode|e('html_attr') }}">{{ ritmo.oQueFazer.texto }}</div></div>
                     </div>
                 {% endif %}
             </section>
 
             {# s6: próximas ações (dc L1351-1361; bluejus-intelligence.js L87-97) #}
             <section class="db-ia-bloco db-ia-acoes">
-                <div class="db-ia-secao-cab-min">Próximas ações</div>
+                <div class="db-ia-secao-cab-min">{{ 'dashboard.ia.proximas_acoes'|trans }}</div>
                 {% for a in ritmo.acoes %}
                     {% set grupo = a.grupo == 'Atenção imediata' ? 'imediata' : (a.grupo == 'Acompanhamento' ? 'acompanhamento' : 'recomendada') %}
                     <div class="db-ia-acao db-ia-acao--{{ grupo }}" data-tipo="{{ a.tipo }}" data-numeros="{{ a.numeros|json_encode|e('html_attr') }}">
@@ -287,11 +287,11 @@
 
             {# limites: o que o painel NÃO faz com os dados do sistema — declarado, não simulado #}
             <section class="db-ia-bloco db-ia-limites">
-                <div class="db-ia-secao-cab-min"><i class="bi bi-info-circle" aria-hidden="true"></i> O que este painel não faz</div>
+                <div class="db-ia-secao-cab-min"><i class="bi bi-info-circle" aria-hidden="true"></i> {{ 'dashboard.ia.limites'|trans }}</div>
                 <ul>
                     {% for l in ritmo.limites %}<li>{{ l }}</li>{% endfor %}
                 </ul>
-                <div class="db-ia-nota">Números: somas das linhas visíveis da tabela Desempenho (uma meta com vários responsáveis conta para cada um); vencidas e prazos próximos são relativos a hoje; urgentes vêm do card Demandas urgentes.</div>
+                <div class="db-ia-nota">{{ 'dashboard.ia.nota_numeros'|trans }}</div>
             </section>
         </div>
 
@@ -302,10 +302,10 @@
            Desempenho da equipe", que não existe aqui (fora por decisão do dono): saiu da frase. #}
         <button type="button" class="db-ia-teaser" hidden data-ia-teaser aria-controls="dbIaAvancado">
             <span class="db-ia-teaser-icone" aria-hidden="true"><i class="bi bi-cpu"></i></span>
-            <span class="db-ia-teaser-texto"><span class="db-ia-teaser-titulo">Conhecer o Modo avançado</span><span class="db-ia-teaser-sub">Visão estratégica, riscos e Central de Inteligência.</span></span>
+            <span class="db-ia-teaser-texto"><span class="db-ia-teaser-titulo">{{ 'dashboard.ia.teaser.titulo'|trans }}</span><span class="db-ia-teaser-sub">{{ 'dashboard.ia.teaser.sub'|trans }}</span></span>
             <i class="bi bi-arrow-right db-ia-teaser-seta" aria-hidden="true"></i>
         </button>
 
-        <div class="db-ia-rodape"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Acompanhar novamente em 24 horas</div>
+        <div class="db-ia-rodape"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'dashboard.ia.rodape'|trans }}</div>
     </aside>
 </div>

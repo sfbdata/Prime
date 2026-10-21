@@ -42,9 +42,9 @@ final class SalvarNotaDaSeccionalUseCase
 
     public function executar(SalvarNotaDaSeccionalInput $input): SeccionalOab
     {
-        $seccional = $this->seccionais->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada('Seccional não encontrada.');
+        $seccional = $this->seccionais->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada(SeccionalNaoEncontrada::RECUSA);
         if (mb_strlen((string) $input->texto) > NotaDaSeccional::TEXTO_MAXIMO) {
-            throw new SeccionalRecusada(sprintf('A nota passa de %d caracteres.', NotaDaSeccional::TEXTO_MAXIMO));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_NOTA_LONGA, ['limite' => NotaDaSeccional::TEXTO_MAXIMO]);
         }
 
         $agora = $this->relogio->now();
