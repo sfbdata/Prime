@@ -71,6 +71,18 @@
         ]
     },
 
+    "temas": {
+        "templates": [
+            "master/_recursos_tema.html.twig"
+        ],
+        "js": [
+            "master/temas.js"
+        ],
+        "permitidos": [
+            "Content-Type"
+        ]
+    },
+
     "expediente": {
         "templates": [
             "expediente/index.html.twig",

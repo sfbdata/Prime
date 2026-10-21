@@ -472,6 +472,35 @@ comercial_relatorio:
         reenvio_sem_rastreio: 'Esta campanha não rastreou leitura; não dá para saber quem não leu.'
         erro_exportar: Não foi possível exportar. Recarregue a página.
 
+# ---- Temas comemorativos do painel do Master (master/_recursos_tema, master/temas.js)
+# O nome, o ícone, a data e a mensagem de cada tema vêm do PHP (CatalogoDeTemas) e ficam fora.
+temas:
+    titulo: Temas comemorativos
+    descricao: 'Muda a cor do sistema e mostra uma mensagem nas datas especiais. Vale para todos os usuários; cada um pode fechar a mensagem.'
+    status:
+        ativo: '{icone} {tema} está ativo agora'
+        desligados: 'Temas desligados: cores padrão do BlueJus'
+        nenhum: 'Nenhum tema hoje: cores padrão do BlueJus'
+    modos:
+        rotulo: Modo dos temas
+        automatico: Automático pelo calendário
+        manual: Escolher um tema
+        desligado: Desligado
+    dica: Clique num tema para deixá-lo fixo.
+    parar_previa: Parar prévia
+    ativo: ATIVO
+    previa: Prévia
+    previa_dica: Ver como fica por 1 minuto
+    chave: Ligar ou desligar
+    chave_rotulo: 'Ligar ou desligar {tema}'
+    js:
+        previa: 'Prévia: {icone} {tema} (termina sozinha em {s} s)'
+        ativo: '{icone} {tema} está ativo agora'
+        desligados: 'Temas desligados: cores padrão do BlueJus'
+        nenhum: 'Nenhum tema hoje: cores padrão do BlueJus'
+        previa_indisponivel: Não foi possível mostrar a prévia neste navegador.
+        erro_alterar: Não foi possível alterar agora. Recarregue a página.
+
 # ---- Expediente (lista, acervo, paginação, modais, trilho, relatório de processos, pastas paradas)
 expediente:
     titulo: Expediente
