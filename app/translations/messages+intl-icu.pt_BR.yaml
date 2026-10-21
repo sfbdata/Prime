@@ -855,6 +855,130 @@ expediente:
             arquivar: Arquivar
             responsavel_pela_decisao: 'Responsável pela decisão: ____________________'
 
+# ---- Minhas Metas (tarefa/minhas, _metas_lista, _meta_cartao, _resultado, equipe, _numero_global)
+metas:
+    titulo: Minhas Metas
+    subtitulo: O que está com você, o que você delegou e o que você acompanha.
+    atualizado_as: Atualizado às
+    migalha:
+        home: Home
+    comum:
+        nao_informado: Não informado
+        sem_prazo: sem prazo
+        abrir_a_meta: Abrir a meta
+        de_criador: 'de {nome}'
+    marcador:
+        parar_de_acompanhar: Parar de acompanhar
+        acompanhar_esta_meta: Acompanhar esta meta
+    prazo:
+        atrasadas: Atrasadas
+        vencem_em_7_dias: Vencem em 7 dias
+        sem_prazo: Sem prazo
+    status:
+        pendente: Pendente
+        para_revisao: Para Revisão
+        em_revisao: Em revisão
+        concluida: Concluída
+        atrasada: Atrasada
+    prioridade:
+        normal: Normal
+        prioridade: Prioridade
+        urgente: Urgente
+    kpis:
+        ver: 'Ver {rotulo}'
+        sob_sua_responsabilidade: sob sua responsabilidade
+        ainda_da_tempo: ainda dá tempo
+        aguardando_sua_revisao: Aguardando sua revisão
+        criadas_por_voce: criadas por você
+        abertas_sem_data: abertas sem data definida
+    abas:
+        rotulo: Papel nas metas
+        responsavel: Sou responsável
+        criei: Criei
+        acompanhando: Em acompanhamento
+        todas: Todas
+    filtros:
+        limpar: Limpar filtros
+        busca_placeholder: Buscar por título, pasta ou cliente
+        status: Status
+        prioridade: Prioridade
+        prazo: Prazo
+    modos:
+        rotulo: Modo de exibição
+        cartoes: Cartões
+        lista: Lista
+    lista:
+        cabecalho:
+            meta: Meta
+            delegada_por: Delegada por
+            responsavel: Responsável
+            prazo: Prazo
+            status: Status
+            atualizada: Atualizada
+            criada: Criada
+        mostrando_uma: 'Mostrando {total} meta nesta aba.'
+        mostrando_varias: 'Mostrando {total} metas nesta aba.'
+    cartao:
+        num_na_pasta_dica: 'Meta {numero} da pasta {nup}'
+        abrir_a_pasta: Abrir a pasta
+        quem_delegou: Quem delegou esta meta
+        sem_criador: sem criador
+        responsaveis_dica: 'Responsáveis: {nomes}'
+        sem_responsavel: sem responsável
+        prazo_dica: 'Prazo: {data}'
+        comentarios: Comentários na meta
+        criada_em: 'criada {data}'
+        opcoes: Opções
+        opcoes_da_meta: Opções da meta
+        menu:
+            abrir_relatorio: Abrir relatório completo
+            ir_para_aba_metas: Ir para a aba Metas da pasta
+            editar_nome: Editar nome
+            encaminhar_chat_ia: Encaminhar via Chat I.A
+    numero:
+        dica: 'Meta {local} desta pasta · nº {numero} na sequência do escritório'
+        selo: 'Nº {numero}'
+    vazio:
+        com_filtro: Nenhuma meta com esses filtros.
+        responsavel: Nenhuma meta atribuída a você. Quando alguém delegar uma meta para você, ela aparece aqui.
+        criei: Você ainda não criou nenhuma meta. Metas são criadas de dentro da pasta, na aba Metas.
+        acompanhando_antes: Nenhuma meta em acompanhamento. Use o marcador
+        acompanhando_depois: em qualquer meta para acompanhá-la aqui.
+        todas: Nenhuma meta por aqui. Nada atribuído, criado ou marcado por você.
+    trilho:
+        seu_andamento: Seu andamento
+        ultimos_30_dias: últimos 30 dias
+        x_de_y: '{concluidas} de {total}'
+        concluidas: concluídas
+        percentual_concluidas: Percentual de metas concluídas
+    atencao:
+        titulo: Precisa de atenção
+        titulo_e_pasta: '{titulo} · Pasta {nup}'
+        prazo: 'prazo {data}'
+        prazo_nao_informado: não informado
+        vazio: Nada pedindo atenção.
+    pessoas:
+        quem_delegou: Quem delegou para você
+        com_quem_estao: Com quem estão
+        abertas: '{total} abertas'
+        atrasadas_uma: '{total} atrasada'
+        atrasadas_varias: '{total} atrasadas'
+        e_mais_uma: 'e mais {total} pessoa'
+        e_mais_varias: 'e mais {total} pessoas'
+    equipe:
+        migalha_dashboard: Dashboard
+        migalha_atual: Metas da equipe
+        vazio_titulo: Nenhuma meta encontrada com esses filtros
+        vazio_sub: Volte ao Dashboard e escolha outro colaborador, cargo ou período.
+        total_uma: '{total} meta'
+        total_varias: '{total} metas'
+        paginacao: Paginação das metas
+        pagina_anterior: Página anterior
+        proxima_pagina: Próxima página
+    js:
+        parar_de_acompanhar: Parar de acompanhar
+        acompanhar_esta_meta: Acompanhar esta meta
+
 # ---- perfis: Perfis do escritório (tenant_role/*, perfis.js), com os flashes, as recusas da hierarquia e o aviso do
 # pedido de acesso. O termo que entra numa frase curta (selo, nome da linha Master) vem de termos.* por parâmetro.
 perfis:
