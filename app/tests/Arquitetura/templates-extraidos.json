@@ -485,5 +485,29 @@
         ],
         "js": [],
         "permitidos": []
+    },
+
+    "cobranca_carteira": {
+        "templates": [
+            "cobranca/carteira/index.html.twig",
+            "cobranca/carteira/_resultado.html.twig",
+            "cobranca/carteira/_paginacao.html.twig",
+            "cobranca/carteira/show.html.twig",
+            "cobranca/carteira/_resultado_casos.html.twig",
+            "cobranca/carteira/_acoes_modais.html.twig",
+            "cobranca/carteira/_campos_config.html.twig",
+            "cobranca/dashboard/index.html.twig",
+            "cobranca/alertas/index.html.twig",
+            "cobranca/importacao/upload.html.twig",
+            "cobranca/importacao/preview.html.twig"
+        ],
+        "js": [
+            "cobranca-carteira-form.js",
+            "cobranca-soltar-arquivo.js"
+        ],
+        "permitidos": [
+            "cs-body",
+            "resources.carteira.gerenciar"
+        ]
     }
 }
