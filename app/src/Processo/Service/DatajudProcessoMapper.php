@@ -315,8 +315,9 @@ class DatajudProcessoMapper
         $value = $value ?? '';
 
         // Corrigir problemas de encoding específicos da API DataJud
-        // Alguns acentos vêm como "?" - tentamos recuperar usando iconv
-        if (strpos($value, '?') !== false) {
+        // Alguns acentos vêm como "?" - tentamos recuperar usando iconv. Só em texto que NÃO é UTF-8
+        // válido: recodificar UTF-8 de novo estraga os acentos ("Cível" vira "CÃ­vel").
+        if (strpos($value, '?') !== false && !mb_check_encoding($value, 'UTF-8')) {
             // Se tem "?", tenta converter assumindo ISO-8859-1 malformado
             $converted = @iconv('CP1252', 'UTF-8', $value);
             if ($converted !== false && $converted !== $value) {
@@ -338,11 +339,19 @@ class DatajudProcessoMapper
     /**
      * Método especial para corrigir encoding do órgão julgador
      * Aplica conversão mais agressiva de ISO-8859-1 para UTF-8
+     *
+     * Texto que já é UTF-8 válido (o normal do Datajud) passa intacto: recodificá-lo de ISO-8859-1 estragava os
+     * acentos ("1ª Vara Cível" virava "1Âª VARA CÃ­VEL"). Os gravados assim são revertidos pelo comando
+     * `app:processo:corrigir-acentuacao-do-orgao`.
      */
     private function fixOrgaoJulgador(?string $value): string
     {
         if (!$value) {
             return 'N/A';
+        }
+
+        if (mb_check_encoding($value, 'UTF-8')) {
+            return trim($value);
         }
 
         // Tenta conversão direta de ISO-8859-1 para UTF-8
