@@ -71,8 +71,9 @@ Não há desfazer na tela (o desenho não tem).
    Cancelar envio).
 6. **Exportar destinatários (CSV):** pelo servidor (todos os destinatários, não só os 200 da tela), UTF-8 com BOM,
    separador `;`, arquivo `destinatarios-{id}.csv`. Do visualizador: `E-mail;Enviado;Leitura` (dc L708), Enviado
-   `sim` quando o envio saiu (`enviado`, `falhou`, `incerto`) e `não` nos demais; Leitura `não rastreada` (fixo até a
-   F3g). Do menu: só a coluna `E-mail` (dc L704). **Sem e-mail anonimizado** (o hash da retenção de 24 meses, sem
+   `sim` quando o envio saiu (`enviado`, `falhou`, `incerto`) e `não` nos demais; Leitura pelo
+   `RastreioDaLeitura::efetivo()` da campanha (F3g): `lido` (abriu) ou `aguardando` (dc L708); sem rastreio, `não
+   rastreada`. O "Reenviar a quem não leu" lê o `metricas.rastreiaLeitura`. Do menu: só a coluna `E-mail` (dc L704). **Sem e-mail anonimizado** (o hash da retenção de 24 meses, sem
    `@`, fica de fora). Célula que começa com `=`, `+`, `-`, `@`, tab ou CR leva `'` na frente (injeção de fórmula).
    Cada exportação grava no `audit_log` (`camp_csv`, entidade `CampanhaDeEmail`, `changes` = {linhas, formato}, o
    Master como autor), sem os e-mails.

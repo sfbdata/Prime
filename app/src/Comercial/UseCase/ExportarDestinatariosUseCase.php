@@ -7,6 +7,7 @@ namespace App\Comercial\UseCase;
 use App\Comercial\DTO\DestinatariosEmCsv;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\RelatorioDeCampanhasRepository;
+use App\Comercial\Service\RastreioDaLeitura;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -18,8 +19,8 @@ use Psr\Clock\ClockInterface;
  * Cada exportação vai ao `audit_log` (`camp_csv`, `{linhas, formato}`, o Master como autor), sem os e-mails. Null se
  * a campanha não existe.
  *
- * Leitura: "não rastreada" fixo, porque o rastreio está desligado; troca pelo `RastreioDaLeitura::efetivo()` quando
- * a F3g entrar.
+ * Leitura pelo {@see RastreioDaLeitura::efetivo()} da campanha (F3g): rastreada, `lido` (abriu) ou `aguardando` (dc
+ * L708); sem rastreio, `não rastreada`.
  */
 final class ExportarDestinatariosUseCase
 {
@@ -27,6 +28,8 @@ final class ExportarDestinatariosUseCase
     public const EMAILS = 'emails';
     public const AUDITORIA = 'camp_csv';
     public const NAO_RASTREADA = 'não rastreada';
+    public const LIDO = 'lido';
+    public const AGUARDANDO = 'aguardando';
     private const BOM = "\u{FEFF}";
     private const PERIGOSOS = ['=', '+', '-', '@', "\t", "\r"];
 
@@ -34,16 +37,19 @@ final class ExportarDestinatariosUseCase
         private readonly CampanhaDeEmailRepository $campanhas,
         private readonly RelatorioDeCampanhasRepository $relatorio,
         private readonly ClockInterface $relogio,
+        private readonly RastreioDaLeitura $rastreio,
     ) {
     }
 
     public function executar(int $id, string $formato, ?int $masterId, ?string $masterEmail): ?DestinatariosEmCsv
     {
-        if ($this->campanhas->porId($id) === null) {
+        $campanha = $this->campanhas->porId($id);
+        if ($campanha === null) {
             return null;
         }
         $formato = $formato === self::EMAILS ? self::EMAILS : self::COMPLETO;
-        $linhas = array_map(fn (array $d): array => $this->linha($d, $formato), $this->relatorio->destinatariosParaExportar($id));
+        $rastreia = $this->rastreio->efetivo($campanha['rastrear_leitura']);
+        $linhas = array_map(fn (array $d): array => self::linha($d, $formato, $rastreia), $this->relatorio->destinatariosParaExportar($id));
         $this->campanhas->auditar($id, self::AUDITORIA, ['linhas' => \count($linhas), 'formato' => $formato], $masterId, $masterEmail, $this->relogio->now());
         $cabecalho = $formato === self::EMAILS ? ['E-mail'] : ['E-mail', 'Enviado', 'Leitura'];
 
@@ -51,18 +57,24 @@ final class ExportarDestinatariosUseCase
     }
 
     /**
-     * @param array{email: string, situacao: ?string} $d
+     * @param array{email: string, situacao: ?string, aberto: bool} $d
      *
      * @return list<string>
      */
-    private function linha(array $d, string $formato): array
+    private static function linha(array $d, string $formato, bool $rastreia): array
     {
         if ($formato === self::EMAILS) {
             return [$d['email']];
         }
         $enviado = \in_array($d['situacao'], RelatorioDeCampanhasRepository::SITUACOES_ENVIADAS, true);
 
-        return [$d['email'], $enviado ? 'sim' : 'não', self::NAO_RASTREADA];
+        $leitura = match (true) {
+            !$rastreia => self::NAO_RASTREADA,
+            $d['aberto'] => self::LIDO,
+            default => self::AGUARDANDO,
+        };
+
+        return [$d['email'], $enviado ? 'sim' : 'não', $leitura];
     }
 
     /** @param list<list<string>> $linhas */

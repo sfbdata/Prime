@@ -159,18 +159,19 @@ class RelatorioDeCampanhasRepository
      * Todos os destinatários da campanha para o "Exportar destinatários" (spec `comercial-marcas.md`, regra 6), da
      * execução mais nova para a mais antiga, sem o e-mail anonimizado pela retenção (o hash não tem `@`).
      *
-     * @return list<array{email: string, situacao: ?string}>
+     * @return list<array{email: string, situacao: ?string, aberto: bool}>
      */
     public function destinatariosParaExportar(int $campanhaId): array
     {
         $linhas = $this->conexao->fetchAllAssociative(
-            "SELECT d.email, e.situacao FROM comercial_campanha_destino d LEFT JOIN comercial_envio e ON e.id = d.envio_id
+            "SELECT d.email, e.situacao, e.primeira_abertura_em IS NOT NULL AS aberto FROM comercial_campanha_destino d LEFT JOIN comercial_envio e ON e.id = d.envio_id
              WHERE d.campanha_id = :id AND d.email LIKE '%@%' ORDER BY d.execucao DESC, d.id",
             ['id' => $campanhaId],
         );
 
         return array_map(static fn (array $l): array => [
             'email' => (string) $l['email'], 'situacao' => $l['situacao'] === null ? null : (string) $l['situacao'],
+            'aberto' => (bool) $l['aberto'],
         ], $linhas);
     }
 

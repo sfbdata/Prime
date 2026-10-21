@@ -7,6 +7,7 @@ namespace App\Tests\Comercial\Unit;
 use App\Comercial\DTO\DestinatariosEmCsv;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\RelatorioDeCampanhasRepository;
+use App\Comercial\Service\RastreioDaLeitura;
 use App\Comercial\UseCase\ExportarDestinatariosUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -28,8 +29,8 @@ final class ExportarDestinatariosUseCaseTest extends TestCase
         $campanhas->expects(self::once())->method('auditar')
             ->with(7, 'camp_csv', ['linhas' => 4, 'formato' => 'completo'], 42, 'master@exemplo.com', self::isInstanceOf(\DateTimeImmutable::class));
         $relatorio = $this->relatorio([
-            ['email' => 'a@exemplo.com', 'situacao' => 'enviado'], ['email' => 'b@exemplo.com', 'situacao' => 'falhou'],
-            ['email' => 'c@exemplo.com', 'situacao' => 'incerto'], ['email' => 'd@exemplo.com', 'situacao' => null],
+            ['email' => 'a@exemplo.com', 'situacao' => 'enviado', 'aberto' => false], ['email' => 'b@exemplo.com', 'situacao' => 'falhou', 'aberto' => false],
+            ['email' => 'c@exemplo.com', 'situacao' => 'incerto', 'aberto' => false], ['email' => 'd@exemplo.com', 'situacao' => null, 'aberto' => false],
         ]);
 
         $csv = $this->useCase($campanhas, $relatorio)->executar(7, 'completo', 42, 'master@exemplo.com');
@@ -42,12 +43,24 @@ final class ExportarDestinatariosUseCaseTest extends TestCase
         );
     }
 
+    #[TestDox('Com rastreio de fato (a escolha da campanha e as chaves globais): Leitura "lido" ou "aguardando"')]
+    public function testComRastreio(): void
+    {
+        $relatorio = $this->relatorio([
+            ['email' => 'a@exemplo.com', 'situacao' => 'enviado', 'aberto' => true], ['email' => 'b@exemplo.com', 'situacao' => 'enviado', 'aberto' => false],
+        ]);
+
+        $csv = $this->useCase($this->campanhas(existe: true), $relatorio, rastreioGlobal: true)->executar(7, 'completo', 42, 'master@exemplo.com');
+
+        self::assertSame(self::BOM . "E-mail;Enviado;Leitura\na@exemplo.com;sim;lido\nb@exemplo.com;sim;aguardando\n", $csv?->conteudo);
+    }
+
     #[TestDox('Só e-mails (do menu): a coluna E-mail; formato desconhecido vira completo')]
     public function testSoEmails(): void
     {
         $campanhas = $this->campanhas(existe: true);
         $campanhas->expects(self::exactly(2))->method('auditar');
-        $relatorio = $this->relatorio([['email' => 'a@exemplo.com', 'situacao' => 'enviado']]);
+        $relatorio = $this->relatorio([['email' => 'a@exemplo.com', 'situacao' => 'enviado', 'aberto' => false]]);
 
         $csv = $this->useCase($campanhas, $relatorio)->executar(7, 'emails', 42, null);
         self::assertSame(self::BOM . "E-mail\na@exemplo.com\n", $csv?->conteudo);
@@ -71,7 +84,7 @@ final class ExportarDestinatariosUseCaseTest extends TestCase
     #[TestDox('O e-mail que começa com fórmula sai escapado no arquivo')]
     public function testEscapeNoArquivo(): void
     {
-        $relatorio = $this->relatorio([['email' => '=1+1@exemplo.com', 'situacao' => 'enviado']]);
+        $relatorio = $this->relatorio([['email' => '=1+1@exemplo.com', 'situacao' => 'enviado', 'aberto' => false]]);
 
         $csv = $this->useCase($this->campanhas(existe: true), $relatorio)->executar(7, 'emails', 42, null);
 
@@ -92,7 +105,7 @@ final class ExportarDestinatariosUseCaseTest extends TestCase
     private function campanhas(bool $existe): CampanhaDeEmailRepository&MockObject
     {
         $campanhas = $this->createMock(CampanhaDeEmailRepository::class);
-        $campanhas->method('porId')->willReturn($existe ? ['id' => 7] : null);
+        $campanhas->method('porId')->willReturn($existe ? ['id' => 7, 'rastrear_leitura' => true] : null);
 
         return $campanhas;
     }
@@ -106,11 +119,11 @@ final class ExportarDestinatariosUseCaseTest extends TestCase
         return $relatorio;
     }
 
-    private function useCase(CampanhaDeEmailRepository $campanhas, RelatorioDeCampanhasRepository $relatorio): ExportarDestinatariosUseCase
+    private function useCase(CampanhaDeEmailRepository $campanhas, RelatorioDeCampanhasRepository $relatorio, bool $rastreioGlobal = false): ExportarDestinatariosUseCase
     {
         $relogio = $this->createStub(ClockInterface::class);
         $relogio->method('now')->willReturn(new \DateTimeImmutable('2026-10-21 10:00:00'));
 
-        return new ExportarDestinatariosUseCase($campanhas, $relatorio, $relogio);
+        return new ExportarDestinatariosUseCase($campanhas, $relatorio, $relogio, new RastreioDaLeitura($rastreioGlobal, true));
     }
 }

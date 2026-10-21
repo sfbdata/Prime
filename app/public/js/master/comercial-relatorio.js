@@ -229,10 +229,10 @@
     if (c) marcar([id], c.estrela ? 'sem_estrela' : 'estrela');
   }
 
-  // "Reenviar a quem não leu" (dc L704 e L711): só aviso. Sem rastreio (hoje, sempre), o texto de "não rastreou".
+  // "Reenviar a quem não leu" (dc L704 e L711): só aviso. Sem rastreio (`metricas.rastreiaLeitura`, F3g), o texto de "não rastreou".
   // Do visualizador, como o dc L713: sem rastreio só avisa (o visualizador fica aberto); com rastreio fecha e avisa.
   function reenviar(c, doMenu) {
-    const rastreou = !!(c && c.rastreada === true);
+    const rastreou = !!(c && c.metricas && c.metricas.rastreiaLeitura === true);
     if (doMenu) { avisar(rastreou ? 'Reenvio disponível quando o servidor registrar as leituras.' : 'Esta campanha não rastreou leitura.'); return; }
     if (!rastreou) { avisar('Esta campanha não rastreou leitura; não dá para saber quem não leu.'); return; }
     fechar();
