@@ -84,10 +84,18 @@
                     <button type="button" class="cs-modal-fechar" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="modal-body">
+                    {# Desenho Carteira 1B L457-461: área de arrastar ou clicar (cobranca-soltar-arquivo.js); o input
+                       continua sendo o campo do form. O texto dos limites é o do servidor
+                       (EnviarDocumentoUseCase::MIME_LIMITS: imagem até 3 MB), não o "até 10 MB" do desenho:
+                       desvio por limite real, aprovado pela coordenação em 21/10; o dono revê. #}
                     <div class="mb-3">
-                        <label class="form-label" for="carteiraDocumentoArquivo">Arquivo</label>
-                        <input type="file" class="form-control" id="carteiraDocumentoArquivo" name="arquivo" required>
-                        <div class="form-text">PDF, imagem ou planilha.</div>
+                        <label class="cs-soltar" for="carteiraDocumentoArquivo" data-soltar-arquivo>
+                            <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
+                            <span class="cs-soltar-titulo">Arraste o arquivo ou clique para escolher</span>
+                            <span class="cs-soltar-dica">PDF ou planilha até 10 MB · imagem até 3 MB</span>
+                            <span class="cs-soltar-nome" data-soltar-nome hidden></span>
+                            <input type="file" class="cs-soltar-input" id="carteiraDocumentoArquivo" name="arquivo" required>
+                        </label>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="carteiraDocumentoCategoria">Categoria</label>

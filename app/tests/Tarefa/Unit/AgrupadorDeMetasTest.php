@@ -149,22 +149,48 @@ final class AgrupadorDeMetasTest extends TestCase
         self::assertSame(['Atrasada há 30 dias', 'Atrasada há 9 dias', 'Atrasada há 2 dias'], $mapa['atrasadas']);
     }
 
-    #[TestDox('Aba Criei agrupa por etapa da revisão, não por prazo')]
-    public function testAbaCrieiAgrupaPorEtapa(): void
+    #[TestDox('Desenho 04 (P:151-154): a aba Criei agrupa por prazo, com os mesmos grupos, nomes, ordem e tons das outras abas')]
+    public function testAbaCrieiAgrupaPorPrazo(): void
     {
         $metas = [
             $this->meta('Voltou para mim', '2026-12-01', Tarefa::STATUS_EM_REVISAO),
-            $this->meta('Está com o colega', '2026-09-20'),
+            $this->meta('Está com o colega', '2026-09-30'),
+            $this->meta('Vence logo', '2026-09-12'),
             $this->meta('Colega atrasou', '2026-09-01'),
+            $this->meta('Sem data', null),
             $this->meta('Já aprovei', '2026-09-05', Tarefa::STATUS_CONCLUIDA),
         ];
 
-        $mapa = $this->mapa($this->agrupador->agrupar($metas, AbaMetas::CRIEI, $this->hoje));
+        $criei       = $this->agrupador->agrupar($metas, AbaMetas::CRIEI, $this->hoje);
+        $responsavel = $this->agrupador->agrupar($metas, AbaMetas::RESPONSAVEL, $this->hoje);
 
-        self::assertSame(['Voltou para mim'], $mapa['aguardando']);
-        self::assertSame(['Colega atrasou', 'Está com o colega'], $mapa['andamento'], 'Em andamento ordena por prazo, atrasadas primeiro.');
-        self::assertSame(['Já aprovei'], $mapa['concluidas']);
-        self::assertArrayNotHasKey('atrasadas', $mapa, 'A aba Criei não usa os baldes de urgência.');
+        $resumo = static fn (array $grupos): array => array_map(
+            static fn (GrupoDeMetasOutput $g): array => [$g->chave, $g->rotulo, $g->tom, $g->recolhido],
+            $grupos,
+        );
+        self::assertSame([
+            ['atrasadas', 'Atrasadas', 'danger', false],
+            ['proximas', 'Vencem em 7 dias', 'warn', false],
+            ['depois', 'Depois', 'cinza', false],
+            ['sem_prazo', 'Sem prazo', 'cinza', false],
+            ['em_revisao', 'Enviadas para revisão', 'accent', false],
+            ['concluidas', 'Concluídas', 'ok', true],
+        ], $resumo($criei));
+        self::assertSame($resumo($responsavel), $resumo($criei), 'a aba não muda o agrupamento');
+        self::assertSame(['Voltou para mim'], $this->mapa($criei)['em_revisao']);
+        self::assertArrayNotHasKey('aguardando', $this->mapa($criei), 'o agrupamento por etapa saiu');
+    }
+
+    #[TestDox('Na aba Criei a nota de "Enviadas para revisão" fala com quem criou; nas outras abas continua "aguardando quem criou a meta"')]
+    public function testNotaDaRevisaoPorAba(): void
+    {
+        $metas = [$this->meta('Voltou', '2026-09-20', Tarefa::STATUS_EM_REVISAO)];
+        $nota  = fn (AbaMetas $aba): ?string => $this->agrupador->agrupar($metas, $aba, $this->hoje)[0]->nota;
+
+        self::assertSame('o responsável terminou e enviou para você revisar', $nota(AbaMetas::CRIEI));
+        foreach ([AbaMetas::RESPONSAVEL, AbaMetas::ACOMPANHANDO, AbaMetas::TODAS] as $aba) {
+            self::assertSame('aguardando quem criou a meta', $nota($aba), $aba->value);
+        }
     }
 
     #[TestDox('Concluídas vem recolhido; os demais grupos, abertos')]

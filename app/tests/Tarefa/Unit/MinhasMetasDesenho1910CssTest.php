@@ -253,4 +253,16 @@ final class MinhasMetasDesenho1910CssTest extends TestCase
         $this->temTudo('.mm-barra-cartao .filtro-select', ['flex: 0 0 auto', 'width: auto', 'min-width: 120px', 'max-width: none']);
         $this->temTudo('.mm-barra-cartao .filtro-busca', ['min-width: 180px']);
     }
+
+    #[TestDox('Desenho 04 (P:79): "Limpar filtros" é botão de texto #0a6fa0, sem borda, 13px, 34px, na linha dos selects; os chips (fora do desenho) não aparecem, só nesta barra')]
+    public function testLimparFiltros(): void
+    {
+        self::assertSame('#0a6fa0', $this->token('--mm-limpar'));
+        $this->temTudo('.mm-barra-cartao .filtro-limpar', ['height: 34px', 'border: none', 'background: transparent', 'color: var(--mm-limpar)', 'font-size: 13px', 'text-decoration: none']);
+        $this->temTudo('.mm-barra-cartao .filtro-limpar:hover', ['color: var(--mm-limpar)']);
+        $this->temTudo('.mm-barra-cartao .filtro-chip', ['display: none']);
+        $this->temTudo('.mm-barra-cartao .filtro-chips', ['margin-top: 0']);
+        $this->temTudo('.mm-barra-cartao > .filtro-barra', ['display: flex', 'align-items: center']);
+        self::assertStringNotContainsString('.filtro-limpar', (string) preg_replace('/\.mm-barra-cartao \.filtro-limpar/', '', $this->css()), 'nenhuma regra de .filtro-limpar fora desta barra');
+    }
 }

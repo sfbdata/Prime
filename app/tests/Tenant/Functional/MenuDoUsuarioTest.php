@@ -78,7 +78,7 @@ final class MenuDoUsuarioTest extends JusPrimeWebTestCase
         self::assertCount(0, $menu->filter('.mu-grupo-master'));
     }
 
-    #[TestDox('Master: selo MASTER e seção com 8 itens; 6 levam ao painel, 2 abrem "em preparação"')]
+    #[TestDox('Master: selo MASTER e seção com 8 itens; 6 levam ao painel, a Central de vagas ao Trabalho Externo e 1 abre "em preparação"')]
     public function testMenuDoMaster(): void
     {
         $master = $this->criarUsuario('Master Menu', ['ROLE_SUPER_ADMIN']);
@@ -92,9 +92,12 @@ final class MenuDoUsuarioTest extends JusPrimeWebTestCase
         self::assertCount(8, $itens);
         self::assertCount(6, $menu->filter('.mu-grupo-master > a[data-item-master][href^="/master#aba="]'));
         self::assertSame(
-            ['Central de vagas e currículos', 'Campanha por e-mail'],
+            ['Campanha por e-mail'],
             $menu->filter('.mu-grupo-master > button[data-em-preparacao]')->each(static fn (Crawler $b): string => (string) $b->attr('data-em-preparacao'))
         );
+        // Desenho 03 L330 e 07 L209: a Central de vagas leva ao Trabalho Externo, aba de vagas.
+        $vagas = $menu->filter('.mu-grupo-master > a[data-item-master]')->reduce(static fn (Crawler $a): bool => str_contains($a->text(), 'Central de vagas'));
+        self::assertSame('/trabalho-externo#mod=vagas', $vagas->attr('href'));
         self::assertCount(1, $menu->filter('[data-mu-convites]'), 'o Master vê Convites mesmo com vínculo secundário');
     }
 

@@ -61,11 +61,34 @@
         document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !conf.hidden) { fecharConf(); } });
     }
 
+    // ── Lista: aviso da hierarquia (C6, desenho L823) ──────────────────────
+    // O que o perfil não pode mexer não abre: o clique mostra a mensagem do servidor por alguns segundos.
+    var aviso = qs('[data-pf-aviso]');
+    var avisoTimer = null;
+    function mostrarAviso(texto) {
+        if (!aviso) { return; }
+        aviso.textContent = texto;
+        aviso.hidden = false;
+        window.clearTimeout(avisoTimer);
+        avisoTimer = window.setTimeout(function () { aviso.hidden = true; }, 3500);
+    }
+    qsa('button[data-pf-recusa]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            mostrarAviso(btn.getAttribute('data-pf-recusa'));
+        });
+    });
+
     // ── Lista: linha clicável ──────────────────────────────────────────────
     qsa('[data-pf-linha]').forEach(function (linha) {
         linha.addEventListener('click', function (e) {
             if (e.target.closest('a, button, form, input, select')) { return; }
-            window.location.href = linha.getAttribute('data-href');
+            var href = linha.getAttribute('data-href');
+            if (!href) {
+                mostrarAviso(linha.getAttribute('data-pf-recusa') || '');
+                return;
+            }
+            window.location.href = href;
         });
     });
 

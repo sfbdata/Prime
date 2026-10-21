@@ -24,7 +24,13 @@
                 <button type="button" class="pf-ver-como-btn" data-pf-visao="primario">Primário</button>
             </div>
         {% endif %}
-        <a href="{{ path('app_tenant_role_new', {tenantId: tenantId}) }}" class="pf-btn-cinza"><i class="bi bi-plus-lg"></i>Novo Perfil</a>
+        {# C3: perfil novo é secundário. O botão é o do desenho (L50) para todos; para quem não está acima do
+           secundário, o clique mostra o aviso C6, como o lápis (o servidor também recusa). #}
+        {% if podeCriar %}
+            <a href="{{ path('app_tenant_role_new', {tenantId: tenantId}) }}" class="pf-btn-cinza"><i class="bi bi-plus-lg"></i>Novo Perfil</a>
+        {% else %}
+            <button type="button" class="pf-btn-cinza" data-pf-recusa="{{ recusaDeNivel }}"><i class="bi bi-plus-lg"></i>Novo Perfil</button>
+        {% endif %}
     </div>
 
     {#
@@ -41,10 +47,13 @@
     {% set resumoVisivel = resumo.master ?? resumo.primario %}
     <div class="pf-chips" data-pf-chips>
         {% for chip in chips %}
+            {# 21/10 (L54): rótulo em maiúsculas em cima, número grande embaixo e o ícone à direita. #}
             <div class="pf-chip" data-pf-chip="{{ chip.chave }}">
+                <span class="pf-chip-txt">
+                    <span class="pf-chip-rot">{{ chip.rotulo }}</span>
+                    <b data-pf-chip-n data-primario="{{ resumo.primario[chip.chave] }}"{% if resumo.master %} data-master="{{ resumo.master[chip.chave] }}"{% endif %}>{{ resumoVisivel[chip.chave] }}</b>
+                </span>
                 <i class="bi {{ chip.icone }}"></i>
-                <b data-pf-chip-n data-primario="{{ resumo.primario[chip.chave] }}"{% if resumo.master %} data-master="{{ resumo.master[chip.chave] }}"{% endif %}>{{ resumoVisivel[chip.chave] }}</b>
-                <span>{{ chip.rotulo }}</span>
             </div>
         {% endfor %}
     </div>
@@ -70,8 +79,9 @@
             {% for perfil in perfis %}
                 {% set urlEditar = path('app_tenant_role_edit', {tenantId: tenantId, id: perfil.id}) %}
                 {% set largura = totalDoCatalogo > 0 ? min(100, (perfil.permissoes / totalDoCatalogo * 100)|round) : 0 %}
-                <div class="pf-grade pf-linha" data-pf-linha data-href="{{ urlEditar }}">
-                    {{ _self.colunaPerfil(perfil.nome, perfil.descricao, not perfil.podeExcluir) }}
+                {# C3/C6 (desenho L823): sem poder editar, a linha e o lápis não abrem a edição; o clique mostra o aviso. #}
+                <div class="pf-grade pf-linha" data-pf-linha {% if perfil.podeEditar %}data-href="{{ urlEditar }}"{% else %}data-pf-recusa="{{ recusaDeNivel }}"{% endif %}>
+                    {{ _self.colunaPerfil(perfil.nome, perfil.descricao, perfil.fixo) }}
                     <div class="pf-col-classe">
                         {% if perfil.classificacao == 'primario' %}
                             <span class="pf-selo pf-selo-primario"><i class="bi bi-person-badge"></i>PRIMÁRIO</span>
@@ -82,7 +92,11 @@
                     {{ _self.colunaPermissoes(perfil.permissoes ~ ' permissões', 'de ' ~ totalDoCatalogo, largura) }}
                     <div class="pf-col-usu"><b>{{ perfil.usuarios }}</b></div>
                     <div class="pf-col-acoes">
-                        <a href="{{ urlEditar }}" class="pf-acao pf-acao-editar" title="Editar perfil" aria-label="Editar perfil"><i class="bi bi-pencil"></i></a>
+                        {% if perfil.podeEditar %}
+                            <a href="{{ urlEditar }}" class="pf-acao pf-acao-editar" title="Editar perfil" aria-label="Editar perfil"><i class="bi bi-pencil"></i></a>
+                        {% else %}
+                            <button type="button" class="pf-acao pf-acao-editar" title="Editar perfil" aria-label="Editar perfil" data-pf-recusa="{{ recusaDeNivel }}"><i class="bi bi-pencil"></i></button>
+                        {% endif %}
                         {% if perfil.podeExcluir %}
                             <form method="post" action="{{ path('app_tenant_role_delete', {tenantId: tenantId, id: perfil.id}) }}" class="d-inline" data-pf-form-excluir>
                                 <input type="hidden" name="_token" value="{{ csrf_token('delete_role_' ~ perfil.id) }}">
@@ -99,6 +113,7 @@
     </div>
 
     {% include 'tenant_role/_confirmacao.html.twig' %}
+    <div class="pf-aviso" role="status" aria-live="polite" hidden data-pf-aviso></div>
 </div>
 {% endblock %}
 

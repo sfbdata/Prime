@@ -14,7 +14,9 @@
        o único documento que existe É o do PJe, então os dois levam ao `link`.
      · ações: "Criar tarefa" abre o modal de nova meta da pasta pré-preenchido
        (pasta-push.js) e "Marcar como (não) lida" grava por `pasta_push_lida`.
-       "Encaminhar" (Chat I.A) não existe no sistema e não aparece.
+       "Encaminhar" (dc L2658, entre os dois) leva a movimentação ao Chat I.A pelo
+       pasta-encaminhar.js (`bj-central:despachar`, tipo `push`, id da publicação; spec
+       encaminhar-via-chat-ia §4.1), só com a Central na página.
    O link só vira `href` se for http(s): é URL de fonte externa.
 
    Sob o teor, as notas técnicas penduradas NESTA movimentação (desenho 1.2.3).
@@ -80,6 +82,12 @@
                 data-meta-documento="{{ numeroComunicacao ?? '' }}"
                 data-meta-link="{{ linkDoc ?? '' }}">
             <i class="bi bi-check2-square" aria-hidden="true"></i><span>Criar tarefa</span>
+        </button>
+        {% endif %}
+        {% if central_disponivel() %}
+        <button type="button" class="ps-push-acao js-encaminhar" title="Encaminhar via Chat I.A"
+                data-encaminhar-pasta="{{ pastaId }}" data-encaminhar-tipo="push" data-encaminhar-id="{{ publicacao.id }}">
+            <i class="bi bi-send" aria-hidden="true"></i><span>Encaminhar</span>
         </button>
         {% endif %}
         <button type="button" class="ps-push-acao js-push-lida"
