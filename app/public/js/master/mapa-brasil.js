@@ -130,3 +130,44 @@ document.addEventListener('contextmenu',e=>{const p=e.target.closest&&e.target.c
 document.addEventListener('pointerdown',e=>{if(!mk.contains(e.target))fechar()});addEventListener('keydown',e=>{if(e.key==='Escape')fechar()});addEventListener('wheel',fechar,{passive:true});
 addEventListener('storage',e=>{if(e.key===KEY){try{M=JSON.parse(e.newValue)||{}}catch(x){M={}}M.uf=M.uf||{};M.mun=M.mun||{};aplicarTudo()}});
 setTimeout(aplicarTudo,800);})();
+
+/* Seccionais da OAB (spec docs/specs/master-seccionais-oab.md; desenho 05, Perfis 1.2, VS 21.10.26, L116-127).
+   Um marcador por seccional no centroide da UF (d3.geoCentroid; DONO: a posição exata da sede), escondido quando o
+   Master oculta a seccional no painel (mesma chave de localStorage do painel.js; o evento storage sincroniza), e
+   "Registrar divulgação" no menu do botão direito sobre a UF, acima das cores, que continuam como estão.
+   Depois de gravar, avisa o painel (window.parent, como o __bjFontesAuto do mapa-dados.js) para recarregar. */
+(()=>{const KEY='bj-mapa-seccionais-ocultas',COR={material:'#0a6fa0',reuniao:'#b7791f',parceria:'#2f855a'},TIPOS=[['material','Material enviado'],['reuniao','Reunião'],['parceria','Parceria']];
+const mk=document.getElementById('mk'),uZ=document.getElementById('uZoom'),secG=zoomG.append('g').attr('id','secMk');let SEC={};
+const ocultas=()=>{try{const v=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(v)?v:[]}catch(e){return[]}};
+const dataBr=d=>{const p=String(d||'').split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:''};
+const hoje=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const titulo=u=>{const s=SEC[u];return s.nome+(s.ultima?' · última divulgação: '+s.ultima.rotulo+' em '+dataBr(s.ultima.data):' · sem divulgação registrada')};
+const raio=()=>{const m=(uZ.getAttribute('transform')||'').match(/scale\(([\d.]+)/);return 5/(m?+m[1]:1)};
+const menuDaUf=(e,f)=>{const alvo=estG.selectAll('path.uf').filter(d=>d===f).node();if(alvo)alvo.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:e.clientX,clientY:e.clientY}))};
+function desenhar(){secG.selectAll('*').remove();secG.style('display',atual?'none':null);if(!features||!path)return;const oc=ocultas(),proj=path.projection();
+ features.filter(f=>SEC[uf(f)]&&!oc.includes(uf(f))).forEach(f=>{const u=uf(f),p=proj(d3.geoCentroid(f)),ult=SEC[u].ultima;if(!p)return;
+  secG.append('circle').datum({seccional:u}).attr('class','sec-mk').attr('cx',p[0]).attr('cy',p[1]).attr('r',raio()).style('fill',ult&&COR[ult.tipo]?COR[ult.tipo]:null)
+   .on('mousemove',e=>mostrarTip(e,titulo(u))).on('mouseleave',()=>tip.style.opacity=0)
+   .on('click',e=>{e.stopPropagation();abrir(f)})
+   .on('contextmenu',e=>{e.preventDefault();e.stopPropagation();menuDaUf(e,f)});});}
+const carregar=()=>fetch(CFG.seccionais,{credentials:'same-origin',headers:{Accept:'application/json'}}).then(r=>r.ok?r.json():Promise.reject(r.status))
+ .then(j=>{SEC={};(j.seccionais||[]).forEach(s=>SEC[s.uf]=s);desenhar()}).catch(()=>{});
+const avisarPainel=()=>{try{if(window.parent&&window.parent!==window&&typeof window.parent.__bjSeccionaisRecarregar==='function')window.parent.__bjSeccionaisRecarregar()}catch(e){}};
+function registrar(u,tipo,dv){const msg=dv.querySelector('[data-dv-msg]'),travar=on=>dv.querySelectorAll('button').forEach(b=>b.disabled=on);travar(true);msg.className='m';msg.textContent='Registrando…';
+ fetch(CFG.divulgar.replace('/XX/','/'+u+'/'),{method:'POST',credentials:'same-origin',headers:{Accept:'application/json','Content-Type':'application/json','X-CSRF-Token':CFG.csrfSeccionais},
+  body:JSON.stringify({tipo,nota:dv.querySelector('[data-dv-nota]').value,data:dv.querySelector('[data-dv-data]').value})})
+ .then(r=>r.json().catch(()=>null).then(j=>({r,j}))).then(({r,j})=>{if(!r.redirected&&r.ok&&j&&j.mensagem){msg.className='m ok';msg.textContent=j.mensagem;avisarPainel();carregar();setTimeout(()=>{if(mk.contains(dv))mk.style.display='none'},1200);return}throw (j&&!r.ok&&j.erro)||null})
+ .catch(erro=>{msg.className='m erro';msg.textContent=typeof erro==='string'?erro:'Não foi possível registrar agora. Recarregue a página.';travar(false)});}
+// Depois do menu das cores (os dois ouvem na captura; este foi registrado depois): entra acima de "MARCAR ESTADO".
+document.addEventListener('contextmenu',e=>{const p=e.target.closest&&e.target.closest('path.uf');if(!p||mk.style.display!=='block')return;const u=uf(d3.select(p).datum());if(!SEC[u])return;
+ const dv=document.createElement('div');dv.className='dv';
+ dv.innerHTML='<div class="s">Registrar divulgação</div><div class="b">'+TIPOS.map(([k,r])=>'<button type="button" data-dv="'+k+'"><i style="background:'+COR[k]+'"></i>'+escH(r)+'</button>').join('')+'</div>'
+  +'<input type="text" maxlength="500" placeholder="Nota (opcional)" aria-label="Nota (opcional)" data-dv-nota><input type="date" aria-label="Data da divulgação" value="'+hoje()+'" max="'+hoje()+'" data-dv-data><div class="m" data-dv-msg>'+escH(titulo(u))+'</div>';
+ mk.querySelector('.t').after(dv);
+ dv.querySelectorAll('[data-dv]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();registrar(u,b.dataset.dv,dv)});
+ mk.style.top=Math.max(6,Math.min(innerHeight-mk.offsetHeight-6,e.clientY))+'px'},true);
+new MutationObserver(desenhar).observe(estG.node(),{childList:true});
+new MutationObserver(desenhar).observe(document.getElementById('painel'),{attributes:true,attributeFilter:['class']});
+new MutationObserver(()=>secG.selectAll('circle').attr('r',raio())).observe(uZ,{attributes:true,attributeFilter:['transform']});
+addEventListener('storage',e=>{if(e.key===KEY)desenhar()});
+carregar();})();

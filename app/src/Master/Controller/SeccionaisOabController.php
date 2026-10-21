@@ -1,0 +1,106 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Master\Controller;
+
+use App\Entity\Auth\User;
+use App\Master\DTO\EditarSedeDaSeccionalInput;
+use App\Master\DTO\RegistrarDivulgacaoNaSeccionalInput;
+use App\Master\Exception\SeccionalNaoEncontrada;
+use App\Master\Exception\SeccionalRecusada;
+use App\Master\Service\LocalizacaoDaPessoa;
+use App\Master\UseCase\EditarSedeDaSeccionalUseCase;
+use App\Master\UseCase\ListarSeccionaisUseCase;
+use App\Master\UseCase\RegistrarDivulgacaoNaSeccionalUseCase;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+
+/**
+ * Seccionais da OAB no mapa "Onde estamos atuando" do Painel do Master (spec docs/specs/master-seccionais-oab.md;
+ * desenho 05, Perfis 1.2, VS 21.10.26, L116-127). Só o Master: ROLE_SUPER_ADMIN na classe.
+ *
+ * GET devolve as 27 seccionais, o token CSRF `master_seccionais` (o painel o manda de volta, como o
+ * `tokenFaixas` dos planos) e o molde da URL da sede. Os POST levam corpo JSON e o token no header `X-CSRF-Token`; respondem
+ * `{mensagem}` no sucesso e `{erro}` na recusa (403 token, 404 UF fora das 27, 422 regra).
+ */
+#[IsGranted('ROLE_SUPER_ADMIN')]
+final class SeccionaisOabController extends AbstractController
+{
+    public const CSRF = 'master_seccionais';
+
+    #[Route('/master/dados/seccionais', name: 'master_dados_seccionais', methods: ['GET'])]
+    public function listar(ListarSeccionaisUseCase $listar, CsrfTokenManagerInterface $csrf): JsonResponse
+    {
+        return $this->json([
+            'seccionais' => $listar->executar(),
+            'token'      => $csrf->getToken(self::CSRF)->getValue(),
+            // Molde da URL de editar a sede (o painel troca XX pela UF): o bloco `urls` do painel leva só o GET.
+            'urlSede'    => $this->generateUrl('master_seccional_sede', ['uf' => 'XX']),
+        ]);
+    }
+
+    #[Route('/master/seccionais/{uf}/sede', name: 'master_seccional_sede', requirements: ['uf' => '[A-Z]{2}'], methods: ['POST'])]
+    public function editarSede(string $uf, Request $request, EditarSedeDaSeccionalUseCase $editar): JsonResponse
+    {
+        return $this->gravar($uf, $request, function (array $corpo) use ($uf, $editar): string {
+            $seccional = $editar->executar(EditarSedeDaSeccionalInput::doJson($this->ator(), $uf, $corpo));
+
+            return sprintf('Sede da %s atualizada.', $seccional->getNome());
+        });
+    }
+
+    #[Route('/master/seccionais/{uf}/divulgacoes', name: 'master_seccional_divulgar', requirements: ['uf' => '[A-Z]{2}'], methods: ['POST'])]
+    public function divulgar(string $uf, Request $request, RegistrarDivulgacaoNaSeccionalUseCase $registrar): JsonResponse
+    {
+        return $this->gravar($uf, $request, function (array $corpo) use ($uf, $registrar): string {
+            $divulgacao = $registrar->executar(RegistrarDivulgacaoNaSeccionalInput::doJson($this->ator(), $uf, $corpo));
+
+            return sprintf('Divulgação registrada na %s: %s.', $divulgacao->getSeccional()->getNome(), $divulgacao->getTipo()->rotulo());
+        });
+    }
+
+    /** @param callable(array<mixed>): string $acao */
+    private function gravar(string $uf, Request $request, callable $acao): JsonResponse
+    {
+        if (!in_array($uf, LocalizacaoDaPessoa::UFS, true)) {
+            return $this->json(['erro' => 'Seccional não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->isCsrfTokenValid(self::CSRF, (string) $request->headers->get('X-CSRF-Token', ''))) {
+            return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            return $this->json(['mensagem' => $acao($this->corpo($request))]);
+        } catch (SeccionalNaoEncontrada $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+        } catch (SeccionalRecusada $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+    }
+
+    private function ator(): ?User
+    {
+        $ator = $this->getUser();
+
+        return $ator instanceof User ? $ator : null;
+    }
+
+    /** @return array<mixed> */
+    private function corpo(Request $request): array
+    {
+        try {
+            $dados = json_decode($request->getContent(), true, 8, \JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return [];
+        }
+
+        return is_array($dados) ? $dados : [];
+    }
+}
