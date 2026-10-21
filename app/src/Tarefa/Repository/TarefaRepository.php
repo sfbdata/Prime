@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PrioridadePasta;
 use App\Processo\Entity\Processo;
 use App\Tarefa\DTO\AndamentoDasMetasOutput;
 use App\Tarefa\DTO\PessoaNoTrilhoOutput;
@@ -1028,5 +1029,77 @@ class TarefaRepository extends ServiceEntityRepository
         }
 
         return $porPasta;
+    }
+
+    /**
+     * Metas que o backfill `app:tarefa:herdar-prioridade-da-pasta` mudaria, por escritório: ainda
+     * `normal` e numa pasta de prioridade que vira outra coisa (`PrioridadeDaMeta::daPasta`). Roda sem
+     * sessão (sem TenantFilter): o recorte por escritório é explícito, na meta e na pasta.
+     *
+     * @return array<int, int> tenant_id => metas a herdar
+     */
+    public function contarHerancaDePrioridadePendente(?int $tenantId = null): array
+    {
+        $dePara = $this->deParaDaPrioridadeDaPasta();
+        $sql    = 'SELECT t.tenant_id, COUNT(*) AS total FROM tarefa t JOIN pasta p ON p.id = t.pasta_id AND p.tenant_id = t.tenant_id'
+            . ' WHERE t.prioridade = ? AND p.prioridade IN (' . $this->marcadores(count($dePara)) . ')';
+        $valores = [PrioridadeDaMeta::Normal->value, ...array_keys($dePara)];
+        if ($tenantId !== null) {
+            $sql .= ' AND t.tenant_id = ?';
+            $valores[] = $tenantId;
+        }
+
+        $pendentes = [];
+        foreach ($this->getEntityManager()->getConnection()->fetchAllAssociative($sql . ' GROUP BY t.tenant_id ORDER BY t.tenant_id', $valores) as $linha) {
+            $pendentes[(int) $linha['tenant_id']] = (int) $linha['total'];
+        }
+
+        return $pendentes;
+    }
+
+    /**
+     * Grava a herança da prioridade da pasta nas metas de UM escritório que ainda estão `normal`.
+     * Idempotente: a meta que já herdou (ou que alguém mudou) não é mais `normal` e não volta a ser
+     * tocada. SQL direto, como o `numerar-metas`: não passa pela trilha de auditoria.
+     *
+     * @return int metas atualizadas
+     */
+    public function herdarPrioridadeDaPasta(int $tenantId): int
+    {
+        $dePara = $this->deParaDaPrioridadeDaPasta();
+        $quando = [];
+        foreach ($dePara as $daPasta => $daMeta) {
+            array_push($quando, $daPasta, $daMeta);
+        }
+        $sql = 'UPDATE tarefa AS t SET prioridade = CASE p.prioridade ' . str_repeat('WHEN ? THEN ? ', count($dePara)) . 'END FROM pasta AS p'
+            . ' WHERE p.id = t.pasta_id AND p.tenant_id = t.tenant_id AND t.tenant_id = ? AND t.prioridade = ?'
+            . ' AND p.prioridade IN (' . $this->marcadores(count($dePara)) . ')';
+        $valores = [...$quando, $tenantId, PrioridadeDaMeta::Normal->value, ...array_keys($dePara)];
+
+        return (int) $this->getEntityManager()->getConnection()->executeStatement($sql, $valores);
+    }
+
+    /**
+     * O de-para vem do enum (`PrioridadeDaMeta::daPasta`), para o SQL nunca discordar da criação. Só as
+     * prioridades de pasta que mudam a meta entram.
+     *
+     * @return array<string, string> prioridade da pasta => prioridade da meta
+     */
+    private function deParaDaPrioridadeDaPasta(): array
+    {
+        $dePara = [];
+        foreach (PrioridadePasta::cases() as $daPasta) {
+            $daMeta = PrioridadeDaMeta::daPasta($daPasta);
+            if ($daMeta !== PrioridadeDaMeta::Normal) {
+                $dePara[$daPasta->value] = $daMeta->value;
+            }
+        }
+
+        return $dePara;
+    }
+
+    private function marcadores(int $quantos): string
+    {
+        return implode(', ', array_fill(0, $quantos, '?'));
     }
 }
