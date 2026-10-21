@@ -2135,4 +2135,676 @@ termos:
     pasta: pasta
     processo: processo
 
+# ---- Cobrança: objeto, caso e acordo (cobranca/objeto, caso, acordo)
+cobranca_objeto:
+    comum:
+        cobrancas: Cobranças
+        cancelar: Cancelar
+        fechar: Fechar
+        nao_informado: Não informado
+        simbolo_reais: R$
+    casos:
+        titulo_pagina: 'Cobranças · Casos'
+        busca_placeholder: Buscar por objeto ou pessoa cobrada…
+        faceta_estado: Estado
+        faceta_carteira: Carteira
+        estado:
+            ativo: Ativo
+            judicializado: Judicializado
+            encerrado: Encerrado
+        contagem: caso(s)
+        coluna:
+            objeto: Objeto
+            pessoa_cobrada: Pessoa cobrada
+            carteira: Carteira
+            estado: Estado
+            saldo_exigivel: Saldo exigível
+            vencido: Vencido
+        pronto: Pronto
+        pronto_dica: 'Saldo exigível zerado: pode ser encerrado'
+        exigivel: 'Exigível:'
+        vencido_valor: 'Vencido: {valor}'
+        vazio_filtro_titulo: Nenhum caso encontrado
+        vazio_filtro_texto: Ajuste ou limpe os filtros aplicados.
+        vazio_titulo: Nenhum caso de cobrança
+        vazio_texto: Os casos de cobrança aparecerão aqui.
+    show:
+        titulo_pagina: 'Cobranças · {objeto}'
+        trilha: Trilha de navegação
+        trilha_unidade: 'Unidade {objeto}'
+        nav:
+            rotulo: Navegar entre unidades da carteira
+            anterior: Unidade anterior da carteira
+            primeira: Esta é a primeira unidade da carteira
+            proxima: Próxima unidade da carteira
+            ultima: Esta é a última unidade da carteira
+        sobretitulo: Unidade
+        cobranca_ativa: Cobrança ativa
+        pronto: Pronto para encerrar
+        pronto_dica: 'Saldo exigível zerado: o gestor pode encerrar (SPEC §17)'
+        meta:
+            obrigacao_em_aberto: '{n} obrigação em aberto'
+            obrigacoes_em_aberto: '{n} obrigações em aberto'
+            desde: 'desde {data}'
+            responsavel: responsável
+            pasta_judicial: Pasta judicial
+        acoes:
+            registrar_contato: Registrar contato
+            sem_funcao: Ainda não tem função. Será definida com o gestor.
+            simular_acordo: Simular acordo
+            planilha_atualizada: Planilha atualizada
+            judicializar: Judicializar
+            cancelar_judicializacao: Cancelar judicialização
+            editar_encargos: Editar configuração de encargos
+            encargos: Encargos
+            encerrar_bloqueado: 'Só é possível encerrar com o total em aberto zerado. Faltam {valor}.'
+            encerrar: Encerrar cobrança
+        dinheiro:
+            total: Total vencido hoje
+            total_dica: Soma das obrigações vencidas até hoje (principal + juros e multa + honorários), antes de abater pagamentos.
+            atualizado_em: 'atualizado em {data}'
+            principal: Principal
+            principal_dica: Valor original das obrigações vencidas até hoje.
+            encargos: Juros e multa
+            encargos_dica: Juros, multa e correção monetária das obrigações vencidas até hoje.
+            honorarios: Honorários
+            honorarios_dica: Honorários das obrigações vencidas até hoje. A aba Honorários mostra o A receber, que inclui também as parcelas a vencer.
+            composicao: 'Composição do vencido: principal {principal}%, juros e multa {encargos}%, honorários {honorarios}%'
+            legenda_principal: 'Principal {pct}%'
+            legenda_encargos: 'Juros e multa {pct}%'
+            legenda_honorarios: 'Honorários {pct}%'
+            recuperado: Recuperado
+        prescricao:
+            esgotada: 'Prazo de ajuizamento esgotado em {data}'
+            risco_dia: 'Risco de prescrição em {n} dia'
+            risco_dias: 'Risco de prescrição em {n} dias'
+            competencia: 'Competência mais antiga:'
+            vencida_em: ', vencida em {data}.'
+            prazo_limite: 'Prazo limite para ajuizamento: {data}.'
+            ver: Ver competência na dívida →
+        proxima:
+            rotulo: Próxima ação
+            atrasada: atrasada
+            prazo: 'Prazo: {data}'
+            concluir: Concluir
+            nenhuma: Nenhuma definida
+            definir: Definir
+        alertas:
+            ver_na_divida: Ver na dívida
+        aba:
+            divida: Dívida
+            cobranca: Cobrança
+            responsaveis: Responsáveis
+            honorarios: Honorários
+            documentos: Documentos
+            historico: Histórico
+        anotacoes:
+            nova: Nova anotação
+            nova_sub: registra no histórico da cobrança
+            nova_dica: Você pode corrigir a própria anotação nas 48 horas seguintes.
+            salvar: Salvar anotação
+            titulo: Anotações
+            regiao: Anotações da cobrança
+            sistema: Sistema
+            editada: Editada
+            vazio: Nenhuma anotação ainda. Use o campo ao lado para registrar o que aconteceu.
+        historico:
+            titulo: Histórico
+            evento: '{n} evento'
+            eventos: '{n} eventos'
+            filtrar: Filtrar o histórico por tipo de evento
+            editado: (editado)
+            sem_resultado: Nenhum evento deste tipo neste histórico.
+            vazio: Sem eventos no histórico.
+        # Frases partidas em volta dos <strong> (spec §8, "Frase partida").
+        modal:
+            corrigir_anotacao: Corrigir anotação
+            corrigir_ajuda: A correção pode ser feita nas primeiras 48 horas, só pelo autor. A linha do tempo passa a mostrar
+            corrigir_ajuda_fim: .
+            salvar_correcao: Salvar correção
+            excluir_anotacao_texto: Esta anotação sai do histórico e
+            nao_da_para_desfazer: não dá para desfazer
+            ponto: .
+            excluir_telefone_texto: Este número sai da lista e
+            excluir_telefone_atual: Este é o telefone atual. Ao excluir, o mais recente que sobrar passa a ser o atual.
+            vincular_titulo: Vincular pessoa existente
+            vincular: Vincular
+            vinculo_selecionado: Vínculo selecionado.
+            encerrar: Encerrar
+            encargos_ajuda:
+                inicio: Vale para
+                todas: todas as obrigações de todos os casos
+                meio: deste objeto, ao vivo (sem congelar nada). Os valores em cinza são os da carteira
+            salvar_configuracao: Salvar configuração
+        ficha:
+            nova_pessoa: Nova pessoa
+            aba_qualificacao: Qualificação
+            aba_enderecos: Endereços
+            aba_contatos: Telefones e E-mails
+            endereco_ajuda: 'Opcional. Se preencher, informe o endereço completo: ele entra como o endereço atual da pessoa.'
+            contatos_ajuda: Opcionais. Cada um entra como o contato atual da pessoa; os próximos são adicionados depois, pela edição.
+            cadastrar: Cadastrar e vincular
+            carregando: Carregando a ficha…
+    divida:
+        motivo_sem_data: ⚠ acordo sem data
+        atualizados_em: 'Encargos atualizados em {data}.'
+        congelados_dica: 'Encargos congelados em {data}. Não são recalculados automaticamente.'
+        congelados: 'Encargos congelados em {data}'
+        falta: 'falta {valor}'
+        detalhar: Detalhar encargos
+        detalhar_de: 'Detalhar os encargos de {descricao}'
+        detalhe:
+            original: Original
+            original_nota: valor de face do boleto
+            juros: Juros
+            juros_taxa: '{pct}% a.m. pró-rata'
+            multa: Multa
+            correcao: Correção
+            honorarios: Honorários
+        titulo: Dívida em aberto
+        obrigacao: '{n} obrigação'
+        obrigacoes: '{n} obrigações'
+        ordem_dica: 'É nesta ordem que o pagamento abate a dívida: sempre a mais antiga primeiro.'
+        ordem: Da mais antiga para a mais nova
+        nova_obrigacao: Nova obrigação
+        nao_acordavel: 'Não há dívida original em aberto para acordar. Se já existe acordo vigente, rompa-o primeiro: as originais voltam ao total.'
+        novo_acordo: Novo acordo
+        vazio_titulo: Nenhuma obrigação registrada.
+        vazio_dica: 'Registre o que está sendo cobrado: cada obrigação entra na fila acima pelo vencimento.'
+        nada_aberto_titulo: Nada em aberto.
+        nada_aberto_dica: Tudo o que está registrado para esta unidade já foi pago. Veja em “Já pago”, abaixo.
+        coluna:
+            venceu_em: Venceu em
+            o_que_e: O que é
+            original: Original
+            original_dica: Valor de face da dívida, como veio da contabilidade, antes de qualquer encargo.
+            acrescimos: Acréscimos
+            acrescimos_dica: 'Tudo que foi somado ao valor de face: juros, multa, correção monetária e honorários. Abra o ⌄ da linha para ver cada um com o seu percentual.'
+            total: Total
+            total_dica: 'Total de cada dívida: original + juros + multa + correção + honorários, antes de abater pagamentos. Somar esta coluna não bate com o card “Total vencido” do topo, e isso é esperado: lá entram só as dívidas já vencidas e ainda não quitadas. Os dois são brutos: pagamento parcial não reduz nenhum dos dois.'
+            pago_em: Pago em
+            recebido: Recebido
+        selecionar: 'Selecionar {descricao}'
+        ja_recebidos: '{valor} já recebidos'
+        paga: Paga
+        receber: Receber
+        receber_obrigacao_dica: Registrar um pagamento nesta obrigação
+        receber_parcela_dica: Registrar um pagamento nesta parcela
+        acordar: Acordar
+        acordar_dica: Criar acordo substituindo esta dívida
+        menu:
+            mais_acoes_obrigacao: Mais ações desta obrigação
+            mais_acoes: Mais ações
+            marcar: Marcar para cobrança em lote
+            copiar: Copiar valor e descrição
+            memoria: Ver memória de cálculo
+            editar: Editar (corrigir)
+            excluir: Excluir lançamento
+        tudo_em_acordo_titulo: Todas as obrigações desta cobrança estão nos acordos abaixo.
+        tudo_em_acordo_dica: As parcelas do acordo são a dívida agora. As obrigações que ele trocou saíram do total em aberto.
+        rodape_obrigacao: '{n} obrigação em aberto'
+        rodape_obrigacoes: '{n} obrigações em aberto'
+        acordo: 'Acordo #{id}'
+        substituido_pelo: 'Substituído pelo acordo #{id}'
+        substituido_por: 'Substituído por {n} acordos'
+        firmado_em: 'firmado em {data}'
+        firmado_sem_data: firmado em data não informada ⚠
+        resumo_acordo: '{parcelas} parcela(s) · substituiu {obrigacoes} obrigação(ões)'
+        parcelas_pagas: '{pagas} de {total} parcelas pagas'
+        abrir_acordo: Abrir acordo
+        mostrar_trocadas: 'Mostrar {n} obrigação(ões) trocada(s) pelo acordo #{id}'
+        fora_do_total: (fora do total em aberto)
+        trocada_pelo: 'trocada pelo acordo #{id} · volta ao total se o acordo for rompido'
+        sem_acordo_titulo: Nenhum acordo nesta cobrança
+        sem_acordo_dica: Marque as obrigações que entram no acordo e use “Fazer acordo com estas”, ou comece do zero.
+        ja_pago: Já pago
+        sem_registro: Sem registro
+        venceu_em: 'venceu em {data}'
+        nada_quitado_titulo: Nada quitado ainda nesta unidade
+        nada_quitado_dica: Quando houver recebimento, ele aparece aqui como “Já pago”, com o valor que entrou.
+        recebido: '{valor} recebido'
+        selecionadas_total: selecionada(s) · total
+        limpar_selecao: Limpar seleção
+        acordar_selecionadas: Fazer acordo com estas
+    movimentos:
+        titulo: O que já entrou
+        ordem_dica: 'Extrato: o que aconteceu por último aparece no topo, em ordem inversa à da dívida acima.'
+        ordem: Do mais recente para o mais antigo
+        coluna:
+            entrou_em: Entrou em
+            o_que_foi: O que foi
+            valor: Valor
+        pagamento_recebido: Pagamento recebido
+        divida: 'dívida {valor}'
+        encargos: 'encargos {valor}'
+        honorarios: 'honorários {valor}'
+        corrigido: Corrigido
+        corrigido_dica: 'Correção sem estorno: {motivo}'
+        corrigir: Corrigir
+        corrigir_dica: Corrigir pagamento (sem estorno)
+        excluir: Excluir
+        excluir_dica: Excluir recebimento (devolve o valor ao saldo)
+        liquidacao: 'Liquidação · {tipo}'
+        valor_reconhecido: valor reconhecido pelo credor
+        bem_avaliado: '(bem avaliado em {valor})'
+        vazio_titulo: Nada entrou ainda
+        vazio_dica: Pagamentos e liquidações não monetárias aparecem aqui, do mais recente para o mais antigo.
+        acordos_encerrados: Acordos encerrados
+        acordos_encerrados_nota: não afetam o total em aberto
+        sem_data: ⚠ sem data
+        acordo: 'Acordo #{id}'
+        substituido_pelo: 'Substituído pelo acordo #{id}'
+        substituido_por: 'Substituído por {n} acordos'
+        resumo_acordo: '{parcelas} parcela(s) · substituiu {obrigacoes} obrigação(ões)'
+        desfeito: '· as obrigações trocadas voltaram ao total em aberto'
+        renegociadas_um: '· as parcelas dele foram renegociadas em outro acordo e saíram do total em aberto'
+        renegociadas_varios: '· as parcelas dele foram renegociadas em {n} outros acordos e saíram do total em aberto'
+        abrir: Abrir
+    responsaveis:
+        titulo: Responsáveis
+        incompleta: Qualificação incompleta
+        incompleta_dica: Falta CPF/CNPJ, estado civil ou endereço. Clique para completar a ficha.
+        trocar: Trocar responsável
+        editar: Editar
+        encerrar_vinculo: Encerrar vínculo
+        atual: Responsável atual
+        papel_desde: '{papel} · desde {data}'
+        vinculo_encerrado: Vínculo encerrado
+        encerramento: 'Encerramento: {motivo}'
+        nao_informado: não informado
+        email: E-mail
+        estado_civil: Estado civil
+        endereco: Endereço
+        endereco_bairro_cep: '{bairro} · CEP {cep} · {cidade}/{uf}'
+        cpf: 'CPF:'
+        cnpj: 'CNPJ:'
+        telefone: 'Telefone:'
+        email_rotulo: 'E-mail:'
+        sem_cobrada: Nenhuma pessoa cobrada
+        # Frase partida em volta do <strong> (spec §8); o meio é a chave `adicionar_pessoa`.
+        sem_cobrada_dica:
+            inicio: Vincule quem responde por esta cobrança usando
+            fim: .
+        outras: Outras pessoas vinculadas
+        adicionar_pessoa: Adicionar pessoa
+        vincular_existente: Vincular pessoa já cadastrada
+        cadastrar_nova: Cadastrar nova pessoa
+        encerrado: Encerrado
+        ate: 'a {data}'
+        definir_atual: Definir como atual
+        sem_outras: Nenhuma outra pessoa vinculada a esta unidade.
+        voltar: ← Voltar
+        proxima: Próxima unidade →
+        ultima: Esta é a última unidade da carteira.
+    telefones:
+        titulo: Telefones
+        telefone: Telefone
+        cadastrado_em: '· cadastrado em {data}'
+        atual: Atual
+        marcar_atual: Marcar como atual
+        editar: Editar telefone
+        corrigir_dica: Corrigir este número
+        excluir: Excluir telefone
+        excluir_dica: Excluir este número
+        numero: Número do telefone
+        tipo: Tipo do telefone
+        salvar: Salvar
+        vazio: Nenhum telefone cadastrado.
+        adicionar: Adicionar telefone
+        dica_adicionar: Clique em + para adicionar.
+        novo: Novo telefone
+    qualificacao:
+        titulo: Qualificação de contato
+        subtitulo: Um clique registra no histórico da cobrança.
+        encerrada: Cobrança encerrada. Não há novo lançamento.
+        desfazer: desfazer
+        vazio: Nenhuma qualificação registrada.
+    honorarios:
+        titulo: Honorários
+        editar_config: Editar configuração de encargos
+        a_receber: A receber
+        a_receber_nota: honorários das obrigações ainda em aberto
+        ja_recebido: Já recebido
+        em_recebimento: 'em {n} recebimento'
+        em_recebimentos: 'em {n} recebimentos'
+        nenhum_recebimento_ainda: nenhum recebimento ainda
+        forma: Forma configurada
+        percentual: Percentual
+        base: Base de cálculo
+        base_composta: Composta
+        base_principal: Principal
+        carencia: Carência
+        carencia_dias: '{n} dia(s)'
+        por_obrigacao: Por obrigação
+        # Frase partida em volta do <em> (spec §8); o meio é a chave `editar_config`.
+        aviso:
+            inicio: A configuração acima é a que vale hoje para novas incidências. Cada obrigação pode ter taxa própria, definida em
+            fim: . Por isso um valor da lista pode não bater com o percentual exibido.
+        quitada: Quitada
+        venc: 'venc. {data}'
+        acordo_chip: 'acordo #{id}'
+        sem_obrigacoes: Nenhuma obrigação registrada.
+        total_obrigacoes: Total das obrigações
+        por_recebimento: Por recebimento
+        recebimento_de: 'Recebimento de {valor}'
+        corrigido: corrigido
+        total_recebido: Total recebido
+        sem_recebimentos: Nenhum recebimento registrado.
+    anotacao:
+        corrigir_dica: Corrigir esta anotação (até 48h)
+        editar: Editar anotação
+        excluir_dica: Excluir esta anotação (até 48h)
+        excluir: Excluir anotação
+    config_encargos:
+        sem_honorarios: A carteira não cobra honorários. Este campo não se aplica.
+        dias: dias
+    documentos:
+        nav_pastas: Navegação de pastas
+        documentos: Documentos
+        buscar_placeholder: Buscar arquivos...
+        buscar: Buscar arquivos
+        nova_pasta: Nova pasta
+        enviar: Enviar
+        modo_exibicao: Modo de exibição
+        lista: Lista
+        grade: Grade
+        ordenar: Ordenar arquivos por
+        ordem:
+            manual: Manual (arrastar)
+            nome: Nome (A a Z)
+            nome_desc: Nome (Z a A)
+            data_desc: Mais recentes
+            data: Mais antigos
+            tamanho_desc: Maiores
+            tamanho: Menores
+        progresso: Progresso do upload
+        pastas: Pastas
+        abrir_pasta: 'Abrir pasta {nome}'
+        arrastar: Arrastar para reordenar
+        arquivo_contagem: '{n} arquivo'
+        arquivos_contagem: '{n} arquivos'
+        acoes_pasta: Ações da pasta
+        abrir: Abrir
+        renomear: Renomear
+        excluir: Excluir
+        arquivos: Arquivos
+        coluna:
+            nome: Nome
+            categoria: Categoria
+            tamanho: Tamanho
+            modificado: Modificado
+            data: Data
+        acoes_arquivo: Ações do arquivo
+        baixar: Baixar
+        mover_para: Mover para…
+        confirmar_excluir: Excluir este arquivo? Esta ação não pode ser desfeita.
+        vazio_titulo: Nenhum arquivo aqui
+        # Frase partida em volta do <strong> (spec §8, "Frase partida"); o meio é a chave `enviar`.
+        vazio_dica:
+            inicio: Arraste arquivos do computador para esta área ou clique em
+            fim: .
+        exemplos: Exemplos de documentos
+        exemplo:
+            boletos: Boletos
+            notificacoes: Notificações
+            acordos_assinados: Acordos assinados
+            comprovantes: Comprovantes
+        nome_pasta_placeholder: Nome da pasta...
+        salvar: Salvar
+        leitura_vazio: Nenhum documento neste caso.
+    financeiro:
+        registrar_pagamento: Registrar pagamento
+        alocacoes: Alocações do pagamento
+        remover: Remover
+        adicionar_alocacao: Adicionar alocação
+        # Frases partidas em volta dos <strong> (spec §8, "Frase partida").
+        registrar_ajuda:
+            inicio: O sistema distribui o pagamento automaticamente pela dívida mais antiga (FIFO); os honorários são calculados à parte. Marque
+        corrigir_ajuda:
+            inicio: Por padrão a nova composição é distribuída automaticamente (FIFO). Marque
+        alocar_manualmente: Alocar manualmente
+        alocar_manualmente_fim: para distribuir você mesmo.
+        corrigir_pagamento: Corrigir pagamento
+        corrigir_aviso:
+            inicio: A correção
+            reescreve: reescreve
+            fim: a composição do pagamento (sem estorno) e fica registrada na auditoria.
+        pagamento_selecionado: Pagamento selecionado.
+        excluir_recebimento: Excluir recebimento
+        excluir_pergunta:
+            inicio: Excluir definitivamente o recebimento de
+            meio: de
+            fim: '?'
+        excluir_aviso:
+            inicio: O valor
+            volta: volta ao saldo devedor
+            fim: e a obrigação que ele quitou volta a ser cobrada, com os juros correndo de novo. A exclusão fica registrada no histórico.
+        motivo: Motivo
+        opcional: (opcional)
+        motivo_placeholder: 'Ex.: recebimento lançado em duplicidade'
+        registrar_liquidacao: Registrar liquidação
+        valor_bem_ajuda: O valor do bem é opcional e pode diferir do reconhecido.
+        valor_reconhecido_ajuda: O valor reconhecido é o que reduz o saldo exigível da dívida.
+    modais:
+        # Frases partidas em volta dos <strong> e <em> (spec §8, "Frase partida").
+        encargos:
+            titulo: Encargos reconhecidos
+            ajuda:
+                inicio: Informe o percentual
+                ou: ou
+                espelho: 'o valor em reais: um espelha o outro enquanto você digita; quem grava a taxa final (à data de hoje) é o servidor. Juros, multa e correção incidem sobre o'
+                valor_original: valor original
+                o: '; o'
+                honorario: honorário
+                incide_sobre: incide sobre
+                base_composta: a base composta (valor + juros + multa + correção).
+                base_original: o valor original (principal).
+                deixe: Deixe os dois campos
+                vazios: vazios
+                para: para
+                herdar: herdar
+                configuracao: a configuração do caso.
+                nunca_congela: A obrigação nunca congela ao registrar ou editar.
+            juros: Juros
+            multa: Multa
+            correcao: Correção
+            honorarios: Honorários
+            rotulo_pct: '{encargo} (%)'
+            rotulo_reais: '{encargo} (R$)'
+            herda: herda do caso
+            limpar_rotulo: 'Limpar {encargo} e voltar a herdar do caso'
+            limpar: Limpar (herdar)
+        registrar_obrigacao: Registrar obrigação
+        registrar: Registrar
+        editar_obrigacao: Editar obrigação
+        editar_obrigacao_texto: 'Correção de cadastro: informe o motivo. O saldo se ajusta automaticamente.'
+        reconciliar:
+            inicio: Esta obrigação já recebeu pagamento. Se você
+            alterar_valor: alterar o valor
+            meio: ', o valor recebido pode ficar sobrando ou faltando. Nesse caso, ajuste-o depois em'
+            corrigir_pagamento: Corrigir pagamento
+            fim: ', no extrato de movimentos.'
+        salvar_correcao: Salvar correção
+        excluir_obrigacao: Excluir obrigação
+        excluir_obrigacao_pergunta:
+            inicio: Excluir definitivamente
+            fim: '? Esta ação não pode ser desfeita.'
+        motivo_exclusao: Motivo da exclusão
+        motivo_exclusao_placeholder: 'Ex.: obrigação lançada em duplicidade'
+        excluir: Excluir
+        encerrar_caso: Encerrar caso
+        encerrar_aviso:
+            inicio: O encerramento só é aceito com o
+            saldo_zerado: saldo exigível zerado
+            fim: (invariável 17). A judicialização não impede encerrar.
+        definir_acao: Definir próxima ação
+        definir: Definir
+        concluir_acao: Concluir ação
+        encadear: 'Se já quiser encadear a próxima ação (opcional):'
+        concluir: Concluir
+        alterar_pessoa: Alterar pessoa cobrada
+        alterar_pessoa_texto: 'A troca é manual e não afeta dívida, pagamentos nem acordos. Atual:'
+        alterar_pessoa_fim: .
+        alterar: Alterar
+        judicializar:
+            titulo: Judicializar caso
+            aviso:
+                inicio: Abre a pasta judicial do caso e liga as duas. A judicialização
+                nao_encerra: não encerra
+                fim: 'o caso: o acompanhamento financeiro continua.'
+            com_cpf:
+                inicio: '{nome} entra na pasta como'
+                cliente_principal: cliente principal
+                fim: ', com os dados da ficha.'
+            sem_cpf: 'A pasta nasce só com o nome e a ação: sem CPF na ficha de {nome}, não há cliente a cadastrar.'
+            pasta_judicial: Pasta judicial
+            buscar_placeholder: Digite o número, o cliente ou a ação da pasta…
+            so_usada:
+                inicio: Só é usada se você marcar
+                vincular: Vincular uma pasta existente
+                fim: acima.
+            botao: Judicializar
+        cancelar_judicializacao:
+            titulo: Cancelar judicialização
+            aviso:
+                inicio: Desvincula a pasta judicial do caso e volta o status para
+                ativo: ativo
+                meio: . A pasta em si
+                nao_apagada: não é apagada
+                fim: . Só o vínculo com este caso é desfeito.
+        registrar_contato: Registrar contato
+        acordo:
+            criar: Criar acordo
+            passo1: O que será renegociado
+            sem_dividas: 'Não há dívidas disponíveis para acordo neste caso. Se já existe um acordo vigente, rompa-o primeiro: as dívidas originais voltam ao saldo e poderão ser acordadas de novo.'
+            selecao: Seleção de dívidas
+            selecionar_todas: Selecionar todas
+            limpar: Limpar
+            selecionado: 'Selecionado:'
+            com_pagamento:
+                inicio: Uma das dívidas escolhidas
+                ja_recebeu: já recebeu pagamento
+                meio: . O valor sugerido é o que
+                ainda_falta: ainda falta
+                fim: ', não o valor original.'
+            escolhidas_ajuda: As escolhidas saem do saldo exigível e passam a ser cobradas pelas parcelas. Só dívidas originais aparecem aqui. Para refazer um acordo vigente, rompa o atual primeiro.
+            passo2: Como parcelar
+            qtd_parcelas: Nº de parcelas
+            primeiro_vencimento: 1º vencimento
+            periodicidade: Periodicidade
+            mensal: Mensal
+            quinzenal: Quinzenal
+            semanal: Semanal
+            total_ajuda: O total nasce da seleção acima; edite-o para dar desconto ou acrescentar juros.
+            gerar_parcelas: Gerar parcelas
+            passo3: Parcelas do acordo
+            vazio:
+                inicio: Nenhuma parcela ainda. Use
+                fim: acima, ou acrescente uma por vez.
+            remover: Remover
+            adicionar_parcela: Adicionar parcela
+            parcela_fixa_ajuda: Ao mudar o valor de uma parcela, ela fica fixa e as demais se redistribuem para fechar o total.
+        romper_texto: O rompimento restaura as obrigações originais.
+    acordo:
+        titulo_pagina: 'Cobranças · {acordo}'
+        titulo_data: 'Acordo de {data}'
+        titulo_sem_data: Acordo sem data
+        voltar: Voltar à cobrança
+        sem_data: Sem data
+        sem_data_dica_vigente: 'A contabilidade não informou a data deste acordo. O sistema não a inventa: os encargos das dívidas que ele substitui ficam sem calcular; a congelada mantém o snapshot que tem.'
+        sem_data_dica_desfeito: A contabilidade não informou a data deste acordo. Como o acordo foi desfeito, as dívidas originais voltaram ao saldo e seus encargos voltaram a ser calculados normalmente.
+        incompleto_dica: Parcelas ainda não presentes no relatório importado. Entram por importação futura ou lançamento manual.
+        faltam_parcela: 'Faltam {n} parcela'
+        faltam_parcelas: 'Faltam {n} parcelas'
+        editar: Editar acordo
+        marcar_cumprido: Marcar cumprido
+        romper: Romper
+        motivo: 'Motivo: {motivo}'
+        desfeito: 'Acordo desfeito: as obrigações originais voltaram ao saldo e as parcelas saíram dele.'
+        aba_resumo: Resumo
+        aba_documentos: Documentos
+        total_negociado: Total negociado
+        entrada: Entrada
+        sem_entrada: Sem entrada
+        divida_substituida: Dívida substituída
+        motivo_sem_data: ⚠ acordo sem data
+        desconto_concedido: Desconto concedido
+        juros_acrescidos: Juros acrescidos
+        parcelas: Parcelas
+        pago_ate_agora: 'Pago até agora: {valor}'
+        coluna:
+            descricao: Descrição
+            vencimento: Vencimento
+            valor: Valor
+            pago: Pago
+            situacao: Situação
+        sem_pagamento: Sem pagamento
+        situacao:
+            quitada: Quitada
+            parcial: Parcial
+            em_aberto: Em aberto
+        nenhuma_parcela: Nenhuma parcela.
+        substituidas: Obrigações substituídas
+        substituidas_nota: 'Estas obrigações nunca são apagadas: enquanto o acordo vigora, elas ficam fora do saldo e as parcelas acima entram no lugar.'
+        nenhuma_substituida: Nenhuma obrigação substituída.
+        documentos:
+            adicionar: Adicionar documento
+            coluna:
+                data: Data
+                nome: Nome
+                categoria: Categoria
+                observacao: Observação
+                acoes: Ações
+            baixar: Baixar
+            excluir: Excluir
+            confirmar_excluir: Excluir este documento?
+            vazio: Nenhum documento anexado.
+            arquivo: Arquivo
+            categoria: Categoria
+            observacao: Observação
+            enviar: Enviar
+        editar_nota: Parcelas já pagas não podem ser alteradas nem removidas. Ao mudar o valor de uma parcela, as demais se redistribuem para fechar o total.
+        trava_pagamento: 'Parcela com pagamento de {valor}. Não é editável aqui.'
+        trava_substituida: Esta parcela já foi substituída por outro acordo vigente. Quem a gerencia é aquele acordo.
+        remover: Remover
+        adicionar_parcela: Adicionar parcela
+        salvar_alteracoes: Salvar alterações
+        romper_titulo: Romper acordo
+        romper_texto: O rompimento restaura as obrigações originais no saldo e descarta as parcelas.
+        cancelar_titulo: Cancelar acordo
+        cancelar_texto: O cancelamento (erro de lançamento) restaura as obrigações originais.
+        cumprir_titulo: Marcar acordo cumprido
+        cumprir_texto: Confirmar que este acordo foi integralmente cumprido? As obrigações substituídas permanecem fora do saldo.
+        confirmar: Confirmar
+    js:
+        remover: Remover
+        salvando: Salvando...
+        anotacao_sem_texto: (anotação sem texto)
+        vinculo: 'Vínculo: {vinculo}'
+        pagamento_contexto: 'Pagamento de {data} · total {total}'
+        ficha:
+            carregando: Carregando a ficha…
+            nova_pessoa: Nova pessoa
+            ficha_da_pessoa: Ficha da pessoa
+            erro_carregar: Não foi possível carregar a ficha.
+            erro_carregar_pessoa: Não foi possível carregar a ficha desta pessoa.
+            erro_confirmar: Não foi possível confirmar a gravação. Recarregue a página para conferir.
+        acordo:
+            fecham_em: 'As parcelas fecham em {total}.'
+            nao_fecham: 'As parcelas somam {soma}, mas devem fechar em {total}.'
+            entrada_fecham_em: 'Entrada + parcelas fecham em {total}.'
+            entrada_nao_fecham: 'Entrada + parcelas somam {soma}, mas deve fechar em {total}.'
+            gerador_incompleto: Informe o total negociado, o nº de parcelas e o 1º vencimento.
+            gerador_erro: Não foi possível gerar as parcelas.
+            gerador_falha: Falha ao gerar as parcelas.
+        previa:
+            divida: 'Dívida:'
+            honorarios: 'Honorários:'
+            excede: 'Excede o saldo do caso em {valor}.'
+            distribuicao: 'Distribuição automática (FIFO):'
+            obrigacao: Obrigação
+        upload:
+            erro_enviar: Erro ao enviar o arquivo.
+            erro_comunicacao: Erro de comunicação.
+
 # ---- fim
