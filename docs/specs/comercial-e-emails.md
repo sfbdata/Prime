@@ -1010,3 +1010,38 @@ saídas: (a) já, (b) a caixa "aceito novidades" quando houver desenho; F3.9 (b)
 ### Para o dono (nota, sem bloquear)
 - Sair pelo link de uma campanha de vagas também desliga os alertas de vagas, porque é o mesmo consentimento.
 - Uma campanha recorrente de vagas cresce sozinha conforme a lista `vagas_alerta` cresce.
+
+## 12. F3i: imagem na campanha do modo simples (dono, 21/10 à noite; o dono pode rever)
+
+Decisão do dono, F3i (a): a imagem fica guardada no BlueJus com endereço público, até 1 MB, só JPG ou PNG, e é apagada
+1 ano depois da campanha. Desenho: dc 05 VS 21.10.26, L274 (controle), L596 (no e-mail) e L659 (JS). Risco MÉDIO
+(arquivo público, envio em massa). Uma migration (tabela `comercial_imagem`).
+
+### O que o desenho mostra (entra inteiro)
+- No modo simples, abaixo do TEXTO e na linha do "Inserir:", o botão "Adicionar imagem", que vira "Trocar imagem"
+  quando já há uma, e o "Remover". Uma imagem por e-mail.
+- No e-mail, a imagem vai logo abaixo do cabeçalho azul e antes dos parágrafos, com 540 px de largura e cantos de 6 px.
+  Com imagem, o espaço interno do texto cai de 28 para 18 px.
+- No navegador, a imagem é reduzida a no máximo 1080 px e convertida em JPEG (qualidade 0,85), como no desenho.
+
+### Regras
+- **Envio:** `POST /master/comercial/imagens`, só para o Master, com o CSRF da seção. O tipo é conferido pelo conteúdo,
+  só JPEG ou PNG, nunca pela extensão. O servidor recusa arquivo acima de 1 MB e dimensão acima de 4000 px. A imagem é
+  regravada no servidor para tirar EXIF e localização. O nome é aleatório e a URL usa um token próprio.
+- **Endereço público:** `GET /e/i/{token}.{jpg|png}`, sem login. Leva Content-Type exato, `nosniff`, cache de um dia e
+  `noindex`. Token inexistente ou vencido dá 404.
+- **Na campanha e no modelo:** a mensagem guarda só o token (`imagem`), nunca URL livre nem `data:`. Token desconhecido
+  ou vencido é recusado com "A imagem expirou; envie de novo."
+- **Alt:** o título do e-mail. O desenho usa um alt mas não tem campo para preenchê-lo; pela convenção, nenhum campo novo
+  entra na tela.
+- **Validade:**
+  - campanha: 1 ano a partir do último envio, o que inclui cada execução da recorrente;
+  - modelo salvo: 1 ano a partir do último salvamento;
+  - imagem enviada e nunca usada: 30 dias.
+  - A purga entra no `app:purgar-dados-expirados`, e o arquivo só é apagado depois do COMMIT.
+- **Escopo:** só o modo simples, como no desenho. O bloco "Imagem" do modo blocos continua com endereço `https://`.
+- **Efeito esperado:** um e-mail antigo perde a imagem depois de 1 ano.
+
+### Decisões técnicas (o dono pode rever)
+Contagem de 1 ano na recorrente pelo último envio; 30 dias para a imagem sem uso; o alt é o título; o JPEG do desenho é
+mantido.
