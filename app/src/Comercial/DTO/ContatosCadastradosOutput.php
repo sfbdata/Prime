@@ -17,16 +17,18 @@ final class ContatosCadastradosOutput
         public readonly int $pedidos,
         public readonly int $jaExistiam,
         public readonly int $barrados,
+        public readonly int $descadastrados = 0,
     ) {
         $this->mensagem = $pedidos . ' pedido(s) de confirmação enviado(s)'
             . ($jaExistiam > 0 ? ' · ' . $jaExistiam . ' já existiam na base' : '')
-            . ($barrados > 0 ? ' · ' . $barrados . ' barrado(s) (endereço inválido, descadastrado ou pedido recente)' : '')
+            . ($barrados > 0 ? ' · ' . $barrados . ' barrado(s) (endereço inválido ou pedido recente)' : '')
+            . ($descadastrados > 0 ? ' · ' . $descadastrados . ' descadastrado(s), sem novo pedido' : '')
             . '. O contato entra na base quando confirmar pelo e-mail.';
     }
 
-    /** @return array{pedidos: int, jaExistiam: int, barrados: int, mensagem: string} */
+    /** @return array{pedidos: int, jaExistiam: int, barrados: int, descadastrados: int, mensagem: string} */
     public function paraArray(): array
     {
-        return ['pedidos' => $this->pedidos, 'jaExistiam' => $this->jaExistiam, 'barrados' => $this->barrados, 'mensagem' => $this->mensagem];
+        return ['pedidos' => $this->pedidos, 'jaExistiam' => $this->jaExistiam, 'barrados' => $this->barrados, 'descadastrados' => $this->descadastrados, 'mensagem' => $this->mensagem];
     }
 }

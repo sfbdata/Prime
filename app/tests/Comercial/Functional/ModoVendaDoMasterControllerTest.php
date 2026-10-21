@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Functional;
 
+use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Comercial\Campanha\ChaveDasCampanhas;
 use App\Comercial\Campanha\ModelosDeCampanha;
@@ -62,6 +63,23 @@ final class ModoVendaDoMasterControllerTest extends JusPrimeWebTestCase
         $client->request('POST', self::CONTATOS, [], [], ['CONTENT_TYPE' => 'application/json'], '{"emails":"ana@exemplo.com"}');
 
         self::assertResponseStatusCodeSame(403);
+        self::assertSame(0, $this->contar('comercial_consentimento'));
+    }
+
+    #[TestDox('LGPD: quem se descadastrou da Base de contatos não recebe o pedido pelo cadastro do Master; a resposta conta à parte, sem o endereço')]
+    public function testDescadastradoNaoRecebePedido(): void
+    {
+        $client = $this->clienteMaster();
+        /** @var DescadastroDeEmailInterface $descadastro */
+        $descadastro = static::getContainer()->get(DescadastroDeEmailInterface::class);
+        $descadastro->descadastrar(null, 'saiu@exemplo.com', 'comercial_campanhas', 'link');
+
+        $this->postar($client, self::CONTATOS, ['emails' => 'saiu@exemplo.com']);
+
+        self::assertResponseIsSuccessful();
+        $saida = $this->json($client);
+        self::assertSame([0, 1], [$saida['pedidos'], $saida['descadastrados']]);
+        self::assertStringNotContainsString('saiu@', $saida['mensagem']);
         self::assertSame(0, $this->contar('comercial_consentimento'));
     }
 

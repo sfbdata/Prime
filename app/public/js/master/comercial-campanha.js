@@ -551,7 +551,9 @@
       if (!el('[data-mc-cp-programar]').hidden) programar(false);
     });
     /* Para as outras partes da Central: o modal de teste da F3f (7d) lê o modelo que o editor mostra, no formato que o POST
-       de teste recebe; a F3g (0d) registra o que vai junto no envio. */
+       de teste recebe; a F3g (0d) registra o que vai junto no envio. Cada raiz também expõe o próprio modelo
+       (`raiz.mcModeloAtual`), para quem atende um clique ler o da instância de onde ele veio, não o da seção Comercial. */
+    raiz.mcModeloAtual = () => pedido();
     if (M.ganchos) {
       window.McCampanha = Object.assign(window.McCampanha || {}, {
         modeloAtual: () => pedido(),

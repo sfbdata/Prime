@@ -12,6 +12,7 @@ use App\Comercial\Repository\FatoDeConsentimentoRepository;
 use App\Comercial\Service\RotulosDoConsentimento;
 use App\Comercial\UseCase\CadastrarContatoDoMasterUseCase;
 use App\Entity\Auth\User;
+use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -38,6 +39,9 @@ final class CadastrarContatoDoMasterUseCaseTest extends TestCase
     private array $segurados = [];
     /** @var list<string> */
     private array $confirmados = [];
+    /** @var list<string> quem saiu da lista comercial_campanhas */
+    private array $descadastrados = [];
+    private DescadastroDeEmailInterface&MockObject $descadastro;
 
     protected function setUp(): void
     {
@@ -49,6 +53,8 @@ final class CadastrarContatoDoMasterUseCaseTest extends TestCase
                 $this->ultimo[$email] = new \DateTimeImmutable('2026-10-21 10:00:00');
             }
         });
+        $this->descadastro = $this->createMock(DescadastroDeEmailInterface::class);
+        $this->descadastro->method('estaDescadastrado')->willReturnCallback(fn (mixed $tenant, string $email, string $assunto): bool => $tenant === null && $assunto === 'comercial_campanhas' && \in_array($email, $this->descadastrados, true));
         $this->fatos = $this->createMock(FatoDeConsentimentoRepository::class);
         $this->fatos->method('ultimoPedidoEm')->willReturnCallback(fn (?int $tenant, string $lista, string $email): ?\DateTimeImmutable => $this->ultimo[$email] ?? null);
     }
@@ -72,6 +78,8 @@ final class CadastrarContatoDoMasterUseCaseTest extends TestCase
     {
         self::assertSame('pela equipe do BlueJus, em um cadastro manual', RotulosDoConsentimento::daOrigem(CadastrarContatoDoMasterUseCase::ORIGEM));
         self::assertSame('os convites, as ofertas e as novidades do BlueJus', RotulosDoConsentimento::daLista('comercial_campanhas'));
+        self::assertSame('Este endereço foi informado pela equipe do BlueJus, em um cadastro manual. Se não quiser receber, é só ignorar este e-mail.', RotulosDoConsentimento::motivoDoEnvio(CadastrarContatoDoMasterUseCase::ORIGEM));
+        self::assertSame('Este endereço foi informado na página de vagas do BlueJus. Se não foi você, ignore este e-mail.', RotulosDoConsentimento::motivoDoEnvio('pagina-publica-vagas'), 'as outras origens não mudam');
     }
 
     #[TestDox('Vírgula, espaço, ponto e vírgula e quebra de linha separam; repetidos (com maiúsculas) contam uma vez')]
@@ -94,26 +102,29 @@ final class CadastrarContatoDoMasterUseCaseTest extends TestCase
         self::assertSame('1 pedido(s) de confirmação enviado(s) · 1 já existiam na base. O contato entra na base quando confirmar pelo e-mail.', $saida->mensagem);
     }
 
-    #[TestDox('Limitadores: pedido de 24 h atrás, descadastrado dentro dos 30 dias ou teto global seguram o pedido, que conta como barrado')]
+    #[TestDox('Limitadores: pedido de 24 h atrás ou teto global seguram o pedido, que conta como barrado')]
     public function testLimitadores(): void
     {
         // O pedido anterior de ontem (o limite de 24 h segura o novo: a interface não grava fato).
         $this->ultimo['ana@exemplo.com'] = new \DateTimeImmutable('2026-10-20 18:00:00');
-        // O descadastrado não aparece como confirmado e o limite de 30 dias da interface segura o pedido.
-        $this->segurados = ['ana@exemplo.com', 'saiu@exemplo.com'];
-        $saida = $this->executar('ana@exemplo.com saiu@exemplo.com bia@exemplo.com');
+        $this->segurados = ['ana@exemplo.com'];
+        $saida = $this->executar('ana@exemplo.com bia@exemplo.com');
 
-        self::assertSame(['ana@exemplo.com', 'saiu@exemplo.com', 'bia@exemplo.com'], array_column($this->pedidos, 'email'), 'quem decide o limite é a confirmação');
-        self::assertSame([1, 0, 2], [$saida->pedidos, $saida->jaExistiam, $saida->barrados]);
+        self::assertSame(['ana@exemplo.com', 'bia@exemplo.com'], array_column($this->pedidos, 'email'), 'quem decide o limite é a confirmação');
+        self::assertSame([1, 0, 1, 0], [$saida->pedidos, $saida->jaExistiam, $saida->barrados, $saida->descadastrados]);
     }
 
-    #[TestDox('Descadastrado com pedido vencido (mais de 30 dias): a confirmação grava o pedido de novo e ele conta como enviado')]
-    public function testDescadastradoForaDoIntervalo(): void
+    #[TestDox('LGPD: quem se descadastrou da lista não recebe o pedido, nem com o último pedido há mais de 30 dias; conta à parte, sem o endereço')]
+    public function testDescadastradoNaoRecebe(): void
     {
+        $this->descadastrados = ['saiu@exemplo.com'];
         $this->ultimo['saiu@exemplo.com'] = new \DateTimeImmutable('2026-08-01 10:00:00');
-        $saida = $this->executar('saiu@exemplo.com');
+        $saida = $this->executar('saiu@exemplo.com bia@exemplo.com');
 
-        self::assertSame([1, 0, 0], [$saida->pedidos, $saida->jaExistiam, $saida->barrados]);
+        self::assertSame(['bia@exemplo.com'], array_column($this->pedidos, 'email'), 'o descadastrado nem chega à confirmação');
+        self::assertSame([1, 0, 0, 1], [$saida->pedidos, $saida->jaExistiam, $saida->barrados, $saida->descadastrados]);
+        self::assertSame('1 pedido(s) de confirmação enviado(s) · 1 descadastrado(s), sem novo pedido. O contato entra na base quando confirmar pelo e-mail.', $saida->mensagem);
+        self::assertStringNotContainsString('saiu@', $saida->mensagem);
     }
 
     #[TestDox('Inválidos não vão à confirmação e contam como barrados, na frase sem travessão')]
@@ -123,7 +134,7 @@ final class CadastrarContatoDoMasterUseCaseTest extends TestCase
 
         self::assertSame(['ana@exemplo.com'], array_column($this->pedidos, 'email'));
         self::assertSame([1, 0, 2], [$saida->pedidos, $saida->jaExistiam, $saida->barrados]);
-        self::assertSame('1 pedido(s) de confirmação enviado(s) · 2 barrado(s) (endereço inválido, descadastrado ou pedido recente). O contato entra na base quando confirmar pelo e-mail.', $saida->mensagem);
+        self::assertSame('1 pedido(s) de confirmação enviado(s) · 2 barrado(s) (endereço inválido ou pedido recente). O contato entra na base quando confirmar pelo e-mail.', $saida->mensagem);
         self::assertStringNotContainsString('—', $saida->mensagem);
         self::assertStringNotContainsString('–', $saida->mensagem);
     }
@@ -148,13 +159,13 @@ final class CadastrarContatoDoMasterUseCaseTest extends TestCase
         }
 
         $this->expectException(CampanhaRecusada::class);
-        (new CadastrarContatoDoMasterUseCase($this->confirmacao, $this->fatos))->executar(CadastroDeContatosInput::doTexto('ana@exemplo.com'), (new User())->setRoles(['ROLE_USER']));
+        (new CadastrarContatoDoMasterUseCase($this->confirmacao, $this->fatos, $this->descadastro))->executar(CadastroDeContatosInput::doTexto('ana@exemplo.com'), (new User())->setRoles(['ROLE_USER']));
     }
 
     private function executar(string $texto): ContatosCadastradosOutput
     {
         $master = (new User())->setRoles(['ROLE_SUPER_ADMIN']);
 
-        return (new CadastrarContatoDoMasterUseCase($this->confirmacao, $this->fatos))->executar(CadastroDeContatosInput::doTexto($texto), $master);
+        return (new CadastrarContatoDoMasterUseCase($this->confirmacao, $this->fatos, $this->descadastro))->executar(CadastroDeContatosInput::doTexto($texto), $master);
     }
 }

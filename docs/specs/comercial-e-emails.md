@@ -949,8 +949,9 @@ Escrita depois da F3a, em cima do código dela; a 5d revisa.
   espaço ou ponto e vírgula; a resposta diz quantos pedidos saíram, quantos já existiam e quantos foram barrados, sem
   travessão. O texto do dc ("Só cadastre quem autorizou receber (LGPD)") aparece no campo.
 - `modo: 'venda'` no pedido de contagem e de envio, validado no `PedidoDePublico` e no `PedidoDeCampanha`: público fora
-  de `leads`/`csv`/`indiv` ou modelo fora dos quatro (e dos do usuário) é recusado (422), para a tela não ser a única
-  barreira. No modo venda, o filtro aceita só busca e Estado (o resto recusado).
+  de `leads`/`csv`/`indiv` ou modelo fora dos quatro (e dos do usuário) é recusado (422). É coerência, não barreira:
+  `modo` e o `cu<id>` são rótulos que o próprio cliente manda (o Master pode enviar pela seção Comercial de qualquer
+  forma). No modo venda, o filtro aceita só busca e Estado (o resto recusado).
 
 **Testes:** a seção ind tem a Central como filho direto (combinador), com `data-modo="venda"`; os dois modos na mesma
 página não se confundem (token, URLs, ids); a recusa no servidor (público, modelo, filtro); o UseCase do cadastro
@@ -962,6 +963,11 @@ página não se confundem (token, URLs, ids); a recusa no servidor (público, mo
   `comercial-campanha.js` por raiz, com `MODOS`; `PedidoDePublico::modo` e as recusas da venda no `PedidoDePublico` e
   no `PedidoDeCampanha`; `CadastrarContatoDoMasterUseCase` em `POST /master/comercial/contatos` (origem
   `cadastro-manual-master`, rótulos da origem e da lista `comercial_campanhas` no `RotulosDoConsentimento`).
-- De fora no modo venda, à espera de decisão: o Relatório (item 5) e o botão "Descadastrados (N)" do cabeçalho, porque
-  os scripts do Relatório (9b) e dos Descadastrados (0d) são de uma instância só; e o limite por IP do cadastro (pede
-  um limitador novo no `framework.yaml`; a rota é só do Master e vale o teto global de 200 pedidos por hora).
+- Limite por IP do cadastro: `comercial_contatos_master` (20 por hora) no `framework.yaml`, 429 com mensagem.
+- Cada raiz expõe `raiz.mcModeloAtual` (o modelo da própria instância; o teste da F3f lê o da instância do clique).
+- Depois do #223, em PRs próprios (coordenação, 21/10): o Relatório na venda (9b, include no `_comercial.html.twig`
+  dentro da raiz) e o botão "Descadastrados (N)" na venda (0d, o mesmo bloco movido para antes da Central do clique;
+  `raiz.mcExtrasDoEnvio` para a confirmação de leitura).
+- Com o dono: o e-mail de confirmação diz "Este endereço foi informado pela equipe do BlueJus, em um cadastro manual.
+  Se não foi você, ignore este e-mail." (o "Se não foi você" não casa com o cadastro feito pela equipe); quem se
+  descadastrou volta a receber o pedido depois de 30 dias pelo cadastro do Master.
