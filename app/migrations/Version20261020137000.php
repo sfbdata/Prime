@@ -14,7 +14,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Nullable e sem preenchimento: o vínculo que já existe fica sem tipo e a tela o lê como "Outro". O principal
  * continua sendo o `principal = true`; os demais vínculos são os apensados.
  */
-final class Version20261020103000 extends AbstractMigration
+final class Version20261020137000 extends AbstractMigration
 {
     public function getDescription(): string
     {

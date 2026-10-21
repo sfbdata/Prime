@@ -15,7 +15,7 @@ versão completa de 18/10 em `docs/design/redesign-19-10-26/`, fora do git), mes
 - #82 `push-painel-monitoramento` (P4a): base master. Migration Version20261019234500.
 - #87 `push-avisar-quando-chegar` (P4b): EMPILHADO sobre o #82, pronto. Migration Version20261020090000. A 5d
   (comercial-1a) empilha sobre ele (descadastro em Shared).
-- P4f `processo-apensados`: base master. Migration Version20261020103000 (renomeada: a 5d tem a 20261020100000).
+- P4f `processo-apensados`: base master. Migration Version20261020137000 (renomeada na vez dela: era 20261020103000).
 - P4c `push-avisar-cliente`: em implementação, EMPILHADO sobre o #87. Controladoria e envio isolados em interfaces.
 - P4d (envio automático ao cliente, pelo Carteiro da 5d) e P4e (arquivos, OCR, análise completa): specs no
   scratchpad; P4e espera o #76 (composer) e aviso de Dockerfile.
