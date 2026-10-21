@@ -20,6 +20,7 @@
     const tokens = {
         senha: raiz.dataset.tokenSenha || '',
         cadastro: raiz.dataset.tokenCadastro || '',
+        reenvio: raiz.dataset.tokenReenvio || '',
         suporte: raiz.dataset.tokenSuporte || '',
         ajuste: raiz.dataset.tokenAjuste || '',
     };
@@ -131,6 +132,11 @@
         rs3: ['Pronto', 'bi-check2-circle', 'Voltar para o login', 'bi-box-arrow-in-right'],
         cad: ['Criar conta e escritório', 'bi-building-add', 'Criar minha conta grátis', 'bi-rocket-takeoff'],
     };
+    /* "Confirme seu e-mail" depois do cadastro: os textos vêm do servidor (ContaAConfirmar), num lugar só. */
+    const passoConf = md.querySelector('.lg-md__passo[data-passo="conf"]');
+    if (passoConf) {
+        PASSOS.conf = [passoConf.dataset.titulo || '', 'bi-envelope-check', passoConf.dataset.botao || '', 'bi-send'];
+    }
     let passo = null;
     let ocupado = false;
 
@@ -279,8 +285,13 @@
 
             return;
         }
-        mdFechar();
         email.value = em;
+        if (r.dados.confirmar === true) {
+            mostrarConfirmacao(typeof r.dados.email === 'string' && r.dados.email !== '' ? r.dados.email : em);
+
+            return;
+        }
+        mdFechar();
         $('lgVeuTit').textContent = saudacao(em, $('lgCdNome').value);
         mostrar($('lgVeu'), true);
         $('lgCartao').classList.add('lg-sai');
@@ -288,10 +299,36 @@
         setTimeout(() => { window.location.href = destino; }, 2100);
     };
 
+    /* A conta nasceu sem login: o modal pede a confirmação do e-mail e oferece o reenvio do link. */
+    const cfAviso = $('lgCfAviso');
+    const mostrarConfirmacao = (em) => {
+        $('lgCdSenha').value = '';
+        repintarForca();
+        $('lgCfEmail').textContent = em;
+        cfAviso.textContent = '';
+        mostrar(cfAviso, false);
+        irPara('conf');
+    };
+
+    /* O reenvio público lê a conta da sessão (gravada pelo cadastro); aqui só vai o CSRF. */
+    const reenviarConfirmacao = async () => {
+        cfAviso.textContent = '';
+        mostrar(cfAviso, false);
+        const r = await postar('/login/reenviar-confirmacao', { _token: tokens.reenvio });
+        const texto = r.dados && typeof r.dados.mensagem === 'string' && r.dados.mensagem !== '' ? r.dados.mensagem : ERRO_GENERICO;
+        if (r.status !== 200 || r.dados.ok !== true) {
+            mdErroTexto(texto);
+
+            return;
+        }
+        cfAviso.textContent = texto;
+        mostrar(cfAviso, true);
+    };
+
     mdForm.addEventListener('submit', (e) => {
         e.preventDefault();
         if (passo === 'rs3') { voltarAoLogin(); return; }
-        const acoes = { rs1: enviarCodigo, rs2: salvarNovaSenha, cad: criarConta };
+        const acoes = { rs1: enviarCodigo, rs2: salvarNovaSenha, cad: criarConta, conf: reenviarConfirmacao };
         if (acoes[passo]) {
             comBotaoOcupado(mdAcao, acoes[passo]);
         }

@@ -6,6 +6,7 @@ namespace App\Tests\Auth\Functional;
 
 use App\Auth\Controller\ContaConfirmacaoController;
 use App\Auth\Entity\ConfirmacaoEmail;
+use App\Auth\Service\ContaAConfirmar;
 use App\Auth\UseCase\ReenviarConfirmacaoDeEmailUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -20,8 +21,12 @@ use Symfony\Component\Mime\Email;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
- * "Reenviar o link de confirmação" (spec login-desenho-10): só logado, CSRF próprio, teto de um link a cada 2 minutos
- * por conta (no controller), conta confirmada não recebe nada, e a volta só para página deste mesmo host.
+ * "Reenviar o link de confirmação" logado (spec login-desenho-10): só logado, CSRF próprio, conta confirmada não
+ * recebe nada, e a volta só para página deste mesmo host.
+ *
+ * Desde a spec `cadastro-exige-confirmacao.md`, conta a confirmar não fica logada: a sessão dela termina no
+ * `SessaoDeContaAConfirmarListener` antes de chegar aqui. Os tetos (agora no `TetoDoReenvioDeConfirmacao`, com a
+ * mesma regra) se provam no `TetoDoReenvioDeConfirmacaoTest` e no `ReenvioPublicoDeConfirmacaoTest`.
  */
 #[CoversClass(ContaConfirmacaoController::class)]
 #[CoversClass(ReenviarConfirmacaoDeEmailUseCase::class)]
@@ -128,7 +133,7 @@ final class ContaConfirmacaoControllerTest extends JusPrimeWebTestCase
     #[TestDox('CSRF inválido: 403, nada gravado nem enviado')]
     public function testCsrfInvalido(): void
     {
-        $user = $this->entrar();
+        $user = $this->entrar(aConfirmar: false);
 
         $this->pedir('TOKEN_errado');
 
@@ -137,89 +142,18 @@ final class ContaConfirmacaoControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->linksDa($user));
     }
 
-    #[TestDox('Conta a confirmar: grava um link novo (sem gastar o lembrete) e envia o e-mail de confirmação com ele')]
-    public function testContaAConfirmarRecebeOEmail(): void
+    #[TestDox('Conta a confirmar logada (sessão de antes da regra): a sessão termina, vai ao login e nada é enviado')]
+    public function testContaAConfirmarTemASessaoEncerrada(): void
     {
         $user = $this->entrar();
 
         $this->pedir();
 
-        self::assertResponseRedirects('/escritorio/convites');
-        self::assertSame(['success' => [ContaConfirmacaoController::FLASH_ENVIADO]], $this->flashes());
-        $enviados = $this->emailsEnviados();
-        self::assertCount(1, $enviados);
-        self::assertSame((string) $user->getEmail(), $enviados[0]->getTo()[0]->getAddress());
-        self::assertSame(1, preg_match('#/cadastro/confirmar-email/([a-f0-9]{64})#', (string) $enviados[0]->getHtmlBody(), $m));
-        $link = $this->em()->getRepository(ConfirmacaoEmail::class)->findOneBy(['user' => $user->getId()]);
-        self::assertNotNull($link);
-        self::assertSame(ConfirmacaoEmail::hashDoToken($m[1]), $link->getTokenHash());
-        self::assertFalse($link->isLembrete(), 'o botão não gasta o lembrete único da 5d');
-    }
-
-    #[TestDox('Segunda chamada em menos de 2 minutos: não reenvia e pede para aguardar')]
-    public function testSegundaChamadaLogoDepoisNaoReenvia(): void
-    {
-        $user = $this->entrar();
-        $this->pedir();
-        self::assertCount(1, $this->emailsEnviados());
-
-        $this->pedir();
-
-        self::assertResponseRedirects('/escritorio/convites');
-        self::assertSame([], $this->emailsEnviados(), 'o registro do mailer é por requisição: nada saiu nesta');
-        // O flash de sucesso da primeira chamada ainda não foi exibido (não houve página entre as duas).
-        self::assertSame([ContaConfirmacaoController::FLASH_AGUARDE], $this->flashes()['warning'] ?? null);
-        self::assertSame(1, $this->linksDa($user));
-    }
-
-    #[TestDox('Link emitido há mais de 2 minutos não segura o reenvio')]
-    public function testEmissaoAntigaNaoSegura(): void
-    {
-        $user = $this->entrar();
-        $antes = new \DateTimeImmutable('-3 minutes');
-        $this->em()->persist(new ConfirmacaoEmail($user, str_repeat('b', 64), $antes->modify('+7 days'), criadoEm: $antes));
-        $this->em()->flush();
-
-        $this->pedir();
-
-        self::assertCount(1, $this->emailsEnviados());
-        self::assertSame(2, $this->linksDa($user));
-    }
-
-    /** Links já emitidos para a conta, com as idades dadas (ex.: '-3 hours'). */
-    private function emitidos(User $user, string ...$idades): void
-    {
-        foreach ($idades as $i => $idade) {
-            $criado = new \DateTimeImmutable($idade);
-            $this->em()->persist(new ConfirmacaoEmail($user, hash('sha256', $idade . $i), $criado->modify('+7 days'), criadoEm: $criado));
-        }
-        $this->em()->flush();
-    }
-
-    #[TestDox('Teto diário: com 5 links nas últimas 24 h (o do cadastro conta), o 6º não sai')]
-    public function testSextaEmissaoDoDiaNaoSai(): void
-    {
-        $user = $this->entrar();
-        $this->emitidos($user, '-20 hours', '-10 hours', '-5 hours', '-1 hour', '-10 minutes');
-
-        $this->pedir();
-
-        self::assertResponseRedirects('/escritorio/convites');
+        self::assertResponseRedirects('/login');
+        self::assertNull(static::getContainer()->get('security.token_storage')->getToken());
+        self::assertSame($user->getId(), $this->client->getRequest()->getSession()->get(ContaAConfirmar::CHAVE_SESSAO));
         self::assertSame([], $this->emailsEnviados());
-        self::assertSame(['warning' => [ContaConfirmacaoController::FLASH_TETO_DIARIO]], $this->flashes());
-        self::assertSame(ContaConfirmacaoController::TETO_DIARIO, $this->linksDa($user));
-    }
-
-    #[TestDox('Teto diário: link de mais de 24 h atrás não conta')]
-    public function testEmissaoDeOntemNaoConta(): void
-    {
-        $user = $this->entrar();
-        $this->emitidos($user, '-25 hours', '-10 hours', '-5 hours', '-1 hour', '-10 minutes');
-
-        $this->pedir();
-
-        self::assertCount(1, $this->emailsEnviados());
-        self::assertSame(['success' => [ContaConfirmacaoController::FLASH_ENVIADO]], $this->flashes());
+        self::assertSame(0, $this->linksDa($user));
     }
 
     #[TestDox('Conta já confirmada: não grava nem envia, e avisa que já está confirmada')]

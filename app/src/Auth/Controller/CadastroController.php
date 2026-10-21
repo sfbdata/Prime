@@ -4,15 +4,12 @@ declare(strict_types=1);
 
 namespace App\Auth\Controller;
 
-use App\Auth\DTO\ContaCriadaOutput;
 use App\Auth\DTO\CriarContaEEscritorioInput;
+use App\Auth\Service\ContaAConfirmar;
 use App\Auth\UseCase\ConfirmarCadastroUseCase;
 use App\Auth\UseCase\ConfirmarEmailDaContaUseCase;
 use App\Auth\UseCase\CriarContaEEscritorioUseCase;
-use App\Security\UserAuthenticator;
-use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,8 +18,9 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Cadastro público do desenho 10: o formulário mora na tela de entrada (passo "Criar conta e escritório"); aqui
- * ficam o POST em JSON que cria a conta já logada e o link de confirmação do e-mail. O `/cadastro/confirmar/{token}`
- * antigo continua para os cadastros pendentes já enviados (valem 24 h).
+ * ficam o POST em JSON que cria a conta e o link de confirmação do e-mail. A conta nasce sem login: só entra depois
+ * de confirmar o e-mail (spec `cadastro-exige-confirmacao.md`). O `/cadastro/confirmar/{token}` antigo continua para
+ * os cadastros pendentes já enviados (valem 24 h).
  */
 final class CadastroController extends AbstractController
 {
@@ -31,8 +29,6 @@ final class CadastroController extends AbstractController
         private readonly ConfirmarEmailDaContaUseCase $confirmarEmail,
         private readonly ConfirmarCadastroUseCase $confirmarCadastro,
         private readonly RateLimiterFactoryInterface $cadastroAutoLimiter,
-        private readonly Security $security,
-        private readonly TenantContext $tenantContext,
     ) {}
 
     #[Route('/cadastro', name: 'auth_cadastro', methods: ['GET'])]
@@ -69,13 +65,10 @@ final class CadastroController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $this->entrar($conta);
+        // Sem login: a tela mostra "Confirme seu e-mail". A sessão guarda a conta para o botão de reenviar o link.
+        ContaAConfirmar::guardar($request->getSession(), $conta->user);
 
-        return $this->json([
-            'ok' => true,
-            // A própria tela mostra o véu "Abrindo o seu escritório digital…": o destino já é o final.
-            'destino' => $this->generateUrl('expediente_index'),
-        ]);
+        return $this->json(['ok' => true, 'confirmar' => true, 'email' => $conta->user->getEmail()]);
     }
 
     #[Route('/cadastro/confirmar-email/{token}', name: 'auth_cadastro_confirmar_email', requirements: ['token' => '[a-f0-9]{64}'], methods: ['GET'])]
@@ -108,13 +101,6 @@ final class CadastroController extends AbstractController
         } catch (\DomainException $e) {
             return $this->render('auth/cadastro/erro.html.twig', ['motivo' => $e->getMessage()]);
         }
-    }
-
-    /** Decisão c: "Criar minha conta" já entra no sistema, no escritório que acabou de nascer. */
-    private function entrar(ContaCriadaOutput $conta): void
-    {
-        $this->security->login($conta->user, UserAuthenticator::class, 'main');
-        $this->tenantContext->setCurrentTenant((int) $conta->tenant->getId());
     }
 
     /** @return array<string, mixed> */

@@ -7,6 +7,7 @@ namespace App\Tests\Auth\Functional;
 use App\Auth\Controller\CadastroController;
 use App\Auth\Entity\CadastroPendente;
 use App\Auth\Entity\ConfirmacaoEmail;
+use App\Auth\Service\ContaAConfirmar;
 use App\Auth\Service\ForcaDaSenha;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -130,8 +131,8 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertResponseRedirects('/escritorio/selecionar');
     }
 
-    #[TestDox('POST /cadastro/criar cria conta e escritório, grava aceite e ciência, manda o e-mail e já entra')]
-    public function testCriaContaJaLogada(): void
+    #[TestDox('POST /cadastro/criar cria conta e escritório, grava aceite e ciência, manda o e-mail e NÃO entra: pede a confirmação')]
+    public function testCriaContaSemLogin(): void
     {
         $client = static::createClient();
         $this->prepararCsrf($client);
@@ -143,11 +144,7 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertEmailCount(1);
         self::assertSame(strtolower($email), self::getMailerMessage()?->getTo()[0]->getAddress());
-        $router = static::getContainer()->get('router');
-        self::assertSame(
-            ['ok' => true, 'destino' => $router->generate('expediente_index')],
-            self::json($client),
-        );
+        self::assertSame(['ok' => true, 'confirmar' => true, 'email' => strtolower($email)], self::json($client));
 
         $em = $this->em();
         $em->clear();
@@ -174,10 +171,13 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertSame('Navegador de teste', $ciencia->getUserAgent());
         self::assertCount(1, $em->getRepository(ConfirmacaoEmail::class)->findBy(['user' => $user, 'lembrete' => false]));
 
-        // Já entrou, no escritório que acabou de nascer.
-        self::assertSame($tenant->getId(), $client->getSession()->get('current_tenant_id'));
+        // Não entrou (spec cadastro-exige-confirmacao): sem token, sem escritório na sessão; a sessão guarda a conta
+        // só para o botão de reenviar o link.
+        self::assertNull($client->getContainer()->get('security.token_storage')->getToken());
+        self::assertNull($client->getRequest()->getSession()->get('current_tenant_id'));
+        self::assertSame($user->getId(), $client->getRequest()->getSession()->get(ContaAConfirmar::CHAVE_SESSAO));
         $client->request('GET', '/cadastro');
-        self::assertResponseRedirects('/escritorio/selecionar');
+        self::assertResponseRedirects('/login?abrir=cadastro');
     }
 
     /** @return iterable<string, array{array<string, mixed>, string}> */
