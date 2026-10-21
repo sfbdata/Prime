@@ -84,6 +84,12 @@ input::placeholder, textarea::placeholder{color:#8896a3}
 .lg-erro{font-size:13px; color:#a3232b}
 .lg-entrar{height:46px; border:none; border-radius:6px; background:#0d6efd; color:#fff; font:inherit; font-size:16px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:background .15s, transform .15s}
 .lg-entrar:hover{background:#0b5ed7; transform:translateY(-1px)}
+/* Entrar com o Google (spec entrar-com-google): secundário, de contorno, abaixo do Entrar, com a linha "ou". */
+.lg-ou{display:flex; align-items:center; gap:10px; color:#6c757d; font-size:13px}
+.lg-ou::before,.lg-ou::after{content:""; flex:1; height:1px; background:#dee2e6}
+.lg-google{height:46px; border:1px solid #dadce0; border-radius:6px; background:#fff; color:#3c4043; font-size:15px; font-weight:600; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:10px; transition:background .15s, border-color .15s}
+.lg-google:hover{background:#f8f9fa; border-color:#c6c9cc; color:#3c4043}
+.lg-google:focus-visible{outline:2px solid #0d6efd; outline-offset:2px}
 
 .lg-selo{display:flex; align-items:center; gap:11px; border:1px solid #cfe7d8; border-radius:6px; background:#f3faf5; padding:10px 12px; font:inherit; color:#12242f; cursor:pointer; text-align:left; transition:background .15s}
 .lg-selo:hover{background:#e9f6ee}

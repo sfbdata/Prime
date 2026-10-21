@@ -9,6 +9,17 @@ conflita com esta. Ela ficou desatualizada em três pontos: pedia OAB no cadastr
 citava o `ConfirmarCadastroUseCase` (hoje o cadastro é o `CriarContaEEscritorioUseCase`) e é anterior ao
 Google Agenda (#78, #182, #183), que já tem cliente OAuth próprio. **Esta substitui aquela** quando aprovada.
 
+## Estado da frente (21/10/2026)
+
+- **Entrega 1** (login de quem já tem conta): implementada na branch `entrar-com-google`, migration
+  `Version20261020148100`. Peças: `App\Shared\Google\IdTokenDoGoogle` (conferente compartilhado com a Agenda),
+  `App\Auth\Infra\GoogleLoginApi`, `App\Auth\Service\ContaDoGoogle`, `App\Auth\UseCase\LigarContaAoGoogleUseCase`,
+  `App\Security\GoogleAuthenticator`, `App\Security\EntradaDoUsuario` (destino extraído do `UserAuthenticator`),
+  `App\Auth\Controller\EntrarComGoogleController` (ida, com limitador `login_google` em
+  `config/packages/login_google.yaml`). Rotas `app_login_google` (`/login/google`) e `app_login_google_volta`
+  (`/login/google/callback`).
+- **Entrega 2** (cadastro pelo Google): depois do merge da 1.
+
 ## Decisões do dono (21/10/2026)
 
 | Ponto | Decisão |

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Auth\Infra\GoogleLoginApi;
 use App\Auth\Service\PaginaDeEntrada;
 use App\Entity\Auth\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -30,7 +31,7 @@ final class SecurityController extends AbstractController
      * com as ferramentas SÓ MASTER; qualquer outro logado segue para o sistema.
      */
     #[Route(path: '/login', name: 'app_login')]
-    public function login(AuthenticationUtils $authenticationUtils, PaginaDeEntrada $paginaDeEntrada, Request $request): Response
+    public function login(AuthenticationUtils $authenticationUtils, PaginaDeEntrada $paginaDeEntrada, Request $request, GoogleLoginApi $googleLogin): Response
     {
         $logado = $this->getUser();
         $usuario = $logado instanceof User ? $logado : null;
@@ -44,6 +45,8 @@ final class SecurityController extends AbstractController
             'pagina' => $paginaDeEntrada->montar($usuario),
             'abrir' => $this->passoParaAbrir($request),
             'frase' => self::FRASES[intdiv(time(), 86400) % count(self::FRASES)],
+            // Entrar com o Google (spec entrar-com-google): sem o cliente OAuth no servidor, o botão não aparece.
+            'googleLigado' => $googleLogin->ligado(),
         ]);
     }
 

@@ -81,6 +81,12 @@
                     <div class="lg-erro" id="lgErro" role="alert"{% if erroLogin == '' %} hidden{% endif %}>{{ erroLogin }}</div>
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
                     <button type="submit" class="lg-entrar" id="lgEntrar"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>Entrar</button>
+                    {% if googleLigado %}
+                        {# Entrar com o Google (spec entrar-com-google, decisão do dono 21/10): abaixo do Entrar, com "ou". O token só
+                           deixa o "Manter conectado" valer quando a ida sai deste botão. #}
+                        <div class="lg-ou" aria-hidden="true"><span>ou</span></div>
+                        <a class="lg-google" id="lgGoogle" href="{{ path('app_login_google', {_token: csrf_token('login_google')}) }}"><svg class="lg-google__g" viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92a8.78 8.78 0 0 0 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72A5.41 5.41 0 0 1 3.69 9c0-.6.1-1.18.28-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.05l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59A9 9 0 0 0 9 0 9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>Entrar com o Google</a>
+                    {% endif %}
 
                     <button type="button" class="lg-selo" data-seg-abrir><span class="lg-selo__icone" aria-hidden="true"><i class="bi bi-shield-lock-fill"></i></span><span class="lg-selo__texto"><b>Criptografia de ponta a ponta</b><span>O BlueJus não tem acesso aos seus arquivos nem ao conteúdo das pastas.</span></span><i class="bi bi-chevron-down lg-selo__seta" aria-hidden="true"></i></button>
 

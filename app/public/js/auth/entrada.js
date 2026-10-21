@@ -57,6 +57,18 @@
     email.addEventListener('input', () => mostrarErro(''));
     senha.addEventListener('input', () => mostrarErro(''));
 
+    // Entrar com o Google: leva o "Manter conectado" marcado (o servidor só aceita com o token do próprio botão).
+    const google = $('lgGoogle');
+    if (google) {
+        google.addEventListener('click', () => {
+            const manter = $('lgManter');
+            const url = new URL(google.href, location.href);
+            url.searchParams.delete('manter');
+            if (manter && manter.checked) { url.searchParams.set('manter', '1'); }
+            google.href = url.pathname + url.search;
+        });
+    }
+
     form.addEventListener('submit', (e) => {
         if (!REGEX_EMAIL.test(email.value.trim())) {
             e.preventDefault();

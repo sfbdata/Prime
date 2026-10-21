@@ -82,7 +82,7 @@ final class GoogleFalso
             return $this->json(['error' => 'invalid_grant'], 400);
         }
         if ('authorization_code' === ($campos['grant_type'] ?? null)) {
-            $carga = rtrim(strtr(base64_encode((string) json_encode(['email' => $this->conta, 'email_verified' => $this->emailConfirmado, 'aud' => $this->audiencia, 'iss' => 'https://accounts.google.com', 'exp' => time() + $this->validadeDoIdToken])), '+/', '-_'), '=');
+            $carga = rtrim(strtr(base64_encode((string) json_encode(['sub' => 'sub-' . md5($this->conta), 'email' => $this->conta, 'email_verified' => $this->emailConfirmado, 'aud' => $this->audiencia, 'iss' => 'https://accounts.google.com', 'exp' => time() + $this->validadeDoIdToken])), '+/', '-_'), '=');
 
             return $this->json(['access_token' => 'acesso', 'refresh_token' => 'REFRESH-SECRETO', 'scope' => $this->escoposConcedidos, 'id_token' => 'cab.' . $carga . '.ass']);
         }
