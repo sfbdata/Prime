@@ -106,14 +106,15 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(['Recorrente', 'Convite · mensal'], [$this->json($client)['campanhas'][0]['rotulo'], $this->json($client)['campanhas'][0]['sub']]);
     }
 
-    #[TestDox('Busca por campanha ou por e-mail de destinatário (o % e o _ são literais) e paginação de 50 no SQL')]
+    #[TestDox('Busca por campanha, pelo rótulo do público ou por e-mail de destinatário (o % e o _ são literais) e paginação de 50 no SQL')]
     public function testBuscaEPaginacao(): void
     {
         $client = $this->clienteMaster();
         $natal = $this->campanha(['a@exemplo.com'], ['assunto' => 'Natal especial']);
+        $primarios = $this->campanha(['a@exemplo.com'], ['publico' => 'prim']);
         $comDestino = $this->campanha(['a@exemplo.com']);
         $this->destino($comDestino, 'procurado.f3d@exemplo.com', 'enviado');
-        for ($i = 0; $i < 49; ++$i) {
+        for ($i = 0; $i < 48; ++$i) {
             $this->campanha(['a@exemplo.com']);
         }
 
@@ -121,6 +122,8 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame([$natal], array_column($this->json($client)['campanhas'], 'id'));
         $client->request('GET', '/master/comercial/relatorio?q=procurado.f3d');
         self::assertSame([$comDestino], array_column($this->json($client)['campanhas'], 'id'));
+        $client->request('GET', '/master/comercial/relatorio?q=' . rawurlencode('primários'));
+        self::assertSame([$primarios], array_column($this->json($client)['campanhas'], 'id'));
         $client->request('GET', '/master/comercial/relatorio?q=' . rawurlencode('_zz%'));
         self::assertSame(0, $this->json($client)['total']);
 

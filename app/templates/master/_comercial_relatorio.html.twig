@@ -1,7 +1,7 @@
 {# "Relatório como caixa de entrada" da Central de envios (F3d; desenho 05 VS 21.10.26, marcação L300-305 e L502-514,
    lógica L698-717; spec docs/specs/comercial-relatorio.md). Incluído pelo _comercial.html.twig no lugar do antigo
-   bloco "Monitoramento", dentro do [data-mc]. Traz o próprio <link> e <script> (a CSP do /master aceita 'self', sem
-   inline). A lista, as contagens e o visualizador vêm por JSON quando a seção abre.
+   bloco "Monitoramento", dentro do [data-mc]. Traz o próprio <link> e <script>, sem script inline (o HTML da
+   campanha vai num iframe sandbox="", que não executa script). A lista, as contagens e o visualizador vêm por JSON quando a seção abre.
    A URL do visualizador leva o marcador 9999999999 (casa com o requisito `[1-9]\d{0,9}` da rota; o JS o troca).
    Fora desta fatia: a estrela, o arquivo, o menu do botão direito, "Reenviar a quem não leu" e "Exportar
    destinatários" (dependem de gravar no servidor; ver a spec). #}

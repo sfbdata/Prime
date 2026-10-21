@@ -131,7 +131,7 @@
     texto('quando', c.quando);
     ver.querySelector('[data-mc-rl-cancelar]').hidden = !c.cancelavel;
     ver.querySelector('[data-mc-rl-kpis]').innerHTML = (c.kpis || []).map(k => '<div class="mc-rl-kpi"><span class="mc-rl-kpi-rot"><i class="bi ' + esc(k.icone) + '" aria-hidden="true"></i> ' + esc(k.rotulo) + '</span><b class="mc-rl-kpi-v">' + esc(k.valor) + '</b></div>').join('');
-    ver.querySelector('[data-mc-rl-html]').srcdoc = c.html || '<p style="font:14px Arial;color:#5b7383;padding:20px">Prévia não disponível para esta campanha.</p>';
+    ver.querySelector('[data-mc-rl-html]').srcdoc = c.html || '<p style="font:14px Arial;color:#5b7383;padding:20px">Prévia não disponível para campanhas antigas.</p>';
     const dest = c.destinatarios || [];
     let corpo = dest.map(p => '<div class="mc-rl-dest"><i class="bi ' + (p.lido ? 'bi-check2-all mc-rl-dest-lido' : 'bi-check2') + '" aria-hidden="true"></i><span class="mc-rl-dest-email">' + esc(p.email) + '</span><span class="mc-rl-dest-st">' + esc(p.estado) + '</span></div>').join('');
     if (!dest.length) corpo = '<div class="mc-rl-dest-vazio">' + (c.iniciada ? 'Lista não registrada nesta campanha.' : 'A lista é montada quando o envio começar.') + '</div>';

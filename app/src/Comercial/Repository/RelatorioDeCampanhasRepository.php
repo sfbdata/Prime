@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Comercial\Repository;
 
+use App\Comercial\Campanha\PublicosDaCampanha;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 
@@ -153,12 +154,33 @@ class RelatorioDeCampanhasRepository
         $onde = self::GRUPO . ' = :aba';
         $parametros = ['aba' => $aba];
         if ($busca !== '') {
-            $onde .= " AND (c.nome ILIKE :q OR c.assunto ILIKE :q OR c.modelo_nome ILIKE :q
+            $onde .= " AND (c.nome ILIKE :q OR c.assunto ILIKE :q OR c.modelo_nome ILIKE :q" . self::buscaNoPublico($busca, $parametros) . "
                 OR EXISTS (SELECT 1 FROM comercial_campanha_destino d WHERE d.campanha_id = c.id AND d.email ILIKE :q))";
             $parametros['q'] = '%' . addcslashes($busca, '%_\\') . '%';
         }
 
         return [$onde, $parametros];
+    }
+
+    /**
+     * O público é gravado pela chave ('prim') e a tela mostra o rótulo ("Usuários primários"), como o dc L699 busca:
+     * as chaves cujo rótulo contém a busca entram como parâmetros.
+     *
+     * @param array<string, string> $parametros
+     */
+    private static function buscaNoPublico(string $busca, array &$parametros): string
+    {
+        $chaves = array_keys(array_filter(PublicosDaCampanha::ROTULOS, static fn (string $r): bool => mb_stripos($r, $busca) !== false));
+        if ($chaves === []) {
+            return '';
+        }
+        $marcas = [];
+        foreach ($chaves as $k => $chave) {
+            $parametros['pub' . $k] = $chave;
+            $marcas[] = ':pub' . $k;
+        }
+
+        return ' OR c.publico IN (' . implode(', ', $marcas) . ')';
     }
 
     /**

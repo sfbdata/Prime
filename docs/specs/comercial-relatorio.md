@@ -27,8 +27,10 @@ campanha e os destinatários). Risco MÉDIO (envio em massa, dado pessoal de des
 
 1. **Abas.** Pelo estado: `recorrente` em Recorrentes, `agendada` em Agendadas, o resto (na fila, enviando, enviada,
    cancelada, teste) em Enviadas. A contagem de cada aba ignora a busca, como o dc.
-2. **Busca.** No nome, no assunto, no modelo e no e-mail de qualquer destinatário (`ILIKE`, com `%` e `_` literais),
-   até 120 caracteres. Volta à página 1.
+2. **Busca.** No nome, no assunto, no modelo, no rótulo do público (como o dc L699; a chave gravada entra quando o
+   rótulo de `PublicosDaCampanha::ROTULOS` contém a busca) e no e-mail de qualquer destinatário (`ILIKE`, com `%` e
+   `_` literais), até 120 caracteres. Volta à página 1. A busca vai na URL (`GET ?q=`), como a busca rápida e as
+   demais buscas do sistema; o e-mail buscado pode constar no access log do servidor, como nelas.
 3. **Página.** 50 por página, `LIMIT/OFFSET` no SQL, da mais nova para a mais antiga; a página além do fim volta à
    última. A faixa é "1 a 50 de N" (o dc usa um traço entre os números; a regra do texto sem travessão o troca por "a").
 4. **Métricas** (todas as execuções; uma consulta para a página inteira: `comercial_campanha_destino.envio_id` →
@@ -43,7 +45,7 @@ campanha e os destinatários). Risco MÉDIO (envio em massa, dado pessoal de des
 5. **Visualizador.** Remetente do `MAILER_FROM`; data agendada ou da confirmação; o HTML é
    `ComposicaoDaCampanha::previa(descongelar(campanha))` (o mesmo montador do envio, com "Dra. Ana" no `{nome}`), num
    iframe `sandbox=""` por `srcdoc`, e a resposta leva `Content-Security-Policy: sandbox`. Cópia que não valida mais:
-   "Prévia não disponível para esta campanha.". Até 200 destinatários (o resto em "+ N destinatário(s)"); o e-mail
+   "Prévia não disponível para campanhas antigas." (texto do dc). Até 200 destinatários (o resto em "+ N destinatário(s)"); o e-mail
    anonimizado pela retenção de 24 meses aparece como "endereço anonimizado". Os e-mails só vão ao Master e nada vai
    para log.
 6. **Cancelar envio.** Sobre o `EncerrarCampanhaUseCase`, que ganhou motivo e autor opcionais (padrão: "Encerrada pelo
