@@ -431,6 +431,18 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         $this->assertNadaMudou($id);
     }
 
+    #[TestDox('CSRF inválido num link que não vale: 403 com a página de erro, sem o formulário')]
+    public function testCsrfInvalidoEmLinkQueNaoVale(): void
+    {
+        $client = static::createClient();
+
+        $client->request('POST', '/cadastro/confirmar-email/' . bin2hex(random_bytes(32)), ['senha' => 'novaSenha456', 'confirmacao' => 'novaSenha456', '_token' => 'forjado']);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertSelectorTextContains('body', 'Este link de confirmação é inválido ou expirou.');
+        self::assertSelectorNotExists('form');
+    }
+
     /** @return iterable<string, array{string, string, string}> */
     public static function senhasRecusadas(): iterable
     {

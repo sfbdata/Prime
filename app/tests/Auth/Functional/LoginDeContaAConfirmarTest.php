@@ -439,7 +439,7 @@ final class LoginDeContaAConfirmarTest extends JusPrimeWebTestCase
         self::assertSame('', trim($tela->filter('#lgErro')->text()));
         $client->jsonRequest('POST', '/login/reenviar-confirmacao', ['_token' => (string) $tela->filter('#lgRaiz')->attr('data-token-reenvio')], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
         self::assertSame(['ok' => true, 'mensagem' => ContaAConfirmar::SEM_CONTA_NA_SESSAO], json_decode((string) $client->getResponse()->getContent(), true));
-        self::assertSame('Para receber um novo acesso, use "Esqueci a senha": enviamos um código para o seu e-mail.', ContaAConfirmar::SEM_CONTA_NA_SESSAO);
+        self::assertSame('Para receber um novo acesso, use "Esqueceu a senha?": enviamos um código para o seu e-mail.', ContaAConfirmar::SEM_CONTA_NA_SESSAO);
         self::assertEmailCount(0);
     }
 

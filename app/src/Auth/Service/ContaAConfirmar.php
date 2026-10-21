@@ -45,7 +45,7 @@ final class ContaAConfirmar
      * Resposta do reenvio público quando a sessão não guarda conta nenhuma: não diz nada sobre conta alguma. A conta
      * a confirmar não tem senha utilizável (spec `cadastro-senha-no-link.md`): o caminho é o código da senha.
      */
-    public const SEM_CONTA_NA_SESSAO = 'Para receber um novo acesso, use "Esqueci a senha": enviamos um código para o seu e-mail.';
+    public const SEM_CONTA_NA_SESSAO = 'Para receber um novo acesso, use "Esqueceu a senha?": enviamos um código para o seu e-mail.';
 
     public static function mensagemDeLogin(string $email): string
     {

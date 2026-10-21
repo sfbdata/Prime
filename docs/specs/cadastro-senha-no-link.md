@@ -50,8 +50,8 @@ coordenador).
 5. **Entrar antes de confirmar:** como a conta não tem senha utilizável, o login responde o erro genérico de
    credencial. A recusa "Confirme o seu e-mail" do `UserChecker` continua como defesa (contas antigas com senha).
 6. **Sem o link:** o modal "Confirme seu e-mail" continua com o reenvio (sessão `conta_a_confirmar`, 30 min). Depois
-   disso, o caminho é "Esqueci a senha": o código chega ao e-mail, confirma o e-mail e cria a senha (já é assim). O
-   texto `SEM_CONTA_NA_SESSAO` passa a apontar esse caminho: "Para receber um novo acesso, use "Esqueci a senha":
+   disso, o caminho é "Esqueceu a senha?" (o link da tela de login): o código chega ao e-mail, confirma o e-mail e cria a senha (já é assim). O
+   texto `SEM_CONTA_NA_SESSAO` passa a apontar esse caminho: "Para receber um novo acesso, use "Esqueceu a senha?":
    enviamos um código para o seu e-mail."
 7. **Textos que mudam** (o resto fica):
    - modal depois do cadastro: "Clique nele para criar a sua senha e ativar sua conta e seu escritório. O link

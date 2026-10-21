@@ -202,7 +202,7 @@ final class CriarContaEEscritorioUseCase
         ));
     }
 
-    /** Decisão c: a conta já existe e já entra; o e-mail não pode travar nada. */
+    /** A conta já existe e espera o link (cadastro-senha-no-link): uma falha no envio não desfaz o cadastro; o reenvio cobre. */
     private function enviarConfirmacao(User $user, string $token): void
     {
         try {

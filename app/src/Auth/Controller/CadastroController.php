@@ -31,6 +31,7 @@ final class CadastroController extends AbstractController
     /** Intenção do CSRF do "Crie sua senha" do link. */
     public const CSRF_CRIAR_SENHA = 'cadastro_criar_senha';
 
+    private const SESSAO_EXPIRADA = 'Sessão expirada. Recarregue a página.';
     private const TELA_DO_LINK = 'auth/cadastro/confirmar_email.html.twig';
 
     public function __construct(
@@ -100,7 +101,7 @@ final class CadastroController extends AbstractController
     public function criarSenha(Request $request, string $token): Response
     {
         if (!$this->isCsrfTokenValid(self::CSRF_CRIAR_SENHA, (string) $request->request->get('_token'))) {
-            return $this->telaDoLink(['situacao' => SituacaoDoLinkDeConfirmacao::Pendente, 'token' => $token, 'erro' => 'Sessão expirada. Recarregue a página.'], Response::HTTP_FORBIDDEN);
+            return $this->csrfInvalido($token);
         }
 
         $input = new CriarSenhaPeloLinkInput($token, (string) $request->request->get('senha'), (string) $request->request->get('confirmacao'));
@@ -114,6 +115,21 @@ final class CadastroController extends AbstractController
         }
 
         return $this->telaDoLink(['situacao' => $situacao]);
+    }
+
+    /** CSRF inválido: nada é gravado, e a tela mostra a situação real do link (o formulário só se ele ainda vale). */
+    private function csrfInvalido(string $token): Response
+    {
+        try {
+            $situacao = $this->linkDeConfirmacao->situacao($token);
+        } catch (\DomainException $e) {
+            return $this->telaDoLink(['motivo' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        }
+        if ($situacao !== SituacaoDoLinkDeConfirmacao::Pendente) {
+            return $this->telaDoLink(['situacao' => $situacao], Response::HTTP_FORBIDDEN);
+        }
+
+        return $this->telaDoLink(['situacao' => $situacao, 'token' => $token, 'erro' => self::SESSAO_EXPIRADA], Response::HTTP_FORBIDDEN);
     }
 
     #[Route('/cadastro/confirmar/{token}', name: 'auth_cadastro_confirmar', methods: ['GET'])]
