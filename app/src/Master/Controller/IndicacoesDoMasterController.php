@@ -87,14 +87,14 @@ final class IndicacoesDoMasterController extends AbstractController
     }
 
     /**
-     * O cabeçalho "N enviadas · N hoje · N viraram conta" e os limites (dc L686-687). A página de indicadores vem com
-     * uma linha só: o UseCase sempre a monta, e a tela de 21/10 não mostra a tabela.
+     * O cabeçalho "N enviadas · N hoje · N viraram conta" e os limites (dc L686-687), pelo resumo do UseCase, que não
+     * consulta a tabela por pessoa nem os alertas (a tela de 21/10 não os mostra).
      *
      * @return array{enviadas: int, hoje: int, viraramConta: int, limites: array{pausadoParaTodos: bool, porDia: int, porMes: int, alertaEm24h: int}}
      */
     private function resumo(): array
     {
-        $saida = $this->painel->executar(1, 1);
+        $saida = $this->painel->resumo();
 
         return ['enviadas' => $saida->enviadas, 'hoje' => $saida->ultimas24h, 'viraramConta' => $saida->viraramConta, 'limites' => self::limitesEmJson($saida->limites)];
     }
