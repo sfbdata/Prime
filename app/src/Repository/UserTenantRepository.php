@@ -39,6 +39,24 @@ class UserTenantRepository extends ServiceEntityRepository
     }
 
     /**
+     * O usuário tem vínculo com algum escritório além deste (qualquer perfil e situação, com o escritório no ar ou
+     * não)? Conta também o suspenso e o em análise: o vínculo removido some da tabela, e o que sobra pode voltar a valer.
+     * A senha é da conta, não do vínculo: quem a troca pelo edit-role deste escritório abriria os outros
+     * (spec perfis-1.2-permissoes-e-hierarquia C8).
+     */
+    public function existeVinculoEmOutroEscritorio(User $user, Tenant $tenant): bool
+    {
+        return (int) $this->createQueryBuilder('ut')
+            ->select('COUNT(ut.id)')
+            ->andWhere('ut.user = :user')
+            ->andWhere('ut.tenant <> :tenant')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult() > 0;
+    }
+
+    /**
      * Contas FORA DO AR (isActive=false: suspensas ou em quarentena de exclusão) com que o usuário tem
      * vínculo ativo. Base dos avisos da tela de seleção (spec perfis-1.2-contas C9 e C9b).
      *
