@@ -1557,7 +1557,7 @@
 
                 if (!resp.ok) {
                     const dados = await resp.json().catch(() => ({}));
-                    alert(dados.erro ?? 'Erro ao desvincular cliente.');
+                    (window.avisarErroPs || window.alert)(dados.erro ?? 'Erro ao desvincular cliente.');
                     return;
                 }
 
@@ -1573,7 +1573,7 @@
                     return;
                 }
 
-                alert(dados.erro ?? 'Erro ao desvincular cliente.');
+                (window.avisarErroPs || window.alert)(dados.erro ?? 'Erro ao desvincular cliente.');
             } finally {
                 if (button) {
                     button.disabled = false;
@@ -1598,7 +1598,7 @@
 
                 const dados = await resp.json().catch(() => ({}));
                 if (!resp.ok || !dados.sucesso) {
-                    alert(dados.erro ?? 'Erro ao definir o cliente principal.');
+                    (window.avisarErroPs || window.alert)(dados.erro ?? 'Erro ao definir o cliente principal.');
                     return;
                 }
 
@@ -1608,7 +1608,7 @@
                 // Sem este catch, queda de rede reabilitava o botão em silêncio e o usuário
                 // achava que tinha marcado. A rejeição não tratada não aparece na tela.
                 console.error('[clientePrincipal]', err);
-                alert('Erro de comunicação. A marcação pode não ter sido salva. Recarregue a página.');
+                (window.avisarErroPs || window.alert)('Erro de comunicação. A marcação pode não ter sido salva. Recarregue a página.');
                 return;
             } finally {
                 if (button) {
@@ -1641,7 +1641,7 @@
 
                 if (!resp.ok) {
                     const dados = await resp.json().catch(() => ({}));
-                    alert(dados.erro ?? 'Erro ao desvincular processo.');
+                    (window.avisarErroPs || window.alert)(dados.erro ?? 'Erro ao desvincular processo.');
                     return;
                 }
 
@@ -1651,7 +1651,7 @@
                     return;
                 }
 
-                alert(dados.erro ?? 'Erro ao desvincular processo.');
+                (window.avisarErroPs || window.alert)(dados.erro ?? 'Erro ao desvincular processo.');
             } finally {
                 if (button) {
                     button.disabled = false;
@@ -1679,7 +1679,7 @@
                     return;
                 }
 
-                alert(dados.erro ?? 'Erro ao definir o processo principal.');
+                (window.avisarErroPs || window.alert)(dados.erro ?? 'Erro ao definir o processo principal.');
             } finally {
                 if (button) {
                     button.disabled = false;
@@ -4051,7 +4051,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (!data.sucesso) {
-                    alert(data.erro || 'Erro ao alterar situação.');
+                    (window.avisarErroPs || window.alert)(data.erro || 'Erro ao alterar situação.');
                     emAndamento  = false;
                     btn.disabled = false;
                     return;
@@ -4059,7 +4059,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 window.location.reload();
             })
             .catch(function () {
-                alert('Erro de comunicação com o servidor.');
+                (window.avisarErroPs || window.alert)('Erro de comunicação com o servidor.');
                 emAndamento  = false;
                 btn.disabled = false;
             });
@@ -4084,7 +4084,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     body: fd,
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 });
-                if (!res.ok) { alert('Erro ao alterar prioridade.'); return; }
+                if (!res.ok) { (window.avisarErroPs || window.alert)('Erro ao alterar prioridade.'); return; }
 
                 var json = await res.json();
                 tog.className = 'ps-prio ps-prio--' + optBtn.dataset.valor + ' pasta-prioridade-btn';
@@ -4102,7 +4102,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (painel) { painel.classList.remove('is-aberto'); }
                 tog.setAttribute('aria-expanded', 'false');
             } catch (e) {
-                alert('Erro ao alterar prioridade.');
+                (window.avisarErroPs || window.alert)('Erro ao alterar prioridade.');
             }
         });
     });
