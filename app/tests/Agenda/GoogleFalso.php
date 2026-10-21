@@ -28,6 +28,9 @@ final class GoogleFalso
     public string $conta = 'pessoa@gmail.com';
     public bool $recusarAutorizacao = false;
     public bool $emailConfirmado = true;
+    public string $audiencia = 'cliente-teste';
+    public int $validadeDoIdToken = 3600;
+    public string $escoposConcedidos = 'openid https://www.googleapis.com/auth/userinfo.email ' . GoogleAgendaApi::ESCOPO;
     public bool $syncTokenVencido = false;
     /** @var list<string> ids que o Google recusa gravar (403) */
     public array $recusar = [];
@@ -37,7 +40,7 @@ final class GoogleFalso
 
     public function api(): GoogleAgendaApi
     {
-        return new GoogleAgendaApi(new MockHttpClient($this->responder(...)), 'cliente-teste', 'segredo-teste');
+        return new GoogleAgendaApi(new MockHttpClient($this->responder(...)), 'cliente-teste', 'segredo-teste', 'chave-teste');
     }
 
     /** A pessoa apagou a agenda lá. */
@@ -79,9 +82,9 @@ final class GoogleFalso
             return $this->json(['error' => 'invalid_grant'], 400);
         }
         if ('authorization_code' === ($campos['grant_type'] ?? null)) {
-            $carga = rtrim(strtr(base64_encode((string) json_encode(['email' => $this->conta, 'email_verified' => $this->emailConfirmado])), '+/', '-_'), '=');
+            $carga = rtrim(strtr(base64_encode((string) json_encode(['email' => $this->conta, 'email_verified' => $this->emailConfirmado, 'aud' => $this->audiencia, 'iss' => 'https://accounts.google.com', 'exp' => time() + $this->validadeDoIdToken])), '+/', '-_'), '=');
 
-            return $this->json(['access_token' => 'acesso', 'refresh_token' => 'REFRESH-SECRETO', 'scope' => 'openid email ' . GoogleAgendaApi::ESCOPO, 'id_token' => 'cab.' . $carga . '.ass']);
+            return $this->json(['access_token' => 'acesso', 'refresh_token' => 'REFRESH-SECRETO', 'scope' => $this->escoposConcedidos, 'id_token' => 'cab.' . $carga . '.ass']);
         }
 
         return $this->json(['access_token' => 'acesso', 'expires_in' => 3600]);

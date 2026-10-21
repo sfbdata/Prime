@@ -8,6 +8,7 @@ use App\Agenda\Exception\AgendaDoEscritorioSumiuException;
 use App\Agenda\Exception\AutorizacaoDoGoogleRecusadaException;
 use App\Agenda\Exception\EventoRecusadoPeloGoogleException;
 use App\Agenda\Exception\GoogleAgendaException;
+use App\Agenda\Exception\PermissoesDoGoogleRecusadasException;
 use App\Agenda\Exception\SyncTokenVencidoException;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
@@ -28,6 +29,9 @@ final class GoogleAgendaApi
     public const ESCOPO = 'https://www.googleapis.com/auth/calendar.app.created';
     public const FUSO = 'America/Sao_Paulo';
     private const ESCOPOS = 'openid email ' . self::ESCOPO;
+    /** O que a conexão aceita receber: o e-mail chega também com o nome longo. Mais que isso, recusa e revoga. */
+    private const ESCOPOS_ACEITOS = ['openid', 'email', 'https://www.googleapis.com/auth/userinfo.email', self::ESCOPO];
+    private const EMISSORES = ['https://accounts.google.com', 'accounts.google.com'];
     private const AUTORIZAR = 'https://accounts.google.com/o/oauth2/v2/auth';
     private const TOKEN = 'https://oauth2.googleapis.com/token';
     private const REVOGAR = 'https://oauth2.googleapis.com/revoke';
@@ -46,12 +50,15 @@ final class GoogleAgendaApi
         private readonly string $clienteId = '',
         #[Autowire('%env(string:default::GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET)%')]
         private readonly string $segredo = '',
+        // Sem a chave que cifra o token (`SYNC_CRYPTO_KEY`), não há como guardar a autorização: fica desligado.
+        #[Autowire('%sync_crypto_key%')]
+        private readonly string $chaveDosSegredos = '',
     ) {
     }
 
     public function ligado(): bool
     {
-        return '' !== trim($this->clienteId) && '' !== trim($this->segredo);
+        return '' !== trim($this->clienteId) && '' !== trim($this->segredo) && '' !== trim($this->chaveDosSegredos);
     }
 
     /**
@@ -67,7 +74,8 @@ final class GoogleAgendaApi
             'scope'                 => self::ESCOPOS,
             'access_type'           => 'offline',
             'prompt'                => 'select_account consent',
-            'include_granted_scopes' => 'true',
+            // Só os escopos pedidos aqui: nada herdado de outra autorização do mesmo cliente (ex.: um login futuro).
+            'include_granted_scopes' => 'false',
             'login_hint'            => $sugestao,
             'state'                 => $state,
             'code_challenge'        => $desafio,
@@ -82,11 +90,13 @@ final class GoogleAgendaApi
         if (!is_string($token['refresh_token'] ?? null) || '' === $token['refresh_token']) {
             throw new GoogleAgendaException('O Google não devolveu a autorização permanente (refresh token).');
         }
-        if (!str_contains(' ' . (string) ($token['scope'] ?? self::ESCOPO) . ' ', ' ' . self::ESCOPO . ' ')) {
-            throw new GoogleAgendaException('A permissão de agenda não foi concedida.');
+        $conta = $this->emailDoIdToken((string) ($token['id_token'] ?? ''));
+        $escopos = preg_split('/\s+/', trim((string) ($token['scope'] ?? self::ESCOPO))) ?: [];
+        if (!in_array(self::ESCOPO, $escopos, true) || [] !== array_diff($escopos, self::ESCOPOS_ACEITOS)) {
+            throw new PermissoesDoGoogleRecusadasException($token['refresh_token'], $conta);
         }
 
-        return ['refresh' => $token['refresh_token'], 'conta' => $this->emailDoIdToken((string) ($token['id_token'] ?? ''))];
+        return ['refresh' => $token['refresh_token'], 'conta' => $conta];
     }
 
     public function renovar(string $refreshToken): string
@@ -206,19 +216,36 @@ final class GoogleAgendaApi
 
     /**
      * O e-mail confirmado da conta, do `id_token` que o próprio Google devolveu na troca do código (canal TLS
-     * direto com o Google, OpenID Connect Core 3.1.3.7: sem conferir assinatura).
+     * direto com o Google, OpenID Connect Core 3.1.3.7: sem conferir assinatura, mas conferindo `aud`, `iss` e
+     * `exp`, 3.1.3.7 itens 2, 3 e 9).
      */
     private function emailDoIdToken(string $idToken): string
     {
-        $partes = explode('.', $idToken);
-        $carga = 3 === count($partes) ? json_decode((string) base64_decode(strtr($partes[1], '-_', '+/'), false), true) : null;
-        $email = is_array($carga) && is_string($carga['email'] ?? null) ? trim($carga['email']) : '';
+        $carga = $this->cargaDoIdToken($idToken);
+        $email = is_string($carga['email'] ?? null) ? trim($carga['email']) : '';
         // Só e-mail confirmado pelo Google: ele casa convidados com a equipe (ParticipantesDoGoogle).
         if ('' === $email || true !== ($carga['email_verified'] ?? null)) {
             throw new GoogleAgendaException('O Google não informou um e-mail confirmado da conta.');
         }
 
         return $email;
+    }
+
+    /** @return array<string, mixed> a carga do `id_token`, se for para este cliente, do Google e ainda válida */
+    private function cargaDoIdToken(string $idToken): array
+    {
+        $partes = explode('.', $idToken);
+        $carga = 3 === count($partes) ? json_decode((string) base64_decode(strtr($partes[1], '-_', '+/'), false), true) : null;
+        if (!is_array($carga)) {
+            throw new GoogleAgendaException('O Google não devolveu a identificação da conta.');
+        }
+        $audiencia = $carga['aud'] ?? null;
+        $paraNos = is_array($audiencia) ? in_array($this->clienteId, $audiencia, true) : $audiencia === $this->clienteId;
+        if (!$paraNos || !in_array($carga['iss'] ?? null, self::EMISSORES, true) || !is_int($carga['exp'] ?? null) || $carga['exp'] <= time()) {
+            throw new GoogleAgendaException('A identificação da conta não confere (cliente, emissor ou validade).');
+        }
+
+        return $carga;
     }
 
     /**

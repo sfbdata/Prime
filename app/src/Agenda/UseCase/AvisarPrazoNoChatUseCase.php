@@ -9,6 +9,7 @@ use App\Agenda\Service\AvisoDoCompromisso;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaPrazoRepository;
+use App\Pasta\Service\AcessoAPasta;
 use App\Repository\UserRepository;
 
 /**
@@ -17,7 +18,8 @@ use App\Repository\UserRepository;
  * atalho para a pasta. Colegas de outro escritório ou desligados são ignorados. O prazo não guarda a lista
  * de avisados (seria coluna nova na pasta): avisar de novo avisa de novo.
  *
- * Quem chama já conferiu que a pessoa vê as pastas (a Agenda só mostra prazos a quem vê).
+ * Quem chama já conferiu que a pessoa tem "Ver prazos na agenda" (a Agenda só mostra prazos a quem tem). O
+ * cadeado vale por cima: prazo de pasta oculta para a pessoa não existe para ela (spec pasta-cadeado D3).
  */
 final class AvisarPrazoNoChatUseCase
 {
@@ -25,6 +27,7 @@ final class AvisarPrazoNoChatUseCase
         private readonly PastaPrazoRepository $prazos,
         private readonly UserRepository $usuarios,
         private readonly AvisoDoCompromisso $aviso,
+        private readonly ?AcessoAPasta $acessoAPasta = null,
     ) {
     }
 
@@ -36,6 +39,9 @@ final class AvisarPrazoNoChatUseCase
     public function executar(int $prazoId, array $ids, User $eu, Tenant $tenant): int
     {
         $prazo = $this->prazos->doEscritorio($prazoId, $tenant) ?? throw new CompromissoNaoEncontradoException();
+        if (in_array($prazo->getPasta()->getId(), $this->acessoAPasta?->idsOcultosPara($eu, (int) $tenant->getId()) ?? [], true)) {
+            throw new CompromissoNaoEncontradoException();
+        }
         $ativos = array_filter($this->usuarios->findColaboradoresAtivosPorTenant($tenant), static fn (User $u): bool => in_array($u->getId(), $ids, true));
 
         return $this->aviso->avisarSobrePrazo($prazo, $ativos, $eu);

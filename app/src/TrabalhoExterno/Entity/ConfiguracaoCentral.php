@@ -19,7 +19,15 @@ use Doctrine\ORM\Mapping as ORM;
 class ConfiguracaoCentral
 {
     /** O que a Equipe pode fazer ("EQUIPE DO MASTER (SECUNDÁRIOS)"). */
-    public const EQUIPE_PADRAO = ['ver' => true, 'chat' => true, 'proposta' => false, 'convidar' => false, 'situacao' => false];
+    public const EQUIPE_PADRAO = ['ver' => true, 'chat' => true, 'proposta' => false, 'convidar' => false, 'situacao' => false, 'talentos' => true];
+
+    /**
+     * Configuração interna das vagas (`tlCfg()` do desenho 06 l.840, modal `tmCfgV` l.1159–1161): `dur`
+     * é o tempo padrão da OFERTA em minutos (0 = vaga comum), aplicado na aprovação; `sino` libera o
+     * aviso de vaga nova aos usuários; `motiv` as mensagens motivacionais; `maxDias` o teto de
+     * divulgação das vagas externas (0 = sem limite); `minEnvio` o mínimo de candidatos enviados.
+     */
+    public const VAGAS_PADRAO = ['dur' => 15, 'sino' => true, 'motiv' => true, 'maxDias' => 0, 'minEnvio' => 3];
 
     /** "PRIVACIDADE PARA CONTAS EXTERNAS". */
     public const PRIVACIDADE_PADRAO = ['nomeResp' => false, 'contatoConv' => false];
@@ -48,6 +56,10 @@ class ConfiguracaoCentral
     /** @var array<string, bool> */
     #[ORM\Column(type: 'json')]
     private array $privacidade = self::PRIVACIDADE_PADRAO;
+
+    /** @var array<string, int|bool> */
+    #[ORM\Column(type: 'json', options: ['default' => '{}'])]
+    private array $vagas = self::VAGAS_PADRAO;
 
     #[ORM\ManyToOne(targetEntity: Tenant::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
@@ -170,5 +182,38 @@ class ConfiguracaoCentral
     private function tocar(): void
     {
         $this->atualizadoEm = new \DateTimeImmutable();
+    }
+
+    /** @return array{dur: int, sino: bool, motiv: bool, maxDias: int, minEnvio: int} */
+    public function getVagas(): array
+    {
+        $v = array_merge(self::VAGAS_PADRAO, array_intersect_key($this->vagas, self::VAGAS_PADRAO));
+
+        return ['dur' => (int) $v['dur'], 'sino' => (bool) $v['sino'], 'motiv' => (bool) $v['motiv'], 'maxDias' => (int) $v['maxDias'], 'minEnvio' => (int) $v['minEnvio']];
+    }
+
+    /** @param array<string, mixed> $dados só as chaves conhecidas; números fora das opções do desenho são recusados */
+    public function definirVagas(array $dados): void
+    {
+        $v = $this->getVagas();
+        foreach (array_intersect_key($dados, self::VAGAS_PADRAO) as $chave => $valor) {
+            $v[$chave] = is_bool(self::VAGAS_PADRAO[$chave]) ? (bool) $valor : $this->opcaoDeVaga($chave, $valor);
+        }
+        $this->vagas = $v;
+        $this->atualizadoEm = new \DateTimeImmutable();
+    }
+
+    private function opcaoDeVaga(string $chave, mixed $valor): int
+    {
+        $opcoes = match ($chave) {
+            'dur' => [0, 5, 10, 15, 30, 60, 120, 1440],
+            'maxDias' => [0, 2, 3, 4, 7, 15, 30],
+            default => [1, 2, 3, 4, 5, 10],
+        };
+        if (!is_numeric($valor) || !in_array((int) $valor, $opcoes, true)) {
+            throw new \InvalidArgumentException('Opção de vaga desconhecida.');
+        }
+
+        return (int) $valor;
     }
 }

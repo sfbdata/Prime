@@ -135,6 +135,121 @@ Da marcação e das estáticas que vieram (linhas 832–846):
 
 Cada fase ganha sua seção aqui antes de começar, depois do zip.
 
+## 4.1 F2a: Vagas, sem candidatura
+
+Branch `trabalho-externo-vagas`, empilhada sobre `trabalho-externo-vs1810` (F1) porque o F1 espera a
+vez na fila de migrations. O PR só abre depois do merge do F1. A candidatura (F2b) depende do
+currículo (F3) e de quem é o candidato (pergunta P1, risco ALTO, com o coordenador): fica de fora.
+
+### Modelo
+
+`Vaga` (`trabalho_externo_vaga`, código `VG-0001`), não `TenantAware` pelo mesmo motivo da demanda
+(a Central lê de todos os escritórios); o isolamento é do repositório escopado e da política.
+
+| Campo | Origem no desenho |
+|---|---|
+| `escritorio` (Tenant, anulável) | quem divulga; nulo = vaga da Central (Master) |
+| `situacao` `SituacaoVaga` | `VST`: pendente, reprovada, aberta, pausada, ocupada (Preenchida), expirada, encerrada |
+| `titulo`*, `cargo`* (`CARGOS`), `contratacao` (`CONTR`), `modalidade` (`MODAL`), `cidade`, `uf`, `remuneracao`, `areas` (`AREAS`), `requisitos`, `inscricoesAte`, `exigeOab` | `tmVagaForm` (linhas 244–252) |
+| `ofertante` (json: nome*, resp, cidade, uf, email, tel, site, e quais campos ficam ocultos) | "QUEM ESTÁ OFERECENDO", `ofCampos` com o olho (linhas 238–242) |
+| `periodoDias` | "QUANTO TEMPO A VAGA FICA DISPONÍVEL", `DUR` 5/10/15/30/60 |
+| `publicadaEm`, `fimDivulgacao` | `fimDiv` de `tlTick()` |
+| `oferta` (bool), `qtd` (1–20), `expiraEm` | oferta relâmpago, `tfOfertaM` |
+| `motivo` | reprovação |
+
+`HistoricoVaga` (vaga, ícone, cor, texto, em): "HISTÓRICO DA OFERTA" (`tv.hist`).
+
+Configuração das vagas em `ConfiguracaoCentral.vagas` (json, padrão de `tlCfg()`:
+`{dur: 15, sino: true, motiv: true, maxDias: 0, minEnvio: 3}`), editada no modal `tmCfgV`.
+`EQUIPE_PADRAO` ganha `talentos: true` (`CFG.equipe` do desenho, linha 716).
+
+### Regras (convenção até o zip; o código que as dizia se perdeu)
+
+- **Criar**: Master, ou Equipe com `talentos`, pelo "Nova vaga" (`tlGere`): nasce **aberta**.
+- **Divulgar**: Solicitante, pelo "Divulgar uma vaga" (`podeDivulgar`): nasce **pendente** ("A equipe
+  BlueJus revisa e divulga na Central"). O período pedido acima de `maxDias` (0 = sem limite) é
+  ajustado na aprovação, como diz o modal de configuração do desenho.
+- **Aprovar / reprovar**: Master ou Equipe com `talentos`. Aprovar abre a vaga e conta o período a
+  partir dali; reprovar pede motivo.
+- **Pausar, retomar, marcar como preenchida, encerrar**: Central, e o escritório dono na vaga dele.
+- **Expirar**: sem cron. Na leitura, aberta com `fimDivulgacao` vencido conta como **encerrada**
+  ("Período de divulgação de N dia(s) encerrado"), e oferta com `expiraEm` vencido como **expirada**
+  ("Oferta expirou sem aceite"). A próxima escrita na vaga grava a mudança.
+- **Quem vê** (P2, convenção registrada pelo coordenador em 19/10): a Central vê todas; o Solicitante
+  vê as abertas da Central e as do escritório dele em qualquer situação; o Convidado não vê (P1).
+- **Marcações** pessoais: as mesmas do F1, com `TipoItemMarcado::Vaga`.
+- **O tempo é da Central**: "Os usuários não veem o tempo da oferta nem estas regras; a vaga
+  simplesmente deixa de aparecer quando o tempo acaba" (`tmCfgV`). Cronômetro, "AO VIVO" e o fim da
+  divulgação só saem para a Central (o fim da divulgação também para o dono da vaga).
+- Selos: "AO VIVO" para oferta aberta com tempo correndo; "NOVA" para aberta publicada há menos de
+  24 h (**provisório até o zip**).
+
+### Tela
+
+Faixa de abas de módulo (`mods`, linhas 85–87): Demandas e Vagas (Currículos entra no F3). Aba Vagas
+nas linhas 152–169: barra (seleção, busca, filtros, Compartilhar vagas, Divulgar uma vaga, Nova
+vaga), cartões em grade `minmax(310px,1fr)`, modal genérico (`tlm`) com formulário, detalhe e
+configuração. **Provisórios até o zip**: rótulos de `vagaFiltros`, ações de `vgBulk`, itens do menu de
+contexto do cartão, `divPassos`, `tfTipos`, `tfDurs`, `cfgTgs`, `cfgEnvOps`.
+
+## 4.2 F2c: página pública de vagas e "Compartilhar vagas"
+
+Desenho: `Vagas Publicas.dc.html` (projeto Claude Design, arquivo **completo**, sem corte), mais o
+modal `tmShare` do 06 (linhas 343–362) e o botão "Compartilhar vagas" da aba (linha 153).
+
+**Rota pública, sem login.** É a primeira tela do Trabalho Externo fora do login: o rigor é o de
+dado pessoal (LGPD) e de formulário aberto na internet.
+
+### Link de vagas
+
+- "Compartilhar vagas" (Central, com vagas abertas) e "Compartilhar esta vaga" (detalhe) abrem o
+  `tmShare`: prévia do link, mensagem editável com `{link}` ("Inclua {link} no texto para o link
+  entrar na mensagem") e os canais (WhatsApp, e-mail, LinkedIn, copiar; provisório até o zip).
+- Gravar o compartilhamento cria um `LinkDeVagas` (`trabalho_externo_link_vagas`): token aleatório
+  (só o hash SHA-256 é gravado, como o convite), as vagas, quem gerou, quando. O protótipo põe as
+  vagas no próprio endereço em base64; aqui isso vazaria o que a página esconde, por isso o token.
+- A página `GET /vagas-juridicas/{token}` mostra **só** cargo, título, local, modalidade,
+  contratação, áreas e quantidade, das vagas do link que **ainda estão abertas** ("A página pública
+  mostra só cargo, local e tipo. Detalhes, remuneração, contatos e candidatura ficam liberados depois
+  de criar a conta."). Remuneração, escritório e requisitos **não saem do servidor**: o bloco borrado
+  do desenho é texto fixo de enfeite. Sem nenhuma aberta: "As vagas deste link já foram preenchidas".
+  Token desconhecido: a mesma página sem vagas (não confirma se o link existiu).
+- `GET /vagas-juridicas` sem token: a página geral, sem lista ("Sua próxima vaga na área jurídica
+  começa aqui"). `?p=esc` abre a visão "Quero contratar".
+
+### Alertas por e-mail (lead)
+
+- "Receba vagas da sua área por e-mail": e-mail, UF ("Todo o Brasil"), áreas e o consentimento LGPD
+  obrigatório. Grava `InteressadoEmVagas` (`trabalho_externo_interessado`): e-mail único (normalizado
+  em minúsculas), UF, áreas, consentimento com data e versão do texto, origem (link), e o token do
+  link de onde veio. Repetir o e-mail atualiza as preferências; não revela se já existia.
+- POST público com CSRF da própria página e **limite de tentativas** por IP (rate limiter do
+  Symfony). Resposta igual para e-mail novo e repetido.
+- O envio dos e-mails de vagas é da frente "Comercial e e-mails" (contrato pelo coordenador), e o
+  descadastro é o serviço de `Shared` da frente `push-avisar-quando-chegar` (tabela
+  `email_descadastro`). Esta fatia não envia e-mail nem cria descadastro próprio: a tela de "Não quer
+  mais receber" do desenho é a desse serviço.
+
+### Botões de conta
+
+- "Entrar" → `/login`. "Divulgar minha vaga grátis" e "Quero divulgar vaga" → `/cadastro` (conta e
+  escritório, já existe).
+- "Criar conta grátis e me candidatar", "Procuro vaga" e os "Criar conta" do candidato: **dependem
+  da P1** (quem é o candidato, risco ALTO). Até ela, levam ao bloco de alertas por e-mail da própria
+  página (`#alertas`), sem criar conta. **Provisório.**
+
+### Segurança
+
+- `security.yaml`: uma linha `^/vagas-juridicas` com `PUBLIC_ACCESS`, própria (outras frentes
+  acrescentam as delas). Avisar o coordenador ao mexer.
+- Sem dado de escritório na página; token de 32 bytes; sem `find` por id.
+
+### Fatias seguintes
+
+- **F2c**: §4.2. A campanha por e-mail usa a infraestrutura da frente "Comercial e e-mails"
+  (contrato pelo coordenador).
+- **F2b**: candidatura, depois do F3 e da P1.
+
 ## 5. Verificação
 
 - Unit dos UseCases e functional dos controllers (escopo, prévia negada, código fora do escopo).

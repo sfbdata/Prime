@@ -150,11 +150,12 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Agenda\Entity\PushEnviado::class,
         \App\Agenda\Entity\VarreduraDePush::class,
         // Google Agenda (entrega 6): a conexão guarda a autorização cifrada e a marca técnica da sincronia,
-        // a ligação guarda o id do evento lá e o resumo do último envio, a exclusão pendente é fila de
+        // a ligação (e a do prazo da pasta) guarda o id do evento lá e o resumo do último envio, a exclusão pendente é fila de
         // trabalho, e a marca da cadeia é técnica. O que vem do Google para os compromissos É auditado
         // (edição do Evento pelo ORM).
         \App\Agenda\Entity\ConexaoGoogleAgenda::class,
         \App\Agenda\Entity\LigacaoComGoogle::class,
+        \App\Agenda\Entity\PrazoNoGoogle::class,
         \App\Agenda\Entity\ExclusaoNoGoogle::class,
         \App\Agenda\Entity\VarreduraDoGoogle::class,
 
@@ -251,6 +252,12 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // de UM usuário, como a LeituraDemanda. Não mudam nada para os outros; auditar seria ruído.
         \App\TrabalhoExterno\Entity\MarcacaoDoUsuario::class,
         \App\TrabalhoExterno\Entity\MarcacaoDeMensagem::class,
+        // Vagas do Trabalho Externo (spec VS 18.10.26 §4.1): têm o LOG DE DOMÍNIO próprio
+        // (HistoricoVaga, o "HISTÓRICO DA OFERTA" do desenho), como a demanda. Auditar seria log de log.
+        \App\TrabalhoExterno\Entity\Vaga::class,
+        \App\TrabalhoExterno\Entity\HistoricoVaga::class,
+        // Preferências do usuário (última visita às vagas, ofertante padrão): dado de conveniência, não de negócio.
+        \App\TrabalhoExterno\Entity\PreferenciaDoUsuario::class,
     ];
 
     private EntityManagerInterface $em;

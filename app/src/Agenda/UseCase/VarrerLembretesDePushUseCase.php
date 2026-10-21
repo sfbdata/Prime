@@ -9,6 +9,7 @@ use App\Agenda\DTO\LembreteOutput;
 use App\Agenda\Entity\InscricaoDePush;
 use App\Agenda\Repository\InscricaoDePushRepository;
 use App\Agenda\Repository\PushEnviadoRepository;
+use App\Agenda\Service\PermissoesDaAgenda;
 use App\Service\PermissionChecker;
 
 /**
@@ -30,6 +31,7 @@ final class VarrerLembretesDePushUseCase
         private readonly ListarLembretesUseCase $listarLembretes,
         private readonly PermissionChecker $permissoes,
         private readonly EnviadorDePush $enviador,
+        private readonly PermissoesDaAgenda $daAgenda,
     ) {
     }
 
@@ -81,9 +83,9 @@ final class VarrerLembretesDePushUseCase
             return [];
         }
         $parede = $this->horaDeParede($agora, $uma->getFuso());
-        $verPastas = $this->permissoes->canAccessModule($usuario, $tenant, 'pastas');
+        $lembretes = $this->listarLembretes->executar($tenant, $usuario, $parede, $this->daAgenda->verPastas($usuario, $tenant), $this->daAgenda->verPrazos($usuario, $tenant));
         $envios = [];
-        foreach ($this->listarLembretes->executar($tenant, $usuario, $parede, $verPastas) as $l) {
+        foreach ($lembretes as $l) {
             if ($this->venceu($l, $parede) && $this->enviados->reservar($tenant, $usuario, $l->k, $agora)) {
                 foreach ($daPessoa as $inscricao) {
                     $envios[] = ['inscricao' => $inscricao, 'conteudo' => $this->conteudo($l)];

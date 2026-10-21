@@ -22,6 +22,7 @@ final class TenantSelecaoController extends AbstractController
         private readonly UserTenantRepository $userTenantRepository,
         private readonly TenantContext $tenantContext,
         private readonly InvitationRepository $invitationRepository,
+        private readonly \App\Tenant\Repository\EquipeDoEscritorioRepository $equipe,
     ) {}
 
     #[Route('/escritorio/selecionar', name: 'tenant_selecionar', methods: ['GET', 'POST'])]
@@ -74,6 +75,7 @@ final class TenantSelecaoController extends AbstractController
             'vinculos' => $vinculos,
             'convites' => $convites,
             'avisosDeConta' => $this->avisosDeContaForaDoAr($request, $user, $vinculos, $convites),
+            'bloqueados' => $this->equipe->mensagensDeAcessoBloqueado($user), // em análise ou suspensos: o porquê (equipe-da-conta §3)
         ]);
     }
 

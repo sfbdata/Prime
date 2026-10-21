@@ -5,32 +5,38 @@ declare(strict_types=1);
 namespace App\Tests\Agenda\Unit;
 
 use App\Agenda\Entity\ConexaoGoogleAgenda;
+use App\Agenda\Exception\GoogleAgendaException;
 use App\Agenda\Infra\GoogleAgendaApi;
 use App\Agenda\Repository\ConexaoGoogleAgendaRepository;
 use App\Agenda\Repository\EventoDaAgendaRepository;
-use App\Agenda\Repository\LigacaoComGoogleRepository;
-use App\Agenda\Service\LevarAoGoogle;
-use App\Agenda\Service\ParticipantesDoGoogle;
-use App\Repository\UserRepository;
 use App\Agenda\Repository\ExclusaoNoGoogleRepository;
+use App\Agenda\Repository\LigacaoComGoogleRepository;
+use App\Agenda\Repository\PrazoNoGoogleRepository;
 use App\Agenda\Repository\VarreduraDoGoogleRepository;
+use App\Agenda\Service\CompromissoNoGoogle;
 use App\Agenda\Service\GarantirVarreduraDoGoogle;
+use App\Agenda\Service\LevarAoGoogle;
+use App\Agenda\Service\LevarPrazosAoGoogle;
+use App\Agenda\Service\ParticipantesDoGoogle;
+use App\Agenda\Service\PermissoesDaAgenda;
+use App\Agenda\Service\PrazoParaOGoogle;
+use App\Agenda\Service\SilencioDaSincronia;
 use App\Agenda\UseCase\ConectarGoogleAgendaUseCase;
 use App\Agenda\UseCase\DesconectarGoogleAgendaUseCase;
-use App\Agenda\UseCase\SincronizarGoogleAgendaUseCase;
-use App\Agenda\Service\CompromissoNoGoogle;
-use App\Agenda\Service\SilencioDaSincronia;
-use App\Service\PermissionChecker;
-use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\NullLogger;
 use App\Agenda\UseCase\EstadoDoGoogleAgendaUseCase;
+use App\Agenda\UseCase\SincronizarGoogleAgendaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Repository\PastaPrazoRepository;
+use App\Repository\UserRepository;
+use App\Service\PermissionChecker;
 use App\Sync\Service\CifradorDeSegredo;
 use App\Tests\Agenda\GoogleFalso;
+use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -82,6 +88,26 @@ final class GoogleAgendaUseCasesTest extends TestCase
         self::assertSame('REFRESH-SECRETO', $cifrador->decifrar($existente->getRefreshTokenCifrado()));
     }
 
+    #[TestDox('Sem a chave que cifra o token, o Google fica desligado; e um retorno do OAuth sem como guardar revoga lá, sem quebrar')]
+    public function testSemChaveDosSegredos(): void
+    {
+        self::assertFalse((new GoogleAgendaApi(new MockHttpClient(), 'id', 'segredo', ''))->ligado());
+        self::assertTrue((new GoogleAgendaApi(new MockHttpClient(), 'id', 'segredo', 'chave'))->ligado());
+        $falso = new GoogleFalso();
+        $api = $falso->api();
+        $repo = $this->createStub(ConexaoGoogleAgendaRepository::class);
+        $garantir = new GarantirVarreduraDoGoogle($this->createStub(VarreduraDoGoogleRepository::class), $api, $this->createStub(MessageBusInterface::class));
+        $sut = new ConectarGoogleAgendaUseCase($api, $repo, new CifradorDeSegredo(''), $this->createStub(MessageBusInterface::class), $garantir, $this->createStub(ExclusaoNoGoogleRepository::class), $this->createStub(LigacaoComGoogleRepository::class));
+
+        try {
+            $sut->executar(new Tenant(), new User(), 'codigo', 'verificador', 'https://x/agenda/google/retorno');
+            self::fail('devia recusar');
+        } catch (GoogleAgendaException) {
+        }
+
+        self::assertContains('POST /revoke', $falso->pedidos);
+    }
+
     #[TestDox('Desconectar revoga no Google e apaga a conexão; mantém a agenda do escritório lá, salvo se a pessoa pedir; sem conexão, nada')]
     public function testDesconectar(): void
     {
@@ -91,6 +117,7 @@ final class GoogleAgendaUseCasesTest extends TestCase
             $conexao->agendaCriada('agenda-1');
             $repo = $this->createStub(ConexaoGoogleAgendaRepository::class);
             $repo->method('daPessoa')->willReturnOnConsecutiveCalls($conexao, null);
+            $repo->method('ocupar')->willReturn(true);
             $em = $this->createMock(EntityManagerInterface::class);
             $em->expects(self::once())->method('remove')->with($conexao);
             $sut = new DesconectarGoogleAgendaUseCase($repo, $this->createStub(ExclusaoNoGoogleRepository::class), $falso->api(), new CifradorDeSegredo(self::CHAVE), $em);
@@ -111,6 +138,7 @@ final class GoogleAgendaUseCasesTest extends TestCase
         $repo = $this->createStub(ConexaoGoogleAgendaRepository::class);
         $repo->method('daPessoa')->willReturn($conexao);
         $repo->method('contaLigadaEmOutraConexao')->willReturn(true);
+        $repo->method('ocupar')->willReturn(true);
 
         (new DesconectarGoogleAgendaUseCase($repo, $this->createStub(ExclusaoNoGoogleRepository::class), $falso->api(), new CifradorDeSegredo(self::CHAVE), $this->createStub(EntityManagerInterface::class)))->executar(new Tenant(), new User(), false);
 
@@ -142,6 +170,8 @@ final class GoogleAgendaUseCasesTest extends TestCase
             new DesconectarGoogleAgendaUseCase($repo, $this->createStub(ExclusaoNoGoogleRepository::class), $api, new CifradorDeSegredo(self::CHAVE), $this->createStub(EntityManagerInterface::class)),
             $this->createStub(EntityManagerInterface::class),
             new NullLogger(),
+            new LevarPrazosAoGoogle($api, new PrazoParaOGoogle(), $this->createStub(PastaPrazoRepository::class), $this->createStub(PrazoNoGoogleRepository::class), new PermissoesDaAgenda($permissoes), $em, new NullLogger()),
+            $this->createStub(PrazoNoGoogleRepository::class),
         );
 
         self::assertSame(['trazidos' => 0, 'enviados' => 0, 'apagados' => 0], $montar(new GoogleAgendaApi(new MockHttpClient()))->executar(1, new \DateTimeImmutable()));

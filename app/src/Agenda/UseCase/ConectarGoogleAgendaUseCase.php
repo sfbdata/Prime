@@ -6,6 +6,7 @@ namespace App\Agenda\UseCase;
 
 use App\Agenda\Entity\ConexaoGoogleAgenda;
 use App\Agenda\Exception\GoogleAgendaException;
+use App\Agenda\Exception\PermissoesDoGoogleRecusadasException;
 use App\Agenda\Infra\GoogleAgendaApi;
 use App\Agenda\Message\SincronizarGoogleDaPessoa;
 use App\Agenda\Repository\ConexaoGoogleAgendaRepository;
@@ -41,10 +42,34 @@ final class ConectarGoogleAgendaUseCase
 
     public function executar(Tenant $tenant, User $eu, string $codigo, string $verificador, string $retorno): void
     {
-        $autorizacao = $this->google->trocarCodigo($codigo, $verificador, $retorno);
-        $conexao = $this->guardar($tenant, $eu, $this->cifrador->cifrar($autorizacao['refresh']), $autorizacao['conta'], GoogleAgendaApi::FUSO);
+        try {
+            $autorizacao = $this->google->trocarCodigo($codigo, $verificador, $retorno);
+        } catch (PermissoesDoGoogleRecusadasException $e) {
+            $this->revogarSeSolta($e->refresh, $e->conta);
+            throw $e;
+        }
+        $conexao = $this->guardar($tenant, $eu, $this->cifrar($autorizacao['refresh'], $autorizacao['conta']), $autorizacao['conta'], GoogleAgendaApi::FUSO);
         $this->bus->dispatch(new SincronizarGoogleDaPessoa((int) $conexao->getId()));
         $this->garantir->garantir();
+    }
+
+    /** Sem a chave do servidor não há como guardar: a autorização é revogada lá, para não ficar solta. */
+    private function cifrar(string $refresh, string $conta): string
+    {
+        try {
+            return $this->cifrador->cifrar($refresh);
+        } catch (\Throwable $e) {
+            $this->revogarSeSolta($refresh, $conta);
+            throw new GoogleAgendaException('O servidor não tem como guardar a autorização do Google agora.', 0, $e);
+        }
+    }
+
+    /** Revogar derruba a autorização inteira da conta para o BlueJus: a conta ligada em outro escritório fica. */
+    private function revogarSeSolta(string $refresh, string $conta): void
+    {
+        if (!$this->conexoes->contaEmAlgumaConexao($conta)) {
+            $this->google->revogar($refresh);
+        }
     }
 
     private function guardar(Tenant $tenant, User $eu, string $cifrado, string $conta, string $fuso): ConexaoGoogleAgenda

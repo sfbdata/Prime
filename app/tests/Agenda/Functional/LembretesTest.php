@@ -6,6 +6,7 @@ namespace App\Tests\Agenda\Functional;
 
 use App\Agenda\Controller\AgendaNovaController;
 use App\Agenda\Entity\Evento;
+use App\Agenda\Service\PermissoesDaAgenda;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
@@ -22,7 +23,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 #[CoversClass(AgendaNovaController::class)]
 final class LembretesTest extends JusPrimeWebTestCase
 {
-    #[TestDox('GET /agenda/lembretes: os meus com lembrete e o prazo de hoje com hora; não os do colega')]
+    #[TestDox('GET /agenda/lembretes: os meus com lembrete e o prazo de hoje com hora (só com Ver prazos na agenda); não os do colega')]
     public function testLembretes(): void
     {
         $client = static::createClient();
@@ -43,6 +44,8 @@ final class LembretesTest extends JusPrimeWebTestCase
         $this->em()->persist($deFora);
         $this->em()->flush();
         $soAgenda = $this->criarUsuario($tenant, false, ['modules.agenda.view']);
+        $soPastas = $this->criarUsuario($tenant, false, ['modules.agenda.view', 'modules.pastas.view']);
+        $soPrazos = $this->criarUsuario($tenant, false, ['modules.agenda.view', PermissoesDaAgenda::VER_PRAZOS]);
 
         $this->logarComTenant($client, $eu, $tenant);
         $client->request('GET', '/agenda/lembretes');
@@ -56,7 +59,15 @@ final class LembretesTest extends JusPrimeWebTestCase
 
         $this->logarComTenant($client, $soAgenda, $tenant);
         $client->request('GET', '/agenda/lembretes');
-        self::assertNotContains('Audiência · Pasta LEM-1', array_column(json_decode((string) $client->getResponse()->getContent(), true)['itens'], 'titulo'), 'sem acesso às pastas, sem prazos');
+        self::assertNotContains('Audiência · Pasta LEM-1', array_column(json_decode((string) $client->getResponse()->getContent(), true)['itens'], 'titulo'), 'sem ver prazos, sem prazos');
+
+        $this->logarComTenant($client, $soPastas, $tenant);
+        $client->request('GET', '/agenda/lembretes');
+        self::assertNotContains('Audiência · Pasta LEM-1', array_column(json_decode((string) $client->getResponse()->getContent(), true)['itens'], 'titulo'), 'o módulo Pastas sozinho não traz prazos');
+
+        $this->logarComTenant($client, $soPrazos, $tenant);
+        $client->request('GET', '/agenda/lembretes');
+        self::assertContains('Audiência · Pasta LEM-1', array_column(json_decode((string) $client->getResponse()->getContent(), true)['itens'], 'titulo'), 'com ver prazos, mesmo sem Pastas');
     }
 
     #[TestDox('O parcial global de lembretes aparece em qualquer tela para quem tem a Agenda, e não para quem não tem')]

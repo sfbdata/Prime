@@ -35,4 +35,20 @@ enum OperacaoDeMarcacao: string
             self::NaoImportante => ' marcada(s) como não importante',
         };
     }
+
+    /** Complemento do aviso "N item(ns)…" de vagas, currículos e candidaturas (mapa `T2` de `tlLote()`). */
+    public function complementoDoItem(): string
+    {
+        return match ($this) {
+            self::Lixeira => ' movido(s) para a lixeira',
+            self::Restaurar => ' restaurado(s)',
+            self::Definitivo => ' excluído(s) da sua lista',
+            self::Lida => ' marcado(s) como visto',
+            self::NaoLida => ' marcado(s) como não visto',
+            self::Estrela => ' com estrela',
+            self::SemEstrela => ' sem estrela',
+            self::Importante => ' marcado(s) como importante',
+            self::NaoImportante => ' marcado(s) como não importante',
+        };
+    }
 }
