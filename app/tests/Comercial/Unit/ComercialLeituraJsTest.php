@@ -14,12 +14,13 @@ final class ComercialLeituraJsTest extends TestCase
 {
     private const JS = __DIR__ . '/../../../public/js/master/comercial-leitura.js';
 
-    #[TestDox('registra o rastrearLeitura (true só com a chave ligada e habilitada) na raiz da própria Central, não no gancho global')]
+    #[TestDox('registra o rastrearLeitura (true só com a chave ligada e habilitada) na raiz da própria Central, não no gancho global, depois do DOM montado (as duas Centrais)')]
     public function testGancho(): void
     {
         $js = (string) file_get_contents(self::JS);
 
-        self::assertStringContainsString("document.querySelectorAll('[data-mc-cp-rastrear]').forEach(ligar);", $js);
+        self::assertStringContainsString("function iniciar() { document.querySelectorAll('[data-mc-cp-rastrear]').forEach(ligar); }", $js);
+        self::assertStringContainsString("if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();", $js);
         self::assertStringContainsString("raiz.mcExtrasDoEnvio.push(() => ({ rastrearLeitura: !botao.disabled && botao.dataset.mcCpRastrear === '1' }));", $js);
         self::assertStringNotContainsString('window.McCampanha', $js);
     }

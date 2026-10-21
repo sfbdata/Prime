@@ -30,5 +30,7 @@
     }
   }
 
-  document.querySelectorAll('[data-mc-cp-rastrear]').forEach(ligar);
+  /* O script carrega antes da Central de venda existir no DOM: varrer só com a página montada. */
+  function iniciar() { document.querySelectorAll('[data-mc-cp-rastrear]').forEach(ligar); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();
 })();
