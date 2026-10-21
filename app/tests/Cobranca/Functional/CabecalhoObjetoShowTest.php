@@ -77,7 +77,10 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
         self::assertSame('Apto 302', trim($identidade->filter('h1')->text()), 'o título é a identificação da unidade');
         // O selo de estado subiu para a linha do sobretítulo `Unidade`, ACIMA do `h1` (desenho); antes
         // era irmão imediato dele (`h1 + .badge`). Ancoro no bloco que os contém e na ordem entre eles.
-        self::assertStringContainsString('Ativo', $identidade->filter('.badge')->text(), 'o badge de status abre o bloco de identidade');
+        // Desenho Objeto 1A L57: a cobrança ativa é o selo "Cobrança ativa" com o ponto, na linha do sobretítulo.
+        $selo = $identidade->filter('.cob-cab-sobretitulo + .cob-selo-ativa');
+        self::assertSame('Cobrança ativa', trim($selo->text()), 'o selo de estado abre o bloco de identidade');
+        self::assertCount(1, $selo->filter('i.bi.bi-circle-fill'), 'com o ponto colorido do desenho');
         self::assertStringContainsString(
             'Unidade',
             $identidade->filter('.cob-cab-sobretitulo')->text(),
