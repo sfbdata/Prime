@@ -464,6 +464,31 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         self::assertStringContainsString(htmlspecialchars($link, ENT_QUOTES), (string) $email->getHtmlBody(), 'o link de descadastro do corpo é o da lista de vagas');
     }
 
+    #[TestDox('Modelo vagas gravado sem a âncora (campanha antiga): a execução não alcança quem só autorizou vagas_alerta')]
+    public function testVagasSemAncoraNaoAlcancaAListaDeVagas(): void
+    {
+        $marca = uniqid();
+        [$lead, $vaga] = ["lead.$marca@exemplo.com", "vaga.$marca@exemplo.com"];
+        foreach ([['comercial_campanhas', $lead], ['vagas_alerta', $vaga]] as [$lista, $email]) {
+            $this->conexao->insert('comercial_confirmacao_endereco', ['lista' => $lista, 'email' => $email, 'pedido_em' => '2026-10-01 10:00:00', 'confirmado_em' => '2026-10-01 10:05:00', 'tenant_id' => null]);
+        }
+        $agora = new \DateTimeImmutable();
+        $semAncora = MensagemDaCampanha::deArray(['chave' => 'vagas', 'nome' => 'Vagas antiga', 'modo' => 'blocos', 'assunto' => 'Vagas', 'selo' => '', 'titulo' => 'Vagas', 'blocos' => [['t' => 'texto', 'a' => 'Olá']]]);
+        $id = $this->campanha([], [
+            'publico' => 'leads', 'parametros' => null, 'estado' => 'recorrente', 'frequencia' => 'semanal',
+            'agendada_para' => $agora->modify('-1 minute'), 'proxima' => $agora->modify('-1 minute'),
+            'modelo_chave' => 'vagas', 'modo' => 'blocos', 'conteudo' => static::getContainer()->get(ComposicaoDaCampanha::class)->congelar($semAncora),
+        ]);
+
+        $this->expansor()->materializarDevidas($agora);
+
+        $emails = array_values(array_filter(
+            array_map('strval', $this->conexao->fetchFirstColumn('SELECT email FROM comercial_campanha_destino WHERE campanha_id = ? ORDER BY id', [$id])),
+            static fn (string $e): bool => str_contains($e, $marca),
+        ));
+        self::assertSame([$lead], $emails);
+    }
+
     #[TestDox('cancelarNaFilaDaOrigem: só o enfileirado vira cancelado; o enviando (já com o worker) não é tocado')]
     public function testCancelarSoOEnfileirado(): void
     {

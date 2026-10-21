@@ -182,13 +182,33 @@ final class ExpansorDeCampanhas
             }
             $informados = array_map(static fn (array $d): DestinatarioDaCampanha => new DestinatarioDaCampanha($d['email'], $d['nome']), $campanha['publico_parametros']);
             // O filtro congelado (§9) volta a valer, com a data desta execução (idade e aniversário).
-            $publico = $this->publicos->resolver($campanha['publico'], $informados, $filtro, $agora, $campanha['modelo_chave']);
+            $publico = $this->publicos->resolver($campanha['publico'], $informados, $filtro, $agora, $this->modeloDoPublico($campanha));
             $execucao = $campanha['execucoes'] + 1;
             $this->destinos->materializar($campanha['id'], $execucao, $publico->destinatarios, $agora);
             $recorrente = $campanha['estado'] === CampanhaDeEmail::RECORRENTE;
             $estado = $recorrente ? CampanhaDeEmail::RECORRENTE : ($publico->total() > 0 ? CampanhaDeEmail::ENVIANDO : CampanhaDeEmail::ENVIADA);
             $this->campanhas->registrarExecucao($campanha['id'], $execucao, $publico->total(), $estado, $recorrente ? $seguinte : null);
         });
+    }
+
+    /**
+     * O modelo que decide as listas do público (§11). Uma campanha `vagas` gravada sem a âncora (antes dela existir) não
+     * alcança quem só autorizou `vagas_alerta`: resolve como qualquer outro modelo.
+     *
+     * @param Campanha $campanha
+     */
+    private function modeloDoPublico(array $campanha): string
+    {
+        if ($campanha['modelo_chave'] !== PublicosDaCampanha::MODELO_DE_VAGAS) {
+            return $campanha['modelo_chave'];
+        }
+        try {
+            ComposicaoDaCampanha::exigirAncoraDeVagas($this->composicao->descongelar($campanha));
+        } catch (CampanhaRecusada) {
+            return '';
+        }
+
+        return $campanha['modelo_chave'];
     }
 
     /** @param Campanha $campanha */
