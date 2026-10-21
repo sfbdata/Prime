@@ -13,6 +13,7 @@ use App\Cliente\Exception\SemPermissaoParaEditarClienteException;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Repository\ClientePFRepository;
 use App\Cliente\Repository\ClientePJRepository;
+use App\Cliente\Service\HistoricoDoCliente;
 use App\Cliente\Service\PendenciasDoCadastro;
 use App\Cliente\Service\QualificacaoDoCliente;
 use App\Cliente\UseCase\CriarClienteDaPastaUseCase;
@@ -63,6 +64,7 @@ final class ClienteCadastroController extends AbstractController
         private readonly SalvarCadastroDoClienteUseCase $salvar,
         private readonly PastaReuRepository $reuRepository,
         private readonly CriarClienteDaPastaUseCase $criarCliente,
+        private readonly HistoricoDoCliente $historico,
     ) {}
 
     #[Route('/clientes/{id}/cadastro', name: 'cliente_cadastro', requirements: ['id' => '\d+'], methods: ['GET'])]
@@ -190,11 +192,13 @@ final class ClienteCadastroController extends AbstractController
             'podeVincular' => $pasta !== null && !$pasta->estaExcluida() && $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_EDIT),
             'estadosCivis' => SalvarCadastroDoClienteUseCase::ESTADOS_CIVIS,
             'docs'         => $novo ? [] : $this->documentosDoCadastro($cliente),
+            // Aba Histórico (E12 3d): as 40 mais novas, primeiro a mais nova; cadastro novo mostra o vazio.
+            'historico'    => $novo ? [] : $this->historico->paraTela($cliente, $tenant),
             // Aba Réu (E12h): só com a pasta de contexto, porque o réu é da pasta, não do cliente.
             'reus'         => $pasta !== null ? PastaReuController::paraTela($this->reuRepository->daPasta($pasta, $tenant)) : null,
             // Seletor de autores (decisão do dono, E12i): os clientes da pasta, para trocar sem fechar a janela.
             'autores'      => $autores,
-            'abaInicial'   => \in_array($request->query->get('aba'), ['pessoais', 'reu', 'endereco', 'contato', 'docs', 'qual'], true) ? $request->query->get('aba') : 'pessoais',
+            'abaInicial'   => \in_array($request->query->get('aba'), ['pessoais', 'reu', 'endereco', 'contato', 'docs', 'qual', 'hist'], true) ? $request->query->get('aba') : 'pessoais',
             'mostrarOcr'   => $request->query->get('ocr') === '1',
         ]);
     }

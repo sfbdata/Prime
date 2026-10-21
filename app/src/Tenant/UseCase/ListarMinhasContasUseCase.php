@@ -9,6 +9,7 @@ use App\Entity\Auth\UserTenant;
 use App\Repository\UserTenantRepository;
 use App\Tenant\DTO\MinhaContaOutput;
 use App\Tenant\Repository\EquipeDoEscritorioRepository;
+use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
 
 /**
  * Contas (escritórios) a que o usuário pertence, para a aba "Trocar conta" (desenho
@@ -21,6 +22,7 @@ final class ListarMinhasContasUseCase
     public function __construct(
         private readonly UserTenantRepository $userTenantRepository,
         private readonly EquipeDoEscritorioRepository $equipeRepository,
+        private readonly BloqueioPorPedidoDeExclusao $bloqueioPorPedido,
     ) {
     }
 
@@ -29,7 +31,8 @@ final class ListarMinhasContasUseCase
      */
     public function executar(User $usuario, ?int $tenantAtualId): array
     {
-        $vinculos = $this->userTenantRepository->findActiveByUser($usuario);
+        // "Suspensa a pedido" (PR 5): a conta some para quem não é primário.
+        $vinculos = $this->bloqueioPorPedido->permitidos($this->userTenantRepository->findActiveByUser($usuario));
         $contagem = $this->equipeRepository->contarAtivosPorTenant(
             array_map(static fn (UserTenant $v): int => (int) $v->getTenant()->getId(), $vinculos)
         );

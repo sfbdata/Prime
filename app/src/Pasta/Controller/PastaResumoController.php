@@ -22,6 +22,7 @@ use App\Pasta\Entity\PastaPagamento;
 use App\Pasta\Repository\PastaChecklistItemRepository;
 use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
 use App\Pasta\Repository\PastaPagamentoRepository;
+use App\Pasta\Service\CobrancasDoChecklistDaPasta;
 use App\Pasta\Service\ConferenciaDeAnexosDoChecklist;
 use App\Pasta\Service\PontosDoRelatorioInicial;
 use App\Processo\Entity\Processo;
@@ -93,6 +94,7 @@ final class PastaResumoController extends AbstractController
         private readonly VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         private readonly PastaObservacaoDetalhesRepository $observacaoDetalhesRepository,
         private readonly ResumoDoProcesso $resumoDoProcesso,
+        private readonly CobrancasDoChecklistDaPasta $cobrancasDoChecklist,
         private readonly GeradorDePdf $geradorDePdf,
         private readonly VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
     ) {
@@ -318,6 +320,7 @@ final class PastaResumoController extends AbstractController
                 itensMarcadosSemAnexo: $conferenciaChecklist->totalMarcadosSemAnexo(),
                 // A pendência do Financeiro ("… e N pagamentos vencidos") é dado financeiro.
                 veFinanceiro: $veFinanceiro,
+                documentosCobrados: $this->cobrancasDoChecklist->cobradosPendentes($pasta),
                 relatorioInicial: $this->pontosDoRelatorio($pasta, $tenant),
             )->semAbas($ocultas),
             \in_array(AbaDaPasta::Push->value, $ocultas, true) ? [] : $push->itens,

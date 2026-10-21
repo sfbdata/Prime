@@ -511,7 +511,7 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
 
         // Exclui o tenant "por fora" (outro admin): soft delete desativa só o Tenant,
         // não o vínculo do colaborador — que continua ativo.
-        static::getContainer()->get(ExcluirEscritorioUseCase::class)->executar($tenant);
+        static::getContainer()->get(ExcluirEscritorioUseCase::class)->executar($tenant, $user);
 
         // Próximo request numa rota protegida → o validador derruba para a seleção.
         $client->request('GET', '/expediente');

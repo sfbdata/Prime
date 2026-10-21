@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Código para excluir a conta</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:32px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;width:100%;">
+                    <tr>
+                        <td style="background-color:#a3232b;padding:24px 32px;">
+                            <p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;">BlueJus</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:32px;">
+                            <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">Olá, {{ nome }}!</p>
+                            <p style="margin:0 0 16px;font-size:15px;color:#444444;line-height:1.6;">
+                                Recebemos um pedido para excluir a conta do escritório <strong>{{ escritorio }}</strong> no BlueJus.
+                                Para confirmar, use este código:
+                            </p>
+                            <p style="margin:0 0 24px;font-size:32px;font-weight:bold;letter-spacing:8px;color:#a3232b;">{{ codigo }}</p>
+                            <p style="margin:0 0 16px;font-size:15px;color:#444444;line-height:1.6;">
+                                <strong>O código vale por 15 minutos.</strong> Digite-o no Meu Perfil, com a palavra EXCLUIR.
+                            </p>
+                            <p style="margin:0;font-size:13px;color:#888888;line-height:1.6;">
+                                Se não foi você, ignore este e-mail: a conta continua como está.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

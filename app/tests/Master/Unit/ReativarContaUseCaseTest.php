@@ -13,6 +13,7 @@ use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Service\RegraDosMasters;
 use App\Master\UseCase\ReativarContaUseCase;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -34,7 +35,7 @@ final class ReativarContaUseCaseTest extends TestCase
     {
         $this->contas  = $this->createMock(ContasDoSistemaRepository::class);
         $this->escopo  = new EscopoDeAuditoriaDePlataforma();
-        $this->useCase = new ReativarContaUseCase($this->contas, new RegraDosMasters($this->contas), $this->escopo, 365);
+        $this->useCase = new ReativarContaUseCase($this->contas, new RegraDosMasters($this->contas), $this->escopo, $this->createStub(PedidoDeExclusaoDeContaRepository::class), 365);
         $this->master  = self::usuario(['ROLE_SUPER_ADMIN']);
     }
 
