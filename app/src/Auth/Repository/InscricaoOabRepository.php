@@ -60,6 +60,8 @@ class InscricaoOabRepository extends ServiceEntityRepository
         /** @var list<InscricaoOab> $lista */
         $lista = $this->qbRevisao($statuses, $busca)
             ->orderBy('i.criadoEm', 'DESC')
+            // Desempate: o backfill gravou o mesmo criado_em para todas, e sem ele as páginas repetem ou pulam linhas.
+            ->addOrderBy('i.id', 'DESC')
             ->setFirstResult((max(1, $pagina) - 1) * $porPagina)
             ->setMaxResults($porPagina)
             ->getQuery()
@@ -91,6 +93,37 @@ class InscricaoOabRepository extends ServiceEntityRepository
                 ON CONFLICT DO NOTHING
                 SQL,
             ['id' => $usuario->getId()],
+        );
+    }
+
+    /**
+     * Cria a principal com os valores dados (os do User em memória, ainda não gravados) se a pessoa ainda não tem
+     * inscrição. Mesmo ON CONFLICT do `criarPrincipalDoEspelhoSeFaltar`: duas requisições ao mesmo tempo (criar
+     * escritório em duas abas) não estouram o índice único, a segunda só não faz nada. O usuário já tem de estar no banco.
+     */
+    public function criarPrincipalSeFaltar(
+        User $usuario,
+        string $numero,
+        string $uf,
+        StatusOab $status,
+        ?string $nomeOficial,
+        ?\DateTimeImmutable $verificadaEm,
+    ): void {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            <<<'SQL'
+                INSERT INTO inscricao_oab (user_id, numero, uf, tipo, status, nome_oficial, verificada_em, criado_em)
+                SELECT :id, :numero, :uf, 'principal', :status, :nome, CAST(:verificada AS TIMESTAMP(0)), NOW()
+                 WHERE NOT EXISTS (SELECT 1 FROM inscricao_oab i WHERE i.user_id = :id)
+                ON CONFLICT DO NOTHING
+                SQL,
+            [
+                'id'         => $usuario->getId(),
+                'numero'     => $numero,
+                'uf'         => $uf,
+                'status'     => $status->value,
+                'nome'       => $nomeOficial,
+                'verificada' => $verificadaEm?->format('Y-m-d H:i:s'),
+            ],
         );
     }
 

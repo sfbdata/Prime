@@ -56,6 +56,13 @@ framework:
             policy: sliding_window
             limit: 30
             interval: '1 minute'
+        # Página pública de vagas do Trabalho Externo: "Quero receber as vagas" (formulário aberto na
+        # internet que grava e-mail). Folgado pelo mesmo motivo dos blocos acima: só vira defesa de
+        # verdade com o IP real do cliente em produção. 10 por minuto cobre quem erra o e-mail.
+        vagas_alertas:
+            policy: sliding_window
+            limit: 10
+            interval: '1 minute'
         # Recuperação de senha: dois limites somados, com papéis diferentes.
         #
         # O de e-mail é a defesa REAL da vítima: não importa de onde venha o pedido.

@@ -8,18 +8,10 @@
         <h1 class="platform-title">Revisão de OAB</h1>
         <p class="platform-subtitle">Identidade global: advogados de todos os escritórios</p>
     </div>
-    <span class="platform-badge"><i class="bi bi-people-fill"></i> {{ total }} usuário{{ total == 1 ? '' : 's' }}</span>
+    <span class="platform-badge"><i class="bi bi-people-fill"></i> {{ total }} {{ total == 1 ? 'inscrição' : 'inscrições' }}</span>
 </div>
 
-{% for type, messages in app.flashes %}
-    {% for message in messages %}
-        <div class="alert alert-{{ type == 'sucesso' ? 'success' : (type == 'erro' ? 'danger' : (type == 'info' ? 'info' : 'secondary')) }} alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
-            <i class="bi bi-{{ type == 'sucesso' ? 'check-circle-fill' : (type == 'erro' ? 'x-circle-fill' : 'info-circle-fill') }}"></i>
-            <span>{{ message }}</span>
-            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
-        </div>
-    {% endfor %}
-{% endfor %}
+{# Os avisos (flash) saem pelo base.html.twig, que esvazia a flashbag antes deste bloco. #}
 
 {# Filtros + busca #}
 <div class="card border-0 shadow-sm mb-3">
@@ -64,7 +56,11 @@
                 <tr class="{{ s == 'divergente' ? 'platform-row-divergente' : '' }}">
                     <td class="ps-4 platform-name-strong">{{ item.nome }}</td>
                     <td class="text-secondary">{{ item.email }}</td>
-                    <td class="platform-oab-num">{% if item.oabNumero %}{{ item.oabNumero ~ '/' ~ item.oabUf }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</td>
+                    <td class="platform-oab-num">
+                        {{ item.oabNumero ~ '/' ~ item.oabUf }}
+                        {% set principal = item.tipo.value == 'principal' %}
+                        <span class="badge rounded-pill ms-1 oab-selo-tipo {{ principal ? 'text-bg-primary' : 'text-bg-secondary' }}"><i class="bi {{ principal ? 'bi-star-fill' : 'bi-diagram-2' }} me-1"></i>{{ principal ? 'PRINCIPAL' : 'SUPLEMENTAR' }}</span>
+                    </td>
                     <td>{% if (item.oabNomeOficial ?? null) is not null %}{{ item.oabNomeOficial }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</td>
                     <td>{% include '_oab_status.html.twig' with {status: item.oabStatus, size: 'sm'} only %}</td>
                     <td class="text-secondary">{{ item.oabVerificadaEm ? item.oabVerificadaEm|date('d/m/Y H:i') : 'Sem registro' }}</td>
@@ -73,6 +69,8 @@
                             {% if s != 'confirmada' %}
                                 <form method="post" action="{{ path('admin_platform_oab_confirmar', ctx|merge({id: item.id})) }}" class="d-inline">
                                     <input type="hidden" name="_token" value="{{ csrf_token('oab_confirmar_' ~ item.id) }}">
+                                    <input type="hidden" name="numero" value="{{ item.oabNumero }}">
+                                    <input type="hidden" name="uf" value="{{ item.oabUf }}">
                                     <button class="btn btn-sm btn-success" title="Marcar como confirmada" data-bs-toggle="tooltip">
                                         <i class="bi bi-check-lg"></i>
                                     </button>
@@ -87,6 +85,8 @@
                                         <li>
                                             <form method="post" action="{{ path('admin_platform_oab_reverter', ctx|merge({id: item.id})) }}">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('oab_reverter_' ~ item.id) }}">
+                                                <input type="hidden" name="numero" value="{{ item.oabNumero }}">
+                                                <input type="hidden" name="uf" value="{{ item.oabUf }}">
                                                 <input type="hidden" name="destino" value="nao_verificada">
                                                 <button class="dropdown-item" type="submit"><i class="bi bi-clock-history me-2 text-warning"></i>Não verificada</button>
                                             </form>
@@ -94,6 +94,8 @@
                                         <li>
                                             <form method="post" action="{{ path('admin_platform_oab_reverter', ctx|merge({id: item.id})) }}">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('oab_reverter_' ~ item.id) }}">
+                                                <input type="hidden" name="numero" value="{{ item.oabNumero }}">
+                                                <input type="hidden" name="uf" value="{{ item.oabUf }}">
                                                 <input type="hidden" name="destino" value="divergente">
                                                 <button class="dropdown-item" type="submit"><i class="bi bi-exclamation-triangle me-2 text-danger"></i>Divergente</button>
                                             </form>
@@ -115,7 +117,7 @@
                     <td colspan="7">
                         <div class="platform-empty">
                             <i class="bi bi-patch-check"></i>
-                            <div class="platform-empty-title">Nenhum usuário nesta fila</div>
+                            <div class="platform-empty-title">Nenhuma inscrição nesta fila</div>
                             <div>{{ busca ? 'Ajuste a busca ou troque o filtro.' : 'Tente outro filtro acima.' }}</div>
                         </div>
                     </td>

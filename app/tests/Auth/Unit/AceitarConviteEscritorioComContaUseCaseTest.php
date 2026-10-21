@@ -110,6 +110,26 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
         self::assertCount(1, $capturados, 'vínculo novo');
     }
 
+    public function testSuspensoNaoVoltaPeloConvite(): void
+    {
+        // Spec equipe-da-conta §2: suspenso ou em análise só volta pela equipe da conta, pelo primário.
+        $invitation = $this->makePendingOfficeInvitation('usuario@example.com');
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        $vinculo = new UserTenant($this->usuario, $this->tenant);
+        $vinculo->alterarSituacao(\App\Tenant\Enum\SituacaoNaEquipe::Suspenso);
+        $this->userTenantRepo->method('findPorUserETenant')->willReturn($vinculo);
+        $this->em->expects($this->never())->method('flush');
+
+        try {
+            $this->useCase->executar(new AceitarConviteEscritorioComContaInput('tok123', $this->usuario));
+            self::fail('o convite não pode reativar quem está suspenso');
+        } catch (\DomainException $e) {
+            self::assertStringContainsString('está suspenso pelo usuário primário', $e->getMessage());
+        }
+        self::assertFalse($vinculo->isActive());
+        self::assertSame('pending', $invitation->getStatus());
+    }
+
     public function testTenantRoleNaInvitationPropagadoParaUserTenant(): void
     {
         $role       = new TenantRole();

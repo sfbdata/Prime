@@ -7,6 +7,7 @@ namespace App\Agenda\Controller;
 use App\Agenda\DTO\CompromissoInput;
 use App\Agenda\Exception\CompromissoNaoEncontradoException;
 use App\Agenda\Exception\SemPermissaoNoCompromissoException;
+use App\Agenda\Service\PermissoesDaAgenda;
 use App\Agenda\UseCase\AlterarStatusDoCompromissoUseCase;
 use App\Agenda\UseCase\AvisarNoChatUseCase;
 use App\Agenda\UseCase\AvisarPrazoNoChatUseCase;
@@ -43,6 +44,7 @@ final class CompromissoController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly ValidatorInterface $validator,
         private readonly AvisarPrazoNoChatUseCase $avisarPrazoNoChat,
+        private readonly PermissoesDaAgenda $daAgenda,
     ) {
     }
 
@@ -78,12 +80,12 @@ final class CompromissoController extends AbstractController
         });
     }
 
-    /** Prazo ou audiência de pasta (desenho 09, L238): só para quem vê as pastas, como na grade. */
+    /** Prazo ou audiência de pasta (desenho 09, L238): só para quem vê os prazos na agenda, como na grade. */
     #[Route('/agenda/prazos/{id}/avisar', name: 'app_agenda_prazo_avisar', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function avisarPrazo(Request $request, int $id): JsonResponse
     {
         return $this->comAcesso($request, function (User $eu, Tenant $tenant) use ($request, $id): JsonResponse {
-            if (!$this->permissionChecker->canAccessModule($eu, $tenant, 'pastas')) {
+            if (!$this->daAgenda->verPrazos($eu, $tenant)) {
                 throw new CompromissoNaoEncontradoException();
             }
             $ids = CompromissoInput::doJson(['avisados' => $request->toArray()['ids'] ?? []])->avisados;
@@ -130,8 +132,7 @@ final class CompromissoController extends AbstractController
             if (count($erros) > 0) {
                 return $this->json(['erro' => (string) $erros->get(0)->getMessage()], 422);
             }
-            $verPastas = $this->permissionChecker->canAccessModule($eu, $tenant, 'pastas');
-            $salvo = $this->salvar->executar($input, $id, $eu, $tenant, $verPastas);
+            $salvo = $this->salvar->executar($input, $id, $eu, $tenant, $this->daAgenda->verPastas($eu, $tenant));
 
             return $this->json(['ok' => true, 'id' => $salvo->id, 'data' => $salvo->data, 'avisados' => $salvo->avisados]);
         });

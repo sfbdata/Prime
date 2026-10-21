@@ -6,6 +6,7 @@ namespace App\EventListener;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Service\Tenant\TenantContext;
+use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tenant\Service\AvisoDeContaSuspensa;
 use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
 use App\Tenant\Service\RegraDosPrimarios;
@@ -58,6 +59,10 @@ final class TenantContextValidatorListener
         'push_compartilhado',
         'push_compartilhado_codigo',
         'push_compartilhado_renovacao',
+        // Página pública de vagas: sem login por desenho; quem está logado lê igual a quem não está.
+        'trabalho_externo_vagas_publicas',
+        'trabalho_externo_vagas_link',
+        'trabalho_externo_vagas_alertas',
         // Indicar o BlueJus (spec indicar-bluejus.md): o menu oferece a janela a todo logado, com ou sem
         // escritório (o Convidado do Trabalho Externo também). O dado é da pessoa, sem tenant; o controller só
         // usa o escritório da sessão com vínculo ativo, conferido por ele mesmo.
@@ -128,7 +133,7 @@ final class TenantContextValidatorListener
         }
         $recusa ??= $this->barreiraDoPedidoDeExclusao($userTenant);
         $recusa ??= $this->barreiraDoVinculo($userTenant);
-        // (d) situação do usuário no escritório: entra aqui (frente 7d, PR 4).
+        $recusa ??= $this->barreiraDaSituacao($userTenant, $user);
 
         if ($recusa === null) {
             return;
@@ -174,8 +179,8 @@ final class TenantContextValidatorListener
     /**
      * O primário de uma conta "suspensa a pedido" continua no escritório, mas só no Meu Perfil (onde
      * desiste) e no sair: qualquer outra rota volta ao Meu Perfil. Devolve true quando a requisição já foi
-     * resolvida aqui (liberada ou redirecionada). Atenção (PR 4, barreira (d)): este ramo sai antes da (c) e
-     * da (d); quando a (d) entrar, ela precisa valer aqui também.
+     * resolvida aqui (liberada ou redirecionada). Só vale com o vínculo ATIVO: o primário em análise ou suspenso
+     * pela equipe (vínculo inativo) segue para a (c) e a (d), como qualquer pessoa.
      */
     private function primarioNaContaSuspensaAPedido(?UserTenant $userTenant, RequestEvent $event): bool
     {
@@ -207,10 +212,27 @@ final class TenantContextValidatorListener
         return true;
     }
 
-    /** (c) O vínculo: removido ou desativado no escritório. */
+    /** (c) O vínculo: removido, ou inativo de legado (inativo sem ser por causa da situação na equipe). */
     private function barreiraDoVinculo(?UserTenant $userTenant): ?string
     {
-        return $userTenant !== null && $userTenant->isActive() ? null : self::ACESSO_INDISPONIVEL;
+        if ($userTenant === null) {
+            return self::ACESSO_INDISPONIVEL;
+        }
+
+        return !$userTenant->isActive() && $userTenant->getSituacao() === SituacaoNaEquipe::Aprovado ? self::ACESSO_INDISPONIVEL : null;
+    }
+
+    /**
+     * (d) Situação na equipe: em análise ou suspenso pelo primário (spec docs/specs/equipe-da-conta.md §3). O Master
+     * não passa por esta barreira.
+     */
+    private function barreiraDaSituacao(?UserTenant $userTenant, User $user): ?string
+    {
+        if ($userTenant === null || $userTenant->isActive() || in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+            return null;
+        }
+
+        return $userTenant->getSituacao()->mensagemDeAcesso((string) $userTenant->getTenant()->getName());
     }
 
     private function deveIgnorar(string $route): bool

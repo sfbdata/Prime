@@ -24,6 +24,7 @@
 
     var D = raiz.dataset;
     var MARCADOR = D.codigoMarcador || 'TE-0';
+    var MARCADOR_VAGA = 'VG-0';
     var FALHA = 'Não foi possível concluir. Tente de novo.';
 
     var MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -88,7 +89,19 @@
         sel: [],
         chatSel: [],
         chatVis: 'todas',
-        chatUndo: null
+        chatUndo: null,
+        // Aba Vagas (spec VS 18.10.26 §4.1)
+        modulo: 'demandas',
+        vg: null,
+        vgRelogio: 0,
+        vgFiltro: 'aberta',
+        vgVisitou: false,
+        vgDel: null,
+        vgBusca: '',
+        vgSel: [],
+        vgDet: null,
+        tlm: null,
+        vf: null
     };
 
     /* ---------------------------------------------------------------- utilidades */
@@ -182,7 +195,18 @@
         whatsapp: function (c, resto) { return comCodigo(D.urlWhatsapp, c).replace(/\/avisar-fase-atual$/, '') + resto; },
         marcacoes: function () { return D.urlMarcacoes; },
         marcacoesMsg: function (c) { return comCodigo(D.urlMensagensMarcacoes, c); },
-        apagarMsg: function (c, id) { return comCodigo(D.urlMensagemApagar, c).replace(/\/0\/apagar$/, '/' + id + '/apagar'); }
+        apagarMsg: function (c, id) { return comCodigo(D.urlMensagemApagar, c).replace(/\/0\/apagar$/, '/' + id + '/apagar'); },
+        // Vagas: as rotas com {codigo} vêm com o marcador VG-0 (o requisito da rota é VG-\d+).
+        vagas: function () { return comComo(D.urlVagas); },
+        vaga: function (c) { return comComo(D.urlVaga.replace(MARCADOR_VAGA, encodeURIComponent(c))); },
+        vagaAcao: function (c, a) { return D.urlVagaAcao.replace(MARCADOR_VAGA, encodeURIComponent(c)).replace('__acao__', encodeURIComponent(a)); },
+        vagaSalvar: function () { return D.urlVagaSalvar; },
+        vagaEditar: function (c) { return D.urlVagaEditar.replace(MARCADOR_VAGA, encodeURIComponent(c)); },
+        vagaExcluir: function (c) { return D.urlVagaExcluir.replace(MARCADOR_VAGA, encodeURIComponent(c)); },
+        vagasVisita: function () { return D.urlVagasVisita; },
+        vagasMarcacoes: function () { return D.urlVagasMarcacoes; },
+        vagasCompartilhar: function () { return D.urlVagasCompartilhar; },
+        vagasDivulgacao: function () { return D.urlVagasDivulgacao; }
     };
 
     /* ---------------------------------------------------------------- HTTP */
@@ -287,10 +311,17 @@
         fecharMenu();
         fecharDrawer();
         fecharToast();
+        fecharTlm();
+        // As vagas também vêm no recorte do perfil: some a aba até o servidor dizer se ele a vê.
+        S.vg = null;
+        S.vgSel = [];
+        renderModulos();
+        carregarVagas();
         pedir('GET', comComo(D.urlPainel)).then(function (r) {
             if (!r.ok || !r.painel) {
                 S.como = antes;
                 toastErro(r.mensagem);
+                carregarVagas();
                 return;
             }
             S.painel = r.painel;
@@ -334,6 +365,11 @@
         [['on', 'Disponível', 'bi-circle-fill'], ['rest', 'Disponível com restrições', 'bi-circle-half'], ['off', 'Temporariamente suspensa', 'bi-pause-circle']].forEach(function (o) {
             item(o[1], o[2], c.disponibilidade === o[0], function () { fecharHm(); gravarCfg({ disponibilidade: o[0] }); });
         });
+        // Configuração das vagas (desenho, l.1265). "Campanha por e-mail…" é da F4.
+        if (veVagas() && vgMaster() && cfgVagas()) {
+            sec('VAGAS E CURRÍCULOS');
+            item('Ofertas, avisos e mensagens…', 'bi-sliders', false, function () { fecharHm(); abrirCfgVagas(); });
+        }
         sec('CONFIGURAÇÕES');
         item('Equipe e privacidade…', 'bi-shield-lock', false, function () { fecharHm(); abrirCfg(); });
         item('Copiar link da aba', 'bi-link-45deg', false, function () {
@@ -370,7 +406,7 @@
     function renderBloqueio() {
         var alvo = limpar($('teBloqueio'));
         var b = S.painel.bloqueio;
-        $('teLiberado').hidden = !!b;
+        // Quem esconde #teLiberado e #teVagas é o renderModulos(), chamado logo depois.
         if (b) {
             alvo.appendChild(el('div', { class: 'te-bloqueio' }, [
                 ic('bi-shield-lock'),
@@ -853,6 +889,29 @@
 
             return;
         }
+        if (m.tipo === 'vgselpor') {
+            caixa.style.width = m.largura + 'px';
+            VG_SEL_OPS.forEach(function (o) {
+                caixa.appendChild(el('button', {
+                    type: 'button', class: 'te-menu-item', text: o[0],
+                    onclick: function () {
+                        fecharMenu();
+                        S.vgSel = vagasFiltradas().filter(o[1]).map(function (v) { return v.codigo; });
+                        renderVagas();
+                    }
+                }));
+            });
+            alvo.appendChild(caixa);
+
+            return;
+        }
+        if (m.tipo === 'vaga') {
+            caixa.style.width = m.largura + 'px';
+            menuDaVaga(caixa, m.codigo);
+            alvo.appendChild(caixa);
+
+            return;
+        }
         var base = [['abrir', 'Abrir demanda', 'bi-box-arrow-up-right'], ['chat', 'Abrir chat', 'bi-chat-dots']];
         if (m.situacao !== 'rascunho') {
             base.push(['hist', 'Histórico', 'bi-clock-history']);
@@ -932,6 +991,9 @@
 
     function abrir(codigo, aba) {
         fecharMenu();
+        if (S.modulo === 'vagas') {
+            irModulo('demandas');
+        }
         return pedir('GET', ROTA.detalhe(codigo)).then(function (r) {
             if (!r.ok || !r.demanda) {
                 toastErro(r.mensagem);
@@ -2178,19 +2240,20 @@
     function abrirConf(codigo, b) {
         S.conf = { codigo: codigo, b: b };
         var c = b.confirmacao, alvo = limpar($('teConf'));
-        var motivo = c.motivo ? el('textarea', { class: 'te-conf-motivo', rows: 3, placeholder: 'Descreva (obrigatório)' }) : null;
+        // `motivoOpcional`: o campo aparece, mas pode ir vazio (ex.: "Não aprovar" uma vaga).
+        var motivo = c.motivo ? el('textarea', { class: 'te-conf-motivo', rows: 3, placeholder: c.motivoOpcional ? 'Opcional' : 'Descreva (obrigatório)' }) : null;
         var ok = el('button', {
             type: 'button', class: 'te-btn-pri' + (c.perigo ? ' is-perigo' : ''), text: c.botao,
             onclick: function () {
                 var m = motivo ? motivo.value.trim() : '';
-                if (motivo && !m) {
+                if (motivo && !m && !c.motivoOpcional) {
                     motivo.focus();
                     return;
                 }
                 ok.disabled = true;
                 if (b.executar) {
                     // Confirmação que não é ação de fluxo (ex.: revogar convite): fecha ao concluir.
-                    b.executar().then(function (r) { ok.disabled = false; if (r && r.ok) { fecharConf(); } });
+                    b.executar(m || null).then(function (r) { ok.disabled = false; if (r && r.ok) { fecharConf(); } });
                     return;
                 }
                 aplicarAcao(codigo, b.k, m || null).then(function () { ok.disabled = false; });
@@ -2290,6 +2353,1511 @@
         limpar($('teCfg'));
     }
 
+    /* =============================================================================
+       ABA VAGAS (spec VS 18.10.26 §4.1, fase F2a)
+       Desenho "06 - Trabalho Externo - VS 18.10.26": faixa `mods` (linhas 85 a 87), aba Vagas
+       (152 a 169), modal genérico `tlm` (230 a 234 e 372 a 381) com o formulário `tmVagaForm`
+       (235 a 253), o detalhe `tmVaga` (285 a 300, sem a candidatura: F2b), a exclusão `tmDel`
+       (371) e a configuração `tmCfgV` (363 a 369, aberta pelo menu do Master, l.1265). A lógica
+       é a do `renderVals()` (l.979 a 1006, 1051, 1093 a 1118, 1156 a 1188). Compartilhar vagas
+       (F2c), candidatura e aceite (F2b), campanha (F4) e Currículos (F3) ficam de fora.
+       ============================================================================= */
+
+    /* ---------------------------------------------------------------- módulos: Demandas | Vagas */
+
+    var MODULO_CHAVE = 'bj-te-modulo';
+    /** Faixa `mods` (desenho, l.1105): Demandas sem número; Vagas com o selo `m.n`. */
+    var MODULOS = [['demandas', 'Demandas', 'bi-briefcase'], ['vagas', 'Vagas', 'bi-megaphone']];
+
+    function moduloSalvo() {
+        try {
+            return window.sessionStorage.getItem(MODULO_CHAVE) === 'vagas' ? 'vagas' : 'demandas';
+        } catch (e) {
+            return 'demandas';
+        }
+    }
+
+    function salvarModulo(m) {
+        try {
+            window.sessionStorage.setItem(MODULO_CHAVE, m);
+        } catch (e) {
+            // Sem sessionStorage (modo privado, cota cheia): só não lembra a aba.
+        }
+    }
+
+    function veVagas() { return !!(S.vg && S.vg.veAba); }
+    function moduloAtual() { return S.modulo === 'vagas' && veVagas() ? 'vagas' : 'demandas'; }
+
+    /** Selo da aba Vagas: os pedidos pendentes (interno, se houver), senão as abertas (l.1105). */
+    function numeroDaAbaVagas() {
+        var pend = vagas().filter(function (v) { return v.situacao === 'pendente'; }).length;
+        if (vgInterno() && pend > 0) {
+            return pend;
+        }
+        return vagas().filter(function (v) { return v.situacao === 'aberta'; }).length;
+    }
+
+    /** A faixa só aparece a quem vê a aba Vagas (`veAba`); com a tela bloqueada, nenhum painel aparece. */
+    function renderModulos() {
+        var alvo = limpar($('teModulos'));
+        var bloq = !!S.painel.bloqueio, mod = moduloAtual();
+        $('teLiberado').hidden = bloq || mod !== 'demandas';
+        $('teVagas').hidden = bloq || mod !== 'vagas';
+        if (bloq || !veVagas()) {
+            return;
+        }
+        alvo.appendChild(el('div', { class: 'te-mods', attrs: { role: 'tablist', 'aria-label': 'Módulos do Trabalho Externo' } }, MODULOS.map(function (m) {
+            var on = mod === m[0], n = m[0] === 'vagas' ? numeroDaAbaVagas() : 0;
+            return el('button', {
+                type: 'button', class: 'te-mod' + (on ? ' is-ativo' : ''),
+                attrs: { role: 'tab', 'aria-selected': on ? 'true' : 'false' },
+                onclick: function () { irModulo(m[0]); }
+            }, [ic(m[2]), m[1], n > 0 ? el('span', { class: 'te-mod-n', text: n }) : null]);
+        })));
+    }
+
+    function irModulo(m) {
+        if (m === moduloAtual()) {
+            return;
+        }
+        S.modulo = m;
+        salvarModulo(m);
+        fecharMenu();
+        renderModulos();
+        if (m === 'vagas') {
+            renderVagas();
+            carregarVagas();
+        }
+    }
+
+    /**
+     * GET /api/vagas no recorte do perfil (com `?como=` na prévia). Resposta pedida por outro perfil é
+     * descartada. Depois do primeiro GET bem-sucedido da página (fora da prévia), avisa a visita uma vez:
+     * é ela que define o "NOVA" da próxima vez.
+     */
+    function carregarVagas() {
+        var como = S.como;
+        return pedir('GET', ROTA.vagas()).then(function (r) {
+            if (como !== S.como) {
+                return;
+            }
+            if (!r.ok || !r.vagas) {
+                if (moduloAtual() === 'vagas') {
+                    toastErro(r.mensagem);
+                }
+                return;
+            }
+            S.vg = r.vagas;
+            // O cronômetro conta no relógio do servidor: guarda a diferença para o do navegador.
+            var agora = Date.parse(r.vagas.agora || '');
+            S.vgRelogio = isNaN(agora) ? 0 : agora - Date.now();
+            renderTitulo();
+            renderModulos();
+            renderVagas();
+            if (!S.vgVisitou && !previa() && r.vagas.veAba) {
+                S.vgVisitou = true;
+                pedir('POST', ROTA.vagasVisita(), {});
+            }
+        });
+    }
+
+    /* ---------------------------------------------------------------- dados da aba */
+
+    function vagas() { return (S.vg && S.vg.vagas) || []; }
+    function listasVg() { return (S.vg && S.vg.listas) || {}; }
+    function cfgVagas() { return (S.vg && S.vg.configuracao) || null; }
+    function vgInterno() { return !!(S.vg && S.vg.interno); }
+    function vgDaCentral() { return !!(S.vg && S.vg.daCentral); }
+    function vgMaster() { return !!(S.vg && S.vg.master); }
+    /** Prévia do Master: nada de escrita (sem Nova vaga, Divulgar, botões nem marcações). */
+    function podeEscreverVaga() { return !previa(); }
+    function vagaDe(codigo) { return vagas().filter(function (x) { return x.codigo === codigo; })[0] || null; }
+
+    function nivelDaVaga(v) { return Math.max(0, Math.min(3, +((v.importancia || {}).nivel) || 0)); }
+    function vagaImportante(v) { return nivelDaVaga(v) >= 2; }
+
+    /**
+     * Filtros da barra (`vagaFiltros`, l.1116). Estrela, importantes e as situações contam fora da
+     * lixeira; a lixeira conta só o que está nela. "Pedidos de divulgação" só aparece se houver pedido
+     * e "Minhas vagas enviadas" só se o usuário tiver enviado alguma.
+     */
+    function filtrosDeVaga() {
+        var L = vagas(), sit = function (s) { return function (v) { return v.situacao === s; }; };
+        var base = vgInterno()
+            ? (L.some(sit('pendente')) ? [['pendente', 'Pedidos de divulgação', sit('pendente')]] : []).concat([
+                ['aberta', 'Abertas', sit('aberta')],
+                ['pausada', 'Pausadas', sit('pausada')],
+                ['ocupada', 'Preenchidas', sit('ocupada')],
+                ['expirada', 'Expiradas', sit('expirada')],
+                ['encerrada', 'Encerradas', sit('encerrada')],
+                ['todas', 'Todas', function () { return true; }]
+            ])
+            : [['aberta', 'Abertas', sit('aberta')]].concat(L.some(function (v) { return !!v.minha; }) ? [['minhas', 'Minhas vagas enviadas', function (v) { return !!v.minha; }]] : []);
+        return base.concat([
+            ['estrela', '★ Estrela', function (v) { return !!v.estrela; }],
+            ['imp', 'Importantes', vagaImportante],
+            ['lix', 'Lixeira', null]
+        ]);
+    }
+
+    function doFiltroVaga(f) {
+        return vagas().filter(function (v) { return f[2] ? !v.lixeira && f[2](v) : !!v.lixeira; });
+    }
+
+    /** O filtro inicial é "Abertas"; se o escolhido sumiu (ex.: não há mais pedidos), volta para ele. */
+    function filtroDeVaga() {
+        var vis = filtrosDeVaga();
+        return vis.filter(function (f) { return f[0] === S.vgFiltro; })[0] || vis.filter(function (f) { return f[0] === 'aberta'; })[0] || vis[0];
+    }
+
+    /** A ordem é a do servidor; a busca olha título, cargo, local, áreas e escritório (l.990). */
+    function vagasFiltradas() {
+        var q = S.vgBusca.trim().toLowerCase();
+        return doFiltroVaga(filtroDeVaga()).filter(function (v) {
+            return !q || [v.titulo, v.cargo, v.local, (v.areas || []).join(' '), v.escritorio].join(' ').toLowerCase().indexOf(q) >= 0;
+        });
+    }
+
+    function irFiltroVaga(k) {
+        S.vgFiltro = k;
+        S.vgSel = [];
+        renderVagas();
+    }
+
+    /** "Selecionar por" da aba (`vgBulk.ops`, l.1051), sempre dentro do filtro atual. */
+    var VG_SEL_OPS = [
+        ['Todos', function () { return true; }],
+        ['Nenhum', function () { return false; }],
+        ['Vistos', function (v) { return !!v.vista; }],
+        ['Não vistos', function (v) { return !v.vista; }],
+        ['Com estrela', function (v) { return !!v.estrela; }],
+        ['Importantes', vagaImportante]
+    ];
+
+    function vgSelecionada(codigo) { return S.vgSel.indexOf(codigo) >= 0; }
+
+    function alternarVgSel(codigo) {
+        S.vgSel = vgSelecionada(codigo) ? S.vgSel.filter(function (c) { return c !== codigo; }) : S.vgSel.concat([codigo]);
+        renderVagas();
+    }
+
+    function seloSituacao(rotulo, cor) {
+        return el('span', { class: 'te-vg-st', style: { color: cor } }, [ic('bi-circle-fill'), rotulo]);
+    }
+
+    /* ---------------------------------------------------------------- barra, lote e grade */
+
+    function renderVagas() {
+        var L = vagasFiltradas();
+        // Só age sobre o que está à vista: a seleção perde o que saiu do filtro, da busca ou da lista.
+        var vistos = L.map(function (v) { return v.codigo; });
+        S.vgSel = S.vgSel.filter(function (c) { return vistos.indexOf(c) >= 0; });
+        renderVgSel(L);
+        renderVgFiltros();
+        renderVgAcoes();
+        renderVgLote();
+        renderVgGrade(L);
+    }
+
+    /** Selecionar todas, "Selecionar por" e Atualizar (desenho, linha 153). */
+    function renderVgSel(L) {
+        var alvo = limpar($('teVgSel'));
+        if (podeEscreverVaga()) {
+            var todas = L.length > 0 && S.vgSel.length === L.length;
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-sel-btn' + (S.vgSel.length ? ' is-on' : ''), title: 'Selecionar',
+                attrs: { 'aria-label': todas ? 'Limpar seleção' : 'Selecionar todas' },
+                onclick: function () {
+                    S.vgSel = todas ? [] : L.map(function (v) { return v.codigo; });
+                    renderVagas();
+                }
+            }, ic(todas ? 'bi-check-square-fill' : S.vgSel.length ? 'bi-dash-square-fill' : 'bi-square')));
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-sel-caret', title: 'Selecionar por', attrs: { 'aria-haspopup': 'menu' },
+                onclick: function (e) {
+                    var r = e.currentTarget.getBoundingClientRect();
+                    abrirMenuEspecial({ tipo: 'vgselpor' }, r.left - 30, r.bottom + 4, 170);
+                }
+            }, ic('bi-caret-down-fill')));
+        }
+        alvo.appendChild(el('button', {
+            type: 'button', class: 'te-sel-atualizar', title: 'Atualizar',
+            onclick: function () { carregarVagas(); }
+        }, ic('bi-arrow-clockwise')));
+    }
+
+    function renderVgFiltros() {
+        var alvo = limpar($('teVgFiltros')), atual = filtroDeVaga();
+        filtrosDeVaga().forEach(function (f) {
+            var on = f[0] === atual[0];
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-vg-filtro' + (on ? ' is-ativo' : ''),
+                attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                onclick: function () { irFiltroVaga(f[0]); }
+            }, [f[1] + ' ', el('span', { class: 'te-vg-filtro-n', text: doFiltroVaga(f).length })]));
+        });
+    }
+
+    /** "Divulgar uma vaga" (podeDivulgar) e "Nova vaga" (podeCriar). A configuração mora no menu ⋮ do Master. */
+    function renderVgAcoes() {
+        var alvo = limpar($('teVgAcoes')), V = S.vg || {};
+        if (!podeEscreverVaga()) {
+            return;
+        }
+        if (vagas().some(function (x) { return x.podeCompartilhar; })) {
+            var dicaSh = 'Compartilhe as vagas abertas por WhatsApp, e-mail ou LinkedIn';
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-vg-share', title: dicaSh, attrs: { 'data-tip': dicaSh },
+                onclick: function () { abrirShare(null); }
+            }, [ic('bi-share'), 'Compartilhar vagas']));
+        }
+        if (V.podeDivulgar) {
+            var dica = 'Envie a vaga do seu escritório. A equipe BlueJus revisa e divulga na Central.';
+            alvo.appendChild(el('button', {
+                type: 'button', class: 'te-vg-divulgar', title: dica, attrs: { 'data-tip': dica },
+                onclick: function () { abrirFormVaga(null); }
+            }, [ic('bi-megaphone'), 'Divulgar uma vaga']));
+        }
+        if (V.podeCriar) {
+            alvo.appendChild(el('button', { type: 'button', class: 'te-btn-nova', onclick: function () { abrirFormVaga(null); } }, [ic('bi-plus-lg'), 'Nova vaga']));
+        }
+    }
+
+    /**
+     * Barra de lote (`vgBulk`, l.1052): um só botão de "visto" (visto se alguma não foi vista) e um de
+     * estrela (remover se todas já têm); importante e não importante aparecem sempre.
+     */
+    function renderVgLote() {
+        var alvo = limpar($('teVgLote'));
+        var naLixeira = filtroDeVaga()[0] === 'lix';
+        if (S.vgSel.length && podeEscreverVaga()) {
+            var sel = vagas().filter(function (v) { return vgSelecionada(v.codigo); });
+            var algumaNaoVista = sel.some(function (v) { return !v.vista; });
+            var todasEstrela = sel.length > 0 && sel.every(function (v) { return !!v.estrela; });
+            var acoes = naLixeira
+                ? [
+                    ['restaurar', 'Restaurar', 'bi-arrow-counterclockwise', null],
+                    ['definitivo', 'Excluir da minha lista', 'bi-x-octagon', '#a3232b']
+                ]
+                : [
+                    ['lixeira', 'Mover para a lixeira', 'bi-trash', null],
+                    algumaNaoVista ? ['lida', 'Marcar como visto', 'bi-eye', null] : ['naolida', 'Marcar como não visto', 'bi-eye-slash', null],
+                    todasEstrela ? ['semestrela', 'Remover estrela', 'bi-star-fill', '#e0a106'] : ['estrela', 'Adicionar estrela', 'bi-star', null],
+                    ['imp', 'Marcar como importante', 'bi-chevron-double-right', '#0a6fa0'],
+                    ['naoimp', 'Marcar como não importante', 'bi-chevron-right', null]
+                ];
+            var codigos = S.vgSel.slice();
+            alvo.appendChild(el('div', { class: 'te-lote', attrs: { role: 'toolbar', 'aria-label': 'Ações nas vagas selecionadas' } }, [
+                el('b', { class: 'te-lote-n', text: S.vgSel.length + ' selecionado(s)' })
+            ].concat(acoes.map(function (a) {
+                return el('button', {
+                    type: 'button', class: 'te-lote-btn', title: a[1],
+                    style: a[3] ? { color: a[3] } : null,
+                    attrs: { 'data-tip': a[1], 'aria-label': a[1] },
+                    onclick: function () { loteVagas(codigos, a[0]); }
+                }, ic(a[2]));
+            })).concat([
+                el('span', { class: 'te-espaco' }),
+                el('button', { type: 'button', class: 'te-lote-cancelar', text: 'Cancelar', onclick: function () { S.vgSel = []; renderVagas(); } })
+            ])));
+        }
+        if (naLixeira) {
+            alvo.appendChild(el('div', { class: 'te-lix-aviso' }, [ic('bi-info-circle'), ' A lixeira é só sua: os itens continuam para os demais. Restaure quando quiser.']));
+        }
+    }
+
+    function renderVgGrade(L) {
+        var grade = limpar($('teVgGrade')), alvoVazio = limpar($('teVgVazio'));
+        relogiosGrade = [];
+        L.forEach(function (v) { grade.appendChild(cartaoVaga(v)); });
+        grade.hidden = !L.length;
+        if (!L.length) {
+            alvoVazio.appendChild(vazioDeVagas());
+        }
+        ligarRelogio();
+    }
+
+    /** Vazio (`vagasVazio`, l.1118). */
+    function vazioDeVagas() {
+        var tit, txt;
+        if (vgInterno()) {
+            tit = vagas().length ? 'Nenhuma vaga neste filtro' : 'Nenhuma vaga publicada';
+            txt = 'Publique vagas para advogados, estagiários e correspondentes que usam o BlueJus. Elas aparecem para todos os usuários da Central.';
+        } else {
+            tit = 'Nenhuma vaga aberta no momento';
+            txt = 'Quando o escritório publicar novas vagas, elas aparecem aqui. Mantenha seu currículo atualizado para se candidatar rápido.';
+        }
+        return el('div', { class: 'te-vg-vazio' }, [
+            ic('bi-briefcase'),
+            el('div', { class: 'te-vg-vazio-tit', text: tit }),
+            el('div', { class: 'te-vg-vazio-txt', text: txt })
+        ]);
+    }
+
+    /** Dica da importância, igual à das demandas (`impTip`). */
+    function dicaDeImportancia(nv, importancia) {
+        var motivos = ((importancia || {}).motivos || []).join(', ');
+        return IMPORTANCIA[nv].rot + (motivos ? ': ' + motivos : '') + '. Clique para marcar ' + (nv >= 2 ? 'como não importante.' : 'como importante.');
+    }
+
+    /** Cartão da vaga (desenho, l.158 a 166 e l.1117). O clique abre o detalhe; o botão direito, o menu. */
+    function cartaoVaga(v) {
+        var sel = vgSelecionada(v.codigo), pv = previa();
+        var nv = nivelDaVaga(v), I = IMPORTANCIA[nv], dica = dicaDeImportancia(nv, v.importancia);
+        var parar = function (fn) { return function (e) { e.stopPropagation(); if (fn) { fn(); } }; };
+
+        return el('div', {
+            class: 'te-vg-card' + (sel ? ' is-sel' : ''),
+            attrs: { 'data-codigo': v.codigo },
+            onclick: function () {
+                marcarVagaVista(v);
+                abrirVaga(v.codigo);
+            },
+            oncontextmenu: function (e) {
+                e.preventDefault();
+                abrirMenuEspecial({ tipo: 'vaga', codigo: v.codigo }, e.clientX, e.clientY, 250);
+            }
+        }, [
+            el('div', { class: 'te-vg-topo' }, [
+                el('span', { class: 'te-vg-ic' }, ic('bi-briefcase')),
+                el('div', { class: 'te-flex1 te-min0' }, [
+                    el('div', { class: 'te-vg-tit te-reticencias' + (v.vista ? '' : ' is-naovista'), text: v.titulo }),
+                    el('div', { class: 'te-vg-esc te-reticencias', text: v.escritorio })
+                ]),
+                seloSituacao(v.situacaoRotulo, v.situacaoCor)
+            ]),
+            v.pend ? el('div', { class: 'te-vg-pend', style: { background: v.pendBg, color: v.pendCor } }, [ic('bi-hourglass-split'), el('span', { text: v.pendTxt })]) : null,
+            el('div', { class: 'te-vg-marcas' }, [
+                el('div', { class: 'te-vg-marca', onclick: parar(null) }, [
+                    pv ? null : el('button', {
+                        type: 'button', class: 'te-sel-btn' + (sel ? ' is-on' : ''), title: 'Selecionar',
+                        attrs: { 'aria-pressed': sel ? 'true' : 'false' },
+                        onclick: parar(function () { alternarVgSel(v.codigo); })
+                    }, ic(sel ? 'bi-check-square-fill' : 'bi-square')),
+                    el('button', {
+                        type: 'button', class: 'te-estrela' + (v.estrela ? ' is-on' : ''), title: 'Estrela', disabled: pv,
+                        attrs: { 'aria-pressed': v.estrela ? 'true' : 'false' },
+                        onclick: parar(function () { loteVagas([v.codigo], v.estrela ? 'semestrela' : 'estrela'); })
+                    }, ic(v.estrela ? 'bi-star-fill' : 'bi-star')),
+                    el('button', {
+                        type: 'button', class: 'te-imp te-vg-imp', title: dica, disabled: pv,
+                        style: { background: I.bg, color: I.cor },
+                        attrs: { 'data-tip': dica, 'aria-label': dica },
+                        onclick: parar(function () { loteVagas([v.codigo], nv >= 2 ? 'naoimp' : 'imp'); })
+                    }, ic(I.ic))
+                ]),
+                v.vivo ? el('span', { class: 'te-vg-vivo' }, [el('span', { class: 'te-vg-vivo-pt' }), 'AO VIVO']) : null,
+                v.nova ? el('span', { class: 'te-vg-nova', text: 'NOVA' }) : null
+            ]),
+            el('div', { class: 'te-vg-info' }, [
+                el('span', null, [ic('bi-person-badge'), (v.cargo || '') + ' · ' + (v.contratacao || '')]),
+                el('span', null, [ic('bi-geo-alt'), v.local || '']),
+                el('span', null, [ic('bi-cash-stack'), v.remuneracao || ''])
+            ]),
+            (v.areas || []).length ? el('div', { class: 'te-vg-areas' }, v.areas.slice(0, 4).map(function (a) { return el('span', { class: 'te-vg-area', text: a }); })) : null,
+            v.oferta ? relogioDaVaga(v, false, relogiosGrade) : null,
+            el('div', { class: 'te-vg-rodape' }, [ic('bi-calendar3'), el('span', { class: 'te-flex1', text: v.prazoTxt || '' })])
+        ]);
+    }
+
+    /* ---------------------------------------------------------------- cronômetro da oferta (tlTick, 1 s) */
+
+    var relogiosGrade = [], relogiosDetalhe = [], temporizadorRelogio = null, zerados = {};
+
+    /** `mmss()` do desenho. */
+    function mmss(ms) {
+        var t = Math.ceil(Math.max(0, ms) / 1000), m = Math.floor(t / 60), s = t % 60;
+        return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    }
+
+    function agoraServidor() { return Date.now() + (S.vgRelogio || 0); }
+
+    /**
+     * `tempo()` do desenho (l.996), só do interno (o servidor só manda `oferta` a ele). Total =
+     * duração em minutos; aberta conta mm:ss até `expiraEm`; fora de aberta mostra a situação.
+     */
+    function relogioDaVaga(v, grande, lista) {
+        var aberta = v.situacao === 'aberta', qtd = +v.qtd || 1, ac = +v.aceites || 0;
+        var r = {
+            codigo: v.codigo,
+            aberta: aberta,
+            rotulo: v.situacaoRotulo || '',
+            fim: Date.parse(v.expiraEm || ''),
+            total: (+v.duracao || 0) * 6e4,
+            ic: ic('bi-stopwatch'),
+            tmr: el('b', { class: 'te-vg-tmr' }),
+            barra: el('div', { class: 'te-vg-pct' })
+        };
+        var txt = aberta ? 'disponível · ' + ac + ' de ' + qtd + ' aceita(s)' : ac ? ac + ' de ' + qtd + ' aceita(s)' : 'sem aceite';
+        atualizarRelogio(r);
+        if (aberta && !isNaN(r.fim)) {
+            lista.push(r);
+        }
+        var trilho = el('div', { class: 'te-vg-trilho' }, r.barra);
+        if (grande) {
+            return el('div', { class: 'te-vg-relogio is-grande' }, [
+                r.ic,
+                el('div', { class: 'te-flex1 te-min0' }, [el('div', { class: 'te-vg-relogio-linha' }, [r.tmr, el('span', { text: txt })]), trilho])
+            ]);
+        }
+        return el('div', { class: 'te-vg-relogio' }, [
+            el('div', { class: 'te-vg-relogio-linha' }, [r.ic, r.tmr, el('span', { class: 'te-flex1 te-reticencias', text: txt })]),
+            trilho
+        ]);
+    }
+
+    /** Barra azul, laranja abaixo de 50% e vermelha abaixo de 20% (l.996). */
+    function atualizarRelogio(r) {
+        var resta = r.aberta && !isNaN(r.fim) ? Math.max(0, r.fim - agoraServidor()) : 0;
+        var pct = r.total ? Math.max(0, Math.min(1, resta / r.total)) : 0;
+        var cor = pct < 0.2 ? '#a3232b' : pct < 0.5 ? '#c76a12' : '#0a6fa0';
+        r.tmr.textContent = r.aberta ? mmss(resta) : r.rotulo;
+        r.tmr.style.color = cor;
+        r.ic.style.color = cor;
+        r.barra.style.background = cor;
+        r.barra.style.width = Math.round(pct * 100) + '%';
+        return resta;
+    }
+
+    function ligarRelogio() {
+        if (!temporizadorRelogio && (relogiosGrade.length || relogiosDetalhe.length)) {
+            temporizadorRelogio = setInterval(tique, 1000);
+        }
+    }
+
+    /** Quando uma oferta zera, recarrega a lista (o servidor a conta como expirada) uma vez por vaga. */
+    function tique() {
+        var zerou = null;
+        relogiosGrade.concat(relogiosDetalhe).forEach(function (r) {
+            if (atualizarRelogio(r) <= 0 && !zerados[r.codigo]) {
+                zerados[r.codigo] = true;
+                zerou = r.codigo;
+            }
+        });
+        if (zerou) {
+            carregarVagas();
+            if (S.tlm === 'vaga' && S.vgDet) {
+                abrirVaga(S.vgDet.codigo, true);
+            }
+        }
+        if (!relogiosGrade.length && !relogiosDetalhe.length) {
+            clearInterval(temporizadorRelogio);
+            temporizadorRelogio = null;
+        }
+    }
+
+    /* ---------------------------------------------------------------- menu de contexto, ações e marcações */
+
+    /**
+     * Menu do cartão (`vMenu`, l.1001), com o título da vaga e sem as marcações. Interno: Abrir vaga,
+     * aprovar e não aprovar, Editar vaga, os demais botões de situação e Excluir vaga. Externo: Ver vaga.
+     * "Divulgar vaga" (interno) e "Compartilhar vaga" (externo) na aberta; Candidatar-se ou Aceitar
+     * oferta entram na F2b.
+     */
+    function menuDaVaga(caixa, codigo) {
+        var v = vagaDe(codigo);
+        if (!v) {
+            return;
+        }
+        var item = function (rot, icone, acao, perigo) {
+            caixa.appendChild(el('button', {
+                type: 'button', class: 'te-menu-item' + (perigo ? ' is-perigo' : ''),
+                onclick: function () { fecharMenu(); acao(); }
+            }, [ic(icone), rot]));
+        };
+        caixa.appendChild(el('div', { class: 'te-menu-tit', text: v.titulo }));
+        if (!vgInterno()) {
+            item('Ver vaga', 'bi-box-arrow-up-right', function () { abrirVaga(codigo); });
+            if (v.podeCompartilhar && podeEscreverVaga()) {
+                item('Compartilhar vaga', 'bi-share', function () { abrirShare([codigo]); });
+            }
+            return;
+        }
+        item('Abrir vaga', 'bi-box-arrow-up-right', function () { abrirVaga(codigo); });
+        if (!podeEscreverVaga()) {
+            return;
+        }
+        if (v.podeCompartilhar) {
+            item('Divulgar vaga', 'bi-share', function () { abrirShare([codigo]); });
+        }
+        var botoes = v.botoes || [];
+        var daAprovacao = function (b) { return b.k === 'aprovar' || b.k === 'reprovar'; };
+        botoes.filter(daAprovacao).forEach(function (b) {
+            item(b.rot, b.ic, function () { acaoVaga(codigo, b); }, b.k === 'reprovar');
+        });
+        if (v.podeEditar) {
+            item('Editar vaga', 'bi-pencil', function () { editarVaga(codigo); });
+        }
+        botoes.filter(function (b) { return !daAprovacao(b); }).forEach(function (b) {
+            item(b.rot, b.ic, function () { acaoVaga(codigo, b); }, b.tipo === 'perigo');
+        });
+        if (v.podeExcluir) {
+            item('Excluir vaga', 'bi-trash', function () { pedirExclusaoVaga(v); }, true);
+        }
+    }
+
+    /** "Não aprovar" pede o motivo, opcional ("Motivo para não publicar (o solicitante verá):"); os demais vão direto. */
+    function acaoVaga(codigo, b) {
+        fecharMenu();
+        if (!podeEscreverVaga()) {
+            return;
+        }
+        if (b.motivo) {
+            abrirConf(codigo, {
+                k: '__vaga_' + b.k + '__',
+                confirmacao: {
+                    titulo: b.rot,
+                    texto: 'Motivo para não publicar (o solicitante verá):',
+                    botao: b.rot, motivo: true, motivoOpcional: true, perigo: b.tipo === 'perigo'
+                },
+                executar: function (motivo) { return enviarAcaoVaga(codigo, b.k, motivo); }
+            });
+            return;
+        }
+        enviarAcaoVaga(codigo, b.k, null);
+    }
+
+    /** Avisos do desenho para cada ação (l.979 a 984). */
+    function avisoDaAcao(k, v) {
+        if (k === 'aprovar') {
+            return { tit: 'Vaga publicada', txt: 'Já está visível para todos os usuários da Central.' };
+        }
+        if (k === 'reprovar') {
+            return { tit: 'Pedido não aprovado', txt: 'O solicitante foi avisado.' };
+        }
+        if (k === 'ofertar') {
+            return { tit: 'Oferta reaberta', txt: 'O contador começou de novo.' };
+        }
+        return { tit: 'Vaga ' + String((v && v.situacaoRotulo) || '').toLowerCase(), txt: (v && v.titulo) || '' };
+    }
+
+    /** Aprovar, não aprovar e encerrar fecham o detalhe; as demais o atualizam. */
+    function enviarAcaoVaga(codigo, k, motivo) {
+        return pedir('POST', ROTA.vagaAcao(codigo, k), { motivo: motivo }).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return r;
+            }
+            var noDetalhe = S.tlm === 'vaga' && S.vgDet && S.vgDet.codigo === codigo;
+            if (noDetalhe && (k === 'aprovar' || k === 'reprovar' || k === 'encerrar')) {
+                fecharTlm();
+            } else if (noDetalhe && r.vaga) {
+                S.vgDet = r.vaga;
+                renderDetalheVaga();
+            }
+            var a = avisoDaAcao(k, r.vaga);
+            mostrarToast({ tit: a.tit, txt: a.txt, hora: '' });
+            carregarVagas();
+            return r;
+        });
+    }
+
+    /** A confirmação de "Excluir vaga" (`delPedir`, l.1001; modal `tmDel`, l.371). */
+    function pedirExclusaoVaga(v) {
+        if (!podeEscreverVaga() || !v.podeExcluir) {
+            return;
+        }
+        fecharMenu();
+        S.tlm = 'del';
+        S.vgDet = null;
+        S.vf = null;
+        S.vgDel = { codigo: v.codigo, txt: 'Excluir a vaga "' + v.titulo + '"? As candidaturas recebidas também serão removidas. Esta ação não pode ser desfeita.', erro: '', enviando: false };
+        relogiosDetalhe = [];
+        limpar($('teVagaModal'));
+        renderExclusaoVaga();
+    }
+
+    function renderExclusaoVaga() {
+        var X = S.vgDel;
+        if (!X || S.tlm !== 'del') {
+            return;
+        }
+        modalVaga({
+            icone: 'bi-trash', titulo: 'Confirmar exclusão', largura: '720px',
+            corpo: [
+                el('div', { class: 'te-tlm-del' }, [ic('bi-exclamation-triangle'), el('span', { text: X.txt })]),
+                erroTlm(X.erro)
+            ],
+            botoes: [
+                botaoTlm('Cancelar', 'bi-x', '', fecharTlm),
+                botaoTlm('Excluir', 'bi-trash', 'perigo', function (e) {
+                    if (X.enviando) {
+                        return;
+                    }
+                    X.enviando = true;
+                    e.currentTarget.disabled = true;
+                    pedir('POST', ROTA.vagaExcluir(X.codigo), {}).then(function (r) {
+                        X.enviando = false;
+                        if (S.vgDel !== X) {
+                            return;
+                        }
+                        if (!r.ok) {
+                            X.erro = r.mensagem;
+                            renderExclusaoVaga();
+                            return;
+                        }
+                        fecharTlm();
+                        mostrarToast({ tit: 'Vaga excluída', txt: '', hora: '' });
+                        carregarVagas();
+                    });
+                })
+            ]
+        });
+    }
+
+    /** As mesmas operações do lote das demandas, gravadas só para o usuário logado. */
+    function loteVagas(codigos, op) {
+        if (!codigos.length || !podeEscreverVaga()) {
+            return;
+        }
+        fecharMenu();
+        if (op === 'definitivo') {
+            var n = codigos.length;
+            abrirConf(null, {
+                k: '__definitivo_vaga__',
+                confirmacao: {
+                    titulo: 'Excluir da minha lista',
+                    texto: 'Excluir ' + n + ' item(ns) da sua lista definitivamente? Continuam existindo para os demais.',
+                    botao: 'Excluir', motivo: false, perigo: true
+                },
+                executar: function () { return enviarLoteVagas(codigos, op); }
+            });
+            return;
+        }
+        enviarLoteVagas(codigos, op);
+    }
+
+    function enviarLoteVagas(codigos, op) {
+        return pedir('POST', ROTA.vagasMarcacoes(), { codigos: codigos, op: op }).then(function (r) {
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                return r;
+            }
+            S.vgSel = [];
+            mostrarDesfazer(r.texto, op === 'lixeira' ? function () { enviarLoteVagas(codigos, 'restaurar'); } : null);
+            carregarVagas();
+            return r;
+        });
+    }
+
+    /** Abrir o cartão marca a vaga como vista (o título deixa de ficar em negrito), sem aviso. */
+    function marcarVagaVista(v) {
+        if (v.vista || !podeEscreverVaga()) {
+            return;
+        }
+        v.vista = true;
+        pedir('POST', ROTA.vagasMarcacoes(), { codigos: [v.codigo], op: 'lida' }).then(function (r) {
+            if (!r.ok) {
+                v.vista = false;
+                return;
+            }
+            if (S.vgDet && S.vgDet.codigo === v.codigo) {
+                S.vgDet.vista = true;
+            }
+            renderVagas();
+        });
+    }
+
+    /* ---------------------------------------------------------------- divulgar vaga(s) (tmShare) */
+
+    /** Mensagem padrão (`msgPadrao`, l.1075): uma vaga com cargo, local e quantidade; várias por cargo. */
+    function msgPadrao(L) {
+        var qtd = function (v) { return v.qtd || 1; };
+        if (L.length === 1) {
+            var v = L[0], loc = [v.cidade, v.uf].filter(Boolean).join('/') || 'Brasil';
+            return '⚖️ Vaga na área jurídica: ' + v.titulo + '\n\n💼 ' + v.cargo + (v.contrato ? ' · ' + v.contrato : '')
+                + '\n📍 ' + (v.modalidade ? v.modalidade + ' · ' : '') + loc + (qtd(v) > 1 ? '\n👥 ' + qtd(v) + ' vagas' : '')
+                + '\n\nAproveite! Crie sua conta gratuita no BlueJus para ver os detalhes e se candidatar:\n{link}';
+        }
+        var total = L.reduce(function (a, x) { return a + qtd(x); }, 0);
+        return '⚖️ Vagas para Advogados e área Jurídica disponíveis!\n\n' + total + ' vaga(s) abertas agora na Central BlueJus:\n'
+            + porCargo(L).map(function (c) { return '• ' + c[1] + ' × ' + c[0]; }).join('\n')
+            + '\n\nAproveite! Crie sua conta gratuita para ver os detalhes e se candidatar:\n{link}';
+    }
+
+    /** [[cargo, soma das quantidades], ...] na ordem em que aparecem. */
+    function porCargo(L) {
+        var cg = {}, ordem = [];
+        L.forEach(function (v) {
+            if (!(v.cargo in cg)) {
+                cg[v.cargo] = 0;
+                ordem.push(v.cargo);
+            }
+            cg[v.cargo] += v.qtd || 1;
+        });
+        return ordem.map(function (k) { return [k, cg[k]]; });
+    }
+
+    /** `abrirShare` (l.1076): `codigos` nulo = todas as abertas. O link vem do servidor (token próprio). */
+    function abrirShare(codigos) {
+        fecharMenu();
+        var L = vagas().filter(function (v) { return v.podeCompartilhar && (!codigos || codigos.indexOf(v.codigo) >= 0); });
+        if (!L.length) {
+            mostrarToast({ tit: 'Nenhuma vaga aberta', txt: 'Só vagas abertas podem ser divulgadas.', hora: '' });
+            return;
+        }
+        var cods = L.map(function (v) { return v.codigo; });
+        pedir('POST', ROTA.vagasCompartilhar(), { codigos: cods }).then(function (r) {
+            if (!r.ok || !r.url) {
+                toastErro(r.mensagem);
+                return;
+            }
+            S.tlm = 'share';
+            S.vgDet = null;
+            S.sh = { vagas: L, codigos: cods, link: r.url, msg: msgPadrao(L), copiou: '' };
+            renderShare();
+        });
+    }
+
+    /** Cada canal soma uma divulgação e vai ao histórico (`regShare`, l.1077); a falha não trava o canal. */
+    function registrarDivulgacao(canal) {
+        var sh = S.sh;
+        pedir('POST', ROTA.vagasDivulgacao(), { codigos: sh.codigos, canal: canal });
+    }
+
+    function copiarDoShare(texto, k) {
+        var marcar = function () {
+            if (S.sh) {
+                S.sh.copiou = k;
+                renderShare();
+            }
+        };
+        var reserva = function () {
+            var ta = document.createElement('textarea');
+            ta.value = texto;
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) { /* o navegador recusou; o texto segue na tela */ }
+            ta.remove();
+            marcar();
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(texto).then(marcar, reserva);
+        } else {
+            reserva();
+        }
+    }
+
+    /** Os cinco canais (`shCanais`, l.1167), com o texto já com o link no lugar de {link}. */
+    function canaisDoShare() {
+        var sh = S.sh, L = sh.vagas, link = sh.link;
+        var txt = function () { return sh.msg.replace('{link}', link); };
+        var assunto = L.length === 1 ? 'Vaga jurídica: ' + L[0].titulo : 'Vagas para Advogados e área Jurídica no BlueJus';
+        return [
+            ['WhatsApp', 'bi-whatsapp', '#1e7b45', function () { registrarDivulgacao('WhatsApp'); window.open('https://wa.me/?text=' + encodeURIComponent(txt()), '_blank', 'noopener'); }],
+            ['E-mail', 'bi-envelope', '#0a6fa0', function () { registrarDivulgacao('E-mail'); window.open('mailto:?subject=' + encodeURIComponent(assunto) + '&body=' + encodeURIComponent(txt()), '_self'); }],
+            ['LinkedIn', 'bi-linkedin', '#0b5f86', function () { registrarDivulgacao('LinkedIn'); copiarDoShare(txt(), 'li'); window.open('https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(link), '_blank', 'noopener'); }],
+            [sh.copiou === 'msg' ? 'Mensagem copiada' : 'Copiar mensagem', sh.copiou === 'msg' ? 'bi-check2' : 'bi-chat-left-text', '#5b3f9e', function () { registrarDivulgacao('mensagem copiada'); copiarDoShare(txt(), 'msg'); }],
+            [sh.copiou === 'link' ? 'Link copiado' : 'Copiar link', sh.copiou === 'link' ? 'bi-check2' : 'bi-link-45deg', '#34505f', function () { registrarDivulgacao('link'); copiarDoShare(link, 'link'); }]
+        ].map(function (k) {
+            return el('button', { type: 'button', class: 'te-sh-canal', style: { color: k[2] }, onclick: k[3] }, [ic(k[1]), k[0]]);
+        });
+    }
+
+    /** Prévia do link (l.344 a 353): o cartão como as redes mostram, com cargos e UFs. */
+    function previaDoShare() {
+        var L = S.sh.vagas, cg = porCargo(L), total = L.reduce(function (a, v) { return a + (v.qtd || 1); }, 0);
+        var ufs = L.map(function (v) { return v.uf; }).filter(function (u, i, a) { return u && a.indexOf(u) === i; });
+        var sub = total + ' vaga(s) · ' + cg.length + ' cargo(s)' + (ufs.length ? ' · ' + ufs.slice(0, 4).join(', ') + (ufs.length > 4 ? '…' : '') : '');
+        var dominio = (function () { try { return new URL(S.sh.link).host; } catch (e) { return location.host; } })() || 'bluejus.com.br';
+        return el('div', { class: 'te-sh-col' }, [
+            el('div', { class: 'te-sh-rot', text: 'PRÉVIA DO LINK' }),
+            el('div', { class: 'te-sh-moldura' }, el('div', { class: 'te-sh-cartao' }, [
+                el('div', { class: 'te-sh-capa' }, [
+                    el('span', { class: 'te-sh-bola1' }), el('span', { class: 'te-sh-bola2' }),
+                    el('img', { attrs: { src: D.urlSimbolo || '/images/logo/bluejus_simbolo.svg', alt: '' } }),
+                    el('div', { class: 'te-sh-marca' }, [el('div', { text: 'CENTRAL DE VAGAS JURÍDICAS' }), el('div', { text: 'BlueJus' })])
+                ]),
+                el('div', { class: 'te-sh-info' }, [
+                    el('div', { class: 'te-sh-dom', text: dominio }),
+                    el('b', { text: L.length === 1 ? L[0].titulo : 'Vagas para Advogados e área Jurídica' }),
+                    el('div', { class: 'te-sh-sub', text: sub }),
+                    el('div', { class: 'te-sh-cargos' }, cg.slice(0, 6).map(function (c) { return el('span', { text: c[1] + ' × ' + c[0] }); }))
+                ])
+            ])),
+            el('div', { class: 'te-sh-nota' }, [ic('bi-shield-lock'), ' A página pública mostra só cargo, local e tipo. Detalhes, remuneração, contatos e candidatura ficam liberados depois de criar a conta.'])
+        ]);
+    }
+
+    function mensagemDoShare() {
+        var sh = S.sh;
+        var area = el('textarea', { class: 'te-sh-msg', attrs: { rows: '10', 'aria-label': 'Mensagem' } });
+        area.value = sh.msg;
+        area.addEventListener('input', function (e) {
+            sh.msg = e.target.value;
+            var antes = sh.copiou;
+            sh.copiou = '';
+            if (antes || (sh.msg.indexOf('{link}') < 0) !== !!$('teShSemLink')) {
+                renderShare(true);
+            }
+        });
+        return el('div', { class: 'te-sh-col' }, [
+            el('div', { class: 'te-sh-cab' }, [
+                el('span', { class: 'te-sh-rot', text: 'MENSAGEM' }),
+                el('button', { type: 'button', class: 'te-sh-padrao', onclick: function () { sh.msg = msgPadrao(sh.vagas); sh.copiou = ''; renderShare(); } }, [ic('bi-arrow-counterclockwise'), ' Mensagem padrão'])
+            ]),
+            area,
+            sh.msg.indexOf('{link}') < 0 ? el('div', { class: 'te-sh-semlink', id: 'teShSemLink' }, [ic('bi-exclamation-triangle'), ' Inclua {link} no texto para o link entrar na mensagem.']) : null,
+            el('div', { class: 'te-sh-canais' }, canaisDoShare())
+        ]);
+    }
+
+    /** `tmShare` (l.343 a 362), 960px, com "Fechar" e "Ver página pública" (l.1098). `manterFoco` devolve o cursor à mensagem. */
+    function renderShare(manterFoco) {
+        var sh = S.sh;
+        if (!sh || S.tlm !== 'share') {
+            return;
+        }
+        var ativo = document.activeElement, pos = ativo && ativo.classList && ativo.classList.contains('te-sh-msg') ? ativo.selectionStart : null;
+        modalVaga({
+            titulo: 'Divulgar vaga' + (sh.vagas.length > 1 ? 's' : '') + ' · WhatsApp, e-mail e redes',
+            icone: 'bi-share',
+            largura: '960px',
+            corpo: [el('div', { class: 'te-sh' }, [previaDoShare(), mensagemDoShare()])],
+            botoes: [
+                botaoTlm('Fechar', 'bi-x', '', fecharTlm),
+                botaoTlm('Ver página pública', 'bi-box-arrow-up-right', 'pri', function () { window.open(sh.link, '_blank', 'noopener'); })
+            ]
+        });
+        var nova = document.querySelector('#teVagaModal .te-sh-msg');
+        if (manterFoco && nova && pos !== null) {
+            nova.focus();
+            nova.setSelectionRange(pos, pos);
+        }
+    }
+
+    /* ---------------------------------------------------------------- modal genérico (tlm) */
+
+    function fecharTlm() {
+        // Fechar no meio do envio esconderia a vaga criada: espera a resposta.
+        if ((S.vf && S.vf.enviando) || (S.vgDel && S.vgDel.enviando)) {
+            return;
+        }
+        S.tlm = null;
+        S.vgDet = null;
+        S.vf = null;
+        S.vgDel = null;
+        S.sh = null;
+        relogiosDetalhe = [];
+        limpar($('teVagaModal'));
+    }
+
+    /** Cabeçalho azul, corpo com rolagem e rodapé com os botões (`tlmBtns`). Redesenhar guarda a rolagem. */
+    function modalVaga(o) {
+        var alvo = $('teVagaModal');
+        var antes = $('teTlmCorpo'), entra = !antes, topo = antes ? antes.scrollTop : 0;
+        limpar(alvo);
+        var corpo = el('div', { class: 'te-tlm-corpo', id: 'teTlmCorpo' }, o.corpo);
+        alvo.appendChild(el('div', { class: 'te-tlm-fundo', onclick: fecharTlm }));
+        alvo.appendChild(el('div', {
+            class: 'te-tlm' + (entra ? ' is-entra' : ''),
+            style: { width: 'min(' + o.largura + ', calc(100vw - 24px))' },
+            attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-label': o.titulo }
+        }, [
+            el('div', { class: 'te-modal-cab' }, [
+                ic(o.icone),
+                el('b', { class: 'te-reticencias', text: o.titulo }),
+                el('button', { type: 'button', class: 'te-modal-fechar', title: 'Fechar', onclick: fecharTlm }, ic('bi-x-lg'))
+            ]),
+            corpo,
+            el('div', { class: 'te-tlm-rodape' }, o.botoes)
+        ]));
+        corpo.scrollTop = topo;
+    }
+
+    /** `tipo`: '' secundário, 'pri' azul, 'verde' (#1e7b45) e 'perigo' (#a3232b), como o `B(rot, ic, ir, pri, bg)` do desenho. */
+    function botaoTlm(rot, icone, tipo, acao) {
+        return el('button', {
+            type: 'button',
+            class: 'te-tlm-btn' + (tipo === 'pri' ? ' is-pri' : tipo === 'verde' ? ' is-pri is-verde' : tipo === 'perigo' ? ' is-pri is-perigo' : ''),
+            onclick: acao
+        }, [ic(icone), rot]);
+    }
+
+    /** Erro do servidor (`tlErro`, linha 372): última faixa do corpo, logo acima do rodapé. */
+    function erroTlm(txt) {
+        return vazio(txt) ? null : el('div', { class: 'te-tlm-erro', attrs: { role: 'alert' } }, [ic('bi-exclamation-circle'), ' ', el('span', { text: txt })]);
+    }
+
+    /* ---------------------------------------------------------------- detalhe da vaga (tmVaga) */
+
+    function abrirVaga(codigo, silencioso) {
+        fecharMenu();
+        return pedir('GET', ROTA.vaga(codigo)).then(function (r) {
+            // Atualização em segundo plano não reabre um detalhe que o usuário já fechou.
+            if (silencioso && !(S.tlm === 'vaga' && S.vgDet && S.vgDet.codigo === codigo)) {
+                return;
+            }
+            if (!r.ok || !r.vaga) {
+                if (!silencioso) {
+                    toastErro(r.mensagem);
+                }
+                return;
+            }
+            S.tlm = 'vaga';
+            S.vgDet = r.vaga;
+            S.vf = null;
+            S.vgDel = null;
+            renderDetalheVaga();
+        });
+    }
+
+    function dadoDaVaga(icone, texto) {
+        return el('span', { class: 'te-tv-dado' }, [ic(icone), texto]);
+    }
+
+    /** O botão do servidor no rodapé do detalhe: "Finalizar oferta" vermelho e "Ofertar novamente" azul (l.1095). */
+    function tipoNoRodape(v, b) {
+        if (b.k === 'encerrar' && v.oferta) {
+            return 'perigo';
+        }
+        return b.k === 'ofertar' ? 'pri' : '';
+    }
+
+    /** Detalhe (`tmVaga`, l.285 a 300; `tv`, l.1003) e o rodapé (`tlmBtns`, l.1095). */
+    function renderDetalheVaga() {
+        var v = S.vgDet;
+        if (!v) {
+            return;
+        }
+        relogiosDetalhe = [];
+        var of = v.ofertante || { nome: v.escritorio, info: [], oculto: false };
+        var corpo = [
+            // "Compartilhar esta vaga" (`tvPodeShare`, l.286): na aberta, para quem a vê.
+            v.podeCompartilhar && podeEscreverVaga() ? el('button', { type: 'button', class: 'te-tv-share', onclick: function () { abrirShare([v.codigo]); } }, [ic('bi-whatsapp'), 'Compartilhar esta vaga']) : null,
+            el('div', { class: 'te-tv-of' }, [
+                el('span', { class: 'te-tv-of-ic' }, ic('bi-building')),
+                el('div', { class: 'te-tv-of-textos' }, [
+                    el('div', { class: 'te-tv-of-rot', text: 'OFERECIDO POR' }),
+                    el('b', { class: 'te-tv-of-nome', text: of.nome || v.escritorio || '' }),
+                    (of.info || []).length ? el('div', { class: 'te-tv-of-info' }, of.info.map(function (o) {
+                        return el('span', null, [ic(o.ic), ' ' + o.v]);
+                    })) : null,
+                    of.oculto ? el('div', { class: 'te-tv-of-oculto' }, [ic('bi-shield-lock'), ' Contato pelo BlueJus, ao se candidatar.']) : null
+                ])
+            ]),
+            el('div', { class: 'te-tv-sit' }, [
+                seloSituacao(v.situacaoRotulo, v.situacaoCor),
+                el('span', { text: (v.escritorio || '') + ' · publicada em ' + (v.em || '') })
+            ]),
+            el('div', { class: 'te-tv-dados' }, [
+                dadoDaVaga('bi-person-badge', v.cargo || ''),
+                dadoDaVaga('bi-file-earmark-text', v.contratacao || ''),
+                dadoDaVaga('bi-geo-alt', v.local || ''),
+                dadoDaVaga('bi-cash-stack', v.remuneracao || ''),
+                dadoDaVaga('bi-calendar3', v.prazoDetalhe || ''),
+                dadoDaVaga('bi-award', v.oab || '')
+            ]),
+            (v.areas || []).length ? el('div', { class: 'te-vg-areas' }, v.areas.map(function (a) { return el('span', { class: 'te-vg-area', text: a }); })) : null,
+            v.oferta ? relogioDaVaga(v, true, relogiosDetalhe) : null,
+            el('div', { class: 'te-tv-req', text: v.requisitos || '' })
+        ];
+        if ((v.historico || []).length) {
+            corpo.push(el('div', { class: 'te-tv-hist-rot', text: 'HISTÓRICO DA OFERTA' }));
+            corpo.push(el('div', { class: 'te-tv-hist' }, [el('div', { class: 'te-tv-hist-eixo' })].concat(v.historico.map(function (h) {
+                return el('div', { class: 'te-tv-hist-item' }, [
+                    el('span', { class: 'te-tv-hist-bola', style: { color: h.cor, 'border-color': h.cor } }, ic(h.ic)),
+                    el('span', { class: 'te-tv-hist-txt', text: h.txt }),
+                    el('span', { class: 'te-tv-hist-em', text: h.em })
+                ]);
+            }))));
+        }
+
+        var botoes = [botaoTlm('Fechar', 'bi-x', '', fecharTlm)];
+        if (podeEscreverVaga()) {
+            var B = v.botoes || [], doServidor = function (k) { return B.filter(function (b) { return b.k === k; })[0]; };
+            if (vgInterno() && v.situacao === 'pendente') {
+                var rep = doServidor('reprovar'), apr = doServidor('aprovar');
+                if (rep) {
+                    botoes.push(botaoTlm('Não aprovar', 'bi-x-circle', '', function () { acaoVaga(v.codigo, rep); }));
+                }
+                if (v.podeEditar) {
+                    botoes.push(botaoTlm('Ajustar antes', 'bi-pencil', '', function () { editarVaga(v.codigo); }));
+                }
+                if (apr) {
+                    botoes.push(botaoTlm('Aprovar e publicar', 'bi-megaphone', 'verde', function () { acaoVaga(v.codigo, apr); }));
+                }
+            } else if (!vgInterno() && v.minha && v.situacao !== 'aberta') {
+                if (v.podeEditar) {
+                    botoes.push(botaoTlm(v.rotuloEditar, 'bi-pencil', 'pri', function () { editarVaga(v.codigo); }));
+                }
+            } else if (vgInterno()) {
+                B.forEach(function (b) {
+                    botoes.push(botaoTlm(b.rot, b.ic, tipoNoRodape(v, b), function () { acaoVaga(v.codigo, b); }));
+                });
+                if (v.podeEditar) {
+                    botoes.push(botaoTlm('Editar vaga', 'bi-pencil', 'pri', function () { editarVaga(v.codigo); }));
+                }
+            }
+        }
+        modalVaga({ icone: 'bi-briefcase', titulo: v.titulo || 'Vaga', largura: '720px', corpo: corpo, botoes: botoes });
+        ligarRelogio();
+    }
+
+    /* ---------------------------------------------------------------- formulário da vaga (tmVagaForm) */
+
+    /** Passos de quem divulga (`divPassos`, l.1186): o primeiro azul, os outros claros. */
+    var DIV_PASSOS = [
+        ['1', 'Você envia', 'Preencha os dados da vaga.'],
+        ['2', 'BlueJus revisa', 'O Master confere e ajusta se preciso.'],
+        ['3', 'Vaga publicada', 'Você acompanha candidatos e o histórico.']
+    ];
+    /** Tipos da configuração interna (`tfTipos`, l.1188), só para o Master. */
+    var TF_TIPOS = [
+        [false, 'Vaga comum', 'bi-briefcase', 'Recebe candidaturas até o prazo; você escolhe quem contratar.'],
+        [true, 'Oferta com tempo', 'bi-stopwatch', 'Disponível pelo tempo que você definir; os usuários não veem o contador.']
+    ];
+    /** Os dados de quem oferece com o olho (`ofCampos`, l.1182): `local` junta cidade e UF. */
+    var OF_CAMPOS = [['resp', 'bi-person'], ['local', 'bi-geo-alt'], ['email', 'bi-envelope'], ['tel', 'bi-whatsapp'], ['site', 'bi-globe2']];
+
+    /** "N min", 120 vira "2 horas" e 1440 "24 horas" (`cfgDurs`, l.1159). */
+    function rotuloDeMinutos(n) {
+        return n >= 120 && n % 60 === 0 ? (n / 60) + ' horas' : n + ' min';
+    }
+
+    function dataDaqui(dias) {
+        var d = new Date(agoraServidor() + dias * 864e5);
+        var p = function (x) { return (x < 10 ? '0' : '') + x; };
+        return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+    }
+
+    /** Edição: busca o detalhe (traz `formulario`) e abre o formulário preenchido. */
+    function editarVaga(codigo) {
+        if (!podeEscreverVaga()) {
+            return;
+        }
+        fecharMenu();
+        var abrirCom = function (v) {
+            if (!v.formulario) {
+                toastErro(null);
+                return;
+            }
+            abrirFormVaga(v);
+        };
+        if (S.vgDet && S.vgDet.codigo === codigo && S.vgDet.formulario) {
+            abrirCom(S.vgDet);
+            return;
+        }
+        pedir('GET', ROTA.vaga(codigo)).then(function (r) {
+            if (!r.ok || !r.vaga) {
+                toastErro(r.mensagem);
+                return;
+            }
+            abrirCom(r.vaga);
+        });
+    }
+
+    /**
+     * `vaga` nula: "Nova vaga" (Central, nasce aberta) ou "Divulgar uma vaga na Central" (externo,
+     * nasce pendente); com `vaga`: edição, preenchida com `vaga.formulario`.
+     */
+    function abrirFormVaga(vaga) {
+        if (!podeEscreverVaga() || !S.vg) {
+            return;
+        }
+        fecharMenu();
+        var P = S.vg.ofertantePadrao || {}, c = cfgVagas() || {}, X = vaga ? vaga.formulario : null;
+        var of = X ? (X.ofertante || {}) : P;
+        S.vf = {
+            codigo: vaga ? vaga.codigo : null,
+            f: X ? {
+                titulo: X.titulo || '', cargo: X.cargo || '', contratacao: X.contratacao || '', modalidade: X.modalidade || '',
+                cidade: X.cidade || '', uf: X.uf || '', remuneracao: X.remuneracao || '', areas: (X.areas || []).slice(),
+                requisitos: X.requisitos || '', inscricoesAte: X.inscricoesAte || '', exigeOab: !!X.exigeOab,
+                periodoDias: X.periodoDias === undefined || X.periodoDias === null ? 15 : +X.periodoDias,
+                oferta: !!X.oferta, duracaoDaOferta: +X.duracaoDaOferta || +c.dur || 15, qtd: +X.qtd || 1
+            } : {
+                titulo: '', cargo: '', contratacao: '', modalidade: '', cidade: '', uf: '', remuneracao: '',
+                areas: [], requisitos: '', inscricoesAte: '', exigeOab: false, periodoDias: 15,
+                // Em "Nova vaga" do Master, a oferta já vem ligada se houver tempo padrão (`novaVaga`, l.1115).
+                oferta: vgMaster() && +c.dur > 0, duracaoDaOferta: +c.dur || 15, qtd: 1
+            },
+            of: { nome: of.nome || '', resp: of.resp || '', cidade: of.cidade || '', uf: of.uf || '', email: of.email || '', tel: of.tel || '', site: of.site || '' },
+            ocultos: (of.ocultos || []).slice(),
+            // O externo sem padrão salvo já abre editando os dados de quem oferece (`ofEd`, l.1115).
+            editOf: !vaga && P.origem !== 'salvo' && !vgInterno(),
+            erro: '',
+            enviando: false
+        };
+        S.tlm = 'form';
+        S.vgDet = null;
+        S.vgDel = null;
+        relogiosDetalhe = [];
+        limpar($('teVagaModal'));
+        renderFormVaga();
+    }
+
+    function rotuloVf(texto, controle, extra) {
+        return el('label', { class: 'te-vf-rot' + (extra || '') }, [texto, controle]);
+    }
+
+    /** Campo que guarda o digitado no estado; o obrigatório perde a borda vermelha quando deixa de estar vazio. */
+    function ctlVf(tag, obj, k, props, req) {
+        var p = Object.assign({
+            class: 'te-vf-ctl' + (req && S.vf && S.vf.erro && vazio(obj[k]) ? ' is-erro' : ''),
+            value: obj[k] === undefined || obj[k] === null ? '' : String(obj[k])
+        }, props || {});
+        p.oninput = function (e) {
+            obj[k] = e.target.value;
+            if (req && S.vf && S.vf.erro) {
+                e.target.classList.toggle('is-erro', vazio(obj[k]));
+            }
+        };
+        return el(tag, p);
+    }
+
+    function selectVf(obj, k, ops, req) {
+        return el('select', {
+            class: 'te-vf-ctl' + (req && S.vf && S.vf.erro && vazio(obj[k]) ? ' is-erro' : ''),
+            value: obj[k] || '',
+            onchange: function (e) {
+                obj[k] = e.target.value;
+                if (req && S.vf && S.vf.erro) {
+                    e.target.classList.toggle('is-erro', vazio(obj[k]));
+                }
+            }
+        }, [el('option', { value: '', text: 'Selecione' })].concat((ops || []).map(function (o) { return el('option', { value: String(o), text: String(o) }); })));
+    }
+
+    function opcaoVf(rot, on, acao, extra) {
+        return el('button', {
+            type: 'button', class: 'te-vf-opcao' + (on ? ' is-on' : '') + (extra || ''),
+            attrs: { 'aria-pressed': on ? 'true' : 'false' },
+            onclick: acao
+        }, rot);
+    }
+
+    /** Limite de dias do não-Master (`maxDias`); o Master não tem limite. */
+    function maxDiasVf() { return vgMaster() ? 0 : +((cfgVagas() || {}).maxDias) || 0; }
+
+    /** `tfPer` (l.1185): com limite, o período fora dele vira o menor entre 15 e o máximo. */
+    function periodoEfetivo(f) {
+        var mx = maxDiasVf(), cur = +f.periodoDias;
+        return mx ? (cur && cur <= mx ? cur : Math.min(15, mx)) : cur;
+    }
+
+    /** `perOps` (l.1185): 1 a 60 dias; com limite, só até o máximo (marcado); sem limite, "Até a vaga ser preenchida". */
+    function opcoesDePeriodo() {
+        var mx = maxDiasVf(), B = [1, 3, 7, 15, 30, 60];
+        var L = B.concat(mx && B.indexOf(mx) < 0 ? [mx] : []).sort(function (a, b) { return a - b; })
+            .filter(function (n) { return !mx || n <= mx; })
+            .map(function (n) { return [n, n + (n === 1 ? ' dia' : ' dias') + (mx && n === mx ? ' (máximo)' : '')]; });
+        return mx ? L : L.concat([[0, 'Até a vaga ser preenchida']]);
+    }
+
+    /** Trocar o período também preenche "INSCRIÇÕES ATÉ" (`tfOnPer`, l.1185). */
+    function periodoVf(F) {
+        return rotuloVf('QUANTO TEMPO A VAGA FICA DISPONÍVEL', el('select', {
+            class: 'te-vf-ctl', value: String(periodoEfetivo(F.f)),
+            onchange: function (e) {
+                var d = +e.target.value;
+                F.f.periodoDias = d;
+                F.f.inscricoesAte = d ? dataDaqui(d) : '';
+                renderFormVaga();
+            }
+        }, opcoesDePeriodo().map(function (o) { return el('option', { value: String(o[0]), text: o[1] }); })), ' is-cheio is-pequeno');
+    }
+
+    /** "QUEM ESTÁ OFERECENDO" (l.238 a 244 e l.1182 a 1184): resumo com o olho em cada dado, ou os campos para editar. */
+    function blocoOfertante(F, L) {
+        var of = F.of, conteudo, P = (S.vg && S.vg.ofertantePadrao) || {};
+        if (!F.editOf) {
+            var valor = { resp: of.resp, local: [of.cidade, of.uf].filter(function (x) { return !vazio(x); }).join('/'), email: of.email, tel: of.tel, site: of.site };
+            var chips = OF_CAMPOS.filter(function (c) { return !vazio(valor[c[0]]); }).map(function (c) {
+                var k = c[0], oc = F.ocultos.indexOf(k) >= 0;
+                var dica = oc ? 'Oculto · clique para mostrar na vaga' : 'Visível na vaga · clique para ocultar';
+                return el('button', {
+                    type: 'button', class: 'te-vf-of-chip' + (oc ? ' is-oculto' : ''), title: dica,
+                    attrs: { 'data-tip': dica, 'aria-pressed': oc ? 'false' : 'true' },
+                    onclick: function () {
+                        F.ocultos = oc ? F.ocultos.filter(function (x) { return x !== k; }) : F.ocultos.concat([k]);
+                        renderFormVaga();
+                    }
+                }, [ic(c[1]), valor[k], el('i', { class: 'bi te-vf-of-olho ' + (oc ? 'bi-eye-slash' : 'bi-eye') })]);
+            });
+            conteudo = el('div', { class: 'te-vf-of-resumo' }, [
+                el('b', { class: 'te-vf-of-nome', text: of.nome }),
+                chips.length ? el('div', { class: 'te-vf-of-chips' }, chips) : null,
+                el('span', { class: 'te-vf-of-dica', text: 'Clique num dado para mostrar ou ocultar na vaga. Ocultos: os candidatos falam com você pelo BlueJus.' }),
+                el('div', { class: 'te-vf-of-grade' }, [periodoVf(F)])
+            ]);
+        } else {
+            conteudo = el('div', null, [
+                el('div', { class: 'te-vf-of-campos' }, [
+                    rotuloVf('ESCRITÓRIO *', ctlVf('input', of, 'nome', { type: 'text' }, true), ' is-pequeno'),
+                    rotuloVf('RESPONSÁVEL PELA VAGA', ctlVf('input', of, 'resp', { type: 'text' }), ' is-pequeno'),
+                    rotuloVf('CIDADE', ctlVf('input', of, 'cidade', { type: 'text' }), ' is-pequeno'),
+                    rotuloVf('UF', selectVf(of, 'uf', L.ufs), ' is-pequeno'),
+                    rotuloVf('E-MAIL', ctlVf('input', of, 'email', { type: 'email' }), ' is-pequeno'),
+                    rotuloVf('TELEFONE / WHATSAPP', ctlVf('input', of, 'tel', { type: 'tel' }), ' is-pequeno'),
+                    rotuloVf('SITE OU INSTAGRAM', ctlVf('input', of, 'site', { type: 'text' }), ' is-pequeno'),
+                    periodoVf(F)
+                ]),
+                el('div', { class: 'te-vf-of-padrao' }, [ic('bi-bookmark-check'), ' Estes dados ficam salvos como padrão para as próximas vagas.'])
+            ]);
+        }
+        return el('div', { class: 'te-vf-of' }, [
+            el('div', { class: 'te-vf-of-cab' }, [
+                ic('bi-building-check'),
+                el('b', { text: 'QUEM ESTÁ OFERECENDO' }),
+                el('span', { class: 'te-vf-of-orig', text: P.origem === 'salvo' ? 'padrão salvo' : 'do seu cadastro' }),
+                el('button', {
+                    type: 'button', class: 'te-vf-of-editar',
+                    onclick: function () { F.editOf = !F.editOf; renderFormVaga(); }
+                }, [ic(F.editOf ? 'bi-check2' : 'bi-pencil'), F.editOf ? 'Concluir' : 'Editar dados'])
+            ]),
+            conteudo
+        ]);
+    }
+
+    function renderFormVaga() {
+        var F = S.vf;
+        if (!F) {
+            return;
+        }
+        var L = listasVg(), f = F.f, gere = vgDaCentral(), V = S.vg || {};
+        var corpo = [];
+
+        if (V.podeDivulgar) {
+            corpo.push(el('div', { class: 'te-vf-passos' }, DIV_PASSOS.map(function (d, i) {
+                return el('div', { class: 'te-vf-passo' }, [
+                    el('span', { class: 'te-vf-passo-n', style: { background: i === 0 ? '#0a6fa0' : '#9fc3d8' }, text: d[0] }),
+                    el('span', { class: 'te-vf-passo-txt' }, [el('b', { text: d[1] }), d[2]])
+                ]);
+            })));
+        }
+        corpo.push(blocoOfertante(F, L));
+
+        if (vgMaster()) {
+            corpo.push(el('div', { class: 'te-vf-interna' }, [ic('bi-lock'), 'CONFIGURAÇÃO INTERNA · SÓ O MASTER VÊ']));
+            corpo.push(el('div', { class: 'te-vf-tipos' }, TF_TIPOS.map(function (t) {
+                var on = !!f.oferta === t[0];
+                return el('button', {
+                    type: 'button', class: 'te-vf-tipo' + (on ? ' is-on' : ''),
+                    attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                    onclick: function () {
+                        f.oferta = t[0];
+                        f.duracaoDaOferta = +f.duracaoDaOferta || +((cfgVagas() || {}).dur) || 15;
+                        f.qtd = f.qtd || 1;
+                        renderFormVaga();
+                    }
+                }, [
+                    ic(t[2]),
+                    el('span', { class: 'te-flex1' }, [el('b', { text: t[1] }), el('span', { class: 'te-vf-tipo-d', text: t[3] })]),
+                    on ? el('i', { class: 'bi bi-check-circle-fill te-vf-tipo-ok' }) : null
+                ]);
+            })));
+            if (f.oferta) {
+                corpo.push(el('div', { class: 'te-vf-oferta' }, [
+                    el('div', { class: 'te-vf-oferta-grupo' }, [
+                        'DISPONÍVEL POR',
+                        el('div', { class: 'te-vf-opcoes' }, (L.duracoesDaOferta || []).map(function (m) {
+                            return opcaoVf(rotuloDeMinutos(+m), +f.duracaoDaOferta === +m, function () { f.duracaoDaOferta = +m; renderFormVaga(); });
+                        }))
+                    ]),
+                    el('label', { class: 'te-vf-oferta-grupo' }, [
+                        'Nº DE VAGAS',
+                        el('input', { type: 'number', min: 1, max: 20, class: 'te-vf-qtd', value: String(f.qtd), oninput: function (e) { f.qtd = e.target.value; } })
+                    ]),
+                    el('span', { class: 'te-vf-oferta-info' }, [ic('bi-info-circle'), ' O contador começa ao publicar. A oferta fecha sozinha quando todas as vagas forem aceitas ou o tempo acabar.'])
+                ]));
+            }
+        }
+
+        corpo.push(rotuloVf('TÍTULO DA VAGA *', ctlVf('input', f, 'titulo', { type: 'text', placeholder: 'Cargo e área da vaga' }, true)));
+        corpo.push(el('div', { class: 'te-vf-grade' }, [
+            rotuloVf('CARGO *', selectVf(f, 'cargo', L.cargos, true)),
+            rotuloVf('CONTRATAÇÃO', selectVf(f, 'contratacao', L.contratacoes)),
+            rotuloVf('MODALIDADE', selectVf(f, 'modalidade', L.modalidades))
+        ]));
+        corpo.push(el('div', { class: 'te-vf-grade' }, [
+            rotuloVf('CIDADE', ctlVf('input', f, 'cidade', { type: 'text', placeholder: 'Cidade da vaga' })),
+            rotuloVf('UF', selectVf(f, 'uf', L.ufs)),
+            rotuloVf('REMUNERAÇÃO', ctlVf('input', f, 'remuneracao', { type: 'text', placeholder: 'Valor mensal ou A combinar' }))
+        ]));
+        corpo.push(el('div', { class: 'te-vf-rot' }, [
+            'ÁREAS DE ATUAÇÃO',
+            el('div', { class: 'te-vf-areas' }, (L.areas || []).map(function (a) {
+                var on = f.areas.indexOf(a) >= 0;
+                return el('button', {
+                    type: 'button', class: 'te-vf-area' + (on ? ' is-on' : ''),
+                    attrs: { 'aria-pressed': on ? 'true' : 'false' },
+                    onclick: function () {
+                        f.areas = on ? f.areas.filter(function (x) { return x !== a; }) : f.areas.concat([a]);
+                        renderFormVaga();
+                    }
+                }, a);
+            }))
+        ]));
+        corpo.push(rotuloVf('REQUISITOS E ATIVIDADES', ctlVf('textarea', f, 'requisitos', { rows: 4, placeholder: 'Experiência, conhecimentos e rotina da vaga' })));
+        corpo.push(el('div', { class: 'te-vf-grade' }, [
+            rotuloVf('INSCRIÇÕES ATÉ', ctlVf('input', f, 'inscricoesAte', { type: 'date' })),
+            el('label', { class: 'te-vf-oab' }, [
+                el('input', { type: 'checkbox', checked: !!f.exigeOab, onchange: function (e) { f.exigeOab = e.target.checked; } }),
+                'Exige OAB ativa'
+            ])
+        ]));
+        corpo.push(erroTlm(F.erro));
+
+        modalVaga({
+            icone: 'bi-megaphone',
+            titulo: F.codigo ? 'Editar vaga' : gere ? 'Nova vaga' : 'Divulgar uma vaga na Central',
+            largura: '720px',
+            corpo: corpo,
+            botoes: [
+                botaoTlm('Cancelar', 'bi-x', '', fecharTlm),
+                botaoTlm(F.codigo ? 'Salvar alterações' : gere ? 'Publicar vaga' : 'Enviar para aprovação', gere ? 'bi-megaphone' : 'bi-send', 'pri', enviarFormVaga)
+            ]
+        });
+    }
+
+    /** Validação na ordem do `salvarVaga()` (l.1005); o servidor repete e responde 422 com as mesmas mensagens. */
+    function erroDoFormVaga(F) {
+        if (vazio(F.of.nome)) {
+            F.editOf = true;
+            return 'Informe o escritório que está oferecendo a vaga.';
+        }
+        if (vazio(F.f.titulo)) {
+            return 'Informe o título da vaga.';
+        }
+        return vazio(F.f.cargo) ? 'Escolha o cargo.' : '';
+    }
+
+    function enviarFormVaga() {
+        var F = S.vf;
+        if (!F || F.enviando || !podeEscreverVaga()) {
+            return;
+        }
+        var erro = erroDoFormVaga(F);
+        if (erro) {
+            F.erro = erro;
+            renderFormVaga();
+            return;
+        }
+        var f = F.f, of = F.of, gere = vgDaCentral(), edicao = !!F.codigo;
+        var t = function (x) { return String(x || '').trim(); };
+        var corpo = {
+            titulo: t(f.titulo), cargo: f.cargo, contratacao: f.contratacao, modalidade: f.modalidade,
+            cidade: t(f.cidade), uf: f.uf, remuneracao: t(f.remuneracao), areas: f.areas.slice(),
+            requisitos: t(f.requisitos), inscricoesAte: f.inscricoesAte || '', exigeOab: !!f.exigeOab,
+            periodoDias: periodoEfetivo(f),
+            duracaoDaOferta: +f.duracaoDaOferta,
+            qtd: Math.max(1, Math.min(20, parseInt(f.qtd, 10) || 1)),
+            ofertante: {
+                nome: t(of.nome), resp: t(of.resp), cidade: t(of.cidade), uf: of.uf || '', email: t(of.email), tel: t(of.tel), site: t(of.site),
+                ocultos: F.ocultos.slice()
+            }
+        };
+        // Só o Master escolhe oferta (o servidor ignora dos outros).
+        if (vgMaster()) {
+            corpo.oferta = !!f.oferta;
+        }
+        F.enviando = true;
+        Array.prototype.forEach.call(document.querySelectorAll('#teVagaModal .te-tlm-rodape button'), function (b) { b.disabled = true; });
+        pedir('POST', edicao ? ROTA.vagaEditar(F.codigo) : ROTA.vagaSalvar(), corpo).then(function (r) {
+            if (S.vf !== F) {
+                return;
+            }
+            F.enviando = false;
+            if (!r.ok) {
+                F.erro = r.mensagem;
+                renderFormVaga();
+                return;
+            }
+            fecharTlm();
+            mostrarToast({
+                tit: edicao ? 'Vaga atualizada' : gere ? 'Vaga publicada' : 'Pedido enviado ao BlueJus',
+                txt: gere ? t(f.titulo) : 'A equipe revisa e publica. Você acompanha em Minhas vagas enviadas.',
+                hora: ''
+            });
+            S.vgFiltro = gere ? 'aberta' : 'minhas';
+            S.vgSel = [];
+            carregarVagas();
+        });
+    }
+
+    /* ---------------------------------------------------------------- configuração das vagas (tmCfgV), só Master */
+
+    /** `cfgTgs` (l.1160). */
+    var CFG_VAGAS_TGS = [
+        ['sino', 'bi-bell', 'Sininho de vaga nova', 'Os usuários podem ligar o aviso e recebem uma notificação quando uma vaga for publicada.'],
+        ['motiv', 'bi-emoji-smile', 'Mensagens motivacionais', 'Quando alguém perde uma vaga disputada, aparece uma mensagem animada incentivando a continuar tentando.']
+    ];
+
+    /** Aberto pelo menu ⋮ "Opções do Master" > "Ofertas, avisos e mensagens…" (l.1265). */
+    function abrirCfgVagas() {
+        if (!cfgVagas() || !vgMaster() || !podeEscreverVaga()) {
+            return;
+        }
+        fecharMenu();
+        S.tlm = 'cfg';
+        S.vgDet = null;
+        S.vf = null;
+        S.vgDel = null;
+        relogiosDetalhe = [];
+        limpar($('teVagaModal'));
+        renderCfgVagas();
+    }
+
+    function renderCfgVagas() {
+        var c = cfgVagas();
+        if (!c || S.tlm !== 'cfg') {
+            return;
+        }
+        var grupo = function (k, tit, txt, ops, primeiro) {
+            return el('div', { class: 'te-cv-grupo' + (primeiro ? '' : ' is-div') }, [
+                el('b', { text: tit }),
+                el('span', { class: 'te-cv-txt', text: txt }),
+                el('div', { class: 'te-vf-opcoes' }, ops.map(function (o) {
+                    return opcaoVf(o[1], +c[k] === o[0], function () { gravarCfgVaga(k, o[0]); }, ' is-cfg');
+                }))
+            ]);
+        };
+        var corpo = [
+            el('div', { class: 'te-cv-aviso' }, [ic('bi-lock'), ' Configuração interna. Os usuários não veem o tempo da oferta nem estas regras; a vaga simplesmente deixa de aparecer quando o tempo acaba ou é preenchida.']),
+            grupo('dur', 'Tempo padrão de disponibilidade das vagas', 'Vale para as vagas que você aprovar ou publicar. Pode ser alterado em cada vaga pelo botão Ajustar.',
+                [[0, 'Sem tempo (vaga comum)']].concat([5, 10, 15, 30, 60, 120, 1440].map(function (n) { return [n, rotuloDeMinutos(n)]; })), true),
+            grupo('maxDias', 'Divulgação máxima para vagas de escritórios', 'Limita o período que o escritório pode escolher. Pedidos acima do limite são ajustados na aprovação.',
+                [[0, 'Sem limite']].concat([2, 3, 4, 7, 15, 30].map(function (n) { return [n, n + ' dias']; }))),
+            grupo('minEnvio', 'Candidatos enviados ao escritório', 'O escritório não vê todos os inscritos: você seleciona e envia os melhores. Padrão mínimo por vaga:',
+                [1, 2, 3, 4, 5, 10].map(function (n) { return [n, n + (n === 1 ? ' candidato' : ' candidatos')]; }))
+        ].concat(CFG_VAGAS_TGS.map(function (t) {
+            return el('label', { class: 'te-cv-tg' }, [
+                ic(t[1]),
+                el('span', { class: 'te-flex1' }, [el('b', { text: t[2] }), el('span', { class: 'te-cv-txt', text: t[3] })]),
+                el('input', { type: 'checkbox', checked: !!c[t[0]], onchange: function (e) { gravarCfgVaga(t[0], e.target.checked); } })
+            ]);
+        }));
+        modalVaga({
+            icone: 'bi-sliders', titulo: 'Configurações de vagas e ofertas · Master', largura: '720px', corpo: corpo,
+            botoes: [botaoTlm('Concluir', 'bi-check2', 'pri', fecharTlm)]
+        });
+    }
+
+    /** Cada clique grava (como o resto da configuração do módulo); se o servidor recusar, volta o valor. */
+    function gravarCfgVaga(k, valor) {
+        var c = cfgVagas();
+        if (!c || !vgMaster() || !podeEscreverVaga()) {
+            return;
+        }
+        var antes = c[k];
+        c[k] = valor;
+        renderCfgVagas();
+        var corpo = { vagas: {} };
+        corpo.vagas[k] = valor;
+        pedir('POST', D.urlConfiguracao, corpo).then(function (r) {
+            if (r.ok) {
+                return;
+            }
+            var atual = cfgVagas();
+            if (atual) {
+                atual[k] = antes;
+            }
+            renderCfgVagas();
+            toastErro(r.mensagem);
+        });
+    }
+
     /* ---------------------------------------------------------------- aviso no canto */
 
     var temporizadorToast = null;
@@ -2330,6 +3898,7 @@
         renderTitulo();
         renderPrevia();
         renderBloqueio();
+        renderModulos();
         renderAviso();
         renderLista();
     }
@@ -2337,6 +3906,11 @@
     $('teBusca').addEventListener('input', function (e) {
         S.busca = e.target.value;
         renderLinhas();
+    });
+
+    $('teVgBusca').addEventListener('input', function (e) {
+        S.vgBusca = e.target.value;
+        renderVagas();
     });
 
     /** `_chatTecla()` do desenho: Delete ou # com mensagens selecionadas, fora de campo de texto. */
@@ -2358,18 +3932,25 @@
         }
         if (S.conf) {
             fecharConf();
+        } else if (S.menu) {
+            fecharMenu();
+        } else if (S.tlm) {
+            fecharTlm();
         } else if (S.cfgAberta) {
             fecharCfg();
         } else if (S.hm) {
             fecharHm();
-        } else if (S.menu) {
-            fecharMenu();
         } else if (S.aberta && !S.nova) {
             fecharDrawer();
         }
     });
 
+    S.modulo = moduloSalvo();
     renderTudo();
+    // A aba Vagas só aparece depois que o servidor disser `veAba`; sem resposta, fica só Demandas.
+    if (!S.painel.bloqueio) {
+        carregarVagas();
+    }
 
     if (S.painel.avisoDeMensagem) {
         var a = S.painel.avisoDeMensagem;

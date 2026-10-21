@@ -305,7 +305,7 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
     public function testAgenda(): void
     {
         [$primario, $tenant] = $this->criarEscritorio();
-        $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'modules.agenda.view', 'modules.pastas.view']);
+        $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'modules.agenda.view', 'modules.pastas.view', 'resources.agenda.ver_prazos']);
         $oculta = $this->criarPasta($tenant);
         $livre  = $this->criarPasta($tenant);
         $data   = new \DateTimeImmutable('+3 days');
@@ -332,7 +332,7 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
     public function testLembretes(): void
     {
         [$primario, $tenant] = $this->criarEscritorio();
-        $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'modules.agenda.view', 'modules.pastas.view']);
+        $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'modules.agenda.view', 'modules.pastas.view', 'resources.agenda.ver_prazos']);
         $oculta = $this->criarPasta($tenant);
         $livre  = $this->criarPasta($tenant);
         $prazos = [];
@@ -352,6 +352,30 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
         $chaves = implode(' ', array_column(json_decode((string) $this->client->getResponse()->getContent(), true)['itens'], 'k'));
         self::assertStringContainsString('pz:' . $prazos['livre']->getId() . ':', $chaves);
         self::assertStringNotContainsString('pz:' . $prazos['oculta']->getId() . ':', $chaves);
+    }
+
+    #[TestDox('Agenda: "Avisar no Chat" do prazo da pasta oculta dá 404 para quem não a vê; o da livre avisa')]
+    public function testAvisarPrazo(): void
+    {
+        [$primario, $tenant] = $this->criarEscritorio();
+        $ana    = $this->criarColaborador($tenant, 'Ana Equipe', ['modules.expediente.view', 'resources.pasta.view', 'modules.agenda.view', 'modules.pastas.view', 'resources.agenda.ver_prazos']);
+        $prazos = [];
+        foreach (['oculta' => $this->criarPasta($tenant), 'livre' => $this->criarPasta($tenant)] as $chave => $pasta) {
+            $prazo = new PastaPrazo($tenant, $pasta, $primario);
+            $prazo->definir(PastaPrazo::TIPO_AUDIENCIA, 'Audiência', new \DateTimeImmutable('+3 days'), '10:00', null);
+            $this->em()->persist($prazo);
+            $prazos[$chave] = $prazo;
+        }
+        $this->em()->flush();
+        $this->trancar($prazos['oculta']->getPasta(), $primario);
+        $this->entrar($ana, $tenant);
+        $cabecalho = ['CONTENT_TYPE' => 'application/json', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'];
+        $corpo = (string) json_encode(['ids' => [$primario->getId()]]);
+
+        $this->client->request('POST', '/agenda/prazos/' . $prazos['oculta']->getId() . '/avisar', [], [], $cabecalho, $corpo);
+        self::assertResponseStatusCodeSame(404);
+        $this->client->request('POST', '/agenda/prazos/' . $prazos['livre']->getId() . '/avisar', [], [], $cabecalho, $corpo);
+        self::assertResponseIsSuccessful();
     }
 
     // ── D3 ─────────────────────────────────────────────────────────────
