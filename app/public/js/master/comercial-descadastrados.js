@@ -29,7 +29,7 @@
 
   function pedir(url, opcoes) {
     return fetch(url, Object.assign({ headers: { 'Accept': 'application/json' } }, opcoes)).then(r => r.json().catch(() => ({})).then(d => {
-      if (!r.ok) throw new Error(d.erro || 'Não foi possível concluir. Tente de novo.');
+      if (!r.ok) throw new Error(d.erro || BJ_T.t('comercial.js.dsc_erro'));
       return d;
     }));
   }
@@ -61,7 +61,7 @@
     const motivo = document.createElement('span'); motivo.className = 'mc-dsc-motivo'; motivo.textContent = item.motivo;
     const origem = document.createElement('span'); origem.className = 'mc-dsc-origem'; origem.textContent = item.origem;
     const excluir = document.createElement('button');
-    excluir.type = 'button'; excluir.className = 'mc-dsc-excluir'; excluir.textContent = 'Excluir';
+    excluir.type = 'button'; excluir.className = 'mc-dsc-excluir'; excluir.textContent = BJ_T.t('comercial.js.dsc_excluir');
     excluir.addEventListener('click', () => reativar(item));
     el.append(email, em, motivo, origem, excluir);
 
@@ -86,12 +86,12 @@
   }
 
   function reativar(item) {
-    if (!window.confirm('Excluir ' + item.email + ' da lista de descadastrados? Ele volta a poder receber e-mails. Faça isso só se o próprio contato pediu (LGPD).')) return;
+    if (!window.confirm(BJ_T.t('comercial.js.dsc_confirmar_excluir', { email: item.email }))) return;
     postar(bloco.dataset.urlReativar, { email: item.email, assunto: item.assunto }).then(() => { avisar(''); recarregar(); }).catch(err => avisar(err.message));
   }
 
   function registrar() {
-    const email = String(window.prompt('E-mail que pediu para não receber (por telefone, WhatsApp etc.):', '') || '').trim().toLowerCase();
+    const email = String(window.prompt(BJ_T.t('comercial.js.dsc_registrar_pergunta'), '') || '').trim().toLowerCase();
     if (!email) return;
     postar(bloco.dataset.urlRegistrar, { email }).then(() => { avisar(''); recarregar(); }).catch(err => avisar(err.message));
   }

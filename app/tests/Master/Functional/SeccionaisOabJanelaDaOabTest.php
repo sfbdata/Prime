@@ -10,6 +10,7 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Master\Controller\SeccionaisOabController;
+use App\Master\Entity\NotaDaCidadeOab;
 use App\Master\Entity\NotaDaSeccional;
 use App\Master\Entity\SeccionalOab;
 use App\Master\Entity\SubsecaoOab;
@@ -26,7 +27,7 @@ use Zenstruck\Foundry\Test\Factories;
 /**
  * Janela da OAB dos estados que faltam pelo HTTP (spec docs/specs/master-oab-estados-que-faltam.md): adicionar e
  * remover subseção e salvar a nota, só o Master, CSRF `master_seccionais` no header, `{mensagem}`/`{erro}`, auditoria
- * de plataforma; o GET das seccionais traz subseções e nota por UF. Mesmo armazém de CSRF fixo do
+ * de plataforma; o GET das seccionais traz subseções (por cidade), a nota do estado e as notas das cidades por UF. Mesmo armazém de CSRF fixo do
  * SeccionaisOabControllerTest ('TOKEN_<id>'): o 403 de quem não é Master vem da regra; o CSRF errado tem teste próprio.
  */
 #[CoversClass(SeccionaisOabController::class)]
@@ -67,6 +68,7 @@ final class SeccionaisOabJanelaDaOabTest extends JusPrimeWebTestCase
         $ac = self::uf($json, 'AC');
         self::assertSame([], $ac['subsecoes']);
         self::assertNull($ac['nota']);
+        self::assertSame([], $ac['notasCidades']);
     }
 
     #[TestDox('adicionar subseção: 200, aparece no GET da UF e a auditoria fica sem escritório')]
@@ -74,12 +76,13 @@ final class SeccionaisOabJanelaDaOabTest extends JusPrimeWebTestCase
     {
         $this->entrar($this->master);
 
-        $this->postar('/master/seccionais/TO/subsecoes', ['nome' => 'Subseção de Araguaína', 'endereco' => 'Rua Exemplo, 5', 'telefone' => '(63) 0000-0000']);
+        $this->postar('/master/seccionais/TO/subsecoes', ['cidade' => 'Araguaína', 'nome' => 'Subseção de Araguaína', 'endereco' => 'Rua Exemplo, 5', 'telefone' => '(63) 0000-0000']);
 
         self::assertResponseIsSuccessful();
         self::assertSame(['mensagem' => 'Subseção adicionada na OAB Seccional Tocantins.'], $this->json());
         $to = self::uf($this->seccionais(), 'TO');
         self::assertCount(1, $to['subsecoes']);
+        self::assertSame('Araguaína', $to['subsecoes'][0]['cidade']);
         self::assertSame('Subseção de Araguaína', $to['subsecoes'][0]['nome']);
         self::assertSame('Rua Exemplo, 5', $to['subsecoes'][0]['endereco']);
         self::assertSame('(63) 0000-0000', $to['subsecoes'][0]['telefone']);
@@ -89,30 +92,41 @@ final class SeccionaisOabJanelaDaOabTest extends JusPrimeWebTestCase
         $this->assertAuditoriaDePlataforma(SubsecaoOab::class);
     }
 
-    #[TestDox('adicionar subseção: sem nome, sem endereço e nome longo dão 422 com a mensagem e nada é gravado')]
+    #[TestDox('adicionar subseção: sem cidade, sem endereço e nome longo dão 422 com a mensagem e nada é gravado')]
     public function testAdicionarSubsecao422(): void
     {
         $this->entrar($this->master);
 
-        $this->postar('/master/seccionais/TO/subsecoes', ['endereco' => 'Rua']);
+        $this->postar('/master/seccionais/TO/subsecoes', ['nome' => 'Subseção', 'endereco' => 'Rua']);
         self::assertResponseStatusCodeSame(422);
-        self::assertSame('Informe o nome da subseção.', $this->json()['erro']);
-        $this->postar('/master/seccionais/TO/subsecoes', ['nome' => 'Subseção', 'endereco' => '  ']);
+        self::assertSame('Informe a cidade da subseção.', $this->json()['erro']);
+        $this->postar('/master/seccionais/TO/subsecoes', ['cidade' => 'Palmas', 'nome' => 'Subseção', 'endereco' => '  ']);
         self::assertResponseStatusCodeSame(422);
         self::assertSame('Informe o endereço da subseção.', $this->json()['erro']);
-        $this->postar('/master/seccionais/TO/subsecoes', ['nome' => str_repeat('a', 121), 'endereco' => 'Rua']);
+        $this->postar('/master/seccionais/TO/subsecoes', ['cidade' => 'Palmas', 'nome' => str_repeat('a', 121), 'endereco' => 'Rua']);
         self::assertResponseStatusCodeSame(422);
         self::assertSame('O nome passa de 120 caracteres.', $this->json()['erro']);
 
         self::assertSame(0, $this->subsecoesDe('TO'));
     }
 
+    #[TestDox('adicionar subseção sem nome: vira "Subseção <cidade>"')]
+    public function testNomePadrao(): void
+    {
+        $this->entrar($this->master);
+
+        $this->postar('/master/seccionais/TO/subsecoes', ['cidade' => 'Gurupi', 'endereco' => 'Rua Um']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('Subseção Gurupi', self::uf($this->seccionais(), 'TO')['subsecoes'][0]['nome']);
+    }
+
     #[TestDox('remover subseção: 200 e some; id de OUTRA UF ou que não existe dão 404 e nada é apagado')]
     public function testRemoverSubsecao(): void
     {
         $this->entrar($this->master);
-        $this->postar('/master/seccionais/PI/subsecoes', ['nome' => 'Subseção de Parnaíba', 'endereco' => 'Av. Um']);
-        $this->postar('/master/seccionais/MA/subsecoes', ['nome' => 'Subseção de Imperatriz', 'endereco' => 'Av. Dois']);
+        $this->postar('/master/seccionais/PI/subsecoes', ['cidade' => 'Parnaíba', 'nome' => 'Subseção de Parnaíba', 'endereco' => 'Av. Um']);
+        $this->postar('/master/seccionais/MA/subsecoes', ['cidade' => 'Imperatriz', 'nome' => 'Subseção de Imperatriz', 'endereco' => 'Av. Dois']);
         $json = $this->seccionais();
         $pi = self::uf($json, 'PI')['subsecoes'][0]['id'];
 
@@ -133,7 +147,7 @@ final class SeccionaisOabJanelaDaOabTest extends JusPrimeWebTestCase
         self::assertNull($remocao[0]->getTenantId(), 'ato de plataforma: sem escritório');
     }
 
-    #[TestDox('salvar nota: 200, o GET traz texto, data e autor; reescrever troca a mesma; vazio apaga')]
+    #[TestDox('salvar nota do estado: 200, o GET traz texto e data com hora; reescrever troca a mesma; vazio apaga')]
     public function testSalvarNota(): void
     {
         $this->entrar($this->master);
@@ -143,8 +157,8 @@ final class SeccionaisOabJanelaDaOabTest extends JusPrimeWebTestCase
         self::assertSame(['mensagem' => 'Nota da OAB Seccional Roraima salva.'], $this->json());
         $nota = self::uf($this->seccionais(), 'RR')['nota'];
         self::assertSame('Contato com a presidente da subseção', $nota['texto']);
-        self::assertSame((new \DateTimeImmutable())->format('Y-m-d'), $nota['atualizadaEm']);
-        self::assertSame('Master da Janela', $nota['autor']);
+        self::assertSame(['texto', 'atualizadaEm'], array_keys($nota));
+        self::assertNotFalse(\DateTimeImmutable::createFromFormat(\DATE_ATOM, $nota['atualizadaEm']), 'data com hora (o painel mostra "Nota salva em dd/mm/aaaa, hh:mm")');
         $this->assertAuditoriaDePlataforma(NotaDaSeccional::class);
 
         $this->postar('/master/seccionais/RR/nota', ['texto' => 'Enviar material em novembro']);
@@ -157,6 +171,70 @@ final class SeccionaisOabJanelaDaOabTest extends JusPrimeWebTestCase
         self::assertSame(['mensagem' => 'Nota da OAB Seccional Roraima apagada.'], $this->json());
         self::assertNull(self::uf($this->seccionais(), 'RR')['nota']);
         self::assertSame(0, $this->em->getRepository(NotaDaSeccional::class)->count([]));
+    }
+
+    #[TestDox('nota da cidade: 200, sai em notasCidades da UF, separada da nota do estado; uma por cidade; vazio apaga')]
+    public function testNotaDaCidade(): void
+    {
+        $this->entrar($this->master);
+
+        $this->postar('/master/seccionais/AP/nota', ['texto' => 'Falar com a subseção', 'cidade' => 'Macapá']);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['mensagem' => 'Nota de Macapá salva.'], $this->json());
+        $ap = self::uf($this->seccionais(), 'AP');
+        self::assertNull($ap['nota'], 'a nota da cidade não é a do estado');
+        self::assertSame(['Macapá'], array_keys($ap['notasCidades']));
+        self::assertSame('Falar com a subseção', $ap['notasCidades']['Macapá']['texto']);
+        $this->assertAuditoriaDePlataforma(NotaDaCidadeOab::class);
+
+        $this->postar('/master/seccionais/AP/nota', ['texto' => 'Reescrita', 'cidade' => 'Macapá']);
+        self::assertSame('Reescrita', self::uf($this->seccionais(), 'AP')['notasCidades']['Macapá']['texto']);
+        self::assertSame(1, $this->em->getRepository(NotaDaCidadeOab::class)->count(['cidade' => 'Macapá']), 'uma nota por UF e cidade');
+
+        $this->postar('/master/seccionais/AP/nota', ['texto' => '', 'cidade' => 'Macapá']);
+        self::assertResponseIsSuccessful();
+        self::assertSame([], self::uf($this->seccionais(), 'AP')['notasCidades']);
+    }
+
+    #[TestDox('nota da cidade: "macapa" grava como a capital canônica "Macapá" (a mesma nota); cidade que não é a capital da UF dá 422')]
+    public function testNotaDaCidadeSoNaCapital(): void
+    {
+        $this->entrar($this->master);
+
+        $this->postar('/master/seccionais/AP/nota', ['texto' => 'Primeira', 'cidade' => 'Macapá']);
+        $this->postar('/master/seccionais/AP/nota', ['texto' => 'Pela grafia simples', 'cidade' => ' MACAPA ']);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['mensagem' => 'Nota de Macapá salva.'], $this->json());
+        self::assertSame(['Macapá' => 'Pela grafia simples'], array_map(static fn (array $n): string => $n['texto'], self::uf($this->seccionais(), 'AP')['notasCidades']));
+
+        $this->postar('/master/seccionais/AP/nota', ['texto' => 'x', 'cidade' => 'Oiapoque']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('A nota por cidade vale só para a capital do estado.', $this->json()['erro']);
+        $this->postar('/master/seccionais/AP/nota', ['texto' => 'x', 'cidade' => 'Belém']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['Macapá'], array_keys(self::uf($this->seccionais(), 'AP')['notasCidades']));
+    }
+
+    #[TestDox('trilha "Segurança e auditoria": nota da capital gravada, alterada e apagada aparecem como "Plataforma (sem conta)"')]
+    public function testTrilhaDaNotaDaCidade(): void
+    {
+        $this->entrar($this->master);
+        $this->postar('/master/seccionais/RO/nota', ['texto' => 'Primeira', 'cidade' => 'Porto Velho']);
+        $this->postar('/master/seccionais/RO/nota', ['texto' => 'Segunda', 'cidade' => 'Porto Velho']);
+        $this->postar('/master/seccionais/RO/nota', ['texto' => '', 'cidade' => 'Porto Velho']);
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', '/master/dados/auditoria', server: ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseIsSuccessful();
+        $registros = $this->json()['registros'];
+
+        foreach (['Nota da cidade gravada', 'Nota da cidade alterada', 'Nota da cidade apagada'] as $acao) {
+            $achados = array_values(array_filter($registros, static fn (array $r): bool => $r['acao'] === $acao));
+            self::assertNotEmpty($achados, 'a trilha mostra "' . $acao . '"');
+            self::assertSame('Plataforma (sem conta)', $achados[0]['conta']);
+            self::assertNull($achados[0]['contaId']);
+            self::assertSame('Master da Janela', $achados[0]['quem']);
+        }
     }
 
     #[TestDox('salvar nota: acima de 1000 caracteres dá 422 com a mensagem e nada é gravado')]
@@ -175,13 +253,13 @@ final class SeccionaisOabJanelaDaOabTest extends JusPrimeWebTestCase
     public function testNaoMaster403(): void
     {
         $this->entrar($this->master);
-        $this->postar('/master/seccionais/GO/subsecoes', ['nome' => 'Subseção', 'endereco' => 'Rua']);
+        $this->postar('/master/seccionais/GO/subsecoes', ['cidade' => 'Anápolis', 'nome' => 'Subseção', 'endereco' => 'Rua']);
         $id = self::uf($this->seccionais(), 'GO')['subsecoes'][0]['id'];
         $this->entrar($this->comum);
 
         $this->client->request('GET', '/master/dados/seccionais', server: ['HTTP_ACCEPT' => 'application/json']);
         self::assertResponseStatusCodeSame(403);
-        $this->postar('/master/seccionais/GO/subsecoes', ['nome' => 'Invasora', 'endereco' => 'Rua']);
+        $this->postar('/master/seccionais/GO/subsecoes', ['cidade' => 'Anápolis', 'nome' => 'Invasora', 'endereco' => 'Rua']);
         self::assertResponseStatusCodeSame(403);
         $this->postar('/master/seccionais/GO/subsecoes/' . $id . '/remover', []);
         self::assertResponseStatusCodeSame(403);
@@ -196,10 +274,10 @@ final class SeccionaisOabJanelaDaOabTest extends JusPrimeWebTestCase
     public function testCsrfInvalido(): void
     {
         $this->entrar($this->master);
-        $this->postar('/master/seccionais/GO/subsecoes', ['nome' => 'Subseção', 'endereco' => 'Rua']);
+        $this->postar('/master/seccionais/GO/subsecoes', ['cidade' => 'Anápolis', 'nome' => 'Subseção', 'endereco' => 'Rua']);
         $id = self::uf($this->seccionais(), 'GO')['subsecoes'][0]['id'];
 
-        $this->postar('/master/seccionais/GO/subsecoes', ['nome' => 'Outra', 'endereco' => 'Rua'], token: 'errado');
+        $this->postar('/master/seccionais/GO/subsecoes', ['cidade' => 'Anápolis', 'nome' => 'Outra', 'endereco' => 'Rua'], token: 'errado');
         self::assertResponseStatusCodeSame(403);
         self::assertSame('Token CSRF inválido. Recarregue a página.', $this->json()['erro']);
         $this->postar('/master/seccionais/GO/subsecoes/' . $id . '/remover', [], token: 'TOKEN_master_fontes');
@@ -216,7 +294,7 @@ final class SeccionaisOabJanelaDaOabTest extends JusPrimeWebTestCase
     {
         $this->entrar($this->master);
 
-        $this->postar('/master/seccionais/XX/subsecoes', ['nome' => 'Subseção', 'endereco' => 'Rua']);
+        $this->postar('/master/seccionais/XX/subsecoes', ['cidade' => 'X', 'nome' => 'Subseção', 'endereco' => 'Rua']);
         self::assertResponseStatusCodeSame(404);
         $this->postar('/master/seccionais/ZZ/subsecoes/1/remover', []);
         self::assertResponseStatusCodeSame(404);
@@ -228,7 +306,7 @@ final class SeccionaisOabJanelaDaOabTest extends JusPrimeWebTestCase
     public function testTrilhaDoMaster(): void
     {
         $this->entrar($this->master);
-        $this->postar('/master/seccionais/SE/subsecoes', ['nome' => 'Subseção de Itabaiana', 'endereco' => 'Rua']);
+        $this->postar('/master/seccionais/SE/subsecoes', ['cidade' => 'Itabaiana', 'nome' => 'Subseção de Itabaiana', 'endereco' => 'Rua']);
         $this->postar('/master/seccionais/SE/nota', ['texto' => 'Nota']);
 
         $this->client->request('GET', '/master/dados/auditoria', server: ['HTTP_ACCEPT' => 'application/json']);

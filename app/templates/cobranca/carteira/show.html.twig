@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Cobranças · {{ carteira.nome }}{% endblock %}
+{% block title %}{{ 'cobranca_carteira.show.titulo_pagina'|trans({carteira: carteira.nome}) }}{% endblock %}
 
 {% block body_class %}cs-body{% endblock %}
 
@@ -33,7 +33,7 @@
        no sistema: decisão do dono, voltam quando as ações existirem.
 ============================================================================ #}
 {% block body %}
-{% set rotulo = carteira.rotuloObjeto|default('Objeto') %}
+{% set rotulo = carteira.rotuloObjeto|default('cobranca_carteira.show.objeto'|trans) %}
 <div class="cobrancas-page cs-page">
 
 <section class="content-header">
@@ -41,21 +41,21 @@
         <div class="cs-card cs-cabecalho">
             <div class="cs-cab-topo">
                 <a href="{{ path('cobranca_carteira_index') }}" class="cs-btn cs-btn-voltar">
-                    <i class="bi bi-arrow-left"></i><span>Carteiras</span>
+                    <i class="bi bi-arrow-left"></i><span>{{ 'cobranca_carteira.show.voltar'|trans }}</span>
                 </a>
-                <nav class="cs-migalhas" aria-label="Você está aqui">
-                    <a href="{{ path('homepage') }}">Home</a><span>/</span>
-                    <a href="{{ path('cobranca_carteira_index') }}">Cobranças</a><span>/</span>
+                <nav class="cs-migalhas" aria-label="{{ 'cobranca_carteira.show.migalhas'|trans }}">
+                    <a href="{{ path('homepage') }}">{{ 'cobranca_carteira.show.inicio'|trans }}</a><span>/</span>
+                    <a href="{{ path('cobranca_carteira_index') }}">{{ 'cobranca_carteira.comum.cobrancas'|trans }}</a><span>/</span>
                     <span class="cs-migalha-atual" aria-current="page">{{ carteira.nome }}</span>
                 </nav>
                 <div class="cs-cab-acoes">
                     {% if has_permission('resources.cobranca.gerenciar') %}
                     <button type="button" class="cs-btn" data-bs-toggle="modal" data-bs-target="#modalCriarObjeto">
-                        <i class="bi bi-plus-lg"></i><span>Novo objeto</span>
+                        <i class="bi bi-plus-lg"></i><span>{{ 'cobranca_carteira.show.novo_objeto'|trans }}</span>
                     </button>
                     {# Verde cheio: importar relatório é a ação primária desta tela. #}
                     <a href="{{ path('cobranca_importacao_upload', {id: carteira.id}) }}" class="cs-btn cs-btn-verde">
-                        <i class="bi bi-upload"></i><span>Importar relatório</span>
+                        <i class="bi bi-upload"></i><span>{{ 'cobranca_carteira.show.importar_relatorio'|trans }}</span>
                     </a>
                     {% endif %}
                     {# ⋮ do desenho 1B (L75-84), só com os itens que têm ação no sistema. O ⋮ aparece para
@@ -64,22 +64,23 @@
                        para quem gerencia carteira): o item nunca aponta para um modal que não existe. #}
                     <div class="dropdown cs-mais">
                         <button type="button" class="cs-btn cs-btn-icone" data-bs-toggle="dropdown" data-bs-auto-close="true"
-                                aria-expanded="false" title="Mais ações" aria-label="Mais ações">
+                                aria-expanded="false" title="{{ 'cobranca_carteira.show.mais_acoes'|trans }}" aria-label="{{ 'cobranca_carteira.show.mais_acoes'|trans }}">
                             <i class="bi bi-three-dots-vertical"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end cs-mais-menu">
                             {% if forms.editarConfiguracao is defined %}
                             <button type="button" class="cs-mais-item" data-bs-toggle="modal" data-bs-target="#modalEditarConfiguracao">
-                                <i class="bi bi-sliders"></i><span>Editar configuração</span>
+                                <i class="bi bi-sliders"></i><span>{{ 'cobranca_carteira.show.editar_configuracao'|trans }}</span>
                             </button>
                             {% endif %}
                             {# Leva o recorte que está na tela. O href já sai com o da carga da página (vale
                                sem JS); como busca e Estado mudam por XHR sem recarregar, o script do fim
                                da página o refaz no clique a partir do formulário da lista. #}
+                            {% set filtrosExportar = filtros|filter(v => v is not empty) %}
                             <a class="cs-mais-item" data-exportar-lista
                                data-exportar-base="{{ path('cobranca_carteira_exportar', {id: carteira.id}) }}"
-                               href="{{ path('cobranca_carteira_exportar', {id: carteira.id}|merge(filtros|filter(v => v is not empty))) }}">
-                                <i class="bi bi-file-earmark-spreadsheet"></i><span>Exportar lista (.xlsx)</span>
+                               href="{{ path('cobranca_carteira_exportar', {id: carteira.id}|merge(filtrosExportar)) }}">
+                                <i class="bi bi-file-earmark-spreadsheet"></i><span>{{ 'cobranca_carteira.show.exportar_lista'|trans }}</span>
                             </a>
                         </div>
                     </div>
@@ -88,7 +89,7 @@
 
             <div class="cs-cab-corpo">
                 <div class="cs-cab-selos">
-                    <span class="cs-kicker">Carteira {{ carteira.id }}</span>
+                    <span class="cs-kicker">{{ 'cobranca_carteira.show.selo_carteira'|trans({id: carteira.id ~ ''}) }}</span>
                     <span class="cs-cab-sep"></span>
                     <span class="cs-pill"><i class="bi bi-diagram-3"></i>{{ carteira.modoLabel }}</span>
                     <span class="cs-pill">
@@ -99,7 +100,7 @@
                 <h1 class="cs-titulo">{{ carteira.nome }}</h1>
 
                 <div class="cs-cab-credor">
-                    <span>Credor:
+                    <span>{{ 'cobranca_carteira.show.credor'|trans }}
                         {%- if carteira.clienteId %}
                             <a href="{{ path('cliente_show', {id: carteira.clienteId}) }}">{{ carteira.clienteNome }}</a>
                         {%- else %}
@@ -123,28 +124,28 @@
                         <div class="dropdown">
                             <button type="button" class="cs-frescor" data-bs-toggle="dropdown" data-bs-auto-close="true" aria-expanded="false">
                                 <i class="bi bi-clock-history"></i>
-                                <span>Dados atualizados até {{ carteira.dadosAtualizadosAte|date('d/m/Y') }}</span>
+                                <span>{{ 'cobranca_carteira.show.frescor.atualizados_ate'|trans({data: carteira.dadosAtualizadosAte|data}) }}</span>
                                 {# A defasagem sai de `date().diff(...)`, NÃO do filtro `tempo_relativo`: o filtro
                                    compara a data contra a MEIA-NOITE de hoje, e a emissão carrega hora — o que
                                    devolve um dia a menos para quase toda emissão da tarde. Aqui os dois lados são
                                    instantes, que é a conta que a tela sempre fez. #}
-                                <span class="{{ dias > 7 ? 'cs-frescor-atraso' : '' }}">
-                                    {%- if dias == 0 %}· hoje
-                                    {%- elseif dias == 1 %}· há 1 dia
-                                    {%- else %}· há {{ dias }} dias
+                                <span class="{{ 7 < dias ? 'cs-frescor-atraso' : '' }}">
+                                    {%- if dias == 0 %}{{ 'cobranca_carteira.show.frescor.hoje'|trans }}
+                                    {%- elseif dias == 1 %}{{ 'cobranca_carteira.show.frescor.ha_um_dia'|trans }}
+                                    {%- else %}{{ 'cobranca_carteira.show.frescor.ha_dias'|trans({dias: dias ~ ''}) }}
                                     {%- endif %}
                                 </span>
                                 <i class="bi bi-chevron-down"></i>
                             </button>
                             <div class="dropdown-menu cs-frescor-menu">
-                                <div class="cs-frescor-titulo">Emissão por relatório</div>
+                                <div class="cs-frescor-titulo">{{ 'cobranca_carteira.show.frescor.titulo'|trans }}</div>
                                 <div class="cs-frescor-lista">
                                     {% set ordemEmissao = ['inadimplencia', 'acordos', 'receitas', 'cadastro'] %}
                                     {% set rotulosEmissao = {
-                                        'inadimplencia': 'Inadimplência',
-                                        'acordos': 'Acordos detalhados',
-                                        'receitas': 'Receitas',
-                                        'cadastro': 'Dados cadastrais'
+                                        'inadimplencia': 'cobranca_carteira.show.frescor.tipo.inadimplencia'|trans,
+                                        'acordos': 'cobranca_carteira.show.frescor.tipo.acordos'|trans,
+                                        'receitas': 'cobranca_carteira.show.frescor.tipo.receitas'|trans,
+                                        'cadastro': 'cobranca_carteira.show.frescor.tipo.cadastro'|trans
                                     } %}
                                     {% set maisAntiga = carteira.dadosAtualizadosAte|date('Y-m-d H:i:s') %}
                                     {# O TIPO da emissão mais antiga, para o rodapé dizer o que importar. Empate
@@ -160,7 +161,7 @@
                                         <div class="cs-frescor-item">
                                             <span>{{ rotulosEmissao[tipo] }}</span>
                                             <span class="cs-leader"></span>
-                                            <span class="cs-frescor-data {{ carteira.emissaoPorTipo[tipo]|date('Y-m-d H:i:s') == maisAntiga ? 'is-mais-antiga' : '' }}">{{ carteira.emissaoPorTipo[tipo]|date('d/m/Y') }}</span>
+                                            <span class="cs-frescor-data {{ carteira.emissaoPorTipo[tipo]|date('Y-m-d H:i:s') == maisAntiga ? 'is-mais-antiga' : '' }}">{{ carteira.emissaoPorTipo[tipo]|data }}</span>
                                         </div>
                                         {% endif %}
                                     {% endfor %}
@@ -169,35 +170,35 @@
                                         <div class="cs-frescor-item">
                                             <span>{{ tipo|capitalize }}</span>
                                             <span class="cs-leader"></span>
-                                            <span class="cs-frescor-data {{ emissao|date('Y-m-d H:i:s') == maisAntiga ? 'is-mais-antiga' : '' }}">{{ emissao|date('d/m/Y') }}</span>
+                                            <span class="cs-frescor-data {{ emissao|date('Y-m-d H:i:s') == maisAntiga ? 'is-mais-antiga' : '' }}">{{ emissao|data }}</span>
                                         </div>
                                     {% endfor %}
                                 </div>
                                 {# Frase do desenho 1B (L118), com o relatório mais antigo no lugar do "cadastro"
                                    fixo do protótipo. #}
                                 {% set importarQual = {
-                                    'inadimplencia': 'a inadimplência',
-                                    'acordos': 'os acordos detalhados',
-                                    'receitas': 'as receitas',
-                                    'cadastro': 'o cadastro'
+                                    'inadimplencia': 'cobranca_carteira.show.frescor.importar_qual.inadimplencia'|trans,
+                                    'acordos': 'cobranca_carteira.show.frescor.importar_qual.acordos'|trans,
+                                    'receitas': 'cobranca_carteira.show.frescor.importar_qual.receitas'|trans,
+                                    'cadastro': 'cobranca_carteira.show.frescor.importar_qual.cadastro'|trans
                                 } %}
                                 <div class="cs-frescor-nota">
-                                    A carteira só está em dia até a emissão <strong>mais antiga</strong>.
+                                    {{ 'cobranca_carteira.show.frescor.nota'|trans }} <strong>{{ 'cobranca_carteira.show.frescor.nota_mais_antiga'|trans }}</strong>.
                                     {%- if tipoMaisAntigo is not null %}
-                                        Importe <span data-frescor-importar="{{ tipoMaisAntigo }}">{{ importarQual[tipoMaisAntigo] is defined ? importarQual[tipoMaisAntigo] : ('o relatório de ' ~ (tipoMaisAntigo|capitalize)) }}</span> para fechar a defasagem.
+                                        {{ 'cobranca_carteira.show.frescor.importe'|trans }} <span data-frescor-importar="{{ tipoMaisAntigo }}">{{ importarQual[tipoMaisAntigo] is defined ? importarQual[tipoMaisAntigo] : 'cobranca_carteira.show.frescor.importar_qual.outro'|trans({tipo: tipoMaisAntigo|capitalize}) }}</span> {{ 'cobranca_carteira.show.frescor.para_fechar'|trans }}
                                     {%- endif %}
                                 </div>
                             </div>
                         </div>
                     {% elseif carteira.totalObjetos > 0 %}
-                        <span class="cs-frescor is-mudo" title="A data de emissão passou a ser registrada em 07/08/2026. O que foi importado antes disso ficou sem ela.">
+                        <span class="cs-frescor is-mudo" title="{{ 'cobranca_carteira.show.frescor.desconhecida_dica'|trans }}">
                             <i class="bi bi-clock-history"></i>
-                            <span class="cs-frescor-atraso">Data dos relatórios desconhecida</span>
+                            <span class="cs-frescor-atraso">{{ 'cobranca_carteira.show.frescor.desconhecida'|trans }}</span>
                         </span>
                     {% else %}
                         <span class="cs-frescor is-mudo">
                             <i class="bi bi-clock-history"></i>
-                            <span>Nenhum relatório importado ainda</span>
+                            <span>{{ 'cobranca_carteira.show.frescor.nenhum'|trans }}</span>
                         </span>
                     {% endif %}
                 </div>
@@ -208,27 +209,28 @@
                busca e filtro recortam a LISTA, nunca os agregados. #}
             <div class="cs-kpis">
                 <div class="cs-kpi">
-                    <div class="cs-kpi-rotulo">Saldo consolidado</div>
+                    <div class="cs-kpi-rotulo">{{ 'cobranca_carteira.show.kpi.saldo'|trans }}</div>
                     <div class="cs-kpi-valor">{{ carteira.saldoConsolidado|centavos }}</div>
-                    <div class="cs-kpi-sub">carteira inteira, não a página</div>
+                    <div class="cs-kpi-sub">{{ 'cobranca_carteira.show.kpi.saldo_sub'|trans }}</div>
                 </div>
                 <div class="cs-kpi">
-                    <div class="cs-kpi-rotulo">Vencido</div>
-                    <div class="cs-kpi-valor {{ carteira.saldoVencido > 0 ? 'is-vencido' : '' }}">{{ carteira.saldoVencido|centavos }}</div>
+                    <div class="cs-kpi-rotulo">{{ 'cobranca_carteira.show.kpi.vencido'|trans }}</div>
+                    <div class="cs-kpi-valor {{ 0 < carteira.saldoVencido ? 'is-vencido' : '' }}">{{ carteira.saldoVencido|centavos }}</div>
                     <div class="cs-kpi-sub">
-                        {{ carteira.totalComAtraso }} caso{{ carteira.totalComAtraso == 1 ? '' : 's' }} com atraso
-                        {%- if carteira.saldoConsolidado > 0 %} · {{ (carteira.saldoVencido * 100 / carteira.saldoConsolidado)|number_format(1, ',', '.') }}% do saldo{% endif %}
+                        {{ carteira.totalComAtraso == 1 ? 'cobranca_carteira.show.kpi.com_atraso_um'|trans({total: carteira.totalComAtraso ~ ''}) : 'cobranca_carteira.show.kpi.com_atraso'|trans({total: carteira.totalComAtraso ~ ''}) }}
+                        {%- if carteira.saldoConsolidado > 0 %} {{ 'cobranca_carteira.show.kpi.do_saldo'|trans({percentual: (carteira.saldoVencido * 100 / carteira.saldoConsolidado)|number_format(1, ',', '.')}) }}{% endif %}
                     </div>
                 </div>
                 <div class="cs-kpi">
-                    <div class="cs-kpi-rotulo">Objetos cobrados</div>
+                    <div class="cs-kpi-rotulo">{{ 'cobranca_carteira.show.kpi.objetos'|trans }}</div>
                     <div class="cs-kpi-valor">{{ carteira.totalObjetos }}</div>
-                    <div class="cs-kpi-sub">rótulo: {{ rotulo }}</div>
+                    <div class="cs-kpi-sub">{{ 'cobranca_carteira.show.kpi.rotulo'|trans({rotulo: rotulo}) }}</div>
                 </div>
                 <div class="cs-kpi">
-                    <div class="cs-kpi-rotulo">Casos abertos</div>
+                    <div class="cs-kpi-rotulo">{{ 'cobranca_carteira.show.kpi.casos_abertos'|trans }}</div>
                     <div class="cs-kpi-valor">{{ carteira.totalCasos }}</div>
-                    <div class="cs-kpi-sub">tolerância de atraso: {{ carteira.toleranciaAtrasoDias }} dia{{ carteira.toleranciaAtrasoDias == 1 ? '' : 's' }}</div>
+                    {% set duracaoTolerancia = carteira.toleranciaAtrasoDias == 1 ? 'cobranca_carteira.comum.dia'|trans({dias: carteira.toleranciaAtrasoDias ~ ''}) : 'cobranca_carteira.comum.dias'|trans({dias: carteira.toleranciaAtrasoDias ~ ''}) %}
+                    <div class="cs-kpi-sub">{{ 'cobranca_carteira.show.kpi.tolerancia'|trans({duracao: duracaoTolerancia}) }}</div>
                 </div>
             </div>
         </div>
@@ -260,7 +262,7 @@
                             <div class="filtro-busca">
                                 <i class="bi bi-search"></i>
                                 <input type="text" name="busca" class="form-control form-control-sm js-filtro-busca"
-                                       data-rotulo="Busca" placeholder="Buscar {{ rotulo|lower }} ou pessoa cobrada…"
+                                       data-rotulo="{{ 'cobranca_carteira.show.filtro.busca'|trans }}" placeholder="{{ 'cobranca_carteira.show.filtro.busca_placeholder'|trans({rotulo: rotulo|lower}) }}"
                                        autocomplete="off" value="{{ filtros.busca|default('') }}">
                             </div>
 
@@ -269,23 +271,23 @@
                                que um input escondido com o valor cru não daria. O botão desenhado só o
                                pilota. Sem JS o `<select>` continua à vista e funcionando — quem o
                                esconde é o próprio script, depois de montar o menu. #}
-                            <div class="cs-estado dropdown" data-estado-menu data-estado-padrao="Estado">
+                            <div class="cs-estado dropdown" data-estado-menu data-estado-padrao="{{ 'cobranca_carteira.show.filtro.estado'|trans }}">
                                 <select name="estado" class="form-select form-select-sm filtro-select js-filtro-campo cs-estado-nativo"
-                                        data-rotulo="Estado" aria-label="Filtrar por estado">
-                                    <option value="">Todos os estados</option>
+                                        data-rotulo="{{ 'cobranca_carteira.show.filtro.estado'|trans }}" aria-label="{{ 'cobranca_carteira.show.filtro.filtrar_por_estado'|trans }}">
+                                    <option value="">{{ 'cobranca_carteira.show.filtro.todos_os_estados'|trans }}</option>
                                     {% for o in estadoOpcoes %}
                                     <option value="{{ o.valor }}" {{ filtros.estado|default('') == o.valor ? 'selected' : '' }}>{{ o.label }}</option>
                                     {% endfor %}
                                 </select>
                                 <button type="button" class="cs-estado-btn" data-bs-toggle="dropdown"
-                                        data-bs-auto-close="true" aria-expanded="false" aria-label="Filtrar por estado">
+                                        data-bs-auto-close="true" aria-expanded="false" aria-label="{{ 'cobranca_carteira.show.filtro.filtrar_por_estado'|trans }}">
                                     <i class="bi bi-funnel"></i>
-                                    <span data-estado-rotulo>Estado</span>
+                                    <span data-estado-rotulo>{{ 'cobranca_carteira.show.filtro.estado'|trans }}</span>
                                     <i class="bi bi-chevron-down"></i>
                                 </button>
                                 <div class="dropdown-menu dropdown-menu-end cs-estado-menu">
                                     <button type="button" class="cs-estado-opcao" data-estado-valor="">
-                                        <span>Todos os estados</span><i class="bi bi-check2"></i>
+                                        <span>{{ 'cobranca_carteira.show.filtro.todos_os_estados'|trans }}</span><i class="bi bi-check2"></i>
                                     </button>
                                     {% for o in estadoOpcoes %}
                                     <button type="button" class="cs-estado-opcao" data-estado-valor="{{ o.valor }}">
@@ -311,10 +313,10 @@
             <div class="cs-trilho">
                 <div class="cs-card">
                     <div class="cs-card-cabeca">
-                        <h2>Configuração</h2>
+                        <h2>{{ 'cobranca_carteira.show.configuracao.titulo'|trans }}</h2>
                         {% if has_permission('resources.carteira.gerenciar') %}
                         <button type="button" class="cs-btn cs-btn-mini" data-bs-toggle="modal" data-bs-target="#modalEditarConfiguracao">
-                            <i class="bi bi-pencil"></i><span>Editar</span>
+                            <i class="bi bi-pencil"></i><span>{{ 'cobranca_carteira.show.configuracao.editar'|trans }}</span>
                         </button>
                         {% endif %}
                     </div>
@@ -323,27 +325,27 @@
                        altura entre carteiras e some junto com a pergunta que ela responde. #}
                     <dl class="cs-config">
                         <div class="cs-config-linha">
-                            <dt>Modo</dt><span class="cs-leader"></span><dd>{{ carteira.modoLabel }}</dd>
+                            <dt>{{ 'cobranca_carteira.show.configuracao.modo'|trans }}</dt><span class="cs-leader"></span><dd>{{ carteira.modoLabel }}</dd>
                         </div>
                         <div class="cs-config-linha">
-                            <dt>Honorários</dt><span class="cs-leader"></span>
+                            <dt>{{ 'cobranca_carteira.show.configuracao.honorarios'|trans }}</dt><span class="cs-leader"></span>
                             <dd>{{ carteira.formaHonorariosLabel }}{% if carteira.percentualHonorarios %} · {{ carteira.percentualHonorarios }}%{% endif %}</dd>
                         </div>
                         <div class="cs-config-linha">
-                            <dt>Tolerância de atraso</dt><span class="cs-leader"></span>
-                            <dd>{{ carteira.toleranciaAtrasoDias }} dia{{ carteira.toleranciaAtrasoDias == 1 ? '' : 's' }}</dd>
+                            <dt>{{ 'cobranca_carteira.show.configuracao.tolerancia'|trans }}</dt><span class="cs-leader"></span>
+                            <dd>{{ duracaoTolerancia }}</dd>
                         </div>
                         <div class="cs-config-linha">
-                            <dt>Juros</dt><span class="cs-leader"></span><dd>{{ carteira.jurosLabel }}</dd>
+                            <dt>{{ 'cobranca_carteira.show.configuracao.juros'|trans }}</dt><span class="cs-leader"></span><dd>{{ carteira.jurosLabel }}</dd>
                         </div>
                         <div class="cs-config-linha">
-                            <dt>Multa</dt><span class="cs-leader"></span><dd>{{ carteira.multaLabel }}</dd>
+                            <dt>{{ 'cobranca_carteira.show.configuracao.multa'|trans }}</dt><span class="cs-leader"></span><dd>{{ carteira.multaLabel }}</dd>
                         </div>
                         <div class="cs-config-linha">
-                            <dt>Vínculo preferido</dt><span class="cs-leader"></span><dd>{% if carteira.tipoVinculoPreferidoLabel|default(null) is not empty %}{{ carteira.tipoVinculoPreferidoLabel }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</dd>
+                            <dt>{{ 'cobranca_carteira.show.configuracao.vinculo'|trans }}</dt><span class="cs-leader"></span><dd>{% if carteira.tipoVinculoPreferidoLabel|default(null) is not empty %}{{ carteira.tipoVinculoPreferidoLabel }}{% else %}<span class="text-muted small">{{ 'cobranca_carteira.comum.nao_informado'|trans }}</span>{% endif %}</dd>
                         </div>
                         <div class="cs-config-linha">
-                            <dt>Rótulo do objeto</dt><span class="cs-leader"></span><dd>{% if carteira.rotuloObjeto|default(null) is not empty %}{{ carteira.rotuloObjeto }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}</dd>
+                            <dt>{{ 'cobranca_carteira.show.configuracao.rotulo_objeto'|trans }}</dt><span class="cs-leader"></span><dd>{% if carteira.rotuloObjeto|default(null) is not empty %}{{ carteira.rotuloObjeto }}{% else %}<span class="text-muted small">{{ 'cobranca_carteira.comum.nao_informado'|trans }}</span>{% endif %}</dd>
                         </div>
                     </dl>
                 </div>
@@ -355,10 +357,10 @@
                    existe para quem usa toque nem para leitor de tela. #}
                 <div class="cs-card">
                     <div class="cs-card-cabeca">
-                        <h2>Documentos</h2>
+                        <h2>{{ 'cobranca_carteira.show.documentos.titulo'|trans }}</h2>
                         {% if documentos|length %}<span class="cs-contador">{{ documentos|length }}</span>{% endif %}
                         {% if has_permission('resources.cobranca.gerenciar') %}
-                        <button type="button" class="cs-btn cs-btn-quadrado" data-bs-toggle="modal" data-bs-target="#modalAdicionarDocumentoCarteira" title="Adicionar documento" aria-label="Adicionar documento">
+                        <button type="button" class="cs-btn cs-btn-quadrado" data-bs-toggle="modal" data-bs-target="#modalAdicionarDocumentoCarteira" title="{{ 'cobranca_carteira.show.documentos.adicionar'|trans }}" aria-label="{{ 'cobranca_carteira.show.documentos.adicionar'|trans }}">
                             <i class="bi bi-plus-lg"></i>
                         </button>
                         {% endif %}
@@ -370,20 +372,20 @@
                         <li class="cs-doc">
                             <i class="bi {{ ico.icone }} cs-doc-ico" style="color: {{ ico.cor }}" aria-hidden="true"></i>
                             <div class="cs-doc-texto">
-                                <a class="cs-doc-nome" href="{{ path('cobranca_carteira_documento_download', {docId: doc.id}) }}" title="Baixar {{ doc.nomeOriginal }}">{{ doc.nomeOriginal }}</a>
-                                <div class="cs-doc-meta">{{ doc.categoria.rotulo }} · {{ doc.carregadoEm|date('d/m/Y') }}</div>
+                                <a class="cs-doc-nome" href="{{ path('cobranca_carteira_documento_download', {docId: doc.id}) }}" title="{{ 'cobranca_carteira.show.documentos.baixar'|trans({nome: doc.nomeOriginal}) }}">{{ doc.nomeOriginal }}</a>
+                                <div class="cs-doc-meta">{{ doc.categoria.rotulo }} · {{ doc.carregadoEm|data }}</div>
                                 {% if doc.observacao %}<div class="cs-doc-obs">{{ doc.observacao }}</div>{% endif %}
                             </div>
                             <div class="cs-doc-acoes">
-                                <a href="{{ path('cobranca_carteira_documento_download', {docId: doc.id}) }}" class="cs-doc-acao" title="Baixar {{ doc.nomeOriginal }}" aria-label="Baixar {{ doc.nomeOriginal }}">
+                                <a href="{{ path('cobranca_carteira_documento_download', {docId: doc.id}) }}" class="cs-doc-acao" title="{{ 'cobranca_carteira.show.documentos.baixar'|trans({nome: doc.nomeOriginal}) }}" aria-label="{{ 'cobranca_carteira.show.documentos.baixar'|trans({nome: doc.nomeOriginal}) }}">
                                     <i class="bi bi-download"></i>
                                 </a>
                                 {% if has_permission('resources.cobranca.gerenciar') %}
                                 {# O `confirm()` nativo continua: são 63 no sistema e não existe componente
                                    de confirmação. Trocar 1 cria inconsistência com 62 — é frente própria. #}
-                                <form method="post" action="{{ path('cobranca_carteira_documento_excluir', {docId: doc.id}) }}" class="d-inline" onsubmit="return confirm('Excluir este documento?');">
+                                <form method="post" action="{{ path('cobranca_carteira_documento_excluir', {docId: doc.id}) }}" class="d-inline" onsubmit="return confirm('{{ 'cobranca_carteira.show.documentos.confirmar_excluir'|trans|e('js') }}');">
                                     <input type="hidden" name="_token" value="{{ csrf_token('cobranca_carteira_documento_excluir_' ~ doc.id) }}">
-                                    <button type="submit" class="cs-doc-acao is-perigo" title="Excluir {{ doc.nomeOriginal }}" aria-label="Excluir {{ doc.nomeOriginal }}">
+                                    <button type="submit" class="cs-doc-acao is-perigo" title="{{ 'cobranca_carteira.show.documentos.excluir'|trans({nome: doc.nomeOriginal}) }}" aria-label="{{ 'cobranca_carteira.show.documentos.excluir'|trans({nome: doc.nomeOriginal}) }}">
                                         <i class="bi bi-trash3"></i>
                                     </button>
                                 </form>
@@ -394,7 +396,7 @@
                     </ul>
                     {% else %}
                     <div class="cs-docs-vazio">
-                        Nenhum documento na carteira. Atas de assembleia e o contrato de honorários ficam aqui.
+                        {{ 'cobranca_carteira.show.documentos.vazio'|trans }}
                     </div>
                     {% endif %}
                 </div>

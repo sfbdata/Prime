@@ -3,10 +3,10 @@
    cabeçalho da Central pelo evento `mc:resumo`). O DESCADASTRADOS abre o bloco da lista. #}
 <div class="mc-kpis" data-mc-kpis>
     {% for k in [
-        ['campanhas', 'CAMPANHAS', 'enviadas ou agendadas'],
-        ['naFila', 'E-MAILS NA FILA', 'somando todas as campanhas'],
-        ['base', 'BASE DE CONTATOS', 'inscritos com autorização (LGPD)'],
-        ['descadastrados', 'DESCADASTRADOS', 'pediram para não receber · clique para ver'],
+        ['campanhas', 'comercial.kpis.campanhas'|trans, 'comercial.kpis.campanhas_desc'|trans],
+        ['naFila', 'comercial.kpis.na_fila'|trans, 'comercial.kpis.na_fila_desc'|trans],
+        ['base', 'comercial.kpis.base'|trans, 'comercial.kpis.base_desc'|trans],
+        ['descadastrados', 'comercial.kpis.descadastrados'|trans, 'comercial.kpis.descadastrados_desc'|trans],
     ] %}
         {% if k[0] == 'descadastrados' %}
             <button type="button" class="mc-kpi mc-kpi-clicavel" data-mc-kpi="{{ k[0] }}" data-mc-kpi-abrir aria-expanded="false">

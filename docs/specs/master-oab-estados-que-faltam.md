@@ -32,6 +32,17 @@ divulgações e o GET `/master/dados/seccionais`. Esta frente reaproveita a sede
     "Campos alterados: texto" ao reescrever (os carimbos de quem e quando não contam).
 - 21/10: spec conferida com o desenho inteiro. O que já foi implementado (commit 61a007d9 na worktree
   `master-oab-faltam`) precisa ser revisto contra esta conferência.
+- 21/10: frente `oab-desenho-05`, migration `Version20261020149500` (a mesma das seccionais: `cidade` na subseção e
+  a tabela `master_nota_cidade_oab`, uma nota por seccional e cidade). Alinhado ao desenho: pílulas Estados/Capitais,
+  Capitais pelas cidades com usuário do mapa, janela do estado e da cidade com título e subtítulo do desenho, sede com
+  as cores do desenho, subseções por cidade (cidade obrigatória, nome preenchido), busca do Google no vazio, nota do
+  estado ou da cidade com "Nota salva em dd/mm/aaaa, hh:mm" (Brasília), "Salvar nota" fecha a janela, Mundo sem
+  ação. Falta: revisão e o smoke do dono na tela.
+- 21/10, revisão da frente `oab-desenho-05`: a nota por cidade vale só para a capital da UF (lista das 27 no servidor,
+  `CapitaisDosEstados`, a mesma do painel); o nome é comparado sem acento e sem caixa e gravado na forma canônica
+  ("macapa" vira "Macapá"); outra cidade dá 422. A subseção continua aceitando qualquer cidade. A nota da cidade entra
+  na trilha "Segurança e auditoria". Site com esquema inválido no "Editar" dá 422 com mensagem (convenção do sistema;
+  o protótipo deixava vazio).
 
 ## O que o desenho mostra
 
@@ -62,11 +73,11 @@ divulgações e o GET `/master/dados/seccionais`. Esta frente reaproveita a sede
   abre a janela do estado. Subtítulo do item (`f.sub`) vazio.
 - **Modo Capitais (L879-882).** Lista as 27 capitais que ainda não têm usuário naquela UF (comparação do nome da cidade
   sem acento e sem caixa), por região, em ordem alfabética; item = nome da capital, subtítulo = UF; meta "as 27
-  capitais"; cobertura "F de 27 (x%)". Clique abre a janela da cidade. **DONO:** de onde vêm as cidades com usuário
-  (convenção: cidade da lotação ou do cadastro, a mesma base do mapa) e se nota por cidade e janela de cidade entram
-  neste escopo (o desenho mostra as duas).
-- **Mundo (L885).** O item dos que faltam não tem ação ao clicar (sem aviso), subtítulo vazio e sem nota. **DONO:**
-  qualquer ação no Mundo além de "sem ação". (Antes: aviso "A janela da OAB vale só para os estados do Brasil.")
+  capitais"; cobertura "F de 27 (x%)". Clique abre a janela da cidade. **Decidido (21/10/2026, pela recomendação):** as cidades
+  com usuário vêm da lotação ou do cadastro, a mesma base do mapa (`G.C` do MapaDeAtuacao); a nota por cidade e a
+  janela da cidade entram neste escopo (o desenho mostra as duas).
+- **Mundo (L885).** O item dos que faltam não tem ação ao clicar (sem aviso), subtítulo vazio e sem nota. **DONO (padrão adotado, a confirmar com o dono):**
+  sem ação no Mundo. (Antes: aviso "A janela da OAB vale só para os estados do Brasil.")
 - **Ícone de nota (`f.nota`, L880).** Aparece quando existe nota daquele estado (modo Estados) ou daquela cidade (modo
   Capitais).
 - **Título e subtítulo da janela (L889).** Estado: título com o nome do estado (ex. "Bahia"), subtítulo "Seccional
@@ -90,8 +101,8 @@ divulgações e o GET `/master/dados/seccionais`. Esta frente reaproveita a sede
   do estado, "OAB subseção <Cidade> <Estado> endereço" na da cidade. (Antes: link do CFOAB.)
 - **NOTA EXPLICATIVA (L896).** Uma nota por estado ou por cidade. Convenção: no banco, compartilhada entre os Masters
   (texto até 1000, `atualizada_em`, `atualizada_por`). "Salvar nota" grava e fecha a janela; texto vazio apaga a nota.
-  A data mostrada é "Nota salva em dd/mm/aaaa, hh:mm", sem autor. **DONO:** se nota e subseção são compartilhadas
-  entre Masters (o protótipo guarda local; padrão banco) e os tamanhos máximos.
+  A data mostrada é "Nota salva em dd/mm/aaaa, hh:mm", sem autor. **DONO (padrão adotado, a confirmar com o dono):** nota e subseção
+  no banco, compartilhadas entre os Masters; texto até 1000, cidade e nome até 120, endereço até 255, telefone até 40.
 - **Linha da tabela de UFs (`u.ir`, L898).** No modo OAB abre o cartão da sede das Seccionais (cursor de mão só nesse
   modo); nos outros modos e no Mundo, sem ação. (Antes: abria esta janela no Brasil.)
 - **Dados.** O GET `/master/dados/seccionais` do #196 passa a trazer, por UF, as subseções (com cidade) e as notas (do

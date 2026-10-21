@@ -15,8 +15,8 @@
       botao.dataset.mcCpRastrear = ligada ? '1' : '0';
       botao.classList.toggle('is-ligada', ligada);
       botao.setAttribute('aria-pressed', String(ligada));
-      if (texto) texto.textContent = ligada ? 'Confirmação de leitura' : 'Sem confirmação de leitura';
-      botao.title = ligada ? 'Rastreando leitura (✓✓). Clique para somente enviar' : 'Clique para rastrear a leitura (✓✓)';
+      if (texto) texto.textContent = ligada ? BJ_T.t('comercial.js.leitura_ligada') : BJ_T.t('comercial.js.leitura_desligada');
+      botao.title = ligada ? BJ_T.t('comercial.js.leitura_dica_ligada') : BJ_T.t('comercial.js.leitura_dica_desligada');
     }
 
     botao.addEventListener('click', () => {

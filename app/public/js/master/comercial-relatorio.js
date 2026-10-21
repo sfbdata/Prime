@@ -73,11 +73,12 @@
       caixa.hidden = !texto;
     }
 
-    // dc L702: "14:30" se for hoje; senão "21 out".
+    // dc L702: "14:30" se for hoje; senão "21 out". A hora vem do BJFormato (idioma da página); o "21 out" (dia e mês
+    // curto sem ponto) ele ainda não cobre e fica no formato fixo.
     function quando(iso) {
       const d = new Date(iso);
       if (isNaN(d.getTime())) return '';
-      if (d.toDateString() === new Date().toDateString()) return d.toLocaleTimeString('pt-BR').slice(0, 5);
+      if (d.toDateString() === new Date().toDateString()) return window.BJFormato ? window.BJFormato.hora(d) : d.toLocaleTimeString('pt-BR').slice(0, 5);
       return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
     }
 
