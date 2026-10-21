@@ -70,9 +70,8 @@ final class ProfileController extends AbstractController
         $output = PerfilOutput::fromEntity($perfil, $user, $userTenant, $vinculo);
 
         $inputDados = DadosPessoaisInput::dePerfil($output);
-        // Atuação vazia: o modal já abre com a sugestão do sistema; só grava se a pessoa salvar.
+        // Atuação vazia: o modal mostra a sugestão do sistema, mas o campo continua vazio até a pessoa escolher "Usar".
         $atuacaoSugerida = $inputDados->atuacao === null ? SugestaoDeAtuacao::para($user, $vinculo?->getTipo()) : null;
-        $inputDados->atuacao ??= $atuacaoSugerida;
         $formDados = $this->createForm(DadosPessoaisType::class, $inputDados, ['campos_do_perfil' => true]);
 
         $formSenha = $this->createForm(AlterarSenhaType::class, new AlterarSenhaInput(), [

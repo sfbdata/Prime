@@ -551,7 +551,7 @@ input[type="range"].img-slider {
                     <label class="mp-campo"><span>CPF</span>{{ form_widget(form_dados.cpf, {attr: {placeholder: 'Somente números'}}) }}<small>Usado nos relatórios e estatísticas do escritório</small></label>
                     <label class="mp-campo"><span>NASCIMENTO</span>{{ form_widget(form_dados.dataNascimento) }}</label>
                     <label class="mp-campo"><span>GÊNERO</span>{{ form_widget(form_dados.genero) }}<small>Usado nas estatísticas do escritório</small></label>
-                    <label class="mp-campo"><span>ATUAÇÃO</span>{{ form_widget(form_dados.atuacao) }}{% if atuacaoSugerida|default(null) %}<small data-mp-atuacao-sugerida><i class="bi bi-magic"></i> Sugerido pelo sistema. Confirme ao salvar.</small>{% endif %}</label>
+                    <label class="mp-campo"><span>ATUAÇÃO</span>{{ form_widget(form_dados.atuacao) }}{% if atuacaoSugerida|default(null) %}<small data-mp-atuacao-sugerida="{{ atuacaoSugerida.value }}"><i class="bi bi-magic"></i> Sugestão do sistema: {{ atuacaoSugerida.rotulo }}. <a href="#" data-mp-usar-sugestao>Usar</a></small>{% endif %}</label>
                     <label class="mp-campo" data-mp-para="clt"><span>CTPS</span>{{ form_widget(form_dados.ctps, {attr: {placeholder: ''}}) }}<small>Só para empregado CLT</small></label>
                     <label class="mp-campo" data-mp-para="clt"><span>SÉRIE</span>{{ form_widget(form_dados.serie, {attr: {placeholder: ''}}) }}</label>
                     <label class="mp-campo" data-mp-para="clt"><span>DATA DE ADMISSÃO</span>{{ form_widget(form_dados.dataAdmissao) }}</label>

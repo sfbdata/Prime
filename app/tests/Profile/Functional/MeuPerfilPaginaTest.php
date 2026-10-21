@@ -159,7 +159,7 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertCount(0, $modal->filter('[data-mp-atuacao-sugerida]'), 'atuação declarada não é sugestão');
     }
 
-    #[TestDox('atuação vazia: o modal abre com a sugestão (OAB confirmada sugere advogado), mas nada grava sem salvar')]
+    #[TestDox('atuação vazia: o modal mostra a sugestão (OAB confirmada sugere advogado) sem marcar o campo, e nada grava')]
     public function testSugestaoDeAtuacao(): void
     {
         $this->primario->setOabNumero('49613')->setOabUf('DF')->setOabStatus(StatusOab::Confirmada);
@@ -167,8 +167,11 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
 
         $tela = $this->abrir($this->primario);
 
-        self::assertSame('advogado', $tela->filter('#formDadosPessoais select[name="dados_pessoais[atuacao]"] option[selected]')->attr('value'));
-        self::assertCount(1, $tela->filter('#formDadosPessoais [data-mp-atuacao-sugerida]'));
+        self::assertCount(0, $tela->filter('#formDadosPessoais select[name="dados_pessoais[atuacao]"] option[selected][value="advogado"]'), 'quem só troca o telefone não grava a sugestão');
+        $dica = $tela->filter('#formDadosPessoais [data-mp-atuacao-sugerida]');
+        self::assertSame('advogado', $dica->attr('data-mp-atuacao-sugerida'));
+        self::assertStringContainsString('Sugestão do sistema: Advogado(a).', $dica->text());
+        self::assertCount(1, $dica->filter('[data-mp-usar-sugestao]'));
         $this->em->clear();
         $perfil = $this->em->getRepository(UserProfile::class)->findOneBy(['user' => $this->primario->getId()]);
         self::assertNull($perfil?->getAtuacao(), 'a sugestão só vale se a pessoa salvar');

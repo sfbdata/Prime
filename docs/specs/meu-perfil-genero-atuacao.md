@@ -23,10 +23,12 @@ Risco: MÉDIO (Profile). Pedido do dono, coordenado pela b5. Bloqueia o motor do
   `nao_informado` querem dizer "sem essa informação no cadastro (fica de fora)" (desenho 05, L636).
 - Preenchidos pela própria pessoa no modal "Editar informações" do Meu Perfil (campos GÊNERO e ATUAÇÃO depois de
   NASCIMENTO), nunca obrigatórios. Não aparecem na grade de dados (o desenho 07 não os tem).
-- Sugestão (`App\Profile\Service\SugestaoDeAtuacao`): com a atuação vazia, o modal abre com a sugestão marcada e a
-  nota "Sugerido pelo sistema. Confirme ao salvar." A OAB principal confirmada (cópia no User) sugere advogado; o
-  vínculo de estágio no escritório da sessão sugere estagiário; a OAB vence o estágio. Nada é gravado sem a pessoa
-  salvar.
+- Sugestão (`App\Profile\Service\SugestaoDeAtuacao`): com a atuação vazia, o modal mostra "Sugestão do sistema:
+  {rótulo}. Usar" debaixo do campo, que continua VAZIO; "Usar" só marca a opção, e a pessoa grava ao salvar. A OAB
+  principal confirmada (cópia no User) sugere advogado; o vínculo de estágio no escritório da sessão sugere
+  estagiário; a OAB vence o estágio. Decisão da revisão (21/10): no começo a sugestão vinha marcada, e quem abria o
+  modal só para trocar o telefone gravava a atuação sem perceber, o que contraria "o filtro só conta o que a pessoa
+  declarou".
 - Papel só para leitura (b5: desenho 07 L58, L205, L233, "vêm da conta"): "Usuário primário de {escritório}" ou
   "Secundário de {escritório}" junto do cargo e da lotação, no escritório da sessão, sem campo.
 - A tela de dados pessoais do admin não edita gênero nem atuação e não os apaga ao salvar (mesmo cuidado da frase e
