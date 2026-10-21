@@ -255,5 +255,41 @@
             "Enter",
             "Escape"
         ]
+    },
+
+    "dashboard": {
+        "templates": [
+            "dashboard/index.html.twig",
+            "dashboard/_resultado.html.twig",
+            "dashboard/_desempenho_cards.html.twig",
+            "dashboard/_extras.html.twig",
+            "dashboard/_tendencia.html.twig",
+            "dashboard/_inteligencia.html.twig"
+        ],
+        "js": [
+            "dashboard.js",
+            "dashboard-filtros.js",
+            "dashboard-historico.js",
+            "dashboard-janelas.js",
+            "dashboard-preferencias.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "Intelligence",
+            "BlueJus Intelligence",
+            "db-body",
+            "sóci",
+            "Atenção imediata",
+            "Acompanhamento",
+            "App\\\\Dashboard\\\\Preferencia\\\\ColunasExtrasDoDashboard::CATALOGO",
+            "App\\\\Dashboard\\\\Preferencia\\\\ColunasExtrasDoDashboard::TENDENCIA",
+            "Accept",
+            "Content-Type",
+            "Escape",
+            "Enter",
+            "Tab",
+            "ArrowDown",
+            "ArrowUp"
+        ]
     }
 }

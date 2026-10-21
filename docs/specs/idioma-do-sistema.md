@@ -330,3 +330,35 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
 - **Qualificação no JS:** os pedaços da qualificação ao vivo (`cliente.js.qual.*`, estado civil minúsculo) espelham o
   `QualificacaoDoCliente` do PHP, que ainda não lê o catálogo. Na fase de tradução os dois mudam juntos; o truque do
   gênero (`(a)` → `a`/vazio) só vale para o português e terá de ser revisto ali.
+
+## 12. Extração do Dashboard (7d, 21/10)
+
+- **Escopo:** `templates/dashboard/*` (casca com o cabeçalho do PDF, segmentado de período, selects e calendário
+  próprios e menu ⋮; cards e tabela; lista do celular; colunas extras; tendência; painel BlueJus Intelligence) e os
+  JS `dashboard.js`, `dashboard-filtros.js`, `dashboard-historico.js`, `dashboard-janelas.js` e
+  `dashboard-preferencias.js` (este sem texto visível). Bloco `dashboard` do catálogo, 234 chaves; o JS lê
+  `dashboard.js.*` (impressão, calendário, janela Histórico e janelas flutuantes), entregue pelo
+  `{{ catalogo_js('dashboard.js') }}` do `index` antes dos scripts. Os meses e os dias da semana do calendário são
+  chaves (`mes_1` a `mes_12`, `semana_curta_*`, `semana_longa_*`), lidas na hora de desenhar; o texto traduzido que
+  entra no `innerHTML` do calendário passa por `esc()`.
+- **Sem mudança visível:** o HTML de 18 respostas (primário com dados, com período do mês, com período do ano e
+  ordem, com filtros de responsável/cargo/busca, "Sem cargo", busca vazia, fragmento XHR, com todas as colunas extras
+  e o Modo avançado ligado, extras no XHR, secundário, escritório vazio com e sem período, e o JSON do Histórico dos
+  4 cards) saiu igual; mudaram só tokens, horas, o catálogo do JS e a cor do avatar, que segue o id do usuário
+  (`userId % 9`) e muda entre duas rodadas do teste.
+- **Guarda:** dois `>` dentro de expressão (`ritmo.vencidas > 0`, `extras|length >= 2`) viraram `0 < ...` e
+  `2 <= ...`, sem mudar o resultado, porque o detector lia o `>` como fim de tag. Em `permitidos`: a marca
+  (BlueJus, Intelligence), as constantes `ColunasExtrasDoDashboard::CATALOGO/TENDENCIA`, o trecho `sóci` do mapa de
+  ícone do cargo, `db-body` e os grupos `Atenção imediata`/`Acompanhamento`, que o template compara com o texto que
+  vem do PHP (`LeituraDoRitmo`) para escolher a classe.
+- **Formatos:** `'now'|date('d/m/Y')` do cabeçalho do PDF virou `|data`; `'now'|date('H:i')` (Atualizado às, PDF) e
+  `geradaEm|date('H:i')` do painel, `|hora`. Ficaram: as datas `aaaa-mm-dd` dos filtros montadas por
+  `split/reverse/join`, o `ui.fmt` do painel (`round(1)` com vírgula: o `|numero(1)` escreveria "2,0" onde hoje sai
+  "2"), o arco do card global (`number_format(2, '.', '')`, valor de SVG) e, no JS, as datas e a hora do cabeçalho
+  do PDF e do nome do arquivo, montadas à mão (`p2`), sem `toLocale*`.
+- **Ficou para depois:** os textos que vêm do PHP: rótulo, ajuda e nota das colunas extras
+  (`ColunasExtrasDoDashboard::CATALOGO`), toda a leitura do BlueJus Intelligence (`MontarLeituraDoDashboard`,
+  `MotorAvancado`, `MotorDeRitmo`, `NivelDeAlerta::rotulo`, período, alertas, perguntas, riscos, ações, limites), o
+  Histórico dos cards (`ObterHistoricoDoCardUseCase`: título, subtítulo, nota, meses, indicadores) e a recusa
+  `Sem acesso ao módulo Dashboard.`. Os parciais de outras áreas que a casca usa: `_partials/_filtro_barra` (chips,
+  rótulos e botões internos) e `filtro-tabela.js`. O `|lower` do nível no painel continua sobre o rótulo do PHP.
