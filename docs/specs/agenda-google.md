@@ -283,7 +283,7 @@ Google; agenda nova manda de novo; o id de prazo nunca vira compromisso importad
 - **Ambiente:** `.env.prod.example` documenta `GOOGLE_CALENDAR_OAUTH_CLIENT_ID`, `GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET`
   e `SYNC_CRYPTO_KEY`.
 
-## 9. Feriados e recessos do sistema no Google (proposta, 21/10/2026)
+## 9. Feriados e recessos do sistema no Google (decidido 21/10/2026)
 
 Pedido do dono: os feriados e recessos que a Agenda mostra sem ninguém cadastrar vão também à agenda do
 escritório no Google. **Muda o desenho:** o painel do Google diz hoje "feriados do sistema não são enviados"
@@ -301,7 +301,7 @@ escritório no Google. **Muda o desenho:** o painel do Google diz hoje "feriados
 - **Como vai:** dia inteiro, `transparency: transparent` (não ocupa o horário de ninguém), título igual ao da grade.
   Descrição: "Data do sistema no BlueJus (feriado/recesso). Para mudar, ajuste na Agenda do BlueJus: o que for mudado
   aqui volta como está lá." mais a observação da data (ex.: "Prazos processuais suspensos de 20/12 a 20/01 (CPC,
-  art. 220)"). Recesso de vários dias vai como um evento só, do primeiro ao último dia.
+  art. 220)"). O recesso vai um evento por dia, como na grade (cada dia pode ser ocultado ou renomeado).
 - **Só leitura**, como os prazos (§7): mexido lá volta; apagado lá fica apagado até a data mudar aqui. Nunca vira
   compromisso.
 - **Sai do Google** quando deixa de valer: oculta pelo escritório, fora da janela, data apagada.
@@ -312,8 +312,12 @@ escritório no Google. **Muda o desenho:** o painel do Google diz hoje "feriados
   da `agenda_google_prazo`; única (conexão, chave) e (conexão, google_id); apaga com a conexão; esquecida em agenda
   nova ou troca de conta. Id no Google `bjt<escritório>d<sha1 da chave>` (base32hex). Migration:
   `Version20261020149200` (dada pelo coordenador). Código só depois das respostas do dono.
-- **Texto do painel [dono]:** troca "feriados do sistema não são enviados" por "feriados e recessos vão como dia
-  inteiro, sem ocupar a sua agenda".
+- **Texto do painel (decidido pelo dono):** termina com "Compromissos "Só eu" continuam particulares. Feriados,
+  recessos e datas do sistema também vão, como dia inteiro, sem ocupar a sua agenda."
+- **Implementação:** `App\Agenda\Contract\DatasParaOGoogle` (fonte das datas; `DatasDaAgendaParaOGoogle` usa
+  `ListarDatasDoSistemaUseCase` e `AniversariosDaEquipe`, este extraído do `ListarCompromissosUseCase`),
+  `DataParaOGoogle` (tradução), `LevarDatasAoGoogle` (envio, só leitura), `ResumoDoEventoSoLeitura` (resumo
+  normalizado, compartilhado com os prazos). Ao conectar, as datas já existentes vão na primeira sincronia.
 
 **Testes:** vão o feriado nacional, o recesso, a comemorativa, a data de tribunal e o aniversário; oculta pelo escritório sai do Google; a
 renomeada vai com o nome novo; UF da lotação da pessoa; mexido lá volta; apagado lá fica até mudar; agenda nova manda
