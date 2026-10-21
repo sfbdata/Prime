@@ -12,7 +12,7 @@ use App\Profile\Service\SilencioDoSininho;
 /**
  * As contagens do lançador (F1), com a mesma rechecagem de acesso da lista: aviso de pasta que não vejo não conta. Com o
  * sininho em silêncio (preferência do Meu Perfil), só contam os tipos que pedem ação: o lançador não salta nem toca
- * pelo resto, que continua na Caixa.
+ * pelo resto, que continua na lista da Caixa (e o contador da aba conta só o que pede ação, como o sino).
  */
 final class ContadorDeAvisos
 {
@@ -30,7 +30,7 @@ final class ContadorDeAvisos
         $urgentes = 0;
         $importantes = 0;
         $memoria = [];
-        $soTipos = $this->silencio?->tiposQueContam($eu);
+        $soTipos = $this->silencio?->tiposQueContam($eu, $tenant);
         foreach ($this->avisos->naoLidosAgrupados($eu, $tenant) as $grupo) {
             if (!$grupo['responsavel'] && !$this->acesso->podeVerPasta($grupo['pasta'], $eu, $tenant, $memoria)) {
                 continue;

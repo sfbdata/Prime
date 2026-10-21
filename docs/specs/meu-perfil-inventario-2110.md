@@ -9,14 +9,18 @@ Desenho 07 (prefT 'notif'): "Notificações no sistema · Sininho de prazos, met
 
 Decisão do coordenador (21/10/2026): desligada, o sininho fica em SILÊNCIO para a pessoa, no escritório da sessão:
 - sem contador (base, `/notificacoes/count`, as abas Minhas e Gestão) e sem itens na lista do sino;
-- o lançador da Central não salta nem toca por esses avisos (`ContadorDeAvisos` deixa de contá-los);
+- o lançador da Central não salta nem toca por esses avisos (`ContadorDeAvisos` deixa de contá-los); o contador da aba
+  Caixa conta só o que pede ação, como o sino, e a lista da Caixa continua mostrando tudo;
+- vale no escritório do aviso (a preferência é por escritório);
 - a notificação continua GRAVADA, aparece em "Ver todas" (`/notificacoes`) e na Caixa da Central; religar mostra tudo.
 
 Exceção, também decisão do coordenador: o que pede ação para não perder acesso ou prazo legal nunca entra no silêncio
 (`App\Profile\Service\SilencioDoSininho::SEMPRE_AVISA`):
 - `conta_pedido_exclusao`: a conta fica suspensa a pedido até alguém decidir;
 - `djen_publicacao` e `push_publicacao_pasta`: abrem prazo processual;
-- `pasta_pedido_acesso`: alguém fica bloqueado até a decisão.
+- `pasta_pedido_acesso` e `pasta_acesso_decidido`: alguém fica bloqueado até a decisão, e a decisão é para quem estava
+  fora;
+- `push_link_renovacao`: alguém de fora perdeu o acesso pelo link externo do Push e pediu renovação.
 
 Limites conhecidos: o prazo cadastrado na Agenda é gravado como `evento_criado`, o mesmo tipo do compromisso comum;
 separar os dois pede um tipo novo, fora deste PR. Não há tipo de convite que expira, OAB pendente nem acesso suspenso.

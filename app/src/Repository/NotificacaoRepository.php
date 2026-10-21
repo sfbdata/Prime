@@ -21,10 +21,6 @@ class NotificacaoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Aplica o filtro de categoria (derivada do tipo) ao QueryBuilder.
-     * null = todas as categorias.
-     */
-    /**
      * Sininho em silêncio (preferência "Notificações no sistema" do Meu Perfil): só os tipos da lista contam e aparecem
      * no sino. Nulo = todos.
      *
@@ -66,6 +62,10 @@ class NotificacaoRepository extends ServiceEntityRepository
         }
     }
 
+    /**
+     * Aplica o filtro de categoria (derivada do tipo) ao QueryBuilder.
+     * null = todas as categorias.
+     */
     private function aplicarCategoria(QueryBuilder $qb, ?string $categoria): void
     {
         if ($categoria === Notificacao::CATEGORIA_GESTAO) {

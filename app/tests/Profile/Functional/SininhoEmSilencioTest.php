@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Profile\Functional;
 
+use App\Central\Service\ContadorDeAvisos;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Notificacao;
@@ -77,6 +78,36 @@ final class SininhoEmSilencioTest extends JusPrimeWebTestCase
 
         $this->preferencia(true);
         self::assertSame(2, $this->contagem());
+    }
+
+    #[TestDox('desligada: o lançador da Central também só conta o que pede ação (pedido de acesso, renovação do link)')]
+    public function testCentralEmSilencio(): void
+    {
+        $this->aviso(Notificacao::TIPO_PASTA_PEDIDO_ACESSO, 'Pedido de acesso');
+        $this->aviso(Notificacao::TIPO_PUSH_LINK_RENOVACAO, 'Renovar o link');
+        $this->em->flush();
+        $contador = static::getContainer()->get(ContadorDeAvisos::class);
+        $antes = $contador->contar($this->pessoa, $this->tenant)->naoLidos;
+
+        $this->preferencia(false);
+        $depois = $contador->contar($this->pessoa, $this->tenant)->naoLidos;
+
+        self::assertSame(1, $antes - $depois, 'só a meta sai da contagem; DJEN, pedido de acesso e renovação continuam');
+        self::assertSame(3, $this->contagem());
+    }
+
+    #[TestDox('a preferência vale por escritório: desligada em um, o sino do outro continua normal')]
+    public function testPorEscritorio(): void
+    {
+        $outro = (new Tenant())->setName('Outro Escritório ' . uniqid());
+        $this->em->persist($outro);
+        $this->em->flush();
+        $this->preferencia(false);
+        $silencio = static::getContainer()->get(SilencioDoSininho::class);
+
+        self::assertTrue($silencio->silenciado($this->pessoa, $this->tenant));
+        self::assertFalse($silencio->silenciado($this->pessoa, $outro));
+        self::assertNull($silencio->tiposQueContam($this->pessoa, $outro));
     }
 
     private function contagem(): int

@@ -6,6 +6,7 @@ namespace App\Profile\Service;
 
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
+use App\Entity\Tenant\Tenant;
 use App\Profile\Preferencia\CatalogoDePreferenciasDoPerfil;
 use App\Profile\UseCase\ObterPreferenciasDoPerfilUseCase;
 use App\Service\Tenant\TenantContext;
@@ -25,13 +26,16 @@ final class SilencioDoSininho implements ResetInterface
     /**
      * - pedido de exclusão de conta: a conta fica suspensa a pedido até alguém decidir;
      * - publicação do DJEN e movimento na pasta ("Avisar quando chegar"): abrem prazo processual;
-     * - pedido de acesso a pasta trancada: alguém fica bloqueado até a decisão.
+     * - pedido de acesso a pasta trancada: alguém fica bloqueado até a decisão; e a decisão, para quem estava fora;
+     * - pedido de renovação do link externo do Push: alguém de fora perdeu o acesso pelo link.
      */
     public const SEMPRE_AVISA = [
         Notificacao::TIPO_CONTA_PEDIDO_EXCLUSAO,
         Notificacao::TIPO_DJEN_PUBLICACAO,
         Notificacao::TIPO_PUSH_PUBLICACAO_PASTA,
         Notificacao::TIPO_PASTA_PEDIDO_ACESSO,
+        Notificacao::TIPO_PASTA_ACESSO_DECIDIDO,
+        Notificacao::TIPO_PUSH_LINK_RENOVACAO,
     ];
 
     /** @var array<string, bool> */
@@ -43,9 +47,10 @@ final class SilencioDoSininho implements ResetInterface
     ) {
     }
 
-    public function silenciado(User $usuario): bool
+    /** No escritório informado (o do aviso) ou, sem ele, no da sessão. */
+    public function silenciado(User $usuario, ?Tenant $tenant = null): bool
     {
-        $tenant = $this->tenantContext->getCurrentTenant();
+        $tenant ??= $this->tenantContext->getCurrentTenant();
         if ($tenant === null) {
             return false;
         }
@@ -60,9 +65,9 @@ final class SilencioDoSininho implements ResetInterface
      *
      * @return list<string>|null
      */
-    public function tiposQueContam(User $usuario): ?array
+    public function tiposQueContam(User $usuario, ?Tenant $tenant = null): ?array
     {
-        return $this->silenciado($usuario) ? self::SEMPRE_AVISA : null;
+        return $this->silenciado($usuario, $tenant) ? self::SEMPRE_AVISA : null;
     }
 
     public function reset(): void
