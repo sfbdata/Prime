@@ -8,6 +8,15 @@ lido; do cliente sai só o nome) e, do coordenador, **nada roda sozinho em lote*
 `docs/specs/inteligencia-agentes-da-pasta.md` (os 7 agentes) e `docs/specs/engineering-loop/inventario-ia.md`
 (IA-016 a IA-027).
 
+
+## Estado da frente (19/10, sessão f6)
+
+- F1+F2: PR #114 (rascunho, base #68), suíte completa e visual feitos. Commits já enviados.
+- F3 Perguntar: branch `ia-drawer-f3` (sobre `ia-drawer-f1`), commits LOCAIS 63fbf732, 43648b20, 79bdb1b3; revisão
+  aprovada com ressalvas, ressalvas corrigidas. **Falta enviar** (máquina sem internet): `git push -u origin ia-drawer-f3`
+  e abrir o PR em rascunho com base `ia-drawer-f1`. Migration provisória `Version20261020138100`.
+- F4 Documentos e F5 Criar tarefa: a fazer, nesta ordem, cada uma em branch empilhada.
+
 ## O que o desenho tem, e o que pode entrar
 
 O drawer do desenho é, em grande parte, **regra rotulada como IA** (`inventario-ia.md`, nota 3): fase com
@@ -43,6 +52,37 @@ navegador (sem tenant, sigilo, delimitação nem máscara; manda CPF do cliente)
   migration); "MODO CONVERSA" do desenho; últimas 8 mensagens; sugestões de pergunta literais; Enter envia.
 - **F4 Documentos.** Aba com a lista por metadados e o "Índice" por metadados; textos sem prometer leitura.
 - **F5 Ações do resultado.** "Criar tarefa" do desenho (confirmação, uma por vez) sobre o modal de nova meta.
+
+## F3 Perguntar: contrato (19/10)
+
+Desenho: aba "Perguntar" (`bi bi-chat-dots`, dc L5945), painel em L1072-1084, rodapé com o campo em L1126-1131,
+`perguntar` em L5920-5938, estilos das mensagens em L5972, sugestões em L5974.
+
+- **Tela.** Quarta aba depois de Relatórios (a ordem do desenho é Análise, Documentos, Relatórios, Perguntar; Documentos
+  entra no F4). Mensagens em coluna: as minhas à direita em degradê, as da IA à esquerda em branco com borda, `max-width:88%`,
+  `white-space:pre-wrap`, escapadas. Sem mensagens: "Pergunte sobre esta pasta. A IA já conhece o cliente, o processo, os
+  prazos, as metas, os registros e os documentos." (literal do desenho; os documentos entram só por nome e data, e o prompt
+  diz isso). Sugestões literais: "Esse processo está parado?", "O que falta fazer?", "Veja se existe prazo", "Existe algum
+  risco?" (clique envia). Rodapé fixo só na aba: campo "Pergunte sobre esta pasta..." + botão enviar (`bi-send-fill`),
+  desabilitado vazio ou com pergunta em andamento; Enter envia. Em andamento: o cartão "Consultando os dados desta pasta"
+  (dc L1086-1092) até a resposta chegar (polling, como os comandos). IA indisponível: campo e botão desabilitados com o
+  motivo real. Falha: a mensagem da IA diz a falha ("Não foi possível responder"), nunca texto local (regra 1).
+- **Modelo.** Cada pergunta é uma `AnaliseDeInteligencia` de tipo `PerguntaLivre`, agente `Gestor` (o contexto mais amplo,
+  com o financeiro só se `VisibilidadeDoFinanceiroDaPasta` disser sim), sem comando. A pergunta mora numa tabela nova,
+  `inteligencia_pergunta` (entidade `PerguntaDaConversa`: tenant, pasta_id, autor, texto, analise_id único, criada_em). A
+  resposta é o `texto_da_analise` da análise (não duplica). Conversa = perguntas da MESMA pessoa na MESMA pasta; ninguém
+  vê a conversa de outra pessoa. Purga do escritório cobre a tabela.
+- **Pedido.** `PerguntarSobreAPastaUseCase`: mesmas guardas do `SolicitarAnaliseDaPastaUseCase` (pasta do tenant,
+  `canAccessResource`, disponibilidade, sigilo, abas ocultas gravadas no resumo); texto aparado de 1 a 2000 caracteres;
+  uma pergunta em andamento por pessoa e pasta (a segunda devolve a que está em andamento, sem criar); o limitador só gasta
+  ao criar. Rotas: `POST /pasta/{id}/ia/conversa/perguntas` (`inteligencia_conversa_perguntar`, CSRF
+  `inteligencia_agentes_{id}`) e `GET /pasta/{id}/ia/conversa` (`inteligencia_conversa_listar`, as últimas 20 da pessoa).
+- **Prompt.** `FluxoDaPerguntaLivre` + `PromptDaPergunta` (versão `pergunta-v1`): o sistema do agente + "MODO CONVERSA:
+  responda à pergunta com a menor estrutura suficiente; para perguntas simples, CONCLUSÃO e EVIDÊNCIAS bastam." (literal
+  do desenho). Uma mensagem do usuário: os blocos do contexto, as últimas 4 perguntas concluídas da conversa com as
+  respostas (8 mensagens, como o desenho) dentro de `<conversa_anterior>` e a pergunta dentro de `<pergunta>`, ambos
+  neutralizados e passados pela máscara de dados pessoais. Nenhum texto de pergunta em log.
+- **Migration**: só a tabela nova (provisória `Version20261020138100`, depois da do F1).
 
 ## Contratos compartilhados (avisar a 4b antes)
 
