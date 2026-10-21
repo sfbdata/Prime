@@ -163,8 +163,9 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
             $csp = (string) $client->getResponse()->headers->get('Content-Security-Policy');
             self::assertStringContainsString("script-src 'self';", $csp, $url);
             self::assertStringNotContainsString('unsafe-inline\' https', $csp);
-            // O catálogo do idioma (catalogo_js) é <script type="application/json">: dado, não roda (o CSP não o barra).
-            self::assertDoesNotMatchRegularExpression('/<script(?![^>]*\s(?:src=|type="application\/json"))[^>]*>/i', (string) $client->getResponse()->getContent(), $url . ' tem script inline');
+            // O catálogo do idioma (catalogo_js) é bloco de dados, sempre na forma exata `<script type="application/json"
+            // data-bj-t>` (CatalogoJsExtension): o navegador não o executa. Qualquer outra tag sem src é script inline.
+            self::assertDoesNotMatchRegularExpression('/<script(?![^>]*\ssrc=)(?!\stype="application\/json" data-bj-t>)[^>]*>/i', (string) $client->getResponse()->getContent(), $url . ' tem script inline');
         }
 
         $client->request('GET', '/master/dados/visao-geral');
