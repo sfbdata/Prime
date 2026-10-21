@@ -8,11 +8,11 @@ use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
-use App\Pasta\Entity\PrioridadePasta;
 use App\Processo\Entity\Processo;
 use App\Tarefa\DTO\AndamentoDasMetasOutput;
 use App\Tarefa\DTO\PessoaNoTrilhoOutput;
 use App\Tarefa\Enum\AbaMetas;
+use App\Tarefa\Enum\PrioridadeDaMeta;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -500,20 +500,18 @@ class TarefaRepository extends ServiceEntityRepository
     private function aplicarFiltrosDaTela(QueryBuilder $qb, array $filtros): void
     {
         $busca      = trim((string) ($filtros['busca'] ?? ''));
-        $prioridade = !empty($filtros['prioridade']) ? PrioridadePasta::tryFrom((string) $filtros['prioridade']) : null;
-
-        // Busca e prioridade leem a pasta da meta: um join só, com um alias só, quando qualquer
-        // das duas pede. É ManyToOne, então não duplica linha.
-        if ($busca !== '' || $prioridade !== null) {
-            $qb->leftJoin('t.pasta', 'p_tela');
-        }
+        // Prioridade PRÓPRIA da meta (desenho 04, P:77): uma meta normal numa pasta urgente não entra em
+        // "Urgente". Valor fora do enum (o antigo `prioridade` da pasta, num link guardado) é ignorado.
+        $prioridade = PrioridadeDaMeta::tryFrom((string) ($filtros['prioridade'] ?? ''));
 
         if ($busca !== '') {
+            // A busca lê a pasta da meta (nº e cliente). É ManyToOne, então o join não duplica linha.
+            $qb->leftJoin('t.pasta', 'p_tela');
             $this->aplicarBuscaDaTela($qb, $busca);
         }
 
         if ($prioridade !== null) {
-            $qb->andWhere('p_tela.prioridade = :prioridade')
+            $qb->andWhere('t.prioridade = :prioridade')
                ->setParameter('prioridade', $prioridade);
         }
 

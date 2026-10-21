@@ -13,6 +13,7 @@ use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AcessoAPasta;
 use App\Tarefa\Enum\AbaMetas;
+use App\Tarefa\Enum\PrioridadeDaMeta;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Exception\DesfazerReaberturaRecusadoException;
 use App\Tarefa\Exception\MetaNaoExcluivelException;
@@ -75,7 +76,8 @@ final class TarefaController extends AbstractController
         $filtros = [
             // Sem `status`: o desenho 04 (P:69-80) não tem o filtro Status (dono, 21/10).
             'busca'      => trim((string) $request->query->get('busca', '')),
-            'prioridade' => (string) $request->query->get('prioridade', ''),
+            // Prioridade da meta (desenho 04); valor fora do enum (o antigo `prioridade` da pasta) vira vazio.
+            'prioridade' => PrioridadeDaMeta::tryFrom((string) $request->query->get('prioridade', ''))?->value ?? '',
             'prazo'      => (string) $request->query->get('prazo', ''),
         ];
 

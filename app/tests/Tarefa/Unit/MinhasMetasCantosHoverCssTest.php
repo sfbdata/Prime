@@ -58,7 +58,6 @@ final class MinhasMetasCantosHoverCssTest extends TestCase
         yield 'botão da alternância (só BlueJus, segue a aba)' => ['.mm-modo', '3px'];
         yield 'cartão dos grupos (dc L81)' => ['.mm-cartao', '4px'];
         yield 'status da meta (dc L93)' => ['.mm-pilula', '3px'];
-        yield 'prioridade (só BlueJus, segue o status)' => ['.mm-prioridade', '3px'];
         yield 'marcador de acompanhamento (dc L96)' => ['.mm-marcador', '4px'];
         yield 'ícone de ação (dc L97)' => ['.mm-acao-icone', '4px'];
         yield 'trilho de Seu andamento (dc L108)' => ['.mm-progresso-barra', '4px'];

@@ -11,6 +11,8 @@ use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PrioridadePasta;
+use App\Tarefa\Enum\PrioridadeDaMeta;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -1032,6 +1034,33 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertSame('vencidas', $c->filter('select[name="prazo"] > option[selected]')->attr('value'), 'o KPI continua abrindo a faceta pelo valor de sempre');
         self::assertSame('Limpar filtros', $c->filter('[data-filtro-root]')->attr('data-ft-rotulo-limpar'));
         self::assertStringNotContainsString('Próximas (7 dias)', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('Desenho 04 (P:77): a faceta Prioridade é da META (Normal, Alta, Urgente); o valor antigo da pasta é ignorado; o cartão não mostra a prioridade da pasta')]
+    public function testFacetaPrioridadeDaMeta(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $urgente            = $this->criarMeta($tenant, $usuario, 'Urgente da meta');
+        $urgente->setPrioridade(PrioridadeDaMeta::Urgente);
+        $normalNaPastaUrgente = $this->criarMeta($tenant, $usuario, 'Normal em pasta urgente');
+        $normalNaPastaUrgente->getPasta()->setPrioridade(PrioridadePasta::Urgente);
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $client->request('GET', '/tarefas/minhas', ['prioridade' => 'urgente']);
+        self::assertResponseIsSuccessful();
+        $c = $client->getCrawler();
+        self::assertSame(
+            [['', 'Prioridade'], ['normal', 'Normal'], ['alta', 'Alta'], ['urgente', 'Urgente']],
+            $c->filter('select[name="prioridade"] > option')->each(static fn ($o): array => [(string) $o->attr('value'), trim($o->text())]),
+        );
+        self::assertSame(['Urgente da meta'], $c->filter('.mm-coluna-lista a.mm-meta-titulo')->each(static fn ($a): string => trim((string) $a->attr('title'))));
+
+        $client->request('GET', '/tarefas/minhas', ['prioridade' => 'prioridade']);
+        $c = $client->getCrawler();
+        self::assertCount(2, $c->filter('.mm-coluna-lista article.mm-meta'), 'o valor antigo não filtra');
+        self::assertCount(0, $c->filter('select[name="prioridade"] > option[selected][value="prioridade"]'));
+        self::assertCount(0, $c->filter('.mm-prioridade'), 'a pílula da prioridade da pasta saiu do cartão');
     }
 
     #[TestDox('Desenho 04 (P:69-80, P:174): a barra tem só Prioridade e Prazo, sem o filtro Status; `status` na URL é ignorado')]

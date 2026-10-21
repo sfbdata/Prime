@@ -749,22 +749,6 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
 .mm-pilula.tom-accent { color: var(--mm-accent);      background: var(--mm-accent-bg); border-color: var(--mm-accent-border); }
 .mm-pilula.tom-cinza  { color: var(--mm-sem-text);    background: var(--mm-sem-bg); }
 
-.mm-prioridade {
-    display: inline-flex;
-    align-items: center;
-    gap: .25rem;
-    font-size: .656rem;
-    font-weight: 600;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    padding: .125rem .5rem;
-    border-radius: 3px;
-    border: 1px solid transparent;
-    flex-shrink: 0;
-}
-.mm-prioridade.tom-danger { color: var(--mm-danger-text); background: var(--mm-danger-bg); border-color: var(--mm-danger-border); }
-.mm-prioridade.tom-warn   { color: var(--mm-warn-text);   background: var(--mm-warn-bg);   border-color: var(--mm-warn-border); }
-
 /* ── Marcador de acompanhamento ───────────────────────────────────────────── */
 .mm-marcador {
     width: 30px; height: 30px;

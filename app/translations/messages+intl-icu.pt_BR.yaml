@@ -1086,7 +1086,7 @@ metas:
         sem_prazo: Sem prazo
     prioridade:
         normal: Normal
-        prioridade: Prioridade
+        alta: Alta
         urgente: Urgente
     kpis:
         ver: 'Ver {rotulo}'

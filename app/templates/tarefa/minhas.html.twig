@@ -82,6 +82,7 @@
         {# ── Abas + filtros + modo, num cartão só (dc L65-75), e o resultado ──
            As abas moram dentro da raiz do filtro só pela caixa visual: o filtro-tabela.js reage a
            campos e às classes `js-filtro-*`, não a elas.
+           Prioridade: a da META (desenho 04, P:77), valores normal/alta/urgente, não a da pasta.
            Rótulos do prazo do desenho (dc L78); os valores `vencidas`/`proximas`/`sem` não mudam (KPIs).
            "Limpar filtros" (dc L79): o motor só desenha o botão com filtro ativo e zera busca e selects,
            não a aba (campo oculto sem `js-filtro-campo`). #}
@@ -106,7 +107,7 @@
                 facetas: [
                     { name: 'prioridade', rotulo: 'metas.filtros.prioridade'|trans, tipo: 'select', opcoes: [
                         { valor: 'normal', label: 'metas.prioridade.normal'|trans },
-                        { valor: 'prioridade', label: 'metas.prioridade.prioridade'|trans },
+                        { valor: 'alta', label: 'metas.prioridade.alta'|trans },
                         { valor: 'urgente', label: 'metas.prioridade.urgente'|trans }
                     ] },
                     { name: 'prazo', rotulo: 'metas.filtros.prazo'|trans, tipo: 'select', opcoes: [

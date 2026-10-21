@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tarefa\UseCase;
 
 use App\Entity\Tarefa\Tarefa;
+use App\Tarefa\Enum\PrioridadeDaMeta;
 use App\Tarefa\Service\NumeracaoDeMetas;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -19,6 +20,10 @@ use Doctrine\ORM\EntityManagerInterface;
  * Reservar o número e gravar a meta ficam na MESMA transação: a trava por escritório da
  * `NumeracaoDeMetas` só segura até o commit, e é ela que impede duas metas criadas ao mesmo tempo de
  * pegarem o mesmo número. Se a gravação falhar, o contador volta junto.
+ *
+ * A meta nasce com a prioridade da pasta (`PrioridadeDaMeta::daPasta`; decisão do dono de 21/10: herdada,
+ * sem campo de escolha, até a análise da I.A. definir). Só quando ainda está no padrão `normal`: quem um
+ * dia escolher a prioridade antes de gravar não é sobrescrito.
  */
 final class GravarMetaNovaUseCase
 {
@@ -33,6 +38,10 @@ final class GravarMetaNovaUseCase
         $tenantId = $tarefa->getTenant()?->getId();
         if ($tenantId === null) {
             throw new \InvalidArgumentException('A meta precisa de um escritório gravado para ser numerada.');
+        }
+
+        if ($tarefa->getPrioridade() === PrioridadeDaMeta::Normal) {
+            $tarefa->setPrioridade(PrioridadeDaMeta::daPasta($tarefa->getPasta()->getPrioridade()));
         }
 
         $this->em->wrapInTransaction(function () use ($tarefa, $tenantId): void {

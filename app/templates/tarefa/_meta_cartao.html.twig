@@ -16,11 +16,6 @@
         <div class="mm-meta-topo">
             {% set numPasta = painel.numeroNaPasta(meta.id) %}
             <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-meta-titulo" title="{{ meta.titulo }}">{% if numPasta %}<span class="mm-meta-num" title="{{ 'metas.cartao.num_na_pasta_dica'|trans({numero: numPasta ~ '', nup: meta.pasta.nup ~ ''}) }}">{{ numPasta }}.</span>{% endif %}{{ meta.titulo }}</a>{{ include('tarefa/_numero_global.html.twig', {numero: meta.numero, local: numPasta}) }}
-            {% if meta.pasta.prioridade.value != 'normal' %}
-                <span class="mm-prioridade tom-{{ meta.pasta.prioridade.value == 'urgente' ? 'danger' : 'warn' }}">
-                    <i class="bi bi-flag-fill"></i>{{ meta.pasta.prioridadeLabel }}
-                </span>
-            {% endif %}
         </div>
 
         <div class="mm-meta-linha2">
