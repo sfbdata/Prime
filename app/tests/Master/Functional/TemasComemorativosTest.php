@@ -258,6 +258,8 @@ final class TemasComemorativosTest extends JusPrimeWebTestCase
         self::assertStringContainsString('--bs-primary:#d0558f', $css);
         self::assertStringContainsString('--bs-primary-rgb:208, 85, 143', $css);
         self::assertStringContainsString('--bs-link-color:#d0558f', $css);
+        // Links do tema só fora do tema escuro (no escuro, a cor do tema some sobre o fundo).
+        self::assertMatchesRegularExpression('/html:root:not\(\[data-bs-theme=dark\]\)\{[^}]*--bs-link-color:#d0558f/', $css);
         self::assertStringContainsString('--bjt-fita:linear-gradient(90deg,#f8bbd0,#d0558f,#f8bbd0)', $css);
 
         self::assertCount(1, $crawler->filter('body #bjtFita[aria-hidden="true"]'));

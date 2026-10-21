@@ -17,7 +17,8 @@
      data-reduzidas="{{ bjtSemAnim ? '1' : '0' }}"></div>
 {% if bjtTema %}
 <link rel="stylesheet" href="{{ asset('css/tema-comemorativo.css') }}" id="bjtCssArquivo">
-<style id="bjtCss">html:root{--bjt-p:{{ bjtTema.p }};--bjt-d:{{ bjtTema.d }};--bjt-l:{{ bjtTema.l }};--bjt-fita:{{ bjtTema.fita }};--header-bg:{{ bjtTema.p }};--header-avatar-fg:{{ bjtTema.p }};--bs-primary:{{ bjtTema.p }};--bs-primary-rgb:{{ bjtTema.pRgb }};--bs-link-color:{{ bjtTema.p }};--bs-link-color-rgb:{{ bjtTema.pRgb }};--bs-link-hover-color:{{ bjtTema.d }};--bs-link-hover-color-rgb:{{ bjtTema.dRgb }}}</style>
+<style id="bjtCss">html:root{--bjt-p:{{ bjtTema.p }};--bjt-d:{{ bjtTema.d }};--bjt-l:{{ bjtTema.l }};--bjt-fita:{{ bjtTema.fita }};--header-bg:{{ bjtTema.p }};--header-avatar-fg:{{ bjtTema.p }};--bs-primary:{{ bjtTema.p }};--bs-primary-rgb:{{ bjtTema.pRgb }}}html:root:not([data-bs-theme=dark]){--bs-link-color:{{ bjtTema.p }};--bs-link-color-rgb:{{ bjtTema.pRgb }};--bs-link-hover-color:{{ bjtTema.d }};--bs-link-hover-color-rgb:{{ bjtTema.dRgb }}}</style>
+{# Links na cor do tema só no tema claro: no escuro, o p/d do tema (escuros) somem sobre o fundo #212529. #}
 <div id="bjtFita" class="{{ bjtTema.anim and not bjtSemAnim ? 'bjt-anim' }}" aria-hidden="true"></div>
 <div id="bjtSelo" role="status">
     <span class="e{{ bjtTema.icTexto ? ' is-texto' }}">{{ bjtTema.ic }}</span>

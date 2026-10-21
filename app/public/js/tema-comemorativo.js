@@ -35,9 +35,10 @@
 
   function variaveis(t) {
     return 'html:root{--bjt-p:' + t.p + ';--bjt-d:' + t.d + ';--bjt-l:' + t.l + ';--bjt-fita:' + t.fita
-      + ';--header-bg:' + t.p + ';--header-avatar-fg:' + t.p + ';--bs-primary:' + t.p + ';--bs-primary-rgb:' + t.pRgb
-      + ';--bs-link-color:' + t.p + ';--bs-link-color-rgb:' + t.pRgb + ';--bs-link-hover-color:' + t.d
-      + ';--bs-link-hover-color-rgb:' + t.dRgb + '}';
+      + ';--header-bg:' + t.p + ';--header-avatar-fg:' + t.p + ';--bs-primary:' + t.p + ';--bs-primary-rgb:' + t.pRgb + '}'
+      /* Links na cor do tema só no tema claro: no escuro, o p/d do tema somem sobre o fundo escuro. */
+      + 'html:root:not([data-bs-theme=dark]){--bs-link-color:' + t.p + ';--bs-link-color-rgb:' + t.pRgb
+      + ';--bs-link-hover-color:' + t.d + ';--bs-link-hover-color-rgb:' + t.dRgb + '}';
   }
 
   function limpar() {
