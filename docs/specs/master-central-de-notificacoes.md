@@ -1,14 +1,14 @@
 # Central de Notificações do Master (desenho 05 Perfis 1.2, VS 21.10.26)
 
 Risco: MÉDIO (dados pessoais de quem escreve ao BlueJus, e-mail de resposta, leitura de todos os escritórios).
-Dono da frente: sessão b5. Migration reservada: `Version20261020146500`.
+Dono da frente: sessão b5. Migration reservada: `Version20261020147500`.
 
 ## Estado da frente
 
 - 21/10: spec escrita. Implementação delegada; revisão e re-revisão antes do PR.
 - 21/10: implementada na branch `master-notificacoes` (commit local, sem push), aguardando revisão.
   - Código: entidades `App\Master\Entity\CentralMasterEstado` e `CentralMasterResposta`, migration
-    `Version20261020146500`; leitores em `App\Master\Notificacoes\` (`LeitorDeSugestoes` pela `VisaoDoMaster`,
+    `Version20261020147500`; leitores em `App\Master\Notificacoes\` (`LeitorDeSugestoes` pela `VisaoDoMaster`,
     `LeitorDeSuporte`, `LeitorDeAlertasDeIndicacao`, registrados pela tag `app.master.origem_da_central`); UseCases
     `ListarCentralDoMaster`, `MarcarNaCentral`, `AbrirMensagemDaCentral`, `ResponderNaCentral`; controller
     `CentralDeNotificacoesController` (`/master/notificacoes`: GET lista; POST `marcar`, `{origem}/{id}/abrir`,

@@ -15,7 +15,7 @@ use Doctrine\Migrations\AbstractMigration;
  * compartilhado entre os Masters. As mensagens continuam nas tabelas de origem. `tenant_id` é o escritório da origem,
  * sem FK (as tabelas não são TenantAware): sai na purga do escritório pela ORDEM_DELECAO. Nenhum dado existente muda.
  */
-final class Version20261020146500 extends AbstractMigration
+final class Version20261020147500 extends AbstractMigration
 {
     public function getDescription(): string
     {
