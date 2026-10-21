@@ -915,3 +915,60 @@ comemorativas. Com migration: F3e, F3g e, provavelmente, F3i e F4 (números pedi
 - "Como o destinatário vai receber" (L499-501): computador e celular (375 × 640), o remetente real do sistema.
 - Ganchos para as outras partes: `window.McCampanha.modeloAtual()` (teste da F3f, 7d) e
   `window.McCampanha.extrasDoEnvio` (F3g, 0d: funções que devolvem um objeto para mesclar no "Enviar campanha").
+
+### F3h: modo venda na seção Indicações (b5, combinado com a 5d em 21/10)
+
+Desenho 05 VS 21.10.26: `secCentral = sec === 'com' || sec === 'ind'` e `venda = sec === 'ind'` (dc L627-645 e o
+render). A mesma Central de envios aparece na seção "Indicações do BlueJus", abaixo do resumo e dos limites (#185/#190).
+Escrita depois da F3a, em cima do código dela; a 5d revisa.
+
+**Tela (modo `venda`):**
+1. Modelos só `convite`, `vagas`, `news` e `novidades`, mais os do usuário; padrão `convite`. O seletor de modelo não
+   aparece (`cmMostraModelo: sec !== 'ind'`) e os passos viram 1 PARA QUEM e 2 MENSAGEM (`cmNPara`/`cmNMsg`).
+2. Públicos só `leads` (rótulo "Novos contatos (base)", descrição "Interessados ainda sem conta"), `csv` e `indiv`, em
+   3 colunas (`cmPubCols`). Público fora da lista volta para `leads`.
+3. Botão "Cadastrar e-mail" no cabeçalho do PARA QUEM (`cmLeadAdd`, borda tracejada do dc).
+4. Filtro (F3b) só com a busca e o Estado: os selects e os atalhos somem.
+5. Relatório: o mesmo da seção Comercial, mostrando tudo (sem origem na campanha; spec §10, sem migration).
+
+**Contrato com o código da 5d:**
+- Os ganchos globais da F3a (`window.McCampanha.modeloAtual()`, `window.McCampanha.extrasDoEnvio`) continuam
+  apontando para a instância do modo `com` (a F3f e a F3g dependem deles); a instância `venda` não se registra neles.
+- `_comercial.html.twig` recebe `modo` (padrão `'com'`) e põe `data-modo` na raiz.
+- `comercial-campanha.js` deixa de ser singleton: roda por raiz (`[data-mc-campanha]`), cada uma com o seu token, as
+  suas URLs e ids únicos, e carrega com `sec === 'com'` ou `sec === 'ind'` conforme a raiz. Uma tabela única
+  `MODOS = {com: {...}, venda: {modelos, publicos, filtros, passos}}`.
+- Não mexer no motor do filtro (`FiltroDoPublico`, `FiltroDeDestinatarios`, `AtributosDosDestinatarios`) nem no
+  relatório da 9b.
+
+**Servidor:**
+- "Cadastrar e-mail": `CadastrarContatoDoMasterUseCase` (Comercial, só Master), que chama
+  `ConfirmacaoDeEnderecoInterface::pedir(...)` para a lista `comercial_campanhas` (`ComposicaoDaCampanha::LISTA`): a
+  confirmação dupla da 1a, com os limitadores (e-mail, IP, global). Quem se descadastrou da lista NÃO recebe o pedido
+  por aqui, nem depois de 30 dias (LGPD, coordenação 21/10): conta à parte na resposta, sem o endereço.
+  Origem `cadastro-manual-master` (rótulo "pela equipe do BlueJus, em um cadastro manual" em `RotulosDoConsentimento`).
+  Vários e-mails separados por vírgula, espaço ou ponto e vírgula; a resposta diz quantos pedidos saíram, quantos já
+  existiam, quantos foram barrados e quantos são descadastrados (`descadastrados`), sem travessão. O texto do dc ("Só cadastre quem autorizou receber (LGPD)") aparece no campo.
+- `modo: 'venda'` no pedido de contagem e de envio, validado no `PedidoDePublico` e no `PedidoDeCampanha`: público fora
+  de `leads`/`csv`/`indiv` ou modelo fora dos quatro (e dos do usuário) é recusado (422). É coerência, não barreira:
+  `modo` e o `cu<id>` são rótulos que o próprio cliente manda (o Master pode enviar pela seção Comercial de qualquer
+  forma). No modo venda, o filtro aceita só busca e Estado (o resto recusado).
+
+**Testes:** a seção ind tem a Central como filho direto (combinador), com `data-modo="venda"`; os dois modos na mesma
+página não se confundem (token, URLs, ids); a recusa no servidor (público, modelo, filtro); o UseCase do cadastro
+(confirmação pedida, limitadores, origem, descadastrado); 403 para quem não é Master; CSRF.
+
+**Estado (21/10, implementado na branch `comercial-f3h`, a revisar pela 5d):**
+- Feito: `_comercial.html.twig` com `modo` (raiz da venda `.mc.mc-venda[data-mc-venda][data-modo="venda"]`, sem
+  `data-mc`, ids com prefixo `mc-venda-`), incluído pelo `_indicacoes.html.twig` como filho direto do `[data-mi]`;
+  `comercial-campanha.js` por raiz, com `MODOS`; `PedidoDePublico::modo` e as recusas da venda no `PedidoDePublico` e
+  no `PedidoDeCampanha`; `CadastrarContatoDoMasterUseCase` em `POST /master/comercial/contatos` (origem
+  `cadastro-manual-master`, rótulos da origem e da lista `comercial_campanhas` no `RotulosDoConsentimento`).
+- Limite por IP do cadastro: `comercial_contatos_master` (20 por hora) no `framework.yaml`, 429 com mensagem.
+- Cada raiz expõe `raiz.mcModeloAtual` (o modelo da própria instância; o teste da F3f lê o da instância do clique).
+- Depois do #223, em PRs próprios (coordenação, 21/10): o Relatório na venda (9b, include no `_comercial.html.twig`
+  dentro da raiz) e o botão "Descadastrados (N)" na venda (0d, o mesmo bloco movido para antes da Central do clique;
+  `raiz.mcExtrasDoEnvio` para a confirmação de leitura).
+- Coordenação, 21/10 (o dono pode rever): o descadastrado não recebe o pedido pelo cadastro do Master; no e-mail do
+  cadastro manual, a segunda frase é "Se não quiser receber, é só ignorar este e-mail." (as outras origens seguem com
+  "Se não foi você, ignore este e-mail.").
