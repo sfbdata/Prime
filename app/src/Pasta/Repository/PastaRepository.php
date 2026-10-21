@@ -1211,6 +1211,48 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * O cadastro de cliente de cada nome, quando as pastas com aquele nome apontam para UM cadastro só: é o
+     * "A nova pasta será vinculada ao mesmo cadastro" da Nova Pasta (desenho 03, L276). Nome sem cadastro, ou
+     * com dois cadastros diferentes (homônimos), fica de fora: a pasta nova não tem a quem se ligar sem
+     * adivinhar. Casa pelo identificador da pasta em maiúsculas; o cadastro considerado é o principal.
+     *
+     * @param list<string> $nomes
+     *
+     * @return array<string, int> nome em maiúsculas => id do cliente
+     */
+    public function cadastroUnicoPorNomeDeCliente(array $nomes, Tenant $tenant): array
+    {
+        $nomes = array_values(array_unique(array_filter(array_map(
+            static fn (string $n): string => mb_strtoupper(trim($n)),
+            $nomes,
+        ), static fn (string $n): bool => $n !== '')));
+        if ($nomes === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('p')
+            ->select('UPPER(p.nomeCliente) AS nome', 'MIN(c.id) AS cliente')
+            ->join('p.clientePrincipal', 'c')
+            ->where('p.tenant = :tenant')
+            ->andWhere('c.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('UPPER(p.nomeCliente) IN (:nomes)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('nomes', $nomes)
+            ->groupBy('nome')
+            ->having('COUNT(DISTINCT c.id) = 1')
+            ->getQuery()
+            ->getArrayResult();
+
+        $cadastros = [];
+        foreach ($linhas as $l) {
+            $cadastros[(string) $l['nome']] = (int) $l['cliente'];
+        }
+
+        return $cadastros;
+    }
+
+    /**
      * Converte um valor 'Y-m-d' (input date do HTML) em DateTimeImmutable, ou null
      * se vazio/ inválido. Para a borda final ('data_ate') usa o fim do dia (23:59:59)
      * para o intervalo ser inclusivo.

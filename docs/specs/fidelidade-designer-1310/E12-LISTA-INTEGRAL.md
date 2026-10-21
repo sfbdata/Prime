@@ -159,7 +159,7 @@ ainda precisa do smoke do dono** (a suíte não vê cor, fonte nem posição fin
 | 12 | Excluir com a janela de alerta | ✓ (texto "ficam sem este marcador": a pasta pode ter outros) |
 | 13 | Título da barra = filtro, marcador ou "Acervo geral"; clique volta ao início | ✓ |
 | 14 | Nova Pasta 520px, arrasta, "PASTA {próximo}", cliente obrigatório, sugestões | ✓ |
-| 15 | "A nova pasta será vinculada ao mesmo cadastro" | ≈ omitido: o sistema só grava o nome, a frase seria falsa |
+| 15 | "A nova pasta será vinculada ao mesmo cadastro" | ✓ (21/10): quando as pastas com aquele nome apontam para um cadastro só, a nova entra ligada a ele e o aviso traz a segunda frase. Sem cadastro ou com homônimos, só a primeira frase (a pasta nasce sem vínculo) |
 | 16 | Situação em menu com 5 opções e ponto pulsante | ✓ (marcar Suspenso/Cancelado é da tela da Pasta, fora) |
 | 17 | Responsável em menu com busca e avatar; Prioridade em menu (Normal, Alta, Urgente) | ✓ (avatar só com iniciais; o filtro não tem a foto) |
 | 18 | Limpar em ícone, só com filtro | ✓ (chip só para "Criado por", que vem do Dashboard e não tem campo) |

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
+use App\Cliente\Entity\Cliente;
 use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\CriarPastaDTO;
+use App\Pasta\Repository\PastaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 final class CriarPastaUseCase
@@ -15,6 +17,7 @@ final class CriarPastaUseCase
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly GerarNumeroDePasta $gerarNumero,
+        private readonly PastaRepository $pastaRepository,
     ) {}
 
     public function executar(CriarPastaDTO $dto, User $criadoPor, Tenant $tenant): Pasta
@@ -41,11 +44,27 @@ final class CriarPastaUseCase
             $pasta->setNomeAcao($dto->nomeAcao);
             $pasta->setCriadoPor($criadoPor);
             $pasta->setTenant($tenant);
+            $this->vincularAoCadastroDoMesmoNome($pasta, $dto, $tenant);
 
             $this->em->persist($pasta);
             $this->em->flush();
 
             return $pasta;
         });
+    }
+
+    /** "Cliente já cadastrado em N pasta(s). A nova pasta será vinculada ao mesmo cadastro." (desenho 03, L276) */
+    private function vincularAoCadastroDoMesmoNome(Pasta $pasta, CriarPastaDTO $dto, Tenant $tenant): void
+    {
+        $nome = (string) $pasta->getNomeCliente();
+        if (!$dto->vincularAoCadastroDoMesmoNome || $nome === '') {
+            return;
+        }
+
+        $id = $this->pastaRepository->cadastroUnicoPorNomeDeCliente([$nome], $tenant)[$nome] ?? null;
+        $cliente = $id === null ? null : $this->em->find(Cliente::class, $id);
+        if ($cliente !== null) {
+            $pasta->addCliente($cliente);
+        }
     }
 }
