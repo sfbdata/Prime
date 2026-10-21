@@ -1,7 +1,7 @@
 # "Estados que faltam" clicáveis e a janela da OAB (desenho 05, Perfis 1.2 de 21/10/2026)
 
 Sessão b5. Risco BAIXO/MÉDIO: só o Master (`ROLE_SUPER_ADMIN`) vê e escreve; nada de escritório.
-Migration: número pedido à coordenação (bluejus-84) antes de criar.
+Migration: `Version20261020148800` (número dado pela coordenação, 21/10).
 
 Desenho: `docs/design/perfis-1.2/vs-21-10-26/05 - Perfis 1.2 - VS 21.10.26.dc.html`: lista dos que faltam L131-140,
 seletor de modos L134, tabela de UFs L118, janela da OAB L481-495. **O arquivo chegou truncado em 256 KiB:** os
