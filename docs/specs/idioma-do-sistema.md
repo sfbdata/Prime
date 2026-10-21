@@ -488,6 +488,9 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   `_filtro_paginacao` e a ficha da pessoa carregada por AJAX, de `cobranca/pessoa`); os JS externos
   `judicializar-buscar-pasta.js`, `objeto-linha-menu.js`, `pasta-arquivos.js` e `editor-rico.js` (têm texto) e
   `filtro-tabela.js` e `telefone-mascara.js` (sem texto, mas compartilhados com outras telas), que não entraram na guarda.
+- **JS externos (PR seguinte):** `objeto-linha-menu.js` e `judicializar-buscar-pasta.js` leem `cobranca_objeto.js`
+  (o `catalogo_js` do `objeto/show`); `carteira-filtro-estado.js` lê `cobranca_carteira.js`, entregue no
+  `carteira/show` logo antes do script, que roda sem `defer`. Os três entram na guarda, com as teclas nos permitidos.
 
 ## 17. Extração do Financeiro da pasta (f6, 21/10)
 

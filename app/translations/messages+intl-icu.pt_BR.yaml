@@ -4483,6 +4483,10 @@ cobranca_objeto:
         upload:
             erro_enviar: Erro ao enviar o arquivo.
             erro_comunicacao: Erro de comunicação.
+        copiado: Copiado
+        copiar_falhou: Não foi possível copiar
+        pasta_escolhida: 'Pasta escolhida: {pasta}'
+        nenhuma_pasta: Nenhuma pasta encontrada.
 
 # ---- Cobrança: carteiras, painel, alertas e importação (cobranca/carteira, dashboard, alertas, importacao)
 cobranca_carteira:
@@ -4766,5 +4770,7 @@ cobranca_carteira:
         concluir: Concluir
         trocar_arquivo: Trocar arquivo
         confirmar: Confirmar importação
+    js:
+        estado: Estado
 
 # ---- fim
