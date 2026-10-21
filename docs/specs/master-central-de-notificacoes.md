@@ -20,12 +20,27 @@ Dono da frente: sessão b5. Migration reservada: `Version20261020146500`.
     da conta da sugestão (`executarComoConta`); setas de página só com mais de 50 (o desenho mostra só a primeira
     página); "1-50 de N" com hífen e "assunto · texto" (sem travessão); o placeholder sem e-mail diz "Ela chega como
     aviso na Central de quem enviou." (o desenho fala em Chat I.A, mas a D6 manda pela Central).
-  - Pendências: o tipo `central_master.resposta` cai no "Aviso" padrão de `TiposDeAvisoDaCentral` (não foi tocado);
-    "Respondida" não considera a resposta dada pela página do Contribua antes desta frente; cada leitor lê no máximo
-    5.000 mensagens (as mais antigas ficam de fora), e busca e paginação são em memória.
+  - Limite conhecido: cada leitor lê no máximo 5.000 mensagens (as mais antigas ficam de fora), e busca e paginação
+    são em memória.
+- 21/10, correções da revisão (F5):
+  - `TiposDeAvisoDaCentral` tem o tipo `central_master.resposta` ("Resposta do BlueJus"), antes do comentário do
+    suporte.
+  - A resposta dada pela página do Contribua conta como "Respondida" (`MensagemDaCentral::respondidaNaOrigem`) e
+    aparece no histórico ao abrir ("<nome> respondeu pela página do Contribua"). Antes de a Central gravar uma
+    resposta nova por cima na `Sugestao`, a antiga entra em `central_master_resposta` (canal `contribua`, com quem e
+    quando respondeu, `destino` nulo): a única cópia não se perde.
+  - Alerta de disparo alto (decisão do dono no #185, ressalva 2, opção b): aparece na Central como a origem
+    `alerta_indicacao`. O texto gravado ("Fulano enviou 35 convites em 24h") é mostrado no padrão "Fulano enviou 35
+    indicações nas últimas 24 horas", só na leitura; assunto "Disparo alto de indicações". A janela do alerta tem o
+    link "Abrir Indicações" (`/master#aba=painel&sec=ind`), onde o Master pausa a pessoa.
+  - Estado: a criação da linha é idempotente (`INSERT … ON CONFLICT DO NOTHING` e leitura), sem erro de chave única
+    na corrida. O e-mail do destino é aparado e vai em minúsculas antes de validar. Na janela aberta, a estrela só
+    muda depois que o servidor aceita.
 - Para o dono: retenção de `mensagem_suporte` (nome, e-mail, IP e navegador ficam para sempre e não entram em
   nenhuma purga); provedor de e-mail (`MAILER_DSN` está `null://null`, então a resposta por e-mail fica na fila
-  sem sair).
+  sem sair); duas respostas simultâneas à mesma mensagem geram dois e-mails (fica assim: o histórico compartilhado
+  mostra as duas); estado e respostas de suporte e alerta não têm escritório e ficam órfãos quando a origem some
+  (seguem a decisão de retenção acima).
 
 ## 1. Fontes
 

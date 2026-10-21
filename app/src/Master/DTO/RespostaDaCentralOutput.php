@@ -26,6 +26,15 @@ final class RespostaDaCentralOutput
         return new self($r->getTexto(), $r->getEm(), $r->getPorNome(), $minha, $r->getCanal());
     }
 
+    /** A resposta guardada só na origem (a da página do Contribua), ainda fora do histórico da Central. */
+    public static function daOrigem(RespostaNaOrigem $r, User $eu): self
+    {
+        $minha = $r->por !== null && $r->por->getId() === $eu->getId();
+        $nome = (string) ($r->por?->getFullName() ?: $r->por?->getEmail() ?: 'Master');
+
+        return new self($r->texto, $r->em, $nome, $minha, CentralMasterResposta::CANAL_CONTRIBUA);
+    }
+
     /** @return array<string, mixed> */
     public function emJson(): array
     {

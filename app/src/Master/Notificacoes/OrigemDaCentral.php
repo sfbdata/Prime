@@ -7,6 +7,7 @@ namespace App\Master\Notificacoes;
 use App\Entity\Auth\User;
 use App\Master\DTO\DestinoDaResposta;
 use App\Master\DTO\MensagemDaCentral;
+use App\Master\DTO\RespostaNaOrigem;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 
 /**
@@ -35,6 +36,12 @@ interface OrigemDaCentral
 
     /** Nulo = a origem não aceita resposta (D7) ou não há mais a quem responder. */
     public function destinoDaResposta(int $idOrigem): ?DestinoDaResposta;
+
+    /**
+     * A resposta que a própria origem guarda (a da página do Contribua, para a sugestão), para a Central mostrar e
+     * preservar no histórico antes de sobrescrever. Nulo na maioria.
+     */
+    public function respostaNaOrigem(int $idOrigem): ?RespostaNaOrigem;
 
     /** O que a própria origem guarda da resposta (D6), sem flush; nada, na maioria. */
     public function registrarResposta(int $idOrigem, string $texto, User $master): void;

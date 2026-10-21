@@ -79,7 +79,7 @@ final class CentralDeNotificacoesControllerTest extends JusPrimeWebTestCase
         $u = $porChave['suporte:' . $suporte->getId()];
         self::assertSame(['sup', 'Suporte', 'Não consigo entrar', 'visitante@exemplo.com · tela de login'], [$u['tipo'], $u['rotulo'], $u['assunto'], $u['escritorio']]);
         $a = $porChave['alerta_indicacao:' . $alerta->getId()];
-        self::assertSame(['alerta', 'Sistema BlueJus', 'Disparo alto de convites', false], [$a['tipo'], $a['de'], $a['assunto'], $a['podeResponder']]);
+        self::assertSame(['alerta', 'Sistema BlueJus', 'Disparo alto de indicações', $this->marca . ' enviou 30 indicações nas últimas 24 horas', false], [$a['tipo'], $a['de'], $a['assunto'], $a['texto'], $a['podeResponder']]);
         self::assertSame(50, $caixa['porPagina']);
         self::assertGreaterThanOrEqual(3, $caixa['abas']['nl']);
     }
@@ -180,6 +180,32 @@ final class CentralDeNotificacoesControllerTest extends JusPrimeWebTestCase
         self::assertSame(2, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM central_master_resposta WHERE origem = 'sugestao' AND id_origem = ?", [$sugestao->getId()]));
     }
 
+    #[TestDox('Sugestão já respondida pela página do Contribua: abrir mostra a resposta; responder pela Central a preserva no histórico')]
+    public function testRespostaDaPaginaDoContribua(): void
+    {
+        [$sugestao] = $this->semear();
+        $antigo = $this->usuario(['ROLE_SUPER_ADMIN'], 'Master Antigo');
+        $sugestao->alternarAtendimento('Resposta dada no Contribua.', $antigo);
+        $this->em->flush();
+        $this->entrarComoMaster();
+        $base = '/master/notificacoes/sugestao/' . $sugestao->getId();
+
+        self::assertTrue($this->item($this->listar('resp', $this->marca), 'sugestao:' . $sugestao->getId())['respondida'] ?? false);
+        $this->postar($base . '/abrir', []);
+        $historico = $this->json()['historico'];
+        self::assertSame([['Resposta dada no Contribua.', 'Master Antigo', 'contribua']], array_map(static fn (array $r): array => [$r['texto'], $r['porNome'], $r['canal']], $historico));
+
+        $this->postar($base . '/responder', ['texto' => 'Resposta nova pela Central.']);
+        self::assertResponseIsSuccessful();
+        $linhas = $this->conexao()->fetchAllAssociative("SELECT texto, canal, destino, por_id FROM central_master_resposta WHERE origem = 'sugestao' AND id_origem = ? ORDER BY em, id", [$sugestao->getId()]);
+        self::assertSame(['Resposta dada no Contribua.', 'contribua', null, $antigo->getId()], array_values($linhas[0]), 'a resposta antiga não se perde');
+        self::assertSame(['Resposta nova pela Central.', 'email'], [$linhas[1]['texto'], $linhas[1]['canal']]);
+        self::assertSame('Resposta nova pela Central.', $this->conexao()->fetchOne('SELECT resposta FROM contribua_sugestao WHERE id = ?', [$sugestao->getId()]));
+
+        $this->postar($base . '/abrir', []);
+        self::assertSame(['Resposta dada no Contribua.', 'Resposta nova pela Central.'], array_column($this->json()['historico'], 'texto'), 'sem repetir a antiga');
+    }
+
     #[TestDox('Sugestão de autor sem e-mail válido: aviso na Central do autor, no escritório da sugestão, sem e-mail')]
     public function testResponderSugestaoSemEmail(): void
     {
@@ -258,6 +284,8 @@ final class CentralDeNotificacoesControllerTest extends JusPrimeWebTestCase
         self::assertSame('para Master do Sistema', trim($nf->filter('.nf > .nf-ver .nf-ver-janela .nf-ver-para')->text()));
         self::assertStringContainsString('Enviar resposta', $nf->filter('.nf-ver-janela .nf-resp button[data-nf-enviar]')->text());
         self::assertCount(1, $crawler->filter('script[src*="js/master/notificacoes.js"]'));
+        $ir = $nf->filter('.nf-ver-janela .nf-ver-quem > a[data-nf-ir-ind]');
+        self::assertSame(['Abrir Indicações', '/master#aba=painel&sec=ind'], [trim($ir->text()), $ir->attr('href')], 'o alerta leva à seção Indicações');
     }
 
     /** @return array{Sugestao, MensagemSuporte, IndicacaoAlerta} */
@@ -266,7 +294,7 @@ final class CentralDeNotificacoesControllerTest extends JusPrimeWebTestCase
         $autor = $this->usuario(['ROLE_USER'], 'Bia Autora', 'bia_' . $this->marca . '@exemplo.com');
         $sugestao = new Sugestao($this->outroEscritorio, $autor, 'Bia Autora', TipoDeSugestao::Problema, 'A tela de prazos demora ' . $this->marca);
         $suporte = new MensagemSuporte('Visitante', 'visitante@exemplo.com', 'Não consigo entrar', 'Perdi o acesso ' . $this->marca, '127.0.0.1');
-        $alerta = new IndicacaoAlerta($autor, 'Disparo alto de convites: ' . $this->marca . ' enviou 30', new \DateTimeImmutable());
+        $alerta = new IndicacaoAlerta($autor, $this->marca . ' enviou 30 convites em 24h', new \DateTimeImmutable());
         foreach ([$sugestao, $suporte, $alerta] as $entidade) {
             $this->em->persist($entidade);
         }

@@ -136,13 +136,13 @@
 
   const itemDa = chave => (S.dados ? S.dados.itens.find(m => m.chave === chave) : null);
 
+  // Resolve true quando o servidor aceitou a marcação; false quando nem houve POST ou ele recusou.
   function marcar(acao, chaves) {
-    if (S.ocupado || !chaves.length) return Promise.resolve();
+    if (S.ocupado || !chaves.length) return Promise.resolve(false);
     S.ocupado = true;
     return postar(URL_MARCAR, { acao, chaves })
-      .then(() => carregar())
-      .catch(e => avisar(e.message))
-      .finally(() => { S.ocupado = false; });
+      .then(() => { S.ocupado = false; carregar(); return true; })
+      .catch(e => { S.ocupado = false; avisar(e.message); return false; });
   }
 
   /* ---------- mensagem aberta ---------- */
@@ -160,6 +160,7 @@
     $('[data-nf-ver-ini]').textContent = iniciais(m.de);
     $('[data-nf-ver-de]').textContent = deCompleto(m);
     $('[data-nf-ver-txt]').textContent = m.texto;
+    $('[data-nf-ir-ind]').hidden = m.tipo !== 'alerta';
     $('[data-nf-est-um-ic]').className = 'bi ' + (m.estrela ? 'bi-star-fill' : 'bi-star');
     $('[data-nf-arq-um]').title = m.arquivada ? 'Desarquivar' : 'Arquivar';
     $('[data-nf-arq-um]').setAttribute('aria-label', m.arquivada ? 'Desarquivar' : 'Arquivar');
@@ -179,11 +180,17 @@
     h.replaceChildren(...historico.map(r => {
       const item = el('div', 'nf-hist-item');
       const corpo = el('span', 'nf-hist-corpo');
-      corpo.append(el('b', 'nf-hist-quem', r.minha ? 'Você respondeu' : r.porNome + ' respondeu'), el('span', 'nf-hist-em', ' · ' + dataHora(r.em)), el('div', 'nf-hist-txt', r.texto));
+      corpo.append(el('b', 'nf-hist-quem', quemRespondeu(r)), el('span', 'nf-hist-em', ' · ' + dataHora(r.em)), el('div', 'nf-hist-txt', r.texto));
       item.append(icone('bi-reply-fill nf-hist-ic'), corpo);
       return item;
     }));
     h.hidden = historico.length === 0;
+  }
+
+  // A resposta dada antes pela página do Contribua vem com o canal `contribua`.
+  function quemRespondeu(r) {
+    if (r.canal === 'contribua') return r.porNome + ' respondeu pela página do Contribua';
+    return r.minha ? 'Você respondeu' : r.porNome + ' respondeu';
   }
 
   function fecharVer() { S.ver = null; elVer.hidden = true; $('[data-nf-resp-txt]').value = ''; }
@@ -201,7 +208,7 @@
         S.ver.mensagem.respondida = true;
         txt.value = '';
         desenharHistorico(S.ver.historico);
-        mostrarNaResposta(r.canal === 'email' ? 'Resposta enviada por e-mail.' : 'Resposta enviada como aviso na Central.');
+        mostrarNaResposta(r.canal === 'email' ? 'Resposta registrada e enviada para a fila de e-mail.' : 'Resposta registrada e enviada como aviso na Central.');
         carregar();
       })
       .catch(e => mostrarNaResposta(e.message))
@@ -263,9 +270,21 @@
   $('[data-nf-est-um]').addEventListener('click', () => {
     if (!S.ver) return;
     const m = S.ver.mensagem;
-    m.estrela = !m.estrela;
-    $('[data-nf-est-um-ic]').className = 'bi ' + (m.estrela ? 'bi-star-fill' : 'bi-star');
-    marcar(m.estrela ? 'estrela' : 'sem_estrela', [m.chave]);
+    const nova = !m.estrela;
+    marcar(nova ? 'estrela' : 'sem_estrela', [m.chave]).then(ok => {
+      if (!ok || !S.ver || S.ver.mensagem !== m) return;
+      m.estrela = nova;
+      $('[data-nf-est-um-ic]').className = 'bi ' + (nova ? 'bi-star-fill' : 'bi-star');
+    });
+  });
+  // "Abrir Indicações": já no painel, troca a seção pelo botão dela (o painel.js lê o hash só ao carregar).
+  $('[data-nf-ir-ind]').addEventListener('click', e => {
+    const botao = document.querySelector('#mp-secs [data-sec="ind"]');
+    if (!botao) return;
+    e.preventDefault();
+    fecharVer();
+    history.replaceState(null, '', e.currentTarget.getAttribute('href'));
+    botao.click();
   });
   $('[data-nf-enviar]').addEventListener('click', responder);
 

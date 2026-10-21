@@ -9,6 +9,7 @@ use App\Auth\Repository\MensagemSuporteRepository;
 use App\Entity\Auth\User;
 use App\Master\DTO\DestinoDaResposta;
 use App\Master\DTO\MensagemDaCentral;
+use App\Master\DTO\RespostaNaOrigem;
 
 /**
  * Origem `suporte`: o "Falar com suporte" da tela de entrada (`origem = login`, "Suporte") e qualquer outra porta
@@ -46,6 +47,11 @@ final class LeitorDeSuporte implements OrigemDaCentral
         $mensagem = $this->mensagens->find($idOrigem);
 
         return $mensagem instanceof MensagemSuporte ? new DestinoDaResposta($mensagem->getEmail()) : null;
+    }
+
+    public function respostaNaOrigem(int $idOrigem): ?RespostaNaOrigem
+    {
+        return null;
     }
 
     public function registrarResposta(int $idOrigem, string $texto, User $master): void

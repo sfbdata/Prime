@@ -14,7 +14,8 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * O texto fica aqui (o conteúdo do envio no Comercial é apagado depois de enviado). `canal` diz por onde foi:
  * `email` (pelo Carteiro, `envio_id` aponta para `comercial_envio`) ou `central` (aviso no sino de quem escreveu).
- * `destino` é o e-mail usado ou o id do usuário avisado.
+ * `destino` é o e-mail usado ou o id do usuário avisado. `contribua` é a resposta que já estava na página do
+ * Contribua, guardada aqui antes de a Central gravar outra por cima na sugestão (sem destino).
  *
  * NÃO é TenantAware (D3); `tenant_id` é o escritório da origem, só para a purga. Fora da auditoria: o `audit_log`
  * gravaria o texto no escritório da SESSÃO do Master.
@@ -28,6 +29,8 @@ class CentralMasterResposta
 {
     public const CANAL_EMAIL = 'email';
     public const CANAL_CENTRAL = 'central';
+    /** A resposta que já estava na página do Contribua, preservada antes de a Central gravar uma nova por cima. */
+    public const CANAL_CONTRIBUA = 'contribua';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -54,8 +57,8 @@ class CentralMasterResposta
         private ?User $por,
         #[ORM\Column(length: 10)]
         private string $canal,
-        #[ORM\Column(length: 180)]
-        private string $destino,
+        #[ORM\Column(length: 180, nullable: true)]
+        private ?string $destino,
         #[ORM\Column(name: 'envio_id', type: 'integer', nullable: true)]
         private ?int $envioId = null,
         ?\DateTimeImmutable $em = null,
@@ -64,11 +67,11 @@ class CentralMasterResposta
         if ($this->texto === '') {
             throw new \DomainException('Escreva a resposta.');
         }
-        if (!in_array($canal, [self::CANAL_EMAIL, self::CANAL_CENTRAL], true)) {
+        if (!in_array($canal, [self::CANAL_EMAIL, self::CANAL_CENTRAL, self::CANAL_CONTRIBUA], true)) {
             throw new \DomainException('Canal de resposta inválido.');
         }
         $this->porNome = mb_substr((string) ($por?->getFullName() ?: $por?->getEmail() ?: 'Master'), 0, 180);
-        $this->destino = mb_substr($destino, 0, 180);
+        $this->destino = $destino === null ? null : mb_substr($destino, 0, 180);
         $this->em = $em ?? new \DateTimeImmutable();
     }
 
@@ -122,7 +125,7 @@ class CentralMasterResposta
         return $this->envioId;
     }
 
-    public function getDestino(): string
+    public function getDestino(): ?string
     {
         return $this->destino;
     }

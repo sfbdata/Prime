@@ -6,29 +6,35 @@ namespace App\Tests\Master\Unit\Central;
 
 use App\Master\DTO\DestinoDaResposta;
 use App\Master\DTO\MensagemDaCentral;
+use App\Master\DTO\RespostaNaOrigem;
 use App\Master\Notificacoes\OrigemDaCentral;
 use App\Entity\Auth\User;
 
 /** Mensagens e uma origem em memória para os testes da Central do Master (sem banco). */
 final class MensagensDeTeste
 {
-    public static function mensagem(string $origem, int $id, string $em = '2026-10-20 10:00', bool $podeResponder = true, ?string $email = 'ana@exemplo.com', ?int $tenantId = 7, string $texto = 'Texto da mensagem'): MensagemDaCentral
+    public static function mensagem(string $origem, int $id, string $em = '2026-10-20 10:00', bool $podeResponder = true, ?string $email = 'ana@exemplo.com', ?int $tenantId = 7, string $texto = 'Texto da mensagem', bool $respondidaNaOrigem = false): MensagemDaCentral
     {
-        return new MensagemDaCentral($origem, $id, 'sug', 'Sugestão', 'Ana Lima', $email, 'Conta Nº 000007', $tenantId, 'Sugestão', $texto, new \DateTimeImmutable($em), $podeResponder);
+        return new MensagemDaCentral($origem, $id, 'sug', 'Sugestão', 'Ana Lima', $email, 'Conta Nº 000007', $tenantId, 'Sugestão', $texto, new \DateTimeImmutable($em), $podeResponder, $respondidaNaOrigem);
     }
 
     /**
      * @param list<MensagemDaCentral> $mensagens
      */
-    public static function origem(string $chave, array $mensagens, ?DestinoDaResposta $destino = null): OrigemDaCentral
+    public static function origem(string $chave, array $mensagens, ?DestinoDaResposta $destino = null, ?RespostaNaOrigem $naOrigem = null): OrigemDaCentral
     {
-        return new class ($chave, $mensagens, $destino) implements OrigemDaCentral {
+        return new class ($chave, $mensagens, $destino, $naOrigem) implements OrigemDaCentral {
             /** @var list<array{int, string}> */
             public array $registradas = [];
 
             /** @param list<MensagemDaCentral> $mensagens */
-            public function __construct(private string $chave, private array $mensagens, private ?DestinoDaResposta $destino)
+            public function __construct(private string $chave, private array $mensagens, private ?DestinoDaResposta $destino, private ?RespostaNaOrigem $naOrigem)
             {
+            }
+
+            public function respostaNaOrigem(int $idOrigem): ?RespostaNaOrigem
+            {
+                return $this->naOrigem;
             }
 
             public function origem(): string

@@ -13,11 +13,15 @@ use App\Entity\Tenant\Tenant;
  */
 final class DestinoDaResposta
 {
+    /** Aparado e em minúsculas, como a {@see \App\Comercial\Envio\MensagemDeEmail::normalizar()}. */
+    public readonly ?string $email;
+
     public function __construct(
-        public readonly ?string $email,
+        ?string $email,
         public readonly ?User $usuario = null,
         public readonly ?Tenant $escritorio = null,
     ) {
+        $this->email = $email === null ? null : mb_strtolower(trim($email));
     }
 
     public function porEmail(): bool

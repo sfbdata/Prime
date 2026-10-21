@@ -90,6 +90,7 @@ final class ResponderNaCentralUseCase
 
     private function entregarERegistrar(OrigemDaCentral $leitor, MensagemDaCentral $m, DestinoDaResposta $destino, string $texto, User $master): CentralMasterResposta
     {
+        $this->preservarRespostaDaOrigem($leitor, $m);
         $resposta = $destino->porEmail()
             ? $this->porEmail($m, (string) $destino->email, $destino, $texto, $master)
             : $this->pelaCentral($m, $destino, $texto, $master);
@@ -97,6 +98,23 @@ final class ResponderNaCentralUseCase
         $this->respostas->salvar($resposta, flush: true);
 
         return $resposta;
+    }
+
+    /**
+     * A resposta dada antes pela página do Contribua só existe na sugestão, e o `registrarResposta` vai sobrescrevê-la:
+     * antes, ela entra no histórico da Central (canal `contribua`, com quem e quando respondeu, sem destino).
+     */
+    private function preservarRespostaDaOrigem(OrigemDaCentral $leitor, MensagemDaCentral $m): void
+    {
+        $naOrigem = $leitor->respostaNaOrigem($m->idOrigem);
+        if ($naOrigem === null) {
+            return;
+        }
+        $textos = array_map(static fn (CentralMasterResposta $r): string => $r->getTexto(), $this->respostas->daMensagem($m->origem, $m->idOrigem));
+        if (in_array($naOrigem->texto, $textos, true)) {
+            return;
+        }
+        $this->respostas->salvar(new CentralMasterResposta($m->origem, $m->idOrigem, $m->tenantId, $naOrigem->texto, $naOrigem->por, CentralMasterResposta::CANAL_CONTRIBUA, null, null, $naOrigem->em));
     }
 
     private function porEmail(MensagemDaCentral $m, string $email, DestinoDaResposta $destino, string $texto, User $master): CentralMasterResposta

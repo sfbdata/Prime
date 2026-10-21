@@ -50,11 +50,25 @@ class CentralMasterEstadoRepository extends ServiceEntityRepository
         return $this->findOneBy(['master' => $master, 'origem' => $origem, 'idOrigem' => $idOrigem]);
     }
 
-    /** A linha deste Master para a mensagem; nova (ainda não gravada) na primeira marcação. */
+    /**
+     * A linha deste Master para a mensagem, criada na primeira marcação. Duas abas do mesmo Master podem marcar ao
+     * mesmo tempo: a criação é idempotente (`INSERT … ON CONFLICT DO NOTHING` na chave única) seguida de leitura, então
+     * a corrida nunca vira erro de chave única nem fecha o EntityManager.
+     */
     public function daMensagemOuNova(User $master, MensagemDaCentral $mensagem): CentralMasterEstado
     {
+        $existente = $this->daMensagem($master, $mensagem->origem, $mensagem->idOrigem);
+        if ($existente !== null) {
+            return $existente;
+        }
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'INSERT INTO central_master_estado (master_id, origem, id_origem, tenant_id, estrela) VALUES (:master, :origem, :id, :tenant, false)'
+            . ' ON CONFLICT (master_id, origem, id_origem) DO NOTHING',
+            ['master' => $master->getId(), 'origem' => $mensagem->origem, 'id' => $mensagem->idOrigem, 'tenant' => $mensagem->tenantId],
+        );
+
         return $this->daMensagem($master, $mensagem->origem, $mensagem->idOrigem)
-            ?? new CentralMasterEstado($master, $mensagem->origem, $mensagem->idOrigem, $mensagem->tenantId);
+            ?? throw new \RuntimeException('Estado da Central não foi gravado.');
     }
 
     public function salvar(CentralMasterEstado $estado, bool $flush = false): void

@@ -12,6 +12,7 @@ use App\Entity\Auth\User;
 use App\Entity\Notificacao;
 use App\Entity\Tenant\Tenant;
 use App\Master\DTO\DestinoDaResposta;
+use App\Master\DTO\RespostaNaOrigem;
 use App\Master\Entity\CentralMasterResposta;
 use App\Master\Exception\RespostaRecusada;
 use App\Master\Notificacoes\OrigemDaCentral;
@@ -51,6 +52,33 @@ final class ResponderNaCentralUseCaseTest extends TestCase
         self::assertCount(1, $this->salvas);
         self::assertSame([42, 'ana@exemplo.com', 7, 'Obrigado <b>pela</b> ideia'], [$this->salvas[0]->getEnvioId(), $this->salvas[0]->getDestino(), $this->salvas[0]->getTenantId(), $this->salvas[0]->getTexto()]);
         self::assertSame([[1, 'Obrigado <b>pela</b> ideia']], $origem->registradas);
+    }
+
+    #[TestDox('Responder pela Central preserva antes, no histórico (canal contribua), a resposta que só existia na página do Contribua')]
+    public function testPreservaARespostaDoContribua(): void
+    {
+        $antigo = (new User())->setFullName('Master Antigo')->setEmail('antigo@exemplo.com');
+        $carteiro = $this->createStub(CarteiroInterface::class);
+        $carteiro->method('enviar')->willReturn(new ResultadoDoEnvio(9, ResultadoDoEnvio::ENFILEIRADO));
+        $naOrigem = new RespostaNaOrigem('Resposta antiga do Contribua', $antigo, new \DateTimeImmutable('2026-10-01 09:00'));
+        $origem = MensagensDeTeste::origem('sugestao', [MensagensDeTeste::mensagem('sugestao', 1, respondidaNaOrigem: true)], new DestinoDaResposta('ana@exemplo.com'), $naOrigem);
+
+        $this->useCase($origem, $carteiro)->executar($this->master(), 'sugestao', 1, 'Resposta nova');
+
+        self::assertCount(2, $this->salvas);
+        $preservada = $this->salvas[0];
+        self::assertSame(['Resposta antiga do Contribua', 'contribua', null, null, 'Master Antigo', '2026-10-01 09:00'], [$preservada->getTexto(), $preservada->getCanal(), $preservada->getDestino(), $preservada->getEnvioId(), $preservada->getPorNome(), $preservada->getEm()->format('Y-m-d H:i')]);
+        self::assertSame('Resposta nova', $this->salvas[1]->getTexto());
+        self::assertSame([[1, 'Resposta nova']], $origem->registradas, 'a origem só é sobrescrita depois de preservada');
+    }
+
+    #[TestDox('O e-mail do destino é aparado e vai em minúsculas antes de validar')]
+    public function testEmailNormalizado(): void
+    {
+        $destino = new DestinoDaResposta('  Ana@Exemplo.COM ');
+
+        self::assertSame('ana@exemplo.com', $destino->email);
+        self::assertTrue($destino->porEmail());
     }
 
     #[TestDox('Sem e-mail válido: aviso na Central do autor, no escritório da origem, e nada no Carteiro')]

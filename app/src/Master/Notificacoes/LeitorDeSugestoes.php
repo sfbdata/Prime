@@ -11,6 +11,7 @@ use App\Contribua\Service\VisaoDoMaster;
 use App\Entity\Auth\User;
 use App\Master\DTO\DestinoDaResposta;
 use App\Master\DTO\MensagemDaCentral;
+use App\Master\DTO\RespostaNaOrigem;
 use App\Repository\UserRepository;
 use Doctrine\ORM\QueryBuilder;
 
@@ -67,6 +68,20 @@ final class LeitorDeSugestoes implements OrigemDaCentral
         return $autor instanceof User ? new DestinoDaResposta($autor->getEmail(), $autor, $sugestao->getTenant()) : null;
     }
 
+    /** A resposta que a página do Contribua gravou na sugestão (texto, quem e quando), se houver. */
+    public function respostaNaOrigem(int $idOrigem): ?RespostaNaOrigem
+    {
+        $linha = $this->linha($idOrigem);
+        $texto = is_string($linha['resposta'] ?? null) ? trim($linha['resposta']) : '';
+        if ($linha === null || $texto === '') {
+            return null;
+        }
+        $por = $linha['respondidaPorId'] === null ? null : $this->usuarios->find((int) $linha['respondidaPorId']);
+        $em = $linha['respondidaEm'] instanceof \DateTimeImmutable ? $linha['respondidaEm'] : $linha['criadaEm'];
+
+        return new RespostaNaOrigem($texto, $por instanceof User ? $por : null, $em instanceof \DateTimeImmutable ? $em : new \DateTimeImmutable());
+    }
+
     /**
      * Grava a resposta na própria sugestão pela API dela (`alternarAtendimento`), como o desenho (`g.resp`): já
      * atendida, reabre e atende de novo, para a resposta nova valer com o Master e a data de agora.
@@ -89,6 +104,7 @@ final class LeitorDeSugestoes implements OrigemDaCentral
         return $this->sugestoes->createQueryBuilder('s')
             ->select('s.id AS id', 's.tipo AS tipo', 's.autorNome AS autorNome', 's.texto AS texto', 's.criadaEm AS criadaEm', 's.resposta AS resposta')
             ->addSelect('IDENTITY(s.tenant) AS tenantId', 'a.id AS autorId', 'a.email AS autorEmail')
+            ->addSelect('s.respondidaEm AS respondidaEm', 'IDENTITY(s.respondidaPor) AS respondidaPorId')
             ->leftJoin('s.autor', 'a');
     }
 

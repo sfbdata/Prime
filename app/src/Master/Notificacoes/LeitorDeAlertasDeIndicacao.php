@@ -9,14 +9,20 @@ use App\Indicacao\Entity\IndicacaoAlerta;
 use App\Indicacao\Repository\IndicacaoAlertaRepository;
 use App\Master\DTO\DestinoDaResposta;
 use App\Master\DTO\MensagemDaCentral;
+use App\Master\DTO\RespostaNaOrigem;
 
 /**
- * Origem `alerta_indicacao`: o "Disparo alto de convites" do Indicar o BlueJus. Vem do "Sistema BlueJus" e não
- * aceita resposta (D7): o assunto é o texto até os dois-pontos, como no desenho.
+ * Origem `alerta_indicacao`: o "Disparo alto" do Indicar o BlueJus (decisão do dono no #185: o alerta aparece aqui).
+ * Vem do "Sistema BlueJus" e não aceita resposta (D7); a janela leva à seção Indicações, onde o Master pausa a pessoa.
+ *
+ * A gravação (`RegistroDeIndicacao`) guarda "Fulano enviou 35 convites em 24h"; a Central mostra no padrão pedido pelo
+ * dono, "Fulano enviou 35 indicações nas últimas 24 horas", sem mudar o que está gravado. Texto fora desse formato
+ * aparece como foi gravado.
  */
 final class LeitorDeAlertasDeIndicacao implements OrigemDaCentral
 {
     public const ORIGEM = 'alerta_indicacao';
+    public const ASSUNTO = 'Disparo alto de indicações';
 
     public function __construct(
         private readonly IndicacaoAlertaRepository $alertas,
@@ -45,9 +51,23 @@ final class LeitorDeAlertasDeIndicacao implements OrigemDaCentral
         return null;
     }
 
+    public function respostaNaOrigem(int $idOrigem): ?RespostaNaOrigem
+    {
+        return null;
+    }
+
     public function registrarResposta(int $idOrigem, string $texto, User $master): void
     {
         throw new \DomainException('Alerta não aceita resposta.');
+    }
+
+    public static function textoDoAlerta(string $gravado): string
+    {
+        if (preg_match('/^(.+) enviou (\d+) convites em 24h$/u', trim($gravado), $m) !== 1) {
+            return $gravado;
+        }
+
+        return sprintf('%s enviou %d %s nas últimas 24 horas', $m[1], (int) $m[2], (int) $m[2] === 1 ? 'indicação' : 'indicações');
     }
 
     private function emMensagem(IndicacaoAlerta $a): MensagemDaCentral
@@ -61,8 +81,8 @@ final class LeitorDeAlertasDeIndicacao implements OrigemDaCentral
             deEmail: null,
             escritorio: '',
             tenantId: null,
-            assunto: trim(explode(':', $a->getTexto())[0]),
-            texto: $a->getTexto(),
+            assunto: self::ASSUNTO,
+            texto: self::textoDoAlerta($a->getTexto()),
             em: $a->getEm(),
             podeResponder: false,
         );
