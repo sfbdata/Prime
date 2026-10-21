@@ -301,6 +301,28 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         self::assertArrayNotHasKey('aviso', json_decode((string) $client->getResponse()->getContent(), true));
     }
 
+    #[TestDox('a2 e escritório: o mesmo número em OUTRO escritório não conta; nasce um processo novo aqui, sem aviso, e o alheio não é vinculado')]
+    public function testMesmoNumeroEmOutroEscritorioNaoConta(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        [, $outroTenant] = $this->criarUsuarioAdmin();
+        $alheio          = $this->criarProcesso($outroTenant, '12345678920241234567');
+        $this->autenticar($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/processo/vincular", ['_token' => $this->gerarCsrf('vincular_processo_' . $pasta->getId()), 'numeroProcesso' => '1234567-89.2024.1.23.4567', ...self::OBRIGATORIOS], [], self::XHR);
+
+        self::assertResponseIsSuccessful();
+        self::assertArrayNotHasKey('aviso', json_decode((string) $client->getResponse()->getContent(), true));
+        $conn = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        $novo = $conn->fetchOne("SELECT id FROM processo WHERE numero_processo = '12345678920241234567' AND tenant_id = :t", ['t' => $tenant->getId()]);
+        self::assertNotFalse($novo, 'nasce um processo no escritório da sessão');
+        self::assertNotSame($alheio->getId(), (int) $novo);
+        self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM pasta_processo WHERE processo_id = :id', ['id' => $alheio->getId()]));
+    }
+
     #[TestDox('a1: "Buscar no CNJ" guarda a consulta no servidor; o cadastro aplica o que a janela não leva (assuntos, sigilo, formato, sistema, códigos, id, bruto) e a janela vence campo a campo')]
     public function testCadastroAplicaAConsultaDoCnjGuardada(): void
     {

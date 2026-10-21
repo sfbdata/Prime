@@ -3611,7 +3611,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 // segredo ou arquivado), que ajuda a achar número mal digitado.
                 feedbackEl.textContent = response.status === 404
                     ? 'Processo não localizado no CNJ/diário. Preencha os dados manualmente.' + (data.error ? ' ' + data.error : '')
-                    : (data.error || 'Erro ao buscar processo no CNJ/DataJud.');
+                    : (data.error || data.erro || data.mensagem || 'Erro ao buscar processo no CNJ/DataJud.'); // erro/mensagem: barreiras da pasta
                 return;
             }
 

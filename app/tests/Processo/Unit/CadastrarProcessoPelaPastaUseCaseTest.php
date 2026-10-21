@@ -122,6 +122,26 @@ final class CadastrarProcessoPelaPastaUseCaseTest extends TestCase
         self::assertSame('VARA ANTIGA', $existente->getOrgaoJulgador());
     }
 
+    #[TestDox('número antigo fora do padrão CNJ que já existe no escritório continua sendo achado')]
+    public function testNumeroAntigoForaDoPadraoExistente(): void
+    {
+        $antigo = (new Processo())->setNumeroProcesso('2008123');
+        $this->repositorio->method('findByNumeroProcessoDoTenant')->with('2008123', $this->tenant)->willReturn($antigo);
+
+        $resultado = $this->useCase->executar(new CadastroDoProcessoInput('2008.123'), $this->tenant, $this->usuario);
+
+        self::assertTrue($resultado->jaExistia);
+        self::assertSame($antigo, $resultado->processo);
+    }
+
+    #[TestDox('a janela não tem a data de baixa: vazia, fica a do CNJ')]
+    public function testBaixaDoCnjFica(): void
+    {
+        $processo = $this->useCase->executar($this->input([]), $this->tenant, $this->usuario, ['dataBaixa' => '2023-01-10'])->processo;
+
+        self::assertSame('2023-01-10', $processo->getDataBaixa()?->format('Y-m-d'));
+    }
+
     /** @param array<string, mixed> $campos */
     #[DataProvider('recusas')]
     #[TestDox('recusa com a mensagem e nada é gravado: $mensagem')]
@@ -138,7 +158,7 @@ final class CadastrarProcessoPelaPastaUseCaseTest extends TestCase
     /** @return iterable<string, array{array<string, mixed>, string}> */
     public static function recusas(): iterable
     {
-        yield 'número incompleto' => [['numeroProcesso' => '1234567-89.2024'], 'Informe o número completo no formato NNNNNNN-DD.AAAA.J.TT.OOOO.'];
+        yield 'número incompleto, na lista do desenho' => [['numeroProcesso' => '1234567-89.2024', 'classeProcessual' => ''], 'Preencha: número do processo, classe processual.'];
         yield 'obrigatórios em falta' => [['orgaoJulgador' => '', 'assuntoProcessual' => ''], 'Preencha: órgão julgador, assunto processual.'];
         yield 'situação fora das opções' => [['situacaoProcesso' => 'QUALQUER'], 'Situação do processo inválida.'];
         yield 'instância fora das opções' => [['instancia' => 'G9'], 'Instância inválida.'];

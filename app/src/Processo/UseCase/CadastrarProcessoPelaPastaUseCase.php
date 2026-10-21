@@ -23,11 +23,12 @@ use App\Processo\Service\TribunalCnjResolver;
  *
  * Quem: usuário com EDIT na pasta (o controller confere). O quê: criar o processo que vai ser vinculado,
  * com os dados que a janela mostrou. Regras do desenho: número completo no padrão CNJ e órgão julgador,
- * classe e assunto obrigatórios ("Preencha: ..."). Situação e instância só nas opções da janela (vazio vira
+ * classe e assunto obrigatórios, na mesma lista do "Preencha: ...". Situação e instância só nas opções da janela (vazio vira
  * "Em andamento" e "G1"); datas válidas; os limites das colunas viram mensagem, não erro de banco.
  * Linha de parte sem nome e de movimentação sem descrição é ignorada, como no desenho.
  *
- * Número que já existe no escritório: devolve o existente (`jaExistia`), sem aplicar nada do que foi digitado.
+ * Número que já existe no escritório (procurado antes da validação, para achar também o número antigo fora do
+ * padrão CNJ): devolve o existente (`jaExistia`), sem aplicar nada do que foi digitado.
  *
  * Com a consulta do CNJ guardada no servidor ({@see ConsultasDoCnjGuardadas}, nunca vinda do navegador), o
  * `DatajudProcessoMapper` entra primeiro e traz o que a janela não carrega (assuntos, sigilo, formato, sistema,
@@ -55,13 +56,14 @@ final class CadastrarProcessoPelaPastaUseCase
     /** @param array<mixed>|null $consultaDoCnj o `_source` guardado no servidor para este número, se houver */
     public function executar(CadastroDoProcessoInput $input, Tenant $tenant, User $usuario, ?array $consultaDoCnj = null): ProcessoDoCadastro
     {
-        $numero = $this->exigirNumeroCnj($input);
-        $existente = $this->processoRepository->findByNumeroProcessoDoTenant($numero, $tenant);
+        // Antes da validação: um processo antigo do escritório com número fora do padrão CNJ continua sendo achado.
+        $numero = $input->numeroSoDigitos();
+        $existente = $numero !== '' ? $this->processoRepository->findByNumeroProcessoDoTenant($numero, $tenant) : null;
         if ($existente !== null) {
             return new ProcessoDoCadastro($existente, true);
         }
 
-        $this->exigirObrigatorios($input);
+        $this->exigirObrigatorios($input, $numero);
         $processo = (new Processo())->setTenant($tenant);
         $movimentacoesDoCnj = $consultaDoCnj !== null ? $this->aplicarConsultaDoCnj($processo, $consultaDoCnj) : [];
         $this->aplicarDadosDaJanela($processo, $input, $numero, $tenant, $movimentacoesDoCnj);
@@ -71,19 +73,11 @@ final class CadastrarProcessoPelaPastaUseCase
         return new ProcessoDoCadastro($processo, false);
     }
 
-    private function exigirNumeroCnj(CadastroDoProcessoInput $input): string
-    {
-        $numero = $input->numeroSoDigitos();
-        if (strlen($numero) !== 20) {
-            throw new DadosDoProcessoInvalidosException('Informe o número completo no formato NNNNNNN-DD.AAAA.J.TT.OOOO.');
-        }
-
-        return $numero;
-    }
-
-    private function exigirObrigatorios(CadastroDoProcessoInput $input): void
+    /** Como o desenho (`procSalvarVinc`): o número fora do padrão CNJ entra na mesma lista do "Preencha:". */
+    private function exigirObrigatorios(CadastroDoProcessoInput $input, string $numero): void
     {
         $faltam = array_keys(array_filter([
+            'número do processo' => strlen($numero) === 20 ? 'ok' : '',
             'órgão julgador' => $input->orgaoJulgador,
             'classe processual' => $input->classeProcessual,
             'assunto processual' => $input->assuntoProcessual,
@@ -152,7 +146,10 @@ final class CadastrarProcessoPelaPastaUseCase
         }
 
         $processo->setDataDistribuicao($distribuicao);
-        $processo->setDataBaixa($baixa);
+        // A janela não tem a data de baixa: vazia, fica a do CNJ (ou nenhuma).
+        if ($baixa !== null) {
+            $processo->setDataBaixa($baixa);
+        }
     }
 
     /** @param list<array<string, string>> $linhas */

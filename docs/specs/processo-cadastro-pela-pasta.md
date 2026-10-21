@@ -16,8 +16,11 @@ Sessão 0d, 21/10/2026. Origem: vistoria da 5d no desenho "02 - EXPEDIENTES - VS
 
 ## a3: validação (desenho `procSalvarVinc`, L4538-4542)
 
-- Número completo no padrão CNJ (20 dígitos), senão "Informe o número completo no formato NNNNNNN-DD.AAAA.J.TT.OOOO.".
-- Órgão julgador, classe e assunto obrigatórios: "Preencha: <campos em falta>.".
+- Número completo no padrão CNJ (20 dígitos), órgão julgador, classe e assunto obrigatórios, numa lista só,
+  como o desenho: "Preencha: número do processo, órgão julgador, classe processual, assunto processual." (só os
+  que faltam).
+- O número existente é procurado antes da validação: o processo antigo com número fora do padrão continua
+  sendo achado (a2).
 - Situação e instância só nas opções da janela; vazio vira "Em andamento" e "G1".
 - Datas válidas (AAAA-MM-DD); baixa não anterior à distribuição.
 - Limites das colunas viram mensagem ("<Campo> passa de N caracteres."), não erro de banco.
@@ -37,7 +40,8 @@ com a chave presa a escritório, pessoa, sessão de login e número. O navegador
 (seriam forjáveis); campos como `datajudRaw`, `nivelSigilo` ou `assuntos` no corpo são ignorados.
 
 No cadastro, o `DatajudProcessoMapper` entra primeiro (assuntos, sigilo, formato, sistema, códigos, id do
-Datajud, bruto) e a janela vence campo a campo. Partes e movimentações são as da janela; a movimentação
+Datajud, bruto) e a janela vence campo a campo, nos campos que ela tem (a data de baixa, que a janela não
+tem, fica a do CNJ). Partes e movimentações são as da janela; a movimentação
 que veio igual do CNJ guarda os códigos e os complementos do Datajud.
 
 ## a4: "Buscar no CNJ" dentro da pasta (permissão, risco MÉDIO)
@@ -56,7 +60,8 @@ da pasta sem o módulo vê o botão e recebe 403.
   O atributo só nasce no servidor: a rota `/processos/api/search` não tem parâmetro de caminho nem
   padrão que o preencha, e query ou corpo não viram atributo.
 - Fora da pasta, nada muda: `/processos/api/search` continua exigindo o módulo.
-- A janela da pasta passa a chamar a rota nova.
+- A janela da pasta passa a chamar a rota nova, com `X-Requested-With`: a recusa das barreiras volta em JSON e a
+  janela mostra o motivo (`erro` ou `mensagem`).
 - O guardar da consulta (a1) segue o mesmo, na sessão de quem consultou.
 - Limite de uso: não há limitador hoje em nenhuma das duas rotas; continua igual (sem piora: a rota nova
   exige EDIT numa pasta do escritório).

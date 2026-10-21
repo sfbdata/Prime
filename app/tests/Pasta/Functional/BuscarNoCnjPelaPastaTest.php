@@ -17,6 +17,7 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * a4 (spec processo-cadastro-pela-pasta): o "Buscar no CNJ" da janela da pasta vale para quem pode vincular
@@ -40,8 +41,29 @@ final class BuscarNoCnjPelaPastaTest extends JusPrimeWebTestCase
         $this->client = static::createClient();
         $this->client->disableReboot();
         $datajud = $this->createMock(DatajudClient::class);
-        $datajud->method('searchByNumeroProcesso')->willReturn(['hits' => ['hits' => [['_source' => ['numeroProcesso' => '00012345620208260100', 'tribunal' => 'TJSP', 'classe' => ['codigo' => 7, 'nome' => 'Procedimento Comum Cível']]]]]]);
+        $datajud->method('searchByNumeroProcesso')->willReturn(['hits' => ['hits' => [['_source' => ['id' => 'TJSP_G1_00012345620208260100', 'numeroProcesso' => '00012345620208260100', 'tribunal' => 'TJSP', 'classe' => ['codigo' => 7, 'nome' => 'Procedimento Comum Cível']]]]]]);
         static::getContainer()->set(DatajudClient::class, $datajud);
+        // CSRF de teste: o storage devolve "TOKEN_<id>" (padrão dos testes funcionais da pasta).
+        static::getContainer()->set('security.csrf.token_storage', new class () implements ClearableTokenStorageInterface {
+            public function getToken(string $tokenId): string
+            {
+                return 'TOKEN_' . $tokenId;
+            }
+            public function setToken(string $tokenId, string $token): void
+            {
+            }
+            public function removeToken(string $tokenId): ?string
+            {
+                return null;
+            }
+            public function hasToken(string $tokenId): bool
+            {
+                return true;
+            }
+            public function clear(): void
+            {
+            }
+        });
     }
 
     #[TestDox('editor da pasta SEM o módulo de processos consulta pela pasta (200); a rota de /processos continua 403 para ele')]
@@ -60,6 +82,47 @@ final class BuscarNoCnjPelaPastaTest extends JusPrimeWebTestCase
 
         $this->buscarFora();
         self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('caminho da tela: o editor sem o módulo busca pela pasta e cadastra; o cadastro aplica a consulta guardada (id do Datajud)')]
+    public function testBuscaPelaPastaECadastraComAConsulta(): void
+    {
+        $tenant = $this->criarTenant();
+        $pasta = $this->criarPasta($tenant);
+        $editor = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'resources.pasta.edit']);
+        $this->logarComTenant($this->client, $editor, $tenant);
+
+        $this->buscarPelaPasta($pasta);
+        self::assertResponseIsSuccessful();
+        $this->client->request('POST', '/pasta/' . $pasta->getId() . '/processo/vincular', [
+            '_token' => 'TOKEN_vincular_processo_' . $pasta->getId(),
+            'numeroProcesso' => self::NUMERO,
+            'orgaoJulgador' => '1ª Vara Cível',
+            'classeProcessual' => 'Procedimento Comum Cível',
+            'assuntoProcessual' => 'Dano Moral',
+        ], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('TJSP_G1_00012345620208260100', $this->em()->getConnection()->fetchOne(
+            "SELECT datajud_id FROM processo WHERE numero_processo = '00012345620208260100' AND tenant_id = :t",
+            ['t' => $tenant->getId()],
+        ));
+    }
+
+    #[TestDox('pasta excluída (lápide): 403 com o motivo em JSON, que a janela mostra')]
+    public function testLapideRecusaComMotivo(): void
+    {
+        $tenant = $this->criarTenant();
+        $pasta = $this->criarPasta($tenant);
+        $editor = $this->criarUsuarioComPermissoes($tenant, ['resources.pasta.view', 'resources.pasta.edit']);
+        $pasta->marcarExcluida($editor, new \DateTimeImmutable());
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $editor, $tenant);
+
+        $this->buscarPelaPasta($pasta);
+
+        self::assertResponseStatusCodeSame(403);
+        self::assertNotSame('', (string) (json_decode((string) $this->client->getResponse()->getContent(), true)['mensagem'] ?? ''));
     }
 
     #[TestDox('o atributo da pasta não se forja: mandado na query ou no corpo de /processos/api/search, continua 403')]
