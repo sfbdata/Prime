@@ -944,7 +944,8 @@ Escrita depois da F3a, em cima do código dela; a 5d revisa.
 **Servidor:**
 - "Cadastrar e-mail": `CadastrarContatoDoMasterUseCase` (Comercial, só Master), que chama
   `ConfirmacaoDeEnderecoInterface::pedir(...)` para a lista `comercial_campanhas` (`ComposicaoDaCampanha::LISTA`): a
-  confirmação dupla da 1a, com os limitadores (e-mail, IP, global; descadastrado no máximo 1 pedido a cada 30 dias).
+  confirmação dupla da 1a, com os limitadores (e-mail, IP, global). Quem se descadastrou da lista NÃO recebe o pedido
+  por aqui, nem depois de 30 dias (LGPD, coordenação 21/10): conta à parte na resposta, sem o endereço.
   Origem "Cadastro manual (Master)", com o rótulo em `RotulosDoConsentimento`. Vários e-mails separados por vírgula,
   espaço ou ponto e vírgula; a resposta diz quantos pedidos saíram, quantos já existiam e quantos foram barrados, sem
   travessão. O texto do dc ("Só cadastre quem autorizou receber (LGPD)") aparece no campo.
@@ -968,6 +969,6 @@ página não se confundem (token, URLs, ids); a recusa no servidor (público, mo
 - Depois do #223, em PRs próprios (coordenação, 21/10): o Relatório na venda (9b, include no `_comercial.html.twig`
   dentro da raiz) e o botão "Descadastrados (N)" na venda (0d, o mesmo bloco movido para antes da Central do clique;
   `raiz.mcExtrasDoEnvio` para a confirmação de leitura).
-- Com o dono: o e-mail de confirmação diz "Este endereço foi informado pela equipe do BlueJus, em um cadastro manual.
-  Se não foi você, ignore este e-mail." (o "Se não foi você" não casa com o cadastro feito pela equipe); quem se
-  descadastrou volta a receber o pedido depois de 30 dias pelo cadastro do Master.
+- Coordenação, 21/10 (o dono pode rever): o descadastrado não recebe o pedido pelo cadastro do Master; no e-mail do
+  cadastro manual, a segunda frase é "Se não quiser receber, é só ignorar este e-mail." (as outras origens seguem com
+  "Se não foi você, ignore este e-mail.").
