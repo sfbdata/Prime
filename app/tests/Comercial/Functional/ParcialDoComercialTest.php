@@ -142,7 +142,7 @@ final class ParcialDoComercialTest extends KernelTestCase
         $quadro = $this->doc->filter('.mc-cp-lado > iframe.mc-cp-previa');
         self::assertSame(['', 'Prévia do e-mail'], [$quadro->attr('sandbox'), $quadro->attr('title')]);
         $barra = '.mc-cp-lado > .mc-cp-barra';
-        self::assertSame(['mc-cp-enviar-grupo', 'mc-cp-vao', 'mc-cp-icone', 'mc-cp-icone', 'mc-cp-icone', 'mc-cp-vao', 'mc-cp-lgpd', 'mc-cp-programar'], $this->doc->filter($barra . ' > *')->each(static fn (Crawler $c): string => (string) $c->attr('class')));
+        self::assertSame(['mc-cp-enviar-grupo', 'mc-cp-vao', 'mc-cp-icone', 'mc-cp-icone', 'mc-cp-icone', 'mc-cp-vao', 'mc-cp-leitura', 'mc-cp-lgpd', 'mc-cp-programar'], $this->doc->filter($barra . ' > *')->each(static fn (Crawler $c): string => (string) $c->attr('class')));
         self::assertSame(['Enviar'], $this->textos($barra . ' > .mc-cp-enviar-grupo > button[data-mc-cp-enviar]'));
         self::assertSame('Programar envio e frequência', $this->doc->filter($barra . ' > .mc-cp-enviar-grupo > button[data-mc-cp-mais]')->attr('title'));
         self::assertSame(['Ver como vai chegar', 'Enviar teste', 'Baixar HTML'], $this->doc->filter($barra . ' > .mc-cp-icone')->each(static fn (Crawler $c): string => (string) $c->attr('title')));

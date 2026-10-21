@@ -277,3 +277,11 @@
 .mc-cp-lead-add:hover, .mc-cp-lead-add:focus-visible { background: var(--mc-cp-sel-bg); }
 /* L259 `cmPubCols`: os 3 públicos da venda em 3 colunas (`repeat(3, minmax(0, 1fr))`). */
 .mc-cp-publicos.mc-cp-publicos-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* ── F3g (0d): chave "Confirmação de leitura" da barra de envio (dc L291 e L656). ── */
+.mc-cp-leitura { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: none; border-radius: 15px; background: #eef2f5; color: #7a8e9b; font: inherit; font-size: 12px; font-weight: bold; cursor: pointer; }
+.mc-cp-leitura .bi { font-size: 15px; }
+.mc-cp-leitura.is-ligada { background: #e5f1f7; color: #0a6fa0; }
+.mc-cp-leitura:disabled { cursor: not-allowed; }
+[data-bs-theme="dark"] .mc-cp-leitura { background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); }
+[data-bs-theme="dark"] .mc-cp-leitura.is-ligada { background: rgba(77, 163, 234, .16); color: #4da3ea; }

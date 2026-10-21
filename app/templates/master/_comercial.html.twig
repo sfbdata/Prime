@@ -46,10 +46,9 @@
             <i class="bi bi-megaphone mc-cp-cabeca-ic" aria-hidden="true"></i>
             <b class="mc-cabeca-titulo" id="{{ ids }}-cp-titulo">Central de envios · nova campanha</b>
             {# dc 21.10 L251: abre o bloco Descadastrados (F3c, do 0d) pelo evento `mc:descadastrados-abrir`; o N vem do `mc:resumo`.
-               F3h: o bloco Descadastrados mora na seção Comercial; no modo venda o botão fica de fora (ver o relatório da F3h). #}
-            {% if not venda %}
+               Nas duas seções (dc L251 é o mesmo cabeçalho): o bloco é um só, e o comercial-descadastrados.js o leva para
+               logo antes da Central de onde veio o clique. #}
             <button type="button" class="mc-cp-descad" data-mc-cp-descad title="E-mails que pediram para não receber"><i class="bi bi-slash-circle" aria-hidden="true"></i>Descadastrados (<span data-mc-cp-descad-n>0</span>)</button>
-            {% endif %}
             <span class="mc-cabeca-sub">convites, ofertas, agradecimentos e novidades · individual ou em grande escala</span>
         </div>
         <div class="mc-cp-grade">
@@ -181,6 +180,7 @@
                     <button type="button" class="mc-cp-icone" data-mc-cp-teste title="Enviar teste" aria-label="Enviar teste"><i class="bi bi-send-check" aria-hidden="true"></i></button>
                     <button type="button" class="mc-cp-icone" data-mc-cp-baixar title="Baixar HTML" aria-label="Baixar HTML"><i class="bi bi-download" aria-hidden="true"></i></button>
                     <span class="mc-cp-vao"></span>
+                    {{ include('master/_comercial_leitura.html.twig') }}
                     <span class="mc-cp-lgpd" tabindex="0" title="LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link 'Não quero mais receber', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam." aria-label="LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link 'Não quero mais receber', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam."><i class="bi bi-shield-check" aria-hidden="true"></i></span>
                     <div class="mc-cp-programar" id="{{ ids }}-cp-programar" data-mc-cp-programar data-sem-x="1" role="dialog" aria-label="Programar envio" hidden>
                         <div class="mc-cp-programar-rot">PROGRAMAR ENVIO</div>

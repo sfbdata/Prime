@@ -103,7 +103,26 @@
     if (aberto) { avisar(''); carregarLista(); }
   }
 
-  document.addEventListener('mc:descadastrados-abrir', () => mostrar(bloco.hidden));
+  /* O bloco é um só para as duas Centrais (seção Comercial e modo venda, F3h): aberto pelo botão de uma delas, vai
+     para logo antes dela (dc L245). O clique é anotado em captura, antes de o JS da Central disparar o evento. */
+  let origem = null;
+  document.addEventListener('click', e => {
+    const gatilho = e.target.closest && e.target.closest('[data-mc-cp-descad], [data-mc-kpi-abrir]');
+    if (gatilho) origem = gatilho.closest('.mc[data-modo]');
+  }, true);
+
+  function levarPara(secao) {
+    const central = secao ? secao.querySelector('[data-mc-campanha]') : null;
+    if (central && bloco.nextElementSibling !== central) central.parentNode.insertBefore(bloco, central);
+  }
+
+  document.addEventListener('mc:descadastrados-abrir', () => {
+    const destino = origem || raiz;
+    origem = null;
+    const outraSecao = !bloco.hidden && !destino.contains(bloco);
+    levarPara(destino);
+    mostrar(bloco.hidden || outraSecao);
+  });
   if (kpiAbrir) kpiAbrir.addEventListener('click', () => document.dispatchEvent(new CustomEvent('mc:descadastrados-abrir')));
   $('[data-mc-dsc-fechar]').addEventListener('click', () => mostrar(false));
   $('[data-mc-dsc-registrar]').addEventListener('click', registrar);
@@ -117,6 +136,7 @@
   });
 
   const painel = document.getElementById('master-painel');
-  if (painel) painel.addEventListener('mp:secao', e => { if (e.detail && e.detail.sec === 'com' && !resumoCarregado) carregarResumo(); });
-  if (/[#&]sec=com\b/.test(location.hash)) carregarResumo();
+  // O N do botão "Descadastrados" vem do resumo, nas duas seções que têm a Central (com e, no modo venda, ind).
+  if (painel) painel.addEventListener('mp:secao', e => { if (e.detail && ['com', 'ind'].includes(e.detail.sec) && !resumoCarregado) carregarResumo(); });
+  if (/[#&]sec=(com|ind)\b/.test(location.hash)) carregarResumo();
 })();
