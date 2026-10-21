@@ -6,6 +6,8 @@ namespace App\Contribua\Repository;
 
 use App\Contribua\Entity\Apoio;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\DBAL\ParameterType;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -47,5 +49,27 @@ class ApoioRepository extends ServiceEntityRepository
         }
 
         return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    /**
+     * Dos escritórios dados, os que têm apoio CONFIRMADO pelo banco desde a data (tenant explícito, sem
+     * depender do filtro da sessão: quem pergunta é outro domínio, sobre outros escritórios).
+     *
+     * @param list<int> $tenantIds
+     *
+     * @return list<int>
+     */
+    public function comApoioConfirmadoDesde(array $tenantIds, \DateTimeImmutable $desde): array
+    {
+        if ($tenantIds === []) {
+            return [];
+        }
+        $linhas = $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            'SELECT DISTINCT tenant_id FROM contribua_apoio WHERE tenant_id IN (?) AND confirmado_em >= ?',
+            [$tenantIds, $desde->format('Y-m-d H:i:s')],
+            [ArrayParameterType::INTEGER, ParameterType::STRING],
+        );
+
+        return array_map('intval', $linhas);
     }
 }

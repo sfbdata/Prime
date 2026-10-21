@@ -84,6 +84,11 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // ver o Y como Free. Só o repositório do Contribua a consulta
         // (EspacoDoEscritorioSoNoContribuaArquiteturaTest).
         \App\Contribua\Entity\EspacoDoEscritorio::class,
+        // Aviso recebido de gateway/banco: quem manda é o gateway, e o escritório só aparece depois da
+        // reconsulta. Guardado antes de processar, para idempotência.
+        \App\Contribua\Entity\NotificacaoRecebida::class,
+        // Configuração do pagamento por cartão (gateway, chave pública, carência): uma linha só, da plataforma.
+        \App\Contribua\Entity\ConfiguracaoDePagamento::class,
 
         // Identidade: existe antes e acima do vínculo com escritório.
         User::class,
@@ -215,6 +220,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
     // 18 → 21 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
     // natureza; o espaço do escritório é lido por tenantId explícito (motivo na lista acima).
+    // (A C3 do Contribua soma 2 no fim: o aviso de gateway, que chega sem escritório, e a configuração do pagamento.)
     // 21 → 22 com RecursoEstado (19/10/2026, Perfis 1.2 · Telas e recursos): configuração global da plataforma.
     // 22 → 26 com a tela de entrada do desenho 10 (19/10/2026): ConfirmacaoEmail, CienciaPolitica, AjusteEntrada e
     // MensagemSuporte são anteriores a qualquer escritório (identidade do User e a tela de entrada única); justificado acima.
@@ -234,7 +240,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 53 → 54 com a candidatura às vagas do Trabalho Externo (19/10/2026): Candidatura, justificada acima.
     // 54 → 55 com a fatia 1b do Comercial (21/10/2026): a vez dos avisos de espaço, justificada acima.
     // 55 → 57 com as Seccionais da OAB do Painel do Master (21/10/2026): SeccionalOab e DivulgacaoNaSeccional (plataforma).
-    private const MAX_FORA_DO_ESCOPO = 57;
+    // 57 → 59 com a C3 do Contribua: o aviso de gateway (sem escritório) e a configuração do pagamento por cartão (plataforma).
+    private const MAX_FORA_DO_ESCOPO = 59;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

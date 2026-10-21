@@ -6,6 +6,134 @@
 > `bj-recursos.js`, `bj-lembretes.js`, `bj-idioma.js`). **O desenho manda**; onde ele é omisso, a
 > convenção do sistema. Nenhuma linha de código antes das decisões do §10.
 
+## Estado da frente (atualizar a cada PR, decisão ou contrato; reler depois de compactação)
+
+Atualizado em 19/10/2026. Sessão f6 (Contribua). Coordenação: sessão "coordenador".
+
+**Pilha de PRs e ordem de merge** (cada um só depois do anterior):
+1. **#64** `contribua-cora` (C1: planos, espaço, bloqueio, evento, contrato b5, catálogo). **No master (20/10).**
+   Migration `Version20261019190000` (cria 3 tabelas + carga dos planos + escritório do dono sem limite).
+2. **#74** `contribua-c2`, base master (C2: página /contribua, PIX, sugestões, aviso).
+   Migration `Version20261019235600` (3 tabelas; era `Version20261019210000`, renomeada na vez, 20/10).
+3. **#95** `contribua-c3`, RASCUNHO, base `contribua-c2` (C3 comum + C3a Asaas). Migration `Version20261019235700` (era `Version20261019220000`; 3 tabelas:
+   avisos recebidos, assinaturas, configuração do pagamento; carga da linha de configuração SEM gateway).
+   A 4b empilha sobre ela: C4 Cora (#88, migration `Version20261019230000`) e os adaptadores Stripe (#92),
+   Mercado Pago (#93) e Pagar.me (#94), rascunhos.
+
+**Fila de migrations** (a coordenação controla): #52 → Push (0d) → Telas e recursos (b5) → PR 2 da 7d →
+C1 (#64) → C2 (#74) → C3.
+
+**Decisões do dono (19/10/2026):** bloqueio de envio publicado DESLIGADO; escritório "Farlei Assis da Rocha
+Sociedade Individual de Advocacia" (id 1 em produção) SEM LIMITE de espaço e de usuários (carga da migration
+da C1, id + nome); D3 carência de 7 dias, configurável; D5 preços do 08 e usuários do 05 (3/8/15, Avançado
+sem limite); D2 Asaas é o primeiro gateway, os quatro do desenho continuam no escopo; com o Asaas, o campo
+"Link do pacote" some do modal do Master (desvio aprovado); "para tudo é a BlueJus" (BlueJus Gestão e
+Tecnologia LTDA, CNPJ 66.803.163/0001-10, mantenedora, controladora, recebe e emite nota; a Prime sai da
+política, troca num PR próprio só com OK final do dono e do advogado).
+**Decisões da coordenação:** acima de 100% com o bloqueio desligado usa a variante de uso alto do desenho
+(pendente de confirmação do dono no smoke); Asaas pelo caminho hospedado (cliente por escritório + Checkout
+recorrente, cartão nunca no servidor); e-mail de 90%/100% fica com a frente de e-mails (evento
+`EspacoAtingiuFaixa`); bloco "Assinatura" no Meu Perfil (parcial `contribua/_assinatura_no_perfil.html.twig`,
+ponto de inclusão no #60, marcação `mp-card`) na C3.
+
+**Contratos com outras sessões:**
+- b5 (Perfis, painel do Master): `SituacaoDoEspaco::doEscritorio()` → `RetratoDoEspaco`;
+  `DefinirLimiteDeArmazenamentoUseCase`, `DefinirLimiteDeUsuariosUseCase`, `ConfigurarFaixasDoEspacoUseCase`,
+  `AlterarPlanoUseCase`, `CatalogoDePlanos::todos()`; `RetratoDoEspaco::aceitaMaisUmUsuario()` no convite. A
+  b5 envolve as escritas no escopo de auditoria dela e mostra o aviso "Antes de ligar, confira os
+  escritórios acima do plano..." junto da chave. `EspacoDoEscritorio` não é consultada fora do Contribua.
+- 7d (cabeçalho): parcial `layout/_globais/aviso_espaco.html.twig`; linha do pageTitle `contribua_` no
+  `base.html.twig` e item "Contribua · PIX" no `menu_usuario/_dropdown.html.twig` (autorizados, no #74).
+- a7 (Trabalho Externo): ordem das propostas do apoiador (C6), contrato a combinar antes.
+- **5d (Comercial e e-mails do desenho 05):** ouve `UsoDoEspacoSubiu` (tenantId, percentualAnterior,
+  percentualAtual, `cruzou(limite)`: os avisos de 80/85/90% escolhidos pelo Master), `EspacoAtingiuFaixa`
+  (o "esgotado" é a faixa Bloqueio) e `EspacoFoiPedido` (tenantId, codigoDoPlano, pedidoPorUserId). Os
+  três são despachados DEPOIS do sucesso do trabalho (`EventosDoEspacoAposConfirmar`: resposta < 400,
+  comando com 0, mensagem do worker tratada; erro descarta). O limite de 1 e-mail por dia por escritório
+  e faixa fica com a 5d. Eventos no #64 (os dois de espaço) e no #74 (o pedido).
+- **Central:** os avisos do Contribua (`AvisoAoMaster::TIPO_*`) são o tipo "Contribua" do desenho
+  (bi-heart, #c0392b, grupo atenção, nível 2) no `TiposDeAvisoDaCentral` (#74). O destino "master" do
+  protótipo é o `AvisoAoMaster` (todos os `ROLE_SUPER_ADMIN`). A 4b mexeu no mesmo mapa (#86, tipo
+  agenda): entradas separadas, quem mergear depois mantém as duas.
+- **4b (desde 19/10):** implementa a **C4 Cora** (domínio App\Contribua, branch empilhada sobre a
+  contribua-c3; parciais `contribua/_integracao_bancaria.html.twig` e `contribua/_premio.html.twig` nos
+  pontos de inclusão; acrescenta colunas ao `Apoio`; interface `BancoPix` para Inter/BB/Outro) e, depois,
+  os adaptadores **Mercado Pago, Stripe e Pagar.me** da interface `App\Contribua\Gateway\GatewayDeAssinatura`,
+  cada um passando `TesteDeContratoDoGatewayDeAssinatura` (commit 02899552). Não mexe no núcleo do
+  Contribua (lista na mensagem de contrato). Mudança na interface é contrato compartilhado: avisa antes.
+
+**Decisões da C3 (19/10, f6; registrar ✓/✗ do dono no smoke):**
+- Uma entidade `AssinaturaDeEspaco` (`contribua_assinatura`) cobre o pedido e a assinatura que nasce dele.
+- Uma assinatura viva por escritório: para trocar de plano, cancela a atual em Meu Perfil (evita duas
+  cobranças no mesmo cartão). Gateway fora do ar no início do checkout: o pedido é removido.
+- A página de retorno (`?assinatura=ok`) abre o "Pagamento enviado"; só quando quem volta é o primário o pedido
+  é marcado, e o Master lê "voltou do gateway, não confirmado" (revisão de segurança: a URL qualquer um digita,
+  e "pago" induziria o Master a confirmar à mão). Não libera espaço: só a reconsulta ou o Master liberam.
+- Escritório excluído (quarentena de 365 dias): a conciliação cancela a assinatura viva no gateway e avisa o
+  Master; Cancelada é final (reconsulta atrasada não ressuscita). Checkout com trava consultiva por escritório;
+  checkout aberto com preço antigo não é reaproveitado; valor do PIX limitado ao teto do apoio.
+- Vigência: Ativa e Inadimplente até o fim do período pago mais a carência (D3); Cancelada até o fim do
+  período pago. O plano do escritório é o maior entre as vigentes (`PlanoVigenteDoEscritorio`), senão Free.
+  O período pago nunca recua; o "aguardando" do gateway não desfaz a confirmação manual do Master (um mês).
+- Limite próprio do Master: no Free vale sempre; num plano pago vale só quando é maior (quem paga nunca fica
+  com menos). Muda a regra da C1 só para plano pago; avisado à b5.
+- Webhook `/api/webhooks/<codigo>`: 401 sem credencial, 404 para gateway desconhecido, 200 no resto (aviso
+  repetido, ignorado ou pendente); a falha na reconsulta fica para a conciliação de hora em hora.
+- Primeira ligação de uma assinatura do gateway: pelo escritório da referência `BJ<conta>` (no Asaas é o
+  `externalReference` do cliente), no pedido aguardando mais novo daquele gateway, de preferência o de mesmo
+  valor. Nota fiscal pela interface opcional `EmiteNotaFiscalDaAssinatura` (só o Asaas), ligada nessa hora;
+  falha vira log, não segura o espaço.
+- Formulário de cartão (Stripe, Mercado Pago, Pagar.me): é o campo seguro do SDK de cada gateway, montado
+  pelo módulo JS da 4b (`ContribuaStripe`, `ContribuaMercadoPago`, `ContribuaPagarme`: montar, tokenizar,
+  concluirAcao, desmontar). 3-D Secure pelo campo opcional `SituacaoNoGateway::acaoNoNavegador`.
+- Bloco "Assinatura" do Meu Perfil: `contribua/_assinatura_no_perfil.html.twig` + função
+  `assinatura_no_perfil()`; aparece quando o #60 entrar (ponto de inclusão `ignore missing`).
+
+**Para o dono** (só ele decide ou faz):
+1. Asaas: conta, API key de sandbox, configuração fiscal (NFS-e) e webhook com o token (passo a passo em
+   `docs/runbooks/contribua-asaas-passo-a-passo.md`). Variáveis no `.env.prod` (lista no `DEPLOY.md`).
+2. Confirmar no sandbox do Asaas: o checkout aceita item sem `imageBase64` (a doc se contradiz); a
+   assinatura do checkout aceita a NFS-e (`invoiceSettings`) e se a nota do 1º mês sai; o
+   `GET /subscriptions/{id}` depois do cancelamento.
+3. Ver na tela (smoke): checkout do Asaas com CPF/CNPJ e botão "Assinar" que leva à página do Asaas (o
+   desenho mostra o formulário de cartão; desvio já aprovado para o caminho hospedado); modal do Master com o
+   texto do gateway hospedado no lugar do pedido de links; "Pagamento enviado" ao voltar.
+4. Desvio inerente aos SDKs: nos gateways de formulário o campo do cartão é o do gateway (iframe), com
+   aparência do Stripe/Mercado Pago/Pagar.me, não a do desenho.
+5. Estorno e chargeback: hoje a cobrança estornada não conta como paga, mas o período já pago continua
+   valendo até o fim. Se o estorno deve cortar o espaço na hora, é decisão de produto.
+6. Confirmar o texto acima de 100% (variante de uso alto) e o OK final da política de privacidade
+   (`docs/specs/contribua-politica-de-privacidade-rascunho.md`). Credenciais dos outros três gateways.
+
+**Pendências:**
+- Depois do merge do #64: `scripts/migrar-dev.sh` no banco do 8080 e migration no `saas_test` principal.
+- `recurso_visivel('contribua')` + `recurso_marca('contribua')` no item do menu e na rota quando o #56 entrar
+  (pedido da b5 via coordenação; o webhook fica sempre aberto).
+- Contrato com a b5: leitura das faixas pelo `ConfiguracaoDoEspacoRepository::atual()` (só leitura); o
+  painel cita a classe `EspacoDoEscritorio` em 2 arquivos liberados no teste; aceite de convite com
+  `aceitaMaisUmUsuario()` fica com a b5.
+
+**C6 (19/10, com a a7):** contrato de leitura proposto e aceito no formato
+(`ApoiadoresDoBlueJus::apoiadores(list<int> $tenantIds, $agora)` e `ehApoiador`; apoiador = apoio por PIX
+confirmado pelo banco nos últimos 30 dias, janela a confirmar). Mas o 06 não tem disputa de propostas entre
+escritórios (a proposta é da Central para o Solicitante; Convidados são chamados um a um), então "suas
+propostas aparecem primeiro" do 08 não tem onde encaixar. **Decisão de produto com o coordenador/dono**
+(opções da a7: ordem dos convidados sugeridos pela Central; ordem de candidatos numa vaga). Nada implementado
+até lá.
+
+**C5 (produção):** o que é código ou documento está feito: cron da conciliação e variáveis no `DEPLOY.md`,
+runbook do Asaas, webhook sempre aberto. O resto é do dono: credenciais no `.env.prod`, webhook cadastrado no
+painel do gateway, escolher o gateway no "Configurar pagamento" e o PR da política (texto com o advogado).
+
+**Próximo passo (f6):** #95 em rascunho com a suíte completa verde (10643); sai de rascunho quando o dono
+quiser revisar. C6 espera a decisão de produto. Conferência final do 08 enviada ao coordenador (19/10): sem
+dono só "Novidades em primeira mão", o lugar da preferência no Trabalho Externo e o ponto de inclusão do selo
+no Meu Perfil.
+
+**Ambiente:** demo da C2 em http://127.0.0.1:8105 (`scripts/central-demo.sh contribua-c2 8105`), banco
+isolado `demo_f6` (senha de demonstração só nesse banco, usuários 1 e 2). Bancos de teste por frente:
+`saas_testcontribua-cora`, `saas_testcontribua-c2`, `saas_testcontribua-c3`.
+
 ## 1. Estado real (medido no master `1d3e664c`)
 
 | O desenho supõe | Existe? | O mais próximo |
@@ -285,9 +413,31 @@ adaptadores segue o gateway em que o dono abrir conta primeiro (só ordem e cred
 teste de ponta a ponta no sandbox), depois C3b Mercado Pago, C3c Stripe e C3d Pagar.me, pela mesma
 interface. Mais um **adaptador falso** para os testes, que já entra na C3.
 
+**Asaas pelo caminho hospedado (coordenação, 19/10):** o cartão nunca passa pelo BlueJus. A tokenização do
+Asaas é chamada pelo servidor com a chave secreta (docs.asaas.com/reference/tokenizacao-de-cartao-de-credito),
+então o formulário de cartão do desenho fica para os adaptadores que tokenizam no navegador (Stripe,
+Mercado Pago, Pagar.me). No Asaas:
+- um **cliente Asaas por escritório** (`POST /v3/customers`, CPF/CNPJ e e-mail do pagador,
+  `externalReference` = `BJ<conta>`);
+- a cada "Quero +N GB", um **Asaas Checkout recorrente** (`POST /v3/checkouts`: `billingTypes`
+  CREDIT_CARD, `chargeTypes` RECURRENT, `subscription.cycle` MONTHLY, `customer` = o do escritório,
+  `callback.successUrl` = a página de retorno). Fontes: docs.asaas.com/docs/introdu%C3%A7%C3%A3o-1 e
+  docs.asaas.com/docs/checkout-com-assinatura-recorrente;
+- o vínculo com o escritório vem do `customer` do `SUBSCRIPTION_CREATED`, porque o `externalReference` do
+  link fixo não é documentado como copiado para a assinatura (no exemplo oficial vem `null`:
+  docs.asaas.com/docs/eventos-para-assinaturas). Por isso o link fixo colado pelo Master não serve ao Asaas.
+  **Desvio do desenho aprovado pelo dono (19/10):** com o gateway Asaas, o campo "Link do pacote" some do
+  modal "Pagamento por cartão" do Master (o sistema cria o cliente e o Checkout pela API); para Mercado
+  Pago, Stripe e Pagar.me o campo continua, como no desenho;
+- webhook com o token no header `asaas-access-token`, entrega "at least once" (idempotência pelo `id` do
+  evento), e o aviso nunca muda nada sozinho: o servidor reconsulta a assinatura.
+
 **Nota fiscal mensal** (garantia do desenho):
-- Asaas: NFS-e automática da assinatura (`POST /v3/subscriptions/{id}/invoiceSettings`; webhooks
-  `INVOICE_AUTHORIZED` e `INVOICE_ERROR`). O e-mail da nota é o do pagador.
+- Asaas: NFS-e automática da assinatura (`POST /v3/subscriptions/{id}/invoiceSettings`, aplicada ao
+  receber o `SUBSCRIPTION_CREATED`; webhooks `INVOICE_AUTHORIZED` e `INVOICE_ERROR`). A documentação aceita
+  "uma assinatura existente pelo id", mas **não diz se a assinatura criada por checkout é elegível**: só o
+  sandbox confirma (credenciais e configuração fiscal da conta são do dono; passo a passo em
+  `docs/runbooks/contribua-asaas-passo-a-passo.md`). O e-mail da nota é o do pagador.
 - Mercado Pago, Stripe e Pagar.me não emitem NFS-e brasileira pela assinatura: **pendência de cada
   adaptador** (emissor próprio ou serviço de NFS-e), resolvida antes de ligar o gateway em produção.
 
@@ -316,8 +466,8 @@ interface. Mais um **adaptador falso** para os testes, que já entra na C3.
   `NotificacaoRecebida` (evento repetido é ignorado), responde 200 `{"success": true}` e enfileira no
   Messenger a **reconsulta por mTLS**; só a resposta da Cora confirma o `Apoio`. Conciliação
   `app:cora:conciliar` a cada 15 min cobre aviso perdido.
-- Confirmado → `Apoio.confirmadoEm`, prêmio (§2.5) na próxima tela do usuário daquela conta, aviso ao
-  Master, selo de apoiador.
+- Confirmado → `Apoio.confirmadoEm`, prêmio (§2.5) na página Contribua, como no desenho (modal `prOn` do
+  08), aviso ao Master, selo de apoiador.
 - **Testar conexão** = pedir token no ambiente escolhido e mostrar o resultado.
 
 ## 8. Pop-ups e comandos existentes (respeitar)

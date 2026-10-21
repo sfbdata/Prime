@@ -1,0 +1,56 @@
+{# Checkout "Pagamento seguro" do desenho 08 (760px, resumo à esquerda, pagamento à direita).
+   O cartão nunca passa pelo BlueJus. Modo formulário (Stripe, Mercado Pago, Pagar.me): o campo seguro do
+   gateway é montado em [data-co-elemento] pelo módulo do gateway (contribua-<gateway>.js: ContribuaStripe,
+   ContribuaMercadoPago, ContribuaPagarme; montar/tokenizar/concluirAcao/desmontar) e só o token sobe.
+   Modo hospedado (Asaas): o botão leva à página segura do gateway. #}
+{% set pg = pagamento %}
+<div class="co-modal" data-checkout hidden
+     data-modo="{{ pg.modo }}"
+     data-gateway="{{ pg.gateway }}"
+     data-gateway-nome="{{ pg.gatewayNome }}"
+     data-url-iniciar="{{ path('contribua_assinatura_iniciar') }}"
+     data-url-token="{{ path('contribua_assinatura_token', {id: 0}) }}"
+     data-chave-publica="{{ pg.chavePublica }}"
+     data-pagador-nome="{{ pg.pagadorNome }}"
+     data-pagador-email="{{ pg.email }}">
+    <div class="co-fundo" data-fechar-checkout></div>
+    <div class="co-centro">
+        <div class="co-janela" role="dialog" aria-label="Pagamento seguro">
+            <div class="co-resumo">
+                <div class="co-marca"><img src="{{ asset('images/logo/bluejus_simbolo.svg') }}" alt=""><b>BlueJus</b></div>
+                <div class="co-compra">
+                    <div class="co-compra-topo"><span class="co-compra-icone"><i class="bi bi-hdd-stack"></i></span><div><div class="co-compra-rotulo">VOCÊ ESTÁ COMPRANDO ESPAÇO</div><b class="co-compra-gb">+<span data-co-add></span> GB de armazenamento</b></div></div>
+                    <div class="co-compra-barra"><span><span class="co-compra-mini">HOJE</span><b><span data-co-de></span> GB</b></span><span class="co-trilho"><span class="co-trilho-hoje" data-co-largura></span><span class="co-trilho-novo" data-co-largura-novo></span></span><i class="bi bi-arrow-right"></i><span class="co-compra-com"><span class="co-compra-mini">COM O PLANO</span><b data-co-gb></b></span></div>
+                </div>
+                <div class="co-ciclo"><i class="bi bi-calendar-check"></i>Assinatura mensal · sem fidelidade</div>
+                <div class="co-totais"><div><span>Subtotal</span><span data-co-preco></span></div><div class="co-total"><span>Total mensal</span><span data-co-preco></span></div></div>
+                <div class="co-letras"><i class="bi bi-arrow-repeat"></i> Cobrança mensal no cartão, no mesmo dia de cada mês. Sem fidelidade e sem multa: cancele a qualquer momento em Meu Perfil. O espaço vale até o fim do mês pago e nenhum arquivo é apagado.</div>
+            </div>
+            <div class="co-pagar">
+                <div class="co-pagar-topo"><b>Pagamento do espaço</b><span class="co-seguro"><i class="bi bi-lock-fill"></i>Ambiente seguro</span><button type="button" data-fechar-checkout title="Fechar"><i class="bi bi-x-lg"></i></button></div>
+
+                <div class="co-ok" data-co-ok hidden>
+                    <span class="co-ok-icone"><i class="bi bi-check2"></i></span>
+                    <b>Pagamento enviado</b>
+                    <div>Assinatura registrada. Assim que o gateway confirmar o pagamento, seu espaço passa para <span data-co-ok-gb>{{ retorno ? retorno.gb }}</span>. Próxima cobrança em <span data-co-ok-proxima>{{ retorno ? retorno.proxima }}</span>; recibo e nota fiscal chegam no seu e-mail. Cancele quando quiser em Meu Perfil.</div>
+                    <button type="button" class="co-concluir" data-fechar-checkout>Concluir</button>
+                </div>
+
+                <div class="co-form" data-co-form>
+                    <div class="co-meio"><i class="bi bi-credit-card"></i>Cartão de crédito</div>
+                    {% if pg.modo == 'formulario' %}
+                        <div class="co-elemento" data-co-elemento></div>
+                        <label class="co-campo">CPF/CNPJ DO TITULAR<input data-cartao-documento inputmode="numeric" placeholder="do titular" value="{{ pg.documento }}"></label>
+                    {% else %}
+                        <label class="co-campo">CPF/CNPJ DO TITULAR<input data-cartao-documento inputmode="numeric" placeholder="só números" value="{{ pg.documento }}"></label>
+                        <div class="co-hospedado"><i class="bi bi-box-arrow-up-right"></i>Você digita o cartão na página segura do {{ pg.gatewayNome }} e volta para o BlueJus quando terminar.</div>
+                    {% endif %}
+                    <div class="co-erro" data-co-erro hidden><i class="bi bi-exclamation-circle"></i> <span></span></div>
+                    <button type="button" class="co-botao" data-co-pagar><i class="bi bi-lock-fill"></i><span data-co-botao-texto>Assinar por <span data-co-preco></span>/mês</span></button>
+                    <div class="co-selos"><span><i class="bi bi-shield-check"></i> PCI DSS</span><span><i class="bi bi-lock"></i> Criptografia TLS</span><span><i class="bi bi-person-check"></i> 3-D Secure</span></div>
+                    <div class="co-nota">Pagamento para BlueJus Gestão e Tecnologia LTDA · CNPJ 66.803.163/0001-10. Os dados do cartão vão direto para o gateway de pagamento ({{ pg.gatewayNome }}) e não ficam guardados no BlueJus.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

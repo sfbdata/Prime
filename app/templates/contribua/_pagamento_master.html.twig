@@ -1,0 +1,39 @@
+{# Modal "Pagamento por cartão · só Master" do desenho 08 (620px). Só renderizado para ROLE_SUPER_ADMIN; as
+   rotas exigem o papel de novo no servidor. Com Asaas o "Link do pacote" some (desvio aprovado pelo dono em
+   19/10: o sistema cria o cliente e o checkout pela API). Carência (D3) é convenção: o desenho é omisso. #}
+{% set m = pagamento.master %}
+<div class="co-modal co-modal--master" data-pagamento-master hidden
+     data-url-salvar="{{ path('contribua_pagamento_configurar') }}"
+     data-url-confirmar="{{ path('contribua_pagamento_confirmar', {id: 0}) }}"
+     data-sem-link="{{ m.semLinkDoPacote|join(',') }}">
+    <div class="co-fundo" data-fechar-master></div>
+    <div class="co-centro">
+        <div class="co-janela-master" role="dialog" aria-label="Pagamento por cartão">
+            <div class="ct-modal-topo"><i class="bi bi-credit-card"></i><b>Pagamento por cartão · só Master</b><button type="button" data-fechar-master aria-label="Fechar"><i class="bi bi-x-lg"></i></button></div>
+            <div class="co-master-corpo">
+                <div class="co-master-intro" data-intro-hospedado hidden>Com este gateway o BlueJus cria o cliente e a assinatura mensal de cada escritório pela API, com recebedor <b>BlueJus Gestão e Tecnologia LTDA</b>: não há link para colar. Configure no gateway a página de retorno abaixo, para o BlueJus reconhecer o pagamento.</div>
+                <div class="co-master-intro" data-intro-links>Crie no gateway um <b>link de assinatura mensal</b> para cada pacote, com recebedor <b>BlueJus Gestão e Tecnologia LTDA</b>, e cole aqui. Configure no gateway a página de retorno abaixo, para o BlueJus reconhecer o pagamento.</div>
+                <label class="co-master-campo">CHAVE PÚBLICA DO GATEWAY<input data-master-chave value="{{ m.chavePublica }}" placeholder="APP_USR-... ou pk_live_..."><span>Usada para transformar o cartão em token no próprio navegador; a chave secreta fica só no servidor.</span></label>
+                <label class="co-master-campo">GATEWAY<select data-master-gateway>
+                    <option value="" {{ m.gateway is null ? 'selected' }}>Nenhum (pedidos entram na lista de espera)</option>
+                    {% for o in m.opcoes %}
+                        <option value="{{ o.codigo }}" {{ m.gateway == o.codigo ? 'selected' }} {{ o.instalado ? '' : 'disabled' }}>{{ o.rotulo }}{{ o.instalado ? '' : ' (ainda não instalado)' }}</option>
+                    {% endfor %}
+                </select></label>
+                <div data-master-links>
+                    {% for l in m.links %}
+                        <label class="co-master-campo">LINK DO PACOTE {{ l.rotulo }} · {{ l.preco }}<input data-master-link="{{ l.codigo }}" value="{{ l.valor }}" placeholder="https://..."></label>
+                    {% endfor %}
+                </div>
+                <label class="co-master-campo">PÁGINA DE RETORNO (COLE NO GATEWAY)<span class="co-master-retorno"><input value="{{ m.retorno }}" readonly data-master-retorno><button type="button" data-master-copiar>Copiar</button></span></label>
+                <label class="co-master-campo co-master-carencia">CARÊNCIA DA INADIMPLÊNCIA (DIAS)<input data-master-carencia type="number" min="0" max="60" value="{{ m.carencia }}"><span>Depois de uma cobrança recusada, o espaço do plano continua por estes dias antes de voltar ao Free.</span></label>
+                <div class="co-master-info"><b>Confirmação automática:</b> no sistema publicado, o webhook do gateway avisa o servidor do BlueJus a cada cobrança, renovação ou cancelamento, e o espaço é ajustado sozinho. Sem webhook, o pedido entra como "aguardando confirmação" e o Master confirma no painel.</div>
+                <div class="co-master-erro" data-master-erro hidden><i class="bi bi-exclamation-circle"></i> <span></span></div>
+                {% for p in m.pedidos %}
+                    <div class="co-pedido"><span class="co-pedido-quem"><b>{{ p.conta }}</b> · {{ p.plano }} · {{ p.em }}</span><span class="co-pedido-situacao" style="color: {{ p.cor }}">{{ p.situacao }}</span>{% if p.pendente %}<button type="button" class="co-pedido-confirmar" data-confirmar-pedido="{{ p.id }}">Confirmar pagamento</button>{% endif %}</div>
+                {% endfor %}
+            </div>
+            <div class="ct-modal-rodape"><button type="button" class="ct-botao-azul" data-master-salvar>Salvar</button></div>
+        </div>
+    </div>
+</div>
