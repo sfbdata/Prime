@@ -57,8 +57,10 @@ class CurriculoRepository extends ServiceEntityRepository
     }
 
     /**
-     * O banco de talentos da Central, do mais recente para o mais antigo (l.995). Sem paginação,
-     * como as vagas: a tela filtra, conta as abas e seleciona em lote sobre a lista inteira.
+     * O banco de talentos da Central, do atualizado mais recentemente para o mais antigo: "Currículos
+     * atualizados aparecem primeiro para os escritórios" (l.1059, 1021, 839; ordem da l.995 e 1006). A
+     * coluna RECEBIDO e "Novos na semana" seguem pelo `recebidoEm`. Sem paginação, como as vagas: a tela
+     * filtra, conta as abas e seleciona em lote sobre a lista inteira.
      *
      * @return list<Curriculo>
      */
@@ -67,7 +69,8 @@ class CurriculoRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('c')
             ->addSelect('u')
             ->join('c.usuario', 'u')
-            ->orderBy('c.recebidoEm', 'DESC')
+            ->orderBy('c.atualizadoEm', 'DESC')
+            ->addOrderBy('c.recebidoEm', 'DESC')
             ->addOrderBy('c.id', 'DESC')
             ->getQuery()
             ->getResult();

@@ -132,6 +132,28 @@ class VagaRepository extends ServiceEntityRepository
     }
 
     /**
+     * As vagas entre os ids que já foram publicadas (abertas ou não): a situação das ofertas que a tela
+     * acompanha (spec §4.7). A pendente e a reprovada nunca foram públicas e não entram.
+     *
+     * @param list<int> $ids
+     *
+     * @return list<Vaga>
+     */
+    public function publicadasEntre(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('v')
+            ->andWhere('v.id IN (:ids)')
+            ->andWhere('v.publicadaEm IS NOT NULL')
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * As vagas de um link público, só as ABERTAS (as fechadas somem da página, como no desenho).
      * Quem chama ainda confere o vencimento ({@see Vaga::situacaoEm()}).
      *

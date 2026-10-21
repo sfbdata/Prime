@@ -10,6 +10,7 @@ use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Exception\TransicaoInvalida;
 use App\TrabalhoExterno\Repository\CandidaturaRepository;
 use App\TrabalhoExterno\Repository\VagaRepository;
+use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeVaga;
 use App\TrabalhoExterno\Service\PoliticaDaVaga;
@@ -20,7 +21,9 @@ use App\TrabalhoExterno\Service\PoliticaDaVaga;
  * grava o vencimento que estava só calculado e confere a situação (409). A aprovação aplica o teto de
  * dias e, se o Master não escolheu o tipo, o tempo padrão da oferta da configuração. Tudo com a linha
  * da vaga travada, como o aceite da oferta: pausar ou encerrar não sobrescreve o "Preenchida" de um
- * aceite simultâneo (a ação relê a vaga e confere a situação já preenchida).
+ * aceite simultâneo (a ação relê a vaga e confere a situação já preenchida). Avisos (spec §4.7): o
+ * dono sabe da aprovação e da não aprovação; quem ligou o aviso da área, da vaga aprovada, reaberta ou
+ * ofertada de novo.
  */
 final class AplicarAcaoNaVagaUseCase
 {
@@ -29,6 +32,7 @@ final class AplicarAcaoNaVagaUseCase
         private readonly PoliticaDaVaga $politica,
         private readonly VagaRepository $vagas,
         private readonly CandidaturaRepository $candidaturas,
+        private readonly AvisosDoTrabalhoExterno $avisos,
     ) {
     }
 
@@ -56,7 +60,21 @@ final class AplicarAcaoNaVagaUseCase
         } catch (TransicaoInvalida $e) {
             return $e;
         }
+        $this->avisar($ctx, $vaga, $acao, $agora);
 
         return null;
+    }
+
+    private function avisar(Contexto $ctx, Vaga $vaga, AcaoVaga $acao, \DateTimeImmutable $agora): void
+    {
+        if ($acao === AcaoVaga::Aprovar) {
+            $this->avisos->vagaAprovada($ctx, $vaga);
+        }
+        if ($acao === AcaoVaga::Reprovar) {
+            $this->avisos->vagaReprovada($ctx, $vaga);
+        }
+        if (in_array($acao, [AcaoVaga::Aprovar, AcaoVaga::Reabrir, AcaoVaga::OfertarNovamente], true)) {
+            $this->avisos->vagaNaArea($ctx, $vaga, $agora);
+        }
     }
 }

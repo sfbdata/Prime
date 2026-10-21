@@ -24,7 +24,7 @@
         `inteligencia_comando_listar`) quando ela termina;
      4. ações da análise (lida · excluir · interna) por XHR + recarga da lista;
      5. menu ⋮ do cartão;
-     6. "Criar tarefa da providência": abre o `#modalCriarTarefa` da pasta
+     6. "Criar tarefa" (embaixo do resultado, F5): abre o `#modalCriarTarefa` da pasta
         pré-preenchido, no mesmo contrato do pasta-ia-push.js;
      7. Copiar e Imprimir do cartão concluído, sobre o mesmo texto do "Baixar .txt"
         (GET `inteligencia_analise_txt`); baixar e imprimir avisam o servidor
@@ -715,7 +715,7 @@
                 });
         });
 
-        /* ── 6. Criar tarefa da providência ───────────────────────────────── */
+        /* ── 6. Criar tarefa (ações do resultado, F5) ─────────────────────── */
         drawer.addEventListener('click', function (e) {
             var item = e.target.closest('[data-ia-criar-meta]');
             if (!item) { return; }
