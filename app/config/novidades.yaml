@@ -1,6 +1,11 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.11.1"
+  data: "2026-10-21"
+  itens:
+    - "Nada muda na tela: é a correção que permite publicar a versão nova."
+    - "Ao trocar a foto do perfil, a janela de recorte fecha e a foto nova aparece na hora, sem a mensagem de erro."
 - versao: "2.11.0"
   data: "2026-10-21"
   itens:
