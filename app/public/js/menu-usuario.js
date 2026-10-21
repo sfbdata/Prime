@@ -86,7 +86,7 @@
     const sit = linha.dataset.situacao, m = document.createElement('div');
     m.id = 'muMenuMembro'; m.className = 'mu-menu-membro'; m.setAttribute('role', 'menu'); m.dataset.membro = linha.dataset.membro; m.dataset.semX = '1';
     const topo = document.createElement('div'); topo.className = 'mu-mm-topo';
-    topo.textContent = linha.dataset.nome + ' · ' + (linha.dataset.primario === '1' ? BJ_T.t('menu.usuario.js.membro_primario') : (SIT[sit] || sit));
+    topo.textContent = linha.dataset.nome + ' · ' + (linha.dataset.primario === '1' ? BJ_T.t('termos.primario') : (SIT[sit] || sit));
     m.append(topo);
     if (linha.dataset.acoes === '1') {
       if (sit !== 'aprovado') m.append(itemMenu('aprovado', '✓', sit === 'suspenso' ? BJ_T.t('menu.usuario.js.acao_reativar') : BJ_T.t('menu.usuario.js.acao_aprovar'), 'verde'));

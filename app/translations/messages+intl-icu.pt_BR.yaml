@@ -105,9 +105,7 @@ moldura:
 menu:
     usuario:
         dropdown:
-            selo_master: MASTER
             selo_primario: USUÁRIO PRIMÁRIO
-            selo_secundario: SECUNDÁRIO
             fechar_menu: Fechar menu
             meu_perfil: Meu Perfil
             convites: Convites do escritório
@@ -154,10 +152,8 @@ menu:
             escritorio: Escritório
             voce: Você
             papel_primario: Usuário primário
-            papel_master: Master
             equipe_rotulo: EQUIPE DA CONTA ({n})
             selo_primario: PRIMÁRIO
-            selo_secundario: SECUNDÁRIO
             situacao: Situação
             opcoes: Opções
             opcoes_de: Opções de {nome}
@@ -206,7 +202,6 @@ menu:
                 aprovado: aprovado
                 em_analise: em análise
                 suspenso: suspenso
-            membro_primario: primário
             acao_reativar: Reativar (aprovar)
             acao_aprovar: Aprovar
             acao_voltar_analise: Voltar para análise
@@ -229,7 +224,6 @@ perfil:
         meu_perfil: Meu Perfil
         convites: Convites do escritório
         trocar_conta: Trocar de conta
-        master: Master
         exclusivo_master: EXCLUSIVO DO MASTER
         fechar_menu: Fechar menu
     acoes:
@@ -239,9 +233,7 @@ perfil:
     identificacao:
         trocar_foto: Trocar foto
         foto_alt: Foto de perfil
-        selo_master: MASTER
         usuario_primario: USUÁRIO PRIMÁRIO
-        secundario: SECUNDÁRIO
         cargo_nao_definido: Cargo não definido
         lotacao_nao_definida: Lotação não definida
         editar: Editar informações

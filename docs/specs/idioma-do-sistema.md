@@ -161,6 +161,11 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
 - O rótulo ao lado do item Idioma do menu, que era "Português (Brasil)" fixo, passou a `idioma_atual().nome`, como no
   Meu Perfil (#199); com só o português liberado, a tela não muda (combinado com a 0d).
 
+- **Termos comuns (21/10, depois do #231):** os selos MASTER e SECUNDÁRIO do menu e do Meu Perfil, o papel "Master"
+  (Minha conta e aba do Meu Perfil) e o "primário" do JS do menu vêm de `termos.*` (`|upper` onde é caixa alta; o base
+  entrega `termos` ao JS). "USUÁRIO PRIMÁRIO" (expressão composta, a ordem muda por idioma), "Perfis" e "Colaboradores"
+  (plurais; o `termos` só tem o singular) ficam com chave própria.
+
 ## 9. Extração do Expediente (7d, 21/10)
 
 - **Escopo:** `templates/expediente/*` (lista, acervo geral, paginação, modais, painel do marcador, trilho, relatório de
