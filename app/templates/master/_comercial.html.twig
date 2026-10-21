@@ -21,10 +21,13 @@
 {% set passos = venda ? {para: 1, msg: 2} : {para: 2, msg: 3} %}
 <link rel="stylesheet" href="{{ asset('css/master-comercial.css') }}">
 {# Idioma (spec idioma-do-sistema): o catálogo do JS da seção e o bj-traducao.js vêm antes de qualquer script do Comercial
-   (o dos KPIs, do Relatório e o daqui do fim), que rodam no meio do corpo, antes do bj-traducao.js do base. O script se
-   protege de carregar duas vezes; os blocos de catálogo se somam (o parcial entra nos dois modos). #}
+   (o dos KPIs, do Relatório e o daqui do fim), que rodam no meio do corpo, antes do bj-traducao.js do base (que se
+   protege de carregar duas vezes). Só com a seção Comercial, que está sempre no DOM e vem antes da venda no HTML, como
+   os recursos do Relatório. #}
+{% if not venda %}
 {{ catalogo_js('comercial.js') }}
 <script src="{{ asset('js/bj-traducao.js') }}"></script>
+{% endif %}
 {% if venda %}
 <div class="mc mc-venda" data-mc-venda data-modo="venda" data-token="{{ csrf_token('master_comercial') }}">
 {% else %}
@@ -223,8 +226,7 @@
             </div>
         </div>
     </section>
-    {# dc L324 (`secCom`): os KPIs, as Automações e o Relatório só na seção Comercial. O Relatório do dc também aparece na
-       venda (`secCentral`), mas o script dele (9b) é de uma instância só: fica de fora no modo venda (ver o relatório da F3h). #}
+    {# dc L324 (`secCom`): os KPIs e as Automações só na seção Comercial. #}
     {% if not venda %}
     {{ include('master/_comercial_kpis.html.twig') }}
     <section class="mc-caixa" aria-labelledby="mc-auto-titulo">
@@ -245,8 +247,11 @@
             <iframe class="mc-previa-quadro" data-mc-previa-quadro title="{{ 'comercial.campanha.previa_titulo'|trans }}" sandbox></iframe>
         </div>
     </section>
-    {% include 'master/_comercial_relatorio.html.twig' %}
     {% endif %}
+    {# O Relatório da Central de envios nas duas seções (dc `secCom` e `secCentral`; spec comercial-relatorio-venda.md),
+       dentro da raiz de cada modo e depois da Central. Os recursos (<link>, <script> e catálogo) vêm só com a da
+       seção Comercial, que está sempre no DOM e vem antes no HTML. #}
+    {{ include('master/_comercial_relatorio.html.twig', {secao: venda ? 'ind' : 'com', recursos: not venda}) }}
     {# F3f: o modal do teste fica dentro da raiz de cada modo (as duas seções convivem no /master, uma escondida). #}
     {% include 'master/_comercial_teste.html.twig' %}
 </div>

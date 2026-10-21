@@ -818,7 +818,9 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString("document.addEventListener('auxclick', abrirMetaPelaLinha)", $corpo, 'botão do meio abre em outra aba');
         self::assertStringContainsString("meio || e.ctrlKey || e.metaKey || e.shiftKey", $corpo);
         self::assertStringContainsString("window.open(titulo.href, '_blank', 'noopener')", $corpo);
-        self::assertStringContainsString("'Parar de acompanhar' : 'Acompanhar esta meta'", $corpo, 'o JS do marcador troca para as dicas do desenho');
+        self::assertStringContainsString("BJ_T.t('metas.js.parar_de_acompanhar') : BJ_T.t('metas.js.acompanhar_esta_meta')", $corpo, 'o JS do marcador troca para as dicas do desenho');
+        // Desde a extração do idioma o texto vem no catálogo do JS que a própria página entrega.
+        self::assertStringContainsString('"metas.js.acompanhar_esta_meta":"Acompanhar esta meta","metas.js.parar_de_acompanhar":"Parar de acompanhar"', $corpo);
     }
 
     #[TestDox('MENU-02: meta acompanhada mostra "Parar de acompanhar" no marcador, nos cartões e na lista')]

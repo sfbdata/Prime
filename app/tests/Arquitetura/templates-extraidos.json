@@ -63,7 +63,6 @@
             "master/_comercial_descadastrados.html.twig",
             "master/_comercial_kpis.html.twig",
             "master/_comercial_leitura.html.twig",
-            "master/_comercial_relatorio.html.twig",
             "master/_comercial_teste.html.twig"
         ],
         "js": [
@@ -71,7 +70,6 @@
             "master/comercial-campanha.js",
             "master/comercial-descadastrados.js",
             "master/comercial-leitura.js",
-            "master/comercial-relatorio.js",
             "master/comercial-teste.js"
         ],
         "permitidos": [
@@ -80,5 +78,97 @@
             "Accept",
             "Escape"
         ]
+    },
+
+    "comercial_relatorio": {
+        "templates": [
+            "master/_comercial_relatorio.html.twig"
+        ],
+        "js": [
+            "master/comercial-relatorio.js"
+        ],
+        "permitidos": [
+            "B",
+            "Content-Type",
+            "Escape"
+        ]
+    },
+
+    "expediente": {
+        "templates": [
+            "expediente/index.html.twig",
+            "expediente/_lista.html.twig",
+            "expediente/_paginacao.html.twig",
+            "expediente/_modais_lista.html.twig",
+            "expediente/_acervo_geral.html.twig",
+            "expediente/_painel_marcador.html.twig",
+            "expediente/_trilho.html.twig",
+            "expediente/_relatorio_processos_modal.html.twig",
+            "expediente/relatorio_processos.html.twig",
+            "expediente/pastas_paradas.html.twig"
+        ],
+        "js": [
+            "expediente-lista.js",
+            "expediente-trilho.js"
+        ],
+        "permitidos": [
+            "exp-body",
+            "aria-sort=\"\"",
+            "10,5 pt",
+            "BLUEJUS",
+            "App\\\\Pasta\\\\DTO\\\\AnaliseSemProcessoDaPasta::ADMINISTRATIVA",
+            "Crítico",
+            "Atenção",
+            "Acompanhar",
+            "App\\\\Pasta\\\\DTO\\\\RelatorioPastasParadasOutput::NENHUMA",
+            "App\\\\Pasta\\\\DTO\\\\RelatorioPastasParadasOutput::NOTA_FINAL",
+            "Content-Type",
+            "Escape",
+            "Enter",
+            "Tab",
+            "ArrowDown",
+            "ArrowUp",
+            "Home",
+            "End",
+            "ContextMenu"
+        ]
+    },
+
+    "metas": {
+        "templates": [
+            "tarefa/minhas.html.twig",
+            "tarefa/_metas_lista.html.twig",
+            "tarefa/_meta_cartao.html.twig",
+            "tarefa/_resultado.html.twig",
+            "tarefa/equipe.html.twig",
+            "tarefa/_numero_global.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
+    },
+
+    "perfis": {
+        "templates": [
+            "tenant_role/index.html.twig",
+            "tenant_role/edit.html.twig",
+            "tenant_role/new.html.twig",
+            "tenant_role/_form.html.twig",
+            "tenant_role/_confirmacao.html.twig",
+            "tenant_role/acesso_restrito.html.twig"
+        ],
+        "js": [
+            "perfis.js"
+        ],
+        "permitidos": [
+            "Escape"
+        ]
+    },
+
+    "master": {
+        "templates": [
+            "master/painel.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
     }
 }

@@ -67,12 +67,15 @@ final class ParcialDoModoVendaTest extends KernelTestCase
     public function testCentralNaSecaoIndicacoes(): void
     {
         self::assertCount(1, $this->doc->filter(self::CENTRAL));
-        // Entre o <link> e a raiz, o catálogo do idioma e o bj-traducao.js (spec idioma-do-sistema), que não aparecem na tela.
-        self::assertCount(1, $this->doc->filter('[data-sec-externa="ind"] > .mi > section.mi-caixa + link + script[data-bj-t] + script[src*="js/bj-traducao.js"] + .mc[data-modo="venda"]'), 'logo abaixo do resumo e dos limites');
+        self::assertCount(1, $this->doc->filter('[data-sec-externa="ind"] > .mi > section.mi-caixa + link + .mc[data-modo="venda"]'), 'logo abaixo do resumo e dos limites');
+        // O catálogo comercial.js e o bj-traducao.js vêm só com a seção Comercial, antes no HTML (spec idioma-do-sistema).
+        self::assertCount(0, $this->doc->filter('[data-sec-externa="ind"] script[data-bj-t], [data-sec-externa="ind"] script[src*="js/bj-traducao.js"]'));
+        self::assertCount(1, $this->doc->filter('[data-sec-externa="com"] script[src*="js/bj-traducao.js"]'));
         self::assertNotSame('', (string) $this->doc->filter(self::CENTRAL)->attr('data-token'));
         self::assertSame(['Central de envios · nova campanha'], $this->textos(self::CENTRAL . ' > section.mc-cp > .mc-cp-cabeca > .mc-cabeca-titulo'));
         // O que é só da seção Comercial (dc `secCom`): KPIs e Automações. Os scripts únicos dela também ficam de fora.
-        self::assertCount(0, $this->doc->filter(self::CENTRAL . ' [data-mc-kpis], ' . self::CENTRAL . ' [data-mc-autos], ' . self::CENTRAL . ' [data-mc-dsc], ' . self::CENTRAL . ' [data-mc-relatorio]'));
+        // O Relatório aparece nas duas (spec comercial-relatorio-venda.md; ver DuasInstanciasDoRelatorioTest).
+        self::assertCount(0, $this->doc->filter(self::CENTRAL . ' [data-mc-kpis], ' . self::CENTRAL . ' [data-mc-autos], ' . self::CENTRAL . ' [data-mc-dsc]'));
         self::assertCount(0, $this->doc->filter('[data-sec-externa="ind"] script[src*="js/master/comercial.js"]'));
         self::assertCount(1, $this->doc->filter('[data-sec-externa="ind"] script[src*="js/master/comercial-campanha.js"]'));
     }
