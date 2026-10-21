@@ -74,6 +74,22 @@ final class ListarCentralDoMasterUseCaseTest extends TestCase
         self::assertSame(4, $caixa->contagens['rec'], 'sem estado: as quatro na caixa');
     }
 
+    #[TestDox('Sugestão já respondida pela página do Contribua conta como Respondida, mesmo sem resposta na Central')]
+    public function testRespondidaNaOrigem(): void
+    {
+        $naOrigem = new \App\Master\DTO\MensagemDaCentral('sugestao', 9, 'sug', 'Sugestão', 'Ana Lima', 'ana@exemplo.com', 'Conta Nº 000007', 7, 'Sugestão', 'Texto', new \DateTimeImmutable('2026-10-20 10:00'), true, true);
+        $estados = $this->createStub(CentralMasterEstadoRepository::class);
+        $estados->method('doMaster')->willReturn([]);
+        $respostas = $this->createStub(CentralMasterRespostaRepository::class);
+        $respostas->method('chavesRespondidas')->willReturn([]);
+        $sut = new ListarCentralDoMasterUseCase(new OrigensDaCentral([MensagensDeTeste::origem('sugestao', [$naOrigem])]), $estados, $respostas);
+
+        $caixa = $sut->executar($this->master, 'resp', '', 1);
+
+        self::assertSame(['sugestao:9'], array_map(static fn (ItemDaCentral $i): string => $i->mensagem->chave(), $caixa->itens));
+        self::assertTrue($caixa->itens[0]->respondida);
+    }
+
     #[TestDox('Página de 50: a segunda página traz o resto')]
     public function testPaginaDe50(): void
     {

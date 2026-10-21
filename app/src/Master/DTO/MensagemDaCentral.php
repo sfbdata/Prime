@@ -26,6 +26,8 @@ final class MensagemDaCentral
         public readonly string $texto,
         public readonly \DateTimeImmutable $em,
         public readonly bool $podeResponder,
+        // Já respondida na própria origem, fora da Central (a resposta dada pela página do Contribua).
+        public readonly bool $respondidaNaOrigem = false,
     ) {
     }
 

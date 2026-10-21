@@ -55,7 +55,7 @@ final class ListarCentralDoMasterUseCase
         $respondidas = $this->respostas->chavesRespondidas();
         $itens = [];
         foreach ($this->origens->todas() as $mensagem) {
-            $itens[] = ItemDaCentral::de($mensagem, $estados[$mensagem->chave()] ?? null, isset($respondidas[$mensagem->chave()]));
+            $itens[] = ItemDaCentral::de($mensagem, $estados[$mensagem->chave()] ?? null, isset($respondidas[$mensagem->chave()]) || $mensagem->respondidaNaOrigem);
         }
 
         return $itens;

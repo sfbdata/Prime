@@ -87,7 +87,7 @@ final class LeitorDeSugestoes implements OrigemDaCentral
     private function consulta(): QueryBuilder
     {
         return $this->sugestoes->createQueryBuilder('s')
-            ->select('s.id AS id', 's.tipo AS tipo', 's.autorNome AS autorNome', 's.texto AS texto', 's.criadaEm AS criadaEm')
+            ->select('s.id AS id', 's.tipo AS tipo', 's.autorNome AS autorNome', 's.texto AS texto', 's.criadaEm AS criadaEm', 's.resposta AS resposta')
             ->addSelect('IDENTITY(s.tenant) AS tenantId', 'a.id AS autorId', 'a.email AS autorEmail')
             ->leftJoin('s.autor', 'a');
     }
@@ -128,6 +128,7 @@ final class LeitorDeSugestoes implements OrigemDaCentral
             texto: (string) $l['texto'],
             em: $l['criadaEm'] instanceof \DateTimeImmutable ? $l['criadaEm'] : new \DateTimeImmutable((string) $l['criadaEm']),
             podeResponder: $l['autorId'] !== null,
+            respondidaNaOrigem: is_string($l['resposta'] ?? null) && trim($l['resposta']) !== '',
         );
     }
 }
