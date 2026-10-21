@@ -11,7 +11,10 @@
     tabela: path('master_fontes_tabela'),
     oab: path('master_fontes_oab'),
     xlsx: asset('js/vendor/xlsx/xlsx.full.min.js'),
-    csrf: csrf_token('master_fontes')
+    csrf: csrf_token('master_fontes'),
+    seccionais: path('master_dados_seccionais'),
+    divulgar: path('master_seccional_divulgar', {uf: 'XX'}),
+    csrfSeccionais: csrf_token('master_seccionais')
 } %}
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">
@@ -44,6 +47,13 @@ html,body{margin:0;height:100%;font-family:Arial,Helvetica,sans-serif;background
 #mk{position:fixed;z-index:30;display:none;background:#fff;border:1px solid #dfe7ed;border-radius:4px;box-shadow:0 8px 24px rgba(18,36,47,.18);padding:8px 10px 10px;font-size:12px;color:#243845;width:196px}
 #mk .t{font-weight:bold;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#mk .s{font-size:10.5px;color:#5b7383;letter-spacing:.4px;margin-bottom:7px}
 #mk .g{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}#mk .g button{width:24px;height:24px;border-radius:4px;border:1px solid rgba(18,36,47,.15);cursor:pointer;transition:transform .12s}#mk .g button:hover{transform:scale(1.15)}#mk .g button.on{box-shadow:0 0 0 2px #fff,0 0 0 4px #0a6fa0}
+/* Seccionais da OAB (spec master-seccionais-oab): marcador no centroide e "Registrar divulgação" no menu do botão direito */
+.sec-mk{fill:#fff;stroke:#0a6fa0;stroke-width:2px;vector-effect:non-scaling-stroke;cursor:pointer;filter:drop-shadow(0 1px 2px rgba(18,36,47,.35))}
+#mk .dv .s{text-transform:uppercase}#mk .dv{margin:6px 0 9px;padding-bottom:9px;border-bottom:1px solid #eef2f5}#mk .dv .b{display:flex;flex-direction:column;gap:4px}
+#mk .dv .b button{height:26px;border:1px solid #c5d2db;border-radius:3px;background:#fff;color:#34505f;font:bold 11.5px Arial;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 8px;text-align:left}
+#mk .dv .b button:hover{background:#e5f1f7;color:#0a6fa0}#mk .dv .b button i{width:7px;height:7px;border-radius:50%;box-shadow:0 0 0 1px rgba(18,36,47,.35)}
+#mk .dv input{box-sizing:border-box;width:100%;height:26px;margin-top:5px;border:1px solid #d3dde4;border-radius:3px;font:12px Arial;color:#243845;padding:0 6px}
+#mk .dv .m{margin-top:5px;font-size:11px;color:#5b7383;line-height:1.35}#mk .dv .m.erro{color:#a3232b}#mk .dv .m.ok{color:#1e7b45}
 #mk .x{margin-top:8px;width:100%;height:28px;border:none;border-radius:3px;background:#f3f6f8;color:#34505f;font:bold 12px Arial;cursor:pointer}#mk .x:hover{background:#e5f1f7;color:#0a6fa0}
 </style></head><body data-cfg="{{ cfg|json_encode|e('html_attr') }}">
 <svg id="m"><defs><filter id="sombra" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#0a3d5c" flood-opacity=".3"/></filter></defs></svg>

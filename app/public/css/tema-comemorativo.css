@@ -1,0 +1,149 @@
+/* BlueJus · Temas comemorativos (spec docs/specs/temas-comemorativos.md; desenho docs/design/perfis-1.2/vs-21-10-26/bj-tema.js).
+   Só é carregado com tema ativo (ou com a prévia do Master): as cores vêm das variáveis --bjt-p, --bjt-d, --bjt-l
+   e --bjt-fita, que o parcial layout/_globais/tema_comemorativo.html.twig (ou o JS, na prévia) põe no :root junto
+   com --header-bg, --header-avatar-fg e a primária do Bootstrap.
+   Animações: só com html:not(.jp-sem-anim) (animacoes_reduzidas() do Guia visual) e sem prefers-reduced-motion. */
+
+/* Botão primário do Bootstrap na cor do tema (as variáveis locais do .btn-primary são literais no Bootstrap). */
+.btn-primary {
+    --bs-btn-bg: var(--bjt-p);
+    --bs-btn-border-color: var(--bjt-p);
+    --bs-btn-hover-bg: var(--bjt-d);
+    --bs-btn-hover-border-color: var(--bjt-d);
+    --bs-btn-active-bg: var(--bjt-d);
+    --bs-btn-active-border-color: var(--bjt-d);
+    --bs-btn-disabled-bg: var(--bjt-p);
+    --bs-btn-disabled-border-color: var(--bjt-p);
+}
+
+/* Faixa de 4px no topo. */
+#bjtFita {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 4px;
+    z-index: 2147483600;
+    background: var(--bjt-fita);
+    background-size: 200% 100%;
+    pointer-events: none;
+}
+
+/* Ícones flutuando no cabeçalho: dentro do #mainHeader (fixo, com z-index: contexto de empilhamento próprio),
+   com z-index -1 ficam acima do fundo azul e abaixo de todo o conteúdo, sem mexer nos filhos do cabeçalho.
+   Só na barra azul (a altura do --header-height); a subnav branca fica de fora. */
+.bjtDeco {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: var(--header-height, 58px);
+    pointer-events: none;
+    overflow: hidden;
+    z-index: -1;
+}
+.bjtDeco i {
+    position: absolute;
+    font-style: normal;
+    line-height: 1;
+    transform: translate(-50%, -50%);
+    opacity: .3;
+    filter: saturate(.8);
+}
+.bjtDeco i.is-texto {
+    font-size: 11px;
+    font-weight: bold;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #fff;
+    letter-spacing: .5px;
+}
+@media (max-width: 900px) {
+    .bjtDeco i:nth-child(1),
+    .bjtDeco i:nth-child(5) { display: none; }
+}
+@media (max-width: 640px) {
+    .bjtDeco { display: none; }
+}
+
+/* Selo no canto inferior esquerdo. */
+#bjtSelo {
+    position: fixed;
+    left: 14px;
+    bottom: 14px;
+    z-index: 2147483500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: min(380px, calc(100vw - 28px));
+    background: #fff;
+    border: 1px solid var(--bjt-l);
+    border-left: 4px solid var(--bjt-p);
+    border-radius: 4px;
+    box-shadow: 0 10px 28px rgba(18, 36, 47, .18);
+    padding: 10px 12px;
+    font: 13px/1.45 Arial, Helvetica, sans-serif;
+    color: #243845;
+}
+#bjtSelo .e { font-size: 22px; }
+#bjtSelo .e.is-texto { font: bold 12px Arial, Helvetica, sans-serif; color: var(--bjt-p); }
+#bjtSelo .bjt-selo-texto { flex: 1; }
+#bjtSelo b { display: block; color: var(--bjt-d); }
+#bjtSelo button {
+    border: none;
+    background: none;
+    color: #7a8e9b;
+    cursor: pointer;
+    font-size: 17px;
+    align-self: flex-start;
+}
+
+/* Botão redondo que substitui o selo depois de fechado. */
+#bjtMini {
+    position: fixed;
+    left: 14px;
+    bottom: 14px;
+    z-index: 2147483500;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 2px solid var(--bjt-p);
+    background: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(18, 36, 47, .18);
+}
+#bjtMini.is-texto {
+    font: bold 10px Arial, Helvetica, sans-serif;
+    color: var(--bjt-p);
+    width: auto;
+    padding: 0 10px;
+    border-radius: 19px;
+}
+#bjtSelo[hidden],
+#bjtMini[hidden] { display: none !important; }
+
+/* Animações (desenho): fita e botão redondo do Dia das Crianças, brilho do logo, flutuar dos ícones, entrada do selo. */
+html:not(.jp-sem-anim) #bjtFita.bjt-anim { animation: bjtF 6s linear infinite; }
+html:not(.jp-sem-anim) #bjtMini.bjt-anim { animation: bjtB 2.4s ease-in-out infinite; }
+html:not(.jp-sem-anim) #bjtSelo { animation: bjtIn .4s ease both; }
+html:not(.jp-sem-anim) .bjtDeco i { animation: bjtD 5s ease-in-out infinite; }
+html:not(.jp-sem-anim) .navtop-brand-logo.bjt-logo-anim { animation: bjtL 4s linear infinite; }
+
+@keyframes bjtF { to { background-position: 200% 0; } }
+@keyframes bjtB { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes bjtIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes bjtD { 0%, 100% { transform: translate(-50%, -50%); } 50% { transform: translate(-50%, calc(-50% - 3px)); } }
+@keyframes bjtL {
+    0% { filter: drop-shadow(0 0 3px #ef5350); }
+    33% { filter: drop-shadow(0 0 3px #66bb6a); }
+    66% { filter: drop-shadow(0 0 3px #42a5f5); }
+    100% { filter: drop-shadow(0 0 3px #ef5350); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #bjtFita,
+    #bjtMini,
+    #bjtSelo,
+    .bjtDeco i,
+    .navtop-brand-logo.bjt-logo-anim { animation: none !important; }
+}
