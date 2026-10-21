@@ -48,13 +48,13 @@
     const elAviso = el('[data-mc-cp-aviso]');
     // Os 7 tipos de bloco do dc (L.533), na ordem dos botões "+ TIPO" (L.548).
     const TIPOS = {
-      titulo: ['Título', 'bi-type-h2'], texto: ['Texto', 'bi-text-paragraph'], imagem: ['Imagem', 'bi-image'],
-      botao: ['Botão', 'bi-hand-index'], noticias: ['Notícias', 'bi-list-ul'], colunas: ['2 colunas', 'bi-layout-split'],
-      divisor: ['Divisor', 'bi-hr'],
+      titulo: [BJ_T.t('comercial.js.tipo_titulo'), 'bi-type-h2'], texto: [BJ_T.t('comercial.js.tipo_texto'), 'bi-text-paragraph'], imagem: [BJ_T.t('comercial.js.tipo_imagem'), 'bi-image'],
+      botao: [BJ_T.t('comercial.js.tipo_botao'), 'bi-hand-index'], noticias: [BJ_T.t('comercial.js.tipo_noticias'), 'bi-list-ul'], colunas: [BJ_T.t('comercial.js.tipo_colunas'), 'bi-layout-split'],
+      divisor: [BJ_T.t('comercial.js.tipo_divisor'), 'bi-hr'],
     };
     // Os placeholders literais do dc (L.547).
-    const PH_A = { noticias: 'Uma notícia por linha: Título|Resumo', imagem: 'Endereço da imagem (https://...)', botao: 'Texto do botão', colunas: 'Coluna da esquerda' };
-    const PH_B = { botao: 'Link do botão', colunas: 'Coluna da direita' };
+    const PH_A = { noticias: BJ_T.t('comercial.js.ph_noticias'), imagem: BJ_T.t('comercial.js.ph_imagem'), botao: BJ_T.t('comercial.js.ph_botao'), colunas: BJ_T.t('comercial.js.ph_colunas') };
+    const PH_B = { botao: BJ_T.t('comercial.js.ph_botao_link'), colunas: BJ_T.t('comercial.js.ph_colunas_direita') };
 
     let modelos = [];
     let mk = 'convite';
@@ -109,7 +109,7 @@
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': TOKEN },
         body: JSON.stringify(corpo || {}),
-      }).then(r => r.json().then(j => (r.ok ? j : Promise.reject(new Error(j.erro || 'Não foi possível concluir.')))));
+      }).then(r => r.json().then(j => (r.ok ? j : Promise.reject(new Error(j.erro || BJ_T.t('comercial.js.erro_concluir'))))));
     }
 
     // O que o servidor recebe: o modelo em edição, como o dc passa ao emailHTML (L.537).
@@ -133,13 +133,13 @@
        ignorado(s)", ou " · lista limpa". O B1 (sem autorização) é regra do sistema que o dc não tem: entra no mesmo tom. */
     function linhaDeDestinatarios(c) {
       const partes = [
-        c.descadastrados ? c.descadastrados + ' descadastrado(s) retirado(s)' : '',
-        c.repetidos ? c.repetidos + ' repetido(s) removido(s)' : '',
-        c.invalidos ? c.invalidos + ' inválido(s) ignorado(s)' : '',
-        c.semAutorizacao ? c.semAutorizacao + ' sem autorização retirado(s)' : '',
+        c.descadastrados ? BJ_T.t('comercial.js.dest_descadastrados', { n: c.descadastrados }) : '',
+        c.repetidos ? BJ_T.t('comercial.js.dest_repetidos', { n: c.repetidos }) : '',
+        c.invalidos ? BJ_T.t('comercial.js.dest_invalidos', { n: c.invalidos }) : '',
+        c.semAutorizacao ? BJ_T.t('comercial.js.dest_sem_autorizacao', { n: c.semAutorizacao }) : '',
       ].filter(Boolean);
 
-      return c.destinatarios + ' destinatário(s)' + partes.map(x => ' · ' + x).join('') + (partes.length ? '' : ' · lista limpa');
+      return BJ_T.t('comercial.js.dest_total', { n: c.destinatarios }) + partes.map(x => ' · ' + x).join('') + (partes.length ? '' : ' · ' + BJ_T.t('comercial.js.dest_lista_limpa'));
     }
 
     function desenharPublicos() {
@@ -152,7 +152,7 @@
       el('[data-mc-cp-csv]').hidden = publico !== 'csv';
       el('[data-mc-cp-individual]').hidden = publico !== 'indiv';
       // dc L.545: "NOME · N e-mail(s)" depois de ler o arquivo.
-      el('[data-mc-cp-csv-txt]').textContent = csvNome ? csvNome + ' · ' + (contagem ? contagem.publicos.csv : 0) + ' e-mail(s)' : 'Selecionar arquivo .csv';
+      el('[data-mc-cp-csv-txt]').textContent = csvNome ? BJ_T.t('comercial.js.csv_lido', { nome: csvNome, n: contagem ? contagem.publicos.csv : 0 }) : BJ_T.t('comercial.js.csv_selecionar');
       el('[data-mc-cp-dest]').textContent = contagem ? linhaDeDestinatarios(contagem) : '';
       desenharFiltro();
     }
@@ -173,10 +173,10 @@
       selo.hidden = quantos === 0;
       selo.textContent = String(quantos);
       const m = f ? f.base : 0;
-      el('[data-mc-cf-curto]').textContent = !f ? '' : quantos ? f.atendem + ' de ' + m + ' com filtro' : 'Todos (' + m + ')';
+      el('[data-mc-cf-curto]').textContent = !f ? '' : quantos ? BJ_T.t('comercial.js.filtro_curto', { n: f.atendem, m }) : BJ_T.t('comercial.js.filtro_todos', { m });
       el('[data-mc-cf-resultado]').textContent = !f ? '' : quantos
-        ? f.atendem + ' de ' + m + ' atendem ao filtro' + (f.semInformacao ? ' · ' + f.semInformacao + ' sem essa informação no cadastro (ficam de fora)' : '')
-        : 'Enviando para todos da lista (' + m + ')';
+        ? BJ_T.t('comercial.js.filtro_atendem', { n: f.atendem, m }) + (f.semInformacao ? ' · ' + BJ_T.t('comercial.js.filtro_sem_info', { n: f.semInformacao }) : '')
+        : BJ_T.t('comercial.js.filtro_todos_lista', { m });
       el('[data-mc-cf-limpar]').hidden = quantos === 0;
       caixa.querySelectorAll('[data-mc-cf-campo]').forEach(c => { if (c.value !== (filtro[c.dataset.mcCfCampo] || '')) c.value = filtro[c.dataset.mcCfCampo] || ''; });
       caixa.querySelectorAll('[data-mc-cf-atalho]').forEach(b => {
@@ -210,9 +210,9 @@
     function desenharFrequencia() {
       raiz.querySelectorAll('[data-mc-cp-freq]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mcCpFreq === frequencia)));
       const agenda = el('[data-mc-cp-agenda]').value;
-      el('[data-mc-cp-enviar-txt]').textContent = agenda ? 'Programar envio' : 'Enviar';
+      el('[data-mc-cp-enviar-txt]').textContent = agenda ? BJ_T.t('comercial.js.programar_envio') : BJ_T.t('comercial.js.enviar');
       const quando = agenda ? new Date(agenda).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '';
-      const repete = { semanal: 'semanal', quinzenal: 'quinzenal', mensal: 'mensal' }[frequencia] || '';
+      const repete = { semanal: BJ_T.t('comercial.js.freq_semanal'), quinzenal: BJ_T.t('comercial.js.freq_quinzenal'), mensal: BJ_T.t('comercial.js.freq_mensal') }[frequencia] || '';
       const texto = [quando, repete].filter(Boolean).join(' · ');
       el('[data-mc-cp-ag]').hidden = texto === '';
       el('[data-mc-cp-ag-txt]').textContent = texto;
@@ -230,7 +230,7 @@
       const janela = el('[data-mc-cp-ver-janela]');
       if (!aparelho) { janela.hidden = true; return; }
       const m = atual();
-      const nome = nomeDaPrevia || (contagem && contagem.exemplo && contagem.exemplo.nome ? String(contagem.exemplo.nome).split(' ')[0] : 'Dra. Ana');
+      const nome = nomeDaPrevia || (contagem && contagem.exemplo && contagem.exemplo.nome ? String(contagem.exemplo.nome).split(' ')[0] : BJ_T.t('comercial.js.exemplo_nome'));
       const texto = String(m.corpo || ((m.blocos || []).find(b => b.t === 'texto') || {}).a || '');
       el('[data-mc-cp-ver-assunto]').textContent = m.assunto || '';
       el('[data-mc-cp-ver-para]').textContent = contagem && contagem.exemplo ? contagem.exemplo.email : 'destinatario@exemplo.com.br';
@@ -245,7 +245,7 @@
     /* dc 21.10 L653: no modelo fixo, pede o nome e guarda a cópia em "Meus modelos" no mesmo modo. */
     function salvarComoMeu() {
       const m = atual();
-      const nome = window.prompt('Nome do seu modelo (o modelo padrão continua guardado):', (m.nome || 'Modelo') + ' (meu)');
+      const nome = window.prompt(BJ_T.t('comercial.js.salvar_como_pergunta'), BJ_T.t('comercial.js.modelo_meu', { nome: m.nome || BJ_T.t('comercial.js.modelo') }));
       if (!nome || !nome.trim()) return;
       postar(ROTAS.urlCriar, { acao: 'salvar_como', modelo: pedido(), nome: nome.trim() }).then(aposSalvar).catch(e => avisar(e.message));
     }
@@ -259,7 +259,7 @@
     /* F3h, dc L644 (`cmLeadAdd`): pede os e-mails com o texto do dc; cada um recebe a confirmação dupla da Base de
        contatos, e o servidor responde quantos pedidos saíram, quantos já existiam e quantos foram barrados. */
     function cadastrarContatos() {
-      const texto = window.prompt('E-mail(s) de novos contatos (separe por vírgula). Só cadastre quem autorizou receber (LGPD):', '');
+      const texto = window.prompt(BJ_T.t('comercial.js.contatos_pergunta'), '');
       if (!texto || !texto.trim()) return;
       postar(ROTAS.urlContatos, { emails: texto })
         .then(r => { publico = 'leads'; avisar(r.mensagem); desenharPublicos(); contar(); })
@@ -296,10 +296,13 @@
       const pronto = esperaDaContagem !== null || !contagem ? contar() : Promise.resolve(true);
       pronto.then(valeu => {
         if (!valeu) return;
-        if (!contagem || !contagem.destinatarios) { avisar('Nenhum destinatário nesta lista.'); return; }
+        if (!contagem || !contagem.destinatarios) { avisar(BJ_T.t('comercial.js.sem_destinatario')); return; }
         const agenda = el('[data-mc-cp-agenda]').value;
         const m = atual();
-        if (!window.confirm('Enviar "' + (m.assunto || '') + '" para ' + contagem.destinatarios + ' destinatário(s)' + (agenda ? ' em ' + agenda.replace('T', ' ') : ' agora') + '?')) return;
+        const pergunta = agenda
+          ? BJ_T.t('comercial.js.confirmar_envio_em', { assunto: m.assunto || '', n: contagem.destinatarios, quando: agenda.replace('T', ' ') })
+          : BJ_T.t('comercial.js.confirmar_envio_agora', { assunto: m.assunto || '', n: contagem.destinatarios });
+        if (!window.confirm(pergunta)) return;
         if (!chave) chave = novaChave();
         const botao = el('[data-mc-cp-enviar]');
         botao.disabled = true;
@@ -340,11 +343,11 @@
         const temB = b.t === 'botao' || b.t === 'colunas' || b.t === 'imagem';
         return '<div class="mc-cp-bloco" data-mc-cp-bloco="' + i + '">'
           + '<div class="mc-cp-bloco-cabeca"><i class="bi ' + esc(ic) + '" aria-hidden="true"></i><span class="mc-cp-bloco-rot">' + esc(rot) + '</span>'
-          + '<button type="button" class="mc-cp-bloco-btn" title="Subir" aria-label="Subir" data-mc-cp-mover="-1"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>'
-          + '<button type="button" class="mc-cp-bloco-btn" title="Descer" aria-label="Descer" data-mc-cp-mover="1"><i class="bi bi-arrow-down" aria-hidden="true"></i></button>'
-          + '<button type="button" class="mc-cp-bloco-btn mc-cp-bloco-rm" title="Remover" aria-label="Remover" data-mc-cp-remover><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>'
+          + '<button type="button" class="mc-cp-bloco-btn" title="' + esc(BJ_T.t('comercial.js.bloco_subir')) + '" aria-label="' + esc(BJ_T.t('comercial.js.bloco_subir')) + '" data-mc-cp-mover="-1"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>'
+          + '<button type="button" class="mc-cp-bloco-btn" title="' + esc(BJ_T.t('comercial.js.bloco_descer')) + '" aria-label="' + esc(BJ_T.t('comercial.js.bloco_descer')) + '" data-mc-cp-mover="1"><i class="bi bi-arrow-down" aria-hidden="true"></i></button>'
+          + '<button type="button" class="mc-cp-bloco-btn mc-cp-bloco-rm" title="' + esc(BJ_T.t('comercial.js.bloco_remover')) + '" aria-label="' + esc(BJ_T.t('comercial.js.bloco_remover')) + '" data-mc-cp-remover><i class="bi bi-x-lg" aria-hidden="true"></i></button></div>'
           + (temA ? '<textarea class="mc-cp-bloco-a" rows="2" data-mc-cp-lado="a" placeholder="' + esc(PH_A[b.t] || '') + '">' + esc(b.a || '') + '</textarea>' : '')
-          + (temB ? '<textarea class="mc-cp-bloco-b" rows="1" data-mc-cp-lado="b" placeholder="' + esc(PH_B[b.t] || 'Descrição da imagem') + '">' + esc(b.b || '') + '</textarea>' : '')
+          + (temB ? '<textarea class="mc-cp-bloco-b" rows="1" data-mc-cp-lado="b" placeholder="' + esc(PH_B[b.t] || BJ_T.t('comercial.js.ph_imagem_descricao')) + '">' + esc(b.b || '') + '</textarea>' : '')
           + '</div>';
       }).join('');
     }
@@ -407,7 +410,7 @@
           desenhar();
           if (!contagem) contar();
         })
-        .catch(() => avisar('Não foi possível carregar os modelos. Recarregue a página.'));
+        .catch(() => avisar(BJ_T.t('comercial.js.modelos_erro_carregar')));
     }
 
     function aposSalvar(r) {
@@ -416,13 +419,13 @@
 
     function salvar() {
       const m = atual();
-      if (!m.proprio) { avisar('Modelos padrão não são alterados. Use Duplicar para criar a sua versão.'); return; }
+      if (!m.proprio) { avisar(BJ_T.t('comercial.js.modelo_padrao')); return; }
       postar(ROTAS.urlSalvar.replace('xidx', encodeURIComponent(m.id)), pedido()).then(aposSalvar).catch(e => avisar(e.message));
     }
 
     function excluir() {
       const m = atual();
-      if (!m.proprio || !window.confirm('Excluir o modelo "' + m.nome + '"?')) return;
+      if (!m.proprio || !window.confirm(BJ_T.t('comercial.js.confirmar_excluir_modelo', { nome: m.nome }))) return;
       postar(ROTAS.urlExcluir.replace('xidx', encodeURIComponent(m.id))).then(() => carregar('convite')).catch(e => avisar(e.message));
     }
 

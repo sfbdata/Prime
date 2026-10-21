@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
+use Symfony\Component\Yaml\Yaml;
 use Twig\Environment;
 
 /**
@@ -66,7 +67,8 @@ final class ParcialDoModoVendaTest extends KernelTestCase
     public function testCentralNaSecaoIndicacoes(): void
     {
         self::assertCount(1, $this->doc->filter(self::CENTRAL));
-        self::assertCount(1, $this->doc->filter('[data-sec-externa="ind"] > .mi > section.mi-caixa + link + .mc[data-modo="venda"]'), 'logo abaixo do resumo e dos limites');
+        // Entre o <link> e a raiz, o catálogo do idioma e o bj-traducao.js (spec idioma-do-sistema), que não aparecem na tela.
+        self::assertCount(1, $this->doc->filter('[data-sec-externa="ind"] > .mi > section.mi-caixa + link + script[data-bj-t] + script[src*="js/bj-traducao.js"] + .mc[data-modo="venda"]'), 'logo abaixo do resumo e dos limites');
         self::assertNotSame('', (string) $this->doc->filter(self::CENTRAL)->attr('data-token'));
         self::assertSame(['Central de envios · nova campanha'], $this->textos(self::CENTRAL . ' > section.mc-cp > .mc-cp-cabeca > .mc-cabeca-titulo'));
         // O que é só da seção Comercial (dc `secCom`): KPIs e Automações. Os scripts únicos dela também ficam de fora.
@@ -98,7 +100,9 @@ final class ParcialDoModoVendaTest extends KernelTestCase
         $css = $this->css();
         self::assertStringContainsString('.mc-cp-lead-add { height: 26px; padding: 0 10px; border: 1px dashed var(--mc-cp-novo-borda); border-radius: 13px; background: var(--mc-cp-novo-bg); color: var(--mc-azul);', $css);
         $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/comercial-campanha.js');
-        self::assertStringContainsString("'E-mail(s) de novos contatos (separe por vírgula). Só cadastre quem autorizou receber (LGPD):'", $js, 'o texto do prompt do dc (L644)');
+        self::assertStringContainsString("window.prompt(BJ_T.t('comercial.js.contatos_pergunta'), '')", $js);
+        $catalogo = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml');
+        self::assertSame('E-mail(s) de novos contatos (separe por vírgula). Só cadastre quem autorizou receber (LGPD):', $catalogo['comercial']['js']['contatos_pergunta'], 'o texto do prompt do dc (L644), no catálogo');
     }
 
     #[TestDox('Os 3 públicos da venda (Novos contatos, CSV e Individual) em 3 colunas, com os rótulos do dc (L640)')]

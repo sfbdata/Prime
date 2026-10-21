@@ -33,7 +33,7 @@
 
   function pedir(endereco, opcoes) {
     return fetch(endereco, Object.assign({ headers: { Accept: 'application/json' }, credentials: 'same-origin' }, opcoes || {}))
-      .then(r => r.json().catch(() => ({})).then(d => (r.ok ? d : Promise.reject(new Error(d.erro || 'Não foi possível concluir. Recarregue a página.')))));
+      .then(r => r.json().catch(() => ({})).then(d => (r.ok ? d : Promise.reject(new Error(d.erro || BJ_T.t('comercial.js.rl_erro'))))));
   }
 
   function avisar(texto) {
@@ -42,11 +42,12 @@
     caixa.hidden = !texto;
   }
 
-  // dc L702: "14:30" se for hoje; senão "21 out".
+  // dc L702: "14:30" se for hoje; senão "21 out". A hora vem do BJFormato (idioma da página); o "21 out" (dia e mês
+  // curto sem ponto) ele ainda não cobre e fica no formato fixo.
   function quando(iso) {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return '';
-    if (d.toDateString() === new Date().toDateString()) return d.toLocaleTimeString('pt-BR').slice(0, 5);
+    if (d.toDateString() === new Date().toDateString()) return window.BJFormato ? window.BJFormato.hora(d) : d.toLocaleTimeString('pt-BR').slice(0, 5);
     return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
   }
 
@@ -55,8 +56,8 @@
     const le = m.leitura === 'lido' ? 'mc-rl-le-lido' : m.leitura === 'entregue' ? 'mc-rl-le-entregue' : 'mc-rl-le-enviado';
     const icone = m.leitura === 'lido' ? 'bi-check2-all' : 'bi-check2';
     const marcada = !!estado.sel[c.id];
-    return '<div class="mc-rl-linha' + (marcada ? ' mc-rl-marcada' : '') + '" data-mc-rl-id="' + esc(c.id) + '" title="Abrir">'
-      + '<button type="button" class="mc-rl-sel" data-mc-rl-sel aria-label="Selecionar" aria-pressed="' + marcada + '"><i class="bi ' + (marcada ? 'bi-check-square-fill' : 'bi-square') + '" aria-hidden="true"></i></button>'
+    return '<div class="mc-rl-linha' + (marcada ? ' mc-rl-marcada' : '') + '" data-mc-rl-id="' + esc(c.id) + '" title="' + esc(BJ_T.t('comercial.js.rl_abrir')) + '">'
+      + '<button type="button" class="mc-rl-sel" data-mc-rl-sel aria-label="' + esc(BJ_T.t('comercial.js.rl_selecionar')) + '" aria-pressed="' + marcada + '"><i class="bi ' + (marcada ? 'bi-check-square-fill' : 'bi-square') + '" aria-hidden="true"></i></button>'
       + '<span class="mc-rl-publico">' + esc(c.publico) + ' <span class="mc-rl-total">' + esc(c.total) + '</span></span>'
       + '<span class="mc-rl-meio"><span class="mc-rl-st mc-rl-st-' + esc(c.estado) + '">' + esc(c.rotulo) + '</span>'
       + '<span class="mc-rl-nome"><b>' + esc(c.nome) + '</b><span class="mc-rl-sub"> · ' + esc(c.sub) + '</span></span></span>'
@@ -70,7 +71,7 @@
     const ic = el('[data-mc-rl-sel-ic]');
     ic.className = 'bi ' + (n && n === estado.ids.length ? 'bi-check-square-fill' : n ? 'bi-dash-square' : 'bi-square');
     const rotulo = el('[data-mc-rl-sel-n]');
-    rotulo.textContent = n + ' selecionada(s)';
+    rotulo.textContent = BJ_T.t('comercial.js.rl_selecionadas', { n });
     rotulo.hidden = n === 0;
     lista.querySelectorAll('[data-mc-rl-id]').forEach(l => {
       const marcada = !!estado.sel[l.dataset.mcRlId];
@@ -92,14 +93,14 @@
     });
     estado.paginas = d.paginas || 1;
     estado.p = d.pagina || 1;
-    el('[data-mc-rl-faixa]').textContent = d.faixa || '0 de 0';
+    el('[data-mc-rl-faixa]').textContent = d.faixa || BJ_T.t('comercial.js.rl_faixa_vazia');
     el('[data-mc-rl-pagina="-1"]').disabled = estado.p <= 1;
     el('[data-mc-rl-pagina="1"]').disabled = estado.p >= estado.paginas;
     const campanhas = d.campanhas || [];
     estado.ids = campanhas.map(c => String(c.id));
     lista.innerHTML = campanhas.length
       ? campanhas.map(linha).join('')
-      : '<div class="mc-rl-vazio"><i class="bi bi-inbox" aria-hidden="true"></i>Nenhuma campanha nesta aba.</div>';
+      : '<div class="mc-rl-vazio"><i class="bi bi-inbox" aria-hidden="true"></i>' + esc(BJ_T.t('comercial.js.rl_vazio')) + '</div>';
     lista.removeAttribute('aria-busy');
     desenharSelecao();
   }
@@ -109,7 +110,7 @@
     lista.setAttribute('aria-busy', 'true');
     return pedir(raiz.dataset.urlLista + '?' + q.toString())
       .then(d => { carregado = true; desenhar(d); })
-      .catch(() => { lista.removeAttribute('aria-busy'); lista.innerHTML = '<div class="mc-rl-vazio">Não foi possível carregar as campanhas. Recarregue a página.</div>'; });
+      .catch(() => { lista.removeAttribute('aria-busy'); lista.innerHTML = '<div class="mc-rl-vazio">' + esc(BJ_T.t('comercial.js.rl_erro_carregar')) + '</div>'; });
   }
 
   // ---- Visualizador (dc L502-514) ----
@@ -131,11 +132,11 @@
     texto('quando', c.quando);
     ver.querySelector('[data-mc-rl-cancelar]').hidden = !c.cancelavel;
     ver.querySelector('[data-mc-rl-kpis]').innerHTML = (c.kpis || []).map(k => '<div class="mc-rl-kpi"><span class="mc-rl-kpi-rot"><i class="bi ' + esc(k.icone) + '" aria-hidden="true"></i> ' + esc(k.rotulo) + '</span><b class="mc-rl-kpi-v">' + esc(k.valor) + '</b></div>').join('');
-    ver.querySelector('[data-mc-rl-html]').srcdoc = c.html || '<p style="font:14px Arial;color:#5b7383;padding:20px">Prévia não disponível para campanhas antigas.</p>';
+    ver.querySelector('[data-mc-rl-html]').srcdoc = c.html || '<p style="font:14px Arial;color:#5b7383;padding:20px">' + esc(BJ_T.t('comercial.js.rl_sem_previa')) + '</p>';
     const dest = c.destinatarios || [];
     let corpo = dest.map(p => '<div class="mc-rl-dest"><i class="bi ' + (p.lido ? 'bi-check2-all mc-rl-dest-lido' : 'bi-check2') + '" aria-hidden="true"></i><span class="mc-rl-dest-email">' + esc(p.email) + '</span><span class="mc-rl-dest-st">' + esc(p.estado) + '</span></div>').join('');
-    if (!dest.length) corpo = '<div class="mc-rl-dest-vazio">' + (c.iniciada ? 'Lista não registrada nesta campanha.' : 'A lista é montada quando o envio começar.') + '</div>';
-    if (c.mais > 0) corpo += '<div class="mc-rl-dest-mais">+ ' + esc(c.mais) + ' destinatário(s)</div>';
+    if (!dest.length) corpo = '<div class="mc-rl-dest-vazio">' + esc(c.iniciada ? BJ_T.t('comercial.js.rl_lista_nao_registrada') : BJ_T.t('comercial.js.rl_lista_ao_comecar')) + '</div>';
+    if (c.mais > 0) corpo += '<div class="mc-rl-dest-mais">' + esc(BJ_T.t('comercial.js.rl_mais', { n: c.mais })) + '</div>';
     ver.querySelector('[data-mc-rl-dest]').innerHTML = corpo;
   }
 
@@ -154,7 +155,7 @@
   function duplicar() {
     const c = estado.aberta;
     if (!c) return;
-    const detalhe = { assunto: String(c.assunto || '').replace(/^\[TESTE\]\s*/, ''), titulo: c.titulo || c.assunto || '', mensagem: 'Campanha duplicada: ajuste e envie de novo.' };
+    const detalhe = { assunto: String(c.assunto || '').replace(/^\[TESTE\]\s*/, ''), titulo: c.titulo || c.assunto || '', mensagem: BJ_T.t('comercial.js.rl_duplicada') };
     const tratado = !document.dispatchEvent(new CustomEvent('mc:duplicar-campanha', { cancelable: true, detail: detalhe }));
     fechar();
     if (tratado) return;
@@ -166,7 +167,7 @@
       entrada.dispatchEvent(new Event('input', { bubbles: true }));
       primeiro = primeiro || entrada;
     });
-    if (!primeiro) { avisar('Não foi possível abrir o editor da campanha.'); return; }
+    if (!primeiro) { avisar(BJ_T.t('comercial.js.rl_sem_editor')); return; }
     primeiro.scrollIntoView({ behavior: 'smooth', block: 'center' });
     primeiro.focus({ preventScroll: true });
     avisar(detalhe.mensagem);
@@ -175,7 +176,7 @@
   function cancelar() {
     const c = estado.aberta;
     if (!c || !c.cancelavel) return;
-    if (!window.confirm('Cancelar o envio programado desta campanha?')) return;
+    if (!window.confirm(BJ_T.t('comercial.js.rl_confirmar_cancelar'))) return;
     pedir(url(raiz.dataset.urlCancelar, c.id), { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-Token': raiz.dataset.token || '' }, body: '{}' })
       .then(r => { fechar(); avisar(r.mensagem); carregar(); })
       .catch(err => { fechar(); avisar(err.message); });

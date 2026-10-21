@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
+use Symfony\Component\Yaml\Yaml;
 use Twig\Environment;
 
 /**
@@ -123,8 +124,11 @@ final class ParcialDoRelatorioTest extends KernelTestCase
     {
         $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/comercial-relatorio.js');
         self::assertStringContainsString("new CustomEvent('mc:duplicar-campanha', { cancelable: true, detail: detalhe })", $js);
-        self::assertStringContainsString('Nenhuma campanha nesta aba.', $js);
-        self::assertStringContainsString("'Cancelar o envio programado desta campanha?'", $js);
+        self::assertStringContainsString("BJ_T.t('comercial.js.rl_vazio')", $js);
+        self::assertStringContainsString("window.confirm(BJ_T.t('comercial.js.rl_confirmar_cancelar'))", $js);
+        $catalogo = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['comercial']['js'];
+        self::assertSame('Nenhuma campanha nesta aba.', $catalogo['rl_vazio']);
+        self::assertSame('Cancelar o envio programado desta campanha?', $catalogo['rl_confirmar_cancelar']);
         self::assertSame(0, preg_match('/[—–]/u', $js));
         self::assertFileDoesNotExist(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/comercial-monitoramento.js');
     }
