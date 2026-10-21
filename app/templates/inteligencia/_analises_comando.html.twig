@@ -1,0 +1,27 @@
+{# ============================================================================
+   Lista de análises de UM comando ou relatório do drawer BlueJus IA numa pasta
+   (spec inteligencia-drawer-da-pasta, F1/F2/F4). Irmã do `_analises_agente`: o
+   mesmo cartão (`_analise_cartao_agente.html.twig`), com as análises do comando
+   e as antigas, de antes dos comandos, do agente que `Comando::doAgenteLegado`
+   põe aqui.
+
+   Renderizada dentro do painel e sozinha por
+   `GET /pasta/{id}/ia/comandos/{comando}/analises` (`inteligencia_comando_listar`),
+   que o JS troca depois do polling.
+
+   Contexto: `saida` (App\Inteligencia\DTO\AnalisesDoComandoOutput), `pastaId` (int).
+   ============================================================================ #}
+{% set podeVerMotivoTecnico = can_administer('admin.inteligencia.manage') %}
+{% set hojeIa = 'now'|date('Y-m-d') %}
+{# Mesma regra do `_analises_agente` (C6-IA-03): EDIT da pasta e pasta viva. #}
+{% set iaPodeCriarTarefa = not nota_tecnica_somente_leitura(pastaId) and can_access_resource('pasta', pastaId, 'edit') %}
+<div class="ia-ag-lista" data-ia-lista="{{ saida.comando.value }}"
+     data-ia-url="{{ path('inteligencia_comando_listar', {id: pastaId, comando: saida.comando.value}) }}"
+     data-ia-em-andamento="{{ saida.temEmAndamento ? '1' : '0' }}"
+     data-ia-tem-concluida="{{ saida.ultimaConcluida is not null ? '1' : '0' }}">
+    {% for a in saida.analises %}
+        {{ include('inteligencia/_analise_cartao_agente.html.twig', {a: a, pastaId: pastaId, podeVerMotivoTecnico: podeVerMotivoTecnico, hojeIa: hojeIa, iaPodeCriarTarefa: iaPodeCriarTarefa}, with_context = false) }}
+    {% else %}
+        <p class="ia-ag-vazio" data-ia-vazio>{{ saida.comando.ehRelatorio ? 'Nenhum relatório gerado ainda.' : (saida.comando.ehDaAbaDocumentos ? 'Nenhum índice gerado ainda.' : 'Nenhuma análise deste comando ainda.') }}</p>
+    {% endfor %}
+</div>

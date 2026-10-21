@@ -118,7 +118,7 @@ final class PastaAdministrativaTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('#processoTabContent > .ps-processos > .ps-vazio:not(.ps-vazio--administrativa)'), 'o convite "Nenhum processo judicial vinculado" some');
 
         // Vincular continua possível com a pasta marcada (o desenho mantém o botão).
-        self::assertCount(1, $crawler->filter('#processoTabContent > .ps-processos > .ps-card-cab > button[data-bs-target="#modalVincularProcesso"]'));
+        self::assertCount(1, $crawler->filter('#processoTabContent > .ps-processos > .ps-card-cab > button[data-bs-target="#modalVincularProcesso"]:not([data-vincular-modo])'));
     }
 
     #[TestDox('Com processo vinculado e desligado: o form leva em data-confirmar o texto do desenho (pasta e processo), sem onsubmit inline')]
@@ -132,9 +132,9 @@ final class PastaAdministrativaTelaTest extends JusPrimeWebTestCase
 
         $form = $this->formInterruptor($this->abrir($client, $pasta));
         self::assertNull($form->attr('onsubmit'));
-        // Texto do desenho (admSPtoggle, dc L.6588), com a quebra de linha antes da pergunta.
+        // Texto do desenho (admSPtoggle, dc L.6588; N:7001 no de 18/10), com a quebra de linha antes da pergunta.
         self::assertSame(
-            'A Pasta ' . $pasta->getNup() . ' tem o processo ' . self::NUMERO_MASCARA . " vinculado.\nMarcar mesmo assim como \"Administrativo sem processo\"?",
+            'A Pasta ' . $pasta->getNup() . ' tem o processo ' . self::NUMERO_MASCARA . " vinculado.\nMarcar mesmo assim como \"Administrativo sem processo\"? O andamento passa para a via administrativa.",
             $form->attr('data-confirmar'),
         );
     }

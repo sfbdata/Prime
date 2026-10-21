@@ -222,7 +222,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 46 → 47 com as inscrições na OAB do Meu Perfil (19/10/2026): InscricaoOab é da pessoa, não do escritório.
     // 47 → 50 com as vagas e as preferências do usuário do Trabalho Externo (19/10/2026): Vaga, HistoricoVaga e PreferenciaDoUsuario, justificadas acima.
     // 50 → 52 com a página pública de vagas do Trabalho Externo (19/10/2026): LinkDeVagas e InteressadoEmVagas, justificados acima.
-    // 52 → 54 com o currículo do banco de talentos e a candidatura às vagas do Trabalho Externo (19/10/2026): Curriculo e Candidatura, justificados acima.
+    // 52 → 53 com o currículo do banco de talentos do Trabalho Externo (19/10/2026): Curriculo, justificado acima.
+    // 53 → 54 com a candidatura às vagas do Trabalho Externo (19/10/2026): Candidatura, justificada acima.
     private const MAX_FORA_DO_ESCOPO = 54;
 
     /**

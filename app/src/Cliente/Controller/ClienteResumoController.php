@@ -119,6 +119,7 @@ final class ClienteResumoController extends AbstractController
                     (string) $request->request->get('valor', ''),
                 ),
                 $tenant,
+                $usuario,
             );
         } catch (ClienteNaoEncontradoException) {
             throw $this->createNotFoundException('Cliente não encontrado');

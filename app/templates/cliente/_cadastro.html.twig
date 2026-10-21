@@ -2,17 +2,19 @@
    Janela "Cadastro e qualificação do cliente" (desenho 1.2.3, `cadAbrir`/`cadVals`; E12f fatia 3a).
    Fragmento devolvido por `cliente_cadastro`; quem monta e controla é public/js/cliente-cadastro.js.
 
-   Abas: Cliente, Endereço, Contato, Documentos (3b), Qualificação. Réu e Histórico entram nas fatias 3c e 3d
-   (spec E12, §13). Pessoa jurídica usa a mesma janela adaptada (decisão do dono, sem desenho próprio).
+   Abas: Cliente, Réu (3c), Endereço, Contato, Documentos (3b), Qualificação e Histórico (3d: o histórico próprio do
+   cadastro, só rótulos, nunca valores; `HistoricoDoCliente`). Spec E12, §13. Pessoa jurídica usa a mesma janela
+   adaptada (decisão do dono, sem desenho próprio).
    As regras de pendência vêm do servidor (`PendenciasDoCadastro`): cada campo obrigatório leva o texto e a aba
    da pendência dele em data-*, para o JS recalcular a cada tecla como o desenho; as de documento chegam prontas.
    Sem permissão de EDITAR o cliente, os campos vêm travados e não há Salvar.
 
    Contexto: cliente, novo (Novo cliente: sem id, pela pasta), autores, pf, pendencias, pendenciasDocs, qualificacao, podeEditar, pasta, podeVincular, estadosCivis, docs,
-   abaInicial, mostrarOcr, reus (null sem pasta de contexto).
+   abaInicial, mostrarOcr, reus (null sem pasta de contexto), historico (lista de {q, t}, a mais nova primeiro).
    ============================================================================ #}
 {% set novo = novo ?? false %}
 {% set autores = autores ?? [] %}
+{% set historico = historico ?? [] %}
 {% set travado = not podeEditar %}
 {% set documento = pf ? cliente.cpf : cliente.cnpj %}
 {% set ROTULO_CIVIL = {SOLTEIRO: 'Solteiro(a)', CASADO: 'Casado(a)', DIVORCIADO: 'Divorciado(a)', SEPARADO: 'Separado(a)', VIUVO: 'Viúvo(a)', UNIAO_ESTAVEL: 'União estável'} %}
@@ -98,6 +100,7 @@
                 {k: 'contato',  rotulo: 'Contato',  icone: 'bi-telephone'},
                 {k: 'docs',     rotulo: 'Documentos', icone: 'bi-paperclip', so: not novo},
                 {k: 'qual',     rotulo: 'Qualificação', icone: 'bi-file-text'},
+                {k: 'hist',     rotulo: 'Histórico', icone: 'bi-clock-history'},
             ]|filter(a => a.so ?? true) %}
                 <button type="button" class="cad-aba{{ aba.k == abaInicial ? ' is-ativa' : '' }}" role="tab" data-cad-aba="{{ aba.k }}"
                         aria-selected="{{ aba.k == abaInicial ? 'true' : 'false' }}">
@@ -243,6 +246,12 @@
                permissão de EDITAR o cliente e o CSRF. "Substituir" envia o novo e só depois exclui o antigo. #}
             {% if not novo %}
             <section class="cad-painel" data-cad-painel="docs"{{ abaInicial != 'docs' ? ' hidden' : '' }}>
+                {# Inteligência cadastral (desenho 02, l.740 a 791; spec cliente-inteligencia-cadastral, F-A): carregada ao abrir
+                   a aba (`cliente_inteligencia_cadastral`), desenhada pelo JS. Só com CPF/CNPJ válido; sem leitura de
+                   documento, sem sugestões e sem "Atualizar sozinho" (fatias futuras). #}
+                <div class="cad-ii js-cad-ii" hidden
+                     data-url="{{ path('cliente_inteligencia_cadastral', {id: cliente.id}) }}"
+                     data-url-vincular="{{ path('cliente_inteligencia_cadastral_vincular', {id: cliente.id, documentoId: 0}) }}"></div>
                 {% for cat, info in {
                     IDENTIFICACAO: {titulo: 'Documento de identificação', sub: 'CNH ou RG', icone: 'bi-person-badge'},
                     COMPROVANTE_RESIDENCIA: {titulo: 'Comprovante de residência', sub: 'Conta de consumo, contrato de locação ou similar', icone: 'bi-house-door'},
@@ -253,7 +262,7 @@
                         <div class="cad-doc-texto">
                             <div class="cad-doc-titulo">{{ info.titulo }}</div>
                             <div class="cad-doc-info">
-                                {% if doc %}{{ doc.nomeOriginal }} · anexado em {{ doc.uploadedAt|date('d/m/Y') }} · {{ (doc.tamanhoBytes / 1024)|round(0, 'ceil') }} KB{% else %}{{ info.sub }} · não anexado{% endif %}
+                                {% if doc and doc.vinculado %}{{ doc.nomeOriginal }} · anexado em {{ doc.pastaDocumento.carregadoEm|date('d/m/Y') }}{% elseif doc %}{{ doc.nomeOriginal }} · anexado em {{ doc.uploadedAt|date('d/m/Y') }} · {{ (doc.tamanhoBytes / 1024)|round(0, 'ceil') }} KB{% else %}{{ info.sub }} · não anexado{% endif %}
                             </div>
                         </div>
                         <div class="cad-doc-acoes">
@@ -293,6 +302,20 @@
             <section class="cad-painel" data-cad-painel="qual"{{ abaInicial != 'qual' ? ' hidden' : '' }}>
                 <div class="cad-qual js-cad-qual">{{ qualificacao }}</div>
                 <p class="cad-nota">Texto gerado com os campos preenchidos, pronto para contratos, procurações e petições. Documentos já gerados não mudam quando o cadastro é atualizado.</p>
+            </section>
+
+            {# Aba Histórico (desenho 1.2.3, `cq.hist`; E12 fatia 3d): quem fez o quê no cadastro, a mais nova primeiro, as
+               40 mais novas. Só rótulos ("alterou nome, CPF"), nunca o valor. O bloco Pendências some nesta aba. #}
+            <section class="cad-painel" data-cad-painel="hist"{{ abaInicial != 'hist' ? ' hidden' : '' }}>
+                {% if historico is empty %}
+                    <div class="cad-hist-vazio">Nenhuma alteração registrada ainda.</div>
+                {% else %}
+                    <ul class="cad-hist">
+                        {% for h in historico %}
+                            <li class="cad-hist-linha"><span class="cad-hist-q">{{ h.q }}</span><span class="cad-hist-t">{{ h.t }}</span></li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
             </section>
 
             <div class="cad-existente js-cad-existente" role="alert" hidden>

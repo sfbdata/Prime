@@ -8,7 +8,7 @@ use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\TipoDePonto;
 
 /**
- * Uma análise como a tela e o JSON a veem. `erroMotivo` é a mensagem técnica: o template só a
+ * Uma análise como a tela e o JSON a veem, com a edição do advogado se houver (P4h). `erroMotivo` é a mensagem técnica: o template só a
  * mostra para quem tem `admin.inteligencia.manage`. `aviso` só existe na resposta da solicitação
  * ("nada novo desde a última análise", "já existe uma em andamento").
  */
@@ -48,6 +48,13 @@ final readonly class AnaliseOutput
         public ?string $agenteNome = null,
         /** Análise integral do agente (formato do Designer); nulo no Push. */
         public ?string $textoDaAnalise = null,
+        /** P4h: o advogado editou; `resumo` e `pontos` acima já são a versão editada. */
+        public bool $editada = false,
+        public ?\DateTimeImmutable $editadaEm = null,
+        public ?string $editadaPorNome = null,
+        /** Comando ou relatório do drawer que gerou a análise; nulo no Push e nas análises antigas. */
+        public ?string $comando = null,
+        public ?string $comandoRotulo = null,
     ) {
     }
 
@@ -57,10 +64,7 @@ final readonly class AnaliseOutput
         $resumoDoContexto = $analise->getContextoResumo();
 
         $pontos = [];
-        foreach ($analise->getPontos() ?? [] as $ponto) {
-            if (!is_array($ponto) || !isset($ponto['texto']) || !is_string($ponto['texto'])) {
-                continue;
-            }
+        foreach ($analise->getPontosExibidos() as $ponto) {
             $tipo = TipoDePonto::deString($ponto['tipo'] ?? null);
             $pontos[] = ['tipo' => $tipo->value, 'rotulo' => $tipo->rotulo(), 'texto' => $ponto['texto']];
         }
@@ -74,7 +78,7 @@ final readonly class AnaliseOutput
             terminal: $status->terminal(),
             criadaEm: $analise->getCriadaEm(),
             concluidaEm: $analise->getConcluidaEm(),
-            resumo: $analise->getResumo(),
+            resumo: $analise->getResumoExibido(),
             pontos: $pontos,
             quemAge: $analise->getQuemAge(),
             internaDoEscritorio: $analise->isInternaDoEscritorio(),
@@ -94,6 +98,11 @@ final readonly class AnaliseOutput
             agente: $analise->getAgente()?->value,
             agenteNome: $analise->getAgente()?->nome(),
             textoDaAnalise: $analise->getTextoDaAnalise(),
+            editada: $analise->foiEditada(),
+            editadaEm: $analise->getEditadaEm(),
+            editadaPorNome: $analise->getEditadaPor()?->getFullName(),
+            comando: $analise->getComando()?->value,
+            comandoRotulo: $analise->getComando()?->rotulo(),
         );
     }
 
@@ -109,6 +118,7 @@ final readonly class AnaliseOutput
             'totalMovimentacoes' => $this->totalMovimentacoes,
             'aviso' => $this->aviso,
             'agente' => $this->agente,
+            'comando' => $this->comando,
         ];
     }
 }

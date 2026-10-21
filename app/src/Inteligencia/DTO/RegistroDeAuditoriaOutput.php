@@ -6,6 +6,7 @@ namespace App\Inteligencia\DTO;
 
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\TipoDeAnalise;
 
 /**
@@ -35,13 +36,20 @@ final readonly class RegistroDeAuditoriaOutput
     ) {
     }
 
-    /** O rótulo da análise na trilha: o nome do agente ou, sem agente, o do tipo. */
-    public static function rotuloDaAnalise(?Agente $agente, TipoDeAnalise $tipo): string
+    /**
+     * O rótulo da análise na trilha: o do comando do drawer, senão o nome do agente, senão o do tipo.
+     * A pergunta da aba Perguntar (F3) é "Pergunta à IA" mesmo tendo o Gestor como agente: a trilha
+     * diz quem perguntou e quando, nunca o texto da pergunta (que é da pessoa).
+     */
+    public static function rotuloDaAnalise(?Agente $agente, TipoDeAnalise $tipo, ?Comando $comando = null): string
     {
-        return $agente?->nome() ?? match ($tipo) {
+        if ($tipo === TipoDeAnalise::PerguntaLivre) {
+            return 'Pergunta à IA';
+        }
+
+        return $comando?->rotulo() ?? $agente?->nome() ?? match ($tipo) {
             TipoDeAnalise::ResumoPush => 'Análise IA do Push',
             TipoDeAnalise::AnalisePasta => 'Análise de agente',
-            TipoDeAnalise::PerguntaLivre => 'Pergunta à IA',
             TipoDeAnalise::ResumoDocumento => 'Resumo de documento',
         };
     }
@@ -51,14 +59,14 @@ final readonly class RegistroDeAuditoriaOutput
      * `AnaliseDeInteligenciaRepository::listarExportacoesDoAlvo`). `$acao` é
      * {@see self::ACAO_DOWNLOAD} ou {@see self::ACAO_IMPRESSAO}, já traduzida pelo UseCase.
      *
-     * @param array{acao: string, analiseId: int, quando: \DateTimeImmutable, autorNome: ?string, agente: ?Agente, tipo: TipoDeAnalise} $linha
+     * @param array{acao: string, analiseId: int, quando: \DateTimeImmutable, autorNome: ?string, agente: ?Agente, tipo: TipoDeAnalise, comando?: ?Comando} $linha
      */
     public static function daExportacao(array $linha, string $acao): self
     {
         return new self(
             analiseId: $linha['analiseId'],
             quando: $linha['quando'],
-            oQue: self::rotuloDaAnalise($linha['agente'], $linha['tipo']),
+            oQue: self::rotuloDaAnalise($linha['agente'], $linha['tipo'], $linha['comando'] ?? null),
             status: '',
             statusRotulo: '',
             solicitanteNome: $linha['autorNome'],
@@ -84,7 +92,7 @@ final readonly class RegistroDeAuditoriaOutput
         return new self(
             analiseId: (int) $analise->getId(),
             quando: $analise->getCriadaEm(),
-            oQue: self::rotuloDaAnalise($analise->getAgente(), $analise->getTipo()),
+            oQue: self::rotuloDaAnalise($analise->getAgente(), $analise->getTipo(), $analise->getComando()),
             status: $status->value,
             statusRotulo: $status->rotulo(),
             solicitanteNome: $analise->getSolicitante()?->getFullName(),

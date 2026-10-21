@@ -13,6 +13,7 @@ use App\Inteligencia\Exception\FalhaDoProvedorException;
 use App\Inteligencia\Exception\ProvedorIndisponivelException;
 use App\Inteligencia\Exception\RespostaInvalidaException;
 use App\Inteligencia\Fluxo\FluxoDaAnaliseDaPasta;
+use App\Inteligencia\Fluxo\FluxoDaPerguntaLivre;
 use App\Inteligencia\Fluxo\FluxoDeAnalise;
 use App\Inteligencia\Fluxo\FluxoDoResumoDoPush;
 use App\Inteligencia\Message\ProcessarAnaliseDeInteligencia;
@@ -71,6 +72,7 @@ final class ProcessarAnaliseDeInteligenciaHandler
         private readonly AnaliseDeInteligenciaRepository $analises,
         FluxoDoResumoDoPush $fluxoDoPush,
         FluxoDaAnaliseDaPasta $fluxoDaPasta,
+        FluxoDaPerguntaLivre $fluxoDaPergunta,
         private readonly ProvedorDeLinguagem $provedor,
         private readonly NotificacaoService $notificacoes,
         private readonly UrlGeneratorInterface $urls,
@@ -81,6 +83,7 @@ final class ProcessarAnaliseDeInteligenciaHandler
         $this->fluxos = [
             $fluxoDoPush->tipo()->value => $fluxoDoPush,
             $fluxoDaPasta->tipo()->value => $fluxoDaPasta,
+            $fluxoDaPergunta->tipo()->value => $fluxoDaPergunta,
         ];
     }
 
@@ -292,6 +295,7 @@ final class ProcessarAnaliseDeInteligenciaHandler
             'tenant' => $analise->getTenant()?->getId(),
             'tipo' => $analise->getTipo()->value,
             'agente' => $analise->getAgente()?->value,
+            'comando' => $analise->getComando()?->value,
             'provedor' => $this->provedor->nome(),
             'tentativas' => $analise->getTentativas(),
         ];
