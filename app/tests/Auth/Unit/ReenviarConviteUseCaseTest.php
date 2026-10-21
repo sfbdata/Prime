@@ -7,6 +7,7 @@ namespace App\Tests\Auth\Unit;
 use App\Auth\DTO\ReenviarConviteInput;
 use App\Auth\UseCase\ReenviarConviteUseCase;
 use App\Entity\Auth\Invitation;
+use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -28,6 +29,12 @@ final class ReenviarConviteUseCaseTest extends TestCase
         $this->useCase        = new ReenviarConviteUseCase($this->invitationRepo, $this->em);
     }
 
+    /** Quem reenvia, com o e-mail confirmado (o padrão de toda conta antiga). */
+    private function quemConfirmado(): User
+    {
+        return (new User())->setEmail('master@escritorio.com');
+    }
+
     private function convitePendente(): Invitation
     {
         return new Invitation(
@@ -36,6 +43,31 @@ final class ReenviarConviteUseCaseTest extends TestCase
             type: 'office',
             expiresAt: new \DateTimeImmutable('+7 days'),
         );
+    }
+
+    #[TestDox('Quem reenvia com o e-mail a confirmar é recusado e nada é gravado')]
+    public function testEmailAConfirmarNaoReenvia(): void
+    {
+        $quem = (new User())->setEmail('novo@escritorio.com');
+        $quem->marcarEmailAConfirmar(new \DateTimeImmutable());
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($this->convitePendente());
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Confirme o seu e-mail para convidar pessoas. Reenviamos o link de confirmação se você pedir.');
+
+        $this->useCase->executar(new ReenviarConviteInput('token-valido', $quem));
+    }
+
+    #[TestDox('Quem reenvia com o e-mail confirmado reenvia normalmente')]
+    public function testEmailConfirmadoReenvia(): void
+    {
+        $quem = (new User())->setEmail('dono@escritorio.com');
+        $convite = $this->convitePendente();
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($convite);
+        $this->em->expects($this->once())->method('flush');
+
+        self::assertSame($convite, $this->useCase->executar(new ReenviarConviteInput('token-valido', $quem)));
     }
 
     #[TestDox('Convite não encontrado lança DomainException')]
@@ -47,7 +79,7 @@ final class ReenviarConviteUseCaseTest extends TestCase
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('não encontrado');
 
-        $this->useCase->executar(new ReenviarConviteInput('token-invalido'));
+        $this->useCase->executar(new ReenviarConviteInput('token-invalido', $this->quemConfirmado()));
     }
 
     #[TestDox('Convite não-pending lança DomainException')]
@@ -61,7 +93,7 @@ final class ReenviarConviteUseCaseTest extends TestCase
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('pendentes');
 
-        $this->useCase->executar(new ReenviarConviteInput('token-valido'));
+        $this->useCase->executar(new ReenviarConviteInput('token-valido', $this->quemConfirmado()));
     }
 
     #[TestDox('Convite expirado lança DomainException')]
@@ -79,7 +111,7 @@ final class ReenviarConviteUseCaseTest extends TestCase
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('expirado');
 
-        $this->useCase->executar(new ReenviarConviteInput('token-expirado'));
+        $this->useCase->executar(new ReenviarConviteInput('token-expirado', $this->quemConfirmado()));
     }
 
     #[TestDox('Reenviar 3 vezes e na 4ª lança DomainException com mensagem de limite')]
@@ -95,7 +127,7 @@ final class ReenviarConviteUseCaseTest extends TestCase
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('Limite de reenvios');
 
-        $this->useCase->executar(new ReenviarConviteInput('token-valido'));
+        $this->useCase->executar(new ReenviarConviteInput('token-valido', $this->quemConfirmado()));
     }
 
     #[TestDox('Reenvio válido incrementa contador e chama flush')]
@@ -105,7 +137,7 @@ final class ReenviarConviteUseCaseTest extends TestCase
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar(new ReenviarConviteInput('token-valido'));
+        $resultado = $this->useCase->executar(new ReenviarConviteInput('token-valido', $this->quemConfirmado()));
 
         self::assertSame(1, $resultado->getReenvioCount());
         self::assertSame('pending', $resultado->getStatus());
@@ -119,7 +151,7 @@ final class ReenviarConviteUseCaseTest extends TestCase
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
         $this->em->method('flush');
 
-        $resultado = $this->useCase->executar(new ReenviarConviteInput('token-valido'));
+        $resultado = $this->useCase->executar(new ReenviarConviteInput('token-valido', $this->quemConfirmado()));
 
         self::assertSame(2, $resultado->getReenvioCount());
     }
@@ -133,7 +165,7 @@ final class ReenviarConviteUseCaseTest extends TestCase
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar(new ReenviarConviteInput('token-valido'));
+        $resultado = $this->useCase->executar(new ReenviarConviteInput('token-valido', $this->quemConfirmado()));
 
         self::assertSame(3, $resultado->getReenvioCount());
     }

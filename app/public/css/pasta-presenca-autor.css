@@ -1,0 +1,60 @@
+/* =============================================================================
+   pasta-presenca-autor.css: presença do autor nos cartões da pasta (Registro da aba Dados, observações do
+   Financeiro e de Detalhes). Desenho 02 VS 18.10.26, dc L1398-1399, L1929-1930 e L2456-2457; estilos de
+   `presDot` e `presTxt` em L6302; cores de bluejus-central.js L45 (STATUS) e L288 (off-line).
+   Quem desenha é pasta-presenca-autor.js; sem a Central na página, nada daqui aparece.
+   ============================================================================= */
+
+/* O avatar tem `overflow: hidden` (é redondo e corta a foto): o ponto mora num invólucro ao lado dele,
+   como no desenho (span relativo com o avatar e o ponto dentro). */
+.ppa-avatar {
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+}
+
+/* dc L6302 `presDot` */
+.ppa-ponto {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    box-sizing: border-box;
+    border: 2px solid #fff;
+    z-index: 2;
+    background: #b7c4cd;
+}
+[data-bs-theme="dark"] .ppa-ponto { border-color: var(--ps-card, #1b2730); }
+
+/* dc L6302 `presTxt` */
+.ppa-rotulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: #8a9aa6;
+}
+
+.ppa--disponivel .ppa-ponto { background: #3fd17f; }
+.ppa--ocupado .ppa-ponto    { background: #e5484d; }
+.ppa--ausente .ppa-ponto    { background: #f2a93b; }
+.ppa--offline .ppa-ponto    { background: #b7c4cd; }
+
+.ppa-rotulo.ppa--disponivel { color: #1e7b45; }
+.ppa-rotulo.ppa--ocupado    { color: #b3363b; }
+.ppa-rotulo.ppa--ausente    { color: #a86a12; }
+.ppa-rotulo.ppa--offline    { color: #8a9aa6; }
+
+/* O desenho não tem o par escuro: os mesmos tons, mais claros, para ler sobre o fundo escuro. */
+[data-bs-theme="dark"] .ppa-rotulo.ppa--disponivel { color: #5fd897; }
+[data-bs-theme="dark"] .ppa-rotulo.ppa--ocupado    { color: #f08a84; }
+[data-bs-theme="dark"] .ppa-rotulo.ppa--ausente    { color: #e9be6c; }
+[data-bs-theme="dark"] .ppa-rotulo.ppa--offline    { color: #9fb0bc; }
+
+/* Só o meu rótulo é clicável (abre a Central). O desenho não muda o cursor; o foco por teclado precisa
+   aparecer. */
+.ppa-rotulo[role="button"]:focus-visible { outline: 2px solid #0a7aad; outline-offset: 2px; border-radius: 3px; }

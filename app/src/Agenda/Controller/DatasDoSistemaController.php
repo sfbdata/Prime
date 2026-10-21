@@ -47,6 +47,8 @@ final class DatasDoSistemaController extends AbstractController
         $r = $this->listarDatas->executar($tenant, $lotacao, $de, $ate);
 
         return $this->json([
+            'podeAjustar' => $this->permissionChecker->canAdminister($user, $tenant, 'admin.tenant.settings.manage'),
+            'temAjustes'  => $r['temAjustes'],
             'ufs'   => $r['ufs'],
             'datas' => array_map(static fn (DataDoSistemaOutput $d): array => $d->toArray(), $r['datas']),
         ]);

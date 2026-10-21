@@ -50,4 +50,33 @@ final class RedefinicaoSenhaMailerTest extends TestCase
         self::assertSame('infra@bluejus.test', $emailCapturado->getReplyTo()[0]->getAddress());
         self::assertSame('usuario@bluejus.test', $emailCapturado->getTo()[0]->getAddress());
     }
+
+    #[TestDox('Código: assunto exatamente "Seu código BlueJus: NNNNNN" (desenho 10), com a identidade institucional')]
+    public function testCodigoUsaAssuntoDoDesenho(): void
+    {
+        $mailer = $this->createMock(MailerInterface::class);
+        $twig = $this->createMock(Environment::class);
+        $twig->expects($this->once())->method('render')
+            ->with('email/codigo_senha.html.twig', ['nome' => 'Pessoa Usuária', 'codigo' => '012345'])
+            ->willReturn('<html>código</html>');
+        $emailCapturado = null;
+        $mailer->expects($this->once())->method('send')
+            ->willReturnCallback(static function (Email $email) use (&$emailCapturado): void {
+                $emailCapturado = $email;
+            });
+        $service = new RedefinicaoSenhaMailer(
+            $mailer,
+            $twig,
+            $this->createMock(UrlGeneratorInterface::class),
+            new IdentidadeDeEmail('BlueJus <nao-responda@bluejus.test>', 'infra@bluejus.test'),
+        );
+
+        $service->enviarCodigo((new User())->setEmail('usuario@bluejus.test')->setFullName('Pessoa Usuária'), '012345');
+
+        self::assertInstanceOf(Email::class, $emailCapturado);
+        self::assertSame('Seu código BlueJus: 012345', $emailCapturado->getSubject());
+        self::assertSame('nao-responda@bluejus.test', $emailCapturado->getFrom()[0]->getAddress());
+        self::assertSame('infra@bluejus.test', $emailCapturado->getReplyTo()[0]->getAddress());
+        self::assertSame('usuario@bluejus.test', $emailCapturado->getTo()[0]->getAddress());
+    }
 }

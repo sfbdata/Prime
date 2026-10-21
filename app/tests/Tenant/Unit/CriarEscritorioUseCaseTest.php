@@ -17,6 +17,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
+use App\Auth\Repository\InscricaoOabRepository;
+use App\Auth\Service\EspelhoDaOabPrincipal;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(CriarEscritorioUseCase::class)]
@@ -34,7 +36,7 @@ final class CriarEscritorioUseCaseTest extends TestCase
         $this->bootstrap        = $this->createMock(TenantBootstrapService::class);
         // ValidadorOab real com backend dormente (fake indisponível) = comportamento de produção.
         $validadorOab           = new ValidadorOab((new OabWebServiceClientFake())->indisponivel());
-        $this->useCase          = new CriarEscritorioUseCase($this->em, $this->tenantRepository, $this->bootstrap, $validadorOab, 3);
+        $this->useCase          = new CriarEscritorioUseCase($this->em, $this->tenantRepository, $this->bootstrap, $validadorOab, 3, new EspelhoDaOabPrincipal($this->createStub(InscricaoOabRepository::class)));
     }
 
     private function input(string $nome, ?string $oabNumero = null, ?string $oabUf = null): CriarEscritorioInput

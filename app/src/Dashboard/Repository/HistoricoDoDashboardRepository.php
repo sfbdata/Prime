@@ -34,17 +34,20 @@ class HistoricoDoDashboardRepository
      * A contagem por mês é feita aqui, sobre as datas do intervalo (uma consulta só): o DQL do
      * projeto não tem função de mês, e o volume — pastas de 4 anos de um escritório — é pequeno.
      *
-     * @param list<int> $criadorIds universo de colaboradores (vazio = nenhuma pasta)
+     * A pasta oculta pelo cadeado para quem olha também não conta, como no card (spec pasta-cadeado D1).
+     *
+     * @param list<int> $criadorIds    universo de colaboradores (vazio = nenhuma pasta)
+     * @param list<int> $pastasOcultas ids de `AcessoAPasta::idsOcultosPara` de quem olha
      *
      * @return array<string, int> 'Y-m' => total
      */
-    public function contarPastasCriadasPorMes(Tenant $tenant, array $criadorIds, \DateTimeImmutable $de, \DateTimeImmutable $ate): array
+    public function contarPastasCriadasPorMes(Tenant $tenant, array $criadorIds, \DateTimeImmutable $de, \DateTimeImmutable $ate, array $pastasOcultas = []): array
     {
         if ($criadorIds === []) {
             return [];
         }
 
-        $rows = $this->em->createQueryBuilder()
+        $qb = $this->em->createQueryBuilder()
             ->select('p.dataAbertura AS dataAbertura')
             ->from(Pasta::class, 'p')
             ->join('p.criadoPor', 'c')
@@ -56,9 +59,11 @@ class HistoricoDoDashboardRepository
             ->setParameter('tenant', $tenant)
             ->setParameter('criadores', array_values($criadorIds))
             ->setParameter('de', $de)
-            ->setParameter('ate', $ate)
-            ->getQuery()
-            ->getArrayResult();
+            ->setParameter('ate', $ate);
+        if ($pastasOcultas !== []) {
+            $qb->andWhere('p.id NOT IN (:pastasOcultas)')->setParameter('pastasOcultas', $pastasOcultas);
+        }
+        $rows = $qb->getQuery()->getArrayResult();
 
         $porMes = [];
         foreach ($rows as $row) {

@@ -50,11 +50,13 @@ final class AgenteDePastasController extends AbstractController
 
         try {
             $filtro = FiltroDoAgenteInput::daQuery($request->query->all());
+            /** @var User $usuario */
+            $usuario = $this->getUser();
             if ($filtro->contar) {
-                return $this->json(['total' => $this->contarPastas->executar($filtro, $tenant)]);
+                return $this->json(['total' => $this->contarPastas->executar($filtro, $tenant, $usuario)]);
             }
 
-            return $this->json($this->buscarPastas->executar($filtro, $tenant));
+            return $this->json($this->buscarPastas->executar($filtro, $tenant, $usuario));
         } catch (FiltroDoAgenteInvalidoException $e) {
             return $this->json(['erro' => $e->getMessage(), 'campo' => $e->campo], Response::HTTP_UNPROCESSABLE_ENTITY);
         }

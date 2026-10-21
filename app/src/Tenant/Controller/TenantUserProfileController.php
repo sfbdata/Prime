@@ -64,6 +64,9 @@ final class TenantUserProfileController extends AbstractController
 
         $perfil = $this->obterOuCriarPerfil->executar($user);
         $input  = new DadosPessoaisInput();
+        // Esta tela não edita frase nem telefone: o UseCase regrava os valores atuais.
+        $input->status   = $perfil->getStatus();
+        $input->telefone = $perfil->getTelefone();
         $form   = $this->createForm(DadosPessoaisType::class, $input);
         $form->handleRequest($request);
 

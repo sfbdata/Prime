@@ -1,0 +1,54 @@
+/* BlueJus · Janela "Indicar o BlueJus" (desenho bj-contas.js L98-133). Marcação em templates/indicacao/_janela.html.twig;
+   o topo azul e o fundo do modal vêm de menu-usuario.css (.mu-modal, .mu-modal-topo); o "×" e o resto, do desenho. */
+
+.ind-dialogo { max-width: min(520px, calc(100vw - 24px)); }
+.ind-modal .modal-content { max-height: 92vh; overflow: auto; box-shadow: 0 20px 50px rgba(18, 36, 47, .25); }
+.ind-modal .mu-modal-topo { padding: 13px 18px; }
+.ind-x { border: none; background: none; color: #fff; font-size: 22px; line-height: 1; cursor: pointer; padding: 0; }
+.ind-corpo { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; color: #12242f; }
+
+.ind-dica { display: flex; gap: 10px; align-items: flex-start; background: #f2f8fc; border: 1px solid #cfe3f0; border-radius: 4px;
+  padding: 10px 12px; font-size: 13px; color: #34505f; line-height: 1.5; }
+.ind-dica-icone { font-size: 18px; }
+
+.ind-pendencias { background: #fff8e6; border: 1px solid #f1e2bf; border-radius: 4px; padding: 12px 14px; font-size: 13px; color: #5a3a06; line-height: 1.5; }
+.ind-pendencias-acao { margin-top: 10px; }
+.ind-trava { background: #fdf1f2; border: 1px solid #f1c4c9; border-radius: 4px; padding: 12px 14px; font-size: 13px; color: #842029; }
+
+.ind-envio { display: flex; flex-direction: column; gap: 12px; }
+.ind-quem { font-size: 12px; color: #5b7383; overflow-wrap: anywhere; }
+.ind-campos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ind-campo { width: 100%; box-sizing: border-box; height: 38px; border: 1px solid #c9d6df; border-radius: 4px; padding: 0 11px;
+  font: inherit; font-size: 14px; color: #12242f; background: #fff; outline: none; }
+.ind-campo:focus { border-color: #0a6fa0; }
+.ind-mensagem { height: auto; padding: 9px 11px; line-height: 1.5; resize: vertical; }
+.ind-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.ind-btn { height: 38px; border: none; border-radius: 4px; font: inherit; font-size: 14px; font-weight: 700; padding: 0 16px; cursor: pointer;
+  display: inline-flex; align-items: center; text-decoration: none; transition: transform .15s, background .15s; }
+.ind-btn:disabled { opacity: .6; cursor: wait; }
+.ind-btn-pri { background: #0a6fa0; color: #fff; }
+.ind-btn-pri:hover { background: #0b5f86; color: #fff; }
+.ind-btn-wa { background: #1e7b45; color: #fff; }
+.ind-btn-wa:hover { background: #196a3b; color: #fff; }
+.ind-btn-sec { background: #fff; color: #0a6fa0; border: 1px solid #c9d6df; }
+.ind-btn-sec:hover { background: #f2f8fc; }
+
+.ind-aviso { font-size: 13px; color: #1e7b45; }
+
+.ind-titulo-lista { font-size: 12px; font-weight: 700; letter-spacing: .5px; color: #5f7684; margin-top: 4px; }
+.ind-item { display: flex; gap: 10px; align-items: center; font-size: 13px; padding: 6px 0; border-bottom: 1px solid #eef2f5; }
+.ind-item-quem { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ind-item-data { color: #7a8e9b; }
+.ind-selo { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 3px; background: #fff4d6; color: #7a5200; }
+.ind-selo.ind-selo-conta { background: #e9f6ee; color: #1e7b45; }
+.ind-vazio { font-size: 12.5px; color: #9aabb7; }
+
+@media (max-width: 480px) { .ind-campos { grid-template-columns: 1fr; } }
+
+/* ---------- tema escuro ---------- */
+html[data-bs-theme="dark"] .ind-corpo { color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .ind-dica { background: var(--bs-tertiary-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
+html[data-bs-theme="dark"] .ind-campo,
+html[data-bs-theme="dark"] .ind-btn-sec { background: var(--bs-body-bg); color: var(--bs-body-color); border-color: var(--bs-border-color); }
+html[data-bs-theme="dark"] .ind-item { border-color: var(--bs-border-color); }
