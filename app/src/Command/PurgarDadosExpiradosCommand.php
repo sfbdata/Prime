@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Command;
 
 use App\Auth\UseCase\PurgarCadastrosPendentesUseCase;
+use App\Comercial\UseCase\PurgarDadosDoComercialUseCase;
 use App\Auth\UseCase\PurgarRedefinicoesSenhaUseCase;
 use App\Repository\TenantRepository;
 use App\Tenant\Exception\PurgaComDestinoIncerto;
@@ -45,6 +46,7 @@ final class PurgarDadosExpiradosCommand extends Command
         private readonly PurgarEscritorioUseCase $purgarEscritorio,
         private readonly EntityManagerInterface $em,
         private readonly int $carenciaPurgaDias,
+        private readonly PurgarDadosDoComercialUseCase $purgarComercial,
     ) {
         parent::__construct();
     }
@@ -96,6 +98,10 @@ final class PurgarDadosExpiradosCommand extends Command
             $redefinicoes = $this->purgarRedefinicoes->executar($agora, $dryRun);
             $io->section('Pedidos de redefinição de senha');
             $io->text(sprintf('%d registro(s) %s.', $redefinicoes, $dryRun ? 'seriam purgados' : 'purgados'));
+
+            // (A3) Comercial: confirmações de endereço nunca confirmadas e disparos simulados
+            $io->section('Comercial: confirmações de endereço e simulações');
+            $io->text(sprintf('%d registro(s) %s.', $this->purgarComercial->executar($agora, $dryRun), $dryRun ? 'seriam purgados' : 'purgados'));
 
             // (B) escritórios em quarentena vencida
             $limite    = $agora->modify(sprintf('-%d days', $this->carenciaPurgaDias));

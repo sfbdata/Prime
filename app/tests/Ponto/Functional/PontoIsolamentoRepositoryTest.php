@@ -65,6 +65,24 @@ final class PontoIsolamentoRepositoryTest extends KernelTestCase
         self::assertSame($regB->getId(), $doB[0]->getId());
     }
 
+    #[TestDox('batidasDoDiaNoEscritorio (atalho do cabeçalho) escopa por tenant via parâmetro, com o filtro desligado')]
+    public function testBatidasDoDiaNoEscritorioIsolaPorTenant(): void
+    {
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $usuario = $this->criarUser();
+
+        $regA = $this->criarRegistro($usuario, $tenantA, '2026-03-10 09:00:00');
+        $this->criarRegistro($usuario, $tenantB, '2026-03-10 09:05:00');
+        $this->criarRegistro($usuario, $tenantA, '2026-03-11 09:00:00');   // outro dia
+
+        /** @var RegistroPontoRepository $repo */
+        $repo = static::getContainer()->get(RegistroPontoRepository::class);
+        $doA = $repo->batidasDoDiaNoEscritorio($usuario, $tenantA, new \DateTimeImmutable('2026-03-10 15:00:00'));
+
+        self::assertSame([$regA->getId()], array_map(static fn (RegistroPonto $r): ?int => $r->getId(), $doA), 'sem o filtro, o tenant explícito é a única guarda');
+    }
+
     #[TestDox('findCompetenciasComRegistroPorUsuario (SQL nativo) escopa por tenant via parâmetro')]
     public function testFindCompetenciasNativeSqlIsolaPorTenant(): void
     {

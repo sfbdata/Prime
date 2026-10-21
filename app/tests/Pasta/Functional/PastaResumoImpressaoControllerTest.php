@@ -9,6 +9,7 @@ use App\Pasta\Controller\PastaResumoController;
 use App\Pasta\Entity\MotivoDesativacaoChecklist;
 use App\Pasta\Entity\PastaChecklistItem;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -235,6 +236,44 @@ final class PastaResumoImpressaoControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertStringNotContainsString('marcado sem anexo', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('Pendências da folha: Detalhes entra como no imprimirResumo() do desenho (vazio, parcial); completo, some')]
+    public function testPendenciaDoRelatorioInicial(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $vazia           = $this->criarPasta($tenant);
+        $parcial         = $this->criarPasta($tenant);
+        $completa        = $this->criarPasta($tenant);
+        $observar        = function ($pasta, string $conteudo) use ($user, $tenant): void {
+            $this->em()->persist((new PastaObservacaoDetalhes())
+                ->setPasta($pasta)->setAutor($user)->setTenant($tenant)->setConteudo($conteudo));
+        };
+        $observar($parcial, '<p>O cliente deseja a revisão do contrato.</p>');
+        $observar($completa, '<p>Objetivo: revisão. Ficou combinado o envio. Resultado: redução.</p>');
+        $this->em()->flush();
+        $ids = [(int) $vazia->getId(), (int) $parcial->getId(), (int) $completa->getId()];
+        $this->em()->clear();
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        $crawler = $client->request('GET', $this->url($ids[0]));
+        self::assertResponseIsSuccessful();
+        // A folha abre cada pendência com maiúscula.
+        self::assertStringContainsString('Relatório inicial de atendimento ainda não preenchido', $crawler->filter('[data-secao="pendencias"]')->text());
+
+        $crawler = $client->request('GET', $this->url($ids[1]));
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString(
+            'Relatório inicial sem acordos iniciais e resultado esperado pelo cliente',
+            $crawler->filter('[data-secao="pendencias"]')->text(),
+        );
+
+        $crawler = $client->request('GET', $this->url($ids[2]));
+        self::assertResponseIsSuccessful();
+        // As outras pendências (sem processo, contrato) seguem; a de Detalhes, não.
+        self::assertStringNotContainsString('Relatório inicial', $crawler->filter('[data-secao="pendencias"]')->text(), 'completo: sem pendência de Detalhes');
     }
 
     #[TestDox('C6-EDT-01: "Últimas movimentações" traz o texto da movimentação (data · tipo · texto), na página e no fragmento')]

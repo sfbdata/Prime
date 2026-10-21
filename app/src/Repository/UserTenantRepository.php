@@ -245,4 +245,28 @@ class UserTenantRepository extends ServiceEntityRepository
 
         return array_map(static fn (UserTenant $ut): User => $ut->getUser(), $vinculos);
     }
+
+    /**
+     * Pessoas marcadas como Controladoria no escritório (spec relatorio-processos-controladoria, D1),
+     * com vínculo ativo e conta ativa: quem recebe o relatório de pastas sem processo.
+     *
+     * @return User[]
+     */
+    public function findUsuariosDaControladoria(Tenant $tenant): array
+    {
+        $vinculos = $this->createQueryBuilder('ut')
+            ->addSelect('u')
+            ->join('ut.user', 'u')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('u.isActive = true')
+            ->andWhere('ut.controladoria = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('u.fullName', 'ASC')
+            ->addOrderBy('u.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return array_map(static fn (UserTenant $ut): User => $ut->getUser(), $vinculos);
+    }
 }

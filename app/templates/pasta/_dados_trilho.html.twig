@@ -50,8 +50,10 @@
            primeiro; depois "Ver nas metas", "Alertar <primeiro nome>" (só metas: o responsável do prazo manual é texto
            livre, sem colaborador para alertar), "Adicionar à agenda (.ics)" e "Copiar". O botão direito na linha
            abre o mesmo menu. "Alertar" é o MESMO POST do sino das Metas (`tarefa_alertar`), com a mesma guarda.
-           "Encaminhar via Chat I.A" segue fora: o Chat I.A. não existe no sistema. #}
+           "Encaminhar via Chat I.A" (D:6561) vem logo depois de "Ver nas metas": só ids em `data-*` (meta = Tarefa.id,
+           prazo registrado = PastaPrazo.id), disparo no pasta-prazos.js; só com a Central e fora da lápide. #}
         {% set podeAlertarPrazo = can_access_module('tarefas') and podeEditarPasta and not pasta.estaExcluida %}
+        {% set encaminharPrazo = not pasta.estaExcluida and central_disponivel() ? pasta.id : null %}
         {% for prazo in proximosPrazos|slice(0, 8) %}
             {% set tarefaDoPrazo = prazo.tarefaId ? pasta.tarefas|filter(t => t.id == prazo.tarefaId)|first : null %}
             {% set alertaveisDoPrazo = podeAlertarPrazo and tarefaDoPrazo
@@ -93,6 +95,14 @@
                         <button type="button" class="ps-pop-item" role="menuitem" data-ps-ir-aba="tarefas-tab">
                             <i class="bi bi-check2-square"></i><span>Ver nas metas</span>
                         </button>
+                        {% if encaminharPrazo and (prazo.tarefaId or prazo.prazoId) %}
+                            <button type="button" class="ps-pop-item js-prazo-encaminhar" role="menuitem"
+                                    data-encaminhar-pasta="{{ encaminharPrazo }}"
+                                    data-encaminhar-tipo="{{ prazo.tarefaId ? 'meta' : 'prazo' }}"
+                                    data-encaminhar-id="{{ prazo.tarefaId ?: prazo.prazoId }}">
+                                <i class="bi bi-send"></i><span>Encaminhar via Chat I.A</span>
+                            </button>
+                        {% endif %}
                         {% for r in alertaveisDoPrazo %}
                             <form method="post" action="{{ path('tarefa_alertar', {id: prazo.tarefaId}) }}" class="ps-prazo-alertar">
                                 <input type="hidden" name="_token" value="{{ csrf_token('alertar_tarefa_' ~ prazo.tarefaId) }}">
@@ -222,6 +232,7 @@
     {# `data-nome-cliente`: o JS do show remonta o vazio deste bloco (abaixo) ao desvincular o último cliente. #}
     <div id="clientesList" data-nome-cliente="{{ pasta.nomeCliente }}">
         {% set clientePrincipal = pasta.clientePrincipal %}
+        {% set idsDuplicados = pasta_clientes_duplicados(pasta) %}
         {% if pasta.clientes|length > 0 %}
             {% set outros = pasta.clientes|filter(c => not clientePrincipal or c.id != clientePrincipal.id) %}
 
@@ -233,7 +244,7 @@
             {% if clientePrincipal %}
                 <div class="cliente-principal">
                     {{ include('pasta/_cliente_linha.html.twig', {
-                        pasta: pasta, cliente: clientePrincipal, ehPrincipal: true, podeMexerNoCliente: podeMexerNoCliente,
+                        pasta: pasta, cliente: clientePrincipal, ehPrincipal: true, podeMexerNoCliente: podeMexerNoCliente, cpfDuplicado: clientePrincipal.id in idsDuplicados,
                     }) }}
                 </div>
             {% endif %}
@@ -242,7 +253,7 @@
                 <div class="clientes-outros ps-clientes-rolagem" id="clientesOutros">
                     {% for cliente in outros %}
                         {{ include('pasta/_cliente_linha.html.twig', {
-                            pasta: pasta, cliente: cliente, ehPrincipal: false, podeMexerNoCliente: podeMexerNoCliente,
+                            pasta: pasta, cliente: cliente, ehPrincipal: false, podeMexerNoCliente: podeMexerNoCliente, cpfDuplicado: cliente.id in idsDuplicados,
                         }) }}
                     {% endfor %}
                 </div>

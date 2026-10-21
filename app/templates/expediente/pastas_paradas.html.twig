@@ -1,0 +1,274 @@
+{# ============================================================================
+   Pastas paradas há mais de 30 dias.
+   Desenho aprovado: docs/design/redesign-19-10-26/"02 - EXPEDIENTES - VS 18.10.26.dc.html":
+   conteúdo `paradasHTML` (L4739-4749) com as opções de `paradasPDF` (L4822: cabeçalho ligado, sem
+   dados da pasta, sem autor, sem financeiro, 10,5 pt), na moldura `impMontar` (faixa azul, cabeçalho
+   BLUEJUS, título, corpo e o rodapé "Documento interno do escritório · BlueJus"), a mesma do
+   relatório geral de processos (expediente/relatorio_processos.html.twig).
+   Spec: docs/specs/pastas-paradas.md.
+
+   Uma folha, três modos (`modo`, decidido pelo PastasParadasController):
+     - `pagina`: página própria (o link do aviso mensal abre aqui);
+     - `fragmento`: só a folha com o próprio <style>, sem <script>;
+     - `pdf`: o HTML que o Dompdf converte (CSS 2.1: sem flex; logo embutido; ⚖ e ☐ saem na DejaVu
+       Sans; o ⏸, que nenhuma fonte do Dompdf tem, vira duas barras desenhadas em CSS).
+
+   Os estilos inline do `paradasHTML` viraram classes `ppd-*`, cada bloco citando a linha do desenho.
+   Os tamanhos dentro do corpo são relativos (em): no padrão de 10,5 pt dão exatamente os pt do
+   desenho, e o "Tamanho do texto" muda a folha inteira.
+
+   Rodapé do corpo: desvio pela regra 1 (spec, "Rodapé"), o texto vem de
+   RelatorioPastasParadasOutput::NOTA_FINAL e não atribui a pré-análise à I.A.
+
+   Contexto: `modo`, `relatorio` (RelatorioPastasParadasOutput), `opcoes`, `impressoEm`,
+   `impressoPor` e, no PDF, `logoPdf`.
+   ============================================================================ #}
+{% import _self as ppd %}
+{% set titulo = relatorio.titulo %}
+{% set tons = {'Crítico': 'critico', 'Atenção': 'atencao', 'Acompanhar': 'acompanhar'} %}
+
+{% set estiloFolha %}
+    .rp-folha { box-sizing: border-box; padding: 44px 48px; background: #fff; color: #12242f; font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; line-height: 1.55; overflow-wrap: anywhere; }
+    .rp-folha * { box-sizing: border-box; }
+    {# impMontar: faixa azul, cabeçalho e título. #}
+    .rp-faixa { height: 30px; background: #0b7398; margin: -44px -48px 30px; }
+    .rp-cab { width: 100%; border-collapse: collapse; border-bottom: 2px solid #0a7aad; margin-bottom: 12px; }
+    .rp-cab td { padding: 0 0 6px; vertical-align: bottom; }
+    .rp-marca img { width: 30px; height: 30px; object-fit: contain; vertical-align: middle; }
+    .rp-marca span { font-size: 15pt; font-weight: 700; color: #0a7aad; letter-spacing: .02em; vertical-align: middle; margin-left: 8px; }
+    .rp-impresso { font-size: 8.5pt; color: #6b8494; text-align: right; line-height: 1.4; }
+    .rp-titulo { font-size: 12.5pt; font-weight: 700; margin: 0 0 4px; line-height: 1.4; }
+    .rp-rodape { margin-top: 18px; border-top: 1px solid #dfe4e8; padding-top: 4px; font-size: 8pt; color: #8aa0ad; }
+    .rp-sem-cabecalho [data-rp-parte="cabecalho"] { display: none; }
+    .rp-faixa, .ppd-tabela th, .ppd-tabela tr, .ppd-chip, .ppd-pasta { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    {# L4742: os quatro cartões (flex:1, gap 10px). Em tabela de células iguais com 10px entre elas,
+       para sair igual na tela e no Dompdf (que não tem flex). #}
+    .ppd-cartoes-moldura { margin: 2px -10px 12px; }
+    .ppd-cartoes { width: 100%; border-collapse: separate; border-spacing: 10px 0; }
+    .ppd-cartao { width: 25%; border: 1px solid #d3dde4; border-radius: 4px; padding: 7px 10px; vertical-align: top; }
+    .ppd-cartao-rotulo { font-size: .7619em; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #5f7684; word-break: keep-all; overflow-wrap: normal; }
+    .ppd-cartao-valor { font-size: 1.5238em; font-weight: 700; color: #0b4f73; line-height: 1.3; }
+
+    {# L4743: o parágrafo de abertura. #}
+    .ppd-abertura { margin: 0 0 12px; font-size: .9524em; color: #34505f; }
+    .ppd-nenhuma { margin: 0 0 14px; font-size: .9524em; color: #34505f; }
+
+    {# L4744: a tabela-resumo. #}
+    .ppd-tabela { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+    .ppd-tabela th { white-space: nowrap; text-align: left; padding: 5px 7px; background: #0b5f86; color: #fff; font-size: .8095em; letter-spacing: .04em; text-transform: uppercase; }
+    .ppd-tabela td { padding: 5px 7px; font-size: .9048em; vertical-align: top; }
+    .ppd-tabela tr { page-break-inside: avoid; break-inside: avoid; }
+    .ppd-tabela tr.ppd-par td { background: #f6f9fb; }
+    .ppd-tabela td.ppd-num { font-weight: 700; white-space: nowrap; }
+    .ppd-tabela td.ppd-proc { font-size: .8571em; }
+    .ppd-sem-processo { color: #a3232b; }
+
+    {# L4741: o `chip` (fundo = cor a 8%, borda a 25%), nas três cores do nível (L4734). #}
+    .ppd-chip { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: .8095em; font-weight: 700; border: 1px solid; white-space: nowrap; line-height: 1.4; }
+    .ppd-chip--critico { color: #a3232b; background: rgba(163, 35, 43, .078); border-color: rgba(163, 35, 43, .251); }
+    .ppd-chip--atencao { color: #b06a00; background: rgba(176, 106, 0, .078); border-color: rgba(176, 106, 0, .251); }
+    .ppd-chip--acompanhar { color: #0a6a96; background: rgba(10, 106, 150, .078); border-color: rgba(10, 106, 150, .251); }
+
+    {# L4745: um cartão por pasta, com a borda esquerda na cor do nível. #}
+    .ppd-pasta { border: 1px solid #d3dde4; border-left: 4px solid #0a6a96; border-radius: 4px; padding: 9px 12px; margin-bottom: 10px; page-break-inside: avoid; break-inside: avoid; }
+    .ppd-pasta--critico { border-left-color: #a3232b; }
+    .ppd-pasta--atencao { border-left-color: #b06a00; }
+    .ppd-pasta--acompanhar { border-left-color: #0a6a96; }
+    .ppd-pasta-cab { margin-bottom: 5px; line-height: 1.6; }
+    .ppd-pasta-cab > * { margin-right: 8px; vertical-align: middle; }
+    .ppd-pasta-nome { font-size: 1.0476em; font-weight: 700; color: #12242f; }
+    .ppd-pasta-resp { font-size: .8571em; color: #5f7684; }
+    .ppd-secao { font-size: .8095em; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #0a7aad; margin: 4px 0 2px; }
+    .ppd-lista { margin: 0 0 4px 16px; padding: 0; font-size: .9048em; line-height: 1.5; }
+    .ppd-lista--sugestao { margin-bottom: 6px; }
+    .ppd-decisao { font-size: .9048em; color: #34505f; border-top: 1px dashed #d3dde4; padding-top: 5px; }
+    .ppd-decisao span { margin-right: 18px; }
+
+    {# L4746: a nota final. #}
+    .ppd-nota-final { margin: 10px 0 0; font-size: .8095em; color: #7b93a2; }
+{% endset %}
+
+{# ⏸ do desenho; no PDF, duas barras em CSS (nenhuma fonte do Dompdf tem o símbolo). #}
+{% macro pausa(modo) %}
+    {%- if modo == 'pdf' -%}<span class="ppd-pausa"></span>{%- else -%}⏸{%- endif -%}
+{% endmacro %}
+
+{% set folha %}
+    <main class="rp-folha{{ opcoes.cabecalho ? '' : ' rp-sem-cabecalho' }}" data-rp-titulo="{{ titulo }}">
+        {% if opcoes.cabecalho or modo == 'fragmento' %}
+            <div data-rp-parte="cabecalho">
+                <div class="rp-faixa"></div>
+                <table class="rp-cab">
+                    <tr>
+                        <td class="rp-marca">
+                            {%- if modo == 'pdf' -%}
+                                {% if logoPdf %}<img src="{{ logoPdf }}" alt="">{% endif %}
+                            {%- else -%}
+                                <img src="{{ asset('images/logo/bluejus_simbolo.svg') }}" alt="">
+                            {%- endif -%}
+                            <span>BLUEJUS</span>
+                        </td>
+                        <td class="rp-impresso">
+                            Gestão jurídica<br>
+                            Impresso em {{ impressoEm|date('d/m/Y, H:i:s') }}{% if impressoPor %} por {{ impressoPor }}{% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        {% endif %}
+
+        <h1 class="rp-titulo" data-rp-parte="titulo">{{ titulo }}</h1>
+
+        <div class="rp-corpo" data-rp-parte="corpo" style="font-size: {{ opcoes.fonteCss }}pt">
+            {# L4742 #}
+            <div class="ppd-cartoes-moldura">
+                <table class="ppd-cartoes">
+                    <tr>
+                        {% for c in relatorio.cartoes %}
+                            <td class="ppd-cartao">
+                                <div class="ppd-cartao-rotulo">{{ c.rotulo }}</div>
+                                <div class="ppd-cartao-valor">{{ c.valor }}</div>
+                            </td>
+                        {% endfor %}
+                    </tr>
+                </table>
+            </div>
+
+            {# L4743 #}
+            <p class="ppd-abertura">Relação das pastas sem movimentação há mais de 30 dias em {{ relatorio.hoje|date('d/m/Y') }}. Para cada uma, informe ao responsável se a pasta deve <b>receber movimentação</b> ou ser <b>arquivada</b>.</p>
+
+            {% if relatorio.pastas is empty %}
+                {# paradasNotificar L3240: a frase do aviso sem pasta parada. #}
+                <p class="ppd-nenhuma">{{ constant('App\\Pasta\\DTO\\RelatorioPastasParadasOutput::NENHUMA') }}{% if modo != 'pdf' %} 👍{% endif %}</p>
+            {% else %}
+                {# L4744 #}
+                <table class="ppd-tabela">
+                    <thead>
+                        <tr><th>Pasta</th><th>Cliente</th><th>Responsável</th><th>Processo</th><th>Última mov.</th><th>Parada</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for x in relatorio.pastas %}
+                            <tr{% if loop.index0 is odd %} class="ppd-par"{% endif %}>
+                                <td class="ppd-num">{{ x.numero }}</td>
+                                <td>{{ x.cliente }}</td>
+                                <td>{{ x.responsavel }}</td>
+                                <td class="ppd-proc">{% if x.processoNumero %}<span class="ppd-simbolo">⚖</span> {{ x.processoNumero }}{% else %}<span class="ppd-sem-processo">sem processo</span>{% endif %}</td>
+                                <td>{{ x.ultima ? x.ultima|date('d/m/Y') : 'nenhuma' }}</td>
+                                <td><span class="ppd-chip ppd-chip--{{ tons[x.nivel] }}">{{ ppd.pausa(modo) }} {{ x.dias }} dias</span></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                {# L4745 #}
+                {% for x in relatorio.pastas %}
+                    <div class="ppd-pasta ppd-pasta--{{ tons[x.nivel] }}">
+                        <div class="ppd-pasta-cab">
+                            <b class="ppd-pasta-nome">{{ ppd.pausa(modo) }} Pasta {{ x.numero }} · {{ x.cliente }}</b>
+                            <span class="ppd-chip ppd-chip--{{ tons[x.nivel] }}">{{ x.nivel }}</span>
+                            <span class="ppd-pasta-resp">Responsável: {{ x.responsavel }}{% if x.processoNumero %} · <span class="ppd-simbolo">⚖</span> {{ x.processoNumero }}{% if x.processoTribunal %} · {{ x.processoTribunal }}{% endif %}{% endif %}</span>
+                        </div>
+                        <div class="ppd-secao">Pré-análise</div>
+                        <ul class="ppd-lista">
+                            {% for t in x.pontos %}<li>{{ t }}</li>{% endfor %}
+                        </ul>
+                        <div class="ppd-secao">Sugestão</div>
+                        <ul class="ppd-lista ppd-lista--sugestao">
+                            {% for t in x.sugestoes %}<li>{{ t }}</li>{% endfor %}
+                        </ul>
+                        <div class="ppd-decisao"><span><span class="ppd-simbolo">☐</span> Movimentar</span><span><span class="ppd-simbolo">☐</span> Arquivar</span><span>Responsável pela decisão: ____________________</span></div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {# L4746, com o texto da spec (regra 1). #}
+            <p class="ppd-nota-final">{{ constant('App\\Pasta\\DTO\\RelatorioPastasParadasOutput::NOTA_FINAL') }}</p>
+        </div>
+
+        <div class="rp-rodape" data-rp-parte="rodape">Documento interno do escritório · BlueJus</div>
+    </main>
+{% endset %}
+
+{% if modo == 'fragmento' %}
+<div class="rp-documento">
+    <style>{{ estiloFolha }}</style>
+    {{ folha }}
+</div>
+{% elseif modo == 'pdf' %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ titulo }}</title>
+    <style>
+        @page { size: A4; margin: 14mm 13mm 16mm; }
+        body { margin: 0; padding: 0; background: #fff; }
+        {{ estiloFolha }}
+        {# Dompdf: a margem da página faz o papel do padding da folha. #}
+        .rp-folha { display: block; padding: 0; font-family: Helvetica, Arial, sans-serif; }
+        .rp-faixa { margin: -14mm -13mm 30px; }
+        .ppd-simbolo { font-family: 'DejaVu Sans', sans-serif; }
+        .ppd-pausa { display: inline-block; width: .3em; height: .75em; border-left: .1em solid currentColor; border-right: .1em solid currentColor; vertical-align: -.05em; margin-right: .3em; }
+    </style>
+</head>
+<body>
+    {{ folha }}
+</body>
+</html>
+{% else %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex">
+    <title>{{ titulo }}</title>
+    <style>
+        @page { size: A4; margin: 18mm 0; }
+        @page :first { margin-top: 0; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; background: #eaeef1; color: #243845; font-family: Arial, Helvetica, sans-serif; }
+        .rp-barra {
+            position: sticky; top: 0; z-index: 2;
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            padding: 10px 20px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.16);
+            font-size: 13px;
+        }
+        .rp-barra button, .rp-barra a {
+            height: 32px; padding: 0 14px; border-radius: 4px; border: 1px solid #c9d5dd;
+            background: #fff; color: #243845; font: inherit; font-weight: 600;
+            display: inline-flex; align-items: center; text-decoration: none; cursor: pointer;
+        }
+        .rp-barra .rp-primario { background: #0a7aad; border-color: #0a7aad; color: #fff; }
+        .rp-barra .rp-espaco { flex: 1; }
+        {{ estiloFolha }}
+        .rp-folha { width: 210mm; min-height: 297mm; margin: 20px auto; box-shadow: 0 1px 4px rgba(0,0,0,.18); }
+
+        @media print {
+            html, body { background: #fff; }
+            .rp-barra { display: none; }
+            .rp-folha { width: auto; min-height: 0; margin: 0; box-shadow: none; padding: 18mm 16mm 0; }
+            .rp-faixa { margin: -18mm -16mm 30px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="rp-barra" role="toolbar" aria-label="Pastas paradas">
+        <strong>{{ titulo }}</strong>
+        <span class="rp-espaco"></span>
+        <a href="{{ path('expediente_index') }}">Voltar ao Expediente</a>
+        <a href="{{ path('expediente_pastas_paradas_pdf') }}">Baixar PDF</a>
+        <button type="button" class="rp-primario" id="rpImprimir">Imprimir</button>
+    </div>
+
+    {{ folha }}
+
+    <script>
+    (function () {
+        var imprimir = document.getElementById('rpImprimir');
+        if (imprimir) { imprimir.addEventListener('click', function () { window.print(); }); }
+    })();
+    </script>
+</body>
+</html>
+{% endif %}
