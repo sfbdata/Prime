@@ -1,0 +1,195 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Processo\UseCase;
+
+use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
+use App\Processo\DTO\CadastroDoProcessoInput;
+use App\Processo\DTO\ProcessoDoCadastro;
+use App\Processo\Entity\MovimentacaoProcesso;
+use App\Processo\Entity\ParteProcesso;
+use App\Processo\Entity\Processo;
+use App\Processo\Exception\DadosDoProcessoInvalidosException;
+use App\Processo\Exception\TribunalNaoIdentificadoException;
+use App\Processo\Repository\ProcessoRepository;
+use App\Processo\Service\TribunalCnjResolver;
+
+/**
+ * Cadastro de processo novo pela janela "Vincular processo" da pasta (desenho 02, `procSalvarVinc`).
+ *
+ * Quem: usuário com EDIT na pasta (o controller confere). O quê: criar o processo que vai ser vinculado,
+ * com os dados que a janela mostrou. Regras do desenho: número completo no padrão CNJ e órgão julgador,
+ * classe e assunto obrigatórios ("Preencha: ..."). Situação e instância só nas opções da janela (vazio vira
+ * "Em andamento" e "G1"); datas válidas; os limites das colunas viram mensagem, não erro de banco.
+ * Linha de parte sem nome e de movimentação sem descrição é ignorada, como no desenho.
+ *
+ * Número que já existe no escritório: devolve o existente (`jaExistia`), sem aplicar nada do que foi digitado.
+ *
+ * Persiste sem flush: o vínculo grava na mesma transação, e a recusa de qualquer passo não deixa processo solto.
+ *
+ * @throws DadosDoProcessoInvalidosException o controller responde 422 com a mensagem
+ */
+final class CadastrarProcessoPelaPastaUseCase
+{
+    public const SITUACOES = ['EM_ANDAMENTO', 'SUSPENSO', 'ARQUIVADO', 'BAIXADO', 'TRANSITADO_EM_JULGADO'];
+    public const INSTANCIAS = ['G1', 'G2', 'TR', 'ST'];
+    public const TIPOS_DE_PARTE = ['PARTE', 'ADVOGADO', 'TERCEIRO', 'MINISTERIO_PUBLICO', 'PERITO'];
+
+    public function __construct(
+        private readonly ProcessoRepository $processoRepository,
+        private readonly TribunalCnjResolver $tribunalResolver,
+    ) {
+    }
+
+    public function executar(CadastroDoProcessoInput $input, Tenant $tenant, User $usuario): ProcessoDoCadastro
+    {
+        $numero = $this->exigirNumeroCnj($input);
+        $existente = $this->processoRepository->findByNumeroProcessoDoTenant($numero, $tenant);
+        if ($existente !== null) {
+            return new ProcessoDoCadastro($existente, true);
+        }
+
+        $this->exigirObrigatorios($input);
+        $processo = (new Processo())->setTenant($tenant);
+        $this->aplicarDadosDaJanela($processo, $input, $numero, $tenant);
+        $processo->setCriadoPor($usuario);
+        $this->processoRepository->save($processo);
+
+        return new ProcessoDoCadastro($processo, false);
+    }
+
+    private function exigirNumeroCnj(CadastroDoProcessoInput $input): string
+    {
+        $numero = $input->numeroSoDigitos();
+        if (strlen($numero) !== 20) {
+            throw new DadosDoProcessoInvalidosException('Informe o número completo no formato NNNNNNN-DD.AAAA.J.TT.OOOO.');
+        }
+
+        return $numero;
+    }
+
+    private function exigirObrigatorios(CadastroDoProcessoInput $input): void
+    {
+        $faltam = array_keys(array_filter([
+            'órgão julgador' => $input->orgaoJulgador,
+            'classe processual' => $input->classeProcessual,
+            'assunto processual' => $input->assuntoProcessual,
+        ], static fn (string $valor): bool => $valor === ''));
+
+        if ($faltam !== []) {
+            throw new DadosDoProcessoInvalidosException('Preencha: ' . implode(', ', $faltam) . '.');
+        }
+    }
+
+    private function aplicarDadosDaJanela(Processo $processo, CadastroDoProcessoInput $input, string $numero, Tenant $tenant): void
+    {
+        $processo->setNumeroProcesso($numero);
+        $this->aplicarTribunal($processo, $numero);
+        $processo->setOrgaoJulgador(self::limitado($input->orgaoJulgador, 255, 'Órgão julgador'));
+        $processo->setClasseProcessual(self::limitado($input->classeProcessual, 255, 'Classe processual'));
+        $processo->setAssuntoProcessual(self::limitado($input->assuntoProcessual, 255, 'Assunto processual'));
+        $processo->setSituacaoProcesso(self::opcao($input->situacaoProcesso, self::SITUACOES, 'Situação do processo inválida.'));
+        $processo->setInstancia(self::opcao($input->instancia, self::INSTANCIAS, 'Instância inválida.'));
+        $this->aplicarDatas($processo, $input);
+        $this->aplicarPartes($processo, $input->partes, $tenant);
+        $this->aplicarMovimentacoes($processo, $input->movimentacoes, $tenant);
+    }
+
+    /** Sigla derivada do número (padrão CNJ); número de tribunal desconhecido deixa a sigla vazia. */
+    private function aplicarTribunal(Processo $processo, string $numero): void
+    {
+        try {
+            $processo->setSiglaTribunal($this->tribunalResolver->resolverSigla($numero));
+        } catch (TribunalNaoIdentificadoException) {
+            $processo->setSiglaTribunal('');
+        }
+    }
+
+    private function aplicarDatas(Processo $processo, CadastroDoProcessoInput $input): void
+    {
+        $distribuicao = self::data($input->dataDistribuicao, 'Data de distribuição inválida.');
+        $baixa = self::data($input->dataBaixa, 'Data de baixa inválida.');
+        if ($distribuicao !== null && $baixa !== null && $baixa < $distribuicao) {
+            throw new DadosDoProcessoInvalidosException('A data de baixa não pode ser anterior à distribuição.');
+        }
+
+        $processo->setDataDistribuicao($distribuicao);
+        $processo->setDataBaixa($baixa);
+    }
+
+    /** @param list<array<string, string>> $linhas */
+    private function aplicarPartes(Processo $processo, array $linhas, Tenant $tenant): void
+    {
+        foreach ($linhas as $linha) {
+            if (($linha['nome'] ?? '') === '') {
+                continue;
+            }
+            $parte = new ParteProcesso();
+            $parte->setTipo(self::opcao($linha['tipo'] ?? '', self::TIPOS_DE_PARTE, 'Tipo de parte inválido.'));
+            $parte->setNome(self::limitado($linha['nome'], 255, 'Nome da parte'));
+            $parte->setDocumento(self::opcional($linha['documento'] ?? '', 30, 'Documento da parte'));
+            $parte->setPapel(self::opcional($linha['papel'] ?? '', 30, 'Papel da parte'));
+            $parte->setTenant($tenant);
+            $processo->addParte($parte);
+        }
+    }
+
+    /** @param list<array<string, string>> $linhas */
+    private function aplicarMovimentacoes(Processo $processo, array $linhas, Tenant $tenant): void
+    {
+        foreach ($linhas as $linha) {
+            if (($linha['descricao'] ?? '') === '') {
+                continue;
+            }
+            $movimentacao = new MovimentacaoProcesso();
+            $movimentacao->setDescricao(self::limitado($linha['descricao'], 255, 'Descrição da movimentação'));
+            $movimentacao->setTipo(self::opcional($linha['tipo'] ?? '', 100, 'Tipo da movimentação'));
+            $movimentacao->setOrgao(self::opcional($linha['orgao'] ?? '', 100, 'Órgão da movimentação'));
+            $movimentacao->setDataMovimentacao(self::data($linha['dataMovimentacao'] ?? '', 'Data de movimentação inválida.'));
+            $movimentacao->setTenant($tenant);
+            $processo->addMovimentacao($movimentacao);
+        }
+    }
+
+    /** @param list<string> $opcoes a primeira é o padrão do campo vazio */
+    private static function opcao(string $valor, array $opcoes, string $erro): string
+    {
+        if ($valor === '') {
+            return $opcoes[0];
+        }
+        if (!in_array($valor, $opcoes, true)) {
+            throw new DadosDoProcessoInvalidosException($erro);
+        }
+
+        return $valor;
+    }
+
+    private static function limitado(string $valor, int $limite, string $rotulo): string
+    {
+        if (mb_strlen($valor) > $limite) {
+            throw new DadosDoProcessoInvalidosException($rotulo . ' passa de ' . $limite . ' caracteres.');
+        }
+
+        return $valor;
+    }
+
+    private static function opcional(string $valor, int $limite, string $rotulo): ?string
+    {
+        return $valor === '' ? null : self::limitado($valor, $limite, $rotulo);
+    }
+
+    private static function data(string $valor, string $erro): ?\DateTimeImmutable
+    {
+        if ($valor === '') {
+            return null;
+        }
+        $data = \DateTimeImmutable::createFromFormat('!Y-m-d', $valor);
+        if ($data === false || $data->format('Y-m-d') !== $valor) {
+            throw new DadosDoProcessoInvalidosException($erro);
+        }
+
+        return $data;
+    }
+}

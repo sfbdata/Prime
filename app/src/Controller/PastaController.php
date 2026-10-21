@@ -18,9 +18,9 @@ use App\Pasta\UseCase\DefinirSituacaoDaPastaUseCase;
 use App\Pasta\Entity\PastaDocumento;
 use App\Processo\DTO\DadosDoProcessoInput;
 use App\Processo\Exception\DadosDoProcessoInvalidosException;
+use App\Processo\DTO\CadastroDoProcessoInput;
+use App\Processo\UseCase\CadastrarProcessoPelaPastaUseCase;
 use App\Processo\Entity\Processo;
-use App\Processo\Entity\ParteProcesso;
-use App\Processo\Entity\MovimentacaoProcesso;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Repository\ClientePFRepository;
 use App\Cliente\Repository\ClientePJRepository;
@@ -33,8 +33,6 @@ use App\Pasta\Repository\PastaDocumentoFavoritoRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Processo\Repository\ProcessoRepository;
 use App\Processo\Repository\NotaTecnicaRepository;
-use App\Processo\Exception\TribunalNaoIdentificadoException;
-use App\Processo\Service\TribunalCnjResolver;
 use App\Entity\Permission\AccessRequest;
 use App\Repository\UserRepository;
 use App\Expediente\Repository\MarcadorRepository;
@@ -1226,7 +1224,7 @@ class PastaController extends AbstractController
     }
 
     #[Route('/{id}/processo/vincular', name: 'pasta_vincular_processo', methods: ['POST'])]
-    public function vincularProcesso(Pasta $pasta, Request $request, TribunalCnjResolver $tribunalResolver, VincularApensadoUseCase $vincularApensado): Response
+    public function vincularProcesso(Pasta $pasta, Request $request, CadastrarProcessoPelaPastaUseCase $cadastrarProcesso, VincularApensadoUseCase $vincularApensado): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1258,14 +1256,10 @@ class PastaController extends AbstractController
                 return $this->respostaErroProcesso($isXhr, 'Processo não encontrado.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
             }
         } elseif ($numeroProcesso !== '') {
-            $numeroNormalizado = preg_replace('/\D+/', '', $numeroProcesso) ?? '';
-            $processo = $this->processoRepository->findByNumeroProcessoDoTenant($numeroNormalizado, $tenant);
-            if ($processo === null) {
-                $processo = new Processo();
-                $processo->setTenant($tenant);
-                $this->fillProcessoFromData($processo, $data, $tribunalResolver);
-                $processo->setCriadoPor($currentUser);
-                $this->em->persist($processo);
+            try {
+                $processo = $cadastrarProcesso->executar(CadastroDoProcessoInput::fromRequest($request), $tenant, $currentUser)->processo;
+            } catch (DadosDoProcessoInvalidosException $e) {
+                return $this->respostaErroProcesso($isXhr, $e->getMessage(), $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
             }
         } else {
             return $this->respostaErroProcesso($isXhr, 'Informe o número do processo.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
@@ -2677,68 +2671,6 @@ class PastaController extends AbstractController
             }
         }
         return $grouped;
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    private function fillProcessoFromData(Processo $processo, array $data, TribunalCnjResolver $tribunalResolver): void
-    {
-        $numeroNormalizado = preg_replace('/\D+/', '', (string) ($data['numeroProcesso'] ?? ''));
-        $processo->setNumeroProcesso($numeroNormalizado ?? '');
-        $processo->setOrgaoJulgador((string) ($data['orgaoJulgador'] ?? ''));
-
-        // Sigla derivada do número (padrão CNJ), não mais informada no form. Número
-        // legado/não-CNJ: preserva a sigla atual em vez de sobrescrever com vazio.
-        try {
-            $processo->setSiglaTribunal($tribunalResolver->resolverSigla($numeroNormalizado ?? ''));
-        } catch (TribunalNaoIdentificadoException $e) {
-            // Mantém a sigla atual do processo.
-        }
-        $processo->setClasseProcessual((string) ($data['classeProcessual'] ?? ''));
-        $processo->setAssuntoProcessual((string) ($data['assuntoProcessual'] ?? ''));
-        $processo->setSituacaoProcesso((string) ($data['situacaoProcesso'] ?? 'EM_ANDAMENTO'));
-        $processo->setInstancia((string) ($data['instancia'] ?? 'G1'));
-        $processo->setDataDistribuicao($this->parseDateOrNull($data['dataDistribuicao'] ?? null));
-        $processo->setDataBaixa($this->parseDateOrNull($data['dataBaixa'] ?? null));
-
-        foreach (is_array($data['partes'] ?? null) ? $data['partes'] : [] as $parteData) {
-            $nome = trim((string) ($parteData['nome'] ?? ''));
-            if ($nome === '') {
-                continue;
-            }
-            $parte = new ParteProcesso();
-            $parte->setTipo((string) ($parteData['tipo'] ?? 'PARTE'));
-            $parte->setNome($nome);
-            $parte->setDocumento(($parteData['documento'] ?? '') !== '' ? (string) $parteData['documento'] : null);
-            $parte->setPapel(($parteData['papel'] ?? '') !== '' ? (string) $parteData['papel'] : null);
-            $parte->setTenant($processo->getTenant());
-            $processo->addParte($parte);
-        }
-
-        foreach (is_array($data['movimentacoes'] ?? null) ? $data['movimentacoes'] : [] as $movData) {
-            $descricao = trim((string) ($movData['descricao'] ?? ''));
-            if ($descricao === '') {
-                continue;
-            }
-            $mov = new MovimentacaoProcesso();
-            $mov->setDescricao($descricao);
-            $mov->setTipo(($movData['tipo'] ?? '') !== '' ? (string) $movData['tipo'] : null);
-            $mov->setOrgao(($movData['orgao'] ?? '') !== '' ? (string) $movData['orgao'] : null);
-            $mov->setDataMovimentacao($this->parseDateOrNull($movData['dataMovimentacao'] ?? null));
-            $mov->setTenant($processo->getTenant());
-            $processo->addMovimentacao($mov);
-        }
-    }
-
-    private function parseDateOrNull(mixed $value): ?\DateTimeInterface
-    {
-        $dateValue = is_string($value) ? trim($value) : '';
-        if ($dateValue === '') {
-            return null;
-        }
-
-        return \DateTime::createFromFormat('!Y-m-d', $dateValue) ?: null;
     }
 
     /**

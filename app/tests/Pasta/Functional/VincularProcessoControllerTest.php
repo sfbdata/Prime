@@ -22,6 +22,13 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
 {
     private const XHR = ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'];
 
+    /** Obrigatórios do cadastro novo pela janela (desenho 02, `procSalvarVinc`: "Preencha: ..."). */
+    private const OBRIGATORIOS = [
+        'orgaoJulgador' => '2ª Vara Cível',
+        'classeProcessual' => 'Procedimento Comum Cível',
+        'assuntoProcessual' => 'Indenização por Dano Moral',
+    ];
+
     #[TestDox('POST vincular sem autenticação redireciona para login')]
     public function testSemAutenticacaoRedireciona(): void
     {
@@ -110,7 +117,7 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         $client->request('POST', "/pasta/{$pasta->getId()}/processo/vincular", [
             '_token' => $this->gerarCsrf('vincular_processo_' . $pasta->getId()),
             'numeroProcesso' => '1234567-89.2024.1.23.4567',
-            'orgaoJulgador' => '2ª Vara Cível',
+            ...self::OBRIGATORIOS,
             'situacaoProcesso' => 'TRANSITADO_EM_JULGADO',
             'valorCausa' => 'R$ 48.750,00',
             'jurisdicao' => 'Brasília',
@@ -145,6 +152,7 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         $client->request('POST', "/pasta/{$pasta->getId()}/processo/vincular", [
             '_token' => $this->gerarCsrf('vincular_processo_' . $pasta->getId()),
             'numeroProcesso' => '7654321-89.2024.1.23.4567',
+            ...self::OBRIGATORIOS,
             'valorCausa' => 'muito dinheiro',
         ], [], self::XHR);
 
@@ -152,6 +160,28 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         self::assertSame(['erro' => 'Valor da causa inválido. Use R$ 0,00.'], json_decode((string) $client->getResponse()->getContent(), true));
         $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
         self::assertSame(0, (int) $conexao->fetchOne("SELECT count(*) FROM processo WHERE numero_processo = '76543218920241234567' AND tenant_id = :t", ['t' => $tenant->getId()]));
+        self::assertSame(0, (int) $conexao->fetchOne('SELECT count(*) FROM pasta_processo WHERE pasta_id = :p', ['p' => $pasta->getId()]));
+        self::assertSame([], $this->registros($pasta));
+    }
+
+    #[TestDox('cadastro novo sem órgão, classe ou assunto: 422 com "Preencha: ...", e nada é gravado (nem processo, nem vínculo, nem registro)')]
+    public function testCadastroSemObrigatoriosDevolve422(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->autenticar($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/processo/vincular", [
+            '_token' => $this->gerarCsrf('vincular_processo_' . $pasta->getId()),
+            'numeroProcesso' => '4444444-44.2024.1.23.4567',
+            'classeProcessual' => 'Procedimento Comum Cível',
+        ], [], self::XHR);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => 'Preencha: órgão julgador, assunto processual.'], json_decode((string) $client->getResponse()->getContent(), true));
+        $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        self::assertSame(0, (int) $conexao->fetchOne("SELECT count(*) FROM processo WHERE numero_processo = '44444444420241234567' AND tenant_id = :t", ['t' => $tenant->getId()]));
         self::assertSame(0, (int) $conexao->fetchOne('SELECT count(*) FROM pasta_processo WHERE pasta_id = :p', ['p' => $pasta->getId()]));
         self::assertSame([], $this->registros($pasta));
     }
@@ -172,6 +202,7 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
             'modo' => 'apenso',
             'tipo_apenso' => 'embargos',
             'numeroProcesso' => '2222222-22.2024.1.23.4567',
+            ...self::OBRIGATORIOS,
             'valorCausa' => 'R$ 1.500,00',
             'jurisdicao' => 'Brasília',
             'tutela' => '1',
@@ -204,6 +235,7 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
             'modo' => 'apenso',
             'tipo_apenso' => 'embargos',
             'numeroProcesso' => '3333333-33.2024.1.23.4567',
+            ...self::OBRIGATORIOS,
             'valorCausa' => 'muito dinheiro',
         ], [], self::XHR);
 
@@ -261,6 +293,7 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
             '_token'         => $this->gerarCsrf('vincular_processo_' . $pasta->getId()),
             'numeroProcesso' => '1234567-89.2024.1.23.4567',
             'siglaTribunal'  => 'tjdft',
+            ...self::OBRIGATORIOS,
         ], [], self::XHR);
 
         self::assertResponseIsSuccessful();
