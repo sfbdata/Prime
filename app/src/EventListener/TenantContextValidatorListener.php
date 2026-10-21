@@ -5,6 +5,7 @@ namespace App\EventListener;
 
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
 use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tenant\Service\AvisoDeContaSuspensa;
@@ -70,12 +71,16 @@ final class TenantContextValidatorListener
      */
     private const PREFIXO_SEM_ESCRITORIO = 'trabalho_externo_';
 
+    /** Rotas do painel do Master: funcionam sem escritório na sessão. */
+    private const PREFIXOS_DO_PAINEL_DO_MASTER = ['admin_', 'master_', 'inteligencia_admin_', 'auth_suporte_'];
+
     private const ACESSO_INDISPONIVEL = 'Seu acesso a este escritório não está mais disponível. Selecione outro escritório.';
 
     public function __construct(
         private readonly Security $security,
         private readonly TenantContext $tenantContext,
         private readonly RouterInterface $router,
+        private readonly UserTenantRepository $userTenantRepository,
     ) {}
 
     public function __invoke(RequestEvent $event): void
@@ -97,7 +102,7 @@ final class TenantContextValidatorListener
         }
 
         if (!$this->tenantContext->hasCurrentTenant()) {
-            if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+            if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true) && !$this->masterPrecisaDaSelecao($route, $user)) {
                 return;
             }
             // Só no ramo SEM escritório: com escritório na sessão, o vínculo continua conferido
@@ -170,6 +175,22 @@ final class TenantContextValidatorListener
         }
 
         return $userTenant->getSituacao()->mensagemDeAcesso((string) $userTenant->getTenant()->getName());
+    }
+
+    /**
+     * O Master sem escritório na sessão usa o painel dele livremente. Fora do painel, se tem vínculo ativo, escolhe
+     * o escritório antes: sem isso, quem entrava pelo "lembrar-me" ou pelo véu com vários escritórios caía no
+     * Expediente sem escritório e levava 403 (v2.9.0). Sem vínculo nenhum, continua passando.
+     */
+    private function masterPrecisaDaSelecao(string $route, User $user): bool
+    {
+        foreach (self::PREFIXOS_DO_PAINEL_DO_MASTER as $prefixo) {
+            if (str_starts_with($route, $prefixo)) {
+                return false;
+            }
+        }
+
+        return $this->userTenantRepository->findActiveByUser($user) !== [];
     }
 
     private function deveIgnorar(string $route): bool

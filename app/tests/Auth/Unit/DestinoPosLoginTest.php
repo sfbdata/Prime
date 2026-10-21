@@ -39,6 +39,7 @@ final class DestinoPosLoginTest extends KernelTestCase
     public static function paginasDaLista(): iterable
     {
         yield 'homepage' => ['homepage', '/'];
+        yield 'tenant_selecionar' => ['tenant_selecionar', '/escritorio/selecionar'];
         yield 'dashboard_index' => ['dashboard_index', '/dashboard'];
         yield 'expediente_index' => ['expediente_index', '/expediente'];
         yield 'expediente_relatorio_processos' => ['expediente_relatorio_processos', '/expediente/relatorio-processos'];
@@ -270,7 +271,6 @@ final class DestinoPosLoginTest extends KernelTestCase
         yield 'imagem' => ['/images/logo/bluejus.png'];
         // Telas de entrada e públicas não são destino.
         yield 'termos' => ['/termos/aceitar'];
-        yield 'seleção de escritório' => ['/escritorio/selecionar'];
         yield 'convite' => ['/convite/abc'];
     }
 

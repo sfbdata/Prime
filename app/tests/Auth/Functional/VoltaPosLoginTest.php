@@ -266,6 +266,58 @@ final class VoltaPosLoginTest extends JusPrimeWebTestCase
         self::assertSame('/agenda', parse_url((string) $client->getSession()->get(self::TARGET_PATH), PHP_URL_PATH));
     }
 
+    #[TestDox('Incidente da v2.9.0: Master com dois escritórios entra pelo formulário, cai na seleção, escolhe e abre o Expediente')]
+    public function testMasterComDoisEscritoriosPassaPelaSelecao(): void
+    {
+        $client = static::createClient();
+        $master = $this->criarUsuario(escritorios: 2, roles: ['ROLE_USER', 'ROLE_SUPER_ADMIN']);
+
+        $crawler = $client->request('GET', '/login');
+        $this->marcarTermosAceitos($client);
+        self::assertSame('/escritorio/selecionar', $this->submeter($client, $crawler, $master));
+
+        // Sem escritório na sessão, o véu já é desviado para a seleção (como para quem não é Master).
+        $client->followRedirect();
+        self::assertResponseRedirects('/escritorio/selecionar');
+
+        $this->escolherEscritorioEAbrirOExpediente($client);
+    }
+
+    #[TestDox('Incidente da v2.9.0: Master com dois escritórios lembrado pelo "lembrar-me" é levado à seleção, escolhe e abre o Expediente')]
+    public function testMasterLembradoComDoisEscritoriosPassaPelaSelecao(): void
+    {
+        $client = static::createClient();
+        $master = $this->criarUsuario(escritorios: 2, roles: ['ROLE_USER', 'ROLE_SUPER_ADMIN']);
+
+        $client->request('GET', '/login');
+        $session = $client->getSession();
+        $session->set('_security_main', serialize(new RememberMeToken($master, 'main')));
+        $session->save();
+        $this->marcarTermosAceitos($client);
+
+        $client->request('GET', '/expediente');
+        self::assertResponseRedirects('/escritorio/selecionar');
+
+        $this->escolherEscritorioEAbrirOExpediente($client);
+    }
+
+    #[TestDox('Master sem escritório na sessão usa o painel dele sem passar pela seleção; sem vínculo nenhum, nada muda')]
+    public function testPainelDoMasterSemEscritorio(): void
+    {
+        $client = static::createClient();
+        $comVinculo = $this->criarUsuario(escritorios: 2, roles: ['ROLE_USER', 'ROLE_SUPER_ADMIN']);
+        $client->loginUser($comVinculo);
+        $this->marcarTermosAceitos($client);
+        $client->request('GET', '/master');
+        self::assertFalse($client->getResponse()->isRedirect('/escritorio/selecionar'), 'o painel do Master não exige escritório');
+
+        $semVinculo = $this->criarUsuario(escritorios: 0, roles: ['ROLE_USER', 'ROLE_SUPER_ADMIN']);
+        $client->loginUser($semVinculo);
+        $this->marcarTermosAceitos($client);
+        $client->request('GET', '/expediente');
+        self::assertFalse($client->getResponse()->isRedirect('/escritorio/selecionar'), 'sem vínculo, o Master não é mandado à seleção');
+    }
+
     #[TestDox('Master sem escritório volta para a tela pedida, ou para o painel do Master')]
     public function testMasterSemEscritorio(): void
     {
@@ -318,6 +370,17 @@ final class VoltaPosLoginTest extends JusPrimeWebTestCase
     /**
      * @param list<string> $roles
      */
+    private function escolherEscritorioEAbrirOExpediente(KernelBrowser $client): void
+    {
+        $crawler = $client->request('GET', '/escritorio/selecionar');
+        self::assertResponseIsSuccessful();
+        $client->submit($crawler->filter('form[action="/escritorio/selecionar"]')->first()->form());
+        self::assertResponseRedirects('/expediente');
+
+        $client->followRedirect();
+        self::assertResponseIsSuccessful();
+    }
+
     private function criarUsuario(int $escritorios, array $roles = ['ROLE_USER']): User
     {
         $container = static::getContainer();
