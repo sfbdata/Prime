@@ -50,6 +50,7 @@
     --ia-sugestao-tx:   #0b5f86;
     --ia-sugestao-hover:#e0eef6;
     --ia-campo-bg:      #f1f6f9;
+    --ia-acao-hover:    #e3f0f8;  /* ações do resultado (F5, dc L1101-1105) */
     --ia-shim-1:        #eef3f6;
     --ia-shim-2:        #dfeaf1;
     /* Aba Documentos (F4, dc L1043-1058, `chk` L5918, `fi` L3216-3230). */
@@ -116,6 +117,7 @@
     --ia-sugestao-tx:   #8fcbe8;
     --ia-sugestao-hover:rgba(111, 195, 224, .2);
     --ia-campo-bg:      var(--bs-tertiary-bg);
+    --ia-acao-hover:    rgba(111, 195, 224, .2);
     --ia-shim-1:        rgba(255, 255, 255, .05);
     --ia-shim-2:        rgba(255, 255, 255, .12);
     --ia-doc-hover:     rgba(111, 195, 224, .1);
@@ -920,3 +922,24 @@ a.ia-icone { text-decoration: none; }
     .ps-cab-ia-estrela-p,
     .ps-cab-ia-estrela-c { animation: none; }
 }
+
+/* ── Ações do resultado (F5, dc L1101-1105): botão claro, 30px, ícone + rótulo ── */
+.ia-res-acoes { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
+.ia-res-acao {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ia-campo-bg);
+    color: var(--ia-sugestao-tx);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s;
+}
+.ia-res-acao:hover, .ia-res-acao:focus-visible { background: var(--ia-acao-hover); }
+.ia-res-acao i { font-size: 12px; }

@@ -8,8 +8,10 @@ use App\TrabalhoExterno\DTO\DadosDaVaga;
 use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
 use App\TrabalhoExterno\Entity\Vaga;
 use App\TrabalhoExterno\Enum\Perfil;
+use App\TrabalhoExterno\Enum\SituacaoVaga;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Repository\PreferenciaDoUsuarioRepository;
+use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeVaga;
 use App\TrabalhoExterno\Service\PoliticaDaVaga;
@@ -17,7 +19,8 @@ use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * "Editar vaga" e "Ajustar antes" da Central; "Editar pedido" (pendente) e "Corrigir e reenviar"
- * (reprovada, volta para a aprovação) do dono externo (desenho 06 l.1005 e l.1095).
+ * (reprovada, volta para a aprovação) do dono externo (desenho 06 l.1005 e l.1095). O pedido
+ * reenviado avisa a Central (spec §4.7).
  */
 final class EditarVagaUseCase
 {
@@ -26,6 +29,7 @@ final class EditarVagaUseCase
         private readonly PoliticaDaVaga $politica,
         private readonly PreferenciaDoUsuarioRepository $preferencias,
         private readonly EntityManagerInterface $em,
+        private readonly AvisosDoTrabalhoExterno $avisos,
     ) {
     }
 
@@ -42,7 +46,11 @@ final class EditarVagaUseCase
             $dados->limitarParaQuemNaoEMaster($ctx->configuracao->getVagas()['maxDias']);
         }
 
+        $antes = $vaga->getSituacao();
         $vaga->editar($dados, $ctx->autor()->nome, $peloMaster, $this->politica->ehDaCentral($ctx), $agora);
+        if ($antes === SituacaoVaga::Reprovada && $vaga->getSituacao() === SituacaoVaga::Pendente) {
+            $this->avisos->pedidoDeDivulgacao($ctx, $vaga, true);
+        }
         $padrao = $this->preferencias->obter($ctx->usuario, PreferenciaDoUsuario::OFERTANTE_PADRAO);
         $padrao->definir($dados->ofertante, $agora);
         $this->preferencias->salvar($padrao);

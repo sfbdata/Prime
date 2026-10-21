@@ -9,16 +9,18 @@
    base `trabalho-externo-vagas`.
    Migration `Version20261019160801`.
 4. `trabalho-externo-curriculos` (F3a, §4.5) → **PR #96 em rascunho**, base `trabalho-externo-vagas-publicas`.
+   Migration `Version20261019213000`.
 5. `trabalho-externo-candidatura` (F2b, §4.6) → **PR #105 em rascunho**, base `trabalho-externo-curriculos`.
    Migration `Version20261019231700`.
-   Migration `Version20261019213000`.
+6. `trabalho-externo-engajamento` (F4, §4.7) → **PR #113 em rascunho**, base `trabalho-externo-candidatura`.
+   Migration `Version20261019235800`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
 rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e classe), trocar a
 base do PR para `master` e tirar do rascunho.
 
 **Fila de merge** (coordenador, 19/10, depois do master a7433b93): #56 → #60 → #65 → #69 → #64 → #74 →
-#62 → #83 → #84 → #96 → #105. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
+#62 → #83 → #84 → #96 → #105 → #113. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
 F2c: as duas são renomeadas na vez. Teto do FORA_DO_ESCOPO: quando o #56 entrar, somar as entradas dele.
 
 **Decisões do dono** (via coordenador, 19/10): tudo do desenho entra, mesmo que abra frente nova; o
@@ -92,11 +94,13 @@ Conferido no navegador (8107): modal de várias vagas e de uma, detalhe, menu.
 física (pendência abaixo); F3a: minimização (esconder e-mail,
 telefone e arquivos do currículo da Equipe sem `talentos`, recomendação do decisor; hoje segue o
 desenho, toda a Equipe vê); prazo de retenção do Termo de Voluntariado aceito depois que o currículo
-é excluído (o termo fica ligado ao usuário).
+é excluído (o termo fica ligado ao usuário). Decidir se "Salvar edição" e "Novo escritório" do bloco SOLICITANTE da
+Nova solicitação (06 l.640, 641) entram (§4.8).
 
-**Próximo passo**: F4 (§4.4), empilhada sobre o #105, com as notificações pelo sino da Central; depois
-externa (abas e banner) e os KPIs da página pública. Conferência final do 06 inteiro no fim, com a
-lista do que não tem dono. A F2d (§4.3) espera o PR da 5d.
+**Próximo passo** (coordenador, 19/10): a F3b, empilhada sobre o #113 (painel e
+Termo de Voluntariado, com os avisos do Termo pelo sino); depois os KPIs da página pública. Ao fim da
+F3b, combinar com a 5d (#99) o contrato da campanha de vagas por e-mail (consumidora da Comercial). A
+F2d espera a primeira das pilhas (#84 ou #99) entrar no master.
 
 
 Frente `trabalho-externo-vs1810`, base `origin/master` @ `1d3e664c` (v2.2.2). Continua a spec
@@ -610,6 +614,98 @@ Marcações pessoais: `TipoItemMarcado::Candidatura`.
   statusRotulo, statusCor, etapas, estrela, lixeira, vista, importancia}`.
 - `index.html.twig` ganha `data-url-vaga-candidatura` (VG-0), `-vaga-enviar` (VG-0),
   `-candidatura-status` (com 0), `-candidaturas-marcacoes`.
+
+## 4.7 F4: visão externa, engajamento e avisos (desenho 06, 19/10)
+
+Branch `trabalho-externo-engajamento`, empilhada sobre `trabalho-externo-candidatura` (#105). Risco
+**MÉDIO**. Inventário de 19/10. Fora: campanha por e-mail do Master (l.330 a 341, 1082 a 1097; depende
+da 5d), Termo de Voluntariado e painel (F3b), envio dos alertas por e-mail (F2d).
+
+### Tela (desenho manda; textos, ícones e cores exatos do inventário)
+- **Abas** (l.85 a 87, 1105): Vagas mostra as pendentes para quem tem `talentos` e há pendente, senão as
+  abertas; Currículos (interno) os novos; Demandas e "Meu currículo" sem selo.
+- **Banner** (l.88 a 96, 1013 a 1023, 1106), só nas abas Vagas e Currículo: saudação "Bom dia/Boa
+  tarde/Boa noite, {primeiro nome}" pelo horário de Brasília; subtítulo do interno ou do externo;
+  "Tudo em dia por aqui."; chips do interno (pedidos para aprovar **só com `talentos`**, lacuna 14;
+  ofertas ao vivo com o tempo da próxima; currículos novos na semana; candidaturas e aceites na
+  semana; média de aceite; "Publique a primeira vaga…" sem nenhuma vaga) e do externo (ofertas
+  disputadas; vagas novas desde a última visita; currículo: cadastre, X% completo com as duas
+  primeiras faltas, ou 100%). O chip de termo do externo entra com a F3b.
+- **Botão de avisos** (l.91, 1107), só externo e só com `sino` ligado pelo Master: "Avisar quando sair
+  vaga da minha área" / "Avisos de vagas ligados", toasts do desenho. A escolha é **por usuário** no
+  servidor (`PreferenciaDoUsuario` `vagas.alerta`, com o escritório do contexto), não no navegador.
+- **Boas-vindas pelo link** (l.382 a 391, 1078, 1111): `/trabalho-externo?origem=link&vagas=VG-1,VG-2
+  [&cadastro=1][&divulgar=1]`, só externo, com os títulos, textos, passos e botões do desenho; com
+  `divulgar=1` abre "Divulgar uma vaga na Central". O retorno a esse endereço depois do login é da 7d
+  (dependência registrada).
+- **Lembrete diário** (l.404 a 422, 1054 a 1061): só externo, uma vez por dia **pela data de
+  Brasília** (lacuna 9), não na visita com boas-vindas, quatro estados do desenho; a idade do
+  currículo usa `atualizadoEm`. A marca do dia fica no navegador (conveniência por pessoa).
+- **QUASE na oferta perdida** (l.1012, 1069): a tela guarda as ofertas abertas que a pessoa abriu
+  (conveniência no navegador); quando, num recarregar, uma delas está preenchida ou expirada sem
+  aceite dela, mostra o QUASE uma vez (com `motiv`). Frases de "aceitou primeiro" só na preenchida.
+- **"Ver exemplo de mensagem"** no modal de configuração do Master (l.1099, 1162) abre o QUASE.
+- **Endereços** `#mod=vagas|cv|dem` e `#vaga=VG-n`, `#cv=CV-n` abrem a aba e o item (usados pelos avisos).
+
+### Avisos no sino da Central (decisão do coordenador; `Notificacao` + `TiposDeAvisoDaCentral`)
+Sem texto pessoal na notificação (ela é auditada, `app/src/Central/CLAUDE.md`): título com o título da
+vaga, nunca o nome nem o contato do candidato. URL para a tela com `#vaga=`/`#cv=`.
+
+| Evento | Quem recebe | Tenant |
+|---|---|---|
+| Pedido de divulgação novo ou reenviado (l.1005) | Master e Equipe com `talentos` | sede da Central |
+| Nova candidatura e aceite em vaga da Central (l.974, 978) | Master e Equipe com `talentos` | sede |
+| Aceite em vaga de escritório (l.978) e candidatos enviados (l.981) | Solicitantes do escritório dono (ou o Convidado que pediu) | escritório da vaga |
+| Vaga aprovada ou não aprovada, com o motivo (l.979, 980) | quem pediu (dono) | escritório da vaga |
+| Mudança de status da candidatura (l.985, 1040) | o candidato | escritório gravado na candidatura |
+| Vaga nova ou reaberta na área (l.1012, 1107, 1160; lacuna 1) | externos com o aviso ligado, com área em comum ou sem currículo (como o desenho) | escritório gravado na preferência |
+
+Decisão técnica (19/10): a candidatura comum em vaga de escritório também avisa a Central, que é quem
+analisa e envia; o aceite de oferta em vaga de escritório vai só para o dono. Quem age não recebe o
+próprio aviso. Sem sede definida, ou sem escritório, o aviso não é criado: o **Convidado avulso fica sem aviso no sino**
+(coordenador, 19/10; o desenho não mostra aviso próprio para ele). Os arquivos `Notificacao.php` e
+`TiposDeAvisoDaCentral.php` são disputados (5d, 0d, 9b, f6, 4b): constantes e entradas do Trabalho Externo
+num bloco próprio, com um comentário de uma linha, só acréscimos. Tipos novos
+`trabalho_externo_*` com grupo, rótulo, ícone e cor no `TiposDeAvisoDaCentral`. Um aviso por evento
+e destinatário, sem duplicar pendente da mesma URL.
+
+### Contrato (fixo)
+- `GET /trabalho-externo/api/engajamento` `trabalho_externo_engajamento` (`?como=` aceito; `?vagas=` para
+  as boas-vindas): `{contadores: {vagas, curriculos}, banner: {saudacao, subtitulo, chips: [{ic, cor,
+  txt, ir: {mod, filtro?, acao?}|null}]}, alerta: {disponivel, ligado}, lembrete: {estado
+  (cadastrar|completar|revisar|emDia), pct, faltas[], dias, vagasAbertas} | null, boasVindas: {titulo,
+  texto, passos: [{rot, ic, feito}], botao: {rot, acao, codigo?}} | null, motiv}`.
+- `POST /trabalho-externo/api/vagas/alerta` `trabalho_externo_vagas_alerta` `{ligado}`: `{alerta, toast}`.
+- Migration: `escritorio_do_candidato` na candidatura (o tenant do contexto no momento).
+- `index.html.twig`: `data-url-engajamento`, `data-url-vagas-alerta`.
+
+## 4.8 Conferência final do desenho 06 (19/10, noite)
+
+Desenho percorrido de ponta a ponta (l.1 a 1348) contra as specs e o código. Coberto pela pilha
+#62 → #83 → #84 → #96 → #105 → F4: moldura e acesso, demandas inteiras (spec base + F1), vagas (F2a,
+F2b, F2c), currículos (F3a), engajamento e avisos (F4).
+
+**Ainda por fazer, com dono**: F3b (painel e KPIs do Master, gráficos, crescimento, Termo de
+Voluntariado, filtro "Termo", chip e atalhos do termo, **e os avisos "termo enviado" e "termo aceito"**,
+l.1032 e 1033, pelo sino da F4); F2d (alertas por e-mail, depois da 5d); campanha por e-mail do Master
+(l.330 a 341, 940 a 957, 1082 a 1097; depende da 5d); KPIs da página pública (KPI "ALERTAS POR E-MAIL",
+l.1146: leads, visitas pelo link, cliques em criar conta, CSV `alertas-vagas-bluejus.csv`).
+
+**De outras frentes**: `bj-lembretes` (4b), `bj-recursos` (b5), `bj-plano` (f6), `bj-idioma` (7d),
+`bj-dica.js` (fidelidade-designer, `central-dica.js`), `bluejus-central.js` (central-comunicacao-a2),
+favicons e logos, moldura do sistema, login, cadastro e retorno depois do login (7d), preferência de
+apoiador (f6, decisão de produto com o coordenador).
+
+**Sem dono achados na conferência e destino**:
+
+| # | Item | Linhas | Destino |
+|---|---|---|---|
+| 1 | Modelo de requisitos ao escolher o cargo da vaga (`MODELOS`, 7 textos) | 970, 1068 | entra na F4 (tela) |
+| 2 | "Salvar edição" e "Novo escritório" no bloco SOLICITANTE da Nova solicitação | 640, 641, 1325 a 1327 | **Para o dono** (pendente desde 15/10; mexe em dado do escritório) |
+| 3 | Aviso ao solicitante no "Solicitar informações" da demanda | 784 | entra na F4 (sino) |
+| 4 | Avisos do Termo de Voluntariado | 1032, 1033 | F3b, pelo sino da F4 |
+| 5 | Currículo atualizado "aparece primeiro" | 839, 1021, 1059 | entra na F4: o banco ordena por `atualizadoEm` (como l.995 e 1006); RECEBIDO e "Novos na semana" seguem por `recebidoEm` |
+| 6 | Contratos de `bj-dica.js` e `bluejus-central.js` | 15, 17 | registrados acima |
 
 ## 5. Verificação
 
