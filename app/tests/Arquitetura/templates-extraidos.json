@@ -55,5 +55,22 @@
             "Outro motivo",
             "Content-Type"
         ]
+    },
+
+    "perfis": {
+        "templates": [
+            "tenant_role/index.html.twig",
+            "tenant_role/edit.html.twig",
+            "tenant_role/new.html.twig",
+            "tenant_role/_form.html.twig",
+            "tenant_role/_confirmacao.html.twig",
+            "tenant_role/acesso_restrito.html.twig"
+        ],
+        "js": [
+            "perfis.js"
+        ],
+        "permitidos": [
+            "Escape"
+        ]
     }
 }

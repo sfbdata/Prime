@@ -781,6 +781,31 @@ final class PerfisDoEscritorioControllerTest extends JusPrimeWebTestCase
         self::assertSame('MASTER · USUÁRIO SECUNDÁRIO', trim($crawler->filter('.navtop-user-info > .navtop-user-papel')->text()));
     }
 
+    // ── Idioma do sistema: o catálogo do JS na página (spec idioma-do-sistema §8) ──
+
+    #[TestDox('lista, novo perfil e as duas edições entregam o catálogo perfis.js para o perfis.js')]
+    public function testCatalogoDoJsNasTelas(): void
+    {
+        $this->logarComTenant($this->client, $this->titular, $this->tenant);
+        $urls = [
+            $this->urlLista(),
+            $this->urlLista() . '/new',
+            $this->urlEdicao($this->perfilAdvogado),
+            $this->urlEdicao($this->perfilPrimario),
+        ];
+
+        foreach ($urls as $url) {
+            $crawler = $this->client->request('GET', $url);
+            self::assertResponseIsSuccessful($url);
+            $catalogo = $crawler->filter('script[type="application/json"][data-bj-t]')->each(
+                static fn (Crawler $bloco): array => (array) json_decode($bloco->text(null, false), true, flags: JSON_THROW_ON_ERROR),
+            );
+            $chaves = array_merge(...$catalogo);
+            self::assertSame('Excluir perfil', $chaves['perfis.js.excluir_titulo'] ?? null, $url);
+            self::assertSame('{ativos} de {total} permissões ativas', $chaves['perfis.js.resumo'] ?? null, $url);
+        }
+    }
+
     // ── apoio ──────────────────────────────────────────────────────────────
 
     private function submeterEditRole(User $alvo, TenantRole $novoPerfil, ?string $novaSenha = null): void

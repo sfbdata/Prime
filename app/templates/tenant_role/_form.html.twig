@@ -9,16 +9,16 @@
 #}
 {{ form_start(form, {attr: {novalidate: 'novalidate', 'data-pf-form-perfil': ''}}) }}
 
-<div class="pf-faixa"><i class="bi bi-info-circle"></i>Perfil de usuário secundário (colaborador). Defina o que ele pode acessar.</div>
+<div class="pf-faixa"><i class="bi bi-info-circle"></i>{{ 'perfis.form.faixa'|trans }}</div>
 
 {% set errosNome = form.name.vars.errors %}
 <div class="pf-card pf-card-campos">
     <label class="pf-campo" for="{{ form.name.vars.id }}">
-        <span class="pf-campo-rotulo">NOME DO PERFIL</span>
+        <span class="pf-campo-rotulo">{{ 'perfis.form.nome'|trans }}</span>
         {{ form_widget(form.name, {attr: form.name.vars.attr|merge({class: errosNome|length ? 'is-invalido' : ''})}) }}
     </label>
     <label class="pf-campo" for="{{ form.description.vars.id }}">
-        <span class="pf-campo-rotulo">DESCRIÇÃO</span>
+        <span class="pf-campo-rotulo">{{ 'perfis.form.descricao'|trans }}</span>
         {{ form_widget(form.description) }}
         {% for erro in form.description.vars.errors %}<span class="pf-campo-erro">{{ erro.message }}</span>{% endfor %}
     </label>
@@ -29,7 +29,7 @@
         <div class="pf-card pf-cartao" data-pf-cartao>
             <div class="pf-cartao-cab">
                 <i class="bi {{ cartao.icone }}"></i><b>{{ cartao.rotulo }}</b>
-                <button type="button" class="pf-marcar-todos" data-pf-todos>Marcar todos</button>
+                <button type="button" class="pf-marcar-todos" data-pf-todos>{{ 'perfis.form.marcar_todos'|trans }}</button>
             </div>
             {% for item in cartao.itens %}
                 {% for child in form.permissions %}
@@ -48,9 +48,9 @@
     {% if errosNome|length %}
         <span class="pf-resumo is-erro" data-pf-resumo-erro>{{ errosNome|first.message }}</span>
     {% else %}
-        <span class="pf-resumo" data-pf-resumo data-total="{{ total }}">{{ form.permissions.vars.value|length }} de {{ total }} permissões ativas</span>
+        <span class="pf-resumo" data-pf-resumo data-total="{{ total }}">{{ 'perfis.form.resumo'|trans({ativos: form.permissions.vars.value|length, total: total}) }}</span>
     {% endif %}
-    <a href="{{ path('app_tenant_role_index', {tenantId: tenantId}) }}" class="pf-btn-cancelar">Cancelar</a>
+    <a href="{{ path('app_tenant_role_index', {tenantId: tenantId}) }}" class="pf-btn-cancelar">{{ 'perfis.cancelar'|trans }}</a>
     <button type="submit" class="pf-btn-salvar"><i class="bi bi-check2"></i>{{ salvarRotulo }}</button>
 </div>
 
