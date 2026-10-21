@@ -138,13 +138,6 @@ class RelatorioDeCampanhasRepository
     }
 
     /** A campanha `enviada` que ainda tem envio esperando o worker (o EncerrarCampanha alcança, §8.1.5). */
-    public function temEnvioNaFila(int $campanhaId): bool
-    {
-        return $this->conexao->fetchOne(
-            "SELECT 1 FROM comercial_envio WHERE origem = :origem AND situacao IN ('enfileirado', 'enviando') LIMIT 1",
-            ['origem' => 'campanha:' . $campanhaId],
-        ) !== false;
-    }
 
     /**
      * @return array{0: string, 1: array<string, string>}

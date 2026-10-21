@@ -15,6 +15,8 @@ campanha e os destinatários). Risco MÉDIO (envio em massa, dado pessoal de des
 - **Combinado com a 5d (dona do resto do Comercial):** esta frente não toca `comercial-campanha.js`, o editor, os
   públicos, o confirmar e o teste. O estado `teste` em `comercial_campanha` entra pela 5d; o Relatório já o aceita
   (aba Enviadas, selo "Teste", "E-mail de teste" no visualizador).
+- **Cancelar envio:** como o desenho, só na agendada e na recorrente (decisão do coordenador, 21/10). O freio também
+  na fila, enviando e enviada com fila está pronto na branch `comercial-relatorio-freio`, à espera da aprovação do dono.
 - **Pendente (fora desta fatia, depende de gravar no servidor):** "Com estrela" e "Arquivadas" (abas, botões da linha e
   da seleção), "Remover do relatório", o menu do botão direito, "Reenviar a quem não leu", "Exportar destinatários" e
   "Encaminhar para um e-mail". A seleção existe, mas ainda não tem ação.
@@ -50,8 +52,8 @@ campanha e os destinatários). Risco MÉDIO (envio em massa, dado pessoal de des
    para log.
 6. **Cancelar envio.** Sobre o `EncerrarCampanhaUseCase`, que ganhou motivo e autor opcionais (padrão: "Encerrada pelo
    console", sem autor; o console não muda). Pela tela: "Cancelada pelo Master", com o Master na trilha `camp_fim`. O
-   botão aparece onde o caso de uso aceita: estado ativo (na fila, agendada, enviando, recorrente) ou `enviada` com
-   envio ainda na fila. Encerrada ou inexistente: 422 com "Campanha não encontrada ou já encerrada.". CSRF
+   botão aparece só na agendada e na recorrente, como o dc L711, com a pergunta "Cancelar o envio programado desta
+   campanha?". A rota aceita o que o caso de uso aceita (como o console). Encerrada ou inexistente: 422 com "Campanha não encontrada ou já encerrada.". CSRF
    `master_comercial` no header `X-CSRF-Token`.
 7. **Duplicar.** Só no cliente. Dispara no `document` o evento cancelável `mc:duplicar-campanha` com
    `detail: { assunto, titulo, mensagem }` (o `[TESTE]` do começo do assunto sai). O editor que tratar o evento chama
@@ -72,8 +74,6 @@ Todas com `#[IsGranted('ROLE_SUPER_ADMIN')]`, em `RelatorioDoMasterController`.
 
 - Botões de página anterior e próxima ao lado da faixa (o dc só mostra a faixa e a primeira página).
 - Selos e textos dos estados que o protótipo não tinha: Enviando, Enviada, Cancelada.
-- "Cancelar envio" também na fila e enviando (o dc mostra só em agendada e recorrente), porque o caso de uso aceita e
-  é o freio do envio em massa. A pergunta muda: "Cancelar o envio desta campanha? O que ainda está na fila não sai.".
 - Tooltip da leitura pelo `title` nativo, com as linhas do dc.
 - Destinatários: o estado vem do envio (na fila, enviado · aguardando leitura, lido, rejeitado, descadastrado,
   cancelado, envio incerto); antes de a campanha começar, "A lista é montada quando o envio começar.".

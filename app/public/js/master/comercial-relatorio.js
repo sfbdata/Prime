@@ -175,10 +175,7 @@
   function cancelar() {
     const c = estado.aberta;
     if (!c || !c.cancelavel) return;
-    const pergunta = c.estado === 'agendada' || c.estado === 'recorrente'
-      ? 'Cancelar o envio programado desta campanha?'
-      : 'Cancelar o envio desta campanha? O que ainda está na fila não sai.';
-    if (!window.confirm(pergunta)) return;
+    if (!window.confirm('Cancelar o envio programado desta campanha?')) return;
     pedir(url(raiz.dataset.urlCancelar, c.id), { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-Token': raiz.dataset.token || '' }, body: '{}' })
       .then(r => { fechar(); avisar(r.mensagem); carregar(); })
       .catch(err => { fechar(); avisar(err.message); });
