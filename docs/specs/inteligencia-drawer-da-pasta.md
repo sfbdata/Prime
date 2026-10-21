@@ -14,7 +14,7 @@ lido; do cliente sai só o nome) e, do coordenador, **nada roda sozinho em lote*
 - F1+F2: PR #114 (rascunho, base #68), suíte completa e visual feitos. Commits já enviados.
 - F3 Perguntar: branch `ia-drawer-f3` (sobre `ia-drawer-f1`), commits LOCAIS 63fbf732, 43648b20, 79bdb1b3; revisão
   aprovada com ressalvas, ressalvas corrigidas. **Falta enviar** (máquina sem internet): `git push -u origin ia-drawer-f3`
-  e abrir o PR em rascunho com base `ia-drawer-f1`. Migration provisória `Version20261021110000`.
+  e abrir o PR em rascunho com base `ia-drawer-f1`. Migration provisória `Version20261020138100`.
 - F4 Documentos e F5 Criar tarefa: a fazer, nesta ordem, cada uma em branch empilhada.
 
 ## O que o desenho tem, e o que pode entrar
@@ -82,7 +82,7 @@ Desenho: aba "Perguntar" (`bi bi-chat-dots`, dc L5945), painel em L1072-1084, ro
   do desenho). Uma mensagem do usuário: os blocos do contexto, as últimas 4 perguntas concluídas da conversa com as
   respostas (8 mensagens, como o desenho) dentro de `<conversa_anterior>` e a pergunta dentro de `<pergunta>`, ambos
   neutralizados e passados pela máscara de dados pessoais. Nenhum texto de pergunta em log.
-- **Migration**: só a tabela nova (provisória `Version20261021110000`, depois da do F1).
+- **Migration**: só a tabela nova (provisória `Version20261020138100`, depois da do F1).
 
 ## Contratos compartilhados (avisar a 4b antes)
 
