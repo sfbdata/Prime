@@ -330,6 +330,8 @@ input[type="range"].img-slider {
                 <div class="mp-cargo">
                     <span><i class="bi bi-briefcase"></i>{{ perfil.cargo ?: 'Cargo não definido' }}</span>
                     <span><i class="bi bi-geo-alt"></i>{{ perfil.lotacao ?: 'Lotação não definida' }}</span>
+                    {# Vem da conta, só leitura (desenho 05 de 21/10, F1): papel no escritório da sessão. #}
+                    {% if current_tenant() %}<span data-mp-papel><i class="bi bi-person-badge"></i>{{ _ehPrimario or _ehMaster ? 'Usuário primário' : 'Secundário' }} de {{ current_tenant().name }}</span>{% endif %}
                 </div>
             </div>
             <button class="mp-btn-contorno" type="button" data-mp-editar><i class="bi bi-pencil"></i>Editar informações</button>
@@ -548,6 +550,8 @@ input[type="range"].img-slider {
                     <label class="mp-campo"><span>TELEFONE / WHATSAPP</span>{{ form_widget(form_dados.telefone) }}</label>
                     <label class="mp-campo"><span>CPF</span>{{ form_widget(form_dados.cpf, {attr: {placeholder: 'Somente números'}}) }}<small>Usado nos relatórios e estatísticas do escritório</small></label>
                     <label class="mp-campo"><span>NASCIMENTO</span>{{ form_widget(form_dados.dataNascimento) }}</label>
+                    <label class="mp-campo"><span>GÊNERO</span>{{ form_widget(form_dados.genero) }}<small>Usado nas estatísticas do escritório</small></label>
+                    <label class="mp-campo"><span>ATUAÇÃO</span>{{ form_widget(form_dados.atuacao) }}{% if atuacaoSugerida|default(null) %}<small data-mp-atuacao-sugerida><i class="bi bi-magic"></i> Sugerido pelo sistema. Confirme ao salvar.</small>{% endif %}</label>
                     <label class="mp-campo" data-mp-para="clt"><span>CTPS</span>{{ form_widget(form_dados.ctps, {attr: {placeholder: ''}}) }}<small>Só para empregado CLT</small></label>
                     <label class="mp-campo" data-mp-para="clt"><span>SÉRIE</span>{{ form_widget(form_dados.serie, {attr: {placeholder: ''}}) }}</label>
                     <label class="mp-campo" data-mp-para="clt"><span>DATA DE ADMISSÃO</span>{{ form_widget(form_dados.dataAdmissao) }}</label>

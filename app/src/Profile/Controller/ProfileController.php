@@ -17,6 +17,7 @@ use App\Profile\DTO\PerfilOutput;
 use App\Profile\Form\DadosPessoaisType;
 use App\Profile\Repository\UserProfileRepository;
 use App\Profile\Repository\VinculoNoEscritorioRepository;
+use App\Profile\Service\SugestaoDeAtuacao;
 use App\Profile\UseCase\AtualizarDadosPessoaisUseCase;
 use App\Profile\UseCase\AtualizarFotoPerfilUseCase;
 use App\Profile\UseCase\AtualizarStatusUseCase;
@@ -68,7 +69,11 @@ final class ProfileController extends AbstractController
         $vinculo = $userTenant === null ? null : $this->vinculos->doUsuarioNoEscritorio($userTenant->getTenant(), $user);
         $output = PerfilOutput::fromEntity($perfil, $user, $userTenant, $vinculo);
 
-        $formDados = $this->createForm(DadosPessoaisType::class, DadosPessoaisInput::dePerfil($output), ['campos_do_perfil' => true]);
+        $inputDados = DadosPessoaisInput::dePerfil($output);
+        // Atuação vazia: o modal já abre com a sugestão do sistema; só grava se a pessoa salvar.
+        $atuacaoSugerida = $inputDados->atuacao === null ? SugestaoDeAtuacao::para($user, $vinculo?->getTipo()) : null;
+        $inputDados->atuacao ??= $atuacaoSugerida;
+        $formDados = $this->createForm(DadosPessoaisType::class, $inputDados, ['campos_do_perfil' => true]);
 
         $formSenha = $this->createForm(AlterarSenhaType::class, new AlterarSenhaInput(), [
             'action' => $this->generateUrl('app_profile_senha'),
@@ -80,6 +85,7 @@ final class ProfileController extends AbstractController
             'preferencias' => $this->obterPreferencias->executar($userTenant?->getTenant(), $user),
             'podeAlterarVinculo' => $this->podeAlterarVinculo($user, $userTenant),
             'form_dados' => $formDados->createView(),
+            'atuacaoSugerida' => $atuacaoSugerida,
             'inscricoesOab' => $this->obterInscricoesOab->executar($user),
             // Recusa do modal da OAB: volta aberto, com o erro e o que foi digitado (InscricoesOabDoPerfilController).
             'erroOab'       => $request->getSession()->remove(InscricoesOabDoPerfilController::ERRO_NA_SESSAO),
