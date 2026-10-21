@@ -3,6 +3,8 @@ declare(strict_types=1);
 namespace App\Profile\Form;
 
 use App\Profile\DTO\DadosPessoaisInput;
+use App\Profile\Enum\Atuacao;
+use App\Profile\Enum\Genero;
 use App\Profile\Enum\VinculoColaborador;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
@@ -64,7 +66,28 @@ final class DadosPessoaisType extends AbstractType
                 'required' => false,
                 'attr'     => ['maxlength' => 20, 'placeholder' => '(00) 00000-0000'],
             ]);
+        $this->adicionarGeneroEAtuacao($builder);
         $this->adicionarCamposDoVinculo($builder);
+    }
+
+    /** Desenho 05 de 21/10 (filtros Gênero e Cargo): declarados pela pessoa, nunca obrigatórios. */
+    private function adicionarGeneroEAtuacao(FormBuilderInterface $builder): void
+    {
+        $builder
+            ->add('genero', EnumType::class, [
+                'class'        => Genero::class,
+                'label'        => 'Gênero',
+                'required'     => false,
+                'placeholder'  => 'Não preenchido',
+                'choice_label' => static fn (Genero $g): string => $g->rotulo(),
+            ])
+            ->add('atuacao', EnumType::class, [
+                'class'        => Atuacao::class,
+                'label'        => 'Atuação',
+                'required'     => false,
+                'placeholder'  => 'Não preenchida',
+                'choice_label' => static fn (Atuacao $a): string => $a->rotulo(),
+            ]);
     }
 
     /** Vínculo com o escritório e as datas do contrato (desenho 07, VINC e ED.info). */

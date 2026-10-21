@@ -76,4 +76,38 @@ class UserProfileRepository extends ServiceEntityRepository
             ->setParameter('tenant', $tenant)
             ->getOneOrNullResult();
     }
+
+    /**
+     * Leitor em lote para o motor de filtros do Comercial (frente 5d, F2; spec docs/specs/meu-perfil-genero-atuacao.md):
+     * gênero e atuação declarados (string crua do enum ou null), nascimento e a UF da OAB principal (cópia no User).
+     * Uma consulta só, indexada pelo userId; quem não tem perfil vem com tudo null, e id que não existe fica de fora.
+     *
+     * @param list<int> $userIds
+     *
+     * @return array<int, array{genero: ?string, atuacao: ?string, dataNascimento: ?\DateTimeImmutable, uf: ?string}>
+     */
+    public function atributosDe(array $userIds): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+        $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT u.id, p.genero, p.atuacao, p.data_nascimento, u.oab_uf
+               FROM "user" u LEFT JOIN user_profiles p ON p.user_id = u.id
+              WHERE u.id IN (?)',
+            [array_values(array_unique($userIds))],
+            [\Doctrine\DBAL\ArrayParameterType::INTEGER],
+        );
+        $porId = [];
+        foreach ($linhas as $l) {
+            $porId[(int) $l['id']] = [
+                'genero'         => $l['genero'] ?? null,
+                'atuacao'        => $l['atuacao'] ?? null,
+                'dataNascimento' => $l['data_nascimento'] !== null ? new \DateTimeImmutable((string) $l['data_nascimento']) : null,
+                'uf'             => $l['oab_uf'] !== null && trim((string) $l['oab_uf']) !== '' ? strtoupper(trim((string) $l['oab_uf'])) : null,
+            ];
+        }
+
+        return $porId;
+    }
 }

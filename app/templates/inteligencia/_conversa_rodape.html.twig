@@ -1,0 +1,28 @@
+{# ============================================================================
+   Rodapé da aba "Perguntar" (spec inteligencia-drawer-da-pasta, F3; desenho dc
+   L1126-1131): o campo "Pergunte sobre esta pasta..." e o botão enviar
+   (`bi-send-fill`), fixo embaixo do corpo do drawer e SÓ nesta aba (o
+   `data-ia-aba-painel="perguntar"` faz o pasta-ia-agentes.js mostrá-lo e
+   escondê-lo junto com a aba). O botão nasce desabilitado (campo vazio) e o
+   pasta-ia-conversa.js o habilita com texto e sem pergunta em andamento;
+   Enter envia.
+
+   IA indisponível: campo e botão desabilitados, com o motivo REAL da
+   Disponibilidade escrito acima do campo (nunca um campo que finge funcionar).
+
+   Contexto: `pastaId` (int), `ia` (enum Disponibilidade).
+   ============================================================================ #}
+<div class="ia-conversa-rodape" data-ia-aba-painel="perguntar" data-ia-conversa-rodape hidden
+     data-ia-perguntar-url="{{ path('inteligencia_conversa_perguntar', {id: pastaId}) }}"
+     data-ia-disponivel="{{ ia.estaDisponivel ? '1' : '0' }}">
+    <p class="ia-conversa-aviso{{ ia.estaDisponivel ? '' : ' is-motivo' }}" data-ia-conversa-aviso role="status"{{ ia.estaDisponivel ? ' hidden' : '' }}>{{ ia.estaDisponivel ? '' : ia.mensagem }}</p>
+    <div class="ia-conversa-campo">
+        <input type="text" class="ia-conversa-input" data-ia-conversa-input maxlength="2000" autocomplete="off"
+               placeholder="Pergunte sobre esta pasta..." aria-label="Pergunta para a IA"
+               {% if not ia.estaDisponivel %}disabled title="{{ ia.mensagem }}"{% endif %}>
+        <button type="button" class="ia-conversa-enviar" data-ia-conversa-enviar aria-label="Enviar"
+                title="{{ ia.estaDisponivel ? 'Enviar' : ia.mensagem }}" disabled>
+            <i class="bi bi-send-fill" aria-hidden="true"></i>
+        </button>
+    </div>
+</div>
