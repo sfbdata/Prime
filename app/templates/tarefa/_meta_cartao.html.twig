@@ -56,7 +56,7 @@
     </div>
 
     <div class="mm-meta-lado">
-        <span class="mm-pilula tom-{{ status.tom }}">{{ status.rotulo }}</span>
+        <span class="mm-pilula tom-{{ status.tom }}">{{ status.rotulo|trans }}</span>
         <span class="mm-meta-datas">
             {{ 'metas.cartao.criada_em'|trans({data: meta.dataCriacao|data}) }}
         </span>

@@ -241,10 +241,8 @@ document.addEventListener('click', function (e) {
         if (!d.acompanhando && ABA_ATUAL === 'acompanhando') {
             var linha = botao.closest('.mm-meta, .mm-linha');
             if (linha) {
-                // No bloco "Concluídas" as metas ficam dentro de um .collapse, então o
-                // cabeçalho do grupo não é irmão da linha: sobe-se um nível antes de procurar.
-                var ancora = linha.closest('.collapse') || linha;
-                var grupo  = ancora.previousElementSibling;
+                // Todos os grupos ficam abertos (Concluídas inclusive, desenho 04): o cabeçalho é irmão da linha.
+                var grupo  = linha.previousElementSibling;
                 while (grupo && !grupo.matches('.mm-grupo-cabeca, .mm-separador')) {
                     grupo = grupo.previousElementSibling;
                 }

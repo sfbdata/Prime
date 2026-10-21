@@ -147,14 +147,30 @@ final class MinhasMetasDesenho1910CssTest extends TestCase
             'color: var(--mm-grupo-texto)',
         ]);
         $this->temTudo('.mm-grupo-cabeca > .mm-dot', ['width: 7px', 'height: 7px']);
-        $this->temTudo('button.mm-grupo-cabeca', ['border: 0', 'border-bottom: 1px solid var(--mm-grupo-cabeca-borda)']);
+        self::assertStringNotContainsString('button.mm-grupo-cabeca', $this->css(), 'nenhum grupo recolhe (desenho 04, P:163)');
+        self::assertStringNotContainsString('.mm-grupo-seta', $this->css());
     }
 
     #[TestDox('LIS-05/06: a cor do grupo vem do token do grupo e pinta a faixa da linha; o hover continua vencendo')]
     public function testCorDoGrupo(): void
     {
-        $this->temTudo('.mm-grupo-atrasadas', ['--mm-grupo-cor: var(--mm-grupo-atrasadas-cor)']);
-        $this->temTudo('.mm-grupo-proximas', ['--mm-grupo-cor: var(--mm-grupo-proximas-cor)']);
+        $cores = [
+            'atrasadas'  => ['atrasadas', '#a3232b'],
+            'proximas'   => ['proximas', '#c08a12'],
+            'em_revisao' => ['em-revisao', '#0a6fa0'],
+            'depois'     => ['depois', '#1e7b45'],
+            'sem_prazo'  => ['sem-prazo', '#7d909d'],
+            'concluidas' => ['concluidas', '#1e7b45'],
+        ];
+        foreach ($cores as $chave => [$token, $cor]) {
+            $this->temTudo('.mm-grupo-' . $chave, ['--mm-grupo-cor: var(--mm-grupo-' . $token . '-cor)']);
+            self::assertSame($cor, $this->token('--mm-grupo-' . $token . '-cor'), 'desenho 04, P:154: ' . $chave);
+            self::assertSame(2, substr_count($this->css(), '--mm-grupo-' . $token . '-cor:'), 'token claro e escuro: ' . $chave);
+        }
+        foreach (['accent', 'cinza', 'ok'] as $tom) {
+            self::assertStringContainsString('border-left-color: var(--mm-grupo-cor,', $this->regras('.mm-meta.tom-' . $tom), 'faixa da linha na cor do grupo: ' . $tom);
+        }
+        self::assertDoesNotMatchRegularExpression('/background:/', $this->regras('.mm-meta.tom-ok'), 'fundo branco; só a atrasada tem fundo (P:162)');
         self::assertStringContainsString('border-left-color: var(--mm-grupo-cor, var(--mm-danger-dot))', $this->regras('.mm-meta.tom-danger'));
         self::assertStringContainsString('border-left-color: var(--mm-grupo-cor, var(--mm-warn-dot))', $this->regras('.mm-meta.tom-warn'));
         self::assertGreaterThan(strpos($this->css(), '.mm-meta.tom-warn'), strpos($this->css(), '.mm-meta:hover {'), 'hover depois dos tons');
@@ -241,7 +257,7 @@ final class MinhasMetasDesenho1910CssTest extends TestCase
         self::assertStringNotContainsString('outline: none', $this->regras('.mm-barra-cartao .filtro-select:focus'));
     }
 
-    #[TestDox('FIL-03/MM-FIL-11: busca, Status, Prioridade e Prazo numa linha só a partir de 768px; o form desce inteiro em vez de quebrar os campos; selects pelo conteúdo')]
+    #[TestDox('FIL-03/MM-FIL-11: busca, Prioridade e Prazo numa linha só a partir de 768px; o form desce inteiro em vez de quebrar os campos; selects pelo conteúdo')]
     public function testFiltrosNumaLinhaSo(): void
     {
         $this->temTudo('.mm-barra-cartao > .filtro-barra', ['flex: 1 1 auto', 'min-width: 0']);

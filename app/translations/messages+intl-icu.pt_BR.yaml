@@ -1069,11 +1069,21 @@ metas:
         atrasadas: Atrasadas
         vencem_em_7_dias: Vencem em 7 dias
         sem_prazo: Sem prazo
+    grupos:
+        atrasadas: Atrasadas
+        proximas: Vencem em 7 dias
+        em_revisao: Aguardando revisão
+        depois: No prazo
+        sem_prazo: Sem prazo
+        concluidas: Concluídas
     status:
         pendente: Pendente
         em_revisao: Em revisão
         concluida: Concluída
         atrasada: Atrasada
+        vence_em_breve: Vence em breve
+        no_prazo: No prazo
+        sem_prazo: Sem prazo
     prioridade:
         normal: Normal
         prioridade: Prioridade

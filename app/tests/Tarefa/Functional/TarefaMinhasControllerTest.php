@@ -631,7 +631,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('Desenho 04 (P:151-154): a aba Criei mostra os grupos por prazo, na ordem atual das outras abas, e não mais por etapa da revisão')]
+    #[TestDox('Desenho 04 (P:151-154): a aba Criei mostra os grupos por prazo, na ordem e com os nomes do desenho (LIS-07/08/10), sem nota e todos abertos')]
     public function testAbaCrieiAgrupaPorPrazo(): void
     {
         $client             = static::createClient();
@@ -651,11 +651,12 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         $c = $client->getCrawler();
 
         self::assertSame(
-            ['Atrasadas', 'Vencem em 7 dias', 'Depois', 'Sem prazo', 'Enviadas para revisão', 'Concluídas'],
+            ['Atrasadas', 'Vencem em 7 dias', 'Aguardando revisão', 'No prazo', 'Sem prazo', 'Concluídas'],
             $c->filter('.mm-arranjo > .mm-coluna-lista > section.mm-grupo > .mm-grupo-cabeca > .mm-grupo-nome')->each(static fn ($n): string => trim($n->text())),
         );
         self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-atrasadas > article.mm-meta.tom-danger'));
-        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-concluidas > button.mm-grupo-cabeca + .collapse > article.mm-meta'), 'Concluídas segue recolhido');
+        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-concluidas > div.mm-grupo-cabeca + article.mm-meta'), 'Concluídas aberta, como os outros grupos (desenho 04, P:163)');
+        self::assertCount(0, $c->filter('.mm-coluna-lista .collapse, .mm-coluna-lista button.mm-grupo-cabeca, .mm-grupo-seta, .mm-grupo-cabeca > .mm-grupo-nota'), 'sem recolhimento, seta nem nota em nenhum grupo');
         self::assertCount(0, $c->filter('.mm-grupo-aguardando, .mm-grupo-andamento'), 'os grupos por etapa saíram');
     }
 
@@ -754,7 +755,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertFalse(json_decode((string) $client->getResponse()->getContent(), true)['acompanhando']);
     }
 
-    #[TestDox('Desenho de 19/10 (LIS-02/05/06): cada grupo é uma <section> própria, filha direta da coluna da lista, com a classe da chave; o grupo de 7 dias se chama "Vencem em 7 dias" e a ordem não muda')]
+    #[TestDox('Desenho de 19/10 (LIS-02/05/06): cada grupo é uma <section> própria, filha direta da coluna da lista, com a classe da chave; o grupo de 7 dias se chama "Vencem em 7 dias"; Concluídas aberta')]
     public function testCadaGrupoEmCartaoProprio(): void
     {
         $client             = static::createClient();
@@ -780,7 +781,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-atrasadas > article.mm-meta.tom-danger'));
         self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-proximas > article.mm-meta.tom-warn'));
         self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-proximas > .mm-grupo-cabeca > .mm-dot + .mm-grupo-nome + .mm-grupo-contagem'));
-        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-concluidas > button.mm-grupo-cabeca + .collapse > article.mm-meta'), 'Concluídas segue recolhido, dentro do próprio cartão');
+        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-concluidas > div.mm-grupo-cabeca + article.mm-meta'), 'Concluídas aberta, dentro do próprio cartão');
     }
 
     #[TestDox('Desenho de 19/10 (LIS-15/18/33, MENU-02): linha inteira clicável que delega para o título; pasta com bi-folder2, nº em negrito e cliente inteiro; "criada" sem "mod."; dica do marcador do desenho')]

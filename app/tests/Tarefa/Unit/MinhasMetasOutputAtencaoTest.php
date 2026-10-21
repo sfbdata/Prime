@@ -83,7 +83,7 @@ final class MinhasMetasOutputAtencaoTest extends TestCase
     #[TestDox('"X de Y" e a legenda de três itens (desenho 04, P:177, sem "em aberto") vêm do andamento de todas as metas, não dos grupos da aba')]
     public function testAndamentoVemDeTodasAsMetas(): void
     {
-        $grupos = [new GrupoDeMetasOutput('depois', 'Depois', 'cinza', [$this->meta('Folgada', '+20 days')])];
+        $grupos = [new GrupoDeMetasOutput('depois', 'metas.grupos.depois', 'cinza', [$this->meta('Folgada', '+20 days')])];
         $painel = $this->painel(AbaMetas::CRIEI, $grupos, new AndamentoDasMetasOutput(concluidas: 2, total: 10, atrasadas: 3, emRevisao: 1));
 
         self::assertSame(2, $painel->totalConcluidas());

@@ -50,8 +50,12 @@
     --mm-grupo-cabeca-borda: #e6edf2;
     --mm-grupo-texto:        #34505f;
     --mm-grupo-contagem-bg:  #e2e9ee;
-    --mm-grupo-atrasadas-cor: #a3232b;  /* G.atr do dc */
-    --mm-grupo-proximas-cor:  #c08a12;  /* G.vence do dc */
+    --mm-grupo-atrasadas-cor:  #a3232b;  /* G.atr do dc */
+    --mm-grupo-proximas-cor:   #c08a12;  /* G.vence do dc */
+    --mm-grupo-em-revisao-cor: #0a6fa0;  /* G.rev do dc (desenho 04, P:154) */
+    --mm-grupo-depois-cor:     #1e7b45;  /* G.prazo do dc ("No prazo") */
+    --mm-grupo-sem-prazo-cor:  #7d909d;  /* G.sem do dc */
+    --mm-grupo-concluidas-cor: #1e7b45;  /* G.conc do dc */
     --mm-linha-info:         #4a6373;   /* pasta, criador e comentários da linha (dc L91) */
     --mm-criada-texto:       #7d909d;   /* "criada dd/mm/aaaa" (dc L99) */
     --mm-vazio-borda:        #d6e0e7;   /* caixa do vazio (dc L107) */
@@ -136,8 +140,12 @@
     --mm-grupo-cabeca-borda: var(--bs-border-color-translucent);
     --mm-grupo-texto:        var(--bs-secondary-color);
     --mm-grupo-contagem-bg:  rgba(255,255,255,.08);
-    --mm-grupo-atrasadas-cor: #e0675c;
-    --mm-grupo-proximas-cor:  #e9be6c;
+    --mm-grupo-atrasadas-cor:  #e0675c;
+    --mm-grupo-proximas-cor:   #e9be6c;
+    --mm-grupo-em-revisao-cor: #4da3ea;
+    --mm-grupo-depois-cor:     #6ddaa2;
+    --mm-grupo-sem-prazo-cor:  #9fb0bc;
+    --mm-grupo-concluidas-cor: #6ddaa2;
     --mm-linha-info:         var(--bs-secondary-color);
     --mm-criada-texto:       var(--bs-secondary-color);
     --mm-vazio-borda:        var(--bs-border-color);
@@ -539,9 +547,14 @@ body.layout-fixed .app-main:has(.mm-page) { overflow: visible; }
     overflow: hidden;
     min-width: 0;
 }
-/* A cor do grupo (ponto do cabeçalho e faixa das linhas): Atrasadas e Vencem em 7 dias com a do dc. */
-.mm-grupo-atrasadas { --mm-grupo-cor: var(--mm-grupo-atrasadas-cor); }
-.mm-grupo-proximas  { --mm-grupo-cor: var(--mm-grupo-proximas-cor); }
+/* A cor do grupo (ponto do cabeçalho e faixa das linhas), a do dc para os seis grupos (desenho 04, P:154).
+   Vale também no separador do modo lista, que leva a mesma classe. */
+.mm-grupo-atrasadas  { --mm-grupo-cor: var(--mm-grupo-atrasadas-cor); }
+.mm-grupo-proximas   { --mm-grupo-cor: var(--mm-grupo-proximas-cor); }
+.mm-grupo-em_revisao { --mm-grupo-cor: var(--mm-grupo-em-revisao-cor); }
+.mm-grupo-depois     { --mm-grupo-cor: var(--mm-grupo-depois-cor); }
+.mm-grupo-sem_prazo  { --mm-grupo-cor: var(--mm-grupo-sem-prazo-cor); }
+.mm-grupo-concluidas { --mm-grupo-cor: var(--mm-grupo-concluidas-cor); }
 /* Cabeçalho do grupo (dc L85): 15/20, fundo #f5f8fa, só a borda de baixo, 12px negrito 1.4px. */
 .mm-grupo-cabeca {
     display: flex;
@@ -590,13 +603,6 @@ body.layout-fixed .app-main:has(.mm-page) { overflow: visible; }
 .mm-grupo-nota { font-size: .75rem; color: var(--mm-muted); }
 .mm-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-button.mm-grupo-cabeca { border: 0; border-bottom: 1px solid var(--mm-grupo-cabeca-borda); cursor: pointer; }
-/* Recolhido, o cabeçalho é a última coisa do cartão: a borda do próprio cartão já fecha. */
-button.mm-grupo-cabeca[aria-expanded="false"] { border-bottom-color: transparent; }
-button.mm-grupo-cabeca:hover { background: var(--mm-hover); }
-.mm-grupo-seta { margin-left: auto; color: var(--mm-faint); transition: transform .2s; }
-button.mm-grupo-cabeca[aria-expanded="true"] .mm-grupo-seta { transform: rotate(90deg); }
-
 /* ── Linha de meta (cartões) ──────────────────────────────────────────────── */
 .mm-meta {
     display: flex;
@@ -611,12 +617,13 @@ button.mm-grupo-cabeca[aria-expanded="true"] .mm-grupo-seta { transform: rotate(
 .mm-meta:last-child { border-bottom: none; }
 .mm-meta.tom-danger { border-left-color: var(--mm-grupo-cor, var(--mm-danger-dot)); background: var(--mm-linha-atrasada-bg); }
 .mm-meta.tom-warn   { border-left-color: var(--mm-grupo-cor, var(--mm-warn-dot)); }
-.mm-meta.tom-accent { border-left-color: var(--mm-accent); }
-.mm-meta.tom-cinza  { border-left-color: var(--mm-cinza-dot); }
-.mm-meta.tom-ok     { border-left-color: var(--mm-ok-dot); background: var(--mm-soft); }
+.mm-meta.tom-accent { border-left-color: var(--mm-grupo-cor, var(--mm-accent)); }
+.mm-meta.tom-cinza  { border-left-color: var(--mm-grupo-cor, var(--mm-cinza-dot)); }
+/* Fundo branco em todas as linhas; só a atrasada tem fundo próprio (desenho 04, P:162 `FUNDO`). */
+.mm-meta.tom-ok     { border-left-color: var(--mm-grupo-cor, var(--mm-ok-dot)); }
 /* Hover do desenho (dc 04 Minhas Metas L17-18): linha azul cheia, faixa escura à esquerda, sombra
    que sobe por cima da vizinha, e todo o conteúdo em branco sem fundo nem borda própria. Vem DEPOIS
-   dos tons para vencer o fundo de `.tom-ok` e a cor de faixa de cada grupo. */
+   dos tons para vencer o fundo da atrasada e a cor de faixa de cada grupo. */
 .mm-meta:hover {
     position: relative;
     z-index: 1;

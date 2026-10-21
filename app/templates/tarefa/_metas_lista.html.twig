@@ -17,11 +17,10 @@
             </div>
 
             {% for grupo in painel.grupos %}
-                <div class="mm-separador">
-                    <span class="mm-dot" style="background: var(--mm-{{ grupo.tom }}-dot, var(--mm-cinza-dot))"></span>
-                    <span class="mm-grupo-nome">{{ grupo.rotulo }}</span>
+                <div class="mm-separador mm-grupo-{{ grupo.chave }}">
+                    <span class="mm-dot" style="background: var(--mm-grupo-cor, var(--mm-cinza-dot))"></span>
+                    <span class="mm-grupo-nome">{{ grupo.rotulo|trans }}</span>
                     <span class="mm-grupo-contagem">{{ grupo.total }}</span>
-                    {% if grupo.nota %}<span class="mm-grupo-nota">{{ grupo.nota }}</span>{% endif %}
                 </div>
 
                 {% for meta in grupo.metas %}
@@ -67,7 +66,7 @@
                             {%- else %}{{ info.texto }}{% endif %}
                         </span>
 
-                        <div><span class="mm-pilula tom-{{ status.tom }}">{{ status.rotulo }}</span></div>
+                        <div><span class="mm-pilula tom-{{ status.tom }}">{{ status.rotulo|trans }}</span></div>
 
                         <span class="mm-linha-atualizada">{{ (meta.dataAlteracao ?: meta.dataCriacao)|data }}</span>
 
