@@ -1,5 +1,5 @@
 ---
-tipo: melhoria
+tipo: interno
 ---
 ## Changelog
 - Idioma (spec idioma-do-sistema, entrega por área): o texto de tela da seção Comercial do painel do Master (`master/_comercial*.html.twig` e `master/comercial*.js`) passa para o catálogo `translations/messages+intl-icu.pt_BR.yaml`, no bloco de topo `comercial:` (259 chaves: 180 do Twig e 79 do JS em `comercial.js.*`). Só o português, sem mudança visível.
