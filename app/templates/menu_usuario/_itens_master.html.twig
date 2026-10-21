@@ -2,8 +2,9 @@
     Itens "Exclusivo do Master" (desenhos "03 - EXPEDIENTE" e "07 - Meu Perfil", VS 18.10.26).
     Usado no menu do usuário e na aba "Master" do Meu Perfil; quem inclui já conferiu ROLE_SUPER_ADMIN.
     As âncoras abrem a seção certa do Painel do Master (public/js/master/painel.js lê #aba e #sec).
-    Central de vagas e Campanha por e-mail ainda não têm tela: abrem o aviso "em preparação"
-    (decisão do dono, 19/10/2026).
+    Central de vagas abre o Trabalho Externo na aba de vagas (#mod=vagas, que o trabalho-externo.js lê), como no
+    desenho; até ter tela ela abria "em preparação" (decisão do dono, 19/10/2026). Campanha por e-mail ainda não
+    tem tela: abre o aviso "em preparação".
     Variáveis: `classe_item` (classe do <a>/<button> de cada linha) e `papel` (role ARIA, opcional).
 #}
 {% set _painel = path('master_painel') %}
@@ -13,7 +14,7 @@
     {icone: 'bi-hdd-stack',     titulo: 'Planos e armazenamento',        sub: 'Franquias e consumo por conta',          href: _painel ~ '#aba=painel&sec=arm'},
     {icone: 'bi-journal-check', titulo: 'Segurança e auditoria',         sub: 'Registro de ações e PDF',                href: _painel ~ '#aba=painel&sec=audit'},
     {icone: 'bi-key',           titulo: 'Permissões e Masters',          sub: 'Promover ou remover Master',             href: _painel ~ '#aba=perm'},
-    {icone: 'bi-briefcase',     titulo: 'Central de vagas e currículos', sub: 'Pedidos de divulgação e candidatos',     href: null},
+    {icone: 'bi-briefcase',     titulo: 'Central de vagas e currículos', sub: 'Pedidos de divulgação e candidatos',     href: path('trabalho_externo_index') ~ '#mod=vagas'},
     {icone: 'bi-send',          titulo: 'Campanha por e-mail',           sub: 'Enviar vagas para a base de contatos',   href: null},
     {icone: 'bi-sliders',       titulo: 'Configurações globais',         sub: 'Regras que valem para todas as contas', href: _painel ~ '#aba=painel&sec=config'},
 ] %}
