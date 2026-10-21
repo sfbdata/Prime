@@ -1279,7 +1279,8 @@ perfis:
 
 # ---- master: Painel do Master (master/painel.html.twig e painel.js), da série da b5. P2a: a moldura do painel (abas,
 # Permissões, Telas e recursos) e a Visão geral do painel.js (KPIs, gráfico, mapa, estados que faltam, seccionais e
-# janela da OAB), com as respostas das seccionais. As outras seções do painel.js ficam para a P2b; o Comercial da 5d tem
+# janela da OAB), com as respostas das seccionais. P2b: as outras seções do painel.js, as recusas das seccionais, as
+# respostas das contas e dos planos e os rótulos da faixa etária e do tipo de divulgação; o Comercial da 5d tem
 # bloco de topo próprio (comercial:). O termo solto ou numa frase curta vem de termos.* por parâmetro.
 master:
     painel:
@@ -1350,6 +1351,45 @@ master:
         nota_apagada: 'Nota da {seccional} apagada.'
         sede_atualizada: 'Sede da {seccional} atualizada.'
         divulgacao_registrada: 'Divulgação registrada na {seccional}: {tipo}.'
+        # P2b: as recusas dos UseCases das seccionais (a exceção leva a chave e os parâmetros; o português da
+        # constante RECUSA_* é o mesmo daqui, ver o CatalogoDasRecusasDoMasterTest). O limite vai como texto, sem
+        # separador de milhar ("1000"), como no sprintf de antes.
+        recusa:
+            tipo_de_divulgacao: 'Escolha o tipo: material enviado, reunião ou parceria.'
+            data_formato: Informe a data no formato dia, mês e ano.
+            data_no_futuro: A data da divulgação não pode ser no futuro.
+            nota_longa: 'A nota passa de {limite} caracteres.'
+            nome_obrigatorio: Informe o nome da subseção.
+            endereco_obrigatorio: Informe o endereço da subseção.
+            nome_longo: 'O nome passa de {limite} caracteres.'
+            endereco_longo: 'O endereço passa de {limite} caracteres.'
+            telefone_longo: 'O telefone passa de {limite} caracteres.'
+            site_longo: 'O site passa de {limite} caracteres.'
+            site_sem_https: 'Informe o site completo, começando com https://.'
+            subsecao_nao_encontrada: Subseção não encontrada.
+        # Rótulo do tipo de divulgação (TipoDeDivulgacao::rotulo() é o português).
+        tipo:
+            material: Material enviado
+            reuniao: Reunião
+            parceria: Parceria
+    # P2b: respostas do ContasDoSistemaController (suspender, reativar e excluir).
+    contas:
+        sessao_expirada: Sessão expirada. Recarregue a página.
+        suspensa: 'Conta "{nome}" suspensa.'
+        reativada: 'Conta "{nome}" reativada.'
+        excluida: 'Conta "{nome}" excluída. Fica em quarentena até a purga e pode ser recuperada pelo {papel}.'
+    # P2b: respostas do PlanosELimitesController (a sessão expirada é contas.sessao_expirada).
+    planos:
+        informe_espaco_e_preco: Informe o espaço em GB e o preço em reais.
+        plano_atualizado: 'Plano "{nome}" atualizado.'
+        faixas_atualizadas: Faixas de alerta atualizadas.
+        limite_arm_atualizado: Limite de armazenamento atualizado.
+        limite_usu_atualizado: Limite de usuários atualizado.
+    # P2b: rótulo das faixas etárias da Visão geral (FaixaEtaria::FAIXAS é o português), traduzido no
+    # PainelMasterDadosController.
+    faixa_etaria:
+        intervalo: '{min} a {max}'
+        ou_mais: '{min} ou +'
     # Chaves do painel.js: vão cruas ao navegador (só {nome}, sem plural do ICU).
     js:
         carregando: Carregando…
@@ -1566,6 +1606,199 @@ master:
             atualizada: 'Atualizada em {data}'
             remover_titulo: Remover subseção
             remover_texto: 'O endereço "{nome}" sai da lista da seccional. A remoção fica registrada na auditoria.'
+        # P2b: as outras seções do painel.js.
+        sem_limite: sem limite
+        erro_acao: Não foi possível concluir a ação. Recarregue a página.
+        # Rótulo da situação gravada da conta (o valor que o servidor manda é dado, em português).
+        situacao:
+            ativa: Ativa
+            suspensa: Suspensa
+            a_pedido: Suspensa a pedido
+            quarentena: Em quarentena
+        # Faixa do RetratoDoEspaco (Contribua); o chip da faixa de bloqueio tem rótulo próprio.
+        faixa:
+            livre: Normal
+            atencao: Atenção
+            alerta: Alerta
+            critico: Crítico
+            bloqueio: Limite atingido
+            chip_bloqueio: Bloqueio
+        contas:
+            convites: Convites
+            todas_situacoes: Todas as situações
+            busca: Buscar nº, conta ou primário
+            cab:
+                conta: CONTA
+                primario_plano: PRIMÁRIO · PLANO
+                usuarios: USUÁRIOS
+                pastas: PASTAS
+                docs: DOCS
+                armazenamento: ARMAZENAMENTO
+                dias30: 30 DIAS
+                previsao: PREVISÃO
+                situacao: SITUAÇÃO
+            contagem: '{n} · botão direito na linha para ações'
+            numero_dica: Número da conta (ordem de abertura)
+            numero: 'Nº {numero}'
+            desde: 'desde {desde} · último acesso {acesso}'
+            sem_registro: sem registro
+            hoje: hoje
+            ontem: ontem
+            ha_dias: 'há {n} dias'
+            titular_ausente: titular não registrado
+            estavel: estável
+            sem_previsao: sem previsão
+            prev_menos: menos de 1 mês
+            prev_mes: '≈ {n} mês'
+            prev_meses: '≈ {n} meses'
+            purga_dica: A purga automática roda às 03h, a partir desta data
+            purga: apagada a partir de
+            acoes: Ações da conta
+            nenhuma: Nenhuma conta encontrada.
+            arm_nao_medido: uso não medido
+            arm_quarentena: conta em quarentena
+            arm_em_uso: '{gb} em uso'
+            arm_de: '{gb} de {limite} GB'
+            arm_livre: '{faixa} · livre {livre}'
+            aviso_ok: Situação da conta atualizada.
+        pedidos:
+            titulo: 'Pedidos de exclusão de conta · {n}'
+            sub: contas suspensas aguardando sua decisão
+            autor_ausente: autor não registrado
+            reativar: Reativar
+            excluir: Excluir conta
+        menu:
+            lim_arm: Editar limite de armazenamento
+            lim_usu: Definir limite de usuários
+            estat: Estatísticas de uso
+            hist: Histórico de alterações
+            suspender: Suspender conta
+            reativar: Reativar conta
+            excluir: Excluir conta
+        # Confirmações do menu da conta e dos pedidos. A palavra EXCLUIR fica no painel.js: o servidor confere ela.
+        conf:
+            suspender:
+                titulo: Suspender conta
+                botao: Suspender
+                texto: 'Os usuários de "{nome}" ficam sem acesso até a reativação. Nenhum dado é apagado.'
+            reativar:
+                titulo: Reativar conta
+                botao: Reativar
+                texto: 'A conta "{nome}" volta a ter acesso normal.'
+            excluir:
+                titulo: Excluir conta
+                botao: Excluir conta
+                texto: 'A conta "{nome}" sai do ar agora e é apagada de vez em {dias} dias. Até lá, pode ser recuperada pelo {papel}.'
+        usuarios_oab:
+            kpi:
+                registros: COM OAB INFORMADA
+                registros_desc: registros nos cadastros
+                unicas: INSCRIÇÕES ÚNICAS
+                unicas_desc: após normalizar número e UF
+                duplicadas: DUPLICADAS
+                duplicadas_desc: mesma inscrição repetida
+                nao_validadas: NÃO VALIDADAS
+                nao_validadas_desc: não contam como advogado confirmado
+                ufs: UFs
+                ufs_desc: estados com inscrição
+            pend:
+                sem_uf: '{conta}: {inscricao} sem UF da OAB'
+                sem_numero: '{conta}: usuário sem número de OAB'
+                aguardando: '{conta}: {normalizada} aguardando validação'
+                divergente: '{conta}: {normalizada} divergente do cadastro da OAB'
+                formatacao: '{conta}: "{inscricao}" normalizado para {normalizada}'
+                tag_incompleto: INCOMPLETO
+                tag_nao_validada: NÃO VALIDADA
+                tag_formatacao: FORMATAÇÃO
+            distribuicao: Distribuição por UF
+            sem_inscricao: Nenhuma inscrição informada.
+            pendencias: Inscrições com pendência
+            sem_pendencia: Nenhuma pendência.
+            nota: 'Contagem normalizada: número sem pontos e zeros à esquerda + UF em maiúsculas. Inscrição só conta como confirmada após validação.'
+            revisao: Abrir a Revisão de OAB
+        arm:
+            faixas_titulo: Faixas de alerta de consumo
+            configuraveis: (configuráveis)
+            a_partir: '{faixa} a partir de'
+            faixas_nota: No limite (100%), novos uploads acima da capacidade ficam bloqueados. Consulta, download e exportação continuam liberados. Nenhum documento é apagado automaticamente.
+            bloquear: 'Bloquear novos envios na faixa {faixa}'
+            aviso_bloqueio: Antes de ligar, confira os escritórios acima do plano e defina sem limite ou uma cota própria.
+            erro_faixas: As faixas precisam crescer em ordem, de 1% a 100%.
+            salvar_faixas: Salvar faixas
+            ranking: Contas por consumo
+            nenhuma: Nenhuma conta.
+            editar_limite: Editar limite
+            nota: 'Soma dos arquivos com tamanho gravado (pastas fora da lixeira, clientes, processos, cobrança, chamados e kanban). Justificativas de ponto e anexos de tarefa não têm tamanho no banco: não medidos.'
+        planos:
+            plano_free: 'Plano {nome}'
+            padrao: 'Padrão: toda conta nova começa aqui'
+            inativo: inativo
+            por_mes: / mês
+            usuarios_sem_limite: usuários sem limite
+            usuarios: '{n} usuários'
+            cap: '{gb} GB · {usuarios}'
+            contas: '{n} conta(s) · {acima} perto ou acima da franquia'
+            editar: Editar plano
+            nota: Toda conta nova entra no Plano Free (10 GB). A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail recomendando ampliar o espaço; em 100% novos envios ficam bloqueados, mas consultar e baixar arquivos continua liberado. Mudanças de plano com impacto comercial exigem confirmação e ficam registradas na auditoria.
+        # Janela de limite (armazenamento e usuários); o título é o do item do menu (menu.lim_arm e menu.lim_usu).
+        limite:
+            em_uso: EM USO
+            limite_atual: LIMITE ATUAL
+            livre: LIVRE
+            usuarios: USUÁRIOS
+            vagas: VAGAS
+            novo_arm: NOVO LIMITE (GB)
+            novo_usu: NOVO LIMITE DE USUÁRIOS
+            sem_limite: Sem limite (espaço e usuários)
+            nota_sem_limite: 'Esta conta está sem limite: o limite de usuários só passa a valer quando ela voltar a ter limite de espaço.'
+            justificativa: JUSTIFICATIVA
+            justificativa_dica: Obrigatória, fica na auditoria
+            confirmar: Confirmar alteração
+            msg_sem: 'Sem limite: a conta deixa de ter limite de espaço e de usuários. A alteração fica registrada na auditoria.'
+            msg_abaixo_arm: 'O novo limite é menor que o volume em uso ({gb}). Reduzir não apaga arquivos, por isso não é permitido abaixo do uso.'
+            msg_abaixo_usu: Menor que os usuários já cadastrados.
+            msg_inteiro: Informe um número inteiro.
+            msg_de_sem_arm: 'Passa de sem limite para {n} GB. A alteração fica registrada na auditoria.'
+            msg_de_sem_usu: 'Passa de sem limite para {n} usuários. A alteração fica registrada na auditoria.'
+            msg_diferenca_arm: 'Diferença: {d} GB. A alteração fica registrada na auditoria.'
+            msg_diferenca_usu: 'Diferença: {d} usuário(s). A alteração fica registrada na auditoria.'
+        # Janela "Editar plano"; o título é planos.editar e o campo NOME é campo.nome.
+        plano_modal:
+            espaco: ESPAÇO (GB)
+            preco: PREÇO (R$)
+            limite_usuarios: LIMITE DE USUÁRIOS
+            vazio_sem_limite: vazio para sem limite
+            descricao: DESCRIÇÃO
+            ativo: Plano ativo
+            salvar: Salvar plano
+            msg_ok: 'O código do plano ({codigo}) não muda. A alteração fica registrada na auditoria.'
+            msg_preencha: 'Preencha o nome, o espaço em GB e o preço em reais (por exemplo 19,90). Usuários: vazio para sem limite.'
+        audit:
+            titulo: Trilha de auditoria
+            contagem: '{n} registro(s) · últimos {meses} meses'
+            truncado: 'mostrando os {n} mais recentes'
+            todas_acoes: Todas as ações
+            pdf: Gerar PDF
+            todas_contas: Mostrar todas as contas
+            resumo:
+                limites: Limites
+                contas: Contas
+                masters: Masters e primários
+                alertas: Alertas
+            cab:
+                data: DATA E HORA
+                responsavel: RESPONSÁVEL
+                acao: AÇÃO E CONTA
+                detalhe: DETALHE
+            vazio: Nenhum registro ainda. Alterações de limite, suspensões e exclusões aparecem aqui. Entradas no sistema (login) não são auditadas.
+        # PDF da trilha (janela de impressão); o cabeçalho da tabela é audit.cab.
+        pdf:
+            titulo_janela: Auditoria BlueJus
+            titulo: Trilha de auditoria do sistema
+            gerado: 'Gerado em {quando} por {quem} ({papel}) · {n} registro(s)'
+            filtro: 'filtro: {filtro}'
+            conta: 'conta: {conta}'
+            rodape: 'BlueJus · documento gerado pelo painel do {papel}. Contém apenas metadados administrativos.'
 
 # ---- Cliente (cliente/show, editPF, editPJ, _cadastro, _resumo, cliente-cadastro.js). O texto da qualificação no JS
 # espelha o QualificacaoDoCliente (PHP), que ainda não lê o catálogo: os dois mudam juntos na tradução.
