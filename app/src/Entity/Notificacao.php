@@ -239,10 +239,11 @@ class Notificacao implements Auditavel, TenantAware
     public function getIcone(): string
     {
         // Trabalho Externo (F4): avisos de vagas e candidaturas.
-        if (isset(self::ICONES_DO_TRABALHO_EXTERNO[$this->tipo])) {
-            return self::ICONES_DO_TRABALHO_EXTERNO[$this->tipo];
-        }
+        return self::ICONES_DO_TRABALHO_EXTERNO[$this->tipo] ?? $this->iconeDosDemaisTipos();
+    }
 
+    private function iconeDosDemaisTipos(): string
+    {
         return match ($this->tipo) {
             self::TIPO_TAREFA_CRIADA => 'bi-plus-circle text-primary',
             self::TIPO_TAREFA_EM_REVISAO => 'bi-hourglass-split text-warning',
