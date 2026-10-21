@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Vistoria do desenho 02, c5: a tela da pasta mostra erro pelo aviso dela (`avisarErroPs`, o `gmAviso` do dc), não
- * pelo alert() do navegador. Ficam a volta para quem roda sem o pasta-dialogos.js (`|| window.alert`), os ramos que já
+ * pelo alert() do navegador. O explorador de Documentos tem o aviso dele (e o alert só sem ele). Ficam a volta para quem roda sem o pasta-dialogos.js (`|| window.alert`), os ramos que já
  * testam `avisarPs`, e o alert de propósito antes de recarregar a página (marcado no comentário logo acima).
  */
 #[CoversNothing]
@@ -18,7 +18,7 @@ final class PastaSemAlertNativoTest extends TestCase
 {
     private const ARQUIVOS = [
         'public/js/pasta-apensado.js', 'public/js/pasta-arquivos.js', 'public/js/pasta-cadeado-pedidos.js',
-        'public/js/pasta-explorador.js', 'public/js/pasta-processo.js', 'templates/pasta/_detalhes_obs.html.twig',
+        'public/js/pasta-processo.js', 'templates/pasta/_detalhes_obs.html.twig',
         'templates/pasta/_financeiro.html.twig', 'templates/pasta/_financeiro_obs_script.html.twig',
         'templates/pasta/_financeiro_pagamentos_script.html.twig', 'templates/pasta/_resp_script.html.twig',
         'templates/pasta/show.html.twig',
