@@ -13,6 +13,7 @@ use App\Cliente\Exception\SemPermissaoParaEditarClienteException;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Repository\ClientePFRepository;
 use App\Cliente\Repository\ClientePJRepository;
+use App\Cliente\Service\DocumentosVisiveisDoCadastro;
 use App\Cliente\Service\HistoricoDoCliente;
 use App\Cliente\Service\PendenciasDoCadastro;
 use App\Cliente\Service\QualificacaoDoCliente;
@@ -65,6 +66,7 @@ final class ClienteCadastroController extends AbstractController
         private readonly PastaReuRepository $reuRepository,
         private readonly CriarClienteDaPastaUseCase $criarCliente,
         private readonly HistoricoDoCliente $historico,
+        private readonly DocumentosVisiveisDoCadastro $documentosVisiveis,
     ) {}
 
     #[Route('/clientes/{id}/cadastro', name: 'cliente_cadastro', requirements: ['id' => '\d+'], methods: ['GET'])]
@@ -191,7 +193,7 @@ final class ClienteCadastroController extends AbstractController
             'pasta'        => $pasta,
             'podeVincular' => $pasta !== null && !$pasta->estaExcluida() && $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, (int) $pasta->getId(), AccessRequest::ACTION_EDIT),
             'estadosCivis' => SalvarCadastroDoClienteUseCase::ESTADOS_CIVIS,
-            'docs'         => $novo ? [] : $this->documentosDoCadastro($cliente),
+            'docs'         => $novo ? [] : $this->documentosDoCadastro($cliente, $usuario, $tenant),
             // Aba Histórico (E12 3d): as 40 mais novas, primeiro a mais nova; cadastro novo mostra o vazio.
             'historico'    => $novo ? [] : $this->historico->paraTela($cliente, $tenant),
             // Aba Réu (E12h): só com a pasta de contexto, porque o réu é da pasta, não do cliente.
@@ -290,10 +292,11 @@ final class ClienteCadastroController extends AbstractController
      *
      * @return array<string, ?ClienteDocumento>
      */
-    private function documentosDoCadastro(Cliente $cliente): array
+    private function documentosDoCadastro(Cliente $cliente, User $usuario, Tenant $tenant): array
     {
         $docs = [ClienteDocumento::CATEGORIA_IDENTIFICACAO => null, ClienteDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA => null];
-        foreach ($cliente->getDocumentos() as $doc) {
+        // O vinculado da lixeira ou de pasta que o usuário não vê some da aba (sem link quebrado).
+        foreach ($this->documentosVisiveis->de($cliente, $usuario, $tenant) as $doc) {
             $cat = $doc->getCategoria();
             if (\array_key_exists($cat, $docs) && ($docs[$cat] === null || $doc->getUploadedAt() > $docs[$cat]->getUploadedAt())) {
                 $docs[$cat] = $doc;

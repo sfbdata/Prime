@@ -268,6 +268,8 @@ final class PurgarEscritorioUseCase
         ['comercial_envio', 'tenant_id = :tenant'],
         ['comercial_confirmacao_endereco', 'tenant_id = :tenant'],
         ['comercial_ciclo_conta', 'tenant_id = :tenant'],
+        // A vez dos avisos de espaço do escritório (comercial-e-emails.md §4): FK NO ACTION, nada a referencia.
+        ['comercial_aviso_espaco', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],
@@ -331,12 +333,14 @@ final class PurgarEscritorioUseCase
      * @var array<string, array{0: CategoriaDeArquivo, 1: string}>
      */
     private const ARQUIVOS_POR_REGISTRO = [
+        // O documento VINCULADO do cadastro (pasta_documento_id) não tem arquivo próprio: o arquivo é o da pasta.
         'cliente_documento' => [
             CategoriaDeArquivo::CLIENTE_DOCUMENTO,
             'SELECT d.caminho_arquivo AS nome, bool_or(o.id IS NOT NULL) AS compartilhado
              FROM cliente_documento d
              LEFT JOIN cliente_documento o ON o.caminho_arquivo = d.caminho_arquivo AND o.tenant_id IS DISTINCT FROM d.tenant_id
-             WHERE d.tenant_id = :tenant
+                                           AND o.pasta_documento_id IS NULL
+             WHERE d.tenant_id = :tenant AND d.pasta_documento_id IS NULL
              GROUP BY d.caminho_arquivo',
         ],
         'pasta_documento' => [
