@@ -327,6 +327,8 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
 
         $client->request('GET', '/master/comercial/campanhas/999999999/destinatarios.csv');
         self::assertResponseStatusCodeSame(404);
+        $client->request('GET', '/master/comercial/campanhas/2147483648/destinatarios.csv');
+        self::assertResponseStatusCodeSame(404);
     }
 
     /** @param list<int> $ids */

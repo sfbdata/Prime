@@ -31,6 +31,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class RelatorioDoMasterController extends AbstractController
 {
+    /** Id de campanha na rota: até 9 dígitos, dentro do INT do Postgres (acima disso seria 500 no banco; assim é 404). */
+    public const ID = '[1-9]\d{0,8}';
     private const CSRF_INVALIDO = 'Token CSRF inválido. Recarregue a página.';
     private const NAO_ENCONTRADA = 'Campanha não encontrada.';
 
@@ -58,7 +60,7 @@ final class RelatorioDoMasterController extends AbstractController
     }
 
     /** "Exportar destinatários" (dc L503, L704, L708): `formato=completo` (o padrão) ou `emails`. */
-    #[Route('/master/comercial/campanhas/{id}/destinatarios.csv', name: 'master_comercial_campanha_destinatarios', requirements: ['id' => '[1-9]\d{0,9}'], methods: ['GET'])]
+    #[Route('/master/comercial/campanhas/{id}/destinatarios.csv', name: 'master_comercial_campanha_destinatarios', requirements: ['id' => self::ID], methods: ['GET'])]
     public function exportar(int $id, Request $request, ExportarDestinatariosUseCase $exportar): Response
     {
         $master = $this->getUser();
@@ -78,7 +80,7 @@ final class RelatorioDoMasterController extends AbstractController
      * O visualizador. O HTML vai num iframe `sandbox=""` (srcdoc) na tela; a resposta leva também
      * `Content-Security-Policy: sandbox`, para o caso de alguém abri-la direto.
      */
-    #[Route('/master/comercial/campanhas/{id}', name: 'master_comercial_campanha', requirements: ['id' => '[1-9]\d{0,9}'], methods: ['GET'])]
+    #[Route('/master/comercial/campanhas/{id}', name: 'master_comercial_campanha', requirements: ['id' => self::ID], methods: ['GET'])]
     public function abrir(int $id, AbrirCampanhaDoRelatorioUseCase $abrir): JsonResponse
     {
         $campanha = $abrir->executar($id);
@@ -91,7 +93,7 @@ final class RelatorioDoMasterController extends AbstractController
     }
 
     /** "Cancelar envio" (dc L503), depois do `confirm` na tela; só onde o EncerrarCampanhaUseCase aceita. */
-    #[Route('/master/comercial/campanhas/{id}/cancelar', name: 'master_comercial_campanha_cancelar', requirements: ['id' => '[1-9]\d{0,9}'], methods: ['POST'])]
+    #[Route('/master/comercial/campanhas/{id}/cancelar', name: 'master_comercial_campanha_cancelar', requirements: ['id' => self::ID], methods: ['POST'])]
     public function cancelar(int $id, Request $request, EncerrarCampanhaUseCase $encerrar): JsonResponse
     {
         if (!$this->isCsrfTokenValid(ComercialDoMasterController::TOKEN, (string) $request->headers->get('X-CSRF-Token', ''))) {

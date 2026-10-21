@@ -30,7 +30,7 @@
   const raiz = document.querySelector('[data-mc-relatorio]');
   if (!raiz) return;
 
-  const MARCADOR = '9999999999';
+  const MARCADOR = '999999999';
   const el = s => raiz.querySelector(s);
   const lista = el('[data-mc-rl-lista]');
   const ver = el('[data-mc-rl-ver]');
@@ -212,7 +212,7 @@
   function marcar(ids, acao) {
     return pedir(raiz.dataset.urlMarcas, Object.assign(POST(), { body: JSON.stringify({ ids: ids.map(Number), acao: acao }) }))
       .then(() => carregar())
-      .catch(err => avisar(err.message));
+      .catch(err => { avisar(err.message); carregar(); });
   }
 
   function marcarSelecao(acao) {
@@ -230,12 +230,13 @@
   }
 
   // "Reenviar a quem não leu" (dc L704 e L711): só aviso. Sem rastreio (hoje, sempre), o texto de "não rastreou".
-  // Do visualizador, ele fecha antes de avisar: o aviso mora na lista, atrás do visualizador.
+  // Do visualizador, como o dc L713: sem rastreio só avisa (o visualizador fica aberto); com rastreio fecha e avisa.
   function reenviar(c, doMenu) {
     const rastreou = !!(c && c.rastreada === true);
     if (doMenu) { avisar(rastreou ? 'Reenvio disponível quando o servidor registrar as leituras.' : 'Esta campanha não rastreou leitura.'); return; }
+    if (!rastreou) { avisar('Esta campanha não rastreou leitura; não dá para saber quem não leu.'); return; }
     fechar();
-    avisar(rastreou ? 'Reenvio para quem não leu fica disponível assim que o servidor registrar as leituras.' : 'Esta campanha não rastreou leitura; não dá para saber quem não leu.');
+    avisar('Reenvio para quem não leu fica disponível assim que o servidor registrar as leituras.');
   }
 
   // "Exportar destinatários": o CSV vem pronto do servidor (com o BOM); aqui só vira download.

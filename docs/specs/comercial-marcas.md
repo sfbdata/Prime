@@ -14,8 +14,10 @@ linha) e L503-514 (visualizador e menu do botão direito), lógica L698-717. Con
   (só aviso) e "Exportar destinatários" (CSV pelo servidor, com a auditoria `camp_csv`). Rotas novas em
   `RelatorioDoMasterController`. "Encaminhar para um e-mail" ficou desabilitado no menu (regra 7, decisão do
   coordenador em 21/10).
-- Desvios e preenchimentos: do visualizador, "Reenviar a quem não leu" fecha o visualizador antes do aviso também sem
-  rastreio (o dc deixa aberto; aqui o aviso mora na lista, atrás do visualizador, e não seria visto). O "Duplicar como
+- Desvios e preenchimentos: do visualizador, "Reenviar a quem não leu" segue o dc L713 (sem rastreio só avisa e o
+  visualizador fica aberto; o aviso fica atrás dele, como no dc, e o `role="status"` o anuncia). As rotas com `{id}`
+  aceitam até 9 dígitos (`RelatorioDoMasterController::ID`): acima do INT do Postgres seria 500, agora é 404. Se o
+  POST das marcas falha, a lista recarrega para a tela e a seleção concordarem. O "Duplicar como
   nova" do menu busca a campanha pelo GET do visualizador (a linha não traz o título). A lixeira e o Excluir do menu
   gravam a mesma ação `remover`. O CSV traz uma linha por destinatário de cada execução (na recorrente, o mesmo e-mail
   aparece uma vez por execução, como no visualizador).

@@ -2,7 +2,7 @@
    lógica L698-717; spec docs/specs/comercial-relatorio.md). Incluído pelo _comercial.html.twig no lugar do antigo
    bloco "Monitoramento", dentro do [data-mc]. Traz o próprio <link> e <script>, sem script inline (o HTML da
    campanha vai num iframe sandbox="", que não executa script). A lista, as contagens e o visualizador vêm por JSON quando a seção abre.
-   A URL do visualizador leva o marcador 9999999999 (casa com o requisito `[1-9]\d{0,9}` da rota; o JS o troca).
+   As URLs com id levam o marcador 999999999 (casa com o requisito `RelatorioDoMasterController::ID`; o JS o troca).
    F3e (spec docs/specs/comercial-marcas.md): a estrela, o arquivo e a remoção (marcas de cada Master, no servidor), os
    botões da seleção, as abas Com estrela e Arquivadas, o menu do botão direito (dc L504), "Reenviar a quem não leu"
    (só aviso) e "Exportar destinatários" (CSV pelo servidor). "Encaminhar para um e-mail" fica no menu, desabilitado,
@@ -10,10 +10,10 @@
 <link rel="stylesheet" href="{{ asset('css/master-comercial-relatorio.css') }}">
 <section class="mc-caixa mc-rl" aria-label="Relatório de campanhas" data-mc-relatorio
          data-url-lista="{{ path('master_comercial_relatorio') }}"
-         data-url-campanha="{{ path('master_comercial_campanha', {id: 9999999999}) }}"
-         data-url-cancelar="{{ path('master_comercial_campanha_cancelar', {id: 9999999999}) }}"
+         data-url-campanha="{{ path('master_comercial_campanha', {id: 999999999}) }}"
+         data-url-cancelar="{{ path('master_comercial_campanha_cancelar', {id: 999999999}) }}"
          data-url-marcas="{{ path('master_comercial_relatorio_marcas') }}"
-         data-url-csv="{{ path('master_comercial_campanha_destinatarios', {id: 9999999999}) }}"
+         data-url-csv="{{ path('master_comercial_campanha_destinatarios', {id: 999999999}) }}"
          data-token="{{ csrf_token('master_comercial') }}">
     {# L301: selecionar, atualizar, com algo selecionado Arquivar (Desarquivar na aba Arquivadas), Estrela e a lixeira,
        a contagem da seleção, a busca e a faixa da página. #}

@@ -80,11 +80,11 @@ final class ParcialDoRelatorioTest extends KernelTestCase
     {
         $rl = $this->doc->filter('[data-mc] > section.mc-rl');
         self::assertSame('/master/comercial/relatorio', $rl->attr('data-url-lista'));
-        self::assertSame('/master/comercial/campanhas/9999999999', $rl->attr('data-url-campanha'));
-        self::assertSame('/master/comercial/campanhas/9999999999/cancelar', $rl->attr('data-url-cancelar'));
+        self::assertSame('/master/comercial/campanhas/999999999', $rl->attr('data-url-campanha'));
+        self::assertSame('/master/comercial/campanhas/999999999/cancelar', $rl->attr('data-url-cancelar'));
         self::assertNotEmpty($rl->attr('data-token'));
         self::assertSame('/master/comercial/relatorio/marcas', $rl->attr('data-url-marcas'));
-        self::assertSame('/master/comercial/campanhas/9999999999/destinatarios.csv', $rl->attr('data-url-csv'));
+        self::assertSame('/master/comercial/campanhas/999999999/destinatarios.csv', $rl->attr('data-url-csv'));
     }
 
     #[TestDox('A barra (L301): selecionar, atualizar, Arquivar, Estrela, a lixeira, a seleção, a busca "Buscar campanha ou e-mail" e a faixa, nessa ordem')]
