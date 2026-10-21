@@ -12,6 +12,9 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Profile\Entity\UserProfile;
+use App\Profile\Enum\Atuacao;
+use App\Profile\Enum\Genero;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -28,6 +31,16 @@ trait CriaCampanhas
         $em->flush();
 
         return $user;
+    }
+
+    /** O Meu Perfil da pessoa (F1 da 7d): o que o filtro da campanha lê (§9). */
+    private function perfil(User $user, ?Genero $genero = null, ?Atuacao $atuacao = null, ?string $nascimento = null): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $perfil = (new UserProfile($user))->setGenero($genero)->setAtuacao($atuacao)
+            ->setDataNascimento($nascimento === null ? null : new \DateTime($nascimento));
+        $em->persist($perfil);
+        $em->flush();
     }
 
     /** Um usuário ativo com vínculo ativo num escritório ativo: passa no B1 do CSV e do Individual. */

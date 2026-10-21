@@ -16,6 +16,7 @@ use App\Comercial\UseCase\ListarCampanhasUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Profile\Enum\Genero;
 use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use App\Tests\Comercial\Support\CriaCampanhas;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -106,6 +107,49 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         $fila = static::getContainer()->get('messenger.transport.comercial');
         \assert($fila instanceof InMemoryTransport);
         self::assertCount(1, array_filter($fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof ExpandirCampanhas));
+    }
+
+    #[TestDox('Contagem com filtro (§9): "N de M atendem", K sem a informação; o selo conta os campos; a grade não muda')]
+    public function testContagemComFiltro(): void
+    {
+        $client = $this->clienteMaster();
+        [$ana, $beto, $caio] = $this->tresComPerfil();
+        $emails = [(string) $ana->getEmail(), (string) $beto->getEmail(), (string) $caio->getEmail()];
+
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'indiv', 'individual' => implode(', ', $emails), 'filtro' => ['gen' => 'F']]);
+
+        self::assertResponseIsSuccessful();
+        $saida = $this->json($client);
+        self::assertSame(['ativo' => true, 'quantos' => 1, 'base' => 3, 'atendem' => 1, 'semInformacao' => 1], $saida['filtro']);
+        self::assertSame(1, $saida['destinatarios']);
+        self::assertSame(3, $saida['publicos']['indiv'], 'a grade conta a lista sem o filtro (dc L640)');
+    }
+
+    #[TestDox('Confirmar com filtro: o total é o filtrado; a campanha guarda o filtro e a lista que chegou a ele (sem o barrado pelo B1)')]
+    public function testConfirmarCongelaOFiltro(): void
+    {
+        $client = $this->clienteMaster();
+        [$ana, $beto, $caio] = $this->tresComPerfil();
+        $emails = [(string) $ana->getEmail(), (string) $beto->getEmail(), (string) $caio->getEmail()];
+
+        $this->postar($client, '/master/comercial/campanhas', $this->pedido([...$emails, 'sem.conta.' . uniqid() . '@x.com'], ['filtro' => ['gen' => 'F', 'q' => 'ana']]));
+
+        self::assertResponseIsSuccessful();
+        $campanha = $this->conexao()->fetchAssociative('SELECT total, publico_parametros FROM comercial_campanha WHERE id = ?', [$this->json($client)['id']]);
+        self::assertIsArray($campanha);
+        self::assertSame(1, $campanha['total']);
+        $parametros = json_decode((string) $campanha['publico_parametros'], true);
+        self::assertSame(['q' => 'ana', 'gen' => 'F'], $parametros['filtro'] ?? null);
+        self::assertSame($emails, array_column($parametros['informados'], 'email'));
+    }
+
+    #[TestDox('Filtro com valor fora do desenho é recusado (422)')]
+    public function testFiltroInvalido(): void
+    {
+        $client = $this->clienteMaster();
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'prim', 'filtro' => ['gen' => 'X']]);
+
+        self::assertResponseStatusCodeSame(422);
     }
 
     #[TestDox('Idempotência: a mesma chave duas vezes (clique duplo) devolve a mesma campanha; uma linha e uma trilha só')]
@@ -332,6 +376,17 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
             'modelo' => (array) (new ModelosDeCampanha())->fixo('convite'),
             'publico' => 'indiv', 'individual' => implode(', ', $emails), 'frequencia' => 'unica', 'agendar' => '',
         ], $troca);
+    }
+
+    /** @return array{0: User, 1: User, 2: User} Ana (feminino), Beto (masculino) e Caio (sem perfil), todos ativos */
+    private function tresComPerfil(): array
+    {
+        $ana = $this->cadastradoAtivo('ana', 'Ana Filtro');
+        $this->perfil($ana, Genero::Feminino);
+        $beto = $this->cadastradoAtivo('beto', 'Beto Filtro');
+        $this->perfil($beto, Genero::Masculino);
+
+        return [$ana, $beto, $this->cadastradoAtivo('caio', 'Caio Filtro')];
     }
 
     private function contar(string $tabela): int
