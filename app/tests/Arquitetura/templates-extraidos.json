@@ -310,6 +310,29 @@
         ]
     },
 
+    "cobranca_objeto": {
+        "templates": [
+            "cobranca/objeto/show.html.twig",
+            "cobranca/objeto/_partials/_divida.html.twig",
+            "cobranca/objeto/_partials/_movimentos.html.twig",
+            "cobranca/objeto/_partials/_responsaveis.html.twig",
+            "cobranca/objeto/_partials/_telefones_cobrada.html.twig",
+            "cobranca/objeto/_partials/_painel_qualificacao.html.twig",
+            "cobranca/objeto/_partials/_honorarios.html.twig",
+            "cobranca/objeto/_partials/_anotacao_acoes.html.twig",
+            "cobranca/objeto/_partials/_campos_config_encargos.html.twig",
+            "cobranca/caso/index.html.twig",
+            "cobranca/caso/_resultado.html.twig",
+            "cobranca/caso/_documentos.html.twig",
+            "cobranca/caso/_acoes_modais.html.twig",
+            "cobranca/caso/_acoes_modais_financeiro.html.twig",
+            "cobranca/acordo/show.html.twig"
+        ],
+        "permitidos": [
+            "App\\\\Cobranca\\\\Enum\\\\TipoTelefone"
+        ]
+    },
+
     "dashboard": {
         "templates": [
             "dashboard/index.html.twig",

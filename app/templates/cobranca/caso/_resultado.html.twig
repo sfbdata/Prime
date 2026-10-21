@@ -7,7 +7,7 @@
 
 <div class="cobranca-resultado-head">
     <div class="cobranca-count">
-        <i class="bi bi-briefcase"></i> <strong>{{ total }}</strong>&nbsp;caso(s)
+        <i class="bi bi-briefcase"></i> <strong>{{ total }}</strong>&nbsp;{{ 'cobranca_objeto.casos.contagem'|trans }}
     </div>
     {{ include('_partials/_filtro_paginacao.html.twig', { pagina: pagina, total_paginas: total_paginas }) }}
 </div>
@@ -18,12 +18,12 @@
             <table class="table mb-0">
                 <thead>
                     <tr>
-                        <th class="ps-3"><i class="bi bi-box-seam me-1"></i>Objeto</th>
-                        <th><i class="bi bi-person me-1"></i>Pessoa cobrada</th>
-                        <th><i class="bi bi-folder2 me-1"></i>Carteira</th>
-                        <th style="width:130px"><i class="bi bi-flag me-1"></i>Estado</th>
-                        <th class="text-end" style="width:130px"><i class="bi bi-cash me-1"></i>Saldo exigível</th>
-                        <th class="text-end" style="width:120px"><i class="bi bi-exclamation-circle me-1"></i>Vencido</th>
+                        <th class="ps-3"><i class="bi bi-box-seam me-1"></i>{{ 'cobranca_objeto.casos.coluna.objeto'|trans }}</th>
+                        <th><i class="bi bi-person me-1"></i>{{ 'cobranca_objeto.casos.coluna.pessoa_cobrada'|trans }}</th>
+                        <th><i class="bi bi-folder2 me-1"></i>{{ 'cobranca_objeto.casos.coluna.carteira'|trans }}</th>
+                        <th style="width:130px"><i class="bi bi-flag me-1"></i>{{ 'cobranca_objeto.casos.coluna.estado'|trans }}</th>
+                        <th class="text-end" style="width:130px"><i class="bi bi-cash me-1"></i>{{ 'cobranca_objeto.casos.coluna.saldo_exigivel'|trans }}</th>
+                        <th class="text-end" style="width:120px"><i class="bi bi-exclamation-circle me-1"></i>{{ 'cobranca_objeto.casos.coluna.vencido'|trans }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -37,7 +37,7 @@
                         <td class="align-middle text-muted">{{ caso.carteiraNome }}</td>
                         <td class="align-middle">
                             <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
-                            {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success ms-1" data-bs-toggle="tooltip" title="Saldo exigível zerado: pode ser encerrado">Pronto</span>{% endif %}
+                            {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success ms-1" data-bs-toggle="tooltip" title="{{ 'cobranca_objeto.casos.pronto_dica'|trans }}">{{ 'cobranca_objeto.casos.pronto'|trans }}</span>{% endif %}
                         </td>
                         <td class="align-middle text-end fw-semibold">{{ caso.saldoExigivel|centavos }}</td>
                         <td class="align-middle text-end {{ caso.temVencido ? 'text-danger fw-semibold' : 'text-muted' }}">{{ caso.saldoVencido|centavos }}</td>
@@ -57,8 +57,8 @@
             </div>
             <div class="cobranca-card-sub text-muted">{{ caso.pessoaCobradaNome }} · {{ caso.carteiraNome }}</div>
             <div class="mt-1 d-flex justify-content-between">
-                <span>Exigível: <strong>{{ caso.saldoExigivel|centavos }}</strong></span>
-                {% if caso.temVencido %}<span class="text-danger">Vencido: {{ caso.saldoVencido|centavos }}</span>{% endif %}
+                <span>{{ 'cobranca_objeto.casos.exigivel'|trans }} <strong>{{ caso.saldoExigivel|centavos }}</strong></span>
+                {% if caso.temVencido %}<span class="text-danger">{{ 'cobranca_objeto.casos.vencido_valor'|trans({valor: caso.saldoVencido|centavos}) }}</span>{% endif %}
             </div>
         </div>
         {% endfor %}
@@ -68,11 +68,11 @@
         <div class="cobranca-empty">
             <div class="empty-ico"><i class="bi bi-briefcase"></i></div>
             {% if temFiltro %}
-                <p class="empty-title">Nenhum caso encontrado</p>
-                <p class="text-muted small mb-0">Ajuste ou limpe os filtros aplicados.</p>
+                <p class="empty-title">{{ 'cobranca_objeto.casos.vazio_filtro_titulo'|trans }}</p>
+                <p class="text-muted small mb-0">{{ 'cobranca_objeto.casos.vazio_filtro_texto'|trans }}</p>
             {% else %}
-                <p class="empty-title">Nenhum caso de cobrança</p>
-                <p class="text-muted small mb-0">Os casos de cobrança aparecerão aqui.</p>
+                <p class="empty-title">{{ 'cobranca_objeto.casos.vazio_titulo'|trans }}</p>
+                <p class="text-muted small mb-0">{{ 'cobranca_objeto.casos.vazio_texto'|trans }}</p>
             {% endif %}
         </div>
     </div>

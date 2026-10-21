@@ -457,3 +457,35 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   mensagens de erro do servidor, e o texto do PHP listado pela 4b (`AvisoDoCompromisso`, `VarrerLembretesDePushUseCase`,
   `CompromissoNoGoogle`, `PrazoParaOGoogle`, `GoogleAgendaController`).
 
+## 16. Cobrança: objeto, caso e acordo (0d, 21/10)
+
+- **Escopo:** `cobranca/objeto/show` e os oito parciais de `objeto/_partials` (`_divida`, `_movimentos`,
+  `_responsaveis`, `_telefones_cobrada`, `_painel_qualificacao`, `_honorarios`, `_anotacao_acoes`,
+  `_campos_config_encargos`), `cobranca/caso/*` (lista, `_resultado`, `_documentos`, `_acoes_modais`,
+  `_acoes_modais_financeiro`) e `cobranca/acordo/show`. Bloco `cobranca_objeto` do catálogo, 595 chaves, com
+  `cobranca_objeto.js.*` para o JS inline do `show` do objeto e do acordo (entregue por `catalogo_js('cobranca_objeto.js')`
+  antes do primeiro `<script>` de cada um). A lista de casos não tem JS com texto.
+- **Sem mudança visível:** o HTML do objeto cheio (dívida, acordo vigente e rompido, pagamento, liquidação, anotação,
+  próxima ação, responsáveis e telefones) e vazio, da lista de casos com dados, vazia e com busca sem resultado e do
+  acordo saiu igual fora dos `<script>`. Mudaram só tokens CSRF, quebras de linha, o `<script data-bj-t>` do catálogo,
+  os literais trocados por `BJ_T.t()` no JS inline e a codificação de `aria-label` com a descrição da obrigação ou o
+  nome da pasta (antes `|e('html_attr')` no pedaço, agora o escape normal da frase inteira: o texto lido é o mesmo). Os
+  `confirm()` de excluir documento (acordo e arquivo do caso) passam por `|e('js')`. A ordem das linhas da lista de casos
+  com dois casos do mesmo instante variou entre as fotos (empate na ordenação, já existia).
+- **Formatos:** viraram `|data` só as datas com guarda de nulo: data do acordo (título, cabeçalho, grupo da dívida e
+  acordos encerrados), encargos atualizados e congelados, `pagoEm` do "Já pago", `totaisAtualizadosEm` e o prazo da
+  próxima ação. As demais (`vencimentoOriginal`, `ocorridoEm`, `criadoEm`, o `m/Y` dos vínculos) seguem com `|date` e
+  entram como parâmetro já formatado, como os `number_format` e os percentuais.
+- **Frase partida:** as frases com `<strong>` ou `<em>` (encargos por obrigação, avisos dos modais de pagamento,
+  obrigação, encerramento e judicialização, acordo com pagamento, configuração de encargos do objeto, exclusões) foram
+  divididas em chaves, como no §8. `x > 0` dentro de atributo virou `0 < x`. Os sufixos `'Bp'`/`'Reais'` do macro de
+  encargos viraram os nomes completos dos campos no próprio mapa (`jurosBp`, `jurosReais`...), sem mudar o form. O
+  `R$ 0,00` fixo virou `{{ 0|centavos }}`, e o `R$` dos campos, `comum.simbolo_reais`. O nome do enum
+  `App\\Cobranca\\Enum\\TipoTelefone` (em `enum_cases`) ficou nos permitidos.
+- **Ficou de fora:** o texto que vem do PHP (`statusLabel`, `tipoLabel`, `familiaLabel`, `papelLabel`,
+  `formaHonorariosLabel`, rótulos dos filtros do histórico, da qualificação de contato, do `TipoTelefone`, das categorias
+  de documento e dos tipos de liquidação, descrições dos alertas, rótulos dos Form types, flashes e as mensagens JSON dos
+  controllers que o JS mostra); os parciais de outras pastas (`cobranca/_partials/_subnav`, `_partials/_filtro_barra`,
+  `_filtro_paginacao` e a ficha da pessoa carregada por AJAX, de `cobranca/pessoa`); os JS externos
+  `judicializar-buscar-pasta.js`, `objeto-linha-menu.js`, `pasta-arquivos.js` e `editor-rico.js` (têm texto) e
+  `filtro-tabela.js` e `telefone-mascara.js` (sem texto, mas compartilhados com outras telas), que não entraram na guarda.
