@@ -30,7 +30,9 @@ final class IdentidadeDeEmail
     /** O remetente como o destinatário o vê ("BlueJus <endereço>"), para as telas que mostram o e-mail (Comercial, §10). */
     public function remetente(): string
     {
-        return $this->from->toString();
+        $nome = $this->from->getName();
+
+        return $nome === '' ? $this->from->getAddress() : $nome . ' <' . $this->from->getAddress() . '>';
     }
 
     public function aplicar(Email $email, string $assunto): Email

@@ -189,7 +189,7 @@
     raiz.querySelectorAll('[data-mc-cp-freq]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mcCpFreq === frequencia)));
     const agenda = el('[data-mc-cp-agenda]').value;
     el('[data-mc-cp-enviar-txt]').textContent = agenda ? 'Programar envio' : 'Enviar';
-    const quando = agenda ? new Date(agenda).toLocaleString('pt-BR').slice(0, 16) : '';
+    const quando = agenda ? new Date(agenda).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '';
     const repete = { semanal: 'semanal', quinzenal: 'quinzenal', mensal: 'mensal' }[frequencia] || '';
     const texto = [quando, repete].filter(Boolean).join(' · ');
     el('[data-mc-cp-ag]').hidden = texto === '';
@@ -269,7 +269,9 @@
       if (!chave) chave = novaChave();
       const botao = el('[data-mc-cp-enviar]');
       botao.disabled = true;
-      postar(ROTAS.urlCampanha, Object.assign(pedidoDoPublico(), { chave, modelo: pedido(), frequencia, agendar: agenda }))
+      // O que outras partes da Central acrescentam ao envio (ex.: a confirmação de leitura da F3g, do 0d).
+      const extras = (window.McCampanha.extrasDoEnvio || []).map(f => { try { return f() || {}; } catch (x) { return {}; } });
+      postar(ROTAS.urlCampanha, Object.assign(pedidoDoPublico(), ...extras, { chave, modelo: pedido(), frequencia, agendar: agenda }))
         .then(r => {
           chave = '';
           el('[data-mc-cp-agenda]').value = '';
@@ -511,8 +513,13 @@
     if (!el('[data-mc-cp-ver-janela]').hidden) verComoChega(null);
     if (!el('[data-mc-cp-programar]').hidden) programar(false);
   });
-  /* Para o modal de teste da F3f (7d): o modelo que o editor mostra, no formato que o POST de teste recebe. */
-  window.McCampanha = { modeloAtual: () => pedido() };
+  /* Para as outras partes da Central: o modal de teste da F3f (7d) lê o modelo que o editor mostra, no formato que o POST
+     de teste recebe; a F3g (0d) registra o que vai junto no envio. */
+  window.McCampanha = Object.assign(window.McCampanha || {}, {
+    modeloAtual: () => pedido(),
+    // F3g (0d): funções que devolvem um objeto para mesclar no corpo do "Enviar campanha".
+    extrasDoEnvio: (window.McCampanha && window.McCampanha.extrasDoEnvio) || [],
+  });
 
   desenharNovos();
   desenharFrequencia();

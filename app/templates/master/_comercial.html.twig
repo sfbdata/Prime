@@ -117,7 +117,7 @@
                 <div class="mc-cp-modo" data-mc-cp-simples>
                     <label class="mc-cp-campo">TEXTO <span class="mc-cp-dica">use {nome} para o primeiro nome</span><textarea class="mc-cp-texto" rows="5" data-mc-cp-campo="corpo"></textarea></label>
                     {# dc 21.10 L274: os emojis que entram no fim do texto. A imagem do mesmo trecho está com o dono (spec §10). #}
-                    <div class="mc-cp-emojis"><span class="mc-cp-vao"></span><span class="mc-cp-emojis-rot">Inserir:</span>
+                    <div class="mc-cp-emojis"><span class="mc-cp-emojis-rot">Inserir:</span>
                         {% for e in [['⚖️', 'Balança'], ['📅', 'Agenda'], ['✅', 'Confirmado'], ['📌', 'Destaque'], ['🎉', 'Comemoração'], ['💼', 'Trabalho'], ['📈', 'Crescimento'], ['🔒', 'Segurança'], ['👉', 'Indicação'], ['🙏', 'Agradecimento']] %}
                             <button type="button" class="mc-cp-emoji" data-mc-cp-emoji="{{ e[0] }}" title="{{ e[1] }}" aria-label="{{ e[1] }}">{{ e[0] }}</button>
                         {% endfor %}
@@ -148,7 +148,7 @@
                     <button type="button" class="mc-cp-icone" data-mc-cp-baixar title="Baixar HTML" aria-label="Baixar HTML"><i class="bi bi-download" aria-hidden="true"></i></button>
                     <span class="mc-cp-vao"></span>
                     <span class="mc-cp-lgpd" tabindex="0" title="LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link 'Não quero mais receber', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam." aria-label="LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link 'Não quero mais receber', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam."><i class="bi bi-shield-check" aria-hidden="true"></i></span>
-                    <div class="mc-cp-programar" id="mc-cp-programar" data-mc-cp-programar role="dialog" aria-label="Programar envio" hidden>
+                    <div class="mc-cp-programar" id="mc-cp-programar" data-mc-cp-programar data-sem-x="1" role="dialog" aria-label="Programar envio" hidden>
                         <div class="mc-cp-programar-rot">PROGRAMAR ENVIO</div>
                         <input type="datetime-local" class="mc-cp-agenda-data" data-mc-cp-agenda aria-label="Data e hora do envio">
                         <div class="mc-cp-programar-rot">REPETIR</div>
@@ -165,7 +165,7 @@
         </div>
         {# dc 21.10 L499-501, L670: "Como o destinatário vai receber", em computador ou celular. O remetente é o real do
            sistema até o dono decidir (spec §10). #}
-        <div class="mc-cp-ver" data-mc-cp-ver-janela role="dialog" aria-modal="true" aria-labelledby="mc-cp-ver-titulo" hidden>
+        <div class="mc-cp-ver" data-mc-cp-ver-janela data-sem-x="1" role="dialog" aria-modal="true" aria-labelledby="mc-cp-ver-titulo" hidden>
             <div class="mc-cp-ver-fundo" data-mc-cp-ver-fechar></div>
             <div class="mc-cp-ver-caixa">
                 <div class="mc-cp-ver-cabeca">
