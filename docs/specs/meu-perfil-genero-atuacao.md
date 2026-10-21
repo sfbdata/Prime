@@ -29,8 +29,9 @@ Risco: MÉDIO (Profile). Pedido do dono, coordenado pela b5. Bloqueia o motor do
   estagiário; a OAB vence o estágio. Decisão da revisão (21/10): no começo a sugestão vinha marcada, e quem abria o
   modal só para trocar o telefone gravava a atuação sem perceber, o que contraria "o filtro só conta o que a pessoa
   declarou".
-- Papel só para leitura (b5: desenho 07 L58, L205, L233, "vêm da conta"): "Usuário primário de {escritório}" ou
-  "Secundário de {escritório}" junto do cargo e da lotação, no escritório da sessão, sem campo.
+- Papel só para leitura: fica SÓ o selo do desenho 07 ("USUÁRIO PRIMÁRIO" / "SECUNDÁRIO" ao lado do nome), com o
+  nome do escritório da sessão na dica (title). Decisão da b5 (21/10): uma linha a mais repetiria o papel, um desvio
+  do 07 sem ganho; o pedido do dono ("mostrar se é primário") fica atendido pelo selo.
 - A tela de dados pessoais do admin não edita gênero nem atuação e não os apaga ao salvar (mesmo cuidado da frase e
   do telefone).
 

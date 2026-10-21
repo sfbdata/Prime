@@ -325,13 +325,11 @@ input[type="range"].img-slider {
                 <div class="mp-nome-linha">
                     <h1 class="mp-nome" id="perfilNomeExibido">{{ perfil.nomeExibido|upper }}</h1>
                     {% if _ehMaster %}<span class="mp-selo mp-selo-master"><i class="bi bi-star-fill"></i>MASTER</span>{% endif %}
-                    {% if current_tenant() %}<span class="mp-selo mp-selo-papel">{{ _ehPrimario or _ehMaster ? 'USUÁRIO PRIMÁRIO' : 'SECUNDÁRIO' }}</span>{% endif %}
+                    {% if current_tenant() %}<span class="mp-selo mp-selo-papel" title="{{ current_tenant().name }}">{{ _ehPrimario or _ehMaster ? 'USUÁRIO PRIMÁRIO' : 'SECUNDÁRIO' }}</span>{% endif %}
                 </div>
                 <div class="mp-cargo">
                     <span><i class="bi bi-briefcase"></i>{{ perfil.cargo ?: 'Cargo não definido' }}</span>
                     <span><i class="bi bi-geo-alt"></i>{{ perfil.lotacao ?: 'Lotação não definida' }}</span>
-                    {# Vem da conta, só leitura (desenho 05 de 21/10, F1): papel no escritório da sessão. #}
-                    {% if current_tenant() %}<span data-mp-papel><i class="bi bi-person-badge"></i>{{ _ehPrimario or _ehMaster ? 'Usuário primário' : 'Secundário' }} de {{ current_tenant().name }}</span>{% endif %}
                 </div>
             </div>
             <button class="mp-btn-contorno" type="button" data-mp-editar><i class="bi bi-pencil"></i>Editar informações</button>

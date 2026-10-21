@@ -177,13 +177,13 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertNull($perfil?->getAtuacao(), 'a sugestão só vale se a pessoa salvar');
     }
 
-    #[TestDox('papel no escritório da sessão, só leitura, junto do cargo e da lotação')]
+    #[TestDox('papel: só o selo do desenho 07, com o escritório da sessão na dica, sem linha repetida')]
     public function testPapelNoCabecalho(): void
     {
-        $nome = (string) $this->tenant->getName();
+        $tela = $this->abrir($this->primario);
 
-        self::assertSame('Usuário primário de ' . $nome, trim($this->abrir($this->primario)->filter('.mp-ident-texto > .mp-cargo > [data-mp-papel]')->text()));
-        self::assertSame('Secundário de ' . $nome, trim($this->abrir($this->secundario)->filter('.mp-ident-texto > .mp-cargo > [data-mp-papel]')->text()));
+        self::assertSame((string) $this->tenant->getName(), $tela->filter('.mp-nome-linha > .mp-selo-papel')->attr('title'));
+        self::assertCount(0, $tela->filter('[data-mp-papel]'));
     }
 
     #[TestDox('salvar: o secundário que forja o vínculo no POST continua CLT, mas grava a própria admissão')]
