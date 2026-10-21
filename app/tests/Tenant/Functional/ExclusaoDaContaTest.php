@@ -355,6 +355,21 @@ final class ExclusaoDaContaTest extends JusPrimeWebTestCase
         self::assertNull($this->client->getRequest()->getSession()->get('current_tenant_id'));
     }
 
+    #[TestDox('Master cujo único vínculo é de equipe numa conta suspensa a pedido abre página sem escritório e NÃO é mandado à seleção (nada a escolher lá)')]
+    public function testMasterComSoContaSuspensaAPedidoNaoVaiASelecao(): void
+    {
+        $conta = $this->conta();
+        $primario = $this->pessoa($conta, true);
+        $master = $this->pessoa($conta, false, ['ROLE_USER', 'ROLE_SUPER_ADMIN']);
+        $this->suspenderAPedido($conta, $primario);
+        $this->client->loginUser($master);
+        $this->marcarTermosAceitos($this->client);
+
+        $this->client->request('GET', '/expediente', [], [], ['HTTP_SEC_FETCH_MODE' => 'navigate', 'HTTP_SEC_FETCH_DEST' => 'document', 'HTTP_ACCEPT' => 'text/html,application/xhtml+xml']);
+
+        self::assertFalse($this->client->getResponse()->isRedirect('/escritorio/selecionar'), 'o escritório suspenso a pedido não conta para a seleção do Master');
+    }
+
     #[TestDox('primário: fica no escritório, só no Meu Perfil (outras rotas voltam ao Meu Perfil; chamada de fundo recebe 403); o card mostra o pedido e "Desistir e reativar"')]
     public function testPrimarioSoNoMeuPerfil(): void
     {
