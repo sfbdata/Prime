@@ -23,9 +23,9 @@
             <div class="usuario-name">{{ app.user.fullName|upper }}</div>
             <div class="usuario-email">{{ app.user.email }}</div>
             <div class="mu-selos">
-                {% if _ehMaster %}<span class="mu-selo mu-selo-master"><i class="bi bi-star-fill"></i>{{ 'menu.usuario.dropdown.selo_master'|trans }}</span>{% endif %}
+                {% if _ehMaster %}<span class="mu-selo mu-selo-master"><i class="bi bi-star-fill"></i>{{ 'termos.master'|trans|upper }}</span>{% endif %}
                 {% if current_tenant() %}
-                    <span class="mu-selo mu-selo-papel">{{ _ehPrimario or _ehMaster ? 'menu.usuario.dropdown.selo_primario'|trans : 'menu.usuario.dropdown.selo_secundario'|trans }}</span>
+                    <span class="mu-selo mu-selo-papel">{{ _ehPrimario or _ehMaster ? 'menu.usuario.dropdown.selo_primario'|trans : 'termos.secundario'|trans|upper }}</span>
                 {% endif %}
             </div>
         </div>

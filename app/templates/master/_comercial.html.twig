@@ -218,8 +218,7 @@
             </div>
         </div>
     </section>
-    {# dc L324 (`secCom`): os KPIs, as Automações e o Relatório só na seção Comercial. O Relatório do dc também aparece na
-       venda (`secCentral`), mas o script dele (9b) é de uma instância só: fica de fora no modo venda (ver o relatório da F3h). #}
+    {# dc L324 (`secCom`): os KPIs e as Automações só na seção Comercial. #}
     {% if not venda %}
     {{ include('master/_comercial_kpis.html.twig') }}
     <section class="mc-caixa" aria-labelledby="mc-auto-titulo">
@@ -240,8 +239,11 @@
             <iframe class="mc-previa-quadro" data-mc-previa-quadro title="Prévia do e-mail" sandbox></iframe>
         </div>
     </section>
-    {% include 'master/_comercial_relatorio.html.twig' %}
     {% endif %}
+    {# O Relatório da Central de envios nas duas seções (dc `secCom` e `secCentral`; spec comercial-relatorio-venda.md),
+       dentro da raiz de cada modo e depois da Central. Os recursos (<link>, <script> e catálogo) vêm só com a da
+       seção Comercial, que está sempre no DOM e vem antes no HTML. #}
+    {{ include('master/_comercial_relatorio.html.twig', {secao: venda ? 'ind' : 'com', recursos: not venda}) }}
     {# F3f: o modal do teste fica dentro da raiz de cada modo (as duas seções convivem no /master, uma escondida). #}
     {% include 'master/_comercial_teste.html.twig' %}
 </div>
