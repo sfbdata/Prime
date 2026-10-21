@@ -285,7 +285,7 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   `filtro-tabela.js` e `pasta-metas.js` (vão com a Pasta) e o placeholder padrão do `_partials/_filtro_barra`.
 
 
-## 9. A Pasta, aba Processo (0d, 21/10)
+## 11. A Pasta, aba Processo (0d, 21/10)
 
 - **Blocos de topo por aba**, combinados com a f6: `pasta_processo` (este), `pasta_push` (próximo PR da 0d) e
   `pasta_financeiro` (f6). O JS de cada aba lê `<bloco>.js`; o `catalogo_js` mora no próprio parcial, sem tocar o
@@ -331,34 +331,6 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   `QualificacaoDoCliente` do PHP, que ainda não lê o catálogo. Na fase de tradução os dois mudam juntos; o truque do
   gênero (`(a)` → `a`/vazio) só vale para o português e terá de ser revisto ali.
 
-<<<<<<< HEAD
-## 14. Cobrança: carteiras, painel, alertas e importação (0d, 21/10)
-
-- **Escopo:** `cobranca/carteira/*` (lista, `_resultado`, `_paginacao`, `show`, `_resultado_casos`, `_acoes_modais`,
-  `_campos_config`), `cobranca/dashboard/index`, `cobranca/alertas/index` e `cobranca/importacao/upload` e `preview`.
-  Bloco `cobranca_carteira` do catálogo, 251 chaves. `cobranca-carteira-form.js` e `cobranca-soltar-arquivo.js` não têm
-  texto: entram na guarda, sem bloco `cobranca_carteira.js` nem `catalogo_js` (o `cobranca-soltar-arquivo.js` só é
-  carregado pelo `show` da carteira, então não houve `cobranca_comum`).
-- **Sem mudança visível:** o HTML de 21 telas (lista vazia, com dados e com filtro sem resultado; show sem casos, sem
-  emissão, cheio com rótulo próprio e documento, busca vazia com e sem rótulo, Estado sem resultado e "vencidos", o
-  fragmento do XHR; painel vazio, com dados e de carteira vazia; alertas vazio, com alerta e de carteira vazia; upload,
-  prévia, concluída e reimportação) saiu igual. Mudaram só tokens CSRF, quebras de linha dentro dos parágrafos (o
-  texto agora vem numa linha só) e o `confirm()` de excluir documento, que passa por `|e('js')` (o texto mostrado é o
-  mesmo). Os ramos sem foto (frescor "hoje" e "há 1 dia", paginação numerada, avisos de dívida sem boleto, Nosso Número
-  reutilizado, vencimento alterado e sacado divergente) foram conferidos lendo.
-- **Formatos:** `atualizadoEm` da lista, `dadosAtualizadosAte`, a emissão por relatório e `carregadoEm` dos documentos
-  viraram `|data` (todos com `if` ou nunca nulos). Os `number_format` (percentual do vencido, taxa de recuperação e o
-  valor da dívida sem boleto) ficaram como estão e entram como parâmetro já formatado.
-- **Frase partida:** as frases com `<strong>` (encargos ao vivo, aviso do upload, avisos da prévia) foram divididas em
-  chaves, como no §8. Comparações `x > 0` dentro de atributo viraram `0 < x` (mesmo resultado), porque o `>` cortava a
-  tag para a guarda; o filtro do link de exportar foi para um `{% set %}` pelo mesmo motivo. `cs-body` e
-  `resources.carteira.gerenciar` (nome de permissão) ficaram nos permitidos.
-- **Ficou de fora:** o texto que vem do PHP (rótulos de modo, honorários, juros, multa e vínculo do `CarteiraResumoOutput`,
-  a ajuda dos popovers `ajudaCarteira`, as opções de Estado, `statusLabel` dos casos, tipos e descrições dos alertas,
-  categorias de documento, motivos de rejeição da importação, rótulos dos Form types e os flashes), o
-  `carteira-filtro-estado.js` (o rótulo do chip) e os parciais de outras pastas que estas telas incluem
-  (`cobranca/_partials/_subnav`, `_partials/_filtro_barra` e `_filtro_paginacao`).
-=======
 ## 12. Extração do Dashboard (7d, 21/10)
 
 - **Escopo:** `templates/dashboard/*` (casca com o cabeçalho do PDF, segmentado de período, selects e calendário
@@ -390,4 +362,30 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   Histórico dos cards (`ObterHistoricoDoCardUseCase`: título, subtítulo, nota, meses, indicadores) e a recusa
   `Sem acesso ao módulo Dashboard.`. Os parciais de outras áreas que a casca usa: `_partials/_filtro_barra` (chips,
   rótulos e botões internos) e `filtro-tabela.js`. O `|lower` do nível no painel continua sobre o rótulo do PHP.
->>>>>>> origin/master
+
+## 15. Cobrança: carteiras, painel, alertas e importação (0d, 21/10)
+
+- **Escopo:** `cobranca/carteira/*` (lista, `_resultado`, `_paginacao`, `show`, `_resultado_casos`, `_acoes_modais`,
+  `_campos_config`), `cobranca/dashboard/index`, `cobranca/alertas/index` e `cobranca/importacao/upload` e `preview`.
+  Bloco `cobranca_carteira` do catálogo, 251 chaves. `cobranca-carteira-form.js` e `cobranca-soltar-arquivo.js` não têm
+  texto: entram na guarda, sem bloco `cobranca_carteira.js` nem `catalogo_js` (o `cobranca-soltar-arquivo.js` só é
+  carregado pelo `show` da carteira, então não houve `cobranca_comum`).
+- **Sem mudança visível:** o HTML de 21 telas (lista vazia, com dados e com filtro sem resultado; show sem casos, sem
+  emissão, cheio com rótulo próprio e documento, busca vazia com e sem rótulo, Estado sem resultado e "vencidos", o
+  fragmento do XHR; painel vazio, com dados e de carteira vazia; alertas vazio, com alerta e de carteira vazia; upload,
+  prévia, concluída e reimportação) saiu igual. Mudaram só tokens CSRF, quebras de linha dentro dos parágrafos (o
+  texto agora vem numa linha só) e o `confirm()` de excluir documento, que passa por `|e('js')` (o texto mostrado é o
+  mesmo). Os ramos sem foto (frescor "hoje" e "há 1 dia", paginação numerada, avisos de dívida sem boleto, Nosso Número
+  reutilizado, vencimento alterado e sacado divergente) foram conferidos lendo.
+- **Formatos:** `atualizadoEm` da lista, `dadosAtualizadosAte`, a emissão por relatório e `carregadoEm` dos documentos
+  viraram `|data` (todos com `if` ou nunca nulos). Os `number_format` (percentual do vencido, taxa de recuperação e o
+  valor da dívida sem boleto) ficaram como estão e entram como parâmetro já formatado.
+- **Frase partida:** as frases com `<strong>` (encargos ao vivo, aviso do upload, avisos da prévia) foram divididas em
+  chaves, como no §8. Comparações `x > 0` dentro de atributo viraram `0 < x` (mesmo resultado), porque o `>` cortava a
+  tag para a guarda; o filtro do link de exportar foi para um `{% set %}` pelo mesmo motivo. `cs-body` e
+  `resources.carteira.gerenciar` (nome de permissão) ficaram nos permitidos.
+- **Ficou de fora:** o texto que vem do PHP (rótulos de modo, honorários, juros, multa e vínculo do `CarteiraResumoOutput`,
+  a ajuda dos popovers `ajudaCarteira`, as opções de Estado, `statusLabel` dos casos, tipos e descrições dos alertas,
+  categorias de documento, motivos de rejeição da importação, rótulos dos Form types e os flashes), o
+  `carteira-filtro-estado.js` (o rótulo do chip) e os parciais de outras pastas que estas telas incluem
+  (`cobranca/_partials/_subnav`, `_partials/_filtro_barra` e `_filtro_paginacao`).

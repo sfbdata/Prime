@@ -278,6 +278,7 @@
         "permitidos": [
             "cs-body",
             "resources.carteira.gerenciar"
+        ]
     },
 
     "dashboard": {
