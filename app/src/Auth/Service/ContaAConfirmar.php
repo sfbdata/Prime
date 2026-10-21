@@ -36,13 +36,16 @@ final class ContaAConfirmar
     /** Modal do cadastro, estado "Confirme seu e-mail" (textos da tela antiga `verifique_email.html.twig`). */
     public const TITULO = 'Confirme seu e-mail';
     public const TEXTO_ENVIAMOS_ANTES = 'Enviamos um link de confirmação para';
-    public const TEXTO_ENVIAMOS_DEPOIS = '. Clique nele para ativar sua conta e seu escritório. O link expira em 7 dias.';
+    public const TEXTO_ENVIAMOS_DEPOIS = '. Clique nele para criar a sua senha e ativar sua conta e seu escritório. O link expira em 7 dias.';
     public const TEXTO_NAO_RECEBEU = 'Não recebeu? Verifique a caixa de spam ou peça um novo link.';
     public const BOTAO_REENVIAR = 'Reenviar o link de confirmação';
     public const LINK_LOGIN = 'Ir para o login';
 
-    /** Resposta do reenvio público quando a sessão não guarda conta nenhuma: não diz nada sobre conta alguma. */
-    public const SEM_CONTA_NA_SESSAO = 'Entre com o seu e-mail e a sua senha para pedir um novo link.';
+    /**
+     * Resposta do reenvio público quando a sessão não guarda conta nenhuma: não diz nada sobre conta alguma. A conta
+     * a confirmar não tem senha utilizável (spec `cadastro-senha-no-link.md`): o caminho é o código da senha.
+     */
+    public const SEM_CONTA_NA_SESSAO = 'Para receber um novo acesso, use "Esqueceu a senha?": enviamos um código para o seu e-mail.';
 
     public static function mensagemDeLogin(string $email): string
     {
