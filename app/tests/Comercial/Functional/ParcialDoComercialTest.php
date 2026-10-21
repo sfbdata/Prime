@@ -54,6 +54,27 @@ final class ParcialDoComercialTest extends KernelTestCase
         $this->doc = new Crawler('<!doctype html><html><body>' . $html . '</body></html>');
     }
 
+    #[TestDox('F3b: "Filtrar destinatários" logo depois dos públicos (dc 05 VS 21.10.26, L260-264): busca, 7 atalhos e 8 selects com os textos do dc')]
+    public function testFiltrarDestinatarios(): void
+    {
+        $editor = 'section.mc-cp > .mc-cp-grade > .mc-cp-editor';
+        $filhos = $this->doc->filter($editor . ' > *')->each(static fn (Crawler $c): string => (string) $c->attr('class'));
+        $depoisDosPublicos = $filhos[array_search('mc-cp-publicos', $filhos, true) + 1] ?? null;
+        self::assertSame('mc-cf', $depoisDosPublicos, 'o filtro vem logo abaixo da grade de públicos');
+        self::assertSame(['FILTRAR DESTINATÁRIOS'], $this->textos($editor . ' > .mc-cf > .mc-cf-cabeca > .mc-cf-titulo'));
+        self::assertSame('E-mail ou nome específico (separe vários por vírgula)', $this->doc->filter($editor . ' > .mc-cf > .mc-cf-painel > .mc-cf-busca > input[data-mc-cf-campo="q"]')->attr('placeholder'));
+        self::assertSame(['Todos', 'Só mulheres', 'Só homens', 'Advogados', 'Estagiários', 'Primários', 'Aniversariantes do mês'], $this->textos($editor . ' > .mc-cf > .mc-cf-painel > .mc-cf-atalhos > .mc-cf-atalho'));
+        $selects = $editor . ' > .mc-cf > .mc-cf-painel > .mc-cf-selects > select';
+        self::assertSame(['gen', 'id', 'uf', 'papel', 'cargo', 'oab', 'plano', 'aniv'], $this->doc->filter($selects)->each(static fn (Crawler $c): string => (string) $c->attr('data-mc-cf-campo')));
+        self::assertSame(['Gênero: todos', 'Idade: todas', 'Estado: todos', 'Perfil: todos', 'Cargo: todos', 'OAB: todas', 'Plano: todos', 'Aniversário: todos'], $this->textos($selects . ' > option:first-child'));
+        self::assertCount(28, $this->doc->filter($selects . '[data-mc-cf-campo="uf"] > option'), 'as 27 UFs e o "todos"');
+        self::assertSame(['', 'adv', 'est', 'ctl', 'fin', 'adm', 'out'], $this->doc->filter($selects . '[data-mc-cf-campo="cargo"] > option')->each(static fn (Crawler $c): string => (string) $c->attr('value')));
+        $planos = $this->doc->filter($selects . '[data-mc-cf-campo="plano"] > option')->each(static fn (Crawler $c): string => (string) $c->attr('value'));
+        self::assertContains('free', $planos, 'D4: o catálogo, em código');
+        self::assertContains('essencial', $planos);
+        self::assertSame('Limpar filtro', trim($this->doc->filter($editor . ' > .mc-cf > .mc-cf-painel > .mc-cf-resultado > .mc-cf-limpar')->text()));
+    }
+
     /** @return list<string> */
     private function textos(string $seletor): array
     {
@@ -126,7 +147,7 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertSame('true', $this->doc->filter($botoes)->eq(0)->attr('aria-pressed'), 'Base de contatos é o padrão (dc L.530)');
         // A ordem dos filhos da coluna da esquerda: o público vem entre as ações do modelo e 3 · MENSAGEM (L.235-241).
         $ordem = $this->doc->filter('.mc-cp-grade > .mc-cp-editor > *')->each(static fn (Crawler $c): string => (string) $c->attr('class'));
-        self::assertSame(['mc-cp-passo', 'mc-cp-modelos', 'mc-cp-acoes', 'mc-cp-passo mc-cp-passo-seguinte', 'mc-cp-publicos', 'mc-cp-csv', 'mc-cp-individual', 'mc-cp-passo mc-cp-passo-seguinte'], \array_slice($ordem, 0, 8));
+        self::assertSame(['mc-cp-passo', 'mc-cp-modelos', 'mc-cp-acoes', 'mc-cp-passo mc-cp-passo-seguinte', 'mc-cp-publicos', 'mc-cf', 'mc-cp-csv', 'mc-cp-individual', 'mc-cp-passo mc-cp-passo-seguinte'], \array_slice($ordem, 0, 9));
         self::assertSame(['Selecionar arquivo .csv'], $this->textos('.mc-cp-editor > label.mc-cp-csv[hidden] > .mc-cp-csv-txt'));
         self::assertSame('.csv,.txt', $this->doc->filter('.mc-cp-editor > label.mc-cp-csv > input[type="file"]')->attr('accept'));
         self::assertSame('E-mails separados por vírgula', $this->doc->filter('.mc-cp-editor > textarea.mc-cp-individual[hidden]')->attr('placeholder'));
