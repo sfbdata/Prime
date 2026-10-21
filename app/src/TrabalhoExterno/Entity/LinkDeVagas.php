@@ -62,6 +62,11 @@ class LinkDeVagas
         return hash('sha256', $token);
     }
 
+    public function getId(): ?int
+    {
+        return $this->id;
+    }
+
     /** @return list<int> */
     public function getVagas(): array
     {

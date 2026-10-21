@@ -234,7 +234,8 @@ final class ParcialDoComercialTest extends KernelTestCase
     #[TestDox('Sem script inline (CSP do /master): o bloco traz o próprio arquivo de JS')]
     public function testSemScriptInline(): void
     {
-        $scripts = $this->doc->filter('script');
+        // O catálogo do JS (`catalogo_js`, spec idioma-do-sistema §8) é <script type="application/json">: dado, não código.
+        $scripts = $this->doc->filter('script:not([type="application/json"])');
         self::assertSame(0, $scripts->reduce(static fn (Crawler $s): bool => $s->attr('src') === null)->count());
         self::assertSame(1, $this->doc->filter('script[src*="js/master/comercial-campanha.js"]')->count());
         self::assertSame(1, $this->doc->filter('script[src*="js/master/comercial-relatorio.js"]')->count());

@@ -187,13 +187,7 @@ final class MontarEngajamentoUseCase
     /** A média, em minutos, do início da rodada ao primeiro aceite (`tMed`, l.1018); null sem aceite. */
     private function minutosAteOAceite(): ?float
     {
-        $aceites = $this->candidaturas->primeirosAceitesDasRodadas();
-        if ($aceites === []) {
-            return null;
-        }
-        $segundos = array_map(static fn (array $a): int => max(0, $a['aceite']->getTimestamp() - $a['inicio']->getTimestamp()), $aceites);
-
-        return array_sum($segundos) / count($segundos) / 60;
+        return EngajamentoDoTrabalhoExterno::minutosAteOAceite($this->candidaturas->primeirosAceitesDasRodadas());
     }
 
     private function novosNoBanco(Contexto $ctx): int
