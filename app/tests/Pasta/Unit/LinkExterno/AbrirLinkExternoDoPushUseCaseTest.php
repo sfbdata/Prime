@@ -121,6 +121,17 @@ final class AbrirLinkExternoDoPushUseCaseTest extends TestCase
         self::assertNotSame('nao_encontrado', $this->abrir($this->link())->estado, 'escritório no ar continua abrindo');
     }
 
+    #[TestDox('P5b: "Sim" manual de segredo no cartão depois de criar o link também desliga: nao_encontrado')]
+    public function testSegredoManual(): void
+    {
+        $link = $this->link();
+        $processo = $link->getPasta()->getProcessos()[0];
+        $processo->setNivelSigilo(0);
+        $processo->definirDadosManuais(new \App\Processo\DTO\DadosManuaisDoProcesso(segredo: true), $this->usuario());
+
+        self::assertSame('nao_encontrado', $this->abrir($link)->estado);
+    }
+
     #[TestDox('Pasta cancelada ou arquivada depois de criar o link: nao_encontrado')]
     #[DataProvider('situacoesQueDesligam')]
     public function testSituacaoDesliga(string $situacao): void

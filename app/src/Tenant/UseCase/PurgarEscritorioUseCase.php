@@ -104,6 +104,7 @@ final class PurgarEscritorioUseCase
         ['movimentacao_processo', 'tenant_id = :tenant'],
         ['parte_processo', 'tenant_id = :tenant'],
         ['assunto_processo', 'tenant_id = :tenant'],
+        ['saida_da_equipe', 'tenant_id = :tenant'],
         ['user_tenant', 'tenant_id = :tenant'],
         // Notas técnicas do processo (tenant_id direto). Cairiam por cascata do processo, mas a FK à
         // publicação é SET NULL: apagar antes evita o UPDATE inútil e deixa a deleção explícita.
@@ -207,6 +208,8 @@ final class PurgarEscritorioUseCase
         ['pasta_andamento', 'tenant_id = :tenant'],
         // Réus cadastrados na pasta (E12h): mesmo caso.
         ['pasta_reu', 'tenant_id = :tenant'],
+        // Cobrança automática do checklist (por item): cairia pela CASCADE do item; FK de tenant NO ACTION.
+        ['pasta_checklist_cobranca', 'tenant_id = :tenant'],
         // Visitas à Timeline inteligente (por usuário, PAS-043): mesmo caso do favorito — cairiam
         // pela CASCADE de `pasta`, mas a FK de tenant é NO ACTION; deleção explícita aqui.
         ['pasta_timeline_visita', 'tenant_id = :tenant'],
