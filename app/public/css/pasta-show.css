@@ -5571,3 +5571,93 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     font-weight: 700;
     cursor: pointer;
 }
+
+/* "Destacar comentário" (spec pasta-destacar-comentario.md; dc02 L6306): o cartão ganha o fundo da cor e uma faixa
+   à esquerda; sobre cor escura o texto fica claro (data-destaque-tom). A paleta é a do dc L262-266. */
+.ps-anotacao[data-destaque],
+.ps-registro .ps-anotacao[data-destaque],
+.ps-registro .ps-anotacao[data-destaque]:hover {
+    background: var(--ps-destaque);
+    box-shadow: inset 3px 0 0 rgba(0, 0, 0, .28), 0 1px 2px rgba(16, 42, 58, .08);
+}
+.ps-anotacao[data-destaque-tom="claro"] .ps-anotacao-autor,
+.ps-anotacao[data-destaque-tom="claro"] .ql-editor {
+    color: #12242f;
+}
+/* dc L26-30: sobre cor escura todo o texto fica branco; quem tem fundo próprio (selos, avatar) mantém as cores. */
+.ps-anotacao[data-destaque-tom="escuro"] :not([style*="background"]):not(.badge):not(.ps-avatar) {
+    color: #fff !important;
+}
+.ps-anotacao[data-destaque-tom="escuro"] a {
+    color: #cfe8ff !important;
+}
+.ps-anotacao[data-destaque-tom="escuro"] button,
+.ps-anotacao[data-destaque-tom="escuro"] button * {
+    color: rgba(255, 255, 255, .85) !important;
+}
+.ps-destaque-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483590;
+}
+.ps-destaque-paleta {
+    position: fixed;
+    z-index: 2147483600;
+    width: 196px;
+    padding: 10px;
+    background: #fff;
+    border: 1px solid #dde5eb;
+    border-radius: 4px;
+    box-shadow: 0 12px 32px rgba(16, 42, 58, .2);
+    outline: none;
+}
+.ps-destaque-paleta-titulo {
+    margin: 0 0 8px 2px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #7b93a2;
+}
+.ps-destaque-paleta-grade {
+    display: grid;
+    grid-template-columns: repeat(5, 32px);
+    gap: 6px;
+}
+.ps-destaque-cor {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid rgba(0, 0, 0, .18);
+    border-radius: 3px;
+    cursor: pointer;
+}
+.ps-destaque-cor.is-atual {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #0a7aad;
+}
+.ps-destaque-sem-cor {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 9px;
+    padding: 7px 6px;
+    border: none;
+    border-top: 1px solid #eef2f5;
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+    color: #34505f;
+    text-align: left;
+    cursor: pointer;
+}
+.ps-destaque-sem-cor:hover {
+    background: #f4f8fb;
+}
+.ps-destaque-sem-cor > span {
+    width: 20px;
+    height: 20px;
+    border: 1px solid #c3d2dd;
+    border-radius: 3px;
+    background: linear-gradient(135deg, #fff 45%, #cf3f36 47%, #cf3f36 53%, #fff 55%);
+}
