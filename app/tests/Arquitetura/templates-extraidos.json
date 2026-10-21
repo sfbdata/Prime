@@ -170,8 +170,73 @@
         "templates": [
             "master/painel.html.twig"
         ],
-        "js": [],
-        "permitidos": []
+        "js": [
+            "master/painel.js"
+        ],
+        "permitidos": [
+            "Rondônia",
+            "Acre",
+            "Amazonas",
+            "Roraima",
+            "Pará",
+            "Amapá",
+            "Tocantins",
+            "Maranhão",
+            "Piauí",
+            "Ceará",
+            "Rio Grande do Norte",
+            "Paraíba",
+            "Pernambuco",
+            "Alagoas",
+            "Sergipe",
+            "Bahia",
+            "Minas Gerais",
+            "Espírito Santo",
+            "Rio de Janeiro",
+            "São Paulo",
+            "Paraná",
+            "Santa Catarina",
+            "Rio Grande do Sul",
+            "Mato Grosso do Sul",
+            "Mato Grosso",
+            "Goiás",
+            "Distrito Federal",
+            "Ativa",
+            "Suspensa",
+            "Em quarentena",
+            "Argentina",
+            "Bolívia",
+            "Chile",
+            "Colômbia",
+            "Equador",
+            "Paraguai",
+            "Peru",
+            "Uruguai",
+            "Venezuela",
+            "Canadá",
+            "México",
+            "Estados Unidos",
+            "Portugal",
+            "Espanha",
+            "Itália",
+            "França",
+            "Alemanha",
+            "Reino Unido",
+            "Suíça",
+            "Países Baixos",
+            "Bélgica",
+            "Irlanda",
+            "Angola",
+            "Moçambique",
+            "Cabo Verde",
+            "Guiné-Bissau",
+            "São Tomé e Príncipe",
+            "Timor-Leste",
+            "Brasil",
+            "Content-Type",
+            "Escape",
+            "Enter"
+        ]
     },
 
     "cliente": {
@@ -213,6 +278,41 @@
         "permitidos": [
             "cs-body",
             "resources.carteira.gerenciar"
+    },
+
+    "dashboard": {
+        "templates": [
+            "dashboard/index.html.twig",
+            "dashboard/_resultado.html.twig",
+            "dashboard/_desempenho_cards.html.twig",
+            "dashboard/_extras.html.twig",
+            "dashboard/_tendencia.html.twig",
+            "dashboard/_inteligencia.html.twig"
+        ],
+        "js": [
+            "dashboard.js",
+            "dashboard-filtros.js",
+            "dashboard-historico.js",
+            "dashboard-janelas.js",
+            "dashboard-preferencias.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "Intelligence",
+            "BlueJus Intelligence",
+            "db-body",
+            "sóci",
+            "Atenção imediata",
+            "Acompanhamento",
+            "App\\\\Dashboard\\\\Preferencia\\\\ColunasExtrasDoDashboard::CATALOGO",
+            "App\\\\Dashboard\\\\Preferencia\\\\ColunasExtrasDoDashboard::TENDENCIA",
+            "Accept",
+            "Content-Type",
+            "Escape",
+            "Enter",
+            "Tab",
+            "ArrowDown",
+            "ArrowUp"
         ]
     }
 }

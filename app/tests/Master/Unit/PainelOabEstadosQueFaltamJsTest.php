@@ -81,7 +81,7 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
         self::assertStringContainsString("const OAB_TOOLTIP = T('master.js.janela_oab.dica');", self::bloco());
         self::assertSame('Ver endereços da OAB e escrever nota', self::texto('master.js.janela_oab.dica'));
         self::assertStringContainsString('<div class="mp-faltam-uf is-oab" role="button" tabindex="0" data-oab-uf="\' + esc(f.uf) + \'" title="\' + OAB_TOOLTIP + \'">', $item);
-        self::assertNaOrdem(substr($item, (int) strpos($item, 'const sec')), ['mp-faltam-ponto', 'mp-faltam-nome', '<i class="bi bi-sticky-fill" title="\' + T(\'master.js.janela_oab.tem_nota\') + \'"></i>', 'mp-faltam-sub', 'bi-chevron-right']);
+        self::assertNaOrdem(substr($item, (int) strpos($item, 'const sec')), ['mp-faltam-ponto', 'mp-faltam-nome', '<i class="bi bi-sticky-fill" title="\' + esc(T(\'master.js.janela_oab.tem_nota\')) + \'"></i>', 'mp-faltam-sub', 'bi-chevron-right']);
         self::assertSame('Tem nota', self::texto('master.js.janela_oab.tem_nota'));
         self::assertStringContainsString("(sec && sec.nota ? '<i class=\"bi bi-sticky-fill\"", $item, 'o ícone só com nota');
     }
@@ -205,7 +205,7 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
         self::assertStringContainsString("(sec.subsecoes.length ? '' : '<div class=\"mp-oab-subs-vazio\">' + T('master.js.janela_oab.subs_vazio', { link: '<a href=\"' + SEC_CFOAB + '\" target=\"_blank\" rel=\"noopener\">' + T('master.js.janela_oab.pesquisar') + '</a>' }) + '</div>')", $subs);
         self::assertSame('Nenhuma subseção cadastrada. {link} e adicionar.', self::texto('master.js.janela_oab.subs_vazio'));
         self::assertSame('Pesquisar o endereço oficial', self::texto('master.js.janela_oab.pesquisar'));
-        self::assertStringContainsString('<button type="button" title="\' + T(\'master.js.janela_oab.remover\') + \'" aria-label="\' + T(\'master.js.janela_oab.remover\') + \'" data-oab-sub-rm="\' + esc(x.id) + \'"><i class="bi bi-trash3"></i></button>', $subs);
+        self::assertStringContainsString('<button type="button" title="\' + esc(T(\'master.js.janela_oab.remover\')) + \'" aria-label="\' + esc(T(\'master.js.janela_oab.remover\')) + \'" data-oab-sub-rm="\' + esc(x.id) + \'"><i class="bi bi-trash3"></i></button>', $subs);
         self::assertStringContainsString("oabCampo(T('master.js.campo.nome'), 'nome', 120) + oabCampo(T('master.js.campo.endereco'), 'endereco', 255) + oabCampo(T('master.js.campo.telefone'), 'telefone', 40)", self::funcao('oabFormulario'));
         self::assertSame(['NOME', 'ENDEREÇO', 'TELEFONE'], array_map(self::texto(...), ['master.js.campo.nome', 'master.js.campo.endereco', 'master.js.campo.telefone']));
     }
