@@ -57,6 +57,19 @@
         ]
     },
 
+    "pasta_processo": {
+        "templates": [
+            "pasta/_processos_vinculados.html.twig"
+        ],
+        "js": [
+            "pasta-processo.js"
+        ],
+        "permitidos": [
+            "Escape",
+            "Accept"
+        ]
+    },
+
     "comercial_relatorio": {
         "templates": [
             "master/_comercial_relatorio.html.twig"
@@ -68,6 +81,18 @@
             "B",
             "Content-Type",
             "Escape"
+        ]
+    },
+
+    "temas": {
+        "templates": [
+            "master/_recursos_tema.html.twig"
+        ],
+        "js": [
+            "master/temas.js"
+        ],
+        "permitidos": [
+            "Content-Type"
         ]
     },
 
@@ -211,6 +236,24 @@
             "Content-Type",
             "Escape",
             "Enter"
+        ]
+    },
+
+    "cliente": {
+        "templates": [
+            "cliente/show.html.twig",
+            "cliente/editPF.html.twig",
+            "cliente/editPJ.html.twig",
+            "cliente/_cadastro.html.twig",
+            "cliente/_resumo.html.twig"
+        ],
+        "js": [
+            "cliente-cadastro.js"
+        ],
+        "permitidos": [
+            "Accept",
+            "Enter",
+            "Escape"
         ]
     }
 }

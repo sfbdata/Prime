@@ -29,4 +29,20 @@ class InteressadoEmVagasRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['email' => mb_strtolower(trim($email))]);
     }
+
+    public function contar(): int
+    {
+        return $this->count([]);
+    }
+
+    /**
+     * Todos os inscritos nos alertas, do mais antigo ao mais novo: o CSV do KPI "ALERTAS POR E-MAIL"
+     * (spec §4.9), só para o Master.
+     *
+     * @return list<InteressadoEmVagas>
+     */
+    public function paraExportar(): array
+    {
+        return $this->createQueryBuilder('i')->orderBy('i.criadoEm', 'ASC')->addOrderBy('i.id', 'ASC')->getQuery()->getResult();
+    }
 }

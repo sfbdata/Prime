@@ -184,6 +184,7 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Agenda\Entity\ConexaoGoogleAgenda::class,
         \App\Agenda\Entity\LigacaoComGoogle::class,
         \App\Agenda\Entity\PrazoNoGoogle::class,
+        \App\Agenda\Entity\DataNoGoogle::class,
         \App\Agenda\Entity\ExclusaoNoGoogle::class,
         \App\Agenda\Entity\VarreduraDoGoogle::class,
         // Pergunta da aba Perguntar da BlueJus IA (drawer, F3, 19/10): a conversa é da pessoa, e o AuditLogSubscriber
@@ -297,6 +298,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // consentimento (data e versão do texto), que é o registro que a LGPD pede.
         \App\TrabalhoExterno\Entity\LinkDeVagas::class,
         \App\TrabalhoExterno\Entity\InteressadoEmVagas::class,
+        // Contadores anônimos da página pública (spec VS 18.10.26 §4.9): somados por UPSERT a cada visita
+        // e clique, sem ator nem dado pessoal. Auditar seria uma linha de log por visita anônima.
+        \App\TrabalhoExterno\Entity\MetricaPublica::class,
         // Currículo do banco de talentos (spec VS 18.10.26 §4.5): é dado pessoal do candidato, que pode
         // excluí-lo a qualquer momento (LGPD). Auditar copiaria nome, contato e resumo para o audit_log
         // do escritório de quem age, e a cópia sobreviveria à exclusão pedida pelo titular. O registro de

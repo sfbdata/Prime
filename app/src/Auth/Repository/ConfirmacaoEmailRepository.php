@@ -32,19 +32,20 @@ class ConfirmacaoEmailRepository extends ServiceEntityRepository
     }
 
     /**
-     * Confirma pelo link numa transação só: zera a pendência da conta num UPDATE condicional e marca o link usado.
-     * Com dois cliques simultâneos (o pré-carregamento do cliente de e-mail faz isso), só um ganha, e só ele
+     * Cria a senha e confirma pelo link numa transação só (spec `cadastro-senha-no-link.md`): grava o hash da senha e
+     * zera a pendência da conta num UPDATE condicional e marca o link usado. O UPDATE é o lock da corrida: com dois
+     * POSTs simultâneos, o segundo espera o primeiro e não acha mais a pendência. Só quem ganhou grava a senha e
      * despacha o EmailDaContaConfirmado; e nunca fica conta confirmada com o link sem a marca de uso.
      *
-     * @return bool true se FOI ESTA chamada que confirmou
+     * @return bool true se FOI ESTA chamada que criou a senha e confirmou
      */
-    public function confirmarComLink(ConfirmacaoEmail $confirmacao, \DateTimeImmutable $agora): bool
+    public function criarSenhaEConfirmarComLink(ConfirmacaoEmail $confirmacao, string $hashDaSenha, \DateTimeImmutable $agora): bool
     {
         return $this->getEntityManager()->getConnection()->transactional(
-            static function (Connection $conexao) use ($confirmacao, $agora): bool {
+            static function (Connection $conexao) use ($confirmacao, $hashDaSenha, $agora): bool {
                 $ganhou = $conexao->executeStatement(
-                    'UPDATE "user" SET email_a_confirmar_desde = NULL WHERE id = :id AND email_a_confirmar_desde IS NOT NULL',
-                    ['id' => $confirmacao->getUser()->getId()],
+                    'UPDATE "user" SET password = :senha, email_a_confirmar_desde = NULL WHERE id = :id AND email_a_confirmar_desde IS NOT NULL',
+                    ['id' => $confirmacao->getUser()->getId(), 'senha' => $hashDaSenha],
                 ) === 1;
                 if ($ganhou) {
                     $conexao->executeStatement(

@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Unit;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * E7 da frente de fidelidade (`docs/specs/fidelidade-designer-1310.md` §12): a janela de confirmação da
@@ -164,7 +165,7 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         yield 'restaurar pasta — azul (convenção do dc)' => ['templates/pasta/_cabecalho.html.twig', "variante: 'azul'"];
         yield 'alterar número — azul (dc L.4416)' => ['templates/pasta/show.html.twig', "mensagem: 'Alterar número da pasta\\nAlterar o número da pasta de '"];
         yield 'desvincular processo — vermelho (dc L.3031)' => ['templates/pasta/show.html.twig', 'await window.confirmarUIPs(perguntaDesv, true)'];
-        yield 'administrativo sem processo — azul (dc L.6878)' => ['public/js/pasta-processo.js', "window.confirmarUIPs('Marcar como administrativo\\n' + texto.replace(/\\s*\\n\\s*/g, ' '), false)"];
+        yield 'administrativo sem processo — azul (dc L.6878)' => ['public/js/pasta-processo.js', "window.confirmarUIPs(BJ_T.t('pasta_processo.js.administrativa_titulo') + '\\n' + texto.replace(/\\s*\\n\\s*/g, ' '), false)"];
         yield 'corrigir valor — azul (dc L.3563)' => ['templates/pasta/_financeiro_pagamentos_script.html.twig', 'await window.confirmarUIPs(pergunta, false)'];
         yield 'excluir lançamento — vermelho (dc L.3573)' => ['templates/pasta/_financeiro_pagamentos_script.html.twig', "await window.confirmarUIPs('Excluir lançamento\\n' + perguntaEx, true)"];
         yield 'excluir comentário do Financeiro — vermelho "Excluir" (dc comExcluir)' => ['templates/pasta/_financeiro_obs_script.html.twig', 'await window.confirmarPs({ titulo: partesObs[0]'];
@@ -185,6 +186,14 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
     public function testCadaPerguntaNaJanelaComAVarianteDoDesenho(string $arquivo, string $trecho): void
     {
         self::assertStringContainsString($trecho, self::ler($arquivo));
+    }
+
+    #[TestDox('O título da pergunta do administrativo sem processo mora no catálogo, com o texto do desenho (dc L.6878)')]
+    public function testTituloDoAdministrativoNoCatalogo(): void
+    {
+        $catalogo = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml');
+
+        self::assertSame('Marcar como administrativo', $catalogo['pasta_processo']['js']['administrativa_titulo']);
     }
 
     /** @return iterable<string, array{string}> */

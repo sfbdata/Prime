@@ -284,3 +284,49 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   `Tarefa::prazoInfo`, fatias do andamento, prioridade da pasta, título e descrição das listas da equipe),
   `filtro-tabela.js` e `pasta-metas.js` (vão com a Pasta) e o placeholder padrão do `_partials/_filtro_barra`.
 
+
+## 9. A Pasta, aba Processo (0d, 21/10)
+
+- **Blocos de topo por aba**, combinados com a f6: `pasta_processo` (este), `pasta_push` (próximo PR da 0d) e
+  `pasta_financeiro` (f6). O JS de cada aba lê `<bloco>.js`; o `catalogo_js` mora no próprio parcial, sem tocar o
+  `pasta/show.html.twig`. O parcial que volta por XHR traz o bloco de novo, e o `BJ_T` relê (§8).
+- **Extraídos:** `pasta/_processos_vinculados.html.twig` e `pasta-processo.js`. Os dois `|date` viraram `|data` e
+  `|data_hora` (os dois com guarda de nulo).
+- **Sem mudança visível:** o DOM da aba (texto e atributos, como o navegador lê) foi comparado antes e depois em
+  quatro cenários (processo completo com apensado, partes, campos manuais e o formulário de edição; vazia com ação;
+  administrativa sem e com processo). Só mudaram os tokens CSRF das notas técnicas, que são aleatórios. Os ramos só
+  leitura foram renderizados à parte, iguais. No código-fonte, as aspas da dica da edição saem como `&quot;` (o
+  autoescape do `|trans`); a tela é a mesma.
+- **Ficou de fora:** o texto que vem do PHP (rótulos e placeholders de `dados_do_processo`, `resumo_do_processo`, a
+  linha de fonte, o tipo do apensado, a instância e o filtro `situacao_processo`) e o `processo/_notas_tecnicas`, que
+  é do domínio Processo e aparece também no teor do Push.
+
+## 13. Extração do Cliente (7d, 21/10)
+
+- **Escopo:** `templates/cliente/show`, `editPF`, `editPJ`, `_cadastro` (janela "Cadastro e qualificação do cliente") e
+  `_resumo` (janela "Detalhes do cliente" da aba Clientes da Pasta), com o script inline do `show` (só o que roda no
+  evento de anexar), e `cliente-cadastro.js`. Bloco `cliente` do catálogo, 277 chaves; 57 delas em `cliente.js.*`. O
+  `show` entrega `{{ catalogo_js('cliente.js') }}` para o próprio script; as duas páginas que carregam o
+  `cliente-cadastro.js` (`pasta/show` e `cobranca/carteira/index`) entregam o mesmo catálogo antes do `<script>`. O
+  estado civil da qualificação é lido do catálogo na hora (não na carga do arquivo).
+- **Sem mudança visível:** o HTML de 20 telas (ficha PF cheia e vazia, ficha PJ cheia e vazia, edição PF e PJ, janela de
+  cadastro PF com pasta, autores e réus, aba Documentos com OCR, aba Histórico, PF vazio, PJ vazio e cheio, Novo cliente
+  PF e PJ avulso e pela pasta, janela travada de quem só vê, Detalhes do cliente PF com pastas, PF sem contato, PJ e só
+  leitura) saiu igual; mudaram só tokens, o script inline que lê o catálogo e os dois `confirm()` da ficha, que agora
+  passam por `|e('js')` (o texto mostrado é o mesmo, o HTML traz os espaços como ` `).
+- **Formatos:** `dataNascimento`, `rgDataEmissao`, `carregadoEm` e `uploadedAt` dos anexos, `clienteDesde` viraram
+  `|data`; `criadoAt` e `modificadoEm` da aba Detalhes, `|data_hora` (todos protegidos por `if` ou nunca nulos). O
+  tamanho dos anexos manteve o `|round` (ponto decimal, como antes); só a unidade "KB"/"MB" virou chave com parâmetro.
+  O `|date('Y-m-d')` do campo de nascimento é `value` de `<input type="date">` e fica. No JS, a data de nascimento da
+  qualificação continua montada à mão (`dd/mm/aaaa`).
+- **Ficou para depois:** os rótulos dos campos da edição (vêm do `ClientePFType`/`ClientePJType`), os tipos de documento
+  (`ClienteController::DOCUMENT_TYPES`, que também enchem o `<select>` do script inline), a situação da pasta
+  (`pasta.situacao|capitalize`), o `documentoRotulo`, os rótulos e ícones dos contatos e as pendências do
+  `ClienteResumoOutput`, as pendências e a qualificação do servidor (`PendenciasDoCadastro`, `QualificacaoDoCliente`), o
+  histórico (`HistoricoDoCliente`), o JSON da inteligência cadastral (`RotulosDaInteligenciaCadastral`), as mensagens
+  de erro e de sucesso do salvar (servidor) e os flashes do `ClienteController`. O valor inicial "brasileiro(a)" da
+  nacionalidade é `value` enviado ao servidor e fica. Os parciais da Pasta que mostram cliente (`pasta/_cliente_linha`,
+  `pasta/_push_cliente*`) e os JS `pasta-clientes*.js` e `pasta-push-cliente.js` vão com a Pasta.
+- **Qualificação no JS:** os pedaços da qualificação ao vivo (`cliente.js.qual.*`, estado civil minúsculo) espelham o
+  `QualificacaoDoCliente` do PHP, que ainda não lê o catálogo. Na fase de tradução os dois mudam juntos; o truque do
+  gênero (`(a)` → `a`/vazio) só vale para o português e terá de ser revisto ali.
