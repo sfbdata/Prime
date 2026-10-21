@@ -67,6 +67,14 @@ final class RetratosEmLoteNoPainelTest extends TestCase
         self::assertTrue($contas[3]['espaco']['semLimite']);
     }
 
+    #[TestDox('lista de contas: cada linha leva o número da conta, o mesmo "conta Nº" da Contribua (spec perfis-1.2-permissoes-e-hierarquia A3)')]
+    public function testNumeroDaConta(): void
+    {
+        $contas = (new ConsultarContasUseCase($this->repositorio, $this->relogio(), 365, $this->situacao))->executar();
+
+        self::assertSame(['000001', '000002', '000003'], array_column($contas, 'numero'));
+    }
+
     #[TestDox('KPI de armazenamento: em lote também, com a conta sem limite à parte')]
     public function testVisaoGeral(): void
     {

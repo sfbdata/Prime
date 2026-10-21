@@ -43,8 +43,10 @@ use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
 use App\Tenant\DTO\RemoverColaboradorInput;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
+use App\Tenant\Service\HierarquiaDePerfis;
 use App\Tenant\Service\RegraDosPrimarios;
 use App\Tenant\UseCase\RemoverColaboradorDoEscritorioUseCase;
+use App\Tenant\Exception\PedidoDeExclusaoRecusado;
 use App\Tenant\UseCase\ExcluirEscritorioUseCase;
 use App\Tenant\UseCase\GerarCodigoFuncionario;
 use App\Service\InvitationService;
@@ -289,7 +291,17 @@ final class TenantController extends AbstractController
 
         // RS08: exclusão é soft delete (quarentena), nunca mais remove() destrutivo.
         if ($this->isCsrfTokenValid('delete'.$tenant->getId(), $request->request->get('_token'))) {
-            $excluirEscritorio->executar($tenant);
+            $ator = $this->getUser();
+            if ($ator instanceof User) {
+                try {
+                    $excluirEscritorio->executar($tenant, $ator);
+                } catch (PedidoDeExclusaoRecusado $e) {
+                    // Pedido decidido ao mesmo tempo pela desistência do primário (409).
+                    $this->addFlash('danger', $e->getMessage());
+
+                    return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);
+                }
+            }
         }
 
         return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);
@@ -452,11 +464,12 @@ final class TenantController extends AbstractController
         ObterOuCriarPerfilUseCase $obterOuCriarPerfil,
         TenantRepository $tenantRepository,
         UserTenantRepository $userTenantRepository,
-        RegraDosPrimarios $regraDosPrimarios
+        RegraDosPrimarios $regraDosPrimarios,
+        HierarquiaDePerfis $hierarquia
     ): Response {
         $currentUser = $this->getUser();
 
-        if (!$currentUser) {
+        if (!$currentUser instanceof User) {
             throw $this->createAccessDeniedException();
         }
 
@@ -496,7 +509,7 @@ final class TenantController extends AbstractController
         // sistema e troca senha de primário. Para os demais o perfil de sistema nem é opção; se o
         // alvo já é primário, o único perfil oferecido é o atual (não dá para rebaixar).
         $podeGerirPrimarios = $regraDosPrimarios->podeGerirPrimarios($currentUser, $tenant);
-        $podeTrocarSenha    = $regraDosPrimarios->podeTrocarSenhaDe($currentUser, $userTenant);
+        $podeTrocarSenha    = $hierarquia->podeTrocarSenha($currentUser, $tenant, $userTenant); // RegraDosPrimarios + C5 + C8
         // Conta do Master: o perfil dele só ele mesmo troca (A1). O único perfil oferecido é o atual.
         $podeAlterarConta   = $regraDosPrimarios->podeAlterarConta($currentUser, $user);
         if (!$podeAlterarConta && $perfilAnterior !== null) {
@@ -506,6 +519,7 @@ final class TenantController extends AbstractController
                 ? [$perfilAnterior]
                 : array_values(array_filter($tenantRoles, static fn ($r): bool => !$r->isSystem()));
         }
+        $tenantRoles = $hierarquia->perfisAtribuiveis($currentUser, $tenant, $user, $tenantRoles, $perfilAnterior); // C5: subconjunto e próprio perfil
 
         $form = $this->createForm(EditUserTenantRoleType::class, $userTenant, [
             'tenant_roles'    => $tenantRoles,
@@ -526,6 +540,8 @@ final class TenantController extends AbstractController
             } elseif ($eraPrimario !== $seraPrimario && !$podeGerirPrimarios) {
                 // Cinto do select: um POST forjado com o id do perfil de sistema cai aqui.
                 $erroDePerfil = 'Só o primário do escritório ou o Master pode dar ou tirar o perfil de usuário primário.';
+            } elseif (($recusaDaHierarquia = $hierarquia->recusaAoAtribuir($currentUser, $tenant, $user, $perfilAnterior, $userTenant->getTenantRole())) !== null) {
+                $erroDePerfil = $recusaDaHierarquia; // C5: cinto do select, para o POST forjado
             } elseif ($eraPrimario && !$seraPrimario) {
                 // Spec §5 E1: esta porta não rebaixa o titular nem o último primário.
                 try {
@@ -545,10 +561,9 @@ final class TenantController extends AbstractController
             $senhaPedida = $form->get('newPassword')->getData();
             if (is_string($senhaPedida) && trim($senhaPedida) !== '' && !$podeTrocarSenha) {
                 $form->get('newPassword')->addError(new FormError(
-                    $podeAlterarConta
+                    !$podeAlterarConta ? 'A conta do Master só pode ser alterada pelo próprio Master.' : (!$regraDosPrimarios->podeTrocarSenhaDe($currentUser, $userTenant)
                         ? 'A senha de um primário só pode ser trocada por um primário ou pelo Master; '
-                            . 'a do primário titular, só por ele mesmo ou pelo Master.'
-                        : 'A conta do Master só pode ser alterada pelo próprio Master.'
+                            . 'a do primário titular, só por ele mesmo ou pelo Master.' : (string) $hierarquia->recusaDaSenha($currentUser, $tenant, $userTenant))
                 ));
             }
         }
@@ -771,6 +786,26 @@ final class TenantController extends AbstractController
         return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId()]);
     }
 
+    /**
+     * C5 (spec perfis-1.2-permissoes-e-hierarquia): quem não é primário nem Master não remove do escritório quem tem
+     * o perfil atual fora do subconjunto do dele. Devolve a volta com a recusa, ou nulo quando pode.
+     */
+    private function recusaDaHierarquiaNaRemocao(
+        mixed $executor,
+        Tenant $tenant,
+        User $colaborador,
+        HierarquiaDePerfis $hierarquia,
+        UserTenantRepository $userTenantRepository
+    ): ?Response {
+        $perfilDoAlvo = $userTenantRepository->findAtivoPorUserETenant($colaborador, $tenant)?->getTenantRole();
+        if ($executor instanceof User && $hierarquia->podeMexerNoAlvo($executor, $tenant, $perfilDoAlvo)) {
+            return null;
+        }
+        $this->addFlash('danger', HierarquiaDePerfis::RECUSA_ALVO_ACIMA_DO_SEU);
+
+        return $this->redirectToRoute('app_tenant_users', ['tenantId' => $tenant->getId()]);
+    }
+
     #[Route('/{tenantId}/user/{userId}/remover', name: 'app_tenant_user_remover', methods: ['POST'])]
     public function removerColaborador(
         int $tenantId,
@@ -781,6 +816,7 @@ final class TenantController extends AbstractController
         EntityManagerInterface $em,
         TenantRepository $tenantRepository,
         UserTenantRepository $userTenantRepository,
+        HierarquiaDePerfis $hierarquia,
     ): Response {
         $executor = $this->getUser();
 
@@ -810,6 +846,9 @@ final class TenantController extends AbstractController
 
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($executor, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException();
+        }
+        if (($recusa = $this->recusaDaHierarquiaNaRemocao($executor, $tenant, $colaborador, $hierarquia, $userTenantRepository)) !== null) {
+            return $recusa; // C5
         }
 
         // O <select> de substituto manda string VAZIA quando se escolhe "deixar sem

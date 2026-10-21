@@ -170,6 +170,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\AutomacaoDeEmail::class,
         \App\Comercial\Entity\CicloDaConta::class,
         \App\Comercial\Entity\VarreduraComercial::class,
+        // Fatia 1b (§4): a vez dos avisos de espaço é lida e gravada só por SQL no ouvinte, que roda sem sessão (o
+        // escritório vem do evento e vai na consulta à mão); nunca é listada para ninguém.
+        \App\Comercial\Entity\AvisoDeEspaco::class,
         // Fatia 2a (§8.2): os modelos próprios de campanha são do Master, de escopo plataforma, sem escritório.
         \App\Comercial\Entity\ModeloDeCampanha::class,
         // Fatia 2b (§8.4 e §8.5): as campanhas, os destinatários de cada execução e o controle do expansor são do
@@ -186,6 +189,19 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // PLATAFORMA, ligada e desligada só pelo Master e válida para todas as contas ao mesmo tempo.
         // Uma linha por chave do catálogo, sem dado de escritório nem de cliente.
         RecursoEstado::class,
+        // Seccionais da OAB no mapa do Painel do Master (docs/specs/master-seccionais-oab.md): as 27 sedes e as
+        // divulgações registradas pelo Master são dado da PLATAFORMA (trabalho comercial do BlueJus), sem escritório
+        // nem cliente; lidas e gravadas só atrás de ROLE_SUPER_ADMIN.
+        \App\Master\Entity\SeccionalOab::class,
+        \App\Master\Entity\DivulgacaoNaSeccional::class,
+        // Janela da OAB dos estados que faltam (docs/specs/master-oab-estados-que-faltam.md): as subseções e a nota
+        // explicativa de cada seccional são anotação de trabalho da PLATAFORMA, compartilhada entre os Masters, sem
+        // escritório nem cliente; lidas e gravadas só atrás de ROLE_SUPER_ADMIN.
+        \App\Master\Entity\SubsecaoOab::class,
+        \App\Master\Entity\NotaDaSeccional::class,
+        // Temas comemorativos (docs/specs/temas-comemorativos.md): linha única de configuração da PLATAFORMA (id 1),
+        // escrita só pelo Master; a cor vale para todas as contas ao mesmo tempo. Sem dado de escritório nem de cliente.
+        \App\Master\Entity\TemaConfig::class,
 
         // Indicar o BlueJus (docs/specs/indicar-bluejus.md): plataforma. A indicação é da pessoa (quem indica), não do
         // escritório: ela indica com ou sem escritório, e o Master lê todas. O escritório de origem é só para mostrar
@@ -195,6 +211,13 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Indicacao\Entity\IndicacaoConfig::class,
         \App\Indicacao\Entity\IndicacaoPausa::class,
         \App\Indicacao\Entity\IndicacaoAlerta::class,
+
+        // Central de Notificações do Master (docs/specs/master-central-de-notificacoes.md, D1 a D3): o Master lê as
+        // mensagens de TODOS os escritórios. O estado (lida, estrela, arquivada) é do Master, e toda consulta filtra por
+        // `master_id = eu`; as respostas são o histórico compartilhado entre os Masters, lido só pela mensagem. O
+        // `tenant_id` (nulo para suporte e alerta) é só para a purga do escritório (ORDEM_DELECAO).
+        \App\Master\Entity\CentralMasterEstado::class,
+        \App\Master\Entity\CentralMasterResposta::class,
     ];
 
     /**
@@ -224,8 +247,17 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 46 → 47 com as inscrições na OAB do Meu Perfil (19/10/2026): InscricaoOab é da pessoa, não do escritório.
     // 47 → 50 com as vagas e as preferências do usuário do Trabalho Externo (19/10/2026): Vaga, HistoricoVaga e PreferenciaDoUsuario, justificadas acima.
     // 50 → 52 com a página pública de vagas do Trabalho Externo (19/10/2026): LinkDeVagas e InteressadoEmVagas, justificados acima.
-    // 52 → 55 com o currículo, a candidatura e a métrica anônima da página pública do Trabalho Externo (19/10/2026): Curriculo, Candidatura e MetricaPublica, justificados acima.
-    private const MAX_FORA_DO_ESCOPO = 55;
+    // 52 → 53 com o currículo do banco de talentos do Trabalho Externo (19/10/2026): Curriculo, justificado acima.
+    // 53 → 54 com a candidatura às vagas do Trabalho Externo (19/10/2026): Candidatura, justificada acima.
+    // 54 → 55 com a fatia 1b do Comercial (21/10/2026): a vez dos avisos de espaço, justificada acima.
+    // 55 → 57 com as Seccionais da OAB do Painel do Master (21/10/2026): SeccionalOab e DivulgacaoNaSeccional (plataforma).
+    // 57 → 58 com os temas comemorativos (21/10/2026): TemaConfig, configuração global da plataforma, justificada acima.
+    // 58 → 60 com a Central de Notificações do Master (21/10/2026): CentralMasterEstado e CentralMasterResposta são do
+    // Master, que lê todos os escritórios, justificadas acima.
+    // 60 → 62 com a janela da OAB dos estados que faltam (21/10/2026): SubsecaoOab e NotaDaSeccional (plataforma),
+    // justificadas acima.
+    // 62 → 63 com a métrica anônima da página pública do Trabalho Externo (19/10/2026): MetricaPublica, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 63;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

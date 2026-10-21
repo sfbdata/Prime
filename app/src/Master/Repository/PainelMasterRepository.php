@@ -15,7 +15,11 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Entity\DivulgacaoNaSeccional;
+use App\Master\Entity\NotaDaSeccional;
 use App\Master\Entity\RecursoEstado;
+use App\Master\Entity\SeccionalOab;
+use App\Master\Entity\SubsecaoOab;
 use App\Master\Service\RegraDosMasters;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
@@ -63,6 +67,9 @@ class PainelMasterRepository
     /**
      * Entidades administrativas que entram na trilha "Segurança e auditoria". As três da Contribua são os
      * limites da conta, o catálogo de planos e as faixas de alerta (spec perfis-1.2-planos-e-limites P7).
+     * As duas das seccionais da OAB são a sede editada e a divulgação registrada pelo Master (spec
+     * master-seccionais-oab), gravadas sem escritório ("Plataforma (sem conta)"). A subseção e a nota da janela da
+     * OAB (spec master-oab-estados-que-faltam) entram do mesmo jeito.
      */
     public const ENTIDADES_AUDITADAS = [
         Tenant::class,
@@ -76,6 +83,10 @@ class PainelMasterRepository
         Plano::class,
         ConfiguracaoDoEspaco::class,
         RecursoEstado::class,
+        SeccionalOab::class,
+        DivulgacaoNaSeccional::class,
+        SubsecaoOab::class,
+        NotaDaSeccional::class,
     ];
 
     /** Linha própria do alerta de consumo (`action` cabe em 10 caracteres). */
@@ -214,6 +225,46 @@ class PainelMasterRepository
         }
 
         return array_values($pessoas);
+    }
+
+    /**
+     * Saídas da equipe no período `[$desde, $ate)` (tabela `saida_da_equipe`, gravada pela remoção do vínculo; spec
+     * saida-da-equipe), para a seta de tendência do mapa (spec perfis-1.2-planos-e-limites §5, C6). Só leitura.
+     *
+     * Mesmo critério de escritório das entradas ({@see vinculosAtivos()}): escritório na quarentena fica fora;
+     * suspenso conta. O `user` vem por LEFT JOIN: `user_id` fica nulo quando o usuário é apagado (SET NULL), e aí
+     * a UF é a do escritório. Sem nome, e-mail nem CPF: só o necessário para localizar e contar.
+     *
+     * Fuso: `saiu_em` é gravado na hora local, sem fuso (`TIMESTAMP WITHOUT TIME ZONE`, `new \DateTimeImmutable()`
+     * no fuso padrão do PHP). As bordas vêm do relógio do sistema e são formatadas no MESMO fuso padrão, para a
+     * comparação valer mesmo se o relógio entregar outro fuso.
+     *
+     * @return list<array{saiuEm: string, eraPrimario: bool, tenantId: int, userId: ?int, oabUf: ?string, estado: ?string}>
+     */
+    public function saidasRecentes(\DateTimeImmutable $desde, \DateTimeImmutable $ate): array
+    {
+        $fuso = new \DateTimeZone(date_default_timezone_get());
+        $linhas = $this->conexao->fetchAllAssociative(
+            'SELECT s.saiu_em, s.era_primario, s.tenant_id, s.user_id, u.oab_uf, t.estado
+               FROM saida_da_equipe s
+               JOIN tenant t ON t.id = s.tenant_id AND t.excluido_em IS NULL
+          LEFT JOIN "user" u ON u.id = s.user_id
+              WHERE s.saiu_em >= :desde AND s.saiu_em < :ate
+           ORDER BY s.saiu_em, s.id',
+            [
+                'desde' => $desde->setTimezone($fuso)->format('Y-m-d H:i:s'),
+                'ate'   => $ate->setTimezone($fuso)->format('Y-m-d H:i:s'),
+            ],
+        );
+
+        return array_map(static fn (array $l): array => [
+            'saiuEm'      => (string) $l['saiu_em'],
+            'eraPrimario' => (bool) $l['era_primario'],
+            'tenantId'    => (int) $l['tenant_id'],
+            'userId'      => $l['user_id'] !== null ? (int) $l['user_id'] : null,
+            'oabUf'       => self::textoOuNulo($l['oab_uf']),
+            'estado'      => self::textoOuNulo($l['estado']),
+        ], $linhas);
     }
 
     /**

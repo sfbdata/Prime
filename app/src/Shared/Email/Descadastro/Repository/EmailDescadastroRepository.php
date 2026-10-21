@@ -7,6 +7,7 @@ namespace App\Shared\Email\Descadastro\Repository;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Email\Descadastro\Entity\EmailDescadastro;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -70,6 +71,35 @@ class EmailDescadastroRepository extends ServiceEntityRepository
     }
 
     /**
+     * {@see self::bloqueado()} para um lote de endereços (já normalizados), em fatias de 1.000: os bloqueados.
+     *
+     * @param list<string> $emails
+     *
+     * @return list<string>
+     */
+    public function bloqueadosEntre(?Tenant $tenant, array $emails, string $assunto, string $todos): array
+    {
+        $bloqueados = [];
+        foreach (array_chunk($emails, 1000) as $fatia) {
+            [$escopoD, $escopoX, $parametros] = $this->escopo($tenant, ['emails' => $fatia, 'assunto' => $assunto, 'todos' => $todos]);
+            $achados = $this->conexao()->fetchFirstColumn(
+                'SELECT DISTINCT d.email FROM email_descadastro d
+                 WHERE ' . $escopoD . ' AND d.email IN (:emails) AND d.reativado_em IS NULL
+                   AND (d.assunto = :assunto OR (d.assunto = :todos AND NOT EXISTS (
+                       SELECT 1 FROM email_descadastro x
+                       WHERE ' . $escopoX . ' AND x.email = d.email AND x.assunto = :assunto
+                         AND x.reativado_em IS NOT NULL AND x.reativado_em >= d.em AND x.id > d.id
+                   )))',
+                $parametros,
+                ['emails' => ArrayParameterType::STRING],
+            );
+            array_push($bloqueados, ...array_map('strval', $achados));
+        }
+
+        return $bloqueados;
+    }
+
+    /**
      * Encerra as linhas ativas do endereço no escopo: de um assunto, ou de todos (`$assunto` null).
      */
     public function encerrarAtivos(?Tenant $tenant, string $email, ?string $assunto, string $origem, ?int $porId, \DateTimeImmutable $em): void
@@ -99,25 +129,35 @@ class EmailDescadastroRepository extends ServiceEntityRepository
     }
 
     /**
-     * Os descadastros ATIVOS do escopo, do mais recente para o mais antigo, com a busca no e-mail.
+     * Os descadastros ATIVOS do escopo, do mais recente para o mais antigo, com a busca no e-mail e, se pedido, só
+     * dos assuntos dados.
+     *
+     * @param list<string> $assuntos vazio = todos
      *
      * @return array{total: int, linhas: list<array{email: string, assunto: string, origem: string, motivo: ?string, em: string}>}
      */
-    public function listarAtivos(?Tenant $tenant, ?string $busca, int $pagina, int $porPagina): array
+    public function listarAtivos(?Tenant $tenant, ?string $busca, int $pagina, int $porPagina, array $assuntos = []): array
     {
         [$escopo, , $parametros] = $this->escopo($tenant, []);
         $onde = $escopo . ' AND d.reativado_em IS NULL';
+        $tipos = [];
+        if ($assuntos !== []) {
+            $onde .= ' AND d.assunto IN (:assuntos)';
+            $parametros['assuntos'] = $assuntos;
+            $tipos['assuntos'] = ArrayParameterType::STRING;
+        }
         if ($busca !== null && trim($busca) !== '') {
             $onde .= " AND d.email ILIKE :busca ESCAPE '\\'";
             $parametros['busca'] = '%' . addcslashes(mb_strtolower(trim($busca)), '%_\\') . '%';
         }
 
-        $total = (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM email_descadastro d WHERE ' . $onde, $parametros);
+        $total = (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM email_descadastro d WHERE ' . $onde, $parametros, $tipos);
         /** @var list<array{email: string, assunto: string, origem: string, motivo: ?string, em: string}> $linhas */
         $linhas = $this->conexao()->fetchAllAssociative(
             'SELECT d.email, d.assunto, d.origem, d.motivo, d.em FROM email_descadastro d WHERE ' . $onde
             . ' ORDER BY d.em DESC, d.id DESC LIMIT ' . $porPagina . ' OFFSET ' . (($pagina - 1) * $porPagina),
             $parametros,
+            $tipos,
         );
 
         return ['total' => $total, 'linhas' => $linhas];

@@ -1,4 +1,4 @@
-/* BlueJus · Painel do Master, seção "Comercial e e-mails", bloco "Nova campanha de e-mail", fatias 2a e 2b
+/* BlueJus · Painel do Master, seção "Comercial e e-mails", bloco "Nova campanha de e-mail", fatias 2a e 2b e o filtro da F3b
    (desenho docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html, markup L.229-260 e lógica L.530-560;
    spec docs/specs/comercial-e-emails.md §8.2 a §8.6).
    - A grade de modelos vem do servidor (os fixos do dc e os próprios do Master, em comercial_modelo).
@@ -48,6 +48,11 @@
   let individual = '';
   let frequencia = 'unica';
   let contagem = null;
+  // F3b: o "Filtrar destinatários" (dc 05 VS 21.10.26, L260-264 e L662-664), nas chaves do dc; vazio = todos.
+  let filtro = {};
+  // F3a: o nome só da prévia (dc 21.10 L270) e o aparelho do "Ver como vai chegar" (L670).
+  let nomeDaPrevia = '';
+  let ultimaPrevia = '';
   let pedidoDaContagem = 0;
   let esperaDaContagem = null;
   let chave = '';
@@ -67,6 +72,15 @@
   function editar(campo, valor) {
     ed = Object.assign({}, ed, { [campo]: valor });
     agendarPrevia();
+  }
+
+  /* dc 21.10 L659: o emoji entra no fim do texto, com um espaço antes se faltar. */
+  function inserirEmoji(emoji) {
+    const corpo = String(atual().corpo || '');
+    const novo = corpo + (corpo === '' || corpo.endsWith(' ') ? '' : ' ') + emoji;
+    editar('corpo', novo);
+    const caixaDeTexto = el('[data-mc-cp-campo="corpo"]');
+    if (caixaDeTexto) { caixaDeTexto.value = novo; caixaDeTexto.focus(); }
   }
 
   function postar(url, corpo) {
@@ -94,12 +108,17 @@
     return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
   }
 
-  // dc L.252: "K destinatário(s) · D descadastrado(s) fora da lista · J sem autorização fora da lista · sem repetidos".
+  /* dc 21.10 L665: "N destinatário(s) · X descadastrado(s) retirado(s) · Y repetido(s) removido(s) · Z inválido(s)
+     ignorado(s)", ou " · lista limpa". O B1 (sem autorização) é regra do sistema que o dc não tem: entra no mesmo tom. */
   function linhaDeDestinatarios(c) {
-    return c.destinatarios + ' destinatário(s)'
-      + (c.descadastrados ? ' · ' + c.descadastrados + ' descadastrado(s) fora da lista' : '')
-      + (c.semAutorizacao ? ' · ' + c.semAutorizacao + ' sem autorização fora da lista' : '')
-      + ' · sem repetidos';
+    const partes = [
+      c.descadastrados ? c.descadastrados + ' descadastrado(s) retirado(s)' : '',
+      c.repetidos ? c.repetidos + ' repetido(s) removido(s)' : '',
+      c.invalidos ? c.invalidos + ' inválido(s) ignorado(s)' : '',
+      c.semAutorizacao ? c.semAutorizacao + ' sem autorização retirado(s)' : '',
+    ].filter(Boolean);
+
+    return c.destinatarios + ' destinatário(s)' + partes.map(x => ' · ' + x).join('') + (partes.length ? '' : ' · lista limpa');
   }
 
   function desenharPublicos() {
@@ -113,15 +132,104 @@
     // dc L.545: "NOME · N e-mail(s)" depois de ler o arquivo.
     el('[data-mc-cp-csv-txt]').textContent = csvNome ? csvNome + ' · ' + (contagem ? contagem.publicos.csv : 0) + ' e-mail(s)' : 'Selecionar arquivo .csv';
     el('[data-mc-cp-dest]').textContent = contagem ? linhaDeDestinatarios(contagem) : '';
+    desenharFiltro();
   }
 
+  const filtroLimpo = () => Object.fromEntries(Object.entries(filtro).filter(([, v]) => v));
+  const mesmoFiltro = (a, b) => { const ka = Object.keys(a).sort(); return ka.length === Object.keys(b).length && ka.every(k => a[k] === b[k]); };
+
+  /* dc L662-663: fechado, o selo com quantos campos estão preenchidos (a busca conta) e "N de M com filtro" ou "Todos
+     (M)"; aberto, "N de M atendem ao filtro · K sem essa informação no cadastro (ficam de fora)" ou "Enviando para
+     todos da lista (M)". Os números vêm do servidor (F2). */
+  function desenharFiltro() {
+    const caixa = el('[data-mc-cf]');
+    if (!caixa) return;
+    const ativo = filtroLimpo();
+    const quantos = Object.keys(ativo).length;
+    const f = contagem && contagem.filtro ? contagem.filtro : null;
+    const selo = el('[data-mc-cf-selo]');
+    selo.hidden = quantos === 0;
+    selo.textContent = String(quantos);
+    const m = f ? f.base : 0;
+    el('[data-mc-cf-curto]').textContent = !f ? '' : quantos ? f.atendem + ' de ' + m + ' com filtro' : 'Todos (' + m + ')';
+    el('[data-mc-cf-resultado]').textContent = !f ? '' : quantos
+      ? f.atendem + ' de ' + m + ' atendem ao filtro' + (f.semInformacao ? ' · ' + f.semInformacao + ' sem essa informação no cadastro (ficam de fora)' : '')
+      : 'Enviando para todos da lista (' + m + ')';
+    el('[data-mc-cf-limpar]').hidden = quantos === 0;
+    caixa.querySelectorAll('[data-mc-cf-campo]').forEach(c => { if (c.value !== (filtro[c.dataset.mcCfCampo] || '')) c.value = filtro[c.dataset.mcCfCampo] || ''; });
+    caixa.querySelectorAll('[data-mc-cf-atalho]').forEach(b => {
+      let o = {};
+      try { o = JSON.parse(b.dataset.mcCfAtalho) || {}; } catch (x) { o = {}; }
+      if (Array.isArray(o)) o = {};
+      b.setAttribute('aria-pressed', String(mesmoFiltro(o, ativo)));
+    });
+  }
+
+  function abrirFiltro() {
+    const painelDoFiltro = el('[data-mc-cf-painel]');
+    const aberto = painelDoFiltro.hidden;
+    painelDoFiltro.hidden = !aberto;
+    const botao = el('[data-mc-cf-abrir]');
+    botao.setAttribute('aria-expanded', String(aberto));
+    el('[data-mc-cf-seta]').className = 'bi ' + (aberto ? 'bi-chevron-up' : 'bi-chevron-down') + ' mc-cf-seta';
+  }
+
+  /* dc L664: o atalho troca o filtro inteiro (a busca também sai). */
+  function usarAtalho(botao) {
+    let o = {};
+    try { o = JSON.parse(botao.dataset.mcCfAtalho) || {}; } catch (x) { o = {}; }
+    filtro = Array.isArray(o) ? {} : Object.assign({}, o);
+    desenharFiltro();
+    contar();
+  }
+
+  /* dc 21.10 L656: "Programar envio" no botão quando há data; o relógio da linha de destinatários com a data e a
+     repetição. */
   function desenharFrequencia() {
     raiz.querySelectorAll('[data-mc-cp-freq]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mcCpFreq === frequencia)));
-    el('[data-mc-cp-agenda-rot]').textContent = frequencia !== 'unica' ? 'Primeiro envio' : 'Agendar';
+    const agenda = el('[data-mc-cp-agenda]').value;
+    el('[data-mc-cp-enviar-txt]').textContent = agenda ? 'Programar envio' : 'Enviar';
+    const quando = agenda ? new Date(agenda).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+    const repete = { semanal: 'semanal', quinzenal: 'quinzenal', mensal: 'mensal' }[frequencia] || '';
+    const texto = [quando, repete].filter(Boolean).join(' · ');
+    el('[data-mc-cp-ag]').hidden = texto === '';
+    el('[data-mc-cp-ag-txt]').textContent = texto;
+  }
+
+  function programar(abrir) {
+    const janela = el('[data-mc-cp-programar]');
+    janela.hidden = !abrir;
+    el('[data-mc-cp-mais]').setAttribute('aria-expanded', String(abrir));
+  }
+
+  /* dc 21.10 L499-501, L670: o e-mail como chega, no computador (100%) ou no celular (375 px), com o assunto, o
+     remetente real, o primeiro destinatário e o resumo de 110 caracteres. */
+  function verComoChega(aparelho) {
+    const janela = el('[data-mc-cp-ver-janela]');
+    if (!aparelho) { janela.hidden = true; return; }
+    const m = atual();
+    const nome = nomeDaPrevia || (contagem && contagem.exemplo && contagem.exemplo.nome ? String(contagem.exemplo.nome).split(' ')[0] : 'Dra. Ana');
+    const texto = String(m.corpo || ((m.blocos || []).find(b => b.t === 'texto') || {}).a || '');
+    el('[data-mc-cp-ver-assunto]').textContent = m.assunto || '';
+    el('[data-mc-cp-ver-para]').textContent = contagem && contagem.exemplo ? contagem.exemplo.email : 'destinatario@exemplo.com.br';
+    el('[data-mc-cp-ver-resumo]').textContent = texto.replace(/\{nome\}/g, nome).slice(0, 110);
+    el('[data-mc-cp-ver-quadro]').dataset.dev = aparelho;
+    raiz.querySelectorAll('[data-mc-cp-ver-dev]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mcCpVerDev === aparelho)));
+    const quadro = el('[data-mc-cp-ver-iframe]');
+    if (quadro.srcdoc !== ultimaPrevia) quadro.srcdoc = ultimaPrevia;
+    janela.hidden = false;
+  }
+
+  /* dc 21.10 L653: no modelo fixo, pede o nome e guarda a cópia em "Meus modelos" no mesmo modo. */
+  function salvarComoMeu() {
+    const m = atual();
+    const nome = window.prompt('Nome do seu modelo (o modelo padrão continua guardado):', (m.nome || 'Modelo') + ' (meu)');
+    if (!nome || !nome.trim()) return;
+    postar(ROTAS.urlCriar, { acao: 'salvar_como', modelo: pedido(), nome: nome.trim() }).then(aposSalvar).catch(e => avisar(e.message));
   }
 
   function pedidoDoPublico() {
-    return { publico, csv: publico === 'csv' ? csvTexto : '', individual: publico === 'indiv' ? individual : '' };
+    return { publico, csv: publico === 'csv' ? csvTexto : '', individual: publico === 'indiv' ? individual : '', filtro: filtroLimpo() };
   }
 
   function contar() {
@@ -161,10 +269,13 @@
       if (!chave) chave = novaChave();
       const botao = el('[data-mc-cp-enviar]');
       botao.disabled = true;
-      postar(ROTAS.urlCampanha, Object.assign(pedidoDoPublico(), { chave, modelo: pedido(), frequencia, agendar: agenda }))
+      // O que outras partes da Central acrescentam ao envio (ex.: a confirmação de leitura da F3g, do 0d).
+      const extras = (window.McCampanha.extrasDoEnvio || []).map(f => { try { return f() || {}; } catch (x) { return {}; } });
+      postar(ROTAS.urlCampanha, Object.assign(pedidoDoPublico(), ...extras, { chave, modelo: pedido(), frequencia, agendar: agenda }))
         .then(r => {
           chave = '';
           el('[data-mc-cp-agenda]').value = '';
+          desenharFrequencia();
           avisar(r.mensagem);
           document.dispatchEvent(new CustomEvent('mc:campanha-confirmada'));
         })
@@ -211,6 +322,7 @@
     const m = atual();
     raiz.querySelectorAll('[data-mc-cp-campo]').forEach(c => { c.value = m[c.dataset.mcCpCampo] || ''; });
     raiz.querySelectorAll('[data-mc-cp-so-proprio]').forEach(x => { x.hidden = !m.proprio; });
+    raiz.querySelectorAll('[data-mc-cp-so-fixo]').forEach(x => { x.hidden = !!m.proprio; });
     el('[data-mc-cp-simples]').hidden = m.modo !== 'simples';
     el('[data-mc-cp-blocos]').hidden = m.modo !== 'blocos';
     el('[data-mc-cp-html]').hidden = m.modo !== 'html';
@@ -234,8 +346,8 @@
     if (!base()) return Promise.resolve('');
     const numero = ++pedidoDaPrevia;
     const exemplo = contagem && contagem.exemplo ? { exemplo: contagem.exemplo } : {};
-    return postar(ROTAS.urlPrevia, Object.assign(pedido(), exemplo)).then(r => {
-      if (numero === pedidoDaPrevia) elPrevia.srcdoc = r.html;
+    return postar(ROTAS.urlPrevia, Object.assign(pedido(), exemplo, { nomeDaPrevia })).then(r => {
+      if (numero === pedidoDaPrevia) { elPrevia.srcdoc = r.html; ultimaPrevia = r.html; }
       return r.html;
     }).catch(e => { avisar(e.message); return ''; });
   }
@@ -308,6 +420,20 @@
     const botaoDaFrequencia = e.target.closest('[data-mc-cp-freq]');
     if (botaoDaFrequencia) { frequencia = botaoDaFrequencia.dataset.mcCpFreq; desenharFrequencia(); return; }
     if (e.target.closest('[data-mc-cp-enviar]')) { enviarCampanha(); return; }
+    if (e.target.closest('[data-mc-cf-abrir]')) { abrirFiltro(); return; }
+    if (e.target.closest('[data-mc-cp-descad]')) { document.dispatchEvent(new CustomEvent('mc:descadastrados-abrir')); return; }
+    const emoji = e.target.closest('[data-mc-cp-emoji]');
+    if (emoji) { inserirEmoji(emoji.dataset.mcCpEmoji); return; }
+    if (e.target.closest('[data-mc-cp-mais]')) { programar(el('[data-mc-cp-programar]').hidden); return; }
+    if (e.target.closest('[data-mc-cp-concluir]')) { programar(false); return; }
+    if (e.target.closest('[data-mc-cp-ver]')) { verComoChega('pc'); return; }
+    const aparelho = e.target.closest('[data-mc-cp-ver-dev]');
+    if (aparelho) { verComoChega(aparelho.dataset.mcCpVerDev); return; }
+    if (e.target.closest('[data-mc-cp-ver-fechar]')) { verComoChega(null); return; }
+    if (e.target.closest('[data-mc-cp-salvar-como]')) { salvarComoMeu(); return; }
+    const atalho = e.target.closest('[data-mc-cf-atalho]');
+    if (atalho) { usarAtalho(atalho); return; }
+    if (e.target.closest('[data-mc-cf-limpar]')) { filtro = {}; desenharFiltro(); contar(); return; }
     const bloco = e.target.closest('[data-mc-cp-bloco]');
     const i = bloco ? parseInt(bloco.dataset.mcCpBloco, 10) : -1;
     const mover = e.target.closest('[data-mc-cp-mover]');
@@ -332,8 +458,17 @@
 
   raiz.addEventListener('input', e => {
     const campo = e.target.closest('[data-mc-cp-campo]');
+    if (campo && campo.dataset.mcCpCampo === 'selo') {
+      // dc 21.10 L660: o selo em maiúsculas ao digitar.
+      const posicao = campo.selectionStart;
+      campo.value = campo.value.toUpperCase();
+      if (posicao !== null) campo.setSelectionRange(posicao, posicao);
+    }
     if (campo) { editar(campo.dataset.mcCpCampo, campo.value); return; }
+    if (e.target.closest('[data-mc-cp-nome-previa]')) { nomeDaPrevia = e.target.value.trim(); agendarPrevia(); return; }
     if (e.target.closest('[data-mc-cp-individual]')) { individual = e.target.value; agendarContagem(); return; }
+    const campoDoFiltro = e.target.closest('input[data-mc-cf-campo]');
+    if (campoDoFiltro) { filtro[campoDoFiltro.dataset.mcCfCampo] = campoDoFiltro.value; agendarContagem(); return; }
     const lado = e.target.closest('[data-mc-cp-lado]');
     const bloco = e.target.closest('[data-mc-cp-bloco]');
     if (lado && bloco) {
@@ -347,6 +482,9 @@
   });
 
   raiz.addEventListener('change', e => {
+    if (e.target.closest('[data-mc-cp-agenda]')) { desenharFrequencia(); return; }
+    const selectDoFiltro = e.target.closest('select[data-mc-cf-campo]');
+    if (selectDoFiltro) { filtro[selectDoFiltro.dataset.mcCfCampo] = selectDoFiltro.value; desenharFiltro(); contar(); return; }
     const csv = e.target.closest('[data-mc-cp-csv-arquivo]');
     if (csv) {
       if (csv.files && csv.files[0]) lerCsv(csv.files[0]);
@@ -357,6 +495,30 @@
     if (!entrada || !entrada.files || !entrada.files[0]) return;
     importar(entrada.files[0]);
     entrada.value = '';
+  });
+
+  /* O N do botão "Descadastrados (N)" vem do resumo da F3c (0d). */
+  document.addEventListener('mc:resumo', e => {
+    const n = el('[data-mc-cp-descad-n]');
+    if (n && e.detail && Number.isFinite(e.detail.descadastrados)) n.textContent = String(e.detail.descadastrados);
+  });
+  /* dc 21.10 L293: um fundo de tela inteira fecha o PROGRAMAR ENVIO; aqui, o clique fora dele e do botão da seta. */
+  document.addEventListener('click', e => {
+    const janela = el('[data-mc-cp-programar]');
+    if (janela.hidden || janela.contains(e.target) || e.target.closest('[data-mc-cp-mais]')) return;
+    programar(false);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (!el('[data-mc-cp-ver-janela]').hidden) verComoChega(null);
+    if (!el('[data-mc-cp-programar]').hidden) programar(false);
+  });
+  /* Para as outras partes da Central: o modal de teste da F3f (7d) lê o modelo que o editor mostra, no formato que o POST
+     de teste recebe; a F3g (0d) registra o que vai junto no envio. */
+  window.McCampanha = Object.assign(window.McCampanha || {}, {
+    modeloAtual: () => pedido(),
+    // F3g (0d): funções que devolvem um objeto para mesclar no corpo do "Enviar campanha".
+    extrasDoEnvio: (window.McCampanha && window.McCampanha.extrasDoEnvio) || [],
   });
 
   desenharNovos();

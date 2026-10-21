@@ -41,8 +41,10 @@ final class CardDetalheOutput
 
     /**
      * @param MarcadorOutput[] $marcadoresDisponiveis
+     * @param list<int>|null   $atribuiveisIds        quem pode ser responsável (ColaboradoresAtribuiveis); null = todos
+     *                                                os participantes do mural
      */
-    public static function fromEntity(KanbanCard $card, User $usuarioAtual, array $marcadoresDisponiveis = []): self
+    public static function fromEntity(KanbanCard $card, User $usuarioAtual, array $marcadoresDisponiveis = [], ?array $atribuiveisIds = null): self
     {
         $coluna = $card->getColuna();
         $board  = $card->getBoard();
@@ -53,6 +55,9 @@ final class CardDetalheOutput
         }
         if (!$board->getParticipantes()->contains($board->getCriadoPor())) {
             array_unshift($participantes, UsuarioOutput::fromEntity($board->getCriadoPor()));
+        }
+        if ($atribuiveisIds !== null) {
+            $participantes = array_values(array_filter($participantes, static fn (UsuarioOutput $p): bool => in_array($p->id, $atribuiveisIds, true)));
         }
 
         return new self(

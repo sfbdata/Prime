@@ -270,6 +270,41 @@ final class DescadastroDeEmailContratoTest extends KernelTestCase
         self::assertSame(0, $this->descadastro->listar(null, 'maria', 1, 10)->total, 'a plataforma não vê o escritório');
     }
 
+    #[TestDox('listar com assuntos: só os assuntos pedidos (a lista do Comercial); vazio = todos; assunto fora do padrão recusa')]
+    public function testListarPorAssuntos(): void
+    {
+        $tenant = $this->tenant();
+        $this->descadastro->descadastrar($tenant, 'ana@exemplo.com', 'comercial_campanhas', 'link_do_email');
+        $this->descadastro->descadastrar($tenant, 'bia@exemplo.com', DescadastroDeEmailInterface::ASSUNTO_TODOS, 'one_click');
+        $this->descadastro->descadastrar($tenant, 'caio@exemplo.com', 'campanha_vagas', 'one_click');
+
+        $lista = $this->descadastro->listar($tenant, null, 1, 10, ['comercial_campanhas', DescadastroDeEmailInterface::ASSUNTO_TODOS]);
+        self::assertSame(2, $lista->total);
+        self::assertSame(['bia@exemplo.com', 'ana@exemplo.com'], array_map(static fn ($i): string => $i->email, $lista->itens));
+        self::assertSame(3, $this->descadastro->listar($tenant, null, 1, 10, [])->total);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->descadastro->listar($tenant, null, 1, 10, ['Assunto Errado']);
+    }
+
+    #[TestDox('filtrarDescadastrados: a regra do estaDescadastrado em lote (assunto, todos, exceção depois do todos), normalizando e sem repetir')]
+    public function testFiltrarDescadastrados(): void
+    {
+        $tenant = $this->tenant();
+        $this->descadastro->descadastrar($tenant, 'ana@exemplo.com', 'comercial_campanhas', 'link_do_email');
+        $this->descadastro->descadastrar($tenant, 'bia@exemplo.com', DescadastroDeEmailInterface::ASSUNTO_TODOS, 'one_click');
+        $this->descadastro->descadastrar($tenant, 'caio@exemplo.com', DescadastroDeEmailInterface::ASSUNTO_TODOS, 'one_click');
+        $this->descadastro->reativar($tenant, 'caio@exemplo.com', 'comercial_campanhas', 'double_opt_in');
+        $this->descadastro->descadastrar($tenant, 'davi@exemplo.com', 'campanha_vagas', 'one_click');
+        $this->descadastro->descadastrar(null, 'eva@exemplo.com', 'comercial_campanhas', 'one_click');
+
+        $fora = $this->descadastro->filtrarDescadastrados($tenant, [' ANA@exemplo.com ', 'bia@exemplo.com', 'caio@exemplo.com', 'davi@exemplo.com', 'eva@exemplo.com', 'ana@exemplo.com', ''], 'comercial_campanhas');
+        sort($fora);
+
+        self::assertSame(['ana@exemplo.com', 'bia@exemplo.com'], $fora, 'caio tem exceção depois do todos; davi é de outro assunto; eva é de outro escopo');
+        self::assertSame([], $this->descadastro->filtrarDescadastrados($tenant, [], 'comercial_campanhas'));
+    }
+
     #[TestDox('Assunto e origem fora de [a-z_]{3,40} e e-mail inválido: InvalidArgumentException')]
     public function testValidacao(): void
     {

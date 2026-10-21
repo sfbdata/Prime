@@ -9,6 +9,7 @@ use App\Comercial\Envio\CarteiroInterface;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\DTO\DestinatarioDaCampanha;
+use App\Comercial\DTO\FiltroDoPublico;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\DestinoDaCampanhaRepository;
 use App\Comercial\Repository\EnvioDeEmailRepository;
@@ -36,6 +37,16 @@ final class ExpansorDeCampanhas
     public const LOTE = 10;
     public const TOLERANCIA_DO_ATRASO = '-24 hours';
     public const MOTIVO_DO_ATRASO = 'Acordou com mais de 24 h de atraso; nada foi enviado';
+    /** O filtro congelado (§9) não passa mais na validação: tirar o filtro alargaria o público, então a campanha para. */
+    public const MOTIVO_DO_FILTRO = 'O filtro guardado na campanha não vale mais; nada foi enviado';
+
+    /**
+     * A confirmação de leitura escolhida em cada campanha (F3g), lida com a mensagem: o envio só rastreia com ela e com
+     * as duas chaves globais (o MontadorDeEmail confere as chaves).
+     *
+     * @var array<int, bool>
+     */
+    private array $rastrearLeitura = [];
 
     public function __construct(
         private readonly CampanhaDeEmailRepository $campanhas,
@@ -157,12 +168,21 @@ final class ExpansorDeCampanhas
      */
     private function executar(array $campanha, \DateTimeImmutable $agora, ?\DateTimeImmutable $seguinte): void
     {
-        $this->campanhas->emTransacao(function () use ($campanha, $agora, $seguinte): void {
+        try {
+            $filtro = FiltroDoPublico::deArray($campanha['publico_filtro']);
+        } catch (CampanhaRecusada) {
+            $this->campanhas->cancelar($campanha['id'], $campanha['estado'], self::MOTIVO_DO_FILTRO);
+            $this->logger->warning('Comercial: campanha cancelada, filtro guardado inválido.', ['campanhaId' => $campanha['id']]);
+
+            return;
+        }
+        $this->campanhas->emTransacao(function () use ($campanha, $agora, $seguinte, $filtro): void {
             if ($this->campanhas->travarDevida($campanha['id'], $campanha['estado'], $campanha['execucoes']) === null) {
                 return;
             }
             $informados = array_map(static fn (array $d): DestinatarioDaCampanha => new DestinatarioDaCampanha($d['email'], $d['nome']), $campanha['publico_parametros']);
-            $publico = $this->publicos->resolver($campanha['publico'], $informados);
+            // O filtro congelado (§9) volta a valer, com a data desta execução (idade e aniversário).
+            $publico = $this->publicos->resolver($campanha['publico'], $informados, $filtro, $agora);
             $execucao = $campanha['execucoes'] + 1;
             $this->destinos->materializar($campanha['id'], $execucao, $publico->destinatarios, $agora);
             $recorrente = $campanha['estado'] === CampanhaDeEmail::RECORRENTE;
@@ -211,6 +231,7 @@ final class ExpansorDeCampanhas
         $id = $destino['campanha_id'];
         if (!\array_key_exists($id, $mensagens)) {
             $campanha = $this->campanhas->porId($id);
+            $this->rastrearLeitura[$id] = $campanha['rastrear_leitura'] ?? false;
             try {
                 $mensagens[$id] = $campanha === null ? null : $this->composicao->descongelar($campanha);
             } catch (CampanhaRecusada) {
@@ -218,7 +239,7 @@ final class ExpansorDeCampanhas
             }
         }
         try {
-            return $mensagens[$id] === null ? null : $this->composicao->mensagemPara($mensagens[$id], $destino['email'], $destino['nome'], 'campanha:' . $id, true, $this->politica->replyToDaCampanha());
+            return $mensagens[$id] === null ? null : $this->composicao->mensagemPara($mensagens[$id], $destino['email'], $destino['nome'], 'campanha:' . $id, $this->rastrearLeitura[$id] ?? false, $this->politica->replyToDaCampanha());
         } catch (CampanhaRecusada | \InvalidArgumentException) {
             $this->logger->error('Comercial: destinatário de campanha descartado (não vira e-mail).', ['campanhaId' => $id, 'destinoId' => $destino['id']]);
 

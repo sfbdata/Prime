@@ -19,7 +19,7 @@ use App\Processo\Entity\Processo;
  * movimentações (Datajud) dos processos vinculados, mais recente primeiro, texto plano, PII
  * mascarada (se o escritório não desligou) e truncado a um orçamento.
  *
- * REGRA (D4): processo com `nivelSigilo > 0` → {@see ContextoBloqueadoException}, antes de qualquer
+ * REGRA (D4): processo em segredo (`nivelSigilo > 0` ou "Sim" manual; `Processo::emSegredoDeJustica`) → {@see ContextoBloqueadoException}, antes de qualquer
  * leitura. Nunca sai.
  *
  * Tenant explícito em tudo: roda no worker. Um processo da pasta que não seja deste tenant (não
@@ -190,7 +190,7 @@ final class MontadorDeContextoDoPush
                 continue;
             }
 
-            if (($processo->getNivelSigilo() ?? 0) > 0) {
+            if ($processo->emSegredoDeJustica()) { // tribunal OU "Sim" manual do cartão (P5b)
                 throw new ContextoBloqueadoException($processo->getNumeroProcesso());
             }
 

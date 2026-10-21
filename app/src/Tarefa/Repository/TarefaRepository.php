@@ -10,6 +10,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Processo\Entity\Processo;
+use App\Tarefa\DTO\AndamentoDasMetasOutput;
 use App\Tarefa\DTO\PessoaNoTrilhoOutput;
 use App\Tarefa\Enum\AbaMetas;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -142,6 +143,94 @@ class TarefaRepository extends ServiceEntityRepository
             }, $pastasOcultas),
             'aguardando_revisao' => $this->contarAguardandoRevisao($usuario, $pastasOcultas),
         ];
+    }
+
+    /**
+     * Números do "Seu andamento" (desenho 04, dc L112-118): sobre TODAS as metas da pessoa, sem a aba
+     * aberta e sem os filtros da tela. Uma consulta só, agregada.
+     *
+     * Mesmo universo da aba Todas: concluídas só dos últimos 30 dias (o "últimos 30 dias" do cartão)
+     * e sem as pastas do cadeado. Atrasada pelo mesmo recorte dos KPIs (`FORA_DA_FILA`, prazo antes de
+     * hoje), e "hoje" vem do relógio do PHP, como no resto da tela, nunca do `NOW()` do banco.
+     *
+     * @param list<int> $pastasOcultas
+     */
+    public function contarAndamento(User $usuario, array $pastasOcultas = []): AndamentoDasMetasOutput
+    {
+        $qb = $this->universoDoAndamento($usuario, $pastasOcultas)
+            ->select('COUNT(t.id) AS total')
+            ->addSelect('COALESCE(SUM(CASE WHEN t.status = :concluida THEN 1 ELSE 0 END), 0) AS concluidas')
+            ->addSelect('COALESCE(SUM(CASE WHEN t.status = :emRevisao THEN 1 ELSE 0 END), 0) AS emRevisao')
+            ->addSelect('COALESCE(SUM(CASE WHEN t.status NOT IN (:foraDaFila) AND t.prazo IS NOT NULL AND t.prazo < :hoje THEN 1 ELSE 0 END), 0) AS atrasadas')
+            ->setParameter('emRevisao', Tarefa::STATUS_EM_REVISAO)
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
+            ->setParameter('hoje', new \DateTimeImmutable('today'));
+
+        $linha = $qb->getQuery()->getSingleResult();
+
+        return new AndamentoDasMetasOutput(
+            concluidas: (int) $linha['concluidas'],
+            total: (int) $linha['total'],
+            atrasadas: (int) $linha['atrasadas'],
+            emRevisao: (int) $linha['emRevisao'],
+        );
+    }
+
+    /**
+     * "Precisa de atenção" (desenho 04, dc `atencao`): as atrasadas de TODAS as metas da pessoa, da
+     * que venceu primeiro, até `$limite`. Mesmo universo e mesmo recorte de `contarAndamento`.
+     *
+     * Duas idas ao banco, nenhuma por linha: os ids com o limite (o LIMIT não convive com junção de
+     * coleção) e depois as metas com pasta e criador já carregados, que o cartão lê.
+     *
+     * @param list<int> $pastasOcultas
+     * @return Tarefa[]
+     */
+    public function findAtrasadasParaAtencao(User $usuario, int $limite, array $pastasOcultas = []): array
+    {
+        $ids = $this->universoDoAndamento($usuario, $pastasOcultas)
+            ->select('t.id')
+            ->andWhere('t.status NOT IN (:foraDaFila)')
+            ->andWhere('t.prazo IS NOT NULL AND t.prazo < :hoje')
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
+            ->setParameter('hoje', new \DateTimeImmutable('today'))
+            ->orderBy('t.prazo', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('t')
+            ->addSelect('p', 'c')
+            ->leftJoin('t.pasta', 'p')
+            ->leftJoin('t.criadoPor', 'c')
+            ->andWhere('t.id IN (:ids)')
+            ->setParameter('ids', $ids)
+            ->orderBy('t.prazo', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Base de `contarAndamento` e `findAtrasadasParaAtencao`: a aba Todas, sem cadeado e sem as
+     * concluídas antigas. Sem filtro da tela de propósito.
+     *
+     * @param list<int> $pastasOcultas
+     */
+    private function universoDoAndamento(User $usuario, array $pastasOcultas): QueryBuilder
+    {
+        $qb = $this->createQueryBuilder('t')->setParameter('usuario', $usuario);
+
+        $this->escoparPelaAba($qb, AbaMetas::TODAS);
+        $this->semPastasOcultas($qb, $pastasOcultas);
+        $this->cortarConcluidasAntigas($qb);
+
+        return $qb;
     }
 
     /**
@@ -702,6 +791,37 @@ class TarefaRepository extends ServiceEntityRepository
         }
 
         return $counts;
+    }
+
+    /**
+     * Metas abertas da pessoa com prazo no dia (resumo diário por e-mail, spec docs/specs/resumo-diario-por-email.md):
+     * os mesmos critérios dos números acima (pasta do escritório e fora da lixeira, fora da fila em revisão ou
+     * concluída) e o cadeado. Tenant explícito: no comando de console o TenantFilter não vale.
+     *
+     * @param list<int> $pastasOcultas
+     *
+     * @return list<Tarefa>
+     */
+    public function abertasDoResponsavelNoDia(Tenant $tenant, User $responsavel, \DateTimeImmutable $dia, array $pastasOcultas = []): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->addSelect('p')
+            ->join('t.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('t.status NOT IN (:foraDaFila)')
+            ->andWhere(':responsavel MEMBER OF t.responsaveis')
+            ->andWhere('t.prazo >= :de AND t.prazo < :ate')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
+            ->setParameter('responsavel', $responsavel)
+            ->setParameter('de', RegraDoPrazo::inicioDoDia($dia))
+            ->setParameter('ate', RegraDoPrazo::inicioDoDia($dia)->modify('+1 day'))
+            ->orderBy('t.prazo', 'ASC')
+            ->addOrderBy('t.id', 'ASC');
+        $this->semPastasOcultas($qb, $pastasOcultas);
+
+        return $qb->getQuery()->getResult();
     }
 
     /**

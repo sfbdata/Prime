@@ -1,0 +1,74 @@
+{# ============================================================================
+   UM comando (aba Análise), relatório (aba Relatórios) ou o "Índice
+   inteligente" (aba Documentos) do drawer BlueJus IA (spec
+   inteligencia-drawer-da-pasta, F1/F2/F4): o mesmo ciclo dos cartões de
+   agente de antes. Botão "Gerar análise" (no relatório, "Gerar <nome>", como o
+   desenho, dc L5970) habilitado só com a IA disponível (senão o motivo REAL,
+   desabilitado); "Analisando…" com análise em andamento; a lista das análises
+   (`_analises_comando.html.twig`).
+
+   O Índice (F4) não tem cabeçalho nem cartão próprio (o desenho põe o botão
+   direto na aba, `ia.indiceSt`, o botão secundário): "Índice inteligente" na
+   largura toda, nasce desabilitado (nenhum documento marcado) e o JS o libera
+   quando há seleção (`data-ia-exige-selecao`).
+
+   Só a seção escolhida aparece (o desenho mostra um resultado por vez); o
+   `pasta-ia-agentes.js` troca a escolhida pelo botão do comando na grade.
+
+   Contexto: `comando` (App\Inteligencia\Enum\Comando), `saida`
+   (App\Inteligencia\DTO\AnalisesDoComandoOutput ou null), `pastaId` (int),
+   `ia` (enum Disponibilidade), `escolhido` (bool).
+   ============================================================================ #}
+{% set emAndamento = saida is not null and saida.temEmAndamento %}
+{% set temConcluida = saida is not null and saida.ultimaConcluida is not null %}
+{% set agente = comando.agente %}
+{% set le = agente.secoes|map(s => s.rotuloCurto)|join(', ') %}
+{% set ehIndice = comando.ehDaAbaDocumentos %}
+{% set rotuloGerar = ehIndice ? comando.rotulo : (comando.ehRelatorio ? comando.rotuloDoBotao : 'Gerar análise') %}
+{% set rotuloDeNovo = ehIndice ? comando.rotulo : (comando.ehRelatorio ? comando.rotuloDoBotao : 'Gerar nova análise') %}
+{% set iconeDoBotao = ehIndice ? comando.icone : (comando.ehRelatorio ? 'bi-file-earmark-text' : 'bi-stars') %}
+<section class="ia-comando{{ ehIndice ? ' ia-comando--indice' : '' }}" id="ia-comando-{{ comando.value }}" data-ia-comando="{{ comando.value }}"
+         aria-label="{{ comando.rotulo }}"{{ escolhido ? '' : ' hidden' }}>
+    {% if not comando.ehRelatorio and not ehIndice %}
+        <header class="ia-agente-cab">
+            <span class="ia-agente-ico" aria-hidden="true"><i class="bi {{ comando.icone }}"></i></span>
+            <div class="ia-agente-txt">
+                <h3 class="ia-agente-nome">{{ comando.rotulo }}</h3>
+            </div>
+        </header>
+    {% endif %}
+    {# Transparência: é isto que sai do escritório quando se clica. #}
+    <p class="ia-agente-le"><i class="bi bi-eye" aria-hidden="true"></i>{{ agente.nome }}. Lê: dados da pasta, processos, {{ le }}.</p>
+    {% if ia.estaDisponivel %}
+        <button type="button"
+                class="ia-cta{{ ehIndice ? ' ia-cta--secundario' : '' }}{{ emAndamento ? ' is-carregando' : '' }}"
+                data-ia-gerar
+                {{ ehIndice ? 'data-ia-exige-selecao' : '' }}
+                data-ia-disponivel="1"
+                data-ia-rotulo="{{ rotuloGerar }}"
+                data-ia-rotulo-de-novo="{{ rotuloDeNovo }}"
+                data-ia-url="{{ path('inteligencia_comando_solicitar', {id: pastaId, comando: comando.value}) }}"
+                title="{{ emAndamento ? 'Análise em andamento' : (ehIndice ? 'Marque os documentos do índice' : (temConcluida ? 'Nova análise considerando o histórico' : 'O ' ~ agente.nome ~ ' lê os dados desta pasta e responde')) }}"
+                {{ emAndamento or ehIndice ? 'disabled' : '' }}>
+            <i class="bi {{ iconeDoBotao }}" aria-hidden="true"></i>
+            <span class="ia-cta-rotulo">{{ emAndamento ? 'Analisando…' : (temConcluida ? rotuloDeNovo : rotuloGerar) }}</span>
+        </button>
+    {% else %}
+        {# Nunca um botão que finge funcionar: o motivo REAL da Disponibilidade. #}
+        <button type="button" class="ia-cta ia-cta--indisponivel"
+                data-ia-gerar data-ia-disponivel="0" data-ia-motivo="{{ ia.value }}"
+                title="{{ ia.mensagem }}" disabled aria-disabled="true">
+            <i class="bi {{ iconeDoBotao }}" aria-hidden="true"></i>
+            <span class="ia-cta-rotulo">{{ ia.mensagem }}</span>
+        </button>
+    {% endif %}
+    {% if saida is not null %}
+        {{ include('inteligencia/_analises_comando.html.twig', {saida: saida, pastaId: pastaId}, with_context = false) }}
+    {% else %}
+        <div class="ia-ag-lista" data-ia-lista="{{ comando.value }}"
+             data-ia-url="{{ path('inteligencia_comando_listar', {id: pastaId, comando: comando.value}) }}"
+             data-ia-em-andamento="0" data-ia-tem-concluida="0">
+            <p class="ia-ag-vazio" data-ia-carregando>Carregando as análises…</p>
+        </div>
+    {% endif %}
+</section>

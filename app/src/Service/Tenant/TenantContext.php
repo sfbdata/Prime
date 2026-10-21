@@ -6,6 +6,7 @@ namespace App\Service\Tenant;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Exception\SessionNotFoundException;
@@ -20,6 +21,7 @@ final class TenantContext
         private readonly RequestStack $requestStack,
         private readonly Security $security,
         private readonly EntityManagerInterface $em,
+        private readonly BloqueioPorPedidoDeExclusao $bloqueioPorPedido,
     ) {}
 
     public function getCurrentTenant(): ?Tenant
@@ -64,6 +66,10 @@ final class TenantContext
 
         if ($userTenant === null || !$userTenant->isActive() || $userTenant->getTenant()->isActive() !== true) {
             throw new AccessDeniedException('Sem vínculo ativo com este escritório.');
+        }
+        // "Suspensa a pedido" (PR 5): só o primário entra. Fecha a seleção por POST e o EscritorioController.
+        if ($this->bloqueioPorPedido->bloqueia($userTenant)) {
+            throw new AccessDeniedException(BloqueioPorPedidoDeExclusao::MENSAGEM);
         }
 
         $this->requestStack->getSession()->set(self::SESSION_KEY, $tenantId);

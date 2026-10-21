@@ -215,7 +215,7 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
 
         // EDT-003 (dc L.6466) + C6-EDT-04 (dc L.5958): "Imprimir" fecha os extras — logo depois de
         // "Criar meta…" e antes do separador de Editar/Excluir —, com autor · data · tipo para a
-        // linha da folha ("Atendimento" é o tipo do relatório de Detalhes no desenho).
+        // linha da folha (o tipo é a tag fixa "Observação" do desenho 02, dc L6874).
         $imprimir = $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-criar-meta + .js-obs-enviar-chat + button.js-obs-imprimir[role="menuitem"]');
         self::assertCount(1, $imprimir, '"Imprimir" vem depois de "Criar meta…" e "Enviar no Chat I.A" (dc L.6872)');
         self::assertCount(1, $menu->filter('#psObsMenu' . $obs->getId() . ' > .js-obs-imprimir + .ps-processo-menu-sep[role="separator"]'), 'e logo antes do separador');
@@ -223,7 +223,7 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $imprimir->filter('i.bi.bi-printer'));
         self::assertSame($user->getFullName(), $imprimir->attr('data-autor'));
         self::assertSame($obs->getCriadaEm()->format('d/m/Y, H:i'), $imprimir->attr('data-quando'));
-        self::assertSame('Atendimento', $imprimir->attr('data-tipo'));
+        self::assertSame('Observação', $imprimir->attr('data-tipo'));
     }
 
     #[TestDox('N7: o cartão montado em JS (observação recém-enviada) tem o MESMO ⋮ que o Twig')]
@@ -264,7 +264,7 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         self::assertNotFalse($imprimir, 'o cartão do JS não tem "Imprimir"');
         self::assertLessThan($imprimir, $citar);
         self::assertStringContainsString('<i class="bi bi-printer"></i><span>Imprimir</span>', $montador);
-        foreach (['data-autor="${esc(', 'data-quando="${esc(', 'data-tipo="Atendimento"'] as $atributo) {
+        foreach (['data-autor="${esc(', 'data-quando="${esc(', 'data-tipo="Observação"'] as $atributo) {
             self::assertStringContainsString($atributo, $montador);
         }
     }

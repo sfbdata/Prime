@@ -21,7 +21,7 @@ final class ContarPublicosUseCase
 
     public function executar(PedidoDePublico $pedido): ContagemDosPublicos
     {
-        $resolvido = $this->publicos->resolver($pedido->publico, $pedido->informados);
+        $resolvido = $this->publicos->resolver($pedido->publico, $pedido->informados, $pedido->filtro);
 
         return new ContagemDosPublicos(
             $this->publicos->tamanhos($pedido->publico, $pedido->informados),
@@ -29,6 +29,11 @@ final class ContarPublicosUseCase
             $resolvido->descadastrados,
             $resolvido->semAutorizacao,
             $resolvido->primeiro(),
+            $pedido->filtro->quantos(),
+            $resolvido->base(),
+            $resolvido->semInformacao,
+            $resolvido->repetidos,
+            $resolvido->invalidos,
         );
     }
 }

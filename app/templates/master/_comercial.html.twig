@@ -16,6 +16,7 @@
      data-url-simular="{{ path('master_comercial_simular') }}"
      data-url-previa="{{ path('master_comercial_previa', {chave: 'xchavex'}) }}"
      data-token="{{ csrf_token('master_comercial') }}">
+    {{ include('master/_comercial_descadastrados.html.twig') }}
     {# Nova campanha de e-mail (dc L.229-260). Os textos e a ordem são do dc; o JS desenha a grade e os blocos. #}
     <section class="mc-caixa mc-cp" data-mc-campanha aria-labelledby="mc-cp-titulo"
              data-url-modelos="{{ path('master_comercial_modelos') }}"
@@ -28,7 +29,9 @@
              data-url-campanha="{{ path('master_comercial_campanha_confirmar') }}">
         <div class="mc-cabeca mc-cp-cabeca">
             <i class="bi bi-megaphone mc-cp-cabeca-ic" aria-hidden="true"></i>
-            <b class="mc-cabeca-titulo" id="mc-cp-titulo">Nova campanha de e-mail</b>
+            <b class="mc-cabeca-titulo" id="mc-cp-titulo">Central de envios · nova campanha</b>
+            {# dc 21.10 L251: abre o bloco Descadastrados (F3c, do 0d) pelo evento `mc:descadastrados-abrir`; o N vem do `mc:resumo`. #}
+            <button type="button" class="mc-cp-descad" data-mc-cp-descad title="E-mails que pediram para não receber"><i class="bi bi-slash-circle" aria-hidden="true"></i>Descadastrados (<span data-mc-cp-descad-n>0</span>)</button>
             <span class="mc-cabeca-sub">convites, ofertas, agradecimentos e novidades · individual ou em grande escala</span>
         </div>
         <div class="mc-cp-grade">
@@ -39,6 +42,8 @@
                     <button type="button" class="mc-cp-acao" data-mc-cp-novo><i class="bi bi-plus-lg" aria-hidden="true"></i>Novo modelo</button>
                     <button type="button" class="mc-cp-acao" data-mc-cp-duplicar><i class="bi bi-copy" aria-hidden="true"></i>Duplicar</button>
                     <label class="mc-cp-acao"><i class="bi bi-upload" aria-hidden="true"></i>Importar HTML<input type="file" accept=".html,.htm" class="mc-cp-arquivo" data-mc-cp-importar></label>
+                    {# dc 21.10 L256/L653: no fixo, "Salvar como meu modelo" (pede o nome; o fixo continua guardado); no próprio, "Salvar modelo". #}
+                    <button type="button" class="mc-cp-acao mc-cp-acao-salvar" data-mc-cp-salvar-como data-mc-cp-so-fixo><i class="bi bi-check2" aria-hidden="true"></i>Salvar como meu modelo</button>
                     <button type="button" class="mc-cp-acao mc-cp-acao-salvar" data-mc-cp-salvar data-mc-cp-so-proprio hidden><i class="bi bi-check2" aria-hidden="true"></i>Salvar modelo</button>
                     <button type="button" class="mc-cp-acao mc-cp-acao-excluir" data-mc-cp-excluir data-mc-cp-so-proprio hidden><i class="bi bi-trash" aria-hidden="true"></i>Excluir</button>
                 </div>
@@ -57,14 +62,67 @@
                         <button type="button" class="mc-cp-publico" data-mc-cp-publico="{{ p[0] }}" aria-pressed="{{ loop.first ? 'true' : 'false' }}"><i class="bi {{ p[2] }}" aria-hidden="true"></i><span class="mc-cp-publico-texto"><span class="mc-cp-publico-rot">{{ p[1] }}</span><span class="mc-cp-publico-desc">{{ p[3] }}</span></span><b class="mc-cp-publico-n" data-mc-cp-n></b></button>
                     {% endfor %}
                 </div>
+                {# Filtrar destinatários (desenho 05 VS 21.10.26, L260-264; spec §9): fechado, mostra o selo com quantos
+                   campos estão preenchidos e "N de M com filtro" ou "Todos (M)"; aberto, a busca, os atalhos (L664), os
+                   selects e a linha "N de M atendem ao filtro". Quem conta é o servidor (F2). #}
+                <div class="mc-cf" data-mc-cf>
+                    <button type="button" class="mc-cf-cabeca" data-mc-cf-abrir aria-expanded="false" aria-controls="mc-cf-painel">
+                        <i class="bi bi-funnel" aria-hidden="true"></i><b class="mc-cf-titulo">FILTRAR DESTINATÁRIOS</b>
+                        <span class="mc-cf-selo" data-mc-cf-selo hidden></span>
+                        <span class="mc-cf-espaco"></span>
+                        <span class="mc-cf-curto" data-mc-cf-curto></span>
+                        <i class="bi bi-chevron-down mc-cf-seta" data-mc-cf-seta aria-hidden="true"></i>
+                    </button>
+                    <div class="mc-cf-painel" id="mc-cf-painel" data-mc-cf-painel hidden>
+                        <label class="mc-cf-busca"><i class="bi bi-envelope" aria-hidden="true"></i><input type="text" data-mc-cf-campo="q" maxlength="500" placeholder="E-mail ou nome específico (separe vários por vírgula)" aria-label="E-mail ou nome específico"></label>
+                        <div class="mc-cf-atalhos" data-mc-cf-atalhos>
+                            {% for a in [
+                                ['Todos', {}], ['Só mulheres', {gen: 'F'}], ['Só homens', {gen: 'M'}], ['Advogados', {cargo: 'adv'}],
+                                ['Estagiários', {cargo: 'est'}], ['Primários', {papel: 'prim'}], ['Aniversariantes do mês', {aniv: 'mes'}],
+                            ] %}
+                                <button type="button" class="mc-cf-atalho" data-mc-cf-atalho="{{ a[1]|json_encode|e('html_attr') }}" aria-pressed="false">{{ a[0] }}</button>
+                            {% endfor %}
+                        </div>
+                        <div class="mc-cf-selects">
+                            {% set selects = [
+                                ['gen', 'Gênero: todos', [['F', 'Feminino'], ['M', 'Masculino']]],
+                                ['id', 'Idade: todas', [['a', '18 a 24'], ['b', '25 a 34'], ['c', '35 a 44'], ['d', '45 a 54'], ['e', '55 ou mais']]],
+                                ['uf', 'Estado: todos', comercial_ufs_do_filtro()|map(u => [u, u])],
+                                ['papel', 'Perfil: todos', [['prim', 'Usuário primário'], ['sec', 'Usuário secundário']]],
+                                ['cargo', 'Cargo: todos', [['adv', 'Advogado(a)'], ['est', 'Estagiário(a)'], ['ctl', 'Controladoria'], ['fin', 'Financeiro'], ['adm', 'Administrativo / assistente'], ['out', 'Outros']]],
+                                ['oab', 'OAB: todas', [['conf', 'OAB confirmada'], ['pend', 'OAB pendente'], ['sem', 'Sem OAB']]],
+                                ['plano', 'Plano: todos', comercial_planos_do_filtro()|map(p => [p.codigo, p.nome])],
+                                ['aniv', 'Aniversário: todos', [['mes', 'Aniversariantes deste mês'], ['prox', 'Aniversariantes do próximo mês']]],
+                            ] %}
+                            {% for s in selects %}
+                                <select class="mc-cf-select" data-mc-cf-campo="{{ s[0] }}" aria-label="{{ s[1]|split(':')|first }}">
+                                    <option value="">{{ s[1] }}</option>
+                                    {% for o in s[2] %}<option value="{{ o[0] }}">{{ o[1] }}</option>{% endfor %}
+                                </select>
+                            {% endfor %}
+                        </div>
+                        <div class="mc-cf-resultado"><i class="bi bi-people" aria-hidden="true"></i><span data-mc-cf-resultado></span><button type="button" class="mc-cf-limpar" data-mc-cf-limpar hidden>Limpar filtro</button></div>
+                    </div>
+                </div>
                 <label class="mc-cp-csv" data-mc-cp-csv hidden><i class="bi bi-upload" aria-hidden="true"></i><span class="mc-cp-csv-txt" data-mc-cp-csv-txt>Selecionar arquivo .csv</span><input type="file" accept=".csv,.txt" class="mc-cp-arquivo" data-mc-cp-csv-arquivo></label>
                 <textarea class="mc-cp-individual" rows="2" placeholder="E-mails separados por vírgula" aria-label="E-mails separados por vírgula" data-mc-cp-individual hidden></textarea>
                 <div class="mc-cp-passo mc-cp-passo-seguinte">3 · MENSAGEM</div>
                 <label class="mc-cp-campo">ASSUNTO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="assunto" maxlength="255"></label>
+                {# dc 21.10 L270: o selo acima do título (em maiúsculas ao digitar) e o nome só da prévia. #}
+                <div class="mc-cp-par">
+                    <label class="mc-cp-campo">SELO (ACIMA DO TÍTULO)<input type="text" class="mc-cp-entrada" data-mc-cp-campo="selo" maxlength="120" placeholder="Ex.: CONVITE · BLUEJUS"></label>
+                    <label class="mc-cp-campo">NOME NA PRÉVIA <span class="mc-cp-dica">substitui {nome} só aqui</span><input type="text" class="mc-cp-entrada" data-mc-cp-nome-previa maxlength="60" placeholder="Dra. Ana"></label>
+                </div>
                 <label class="mc-cp-campo">TÍTULO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="titulo" maxlength="255"></label>
                 <label class="mc-cp-campo" data-mc-cp-so-proprio hidden>NOME DO MODELO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="nome" maxlength="40"></label>
                 <div class="mc-cp-modo" data-mc-cp-simples>
                     <label class="mc-cp-campo">TEXTO <span class="mc-cp-dica">use {nome} para o primeiro nome</span><textarea class="mc-cp-texto" rows="5" data-mc-cp-campo="corpo"></textarea></label>
+                    {# dc 21.10 L274: os emojis que entram no fim do texto. A imagem do mesmo trecho está com o dono (spec §10). #}
+                    <div class="mc-cp-emojis"><span class="mc-cp-emojis-rot">Inserir:</span>
+                        {% for e in [['⚖️', 'Balança'], ['📅', 'Agenda'], ['✅', 'Confirmado'], ['📌', 'Destaque'], ['🎉', 'Comemoração'], ['💼', 'Trabalho'], ['📈', 'Crescimento'], ['🔒', 'Segurança'], ['👉', 'Indicação'], ['🙏', 'Agradecimento']] %}
+                            <button type="button" class="mc-cp-emoji" data-mc-cp-emoji="{{ e[0] }}" title="{{ e[1] }}" aria-label="{{ e[1] }}">{{ e[0] }}</button>
+                        {% endfor %}
+                    </div>
                     <label class="mc-cp-campo">BOTÃO<input type="text" class="mc-cp-entrada" data-mc-cp-campo="cta" maxlength="120"></label>
                 </div>
                 <div class="mc-cp-modo" data-mc-cp-blocos hidden>
@@ -77,30 +135,57 @@
             <div class="mc-cp-col mc-cp-lado">
                 <div class="mc-cp-passo">PRÉVIA DO E-MAIL</div>
                 <iframe class="mc-cp-previa" title="Prévia do e-mail" sandbox="" data-mc-cp-previa></iframe>
-                {# L.252: K desta lista, os descadastrados e os sem autorização que saíram (o JS escreve a frase). #}
-                <div class="mc-cp-dest"><i class="bi bi-people" aria-hidden="true"></i> <span data-mc-cp-dest></span></div>
-                {# L.253: a frequência, com os rótulos do dc (L.557). #}
-                <div class="mc-cp-freq">
-                    <span class="mc-cp-freq-rot"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Frequência</span>
-                    <div class="mc-cp-freq-ops" role="group" aria-label="Frequência">
-                        {% for f in [['unica', 'Envio único'], ['semanal', 'Semanal'], ['quinzenal', 'Quinzenal'], ['mensal', 'Mensal']] %}
-                            <button type="button" class="mc-cp-freq-op" data-mc-cp-freq="{{ f[0] }}" aria-pressed="{{ loop.first ? 'true' : 'false' }}">{{ f[1] }}</button>
-                        {% endfor %}
+                {# dc 21.10 L285: a linha de destinatários e, com agendamento ou repetição, o relógio. #}
+                <div class="mc-cp-dest"><i class="bi bi-people" aria-hidden="true"></i> <span data-mc-cp-dest></span><span class="mc-cp-ag" data-mc-cp-ag hidden><i class="bi bi-clock" aria-hidden="true"></i><span data-mc-cp-ag-txt></span></span></div>
+                {# dc 21.10 L287-293: Enviar (ou "Programar envio") com o menu PROGRAMAR ENVIO; ver, testar e baixar em ícones; a LGPD na dica do escudo. #}
+                <div class="mc-cp-barra">
+                    <div class="mc-cp-enviar-grupo">
+                        <button type="button" class="mc-cp-enviar" data-mc-cp-enviar><i class="bi bi-send" aria-hidden="true"></i><span data-mc-cp-enviar-txt>Enviar</span></button>
+                        <button type="button" class="mc-cp-enviar mc-cp-mais" data-mc-cp-mais title="Programar envio e frequência" aria-label="Programar envio e frequência" aria-expanded="false" aria-controls="mc-cp-programar"><i class="bi bi-caret-down-fill" aria-hidden="true"></i></button>
+                    </div>
+                    <span class="mc-cp-vao"></span>
+                    <button type="button" class="mc-cp-icone" data-mc-cp-ver title="Ver como vai chegar" aria-label="Ver como vai chegar"><i class="bi bi-eye" aria-hidden="true"></i></button>
+                    <button type="button" class="mc-cp-icone" data-mc-cp-teste title="Enviar teste" aria-label="Enviar teste"><i class="bi bi-send-check" aria-hidden="true"></i></button>
+                    <button type="button" class="mc-cp-icone" data-mc-cp-baixar title="Baixar HTML" aria-label="Baixar HTML"><i class="bi bi-download" aria-hidden="true"></i></button>
+                    <span class="mc-cp-vao"></span>
+                    <span class="mc-cp-lgpd" tabindex="0" title="LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link 'Não quero mais receber', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam." aria-label="LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link 'Não quero mais receber', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam."><i class="bi bi-shield-check" aria-hidden="true"></i></span>
+                    <div class="mc-cp-programar" id="mc-cp-programar" data-mc-cp-programar data-sem-x="1" role="dialog" aria-label="Programar envio" hidden>
+                        <div class="mc-cp-programar-rot">PROGRAMAR ENVIO</div>
+                        <input type="datetime-local" class="mc-cp-agenda-data" data-mc-cp-agenda aria-label="Data e hora do envio">
+                        <div class="mc-cp-programar-rot">REPETIR</div>
+                        <div class="mc-cp-freq-ops" role="group" aria-label="Repetir">
+                            {% for f in [['unica', 'Envio único'], ['semanal', 'Semanal'], ['quinzenal', 'Quinzenal'], ['mensal', 'Mensal']] %}
+                                <button type="button" class="mc-cp-freq-op" data-mc-cp-freq="{{ f[0] }}" aria-pressed="{{ loop.first ? 'true' : 'false' }}">{{ f[1] }}</button>
+                            {% endfor %}
+                        </div>
+                        <button type="button" class="mc-cp-concluir" data-mc-cp-concluir>Concluir</button>
                     </div>
                 </div>
-                {# L.254: "Agendar" (ou "Primeiro envio" na recorrente, L.557), Baixar HTML, Enviar teste e Enviar campanha. #}
-                <div class="mc-cp-botoes">
-                    <label class="mc-cp-agenda"><i class="bi bi-calendar-event" aria-hidden="true"></i><span data-mc-cp-agenda-rot>Agendar</span><input type="datetime-local" class="mc-cp-agenda-data" data-mc-cp-agenda></label>
-                    <span class="mc-cp-vao"></span>
-                    <button type="button" class="mc-cp-botao" data-mc-cp-baixar><i class="bi bi-filetype-html" aria-hidden="true"></i>Baixar HTML</button>
-                    <button type="button" class="mc-cp-botao" data-mc-cp-teste><i class="bi bi-send-check" aria-hidden="true"></i>Enviar teste</button>
-                    <button type="button" class="mc-cp-enviar" data-mc-cp-enviar><i class="bi bi-send" aria-hidden="true"></i>Enviar campanha</button>
-                </div>
                 <div class="mc-cp-msg" role="status" data-mc-cp-aviso hidden><i class="bi bi-info-circle" aria-hidden="true"></i> <span data-mc-cp-msg></span></div>
-                <div class="mc-cp-lgpd"><i class="bi bi-shield-check" aria-hidden="true"></i> LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link "Não quero mais receber", repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam.</div>
+            </div>
+        </div>
+        {# dc 21.10 L499-501, L670: "Como o destinatário vai receber", em computador ou celular. O remetente é o real do
+           sistema até o dono decidir (spec §10). #}
+        <div class="mc-cp-ver" data-mc-cp-ver-janela data-sem-x="1" role="dialog" aria-modal="true" aria-labelledby="mc-cp-ver-titulo" hidden>
+            <div class="mc-cp-ver-fundo" data-mc-cp-ver-fechar></div>
+            <div class="mc-cp-ver-caixa">
+                <div class="mc-cp-ver-cabeca">
+                    <i class="bi bi-envelope-open" aria-hidden="true"></i><b id="mc-cp-ver-titulo">Como o destinatário vai receber</b>
+                    <div class="mc-cp-ver-dev" role="group" aria-label="Aparelho">
+                        <button type="button" class="mc-cp-ver-op" data-mc-cp-ver-dev="pc" aria-pressed="true"><i class="bi bi-laptop" aria-hidden="true"></i> Computador</button>
+                        <button type="button" class="mc-cp-ver-op" data-mc-cp-ver-dev="cel" aria-pressed="false"><i class="bi bi-phone" aria-hidden="true"></i> Celular</button>
+                    </div>
+                    <button type="button" class="mc-cp-ver-x" data-mc-cp-ver-fechar aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                </div>
+                <div class="mc-cp-ver-env">
+                    <span class="mc-cp-ver-av" aria-hidden="true">B</span>
+                    <span class="mc-cp-ver-info"><b data-mc-cp-ver-assunto></b><span><b>De:</b> <span data-mc-cp-ver-de>{{ comercial_remetente() }}</span></span><span><b>Para:</b> <span data-mc-cp-ver-para></span></span><span class="mc-cp-ver-resumo" data-mc-cp-ver-resumo></span></span>
+                </div>
+                <div class="mc-cp-ver-quadro" data-mc-cp-ver-quadro data-dev="pc"><iframe title="E-mail" sandbox="" data-mc-cp-ver-iframe></iframe></div>
             </div>
         </div>
     </section>
+    {{ include('master/_comercial_kpis.html.twig') }}
     <section class="mc-caixa" aria-labelledby="mc-auto-titulo">
         <div class="mc-cabeca">
             <i class="bi bi-lightning-charge mc-cabeca-ic" aria-hidden="true"></i>
@@ -119,18 +204,7 @@
             <iframe class="mc-previa-quadro" data-mc-previa-quadro title="Prévia do e-mail" sandbox></iframe>
         </div>
     </section>
-    {# Monitoramento (dc L.282-286): a lista das 12 últimas campanhas (L.586). Os números por campanha são da fatia 3; a
-       linha diz "Métricas: aguarda servidor", como o dc. #}
-    <section class="mc-caixa mc-mon" aria-labelledby="mc-mon-titulo" data-mc-monitoramento
-             data-url-campanhas="{{ path('master_comercial_campanhas') }}">
-        <div class="mc-cabeca">
-            <i class="bi bi-graph-up mc-mon-ic" aria-hidden="true"></i>
-            <b class="mc-cabeca-titulo" id="mc-mon-titulo">Monitoramento</b>
-            <span class="mc-cabeca-sub">entregas, aberturas, cliques e descadastros por campanha</span>
-        </div>
-        <div class="mc-camps" data-mc-camps aria-busy="true"></div>
-    </section>
+    {% include 'master/_comercial_relatorio.html.twig' %}
 </div>
 <script src="{{ asset('js/master/comercial.js') }}"></script>
 <script src="{{ asset('js/master/comercial-campanha.js') }}"></script>
-<script src="{{ asset('js/master/comercial-monitoramento.js') }}"></script>

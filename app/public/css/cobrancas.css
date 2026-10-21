@@ -1780,3 +1780,28 @@ html[data-bs-theme="dark"] .fm-vazio-categoria {
     background: var(--bs-tertiary-bg);
     border-color: var(--bs-border-color);
 }
+
+/* ── Acabamentos do desenho Objeto 1A (inventário de 21/10) ── */
+/* Selo "Cobrança ativa" com o ponto (L57): verde do desenho; no escuro, o verde sobre o fundo translúcido. */
+.cob-selo-ativa {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; font-weight: 600; line-height: 1.4;
+    color: #186c47; background: #e8f3ed; border: 1px solid #cfe6da;
+    padding: 3px 10px; border-radius: 999px;
+}
+.cob-selo-ativa .bi { font-size: 6px; }
+[data-bs-theme="dark"] .cob-selo-ativa { color: #7fd1a6; background: rgba(31, 122, 77, .18); border-color: rgba(127, 209, 166, .3); }
+
+/* Contador ao lado de "Dívida em aberto" (L152) e rodapé da lista (L227, sem "Carregar mais"). */
+.jp-secao-contador { font-size: 13px; color: var(--bs-secondary-color); }
+.jp-lista-rodape {
+    padding: 12px 16px; font-size: 13px; color: var(--bs-secondary-color);
+    border-top: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg);
+}
+.jp-lista > .jp-lista-rodape:last-child { border-radius: 0 0 .75rem .75rem; }
+
+/* Nova anotação (L268-283): subtítulo ao lado do título e a dica das 48 horas à esquerda do botão. */
+.cob-anotacao-nova-topo { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.cob-anotacao-nova-sub { font-size: 12.5px; color: var(--bs-secondary-color); }
+.cob-anotacao-nova-rodape { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cob-anotacao-nova-dica { font-size: 12px; color: var(--bs-secondary-color); margin-right: auto; }

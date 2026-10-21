@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace App\Tests\Cliente\Unit;
 
 use App\Cliente\DTO\AtualizarContatoDoClienteInput;
+use App\Cliente\Entity\ClienteHistorico;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Exception\ClienteNaoEncontradoException;
 use App\Cliente\Exception\ContatoInvalidoException;
+use App\Cliente\Repository\ClienteHistoricoRepository;
 use App\Cliente\Repository\ClienteRepository;
+use App\Cliente\Service\HistoricoDoCliente;
 use App\Cliente\UseCase\AtualizarContatoDoClienteUseCase;
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -25,6 +29,35 @@ use Symfony\Component\Validator\Validation;
 #[CoversClass(AtualizarContatoDoClienteUseCase::class)]
 final class AtualizarContatoDoClienteUseCaseTest extends TestCase
 {
+    private User $autor;
+
+    /** @var list<string> textos gravados no Histórico do cadastro */
+    private array $historico = [];
+
+    protected function setUp(): void
+    {
+        $this->autor = new User();
+        $this->autor->setFullName('Ana Souza');
+    }
+
+    #[TestDox('contato que mudou entra no Histórico só com o rótulo; o mesmo valor não entra')]
+    public function testHistorico(): void
+    {
+        [$useCase, $cliente, $tenant] = $this->montar(gravaUmaVez: true);
+        $useCase->executar(new AtualizarContatoDoClienteInput(10, 'fixo', '6134258844'), $tenant, $this->autor);
+        self::assertSame(['Ana Souza alterou telefone fixo'], $this->historico);
+
+        [$useCase, $cliente, $tenant] = $this->montar(gravaUmaVez: true);
+        $cliente->setTelefoneCelular('(61) 98400-4003');
+        $useCase->executar(new AtualizarContatoDoClienteInput(10, 'celular', '61984004003'), $tenant, $this->autor);
+        self::assertSame(['Ana Souza alterou telefone fixo'], $this->historico, 'mesmo número: nada novo');
+
+        [$useCase, , $tenant] = $this->montar(gravaUmaVez: true);
+        $useCase->executar(new AtualizarContatoDoClienteInput(10, 'email', 'novo@exemplo.com'), $tenant, $this->autor);
+        self::assertSame(['Ana Souza alterou telefone fixo', 'Ana Souza alterou e-mail'], $this->historico);
+        self::assertStringNotContainsString('novo@', implode(' ', $this->historico));
+    }
+
     /** @return iterable<string, array{string, string}> */
     public static function telefones(): iterable
     {
@@ -40,7 +73,7 @@ final class AtualizarContatoDoClienteUseCaseTest extends TestCase
     {
         [$useCase, $cliente, $tenant] = $this->montar(gravaUmaVez: true);
 
-        $useCase->executar(new AtualizarContatoDoClienteInput(10, 'celular', $valor), $tenant);
+        $useCase->executar(new AtualizarContatoDoClienteInput(10, 'celular', $valor), $tenant, $this->autor);
 
         self::assertSame($esperado, $cliente->getTelefoneCelular());
     }
@@ -51,7 +84,7 @@ final class AtualizarContatoDoClienteUseCaseTest extends TestCase
         [$useCase, $cliente, $tenant] = $this->montar(gravaUmaVez: true);
         $cliente->setTelefoneCelular('(61) 98400-4003');
 
-        $useCase->executar(new AtualizarContatoDoClienteInput(10, 'fixo', '6134258844'), $tenant);
+        $useCase->executar(new AtualizarContatoDoClienteInput(10, 'fixo', '6134258844'), $tenant, $this->autor);
 
         self::assertSame('(61) 3425-8844', $cliente->getTelefoneFixo());
         self::assertSame('(61) 98400-4003', $cliente->getTelefoneCelular());
@@ -63,7 +96,7 @@ final class AtualizarContatoDoClienteUseCaseTest extends TestCase
         [$useCase, $cliente, $tenant] = $this->montar(gravaUmaVez: true);
         $cliente->setTelefoneFixo('(61) 3425-8844');
 
-        $useCase->executar(new AtualizarContatoDoClienteInput(10, 'fixo', '   '), $tenant);
+        $useCase->executar(new AtualizarContatoDoClienteInput(10, 'fixo', '   '), $tenant, $this->autor);
 
         self::assertNull($cliente->getTelefoneFixo());
     }
@@ -73,7 +106,7 @@ final class AtualizarContatoDoClienteUseCaseTest extends TestCase
     {
         [$useCase, $cliente, $tenant] = $this->montar(gravaUmaVez: true);
 
-        $useCase->executar(new AtualizarContatoDoClienteInput(10, 'email', ' Maria.Silva@Exemplo.COM.br '), $tenant);
+        $useCase->executar(new AtualizarContatoDoClienteInput(10, 'email', ' Maria.Silva@Exemplo.COM.br '), $tenant, $this->autor);
 
         self::assertSame('maria.silva@exemplo.com.br', $cliente->getEmail());
     }
@@ -99,7 +132,7 @@ final class AtualizarContatoDoClienteUseCaseTest extends TestCase
         $cliente->setTelefoneFixo('(61) 3425-8844');
 
         try {
-            $useCase->executar(new AtualizarContatoDoClienteInput(10, $campo, $valor), $tenant);
+            $useCase->executar(new AtualizarContatoDoClienteInput(10, $campo, $valor), $tenant, $this->autor);
             self::fail('devia recusar');
         } catch (ContatoInvalidoException) {
         }
@@ -107,6 +140,7 @@ final class AtualizarContatoDoClienteUseCaseTest extends TestCase
         self::assertSame('(61) 98400-4003', $cliente->getTelefoneCelular());
         self::assertSame('(61) 3425-8844', $cliente->getTelefoneFixo());
         self::assertSame('original@exemplo.com', $cliente->getEmail());
+        self::assertSame([], $this->historico, 'recusado: nada no Histórico');
     }
 
     #[TestDox('cliente de outro escritório: não encontrado, nada gravado')]
@@ -117,7 +151,7 @@ final class AtualizarContatoDoClienteUseCaseTest extends TestCase
 
         $this->expectException(ClienteNaoEncontradoException::class);
         try {
-            $useCase->executar(new AtualizarContatoDoClienteInput(10, 'email', 'novo@exemplo.com'), $outro);
+            $useCase->executar(new AtualizarContatoDoClienteInput(10, 'email', 'novo@exemplo.com'), $outro, $this->autor);
         } finally {
             self::assertSame('original@exemplo.com', $cliente->getEmail());
         }
@@ -129,10 +163,10 @@ final class AtualizarContatoDoClienteUseCaseTest extends TestCase
         $repo = $this->createMock(ClienteRepository::class);
         $repo->method('find')->willReturn(null);
         $repo->expects(self::never())->method('save');
-        $useCase = new AtualizarContatoDoClienteUseCase($repo, Validation::createValidator());
+        $useCase = new AtualizarContatoDoClienteUseCase($repo, Validation::createValidator(), $this->novoHistorico());
 
         $this->expectException(ClienteNaoEncontradoException::class);
-        $useCase->executar(new AtualizarContatoDoClienteInput(10, 'celular', '61984004003'), $this->tenant(1));
+        $useCase->executar(new AtualizarContatoDoClienteInput(10, 'celular', '61984004003'), $this->tenant(1), $this->autor);
     }
 
     // ----------------------------------------------------------------- helpers
@@ -151,7 +185,17 @@ final class AtualizarContatoDoClienteUseCaseTest extends TestCase
             ->method('save')
             ->with($cliente, true);
 
-        return [new AtualizarContatoDoClienteUseCase($repo, Validation::createValidator()), $cliente, $tenant];
+        return [new AtualizarContatoDoClienteUseCase($repo, Validation::createValidator(), $this->novoHistorico()), $cliente, $tenant];
+    }
+
+    private function novoHistorico(): HistoricoDoCliente
+    {
+        $repo = $this->createMock(ClienteHistoricoRepository::class);
+        $repo->method('registrar')->willReturnCallback(function (ClienteHistorico $h): void {
+            $this->historico[] = $h->getTexto();
+        });
+
+        return new HistoricoDoCliente($repo);
     }
 
     private function tenant(int $id): Tenant

@@ -21,6 +21,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
+use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
 
 /**
  * Peças em memória para os testes unitários do cadeado: escritório, pessoas com vínculo, um repositório de
@@ -119,7 +121,7 @@ trait CriaCenarioDoCadeadoTrait
 
     private function nivelNoCadeado(): NivelNoCadeado
     {
-        $tenantContext = new TenantContext(new RequestStack(), $this->createStub(Security::class), $this->createStub(EntityManagerInterface::class));
+        $tenantContext = new TenantContext(new RequestStack(), $this->createStub(Security::class), $this->createStub(EntityManagerInterface::class), new BloqueioPorPedidoDeExclusao($this->createStub(PedidoDeExclusaoDeContaRepository::class), $this->regraDosPrimarios()));
 
         return new NivelNoCadeado($this->cadeadoRepository, $this->userTenantRepository, $this->regraDosPrimarios(), $tenantContext);
     }

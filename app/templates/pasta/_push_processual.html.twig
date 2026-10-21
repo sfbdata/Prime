@@ -94,6 +94,21 @@
            FPN-032: os filtros ficam à vista também com a lista vazia (dc L.2419-2421: o cabeçalho
            não depende de `push.vazio`). Sem lista, o clique só troca o botão ativo — o
            pasta-push.js não acha `.ps-push-lista` e o vazio da aba continua o que está na tela. #}
+        {# P4f (desenho `procFiltros`, N:2546-2548 e N:5683): um chip por processo da pasta, antes de
+           Todas/Novas/Geram prazo, e só com principal e ao menos um apensado. Filtra no navegador
+           (pasta-push.js), antes do Todas/Novas/Geram prazo; o total do cabeçalho não muda. #}
+        {% set filtrosProcessoPush = push.filtrosPorProcesso(pasta) %}
+        {% if filtrosProcessoPush is not empty %}
+            <div class="ps-push-procs" role="group" aria-label="Filtrar por processo">
+                {% for filtroProc in filtrosProcessoPush %}
+                    <button type="button" class="ps-push-proc{{ loop.first ? ' is-ativo' : '' }}"
+                            data-push-proc-filtro="{{ filtroProc.chave }}" aria-pressed="{{ loop.first ? 'true' : 'false' }}"
+                            title="{{ filtroProc.numero is null ? 'Movimentações de todos os processos da pasta' : 'Somente ' ~ filtroProc.numero|numero_cnj }}">
+                        {{- filtroProc.rotulo }} · {{ filtroProc.n -}}
+                    </button>
+                {% endfor %}
+            </div>
+        {% endif %}
         <div class="ps-push-filtros" role="group" aria-label="Filtrar movimentações">
             <button type="button" class="ps-push-filtro is-ativo" data-push-filtro="todas" aria-pressed="true">Todas</button>
             <button type="button" class="ps-push-filtro" data-push-filtro="novas" aria-pressed="false">Novas</button>
@@ -179,6 +194,7 @@
                         que NÃO marca como lida (o cartão fica como está). #}
                     data-push-texto-url="{{ path('pasta_push_texto', {id: pasta.id, publicacaoId: item.id}) }}"
                     data-push-gera-prazo="{{ push.geraPrazo(item) ? '1' : '0' }}"
+                    data-push-proc="{{ push.chaveDoProcesso(item) }}"
                     data-push-aceita-nota="{{ pushPodeEscrever and push.aceitaNotaTecnica(item) ? '1' : '0' }}">
                     <div class="ps-push-dia{{ loop.first or diaPush != diaAnteriorPush ? '' : ' ps-push-dia--repetido' }}"><span class="ps-push-dia-pilula">{{ diaPushTxt }}</span></div>
                     {% set diaAnteriorPush = diaPush %}
@@ -221,9 +237,13 @@
                             </span>
                             <span class="ps-push-corpo">
                                 <span class="ps-push-titulo ps-push-titulo--{{ tipoPushMod }}">{{ item.tipoComunicacao ?? 'Publicação' }}</span>
+                                {# P4f (N:5483): movimentação de apensado ganha " · Apensado · {Tipo} {número}"
+                                   na fonte; o número sai do meio para não aparecer duas vezes. #}
+                                {% set apensadoPush = push.apensadoDaPublicacao(item, pasta) %}
                                 <span class="ps-push-meta"{% if item.nomeOrgao and item.textoResumo %} title="{{ item.nomeOrgao }}"{% endif %}>
                                     {{- item.siglaTribunal -}}
-                                    {%- if push.numeroUnico is null and item.numeroProcessoExibicao %} · {{ item.numeroProcessoExibicao }}{% endif %} · DJEN
+                                    {%- if push.numeroUnico is null and item.numeroProcessoExibicao and apensadoPush is null %} · {{ item.numeroProcessoExibicao }}{% endif %} · DJEN
+                                    {%- if apensadoPush %} · Apensado · {{ apensadoPush.tipo }} {{ apensadoPush.numero|numero_cnj }}{% endif %}
                                 </span>
                                 <i class="bi bi-chevron-down ps-push-seta" aria-hidden="true"></i>
                             </span>
@@ -268,8 +288,9 @@
            (modal de nova meta), o "Marcar como (não) lida" (POST `pasta_push_lida`, mesma URL e
            mesmo CSRF do botão do teor; a URL vem no <li>, o token aqui) e o "Abrir documento"
            (o link do PJe da linha do documento do teor), e a cópia do texto. Ordem do desenho
-           (dc L.5385): tarefa, lida, documento. Ficam de fora os itens do desenho sem lastro
-           aqui: "Encaminhar via Chat I.A" (FPN-016) e o link externo (FPN-015). Teclado e toque
+           (dc L.5385): tarefa, encaminhar, lida, documento. "Encaminhar via Chat I.A" (FPN-016, dc
+           L5641) só com a Central na página: o pasta-push.js dispara `bj-central:despachar` com o id
+           do cartão clicado (tipo `push`). Fica de fora o link externo (FPN-015). Teclado e toque
            seguem pelos botões do teor, como antes. #}
         <div class="ps-push-menu" id="pushMenuContexto" role="menu" aria-label="Ações da movimentação"
              data-lida-token="{{ csrf_token('pasta_push_lida_' ~ pasta.id) }}" hidden>
@@ -282,6 +303,11 @@
                 <div class="ps-push-menu-sep js-push-menu-sep-nota" role="separator"></div>
                 <button type="button" class="ps-push-menu-item js-push-menu-tarefa" role="menuitem">
                     <i class="bi bi-check2-square" aria-hidden="true"></i><span>Criar tarefa</span>
+                </button>
+            {% endif %}
+            {% if pushPastaViva and central_disponivel() %}
+                <button type="button" class="ps-push-menu-item js-push-menu-encaminhar" role="menuitem" data-encaminhar-pasta="{{ pasta.id }}">
+                    <i class="bi bi-send" aria-hidden="true"></i><span>Encaminhar via Chat I.A</span>
                 </button>
             {% endif %}
             {% if pushPastaViva %}

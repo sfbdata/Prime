@@ -325,7 +325,7 @@ input[type="range"].img-slider {
                 <div class="mp-nome-linha">
                     <h1 class="mp-nome" id="perfilNomeExibido">{{ perfil.nomeExibido|upper }}</h1>
                     {% if _ehMaster %}<span class="mp-selo mp-selo-master"><i class="bi bi-star-fill"></i>MASTER</span>{% endif %}
-                    {% if current_tenant() %}<span class="mp-selo mp-selo-papel">{{ _ehPrimario or _ehMaster ? 'USUÁRIO PRIMÁRIO' : 'SECUNDÁRIO' }}</span>{% endif %}
+                    {% if current_tenant() %}<span class="mp-selo mp-selo-papel" title="{{ current_tenant().name }}">{{ _ehPrimario or _ehMaster ? 'USUÁRIO PRIMÁRIO' : 'SECUNDÁRIO' }}</span>{% endif %}
                 </div>
                 <div class="mp-cargo">
                     <span><i class="bi bi-briefcase"></i>{{ perfil.cargo ?: 'Cargo não definido' }}</span>
@@ -394,7 +394,7 @@ input[type="range"].img-slider {
             <button type="button" class="mp-pref" data-mu-idioma>
                 <i class="bi bi-translate"></i>
                 <span class="mp-pref-texto"><span>Idioma do sistema</span><small>Muda todas as telas, menus e o Chat I.A</small></span>
-                <span class="mp-pref-valor">Português (Brasil)</span><i class="bi bi-chevron-right mp-pref-seta"></i>
+                <span class="mp-pref-valor">{{ idioma_atual().nome }}</span><i class="bi bi-chevron-right mp-pref-seta"></i>
             </button>
             {% for p in [
                 {chave: 'perfil.notificacoes', icone: 'bi-bell', rotulo: 'Notificações no sistema', sub: 'Sininho de prazos, metas e menções'},
@@ -427,7 +427,77 @@ input[type="range"].img-slider {
             <button class="mp-btn-azul" type="button" data-bs-toggle="modal" data-bs-target="#modalSenha"><i class="bi bi-key"></i>Alterar senha</button>
         </div>
     </section>
+
+    {# ── Excluir conta do escritório (PR 5, docs/specs/conta-pedido-exclusao.md; desenho 07 L111-117) ──
+       Só para o primário da conta (`exclusao_da_conta()` é nulo para os demais e na conta do Master). #}
+    {% set _exclusao = exclusao_da_conta() %}
+    {% if _exclusao %}
+    <section class="mp-card mp-ex" data-screen-label="Excluir conta" id="mpExclusao"
+             data-url-codigo="{{ path('conta_exclusao_codigo') }}"
+             data-url-pedir="{{ path('conta_exclusao_pedir') }}"
+             data-url-desistir="{{ path('conta_exclusao_desistir') }}"
+             data-token="{{ csrf_token('exclusao_conta') }}">
+        <div class="mp-ex-linha">
+            <span class="mp-ex-selo" aria-hidden="true"><i class="bi bi-trash3"></i></span>
+            <div class="mp-ex-texto">
+                <b>Excluir conta do escritório</b>
+                <div class="mp-ex-sub">
+                    {%- if _exclusao.pendente -%}
+                        Pedido feito em {{ _exclusao.criadoEm|date('d/m/Y') }} · motivo: {{ _exclusao.motivo }}. A equipe está sem acesso até o Master concluir.
+                    {%- else -%}
+                        Suspende a conta para toda a equipe e envia o pedido ao Master do BlueJus, que decide a exclusão. Exclusivo do usuário primário.
+                    {%- endif -%}
+                </div>
+            </div>
+            {% if _exclusao.pendente %}
+                <span class="mp-ex-pendente"><i class="bi bi-hourglass-split"></i>Suspensa · aguardando o Master</span>
+                <button type="button" class="mp-ex-desistir" data-mp-ex-desistir>Desistir e reativar</button>
+            {% else %}
+                <button type="button" class="mp-ex-abrir" data-bs-toggle="modal" data-bs-target="#modalExclusaoConta"><i class="bi bi-trash3"></i>Excluir conta</button>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
 </div>
+
+{% if _exclusao and not _exclusao.pendente %}
+{# ══ MODAL: Excluir conta em 2 etapas (desenho 07 L142-161) ══ #}
+<div class="modal fade mp-ex-modal" id="modalExclusaoConta" tabindex="-1" aria-labelledby="modalExclusaoContaTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="mp-ex-cab">
+                <i class="bi bi-trash3" aria-hidden="true"></i>
+                <b id="modalExclusaoContaTitulo">Excluir conta · etapa <span data-mp-ex-etapa>1</span> de 2</b>
+                <button type="button" class="mp-ex-fechar" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="mp-ex-corpo">
+                <div data-mp-ex-e1>
+                    <p class="mp-ex-p">Conte em poucas palavras o motivo. Isso nos ajuda a melhorar.</p>
+                    <div class="mp-ex-motivos" role="group" aria-label="Motivo">
+                        {% for motivo in ['Não uso mais', 'Achei caro', 'Faltou um recurso', 'Mudei de sistema', 'Encerrando o escritório', 'Outro motivo'] %}
+                            <button type="button" class="mp-ex-motivo" aria-pressed="false" data-mp-ex-motivo="{{ motivo }}">{{ motivo }}</button>
+                        {% endfor %}
+                    </div>
+                    <input type="text" class="mp-ex-campo" data-mp-ex-obs placeholder="Algo a mais? (opcional)" maxlength="300" aria-label="Algo a mais? (opcional)">
+                    <div class="mp-ex-info"><i class="bi bi-info-circle"></i> A conta fica <b>suspensa</b> até o BlueJus analisar o pedido. Depois da exclusão, os dados ficam guardados por 365 dias e o suporte do BlueJus pode recuperá-la nesse prazo; depois disso, tudo é apagado. Os usuários não são apagados.</div>
+                </div>
+                <div data-mp-ex-e2 hidden>
+                    <p class="mp-ex-p">Enviamos um código de 6 dígitos para <b data-mp-ex-email>{{ _exclusao.email }}</b>. Digite o código e a palavra <b>EXCLUIR</b> para confirmar.</p>
+                    <div class="mp-ex-grade">
+                        <label class="mp-ex-rotulo">CÓDIGO<input type="text" class="mp-ex-campo mp-ex-codigo" data-mp-ex-codigo inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label>
+                        <label class="mp-ex-rotulo">DIGITE EXCLUIR<input type="text" class="mp-ex-campo" data-mp-ex-palavra autocomplete="off"></label>
+                    </div>
+                </div>
+                <div class="mp-ex-erro" data-mp-ex-erro role="alert" hidden><i class="bi bi-exclamation-circle"></i> <span></span></div>
+            </div>
+            <div class="mp-ex-rodape">
+                <button type="button" class="mp-ex-manter" data-bs-dismiss="modal">Manter conta</button>
+                <button type="button" class="mp-ex-avancar" data-mp-ex-avancar>Continuar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {# ══════════════════════════════════════════════
    MODAL: Visualizar / Alterar foto
@@ -548,6 +618,8 @@ input[type="range"].img-slider {
                     <label class="mp-campo"><span>TELEFONE / WHATSAPP</span>{{ form_widget(form_dados.telefone) }}</label>
                     <label class="mp-campo"><span>CPF</span>{{ form_widget(form_dados.cpf, {attr: {placeholder: 'Somente números'}}) }}<small>Usado nos relatórios e estatísticas do escritório</small></label>
                     <label class="mp-campo"><span>NASCIMENTO</span>{{ form_widget(form_dados.dataNascimento) }}</label>
+                    <label class="mp-campo"><span>GÊNERO</span>{{ form_widget(form_dados.genero) }}<small>Usado nas estatísticas do escritório</small></label>
+                    <label class="mp-campo"><span>ATUAÇÃO</span>{{ form_widget(form_dados.atuacao) }}{% if atuacaoSugerida|default(null) %}<small data-mp-atuacao-sugerida="{{ atuacaoSugerida.value }}"><i class="bi bi-magic"></i> Sugestão do sistema: {{ atuacaoSugerida.rotulo }}. <a href="#" data-mp-usar-sugestao>Usar</a></small>{% endif %}</label>
                     <label class="mp-campo" data-mp-para="clt"><span>CTPS</span>{{ form_widget(form_dados.ctps, {attr: {placeholder: ''}}) }}<small>Só para empregado CLT</small></label>
                     <label class="mp-campo" data-mp-para="clt"><span>SÉRIE</span>{{ form_widget(form_dados.serie, {attr: {placeholder: ''}}) }}</label>
                     <label class="mp-campo" data-mp-para="clt"><span>DATA DE ADMISSÃO</span>{{ form_widget(form_dados.dataAdmissao) }}</label>
@@ -641,30 +713,24 @@ input[type="range"].img-slider {
 {# ══════════════════════════════════════════════
    MODAL: Alterar senha
 ══════════════════════════════════════════════ #}
-<div class="modal fade" id="modalSenha" tabindex="-1" aria-labelledby="modalSenhaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+<div class="modal fade mp-modal" id="modalSenha" tabindex="-1" aria-labelledby="modalSenhaLabel" aria-hidden="true">
+    {# Desenho 07 (ED.senha, L203): o mesmo modal dos outros, com cabeçalho azul, os três campos e Cancelar/Salvar. #}
+    <div class="modal-dialog modal-dialog-centered mp-modal-largo">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalSenhaLabel">
-                    <i class="bi bi-key me-2"></i>Alterar senha
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="mp-modal-topo">
+                <i class="bi bi-key"></i><b id="modalSenhaLabel">Alterar senha</b>
+                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
-            {{ form_start(form_senha, {'attr': {'id': 'formSenha'}}) }}
-                <div class="modal-body">
-                    <p class="text-muted small mb-3">
-                        Confirme sua senha atual e escolha uma nova, com pelo menos 8 caracteres.
-                    </p>
-                    {{ form_row(form_senha.senhaAtual, {'attr': {'class': 'form-control', 'autocomplete': 'current-password'}}) }}
-                    {{ form_row(form_senha.senha.first, {'attr': {'class': 'form-control', 'autocomplete': 'new-password'}}) }}
-                    {{ form_row(form_senha.senha.second, {'attr': {'class': 'form-control', 'autocomplete': 'new-password'}}) }}
+            {{ form_start(form_senha, {attr: {id: 'formSenha'}}) }}
+                <div class="mp-campos">
+                    <label class="mp-campo"><span>SENHA ATUAL</span>{{ form_widget(form_senha.senhaAtual, {attr: {autocomplete: 'current-password'}}) }}</label>
+                    <label class="mp-campo"><span>NOVA SENHA</span>{{ form_widget(form_senha.senha.first, {attr: {autocomplete: 'new-password', placeholder: 'Mínimo 8 caracteres'}}) }}</label>
+                    <label class="mp-campo"><span>CONFIRMAR NOVA SENHA</span>{{ form_widget(form_senha.senha.second, {attr: {autocomplete: 'new-password'}}) }}</label>
                     {{ form_rest(form_senha) }}
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-lg me-1"></i>Salvar nova senha
-                    </button>
+                <div class="mp-modal-rodape">
+                    <button type="button" class="mp-btn-cinza" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="mp-btn-azul"><i class="bi bi-check2"></i>Salvar</button>
                 </div>
             {{ form_end(form_senha) }}
         </div>
@@ -674,6 +740,7 @@ input[type="range"].img-slider {
 
 {% block javascripts %}
 <script src="{{ asset('js/meu-perfil.js') }}" defer></script>
+<script src="{{ asset('js/conta-exclusao.js') }}" defer></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css" crossorigin="anonymous">
 <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js" crossorigin="anonymous"></script>
 

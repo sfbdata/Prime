@@ -52,6 +52,8 @@ class PastaMensagemRepository extends ServiceEntityRepository
             ->setParameter('pasta', $pasta)
             ->setParameter('tenant', $tenant)
             ->orderBy('m.criadaEm', 'DESC')
+            // Cartões gravados no mesmo flush (contrato e fase do selo) empatam no criadaEm: o id desempata.
+            ->addOrderBy('m.id', 'DESC')
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();

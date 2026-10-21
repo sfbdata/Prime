@@ -13,7 +13,8 @@ use Psr\Clock\ClockInterface;
 
 /**
  * "Segurança e auditoria" do Painel do Master: a trilha administrativa do `audit_log` (contas,
- * usuários, vínculos, perfis, permissões, convites e purgas), traduzida para rótulo humano.
+ * usuários, vínculos, perfis, permissões, convites, purgas e, de plataforma, telas e recursos e as seccionais
+ * da OAB), traduzida para rótulo humano.
  *
  * O `changes` nunca sai cru: só o rótulo da ação e os NOMES dos campos alterados
  * ({@see RotuloDeAuditoria}). Entrada no sistema (login) não é auditada como evento próprio.

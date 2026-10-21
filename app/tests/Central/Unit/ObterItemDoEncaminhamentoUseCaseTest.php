@@ -52,7 +52,8 @@ final class ObterItemDoEncaminhamentoUseCaseTest extends TestCase
             ->setAutor($this->pessoa(9, 'Carla Souza'))
             ->setConteudo('<p>Ligar para @[Zé](user:3)</p>');
         $mensagens = $this->createMock(PastaMensagemRepository::class);
-        $mensagens->expects(self::once())->method('findByIdAndPastaAndTenant')->with(31, $this->pasta, $this->tenant)->willReturn($registro);
+        // Duas leituras: a do tipo de acesso (cartão financeiro do sistema?) e a do resumo.
+        $mensagens->expects(self::exactly(2))->method('findByIdAndPastaAndTenant')->with(31, $this->pasta, $this->tenant)->willReturn($registro);
 
         $item = $this->useCase(mensagens: $mensagens)->executar($this->eu, $this->tenant, 50, TipoDeItemEncaminhado::RegistroDados, 31);
 

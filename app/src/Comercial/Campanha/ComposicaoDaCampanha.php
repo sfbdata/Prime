@@ -70,9 +70,12 @@ final class ComposicaoDaCampanha
      * O HTML da prévia, do "Baixar HTML" e do que o dc copia no "Enviar teste" (L.537, L.558). `exemplo` é o primeiro
      * destinatário do público escolhido (dc L.537: o primeiro nome dele, ou "Dra. Ana" sem nome; o e-mail dele).
      */
-    public function previa(MensagemDaCampanha $m, ?DestinatarioDaCampanha $exemplo = null): string
+    /** `$nomeDaPrevia` (dc 21.10 L270, "NOME NA PRÉVIA, substitui {nome} só aqui") vale como foi digitado, só na prévia. */
+    public function previa(MensagemDaCampanha $m, ?DestinatarioDaCampanha $exemplo = null, string $nomeDaPrevia = ''): string
     {
         [$nomeDeExemplo, $para] = self::exemplo($exemplo);
+        $digitado = mb_substr(trim($nomeDaPrevia), 0, 60);
+        $nomeDeExemplo = $digitado !== '' ? $digitado : $nomeDeExemplo;
         $nome = htmlspecialchars($nomeDeExemplo, ENT_QUOTES);
         $corpo = str_replace('{nome}', $nome, $this->corpo($m));
         $email = new MensagemDeEmail(

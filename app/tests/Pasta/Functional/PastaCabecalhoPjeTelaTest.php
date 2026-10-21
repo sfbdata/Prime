@@ -155,7 +155,7 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('[data-trilho="processo"] a[href="#"]'), 'nenhum link morto na faixa');
     }
 
-    #[TestDox('com dois processos, a célula mostra o principal, "trocar" e o chip "1 vinculado" que abre o outro')]
+    #[TestDox('com dois processos, a célula mostra o principal, "trocar" e o chip "1 apensado" que abre o outro (P4f)')]
     public function testChipDeVinculadosComDoisProcessos(): void
     {
         $client          = static::createClient();
@@ -172,12 +172,13 @@ final class PastaCabecalhoPjeTelaTest extends JusPrimeWebTestCase
 
         $chip = $celula->filter('.ps-cab-proc-acoes > button.ps-chip-vinc');
         self::assertCount(1, $chip);
-        self::assertStringContainsString('1 vinculado', $chip->text());
+        self::assertStringContainsString('1 apensado', $chip->text());
         self::assertSame('psProcessosVinculados', $chip->attr('data-ps-toggle'));
 
         $lista = $celula->filter('#psProcessosVinculados > .ps-cab-vinculado');
         self::assertCount(1, $lista, 'a lista traz só o OUTRO processo, não o principal de novo');
-        self::assertStringContainsString('vinculado', strtolower($lista->filter('.ps-rotulo--mini')->text()));
+        // O segundo vínculo, sem tipo gravado, é apensado "Outro" (P4f §1).
+        self::assertSame('apensado · outro', strtolower(trim($lista->filter('.ps-rotulo--mini')->text())));
     }
 
     // =========================================================================

@@ -16,13 +16,17 @@ use App\Shared\Service\DigitoVerificador;
 
 /**
  * Regras dos campos da janela de Cadastro (desenho 1.2.3; E12f), as mesmas para editar e para criar ("Novo cliente",
- * E12i): limites, e-mail, nome e CPF/CNPJ obrigatórios e válidos, CPF/CNPJ de outro cadastro do escritório, CEP e
- * e-mail que não viram "alteração" por formato. Só o campo enviado muda. Não grava: quem chama dá o flush.
+ * E12i): limites, e-mail, CPF/CNPJ válidos quando informados, CPF/CNPJ de outro cadastro do escritório, CEP e
+ * e-mail que não viram "alteração" por formato. Nenhum campo é obrigatório (decisão do dono, 21/10/2026: o cadastro
+ * nasce com o que se tem, o resto vira pendência). Só o campo enviado muda. Não grava: quem chama dá o flush.
  */
 final class CamposDoCadastro
 {
-    /** Chave do formulário => rótulo na lista de alterados do cartão. */
-    private const ROTULOS = [
+    /**
+     * Chave do formulário => rótulo na lista de alterados do cartão. Público porque o Histórico do cadastro só aceita
+     * estes rótulos (nunca valores; {@see HistoricoDoCliente}).
+     */
+    public const ROTULOS = [
         'nome' => 'nome', 'cpf' => 'CPF', 'rg' => 'RG', 'rg_orgao' => 'órgão emissor', 'nascimento' => 'nascimento',
         'estado_civil' => 'estado civil', 'profissao' => 'profissão', 'nacionalidade' => 'nacionalidade', 'genero' => 'gênero',
         'razao_social' => 'razão social', 'cnpj' => 'CNPJ', 'nome_fantasia' => 'nome fantasia',
@@ -32,6 +36,14 @@ final class CamposDoCadastro
         'cep' => 'CEP', 'logradouro' => 'logradouro', 'numero' => 'número', 'complemento' => 'complemento',
         'bairro' => 'bairro', 'cidade' => 'cidade', 'uf' => 'UF', 'telefone' => 'telefone', 'whatsapp' => 'WhatsApp',
         'email' => 'e-mail',
+    ];
+
+    /**
+     * Campos que só a ficha antiga (`cliente_edit`) e a janela de contatos editam: entram na comparação do Histórico
+     * ({@see self::fotografar()}), não no Salvar da janela de Cadastro.
+     */
+    public const ROTULOS_FORA_DA_JANELA = [
+        'telefone_fixo' => 'telefone fixo', 'rg_emissao' => 'emissão do RG', 'endereco_sede' => 'endereço da sede',
     ];
 
     /** Tamanho das colunas: passar disso viraria erro do banco (500) em vez de mensagem. */
@@ -95,9 +107,6 @@ final class CamposDoCadastro
     private function aplicarPessoaFisica(ClientePF $cliente, array $c, Tenant $tenant): void
     {
         if (array_key_exists('nome', $c)) {
-            if ($c['nome'] === '') {
-                throw new CadastroInvalidoException('Informe o nome completo.');
-            }
             if (mb_strlen($c['nome']) > 150) {
                 throw new CadastroInvalidoException('O nome completo passa de 150 letras.');
             }
@@ -105,15 +114,15 @@ final class CamposDoCadastro
         }
         if (array_key_exists('cpf', $c)) {
             $digitos = DigitoVerificador::digitos($c['cpf']);
-            if (!DigitoVerificador::cpfValido($digitos)) {
-                throw new CadastroInvalidoException('Informe um CPF válido. Ele identifica o cliente no sistema.');
+            if ($digitos !== '' && !DigitoVerificador::cpfValido($digitos)) {
+                throw new CadastroInvalidoException('CPF inválido: confira os dígitos.');
             }
             if ($digitos !== DigitoVerificador::digitos($cliente->getCpf())) {
-                $outro = $this->pfRepository->findOneByCpfDoTenant($digitos, $tenant);
+                $outro = $digitos === '' ? null : $this->pfRepository->findOneByCpfDoTenant($digitos, $tenant);
                 if ($outro !== null && $outro->getId() !== $cliente->getId()) {
                     throw new DocumentoJaCadastradoException($outro);
                 }
-                $cliente->setCpf(self::mascaraCpf($digitos));
+                $cliente->setCpf($digitos === '' ? '' : self::mascaraCpf($digitos));
             }
         }
         if (array_key_exists('rg', $c)) {
@@ -152,18 +161,15 @@ final class CamposDoCadastro
     private function aplicarPessoaJuridica(ClientePJ $cliente, array $c, Tenant $tenant): void
     {
         if (array_key_exists('razao_social', $c)) {
-            if ($c['razao_social'] === '') {
-                throw new CadastroInvalidoException('Informe a razão social.');
-            }
             $cliente->setRazaoSocial((string) preg_replace('/\s+/u', ' ', $c['razao_social']));
         }
         if (array_key_exists('cnpj', $c)) {
             $digitos = DigitoVerificador::digitos($c['cnpj']);
-            if (!DigitoVerificador::cnpjValido($digitos)) {
-                throw new CadastroInvalidoException('Informe um CNPJ válido. Ele identifica o cliente no sistema.');
+            if ($digitos !== '' && !DigitoVerificador::cnpjValido($digitos)) {
+                throw new CadastroInvalidoException('CNPJ inválido: confira os dígitos.');
             }
             if ($digitos !== DigitoVerificador::digitos($cliente->getCnpj())) {
-                $outro = $this->pjRepository->findOneByCnpjDoTenant($digitos, $tenant);
+                $outro = $digitos === '' ? null : $this->pjRepository->findOneByCnpjDoTenant($digitos, $tenant);
                 if ($outro !== null && $outro->getId() !== $cliente->getId()) {
                     throw new DocumentoJaCadastradoException($outro);
                 }
@@ -231,6 +237,46 @@ final class CamposDoCadastro
         if (array_key_exists('email', $c) && mb_strtolower($c['email']) !== mb_strtolower($cliente->getEmail())) {
             $cliente->setEmail(mb_strtolower($c['email']));
         }
+    }
+
+    /**
+     * O valor de cada campo do cadastro, para comparar antes e depois de uma edição que não passa por
+     * {@see self::aplicar()} (ficha antiga). Só serve para achar QUAIS campos mudaram: o valor não sai daqui.
+     *
+     * @return array<string, string>
+     */
+    public function fotografar(Cliente $c): array
+    {
+        $extra = ['telefone_fixo' => (string) $c->getTelefoneFixo()];
+        if ($c instanceof ClientePF) {
+            $extra['rg_emissao'] = (string) $c->getRgDataEmissao()?->format('Y-m-d');
+        }
+        if ($c instanceof ClientePJ) {
+            $extra['endereco_sede'] = $c->getEnderecSede();
+        }
+
+        return $this->retrato($c) + $extra;
+    }
+
+    /**
+     * Rótulos dos campos que mudaram entre duas fotografias ({@see self::fotografar()}), na ordem das abas.
+     *
+     * @param array<string, string> $antes
+     * @param array<string, string> $depois
+     *
+     * @return list<string>
+     */
+    public static function rotulosAlterados(array $antes, array $depois): array
+    {
+        $rotulos = self::ROTULOS + self::ROTULOS_FORA_DA_JANELA;
+        $alterados = [];
+        foreach ($depois as $chave => $valor) {
+            if (($antes[$chave] ?? '') !== $valor && isset($rotulos[$chave])) {
+                $alterados[] = $rotulos[$chave];
+            }
+        }
+
+        return $alterados;
     }
 
     /** @return array<string, string> o valor de cada campo, na ordem das abas (Cliente, Endereço, Contato) */

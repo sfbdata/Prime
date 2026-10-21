@@ -13,7 +13,11 @@ use App\Profile\Controller\PreferenciasDoPerfilController;
 use App\Profile\Controller\ProfileController;
 use App\Profile\Entity\UserProfile;
 use App\Profile\Entity\VinculoNoEscritorio;
+use App\Auth\Enum\StatusOab;
+use App\Profile\Enum\Atuacao;
+use App\Profile\Enum\Genero;
 use App\Profile\Enum\VinculoColaborador;
+use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -135,6 +139,54 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertSame('2026-03-01', $vinculo?->getContratoInicio()?->format('Y-m-d'));
     }
 
+    #[TestDox('gênero e atuação (desenho 05 de 21/10): a pessoa declara no modal, grava e o modal reabre com eles')]
+    public function testGeneroEAtuacao(): void
+    {
+        $form = $this->abrir($this->secundario)->filter('#formDadosPessoais')->form();
+        $form['dados_pessoais[genero]']  = 'feminino';
+        $form['dados_pessoais[atuacao]'] = 'controladoria';
+        $this->client->submit($form);
+
+        self::assertResponseRedirects('/perfil');
+        $this->em->clear();
+        $perfil = $this->em->getRepository(UserProfile::class)->findOneBy(['user' => $this->secundario->getId()]);
+        self::assertSame([Genero::Feminino, Atuacao::Controladoria], [$perfil?->getGenero(), $perfil?->getAtuacao()]);
+        // O desenho 07 não tem gênero nem atuação na grade: eles aparecem só no modal, que reabre com o que foi gravado.
+        $modal = $this->abrir($this->secundario)->filter('#formDadosPessoais');
+        self::assertSame(['feminino', 'controladoria'], [
+            $modal->filter('select[name="dados_pessoais[genero]"] option[selected]')->attr('value'),
+            $modal->filter('select[name="dados_pessoais[atuacao]"] option[selected]')->attr('value'),
+        ]);
+        self::assertCount(0, $modal->filter('[data-mp-atuacao-sugerida]'), 'atuação declarada não é sugestão');
+    }
+
+    #[TestDox('atuação vazia: o modal mostra a sugestão (OAB confirmada sugere advogado) sem marcar o campo, e nada grava')]
+    public function testSugestaoDeAtuacao(): void
+    {
+        $this->primario->setOabNumero('49613')->setOabUf('DF')->setOabStatus(StatusOab::Confirmada);
+        $this->em->flush();
+
+        $tela = $this->abrir($this->primario);
+
+        self::assertCount(0, $tela->filter('#formDadosPessoais select[name="dados_pessoais[atuacao]"] option[selected][value="advogado"]'), 'quem só troca o telefone não grava a sugestão');
+        $dica = $tela->filter('#formDadosPessoais [data-mp-atuacao-sugerida]');
+        self::assertSame('advogado', $dica->attr('data-mp-atuacao-sugerida'));
+        self::assertStringContainsString('Sugestão do sistema: Advogado(a).', $dica->text());
+        self::assertCount(1, $dica->filter('[data-mp-usar-sugestao]'));
+        $this->em->clear();
+        $perfil = $this->em->getRepository(UserProfile::class)->findOneBy(['user' => $this->primario->getId()]);
+        self::assertNull($perfil?->getAtuacao(), 'a sugestão só vale se a pessoa salvar');
+    }
+
+    #[TestDox('papel: só o selo do desenho 07, com o escritório da sessão na dica, sem linha repetida')]
+    public function testPapelNoCabecalho(): void
+    {
+        $tela = $this->abrir($this->primario);
+
+        self::assertSame((string) $this->tenant->getName(), $tela->filter('.mp-nome-linha > .mp-selo-papel')->attr('title'));
+        self::assertCount(0, $tela->filter('[data-mp-papel]'));
+    }
+
     #[TestDox('salvar: o secundário que forja o vínculo no POST continua CLT, mas grava a própria admissão')]
     public function testSecundarioNaoTrocaOVinculo(): void
     {
@@ -164,6 +216,29 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertFalse($gravado['perfil.sons']);
 
         self::assertSame('false', $this->abrir($this->primario)->filter('.mp-prefs > button[data-mp-pref="perfil.sons"]')->attr('aria-checked'));
+    }
+
+    #[TestDox('Resumo diário: o descadastro do rodapé desliga a chave; religar pelo Meu Perfil reativa só o resumo, mesmo com "todos"')]
+    public function testResumoDiarioSegueODescadastro(): void
+    {
+        $descadastro = static::getContainer()->get(DescadastroDeEmailInterface::class);
+        $email = (string) $this->primario->getEmail();
+        $chave = '.mp-prefs > button[data-mp-pref="perfil.resumo_email"]';
+        self::assertSame('true', $this->abrir($this->primario)->filter($chave)->attr('aria-checked'));
+
+        $descadastro->descadastrar($this->tenant, $email, DescadastroDeEmailInterface::ASSUNTO_TODOS, 'link_do_email');
+        $tela = $this->abrir($this->primario);
+        self::assertSame('false', $tela->filter($chave)->attr('aria-checked'), 'quem disse "não quero nada" vê o resumo desligado');
+
+        $this->postarJson('/perfil/preferencia', $tela, ['chave' => 'perfil.resumo_email', 'ligado' => true]);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($descadastro->estaDescadastrado($this->tenant, $email, 'resumo_diario'), 'religar libera o resumo');
+        self::assertTrue($descadastro->estaDescadastrado($this->tenant, $email, 'outro_assunto'), 'e só ele: o "todos" continua para o resto');
+        self::assertSame('true', $this->abrir($this->primario)->filter($chave)->attr('aria-checked'));
+
+        $this->postarJson('/perfil/preferencia', $this->abrir($this->primario), ['chave' => 'perfil.resumo_email', 'ligado' => false]);
+        self::assertTrue($descadastro->estaDescadastrado($this->tenant, $email, 'resumo_diario'), 'desligar descadastra');
+        self::assertSame('false', $this->abrir($this->primario)->filter($chave)->attr('aria-checked'));
     }
 
     #[TestDox('preferências: chave fora do catálogo responde 400; sem o token AJAX, 403')]
@@ -248,6 +323,8 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         $perfil->setNomeCompleto('Jéssica Martins');
         $perfil->setStatus('Frase da Jéssica');
         $perfil->setTelefone('82911112222');
+        $perfil->setGenero(Genero::Feminino);
+        $perfil->setAtuacao(Atuacao::Advogado);
         $this->em->persist($perfil);
         $this->em->flush();
 
@@ -263,6 +340,7 @@ final class MeuPerfilPaginaTest extends JusPrimeWebTestCase
         self::assertSame('Jéssica Martins Souza', $salvo?->getNomeCompleto(), 'o admin salvou');
         self::assertSame('Frase da Jéssica', $salvo?->getStatus());
         self::assertSame('82911112222', $salvo?->getTelefone());
+        self::assertSame([Genero::Feminino, Atuacao::Advogado], [$salvo?->getGenero(), $salvo?->getAtuacao()], 'o admin não apaga gênero nem atuação');
         self::assertSame('123', $salvo?->getCpf(), 'a regra dos 11 números é só do modal do perfil');
     }
 

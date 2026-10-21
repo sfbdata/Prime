@@ -166,4 +166,20 @@ final class UseCasesDoMasterTest extends TestCase
         self::assertFalse($painel->indicadores[1]->acimaDoAlerta);
         self::assertNull($painel->indicadores[1]->ultimaEm);
     }
+
+    #[TestDox('resumo: só os totais e os limites, sem consultar a tabela por pessoa nem os alertas')]
+    public function testResumo(): void
+    {
+        $this->config->alterarLimites(20, 200, 5, Pessoas::master(), new \DateTimeImmutable());
+        $indicacoes = $this->createMock(IndicacaoRepository::class);
+        $indicacoes->method('totais')->willReturn(['enviadas' => 40, 'ultimas24h' => 9, 'viraramConta' => 3]);
+        $indicacoes->expects(self::never())->method('indicadores');
+        $indicacoes->expects(self::never())->method('contarIndicadores');
+        $alertas = $this->createMock(IndicacaoAlertaRepository::class);
+        $alertas->expects(self::never())->method('ultimos');
+
+        $resumo = (new ObterPainelDeIndicacoesUseCase($indicacoes, $this->configs, $alertas, $this->relogio))->resumo();
+
+        self::assertSame([40, 9, 3, 5], [$resumo->enviadas, $resumo->ultimas24h, $resumo->viraramConta, $resumo->limites->alertaEm24h]);
+    }
 }

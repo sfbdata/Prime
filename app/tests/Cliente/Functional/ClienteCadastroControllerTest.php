@@ -63,7 +63,7 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame('Cadastro e qualificação do cliente', $c->filter('.cad-janela')->attr('aria-label'));
-        self::assertSame(['pessoais', 'reu', 'endereco', 'contato', 'docs', 'qual'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
+        self::assertSame(['pessoais', 'reu', 'endereco', 'contato', 'docs', 'qual', 'hist'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
         self::assertSame('GLEISSON BRUNO GABRIEL', trim($c->filter('.js-cad-nome')->text()));
         self::assertSame('CPF ' . $cliente->getCpf(), trim($c->filter('.js-cad-doc')->text()), 'subtítulo com o número, não só o rótulo');
         self::assertSame('Número não informado', $c->filter('input[name="numero"]')->attr('data-obrig'));
@@ -115,7 +115,7 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, (int) $this->em()->getConnection()->fetchOne("SELECT COUNT(*) FROM pasta_mensagem WHERE pasta_id = ? AND sistema = 'cadastro'", [$pasta->getId()]));
     }
 
-    #[TestDox('nome vazio e CPF inválido: 422 com a mensagem do desenho e a aba Cliente')]
+    #[TestDox('nada é obrigatório (nome e CPF vazios salvam); CPF inválido: 422 com a aba Cliente')]
     public function testValidacoes(): void
     {
         $tenant = $this->criarTenant();
@@ -123,13 +123,12 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
         $cliente = $this->criarClientePF($tenant, 'Ana');
         $this->logarComTenant($this->client, $gestor, $tenant);
 
-        $this->salvar($cliente->getId(), ['nome' => '  ']);
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(['erro' => 'Informe o nome completo.', 'aba' => 'pessoais'], $this->json());
+        $this->salvar($cliente->getId(), ['nome' => '  ', 'cpf' => '']);
+        self::assertResponseIsSuccessful();
 
         $this->salvar($cliente->getId(), ['cpf' => '529.982.247-26']);
         self::assertResponseStatusCodeSame(422);
-        self::assertSame('Informe um CPF válido. Ele identifica o cliente no sistema.', $this->json()['erro']);
+        self::assertSame(['erro' => 'CPF inválido: confira os dígitos.', 'aba' => 'pessoais'], $this->json());
     }
 
     #[TestDox('CPF de outro cadastro do escritório: 409 com o cadastro existente; a conferência ao sair do campo também acha')]
@@ -397,7 +396,7 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
         self::assertSame('1', $c->filter('[data-cad-janela]')->attr('data-novo'));
         self::assertSame('WELTON ALVES DA SILVA', trim($c->filter('.js-cad-nome')->text()));
         self::assertSame('WELTON ALVES DA SILVA', $c->filter('input[name="nome"]')->attr('value'));
-        self::assertSame(['pessoais', 'reu', 'endereco', 'contato', 'qual'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
+        self::assertSame(['pessoais', 'reu', 'endereco', 'contato', 'qual', 'hist'], $c->filter('[data-cad-aba]')->each(fn ($b) => $b->attr('data-cad-aba')));
         self::assertSame(['Pessoa física', 'Empresa'], $c->filter('.js-cad-tipo')->each(fn ($b) => trim($b->text())));
     }
 
@@ -421,7 +420,7 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('cadastro de WELTON ALVES DA SILVA criado.', (string) $conn->fetchOne("SELECT conteudo FROM pasta_mensagem WHERE pasta_id = ? AND sistema = 'cadastro'", [$pasta->getId()]));
     }
 
-    #[TestDox('"Novo cliente" sem CPF válido: 422; com CPF de outro cadastro: 409 e nada criado')]
+    #[TestDox('"Novo cliente" com CPF inválido: 422; com CPF de outro cadastro: 409 e nada criado')]
     public function testNovoClienteRecusas(): void
     {
         $tenant = $this->criarTenant();
@@ -430,9 +429,9 @@ final class ClienteCadastroControllerTest extends JusPrimeWebTestCase
         $pasta = $this->criarPastaSemCliente($tenant, $gestor, 'Fulano');
         $this->logarComTenant($this->client, $gestor, $tenant);
 
-        $this->criar($pasta, ['nome' => 'Fulano']);
+        $this->criar($pasta, ['nome' => 'Fulano', 'cpf' => '529.982.247-26']);
         self::assertResponseStatusCodeSame(422);
-        self::assertSame('Informe um CPF válido. Ele identifica o cliente no sistema.', $this->json()['erro']);
+        self::assertSame('CPF inválido: confira os dígitos.', $this->json()['erro']);
 
         $this->criar($pasta, ['nome' => 'Fulano', 'cpf' => $outro->getCpf()]);
         self::assertResponseStatusCodeSame(409);
