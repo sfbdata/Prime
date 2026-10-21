@@ -8,11 +8,11 @@
 
             <div class="mm-linha mm-linha-cabeca">
                 <div></div>
-                <div class="mm-th">Meta</div>
-                <div class="mm-th">{{ aba.value == 'responsavel' ? 'Delegada por' : 'Responsável' }}</div>
-                <div class="mm-th">Prazo</div>
-                <div class="mm-th">Status</div>
-                <div class="mm-th">Atualizada</div>
+                <div class="mm-th">{{ 'metas.lista.cabecalho.meta'|trans }}</div>
+                <div class="mm-th">{{ aba.value == 'responsavel' ? 'metas.lista.cabecalho.delegada_por'|trans : 'metas.lista.cabecalho.responsavel'|trans }}</div>
+                <div class="mm-th">{{ 'metas.lista.cabecalho.prazo'|trans }}</div>
+                <div class="mm-th">{{ 'metas.lista.cabecalho.status'|trans }}</div>
+                <div class="mm-th">{{ 'metas.lista.cabecalho.atualizada'|trans }}</div>
                 <div></div>
             </div>
 
@@ -40,7 +40,7 @@
                                 data-acompanhar="{{ path('tarefa_acompanhar', {id: meta.id}) }}"
                                 data-token="{{ csrf_token('acompanhar_tarefa_' ~ meta.id) }}"
                                 aria-pressed="{{ acompanhando ? 'true' : 'false' }}"
-                                title="{{ acompanhando ? 'Parar de acompanhar' : 'Acompanhar esta meta' }}">
+                                title="{{ acompanhando ? 'metas.marcador.parar_de_acompanhar'|trans : 'metas.marcador.acompanhar_esta_meta'|trans }}">
                             <i class="bi {{ acompanhando ? 'bi-bookmark-fill' : 'bi-bookmark' }}"></i>
                         </button>
 
@@ -56,22 +56,22 @@
                                 <span class="mm-avatar mm-avatar-sm">{{ quem.fullName|slice(0, 1) }}</span>
                                 <span title="{{ quem.fullName }}">{{ quem.fullName }}</span>
                             {% else %}
-                                <span class="text-muted">Não informado</span>
+                                <span class="text-muted">{{ 'metas.comum.nao_informado'|trans }}</span>
                             {% endif %}
                         </div>
 
                         <span class="mm-prazo tom-{{ tomPrazo }}">
                             <i class="bi bi-calendar-event"></i>
-                            {%- if meta.prazo is null %}sem prazo
-                            {%- elseif concluida %}{{ meta.prazo|date('d/m/Y') }}
+                            {%- if meta.prazo is null %}{{ 'metas.comum.sem_prazo'|trans }}
+                            {%- elseif concluida %}{{ meta.prazo|data }}
                             {%- else %}{{ info.texto }}{% endif %}
                         </span>
 
                         <div><span class="mm-pilula tom-{{ status.tom }}">{{ status.rotulo }}</span></div>
 
-                        <span class="mm-linha-atualizada">{{ (meta.dataAlteracao ?: meta.dataCriacao)|date('d/m/Y') }}</span>
+                        <span class="mm-linha-atualizada">{{ (meta.dataAlteracao ?: meta.dataCriacao)|data }}</span>
 
-                        <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-acao-icone" title="Abrir a meta">
+                        <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-acao-icone" title="{{ 'metas.comum.abrir_a_meta'|trans }}">
                             <i class="bi bi-chevron-right"></i>
                         </a>
                     </div>
@@ -82,6 +82,6 @@
     </div>
 
     <div class="mm-separador" style="border-bottom: none;">
-        <span class="mm-grupo-nota">Mostrando {{ painel.totalExibido }} meta{{ painel.totalExibido == 1 ? '' : 's' }} nesta aba.</span>
+        <span class="mm-grupo-nota">{{ painel.totalExibido == 1 ? 'metas.lista.mostrando_uma'|trans({total: painel.totalExibido ~ ''}) : 'metas.lista.mostrando_varias'|trans({total: painel.totalExibido ~ ''}) }}</span>
     </div>
 </div>

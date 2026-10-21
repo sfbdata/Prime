@@ -3,12 +3,12 @@
     <div class="exp-barra">
         {# Título (dc `titulo`, L.120, E12): o filtro do sistema aberto no trilho, ou "Acervo geral"; clicar volta
            ao acervo geral sem filtros. #}
-        {% set TITULOS = {resp10: 'Respondidos nos últimos 10 dias', findou: 'Prazo findou sem resposta', aud: 'Audiência', prazo: 'Expediente com prazo', metas: 'Metas não respondidas', protocolar: 'Protocolar'} %}
-        <h2 class="exp-barra-titulo" role="button" tabindex="0" data-tip="Voltar ao acervo geral (ordem padrão)"><i class="bi bi-folder2" aria-hidden="true"></i>{{ TITULOS[filters.expediente ?? ''] ?? 'Acervo geral' }}</h2>
+        {% set TITULOS = {resp10: 'expediente.acervo.titulo.resp10'|trans, findou: 'expediente.acervo.titulo.findou'|trans, aud: 'expediente.acervo.titulo.aud'|trans, prazo: 'expediente.acervo.titulo.prazo'|trans, metas: 'expediente.acervo.titulo.metas'|trans, protocolar: 'expediente.acervo.titulo.protocolar'|trans} %}
+        <h2 class="exp-barra-titulo" role="button" tabindex="0" data-tip="{{ 'expediente.acervo.voltar_dica'|trans }}"><i class="bi bi-folder2" aria-hidden="true"></i>{{ TITULOS[filters.expediente ?? ''] ?? 'expediente.acervo.titulo.geral'|trans }}</h2>
         <button type="button" class="exp-nova-pasta"
                 data-bs-toggle="modal" data-bs-target="#modalNovaPasta"
-                data-tip="Abrir uma nova pasta (o número é gerado automaticamente)">
-            <i class="bi bi-folder-plus" aria-hidden="true"></i>Nova Pasta
+                data-tip="{{ 'expediente.acervo.nova_pasta_dica'|trans }}">
+            <i class="bi bi-folder-plus" aria-hidden="true"></i>{{ 'expediente.acervo.nova_pasta'|trans }}
         </button>
         {{ include('pasta/_filtro_situacao.html.twig') }}
     </div>
