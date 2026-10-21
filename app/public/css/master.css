@@ -231,6 +231,19 @@
 .mp-aviso.is-erro { background: #fbe7e7; color: #a3232b; }
 .mp-vazio-linha { padding: 24px; text-align: center; color: #5b7383; font-size: 13px; }
 
+/* Pedidos de exclusão de conta (desenho 1.2, linha 148): acima da tabela de contas, só com pedido pendente. */
+.mp-pedidos { background: #fff; border: 1px solid #f1c4c9; border-radius: 4px; overflow: hidden; margin-bottom: 14px; }
+.mp-pedidos-cab { display: flex; align-items: center; gap: 10px; padding: 12px 20px; background: #fdf1f2; border-bottom: 1px solid #f6dcdf; }
+.mp-pedidos-cab > .bi { color: #a3232b; }
+.mp-pedidos-cab > b { font-size: 14.5px; flex: 1; }
+.mp-pedidos-cab > span { font-size: 12px; color: #842029; }
+.mp-pedido { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 20px; border-bottom: 1px solid #f6e6e8; font-size: 13px; }
+.mp-pedido-id { flex: 1; min-width: 220px; }
+.mp-pedido-id > b { display: block; }
+.mp-pedido-id > span { font-size: 12px; color: #5b7383; }
+.mp .mp-pedido-reativar { height: 30px; padding: 0 11px; border: 1px solid #c5d2db; border-radius: 3px; background: #fff; color: #1e7b45; font: inherit; font-size: 12.5px; cursor: pointer; }
+.mp .mp-pedido-excluir { height: 30px; padding: 0 11px; border: none; border-radius: 3px; background: #a3232b; color: #fff; font: inherit; font-size: 12.5px; font-weight: bold; cursor: pointer; }
+
 /* ---------- Usuários e OABs ---------- */
 .mp-oab-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
 .mp-oab-kpi { padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; border-bottom: 3px solid var(--cor); }

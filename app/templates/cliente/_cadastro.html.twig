@@ -246,6 +246,12 @@
                permissão de EDITAR o cliente e o CSRF. "Substituir" envia o novo e só depois exclui o antigo. #}
             {% if not novo %}
             <section class="cad-painel" data-cad-painel="docs"{{ abaInicial != 'docs' ? ' hidden' : '' }}>
+                {# Inteligência cadastral (desenho 02, l.740 a 791; spec cliente-inteligencia-cadastral, F-A): carregada ao abrir
+                   a aba (`cliente_inteligencia_cadastral`), desenhada pelo JS. Só com CPF/CNPJ válido; sem leitura de
+                   documento, sem sugestões e sem "Atualizar sozinho" (fatias futuras). #}
+                <div class="cad-ii js-cad-ii" hidden
+                     data-url="{{ path('cliente_inteligencia_cadastral', {id: cliente.id}) }}"
+                     data-url-vincular="{{ path('cliente_inteligencia_cadastral_vincular', {id: cliente.id, documentoId: 0}) }}"></div>
                 {% for cat, info in {
                     IDENTIFICACAO: {titulo: 'Documento de identificação', sub: 'CNH ou RG', icone: 'bi-person-badge'},
                     COMPROVANTE_RESIDENCIA: {titulo: 'Comprovante de residência', sub: 'Conta de consumo, contrato de locação ou similar', icone: 'bi-house-door'},
@@ -256,7 +262,7 @@
                         <div class="cad-doc-texto">
                             <div class="cad-doc-titulo">{{ info.titulo }}</div>
                             <div class="cad-doc-info">
-                                {% if doc %}{{ doc.nomeOriginal }} · anexado em {{ doc.uploadedAt|date('d/m/Y') }} · {{ (doc.tamanhoBytes / 1024)|round(0, 'ceil') }} KB{% else %}{{ info.sub }} · não anexado{% endif %}
+                                {% if doc and doc.vinculado %}{{ doc.nomeOriginal }} · anexado em {{ doc.pastaDocumento.carregadoEm|date('d/m/Y') }}{% elseif doc %}{{ doc.nomeOriginal }} · anexado em {{ doc.uploadedAt|date('d/m/Y') }} · {{ (doc.tamanhoBytes / 1024)|round(0, 'ceil') }} KB{% else %}{{ info.sub }} · não anexado{% endif %}
                             </div>
                         </div>
                         <div class="cad-doc-acoes">

@@ -423,6 +423,35 @@ class PastaDocumentoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Inteligência cadastral do cliente (F-A): os documentos de identificação e comprovante de residência destas pastas,
+     * fora da lixeira, deste escritório (tenant e lixeira explícitos), o mais novo primeiro. Quem chama já conferiu que
+     * as pastas são do cliente e que o usuário pode vê-las.
+     *
+     * @param list<Pasta> $pastas
+     *
+     * @return list<PastaDocumento>
+     */
+    public function identificacaoEComprovanteDasPastas(array $pastas, Tenant $tenant): array
+    {
+        if ($pastas === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('d')
+            ->andWhere('d.pasta IN (:pastas)')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.excluidoEm IS NULL')
+            ->andWhere('d.categoria IN (:categorias)')
+            ->setParameter('pastas', $pastas)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('categorias', [PastaDocumento::CATEGORIA_IDENTIFICACAO, PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA])
+            ->orderBy('d.carregadoEm', 'DESC')
+            ->addOrderBy('d.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Título, nome do arquivo e categoria dos documentos (fora da lixeira) das pastas pedidas, para o
      * relatório de pastas sem processo. Uma consulta para o lote; tenant pela pasta.
      *

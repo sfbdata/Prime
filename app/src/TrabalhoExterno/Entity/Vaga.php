@@ -94,6 +94,18 @@ class Vaga
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $expiraEm = null;
 
+    /**
+     * Início da rodada atual (`inicio` do desenho): publicar, "Reabrir" e "Ofertar novamente" recomeçam.
+     * Os aceites da rodada contam a partir daqui, do zero (coordenador, 19/10); os anteriores continuam
+     * "Aprovado".
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $inicioDaRodada = null;
+
+    /** Número da rodada atual: o aceite guarda o dele, e a contagem não depende da precisão do relógio. */
+    #[ORM\Column(options: ['default' => 0])]
+    private int $rodada = 0;
+
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $motivo = null;
 
@@ -215,9 +227,9 @@ class Vaga
      * Uma ação de situação (l.979–983). `$padraoDaOferta` é o tempo padrão da configuração em minutos
      * (0 = vaga comum) e `$maxDias` o teto de divulgação para vaga externa (0 = sem limite).
      */
-    public function aplicar(AcaoVaga $acao, ?string $motivo, string $quem, int $padraoDaOferta, int $maxDias, \DateTimeImmutable $agora): void
+    public function aplicar(AcaoVaga $acao, ?string $motivo, string $quem, int $padraoDaOferta, int $maxDias, \DateTimeImmutable $agora, int $aceitesNaRodada = 0): void
     {
-        $this->gravarVencimento($agora);
+        $this->gravarVencimento($agora, $aceitesNaRodada);
         $this->exigirOrigem($acao);
         $motivo = $motivo !== null && trim($motivo) !== '' ? mb_substr(trim($motivo), 0, 255) : null;
 
@@ -253,6 +265,8 @@ class Vaga
     private function reabrir(\DateTimeImmutable $agora): void
     {
         $this->situacao = SituacaoVaga::Aberta;
+        $this->inicioDaRodada = $agora;
+        ++$this->rodada;
         if ($this->oferta) {
             $this->expiraEm = $agora->modify(sprintf('+%d minutes', $this->duracaoDaOferta));
         }
@@ -272,15 +286,17 @@ class Vaga
         };
     }
 
-    /** Grava o vencimento que {@see situacaoEm()} só calculava, com a linha do histórico do desenho. */
-    public function gravarVencimento(\DateTimeImmutable $agora): void
+    /** Grava o vencimento que {@see situacaoEm()} só calculava, com a linha do histórico do desenho (l.844). */
+    public function gravarVencimento(\DateTimeImmutable $agora, int $aceitesNaRodada = 0): void
     {
         $situacao = $this->situacaoEm($agora);
         if ($situacao === $this->situacao) {
             return;
         }
         $situacao === SituacaoVaga::Expirada
-            ? $this->registrar('bi-hourglass-bottom', '#a3232b', 'Oferta expirou sem aceite', $this->expiraEm ?? $agora) // os aceites entram na F2b
+            ? $this->registrar('bi-hourglass-bottom', '#a3232b', 'Oferta expirou' . ($aceitesNaRodada > 0
+                ? sprintf(' com %d de %d vaga(s) preenchida(s)', $aceitesNaRodada, $this->qtd)
+                : ' sem aceite'), $this->expiraEm ?? $agora)
             : $this->registrar('bi-calendar-x', '#6b8494', sprintf('Período de divulgação de %d dia(s) encerrado', $this->periodoDias), $this->fimDivulgacao ?? $agora);
         $this->situacao = $situacao;
     }
@@ -290,8 +306,55 @@ class Vaga
     {
         $this->situacao = SituacaoVaga::Aberta;
         $this->publicadaEm = $agora;
+        $this->inicioDaRodada = $agora;
+        ++$this->rodada;
         $this->fimDivulgacao = $this->periodoDias > 0 ? $agora->modify(sprintf('+%d days', $this->periodoDias)) : null;
         $this->expiraEm = $this->oferta ? $agora->modify(sprintf('+%d minutes', $this->duracaoDaOferta)) : null;
+    }
+
+    /** A vaga recebe candidatos agora: aberta (o tempo já contado) e com o prazo de inscrição em dia. */
+    public function aceitaInscricao(\DateTimeImmutable $agora): bool
+    {
+        return $this->situacaoEm($agora) === SituacaoVaga::Aberta
+            && ($this->inscricoesAte === null || $this->inscricoesAte >= $agora->setTime(0, 0));
+    }
+
+    /** "Candidatura de {nome}" no histórico (`candidatar`, l.974). */
+    public function registrarCandidatura(string $nome, \DateTimeImmutable $agora): void
+    {
+        $this->registrar('bi-send', '#0a6fa0', 'Candidatura de ' . $nome, $agora);
+    }
+
+    /**
+     * Um aceite da oferta com tempo (`aceitar`, l.978): "Aceita por {nome} ({n} de {qtd})" e, ao
+     * completar, a vaga fica preenchida com o tempo da rodada. Quem chama segura a linha da vaga
+     * (`SELECT … FOR UPDATE`) e conta os aceites da rodada antes deste.
+     */
+    public function registrarAceite(string $nome, int $aceitesAntes, \DateTimeImmutable $agora): void
+    {
+        if (!$this->oferta || !$this->aceitaInscricao($agora) || $aceitesAntes >= $this->qtd) {
+            throw new TransicaoInvalida('Esta vaga já foi preenchida ou encerrada.');
+        }
+        $n = $aceitesAntes + 1;
+        $this->registrar('bi-hand-thumbs-up', '#1e7b45', sprintf('Aceita por %s (%d de %d)', $nome, $n, $this->qtd), $agora);
+        if ($n >= $this->qtd) {
+            $this->situacao = SituacaoVaga::Ocupada;
+            $this->registrar('bi-check2-all', '#0b5f86', 'Oferta preenchida em ' . self::mmss($agora, $this->inicioDaRodada ?? $agora) . ' min', $agora);
+        }
+    }
+
+    /** "{n} candidato(s) enviado(s) ao escritório por {quem}" (`enviarCands`, l.981). */
+    public function registrarEnvio(int $n, string $quem, \DateTimeImmutable $agora): void
+    {
+        $this->registrar('bi-send-check', '#1e7b45', sprintf('%d candidato(s) enviado(s) ao escritório por %s', $n, $quem), $agora);
+    }
+
+    /** `Component.mmss` (l.842): minutos e segundos, arredondando os segundos para cima. */
+    private static function mmss(\DateTimeImmutable $agora, \DateTimeImmutable $inicio): string
+    {
+        $t = max(0, (int) ceil(((float) $agora->format('U.u')) - ((float) $inicio->format('U.u'))));
+
+        return sprintf('%02d:%02d', intdiv($t, 60), $t % 60);
     }
 
     private function exigirOrigem(AcaoVaga $acao): void
@@ -329,6 +392,22 @@ class Vaga
     public function ehDaCentral(): bool
     {
         return $this->daCentral;
+    }
+
+    /** Vaga divulgada por um externo (`v.dono` do desenho): os candidatos são enviados a ele. */
+    public function temDono(): bool
+    {
+        return !$this->daCentral;
+    }
+
+    public function getInicioDaRodada(): ?\DateTimeImmutable
+    {
+        return $this->inicioDaRodada;
+    }
+
+    public function getRodada(): int
+    {
+        return $this->rodada;
     }
 
     public function getCriadaPor(): ?User

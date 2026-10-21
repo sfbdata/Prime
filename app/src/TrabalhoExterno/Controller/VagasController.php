@@ -8,15 +8,10 @@ use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use App\TrabalhoExterno\DTO\DadosDaVaga;
 use App\TrabalhoExterno\Enum\AcaoVaga;
 use App\TrabalhoExterno\Enum\OperacaoDeMarcacao;
-use App\TrabalhoExterno\Enum\TipoItemMarcado;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
-use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
-use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
-use App\TrabalhoExterno\Repository\PreferenciaDoUsuarioRepository;
-use App\TrabalhoExterno\Service\ApresentadorDeVaga;
 use App\TrabalhoExterno\Service\Contexto;
+use App\TrabalhoExterno\Service\DetalheDaVaga;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
-use App\TrabalhoExterno\Service\LocalizadorDeVaga;
 use App\TrabalhoExterno\Service\PreviaDePerfil;
 use App\TrabalhoExterno\UseCase\AplicarAcaoNaVagaUseCase;
 use App\TrabalhoExterno\UseCase\CompartilharVagasUseCase;
@@ -48,10 +43,7 @@ final class VagasController extends AbstractController
     public function __construct(
         private readonly FabricaDeContexto $contextos,
         private readonly PreviaDePerfil $previa,
-        private readonly LocalizadorDeVaga $localizador,
-        private readonly ApresentadorDeVaga $apresentador,
-        private readonly MarcacaoDoUsuarioRepository $marcacoes,
-        private readonly PreferenciaDoUsuarioRepository $preferencias,
+        private readonly DetalheDaVaga $detalhe,
     ) {
     }
 
@@ -163,13 +155,7 @@ final class VagasController extends AbstractController
     /** @return array<string, mixed> */
     private function detalhar(Contexto $ctx, string $codigo): array
     {
-        $agora = new \DateTimeImmutable();
-        $vaga = $this->localizador->localizar($ctx, $codigo, $agora);
-        $id = (int) $vaga->getId();
-        $marca = $ctx->previa ? null : ($this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Vaga, [$id])[$id] ?? null);
-        $em = $this->preferencias->doUsuario($ctx->usuario, PreferenciaDoUsuario::ULTIMA_VISITA_VAGAS)?->getValor()['em'] ?? null;
-
-        return $this->apresentador->detalhe($ctx, $vaga, $marca, is_string($em) ? new \DateTimeImmutable($em) : null, $agora);
+        return $this->detalhe->detalhar($ctx, $codigo);
     }
 
     /** @param callable(Contexto): array<string, mixed> $acao */

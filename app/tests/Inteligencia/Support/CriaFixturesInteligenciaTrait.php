@@ -22,6 +22,8 @@ use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Inteligencia\Prompt\PromptDaPergunta;
 use App\Inteligencia\Prompt\PromptDoAgente;
 use App\Inteligencia\Prompt\PromptResumoDoPush;
+use App\Pasta\Entity\AbaDaPasta;
+use App\Pasta\Entity\AbaOcultaDaPasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaMensagem;
@@ -151,7 +153,11 @@ trait CriaFixturesInteligenciaTrait
     /**
      * Análise pendente de UM agente da pasta (fatia 2), com a decisão sobre o financeiro já gravada
      * em `contexto_resumo.financeiro`, como o UseCase faz. Com `$comando` (drawer, F1/F2), o agente
-     * é o do comando e a linha grava o comando.
+     * é o do comando e a linha grava o comando. Com `$documentosSelecionados` (Índice da aba
+     * Documentos, F4), a seleção vai em `contexto_resumo.documentosSelecionados`.
+     *
+     * @param list<string>   $abasOcultas
+     * @param list<int>|null $documentosSelecionados
      */
     private function criarAnaliseDoAgentePendente(
         Tenant $tenant,
@@ -161,6 +167,7 @@ trait CriaFixturesInteligenciaTrait
         bool $financeiro = true,
         array $abasOcultas = [],
         ?Comando $comando = null,
+        ?array $documentosSelecionados = null,
     ): AnaliseDeInteligencia {
         $agente = $comando?->agente() ?? $agente;
         $analise = new AnaliseDeInteligencia(
@@ -173,7 +180,8 @@ trait CriaFixturesInteligenciaTrait
             contextoHash: hash('sha256', $agente->value . uniqid()),
             contextoResumo: ['agente' => $agente->value, 'secoes' => [], 'omitidas' => [], 'total' => 0, 'processos' => [], 'financeiro' => $financeiro]
                 + ($abasOcultas !== [] ? ['abasOcultas' => $abasOcultas] : [])
-                + ($comando !== null ? ['comando' => $comando->value] : []),
+                + ($comando !== null ? ['comando' => $comando->value] : [])
+                + ($documentosSelecionados !== null ? ['documentosSelecionados' => $documentosSelecionados] : []),
             agente: $agente,
             comando: $comando,
         );
@@ -259,6 +267,15 @@ trait CriaFixturesInteligenciaTrait
         $this->em()->flush();
 
         return $documento;
+    }
+
+    /** Regra "ocultar aba" para toda a equipe, gravada direto (quem configura não é alcançado por ela). */
+    private function ocultarAbaParaTodos(Pasta $pasta, AbaDaPasta $aba, User $quem): void
+    {
+        $tenant = $pasta->getTenant();
+        self::assertNotNull($tenant);
+        $this->em()->persist(AbaOcultaDaPasta::paraTodaAEquipe($tenant, $pasta, $aba, $quem, new \DateTimeImmutable()));
+        $this->em()->flush();
     }
 
     private function criarPagamento(Tenant $tenant, Pasta $pasta, string $descricao, string $valor = '1500.00'): PastaPagamento

@@ -20,7 +20,9 @@ use App\Pasta\Entity\Pasta;
  * Os agentes da pasta (fatia 2) como {@see FluxoDeAnalise}: o contexto é o do agente gravado na
  * linha; a decisão sobre o financeiro vem de `contexto_resumo.financeiro` (tomada na solicitação,
  * com sessão — o worker não decide); a "análise anterior" é a última concluída do MESMO comando do
- * drawer (spec inteligencia-drawer-da-pasta, F1) ou, na linha sem comando, do MESMO agente.
+ * drawer (spec inteligencia-drawer-da-pasta, F1) ou, na linha sem comando, do MESMO agente. Os
+ * documentos marcados no "Índice inteligente" (F4) vêm de `contexto_resumo.documentosSelecionados`,
+ * também decididos e validados na solicitação.
  *
  * Linha de `analise_pasta` sem agente não existe pelo UseCase; se aparecer, é dado corrompido e
  * o fluxo recusa com `\LogicException` (o handler a trata como falha, sem chamar o provedor).
@@ -49,20 +51,33 @@ final class FluxoDaAnaliseDaPasta implements FluxoDeAnalise
 
         $incluirFinanceiro = ($analise->getContextoResumo()['financeiro'] ?? false) === true;
         $comando = $analise->getComando();
-        $contexto = $this->montador->para($tenant, $pasta, $agente, $incluirFinanceiro, self::abasOcultasDo($analise), $comando);
+        $contexto = $this->montador->para($tenant, $pasta, $agente, $incluirFinanceiro, self::abasOcultasDo($analise), $comando, self::documentosSelecionadosDo($analise));
         if ($contexto->vazio()) {
             return null;
         }
 
-        // A anterior é a do MESMO comando (sem comando, a do mesmo agente, como antes).
-        $anterior = $this->analises->findUltimaConcluidaDoAlvo($tenant, $analise->getAlvoTipo(), $analise->getAlvoId(), TipoDeAnalise::AnalisePasta, $agente, $comando);
-        if ($anterior !== null && !self::podeVoltar($anterior, $analise)) {
-            $anterior = null;
-        }
+        $anterior = $this->anteriorQuePodeVoltar($analise, $tenant);
         $analise->registrarContexto($contexto->hash, $contexto->resumo());
 
         // A resposta anterior volta ao provedor: passa pela máscara do montador (IA-033).
         return $this->prompt->montar($contexto, $this->montador->analiseAnterior($tenant, $anterior?->getResumo()));
+    }
+
+    /**
+     * A anterior é a do MESMO comando (sem comando, a do mesmo agente, como antes), se puder voltar
+     * ({@see podeVoltar()}). O "Índice inteligente" (F4) nunca recebe anterior: a seleção muda de um
+     * pedido para outro, e um índice antigo citaria documentos que a pessoa não marcou agora.
+     */
+    private function anteriorQuePodeVoltar(AnaliseDeInteligencia $analise, Tenant $tenant): ?AnaliseDeInteligencia
+    {
+        $comando = $analise->getComando();
+        if ($comando?->ehDaAbaDocumentos() === true) {
+            return null;
+        }
+
+        $anterior = $this->analises->findUltimaConcluidaDoAlvo($tenant, $analise->getAlvoTipo(), $analise->getAlvoId(), TipoDeAnalise::AnalisePasta, $analise->getAgente(), $comando);
+
+        return $anterior !== null && self::podeVoltar($anterior, $analise) ? $anterior : null;
     }
 
     /**
@@ -76,6 +91,19 @@ final class FluxoDaAnaliseDaPasta implements FluxoDeAnalise
         $abas = $analise->getContextoResumo()['abasOcultas'] ?? [];
 
         return \is_array($abas) ? array_values(array_filter($abas, 'is_string')) : [];
+    }
+
+    /**
+     * Os documentos marcados na aba Documentos (F4), como a solicitação gravou. Sem a chave (todos os
+     * outros comandos e as análises antigas): nulo, sem recorte.
+     *
+     * @return list<int>|null
+     */
+    private static function documentosSelecionadosDo(AnaliseDeInteligencia $analise): ?array
+    {
+        $ids = $analise->getContextoResumo()['documentosSelecionados'] ?? null;
+
+        return \is_array($ids) ? array_values(array_filter($ids, 'is_int')) : null;
     }
 
     /**
