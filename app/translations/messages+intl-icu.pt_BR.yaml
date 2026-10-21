@@ -400,4 +400,84 @@ perfil:
         erro_salvar_foto: Erro ao salvar foto.
         erro_comunicacao: Erro de comunicação.
 
+# ---- Relatório da Central de envios do /master (master/_comercial_relatorio, master/comercial-relatorio.js)
+# O que vem do PHP (rótulos de estado, KPIs, dica e leitura da MetricasDaCampanha, recusas) fica fora.
+comercial_relatorio:
+    rotulo: Relatório de campanhas
+    barra:
+        selecionar: Selecionar
+        atualizar: Atualizar
+        arquivar: Arquivar
+        estrela_dica: Marcar com estrela
+        estrela: Estrela
+        remover: Remover do relatório
+        buscar: Buscar campanha ou e-mail
+        faixa_vazia: 0 de 0
+        pagina_anterior: Página anterior
+        proxima_pagina: Próxima página
+    abas:
+        rotulo: Campanhas
+        env:
+            rotulo: Enviadas
+            sub: Na fila e já enviadas
+        ag:
+            rotulo: Agendadas
+            sub: Com data programada
+        rec:
+            rotulo: Recorrentes
+            sub: Semanais, quinzenais e mensais
+        est:
+            rotulo: Com estrela
+            sub: Campanhas marcadas
+        arq:
+            rotulo: Arquivadas
+            sub: Fora das listas
+    ver:
+        voltar: Voltar
+        duplicar: Duplicar
+        reenviar: Reenviar a quem não leu
+        exportar: Exportar destinatários
+        cancelar: Cancelar envio
+        para: para
+        modelo: modelo
+        quadro: Campanha
+        destinatarios: DESTINATÁRIOS
+    menu:
+        abrir: Abrir campanha
+        duplicar: Duplicar como nova
+        reenviar: Reenviar a quem não leu
+        encaminhar: Encaminhar para um e-mail
+        encaminhar_motivo: Aguardando a decisão sobre enviar teste para outros endereços.
+        estrela: Marcar com estrela
+        arquivar: Arquivar
+        exportar: Exportar destinatários (CSV)
+        excluir: Excluir do relatório
+    js:
+        erro_concluir: Não foi possível concluir. Recarregue a página.
+        linha_dica: Abrir · botão direito para mais opções
+        selecionar: Selecionar
+        estrela_marcar: Marcar com estrela
+        estrela_remover: Remover estrela
+        selecionadas: '{n} selecionada(s)'
+        arquivar: Arquivar
+        desarquivar: Desarquivar
+        vazia: Nenhuma campanha nesta aba.
+        faixa_vazia: 0 de 0
+        erro_carregar: Não foi possível carregar as campanhas. Recarregue a página.
+        previa_indisponivel: Prévia não disponível para campanhas antigas.
+        lista_nao_registrada: Lista não registrada nesta campanha.
+        lista_ao_comecar: A lista é montada quando o envio começar.
+        mais_destinatarios: '+ {n} destinatário(s)'
+        duplicada_visualizador: 'Campanha duplicada: ajuste e envie de novo.'
+        duplicada_menu: 'Campanha duplicada: ajuste e envie.'
+        editor_indisponivel: Não foi possível abrir o editor da campanha.
+        confirmar_cancelar: Cancelar o envio programado desta campanha?
+        confirmar_remover: 'Remover {n} campanha(s) do relatório?'
+        confirmar_excluir: Excluir esta campanha do relatório?
+        reenvio_menu_rastreada: Reenvio disponível quando o servidor registrar as leituras.
+        reenvio_menu_sem_rastreio: Esta campanha não rastreou leitura.
+        reenvio_rastreada: Reenvio para quem não leu fica disponível assim que o servidor registrar as leituras.
+        reenvio_sem_rastreio: 'Esta campanha não rastreou leitura; não dá para saber quem não leu.'
+        erro_exportar: Não foi possível exportar. Recarregue a página.
+
 # ---- fim

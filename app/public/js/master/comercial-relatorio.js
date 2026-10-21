@@ -27,8 +27,10 @@
      menu) e é baixado como destinatarios-{id}.csv.
    Duas instâncias (spec docs/specs/comercial-relatorio-venda.md): o mesmo relatório na seção Comercial
    (data-mc-relatorio="com") e na seção Indicações (data-mc-relatorio="ind"). Um init por raiz, idempotente; estado,
-   timers e seleção de cada uma. O arquivo vem uma vez só (com a instância da seção Comercial, que vem antes no HTML):
-   inicia as raízes que já existem e, de novo, quando o documento termina de carregar. Os ouvintes do document
+   timers e seleção de cada uma. O arquivo vem uma vez só (com a instância da seção Comercial, que vem antes no HTML) e
+   inicia as raízes quando o documento termina de carregar.
+   Textos no catálogo (`comercial_relatorio.js`, spec idioma-do-sistema §8), lidos por BJ_T.t; o que vem do servidor
+   (rótulos de estado, KPIs, dica e leitura, recusas) fica como está. Os ouvintes do document
    agem na instância envolvida (Esc: a que tem o menu aberto); `mc:campanha-confirmada` e `mc:relatorio-recarregar`
    recarregam todas. Marcar ou cancelar numa recarrega a outra (as duas mostram a mesma lista). */
 (() => {
@@ -62,7 +64,7 @@
 
     function pedir(endereco, opcoes) {
       return fetch(endereco, Object.assign({ headers: { Accept: 'application/json' }, credentials: 'same-origin' }, opcoes || {}))
-        .then(r => r.json().catch(() => ({})).then(d => (r.ok ? d : Promise.reject(new Error(d.erro || 'Não foi possível concluir. Recarregue a página.')))));
+        .then(r => r.json().catch(() => ({})).then(d => (r.ok ? d : Promise.reject(new Error(d.erro || BJ_T.t('comercial_relatorio.js.erro_concluir'))))));
     }
 
     function avisar(texto) {
@@ -84,9 +86,9 @@
       const le = m.leitura === 'lido' ? 'mc-rl-le-lido' : m.leitura === 'entregue' ? 'mc-rl-le-entregue' : 'mc-rl-le-enviado';
       const icone = m.leitura === 'lido' ? 'bi-check2-all' : 'bi-check2';
       const marcada = !!estado.sel[c.id];
-      return '<div class="mc-rl-linha' + (marcada ? ' mc-rl-marcada' : '') + '" data-mc-rl-id="' + esc(c.id) + '" title="Abrir · botão direito para mais opções">'
-        + '<button type="button" class="mc-rl-sel" data-mc-rl-sel aria-label="Selecionar" aria-pressed="' + marcada + '"><i class="bi ' + (marcada ? 'bi-check-square-fill' : 'bi-square') + '" aria-hidden="true"></i></button>'
-        + '<button type="button" class="mc-rl-estrela' + (c.estrela ? ' mc-rl-com-estrela' : '') + '" data-mc-rl-estrela aria-label="' + (c.estrela ? 'Remover estrela' : 'Marcar com estrela') + '" aria-pressed="' + !!c.estrela + '"><i class="bi ' + (c.estrela ? 'bi-star-fill' : 'bi-star') + '" aria-hidden="true"></i></button>'
+      return '<div class="mc-rl-linha' + (marcada ? ' mc-rl-marcada' : '') + '" data-mc-rl-id="' + esc(c.id) + '" title="' + esc(BJ_T.t('comercial_relatorio.js.linha_dica')) + '">'
+        + '<button type="button" class="mc-rl-sel" data-mc-rl-sel aria-label="' + esc(BJ_T.t('comercial_relatorio.js.selecionar')) + '" aria-pressed="' + marcada + '"><i class="bi ' + (marcada ? 'bi-check-square-fill' : 'bi-square') + '" aria-hidden="true"></i></button>'
+        + '<button type="button" class="mc-rl-estrela' + (c.estrela ? ' mc-rl-com-estrela' : '') + '" data-mc-rl-estrela aria-label="' + esc(c.estrela ? BJ_T.t('comercial_relatorio.js.estrela_remover') : BJ_T.t('comercial_relatorio.js.estrela_marcar')) + '" aria-pressed="' + !!c.estrela + '"><i class="bi ' + (c.estrela ? 'bi-star-fill' : 'bi-star') + '" aria-hidden="true"></i></button>'
         + '<span class="mc-rl-publico">' + esc(c.publico) + ' <span class="mc-rl-total">' + esc(c.total) + '</span></span>'
         + '<span class="mc-rl-meio"><span class="mc-rl-st mc-rl-st-' + esc(c.estado) + '">' + esc(c.rotulo) + '</span>'
         + '<span class="mc-rl-nome"><b>' + esc(c.nome) + '</b><span class="mc-rl-sub"> · ' + esc(c.sub) + '</span></span></span>'
@@ -100,10 +102,10 @@
       const ic = el('[data-mc-rl-sel-ic]');
       ic.className = 'bi ' + (n && n === estado.ids.length ? 'bi-check-square-fill' : n ? 'bi-dash-square' : 'bi-square');
       const rotulo = el('[data-mc-rl-sel-n]');
-      rotulo.textContent = n + ' selecionada(s)';
+      rotulo.textContent = BJ_T.t('comercial_relatorio.js.selecionadas', { n: n });
       rotulo.hidden = n === 0;
       const arquivar = el('[data-mc-rl-marcar="arquivar"]');
-      const arqTxt = estado.aba === 'arq' ? 'Desarquivar' : 'Arquivar';
+      const arqTxt = estado.aba === 'arq' ? BJ_T.t('comercial_relatorio.js.desarquivar') : BJ_T.t('comercial_relatorio.js.arquivar');
       arquivar.title = arqTxt;
       el('[data-mc-rl-arq-txt]').textContent = arqTxt;
       raiz.querySelectorAll('[data-mc-rl-marcar]').forEach(b => { b.hidden = n === 0; });
@@ -127,7 +129,7 @@
       });
       estado.paginas = d.paginas || 1;
       estado.p = d.pagina || 1;
-      el('[data-mc-rl-faixa]').textContent = d.faixa || '0 de 0';
+      el('[data-mc-rl-faixa]').textContent = d.faixa || BJ_T.t('comercial_relatorio.js.faixa_vazia');
       el('[data-mc-rl-pagina="-1"]').disabled = estado.p <= 1;
       el('[data-mc-rl-pagina="1"]').disabled = estado.p >= estado.paginas;
       const campanhas = d.campanhas || [];
@@ -136,7 +138,7 @@
       campanhas.forEach(c => { estado.linhas[String(c.id)] = c; });
       lista.innerHTML = campanhas.length
         ? campanhas.map(linha).join('')
-        : '<div class="mc-rl-vazio"><i class="bi bi-inbox" aria-hidden="true"></i>Nenhuma campanha nesta aba.</div>';
+        : '<div class="mc-rl-vazio"><i class="bi bi-inbox" aria-hidden="true"></i>' + esc(BJ_T.t('comercial_relatorio.js.vazia')) + '</div>';
       lista.removeAttribute('aria-busy');
       desenharSelecao();
     }
@@ -146,7 +148,7 @@
       lista.setAttribute('aria-busy', 'true');
       return pedir(raiz.dataset.urlLista + '?' + q.toString())
         .then(d => { carregado = true; desenhar(d); })
-        .catch(() => { lista.removeAttribute('aria-busy'); lista.innerHTML = '<div class="mc-rl-vazio">Não foi possível carregar as campanhas. Recarregue a página.</div>'; });
+        .catch(() => { lista.removeAttribute('aria-busy'); lista.innerHTML = '<div class="mc-rl-vazio">' + esc(BJ_T.t('comercial_relatorio.js.erro_carregar')) + '</div>'; });
     }
 
     // ---- Visualizador (dc L502-514) ----
@@ -168,11 +170,11 @@
       texto('quando', c.quando);
       ver.querySelector('[data-mc-rl-cancelar]').hidden = !c.cancelavel;
       ver.querySelector('[data-mc-rl-kpis]').innerHTML = (c.kpis || []).map(k => '<div class="mc-rl-kpi"><span class="mc-rl-kpi-rot"><i class="bi ' + esc(k.icone) + '" aria-hidden="true"></i> ' + esc(k.rotulo) + '</span><b class="mc-rl-kpi-v">' + esc(k.valor) + '</b></div>').join('');
-      ver.querySelector('[data-mc-rl-html]').srcdoc = c.html || '<p style="font:14px Arial;color:#5b7383;padding:20px">Prévia não disponível para campanhas antigas.</p>';
+      ver.querySelector('[data-mc-rl-html]').srcdoc = c.html || '<p style="font:14px Arial;color:#5b7383;padding:20px">' + esc(BJ_T.t('comercial_relatorio.js.previa_indisponivel')) + '</p>';
       const dest = c.destinatarios || [];
       let corpo = dest.map(p => '<div class="mc-rl-dest"><i class="bi ' + (p.lido ? 'bi-check2-all mc-rl-dest-lido' : 'bi-check2') + '" aria-hidden="true"></i><span class="mc-rl-dest-email">' + esc(p.email) + '</span><span class="mc-rl-dest-st">' + esc(p.estado) + '</span></div>').join('');
-      if (!dest.length) corpo = '<div class="mc-rl-dest-vazio">' + (c.iniciada ? 'Lista não registrada nesta campanha.' : 'A lista é montada quando o envio começar.') + '</div>';
-      if (c.mais > 0) corpo += '<div class="mc-rl-dest-mais">+ ' + esc(c.mais) + ' destinatário(s)</div>';
+      if (!dest.length) corpo = '<div class="mc-rl-dest-vazio">' + esc(c.iniciada ? BJ_T.t('comercial_relatorio.js.lista_nao_registrada') : BJ_T.t('comercial_relatorio.js.lista_ao_comecar')) + '</div>';
+      if (c.mais > 0) corpo += '<div class="mc-rl-dest-mais">' + esc(BJ_T.t('comercial_relatorio.js.mais_destinatarios', { n: c.mais })) + '</div>';
       ver.querySelector('[data-mc-rl-dest]').innerHTML = corpo;
     }
 
@@ -192,10 +194,10 @@
       const c = estado.aberta;
       if (!c) return;
       fechar();
-      duplicarCampanha(c, 'Campanha duplicada: ajuste e envie de novo.');
+      duplicarCampanha(c, BJ_T.t('comercial_relatorio.js.duplicada_visualizador'));
     }
 
-    // O mesmo contrato do visualizador; o menu (dc L704) usa o aviso "Campanha duplicada: ajuste e envie.".
+    // O mesmo contrato do visualizador; o menu (dc L704) usa o aviso `duplicada_menu` ("Campanha duplicada: ajuste e envie.").
     function duplicarCampanha(c, mensagem) {
       const detalhe = { assunto: String(c.assunto || '').replace(/^\[TESTE\]\s*/, ''), titulo: c.titulo || c.assunto || '', mensagem: mensagem };
       const tratado = !raiz.dispatchEvent(new CustomEvent('mc:duplicar-campanha', { bubbles: true, cancelable: true, detail: detalhe }));
@@ -209,7 +211,7 @@
         entrada.dispatchEvent(new Event('input', { bubbles: true }));
         primeiro = primeiro || entrada;
       });
-      if (!primeiro) { avisar('Não foi possível abrir o editor da campanha.'); return; }
+      if (!primeiro) { avisar(BJ_T.t('comercial_relatorio.js.editor_indisponivel')); return; }
       primeiro.scrollIntoView({ behavior: 'smooth', block: 'center' });
       primeiro.focus({ preventScroll: true });
       avisar(detalhe.mensagem);
@@ -218,7 +220,7 @@
     function cancelar() {
       const c = estado.aberta;
       if (!c || !c.cancelavel) return;
-      if (!window.confirm('Cancelar o envio programado desta campanha?')) return;
+      if (!window.confirm(BJ_T.t('comercial_relatorio.js.confirmar_cancelar'))) return;
       pedir(url(raiz.dataset.urlCancelar, c.id), Object.assign(POST(), { body: '{}' }))
         .then(r => { fechar(); avisar(r.mensagem); carregar(); recarregarOutras(instancia); })
         .catch(err => { fechar(); avisar(err.message); });
@@ -234,7 +236,7 @@
     function marcarSelecao(acao) {
       const ids = estado.ids.filter(i => estado.sel[i]);
       if (!ids.length) return;
-      if (acao === 'remover' && !window.confirm('Remover ' + ids.length + ' campanha(s) do relatório?')) return;
+      if (acao === 'remover' && !window.confirm(BJ_T.t('comercial_relatorio.js.confirmar_remover', { n: ids.length }))) return;
       if (acao === 'arquivar' && estado.aba === 'arq') acao = 'desarquivar';
       estado.sel = {};
       marcar(ids, acao);
@@ -249,16 +251,16 @@
     // Do visualizador, como o dc L713: sem rastreio só avisa (o visualizador fica aberto); com rastreio fecha e avisa.
     function reenviar(c, doMenu) {
       const rastreou = !!(c && c.metricas && c.metricas.rastreiaLeitura === true);
-      if (doMenu) { avisar(rastreou ? 'Reenvio disponível quando o servidor registrar as leituras.' : 'Esta campanha não rastreou leitura.'); return; }
-      if (!rastreou) { avisar('Esta campanha não rastreou leitura; não dá para saber quem não leu.'); return; }
+      if (doMenu) { avisar(rastreou ? BJ_T.t('comercial_relatorio.js.reenvio_menu_rastreada') : BJ_T.t('comercial_relatorio.js.reenvio_menu_sem_rastreio')); return; }
+      if (!rastreou) { avisar(BJ_T.t('comercial_relatorio.js.reenvio_sem_rastreio')); return; }
       fechar();
-      avisar('Reenvio para quem não leu fica disponível assim que o servidor registrar as leituras.');
+      avisar(BJ_T.t('comercial_relatorio.js.reenvio_rastreada'));
     }
 
     // "Exportar destinatários": o CSV vem pronto do servidor (com o BOM); aqui só vira download.
     function exportar(id, formato) {
       fetch(url(raiz.dataset.urlCsv, id) + '?formato=' + encodeURIComponent(formato), { credentials: 'same-origin' })
-        .then(r => (r.ok ? r.blob() : r.json().catch(() => ({})).then(d => Promise.reject(new Error(d.erro || 'Não foi possível exportar. Recarregue a página.')))))
+        .then(r => (r.ok ? r.blob() : r.json().catch(() => ({})).then(d => Promise.reject(new Error(d.erro || BJ_T.t('comercial_relatorio.js.erro_exportar'))))))
         .then(b => {
           const a = document.createElement('a');
           a.href = URL.createObjectURL(b);
@@ -277,9 +279,9 @@
       if (!c) return;
       estado.ctx = c;
       menu.querySelector('[data-mc-rl-ctx-titulo]').textContent = c.nome || '';
-      menu.querySelector('[data-mc-rl-ctx-estrela-txt]').textContent = c.estrela ? 'Remover estrela' : 'Marcar com estrela';
+      menu.querySelector('[data-mc-rl-ctx-estrela-txt]').textContent = c.estrela ? BJ_T.t('comercial_relatorio.js.estrela_remover') : BJ_T.t('comercial_relatorio.js.estrela_marcar');
       menu.querySelector('[data-mc-rl-ctx-estrela-ic]').className = 'bi ' + (c.estrela ? 'bi-star-fill' : 'bi-star');
-      menu.querySelector('[data-mc-rl-ctx-arq-txt]').textContent = estado.aba === 'arq' ? 'Desarquivar' : 'Arquivar';
+      menu.querySelector('[data-mc-rl-ctx-arq-txt]').textContent = estado.aba === 'arq' ? BJ_T.t('comercial_relatorio.js.desarquivar') : BJ_T.t('comercial_relatorio.js.arquivar');
       const caixa = menu.querySelector('.mc-rl-ctx-caixa');
       caixa.style.left = Math.max(0, Math.min(x, window.innerWidth - 270)) + 'px';
       caixa.style.top = Math.max(0, Math.min(y, window.innerHeight - 330)) + 'px';
@@ -298,12 +300,12 @@
       if (!c) return;
       const id = String(c.id);
       if (acao === 'abrir') abrir(id);
-      else if (acao === 'duplicar') pedir(url(raiz.dataset.urlCampanha, id)).then(d => duplicarCampanha(d, 'Campanha duplicada: ajuste e envie.')).catch(err => avisar(err.message));
+      else if (acao === 'duplicar') pedir(url(raiz.dataset.urlCampanha, id)).then(d => duplicarCampanha(d, BJ_T.t('comercial_relatorio.js.duplicada_menu'))).catch(err => avisar(err.message));
       else if (acao === 'reenviar') reenviar(c, true);
       else if (acao === 'estrela') marcar([id], c.estrela ? 'sem_estrela' : 'estrela');
       else if (acao === 'arquivar') marcar([id], estado.aba === 'arq' ? 'desarquivar' : 'arquivar');
       else if (acao === 'csv') exportar(id, 'emails');
-      else if (acao === 'excluir' && window.confirm('Excluir esta campanha do relatório?')) marcar([id], 'remover');
+      else if (acao === 'excluir' && window.confirm(BJ_T.t('comercial_relatorio.js.confirmar_excluir'))) marcar([id], 'remover');
     }
 
     raiz.addEventListener('click', e => {
@@ -372,9 +374,11 @@
     instancias.push(instancia);
   }
 
+  // Inicia com o documento pronto: a raiz da seção Indicações vem depois deste script no HTML, e o bj-traducao.js
+  // (window.BJ_T, os textos) vem no fim do base.
   const iniciarTodas = () => document.querySelectorAll('[data-mc-relatorio]').forEach(iniciar);
-  iniciarTodas();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciarTodas);
+  else iniciarTodas();
 
   // Esc fecha o menu da instância que o tem aberto (em captura, antes do Esc do visualizador).
   document.addEventListener('keydown', e => {

@@ -55,5 +55,19 @@
             "Outro motivo",
             "Content-Type"
         ]
+    },
+
+    "comercial_relatorio": {
+        "templates": [
+            "master/_comercial_relatorio.html.twig"
+        ],
+        "js": [
+            "master/comercial-relatorio.js"
+        ],
+        "permitidos": [
+            "B",
+            "Content-Type",
+            "Escape"
+        ]
     }
 }

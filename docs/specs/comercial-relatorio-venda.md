@@ -13,6 +13,11 @@ em 21/10/2026.
   `{% if not venda %}` e fica na raiz de cada modo; o parcial ganhou `secao` (em `data-mc-relatorio="com|ind"` e no
   sufixo dos ids) e `recursos`; o JS inicia uma instância por raiz (de novo no `DOMContentLoaded`, porque o script vem
   com a seção Comercial, antes da raiz da venda no HTML). Teste novo `DuasInstanciasDoRelatorioTest`.
+- 21/10: Parte 2 feita (commit local "Leva os textos do Relatório ao catálogo de idioma"): bloco `comercial_relatorio`
+  no catálogo (Twig e `comercial_relatorio.js`), área `comercial_relatorio` no `templates-extraidos.json` (permitidos:
+  "B" do avatar, "Content-Type" e "Escape"; "CSV" não precisou, só aparece dentro de frase do catálogo). O JS passou a
+  iniciar só com o documento pronto (o `bj-traducao.js` vem no fim do base). O HTML das duas seções foi comparado antes
+  e depois: só mudaram os ids com sufixo, o `data-mc-relatorio="com|ind"`, os tokens e o JSON do catálogo.
 
 ## Parte 1: duas instâncias
 

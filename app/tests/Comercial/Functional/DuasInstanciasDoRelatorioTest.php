@@ -107,23 +107,28 @@ final class DuasInstanciasDoRelatorioTest extends KernelTestCase
         }
     }
 
-    #[TestDox('O <link> e o <script> do Relatório vêm uma vez só, com a instância da seção Comercial')]
+    #[TestDox('O <link>, o <script> e o catálogo do JS do Relatório vêm uma vez só, com a instância da seção Comercial')]
     public function testRecursosUmaVez(): void
     {
         self::assertCount(1, $this->doc->filter('link[href*="css/master-comercial-relatorio.css"]'));
         self::assertCount(1, $this->doc->filter('script[src*="js/master/comercial-relatorio.js"]'));
         self::assertCount(1, $this->doc->filter('[data-sec-externa="com"] script[src*="js/master/comercial-relatorio.js"]'));
         self::assertCount(0, $this->doc->filter('[data-sec-externa="ind"] script[src*="js/master/comercial-relatorio.js"]'));
+        // O catálogo do JS do Relatório (spec idioma-do-sistema §8) também uma vez só.
+        $catalogos = $this->doc->filter('script[type="application/json"][data-bj-t]')
+            ->reduce(static fn (Crawler $c): bool => str_contains($c->text(), 'comercial_relatorio.js.'));
+        self::assertCount(1, $catalogos);
+        self::assertCount(0, $this->doc->filter('[data-sec-externa="ind"] script[data-bj-t]'));
     }
 
-    #[TestDox('O JS: um init por raiz, idempotente, que inicia de novo quando o documento termina; Duplicar na raiz e no compositor da mesma seção')]
+    #[TestDox('O JS: um init por raiz, idempotente, com o documento pronto; Duplicar na raiz e no compositor da mesma seção')]
     public function testJsMultiInstancia(): void
     {
         $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/comercial-relatorio.js');
         foreach ([
             "document.querySelectorAll('[data-mc-relatorio]').forEach(iniciar)",
+            "if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciarTodas);",
             'if (raiz.dataset.mcRlIniciado) return;',
-            "document.addEventListener('DOMContentLoaded', iniciarTodas)",
             "raiz.dispatchEvent(new CustomEvent('mc:duplicar-campanha', { bubbles: true, cancelable: true, detail: detalhe }))",
             "raiz.closest('.mc[data-modo]')",
             'e.detail.sec === secao',
