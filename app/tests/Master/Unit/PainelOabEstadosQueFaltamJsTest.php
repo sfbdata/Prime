@@ -6,6 +6,7 @@ namespace App\Tests\Master\Unit;
 
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Estados que faltam clicáveis e a janela da OAB (desenho 05, Perfis 1.2, VS 21.10.26, L118, L140 e L481-495; spec
@@ -20,6 +21,20 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
     private static function arquivo(string $caminho): string
     {
         return (string) file_get_contents(self::RAIZ . $caminho);
+    }
+
+    /** Texto em português (a fonte) de uma chave do catálogo: o literal do desenho mora lá desde a P2a do idioma. */
+    private static function texto(string $chave): string
+    {
+        $no = Yaml::parseFile(self::RAIZ . 'translations/messages+intl-icu.pt_BR.yaml');
+        foreach (explode('.', $chave) as $parte) {
+            self::assertIsArray($no, $chave);
+            self::assertArrayHasKey($parte, $no, $chave);
+            $no = $no[$parte];
+        }
+        self::assertIsString($no, $chave);
+
+        return $no;
     }
 
     /** O trecho do painel.js entre o comentário da janela da OAB e o renderIdades. */
@@ -63,9 +78,11 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
 
         self::assertStringContainsString("g.itens.map(faltamItem).join('')", $js);
         self::assertStringNotContainsString('<span>0</span>', $js, 'some o "0" de hoje');
-        self::assertStringContainsString("const OAB_TOOLTIP = 'Ver endereços da OAB e escrever nota';", self::bloco());
+        self::assertStringContainsString("const OAB_TOOLTIP = T('master.js.janela_oab.dica');", self::bloco());
+        self::assertSame('Ver endereços da OAB e escrever nota', self::texto('master.js.janela_oab.dica'));
         self::assertStringContainsString('<div class="mp-faltam-uf is-oab" role="button" tabindex="0" data-oab-uf="\' + esc(f.uf) + \'" title="\' + OAB_TOOLTIP + \'">', $item);
-        self::assertNaOrdem(substr($item, (int) strpos($item, 'const sec')), ['mp-faltam-ponto', 'mp-faltam-nome', '<i class="bi bi-sticky-fill" title="Tem nota"></i>', 'mp-faltam-sub', 'bi-chevron-right']);
+        self::assertNaOrdem(substr($item, (int) strpos($item, 'const sec')), ['mp-faltam-ponto', 'mp-faltam-nome', '<i class="bi bi-sticky-fill" title="\' + T(\'master.js.janela_oab.tem_nota\') + \'"></i>', 'mp-faltam-sub', 'bi-chevron-right']);
+        self::assertSame('Tem nota', self::texto('master.js.janela_oab.tem_nota'));
         self::assertStringContainsString("(sec && sec.nota ? '<i class=\"bi bi-sticky-fill\"", $item, 'o ícone só com nota');
     }
 
@@ -79,10 +96,12 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
         self::assertStringContainsString('<i class="bi bi-chevron-right"></i></div>', $mundo);
         self::assertStringNotContainsString('data-oab-uf', $mundo, 'no Mundo não há janela');
         self::assertStringContainsString('.map(p => ({ uf: null, r: p }))', self::arquivo('public/js/master/painel.js'));
-        self::assertStringContainsString("const OAB_SO_BRASIL = 'A janela da OAB vale só para os estados do Brasil.';", self::bloco());
+        self::assertStringContainsString("const OAB_SO_BRASIL = T('master.js.janela_oab.so_brasil');", self::bloco());
+        self::assertSame('A janela da OAB vale só para os estados do Brasil.', self::texto('master.js.janela_oab.so_brasil'));
         self::assertStringContainsString("if (alvo.hasAttribute('data-oab-mundo')) return oabAvisar(OAB_SO_BRASIL);", self::funcao('oabPeloAlvo'));
         self::assertStringContainsString("e.target.closest('[data-oab-uf], [data-oab-mundo]')", self::bloco());
-        self::assertStringContainsString("+ '<div class=\"mp-uf-total\"><span>Total geral</span><span>' + num(ufTotal) + '</span></div>'\n      + avisoHtml()", self::arquivo('public/js/master/painel.js'), 'o aviso do painel embaixo do total');
+        self::assertStringContainsString("+ '<div class=\"mp-uf-total\"><span>' + T('master.js.mapa.total_geral') + '</span><span>' + num(ufTotal) + '</span></div>'\n      + avisoHtml()", self::arquivo('public/js/master/painel.js'), 'o aviso do painel embaixo do total');
+        self::assertSame('Total geral', self::texto('master.js.mapa.total_geral'));
     }
 
     #[TestDox('carga das seccionais falhada: o clique tenta de novo e, se falhar outra vez, mostra o aviso de erro do painel')]
@@ -90,14 +109,16 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
     {
         self::assertStringContainsString("if (SEC.estado === 'falhou') SEC.estado = null;\n    secGarantir();", self::funcao('abrirOab'));
         self::assertStringContainsString("if (OAB.uf && !sec && SEC.estado === 'falhou') { OAB.uf = null; oabAvisar(OAB_SEM_CARGA); }", self::funcao('renderOab'));
-        self::assertStringContainsString("const OAB_SEM_CARGA = 'Não foi possível carregar as seccionais agora. Recarregue a página.';", self::bloco());
+        self::assertStringContainsString("const OAB_SEM_CARGA = T('master.js.seccionais.erro_carga');", self::bloco());
+        self::assertSame('Não foi possível carregar as seccionais agora. Recarregue a página.', self::texto('master.js.seccionais.erro_carga'));
         self::assertStringContainsString('S.aviso = msg ? { ok: false, msg } : null;', self::funcao('oabAvisar'));
     }
 
     #[TestDox('subtítulo do item (DONO): "N subseções", senão "sem endereço" sem a sede, senão vazio')]
     public function testSubtitulo(): void
     {
-        self::assertStringContainsString("const faltamSub = s => (!s ? '' : s.subsecoes.length ? conta(s.subsecoes.length, 'subseção', 'subseções') : (s.endereco ? '' : 'sem endereço'));", self::bloco());
+        self::assertStringContainsString("const faltamSub = s => (!s ? '' : s.subsecoes.length ? conta(s.subsecoes.length, T('master.js.janela_oab.subsecao'), T('master.js.janela_oab.subsecoes')) : (s.endereco ? '' : T('master.js.janela_oab.sem_endereco')));", self::bloco());
+        self::assertSame(['subseção', 'subseções', 'sem endereço'], [self::texto('master.js.janela_oab.subsecao'), self::texto('master.js.janela_oab.subsecoes'), self::texto('master.js.janela_oab.sem_endereco')]);
         self::assertStringContainsString("const conta = (n, um, varios) => (n === 1 ? '1 ' + um : num(n) + ' ' + varios);", self::bloco());
     }
 
@@ -117,7 +138,8 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
     public function testTituloESubtitulo(): void
     {
         self::assertStringContainsString('<b id="mpOabTitulo">\' + esc(sec.nome) + \'</b><span>\' + esc(OAB.sub) + \'</span>', self::funcao('oabJanela'));
-        self::assertStringContainsString("abrirOab(uf, uf + ' · ' + oabQuantos(n) + ' no BlueJus');", self::funcao('oabPeloAlvo'));
+        self::assertStringContainsString("abrirOab(uf, T('master.js.janela_oab.subtitulo', { uf, quantos: oabQuantos(n) }));", self::funcao('oabPeloAlvo'));
+        self::assertSame('{uf} · {quantos} no BlueJus', self::texto('master.js.janela_oab.subtitulo'));
     }
 
     #[TestDox('subtítulo pela linha: número comparado como número ("0" vira "sem ..."), na unidade da visão (escritórios, primários, usuários)')]
@@ -126,8 +148,10 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
         $bloco = self::bloco();
 
         self::assertStringContainsString("const uf = alvo.dataset.oabUf, n = Number(alvo.dataset.oabN || 0);", self::funcao('oabPeloAlvo'));
-        self::assertStringContainsString("const oabUnidade = () => (S.mapaQuem === 'esc' ? ['escritório', 'escritórios'] : S.mapaUsu === 'prim' ? ['primário', 'primários'] : ['usuário', 'usuários']);", $bloco);
-        self::assertStringContainsString("const oabQuantos = n => { const [um, varios] = oabUnidade(); return n > 0 ? conta(n, um, varios) : 'sem ' + varios; };", $bloco);
+        self::assertStringContainsString("const oabUnidade = () => (S.mapaQuem === 'esc' ? [T('termos.escritorio'), T('master.js.janela_oab.escritorios')] : S.mapaUsu === 'prim' ? [T('termos.primario'), T('master.js.janela_oab.primarios')] : [T('termos.usuario'), T('master.js.janela_oab.usuarios')]);", $bloco);
+        self::assertSame(['escritório', 'escritórios', 'primário', 'primários', 'usuário', 'usuários'], array_map(self::texto(...), ['termos.escritorio', 'master.js.janela_oab.escritorios', 'termos.primario', 'master.js.janela_oab.primarios', 'termos.usuario', 'master.js.janela_oab.usuarios']));
+        self::assertStringContainsString("const oabQuantos = n => { const [um, varios] = oabUnidade(); return n > 0 ? conta(n, um, varios) : T('master.js.janela_oab.sem', { unidade: varios }); };", $bloco);
+        self::assertSame('sem {unidade}', self::texto('master.js.janela_oab.sem'));
     }
 
     #[TestDox('L484-493: a caixa tem faixa, corpo e rodapé; o corpo, as três seções na ordem; o rodapé, Fechar e Salvar nota')]
@@ -136,11 +160,12 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
         $janela = self::funcao('oabJanela');
         $css = self::arquivo('public/css/master-seccionais.css');
 
-        self::assertNaOrdem($janela, ['<div class="mp-oab-fundo" data-oab-fechar></div>', '<div class="mp-oab-centro"><div class="mp-oab" role="dialog"', '<div class="mp-oab-cab"><i class="bi bi-bank"></i>', 'bi-x-lg', "'<div class=\"mp-oab-corpo\">' + oabSede(sec) + oabSubsecoes(sec) + oabNota(sec)", '<div class="mp-oab-rodape"><button type="button" class="mp-oab-fechar" data-oab-fechar>Fechar</button>', '<i class="bi bi-check2"></i> Salvar nota</button></div></div></div>']);
+        self::assertNaOrdem($janela, ['<div class="mp-oab-fundo" data-oab-fechar></div>', '<div class="mp-oab-centro"><div class="mp-oab" role="dialog"', '<div class="mp-oab-cab"><i class="bi bi-bank"></i>', 'bi-x-lg', "'<div class=\"mp-oab-corpo\">' + oabSede(sec) + oabSubsecoes(sec) + oabNota(sec)", '<div class="mp-oab-rodape"><button type="button" class="mp-oab-fechar" data-oab-fechar>\' + T(\'master.js.fechar\') + \'</button>', '<i class="bi bi-check2"></i> \' + T(\'master.js.janela_oab.salvar_nota\') + \'</button></div></div></div>']);
+        self::assertSame(['Fechar', 'Salvar nota'], [self::texto('master.js.fechar'), self::texto('master.js.janela_oab.salvar_nota')]);
         self::assertStringStartsWith("function oabSede(sec) {\n    const site", self::funcao('oabSede'));
         self::assertStringContainsString("return '<div class=\"mp-oab-sede\">", self::funcao('oabSede'));
         self::assertStringContainsString("return '<div class=\"mp-oab-subs\">", self::funcao('oabSubsecoes'));
-        self::assertStringContainsString("return '<label class=\"mp-oab-nota\">NOTA EXPLICATIVA<textarea", self::funcao('oabNota'));
+        self::assertStringContainsString("return '<label class=\"mp-oab-nota\">' + T('master.js.janela_oab.nota') + '<textarea", self::funcao('oabNota'));
 
         foreach ([
             '.mp-oab-centro > .mp-oab {', '.mp-oab > .mp-oab-cab {', '.mp-oab > .mp-oab-corpo {', '.mp-oab > .mp-oab-rodape {',
@@ -157,11 +182,13 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
     {
         $sede = self::funcao('oabSede');
 
-        self::assertNaOrdem($sede, ['<b>SECCIONAL · SEDE</b>', '<i class="bi bi-pencil"></i> Editar</button>', 'mp-oab-end', 'bi-telephone', '<i class="bi bi-geo-alt"></i> Ver no mapa</a>', '<i class="bi bi-box-arrow-up-right"></i> Site oficial</a>']);
+        self::assertNaOrdem($sede, ["<b>' + T('master.js.janela_oab.sede') + '</b>", "<i class=\"bi bi-pencil\"></i> ' + T('master.js.janela_oab.editar') + '</button>", 'mp-oab-end', 'bi-telephone', "<i class=\"bi bi-geo-alt\"></i> ' + T('master.js.janela_oab.ver_mapa') + '</a>", "<i class=\"bi bi-box-arrow-up-right\"></i> ' + T('master.js.janela_oab.site_oficial') + '</a>"]);
+        self::assertSame(['SECCIONAL · SEDE', 'Editar', 'Ver no mapa', 'Site oficial'], array_map(self::texto(...), ['master.js.janela_oab.sede', 'master.js.janela_oab.editar', 'master.js.janela_oab.ver_mapa', 'master.js.janela_oab.site_oficial']));
         self::assertStringContainsString("mapa = sec.endereco ? OAB_MAPS + encodeURIComponent(sec.endereco) : null", $sede, '"Ver no mapa" só com endereço');
         self::assertStringContainsString("(mapa ? '<a href=\"' + esc(mapa) + '\" target=\"_blank\" rel=\"noopener\">", $sede);
         self::assertStringContainsString("const OAB_MAPS = 'https://www.google.com/maps/search/?api=1&query=';", self::bloco());
-        self::assertStringContainsString("const OAB_SEM_ENDERECO = 'Endereço não cadastrado. Confira no CFOAB.';", self::bloco());
+        self::assertStringContainsString('const OAB_SEM_ENDERECO = SEC_SEM_ENDERECO;', self::bloco());
+        self::assertSame('Endereço não cadastrado. Confira no CFOAB.', self::texto('master.js.seccionais.sem_endereco'));
         self::assertStringContainsString("(sec.endereco ? '' : ' is-vazio')", $sede);
         self::assertStringContainsString('.mp-oab-sede > .mp-oab-end.is-vazio { color: #7a8e9b; }', self::arquivo('public/css/master-seccionais.css'));
         self::assertStringContainsString("/^https:\\/\\//i.test(sec.site || '')", $sede, 'o site só sai com https://');
@@ -173,10 +200,14 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
     {
         $subs = self::funcao('oabSubsecoes');
 
-        self::assertNaOrdem($subs, ['<b>SUBSEÇÕES</b>', '<i class="bi bi-plus-lg"></i> Adicionar endereço</button>', 'oabFormulario()', 'mp-oab-subs-vazio', 'mp-oab-sub"><i class="bi bi-geo-alt"></i>']);
-        self::assertStringContainsString("(sec.subsecoes.length ? '' : '<div class=\"mp-oab-subs-vazio\">Nenhuma subseção cadastrada. <a href=\"' + SEC_CFOAB + '\" target=\"_blank\" rel=\"noopener\">Pesquisar o endereço oficial</a> e adicionar.</div>')", $subs);
-        self::assertStringContainsString('<button type="button" title="Remover" aria-label="Remover" data-oab-sub-rm="\' + esc(x.id) + \'"><i class="bi bi-trash3"></i></button>', $subs);
-        self::assertStringContainsString("oabCampo('NOME', 'nome', 120) + oabCampo('ENDEREÇO', 'endereco', 255) + oabCampo('TELEFONE', 'telefone', 40)", self::funcao('oabFormulario'));
+        self::assertNaOrdem($subs, ["<b>' + T('master.js.janela_oab.subsecoes_titulo') + '</b>", "<i class=\"bi bi-plus-lg\"></i> ' + T('master.js.janela_oab.adicionar_endereco') + '</button>", 'oabFormulario()', 'mp-oab-subs-vazio', 'mp-oab-sub"><i class="bi bi-geo-alt"></i>']);
+        self::assertSame(['SUBSEÇÕES', 'Adicionar endereço'], [self::texto('master.js.janela_oab.subsecoes_titulo'), self::texto('master.js.janela_oab.adicionar_endereco')]);
+        self::assertStringContainsString("(sec.subsecoes.length ? '' : '<div class=\"mp-oab-subs-vazio\">' + T('master.js.janela_oab.subs_vazio', { link: '<a href=\"' + SEC_CFOAB + '\" target=\"_blank\" rel=\"noopener\">' + T('master.js.janela_oab.pesquisar') + '</a>' }) + '</div>')", $subs);
+        self::assertSame('Nenhuma subseção cadastrada. {link} e adicionar.', self::texto('master.js.janela_oab.subs_vazio'));
+        self::assertSame('Pesquisar o endereço oficial', self::texto('master.js.janela_oab.pesquisar'));
+        self::assertStringContainsString('<button type="button" title="\' + T(\'master.js.janela_oab.remover\') + \'" aria-label="\' + T(\'master.js.janela_oab.remover\') + \'" data-oab-sub-rm="\' + esc(x.id) + \'"><i class="bi bi-trash3"></i></button>', $subs);
+        self::assertStringContainsString("oabCampo(T('master.js.campo.nome'), 'nome', 120) + oabCampo(T('master.js.campo.endereco'), 'endereco', 255) + oabCampo(T('master.js.campo.telefone'), 'telefone', 40)", self::funcao('oabFormulario'));
+        self::assertSame(['NOME', 'ENDEREÇO', 'TELEFONE'], array_map(self::texto(...), ['master.js.campo.nome', 'master.js.campo.endereco', 'master.js.campo.telefone']));
     }
 
     #[TestDox('L491: NOTA EXPLICATIVA com o exemplo do desenho, até 1000, e "Atualizada em dd/mm/aaaa"')]
@@ -184,9 +215,12 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
     {
         $nota = self::funcao('oabNota');
 
-        self::assertStringContainsString("const OAB_NOTA_EXEMPLO = 'Ex.: contato com a presidente da subseção, enviar material em novembro';", self::bloco());
+        self::assertStringContainsString("const OAB_NOTA_EXEMPLO = T('master.js.janela_oab.exemplo');", self::bloco());
+        self::assertSame('Ex.: contato com a presidente da subseção, enviar material em novembro', self::texto('master.js.janela_oab.exemplo'));
+        self::assertSame('NOTA EXPLICATIVA', self::texto('master.js.janela_oab.nota'));
         self::assertStringContainsString('<textarea rows="3" maxlength="1000" data-oab-nota placeholder="\' + OAB_NOTA_EXEMPLO + \'">\' + esc(texto) + \'</textarea>', $nota);
-        self::assertStringContainsString("esc('Atualizada em ' + dataBr(sec.nota.atualizadaEm))", $nota);
+        self::assertStringContainsString("esc(T('master.js.janela_oab.atualizada', { data: dataBr(sec.nota.atualizadaEm) }))", $nota);
+        self::assertSame('Atualizada em {data}', self::texto('master.js.janela_oab.atualizada'));
     }
 
     #[TestDox('escritas: POST com o token no header nos moldes do GET; Remover pede a confirmação do painel')]
@@ -197,7 +231,8 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
         self::assertStringContainsString("oabEnviar(SEC.dados.urlSubsecoes.replace('/XX/', '/' + OAB.uf + '/'), OAB.form,", $clique);
         self::assertStringContainsString("oabEnviar(SEC.dados.urlNota.replace('/XX/', '/' + OAB.uf + '/'), { texto: elOab.querySelector('[data-oab-nota]').value }", $clique);
         self::assertStringContainsString("SEC.dados.urlSubsecaoRemover.replace('/XX/', '/' + sec.uf + '/').replace('/0/', '/' + id + '/')", self::funcao('oabPedirRemocao'));
-        self::assertStringContainsString('window.BJMasterConf.abrir({ titulo: \'Remover subseção\'', self::funcao('oabPedirRemocao'));
+        self::assertStringContainsString("window.BJMasterConf.abrir({ titulo: T('master.js.janela_oab.remover_titulo')", self::funcao('oabPedirRemocao'));
+        self::assertSame('Remover subseção', self::texto('master.js.janela_oab.remover_titulo'));
         self::assertStringContainsString('secPostar(url, corpo,', self::funcao('oabEnviar'), 'mesmo POST do bloco (X-CSRF-Token)');
         self::assertStringContainsString('window.__bjSeccionaisRecarregar();', self::funcao('oabEnviar'));
     }

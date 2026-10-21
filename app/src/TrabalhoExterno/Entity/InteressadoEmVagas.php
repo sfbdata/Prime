@@ -91,6 +91,12 @@ class InteressadoEmVagas
         return $this->versaoDoConsentimento;
     }
 
+    /** "Inscrito em" do CSV: a primeira inscrição (pedir de novo só atualiza as preferências). */
+    public function getCriadoEm(): \DateTimeImmutable
+    {
+        return $this->criadoEm;
+    }
+
     public function getOrigemLink(): ?string
     {
         return $this->origemLink;

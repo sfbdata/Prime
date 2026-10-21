@@ -9,7 +9,6 @@ use App\Auth\Entity\ConfirmacaoEmail;
 use App\Auth\Event\ContaCriadaPeloCadastro;
 use App\Auth\Repository\ConfirmacaoEmailRepository;
 use App\Auth\Service\CadastroMailer;
-use App\Auth\Service\ForcaDaSenha;
 use App\Auth\UseCase\CriarContaEEscritorioUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -224,8 +223,9 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         self::assertTrue($user->isActive());
         self::assertContains('ROLE_USER', $user->getRoles());
         self::assertNull($user->getOabNumero());
-        self::assertNotSame('segredo123', $user->getPassword());
-        self::assertTrue($this->hasher->isPasswordValid($user, 'segredo123'));
+        // A senha do cadastro é ignorada (spec cadastro-senha-no-link): a conta nasce com uma senha que ninguém conhece.
+        self::assertNotEmpty($user->getPassword());
+        self::assertFalse($this->hasher->isPasswordValid($user, 'segredo123'));
         self::assertFalse($user->isEmailConfirmado());
         self::assertEquals(new \DateTimeImmutable(self::AGORA), $user->getEmailAConfirmarDesde());
         self::assertSame('Souza Advogados', $conta->tenant->getName());
@@ -267,11 +267,9 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         yield 'e-mail longo demais' => [self::input(email: str_repeat('a', 173) . '@adv.com'), 'Informe um e-mail válido.'];
         yield 'e-mail com cópia na query' => [self::input(email: 'a@b.com?cc=c@d.com'), 'Informe um e-mail válido.'];
         yield 'dois e-mails com vírgula' => [self::input(email: 'a@b.com,c@d.com'), 'Informe um e-mail válido.'];
-        yield 'senha só com letras minúsculas' => [self::input(senha: 'abcdefgh'), ForcaDaSenha::ERRO];
-        yield 'senha curta' => [self::input(senha: 'Ab1!'), ForcaDaSenha::ERRO];
         yield 'aceite desmarcado' => [self::input(aceite: false), 'É preciso aceitar os Termos e a Política de privacidade.'];
         yield 'nome vem antes do e-mail' => [self::input(nome: 'Ana', email: 'x'), 'Informe seu nome completo.'];
-        yield 'senha vem antes do aceite' => [self::input(senha: 'curta', aceite: false), ForcaDaSenha::ERRO];
+        yield 'senha fraca não importa: o erro é o do aceite' => [self::input(senha: 'curta', aceite: false), 'É preciso aceitar os Termos e a Política de privacidade.'];
     }
 
     #[DataProvider('entradasInvalidas')]
@@ -285,6 +283,20 @@ final class CriarContaEEscritorioUseCaseTest extends TestCase
         $this->expectExceptionMessage($mensagem);
 
         $this->useCase()->executar($input, '10.0.0.1', null);
+    }
+
+    #[TestDox('A senha do cadastro é ignorada: fraca ou vazia, a conta nasce e a senha digitada não entra')]
+    public function testSenhaDoCadastroEIgnorada(): void
+    {
+        $this->transacaoExecuta();
+        $this->userRepository->method('encontrarPorEmailIgnorandoCaixa')->willReturn([]);
+        $this->aceiteRepository->method('existeAceiteVigente')->willReturn(false);
+
+        $fraca = $this->useCase()->executar(self::input(senha: 'abc'), '10.0.0.1', null)->user;
+        $vazia = $this->useCase()->executar(self::input(email: 'bia@adv.com', senha: ''), '10.0.0.1', null)->user;
+
+        self::assertFalse($this->hasher->isPasswordValid($fraca, 'abc'));
+        self::assertFalse($this->hasher->isPasswordValid($vazia, ''));
     }
 
     #[TestDox('E-mail já usado (com outra caixa) é recusado antes de qualquer gravação')]

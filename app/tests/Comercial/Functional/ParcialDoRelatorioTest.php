@@ -169,22 +169,46 @@ final class ParcialDoRelatorioTest extends KernelTestCase
         self::assertSame(0, $this->doc->filter('[data-url-encaminhar]')->count());
     }
 
-    #[TestDox('O JS: o contrato do Duplicar (evento mc:duplicar-campanha), o "Nenhuma campanha nesta aba." do dc e sem travessão no texto')]
+    #[TestDox('O JS: o contrato do Duplicar (evento mc:duplicar-campanha), os textos do dc pelo catálogo e sem travessão no texto')]
     public function testJs(): void
     {
         $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/comercial-relatorio.js');
-        self::assertStringContainsString("new CustomEvent('mc:duplicar-campanha', { cancelable: true, detail: detalhe })", $js);
-        self::assertStringContainsString('Nenhuma campanha nesta aba.', $js);
-        self::assertStringContainsString("'Cancelar o envio programado desta campanha?'", $js);
-        foreach (["'Remover ' + ids.length + ' campanha(s) do relatório?'", "'Excluir esta campanha do relatório?'", "'Campanha duplicada: ajuste e envie.'",
-            "'Esta campanha não rastreou leitura.'", "'Esta campanha não rastreou leitura; não dá para saber quem não leu.'",
-            "title=\"Abrir · botão direito para mais opções\"", "'bi-star-fill' : 'bi-star'", "'Desarquivar' : 'Arquivar'"] as $trecho) {
+        self::assertStringContainsString("raiz.dispatchEvent(new CustomEvent('mc:duplicar-campanha', { bubbles: true, cancelable: true, detail: detalhe }))", $js);
+        foreach (["BJ_T.t('comercial_relatorio.js.vazia')", "BJ_T.t('comercial_relatorio.js.confirmar_cancelar')",
+            "BJ_T.t('comercial_relatorio.js.confirmar_remover', { n: ids.length })", "BJ_T.t('comercial_relatorio.js.confirmar_excluir')",
+            "BJ_T.t('comercial_relatorio.js.duplicada_menu')", "BJ_T.t('comercial_relatorio.js.reenvio_menu_sem_rastreio')",
+            "BJ_T.t('comercial_relatorio.js.reenvio_sem_rastreio')", "BJ_T.t('comercial_relatorio.js.linha_dica')",
+            "'bi-star-fill' : 'bi-star'", "estado.aba === 'arq' ? BJ_T.t('comercial_relatorio.js.desarquivar') : BJ_T.t('comercial_relatorio.js.arquivar')"] as $trecho) {
             self::assertStringContainsString($trecho, $js);
+        }
+        // Os textos do dc, agora no catálogo (bloco comercial_relatorio.js).
+        foreach ([
+            'vazia' => 'Nenhuma campanha nesta aba.',
+            'confirmar_cancelar' => 'Cancelar o envio programado desta campanha?',
+            'confirmar_remover' => 'Remover {n} campanha(s) do relatório?',
+            'confirmar_excluir' => 'Excluir esta campanha do relatório?',
+            'duplicada_menu' => 'Campanha duplicada: ajuste e envie.',
+            'reenvio_menu_sem_rastreio' => 'Esta campanha não rastreou leitura.',
+            'reenvio_sem_rastreio' => 'Esta campanha não rastreou leitura; não dá para saber quem não leu.',
+            'linha_dica' => 'Abrir · botão direito para mais opções',
+        ] as $chave => $texto) {
+            self::assertSame($texto, static::getContainer()->get('translator')->trans('comercial_relatorio.js.' . $chave, [], null, 'pt_BR'), $chave);
         }
         self::assertStringNotContainsString('urlEncaminhar', $js, 'o Encaminhar não envia: sem rota nem ação no JS');
         self::assertStringNotContainsString("'encaminhar'", $js);
         self::assertStringNotContainsString('prompt(', $js);
         self::assertSame(0, preg_match('/[—–]/u', $js));
         self::assertFileDoesNotExist(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/comercial-monitoramento.js');
+    }
+
+    #[TestDox('O catálogo do JS vem uma vez, antes do script, só com as chaves comercial_relatorio.js')]
+    public function testCatalogoDoJs(): void
+    {
+        $catalogo = $this->doc->filter('script[type="application/json"][data-bj-t]');
+        self::assertSame(1, $catalogo->count());
+        self::assertSame(1, $this->doc->filter('script[data-bj-t] + script[src*="js/master/comercial-relatorio.js"]')->count());
+        $chaves = array_keys((array) json_decode($catalogo->text(), true, flags: JSON_THROW_ON_ERROR));
+        self::assertNotSame([], $chaves);
+        self::assertSame([], array_values(array_filter($chaves, static fn (string $c): bool => !str_starts_with($c, 'comercial_relatorio.js.'))));
     }
 }

@@ -12,11 +12,12 @@ use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\FiltroDeCurriculos;
 use App\TrabalhoExterno\Service\LocalizadorDeCurriculo;
+use App\TrabalhoExterno\Service\PlanilhaCsv;
 use App\TrabalhoExterno\Service\PoliticaDoCurriculo;
 
 /**
  * "Exportar {N} currículo(s)" (`cvCsv`, desenho 06 l.1150): a lista filtrada em planilha, com as
- * colunas do desenho, `;` entre campos, todos entre aspas e o BOM do UTF-8 para o Excel. Exige
+ * colunas do desenho, no formato da {@see PlanilhaCsv} (`;`, aspas, BOM e proteção contra fórmula). Exige
  * `talentos`.
  */
 final class ExportarCurriculosCsvUseCase
@@ -43,12 +44,12 @@ final class ExportarCurriculosCsvUseCase
         $todos = $this->localizador->visiveis($ctx);
         $ids = array_map(static fn (Curriculo $c): int => (int) $c->getId(), $todos);
         $marcas = $this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Curriculo, $ids);
-        $linhas = [self::linha(self::CABECALHO)];
+        $linhas = [self::CABECALHO];
         foreach ($this->filtro->aplicar($todos, $marcas, $filtros, new \DateTimeImmutable(), $this->candidaturas->contarPorCurriculo($ids)) as $cv) {
-            $linhas[] = self::linha(self::colunas($cv));
+            $linhas[] = self::colunas($cv);
         }
 
-        return "\u{FEFF}" . implode("\n", $linhas);
+        return PlanilhaCsv::documento($linhas);
     }
 
     /** @return list<string> */
@@ -61,23 +62,5 @@ final class ExportarCurriculosCsvUseCase
             $cv->texto('modalidade'), $cv->getAnos() !== null ? (string) $cv->getAnos() : '', $cv->texto('pretensao'),
             self::VOLUNTARIO[$cv->texto('vol')] ?? '', 'Sem termo', $cv->getStatus()->rotulo(), $cv->getRecebidoEm()->format('d/m/Y'),
         ];
-    }
-
-    /**
-     * Cada campo entre aspas, aspas dobradas (`q2`). Campo que o Excel leria como fórmula (começa com
-     * `=`, ou com `+`, `-` ou `@` sem ser telefone nem @usuário) ganha um apóstrofo na frente: sem
-     * isso, o Excel executaria o que o candidato digitou.
-     *
-     * @param list<string> $campos
-     */
-    private static function linha(array $campos): string
-    {
-        return implode(';', array_map(static function (string $v): string {
-            $formula = preg_match('/^[=\t\r]/', $v) === 1
-                || (preg_match('/^[+\-@]/', $v) === 1 && preg_match('/^(\+?[\d\s().-]+|@[\w.]+)$/u', $v) !== 1);
-            $v = $formula ? "'" . $v : $v;
-
-            return '"' . str_replace('"', '""', $v) . '"';
-        }, $campos));
     }
 }
