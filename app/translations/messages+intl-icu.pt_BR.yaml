@@ -3051,7 +3051,7 @@ comercial:
         cadastrar_email_dica: Só cadastre quem autorizou receber (LGPD)
         publico:
             leads: Base de contatos
-            leads_desc: Inscritos pela página de vagas e campanhas
+            leads_desc: Contatos que autorizaram campanhas
             leads_venda: Novos contatos (base)
             leads_venda_desc: Interessados ainda sem conta
             prim: Usuários primários
