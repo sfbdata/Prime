@@ -11,6 +11,7 @@ use App\Entity\Tenant\Tenant;
 use App\Inteligencia\DTO\ContextoDaPasta;
 use App\Inteligencia\DTO\SecaoDeContexto;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\SecaoDoContexto;
 use App\Inteligencia\Exception\ContextoBloqueadoException;
 use App\Inteligencia\Repository\ConfiguracaoDeInteligenciaRepository;
@@ -83,13 +84,19 @@ final class MontadorDeContextoDaPasta
     /**
      * `$abasOcultas`: as abas ocultas para quem pediu (spec pasta-ocultar-aba §5), decididas na
      * solicitação e gravadas em `contexto_resumo.abasOcultas`, como o financeiro; aqui só se obedece.
+     * `$comando`: o comando do drawer que pediu (spec inteligencia-drawer-da-pasta, F1); as seções são
+     * as do agente dele, e ele entra no hash e no resumo.
      *
      * @param list<string> $abasOcultas
      *
      * @throws ContextoBloqueadoException
      */
-    public function para(Tenant $tenant, Pasta $pasta, Agente $agente, bool $incluirFinanceiro, array $abasOcultas = []): ContextoDaPasta
+    public function para(Tenant $tenant, Pasta $pasta, Agente $agente, bool $incluirFinanceiro, array $abasOcultas = [], ?Comando $comando = null): ContextoDaPasta
     {
+        if ($comando !== null && $comando->agente() !== $agente) {
+            throw new \LogicException(sprintf('O comando "%s" é do agente "%s".', $comando->value, $comando->agente()->value));
+        }
+
         // Sigilo primeiro: o montador do Push lança antes de ler qualquer publicação; a lista de
         // processos daqui repete a conferência para o caso de o agente não ler movimentações.
         $processos = $this->processosDaPasta($tenant, $pasta);
@@ -114,10 +121,11 @@ final class MontadorDeContextoDaPasta
             cabecalho: $cabecalho,
             processos: $linhasDeProcessos,
             secoes: $secoes,
-            hash: ContextoDaPasta::hashDe($agente, $cabecalho, $linhasDeProcessos, $secoes),
+            hash: ContextoDaPasta::hashDe($agente, $cabecalho, $linhasDeProcessos, $secoes, $comando),
             incluiFinanceiro: $incluirFinanceiro && $agente->leFinanceiro(),
             numerosDosProcessos: $numeros,
             abasOcultas: $abasOcultas,
+            comando: $comando,
         );
     }
 

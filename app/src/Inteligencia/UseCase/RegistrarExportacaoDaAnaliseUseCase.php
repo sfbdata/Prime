@@ -67,6 +67,14 @@ final class RegistrarExportacaoDaAnaliseUseCase
             throw new AnaliseNaoEncontradaException($analiseId);
         }
 
+        $mudancas = [
+            'pasta_id' => (int) $pasta->getId(),
+            'agente'   => $analise->getAgente()?->value ?? 'push',
+        ];
+        if ($analise->getComando() !== null) {
+            $mudancas['comando'] = $analise->getComando()->value;
+        }
+
         $log = (new AuditLog())
             ->setAction(self::ACOES[$para])
             ->setEntityClass(AnaliseDeInteligencia::class)
@@ -74,10 +82,7 @@ final class RegistrarExportacaoDaAnaliseUseCase
             ->setTenantId($tenant->getId())
             ->setActorUserId($autor->getId())
             ->setActorEmail($autor->getEmail())
-            ->setChanges([
-                'pasta_id' => (int) $pasta->getId(),
-                'agente'   => $analise->getAgente()?->value ?? 'push',
-            ]);
+            ->setChanges($mudancas);
 
         $this->em->persist($log);
         $this->em->flush();
