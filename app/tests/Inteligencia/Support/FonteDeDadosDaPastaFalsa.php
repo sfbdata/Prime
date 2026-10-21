@@ -64,6 +64,11 @@ final class FonteDeDadosDaPastaFalsa implements FonteDeDadosDaPasta
         return array_slice($this->documentos, 0, $limite);
     }
 
+    public function documentosDaPastaPorIds(Tenant $tenant, Pasta $pasta, array $ids): array
+    {
+        return array_values(array_filter($this->documentos, static fn ($d): bool => \in_array((int) $d->getId(), $ids, true)));
+    }
+
     public function checklistDaPasta(Tenant $tenant, Pasta $pasta, int $limite): array
     {
         return array_slice($this->checklist, 0, $limite);

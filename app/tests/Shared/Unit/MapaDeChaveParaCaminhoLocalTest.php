@@ -92,6 +92,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             CategoriaDeArquivo::TRABALHO_EXTERNO_DOCUMENTO, $tenant, 'a1b2.pdf',
             $raiz . '/trabalho-externo/a1b2.pdf',
         ];
+        yield 'trabalho_externo_curriculo (plano, escopo global, subpasta própria)' => [
+            CategoriaDeArquivo::TRABALHO_EXTERNO_CURRICULO, EscopoDeArquivo::global(), 'a1b2.pdf',
+            $raiz . '/trabalho-externo/curriculos/a1b2.pdf',
+        ];
     }
 
     #[DataProvider('categoriasResolviveis')]

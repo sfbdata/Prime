@@ -54,6 +54,21 @@
      data-url-vagas-marcacoes="{{ path('trabalho_externo_vagas_marcacoes') }}"
      data-url-vagas-compartilhar="{{ path('trabalho_externo_vagas_compartilhar') }}"
      data-url-vagas-divulgacao="{{ path('trabalho_externo_vagas_divulgacao') }}"
+     data-url-vaga-candidatura="{{ path('trabalho_externo_vaga_candidatura', {codigo: 'VG-0'}) }}"
+     data-url-vaga-enviar="{{ path('trabalho_externo_vaga_enviar', {codigo: 'VG-0'}) }}"
+     data-url-candidatura-status="{{ path('trabalho_externo_candidatura_status', {id: 0}) }}"
+     data-url-candidaturas-marcacoes="{{ path('trabalho_externo_candidaturas_marcacoes') }}"
+     data-url-curriculos="{{ path('trabalho_externo_curriculos') }}"
+     data-url-curriculo="{{ path('trabalho_externo_curriculo', {codigo: 'CV-0'}) }}"
+     data-url-curriculo-salvar="{{ path('trabalho_externo_curriculo_salvar') }}"
+     data-url-curriculo-arquivo="{{ path('trabalho_externo_curriculo_arquivo', {tipo: 'foto'})|replace({'/foto': '/__tipo__'}) }}"
+     data-url-curriculo-excluir-meu="{{ path('trabalho_externo_curriculo_excluir_meu') }}"
+     data-url-curriculo-excluir="{{ path('trabalho_externo_curriculo_excluir', {codigo: 'CV-0'}) }}"
+     data-url-curriculo-status="{{ path('trabalho_externo_curriculo_status', {codigo: 'CV-0'}) }}"
+     data-url-curriculo-nota="{{ path('trabalho_externo_curriculo_nota', {codigo: 'CV-0'}) }}"
+     data-url-curriculos-marcacoes="{{ path('trabalho_externo_curriculos_marcacoes') }}"
+     data-url-curriculo-previa="{{ path('trabalho_externo_curriculo_previa') }}"
+     data-url-curriculos-csv="{{ path('trabalho_externo_curriculos_csv') }}"
      data-url-simbolo="{{ asset('images/logo/bluejus_simbolo.svg') }}"
      {#- Conta com o e-mail a confirmar não convida (spec login-desenho-10): o JS mostra o aviso e o botão de reenviar o link. #}
      {%- if app.user is not null and not app.user.emailConfirmado %}
@@ -124,6 +139,9 @@
         <div id="teVgVazio"></div>
         <div class="te-vg-grade" id="teVgGrade"></div>
     </div>
+
+    {# Aba Currículos / Meu currículo (spec VS 18.10.26 §4.5): o JS desenha o banco ou o cartão do externo. #}
+    <div id="teCurriculos" hidden></div>
 
     {# Camadas sobrepostas: o JS preenche e mostra. Ficam dentro do .te-page para herdar os tokens do tema. #}
     <div id="teMenu"></div>

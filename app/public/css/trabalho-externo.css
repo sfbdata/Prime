@@ -873,3 +873,302 @@ textarea.te-vf-ctl { height: auto; padding: 9px 10px; resize: vertical; line-hei
 [data-bs-theme="dark"] .te-vf-of-chip { background: var(--bs-secondary-bg); border-color: var(--te-sel-bd); color: var(--te-azul); }
 [data-bs-theme="dark"] .te-vf-of-chip.is-oculto { border-color: var(--te-border-ctl); color: var(--te-muted); }
 [data-bs-theme="dark"] .te-mod-n { background: var(--te-azul-suave); color: var(--te-azul); }
+
+/* =============================================================================
+   Currículos e banco de talentos (spec VS 18.10.26 §4.5, fatia F3a).
+   Desenho 06 VS 18.10.26: banco l.170 a 213, "Meu currículo" l.214 a 224, formulário
+   `tmCvForm` l.254 a 283, detalhe `tmCv` l.301 a 312 e pré-visualização l.370.
+   (As classes `te-cv-aviso`, `te-cv-grupo`, `te-cv-txt` e `te-cv-tg` acima são da
+   configuração das vagas; as daqui não as reutilizam.)
+   ============================================================================= */
+
+/* ---------- Banco interno: linha de cima e barra (l.171 e l.195) ---------- */
+#teCurriculos .te-lote, #teCurriculos .te-lix-aviso { margin-bottom: 10px; }
+.te-cv-topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.te-cv-topo:empty { display: none; }
+.te-cv-cadeado { font-size: 12.5px; color: var(--te-muted); display: flex; align-items: center; gap: 6px; }
+.te-cv-limpar { height: 32px; padding: 0 10px; border: none; background: transparent; color: var(--te-azul); font-size: 13px; cursor: pointer; }
+.te-cv-limpar:hover { text-decoration: underline; }
+.te-cv-limpar.is-vazio { margin-top: 8px; }
+.te-cv-csv { height: 32px; padding: 0 12px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-text-2); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.te-cv-csv:hover { border-color: var(--te-azul); color: var(--te-azul); background: var(--te-azul-suave); }
+.te-cv-barra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+/* Os selects são filhos diretos da barra no desenho: o invólucro some do arranjo. */
+.te-cv-selects { display: contents; }
+.te-cv-select { height: 36px; min-width: 140px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-text); font-size: 13.5px; padding: 0 9px; }
+.te-cv-select.is-area { min-width: 150px; font-size: 14px; }
+
+/* ---------- Tabela do banco (l.199 a 210) ---------- */
+.te-cv-tabela { background: var(--te-card); border: 1px solid var(--te-border); border-radius: 4px; overflow-x: auto; }
+.te-cv-tabela-in { min-width: 950px; }
+.te-cv-grade { display: grid; grid-template-columns: 86px minmax(200px, 2fr) 130px minmax(160px, 1.6fr) 150px 110px 120px 40px; align-items: center; }
+.te-cv-cab { background: var(--te-soft); border-bottom: 1px solid var(--te-border); font-size: 11.5px; font-weight: bold; letter-spacing: .5px; color: var(--te-cancelar); }
+.te-cv-cab > span { padding: 11px 10px; }
+.te-cv-cab > span.is-prof { padding: 11px 16px; }
+.te-cv-cab > span:first-child, .te-cv-cab > span:last-child { padding: 0; }
+.te-cv-linha { border-bottom: 1px solid var(--te-div-2); font-size: 13.5px; cursor: pointer; transition: background .15s; }
+.te-cv-linha:hover { background: var(--te-hover); }
+.te-cv-linha.is-sel { background: var(--te-sel-bg); }
+.te-cv-marca { padding: 0 4px; display: flex; align-items: center; gap: 1px; }
+.te-cv-marca > .te-sel-btn, .te-cv-marca > .te-estrela { width: 26px; height: 26px; }
+.te-cv-marca > .te-sel-btn:hover { background: var(--te-sel-hover); }
+.te-cv-marca > button:disabled { cursor: default; }
+.te-cv-prof { padding: 11px 16px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.te-cv-av { width: 32px; height: 32px; flex: none; border-radius: 50%; background: #0a6fa0; color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+.te-cv-av.is-foto { background-color: #e6edf2; background-position: center; background-size: cover; background-repeat: no-repeat; }
+.te-cv-av.is-56 { width: 56px; height: 56px; font-size: 18px; box-shadow: 0 0 0 3px var(--te-azul-suave); }
+.te-cv-av.is-52 { width: 52px; height: 52px; font-size: 17px; box-shadow: 0 0 0 3px var(--te-azul-suave); }
+.te-cv-nome { display: block; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.te-cv-nome.is-naovisto { font-weight: bold; }
+.te-cv-cargo { font-size: 12px; color: var(--te-muted); }
+.te-cv-vol { margin-left: 6px; height: 18px; padding: 0 6px; border-radius: 3px; background: #fdf1f6; color: #a3235f; font-size: 10.5px; font-weight: bold; display: inline-flex; align-items: center; gap: 3px; }
+.te-cv-cel { padding: 11px 10px; color: var(--te-text-2); min-width: 0; }
+.te-cv-cel.is-fraco { color: var(--te-muted); }
+.te-cv-mais { width: 30px; height: 30px; border: none; background: transparent; color: var(--te-muted); border-radius: 3px; cursor: pointer; padding: 0; }
+.te-cv-mais:hover { background: var(--te-sel-hover); color: var(--te-azul); }
+
+/* ---------- Detalhe tmCv (l.301 a 312) ---------- */
+.te-cv-det-cab { display: flex; align-items: center; gap: 12px; }
+.te-cv-det-nome { font-size: 17px; }
+.te-cv-det-sub { font-size: 13px; color: var(--te-muted); }
+.te-cv-insta { border: none; background: transparent; padding: 0; font-size: 13px; color: #c13584; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.te-cv-insta:hover { text-decoration: underline; }
+.te-cv-insta.is-det { margin-top: 3px; }
+.te-cv-insta.is-bloco { display: flex; }
+.te-cv-dados { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 13.5px; color: var(--te-text-2); }
+.te-cv-dado > .bi { display: inline-block; width: 18px; color: var(--te-muted); }
+.te-cv-docs { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.te-cv-docs:empty { display: none; }
+.te-cv-sit { height: 24px; padding: 0 9px; border-radius: 3px; background: var(--te-azul-suave); color: var(--te-azul); font-size: 12px; font-weight: bold; display: inline-flex; align-items: center; gap: 5px; }
+.te-cv-curso { font-size: 12.5px; color: var(--te-text-2); }
+.te-cv-doc-btn, .te-cv-arq-btn { height: 28px; padding: 0 10px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-text-2); font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.te-cv-arq-btn { align-self: flex-start; height: 34px; padding: 0 14px; font-size: 13px; gap: 7px; }
+.te-cv-doc-btn:hover, .te-cv-arq-btn:hover { border-color: var(--te-azul); color: var(--te-azul); background: var(--te-azul-suave); }
+.te-cv-sec { font-size: 12px; font-weight: bold; color: var(--te-azul); letter-spacing: .5px; }
+.te-cv-sts { display: flex; gap: 4px; flex-wrap: wrap; }
+.te-cv-st-btn { height: 30px; padding: 0 12px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-cancelar); font-size: 12.5px; font-weight: bold; cursor: pointer; transition: background .15s; }
+.te-cv-st-btn.is-on { color: #fff; }
+.te-cv-st-btn:disabled { cursor: default; }
+.te-cv-st-btn:disabled:not(.is-on) { opacity: .7; }
+.te-cv-nota { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: bold; color: var(--te-amarelo-txt); letter-spacing: .3px; min-width: 0; margin: 0; }
+.te-cv-nota-cab { display: flex; align-items: center; gap: 8px; }
+.te-cv-nota-cab > span:first-child { flex: 1; }
+.te-cv-salvo { font-size: 11.5px; font-weight: normal; letter-spacing: 0; color: #1e7b45; }
+textarea.te-vf-ctl.te-cv-nota-ctl { background: #fffaf0; border-color: var(--te-amarelo-bd); }
+.te-cv-cands { font-size: 13px; color: var(--te-text-2); }
+/* Pré-visualização (l.370). */
+.te-cv-doc { flex: none; width: 100%; height: 68vh; border: 1px solid var(--te-border); border-radius: 3px; background: #e9eef2; }
+
+/* ---------- "Meu currículo" do externo (l.214 a 224) ---------- */
+.te-cv-ext { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+.te-cv-card { background: var(--te-card); border: 1px solid var(--te-border); border-radius: 4px; padding: 18px 20px; animation: teUp .25s ease; }
+.te-cv-card.is-2 { animation-duration: .3s; }
+.te-cv-card-cab { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.te-cv-card-cab > .bi { font-size: 20px; color: var(--te-azul); }
+.te-cv-card-cab > b { flex: 1; font-size: 15px; }
+.te-cv-card-cab.is-cand { margin-bottom: 12px; }
+.te-cv-card-cab.is-cand > .bi { font-size: 19px; }
+.te-cv-card-btn { height: 32px; padding: 0 12px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-text-2); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.te-cv-card-btn + .te-cv-card-btn { margin-left: -4px; }
+.te-cv-card-btn:hover { border-color: var(--te-azul); color: var(--te-azul); background: var(--te-azul-suave); }
+.te-cv-card-vazio { text-align: center; padding: 18px 6px 6px; }
+.te-cv-card-vazio-txt { font-size: 13.5px; color: var(--te-muted); line-height: 1.55; margin-bottom: 14px; }
+.te-cv-cadastrar { height: 36px; padding: 0 16px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font-size: 14px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: background .15s, transform .15s; }
+.te-cv-cadastrar:hover { background: #0b5f86; transform: translateY(-1px); }
+.te-cv-meu { display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; color: var(--te-text-2); }
+.te-cv-meu-topo { display: flex; align-items: center; gap: 12px; }
+.te-cv-meu-nome { font-size: 16px; color: var(--te-text); }
+.te-cv-em { font-size: 12px; color: var(--te-muted); }
+.te-cv-pct { margin-top: 6px; }
+.te-cv-pct-cab { display: flex; justify-content: space-between; font-size: 12px; color: var(--te-cancelar); margin-bottom: 4px; }
+.te-cv-pct-trilho { height: 6px; border-radius: 3px; background: var(--te-div); overflow: hidden; }
+.te-cv-pct-barra { height: 100%; transition: width .6s ease; }
+.te-cv-falta { font-size: 12px; color: var(--te-muted); margin-top: 5px; }
+.te-cv-cand-vazio { font-size: 13.5px; color: var(--te-muted); padding: 8px 0; }
+
+/* ---------- Formulário tmCvForm (l.254 a 283) ---------- */
+.te-vf-grade.is-base { align-items: end; }
+.te-cv-foto-linha { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-bottom: 4px; }
+.te-cv-foto { position: relative; width: 76px; height: 76px; flex: none; box-sizing: border-box; border-radius: 50%; background: #f3f6f8; border: 2px dashed #b9c7d2; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #7a8e9b; font-size: 24px; margin: 0; transition: border-color .2s, transform .2s; }
+.te-cv-foto:hover { border-color: var(--te-azul); transform: scale(1.04); }
+.te-cv-foto.is-foto { border-color: transparent; background-color: #e6edf2; background-position: center; background-size: cover; background-repeat: no-repeat; }
+.te-cv-foto > input, .te-cv-anexo > input { display: none; }
+.te-cv-foto-lapis { position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; box-sizing: border-box; border-radius: 50%; background: #0a6fa0; color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; border: 2px solid var(--te-card); }
+.te-cv-foto-txt { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 6px; }
+.te-cv-foto-txt > b { font-size: 13.5px; color: var(--te-text); }
+.te-cv-foto-txt > span { font-size: 12px; color: var(--te-muted); }
+.te-cv-foto-rm { align-self: flex-start; height: 26px; padding: 0 9px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-vermelho); font-size: 12px; cursor: pointer; }
+.te-cv-foto-rm:hover { background: var(--te-perigo-bg); }
+.te-cv-insta-campo { flex: 1; min-width: 220px; }
+.te-cv-insta-box { display: flex; align-items: center; height: 36px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); overflow: hidden; }
+.te-cv-insta-pre { display: flex; align-items: center; gap: 5px; padding: 0 9px; height: 100%; background: var(--te-soft); border-right: 1px solid var(--te-div); color: #c13584; font-size: 14px; }
+.te-cv-insta-pre > b { color: var(--te-cancelar); font-size: 14px; }
+.te-cv-insta-ctl { flex: 1; min-width: 0; height: 100%; border: none; outline: none; padding: 0 9px; font-size: 14px; font-weight: normal; background: transparent; color: var(--te-text); }
+.te-cv-sits { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; }
+.te-cv-sit-op { display: flex; align-items: center; gap: 7px; min-height: 36px; padding: 4px 10px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-text-2); font-size: 12.5px; font-weight: bold; cursor: pointer; text-align: left; transition: border-color .15s, background .15s; }
+.te-cv-sit-op.is-on { border-color: var(--te-azul); background: var(--te-azul-suave); color: var(--te-azul); }
+.te-cv-anexo { display: flex; align-items: center; gap: 10px; height: 36px; box-sizing: border-box; border: 1px dashed #b9c7d2; border-radius: 3px; padding: 0 12px; font-weight: normal; letter-spacing: 0; color: var(--te-text-2); cursor: pointer; background: #f9fbfc; transition: border-color .15s; }
+.te-cv-anexo:hover { border-color: var(--te-azul); }
+.te-cv-anexo > .bi { color: var(--te-azul); }
+.te-cv-vol-seg { display: flex; background: var(--te-seg); border-radius: 4px; padding: 3px; gap: 2px; }
+.te-cv-vol-op { flex: 1; height: 30px; border: none; border-radius: 3px; background: transparent; color: var(--te-muted); font-size: 12.5px; font-weight: bold; cursor: pointer; box-shadow: none; transition: background .15s; }
+.te-cv-vol-op.is-on { background: var(--te-seg-on); color: var(--te-azul); box-shadow: var(--te-shadow-seg); }
+.te-cv-area { height: 28px; padding: 0 10px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-text-2); font-size: 12.5px; font-weight: normal; cursor: pointer; transition: background .15s; }
+.te-cv-area:hover { border-color: #0a6fa0; }
+.te-cv-area.is-on { border-color: #0a6fa0; background: #0a6fa0; color: #fff; }
+.te-cv-secao { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: bold; color: var(--te-azul); letter-spacing: .6px; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--te-div-2); }
+.te-cv-item { display: flex; flex-direction: column; gap: 8px; background: #f9fbfc; border: 1px solid var(--te-div); border-radius: 4px; padding: 10px 12px; }
+.te-cv-item-exp { display: grid; grid-template-columns: minmax(160px, 1.4fr) minmax(160px, 1.4fr) 90px 90px 30px; gap: 8px; }
+.te-cv-item.te-cv-item-form { display: grid; grid-template-columns: minmax(160px, 1.5fr) minmax(160px, 1.4fr) 90px 90px 30px; gap: 8px; }
+.te-cv-item-idi { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr) 30px; gap: 8px; }
+.te-cv-rm { width: 30px; height: 34px; align-self: end; border: 1px solid #f0c9cd; border-radius: 3px; background: var(--te-card); color: var(--te-vermelho); cursor: pointer; padding: 0; }
+.te-cv-rm:hover { background: var(--te-perigo-bg); }
+.te-cv-add { align-self: flex-start; height: 30px; padding: 0 12px; border: 1px dashed #9fc3d8; border-radius: 3px; background: #f5fafd; color: var(--te-azul); font-size: 12.5px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.te-cv-add:hover { background: var(--te-azul-suave); border-style: solid; }
+textarea.te-vf-ctl { font-family: inherit; }
+.te-vf-rot.is-pequeno > textarea.te-vf-ctl { height: auto; padding: 7px 9px; line-height: 1.45; }
+.te-cv-lgpd { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; font-weight: normal; color: var(--te-text-2); cursor: pointer; line-height: 1.5; background: var(--te-soft); border: 1px solid var(--te-div); border-radius: 3px; padding: 10px 12px; margin: 0; }
+.te-cv-lgpd > input { width: 16px; height: 16px; flex: none; accent-color: #0a6fa0; margin-top: 2px; }
+
+/* ---------- Tema escuro dos blocos de currículo com cor fixa ---------- */
+[data-bs-theme="dark"] .te-page .te-cv-vol { background: rgba(163, 35, 95, .18); color: #f19bc4; }
+[data-bs-theme="dark"] .te-page .te-cv-insta,
+[data-bs-theme="dark"] .te-page .te-cv-insta-pre { color: #e483bd; }
+[data-bs-theme="dark"] .te-page .te-cv-foto { background-color: var(--bs-secondary-bg); border-color: var(--te-border-ctl); color: var(--te-muted); }
+[data-bs-theme="dark"] .te-page .te-cv-foto.is-foto { border-color: transparent; }
+[data-bs-theme="dark"] .te-page .te-cv-anexo,
+[data-bs-theme="dark"] .te-page .te-cv-item { background: var(--bs-secondary-bg); border-color: var(--te-border-ctl); }
+[data-bs-theme="dark"] .te-page .te-cv-add { background: var(--te-azul-bg); border-color: var(--te-azul-bd); }
+[data-bs-theme="dark"] .te-page .te-cv-rm { border-color: var(--te-vermelho-bd); }
+[data-bs-theme="dark"] .te-page textarea.te-vf-ctl.te-cv-nota-ctl { background: var(--te-nota-bg); }
+[data-bs-theme="dark"] .te-page .te-cv-salvo { color: #7fd3a0; }
+[data-bs-theme="dark"] .te-page .te-cv-doc { background: var(--bs-secondary-bg); }
+
+/* =============================================================================
+   CANDIDATURA (spec VS 18.10.26 §4.6, F2b). Valores do desenho "06 - Trabalho Externo - VS 18.10.26":
+   selo de compatibilidade e rodapé do cartão (l.161 e 165), "Minhas candidaturas" (l.221 a 224),
+   "SUA CANDIDATURA" e candidatos no detalhe (l.292 e 295 a 298), linha do tempo (`etapas`, l.1039 a
+   1047) e o modal QUASE (l.392 a 400). As cores de situação (AST) e de compatibilidade vêm em linha do JS.
+   ============================================================================= */
+.te-page {
+    --te-cand-feito:      #0a6fa0;
+    --te-cand-linha:      #dde5eb;
+    --te-cand-futuro-bd:  #cfd9e0;
+    --te-cand-futuro-ic:  #9aabb7;
+    --te-cand-futuro-rot: #7a8e9b;
+    --te-cand-feito-rot:  #243845;
+    --te-cand-dica:       #7a8e9b;
+    --te-cand-glow:       0 0 0 4px rgba(10, 111, 160, .14);
+    --te-cand-nao:        #a3232b;
+    --te-cand-verde:      #1e7b45;
+    --te-cand-cinza:      #6b8494;
+    --te-cand-selo-bg:    #f3f6f8;
+    --te-cand-minha-bd:   #dbe8f0;
+    --te-cand-pilula:     #4a6373;
+    --te-cand-quase-fundo: rgba(18, 36, 47, .25);
+    --te-cand-quase-sombra: 0 24px 60px rgba(18, 36, 47, .28);
+    --te-cand-quase-ic-bg: linear-gradient(135deg, #fff4d6, #e5f1f7);
+}
+[data-bs-theme="dark"] .te-page {
+    --te-cand-feito:      #4da3ea;
+    --te-cand-linha:      var(--bs-border-color);
+    --te-cand-futuro-bd:  var(--bs-border-color);
+    --te-cand-futuro-ic:  var(--bs-secondary-color);
+    --te-cand-futuro-rot: var(--bs-secondary-color);
+    --te-cand-feito-rot:  var(--bs-body-color);
+    --te-cand-dica:       var(--bs-secondary-color);
+    --te-cand-glow:       0 0 0 4px rgba(77, 163, 234, .2);
+    --te-cand-nao:        #c0392f;
+    --te-cand-verde:      #5fc58a;
+    --te-cand-cinza:      #5d7382;
+    --te-cand-selo-bg:    var(--bs-secondary-bg);
+    --te-cand-minha-bd:   var(--bs-border-color);
+    --te-cand-pilula:     var(--bs-secondary-color);
+    --te-cand-quase-fundo: rgba(0, 0, 0, .5);
+    --te-cand-quase-sombra: 0 24px 60px rgba(0, 0, 0, .6);
+    --te-cand-quase-ic-bg: linear-gradient(135deg, rgba(224, 161, 6, .2), rgba(77, 163, 234, .2));
+}
+@keyframes teCandPop { 0% { transform: scale(0); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@keyframes teCandShine { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+
+/* ---------------------------------------------------------------- cartão da vaga */
+.te-cand-cp { height: 20px; padding: 0 8px; border-radius: 3px; background: var(--te-cand-selo-bg); font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; }
+.te-cand-n { color: var(--te-azul); white-space: nowrap; }
+.te-cand-foi { color: var(--te-cand-verde); white-space: nowrap; }
+
+/* "Oferta indisponível" (l.1095): o `B(..., 1, '#6b8494')` do desenho. */
+.te-tlm-btn.is-pri.te-cand-cinza,
+.te-tlm-btn.is-pri.te-cand-cinza:hover { background: var(--te-cand-cinza); }
+
+/* ---------------------------------------------------------------- linha do tempo */
+.te-cand-et-rolo { overflow-x: auto; padding: 2px 0 4px; }
+.te-cand-et { display: flex; align-items: flex-start; padding-top: 14px; }
+.te-cand-passo { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
+.te-cand-passo-linha { position: absolute; top: 15px; left: 50%; width: 100%; height: 2px; }
+.te-cand-passo-dias { position: absolute; top: -13px; left: 100%; transform: translateX(-50%); font-size: 10.5px; color: var(--te-cand-dica); white-space: nowrap; }
+.te-cand-passo-bola { position: relative; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--te-cand-futuro-bd); background: var(--te-card); color: var(--te-cand-futuro-ic); box-shadow: none; display: flex; align-items: center; justify-content: center; font-size: 13px; box-sizing: border-box; transition: background .3s, box-shadow .3s; }
+.te-cand-passo-bola.is-feito { background: var(--te-cand-feito); border-color: var(--te-cand-feito); color: #fff; }
+.te-cand-passo-bola.is-atual { border-color: var(--te-cand-feito); color: var(--te-cand-feito); box-shadow: var(--te-cand-glow); }
+.te-cand-passo-bola.is-nao { background: var(--te-cand-nao); border-color: var(--te-cand-nao); color: #fff; }
+.te-cand-passo-rot { font-size: 12px; color: var(--te-cand-futuro-rot); font-weight: normal; text-align: center; line-height: 1.2; padding: 0 2px; }
+.te-cand-passo-rot.is-feito { color: var(--te-cand-feito-rot); }
+.te-cand-passo-rot.is-atual { color: var(--te-cand-feito); font-weight: bold; }
+.te-cand-passo-rot.is-nao { color: var(--te-cand-nao); font-weight: bold; }
+.te-cand-passo-dt { font-size: 10px; color: var(--te-cand-dica); }
+/* Compacta (lista de candidatos e "Minhas candidaturas"): círculo de 26px. */
+.te-cand-et.is-compacto .te-cand-passo-linha { top: 13px; }
+.te-cand-et.is-compacto .te-cand-passo-bola { width: 26px; height: 26px; font-size: 11px; }
+.te-cand-et.is-compacto .te-cand-passo-rot { font-size: 11px; }
+
+/* ---------------------------------------------------------------- "SUA CANDIDATURA" (l.292) */
+.te-cand-minha { flex: none; background: var(--te-card); border: 1px solid var(--te-cand-minha-bd); border-radius: 4px; padding: 12px 14px 8px; }
+.te-cand-minha-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.te-cand-minha-cab > .bi { color: var(--te-azul); }
+.te-cand-minha-cab > b { flex: 1; font-size: 13px; letter-spacing: .4px; color: var(--te-azul); }
+.te-cand-minha-cab > span { font-size: 11.5px; color: var(--te-cand-dica); }
+
+/* ---------------------------------------------------------------- candidatos da vaga (l.295 a 298) */
+.te-cand-cab { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.te-cand-tit { font-size: 12px; font-weight: bold; color: var(--te-azul); letter-spacing: .5px; }
+.te-cand-env { font-size: 12px; color: var(--te-muted); }
+.te-cand-vazio { font-size: 13.5px; color: var(--te-muted); }
+.te-cand-linha { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--te-div); border-radius: 3px; }
+.te-cand-env-btn { width: 24px; height: 24px; border: none; background: transparent; color: var(--te-cand-futuro-ic); cursor: pointer; font-size: 15px; padding: 0; }
+.te-cand-env-btn.is-on { color: var(--te-azul); }
+.te-cand-env-btn.is-enviado { color: var(--te-cand-verde); cursor: default; }
+.te-cv-av.is-30 { width: 30px; height: 30px; font-size: 11px; }
+.te-cand-nome { flex: 1; min-width: 140px; border: none; background: transparent; text-align: left; cursor: pointer; padding: 0; }
+.te-cand-nome > b { font-size: 13.5px; color: var(--te-azul); }
+.te-cand-nome > span { display: block; font-size: 12px; color: var(--te-muted); }
+.te-cand-doc { height: 26px; padding: 0 9px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-text-2); font-size: 11.5px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.te-cand-doc:hover { border-color: var(--te-azul); color: var(--te-azul); background: var(--te-azul-suave); }
+.te-cand-sts { display: flex; gap: 3px; flex-wrap: wrap; }
+.te-cand-st { height: 26px; padding: 0 8px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-cand-pilula); font-size: 11.5px; font-weight: bold; cursor: pointer; }
+.te-cand-st.is-on { color: #fff; cursor: default; }
+.te-cand-linha-et { flex-basis: 100%; min-width: 0; max-width: 100%; }
+
+/* ---------------------------------------------------------------- "Minhas candidaturas" (l.222 a 224) */
+.te-cand-mc-barra { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: -4px 0 10px; }
+.te-cand-mc-filtros { display: flex; background: var(--te-seg); border-radius: 4px; padding: 3px; gap: 2px; }
+.te-cand-mc-filtro { height: 26px; padding: 0 10px; border: none; border-radius: 3px; background: transparent; color: var(--te-muted); font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: none; }
+.te-cand-mc-filtro.is-ativo { background: var(--te-seg-on); color: var(--te-azul); box-shadow: var(--te-shadow-seg); }
+.te-cand-mc-linha { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 6px; border-bottom: 1px solid var(--te-div-2); cursor: pointer; border-radius: 3px; transition: background .15s; }
+.te-cand-mc-linha:hover { background: var(--te-hover); }
+.te-cand-mc-tit { display: block; font-size: 13.5px; font-weight: normal; }
+.te-cand-mc-tit.is-naovista { font-weight: bold; }
+.te-cand-mc-em { font-size: 12px; color: var(--te-muted); }
+
+/* ---------------------------------------------------------------- modal QUASE (l.392 a 400) */
+.te-cand-quase-fundo { position: fixed; inset: 0; z-index: 1127; background: var(--te-cand-quase-fundo); }
+.te-cand-quase-pos { position: fixed; inset: 0; z-index: 1128; display: flex; align-items: center; justify-content: center; padding: 12px; pointer-events: none; }
+.te-cand-quase { position: relative; pointer-events: auto; width: min(400px, 100%); background: var(--te-card); color: var(--te-text); border-radius: 4px; box-shadow: var(--te-cand-quase-sombra); overflow: hidden; text-align: center; animation: teRise .45s cubic-bezier(.2, .8, .2, 1) both; }
+.te-cand-quase-faixa { height: 4px; background: linear-gradient(90deg, #0a6fa0, #e0a106, #1e7b45, #0a6fa0); background-size: 200% 100%; animation: teCandShine 2.4s linear infinite; }
+.te-cand-quase-corpo { padding: 26px 26px 22px; }
+.te-cand-quase-ic { width: 68px; height: 68px; margin: 0 auto 12px; border-radius: 50%; background: var(--te-cand-quase-ic-bg); color: var(--te-azul); font-size: 32px; display: flex; align-items: center; justify-content: center; animation: teCandPop .6s cubic-bezier(.3, 1.6, .5, 1) .15s both; }
+.te-cand-quase-tit { font-size: 19px; font-weight: bold; color: var(--te-text); margin-bottom: 6px; animation: teRise .4s ease .25s both; }
+.te-cand-quase-txt { font-size: 13.5px; color: var(--te-text-2); line-height: 1.55; animation: teRise .4s ease .35s both; }
+.te-cand-quase-botoes { display: flex; justify-content: center; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+.te-cand-quase-fechar { height: 36px; padding: 0 14px; border: 1px solid var(--te-border-ctl); border-radius: 3px; background: var(--te-card); color: var(--te-text-2); font-size: 14px; cursor: pointer; }
+.te-cand-quase-fechar:hover { border-color: var(--te-azul); color: var(--te-azul); background: var(--te-azul-suave); }
+.te-cand-quase-ver { height: 36px; padding: 0 16px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font-size: 14px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 7px; transition: background .15s, transform .15s; }
+.te-cand-quase-ver:hover { background: #0b5f86; transform: translateY(-1px); }

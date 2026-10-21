@@ -279,6 +279,15 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // consentimento (data e versão do texto), que é o registro que a LGPD pede.
         \App\TrabalhoExterno\Entity\LinkDeVagas::class,
         \App\TrabalhoExterno\Entity\InteressadoEmVagas::class,
+        // Currículo do banco de talentos (spec VS 18.10.26 §4.5): é dado pessoal do candidato, que pode
+        // excluí-lo a qualquer momento (LGPD). Auditar copiaria nome, contato e resumo para o audit_log
+        // do escritório de quem age, e a cópia sobreviveria à exclusão pedida pelo titular. O registro de
+        // prova que a LGPD pede é o próprio consentimento (data e versão do texto) gravado no currículo.
+        \App\TrabalhoExterno\Entity\Curriculo::class,
+        // Candidatura às vagas (spec VS 18.10.26 §4.6): candidatura, aceite e envio ao escritório já vão
+        // para o LOG DE DOMÍNIO da vaga (HistoricoVaga) e cada etapa guarda a própria data; é dado do
+        // candidato, que some com o currículo excluído (LGPD), pelo mesmo motivo do Curriculo acima.
+        \App\TrabalhoExterno\Entity\Candidatura::class,
     ];
 
     private EntityManagerInterface $em;

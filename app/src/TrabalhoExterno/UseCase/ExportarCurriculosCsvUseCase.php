@@ -1,0 +1,83 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\TrabalhoExterno\UseCase;
+
+use App\TrabalhoExterno\Entity\Curriculo;
+use App\TrabalhoExterno\Enum\TipoItemMarcado;
+use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
+use App\TrabalhoExterno\Repository\CandidaturaRepository;
+use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
+use App\TrabalhoExterno\Service\Contexto;
+use App\TrabalhoExterno\Service\FiltroDeCurriculos;
+use App\TrabalhoExterno\Service\LocalizadorDeCurriculo;
+use App\TrabalhoExterno\Service\PoliticaDoCurriculo;
+
+/**
+ * "Exportar {N} currículo(s)" (`cvCsv`, desenho 06 l.1150): a lista filtrada em planilha, com as
+ * colunas do desenho, `;` entre campos, todos entre aspas e o BOM do UTF-8 para o Excel. Exige
+ * `talentos`.
+ */
+final class ExportarCurriculosCsvUseCase
+{
+    public const NOME_DO_ARQUIVO = 'curriculos-bluejus.csv';
+    public const CABECALHO = ['Nome', 'E-mail', 'Instagram', 'Telefone', 'Situação', 'OAB', 'UF OAB', 'Instituição', 'Cidade', 'UF', 'Cargo', 'Áreas', 'Modalidade', 'Anos exp.', 'Pretensão', 'Voluntário', 'Termo', 'Situação no banco', 'Recebido'];
+    private const VOLUNTARIO = ['sim' => 'Sim', 'talvez' => 'Talvez', 'nao' => 'Não'];
+
+    public function __construct(
+        private readonly LocalizadorDeCurriculo $localizador,
+        private readonly PoliticaDoCurriculo $politica,
+        private readonly MarcacaoDoUsuarioRepository $marcacoes,
+        private readonly FiltroDeCurriculos $filtro,
+        private readonly CandidaturaRepository $candidaturas,
+    ) {
+    }
+
+    /** @param array<string, string> $filtros filtro, busca, area, situacao, uf, termo */
+    public function executar(Contexto $ctx, array $filtros): string
+    {
+        if (!$this->politica->podeGerir($ctx)) {
+            throw new AcaoNaoPermitida('Só a Central com acesso ao banco de talentos exporta os currículos.');
+        }
+        $todos = $this->localizador->visiveis($ctx);
+        $ids = array_map(static fn (Curriculo $c): int => (int) $c->getId(), $todos);
+        $marcas = $this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Curriculo, $ids);
+        $linhas = [self::linha(self::CABECALHO)];
+        foreach ($this->filtro->aplicar($todos, $marcas, $filtros, new \DateTimeImmutable(), $this->candidaturas->contarPorCurriculo($ids)) as $cv) {
+            $linhas[] = self::linha(self::colunas($cv));
+        }
+
+        return "\u{FEFF}" . implode("\n", $linhas);
+    }
+
+    /** @return list<string> */
+    private static function colunas(Curriculo $cv): array
+    {
+        return [
+            $cv->texto('nome'), $cv->texto('email'), $cv->texto('insta') !== '' ? '@' . $cv->texto('insta') : '',
+            $cv->texto('tel'), $cv->getSituacao()->rotuloCurto(), $cv->texto('oabNum'), $cv->texto('oabUf'),
+            $cv->texto('inst'), $cv->texto('cidade'), $cv->texto('uf'), $cv->texto('cargo'), implode('; ', $cv->getAreas()),
+            $cv->texto('modalidade'), $cv->getAnos() !== null ? (string) $cv->getAnos() : '', $cv->texto('pretensao'),
+            self::VOLUNTARIO[$cv->texto('vol')] ?? '', 'Sem termo', $cv->getStatus()->rotulo(), $cv->getRecebidoEm()->format('d/m/Y'),
+        ];
+    }
+
+    /**
+     * Cada campo entre aspas, aspas dobradas (`q2`). Campo que o Excel leria como fórmula (começa com
+     * `=`, ou com `+`, `-` ou `@` sem ser telefone nem @usuário) ganha um apóstrofo na frente: sem
+     * isso, o Excel executaria o que o candidato digitou.
+     *
+     * @param list<string> $campos
+     */
+    private static function linha(array $campos): string
+    {
+        return implode(';', array_map(static function (string $v): string {
+            $formula = preg_match('/^[=\t\r]/', $v) === 1
+                || (preg_match('/^[+\-@]/', $v) === 1 && preg_match('/^(\+?[\d\s().-]+|@[\w.]+)$/u', $v) !== 1);
+            $v = $formula ? "'" . $v : $v;
+
+            return '"' . str_replace('"', '""', $v) . '"';
+        }, $campos));
+    }
+}
