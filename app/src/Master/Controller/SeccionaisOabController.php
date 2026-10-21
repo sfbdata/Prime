@@ -5,14 +5,21 @@ declare(strict_types=1);
 namespace App\Master\Controller;
 
 use App\Entity\Auth\User;
+use App\Master\DTO\AdicionarSubsecaoNaSeccionalInput;
 use App\Master\DTO\EditarSedeDaSeccionalInput;
 use App\Master\DTO\RegistrarDivulgacaoNaSeccionalInput;
+use App\Master\DTO\RemoverSubsecaoDaSeccionalInput;
+use App\Master\DTO\SalvarNotaDaSeccionalInput;
 use App\Master\Exception\SeccionalNaoEncontrada;
 use App\Master\Exception\SeccionalRecusada;
+use App\Master\Exception\SubsecaoNaoEncontrada;
 use App\Master\Service\LocalizacaoDaPessoa;
+use App\Master\UseCase\AdicionarSubsecaoNaSeccionalUseCase;
 use App\Master\UseCase\EditarSedeDaSeccionalUseCase;
 use App\Master\UseCase\ListarSeccionaisUseCase;
 use App\Master\UseCase\RegistrarDivulgacaoNaSeccionalUseCase;
+use App\Master\UseCase\RemoverSubsecaoDaSeccionalUseCase;
+use App\Master\UseCase\SalvarNotaDaSeccionalUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,6 +35,10 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * GET devolve as 27 seccionais, o token CSRF `master_seccionais` (o painel o manda de volta, como o
  * `tokenFaixas` dos planos) e o molde da URL da sede. Os POST levam corpo JSON e o token no header `X-CSRF-Token`; respondem
  * `{mensagem}` no sucesso e `{erro}` na recusa (403 token, 404 UF fora das 27, 422 regra).
+ *
+ * Janela da OAB dos estados que faltam (spec docs/specs/master-oab-estados-que-faltam.md; desenho L481-495): o GET
+ * traz também as subseções e a nota de cada UF e os moldes das URLs de subseção e de nota; os três POST (adicionar
+ * subseção, remover subseção, salvar nota) seguem o mesmo contrato dos de cima.
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class SeccionaisOabController extends AbstractController
@@ -42,7 +53,42 @@ final class SeccionaisOabController extends AbstractController
             'token'      => $csrf->getToken(self::CSRF)->getValue(),
             // Molde da URL de editar a sede (o painel troca XX pela UF): o bloco `urls` do painel leva só o GET.
             'urlSede'    => $this->generateUrl('master_seccional_sede', ['uf' => 'XX']),
+            // Moldes da janela da OAB: XX é a UF; 0 é o id da subseção.
+            'urlSubsecoes'       => $this->generateUrl('master_seccional_subsecao_adicionar', ['uf' => 'XX']),
+            'urlSubsecaoRemover' => $this->generateUrl('master_seccional_subsecao_remover', ['uf' => 'XX', 'id' => 0]),
+            'urlNota'            => $this->generateUrl('master_seccional_nota', ['uf' => 'XX']),
         ]);
+    }
+
+    #[Route('/master/seccionais/{uf}/subsecoes', name: 'master_seccional_subsecao_adicionar', requirements: ['uf' => '[A-Z]{2}'], methods: ['POST'])]
+    public function adicionarSubsecao(string $uf, Request $request, AdicionarSubsecaoNaSeccionalUseCase $adicionar): JsonResponse
+    {
+        return $this->gravar($uf, $request, function (array $corpo) use ($uf, $adicionar): string {
+            $subsecao = $adicionar->executar(AdicionarSubsecaoNaSeccionalInput::doJson($this->ator(), $uf, $corpo));
+
+            return sprintf('Subseção adicionada na %s.', $subsecao->getSeccional()->getNome());
+        });
+    }
+
+    #[Route('/master/seccionais/{uf}/subsecoes/{id}/remover', name: 'master_seccional_subsecao_remover', requirements: ['uf' => '[A-Z]{2}', 'id' => '\d+'], methods: ['POST'])]
+    public function removerSubsecao(string $uf, int $id, Request $request, RemoverSubsecaoDaSeccionalUseCase $remover): JsonResponse
+    {
+        return $this->gravar($uf, $request, function () use ($uf, $id, $remover): string {
+            $subsecao = $remover->executar(new RemoverSubsecaoDaSeccionalInput($this->ator(), $uf, $id));
+
+            return sprintf('Subseção removida da %s.', $subsecao->getSeccional()->getNome());
+        });
+    }
+
+    #[Route('/master/seccionais/{uf}/nota', name: 'master_seccional_nota', requirements: ['uf' => '[A-Z]{2}'], methods: ['POST'])]
+    public function salvarNota(string $uf, Request $request, SalvarNotaDaSeccionalUseCase $salvar): JsonResponse
+    {
+        return $this->gravar($uf, $request, function (array $corpo) use ($uf, $salvar): string {
+            $input = SalvarNotaDaSeccionalInput::doJson($this->ator(), $uf, $corpo);
+            $seccional = $salvar->executar($input);
+
+            return sprintf($input->texto === null ? 'Nota da %s apagada.' : 'Nota da %s salva.', $seccional->getNome());
+        });
     }
 
     #[Route('/master/seccionais/{uf}/sede', name: 'master_seccional_sede', requirements: ['uf' => '[A-Z]{2}'], methods: ['POST'])]
@@ -78,7 +124,7 @@ final class SeccionaisOabController extends AbstractController
 
         try {
             return $this->json(['mensagem' => $acao($this->corpo($request))]);
-        } catch (SeccionalNaoEncontrada $e) {
+        } catch (SeccionalNaoEncontrada|SubsecaoNaoEncontrada $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         } catch (SeccionalRecusada $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
