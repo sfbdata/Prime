@@ -11,7 +11,7 @@ namespace App\Comercial\DTO;
 final class RelatorioDeCampanhas
 {
     /**
-     * @param array{env: int, ag: int, rec: int} $abas
+     * @param array{env: int, ag: int, rec: int, est: int, arq: int} $abas
      * @param list<LinhaDoRelatorio>             $linhas
      */
     public function __construct(
