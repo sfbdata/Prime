@@ -187,6 +187,11 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // PLATAFORMA, ligada e desligada só pelo Master e válida para todas as contas ao mesmo tempo.
         // Uma linha por chave do catálogo, sem dado de escritório nem de cliente.
         RecursoEstado::class,
+        // Seccionais da OAB no mapa do Painel do Master (docs/specs/master-seccionais-oab.md): as 27 sedes e as
+        // divulgações registradas pelo Master são dado da PLATAFORMA (trabalho comercial do BlueJus), sem escritório
+        // nem cliente; lidas e gravadas só atrás de ROLE_SUPER_ADMIN.
+        \App\Master\Entity\SeccionalOab::class,
+        \App\Master\Entity\DivulgacaoNaSeccional::class,
 
         // Indicar o BlueJus (docs/specs/indicar-bluejus.md): plataforma. A indicação é da pessoa (quem indica), não do
         // escritório: ela indica com ou sem escritório, e o Master lê todas. O escritório de origem é só para mostrar
@@ -228,7 +233,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 52 → 53 com o currículo do banco de talentos do Trabalho Externo (19/10/2026): Curriculo, justificado acima.
     // 53 → 54 com a candidatura às vagas do Trabalho Externo (19/10/2026): Candidatura, justificada acima.
     // 54 → 55 com a fatia 1b do Comercial (21/10/2026): a vez dos avisos de espaço, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 55;
+    // 55 → 57 com as Seccionais da OAB do Painel do Master (21/10/2026): SeccionalOab e DivulgacaoNaSeccional (plataforma).
+    private const MAX_FORA_DO_ESCOPO = 57;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
