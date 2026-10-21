@@ -87,6 +87,23 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         self::assertSame($emails, $this->destinosDe($antiga), 'sem filtro, a lista de antes, inteira');
     }
 
+    #[TestDox('Filtro num público sem lista (primários): reaplicado na execução; filtro guardado inválido cancela a campanha com motivo próprio')]
+    public function testFiltroEmPublicoDeSistemaEFiltroInvalido(): void
+    {
+        $ana = $this->usuario('ana.prim');
+        $this->vincular($ana, true);
+        $prim = $this->campanha([], ['publico' => 'prim', 'parametros' => ['informados' => null, 'filtro' => ['q' => (string) $ana->getEmail()]], 'total' => 1]);
+        $ruim = $this->campanha([], ['publico' => 'prim', 'parametros' => ['informados' => null, 'filtro' => ['gen' => 'X']], 'total' => 1]);
+
+        $this->expansor()->materializarDevidas(new \DateTimeImmutable());
+
+        self::assertSame([(string) $ana->getEmail()], $this->destinosDe($prim));
+        self::assertSame([], $this->destinosDe($ruim));
+        $estado = $this->conexao->fetchAssociative('SELECT estado, motivo, publico_parametros FROM comercial_campanha WHERE id = ?', [$ruim]);
+        self::assertIsArray($estado);
+        self::assertSame(['cancelada', ExpansorDeCampanhas::MOTIVO_DO_FILTRO, null], [$estado['estado'], $estado['motivo'], $estado['publico_parametros']]);
+    }
+
     /** @return list<string> */
     private function destinosDe(int $campanha): array
     {

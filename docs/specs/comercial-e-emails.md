@@ -849,6 +849,11 @@ MÉDIO (envio em massa). Sem migration: o filtro fica congelado no `publico_para
 - O filtro roda no fim do `PublicosDaCampanha::resolver`, só quando está ativo.
 - A contagem devolve `filtro: {ativo, quantos, base, atendem, semInformacao}` para a tela.
 - **Congelamento:** sem filtro, a campanha guarda o que guardava (a lista do CSV ou do Individual já resolvida). Com
-  filtro, guarda `{informados, filtro}`, com a lista informada inteira, e o expansor reaplica os dois a cada execução.
+  filtro, guarda `{informados, filtro}`, com a lista que chegou ao filtro (sem repetidos, descadastrados e barrados pelo
+  B1: não guarda quem nunca vai receber), e o expansor reaplica os dois a cada execução.
   O repositório lê os dois formatos. O `publico_parametros` já era apagado ao terminar; a busca livre (nomes e e-mails)
   segue a mesma regra. A trilha `camp_conf` continua só com `{publico, frequencia, total}` (R6).
+- **Robustez (revisão de 21/10):** filtro congelado que não passa mais na validação cancela a campanha com motivo
+  próprio (tirar o filtro alargaria o público); os IN vão em blocos de 10 mil (limite de parâmetros do PostgreSQL);
+  nascimento no futuro conta como sem a informação; "Prefiro não informar" (`nao_informado`) também (contrato da F1);
+  OAB com número e sem status é pendente, como no dc; plano fora do catálogo não atende ninguém, sem erro.

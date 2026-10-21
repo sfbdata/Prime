@@ -61,6 +61,20 @@ final class AtributosDosDestinatariosTest extends KernelTestCase
         self::assertSame(['SP', 'sec', 'pend', null, null, null], [$b->uf, $b->papel, $b->oab, $b->genero, $b->cargo, $b->nascimento]);
     }
 
+    #[TestDox('Sem lotação com UF: a UF da OAB vem antes da do escritório (D2); OAB divergente é pendente (D6)')]
+    public function testUfDaOabEOabDivergente(): void
+    {
+        self::bootKernel();
+        $caio = $this->usuario('caio');
+        $caio->setOabNumero('777')->setOabUf('RS')->setOabStatus(StatusOab::Divergente);
+        $this->vincular($caio, false)->setEstado('SP');
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $c = static::getContainer()->get(AtributosDosDestinatarios::class)->de([(string) $caio->getEmail()])[(string) $caio->getEmail()];
+
+        self::assertSame(['RS', 'pend'], [$c->uf, $c->oab]);
+    }
+
     private function lotar(?int $userId, ?int $tenantId, string $nome): void
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);

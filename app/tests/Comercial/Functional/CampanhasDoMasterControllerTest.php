@@ -125,14 +125,14 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(3, $saida['publicos']['indiv'], 'a grade conta a lista sem o filtro (dc L640)');
     }
 
-    #[TestDox('Confirmar com filtro: o total é o filtrado, e a campanha guarda a lista inteira mais o filtro para reaplicar')]
+    #[TestDox('Confirmar com filtro: o total é o filtrado; a campanha guarda o filtro e a lista que chegou a ele (sem o barrado pelo B1)')]
     public function testConfirmarCongelaOFiltro(): void
     {
         $client = $this->clienteMaster();
         [$ana, $beto, $caio] = $this->tresComPerfil();
         $emails = [(string) $ana->getEmail(), (string) $beto->getEmail(), (string) $caio->getEmail()];
 
-        $this->postar($client, '/master/comercial/campanhas', $this->pedido($emails, ['filtro' => ['gen' => 'F', 'q' => 'ana']]));
+        $this->postar($client, '/master/comercial/campanhas', $this->pedido([...$emails, 'sem.conta.' . uniqid() . '@x.com'], ['filtro' => ['gen' => 'F', 'q' => 'ana']]));
 
         self::assertResponseIsSuccessful();
         $campanha = $this->conexao()->fetchAssociative('SELECT total, publico_parametros FROM comercial_campanha WHERE id = ?', [$this->json($client)['id']]);

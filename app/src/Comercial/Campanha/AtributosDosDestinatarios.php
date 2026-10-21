@@ -26,6 +26,8 @@ final class AtributosDosDestinatarios
         Atuacao::Financeiro->value => 'fin', Atuacao::Administrativo->value => 'adm', Atuacao::Outra->value => 'out',
     ];
     private const GENERO = [Genero::Feminino->value => 'F', Genero::Masculino->value => 'M'];
+    /** O PostgreSQL aceita até 65535 parâmetros por consulta: os IN vão em blocos. */
+    private const BLOCO = 10000;
 
     public function __construct(
         private readonly CadastradosRepository $cadastrados,
@@ -42,13 +44,18 @@ final class AtributosDosDestinatarios
     public function de(array $emails): array
     {
         $porEmail = [];
-        foreach ($this->cadastrados->vinculosDe(array_values(array_unique($emails))) as $v) {
-            $porEmail[$v['email']][] = $v;
+        foreach (array_chunk(array_values(array_unique($emails)), self::BLOCO) as $bloco) {
+            foreach ($this->cadastrados->vinculosDe($bloco) as $v) {
+                $porEmail[$v['email']][] = $v;
+            }
         }
         if ($porEmail === []) {
             return [];
         }
-        $perfis = $this->perfis->atributosDe(array_values(array_unique(array_map(static fn (array $vs): int => $vs[0]['userId'], $porEmail))));
+        $perfis = [];
+        foreach (array_chunk(array_values(array_unique(array_map(static fn (array $vs): int => $vs[0]['userId'], $porEmail))), self::BLOCO) as $ids) {
+            $perfis += $this->perfis->atributosDe($ids);
+        }
         $planos = $this->planosDosEscritorios($porEmail);
 
         return array_map(fn (array $vs): AtributosDoDestinatario => $this->montar($vs, $perfis[$vs[0]['userId']] ?? [], $planos), $porEmail);

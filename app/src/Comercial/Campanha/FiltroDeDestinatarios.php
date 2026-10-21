@@ -70,7 +70,8 @@ final class FiltroDeDestinatarios
         if ($f->idade === null) {
             return null;
         }
-        if ($a->nascimento === null) {
+        // Nascimento no futuro é dado ruim: conta como sem a informação, e não numa faixa.
+        if ($a->nascimento === null || $a->nascimento > $hoje) {
             return self::SEM_INFORMACAO;
         }
         $anos = $a->nascimento->diff($hoje)->y;

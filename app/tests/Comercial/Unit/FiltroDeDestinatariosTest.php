@@ -106,6 +106,15 @@ final class FiltroDeDestinatariosTest extends TestCase
         self::assertCount(1, $fez25, 'no dia: 25 anos');
     }
 
+    #[TestDox('Nascimento no futuro é dado ruim: conta como sem a informação, e não numa faixa de idade')]
+    public function testNascimentoNoFuturo(): void
+    {
+        $futuro = new AtributosDoDestinatario(nascimento: new \DateTimeImmutable('2060-01-01'));
+        [$atendem, $sem] = FiltroDeDestinatarios::aplicar([new DestinatarioDaCampanha('f@x.com', 'F')], ['f@x.com' => $futuro], FiltroDoPublico::deArray(['id' => 'b']), new \DateTimeImmutable(self::HOJE));
+
+        self::assertSame([[], 1], [$atendem, $sem]);
+    }
+
     #[TestDox('Filtro: só valores do dc; o resumo tem só o preenchido, nas chaves do dc; o selo conta os campos')]
     public function testFiltroDoPublico(): void
     {

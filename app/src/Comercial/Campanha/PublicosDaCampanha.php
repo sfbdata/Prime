@@ -62,7 +62,7 @@ final class PublicosDaCampanha
         $atributos = $this->atributos->de(array_map(static fn (DestinatarioDaCampanha $d): string => $d->email, $autorizados));
         [$atendem, $semInformacao] = FiltroDeDestinatarios::aplicar($autorizados, $atributos, $filtro, $hoje ?? $this->relogio->now());
 
-        return new PublicoResolvido($atendem, \count($unicos) - \count($liberados), \count($liberados) - \count($autorizados), \count($autorizados), $semInformacao);
+        return new PublicoResolvido($atendem, \count($unicos) - \count($liberados), \count($liberados) - \count($autorizados), \count($autorizados), $semInformacao, $autorizados);
     }
 
     /**

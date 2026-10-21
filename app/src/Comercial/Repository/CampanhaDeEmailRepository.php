@@ -296,7 +296,7 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
      */
     private static function campanha(array $l): array
     {
-        $parametros = \is_string($l['publico_parametros']) ? json_decode($l['publico_parametros'], true, 4, JSON_THROW_ON_ERROR) : [];
+        $parametros = \is_string($l['publico_parametros']) ? json_decode($l['publico_parametros'], true, 8, JSON_THROW_ON_ERROR) : [];
         $parametros = \is_array($parametros) ? $parametros : [];
         // Com filtro (§9) a campanha guarda {informados, filtro}; sem filtro, só a lista (o formato de antes).
         $comFiltro = !array_is_list($parametros);

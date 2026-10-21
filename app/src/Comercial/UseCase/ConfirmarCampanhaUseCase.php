@@ -96,8 +96,9 @@ final class ConfirmarCampanhaUseCase
 
     /**
      * O que a campanha guarda para reaplicar a cada execução. Sem filtro, a lista do CSV ou do Individual já resolvida
-     * (o formato de antes). Com filtro (§9), a lista informada inteira mais o filtro: a idade e o aniversário mudam de
-     * uma execução para outra, então quem não bateu hoje pode bater no mês que vem.
+     * (o formato de antes). Com filtro (§9), a lista que chegou ao filtro (já sem repetidos, descadastrados e barrados
+     * pelo B1, para não guardar quem nunca vai receber) mais o filtro: a idade e o aniversário mudam de uma execução
+     * para outra, então quem não bateu hoje pode bater no mês que vem.
      *
      * @return list<array{email: string, nome: string}>|array{informados: ?list<array{email: string, nome: string}>, filtro: array<string, string>}|null
      */
@@ -110,7 +111,7 @@ final class ConfirmarCampanhaUseCase
         }
 
         return [
-            'informados' => $informado ? array_map(static fn ($d): array => $d->paraArray(), $pedido->publico->informados) : null,
+            'informados' => $informado ? array_map(static fn ($d): array => $d->paraArray(), $publico->antesDoFiltro()) : null,
             'filtro' => $filtro->paraArray(),
         ];
     }

@@ -37,6 +37,8 @@ final class ExpansorDeCampanhas
     public const LOTE = 10;
     public const TOLERANCIA_DO_ATRASO = '-24 hours';
     public const MOTIVO_DO_ATRASO = 'Acordou com mais de 24 h de atraso; nada foi enviado';
+    /** O filtro congelado (§9) não passa mais na validação: tirar o filtro alargaria o público, então a campanha para. */
+    public const MOTIVO_DO_FILTRO = 'O filtro guardado na campanha não vale mais; nada foi enviado';
 
     public function __construct(
         private readonly CampanhaDeEmailRepository $campanhas,
@@ -158,13 +160,21 @@ final class ExpansorDeCampanhas
      */
     private function executar(array $campanha, \DateTimeImmutable $agora, ?\DateTimeImmutable $seguinte): void
     {
-        $this->campanhas->emTransacao(function () use ($campanha, $agora, $seguinte): void {
+        try {
+            $filtro = FiltroDoPublico::deArray($campanha['publico_filtro']);
+        } catch (CampanhaRecusada) {
+            $this->campanhas->cancelar($campanha['id'], $campanha['estado'], self::MOTIVO_DO_FILTRO);
+            $this->logger->warning('Comercial: campanha cancelada, filtro guardado inválido.', ['campanhaId' => $campanha['id']]);
+
+            return;
+        }
+        $this->campanhas->emTransacao(function () use ($campanha, $agora, $seguinte, $filtro): void {
             if ($this->campanhas->travarDevida($campanha['id'], $campanha['estado'], $campanha['execucoes']) === null) {
                 return;
             }
             $informados = array_map(static fn (array $d): DestinatarioDaCampanha => new DestinatarioDaCampanha($d['email'], $d['nome']), $campanha['publico_parametros']);
             // O filtro congelado (§9) volta a valer, com a data desta execução (idade e aniversário).
-            $publico = $this->publicos->resolver($campanha['publico'], $informados, FiltroDoPublico::deArray($campanha['publico_filtro']), $agora);
+            $publico = $this->publicos->resolver($campanha['publico'], $informados, $filtro, $agora);
             $execucao = $campanha['execucoes'] + 1;
             $this->destinos->materializar($campanha['id'], $execucao, $publico->destinatarios, $agora);
             $recorrente = $campanha['estado'] === CampanhaDeEmail::RECORRENTE;
