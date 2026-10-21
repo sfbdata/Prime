@@ -19,6 +19,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Escritas de "Planos e limites" do Painel do Master (spec docs/specs/perfis-1.2-planos-e-limites.md P2, P4
@@ -33,6 +34,10 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * CSRF: o limite usa o token da conta (`master_conta_<id>`, o mesmo de suspender e reativar, que vem em
  * /master/dados/contas); o plano, `master_plano_<código>`; as faixas, `master_faixas` (os dois vêm em
  * /master/dados/planos).
+ *
+ * Idioma (spec idioma-do-sistema, P2b): a resposta e as recusas do próprio controller saem do catálogo
+ * (master.planos.*; a sessão expirada é master.contas.sessao_expirada) no idioma da requisição. A recusa da Contribua
+ * (\DomainException) e a ContaNaoEncontrada vão como estão, em português (spec §8).
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class PlanosELimitesController extends AbstractController
@@ -40,10 +45,9 @@ final class PlanosELimitesController extends AbstractController
     public const PREFIXO_CSRF_PLANO = 'master_plano_';
     public const CSRF_FAIXAS = 'master_faixas';
 
-    private const SESSAO_EXPIRADA = 'Sessão expirada. Recarregue a página.';
-
     public function __construct(
         private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -63,12 +67,12 @@ final class PlanosELimitesController extends AbstractController
     public function alterarPlano(string $codigo, Request $request, AlterarPlanoUseCase $alterar): JsonResponse
     {
         if (!$this->isCsrfTokenValid(self::PREFIXO_CSRF_PLANO . $codigo, $request->request->getString('_token'))) {
-            return $this->json(['erro' => self::SESSAO_EXPIRADA], Response::HTTP_FORBIDDEN);
+            return $this->sessaoExpirada();
         }
         $cotaGb = self::inteiro($request->request->getString('cotaGb'));
         $precoCentavos = self::inteiro($request->request->getString('precoCentavos'));
         if ($cotaGb === null || $precoCentavos === null) {
-            return $this->json(['erro' => 'Informe o espaço em GB e o preço em reais.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->tradutor->trans('master.planos.informe_espaco_e_preco')], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         $input = new AlterarPlanoInput(
@@ -81,14 +85,14 @@ final class PlanosELimitesController extends AbstractController
             $request->request->getBoolean('ativo'),
         );
 
-        return $this->naPlataforma(static fn () => $alterar->executar($input), sprintf('Plano "%s" atualizado.', trim($input->nome)));
+        return $this->naPlataforma(static fn () => $alterar->executar($input), $this->tradutor->trans('master.planos.plano_atualizado', ['nome' => trim($input->nome)]));
     }
 
     #[Route('/master/faixas', name: 'master_faixas_configurar', methods: ['POST'])]
     public function configurarFaixas(Request $request, ConfigurarFaixasDoEspacoUseCase $configurar): JsonResponse
     {
         if (!$this->isCsrfTokenValid(self::CSRF_FAIXAS, $request->request->getString('_token'))) {
-            return $this->json(['erro' => self::SESSAO_EXPIRADA], Response::HTTP_FORBIDDEN);
+            return $this->sessaoExpirada();
         }
         // Valor que não é inteiro vira 0, e a Contribua recusa com "As faixas precisam crescer em ordem, de 1% a 100%."
         [$atencao, $alerta, $critico, $bloqueio] = array_map(
@@ -97,13 +101,13 @@ final class PlanosELimitesController extends AbstractController
         );
         $ligado = $request->request->getBoolean('bloqueioAtivo');
 
-        return $this->naPlataforma(static fn () => $configurar->executar($atencao, $alerta, $critico, $bloqueio, $ligado), 'Faixas de alerta atualizadas.');
+        return $this->naPlataforma(static fn () => $configurar->executar($atencao, $alerta, $critico, $bloqueio, $ligado), $this->tradutor->trans('master.planos.faixas_atualizadas'));
     }
 
     private function definirLimite(int $id, Request $request, string $tipo, DefinirLimiteDaContaUseCase $definir): JsonResponse
     {
         if (!$this->isCsrfTokenValid(ContasDoSistemaController::PREFIXO_CSRF . $id, $request->request->getString('_token'))) {
-            return $this->json(['erro' => self::SESSAO_EXPIRADA], Response::HTTP_FORBIDDEN);
+            return $this->sessaoExpirada();
         }
 
         try {
@@ -121,7 +125,7 @@ final class PlanosELimitesController extends AbstractController
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $mensagem = $tipo === LimiteDaContaInput::ARMAZENAMENTO ? 'Limite de armazenamento atualizado.' : 'Limite de usuários atualizado.';
+        $mensagem = $this->tradutor->trans($tipo === LimiteDaContaInput::ARMAZENAMENTO ? 'master.planos.limite_arm_atualizado' : 'master.planos.limite_usu_atualizado');
 
         return $this->json(['mensagem' => $mensagem, 'conta' => ['id' => $id, 'espaco' => EspacoDaContaOutput::doRetrato($retrato)->paraArray()]]);
     }
@@ -136,6 +140,11 @@ final class PlanosELimitesController extends AbstractController
         }
 
         return $this->json(['mensagem' => $mensagem]);
+    }
+
+    private function sessaoExpirada(): JsonResponse
+    {
+        return $this->json(['erro' => $this->tradutor->trans('master.contas.sessao_expirada')], Response::HTTP_FORBIDDEN);
     }
 
     /** "25" vira 25; vazio, decimal ou texto viram nulo (quem chama decide a mensagem). */

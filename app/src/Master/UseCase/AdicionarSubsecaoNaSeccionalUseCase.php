@@ -41,9 +41,9 @@ final class AdicionarSubsecaoNaSeccionalUseCase
 
     public function executar(AdicionarSubsecaoNaSeccionalInput $input): SubsecaoOab
     {
-        $seccional = $this->seccionais->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada('Seccional não encontrada.');
-        $nome = $input->nome ?? throw new SeccionalRecusada('Informe o nome da subseção.');
-        $endereco = $input->endereco ?? throw new SeccionalRecusada('Informe o endereço da subseção.');
+        $seccional = $this->seccionais->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada(SeccionalNaoEncontrada::RECUSA);
+        $nome = $input->nome ?? throw new SeccionalRecusada(SeccionalRecusada::RECUSA_NOME_OBRIGATORIO);
+        $endereco = $input->endereco ?? throw new SeccionalRecusada(SeccionalRecusada::RECUSA_ENDERECO_OBRIGATORIO);
         $this->exigirTamanhos($nome, $endereco, $input->telefone);
 
         $subsecao = new SubsecaoOab($seccional, $nome, $endereco, $input->telefone, $input->ator, $this->relogio->now());
@@ -55,15 +55,15 @@ final class AdicionarSubsecaoNaSeccionalUseCase
     private function exigirTamanhos(string $nome, string $endereco, ?string $telefone): void
     {
         if (mb_strlen($nome) > SubsecaoOab::NOME_MAXIMO) {
-            throw new SeccionalRecusada(sprintf('O nome passa de %d caracteres.', SubsecaoOab::NOME_MAXIMO));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_NOME_LONGO, ['limite' => SubsecaoOab::NOME_MAXIMO]);
         }
 
         if (mb_strlen($endereco) > SubsecaoOab::ENDERECO_MAXIMO) {
-            throw new SeccionalRecusada(sprintf('O endereço passa de %d caracteres.', SubsecaoOab::ENDERECO_MAXIMO));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_ENDERECO_LONGO, ['limite' => SubsecaoOab::ENDERECO_MAXIMO]);
         }
 
         if (mb_strlen((string) $telefone) > SubsecaoOab::TELEFONE_MAXIMO) {
-            throw new SeccionalRecusada(sprintf('O telefone passa de %d caracteres.', SubsecaoOab::TELEFONE_MAXIMO));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_TELEFONE_LONGO, ['limite' => SubsecaoOab::TELEFONE_MAXIMO]);
         }
     }
 }
