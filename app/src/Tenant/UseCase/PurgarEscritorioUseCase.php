@@ -96,6 +96,8 @@ final class PurgarEscritorioUseCase
         ['bloco_jornada', 'jornada_tenant_id IN (SELECT id FROM jornada_tenant WHERE tenant_id = :tenant)'],
         ['tenant_role_permission', 'tenant_role_id IN (SELECT id FROM tenant_role WHERE tenant_id = :tenant)'],
         ['cliente_documento', 'tenant_id = :tenant'],
+        // Histórico do cadastro (E12 3d): cairia pela CASCADE de `cliente`, mas a FK de tenant é NO ACTION.
+        ['cliente_historico', 'tenant_id = :tenant'],
         // Favoritos de arquivo/subpasta da aba Documentos (por usuário): cairiam pela CASCADE de
         // `pasta_documento`/`pasta_secao`, mas a FK de tenant é NO ACTION — deleção explícita
         // ANTES do documento, para a cobertura ficar visível aqui.
