@@ -117,3 +117,5 @@ Domínio novo `App\Indicacao`. Tudo de plataforma (sem tenant); autorização de
   ("… precisa ser de pelo menos 1.") e a tela volta ao último valor gravado. Decisão do dono: fica como está.
 - A seção do painel de 21/10 mostra só o cabeçalho e os limites (sem a tabela por pessoa e sem os alertas); ela lê
   `ObterPainelDeIndicacoesUseCase::resumo()`, que não consulta a página de indicadores nem os alertas.
+- O alerta de disparo alto vai para a Central de Notificações do Master (decisão do dono, 21/10), como a origem
+  `alerta_indicacao` (spec `master-central-de-notificacoes.md`), com o link "Abrir Indicações" para pausar a pessoa.
