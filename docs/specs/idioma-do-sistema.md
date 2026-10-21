@@ -394,7 +394,7 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   uma letra acentuada nesses arquivos passa pelo detector. O mesmo `catalogo_js` sai duas vezes quando os dois
   parciais estão na página (o `BJ_T` junta os blocos; só pesa no tamanho).
 
-## 11. Extração da Agenda (7d, 21/10)
+## 18. Extração da Agenda (7d, 21/10)
 
 - **Escopo:** `templates/agenda/nova`, `lista`, `novo`, `editar` e `show` (as telas antigas continuam com link: a lista
   pela Agenda nova e pelo Dashboard, o show pelos avisos do sino; confirmado pela 4b), `agenda-nova.js` e `lembretes.js`
