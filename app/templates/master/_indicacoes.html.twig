@@ -1,0 +1,36 @@
+{# Seção "Indicações do BlueJus" do /master (#sec=ind). Desenho docs/design/perfis-1.2/vs-21-10-26/05 - Perfis 1.2 -
+   VS 21.10.26.dc.html: marcação L234-242, lógica L683-689; spec docs/specs/indicar-bluejus.md.
+   Incluída pelo painel.html.twig num <div data-sec-externa="ind"> (o mesmo mecanismo da seção Comercial): o painel.js
+   só mostra a sub-aba com este parcial presente e avisa a troca de seção pelo evento `mp:secao`. Traz o próprio <link>
+   e <script> (a CSP do /master aceita 'self', sem inline). Os números e os limites vêm por JSON quando a seção abre
+   (public/js/master/indicacoes.js); as regras moram nos UseCases do domínio Indicacao.
+   A estrutura das <label> é a do desenho (texto, ícone e campo como filhos diretos da coluna). As dicas do desenho
+   (data-tip) vão no title, que o bj-dica.js do painel transforma no balão do sistema.
+   O desenho de 21/10 tirou a tabela por pessoa e a lista de alertas (os alertas vão para a Central de Notificações). #}
+<link rel="stylesheet" href="{{ asset('css/master-indicacoes.css') }}">
+<div class="mi" data-mi
+     data-url-dados="{{ path('master_indicacoes_dados') }}"
+     data-url-pausa="{{ path('master_indicacoes_pausa') }}"
+     data-url-limites="{{ path('master_indicacoes_limites') }}"
+     data-token="{{ csrf_token('master_indicacoes') }}">
+    <section class="mi-caixa" aria-labelledby="mi-titulo" aria-busy="true" data-mi-caixa>
+        <div class="mi-cabeca">
+            <i class="bi bi-share mi-cabeca-ic" aria-hidden="true"></i>
+            <b class="mi-cabeca-titulo" id="mi-titulo">Indicações do BlueJus</b>
+            <span class="mi-cabeca-sub" data-mi-resumo></span>
+            <button type="button" class="mi-chave" role="switch" aria-checked="false" aria-label="Pausar os convites para todos" data-mi-pausa disabled>
+                <span class="mi-chave-trilho" aria-hidden="true"><span class="mi-chave-bola"></span></span><span data-mi-pausa-txt>Convites liberados</span>
+            </button>
+        </div>
+        <div class="mi-limites">
+            <label class="mi-campo" title="Cada usuário pode enviar no máximo esse número de convites em 24 horas. Passando disso, o sistema bloqueia e pede para tentar no dia seguinte.">LIMITE POR DIA (POR PESSOA) <i class="bi bi-info-circle mi-campo-ic" aria-hidden="true"></i><input type="number" min="1" step="1" inputmode="numeric" class="mi-entrada" data-mi-limite="porDia" disabled></label>
+            <label class="mi-campo" title="Cada usuário pode enviar no máximo esse número de convites em 30 dias.">LIMITE POR MÊS <i class="bi bi-info-circle mi-campo-ic" aria-hidden="true"></i><input type="number" min="1" step="1" inputmode="numeric" class="mi-entrada" data-mi-limite="porMes" disabled></label>
+            <label class="mi-campo" title="Se alguém enviar esse número de convites em 24 horas, o Master recebe um alerta no Chat I.A (disparo alto de convites), para identificar uso indevido.">AVISAR NO CHAT A PARTIR DE (24H) <i class="bi bi-info-circle mi-campo-ic" aria-hidden="true"></i><input type="number" min="1" step="1" inputmode="numeric" class="mi-entrada mi-entrada-larga" data-mi-limite="alertaEm24h" disabled></label>
+            <span class="mi-regras" tabindex="0" title="Só envia convite quem tem nome, telefone e CPF cadastrados. O convite sempre leva o nome de quem enviou e um link curto rastreável (bluejus.com.br/i/…), que mostra de quem veio a indicação."><i class="bi bi-shield-check" aria-hidden="true"></i>Regras de segurança dos convites</span>
+        </div>
+        <div class="mi-msg" data-mi-msg role="status" hidden></div>
+    </section>
+    {# Ponto de entrada da "Central de envios em modo venda" (desenho L244-251, secCentral: aparece nas seções "com" e
+       "ind"). É código do Comercial (sessão 5d): entra aqui, logo abaixo do bloco das indicações. #}
+</div>
+<script src="{{ asset('js/master/indicacoes.js') }}"></script>
