@@ -189,6 +189,13 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Indicacao\Entity\IndicacaoConfig::class,
         \App\Indicacao\Entity\IndicacaoPausa::class,
         \App\Indicacao\Entity\IndicacaoAlerta::class,
+
+        // Central de Notificações do Master (docs/specs/master-central-de-notificacoes.md, D1 a D3): o Master lê as
+        // mensagens de TODOS os escritórios. O estado (lida, estrela, arquivada) é do Master, e toda consulta filtra por
+        // `master_id = eu`; as respostas são o histórico compartilhado entre os Masters, lido só pela mensagem. O
+        // `tenant_id` (nulo para suporte e alerta) é só para a purga do escritório (ORDEM_DELECAO).
+        \App\Master\Entity\CentralMasterEstado::class,
+        \App\Master\Entity\CentralMasterResposta::class,
     ];
 
     /**
@@ -218,7 +225,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 46 → 47 com as inscrições na OAB do Meu Perfil (19/10/2026): InscricaoOab é da pessoa, não do escritório.
     // 47 → 50 com as vagas e as preferências do usuário do Trabalho Externo (19/10/2026): Vaga, HistoricoVaga e PreferenciaDoUsuario, justificadas acima.
     // 50 → 52 com a página pública de vagas do Trabalho Externo (19/10/2026): LinkDeVagas e InteressadoEmVagas, justificados acima.
-    private const MAX_FORA_DO_ESCOPO = 52;
+    // 52 → 54 com a Central de Notificações do Master (21/10/2026): CentralMasterEstado e CentralMasterResposta são do
+    // Master, que lê todos os escritórios, justificadas acima.
+    private const MAX_FORA_DO_ESCOPO = 54;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

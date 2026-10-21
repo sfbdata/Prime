@@ -55,6 +55,8 @@
            parcial, o painel.js nem mostra o botão da seção. O parcial pode trazer o próprio <script src> (CSP 'self')
            e ouvir o evento "mp:secao" no #master-painel para montar a seção quando ela abrir. #}
         <div class="mp-secao-externa" data-sec-externa="com" hidden>{% include 'master/_comercial.html.twig' ignore missing %}</div>
+
+        <div class="mp-secao-externa" data-sec-externa="notif" hidden>{% include 'master/_notificacoes.html.twig' ignore missing %}</div>
     </div>
 
     <div class="mp-perm" data-painel-aba="perm" hidden>
