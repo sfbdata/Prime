@@ -34,7 +34,7 @@ final class HierarquiaDePerfisTest extends TestCase
     private TenantRole $perfilDoSistema;
     /** @var array<int, UserTenant> vínculos ativos por id do objeto do usuário */
     private array $vinculosAtivos = [];
-    /** @var array<int, true> usuários com vínculo ativo em outro escritório */
+    /** @var array<int, true> usuários com vínculo em outro escritório */
     private array $emOutroEscritorio = [];
 
     protected function setUp(): void
@@ -43,7 +43,7 @@ final class HierarquiaDePerfisTest extends TestCase
         $this->vinculos->method('findAtivoPorUserETenant')->willReturnCallback(
             fn (User $u): ?UserTenant => $this->vinculosAtivos[spl_object_id($u)] ?? null
         );
-        $this->vinculos->method('existeVinculoAtivoEmOutroEscritorio')->willReturnCallback(
+        $this->vinculos->method('existeVinculoEmOutroEscritorio')->willReturnCallback(
             fn (User $u): bool => isset($this->emOutroEscritorio[spl_object_id($u)])
         );
         $this->checker  = $this->createMock(PermissionChecker::class);

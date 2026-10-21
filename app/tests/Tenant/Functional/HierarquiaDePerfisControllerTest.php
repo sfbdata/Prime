@@ -401,20 +401,21 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
         }
     }
 
-    #[TestDox('C8: vínculo INATIVO em outro escritório não bloqueia; o Master troca a senha de quem usa outro escritório')]
-    public function testSenhaComVinculoInativoEPeloMaster(): void
+    #[TestDox('C8: vínculo SUSPENSO em outro escritório também bloqueia (pode voltar a valer); o Master troca a senha de quem usa outro escritório')]
+    public function testSenhaComVinculoSuspensoEPeloMaster(): void
     {
-        $inativo = $this->criarUsuario('Ex de B', $this->perfilRestrito);
-        $ativo   = $this->criarUsuario('Primária em B', $this->perfilRestrito);
-        $master  = $this->criarUsuario('Master Senha', $this->perfilRestrito, ['ROLE_SUPER_ADMIN']);
+        $suspenso = $this->criarUsuario('Suspensa em B', $this->perfilRestrito);
+        $ativo    = $this->criarUsuario('Primária em B', $this->perfilRestrito);
+        $master   = $this->criarUsuario('Master Senha', $this->perfilRestrito, ['ROLE_SUPER_ADMIN']);
         $this->em->flush();
-        $this->vincularEmOutroEscritorio($inativo, false);
+        $this->vincularEmOutroEscritorio($suspenso, false);
         $this->vincularEmOutroEscritorio($ativo, true);
 
         $this->logarComTenant($this->client, $this->gestor, $this->tenant);
-        $this->submeterEditRole($inativo, $this->perfilRestrito, 'SenhaNova#2026');
-        self::assertResponseRedirects();
-        self::assertTrue($this->senhaConfere($inativo, 'SenhaNova#2026'));
+        $this->submeterEditRole($suspenso, $this->perfilRestrito, 'SenhaNova#2026');
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString(HierarquiaDePerfis::RECUSA_SENHA_DE_OUTRO_ESCRITORIO, (string) $this->client->getResponse()->getContent());
+        self::assertTrue($this->senhaConfere($suspenso, 'senha123'));
 
         $this->logarComTenant($this->client, $master, $this->tenant);
         $this->submeterEditRole($ativo, $this->perfilRestrito, 'SenhaDoMaster#2026');

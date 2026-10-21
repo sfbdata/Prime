@@ -196,10 +196,10 @@ tela de seleção de escritório.
     `app_tenant_user_remover`): flash com a mensagem e nada muda.
   - **senha de quem usa outro escritório** (C8, `HierarquiaDePerfis::recusaDaSenha`): a senha é da CONTA (`User`) e
     vale em todos os escritórios, mas o edit-role só olha o vínculo do escritório da URL. Quem NÃO é Master
-    (secundário ou primário) não troca, pelo edit-role, a senha de quem tem vínculo ATIVO em outro escritório
+    (secundário ou primário) não troca, pelo edit-role, a senha de quem tem vínculo em outro escritório
     (qualquer perfil, com o escritório no ar ou não): "Esta pessoa também usa outro escritório. A senha só pode
     ser trocada por ela, em Meu Perfil, ou pelo suporte." Sem isso, um gestor de A trocaria a senha de quem é
-    primário em B e entraria em B. Vínculo inativo em outro escritório não bloqueia; a própria pessoa e o Master
+    primário em B e entraria em B. O vínculo suspenso ou em análise também bloqueia (pode voltar a valer; o removido some da tabela); a própria pessoa e o Master
     passam. Primário e Master atribuem
     qualquer secundário e trocam senhas como antes; o perfil
     de sistema segue a regra dos primários acima. O select esconde o que não pode e o POST forjado é recusado.

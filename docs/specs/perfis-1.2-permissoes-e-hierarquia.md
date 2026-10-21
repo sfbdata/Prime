@@ -38,7 +38,9 @@ Migration reservada: `Version20261020148000` (só na parte B, número dado pela 
   remover do escritório (C5).
   - Limites conhecidos, por decisão: os outros campos do edit-role (cargo, lotação, código do colaborador, data
     de admissão) seguem editáveis por quem tem `admin.users.manage`, sem a hierarquia; a regra do subconjunto
-    olha só o PERFIL do alvo, não os acessos por recurso (`ResourceAccess`) dele.
+    olha só o PERFIL do alvo, não os acessos por recurso (`ResourceAccess`) dele; e o nome da conta
+    (`app_tenant_user_edit_name`, `User::fullName`, vale em todos os escritórios) segue editável por quem tem
+    `admin.users.manage` e pode alterar a conta, sem a hierarquia e sem a C8 (não dá acesso).
 
 ## 1. Fontes
 
@@ -90,10 +92,10 @@ o convite (`admin.users.invite`) atribuem qualquer perfil secundário.
   (`app_tenant_user_remover`), com a mesma mensagem ("Seu perfil não pode mexer em quem tem permissões que ele
   não tem.").
 - C8. Senha de quem usa outro escritório: no edit-role, quem NÃO é Master não troca a senha de quem tem vínculo
-  ATIVO em outro escritório (qualquer perfil). Motivo: a senha é da conta (`User`) e vale em todos os escritórios,
+  em outro escritório (qualquer perfil e situação). Motivo: a senha é da conta (`User`) e vale em todos os escritórios,
   mas as barreiras do edit-role só olham o vínculo do escritório da URL; um secundário pequeno em A que é
   primário em B teria a senha trocada por alguém de A, que entraria em B. Mensagem: "Esta pessoa também usa outro
-  escritório. A senha só pode ser trocada por ela, em Meu Perfil, ou pelo suporte." Vínculo inativo não bloqueia;
+  escritório. A senha só pode ser trocada por ela, em Meu Perfil, ou pelo suporte." O vínculo suspenso ou em análise também bloqueia, porque pode voltar a valer (o removido some da tabela);
   a própria pessoa e o Master, sem mudança. Decisão da coordenação, 21/10.
 - C6. Mensagens do desenho: "Seu perfil não pode editar um perfil do mesmo nível ou acima." (sem travessão).
 - C7. Testes: secundário com `admin.roles.manage` recebe 403 ao editar, excluir e criar, inclusive no próprio perfil;
