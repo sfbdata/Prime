@@ -156,6 +156,64 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         self::assertSame([], $this->registros($pasta));
     }
 
+    #[TestDox('P5d com P4f: apensado cadastrado pelo CNJ na janela também grava os dados manuais (o 4º argumento chega ao modo pedido)')]
+    public function testApensadoCadastradoGravaDadosManuais(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $principal       = $this->criarProcesso($tenant, '11111111111111111111');
+        $this->vincular($pasta, $principal, true);
+        $this->autenticar($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/processo/vincular", [
+            '_token' => $this->gerarCsrf('vincular_processo_' . $pasta->getId()),
+            'modo' => 'apenso',
+            'tipo_apenso' => 'embargos',
+            'numeroProcesso' => '2222222-22.2024.1.23.4567',
+            'valorCausa' => 'R$ 1.500,00',
+            'jurisdicao' => 'Brasília',
+            'tutela' => '1',
+        ], [], self::XHR);
+
+        self::assertResponseIsSuccessful();
+        $linha = static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchAssociative(
+            "SELECT valor_causa_manual, jurisdicao_manual, tutela_manual FROM processo WHERE numero_processo = '22222222220241234567' AND tenant_id = :t",
+            ['t' => $tenant->getId()],
+        );
+        self::assertNotFalse($linha);
+        self::assertSame('1500.00', $linha['valor_causa_manual']);
+        self::assertSame('Brasília', $linha['jurisdicao_manual']);
+        self::assertTrue($linha['tutela_manual']);
+    }
+
+    #[TestDox('P5d com P4f: apensado com dado manual inválido devolve 422 e nada é gravado (nem processo, nem vínculo)')]
+    public function testApensadoComDadoInvalidoDevolve422(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $principal       = $this->criarProcesso($tenant, '11111111111111111111');
+        $this->vincular($pasta, $principal, true);
+        $this->autenticar($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/processo/vincular", [
+            '_token' => $this->gerarCsrf('vincular_processo_' . $pasta->getId()),
+            'modo' => 'apenso',
+            'tipo_apenso' => 'embargos',
+            'numeroProcesso' => '3333333-33.2024.1.23.4567',
+            'valorCausa' => 'muito dinheiro',
+        ], [], self::XHR);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['erro' => 'Valor da causa inválido. Use R$ 0,00.'], json_decode((string) $client->getResponse()->getContent(), true));
+        $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        self::assertSame(0, (int) $conexao->fetchOne("SELECT count(*) FROM processo WHERE numero_processo = '33333333320241234567' AND tenant_id = :t", ['t' => $tenant->getId()]));
+        self::assertSame(1, (int) $conexao->fetchOne('SELECT count(*) FROM pasta_processo WHERE pasta_id = :p', ['p' => $pasta->getId()]), 'só o principal');
+    }
+
     #[TestDox('P5d: processo JÁ cadastrado (por número ou por id) não ganha dados manuais pela janela (no cartão, isso exige EDIT no processo)')]
     public function testProcessoExistenteNaoGanhaDadosManuais(): void
     {
