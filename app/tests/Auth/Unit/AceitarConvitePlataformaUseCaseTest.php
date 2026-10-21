@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Auth\Unit;
 
 use App\Auth\DTO\AceitarConvitePlataformaInput;
+use App\Auth\Repository\InscricaoOabRepository;
+use App\Auth\Service\EspelhoDaOabPrincipal;
 use App\Auth\Service\ValidadorOab;
 use App\Auth\UseCase\AceitarConvitePlataformaUseCase;
 use App\Entity\Auth\Invitation;
@@ -20,10 +22,14 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use App\Auth\Event\ConvitePlataformaAceito;
 
 #[CoversClass(AceitarConvitePlataformaUseCase::class)]
 final class AceitarConvitePlataformaUseCaseTest extends TestCase
 {
+    private EventDispatcher $eventos;
+
     private InvitationRepository&MockObject $invitationRepo;
     private UserRepository&MockObject $userRepo;
     private EntityManagerInterface&MockObject $em;
@@ -49,6 +55,8 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
             $this->hasher,
             $registrarAceite,
             new ValidadorOab((new OabWebServiceClientFake())->indisponivel()),
+            new EspelhoDaOabPrincipal($this->createStub(InscricaoOabRepository::class)),
+            $this->eventos = new EventDispatcher(),
         );
     }
 
@@ -117,6 +125,8 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
 
     public function testHappyPathOabValidoCriaUser(): void
     {
+        $capturados = [];
+        $this->eventos->addListener(ConvitePlataformaAceito::class, static function (object $e) use (&$capturados): void { $capturados[] = $e; });
         $invitation = $this->makeInvitation();
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
         $this->userRepo->method('findOneBy')->willReturn(null);
@@ -131,6 +141,7 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
         self::assertSame('SP', $resultado->getOabUf());
         self::assertSame('accepted', $invitation->getStatus());
         self::assertSame($resultado, $invitation->getAcceptedAsUser());
+        self::assertCount(1, $capturados);
     }
 
     public function testEmailVemDaInvitationNaoDoInput(): void

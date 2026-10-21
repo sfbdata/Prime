@@ -96,4 +96,38 @@ class PastaMensagemRepository extends ServiceEntityRepository
 
         return $porPasta;
     }
+
+    /**
+     * Quando foi o registro mais recente escrito por pessoa (sem os cartões do sistema) de cada pasta
+     * pedida, para o relatório de pastas paradas. Uma consulta para o lote; tenant pela pasta.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, \DateTimeImmutable> pastaId => data e hora do último registro
+     */
+    public function ultimoRegistroPorPasta(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('m')
+            ->select('IDENTITY(m.pasta) AS pasta_id', 'MAX(m.criadaEm) AS ultimo')
+            ->join('m.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            ->andWhere('m.sistema IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->groupBy('m.pasta')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPasta = [];
+        foreach ($linhas as $l) {
+            $porPasta[(int) $l['pasta_id']] = new \DateTimeImmutable((string) $l['ultimo']);
+        }
+
+        return $porPasta;
+    }
 }

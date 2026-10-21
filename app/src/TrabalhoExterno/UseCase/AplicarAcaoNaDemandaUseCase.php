@@ -9,9 +9,12 @@ use App\TrabalhoExterno\Armazenamento\ChavesDeTrabalhoExterno;
 use App\TrabalhoExterno\DTO\Autor;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Enum\AcaoDemanda;
+use App\TrabalhoExterno\Enum\TipoItemMarcado;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Exception\TransicaoInvalida;
 use App\TrabalhoExterno\Repository\DemandaExternaRepository;
+use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
+use App\TrabalhoExterno\Service\AvisosDoTrabalhoExterno;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\LocalizadorDeDemanda;
 use App\TrabalhoExterno\Service\PoliticaDaDemanda;
@@ -25,6 +28,7 @@ use App\TrabalhoExterno\Service\PoliticaDaDemanda;
  * grava. "Excluir rascunho" apaga a demanda e, depois do COMMIT, os arquivos dela.
  * Alternativos: ação fora do perfil → AcaoNaoPermitida (403); fora do estado ou sem motivo →
  * TransicaoInvalida (409); demanda de outro escritório → DemandaNaoEncontrada (404).
+ * "Solicitar informações" avisa quem solicitou no sino (desenho 06 l.784, spec §4.7).
  */
 final class AplicarAcaoNaDemandaUseCase
 {
@@ -33,6 +37,8 @@ final class AplicarAcaoNaDemandaUseCase
         private readonly PoliticaDaDemanda $politica,
         private readonly DemandaExternaRepository $repositorio,
         private readonly RemocaoAposTransacao $remocao,
+        private readonly MarcacaoDoUsuarioRepository $marcacoes,
+        private readonly AvisosDoTrabalhoExterno $avisos,
     ) {
     }
 
@@ -56,17 +62,24 @@ final class AplicarAcaoNaDemandaUseCase
 
         // O papel da autoria: o Master que age pelo escritório dele fica registrado como Solicitante.
         $demanda->aplicar($acao, Autor::de($ctx->usuario, $this->politica->papelNaAcao($ctx, $demanda, $acao)), $motivo);
+        if ($acao === AcaoDemanda::SolicitarInformacoes) {
+            $this->avisos->pedidoDeInformacoes($ctx, $demanda);
+        }
         $this->repositorio->salvar($demanda, flush: true);
 
         return $demanda;
     }
 
-    /** Arquivo só sai DEPOIS do COMMIT (INV-6): se o DELETE falhar, nada some do disco. */
+    /**
+     * Arquivo só sai DEPOIS do COMMIT (INV-6): se o DELETE falhar, nada some do disco. As marcações
+     * dos usuários não têm FK para a demanda (tabela polimórfica) e saem aqui.
+     */
     private function excluirRascunho(DemandaExterna $demanda): void
     {
         $chaves = array_map(ChavesDeTrabalhoExterno::documento(...), $demanda->getDocumentos());
         $contexto = 'rascunho excluído do Trabalho Externo ' . $demanda->getCodigo();
 
+        $this->marcacoes->removerDoItem(TipoItemMarcado::Demanda, (int) $demanda->getId());
         $this->repositorio->remover($demanda, flush: true);
         $this->remocao->remover($chaves, $contexto);
     }

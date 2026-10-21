@@ -38,7 +38,7 @@ module.exports = defineConfig({
         {
             name: 'chromium',
             // A regressão visual tem configuração própria (playwright.visual.config.js).
-            testIgnore: ['**/central-fidelidade.spec.js', '**/fechar-janelas.spec.js', '**/visual/**'],
+            testIgnore: ['**/central-fidelidade.spec.js', '**/ponto-atalho-cabecalho.spec.js', '**/fechar-janelas.spec.js', '**/visual/**'],
             use: {
                 ...devices['Desktop Chrome'],
                 storageState: 'storage/auth.json',
@@ -47,6 +47,13 @@ module.exports = defineConfig({
         },
         // Central × protótipo do Designer: login próprio e servidor da worktree (ver o cabeçalho do spec). Só entra
         // quando as credenciais vêm no comando, para o `npm test` comum não depender da demo de pé.
+        // Atalho de ponto do cabeçalho (spec presenca-e-ponto-no-cabecalho §3): login próprio e servidor da worktree.
+        // Só entra com as credenciais no comando; as rotas do ponto são interceptadas (nada é gravado).
+        ...(process.env.PONTO_ATALHO_E2E_EMAIL ? [{
+            name: 'ponto-atalho',
+            testMatch: '**/ponto-atalho-cabecalho.spec.js',
+            use: { ...devices['Desktop Chrome'] },
+        }] : []),
         // O X de fechar em toda janelinha: login próprio e servidor da worktree; só com as credenciais no comando.
         ...(process.env.FECHAR_E2E_EMAIL ? [{
             name: 'fechar-janelas',

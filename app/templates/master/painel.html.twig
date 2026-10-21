@@ -11,6 +11,7 @@
 
 {% block stylesheets %}
     <link rel="stylesheet" href="{{ asset('css/master.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/master-seccionais.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -30,6 +31,7 @@
     faixas: path('master_faixas_configurar'),
     mapaBrasil: path('master_mapa_brasil'),
     mapaMundo: path('master_mapa_mundo'),
+    seccionais: path('master_dados_seccionais'),
     revisaoOab: path('admin_platform_oab_index'),
     convites: path('admin_platform_convite_index'),
     logo: asset('images/logo/bluejus-logo-nav.png')
@@ -55,6 +57,7 @@
            parcial, o painel.js nem mostra o botão da seção. O parcial pode trazer o próprio <script src> (CSP 'self')
            e ouvir o evento "mp:secao" no #master-painel para montar a seção quando ela abrir. #}
         <div class="mp-secao-externa" data-sec-externa="com" hidden>{% include 'master/_comercial.html.twig' ignore missing %}</div>
+        <div class="mp-secao-externa" data-sec-externa="ind" hidden>{% include 'master/_indicacoes.html.twig' ignore missing %}</div>
     </div>
 
     <div class="mp-perm" data-painel-aba="perm" hidden>

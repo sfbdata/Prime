@@ -32,4 +32,34 @@ class PastaAndamentoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * Os andamentos gravados das pastas pedidas, para o relatório de pastas paradas: uma consulta
+     * para o lote, com o tenant explícito (o comando roda sem TenantFilter).
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, array<string, PastaAndamento>> pastaId => via => andamento
+     */
+    public function dasPastas(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $andamentos = $this->createQueryBuilder('a')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('IDENTITY(a.pasta) IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->getQuery()
+            ->getResult();
+
+        $porPasta = [];
+        foreach ($andamentos as $andamento) {
+            $porPasta[(int) $andamento->getPasta()->getId()][$andamento->getVia()] = $andamento;
+        }
+
+        return $porPasta;
+    }
 }

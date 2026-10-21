@@ -52,6 +52,10 @@ parameters:
     # O default mora AQUI e não no .env porque o build de produção faz `rm .env`.
     suporte_form_url: '%env(string:default:default_suporte_form_url:SUPORTE_FORM_URL)%'
     default_suporte_form_url: ''
+    # Prazos lidos dos registros contam pelo calendário do sistema (feriados nacionais e estaduais, recesso) só
+    # para registro criado a partir desta data (AAAA-MM-DD). Vazio = desligado. O default mora AQUI porque o build
+    # de produção faz `rm .env` (docs/specs/prazo-feriado-calendario.md).
+    prazos_calendario_desde: '%env(string:default::PRAZOS_CALENDARIO_DESDE)%'
     # Sincronização Google Drive. Vazios em dev/test. Dois modos de auth:
     #  - service account (Shared Drive): google_drive_credentials = caminho do JSON.
     #  - OAuth login de usuário (ex.: conta do rclone; ponte atual + futuro "Conectar meu Drive"):
@@ -82,6 +86,21 @@ parameters:
     # Folga somada ao max_tokens de cada prompt: o raciocínio adaptativo dos modelos atuais conta no max_tokens.
     ia_anthropic_margem_raciocinio: '%env(int:default:default_ia_anthropic_margem_raciocinio:IA_MARGEM_RACIOCINIO)%'
     default_ia_anthropic_margem_raciocinio: 8000
+    # Comercial e e-mails (spec comercial-e-emails §3.6 e §3.8). Defaults AQUI, não no .env (o build de produção faz
+    # `rm .env`). Vazão: e-mails por minuto e teto diário (o diário conta tudo o que saiu; os transacionais do ciclo da
+    # conta só respeitam o por minuto). Rastreio: só liga com esta flag E PoliticaPrivacidadeVigente::CITA_RASTREIO_DE_EMAIL.
+    comercial.envios_por_minuto: '%env(int:default:default_comercial_envios_por_minuto:COMERCIAL_ENVIOS_POR_MINUTO)%'
+    default_comercial_envios_por_minuto: 20
+    comercial.teto_diario: '%env(int:default:default_comercial_teto_diario:COMERCIAL_TETO_DIARIO)%'
+    default_comercial_teto_diario: 1500
+    comercial.rastreio_ligado: '%env(default:default_comercial_rastreio_ligado:bool:COMERCIAL_RASTREIO_LIGADO)%'
+    default_comercial_rastreio_ligado: false
+    # Campanhas (spec comercial-e-emails §8.1.2 e §8.5): a chave da instalação nasce DESLIGADA (o "Enviar campanha" é
+    # recusado e o expansor cancela as ativas; trocar exige reiniciar o worker) e o teto diário só das campanhas.
+    comercial.campanhas_ligadas: '%env(default:default_comercial_campanhas_ligadas:bool:COMERCIAL_CAMPANHAS_LIGADAS)%'
+    default_comercial_campanhas_ligadas: false
+    comercial.teto_diario_campanhas: '%env(int:default:default_comercial_teto_diario_campanhas:COMERCIAL_TETO_DIARIO_CAMPANHAS)%'
+    default_comercial_teto_diario_campanhas: 1000
 
 services:
     # default configuration for services in *this* file
@@ -113,6 +132,12 @@ services:
             string $googleDriveOauthRefreshToken: '%google_drive_oauth_refresh_token%'
             string $syncCryptoKey: '%sync_crypto_key%'
             bool $iaHabilitada: '%ia_habilitada%'
+            int $enviosPorMinuto: '%comercial.envios_por_minuto%'
+            int $tetoDiario: '%comercial.teto_diario%'
+            bool $rastreioLigado: '%comercial.rastreio_ligado%'
+            bool $campanhasLigadas: '%comercial.campanhas_ligadas%'
+            int $tetoDiarioDeCampanhas: '%comercial.teto_diario_campanhas%'
+            Symfony\Component\HttpFoundation\UriSigner $assinadorDeClique: '@comercial.assinador_de_clique'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name
@@ -198,6 +223,24 @@ services:
         arguments:
             $debug: '%kernel.debug%'
             $ambiente: '%kernel.environment%'
+
+    # Comercial e e-mails: a porta de envio e o registro (contratos para a 0d e a a7). `public` para os testes de
+    # contrato alcançarem as portas pelo container mesmo enquanto nenhum consumidor as usa (serviço privado sem
+    # consumidor é removido na compilação; ver o comentário do ConexaoLeitura acima).
+    App\Comercial\Envio\CarteiroInterface:
+        alias: App\Comercial\Service\Carteiro
+        public: true
+    App\Comercial\Envio\RegistroDeEnviosInterface:
+        alias: App\Comercial\Service\RegistroDeEnvios
+        public: true
+    # A chave das campanhas (spec §8.1.2): `public` para os testes trocarem a chave no container (o padrão é desligada).
+    App\Comercial\Campanha\ChaveDasCampanhas:
+        public: true
+    # Assinatura do link rastreado (`/e/c/{token}?u=...&s=...`, spec §3.8): HMAC com o kernel.secret, parâmetro `s`.
+    # Separado do `uri_signer` do framework (que usa `_hash`) para a URL ter o formato da spec.
+    comercial.assinador_de_clique:
+        class: Symfony\Component\HttpFoundation\UriSigner
+        arguments: ['%kernel.secret%', 's']
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

@@ -45,6 +45,35 @@ class PastaDocumentoRepository extends ServiceEntityRepository
     }
 
     /**
+     * As chaves das peças HTML de algumas pastas do escritório (a imagem embutida na peça e o cadeado,
+     * spec pasta-cadeado D5).
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return string[]
+     */
+    public function chavesDePecasHtmlDasPastas(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        /** @var string[] $chaves */
+        $chaves = $this->createQueryBuilder('d')
+            ->select('d.caminhoArquivo')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.mimeType = :mime')
+            ->andWhere('IDENTITY(d.pasta) IN (:pastas)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('mime', 'text/html')
+            ->setParameter('pastas', $pastaIds)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return $chaves;
+    }
+
+    /**
      * Documentos do escritório com o MESMO conteúdo (`sha256` igual) — a consulta por trás do aviso
      * "este arquivo já existe em…" do upload.
      *
@@ -394,6 +423,35 @@ class PastaDocumentoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Inteligência cadastral do cliente (F-A): os documentos de identificação e comprovante de residência destas pastas,
+     * fora da lixeira, deste escritório (tenant e lixeira explícitos), o mais novo primeiro. Quem chama já conferiu que
+     * as pastas são do cliente e que o usuário pode vê-las.
+     *
+     * @param list<Pasta> $pastas
+     *
+     * @return list<PastaDocumento>
+     */
+    public function identificacaoEComprovanteDasPastas(array $pastas, Tenant $tenant): array
+    {
+        if ($pastas === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('d')
+            ->andWhere('d.pasta IN (:pastas)')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.excluidoEm IS NULL')
+            ->andWhere('d.categoria IN (:categorias)')
+            ->setParameter('pastas', $pastas)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('categorias', [PastaDocumento::CATEGORIA_IDENTIFICACAO, PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA])
+            ->orderBy('d.carregadoEm', 'DESC')
+            ->addOrderBy('d.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Título, nome do arquivo e categoria dos documentos (fora da lixeira) das pastas pedidas, para o
      * relatório de pastas sem processo. Uma consulta para o lote; tenant pela pasta.
      *
@@ -423,6 +481,46 @@ class PastaDocumentoRepository extends ServiceEntityRepository
         $porPasta = [];
         foreach ($linhas as $l) {
             $porPasta[(int) $l['pasta_id']][] = trim($l['titulo'] . ' ' . $l['nomeOriginal'] . ' ' . $l['categoria']);
+        }
+
+        return $porPasta;
+    }
+
+    /**
+     * Título, nome do arquivo e categoria dos documentos (fora da lixeira) das pastas pedidas, para o
+     * relatório de pastas paradas saber se a procuração e o contrato de honorários estão juntados.
+     * Uma consulta para o lote; tenant pela pasta.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, list<array{titulo: string, nomeOriginal: string, categoria: string}>> pastaId => documentos
+     */
+    public function documentosParaPastasParadas(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('d')
+            ->select('IDENTITY(d.pasta) AS pasta_id', 'd.titulo', 'd.nomeOriginal', 'd.categoria')
+            ->join('d.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            // A lixeira já sai pelo LixeiraFilter na tela; o comando roda sem filtro nenhum.
+            ->andWhere('d.excluidoEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->orderBy('d.id', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $porPasta = [];
+        foreach ($linhas as $l) {
+            $porPasta[(int) $l['pasta_id']][] = [
+                'titulo'       => (string) $l['titulo'],
+                'nomeOriginal' => (string) $l['nomeOriginal'],
+                'categoria'    => (string) $l['categoria'],
+            ];
         }
 
         return $porPasta;

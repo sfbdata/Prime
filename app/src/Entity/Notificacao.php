@@ -29,20 +29,51 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_SERVICEDESK_NOVO = 'servicedesk_novo';
     public const TIPO_SERVICEDESK_ATRIBUICAO = 'servicedesk_atribuicao';
     public const TIPO_DJEN_PUBLICACAO = 'djen_publicacao';
+    /** Movimentação nova numa pasta da qual o destinatário é o responsável ("Avisar quando chegar" do Push). */
+    public const TIPO_PUSH_PUBLICACAO_PASTA = 'push_publicacao_pasta';
     /** Alguém respondeu, no Registro da pasta, um comentário do destinatário. */
     public const TIPO_PASTA_RESPOSTA_REGISTRO = 'pasta_resposta_registro';
     /** Alguém @mencionou o destinatário num registro (ou resposta) do Registro da pasta. */
     public const TIPO_PASTA_MENCAO_REGISTRO = 'pasta_mencao_registro';
     /** Alguém @mencionou o destinatário numa nota técnica de processo (escrita numa pasta). */
     public const TIPO_NOTA_TECNICA_MENCAO = 'nota_tecnica_mencao';
-    // Pedido de acesso a pasta trancada (Lista do Expediente, E12): vai para os administradores.
+    // Pedido de acesso a pasta com cadeado (spec pasta-cadeado K5): vai para cada primário ativo e o Master.
     public const TIPO_PASTA_PEDIDO_ACESSO = 'pasta_pedido_acesso';
+    /** Resposta ao pedido de acesso a uma pasta com cadeado (liberado ou recusado): vai para quem pediu. */
+    public const TIPO_PASTA_ACESSO_DECIDIDO = 'pasta_acesso_decidido';
     /** Alguém @mencionou o destinatário numa conversa da Central de Comunicação (sem o texto: é auditada). */
     public const TIPO_CENTRAL_MENCAO = 'central_mencao';
     /** Alguém adicionou o destinatário a um grupo da Central de Comunicação. */
     public const TIPO_CENTRAL_GRUPO_ADICIONADO = 'central_grupo_adicionado';
+    /** Despacho urgente de um item da pasta para a Central ("Encaminhar via Chat I.A"; sem o texto: é auditada). */
+    public const TIPO_CENTRAL_DESPACHO = 'central_despacho';
     /** Quem recebeu o link externo do Push pediu a renovação; vai para quem criou o link. */
     public const TIPO_PUSH_LINK_RENOVACAO = 'push_link_renovacao';
+    /** Um primário pediu a exclusão da conta do escritório (PR 5); vai para os Masters. */
+    public const TIPO_CONTA_PEDIDO_EXCLUSAO = 'conta_pedido_exclusao';
+
+    // Trabalho Externo (F4): avisos de vagas e candidaturas.
+    public const TIPO_TRABALHO_EXTERNO_PEDIDO_DE_VAGA = 'trabalho_externo_pedido_de_vaga';
+    public const TIPO_TRABALHO_EXTERNO_CANDIDATURA = 'trabalho_externo_candidatura';
+    public const TIPO_TRABALHO_EXTERNO_OFERTA_ACEITA = 'trabalho_externo_oferta_aceita';
+    public const TIPO_TRABALHO_EXTERNO_CANDIDATOS_ENVIADOS = 'trabalho_externo_candidatos_enviados';
+    public const TIPO_TRABALHO_EXTERNO_VAGA_APROVADA = 'trabalho_externo_vaga_aprovada';
+    public const TIPO_TRABALHO_EXTERNO_VAGA_REPROVADA = 'trabalho_externo_vaga_reprovada';
+    public const TIPO_TRABALHO_EXTERNO_CANDIDATURA_STATUS = 'trabalho_externo_candidatura_status';
+    public const TIPO_TRABALHO_EXTERNO_VAGA_NA_AREA = 'trabalho_externo_vaga_na_area';
+    public const TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES = 'trabalho_externo_demanda_informacoes';
+    /** Os ícones desses tipos no sino (fora do `match` de getIcone, que já está no limite de tamanho). */
+    public const ICONES_DO_TRABALHO_EXTERNO = [
+        self::TIPO_TRABALHO_EXTERNO_PEDIDO_DE_VAGA => 'bi-inbox text-warning',
+        self::TIPO_TRABALHO_EXTERNO_CANDIDATURA => 'bi-send-check text-primary',
+        self::TIPO_TRABALHO_EXTERNO_OFERTA_ACEITA => 'bi-hand-thumbs-up text-success',
+        self::TIPO_TRABALHO_EXTERNO_CANDIDATOS_ENVIADOS => 'bi-people text-primary',
+        self::TIPO_TRABALHO_EXTERNO_VAGA_APROVADA => 'bi-check2-circle text-success',
+        self::TIPO_TRABALHO_EXTERNO_VAGA_REPROVADA => 'bi-x-circle text-danger',
+        self::TIPO_TRABALHO_EXTERNO_CANDIDATURA_STATUS => 'bi-arrow-repeat text-info',
+        self::TIPO_TRABALHO_EXTERNO_VAGA_NA_AREA => 'bi-megaphone text-primary',
+        self::TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES => 'bi-question-circle text-warning',
+    ];
 
     /** Categorias de notificação (derivadas do tipo). */
     public const CATEGORIA_PESSOAL = 'pessoal';
@@ -207,6 +238,12 @@ class Notificacao implements Auditavel, TenantAware
 
     public function getIcone(): string
     {
+        // Trabalho Externo (F4): avisos de vagas e candidaturas.
+        return self::ICONES_DO_TRABALHO_EXTERNO[$this->tipo] ?? $this->iconeDosDemaisTipos();
+    }
+
+    private function iconeDosDemaisTipos(): string
+    {
         return match ($this->tipo) {
             self::TIPO_TAREFA_CRIADA => 'bi-plus-circle text-primary',
             self::TIPO_TAREFA_EM_REVISAO => 'bi-hourglass-split text-warning',
@@ -219,9 +256,13 @@ class Notificacao implements Auditavel, TenantAware
             self::TIPO_PONTO_JUSTIFICATIVA_REJEITADA => 'bi-x-circle text-danger',
             self::TIPO_SERVICEDESK_NOVO => 'bi-ticket-detailed text-primary',
             self::TIPO_SERVICEDESK_ATRIBUICAO => 'bi-person-check text-info',
-            self::TIPO_DJEN_PUBLICACAO => 'bi-newspaper text-primary',
+            self::TIPO_DJEN_PUBLICACAO, self::TIPO_PUSH_PUBLICACAO_PASTA => 'bi-newspaper text-primary',
+            // Cadeado da pasta (desenho 02, `bi-lock`/`bi-unlock`): o pedido e a resposta.
+            self::TIPO_PASTA_PEDIDO_ACESSO => 'bi-lock text-primary',
+            self::TIPO_PASTA_ACESSO_DECIDIDO => 'bi-unlock text-primary',
             // Desenho (bluejus-central.js, tipo "direcionada"): `bi-person-check` em âmbar.
             self::TIPO_PASTA_RESPOSTA_REGISTRO => 'bi-person-check text-warning',
+            self::TIPO_CENTRAL_DESPACHO => 'bi-person-check text-warning',
             // Desenho (bluejus-central.js, tipo "mencao"): `bi-at` em azul.
             self::TIPO_PASTA_MENCAO_REGISTRO => 'bi-at text-primary',
             // Menção numa nota técnica: o mesmo tipo "mencao" do desenho — `bi-at` em azul.

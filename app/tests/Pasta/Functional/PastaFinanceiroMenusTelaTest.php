@@ -26,8 +26,8 @@ use Zenstruck\Foundry\Test\Factories;
  *
  * O que se trava aqui:
  * - o menu do arquivo tem SÓ as ações com função real, e cada uma aponta para a
- *   rota de verdade (nada de item do desenho sem função: "Encaminhar via Chat
- *   I.A"); "Enviar por e-mail ao cliente" é um `mailto:` montado no servidor;
+ *   rota de verdade ("Encaminhar via Chat I.A" despacha pela Central, D:6958);
+ *   "Enviar por e-mail ao cliente" é um `mailto:` montado no servidor;
  * - os ganchos do JS (`btn-renomear-doc`/`btn-excluir-doc` com `data-*`, o
  *   `data-bs-target="#previewDocModal"`) continuaram existindo dentro do menu;
  * - a folha do extrato mora no corpo RE-RENDERIZADO pelo servidor e lista os
@@ -200,15 +200,12 @@ final class PastaFinanceiroMenusTelaTest extends JusPrimeWebTestCase
         $menu    = $crawler->filter("#financeiro-doc-menu-{$doc->getId()}");
 
         self::assertSame(
-            ['Abrir', 'Baixar', 'Copiar nome do arquivo', 'Renomear', 'Enviar por e-mail ao cliente', 'Ver em Documentos', 'Excluir'],
+            ['Abrir', 'Baixar', 'Copiar nome do arquivo', 'Encaminhar via Chat I.A', 'Renomear', 'Enviar por e-mail ao cliente', 'Ver em Documentos', 'Excluir'],
             $this->rotulos($menu),
         );
-
-        /* Itens do desenho que dependem de função nova não são renderizados
-           (spec §1.3) — nem desabilitados, nem "em breve". */
-        foreach (['Encaminhar', 'Chat I.A'] as $semFuncao) {
-            self::assertStringNotContainsString($semFuncao, $menu->text(), "\"{$semFuncao}\" não tem função no sistema");
-        }
+        // D:6958: "Encaminhar via Chat I.A" (com a Central) vem logo depois de "Copiar nome do arquivo"
+        // (PastaEncaminharRegistrosTelaTest cobre o tipo, o id e a ausência sem a Central).
+        self::assertCount(1, $menu->filter('.js-fin-doc-copiar-nome + .js-encaminhar[data-encaminhar-tipo="documento"]'));
 
         // Excluir fica depois do separador, como no desenho.
         self::assertCount(1, $menu->filter('.ps-fin-menu-sep + .ps-fin-menu-item--perigo.btn-excluir-doc'));

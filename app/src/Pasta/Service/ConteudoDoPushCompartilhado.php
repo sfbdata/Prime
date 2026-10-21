@@ -13,7 +13,9 @@ use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
 use App\Pasta\Entity\LinkExternoDoPush;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Exception\LinkExternoDoPushException;
+use App\Pasta\Repository\CadeadoDaPastaRepository;
 use App\Processo\Entity\Processo;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 
 /**
  * O que o link externo do Push pode mostrar, lido AO VIVO, e se a pasta pode ser compartilhada.
@@ -35,6 +37,8 @@ final class ConteudoDoPushCompartilhado
     public function __construct(
         private readonly PublicacaoDjenRepository $publicacoes,
         private readonly AnaliseDeInteligenciaRepository $analises,
+        private readonly PedidoDeExclusaoDeContaRepository $pedidosDeExclusao,
+        private readonly CadeadoDaPastaRepository $cadeados,
     ) {
     }
 
@@ -94,7 +98,8 @@ final class ConteudoDoPushCompartilhado
         if ($pasta->getSituacao() === Pasta::SITUACAO_ARQUIVADA) {
             return LinkExternoDoPushException::PASTA_ARQUIVADA;
         }
-        if ($pasta->estaTrancada()) {
+        // Qualquer cadeado, de qualquer modo, desliga o link externo (spec pasta-cadeado D3).
+        if ($this->cadeados->existeNaPasta($pasta)) {
             return LinkExternoDoPushException::PASTA_TRANCADA;
         }
         if ($this->temProcessoEmSegredo($pasta)) {
@@ -111,15 +116,23 @@ final class ConteudoDoPushCompartilhado
     /**
      * A regra única de "o link ainda pode mostrar alguma coisa", usada pela página e pelo pedido de
      * renovação. Qualquer mudança da pasta depois de criar o link que impediria GERAR um link novo
-     * também desliga o existente (decisão do orquestrador, 19/10): excluída, trancada, cancelada,
+     * também desliga o existente (decisão do orquestrador, 19/10): excluída, com cadeado, cancelada,
      * arquivada, processo em segredo, ou o processo do link desvinculado da pasta.
      */
     public function linkVisivel(LinkExternoDoPush $link): bool
     {
+        // Correção de segurança (PR 5, decisão do coordenador 20/10): escritório fora do ar não mostra o
+        // andamento a terceiros. Suspenso pelo Master (isActive=false), em quarentena (excluidoEm) ou
+        // "suspenso a pedido" (pedido de exclusão pendente).
+        $conta = $link->getTenant();
+        if ($conta->isActive() !== true || $conta->getExcluidoEm() !== null || $this->pedidosDeExclusao->existePendente((int) $conta->getId())) {
+            return false;
+        }
+
         $pasta = $link->getPasta();
         if (
             $pasta->estaExcluida()
-            || $pasta->estaTrancada()
+            || $this->cadeados->existeNaPasta($pasta)
             || \in_array($pasta->getSituacao(), [Pasta::SITUACAO_CANCELADA, Pasta::SITUACAO_ARQUIVADA], true)
             || $this->temProcessoEmSegredo($pasta)
         ) {
@@ -139,7 +152,7 @@ final class ConteudoDoPushCompartilhado
     public function temProcessoEmSegredo(Pasta $pasta): bool
     {
         foreach ($pasta->getProcessos() as $processo) {
-            if (($processo->getNivelSigilo() ?? 0) > 0) {
+            if ($processo->emSegredoDeJustica()) { // tribunal OU "Sim" manual do cartão (P5b)
                 return true;
             }
         }

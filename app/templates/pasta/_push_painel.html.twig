@@ -1,8 +1,8 @@
 {# ============================================================================
    Coluna direita da aba Push: o cartão de Monitoramento e Situação atual (desenho 1.2.3,
-   dc L.2567-2626; spec push-painel-monitoramento). Neste PR só este cartão: "Avisar quando
-   chegar" (P4b) e "Avisar cliente" (P4c) vêm depois; a leitura completa ("Lendo o processo" com
-   as 12 etapas, a análise e o envio de arquivos) é do P4e.
+   dc L.2567-2626; spec push-painel-monitoramento) e o "Avisar quando chegar" (dc L.2629-2636;
+   spec push-avisar-quando-chegar) e o "Avisar cliente" (P4c, spec push-avisar-cliente); a leitura completa
+   ("Lendo o processo" com as 12 etapas, a análise e o envio de arquivos) é do P4e.
 
    Textos de `pushVals` (dc L.5434-5446) e de `previsaoProc` (dc L.5110-5116), resolvidos no
    servidor (App\Pasta\DTO\PainelDoPushOutput). Estilos 1:1 em pasta-push-painel.css, com a linha
@@ -12,7 +12,8 @@
    O switch muda o processo PRINCIPAL e exige EDITAR a pasta; "Buscar agora" exige ver. Na pasta
    excluída (lápide) os dois saem desabilitados: o servidor recusaria (são POST).
 
-   Contexto: `pasta`, `painel` (PainelDoPushOutput), `podeEditarPasta`.
+   Contexto: `pasta`, `painel` (PainelDoPushOutput), `avisos` (AvisosDoPushOutput ou null),
+   `podeEditarPasta`.
    ============================================================================ #}
 {% set pastaViva = not pasta.estaExcluida %}
 {% set podeAlternar = painel.temProcesso and podeEditarPasta and pastaViva %}
@@ -116,6 +117,44 @@
         </button>
         <p class="ps-push-painel-msg" data-push-painel-msg role="status" hidden></p>
     </div>
+    {% if avisos is defined and avisos is not null %}
+        {# "Avisar quando chegar" (dc L.2629-2636, `avisos` dc L.5447; spec push-avisar-quando-chegar §2).
+           Cada linha é o botão inteiro com role=switch (o rótulo é o nome acessível). Mudar exige
+           EDITAR a pasta; quem só vê enxerga as chaves desabilitadas com a dica, e a lápide também.
+           A chave travada pelo motivo dela (e-mail sem o aviso ao responsável, IA indisponível)
+           traz a dica do servidor. #}
+        {% if not pastaViva %}
+            {% set dicaAvisos = 'Pasta excluída: somente leitura.' %}
+        {% elseif not podeEditarPasta %}
+            {% set dicaAvisos = 'Só quem edita a pasta muda os avisos.' %}
+        {% else %}
+            {% set dicaAvisos = null %}
+        {% endif %}
+        <div class="ps-push-avisos" data-push-avisos
+             data-avisos-url="{{ path('pasta_push_avisos', {id: pasta.id}) }}"
+             data-avisos-token="{{ csrf_token('pasta_push_avisos_' ~ pasta.id) }}"
+             data-avisos-permitido="{{ podeEditarPasta and pastaViva ? '1' : '0' }}">
+            <div class="ps-push-avisos-titulo">Avisar quando chegar</div>
+            {% for item in avisos.itens %}
+                {% set dicaItem = dicaAvisos ?? item.dica %}
+                <button type="button" class="ps-push-aviso{{ item.ligado ? ' is-on' : '' }}"
+                        role="switch" aria-checked="{{ item.ligado ? 'true' : 'false' }}"
+                        data-push-aviso="{{ item.chave }}"
+                        {% if dicaItem %}title="{{ dicaItem }}"{% endif %}
+                        {{ dicaAvisos is null and not item.travado ? '' : 'disabled' }}>
+                    <span class="ps-push-aviso-rotulo">{{ item.rotulo }}</span><span class="ps-push-aviso-sw" aria-hidden="true"><span class="ps-push-switch-bola"></span></span>
+                </button>
+            {% endfor %}
+            <p class="ps-push-painel-msg" data-push-avisos-msg role="status" hidden></p>
+        </div>
+    {% endif %}
+    {# "Avisar cliente" (P4c; spec push-avisar-cliente §2, desenho de 18/10 dc N:2765-2830). #}
+    {% set avisarCliente = avisar_cliente(pasta.id) %}
+    {% if avisarCliente is not null %}
+        {% include 'pasta/_push_cliente.html.twig' with {pasta: pasta, cliente: avisarCliente} only %}
+    {% endif %}
 </aside>
 <link rel="stylesheet" href="{{ asset('css/pasta-push-painel.css') }}">
+<link rel="stylesheet" href="{{ asset('css/pasta-push-cliente.css') }}">
 <script src="{{ asset('js/pasta-push-painel.js') }}" defer></script>
+<script src="{{ asset('js/pasta-push-cliente.js') }}" defer></script>

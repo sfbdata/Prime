@@ -462,7 +462,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         }
     }
 
-    #[TestDox('E5c (R118/R236): ⋮ "Opções" no lugar da seta, só com ações que já existem — relatório completo, aba Metas da pasta com a meta realçada e Editar nome; "Encaminhar via Chat I.A" não aparece (sem backend)')]
+    #[TestDox('E5c (R118/R236/R223): ⋮ "Opções" no lugar da seta, só com ações que já existem: relatório completo, aba Metas da pasta com a meta realçada, Editar nome e "Encaminhar via Chat I.A" por último')]
     public function testMenuDaMetaComAcoesQueJaExistem(): void
     {
         $client             = static::createClient();
@@ -485,7 +485,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
 
         $itens = $acoes->filter('.mm-menu > .dropdown-menu .mm-menu-item');
         self::assertSame(
-            ['Abrir relatório completo', 'Ir para a aba Metas da pasta', 'Editar nome'],
+            ['Abrir relatório completo', 'Ir para a aba Metas da pasta', 'Editar nome', 'Encaminhar via Chat I.A'],
             $itens->each(static fn ($i): string => trim($i->text())),
         );
         self::assertSame(
@@ -494,12 +494,55 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
                 '/pasta/' . $pastaId . '?meta=' . $id . '#tarefas',
                 '/pasta/' . $pastaId . '?meta=' . $id . '&acao=renomear#tarefas',
             ],
-            $itens->each(static fn ($i): string => (string) $i->attr('href')),
+            $acoes->filter('.mm-menu > .dropdown-menu a.mm-menu-item')->each(static fn ($i): string => (string) $i->attr('href')),
         );
-        self::assertStringNotContainsString('Encaminhar', $acoes->text());
     }
 
-    #[TestDox('E5c: meta de pasta excluída (somente leitura) não oferece "Editar nome" no ⋮ — mesma regra da aba Metas da pasta')]
+    #[TestDox('R223: "Encaminhar via Chat I.A" é o último item do ⋮, com bi-send e só ids em data-* (a pasta da meta e a meta, tipo meta)')]
+    public function testEncaminharNoMenuDaMeta(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $meta               = $this->criarMeta($tenant, $usuario, 'Meta para encaminhar');
+
+        $client->request('GET', '/tarefas/minhas');
+        self::assertResponseIsSuccessful();
+        $item = $client->getCrawler()->filter('.mm-grupo article.mm-meta > .mm-meta-acoes > .mm-menu > .dropdown-menu > li:last-child > button.js-mm-encaminhar');
+        self::assertCount(1, $item);
+        self::assertSame('button', $item->attr('type'));
+        self::assertSame('Encaminhar via Chat I.A', trim($item->text()));
+        self::assertCount(1, $item->filter('button > i.bi.bi-send'));
+        self::assertSame('meta', $item->attr('data-encaminhar-tipo'));
+        self::assertSame((string) $meta->getId(), $item->attr('data-encaminhar-id'));
+        self::assertSame((string) $meta->getPasta()->getId(), $item->attr('data-encaminhar-pasta'));
+
+        // O clique dispara o evento da janela da Central só com os ids (script da página).
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString("closest('.js-mm-encaminhar')", $html);
+        self::assertStringContainsString("detail: { pastaId: pastaId, tipo: 'meta', itemId: itemId }", $html);
+    }
+
+    #[TestDox('R223: sem a Central (vínculo inativo) o ⋮ não tem "Encaminhar via Chat I.A"')]
+    public function testEncaminharAusenteSemCentral(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $this->criarMeta($tenant, $usuario, 'Meta sem Central');
+        // O portão da Central é o vínculo ATIVO (`central_disponivel()`); o papel de sistema segue vendo as metas.
+        static::getContainer()->get(EntityManagerInterface::class)->getConnection()->executeStatement(
+            'UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?',
+            [$usuario->getId(), $tenant->getId()],
+        );
+
+        $client->request('GET', '/tarefas/minhas');
+        self::assertResponseIsSuccessful();
+        $menus = $client->getCrawler()->filter('.mm-grupo article.mm-meta .mm-menu');
+        self::assertCount(1, $menus);
+        self::assertCount(0, $menus->filter('.js-mm-encaminhar'));
+        self::assertStringNotContainsString('Encaminhar', $menus->text());
+    }
+
+    #[TestDox('E5c: meta de pasta excluída (somente leitura) não oferece "Editar nome" nem "Encaminhar via Chat I.A" no ⋮, mesma regra da aba Metas da pasta')]
     public function testMenuSemEditarNomeNaPastaExcluida(): void
     {
         $client             = static::createClient();

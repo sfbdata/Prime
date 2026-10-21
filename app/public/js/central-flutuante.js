@@ -106,9 +106,12 @@
             ui.timerSalto = window.setTimeout(function () { lancador.classList.remove('bj-flutuante--salto'); }, SALTO_MS);
         }
 
+        // "Sons de alerta" do Meu Perfil (perfil.sons, no servidor): com "0" nenhum toque, nem o de ligar o som no menu;
+        // ligado, vale a preferência local `prefs.som` como antes.
+        var perfilSons = raizLancador.getAttribute('data-perfil-sons') !== '0';
         var ultimoToque = 0, audio = null;
         function tocar() {   // tocar(), L91-104: seno 880 Hz e 1320 Hz (+0,11 s), no mínimo 2,5 s entre toques
-            if (!prefs.som || silencio() || Date.now() - ultimoToque < 2500) { return; }
+            if (!perfilSons || !prefs.som || silencio() || Date.now() - ultimoToque < 2500) { return; }
             ultimoToque = Date.now();
             try {
                 audio = audio || new (window.AudioContext || window.webkitAudioContext)();
@@ -669,6 +672,29 @@
         central.addEventListener('bj-central:aviso', function (ev) {
             if (ev.detail && ev.detail.texto) { avisar(ev.detail.texto); }
         });
+
+        // ── API da janela para o resto do sistema (window.BJCentral, BC:6645-6646; spec encaminhar-via-chat-ia §4.1) ──
+        // Só existe onde o lançador está na página. Só identificadores entram; o central.js relê tudo no servidor.
+        function abrirSeFechada() {
+            if (!ui.aberto) { abrir(); }
+        }
+        function despacharItem(item) {   /* despachar, BC:6645: abre a janela na tela "Despachar via Chat I.A" */
+            var d = item || {};
+            abrirSeFechada();
+            central.dispatchEvent(new CustomEvent('bj-central:janela-despachar', { detail: { pastaId: d.pastaId, tipo: d.tipo, itemId: d.itemId === undefined ? null : d.itemId } }));
+        }
+        function conversarCom(userId) {   /* conversar, BC:6646: abre a janela e vai para a 1:1 (si mesmo: só abre) */
+            abrirSeFechada();
+            central.dispatchEvent(new CustomEvent('bj-central:janela-conversar', { detail: { userId: userId } }));
+        }
+        window.BJCentral = {
+            abrir: abrirSeFechada,
+            despachar: despacharItem,
+            conversar: conversarCom
+        };
+        // Por evento, para quem carrega antes da janela ou não quer depender do global.
+        document.addEventListener('bj-central:despachar', function (ev) { despacharItem(ev.detail); });
+        document.addEventListener('bj-central:conversar', function (ev) { conversarCom(ev.detail && ev.detail.userId); });
 
         btnMinimizar.addEventListener('click', minimizar);
         btnMaximizar.addEventListener('click', alternarMaximizar);

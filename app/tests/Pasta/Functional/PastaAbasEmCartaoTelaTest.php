@@ -86,7 +86,9 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Processos vinculados', trim($cartao->filter('.ps-processos > .ps-card-cab--painel > h2')->text()));
         self::assertSame('2', trim($cartao->filter('.ps-card-cab--painel > .ps-contagem')->text()));
         self::assertCount(1, $cartao->filter('.ps-card-cab--painel > a.ps-btn--caps[href*="peticionar"]'), 'Peticionar continua');
-        self::assertCount(1, $cartao->filter('.ps-card-cab--painel > button[data-bs-target="#modalVincularProcesso"]'));
+        self::assertCount(1, $cartao->filter('.ps-card-cab--painel > button[data-bs-target="#modalVincularProcesso"]:not([data-vincular-modo])'));
+        // P4f (N:1710): "Vincular apensado" logo depois, no mesmo modal em modo apenso.
+        self::assertCount(1, $cartao->filter('.ps-card-cab--painel > button[data-bs-target="#modalVincularProcesso"] + button[data-vincular-modo="apenso"]'));
 
         self::assertCount(2, $cartao->filter('.ps-processos > .ps-registro > .ps-dia + article.ps-processo'), 'cada processo vem logo depois da sua pílula');
         $pilulas = $cartao->filter('.ps-registro > .ps-dia > .ps-dia-pilula')->each(static fn ($n) => trim($n->text()));
@@ -95,7 +97,9 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
 
         self::assertCount(1, $cartao->filter('article.ps-processo--principal .ps-processo-principal'), 'um só principal');
         self::assertCount(1, $cartao->filter('article.ps-processo:not(.ps-processo--principal) form.js-ajax-processo-principal'), 'só o outro oferece "tornar principal"');
-        self::assertCount(2, $cartao->filter('article.ps-processo form.js-ajax-desvincular-processo'));
+        // P4f: o outro é apensado ("Outro"), e o ⋮ dele desvincula pelo form do apensado.
+        self::assertCount(1, $cartao->filter('article.ps-processo--principal form.js-ajax-desvincular-processo'));
+        self::assertCount(1, $cartao->filter('article.ps-processo:not(.ps-processo--principal) .ps-processo-menu > form.js-desvincular-apensado'));
         self::assertCount(2, $cartao->filter('article.ps-processo .ps-processo-topo > a.ps-processo-numero'));
         self::assertCount(0, $crawler->filter('#processo .card-header'));
     }
@@ -257,7 +261,9 @@ final class PastaAbasEmCartaoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Registro da pasta', trim($registro->filter('h2')->text()));
         self::assertSame(['Criada em', 'Modificada em', 'Criada por'], $registro->filter('.ps-registro-pasta-campos .ps-rotulo')->each(static fn ($n) => trim($n->text())));
         self::assertCount(1, $registro->filter('button[data-ps-historico]'), '"Ver histórico do sistema" abre o drawer que já existe');
-        self::assertCount(1, $trilho->filter('.ps-trilho > .ps-como-usar'));
+        // Desenho VS 18.10.26 (dc L.2520): depois do Registro vem "Pontos do relatório inicial"; "Como usar esta aba" saiu.
+        self::assertCount(1, $trilho->filter('.ps-trilho > .ps-registro-pasta + .ps-pontos-relatorio'));
+        self::assertCount(0, $trilho->filter('.ps-trilho > .ps-como-usar'));
         self::assertCount(0, $crawler->filter('#detalhes .card-header'), 'nenhum .card-header novo (clearfix do AdminLTE)');
     }
 

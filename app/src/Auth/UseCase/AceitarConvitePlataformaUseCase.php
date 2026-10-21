@@ -6,6 +6,8 @@ namespace App\Auth\UseCase;
 
 use App\Auth\DTO\AceitarConvitePlataformaInput;
 use App\Auth\Enum\StatusOab;
+use App\Auth\Service\EspelhoDaOabPrincipal;
+use App\Auth\Event\ConvitePlataformaAceito;
 use App\Auth\Service\DadosDaContaDoConvite;
 use App\Auth\Service\ValidadorOab;
 use App\Entity\Auth\Invitation;
@@ -15,6 +17,7 @@ use App\Repository\UserRepository;
 use App\Termo\DTO\RegistrarAceiteTermoInput;
 use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 final class AceitarConvitePlataformaUseCase
@@ -26,6 +29,8 @@ final class AceitarConvitePlataformaUseCase
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly RegistrarAceiteTermoUseCase $registrarAceite,
         private readonly ValidadorOab $validadorOab,
+        private readonly EspelhoDaOabPrincipal $espelhoOab,
+        private readonly EventDispatcherInterface $eventos,
     ) {}
 
     public function executar(AceitarConvitePlataformaInput $input): User
@@ -87,6 +92,8 @@ final class AceitarConvitePlataformaUseCase
         $invitation->aceitar($user);
 
         $this->em->persist($user);
+        // A inscrição principal nasce junto (fila de revisão do Master é por inscrição); o flush é o daqui.
+        $this->espelhoOab->garantirPrincipal($user);
         $this->em->flush();
 
         $this->registrarAceite->executar(new RegistrarAceiteTermoInput(
@@ -94,6 +101,7 @@ final class AceitarConvitePlataformaUseCase
             ip: $input->ip,
             userAgent: $input->userAgent,
         ));
+        $this->eventos->dispatch(new ConvitePlataformaAceito((int) $user->getId()));   // depois do último flush (comercial-e-emails.md §3.5)
 
         return $user;
     }

@@ -39,14 +39,19 @@
   const EXTERNAS = {};
   raiz.querySelectorAll('[data-sec-externa]').forEach(el => { if (el.innerHTML.trim()) EXTERNAS[el.dataset.secExterna] = el; });
   if (EXTERNAS.com) SECS.push(['com', 'Comercial e e-mails', 'bi-megaphone']);
+  if (EXTERNAS.ind) SECS.push(['ind', 'Indicações do BlueJus', 'bi-share']);
   const VAZIAS = {
     custos: ['bi-cash-coin', 'Custos e infraestrutura', 'Mostra quanto custa manter o BlueJus e o impacto de cada conta, separando custos medidos, importados de fornecedores e estimados. Sem integração financeira, os valores podem ser lançados manualmente, com origem identificada.', ['Armazenamento', 'Banco de dados', 'Hospedagem', 'Tráfego', 'Backups', 'APIs de IA', 'Notificações', 'Receita recorrente', 'Custo por conta', 'Custo por GB', 'Margem por plano', 'Projeção 3, 6 e 12 meses']],
     desemp: ['bi-activity', 'Desempenho e disponibilidade', 'Saúde técnica da plataforma, com histórico filtrável por gravidade, período e categoria. Métricas não coletadas aparecem como indisponíveis, nunca estimadas.', ['Disponibilidade', 'Tempo de resposta', 'Erros', 'Falhas de upload', 'Falhas de login', 'Último backup', 'Teste de restauração', 'CPU e memória', 'Integrações', 'Incidentes']],
     config: ['bi-gear', 'Configurações globais', 'Parâmetros que valem para todas as contas. Cada alteração exige confirmação e fica na auditoria.', ['Faixas de alerta padrão', 'Período de teste', 'Política de excedente', 'Exceções temporárias', 'Autenticação reforçada', 'Retenção de auditoria']]
   };
   const NM = { RO: 'Rondônia', AC: 'Acre', AM: 'Amazonas', RR: 'Roraima', PA: 'Pará', AP: 'Amapá', TO: 'Tocantins', MA: 'Maranhão', PI: 'Piauí', CE: 'Ceará', RN: 'Rio Grande do Norte', PB: 'Paraíba', PE: 'Pernambuco', AL: 'Alagoas', SE: 'Sergipe', BA: 'Bahia', MG: 'Minas Gerais', ES: 'Espírito Santo', RJ: 'Rio de Janeiro', SP: 'São Paulo', PR: 'Paraná', SC: 'Santa Catarina', RS: 'Rio Grande do Sul', MS: 'Mato Grosso do Sul', MT: 'Mato Grosso', GO: 'Goiás', DF: 'Distrito Federal' };
-  const ST = { Ativa: '#1e7b45', Suspensa: '#a3232b', 'Em quarentena': '#5b7383' };
+  const ST = { Ativa: '#1e7b45', Suspensa: '#a3232b', 'Suspensa a pedido': '#a3232b', 'Em quarentena': '#5b7383' };
   const QUARENTENA = 'Em quarentena';
+  // Pedido de exclusão pendente (o Tenant segue ativo): a tabela mostra "Suspensa a pedido", não "Ativa" (desvio pelo
+  // dado: o protótipo mostrava Ativa). Só o rótulo muda; filtro e menu seguem a situação gravada da conta.
+  const A_PEDIDO = 'Suspensa a pedido';
+  const situacaoVisivel = c => (c.pedidoPendente && c.situacao === 'Ativa' ? A_PEDIDO : c.situacao);
   const dataBr = ymd => { const p = String(ymd || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : ''; };
   // Faixa do RetratoDoEspaco (Contribua) com o rótulo e a cor da função faixa() do desenho (linha 593).
   const FAIXA = { livre: ['Normal', '#1e7b45'], atencao: ['Atenção', '#c08a12'], alerta: ['Alerta', '#c0392b'], critico: ['Crítico', '#a3232b'], bloqueio: ['Limite atingido', '#7a1b22'] };
@@ -225,7 +230,7 @@
       linhas = Object.entries(ATUA).sort((a, b) => b[1] - a[1]).map(([uf, n]) => {
         const t = S.mapaQuem === 'esc' ? { ag: 0, an: 0 } : (G.tend[uf] || { ag: 0, an: 0 }), dl = t.ag - t.an;
         const ic = dl > 0 ? 'bi-arrow-up-right' : dl < 0 ? 'bi-arrow-down-right' : 'bi-arrow-right', cor = dl > 0 ? '#1e7b45' : dl < 0 ? '#a3232b' : '#9aabb7';
-        const tit = S.mapaQuem === 'esc' ? 'Tendência medida só para pessoas' : '+' + t.ag + ' nos últimos 30 dias · +' + t.an + ' nos 30 anteriores · só entradas: saídas ainda não são medidas';
+        const tit = S.mapaQuem === 'esc' ? 'Tendência medida só para pessoas' : (t.ag >= 0 ? '+' : '') + t.ag + ' nos últimos 30 dias · ' + (t.an >= 0 ? '+' : '') + t.an + ' nos 30 anteriores';
         return '<div class="mp-uf-lin"><span class="mp-uf-barra" style="--w:' + pct(n, maxAt) + '"></span><span class="mp-uf-nome">' + esc(NM[uf] || uf) + '</span><b>' + num(n) + '</b><i class="bi ' + ic + ' mp-uf-seta" style="--cor:' + cor + '" title="' + esc(tit) + '"></i></div>';
       }).join('');
     }
@@ -243,6 +248,7 @@
     const usuTit = S.mapaQuem === 'esc' ? 'Escritórios' : S.mapaUsu === 'prim' ? 'Primários' : 'Pessoas';
 
     document.getElementById('mp-uf-tab').innerHTML = '<div class="mp-uf-cab"><span>' + (br ? 'Estado' : 'País') + '</span><span>' + usuTit + '</span><span></span></div>' + linhas
+      + (br && ehPes ? blocoSeccionais() : '')
       + (br ? '<div class="mp-uf-outros"><span><i class="bi bi-globe-americas"></i>Outros países</span><b>' + num(exterior) + '</b></div>' : '')
       + (S.mapaQuem === 'esc' && G.semEnd > 0 ? '<div class="mp-uf-semend"><span><i class="bi bi-geo"></i>Sem endereço no cadastro</span><b>' + num(G.semEnd) + '</b></div>' : '')
       + (ehPes && G.semLoc > 0 ? '<div class="mp-uf-semend" title="Sem lotação Cidade/UF, sem UF da OAB e sem estado do escritório"><span><i class="bi bi-geo"></i>Sem localização no cadastro</span><b>' + num(G.semLoc) + '</b></div>' : '')
@@ -262,6 +268,138 @@
     if (fr.dataset.src !== src) { fr.dataset.src = src; fr.src = src; }
   }
 
+  /* ---------- Seccionais da OAB (desenho 05, Perfis 1.2, VS 21.10.26, L116-127; spec master-seccionais-oab) ----------
+     Bloco "SECCIONAIS VISÍVEIS" embaixo das UFs, só no Brasil + Pessoas (convenção da spec até o arquivo inteiro do
+     desenho: DONO). Dados de /master/dados/seccionais (o mesmo GET do iframe). Mostrar ou ocultar é do navegador
+     (localStorage, chave lida também pelo mapa-brasil.js); a sede e as divulgações vêm do servidor. */
+  const SEC_CHAVE = 'bj-mapa-seccionais-ocultas';
+  const SEC_CFOAB = 'https://www.oab.org.br/institucionalconselhofederal/asiseccional';
+  const SEC_COR = { material: 'var(--sec-material)', reuniao: 'var(--sec-reuniao)', parceria: 'var(--sec-parceria)' };
+  const SEC_NOTA = 'Clique numa seccional para ver a sede. Botão direito na lista mostra ou oculta no mapa; botão direito no mapa registra a divulgação (material enviado, reunião, parceria). O ponto colorido indica seccional já trabalhada. Fonte: Conselho Federal da OAB.';
+  const SEC = { dados: null, estado: null, aberta: null };
+  const secOcultas = () => { try { const v = JSON.parse(localStorage.getItem(SEC_CHAVE) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+  const secGravarOcultas = ufs => { try { localStorage.setItem(SEC_CHAVE, JSON.stringify(ufs)); } catch (e) { /* navegador sem localStorage: vale só nesta tela */ } };
+  const secDe = uf => (SEC.dados ? SEC.dados.seccionais.find(s => s.uf === uf) : null);
+  const secUsuarios = n => (n === 1 ? '1 usuário' : num(n) + ' usuários');
+
+  function carregarSeccionais() {
+    if (SEC.estado === 'carregando') return;
+    SEC.estado = 'carregando';
+    fetch(URLS.seccionais, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then(j => { SEC.dados = j; SEC.estado = null; })
+      .catch(() => { SEC.estado = 'falhou'; })
+      .finally(() => { if (S.sec === 'visao' && D.visao && document.getElementById('mp-uf-tab')) renderMapa(); });
+  }
+  // O iframe avisa depois de registrar uma divulgação (mesmo padrão do __bjFontesAuto do mapa-dados.js).
+  window.__bjSeccionaisRecarregar = () => { SEC.estado = null; carregarSeccionais(); };
+
+  function blocoSeccionais() {
+    if (!SEC.dados) {
+      if (SEC.estado !== 'falhou') carregarSeccionais();
+      return '<div class="mp-sec-oab" data-sec-oab><span class="mp-sec-oab-nota">' + (SEC.estado === 'falhou' ? 'Não foi possível carregar as seccionais agora. Recarregue a página.' : 'Carregando as seccionais…') + '</span></div>';
+    }
+    const ocultas = secOcultas(), todas = SEC.dados.seccionais, algumaOculta = todas.some(s => ocultas.includes(s.uf));
+    return '<div class="mp-sec-oab" data-sec-oab><div class="mp-sec-oab-cab"><b>SECCIONAIS VISÍVEIS</b><button type="button" data-sec-todas>' + (algumaOculta ? 'Mostrar todas' : 'Ocultar todas') + '</button></div>'
+      + '<div class="mp-sec-oab-chips">' + todas.map(s => secChip(s, ocultas.includes(s.uf))).join('') + '</div>'
+      + (secDe(SEC.aberta) ? secCartao(secDe(SEC.aberta)) : '')
+      + '<div class="mp-sec-oab-nota">' + esc(SEC_NOTA) + '</div></div>';
+  }
+
+  function secChip(s, oculta) {
+    const tit = s.nome + (oculta ? ' · oculta no mapa' : ' · visível no mapa') + (s.ultima ? ' · última divulgação: ' + s.ultima.rotulo + ' em ' + dataBr(s.ultima.data) : '');
+    return '<button type="button" class="mp-sec-chip' + (oculta ? ' is-oculta' : '') + (SEC.aberta === s.uf ? ' is-aberta' : '') + '" data-sec-uf="' + esc(s.uf) + '" title="' + esc(tit) + '">' + esc(s.uf)
+      + (s.ultima ? '<span class="mp-sec-ponto" style="--cor:' + (SEC_COR[s.ultima.tipo] || 'var(--sec-material)') + '"></span>' : '') + '</button>';
+  }
+
+  function secCartao(s) {
+    const site = /^https:\/\//i.test(s.site || '') ? s.site : null;
+    return '<div class="mp-sec-card" data-sec-card><div class="mp-sec-card-cab"><i class="bi bi-bank"></i><span>' + esc(s.nome) + '</span><button type="button" data-sec-fechar title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button></div>'
+      + '<div class="mp-sec-card-corpo"><span><i class="bi bi-people"></i>' + esc(secUsuarios(s.usuarios)) + '</span>'
+      + '<span><i class="bi bi-geo-alt"></i>' + esc(s.endereco || 'Endereço não cadastrado. Confira no CFOAB.') + '</span>'
+      + (s.telefone ? '<span><i class="bi bi-telephone"></i>' + esc(s.telefone) + '</span>' : '')
+      + (site ? '<a href="' + esc(site) + '" target="_blank" rel="noopener"><i class="bi bi-globe2"></i>Site da seccional</a>' : '')
+      + '<div class="mp-sec-card-acoes"><a href="' + SEC_CFOAB + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i>Endereço oficial (CFOAB)</a>'
+      + '<button type="button" data-sec-editar><i class="bi bi-pencil"></i> Editar sede</button></div>'
+      + secDivulgacoes(s.ultimas) + '</div></div>';
+  }
+
+  // As 5 últimas divulgações (spec: tipo, data, autor, nota). O desenho truncado não mostra a lista: convenção do cartão.
+  const secDivulgacoes = lista => '<div class="mp-sec-divs"><b>ÚLTIMAS DIVULGAÇÕES</b>' + (lista.length
+    ? lista.map(d => '<div class="mp-sec-div"><i style="--cor:' + (SEC_COR[d.tipo] || 'var(--sec-material)') + '"></i><span><b>' + esc(d.rotulo) + '</b> · ' + esc(dataBr(d.data)) + ' · ' + esc(d.autor || 'autor removido')
+      + (d.nota ? '<span class="mp-sec-div-nota">' + esc(d.nota) + '</span>' : '') + '</span></div>').join('')
+    : '<span class="mp-sec-div-vazio">Nenhuma divulgação registrada. Use o botão direito no mapa.</span>') + '</div>';
+
+  function secAlternar(uf) {
+    const ocultas = secOcultas();
+    secGravarOcultas(ocultas.includes(uf) ? ocultas.filter(u => u !== uf) : ocultas.concat(uf));
+    renderMapa();
+  }
+
+  function secTodas() {
+    const algumaOculta = SEC.dados.seccionais.some(s => secOcultas().includes(s.uf));
+    secGravarOcultas(algumaOculta ? [] : SEC.dados.seccionais.map(s => s.uf));
+    renderMapa();
+  }
+
+  // Janela "Editar sede" no molde das janelas de limite e plano (caixa/campo do painel, host #mp-modal).
+  function secAbrirEdicao(s) {
+    const host = document.getElementById('mp-modal'); if (!host) return;
+    host.innerHTML = caixa('bi-bank', 'Editar sede', '<b class="mp-lim-conta" data-sede="' + esc(s.uf) + '">' + esc(s.nome) + '</b>'
+      + campo('ENDEREÇO', 'type="text" maxlength="255" data-sede-endereco value="' + esc(s.endereco || '') + '"')
+      + campo('TELEFONE', 'type="text" maxlength="40" data-sede-telefone value="' + esc(s.telefone || '') + '"')
+      + campo('SITE', 'type="url" maxlength="255" placeholder="https://" data-sede-site value="' + esc(s.site || '') + '"')
+      + '<span class="mp-lim-msg" data-lim-msg></span>', 'Salvar sede');
+    secAtualizarEdicao(null);
+    host.querySelector('[data-sede-endereco]').focus();
+  }
+
+  function secAtualizarEdicao(erro) {
+    const host = document.getElementById('mp-modal'), site = host.querySelector('[data-sede-site]').value.trim(), ok = site === '' || /^https:\/\/\S+$/i.test(site);
+    const msg = host.querySelector('[data-lim-msg]');
+    msg.textContent = erro || (ok ? 'Confira os dados no site do CFOAB. Campo vazio fica sem informação. A alteração fica registrada na auditoria.' : 'Informe o site completo, começando com https://.');
+    msg.style.setProperty('--cor', erro || !ok ? '#a3232b' : '#4a6373');
+    host.querySelector('[data-lim-ok]').disabled = !ok;
+  }
+
+  function secSalvarEdicao() {
+    const host = document.getElementById('mp-modal'), uf = host.querySelector('[data-sede]').dataset.sede, v = sel => host.querySelector(sel).value;
+    host.querySelector('[data-lim-ok]').disabled = true;
+    secPostar(SEC.dados.urlSede.replace('/XX/', '/' + uf + '/'), { endereco: v('[data-sede-endereco]'), telefone: v('[data-sede-telefone]'), site: v('[data-sede-site]') }, () => {
+      fecharModal(); window.__bjSeccionaisRecarregar();
+    }, erro => { if (host.querySelector('[data-sede]')) secAtualizarEdicao(erro || 'Não foi possível salvar agora. Recarregue a página.'); });
+  }
+
+  // POST JSON com o token no header (o controller lê X-CSRF-Token), com o mesmo critério do postar() do painel.
+  function secPostar(url, corpo, aoDarCerto, aoFalhar) {
+    fetch(url, { method: 'POST', body: JSON.stringify(corpo), credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-Token': SEC.dados.token } })
+      .then(r => r.json().catch(() => null).then(j => ({ r, j })))
+      .then(({ r, j }) => { const json = !r.redirected && j !== null && typeof j === 'object'; if (json && r.ok && j.mensagem) return aoDarCerto(j); aoFalhar(json && !r.ok ? j.erro : null); })
+      .catch(() => aoFalhar(null));
+  }
+
+  // Eventos do bloco: ouvintes próprios (não passam pelos da seção nem pelos das janelas de limite e plano).
+  elSecao.addEventListener('click', e => {
+    if (!e.target.closest('[data-sec-oab]')) return;
+    const chip = e.target.closest('[data-sec-uf]');
+    if (chip) { SEC.aberta = SEC.aberta === chip.dataset.secUf ? null : chip.dataset.secUf; return renderMapa(); }
+    if (e.target.closest('[data-sec-fechar]')) { SEC.aberta = null; return renderMapa(); }
+    if (e.target.closest('[data-sec-todas]')) return secTodas();
+    if (e.target.closest('[data-sec-editar]') && secDe(SEC.aberta)) return secAbrirEdicao(secDe(SEC.aberta));
+  });
+  elSecao.addEventListener('contextmenu', e => {
+    const chip = e.target.closest('[data-sec-oab] [data-sec-uf]'); if (!chip) return;
+    e.preventDefault(); secAlternar(chip.dataset.secUf);
+  });
+  (host => {
+    if (!host) return;
+    host.addEventListener('click', e => { if (host.querySelector('[data-sede]') && e.target.closest('[data-lim-ok]')) secSalvarEdicao(); });
+    host.addEventListener('input', () => { if (host.querySelector('[data-sede]')) secAtualizarEdicao(null); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && host.querySelector('[data-sede]')) fecharModal(); });
+  })(document.getElementById('mp-modal'));
+  // Outra aba (ou o iframe) mudou o que fica visível: o bloco acompanha.
+  window.addEventListener('storage', e => { if (e.key === SEC_CHAVE && SEC.dados && document.getElementById('mp-uf-tab')) renderMapa(); });
+
   function renderIdades() {
     const I = D.visao.idades, F = I.faixas, tot = F.reduce((a, x) => a + x.n, 0), mx = Math.max(1, ...F.map(x => x.n));
     document.getElementById('mp-idades').innerHTML = '<div class="mp-idades-topo"><b>Faixa etária dos usuários</b><span>idade média ' + (I.media === null ? 'sem informação' : I.media + ' anos') + '</span></div>'
@@ -279,7 +417,9 @@
   };
 
   function montarContas() {
-    elSecao.innerHTML = '<div class="mp-card mp-contas"><div class="mp-cab-cinza"><b>Contas e escritórios <span id="mp-contas-n"></span></b>'
+    // O bloco "Pedidos de exclusão de conta" (desenho 1.2, linha 148) vem antes da tabela. Escondido (hidden,
+    // sem pedidos), ele não ocupa lugar nem abre o espaçamento da seção.
+    elSecao.innerHTML = '<div id="mp-pedidos-exclusao" hidden></div><div class="mp-card mp-contas"><div class="mp-cab-cinza"><b>Contas e escritórios <span id="mp-contas-n"></span></b>'
       + '<a class="mp-btn-cinza" href="' + esc(URLS.convites) + '"><i class="bi bi-envelope-paper"></i>Convites</a>'
       + '<select class="mp-select mp-select-34" data-f-sit><option value="">Todas as situações</option><option value="Ativa"' + (S.fSit === 'Ativa' ? ' selected' : '') + '>Ativa</option><option value="Suspensa"' + (S.fSit === 'Suspensa' ? ' selected' : '') + '>Suspensa</option>'
       // C4b: as contas excluídas só aparecem nesta opção, com a data da purga.
@@ -289,8 +429,35 @@
       + '<div id="mp-contas-lista"></div></div></div></div>'
       // O menu da conta mora FORA do card e da rolagem (overflow), em posição fixa na janela: nunca é cortado.
       + '<div id="mp-menu-conta"></div>';
+    renderPedidosDeExclusao();
     renderContasLista();
   }
+
+  // Pedidos de exclusão de conta (desenho 1.2, linhas 148 e 679), de /master/dados/contas (`pedidosExclusao`).
+  // Só aparece com pedido pendente. Reativar e Excluir abrem as MESMAS confirmações do menu da conta (regra do
+  // dono: a exclusão é a quarentena, então o confirm/prompt do desenho, que diz que não dá para desfazer, não entra).
+  // Os UseCases decidem o pedido junto; aqui a linha só sai da lista depois da resposta de sucesso.
+  const pedidosDeExclusao = () => (D.contas && D.contas.pedidosExclusao) || [];
+  const quemPediu = p => (p.pedidoPorNome
+    ? p.pedidoPorNome + (p.pedidoPorEmail ? ' (' + p.pedidoPorEmail + ')' : '')
+    : (p.pedidoPorEmail || 'autor não registrado'));
+  function renderPedidosDeExclusao() {
+    const host = document.getElementById('mp-pedidos-exclusao'); if (!host) return;
+    const peds = pedidosDeExclusao();
+    host.hidden = peds.length === 0;
+    host.innerHTML = peds.length === 0 ? '' : '<div class="mp-pedidos" id="pedidos-exclusao" data-mp-pedidos>'
+      + '<div class="mp-pedidos-cab"><i class="bi bi-trash3"></i><b>Pedidos de exclusão de conta · ' + num(peds.length) + '</b><span>contas suspensas aguardando sua decisão</span></div>'
+      + peds.map(p => '<div class="mp-pedido" data-mp-pedido="' + p.contaId + '"><span class="mp-pedido-id"><b>' + esc(p.escritorio) + '</b>'
+        + '<span>' + esc(quemPediu(p)) + ' · ' + esc(dataHora(p.criadoEm)) + ' · ' + esc(p.motivo) + '</span></span>'
+        + '<button type="button" class="mp-pedido-reativar" data-pedido-op="reativar" data-conta-id="' + p.contaId + '">Reativar</button>'
+        + '<button type="button" class="mp-pedido-excluir" data-pedido-op="excluir" data-conta-id="' + p.contaId + '">Excluir conta</button></div>').join('')
+      + '</div>';
+  }
+  // Conta do pedido fora da lista (não deveria acontecer): monta o mínimo para a confirmação com o token do pedido.
+  const contaDoPedido = id => {
+    const p = pedidosDeExclusao().find(x => x.contaId === id);
+    return p ? { id: p.contaId, nome: p.escritorio, token: p.token, situacao: 'Ativa', purgaEm: null } : null;
+  };
 
   // Menu da conta (desenho 1.2, linha 735), na ordem: Editar limite de armazenamento, Definir limite de usuários,
   // Estatísticas, Histórico, Suspender OU Reativar (conforme a situação) e Excluir conta (oculto na conta do Master, C5).
@@ -344,7 +511,7 @@
   const URL_ACAO = { suspender: () => URLS.contaSuspender, reativar: () => URLS.contaReativar, excluir: () => URLS.contaExcluir };
 
   function pedirAcaoNaConta(tipo, id) {
-    const c = D.contas.contas.find(x => x.id === id);
+    const c = D.contas.contas.find(x => x.id === id) || contaDoPedido(id);
     if (!c || !window.BJMasterConf) return;
     window.BJMasterConf.abrir(Object.assign(CONF_CONTA[tipo](c), { aoConfirmar: digitado => enviarAcaoNaConta(tipo, c, digitado) }));
   }
@@ -363,6 +530,9 @@
         if (json && r.ok && j.conta) {
           // Excluída vira "Em quarentena": sai da lista padrão e passa a aparecer só nessa opção do filtro.
           c.situacao = j.conta.situacao; c.purgaEm = j.conta.purgaEm || null;
+          // Reativar e excluir decidem o pedido de exclusão da conta (no servidor, na mesma transação): sai do bloco.
+          // Suspender não decide (o pedido continua pendente).
+          if (tipo !== 'suspender') { D.contas.pedidosExclusao = pedidosDeExclusao().filter(p => p.contaId !== c.id); c.pedidoPendente = false; }
           // KPIs (suspensas) e trilha mudaram: recarregam quando a seção for aberta de novo.
           D.visao = null; D.audit = null; ERRO.visao = null; ERRO.audit = null;
           return avisar(true, j.mensagem);
@@ -376,7 +546,7 @@
     if (window.BJMasterConf) window.BJMasterConf.fechar();
     S.aviso = { ok, msg: msg || (ok ? 'Situação da conta atualizada.' : 'Não foi possível concluir a ação. Recarregue a página.') };
     renderSecs();
-    if (S.sec === 'contas') renderContasLista();
+    if (S.sec === 'contas') { renderPedidosDeExclusao(); renderContasLista(); }
     if (S.sec === 'arm') renderRanking();
   }
 
@@ -404,7 +574,7 @@
     // Resultado de suspender/reativar: uma linha acima da tabela, até trocar de seção.
     document.getElementById('mp-contas-aviso').innerHTML = avisoHtml();
     document.getElementById('mp-contas-lista').innerHTML = contas.length ? contas.map(c => {
-      const cor = ST[c.situacao] || '#4a6373';
+      const sit = situacaoVisivel(c), cor = ST[sit] || '#4a6373';
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
         + '<div class="mp-conta-nome mp-hv"><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b><span>desde ' + esc(c.desde) + ' · último acesso ' + esc(acessoRelativo(c.ultimoAcesso)) + '</span></div>'
         + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || 'titular não registrado') + '</span><span>' + esc(c.espaco.planoNome) + '</span></div>'
@@ -417,7 +587,7 @@
           // Quarentena: a situação e, abaixo, a data da purga em duas linhas curtas que não quebram (coluna de 100px).
           ? '<div class="mp-conta-st-bloco"><span class="mp-conta-sit" style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span>'
             + '<span class="mp-conta-purga" title="A purga automática roda às 03h, a partir desta data">apagada a partir de<br>' + esc(dataBr(c.purgaEm)) + '</span></div>'
-          : '<span style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span>') + '</div>'
+          : '<span style="--cor:' + cor + '"><i></i>' + esc(sit) + '</span>') + '</div>'
         + '<div class="mp-conta-acoes mp-hv"><button type="button" class="mp-btn-icone" data-menu="' + c.id + '" title="Ações da conta" aria-label="Ações da conta"><i class="bi bi-three-dots-vertical"></i></button></div>'
         + '</div>';
     }).join('') : '<div class="mp-vazio-linha">Nenhuma conta encontrada.</div>';
@@ -736,6 +906,7 @@
   elSecao.addEventListener('click', e => {
     const t = e.target;
     const kpi = t.closest('[data-ir]'); if (kpi) return irPara(kpi.dataset.ir);
+    const ped = t.closest('[data-pedido-op]'); if (ped) { e.stopPropagation(); fecharMenuDaConta(); return pedirAcaoNaConta(ped.dataset.pedidoOp, +ped.dataset.contaId); }
     if (t.closest('[data-parar]') && !t.closest('[data-op]')) return e.stopPropagation();
     const vis = t.closest('[data-gr-vis]'); if (vis) { S.grVis = vis.dataset.grVis; return renderGrafico(); }
     const mod = t.closest('[data-gr-mod]'); if (mod) { S.grMod = mod.dataset.grMod; return renderGrafico(); }

@@ -101,7 +101,7 @@ redesenha sem recarregar.
 | trabalho | Trabalho Externo | `trabalho_externo_` (exceto as 3 rotas públicas do link de convite, por nome exato: `trabalho_externo_convite`, `trabalho_externo_convite_criar_conta` e `trabalho_externo_convite_aceitar`; `_convite_reenviar` e `_convite_revogar` são API logada e seguem a chave) | sidebar e subnav |
 | peticionar | Peticionar | `pasta_peticionar` | botão em `pasta/_processos_vinculados` |
 | meuperfil | Meu Perfil | essencial | |
-| pushpub | Push compartilhado (link público) | `push_compartilhado` (página pública /p/…) e `pasta_push_links_` (API que gera, renova e revoga) | item "Link externo do Push" no menu da pasta |
+| pushpub | Push compartilhado (link público) | `push_compartilhado` (página pública /p/…) e `pasta_push_links_` (API que lista, gera e renova; `pasta_push_links_revogar` fica sempre aberto, por nome exato: tirar acesso nunca trava) | item "Link externo do Push" no menu da pasta e menu do botão direito da aba Push (`#pushLinkMenu` e o `data-ppl-menu` da aba); o Master vê a faixa também na página pública |
 | vagaspub | Vagas públicas (link) | `trabalho_externo_vagas_publicas`, `_vagas_link`, `_vagas_compartilhar` (vence o prefixo mais longo, antes de `trabalho`) | |
 | contribua | Contribua | `contribua_` (o webhook `contribua_webhook_cora` fica sempre aberto) | o atalho do menu do usuário é envolvido pela f6 com `recurso_visivel('contribua')` |
 | instalar | Instalar aplicativo | | `#linkInstalarApp`, `#btnInstalarApp` |

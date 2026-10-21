@@ -6,6 +6,7 @@ namespace App\Tests\Shared\Functional;
 
 use App\AtualizacaoMonetaria\Entity\IndiceMonetario;
 use App\Auth\Entity\CadastroPendente;
+use App\Auth\Entity\InscricaoOab;
 use App\Auth\Entity\RedefinicaoSenha;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\Invitation;
@@ -34,10 +35,19 @@ use App\TrabalhoExterno\Entity\ContatoWhatsapp;
 use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
+use App\TrabalhoExterno\Entity\Candidatura;
+use App\TrabalhoExterno\Entity\Curriculo;
+use App\TrabalhoExterno\Entity\HistoricoVaga;
+use App\TrabalhoExterno\Entity\InteressadoEmVagas;
+use App\TrabalhoExterno\Entity\LinkDeVagas;
 use App\TrabalhoExterno\Entity\HistoricoDemanda;
 use App\TrabalhoExterno\Entity\LeituraDemanda;
+use App\TrabalhoExterno\Entity\MarcacaoDeMensagem;
+use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
+use App\TrabalhoExterno\Entity\PreferenciaDoUsuario;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
+use App\TrabalhoExterno\Entity\Vaga;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -95,6 +105,14 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Pré-autenticação e efêmero (1h). Sem tenant por natureza.
         RedefinicaoSenha::class,
 
+        // Tela de entrada do desenho 10 (spec login-desenho-10), sem tenant por natureza:
+        // identidade global do User (link de confirmação, ciência da Política), a tela de entrada única,
+        // anterior a qualquer escritório (ajustes SÓ MASTER), e o suporte de quem ainda não entrou.
+        \App\Auth\Entity\ConfirmacaoEmail::class,
+        \App\Termo\Entity\CienciaPolitica::class,
+        \App\Auth\Entity\AjusteEntrada::class,
+        \App\Auth\Entity\MensagemSuporte::class,
+
         // Catálogo global de permissões. O que é por escritório é TenantRolePermission.
         Permission::class,
 
@@ -104,6 +122,11 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // Medido em 12/08/2026: 13 linhas para 13 usuários distintos — o perfil é do USUÁRIO,
         // não do escritório. Quem atua em dois escritórios tem um perfil só.
         UserProfile::class,
+
+        // Inscrições na OAB (spec docs/specs/meu-perfil-oab-inscricoes.md §2): credencial da PESSOA, como os
+        // campos oab* do User de que a principal é o espelho; vale em todo escritório em que ela atua. Leitura
+        // sempre por usuário (doUsuario/daPessoa); a fila global é só do Master.
+        InscricaoOab::class,
 
         // Trabalho Externo (spec docs/specs/trabalho-externo.md §3): a Central do Master global lê
         // as demandas de TODOS os escritórios, por desenho. O TenantFilter as esconderia dela. O
@@ -121,11 +144,68 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         AvisoWhatsapp::class,
         ConviteDemanda::class,
         ConfiguracaoCentral::class,
+        // Marcações pessoais (spec docs/specs/trabalho-externo-vs-18-10-26.md §2): estrela, lixeira,
+        // não lida e favorita são do USUÁRIO, como a LeituraDemanda; o Master marca demandas de
+        // todos os escritórios. Toda leitura filtra pelo usuário logado e só alcança itens que o
+        // LocalizadorDeDemanda já escopou, provado em MarcacoesDoTrabalhoExternoTest.
+        MarcacaoDoUsuario::class,   // do usuário, não do escritório; MarcarDemandasEmLoteUseCase só marca o que o LocalizadorDeDemanda escopou (MarcacoesDoTrabalhoExternoTest)
+        MarcacaoDeMensagem::class,  // do usuário; MarcarMensagensEmLoteUseCase só alcança mensagens visíveis pela PoliticaDaDemanda (MarcacoesDoTrabalhoExternoTest::testChatAvancado)
+        // Vagas da Central (spec VS 18.10.26 §4.1): como a demanda, lidas entre escritórios por
+        // desenho (a Central divulga para todos). O isolamento é do VagaRepository (só consultas
+        // escopadas) e da PoliticaDaVaga, provado em VagasDoTrabalhoExternoTest (pendente de outro
+        // escritório é 404). O histórico só é lido pela vaga.
+        Vaga::class,          // vaga publicada pela Central para todos os escritórios; VagaRepository só consulta escopado e LocalizadorDeVaga confere a PoliticaDaVaga (VagasDoTrabalhoExternoTest::testFluxoDeDivulgacao)
+        HistoricoVaga::class, // só é lido pela vaga já localizada no escopo, e só pelo interno (ApresentadorDeVaga::detalhe, desenho l.1190)
+        PreferenciaDoUsuario::class, // do usuário (última visita às vagas, ofertante padrão); toda leitura recebe o usuário logado (VagasDoTrabalhoExternoTest::testNovaEVista)
+        LinkDeVagas::class,   // link público, sem escritório por natureza; só se acha pelo hash do token e a página só mostra vagas abertas sem dado de escritório (VagasPublicasTest)
+        InteressadoEmVagas::class, // visitante da página pública, sem conta nem escritório; só a inscrição grava e nenhuma rota lê (VagasPublicasTest::testInscricaoNosAlertas)
+        Curriculo::class,     // currículo do usuário externo, da plataforma (um por usuário); a Central lê o banco inteiro e o externo só alcança o dele pelo LocalizadorDeCurriculo (CurriculosDoTrabalhoExternoTest::testExternoCriaEditaEExclui)
+        Candidatura::class,   // candidatura de um currículo a uma vaga, ambos da plataforma; só é lida pela vaga já localizada no escopo ou pelo currículo do próprio usuário, e o dono da vaga só vê as enviadas a ele (CandidaturasDoTrabalhoExternoTest::testEnvioEDono)
 
+        // Comercial e e-mails (docs/specs/comercial-e-emails.md §3): dado do Master, de escopo plataforma, que cruza
+        // escritórios (envios, consentimentos, automações, ciclo da conta, varredura). O escritório, quando há, é uma
+        // coluna nullable (null = plataforma) escrita à mão em cada consulta SQL; o filtro de tenant esconderia o que
+        // o Master precisa ver e quebraria o envio pelo worker, que roda sem sessão.
+        \App\Comercial\Entity\EnvioDeEmail::class,
+        \App\Comercial\Entity\ConteudoDoEnvio::class,
+        \App\Comercial\Entity\FatoDeConsentimento::class,
+        \App\Comercial\Entity\ConfirmacaoDeEndereco::class,
+        \App\Comercial\Entity\AutomacaoDeEmail::class,
+        \App\Comercial\Entity\CicloDaConta::class,
+        \App\Comercial\Entity\VarreduraComercial::class,
+        // Fatia 1b (§4): a vez dos avisos de espaço é lida e gravada só por SQL no ouvinte, que roda sem sessão (o
+        // escritório vem do evento e vai na consulta à mão); nunca é listada para ninguém.
+        \App\Comercial\Entity\AvisoDeEspaco::class,
+        // Fatia 2a (§8.2): os modelos próprios de campanha são do Master, de escopo plataforma, sem escritório.
+        \App\Comercial\Entity\ModeloDeCampanha::class,
+        // Fatia 2b (§8.4 e §8.5): as campanhas, os destinatários de cada execução e o controle do expansor são do
+        // Master, de escopo plataforma (a tabela não tem `tenant_id`), gravados pelo worker sem sessão.
+        \App\Comercial\Entity\CampanhaDeEmail::class,
+        \App\Comercial\Entity\DestinoDaCampanha::class,
+        \App\Comercial\Entity\ControleDoExpansor::class,
+        // Marca da varredura do push da Agenda (entrega 5b): uma linha só, global, que garante uma cadeia
+        // única de envio para todos os escritórios. Não guarda dado de escritório nenhum.
+        \App\Agenda\Entity\VarreduraDePush::class,
+        // Marca da cadeia de sincronia do Google Agenda (entrega 6): mesma natureza, uma linha global.
+        \App\Agenda\Entity\VarreduraDoGoogle::class,
         // Telas e recursos (spec docs/specs/perfis-1.2-telas-e-recursos.md, R2): configuração da
         // PLATAFORMA, ligada e desligada só pelo Master e válida para todas as contas ao mesmo tempo.
         // Uma linha por chave do catálogo, sem dado de escritório nem de cliente.
         RecursoEstado::class,
+        // Seccionais da OAB no mapa do Painel do Master (docs/specs/master-seccionais-oab.md): as 27 sedes e as
+        // divulgações registradas pelo Master são dado da PLATAFORMA (trabalho comercial do BlueJus), sem escritório
+        // nem cliente; lidas e gravadas só atrás de ROLE_SUPER_ADMIN.
+        \App\Master\Entity\SeccionalOab::class,
+        \App\Master\Entity\DivulgacaoNaSeccional::class,
+
+        // Indicar o BlueJus (docs/specs/indicar-bluejus.md): plataforma. A indicação é da pessoa (quem indica), não do
+        // escritório: ela indica com ou sem escritório, e o Master lê todas. O escritório de origem é só para mostrar
+        // (SET NULL na purga). Toda consulta do lado do usuário filtra pelo id de quem indica.
+        \App\Indicacao\Entity\Indicacao::class,
+        \App\Indicacao\Entity\IndicacaoCodigo::class,
+        \App\Indicacao\Entity\IndicacaoConfig::class,
+        \App\Indicacao\Entity\IndicacaoPausa::class,
+        \App\Indicacao\Entity\IndicacaoAlerta::class,
     ];
 
     /**
@@ -138,12 +218,30 @@ final class TenantAwareCoberturaTest extends KernelTestCase
      */
     private const MAX_PENDENTE = 14;
     // 8 → 18 com o Trabalho Externo (15/10/2026): exceção permanente e justificada acima.
-    // 18 → 22 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
-    // natureza; o espaço do escritório é lido por tenantId explícito; o aviso de gateway chega sem
-    // escritório (motivos na lista acima).
-    // 22 → 23 com RecursoEstado (19/10/2026, Perfis 1.2 · Telas e recursos): configuração global da plataforma.
-    // 23 → 24 com a C3 do Contribua: a configuração do pagamento por cartão é da plataforma.
-    private const MAX_FORA_DO_ESCOPO = 24;
+    // 18 → 21 com o Contribua (19/10/2026): catálogo de planos e faixas de espaço são globais por
+    // natureza; o espaço do escritório é lido por tenantId explícito (motivo na lista acima).
+    // (A C3 do Contribua soma 2 no fim: o aviso de gateway, que chega sem escritório, e a configuração do pagamento.)
+    // 21 → 22 com RecursoEstado (19/10/2026, Perfis 1.2 · Telas e recursos): configuração global da plataforma.
+    // 22 → 26 com a tela de entrada do desenho 10 (19/10/2026): ConfirmacaoEmail, CienciaPolitica, AjusteEntrada e
+    // MensagemSuporte são anteriores a qualquer escritório (identidade do User e a tela de entrada única); justificado acima.
+    // 26 → 27 com a marca global da varredura do push da Agenda (19/10/2026), justificada acima.
+    // 27 → 34 com o Comercial e e-mails (19/10/2026): dado do Master, de escopo plataforma (envios, consentimentos,
+    // automações, ciclo da conta e varredura), justificado acima.
+    // 34 → 35 com a fatia 2a do Comercial (20/10/2026): `comercial_modelo`, modelos de campanha do Master (plataforma).
+    // 35 → 40 com o Indicar o BlueJus (19/10/2026): dado de plataforma, da pessoa e do Master, justificado acima.
+    // 40 → 43 com a fatia 2b do Comercial (20/10/2026): campanha, destinatário da campanha e controle do expansor (plataforma).
+    // 43 → 45 com as marcações pessoais do Trabalho Externo (19/10/2026): MarcacaoDoUsuario e
+    // MarcacaoDeMensagem são do usuário, justificadas acima. 45 → 46 com a marca global da sincronia do
+    // Google Agenda (19/10/2026), justificada acima.
+    // 46 → 47 com as inscrições na OAB do Meu Perfil (19/10/2026): InscricaoOab é da pessoa, não do escritório.
+    // 47 → 50 com as vagas e as preferências do usuário do Trabalho Externo (19/10/2026): Vaga, HistoricoVaga e PreferenciaDoUsuario, justificadas acima.
+    // 50 → 52 com a página pública de vagas do Trabalho Externo (19/10/2026): LinkDeVagas e InteressadoEmVagas, justificados acima.
+    // 52 → 53 com o currículo do banco de talentos do Trabalho Externo (19/10/2026): Curriculo, justificado acima.
+    // 53 → 54 com a candidatura às vagas do Trabalho Externo (19/10/2026): Candidatura, justificada acima.
+    // 54 → 55 com a fatia 1b do Comercial (21/10/2026): a vez dos avisos de espaço, justificada acima.
+    // 55 → 57 com as Seccionais da OAB do Painel do Master (21/10/2026): SeccionalOab e DivulgacaoNaSeccional (plataforma).
+    // 57 → 59 com a C3 do Contribua: o aviso de gateway (sem escritório) e a configuração do pagamento por cartão (plataforma).
+    private const MAX_FORA_DO_ESCOPO = 59;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

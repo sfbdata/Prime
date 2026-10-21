@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\UserTenantRepository;
 use App\Shared\Contract\Auditavel;
+use App\Tenant\Enum\SituacaoNaEquipe;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: UserTenantRepository::class)]
@@ -37,6 +38,10 @@ class UserTenant implements Auditavel
 
     #[ORM\Column]
     private bool $isActive = true;
+
+    /** Situação na equipe (spec docs/specs/equipe-da-conta.md §2). `isActive` acompanha: só aprovado entra. */
+    #[ORM\Column(length: 20, enumType: SituacaoNaEquipe::class, options: ['default' => 'aprovado'])]
+    private SituacaoNaEquipe $situacao = SituacaoNaEquipe::Aprovado;
 
     /**
      * Controladoria (spec relatorio-processos-controladoria, D1): a pessoa recebe o relatório mensal
@@ -148,5 +153,18 @@ class UserTenant implements Auditavel
     public function reativar(): void
     {
         $this->isActive = true;
+        $this->situacao = SituacaoNaEquipe::Aprovado;
+    }
+
+    public function getSituacao(): SituacaoNaEquipe
+    {
+        return $this->situacao;
+    }
+
+    /** Muda a situação e mantém o vínculo ativo só quando aprovado: as portas que já conferem isActive barram o resto. */
+    public function alterarSituacao(SituacaoNaEquipe $situacao): void
+    {
+        $this->situacao = $situacao;
+        $this->isActive = $situacao === SituacaoNaEquipe::Aprovado;
     }
 }

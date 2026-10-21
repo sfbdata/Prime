@@ -96,6 +96,28 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         self::assertSame(1, (int) $this->conn->fetchOne('SELECT COUNT(*) FROM user_tenant WHERE user_id = :u AND tenant_id = :t', ['u' => $userId, 't' => $tenantB->getId()]), 'vínculo com B preservado');
     }
 
+    #[TestDox('Indicações sobrevivem à purga do escritório de origem: a origem vira nula e a atribuição pelo link fica')]
+    public function testIndicacaoSobreviveAPurga(): void
+    {
+        $quemIndicou = UserFactory::createOne()->getId();
+        $contaNova = UserFactory::createOne()->getId();
+        $tenant = $this->criarTenant(ativo: false, excluidoEm: '-400 days');
+        $this->semear((int) $tenant->getId(), $quemIndicou);
+        $sql = 'INSERT INTO indicacao (canal, criada_em, email, nome, indicado_por_id, tenant_origem_id, indicado_user_id, por_cadastro)'
+            . ' VALUES (:canal, :em, :email, NULL, :por, :origem, :indicado, :cadastro) RETURNING id';
+        $envio = (int) $this->conn->fetchOne($sql, ['canal' => 'email', 'em' => '2026-10-20 10:00:00', 'email' => 'ana@exemplo.com', 'por' => $quemIndicou, 'origem' => $tenant->getId(), 'indicado' => null, 'cadastro' => 'false']);
+        $atribuicao = (int) $this->conn->fetchOne($sql, ['canal' => 'link', 'em' => '2026-10-20 11:00:00', 'email' => null, 'por' => $quemIndicou, 'origem' => $tenant->getId(), 'indicado' => $contaNova, 'cadastro' => 'true']);
+
+        $this->sut->executar($tenant, dryRun: false);
+
+        $linhas = $this->conn->fetchAllAssociativeIndexed('SELECT id, tenant_origem_id, indicado_user_id, por_cadastro FROM indicacao WHERE id IN (:a, :b)', ['a' => $envio, 'b' => $atribuicao]);
+        self::assertCount(2, $linhas, 'a purga do escritório não apaga indicação');
+        self::assertNull($linhas[$envio]['tenant_origem_id']);
+        self::assertNull($linhas[$atribuicao]['tenant_origem_id']);
+        self::assertSame($contaNova, (int) $linhas[$atribuicao]['indicado_user_id'], 'a atribuição pelo link continua ligada à conta nova');
+        self::assertTrue((bool) $linhas[$atribuicao]['por_cadastro']);
+    }
+
     #[TestDox('Dry-run relata o que seria apagado sem apagar nada')]
     public function testDryRunNaoApaga(): void
     {
@@ -361,6 +383,8 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         // Cliente + documento (bloqueador intermediário)
         $cli = $this->ins('cliente', $this->dadosCliente($t));
         $this->ins('cliente_documento', ['titulo' => 'Doc', 'categoria' => 'geral', 'caminho_arquivo' => $hex(), 'nome_original' => 'd.pdf', 'mime_type' => 'application/pdf', 'tamanho_bytes' => 1, 'uploaded_at' => $ts, 'cliente_id' => $cli, 'tenant_id' => $t]);
+        // Histórico do cadastro (E12 3d): cai com o cliente, mas a FK de tenant é NO ACTION.
+        $this->ins('cliente_historico', ['em' => $ts, 'texto' => 'Fulano alterou nome', 'tenant_id' => $t, 'cliente_id' => $cli, 'autor_id' => $u]);
 
         // Cobranças (Etapa 1): carteira→cliente, objeto→carteira, vínculo→pessoa+objeto. Exercita a
         // ordem FK-safe da purga (carteira apagada antes de cliente) e o isolamento entre escritórios.

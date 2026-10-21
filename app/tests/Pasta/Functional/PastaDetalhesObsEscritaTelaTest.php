@@ -86,12 +86,13 @@ final class PastaDetalhesObsEscritaTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('#detalhesObsLista .js-obs-editar, #detalhesObsLista .js-obs-excluir'), 'nenhum Editar/Excluir que acione algo');
 
         // O ⋮ fica só com o que é leitura: sem Editar/Excluir, nem bloqueados (o motivo seria permissão).
+        // Encaminhar via Chat I.A (D:6869) é leitura: quem vê a pasta encaminha (o servidor relê e confere).
         foreach ([$alheia, $propria] as $obs) {
             $id    = $obs->getId();
             $itens = $crawler->filter("#detalhes-obs-{$id} > .ps-anotacao-topo > #psObsMenu{$id} > .ps-processo-menu-item")->each(
                 static fn ($i): string => trim(preg_replace('/\s+/u', ' ', $i->text()) ?? ''),
             );
-            self::assertSame(['Copiar texto', 'Enviar no Chat I.A', 'Imprimir'], $itens);
+            self::assertSame(['Copiar texto', 'Encaminhar via Chat I.A', 'Enviar no Chat I.A', 'Imprimir'], $itens);
             self::assertCount(0, $crawler->filter("#psObsMenu{$id} > .ps-processo-menu-sep"));
         }
 

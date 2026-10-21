@@ -270,9 +270,13 @@
                                                 <i class="bi bi-folder2-open me-1 text-warning"></i>
                                                 <span class="fw-semibold">{{ pasta.nup }}</span>
                                             </a>
+                                            {% if (pastasOcultas ?? {})[pasta.id] is defined %}
+                                                <i class="bi bi-lock exp-cadeado ms-1" title="Pasta trancada pelo usuário primário" aria-label="Pasta trancada"></i>
+                                            {% else %}
                                             <span class="badge ms-1 {% if pasta.situacao == 'ativo' %}text-bg-success{% else %}text-bg-secondary{% endif %} small">
                                                 {{ pasta.situacao|capitalize }}
                                             </span>
+                                            {% endif %}
                                         </div>
                                     {% endfor %}
                                 {% endif %}
@@ -349,8 +353,13 @@
                                                             {{ label }}
                                                             {% if doc.descricao %} · {{ doc.descricao }}{% endif %}
                                                             {% if doc.numero %} · Nº {{ doc.numero }}{% endif %}
+                                                            {% if doc.vinculado %}{# vinculado do menu Documentos: sem arquivo próprio, a data é a do envio à pasta #}
+                                                            · {{ doc.pastaDocumento.carregadoEm|date('d/m/Y') }}
+                                                            · na Pasta {{ doc.pastaDocumento.pasta.nup ?: ('#' ~ doc.pastaDocumento.pasta.id) }}
+                                                            {% else %}
                                                             · {{ doc.uploadedAt|date('d/m/Y') }}
                                                             · {{ (doc.tamanhoBytes / 1024 / 1024) < 1 ? (doc.tamanhoBytes / 1024)|round(1) ~ ' KB' : (doc.tamanhoBytes / 1024 / 1024)|round(2) ~ ' MB' }}
+                                                            {% endif %}
                                                         </small>
                                                     </div>
                                                     <div class="d-flex gap-1 flex-shrink-0">
@@ -363,12 +372,14 @@
                                                                 data-mime="{{ doc.mimeType }}">
                                                             <i class="bi bi-eye"></i>
                                                         </button>
+                                                        {% if not doc.vinculado %}
                                                         <button type="button" class="btn btn-sm btn-outline-secondary"
                                                                 title="Editar"
                                                                 data-bs-toggle="modal"
                                                                 data-bs-target="#editDocModal{{ doc.id }}">
                                                             <i class="bi bi-pencil"></i>
                                                         </button>
+                                                        {% endif %}
                                                         <form method="post" action="{{ path('cliente_documento_delete', {id: doc.id}) }}" onsubmit="return confirm('Deseja excluir este documento?');">
                                                             <input type="hidden" name="_token" value="{{ csrf_token('delete_doc_cliente_' ~ doc.id) }}">
                                                             <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
