@@ -32,6 +32,10 @@ Migration `Version20261020148900` (nome dado pela coordenação).
 - Falha de uma pessoa (e-mail inválido, Carteiro) só afeta ela: o registro do dia é desfeito, os outros seguem, e o
   comando sai com falha para o log do cron; a próxima rodada tenta de novo. Quem se descadastrou pelo rodapé conta à
   parte ("Descadastrados"), não como enviado.
-- Pendência para o dono: quem se descadastra pelo link do rodapé continua vendo a chave ligada no Meu Perfil, e ligar
-  ou desligar a chave não desfaz o descadastro (só o `reativar` do descadastro).
+- A chave e o descadastro são UMA fonte só (`AssinaturaDoResumoDiario`; decisão do coordenador, 21/10/2026): a chave
+  aparece ligada se a pessoa não a desligou E não está descadastrada da lista `resumo_diario` no escritório (o "não
+  quero receber nada" do escritório também conta). Desligar no Meu Perfil descadastra; ligar reativa só o resumo,
+  mesmo com o "todos" ativo (o descadastro guarda a exceção). Quem se descadastra pelo rodapé vê a chave desligada.
+  A consulta ao descadastro só roda na tela do Meu Perfil (`ObterPreferenciasDoPerfilUseCase::paraATela`), não a cada
+  request.
 - Fora da auditoria (`NAO_AUDITAVEIS`: o envio já fica em `comercial_envio`); entra na purga do escritório.
