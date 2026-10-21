@@ -178,7 +178,7 @@
             if (!res.ok || !res.data.sucesso) {
                 chip.innerHTML = prevHtml;
                 chip.dataset.respId = prevId;
-                alert((res.data && res.data.erro) || 'Erro ao alterar responsável.');
+                (window.avisarErroPs || window.alert)((res.data && res.data.erro) || 'Erro ao alterar responsável.');
             }
         })
         .catch(function () {

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-bs-theme="light"{% if animacoes_reduzidas() %} class="jp-sem-anim"{% endif %}>
+<html lang="{{ idioma_atual().value }}" dir="{{ idioma_atual().direcao }}" data-bs-theme="light"{% if animacoes_reduzidas() %} class="jp-sem-anim"{% endif %}>
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
@@ -622,6 +622,8 @@
             })();
         </script>
 
+        {# Formatos de data e número pelo <html lang> (spec idioma-do-sistema, entrega 2); sem defer: quem usa pode vir antes. #}
+        <script src="{{ asset('js/bj-formato.js') }}"></script>
         <script src="{{ asset('js/novidades.js') }}" defer></script>
         <script src="{{ asset('js/menu-usuario.js') }}" defer></script>
         {% block javascripts %}{% endblock %}

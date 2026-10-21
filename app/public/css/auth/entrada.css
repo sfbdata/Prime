@@ -82,6 +82,9 @@ input::placeholder, textarea::placeholder{color:#8896a3}
 .lg-manter{display:flex; align-items:center; gap:8px; cursor:pointer}
 .lg-manter input{width:15px; height:15px; accent-color:#0a63c9; margin:3px 3px 3px 4px}
 .lg-erro{font-size:13px; color:#a3232b}
+/* Conta a confirmar: o botão de reenviar o link, junto da recusa (spec cadastro-exige-confirmacao). */
+.lg-reenviar{align-self:flex-start; padding:0; border:none; background:none; color:#0a63c9; font:inherit; font-size:13px; font-weight:bold; cursor:pointer; display:inline-flex; align-items:center; gap:6px}
+.lg-reenviar:hover{text-decoration:underline}
 .lg-entrar{height:46px; border:none; border-radius:6px; background:#0d6efd; color:#fff; font:inherit; font-size:16px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:background .15s, transform .15s}
 .lg-entrar:hover{background:#0b5ed7; transform:translateY(-1px)}
 
@@ -150,6 +153,7 @@ input::placeholder, textarea::placeholder{color:#8896a3}
 .lg-aceite{display:flex; align-items:flex-start; gap:8px; font-size:13px; color:#34505f; line-height:1.45; cursor:pointer}
 .lg-aceite input{width:15px; height:15px; margin:2px 3px 3px 4px; accent-color:#0a63c9; flex:none}
 .lg-md__erro{font-size:13px; color:#a3232b}
+.lg-md__aviso{font-size:13px; color:#1e5b39}
 .lg-md__acao{height:44px; border:none; border-radius:6px; background:#0d6efd; color:#fff; font:inherit; font-size:15px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px}
 .lg-md__acao:hover{background:#0b5ed7}
 .lg-md__acao[aria-busy="true"], .lg-sup__enviar[aria-busy="true"]{opacity:.72; pointer-events:none}

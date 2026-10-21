@@ -69,6 +69,47 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         $this->fila->reset();
     }
 
+    #[TestDox('O filtro congelado (§9) volta a valer na execução: só quem atende é materializado; a lista antiga (sem filtro) ainda lê')]
+    public function testFiltroCongeladoReaplicado(): void
+    {
+        $ana = $this->cadastradoAtivo('ana', 'Ana');
+        $this->perfil($ana, \App\Profile\Enum\Genero::Feminino);
+        $beto = $this->cadastradoAtivo('beto', 'Beto');
+        $this->perfil($beto, \App\Profile\Enum\Genero::Masculino);
+        $emails = [(string) $ana->getEmail(), (string) $beto->getEmail()];
+        $informados = array_map(static fn (string $e): array => ['email' => $e, 'nome' => ''], $emails);
+        $comFiltro = $this->campanha($emails, ['parametros' => ['informados' => $informados, 'filtro' => ['gen' => 'F']], 'total' => 1]);
+        $antiga = $this->campanha($emails);
+
+        $this->expansor()->materializarDevidas(new \DateTimeImmutable());
+
+        self::assertSame([(string) $ana->getEmail()], $this->destinosDe($comFiltro));
+        self::assertSame($emails, $this->destinosDe($antiga), 'sem filtro, a lista de antes, inteira');
+    }
+
+    #[TestDox('Filtro num público sem lista (primários): reaplicado na execução; filtro guardado inválido cancela a campanha com motivo próprio')]
+    public function testFiltroEmPublicoDeSistemaEFiltroInvalido(): void
+    {
+        $ana = $this->usuario('ana.prim');
+        $this->vincular($ana, true);
+        $prim = $this->campanha([], ['publico' => 'prim', 'parametros' => ['informados' => null, 'filtro' => ['q' => (string) $ana->getEmail()]], 'total' => 1]);
+        $ruim = $this->campanha([], ['publico' => 'prim', 'parametros' => ['informados' => null, 'filtro' => ['gen' => 'X']], 'total' => 1]);
+
+        $this->expansor()->materializarDevidas(new \DateTimeImmutable());
+
+        self::assertSame([(string) $ana->getEmail()], $this->destinosDe($prim));
+        self::assertSame([], $this->destinosDe($ruim));
+        $estado = $this->conexao->fetchAssociative('SELECT estado, motivo, publico_parametros FROM comercial_campanha WHERE id = ?', [$ruim]);
+        self::assertIsArray($estado);
+        self::assertSame(['cancelada', ExpansorDeCampanhas::MOTIVO_DO_FILTRO, null], [$estado['estado'], $estado['motivo'], $estado['publico_parametros']]);
+    }
+
+    /** @return list<string> */
+    private function destinosDe(int $campanha): array
+    {
+        return array_map('strval', $this->conexao->fetchFirstColumn('SELECT email FROM comercial_campanha_destino WHERE campanha_id = ? ORDER BY id', [$campanha]));
+    }
+
     #[TestDox('Materializa a execução uma vez só (UNIQUE), libera lotes de 10 com contrapressão e conclui a única como enviada')]
     public function testLoteContrapressaoEConclusao(): void
     {
@@ -94,11 +135,11 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         self::assertSame(0, (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM comercial_campanha_destino WHERE campanha_id = ? AND envio_id IS NULL', [$id]));
     }
 
-    #[TestDox('O envio da campanha: lista comercial_campanhas, origem campanha:<id>, rastrear pedido, layout do modo, reply-to da política (null)')]
+    #[TestDox('O envio da campanha: lista comercial_campanhas, origem campanha:<id>, rastrear pedido (a confirmação de leitura da campanha), layout do modo, reply-to da política (null)')]
     public function testFormaDoEnvio(): void
     {
         [$email] = $this->emailsDeAtivos(1);
-        $id = $this->campanha([$email]);
+        $id = $this->campanha([$email], ['rastrear_leitura' => true]);
         $expansor = $this->expansor();
         $expansor->materializarDevidas(new \DateTimeImmutable());
         $expansor->liberarLote(new \DateTimeImmutable());
@@ -114,6 +155,21 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         ], $envio);
         $envios = array_filter($this->fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof EnviarEmail);
         self::assertCount(1, $envios);
+    }
+
+    #[TestDox('F3g: campanha sem confirmação de leitura não pede rastreio no envio')]
+    public function testSemConfirmacaoDeLeituraNaoPedeRastreio(): void
+    {
+        [$email] = $this->emailsDeAtivos(1);
+        $id = $this->campanha([$email]);
+        $expansor = $this->expansor();
+        $expansor->materializarDevidas(new \DateTimeImmutable());
+        $expansor->liberarLote(new \DateTimeImmutable());
+
+        self::assertFalse((bool) $this->conexao->fetchOne(
+            'SELECT c.rastrear FROM comercial_envio e JOIN comercial_envio_conteudo c ON c.envio_id = e.id WHERE e.origem = ?',
+            ['campanha:' . $id],
+        ));
     }
 
     #[TestDox('Queda no meio do lote: a transação desfaz tudo; nenhum envio sobra e nenhum destinatário fica marcado')]

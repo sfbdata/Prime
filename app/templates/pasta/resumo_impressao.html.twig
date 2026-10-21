@@ -120,10 +120,10 @@
         <h1 class="rp-titulo" data-rp-parte="titulo">{{ titulo }}</h1>
         {# Autor, data e tipo: só o registro tem. Na moldura quem o põe é a tela; na folha da
            observação, o servidor — a mesma linha do `data-autor`/`data-quando`/`data-tipo` do ⋮
-           (`_detalhes_obs.html.twig`), com o tipo "Atendimento" do desenho. #}
+           (`_detalhes_obs.html.twig`), com a tag fixa "Observação" do desenho 02 (dc L6874). #}
         {% if opcoes.autor and secao == 'observacao' and registro is not null %}
             {%- set autorRegistro = registro.autor ? (registro.autor.fullName ?? registro.autor.email) : null -%}
-            <div class="rp-autor" data-rp-parte="autor">{{ autorRegistro ?: 'Autor desconhecido' }} · {{ registro.criadaEm|date('d/m/Y, H:i') }} · Atendimento</div>
+            <div class="rp-autor" data-rp-parte="autor">{{ autorRegistro ?: 'Autor desconhecido' }} · {{ registro.criadaEm|date('d/m/Y, H:i') }} · Observação</div>
         {% elseif opcoes.autor and modo == 'fragmento' %}<div class="rp-autor" data-rp-parte="autor"></div>{% endif %}
 
         <div class="rp-corpo" data-rp-parte="corpo" style="font-size: {{ opcoes.fonteCss }}pt">

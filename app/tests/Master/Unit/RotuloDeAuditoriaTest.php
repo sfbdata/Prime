@@ -8,7 +8,11 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Entity\DivulgacaoNaSeccional;
+use App\Master\Entity\NotaDaSeccional;
 use App\Master\Entity\RecursoEstado;
+use App\Master\Entity\SeccionalOab;
+use App\Master\Entity\SubsecaoOab;
 use App\Master\Service\RotuloDeAuditoria;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -92,5 +96,35 @@ final class RotuloDeAuditoriaTest extends TestCase
 
         $semMotivoComHistorico = RotuloDeAuditoria::traduzir('update', RecursoEstado::class, '{"diff":{"changes":{"ativo":{"from":true,"to":false},"alteradoEm":{"from":"a","to":"b"}}}}', recurso: 'peticionar');
         self::assertSame('Sem motivo informado', $semMotivoComHistorico['detalhe'], 'saindo de ativo, motivo fora do diff continuou nulo');
+    }
+
+    #[TestDox('Seccionais da OAB (F8): a sede editada e a divulgação registrada têm rótulo próprio na trilha')]
+    public function testSeccionais(): void
+    {
+        self::assertSame('Sede da seccional alterada', RotuloDeAuditoria::traduzir('update', SeccionalOab::class, null)['acao']);
+        self::assertSame('Divulgação registrada na seccional', RotuloDeAuditoria::traduzir('create', DivulgacaoNaSeccional::class, null)['acao']);
+    }
+
+    #[TestDox('Sede da seccional: o detalhe nomeia endereço, telefone e site, sem o carimbo de quem e quando')]
+    public function testDetalheDaSede(): void
+    {
+        $r = RotuloDeAuditoria::traduzir('update', SeccionalOab::class, '{"diff":{"changes":{"endereco":{"from":null,"to":"Rua"},"telefone":{"from":null,"to":"1"},"site":{"from":null,"to":"https://x.test"},"atualizadoEm":{"from":null,"to":"2026-10-21"},"atualizadoPor":{"from":null,"to":1}}}}');
+
+        self::assertSame('Sede da seccional alterada', $r['acao']);
+        self::assertSame('Campos alterados: endereço, telefone, site', $r['detalhe']);
+    }
+
+    #[TestDox('Janela da OAB: nota reescrita mostra só "texto" (sem os carimbos atualizadaEm e atualizadaPor); subseção e nota têm rótulo próprio')]
+    public function testNotaESubsecao(): void
+    {
+        $r = RotuloDeAuditoria::traduzir('update', NotaDaSeccional::class, '{"diff":{"changes":{"texto":{"from":"a","to":"b"},"atualizadaEm":{"from":"2026-10-20","to":"2026-10-21"},"atualizadaPor":{"from":1,"to":2}}}}');
+
+        self::assertSame('Nota da seccional alterada', $r['acao']);
+        self::assertSame('Campos alterados: texto', $r['detalhe']);
+        self::assertSame('Nota da seccional gravada', RotuloDeAuditoria::traduzir('create', NotaDaSeccional::class, null)['acao']);
+        self::assertSame('Nota da seccional apagada', RotuloDeAuditoria::traduzir('delete', NotaDaSeccional::class, null)['acao']);
+        self::assertSame('Subseção da OAB adicionada', RotuloDeAuditoria::traduzir('create', SubsecaoOab::class, null)['acao']);
+        self::assertSame('Subseção da OAB removida', RotuloDeAuditoria::traduzir('delete', SubsecaoOab::class, null)['acao']);
+        self::assertSame('Campos alterados: nome', RotuloDeAuditoria::traduzir('update', SubsecaoOab::class, '{"diff":{"changes":{"nome":{"from":"a","to":"b"}}}}')['detalhe'], 'o campo sem tradução sai com o próprio nome');
     }
 }

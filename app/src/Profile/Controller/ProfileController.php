@@ -81,7 +81,7 @@ final class ProfileController extends AbstractController
         return $this->render('profile/index.html.twig', [
             'perfil'      => $output,
             'completude'  => CompletudeDoCadastro::de($output),
-            'preferencias' => $this->obterPreferencias->executar($userTenant?->getTenant(), $user),
+            'preferencias' => $this->obterPreferencias->paraATela($userTenant?->getTenant(), $user),
             'podeAlterarVinculo' => $this->podeAlterarVinculo($user, $userTenant),
             'form_dados' => $formDados->createView(),
             'atuacaoSugerida' => $atuacaoSugerida,

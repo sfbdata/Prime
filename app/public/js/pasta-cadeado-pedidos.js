@@ -7,7 +7,7 @@
 
     function avisar(texto) {
         if (window.avisarPs) { window.avisarPs(texto); return; }
-        window.alert(texto);
+        (window.avisarErroPs || window.alert)(texto);
     }
 
     document.addEventListener('submit', function (e) {

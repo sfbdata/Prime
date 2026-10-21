@@ -9,6 +9,7 @@ use App\Contribua\Service\SituacaoDoEspaco;
 use App\Master\DTO\ContaAlteradaOutput;
 use App\Master\DTO\EspacoDaContaOutput;
 use App\Master\Repository\PainelMasterRepository;
+use App\Tenant\Service\NumeroDaConta;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -17,7 +18,10 @@ use Psr\Clock\ClockInterface;
  *
  * Plano, limite de armazenamento, % da cota, faixa e limite de usuários (`espaco`) saem do
  * `RetratoDoEspaco` da Contribua (spec perfis-1.2-planos-e-limites P5), montado com o uso que o painel
- * já mediu (mesmas tabelas e mesma regra do bloqueio): uma medição por conta, não duas. Os retratos saem em
+ * já mediu (mesmas tabelas e mesma regra do bloqueio): uma medição por conta, não duas.
+ *
+ * `numero` é o mesmo "conta Nº" do Contribua e do Pix (`NumeroDaConta`, spec perfis-1.2-permissoes-e-hierarquia A1):
+ * o selo da linha e a busca por número no painel. Os retratos saem em
  * lote (`SituacaoDoEspaco::retratarVarios`): uma consulta para todas as contas, não uma por conta.
  */
 final class ConsultarContasUseCase
@@ -31,7 +35,7 @@ final class ConsultarContasUseCase
     }
 
     /**
-     * @return list<array{id: int, nome: string, desde: string, ultimoAcesso: ?string, titular: ?string, usuarios: int, pastas: int, documentos: int, bytes: int, bytesRecentes: int, situacao: string, ehDoMaster: bool, purgaEm: ?string, espaco: array<string, mixed>}>
+     * @return list<array{id: int, numero: string, nome: string, desde: string, ultimoAcesso: ?string, titular: ?string, usuarios: int, pastas: int, documentos: int, bytes: int, bytesRecentes: int, situacao: string, ehDoMaster: bool, purgaEm: ?string, espaco: array<string, mixed>}>
      */
     public function executar(): array
     {
@@ -51,6 +55,7 @@ final class ConsultarContasUseCase
             $id = $e['id'];
             $contas[] = [
                 'id'            => $id,
+                'numero'        => NumeroDaConta::doId($id),
                 'nome'          => $e['nome'],
                 'desde'         => (new \DateTimeImmutable($e['criado_em']))->format('m/Y'),
                 'ultimoAcesso'  => isset($usuarios[$id]['ultimoAcesso']) ? (new \DateTimeImmutable($usuarios[$id]['ultimoAcesso']))->format(\DATE_ATOM) : null,

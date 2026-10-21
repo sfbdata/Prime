@@ -430,4 +430,71 @@ final class TarefaRepositoryAbasTest extends KernelTestCase
             );
         }
     }
+
+    #[TestDox('Desenho 04: o andamento conta TODAS as minhas metas (os três papéis, sem duplicar), concluídas só dos últimos 30 dias, e nada do colega')]
+    public function testAndamentoContaTodasAsMinhasMetas(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $eu     = UserFactory::createOne()->_real();
+        $colega = UserFactory::createOne()->_real();
+
+        $this->meta($tenant, 'Criei para mim', $eu, [$eu])->setPrazo(new \DateTimeImmutable('-2 days'));
+        $this->meta($tenant, 'Deleguei', $eu, [$colega])->setPrazo(new \DateTimeImmutable('+20 days'));
+        $this->meta($tenant, 'Me atribuíram, entreguei', $colega, [$eu], Tarefa::STATUS_EM_REVISAO)->setPrazo(new \DateTimeImmutable('-9 days'));
+        $this->meta($tenant, 'Só acompanho', $colega, [$colega])->alternarAcompanhamento($eu);
+        $this->meta($tenant, 'Concluí ontem', $eu, [$eu], Tarefa::STATUS_CONCLUIDA)->setDataConclusao(new \DateTimeImmutable('-1 day'));
+        $this->meta($tenant, 'Concluí faz tempo', $eu, [$eu], Tarefa::STATUS_CONCLUIDA)->setDataConclusao(new \DateTimeImmutable('-40 days'));
+        $this->meta($tenant, 'Do colega, atrasada', $colega, [$colega])->setPrazo(new \DateTimeImmutable('-5 days'));
+        $this->em->flush();
+
+        $andamento = $this->repo->contarAndamento($eu);
+
+        self::assertSame(5, $andamento->total, 'os três papéis, a concluída recente, e nada do colega nem da concluída antiga');
+        self::assertSame(1, $andamento->concluidas);
+        self::assertSame(1, $andamento->atrasadas, 'a em revisão vencida não conta como atrasada (FORA_DA_FILA)');
+        self::assertSame(1, $andamento->emRevisao);
+        self::assertSame(2, $andamento->emAberto());
+    }
+
+    #[TestDox('Desenho 04: o andamento e a atenção respeitam o cadeado (pastas ocultas não entram)')]
+    public function testAndamentoEAtencaoSemPastasOcultas(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $eu     = UserFactory::createOne()->_real();
+
+        $visivel = $this->meta($tenant, 'Visível', $eu, [$eu]);
+        $visivel->setPrazo(new \DateTimeImmutable('-1 day'));
+        $oculta = $this->meta($tenant, 'Na pasta oculta', $eu, [$eu]);
+        $oculta->setPrazo(new \DateTimeImmutable('-3 days'));
+        $this->em->flush();
+        $ocultas = [(int) $oculta->getPasta()->getId()];
+
+        self::assertSame(1, $this->repo->contarAndamento($eu, $ocultas)->total);
+        self::assertSame(['Visível'], $this->titulos($this->repo->findAtrasadasParaAtencao($eu, 4, $ocultas)));
+    }
+
+    #[TestDox('Desenho 04: a atenção traz as atrasadas de todas as minhas metas, da que venceu primeiro, até o limite; em revisão, concluída e folgada ficam fora')]
+    public function testAtencaoAtrasadasDeTodasAsMetasComLimite(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $eu     = UserFactory::createOne()->_real();
+        $colega = UserFactory::createOne()->_real();
+
+        foreach ([1, 6, 3, 9, 2] as $dias) {
+            $this->meta($tenant, 'Venceu há ' . $dias, $dias % 2 === 0 ? $eu : $colega, [$dias % 2 === 0 ? $colega : $eu])
+                ->setPrazo(new \DateTimeImmutable('-' . $dias . ' days'));
+        }
+        $this->meta($tenant, 'Entregue vencida', $colega, [$eu], Tarefa::STATUS_EM_REVISAO)->setPrazo(new \DateTimeImmutable('-20 days'));
+        $this->meta($tenant, 'Folgada', $eu, [$eu])->setPrazo(new \DateTimeImmutable('+3 days'));
+        $this->meta($tenant, 'Do colega', $colega, [$colega])->setPrazo(new \DateTimeImmutable('-30 days'));
+        $this->em->flush();
+        $this->em->clear();
+
+        $atencao = $this->repo->findAtrasadasParaAtencao($eu, 4);
+
+        self::assertSame(['Venceu há 9', 'Venceu há 6', 'Venceu há 3', 'Venceu há 2'], $this->titulos($atencao));
+        $uow = $this->em->getUnitOfWork();
+        self::assertFalse($uow->isUninitializedObject($atencao[0]->getPasta()), 'pasta já carregada, sem ida ao banco por item');
+        self::assertFalse($uow->isUninitializedObject($atencao[0]->getCriadoPor()), 'criador já carregado, sem ida ao banco por item');
+    }
 }

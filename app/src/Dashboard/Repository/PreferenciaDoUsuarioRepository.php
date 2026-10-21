@@ -62,6 +62,20 @@ class PreferenciaDoUsuarioRepository extends ServiceEntityRepository
     }
 
     /**
+     * Quem DESLIGOU a chave neste escritório (valor gravado `false`), em lote: o resumo diário por e-mail não pergunta
+     * pessoa por pessoa. Sem linha ou com valor que não é booleano, a chave vale ligada (`CatalogoDePreferenciasDoPerfil`).
+     *
+     * @return list<int> ids dos usuários
+     */
+    public function idsQueDesligaram(Tenant $tenant, string $chave): array
+    {
+        return array_map('intval', $this->getEntityManager()->getConnection()->fetchFirstColumn(
+            "SELECT user_id FROM preferencia_usuario WHERE tenant_id = :t AND chave = :c AND valor::text = 'false'",
+            ['t' => $tenant->getId(), 'c' => $chave],
+        ));
+    }
+
+    /**
      * Grava (ou substitui) o valor de uma chave de forma IDEMPOTENTE: duas abas, clique duplo ou
      * a mesma escolha repetida acabam numa linha só, com o último valor.
      *

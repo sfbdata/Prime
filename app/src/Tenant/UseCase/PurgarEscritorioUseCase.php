@@ -107,6 +107,7 @@ final class PurgarEscritorioUseCase
         ['parte_processo', 'tenant_id = :tenant'],
         ['assunto_processo', 'tenant_id = :tenant'],
         ['saida_da_equipe', 'tenant_id = :tenant'],
+        ['resumo_diario_envio', 'tenant_id = :tenant'],
         ['user_tenant', 'tenant_id = :tenant'],
         // Notas técnicas do processo (tenant_id direto). Cairiam por cascata do processo, mas a FK à
         // publicação é SET NULL: apagar antes evita o UPDATE inútil e deixa a deleção explícita.
@@ -270,6 +271,11 @@ final class PurgarEscritorioUseCase
         ['comercial_ciclo_conta', 'tenant_id = :tenant'],
         // A vez dos avisos de espaço do escritório (comercial-e-emails.md §4): FK NO ACTION, nada a referencia.
         ['comercial_aviso_espaco', 'tenant_id = :tenant'],
+        // Central de Notificações do Master (docs/specs/master-central-de-notificacoes.md, D3): estado por Master e
+        // respostas de mensagens deste escritório. `tenant_id` sem FK (o Master lê todos os escritórios, as tabelas
+        // não são TenantAware); sai explicitamente para não ficar órfão.
+        ['central_master_estado', 'tenant_id = :tenant'],
+        ['central_master_resposta', 'tenant_id = :tenant'],
 
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],

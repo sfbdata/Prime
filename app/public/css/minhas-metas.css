@@ -64,6 +64,7 @@
     --mm-busca-icone:        #5b7383;
     --mm-foco:               #0a6fa0;
     --mm-foco-anel:          rgba(10,111,160,.18);
+    --mm-limpar:             #0a6fa0;   /* "Limpar filtros" (dc L79) */
 
     --mm-text:          #12242f;
     --mm-body:          #243845;
@@ -149,6 +150,7 @@
     --mm-busca-icone:        var(--bs-secondary-color);
     --mm-foco:               #4da3ea;
     --mm-foco-anel:          rgba(77,163,234,.25);
+    --mm-limpar:             #4da3ea;
 
     --mm-text:          var(--bs-body-color);
     --mm-body:          var(--bs-body-color);
@@ -377,6 +379,26 @@
     border-color: var(--mm-foco);
     box-shadow: 0 0 0 3px var(--mm-foco-anel);
 }
+/* "Limpar filtros" (dc L79): botão de texto #0a6fa0, sem borda, 13px, 34px de altura, na MESMA linha dos
+   selects, logo depois do Prazo. O desenho não tem chips: eles continuam no DOM (o motor compartilhado os
+   monta), só não aparecem aqui. O botão só existe com filtro ativo, porque o motor só o desenha junto dos
+   chips. Tudo escopado nesta barra: o `filtro-tabela.css` e o `filtro-tabela.js` não mudam. */
+.mm-barra-cartao > .filtro-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.mm-barra-cartao > .filtro-barra > .filtro-linha { flex: 1 1 auto; }
+.mm-barra-cartao .filtro-chips { flex: 0 0 auto; gap: 0; margin-top: 0; }
+.mm-barra-cartao .filtro-chip { display: none; }
+.mm-barra-cartao .filtro-limpar {
+    height: 34px;
+    padding: 0 6px;
+    border: none;
+    background: transparent;
+    color: var(--mm-limpar);
+    font-size: 13px;
+    text-decoration: none;
+    cursor: pointer;
+}
+/* O desenho não muda o botão no hover; a regra só impede o cinza do filtro-tabela.css. */
+.mm-barra-cartao .filtro-limpar:hover { color: var(--mm-limpar); }
 .mm-abas {
     position: relative;
     display: inline-flex;
@@ -857,7 +879,6 @@ a.mm-meta-info:hover { color: var(--mm-accent); text-decoration: underline; }
 .mm-atencao-meta { font-size: 12px; line-height: 1.4; color: var(--mm-atencao-desc); }
 /* Sem atrasadas o cartão continua na tela (dc L119) com uma frase curta. */
 .mm-atencao-vazio { padding: 11px 16px; font-size: 12px; color: var(--mm-atencao-desc); }
-.mm-trilho-rodape { padding: .6875rem 1.0625rem; font-size: .78rem; color: var(--mm-muted); }
 
 /* ── Modo lista ───────────────────────────────────────────────────────────── */
 .mm-tabela-scroll { overflow-x: auto; }

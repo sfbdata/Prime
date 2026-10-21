@@ -13,6 +13,8 @@ use App\Pasta\Service\AvisoDoChecklist;
 use App\Pasta\UseCase\EnviarRelatorioPastasParadasUseCase;
 use App\Pasta\UseCase\EnviarRelatorioSemProcessoUseCase;
 use App\Tarefa\UseCase\AlertarResponsavelDaMetaUseCase;
+use App\Tenant\UseCase\PedirAcessoAosPerfisUseCase;
+use App\Master\UseCase\ResponderNaCentralUseCase;
 
 /**
  * O mapa único entre os tipos REAIS do sino e os tipos do desenho (`bluejus-central.js` L61-87, `TIPOS`/`GRUPOS`), para
@@ -33,6 +35,16 @@ final class TiposDeAvisoDaCentral
     private const VERDE = '#1f9d61';
     private const AMBAR = '#c8952a';
 
+    /**
+     * Fora do `match` para ele caber no limite de linhas: o "Pedir acesso" da tela "Acesso restrito" dos Perfis
+     * (desenho 05 - Perfis 1.2, L822: tipo "pedido", para o primário) e a resposta do Master a quem escreveu ao
+     * BlueJus pela Central de Notificações (sem e-mail para responder).
+     */
+    private const DOS_PERFIS_E_DA_CENTRAL_DO_MASTER = [
+        PedirAcessoAosPerfisUseCase::TIPO_NOTIFICACAO => ['grupo' => 'atencao', 'rotulo' => 'Pedido de acesso', 'icone' => 'bi-shield-lock', 'cor' => self::AMBAR, 'nivel' => 2],
+        ResponderNaCentralUseCase::TIPO_NOTIFICACAO => ['grupo' => 'mensagens', 'rotulo' => 'Resposta do BlueJus', 'icone' => 'bi-reply', 'cor' => self::AZUL, 'nivel' => 2],
+    ];
+
     /** Trabalho Externo (F4): avisos de vagas e candidaturas, fora do `match` para ele caber no limite de linhas. */
     private const DO_TRABALHO_EXTERNO = [
         Notificacao::TIPO_TRABALHO_EXTERNO_PEDIDO_DE_VAGA => ['grupo' => 'atencao', 'rotulo' => 'Pedido de vaga', 'icone' => 'bi-inbox', 'cor' => self::AMBAR, 'nivel' => 2],
@@ -51,8 +63,9 @@ final class TiposDeAvisoDaCentral
     {
         // O legado tem tipos gravados em maiúsculas (ex.: EVENTO_CRIADO): o mapa compara sem diferenciar.
         $tipo = strtolower($tipo);
-        if (isset(self::DO_TRABALHO_EXTERNO[$tipo])) {
-            return self::DO_TRABALHO_EXTERNO[$tipo];
+        $doMapa = self::DO_TRABALHO_EXTERNO[$tipo] ?? self::DOS_PERFIS_E_DA_CENTRAL_DO_MASTER[$tipo] ?? null;
+        if ($doMapa !== null) {
+            return $doMapa;
         }
 
         return match ($tipo) {

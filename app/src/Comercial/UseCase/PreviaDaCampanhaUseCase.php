@@ -19,8 +19,8 @@ final class PreviaDaCampanhaUseCase
     {
     }
 
-    public function executar(MensagemDaCampanha $mensagem, ?DestinatarioDaCampanha $exemplo = null): string
+    public function executar(MensagemDaCampanha $mensagem, ?DestinatarioDaCampanha $exemplo = null, string $nomeDaPrevia = ''): string
     {
-        return $this->composicao->previa($mensagem, $exemplo);
+        return $this->composicao->previa($mensagem, $exemplo, $nomeDaPrevia);
     }
 }

@@ -73,6 +73,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // menu ⋮ encheria o audit_log de ruído sem valor de prova.
         \App\Dashboard\Entity\PreferenciaDoUsuario::class,
 
+        // Resumo diário por e-mail: a trava do envio (uma linha por pessoa e dia); o próprio envio fica em comercial_envio.
+        \App\Profile\Entity\ResumoDiarioEnvio::class,
+
         // Saída da equipe: o próprio registro já é a trilha (só inclusão, nunca alterado), e a remoção que o
         // cria já entra no audit_log (RemoverColaboradorDoEscritorioUseCase::registrarAuditoria).
         \App\Tenant\Entity\SaidaDaEquipe::class,
@@ -124,6 +127,12 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Indicacao\Entity\IndicacaoConfig::class,
         \App\Indicacao\Entity\IndicacaoPausa::class,
         \App\Indicacao\Entity\IndicacaoAlerta::class,
+        // Central de Notificações do Master (docs/specs/master-central-de-notificacoes.md D1, D3): dado de plataforma,
+        // lido e gravado só pelo Master, fora do audit_log por escritório. O estado é marcador pessoal de leitura
+        // (lida, estrela, arquivada), como a PastaTimelineVisita; a resposta é ela própria o registro (quem, quando,
+        // canal e destino), nunca editada.
+        \App\Master\Entity\CentralMasterEstado::class,
+        \App\Master\Entity\CentralMasterResposta::class,
         // Versão anterior da nota técnica (M8/PMC-020, 07/10): ela MESMA é o histórico — só nasce (nunca
         // é editada) a cada edição da nota, que já é auditada. Auditar a versão duplicaria o texto.
         \App\Processo\Entity\NotaTecnicaVersao::class,

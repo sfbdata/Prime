@@ -587,6 +587,17 @@
                     }, function () { if (janela) { janela.close(); } });
                     return;
                 }
+                if (opcao.classList.contains('js-push-menu-encaminhar')) {
+                    // FPN-016: o mesmo evento do pasta-encaminhar.js, com o id do cartão clicado.
+                    var pastaDoEnvio = Number(opcao.getAttribute('data-encaminhar-pasta'));
+                    var publicacaoId = Number(de.item.getAttribute('data-push-id'));
+                    if (pastaDoEnvio && publicacaoId) {
+                        document.dispatchEvent(new CustomEvent('bj-central:despachar', {
+                            detail: { pastaId: pastaDoEnvio, tipo: 'push', itemId: publicacaoId },
+                        }));
+                    }
+                    return;
+                }
                 if (opcao.classList.contains('js-push-menu-tarefa')) {
                     comTeor(de.cab, function (p) {
                         var botao = p.querySelector('.js-push-criar-meta');

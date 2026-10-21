@@ -394,7 +394,7 @@ input[type="range"].img-slider {
             <button type="button" class="mp-pref" data-mu-idioma>
                 <i class="bi bi-translate"></i>
                 <span class="mp-pref-texto"><span>Idioma do sistema</span><small>Muda todas as telas, menus e o Chat I.A</small></span>
-                <span class="mp-pref-valor">Português (Brasil)</span><i class="bi bi-chevron-right mp-pref-seta"></i>
+                <span class="mp-pref-valor">{{ idioma_atual().nome }}</span><i class="bi bi-chevron-right mp-pref-seta"></i>
             </button>
             {% for p in [
                 {chave: 'perfil.notificacoes', icone: 'bi-bell', rotulo: 'Notificações no sistema', sub: 'Sininho de prazos, metas e menções'},
@@ -713,30 +713,24 @@ input[type="range"].img-slider {
 {# ══════════════════════════════════════════════
    MODAL: Alterar senha
 ══════════════════════════════════════════════ #}
-<div class="modal fade" id="modalSenha" tabindex="-1" aria-labelledby="modalSenhaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+<div class="modal fade mp-modal" id="modalSenha" tabindex="-1" aria-labelledby="modalSenhaLabel" aria-hidden="true">
+    {# Desenho 07 (ED.senha, L203): o mesmo modal dos outros, com cabeçalho azul, os três campos e Cancelar/Salvar. #}
+    <div class="modal-dialog modal-dialog-centered mp-modal-largo">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalSenhaLabel">
-                    <i class="bi bi-key me-2"></i>Alterar senha
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="mp-modal-topo">
+                <i class="bi bi-key"></i><b id="modalSenhaLabel">Alterar senha</b>
+                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
             </div>
-            {{ form_start(form_senha, {'attr': {'id': 'formSenha'}}) }}
-                <div class="modal-body">
-                    <p class="text-muted small mb-3">
-                        Confirme sua senha atual e escolha uma nova, com pelo menos 8 caracteres.
-                    </p>
-                    {{ form_row(form_senha.senhaAtual, {'attr': {'class': 'form-control', 'autocomplete': 'current-password'}}) }}
-                    {{ form_row(form_senha.senha.first, {'attr': {'class': 'form-control', 'autocomplete': 'new-password'}}) }}
-                    {{ form_row(form_senha.senha.second, {'attr': {'class': 'form-control', 'autocomplete': 'new-password'}}) }}
+            {{ form_start(form_senha, {attr: {id: 'formSenha'}}) }}
+                <div class="mp-campos">
+                    <label class="mp-campo"><span>SENHA ATUAL</span>{{ form_widget(form_senha.senhaAtual, {attr: {autocomplete: 'current-password'}}) }}</label>
+                    <label class="mp-campo"><span>NOVA SENHA</span>{{ form_widget(form_senha.senha.first, {attr: {autocomplete: 'new-password', placeholder: 'Mínimo 8 caracteres'}}) }}</label>
+                    <label class="mp-campo"><span>CONFIRMAR NOVA SENHA</span>{{ form_widget(form_senha.senha.second, {attr: {autocomplete: 'new-password'}}) }}</label>
                     {{ form_rest(form_senha) }}
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-lg me-1"></i>Salvar nova senha
-                    </button>
+                <div class="mp-modal-rodape">
+                    <button type="button" class="mp-btn-cinza" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="mp-btn-azul"><i class="bi bi-check2"></i>Salvar</button>
                 </div>
             {{ form_end(form_senha) }}
         </div>
@@ -875,69 +869,74 @@ input[type="range"].img-slider {
             form.append('_token', TOKEN_FOTO);
             form.append('foto', blob, 'perfil.jpg');
 
+            // Só a rede e a resposta contam como "Erro de comunicação."; a troca da foto na tela vem depois, fora do try.
+            let data;
             try {
-                const res  = await fetch('{{ path('app_profile_foto') }}', { method: 'POST', body: form });
-                const data = await res.json();
-
-                if (data.ok) {
-                    const novaUrl = data.url + '?t=' + Date.now();
-
-                    const wrap    = document.querySelector('.perfil-foto-btn');
-                    const overlay = wrap.querySelector('.perfil-foto-overlay');
-                    wrap.innerHTML = '';
-
-                    const imgEl = document.createElement('img');
-                    imgEl.id  = 'fotoPerfilAtual';
-                    imgEl.alt = 'Foto de perfil';
-                    imgEl.src = novaUrl;
-                    wrap.appendChild(imgEl);
-
-                    const ov = document.createElement('span');
-                    ov.className = 'perfil-foto-overlay';
-                    ov.innerHTML = '<i class="bi bi-camera-fill"></i>';
-                    wrap.appendChild(ov);
-
-                    const previewEl = document.getElementById('modalFotoPreviewImg');
-                    if (previewEl) {
-                        if (previewEl.tagName === 'IMG') {
-                            previewEl.src = novaUrl;
-                        } else {
-                            const novoPreview = document.createElement('img');
-                            novoPreview.id        = 'modalFotoPreviewImg';
-                            novoPreview.alt       = 'Foto atual';
-                            novoPreview.className = 'img-fluid mb-3';
-                            novoPreview.style.cssText = 'max-height:260px;border-radius:.5rem;';
-                            novoPreview.src = novaUrl;
-                            previewEl.replaceWith(novoPreview);
-                        }
-                    }
-
-                    if (btnEditarExistente) btnEditarExistente.style.display = '';
-
-                    const makeAvatarImg = () => {
-                        const img = document.createElement('img');
-                        img.src = novaUrl;
-                        img.alt = '';
-                        img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;';
-                        return img;
-                    };
-                    const navAvatar = document.getElementById('navtopAvatar');
-                    if (navAvatar) { navAvatar.textContent = ''; navAvatar.appendChild(makeAvatarImg()); }
-                    const dropAvatar = document.getElementById('usuarioAvatarLg');
-                    if (dropAvatar) { dropAvatar.textContent = ''; dropAvatar.appendChild(makeAvatarImg()); }
-
-                    fecharCropper();
-                } else {
-                    alert(data.erro ?? 'Erro ao salvar foto.');
-                }
+                const res = await fetch('{{ path('app_profile_foto') }}', { method: 'POST', body: form });
+                data = await res.json();
             } catch {
-                alert('Erro de comunicação.');
+                data = null;
             } finally {
                 btnConfirmar.disabled = false;
                 spinnerFoto.classList.add('d-none');
             }
+
+            if (!data) {
+                alert('Erro de comunicação.');
+                return;
+            }
+            if (!data.ok) {
+                alert(data.erro ?? 'Erro ao salvar foto.');
+                return;
+            }
+            fecharCropper();
+            mostrarFotoNova(data.url + '?t=' + Date.now());
         }, 'image/jpeg', 0.90);
     });
+
+    // A foto nova no avatar do Meu Perfil (.mp-avatar > #fotoPerfilAtual, que é a imagem ou as iniciais), no modal e no
+    // cabeçalho. O avatar é o do desenho 07; o seletor antigo (.perfil-foto-btn) não existe mais na página.
+    function mostrarFotoNova(novaUrl) {
+        const atual = document.getElementById('fotoPerfilAtual');
+        if (atual && atual.tagName === 'IMG') {
+            atual.src = novaUrl;
+        } else if (atual) {
+            const imgEl = document.createElement('img');
+            imgEl.id  = 'fotoPerfilAtual';
+            imgEl.alt = 'Foto de perfil';
+            imgEl.src = novaUrl;
+            atual.replaceWith(imgEl);
+        }
+
+        const previewEl = document.getElementById('modalFotoPreviewImg');
+        if (previewEl) {
+            if (previewEl.tagName === 'IMG') {
+                previewEl.src = novaUrl;
+            } else {
+                const novoPreview = document.createElement('img');
+                novoPreview.id        = 'modalFotoPreviewImg';
+                novoPreview.alt       = 'Foto atual';
+                novoPreview.className = 'img-fluid mb-3';
+                novoPreview.style.cssText = 'max-height:260px;border-radius:.5rem;';
+                novoPreview.src = novaUrl;
+                previewEl.replaceWith(novoPreview);
+            }
+        }
+
+        if (btnEditarExistente) btnEditarExistente.style.display = '';
+
+        const makeAvatarImg = () => {
+            const img = document.createElement('img');
+            img.src = novaUrl;
+            img.alt = '';
+            img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;';
+            return img;
+        };
+        const navAvatar = document.getElementById('navtopAvatar');
+        if (navAvatar) { navAvatar.textContent = ''; navAvatar.appendChild(makeAvatarImg()); }
+        const dropAvatar = document.getElementById('usuarioAvatarLg');
+        if (dropAvatar) { dropAvatar.textContent = ''; dropAvatar.appendChild(makeAvatarImg()); }
+    }
 
     // ── Máscara CPF ──
     const campoCpf = document.getElementById('campoCpf');

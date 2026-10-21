@@ -288,8 +288,9 @@
            (modal de nova meta), o "Marcar como (não) lida" (POST `pasta_push_lida`, mesma URL e
            mesmo CSRF do botão do teor; a URL vem no <li>, o token aqui) e o "Abrir documento"
            (o link do PJe da linha do documento do teor), e a cópia do texto. Ordem do desenho
-           (dc L.5385): tarefa, lida, documento. Ficam de fora os itens do desenho sem lastro
-           aqui: "Encaminhar via Chat I.A" (FPN-016) e o link externo (FPN-015). Teclado e toque
+           (dc L.5385): tarefa, encaminhar, lida, documento. "Encaminhar via Chat I.A" (FPN-016, dc
+           L5641) só com a Central na página: o pasta-push.js dispara `bj-central:despachar` com o id
+           do cartão clicado (tipo `push`). Fica de fora o link externo (FPN-015). Teclado e toque
            seguem pelos botões do teor, como antes. #}
         <div class="ps-push-menu" id="pushMenuContexto" role="menu" aria-label="Ações da movimentação"
              data-lida-token="{{ csrf_token('pasta_push_lida_' ~ pasta.id) }}" hidden>
@@ -302,6 +303,11 @@
                 <div class="ps-push-menu-sep js-push-menu-sep-nota" role="separator"></div>
                 <button type="button" class="ps-push-menu-item js-push-menu-tarefa" role="menuitem">
                     <i class="bi bi-check2-square" aria-hidden="true"></i><span>Criar tarefa</span>
+                </button>
+            {% endif %}
+            {% if pushPastaViva and central_disponivel() %}
+                <button type="button" class="ps-push-menu-item js-push-menu-encaminhar" role="menuitem" data-encaminhar-pasta="{{ pasta.id }}">
+                    <i class="bi bi-send" aria-hidden="true"></i><span>Encaminhar via Chat I.A</span>
                 </button>
             {% endif %}
             {% if pushPastaViva %}
