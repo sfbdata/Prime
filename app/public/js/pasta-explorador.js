@@ -2137,7 +2137,7 @@
     let toastSeq = 0;
     function toast(texto, erro, desfazer) {
         toastSeq++;
-        if (!el.toast) { if (erro) alert(texto); return; }
+        if (!el.toast) { if (erro) (window.avisarErroPs || window.alert)(texto); return; }
         clearTimeout(toastTimer);
         el.toastTexto.textContent = texto;
         el.toast.classList.toggle('pex-toast--erro', !!erro);

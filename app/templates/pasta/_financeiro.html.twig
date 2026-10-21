@@ -641,7 +641,7 @@
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 });
                 const data = await resp.json();
-                if (!resp.ok) { alert(data.erro ?? 'Erro ao alterar situação.'); return; }
+                if (!resp.ok) { (window.avisarErroPs || window.alert)(data.erro ?? 'Erro ao alterar situação.'); return; }
 
                 const assinado = data.situacao === 'REGULAR';
                 this.dataset.situacaoAtual = data.situacao;
@@ -652,7 +652,7 @@
                 this.querySelector('i').className = 'bi ' + (assinado ? 'bi-patch-check-fill' : 'bi-hourglass-split');
                 this.querySelector('.ps-fin-selo-texto').textContent = assinado ? 'Assinado' : 'Pendente';
             } catch (_) {
-                alert('Erro de rede. Tente novamente.');
+                (window.avisarErroPs || window.alert)('Erro de rede. Tente novamente.');
             }
         });
     }
@@ -674,7 +674,7 @@
                     body: fd,
                     headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 });
-                if (!resp.ok) { alert('Erro ao salvar pró-bono.'); return; }
+                if (!resp.ok) { (window.avisarErroPs || window.alert)('Erro ao salvar pró-bono.'); return; }
 
                 this.dataset.ativo = novo ? '1' : '0';
                 this.setAttribute('aria-pressed', novo ? 'true' : 'false');
@@ -682,7 +682,7 @@
                 this.querySelector('i').className = 'bi ' + (novo ? 'bi-check2-circle' : 'bi-dash-circle');
                 this.querySelector('.ps-fin-selo-texto').textContent = novo ? 'Pró-bono ativo' : 'Não é pró-bono';
             } catch (_) {
-                alert('Erro de rede. Tente novamente.');
+                (window.avisarErroPs || window.alert)('Erro de rede. Tente novamente.');
             }
         });
     }
@@ -1119,7 +1119,7 @@
                         });
                         const data = await resp.json();
                         const titulo = resp.ok ? data.titulo : tituloAtual;
-                        if (!resp.ok) { alert(data.erro ?? 'Erro ao renomear.'); }
+                        if (!resp.ok) { (window.avisarErroPs || window.alert)(data.erro ?? 'Erro ao renomear.'); }
                         restaurarSpan(titulo);
                         btnRen.dataset.titulo = titulo;
                         // Mantém o pré-visualizador e o ícone do tipo coerentes.
@@ -1133,7 +1133,7 @@
                         const itemEmail = item.querySelector('a.js-fin-doc-email');
                         if (itemEmail) { itemEmail.href = mailtoDoArquivo(titulo); }
                     } catch (_) {
-                        alert('Erro de rede.');
+                        (window.avisarErroPs || window.alert)('Erro de rede.');
                         restaurarSpan(tituloAtual);
                     }
                 }
@@ -1181,10 +1181,10 @@
                         }
                     } else {
                         const data = await resp.json();
-                        alert(data.erro ?? 'Erro ao excluir.');
+                        (window.avisarErroPs || window.alert)(data.erro ?? 'Erro ao excluir.');
                     }
                 } catch (_) {
-                    alert('Erro de rede.');
+                    (window.avisarErroPs || window.alert)('Erro de rede.');
                 }
             }
         });

@@ -499,7 +499,7 @@
                     const vazio = window.EditorRico
                         ? EditorRico.estaVazio(textarea)
                         : textarea.value.trim() === '';
-                    if (vazio) { alert('O registro não pode ser vazio.'); return; }
+                    if (vazio) { (window.avisarErroPs || window.alert)('O registro não pode ser vazio.'); return; }
 
                     const fd = new FormData();
                     fd.append('_token', btnEditar.dataset.csrf);
@@ -519,10 +519,10 @@
                             btnEditar.dataset.conteudoHtml = data.conteudoHtml ?? '';
                         } else {
                             restaurarExibicao(htmlAtual);
-                            alert(data.erro ?? 'Erro ao editar.');
+                            (window.avisarErroPs || window.alert)(data.erro ?? 'Erro ao editar.');
                         }
                     } catch (_) {
-                        alert('Erro de rede.');
+                        (window.avisarErroPs || window.alert)('Erro de rede.');
                     }
                 });
 
@@ -601,10 +601,10 @@
                         }
                     } else {
                         const data = await resp.json();
-                        alert(data.erro ?? 'Erro ao excluir.');
+                        (window.avisarErroPs || window.alert)(data.erro ?? 'Erro ao excluir.');
                     }
                 } catch (_) {
-                    alert('Erro de rede.');
+                    (window.avisarErroPs || window.alert)('Erro de rede.');
                 }
             }
         });
