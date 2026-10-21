@@ -250,9 +250,11 @@ final class IndicacoesDoMasterControllerTest extends JusPrimeWebTestCase
         $js = (string) file_get_contents(static::getContainer()->getParameter('kernel.project_dir') . '/public/js/master/painel.js');
 
         self::assertStringContainsString(
-            "  if (EXTERNAS.com) SECS.push(['com', 'Comercial e e-mails', 'bi-megaphone']);\n  if (EXTERNAS.ind) SECS.push(['ind', 'Indicações do BlueJus', 'bi-share']);\n",
+            "  if (EXTERNAS.com) SECS.push(['com', T('master.js.secao.com'), 'bi-megaphone']);\n  if (EXTERNAS.ind) SECS.push(['ind', T('master.js.secao.ind'), 'bi-share']);\n",
             $js,
         );
+        // O rótulo mora no catálogo desde a P2a do idioma (spec idioma-do-sistema).
+        self::assertSame('Indicações do BlueJus', static::getContainer()->get('translator')->trans('master.js.secao.ind', [], null, 'pt_BR'));
     }
 
     private function entrarComoMaster(): User

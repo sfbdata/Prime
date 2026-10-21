@@ -8,7 +8,10 @@
    Os dados vêm de /master/dados/* (só leitura, ROLE_SUPER_ADMIN no servidor).
    Planos e limites (spec docs/specs/perfis-1.2-planos-e-limites.md P1 a P6, desenho 1.2 linhas 194-210, 397-410 e 726-735):
    cartões dos planos, modal "Editar plano", itens de limite no menu da conta, modal de limite, faixas de alerta e
-   ranking com plano, limite, % e faixa do RetratoDoEspaco da Contribua. As regras moram no servidor. */
+   ranking com plano, limite, % e faixa do RetratoDoEspaco da Contribua. As regras moram no servidor.
+   Idioma (spec docs/specs/idioma-do-sistema.md, P2a da b5): os textos da moldura e da Visão geral (KPIs, gráfico, mapa,
+   estados que faltam, seccionais e janela da OAB) vêm do catálogo da página ({{ catalogo_js('master.js', 'termos') }})
+   por BJ_T.t; datas e números por window.BJFormato. As outras seções ficam para a P2b. */
 (() => {
   'use strict';
   const raiz = document.getElementById('master-painel');
@@ -20,11 +23,14 @@
   const elSecao = document.getElementById('mp-secao');
 
   const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
-  const num = n => Number(n || 0).toLocaleString('pt-BR');
+  const T = (chave, params) => window.BJ_T.t(chave, params);
+  const num = n => window.BJFormato.numero(n);
+  // Decimal sem separador de milhar (o GB e o eixo do gráfico eram montados à mão: "1234,5"), no idioma da página.
+  const decimal = (v, min, max) => Number(v).toLocaleString(window.BJFormato.idioma(), { minimumFractionDigits: min, maximumFractionDigits: max, useGrouping: false });
   const GB = 1073741824;
-  const gb = bytes => { const v = (bytes || 0) / GB; if (v > 0 && v < 0.1) return 'menos de 0,1 GB'; return v.toFixed(1).replace('.', ',') + ' GB'; };
+  const gb = bytes => { const v = (bytes || 0) / GB; if (v > 0 && v < 0.1) return T('master.js.gb_menos', { n: decimal(0.1, 1, 1) }); return decimal(v, 1, 1) + ' GB'; };
   const pct = (n, d) => (d > 0 ? Math.round(n / d * 100) : 0) + '%';
-  const dataHora = iso => { const d = new Date(iso); if (isNaN(d)) return ''; return d.toLocaleDateString('pt-BR') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+  const dataHora = iso => window.BJFormato.dataHora(iso);
   const agora = () => dataHora(new Date().toISOString());
 
   const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'pes', mapaUsu: 'geral',
@@ -32,19 +38,19 @@
   const D = { visao: null, contas: null, oab: null, audit: null, planos: null };
   const ERRO = {};
 
-  const SECS = [['visao', 'Visão geral', 'bi-speedometer2'], ['contas', 'Contas e escritórios', 'bi-buildings'], ['oab', 'Usuários e OABs', 'bi-person-vcard'],
-    ['arm', 'Armazenamento', 'bi-hdd-stack'], ['planos', 'Planos e limites', 'bi-sliders'], ['custos', 'Custos e infraestrutura', 'bi-cash-coin'],
-    ['desemp', 'Desempenho', 'bi-activity'], ['audit', 'Segurança e auditoria', 'bi-journal-check'], ['config', 'Configurações globais', 'bi-gear']];
+  const SECS = [['visao', T('master.js.secao.visao'), 'bi-speedometer2'], ['contas', T('master.js.secao.contas'), 'bi-buildings'], ['oab', T('master.js.secao.oab'), 'bi-person-vcard'],
+    ['arm', T('master.js.secao.arm'), 'bi-hdd-stack'], ['planos', T('master.js.secao.planos'), 'bi-sliders'], ['custos', T('master.js.secao.custos'), 'bi-cash-coin'],
+    ['desemp', T('master.js.secao.desemp'), 'bi-activity'], ['audit', T('master.js.secao.audit'), 'bi-journal-check'], ['config', T('master.js.secao.config'), 'bi-gear']];
   // Seções de outras frentes (desenho 1.2): entram só quando o parcial delas existe e trouxe conteúdo.
   const EXTERNAS = {};
   raiz.querySelectorAll('[data-sec-externa]').forEach(el => { if (el.innerHTML.trim()) EXTERNAS[el.dataset.secExterna] = el; });
-  if (EXTERNAS.com) SECS.push(['com', 'Comercial e e-mails', 'bi-megaphone']);
-  if (EXTERNAS.ind) SECS.push(['ind', 'Indicações do BlueJus', 'bi-share']);
-  if (EXTERNAS.notif) SECS.push(['notif', 'Central de Notificações', 'bi-bell']);
+  if (EXTERNAS.com) SECS.push(['com', T('master.js.secao.com'), 'bi-megaphone']);
+  if (EXTERNAS.ind) SECS.push(['ind', T('master.js.secao.ind'), 'bi-share']);
+  if (EXTERNAS.notif) SECS.push(['notif', T('master.js.secao.notif'), 'bi-bell']);
   const VAZIAS = {
-    custos: ['bi-cash-coin', 'Custos e infraestrutura', 'Mostra quanto custa manter o BlueJus e o impacto de cada conta, separando custos medidos, importados de fornecedores e estimados. Sem integração financeira, os valores podem ser lançados manualmente, com origem identificada.', ['Armazenamento', 'Banco de dados', 'Hospedagem', 'Tráfego', 'Backups', 'APIs de IA', 'Notificações', 'Receita recorrente', 'Custo por conta', 'Custo por GB', 'Margem por plano', 'Projeção 3, 6 e 12 meses']],
-    desemp: ['bi-activity', 'Desempenho e disponibilidade', 'Saúde técnica da plataforma, com histórico filtrável por gravidade, período e categoria. Métricas não coletadas aparecem como indisponíveis, nunca estimadas.', ['Disponibilidade', 'Tempo de resposta', 'Erros', 'Falhas de upload', 'Falhas de login', 'Último backup', 'Teste de restauração', 'CPU e memória', 'Integrações', 'Incidentes']],
-    config: ['bi-gear', 'Configurações globais', 'Parâmetros que valem para todas as contas. Cada alteração exige confirmação e fica na auditoria.', ['Faixas de alerta padrão', 'Período de teste', 'Política de excedente', 'Exceções temporárias', 'Autenticação reforçada', 'Retenção de auditoria']]
+    custos: ['bi-cash-coin', T('master.js.secao.custos'), T('master.js.vazia.custos.texto'), [T('master.js.vazia.custos.armazenamento'), T('master.js.vazia.custos.banco'), T('master.js.vazia.custos.hospedagem'), T('master.js.vazia.custos.trafego'), T('master.js.vazia.custos.backups'), T('master.js.vazia.custos.apis_ia'), T('master.js.vazia.custos.notificacoes'), T('master.js.vazia.custos.receita'), T('master.js.vazia.custos.custo_conta'), T('master.js.vazia.custos.custo_gb'), T('master.js.vazia.custos.margem'), T('master.js.vazia.custos.projecao')]],
+    desemp: ['bi-activity', T('master.js.vazia.desemp.titulo'), T('master.js.vazia.desemp.texto'), [T('master.js.vazia.desemp.disponibilidade'), T('master.js.vazia.desemp.tempo_resposta'), T('master.js.vazia.desemp.erros'), T('master.js.vazia.desemp.falhas_upload'), T('master.js.vazia.desemp.falhas_login'), T('master.js.vazia.desemp.ultimo_backup'), T('master.js.vazia.desemp.teste_restauracao'), T('master.js.vazia.desemp.cpu_memoria'), T('master.js.vazia.desemp.integracoes'), T('master.js.vazia.desemp.incidentes')]],
+    config: ['bi-gear', T('master.js.secao.config'), T('master.js.vazia.config.texto'), [T('master.js.vazia.config.faixas'), T('master.js.vazia.config.periodo_teste'), T('master.js.vazia.config.excedente'), T('master.js.vazia.config.excecoes'), T('master.js.vazia.config.autenticacao'), T('master.js.vazia.config.retencao')]]
   };
   const NM = { RO: 'Rondônia', AC: 'Acre', AM: 'Amazonas', RR: 'Roraima', PA: 'Pará', AP: 'Amapá', TO: 'Tocantins', MA: 'Maranhão', PI: 'Piauí', CE: 'Ceará', RN: 'Rio Grande do Norte', PB: 'Paraíba', PE: 'Pernambuco', AL: 'Alagoas', SE: 'Sergipe', BA: 'Bahia', MG: 'Minas Gerais', ES: 'Espírito Santo', RJ: 'Rio de Janeiro', SP: 'São Paulo', PR: 'Paraná', SC: 'Santa Catarina', RS: 'Rio Grande do Sul', MS: 'Mato Grosso do Sul', MT: 'Mato Grosso', GO: 'Goiás', DF: 'Distrito Federal' };
   const ST = { Ativa: '#1e7b45', Suspensa: '#a3232b', 'Suspensa a pedido': '#a3232b', 'Em quarentena': '#5b7383' };
@@ -53,7 +59,8 @@
   // dado: o protótipo mostrava Ativa). Só o rótulo muda; filtro e menu seguem a situação gravada da conta.
   const A_PEDIDO = 'Suspensa a pedido';
   const situacaoVisivel = c => (c.pedidoPendente && c.situacao === 'Ativa' ? A_PEDIDO : c.situacao);
-  const dataBr = ymd => { const p = String(ymd || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : ''; };
+  // Data "Y-m-d" do servidor no formato do idioma, lida como data local (new Date('Y-m-d') seria meia-noite UTC: dia anterior aqui).
+  const dataBr = ymd => { const p = String(ymd || '').split('-'); return p.length === 3 ? window.BJFormato.data(new Date(+p[0], +p[1] - 1, +p[2])) : ''; };
   // Faixa do RetratoDoEspaco (Contribua) com o rótulo e a cor da função faixa() do desenho (linha 593).
   const FAIXA = { livre: ['Normal', '#1e7b45'], atencao: ['Atenção', '#c08a12'], alerta: ['Alerta', '#c0392b'], critico: ['Crítico', '#a3232b'], bloqueio: ['Limite atingido', '#7a1b22'] };
   const ORDEM_FAIXA = { livre: 0, atencao: 1, alerta: 2, critico: 3, bloqueio: 4 };
@@ -75,8 +82,8 @@
   const deps = sec => precisa[sec] || [];
   const urlDe = { visao: URLS.visao, contas: URLS.contas, oab: URLS.oab, audit: URLS.auditoria, planos: URLS.planos };
   const aguardando = chave => (ERRO[chave] === 'falhou'
-    ? '<div class="mp-card mp-carregando">Não foi possível carregar esta seção agora. Recarregue a página.</div>'
-    : '<div class="mp-carregando">Carregando…</div>');
+    ? '<div class="mp-card mp-carregando">' + T('master.js.erro_secao') + '</div>'
+    : '<div class="mp-carregando">' + T('master.js.carregando') + '</div>');
 
   /* ---------- abas ---------- */
   function mostrarAba() {
@@ -120,7 +127,7 @@
 
   const vazia = ([icone, titulo, texto, itens]) => '<div class="mp-card mp-vazia"><span class="mp-vazia-ico"><i class="bi ' + icone + '"></i></span><b>' + esc(titulo) + '</b>'
     + '<span class="mp-vazia-texto">' + esc(texto) + '</span><div class="mp-vazia-itens">' + itens.map(i => '<span>' + esc(i) + '</span>').join('') + '</div>'
-    + '<span class="mp-vazia-aviso">DADO AINDA NÃO COLETADO · DEPENDE DE INTEGRAÇÃO NO SERVIDOR</span></div>';
+    + '<span class="mp-vazia-aviso">' + T('master.js.vazia.aviso') + '</span></div>';
 
   /* ================= VISÃO GERAL ================= */
   function montarVisao() {
@@ -128,8 +135,8 @@
       + '<div class="mp-card mp-gr" id="mp-gr"></div>'
       + '<div class="mp-card mp-mapa"><div class="mp-mapa-topo" id="mp-mapa-topo"></div>'
       + '<div class="mp-mapa-corpo"><div class="mp-uf-tab" id="mp-uf-tab"></div><iframe class="mp-mapa-iframe" id="mp-mapa-iframe" title=""></iframe></div>'
-      + '<div class="mp-escala"><span>menos</span>' + ['#eef2f5', '#cfe3f1', '#4f8fbd', '#0a4f7a'].map(c => '<i style="--cor:' + c + '"></i>').join('')
-      + '<span>mais</span><span class="mp-espaco"></span><span>Malha dos estados: IBGE</span></div></div>'
+      + '<div class="mp-escala"><span>' + T('master.js.mapa.escala_menos') + '</span>' + ['#eef2f5', '#cfe3f1', '#4f8fbd', '#0a4f7a'].map(c => '<i style="--cor:' + c + '"></i>').join('')
+      + '<span>' + T('master.js.mapa.escala_mais') + '</span><span class="mp-espaco"></span><span>' + T('master.js.mapa.malha') + '</span></div></div>'
       + '<div class="mp-card mp-idades" id="mp-idades"></div>';
     renderKpis(); renderGrafico(); renderMapa(); renderIdades();
   }
@@ -137,14 +144,14 @@
   function renderKpis() {
     const k = D.visao.kpis;
     const kpis = [
-      { rot: 'ESCRITÓRIOS', n: num(k.escritorios), desc: num(k.ativas) + ' ativa · ' + num(k.suspensas) + ' suspensa', icone: 'bi-buildings', cor: '#0a6fa0', bg: '#e5f1f7', ir: 'contas' },
-      { rot: 'USUÁRIOS PRIMÁRIOS', n: num(k.primarios), desc: 'quem abriu o escritório e os sócios', icone: 'bi-person-badge', cor: '#0a6fa0', bg: '#e5f1f7', ir: 'contas' },
-      { rot: 'USUÁRIOS SECUNDÁRIOS', n: num(k.secundarios), desc: 'convidados em todas as contas', icone: 'bi-people', cor: '#3b5bb8', bg: '#e9edf8', ir: 'contas' },
-      { rot: 'OABs ÚNICAS', n: num(k.oabUnicas), desc: num(k.oabRegistros) + ' registros · ' + num(k.oabRegistros - k.oabUnicas) + ' duplicado(s)', icone: 'bi-person-vcard', cor: '#7a3e8f', bg: '#f3e9f7', ir: 'oab' },
-      { rot: 'PASTAS', n: num(k.pastas), desc: 'soma de todas as contas', icone: 'bi-folder2-open', cor: '#1e7b45', bg: '#e6f4ec', ir: 'contas' },
-      { rot: 'DOCUMENTOS', n: num(k.documentos), desc: 'arquivos armazenados', icone: 'bi-file-earmark-text', cor: '#1e7b45', bg: '#e6f4ec', ir: 'contas' },
+      { rot: T('master.js.visao.kpi.escritorios'), n: num(k.escritorios), desc: T('master.js.visao.kpi.escritorios_desc', { ativas: num(k.ativas), suspensas: num(k.suspensas) }), icone: 'bi-buildings', cor: '#0a6fa0', bg: '#e5f1f7', ir: 'contas' },
+      { rot: T('master.js.visao.kpi.primarios'), n: num(k.primarios), desc: T('master.js.visao.kpi.primarios_desc'), icone: 'bi-person-badge', cor: '#0a6fa0', bg: '#e5f1f7', ir: 'contas' },
+      { rot: T('master.js.visao.kpi.secundarios'), n: num(k.secundarios), desc: T('master.js.visao.kpi.secundarios_desc'), icone: 'bi-people', cor: '#3b5bb8', bg: '#e9edf8', ir: 'contas' },
+      { rot: T('master.js.visao.kpi.oab'), n: num(k.oabUnicas), desc: T('master.js.visao.kpi.oab_desc', { registros: num(k.oabRegistros), duplicados: num(k.oabRegistros - k.oabUnicas) }), icone: 'bi-person-vcard', cor: '#7a3e8f', bg: '#f3e9f7', ir: 'oab' },
+      { rot: T('master.js.visao.kpi.pastas'), n: num(k.pastas), desc: T('master.js.visao.kpi.pastas_desc'), icone: 'bi-folder2-open', cor: '#1e7b45', bg: '#e6f4ec', ir: 'contas' },
+      { rot: T('master.js.visao.kpi.documentos'), n: num(k.documentos), desc: T('master.js.visao.kpi.documentos_desc'), icone: 'bi-file-earmark-text', cor: '#1e7b45', bg: '#e6f4ec', ir: 'contas' },
       kpiArmazenamento(k, D.visao.armazenamento),
-      { rot: 'RECEITA MENSAL', n: 'sem informação', texto: true, desc: 'sem integração financeira ainda', icone: 'bi-cash-coin', cor: '#7d909d', bg: '#eef2f5', ir: 'custos' }
+      { rot: T('master.js.visao.kpi.receita'), n: T('master.js.sem_informacao'), texto: true, desc: T('master.js.visao.kpi.receita_desc'), icone: 'bi-cash-coin', cor: '#7d909d', bg: '#eef2f5', ir: 'custos' }
     ];
     document.getElementById('mp-kpis').innerHTML = kpis.map(x => '<button type="button" class="mp-kpi" data-ir="' + x.ir + '" style="--cor:' + x.cor + ';--bg:' + x.bg + '">'
       + '<span class="mp-kpi-ico"><i class="bi ' + x.icone + '"></i></span><span class="mp-kpi-rot">' + esc(x.rot) + '</span>'
@@ -155,16 +162,17 @@
 
   // KPI ARMAZENAMENTO (desenho 1.2, linha 688; spec P9): cota = soma dos limites das contas com limite, cor e barra pela faixa.
   function kpiArmazenamento(k, a) {
-    const base = { rot: 'ARMAZENAMENTO', n: gb(k.bytes), icone: 'bi-hdd-stack', bg: '#fbf1dc', ir: 'arm' };
-    if (!a) return Object.assign(base, { desc: 'contratado: sem informação · ponto e tarefas não medidos', cor: '#c08a12' });
+    const base = { rot: T('master.js.visao.kpi.armazenamento'), n: gb(k.bytes), icone: 'bi-hdd-stack', bg: '#fbf1dc', ir: 'arm' };
+    if (!a) return Object.assign(base, { desc: T('master.js.visao.kpi.arm_sem_dado'), cor: '#c08a12' });
     // Número, descrição e barra somam só as contas com limite, como no desenho (a cota é delas); o uso das contas
     // sem limite vem no sufixo. Sem nenhuma conta com limite, fica o texto antigo, com o uso total.
-    const sem = a.contasSemLimite > 0 ? ' · + ' + gb(a.bytesSemLimite) + ' em ' + num(a.contasSemLimite) + ' conta(s) sem limite' : '';
-    return Object.assign(base, { n: gb(a.bytesUsados), desc: 'de ' + num(a.cotaGb) + ' GB contratados · livre ' + gb(a.bytesLivres) + sem, cor: (FAIXA[a.faixa] || FAIXA.livre)[1], pct: a.percentual + '%' });
+    const sem = a.contasSemLimite > 0 ? ' · ' + T('master.js.visao.kpi.arm_sem_limite', { gb: gb(a.bytesSemLimite), n: num(a.contasSemLimite) }) : '';
+    return Object.assign(base, { n: gb(a.bytesUsados), desc: T('master.js.visao.kpi.arm_desc', { cota: num(a.cotaGb), livre: gb(a.bytesLivres) }) + sem, cor: (FAIXA[a.faixa] || FAIXA.livre)[1], pct: a.percentual + '%' });
   }
 
   /* ---------- Crescimento (gráfico SVG do desenho) ---------- */
-  const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const MES = [T('master.js.visao.grafico.mes.jan'), T('master.js.visao.grafico.mes.fev'), T('master.js.visao.grafico.mes.mar'), T('master.js.visao.grafico.mes.abr'), T('master.js.visao.grafico.mes.mai'), T('master.js.visao.grafico.mes.jun'),
+    T('master.js.visao.grafico.mes.jul'), T('master.js.visao.grafico.mes.ago'), T('master.js.visao.grafico.mes.set'), T('master.js.visao.grafico.mes.out'), T('master.js.visao.grafico.mes.nov'), T('master.js.visao.grafico.mes.dez')];
   const CRESC = () => D.visao.crescimento;
   const ANOS = () => Object.keys(CRESC()).map(Number).sort((a, b) => a - b);
   const corDoAno = ano => { const anos = ANOS(), i = anos.length - 1 - anos.indexOf(ano); return ['#0a6fa0', '#7d909d', '#c08a12', '#7a3e8f', '#1e7b45', '#3b5bb8'][i % 6]; };
@@ -174,7 +182,7 @@
     const C = CRESC(), anos = ANOS();
     if (!S.grSel) S.grSel = anos.slice(-2);
     const vis = S.grVis, mod = S.grMod, sel = S.grSel.slice().sort((a, b) => a - b);
-    const fmt = v => (S.grMet === 'gb' ? (Math.round(v * 10) / 10).toString().replace('.', ',') : Math.round(v).toLocaleString('pt-BR'));
+    const fmt = v => (S.grMet === 'gb' ? decimal(Math.round(v * 10) / 10, 0, 1) : num(Math.round(v)));
     const serie = a => { const v = C[a][S.grMet]; if (mod === 'acum') return v.slice(); const ant = C[a - 1] ? C[a - 1][S.grMet].filter(x => x !== null).slice(-1)[0] || 0 : 0; return v.map((x, i) => (x === null ? null : Math.max(0, Math.round((x - (i ? v[i - 1] : ant)) * 10) / 10))); };
     let rotulos, grupos;
     if (vis === 'mes') { rotulos = MES.slice(); grupos = sel.map(a => ({ cor: corDoAno(a), vals: serie(a).map((v, i) => ({ v, tip: MES[i] + '/' + a })) })); }
@@ -184,13 +192,13 @@
     const all = [].concat(...grupos.map(g => g.vals.map(p => p.v).filter(v => v !== null))), mx = Math.max(1, ...all) * 1.12, Y = v => 200 - v / mx * 180;
     const grade = [0, 0.25, 0.5, 0.75, 1].map(f => ({ y: Y(mx * f), topPct: (Y(mx * f) / 230 * 100) + '%', v: fmt(mx * f) }));
     const series = grupos.map(g => { const pts = g.vals.map((p, i) => (p.v === null ? null : { x: X(i), y: Y(p.v), tip: p.tip + ': ' + fmt(p.v) })).filter(Boolean), d = curva(pts); return { cor: g.cor, pts, d, area: pts.length > 1 ? d + ' L' + pts[pts.length - 1].x + ' 200 L' + pts[0].x + ' 200 Z' : '' }; });
-    const tit = { contas: 'contas cadastradas', usuarios: 'usuários (primários + secundários)', pastas: 'pastas no sistema', gb: 'armazenamento em GB' }[S.grMet];
+    const tit = { contas: T('master.js.visao.grafico.tit_contas'), usuarios: T('master.js.visao.grafico.tit_usuarios'), pastas: T('master.js.visao.grafico.tit_pastas'), gb: T('master.js.visao.grafico.tit_gb') }[S.grMet];
     const seg = (lista, atual, attr) => '<div class="mp-seg">' + lista.map(([k, rot]) => '<button type="button" class="' + (atual === k ? 'on' : '') + '" ' + attr + '="' + k + '">' + esc(rot) + '</button>').join('') + '</div>';
     const todos = sel.length === anos.length;
-    document.getElementById('mp-gr').innerHTML = '<div class="mp-gr-topo"><b>Crescimento <span>' + esc(tit) + '</span></b>'
-      + '<select class="mp-select" data-gr-met>' + [['contas', 'Contas'], ['usuarios', 'Usuários'], ['pastas', 'Pastas'], ['gb', 'Armazenamento (GB)']].map(([k, r]) => '<option value="' + k + '"' + (S.grMet === k ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>'
-      + seg([['mes', 'Por mês'], ['ano', 'Por ano'], ['todos', 'Linha contínua']], vis, 'data-gr-vis') + seg([['acum', 'Acumulado'], ['novo', 'Novos no mês']], mod, 'data-gr-mod')
-      + '<div class="mp-anos"><button type="button" class="mp-todos-anos' + (todos ? ' on' : '') + '" data-gr-todos>Todos os anos</button>'
+    document.getElementById('mp-gr').innerHTML = '<div class="mp-gr-topo"><b>' + T('master.js.visao.grafico.titulo') + ' <span>' + esc(tit) + '</span></b>'
+      + '<select class="mp-select" data-gr-met>' + [['contas', T('master.js.visao.grafico.met_contas')], ['usuarios', T('master.js.visao.grafico.met_usuarios')], ['pastas', T('master.js.visao.grafico.met_pastas')], ['gb', T('master.js.visao.grafico.met_gb')]].map(([k, r]) => '<option value="' + k + '"' + (S.grMet === k ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>'
+      + seg([['mes', T('master.js.visao.grafico.por_mes')], ['ano', T('master.js.visao.grafico.por_ano')], ['todos', T('master.js.visao.grafico.continua')]], vis, 'data-gr-vis') + seg([['acum', T('master.js.visao.grafico.acumulado')], ['novo', T('master.js.visao.grafico.novos')]], mod, 'data-gr-mod')
+      + '<div class="mp-anos"><button type="button" class="mp-todos-anos' + (todos ? ' on' : '') + '" data-gr-todos>' + T('master.js.visao.grafico.todos_anos') + '</button>'
       + anos.map(a => { const on = S.grSel.includes(a), cor = corDoAno(a); return '<button type="button" class="mp-ano" data-gr-ano="' + a + '" style="--linha:' + cor + ';--bg:' + (on ? '#fff' : '#f3f6f8') + ';--borda:' + (on ? cor : '#e2e9ee') + ';--cor:' + (on ? '#12242f' : '#98a9b4') + '"><span class="mp-ano-linha"></span>' + a + '</button>'; }).join('') + '</div></div>'
       + '<div class="mp-gr-area">' + grade.map(g => '<span class="mp-gr-y" style="top:' + g.topPct + '">' + esc(g.v) + '</span>').join('')
       + rotulos.map((r, i) => '<span class="mp-gr-x" style="left:' + (X(i) / 760 * 100) + '%">' + esc(r) + '</span>').join('')
@@ -201,8 +209,9 @@
   }
 
   /* ---------- Onde estamos atuando ---------- */
-  const REG_BR = [['Norte', ['RO', 'AC', 'AM', 'RR', 'PA', 'AP', 'TO']], ['Nordeste', ['MA', 'PI', 'CE', 'RN', 'PB', 'PE', 'AL', 'SE', 'BA']], ['Centro-Oeste', ['MS', 'MT', 'GO', 'DF']], ['Sudeste', ['MG', 'ES', 'RJ', 'SP']], ['Sul', ['PR', 'SC', 'RS']]];
-  const REG_MUNDO = [['América do Sul', ['Argentina', 'Bolívia', 'Chile', 'Colômbia', 'Equador', 'Paraguai', 'Peru', 'Uruguai', 'Venezuela']], ['América do Norte e Central', ['Canadá', 'México', 'Estados Unidos']], ['Europa', ['Portugal', 'Espanha', 'Itália', 'França', 'Alemanha', 'Reino Unido', 'Suíça', 'Países Baixos', 'Bélgica', 'Irlanda']], ['Lusofonia', ['Angola', 'Moçambique', 'Cabo Verde', 'Guiné-Bissau', 'São Tomé e Príncipe', 'Timor-Leste']]];
+  const REG_BR = [[T('master.js.mapa.regiao.norte'), ['RO', 'AC', 'AM', 'RR', 'PA', 'AP', 'TO']], [T('master.js.mapa.regiao.nordeste'), ['MA', 'PI', 'CE', 'RN', 'PB', 'PE', 'AL', 'SE', 'BA']], [T('master.js.mapa.regiao.centro_oeste'), ['MS', 'MT', 'GO', 'DF']], [T('master.js.mapa.regiao.sudeste'), ['MG', 'ES', 'RJ', 'SP']], [T('master.js.mapa.regiao.sul'), ['PR', 'SC', 'RS']]];
+  // O nome do país é dado, não texto da tela: o servidor manda o nome em português (M.paises) e o painel compara com ele.
+  const REG_MUNDO = [[T('master.js.mapa.regiao.america_sul'), ['Argentina', 'Bolívia', 'Chile', 'Colômbia', 'Equador', 'Paraguai', 'Peru', 'Uruguai', 'Venezuela']], [T('master.js.mapa.regiao.america_norte'), ['Canadá', 'México', 'Estados Unidos']], [T('master.js.mapa.regiao.europa'), ['Portugal', 'Espanha', 'Itália', 'França', 'Alemanha', 'Reino Unido', 'Suíça', 'Países Baixos', 'Bélgica', 'Irlanda']], [T('master.js.mapa.regiao.lusofonia'), ['Angola', 'Moçambique', 'Cabo Verde', 'Guiné-Bissau', 'São Tomé e Príncipe', 'Timor-Leste']]];
 
   function geo() {
     const M = D.visao.mapa;
@@ -218,10 +227,10 @@
     const maxAt = Math.max(1, ...Object.values(ATUA));
     const seg = (lista, atual, attr, comIcone) => '<div class="mp-seg mp-seg-28">' + lista.map(([k, rot, ic]) => '<button type="button" class="' + (atual === k ? 'on' : '') + '" ' + attr + '="' + k + '">' + (comIcone ? '<i class="bi ' + ic + '"></i>' : '') + esc(rot) + '</button>').join('') + '</div>';
 
-    document.getElementById('mp-mapa-topo').innerHTML = '<b>Onde estamos atuando</b><span class="mp-mapa-sub">' + (br ? 'usuários por estado' : 'usuários por país') + ' · ' + num(ufTotal) + ' no total</span>'
-      + (br ? seg([['pes', 'Pessoas', 'bi-people'], ['esc', 'Escritórios', 'bi-buildings']], S.mapaQuem, 'data-mapa-quem', true) : '')
-      + (ehPes && br ? seg([['geral', 'Geral'], ['prim', 'Só primários']], S.mapaUsu, 'data-mapa-usu', false) : '')
-      + seg([['br', 'Brasil', 'bi-geo-alt-fill'], ['mundo', 'Mundo', 'bi-globe-americas']], S.mapaModo, 'data-mapa-modo', true);
+    document.getElementById('mp-mapa-topo').innerHTML = '<b>' + T('master.js.mapa.titulo') + '</b><span class="mp-mapa-sub">' + (br ? T('master.js.mapa.por_estado') : T('master.js.mapa.por_pais')) + ' · ' + T('master.js.mapa.total', { n: num(ufTotal) }) + '</span>'
+      + (br ? seg([['pes', T('master.js.mapa.pessoas'), 'bi-people'], ['esc', T('master.js.mapa.escritorios'), 'bi-buildings']], S.mapaQuem, 'data-mapa-quem', true) : '')
+      + (ehPes && br ? seg([['geral', T('master.js.mapa.geral')], ['prim', T('master.js.mapa.so_primarios')]], S.mapaUsu, 'data-mapa-usu', false) : '')
+      + seg([['br', T('master.js.mapa.brasil'), 'bi-geo-alt-fill'], ['mundo', T('master.js.mapa.mundo'), 'bi-globe-americas']], S.mapaModo, 'data-mapa-modo', true);
 
     let linhas;
     if (!br) {
@@ -231,7 +240,7 @@
       linhas = Object.entries(ATUA).sort((a, b) => b[1] - a[1]).map(([uf, n]) => {
         const t = S.mapaQuem === 'esc' ? { ag: 0, an: 0 } : (G.tend[uf] || { ag: 0, an: 0 }), dl = t.ag - t.an;
         const ic = dl > 0 ? 'bi-arrow-up-right' : dl < 0 ? 'bi-arrow-down-right' : 'bi-arrow-right', cor = dl > 0 ? '#1e7b45' : dl < 0 ? '#a3232b' : '#9aabb7';
-        const tit = S.mapaQuem === 'esc' ? 'Tendência medida só para pessoas' : (t.ag >= 0 ? '+' : '') + t.ag + ' nos últimos 30 dias · ' + (t.an >= 0 ? '+' : '') + t.an + ' nos 30 anteriores';
+        const tit = S.mapaQuem === 'esc' ? T('master.js.mapa.tendencia_so_pessoas') : T('master.js.mapa.tendencia', { ag: (t.ag >= 0 ? '+' : '') + t.ag, an: (t.an >= 0 ? '+' : '') + t.an });
         // Linha clicável (desenho L118, `u.ir`/`u.cur`): no Brasil abre a janela da OAB da UF (spec master-oab-estados-que-faltam).
         const oab = NM[uf] ? ' is-oab" role="button" tabindex="0" data-oab-uf="' + esc(uf) + '" data-oab-n="' + n + '"' : '"';
         return '<div class="mp-uf-lin' + oab + '><span class="mp-uf-barra" style="--w:' + pct(n, maxAt) + '"></span><span class="mp-uf-nome">' + esc(NM[uf] || uf) + '</span><b>' + num(n) + '</b><i class="bi ' + ic + ' mp-uf-seta" style="--cor:' + cor + '" title="' + esc(tit) + '"></i></div>';
@@ -241,35 +250,35 @@
     let grupos, tot, meta;
     if (br) {
       grupos = REG_BR.map(([rot, ufs]) => { const itens = ufs.filter(u => !ATUA[u]).map(u => ({ uf: u, r: NM[u] })).sort((a, b) => a.r.localeCompare(b.r)); return { rot, n: itens.length, itens }; }).filter(g => g.n);
-      tot = 27; meta = 'os 27 estados';
+      tot = 27; meta = T('master.js.faltam.meta_estados', { n: tot });
       secGarantir();
     } else {
       const tem = new Set(['Brasil'].concat(paisesExt.map(p => p[1])));
       grupos = REG_MUNDO.map(([rot, ps]) => { const itens = ps.filter(p => !tem.has(p)).sort((a, b) => a.localeCompare(b)).map(p => ({ uf: null, r: p })); return { rot, n: itens.length, itens }; }).filter(g => g.n);
-      tot = REG_MUNDO.reduce((a, g) => a + g[1].length, 0); meta = 'os ' + tot + ' países-alvo';
+      tot = REG_MUNDO.reduce((a, g) => a + g[1].length, 0); meta = T('master.js.faltam.meta_paises', { n: tot });
     }
     const faltamN = grupos.reduce((a, g) => a + g.n, 0), feitos = tot - faltamN, on = S.faltamOn;
-    const usuTit = S.mapaQuem === 'esc' ? 'Escritórios' : S.mapaUsu === 'prim' ? 'Primários' : 'Pessoas';
+    const usuTit = S.mapaQuem === 'esc' ? T('master.js.mapa.escritorios') : S.mapaUsu === 'prim' ? T('master.js.mapa.primarios') : T('master.js.mapa.pessoas');
 
-    document.getElementById('mp-uf-tab').innerHTML = '<div class="mp-uf-cab"><span>' + (br ? 'Estado' : 'País') + '</span><span>' + usuTit + '</span><span></span></div>' + linhas
+    document.getElementById('mp-uf-tab').innerHTML = '<div class="mp-uf-cab"><span>' + (br ? T('master.js.mapa.estado') : T('master.js.mapa.pais')) + '</span><span>' + usuTit + '</span><span></span></div>' + linhas
       + (br && ehPes ? blocoSeccionais() : '')
-      + (br ? '<div class="mp-uf-outros"><span><i class="bi bi-globe-americas"></i>Outros países</span><b>' + num(exterior) + '</b></div>' : '')
-      + (S.mapaQuem === 'esc' && G.semEnd > 0 ? '<div class="mp-uf-semend"><span><i class="bi bi-geo"></i>Sem endereço no cadastro</span><b>' + num(G.semEnd) + '</b></div>' : '')
-      + (ehPes && G.semLoc > 0 ? '<div class="mp-uf-semend" title="Sem lotação Cidade/UF, sem UF da OAB e sem estado do escritório"><span><i class="bi bi-geo"></i>Sem localização no cadastro</span><b>' + num(G.semLoc) + '</b></div>' : '')
-      + '<div class="mp-uf-total"><span>Total geral</span><span>' + num(ufTotal) + '</span></div>'
+      + (br ? '<div class="mp-uf-outros"><span><i class="bi bi-globe-americas"></i>' + T('master.js.mapa.outros_paises') + '</span><b>' + num(exterior) + '</b></div>' : '')
+      + (S.mapaQuem === 'esc' && G.semEnd > 0 ? '<div class="mp-uf-semend"><span><i class="bi bi-geo"></i>' + T('master.js.mapa.sem_endereco') + '</span><b>' + num(G.semEnd) + '</b></div>' : '')
+      + (ehPes && G.semLoc > 0 ? '<div class="mp-uf-semend" title="' + T('master.js.mapa.sem_localizacao_dica') + '"><span><i class="bi bi-geo"></i>' + T('master.js.mapa.sem_localizacao') + '</span><b>' + num(G.semLoc) + '</b></div>' : '')
+      + '<div class="mp-uf-total"><span>' + T('master.js.mapa.total_geral') + '</span><span>' + num(ufTotal) + '</span></div>'
       + avisoHtml()
-      + '<button type="button" class="mp-faltam-btn' + (on ? ' on' : '') + '" data-faltam title="Mostrar onde ainda não temos usuários"><i class="bi bi-bullseye"></i><span>' + (on ? 'Ocultar o que falta' : (br ? 'Estados que faltam' : 'Países que faltam')) + '</span><span class="mp-faltam-n">' + faltamN + '</span><i class="bi ' + (on ? 'bi-chevron-up' : 'bi-chevron-down') + '"></i></button>'
-      + (on ? '<div class="mp-faltam"><div class="mp-faltam-cob">Cobertura: <b>' + feitos + ' de ' + tot + ' (' + Math.round(feitos / tot * 100) + '%)</b> · faltam ' + faltamN + ' para alcançar ' + meta + '</div>'
+      + '<button type="button" class="mp-faltam-btn' + (on ? ' on' : '') + '" data-faltam title="' + T('master.js.faltam.dica') + '"><i class="bi bi-bullseye"></i><span>' + (on ? T('master.js.faltam.ocultar') : (br ? T('master.js.faltam.estados') : T('master.js.faltam.paises'))) + '</span><span class="mp-faltam-n">' + faltamN + '</span><i class="bi ' + (on ? 'bi-chevron-up' : 'bi-chevron-down') + '"></i></button>'
+      + (on ? '<div class="mp-faltam"><div class="mp-faltam-cob">' + T('master.js.faltam.cobertura') + ' <b>' + T('master.js.faltam.cobertura_valor', { feitos, total: tot, pct: Math.round(feitos / tot * 100) }) + '</b> · ' + T('master.js.faltam.faltam', { n: faltamN, meta }) + '</div>'
         + '<div class="mp-faltam-barra"><div style="--w:' + Math.round(feitos / tot * 100) + '%"></div></div><div class="mp-faltam-lista">'
         + grupos.map(g => '<div class="mp-faltam-grupo">' + esc(g.rot) + ' · ' + g.n + '</div>' + g.itens.map(faltamItem).join('')).join('')
-        + '</div><div class="mp-faltam-rod">Oportunidades de expansão</div></div>' : '');
+        + '</div><div class="mp-faltam-rod">' + T('master.js.faltam.rodape') + '</div></div>' : '');
 
     // iframe: só troca o endereço quando os dados do mapa mudam (evita recarregar o mapa a cada clique).
     // O iframe busca as contagens no servidor (/master/dados/mapa) e as valida; a query string só escolhe a visão.
     const qs = 'quem=' + (S.mapaQuem === 'esc' ? 'esc' : 'pes') + '&usu=' + (S.mapaUsu === 'prim' ? 'prim' : 'geral');
     const src = (br ? URLS.mapaBrasil : URLS.mapaMundo) + '?' + qs, fr = document.getElementById('mp-mapa-iframe');
     fr.style.setProperty('--ratio', br ? '1.75' : '2.05');
-    fr.title = br ? 'Mapa do Brasil por estado' : 'Mapa mundial por país';
+    fr.title = br ? T('master.js.mapa.iframe_brasil') : T('master.js.mapa.iframe_mundo');
     if (fr.dataset.src !== src) { fr.dataset.src = src; fr.src = src; }
   }
 
@@ -278,14 +287,16 @@
      desenho: DONO). Dados de /master/dados/seccionais (o mesmo GET do iframe). Mostrar ou ocultar é do navegador
      (localStorage, chave lida também pelo mapa-brasil.js); a sede e as divulgações vêm do servidor. */
   const SEC_CHAVE = 'bj-mapa-seccionais-ocultas';
+  const SEC_ERRO_SALVAR = T('master.js.seccionais.erro_salvar');
   const SEC_CFOAB = 'https://www.oab.org.br/institucionalconselhofederal/asiseccional';
   const SEC_COR = { material: 'var(--sec-material)', reuniao: 'var(--sec-reuniao)', parceria: 'var(--sec-parceria)' };
-  const SEC_NOTA = 'Clique numa seccional para ver a sede. Botão direito na lista mostra ou oculta no mapa; botão direito no mapa registra a divulgação (material enviado, reunião, parceria). O ponto colorido indica seccional já trabalhada. Fonte: Conselho Federal da OAB.';
+  const SEC_NOTA = T('master.js.seccionais.nota');
+  const SEC_SEM_ENDERECO = T('master.js.seccionais.sem_endereco');
   const SEC = { dados: null, estado: null, aberta: null };
   const secOcultas = () => { try { const v = JSON.parse(localStorage.getItem(SEC_CHAVE) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
   const secGravarOcultas = ufs => { try { localStorage.setItem(SEC_CHAVE, JSON.stringify(ufs)); } catch (e) { /* navegador sem localStorage: vale só nesta tela */ } };
   const secDe = uf => (SEC.dados ? SEC.dados.seccionais.find(s => s.uf === uf) : null);
-  const secUsuarios = n => (n === 1 ? '1 usuário' : num(n) + ' usuários');
+  const secUsuarios = n => (n === 1 ? T('master.js.seccionais.usuario_um') : T('master.js.seccionais.usuarios', { n: num(n) }));
 
   function carregarSeccionais() {
     if (SEC.estado === 'carregando') return;
@@ -304,38 +315,38 @@
   function blocoSeccionais() {
     if (!SEC.dados) {
       if (SEC.estado !== 'falhou') carregarSeccionais();
-      return '<div class="mp-sec-oab" data-sec-oab><span class="mp-sec-oab-nota">' + (SEC.estado === 'falhou' ? 'Não foi possível carregar as seccionais agora. Recarregue a página.' : 'Carregando as seccionais…') + '</span></div>';
+      return '<div class="mp-sec-oab" data-sec-oab><span class="mp-sec-oab-nota">' + (SEC.estado === 'falhou' ? T('master.js.seccionais.erro_carga') : T('master.js.seccionais.carregando')) + '</span></div>';
     }
     const ocultas = secOcultas(), todas = SEC.dados.seccionais, algumaOculta = todas.some(s => ocultas.includes(s.uf));
-    return '<div class="mp-sec-oab" data-sec-oab><div class="mp-sec-oab-cab"><b>SECCIONAIS VISÍVEIS</b><button type="button" data-sec-todas>' + (algumaOculta ? 'Mostrar todas' : 'Ocultar todas') + '</button></div>'
+    return '<div class="mp-sec-oab" data-sec-oab><div class="mp-sec-oab-cab"><b>' + T('master.js.seccionais.titulo') + '</b><button type="button" data-sec-todas>' + (algumaOculta ? T('master.js.seccionais.mostrar_todas') : T('master.js.seccionais.ocultar_todas')) + '</button></div>'
       + '<div class="mp-sec-oab-chips">' + todas.map(s => secChip(s, ocultas.includes(s.uf))).join('') + '</div>'
       + (secDe(SEC.aberta) ? secCartao(secDe(SEC.aberta)) : '')
       + '<div class="mp-sec-oab-nota">' + esc(SEC_NOTA) + '</div></div>';
   }
 
   function secChip(s, oculta) {
-    const tit = s.nome + (oculta ? ' · oculta no mapa' : ' · visível no mapa') + (s.ultima ? ' · última divulgação: ' + s.ultima.rotulo + ' em ' + dataBr(s.ultima.data) : '');
+    const tit = s.nome + ' · ' + (oculta ? T('master.js.seccionais.oculta') : T('master.js.seccionais.visivel')) + (s.ultima ? ' · ' + T('master.js.seccionais.ultima', { rotulo: s.ultima.rotulo, data: dataBr(s.ultima.data) }) : '');
     return '<button type="button" class="mp-sec-chip' + (oculta ? ' is-oculta' : '') + (SEC.aberta === s.uf ? ' is-aberta' : '') + '" data-sec-uf="' + esc(s.uf) + '" title="' + esc(tit) + '">' + esc(s.uf)
       + (s.ultima ? '<span class="mp-sec-ponto" style="--cor:' + (SEC_COR[s.ultima.tipo] || 'var(--sec-material)') + '"></span>' : '') + '</button>';
   }
 
   function secCartao(s) {
     const site = /^https:\/\//i.test(s.site || '') ? s.site : null;
-    return '<div class="mp-sec-card" data-sec-card><div class="mp-sec-card-cab"><i class="bi bi-bank"></i><span>' + esc(s.nome) + '</span><button type="button" data-sec-fechar title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button></div>'
+    return '<div class="mp-sec-card" data-sec-card><div class="mp-sec-card-cab"><i class="bi bi-bank"></i><span>' + esc(s.nome) + '</span><button type="button" data-sec-fechar title="' + T('master.js.fechar') + '" aria-label="' + T('master.js.fechar') + '"><i class="bi bi-x-lg"></i></button></div>'
       + '<div class="mp-sec-card-corpo"><span><i class="bi bi-people"></i>' + esc(secUsuarios(s.usuarios)) + '</span>'
-      + '<span><i class="bi bi-geo-alt"></i>' + esc(s.endereco || 'Endereço não cadastrado. Confira no CFOAB.') + '</span>'
+      + '<span><i class="bi bi-geo-alt"></i>' + esc(s.endereco || SEC_SEM_ENDERECO) + '</span>'
       + (s.telefone ? '<span><i class="bi bi-telephone"></i>' + esc(s.telefone) + '</span>' : '')
-      + (site ? '<a href="' + esc(site) + '" target="_blank" rel="noopener"><i class="bi bi-globe2"></i>Site da seccional</a>' : '')
-      + '<div class="mp-sec-card-acoes"><a href="' + SEC_CFOAB + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i>Endereço oficial (CFOAB)</a>'
-      + '<button type="button" data-sec-editar><i class="bi bi-pencil"></i> Editar sede</button></div>'
+      + (site ? '<a href="' + esc(site) + '" target="_blank" rel="noopener"><i class="bi bi-globe2"></i>' + T('master.js.seccionais.site') + '</a>' : '')
+      + '<div class="mp-sec-card-acoes"><a href="' + SEC_CFOAB + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i>' + T('master.js.seccionais.cfoab') + '</a>'
+      + '<button type="button" data-sec-editar><i class="bi bi-pencil"></i> ' + T('master.js.seccionais.editar_sede') + '</button></div>'
       + secDivulgacoes(s.ultimas) + '</div></div>';
   }
 
   // As 5 últimas divulgações (spec: tipo, data, autor, nota). O desenho truncado não mostra a lista: convenção do cartão.
-  const secDivulgacoes = lista => '<div class="mp-sec-divs"><b>ÚLTIMAS DIVULGAÇÕES</b>' + (lista.length
-    ? lista.map(d => '<div class="mp-sec-div"><i style="--cor:' + (SEC_COR[d.tipo] || 'var(--sec-material)') + '"></i><span><b>' + esc(d.rotulo) + '</b> · ' + esc(dataBr(d.data)) + ' · ' + esc(d.autor || 'autor removido')
+  const secDivulgacoes = lista => '<div class="mp-sec-divs"><b>' + T('master.js.seccionais.divulgacoes') + '</b>' + (lista.length
+    ? lista.map(d => '<div class="mp-sec-div"><i style="--cor:' + (SEC_COR[d.tipo] || 'var(--sec-material)') + '"></i><span><b>' + esc(d.rotulo) + '</b> · ' + esc(dataBr(d.data)) + ' · ' + esc(d.autor || T('master.js.seccionais.autor_removido'))
       + (d.nota ? '<span class="mp-sec-div-nota">' + esc(d.nota) + '</span>' : '') + '</span></div>').join('')
-    : '<span class="mp-sec-div-vazio">Nenhuma divulgação registrada. Use o botão direito no mapa.</span>') + '</div>';
+    : '<span class="mp-sec-div-vazio">' + T('master.js.seccionais.sem_divulgacao') + '</span>') + '</div>';
 
   function secAlternar(uf) {
     const ocultas = secOcultas();
@@ -352,11 +363,11 @@
   // Janela "Editar sede" no molde das janelas de limite e plano (caixa/campo do painel, host #mp-modal).
   function secAbrirEdicao(s) {
     const host = document.getElementById('mp-modal'); if (!host) return;
-    host.innerHTML = caixa('bi-bank', 'Editar sede', '<b class="mp-lim-conta" data-sede="' + esc(s.uf) + '">' + esc(s.nome) + '</b>'
-      + campo('ENDEREÇO', 'type="text" maxlength="255" data-sede-endereco value="' + esc(s.endereco || '') + '"')
-      + campo('TELEFONE', 'type="text" maxlength="40" data-sede-telefone value="' + esc(s.telefone || '') + '"')
-      + campo('SITE', 'type="url" maxlength="255" placeholder="https://" data-sede-site value="' + esc(s.site || '') + '"')
-      + '<span class="mp-lim-msg" data-lim-msg></span>', 'Salvar sede');
+    host.innerHTML = caixa('bi-bank', T('master.js.seccionais.editar_sede'), '<b class="mp-lim-conta" data-sede="' + esc(s.uf) + '">' + esc(s.nome) + '</b>'
+      + campo(T('master.js.campo.endereco'), 'type="text" maxlength="255" data-sede-endereco value="' + esc(s.endereco || '') + '"')
+      + campo(T('master.js.campo.telefone'), 'type="text" maxlength="40" data-sede-telefone value="' + esc(s.telefone || '') + '"')
+      + campo(T('master.js.campo.site'), 'type="url" maxlength="255" placeholder="https://" data-sede-site value="' + esc(s.site || '') + '"')
+      + '<span class="mp-lim-msg" data-lim-msg></span>', T('master.js.seccionais.salvar_sede'));
     secAtualizarEdicao(null);
     host.querySelector('[data-sede-endereco]').focus();
   }
@@ -364,7 +375,7 @@
   function secAtualizarEdicao(erro) {
     const host = document.getElementById('mp-modal'), site = host.querySelector('[data-sede-site]').value.trim(), ok = site === '' || /^https:\/\/\S+$/i.test(site);
     const msg = host.querySelector('[data-lim-msg]');
-    msg.textContent = erro || (ok ? 'Confira os dados no site do CFOAB. Campo vazio fica sem informação. A alteração fica registrada na auditoria.' : 'Informe o site completo, começando com https://.');
+    msg.textContent = erro || (ok ? T('master.js.seccionais.sede_ajuda') : T('master.js.seccionais.site_invalido'));
     msg.style.setProperty('--cor', erro || !ok ? '#a3232b' : '#4a6373');
     host.querySelector('[data-lim-ok]').disabled = !ok;
   }
@@ -374,7 +385,7 @@
     host.querySelector('[data-lim-ok]').disabled = true;
     secPostar(SEC.dados.urlSede.replace('/XX/', '/' + uf + '/'), { endereco: v('[data-sede-endereco]'), telefone: v('[data-sede-telefone]'), site: v('[data-sede-site]') }, () => {
       fecharModal(); window.__bjSeccionaisRecarregar();
-    }, erro => { if (host.querySelector('[data-sede]')) secAtualizarEdicao(erro || 'Não foi possível salvar agora. Recarregue a página.'); });
+    }, erro => { if (host.querySelector('[data-sede]')) secAtualizarEdicao(erro || SEC_ERRO_SALVAR); });
   }
 
   // POST JSON com o token no header (o controller lê X-CSRF-Token), com o mesmo critério do postar() do painel.
@@ -414,19 +425,20 @@
      (subseções e nota por UF); cada escrita é um POST com o token no header e recarrega as seccionais. No Mundo o
      item tem o mesmo visual e o clique só avisa que a janela é dos estados do Brasil (DONO). O seletor de modos (L134) NÃO entra: os rótulos
      e o efeito estão no trecho truncado do desenho (pendência da frente). */
-  const OAB_TOOLTIP = 'Ver endereços da OAB e escrever nota';
-  const OAB_SEM_ENDERECO = 'Endereço não cadastrado. Confira no CFOAB.';
-  const OAB_NOTA_EXEMPLO = 'Ex.: contato com a presidente da subseção, enviar material em novembro';
+  const OAB_TOOLTIP = T('master.js.janela_oab.dica');
+  const OAB_SEM_ENDERECO = SEC_SEM_ENDERECO;
+  const OAB_NOTA_EXEMPLO = T('master.js.janela_oab.exemplo');
   const OAB_MAPS = 'https://www.google.com/maps/search/?api=1&query=';
-  const OAB_SO_BRASIL = 'A janela da OAB vale só para os estados do Brasil.';
-  const OAB_SEM_CARGA = 'Não foi possível carregar as seccionais agora. Recarregue a página.';
+  const OAB_SO_BRASIL = T('master.js.janela_oab.so_brasil');
+  const OAB_SEM_CARGA = T('master.js.seccionais.erro_carga');
   const OAB = { uf: null, sub: '', rascunho: null, form: null, msg: null, enviando: false };
   const conta = (n, um, varios) => (n === 1 ? '1 ' + um : num(n) + ' ' + varios);
   // Unidade do número da linha (L118), coerente com a visão: Escritórios, Só primários ou Pessoas (spec, DONO).
-  const oabUnidade = () => (S.mapaQuem === 'esc' ? ['escritório', 'escritórios'] : S.mapaUsu === 'prim' ? ['primário', 'primários'] : ['usuário', 'usuários']);
-  const oabQuantos = n => { const [um, varios] = oabUnidade(); return n > 0 ? conta(n, um, varios) : 'sem ' + varios; };
+  // O singular é o termo do glossário (termos.*); o plural mora na área (o glossário guarda a forma normal).
+  const oabUnidade = () => (S.mapaQuem === 'esc' ? [T('termos.escritorio'), T('master.js.janela_oab.escritorios')] : S.mapaUsu === 'prim' ? [T('termos.primario'), T('master.js.janela_oab.primarios')] : [T('termos.usuario'), T('master.js.janela_oab.usuarios')]);
+  const oabQuantos = n => { const [um, varios] = oabUnidade(); return n > 0 ? conta(n, um, varios) : T('master.js.janela_oab.sem', { unidade: varios }); };
   // Subtítulo do item (`f.sub`, DONO): "N subseções" quando há alguma, senão "sem endereço" sem a sede, senão nada.
-  const faltamSub = s => (!s ? '' : s.subsecoes.length ? conta(s.subsecoes.length, 'subseção', 'subseções') : (s.endereco ? '' : 'sem endereço'));
+  const faltamSub = s => (!s ? '' : s.subsecoes.length ? conta(s.subsecoes.length, T('master.js.janela_oab.subsecao'), T('master.js.janela_oab.subsecoes')) : (s.endereco ? '' : T('master.js.janela_oab.sem_endereco')));
 
   // Item da lista dos que faltam (L140): ponto, nome, ícone de nota, subtítulo e seta. No Mundo, o mesmo visual do
   // desenho (tooltip, seta, mão e realce); só a ação muda: o clique avisa que a janela é dos estados (DONO).
@@ -434,7 +446,7 @@
     if (!f.uf) return '<div class="mp-faltam-uf is-oab" role="button" tabindex="0" data-oab-mundo title="' + OAB_TOOLTIP + '"><span class="mp-faltam-ponto"></span><span class="mp-faltam-nome">' + esc(f.r) + '</span><span class="mp-faltam-sub"></span><i class="bi bi-chevron-right"></i></div>';
     const sec = secDe(f.uf);
     return '<div class="mp-faltam-uf is-oab" role="button" tabindex="0" data-oab-uf="' + esc(f.uf) + '" title="' + OAB_TOOLTIP + '"><span class="mp-faltam-ponto"></span><span class="mp-faltam-nome">' + esc(f.r) + '</span>'
-      + (sec && sec.nota ? '<i class="bi bi-sticky-fill" title="Tem nota"></i>' : '')
+      + (sec && sec.nota ? '<i class="bi bi-sticky-fill" title="' + T('master.js.janela_oab.tem_nota') + '"></i>' : '')
       + '<span class="mp-faltam-sub">' + esc(faltamSub(sec)) + '</span><i class="bi bi-chevron-right"></i></div>';
   }
 
@@ -476,46 +488,46 @@
   function oabJanela(sec) {
     return '<div class="mp-oab-fundo" data-oab-fechar></div><div class="mp-oab-centro"><div class="mp-oab" role="dialog" aria-modal="true" aria-labelledby="mpOabTitulo">'
       + '<div class="mp-oab-cab"><i class="bi bi-bank"></i><span class="mp-oab-cab-txt"><b id="mpOabTitulo">' + esc(sec.nome) + '</b><span>' + esc(OAB.sub) + '</span></span>'
-      + '<button type="button" data-oab-fechar title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button></div>'
+      + '<button type="button" data-oab-fechar title="' + T('master.js.fechar') + '" aria-label="' + T('master.js.fechar') + '"><i class="bi bi-x-lg"></i></button></div>'
       + '<div class="mp-oab-corpo">' + oabSede(sec) + oabSubsecoes(sec) + oabNota(sec)
       + (OAB.msg ? '<span class="mp-oab-msg' + (OAB.msg.ok ? ' is-ok' : '') + '" role="status">' + esc(OAB.msg.texto) + '</span>' : '') + '</div>'
-      + '<div class="mp-oab-rodape"><button type="button" class="mp-oab-fechar" data-oab-fechar>Fechar</button>'
-      + '<button type="button" class="mp-oab-salvar" data-oab-nota-salvar' + (OAB.enviando ? ' disabled' : '') + '><i class="bi bi-check2"></i> Salvar nota</button></div></div></div>';
+      + '<div class="mp-oab-rodape"><button type="button" class="mp-oab-fechar" data-oab-fechar>' + T('master.js.fechar') + '</button>'
+      + '<button type="button" class="mp-oab-salvar" data-oab-nota-salvar' + (OAB.enviando ? ' disabled' : '') + '><i class="bi bi-check2"></i> ' + T('master.js.janela_oab.salvar_nota') + '</button></div></div></div>';
   }
 
   // L486: SECCIONAL · SEDE com "Editar", endereço (cinza quando falta), telefone, "Ver no mapa" e "Site oficial".
   function oabSede(sec) {
     const site = /^https:\/\//i.test(sec.site || '') ? sec.site : null, mapa = sec.endereco ? OAB_MAPS + encodeURIComponent(sec.endereco) : null;
-    return '<div class="mp-oab-sede"><div class="mp-oab-tit"><b>SECCIONAL · SEDE</b><button type="button" class="mp-oab-editar" data-oab-editar><i class="bi bi-pencil"></i> Editar</button></div>'
+    return '<div class="mp-oab-sede"><div class="mp-oab-tit"><b>' + T('master.js.janela_oab.sede') + '</b><button type="button" class="mp-oab-editar" data-oab-editar><i class="bi bi-pencil"></i> ' + T('master.js.janela_oab.editar') + '</button></div>'
       + '<div class="mp-oab-end' + (sec.endereco ? '' : ' is-vazio') + '">' + esc(sec.endereco || OAB_SEM_ENDERECO) + '</div>'
       + (sec.telefone ? '<div class="mp-oab-tel"><i class="bi bi-telephone"></i> ' + esc(sec.telefone) + '</div>' : '')
-      + '<div class="mp-oab-links">' + (mapa ? '<a href="' + esc(mapa) + '" target="_blank" rel="noopener"><i class="bi bi-geo-alt"></i> Ver no mapa</a>' : '')
-      + (site ? '<a href="' + esc(site) + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Site oficial</a>' : '') + '</div></div>';
+      + '<div class="mp-oab-links">' + (mapa ? '<a href="' + esc(mapa) + '" target="_blank" rel="noopener"><i class="bi bi-geo-alt"></i> ' + T('master.js.janela_oab.ver_mapa') + '</a>' : '')
+      + (site ? '<a href="' + esc(site) + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> ' + T('master.js.janela_oab.site_oficial') + '</a>' : '') + '</div></div>';
   }
 
   // L487-489: SUBSEÇÕES com "Adicionar endereço", o formulário (convenção), o texto vazio do desenho e a lista.
   function oabSubsecoes(sec) {
-    return '<div class="mp-oab-subs"><div class="mp-oab-tit"><b>SUBSEÇÕES</b><button type="button" class="mp-oab-add" data-oab-sub-add><i class="bi bi-plus-lg"></i> Adicionar endereço</button></div>'
+    return '<div class="mp-oab-subs"><div class="mp-oab-tit"><b>' + T('master.js.janela_oab.subsecoes_titulo') + '</b><button type="button" class="mp-oab-add" data-oab-sub-add><i class="bi bi-plus-lg"></i> ' + T('master.js.janela_oab.adicionar_endereco') + '</button></div>'
       + (OAB.form ? oabFormulario() : '')
-      + (sec.subsecoes.length ? '' : '<div class="mp-oab-subs-vazio">Nenhuma subseção cadastrada. <a href="' + SEC_CFOAB + '" target="_blank" rel="noopener">Pesquisar o endereço oficial</a> e adicionar.</div>')
+      + (sec.subsecoes.length ? '' : '<div class="mp-oab-subs-vazio">' + T('master.js.janela_oab.subs_vazio', { link: '<a href="' + SEC_CFOAB + '" target="_blank" rel="noopener">' + T('master.js.janela_oab.pesquisar') + '</a>' }) + '</div>')
       + sec.subsecoes.map(x => '<div class="mp-oab-sub"><i class="bi bi-geo-alt"></i><span><b>' + esc(x.nome) + '</b><span>' + esc(x.endereco) + '</span>'
         + (x.telefone ? '<span class="mp-oab-sub-tel">' + esc(x.telefone) + '</span>' : '') + '</span>'
-        + '<button type="button" title="Remover" aria-label="Remover" data-oab-sub-rm="' + esc(x.id) + '"><i class="bi bi-trash3"></i></button></div>').join('') + '</div>';
+        + '<button type="button" title="' + T('master.js.janela_oab.remover') + '" aria-label="' + T('master.js.janela_oab.remover') + '" data-oab-sub-rm="' + esc(x.id) + '"><i class="bi bi-trash3"></i></button></div>').join('') + '</div>';
   }
 
   // "Adicionar endereço" abre o formulário na própria janela (spec: nome, endereço e telefone). O desenho não o mostra.
   const oabCampo = (rotulo, chave, max) => '<label class="mp-oab-campo"><span>' + rotulo + '</span><input type="text" maxlength="' + max + '" data-oab-form="' + chave + '" value="' + esc(OAB.form[chave]) + '"></label>';
   function oabFormulario() {
-    return '<div class="mp-oab-form">' + oabCampo('NOME', 'nome', 120) + oabCampo('ENDEREÇO', 'endereco', 255) + oabCampo('TELEFONE', 'telefone', 40)
-      + '<div class="mp-oab-form-acoes"><button type="button" class="mp-oab-form-cancelar" data-oab-form-cancelar>Cancelar</button>'
-      + '<button type="button" class="mp-oab-form-ok" data-oab-form-ok' + (OAB.enviando ? ' disabled' : '') + '>Adicionar</button></div></div>';
+    return '<div class="mp-oab-form">' + oabCampo(T('master.js.campo.nome'), 'nome', 120) + oabCampo(T('master.js.campo.endereco'), 'endereco', 255) + oabCampo(T('master.js.campo.telefone'), 'telefone', 40)
+      + '<div class="mp-oab-form-acoes"><button type="button" class="mp-oab-form-cancelar" data-oab-form-cancelar>' + T('master.js.cancelar') + '</button>'
+      + '<button type="button" class="mp-oab-form-ok" data-oab-form-ok' + (OAB.enviando ? ' disabled' : '') + '>' + T('master.js.janela_oab.adicionar') + '</button></div></div>';
   }
 
   // L491: NOTA EXPLICATIVA, o campo com o exemplo do desenho e a data da última gravação (formato DONO).
   function oabNota(sec) {
     const texto = OAB.rascunho !== null ? OAB.rascunho : (sec.nota ? sec.nota.texto : '');
-    return '<label class="mp-oab-nota">NOTA EXPLICATIVA<textarea rows="3" maxlength="1000" data-oab-nota placeholder="' + OAB_NOTA_EXEMPLO + '">' + esc(texto) + '</textarea>'
-      + '<span>' + (sec.nota ? esc('Atualizada em ' + dataBr(sec.nota.atualizadaEm)) : '') + '</span></label>';
+    return '<label class="mp-oab-nota">' + T('master.js.janela_oab.nota') + '<textarea rows="3" maxlength="1000" data-oab-nota placeholder="' + OAB_NOTA_EXEMPLO + '">' + esc(texto) + '</textarea>'
+      + '<span>' + (sec.nota ? esc(T('master.js.janela_oab.atualizada', { data: dataBr(sec.nota.atualizadaEm) })) : '') + '</span></label>';
   }
 
   function oabClique(e) {
@@ -534,8 +546,8 @@
   function oabPedirRemocao(sec, id) {
     const escolhida = sec.subsecoes.find(v => v.id === id); if (!escolhida || !window.BJMasterConf) return;
     const url = SEC.dados.urlSubsecaoRemover.replace('/XX/', '/' + sec.uf + '/').replace('/0/', '/' + id + '/');
-    window.BJMasterConf.abrir({ titulo: 'Remover subseção', icone: 'bi-trash3', cor: '#a3232b', botao: 'Remover',
-      texto: 'O endereço "' + escolhida.nome + '" sai da lista da seccional. A remoção fica registrada na auditoria.',
+    window.BJMasterConf.abrir({ titulo: T('master.js.janela_oab.remover_titulo'), icone: 'bi-trash3', cor: '#a3232b', botao: T('master.js.janela_oab.remover'),
+      texto: T('master.js.janela_oab.remover_texto', { nome: escolhida.nome }),
       aoConfirmar: () => { window.BJMasterConf.fechar(); oabEnviar(url, {}, () => {}); } });
   }
 
@@ -545,7 +557,7 @@
     OAB.enviando = true; OAB.msg = null; renderOab();
     secPostar(url, corpo, j => {
       OAB.enviando = false; aoDarCerto(); OAB.msg = { ok: true, texto: j.mensagem }; renderOab(); window.__bjSeccionaisRecarregar();
-    }, erro => { OAB.enviando = false; OAB.msg = { ok: false, texto: erro || 'Não foi possível salvar agora. Recarregue a página.' }; renderOab(); });
+    }, erro => { OAB.enviando = false; OAB.msg = { ok: false, texto: erro || SEC_ERRO_SALVAR }; renderOab(); });
   }
 
   // Aviso do painel (avisoHtml), embaixo do total da tabela de UFs.
@@ -560,7 +572,7 @@
     if (alvo.hasAttribute('data-oab-mundo')) return oabAvisar(OAB_SO_BRASIL);
     const uf = alvo.dataset.oabUf, n = Number(alvo.dataset.oabN || 0);
     if (S.aviso) oabAvisar(null);
-    abrirOab(uf, uf + ' · ' + oabQuantos(n) + ' no BlueJus');
+    abrirOab(uf, T('master.js.janela_oab.subtitulo', { uf, quantos: oabQuantos(n) }));
   }
   elSecao.addEventListener('click', e => { const alvo = e.target.closest('[data-oab-uf], [data-oab-mundo]'); if (alvo) oabPeloAlvo(alvo); });
   elSecao.addEventListener('keydown', e => {
@@ -577,10 +589,10 @@
 
   function renderIdades() {
     const I = D.visao.idades, F = I.faixas, tot = F.reduce((a, x) => a + x.n, 0), mx = Math.max(1, ...F.map(x => x.n));
-    document.getElementById('mp-idades').innerHTML = '<div class="mp-idades-topo"><b>Faixa etária dos usuários</b><span>idade média ' + (I.media === null ? 'sem informação' : I.media + ' anos') + '</span></div>'
+    document.getElementById('mp-idades').innerHTML = '<div class="mp-idades-topo"><b>' + T('master.js.visao.idades.titulo') + '</b><span>' + T('master.js.visao.idades.media', { valor: I.media === null ? T('master.js.sem_informacao') : T('master.js.visao.idades.anos', { n: I.media }) }) + '</span></div>'
       + '<div class="mp-idades-lista">' + F.map(x => '<div class="mp-idade"><span>' + esc(x.rot) + '</span><div class="mp-idade-trilho"><div style="--w:' + pct(x.n, mx) + '"></div></div><b>' + num(x.n) + '</b><span>' + pct(x.n, tot) + '</span></div>').join('') + '</div>'
-      + '<span class="mp-idades-nota">Calculada pela data de nascimento do Meu Perfil. ' + num(I.semData) + ' usuário(s) sem data não entram na conta.'
-      + (I.menores > 0 ? ' ' + num(I.menores) + ' com menos de 18 anos não entram nas faixas.' : '') + '</span>';
+      + '<span class="mp-idades-nota">' + T('master.js.visao.idades.nota', { n: num(I.semData) })
+      + (I.menores > 0 ? ' ' + T('master.js.visao.idades.menores', { n: num(I.menores) }) : '') + '</span>';
   }
 
   /* ================= CONTAS E ESCRITÓRIOS ================= */
@@ -867,7 +879,7 @@
   /* ================= PLANOS E LIMITES ================= */
   // Cartões (desenho 1.2, linhas 205-210 e 697). Cores do desenho; o 4º plano (Avançado) é convenção, o desenho tem 3.
   const COR_PLANO = { free: '#c08a12', essencial: '#0a6fa0', profissional: '#1e7b45', avancado: '#7a3e8f' };
-  const reais = cent => 'R$ ' + (cent % 100 === 0 ? num(cent / 100) : (cent / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+  const reais = cent => 'R$ ' + (cent % 100 === 0 ? num(cent / 100) : window.BJFormato.numero(cent / 100, 2));
   const nomeDoPlano = p => (p.codigo === 'free' ? 'Plano ' + p.nome : p.nome);
   // "usuários sem limite", e não "sem limite usuários" (o desenho sempre acrescenta " usuários"): convenção.
   const usuariosDoPlano = p => (p.limiteUsuarios === null ? 'usuários sem limite' : num(p.limiteUsuarios) + ' usuários');
@@ -894,7 +906,7 @@
   const fecharModal = () => { modal = null; if (elModal) elModal.innerHTML = ''; };
   const caixa = (icone, titulo, corpo, botao) => '<div class="mp-lim-fundo" data-lim-fundo><div class="mp-lim" role="dialog" aria-modal="true" aria-labelledby="mpLimTitulo">'
     + '<div class="mp-lim-cab"><i class="bi ' + icone + '"></i><span id="mpLimTitulo">' + esc(titulo) + '</span></div><div class="mp-lim-corpo">' + corpo + '</div>'
-    + '<div class="mp-lim-rodape"><button type="button" class="mp-lim-cancelar" data-lim-cancelar>Cancelar</button><button type="button" class="mp-lim-ok" data-lim-ok disabled>' + esc(botao) + '</button></div></div></div>';
+    + '<div class="mp-lim-rodape"><button type="button" class="mp-lim-cancelar" data-lim-cancelar>' + T('master.js.cancelar') + '</button><button type="button" class="mp-lim-ok" data-lim-ok disabled>' + esc(botao) + '</button></div></div></div>';
   const campo = (rotulo, attrs) => '<label class="mp-lim-campo"><span>' + rotulo + '</span><input ' + attrs + '></label>';
   const quadros = itens => '<div class="mp-lim-info">' + itens.map(([rot, val]) => '<div><div>' + rot + '</div><div>' + esc(val) + '</div></div>').join('') + '</div>';
 
@@ -977,7 +989,7 @@
   function abrirPlano(codigo) {
     const p = D.planos && D.planos.planos.find(x => x.codigo === codigo); if (!p || !elModal) return;
     modal = { tipo: 'plano', p, erro: null, enviando: false };
-    const preco = (p.precoCentavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: p.precoCentavos % 100 === 0 ? 0 : 2, maximumFractionDigits: 2, useGrouping: false });
+    const preco = decimal(p.precoCentavos / 100, p.precoCentavos % 100 === 0 ? 0 : 2, 2);
     elModal.innerHTML = caixa('bi-sliders', 'Editar plano', '<b class="mp-lim-conta">' + esc(nomeDoPlano(p)) + '</b>'
       + campo('NOME', 'type="text" maxlength="60" data-plano-nome value="' + esc(p.nome) + '"')
       + '<div class="mp-lim-duas">' + campo('ESPAÇO (GB)', 'type="number" min="1" step="1" data-plano-cota value="' + p.cotaGb + '"')

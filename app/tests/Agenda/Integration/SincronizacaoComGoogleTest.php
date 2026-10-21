@@ -20,6 +20,8 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Sync\Service\CifradorDeSegredo;
+use App\Agenda\Contract\DatasParaOGoogle;
+use App\Tests\Agenda\DatasParaOGoogleFalsas;
 use App\Tests\Agenda\GoogleFalso;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -44,6 +46,8 @@ final class SincronizacaoComGoogleTest extends KernelTestCase
     {
         $this->google = new GoogleFalso();
         static::getContainer()->set(GoogleAgendaApi::class, $this->google->api());
+        // As datas do sistema têm teste próprio (SincronizacaoDeDatasComGoogleTest).
+        static::getContainer()->set(DatasParaOGoogle::class, new DatasParaOGoogleFalsas());
     }
 
     #[TestDox('A primeira sincronia cria na conta a agenda com o nome do escritório e trabalha só nela (nunca na principal)')]

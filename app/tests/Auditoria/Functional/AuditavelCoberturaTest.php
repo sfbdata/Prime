@@ -184,6 +184,7 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Agenda\Entity\ConexaoGoogleAgenda::class,
         \App\Agenda\Entity\LigacaoComGoogle::class,
         \App\Agenda\Entity\PrazoNoGoogle::class,
+        \App\Agenda\Entity\DataNoGoogle::class,
         \App\Agenda\Entity\ExclusaoNoGoogle::class,
         \App\Agenda\Entity\VarreduraDoGoogle::class,
         // Pergunta da aba Perguntar da BlueJus IA (drawer, F3, 19/10): a conversa é da pessoa, e o AuditLogSubscriber
