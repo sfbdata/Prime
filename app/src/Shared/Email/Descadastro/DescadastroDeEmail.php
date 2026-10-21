@@ -63,11 +63,12 @@ final class DescadastroDeEmail implements DescadastroDeEmailInterface
         }
     }
 
-    public function listar(?Tenant $tenant, ?string $busca, int $pagina, int $porPagina): ListaDeDescadastros
+    public function listar(?Tenant $tenant, ?string $busca, int $pagina, int $porPagina, array $assuntos = []): ListaDeDescadastros
     {
         $pagina = max(1, $pagina);
         $porPagina = min(self::MAXIMO_POR_PAGINA, max(1, $porPagina));
-        $resultado = $this->repositorio->listarAtivos($tenant, $busca, $pagina, $porPagina);
+        $assuntos = array_map(static fn (string $a): string => self::exigirPadrao($a, 'assunto'), $assuntos);
+        $resultado = $this->repositorio->listarAtivos($tenant, $busca, $pagina, $porPagina, $assuntos);
 
         return new ListaDeDescadastros(
             $resultado['total'],
@@ -75,6 +76,16 @@ final class DescadastroDeEmail implements DescadastroDeEmailInterface
             $pagina,
             $porPagina,
         );
+    }
+
+    public function filtrarDescadastrados(?Tenant $tenant, array $emails, string $assunto): array
+    {
+        $normalizados = array_values(array_unique(array_filter(array_map(self::normalizar(...), $emails), static fn (string $e): bool => $e !== '')));
+        if ($normalizados === []) {
+            return [];
+        }
+
+        return $this->repositorio->bloqueadosEntre($tenant, $normalizados, self::exigirPadrao($assunto, 'assunto'), self::ASSUNTO_TODOS);
     }
 
     public function gerarLink(?Tenant $tenant, string $email, string $assunto): string

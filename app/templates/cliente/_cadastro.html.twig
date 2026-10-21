@@ -5,11 +5,12 @@
    Abas: Cliente, Réu (3c), Endereço, Contato, Documentos (3b), Qualificação e Histórico (3d: o histórico próprio do
    cadastro, só rótulos, nunca valores; `HistoricoDoCliente`). Spec E12, §13. Pessoa jurídica usa a mesma janela
    adaptada (decisão do dono, sem desenho próprio).
-   As regras de pendência vêm do servidor (`PendenciasDoCadastro`): cada campo obrigatório leva o texto e a aba
+   Nenhum campo é obrigatório para salvar (decisão do dono, 21/10/2026); o que falta vira pendência, sem asterisco.
+   As regras de pendência vêm do servidor (`PendenciasDoCadastro`): cada campo cobrado leva o texto e a aba
    da pendência dele em data-*, para o JS recalcular a cada tecla como o desenho; as de documento chegam prontas.
    Sem permissão de EDITAR o cliente, os campos vêm travados e não há Salvar.
 
-   Contexto: cliente, novo (Novo cliente: sem id, pela pasta), autores, pf, pendencias, pendenciasDocs, qualificacao, podeEditar, pasta, podeVincular, estadosCivis, docs,
+   Contexto: cliente, novo (Novo cliente: sem id, pela pasta ou, sem pasta, pelo modal Nova carteira), autores, pf, pendencias, pendenciasDocs, qualificacao, podeEditar, pasta, podeVincular, estadosCivis, docs,
    abaInicial, mostrarOcr, reus (null sem pasta de contexto), historico (lista de {q, t}, a mais nova primeiro).
    ============================================================================ #}
 {% set novo = novo ?? false %}
@@ -22,7 +23,7 @@
 {% macro campo(rotulo, nome, valor, larg, opcoes = {}) %}
     {% set o = {obrig: null, aba: 'pessoais', tipo: 'text', placeholder: '', mascara: null, travado: false, inputmode: null, maxlength: 100}|merge(opcoes) %}
     <label class="cad-campo cad-campo--{{ larg }}">
-        <span class="cad-rotulo">{{ rotulo }}{% if o.obrig %} <b aria-hidden="true">*</b>{% endif %}</span>
+        <span class="cad-rotulo">{{ rotulo }}</span>
         <input type="{{ o.tipo }}" name="{{ nome }}" value="{{ valor }}" class="cad-input" autocomplete="off"
                {% if o.placeholder %}placeholder="{{ o.placeholder }}"{% endif %}
                {% if o.mascara %}data-mascara="{{ o.mascara }}"{% endif %}
@@ -35,7 +36,13 @@
 {% import _self as f %}
 <div class="cad-veu" data-cad-janela
      data-url-cadastro="{{ path('cliente_cadastro', {id: 0}) }}"
-     {% if novo %}
+     {% if novo and not pasta %}
+     data-novo="1"
+     data-url-salvar="{{ path('cliente_cadastro_novo_salvar') }}"
+     data-url-documento="{{ path('cliente_cadastro_novo_documento') }}"
+     data-csrf="{{ csrf_token('cliente_cadastro_novo') }}"
+     data-url-janela="{{ path('cliente_cadastro_novo') }}"
+     {% elseif novo %}
      data-novo="1"
      data-url-salvar="{{ path('pasta_cadastro_novo_salvar', {id: pasta.id}) }}"
      data-url-documento="{{ path('pasta_cadastro_novo_documento', {id: pasta.id}) }}"
@@ -117,14 +124,14 @@
                         {% for t in [{v: 'pf', rotulo: 'Pessoa física'}, {v: 'pj', rotulo: 'Empresa'}] %}
                             <button type="button" class="cad-tipo-op js-cad-tipo{{ (t.v == 'pf') == pf ? ' is-ativo' : '' }}" role="radio"
                                     aria-checked="{{ (t.v == 'pf') == pf ? 'true' : 'false' }}"
-                                    data-url="{{ path('pasta_cadastro_novo', {id: pasta.id, tipo: t.v, autor: app.request.query.get('autor')}) }}">{{ t.rotulo }}</button>
+                                    data-url="{{ pasta ? path('pasta_cadastro_novo', {id: pasta.id, tipo: t.v, autor: app.request.query.get('autor')}) : path('cliente_cadastro_novo', {tipo: t.v}) }}">{{ t.rotulo }}</button>
                         {% endfor %}
                     </div>
                 {% endif %}
                 {% if pf %}
                     {{ f.campo('Nome completo', 'nome', cliente.nomeCompleto, 6, {obrig: 'Nome completo não informado', travado: travado, maxlength: 150}) }}
                     <label class="cad-campo cad-campo--2">
-                        <span class="cad-rotulo">CPF <b aria-hidden="true">*</b></span>
+                        <span class="cad-rotulo">CPF</span>
                         <input type="text" name="cpf" value="{{ cliente.cpf|documento_br }}" class="cad-input js-cad-cpf" autocomplete="off"
                                inputmode="numeric" placeholder="000.000.000-00" data-mascara="cpf" data-obrig="CPF não informado" data-aba="pessoais"
                                {% if travado %}disabled{% endif %}>
@@ -132,7 +139,7 @@
                     </label>
                     <div class="cad-campo cad-campo--2 cad-campo--par">
                         <label class="cad-sub">
-                            <span class="cad-rotulo">RG <b aria-hidden="true">*</b></span>
+                            <span class="cad-rotulo">RG</span>
                             <input type="text" name="rg" value="{{ cliente.rg }}" class="cad-input" autocomplete="off" placeholder="Número" maxlength="20"
                                    data-obrig="RG não informado" data-aba="pessoais" {% if travado %}disabled{% endif %}>
                         </label>
@@ -144,7 +151,7 @@
                     </div>
                     {{ f.campo('Nascimento', 'nascimento', cliente.dataNascimento ? cliente.dataNascimento|date('Y-m-d') : '', 2, {tipo: 'date', travado: travado}) }}
                     <label class="cad-campo cad-campo--2">
-                        <span class="cad-rotulo">Estado civil <b aria-hidden="true">*</b></span>
+                        <span class="cad-rotulo">Estado civil</span>
                         <select name="estado_civil" class="cad-input" data-obrig="Estado civil não informado" data-aba="pessoais" {% if travado %}disabled{% endif %}>
                             <option value=""></option>
                             {% for codigo in estadosCivis %}
@@ -168,7 +175,7 @@
                 {% else %}
                     {{ f.campo('Razão social', 'razao_social', cliente.razaoSocial, 6, {obrig: 'Razão social não informada', travado: travado}) }}
                     <label class="cad-campo cad-campo--2">
-                        <span class="cad-rotulo">CNPJ <b aria-hidden="true">*</b></span>
+                        <span class="cad-rotulo">CNPJ</span>
                         <input type="text" name="cnpj" value="{{ cliente.cnpj|documento_br }}" class="cad-input js-cad-cpf" autocomplete="off"
                                inputmode="numeric" placeholder="00.000.000/0000-00" data-mascara="cnpj" data-obrig="CNPJ não informado" data-aba="pessoais"
                                {% if travado %}disabled{% endif %}>
@@ -221,7 +228,7 @@
                 {{ f.campo('Bairro', 'bairro', cliente.bairro, 3, {obrig: 'Bairro não informado', aba: 'endereco', travado: travado}) }}
                 {{ f.campo('Cidade', 'cidade', cliente.cidade, 4, {obrig: 'Cidade não informada', aba: 'endereco', travado: travado}) }}
                 <label class="cad-campo cad-campo--2">
-                    <span class="cad-rotulo">UF <b aria-hidden="true">*</b></span>
+                    <span class="cad-rotulo">UF</span>
                     <select name="uf" class="cad-input" data-obrig="UF não informada" data-aba="endereco" {% if travado %}disabled{% endif %}>
                         <option value=""></option>
                         {% for uf in UFS %}<option value="{{ uf }}" {{ cliente.estado|upper == uf ? 'selected' : '' }}>{{ uf }}</option>{% endfor %}

@@ -346,7 +346,9 @@
             {% endif %}
         </div>
         <div class="ps-anotacao-corpo">
-            <i class="bi {{ {fase: 'bi-signpost-split', prazo: 'bi-calendar-event', contrato: 'bi-pen', situacao: 'bi-flag', cadastro: 'bi-person-vcard', proc: 'bi-link-45deg'}[doSistema] ?? 'bi-megaphone-fill' }} ps-anotacao-icone" aria-hidden="true"></i>
+            {# Ícones do `Component.SYS` do desenho 02 (dc L6168); o cadeado usa o mesmo `bi-lock-fill` da faixa de
+               somente visualização (`_cadeado_faixa`). #}
+            <i class="bi {{ {fase: 'bi-signpost-split', prazo: 'bi-calendar-event', contrato: 'bi-pen', situacao: 'bi-flag', cadastro: 'bi-person-vcard', proc: 'bi-link-45deg', resp: 'bi-person-badge', probono: 'bi-heart', pasta: 'bi-folder2-open', cadeado: 'bi-lock-fill'}[doSistema] ?? 'bi-megaphone-fill' }} ps-anotacao-icone" aria-hidden="true"></i>
             <div class="ps-anotacao-texto pasta-msg-conteudo">
                 {# Escrito por uma pessoa no editor rico: HTML já sanitizado no servidor. O
                    `registro_texto` é o `texto_rico` com as @menções (`@[Nome](user:ID)`) em

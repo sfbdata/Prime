@@ -76,6 +76,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // menu ⋮ encheria o audit_log de ruído sem valor de prova.
         \App\Dashboard\Entity\PreferenciaDoUsuario::class,
 
+        // Resumo diário por e-mail: a trava do envio (uma linha por pessoa e dia); o próprio envio fica em comercial_envio.
+        \App\Profile\Entity\ResumoDiarioEnvio::class,
+
         // Saída da equipe: o próprio registro já é a trilha (só inclusão, nunca alterado), e a remoção que o
         // cria já entra no audit_log (RemoverColaboradorDoEscritorioUseCase::registrarAuditoria).
         \App\Tenant\Entity\SaidaDaEquipe::class,

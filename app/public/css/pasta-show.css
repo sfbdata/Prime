@@ -5661,3 +5661,33 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
     border-radius: 3px;
     background: linear-gradient(135deg, #fff 45%, #cf3f36 47%, #cf3f36 53%, #fff 55%);
 }
+
+/* =============================================================================
+   Tag fixa "Observação" dos registros de Detalhes (desenho 02, dc L2458 `o.tagSt`
+   e dc L6275 `COR['Observação']`): 10,5px, 700, caixa alta com .06em, 2px 8px,
+   cantos de 4px, roxo #6b5bb0 sobre #efecfa. Fica depois do autor (e da
+   presença) e antes de "editado". A etiqueta variável (Combinado, Ligação,
+   Atendimento) segue pendente (PAS-029).
+   ============================================================================= */
+.ps-body,
+.ps-page {
+    --ps-obs-tag-tx: #6b5bb0;
+    --ps-obs-tag-bg: #efecfa;
+}
+[data-bs-theme="dark"] .ps-body,
+[data-bs-theme="dark"] .ps-page {
+    --ps-obs-tag-tx: #c9bff2;
+    --ps-obs-tag-bg: rgba(107, 91, 176, .28);
+}
+.detalhes-obs-tag {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--ps-obs-tag-bg);
+    color: var(--ps-obs-tag-tx);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}

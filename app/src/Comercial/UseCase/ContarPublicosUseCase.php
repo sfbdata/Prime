@@ -32,6 +32,8 @@ final class ContarPublicosUseCase
             $pedido->filtro->quantos(),
             $resolvido->base(),
             $resolvido->semInformacao,
+            $resolvido->repetidos,
+            $resolvido->invalidos,
         );
     }
 }

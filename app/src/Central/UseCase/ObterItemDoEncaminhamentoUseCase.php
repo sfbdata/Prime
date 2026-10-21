@@ -41,6 +41,9 @@ final class ObterItemDoEncaminhamentoUseCase
     {
         $tenant = $this->acesso->exigirVinculoAtivo($eu, $tenant);
         $pasta = $this->guarda->pastaQueEuVejo($pastaId, $eu, $tenant);
+        if (!$this->guarda->podeVer($eu, $pasta, $this->itens->tipoDoAcesso($tenant, $pasta, $tipo, $itemId))) {
+            throw new ItemEncaminhadoNaoEncontradoException();   // a prévia do Financeiro também exige ver o financeiro
+        }
 
         return $this->itens->resumir($tenant, $pasta, $tipo, $itemId);
     }

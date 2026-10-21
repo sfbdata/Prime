@@ -346,6 +346,7 @@
                     <div class="ps-anotacao-topo">
                         <span class="ps-avatar ps-avatar--24">${data.autorFotoUrl ? `<img src="${esc(data.autorFotoUrl)}" alt="">` : esc(iniciaisDe(data.autorNome))}</span>
                         <span class="ps-anotacao-autor">${esc(data.autorNome ?? 'Autor desconhecido')}</span>
+                        <span class="detalhes-obs-tag">Observação</span>
                         <span class="ps-cab-espaco"></span>{% if podeEscreverObs %}
                         <span class="ps-anotacao-acoes">
                             <button type="button"
@@ -382,7 +383,7 @@
                             <i class="bi bi-three-dots-vertical"></i>
                         </button>
                         <div class="ps-obs-menu" id="psObsMenu${data.id}" role="menu" hidden>
-                            <div class="ps-processo-menu-titulo">${esc(data.autorNome ?? 'Autor desconhecido')} · ${esc(criadaEm.replace(' ', ', '))}</div>{% if podeEscreverObs %}
+                            <div class="ps-processo-menu-titulo">${esc(data.autorNome ?? 'Autor desconhecido')} · ${esc(criadaEm.replace(' ', ', '))} · Observação</div>{% if podeEscreverObs %}
                             <button type="button" class="ps-processo-menu-item js-obs-responder" role="menuitem">
                                 <i class="bi bi-reply-fill"></i><span>Responder</span>
                             </button>{% endif %}
@@ -402,7 +403,7 @@
                             <button type="button" class="ps-processo-menu-item js-obs-imprimir" role="menuitem"
                                     data-autor="${esc(data.autorNome ?? 'Autor desconhecido')}"
                                     data-quando="${esc(criadaEm.replace(' ', ', '))}"
-                                    data-tipo="Atendimento">
+                                    data-tipo="Observação">
                                 <i class="bi bi-printer"></i><span>Imprimir</span>
                             </button>{% if podeEscreverObs %}
                             <div class="ps-processo-menu-sep" role="separator"></div>
@@ -623,7 +624,7 @@
     }
 
     /* C6-PAS-04 (PAS-033): ao salvar uma edição, o "editado" entra (ou é atualizado) logo depois do
-       autor, com a MESMA dica do Twig. A hora de publicação sai do title da hora do cartão
+       autor (e da tag "Observação", quando há: desenho 02, dc L2458), com a MESMA dica do Twig. A hora de publicação sai do title da hora do cartão
        ("dd/mm/aaaa HH:MM"); a edição é a `editadaEm` do servidor ("dd/mm/aaaa HH:MM"). */
     function marcarEditadoObs(artigo, editadaEm) {
         const topo = artigo ? artigo.querySelector(':scope > .ps-anotacao-topo') : null;
@@ -633,8 +634,8 @@
             marca = document.createElement('span');
             marca.className = 'ps-anotacao-editado detalhes-obs-editado';
             marca.textContent = 'editado';
-            const autor = topo.querySelector(':scope > .ps-anotacao-autor');
-            if (autor) { autor.after(marca); } else { topo.appendChild(marca); }
+            const ancora = topo.querySelector(':scope > .detalhes-obs-tag') || topo.querySelector(':scope > .ps-anotacao-autor');
+            if (ancora) { ancora.after(marca); } else { topo.appendChild(marca); }
         }
         const publicado = (((topo.querySelector(':scope > .ps-anotacao-data') || {}).title) || '').slice(-5);
         const partes    = String(editadaEm || '').split(' ');
@@ -1137,6 +1138,11 @@
         <div class="ps-anotacao-topo">
             <span class="ps-avatar ps-avatar--24">{% if foto %}<img src="{{ path('app_profile_foto_serve', {nome: foto}) }}" alt="">{% else %}{{ iniciais }}{% endif %}</span>
             <span class="ps-anotacao-autor">{{ autor ?: 'Autor desconhecido' }}</span>
+            {# Tag fixa "Observação" do desenho 02 (dc L2458, `o.tag`; dc L6320: todo registro de Detalhes a recebe),
+               depois do autor e antes de "editado". Também no cabeçalho do ⋮ e na linha da impressão (dc L6874:
+               autor · quando · Observação). A etiqueta VARIÁVEL (Combinado, Ligação, Atendimento) segue pendente com
+               o Farlei (PAS-029) e fica de fora; o cartão montado em JS, acima, repete esta tag. #}
+            <span class="detalhes-obs-tag">Observação</span>
             {% if obs.editadaEm %}
                 {# C6-PAS-04 (PAS-033; dc L.5975 `editadoDica`): quando foi publicado e quando foi a última edição. #}
                 <span class="ps-anotacao-editado detalhes-obs-editado" title="Publicado às {{ obs.criadaEm|date('H:i') }} · última edição {{ obs.editadaEm|date('d/m/Y') }} às {{ obs.editadaEm|date('H:i') }}">editado</span>
@@ -1205,7 +1211,7 @@
                 <i class="bi bi-three-dots-vertical"></i>
             </button>
             <div class="ps-obs-menu" id="psObsMenu{{ obs.id }}" role="menu" hidden>
-                <div class="ps-processo-menu-titulo">{{ autor ?: 'Autor desconhecido' }} · {{ obs.criadaEm|date('d/m/Y, H:i') }}</div>
+                <div class="ps-processo-menu-titulo">{{ autor ?: 'Autor desconhecido' }} · {{ obs.criadaEm|date('d/m/Y, H:i') }} · Observação</div>
                 {% if podeEscreverObs %}
                     <button type="button" class="ps-processo-menu-item js-obs-responder" role="menuitem">
                         <i class="bi bi-reply-fill"></i><span>Responder</span>
@@ -1240,12 +1246,12 @@
                     </button>
                 {% endif %}
                 {# EDT-003 (dc L.6466): "Imprimir" abre a janela de impressão (pasta-impressao.js)
-                   com "Registro do expediente" e a linha autor · data · tipo — o tipo do
-                   relatório de Detalhes no desenho é "Atendimento". #}
+                   com "Registro do expediente" e a linha autor · data · tipo. O tipo é a tag fixa
+                   "Observação" do desenho 02 (dc L6874, `meta.tag`). #}
                 <button type="button" class="ps-processo-menu-item js-obs-imprimir" role="menuitem"
                         data-autor="{{ autor ?: 'Autor desconhecido' }}"
                         data-quando="{{ obs.criadaEm|date('d/m/Y, H:i') }}"
-                        data-tipo="Atendimento">
+                        data-tipo="Observação">
                     <i class="bi bi-printer"></i><span>Imprimir</span>
                 </button>
                 {# Quem não escreve (só vê a pasta, ou lápide) não recebe Editar/Excluir nem bloqueados:

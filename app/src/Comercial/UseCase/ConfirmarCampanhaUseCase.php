@@ -132,6 +132,7 @@ final class ConfirmarCampanhaUseCase
             'proxima' => $pedido->agendarPara ?? $agora,
             'estado' => $recorrente ? CampanhaDeEmail::RECORRENTE : ($pedido->agendarPara !== null ? CampanhaDeEmail::AGENDADA : CampanhaDeEmail::NA_FILA),
             'total' => $publico->total(), 'criada_por' => $master->getId(), 'agora' => $agora,
+            'rastrear_leitura' => $pedido->rastrearLeitura,
         ];
     }
 

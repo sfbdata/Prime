@@ -40,6 +40,14 @@ final class ExpansorDeCampanhas
     /** O filtro congelado (§9) não passa mais na validação: tirar o filtro alargaria o público, então a campanha para. */
     public const MOTIVO_DO_FILTRO = 'O filtro guardado na campanha não vale mais; nada foi enviado';
 
+    /**
+     * A confirmação de leitura escolhida em cada campanha (F3g), lida com a mensagem: o envio só rastreia com ela e com
+     * as duas chaves globais (o MontadorDeEmail confere as chaves).
+     *
+     * @var array<int, bool>
+     */
+    private array $rastrearLeitura = [];
+
     public function __construct(
         private readonly CampanhaDeEmailRepository $campanhas,
         private readonly DestinoDaCampanhaRepository $destinos,
@@ -223,6 +231,7 @@ final class ExpansorDeCampanhas
         $id = $destino['campanha_id'];
         if (!\array_key_exists($id, $mensagens)) {
             $campanha = $this->campanhas->porId($id);
+            $this->rastrearLeitura[$id] = $campanha['rastrear_leitura'] ?? false;
             try {
                 $mensagens[$id] = $campanha === null ? null : $this->composicao->descongelar($campanha);
             } catch (CampanhaRecusada) {
@@ -230,7 +239,7 @@ final class ExpansorDeCampanhas
             }
         }
         try {
-            return $mensagens[$id] === null ? null : $this->composicao->mensagemPara($mensagens[$id], $destino['email'], $destino['nome'], 'campanha:' . $id, true, $this->politica->replyToDaCampanha());
+            return $mensagens[$id] === null ? null : $this->composicao->mensagemPara($mensagens[$id], $destino['email'], $destino['nome'], 'campanha:' . $id, $this->rastrearLeitura[$id] ?? false, $this->politica->replyToDaCampanha());
         } catch (CampanhaRecusada | \InvalidArgumentException) {
             $this->logger->error('Comercial: destinatário de campanha descartado (não vira e-mail).', ['campanhaId' => $id, 'destinoId' => $destino['id']]);
 

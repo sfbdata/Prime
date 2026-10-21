@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(DestinatarioDaCampanha::class)]
 final class ListaInformadaTest extends TestCase
 {
-    #[TestDox('CSV: separa por ; , ou tabulação; o e-mail é a coluna com @ e o nome a primeira outra, sem aspas; linhas sem e-mail válido saem')]
+    #[TestDox('CSV: separa por ; , ou tabulação; o e-mail é a coluna com @ e o nome a primeira outra, sem aspas; linha sem @ sai; e-mail com @ inválido segue para a contagem dos inválidos')]
     public function testCsvComARegraDoDc(): void
     {
         $csv = "nome;email\n\"Ana Lima\";ANA@Exemplo.com \r\nbruno@exemplo.com,Bruno Reis\n\tCarla\tcarla@exemplo.com\nsem-email;Fulano\nx@y\n";
@@ -30,7 +30,9 @@ final class ListaInformadaTest extends TestCase
             ['email' => 'ana@exemplo.com', 'nome' => 'Ana Lima'],
             ['email' => 'bruno@exemplo.com', 'nome' => 'Bruno Reis'],
             ['email' => 'carla@exemplo.com', 'nome' => 'Carla'],
+            ['email' => 'x@y', 'nome' => ''],
         ], array_map(static fn (DestinatarioDaCampanha $d): array => $d->paraArray(), $lista));
+        self::assertFalse($lista[3]->valido(), 'quem filtra e conta é o PublicosDaCampanha (dc 21.10 L665)');
     }
 
     #[TestDox('CSV: o nome sai sem ; : ( ) < > " e apóstrofo')]
@@ -56,12 +58,13 @@ final class ListaInformadaTest extends TestCase
         ListaInformada::doCsv(str_repeat('x', ListaInformada::BYTES_DO_CSV + 1));
     }
 
-    #[TestDox('Individual: separa por espaço, vírgula e ponto e vírgula, em minúsculas; mais de 50 é recusado')]
+    #[TestDox('Individual: separa por espaço, vírgula e ponto e vírgula, em minúsculas; o inválido segue para a contagem; mais de 50 válidos é recusado')]
     public function testIndividual(): void
     {
         $lista = ListaInformada::doIndividual(" Ana@Exemplo.com, bruno@exemplo.com;nao-e-email\ncarla@exemplo.com ");
 
-        self::assertSame(['ana@exemplo.com', 'bruno@exemplo.com', 'carla@exemplo.com'], array_map(static fn (DestinatarioDaCampanha $d): string => $d->email, $lista));
+        self::assertSame(['ana@exemplo.com', 'bruno@exemplo.com', 'nao-e-email', 'carla@exemplo.com'], array_map(static fn (DestinatarioDaCampanha $d): string => $d->email, $lista));
+        self::assertCount(51, ListaInformada::doIndividual(implode(',', [...array_map(static fn (int $i): string => 'p' . $i . '@exemplo.com', range(1, 49)), 'errado', 'p50@exemplo.com'])), 'o inválido segue na lista e não conta no limite de 50');
         self::assertCount(50, ListaInformada::doIndividual(implode(',', array_map(static fn (int $i): string => 'p' . $i . '@exemplo.com', range(1, 50)))));
 
         $this->expectExceptionMessage('Digite até 50 e-mails no envio individual.');
