@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\DTO;
 
+use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Pasta\Entity\Pasta;
 
@@ -29,7 +30,7 @@ final readonly class PastaMetasResumoOutput
 {
     /**
      * @param list<array{id: int, titulo: string, prazo: string, atraso: int, responsaveis: string}> $atencao
-     * @param list<array{nome: string, iniciais: string, contagem: string}>                          $pessoas
+     * @param list<array{userId: ?int, nome: string, iniciais: string, contagem: string}>            $pessoas
      * @param list<array{tarefa: Tarefa, numero: int, estado: string, dias: ?int, prazoConcluida: ?string, relatorio: PastaMetaRelatorioOutput}> $linhas
      */
     private function __construct(
@@ -89,22 +90,13 @@ final readonly class PastaMetasResumoOutput
             }
 
             foreach ($tarefa->getResponsaveis() as $responsavel) {
-                $nome = (string) $responsavel->getFullName();
-                if ($nome === '') {
-                    continue;
-                }
-                $porPessoa[$nome] = ($porPessoa[$nome] ?? 0) + 1;
+                $porPessoa[] = $responsavel;
             }
         }
 
-        // A mais atrasada primeiro; quem responde por mais metas primeiro (empate: nome).
+        // A mais atrasada primeiro.
         usort($atencao, static fn (array $a, array $b) => $b['atraso'] <=> $a['atraso']);
-        $pessoas = [];
-        foreach ($porPessoa as $nome => $n) {
-            $pessoas[] = ['nome' => $nome, 'iniciais' => self::iniciais($nome), 'contagem' => $n === 1 ? '1 meta' : $n . ' metas', 'n' => $n];
-        }
-        usort($pessoas, static fn (array $a, array $b) => [$b['n'], $a['nome']] <=> [$a['n'], $b['nome']]);
-        $pessoas = array_map(static fn (array $p) => ['nome' => $p['nome'], 'iniciais' => $p['iniciais'], 'contagem' => $p['contagem']], $pessoas);
+        $pessoas = self::pessoas($porPessoa);
 
         return new self(
             total: $total,
@@ -149,6 +141,38 @@ final readonly class PastaMetasResumoOutput
         }
 
         return 'concluída com ' . $atraso . ($atraso === 1 ? ' dia' : ' dias') . ' de atraso';
+    }
+
+    /**
+     * "Responsáveis nas metas" (dc L.1683-1692): quem responde por mais metas primeiro (empate: nome). Agrupa pela PESSOA
+     * (o id), não pelo nome: dois colegas com o mesmo nome não viram um só, e o id é o que abre a conversa
+     * (`BJCentral.conversar`, Encaminhar PR3).
+     *
+     * @param list<User> $responsaveis um por meta em que a pessoa responde
+     *
+     * @return list<array{userId: ?int, nome: string, iniciais: string, contagem: string}>
+     */
+    private static function pessoas(array $responsaveis): array
+    {
+        $grupos = [];
+        foreach ($responsaveis as $responsavel) {
+            $nome = (string) $responsavel->getFullName();
+            if ($nome === '') {
+                continue;
+            }
+            $chave = $responsavel->getId() !== null ? 'id:' . $responsavel->getId() : 'nome:' . $nome;
+            $grupos[$chave] ??= ['userId' => $responsavel->getId(), 'nome' => $nome, 'n' => 0];
+            ++$grupos[$chave]['n'];
+        }
+        $lista = array_values($grupos);
+        usort($lista, static fn (array $a, array $b) => [$b['n'], $a['nome']] <=> [$a['n'], $b['nome']]);
+
+        return array_map(static fn (array $p) => [
+            'userId'   => $p['userId'],
+            'nome'     => $p['nome'],
+            'iniciais' => self::iniciais($p['nome']),
+            'contagem' => $p['n'] === 1 ? '1 meta' : $p['n'] . ' metas',
+        ], $lista);
     }
 
     /**

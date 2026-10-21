@@ -20,6 +20,42 @@ final class PastaObservacaoDetalhesRepository extends ServiceEntityRepository
         parent::__construct($registry, PastaObservacaoDetalhes::class);
     }
 
+    /**
+     * Uma observação pelo id, desta pasta E deste escritório (o "Encaminhar via Chat I.A" relê o item no servidor).
+     * Filtro explícito: não depende de o TenantFilter estar ligado.
+     */
+    public function findByIdAndPastaAndTenant(int $id, Pasta $pasta, Tenant $tenant): ?PastaObservacaoDetalhes
+    {
+        return $this->createQueryBuilder('o')
+            ->andWhere('o.id = :id')
+            ->andWhere('o.pasta = :pasta')
+            ->andWhere('o.tenant = :tenant')
+            ->setParameter('id', $id)
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * O conteúdo de TODAS as observações da pasta, sem teto e sem hidratar entidade: o card
+     * "Pontos do relatório inicial" lê o relatório inteiro, e o relatório inicial é justamente
+     * o mais antigo, o primeiro a sair do teto de exibição do `findByPasta`.
+     *
+     * @return list<string>
+     */
+    public function conteudosDaPasta(Pasta $pasta, Tenant $tenant): array
+    {
+        return array_map('strval', $this->createQueryBuilder('o')
+            ->select('o.conteudo')
+            ->andWhere('o.pasta = :pasta')
+            ->andWhere('o.tenant = :tenant')
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleColumnResult());
+    }
+
     /** @return PastaObservacaoDetalhes[] */
     public function findByPasta(Pasta $pasta, Tenant $tenant, int $limit = 100): array
     {

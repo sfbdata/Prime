@@ -167,7 +167,7 @@ final class PastaClientesCadastroTelaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('script[src$="/js/pasta-clientes.js"]'));
     }
 
-    #[TestDox('cada prazo tem o ⋮ com Ver nas metas, Adicionar à agenda (.ics) e Copiar — com dia, ano e responsável reais')]
+    #[TestDox('cada prazo tem o ⋮ com Ver nas metas, Encaminhar via Chat I.A, Adicionar à agenda (.ics) e Copiar, com dia, ano e responsável reais')]
     public function testMenuDoPrazo(): void
     {
         $client                       = static::createClient();
@@ -202,10 +202,9 @@ final class PastaClientesCadastroTelaTest extends JusPrimeWebTestCase
         $menu = $linhas->filter('.ps-prazo > .ps-pop-wrap > #' . $menuId . '.ps-pop');
         self::assertCount(1, $menu);
         self::assertSame(
-            ['Ver nas metas', 'Adicionar à agenda (.ics)', 'Copiar'],
+            ['Ver nas metas', 'Encaminhar via Chat I.A', 'Adicionar à agenda (.ics)', 'Copiar'],
             $menu->filter('.ps-pop-item')->each(fn ($n) => trim($n->filter('span')->text()))
         );
-        self::assertStringNotContainsString('Encaminhar', $menu->text(), 'sem back-end, sem item');
         self::assertStringNotContainsString('Alertar', $menu->text(), 'sem back-end, sem item');
 
         $ics = $menu->filter('.js-prazo-ics');

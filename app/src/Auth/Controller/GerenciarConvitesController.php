@@ -12,6 +12,7 @@ use App\Auth\Service\ConviteMailer;
 use App\Auth\UseCase\CriarConviteEscritorioUseCase;
 use App\Auth\UseCase\ReenviarConviteUseCase;
 use App\Auth\UseCase\RevogarConviteUseCase;
+use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use App\Repository\TenantRoleRepository;
 use App\Service\PermissionChecker;
@@ -82,7 +83,7 @@ final class GerenciarConvitesController extends AbstractController
         if ($role === null || $role->getTenant()?->getId() !== $tenant->getId()) {
             $this->addFlash('erro', 'Perfil inválido ou não pertence a este escritório.');
 
-            return $this->redirectToRoute('auth_gerenciar_convites');
+            return $this->voltarDoConvite($request);
         }
 
         try {
@@ -99,7 +100,7 @@ final class GerenciarConvitesController extends AbstractController
             } catch (\RuntimeException) {
                 $this->addFlash('erro', 'Convite criado, mas o email não foi enviado. Use o botão Reenviar.');
 
-                return $this->redirectToRoute('auth_gerenciar_convites');
+                return $this->voltarDoConvite($request);
             }
 
             $this->addFlash('sucesso', sprintf('Convite enviado para %s.', $invitation->getEmail()));
@@ -107,7 +108,7 @@ final class GerenciarConvitesController extends AbstractController
             $this->addFlash('erro', $e->getMessage());
         }
 
-        return $this->redirectToRoute('auth_gerenciar_convites');
+        return $this->voltarDoConvite($request);
     }
 
     #[Route('/{token}/revogar', name: 'auth_gerenciar_convites_revogar', methods: ['POST'])]
@@ -153,8 +154,13 @@ final class GerenciarConvitesController extends AbstractController
             throw $this->createNotFoundException('Convite não encontrado neste escritório.');
         }
 
+        $quem = $this->getUser();
+        if (!$quem instanceof User) {
+            throw $this->createAccessDeniedException();
+        }
+
         try {
-            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($token));
+            $invitation = $this->reenviarUseCase->executar(new ReenviarConviteInput($token, $quem));
 
             try {
                 $this->mailer->enviarConviteEscritorio($invitation);
@@ -187,5 +193,19 @@ final class GerenciarConvitesController extends AbstractController
         if (!$this->conviteCriarLimiter->create((string) $this->getUser()->getId())->consume()->isAccepted()) {
             throw new TooManyRequestsHttpException(null, 'Muitas tentativas. Tente novamente em alguns minutos.');
         }
+    }
+
+    /**
+     * Convite enviado pela aba "Minha conta" do modal (campo `_voltar`) volta para a página em que a pessoa estava
+     * (spec equipe-da-conta §4); só aceita endereço deste mesmo site. Pela página de convites, volta para ela.
+     */
+    private function voltarDoConvite(Request $request): Response
+    {
+        $anterior = (string) $request->headers->get('referer');
+        if ($request->request->get('_voltar') === '1' && $anterior !== '' && parse_url($anterior, PHP_URL_HOST) === $request->getHost()) {
+            return $this->redirect($anterior);
+        }
+
+        return $this->redirectToRoute('auth_gerenciar_convites');
     }
 }

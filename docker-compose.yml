@@ -47,7 +47,7 @@ services:
     volumes:
       - .:/var/www
     entrypoint: []
-    command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
+    command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "comercial", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
     depends_on:
       - php
       - db

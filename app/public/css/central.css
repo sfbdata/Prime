@@ -79,6 +79,40 @@ html[data-bs-theme="dark"] .bj-central {
     --bjc-selo-mudo: #5c6f7b;
     --bjc-perigo: #e3685c;
     --bjc-perigo-hover: rgba(227, 104, 92, .16);
+    /* Chip "Pasta N" no balão dos outros (BC:6041): #cfe8f6 sobre #1b4a63 = 7,5:1 (o claro não muda) */
+    --bjc-chip-pasta-fundo: #1b4a63;
+    --bjc-chip-pasta-texto: #cfe8f6;
+}
+
+html[data-bs-theme="dark"] .bj-central .bj-central-msg:not(.bj-central-msg--minha) .bj-central-chip-pasta,
+html[data-bs-theme="dark"] .bj-central .bj-central-msg:not(.bj-central-msg--minha) .bj-central-chip-pasta:hover,
+html[data-bs-theme="dark"] .bj-central .bj-central-msg:not(.bj-central-msg--minha) .bj-central-chip-pasta:focus {
+    background: var(--bjc-chip-pasta-fundo);
+    color: var(--bjc-chip-pasta-texto);
+}
+
+/* Tema escuro da tela "Despachar via Chat I.A" (BC:6222-6226): os fixos do protótipo levados às variáveis da Central.
+   No claro, os valores literais do desenho continuam nas regras da tela. */
+html[data-bs-theme="dark"] .bj-central .bj-central-despacho-topo {
+    background: var(--bjc-fundo-corpo);
+}
+
+html[data-bs-theme="dark"] .bj-central .bj-central-despacho-titulo {
+    color: var(--bjc-separador-texto);
+}
+
+html[data-bs-theme="dark"] .bj-central .bj-central-despacho-instrucao {
+    border-color: var(--bjc-borda);
+}
+
+html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio {
+    background: var(--bjc-sistema-fundo);
+    color: var(--bjc-texto-medio);
+}
+
+html[data-bs-theme="dark"] .bj-central .bj-central-despacho-prio[aria-pressed="true"] {
+    background: var(--bjc-azul);
+    color: #fff;
 }
 
 .bj-central-pagina {
@@ -1935,4 +1969,252 @@ html[data-bs-theme="dark"] .bj-central {
     letter-spacing: .03em;
     text-transform: uppercase;
     cursor: pointer;
+}
+
+/* ── Encaminhar via Chat I.A: tela "Despachar via Chat I.A" (telaDespacho, BC:6218-6238) e chip "Pasta N" (BC:6041)
+   docs/specs/encaminhar-via-chat-ia.md §4.1. Estilo inline do protótipo portado 1:1, linha a linha. ──────────── */
+/* O corpo da janela em que a tela é montada (BC:6373) */
+.bj-central-despacho {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.bj-central-despacho[hidden] {
+    display: none;
+}
+
+/* Faixa de cima: cabeçalho, cartão, instrução e prioridade (BC:6222) */
+.bj-central-despacho-topo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #f5f8fa;
+    border-bottom: 1px solid var(--bjc-borda-suave);
+}
+
+/* BC:6223 */
+.bj-central-despacho-cab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bj-central-despacho-cab-ico {
+    color: var(--bjc-azul);
+}
+
+.bj-central-despacho-titulo {
+    flex: 1;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #5f7684;
+}
+
+.bj-central-despacho-cancelar {
+    border: none;
+    background: transparent;
+    color: var(--bjc-azul);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* Cartão do item (BC:6224) */
+.bj-central-despacho-cartao {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 9px 10px;
+    background: var(--bjc-fundo);
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(16, 42, 58, .08);
+}
+
+.bj-central-despacho-cartao-ico {
+    font-size: 15px;
+    color: var(--bjc-azul);
+    margin-top: 1px;
+}
+
+.bj-central-despacho-cartao-textos {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.bj-central-despacho-cartao-titulo {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--bjc-texto);
+    overflow-wrap: anywhere;
+}
+
+.bj-central-despacho-cartao-sub {
+    font-size: 11.5px;
+    color: var(--bjc-texto-suave);
+    overflow-wrap: anywhere;
+}
+
+/* Instrução (BC:6225) */
+.bj-central-despacho-instrucao {
+    width: 100%;
+    min-height: 54px;
+    padding: 8px 10px;
+    border: 1px solid #d3dde4;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--bjc-texto);
+    background: var(--bjc-fundo);
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+}
+
+/* Prioridade: Normal, Urgente, Para hoje (BC:6226) */
+.bj-central-despacho-prioridades {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.bj-central-despacho-prio {
+    height: 26px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    background: #e5ecf0;
+    color: #34505f;
+}
+
+.bj-central-despacho-prio[aria-pressed="true"] {
+    background: var(--bjc-azul);
+    color: #fff;
+}
+
+/* Erro do servidor, na própria tela (fora do desenho: o protótipo não falha). Cores do "Remover" da BC:6190. */
+.bj-central-despacho-erro {
+    padding: 8px 12px;
+    background: var(--bjc-perigo-hover);
+    color: var(--bjc-perigo);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.bj-central-despacho-erro[hidden] {
+    display: none;
+}
+
+/* "Para quem?" (BC:6228) */
+.bj-central-despacho-rotulo {
+    padding: 8px 12px 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--bjc-texto-fraco);
+}
+
+/* Cada destino (BC:6230, hover BC:6237) */
+.bj-central-despacho-destino {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 12px;
+    border: none;
+    border-bottom: 1px solid var(--bjc-borda-linha);
+    background: var(--bjc-fundo);
+    text-align: left;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.bj-central-despacho-destino:hover:not(:disabled) {
+    background: var(--bjc-fundo-hover-usuario);
+}
+
+/* Grupo em que alguém não vê a pasta (fora do desenho, decisão 3 da spec): travado, com o motivo, sem clique */
+.bj-central-despacho-destino--travado {
+    cursor: not-allowed;
+    opacity: .6;
+}
+
+/* BC:6237 */
+.bj-central-despacho-destino-nome {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--bjc-texto-forte);
+}
+
+.bj-central-despacho-destino-sub {
+    font-size: 11px;
+    color: var(--bjc-texto-fraco);
+}
+
+/* Chip "Pasta N" na mensagem de despacho (BC:6041): um link para a pasta, da referência que o servidor manda (spec
+   §4.1). <a> no lugar do <button> do protótipo: largura do conteúdo e sem sublinhado, como ele. */
+.bj-central-chip-pasta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: fit-content;
+    margin-top: 6px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: var(--bjc-selecionado);
+    color: var(--bjc-petroleo);
+}
+
+.bj-central-chip-pasta:hover,
+.bj-central-chip-pasta:focus {
+    color: var(--bjc-petroleo);
+    text-decoration: none;
+}
+
+.bj-central-msg--minha .bj-central-chip-pasta,
+.bj-central-msg--minha .bj-central-chip-pasta:hover,
+.bj-central-msg--minha .bj-central-chip-pasta:focus {
+    background: rgba(255, 255, 255, .18);
+    color: #fff;
+}
+
+/* Despacho de pasta que eu não vejo ("Item de pasta sem acesso"), como "Mensagem excluída" (BC:6039): ícone
+   bi-slash-circle com 5px à direita, itálico e opacidade .7 sobre a cor do balão (que já tem o par do tema escuro). */
+.bj-central-oculto {
+    font-style: italic;
+    opacity: .7;
+}
+
+.bj-central-oculto-ico {
+    margin-right: 5px;
+}
+
+/* Na citação e na prévia da lista, só o texto (o desenho não põe ícone na citação, BC:6036), em itálico. */
+.bj-central-oculto-trecho {
+    font-style: italic;
 }

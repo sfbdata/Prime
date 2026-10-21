@@ -1,0 +1,5 @@
+{# Faixa do Master numa tela desligada (spec perfis-1.2-telas-e-recursos, R6): só o Master chega aqui. #}
+{% set telaDesligada = recurso_faixa_master() %}
+{% if telaDesligada %}
+    <div class="bj-recurso-faixa" role="status" data-recurso-faixa>Esta tela está desativada para os usuários. Só o Master está vendo.</div>
+{% endif %}

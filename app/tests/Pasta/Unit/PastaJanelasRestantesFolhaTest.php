@@ -92,7 +92,7 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
         self::assertMatchesRegularExpression('/<div class="ps-obs-menu" id="psObsMenu\$\{data\.id\}" role="menu" hidden>\s*<div class="ps-processo-menu-titulo">/', $obs, 'o molde do JS');
         self::assertMatchesRegularExpression('/<div class="ps-obs-menu" id="psObsMenu\{\{ obs\.id \}\}" role="menu" hidden>\s*<div class="ps-processo-menu-titulo">/', $obs, 'o do servidor');
         self::assertMatchesRegularExpression(
-            '/<div class="pasta-resp-menu" id="pastaRespMenu" hidden>\s*(\{#.*?#\}\s*)?<div class="pasta-resp-busca-wrap">/s',
+            '/<div class="pasta-resp-menu" id="pastaRespMenu" hidden(\{% if not naPasta %\} role="dialog" aria-label="Escolher responsável"\{% endif %\})?>\s*(\{#.*?#\}\s*)?<div class="pasta-resp-busca-wrap">/s',
             self::ler(self::RESP_MENU),
         );
 

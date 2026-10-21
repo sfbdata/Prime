@@ -403,7 +403,11 @@ final class CriarPastaControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('/pasta/', (string) $json['redirect']);
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertCount(1, $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
+        $criadas = $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant]);
+        self::assertCount(1, $criadas);
+        // O Expediente fica na lista e avisa "Pasta N aberta para CLIENTE" (desenho 03, dc `salvarNovaFn`).
+        self::assertSame($criadas[0]->getNup(), $json['nup']);
+        self::assertSame('CLIENTE NOVO', $json['cliente']);
     }
 
     #[TestDox('D12.5 AJAX: confirmar=1 cria mesmo assim e devolve status=ok (aviso NÃO bloqueia)')]

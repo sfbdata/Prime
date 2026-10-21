@@ -3,8 +3,11 @@ declare(strict_types=1);
 namespace App\Profile\Form;
 
 use App\Profile\DTO\DadosPessoaisInput;
+use App\Profile\Enum\VinculoColaborador;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
+use Symfony\Component\Form\Extension\Core\Type\EnumType;
+use Symfony\Component\Form\Extension\Core\Type\TelType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -39,13 +42,77 @@ final class DadosPessoaisType extends AbstractType
                 'required' => false,
                 'attr'     => ['maxlength' => 20, 'placeholder' => 'Série da CTPS'],
             ]);
+        if ($options['campos_do_perfil']) {
+            $this->adicionarCamposDoPerfil($builder);
+        }
+    }
+
+    /**
+     * Só no Meu Perfil (desenho 07): frase, telefone, vínculo e datas do contrato. A tela de dados
+     * pessoais do admin não tem esses campos e não pode apagá-los ao salvar.
+     */
+    private function adicionarCamposDoPerfil(FormBuilderInterface $builder): void
+    {
+        $builder
+            ->add('status', TextType::class, [
+                'label'    => 'Frase do perfil',
+                'required' => false,
+                'attr'     => ['maxlength' => 255, 'placeholder' => 'Uma frase que te representa'],
+            ])
+            ->add('telefone', TelType::class, [
+                'label'    => 'Telefone / WhatsApp',
+                'required' => false,
+                'attr'     => ['maxlength' => 20, 'placeholder' => '(00) 00000-0000'],
+            ]);
+        $this->adicionarCamposDoVinculo($builder);
+    }
+
+    /** Vínculo com o escritório e as datas do contrato (desenho 07, VINC e ED.info). */
+    private function adicionarCamposDoVinculo(FormBuilderInterface $builder): void
+    {
+        $builder
+            ->add('vinculo', EnumType::class, [
+                'class'        => VinculoColaborador::class,
+                'label'        => 'Vínculo com o escritório',
+                'required'     => false,
+                'expanded'     => true,
+                'placeholder'  => false,
+                'choice_label' => static fn (VinculoColaborador $v): string => $v->rotuloBotao(),
+                // O modal troca a ajuda e os campos de data sem voltar ao servidor.
+                'choice_attr'  => static fn (VinculoColaborador $v): array => [
+                    'data-icone'         => $v->icone(),
+                    'data-ajuda'         => $v->ajuda(),
+                    'data-rotulo-inicio' => mb_strtoupper($v->rotuloInicio()),
+                ],
+            ])
+            ->add('dataAdmissao', DateType::class, [
+                'label'    => 'Data de admissão',
+                'required' => false,
+                'widget'   => 'single_text',
+                'input'    => 'datetime_immutable',
+            ])
+            ->add('contratoInicio', DateType::class, [
+                'label'    => 'Início do contrato',
+                'required' => false,
+                'widget'   => 'single_text',
+                'input'    => 'datetime_immutable',
+            ])
+            ->add('cnpj', TextType::class, [
+                'label'    => 'CNPJ (se houver)',
+                'required' => false,
+                'attr'     => ['maxlength' => 18, 'placeholder' => 'Somente números'],
+            ]);
     }
 
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([
-            'data_class'    => DadosPessoaisInput::class,
-            'csrf_token_id' => 'profile_dados',
+            'data_class'       => DadosPessoaisInput::class,
+            'csrf_token_id'    => 'profile_dados',
+            'campos_do_perfil' => false,
         ]);
+        $resolver->setAllowedTypes('campos_do_perfil', 'bool');
+        // CPF com 11 números e CNPJ com 14 valem no modal do perfil (desenho 07); a tela do admin segue como era.
+        $resolver->setDefault('validation_groups', static fn (\Symfony\Component\Form\FormInterface $form): array => $form->getConfig()->getOption('campos_do_perfil') ? ['Default', 'perfil'] : ['Default']);
     }
 }
