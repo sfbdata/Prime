@@ -6,6 +6,7 @@ namespace App\Pasta\DTO;
 
 use App\Djen\DTO\PublicacaoDjenListaItem;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaProcesso;
 use App\Processo\DTO\NotaTecnicaOutput;
 use App\Processo\Entity\NotaTecnica;
 
@@ -164,6 +165,71 @@ final readonly class PastaPushOutput
         }
 
         return null;
+    }
+
+    /**
+     * P4f: a chave do processo a que a movimentação pertence, para o filtro por processo no navegador
+     * (`data-push-proc`). Só dígitos, o mesmo casamento de toda a aba.
+     */
+    public function chaveDoProcesso(PublicacaoDjenListaItem $item): string
+    {
+        return self::soDigitos($item->numeroProcessoExibicao);
+    }
+
+    /**
+     * P4f (desenho `procFiltros`, N:5683): os chips "Todos os processos · N", "Principal · N" e um por
+     * apensado "{Tipo} · N", com a contagem das movimentações da lista. Só existem com mais de duas
+     * opções (principal e ao menos um apensado); senão, lista vazia e a tela não mostra chip nenhum.
+     * Todos os apensados contam como ativos (o monitoramento por processo é de outra frente).
+     *
+     * @return list<array{chave: string, rotulo: string, n: int, numero: ?string}>
+     */
+    public function filtrosPorProcesso(Pasta $pasta): array
+    {
+        $opcoes    = [['chave' => 'todos', 'rotulo' => 'Todos os processos', 'n' => $this->total, 'numero' => null]];
+        $principal = $pasta->getVinculoPrincipal();
+        if ($principal !== null) {
+            $opcoes[] = $this->opcaoDoVinculo($principal, 'Principal');
+        }
+        foreach ($pasta->getApensados() as $apensado) {
+            $opcoes[] = $this->opcaoDoVinculo($apensado, $apensado->getTipoApensoRotulo());
+        }
+
+        return count($opcoes) > 2 ? $opcoes : [];
+    }
+
+    /**
+     * P4f (desenho `pushDaPasta`, N:5483): a movimentação de um APENSADO ganha na fonte o sufixo
+     * " · Apensado · {Tipo} {número}". Devolve o tipo e o número cru do apensado (a máscara é do Twig) ou
+     * null quando a movimentação é do principal (ou de nenhum processo da pasta).
+     *
+     * @return array{tipo: string, numero: string}|null
+     */
+    public function apensadoDaPublicacao(PublicacaoDjenListaItem $item, Pasta $pasta): ?array
+    {
+        $chave = $this->chaveDoProcesso($item);
+        if ($chave === '') {
+            return null;
+        }
+
+        foreach ($pasta->getApensados() as $apensado) {
+            $numero = (string) $apensado->getProcesso()->getNumeroProcesso();
+            if (self::soDigitos($numero) === $chave) {
+                return ['tipo' => $apensado->getTipoApensoRotulo(), 'numero' => $numero];
+            }
+        }
+
+        return null;
+    }
+
+    /** @return array{chave: string, rotulo: string, n: int, numero: ?string} */
+    private function opcaoDoVinculo(PastaProcesso $vinculo, string $rotulo): array
+    {
+        $numero = (string) $vinculo->getProcesso()->getNumeroProcesso();
+        $chave  = self::soDigitos($numero);
+        $n      = count(array_filter($this->itens, fn (PublicacaoDjenListaItem $i): bool => $this->chaveDoProcesso($i) === $chave));
+
+        return ['chave' => $chave, 'rotulo' => $rotulo, 'n' => $n, 'numero' => $numero];
     }
 
     private static function soDigitos(?string $numero): string

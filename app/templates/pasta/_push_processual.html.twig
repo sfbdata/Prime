@@ -26,6 +26,11 @@
 {% set podeEditarPasta = podeEditarPasta is defined ? podeEditarPasta : can_access_resource('pasta', pasta.id, 'edit') %}
 {% set pushPastaViva = not pasta.estaExcluida %}
 {% set pushPodeEscrever = pushPastaViva and podeEditarPasta %}
+{# Grade de duas colunas do desenho (dc L.6595 `pushAnim`: `minmax(0,1fr) minmax(0,300px)`, gap 16):
+   a lista à esquerda e, à direita, o cartão de Monitoramento e Situação atual (spec
+   push-painel-monitoramento §4, e o "Avisar quando chegar", push-avisar-quando-chegar §2; o
+   "Avisar cliente" chega no P4c). Em tela estreita a coluna desce para baixo da lista (pasta-push-painel.css). #}
+<div class="ps-push-grade">
 <section class="ps-card ps-push" data-aba="push">
     <div class="ps-card-cab ps-card-cab--faixa">
         <h2>Movimentações recebidas</h2>
@@ -89,6 +94,21 @@
            FPN-032: os filtros ficam à vista também com a lista vazia (dc L.2419-2421: o cabeçalho
            não depende de `push.vazio`). Sem lista, o clique só troca o botão ativo — o
            pasta-push.js não acha `.ps-push-lista` e o vazio da aba continua o que está na tela. #}
+        {# P4f (desenho `procFiltros`, N:2546-2548 e N:5683): um chip por processo da pasta, antes de
+           Todas/Novas/Geram prazo, e só com principal e ao menos um apensado. Filtra no navegador
+           (pasta-push.js), antes do Todas/Novas/Geram prazo; o total do cabeçalho não muda. #}
+        {% set filtrosProcessoPush = push.filtrosPorProcesso(pasta) %}
+        {% if filtrosProcessoPush is not empty %}
+            <div class="ps-push-procs" role="group" aria-label="Filtrar por processo">
+                {% for filtroProc in filtrosProcessoPush %}
+                    <button type="button" class="ps-push-proc{{ loop.first ? ' is-ativo' : '' }}"
+                            data-push-proc-filtro="{{ filtroProc.chave }}" aria-pressed="{{ loop.first ? 'true' : 'false' }}"
+                            title="{{ filtroProc.numero is null ? 'Movimentações de todos os processos da pasta' : 'Somente ' ~ filtroProc.numero|numero_cnj }}">
+                        {{- filtroProc.rotulo }} · {{ filtroProc.n -}}
+                    </button>
+                {% endfor %}
+            </div>
+        {% endif %}
         <div class="ps-push-filtros" role="group" aria-label="Filtrar movimentações">
             <button type="button" class="ps-push-filtro is-ativo" data-push-filtro="todas" aria-pressed="true">Todas</button>
             <button type="button" class="ps-push-filtro" data-push-filtro="novas" aria-pressed="false">Novas</button>
@@ -108,7 +128,8 @@
         <div class="ps-push-vazio-linha" id="push-vazio-sem-processo">
             Esta pasta não tem processo vinculado.
             O Push Processual acompanha as publicações pelo número do processo.
-            <button type="button" class="ps-push-link" data-ps-ir-aba="processo-tab">Vincule um processo</button>
+            {# Atalho para aba oculta não é renderizado (ocultar aba): fica o texto, sem botão. #}
+            {% if 'processo' not in abasOcultas|default([]) %}<button type="button" class="ps-push-link" data-ps-ir-aba="processo-tab">Vincule um processo</button>{% else %}Vincule um processo{% endif %}
             para que as publicações dele apareçam aqui.
         </div>
     {% elseif push.total == 0 %}
@@ -173,6 +194,7 @@
                         que NÃO marca como lida (o cartão fica como está). #}
                     data-push-texto-url="{{ path('pasta_push_texto', {id: pasta.id, publicacaoId: item.id}) }}"
                     data-push-gera-prazo="{{ push.geraPrazo(item) ? '1' : '0' }}"
+                    data-push-proc="{{ push.chaveDoProcesso(item) }}"
                     data-push-aceita-nota="{{ pushPodeEscrever and push.aceitaNotaTecnica(item) ? '1' : '0' }}">
                     <div class="ps-push-dia{{ loop.first or diaPush != diaAnteriorPush ? '' : ' ps-push-dia--repetido' }}"><span class="ps-push-dia-pilula">{{ diaPushTxt }}</span></div>
                     {% set diaAnteriorPush = diaPush %}
@@ -215,9 +237,13 @@
                             </span>
                             <span class="ps-push-corpo">
                                 <span class="ps-push-titulo ps-push-titulo--{{ tipoPushMod }}">{{ item.tipoComunicacao ?? 'Publicação' }}</span>
+                                {# P4f (N:5483): movimentação de apensado ganha " · Apensado · {Tipo} {número}"
+                                   na fonte; o número sai do meio para não aparecer duas vezes. #}
+                                {% set apensadoPush = push.apensadoDaPublicacao(item, pasta) %}
                                 <span class="ps-push-meta"{% if item.nomeOrgao and item.textoResumo %} title="{{ item.nomeOrgao }}"{% endif %}>
                                     {{- item.siglaTribunal -}}
-                                    {%- if push.numeroUnico is null and item.numeroProcessoExibicao %} · {{ item.numeroProcessoExibicao }}{% endif %} · DJEN
+                                    {%- if push.numeroUnico is null and item.numeroProcessoExibicao and apensadoPush is null %} · {{ item.numeroProcessoExibicao }}{% endif %} · DJEN
+                                    {%- if apensadoPush %} · Apensado · {{ apensadoPush.tipo }} {{ apensadoPush.numero|numero_cnj }}{% endif %}
                                 </span>
                                 <i class="bi bi-chevron-down ps-push-seta" aria-hidden="true"></i>
                             </span>
@@ -304,6 +330,18 @@
         {% endif %}
     {% endif %}
 </section>
+{% if pushPainel is defined and pushPainel is not null %}
+    {% include 'pasta/_push_painel.html.twig' with {pasta: pasta, painel: pushPainel, avisos: pushAvisos ?? null, podeEditarPasta: podeEditarPasta} only %}
+{% endif %}
+</div>
+{# Modal "Enviar ao cliente" da Análise IA (P4c, spec push-avisar-cliente §3): fora da grade de duas
+   colunas (é `position: fixed`); o cartão "Avisar cliente" da coluna fornece os e-mails. #}
+{% if pushPainel is defined and pushPainel is not null %}
+    {% set avisarClienteModal = avisar_cliente(pasta.id) %}
+    {% if avisarClienteModal is not null %}
+        {% include 'pasta/_push_cliente_modal.html.twig' with {pasta: pasta, cliente: avisarClienteModal} only %}
+    {% endif %}
+{% endif %}
 {# Filtro, selo da aba, copiar ID, marcar (não) lida, criar tarefa a partir da publicação e o
    menu do botão direito no cartão. #}
 <script src="{{ asset('js/pasta-push.js') }}" defer></script>

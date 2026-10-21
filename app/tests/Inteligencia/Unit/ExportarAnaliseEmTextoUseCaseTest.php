@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\TipoDeAnalise;
 use App\Inteligencia\Exception\AnaliseNaoEncontradaException;
 use App\Inteligencia\Repository\AnaliseDeInteligenciaRepository;
@@ -131,5 +132,29 @@ final class ExportarAnaliseEmTextoUseCaseTest extends TestCase
         $this->expectException(AnaliseNaoEncontradaException::class);
 
         $this->useCase($analise)->executar(55, $this->pasta, $this->tenant);
+    }
+
+    #[TestDox('análise de comando do drawer: cabeçalho com o rótulo do comando e o comando no nome do arquivo')]
+    public function testComandoNoCabecalhoENoNomeDoArquivo(): void
+    {
+        $analise = new AnaliseDeInteligencia(
+            tenant: $this->tenant,
+            solicitante: null,
+            tipo: TipoDeAnalise::AnalisePasta,
+            alvoTipo: AnaliseDeInteligencia::ALVO_PASTA,
+            alvoId: 7,
+            versaoDoPrompt: 'v1',
+            contextoHash: str_repeat('a', 64),
+            contextoResumo: ['total' => 2],
+            agente: Agente::Prazos,
+            comando: Comando::RelatorioPrazos,
+        );
+        DefineId::em($analise, 55);
+        $this->concluir($analise, 'RELATÓRIO DE PRAZOS');
+
+        $saida = $this->useCase($analise)->executar(55, $this->pasta, $this->tenant);
+
+        self::assertStringStartsWith("BLUEJUS IA · Relatório de prazos\n", $saida->conteudo);
+        self::assertSame('bluejus-ia-relatorio-prazos-pasta-2026-0001-55.txt', $saida->nomeDoArquivo);
     }
 }

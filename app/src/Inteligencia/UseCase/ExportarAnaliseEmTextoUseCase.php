@@ -45,7 +45,7 @@ final class ExportarAnaliseEmTextoUseCase
         $nup = (string) $pasta->getNup();
 
         $linhas = [
-            'BLUEJUS IA · ' . ($saida->agenteNome ?? 'Análise IA do Push'),
+            'BLUEJUS IA · ' . ($saida->comandoRotulo ?? $saida->agenteNome ?? 'Análise IA do Push'),
             'Pasta ' . $nup . ' · gerada em ' . $saida->criadaEm->format('d/m/Y H:i'),
             '',
             $this->corpo($saida),
@@ -83,10 +83,10 @@ final class ExportarAnaliseEmTextoUseCase
         return implode("\n", $partes);
     }
 
-    /** Só ASCII seguro no nome: o NUP e o agente entram, o resto vira hífen. */
+    /** Só ASCII seguro no nome: o NUP e o comando (ou o agente) entram, o resto vira hífen. */
     private function nomeDoArquivo(AnaliseOutput $saida, string $nup): string
     {
-        $base = sprintf('bluejus-ia-%s-pasta-%s-%d', $saida->agente ?? 'push', $nup, $saida->id);
+        $base = sprintf('bluejus-ia-%s-pasta-%s-%d', $saida->comando ?? $saida->agente ?? 'push', $nup, $saida->id);
         $base = (string) preg_replace('/[^A-Za-z0-9]+/', '-', $base);
 
         return strtolower(trim($base, '-')) . '.txt';

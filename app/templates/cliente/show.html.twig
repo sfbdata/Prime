@@ -270,9 +270,13 @@
                                                 <i class="bi bi-folder2-open me-1 text-warning"></i>
                                                 <span class="fw-semibold">{{ pasta.nup }}</span>
                                             </a>
+                                            {% if (pastasOcultas ?? {})[pasta.id] is defined %}
+                                                <i class="bi bi-lock exp-cadeado ms-1" title="Pasta trancada pelo usuário primário" aria-label="Pasta trancada"></i>
+                                            {% else %}
                                             <span class="badge ms-1 {% if pasta.situacao == 'ativo' %}text-bg-success{% else %}text-bg-secondary{% endif %} small">
                                                 {{ pasta.situacao|capitalize }}
                                             </span>
+                                            {% endif %}
                                         </div>
                                     {% endfor %}
                                 {% endif %}

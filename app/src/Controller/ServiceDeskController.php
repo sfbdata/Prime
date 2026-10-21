@@ -19,6 +19,7 @@ use App\ServiceDesk\Armazenamento\ChavesDeServiceDesk;
 use App\Shared\Armazenamento\ArmazenamentoDeArquivos;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Http\FonteDeUploadHttp;
+use App\Tenant\Service\ColaboradoresAtribuiveis;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -209,7 +210,7 @@ class ServiceDeskController extends AbstractController
      * Visualiza um chamado
      */
     #[Route('/{id}', name: 'servicedesk_show', methods: ['GET'], requirements: ['id' => '\d+'])]
-    public function show(Chamado $chamado, UserRepository $userRepository, PermissionChecker $permissionChecker): Response
+    public function show(Chamado $chamado, PermissionChecker $permissionChecker, ColaboradoresAtribuiveis $atribuiveis): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -231,7 +232,7 @@ class ServiceDeskController extends AbstractController
         // Lista de técnicos para atribuição (apenas para admin)
         $tecnicos = [];
         if ($isAdmin) {
-            $tecnicos = $tenant !== null ? $userRepository->findColaboradoresAtivosPorTenant($tenant) : [];
+            $tecnicos = $tenant !== null ? $atribuiveis->doEscritorio($tenant, [$chamado->getResponsavel()]) : [];
         }
 
         return $this->render('servicedesk/show.html.twig', [
@@ -288,7 +289,7 @@ class ServiceDeskController extends AbstractController
      * Atribui ou reatribui responsável ao chamado
      */
     #[Route('/{id}/atribuir', name: 'servicedesk_atribuir', methods: ['POST'])]
-    public function atribuir(Chamado $chamado, Request $request, EntityManagerInterface $em, UserRepository $userRepository, PermissionChecker $permissionChecker): Response
+    public function atribuir(Chamado $chamado, Request $request, EntityManagerInterface $em, ColaboradoresAtribuiveis $atribuiveis, PermissionChecker $permissionChecker): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -309,7 +310,7 @@ class ServiceDeskController extends AbstractController
         $responsavelId = $request->request->get('responsavel_id');
         $responsavel = null;
         if ($responsavelId !== null && $responsavelId !== '') {
-            $responsavel = $userRepository->findColaboradorAtivoPorIdETenant((int) $responsavelId, $chamado->getTenant());
+            $responsavel = $atribuiveis->resolver((int) $responsavelId, $chamado->getTenant(), [$chamado->getResponsavel()]);
             if ($responsavel === null) {
                 throw $this->createNotFoundException('Responsável não encontrado neste escritório.');
             }

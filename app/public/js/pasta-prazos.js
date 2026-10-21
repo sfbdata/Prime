@@ -108,3 +108,25 @@
         if (e.key === 'Enter' && e.target.matches('#psPzTitulo, #psPzResp')) { e.preventDefault(); salvar(); }
     });
 }());
+
+/* "Encaminhar via Chat I.A" no ⋮ do prazo do trilho da aba Dados (D:6561, depois de "Ver nas metas"). Bloco à parte
+   (o de cima sai cedo sem o cartão). O item leva `data-encaminhar-pasta`, `-tipo` e `-id` renderizados pelo Twig: a
+   meta (`meta`, Tarefa.id) ou o prazo registrado (`prazo`, PastaPrazo.id). O clique dispara `bj-central:despachar`
+   com `{pastaId, tipo, itemId}` (spec encaminhar-via-chat-ia §4.1); só ids saem da tela. Classe própria (não
+   `.js-encaminhar`), para o ouvinte dos registros não disparar de novo. O menu fecha pelo `.ps-pop-item`. */
+(function () {
+    'use strict';
+
+    document.addEventListener('click', function (e) {
+        var item = e.target.closest ? e.target.closest('.js-prazo-encaminhar') : null;
+        if (!item) { return; }
+        var pastaId = Number(item.getAttribute('data-encaminhar-pasta'));
+        var itemId = Number(item.getAttribute('data-encaminhar-id'));
+        var tipo = item.getAttribute('data-encaminhar-tipo');
+        if (!pastaId || !itemId || (tipo !== 'meta' && tipo !== 'prazo')) { return; }
+        e.preventDefault();
+        document.dispatchEvent(new CustomEvent('bj-central:despachar', {
+            detail: { pastaId: pastaId, tipo: tipo, itemId: itemId }
+        }));
+    });
+}());

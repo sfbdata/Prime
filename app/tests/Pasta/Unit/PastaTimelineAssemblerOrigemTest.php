@@ -88,6 +88,27 @@ final class PastaTimelineAssemblerOrigemTest extends TestCase
         ], $porTitulo);
     }
 
+    #[TestDox('Ocultar aba: com abas ocultas, os eventos delas não entram (regra única VisibilidadeDasAbasDaPasta::eventoVisivel)')]
+    public function testAbasOcultasFiltramPelaRegraUnica(): void
+    {
+        $mensagens = $this->createStub(PastaMensagemRepository::class);
+        $mensagens->method('findByPasta')->willReturn([]);
+        $audit = $this->createStub(AuditLogRepository::class);
+        $audit->method('findForPastaTimeline')->willReturn([
+            $this->linha('App\\Pasta\\Entity\\Pasta', 'create', '1', []),
+            $this->linha('App\\Pasta\\Entity\\PastaDocumento', 'create', '2', ['diff' => ['after' => ['nomeOriginal' => 'a.pdf']]]),
+            $this->linha('App\\Entity\\Tarefa\\Tarefa', 'create', '3', []),
+        ]);
+        $assembler = new PastaTimelineAssembler($mensagens, $audit, $this->createStub(UserRepository::class), $this->createStub(MarcadorRepository::class), $this->createStub(TarefaRepository::class));
+
+        $todas = array_map(static fn (TimelineItemDTO $i): ?string => $i->origem, $assembler->montar(new Pasta(), new Tenant(), 1, null));
+        sort($todas);
+        self::assertSame(['documento', 'meta', 'pasta'], $todas);
+
+        $semOcultas = array_map(static fn (TimelineItemDTO $i): ?string => $i->origem, $assembler->montar(new Pasta(), new Tenant(), 1, null, abasOcultas: ['tarefas', 'documentos']));
+        self::assertSame(['pasta'], $semOcultas, 'o cadastro da pasta não é de aba nenhuma');
+    }
+
     #[TestDox('Autores e metas vêm numa consulta só (findBy); find() não é chamado para o que foi achado')]
     public function testPreCargaSemNMaisUm(): void
     {

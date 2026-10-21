@@ -172,6 +172,14 @@
     --ps-shadow-gm:       0 10px 30px rgba(16,42,58,.2); /* menu generico `gm` (M7, P12) */
     --ps-proc-mais-hv:    #d6eaf4;               /* hover do "Ver todas as informacoes" (P10) */
     --ps-proc-det-bg:     #f5f8fa;               /* painel de detalhes do processo (P11) */
+    --ps-proc-manual-tx:  #8a6400;               /* selo "manual" (P5b, desenho N:1781) */
+    --ps-proc-manual-bg:  #fdf5d8;
+    --ps-proc-ed-borda:   #d3dde4;               /* campos da edição no cartão (N:1802) */
+    --ps-proc-ed-campo:   #fff;
+    --ps-proc-flag-bg:    #eef1f3;               /* Sim / Não / Não informado (N:1806) */
+    --ps-proc-flag-on:    #fff;
+    --ps-proc-flag-sombra: 0 1px 2px rgba(16,42,58,.14);
+    --ps-proc-cancelar-hv: #e3e8ec;
     --ps-div-fin:         #e7edf2;               /* moldura dos arquivos e trilho da barra (F10, F13) */
     --ps-div-fin-fraca:   #f1f4f7;               /* separador entre arquivos (F10) */
     --ps-accent-bg-hv:    #d8eaf3;               /* hover do "Adicionar pagamento" (F4) */
@@ -360,6 +368,14 @@
     --ps-shadow-gm:       0 10px 30px rgba(0,0,0,.55);
     --ps-proc-mais-hv:    rgba(69,176,214,.24);
     --ps-proc-det-bg:     rgba(255,255,255,.04);
+    --ps-proc-manual-tx:  #e8c96a;
+    --ps-proc-manual-bg:  rgba(138,100,0,.3);
+    --ps-proc-ed-borda:   var(--bs-border-color);
+    --ps-proc-ed-campo:   var(--bs-body-bg);
+    --ps-proc-flag-bg:    rgba(255,255,255,.06);
+    --ps-proc-flag-on:    var(--bs-tertiary-bg);
+    --ps-proc-flag-sombra: 0 1px 2px rgba(0,0,0,.4);
+    --ps-proc-cancelar-hv: rgba(255,255,255,.1);
     --ps-div-fin:         var(--bs-border-color);
     --ps-div-fin-fraca:   var(--bs-border-color-translucent);
     --ps-accent-bg-hv:    rgba(69,176,214,.24);
@@ -1840,6 +1856,21 @@ span.ps-situacao-pill { cursor: default; }
     border-radius: 4px;
     flex-shrink: 0;
 }
+/* Selo "CPF duplicado" (desenho 02 VS 18.10.26, L1509): cores do documento no claro;
+   no escuro, os tokens de perigo (o desenho não tem o par escuro). */
+.ps-selo-duplicado {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: #b03a2e;
+    background: #fbeceb;
+    padding: 2px 7px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+[data-bs-theme="dark"] .ps-selo-duplicado { color: var(--ps-danger-text); background: var(--ps-danger-bg); }
 .ps-cliente-abrir { font-size: 12px; font-weight: 600; flex-shrink: 0; }
 
 /* A rolagem mora na lista, nao no cartao: com muitos clientes o trilho cresceria
@@ -3305,6 +3336,95 @@ a.ps-push-doc-link:hover { color: var(--ps-push-doc); text-decoration: underline
 .ps-processo-partes li::before { content: '•'; position: absolute; left: 0; top: 0; color: var(--ps-accent); }
 .ps-processo-parte-papel { font-weight: 500; color: var(--ps-muted); }
 
+/* P5b (docs/specs/processo-cartao-edicao.md). Marcas (N:1763-1769): chips das flags "Sim". */
+.ps-processo-marcas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.ps-processo-marca {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 4px;
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--ps-chip-text);
+    background: var(--ps-accent-bg);
+}
+.ps-processo-marca i { font-size: 11px; }
+/* Linha de fonte ao lado do "Ver todas" (N:1771). */
+.ps-processo-fonte { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--ps-label); text-wrap: pretty; }
+.ps-processo-fonte i { font-size: 12px; }
+/* Selo "manual" no rótulo do campo (N:1781). */
+.ps-processo-campo .ps-rotulo { display: flex; align-items: center; gap: 6px; }
+.ps-processo-manual {
+    font-size: 9.5px;
+    letter-spacing: .04em;
+    color: var(--ps-proc-manual-tx);
+    background: var(--ps-proc-manual-bg);
+    border-radius: 3px;
+    padding: 1px 5px;
+}
+.ps-processo-assuntos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.ps-processo-assuntos li { position: relative; padding-left: 12px; font-size: 13.5px; font-weight: 600; color: var(--ps-text); line-height: 1.4; overflow-wrap: anywhere; }
+.ps-processo-assuntos li::before { content: '•'; position: absolute; left: 0; top: 0; color: var(--ps-accent); }
+
+/* Edição no cartão (N:1794-1818). */
+.ps-processo-edicao { margin-top: 12px; padding: 14px 16px; background: var(--ps-proc-det-bg); border-radius: 4px; animation: psProcEntra .18s var(--ps-ease) backwards; }
+.ps-processo-edicao[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) {
+    .ps-processo-edicao { animation: none; }
+}
+.ps-processo-edicao-dica { margin: 0 0 12px; font-size: 12px; color: var(--ps-muted); }
+.ps-processo-edicao-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 12px 18px; }
+.ps-processo-edicao-campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.ps-processo-edicao-campo .ps-rotulo { margin: 0; padding: 0; letter-spacing: .08em; float: none; width: auto; }
+.ps-processo-edicao-campo input[type="text"],
+.ps-processo-edicao-campo textarea {
+    min-width: 0;
+    padding: 0 10px;
+    border: 1px solid var(--ps-proc-ed-borda);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--ps-text);
+    background: var(--ps-proc-ed-campo);
+    outline: none;
+}
+.ps-processo-edicao-campo input[type="text"] { height: 34px; }
+.ps-processo-edicao-campo textarea { padding: 8px 10px; resize: vertical; }
+.ps-processo-edicao-campo input[type="text"]:focus,
+.ps-processo-edicao-campo textarea:focus { border-color: var(--ps-accent); box-shadow: 0 0 0 3px var(--ps-foco-anel); }
+.ps-processo-flag { display: flex; gap: 4px; padding: 3px; background: var(--ps-proc-flag-bg); border-radius: 3px; }
+.ps-processo-flag-op { flex: 1; position: relative; margin: 0; }
+.ps-processo-flag-op input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.ps-processo-flag-op span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    padding: 0 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--ps-muted);
+    cursor: pointer;
+}
+.ps-processo-flag-op input:checked + span { background: var(--ps-proc-flag-on); color: var(--ps-chip-text); box-shadow: var(--ps-proc-flag-sombra); }
+.ps-processo-flag-op input:focus-visible + span { box-shadow: 0 0 0 3px var(--ps-foco-anel); }
+.ps-processo-edicao-acoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.ps-processo-edicao-cancelar,
+.ps-processo-edicao-salvar { height: 32px; border: none; border-radius: 4px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.ps-processo-edicao-cancelar { padding: 0 14px; background: var(--ps-proc-flag-bg); color: var(--ps-body); }
+.ps-processo-edicao-cancelar:hover,
+.ps-processo-edicao-cancelar:focus-visible { background: var(--ps-proc-cancelar-hv); }
+.ps-processo-edicao-salvar { padding: 0 16px; background: var(--ps-accent); color: #fff; }
+.ps-processo-edicao-salvar:hover,
+.ps-processo-edicao-salvar:focus-visible { background: var(--ps-lermais-hover); }
+.ps-processo-edicao-salvar:disabled { opacity: .6; cursor: progress; }
+
 /* ⋮ do cartao (desenho: 32px, icone 16px) e o menu fixo que ele abre. */
 .ps-processo-menu-gatilho {
     width: 32px;
@@ -3883,8 +4003,8 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 
 /* Trilho da aba Metas (desenho): andamento, o que precisa de atencao e quem
    responde pelas metas. Tudo vem de `PastaMetasResumoOutput`. */
-.ps-metas-andamento, .ps-metas-pessoas, .ps-como-usar { padding: 16px 17px; }
-.ps-metas-andamento h2, .ps-metas-pessoas h2, .ps-como-usar h2, .ps-registro-pasta h2 { margin: 0; font-size: 13.5px; font-weight: 600; }
+.ps-metas-andamento, .ps-metas-pessoas { padding: 16px 17px; }
+.ps-metas-andamento h2, .ps-metas-pessoas h2, .ps-registro-pasta h2 { margin: 0; font-size: 13.5px; font-weight: 600; }
 .ps-metas-andamento h2 { margin-bottom: 13px; }
 .ps-metas-progresso { display: flex; align-items: baseline; gap: 8px; }
 .ps-metas-progresso-num { font-size: 26px; font-weight: 500; letter-spacing: -.01em; }
@@ -3921,6 +4041,11 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 [data-bs-theme="dark"] .ps-avatar--neutro { background: var(--ps-cli-avatar-bg); color: var(--ps-cli-avatar-tx); }
 .ps-metas-pessoa-nome { font-size: 13.5px; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ps-metas-pessoa-n { font-size: 11.5px; color: var(--ps-muted); }
+/* dc L.1686: a pessoa vira botão (abre a conversa): sem moldura, ocupa a largura com 8 px de folga para o hover. */
+.ps-metas-pessoa--conversar { width: calc(100% + 16px); margin: -4px -8px; padding: 4px 8px; border: none; border-radius: 4px; background: transparent; font-family: inherit; text-align: left; color: inherit; cursor: pointer; transition: background .18s; }
+.ps-metas-pessoa--conversar:hover, .ps-metas-pessoa--conversar:focus-visible { background: #eef5f9; }
+[data-bs-theme="dark"] .ps-metas-pessoa--conversar:hover, [data-bs-theme="dark"] .ps-metas-pessoa--conversar:focus-visible { background: rgba(255, 255, 255, .06); }
+.ps-metas-pessoa-chat { font-size: 13px; color: #0a7aad; flex-shrink: 0; }
 .ps-metas-pessoas-vazio { font-size: 12.5px; color: var(--ps-muted); }
 @media (prefers-reduced-motion: reduce) {
     .ps-meta:hover { transform: none; }
@@ -3970,7 +4095,7 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
     .ps-detalhes-obs .ps-obs-menu { animation: none; }
 }
-/* Trilho da aba Detalhes (desenho): "Registro da pasta" e "Como usar esta aba". */
+/* Trilho da aba Detalhes (desenho): "Registro da pasta" (o card "Pontos do relatório inicial" mora em pasta-pontos-relatorio.css). */
 .ps-registro-pasta { padding: 17px; }
 .ps-registro-pasta h2 { margin-bottom: 14px; }
 .ps-registro-pasta-campos { display: flex; flex-direction: column; gap: 14px; }
@@ -3980,10 +4105,6 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-registro-pasta .ps-btn { height: 32px; gap: 8px; }
 /* Alinhado a esquerda, 0 12px (dc 2386, auditoria 2 T4). */
 .ps-btn--largo { width: 100%; justify-content: flex-start; padding: 0 12px; }
-.ps-como-usar h2 { margin-bottom: 11px; }
-.ps-como-usar p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--ps-text-3); text-wrap: pretty; }
-.ps-como-usar { padding: 17px; } /* dc 2399 (auditoria 2 T7) */
-.ps-como-usar strong { color: var(--ps-forte-2); font-weight: 700; }
 
 /* ── Aba Push: tipo da publicacao em pilula ── */
 .ps-push-titulo {
@@ -4430,7 +4551,8 @@ a.ps-processo-menu-item:focus-visible { text-decoration: none; }
 .ps-processos .ps-btn--primario.ps-btn--caps:focus-visible { border-color: var(--ps-env-hv); background: var(--ps-env-hv); }
 /* Valor vazio do cartao: 13.5/500, italico, mais apagado (dc 2871). So no cartao
    de processo — a faixa do cabecalho tem o tom proprio (C8). */
-.ps-processos .ps-processo-valor.ps-dado--vazio { font-size: 13.5px; font-weight: 500; font-style: italic; color: var(--ps-vazio-italico); }
+.ps-processos .ps-processo-valor.ps-dado--vazio,
+.ps-processos .ps-processo-campo-valor.ps-dado--vazio { font-size: 13.5px; font-weight: 500; font-style: italic; color: var(--ps-vazio-italico); }
 
 /* ── Financeiro: vazio de Pagamentos em linha (auditoria 2 F5) ──
    "Nenhum lançamento. Use Adicionar pagamento." (dc 1920), abaixo do total zerado. */

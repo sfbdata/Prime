@@ -341,6 +341,27 @@ final class PoliticaDaDemanda
             && ($m->getTipo() !== TipoMensagem::Arquivo || $this->podeVerDocumentos($ctx, $d));
     }
 
+    /** O autor apaga para todos até este prazo depois de enviar; o Master, sempre (desenho l.1233). */
+    public const MINUTOS_PARA_O_AUTOR_APAGAR = 60;
+
+    /**
+     * "Apagar para todos" (spec VS 18.10.26 §3.4, desenho l.1233): o Master em qualquer mensagem; o
+     * autor nas próprias, até 60 min após o envio. Registro do sistema não se apaga.
+     */
+    public function podeApagarMensagem(Contexto $ctx, MensagemDemanda $m, ?\DateTimeImmutable $agora = null): bool
+    {
+        if ($ctx->previa || !$m->podeSerApagada()) {
+            return false;
+        }
+        if ($ctx->perfil === Perfil::Master) {
+            return true;
+        }
+        $agora ??= new \DateTimeImmutable();
+
+        return $m->getAutor()?->getId() === $ctx->usuario->getId()
+            && $m->getEm() >= $agora->modify('-' . self::MINUTOS_PARA_O_AUTOR_APAGAR . ' minutes');
+    }
+
     /**
      * O evento é anterior ao aceite do convite de quem lê (só vale para o Convidado). As datas
      * são gravadas em segundos: o que caiu no MESMO segundo do aceite conta como anterior, para

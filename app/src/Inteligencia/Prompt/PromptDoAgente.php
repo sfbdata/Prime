@@ -13,10 +13,12 @@ use App\Inteligencia\Service\NeutralizadorDeConteudo;
  * O prompt dos agentes da pasta — `IA_REGRAS` do Designer (`02 - EXPEDIENTES 1.2.3`, L.5463-5473)
  * transcritas, menos as frases sobre MEMÓRIA do escritório e CONFLITOS DETECTADOS, que não têm
  * lastro aqui (não há memória de correções nem detector de conflitos no servidor). O papel do
- * agente entra no sistema; o pedido canônico do agente, a data de hoje e os blocos de dados entram
- * na mensagem do usuário.
+ * agente entra no sistema; o pedido (o do comando do drawer, quando houver, senão o canônico do
+ * agente), a data de hoje e os blocos de dados entram na mensagem do usuário.
  *
- * Versão gravada em cada análise (`versao_do_prompt`): mudar o texto é mudar a VERSAO.
+ * Versão gravada em cada análise (`versao_do_prompt`): mudar o texto é mudar a VERSAO. O pedido de
+ * um comando não muda o formato (só o texto do PEDIDO, que vem do enum `Comando` e é identificado
+ * pela coluna `comando`); por isso a versão continua `agente-v1` e o comando vai no rótulo de uso.
  *
  * TODO dado que não nasceu no código entra delimitado e neutralizado: `<pasta>`,
  * `<processos_vinculados>`, uma tag por seção (`<clientes>`, `<movimentacoes>`, `<metas>`, …) e
@@ -51,7 +53,7 @@ final class PromptDoAgente
         $c = static fn (string $chave, string $padrao): string => self::dado($contexto->cabecalho[$chave] ?? '', $padrao);
 
         $blocos = [
-            'PEDIDO: ' . $contexto->agente->pedido(),
+            'PEDIDO: ' . ($contexto->comando?->pedido() ?? $contexto->agente->pedido()),
             'DATA DE HOJE: ' . (new \DateTimeImmutable('today'))->format('d/m/Y') . ' | TELA: pasta (priorize esta pasta)',
             "DADOS DA PASTA [nível 7, cadastro]:\n<pasta>\n" . sprintf(
                 "• Pasta %s · situação %s · prioridade %s · aberta em %s\n• Ação/objeto: %s\n• Responsável pela pasta: %s\n• Equipe do escritório: %s",
@@ -89,7 +91,9 @@ final class PromptDoAgente
             maxTokens: self::MAX_TOKENS,
             temperatura: self::TEMPERATURA,
             exigeJson: true,
-            rotuloDeUso: self::ROTULO_DE_USO . '/' . $contexto->agente->value . '/' . self::VERSAO,
+            rotuloDeUso: self::ROTULO_DE_USO . '/' . $contexto->agente->value
+                . ($contexto->comando !== null ? '/' . $contexto->comando->value : '')
+                . '/' . self::VERSAO,
         );
     }
 

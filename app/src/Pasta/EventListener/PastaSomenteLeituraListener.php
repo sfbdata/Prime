@@ -4,11 +4,8 @@ declare(strict_types=1);
 
 namespace App\Pasta\EventListener;
 
-use App\Pasta\Attribute\PastaPelaFilha;
-use App\Pasta\Attribute\PastaPorId;
 use App\Pasta\Entity\Pasta;
-use App\Service\Tenant\TenantContext;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Pasta\Service\PastaDaRota;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -35,8 +32,9 @@ use Symfony\Component\Routing\RouterInterface;
  *
  * Rota que recebe só o id (`int`) de uma filha — documento, seção — declara de onde vem a pasta com
  * `#[PastaPelaFilha]`; rota que recebe o id cru da PRÓPRIA pasta (marcadores do Expediente, meta
- * criada pela pasta) declara `#[PastaPorId]`. Nos dois casos o listener carrega a entidade escopada
- * ao escritório da sessão e recusa igual.
+ * criada pela pasta) declara `#[PastaPorId]`. Nos dois casos a entidade é carregada escopada ao
+ * escritório da sessão e a recusa é igual. Quem acha a pasta é o `PastaDaRota`, o mesmo resolvedor do
+ * cadeado (`BarreiraDoCadeadoListener`) e da aba oculta.
  *
  * O alcance não é garantido por este arquivo, e sim pelo `PastaSomenteLeituraRotasArquiteturaTest`:
  * ele percorre o router inteiro e falha se uma rota de escrita que envolva pasta (nome `pasta_*`,
@@ -89,8 +87,7 @@ final class PastaSomenteLeituraListener
     public function __construct(
         private readonly RequestStack $requestStack,
         private readonly RouterInterface $router,
-        private readonly EntityManagerInterface $em,
-        private readonly TenantContext $tenantContext,
+        private readonly PastaDaRota $pastaDaRota,
     ) {}
 
     public function __invoke(ControllerArgumentsEvent $event): void
@@ -109,9 +106,7 @@ final class PastaSomenteLeituraListener
             return;
         }
 
-        $pasta = $this->pastaDosArgumentos($event->getArguments())
-            ?? $this->pastaPelaFilhaDeclarada($event, $request)
-            ?? $this->pastaPorIdDeclarado($event, $request);
+        $pasta = $this->pastaDaRota->resolver($event)?->pasta;
 
         if ($pasta === null || !$pasta->estaExcluida()) {
             return;
@@ -122,146 +117,6 @@ final class PastaSomenteLeituraListener
         $resposta = $this->recusa($request, $pasta);
         $event->setController(static fn (): Response => $resposta);
         $event->setArguments([]);
-    }
-
-    /** @param array<int, mixed> $argumentos */
-    private function pastaDosArgumentos(array $argumentos): ?Pasta
-    {
-        foreach ($argumentos as $argumento) {
-            if ($argumento instanceof Pasta) {
-                return $argumento;
-            }
-
-            // Filha da pasta: a trava vale para ela também, senão daria para subir arquivo ou
-            // apagar seção de uma pasta excluída passando pelo id da filha.
-            if (is_object($argumento) && method_exists($argumento, 'getPasta')) {
-                $pasta = $argumento->getPasta();
-
-                if ($pasta instanceof Pasta) {
-                    return $pasta;
-                }
-            }
-
-            // Neta da pasta, pela meta: `TarefaMensagem` não tem `getPasta()`, chega à pasta por
-            // `getTarefa()->getPasta()`. Sem este degrau, editar a mensagem de uma meta gravava
-            // na pasta excluída (achado P14b). Meta sem pasta (ou objeto sem meta) → segue reto.
-            $pasta = $this->pastaPelaMeta($argumento);
-
-            if ($pasta !== null) {
-                return $pasta;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * A pasta de um argumento que só a alcança em dois níveis: `getTarefa()` → `getPasta()`.
-     * O `PastaSomenteLeituraRotasArquiteturaTest` aplica o mesmo critério à assinatura da action.
-     */
-    private function pastaPelaMeta(mixed $argumento): ?Pasta
-    {
-        if (!is_object($argumento) || !method_exists($argumento, 'getTarefa')) {
-            return null;
-        }
-
-        $tarefa = $argumento->getTarefa();
-
-        if (!is_object($tarefa) || !method_exists($tarefa, 'getPasta')) {
-            return null;
-        }
-
-        $pasta = $tarefa->getPasta();
-
-        return $pasta instanceof Pasta ? $pasta : null;
-    }
-
-    /**
-     * A pasta de uma rota que recebe o id cru da filha (`#[PastaPelaFilha]`).
-     *
-     * A busca é por id E escritório da sessão: é o guarda IDOR. Sem ele, o id de uma seção de
-     * outro escritório numa pasta riscada devolveria a recusa com o link para a pasta alheia —
-     * confirmando que ela existe. Não achou (outro escritório, id inexistente, documento na
-     * lixeira pelo `LixeiraFilter`) → `null` e a action responde o próprio 404/403, como sempre.
-     * Sem escritório na sessão não há como escopar a busca: devolve `null` e a action decide (ela
-     * já recusa ou responde 404 nesse estado).
-     */
-    private function pastaPelaFilhaDeclarada(ControllerArgumentsEvent $event, Request $request): ?Pasta
-    {
-        $declaracoes = $event->getAttributes(PastaPelaFilha::class);
-
-        if ($declaracoes === []) {
-            return null;
-        }
-
-        $tenant = $this->tenantContext->getCurrentTenant();
-
-        if ($tenant === null) {
-            return null;
-        }
-
-        foreach ($declaracoes as $declaracao) {
-            $id = $request->attributes->get($declaracao->argumento);
-
-            if (!is_numeric($id)) {
-                continue;
-            }
-
-            $filha = $this->em->getRepository($declaracao->entidade)->findOneBy([
-                'id'     => (int) $id,
-                'tenant' => $tenant,
-            ]);
-
-            if (is_object($filha) && method_exists($filha, 'getPasta')) {
-                $pasta = $filha->getPasta();
-
-                if ($pasta instanceof Pasta) {
-                    return $pasta;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * A pasta de uma rota que recebe o id cru da própria pasta (`#[PastaPorId]`).
-     *
-     * Mesmo guarda IDOR do `pastaPelaFilhaDeclarada()`: busca por id E escritório da sessão. Pasta
-     * de outro escritório (ou inexistente) → `null`, e a action responde o próprio 404, como antes.
-     */
-    private function pastaPorIdDeclarado(ControllerArgumentsEvent $event, Request $request): ?Pasta
-    {
-        $declaracoes = $event->getAttributes(PastaPorId::class);
-
-        if ($declaracoes === []) {
-            return null;
-        }
-
-        $tenant = $this->tenantContext->getCurrentTenant();
-
-        if ($tenant === null) {
-            return null;
-        }
-
-        foreach ($declaracoes as $declaracao) {
-            $id = $request->attributes->get($declaracao->argumento);
-
-            if (!is_numeric($id)) {
-                continue;
-            }
-
-            $pasta = $this->em->getRepository(Pasta::class)->findOneBy([
-                'id'     => (int) $id,
-                'tenant' => $tenant,
-            ]);
-
-            if ($pasta instanceof Pasta) {
-                return $pasta;
-            }
-        }
-
-        return null;
     }
 
     private function recusa(Request $request, Pasta $pasta): Response

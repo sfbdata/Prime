@@ -4,6 +4,7 @@ namespace App\Processo\Entity;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Processo\DTO\DadosManuaisDoProcesso;
 use App\Processo\Repository\ProcessoRepository;
 use App\Shared\Contract\TenantAware;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -12,6 +13,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ProcessoRepository::class)]
 #[ORM\UniqueConstraint(name: 'uniq_processo_tenant_numero', columns: ['tenant_id', 'numero_processo'])]
+#[ORM\Index(name: 'idx_processo_dados_manuais_por', columns: ['dados_manuais_por_id'])]
 #[ORM\HasLifecycleCallbacks]
 class Processo implements TenantAware
 {
@@ -122,6 +124,72 @@ class Processo implements TenantAware
     #[ORM\ManyToOne(targetEntity: Tenant::class)]
     #[ORM\JoinColumn(nullable: false)]
     private ?Tenant $tenant = null;
+
+    // Dados preenchidos à mão no cartão do processo (P5b, docs/specs/processo-cartao-edicao.md). Nulo =
+    // sem valor manual. O Datajud (DatajudProcessoMapper) NUNCA escreve aqui: o manual prevalece.
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $classeManual = null;
+
+    /** @var list<string>|null */
+    #[ORM\Column(type: 'json', nullable: true, options: ['jsonb' => true])]
+    private ?array $assuntosManual = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $jurisdicaoManual = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $orgaoManual = null;
+
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $distribuicaoManual = null;
+
+    #[ORM\Column(type: 'decimal', precision: 15, scale: 2, nullable: true)]
+    private ?string $valorCausaManual = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?bool $segredoManual = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?bool $digitalManual = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?bool $gratuitaManual = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?bool $tutelaManual = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?bool $prioridadeManual = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $dadosManuaisEm = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?User $dadosManuaisPor = null;
+
+    /**
+     * Monitoramento do Push Processual (spec push-painel-monitoramento §1). `null` = ativo: a
+     * captação do DJEN consulta este número. Pausar não apaga nada, só tira o número da captação.
+     * É do PROCESSO, então vale para todas as pastas que o compartilham.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $monitoramentoPausadoEm = null;
+
+    /** Quem pausou ou retomou por último, e quando (retomar não apaga quem mexeu). */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'monitoramento_alterado_por_id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $monitoramentoAlteradoPor = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $monitoramentoAlteradoEm = null;
+
+    /**
+     * Quando o BlueJus consultou o DJEN por este número pela última vez, com sucesso. Não é o
+     * `dataAtualizacao`, que vem do DataJud.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $ultimaVerificacaoEm = null;
 
     public function __construct()
     {
@@ -599,4 +667,117 @@ class Processo implements TenantAware
         return $this;
     }
 
+    /**
+     * Segredo de justiça EFETIVO: o que o tribunal informou (`nivelSigilo > 0`) OU o "Sim" manual do
+     * cartão. É a pergunta de quem não pode deixar o conteúdo sair (IA, link externo). O "Não" manual
+     * nunca desliga o sigilo do tribunal (o UseCase recusa gravá-lo).
+     */
+    public function emSegredoDeJustica(): bool
+    {
+        return ($this->nivelSigilo ?? 0) > 0 || $this->segredoManual === true;
+    }
+
+    public function getDadosManuais(): DadosManuaisDoProcesso
+    {
+        return new DadosManuaisDoProcesso(
+            classe: $this->classeManual,
+            assuntos: $this->assuntosManual,
+            jurisdicao: $this->jurisdicaoManual,
+            orgao: $this->orgaoManual,
+            distribuicao: $this->distribuicaoManual,
+            valorCausa: $this->valorCausaManual,
+            segredo: $this->segredoManual,
+            digital: $this->digitalManual,
+            gratuita: $this->gratuitaManual,
+            tutela: $this->tutelaManual,
+            prioridade: $this->prioridadeManual,
+        );
+    }
+
+    /** Troca TODOS os valores manuais (o formulário manda o cartão inteiro) e registra quem e quando. */
+    public function definirDadosManuais(DadosManuaisDoProcesso $dados, User $por): void
+    {
+        $this->classeManual = $dados->classe;
+        $this->assuntosManual = $dados->assuntos;
+        $this->jurisdicaoManual = $dados->jurisdicao;
+        $this->orgaoManual = $dados->orgao;
+        $this->distribuicaoManual = $dados->distribuicao;
+        $this->valorCausaManual = $dados->valorCausa;
+        $this->segredoManual = $dados->segredo;
+        $this->digitalManual = $dados->digital;
+        $this->gratuitaManual = $dados->gratuita;
+        $this->tutelaManual = $dados->tutela;
+        $this->prioridadeManual = $dados->prioridade;
+        // `dados_manuais_em` existe só quando há valor manual: é o que liga a linha "Preenchido
+        // manualmente em…" do desenho. Limpar tudo volta ao estado sem edição (a trilha fica no audit_log).
+        $temAlgum = $dados->temAlgum();
+        $this->dadosManuaisEm = $temAlgum ? new \DateTimeImmutable() : null;
+        $this->dadosManuaisPor = $temAlgum ? $por : null;
+    }
+
+    public function getDadosManuaisEm(): ?\DateTimeImmutable
+    {
+        return $this->dadosManuaisEm;
+    }
+
+    public function getDadosManuaisPor(): ?User
+    {
+        return $this->dadosManuaisPor;
+    }
+
+    public function monitoramentoAtivo(): bool
+    {
+        return $this->monitoramentoPausadoEm === null;
+    }
+
+    public function pausarMonitoramento(User $por, \DateTimeImmutable $em): void
+    {
+        if (!$this->monitoramentoAtivo()) {
+            return;
+        }
+
+        $this->monitoramentoPausadoEm = $em;
+        $this->registrarAlteracaoDoMonitoramento($por, $em);
+    }
+
+    public function retomarMonitoramento(User $por, \DateTimeImmutable $em): void
+    {
+        if ($this->monitoramentoAtivo()) {
+            return;
+        }
+
+        $this->monitoramentoPausadoEm = null;
+        $this->registrarAlteracaoDoMonitoramento($por, $em);
+    }
+
+    public function getMonitoramentoPausadoEm(): ?\DateTimeImmutable
+    {
+        return $this->monitoramentoPausadoEm;
+    }
+
+    public function getMonitoramentoAlteradoPor(): ?User
+    {
+        return $this->monitoramentoAlteradoPor;
+    }
+
+    public function getMonitoramentoAlteradoEm(): ?\DateTimeImmutable
+    {
+        return $this->monitoramentoAlteradoEm;
+    }
+
+    private function registrarAlteracaoDoMonitoramento(User $por, \DateTimeImmutable $em): void
+    {
+        $this->monitoramentoAlteradoPor = $por;
+        $this->monitoramentoAlteradoEm  = $em;
+    }
+
+    public function getUltimaVerificacaoEm(): ?\DateTimeImmutable
+    {
+        return $this->ultimaVerificacaoEm;
+    }
+
+    public function registrarVerificacao(\DateTimeImmutable $em): void
+    {
+        $this->ultimaVerificacaoEm = $em;
+    }
 }

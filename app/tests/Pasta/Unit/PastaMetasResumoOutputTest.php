@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Pasta\DTO\PastaMetasResumoOutput;
 use App\Pasta\Entity\Pasta;
+use App\Tests\Inteligencia\Support\DefineId;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -65,7 +66,26 @@ final class PastaMetasResumoOutputTest extends TestCase
         self::assertSame('Ana Souza, Bia Lima', $r->atencao[0]['responsaveis']);
 
         self::assertSame(
-            [['nome' => 'Ana Souza', 'iniciais' => 'AS', 'contagem' => '3 metas'], ['nome' => 'Bia Lima', 'iniciais' => 'BL', 'contagem' => '2 metas']],
+            [['userId' => null, 'nome' => 'Ana Souza', 'iniciais' => 'AS', 'contagem' => '3 metas'], ['userId' => null, 'nome' => 'Bia Lima', 'iniciais' => 'BL', 'contagem' => '2 metas']],
+            $r->pessoas,
+        );
+    }
+
+    #[TestDox('Responsáveis nas metas agrupa pela pessoa (id), não pelo nome: dois colegas homônimos ficam separados e levam o userId (Encaminhar PR3)')]
+    public function testPessoasPeloId(): void
+    {
+        $pasta = new Pasta();
+        $ana1 = $this->usuario('Ana Souza');
+        DefineId::em($ana1, 11);
+        $ana2 = $this->usuario('Ana Souza');
+        DefineId::em($ana2, 12);
+        $this->meta($pasta, 'pendente', null, $ana1);
+        $this->meta($pasta, 'pendente', null, $ana1, $ana2);
+
+        $r = PastaMetasResumoOutput::montar($pasta, new \DateTimeImmutable('2026-10-05'));
+
+        self::assertSame(
+            [['userId' => 11, 'nome' => 'Ana Souza', 'iniciais' => 'AS', 'contagem' => '2 metas'], ['userId' => 12, 'nome' => 'Ana Souza', 'iniciais' => 'AS', 'contagem' => '1 meta']],
             $r->pessoas,
         );
     }

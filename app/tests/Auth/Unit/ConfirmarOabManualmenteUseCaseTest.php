@@ -10,6 +10,8 @@ use App\Entity\Auth\User;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use App\Auth\Repository\InscricaoOabRepository;
+use App\Auth\Service\EspelhoDaOabPrincipal;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(ConfirmarOabManualmenteUseCase::class)]
@@ -24,9 +26,15 @@ final class ConfirmarOabManualmenteUseCaseTest extends TestCase
         $em = $this->createMock(EntityManagerInterface::class);
         $em->expects(self::once())->method('flush');
 
-        (new ConfirmarOabManualmenteUseCase($em))->executar($user);
+        (new ConfirmarOabManualmenteUseCase($em, $this->espelho()))->executar($user);
 
         self::assertSame(StatusOab::Confirmada, $user->getOabStatus());
         self::assertNotNull($user->getOabVerificadaEm());
+    }
+
+    /** Espelho da OAB sobre um repositório sem inscrições: o UseCase cria a principal a partir do User. */
+    private function espelho(): EspelhoDaOabPrincipal
+    {
+        return new EspelhoDaOabPrincipal($this->createStub(InscricaoOabRepository::class));
     }
 }

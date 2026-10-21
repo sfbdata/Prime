@@ -58,7 +58,7 @@ final class PastaProcessoEditarItemTelaTest extends JusPrimeWebTestCase
         return [$pasta, $processo];
     }
 
-    #[TestDox('com EDIT no processo: item com bi-pencil, link para processo_edit, entre "Ver todas as informações" e "Ver movimentações"')]
+    #[TestDox('com EDIT no processo: item com bi-pencil que abre a edição NO CARTÃO (P5b), entre "Ver todas as informações" e "Ver movimentações"')]
     public function testItemParaQuemPodeEditar(): void
     {
         $client          = static::createClient();
@@ -68,9 +68,9 @@ final class PastaProcessoEditarItemTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
         $menu = $this->menu($this->abrir($client, $pasta), $processo);
 
-        $item = $menu->filter('#psProcMenu' . $processo->getId() . ' > a.ps-processo-menu-item.js-proc-editar');
+        $item = $menu->filter('#psProcMenu' . $processo->getId() . ' > button.ps-processo-menu-item.js-proc-editar');
         self::assertCount(1, $item);
-        self::assertSame('/processos/' . $processo->getId() . '/editar', $item->attr('href'));
+        self::assertSame('#psProcEdicao' . $processo->getId(), $item->attr('data-edicao'));
         self::assertSame('Editar dados do processo', trim($item->text()));
         self::assertCount(1, $item->filter('i.bi.bi-pencil'));
 
@@ -109,7 +109,7 @@ final class PastaProcessoEditarItemTelaTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $quem, $tenant);
         $menu = $this->menu($this->abrir($client, $pasta), $processo);
 
-        self::assertCount(1, $menu->filter('a.js-proc-editar'));
+        self::assertCount(1, $menu->filter('button.js-proc-editar'));
     }
 
     #[TestDox('lápide: sem o item, nem para quem pode editar')]

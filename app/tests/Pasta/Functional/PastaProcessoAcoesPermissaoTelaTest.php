@@ -61,12 +61,16 @@ final class PastaProcessoAcoesPermissaoTelaTest extends JusPrimeWebTestCase
                 + $secao->filter('[id^="psProcHdMenu"]')->count(),
             'vincular'        => $secao->filter('.ps-card-cab > [data-bs-target="#modalVincularProcesso"]')->count(),
             'tornarPrincipal' => $secao->filter('.ps-processo-menu > form.js-ajax-processo-principal')->count(),
-            'desvincular'     => $secao->filter('.ps-processo-menu > form.js-ajax-desvincular-processo')->count(),
+            // P4f: no apensado (o segundo vínculo), o ⋮ desvincula pelo form do apensado.
+            'desvincular'     => $secao->filter('.ps-processo-menu > form.js-ajax-desvincular-processo, .ps-processo-menu > form.js-desvincular-apensado')->count(),
+            // P4f: o X "Desvincular este apensado" no topo do cartão do apensado.
+            'xDoApensado'     => $secao->filter('.ps-processo-topo > form.js-desvincular-apensado')->count(),
         ];
     }
 
-    private const NENHUMA = ['administrativo' => 0, 'menuCabecalho' => 0, 'vincular' => 0, 'tornarPrincipal' => 0, 'desvincular' => 0];
-    private const TODAS   = ['administrativo' => 1, 'menuCabecalho' => 2, 'vincular' => 1, 'tornarPrincipal' => 1, 'desvincular' => 2];
+    // "vincular" conta o "Vincular processo" e o "Vincular apensado" (P4f): os dois abrem o mesmo modal.
+    private const NENHUMA = ['administrativo' => 0, 'menuCabecalho' => 0, 'vincular' => 0, 'tornarPrincipal' => 0, 'desvincular' => 0, 'xDoApensado' => 0];
+    private const TODAS   = ['administrativo' => 1, 'menuCabecalho' => 2, 'vincular' => 2, 'tornarPrincipal' => 1, 'desvincular' => 2, 'xDoApensado' => 1];
 
     #[TestDox('Só leitura da pasta: nenhuma das ações de escrita; o resto do ⋮ e o Peticionar ficam')]
     public function testLeitorNaoVe(): void

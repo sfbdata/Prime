@@ -7,6 +7,7 @@ namespace App\Tests\Inteligencia\Unit;
 use App\Inteligencia\DTO\ContextoDaPasta;
 use App\Inteligencia\DTO\SecaoDeContexto;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\SecaoDoContexto;
 use App\Inteligencia\Prompt\PromptDoAgente;
 use App\Tests\Inteligencia\Support\CorpusDeInjecao;
@@ -247,5 +248,49 @@ final class PromptDoAgenteTest extends TestCase
             self::assertSame($abre, preg_match_all('/^<' . $tag . '>$/m', $texto), "<$tag> só no início de linha (nunca dentro de dado)");
             self::assertSame($fecha, preg_match_all('/^<\/' . $tag . '>$/m', $texto), "</$tag> só no início de linha (nunca dentro de dado)");
         }
+    }
+
+    private function contextoDoComando(Comando $comando): ContextoDaPasta
+    {
+        $base = $this->contexto($comando->agente());
+
+        return new ContextoDaPasta(
+            $base->agente,
+            $base->cabecalho,
+            $base->processos,
+            $base->secoes,
+            ContextoDaPasta::hashDe($base->agente, $base->cabecalho, $base->processos, $base->secoes, $comando),
+            $base->incluiFinanceiro,
+            $base->numerosDosProcessos,
+            comando: $comando,
+        );
+    }
+
+    #[TestDox('com comando, o PEDIDO é o do comando (não o canônico do agente) e o papel continua o do agente')]
+    public function testPedidoDoComando(): void
+    {
+        $pedido = $this->prompt->montar($this->contextoDoComando(Comando::IdentificarRiscos));
+        $conteudo = $pedido->mensagens[0]['conteudo'];
+
+        self::assertStringStartsWith('PEDIDO: ' . Comando::IdentificarRiscos->pedido() . "\n\n", $conteudo);
+        self::assertStringNotContainsString(Agente::Gestor->pedido(), $conteudo);
+        self::assertStringEndsWith('Papel: ' . Agente::Gestor->papel(), $pedido->sistema);
+    }
+
+    #[TestDox('com comando, o rótulo de uso leva agente, comando e versão; sem comando, o de antes')]
+    public function testRotuloDeUsoComComando(): void
+    {
+        self::assertSame('analise_pasta/prazos/relatorio_prazos/' . PromptDoAgente::VERSAO, $this->prompt->montar($this->contextoDoComando(Comando::RelatorioPrazos))->rotuloDeUso);
+        self::assertSame('analise_pasta/gestor/' . PromptDoAgente::VERSAO, $this->prompt->montar($this->contexto())->rotuloDeUso);
+    }
+
+    #[TestDox('o relatório "Resumo para o cliente" vai com o pedido de linguagem leiga, e os dados seguem nos blocos')]
+    public function testPedidoDoResumoParaOCliente(): void
+    {
+        $conteudo = $this->prompt->montar($this->contextoDoComando(Comando::ResumoCliente))->mensagens[0]['conteudo'];
+
+        self::assertStringContainsString('PEDIDO: Gere o "Resumo para o cliente" (Linguagem simples, pronto para enviar). Escreva para o cliente leigo, cordial, em até 8 frases, sem termos técnicos.', $conteudo);
+        self::assertStringContainsString("<pasta>\n", $conteudo);
+        self::assertStringContainsString("<processos_vinculados>\n", $conteudo);
     }
 }

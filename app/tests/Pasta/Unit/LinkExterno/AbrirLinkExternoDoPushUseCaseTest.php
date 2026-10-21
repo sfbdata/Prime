@@ -54,7 +54,7 @@ final class AbrirLinkExternoDoPushUseCaseTest extends TestCase
         return (new AbrirLinkExternoDoPushUseCase(
             $this->links,
             $this->acessos,
-            new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises),
+            new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises, $this->cadeados()),
             new MockClock($this->agora()->modify('+' . $minutosDepois . ' minutes')),
         ))->executar($link->getEndereco(), $codigo);
     }
@@ -63,7 +63,7 @@ final class AbrirLinkExternoDoPushUseCaseTest extends TestCase
     public function testNaoEncontrado(): void
     {
         $this->links->method('findOnePeloEndereco')->willReturn(null);
-        $useCase = new AbrirLinkExternoDoPushUseCase($this->links, $this->acessos, new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises), new MockClock($this->agora()));
+        $useCase = new AbrirLinkExternoDoPushUseCase($this->links, $this->acessos, new ConteudoDoPushCompartilhado($this->publicacoes, $this->analises, $this->cadeados()), new MockClock($this->agora()));
 
         $pagina = $useCase->executar('bluejus-nada-aaaaaaaa');
 
@@ -85,7 +85,7 @@ final class AbrirLinkExternoDoPushUseCaseTest extends TestCase
     public function testPastaTrancada(): void
     {
         $link = $this->link();
-        $link->getPasta()->trancar($this->usuario(), $this->agora());
+        $this->comCadeado($link->getPasta());
 
         self::assertSame('nao_encontrado', $this->abrir($link)->estado);
     }
@@ -95,6 +95,17 @@ final class AbrirLinkExternoDoPushUseCaseTest extends TestCase
     {
         $link = $this->link();
         $link->getPasta()->getProcessos()[0]->setNivelSigilo(1);
+
+        self::assertSame('nao_encontrado', $this->abrir($link)->estado);
+    }
+
+    #[TestDox('P5b: "Sim" manual de segredo no cartão depois de criar o link também desliga: nao_encontrado')]
+    public function testSegredoManual(): void
+    {
+        $link = $this->link();
+        $processo = $link->getPasta()->getProcessos()[0];
+        $processo->setNivelSigilo(0);
+        $processo->definirDadosManuais(new \App\Processo\DTO\DadosManuaisDoProcesso(segredo: true), $this->usuario());
 
         self::assertSame('nao_encontrado', $this->abrir($link)->estado);
     }

@@ -28,7 +28,8 @@ final class OQueAIaSabeTelaTest extends JusPrimeWebTestCase
 {
     use CriaFixturesInteligenciaTrait;
 
-    private const GRADE = '.ia-agentes[data-ia-painel] > .ia-sabe[data-ia-sabe]';
+    // Desenho 02 (dc L963): a grade abre a aba Análise do drawer (spec inteligencia-drawer-da-pasta, F1).
+    private const GRADE = '.ia-agentes[data-ia-painel] > .ia-aba-painel[data-ia-aba-painel="analise"] > .ia-sabe[data-ia-sabe]:first-child';
 
     private function cliente(): KernelBrowser
     {
