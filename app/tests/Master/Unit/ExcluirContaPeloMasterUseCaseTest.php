@@ -13,6 +13,7 @@ use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Service\RegraDosMasters;
 use App\Master\UseCase\ExcluirContaPeloMasterUseCase;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -37,7 +38,7 @@ final class ExcluirContaPeloMasterUseCaseTest extends TestCase
     {
         $this->contas  = $this->createMock(ContasDoSistemaRepository::class);
         $this->escopo  = new EscopoDeAuditoriaDePlataforma();
-        $this->useCase = new ExcluirContaPeloMasterUseCase($this->contas, new RegraDosMasters($this->contas), $this->escopo, new MockClock(self::AGORA), 365);
+        $this->useCase = new ExcluirContaPeloMasterUseCase($this->contas, new RegraDosMasters($this->contas), $this->escopo, new MockClock(self::AGORA), $this->createStub(PedidoDeExclusaoDeContaRepository::class), 365);
         $this->master  = self::usuario(['ROLE_SUPER_ADMIN']);
     }
 
@@ -99,7 +100,7 @@ final class ExcluirContaPeloMasterUseCaseTest extends TestCase
             $contas = $this->createMock(ContasDoSistemaRepository::class);
             $contas->method('buscar')->willReturn($conta);
             $contas->expects($this->never())->method('salvar');
-            $useCase = new ExcluirContaPeloMasterUseCase($contas, new RegraDosMasters($contas), $this->escopo, new MockClock(self::AGORA), 365);
+            $useCase = new ExcluirContaPeloMasterUseCase($contas, new RegraDosMasters($contas), $this->escopo, new MockClock(self::AGORA), $this->createStub(PedidoDeExclusaoDeContaRepository::class), 365);
 
             try {
                 $useCase->executar(new ExcluirContaInput($this->master, 42, $digitado));
