@@ -75,7 +75,7 @@ final class EditarSedeDaSeccionalUseCase
             && in_array(strtolower((string) parse_url($site, \PHP_URL_SCHEME)), ['http', 'https'], true)
             && (string) parse_url($site, \PHP_URL_HOST) !== '';
         if (!$valido) {
-            throw new SeccionalRecusada('Informe o site completo, começando com http:// ou https://.');
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_SITE_SEM_HTTPS);
         }
     }
 }

@@ -45,7 +45,7 @@ final class SalvarNotaDaCidadeOabUseCase
     public function executar(SalvarNotaDaSeccionalInput $input): SeccionalOab
     {
         $seccional = $this->seccionais->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada('Seccional não encontrada.');
-        $cidade = $input->cidade ?? throw new SeccionalRecusada('Informe a cidade da nota.');
+        $cidade = $input->cidade ?? throw new SeccionalRecusada(SeccionalRecusada::RECUSA_CIDADE_DA_NOTA_OBRIGATORIA);
         $this->exigirTamanhos($cidade, $input->texto);
 
         $agora = $this->relogio->now();
@@ -61,11 +61,11 @@ final class SalvarNotaDaCidadeOabUseCase
     private function exigirTamanhos(string $cidade, ?string $texto): void
     {
         if (mb_strlen($cidade) > NotaDaCidadeOab::CIDADE_MAXIMA) {
-            throw new SeccionalRecusada(sprintf('A cidade passa de %d caracteres.', NotaDaCidadeOab::CIDADE_MAXIMA));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_CIDADE_LONGA, ['limite' => NotaDaCidadeOab::CIDADE_MAXIMA]);
         }
 
         if (mb_strlen((string) $texto) > NotaDaSeccional::TEXTO_MAXIMO) {
-            throw new SeccionalRecusada(sprintf('A nota passa de %d caracteres.', NotaDaSeccional::TEXTO_MAXIMO));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_NOTA_LONGA, ['limite' => NotaDaSeccional::TEXTO_MAXIMO]);
         }
     }
 

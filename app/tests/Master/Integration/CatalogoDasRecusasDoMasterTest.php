@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Master\Integration;
 
+use App\Master\Enum\StatusDaDivulgacao;
 use App\Master\Enum\TipoDeDivulgacao;
 use App\Master\Exception\RecusaDaSeccional;
 use App\Master\Exception\SeccionalNaoEncontrada;
@@ -68,13 +69,16 @@ final class CatalogoDasRecusasDoMasterTest extends KernelTestCase
         new SeccionalRecusada('Texto que não é constante.');
     }
 
-    #[TestDox('O rótulo do tipo de divulgação e o da faixa etária têm o mesmo português no catálogo')]
+    #[TestDox('O rótulo do tipo e do status da divulgação e o da faixa etária têm o mesmo português no catálogo')]
     public function testRotulosQueVemDoPhp(): void
     {
         $tradutor = self::tradutor();
 
         foreach (TipoDeDivulgacao::cases() as $tipo) {
             self::assertSame($tipo->rotulo(), $tradutor->trans($tipo->chave(), [], null, 'pt_BR'), $tipo->value);
+        }
+        foreach (StatusDaDivulgacao::cases() as $status) {
+            self::assertSame($status->rotulo(), $tradutor->trans($status->chave(), [], null, 'pt_BR'), $status->value);
         }
         foreach (FaixaEtaria::FAIXAS as [$rotulo]) {
             $chave = FaixaEtaria::chaveDoRotulo($rotulo);

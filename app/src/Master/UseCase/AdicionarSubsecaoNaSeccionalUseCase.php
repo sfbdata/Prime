@@ -42,7 +42,7 @@ final class AdicionarSubsecaoNaSeccionalUseCase
     public function executar(AdicionarSubsecaoNaSeccionalInput $input): SubsecaoOab
     {
         $seccional = $this->seccionais->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada(SeccionalNaoEncontrada::RECUSA);
-        $cidade = $input->cidade ?? throw new SeccionalRecusada('Informe a cidade da subseção.');
+        $cidade = $input->cidade ?? throw new SeccionalRecusada(SeccionalRecusada::RECUSA_CIDADE_OBRIGATORIA);
         $endereco = $input->endereco ?? throw new SeccionalRecusada(SeccionalRecusada::RECUSA_ENDERECO_OBRIGATORIO);
         $nome = $input->nome ?? 'Subseção ' . $cidade;
         $this->exigirTamanhos($cidade, $nome, $endereco, $input->telefone);
@@ -56,7 +56,7 @@ final class AdicionarSubsecaoNaSeccionalUseCase
     private function exigirTamanhos(string $cidade, string $nome, string $endereco, ?string $telefone): void
     {
         if (mb_strlen($cidade) > SubsecaoOab::CIDADE_MAXIMA) {
-            throw new SeccionalRecusada(sprintf('A cidade passa de %d caracteres.', SubsecaoOab::CIDADE_MAXIMA));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_CIDADE_LONGA, ['limite' => SubsecaoOab::CIDADE_MAXIMA]);
         }
 
         if (mb_strlen($nome) > SubsecaoOab::NOME_MAXIMO) {

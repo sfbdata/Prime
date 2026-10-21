@@ -43,9 +43,9 @@ final class RegistrarDivulgacaoNaSeccionalUseCase
     public function executar(RegistrarDivulgacaoNaSeccionalInput $input): SeccionalOab
     {
         $seccional = $this->seccionais->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada(SeccionalNaoEncontrada::RECUSA);
-        $status = StatusDaDivulgacao::tryFrom($input->status) ?? throw new SeccionalRecusada('Escolha o status da divulgação.');
+        $status = StatusDaDivulgacao::tryFrom($input->status) ?? throw new SeccionalRecusada(SeccionalRecusada::RECUSA_STATUS_DE_DIVULGACAO);
         if (preg_match('/^#[0-9a-f]{6}$/i', $input->cor) !== 1) {
-            throw new SeccionalRecusada('Escolha a cor da marca.');
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_COR_DA_MARCA);
         }
 
         $seccional->marcar($status, strtolower($input->cor), $this->dataValida($input->data, $this->relogio->now()));

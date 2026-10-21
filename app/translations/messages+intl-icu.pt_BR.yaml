@@ -1349,6 +1349,8 @@ master:
         subsecao_removida: 'Subseção removida da {seccional}.'
         nota_salva: 'Nota da {seccional} salva.'
         nota_apagada: 'Nota da {seccional} apagada.'
+        nota_cidade_salva: 'Nota de {cidade} salva.'
+        nota_cidade_apagada: 'Nota de {cidade} apagada.'
         sede_atualizada: 'Sede da {seccional} atualizada.'
         divulgacao_registrada: 'Divulgação registrada na {seccional}: {status}.'
         visivel: '{seccional} aparece no mapa.'
@@ -1358,23 +1360,34 @@ master:
         # constante RECUSA_* é o mesmo daqui, ver o CatalogoDasRecusasDoMasterTest). O limite vai como texto, sem
         # separador de milhar ("1000"), como no sprintf de antes.
         recusa:
-            tipo_de_divulgacao: 'Escolha o tipo: material enviado, reunião ou parceria.'
+            status_de_divulgacao: Escolha o status da divulgação.
+            cor_da_marca: Escolha a cor da marca.
             data_formato: Informe a data no formato dia, mês e ano.
             data_no_futuro: A data da divulgação não pode ser no futuro.
             nota_longa: 'A nota passa de {limite} caracteres.'
-            nome_obrigatorio: Informe o nome da subseção.
+            cidade_obrigatoria: Informe a cidade da subseção.
+            cidade_da_nota_obrigatoria: Informe a cidade da nota.
+            cidade_longa: 'A cidade passa de {limite} caracteres.'
             endereco_obrigatorio: Informe o endereço da subseção.
             nome_longo: 'O nome passa de {limite} caracteres.'
             endereco_longo: 'O endereço passa de {limite} caracteres.'
             telefone_longo: 'O telefone passa de {limite} caracteres.'
             site_longo: 'O site passa de {limite} caracteres.'
-            site_sem_https: 'Informe o site completo, começando com https://.'
+            site_sem_https: 'Informe o site completo, começando com http:// ou https://.'
             subsecao_nao_encontrada: Subseção não encontrada.
         # Rótulo do tipo de divulgação (TipoDeDivulgacao::rotulo() é o português).
         tipo:
             material: Material enviado
             reuniao: Reunião
             parceria: Parceria
+        # Rótulo do status da divulgação (StatusDaDivulgacao::rotulo() é o português; desenho 05 L902).
+        status:
+            env: Material enviado
+            vis: Reunião ou evento
+            neg: Em negociação
+            cli: Parceria firmada
+            ret: Retornar depois
+            sem: Convênio feito
     # P2b: respostas do ContasDoSistemaController (suspender, reativar e excluir).
     contas:
         sessao_expirada: Sessão expirada. Recarregue a página.
@@ -1393,6 +1406,48 @@ master:
     faixa_etaria:
         intervalo: '{min} a {max}'
         ou_mais: '{min} ou +'
+    # Mapa do Brasil do iframe (master/mapa_brasil.html.twig e mapa-brasil.js): vão cruas ao navegador (só {nome}).
+    # Nomes de estado ficam em português (dado, decisão do dono).
+    mapa_brasil:
+        titulo: Mapa do Brasil por estado
+        carregando_mapa: Carregando mapa…
+        carregando_municipios: Carregando municípios…
+        voltar: Voltar ao mapa do Brasil
+        regiao_sub: 'Região {regiao}'
+        regiao:
+            norte: Norte
+            nordeste: Nordeste
+            centro_oeste: Centro-Oeste
+            sudeste: Sudeste
+            sul: Sul
+        pessoas: '{n} usuário(s)'
+        inscricoes: '{n} inscrição(ões)'
+        municipios: '{n} municípios'
+        municipio: Município
+        cidade_nao_informada: Cidade não informada
+        cidades_vazias: Cidades ainda não informadas no cadastro.
+        sem_usuarios_estado: Nenhum usuário neste estado. Oportunidade de expansão.
+        sem_usuarios: sem usuários
+        sem_atuacao: sem atuação
+        dica_estado: ' · clique para detalhar · botão direito para marcar'
+        dica_estado_oab: ' · clique para detalhar · botão direito para registrar a divulgação'
+        erro_municipios: Não foi possível carregar os municípios do IBGE agora.
+        erro_mapa: Não foi possível carregar o mapa do IBGE agora.
+        arraste: Arraste para mover
+        aproximar: Aproximar
+        afastar: Afastar
+        ajustar: Ajustar ao mapa
+        marcar_municipio: MARCAR MUNICÍPIO
+        marcar_estado: MARCAR ESTADO
+        remover_marcacao: Remover marcação
+        sec_nome: 'OAB/{uf} · {estado}'
+        sec_titulo: 'OAB/{uf} · {estado} · sem divulgação registrada'
+        sec_titulo_marca: 'OAB/{uf} · {estado} · {status} em {data}'
+        registrar: Registrar divulgação
+        registrar_botao: Registrar
+        data: Data da divulgação
+        registrando: Registrando…
+        erro_registrar: Não foi possível registrar agora. Recarregue a página.
     # Chaves do painel.js: vão cruas ao navegador (só {nome}, sem plural do ICU).
     js:
         carregando: Carregando…
@@ -1403,9 +1458,6 @@ master:
         fechar: Fechar
         campo:
             nome: NOME
-            endereco: ENDEREÇO
-            telefone: TELEFONE
-            site: SITE
         secao:
             visao: Visão geral
             contas: Contas e escritórios
@@ -1514,7 +1566,10 @@ master:
         mapa:
             titulo: Onde estamos atuando
             por_estado: usuários por estado
+            por_seccional: inscrições por seccional da OAB
             por_pais: usuários por país
+            oab: OAB
+            inscricoes: Inscrições
             total: '{n} no total'
             pessoas: Pessoas
             escritorios: Escritórios
@@ -1556,6 +1611,9 @@ master:
             cobertura_valor: '{feitos} de {total} ({pct}%)'
             faltam: 'faltam {n} para alcançar {meta}'
             meta_estados: 'os {n} estados'
+            meta_capitais: 'as {n} capitais'
+            modo_estados: Estados
+            modo_capitais: Capitais
             meta_paises: 'os {n} países-alvo'
             rodape: Oportunidades de expansão
         seccionais:
@@ -1564,50 +1622,55 @@ master:
             erro_salvar: Não foi possível salvar agora. Recarregue a página.
             titulo: SECCIONAIS VISÍVEIS
             mostrar_todas: Mostrar todas
-            ocultar_todas: Ocultar todas
+            todas_visiveis: Todas visíveis
             nota: 'Clique numa seccional para ver a sede. Botão direito na lista mostra ou oculta no mapa; botão direito no mapa registra a divulgação (material enviado, reunião, parceria). O ponto colorido indica seccional já trabalhada. Fonte: Conselho Federal da OAB.'
-            oculta: oculta no mapa
-            visivel: visível no mapa
-            ultima: 'última divulgação: {rotulo} em {data}'
-            usuario_um: 1 usuário
-            usuarios: '{n} usuários'
-            sem_endereco: Endereço não cadastrado. Confira no CFOAB.
+            linha: 'OAB/{uf} · {estado}'
+            chip_titulo: 'OAB/{uf} · {estado} · clique para ver a sede, botão direito para mostrar ou ocultar no mapa'
+            chip_titulo_marca: 'OAB/{uf} · {estado} · {status} em {data} · clique para ver a sede, botão direito para mostrar ou ocultar no mapa'
+            cartao_titulo: 'OAB/{uf} · Seccional {estado}'
+            inscricao_um: 1 inscrição de usuários do BlueJus
+            inscricoes: '{n} inscrições de usuários do BlueJus'
+            sem_endereco: 'Endereço da sede: consulte a página oficial'
             site: Site da seccional
             cfoab: Endereço oficial (CFOAB)
             editar_sede: Editar sede
             salvar_sede: Salvar sede
+            campo_endereco: 'Endereço da sede da OAB/{uf} (copie da página oficial do CFOAB)'
+            campo_telefone: Telefone da seccional (opcional)
+            campo_site: 'Site oficial da seccional (https://...), opcional'
             sede_ajuda: Confira os dados no site do CFOAB. Campo vazio fica sem informação. A alteração fica registrada na auditoria.
-            site_invalido: 'Informe o site completo, começando com https://.'
-            divulgacoes: ÚLTIMAS DIVULGAÇÕES
-            autor_removido: autor removido
-            sem_divulgacao: Nenhuma divulgação registrada. Use o botão direito no mapa.
+            site_invalido: 'Informe o site completo, começando com http:// ou https://.'
         janela_oab:
             dica: Ver endereços da OAB e escrever nota
             exemplo: 'Ex.: contato com a presidente da subseção, enviar material em novembro'
-            so_brasil: A janela da OAB vale só para os estados do Brasil.
-            subtitulo: '{uf} · {quantos} no BlueJus'
-            sem: 'sem {unidade}'
-            escritorios: escritórios
-            primarios: primários
-            usuarios: usuários
-            subsecao: subseção
-            subsecoes: subseções
-            sem_endereco: sem endereço
+            titulo_cidade: '{cidade} · {uf}'
+            sub_estado: 'Seccional OAB/{uf} e subseções cadastradas'
+            sub_cidade: 'Subseção da OAB e seccional OAB/{uf}'
             tem_nota: Tem nota
             sede: SECCIONAL · SEDE
             editar: Editar
+            sem_endereco_sede: Endereço ainda não cadastrado
+            campo_endereco_sede: 'Endereço da sede da OAB/{uf}'
+            campo_telefone: Telefone (opcional)
+            campo_site: 'Site oficial (https://...), opcional'
             ver_mapa: Ver no mapa
             site_oficial: Site oficial
             subsecoes_titulo: SUBSEÇÕES
             adicionar_endereco: Adicionar endereço
             subs_vazio: 'Nenhuma subseção cadastrada. {link} e adicionar.'
             pesquisar: Pesquisar o endereço oficial
+            busca_estado: 'OAB seccional {estado} endereço'
+            busca_cidade: 'OAB subseção {cidade} {estado} endereço'
+            campo_cidade: Cidade da subseção
+            campo_nome: 'Nome (ex.: Subseção de {cidade})'
+            nome_padrao: 'Subseção de {cidade}'
+            campo_endereco_completo: Endereço completo
             remover: Remover
             adicionar: Adicionar
             nota: NOTA EXPLICATIVA
             salvar_nota: Salvar nota
-            atualizada: 'Atualizada em {data}'
-            remover_titulo: Remover subseção
+            nota_salva: 'Nota salva em {data}'
+            remover_titulo: Remover este endereço?
             remover_texto: 'O endereço "{nome}" sai da lista da seccional. A remoção fica registrada na auditoria.'
         # P2b: as outras seções do painel.js.
         sem_limite: sem limite

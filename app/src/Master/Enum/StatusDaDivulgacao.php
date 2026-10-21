@@ -29,4 +29,10 @@ enum StatusDaDivulgacao: string
             self::Convenio        => 'Convênio feito',
         };
     }
+
+    /** Chave do rótulo no catálogo; o rótulo() acima é o português (o CatalogoDasRecusasDoMasterTest confere). */
+    public function chave(): string
+    {
+        return 'master.seccionais.status.' . $this->value;
+    }
 }
