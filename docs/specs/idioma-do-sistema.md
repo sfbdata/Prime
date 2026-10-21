@@ -213,6 +213,12 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   painel compara com o nome que o servidor manda), as três situações gravadas e `Content-Type`, `Escape` e `Enter`.
   Para o detector enxergar o arquivo, o `esc()` passou a escrever as aspas pelo código (`\x22`, `\x27`): o literal de
   aspas desalinhava a leitura das strings e escondia dele quase todo o `painel.js`.
+- **Dívida (P2b, para decidir):** os nomes de estado (`NM`, só na tela) e de país (`REG_MUNDO` e "Brasil", comparados
+  com o nome que o servidor manda e também mostrados) ficam em português em qualquer idioma. Traduzir os estados é
+  mudar só o rótulo; os países pedem que o servidor mande um código (ISO) em vez do nome. **DONO:** se nome de lugar
+  fica como nome próprio ou entra numa entrega própria.
+- **Texto do catálogo em atributo (P2b):** todo `T()` que vai para `title`, `placeholder` e `aria-label` passa por
+  `esc()`, para uma tradução futura com aspas não quebrar o atributo (em português nenhum desses textos tem `& < > " '`).
 - **Recusas das seccionais (P2b):** `SeccionalRecusada`, `SeccionalNaoEncontrada` e `SubsecaoNaoEncontrada` estendem
   `RecusaDaSeccional`: cada uma tem as constantes `RECUSA_*` em português (com `%d` onde entra o limite) e o
   `CHAVE_DA_RECUSA`, no padrão da `HierarquiaDePerfis`. A mensagem da exceção continua o português (os testes dos

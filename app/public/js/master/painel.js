@@ -274,10 +274,10 @@
       + (br && ehPes ? blocoSeccionais() : '')
       + (br ? '<div class="mp-uf-outros"><span><i class="bi bi-globe-americas"></i>' + T('master.js.mapa.outros_paises') + '</span><b>' + num(exterior) + '</b></div>' : '')
       + (S.mapaQuem === 'esc' && G.semEnd > 0 ? '<div class="mp-uf-semend"><span><i class="bi bi-geo"></i>' + T('master.js.mapa.sem_endereco') + '</span><b>' + num(G.semEnd) + '</b></div>' : '')
-      + (ehPes && G.semLoc > 0 ? '<div class="mp-uf-semend" title="' + T('master.js.mapa.sem_localizacao_dica') + '"><span><i class="bi bi-geo"></i>' + T('master.js.mapa.sem_localizacao') + '</span><b>' + num(G.semLoc) + '</b></div>' : '')
+      + (ehPes && G.semLoc > 0 ? '<div class="mp-uf-semend" title="' + esc(T('master.js.mapa.sem_localizacao_dica')) + '"><span><i class="bi bi-geo"></i>' + T('master.js.mapa.sem_localizacao') + '</span><b>' + num(G.semLoc) + '</b></div>' : '')
       + '<div class="mp-uf-total"><span>' + T('master.js.mapa.total_geral') + '</span><span>' + num(ufTotal) + '</span></div>'
       + avisoHtml()
-      + '<button type="button" class="mp-faltam-btn' + (on ? ' on' : '') + '" data-faltam title="' + T('master.js.faltam.dica') + '"><i class="bi bi-bullseye"></i><span>' + (on ? T('master.js.faltam.ocultar') : (br ? T('master.js.faltam.estados') : T('master.js.faltam.paises'))) + '</span><span class="mp-faltam-n">' + faltamN + '</span><i class="bi ' + (on ? 'bi-chevron-up' : 'bi-chevron-down') + '"></i></button>'
+      + '<button type="button" class="mp-faltam-btn' + (on ? ' on' : '') + '" data-faltam title="' + esc(T('master.js.faltam.dica')) + '"><i class="bi bi-bullseye"></i><span>' + (on ? T('master.js.faltam.ocultar') : (br ? T('master.js.faltam.estados') : T('master.js.faltam.paises'))) + '</span><span class="mp-faltam-n">' + faltamN + '</span><i class="bi ' + (on ? 'bi-chevron-up' : 'bi-chevron-down') + '"></i></button>'
       + (on ? '<div class="mp-faltam"><div class="mp-faltam-cob">' + T('master.js.faltam.cobertura') + ' <b>' + T('master.js.faltam.cobertura_valor', { feitos, total: tot, pct: Math.round(feitos / tot * 100) }) + '</b> · ' + T('master.js.faltam.faltam', { n: faltamN, meta }) + '</div>'
         + '<div class="mp-faltam-barra"><div style="--w:' + Math.round(feitos / tot * 100) + '%"></div></div><div class="mp-faltam-lista">'
         + grupos.map(g => '<div class="mp-faltam-grupo">' + esc(g.rot) + ' · ' + g.n + '</div>' + g.itens.map(faltamItem).join('')).join('')
@@ -342,7 +342,7 @@
 
   function secCartao(s) {
     const site = /^https:\/\//i.test(s.site || '') ? s.site : null;
-    return '<div class="mp-sec-card" data-sec-card><div class="mp-sec-card-cab"><i class="bi bi-bank"></i><span>' + esc(s.nome) + '</span><button type="button" data-sec-fechar title="' + T('master.js.fechar') + '" aria-label="' + T('master.js.fechar') + '"><i class="bi bi-x-lg"></i></button></div>'
+    return '<div class="mp-sec-card" data-sec-card><div class="mp-sec-card-cab"><i class="bi bi-bank"></i><span>' + esc(s.nome) + '</span><button type="button" data-sec-fechar title="' + esc(T('master.js.fechar')) + '" aria-label="' + esc(T('master.js.fechar')) + '"><i class="bi bi-x-lg"></i></button></div>'
       + '<div class="mp-sec-card-corpo"><span><i class="bi bi-people"></i>' + esc(secUsuarios(s.usuarios)) + '</span>'
       + '<span><i class="bi bi-geo-alt"></i>' + esc(s.endereco || SEC_SEM_ENDERECO) + '</span>'
       + (s.telefone ? '<span><i class="bi bi-telephone"></i>' + esc(s.telefone) + '</span>' : '')
@@ -456,7 +456,7 @@
     if (!f.uf) return '<div class="mp-faltam-uf is-oab" role="button" tabindex="0" data-oab-mundo title="' + OAB_TOOLTIP + '"><span class="mp-faltam-ponto"></span><span class="mp-faltam-nome">' + esc(f.r) + '</span><span class="mp-faltam-sub"></span><i class="bi bi-chevron-right"></i></div>';
     const sec = secDe(f.uf);
     return '<div class="mp-faltam-uf is-oab" role="button" tabindex="0" data-oab-uf="' + esc(f.uf) + '" title="' + OAB_TOOLTIP + '"><span class="mp-faltam-ponto"></span><span class="mp-faltam-nome">' + esc(f.r) + '</span>'
-      + (sec && sec.nota ? '<i class="bi bi-sticky-fill" title="' + T('master.js.janela_oab.tem_nota') + '"></i>' : '')
+      + (sec && sec.nota ? '<i class="bi bi-sticky-fill" title="' + esc(T('master.js.janela_oab.tem_nota')) + '"></i>' : '')
       + '<span class="mp-faltam-sub">' + esc(faltamSub(sec)) + '</span><i class="bi bi-chevron-right"></i></div>';
   }
 
@@ -498,7 +498,7 @@
   function oabJanela(sec) {
     return '<div class="mp-oab-fundo" data-oab-fechar></div><div class="mp-oab-centro"><div class="mp-oab" role="dialog" aria-modal="true" aria-labelledby="mpOabTitulo">'
       + '<div class="mp-oab-cab"><i class="bi bi-bank"></i><span class="mp-oab-cab-txt"><b id="mpOabTitulo">' + esc(sec.nome) + '</b><span>' + esc(OAB.sub) + '</span></span>'
-      + '<button type="button" data-oab-fechar title="' + T('master.js.fechar') + '" aria-label="' + T('master.js.fechar') + '"><i class="bi bi-x-lg"></i></button></div>'
+      + '<button type="button" data-oab-fechar title="' + esc(T('master.js.fechar')) + '" aria-label="' + esc(T('master.js.fechar')) + '"><i class="bi bi-x-lg"></i></button></div>'
       + '<div class="mp-oab-corpo">' + oabSede(sec) + oabSubsecoes(sec) + oabNota(sec)
       + (OAB.msg ? '<span class="mp-oab-msg' + (OAB.msg.ok ? ' is-ok' : '') + '" role="status">' + esc(OAB.msg.texto) + '</span>' : '') + '</div>'
       + '<div class="mp-oab-rodape"><button type="button" class="mp-oab-fechar" data-oab-fechar>' + T('master.js.fechar') + '</button>'
@@ -522,7 +522,7 @@
       + (sec.subsecoes.length ? '' : '<div class="mp-oab-subs-vazio">' + T('master.js.janela_oab.subs_vazio', { link: '<a href="' + SEC_CFOAB + '" target="_blank" rel="noopener">' + T('master.js.janela_oab.pesquisar') + '</a>' }) + '</div>')
       + sec.subsecoes.map(x => '<div class="mp-oab-sub"><i class="bi bi-geo-alt"></i><span><b>' + esc(x.nome) + '</b><span>' + esc(x.endereco) + '</span>'
         + (x.telefone ? '<span class="mp-oab-sub-tel">' + esc(x.telefone) + '</span>' : '') + '</span>'
-        + '<button type="button" title="' + T('master.js.janela_oab.remover') + '" aria-label="' + T('master.js.janela_oab.remover') + '" data-oab-sub-rm="' + esc(x.id) + '"><i class="bi bi-trash3"></i></button></div>').join('') + '</div>';
+        + '<button type="button" title="' + esc(T('master.js.janela_oab.remover')) + '" aria-label="' + esc(T('master.js.janela_oab.remover')) + '" data-oab-sub-rm="' + esc(x.id) + '"><i class="bi bi-trash3"></i></button></div>').join('') + '</div>';
   }
 
   // "Adicionar endereço" abre o formulário na própria janela (spec: nome, endereço e telefone). O desenho não o mostra.
@@ -622,7 +622,7 @@
       + [ATIVA, SUSPENSA].map(v => '<option value="' + v + '"' + (S.fSit === v ? ' selected' : '') + '>' + rotuloDaSituacao(v) + '</option>').join('')
       // C4b: as contas excluídas só aparecem nesta opção, com a data da purga.
       + '<option value="' + QUARENTENA + '"' + (S.fSit === QUARENTENA ? ' selected' : '') + '>' + rotuloDaSituacao(QUARENTENA) + '</option></select>'
-      + '<label class="mp-busca"><i class="bi bi-search"></i><input data-busca value="' + esc(S.busca) + '" placeholder="' + T('master.js.contas.busca') + '" aria-label="' + T('master.js.contas.busca') + '"></label></div>'
+      + '<label class="mp-busca"><i class="bi bi-search"></i><input data-busca value="' + esc(S.busca) + '" placeholder="' + esc(T('master.js.contas.busca')) + '" aria-label="' + esc(T('master.js.contas.busca')) + '"></label></div>'
       + '<div id="mp-contas-aviso"></div><div class="mp-rolagem"><div class="mp-contas-grade"><div class="mp-contas-cab">'
       + ['conta', 'primario_plano', 'usuarios', 'pastas', 'docs', 'armazenamento', 'dias30', 'previsao', 'situacao'].map(k => '<div>' + T('master.js.contas.cab.' + k) + '</div>').join('') + '<div></div></div>'
       + '<div id="mp-contas-lista"></div></div></div></div>'
@@ -786,7 +786,7 @@
     document.getElementById('mp-contas-lista').innerHTML = contas.length ? contas.map(c => {
       const sit = situacaoVisivel(c), cor = ST[sit] || '#4a6373';
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
-        + '<div class="mp-conta-nome mp-hv"><span class="mp-conta-titulo"><span class="mp-conta-nro" title="' + T('master.js.contas.numero_dica') + '">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b></span><span>' + esc(T('master.js.contas.desde', { desde: c.desde, acesso: acessoRelativo(c.ultimoAcesso) })) + '</span></div>'
+        + '<div class="mp-conta-nome mp-hv"><span class="mp-conta-titulo"><span class="mp-conta-nro" title="' + esc(T('master.js.contas.numero_dica')) + '">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b></span><span>' + esc(T('master.js.contas.desde', { desde: c.desde, acesso: acessoRelativo(c.ultimoAcesso) })) + '</span></div>'
         + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || T('master.js.contas.titular_ausente')) + '</span><span>' + esc(c.espaco.planoNome) + '</span></div>'
         + '<div class="mp-conta-usu mp-hv"><b>' + num(c.usuarios) + '</b><span> / ' + (c.espaco.limiteUsuarios === null ? T('master.js.sem_limite') : num(c.espaco.limiteUsuarios)) + '</span></div>'
         + '<div class="mp-conta-num mp-hv">' + num(c.pastas) + '</div><div class="mp-conta-num mp-hv">' + num(c.documentos) + '</div>'
@@ -796,9 +796,9 @@
         + '<div class="mp-conta-st mp-hv">' + (c.purgaEm
           // Quarentena: a situação e, abaixo, a data da purga em duas linhas curtas que não quebram (coluna de 100px).
           ? '<div class="mp-conta-st-bloco"><span class="mp-conta-sit" style="--cor:' + cor + '"><i></i>' + esc(rotuloDaSituacao(c.situacao)) + '</span>'
-            + '<span class="mp-conta-purga" title="' + T('master.js.contas.purga_dica') + '">' + T('master.js.contas.purga') + '<br>' + esc(dataBr(c.purgaEm)) + '</span></div>'
+            + '<span class="mp-conta-purga" title="' + esc(T('master.js.contas.purga_dica')) + '">' + T('master.js.contas.purga') + '<br>' + esc(dataBr(c.purgaEm)) + '</span></div>'
           : '<span style="--cor:' + cor + '"><i></i>' + esc(rotuloDaSituacao(sit)) + '</span>') + '</div>'
-        + '<div class="mp-conta-acoes mp-hv"><button type="button" class="mp-btn-icone" data-menu="' + c.id + '" title="' + T('master.js.contas.acoes') + '" aria-label="' + T('master.js.contas.acoes') + '"><i class="bi bi-three-dots-vertical"></i></button></div>'
+        + '<div class="mp-conta-acoes mp-hv"><button type="button" class="mp-btn-icone" data-menu="' + c.id + '" title="' + esc(T('master.js.contas.acoes')) + '" aria-label="' + esc(T('master.js.contas.acoes')) + '"><i class="bi bi-three-dots-vertical"></i></button></div>'
         + '</div>';
     }).join('') : '<div class="mp-vazio-linha">' + T('master.js.contas.nenhuma') + '</div>';
     renderMenuDaConta();
@@ -843,7 +843,7 @@
     if (!S.fx) S.fx = fxDoServidor();
     elSecao.innerHTML = '<div class="mp-card mp-faixas"><b class="mp-faixas-tit">' + T('master.js.arm.faixas_titulo') + ' <span>' + T('master.js.arm.configuraveis') + '</span></b>'
       + '<div class="mp-faixas-chips">' + CHIPS.map(([k, rot, cor, bg]) => '<label class="mp-faixa-chip" style="--cor:' + cor + ';--bg:' + bg + '"><span>' + T('master.js.arm.a_partir', { faixa: rot }) + '</span>'
-        + '<input type="number" min="1" max="100" step="1" data-faixa="' + k + '" value="' + esc(S.fx[k]) + '" aria-label="' + T('master.js.arm.a_partir', { faixa: rot }) + '">%</label>').join('') + '</div>'
+        + '<input type="number" min="1" max="100" step="1" data-faixa="' + k + '" value="' + esc(S.fx[k]) + '" aria-label="' + esc(T('master.js.arm.a_partir', { faixa: rot })) + '">%</label>').join('') + '</div>'
       + '<span class="mp-faixas-nota">' + T('master.js.arm.faixas_nota') + '</span>'
       + '<div class="mp-faixas-bloqueio"><label class="mp-chave"><input type="checkbox" data-faixa-bloqueio' + (S.fx.bloqueioAtivo ? ' checked' : '') + '><span>' + T('master.js.arm.bloquear', { faixa: T('master.js.faixa.chip_bloqueio') }) + '</span></label>'
       + '<span class="mp-faixas-aviso"><i class="bi bi-exclamation-triangle"></i>' + esc(AVISO_BLOQUEIO) + '</span></div>'
@@ -939,7 +939,7 @@
       + (arm ? '<label class="mp-lim-sem"><input type="checkbox" data-lim-sem' + (c.espaco.semLimite ? ' checked' : '') + '>' + T('master.js.limite.sem_limite') + '</label>' : '')
       + '<span class="mp-lim-msg" data-lim-msg></span>'
       + (!arm && c.espaco.semLimite ? '<span class="mp-lim-nota">' + T('master.js.limite.nota_sem_limite') + '</span>' : '')
-      + campo(T('master.js.limite.justificativa'), 'type="text" maxlength="500" data-lim-just placeholder="' + T('master.js.limite.justificativa_dica') + '"'), T('master.js.limite.confirmar'));
+      + campo(T('master.js.limite.justificativa'), 'type="text" maxlength="500" data-lim-just placeholder="' + esc(T('master.js.limite.justificativa_dica')) + '"'), T('master.js.limite.confirmar'));
     atualizarLimite();
     elModal.querySelector('[data-lim-novo]').focus();
   }
@@ -1008,7 +1008,7 @@
       + campo(T('master.js.campo.nome'), 'type="text" maxlength="60" data-plano-nome value="' + esc(p.nome) + '"')
       + '<div class="mp-lim-duas">' + campo(T('master.js.plano_modal.espaco'), 'type="number" min="1" step="1" data-plano-cota value="' + p.cotaGb + '"')
       + campo(T('master.js.plano_modal.preco'), 'type="text" inputmode="decimal" data-plano-preco value="' + esc(preco) + '"') + '</div>'
-      + campo(T('master.js.plano_modal.limite_usuarios'), 'type="number" min="1" step="1" data-plano-usuarios placeholder="' + T('master.js.plano_modal.vazio_sem_limite') + '" value="' + (p.limiteUsuarios === null ? '' : p.limiteUsuarios) + '"')
+      + campo(T('master.js.plano_modal.limite_usuarios'), 'type="number" min="1" step="1" data-plano-usuarios placeholder="' + esc(T('master.js.plano_modal.vazio_sem_limite')) + '" value="' + (p.limiteUsuarios === null ? '' : p.limiteUsuarios) + '"')
       + campo(T('master.js.plano_modal.descricao'), 'type="text" maxlength="120" data-plano-descricao value="' + esc(p.descricao) + '"')
       + '<label class="mp-lim-sem"><input type="checkbox" data-plano-ativo' + (p.ativo ? ' checked' : '') + '>' + T('master.js.plano_modal.ativo') + '</label>'
       + '<span class="mp-lim-msg" data-lim-msg></span>', T('master.js.plano_modal.salvar'));
