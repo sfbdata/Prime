@@ -11,9 +11,10 @@ use App\Tarefa\Enum\AbaMetas;
 /**
  * Quebra a lista plana de metas nos blocos que a tela mostra.
  *
- * Duas leituras diferentes, porque as duas perguntas são diferentes:
- *  - quem EXECUTA quer saber o que vence primeiro  → agrupa por urgência do prazo;
- *  - quem DELEGOU quer saber o que voltou para ele → agrupa por etapa da revisão.
+ * Todas as abas agrupam por urgência do prazo, com os mesmos grupos, na mesma ordem (desenho 04,
+ * dc L151-154: a aba Criei só muda QUAIS metas entram, não como se agrupam). A aba Criei agrupava
+ * por etapa da revisão até o acerto do desenho 04; o que voltou para revisão de quem criou continua
+ * no grupo "Enviadas para revisão".
  *
  * Invariante: cada meta cai em EXATAMENTE um grupo. `em_revisao` e `concluida` vencem a
  * urgência do prazo — uma meta entregue e atrasada apareceria nos dois blocos se a ordem de
@@ -31,9 +32,8 @@ final class AgrupadorDeMetas
     {
         $hoje = ($hoje ?? new \DateTimeImmutable())->setTime(0, 0);
 
-        $grupos = $aba->agrupaPorEtapaDaRevisao()
-            ? $this->porEtapaDaRevisao($metas, $hoje)
-            : $this->porUrgencia($metas, $hoje);
+        // A aba fica na assinatura: é o contrato com quem chama, e o agrupamento não depende mais dela.
+        $grupos = $this->porUrgencia($metas, $hoje);
 
         return array_values(array_filter($grupos, static fn (GrupoDeMetasOutput $g): bool => !$g->estaVazio()));
     }
@@ -65,48 +65,6 @@ final class AgrupadorDeMetas
                 'accent',
                 $baldes['em_revisao'],
                 nota: 'aguardando quem criou a meta',
-            ),
-            new GrupoDeMetasOutput(
-                'concluidas',
-                'Concluídas',
-                'ok',
-                $baldes['concluidas'],
-                recolhido: true,
-                nota: 'nos últimos 30 dias',
-            ),
-        ];
-    }
-
-    /**
-     * @param Tarefa[] $metas
-     * @return GrupoDeMetasOutput[]
-     */
-    private function porEtapaDaRevisao(array $metas, \DateTimeImmutable $hoje): array
-    {
-        $baldes = ['aguardando' => [], 'andamento' => [], 'concluidas' => []];
-
-        foreach ($metas as $meta) {
-            $baldes[match ($meta->getStatus()) {
-                Tarefa::STATUS_CONCLUIDA  => 'concluidas',
-                Tarefa::STATUS_EM_REVISAO => 'aguardando',
-                default                   => 'andamento',
-            }][] = $meta;
-        }
-
-        return [
-            new GrupoDeMetasOutput(
-                'aguardando',
-                'Aguardando sua revisão',
-                'accent',
-                $baldes['aguardando'],
-                nota: 'o responsável terminou e enviou para você',
-            ),
-            new GrupoDeMetasOutput(
-                'andamento',
-                'Em andamento',
-                'warn',
-                $this->ordenarPorPrazo($baldes['andamento']),
-                nota: 'com quem você delegou',
             ),
             new GrupoDeMetasOutput(
                 'concluidas',
@@ -156,9 +114,8 @@ final class AgrupadorDeMetas
     }
 
     /**
-     * Prazo mais apertado primeiro. Meta sem prazo vai para o fim — dentro dos baldes de
-     * urgência isso não acontece, mas o método também serve ao "Em andamento" da aba Criei,
-     * que mistura os dois.
+     * Prazo mais apertado primeiro. Meta sem prazo vai para o fim (dentro dos baldes de urgência
+     * isso não acontece; a regra fica para o método não depender de quem o chama).
      *
      * @param Tarefa[] $metas
      * @return Tarefa[]

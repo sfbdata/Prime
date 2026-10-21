@@ -46,7 +46,7 @@ some meta concluída legítima da tela.
 
 ## Agrupamento dentro da lista
 
-**Aba `responsavel`, `acompanhando` e `todas`** — por urgência, na ordem:
+**Todas as abas** (`responsavel`, `criei`, `acompanhando` e `todas`), por urgência, na ordem:
 
 1. Atrasadas — `prazo < hoje`, não concluída
 2. Próximos 7 dias — `hoje <= prazo <= hoje+7`
@@ -55,11 +55,11 @@ some meta concluída legítima da tela.
 5. Enviadas para revisão — `status = em_revisao` (sai da fila de trabalho: a bola está com quem criou)
 6. Concluídas — recolhido
 
-**Aba `criei`** — por etapa da revisão:
-
-1. Aguardando sua revisão — `status = em_revisao` (é a ação de quem criou)
-2. Em andamento — `status = pendente`, ordenado por prazo (atrasadas primeiro)
-3. Concluídas — recolhido
+**Aba `criei`**: agrupa por prazo como as outras, conforme o desenho 04 (`04 - Minhas Metas 1.0`,
+P:151-154: os grupos `G` são os mesmos em qualquer aba; a aba só escolhe quais metas entram). Até o
+acerto do desenho 04 (21/10) ela agrupava por etapa da revisão ("Aguardando sua revisão", "Em
+andamento", "Concluídas"); o que voltou para a revisão de quem criou fica agora em "Enviadas para
+revisão". Nomes, ordem e cores dos grupos são os de cima (decisão do dono, LIS-07/08).
 
 Um item aparece em **exatamente um** grupo. `em_revisao` tem precedência sobre a urgência do prazo em
 todas as abas; sem essa precedência a mesma meta cairia em dois blocos.
@@ -87,13 +87,19 @@ foi o que a primeira versão fazia, porque a faceta excluía só `concluida`. O 
 
 ## Trilho lateral (coluna direita, 356px)
 
-- **Andamento** — barra de progresso e as quatro fatias: concluídas (30 dias), **em aberto**,
-  atrasadas, em revisão. As fatias somam o total exibido; se não somarem, o número está errado.
+- **Seu andamento** (sempre este título, em qualquer aba) — "X de Y concluídas", barra de progresso
+  e as quatro fatias: concluídas (30 dias), **em aberto**, atrasadas, em revisão. Desde o desenho 04
+  (P:112-118, P:176-177) os números são de TODAS as metas da pessoa (universo da aba `todas`,
+  concluídas dos últimos 30 dias, sem as pastas do cadeado), sem a aba aberta e sem os filtros da
+  tela: `TarefaRepository::contarAndamento`, uma consulta agregada, também na recarga parcial. As
+  fatias somam Y; se não somarem, o número está errado.
   A segunda chama-se "em aberto", e não "no prazo", porque soma as de prazo folgado **e** as sem
   prazo nenhum — chamar de "no prazo" o que não tem prazo seria mentir no rótulo.
 - **Quem delegou para você** (aba `responsavel`) / **Com quem estão** (aba `criei`) — pessoas com
   contagem de abertas e de atrasadas. Teto de 5 linhas, com "e mais N pessoas".
-- **Precisa de atenção** — as atrasadas, no máximo 5, com "ver todas" quando houver mais.
+- **Precisa de atenção** — as atrasadas de TODAS as metas da pessoa (mesmo universo do andamento),
+  da que venceu primeiro, no máximo 4 (`MinhasMetasOutput::TETO_ATENCAO`), sem "ver todas" (desenho
+  04, P:119-127 e P:178). O item abre a meta (TRI-09).
 
 O trilho não aparece no modo lista.
 
