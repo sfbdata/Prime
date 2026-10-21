@@ -112,6 +112,7 @@ use App\Pasta\UseCase\ExcluirPastaUseCase;
 use App\Pasta\UseCase\ResultadoExclusaoPasta;
 use App\Pasta\UseCase\RestaurarPastaUseCase;
 use App\Pasta\UseCase\ReordenarChecklistItensUseCase;
+use App\Pasta\Service\CobrancasDoChecklistDaPasta;
 use App\Pasta\UseCase\ToggleChecklistItemUseCase;
 use App\Pasta\Repository\PastaChecklistItemRepository;
 use App\Pasta\Repository\PastaObservacaoDetalhesRepository;
@@ -328,6 +329,7 @@ class PastaController extends AbstractController
         PastaDocumentoFavoritoRepository $favoritosDeDocumento,
         VisibilidadeDoFinanceiroDaPasta $visibilidadeDoFinanceiro,
         NotaTecnicaRepository $notaTecnicaRepository,
+        CobrancasDoChecklistDaPasta $cobrancasDoChecklist,
         VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
         MontarPainelDoPushUseCase $montarPainelDoPush,
     ): Response
@@ -517,7 +519,8 @@ class PastaController extends AbstractController
             ...$this->paineisDoPush($pasta, $tenant, $montarPainelDoPush),
             'analisesIa'                  => $analisesIa,
             ...$this->pendenciasEPontosDoRelatorio($pasta, $tenant, $observacoesDetalhes, $push->naoLidas, $pagamentosDaPasta,
-                $conferenciaChecklist->totalMarcadosSemAnexo(), $tenant !== null && $visibilidadeDoFinanceiro->podeVer($currentUser, $tenant, $pasta)),
+                $conferenciaChecklist->totalMarcadosSemAnexo(), $tenant !== null && $visibilidadeDoFinanceiro->podeVer($currentUser, $tenant, $pasta),
+                $cobrancasDoChecklist->cobradosPendentes($pasta)),
             'metasResumo'                 => PastaMetasResumoOutput::montar($pasta),
             'abasDaPasta'                 => $abasDaPasta,
             // Atalho para a UNIDADE cobrada — só existe em pasta que veio de uma
@@ -2531,7 +2534,7 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
         }
 
-        $this->toggleChecklistItemUseCase->executar($item);
+        $this->toggleChecklistItemUseCase->executar($item, $currentUser);
 
         return $this->json(['ok' => true, 'concluido' => $item->isConcluido()]);
     }
@@ -2767,12 +2770,12 @@ class PastaController extends AbstractController
      *
      * @return array{pendencias: PastaPendenciasOutput, pontosDoRelatorio: PontosDoRelatorioInicial}
      */
-    private function pendenciasEPontosDoRelatorio(Pasta $pasta, ?Tenant $tenant, array $observacoesDetalhes, int $pushNaoLidas, array $pagamentos, int $semAnexo, bool $veFinanceiro): array
+    private function pendenciasEPontosDoRelatorio(Pasta $pasta, ?Tenant $tenant, array $observacoesDetalhes, int $pushNaoLidas, array $pagamentos, int $semAnexo, bool $veFinanceiro, int $documentosCobrados = 0): array
     {
         $pontos = $this->pontosDoRelatorioInicial($pasta, $tenant, $observacoesDetalhes);
 
         return [
-            'pendencias'        => PastaPendenciasOutput::montar($pasta, $pushNaoLidas, $pagamentos, itensMarcadosSemAnexo: $semAnexo, veFinanceiro: $veFinanceiro, relatorioInicial: $pontos),
+            'pendencias'        => PastaPendenciasOutput::montar($pasta, $pushNaoLidas, $pagamentos, itensMarcadosSemAnexo: $semAnexo, veFinanceiro: $veFinanceiro, documentosCobrados: $documentosCobrados, relatorioInicial: $pontos),
             'pontosDoRelatorio' => $pontos,
         ];
     }
