@@ -9,6 +9,8 @@
    base `trabalho-externo-vagas`.
    Migration `Version20261019160801`.
 4. `trabalho-externo-curriculos` (F3a, §4.5) → **PR #96 em rascunho**, base `trabalho-externo-vagas-publicas`.
+5. `trabalho-externo-candidatura` (F2b, §4.6) → **PR #105 em rascunho**, base `trabalho-externo-curriculos`.
+   Migration `Version20261019231700`.
    Migration `Version20261019213000`.
 
 Depois de cada merge: trazer `origin/master` para a próxima (`git merge --no-edit origin/master`),
@@ -16,7 +18,7 @@ rodar a suíte, renomear a migration dela para o timestamp do momento (arquivo e
 base do PR para `master` e tirar do rascunho.
 
 **Fila de merge** (coordenador, 19/10, depois do master a7433b93): #56 → #60 → #65 → #69 → #64 → #74 →
-#62 → #83 → #84 → #96. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
+#62 → #83 → #84 → #96 → #105. O master já tem a migration do Push (`Version20261019170000`), posterior às do F2a e do
 F2c: as duas são renomeadas na vez. Teto do FORA_DO_ESCOPO: quando o #56 entrar, somar as entradas dele.
 
 **Decisões do dono** (via coordenador, 19/10): tudo do desenho entra, mesmo que abra frente nova; o
@@ -92,7 +94,7 @@ telefone e arquivos do currículo da Equipe sem `talentos`, recomendação do de
 desenho, toda a Equipe vê); prazo de retenção do Termo de Voluntariado aceito depois que o currículo
 é excluído (o termo fica ligado ao usuário).
 
-**Próximo passo**: F2b Candidatura (§4.4), empilhada sobre o #96; depois F4 visão
+**Próximo passo**: F4 (§4.4), empilhada sobre o #105, com as notificações pelo sino da Central; depois
 externa (abas e banner) e os KPIs da página pública. Conferência final do 06 inteiro no fim, com a
 lista do que não tem dono. A F2d (§4.3) espera o PR da 5d.
 
@@ -526,6 +528,88 @@ frente "Excluir conta" (quarentena de 365 dias).
 
 Fica para depois e registrado: currículo em Word (sem botão no desenho, decisão 10); texto do toast
 da candidatura para "Meu currículo" (F2b, decisão 11); KPI "COM OAB" filtra adv e estOab (F3b).
+
+## 4.6 F2b: Candidatura (desenho 06, 19/10)
+
+Branch `trabalho-externo-candidatura`, empilhada sobre `trabalho-externo-curriculos` (#96). Risco
+**MÉDIO**. Inventário de 19/10 (linhas abaixo). Fora: notificações (decididas pelo coordenador em 19/10: entram na F4 pelo sino da Central,
+`TiposDeAvisoDaCentral` conforme `app/src/Central/CLAUDE.md`; e-mail só se o desenho mostrar, pelo Carteiro da 5d), painel/funil
+(F3b), chips de engajamento, QUASE por evento entre abas e bem-vindo (F4).
+
+### Modelo
+`Candidatura` (tabela `trabalho_externo_candidatura`, sem tenant): `vaga` (FK CASCADE), `curriculo`
+(FK CASCADE), única por (vaga, currículo), `status` `StatusCandidatura` (recebida, analise, entrevista,
+aprovado, contratado, nao; rótulos e cores AST l.846), `enviadaEm`, `datas` por etapa (analise,
+enviado, entrevista, aprovado, contratado, nao), `enviadoAoEscritorio` (bool + data), `aceiteDeOferta`
+(bool). A vaga ganha `aceitesNaRodada` derivado das candidaturas de aceite desde o `inicio` atual.
+Marcações pessoais: `TipoItemMarcado::Candidatura`.
+
+### Regras (l.974 a 985, 1003, 1006, 1039 a 1047, 1095, 1103, 1154; decisões nas lacunas)
+- **Candidatar-se** (externo com currículo): cria `recebida`, histórico da vaga `bi-send` #0a6fa0
+  "Candidatura de {nome}". Toast "Candidatura enviada" / "Acompanhe em Meu currículo · Minhas
+  candidaturas." (texto ajustado à aba que o externo vê, decisão 11 da F3a). Já existe: "Candidatura já
+  enviada" / "Você já se candidatou a esta vaga.". Sem currículo: o servidor responde `semCurriculo` e a
+  tela abre o formulário "Seu currículo para candidatura" com "Salvar e candidatar-se"; o salvar segue
+  o mesmo caso de uso (com histórico, e o toast "Currículo salvo e candidatura enviada" só quando criou).
+- **Servidor recusa** (lacunas 1 e 2): vaga que não está aberta ou com prazo de inscrição vencido
+  ("As inscrições desta vaga estão encerradas."), vaga própria ("Você não pode se candidatar à sua
+  própria vaga."), interno ("Só profissionais externos se candidatam às vagas."). OAB exigida segue
+  informativa (decisão 2 da §4.4). Na tela, a vaga própria não mostra "Candidatar-se".
+- **Aceite de oferta** (`aceitar`, l.978): sob trava da linha da vaga (`SELECT … FOR UPDATE`), confere
+  aberta, tempo e `aceites da rodada < qtd`; cria candidatura em `aprovado` (com `datas.aprovado`),
+  histórico "Aceita por {nome} ({n} de {qtd})"; ao completar, vaga `preenchida` e "Oferta preenchida em
+  {mm:ss} min". Toasts "Oferta aceita" / "A vaga está reservada para você. O escritório já foi avisado.",
+  "Você já aceitou" / "Sua vaga está garantida.", "Vaga indisponível" / "Esta vaga já foi preenchida ou
+  encerrada." (com `motiv` ligado, o modal QUASE do desenho, l.392 a 400 e 839).
+  Decidido pelo coordenador (19/10): **cada rodada** ("Ofertar novamente", "Reabrir") conta os aceites do
+  zero; os aceites anteriores continuam `aprovado`. Aceite em vaga **com dono** entra direto nos
+  enviados ao escritório (o toast promete que o escritório sabe).
+- **Status** (`aStatus`): qualquer AST para qualquer outro, só com `talentos` (decisão 3 da §4.4).
+- **Envio ao escritório** (`enviarCands`, l.981): só vaga com dono e só `talentos`; seleção **por vaga**
+  (lacuna 9); `recebida` vira `analise`; histórico "{n} candidato(s) enviado(s) ao escritório por
+  {quem}"; toast "Candidatos enviados" / "{n} currículo(s) disponível(is) para {escritório}."; sem
+  seleção, "Selecione candidatos" / "Marque quem será enviado ao escritório."; abaixo de `minEnvio`, a
+  confirmação do sistema (`abrirConf`) com o texto "O padrão é enviar pelo menos {min} candidatos.
+  Enviar mesmo assim {total}?". Sem "desenviar".
+- **Dono externo da vaga** vê só os enviados (título "CANDIDATOS INDICADOS PELO BLUEJUS ({n}) · O
+  BLUEJUS ATUALIZA O ANDAMENTO", sem botões de status), abre o currículo formatado e o detalhe do
+  candidato **sem** nota interna, sem situação no banco e sem as outras candidaturas (decisão 1 da §4.4).
+  Card: "{n} indicado(s) pelo BlueJus".
+- **Linha do tempo** `etapas` calculada no servidor (passos, estado, datas dd/mm/aa, dias); com `nao`,
+  o último passo alcançado aparece feito (lacuna 16) e entra o passo "Não selecionado".
+- **Minhas candidaturas** (l.221 a 224, 1103, 1154): lista, filtros Todas / ★ Estrela / Lixeira, lote,
+  importância (marcada 3; entrevista ou aprovado 2, como l.1154; senão 1), abrir marca como vista.
+- **Compatibilidade** `compat` (l.1011): áreas 60, UF/sem UF/Remoto 25, cargo 15; selo
+  "{N}% compatível" (≥70 #1e7b45, ≥40 #0a6fa0, senão #6b8494) e ordem do externo (ofertas ao vivo,
+  depois compatibilidade); entra no `impV` (+2 com ≥70) e as candidaturas recebidas no `impV` do
+  interno (+min(3, n)); `impC` +2 com candidaturas.
+- Excluir vaga ou currículo apaga as candidaturas (FK), como o desenho.
+- Revisão de 19/10 (corrigido): "Salvar e candidatar-se" recusado devolve `curriculoSalvo` e a tela trata
+  o currículo como salvo; ações da Central na vaga pegam a mesma trava do aceite; unit dos casos de uso.
+  Decisão registrada: a vaga já publicada e fechada responde 422 ("Inscrições encerradas") em vez de 404,
+  para quem tem o link; não mostra título nem dado. O dono da vaga baixa os arquivos do candidato
+  ENVIADO a ele (o modal `tmCv` do desenho mostra; o consentimento LGPD cobre).
+
+### Contrato JSON (fixo)
+- `POST /trabalho-externo/api/vagas/{codigo}/candidatura` `trabalho_externo_vaga_candidatura`: candidata
+  ou aceita (o servidor decide pela oferta). 200 `{vaga, toast: {titulo, texto}}`; 409 `{ok:false,
+  semCurriculo:true}`; 422 `{ok:false, titulo, mensagem, quase?: bool}`.
+- `POST /trabalho-externo/api/vagas/{codigo}/enviar` `trabalho_externo_vaga_enviar` `{candidaturas:[id]}`:
+  `{vaga, toast}`.
+- `POST /trabalho-externo/api/candidaturas/{id}/status` `trabalho_externo_candidatura_status` `{status}`:
+  `{vaga}` quando veio do detalhe da vaga.
+- `POST /trabalho-externo/api/candidaturas/marcacoes` `trabalho_externo_candidaturas_marcacoes`: como as vagas.
+- Detalhe da vaga ganha: `candidatos[]` `{id, codigoCv, nome, iniciais, fotoUrl, info ("OAB …/UF ·
+  local · enviada em dd/mm/aaaa"), status, statusRotulo, statusCor, enviado, etapas, documentoUrl}`,
+  `candTitulo`, `envioInfo`, `podeEnviar`, `podeMudarStatus`, `minEnvio`, `enviadosN`,
+  `minhaCandidatura` (externo: `{status, statusRotulo, statusCor, etapas, total}` ou null),
+  `botaoExterno` (`candidatar`|`aceitar`|`enviada`|`indisponivel`|null), `compat`.
+- Cartão da vaga ganha: `compat`, `jaFoi`, `indicadosN` (dono).
+- `etapas`: `{passos:[{k, rot, ic, estado (feito|atual|futuro|nao), data, dias}], total}`.
+- Lista de currículos do externo ganha `minhas[]` `{id, codigoVaga, titulo, enviadaEm, status,
+  statusRotulo, statusCor, etapas, estrela, lixeira, vista, importancia}`.
+- `index.html.twig` ganha `data-url-vaga-candidatura` (VG-0), `-vaga-enviar` (VG-0),
+  `-candidatura-status` (com 0), `-candidaturas-marcacoes`.
 
 ## 5. Verificação
 

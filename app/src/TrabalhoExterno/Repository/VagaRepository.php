@@ -9,6 +9,8 @@ use App\Entity\Tenant\Tenant;
 use App\TrabalhoExterno\Entity\Vaga;
 use App\TrabalhoExterno\Enum\SituacaoVaga;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
+use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -64,6 +66,54 @@ class VagaRepository extends ServiceEntityRepository
     public function visivelAoExternoPorId(int $id, ?Tenant $tenant, User $usuario): ?Vaga
     {
         return $this->doExterno($tenant, $usuario)->andWhere('v.id = :id')->setParameter('id', $id)->getQuery()->getOneOrNullResult();
+    }
+
+    /**
+     * Uma vaga que já foi publicada para todos (aberta ou não), para a candidatura responder "inscrições
+     * encerradas" ou "vaga indisponível" em vez de "não encontrada". A pendente e a reprovada de outro
+     * escritório nunca foram públicas e continuam sem aparecer.
+     */
+    public function publicadaPorId(int $id): ?Vaga
+    {
+        return $this->createQueryBuilder('v')
+            ->andWhere('v.id = :id')
+            ->andWhere('v.publicadaEm IS NOT NULL')
+            ->setParameter('id', $id)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * Roda `$trabalho` numa transação com a linha da vaga travada e relida (`SELECT … FOR UPDATE`), e
+     * grava no fim (flush e COMMIT). É a porta do aceite da oferta e das ações de situação: uma não
+     * sobrescreve a outra. `$trabalho` não deve lançar (a falha fecha o EntityManager): devolva a recusa
+     * e lance depois.
+     *
+     * @template T
+     *
+     * @param callable(): T $trabalho
+     *
+     * @return T
+     */
+    public function comAVagaTravada(Vaga $vaga, callable $trabalho): mixed
+    {
+        return $this->getEntityManager()->wrapInTransaction(function () use ($vaga, $trabalho): mixed {
+            $this->travar($vaga);
+
+            return $trabalho();
+        });
+    }
+
+    /** O `SELECT … FOR UPDATE` de {@see comAVagaTravada()}; exige transação aberta. */
+    private function travar(Vaga $vaga): void
+    {
+        $this->createQueryBuilder('v')
+            ->andWhere('v.id = :id')
+            ->setParameter('id', $vaga->getId())
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->setHint(Query::HINT_REFRESH, true)
+            ->getOneOrNullResult();
     }
 
     private function doExterno(?Tenant $tenant, User $usuario): QueryBuilder

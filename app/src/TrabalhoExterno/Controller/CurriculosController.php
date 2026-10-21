@@ -13,13 +13,11 @@ use App\TrabalhoExterno\Entity\Curriculo;
 use App\TrabalhoExterno\Enum\OperacaoDeMarcacao;
 use App\TrabalhoExterno\Enum\StatusCurriculo;
 use App\TrabalhoExterno\Enum\TipoArquivoDoCurriculo;
-use App\TrabalhoExterno\Enum\TipoItemMarcado;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Exception\DemandaNaoEncontrada;
-use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
-use App\TrabalhoExterno\Service\ApresentadorDeCurriculo;
 use App\TrabalhoExterno\Service\Contexto;
+use App\TrabalhoExterno\Service\DetalheDoCurriculo;
 use App\TrabalhoExterno\Service\FabricaDeContexto;
 use App\TrabalhoExterno\Service\LocalizadorDeCurriculo;
 use App\TrabalhoExterno\Service\PreviaDePerfil;
@@ -34,7 +32,7 @@ use App\TrabalhoExterno\UseCase\MarcarCurriculosEmLoteUseCase;
 use App\TrabalhoExterno\UseCase\MudarStatusDoCurriculoUseCase;
 use App\TrabalhoExterno\UseCase\PreVisualizarCurriculoUseCase;
 use App\TrabalhoExterno\UseCase\RemoverArquivoDoCurriculoUseCase;
-use App\TrabalhoExterno\UseCase\SalvarMeuCurriculoUseCase;
+use App\TrabalhoExterno\UseCase\SalvarCurriculoECandidatarUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -62,8 +60,7 @@ final class CurriculosController extends AbstractController
         private readonly FabricaDeContexto $contextos,
         private readonly PreviaDePerfil $previa,
         private readonly LocalizadorDeCurriculo $localizador,
-        private readonly ApresentadorDeCurriculo $apresentador,
-        private readonly MarcacaoDoUsuarioRepository $marcacoes,
+        private readonly DetalheDoCurriculo $detalhe,
     ) {
     }
 
@@ -79,10 +76,20 @@ final class CurriculosController extends AbstractController
         return $this->ler($request, fn (Contexto $ctx): array => ['curriculo' => $this->detalhar($ctx, $this->localizador->localizar($ctx, $codigo))]);
     }
 
+    /**
+     * Cria ou edita o próprio. Com `candidatarA` (código da vaga), é o "Salvar e candidatar-se" do
+     * formulário "Seu currículo para candidatura" (l.1006). A recusa da candidatura sai como 422 com
+     * `titulo`, `quase` e `curriculoSalvo`.
+     */
     #[Route('/api/curriculos/meu', name: 'trabalho_externo_curriculo_salvar', methods: ['POST'])]
-    public function salvar(Request $request, SalvarMeuCurriculoUseCase $salvar): JsonResponse
+    public function salvar(Request $request, SalvarCurriculoECandidatarUseCase $salvar): JsonResponse
     {
-        return $this->escrever($request, fn (Contexto $ctx): array => ['curriculo' => $this->detalhar($ctx, $salvar->executar($ctx, DadosDoCurriculo::deArray($this->corpo($request))))]);
+        return $this->escrever($request, function (Contexto $ctx) use ($request, $salvar): array {
+            $corpo = $this->corpo($request);
+            $resultado = $salvar->executar($ctx, DadosDoCurriculo::deArray($corpo), is_string($corpo['candidatarA'] ?? null) ? $corpo['candidatarA'] : null);
+
+            return ['curriculo' => $this->detalhar($ctx, $resultado->curriculo), 'toast' => $resultado->toast];
+        });
     }
 
     #[Route('/api/curriculos/meu/arquivos/{tipo}', name: 'trabalho_externo_curriculo_arquivo', methods: ['POST'], requirements: ['tipo' => self::TIPO])]
@@ -209,10 +216,7 @@ final class CurriculosController extends AbstractController
     /** @return array<string, mixed> */
     private function detalhar(Contexto $ctx, Curriculo $cv): array
     {
-        $id = (int) $cv->getId();
-        $marca = $ctx->previa ? null : ($this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Curriculo, [$id])[$id] ?? null);
-
-        return $this->apresentador->detalhe($ctx, $cv, $marca, new \DateTimeImmutable());
+        return $this->detalhe->detalhar($ctx, $cv);
     }
 
     /**
