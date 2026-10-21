@@ -14,16 +14,17 @@ use PHPUnit\Framework\TestCase;
  * dos arquivos extraídos, e do que fica como está, mora em `templates-extraidos.json`, um bloco por área.
  *
  * O detector é de propósito simples e conservador. No Twig: texto entre tags e os atributos que a pessoa lê
- * (`title`, `placeholder`, `aria-label`, `alt`...) fora de `{{ }}`/`{% %}`, e, dentro deles, a string literal que
+ * (`title`, `placeholder`, `aria-label`, `alt`, `data-tip`...) fora de `{{ }}`/`{% %}`, e, dentro deles, a string literal que
  * parece frase (começa com maiúscula seguida de minúscula, ou tem acento) e não vai para `|trans`. No JS: a mesma
- * regra de frase para as strings fora de comentário. Marca, sigla e exemplo que ficam como estão vão em `permitidos`.
+ * regra de frase para as strings fora de comentário. Marca, sigla e exemplo que ficam como estão vão em `permitidos`. O JS inline
+ * (`<script>` no template) fica fora: o que ele ainda tem de fixo está listado na spec (§8).
  */
 #[CoversNothing]
 final class SemTextoFixoNosExtraidosArquiteturaTest extends TestCase
 {
     private const APP = __DIR__ . '/../..';
     private const LISTA = __DIR__ . '/templates-extraidos.json';
-    private const ATRIBUTOS_LIDOS = 'title|placeholder|aria-label|alt|data-bs-title|data-title|aria-description|aria-roledescription';
+    private const ATRIBUTOS_LIDOS = 'title|placeholder|aria-label|alt|data-bs-title|data-title|data-tip|data-confirmar|data-principal|data-suplementar|aria-description|aria-roledescription';
     private const FRASE = '/^(?:[A-ZÀ-Ý][a-zà-ÿ]|.*[À-ÿ])/su';
 
     #[TestDox('Nenhum arquivo já extraído para o catálogo tem texto fixo de tela')]

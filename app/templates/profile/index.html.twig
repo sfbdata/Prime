@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Meu Perfil{% endblock %}
+{% block title %}{{ 'perfil.titulo'|trans }}{% endblock %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/meu-perfil.css') }}">
@@ -238,23 +238,23 @@ input[type="range"].img-slider {
 {# Abas do perfil (desenho "07 - Meu Perfil - VS 18.10.26", linhas 44 a 50 e 255): Convites só para o
    primário (ou o Master), como no menu do usuário; Master só para ROLE_SUPER_ADMIN. #}
 {% set _ehMasterAba = is_granted('ROLE_SUPER_ADMIN') %}
-<nav class="mu-abas-perfil" aria-label="Abas do perfil">
+<nav class="mu-abas-perfil" aria-label="{{ 'perfil.abas.rotulo'|trans }}">
     <div class="mu-abas-perfil-miolo">
-        <a href="{{ path('app_profile') }}" class="mu-aba-perfil on" aria-current="page"><i class="bi bi-person"></i>Meu Perfil</a>
+        <a href="{{ path('app_profile') }}" class="mu-aba-perfil on" aria-current="page"><i class="bi bi-person"></i>{{ 'perfil.abas.meu_perfil'|trans }}</a>
         {% if current_tenant() and (eh_usuario_primario() or _ehMasterAba) %}
-            <a href="{{ path('auth_gerenciar_convites') }}" class="mu-aba-perfil" data-mu-conta="conta"><i class="bi bi-envelope-paper"></i>Convites do escritório</a>
+            <a href="{{ path('auth_gerenciar_convites') }}" class="mu-aba-perfil" data-mu-conta="conta"><i class="bi bi-envelope-paper"></i>{{ 'perfil.abas.convites'|trans }}</a>
         {% endif %}
         {% if current_tenant() %}
-            <button type="button" class="mu-aba-perfil" data-mu-conta="trocar"><i class="bi bi-arrow-left-right"></i>Trocar de conta</button>
+            <button type="button" class="mu-aba-perfil" data-mu-conta="trocar"><i class="bi bi-arrow-left-right"></i>{{ 'perfil.abas.trocar_conta'|trans }}</button>
         {% endif %}
         {% if _ehMasterAba %}
             <div class="dropdown d-flex">
                 <button type="button" class="mu-aba-perfil mu-aba-perfil-master" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
-                    <i class="bi bi-star-fill"></i>Master<i class="bi bi-chevron-down"></i>
+                    <i class="bi bi-star-fill"></i>{{ 'perfil.abas.master'|trans }}<i class="bi bi-chevron-down"></i>
                 </button>
                 <div class="dropdown-menu mu-master-menu" role="menu" data-sem-x="1">
-                    <div class="mu-grupo-rotulo"><i class="bi bi-star-fill"></i>EXCLUSIVO DO MASTER</div>
-                    <button type="button" class="mu-menu-x mu-menu-x-escuro" data-mu-fechar-menu aria-label="Fechar menu"><i class="bi bi-x-lg"></i></button>
+                    <div class="mu-grupo-rotulo"><i class="bi bi-star-fill"></i>{{ 'perfil.abas.exclusivo_master'|trans }}</div>
+                    <button type="button" class="mu-menu-x mu-menu-x-escuro" data-mu-fechar-menu aria-label="{{ 'perfil.abas.fechar_menu'|trans }}"><i class="bi bi-x-lg"></i></button>
                     {% include 'menu_usuario/_itens_master.html.twig' with {classe_item: 'dropdown-item mu-item', papel: 'menuitem'} only %}
                 </div>
             </div>
@@ -271,33 +271,33 @@ input[type="range"].img-slider {
 {% set _ehMaster = is_granted('ROLE_SUPER_ADMIN') %}
 {% set _ehPrimario = eh_usuario_primario() %}
 {% set v = perfil.vinculo %}
-{% set _naoInformado = 'Não informado' %}
+{% set _naoInformado = 'perfil.nao_informado'|trans %}
 {% set _cpfFormatado = perfil.cpf and perfil.cpf|replace({'.': '', '-': '', ' ': ''})|length == 11
     ? perfil.cpf|replace({'.': '', '-': '', ' ': ''})|slice(0, 3) ~ '.' ~ perfil.cpf|replace({'.': '', '-': '', ' ': ''})|slice(3, 3) ~ '.' ~ perfil.cpf|replace({'.': '', '-': '', ' ': ''})|slice(6, 3) ~ '-' ~ perfil.cpf|replace({'.': '', '-': '', ' ': ''})|slice(9, 2)
     : perfil.cpf %}
 {% set _campos = [
-    {icone: 'bi-envelope', rotulo: 'E-mail', valor: perfil.email, copiar: true},
-    {icone: v.icone, rotulo: 'Vínculo', valor: v.rotulo ~ (v.batePonto ? ' · bate ponto' : ' · sem ponto'), copiar: false},
-    {icone: 'bi-person-vcard', rotulo: 'CPF', valor: _cpfFormatado, copiar: true},
+    {icone: 'bi-envelope', rotulo: 'perfil.grade.email'|trans, valor: perfil.email, copiar: true},
+    {icone: v.icone, rotulo: 'perfil.grade.vinculo'|trans, valor: v.batePonto ? 'perfil.grade.vinculo_bate_ponto'|trans({vinculo: v.rotulo}) : 'perfil.grade.vinculo_sem_ponto'|trans({vinculo: v.rotulo}), copiar: false},
+    {icone: 'bi-person-vcard', rotulo: 'perfil.grade.cpf'|trans, valor: _cpfFormatado, copiar: true},
 ] %}
 {% if v.value == 'clt' %}
     {% set _campos = _campos|merge([
-        {icone: 'bi-journal-text', rotulo: 'CTPS', valor: perfil.ctps, copiar: false},
-        {icone: 'bi-hash', rotulo: 'Série', valor: perfil.serie, copiar: false},
-        {icone: 'bi-calendar-plus', rotulo: 'Admissão', valor: perfil.dataAdmissao ? perfil.dataAdmissao|date('d/m/Y') : null, copiar: false},
+        {icone: 'bi-journal-text', rotulo: 'perfil.grade.ctps'|trans, valor: perfil.ctps, copiar: false},
+        {icone: 'bi-hash', rotulo: 'perfil.grade.serie'|trans, valor: perfil.serie, copiar: false},
+        {icone: 'bi-calendar-plus', rotulo: 'perfil.grade.admissao'|trans, valor: perfil.dataAdmissao ? perfil.dataAdmissao|data : null, copiar: false},
     ]) %}
 {% else %}
     {% if v.value == 'pj' %}
-        {% set _campos = _campos|merge([{icone: 'bi-building', rotulo: 'CNPJ', valor: perfil.cnpj, copiar: true}]) %}
+        {% set _campos = _campos|merge([{icone: 'bi-building', rotulo: 'perfil.grade.cnpj'|trans, valor: perfil.cnpj, copiar: true}]) %}
     {% endif %}
     {% set _campos = _campos|merge([
-        {icone: v.value == 'estagio' ? 'bi-calendar-plus' : 'bi-file-earmark-text', rotulo: v.rotuloInicio, valor: perfil.contratoInicio ? perfil.contratoInicio|date('d/m/Y') : null, copiar: false},
+        {icone: v.value == 'estagio' ? 'bi-calendar-plus' : 'bi-file-earmark-text', rotulo: v.rotuloInicio, valor: perfil.contratoInicio ? perfil.contratoInicio|data : null, copiar: false},
     ]) %}
 {% endif %}
 {% set _campos = _campos|merge([
-    {icone: 'bi-calendar3', rotulo: 'Nascimento', valor: perfil.dataNascimento ? perfil.dataNascimento|date('d/m/Y') : null, copiar: false},
-    {icone: 'bi-calendar-check', rotulo: 'Membro desde', valor: perfil.membroDesde|date('d/m/Y'), copiar: false},
-    {icone: 'bi-whatsapp', rotulo: 'Telefone', valor: perfil.telefone, copiar: true},
+    {icone: 'bi-calendar3', rotulo: 'perfil.grade.nascimento'|trans, valor: perfil.dataNascimento ? perfil.dataNascimento|data : null, copiar: false},
+    {icone: 'bi-calendar-check', rotulo: 'perfil.grade.membro_desde'|trans, valor: perfil.membroDesde|data, copiar: false},
+    {icone: 'bi-whatsapp', rotulo: 'perfil.grade.telefone'|trans, valor: perfil.telefone, copiar: true},
 ]) %}
 
 <div class="mp-pagina" id="meuPerfil"
@@ -313,9 +313,9 @@ input[type="range"].img-slider {
             <img src="{{ asset('images/logo/bluejus-white-transparent-nav.png') }}" alt="BlueJus" class="mp-capa-logo">
         </div>
         <div class="mp-ident-linha">
-            <button class="mp-avatar" type="button" data-bs-toggle="modal" data-bs-target="#modalFotoVer" title="Trocar foto" aria-label="Trocar foto">
+            <button class="mp-avatar" type="button" data-bs-toggle="modal" data-bs-target="#modalFotoVer" title="{{ 'perfil.identificacao.trocar_foto'|trans }}" aria-label="{{ 'perfil.identificacao.trocar_foto'|trans }}">
                 {% if perfil.fotoUrl %}
-                    <img id="fotoPerfilAtual" src="{{ path('app_profile_foto_serve', {nome: perfil.fotoUrl}) }}" alt="Foto de perfil">
+                    <img id="fotoPerfilAtual" src="{{ path('app_profile_foto_serve', {nome: perfil.fotoUrl}) }}" alt="{{ 'perfil.identificacao.foto_alt'|trans }}">
                 {% else %}
                     <span id="fotoPerfilAtual" class="mp-avatar-ini">{{ perfil.iniciais }}</span>
                 {% endif %}
@@ -324,27 +324,27 @@ input[type="range"].img-slider {
             <div class="mp-ident-texto">
                 <div class="mp-nome-linha">
                     <h1 class="mp-nome" id="perfilNomeExibido">{{ perfil.nomeExibido|upper }}</h1>
-                    {% if _ehMaster %}<span class="mp-selo mp-selo-master"><i class="bi bi-star-fill"></i>MASTER</span>{% endif %}
-                    {% if current_tenant() %}<span class="mp-selo mp-selo-papel" title="{{ current_tenant().name }}">{{ _ehPrimario or _ehMaster ? 'USUÁRIO PRIMÁRIO' : 'SECUNDÁRIO' }}</span>{% endif %}
+                    {% if _ehMaster %}<span class="mp-selo mp-selo-master"><i class="bi bi-star-fill"></i>{{ 'perfil.identificacao.selo_master'|trans }}</span>{% endif %}
+                    {% if current_tenant() %}<span class="mp-selo mp-selo-papel" title="{{ current_tenant().name }}">{{ _ehPrimario or _ehMaster ? 'perfil.identificacao.usuario_primario'|trans : 'perfil.identificacao.secundario'|trans }}</span>{% endif %}
                 </div>
                 <div class="mp-cargo">
-                    <span><i class="bi bi-briefcase"></i>{{ perfil.cargo ?: 'Cargo não definido' }}</span>
-                    <span><i class="bi bi-geo-alt"></i>{{ perfil.lotacao ?: 'Lotação não definida' }}</span>
+                    <span><i class="bi bi-briefcase"></i>{{ perfil.cargo ?: 'perfil.identificacao.cargo_nao_definido'|trans }}</span>
+                    <span><i class="bi bi-geo-alt"></i>{{ perfil.lotacao ?: 'perfil.identificacao.lotacao_nao_definida'|trans }}</span>
                 </div>
             </div>
-            <button class="mp-btn-contorno" type="button" data-mp-editar><i class="bi bi-pencil"></i>Editar informações</button>
+            <button class="mp-btn-contorno" type="button" data-mp-editar><i class="bi bi-pencil"></i>{{ 'perfil.identificacao.editar'|trans }}</button>
         </div>
-        <div class="mp-frase{{ perfil.status ? '' : ' vazia' }}"><i class="bi bi-chat-quote"></i><span>{{ perfil.status ?: 'Adicione uma frase ao seu perfil' }}</span></div>
+        <div class="mp-frase{{ perfil.status ? '' : ' vazia' }}"><i class="bi bi-chat-quote"></i><span>{{ perfil.status ?: 'perfil.identificacao.frase_vazia'|trans }}</span></div>
 
         {% if not completude.completo %}
             <div class="mp-incompleto" data-mp-incompleto>
                 <span class="mp-incompleto-icone"><i class="bi bi-exclamation-triangle-fill"></i></span>
                 <div class="mp-incompleto-texto">
-                    <div><b>Seu cadastro está incompleto</b><span class="mp-incompleto-pct">{{ completude.percentual }}% preenchido</span></div>
+                    <div><b>{{ 'perfil.incompleto.titulo'|trans }}</b><span class="mp-incompleto-pct">{{ 'perfil.incompleto.percentual'|trans({pct: completude.percentual}) }}</span></div>
                     <div class="mp-barra"><div style="width: {{ completude.percentual }}%"></div></div>
-                    <div class="mp-falta"><span>Falta:</span>{% for item in completude.faltando %}<span class="mp-chip"><i class="bi bi-plus-circle"></i>{{ item }}</span>{% endfor %}</div>
+                    <div class="mp-falta"><span>{{ 'perfil.incompleto.falta'|trans }}</span>{% for item in completude.faltando %}<span class="mp-chip"><i class="bi bi-plus-circle"></i>{{ item }}</span>{% endfor %}</div>
                 </div>
-                <button class="mp-btn-laranja" type="button" data-mp-editar><i class="bi bi-pencil"></i>Completar agora</button>
+                <button class="mp-btn-laranja" type="button" data-mp-editar><i class="bi bi-pencil"></i>{{ 'perfil.incompleto.completar'|trans }}</button>
             </div>
         {% endif %}
 
@@ -353,7 +353,7 @@ input[type="range"].img-slider {
                 <div class="mp-linha">
                     <i class="bi {{ c.icone }}"></i>
                     <b>{{ c.rotulo }}</b>
-                    <span class="{{ c.valor ? '' : 'vazio' }}">{{ c.valor ?: _naoInformado }}{% if c.copiar and c.valor %}<button type="button" class="mp-copiar" data-mp-copiar="{{ c.valor }}" title="Copiar" aria-label="Copiar {{ c.rotulo }}"><i class="bi bi-copy"></i></button>{% endif %}</span>
+                    <span class="{{ c.valor ? '' : 'vazio' }}">{{ c.valor ?: _naoInformado }}{% if c.copiar and c.valor %}<button type="button" class="mp-copiar" data-mp-copiar="{{ c.valor }}" title="{{ 'perfil.grade.copiar'|trans }}" aria-label="{{ 'perfil.grade.copiar_campo'|trans({campo: c.rotulo}) }}"><i class="bi bi-copy"></i></button>{% endif %}</span>
                 </div>
             {% endfor %}
         </div>
@@ -364,23 +364,23 @@ input[type="range"].img-slider {
     <section class="mp-card mp-card-oab" data-screen-label="Registro OAB">
         <div class="mp-card-topo">
             <span class="mp-card-selo"><i class="bi bi-patch-check-fill"></i></span>
-            <div class="flex-grow-1"><b>Registro OAB</b><div class="mp-card-sub">{{ inscricoesOab|length > 1 ? inscricoesOab|length ~ ' inscrições · ' ~ _nSup ~ ' suplementar(es)' : 'Ordem dos Advogados do Brasil' }}</div></div>
-            <button type="button" class="mp-btn-oab" data-mp-oab-nova title="Adicionar inscrição suplementar"><i class="bi bi-plus-lg"></i>Adicionar OAB</button>
+            <div class="flex-grow-1"><b>{{ 'perfil.oab.titulo'|trans }}</b><div class="mp-card-sub">{{ inscricoesOab|length > 1 ? 'perfil.oab.sub_varias'|trans({total: inscricoesOab|length, suplementares: _nSup}) : 'perfil.oab.sub_ordem'|trans }}</div></div>
+            <button type="button" class="mp-btn-oab" data-mp-oab-nova title="{{ 'perfil.oab.adicionar_titulo'|trans }}"><i class="bi bi-plus-lg"></i>{{ 'perfil.oab.adicionar'|trans }}</button>
         </div>
         {% for o in inscricoesOab %}
             <button type="button" class="mp-oab-linha" data-mp-oab-editar="{{ o.id }}" data-numero="{{ o.numero }}" data-uf="{{ o.uf }}"
                     data-tipo="{{ o.principal ? 'principal' : 'suplementar' }}" data-pode-remover="{{ not o.principal and inscricoesOab|length > 1 ? '1' : '0' }}">
                 <span class="mp-oab-num">
                     <span><b class="{{ o.principal ? 'grande' : '' }}">{{ o.numero }}</b><span class="mp-oab-uf">/{{ o.uf }}</span></span>
-                    <small><i class="bi bi-clock"></i>{{ o.verificadaEm ? 'Verificada em ' ~ o.verificadaEm|date('d/m/Y H:i') : 'Aguardando validação do Master' }}</small>
+                    <small><i class="bi bi-clock"></i>{{ o.verificadaEm ? 'perfil.oab.verificada_em'|trans({data: o.verificadaEm|data_hora}) : 'perfil.oab.aguardando_validacao'|trans }}</small>
                 </span>
-                <span class="mp-oab-tipo {{ o.principal ? 'principal' : '' }}"><i class="bi {{ o.principal ? 'bi-star-fill' : 'bi-diagram-2' }}"></i>{{ o.principal ? 'PRINCIPAL' : 'SUPLEMENTAR' }}</span>
+                <span class="mp-oab-tipo {{ o.principal ? 'principal' : '' }}"><i class="bi {{ o.principal ? 'bi-star-fill' : 'bi-diagram-2' }}"></i>{{ o.principal ? 'perfil.oab.selo_principal'|trans : 'perfil.oab.selo_suplementar'|trans }}</span>
                 <span class="flex-grow-1"></span>
                 <span class="mp-oab-situacao {{ o.situacaoClasse }}"><i class="bi {{ o.situacaoIcone }}"></i>{{ o.situacao }}</span>
                 <i class="bi bi-pencil mp-oab-lapis"></i>
             </button>
         {% else %}
-            <div class="mp-oab-vazio">Nenhuma inscrição informada. Use "Adicionar OAB" para cadastrar a principal.</div>
+            <div class="mp-oab-vazio">{{ 'perfil.oab.vazio'|trans }}</div>
         {% endfor %}
     </section>
 
@@ -388,18 +388,18 @@ input[type="range"].img-slider {
     <section class="mp-card" data-screen-label="Preferências">
         <div class="mp-card-topo">
             <span class="mp-card-selo"><i class="bi bi-sliders"></i></span>
-            <div><b>Preferências</b><div class="mp-card-sub">Valem só para você</div></div>
+            <div><b>{{ 'perfil.preferencias.titulo'|trans }}</b><div class="mp-card-sub">{{ 'perfil.preferencias.sub'|trans }}</div></div>
         </div>
         <div class="mp-prefs">
             <button type="button" class="mp-pref" data-mu-idioma>
                 <i class="bi bi-translate"></i>
-                <span class="mp-pref-texto"><span>Idioma do sistema</span><small>Muda todas as telas, menus e o Chat I.A</small></span>
+                <span class="mp-pref-texto"><span>{{ 'perfil.preferencias.idioma_rotulo'|trans }}</span><small>{{ 'perfil.preferencias.idioma_sub'|trans }}</small></span>
                 <span class="mp-pref-valor">{{ idioma_atual().nome }}</span><i class="bi bi-chevron-right mp-pref-seta"></i>
             </button>
             {% for p in [
-                {chave: 'perfil.notificacoes', icone: 'bi-bell', rotulo: 'Notificações no sistema', sub: 'Sininho de prazos, metas e menções'},
-                {chave: 'perfil.sons', icone: 'bi-volume-up', rotulo: 'Sons de alerta', sub: 'Toque ao receber mensagem ou alerta'},
-                {chave: 'perfil.resumo_email', icone: 'bi-envelope', rotulo: 'Resumo diário por e-mail', sub: 'Prazos e metas do dia, às 8h'},
+                {chave: 'perfil.notificacoes', icone: 'bi-bell', rotulo: 'perfil.preferencias.notificacoes_rotulo'|trans, sub: 'perfil.preferencias.notificacoes_sub'|trans},
+                {chave: 'perfil.sons', icone: 'bi-volume-up', rotulo: 'perfil.preferencias.sons_rotulo'|trans, sub: 'perfil.preferencias.sons_sub'|trans},
+                {chave: 'perfil.resumo_email', icone: 'bi-envelope', rotulo: 'perfil.preferencias.resumo_email_rotulo'|trans, sub: 'perfil.preferencias.resumo_email_sub'|trans},
             ] %}
                 <button type="button" class="mp-pref" role="switch" aria-checked="{{ preferencias[p.chave] ? 'true' : 'false' }}" data-mp-pref="{{ p.chave }}">
                     <i class="bi {{ p.icone }}"></i>
@@ -420,11 +420,11 @@ input[type="range"].img-slider {
     <section class="mp-card" data-screen-label="Segurança">
         <div class="mp-card-topo">
             <span class="mp-card-selo"><i class="bi bi-shield-lock"></i></span>
-            <div><b>Segurança</b><div class="mp-card-sub">Senha de acesso à sua conta</div></div>
+            <div><b>{{ 'perfil.seguranca.titulo'|trans }}</b><div class="mp-card-sub">{{ 'perfil.seguranca.sub'|trans }}</div></div>
         </div>
         <div class="mp-seguranca">
-            <div>Ao alterar a senha, todas as outras sessões conectadas são encerradas, inclusive as que usam "manter conectado".</div>
-            <button class="mp-btn-azul" type="button" data-bs-toggle="modal" data-bs-target="#modalSenha"><i class="bi bi-key"></i>Alterar senha</button>
+            <div>{{ 'perfil.seguranca.aviso'|trans }}</div>
+            <button class="mp-btn-azul" type="button" data-bs-toggle="modal" data-bs-target="#modalSenha"><i class="bi bi-key"></i>{{ 'perfil.seguranca.alterar_senha'|trans }}</button>
         </div>
     </section>
 
@@ -440,20 +440,20 @@ input[type="range"].img-slider {
         <div class="mp-ex-linha">
             <span class="mp-ex-selo" aria-hidden="true"><i class="bi bi-trash3"></i></span>
             <div class="mp-ex-texto">
-                <b>Excluir conta do escritório</b>
+                <b>{{ 'perfil.exclusao.titulo'|trans }}</b>
                 <div class="mp-ex-sub">
                     {%- if _exclusao.pendente -%}
-                        Pedido feito em {{ _exclusao.criadoEm|date('d/m/Y') }} · motivo: {{ _exclusao.motivo }}. A equipe está sem acesso até o Master concluir.
+                        {{ 'perfil.exclusao.pendente_sub'|trans({data: _exclusao.criadoEm|data, motivo: _exclusao.motivo ?? ''}) }}
                     {%- else -%}
-                        Suspende a conta para toda a equipe e envia o pedido ao Master do BlueJus, que decide a exclusão. Exclusivo do usuário primário.
+                        {{ 'perfil.exclusao.sub'|trans }}
                     {%- endif -%}
                 </div>
             </div>
             {% if _exclusao.pendente %}
-                <span class="mp-ex-pendente"><i class="bi bi-hourglass-split"></i>Suspensa · aguardando o Master</span>
-                <button type="button" class="mp-ex-desistir" data-mp-ex-desistir>Desistir e reativar</button>
+                <span class="mp-ex-pendente"><i class="bi bi-hourglass-split"></i>{{ 'perfil.exclusao.suspensa'|trans }}</span>
+                <button type="button" class="mp-ex-desistir" data-mp-ex-desistir>{{ 'perfil.exclusao.desistir'|trans }}</button>
             {% else %}
-                <button type="button" class="mp-ex-abrir" data-bs-toggle="modal" data-bs-target="#modalExclusaoConta"><i class="bi bi-trash3"></i>Excluir conta</button>
+                <button type="button" class="mp-ex-abrir" data-bs-toggle="modal" data-bs-target="#modalExclusaoConta"><i class="bi bi-trash3"></i>{{ 'perfil.exclusao.excluir'|trans }}</button>
             {% endif %}
         </div>
     </section>
@@ -467,32 +467,40 @@ input[type="range"].img-slider {
         <div class="modal-content">
             <div class="mp-ex-cab">
                 <i class="bi bi-trash3" aria-hidden="true"></i>
-                <b id="modalExclusaoContaTitulo">Excluir conta · etapa <span data-mp-ex-etapa>1</span> de 2</b>
-                <button type="button" class="mp-ex-fechar" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+                <b id="modalExclusaoContaTitulo">{{ 'perfil.exclusao.modal.etapa_antes'|trans }} <span data-mp-ex-etapa>1</span> {{ 'perfil.exclusao.modal.etapa_depois'|trans }}</b>
+                <button type="button" class="mp-ex-fechar" data-bs-dismiss="modal" aria-label="{{ 'perfil.acoes.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="mp-ex-corpo">
                 <div data-mp-ex-e1>
-                    <p class="mp-ex-p">Conte em poucas palavras o motivo. Isso nos ajuda a melhorar.</p>
-                    <div class="mp-ex-motivos" role="group" aria-label="Motivo">
-                        {% for motivo in ['Não uso mais', 'Achei caro', 'Faltou um recurso', 'Mudei de sistema', 'Encerrando o escritório', 'Outro motivo'] %}
-                            <button type="button" class="mp-ex-motivo" aria-pressed="false" data-mp-ex-motivo="{{ motivo }}">{{ motivo }}</button>
+                    <p class="mp-ex-p">{{ 'perfil.exclusao.modal.motivo_pedido'|trans }}</p>
+                    <div class="mp-ex-motivos" role="group" aria-label="{{ 'perfil.exclusao.modal.motivo_rotulo'|trans }}">
+                        {#- O valor (data-mp-ex-motivo) vai ao servidor e fica em português; só o rótulo segue o idioma. #}
+                        {% for motivo in [
+                            {valor: 'Não uso mais', rotulo: 'perfil.exclusao.motivo.nao_uso'|trans},
+                            {valor: 'Achei caro', rotulo: 'perfil.exclusao.motivo.caro'|trans},
+                            {valor: 'Faltou um recurso', rotulo: 'perfil.exclusao.motivo.faltou_recurso'|trans},
+                            {valor: 'Mudei de sistema', rotulo: 'perfil.exclusao.motivo.mudei_sistema'|trans},
+                            {valor: 'Encerrando o escritório', rotulo: 'perfil.exclusao.motivo.encerrando'|trans},
+                            {valor: 'Outro motivo', rotulo: 'perfil.exclusao.motivo.outro'|trans},
+                        ] %}
+                            <button type="button" class="mp-ex-motivo" aria-pressed="false" data-mp-ex-motivo="{{ motivo.valor }}">{{ motivo.rotulo }}</button>
                         {% endfor %}
                     </div>
-                    <input type="text" class="mp-ex-campo" data-mp-ex-obs placeholder="Algo a mais? (opcional)" maxlength="300" aria-label="Algo a mais? (opcional)">
-                    <div class="mp-ex-info"><i class="bi bi-info-circle"></i> A conta fica <b>suspensa</b> até o BlueJus analisar o pedido. Depois da exclusão, os dados ficam guardados por 365 dias e o suporte do BlueJus pode recuperá-la nesse prazo; depois disso, tudo é apagado. Os usuários não são apagados.</div>
+                    <input type="text" class="mp-ex-campo" data-mp-ex-obs placeholder="{{ 'perfil.exclusao.modal.observacao'|trans }}" maxlength="300" aria-label="{{ 'perfil.exclusao.modal.observacao'|trans }}">
+                    <div class="mp-ex-info"><i class="bi bi-info-circle"></i> {{ 'perfil.exclusao.modal.info_antes'|trans }} <b>{{ 'perfil.exclusao.modal.info_suspensa'|trans }}</b> {{ 'perfil.exclusao.modal.info_depois'|trans }}</div>
                 </div>
                 <div data-mp-ex-e2 hidden>
-                    <p class="mp-ex-p">Enviamos um código de 6 dígitos para <b data-mp-ex-email>{{ _exclusao.email }}</b>. Digite o código e a palavra <b>EXCLUIR</b> para confirmar.</p>
+                    <p class="mp-ex-p">{{ 'perfil.exclusao.modal.codigo_enviado'|trans }} <b data-mp-ex-email>{{ _exclusao.email }}</b>{{ 'perfil.exclusao.modal.codigo_digite'|trans }} <b>{{ 'perfil.exclusao.modal.codigo_palavra'|trans }}</b> {{ 'perfil.exclusao.modal.codigo_confirmar'|trans }}</p>
                     <div class="mp-ex-grade">
-                        <label class="mp-ex-rotulo">CÓDIGO<input type="text" class="mp-ex-campo mp-ex-codigo" data-mp-ex-codigo inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label>
-                        <label class="mp-ex-rotulo">DIGITE EXCLUIR<input type="text" class="mp-ex-campo" data-mp-ex-palavra autocomplete="off"></label>
+                        <label class="mp-ex-rotulo">{{ 'perfil.exclusao.modal.codigo_rotulo'|trans }}<input type="text" class="mp-ex-campo mp-ex-codigo" data-mp-ex-codigo inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label>
+                        <label class="mp-ex-rotulo">{{ 'perfil.exclusao.modal.palavra_rotulo'|trans }}<input type="text" class="mp-ex-campo" data-mp-ex-palavra autocomplete="off"></label>
                     </div>
                 </div>
                 <div class="mp-ex-erro" data-mp-ex-erro role="alert" hidden><i class="bi bi-exclamation-circle"></i> <span></span></div>
             </div>
             <div class="mp-ex-rodape">
-                <button type="button" class="mp-ex-manter" data-bs-dismiss="modal">Manter conta</button>
-                <button type="button" class="mp-ex-avancar" data-mp-ex-avancar>Continuar</button>
+                <button type="button" class="mp-ex-manter" data-bs-dismiss="modal">{{ 'perfil.exclusao.modal.manter'|trans }}</button>
+                <button type="button" class="mp-ex-avancar" data-mp-ex-avancar>{{ 'perfil.exclusao.modal.continuar'|trans }}</button>
             </div>
         </div>
     </div>
@@ -507,7 +515,7 @@ input[type="range"].img-slider {
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalFotoVerLabel">
-                    <i class="bi bi-person-circle me-2"></i>Foto de perfil
+                    <i class="bi bi-person-circle me-2"></i>{{ 'perfil.foto.titulo'|trans }}
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -515,7 +523,7 @@ input[type="range"].img-slider {
                 {% if perfil.fotoUrl %}
                     <img id="modalFotoPreviewImg"
                          src="{{ path('app_profile_foto_serve', {nome: perfil.fotoUrl}) }}"
-                         alt="Foto atual" class="img-fluid mb-3"
+                         alt="{{ 'perfil.foto.atual_alt'|trans }}" class="img-fluid mb-3"
                          style="max-height:260px;border-radius:.5rem;">
                 {% else %}
                     <div id="modalFotoPreviewImg"
@@ -527,12 +535,12 @@ input[type="range"].img-slider {
             </div>
             <div class="modal-footer justify-content-center gap-2">
                 <label class="btn btn-primary" style="cursor:pointer">
-                    <i class="bi bi-upload me-1"></i>Alterar imagem
+                    <i class="bi bi-upload me-1"></i>{{ 'perfil.foto.alterar'|trans }}
                     <input type="file" id="inputFotoNova" accept="image/jpeg,image/png,image/webp" hidden>
                 </label>
                 <button type="button" class="btn btn-outline-secondary" id="btnEditarFotoExistente"
                         {% if not perfil.fotoUrl %}style="display:none"{% endif %}>
-                    <i class="bi bi-crop me-1"></i>Editar imagem
+                    <i class="bi bi-crop me-1"></i>{{ 'perfil.foto.editar'|trans }}
                 </button>
             </div>
         </div>
@@ -547,32 +555,32 @@ input[type="range"].img-slider {
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalFotoEditarLabel">
-                    <i class="bi bi-crop me-2"></i>Editar imagem
+                    <i class="bi bi-crop me-2"></i>{{ 'perfil.foto.editar_titulo'|trans }}
                 </h5>
                 <button type="button" class="btn-close" id="btnFecharCropper"></button>
             </div>
             <div class="modal-body">
                 <div id="cropperWrap">
-                    <img id="imgCropper" src="" alt="Editar foto">
+                    <img id="imgCropper" src="" alt="{{ 'perfil.foto.cropper_alt'|trans }}">
                 </div>
                 <div class="img-slider-wrap mt-3">
                     <div class="img-slider-label">
-                        <i class="bi bi-zoom-in"></i> Zoom
+                        <i class="bi bi-zoom-in"></i> {{ 'perfil.foto.zoom'|trans }}
                     </div>
                     <input type="range" class="img-slider" id="sliderZoom" min="0.1" max="3" step="0.01" value="1">
                 </div>
                 <div class="img-slider-wrap">
                     <div class="img-slider-label">
-                        <i class="bi bi-arrow-repeat"></i> Rotação
+                        <i class="bi bi-arrow-repeat"></i> {{ 'perfil.foto.rotacao'|trans }}
                     </div>
                     <input type="range" class="img-slider" id="sliderRotacao" min="-180" max="180" step="1" value="0">
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" id="btnCancelarCropper" type="button">Cancelar</button>
+                <button class="btn btn-secondary" id="btnCancelarCropper" type="button">{{ 'perfil.acoes.cancelar'|trans }}</button>
                 <button class="btn btn-primary" id="btnConfirmarFoto" type="button">
                     <span class="spinner-border spinner-border-sm d-none me-1" id="spinnerFoto"></span>
-                    Salvar foto
+                    {{ 'perfil.foto.salvar'|trans }}
                 </button>
             </div>
         </div>
@@ -586,13 +594,13 @@ input[type="range"].img-slider {
     <div class="modal-dialog modal-dialog-centered mp-modal-largo">
         <div class="modal-content">
             <div class="mp-modal-topo">
-                <i class="bi bi-pencil"></i><b id="modalDadosPessoaisLabel">Editar informações</b>
-                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+                <i class="bi bi-pencil"></i><b id="modalDadosPessoaisLabel">{{ 'perfil.editar.titulo'|trans }}</b>
+                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="{{ 'perfil.acoes.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
             {{ form_start(form_dados, {action: path('app_profile_dados'), attr: {id: 'formDadosPessoais', novalidate: 'novalidate'}}) }}
                 {% if current_tenant() %}
                     <div class="mp-vinculo" data-mp-vinculo>
-                        <span class="mp-rotulo">VÍNCULO COM O ESCRITÓRIO</span>
+                        <span class="mp-rotulo">{{ 'perfil.editar.vinculo'|trans }}</span>
                         <div class="mp-vinculo-opcoes">
                             {% for opcao in form_dados.vinculo %}
                                 <label class="mp-vinculo-op{{ opcao.vars.checked ? ' on' : '' }}{{ podeAlterarVinculo ? '' : ' travado' }}">
@@ -605,7 +613,7 @@ input[type="range"].img-slider {
                             {% if podeAlterarVinculo %}
                                 <i class="bi bi-info-circle"></i><span data-mp-ajuda-texto>{{ perfil.vinculo.ajuda }}</span>
                             {% else %}
-                                <i class="bi bi-lock"></i><span>Definido pelo escritório. Para alterar, fale com o usuário primário.</span>
+                                <i class="bi bi-lock"></i><span>{{ 'perfil.editar.vinculo_travado'|trans }}</span>
                             {% endif %}
                         </span>
                     </div>
@@ -613,22 +621,22 @@ input[type="range"].img-slider {
                     {% do form_dados.vinculo.setRendered %}
                 {% endif %}
                 <div class="mp-campos">
-                    <label class="mp-campo mp-campo-inteiro"><span>NOME COMPLETO</span>{{ form_widget(form_dados.nomeCompleto) }}</label>
-                    <label class="mp-campo mp-campo-inteiro"><span>FRASE DO PERFIL</span>{{ form_widget(form_dados.status) }}</label>
-                    <label class="mp-campo"><span>TELEFONE / WHATSAPP</span>{{ form_widget(form_dados.telefone) }}</label>
-                    <label class="mp-campo"><span>CPF</span>{{ form_widget(form_dados.cpf, {attr: {placeholder: 'Somente números'}}) }}<small>Usado nos relatórios e estatísticas do escritório</small></label>
-                    <label class="mp-campo"><span>NASCIMENTO</span>{{ form_widget(form_dados.dataNascimento) }}</label>
-                    <label class="mp-campo"><span>GÊNERO</span>{{ form_widget(form_dados.genero) }}<small>Usado nas estatísticas do escritório</small></label>
-                    <label class="mp-campo"><span>ATUAÇÃO</span>{{ form_widget(form_dados.atuacao) }}{% if atuacaoSugerida|default(null) %}<small data-mp-atuacao-sugerida="{{ atuacaoSugerida.value }}"><i class="bi bi-magic"></i> Sugestão do sistema: {{ atuacaoSugerida.rotulo }}. <a href="#" data-mp-usar-sugestao>Usar</a></small>{% endif %}</label>
-                    <label class="mp-campo" data-mp-para="clt"><span>CTPS</span>{{ form_widget(form_dados.ctps, {attr: {placeholder: ''}}) }}<small>Só para empregado CLT</small></label>
-                    <label class="mp-campo" data-mp-para="clt"><span>SÉRIE</span>{{ form_widget(form_dados.serie, {attr: {placeholder: ''}}) }}</label>
-                    <label class="mp-campo" data-mp-para="clt"><span>DATA DE ADMISSÃO</span>{{ form_widget(form_dados.dataAdmissao) }}</label>
-                    <label class="mp-campo" data-mp-para="pj"><span>CNPJ (SE HOUVER)</span>{{ form_widget(form_dados.cnpj) }}</label>
-                    <label class="mp-campo" data-mp-para="associado pj socio estagio"><span data-mp-rotulo-inicio>{{ perfil.vinculo.rotuloInicio|upper }}</span>{{ form_widget(form_dados.contratoInicio) }}<small>Data em que o vínculo começou</small></label>
+                    <label class="mp-campo mp-campo-inteiro"><span>{{ 'perfil.editar.nome_completo'|trans }}</span>{{ form_widget(form_dados.nomeCompleto) }}</label>
+                    <label class="mp-campo mp-campo-inteiro"><span>{{ 'perfil.editar.frase'|trans }}</span>{{ form_widget(form_dados.status) }}</label>
+                    <label class="mp-campo"><span>{{ 'perfil.editar.telefone'|trans }}</span>{{ form_widget(form_dados.telefone) }}</label>
+                    <label class="mp-campo"><span>{{ 'perfil.editar.cpf'|trans }}</span>{{ form_widget(form_dados.cpf, {attr: {placeholder: 'perfil.editar.cpf_placeholder'|trans}}) }}<small>{{ 'perfil.editar.cpf_ajuda'|trans }}</small></label>
+                    <label class="mp-campo"><span>{{ 'perfil.editar.nascimento'|trans }}</span>{{ form_widget(form_dados.dataNascimento) }}</label>
+                    <label class="mp-campo"><span>{{ 'perfil.editar.genero'|trans }}</span>{{ form_widget(form_dados.genero) }}<small>{{ 'perfil.editar.genero_ajuda'|trans }}</small></label>
+                    <label class="mp-campo"><span>{{ 'perfil.editar.atuacao'|trans }}</span>{{ form_widget(form_dados.atuacao) }}{% if atuacaoSugerida|default(null) %}<small data-mp-atuacao-sugerida="{{ atuacaoSugerida.value }}"><i class="bi bi-magic"></i> {{ 'perfil.editar.atuacao_sugestao'|trans({rotulo: atuacaoSugerida.rotulo}) }} <a href="#" data-mp-usar-sugestao>{{ 'perfil.editar.atuacao_usar'|trans }}</a></small>{% endif %}</label>
+                    <label class="mp-campo" data-mp-para="clt"><span>{{ 'perfil.editar.ctps'|trans }}</span>{{ form_widget(form_dados.ctps, {attr: {placeholder: ''}}) }}<small>{{ 'perfil.editar.ctps_ajuda'|trans }}</small></label>
+                    <label class="mp-campo" data-mp-para="clt"><span>{{ 'perfil.editar.serie'|trans }}</span>{{ form_widget(form_dados.serie, {attr: {placeholder: ''}}) }}</label>
+                    <label class="mp-campo" data-mp-para="clt"><span>{{ 'perfil.editar.data_admissao'|trans }}</span>{{ form_widget(form_dados.dataAdmissao) }}</label>
+                    <label class="mp-campo" data-mp-para="pj"><span>{{ 'perfil.editar.cnpj'|trans }}</span>{{ form_widget(form_dados.cnpj) }}</label>
+                    <label class="mp-campo" data-mp-para="associado pj socio estagio"><span data-mp-rotulo-inicio>{{ perfil.vinculo.rotuloInicio|upper }}</span>{{ form_widget(form_dados.contratoInicio) }}<small>{{ 'perfil.editar.contrato_inicio_ajuda'|trans }}</small></label>
                 </div>
                 <div class="mp-modal-rodape">
-                    <button type="button" class="mp-btn-cinza" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="mp-btn-azul"><i class="bi bi-check2"></i>Salvar</button>
+                    <button type="button" class="mp-btn-cinza" data-bs-dismiss="modal">{{ 'perfil.acoes.cancelar'|trans }}</button>
+                    <button type="submit" class="mp-btn-azul"><i class="bi bi-check2"></i>{{ 'perfil.acoes.salvar'|trans }}</button>
                 </div>
             {{ form_end(form_dados) }}
         </div>
@@ -640,24 +648,24 @@ input[type="range"].img-slider {
     <div class="modal-dialog modal-dialog-centered mp-modal-medio">
         <div class="modal-content">
             <div class="mp-rev-topo">
-                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="{{ 'perfil.acoes.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
                 <i class="bi bi-person-check"></i>
-                <div class="mp-rev-titulo" id="modalRevisaoLabel">Seu cadastro está atualizado?</div>
-                <div class="mp-rev-sub">Revisão mensal · {{ perfil.revisadoEm ? 'Última confirmação: ' ~ perfil.revisadoEm|date('d/m/Y') : 'Primeira revisão do cadastro' }}</div>
+                <div class="mp-rev-titulo" id="modalRevisaoLabel">{{ 'perfil.revisao.titulo'|trans }}</div>
+                <div class="mp-rev-sub">{{ 'perfil.revisao.mensal'|trans }} · {{ perfil.revisadoEm ? 'perfil.revisao.ultima_confirmacao'|trans({data: perfil.revisadoEm|data}) : 'perfil.revisao.primeira'|trans }}</div>
             </div>
             <div class="mp-rev-corpo">
                 <div class="mp-texto">{{ completude.faltando is empty
-                    ? 'Confira se telefone, vínculo e documentos continuam corretos. Esses dados alimentam relatórios, estatísticas e o controle de ponto do escritório.'
-                    : 'Faltam: ' ~ completude.faltando|join(', ') ~ '. Esses dados alimentam relatórios, estatísticas e o controle de ponto do escritório.' }}</div>
+                    ? 'perfil.revisao.texto_completo'|trans
+                    : 'perfil.revisao.texto_faltam'|trans({itens: completude.faltando|join(', ')}) }}</div>
                 <div class="mp-rev-barra"><div class="mp-barra mp-barra-azul"><div style="width: {{ completude.percentual }}%"></div></div><b>{{ completude.percentual }}%</b></div>
                 <div class="mp-rev-resumo">
-                    <div><span>Telefone</span><b>{{ perfil.telefone ?: 'Não informado' }}</b></div>
-                    <div><span>Vínculo</span><b>{{ perfil.vinculo.rotulo }}</b></div>
-                    <div><span>OAB principal</span><b>{{ perfil.oabNumero ? perfil.oabNumero ~ '/' ~ perfil.oabUf : 'Não informada' }}</b></div>
+                    <div><span>{{ 'perfil.revisao.telefone'|trans }}</span><b>{{ perfil.telefone ?: _naoInformado }}</b></div>
+                    <div><span>{{ 'perfil.revisao.vinculo'|trans }}</span><b>{{ perfil.vinculo.rotulo }}</b></div>
+                    <div><span>{{ 'perfil.revisao.oab_principal'|trans }}</span><b>{{ perfil.oabNumero ? perfil.oabNumero ~ '/' ~ perfil.oabUf : 'perfil.revisao.oab_nao_informada'|trans }}</b></div>
                 </div>
                 <div class="mp-modal-rodape mp-rodape-solto">
-                    <button type="button" class="mp-btn-cinza" data-mp-revisao-ok>Está tudo certo</button>
-                    <button type="button" class="mp-btn-azul" data-mp-revisao-ir><i class="bi bi-pencil"></i>Atualizar agora</button>
+                    <button type="button" class="mp-btn-cinza" data-mp-revisao-ok>{{ 'perfil.revisao.tudo_certo'|trans }}</button>
+                    <button type="button" class="mp-btn-azul" data-mp-revisao-ir><i class="bi bi-pencil"></i>{{ 'perfil.revisao.atualizar'|trans }}</button>
                 </div>
             </div>
         </div>
@@ -669,8 +677,8 @@ input[type="range"].img-slider {
     <div class="modal-dialog modal-dialog-centered mp-modal-largo">
         <div class="modal-content">
             <div class="mp-modal-topo">
-                <i class="bi bi-patch-check"></i><b id="modalOabLabel">Inscrição na OAB</b>
-                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+                <i class="bi bi-patch-check"></i><b id="modalOabLabel">{{ 'perfil.oab.modal.titulo'|trans }}</b>
+                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="{{ 'perfil.acoes.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
             <form action="{{ path('app_profile_oab') }}" method="post" id="formOab" data-tem-principal="{{ inscricoesOab is empty ? '0' : '1' }}"
                   {% if erroOab %}data-reabrir="{{ erroOab|json_encode|e('html_attr') }}"{% endif %}>
@@ -679,28 +687,28 @@ input[type="range"].img-slider {
                 <input type="hidden" name="tipo" value="principal">
                 <div class="mp-oab-form">
                     <div class="mp-campo">
-                        <span>TIPO DE INSCRIÇÃO</span>
+                        <span>{{ 'perfil.oab.modal.tipo'|trans }}</span>
                         <div class="mp-oab-tipos" role="radiogroup">
-                            <button type="button" data-mp-oab-tipo="principal" role="radio"><i class="bi bi-star-fill"></i>Principal</button>
-                            <button type="button" data-mp-oab-tipo="suplementar" role="radio"><i class="bi bi-diagram-2"></i>Suplementar</button>
+                            <button type="button" data-mp-oab-tipo="principal" role="radio"><i class="bi bi-star-fill"></i>{{ 'perfil.oab.modal.tipo_principal'|trans }}</button>
+                            <button type="button" data-mp-oab-tipo="suplementar" role="radio"><i class="bi bi-diagram-2"></i>{{ 'perfil.oab.modal.tipo_suplementar'|trans }}</button>
                         </div>
-                        <small data-mp-oab-ajuda data-principal="Seccional do seu domicílio profissional. Só pode haver uma; se você mudar, a atual passa a suplementar." data-suplementar="Para atuar com habitualidade em outro estado. Uma por seccional."></small>
+                        <small data-mp-oab-ajuda data-principal="{{ 'perfil.oab.modal.ajuda_principal'|trans }}" data-suplementar="{{ 'perfil.oab.modal.ajuda_suplementar'|trans }}"></small>
                     </div>
                     <div class="mp-oab-linha-campos">
-                        <label class="mp-campo"><span>NÚMERO DA OAB</span><input type="text" name="numero" maxlength="7" inputmode="numeric" placeholder="Somente números" autocomplete="off" required></label>
-                        <label class="mp-campo"><span>UF (SECCIONAL)</span>
+                        <label class="mp-campo"><span>{{ 'perfil.oab.modal.numero'|trans }}</span><input type="text" name="numero" maxlength="7" inputmode="numeric" placeholder="{{ 'perfil.oab.modal.numero_placeholder'|trans }}" autocomplete="off" required></label>
+                        <label class="mp-campo"><span>{{ 'perfil.oab.modal.uf'|trans }}</span>
                             <select name="uf" required>
-                                <option value="">UF</option>
+                                <option value="">{{ 'perfil.oab.modal.uf_vazio'|trans }}</option>
                                 {% for uf in ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'] %}<option value="{{ uf }}">{{ uf }}</option>{% endfor %}
                             </select>
                         </label>
                     </div>
                     <div class="mp-oab-erro" data-mp-oab-erro hidden><i class="bi bi-exclamation-circle"></i> <span></span></div>
-                    <button type="button" class="mp-oab-remover" data-mp-oab-remover hidden><i class="bi bi-trash"></i>Remover esta inscrição</button>
+                    <button type="button" class="mp-oab-remover" data-mp-oab-remover hidden><i class="bi bi-trash"></i>{{ 'perfil.oab.modal.remover'|trans }}</button>
                 </div>
                 <div class="mp-modal-rodape">
-                    <button type="button" class="mp-btn-cinza" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="mp-btn-azul"><i class="bi bi-check2"></i>Salvar</button>
+                    <button type="button" class="mp-btn-cinza" data-bs-dismiss="modal">{{ 'perfil.acoes.cancelar'|trans }}</button>
+                    <button type="submit" class="mp-btn-azul"><i class="bi bi-check2"></i>{{ 'perfil.acoes.salvar'|trans }}</button>
                 </div>
             </form>
             <form method="post" id="formOabRemover" data-acao="{{ path('app_profile_oab_remover', {id: 0}) }}" hidden>
@@ -718,19 +726,19 @@ input[type="range"].img-slider {
     <div class="modal-dialog modal-dialog-centered mp-modal-largo">
         <div class="modal-content">
             <div class="mp-modal-topo">
-                <i class="bi bi-key"></i><b id="modalSenhaLabel">Alterar senha</b>
-                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+                <i class="bi bi-key"></i><b id="modalSenhaLabel">{{ 'perfil.senha.titulo'|trans }}</b>
+                <button type="button" class="mp-modal-x" data-bs-dismiss="modal" aria-label="{{ 'perfil.acoes.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
             {{ form_start(form_senha, {attr: {id: 'formSenha'}}) }}
                 <div class="mp-campos">
-                    <label class="mp-campo"><span>SENHA ATUAL</span>{{ form_widget(form_senha.senhaAtual, {attr: {autocomplete: 'current-password'}}) }}</label>
-                    <label class="mp-campo"><span>NOVA SENHA</span>{{ form_widget(form_senha.senha.first, {attr: {autocomplete: 'new-password', placeholder: 'Mínimo 8 caracteres'}}) }}</label>
-                    <label class="mp-campo"><span>CONFIRMAR NOVA SENHA</span>{{ form_widget(form_senha.senha.second, {attr: {autocomplete: 'new-password'}}) }}</label>
+                    <label class="mp-campo"><span>{{ 'perfil.senha.atual'|trans }}</span>{{ form_widget(form_senha.senhaAtual, {attr: {autocomplete: 'current-password'}}) }}</label>
+                    <label class="mp-campo"><span>{{ 'perfil.senha.nova'|trans }}</span>{{ form_widget(form_senha.senha.first, {attr: {autocomplete: 'new-password', placeholder: 'perfil.senha.nova_placeholder'|trans}}) }}</label>
+                    <label class="mp-campo"><span>{{ 'perfil.senha.confirmar'|trans }}</span>{{ form_widget(form_senha.senha.second, {attr: {autocomplete: 'new-password'}}) }}</label>
                     {{ form_rest(form_senha) }}
                 </div>
                 <div class="mp-modal-rodape">
-                    <button type="button" class="mp-btn-cinza" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="mp-btn-azul"><i class="bi bi-check2"></i>Salvar</button>
+                    <button type="button" class="mp-btn-cinza" data-bs-dismiss="modal">{{ 'perfil.acoes.cancelar'|trans }}</button>
+                    <button type="submit" class="mp-btn-azul"><i class="bi bi-check2"></i>{{ 'perfil.acoes.salvar'|trans }}</button>
                 </div>
             {{ form_end(form_senha) }}
         </div>
@@ -739,6 +747,7 @@ input[type="range"].img-slider {
 {% endblock %}
 
 {% block javascripts %}
+{{ catalogo_js('perfil.js') }}
 <script src="{{ asset('js/meu-perfil.js') }}" defer></script>
 <script src="{{ asset('js/conta-exclusao.js') }}" defer></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css" crossorigin="anonymous">
@@ -851,7 +860,7 @@ input[type="range"].img-slider {
         }
 
         if (!canvas) {
-            alert('A imagem ainda está carregando. Aguarde um instante e tente novamente.');
+            alert(BJ_T.t('perfil.js.imagem_carregando'));
             btnConfirmar.disabled = false;
             spinnerFoto.classList.add('d-none');
             return;
@@ -859,7 +868,7 @@ input[type="range"].img-slider {
 
         canvas.toBlob(async (blob) => {
             if (!blob) {
-                alert('Não foi possível processar a imagem. Tente novamente.');
+                alert(BJ_T.t('perfil.js.imagem_falhou'));
                 btnConfirmar.disabled = false;
                 spinnerFoto.classList.add('d-none');
                 return;
@@ -882,7 +891,7 @@ input[type="range"].img-slider {
 
                     const imgEl = document.createElement('img');
                     imgEl.id  = 'fotoPerfilAtual';
-                    imgEl.alt = 'Foto de perfil';
+                    imgEl.alt = BJ_T.t('perfil.js.foto_alt');
                     imgEl.src = novaUrl;
                     wrap.appendChild(imgEl);
 
@@ -898,7 +907,7 @@ input[type="range"].img-slider {
                         } else {
                             const novoPreview = document.createElement('img');
                             novoPreview.id        = 'modalFotoPreviewImg';
-                            novoPreview.alt       = 'Foto atual';
+                            novoPreview.alt       = BJ_T.t('perfil.js.foto_atual_alt');
                             novoPreview.className = 'img-fluid mb-3';
                             novoPreview.style.cssText = 'max-height:260px;border-radius:.5rem;';
                             novoPreview.src = novaUrl;
@@ -922,10 +931,10 @@ input[type="range"].img-slider {
 
                     fecharCropper();
                 } else {
-                    alert(data.erro ?? 'Erro ao salvar foto.');
+                    alert(data.erro ?? BJ_T.t('perfil.js.erro_salvar_foto'));
                 }
             } catch {
-                alert('Erro de comunicação.');
+                alert(BJ_T.t('perfil.js.erro_comunicacao'));
             } finally {
                 btnConfirmar.disabled = false;
                 spinnerFoto.classList.add('d-none');

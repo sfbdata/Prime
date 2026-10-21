@@ -6,16 +6,23 @@
   if (window.BJ_T) return;
 
   let textos = null;
+  let lidos = 0;
+
+  function blocos() { return document.querySelectorAll('script[type="application/json"][data-bj-t]'); }
 
   function carregar() {
     textos = {};
-    document.querySelectorAll('script[type="application/json"][data-bj-t]').forEach(function (el) {
+    const todos = blocos();
+    lidos = todos.length;
+    todos.forEach(function (el) {
       try { Object.assign(textos, JSON.parse(el.textContent || '{}')); } catch (e) { console.warn('BJ_T: catálogo inválido', e); }
     });
   }
 
   function t(chave, params) {
     if (textos === null) carregar();
+    // Um catálogo que entrou na página depois da primeira leitura (o da tela vem depois do base).
+    if (!Object.prototype.hasOwnProperty.call(textos, chave) && blocos().length !== lidos) carregar();
     if (!Object.prototype.hasOwnProperty.call(textos, chave)) {
       console.warn('BJ_T: chave sem texto: ' + chave);
       return chave;

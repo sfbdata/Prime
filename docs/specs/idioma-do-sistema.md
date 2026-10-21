@@ -6,7 +6,11 @@ Sessão 0d, 21/10/2026. Itens marcados **DONO** são decisões dele; o resto seg
 
 - Proposta aprovada pelo coordenador (21/10): catálogo fixo e revisado, sem IA na tela.
 - Entregas 1 e 2 no PR desta branch (migration `Version20261020148600`), com só o português liberado.
-- Entrega 3 em diante espera as respostas do dono (§6).
+- Entrega 3 em diante espera as respostas do dono (§6), exceto a extração: ela entra com só o português liberado, sem
+  mudança visível, e serve para qualquer resposta (combinado com o coordenador, 21/10).
+- Entrega 3 (sessão 7d, branch `idioma-moldura`, sem idioma novo liberado): moldura (base, barra lateral,
+  `layout/_globais`), menu do usuário e Meu Perfil no catálogo. Detalhes em §8.
+
 
 ## 1. O que o desenho mostra
 
@@ -104,3 +108,29 @@ enquanto a extração não termina (**DONO**: ou só liberar o idioma depois de 
 (`framework`, `translation`), `composer.json` (se entrar `twig/intl-extra`), e quase todos os templates nas
 fases 4..N. Por isso, cada PR de extração precisa de aviso de sobreposição e de ir rápido ao merge. O Meu
 Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela antes de tocar a tela.
+
+## 8. Entrega 3: a moldura (7d, 21/10)
+
+- **Catálogo:** `translations/messages+intl-icu.pt_BR.yaml`, um bloco por área (`moldura`, `menu`, `perfil`); cada PR
+  de área mexe só no seu bloco. 340 chaves: moldura 84, menu 96, perfil 160.
+- **JS:** `{{ catalogo_js('prefixo', ...) }}` (`App\Shared\Traducao\CatalogoJsExtension`) escreve um
+  `<script type="application/json" data-bj-t>` com as chaves pedidas, no idioma da requisição e com o português no
+  que faltar; `public/js/bj-traducao.js` (sem defer, no base) expõe `window.BJ_T.t('chave', {x})`. Chave do JS fica sob
+  `<area>.js` e só usa `{x}` (sem plural ICU). O base entrega `moldura.js` e `menu.usuario.js`; cada tela entrega a
+  sua (`perfil.js` no Meu Perfil). Chave ausente devolve a própria chave e avisa no console.
+- **Guardas:** `SemTextoFixoNosExtraidosArquiteturaTest` (texto fixo novo nos arquivos de
+  `tests/Arquitetura/templates-extraidos.json`, com os `permitidos` de cada área) e `CatalogoDeTraducaoTest`
+  (`lint:translations` e toda chave usada no Twig e no JS existe em português).
+- **Sem mudança visível:** o HTML de Meu Perfil, Expediente e Dashboard para primário, secundário e Master foi
+  comparado antes e depois; só mudaram tokens CSRF e o JS que passou a ler o catálogo.
+- **Formatos:** no Meu Perfil, 5 `|date('d/m/Y')` viraram `|data` e 1 `|date('d/m/Y H:i')`, `|data_hora` (nenhum
+  depende do `|date` de nulo). A moldura e o menu não tinham formato fixo.
+- **Ficou para a área de cada um:** texto que vem do PHP (rótulos de enum de Vínculo, Gênero, Atuação e StatusOab,
+  `completude.faltando`, erros e flashes); os JS `presenca-cabecalho.js`, `conta-exclusao.js`, `lembretes.js`,
+  `aviso-espaco.js`, `fechar-janelas.js`, `tema-comemorativo.js` e `pasta-busca-rapida.js`; os includes do base de
+  outras áreas (`central/_flutuante`, `ponto/_modal_alerta_ponto`, `_recurso_faixa_master`,
+  `layout/_cabecalho_acoes`, `contribua/*`); o "App já instalado ✓" do script inline do base (roda antes do
+  `bj-traducao.js`).
+- **Para o dono decidir depois:** o rótulo "Português (Brasil)" ao lado do item Idioma do menu está fixo no template;
+  o certo é `idioma_atual().nome`, mas trocar muda comportamento e ficou fora desta entrega.
+

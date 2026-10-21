@@ -20,7 +20,7 @@
           {%- endif %}
           {% if atalhoPonto %}data-ponto-estado="{{ path('ponto_estado_do_dia') }}" data-ponto-batida="{{ path('ponto_batida') }}" data-ponto-index="{{ path('ponto_index') }}"{% endif %}>
         <button type="button" class="presenca-cab-selo" data-presenca-selo hidden
-                aria-haspopup="dialog" aria-expanded="false" aria-label="Quem está on-line: 0">0</button>
+                aria-haspopup="dialog" aria-expanded="false" aria-label="{{ 'menu.usuario.presenca.selo'|trans({n: 0}) }}">0</button>
     </span>
     <link rel="stylesheet" href="{{ asset('css/presenca-cabecalho.css') }}">
     {% if atalhoPonto %}

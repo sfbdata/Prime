@@ -23,7 +23,7 @@
 <div id="bjtSelo" role="status">
     <span class="e{{ bjtTema.icTexto ? ' is-texto' }}">{{ bjtTema.ic }}</span>
     <span class="bjt-selo-texto"><b>{{ bjtTema.r }}</b>{{ bjtTema.msg }}</span>
-    <button type="button" title="Fechar" aria-label="Fechar">×</button>
+    <button type="button" title="{{ 'moldura.comum.fechar'|trans }}" aria-label="{{ 'moldura.comum.fechar'|trans }}">×</button>
 </div>
 <button type="button" id="bjtMini" class="{{ bjtTema.icTexto ? 'is-texto' }}{{ bjtTema.anim and not bjtSemAnim ? ' bjt-anim' }}" title="{{ bjtTema.r }}" hidden>{{ bjtTema.ic }}</button>
 {% endif %}

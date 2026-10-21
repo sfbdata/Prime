@@ -28,7 +28,9 @@ final class CatalogoDeTraducaoTest extends KernelTestCase
         self::bootKernel();
         $comando = new CommandTester((new Application(self::$kernel))->find('lint:translations'));
 
-        self::assertSame(0, $comando->execute([]), $comando->getDisplay());
+        // Sem enabled_locales o comando não acha arquivo nenhum e sai com 0: o locale vai explícito.
+        self::assertSame(0, $comando->execute(['--locale' => ['pt_BR']]), $comando->getDisplay());
+        self::assertStringContainsString('messages', $comando->getDisplay(), 'o lint leu o catálogo messages');
     }
 
     #[TestDox('Toda chave usada nos templates e no JS tem texto em português')]
@@ -49,7 +51,7 @@ final class CatalogoDeTraducaoTest extends KernelTestCase
     {
         $chaves = [];
         foreach ((new Finder())->files()->in(self::APP . '/templates')->name('*.twig') as $arquivo) {
-            preg_match_all("/'([a-z][a-z0-9_]*(?:\\.[a-z0-9_]+)+)'\\s*\\|\\s*trans(?!\\s*\\([^)]*,)/", $arquivo->getContents(), $m);
+            preg_match_all("/'([a-z][a-z0-9_]*(?:\\.[a-z0-9_]+)+)'\\s*\\|\\s*trans\\b/", $arquivo->getContents(), $m);
             array_push($chaves, ...$m[1]);
         }
         foreach ((new Finder())->files()->in(self::APP . '/public/js')->name('*.js') as $arquivo) {
