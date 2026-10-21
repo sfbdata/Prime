@@ -1315,7 +1315,9 @@ perfis:
 # Permissões, Telas e recursos) e a Visão geral do painel.js (KPIs, gráfico, mapa, estados que faltam, seccionais e
 # janela da OAB), com as respostas das seccionais. P2b: as outras seções do painel.js, as recusas das seccionais, as
 # respostas das contas e dos planos e os rótulos da faixa etária e do tipo de divulgação; o Comercial da 5d tem
-# bloco de topo próprio (comercial:). O termo solto ou numa frase curta vem de termos.* por parâmetro.
+# bloco de topo próprio (comercial:). P3: Central de Notificações, Indicações, masters.js, recursos.js e o mapa
+# mundial, com as respostas e recusas dos controllers deles. O termo solto ou numa frase curta vem de termos.* por
+# parâmetro.
 master:
     painel:
         titulo_pagina: 'Editar Perfil | {papel} do Sistema'
@@ -1424,6 +1426,84 @@ master:
     faixa_etaria:
         intervalo: '{min} a {max}'
         ou_mais: '{min} ou +'
+    # P3: Central de Notificações (master/_notificacoes) e as recusas do CentralDeNotificacoesController, a do UseCase
+    # pela chave da RespostaRecusada. O conteúdo da caixa (tipo, remetente, assunto e texto) vem dos leitores, em
+    # português (spec §8).
+    notificacoes:
+        selecionar: Selecionar
+        atualizar: Atualizar
+        marcar_lida: Marcar como lida
+        nao_lida: Não lida
+        arquivar: Arquivar
+        selecionadas: selecionada(s)
+        buscar: Buscar mensagem
+        pagina_vazia: 0 de 0
+        mais_novas: Mais novas
+        mais_antigas: Mais antigas
+        aba:
+            rec: Recebidas
+            rec_sub: Tudo que chegou
+            nl: Não lidas
+            nl_sub: Ainda sem abrir
+            est: Com estrela
+            est_sub: Marcadas
+            resp: Respondidas
+            resp_sub: Já respondidas
+            arq: Arquivadas
+            arq_sub: Fora da caixa
+        vazio: Nenhuma mensagem aqui.
+        voltar: Voltar
+        estrela: Estrela
+        para: 'para {papel} do Sistema'
+        abrir_indicacoes: Abrir Indicações
+        resposta: Resposta
+        enviar: Enviar resposta
+        token_invalido: Token CSRF inválido. Recarregue a página.
+        escolha_mensagens: Escolha as mensagens e a ação.
+        recusa:
+            nao_encontrada: Mensagem não encontrada.
+            sem_texto: Escreva a resposta.
+            texto_longo: A resposta passou de 5.000 caracteres.
+            nao_aceita: Esta mensagem não aceita resposta.
+            sem_destino: Não há mais a quem responder esta mensagem.
+    # P3: seção Indicações (master/_indicacoes, sem o include da Central de envios, que é do Comercial) e as recusas
+    # próprias do IndicacoesDoMasterController. A do validador e a do UseCase (domínio Indicacao) ficam fora.
+    indicacoes:
+        titulo: Indicações do BlueJus
+        pausar_todos: Pausar os convites para todos
+        liberados: Convites liberados
+        limite_dia: LIMITE POR DIA (POR PESSOA)
+        limite_dia_dica: Cada usuário pode enviar no máximo esse número de convites em 24 horas. Passando disso, o sistema bloqueia e pede para tentar no dia seguinte.
+        limite_mes: LIMITE POR MÊS
+        limite_mes_dica: Cada usuário pode enviar no máximo esse número de convites em 30 dias.
+        alerta: AVISAR NO CHAT A PARTIR DE (24H)
+        alerta_dica: 'Se alguém enviar esse número de convites em 24 horas, o {papel} recebe um alerta no Chat I.A (disparo alto de convites), para identificar uso indevido.'
+        regras: Regras de segurança dos convites
+        regras_dica: Só envia convite quem tem nome, telefone e CPF cadastrados. O convite sempre leva o nome de quem enviou e um link curto rastreável (bluejus.com.br/i/…), que mostra de quem veio a indicação.
+        token_invalido: Token CSRF inválido. Recarregue a página.
+        informe_pausa: Informe se os convites ficam pausados ou liberados.
+        informe_inteiros: Informe os limites em números inteiros.
+    # P3: flashes do MastersDoSistemaController (Masters do sistema, aba Permissões) e as recusas da
+    # OperacaoDeMasterRecusada. As RECUSA_* da RegraDosMasters ficam fora: o Tenant (EscritorioController) também usa.
+    masters:
+        promovido: '"{nome}" agora é {papel} secundário.'
+        removido: '"{nome}" deixou de ser {papel}.'
+        recusa:
+            so_primario: Só o Master primário pode promover ou remover Masters.
+            outro_escritorio: Entre no escritório do usuário secundário para promovê-lo a Master.
+            sem_escolha: Escolha um usuário secundário cadastrado.
+            conta_desativada: A conta deste usuário está desativada.
+            ja_master: Este usuário já é Master.
+            so_secundario_ativo: Só usuários secundários ativos desta conta podem ser promovidos a Master.
+            primario_do_escritorio: O primário do escritório não pode ser promovido a Master. Só usuários secundários da conta.
+            nao_e_master: Este usuário não é Master.
+            excluir_primario: O Master primário não pode ser excluído.
+    # P3: o mapa mundial (master/mapa_mundo, a página do iframe). O mapa do Brasil fica com a 4b (spec §8).
+    mapa:
+        titulo_mundo: Mapa mundial por país
+        carregando_mapa: Carregando mapa…
+        carregando: Carregando…
+        voltar: Voltar
     # Chaves do painel.js: vão cruas ao navegador (só {nome}, sem plural do ICU).
     js:
         carregando: Carregando…
@@ -1833,6 +1913,89 @@ master:
             filtro: 'filtro: {filtro}'
             conta: 'conta: {conta}'
             rodape: 'BlueJus · documento gerado pelo painel do {papel}. Contém apenas metadados administrativos.'
+        # P3: notificacoes.js (Central de Notificações). O rótulo do tipo, o remetente e o assunto vêm do servidor.
+        notificacoes:
+            erro_salvar: Não foi possível salvar.
+            erro_carregar: Não foi possível carregar as mensagens. Recarregue a página.
+            arquivar: Arquivar
+            desarquivar: Desarquivar
+            pagina: '{ini}-{fim} de {total}'
+            pagina_vazia: 0 de 0
+            selecionar: Selecionar
+            tirar_estrela: Tirar a estrela
+            marcar_estrela: Marcar com estrela
+            respondida: Respondida
+            responder_a: 'Responder a {quem}'
+            dica_email: 'Escreva sua resposta. Ela é enviada por e-mail para {email}.'
+            dica_central: Escreva sua resposta. Ela chega como aviso na Central de quem enviou.
+            respondeu_contribua: '{nome} respondeu pela página do Contribua'
+            voce_respondeu: Você respondeu
+            respondeu: '{nome} respondeu'
+            enviada_email: Resposta registrada e enviada para a fila de e-mail.
+            enviada_central: Resposta registrada e enviada como aviso na Central.
+        # P3: indicacoes.js (seção Indicações).
+        indicacoes:
+            resumo: '{enviadas} enviadas · {hoje} hoje · {conta} viraram conta'
+            liberar_todos: Liberar os convites para todos
+            pausar_todos: Pausar os convites para todos
+            pausados: Convites pausados para todos
+            liberados: Convites liberados
+            erro_carregar: Não foi possível carregar as indicações. Recarregue a página.
+            erro_salvar: Não foi possível salvar.
+        # P3: masters.js (Masters do sistema e a confirmação que o painel.js também usa). A palavra digitada vem de
+        # quem abre a confirmação (EXCLUIR, que não se traduz).
+        masters:
+            digite: 'Digite {palavra} para confirmar'
+            escolha: Escolha um usuário secundário cadastrado.
+            promover_titulo: 'Promover a {papel}'
+            promover_botao: Confirmar promoção
+            promover_texto: '"{nome}" passará a ter todos os poderes do sistema (contas, limites, planos, configurações e auditoria), como {papel} secundário. Ele não poderá excluir o {papel} primário.'
+            remover: 'Remover {papel}'
+            remover_texto: '"{nome}" deixa de ser {papel} e perde os poderes do sistema. A remoção fica registrada na auditoria.'
+        # P3: recursos.js (Telas e recursos). O nome, o grupo e a descrição de cada linha vêm do servidor.
+        recursos:
+            sem_motivo: Sem motivo informado
+            volta_em: 'volta em {data}'
+            tela_inteira: Tela inteira
+            item_menu: Item do menu da foto
+            essencial: Essencial
+            ativo: Ativo
+            desativado: Desativado
+            vazio: Nenhuma tela ou função encontrada.
+            desativados: '{n} desativado(s) para os usuários'
+            tudo_ativo: Tudo ativo
+            erro: Não foi possível alterar agora. Recarregue a página.
+            essencial_recusa: 'Tela essencial: não pode ser desativada.'
+            pergunta_motivo: 'Motivo exibido aos usuários (opcional). Ex.: "Tela em preparação", "Revisão ética", "Correção de falha":'
+            motivo_padrao: Tela em preparação
+            pergunta_data: 'Reativar automaticamente em (AAAA-MM-DD), ou deixe em branco:'
+        # P3: mapa-mundo.js (o iframe do mapa mundial). Os nomes de país, estado e região ficam em português (DONO,
+        # 21/10: a tradução deles é entrega própria).
+        mapa_mundo:
+            usuarios: '{n} usuário(s)'
+            por_estado: '{n} usuário(s) · por estado'
+            por_regiao: '{n} usuário(s) · por região'
+            sem_usuarios: sem usuários
+            sem_atuacao: sem atuação
+            dica: '{nome}: {qtd}'
+            dica_detalhar: '{nome}: {qtd} · clique para detalhar'
+            estados_nao_informados: Estados ainda não informados.
+            regioes_nao_informadas: Regiões ainda não informadas no cadastro.
+            nenhum_no_pais: Nenhum usuário neste país. Oportunidade de expansão.
+            cidades_nao_informadas: Cidades ainda não informadas no cadastro.
+            nenhum_no_estado: Nenhum usuário neste estado. Oportunidade de expansão.
+            local_nao_informado: Local não informado
+            mundo: Mundo
+            regiao: 'Região {regiao} · {n} usuário(s)'
+            regiao_municipios: 'Região {regiao} · {n} usuário(s) · {m} municípios'
+            municipio: Município
+            erro_estados: Não foi possível carregar os estados do IBGE agora.
+            erro_municipios: Não foi possível carregar os municípios do IBGE agora.
+            erro_mapa: Não foi possível carregar o mapa mundial agora.
+            arraste: Arraste para mover
+            aproximar: Aproximar
+            afastar: Afastar
+            ajustar: Ajustar ao mapa
 
 # ---- Cliente (cliente/show, editPF, editPJ, _cadastro, _resumo, cliente-cadastro.js). O texto da qualificação no JS
 # espelha o QualificacaoDoCliente (PHP), que ainda não lê o catálogo: os dois mudam juntos na tradução.

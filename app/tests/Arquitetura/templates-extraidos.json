@@ -203,10 +203,19 @@
 
     "master": {
         "templates": [
-            "master/painel.html.twig"
+            "master/painel.html.twig",
+            "master/_notificacoes.html.twig",
+            "master/_indicacoes.html.twig",
+            "master/mapa_mundo.html.twig"
         ],
         "js": [
-            "master/painel.js"
+            "master/painel.js",
+            "master/notificacoes.js",
+            "master/indicacoes.js",
+            "master/masters.js",
+            "master/recursos.js",
+            "master/mapa-mundo.js",
+            "master/bj-dica.js"
         ],
         "permitidos": [
             "Rondônia",
@@ -268,6 +277,15 @@
             "São Tomé e Príncipe",
             "Timor-Leste",
             "Brasil",
+            "Austrália",
+            "Japão",
+            "China",
+            "Norte",
+            "Nordeste",
+            "Centro-Oeste",
+            "Sudeste",
+            "Sul",
+            "Polygon",
             "Content-Type",
             "Escape",
             "Enter"

@@ -3,6 +3,7 @@
    - select "Promover a Master": mostra "e-mail · OAB" do escolhido e a mensagem de erro sem escolha;
    - confirmação interna (promover e remover Master) no lugar do window.confirm. A mesma confirmação
      serve ao painel.js (suspender, reativar e excluir conta, esta com a palavra EXCLUIR) por window.BJMasterConf.abrir(op).
+   - Textos no catálogo (master.js.masters.*, entregue pelo painel com catalogo_js); o termo Master vem de termos.master.
    Nenhuma decisão mora só aqui: o servidor revalida tudo (CSRF, Master primário, regras da spec perfis-1.2-masters). */
 (() => {
   'use strict';
@@ -12,6 +13,7 @@
   const COR_ROXO = '#7a3e8f';
   const COR_PERIGO = '#a3232b';
   const qs = (sel, el) => (el || raiz).querySelector(sel);
+  const T = (chave, params) => window.BJ_T.t(chave, Object.assign({ papel: window.BJ_T.t('termos.master') }, params));
 
   /* ---------- confirmação ---------- */
   const conf = qs('[data-mp-conf]');
@@ -33,7 +35,7 @@
     if (campo && entrada) {
       campo.hidden = !palavraExigida;
       entrada.value = '';
-      qs('[data-mp-conf-rotulo]', conf).textContent = palavraExigida ? 'Digite ' + palavraExigida + ' para confirmar' : '';
+      qs('[data-mp-conf-rotulo]', conf).textContent = palavraExigida ? T('master.js.masters.digite', { palavra: palavraExigida }) : '';
     }
     // A ação do painel não recarrega a página: destrava para a próxima confirmação. Com palavra, só destrava quando bater.
     ok.disabled = !!palavraExigida;
@@ -76,13 +78,13 @@
 
     qs('[data-mp-promover]', form).addEventListener('click', () => {
       if (!sel.value) {
-        msg.textContent = 'Escolha um usuário secundário cadastrado.';
+        msg.textContent = T('master.js.masters.escolha');
         msg.classList.add('is-erro');
         return;
       }
       abrirConf({
-        titulo: 'Promover a Master', icone: 'bi-stars', cor: COR_ROXO, botao: 'Confirmar promoção',
-        texto: '"' + escolhido().getAttribute('data-nome') + '" passará a ter todos os poderes do sistema (contas, limites, planos, configurações e auditoria), como Master secundário. Ele não poderá excluir o Master primário.',
+        titulo: T('master.js.masters.promover_titulo'), icone: 'bi-stars', cor: COR_ROXO, botao: T('master.js.masters.promover_botao'),
+        texto: T('master.js.masters.promover_texto', { nome: escolhido().getAttribute('data-nome') }),
         aoConfirmar: () => form.submit()
       });
     });
@@ -91,8 +93,8 @@
   /* ---------- remover Master secundário (só no HTML do Master primário) ---------- */
   raiz.querySelectorAll('[data-mp-remover-master]').forEach(btn => btn.addEventListener('click', () => {
     abrirConf({
-      titulo: 'Remover Master', icone: 'bi-person-dash', cor: COR_PERIGO, botao: 'Remover Master',
-      texto: '"' + btn.getAttribute('data-nome') + '" deixa de ser Master e perde os poderes do sistema. A remoção fica registrada na auditoria.',
+      titulo: T('master.js.masters.remover'), icone: 'bi-person-dash', cor: COR_PERIGO, botao: T('master.js.masters.remover'),
+      texto: T('master.js.masters.remover_texto', { nome: btn.getAttribute('data-nome') }),
       aoConfirmar: () => btn.closest('form').submit()
     });
   }));
