@@ -310,4 +310,24 @@ final class ReconciliadorDePastaTest extends KernelTestCase
         self::assertSame(0, $r->renomeadasNoDrive);
         self::assertStringContainsString('renomear no Drive', $r->mensagens[0]);
     }
+
+    #[TestDox('pasta com cadeado sai do sync (spec pasta-cadeado D6): não cria folder, não envia, e o motivo fica no log')]
+    public function testPastaComCadeadoSaiDoSync(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'nup' => '778', 'nomeCliente' => 'SIGILOSO']);
+        $this->criarDocumento($pasta->getId(), 'peca.pdf');
+        $entidade = $this->em()->find(Pasta::class, $pasta->getId());
+        $this->em()->persist(new \App\Pasta\Entity\CadeadoDaPasta($entidade->getTenant(), $entidade, \App\Pasta\Entity\ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
+        $this->em()->flush();
+
+        $fake      = new FakeGoogleDriveClient();
+        $resultado = self::getContainer()->get(ReconciliadorDePasta::class)->sincronizarPasta($pasta->getId(), 'RAIZ', $fake);
+
+        self::assertSame(0, $resultado->criadasNoDrive);
+        self::assertSame(0, $resultado->arquivosEnviados);
+        self::assertSame([], array_values($fake->conteudosEnviados));
+        self::assertStringContainsString('[cadeado] pasta_id=' . $pasta->getId() . ' fora do sync', implode("\n", $resultado->mensagens));
+    }
 }

@@ -18,6 +18,7 @@ use App\Inteligencia\Exception\FilaIndisponivelException;
 use App\Inteligencia\Exception\InteligenciaIndisponivelException;
 use App\Inteligencia\Exception\PastaNaoEncontradaException;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
+use App\Inteligencia\Service\VisibilidadeDaAnaliseDaPasta;
 use App\Inteligencia\UseCase\AlternarAnaliseInternaUseCase;
 use App\Inteligencia\UseCase\ConsultarStatusDaAnaliseUseCase;
 use App\Inteligencia\UseCase\EditarAnaliseUseCase;
@@ -83,6 +84,7 @@ final class AnalisePushController extends AbstractController
         private readonly RecolherAnaliseUseCase $recolherAnalise,
         private readonly RegistrarExportacaoDaAnaliseUseCase $registrarExportacao,
         private readonly EditarAnaliseUseCase $editar,
+        private readonly VisibilidadeDaAnaliseDaPasta $visibilidadeDaAnalise,
         // Interface (não a classe) pelo mesmo motivo do PoliticaPrivacidadeController: dublê em teste.
         private readonly RateLimiterFactoryInterface $inteligenciaSolicitarLimiter,
     ) {
@@ -126,10 +128,10 @@ final class AnalisePushController extends AbstractController
     #[Route('/push/analises', name: 'inteligencia_push_listar', methods: ['GET'])]
     public function listar(Pasta $pasta): Response
     {
-        [, $tenant] = $this->guardar($pasta);
+        [$user, $tenant] = $this->guardar($pasta);
 
         return $this->render('inteligencia/_analises_push.html.twig', [
-            'analisesIa' => $this->listar->executar($pasta, $tenant),
+            'analisesIa' => $this->listar->executar($pasta, $tenant, $this->visibilidadeDaAnalise->abasOcultasPara($pasta, $user)),
             'pastaId' => (int) $pasta->getId(),
         ]);
     }

@@ -948,6 +948,8 @@
 <script src="{{ asset('js/quill/quill.js') }}"></script>
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
 <link rel="stylesheet" href="{{ asset('css/pasta-arquivos.css') }}">
+{# Menu da linha da obrigação (desenho 1A de 19/10): o `⋯` e o botão direito abrem o mesmo menu. #}
+<link rel="stylesheet" href="{{ asset('css/objeto-linha-menu.css') }}">
 {% endblock %}
 
 {% block javascripts %}
@@ -956,6 +958,7 @@
    não precisa rodar antes do HTML existir, e nada nesta página depende dela para carregar. #}
 <script src="{{ asset('js/telefone-mascara.js') }}" defer></script>
 <script src="{{ asset('js/judicializar-buscar-pasta.js') }}" defer></script>
+<script src="{{ asset('js/objeto-linha-menu.js') }}" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     /* Anti duplo-submit dos forms CRUS desta página (aba Responsáveis: os três botões de qualificação,

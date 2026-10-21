@@ -10,6 +10,8 @@ use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Entity\DocumentoDemanda;
 use App\TrabalhoExterno\Entity\HistoricoDemanda;
+use App\TrabalhoExterno\Entity\MarcacaoDeMensagem;
+use App\TrabalhoExterno\Entity\MarcacaoDoUsuario;
 use App\TrabalhoExterno\Entity\MensagemDemanda;
 use App\TrabalhoExterno\Entity\PropostaDemanda;
 use App\TrabalhoExterno\Enum\FaseWhatsapp;
@@ -44,6 +46,7 @@ final class ApresentadorDeDemanda
     public function __construct(
         private readonly PoliticaDaDemanda $politica,
         private readonly UrlGeneratorInterface $urls,
+        private readonly CalculadoraDeImportancia $importancia,
     ) {
     }
 
@@ -52,9 +55,11 @@ final class ApresentadorDeDemanda
      *
      * @return array<string, mixed>
      */
-    public function linha(Contexto $ctx, DemandaExterna $d, int $naoLidas): array
+    public function linha(Contexto $ctx, DemandaExterna $d, int $naoLidas, ?MarcacaoDoUsuario $marca = null): array
     {
         $s = $d->getSituacao();
+        // "Marcar como não lida" conta 1 quando o chat já está em dia (`naoLidas()` do desenho).
+        $naoLidas = $naoLidas > 0 || $marca?->isNaoLida() !== true ? $naoLidas : 1;
 
         return [
             'codigo' => $d->getCodigo(),
@@ -78,6 +83,21 @@ final class ApresentadorDeDemanda
             'urgente' => $d->isUrgente(),
             'naoLidas' => $naoLidas,
             'botoes' => $this->politica->botoes($ctx, $d),
+        ] + $this->marcacao($d, $naoLidas, $marca);
+    }
+
+    /**
+     * O que só o usuário marcou (spec VS 18.10.26 §3): estrela, lixeira e a importância, que é
+     * calculada mas cede à escolha manual.
+     *
+     * @return array<string, mixed>
+     */
+    private function marcacao(DemandaExterna $d, int $naoLidas, ?MarcacaoDoUsuario $marca): array
+    {
+        return [
+            'estrela' => $marca?->temEstrela() ?? false,
+            'lixeira' => $marca?->naLixeira() ?? false,
+            'importancia' => $this->importancia->calcular($d, $naoLidas, $marca?->getImportante(), new \DateTimeImmutable('today')),
         ];
     }
 
@@ -86,7 +106,8 @@ final class ApresentadorDeDemanda
      *
      * @return array<string, mixed>
      */
-    public function detalhe(Contexto $ctx, DemandaExterna $d, int $naoLidas): array
+    /** @param array<int, MarcacaoDeMensagem> $marcasDoChat as marcações de quem lê, por id da mensagem */
+    public function detalhe(Contexto $ctx, DemandaExterna $d, int $naoLidas, array $marcasDoChat = []): array
     {
         $s = $d->getSituacao();
         $fim = in_array($s, [Situacao::Recusada, Situacao::Cancelada], true);
@@ -130,7 +151,7 @@ final class ApresentadorDeDemanda
             'podeConvidar' => $this->politica->podeConvidar($ctx, $d),
             'permissoesDeConvite' => array_map(static fn (string $k, string $rot): array => ['k' => $k, 'rot' => $rot], array_keys(ConviteDemanda::PERMISSOES), ConviteDemanda::PERMISSOES),
             'validadePadraoConvite' => (new \DateTimeImmutable('today +15 days'))->format('Y-m-d'),
-            'mensagens' => $this->mensagens($ctx, $d),
+            'mensagens' => $this->mensagens($ctx, $d, $marcasDoChat),
             'naoLidas' => $naoLidas,
             'podeConversar' => $this->politica->podeConversar($ctx, $d),
             'podeNotaInterna' => $this->politica->podeEscreverNotaInterna($ctx, $d),
@@ -248,38 +269,67 @@ final class ApresentadorDeDemanda
         }, $lista, array_keys($lista));
     }
 
-    /** @return list<array<string, mixed>> */
-    private function mensagens(Contexto $ctx, DemandaExterna $d): array
+    /**
+     * As mensagens que quem lê vê, menos as que ele excluiu da conversa dele (ou deixou mais de 30
+     * dias na lixeira). Apagada para todos continua no lugar, sem o texto.
+     *
+     * @param array<int, MarcacaoDeMensagem> $marcas
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function mensagens(Contexto $ctx, DemandaExterna $d, array $marcas): array
     {
+        $agora = new \DateTimeImmutable();
         $visiveis = array_filter(
             $d->getMensagens(),
-            fn (MensagemDemanda $m): bool => $this->politica->mensagemVisivel($ctx, $d, $m),
+            fn (MensagemDemanda $m): bool => $this->politica->mensagemVisivel($ctx, $d, $m)
+                && !($marcas[(int) $m->getId()] ?? null)?->excluida($agora),
         );
 
-        return array_values(array_map(function (MensagemDemanda $m) use ($ctx): array {
-            $tipo = $m->getTipo();
-            $estilo = match (true) {
+        return array_values(array_map(
+            fn (MensagemDemanda $m): array => $this->mensagem($ctx, $m, $marcas[(int) $m->getId()] ?? null, $agora),
+            $visiveis,
+        ));
+    }
+
+    /** @return array<string, mixed> */
+    private function mensagem(Contexto $ctx, MensagemDemanda $m, ?MarcacaoDeMensagem $marca, \DateTimeImmutable $agora): array
+    {
+        $tipo = $m->getTipo();
+        $meu = $m->getAutor() !== null && $m->getAutor()->getId() === $ctx->usuario->getId();
+
+        return [
+            'id' => $m->getId(),
+            'de' => $this->politica->nomeVisivel($ctx, $m->getNomeAutor(), $m->getPerfilAutor()),
+            'em' => $this->dataHora($m->getEm()),
+            'txt' => $m->foiApagada() ? '' : $m->getTexto(),
+            'tipo' => $tipo->sufixo(),
+            'estilo' => match (true) {
                 $tipo === TipoMensagem::Interna => 'interna',
                 $tipo === TipoMensagem::Sistema => 'sistema',
-                $m->getAutor() !== null && $m->getAutor()->getId() === $ctx->usuario->getId() => 'meu',
+                $meu => 'meu',
                 default => 'outro',
-            };
-
-            return [
-                'id' => $m->getId(),
-                'de' => $this->politica->nomeVisivel($ctx, $m->getNomeAutor(), $m->getPerfilAutor()),
-                'em' => $this->dataHora($m->getEm()),
-                'txt' => $m->getTexto(),
-                'tipo' => $tipo->sufixo(),
-                'estilo' => $estilo,
-                'meu' => $m->getAutor() !== null && $m->getAutor()->getId() === $ctx->usuario->getId(),
-                'nomeCor' => match ($m->getPerfilAutor()) {
-                    Perfil::Master => '#0a6fa0',
-                    Perfil::Convidado => '#1e7b45',
-                    default => '#5b3f9e',
-                },
-            ];
-        }, $visiveis));
+            },
+            'meu' => $meu,
+            'nomeCor' => match ($m->getPerfilAutor()) {
+                Perfil::Master => '#0a6fa0',
+                Perfil::Convidado => '#1e7b45',
+                default => '#5b3f9e',
+            },
+            'apagada' => $m->foiApagada(),
+            // "Mensagem apagada por X em dd/mm hh:mm" (desenho l.1240), com o nome no recorte de quem lê.
+            'apagadaTxt' => $m->foiApagada()
+                ? 'Mensagem apagada por ' . $this->politica->nomeVisivel($ctx, (string) $m->getApagadaPor(), $m->getApagadaPorPerfil() ?? Perfil::Master) . ' em ' . $this->dataHora($m->getApagadaEm())
+                : '',
+            'podeApagar' => $this->politica->podeApagarMensagem($ctx, $m, $agora),
+            // Dica e item travado do menu da mensagem (desenho l.1239).
+            'apagarDica' => $ctx->perfil === Perfil::Master && !$meu ? 'Apagar para todos (Master)' : 'Apagar para todos · até 60 min após o envio',
+            'apagarBloqueado' => $m->foiApagada() || $tipo === TipoMensagem::Sistema || $this->politica->podeApagarMensagem($ctx, $m, $agora)
+                ? ''
+                : ($meu ? 'Apagar (prazo de 60 min encerrado)' : 'Só o autor ou o Master apagam'),
+            'favorita' => $marca?->isFavorita() ?? false,
+            'lixeira' => $marca?->naLixeira($agora) ?? false,
+        ];
     }
 
     /**
