@@ -3590,41 +3590,6 @@ cobranca_objeto:
         cadastrado_em: '· cadastrado em {data}'
         atual: Atual
         marcar_atual: Marcar como atual
-
-# ---- Cobrança: pessoa, central e subnav (cobranca/pessoa, central, _partials/_subnav)
-cobranca_pessoa:
-    subnav:
-        rotulo: Seções de Cobranças
-        painel: Painel
-        carteiras: Carteiras
-        alertas: Alertas
-        central: Central
-    comum:
-        adicionar: Adicionar
-        atual: Atual
-        marcar_atual: Marcar como atual
-        desde: 'desde {data}'
-        salvar: Salvar
-        cancelar: Cancelar
-    ficha:
-        titulo_pagina: 'Cobranças · {pessoa}'
-        voltar: Voltar
-        subtitulo: 'Ficha completa da pessoa: qualificação e histórico de endereços, telefones e e-mails.'
-    abas:
-        qualificacao: Qualificação
-        enderecos: Endereços
-        contatos: Telefones e E-mails
-    qualificacao:
-        titulo: Qualificação
-        salvar: Salvar qualificação
-    enderecos:
-        titulo: Endereços
-        cep: 'CEP {cep}'
-        vazio: Nenhum endereço cadastrado
-        salvar: Salvar endereço
-    telefones:
-        titulo: Telefones
-        telefone: Telefone
         editar: Editar telefone
         corrigir_dica: Corrigir este número
         excluir: Excluir telefone
@@ -3990,6 +3955,44 @@ cobranca_pessoa:
             erro_enviar: Erro ao enviar o arquivo.
             erro_comunicacao: Erro de comunicação.
 
+# ---- Cobrança: pessoa, central e subnav (cobranca/pessoa, central, _partials/_subnav)
+cobranca_pessoa:
+    subnav:
+        rotulo: Seções de Cobranças
+        painel: Painel
+        carteiras: Carteiras
+        alertas: Alertas
+        central: Central
+    comum:
+        adicionar: Adicionar
+        atual: Atual
+        marcar_atual: Marcar como atual
+        desde: 'desde {data}'
+        salvar: Salvar
+        cancelar: Cancelar
+    ficha:
+        titulo_pagina: 'Cobranças · {pessoa}'
+        voltar: Voltar
+        subtitulo: 'Ficha completa da pessoa: qualificação e histórico de endereços, telefones e e-mails.'
+    abas:
+        qualificacao: Qualificação
+        enderecos: Endereços
+        contatos: Telefones e E-mails
+    qualificacao:
+        titulo: Qualificação
+        salvar: Salvar qualificação
+    enderecos:
+        titulo: Endereços
+        cep: 'CEP {cep}'
+        vazio: Nenhum endereço cadastrado
+        salvar: Salvar endereço
+    telefones:
+        titulo: Telefones
+        telefone: Telefone
+        editar: Editar telefone
+        corrigir_dica: Corrigir este número
+        excluir: Excluir telefone
+        excluir_dica: Excluir este número
         excluir_confirmar_atual: 'Excluir {numero}? Este é o telefone atual. O mais recente que sobrar passa a ser o atual.'
         excluir_confirmar: 'Excluir {numero}? Não dá para desfazer.'
         numero: Número do telefone
