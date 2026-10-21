@@ -1,4 +1,4 @@
-/* BlueJus · Painel do Master, seção "Comercial e e-mails", bloco "Nova campanha de e-mail", fatias 2a e 2b
+/* BlueJus · Painel do Master, seção "Comercial e e-mails", bloco "Nova campanha de e-mail", fatias 2a e 2b e o filtro da F3b
    (desenho docs/design/perfis-1.2/05 - Perfis 1.2 - VS 18.10.26.dc.html, markup L.229-260 e lógica L.530-560;
    spec docs/specs/comercial-e-emails.md §8.2 a §8.6).
    - A grade de modelos vem do servidor (os fixos do dc e os próprios do Master, em comercial_modelo).
@@ -48,6 +48,8 @@
   let individual = '';
   let frequencia = 'unica';
   let contagem = null;
+  // F3b: o "Filtrar destinatários" (dc 05 VS 21.10.26, L260-264 e L662-664), nas chaves do dc; vazio = todos.
+  let filtro = {};
   let pedidoDaContagem = 0;
   let esperaDaContagem = null;
   let chave = '';
@@ -113,6 +115,55 @@
     // dc L.545: "NOME · N e-mail(s)" depois de ler o arquivo.
     el('[data-mc-cp-csv-txt]').textContent = csvNome ? csvNome + ' · ' + (contagem ? contagem.publicos.csv : 0) + ' e-mail(s)' : 'Selecionar arquivo .csv';
     el('[data-mc-cp-dest]').textContent = contagem ? linhaDeDestinatarios(contagem) : '';
+    desenharFiltro();
+  }
+
+  const filtroLimpo = () => Object.fromEntries(Object.entries(filtro).filter(([, v]) => v));
+  const mesmoFiltro = (a, b) => { const ka = Object.keys(a).sort(); return ka.length === Object.keys(b).length && ka.every(k => a[k] === b[k]); };
+
+  /* dc L662-663: fechado, o selo com quantos campos estão preenchidos (a busca conta) e "N de M com filtro" ou "Todos
+     (M)"; aberto, "N de M atendem ao filtro · K sem essa informação no cadastro (ficam de fora)" ou "Enviando para
+     todos da lista (M)". Os números vêm do servidor (F2). */
+  function desenharFiltro() {
+    const caixa = el('[data-mc-cf]');
+    if (!caixa) return;
+    const ativo = filtroLimpo();
+    const quantos = Object.keys(ativo).length;
+    const f = contagem && contagem.filtro ? contagem.filtro : null;
+    const selo = el('[data-mc-cf-selo]');
+    selo.hidden = quantos === 0;
+    selo.textContent = String(quantos);
+    const m = f ? f.base : 0;
+    el('[data-mc-cf-curto]').textContent = !f ? '' : quantos ? f.atendem + ' de ' + m + ' com filtro' : 'Todos (' + m + ')';
+    el('[data-mc-cf-resultado]').textContent = !f ? '' : quantos
+      ? f.atendem + ' de ' + m + ' atendem ao filtro' + (f.semInformacao ? ' · ' + f.semInformacao + ' sem essa informação no cadastro (ficam de fora)' : '')
+      : 'Enviando para todos da lista (' + m + ')';
+    el('[data-mc-cf-limpar]').hidden = quantos === 0;
+    caixa.querySelectorAll('[data-mc-cf-campo]').forEach(c => { if (c.value !== (filtro[c.dataset.mcCfCampo] || '')) c.value = filtro[c.dataset.mcCfCampo] || ''; });
+    caixa.querySelectorAll('[data-mc-cf-atalho]').forEach(b => {
+      let o = {};
+      try { o = JSON.parse(b.dataset.mcCfAtalho) || {}; } catch (x) { o = {}; }
+      if (Array.isArray(o)) o = {};
+      b.setAttribute('aria-pressed', String(mesmoFiltro(o, ativo)));
+    });
+  }
+
+  function abrirFiltro() {
+    const painelDoFiltro = el('[data-mc-cf-painel]');
+    const aberto = painelDoFiltro.hidden;
+    painelDoFiltro.hidden = !aberto;
+    const botao = el('[data-mc-cf-abrir]');
+    botao.setAttribute('aria-expanded', String(aberto));
+    el('[data-mc-cf-seta]').className = 'bi ' + (aberto ? 'bi-chevron-up' : 'bi-chevron-down') + ' mc-cf-seta';
+  }
+
+  /* dc L664: o atalho troca o filtro inteiro (a busca também sai). */
+  function usarAtalho(botao) {
+    let o = {};
+    try { o = JSON.parse(botao.dataset.mcCfAtalho) || {}; } catch (x) { o = {}; }
+    filtro = Array.isArray(o) ? {} : Object.assign({}, o);
+    desenharFiltro();
+    contar();
   }
 
   function desenharFrequencia() {
@@ -121,7 +172,7 @@
   }
 
   function pedidoDoPublico() {
-    return { publico, csv: publico === 'csv' ? csvTexto : '', individual: publico === 'indiv' ? individual : '' };
+    return { publico, csv: publico === 'csv' ? csvTexto : '', individual: publico === 'indiv' ? individual : '', filtro: filtroLimpo() };
   }
 
   function contar() {
@@ -308,6 +359,10 @@
     const botaoDaFrequencia = e.target.closest('[data-mc-cp-freq]');
     if (botaoDaFrequencia) { frequencia = botaoDaFrequencia.dataset.mcCpFreq; desenharFrequencia(); return; }
     if (e.target.closest('[data-mc-cp-enviar]')) { enviarCampanha(); return; }
+    if (e.target.closest('[data-mc-cf-abrir]')) { abrirFiltro(); return; }
+    const atalho = e.target.closest('[data-mc-cf-atalho]');
+    if (atalho) { usarAtalho(atalho); return; }
+    if (e.target.closest('[data-mc-cf-limpar]')) { filtro = {}; desenharFiltro(); contar(); return; }
     const bloco = e.target.closest('[data-mc-cp-bloco]');
     const i = bloco ? parseInt(bloco.dataset.mcCpBloco, 10) : -1;
     const mover = e.target.closest('[data-mc-cp-mover]');
@@ -334,6 +389,8 @@
     const campo = e.target.closest('[data-mc-cp-campo]');
     if (campo) { editar(campo.dataset.mcCpCampo, campo.value); return; }
     if (e.target.closest('[data-mc-cp-individual]')) { individual = e.target.value; agendarContagem(); return; }
+    const campoDoFiltro = e.target.closest('input[data-mc-cf-campo]');
+    if (campoDoFiltro) { filtro[campoDoFiltro.dataset.mcCfCampo] = campoDoFiltro.value; agendarContagem(); return; }
     const lado = e.target.closest('[data-mc-cp-lado]');
     const bloco = e.target.closest('[data-mc-cp-bloco]');
     if (lado && bloco) {
@@ -347,6 +404,8 @@
   });
 
   raiz.addEventListener('change', e => {
+    const selectDoFiltro = e.target.closest('select[data-mc-cf-campo]');
+    if (selectDoFiltro) { filtro[selectDoFiltro.dataset.mcCfCampo] = selectDoFiltro.value; desenharFiltro(); contar(); return; }
     const csv = e.target.closest('[data-mc-cp-csv-arquivo]');
     if (csv) {
       if (csv.files && csv.files[0]) lerCsv(csv.files[0]);

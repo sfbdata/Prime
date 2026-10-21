@@ -857,3 +857,44 @@ MÉDIO (envio em massa). Sem migration: o filtro fica congelado no `publico_para
   próprio (tirar o filtro alargaria o público); os IN vão em blocos de 10 mil (limite de parâmetros do PostgreSQL);
   nascimento no futuro conta como sem a informação; "Prefiro não informar" (`nao_informado`) também (contrato da F1);
   OAB com número e sem status é pendente, como no dc; plano fora do catálogo não atende ninguém, sem erro.
+
+## 10. F3: a tela da Central de envios (desenho 05 VS 21.10.26)
+
+Divisão (coordenador, 21/10): F3a editor (selo e nome na prévia, emojis, barra de ações com "Programar envio", "Ver
+como vai chegar" computador e celular, "Salvar como meu modelo", linha de destinatários com repetidos e inválidos), F3b
+UI dos filtros, F3c KPIs embaixo e Descadastrados, F3d e F3e relatório em caixa de entrada (da 9b), F3f teste novo e
+gravado, F3g confirmação de leitura, F3h modo venda na seção Indicações, F3i imagem no modo simples, F4 Datas
+comemorativas. Com migration: F3e, F3g e, provavelmente, F3i e F4 (números pedidos na vez).
+
+### Decisões do coordenador (21/10, por delegação do dono; o dono pode rever)
+- O teste gravado conta no KPI "Campanhas", como no dc.
+- Confirmação de leitura por campanha com o rastreio global desligado (Política): a chave aparece desligada, com a
+  explicação, e Lidos e Taxa de leitura mostram "—".
+- "Entregue" (✓ verde) = enviado sem falha, até haver provedor com recibo.
+- "Reenviar a quem não leu" = uma campanha nova, com confirmação, só com o rastreio ligado.
+- "Excluir do relatório" só oculta (a trilha e a retenção de 24 meses ficam). Estrela e Arquivar são por usuário
+  Master.
+- Descadastrados: lista `comercial_campanhas` e `todos`; "Registrar pedido" grava em `comercial_campanhas`; "Excluir"
+  (reativar) é um por vez, com confirmação e auditoria.
+- "E-mails na fila" = o que está de fato na fila (envios enfileirados), não a soma do total das campanhas.
+- Modo venda: "Cadastrar e-mail" manda a confirmação do endereço (dupla), como já existe; o relatório na seção
+  Indicações mostra tudo, como no dc.
+- Nome na prévia: o primeiro nome do primeiro destinatário, como no dc; "Dra. Ana" quando não há ninguém.
+- Exportar destinatários (CSV): auditado, sem os e-mails já com hash (depois de 24 meses).
+- "Cancelar envio" de recorrente = Encerrar (A3); o dc não tem "Pausar".
+
+### Com o dono (não implementar a parte em dúvida; o controle fica desabilitado ou de fora)
+- Teste para qualquer endereço (dc L668, "Encaminhar para um e-mail"): contraria a C4 (só o Master logado).
+- Imagem no modo simples: o dc grava como `data:`, que o Gmail bloqueia; hospedar no servidor exige decidir tamanho,
+  retenção e URL pública.
+- "Limpar lista" dos Descadastrados (reativação em massa, risco LGPD).
+- Datas comemorativas: o A2 (o dc liga todas; a decisão anterior era desligadas e só primários).
+- Remetente: mostrar o real (`nao-responda@`) ou passar a enviar de `contato@` como no dc. Até a resposta, a tela
+  mostra o remetente real.
+
+### F3b (entregue)
+- O painel "Filtrar destinatários" logo abaixo da grade de públicos (L260): fechado, o selo com quantos campos estão
+  preenchidos (a busca conta) e "N de M com filtro" ou "Todos (M)"; aberto, a busca, os 7 atalhos (L664, cada um troca
+  o filtro inteiro), os 8 selects (Plano pelo catálogo, D4) e "N de M atendem ao filtro · K sem essa informação no
+  cadastro (ficam de fora)" ou "Enviando para todos da lista (M)", com "Limpar filtro". O `filtro` vai na contagem e na
+  confirmação; quem conta é o servidor (F2). O modo venda (só busca e Estado) é da F3h.
