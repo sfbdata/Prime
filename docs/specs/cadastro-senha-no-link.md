@@ -16,6 +16,10 @@ Risco ALTO (identidade User). Decisão do dono (21/10/2026, via coordenador): op
   (`public/js/auth/criar-senha.js`) sobre a barra do Bootstrap. `SessaoDeContaAConfirmarListener` libera a rota nova.
   Testes direcionados e de arquitetura verdes; falta o smoke do dono na tela.
 - 21/10: #246 no master (sem D1 e D2). D1 e D2 decididos pelo dono; implementação na frente `cadastro-sem-senha-e-aceite`.
+- 21/10: D1 feito na frente `cadastro-sem-senha-e-aceite` (commit "Tira o campo Senha do cadastro"): o passo `cad` do
+  modal perdeu o `#lgCdSenha` e a régua; o `entrada.js` não exige nem envia a senha. O D2 espera a migration: os
+  UNIQUE `(user_id, versao)` de `aceite_termo` e `ciencia_politica` impedem gravar um aceite novo da mesma versão sem
+  apagar o do cadastro.
 
 ## A brecha
 

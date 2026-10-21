@@ -58,7 +58,6 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
             'nome' => 'Ana Souza',
             'escritorio' => 'Souza Advogados ' . uniqid(),
             'email' => 'ana_' . uniqid() . '@adv.com',
-            'senha' => 'segredo123',
             'aceite' => true,
             '_token' => self::CSRF,
         ], $trocas);
@@ -172,9 +171,6 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertSame('Navegador de teste', $ciencia->getUserAgent());
         self::assertCount(1, $em->getRepository(ConfirmacaoEmail::class)->findBy(['user' => $user, 'lembrete' => false]));
 
-        // A senha digitada é ignorada (spec cadastro-senha-no-link): a conta nasce sem senha que alguém conheça.
-        self::assertFalse(static::getContainer()->get(UserPasswordHasherInterface::class)->isPasswordValid($user, $dados['senha']));
-
         // Não entrou (spec cadastro-exige-confirmacao): sem token, sem escritório na sessão; a sessão guarda a conta
         // só para o botão de reenviar o link.
         self::assertNull($client->getContainer()->get('security.token_storage')->getToken());
@@ -182,6 +178,22 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertSame($user->getId(), $client->getRequest()->getSession()->get(ContaAConfirmar::CHAVE_SESSAO)['id'] ?? null);
         $client->request('GET', '/cadastro');
         self::assertResponseRedirects('/login?abrir=cadastro');
+    }
+
+    #[TestDox('POST /cadastro/criar de cliente antigo que ainda manda a senha: a senha é ignorada (D1 da spec cadastro-senha-no-link)')]
+    public function testSenhaDeClienteAntigoEIgnorada(): void
+    {
+        $client = static::createClient();
+        $this->prepararCsrf($client);
+        $dados = self::dados(['senha' => 'segredo123']);
+
+        $client->jsonRequest('POST', '/cadastro/criar', $dados);
+
+        self::assertResponseIsSuccessful();
+        $this->em()->clear();
+        $user = $this->em()->getRepository(User::class)->findOneBy(['email' => $dados['email']]);
+        self::assertNotNull($user);
+        self::assertFalse(static::getContainer()->get(UserPasswordHasherInterface::class)->isPasswordValid($user, 'segredo123'));
     }
 
     /** @return iterable<string, array{array<string, mixed>, string}> */
