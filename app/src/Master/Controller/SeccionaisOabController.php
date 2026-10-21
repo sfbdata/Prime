@@ -10,6 +10,8 @@ use App\Master\DTO\EditarSedeDaSeccionalInput;
 use App\Master\DTO\RegistrarDivulgacaoNaSeccionalInput;
 use App\Master\DTO\RemoverSubsecaoDaSeccionalInput;
 use App\Master\DTO\SalvarNotaDaSeccionalInput;
+use App\Master\Enum\TipoDeDivulgacao;
+use App\Master\Exception\RecusaDaSeccional;
 use App\Master\Exception\SeccionalNaoEncontrada;
 use App\Master\Exception\SeccionalRecusada;
 use App\Master\Exception\SubsecaoNaoEncontrada;
@@ -42,8 +44,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * subseção, remover subseção, salvar nota) seguem o mesmo contrato dos de cima.
  *
  * Idioma (spec idioma-do-sistema, P2a da b5): a resposta e a recusa do próprio controller saem do catálogo
- * (master.seccionais.*) no idioma da requisição. A recusa dos UseCases (SeccionalRecusada, SeccionalNaoEncontrada,
- * SubsecaoNaoEncontrada) vai como está, em português, até ganhar chave própria (spec §8).
+ * (master.seccionais.*) no idioma da requisição. P2b: a recusa dos UseCases (SeccionalRecusada, SeccionalNaoEncontrada,
+ * SubsecaoNaoEncontrada) também, pela chave e pelos parâmetros que a exceção leva ({@see RecusaDaSeccional}); e o rótulo
+ * do tipo de divulgação (lista e resposta), pela chave do TipoDeDivulgacao.
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class SeccionaisOabController extends AbstractController
@@ -58,7 +61,7 @@ final class SeccionaisOabController extends AbstractController
     public function listar(ListarSeccionaisUseCase $listar, CsrfTokenManagerInterface $csrf): JsonResponse
     {
         return $this->json([
-            'seccionais' => $listar->executar(),
+            'seccionais' => array_map($this->traduzirDivulgacoes(...), $listar->executar()),
             'token'      => $csrf->getToken(self::CSRF)->getValue(),
             // Molde da URL de editar a sede (o painel troca XX pela UF): o bloco `urls` do painel leva só o GET.
             'urlSede'    => $this->generateUrl('master_seccional_sede', ['uf' => 'XX']),
@@ -116,7 +119,7 @@ final class SeccionaisOabController extends AbstractController
         return $this->gravar($uf, $request, function (array $corpo) use ($uf, $registrar): string {
             $divulgacao = $registrar->executar(RegistrarDivulgacaoNaSeccionalInput::doJson($this->ator(), $uf, $corpo));
 
-            return $this->tradutor->trans('master.seccionais.divulgacao_registrada', ['seccional' => $divulgacao->getSeccional()->getNome(), 'tipo' => $divulgacao->getTipo()->rotulo()]);
+            return $this->tradutor->trans('master.seccionais.divulgacao_registrada', ['seccional' => $divulgacao->getSeccional()->getNome(), 'tipo' => $this->tradutor->trans($divulgacao->getTipo()->chave())]);
         });
     }
 
@@ -134,10 +137,44 @@ final class SeccionaisOabController extends AbstractController
         try {
             return $this->json(['mensagem' => $acao($this->corpo($request))]);
         } catch (SeccionalNaoEncontrada|SubsecaoNaoEncontrada $e) {
-            return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
+            return $this->json(['erro' => $this->recusa($e)], Response::HTTP_NOT_FOUND);
         } catch (SeccionalRecusada $e) {
-            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->json(['erro' => $this->recusa($e)], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
+    }
+
+    private function recusa(RecusaDaSeccional $e): string
+    {
+        return $this->tradutor->trans($e->chave(), $e->parametros());
+    }
+
+    /**
+     * O rótulo do tipo da última divulgação e das últimas cinco, no idioma da requisição (o UseCase manda o português).
+     *
+     * @template T of array{ultima: ?array{tipo: string, rotulo: string, data: string}, ultimas: list<array{tipo: string, rotulo: string, data: string, autor: ?string, nota: ?string}>}
+     *
+     * @param T $seccional
+     *
+     * @return T
+     */
+    private function traduzirDivulgacoes(array $seccional): array
+    {
+        if ($seccional['ultima'] !== null) {
+            $seccional['ultima']['rotulo'] = $this->rotuloDoTipo($seccional['ultima']['tipo'], $seccional['ultima']['rotulo']);
+        }
+        foreach ($seccional['ultimas'] as $i => $divulgacao) {
+            $seccional['ultimas'][$i]['rotulo'] = $this->rotuloDoTipo($divulgacao['tipo'], $divulgacao['rotulo']);
+        }
+
+        return $seccional;
+    }
+
+    /** Tipo desconhecido (dado antigo) fica com o rótulo que veio. */
+    private function rotuloDoTipo(string $tipo, string $rotulo): string
+    {
+        $conhecido = TipoDeDivulgacao::tryFrom($tipo);
+
+        return $conhecido === null ? $rotulo : $this->tradutor->trans($conhecido->chave());
     }
 
     private function ator(): ?User

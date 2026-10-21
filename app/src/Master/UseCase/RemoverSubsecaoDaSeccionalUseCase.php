@@ -33,7 +33,7 @@ final class RemoverSubsecaoDaSeccionalUseCase
 
     public function executar(RemoverSubsecaoDaSeccionalInput $input): SubsecaoOab
     {
-        $subsecao = $this->subsecoes->buscarNaSeccional($input->id, $input->uf) ?? throw new SubsecaoNaoEncontrada('Subseção não encontrada.');
+        $subsecao = $this->subsecoes->buscarNaSeccional($input->id, $input->uf) ?? throw new SubsecaoNaoEncontrada(SubsecaoNaoEncontrada::RECUSA);
         $this->escopoDePlataforma->executar(fn () => $this->subsecoes->remover($subsecao, flush: true));
 
         return $subsecao;

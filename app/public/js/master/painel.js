@@ -11,18 +11,23 @@
    ranking com plano, limite, % e faixa do RetratoDoEspaco da Contribua. As regras moram no servidor.
    Idioma (spec docs/specs/idioma-do-sistema.md, P2a da b5): os textos da moldura e da Visão geral (KPIs, gráfico, mapa,
    estados que faltam, seccionais e janela da OAB) vêm do catálogo da página ({{ catalogo_js('master.js', 'termos') }})
-   por BJ_T.t; datas e números por window.BJFormato. As outras seções ficam para a P2b. */
+   por BJ_T.t; datas e números por window.BJFormato.
+   P2b: as outras seções (Contas e escritórios, Usuários e OABs, Armazenamento, Planos e limites, Segurança e auditoria,
+   o PDF) também. O que fica como texto fixo é dado comparado com o servidor (situação da conta, nomes de estado e de
+   país) ou a palavra EXCLUIR, que o servidor confere; a lista está no templates-extraidos.json. */
 (() => {
   'use strict';
   const raiz = document.getElementById('master-painel');
   if (!raiz) return;
 
   const URLS = JSON.parse(raiz.dataset.urls || '{}');
-  const QUEM = raiz.dataset.quem || 'Master';
   const elSecs = document.getElementById('mp-secs');
   const elSecao = document.getElementById('mp-secao');
 
-  const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  // Aspas pelo código (\x22 e \x27): um literal de aspas aqui desalinha o detector de texto fixo (SemTextoFixoNosExtraidos)
+  // e esconde dele o resto do arquivo.
+  const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '\x22': '&quot;', '\x27': '&#39;' };
+  const esc = t => String(t == null ? '' : t).replace(/[&<>\x22\x27]/g, m => ESC[m]);
   const T = (chave, params) => window.BJ_T.t(chave, params);
   const num = n => window.BJFormato.numero(n);
   // Decimal sem separador de milhar (o GB e o eixo do gráfico eram montados à mão: "1234,5"), no idioma da página.
@@ -31,6 +36,7 @@
   const gb = bytes => { const v = (bytes || 0) / GB; if (v > 0 && v < 0.1) return T('master.js.gb_menos', { n: decimal(0.1, 1, 1) }); return decimal(v, 1, 1) + ' GB'; };
   const pct = (n, d) => (d > 0 ? Math.round(n / d * 100) : 0) + '%';
   const dataHora = iso => window.BJFormato.dataHora(iso);
+  const QUEM = raiz.dataset.quem || T('termos.master');
   const agora = () => dataHora(new Date().toISOString());
 
   const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'pes', mapaUsu: 'geral',
@@ -53,16 +59,20 @@
     config: ['bi-gear', T('master.js.secao.config'), T('master.js.vazia.config.texto'), [T('master.js.vazia.config.faixas'), T('master.js.vazia.config.periodo_teste'), T('master.js.vazia.config.excedente'), T('master.js.vazia.config.excecoes'), T('master.js.vazia.config.autenticacao'), T('master.js.vazia.config.retencao')]]
   };
   const NM = { RO: 'Rondônia', AC: 'Acre', AM: 'Amazonas', RR: 'Roraima', PA: 'Pará', AP: 'Amapá', TO: 'Tocantins', MA: 'Maranhão', PI: 'Piauí', CE: 'Ceará', RN: 'Rio Grande do Norte', PB: 'Paraíba', PE: 'Pernambuco', AL: 'Alagoas', SE: 'Sergipe', BA: 'Bahia', MG: 'Minas Gerais', ES: 'Espírito Santo', RJ: 'Rio de Janeiro', SP: 'São Paulo', PR: 'Paraná', SC: 'Santa Catarina', RS: 'Rio Grande do Sul', MS: 'Mato Grosso do Sul', MT: 'Mato Grosso', GO: 'Goiás', DF: 'Distrito Federal' };
-  const ST = { Ativa: '#1e7b45', Suspensa: '#a3232b', 'Suspensa a pedido': '#a3232b', 'Em quarentena': '#5b7383' };
-  const QUARENTENA = 'Em quarentena';
+  // A situação gravada vem do servidor em português (ATIVA, SUSPENSA, QUARENTENA): é dado, comparado aqui e no filtro.
+  // O rótulo da tela sai do catálogo (SIT_ROTULO); situação desconhecida aparece como veio.
+  const ATIVA = 'Ativa', SUSPENSA = 'Suspensa', QUARENTENA = 'Em quarentena';
   // Pedido de exclusão pendente (o Tenant segue ativo): a tabela mostra "Suspensa a pedido", não "Ativa" (desvio pelo
   // dado: o protótipo mostrava Ativa). Só o rótulo muda; filtro e menu seguem a situação gravada da conta.
-  const A_PEDIDO = 'Suspensa a pedido';
-  const situacaoVisivel = c => (c.pedidoPendente && c.situacao === 'Ativa' ? A_PEDIDO : c.situacao);
+  const A_PEDIDO = 'a_pedido';
+  const ST = { [ATIVA]: '#1e7b45', [SUSPENSA]: '#a3232b', [A_PEDIDO]: '#a3232b', [QUARENTENA]: '#5b7383' };
+  const SIT_ROTULO = { [ATIVA]: T('master.js.situacao.ativa'), [SUSPENSA]: T('master.js.situacao.suspensa'), [A_PEDIDO]: T('master.js.situacao.a_pedido'), [QUARENTENA]: T('master.js.situacao.quarentena') };
+  const rotuloDaSituacao = sit => SIT_ROTULO[sit] || sit;
+  const situacaoVisivel = c => (c.pedidoPendente && c.situacao === ATIVA ? A_PEDIDO : c.situacao);
   // Data "Y-m-d" do servidor no formato do idioma, lida como data local (new Date('Y-m-d') seria meia-noite UTC: dia anterior aqui).
   const dataBr = ymd => { const p = String(ymd || '').split('-'); return p.length === 3 ? window.BJFormato.data(new Date(+p[0], +p[1] - 1, +p[2])) : ''; };
   // Faixa do RetratoDoEspaco (Contribua) com o rótulo e a cor da função faixa() do desenho (linha 593).
-  const FAIXA = { livre: ['Normal', '#1e7b45'], atencao: ['Atenção', '#c08a12'], alerta: ['Alerta', '#c0392b'], critico: ['Crítico', '#a3232b'], bloqueio: ['Limite atingido', '#7a1b22'] };
+  const FAIXA = { livre: [T('master.js.faixa.livre'), '#1e7b45'], atencao: [T('master.js.faixa.atencao'), '#c08a12'], alerta: [T('master.js.faixa.alerta'), '#c0392b'], critico: [T('master.js.faixa.critico'), '#a3232b'], bloqueio: [T('master.js.faixa.bloqueio'), '#7a1b22'] };
   const ORDEM_FAIXA = { livre: 0, atencao: 1, alerta: 2, critico: 3, bloqueio: 4 };
   const faixaDe = c => FAIXA[c.espaco.faixa] || FAIXA.livre;
   // "Perto ou acima da franquia" conta pela faixa de Alerta (desenho, linha 697: FX[1]).
@@ -597,22 +607,24 @@
 
   /* ================= CONTAS E ESCRITÓRIOS ================= */
   const acessoRelativo = iso => {
-    if (!iso) return 'sem registro';
+    if (!iso) return T('master.js.contas.sem_registro');
     const d = new Date(iso), h = new Date(); d.setHours(0, 0, 0, 0); h.setHours(0, 0, 0, 0);
     const dias = Math.round((h - d) / 864e5);
-    return dias <= 0 ? 'hoje' : dias === 1 ? 'ontem' : 'há ' + dias + ' dias';
+    return dias <= 0 ? T('master.js.contas.hoje') : dias === 1 ? T('master.js.contas.ontem') : T('master.js.contas.ha_dias', { n: dias });
   };
 
   function montarContas() {
     // O bloco "Pedidos de exclusão de conta" (desenho 1.2, linha 148) vem antes da tabela. Escondido (hidden,
     // sem pedidos), ele não ocupa lugar nem abre o espaçamento da seção.
-    elSecao.innerHTML = '<div id="mp-pedidos-exclusao" hidden></div><div class="mp-card mp-contas"><div class="mp-cab-cinza"><b>Contas e escritórios <span id="mp-contas-n"></span></b>'
-      + '<a class="mp-btn-cinza" href="' + esc(URLS.convites) + '"><i class="bi bi-envelope-paper"></i>Convites</a>'
-      + '<select class="mp-select mp-select-34" data-f-sit><option value="">Todas as situações</option><option value="Ativa"' + (S.fSit === 'Ativa' ? ' selected' : '') + '>Ativa</option><option value="Suspensa"' + (S.fSit === 'Suspensa' ? ' selected' : '') + '>Suspensa</option>'
+    elSecao.innerHTML = '<div id="mp-pedidos-exclusao" hidden></div><div class="mp-card mp-contas"><div class="mp-cab-cinza"><b>' + T('master.js.secao.contas') + ' <span id="mp-contas-n"></span></b>'
+      + '<a class="mp-btn-cinza" href="' + esc(URLS.convites) + '"><i class="bi bi-envelope-paper"></i>' + T('master.js.contas.convites') + '</a>'
+      + '<select class="mp-select mp-select-34" data-f-sit><option value="">' + T('master.js.contas.todas_situacoes') + '</option>'
+      + [ATIVA, SUSPENSA].map(v => '<option value="' + v + '"' + (S.fSit === v ? ' selected' : '') + '>' + rotuloDaSituacao(v) + '</option>').join('')
       // C4b: as contas excluídas só aparecem nesta opção, com a data da purga.
-      + '<option value="' + QUARENTENA + '"' + (S.fSit === QUARENTENA ? ' selected' : '') + '>Em quarentena</option></select>'
-      + '<label class="mp-busca"><i class="bi bi-search"></i><input data-busca value="' + esc(S.busca) + '" placeholder="Buscar nº, conta ou primário" aria-label="Buscar nº, conta ou primário"></label></div>'
-      + '<div id="mp-contas-aviso"></div><div class="mp-rolagem"><div class="mp-contas-grade"><div class="mp-contas-cab"><div>CONTA</div><div>PRIMÁRIO · PLANO</div><div>USUÁRIOS</div><div>PASTAS</div><div>DOCS</div><div>ARMAZENAMENTO</div><div>30 DIAS</div><div>PREVISÃO</div><div>SITUAÇÃO</div><div></div></div>'
+      + '<option value="' + QUARENTENA + '"' + (S.fSit === QUARENTENA ? ' selected' : '') + '>' + rotuloDaSituacao(QUARENTENA) + '</option></select>'
+      + '<label class="mp-busca"><i class="bi bi-search"></i><input data-busca value="' + esc(S.busca) + '" placeholder="' + T('master.js.contas.busca') + '" aria-label="' + T('master.js.contas.busca') + '"></label></div>'
+      + '<div id="mp-contas-aviso"></div><div class="mp-rolagem"><div class="mp-contas-grade"><div class="mp-contas-cab">'
+      + ['conta', 'primario_plano', 'usuarios', 'pastas', 'docs', 'armazenamento', 'dias30', 'previsao', 'situacao'].map(k => '<div>' + T('master.js.contas.cab.' + k) + '</div>').join('') + '<div></div></div>'
       + '<div id="mp-contas-lista"></div></div></div></div>'
       // O menu da conta mora FORA do card e da rolagem (overflow), em posição fixa na janela: nunca é cortado.
       + '<div id="mp-menu-conta"></div>';
@@ -627,23 +639,23 @@
   const pedidosDeExclusao = () => (D.contas && D.contas.pedidosExclusao) || [];
   const quemPediu = p => (p.pedidoPorNome
     ? p.pedidoPorNome + (p.pedidoPorEmail ? ' (' + p.pedidoPorEmail + ')' : '')
-    : (p.pedidoPorEmail || 'autor não registrado'));
+    : (p.pedidoPorEmail || T('master.js.pedidos.autor_ausente')));
   function renderPedidosDeExclusao() {
     const host = document.getElementById('mp-pedidos-exclusao'); if (!host) return;
     const peds = pedidosDeExclusao();
     host.hidden = peds.length === 0;
     host.innerHTML = peds.length === 0 ? '' : '<div class="mp-pedidos" id="pedidos-exclusao" data-mp-pedidos>'
-      + '<div class="mp-pedidos-cab"><i class="bi bi-trash3"></i><b>Pedidos de exclusão de conta · ' + num(peds.length) + '</b><span>contas suspensas aguardando sua decisão</span></div>'
+      + '<div class="mp-pedidos-cab"><i class="bi bi-trash3"></i><b>' + T('master.js.pedidos.titulo', { n: num(peds.length) }) + '</b><span>' + T('master.js.pedidos.sub') + '</span></div>'
       + peds.map(p => '<div class="mp-pedido" data-mp-pedido="' + p.contaId + '"><span class="mp-pedido-id"><b>' + esc(p.escritorio) + '</b>'
         + '<span>' + esc(quemPediu(p)) + ' · ' + esc(dataHora(p.criadoEm)) + ' · ' + esc(p.motivo) + '</span></span>'
-        + '<button type="button" class="mp-pedido-reativar" data-pedido-op="reativar" data-conta-id="' + p.contaId + '">Reativar</button>'
-        + '<button type="button" class="mp-pedido-excluir" data-pedido-op="excluir" data-conta-id="' + p.contaId + '">Excluir conta</button></div>').join('')
+        + '<button type="button" class="mp-pedido-reativar" data-pedido-op="reativar" data-conta-id="' + p.contaId + '">' + T('master.js.pedidos.reativar') + '</button>'
+        + '<button type="button" class="mp-pedido-excluir" data-pedido-op="excluir" data-conta-id="' + p.contaId + '">' + T('master.js.pedidos.excluir') + '</button></div>').join('')
       + '</div>';
   }
   // Conta do pedido fora da lista (não deveria acontecer): monta o mínimo para a confirmação com o token do pedido.
   const contaDoPedido = id => {
     const p = pedidosDeExclusao().find(x => x.contaId === id);
-    return p ? { id: p.contaId, nome: p.escritorio, token: p.token, situacao: 'Ativa', purgaEm: null } : null;
+    return p ? { id: p.contaId, nome: p.escritorio, token: p.token, situacao: ATIVA, purgaEm: null } : null;
   };
 
   // Menu da conta (desenho 1.2, linha 735), na ordem: Editar limite de armazenamento, Definir limite de usuários,
@@ -651,13 +663,13 @@
   // Conta em quarentena (C4b): só Estatísticas, Histórico e Reativar conta (não há o que limitar até a purga).
   const opMenu = (op, classe, icone, rotulo, c) => '<button type="button" class="mp-menu-op' + classe + '" data-op="' + op + '" data-conta-id="' + c.id + '"><i class="bi ' + icone + '"></i>' + rotulo + '</button>';
   const menuDaConta = c => '<div class="mp-menu" data-parar><div class="mp-menu-cab">' + esc(c.nome) + '</div>'
-    + (c.situacao !== QUARENTENA ? opMenu('limArm', '', 'bi-hdd', 'Editar limite de armazenamento', c) + opMenu('limUsu', '', 'bi-people', 'Definir limite de usuários', c) : '')
-    + opMenu('estat', '', 'bi-bar-chart', 'Estatísticas de uso', c)
-    + opMenu('hist', '', 'bi-clock-history', 'Histórico de alterações', c)
-    + (c.situacao === 'Ativa'
-      ? opMenu('suspender', ' mp-menu-sep mp-menu-suspender', 'bi-pause-circle', 'Suspender conta', c)
-      : opMenu('reativar', ' mp-menu-sep mp-menu-reativar', 'bi-play-circle', 'Reativar conta', c))
-    + (c.situacao !== QUARENTENA && !c.ehDoMaster ? opMenu('excluir', ' mp-menu-excluir', 'bi-trash3', 'Excluir conta', c) : '')
+    + (c.situacao !== QUARENTENA ? opMenu('limArm', '', 'bi-hdd', T('master.js.menu.lim_arm'), c) + opMenu('limUsu', '', 'bi-people', T('master.js.menu.lim_usu'), c) : '')
+    + opMenu('estat', '', 'bi-bar-chart', T('master.js.menu.estat'), c)
+    + opMenu('hist', '', 'bi-clock-history', T('master.js.menu.hist'), c)
+    + (c.situacao === ATIVA
+      ? opMenu('suspender', ' mp-menu-sep mp-menu-suspender', 'bi-pause-circle', T('master.js.menu.suspender'), c)
+      : opMenu('reativar', ' mp-menu-sep mp-menu-reativar', 'bi-play-circle', T('master.js.menu.reativar'), c))
+    + (c.situacao !== QUARENTENA && !c.ehDoMaster ? opMenu('excluir', ' mp-menu-excluir', 'bi-trash3', T('master.js.menu.excluir'), c) : '')
     + '</div>';
 
   // Menu em position: fixed, nas coordenadas da janela: as do clique (botão direito) ou as do botão ⋮.
@@ -689,11 +701,12 @@
 
   // Confirmação do desenho (linha 624), textos exatos. O servidor revalida tudo (CSRF por conta, Master, regras C2, C3 e C5).
   const CONF_CONTA = {
-    suspender: c => ({ titulo: 'Suspender conta', icone: 'bi-pause-circle', cor: '#c08a12', botao: 'Suspender', texto: 'Os usuários de "' + c.nome + '" ficam sem acesso até a reativação. Nenhum dado é apagado.' }),
-    reativar: c => ({ titulo: 'Reativar conta', icone: 'bi-play-circle', cor: '#1e7b45', botao: 'Reativar', texto: 'A conta "' + c.nome + '" volta a ter acesso normal.' }),
+    suspender: c => ({ titulo: T('master.js.conf.suspender.titulo'), icone: 'bi-pause-circle', cor: '#c08a12', botao: T('master.js.conf.suspender.botao'), texto: T('master.js.conf.suspender.texto', { nome: c.nome }) }),
+    reativar: c => ({ titulo: T('master.js.conf.reativar.titulo'), icone: 'bi-play-circle', cor: '#1e7b45', botao: T('master.js.conf.reativar.botao'), texto: T('master.js.conf.reativar.texto', { nome: c.nome }) }),
     // C4: texto e botão aprovados pelo dono, com a palavra EXCLUIR para liberar o botão. Os dias vêm do servidor
     // (`tenant_carencia_purga_dias`, no JSON de /master/dados/contas): com 365, o texto é o aprovado, letra a letra.
-    excluir: c => ({ titulo: 'Excluir conta', icone: 'bi-exclamation-octagon', cor: '#a3232b', botao: 'Excluir conta', palavra: 'EXCLUIR', texto: 'A conta "' + c.nome + '" sai do ar agora e é apagada de vez em ' + D.contas.carenciaPurgaDias + ' dias. Até lá, pode ser recuperada pelo Master.' })
+    // A palavra EXCLUIR não se traduz: o ExcluirContaPeloMasterUseCase confere exatamente ela.
+    excluir: c => ({ titulo: T('master.js.conf.excluir.titulo'), icone: 'bi-exclamation-octagon', cor: '#a3232b', botao: T('master.js.conf.excluir.botao'), palavra: 'EXCLUIR', texto: T('master.js.conf.excluir.texto', { nome: c.nome, dias: D.contas.carenciaPurgaDias, papel: T('termos.master') }) })
   };
   const URL_ACAO = { suspender: () => URLS.contaSuspender, reativar: () => URLS.contaReativar, excluir: () => URLS.contaExcluir };
 
@@ -731,7 +744,7 @@
 
   function avisar(ok, msg) {
     if (window.BJMasterConf) window.BJMasterConf.fechar();
-    S.aviso = { ok, msg: msg || (ok ? 'Situação da conta atualizada.' : 'Não foi possível concluir a ação. Recarregue a página.') };
+    S.aviso = { ok, msg: msg || (ok ? T('master.js.contas.aviso_ok') : T('master.js.erro_acao')) };
     renderSecs();
     if (S.sec === 'contas') { renderPedidosDeExclusao(); renderContasLista(); }
     if (S.sec === 'arm') renderRanking();
@@ -741,17 +754,17 @@
   // Em quarentena o uso não é medido: só o plano e os limites fazem sentido. Sem limite: o uso e "sem limite".
   const livreDe = c => Math.max(0, c.espaco.limiteGb * GB - c.bytes);
   function celulaArm(c) {
-    if (c.purgaEm) return '<div class="mp-conta-arm mp-hv" style="--cor:#5b7383"><span><span>uso não medido</span><b></b></span><span>conta em quarentena</span></div>';
-    if (c.espaco.semLimite) return '<div class="mp-conta-arm mp-hv" style="--cor:#4a6373"><span><span>' + esc(gb(c.bytes)) + ' em uso</span><b></b></span><span>sem limite</span></div>';
+    if (c.purgaEm) return '<div class="mp-conta-arm mp-hv" style="--cor:#5b7383"><span><span>' + T('master.js.contas.arm_nao_medido') + '</span><b></b></span><span>' + T('master.js.contas.arm_quarentena') + '</span></div>';
+    if (c.espaco.semLimite) return '<div class="mp-conta-arm mp-hv" style="--cor:#4a6373"><span><span>' + esc(T('master.js.contas.arm_em_uso', { gb: gb(c.bytes) })) + '</span><b></b></span><span>' + T('master.js.sem_limite') + '</span></div>';
     const [rotulo, cor] = faixaDe(c), p = c.espaco.percentual;
-    return '<div class="mp-conta-arm mp-hv" style="--cor:' + cor + '"><span><span>' + esc(gb(c.bytes)) + ' de ' + num(c.espaco.limiteGb) + ' GB</span><b>' + p + '%</b></span>'
-      + '<div class="mp-barra-6"><div style="--w:' + Math.min(100, p) + '%"></div></div><span>' + esc(rotulo) + ' · livre ' + esc(gb(livreDe(c))) + '</span></div>';
+    return '<div class="mp-conta-arm mp-hv" style="--cor:' + cor + '"><span><span>' + esc(T('master.js.contas.arm_de', { gb: gb(c.bytes), limite: num(c.espaco.limiteGb) })) + '</span><b>' + p + '%</b></span>'
+      + '<div class="mp-barra-6"><div style="--w:' + Math.min(100, p) + '%"></div></div><span>' + esc(T('master.js.contas.arm_livre', { faixa: rotulo, livre: gb(livreDe(c)) })) + '</span></div>';
   }
   // Previsão (desenho, linha 733): meses até o limite no ritmo dos últimos 30 dias. Plural: convenção ("≈ 1 mês").
   function previsao(c) {
-    if (c.espaco.semLimite || !(c.bytesRecentes > 0)) return '<div class="mp-conta-prev mp-hv">sem previsão</div>';
+    if (c.espaco.semLimite || !(c.bytesRecentes > 0)) return '<div class="mp-conta-prev mp-hv">' + T('master.js.contas.sem_previsao') + '</div>';
     const mes = (c.espaco.limiteGb * GB - c.bytes) / c.bytesRecentes, n = Math.round(mes);
-    return '<div class="mp-conta-prev mp-hv" style="--cor:' + (mes < 3 ? '#a3232b' : '#4a6373') + '">' + (mes < 1 ? 'menos de 1 mês' : '≈ ' + n + (n === 1 ? ' mês' : ' meses')) + '</div>';
+    return '<div class="mp-conta-prev mp-hv" style="--cor:' + (mes < 3 ? '#a3232b' : '#4a6373') + '">' + (mes < 1 ? T('master.js.contas.prev_menos') : T(n === 1 ? 'master.js.contas.prev_mes' : 'master.js.contas.prev_meses', { n })) + '</div>';
   }
 
   // Busca da lista (desenho L752): nome e primário por trecho; o número só EXATO (n === +q). Só dígitos, com ou
@@ -767,27 +780,27 @@
   function renderContasLista() {
     const b = S.busca.toLowerCase().trim();
     const contas = D.contas.contas.filter(c => (S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA) && (!b || casaNaBusca(c, b)));
-    document.getElementById('mp-contas-n').textContent = num(contas.length) + ' · botão direito na linha para ações';
+    document.getElementById('mp-contas-n').textContent = T('master.js.contas.contagem', { n: num(contas.length) });
     // Resultado de suspender/reativar: uma linha acima da tabela, até trocar de seção.
     document.getElementById('mp-contas-aviso').innerHTML = avisoHtml();
     document.getElementById('mp-contas-lista').innerHTML = contas.length ? contas.map(c => {
       const sit = situacaoVisivel(c), cor = ST[sit] || '#4a6373';
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
-        + '<div class="mp-conta-nome mp-hv"><span class="mp-conta-titulo"><span class="mp-conta-nro" title="Número da conta (ordem de abertura)">Nº ' + esc(c.numero) + '</span><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b></span><span>desde ' + esc(c.desde) + ' · último acesso ' + esc(acessoRelativo(c.ultimoAcesso)) + '</span></div>'
-        + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || 'titular não registrado') + '</span><span>' + esc(c.espaco.planoNome) + '</span></div>'
-        + '<div class="mp-conta-usu mp-hv"><b>' + num(c.usuarios) + '</b><span> / ' + (c.espaco.limiteUsuarios === null ? 'sem limite' : num(c.espaco.limiteUsuarios)) + '</span></div>'
+        + '<div class="mp-conta-nome mp-hv"><span class="mp-conta-titulo"><span class="mp-conta-nro" title="' + T('master.js.contas.numero_dica') + '">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b></span><span>' + esc(T('master.js.contas.desde', { desde: c.desde, acesso: acessoRelativo(c.ultimoAcesso) })) + '</span></div>'
+        + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || T('master.js.contas.titular_ausente')) + '</span><span>' + esc(c.espaco.planoNome) + '</span></div>'
+        + '<div class="mp-conta-usu mp-hv"><b>' + num(c.usuarios) + '</b><span> / ' + (c.espaco.limiteUsuarios === null ? T('master.js.sem_limite') : num(c.espaco.limiteUsuarios)) + '</span></div>'
         + '<div class="mp-conta-num mp-hv">' + num(c.pastas) + '</div><div class="mp-conta-num mp-hv">' + num(c.documentos) + '</div>'
         + celulaArm(c)
-        + '<div class="mp-conta-cresc mp-hv">' + (c.bytesRecentes > 0 ? '+' + esc(gb(c.bytesRecentes)) : 'estável') + '</div>'
-        + (c.purgaEm ? '<div class="mp-conta-prev mp-hv">sem previsão</div>' : previsao(c))
+        + '<div class="mp-conta-cresc mp-hv">' + (c.bytesRecentes > 0 ? '+' + esc(gb(c.bytesRecentes)) : T('master.js.contas.estavel')) + '</div>'
+        + (c.purgaEm ? '<div class="mp-conta-prev mp-hv">' + T('master.js.contas.sem_previsao') + '</div>' : previsao(c))
         + '<div class="mp-conta-st mp-hv">' + (c.purgaEm
           // Quarentena: a situação e, abaixo, a data da purga em duas linhas curtas que não quebram (coluna de 100px).
-          ? '<div class="mp-conta-st-bloco"><span class="mp-conta-sit" style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span>'
-            + '<span class="mp-conta-purga" title="A purga automática roda às 03h, a partir desta data">apagada a partir de<br>' + esc(dataBr(c.purgaEm)) + '</span></div>'
-          : '<span style="--cor:' + cor + '"><i></i>' + esc(sit) + '</span>') + '</div>'
-        + '<div class="mp-conta-acoes mp-hv"><button type="button" class="mp-btn-icone" data-menu="' + c.id + '" title="Ações da conta" aria-label="Ações da conta"><i class="bi bi-three-dots-vertical"></i></button></div>'
+          ? '<div class="mp-conta-st-bloco"><span class="mp-conta-sit" style="--cor:' + cor + '"><i></i>' + esc(rotuloDaSituacao(c.situacao)) + '</span>'
+            + '<span class="mp-conta-purga" title="' + T('master.js.contas.purga_dica') + '">' + T('master.js.contas.purga') + '<br>' + esc(dataBr(c.purgaEm)) + '</span></div>'
+          : '<span style="--cor:' + cor + '"><i></i>' + esc(rotuloDaSituacao(sit)) + '</span>') + '</div>'
+        + '<div class="mp-conta-acoes mp-hv"><button type="button" class="mp-btn-icone" data-menu="' + c.id + '" title="' + T('master.js.contas.acoes') + '" aria-label="' + T('master.js.contas.acoes') + '"><i class="bi bi-three-dots-vertical"></i></button></div>'
         + '</div>';
-    }).join('') : '<div class="mp-vazio-linha">Nenhuma conta encontrada.</div>';
+    }).join('') : '<div class="mp-vazio-linha">' + T('master.js.contas.nenhuma') + '</div>';
     renderMenuDaConta();
   }
 
@@ -795,48 +808,48 @@
   function montarOab() {
     const O = D.oab, ufs = Object.entries(O.ufs).sort((a, b) => b[1] - a[1]), maxUf = Math.max(1, ...ufs.map(u => u[1]));
     const kpis = [
-      { rot: 'COM OAB INFORMADA', n: O.registros, desc: 'registros nos cadastros', cor: '#0a6fa0' },
-      { rot: 'INSCRIÇÕES ÚNICAS', n: O.unicas, desc: 'após normalizar número e UF', cor: '#1e7b45' },
-      { rot: 'DUPLICADAS', n: O.duplicadas, desc: 'mesma inscrição repetida', cor: '#c08a12' },
-      { rot: 'NÃO VALIDADAS', n: O.naoValidadas, desc: 'não contam como advogado confirmado', cor: '#a3232b' },
-      { rot: 'UFs', n: ufs.length, desc: 'estados com inscrição', cor: '#7a3e8f' }
-    ];
+      { k: 'registros', n: O.registros, cor: '#0a6fa0' },
+      { k: 'unicas', n: O.unicas, cor: '#1e7b45' },
+      { k: 'duplicadas', n: O.duplicadas, cor: '#c08a12' },
+      { k: 'nao_validadas', n: O.naoValidadas, cor: '#a3232b' },
+      { k: 'ufs', n: ufs.length, cor: '#7a3e8f' }
+    ].map(k => Object.assign(k, { rot: T('master.js.usuarios_oab.kpi.' + k.k), desc: T('master.js.usuarios_oab.kpi.' + k.k + '_desc') }));
     const P = {
-      incompleto: p => ['bi-exclamation-circle', '#a3232b', p.conta + ': ' + (p.inscricao ? p.inscricao + ' sem UF da OAB' : 'usuário sem número de OAB'), 'INCOMPLETO'],
-      nao_validada: p => ['bi-hourglass', '#c08a12', p.conta + ': ' + p.normalizada + ' aguardando validação', 'NÃO VALIDADA'],
-      divergente: p => ['bi-hourglass', '#c08a12', p.conta + ': ' + p.normalizada + ' divergente do cadastro da OAB', 'NÃO VALIDADA'],
-      formatacao: p => ['bi-arrow-repeat', '#0a6fa0', p.conta + ': "' + p.inscricao + '" normalizado para ' + p.normalizada, 'FORMATAÇÃO']
+      incompleto: p => ['bi-exclamation-circle', '#a3232b', p.inscricao ? T('master.js.usuarios_oab.pend.sem_uf', { conta: p.conta, inscricao: p.inscricao }) : T('master.js.usuarios_oab.pend.sem_numero', { conta: p.conta }), T('master.js.usuarios_oab.pend.tag_incompleto')],
+      nao_validada: p => ['bi-hourglass', '#c08a12', T('master.js.usuarios_oab.pend.aguardando', { conta: p.conta, normalizada: p.normalizada }), T('master.js.usuarios_oab.pend.tag_nao_validada')],
+      divergente: p => ['bi-hourglass', '#c08a12', T('master.js.usuarios_oab.pend.divergente', { conta: p.conta, normalizada: p.normalizada }), T('master.js.usuarios_oab.pend.tag_nao_validada')],
+      formatacao: p => ['bi-arrow-repeat', '#0a6fa0', T('master.js.usuarios_oab.pend.formatacao', { conta: p.conta, inscricao: p.inscricao, normalizada: p.normalizada }), T('master.js.usuarios_oab.pend.tag_formatacao')]
     };
     elSecao.innerHTML = '<div class="mp-oab-kpis">' + kpis.map(k => '<div class="mp-card mp-oab-kpi" style="--cor:' + k.cor + '"><span>' + k.rot + '</span><span>' + num(k.n) + '</span><span>' + k.desc + '</span></div>').join('') + '</div>'
-      + '<div class="mp-oab-duas"><div class="mp-card mp-oab-dist"><b>Distribuição por UF</b><div class="mp-oab-ufs">'
-      + (ufs.length ? ufs.map(([uf, n]) => '<div class="mp-oab-uf"><b>' + esc(uf) + '</b><div class="mp-barra-8"><div style="--w:' + pct(n, maxUf) + ';--cor:#0a6fa0"></div></div><span>' + num(n) + '</span></div>').join('') : '<span class="mp-nota">Nenhuma inscrição informada.</span>')
-      + '</div></div><div class="mp-card mp-oab-pend"><div class="mp-cab-simples"><b>Inscrições com pendência</b></div>'
-      + (O.pendencias.length ? O.pendencias.map(p => { const [ic, cor, txt, tag] = (P[p.tipo] || P.nao_validada)(p); return '<div class="mp-pend" style="--cor:' + cor + '"><i class="bi ' + ic + '"></i><span>' + esc(txt) + '</span><span>' + tag + '</span></div>'; }).join('') : '<div class="mp-vazio-linha">Nenhuma pendência.</div>')
+      + '<div class="mp-oab-duas"><div class="mp-card mp-oab-dist"><b>' + T('master.js.usuarios_oab.distribuicao') + '</b><div class="mp-oab-ufs">'
+      + (ufs.length ? ufs.map(([uf, n]) => '<div class="mp-oab-uf"><b>' + esc(uf) + '</b><div class="mp-barra-8"><div style="--w:' + pct(n, maxUf) + ';--cor:#0a6fa0"></div></div><span>' + num(n) + '</span></div>').join('') : '<span class="mp-nota">' + T('master.js.usuarios_oab.sem_inscricao') + '</span>')
+      + '</div></div><div class="mp-card mp-oab-pend"><div class="mp-cab-simples"><b>' + T('master.js.usuarios_oab.pendencias') + '</b></div>'
+      + (O.pendencias.length ? O.pendencias.map(p => { const [ic, cor, txt, tag] = (P[p.tipo] || P.nao_validada)(p); return '<div class="mp-pend" style="--cor:' + cor + '"><i class="bi ' + ic + '"></i><span>' + esc(txt) + '</span><span>' + tag + '</span></div>'; }).join('') : '<div class="mp-vazio-linha">' + T('master.js.usuarios_oab.sem_pendencia') + '</div>')
       + '</div></div>'
-      + '<span class="mp-nota">Contagem normalizada: número sem pontos e zeros à esquerda + UF em maiúsculas. Inscrição só conta como confirmada após validação. <a href="' + esc(URLS.revisaoOab) + '">Abrir a Revisão de OAB</a></span>';
+      + '<span class="mp-nota">' + T('master.js.usuarios_oab.nota') + ' <a href="' + esc(URLS.revisaoOab) + '">' + T('master.js.usuarios_oab.revisao') + '</a></span>';
   }
 
   /* ================= ARMAZENAMENTO ================= */
   // Faixas de alerta (desenho 1.2, linhas 195-198 e 695): chips com a cor do desenho. A chave do bloqueio, o aviso ao
   // lado dela e o botão de salvar são convenção (spec P6). Ordem crescente, de 1 a 100: a Contribua revalida.
-  const CHIPS = [['atencao', 'Atenção', '#8a5a12', '#fbf1dc'], ['alerta', 'Alerta', '#a3232b', '#fbe7e7'], ['critico', 'Crítico', '#7a1b22', '#f6dcdc'], ['bloqueio', 'Bloqueio', '#fff', '#7a1b22']];
-  const AVISO_BLOQUEIO = 'Antes de ligar, confira os escritórios acima do plano e defina sem limite ou uma cota própria.';
-  const ERRO_FAIXAS = 'As faixas precisam crescer em ordem, de 1% a 100%.';
+  const CHIPS = [['atencao', T('master.js.faixa.atencao'), '#8a5a12', '#fbf1dc'], ['alerta', T('master.js.faixa.alerta'), '#a3232b', '#fbe7e7'], ['critico', T('master.js.faixa.critico'), '#7a1b22', '#f6dcdc'], ['bloqueio', T('master.js.faixa.chip_bloqueio'), '#fff', '#7a1b22']];
+  const AVISO_BLOQUEIO = T('master.js.arm.aviso_bloqueio');
+  const ERRO_FAIXAS = T('master.js.arm.erro_faixas');
   const fxDoServidor = () => Object.assign({}, D.planos.faixas, { bloqueioAtivo: D.planos.bloqueioAtivo });
   const fxValidas = f => { const v = CHIPS.map(([k]) => f[k]); return v.every(Number.isInteger) && v[0] > 0 && v[0] < v[1] && v[1] < v[2] && v[2] < v[3] && v[3] <= 100; };
   const fxMudou = () => { const o = fxDoServidor(); return CHIPS.some(([k]) => S.fx[k] !== o[k]) || S.fx.bloqueioAtivo !== o.bloqueioAtivo; };
 
   function montarArm() {
     if (!S.fx) S.fx = fxDoServidor();
-    elSecao.innerHTML = '<div class="mp-card mp-faixas"><b class="mp-faixas-tit">Faixas de alerta de consumo <span>(configuráveis)</span></b>'
-      + '<div class="mp-faixas-chips">' + CHIPS.map(([k, rot, cor, bg]) => '<label class="mp-faixa-chip" style="--cor:' + cor + ';--bg:' + bg + '"><span>' + rot + ' a partir de</span>'
-        + '<input type="number" min="1" max="100" step="1" data-faixa="' + k + '" value="' + esc(S.fx[k]) + '" aria-label="' + rot + ' a partir de">%</label>').join('') + '</div>'
-      + '<span class="mp-faixas-nota">No limite (100%), novos uploads acima da capacidade ficam bloqueados. Consulta, download e exportação continuam liberados. Nenhum documento é apagado automaticamente.</span>'
-      + '<div class="mp-faixas-bloqueio"><label class="mp-chave"><input type="checkbox" data-faixa-bloqueio' + (S.fx.bloqueioAtivo ? ' checked' : '') + '><span>Bloquear novos envios na faixa Bloqueio</span></label>'
+    elSecao.innerHTML = '<div class="mp-card mp-faixas"><b class="mp-faixas-tit">' + T('master.js.arm.faixas_titulo') + ' <span>' + T('master.js.arm.configuraveis') + '</span></b>'
+      + '<div class="mp-faixas-chips">' + CHIPS.map(([k, rot, cor, bg]) => '<label class="mp-faixa-chip" style="--cor:' + cor + ';--bg:' + bg + '"><span>' + T('master.js.arm.a_partir', { faixa: rot }) + '</span>'
+        + '<input type="number" min="1" max="100" step="1" data-faixa="' + k + '" value="' + esc(S.fx[k]) + '" aria-label="' + T('master.js.arm.a_partir', { faixa: rot }) + '">%</label>').join('') + '</div>'
+      + '<span class="mp-faixas-nota">' + T('master.js.arm.faixas_nota') + '</span>'
+      + '<div class="mp-faixas-bloqueio"><label class="mp-chave"><input type="checkbox" data-faixa-bloqueio' + (S.fx.bloqueioAtivo ? ' checked' : '') + '><span>' + T('master.js.arm.bloquear', { faixa: T('master.js.faixa.chip_bloqueio') }) + '</span></label>'
       + '<span class="mp-faixas-aviso"><i class="bi bi-exclamation-triangle"></i>' + esc(AVISO_BLOQUEIO) + '</span></div>'
-      + '<div class="mp-faixas-rodape"><span class="mp-faixas-msg" data-faixas-msg></span><button type="button" class="mp-btn-azul" data-faixas-salvar>Salvar faixas</button></div></div>'
-      + '<div class="mp-card mp-ranking"><div class="mp-cab-simples"><b>Contas por consumo</b></div><div id="mp-arm-aviso"></div><div id="mp-ranking-lista"></div></div>'
-      + '<span class="mp-nota">Soma dos arquivos com tamanho gravado (pastas fora da lixeira, clientes, processos, cobrança, chamados e kanban). Justificativas de ponto e anexos de tarefa não têm tamanho no banco: não medidos.</span>';
+      + '<div class="mp-faixas-rodape"><span class="mp-faixas-msg" data-faixas-msg></span><button type="button" class="mp-btn-azul" data-faixas-salvar>' + T('master.js.arm.salvar_faixas') + '</button></div></div>'
+      + '<div class="mp-card mp-ranking"><div class="mp-cab-simples"><b>' + T('master.js.arm.ranking') + '</b></div><div id="mp-arm-aviso"></div><div id="mp-ranking-lista"></div></div>'
+      + '<span class="mp-nota">' + T('master.js.arm.nota') + '</span>';
     atualizarFaixas();
     renderRanking();
   }
@@ -856,10 +869,10 @@
     const contas = D.contas.contas.filter(c => c.situacao !== QUARENTENA).sort((a, b) => chave(b) - chave(a) || b.bytes - a.bytes);
     document.getElementById('mp-arm-aviso').innerHTML = avisoHtml();
     el.innerHTML = contas.length ? contas.map(c => {
-      const sem = c.espaco.percentual === null, [rotulo, cor] = sem ? ['sem limite', '#4a6373'] : faixaDe(c), p = sem ? 0 : c.bytes / (c.espaco.limiteGb * GB) * 100;
+      const sem = c.espaco.percentual === null, [rotulo, cor] = sem ? [T('master.js.sem_limite'), '#4a6373'] : faixaDe(c), p = sem ? 0 : c.bytes / (c.espaco.limiteGb * GB) * 100;
       return '<div class="mp-rank" style="--cor:' + cor + '"><span title="' + esc(c.nome) + '">' + esc(c.nome) + '</span><div class="mp-barra-8"><div style="--w:' + Math.min(100, p) + '%"></div></div>'
-        + '<b>' + (sem ? '' : c.espaco.percentual + '%') + '</b><span>' + esc(rotulo) + '</span><button type="button" class="mp-rank-btn" data-lim-arm="' + c.id + '">Editar limite</button></div>';
-    }).join('') : '<div class="mp-vazio-linha">Nenhuma conta.</div>';
+        + '<b>' + (sem ? '' : c.espaco.percentual + '%') + '</b><span>' + esc(rotulo) + '</span><button type="button" class="mp-rank-btn" data-lim-arm="' + c.id + '">' + T('master.js.arm.editar_limite') + '</button></div>';
+    }).join('') : '<div class="mp-vazio-linha">' + T('master.js.arm.nenhuma') + '</div>';
   }
 
   function salvarFaixas() {
@@ -880,23 +893,23 @@
   // Cartões (desenho 1.2, linhas 205-210 e 697). Cores do desenho; o 4º plano (Avançado) é convenção, o desenho tem 3.
   const COR_PLANO = { free: '#c08a12', essencial: '#0a6fa0', profissional: '#1e7b45', avancado: '#7a3e8f' };
   const reais = cent => 'R$ ' + (cent % 100 === 0 ? num(cent / 100) : window.BJFormato.numero(cent / 100, 2));
-  const nomeDoPlano = p => (p.codigo === 'free' ? 'Plano ' + p.nome : p.nome);
+  const nomeDoPlano = p => (p.codigo === 'free' ? T('master.js.planos.plano_free', { nome: p.nome }) : p.nome);
   // "usuários sem limite", e não "sem limite usuários" (o desenho sempre acrescenta " usuários"): convenção.
-  const usuariosDoPlano = p => (p.limiteUsuarios === null ? 'usuários sem limite' : num(p.limiteUsuarios) + ' usuários');
+  const usuariosDoPlano = p => (p.limiteUsuarios === null ? T('master.js.planos.usuarios_sem_limite') : T('master.js.planos.usuarios', { n: num(p.limiteUsuarios) }));
 
   function montarPlanos() {
     const ativas = D.contas.contas.filter(c => c.situacao !== QUARENTENA);
     elSecao.innerHTML = '<div id="mp-planos-aviso"></div><div class="mp-planos">' + D.planos.planos.map(p => {
       const acima = ativas.filter(c => c.espaco.planoCodigo === p.codigo && pertoDaFranquia(c)).length;
       return '<div class="mp-card mp-plano" style="--cor:' + (COR_PLANO[p.codigo] || '#4a6373') + '"><div class="mp-plano-topo"><b>' + esc(nomeDoPlano(p)) + '</b>'
-        + (p.codigo === 'free' ? '<span class="mp-plano-tag">Padrão: toda conta nova começa aqui</span>' : '')
-        + (p.ativo ? '' : '<span class="mp-plano-inativo">inativo</span>') + '</div>'
-        + '<span class="mp-plano-preco">' + esc(reais(p.precoCentavos)) + '<span> / mês</span></span>'
-        + '<span class="mp-plano-cap">' + num(p.cotaGb) + ' GB · ' + esc(usuariosDoPlano(p)) + '</span>'
-        + '<span class="mp-plano-contas">' + num(p.escritorios) + ' conta(s) · ' + num(acima) + ' perto ou acima da franquia</span>'
-        + '<button type="button" class="mp-rank-btn mp-plano-editar" data-plano-editar="' + esc(p.codigo) + '"><i class="bi bi-pencil"></i>Editar plano</button></div>';
+        + (p.codigo === 'free' ? '<span class="mp-plano-tag">' + T('master.js.planos.padrao') + '</span>' : '')
+        + (p.ativo ? '' : '<span class="mp-plano-inativo">' + T('master.js.planos.inativo') + '</span>') + '</div>'
+        + '<span class="mp-plano-preco">' + esc(reais(p.precoCentavos)) + '<span> ' + T('master.js.planos.por_mes') + '</span></span>'
+        + '<span class="mp-plano-cap">' + esc(T('master.js.planos.cap', { gb: num(p.cotaGb), usuarios: usuariosDoPlano(p) })) + '</span>'
+        + '<span class="mp-plano-contas">' + T('master.js.planos.contas', { n: num(p.escritorios), acima: num(acima) }) + '</span>'
+        + '<button type="button" class="mp-rank-btn mp-plano-editar" data-plano-editar="' + esc(p.codigo) + '"><i class="bi bi-pencil"></i>' + T('master.js.planos.editar') + '</button></div>';
     }).join('') + '</div>'
-      + '<span class="mp-nota">Toda conta nova entra no Plano Free (10 GB). A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail recomendando ampliar o espaço; em 100% novos envios ficam bloqueados, mas consultar e baixar arquivos continua liberado. Mudanças de plano com impacto comercial exigem confirmação e ficam registradas na auditoria.</span>';
+      + '<span class="mp-nota">' + T('master.js.planos.nota') + '</span>';
     document.getElementById('mp-planos-aviso').innerHTML = avisoHtml();
   }
 
@@ -916,16 +929,17 @@
     const c = D.contas && D.contas.contas.find(x => x.id === id); if (!c || !elModal) return;
     const arm = tipo === 'arm', atual = arm ? c.espaco.limiteGb : c.espaco.limiteUsuarios;
     modal = { tipo: 'lim', lim: tipo, c, atual, erro: null, enviando: false };
+    const sem = T('master.js.sem_limite');
     const info = arm
-      ? [['EM USO', gb(c.bytes)], ['LIMITE ATUAL', atual === null ? 'sem limite' : num(atual) + ' GB'], ['LIVRE', atual === null ? 'sem limite' : gb(livreDe(c))]]
-      : [['USUÁRIOS', num(c.usuarios)], ['LIMITE ATUAL', atual === null ? 'sem limite' : num(atual)], ['VAGAS', atual === null ? 'sem limite' : num(Math.max(0, atual - c.usuarios))]];
-    elModal.innerHTML = caixa(arm ? 'bi-hdd' : 'bi-people', arm ? 'Editar limite de armazenamento' : 'Definir limite de usuários',
+      ? [[T('master.js.limite.em_uso'), gb(c.bytes)], [T('master.js.limite.limite_atual'), atual === null ? sem : num(atual) + ' GB'], [T('master.js.limite.livre'), atual === null ? sem : gb(livreDe(c))]]
+      : [[T('master.js.limite.usuarios'), num(c.usuarios)], [T('master.js.limite.limite_atual'), atual === null ? sem : num(atual)], [T('master.js.limite.vagas'), atual === null ? sem : num(Math.max(0, atual - c.usuarios))]];
+    elModal.innerHTML = caixa(arm ? 'bi-hdd' : 'bi-people', arm ? T('master.js.menu.lim_arm') : T('master.js.menu.lim_usu'),
       '<b class="mp-lim-conta">' + esc(c.nome) + '</b>' + quadros(info)
-      + campo(arm ? 'NOVO LIMITE (GB)' : 'NOVO LIMITE DE USUÁRIOS', 'type="number" min="1" step="1" data-lim-novo value="' + (atual === null ? '' : atual) + '"')
-      + (arm ? '<label class="mp-lim-sem"><input type="checkbox" data-lim-sem' + (c.espaco.semLimite ? ' checked' : '') + '>Sem limite (espaço e usuários)</label>' : '')
+      + campo(arm ? T('master.js.limite.novo_arm') : T('master.js.limite.novo_usu'), 'type="number" min="1" step="1" data-lim-novo value="' + (atual === null ? '' : atual) + '"')
+      + (arm ? '<label class="mp-lim-sem"><input type="checkbox" data-lim-sem' + (c.espaco.semLimite ? ' checked' : '') + '>' + T('master.js.limite.sem_limite') + '</label>' : '')
       + '<span class="mp-lim-msg" data-lim-msg></span>'
-      + (!arm && c.espaco.semLimite ? '<span class="mp-lim-nota">Esta conta está sem limite: o limite de usuários só passa a valer quando ela voltar a ter limite de espaço.</span>' : '')
-      + campo('JUSTIFICATIVA', 'type="text" maxlength="500" data-lim-just placeholder="Obrigatória, fica na auditoria"'), 'Confirmar alteração');
+      + (!arm && c.espaco.semLimite ? '<span class="mp-lim-nota">' + T('master.js.limite.nota_sem_limite') + '</span>' : '')
+      + campo(T('master.js.limite.justificativa'), 'type="text" maxlength="500" data-lim-just placeholder="' + T('master.js.limite.justificativa_dica') + '"'), T('master.js.limite.confirmar'));
     atualizarLimite();
     elModal.querySelector('[data-lim-novo]').focus();
   }
@@ -938,13 +952,13 @@
     const abaixo = !sem && (arm ? novo * GB < m.c.bytes : novo < m.c.usuarios);
     const inteiro = Number.isInteger(novo);
     const bloq = (!sem && (novo <= 0 || abaixo || !inteiro)) || !just.trim() || m.enviando;
-    const unidade = arm ? ' GB' : ' usuário(s)', fim = '. A alteração fica registrada na auditoria.';
+    // O número do campo vai como digitado (sem separador de milhar), como sempre foi.
     let msg;
-    if (sem) msg = 'Sem limite: a conta deixa de ter limite de espaço e de usuários' + fim;
-    else if (abaixo) msg = arm ? 'O novo limite é menor que o volume em uso (' + gb(m.c.bytes) + '). Reduzir não apaga arquivos, por isso não é permitido abaixo do uso.' : 'Menor que os usuários já cadastrados.';
-    else if (!inteiro) msg = 'Informe um número inteiro.';
-    else if (m.atual === null) msg = 'Passa de sem limite para ' + novo + (arm ? ' GB' : ' usuários') + fim;
-    else { const d = novo - m.atual; msg = 'Diferença: ' + (d >= 0 ? '+' : '') + d + unidade + fim; }
+    if (sem) msg = T('master.js.limite.msg_sem');
+    else if (abaixo) msg = arm ? T('master.js.limite.msg_abaixo_arm', { gb: gb(m.c.bytes) }) : T('master.js.limite.msg_abaixo_usu');
+    else if (!inteiro) msg = T('master.js.limite.msg_inteiro');
+    else if (m.atual === null) msg = T(arm ? 'master.js.limite.msg_de_sem_arm' : 'master.js.limite.msg_de_sem_usu', { n: novo });
+    else { const d = novo - m.atual; msg = T(arm ? 'master.js.limite.msg_diferenca_arm' : 'master.js.limite.msg_diferenca_usu', { d: (d >= 0 ? '+' : '') + d }); }
     return { novo, sem, just, abaixo, bloq, msg };
   }
 
@@ -980,7 +994,7 @@
   // Recusa do servidor (\DomainException da Contribua, com o texto do desenho) aparece no próprio modal.
   function falhaNoModal(erro) {
     if (!modal) return;
-    modal.enviando = false; modal.erro = erro || 'Não foi possível concluir a ação. Recarregue a página.';
+    modal.enviando = false; modal.erro = erro || T('master.js.erro_acao');
     if (modal.tipo === 'lim') atualizarLimite(); else atualizarPlano();
   }
 
@@ -990,14 +1004,14 @@
     const p = D.planos && D.planos.planos.find(x => x.codigo === codigo); if (!p || !elModal) return;
     modal = { tipo: 'plano', p, erro: null, enviando: false };
     const preco = decimal(p.precoCentavos / 100, p.precoCentavos % 100 === 0 ? 0 : 2, 2);
-    elModal.innerHTML = caixa('bi-sliders', 'Editar plano', '<b class="mp-lim-conta">' + esc(nomeDoPlano(p)) + '</b>'
-      + campo('NOME', 'type="text" maxlength="60" data-plano-nome value="' + esc(p.nome) + '"')
-      + '<div class="mp-lim-duas">' + campo('ESPAÇO (GB)', 'type="number" min="1" step="1" data-plano-cota value="' + p.cotaGb + '"')
-      + campo('PREÇO (R$)', 'type="text" inputmode="decimal" data-plano-preco value="' + esc(preco) + '"') + '</div>'
-      + campo('LIMITE DE USUÁRIOS', 'type="number" min="1" step="1" data-plano-usuarios placeholder="vazio para sem limite" value="' + (p.limiteUsuarios === null ? '' : p.limiteUsuarios) + '"')
-      + campo('DESCRIÇÃO', 'type="text" maxlength="120" data-plano-descricao value="' + esc(p.descricao) + '"')
-      + '<label class="mp-lim-sem"><input type="checkbox" data-plano-ativo' + (p.ativo ? ' checked' : '') + '>Plano ativo</label>'
-      + '<span class="mp-lim-msg" data-lim-msg></span>', 'Salvar plano');
+    elModal.innerHTML = caixa('bi-sliders', T('master.js.planos.editar'), '<b class="mp-lim-conta">' + esc(nomeDoPlano(p)) + '</b>'
+      + campo(T('master.js.campo.nome'), 'type="text" maxlength="60" data-plano-nome value="' + esc(p.nome) + '"')
+      + '<div class="mp-lim-duas">' + campo(T('master.js.plano_modal.espaco'), 'type="number" min="1" step="1" data-plano-cota value="' + p.cotaGb + '"')
+      + campo(T('master.js.plano_modal.preco'), 'type="text" inputmode="decimal" data-plano-preco value="' + esc(preco) + '"') + '</div>'
+      + campo(T('master.js.plano_modal.limite_usuarios'), 'type="number" min="1" step="1" data-plano-usuarios placeholder="' + T('master.js.plano_modal.vazio_sem_limite') + '" value="' + (p.limiteUsuarios === null ? '' : p.limiteUsuarios) + '"')
+      + campo(T('master.js.plano_modal.descricao'), 'type="text" maxlength="120" data-plano-descricao value="' + esc(p.descricao) + '"')
+      + '<label class="mp-lim-sem"><input type="checkbox" data-plano-ativo' + (p.ativo ? ' checked' : '') + '>' + T('master.js.plano_modal.ativo') + '</label>'
+      + '<span class="mp-lim-msg" data-lim-msg></span>', T('master.js.plano_modal.salvar'));
     atualizarPlano();
     elModal.querySelector('[data-plano-nome]').focus();
   }
@@ -1014,7 +1028,7 @@
 
   function atualizarPlano() {
     const e = estadoDoPlano(), msg = elModal.querySelector('[data-lim-msg]');
-    const texto = modal.erro || (e.ok ? 'O código do plano (' + modal.p.codigo + ') não muda. A alteração fica registrada na auditoria.' : 'Preencha o nome, o espaço em GB e o preço em reais (por exemplo 19,90). Usuários: vazio para sem limite.');
+    const texto = modal.erro || (e.ok ? T('master.js.plano_modal.msg_ok', { codigo: modal.p.codigo }) : T('master.js.plano_modal.msg_preencha'));
     msg.textContent = texto;
     msg.style.setProperty('--cor', modal.erro ? '#a3232b' : '#4a6373');
     elModal.querySelector('[data-lim-ok]').disabled = !e.ok || modal.enviando;
@@ -1070,21 +1084,24 @@
   }
 
   /* ================= SEGURANÇA E AUDITORIA ================= */
+  // A ação da trilha é dado (vem do servidor em português): o ícone e a cor saem dela, não da tela.
   const AI = a => (/Limite/.test(a) ? ['bi-hdd', '#0a6fa0'] : /reativada|reativado|Exclusão de conta cancelada/i.test(a) ? ['bi-play-circle', '#1e7b45'] : /suspensa|excluída|excluído|removido|retirada|desativado/i.test(a) ? ['bi-slash-circle', '#a3232b'] : /Master|primário|Papel no sistema/i.test(a) ? ['bi-stars', '#7a3e8f'] : /Alerta/.test(a) ? ['bi-exclamation-triangle', '#c08a12'] : /^Plano|^Faixas de alerta/.test(a) ? ['bi-sliders', '#0a6fa0'] : ['bi-journal-check', '#4a6373']);
+  // Cabeçalho da trilha, na tela e no PDF.
+  const AUD_CAB = () => [T('master.js.audit.cab.data'), T('master.js.audit.cab.responsavel'), T('master.js.audit.cab.acao'), T('master.js.audit.cab.detalhe')];
   const audFiltrada = () => D.audit.registros.filter(r => (S.audConta === null || r.contaId === S.audConta) && (!S.audTipo || r.acao === S.audTipo));
 
   function montarAudit() {
     const A = D.audit, audF = audFiltrada(), tipos = [...new Set(A.registros.map(r => r.acao))].sort((a, b) => a.localeCompare(b));
-    const resumo = [['Limites', 'bi-hdd', '#0a6fa0', '#e5f1f7', r => /Limite/.test(r.acao)], ['Contas', 'bi-buildings', '#8a5a12', '#fbf1dc', r => /Conta/.test(r.acao)], ['Masters e primários', 'bi-stars', '#7a3e8f', '#f3e9f7', r => /Master|primário/i.test(r.acao)], ['Alertas', 'bi-exclamation-triangle', '#a3232b', '#fbe7e7', r => /Alerta/.test(r.acao)]];
-    elSecao.innerHTML = '<div class="mp-card mp-audit"><div class="mp-audit-cab"><b>Trilha de auditoria <span>' + num(audF.length) + ' registro(s) · últimos ' + A.meses + ' meses' + (A.truncado ? ' · mostrando os ' + num(A.limite) + ' mais recentes' : '') + '</span></b>'
-      + '<select class="mp-select" data-aud-tipo><option value="">Todas as ações</option>' + tipos.map(t => '<option value="' + esc(t) + '"' + (S.audTipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>'
-      + '<button type="button" class="mp-btn-cinza" data-pdf><i class="bi bi-file-earmark-pdf"></i>Gerar PDF</button>'
-      + (S.audConta !== null ? '<button type="button" class="mp-btn-link" data-aud-todas>Mostrar todas as contas</button>' : '') + '</div>'
+    const resumo = [[T('master.js.audit.resumo.limites'), 'bi-hdd', '#0a6fa0', '#e5f1f7', r => /Limite/.test(r.acao)], [T('master.js.audit.resumo.contas'), 'bi-buildings', '#8a5a12', '#fbf1dc', r => /Conta/.test(r.acao)], [T('master.js.audit.resumo.masters'), 'bi-stars', '#7a3e8f', '#f3e9f7', r => /Master|primário/i.test(r.acao)], [T('master.js.audit.resumo.alertas'), 'bi-exclamation-triangle', '#a3232b', '#fbe7e7', r => /Alerta/.test(r.acao)]];
+    elSecao.innerHTML = '<div class="mp-card mp-audit"><div class="mp-audit-cab"><b>' + T('master.js.audit.titulo') + ' <span>' + T('master.js.audit.contagem', { n: num(audF.length), meses: A.meses }) + (A.truncado ? ' · ' + T('master.js.audit.truncado', { n: num(A.limite) }) : '') + '</span></b>'
+      + '<select class="mp-select" data-aud-tipo><option value="">' + T('master.js.audit.todas_acoes') + '</option>' + tipos.map(t => '<option value="' + esc(t) + '"' + (S.audTipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>'
+      + '<button type="button" class="mp-btn-cinza" data-pdf><i class="bi bi-file-earmark-pdf"></i>' + T('master.js.audit.pdf') + '</button>'
+      + (S.audConta !== null ? '<button type="button" class="mp-btn-link" data-aud-todas>' + T('master.js.audit.todas_contas') + '</button>' : '') + '</div>'
       + '<div class="mp-audit-resumo">' + resumo.map(([rot, ic, cor, bg, f]) => '<span style="--cor:' + cor + ';--bg:' + bg + '"><i class="bi ' + ic + '"></i>' + rot + ' · ' + audF.filter(f).length + '</span>').join('') + '</div>'
-      + '<div class="mp-audit-grade mp-audit-titulos"><span>DATA E HORA</span><span>RESPONSÁVEL</span><span>AÇÃO E CONTA</span><span>DETALHE</span></div>'
+      + '<div class="mp-audit-grade mp-audit-titulos">' + AUD_CAB().map(t => '<span>' + t + '</span>').join('') + '</div>'
       + audF.map(r => { const [ic, cor] = AI(r.acao); return '<div class="mp-audit-grade mp-audit-lin mp-lin"><span class="mp-hv">' + esc(dataHora(r.quando)) + '</span><span class="mp-hv">' + esc(r.quem) + '</span>'
         + '<span class="mp-hv"><span style="--cor:' + cor + '"><i class="bi ' + ic + '"></i><b>' + esc(r.acao) + '</b></span><br><span>' + esc(r.conta) + '</span></span><span class="mp-hv">' + esc(r.detalhe) + '</span></div>'; }).join('')
-      + (audF.length ? '' : '<div class="mp-vazio-linha">Nenhum registro ainda. Alterações de limite, suspensões e exclusões aparecem aqui. Entradas no sistema (login) não são auditadas.</div>')
+      + (audF.length ? '' : '<div class="mp-vazio-linha">' + T('master.js.audit.vazio') + '</div>')
       + '</div>';
   }
 
@@ -1092,10 +1109,11 @@
     const audF = audFiltrada(), contaNome = S.audConta !== null ? ((D.contas && D.contas.contas.find(c => c.id === S.audConta)) || {}).nome || (audF[0] || {}).conta || '' : '';
     const linhas = audF.map(r => '<tr><td>' + esc(dataHora(r.quando)) + '</td><td>' + esc(r.quem) + '</td><td><b>' + esc(r.acao) + '</b><br><span>' + esc(r.conta) + '</span></td><td>' + esc(r.detalhe) + '</td></tr>').join('');
     const w = window.open('', '_blank'); if (!w) return;
-    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Auditoria BlueJus</title><style>body{font-family:Arial,sans-serif;color:#12242f;margin:0}header{background:#0a6fa0;color:#fff;padding:18px 28px;display:flex;align-items:center;gap:14px}header img{height:30px}h1{font-size:20px;margin:0}main{padding:22px 28px}p{color:#4a6373;font-size:12px;margin:0 0 14px}table{width:100%;border-collapse:collapse;font-size:12px}th{text-align:left;background:#f5f8fa;border-bottom:2px solid #d6e0e7;padding:8px;font-size:10.5px;letter-spacing:1px}td{border-bottom:1px solid #e6edf2;padding:8px;vertical-align:top}td span{color:#5b7383}footer{margin-top:18px;font-size:10.5px;color:#7d909d}@page{size:A4;margin:12mm}@media print{header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>'
-      + '<header><img src="' + esc(new URL(URLS.logo, location.href).href) + '" alt="BlueJus"><h1>Trilha de auditoria do sistema</h1></header><main><p>Gerado em ' + esc(agora()) + ' por ' + esc(QUEM) + ' (Master) · ' + audF.length + ' registro(s)'
-      + (S.audTipo ? ' · filtro: ' + esc(S.audTipo) : '') + (contaNome ? ' · conta: ' + esc(contaNome) : '') + '</p><table><thead><tr><th>DATA E HORA</th><th>RESPONSÁVEL</th><th>AÇÃO E CONTA</th><th>DETALHE</th></tr></thead><tbody>' + linhas
-      + '</tbody></table><footer>BlueJus · documento gerado pelo painel do Master. Contém apenas metadados administrativos.</footer></main></body></html>');
+    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>' + T('master.js.pdf.titulo_janela') + '</title><style>body{font-family:Arial,sans-serif;color:#12242f;margin:0}header{background:#0a6fa0;color:#fff;padding:18px 28px;display:flex;align-items:center;gap:14px}header img{height:30px}h1{font-size:20px;margin:0}main{padding:22px 28px}p{color:#4a6373;font-size:12px;margin:0 0 14px}table{width:100%;border-collapse:collapse;font-size:12px}th{text-align:left;background:#f5f8fa;border-bottom:2px solid #d6e0e7;padding:8px;font-size:10.5px;letter-spacing:1px}td{border-bottom:1px solid #e6edf2;padding:8px;vertical-align:top}td span{color:#5b7383}footer{margin-top:18px;font-size:10.5px;color:#7d909d}@page{size:A4;margin:12mm}@media print{header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>'
+      + '<header><img src="' + esc(new URL(URLS.logo, location.href).href) + '" alt="BlueJus"><h1>' + T('master.js.pdf.titulo') + '</h1></header><main><p>'
+      + T('master.js.pdf.gerado', { quando: esc(agora()), quem: esc(QUEM), papel: T('termos.master'), n: audF.length })
+      + (S.audTipo ? ' · ' + T('master.js.pdf.filtro', { filtro: esc(S.audTipo) }) : '') + (contaNome ? ' · ' + T('master.js.pdf.conta', { conta: esc(contaNome) }) : '') + '</p><table><thead><tr>' + AUD_CAB().map(t => '<th>' + t + '</th>').join('') + '</tr></thead><tbody>' + linhas
+      + '</tbody></table><footer>' + T('master.js.pdf.rodape', { papel: T('termos.master') }) + '</footer></main></body></html>');
     w.document.close(); setTimeout(() => w.print(), 400);
   }
 

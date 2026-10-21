@@ -42,9 +42,9 @@ final class RegistrarDivulgacaoNaSeccionalUseCase
 
     public function executar(RegistrarDivulgacaoNaSeccionalInput $input): DivulgacaoNaSeccional
     {
-        $seccional = $this->seccionais->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada('Seccional não encontrada.');
+        $seccional = $this->seccionais->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada(SeccionalNaoEncontrada::RECUSA);
         $agora = $this->relogio->now();
-        $tipo = TipoDeDivulgacao::tryFrom($input->tipo) ?? throw new SeccionalRecusada('Escolha o tipo: material enviado, reunião ou parceria.');
+        $tipo = TipoDeDivulgacao::tryFrom($input->tipo) ?? throw new SeccionalRecusada(SeccionalRecusada::RECUSA_TIPO_DE_DIVULGACAO);
         $data = $this->dataValida($input->data, $agora);
         $this->exigirNotaCurta($input->nota);
 
@@ -61,11 +61,11 @@ final class RegistrarDivulgacaoNaSeccionalUseCase
         $valor ??= $hoje;
         $data = preg_match('/^\d{4}-\d{2}-\d{2}$/', $valor) === 1 ? \DateTimeImmutable::createFromFormat('!Y-m-d', $valor) : false;
         if ($data === false || $data->format('Y-m-d') !== $valor) {
-            throw new SeccionalRecusada('Informe a data no formato dia, mês e ano.');
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_DATA_FORMATO);
         }
 
         if ($valor > $hoje) {
-            throw new SeccionalRecusada('A data da divulgação não pode ser no futuro.');
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_DATA_NO_FUTURO);
         }
 
         return $data;
@@ -74,7 +74,7 @@ final class RegistrarDivulgacaoNaSeccionalUseCase
     private function exigirNotaCurta(?string $nota): void
     {
         if (mb_strlen((string) $nota) > DivulgacaoNaSeccional::NOTA_MAXIMA) {
-            throw new SeccionalRecusada(sprintf('A nota passa de %d caracteres.', DivulgacaoNaSeccional::NOTA_MAXIMA));
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_NOTA_LONGA, ['limite' => DivulgacaoNaSeccional::NOTA_MAXIMA]);
         }
     }
 }

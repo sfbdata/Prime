@@ -7,11 +7,13 @@ namespace App\Tests\Master\Unit;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Número da conta no Painel do Master (spec perfis-1.2-permissoes-e-hierarquia A3; desenho 05 - Perfis 1.2 - VS
  * 21.10.26, L165, L173 e L752), lido como FOLHA no padrão de PainelPlanosELimitesJsTest: sem navegador no PHPUnit,
- * prova-se o contrato do public/js/master/painel.js e do public/css/master.css com o desenho.
+ * prova-se o contrato do public/js/master/painel.js e do public/css/master.css com o desenho. Desde a P2b do idioma
+ * (spec idioma-do-sistema), o texto mora no catálogo (master.js.contas.*) e o teste confere a chave no JS e o texto lá.
  */
 #[CoversNothing]
 final class PainelNumeroDaContaJsTest extends TestCase
@@ -21,6 +23,20 @@ final class PainelNumeroDaContaJsTest extends TestCase
     private static function js(): string
     {
         return (string) file_get_contents(self::RAIZ . 'public/js/master/painel.js');
+    }
+
+    /** Texto em português de uma chave do catálogo. */
+    private static function catalogo(string $chave): string
+    {
+        $no = Yaml::parseFile(self::RAIZ . 'translations/messages+intl-icu.pt_BR.yaml');
+        foreach (explode('.', $chave) as $parte) {
+            self::assertIsArray($no, $chave);
+            self::assertArrayHasKey($parte, $no, $chave);
+            $no = $no[$parte];
+        }
+        self::assertIsString($no, $chave);
+
+        return $no;
     }
 
     private static function css(): string
@@ -33,7 +49,8 @@ final class PainelNumeroDaContaJsTest extends TestCase
     {
         $js = self::js();
 
-        self::assertStringContainsString('placeholder="Buscar nº, conta ou primário" aria-label="Buscar nº, conta ou primário"', $js);
+        self::assertStringContainsString("placeholder=\"' + T('master.js.contas.busca') + '\" aria-label=\"' + T('master.js.contas.busca') + '\"", $js);
+        self::assertSame('Buscar nº, conta ou primário', self::catalogo('master.js.contas.busca'));
         self::assertStringNotContainsString('"Buscar conta ou primário"', $js);
     }
 
@@ -41,9 +58,12 @@ final class PainelNumeroDaContaJsTest extends TestCase
     public function testSelo(): void
     {
         self::assertStringContainsString(
-            "'<div class=\"mp-conta-nome mp-hv\"><span class=\"mp-conta-titulo\"><span class=\"mp-conta-nro\" title=\"Número da conta (ordem de abertura)\">Nº ' + esc(c.numero) + '</span><b title=\"' + esc(c.nome) + '\">' + esc(c.nome) + '</b></span><span>desde '",
+            "'<div class=\"mp-conta-nome mp-hv\"><span class=\"mp-conta-titulo\"><span class=\"mp-conta-nro\" title=\"' + T('master.js.contas.numero_dica') + '\">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span><b title=\"' + esc(c.nome) + '\">' + esc(c.nome) + '</b></span><span>' + esc(T('master.js.contas.desde', ",
             self::js(),
         );
+        self::assertSame('Número da conta (ordem de abertura)', self::catalogo('master.js.contas.numero_dica'));
+        self::assertSame('Nº {numero}', self::catalogo('master.js.contas.numero'));
+        self::assertStringStartsWith('desde {desde}', self::catalogo('master.js.contas.desde'));
 
         $css = self::css();
         self::assertStringContainsString('.mp-conta-titulo { display: flex; align-items: baseline; gap: 7px; min-width: 0; }', $css);
