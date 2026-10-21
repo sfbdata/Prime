@@ -4,9 +4,10 @@
    Desenho 02 - EXPEDIENTES - VS 18.10.26 (dc L938-957): painel fixo à direita,
    460px, cabeçalho em degradê com a estrela, "BLUEJUS IA / Assistente jurídica
    do escritório", X, chips do contexto carregado desta tela e as abas (spec
-   inteligencia-drawer-da-pasta, F1/F2/F3). Das quatro abas do desenho, aparecem
-   Análise, Relatórios e Perguntar: Documentos ainda não funciona (F4), e aba que
-   não funciona é mentira na tela. Os painéis de Análise e Relatórios moram no
+   inteligencia-drawer-da-pasta, F1 a F4). As quatro abas do desenho, na ordem:
+   Análise, Documentos, Relatórios e Perguntar. Documentos (F4) só aparece para
+   quem não tem a aba Documentos da pasta oculta (`ia_aba_documentos_visivel`).
+   Os painéis de Análise, Documentos e Relatórios moram no
    `_agentes_painel.html.twig`; o de Perguntar mora aqui, fora do painel que o JS
    troca inteiro, com o rodapé do campo (dc L1126-1131), que só aparece nessa aba.
 
@@ -26,6 +27,7 @@
 {% set iaCliente = pasta.clientePrincipal %}
 {% set iaProcesso = pasta.processoPrincipal %}
 {% set iaResponsavel = pasta.responsavel %}
+{% set iaDocsVisivel = ia_aba_documentos_visivel(pasta) %}
 <div class="ia-drawer-fundo" data-ia-fundo hidden></div>
 <aside class="ia-drawer" id="psIaDrawer" role="dialog" aria-modal="true" aria-label="BlueJus IA" hidden
        data-ia-drawer
@@ -55,6 +57,12 @@
                     aria-selected="true" aria-controls="ia-aba-analise">
                 <i class="bi bi-activity" aria-hidden="true"></i>Análise
             </button>
+            {% if iaDocsVisivel %}
+                <button type="button" class="ia-aba" role="tab" id="ia-aba-btn-documentos" data-ia-aba="documentos"
+                        aria-selected="false" aria-controls="ia-aba-documentos" tabindex="-1">
+                    <i class="bi bi-file-earmark-text" aria-hidden="true"></i>Documentos
+                </button>
+            {% endif %}
             <button type="button" class="ia-aba" role="tab" id="ia-aba-btn-relatorios" data-ia-aba="relatorios"
                     aria-selected="false" aria-controls="ia-aba-relatorios" tabindex="-1">
                 <i class="bi bi-bar-chart-line" aria-hidden="true"></i>Relatórios
@@ -73,7 +81,7 @@
     </header>
     <div class="ia-drawer-corpo">
         <p class="ia-msg" data-ia-msg role="status" hidden></p>
-        {{ include('inteligencia/_agentes_painel.html.twig', {painel: null, pastaId: pasta.id}) }}
+        {{ include('inteligencia/_agentes_painel.html.twig', {painel: null, pastaId: pasta.id, documentosVisivel: iaDocsVisivel}) }}
         {# Aba Perguntar (F3, dc L1072-1092): a conversa nasce "carregando"; o
            pasta-ia-conversa.js busca `inteligencia_conversa_listar` quando a aba aparece. #}
         <div class="ia-aba-painel" id="ia-aba-perguntar" role="tabpanel" aria-labelledby="ia-aba-btn-perguntar" data-ia-aba-painel="perguntar" hidden
