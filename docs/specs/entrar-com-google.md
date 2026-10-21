@@ -71,7 +71,8 @@ tem conta age como (A). Entrega 2: criação de conta e escritório pelo Google.
 E-mail do Google que não tem conta no BlueJus. Duas opções:
 
 - **(A) Só entra quem já tem conta.** Volta ao login com "Não encontramos conta com este e-mail. Crie sua
-  conta e escritório." e abre o cadastro com nome e e-mail já preenchidos.
+  conta e escritório." e o e-mail do Google no campo. (Abrir o cadastro já preenchido com nome e e-mail fica para a
+  entrega 2, que mexe no modal de cadastro.)
 - **(B) Cria a conta e o escritório como o cadastro do #101**, com nome e e-mail vindos do Google
   (travados), **sem senha**, pedindo o nome do escritório e o aceite dos Termos e da Política (gravado com IP
   e User-Agent, como hoje). E-mail já nasce confirmado. Mesmo `CriarContaEEscritorioUseCase`, sem
@@ -155,8 +156,9 @@ muda: o botão do Google é um link para `/login/google`, fora dos campos do for
 5. **Entrega 2 (cadastro pelo Google):** dispara o mesmo `ContaCriadaPeloCadastro` (o link de indicação
    `/i/{codigo}` do #176 atribui a conta por ele), grava o aceite dos Termos e a ciência da Política
    (`CienciaPolitica`) como a caixa do #101, e pede o nome do escritório (o Google não dá).
-6. **Proteção do callback:** o `login_throttling` só vale para o formulário; o callback se protege por `state`,
-   `nonce`, PKCE e o limitador próprio (seção 5).
+6. **Proteção do callback:** se protege por `state` (de uso único), `nonce`, PKCE e o limitador próprio da ida
+   (seção 5). O `login_throttling` do firewall conta também as falhas do Google (cancelar, state errado) no mesmo
+   limite por IP da senha; aceito, porque o limite é de 5 em 15 minutos e só pesa em quem erra.
 7. **"Manter conectado":** se o Google não respeitar a caixa, o comportamento muda em relação à senha; vai ao
    dono junto com a recomendação da seção 4.
 
@@ -172,5 +174,5 @@ muda: o botão do Google é um link para `/login/google`, fora dos campos do for
 Cada invariante da spec de 31/08 continua (e-mail não verificado recusa; `state` errado recusa; inativo não
 entra; e-mail desconhecido não vira conta na entrega 1; conta só-Google não entra por senha; `sub` de outro
 recusa; 2+ escritórios vão à seleção; rotas nas duas listas brancas; caixa do e-mail). Mais: `nonce`,
-`aud`, `iss` e `exp` errados recusam; Master recusado pelo Google; e-mail "a confirmar" vira confirmado;
+`aud`, `iss` e `exp` errados recusam; Master entra pelo Google (decisão do dono); e-mail "a confirmar" vira confirmado;
 convidado do Trabalho Externo vai ao lugar certo; sem as variáveis, o botão some.

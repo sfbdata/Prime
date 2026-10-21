@@ -160,6 +160,47 @@ final class EntrarComGoogleTest extends JusPrimeWebTestCase
         self::assertNull(static::getContainer()->get('security.token_storage')->getToken());
     }
 
+    #[TestDox('A URL de volta não serve duas vezes: o state sai da sessão no primeiro uso')]
+    public function testReplayDaVolta(): void
+    {
+        $client = $this->cliente();
+        $this->usuario('pessoa@gmail.com', escritorios: 1);
+        $q = $this->ida($client);
+        $this->google->nonce = $q['nonce'];
+        $volta = '/login/google/callback?code=abc&state=' . $q['state'];
+
+        $client->request('GET', $volta);
+        self::assertStringStartsWith('/login/entrando?para=', (string) $client->getResponse()->headers->get('Location'));
+        $client->request('GET', $volta);
+
+        self::assertResponseRedirects('/login');
+    }
+
+    #[TestDox('Sem conta: a mensagem vem com o e-mail do Google já no campo da tela')]
+    public function testSemContaPreencheOEmail(): void
+    {
+        $client = $this->cliente();
+        $this->google->email = 'nova@gmail.com';
+
+        $this->voltarDoGoogle($client);
+        $crawler = $client->request('GET', '/login');
+
+        self::assertSame(EntradaPeloGoogleRecusadaException::SEM_CONTA, trim($crawler->filter('#lgErro')->text()));
+        self::assertSame('nova@gmail.com', $crawler->filter('#lgEmail')->attr('value'));
+    }
+
+    #[TestDox('Logado sem escritório escolhido e sem os Termos aceitos, as rotas do Google não caem nos portões (listas brancas)')]
+    public function testRotasForaDosPortoes(): void
+    {
+        $client = $this->cliente();
+        $client->loginUser($this->usuario('dois@gmail.com', escritorios: 2));
+
+        $client->request('GET', '/login/google');
+        self::assertStringStartsWith('https://accounts.google.com/', (string) $client->getResponse()->headers->get('Location'));
+        $client->request('GET', '/login/google/callback?code=abc&state=nenhum');
+        self::assertResponseRedirects('/login');
+    }
+
     #[TestDox('O e-mail já ligado a OUTRA conta Google é recusado; conta inativa não entra')]
     public function testOutroSubEInativo(): void
     {
@@ -196,7 +237,7 @@ final class EntrarComGoogleTest extends JusPrimeWebTestCase
         self::assertStringStartsWith('/login/entrando?para=/escritorio/selecionar', (string) $client->getResponse()->headers->get('Location'));
     }
 
-    #[TestDox('"Manter conectado" vale com o token do próprio botão; manter=1 forjado (sem o token) não liga o lembrar-me')]
+    #[TestDox('"Manter conectado" vale com o token do próprio botão; manter=1 sem o token, ou _remember_me na volta, não liga o lembrar-me')]
     public function testManterConectado(): void
     {
         $client = $this->cliente();
@@ -204,6 +245,12 @@ final class EntrarComGoogleTest extends JusPrimeWebTestCase
 
         $this->voltarDoGoogle($client, '/login/google?manter=1');
         self::assertNull($client->getCookieJar()->get('REMEMBERME'), 'sem o token do botão');
+
+        $q = $this->ida($client);
+        $this->google->nonce = $q['nonce'];
+        $client->request('GET', '/login/google/callback?code=abc&_remember_me=1&state=' . $q['state']);
+        $this->google->nonce = null;
+        self::assertNull($client->getCookieJar()->get('REMEMBERME'), '_remember_me na URL de volta não liga o lembrar-me');
 
         // Sair invalida a sessão (e o token da tela): o botão é lido de novo, como a pessoa faria.
         $client->request('GET', '/logout');
