@@ -167,7 +167,7 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         yield 'desvincular processo — vermelho (dc L.3031)' => ['templates/pasta/show.html.twig', 'await window.confirmarUIPs(perguntaDesv, true)'];
         yield 'administrativo sem processo — azul (dc L.6878)' => ['public/js/pasta-processo.js', "window.confirmarUIPs(BJ_T.t('pasta_processo.js.administrativa_titulo') + '\\n' + texto.replace(/\\s*\\n\\s*/g, ' '), false)"];
         yield 'corrigir valor — azul (dc L.3563)' => ['templates/pasta/_financeiro_pagamentos_script.html.twig', 'await window.confirmarUIPs(pergunta, false)'];
-        yield 'excluir lançamento — vermelho (dc L.3573)' => ['templates/pasta/_financeiro_pagamentos_script.html.twig', "await window.confirmarUIPs('Excluir lançamento\\n' + perguntaEx, true)"];
+        yield 'excluir lançamento — vermelho (dc L.3573)' => ['templates/pasta/_financeiro_pagamentos_script.html.twig', "await window.confirmarUIPs(BJ_T.t('pasta_financeiro.js.excluir_lancamento_titulo') + '\\n' + perguntaEx, true)"];
         yield 'excluir comentário do Financeiro — vermelho "Excluir" (dc comExcluir)' => ['templates/pasta/_financeiro_obs_script.html.twig', 'await window.confirmarPs({ titulo: partesObs[0]'];
         yield 'excluir arquivo do Financeiro — vermelho (dc L.6839)' => ['templates/pasta/_financeiro.html.twig', 'await window.confirmarUIPs(perguntaArq, true)'];
         yield 'excluir meta — vermelho' => ['templates/pasta/_metas.html.twig', 'data-ps-cf="Excluir esta meta? Esta ação não pode ser desfeita." data-ps-cf-perigo'];
@@ -178,7 +178,16 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         yield 'excluir análise da IA no Push — vermelho (dc L.5351)' => ['public/js/pasta-ia-push.js', 'await window.confirmarUIPs(confirmar, true, voltar)'];
         yield 'excluir análise da IA no drawer — vermelho (dc L.5351)' => ['public/js/pasta-ia-agentes.js', 'await window.confirmarUIPs(confirmar, true, voltar)'];
         yield 'excluir nota técnica — vermelho (dc L.5603)' => ['public/js/nota-tecnica.js', "var pergunta = 'Excluir esta nota técnica?';"];
-        yield 'excluir arquivo do Financeiro — texto do dc com o nome (L.6839)' => ['templates/pasta/_financeiro.html.twig', "'Excluir o arquivo \"' + nomeArq + '\" do Financeiro?'"];
+        yield 'excluir arquivo do Financeiro — texto do dc com o nome (L.6839)' => ['templates/pasta/_financeiro.html.twig', "BJ_T.t('pasta_financeiro.js.excluir_arquivo_nome', { nome: nomeArq })"];
+    }
+
+    #[TestDox('Financeiro: o título "Excluir lançamento" e a frase do arquivo com o nome são os do desenho, no catálogo')]
+    public function testTextosDoFinanceiroNoCatalogo(): void
+    {
+        // Desde a extração do Financeiro (idioma-do-sistema) o texto mora no catálogo: o script tem a chave, o catálogo o texto do desenho.
+        $js = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['pasta_financeiro']['js'];
+        self::assertSame('Excluir lançamento', $js['excluir_lancamento_titulo']);
+        self::assertSame('Excluir o arquivo "{nome}" do Financeiro?', $js['excluir_arquivo_nome']);
     }
 
     #[DataProvider('perguntas')]

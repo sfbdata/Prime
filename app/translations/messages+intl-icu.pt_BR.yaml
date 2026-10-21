@@ -1385,29 +1385,47 @@ master:
         subsecao_removida: 'Subseção removida da {seccional}.'
         nota_salva: 'Nota da {seccional} salva.'
         nota_apagada: 'Nota da {seccional} apagada.'
+        nota_cidade_salva: 'Nota de {cidade} salva.'
+        nota_cidade_apagada: 'Nota de {cidade} apagada.'
         sede_atualizada: 'Sede da {seccional} atualizada.'
-        divulgacao_registrada: 'Divulgação registrada na {seccional}: {tipo}.'
+        divulgacao_registrada: 'Divulgação registrada na {seccional}: {status}.'
+        visivel: '{seccional} aparece no mapa.'
+        oculta: '{seccional} oculta no mapa.'
+        todas_visiveis: Todas as seccionais aparecem no mapa.
         # P2b: as recusas dos UseCases das seccionais (a exceção leva a chave e os parâmetros; o português da
         # constante RECUSA_* é o mesmo daqui, ver o CatalogoDasRecusasDoMasterTest). O limite vai como texto, sem
         # separador de milhar ("1000"), como no sprintf de antes.
         recusa:
-            tipo_de_divulgacao: 'Escolha o tipo: material enviado, reunião ou parceria.'
+            status_de_divulgacao: Escolha o status da divulgação.
+            cor_da_marca: Escolha a cor da marca.
             data_formato: Informe a data no formato dia, mês e ano.
             data_no_futuro: A data da divulgação não pode ser no futuro.
             nota_longa: 'A nota passa de {limite} caracteres.'
-            nome_obrigatorio: Informe o nome da subseção.
+            cidade_obrigatoria: Informe a cidade da subseção.
+            cidade_da_nota_obrigatoria: Informe a cidade da nota.
+            cidade_da_nota_fora_das_capitais: A nota por cidade vale só para a capital do estado.
+            visibilidade: Informe se a seccional aparece no mapa.
+            cidade_longa: 'A cidade passa de {limite} caracteres.'
             endereco_obrigatorio: Informe o endereço da subseção.
             nome_longo: 'O nome passa de {limite} caracteres.'
             endereco_longo: 'O endereço passa de {limite} caracteres.'
             telefone_longo: 'O telefone passa de {limite} caracteres.'
             site_longo: 'O site passa de {limite} caracteres.'
-            site_sem_https: 'Informe o site completo, começando com https://.'
+            site_sem_https: 'Informe o site completo, começando com http:// ou https://.'
             subsecao_nao_encontrada: Subseção não encontrada.
         # Rótulo do tipo de divulgação (TipoDeDivulgacao::rotulo() é o português).
         tipo:
             material: Material enviado
             reuniao: Reunião
             parceria: Parceria
+        # Rótulo do status da divulgação (StatusDaDivulgacao::rotulo() é o português; desenho 05 L902).
+        status:
+            env: Material enviado
+            vis: Reunião ou evento
+            neg: Em negociação
+            cli: Parceria firmada
+            ret: Retornar depois
+            sem: Convênio feito
     # P2b: respostas do ContasDoSistemaController (suspender, reativar e excluir).
     contas:
         sessao_expirada: Sessão expirada. Recarregue a página.
@@ -1426,6 +1444,48 @@ master:
     faixa_etaria:
         intervalo: '{min} a {max}'
         ou_mais: '{min} ou +'
+    # Mapa do Brasil do iframe (master/mapa_brasil.html.twig e mapa-brasil.js): vão cruas ao navegador (só {nome}).
+    # Nomes de estado ficam em português (dado, decisão do dono).
+    mapa_brasil:
+        titulo: Mapa do Brasil por estado
+        carregando_mapa: Carregando mapa…
+        carregando_municipios: Carregando municípios…
+        voltar: Voltar ao mapa do Brasil
+        regiao_sub: 'Região {regiao}'
+        regiao:
+            norte: Norte
+            nordeste: Nordeste
+            centro_oeste: Centro-Oeste
+            sudeste: Sudeste
+            sul: Sul
+        pessoas: '{n} usuário(s)'
+        inscricoes: '{n} inscrição(ões)'
+        municipios: '{n} municípios'
+        municipio: Município
+        cidade_nao_informada: Cidade não informada
+        cidades_vazias: Cidades ainda não informadas no cadastro.
+        sem_usuarios_estado: Nenhum usuário neste estado. Oportunidade de expansão.
+        sem_usuarios: sem usuários
+        sem_atuacao: sem atuação
+        dica_estado: ' · clique para detalhar · botão direito para marcar'
+        dica_estado_oab: ' · clique para detalhar · botão direito para registrar a divulgação'
+        erro_municipios: Não foi possível carregar os municípios do IBGE agora.
+        erro_mapa: Não foi possível carregar o mapa do IBGE agora.
+        arraste: Arraste para mover
+        aproximar: Aproximar
+        afastar: Afastar
+        ajustar: Ajustar ao mapa
+        marcar_municipio: MARCAR MUNICÍPIO
+        marcar_estado: MARCAR ESTADO
+        remover_marcacao: Remover marcação
+        sec_nome: 'OAB/{uf} · {estado}'
+        sec_titulo: 'OAB/{uf} · {estado} · sem divulgação registrada'
+        sec_titulo_marca: 'OAB/{uf} · {estado} · {status} em {data}'
+        registrar: Registrar divulgação
+        registrar_botao: Registrar
+        data: Data da divulgação
+        registrando: Registrando…
+        erro_registrar: Não foi possível registrar agora. Recarregue a página.
     # P3: Central de Notificações (master/_notificacoes) e as recusas do CentralDeNotificacoesController, a do UseCase
     # pela chave da RespostaRecusada. O conteúdo da caixa (tipo, remetente, assunto e texto) vem dos leitores, em
     # português (spec §8).
@@ -1514,9 +1574,6 @@ master:
         fechar: Fechar
         campo:
             nome: NOME
-            endereco: ENDEREÇO
-            telefone: TELEFONE
-            site: SITE
         secao:
             visao: Visão geral
             contas: Contas e escritórios
@@ -1625,7 +1682,10 @@ master:
         mapa:
             titulo: Onde estamos atuando
             por_estado: usuários por estado
+            por_seccional: inscrições por seccional da OAB
             por_pais: usuários por país
+            oab: OAB
+            inscricoes: Inscrições
             total: '{n} no total'
             pessoas: Pessoas
             escritorios: Escritórios
@@ -1667,6 +1727,9 @@ master:
             cobertura_valor: '{feitos} de {total} ({pct}%)'
             faltam: 'faltam {n} para alcançar {meta}'
             meta_estados: 'os {n} estados'
+            meta_capitais: 'as {n} capitais'
+            modo_estados: Estados
+            modo_capitais: Capitais
             meta_paises: 'os {n} países-alvo'
             rodape: Oportunidades de expansão
         seccionais:
@@ -1675,50 +1738,55 @@ master:
             erro_salvar: Não foi possível salvar agora. Recarregue a página.
             titulo: SECCIONAIS VISÍVEIS
             mostrar_todas: Mostrar todas
-            ocultar_todas: Ocultar todas
+            todas_visiveis: Todas visíveis
             nota: 'Clique numa seccional para ver a sede. Botão direito na lista mostra ou oculta no mapa; botão direito no mapa registra a divulgação (material enviado, reunião, parceria). O ponto colorido indica seccional já trabalhada. Fonte: Conselho Federal da OAB.'
-            oculta: oculta no mapa
-            visivel: visível no mapa
-            ultima: 'última divulgação: {rotulo} em {data}'
-            usuario_um: 1 usuário
-            usuarios: '{n} usuários'
-            sem_endereco: Endereço não cadastrado. Confira no CFOAB.
+            linha: 'OAB/{uf} · {estado}'
+            chip_titulo: 'OAB/{uf} · {estado} · clique para ver a sede, botão direito para mostrar ou ocultar no mapa'
+            chip_titulo_marca: 'OAB/{uf} · {estado} · {status} em {data} · clique para ver a sede, botão direito para mostrar ou ocultar no mapa'
+            cartao_titulo: 'OAB/{uf} · Seccional {estado}'
+            inscricao_um: 1 inscrição de usuários do BlueJus
+            inscricoes: '{n} inscrições de usuários do BlueJus'
+            sem_endereco: 'Endereço da sede: consulte a página oficial'
             site: Site da seccional
             cfoab: Endereço oficial (CFOAB)
             editar_sede: Editar sede
             salvar_sede: Salvar sede
+            campo_endereco: 'Endereço da sede da OAB/{uf} (copie da página oficial do CFOAB)'
+            campo_telefone: Telefone da seccional (opcional)
+            campo_site: 'Site oficial da seccional (https://...), opcional'
             sede_ajuda: Confira os dados no site do CFOAB. Campo vazio fica sem informação. A alteração fica registrada na auditoria.
-            site_invalido: 'Informe o site completo, começando com https://.'
-            divulgacoes: ÚLTIMAS DIVULGAÇÕES
-            autor_removido: autor removido
-            sem_divulgacao: Nenhuma divulgação registrada. Use o botão direito no mapa.
+            site_invalido: 'Informe o site completo, começando com http:// ou https://.'
         janela_oab:
             dica: Ver endereços da OAB e escrever nota
             exemplo: 'Ex.: contato com a presidente da subseção, enviar material em novembro'
-            so_brasil: A janela da OAB vale só para os estados do Brasil.
-            subtitulo: '{uf} · {quantos} no BlueJus'
-            sem: 'sem {unidade}'
-            escritorios: escritórios
-            primarios: primários
-            usuarios: usuários
-            subsecao: subseção
-            subsecoes: subseções
-            sem_endereco: sem endereço
+            titulo_cidade: '{cidade} · {uf}'
+            sub_estado: 'Seccional OAB/{uf} e subseções cadastradas'
+            sub_cidade: 'Subseção da OAB e seccional OAB/{uf}'
             tem_nota: Tem nota
             sede: SECCIONAL · SEDE
             editar: Editar
+            sem_endereco_sede: Endereço ainda não cadastrado
+            campo_endereco_sede: 'Endereço da sede da OAB/{uf}'
+            campo_telefone: Telefone (opcional)
+            campo_site: 'Site oficial (https://...), opcional'
             ver_mapa: Ver no mapa
             site_oficial: Site oficial
             subsecoes_titulo: SUBSEÇÕES
             adicionar_endereco: Adicionar endereço
             subs_vazio: 'Nenhuma subseção cadastrada. {link} e adicionar.'
             pesquisar: Pesquisar o endereço oficial
+            busca_estado: 'OAB seccional {estado} endereço'
+            busca_cidade: 'OAB subseção {cidade} {estado} endereço'
+            campo_cidade: Cidade da subseção
+            campo_nome: 'Nome (ex.: Subseção de {cidade})'
+            nome_padrao: 'Subseção de {cidade}'
+            campo_endereco_completo: Endereço completo
             remover: Remover
             adicionar: Adicionar
             nota: NOTA EXPLICATIVA
             salvar_nota: Salvar nota
-            atualizada: 'Atualizada em {data}'
-            remover_titulo: Remover subseção
+            nota_salva: 'Nota salva em {data}'
+            remover_titulo: Remover este endereço?
             remover_texto: 'O endereço "{nome}" sai da lista da seccional. A remoção fica registrada na auditoria.'
         # P2b: as outras seções do painel.js.
         sem_limite: sem limite
@@ -2964,6 +3032,250 @@ agenda:
             agora_nao: Agora não
             tentar_de_novo: Tentar de novo
 
+# ---- Comercial do Master (master/_comercial*, master/comercial*.js)
+comercial:
+    campanha:
+        titulo: Central de envios · nova campanha
+        descadastrados: Descadastrados
+        descadastrados_dica: E-mails que pediram para não receber
+        sub: convites, ofertas, agradecimentos e novidades · individual ou em grande escala
+        passo_modelo: 1 · MODELO
+        novo_modelo: Novo modelo
+        duplicar: Duplicar
+        importar_html: Importar HTML
+        salvar_como_meu: Salvar como meu modelo
+        salvar_modelo: Salvar modelo
+        excluir: Excluir
+        passo_para: · PARA QUEM
+        cadastrar_email: Cadastrar e-mail
+        cadastrar_email_dica: Só cadastre quem autorizou receber (LGPD)
+        publico:
+            leads: Base de contatos
+            leads_desc: Inscritos pela página de vagas e campanhas
+            leads_venda: Novos contatos (base)
+            leads_venda_desc: Interessados ainda sem conta
+            prim: Usuários primários
+            prim_desc: Quem abriu conta, em todas as contas
+            sec: Usuários secundários
+            sec_desc: Convidados de todas as contas
+            todos: Todos os cadastrados
+            todos_desc: Primários e secundários
+            csv: Importar lista (CSV)
+            csv_desc: Planilha com e-mail e nome
+            indiv: Individual
+            indiv_desc: Digite um ou mais e-mails
+        csv_selecionar: Selecionar arquivo .csv
+        individual: E-mails separados por vírgula
+        passo_msg: · MENSAGEM
+        assunto: ASSUNTO
+        selo: SELO (ACIMA DO TÍTULO)
+        selo_exemplo: 'Ex.: CONVITE · BLUEJUS'
+        nome_previa: NOME NA PRÉVIA
+        nome_previa_dica: "substitui '{nome}' só aqui"
+        nome_previa_exemplo: Dra. Ana
+        titulo_email: TÍTULO
+        nome_modelo: NOME DO MODELO
+        texto: TEXTO
+        texto_dica: "use '{nome}' para o primeiro nome"
+        inserir: 'Inserir:'
+        emoji:
+            balanca: Balança
+            agenda: Agenda
+            confirmado: Confirmado
+            destaque: Destaque
+            comemoracao: Comemoração
+            trabalho: Trabalho
+            crescimento: Crescimento
+            seguranca: Segurança
+            indicacao: Indicação
+            agradecimento: Agradecimento
+        botao: BOTÃO
+        blocos: BLOCOS
+        blocos_dica: monte o layout; a prévia atualiza na hora
+        html_importado: HTML IMPORTADO
+        previa: PRÉVIA DO E-MAIL
+        previa_titulo: Prévia do e-mail
+        enviar: Enviar
+        programar_e_frequencia: Programar envio e frequência
+        ver_como_chega: Ver como vai chegar
+        enviar_teste: Enviar teste
+        baixar_html: Baixar HTML
+        lgpd: "LGPD: só recebe quem se cadastrou ou autorizou. Todo e-mail leva o link ''Não quero mais receber'', repetidos e descadastrados são retirados, e o envio é feito pelo servidor em lotes para não cair no spam."
+        programar_envio: Programar envio
+        programar_envio_rotulo: PROGRAMAR ENVIO
+        agenda_data: Data e hora do envio
+        repetir: Repetir
+        repetir_rotulo: REPETIR
+        freq:
+            unica: Envio único
+            semanal: Semanal
+            quinzenal: Quinzenal
+            mensal: Mensal
+        concluir: Concluir
+        ver_titulo: Como o destinatário vai receber
+        aparelho: Aparelho
+        computador: Computador
+        celular: Celular
+        fechar: Fechar
+        de: 'De:'
+        para: 'Para:'
+        email: E-mail
+    filtro:
+        titulo: FILTRAR DESTINATÁRIOS
+        busca: 'E-mail ou nome específico (separe vários por vírgula)'
+        busca_rotulo: E-mail ou nome específico
+        atalho:
+            todos: Todos
+            so_mulheres: Só mulheres
+            so_homens: Só homens
+            advogados: Advogados
+            estagiarios: Estagiários
+            primarios: Primários
+            aniversariantes: Aniversariantes do mês
+        genero: 'Gênero: todos'
+        genero_f: Feminino
+        genero_m: Masculino
+        idade: 'Idade: todas'
+        idade_a: 18 a 24
+        idade_b: 25 a 34
+        idade_c: 35 a 44
+        idade_d: 45 a 54
+        idade_e: 55 ou mais
+        estado: 'Estado: todos'
+        perfil: 'Perfil: todos'
+        perfil_prim: Usuário primário
+        perfil_sec: Usuário secundário
+        cargo: 'Cargo: todos'
+        cargo_adv: Advogado(a)
+        cargo_est: Estagiário(a)
+        cargo_ctl: Controladoria
+        cargo_fin: Financeiro
+        cargo_adm: Administrativo / assistente
+        cargo_out: Outros
+        oab: 'OAB: todas'
+        oab_conf: OAB confirmada
+        oab_pend: OAB pendente
+        oab_sem: Sem OAB
+        plano: 'Plano: todos'
+        aniversario: 'Aniversário: todos'
+        aniversario_mes: Aniversariantes deste mês
+        aniversario_prox: Aniversariantes do próximo mês
+        limpar: Limpar filtro
+    automacoes:
+        titulo: Automações
+        sub: e-mails enviados sozinhos a cada cadastro e confirmação
+        simular: Simular novo cadastro
+        ultimos: ÚLTIMOS DISPAROS
+        fechar_previa: Fechar a prévia
+    kpis:
+        campanhas: CAMPANHAS
+        campanhas_desc: enviadas ou agendadas
+        na_fila: E-MAILS NA FILA
+        na_fila_desc: somando todas as campanhas
+        base: BASE DE CONTATOS
+        base_desc: inscritos com autorização (LGPD)
+        descadastrados: DESCADASTRADOS
+        descadastrados_desc: pediram para não receber · clique para ver
+    descadastrados:
+        titulo: Descadastrados
+        sub: 'clicaram em "Não quero mais receber" e saem de todas as listas automaticamente'
+        buscar: Buscar e-mail
+        registrar: Registrar pedido
+        limpar_dica: Limpar a lista inteira depende de decisão do dono (LGPD). Por enquanto, exclua um por vez.
+        limpar: Limpar lista
+        csv: CSV
+        fechar: Fechar
+        vazio: Ninguém se descadastrou ainda.
+    teste:
+        titulo: Enviar e-mail de teste
+        fechar: Fechar
+        enviar_para: ENVIAR PARA
+        separe: (separe vários por vírgula)
+        trava: Por enquanto o teste vai só para o seu e-mail; enviar para outros endereços depende de decisão.
+        nota: O teste chega com [TESTE] no assunto e não entra nas métricas da campanha.
+        cancelar: Cancelar
+        enviar: Enviar teste
+        ok_titulo: Teste enviado
+        ok_para: Para
+        ok_resto: . Confira a caixa de entrada (e o spam) em instantes.
+        ok: Ok
+    leitura:
+        ligada: Confirmação de leitura
+        desligada: Sem confirmação de leitura
+        dica_ligada: Rastreando leitura (✓✓). Clique para somente enviar
+        dica_desligada: 'Confirmação de leitura desligada: o rastreio de leitura fica desligado até a Política de Privacidade tratar dele. A campanha sai sem confirmação de leitura.'
+    js:
+        # comercial.js (Automações)
+        atraso_dias: '{n} dias'
+        auto_obrigatoria: 'Obrigatório: sem ele ninguém consegue criar conta'
+        auto_alternar: Ligar ou desligar
+        auto_quando: Quando enviar
+        fila_vazia: Nenhum disparo ainda.
+        auto_erro_carregar: Não foi possível carregar as automações. Recarregue a página.
+        erro_salvar: Não foi possível salvar.
+        auto_editando: 'Editando o modelo da automação "{titulo}". Duplique para ajustar o texto.'
+        # comercial-campanha.js (Central de envios)
+        tipo_titulo: Título
+        tipo_texto: Texto
+        tipo_imagem: Imagem
+        tipo_botao: Botão
+        tipo_noticias: Notícias
+        tipo_colunas: 2 colunas
+        tipo_divisor: Divisor
+        ph_noticias: 'Uma notícia por linha: Título|Resumo'
+        ph_imagem: Endereço da imagem (https://...)
+        ph_botao: Texto do botão
+        ph_colunas: Coluna da esquerda
+        ph_botao_link: Link do botão
+        ph_colunas_direita: Coluna da direita
+        ph_imagem_descricao: Descrição da imagem
+        erro_concluir: Não foi possível concluir.
+        dest_descadastrados: '{n} descadastrado(s) retirado(s)'
+        dest_repetidos: '{n} repetido(s) removido(s)'
+        dest_invalidos: '{n} inválido(s) ignorado(s)'
+        dest_sem_autorizacao: '{n} sem autorização retirado(s)'
+        dest_total: '{n} destinatário(s)'
+        dest_lista_limpa: lista limpa
+        csv_lido: '{nome} · {n} e-mail(s)'
+        csv_selecionar: Selecionar arquivo .csv
+        filtro_curto: '{n} de {m} com filtro'
+        filtro_todos: 'Todos ({m})'
+        filtro_atendem: '{n} de {m} atendem ao filtro'
+        filtro_sem_info: '{n} sem essa informação no cadastro (ficam de fora)'
+        filtro_todos_lista: 'Enviando para todos da lista ({m})'
+        programar_envio: Programar envio
+        enviar: Enviar
+        freq_semanal: semanal
+        freq_quinzenal: quinzenal
+        freq_mensal: mensal
+        exemplo_nome: Dra. Ana
+        salvar_como_pergunta: 'Nome do seu modelo (o modelo padrão continua guardado):'
+        modelo: Modelo
+        modelo_meu: '{nome} (meu)'
+        contatos_pergunta: 'E-mail(s) de novos contatos (separe por vírgula). Só cadastre quem autorizou receber (LGPD):'
+        sem_destinatario: Nenhum destinatário nesta lista.
+        confirmar_envio_agora: 'Enviar "{assunto}" para {n} destinatário(s) agora?'
+        confirmar_envio_em: 'Enviar "{assunto}" para {n} destinatário(s) em {quando}?'
+        modelos_erro_carregar: Não foi possível carregar os modelos. Recarregue a página.
+        modelo_padrao: Modelos padrão não são alterados. Use Duplicar para criar a sua versão.
+        confirmar_excluir_modelo: 'Excluir o modelo "{nome}"?'
+        bloco_subir: Subir
+        bloco_descer: Descer
+        bloco_remover: Remover
+        # comercial-leitura.js
+        leitura_ligada: Confirmação de leitura
+        leitura_desligada: Sem confirmação de leitura
+        leitura_dica_ligada: Rastreando leitura (✓✓). Clique para somente enviar
+        leitura_dica_desligada: Clique para rastrear a leitura (✓✓)
+        # comercial-teste.js
+        teste_sem_modelo: Abra um modelo no editor antes de enviar o teste.
+        teste_erro: Não foi possível enviar o teste.
+        # comercial-descadastrados.js
+        dsc_erro: Não foi possível concluir. Tente de novo.
+        dsc_excluir: Excluir
+        dsc_confirmar_excluir: 'Excluir {email} da lista de descadastrados? Ele volta a poder receber e-mails. Faça isso só se o próprio contato pediu (LGPD).'
+        dsc_registrar_pergunta: 'E-mail que pediu para não receber (por telefone, WhatsApp etc.):'
+
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro
 # ('perfis.x'|trans({papel: 'termos.master'|trans})).
@@ -2977,6 +3289,223 @@ termos:
     colaborador: colaborador
     pasta: pasta
     processo: processo
+
+# ---- pasta_financeiro: aba Financeiro da pasta (pasta/_financeiro*, os scripts dela em pasta_financeiro.js)
+pasta_financeiro:
+    comum:
+        encaminhar: Encaminhar via Chat I.A
+    contrato:
+        rotulo: Contrato
+        assinado: Assinado
+        pendente: Pendente
+        assinado_titulo: Contrato assinado
+        pendente_titulo: Contrato pendente
+        assinado_dica: Contrato assinado. Clique para reabrir como pendente
+        pendente_dica: Contrato pendente. Clique para marcar como assinado
+    pro_bono:
+        rotulo: Pró-bono
+        ativo: Pró-bono ativo
+        inativo: Não é pró-bono
+        alternar: Alternar caso pró-bono
+    honorarios:
+        rotulo: Honorários contratuais
+        editar: Editar honorários contratuais
+        clique_editar: Clique para editar
+        nota: valor cadastrado na pasta
+    media:
+        dica: Média das pastas deste cliente
+        sem_cliente: Vincule o cliente para calcular
+    relatorio:
+        titulo: Relatório financeiro
+        contagem_dica: Registros principais (respostas não contam)
+        somente_leitura: 'Pasta excluída: o relatório financeiro fica só para leitura.'
+        placeholder: Registrar combinado, honorário ou movimento financeiro do caso…
+        visivel_equipe: Visível para a equipe
+        enviar_dica: Enviar (Ctrl+Enter)
+        enviar: Enviar
+        vazio_titulo: Nada registrado ainda
+        vazio_nota: Anote acima o que foi combinado de honorário, custas ou reembolso.
+    menu_registro:
+        rotulo: Ações do registro
+        responder: Responder
+        copiar: Copiar texto
+        editar: Editar
+        excluir: Excluir comentário
+    registro:
+        resposta_a: 'Resposta a {nome}'
+        resposta_orfa: Resposta a uma mensagem excluída
+        autor_desconhecido: Autor desconhecido
+        editado: editado
+        editado_em: 'Editado em {quando}'
+        editar: Editar registro
+        excluir: Excluir registro
+        janela_dica: 'Edição e exclusão liberadas por mais {minutos} min'
+        janela: '· {minutos} min'
+        responder: Responder
+    arquivos:
+        titulo: Arquivos
+        adicionar: Adicionar
+        adicionar_dica: Adicionar arquivo (PDF, DOCX, JPEG, PNG, máx. 10 MB)
+        vazio: Nenhum arquivo financeiro anexado.
+        mais_acoes: Mais ações do arquivo
+        visualizar: Visualizar
+        abrir: Abrir
+        baixar: Baixar
+        copiar_nome: Copiar nome do arquivo
+        renomear: Renomear
+        enviar_email: Enviar por e-mail ao cliente
+        email_assunto: 'Pasta {pasta} · {titulo}'
+        email_corpo: 'Segue o arquivo "{titulo}" referente à pasta {pasta}.'
+        ver_documentos: Ver em Documentos
+        excluir: Excluir
+        ver_outros: 'ver os outros {quantidade} no gerenciador'
+        reduzir: Reduzir tamanho ao enviar
+        reduzir_nota: Envios mantêm o arquivo original, recomendado para contratos assinados.
+        enviando: Enviando…
+    pagamentos:
+        titulo: Pagamentos
+        concluir_edicao: Concluir edição
+        mais_opcoes: Mais opções
+        mais_opcoes_rotulo: Mais opções de pagamentos
+        adicionar: Adicionar pagamento
+        editar_valores: Editar ou corrigir valores
+        ver_todos: Ver todos os lançamentos
+        copiar_resumo: Copiar resumo
+        imprimir_extrato: Imprimir extrato
+        extrato_titulo: Extrato de pagamentos
+        extrato_pasta: 'Pasta {pasta}'
+        emitido_em: Emitido em
+    corpo:
+        editar_valores_dica: Editar ou corrigir os valores dos lançamentos
+        recebidos_de: recebidos de
+        percentual: Percentual recebido
+        proximos: Próximos vencimentos
+        ja_pago: '{quantidade} já pago'
+        ja_pagos: '{quantidade} já pagos'
+        nenhum_pago: nenhum pago
+        vazio: Nenhum lançamento.
+        vazio_convite: Use Adicionar pagamento.
+        quitado: Tudo pago. Nada a vencer.
+        corrigir_dica: Clique para editar ou corrigir o valor
+        ja_corrigido: ' · já corrigido {vezes}x'
+        corrigido_era: corrigido · era
+        pago_dica: Pago. Clique para desfazer o recebimento
+        receber_dica: Clique para marcar como recebido
+        excluir: Excluir lançamento
+        corrigir: Corrigir valor
+        desfazer: Desfazer recebimento
+        marcar_recebido: Marcar como recebido
+    js:
+        # selos e honorários
+        contrato_assinado: Assinado
+        contrato_pendente: Pendente
+        contrato_assinado_dica: Contrato assinado. Clique para reabrir como pendente
+        contrato_pendente_dica: Contrato pendente. Clique para marcar como assinado
+        pro_bono_ativo: Pró-bono ativo
+        pro_bono_inativo: Não é pró-bono
+        erro_situacao: Erro ao alterar situação.
+        erro_pro_bono: Erro ao salvar pró-bono.
+        erro_salvar: Erro ao salvar.
+        erro_rede: Erro de rede.
+        erro_rede_tente: Erro de rede. Tente novamente.
+        erro_excluir: Erro ao excluir.
+        # arquivos
+        reduzir_aviso: 'Atenção: um PDF assinado digitalmente pode perder a assinatura ao ser reduzido.'
+        reduzir_nota: Envios mantêm o arquivo original, recomendado para contratos assinados.
+        ver_demais: ver os demais no gerenciador
+        email_assunto: 'Pasta {pasta} · {titulo}'
+        email_corpo: 'Segue o arquivo "{titulo}" referente à pasta {pasta}.'
+        enviar_email: Enviar por e-mail ao cliente
+        encaminhar: Encaminhar via Chat I.A
+        mais_acoes: Mais ações do arquivo
+        visualizar: Visualizar
+        abrir: Abrir
+        baixar: Baixar
+        copiar_nome: Copiar nome do arquivo
+        renomear: Renomear
+        ver_documentos: Ver em Documentos
+        excluir: Excluir
+        arquivos_vazio: Nenhum arquivo financeiro anexado.
+        erro_enviar_arquivo: Erro ao enviar arquivo.
+        erro_renomear: Erro ao renomear.
+        excluir_arquivo_nome: 'Excluir o arquivo "{nome}" do Financeiro?'
+        excluir_arquivo: Excluir este arquivo? Esta ação não pode ser desfeita.
+        # menus
+        concluir_edicao: Concluir edição
+        editar_valores: Editar ou corrigir valores
+        mostrar_proximos: Mostrar só os próximos
+        ver_todos: Ver todos os lançamentos
+        motivo_prazo: O prazo de 15 minutos para editar ou excluir terminou.
+        motivo_autor: Só o autor pode editar ou excluir, nos 15 minutos após publicar.
+        editar_bloqueado: Editar · bloqueado
+        excluir_bloqueado: Excluir · bloqueado
+        editar_min: 'Editar · {minutos} min'
+        excluir_min: 'Excluir comentário · {minutos} min'
+        nao_copiou: Não foi possível copiar
+        nome_copiado: Nome copiado
+        resumo_copiado: Resumo copiado
+        texto_copiado: Texto copiado
+        resumo_pagamentos: 'Pagamentos · {total}'
+        email_sem_cadastro: Cadastre um e-mail do cliente para enviar
+        # Relatório financeiro
+        registro_vazio: O registro não pode ser vazio.
+        enviar: Enviar
+        enviando: Enviando…
+        erro_enviar: Erro ao enviar.
+        erro_editar: Erro ao editar.
+        erro_enviar_resposta: Erro ao enviar a resposta.
+        excluir_comentario_titulo: 'Excluir o comentário de {autor}?'
+        excluir_comentario_texto: '"{trecho}". Ele some para toda a equipe e a exclusão fica registrada no histórico.'
+        colaborador: colaborador
+        autor_desconhecido: Autor desconhecido
+        resposta_a: 'Resposta a {nome}'
+        resposta_orfa: Resposta a uma mensagem excluída
+        editar_registro: Editar registro
+        excluir_registro: Excluir registro
+        janela_dica: 'Edição e exclusão liberadas por mais {minutos} min'
+        janela: '· {minutos} min'
+        responder: Responder
+        respondendo_a: 'Respondendo a {nome}'
+        resposta_placeholder: Escreva a resposta…
+        cancelar: Cancelar
+        salvar: Salvar
+        vazio_titulo: Nada registrado ainda
+        vazio_nota: Anote acima o que foi combinado de honorário, custas ou reembolso.
+        # Pagamentos: correção, quitação, exclusão e o modal de novo lançamento
+        erro_formato: Informe apenas números, como 12.860,00.
+        erro_casas: Use no máximo duas casas decimais, como 12.860,00.
+        novo_valor_de: 'Novo valor de {descricao}'
+        salvar_enter: Salvar (Enter)
+        salvar_valor: Salvar valor
+        cancelar_esc: Cancelar (Esc)
+        corrigir_pergunta: 'Corrigir "{descricao}" de {de} para {para}?'
+        corrigir_historico: A alteração fica registrada no histórico com seu nome, data e hora.
+        erro_conflito: O valor foi alterado por outra pessoa. Recarregue e confira antes de corrigir.
+        erro_corrigir: Erro ao corrigir o valor.
+        erro_quitacao: Erro ao alterar o pagamento.
+        excluir_lancamento_titulo: Excluir lançamento
+        excluir_lancamento_pergunta: 'Excluir "{descricao}" ({valor})?'
+        excluir_lancamento_generico: Excluir este lançamento?
+        tipo_custas: custas
+        tipo_honorarios: honorários
+        erro_percentual: Informe um percentual entre 0 e 100.
+        erro_causa: Informe o valor da causa antes de calcular por percentual.
+        erro_total: Informe o valor total.
+        erro_vencimento: Informe o 1º vencimento.
+        erro_juros: Informe os juros ao mês entre 0 e 10%.
+        erro_pequeno: 'O valor é pequeno demais para {n} parcelas. Diminua o número de parcelas.'
+        entrada_de: 'Entrada · {tipo}'
+        livre_entrada: '{descricao} · entrada'
+        parcela_de: '{numero}ª parcela · {tipo}'
+        custas_e_despesas: Custas e despesas
+        honorarios_contratuais: Honorários contratuais
+        resumo_um: '{quantidade} lançamento · {total}'
+        resumo_varios: '{quantidade} lançamentos · {total}'
+        mais_parcelas: '+ {quantidade} parcelas'
+        gerar: 'Gerar {quantidade} lançamentos'
+        adicionar: Adicionar
+        sem_dado: Sem dado
+        erro_lancar: Erro ao lançar o pagamento.
 
 # ---- Pasta, aba Push (pasta/_push_*, pasta-push*.js)
 pasta_push:

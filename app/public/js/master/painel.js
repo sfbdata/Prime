@@ -39,8 +39,8 @@
   const QUEM = raiz.dataset.quem || T('termos.master');
   const agora = () => dataHora(new Date().toISOString());
 
-  const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'pes', mapaUsu: 'geral',
-    faltamOn: false, busca: '', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, aviso: null, fx: null, fxMsg: null };
+  const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral',
+    faltamOn: false, faltamCid: false, busca: '', fSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, aviso: null, fx: null, fxMsg: null };
   const D = { visao: null, contas: null, oab: null, audit: null, planos: null };
   const ERRO = {};
 
@@ -222,91 +222,122 @@
   const REG_BR = [[T('master.js.mapa.regiao.norte'), ['RO', 'AC', 'AM', 'RR', 'PA', 'AP', 'TO']], [T('master.js.mapa.regiao.nordeste'), ['MA', 'PI', 'CE', 'RN', 'PB', 'PE', 'AL', 'SE', 'BA']], [T('master.js.mapa.regiao.centro_oeste'), ['MS', 'MT', 'GO', 'DF']], [T('master.js.mapa.regiao.sudeste'), ['MG', 'ES', 'RJ', 'SP']], [T('master.js.mapa.regiao.sul'), ['PR', 'SC', 'RS']]];
   // O nome do país é dado, não texto da tela: o servidor manda o nome em português (M.paises) e o painel compara com ele.
   const REG_MUNDO = [[T('master.js.mapa.regiao.america_sul'), ['Argentina', 'Bolívia', 'Chile', 'Colômbia', 'Equador', 'Paraguai', 'Peru', 'Uruguai', 'Venezuela']], [T('master.js.mapa.regiao.america_norte'), ['Canadá', 'México', 'Estados Unidos']], [T('master.js.mapa.regiao.europa'), ['Portugal', 'Espanha', 'Itália', 'França', 'Alemanha', 'Reino Unido', 'Suíça', 'Países Baixos', 'Bélgica', 'Irlanda']], [T('master.js.mapa.regiao.lusofonia'), ['Angola', 'Moçambique', 'Cabo Verde', 'Guiné-Bissau', 'São Tomé e Príncipe', 'Timor-Leste']]];
+  // As 27 capitais (desenho 05 L879, `CAP`): nome em português (dado, como o dos estados), comparado sem acento e sem
+  // caixa com as cidades que já têm usuário no mapa (G.C, a mesma base do MapaDeAtuacao).
+  const CAP = { AC: 'Rio Branco', AL: 'Maceió', AP: 'Macapá', AM: 'Manaus', BA: 'Salvador', CE: 'Fortaleza', DF: 'Brasília', ES: 'Vitória', GO: 'Goiânia', MA: 'São Luís', MT: 'Cuiabá', MS: 'Campo Grande', MG: 'Belo Horizonte', PA: 'Belém', PB: 'João Pessoa', PR: 'Curitiba', PE: 'Recife', PI: 'Teresina', RJ: 'Rio de Janeiro', RN: 'Natal', RS: 'Porto Alegre', RO: 'Porto Velho', RR: 'Boa Vista', SC: 'Florianópolis', SP: 'São Paulo', SE: 'Aracaju', TO: 'Palmas' };
+  const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const temCidade = (C, uf, cidade) => Object.keys(C[uf] || {}).some(k => semAcento(k) === semAcento(cidade));
+  const seg = (lista, atual, attr, comIcone) => '<div class="mp-seg mp-seg-28">' + lista.map(([k, rot, ic]) => '<button type="button" class="' + (atual === k ? 'on' : '') + '" ' + attr + '="' + k + '">' + (comIcone ? '<i class="bi ' + ic + '"></i>' : '') + esc(rot) + '</button>').join('') + '</div>';
+  const ehModoOab = () => S.mapaModo !== 'mundo' && S.mapaQuem === 'oab';
 
+  // Modo OAB (desenho L898): o número da UF é o de inscrições na seccional (GET das seccionais); as cidades com usuário
+  // são as das pessoas, a base do mapa (modo Capitais dos que faltam).
   function geo() {
     const M = D.visao.mapa;
     if (S.mapaQuem === 'esc') return { A: M.escritorios.A || {}, C: M.escritorios.C || {}, tend: {}, semEnd: M.escritorios.semEnd || 0, semLoc: 0 };
+    if (ehModoOab()) return { A: secInscricoes(), C: (M.pessoas.geral || {}).C || {}, tend: {}, semEnd: 0, semLoc: 0 };
     const g = M.pessoas[S.mapaUsu] || {};
     return { A: g.A || {}, C: g.C || {}, tend: g.tend || {}, semEnd: 0, semLoc: g.semLoc || 0 };
   }
 
   function renderMapa() {
-    const M = D.visao.mapa, G = geo(), ATUA = G.A, br = S.mapaModo !== 'mundo', ehPes = S.mapaQuem === 'pes';
+    const M = D.visao.mapa, G = geo(), ATUA = G.A, br = S.mapaModo !== 'mundo', ehPes = S.mapaQuem === 'pes', ehOab = ehModoOab();
     const exterior = M.exterior || 0, paisesExt = M.paises || [];
     const totBr = Object.values(ATUA).reduce((a, b) => a + b, 0), ufTotal = totBr + exterior;
-    const maxAt = Math.max(1, ...Object.values(ATUA));
-    const seg = (lista, atual, attr, comIcone) => '<div class="mp-seg mp-seg-28">' + lista.map(([k, rot, ic]) => '<button type="button" class="' + (atual === k ? 'on' : '') + '" ' + attr + '="' + k + '">' + (comIcone ? '<i class="bi ' + ic + '"></i>' : '') + esc(rot) + '</button>').join('') + '</div>';
+    document.getElementById('mp-mapa-topo').innerHTML = mapaTopo(br, ehPes, ufTotal);
+    const usuTit = ehOab ? T('master.js.mapa.inscricoes') : S.mapaQuem === 'esc' ? T('master.js.mapa.escritorios') : S.mapaUsu === 'prim' ? T('master.js.mapa.primarios') : T('master.js.mapa.pessoas');
 
-    document.getElementById('mp-mapa-topo').innerHTML = '<b>' + T('master.js.mapa.titulo') + '</b><span class="mp-mapa-sub">' + (br ? T('master.js.mapa.por_estado') : T('master.js.mapa.por_pais')) + ' · ' + T('master.js.mapa.total', { n: num(ufTotal) }) + '</span>'
-      + (br ? seg([['pes', T('master.js.mapa.pessoas'), 'bi-people'], ['esc', T('master.js.mapa.escritorios'), 'bi-buildings']], S.mapaQuem, 'data-mapa-quem', true) : '')
-      + (ehPes && br ? seg([['geral', T('master.js.mapa.geral')], ['prim', T('master.js.mapa.so_primarios')]], S.mapaUsu, 'data-mapa-usu', false) : '')
-      + seg([['br', T('master.js.mapa.brasil'), 'bi-geo-alt-fill'], ['mundo', T('master.js.mapa.mundo'), 'bi-globe-americas']], S.mapaModo, 'data-mapa-modo', true);
-
-    let linhas;
-    if (!br) {
-      const P = [['076', 'Brasil', totBr]].concat(paisesExt), mx = Math.max(1, ...P.map(p => p[2]));
-      linhas = P.sort((a, b) => b[2] - a[2]).map(p => '<div class="mp-uf-lin"><span class="mp-uf-barra" style="--w:' + pct(p[2], mx) + '"></span><span class="mp-uf-nome">' + esc(p[1]) + '</span><b>' + num(p[2]) + '</b><i class="mp-uf-seta"></i></div>').join('');
-    } else {
-      linhas = Object.entries(ATUA).sort((a, b) => b[1] - a[1]).map(([uf, n]) => {
-        const t = S.mapaQuem === 'esc' ? { ag: 0, an: 0 } : (G.tend[uf] || { ag: 0, an: 0 }), dl = t.ag - t.an;
-        const ic = dl > 0 ? 'bi-arrow-up-right' : dl < 0 ? 'bi-arrow-down-right' : 'bi-arrow-right', cor = dl > 0 ? '#1e7b45' : dl < 0 ? '#a3232b' : '#9aabb7';
-        const tit = S.mapaQuem === 'esc' ? T('master.js.mapa.tendencia_so_pessoas') : T('master.js.mapa.tendencia', { ag: (t.ag >= 0 ? '+' : '') + t.ag, an: (t.an >= 0 ? '+' : '') + t.an });
-        // Linha clicável (desenho L118, `u.ir`/`u.cur`): no Brasil abre a janela da OAB da UF (spec master-oab-estados-que-faltam).
-        const oab = NM[uf] ? ' is-oab" role="button" tabindex="0" data-oab-uf="' + esc(uf) + '" data-oab-n="' + n + '"' : '"';
-        return '<div class="mp-uf-lin' + oab + '><span class="mp-uf-barra" style="--w:' + pct(n, maxAt) + '"></span><span class="mp-uf-nome">' + esc(NM[uf] || uf) + '</span><b>' + num(n) + '</b><i class="bi ' + ic + ' mp-uf-seta" style="--cor:' + cor + '" title="' + esc(tit) + '"></i></div>';
-      }).join('');
-    }
-
-    let grupos, tot, meta;
-    if (br) {
-      grupos = REG_BR.map(([rot, ufs]) => { const itens = ufs.filter(u => !ATUA[u]).map(u => ({ uf: u, r: NM[u] })).sort((a, b) => a.r.localeCompare(b.r)); return { rot, n: itens.length, itens }; }).filter(g => g.n);
-      tot = 27; meta = T('master.js.faltam.meta_estados', { n: tot });
-      secGarantir();
-    } else {
-      const tem = new Set(['Brasil'].concat(paisesExt.map(p => p[1])));
-      grupos = REG_MUNDO.map(([rot, ps]) => { const itens = ps.filter(p => !tem.has(p)).sort((a, b) => a.localeCompare(b)).map(p => ({ uf: null, r: p })); return { rot, n: itens.length, itens }; }).filter(g => g.n);
-      tot = REG_MUNDO.reduce((a, g) => a + g[1].length, 0); meta = T('master.js.faltam.meta_paises', { n: tot });
-    }
-    const faltamN = grupos.reduce((a, g) => a + g.n, 0), feitos = tot - faltamN, on = S.faltamOn;
-    const usuTit = S.mapaQuem === 'esc' ? T('master.js.mapa.escritorios') : S.mapaUsu === 'prim' ? T('master.js.mapa.primarios') : T('master.js.mapa.pessoas');
-
-    document.getElementById('mp-uf-tab').innerHTML = '<div class="mp-uf-cab"><span>' + (br ? T('master.js.mapa.estado') : T('master.js.mapa.pais')) + '</span><span>' + usuTit + '</span><span></span></div>' + linhas
-      + (br && ehPes ? blocoSeccionais() : '')
+    document.getElementById('mp-uf-tab').innerHTML = '<div class="mp-uf-cab"><span>' + (br ? T('master.js.mapa.estado') : T('master.js.mapa.pais')) + '</span><span>' + usuTit + '</span><span></span></div>'
+      + (br ? linhasDoBrasil(G) : linhasDoMundo(totBr, paisesExt))
+      + (ehOab ? blocoSeccionais() : '')
       + (br ? '<div class="mp-uf-outros"><span><i class="bi bi-globe-americas"></i>' + T('master.js.mapa.outros_paises') + '</span><b>' + num(exterior) + '</b></div>' : '')
       + (S.mapaQuem === 'esc' && G.semEnd > 0 ? '<div class="mp-uf-semend"><span><i class="bi bi-geo"></i>' + T('master.js.mapa.sem_endereco') + '</span><b>' + num(G.semEnd) + '</b></div>' : '')
       + (ehPes && G.semLoc > 0 ? '<div class="mp-uf-semend" title="' + esc(T('master.js.mapa.sem_localizacao_dica')) + '"><span><i class="bi bi-geo"></i>' + T('master.js.mapa.sem_localizacao') + '</span><b>' + num(G.semLoc) + '</b></div>' : '')
       + '<div class="mp-uf-total"><span>' + T('master.js.mapa.total_geral') + '</span><span>' + num(ufTotal) + '</span></div>'
-      + avisoHtml()
-      + '<button type="button" class="mp-faltam-btn' + (on ? ' on' : '') + '" data-faltam title="' + esc(T('master.js.faltam.dica')) + '"><i class="bi bi-bullseye"></i><span>' + (on ? T('master.js.faltam.ocultar') : (br ? T('master.js.faltam.estados') : T('master.js.faltam.paises'))) + '</span><span class="mp-faltam-n">' + faltamN + '</span><i class="bi ' + (on ? 'bi-chevron-up' : 'bi-chevron-down') + '"></i></button>'
-      + (on ? '<div class="mp-faltam"><div class="mp-faltam-cob">' + T('master.js.faltam.cobertura') + ' <b>' + T('master.js.faltam.cobertura_valor', { feitos, total: tot, pct: Math.round(feitos / tot * 100) }) + '</b> · ' + T('master.js.faltam.faltam', { n: faltamN, meta }) + '</div>'
-        + '<div class="mp-faltam-barra"><div style="--w:' + Math.round(feitos / tot * 100) + '%"></div></div><div class="mp-faltam-lista">'
-        + grupos.map(g => '<div class="mp-faltam-grupo">' + esc(g.rot) + ' · ' + g.n + '</div>' + g.itens.map(faltamItem).join('')).join('')
-        + '</div><div class="mp-faltam-rod">' + T('master.js.faltam.rodape') + '</div></div>' : '');
+      + avisoHtml() + faltamHtml(faltamGrupos(br, G, paisesExt), br);
 
-    // iframe: só troca o endereço quando os dados do mapa mudam (evita recarregar o mapa a cada clique).
-    // O iframe busca as contagens no servidor (/master/dados/mapa) e as valida; a query string só escolhe a visão.
-    const qs = 'quem=' + (S.mapaQuem === 'esc' ? 'esc' : 'pes') + '&usu=' + (S.mapaUsu === 'prim' ? 'prim' : 'geral');
-    const src = (br ? URLS.mapaBrasil : URLS.mapaMundo) + '?' + qs, fr = document.getElementById('mp-mapa-iframe');
+    // iframe: só troca o endereço quando a visão muda (evita recarregar o mapa a cada clique). O iframe busca as
+    // contagens no servidor e as valida; a query string só escolhe a visão (quem=oab no modo OAB do Brasil).
+    const quem = ehOab ? 'oab' : S.mapaQuem === 'esc' ? 'esc' : 'pes';
+    const src = (br ? URLS.mapaBrasil : URLS.mapaMundo) + '?quem=' + quem + '&usu=' + (S.mapaUsu === 'prim' ? 'prim' : 'geral'), fr = document.getElementById('mp-mapa-iframe');
     fr.style.setProperty('--ratio', br ? '1.75' : '2.05');
     fr.title = br ? T('master.js.mapa.iframe_brasil') : T('master.js.mapa.iframe_mundo');
     if (fr.dataset.src !== src) { fr.dataset.src = src; fr.src = src; }
   }
 
-  /* ---------- Seccionais da OAB (desenho 05, Perfis 1.2, VS 21.10.26, L116-127; spec master-seccionais-oab) ----------
-     Bloco "SECCIONAIS VISÍVEIS" embaixo das UFs, só no Brasil + Pessoas (convenção da spec até o arquivo inteiro do
-     desenho: DONO). Dados de /master/dados/seccionais (o mesmo GET do iframe). Mostrar ou ocultar é do navegador
-     (localStorage, chave lida também pelo mapa-brasil.js); a sede e as divulgações vêm do servidor. */
-  const SEC_CHAVE = 'bj-mapa-seccionais-ocultas';
+  // Título, subtítulo e seletores (desenho L114 e L875): "quem" com Pessoas, Escritórios e OAB, só no Brasil.
+  function mapaTopo(br, ehPes, ufTotal) {
+    const sub = !br ? T('master.js.mapa.por_pais') : ehModoOab() ? T('master.js.mapa.por_seccional') : T('master.js.mapa.por_estado');
+    return '<b>' + T('master.js.mapa.titulo') + '</b><span class="mp-mapa-sub">' + sub + ' · ' + T('master.js.mapa.total', { n: num(ufTotal) }) + '</span>'
+      + (br ? seg([['pes', T('master.js.mapa.pessoas'), 'bi-people'], ['esc', T('master.js.mapa.escritorios'), 'bi-buildings'], ['oab', T('master.js.mapa.oab'), 'bi-bank']], S.mapaQuem, 'data-mapa-quem', true) : '')
+      + (ehPes && br ? seg([['geral', T('master.js.mapa.geral')], ['prim', T('master.js.mapa.so_primarios')]], S.mapaUsu, 'data-mapa-usu', false) : '')
+      + seg([['br', T('master.js.mapa.brasil'), 'bi-geo-alt-fill'], ['mundo', T('master.js.mapa.mundo'), 'bi-globe-americas']], S.mapaModo, 'data-mapa-modo', true);
+  }
+
+  function linhasDoMundo(totBr, paisesExt) {
+    const P = [['076', 'Brasil', totBr]].concat(paisesExt), mx = Math.max(1, ...P.map(p => p[2]));
+    return P.sort((a, b) => b[2] - a[2]).map(p => '<div class="mp-uf-lin"><span class="mp-uf-barra" style="--w:' + pct(p[2], mx) + '"></span><span class="mp-uf-nome">' + esc(p[1]) + '</span><b>' + num(p[2]) + '</b><i class="mp-uf-seta"></i></div>').join('');
+  }
+
+  // Linha da UF (desenho L118 e L898, `u.ir`/`u.cur`): no modo OAB o nome é "OAB/<UF> · <Estado>" e o clique abre o
+  // cartão da sede; nos outros modos a linha não tem ação. Tendência só nas Pessoas.
+  function linhasDoBrasil(G) {
+    const ehOab = ehModoOab(), semTend = S.mapaQuem !== 'pes', maxAt = Math.max(1, ...Object.values(G.A));
+    return Object.entries(G.A).sort((a, b) => b[1] - a[1]).map(([uf, n]) => {
+      const t = semTend ? { ag: 0, an: 0 } : (G.tend[uf] || { ag: 0, an: 0 }), dl = t.ag - t.an;
+      const ic = dl > 0 ? 'bi-arrow-up-right' : dl < 0 ? 'bi-arrow-down-right' : 'bi-arrow-right', cor = dl > 0 ? '#1e7b45' : dl < 0 ? '#a3232b' : '#9aabb7';
+      const tit = semTend ? T('master.js.mapa.tendencia_so_pessoas') : T('master.js.mapa.tendencia', { ag: (t.ag >= 0 ? '+' : '') + t.ag, an: (t.an >= 0 ? '+' : '') + t.an });
+      const acao = ehOab ? ' is-oab" role="button" tabindex="0" data-sec-linha="' + esc(uf) + '"' : '"';
+      const nome = ehOab ? T('master.js.seccionais.linha', { uf, estado: NM[uf] || uf }) : (NM[uf] || uf);
+      return '<div class="mp-uf-lin' + acao + '><span class="mp-uf-barra" style="--w:' + pct(n, maxAt) + '"></span><span class="mp-uf-nome">' + esc(nome) + '</span><b>' + num(n) + '</b><i class="bi ' + ic + ' mp-uf-seta" style="--cor:' + cor + '" title="' + esc(tit) + '"></i></div>';
+    }).join('');
+  }
+
+  // Os que faltam (desenho L877-882): no Brasil, Estados (sem usuário na UF) ou Capitais (sem usuário na capital);
+  // no Mundo, os países-alvo.
+  function faltamGrupos(br, G, paisesExt) {
+    if (!br) {
+      const tem = new Set(['Brasil'].concat(paisesExt.map(p => p[1])));
+      const grupos = REG_MUNDO.map(([rot, ps]) => { const itens = ps.filter(p => !tem.has(p)).sort((a, b) => a.localeCompare(b)).map(p => ({ uf: null, cidade: '', r: p, sub: '' })); return { rot, n: itens.length, itens }; }).filter(g => g.n);
+      const tot = REG_MUNDO.reduce((a, g) => a + g[1].length, 0);
+      return { grupos, tot, meta: T('master.js.faltam.meta_paises', { n: tot }) };
+    }
+    secGarantir();
+    const cid = S.faltamCid, item = cid ? (u => ({ uf: u, cidade: CAP[u], r: CAP[u], sub: u })) : (u => ({ uf: u, cidade: '', r: NM[u], sub: '' }));
+    const falta = cid ? (u => !temCidade(G.C, u, CAP[u])) : (u => !G.A[u]);
+    const grupos = REG_BR.map(([rot, ufs]) => { const itens = ufs.filter(falta).map(item).sort((a, b) => a.r.localeCompare(b.r)); return { rot, n: itens.length, itens }; }).filter(g => g.n);
+    return { grupos, tot: 27, meta: cid ? T('master.js.faltam.meta_capitais', { n: 27 }) : T('master.js.faltam.meta_estados', { n: 27 }) };
+  }
+
+  // Botão, seletor Estados/Capitais (só no Brasil, L134 e L888), cobertura, barra e a lista por região.
+  function faltamHtml(F, br) {
+    const on = S.faltamOn, n = F.grupos.reduce((a, g) => a + g.n, 0), feitos = F.tot - n, p = Math.round(feitos / F.tot * 100);
+    const modos = br ? '<div class="mp-faltam-modos">' + [['', T('master.js.faltam.modo_estados')], ['1', T('master.js.faltam.modo_capitais')]].map(([k, r]) => '<button type="button" class="' + (!!S.faltamCid === !!k ? 'on' : '') + '" data-faltam-modo="' + k + '">' + esc(r) + '</button>').join('') + '</div>' : '';
+    return '<button type="button" class="mp-faltam-btn' + (on ? ' on' : '') + '" data-faltam title="' + esc(T('master.js.faltam.dica')) + '"><i class="bi bi-bullseye"></i><span>' + (on ? T('master.js.faltam.ocultar') : (br ? T('master.js.faltam.estados') : T('master.js.faltam.paises'))) + '</span><span class="mp-faltam-n">' + n + '</span><i class="bi ' + (on ? 'bi-chevron-up' : 'bi-chevron-down') + '"></i></button>'
+      + (on ? '<div class="mp-faltam">' + modos + '<div class="mp-faltam-cob">' + T('master.js.faltam.cobertura') + ' <b>' + T('master.js.faltam.cobertura_valor', { feitos, total: F.tot, pct: p }) + '</b> · ' + T('master.js.faltam.faltam', { n, meta: F.meta }) + '</div>'
+        + '<div class="mp-faltam-barra"><div style="--w:' + p + '%"></div></div><div class="mp-faltam-lista">'
+        + F.grupos.map(g => '<div class="mp-faltam-grupo">' + esc(g.rot) + ' · ' + g.n + '</div>' + g.itens.map(faltamItem).join('')).join('')
+        + '</div><div class="mp-faltam-rod">' + T('master.js.faltam.rodape') + '</div></div>' : '');
+  }
+
+  /* ---------- Seccionais da OAB (desenho 05, Perfis 1.2, VS 21.10.26, L116-127 e L898-905; spec master-seccionais-oab) ----------
+     Bloco "SECCIONAIS VISÍVEIS" embaixo das UFs, só no modo OAB do Brasil. Tudo vem de /master/dados/seccionais (o
+     mesmo GET do iframe): sede, inscrições, visibilidade (compartilhada entre os Masters) e a marca da divulgação.
+     Mostrar ou ocultar e "Mostrar todas" gravam no servidor e avisam o iframe. */
   const SEC_ERRO_SALVAR = T('master.js.seccionais.erro_salvar');
   const SEC_CFOAB = 'https://www.oab.org.br/institucionalconselhofederal/asiseccional';
-  const SEC_COR = { material: 'var(--sec-material)', reuniao: 'var(--sec-reuniao)', parceria: 'var(--sec-parceria)' };
-  const SEC_NOTA = T('master.js.seccionais.nota');
-  const SEC_SEM_ENDERECO = T('master.js.seccionais.sem_endereco');
   const SEC = { dados: null, estado: null, aberta: null };
-  const secOcultas = () => { try { const v = JSON.parse(localStorage.getItem(SEC_CHAVE) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
-  const secGravarOcultas = ufs => { try { localStorage.setItem(SEC_CHAVE, JSON.stringify(ufs)); } catch (e) { /* navegador sem localStorage: vale só nesta tela */ } };
   const secDe = uf => (SEC.dados ? SEC.dados.seccionais.find(s => s.uf === uf) : null);
-  const secUsuarios = n => (n === 1 ? T('master.js.seccionais.usuario_um') : T('master.js.seccionais.usuarios', { n: num(n) }));
+  const secCor = c => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : null);
+  const secSite = s => (/^https?:\/\/\S+$/i.test(s || '') ? s : null);
+  const secEstado = s => NM[s.uf] || s.nome;
+  const secInscritos = n => (n === 1 ? T('master.js.seccionais.inscricao_um') : T('master.js.seccionais.inscricoes', { n: num(n) }));
+  function secInscricoes() {
+    if (!SEC.dados) { secGarantir(); return {}; }
+    const A = {};
+    SEC.dados.seccionais.forEach(s => { if (s.inscricoes > 0) A[s.uf] = s.inscricoes; });
+    return A;
+  }
 
   function carregarSeccionais() {
     if (SEC.estado === 'carregando') return;
@@ -317,73 +348,82 @@
       .catch(() => { SEC.estado = 'falhou'; })
       .finally(() => { if (S.sec === 'visao' && D.visao && document.getElementById('mp-uf-tab')) renderMapa(); if (OAB.uf) renderOab(); });
   }
-  // Os estados que faltam e as linhas de UF leem subseções e nota daqui também (fora da visão Pessoas).
-  const secGarantir = () => { if (!SEC.dados && SEC.estado !== 'falhou') carregarSeccionais(); };
+  // Os estados que faltam e o modo OAB leem daqui também.
+  function secGarantir() { if (!SEC.dados && SEC.estado !== 'falhou') carregarSeccionais(); }
   // O iframe avisa depois de registrar uma divulgação (mesmo padrão do __bjFontesAuto do mapa-dados.js).
   window.__bjSeccionaisRecarregar = () => { SEC.estado = null; carregarSeccionais(); };
+  // E o painel avisa o iframe (mesma origem) quando a visibilidade muda: ele relê as seccionais.
+  function secAvisarMapa() {
+    try { const w = document.getElementById('mp-mapa-iframe').contentWindow; if (w && typeof w.__bjSeccionaisAtualizar === 'function') w.__bjSeccionaisAtualizar(); } catch (e) { /* iframe ainda sem a página */ }
+  }
 
   function blocoSeccionais() {
     if (!SEC.dados) {
-      if (SEC.estado !== 'falhou') carregarSeccionais();
+      secGarantir();
       return '<div class="mp-sec-oab" data-sec-oab><span class="mp-sec-oab-nota">' + (SEC.estado === 'falhou' ? T('master.js.seccionais.erro_carga') : T('master.js.seccionais.carregando')) + '</span></div>';
     }
-    const ocultas = secOcultas(), todas = SEC.dados.seccionais, algumaOculta = todas.some(s => ocultas.includes(s.uf));
-    return '<div class="mp-sec-oab" data-sec-oab><div class="mp-sec-oab-cab"><b>' + T('master.js.seccionais.titulo') + '</b><button type="button" data-sec-todas>' + (algumaOculta ? T('master.js.seccionais.mostrar_todas') : T('master.js.seccionais.ocultar_todas')) + '</button></div>'
-      + '<div class="mp-sec-oab-chips">' + todas.map(s => secChip(s, ocultas.includes(s.uf))).join('') + '</div>'
+    const todas = SEC.dados.seccionais, algumaOculta = todas.some(s => !s.visivel);
+    return '<div class="mp-sec-oab" data-sec-oab><div class="mp-sec-oab-cab"><b>' + T('master.js.seccionais.titulo') + '</b><button type="button" data-sec-todas>' + (algumaOculta ? T('master.js.seccionais.mostrar_todas') : T('master.js.seccionais.todas_visiveis')) + '</button></div>'
+      + '<div class="mp-sec-oab-chips">' + todas.map(secChip).join('') + '</div>'
       + (secDe(SEC.aberta) ? secCartao(secDe(SEC.aberta)) : '')
-      + '<div class="mp-sec-oab-nota">' + esc(SEC_NOTA) + '</div></div>';
+      + '<div class="mp-sec-oab-nota">' + esc(T('master.js.seccionais.nota')) + '</div></div>';
   }
 
-  function secChip(s, oculta) {
-    const tit = s.nome + ' · ' + (oculta ? T('master.js.seccionais.oculta') : T('master.js.seccionais.visivel')) + (s.ultima ? ' · ' + T('master.js.seccionais.ultima', { rotulo: s.ultima.rotulo, data: dataBr(s.ultima.data) }) : '');
-    return '<button type="button" class="mp-sec-chip' + (oculta ? ' is-oculta' : '') + (SEC.aberta === s.uf ? ' is-aberta' : '') + '" data-sec-uf="' + esc(s.uf) + '" title="' + esc(tit) + '">' + esc(s.uf)
-      + (s.ultima ? '<span class="mp-sec-ponto" style="--cor:' + (SEC_COR[s.ultima.tipo] || 'var(--sec-material)') + '"></span>' : '') + '</button>';
+  // Chip (L902): tooltip do desenho; o ponto aparece só com status e cor, na cor da marca.
+  function secChip(s) {
+    const m = s.marca && secCor(s.marca.cor) ? s.marca : null, base = { uf: s.uf, estado: secEstado(s) };
+    const tit = m ? T('master.js.seccionais.chip_titulo_marca', Object.assign(base, { status: m.rotulo, data: dataBr(m.data) })) : T('master.js.seccionais.chip_titulo', base);
+    return '<button type="button" class="mp-sec-chip' + (s.visivel ? '' : ' is-oculta') + (SEC.aberta === s.uf ? ' is-aberta' : '') + '" data-sec-uf="' + esc(s.uf) + '" title="' + esc(tit) + '">' + esc(s.uf)
+      + (m ? '<span class="mp-sec-ponto" style="--cor:' + m.cor + '"></span>' : '') + '</button>';
   }
 
+  // Cartão da sede (L903): título, inscrições, endereço, telefone, site, CFOAB e "Editar sede".
   function secCartao(s) {
-    const site = /^https:\/\//i.test(s.site || '') ? s.site : null;
-    return '<div class="mp-sec-card" data-sec-card><div class="mp-sec-card-cab"><i class="bi bi-bank"></i><span>' + esc(s.nome) + '</span><button type="button" data-sec-fechar title="' + esc(T('master.js.fechar')) + '" aria-label="' + esc(T('master.js.fechar')) + '"><i class="bi bi-x-lg"></i></button></div>'
-      + '<div class="mp-sec-card-corpo"><span><i class="bi bi-people"></i>' + esc(secUsuarios(s.usuarios)) + '</span>'
-      + '<span><i class="bi bi-geo-alt"></i>' + esc(s.endereco || SEC_SEM_ENDERECO) + '</span>'
+    const site = secSite(s.site);
+    return '<div class="mp-sec-card" data-sec-card><div class="mp-sec-card-cab"><i class="bi bi-bank"></i><span>' + esc(T('master.js.seccionais.cartao_titulo', { uf: s.uf, estado: secEstado(s) })) + '</span><button type="button" data-sec-fechar title="' + esc(T('master.js.fechar')) + '" aria-label="' + esc(T('master.js.fechar')) + '"><i class="bi bi-x-lg"></i></button></div>'
+      + '<div class="mp-sec-card-corpo"><span><i class="bi bi-people"></i>' + esc(secInscritos(s.inscricoes)) + '</span>'
+      + '<span><i class="bi bi-geo-alt"></i>' + esc(s.endereco || T('master.js.seccionais.sem_endereco')) + '</span>'
       + (s.telefone ? '<span><i class="bi bi-telephone"></i>' + esc(s.telefone) + '</span>' : '')
       + (site ? '<a href="' + esc(site) + '" target="_blank" rel="noopener"><i class="bi bi-globe2"></i>' + T('master.js.seccionais.site') + '</a>' : '')
       + '<div class="mp-sec-card-acoes"><a href="' + SEC_CFOAB + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i>' + T('master.js.seccionais.cfoab') + '</a>'
-      + '<button type="button" data-sec-editar><i class="bi bi-pencil"></i> ' + T('master.js.seccionais.editar_sede') + '</button></div>'
-      + secDivulgacoes(s.ultimas) + '</div></div>';
+      + '<button type="button" data-sec-editar><i class="bi bi-pencil"></i> ' + T('master.js.seccionais.editar_sede') + '</button></div></div></div>';
   }
 
-  // As 5 últimas divulgações (spec: tipo, data, autor, nota). O desenho truncado não mostra a lista: convenção do cartão.
-  const secDivulgacoes = lista => '<div class="mp-sec-divs"><b>' + T('master.js.seccionais.divulgacoes') + '</b>' + (lista.length
-    ? lista.map(d => '<div class="mp-sec-div"><i style="--cor:' + (SEC_COR[d.tipo] || 'var(--sec-material)') + '"></i><span><b>' + esc(d.rotulo) + '</b> · ' + esc(dataBr(d.data)) + ' · ' + esc(d.autor || T('master.js.seccionais.autor_removido'))
-      + (d.nota ? '<span class="mp-sec-div-nota">' + esc(d.nota) + '</span>' : '') + '</span></div>').join('')
-    : '<span class="mp-sec-div-vazio">' + T('master.js.seccionais.sem_divulgacao') + '</span>') + '</div>';
-
+  // Botão direito no chip (x.tgCtx): a tela muda na hora e o servidor grava o estado pedido (idempotente); na recusa,
+  // volta ao anterior e avisa.
   function secAlternar(uf) {
-    const ocultas = secOcultas();
-    secGravarOcultas(ocultas.includes(uf) ? ocultas.filter(u => u !== uf) : ocultas.concat(uf));
-    renderMapa();
+    const s = secDe(uf); if (!s) return;
+    const antes = s.visivel;
+    s.visivel = !antes; renderMapa();
+    secPostar(SEC.dados.urlVisibilidade.replace('/XX/', '/' + uf + '/'), { visivel: s.visivel }, secAvisarMapa, erro => { s.visivel = antes; renderMapa(); avisarNoMapa(erro || SEC_ERRO_SALVAR); });
   }
 
+  // "Mostrar todas" / "Todas visíveis" (secTodas): o clique sempre limpa o filtro.
   function secTodas() {
-    const algumaOculta = SEC.dados.seccionais.some(s => secOcultas().includes(s.uf));
-    secGravarOcultas(algumaOculta ? [] : SEC.dados.seccionais.map(s => s.uf));
-    renderMapa();
+    SEC.dados.seccionais.forEach(s => { s.visivel = true; }); renderMapa();
+    secPostar(SEC.dados.urlMostrarTodas, {}, secAvisarMapa, erro => { avisarNoMapa(erro || SEC_ERRO_SALVAR); window.__bjSeccionaisRecarregar(); });
   }
 
-  // Janela "Editar sede" no molde das janelas de limite e plano (caixa/campo do painel, host #mp-modal).
-  function secAbrirEdicao(s) {
+  // "Editar sede" no molde das janelas de limite e plano. Os rótulos são os do desenho: os do cartão (L904) ou os da
+  // janela da OAB (L890).
+  const SEDE_ROTULOS = {
+    cartao: ['master.js.seccionais.campo_endereco', 'master.js.seccionais.campo_telefone', 'master.js.seccionais.campo_site'],
+    janela: ['master.js.janela_oab.campo_endereco_sede', 'master.js.janela_oab.campo_telefone', 'master.js.janela_oab.campo_site']
+  };
+  function secAbrirEdicao(s, origem) {
     const host = document.getElementById('mp-modal'); if (!host) return;
-    host.innerHTML = caixa('bi-bank', T('master.js.seccionais.editar_sede'), '<b class="mp-lim-conta" data-sede="' + esc(s.uf) + '">' + esc(s.nome) + '</b>'
-      + campo(T('master.js.campo.endereco'), 'type="text" maxlength="255" data-sede-endereco value="' + esc(s.endereco || '') + '"')
-      + campo(T('master.js.campo.telefone'), 'type="text" maxlength="40" data-sede-telefone value="' + esc(s.telefone || '') + '"')
-      + campo(T('master.js.campo.site'), 'type="url" maxlength="255" placeholder="https://" data-sede-site value="' + esc(s.site || '') + '"')
+    const [rEnd, rTel, rSite] = SEDE_ROTULOS[origem].map(k => esc(T(k, { uf: s.uf })));
+    host.innerHTML = caixa('bi-bank', T('master.js.seccionais.editar_sede'), '<b class="mp-lim-conta" data-sede="' + esc(s.uf) + '">' + esc(T('master.js.seccionais.cartao_titulo', { uf: s.uf, estado: secEstado(s) })) + '</b>'
+      + campo(rEnd, 'type="text" maxlength="255" data-sede-endereco value="' + esc(s.endereco || '') + '"')
+      + campo(rTel, 'type="text" maxlength="40" data-sede-telefone value="' + esc(s.telefone || '') + '"')
+      + campo(rSite, 'type="url" maxlength="255" placeholder="https://" data-sede-site value="' + esc(s.site || '') + '"')
       + '<span class="mp-lim-msg" data-lim-msg></span>', T('master.js.seccionais.salvar_sede'));
     secAtualizarEdicao(null);
     host.querySelector('[data-sede-endereco]').focus();
   }
 
   function secAtualizarEdicao(erro) {
-    const host = document.getElementById('mp-modal'), site = host.querySelector('[data-sede-site]').value.trim(), ok = site === '' || /^https:\/\/\S+$/i.test(site);
+    const host = document.getElementById('mp-modal'), site = host.querySelector('[data-sede-site]').value.trim(), ok = site === '' || /^https?:\/\/\S+$/i.test(site);
     const msg = host.querySelector('[data-lim-msg]');
     msg.textContent = erro || (ok ? T('master.js.seccionais.sede_ajuda') : T('master.js.seccionais.site_invalido'));
     msg.style.setProperty('--cor', erro || !ok ? '#a3232b' : '#4a6373');
@@ -413,7 +453,7 @@
     if (chip) { SEC.aberta = SEC.aberta === chip.dataset.secUf ? null : chip.dataset.secUf; return renderMapa(); }
     if (e.target.closest('[data-sec-fechar]')) { SEC.aberta = null; return renderMapa(); }
     if (e.target.closest('[data-sec-todas]')) return secTodas();
-    if (e.target.closest('[data-sec-editar]') && secDe(SEC.aberta)) return secAbrirEdicao(secDe(SEC.aberta));
+    if (e.target.closest('[data-sec-editar]') && secDe(SEC.aberta)) return secAbrirEdicao(secDe(SEC.aberta), 'cartao');
   });
   elSecao.addEventListener('contextmenu', e => {
     const chip = e.target.closest('[data-sec-oab] [data-sec-uf]'); if (!chip) return;
@@ -425,39 +465,30 @@
     host.addEventListener('input', () => { if (host.querySelector('[data-sede]')) secAtualizarEdicao(null); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && host.querySelector('[data-sede]')) fecharModal(); });
   })(document.getElementById('mp-modal'));
-  // Outra aba (ou o iframe) mudou o que fica visível: o bloco acompanha.
-  window.addEventListener('storage', e => { if (e.key === SEC_CHAVE && SEC.dados && document.getElementById('mp-uf-tab')) renderMapa(); });
 
-  /* ---------- Janela da OAB dos estados que faltam (desenho 05, Perfis 1.2, VS 21.10.26, L118, L140 e L481-495;
+  /* ---------- Janela da OAB (desenho 05, Perfis 1.2, VS 21.10.26, L140 e L481-495, lógica L879-896;
      spec master-oab-estados-que-faltam) ----------
-     O estado que falta (L140) e a linha da UF (L118) abrem, só no Brasil, a janela da OAB daquela UF: a sede (o MESMO
-     "Editar sede" de cima), as subseções (adicionar e remover) e a nota explicativa. Tudo vem do GET das seccionais
-     (subseções e nota por UF); cada escrita é um POST com o token no header e recarrega as seccionais. No Mundo o
-     item tem o mesmo visual e o clique só avisa que a janela é dos estados do Brasil (DONO). O seletor de modos (L134) NÃO entra: os rótulos
-     e o efeito estão no trecho truncado do desenho (pendência da frente). */
-  const OAB_TOOLTIP = T('master.js.janela_oab.dica');
-  const OAB_SEM_ENDERECO = SEC_SEM_ENDERECO;
-  const OAB_NOTA_EXEMPLO = T('master.js.janela_oab.exemplo');
+     O estado ou a capital que falta (L140) abre, só no Brasil, a janela da OAB do estado ou da cidade: a sede (o MESMO
+     "Editar sede" do cartão, com os rótulos da janela), as subseções por cidade (adicionar e remover) e a nota do estado
+     ou da cidade. Tudo vem do GET das seccionais; cada escrita é um POST com o token no header e recarrega as
+     seccionais. No Mundo o item não tem ação (L885). */
   const OAB_MAPS = 'https://www.google.com/maps/search/?api=1&query=';
-  const OAB_SO_BRASIL = T('master.js.janela_oab.so_brasil');
-  const OAB_SEM_CARGA = T('master.js.seccionais.erro_carga');
-  const OAB = { uf: null, sub: '', rascunho: null, form: null, msg: null, enviando: false };
-  const conta = (n, um, varios) => (n === 1 ? '1 ' + um : num(n) + ' ' + varios);
-  // Unidade do número da linha (L118), coerente com a visão: Escritórios, Só primários ou Pessoas (spec, DONO).
-  // O singular é o termo do glossário (termos.*); o plural mora na área (o glossário guarda a forma normal).
-  const oabUnidade = () => (S.mapaQuem === 'esc' ? [T('termos.escritorio'), T('master.js.janela_oab.escritorios')] : S.mapaUsu === 'prim' ? [T('termos.primario'), T('master.js.janela_oab.primarios')] : [T('termos.usuario'), T('master.js.janela_oab.usuarios')]);
-  const oabQuantos = n => { const [um, varios] = oabUnidade(); return n > 0 ? conta(n, um, varios) : T('master.js.janela_oab.sem', { unidade: varios }); };
-  // Subtítulo do item (`f.sub`, DONO): "N subseções" quando há alguma, senão "sem endereço" sem a sede, senão nada.
-  const faltamSub = s => (!s ? '' : s.subsecoes.length ? conta(s.subsecoes.length, T('master.js.janela_oab.subsecao'), T('master.js.janela_oab.subsecoes')) : (s.endereco ? '' : T('master.js.janela_oab.sem_endereco')));
+  const OAB_BUSCA = 'https://www.google.com/search?q=';
+  const OAB_FUSO = 'America/Sao_Paulo';
+  const OAB = { uf: null, cidade: '', rascunho: null, form: null, msg: null, enviando: false };
+  const oabNotaDe = (sec, cidade) => (cidade ? (sec.notasCidades || {})[cidade] : sec.nota) || null;
+  // "Nota salva em dd/mm/aaaa, hh:mm" no fuso de Brasília (L896).
+  const oabDataHora = iso => new Intl.DateTimeFormat('pt-BR', { timeZone: OAB_FUSO, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 
-  // Item da lista dos que faltam (L140): ponto, nome, ícone de nota, subtítulo e seta. No Mundo, o mesmo visual do
-  // desenho (tooltip, seta, mão e realce); só a ação muda: o clique avisa que a janela é dos estados (DONO).
+  // Item da lista dos que faltam (L140): ponto, nome, ícone de nota, subtítulo (vazio no estado, a UF na capital) e
+  // seta. No Mundo, sem ação, sem mão e sem tooltip.
   function faltamItem(f) {
-    if (!f.uf) return '<div class="mp-faltam-uf is-oab" role="button" tabindex="0" data-oab-mundo title="' + OAB_TOOLTIP + '"><span class="mp-faltam-ponto"></span><span class="mp-faltam-nome">' + esc(f.r) + '</span><span class="mp-faltam-sub"></span><i class="bi bi-chevron-right"></i></div>';
-    const sec = secDe(f.uf);
-    return '<div class="mp-faltam-uf is-oab" role="button" tabindex="0" data-oab-uf="' + esc(f.uf) + '" title="' + OAB_TOOLTIP + '"><span class="mp-faltam-ponto"></span><span class="mp-faltam-nome">' + esc(f.r) + '</span>'
-      + (sec && sec.nota ? '<i class="bi bi-sticky-fill" title="' + esc(T('master.js.janela_oab.tem_nota')) + '"></i>' : '')
-      + '<span class="mp-faltam-sub">' + esc(faltamSub(sec)) + '</span><i class="bi bi-chevron-right"></i></div>';
+    const corpo = '<span class="mp-faltam-ponto"></span><span class="mp-faltam-nome">' + esc(f.r) + '</span>';
+    if (!f.uf) return '<div class="mp-faltam-uf">' + corpo + '<span class="mp-faltam-sub"></span><i class="bi bi-chevron-right"></i></div>';
+    const sec = secDe(f.uf), nota = sec && oabNotaDe(sec, f.cidade);
+    return '<div class="mp-faltam-uf is-oab" role="button" tabindex="0" data-oab-uf="' + esc(f.uf) + '" data-oab-cidade="' + esc(f.cidade) + '" title="' + esc(T('master.js.janela_oab.dica')) + '">' + corpo
+      + (nota ? '<i class="bi bi-sticky-fill" title="' + esc(T('master.js.janela_oab.tem_nota')) + '"></i>' : '')
+      + '<span class="mp-faltam-sub">' + esc(f.sub) + '</span><i class="bi bi-chevron-right"></i></div>';
   }
 
   // Host próprio da janela, dentro do #master-painel (o "Editar sede" e a confirmação sobem por cima, ver o CSS).
@@ -468,16 +499,25 @@
     elOab.className = 'mp-oab-host';
     raiz.appendChild(elOab);
     elOab.addEventListener('click', oabClique);
-    elOab.addEventListener('input', e => {
-      if (e.target.matches('[data-oab-nota]')) OAB.rascunho = e.target.value;
-      if (e.target.matches('[data-oab-form]') && OAB.form) OAB.form[e.target.dataset.oabForm] = e.target.value;
-    });
+    elOab.addEventListener('input', oabDigitou);
     return elOab;
   }
 
+  // O nome vem preenchido com "Subseção de <cidade>" (L894) e acompanha a cidade até a pessoa mexer nele.
+  function oabDigitou(e) {
+    if (e.target.matches('[data-oab-nota]')) OAB.rascunho = e.target.value;
+    const chave = e.target.dataset.oabForm; if (!chave || !OAB.form) return;
+    OAB.form[chave] = e.target.value;
+    if (chave === 'nome') OAB.form.nomeAuto = false;
+    if (chave !== 'cidade') return;
+    const cidade = e.target.value.trim(), nome = elOab.querySelector('[data-oab-form="nome"]'), rotulo = elOab.querySelector('[data-oab-nome-rotulo]');
+    if (rotulo) rotulo.textContent = T('master.js.janela_oab.campo_nome', { cidade: cidade || '…' });
+    if (OAB.form.nomeAuto && nome) { OAB.form.nome = cidade ? T('master.js.janela_oab.nome_padrao', { cidade }) : ''; nome.value = OAB.form.nome; }
+  }
+
   // Carga das seccionais falhada antes: o clique tenta de novo (se falhar outra vez, o renderOab avisa).
-  function abrirOab(uf, sub) {
-    Object.assign(OAB, { uf, sub, rascunho: null, form: null, msg: null, enviando: false });
+  function abrirOab(uf, cidade) {
+    Object.assign(OAB, { uf, cidade: cidade || '', rascunho: null, form: null, msg: null, enviando: false });
     if (SEC.estado === 'falhou') SEC.estado = null;
     secGarantir();
     renderOab();
@@ -489,15 +529,17 @@
   // mostra o aviso de erro do painel.
   function renderOab() {
     const host = oabHost(), sec = OAB.uf ? secDe(OAB.uf) : null;
-    if (OAB.uf && !sec && SEC.estado === 'falhou') { OAB.uf = null; oabAvisar(OAB_SEM_CARGA); }
+    if (OAB.uf && !sec && SEC.estado === 'falhou') { OAB.uf = null; avisarNoMapa(T('master.js.seccionais.erro_carga')); }
     raiz.classList.toggle('mp-oab-aberta', !!sec);
     host.innerHTML = sec ? oabJanela(sec) : '';
   }
 
-  // L482-484 e L493: fundo, caixa, faixa azul com título e subtítulo e o X; rodapé com "Fechar" e "Salvar nota".
+  // L482-484 e L889: título (estado, ou "<Cidade> · <UF>") e subtítulo do desenho; rodapé com "Fechar" e "Salvar nota".
   function oabJanela(sec) {
+    const tit = OAB.cidade ? T('master.js.janela_oab.titulo_cidade', { cidade: OAB.cidade, uf: sec.uf }) : secEstado(sec);
+    const sub = OAB.cidade ? T('master.js.janela_oab.sub_cidade', { uf: sec.uf }) : T('master.js.janela_oab.sub_estado', { uf: sec.uf });
     return '<div class="mp-oab-fundo" data-oab-fechar></div><div class="mp-oab-centro"><div class="mp-oab" role="dialog" aria-modal="true" aria-labelledby="mpOabTitulo">'
-      + '<div class="mp-oab-cab"><i class="bi bi-bank"></i><span class="mp-oab-cab-txt"><b id="mpOabTitulo">' + esc(sec.nome) + '</b><span>' + esc(OAB.sub) + '</span></span>'
+      + '<div class="mp-oab-cab"><i class="bi bi-bank"></i><span class="mp-oab-cab-txt"><b id="mpOabTitulo">' + esc(tit) + '</b><span>' + esc(sub) + '</span></span>'
       + '<button type="button" data-oab-fechar title="' + esc(T('master.js.fechar')) + '" aria-label="' + esc(T('master.js.fechar')) + '"><i class="bi bi-x-lg"></i></button></div>'
       + '<div class="mp-oab-corpo">' + oabSede(sec) + oabSubsecoes(sec) + oabNota(sec)
       + (OAB.msg ? '<span class="mp-oab-msg' + (OAB.msg.ok ? ' is-ok' : '') + '" role="status">' + esc(OAB.msg.texto) + '</span>' : '') + '</div>'
@@ -505,89 +547,106 @@
       + '<button type="button" class="mp-oab-salvar" data-oab-nota-salvar' + (OAB.enviando ? ' disabled' : '') + '><i class="bi bi-check2"></i> ' + T('master.js.janela_oab.salvar_nota') + '</button></div></div></div>';
   }
 
-  // L486: SECCIONAL · SEDE com "Editar", endereço (cinza quando falta), telefone, "Ver no mapa" e "Site oficial".
+  // L486 e L889-890: SECCIONAL · SEDE com "Editar", endereço ("Endereço ainda não cadastrado" em cinza), telefone,
+  // "Ver no mapa" e "Site oficial".
   function oabSede(sec) {
-    const site = /^https:\/\//i.test(sec.site || '') ? sec.site : null, mapa = sec.endereco ? OAB_MAPS + encodeURIComponent(sec.endereco) : null;
+    const site = secSite(sec.site), mapa = sec.endereco ? OAB_MAPS + encodeURIComponent(sec.endereco) : null;
     return '<div class="mp-oab-sede"><div class="mp-oab-tit"><b>' + T('master.js.janela_oab.sede') + '</b><button type="button" class="mp-oab-editar" data-oab-editar><i class="bi bi-pencil"></i> ' + T('master.js.janela_oab.editar') + '</button></div>'
-      + '<div class="mp-oab-end' + (sec.endereco ? '' : ' is-vazio') + '">' + esc(sec.endereco || OAB_SEM_ENDERECO) + '</div>'
+      + '<div class="mp-oab-end' + (sec.endereco ? '' : ' is-vazio') + '">' + esc(sec.endereco || T('master.js.janela_oab.sem_endereco_sede')) + '</div>'
       + (sec.telefone ? '<div class="mp-oab-tel"><i class="bi bi-telephone"></i> ' + esc(sec.telefone) + '</div>' : '')
       + '<div class="mp-oab-links">' + (mapa ? '<a href="' + esc(mapa) + '" target="_blank" rel="noopener"><i class="bi bi-geo-alt"></i> ' + T('master.js.janela_oab.ver_mapa') + '</a>' : '')
       + (site ? '<a href="' + esc(site) + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> ' + T('master.js.janela_oab.site_oficial') + '</a>' : '') + '</div></div>';
   }
 
-  // L487-489: SUBSEÇÕES com "Adicionar endereço", o formulário (convenção), o texto vazio do desenho e a lista.
+  // L487-489 e L893-895: SUBSEÇÕES. Na janela do estado, as de todas as cidades da UF; na da cidade, só as dela. Vazio:
+  // o texto do desenho com a busca do endereço oficial no Google.
   function oabSubsecoes(sec) {
+    const lista = OAB.cidade ? sec.subsecoes.filter(x => semAcento(x.cidade) === semAcento(OAB.cidade)) : sec.subsecoes;
+    const busca = OAB.cidade ? T('master.js.janela_oab.busca_cidade', { cidade: OAB.cidade, estado: secEstado(sec) }) : T('master.js.janela_oab.busca_estado', { estado: secEstado(sec) });
     return '<div class="mp-oab-subs"><div class="mp-oab-tit"><b>' + T('master.js.janela_oab.subsecoes_titulo') + '</b><button type="button" class="mp-oab-add" data-oab-sub-add><i class="bi bi-plus-lg"></i> ' + T('master.js.janela_oab.adicionar_endereco') + '</button></div>'
       + (OAB.form ? oabFormulario() : '')
-      + (sec.subsecoes.length ? '' : '<div class="mp-oab-subs-vazio">' + T('master.js.janela_oab.subs_vazio', { link: '<a href="' + SEC_CFOAB + '" target="_blank" rel="noopener">' + T('master.js.janela_oab.pesquisar') + '</a>' }) + '</div>')
-      + sec.subsecoes.map(x => '<div class="mp-oab-sub"><i class="bi bi-geo-alt"></i><span><b>' + esc(x.nome) + '</b><span>' + esc(x.endereco) + '</span>'
+      + (lista.length ? '' : '<div class="mp-oab-subs-vazio">' + T('master.js.janela_oab.subs_vazio', { link: '<a href="' + esc(OAB_BUSCA + encodeURIComponent(busca)) + '" target="_blank" rel="noopener">' + T('master.js.janela_oab.pesquisar') + '</a>' }) + '</div>')
+      + lista.map(x => '<div class="mp-oab-sub"><i class="bi bi-geo-alt"></i><span><b>' + esc(x.nome) + '</b><span>' + esc(x.endereco) + '</span>'
         + (x.telefone ? '<span class="mp-oab-sub-tel">' + esc(x.telefone) + '</span>' : '') + '</span>'
         + '<button type="button" title="' + esc(T('master.js.janela_oab.remover')) + '" aria-label="' + esc(T('master.js.janela_oab.remover')) + '" data-oab-sub-rm="' + esc(x.id) + '"><i class="bi bi-trash3"></i></button></div>').join('') + '</div>';
   }
 
-  // "Adicionar endereço" abre o formulário na própria janela (spec: nome, endereço e telefone). O desenho não o mostra.
-  const oabCampo = (rotulo, chave, max) => '<label class="mp-oab-campo"><span>' + rotulo + '</span><input type="text" maxlength="' + max + '" data-oab-form="' + chave + '" value="' + esc(OAB.form[chave]) + '"></label>';
+  // "Adicionar endereço" (L894): os campos dos prompts do desenho num formulário na própria janela. A cidade só é
+  // pedida na janela do estado; na da cidade, vem dela.
+  const oabCampo = (rotulo, chave, max, extra) => '<label class="mp-oab-campo"><span' + (extra || '') + '>' + esc(rotulo) + '</span><input type="text" maxlength="' + max + '" data-oab-form="' + chave + '" value="' + esc(OAB.form[chave]) + '"></label>';
   function oabFormulario() {
-    return '<div class="mp-oab-form">' + oabCampo(T('master.js.campo.nome'), 'nome', 120) + oabCampo(T('master.js.campo.endereco'), 'endereco', 255) + oabCampo(T('master.js.campo.telefone'), 'telefone', 40)
+    const cidade = OAB.cidade || OAB.form.cidade.trim();
+    return '<div class="mp-oab-form">' + (OAB.cidade ? '' : oabCampo(T('master.js.janela_oab.campo_cidade'), 'cidade', 120))
+      + oabCampo(T('master.js.janela_oab.campo_nome', { cidade: cidade || '…' }), 'nome', 120, ' data-oab-nome-rotulo')
+      + oabCampo(T('master.js.janela_oab.campo_endereco_completo'), 'endereco', 255) + oabCampo(T('master.js.janela_oab.campo_telefone'), 'telefone', 40)
       + '<div class="mp-oab-form-acoes"><button type="button" class="mp-oab-form-cancelar" data-oab-form-cancelar>' + T('master.js.cancelar') + '</button>'
       + '<button type="button" class="mp-oab-form-ok" data-oab-form-ok' + (OAB.enviando ? ' disabled' : '') + '>' + T('master.js.janela_oab.adicionar') + '</button></div></div>';
   }
 
-  // L491: NOTA EXPLICATIVA, o campo com o exemplo do desenho e a data da última gravação (formato DONO).
+  // L491 e L896: NOTA EXPLICATIVA do estado ou da cidade e "Nota salva em dd/mm/aaaa, hh:mm".
   function oabNota(sec) {
-    const texto = OAB.rascunho !== null ? OAB.rascunho : (sec.nota ? sec.nota.texto : '');
-    return '<label class="mp-oab-nota">' + T('master.js.janela_oab.nota') + '<textarea rows="3" maxlength="1000" data-oab-nota placeholder="' + OAB_NOTA_EXEMPLO + '">' + esc(texto) + '</textarea>'
-      + '<span>' + (sec.nota ? esc(T('master.js.janela_oab.atualizada', { data: dataBr(sec.nota.atualizadaEm) })) : '') + '</span></label>';
+    const nota = oabNotaDe(sec, OAB.cidade), texto = OAB.rascunho !== null ? OAB.rascunho : (nota ? nota.texto : '');
+    return '<label class="mp-oab-nota">' + T('master.js.janela_oab.nota') + '<textarea rows="3" maxlength="1000" data-oab-nota placeholder="' + esc(T('master.js.janela_oab.exemplo')) + '">' + esc(texto) + '</textarea>'
+      + '<span>' + (nota ? esc(T('master.js.janela_oab.nota_salva', { data: oabDataHora(nota.atualizadaEm) })) : '') + '</span></label>';
   }
 
   function oabClique(e) {
     const t = e.target, sec = secDe(OAB.uf);
     if (t.closest('[data-oab-fechar]')) return fecharOab();
     if (!sec) return;
-    if (t.closest('[data-oab-editar]')) return secAbrirEdicao(sec);
-    if (t.closest('[data-oab-sub-add]')) { OAB.form = OAB.form || { nome: '', endereco: '', telefone: '' }; OAB.msg = null; renderOab(); return elOab.querySelector('[data-oab-form="nome"]').focus(); }
+    if (t.closest('[data-oab-editar]')) return secAbrirEdicao(sec, 'janela');
+    if (t.closest('[data-oab-sub-add]')) return oabAbrirFormulario();
     if (t.closest('[data-oab-form-cancelar]')) { OAB.form = null; return renderOab(); }
-    if (t.closest('[data-oab-form-ok]')) return oabEnviar(SEC.dados.urlSubsecoes.replace('/XX/', '/' + OAB.uf + '/'), OAB.form, () => { OAB.form = null; });
+    if (t.closest('[data-oab-form-ok]')) return oabEnviar(SEC.dados.urlSubsecoes.replace('/XX/', '/' + OAB.uf + '/'), oabCorpoDaSubsecao(), () => { OAB.form = null; }, false);
     const rm = t.closest('[data-oab-sub-rm]'); if (rm) return oabPedirRemocao(sec, +rm.dataset.oabSubRm);
-    if (t.closest('[data-oab-nota-salvar]')) return oabEnviar(SEC.dados.urlNota.replace('/XX/', '/' + OAB.uf + '/'), { texto: elOab.querySelector('[data-oab-nota]').value }, () => {});
+    if (t.closest('[data-oab-nota-salvar]')) return oabEnviar(SEC.dados.urlNota.replace('/XX/', '/' + OAB.uf + '/'), { texto: elOab.querySelector('[data-oab-nota]').value, cidade: OAB.cidade }, () => {}, true);
   }
 
-  // "Remover" pede a confirmação do painel (BJMasterConf, que escreve o texto com textContent).
+  function oabAbrirFormulario() {
+    OAB.form = OAB.form || { cidade: '', nome: OAB.cidade ? T('master.js.janela_oab.nome_padrao', { cidade: OAB.cidade }) : '', endereco: '', telefone: '', nomeAuto: true };
+    OAB.msg = null; renderOab();
+    elOab.querySelector(OAB.cidade ? '[data-oab-form="nome"]' : '[data-oab-form="cidade"]').focus();
+  }
+
+  const oabCorpoDaSubsecao = () => ({ cidade: OAB.cidade || OAB.form.cidade, nome: OAB.form.nome, endereco: OAB.form.endereco, telefone: OAB.form.telefone });
+
+  // "Remover" pede a confirmação do desenho, "Remover este endereço?", na janela de confirmação do painel (BJMasterConf).
   function oabPedirRemocao(sec, id) {
     const escolhida = sec.subsecoes.find(v => v.id === id); if (!escolhida || !window.BJMasterConf) return;
     const url = SEC.dados.urlSubsecaoRemover.replace('/XX/', '/' + sec.uf + '/').replace('/0/', '/' + id + '/');
     window.BJMasterConf.abrir({ titulo: T('master.js.janela_oab.remover_titulo'), icone: 'bi-trash3', cor: '#a3232b', botao: T('master.js.janela_oab.remover'),
       texto: T('master.js.janela_oab.remover_texto', { nome: escolhida.nome }),
-      aoConfirmar: () => { window.BJMasterConf.fechar(); oabEnviar(url, {}, () => {}); } });
+      aoConfirmar: () => { window.BJMasterConf.fechar(); oabEnviar(url, {}, () => {}, false); } });
   }
 
-  // Um envio por vez; o sucesso mostra a mensagem do servidor e recarrega as seccionais (a janela acompanha).
-  function oabEnviar(url, corpo, aoDarCerto) {
+  // Um envio por vez; o sucesso mostra a mensagem do servidor (ou fecha a janela, no "Salvar nota", L896) e recarrega
+  // as seccionais (a janela e a lista dos que faltam acompanham).
+  function oabEnviar(url, corpo, aoDarCerto, fechar) {
     if (OAB.enviando) return;
     OAB.enviando = true; OAB.msg = null; renderOab();
     secPostar(url, corpo, j => {
-      OAB.enviando = false; aoDarCerto(); OAB.msg = { ok: true, texto: j.mensagem }; renderOab(); window.__bjSeccionaisRecarregar();
+      OAB.enviando = false; aoDarCerto(); OAB.msg = { ok: true, texto: j.mensagem };
+      if (fechar) fecharOab(); else renderOab();
+      window.__bjSeccionaisRecarregar();
     }, erro => { OAB.enviando = false; OAB.msg = { ok: false, texto: erro || SEC_ERRO_SALVAR }; renderOab(); });
   }
 
   // Aviso do painel (avisoHtml), embaixo do total da tabela de UFs.
-  function oabAvisar(msg) {
+  function avisarNoMapa(msg) {
     S.aviso = msg ? { ok: false, msg } : null;
     if (S.sec === 'visao' && D.visao && document.getElementById('mp-uf-tab')) renderMapa();
   }
 
-  // Estado que falta e linha da UF: clique ou Enter/Espaço abrem a janela (Brasil); no Mundo, só o aviso.
-  // O número da linha (data-oab-n) é comparado como número: "0" ou 0 vira "sem usuários/escritórios/primários".
-  function oabPeloAlvo(alvo) {
-    if (alvo.hasAttribute('data-oab-mundo')) return oabAvisar(OAB_SO_BRASIL);
-    const uf = alvo.dataset.oabUf, n = Number(alvo.dataset.oabN || 0);
-    if (S.aviso) oabAvisar(null);
-    abrirOab(uf, T('master.js.janela_oab.subtitulo', { uf, quantos: oabQuantos(n) }));
+  // Item dos que faltam: abre a janela do estado ou da cidade. Linha da UF no modo OAB: abre o cartão da sede.
+  function mapaPeloAlvo(alvo) {
+    if (S.aviso) avisarNoMapa(null);
+    if (alvo.hasAttribute('data-sec-linha')) { SEC.aberta = alvo.dataset.secLinha; return renderMapa(); }
+    abrirOab(alvo.dataset.oabUf, alvo.dataset.oabCidade);
   }
-  elSecao.addEventListener('click', e => { const alvo = e.target.closest('[data-oab-uf], [data-oab-mundo]'); if (alvo) oabPeloAlvo(alvo); });
+  elSecao.addEventListener('click', e => { const alvo = e.target.closest('[data-oab-uf], [data-sec-linha]'); if (alvo) mapaPeloAlvo(alvo); });
   elSecao.addEventListener('keydown', e => {
-    const alvo = (e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-oab-uf], [data-oab-mundo]');
-    if (alvo) { e.preventDefault(); oabPeloAlvo(alvo); }
+    const alvo = (e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-oab-uf], [data-sec-linha]');
+    if (alvo) { e.preventDefault(); mapaPeloAlvo(alvo); }
   });
   // Esc fecha a janela só quando nada está aberto por cima (Editar sede ou a confirmação): captura, antes dos outros.
   document.addEventListener('keydown', e => {
@@ -1131,6 +1190,7 @@
     const quem = t.closest('[data-mapa-quem]'); if (quem) { S.mapaQuem = quem.dataset.mapaQuem; return renderMapa(); }
     const usu = t.closest('[data-mapa-usu]'); if (usu) { S.mapaUsu = usu.dataset.mapaUsu; return renderMapa(); }
     const modo = t.closest('[data-mapa-modo]'); if (modo) { S.mapaModo = modo.dataset.mapaModo; return renderMapa(); }
+    const fm = t.closest('[data-faltam-modo]'); if (fm) { S.faltamCid = fm.dataset.faltamModo === '1'; return renderMapa(); }
     if (t.closest('[data-faltam]')) { S.faltamOn = !S.faltamOn; return renderMapa(); }
     const menu = t.closest('[data-menu]');
     if (menu) { e.stopPropagation(); const id = +menu.dataset.menu; return S.menu === id ? fecharMenuDaConta() : abrirMenuDaConta(id, posDoBotao(menu)); }

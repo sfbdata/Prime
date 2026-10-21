@@ -36,7 +36,7 @@ final class RemoverSubsecaoDaSeccionalUseCaseTest extends TestCase
     #[TestDox('busca pelo id na UF da URL e apaga dentro do escopo de plataforma')]
     public function testRemove(): void
     {
-        $subsecao = new SubsecaoOab(new SeccionalOab('CE', 'OAB Seccional Ceará'), 'Subseção', 'Rua', null, null, new \DateTimeImmutable());
+        $subsecao = new SubsecaoOab(new SeccionalOab('CE', 'OAB Seccional Ceará'), 'Sobral', 'Subseção', 'Rua', null, null, new \DateTimeImmutable());
         $this->subsecoes->method('buscarNaSeccional')->with(7, 'CE')->willReturn($subsecao);
         $this->subsecoes->expects($this->once())->method('remover')->with($subsecao, true)
             ->willReturnCallback(fn () => self::assertTrue($this->escopo->estaLigado(), 'apaga dentro do escopo de plataforma'));

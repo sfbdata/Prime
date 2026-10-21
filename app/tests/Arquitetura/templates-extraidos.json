@@ -70,6 +70,29 @@
         ]
     },
 
+    "comercial": {
+        "templates": [
+            "master/_comercial.html.twig",
+            "master/_comercial_descadastrados.html.twig",
+            "master/_comercial_kpis.html.twig",
+            "master/_comercial_leitura.html.twig",
+            "master/_comercial_teste.html.twig"
+        ],
+        "js": [
+            "master/comercial.js",
+            "master/comercial-campanha.js",
+            "master/comercial-descadastrados.js",
+            "master/comercial-leitura.js",
+            "master/comercial-teste.js"
+        ],
+        "permitidos": [
+            "B",
+            "Content-Type",
+            "Accept",
+            "Escape"
+        ]
+    },
+
     "comercial_relatorio": {
         "templates": [
             "master/_comercial_relatorio.html.twig"
@@ -288,7 +311,33 @@
             "Polygon",
             "Content-Type",
             "Escape",
-            "Enter"
+            "Enter",
+            "Rio Branco",
+            "Maceió",
+            "Macapá",
+            "Manaus",
+            "Salvador",
+            "Fortaleza",
+            "Brasília",
+            "Vitória",
+            "Goiânia",
+            "São Luís",
+            "Cuiabá",
+            "Campo Grande",
+            "Belo Horizonte",
+            "Belém",
+            "João Pessoa",
+            "Curitiba",
+            "Recife",
+            "Teresina",
+            "Natal",
+            "Porto Alegre",
+            "Porto Velho",
+            "Boa Vista",
+            "Florianópolis",
+            "Aracaju",
+            "Palmas",
+            "America/Sao_Paulo"
         ]
     },
 
@@ -310,27 +359,44 @@
         ]
     },
 
-    "cobranca_carteira": {
+    "mapa_brasil": {
         "templates": [
-            "cobranca/carteira/index.html.twig",
-            "cobranca/carteira/_resultado.html.twig",
-            "cobranca/carteira/_paginacao.html.twig",
-            "cobranca/carteira/show.html.twig",
-            "cobranca/carteira/_resultado_casos.html.twig",
-            "cobranca/carteira/_acoes_modais.html.twig",
-            "cobranca/carteira/_campos_config.html.twig",
-            "cobranca/dashboard/index.html.twig",
-            "cobranca/alertas/index.html.twig",
-            "cobranca/importacao/upload.html.twig",
-            "cobranca/importacao/preview.html.twig"
+            "master/mapa_brasil.html.twig"
         ],
         "js": [
-            "cobranca-carteira-form.js",
-            "cobranca-soltar-arquivo.js"
+            "master/mapa-brasil.js"
         ],
         "permitidos": [
-            "cs-body",
-            "resources.carteira.gerenciar"
+            "Rondônia",
+            "Acre",
+            "Amazonas",
+            "Roraima",
+            "Pará",
+            "Amapá",
+            "Tocantins",
+            "Maranhão",
+            "Piauí",
+            "Ceará",
+            "Rio Grande do Norte",
+            "Paraíba",
+            "Pernambuco",
+            "Alagoas",
+            "Sergipe",
+            "Bahia",
+            "Minas Gerais",
+            "Espírito Santo",
+            "Rio de Janeiro",
+            "São Paulo",
+            "Paraná",
+            "Santa Catarina",
+            "Rio Grande do Sul",
+            "Mato Grosso do Sul",
+            "Mato Grosso",
+            "Goiás",
+            "Distrito Federal",
+            "Content-Type",
+            "Escape",
+            "Polygon"
         ]
     },
 
@@ -407,6 +473,41 @@
         ],
         "permitidos": [
             "ag-body"
+        ]
+    },
+
+    "pasta_financeiro": {
+        "templates": [
+            "pasta/_financeiro.html.twig",
+            "pasta/_financeiro_obs_script.html.twig",
+            "pasta/_financeiro_pagamentos.html.twig",
+            "pasta/_financeiro_pagamentos_script.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
+    },
+
+    "cobranca_carteira": {
+        "templates": [
+            "cobranca/carteira/index.html.twig",
+            "cobranca/carteira/_resultado.html.twig",
+            "cobranca/carteira/_paginacao.html.twig",
+            "cobranca/carteira/show.html.twig",
+            "cobranca/carteira/_resultado_casos.html.twig",
+            "cobranca/carteira/_acoes_modais.html.twig",
+            "cobranca/carteira/_campos_config.html.twig",
+            "cobranca/dashboard/index.html.twig",
+            "cobranca/alertas/index.html.twig",
+            "cobranca/importacao/upload.html.twig",
+            "cobranca/importacao/preview.html.twig"
+        ],
+        "js": [
+            "cobranca-carteira-form.js",
+            "cobranca-soltar-arquivo.js"
+        ],
+        "permitidos": [
+            "cs-body",
+            "resources.carteira.gerenciar"
         ]
     }
 }

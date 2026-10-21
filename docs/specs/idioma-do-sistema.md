@@ -330,7 +330,6 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   `Tarefa::prazoInfo`, fatias do andamento, prioridade da pasta, título e descrição das listas da equipe),
   `filtro-tabela.js` e `pasta-metas.js` (vão com a Pasta) e o placeholder padrão do `_partials/_filtro_barra`.
 
-
 ## 11. A Pasta, aba Processo (0d, 21/10)
 
 - **Blocos de topo por aba**, combinados com a f6: `pasta_processo` (este), `pasta_push` (próximo PR da 0d) e
@@ -489,6 +488,19 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   `_filtro_paginacao` e a ficha da pessoa carregada por AJAX, de `cobranca/pessoa`); os JS externos
   `judicializar-buscar-pasta.js`, `objeto-linha-menu.js`, `pasta-arquivos.js` e `editor-rico.js` (têm texto) e
   `filtro-tabela.js` e `telefone-mascara.js` (sem texto, mas compartilhados com outras telas), que não entraram na guarda.
+
+## 17. Extração do Financeiro da pasta (f6, 21/10)
+
+Bloco `pasta_financeiro` do catálogo, 197 chaves: 92 do Twig (`comum`, `contrato`, `pro_bono`, `honorarios`, `media`,
+`relatorio`, `menu_registro`, `registro`, `arquivos`, `pagamentos`, `corpo`) e 105 dos scripts da aba
+(`pasta_financeiro.js`, entregue uma vez pelo `_financeiro.html.twig`). Os scripts inline rodam antes do `bj-traducao.js`
+(o base o carrega no fim do corpo), então só pedem texto dentro das funções, na hora do uso. Formatos: `|data` na data do
+arquivo, `|data_hora` no "Editado em" e `|hora` na hora do registro; o `title` da hora do registro segue `d/m/Y H:i`
+fixo (o JS compara o dia dele com o `criadaEm` que o servidor manda nesse formato), e a pílula do dia (`mesesFin`,
+`MESES`), o `toLocale*('pt-BR')` e o `R$` do JS ficam para o formato por idioma. Ficou de fora o texto que vem do PHP:
+`financeiro.mediaRotulo`, `linha.quando`, `linha.estado`, `linha.historicoDeCorrecoes`, o rótulo de `arquivo_icone`
+(e o espelho dele no JS, travado pelo `PastaFinanceiroIconeEspelhoFolhaTest`), o `meta` do upload e os `erro`/`mensagem`
+das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio) foi comparado antes e depois, sem diferença.
 
 ## 15. Cobrança: carteiras, painel, alertas e importação (0d, 21/10)
 

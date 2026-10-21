@@ -10,7 +10,6 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Master\Controller\SeccionaisOabController;
-use App\Master\Entity\DivulgacaoNaSeccional;
 use App\Master\Entity\SeccionalOab;
 use App\Tests\Factory\Auth\UserFactory;
 use App\Tests\Factory\Tenant\TenantFactory;
@@ -55,7 +54,7 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
         $this->vincular($this->comum);
     }
 
-    #[TestDox('GET: as 27 seccionais em ordem de UF, só UF e nome na carga, com o token e o molde da URL da sede')]
+    #[TestDox('GET: as 27 seccionais em ordem de UF, só UF e nome na carga, visíveis e sem marca, com o token e os moldes das URLs')]
     public function testListaAs27(): void
     {
         $this->entrar($this->master);
@@ -71,11 +70,15 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
         self::assertNull($sp['endereco'], 'a carga não inventa endereço');
         self::assertNull($sp['telefone']);
         self::assertNull($sp['site']);
+        self::assertIsInt($sp['inscricoes']);
+        self::assertSame(['uf', 'nome', 'endereco', 'telefone', 'site', 'inscricoes', 'visivel', 'marca', 'subsecoes', 'nota', 'notasCidades'], array_keys($sp), 'desenho 05: sem divulgações nem "5 últimas"');
         self::assertNotEmpty($json['token']);
         self::assertSame('/master/seccionais/XX/sede', $json['urlSede']);
+        self::assertSame('/master/seccionais/XX/visibilidade', $json['urlVisibilidade']);
+        self::assertSame('/master/seccionais/mostrar-todas', $json['urlMostrarTodas']);
     }
 
-    #[TestDox('quem não é Master: 403 no GET e nos dois POST, e nada muda')]
+    #[TestDox('quem não é Master: 403 no GET e nos POST (sede, divulgação, visibilidade, mostrar todas), e nada muda')]
     public function testNaoMaster403(): void
     {
         $this->entrar($this->comum);
@@ -84,11 +87,17 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
         $this->postar('/master/seccionais/SP/sede', ['endereco' => 'Rua Invasora']);
         self::assertResponseStatusCodeSame(403);
-        $this->postar('/master/seccionais/SP/divulgacoes', ['tipo' => 'material']);
+        $this->postar('/master/seccionais/SP/divulgacoes', ['status' => 'env', 'cor' => '#e53935']);
+        self::assertResponseStatusCodeSame(403);
+        $this->postar('/master/seccionais/SP/visibilidade', ['visivel' => false]);
+        self::assertResponseStatusCodeSame(403);
+        $this->postar('/master/seccionais/mostrar-todas', []);
         self::assertResponseStatusCodeSame(403);
 
-        self::assertNull($this->seccional('SP')->getEndereco());
-        self::assertSame(0, $this->divulgacoesDe('SP'));
+        $sp = $this->seccional('SP');
+        self::assertNull($sp->getEndereco());
+        self::assertNull($sp->getMarcaStatus());
+        self::assertTrue($sp->isVisivel());
     }
 
     #[TestDox('UF fora das 27 (ou minúscula): 404')]
@@ -99,9 +108,11 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
         $this->postar('/master/seccionais/XX/sede', ['endereco' => 'Rua']);
         self::assertResponseStatusCodeSame(404);
         self::assertSame('Seccional não encontrada.', $this->json()['erro']);
-        $this->postar('/master/seccionais/ZZ/divulgacoes', ['tipo' => 'material']);
+        $this->postar('/master/seccionais/ZZ/divulgacoes', ['status' => 'env', 'cor' => '#e53935']);
         self::assertResponseStatusCodeSame(404);
-        $this->postar('/master/seccionais/sp/divulgacoes', ['tipo' => 'material']);
+        $this->postar('/master/seccionais/sp/divulgacoes', ['status' => 'env', 'cor' => '#e53935']);
+        self::assertResponseStatusCodeSame(404);
+        $this->postar('/master/seccionais/XX/visibilidade', ['visivel' => false]);
         self::assertResponseStatusCodeSame(404);
     }
 
@@ -113,11 +124,17 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
         $this->postar('/master/seccionais/SP/sede', ['endereco' => 'Rua'], token: 'errado');
         self::assertResponseStatusCodeSame(403);
         self::assertSame('Token CSRF inválido. Recarregue a página.', $this->json()['erro']);
-        $this->postar('/master/seccionais/SP/divulgacoes', ['tipo' => 'material'], token: '');
+        $this->postar('/master/seccionais/SP/divulgacoes', ['status' => 'env', 'cor' => '#e53935'], token: '');
+        self::assertResponseStatusCodeSame(403);
+        $this->postar('/master/seccionais/SP/visibilidade', ['visivel' => false], token: 'errado');
+        self::assertResponseStatusCodeSame(403);
+        $this->postar('/master/seccionais/mostrar-todas', [], token: 'errado');
         self::assertResponseStatusCodeSame(403);
 
-        self::assertNull($this->seccional('SP')->getEndereco());
-        self::assertSame(0, $this->divulgacoesDe('SP'));
+        $sp = $this->seccional('SP');
+        self::assertNull($sp->getEndereco());
+        self::assertNull($sp->getMarcaStatus());
+        self::assertTrue($sp->isVisivel());
     }
 
     #[TestDox('editar sede: 200 com a mensagem, grava, e a auditoria fica sem escritório (plataforma)')]
@@ -136,14 +153,17 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
         $this->assertAuditoriaDePlataforma(SeccionalOab::class);
     }
 
-    #[TestDox('editar sede: site sem https:// e endereço longo dão 422 com a mensagem')]
+    #[TestDox('editar sede: http:// é aceito (desenho 05); site sem esquema e endereço longo dão 422 com a mensagem')]
     public function testEditarSede422(): void
     {
         $this->entrar($this->master);
 
-        $this->postar('/master/seccionais/RJ/sede', ['site' => 'http://sede.exemplo.test']);
+        $this->postar('/master/seccionais/AL/sede', ['site' => 'http://sede.exemplo.test']);
+        self::assertResponseIsSuccessful();
+        self::assertSame('http://sede.exemplo.test', $this->seccional('AL')->getSite());
+        $this->postar('/master/seccionais/RJ/sede', ['site' => 'sede.exemplo.test']);
         self::assertResponseStatusCodeSame(422);
-        self::assertSame('Informe o site completo, começando com https://.', $this->json()['erro']);
+        self::assertSame('Informe o site completo, começando com http:// ou https://.', $this->json()['erro']);
         $this->postar('/master/seccionais/RJ/sede', ['endereco' => str_repeat('a', 256)]);
         self::assertResponseStatusCodeSame(422);
         self::assertSame('O endereço passa de 255 caracteres.', $this->json()['erro']);
@@ -151,40 +171,100 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
         self::assertNull($this->seccional('RJ')->getAtualizadoEm());
     }
 
-    #[TestDox('registrar divulgação: 200 com a mensagem, aparece como última no GET e a auditoria fica sem escritório')]
+    #[TestDox('registrar divulgação: 200 com a mensagem, grava status, cor e data na seccional, sai como marca no GET e a auditoria fica sem escritório')]
     public function testRegistrarDivulgacao(): void
     {
         $this->entrar($this->master);
 
-        $this->postar('/master/seccionais/MG/divulgacoes', ['tipo' => 'parceria', 'nota' => 'Convênio com a seccional']);
+        $this->postar('/master/seccionais/MG/divulgacoes', ['status' => 'cli', 'cor' => '#43A047', 'data' => '2026-10-20']);
 
         self::assertResponseIsSuccessful();
-        self::assertSame(['mensagem' => 'Divulgação registrada na OAB Seccional Minas Gerais: Parceria.'], $this->json());
-        $this->assertAuditoriaDePlataforma(DivulgacaoNaSeccional::class);
+        self::assertSame(['mensagem' => 'Divulgação registrada na OAB Seccional Minas Gerais: Parceria firmada.'], $this->json());
+        $this->assertAuditoriaDePlataforma(SeccionalOab::class);
 
         $this->client->request('GET', '/master/dados/seccionais', server: ['HTTP_ACCEPT' => 'application/json']);
-        $mg = array_values(array_filter($this->json()['seccionais'], static fn (array $s): bool => $s['uf'] === 'MG'))[0];
-        self::assertSame('parceria', $mg['ultima']['tipo']);
-        self::assertSame('Parceria', $mg['ultima']['rotulo']);
-        self::assertSame('Master das Seccionais', $mg['ultimas'][0]['autor']);
-        self::assertSame('Convênio com a seccional', $mg['ultimas'][0]['nota']);
+        $mg = $this->daUf('MG');
+        self::assertSame(['status' => 'cli', 'rotulo' => 'Parceria firmada', 'cor' => '#43a047', 'data' => '2026-10-20'], $mg['marca']);
     }
 
-    #[TestDox('registrar divulgação: tipo desconhecido, data no futuro e corpo vazio dão 422')]
+    #[TestDox('registrar divulgação sem data: a data é hoje')]
+    public function testRegistrarDivulgacaoSemData(): void
+    {
+        $this->entrar($this->master);
+
+        $this->postar('/master/seccionais/BA/divulgacoes', ['status' => 'env', 'cor' => '#e53935']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame((new \DateTimeImmutable('today'))->format('Y-m-d'), $this->seccional('BA')->getMarcaEm()?->format('Y-m-d'));
+    }
+
+    #[TestDox('registrar divulgação: status desconhecido, cor inválida, data no futuro e corpo vazio dão 422 e nada muda')]
     public function testRegistrarDivulgacao422(): void
     {
         $this->entrar($this->master);
 
-        $this->postar('/master/seccionais/MG/divulgacoes', ['tipo' => 'evento']);
+        $this->postar('/master/seccionais/MG/divulgacoes', ['status' => 'material', 'cor' => '#e53935']);
         self::assertResponseStatusCodeSame(422);
-        self::assertSame('Escolha o tipo: material enviado, reunião ou parceria.', $this->json()['erro']);
-        $this->postar('/master/seccionais/MG/divulgacoes', ['tipo' => 'material', 'data' => (new \DateTimeImmutable('+2 days'))->format('Y-m-d')]);
+        self::assertSame('Escolha o status da divulgação.', $this->json()['erro']);
+        $this->postar('/master/seccionais/MG/divulgacoes', ['status' => 'env', 'cor' => 'vermelho']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Escolha a cor da marca.', $this->json()['erro']);
+        $this->postar('/master/seccionais/MG/divulgacoes', ['status' => 'env', 'cor' => '#e53935', 'data' => (new \DateTimeImmutable('+2 days'))->format('Y-m-d')]);
         self::assertResponseStatusCodeSame(422);
         self::assertSame('A data da divulgação não pode ser no futuro.', $this->json()['erro']);
         $this->client->request('POST', '/master/seccionais/MG/divulgacoes', server: ['HTTP_ACCEPT' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_master_seccionais'], content: 'não é json');
         self::assertResponseStatusCodeSame(422);
 
-        self::assertSame(0, $this->divulgacoesDe('MG'));
+        self::assertNull($this->seccional('MG')->getMarcaStatus());
+    }
+
+    #[TestDox('clique direito: grava o estado pedido (oculta, depois visível) com a mensagem, o GET reflete e repetir não inverte')]
+    public function testDefinirVisibilidade(): void
+    {
+        $this->entrar($this->master);
+
+        $this->postar('/master/seccionais/GO/visibilidade', ['visivel' => false]);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['mensagem' => 'OAB Seccional Goiás oculta no mapa.'], $this->json());
+        $this->postar('/master/seccionais/GO/visibilidade', ['visivel' => false]);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->seccional('GO')->isVisivel(), 'idempotente: o mesmo pedido duas vezes continua oculta');
+        $this->client->request('GET', '/master/dados/seccionais', server: ['HTTP_ACCEPT' => 'application/json']);
+        self::assertFalse($this->daUf('GO')['visivel']);
+
+        $this->postar('/master/seccionais/GO/visibilidade', ['visivel' => true]);
+        self::assertSame(['mensagem' => 'OAB Seccional Goiás aparece no mapa.'], $this->json());
+        self::assertTrue($this->seccional('GO')->isVisivel());
+        $this->assertAuditoriaDePlataforma(SeccionalOab::class);
+    }
+
+    #[TestDox('visibilidade sem booleano (vazio, texto): 422 com a mensagem e nada muda')]
+    public function testVisibilidade422(): void
+    {
+        $this->entrar($this->master);
+
+        $this->postar('/master/seccionais/GO/visibilidade', []);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Informe se a seccional aparece no mapa.', $this->json()['erro']);
+        $this->postar('/master/seccionais/GO/visibilidade', ['visivel' => 'false']);
+        self::assertResponseStatusCodeSame(422);
+
+        self::assertTrue($this->seccional('GO')->isVisivel());
+    }
+
+    #[TestDox('"Mostrar todas": limpa o filtro, todas as 27 voltam a aparecer')]
+    public function testMostrarTodas(): void
+    {
+        $this->entrar($this->master);
+        $this->postar('/master/seccionais/GO/visibilidade', ['visivel' => false]);
+        $this->postar('/master/seccionais/TO/visibilidade', ['visivel' => false]);
+        self::assertFalse($this->seccional('TO')->isVisivel());
+
+        $this->postar('/master/seccionais/mostrar-todas', []);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(['mensagem' => 'Todas as seccionais aparecem no mapa.'], $this->json());
+        self::assertSame(0, $this->em->getRepository(SeccionalOab::class)->count(['visivel' => false]));
     }
 
     #[TestDox('token válido de OUTRA ação (master_fontes): 403 nas duas escritas e nada é gravado')]
@@ -194,34 +274,56 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
 
         $this->postar('/master/seccionais/SP/sede', ['endereco' => 'Rua'], token: 'TOKEN_master_fontes');
         self::assertResponseStatusCodeSame(403);
-        $this->postar('/master/seccionais/SP/divulgacoes', ['tipo' => 'material'], token: 'TOKEN_master_fontes');
+        $this->postar('/master/seccionais/SP/divulgacoes', ['status' => 'env', 'cor' => '#e53935'], token: 'TOKEN_master_fontes');
         self::assertResponseStatusCodeSame(403);
 
         self::assertNull($this->seccional('SP')->getAtualizadoEm());
-        self::assertSame(0, $this->divulgacoesDe('SP'));
+        self::assertNull($this->seccional('SP')->getMarcaStatus());
     }
 
-    #[TestDox('trilha "Segurança e auditoria": sede alterada e divulgação registrada aparecem como "Plataforma (sem conta)"')]
+    #[TestDox('trilha "Segurança e auditoria": sede alterada e divulgação registrada (marca na seccional) aparecem como "Plataforma (sem conta)"')]
     public function testTrilhaDoMaster(): void
     {
         $this->entrar($this->master);
         $this->postar('/master/seccionais/PE/sede', ['endereco' => 'Rua da Sede, 1', 'site' => 'https://sede.exemplo.test']);
         self::assertResponseIsSuccessful();
-        $this->postar('/master/seccionais/PE/divulgacoes', ['tipo' => 'reuniao']);
+        $this->postar('/master/seccionais/PE/divulgacoes', ['status' => 'vis', 'cor' => '#1e88e5']);
         self::assertResponseIsSuccessful();
 
         $this->client->request('GET', '/master/dados/auditoria', server: ['HTTP_ACCEPT' => 'application/json']);
         self::assertResponseIsSuccessful();
         $registros = $this->json()['registros'];
 
-        $sede = self::registro($registros, 'Sede da seccional alterada');
+        $sede = self::registro($registros, 'Campos alterados: endereço, site');
+        self::assertSame('Sede da seccional alterada', $sede['acao']);
         self::assertSame('Plataforma (sem conta)', $sede['conta']);
         self::assertNull($sede['contaId']);
         self::assertSame('Master das Seccionais', $sede['quem']);
-        self::assertSame('Campos alterados: endereço, site', $sede['detalhe']);
-        $divulgacao = self::registro($registros, 'Divulgação registrada na seccional');
+        $divulgacao = self::registro($registros, 'Campos alterados: cor da marca, status da divulgação, data da divulgação');
         self::assertSame('Plataforma (sem conta)', $divulgacao['conta']);
         self::assertNull($divulgacao['contaId']);
+    }
+
+    #[TestDox('trilha: ocultar no mapa e "Mostrar todas" aparecem como "Plataforma (sem conta)" com o campo visibilidade')]
+    public function testTrilhaDaVisibilidade(): void
+    {
+        $this->entrar($this->master);
+        $this->postar('/master/seccionais/PB/visibilidade', ['visivel' => false]);
+        self::assertResponseIsSuccessful();
+        $this->postar('/master/seccionais/mostrar-todas', []);
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', '/master/dados/auditoria', server: ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseIsSuccessful();
+        $achados = array_values(array_filter($this->json()['registros'], static fn (array $r): bool => $r['detalhe'] === 'Campos alterados: visibilidade no mapa'));
+
+        self::assertGreaterThanOrEqual(2, count($achados), 'ocultar e mostrar todas, um registro cada');
+        foreach (array_slice($achados, 0, 2) as $registro) {
+            self::assertSame('Sede da seccional alterada', $registro['acao']);
+            self::assertSame('Plataforma (sem conta)', $registro['conta']);
+            self::assertNull($registro['contaId']);
+            self::assertSame('Master das Seccionais', $registro['quem']);
+        }
     }
 
     /**
@@ -229,10 +331,10 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
      *
      * @return array<string, mixed>
      */
-    private static function registro(array $registros, string $acao): array
+    private static function registro(array $registros, string $detalhe): array
     {
-        $achados = array_values(array_filter($registros, static fn (array $r): bool => $r['acao'] === $acao));
-        self::assertNotEmpty($achados, 'a trilha mostra "' . $acao . '"');
+        $achados = array_values(array_filter($registros, static fn (array $r): bool => $r['detalhe'] === $detalhe));
+        self::assertNotEmpty($achados, 'a trilha mostra "' . $detalhe . '"');
 
         return $achados[0];
     }
@@ -255,9 +357,10 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
         return $s;
     }
 
-    private function divulgacoesDe(string $uf): int
+    /** @return array<string, mixed> a linha da UF no último GET */
+    private function daUf(string $uf): array
     {
-        return $this->em->getRepository(DivulgacaoNaSeccional::class)->count(['seccional' => $this->seccional($uf)]);
+        return array_values(array_filter($this->json()['seccionais'], static fn (array $s): bool => $s['uf'] === $uf))[0];
     }
 
     /** @param array<string, mixed> $corpo */

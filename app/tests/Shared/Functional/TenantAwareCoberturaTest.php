@@ -202,6 +202,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // escritório nem cliente; lidas e gravadas só atrás de ROLE_SUPER_ADMIN.
         \App\Master\Entity\SubsecaoOab::class,
         \App\Master\Entity\NotaDaSeccional::class,
+        // Nota por cidade da janela da OAB (desenho 05 inteiro, 21/10/2026): mesmo modelo da nota da seccional.
+        \App\Master\Entity\NotaDaCidadeOab::class,
         // Temas comemorativos (docs/specs/temas-comemorativos.md): linha única de configuração da PLATAFORMA (id 1),
         // escrita só pelo Master; a cor vale para todas as contas ao mesmo tempo. Sem dado de escritório nem de cliente.
         \App\Master\Entity\TemaConfig::class,
@@ -261,7 +263,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // justificadas acima.
     // 62 → 63 com as marcas do Relatório da Central de envios (21/10/2026): CampanhaMarca, do Master, justificada acima.
     // 63 → 64 com a métrica anônima da página pública do Trabalho Externo (19/10/2026): MetricaPublica, justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 64;
+    // 64 → 65 com a nota por cidade da janela da OAB (21/10/2026): NotaDaCidadeOab (plataforma), justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 65;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
