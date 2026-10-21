@@ -393,7 +393,7 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   uma letra acentuada nesses arquivos passa pelo detector. O mesmo `catalogo_js` sai duas vezes quando os dois
   parciais estão na página (o `BJ_T` junta os blocos; só pesa no tamanho).
 
-## 15. Extração do Financeiro da pasta (f6, 21/10)
+## 17. Extração do Financeiro da pasta (f6, 21/10)
 
 Bloco `pasta_financeiro` do catálogo, 197 chaves: 92 do Twig (`comum`, `contrato`, `pro_bono`, `honorarios`, `media`,
 `relatorio`, `menu_registro`, `registro`, `arquivos`, `pagamentos`, `corpo`) e 105 dos scripts da aba
