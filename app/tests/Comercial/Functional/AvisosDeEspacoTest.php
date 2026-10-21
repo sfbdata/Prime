@@ -178,8 +178,17 @@ final class AvisosDeEspacoTest extends KernelTestCase
     private function retrato(Tenant $tenant, int $percentual, bool $bloqueioAtivo): RetratoDoEspaco
     {
         return new RetratoDoEspaco(
-            (int) $tenant->getId(), $percentual, 100, $percentual, FaixaDoEspaco::Livre, OrigemDoLimite::Plano,
-            'plano_20', 'Plano 20', null, OrigemDoLimite::Plano, $bloqueioAtivo,
+            (int) $tenant->getId(),
+            $percentual,
+            100,
+            $percentual,
+            FaixaDoEspaco::Livre,
+            OrigemDoLimite::Plano,
+            'plano_20',
+            'Plano 20',
+            null,
+            OrigemDoLimite::Plano,
+            $bloqueioAtivo,
         );
     }
 
