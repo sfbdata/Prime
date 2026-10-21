@@ -10,6 +10,7 @@ use App\Entity\Tenant\TenantRole;
 use App\Master\Service\RegraDosMasters;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Hierarquia dos perfis do escritório (spec perfis-1.2-permissoes-e-hierarquia, parte C; desenho 05 - Perfis 1.2,
@@ -23,7 +24,7 @@ use App\Service\PermissionChecker;
  * O perfil de sistema continua só pela gestão de primários (C4): a tela dele é a gestão de primários
  * (`RegraDosPrimarios::podeGerirPrimarios`), sem formulário de permissões.
  */
-final class HierarquiaDePerfis
+final class HierarquiaDePerfis implements ResetInterface
 {
     public const NIVEL_SECUNDARIO = 1;
     public const NIVEL_PRIMARIO = 2;
@@ -32,6 +33,10 @@ final class HierarquiaDePerfis
     public const RECUSA_MESMO_NIVEL_OU_ACIMA = 'Seu perfil não pode editar um perfil do mesmo nível ou acima.';
     public const RECUSA_PROPRIO_PERFIL = 'Seu perfil não pode trocar o próprio perfil. Peça ao usuário primário do escritório.';
     public const RECUSA_PERFIL_ACIMA_DO_SEU = 'Seu perfil só pode atribuir perfis com permissões que ele também tem.';
+    public const RECUSA_ALVO_ACIMA_DO_SEU = 'Seu perfil não pode mexer em quem tem permissões que ele não tem.';
+
+    /** @var array<string, int> nível do ator por "usuário:escritório", calculado uma vez por requisição */
+    private array $niveis = [];
 
     public function __construct(
         private readonly RegraDosMasters $regraDosMasters,
@@ -42,6 +47,28 @@ final class HierarquiaDePerfis
     }
 
     public function nivelDoAtor(User $ator, Tenant $tenant): int
+    {
+        // A lista e o convite perguntam por perfil: o nível sai uma vez por requisição (o kernel zera no reset).
+        // Sem id (objeto ainda não gravado) não guarda.
+        $chave = $ator->getId() !== null && $tenant->getId() !== null ? $ator->getId() . ':' . $tenant->getId() : null;
+        if ($chave !== null && isset($this->niveis[$chave])) {
+            return $this->niveis[$chave];
+        }
+
+        $nivel = $this->calcularNivelDoAtor($ator, $tenant);
+        if ($chave !== null) {
+            $this->niveis[$chave] = $nivel;
+        }
+
+        return $nivel;
+    }
+
+    public function reset(): void
+    {
+        $this->niveis = [];
+    }
+
+    private function calcularNivelDoAtor(User $ator, Tenant $tenant): int
     {
         if ($this->regraDosMasters->ehMaster($ator)) {
             return self::NIVEL_MASTER;
@@ -123,6 +150,15 @@ final class HierarquiaDePerfis
     }
 
     /**
+     * C5 no edit-role: quem não é primário nem Master só mexe (perfil e senha) em quem tem o perfil atual contido no
+     * dele. Alvo sem perfil não tem permissão nenhuma: passa.
+     */
+    public function podeMexerNoAlvo(User $ator, Tenant $tenant, ?TenantRole $perfilDoAlvo): bool
+    {
+        return $perfilDoAlvo === null || $this->podeAtribuirPerfil($ator, $tenant, $perfilDoAlvo);
+    }
+
+    /**
      * C5 no edit-role: os perfis que o ator pode oferecer ao alvo. Quem não troca o próprio perfil só vê o atual; os
      * demais perfis passam pelo subconjunto. O perfil atual do alvo segue na lista (manter não é atribuir).
      *
@@ -132,7 +168,8 @@ final class HierarquiaDePerfis
      */
     public function perfisAtribuiveis(User $ator, Tenant $tenant, User $alvo, array $perfis, ?TenantRole $atual): array
     {
-        if ($atual !== null && self::mesmoUsuario($ator, $alvo) && !$this->podeTrocarOProprioPerfil($ator, $tenant)) {
+        $proprio = self::mesmoUsuario($ator, $alvo) && !$this->podeTrocarOProprioPerfil($ator, $tenant);
+        if ($atual !== null && ($proprio || !$this->podeMexerNoAlvo($ator, $tenant, $atual))) {
             return [$atual];
         }
 
@@ -150,6 +187,9 @@ final class HierarquiaDePerfis
         }
         if (self::mesmoUsuario($ator, $alvo) && !$this->podeTrocarOProprioPerfil($ator, $tenant)) {
             return self::RECUSA_PROPRIO_PERFIL;
+        }
+        if (!$this->podeMexerNoAlvo($ator, $tenant, $atual)) {
+            return self::RECUSA_ALVO_ACIMA_DO_SEU;
         }
 
         return $novo !== null && !$this->podeAtribuirPerfil($ator, $tenant, $novo) ? self::RECUSA_PERFIL_ACIMA_DO_SEU : null;

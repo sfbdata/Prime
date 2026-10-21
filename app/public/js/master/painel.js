@@ -434,12 +434,14 @@
     return '<div class="mp-conta-prev mp-hv" style="--cor:' + (mes < 3 ? '#a3232b' : '#4a6373') + '">' + (mes < 1 ? 'menos de 1 mês' : '≈ ' + n + (n === 1 ? ' mês' : ' meses')) + '</div>';
   }
 
-  // Busca da lista (desenho L752): nome, primário e o número da conta. Só dígitos casa o número com ou sem
-  // os zeros à esquerda ("123" e "000123" acham a conta Nº 000123).
+  // Busca da lista (desenho L752): nome e primário por trecho; o número só EXATO (n === +q). Só dígitos, com ou
+  // sem "nº"/"n°" e zeros à esquerda antes, casa a conta daquele número: "123" e "nº 000123" acham a Nº 000123,
+  // "12" não acha a 000120 e "000" não acha todas.
   function casaNaBusca(c, b) {
-    if (/^\d+$/.test(b) && Number(b) === Number(c.numero)) return true;
+    const q = b.replace(/^n\s*[º°o]?\s*/, '');
+    if (/^\d+$/.test(q) && Number(q) === Number(c.numero)) return true;
 
-    return ('nº ' + c.numero + ' ' + c.nome + ' ' + (c.titular || '')).toLowerCase().includes(b);
+    return (c.nome + ' ' + (c.titular || '')).toLowerCase().includes(b);
   }
 
   function renderContasLista() {

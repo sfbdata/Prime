@@ -509,7 +509,7 @@ final class TenantController extends AbstractController
         // sistema e troca senha de primário. Para os demais o perfil de sistema nem é opção; se o
         // alvo já é primário, o único perfil oferecido é o atual (não dá para rebaixar).
         $podeGerirPrimarios = $regraDosPrimarios->podeGerirPrimarios($currentUser, $tenant);
-        $podeTrocarSenha    = $regraDosPrimarios->podeTrocarSenhaDe($currentUser, $userTenant);
+        $podeTrocarSenha    = $regraDosPrimarios->podeTrocarSenhaDe($currentUser, $userTenant) && $hierarquia->podeMexerNoAlvo($currentUser, $tenant, $perfilAnterior); // C5
         // Conta do Master: o perfil dele só ele mesmo troca (A1). O único perfil oferecido é o atual.
         $podeAlterarConta   = $regraDosPrimarios->podeAlterarConta($currentUser, $user);
         if (!$podeAlterarConta && $perfilAnterior !== null) {
@@ -561,10 +561,9 @@ final class TenantController extends AbstractController
             $senhaPedida = $form->get('newPassword')->getData();
             if (is_string($senhaPedida) && trim($senhaPedida) !== '' && !$podeTrocarSenha) {
                 $form->get('newPassword')->addError(new FormError(
-                    $podeAlterarConta
+                    !$podeAlterarConta ? 'A conta do Master só pode ser alterada pelo próprio Master.' : (!$regraDosPrimarios->podeTrocarSenhaDe($currentUser, $userTenant)
                         ? 'A senha de um primário só pode ser trocada por um primário ou pelo Master; '
-                            . 'a do primário titular, só por ele mesmo ou pelo Master.'
-                        : 'A conta do Master só pode ser alterada pelo próprio Master.'
+                            . 'a do primário titular, só por ele mesmo ou pelo Master.' : HierarquiaDePerfis::RECUSA_ALVO_ACIMA_DO_SEU)
                 ));
             }
         }

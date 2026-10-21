@@ -80,7 +80,7 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
 
     // ── C2/C3: lista ───────────────────────────────────────────────────────
 
-    #[TestDox('C2/C6: o secundário com admin.roles.manage vê só os secundários, com editar, excluir e Novo Perfil desabilitados e a mensagem do desenho')]
+    #[TestDox('C2/C6: o secundário com admin.roles.manage vê só os secundários; lixeira oculta; lápis, linha e Novo Perfil com o aviso do desenho')]
     public function testListaDoSecundarioSoLeitura(): void
     {
         $this->logarComTenant($this->client, $this->gestor, $this->tenant);
@@ -92,14 +92,17 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('.pf-selo-primario'));
         self::assertCount(0, $crawler->filter('.pf-tabela-miolo > .pf-linha[data-href]'), 'nenhuma linha abre a edição');
         self::assertCount(0, $crawler->filter('.pf-col-acoes a.pf-acao-editar'));
-        self::assertCount(0, $crawler->filter('[data-pf-excluir]'));
-        self::assertCount(3, $crawler->filter('.pf-col-acoes > button.pf-acao-editar.is-desabilitada[aria-disabled="true"]'));
-        self::assertCount(3, $crawler->filter('.pf-col-acoes > button.pf-acao-excluir.is-desabilitada[aria-disabled="true"]'));
+        self::assertCount(0, $crawler->filter('.pf-acao-excluir'), 'lixeira oculta (sc-if do desenho, L65)');
+        self::assertCount(3, $crawler->filter('.pf-col-acoes > button.pf-acao-editar[data-pf-recusa]'));
+        self::assertCount(0, $crawler->filter('.is-desabilitada, .is-desabilitado, [aria-disabled]'), 'sem cara de desabilitado');
         $mensagem = 'Seu perfil não pode editar um perfil do mesmo nível ou acima.';
         self::assertSame($mensagem, $crawler->filter('.pf-col-acoes > button.pf-acao-editar')->first()->attr('data-pf-recusa'));
         self::assertSame($mensagem, $linhas->first()->attr('data-pf-recusa'));
         self::assertCount(0, $crawler->filter(sprintf('a[href="%s/new"]', $this->urlLista())));
-        self::assertCount(1, $crawler->filter('.pf-cabecalho > button.pf-btn-cinza.is-desabilitado[aria-disabled="true"]'));
+        $novo = $crawler->filter('.pf-cabecalho > button.pf-btn-cinza[data-pf-recusa]');
+        self::assertCount(1, $novo, '"Novo Perfil" visível como no desenho (L50), com o aviso no clique');
+        self::assertSame($mensagem, $novo->attr('data-pf-recusa'));
+        self::assertStringContainsString('Novo Perfil', $novo->text());
         self::assertSame(['3', '2', '0', '3'], $this->numerosDosChips($crawler), 'o resumo conta só o que a lista mostra (Gestor e Colega)');
     }
 
@@ -112,7 +115,7 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(4, $crawler->filter('.pf-tabela-miolo > .pf-linha[data-href]'));
         self::assertCount(3, $crawler->filter('[data-pf-excluir]'));
-        self::assertCount(0, $crawler->filter('.is-desabilitada, .is-desabilitado'));
+        self::assertCount(0, $crawler->filter('[data-pf-recusa]'));
         self::assertCount(1, $crawler->filter(sprintf('.pf-cabecalho > a[href="%s/new"]', $this->urlLista())));
     }
 
@@ -200,7 +203,7 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
 
         $crawler = $this->client->request('GET', $this->urlLista());
         self::assertResponseIsSuccessful();
-        self::assertCount(0, $crawler->filter('.is-desabilitada, .is-desabilitado'));
+        self::assertCount(0, $crawler->filter('[data-pf-recusa]'));
 
         $this->client->request('GET', $this->urlEdicao($this->perfilPrimario));
         self::assertResponseIsSuccessful();
@@ -248,6 +251,18 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
         $desligado->setIsActive(false);
         $this->em->flush();
 
+        // Primário de OUTRO escritório: não recebe o aviso.
+        $outro = new Tenant();
+        $outro->setName('Outro Escritório ' . uniqid());
+        $this->em->persist($outro);
+        $perfilDoOutro = new TenantRole();
+        $perfilDoOutro->setTenant($outro);
+        $perfilDoOutro->setName('Administrador do Escritório');
+        $perfilDoOutro->setIsSystem(true);
+        $this->em->persist($perfilDoOutro);
+        $primarioDeFora = $this->criarUsuario('Primário de Fora', $perfilDoOutro, ['ROLE_USER'], $outro);
+        $this->em->flush();
+
         $this->logarComTenant($this->client, $this->colega, $this->tenant);
         $crawler = $this->client->request('GET', $this->urlLista());
         $form    = $crawler->filter('form[data-pf-form-pedir-acesso]')->form();
@@ -256,7 +271,12 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
         self::assertResponseRedirects($this->urlLista());
 
         $avisos = $this->avisosDoPedido();
-        self::assertCount(2, $avisos, 'titular e sócio; a conta desativada fica de fora');
+        self::assertCount(2, $avisos, 'titular e sócio; a conta desativada e o primário de outro escritório ficam de fora');
+        $this->em->clear();
+        self::assertSame(0, $this->em->getRepository(Notificacao::class)->count([
+            'usuario' => $primarioDeFora->getId(),
+            'tipo'    => PedirAcessoAosPerfisUseCase::TIPO_NOTIFICACAO,
+        ]));
         $destinos = array_map(static fn (Notificacao $n): ?int => $n->getUsuario()?->getId(), $avisos);
         sort($destinos);
         $esperados = [$this->titular->getId(), $socio->getId()];
@@ -264,7 +284,7 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
         self::assertSame($esperados, $destinos);
         self::assertSame('Pedido de acesso aos Perfis', $avisos[0]->getTitulo());
         self::assertSame('Colega Secundária pediu acesso ao menu Perfis do Escritório.', $avisos[0]->getMensagem());
-        self::assertSame(sprintf('/tenant/%d/user/%d/edit-role', $this->tenant->getId(), $this->colega->getId()), $avisos[0]->getUrl());
+        self::assertSame(sprintf('/tenant/%d/roles?pedido=%d', $this->tenant->getId(), $this->colega->getId()), $avisos[0]->getUrl());
 
         $crawler = $this->client->request('GET', $this->urlLista());
         self::assertResponseStatusCodeSame(403);
@@ -321,6 +341,44 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
         $this->submeterEditRole($this->colega, $this->perfilGestor);
         self::assertResponseRedirects();
         self::assertSame($this->perfilGestor->getId(), $this->recarregarVinculo($this->colega)->getTenantRole()?->getId());
+    }
+
+    #[TestDox('C5: no edit-role, o secundário não mexe em quem tem perfil FORA do subconjunto dele (nem rebaixa, nem deixa sem perfil)')]
+    public function testEditRoleNaoMexeEmQuemEstaAcima(): void
+    {
+        $acima = $this->criarUsuario('Colega Ampla', $this->perfilAmplo);
+        $this->em->flush();
+        $this->logarComTenant($this->client, $this->gestor, $this->tenant);
+
+        $crawler = $this->client->request('GET', $this->urlEditRole($acima));
+        self::assertResponseIsSuccessful();
+        self::assertSame([(string) $this->perfilAmplo->getId()], $this->opcoesDoSelect($crawler), 'só o perfil atual');
+
+        // POST forjado: o select só tem o perfil atual, então o form recusa (a mensagem C5 é o cinto, no unit).
+        $this->submeterEditRole($acima, $this->perfilRestrito);
+        self::assertResponseIsSuccessful();
+        self::assertSame($this->perfilAmplo->getId(), $this->recarregarVinculo($acima)->getTenantRole()?->getId());
+
+        $this->submeterEditRole($acima, null);
+        self::assertSame($this->perfilAmplo->getId(), $this->recarregarVinculo($acima)->getTenantRole()?->getId(), 'nem sem perfil');
+    }
+
+    #[TestDox('C5 (senha): o secundário com admin.users.manage não troca a senha de quem tem perfil acima do dele; troca a de quem tem perfil contido')]
+    public function testSenhaSoDeQuemCabe(): void
+    {
+        $acima = $this->criarUsuario('Colega Ampla', $this->perfilAmplo);
+        $this->em->flush();
+        $this->logarComTenant($this->client, $this->gestor, $this->tenant);
+
+        $this->submeterEditRole($acima, $this->perfilAmplo, 'SenhaNova#2026');
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Seu perfil não pode mexer em quem tem permissões que ele não tem.', (string) $this->client->getResponse()->getContent());
+        self::assertFalse($this->senhaConfere($acima, 'SenhaNova#2026'));
+        self::assertTrue($this->senhaConfere($acima, 'senha123'));
+
+        $this->submeterEditRole($this->colega, $this->perfilRestrito, 'SenhaNova#2026');
+        self::assertResponseRedirects();
+        self::assertTrue($this->senhaConfere($this->colega, 'SenhaNova#2026'));
     }
 
     #[TestDox('C5: no edit-role, o primário atribui qualquer secundário, inclusive acima do perfil de quem pede')]
@@ -385,7 +443,7 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
     }
 
     /** O mesmo envio do PerfisDoEscritorioControllerTest: o perfil entra CRU no POST, para forjar opção escondida. */
-    private function submeterEditRole(User $alvo, TenantRole $novoPerfil): void
+    private function submeterEditRole(User $alvo, ?TenantRole $novoPerfil, ?string $novaSenha = null): void
     {
         $url     = $this->urlEditRole($alvo);
         $crawler = $this->client->request('GET', $url);
@@ -393,7 +451,10 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
 
         $form    = $crawler->filter('form[name=edit_user_tenant_role]')->form();
         $valores = $form->getPhpValues();
-        $valores['edit_user_tenant_role']['tenantRole'] = (string) $novoPerfil->getId();
+        $valores['edit_user_tenant_role']['tenantRole'] = $novoPerfil === null ? '' : (string) $novoPerfil->getId();
+        if ($novaSenha !== null) {
+            $valores['edit_user_tenant_role']['newPassword'] = ['first' => $novaSenha, 'second' => $novaSenha];
+        }
         $valores['edit_user_tenant_role']['_token'] = (string) $crawler
             ->filter('input[name="edit_user_tenant_role[_token]"]')->attr('value');
 
@@ -413,6 +474,15 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
             'SELECT p.code FROM tenant_role_permission trp JOIN permission p ON p.id = trp.permission_id WHERE trp.tenant_role_id = :r ORDER BY p.code',
             ['r' => $perfil->getId()]
         ));
+    }
+
+    private function senhaConfere(User $user, string $senha): bool
+    {
+        $this->em->clear();
+        $recarregado = $this->em->find(User::class, $user->getId());
+        self::assertNotNull($recarregado);
+
+        return static::getContainer()->get(UserPasswordHasherInterface::class)->isPasswordValid($recarregado, $senha);
     }
 
     private function urlLista(): string
@@ -508,7 +578,7 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
     }
 
     /** @param list<string> $papeis */
-    private function criarUsuario(string $nome, TenantRole $perfil, array $papeis = ['ROLE_USER']): User
+    private function criarUsuario(string $nome, TenantRole $perfil, array $papeis = ['ROLE_USER'], ?Tenant $escritorio = null): User
     {
         $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
@@ -520,7 +590,7 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $this->em->persist($user);
 
-        $vinculo = new UserTenant($user, $this->tenant);
+        $vinculo = new UserTenant($user, $escritorio ?? $this->tenant);
         $vinculo->setTenantRole($perfil);
         $this->em->persist($vinculo);
 

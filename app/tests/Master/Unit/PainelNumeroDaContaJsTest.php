@@ -53,15 +53,29 @@ final class PainelNumeroDaContaJsTest extends TestCase
         self::assertStringContainsString('.mp-conta-nome > span:last-child { font-size: 11.5px; color: #5b7383; }', $css);
     }
 
-    #[TestDox('L752: a busca casa o número com ou sem zeros à esquerda, além do nome e do primário')]
+    #[TestDox('L752: só dígitos (com ou sem "nº"/"n°" e zeros à esquerda) casa o número EXATO; nome e primário por trecho')]
     public function testBusca(): void
     {
         $js = self::js();
+        $funcao = self::funcao($js, 'casaNaBusca');
 
-        self::assertStringContainsString('function casaNaBusca(c, b) {', $js);
-        self::assertStringContainsString("if (/^\\d+$/.test(b) && Number(b) === Number(c.numero)) return true;", $js);
-        self::assertStringContainsString("return ('nº ' + c.numero + ' ' + c.nome + ' ' + (c.titular || '')).toLowerCase().includes(b);", $js);
-        self::assertStringContainsString("const b = S.busca.toLowerCase().trim();", $js);
+        // Sem node no container (e sem precedente de teste JS executado), a regra se prova no texto da função.
+        self::assertStringContainsString("const q = b.replace(/^n\\s*[º°o]?\\s*/, '');", $funcao, 'tira o "nº"/"n°" do começo');
+        self::assertStringContainsString('if (/^\\d+$/.test(q) && Number(q) === Number(c.numero)) return true;', $funcao, 'número exato: "12" não acha 000120, "000" não acha todas');
+        self::assertStringContainsString("return (c.nome + ' ' + (c.titular || '')).toLowerCase().includes(b);", $funcao, 'nome e primário por trecho');
+        self::assertStringNotContainsString('c.numero +', $funcao, 'o número nunca entra no casamento por trecho');
+        self::assertStringNotContainsString('includes(q)', $funcao);
+        self::assertStringContainsString('const b = S.busca.toLowerCase().trim();', $js);
         self::assertStringContainsString('(!b || casaNaBusca(c, b))', $js);
+    }
+
+    private static function funcao(string $js, string $nome): string
+    {
+        $inicio = strpos($js, 'function ' . $nome . '(');
+        self::assertNotFalse($inicio);
+        $fim = strpos($js, "\n  }\n", $inicio);
+        self::assertNotFalse($fim);
+
+        return substr($js, $inicio, $fim - $inicio);
     }
 }

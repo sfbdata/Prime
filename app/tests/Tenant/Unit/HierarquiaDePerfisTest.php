@@ -139,7 +139,8 @@ final class HierarquiaDePerfisTest extends TestCase
         [$secundario, $proprio] = $this->secundario(['modules.clientes.view', 'admin.users.manage']);
         $contido = $this->perfil(['modules.clientes.view']);
         $acima   = $this->perfil(['admin.roles.manage']);
-        $atualDoAlvo = $this->perfil(['admin.audit.view']);
+        $atualDoAlvo = $this->perfil(['admin.users.manage']);
+        $alvoAcima   = $this->perfil(['admin.audit.view']);
         $alvo = $this->usuario();
 
         self::assertSame([$proprio], $this->hierarquia->perfisAtribuiveis($secundario, $this->tenant, $secundario, [$proprio, $contido, $acima], $proprio));
@@ -148,10 +149,15 @@ final class HierarquiaDePerfisTest extends TestCase
             $this->hierarquia->perfisAtribuiveis($secundario, $this->tenant, $alvo, [$contido, $acima, $atualDoAlvo], $atualDoAlvo),
             'o perfil atual do alvo fica (manter não é atribuir); o acima sai'
         );
+        self::assertSame(
+            [$alvoAcima],
+            $this->hierarquia->perfisAtribuiveis($secundario, $this->tenant, $alvo, [$contido, $acima, $alvoAcima], $alvoAcima),
+            'alvo com perfil fora do subconjunto: só o atual (não rebaixa)'
+        );
         self::assertSame([$contido, $acima], $this->hierarquia->perfisAtribuiveis($this->primario(), $this->tenant, $alvo, [$contido, $acima], null));
     }
 
-    #[TestDox('C5 no POST do edit-role: recusa a troca do próprio perfil e o perfil acima; manter o atual nunca é recusado')]
+    #[TestDox('C5 no POST do edit-role: recusa a troca do próprio perfil, o perfil acima e mexer em quem está acima; manter o atual nunca é recusado')]
     public function testRecusaAoAtribuir(): void
     {
         [$secundario, $proprio] = $this->secundario(['modules.clientes.view']);
@@ -163,8 +169,35 @@ final class HierarquiaDePerfisTest extends TestCase
         self::assertNull($this->hierarquia->recusaAoAtribuir($secundario, $this->tenant, $secundario, $proprio, $proprio));
         self::assertSame(HierarquiaDePerfis::RECUSA_PERFIL_ACIMA_DO_SEU, $this->hierarquia->recusaAoAtribuir($secundario, $this->tenant, $alvo, $contido, $acima));
         self::assertNull($this->hierarquia->recusaAoAtribuir($secundario, $this->tenant, $alvo, $acima, $acima));
-        self::assertNull($this->hierarquia->recusaAoAtribuir($secundario, $this->tenant, $alvo, $acima, $contido));
+        self::assertSame(HierarquiaDePerfis::RECUSA_ALVO_ACIMA_DO_SEU, $this->hierarquia->recusaAoAtribuir($secundario, $this->tenant, $alvo, $acima, $contido), 'não rebaixa quem está acima');
+        self::assertSame(HierarquiaDePerfis::RECUSA_ALVO_ACIMA_DO_SEU, $this->hierarquia->recusaAoAtribuir($secundario, $this->tenant, $alvo, $acima, null), 'nem deixa sem perfil');
+        self::assertNull($this->hierarquia->recusaAoAtribuir($secundario, $this->tenant, $alvo, null, $contido), 'alvo sem perfil: vazio, passa');
+        self::assertTrue($this->hierarquia->podeMexerNoAlvo($secundario, $this->tenant, $contido));
+        self::assertFalse($this->hierarquia->podeMexerNoAlvo($secundario, $this->tenant, $acima));
+        self::assertTrue($this->hierarquia->podeMexerNoAlvo($secundario, $this->tenant, null));
         self::assertNull($this->hierarquia->recusaAoAtribuir($this->primario(), $this->tenant, $this->primario(), $this->perfilDoSistema, $acima));
+    }
+
+    #[TestDox('A9: o nível do ator sai uma vez por requisição (por usuário e escritório) e o reset do kernel zera')]
+    public function testNivelUmaVezPorRequisicao(): void
+    {
+        $vinculos = $this->createMock(UserTenantRepository::class);
+        $vinculos->expects($this->exactly(2))->method('findAtivoPorUserETenant')->willReturn(null);
+        $hierarquia = new HierarquiaDePerfis(
+            new RegraDosMasters($this->createMock(ContasDoSistemaRepository::class)),
+            new RegraDosPrimarios($vinculos),
+            $vinculos,
+            $this->checker,
+        );
+        $ator = $this->usuario();
+        (new \ReflectionProperty(User::class, 'id'))->setValue($ator, 10);
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($this->tenant, 20);
+
+        foreach ([new TenantRole(), new TenantRole(), $this->perfilDoSistema] as $perfil) {
+            self::assertTrue($hierarquia->podeVerOPerfil($ator, $this->tenant, $perfil) || $perfil->isSystem());
+        }
+        $hierarquia->reset();
+        self::assertSame(1, $hierarquia->nivelDoAtor($ator, $this->tenant));
     }
 
     private function usuario(): User

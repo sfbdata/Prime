@@ -23,6 +23,17 @@ Migration reservada: `Version20261020148000` (só na parte B, número dado pela 
     do "Pedir acesso" leva ao edit-role da pessoa, não à lista de Perfis ("Conceder em Perfis" no desenho).
   - Pendências conhecidas: o aceite do convite não revalida o subconjunto; o toast do desenho virou um aviso
     simples no rodapé (o markup do toast não está no arquivo baixado).
+- 21/10 (correções da revisão, decisões da coordenação): a decisão (1) acima vai ao dono, sem mudança; as
+  decisões (2), (3) e (4) foram trocadas:
+  - lixeira OCULTA quando não pode excluir (desenho L65); lápis, linha e "Novo Perfil" com a aparência normal e o
+    aviso C6 no clique (o servidor continua recusando);
+  - o aviso do "Pedir acesso" leva à lista de Perfis com `?pedido=<id>` ("Conceder em Perfis", L822); a Central
+    não tem campo de rótulo da ação no aviso (o menu mostra "Abrir"), então fica o rótulo do tipo, "Pedido de
+    acesso";
+  - edit-role: quem não é primário nem Master não troca a senha nem o perfil de quem tem perfil atual fora do
+    subconjunto dele (nem rebaixa, nem deixa sem perfil);
+  - busca do painel: só dígitos (com ou sem "nº"/"n°") casa o número exato; nome e primário por trecho;
+  - o nível do ator sai uma vez por requisição (`HierarquiaDePerfis` guarda por usuário e escritório, `reset`).
 
 ## 1. Fontes
 

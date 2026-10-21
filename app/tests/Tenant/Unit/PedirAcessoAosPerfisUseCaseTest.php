@@ -38,7 +38,7 @@ final class PedirAcessoAosPerfisUseCaseTest extends TestCase
         $this->notificacoes = $this->createMock(NotificacaoRepository::class);
         $this->servico      = $this->createMock(NotificacaoService::class);
         $urls = $this->createStub(UrlGeneratorInterface::class);
-        $urls->method('generate')->willReturn('/tenant/5/user/9/edit-role');
+        $urls->method('generate')->willReturn('/tenant/5/roles?pedido=9');
 
         $this->useCase = new PedirAcessoAosPerfisUseCase(
             $this->vinculos,
@@ -64,7 +64,7 @@ final class PedirAcessoAosPerfisUseCaseTest extends TestCase
             $this->tenant,
             'perfis_pedido_acesso',
             'Pedido de acesso aos Perfis',
-            '/tenant/5/user/9/edit-role',
+            '/tenant/5/roles?pedido=9',
             'Bruna Secundária pediu acesso ao menu Perfis do Escritório.',
         )->willReturn(new Notificacao());
 
@@ -77,7 +77,7 @@ final class PedirAcessoAosPerfisUseCaseTest extends TestCase
         $this->notificacoes->expects($this->atLeastOnce())->method('existeDoTipoComUrlNoEscritorioDesde')->with(
             $this->tenant,
             PedirAcessoAosPerfisUseCase::TIPO_NOTIFICACAO,
-            '/tenant/5/user/9/edit-role',
+            '/tenant/5/roles?pedido=9',
             $this->callback(static fn (\DateTimeImmutable $desde): bool => $desde->format('Y-m-d H:i:s') === '2026-10-21 00:00:00'),
         )->willReturn(true);
         $this->servico->expects($this->never())->method('criarNotificacao');

@@ -398,7 +398,7 @@ class NotificacaoRepository extends ServiceEntityRepository
 
     /**
      * Existe aviso deste tipo, com este link, no escritório, criado a partir de `$desde`? É o teto do "Pedir acesso"
-     * aos Perfis (um por pessoa por dia): o link do aviso é a página da pessoa que pediu. Tenant explícito, além do
+     * aos Perfis (um por pessoa por dia): o link do aviso identifica a pessoa que pediu. Tenant explícito, além do
      * TenantFilter.
      */
     public function existeDoTipoComUrlNoEscritorioDesde(Tenant $tenant, string $tipo, string $url, \DateTimeImmutable $desde): bool

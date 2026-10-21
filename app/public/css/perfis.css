@@ -298,13 +298,8 @@
 [data-bs-theme="dark"] .pf-page .pf-selo-secundario { color: var(--bs-body-color); }
 [data-bs-theme="dark"] .pf-page .pf-acao-excluir { color: #f08a90; }
 
-/* Hierarquia (spec perfis-1.2-permissoes-e-hierarquia C3/C6; desenho L823): o que o perfil não pode mexer
-   fica desabilitado e o clique mostra o aviso "Seu perfil não pode editar um perfil do mesmo nível ou acima." */
-.pf-page .pf-acao.is-desabilitada,
-.pf-page .pf-btn-cinza.is-desabilitado { opacity: .45; cursor: not-allowed; }
-.pf-page .pf-btn-cinza.is-desabilitado:hover { background: var(--pf-cinza); color: var(--pf-corpo); transform: none; }
-.pf-page .pf-col-acoes .pf-acao.is-desabilitada:hover { background: transparent; }
-.pf-page .pf-linha[data-pf-recusa] { cursor: default; }
+/* Hierarquia (spec perfis-1.2-permissoes-e-hierarquia C3/C6; desenho L823): o que o perfil não pode mexer não abre;
+   o clique mostra o aviso "Seu perfil não pode editar um perfil do mesmo nível ou acima." (o toast do desenho). */
 .pf-page .pf-aviso {
     position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 9900; max-width: 92vw;
     background: #12242f; color: #fff; border-radius: 4px; padding: 10px 16px; font-size: 13.5px;

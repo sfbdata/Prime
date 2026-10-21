@@ -176,8 +176,9 @@ tela de seleção de escritório.
   - lista (`TenantRoleController::index`): primário, Master ou `admin.roles.manage`; mostra só perfis de nível
     até o do ator (o secundário não vê o perfil de sistema). Quem não tem acesso recebe a tela "Acesso
     restrito" (403) com "Pedir acesso", que avisa os primários ativos pela Central (tipo
-    `perfis_pedido_acesso`), um pedido por pessoa por dia (o teto é o próprio aviso: o link dele é o edit-role
-    de quem pediu). Vale também no GET de `new` e `edit`;
+    `perfis_pedido_acesso`), um pedido por pessoa por dia (o teto é o próprio aviso: o link dele é a lista de
+    Perfis com `?pedido=<id de quem pediu>`). Vale também no GET de `new` e `edit`. Primário de outro escritório
+    não recebe;
   - criar (`new`): só nível >= 2 (o perfil novo é sempre secundário);
   - editar (`edit`) e excluir (`delete`): só perfil de nível abaixo do ator. Na prática, o secundário com
     `admin.roles.manage` fica só com a leitura da lista de secundários: não edita nem exclui nenhum perfil,
@@ -187,7 +188,11 @@ tela de seleção de escritório.
     (`GerenciarConvitesController` + `CriarConviteEscritorioUseCase`, `admin.users.invite`): quem não é
     primário nem Master não troca o próprio perfil e só atribui perfil cujas permissões estão TODAS no perfil
     dele (`HierarquiaDePerfis::podeAtribuirPerfil`). Sem vínculo ativo ou com perfil nulo, só o perfil vazio
-    cabe. Manter o perfil atual do alvo não é atribuir. Primário e Master atribuem qualquer secundário; o perfil
+    cabe. Manter o perfil atual do alvo não é atribuir. No edit-role, também não mexe em quem tem o perfil atual
+    FORA do subconjunto dele (`podeMexerNoAlvo`): não troca o perfil (nem rebaixa, nem deixa sem perfil) e não troca
+    a senha ("Seu perfil não pode mexer em quem tem permissões que ele não tem."); alvo sem perfil passa. A senha
+    soma essa barreira à `RegraDosPrimarios::podeTrocarSenhaDe()`, sem mudá-la. Primário e Master atribuem
+    qualquer secundário e trocam senhas como antes; o perfil
     de sistema segue a regra dos primários acima. O select esconde o que não pode e o POST forjado é recusado.
     **Não cobre:** o aceite do convite não revalida o subconjunto (só a regra dos primários); o convite do
     Trabalho Externo é outro fluxo.

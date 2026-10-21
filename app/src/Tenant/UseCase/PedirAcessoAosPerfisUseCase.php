@@ -17,9 +17,9 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * "Pedir acesso" da tela "Acesso restrito" dos Perfis (spec perfis-1.2-permissoes-e-hierarquia C2; desenho 05 -
  * Perfis 1.2, L496 e L822): avisa pela Central cada primário ativo do escritório, com o título e o texto do desenho.
  *
- * Teto: um pedido por pessoa por dia. Sem tabela nova: o próprio aviso guarda o pedido. O link dele é a página da
- * pessoa no escritório (edit-role, onde o primário dá a ela um perfil com acesso aos Perfis), então "já pediu hoje"
- * é existir aviso deste tipo com esse link desde a meia-noite.
+ * Teto: um pedido por pessoa por dia. Sem tabela nova: o próprio aviso guarda o pedido. O link dele é a lista de
+ * Perfis do escritório com quem pediu (`?pedido=<id>`, o "Conceder em Perfis" do desenho), então "já pediu hoje" é
+ * existir aviso deste tipo com esse link desde a meia-noite.
  */
 final class PedirAcessoAosPerfisUseCase
 {
@@ -81,6 +81,6 @@ final class PedirAcessoAosPerfisUseCase
 
     private function linkDoPedido(Tenant $tenant, User $solicitante): string
     {
-        return $this->urls->generate('app_tenant_user_edit_role', ['tenantId' => $tenant->getId(), 'id' => $solicitante->getId()]);
+        return $this->urls->generate('app_tenant_role_index', ['tenantId' => $tenant->getId(), 'pedido' => $solicitante->getId()]);
     }
 }
