@@ -48,7 +48,7 @@
         t.classList.toggle('is-recolhido', recolhido);
         var botao = t.querySelector('.js-tri-recolher');
         if (botao) {
-            botao.setAttribute('data-tip', recolhido ? 'Expandir painel' : 'Recolher painel');
+            botao.setAttribute('data-tip', recolhido ? BJ_T.t('expediente.js.trilho.expandir_painel') : BJ_T.t('expediente.js.trilho.recolher_painel'));
             botao.setAttribute('aria-expanded', recolhido ? 'false' : 'true');
             var i = botao.querySelector('i');
             if (i) { i.className = 'bi ' + (recolhido ? 'bi-chevron-right' : 'bi-chevron-left'); }
@@ -77,7 +77,7 @@
             var seta = g.querySelector('.js-tri-abrir');
             if (seta) {
                 seta.setAttribute('aria-expanded', aberto ? 'true' : 'false');
-                seta.setAttribute('data-tip', aberto ? 'Recolher submarcadores' : 'Ver ' + item.dataset.filhos + ' submarcador(es)');
+                seta.setAttribute('data-tip', aberto ? BJ_T.t('expediente.js.trilho.recolher_submarcadores') : BJ_T.t('expediente.js.trilho.ver_n_submarcadores', { n: item.dataset.filhos }));
                 var i = seta.querySelector('i');
                 if (i) { i.className = 'bi ' + (aberto ? 'bi-chevron-down' : 'bi-chevron-right'); }
             }
@@ -134,8 +134,8 @@
         var t = trilho();
         ativo = { tipo: 'todas', valor: '' };
         aplicarAtivo();
-        painel().carregar(t.dataset.urlAcervo, 'Todas as pastas', { efeito: true });
-        if (comAviso) { aviso('Lista atualizada · todas as pastas visíveis'); }
+        painel().carregar(t.dataset.urlAcervo, BJ_T.t('expediente.js.trilho.todas_as_pastas'), { efeito: true });
+        if (comAviso) { aviso(BJ_T.t('expediente.js.trilho.lista_atualizada')); }
     }
 
     function abrirSistema(el) {
@@ -173,7 +173,7 @@
         nome.textContent = el.dataset.nome;
         var x0 = document.createElement('button');
         x0.type = 'button';
-        x0.setAttribute('aria-label', 'Fechar');
+        x0.setAttribute('aria-label', BJ_T.t('expediente.js.trilho.fechar'));
         var xi = document.createElement('i');
         xi.className = 'bi bi-x-lg';
         xi.setAttribute('aria-hidden', 'true');
@@ -198,30 +198,30 @@
 
     function menuDoMarcador(el, x, y) {
         var lista = [
-            { rotulo: 'Ver pastas do marcador', icone: 'bi-funnel', acao: function () { if (!(ativo.tipo === 'mk' && ativo.valor === el.dataset.marcadorId)) { abrirMarcador(el); } } },
-            { rotulo: 'Novo marcador', icone: 'bi-plus-lg', acao: function () { abrirModal({}); } },
-            { rotulo: 'Novo submarcador', icone: 'bi-diagram-2', acao: function () {
+            { rotulo: BJ_T.t('expediente.js.trilho.menu_ver_pastas_do_marcador'), icone: 'bi-funnel', acao: function () { if (!(ativo.tipo === 'mk' && ativo.valor === el.dataset.marcadorId)) { abrirMarcador(el); } } },
+            { rotulo: BJ_T.t('expediente.js.trilho.novo_marcador'), icone: 'bi-plus-lg', acao: function () { abrirModal({}); } },
+            { rotulo: BJ_T.t('expediente.js.trilho.menu_novo_submarcador'), icone: 'bi-diagram-2', acao: function () {
                 var pai = el.dataset.paiId ? trilho().querySelector('.exp-tri-marcador[data-marcador-id="' + el.dataset.paiId + '"]') : el;
                 abrirModal({ pai: pai.dataset.marcadorId, paiNome: pai.dataset.nome, cor: pai.dataset.corTela });
             } },
-            { rotulo: 'Mover para cima', icone: 'bi-arrow-up', acao: function () { moverVizinho(el, -1); } },
-            { rotulo: 'Mover para baixo', icone: 'bi-arrow-down', acao: function () { moverVizinho(el, 1); } },
-            { rotulo: 'Editar', icone: 'bi-pencil', acao: function () { abrirModal({ el: el }); } },
-            { rotulo: 'Duplicar', icone: 'bi-files', acao: function () { duplicar(el); } },
+            { rotulo: BJ_T.t('expediente.js.trilho.menu_mover_para_cima'), icone: 'bi-arrow-up', acao: function () { moverVizinho(el, -1); } },
+            { rotulo: BJ_T.t('expediente.js.trilho.menu_mover_para_baixo'), icone: 'bi-arrow-down', acao: function () { moverVizinho(el, 1); } },
+            { rotulo: BJ_T.t('expediente.js.trilho.menu_editar'), icone: 'bi-pencil', acao: function () { abrirModal({ el: el }); } },
+            { rotulo: BJ_T.t('expediente.js.trilho.menu_duplicar'), icone: 'bi-files', acao: function () { duplicar(el); } },
             '-',
-            { rotulo: 'Excluir marcador', icone: 'bi-trash3', perigo: true, acao: function () { excluir(el); } }
+            { rotulo: BJ_T.t('expediente.js.trilho.menu_excluir_marcador'), icone: 'bi-trash3', perigo: true, acao: function () { excluir(el); } }
         ];
-        window.ExpMenu.abrir(el.dataset.nome + ' · ' + (el.dataset.n || '0') + ' pasta(s)', lista, x, y, el, 'marcador');
+        window.ExpMenu.abrir(BJ_T.t('expediente.js.trilho.menu_titulo_marcador', { nome: el.dataset.nome, n: el.dataset.n || '0' }), lista, x, y, el, 'marcador');
     }
 
     function menuDoCabecalho(botao) {
         var r = botao.getBoundingClientRect();
         var n = trilho().querySelectorAll('.exp-tri-marcador').length;
         var recolhido = ler(CHAVE_RECOLHIDO, '0') === '1';
-        window.ExpMenu.abrir('Marcadores · ' + n + ' marcador(es)', [
-            { rotulo: 'Novo marcador', icone: 'bi-plus-lg', acao: function () { abrirModal({}); } },
-            { rotulo: 'Ver todas as pastas', icone: 'bi-folder2', acao: function () { abrirTodas(true); } },
-            { rotulo: recolhido ? 'Expandir painel' : 'Recolher painel', icone: 'bi-chevron-bar-left', acao: alternarRecolhido }
+        window.ExpMenu.abrir(BJ_T.t('expediente.js.trilho.menu_titulo_cabecalho', { n: n }), [
+            { rotulo: BJ_T.t('expediente.js.trilho.novo_marcador'), icone: 'bi-plus-lg', acao: function () { abrirModal({}); } },
+            { rotulo: BJ_T.t('expediente.js.trilho.menu_ver_todas_as_pastas'), icone: 'bi-folder2', acao: function () { abrirTodas(true); } },
+            { rotulo: recolhido ? BJ_T.t('expediente.js.trilho.expandir_painel') : BJ_T.t('expediente.js.trilho.recolher_painel'), icone: 'bi-chevron-bar-left', acao: alternarRecolhido }
         ], r.left, r.bottom + 4, botao, 'marcador');
     }
 
@@ -236,11 +236,11 @@
         })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
             .then(function (res) {
-                if (!res.ok) { aviso(res.d.erro || 'Não foi possível reordenar'); return; }
-                aviso('Ordem dos marcadores atualizada');
+                if (!res.ok) { aviso(res.d.erro || BJ_T.t('expediente.js.trilho.reordenar_erro')); return; }
+                aviso(BJ_T.t('expediente.js.trilho.reordenar_ok'));
                 return recarregar();
             })
-            .catch(function () { aviso('Falha de conexão ao reordenar'); });
+            .catch(function () { aviso(BJ_T.t('expediente.js.trilho.reordenar_falha_conexao')); });
     }
 
     function moverVizinho(el, passo) {
@@ -270,7 +270,7 @@
     function pintarPrevia() {
         var prev = document.getElementById('expMkPrevia');
         var nome = document.getElementById('expMkNome').value.trim();
-        prev.querySelector('span').textContent = nome || 'Nome do marcador';
+        prev.querySelector('span').textContent = nome || BJ_T.t('expediente.js.trilho.modal_previa_nome');
         prev.style.color = modal.cor;
         prev.style.background = modal.cor + '1a';
     }
@@ -282,7 +282,7 @@
         var el = o.el || null;
         var n = trilho().querySelectorAll('.exp-tri-marcador').length;
         modal.dados = { id: el ? el.dataset.marcadorId : null, token: el ? el.dataset.token : '', temFilhos: el ? +el.dataset.filhos > 0 : false };
-        document.getElementById('expMkTitulo').textContent = el ? 'Editar marcador' : (o.pai ? 'Novo submarcador em ' + o.paiNome : 'Novo marcador');
+        document.getElementById('expMkTitulo').textContent = el ? BJ_T.t('expediente.js.trilho.modal_titulo_editar') : (o.pai ? BJ_T.t('expediente.js.trilho.modal_titulo_novo_sub', { nome: o.paiNome }) : BJ_T.t('expediente.js.trilho.novo_marcador'));
         document.getElementById('expMkNome').value = el ? el.dataset.nome : (o.nome || '');
         document.getElementById('expMkDescricao').value = el ? (el.dataset.descricao || '') : (o.descricao || '');
         document.getElementById('expMkErro').textContent = '';
@@ -317,7 +317,7 @@
         var d = modal.dados;
         var nome = document.getElementById('expMkNome').value.trim();
         var erro = document.getElementById('expMkErro');
-        if (!nome) { erro.textContent = 'Informe o nome do marcador'; return; }
+        if (!nome) { erro.textContent = BJ_T.t('expediente.js.trilho.modal_nome_obrigatorio'); return; }
         var corpo = new URLSearchParams({
             nome: nome,
             cor: (d.id && !modal.corTocada) ? modal.corOriginal : modal.cor,
@@ -336,21 +336,21 @@
             .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
             .then(function (res) {
                 botao.disabled = false;
-                if (!res.ok) { erro.textContent = res.j.erro || 'Não foi possível salvar'; return; }
+                if (!res.ok) { erro.textContent = res.j.erro || BJ_T.t('expediente.js.trilho.modal_salvar_erro'); return; }
                 var pai = corpo.get('pai_id');
                 if (pai) { var g = gruposAbertos(); g[pai] = true; gravar(CHAVE_GRUPOS, JSON.stringify(g)); }
                 fecharModal();
-                aviso(d.id ? 'Marcador atualizado' : 'Marcador "' + nome + '" criado');
+                aviso(d.id ? BJ_T.t('expediente.js.trilho.modal_atualizado') : BJ_T.t('expediente.js.trilho.modal_criado', { nome: nome }));
                 recarregar();
             })
-            .catch(function () { botao.disabled = false; erro.textContent = 'Falha de conexão. Tente de novo.'; });
+            .catch(function () { botao.disabled = false; erro.textContent = BJ_T.t('expediente.js.trilho.modal_falha_conexao'); });
     }
 
     function duplicar(el) {
         var nomes = Array.prototype.map.call(trilho().querySelectorAll('.exp-tri-marcador'), function (m) { return m.dataset.nome; });
-        var nome = el.dataset.nome + ' (cópia)';
+        var nome = BJ_T.t('expediente.js.trilho.duplicar_copia', { nome: el.dataset.nome });
         var i = 2;
-        while (nomes.indexOf(nome) >= 0) { nome = el.dataset.nome + ' (cópia ' + (i++) + ')'; }
+        while (nomes.indexOf(nome) >= 0) { nome = BJ_T.t('expediente.js.trilho.duplicar_copia_n', { nome: el.dataset.nome, n: i++ }); }
         abrirModal({ nome: nome, cor: el.dataset.corTela, descricao: el.dataset.descricao || '' });
     }
 
@@ -360,13 +360,13 @@
         var subs = el.dataset.paiId ? [] : Array.prototype.map.call(
             trilho().querySelectorAll('.exp-tri-marcador[data-pai-id="' + el.dataset.marcadorId + '"]'),
             function (s) { return s.dataset.nome; });
-        var texto = 'Esta ação é irreversível. ' + (n > 0
-            ? 'As ' + n + ' pasta(s) com este marcador continuam no sistema, porém ficam sem este marcador.'
-            : 'Nenhuma pasta está com este marcador.');
+        var texto = BJ_T.t('expediente.js.trilho.excluir_irreversivel') + ' ' + (n > 0
+            ? BJ_T.t('expediente.js.trilho.excluir_com_pastas', { n: n })
+            : BJ_T.t('expediente.js.trilho.excluir_sem_pastas'));
         if (subs.length) {
-            texto += ' Os ' + subs.length + ' submarcador(es) (' + subs.join(', ') + ') também são excluídos, e as pastas marcadas com eles deixam de tê-los.';
+            texto += ' ' + BJ_T.t('expediente.js.trilho.excluir_subs', { n: subs.length, nomes: subs.join(', ') });
         }
-        var pergunta = { titulo: 'Excluir o marcador "' + el.dataset.nome + '"?', texto: texto, rotulo: 'Excluir mesmo assim', icone: 'bi-trash3', moldura: 'alerta' };
+        var pergunta = { titulo: BJ_T.t('expediente.js.trilho.excluir_titulo', { nome: el.dataset.nome }), texto: texto, rotulo: BJ_T.t('expediente.js.trilho.excluir_confirmar'), icone: 'bi-trash3', moldura: 'alerta' };
         var resposta = window.confirmarPs ? window.confirmarPs(pergunta) : Promise.resolve(window.confirm(pergunta.titulo));
         resposta.then(function (sim) {
             if (!sim) { return; }
@@ -377,13 +377,13 @@
             })
                 .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
                 .then(function (res) {
-                    if (!res.ok) { aviso(res.j.erro || 'Não foi possível excluir'); return; }
-                    aviso('Marcador excluído · ' + n + ' pasta(s) ficaram sem marcador');
+                    if (!res.ok) { aviso(res.j.erro || BJ_T.t('expediente.js.trilho.excluir_erro')); return; }
+                    aviso(BJ_T.t('expediente.js.trilho.excluir_ok', { n: n }));
                     var eraAberto = ativo.tipo === 'mk' && (ativo.valor === el.dataset.marcadorId
                         || !!trilho().querySelector('.exp-tri-marcador[data-pai-id="' + el.dataset.marcadorId + '"][data-marcador-id="' + ativo.valor + '"]'));
                     recarregar().then(function () { if (eraAberto) { abrirTodas(false); } });
                 })
-                .catch(function () { aviso('Falha de conexão ao excluir'); });
+                .catch(function () { aviso(BJ_T.t('expediente.js.trilho.excluir_falha_conexao')); });
         });
     }
 
@@ -482,7 +482,7 @@
         limparArrasto();
         arrastando = null;
         if ((de.dataset.paiId || '') !== (mk.dataset.paiId || '')) {
-            aviso(de.dataset.paiId ? 'Submarcadores só podem ser reordenados dentro do mesmo marcador' : 'Arraste para cima ou para baixo de outro marcador principal');
+            aviso(de.dataset.paiId ? BJ_T.t('expediente.js.trilho.arrastar_sub_mesmo_marcador') : BJ_T.t('expediente.js.trilho.arrastar_principal'));
             return;
         }
         reordenar(de.dataset.marcadorId, mk.dataset.marcadorId, depois);
@@ -516,7 +516,7 @@
             aplicarAtivo();
             var el = itemDoAtivo();
 
-            return el ? (el.dataset.nome || 'Todas as pastas') : 'Todas as pastas';
+            return el ? (el.dataset.nome || BJ_T.t('expediente.js.trilho.todas_as_pastas')) : BJ_T.t('expediente.js.trilho.todas_as_pastas');
         }
     };
 

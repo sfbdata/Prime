@@ -17,27 +17,27 @@
     <div class="psi-janela" role="dialog" aria-modal="true" aria-labelledby="rpcImpressaoTitulo">
         <div class="psi-cab">
             <i class="bi bi-printer" aria-hidden="true"></i>
-            <div class="psi-cab-titulo" id="rpcImpressaoTitulo">Imprimir</div>
-            <button type="button" class="psi-fechar js-rpc-fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+            <div class="psi-cab-titulo" id="rpcImpressaoTitulo">{{ 'expediente.relatorio.impressao.imprimir'|trans }}</div>
+            <button type="button" class="psi-fechar js-rpc-fechar" aria-label="{{ 'moldura.comum.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
         </div>
         <div class="psi-corpo">
             <div class="psi-palco" id="rpcImpressaoPalco" aria-live="polite"></div>
             <div class="psi-lado">
-                <span class="psi-rotulo">Incluir na folha</span>
+                <span class="psi-rotulo">{{ 'expediente.relatorio.impressao.incluir_na_folha'|trans }}</span>
                 <button type="button" class="psi-opcao js-rpc-opcao" data-opcao="cabecalho" aria-pressed="true">
-                    <i class="bi bi-check-square-fill" aria-hidden="true"></i>Cabeçalho do escritório
+                    <i class="bi bi-check-square-fill" aria-hidden="true"></i>{{ 'expediente.relatorio.impressao.cabecalho_do_escritorio'|trans }}
                 </button>
-                <span class="psi-rotulo psi-rotulo--tamanho">Tamanho do texto</span>
+                <span class="psi-rotulo psi-rotulo--tamanho">{{ 'expediente.relatorio.impressao.tamanho_do_texto'|trans }}</span>
                 <div class="psi-tamanho">
-                    <button type="button" class="psi-tamanho-btn js-rpc-menor" aria-label="Diminuir"><i class="bi bi-dash-lg"></i></button>
+                    <button type="button" class="psi-tamanho-btn js-rpc-menor" aria-label="{{ 'expediente.relatorio.impressao.diminuir'|trans }}"><i class="bi bi-dash-lg"></i></button>
                     <span class="psi-tamanho-valor" id="rpcImpressaoFonte">10,5 pt</span>
-                    <button type="button" class="psi-tamanho-btn js-rpc-maior" aria-label="Aumentar"><i class="bi bi-plus-lg"></i></button>
+                    <button type="button" class="psi-tamanho-btn js-rpc-maior" aria-label="{{ 'expediente.relatorio.impressao.aumentar'|trans }}"><i class="bi bi-plus-lg"></i></button>
                 </div>
                 <div class="psi-espaco"></div>
-                <span class="psi-nota">Papel A4. Para gerar PDF, escolha "Salvar como PDF" na janela de impressão.</span>
-                <button type="button" class="psi-imprimir js-rpc-imprimir"><i class="bi bi-printer"></i>Imprimir</button>
-                <button type="button" class="psi-baixar js-rpc-baixar"><i class="bi bi-file-earmark-pdf"></i>Baixar PDF</button>
-                <button type="button" class="psi-copiar js-rpc-copiar"><i class="bi bi-copy"></i>Copiar texto</button>
+                <span class="psi-nota">{{ 'expediente.relatorio.impressao.nota_papel_inicio'|trans }} "{{ 'expediente.relatorio.impressao.nota_papel_salvar_pdf'|trans }}" {{ 'expediente.relatorio.impressao.nota_papel_fim'|trans }}</span>
+                <button type="button" class="psi-imprimir js-rpc-imprimir"><i class="bi bi-printer"></i>{{ 'expediente.relatorio.impressao.imprimir'|trans }}</button>
+                <button type="button" class="psi-baixar js-rpc-baixar"><i class="bi bi-file-earmark-pdf"></i>{{ 'expediente.relatorio.impressao.baixar_pdf'|trans }}</button>
+                <button type="button" class="psi-copiar js-rpc-copiar"><i class="bi bi-copy"></i>{{ 'expediente.relatorio.impressao.copiar_texto'|trans }}</button>
             </div>
         </div>
     </div>

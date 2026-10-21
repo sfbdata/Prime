@@ -250,7 +250,7 @@ input[type="range"].img-slider {
         {% if _ehMasterAba %}
             <div class="dropdown d-flex">
                 <button type="button" class="mu-aba-perfil mu-aba-perfil-master" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">
-                    <i class="bi bi-star-fill"></i>{{ 'perfil.abas.master'|trans }}<i class="bi bi-chevron-down"></i>
+                    <i class="bi bi-star-fill"></i>{{ 'termos.master'|trans }}<i class="bi bi-chevron-down"></i>
                 </button>
                 <div class="dropdown-menu mu-master-menu" role="menu" data-sem-x="1">
                     <div class="mu-grupo-rotulo"><i class="bi bi-star-fill"></i>{{ 'perfil.abas.exclusivo_master'|trans }}</div>
@@ -324,8 +324,8 @@ input[type="range"].img-slider {
             <div class="mp-ident-texto">
                 <div class="mp-nome-linha">
                     <h1 class="mp-nome" id="perfilNomeExibido">{{ perfil.nomeExibido|upper }}</h1>
-                    {% if _ehMaster %}<span class="mp-selo mp-selo-master"><i class="bi bi-star-fill"></i>{{ 'perfil.identificacao.selo_master'|trans }}</span>{% endif %}
-                    {% if current_tenant() %}<span class="mp-selo mp-selo-papel" title="{{ current_tenant().name }}">{{ _ehPrimario or _ehMaster ? 'perfil.identificacao.usuario_primario'|trans : 'perfil.identificacao.secundario'|trans }}</span>{% endif %}
+                    {% if _ehMaster %}<span class="mp-selo mp-selo-master"><i class="bi bi-star-fill"></i>{{ 'termos.master'|trans|upper }}</span>{% endif %}
+                    {% if current_tenant() %}<span class="mp-selo mp-selo-papel" title="{{ current_tenant().name }}">{{ _ehPrimario or _ehMaster ? 'perfil.identificacao.usuario_primario'|trans : 'termos.secundario'|trans|upper }}</span>{% endif %}
                 </div>
                 <div class="mp-cargo">
                     <span><i class="bi bi-briefcase"></i>{{ perfil.cargo ?: 'perfil.identificacao.cargo_nao_definido'|trans }}</span>

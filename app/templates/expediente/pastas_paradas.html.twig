@@ -110,8 +110,8 @@
                             <span>BLUEJUS</span>
                         </td>
                         <td class="rp-impresso">
-                            Gestão jurídica<br>
-                            Impresso em {{ impressoEm|date('d/m/Y, H:i:s') }}{% if impressoPor %} por {{ impressoPor }}{% endif %}
+                            {{ 'expediente.relatorio.folha.gestao_juridica'|trans }}<br>
+                            {{ 'expediente.relatorio.folha.impresso_em'|trans({data: impressoEm|date('d/m/Y, H:i:s')}) }}{% if impressoPor %} {{ 'expediente.relatorio.folha.impresso_por'|trans({nome: impressoPor}) }}{% endif %}
                         </td>
                     </tr>
                 </table>
@@ -136,7 +136,7 @@
             </div>
 
             {# L4743 #}
-            <p class="ppd-abertura">Relação das pastas sem movimentação há mais de 30 dias em {{ relatorio.hoje|date('d/m/Y') }}. Para cada uma, informe ao responsável se a pasta deve <b>receber movimentação</b> ou ser <b>arquivada</b>.</p>
+            <p class="ppd-abertura">{{ 'expediente.paradas.abertura.inicio'|trans({data: relatorio.hoje|data}) }} <b>{{ 'expediente.paradas.abertura.receber_movimentacao'|trans }}</b> {{ 'expediente.paradas.abertura.ou_ser'|trans }} <b>{{ 'expediente.paradas.abertura.arquivada'|trans }}</b>.</p>
 
             {% if relatorio.pastas is empty %}
                 {# paradasNotificar L3240: a frase do aviso sem pasta parada. #}
@@ -145,7 +145,7 @@
                 {# L4744 #}
                 <table class="ppd-tabela">
                     <thead>
-                        <tr><th>Pasta</th><th>Cliente</th><th>Responsável</th><th>Processo</th><th>Última mov.</th><th>Parada</th></tr>
+                        <tr><th>{{ 'expediente.paradas.tabela.pasta'|trans }}</th><th>{{ 'expediente.paradas.tabela.cliente'|trans }}</th><th>{{ 'expediente.paradas.tabela.responsavel'|trans }}</th><th>{{ 'expediente.paradas.tabela.processo'|trans }}</th><th>{{ 'expediente.paradas.tabela.ultima_mov'|trans }}</th><th>{{ 'expediente.paradas.tabela.parada'|trans }}</th></tr>
                     </thead>
                     <tbody>
                         {% for x in relatorio.pastas %}
@@ -153,9 +153,9 @@
                                 <td class="ppd-num">{{ x.numero }}</td>
                                 <td>{{ x.cliente }}</td>
                                 <td>{{ x.responsavel }}</td>
-                                <td class="ppd-proc">{% if x.processoNumero %}<span class="ppd-simbolo">⚖</span> {{ x.processoNumero }}{% else %}<span class="ppd-sem-processo">sem processo</span>{% endif %}</td>
-                                <td>{{ x.ultima ? x.ultima|date('d/m/Y') : 'nenhuma' }}</td>
-                                <td><span class="ppd-chip ppd-chip--{{ tons[x.nivel] }}">{{ ppd.pausa(modo) }} {{ x.dias }} dias</span></td>
+                                <td class="ppd-proc">{% if x.processoNumero %}<span class="ppd-simbolo">⚖</span> {{ x.processoNumero }}{% else %}<span class="ppd-sem-processo">{{ 'expediente.paradas.tabela.sem_processo'|trans }}</span>{% endif %}</td>
+                                <td>{{ x.ultima ? x.ultima|data : 'expediente.paradas.tabela.nenhuma'|trans }}</td>
+                                <td><span class="ppd-chip ppd-chip--{{ tons[x.nivel] }}">{{ ppd.pausa(modo) }} {{ 'expediente.paradas.tabela.dias'|trans({n: x.dias ~ ''}) }}</span></td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -165,19 +165,19 @@
                 {% for x in relatorio.pastas %}
                     <div class="ppd-pasta ppd-pasta--{{ tons[x.nivel] }}">
                         <div class="ppd-pasta-cab">
-                            <b class="ppd-pasta-nome">{{ ppd.pausa(modo) }} Pasta {{ x.numero }} · {{ x.cliente }}</b>
+                            <b class="ppd-pasta-nome">{{ ppd.pausa(modo) }} {{ 'expediente.paradas.cartao.pasta_cliente'|trans({numero: x.numero ~ '', cliente: x.cliente}) }}</b>
                             <span class="ppd-chip ppd-chip--{{ tons[x.nivel] }}">{{ x.nivel }}</span>
-                            <span class="ppd-pasta-resp">Responsável: {{ x.responsavel }}{% if x.processoNumero %} · <span class="ppd-simbolo">⚖</span> {{ x.processoNumero }}{% if x.processoTribunal %} · {{ x.processoTribunal }}{% endif %}{% endif %}</span>
+                            <span class="ppd-pasta-resp">{{ 'expediente.paradas.cartao.responsavel'|trans({nome: x.responsavel}) }}{% if x.processoNumero %} · <span class="ppd-simbolo">⚖</span> {{ x.processoNumero }}{% if x.processoTribunal %} · {{ x.processoTribunal }}{% endif %}{% endif %}</span>
                         </div>
-                        <div class="ppd-secao">Pré-análise</div>
+                        <div class="ppd-secao">{{ 'expediente.paradas.cartao.pre_analise'|trans }}</div>
                         <ul class="ppd-lista">
                             {% for t in x.pontos %}<li>{{ t }}</li>{% endfor %}
                         </ul>
-                        <div class="ppd-secao">Sugestão</div>
+                        <div class="ppd-secao">{{ 'expediente.paradas.cartao.sugestao'|trans }}</div>
                         <ul class="ppd-lista ppd-lista--sugestao">
                             {% for t in x.sugestoes %}<li>{{ t }}</li>{% endfor %}
                         </ul>
-                        <div class="ppd-decisao"><span><span class="ppd-simbolo">☐</span> Movimentar</span><span><span class="ppd-simbolo">☐</span> Arquivar</span><span>Responsável pela decisão: ____________________</span></div>
+                        <div class="ppd-decisao"><span><span class="ppd-simbolo">☐</span> {{ 'expediente.paradas.cartao.movimentar'|trans }}</span><span><span class="ppd-simbolo">☐</span> {{ 'expediente.paradas.cartao.arquivar'|trans }}</span><span>{{ 'expediente.paradas.cartao.responsavel_pela_decisao'|trans }}</span></div>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -186,7 +186,7 @@
             <p class="ppd-nota-final">{{ constant('App\\Pasta\\DTO\\RelatorioPastasParadasOutput::NOTA_FINAL') }}</p>
         </div>
 
-        <div class="rp-rodape" data-rp-parte="rodape">Documento interno do escritório · BlueJus</div>
+        <div class="rp-rodape" data-rp-parte="rodape">{{ 'expediente.relatorio.folha.rodape'|trans }}</div>
     </main>
 {% endset %}
 
@@ -253,12 +253,12 @@
     </style>
 </head>
 <body>
-    <div class="rp-barra" role="toolbar" aria-label="Pastas paradas">
+    <div class="rp-barra" role="toolbar" aria-label="{{ 'expediente.paradas.barra.rotulo'|trans }}">
         <strong>{{ titulo }}</strong>
         <span class="rp-espaco"></span>
-        <a href="{{ path('expediente_index') }}">Voltar ao Expediente</a>
-        <a href="{{ path('expediente_pastas_paradas_pdf') }}">Baixar PDF</a>
-        <button type="button" class="rp-primario" id="rpImprimir">Imprimir</button>
+        <a href="{{ path('expediente_index') }}">{{ 'expediente.relatorio.barra.voltar_ao_expediente'|trans }}</a>
+        <a href="{{ path('expediente_pastas_paradas_pdf') }}">{{ 'expediente.relatorio.impressao.baixar_pdf'|trans }}</a>
+        <button type="button" class="rp-primario" id="rpImprimir">{{ 'expediente.relatorio.impressao.imprimir'|trans }}</button>
     </div>
 
     {{ folha }}
