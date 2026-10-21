@@ -53,6 +53,9 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/processos')]
 class ProcessoController extends AbstractController
 {
+    /** Atributo da sub-requisição da pasta (`PastaController::buscarProcessoNoCnj`): o id da pasta autorizada. */
+    public const CNJ_PELA_PASTA = '_cnj_pela_pasta';
+
     use ResourceAccessTrait;
 
     private const PER_PAGE = 25;
@@ -295,7 +298,7 @@ class ProcessoController extends AbstractController
         // guard, qualquer logado abusaria do custo/rate-limit. Não persiste nada (B8).
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
-        if (!$permissionChecker->canAccessModule($user, $this->tenantContext->getCurrentTenant(), 'processos')) {
+        if (!$this->podeConsultarCnj($request, $permissionChecker, $user)) {
             return $this->erroDatajud('Você não tem permissão para consultar processos no CNJ.', Response::HTTP_FORBIDDEN);
         }
 
@@ -402,6 +405,17 @@ class ProcessoController extends AbstractController
                 500
             );
         }
+    }
+
+    /**
+     * O módulo `processos`, ou a consulta encaminhada pela pasta (a4, spec processo-cadastro-pela-pasta): a rota
+     * da pasta já exigiu EDIT nela e passa o atributo no `forward`. O atributo só nasce no servidor: esta rota não
+     * tem parâmetro de caminho, e query e corpo não viram atributo.
+     */
+    private function podeConsultarCnj(Request $request, PermissionChecker $permissionChecker, \App\Entity\Auth\User $usuario): bool
+    {
+        return $request->attributes->getInt(self::CNJ_PELA_PASTA) > 0
+            || $permissionChecker->canAccessModule($usuario, $this->tenantContext->getCurrentTenant(), 'processos');
     }
 
     /**

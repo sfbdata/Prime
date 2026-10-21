@@ -3595,9 +3595,11 @@ document.addEventListener('DOMContentLoaded', function () {
         loadingEl.classList.remove('d-none');
         try {
             // O tribunal é derivado do número no servidor — não enviamos mais a sigla.
-            var response = await fetch('{{ path("api_datajud_search") }}', {
+            // a4: a consulta pela pasta vale para quem edita a pasta, mesmo sem o módulo de processos.
+            var response = await fetch('{{ path("pasta_processo_buscar_cnj", {id: pasta.id}) }}', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // X-Requested-With: as barreiras da pasta (cadeado, aba oculta, lápide) respondem 403 em JSON, não redirecionam.
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 body: JSON.stringify({ numeroProcesso: numeroProcesso })
             });
             var data = await response.json();

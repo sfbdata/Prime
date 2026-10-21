@@ -21,6 +21,7 @@ use App\Processo\Exception\DadosDoProcessoInvalidosException;
 use App\Processo\DTO\CadastroDoProcessoInput;
 use App\Processo\UseCase\CadastrarProcessoPelaPastaUseCase;
 use App\Processo\Service\ConsultasDoCnjGuardadas;
+use App\Processo\Controller\ProcessoController;
 use App\Processo\Entity\Processo;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Repository\ClientePFRepository;
@@ -1300,6 +1301,24 @@ class PastaController extends AbstractController
         }
 
         return [$cadastro->processo, $cadastro->jaExistia ? self::AVISO_PROCESSO_JA_CADASTRADO : null];
+    }
+
+    /**
+     * "Buscar no CNJ" da janela "Vincular processo" (a4, spec processo-cadastro-pela-pasta): vale para quem pode
+     * vincular processo nesta pasta (EDIT, com o cadeado), mesmo sem o módulo `processos`. A consulta é a mesma
+     * de `/processos/api/search`, encaminhada no servidor com o id da pasta autorizada.
+     */
+    #[Route('/{id}/processo/buscar-cnj', name: 'pasta_processo_buscar_cnj', methods: ['POST'])]
+    public function buscarProcessoNoCnj(Pasta $pasta): Response
+    {
+        if ($pasta->getTenant()?->getId() !== $this->tenantContext->getCurrentTenant()?->getId()) {
+            throw $this->createNotFoundException();
+        }
+        if (!$this->podeEditarPasta($pasta)) {
+            return $this->json(['error' => 'Você não tem permissão para consultar processos no CNJ por esta pasta.'], Response::HTTP_FORBIDDEN);
+        }
+
+        return $this->forward(ProcessoController::class . '::datajudSearch', [ProcessoController::CNJ_PELA_PASTA => (int) $pasta->getId()]);
     }
 
     #[Route('/{id}/processo/desvincular', name: 'pasta_desvincular_processo', methods: ['POST'])]
