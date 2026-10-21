@@ -93,7 +93,7 @@ final class GoogleAgendaApi
         $conta = $this->emailDoIdToken((string) ($token['id_token'] ?? ''));
         $escopos = preg_split('/\s+/', trim((string) ($token['scope'] ?? self::ESCOPO))) ?: [];
         if (!in_array(self::ESCOPO, $escopos, true) || [] !== array_diff($escopos, self::ESCOPOS_ACEITOS)) {
-            throw new PermissoesDoGoogleRecusadasException($token['refresh_token'], $conta);
+            throw new PermissoesDoGoogleRecusadasException($token['refresh_token'], $conta, !in_array(self::ESCOPO, $escopos, true));
         }
 
         return ['refresh' => $token['refresh_token'], 'conta' => $conta];

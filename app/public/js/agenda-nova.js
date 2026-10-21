@@ -949,6 +949,8 @@
         if (alvo('#agGoogleSair')) { googleDesconectar(); }
         if (alvo('[data-google-sair="cancelar"]')) { document.getElementById('agPerg').innerHTML = ''; }
         if (alvo('[data-google-sair="ok"]')) { confirmarDesconectar(); }
+        if (alvo('[data-google-perm="fechar"]')) { document.getElementById('agPerg').innerHTML = ''; }
+        if (alvo('[data-google-perm="tentar"]')) { document.getElementById('agPerg').innerHTML = ''; googleSincronizar(); }
     });
 
     raiz.addEventListener('contextmenu', ev => {
@@ -1165,10 +1167,21 @@
             location.reload();
         } catch (e) { avisar(e.message); }
     }
+    /* Voltou do Google sem a permissão da agenda (a caixinha desmarcada no consentimento): explica e oferece tentar de novo. */
+    function googleSemPermissao() {
+        document.getElementById('agPerg').innerHTML = '<div class="ag-perg-fundo"></div><div class="ag-modal-caixa ag-perg-caixa"><div class="ag-perg" role="dialog" aria-modal="true" aria-label="Falta a permissão da agenda">'
+            + '<div class="ag-perg-cab"><i class="bi bi-google"></i> Falta a permissão da agenda</div>'
+            + '<div class="ag-perg-txt">Marque a permissão da agenda na tela do Google e tente de novo. Sem ela, o BlueJus não consegue criar a agenda do escritório na sua conta Google.</div>'
+            + '<div class="ag-perg-rodape"><button type="button" class="ag-mbtn ag-perg-nao" data-google-perm="fechar"><i class="bi bi-x"></i>Agora não</button>'
+            + '<button type="button" class="ag-mbtn is-pri" data-google-perm="tentar"><i class="bi bi-google"></i>Tentar de novo</button></div></div></div>';
+        const tentar = document.querySelector('#agPerg [data-google-perm="tentar"]');
+        if (tentar) { tentar.focus(); }
+    }
     function avisoDaVoltaDoGoogle() {
-        const m = location.hash.match(/google=(conectado|cancelado|falhou|limite)/);
+        const m = location.hash.match(/google=(conectado|cancelado|falhou|limite|sem-permissao)/);
         if (!m) { return; }
         history.replaceState(null, '', location.pathname + location.search);
+        if ('sem-permissao' === m[1]) { googleSemPermissao(); return; }
         avisar(AVISOS_GOOGLE[m[1]]);
     }
 

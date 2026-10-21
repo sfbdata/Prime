@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Agenda\Controller;
 
 use App\Agenda\Exception\GoogleAgendaException;
+use App\Agenda\Exception\PermissoesDoGoogleRecusadasException;
 use App\Agenda\Infra\GoogleAgendaApi;
 use App\Agenda\UseCase\ConectarGoogleAgendaUseCase;
 use App\Agenda\UseCase\DesconectarGoogleAgendaUseCase;
@@ -87,6 +88,10 @@ final class GoogleAgendaController extends AbstractController
         }
         try {
             $this->conectar->executar($tenant, $eu, $request->query->getString('code'), (string) $guardado['verificador'], $this->urlDeRetorno());
+        } catch (PermissoesDoGoogleRecusadasException $e) {
+            $this->logger->error('Google Agenda: conexão falhou', ['motivo' => $e->getMessage(), 'sem_a_agenda' => $e->semAAgenda]);
+
+            return $this->redirect($volta . ($e->semAAgenda ? '#google=sem-permissao' : '#google=falhou'));
         } catch (GoogleAgendaException $e) {
             // Error, não warning: em produção o log só despeja com um error na requisição (fingers_crossed).
             $this->logger->error('Google Agenda: conexão falhou', ['motivo' => $e->getMessage(), 'tipo' => (new \ReflectionClass($e))->getShortName()]);

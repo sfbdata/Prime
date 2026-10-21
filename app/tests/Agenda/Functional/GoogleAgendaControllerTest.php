@@ -144,7 +144,7 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
 
     #[TestDox('Identificação ou permissões que não conferem: $caso. Não conecta; permissões erradas são revogadas lá')]
     #[DataProvider('retornosRecusados')]
-    public function testRetornoQueNaoConfere(string $caso, string $propriedade, string|int $valor, bool $revoga): void
+    public function testRetornoQueNaoConfere(string $caso, string $propriedade, string|int $valor, bool $revoga, string $aviso = 'falhou'): void
     {
         $client = $this->cliente();
         [$eu, $tenant] = $this->entrar($client);
@@ -154,18 +154,18 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
 
         $client->request('GET', '/agenda/google/retorno?code=abc&state=' . $q['state']);
 
-        self::assertResponseRedirects('/agenda#google=falhou');
+        self::assertResponseRedirects('/agenda#google=' . $aviso);
         self::assertFalse($this->em()->getConnection()->fetchOne('SELECT id FROM agenda_google_conexao WHERE usuario_id = :u AND tenant_id = :t', ['u' => $eu->getId(), 't' => $tenant->getId()]));
         self::assertSame($revoga, in_array('POST /revoke', $this->google->pedidos, true));
     }
 
-    /** @return iterable<string, array{string, string, string|int, bool}> */
+    /** @return iterable<string, array{0: string, 1: string, 2: string|int, 3: bool, 4?: string}> */
     public static function retornosRecusados(): iterable
     {
         yield 'id_token de outro cliente' => ['id_token de outro cliente', 'audiencia', 'outro-cliente', false];
         yield 'id_token vencido' => ['id_token vencido', 'validadeDoIdToken', -60, false];
         yield 'escopo além do pedido' => ['escopo além do pedido', 'escoposConcedidos', 'openid email https://www.googleapis.com/auth/calendar.app.created https://www.googleapis.com/auth/drive', true];
-        yield 'sem o escopo da agenda' => ['sem o escopo da agenda', 'escoposConcedidos', 'openid email', true];
+        yield 'sem o escopo da agenda (a caixinha desmarcada no Google): volta com o aviso próprio' => ['sem o escopo da agenda', 'escoposConcedidos', 'openid email', true, 'sem-permissao'];
     }
 
     #[TestDox('A falha na volta do Google vai ao log de erro com o motivo (o código do OAuth, sem a descrição livre); escritório trocado no meio também')]
@@ -224,7 +224,7 @@ final class GoogleAgendaControllerTest extends JusPrimeWebTestCase
 
         $client->request('GET', '/agenda/google/retorno?code=abc&state=' . $q['state']);
 
-        self::assertResponseRedirects('/agenda#google=falhou');
+        self::assertResponseRedirects('/agenda#google=sem-permissao');
         self::assertNotContains('POST /revoke', $this->google->pedidos);
     }
 
