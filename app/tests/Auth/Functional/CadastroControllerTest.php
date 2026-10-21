@@ -58,7 +58,6 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
             'nome' => 'Ana Souza',
             'escritorio' => 'Souza Advogados ' . uniqid(),
             'email' => 'ana_' . uniqid() . '@adv.com',
-            'senha' => 'segredo123',
             'aceite' => true,
             '_token' => self::CSRF,
         ], $trocas);
@@ -172,9 +171,6 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertSame('Navegador de teste', $ciencia->getUserAgent());
         self::assertCount(1, $em->getRepository(ConfirmacaoEmail::class)->findBy(['user' => $user, 'lembrete' => false]));
 
-        // A senha digitada é ignorada (spec cadastro-senha-no-link): a conta nasce sem senha que alguém conheça.
-        self::assertFalse(static::getContainer()->get(UserPasswordHasherInterface::class)->isPasswordValid($user, $dados['senha']));
-
         // Não entrou (spec cadastro-exige-confirmacao): sem token, sem escritório na sessão; a sessão guarda a conta
         // só para o botão de reenviar o link.
         self::assertNull($client->getContainer()->get('security.token_storage')->getToken());
@@ -182,6 +178,22 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertSame($user->getId(), $client->getRequest()->getSession()->get(ContaAConfirmar::CHAVE_SESSAO)['id'] ?? null);
         $client->request('GET', '/cadastro');
         self::assertResponseRedirects('/login?abrir=cadastro');
+    }
+
+    #[TestDox('POST /cadastro/criar de cliente antigo que ainda manda a senha: a senha é ignorada (D1 da spec cadastro-senha-no-link)')]
+    public function testSenhaDeClienteAntigoEIgnorada(): void
+    {
+        $client = static::createClient();
+        $this->prepararCsrf($client);
+        $dados = self::dados(['senha' => 'segredo123']);
+
+        $client->jsonRequest('POST', '/cadastro/criar', $dados);
+
+        self::assertResponseIsSuccessful();
+        $this->em()->clear();
+        $user = $this->em()->getRepository(User::class)->findOneBy(['email' => $dados['email']]);
+        self::assertNotNull($user);
+        self::assertFalse(static::getContainer()->get(UserPasswordHasherInterface::class)->isPasswordValid($user, 'segredo123'));
     }
 
     /** @return iterable<string, array{array<string, mixed>, string}> */
@@ -310,11 +322,14 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
     }
 
     /** Abre o link e devolve o formulário "Crie sua senha" preenchido. */
-    private function formularioDoLink(KernelBrowser $client, string $token, string $senha, ?string $confirmacao = null): Form
+    private function formularioDoLink(KernelBrowser $client, string $token, string $senha, ?string $confirmacao = null, bool $aceite = true): Form
     {
         $form = $client->request('GET', '/cadastro/confirmar-email/' . $token)->selectButton('Criar senha e confirmar')->form();
         $form['senha'] = $senha;
         $form['confirmacao'] = $confirmacao ?? $senha;
+        if ($aceite) {
+            $form['aceite']->tick();
+        }
 
         return $form;
     }
@@ -409,6 +424,77 @@ final class CadastroControllerTest extends JusPrimeWebTestCase
         self::assertSelectorTextNotContains('.confirmacao-email', 'Sua senha foi criada.');
         self::assertTrue($this->senhaValida($id, 'primeiraSenha1'));
         self::assertFalse($this->senhaValida($id, 'segundaSenha2'));
+    }
+
+    #[TestDox('A página "Crie sua senha" tem a caixa do cadastro, desmarcada, com os links dos Termos e da Política')]
+    public function testPaginaTemACaixaDeAceite(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $this->pendenteDeConfirmacao($token);
+
+        $tela = $client->request('GET', '/cadastro/confirmar-email/' . $token);
+
+        $caixa = $tela->filter('form.criar-senha > .form-check');
+        self::assertCount(1, $caixa->filter('input#criarSenhaAceite[type="checkbox"][name="aceite"]'));
+        self::assertNull($caixa->filter('input#criarSenhaAceite')->attr('checked'));
+        self::assertSame('Li e aceito os Termos de uso e a Política de privacidade.', trim((string) preg_replace('/\s+/u', ' ', $caixa->filter('label[for="criarSenhaAceite"]')->text())));
+        self::assertSame('https://www.bluejus.com.br/termos/termos-de-uso.pdf', $caixa->filter('label a')->eq(0)->attr('href'));
+        self::assertSame('Termos de uso', $caixa->filter('label a')->eq(0)->text());
+        self::assertSame('https://www.bluejus.com.br/politica-de-privacidade', $caixa->filter('label a')->eq(1)->attr('href'));
+        self::assertSame('Política de privacidade', $caixa->filter('label a')->eq(1)->text());
+        self::assertSame('_blank', $caixa->filter('label a')->eq(0)->attr('target'));
+    }
+
+    /** @return list<string> as origens gravadas para a conta na tabela, em ordem */
+    private function origens(string $tabela, int $id): array
+    {
+        return $this->em()->getConnection()->fetchFirstColumn('SELECT origem FROM ' . $tabela . ' WHERE user_id = :id ORDER BY id', ['id' => $id]);
+    }
+
+    #[TestDox('POST sem a caixa: 422 com a mensagem do cadastro, o formulário volta, o link vale e nenhum aceite é gravado')]
+    public function testSemAceiteRecusa(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $id = (int) $this->pendenteDeConfirmacao($token)->getId();
+
+        $client->submit($this->formularioDoLink($client, $token, 'novaSenha456', aceite: false));
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextSame('.criar-senha__erro', 'É preciso aceitar os Termos e a Política de privacidade.');
+        self::assertSelectorExists('form.criar-senha input#criarSenhaAceite');
+        $this->assertNadaMudou($id);
+        self::assertSame([], $this->origens('aceite_termo', $id));
+        self::assertSame([], $this->origens('ciencia_politica', $id));
+    }
+
+    #[TestDox('POST com a caixa: grava um aceite novo dos Termos e a ciência da Política (versão vigente, IP, user agent, escritório do dono) e os do cadastro ficam')]
+    public function testComAceiteGravaOAceiteDoLink(): void
+    {
+        $client = static::createClient();
+        $token = bin2hex(random_bytes(32));
+        $user = $this->pendenteDeConfirmacao($token);
+        $id = (int) $user->getId();
+        $tenant = (new Tenant())->setName('Escritório da Ana ' . uniqid())->setCriadoPor($user);
+        $this->em()->persist($tenant);
+        $this->em()->persist(new AceiteTermo($user, TermoVigente::VERSAO, '198.51.100.1', 'Navegador do cadastro', $tenant));
+        $this->em()->persist(new CienciaPolitica($user, PoliticaPrivacidadeVigente::VERSAO, '198.51.100.1', 'Navegador do cadastro'));
+        $this->em()->flush();
+        $form = $this->formularioDoLink($client, $token, 'novaSenha456');
+
+        $client->request('POST', $form->getUri(), $form->getPhpValues(), [], ['REMOTE_ADDR' => '203.0.113.50', 'HTTP_USER_AGENT' => 'Navegador do link']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.confirmacao-email', 'Sua senha foi criada.');
+        self::assertSame(['cadastro', 'link_confirmacao'], $this->origens('aceite_termo', $id));
+        self::assertSame(['cadastro', 'link_confirmacao'], $this->origens('ciencia_politica', $id));
+        $conexao = $this->em()->getConnection();
+        $aceite = $conexao->fetchAssociative("SELECT versao, ip, user_agent, tenant_id FROM aceite_termo WHERE user_id = :id AND origem = 'link_confirmacao'", ['id' => $id]);
+        self::assertSame(['versao' => TermoVigente::VERSAO, 'ip' => '203.0.113.50', 'user_agent' => 'Navegador do link', 'tenant_id' => $tenant->getId()], $aceite);
+        $ciencia = $conexao->fetchAssociative("SELECT versao, ip, user_agent FROM ciencia_politica WHERE user_id = :id AND origem = 'link_confirmacao'", ['id' => $id]);
+        self::assertSame(['versao' => PoliticaPrivacidadeVigente::VERSAO, 'ip' => '203.0.113.50', 'user_agent' => 'Navegador do link'], $ciencia);
+        self::assertSame('198.51.100.1', $conexao->fetchOne("SELECT ip FROM aceite_termo WHERE user_id = :id AND origem = 'cadastro'", ['id' => $id]));
     }
 
     #[TestDox('POST sem o CSRF certo: 403, o formulário volta com o aviso e nada muda')]

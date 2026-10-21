@@ -9,7 +9,8 @@ use App\Tarefa\Service\AgrupadorDeMetas;
 
 /**
  * Pílula de status de uma meta em Minhas Metas (desenho de 13/10, `04 - Minhas Metas 1.0.dc.html`):
- * Atrasada · Vence em breve · No prazo · Sem prazo · Em revisão · Concluída.
+ * Atrasada · Vence em breve · No prazo · Sem prazo · Em revisão · Concluída. O `rotulo` é chave do
+ * catálogo (`metas.status.*`); o Twig aplica `|trans`.
  *
  * Não tem regra própria: traduz o balde de `AgrupadorDeMetas::classificar`, a mesma regra que escolhe
  * o grupo da lista. Assim a pílula é igual nos dois modos (cartões e lista) e nunca contradiz o grupo
@@ -20,12 +21,12 @@ use App\Tarefa\Service\AgrupadorDeMetas;
 final class StatusDoPrazoDaMeta
 {
     private const PILULAS = [
-        'atrasadas'  => ['Atrasada', 'danger'],
-        'proximas'   => ['Vence em breve', 'warn'],
-        'depois'     => ['No prazo', 'ok'],
-        'sem_prazo'  => ['Sem prazo', 'cinza'],
-        'em_revisao' => ['Em revisão', 'accent'],
-        'concluidas' => ['Concluída', 'ok'],
+        'atrasadas'  => ['metas.status.atrasada', 'danger'],
+        'proximas'   => ['metas.status.vence_em_breve', 'warn'],
+        'depois'     => ['metas.status.no_prazo', 'ok'],
+        'sem_prazo'  => ['metas.status.sem_prazo', 'cinza'],
+        'em_revisao' => ['metas.status.em_revisao', 'accent'],
+        'concluidas' => ['metas.status.concluida', 'ok'],
     ];
 
     private function __construct(

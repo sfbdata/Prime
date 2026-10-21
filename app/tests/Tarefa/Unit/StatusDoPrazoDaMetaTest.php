@@ -40,13 +40,13 @@ final class StatusDoPrazoDaMetaTest extends TestCase
     /** @return iterable<string, array{string, ?string, string, string, string}> */
     public static function casos(): iterable
     {
-        yield 'atrasada (ontem)' => [Tarefa::STATUS_PENDENTE, '2026-10-13', 'atrasadas', 'Atrasada', 'danger'];
-        yield 'vence hoje' => [Tarefa::STATUS_PENDENTE, '2026-10-14', 'proximas', 'Vence em breve', 'warn'];
-        yield 'vence em 7 dias (borda da janela)' => [Tarefa::STATUS_PENDENTE, '2026-10-21', 'proximas', 'Vence em breve', 'warn'];
-        yield 'vence em 8 dias' => [Tarefa::STATUS_PENDENTE, '2026-10-22', 'depois', 'No prazo', 'ok'];
-        yield 'sem prazo' => [Tarefa::STATUS_PENDENTE, null, 'sem_prazo', 'Sem prazo', 'cinza'];
-        yield 'em revisão com prazo vencido (sai da fila)' => [Tarefa::STATUS_EM_REVISAO, '2026-10-01', 'em_revisao', 'Em revisão', 'accent'];
-        yield 'concluída com prazo vencido' => [Tarefa::STATUS_CONCLUIDA, '2026-10-01', 'concluidas', 'Concluída', 'ok'];
+        yield 'atrasada (ontem)' => [Tarefa::STATUS_PENDENTE, '2026-10-13', 'atrasadas', 'metas.status.atrasada', 'danger'];
+        yield 'vence hoje' => [Tarefa::STATUS_PENDENTE, '2026-10-14', 'proximas', 'metas.status.vence_em_breve', 'warn'];
+        yield 'vence em 7 dias (borda da janela)' => [Tarefa::STATUS_PENDENTE, '2026-10-21', 'proximas', 'metas.status.vence_em_breve', 'warn'];
+        yield 'vence em 8 dias' => [Tarefa::STATUS_PENDENTE, '2026-10-22', 'depois', 'metas.status.no_prazo', 'ok'];
+        yield 'sem prazo' => [Tarefa::STATUS_PENDENTE, null, 'sem_prazo', 'metas.status.sem_prazo', 'cinza'];
+        yield 'em revisão com prazo vencido (sai da fila)' => [Tarefa::STATUS_EM_REVISAO, '2026-10-01', 'em_revisao', 'metas.status.em_revisao', 'accent'];
+        yield 'concluída com prazo vencido' => [Tarefa::STATUS_CONCLUIDA, '2026-10-01', 'concluidas', 'metas.status.concluida', 'ok'];
     }
 
     #[DataProvider('casos')]

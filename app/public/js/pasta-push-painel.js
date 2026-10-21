@@ -76,7 +76,7 @@
             postar(painel.dataset.monitoramentoUrl, dados)
                 .then(function (res) {
                     if (!res.ok || !res.dados.sucesso) {
-                        throw new Error(res.dados.erro || 'Não foi possível alterar o monitoramento.');
+                        throw new Error(res.dados.erro || BJ_T.t('pasta_push.js.painel.monitoramento_falhou'));
                     }
                     var processo = res.dados.processo || {};
                     aplicarChave(botao, !!processo.ativo, processo.dica);
@@ -100,7 +100,7 @@
             buscar.disabled = sim;
             buscar.classList.toggle('is-buscando', sim);
             buscarIco.className = sim ? 'bi bi-arrow-repeat' : 'bi bi-cloud-download';
-            buscarTxt.textContent = sim ? 'Lendo o processo...' : 'Buscar agora';
+            buscarTxt.textContent = sim ? BJ_T.t('pasta_push.js.painel.lendo') : BJ_T.t('pasta_push.js.painel.buscar');
         }
 
         if (buscar) {
@@ -113,7 +113,7 @@
                 postar(painel.dataset.buscarUrl, dados)
                     .then(function (res) {
                         if (!res.ok || !res.dados.sucesso) {
-                            throw new Error(res.dados.erro || 'Não foi possível buscar agora.');
+                            throw new Error(res.dados.erro || BJ_T.t('pasta_push.js.painel.buscar_falhou'));
                         }
                         // O aviso volta como flash; a aba Push reabre pelo fragmento (pasta-show.js).
                         window.location.hash = 'push';
@@ -172,7 +172,7 @@
                     body: dados
                 }).then(function (r) {
                     return r.json().catch(function () { return {}; }).then(function (d) {
-                        if (!r.ok || !d.sucesso) { throw new Error(d.erro || 'Não foi possível alterar o aviso.'); }
+                        if (!r.ok || !d.sucesso) { throw new Error(d.erro || BJ_T.t('pasta_push.js.painel.aviso_falhou')); }
                         aplicar(d.avisos || []);
                     });
                 }).catch(function (e) {

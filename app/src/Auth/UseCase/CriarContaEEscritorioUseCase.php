@@ -17,6 +17,7 @@ use App\Repository\UserRepository;
 use App\Service\TenantBootstrapService;
 use App\Termo\DTO\RegistrarAceiteTermoInput;
 use App\Termo\Entity\CienciaPolitica;
+use App\Termo\Enum\OrigemDoAceite;
 use App\Termo\Repository\CienciaPoliticaRepository;
 use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -192,6 +193,7 @@ final class CriarContaEEscritorioUseCase
             ip: $ip,
             userAgent: $userAgent,
             tenant: $tenant,
+            origem: OrigemDoAceite::Cadastro,
         ));
         $this->cienciaPoliticaRepository->salvar(new CienciaPolitica(
             user: $user,
@@ -199,6 +201,7 @@ final class CriarContaEEscritorioUseCase
             ip: $ip,
             userAgent: $userAgent,
             cienteEm: $agora,
+            origem: OrigemDoAceite::Cadastro,
         ));
     }
 

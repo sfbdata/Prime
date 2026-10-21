@@ -14,6 +14,8 @@ use App\Auth\UseCase\ConfirmarCodigoSenhaUseCase;
 use App\Auth\UseCase\SolicitarCodigoSenhaUseCase;
 use App\Entity\Auth\User;
 use App\Repository\UserRepository;
+use App\Termo\Repository\AceiteTermoRepository;
+use App\Termo\Repository\CienciaPoliticaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -41,6 +43,8 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
     private UserPasswordHasherInterface&MockObject $hasher;
     private ConfirmacaoEmailRepository&MockObject $confirmacaoEmailRepository;
     private EventDispatcherInterface&MockObject $eventDispatcher;
+    private AceiteTermoRepository&MockObject $aceiteTermoRepository;
+    private CienciaPoliticaRepository&MockObject $cienciaPoliticaRepository;
     private ConfirmarCodigoSenhaUseCase $useCase;
 
     /** Resultado do UPDATE condicional: false = outra requisição consumiu o código antes. */
@@ -57,6 +61,8 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
         $this->hasher                = $this->createMock(UserPasswordHasherInterface::class);
         $this->confirmacaoEmailRepository = $this->createMock(ConfirmacaoEmailRepository::class);
         $this->eventDispatcher       = $this->createMock(EventDispatcherInterface::class);
+        $this->aceiteTermoRepository = $this->createMock(AceiteTermoRepository::class);
+        $this->cienciaPoliticaRepository = $this->createMock(CienciaPoliticaRepository::class);
         $this->useCase               = new ConfirmarCodigoSenhaUseCase(
             $this->em,
             $this->userRepository,
@@ -66,6 +72,8 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
             $this->confirmacaoEmailRepository,
             $this->eventDispatcher,
             $this->createStub(LoggerInterface::class),
+            $this->aceiteTermoRepository,
+            $this->cienciaPoliticaRepository,
         );
         // Faz no objeto o que o UPDATE condicional faz no banco: só ganha quem encontra o e-mail ainda a confirmar.
         $this->confirmacaoEmailRepository->method('confirmarEmailDaConta')
@@ -199,6 +207,41 @@ final class ConfirmarCodigoSenhaUseCaseTest extends TestCase
 
         self::assertSame('HASH_NOVO', $user->getPassword());
         self::assertTrue($user->isEmailConfirmado());
+    }
+
+    #[TestDox('D2b: quem confirma a conta pelo código tira o valor do aceite e da ciência do cadastro, uma vez')]
+    public function testConfirmarPeloCodigoDesratificaOCadastro(): void
+    {
+        $user = $this->usuario();
+        $user->marcarEmailAConfirmar(new \DateTimeImmutable('-1 day'));
+        $this->cenario($user);
+        $this->aceiteTermoRepository->expects($this->once())->method('desratificarCadastro')->with($user);
+        $this->cienciaPoliticaRepository->expects($this->once())->method('desratificarCadastro')->with($user);
+
+        $this->useCase->executar($this->input());
+    }
+
+    #[TestDox('D2b: conta já confirmada não mexe no aceite do cadastro')]
+    public function testContaJaConfirmadaNaoDesratifica(): void
+    {
+        $this->cenario();
+        $this->aceiteTermoRepository->expects($this->never())->method('desratificarCadastro');
+        $this->cienciaPoliticaRepository->expects($this->never())->method('desratificarCadastro');
+
+        $this->useCase->executar($this->input());
+    }
+
+    #[TestDox('D2b: quem perde a corrida da confirmação (o link ganhou antes) não desratifica')]
+    public function testCorridaPerdidaNaoDesratifica(): void
+    {
+        $user = $this->usuario();
+        $user->marcarEmailAConfirmar(new \DateTimeImmutable('-1 day'));
+        $this->cenario($user);
+        $this->bancoJaConfirmado = true;
+        $this->aceiteTermoRepository->expects($this->never())->method('desratificarCadastro');
+        $this->cienciaPoliticaRepository->expects($this->never())->method('desratificarCadastro');
+
+        $this->useCase->executar($this->input());
     }
 
     #[TestDox('Código errado não despacha o evento')]

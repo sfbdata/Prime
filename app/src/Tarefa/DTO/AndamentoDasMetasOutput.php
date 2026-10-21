@@ -21,12 +21,6 @@ final class AndamentoDasMetasOutput
     ) {
     }
 
-    /** O que sobra do total depois de tirar concluídas, atrasadas e em revisão (fatia "em aberto"). */
-    public function emAberto(): int
-    {
-        return max(0, $this->total - $this->concluidas - $this->atrasadas - $this->emRevisao);
-    }
-
     public function percentualConcluido(): int
     {
         return $this->total === 0 ? 0 : (int) round($this->concluidas / $this->total * 100);

@@ -40,7 +40,8 @@ class DestinoDaCampanhaRepository extends ServiceEntityRepository
     }
 
     /**
-     * Grava os destinatários da execução; quem já estava gravado não se repete. Devolve quantos entraram.
+     * Grava os destinatários da execução, cada um com a lista pela qual entrou (§11); quem já estava gravado não se
+     * repete. Devolve quantos entraram.
      *
      * @param list<DestinatarioDaCampanha> $destinatarios
      */
@@ -51,12 +52,13 @@ class DestinoDaCampanhaRepository extends ServiceEntityRepository
             $valores = [];
             $parametros = ['campanha' => $campanhaId, 'execucao' => $execucao, 'agora' => $agora->format('Y-m-d H:i:s')];
             foreach ($parte as $i => $d) {
-                $valores[] = '(:campanha, :execucao, :e' . $i . ', :n' . $i . ', :agora)';
+                $valores[] = '(:campanha, :execucao, :e' . $i . ', :n' . $i . ', :l' . $i . ', :agora)';
                 $parametros['e' . $i] = $d->email;
                 $parametros['n' . $i] = $d->nome === '' ? null : $d->nome;
+                $parametros['l' . $i] = $d->lista;
             }
             $inseridos += (int) $this->conexao()->executeStatement(
-                'INSERT INTO comercial_campanha_destino (campanha_id, execucao, email, nome, criado_em) VALUES '
+                'INSERT INTO comercial_campanha_destino (campanha_id, execucao, email, nome, lista, criado_em) VALUES '
                 . implode(', ', $valores) . ' ON CONFLICT (campanha_id, execucao, email) DO NOTHING',
                 $parametros,
             );
@@ -69,12 +71,12 @@ class DestinoDaCampanhaRepository extends ServiceEntityRepository
      * Trava até `limite` destinatários ainda não entregues ao Carteiro, das campanhas que ainda enviam e só da execução
      * corrente de cada uma. Precisa estar dentro de {@see self::emTransacao()}: a trava vale até o fim dela.
      *
-     * @return list<array{id: int, campanha_id: int, email: string, nome: ?string}>
+     * @return list<array{id: int, campanha_id: int, email: string, nome: ?string, lista: string}>
      */
     public function reservarPendentes(int $limite): array
     {
         $linhas = $this->conexao()->fetchAllAssociative(
-            "SELECT d.id, d.campanha_id, d.email, d.nome
+            "SELECT d.id, d.campanha_id, d.email, d.nome, d.lista
              FROM comercial_campanha_destino d JOIN comercial_campanha c ON c.id = d.campanha_id
              WHERE d.envio_id IS NULL AND d.execucao = c.execucoes AND c.estado IN ('enviando', 'recorrente')
              ORDER BY d.id LIMIT " . max(1, $limite) . ' FOR UPDATE OF d SKIP LOCKED',
@@ -82,7 +84,7 @@ class DestinoDaCampanhaRepository extends ServiceEntityRepository
 
         return array_map(static fn (array $l): array => [
             'id' => (int) $l['id'], 'campanha_id' => (int) $l['campanha_id'], 'email' => (string) $l['email'],
-            'nome' => $l['nome'] === null ? null : (string) $l['nome'],
+            'nome' => $l['nome'] === null ? null : (string) $l['nome'], 'lista' => (string) $l['lista'],
         ], $linhas);
     }
 

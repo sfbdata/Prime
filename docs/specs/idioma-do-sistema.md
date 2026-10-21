@@ -24,7 +24,12 @@ Sessão 0d, 21/10/2026. Itens marcados **DONO** são decisões dele; o resto seg
     `PlanosELimitesController` e os rótulos da faixa etária e do tipo de divulgação; o `painel.js` inteiro entrou no
     `templates-extraidos.json`. Bloco `master` com 450 chaves (a P2b somou 191: `js` 165, `seccionais` 15, `contas` 4,
     `planos` 5, `faixa_etaria` 2). Detalhes em §8. Os mapas (`mapa_brasil`, `mapa_mundo`, `mapa-*.js`) ficam para a P3.
-  - **P3:** Notificações, Indicações (sem o include da Central), `masters.js` e `recursos.js`.
+  - **P3** (branch `idioma-master-c`): a Central de Notificações (`_notificacoes`, `notificacoes.js`), a seção
+    Indicações (`_indicacoes`, sem o include da Central de envios; `indicacoes.js`), `masters.js`, `recursos.js` e o
+    mapa mundial (`mapa_mundo`, `mapa-mundo.js`), com as respostas e recusas do `CentralDeNotificacoesController`, do
+    `IndicacoesDoMasterController` e do `MastersDoSistemaController` e as recusas com chave da `RespostaRecusada` e da
+    `OperacaoDeMasterRecusada`. Bloco `master` com 584 chaves (a P3 somou 134: `notificacoes` 34, `indicacoes` 14,
+    `masters` 11, `mapa` 4, `js` 71). O mapa do Brasil (`mapa_brasil`, `mapa-brasil.js`) fica com a 4b. Detalhes em §8.
 - Quem tem o quê fora da b5: o Comercial é da 5d (bloco de topo próprio `comercial:`, chaves `comercial.*`; um segundo `master:` de topo duplicaria a chave no YAML); o Relatório do Comercial e os
   Temas são da 9b.
 
@@ -245,6 +250,47 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   trilha vêm do PHP como texto em português (dado): traduzi-los pede um código no JSON. Os nomes de estado e de país
   (dado, ver a P2a). O "R$" e a moeda BRL. Os mapas, `masters.js` e `recursos.js` (P3).
 
+- **P3 (b5):** as chaves das áreas novas moram em sub-blocos próprios do `master:` (`notificacoes`, `indicacoes`,
+  `masters`, `mapa`, e no JS `js.notificacoes`, `js.indicacoes`, `js.masters`, `js.recursos`, `js.mapa_mundo`; o
+  `js.mapa` já era da Visão geral). O `notificacoes.js` e o `indicacoes.js` são carregados pelo parcial, antes do
+  catálogo e do `bj-traducao.js` (fim do base): leem o texto só na hora de usar, e a carga pelo hash espera o
+  `DOMContentLoaded`. O `masters.js` e o `recursos.js` usam o catálogo do painel (`master.js`, `termos`). O
+  `mapa_mundo` (iframe sem o base) ganhou o próprio `catalogo_js('master.js.mapa_mundo')` e o `bj-traducao.js`; o
+  `PainelMasterControllerTest::testCsp` passou a aceitar o bloco `type="application/json"` (dado, o navegador não
+  executa). Datas e números pelo `BJFormato` (`dataHora`, `hora`, `numero`, `data`). Texto do catálogo que entra em
+  HTML montado passa por `esc()`/`escH()`; o `esc()` do `recursos.js` escreve as aspas pelo código, como o do painel.
+  O termo Master entra por `{papel}` nas frases do JS e nos flashes dos Masters. "(s)" fica como está.
+- **Recusas com chave (P3):** `RespostaRecusada` (Central) e `OperacaoDeMasterRecusada` (promover e remover Master)
+  ganharam as `RECUSA_*` em português e o `CHAVE_DA_RECUSA`, como as das seccionais (sem parâmetro; recusa fora das
+  constantes dá `LogicException`); os UseCases lançam pelas constantes e os controllers traduzem pela `chave()`. O
+  `CatalogoDasRecusasDoMasterTest` amarra as duas ao catálogo.
+- **Sem mudança visível (P3):** o HTML de `/master` (Master primário) e de `/master/mapa/mundo` foi comparado antes e
+  depois (templates da HEAD contra os novos, com tokens normalizados): o painel ficou igual (o catálogo `master.js`
+  só ganhou as chaves novas) e o mapa mundial só ganhou o `<script data-bj-t>` e o `bj-traducao.js`. O texto que os
+  cinco JS montam foi comparado num DOM falso, HEAD contra o novo, em 62 fotos (Central: lista, seleção, abas,
+  páginas, estrela, falhas, mensagem com e sem e-mail, histórico nos três canais, respostas por e-mail e pela Central,
+  recusa e falha; Indicações: carga, pausa, recusa e falha dos limites, carga que falha; Masters: sem escolha,
+  promover, remover, confirmação com e sem palavra; Telas e recursos: essencial, prompts, desligar, recusas, falha,
+  religar, busca vazia e por grupo, tudo ativo; mapa mundial: dicas de país, estado e município, painéis de país,
+  estado e região, trilha, vazios e falhas), iguais letra a letra, incluindo os textos dos `prompt()` e os corpos dos
+  POST, sem nenhuma chave faltando.
+- **Permitidos (P3):** o bloco `master` passou a 71: entram as regiões (`Norte`, `Nordeste`, `Centro-Oeste`,
+  `Sudeste`, `Sul`), os países do mapa mundial que o painel não tinha (`Austrália`, `Japão`, `China`) e `Polygon`
+  (tipo de geometria do d3).
+- **Nomes de lugar (DONO, 21/10):** os nomes de estado, de país e de região ficam em português nesta série; a tradução
+  deles vira entrega própria depois (resolve a dívida da P2b).
+- **Ficou fora da P3:** o mapa do Brasil (`mapa_brasil.html.twig` e `mapa-brasil.js`) fica com a 4b, que está mudando
+  os dois e extrai o texto deles quando terminar; o `mapa-dados.js` (menu de dados públicos, OAB e IBGE), que o mapa
+  do Brasil também carrega e que pediria o catálogo lá; o `mapa-agregado.js` e o `bj-dica.js` não têm texto (o
+  `bj-dica.js` entrou no `templates-extraidos.json`; o `mapa-agregado.js` não, por ser também do mapa do Brasil). O
+  conteúdo da Central (rótulo do tipo, "Sistema BlueJus", "Equipe", "Conta Nº", assuntos e textos montados nos
+  leitores de `app/src/Master/Notificacoes/`, e o rótulo da sugestão, que vem do `TipoDeSugestao` do Contribua): a
+  busca da caixa compara esse português e o assunto vai também ao e-mail e ao aviso da resposta, então traduzir pede
+  um código no JSON e a busca no idioma da tela. As recusas do validador e do `AlterarLimitesDeIndicacaoUseCase`
+  (domínio Indicacao, compartilhado com o lado do usuário). As `RECUSA_*` da `RegraDosMasters` (o
+  `EscritorioController` do Tenant também usa). As respostas do `RecursosDoSistemaController` e do `RecursoRecusado`
+  (fora do escopo desta etapa). O `lang="pt-BR"` fixo do `mapa_mundo`.
+
 - **Termos comuns (21/10, depois do #231):** os selos MASTER e SECUNDÁRIO do menu e do Meu Perfil, o papel "Master"
   (Minha conta e aba do Meu Perfil) e o "primário" do JS do menu vêm de `termos.*` (`|upper` onde é caixa alta; o base
   entrega `termos` ao JS). "USUÁRIO PRIMÁRIO" (expressão composta, a ordem muda por idioma), "Perfis" e "Colaboradores"
@@ -362,6 +408,87 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   Histórico dos cards (`ObterHistoricoDoCardUseCase`: título, subtítulo, nota, meses, indicadores) e a recusa
   `Sem acesso ao módulo Dashboard.`. Os parciais de outras áreas que a casca usa: `_partials/_filtro_barra` (chips,
   rótulos e botões internos) e `filtro-tabela.js`. O `|lower` do nível no painel continua sobre o rótulo do PHP.
+
+## 14. A Pasta, aba Push (0d, 21/10)
+
+- **Bloco `pasta_push`** (269 chaves): `processual`, `painel`, `cliente`, `envio`, `teor`, `link` e `js`. Os quatro JS
+  da aba (`pasta-push.js`, `pasta-push-painel.js`, `pasta-push-cliente.js` e `pasta-push-link.js`) leem `pasta_push.js`.
+  O `catalogo_js` mora no `_push_processual` (antes do `pasta-push.js`; o painel e o cliente são incluídos por ele) e no
+  `_push_link_externo` (o `pasta-push-link.js` é carregado pelo `pasta/show`, depois do parcial), sem tocar o show. Com
+  a aba oculta, nenhum dos dois sai, e o `pasta-push-link.js` para no começo, sem o modal.
+- **Extraídos:** `pasta/_push_processual`, `_push_painel`, `_push_cliente`, `_push_cliente_modal`, `_push_teor` e
+  `_push_link_externo`, e os quatro JS. Não havia `|date` nesses parciais. A abreviação dos meses da pílula do dia
+  ("5 out 2026") virou `pasta_push.processual.meses.*`. Contagem e plural do JS viraram pares de chaves (`um_acesso` e
+  `acessos` com `{n}`), sem plural ICU. O "Esta pasta ainda não tem Análise IA." do link externo não entra no
+  `pasta_push.js` (que vai à página de quem não vê IA): o JS guarda o texto que o parcial traz, só para quem vê IA.
+- **Permitidos:** nomes de tecla e cabeçalho HTTP (`Accept`, `Escape`, `Tab`, `ContextMenu`, `ArrowDown`, `ArrowUp`) e
+  as letras acentuadas do mapa que tira o acento do tipo da comunicação para escolher a cor (`ç`, `ã`, `á`...), que não
+  vão à tela.
+- **Sem mudança visível:** o HTML da aba (com o painel, o "Avisar cliente", o modal de envio e as três peças do link
+  externo) foi comparado antes e depois em seis cenários (sem processo; sem publicação; completo com apensado, filtro
+  por processo, publicação lida e não lida, sem teor e com análise da IA; o mesmo sem IA; quem só vê; pasta excluída),
+  mais o teor de três publicações e o cartão e o modal do cliente renderizados à parte (com e sem e-mails,
+  descadastrado, Controladoria e histórico). Só mudaram os tokens CSRF das notas técnicas, que são aleatórios.
+- **Ficou de fora:** o texto que vem do PHP (status, subtítulo e última busca do painel, a Situação atual, os rótulos e
+  dicas dos avisos e do envio automático, a sublinha e as dicas dos e-mails do cliente, o histórico, o subtítulo do
+  modal, os rótulos dos filtros por processo, o tipo do apensado, o `estadoRotulo`, o `resumo` e o `motivoBloqueio` dos
+  links, e os erros e avisos do JSON dos controllers); a mensagem de `ia_disponibilidade()`; os parciais de outros
+  domínios incluídos pela aba (`inteligencia/_analises_push` e `processo/_notas_tecnicas`) e o `pasta-ia-push.js`; o
+  `title` da aba no `pasta/show` (o `pasta-push.js` reescreve o mesmo texto pelo catálogo).
+- **Permitidos fora da regra:** as 10 letras acentuadas do `|replace` que tira o acento do tipo da comunicação
+  (`_push_processual`) são técnicas e não vão à tela; como a lista vale para os 10 arquivos do bloco, um literal de
+  uma letra acentuada nesses arquivos passa pelo detector. O mesmo `catalogo_js` sai duas vezes quando os dois
+  parciais estão na página (o `BJ_T` junta os blocos; só pesa no tamanho).
+
+## 18. Extração da Agenda (7d, 21/10)
+
+- **Escopo:** `templates/agenda/nova`, `lista`, `novo`, `editar` e `show` (as telas antigas continuam com link: a lista
+  pela Agenda nova e pelo Dashboard, o show pelos avisos do sino; confirmado pela 4b), `agenda-nova.js` e `lembretes.js`
+  (global). Bloco `agenda` com 344 chaves (o JS em `agenda.js.*`, entregue pelo `nova`; o placeholder do Select2 de
+  novo/editar em `agenda.form.js.*`) e `moldura.js.lembretes.*` (21, entregue pelo base).
+- **Sem mudança visível:** o HTML de 10 telas (Agenda nova, lista e passados, novo, show e editar de evento simples, dia
+  inteiro e recorrente com local) saiu igual; mudaram só os `confirm()` dos `onclick`, agora `|trans|e('js')` (o mesmo
+  texto, escapado para JS) e um valor padrão de hora que vem do relógio.
+- **Formatos:** datas e horas da lista, do show e do editar viraram `|data`, `|data_hora` e `|hora`; no JS,
+  `toLocaleTimeString`/`toLocaleDateString('pt-BR')` curtos viraram `BJFormato`; nomes de mês e dia da semana viraram
+  listas de chaves. Ficaram: a data longa do detalhe (`weekday: 'long'`, o `BJFormato` não tem formato longo), o dd/mm do
+  próximo feriado, as horas da grade e o mês abreviado da lista (corte em 3 letras do nome traduzido).
+- **Ficou para depois:** rótulos do `EventoType` (formulário legado), `statusLabel` e `tipoRecorrencia` cru no show,
+  mensagens de erro do servidor, e o texto do PHP listado pela 4b (`AvisoDoCompromisso`, `VarrerLembretesDePushUseCase`,
+  `CompromissoNoGoogle`, `PrazoParaOGoogle`, `GoogleAgendaController`).
+
+## 16. Cobrança: objeto, caso e acordo (0d, 21/10)
+
+- **Escopo:** `cobranca/objeto/show` e os oito parciais de `objeto/_partials` (`_divida`, `_movimentos`,
+  `_responsaveis`, `_telefones_cobrada`, `_painel_qualificacao`, `_honorarios`, `_anotacao_acoes`,
+  `_campos_config_encargos`), `cobranca/caso/*` (lista, `_resultado`, `_documentos`, `_acoes_modais`,
+  `_acoes_modais_financeiro`) e `cobranca/acordo/show`. Bloco `cobranca_objeto` do catálogo, 595 chaves, com
+  `cobranca_objeto.js.*` para o JS inline do `show` do objeto e do acordo (entregue por `catalogo_js('cobranca_objeto.js')`
+  antes do primeiro `<script>` de cada um). A lista de casos não tem JS com texto.
+- **Sem mudança visível:** o HTML do objeto cheio (dívida, acordo vigente e rompido, pagamento, liquidação, anotação,
+  próxima ação, responsáveis e telefones) e vazio, da lista de casos com dados, vazia e com busca sem resultado e do
+  acordo saiu igual fora dos `<script>`. Mudaram só tokens CSRF, quebras de linha, o `<script data-bj-t>` do catálogo,
+  os literais trocados por `BJ_T.t()` no JS inline e a codificação de `aria-label` com a descrição da obrigação ou o
+  nome da pasta (antes `|e('html_attr')` no pedaço, agora o escape normal da frase inteira: o texto lido é o mesmo). Os
+  `confirm()` de excluir documento (acordo e arquivo do caso) passam por `|e('js')`. A ordem das linhas da lista de casos
+  com dois casos do mesmo instante variou entre as fotos (empate na ordenação, já existia).
+- **Formatos:** viraram `|data` só as datas com guarda de nulo: data do acordo (título, cabeçalho, grupo da dívida e
+  acordos encerrados), encargos atualizados e congelados, `pagoEm` do "Já pago", `totaisAtualizadosEm` e o prazo da
+  próxima ação. As demais (`vencimentoOriginal`, `ocorridoEm`, `criadoEm`, o `m/Y` dos vínculos) seguem com `|date` e
+  entram como parâmetro já formatado, como os `number_format` e os percentuais.
+- **Frase partida:** as frases com `<strong>` ou `<em>` (encargos por obrigação, avisos dos modais de pagamento,
+  obrigação, encerramento e judicialização, acordo com pagamento, configuração de encargos do objeto, exclusões) foram
+  divididas em chaves, como no §8. `x > 0` dentro de atributo virou `0 < x`. Os sufixos `'Bp'`/`'Reais'` do macro de
+  encargos viraram os nomes completos dos campos no próprio mapa (`jurosBp`, `jurosReais`...), sem mudar o form. O
+  `R$ 0,00` fixo virou `{{ 0|centavos }}`, e o `R$` dos campos, `comum.simbolo_reais`. O nome do enum
+  `App\\Cobranca\\Enum\\TipoTelefone` (em `enum_cases`) ficou nos permitidos.
+- **Ficou de fora:** o texto que vem do PHP (`statusLabel`, `tipoLabel`, `familiaLabel`, `papelLabel`,
+  `formaHonorariosLabel`, rótulos dos filtros do histórico, da qualificação de contato, do `TipoTelefone`, das categorias
+  de documento e dos tipos de liquidação, descrições dos alertas, rótulos dos Form types, flashes e as mensagens JSON dos
+  controllers que o JS mostra); os parciais de outras pastas (`cobranca/_partials/_subnav`, `_partials/_filtro_barra`,
+  `_filtro_paginacao` e a ficha da pessoa carregada por AJAX, de `cobranca/pessoa`); os JS externos
+  `judicializar-buscar-pasta.js`, `objeto-linha-menu.js`, `pasta-arquivos.js` e `editor-rico.js` (têm texto) e
+  `filtro-tabela.js` e `telefone-mascara.js` (sem texto, mas compartilhados com outras telas), que não entraram na guarda.
 
 ## 15. Cobrança: carteiras, painel, alertas e importação (0d, 21/10)
 
