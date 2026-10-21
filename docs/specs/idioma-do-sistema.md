@@ -236,7 +236,7 @@ Perfil é também frente da 7d (gênero e atuação): o PR 1 combina com ela ant
   `filtro-tabela.js` e `pasta-metas.js` (vão com a Pasta) e o placeholder padrão do `_partials/_filtro_barra`.
 
 
-## 9. A Pasta, aba Processo (0d, 21/10)
+## 11. A Pasta, aba Processo (0d, 21/10)
 
 - **Blocos de topo por aba**, combinados com a f6: `pasta_processo` (este), `pasta_push` (próximo PR da 0d) e
   `pasta_financeiro` (f6). O JS de cada aba lê `<bloco>.js`; o `catalogo_js` mora no próprio parcial, sem tocar o
