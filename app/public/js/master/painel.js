@@ -249,6 +249,7 @@
     const usuTit = S.mapaQuem === 'esc' ? 'Escritórios' : S.mapaUsu === 'prim' ? 'Primários' : 'Pessoas';
 
     document.getElementById('mp-uf-tab').innerHTML = '<div class="mp-uf-cab"><span>' + (br ? 'Estado' : 'País') + '</span><span>' + usuTit + '</span><span></span></div>' + linhas
+      + (br && ehPes ? blocoSeccionais() : '')
       + (br ? '<div class="mp-uf-outros"><span><i class="bi bi-globe-americas"></i>Outros países</span><b>' + num(exterior) + '</b></div>' : '')
       + (S.mapaQuem === 'esc' && G.semEnd > 0 ? '<div class="mp-uf-semend"><span><i class="bi bi-geo"></i>Sem endereço no cadastro</span><b>' + num(G.semEnd) + '</b></div>' : '')
       + (ehPes && G.semLoc > 0 ? '<div class="mp-uf-semend" title="Sem lotação Cidade/UF, sem UF da OAB e sem estado do escritório"><span><i class="bi bi-geo"></i>Sem localização no cadastro</span><b>' + num(G.semLoc) + '</b></div>' : '')
@@ -267,6 +268,138 @@
     fr.title = br ? 'Mapa do Brasil por estado' : 'Mapa mundial por país';
     if (fr.dataset.src !== src) { fr.dataset.src = src; fr.src = src; }
   }
+
+  /* ---------- Seccionais da OAB (desenho 05, Perfis 1.2, VS 21.10.26, L116-127; spec master-seccionais-oab) ----------
+     Bloco "SECCIONAIS VISÍVEIS" embaixo das UFs, só no Brasil + Pessoas (convenção da spec até o arquivo inteiro do
+     desenho: DONO). Dados de /master/dados/seccionais (o mesmo GET do iframe). Mostrar ou ocultar é do navegador
+     (localStorage, chave lida também pelo mapa-brasil.js); a sede e as divulgações vêm do servidor. */
+  const SEC_CHAVE = 'bj-mapa-seccionais-ocultas';
+  const SEC_CFOAB = 'https://www.oab.org.br/institucionalconselhofederal/asiseccional';
+  const SEC_COR = { material: 'var(--sec-material)', reuniao: 'var(--sec-reuniao)', parceria: 'var(--sec-parceria)' };
+  const SEC_NOTA = 'Clique numa seccional para ver a sede. Botão direito na lista mostra ou oculta no mapa; botão direito no mapa registra a divulgação (material enviado, reunião, parceria). O ponto colorido indica seccional já trabalhada. Fonte: Conselho Federal da OAB.';
+  const SEC = { dados: null, estado: null, aberta: null };
+  const secOcultas = () => { try { const v = JSON.parse(localStorage.getItem(SEC_CHAVE) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+  const secGravarOcultas = ufs => { try { localStorage.setItem(SEC_CHAVE, JSON.stringify(ufs)); } catch (e) { /* navegador sem localStorage: vale só nesta tela */ } };
+  const secDe = uf => (SEC.dados ? SEC.dados.seccionais.find(s => s.uf === uf) : null);
+  const secUsuarios = n => (n === 1 ? '1 usuário' : num(n) + ' usuários');
+
+  function carregarSeccionais() {
+    if (SEC.estado === 'carregando') return;
+    SEC.estado = 'carregando';
+    fetch(URLS.seccionais, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then(j => { SEC.dados = j; SEC.estado = null; })
+      .catch(() => { SEC.estado = 'falhou'; })
+      .finally(() => { if (S.sec === 'visao' && D.visao && document.getElementById('mp-uf-tab')) renderMapa(); });
+  }
+  // O iframe avisa depois de registrar uma divulgação (mesmo padrão do __bjFontesAuto do mapa-dados.js).
+  window.__bjSeccionaisRecarregar = () => { SEC.estado = null; carregarSeccionais(); };
+
+  function blocoSeccionais() {
+    if (!SEC.dados) {
+      if (SEC.estado !== 'falhou') carregarSeccionais();
+      return '<div class="mp-sec-oab" data-sec-oab><span class="mp-sec-oab-nota">' + (SEC.estado === 'falhou' ? 'Não foi possível carregar as seccionais agora. Recarregue a página.' : 'Carregando as seccionais…') + '</span></div>';
+    }
+    const ocultas = secOcultas(), todas = SEC.dados.seccionais, algumaOculta = todas.some(s => ocultas.includes(s.uf));
+    return '<div class="mp-sec-oab" data-sec-oab><div class="mp-sec-oab-cab"><b>SECCIONAIS VISÍVEIS</b><button type="button" data-sec-todas>' + (algumaOculta ? 'Mostrar todas' : 'Ocultar todas') + '</button></div>'
+      + '<div class="mp-sec-oab-chips">' + todas.map(s => secChip(s, ocultas.includes(s.uf))).join('') + '</div>'
+      + (secDe(SEC.aberta) ? secCartao(secDe(SEC.aberta)) : '')
+      + '<div class="mp-sec-oab-nota">' + esc(SEC_NOTA) + '</div></div>';
+  }
+
+  function secChip(s, oculta) {
+    const tit = s.nome + (oculta ? ' · oculta no mapa' : ' · visível no mapa') + (s.ultima ? ' · última divulgação: ' + s.ultima.rotulo + ' em ' + dataBr(s.ultima.data) : '');
+    return '<button type="button" class="mp-sec-chip' + (oculta ? ' is-oculta' : '') + (SEC.aberta === s.uf ? ' is-aberta' : '') + '" data-sec-uf="' + esc(s.uf) + '" title="' + esc(tit) + '">' + esc(s.uf)
+      + (s.ultima ? '<span class="mp-sec-ponto" style="--cor:' + (SEC_COR[s.ultima.tipo] || 'var(--sec-material)') + '"></span>' : '') + '</button>';
+  }
+
+  function secCartao(s) {
+    const site = /^https:\/\//i.test(s.site || '') ? s.site : null;
+    return '<div class="mp-sec-card" data-sec-card><div class="mp-sec-card-cab"><i class="bi bi-bank"></i><span>' + esc(s.nome) + '</span><button type="button" data-sec-fechar title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button></div>'
+      + '<div class="mp-sec-card-corpo"><span><i class="bi bi-people"></i>' + esc(secUsuarios(s.usuarios)) + '</span>'
+      + '<span><i class="bi bi-geo-alt"></i>' + esc(s.endereco || 'Endereço não cadastrado. Confira no CFOAB.') + '</span>'
+      + (s.telefone ? '<span><i class="bi bi-telephone"></i>' + esc(s.telefone) + '</span>' : '')
+      + (site ? '<a href="' + esc(site) + '" target="_blank" rel="noopener"><i class="bi bi-globe2"></i>Site da seccional</a>' : '')
+      + '<div class="mp-sec-card-acoes"><a href="' + SEC_CFOAB + '" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i>Endereço oficial (CFOAB)</a>'
+      + '<button type="button" data-sec-editar><i class="bi bi-pencil"></i> Editar sede</button></div>'
+      + secDivulgacoes(s.ultimas) + '</div></div>';
+  }
+
+  // As 5 últimas divulgações (spec: tipo, data, autor, nota). O desenho truncado não mostra a lista: convenção do cartão.
+  const secDivulgacoes = lista => '<div class="mp-sec-divs"><b>ÚLTIMAS DIVULGAÇÕES</b>' + (lista.length
+    ? lista.map(d => '<div class="mp-sec-div"><i style="--cor:' + (SEC_COR[d.tipo] || 'var(--sec-material)') + '"></i><span><b>' + esc(d.rotulo) + '</b> · ' + esc(dataBr(d.data)) + ' · ' + esc(d.autor || 'autor removido')
+      + (d.nota ? '<span class="mp-sec-div-nota">' + esc(d.nota) + '</span>' : '') + '</span></div>').join('')
+    : '<span class="mp-sec-div-vazio">Nenhuma divulgação registrada. Use o botão direito no mapa.</span>') + '</div>';
+
+  function secAlternar(uf) {
+    const ocultas = secOcultas();
+    secGravarOcultas(ocultas.includes(uf) ? ocultas.filter(u => u !== uf) : ocultas.concat(uf));
+    renderMapa();
+  }
+
+  function secTodas() {
+    const algumaOculta = SEC.dados.seccionais.some(s => secOcultas().includes(s.uf));
+    secGravarOcultas(algumaOculta ? [] : SEC.dados.seccionais.map(s => s.uf));
+    renderMapa();
+  }
+
+  // Janela "Editar sede" no molde das janelas de limite e plano (caixa/campo do painel, host #mp-modal).
+  function secAbrirEdicao(s) {
+    const host = document.getElementById('mp-modal'); if (!host) return;
+    host.innerHTML = caixa('bi-bank', 'Editar sede', '<b class="mp-lim-conta" data-sede="' + esc(s.uf) + '">' + esc(s.nome) + '</b>'
+      + campo('ENDEREÇO', 'type="text" maxlength="255" data-sede-endereco value="' + esc(s.endereco || '') + '"')
+      + campo('TELEFONE', 'type="text" maxlength="40" data-sede-telefone value="' + esc(s.telefone || '') + '"')
+      + campo('SITE', 'type="url" maxlength="255" placeholder="https://" data-sede-site value="' + esc(s.site || '') + '"')
+      + '<span class="mp-lim-msg" data-lim-msg></span>', 'Salvar sede');
+    secAtualizarEdicao(null);
+    host.querySelector('[data-sede-endereco]').focus();
+  }
+
+  function secAtualizarEdicao(erro) {
+    const host = document.getElementById('mp-modal'), site = host.querySelector('[data-sede-site]').value.trim(), ok = site === '' || /^https:\/\/\S+$/i.test(site);
+    const msg = host.querySelector('[data-lim-msg]');
+    msg.textContent = erro || (ok ? 'Confira os dados no site do CFOAB. Campo vazio fica sem informação. A alteração fica registrada na auditoria.' : 'Informe o site completo, começando com https://.');
+    msg.style.setProperty('--cor', erro || !ok ? '#a3232b' : '#4a6373');
+    host.querySelector('[data-lim-ok]').disabled = !ok;
+  }
+
+  function secSalvarEdicao() {
+    const host = document.getElementById('mp-modal'), uf = host.querySelector('[data-sede]').dataset.sede, v = sel => host.querySelector(sel).value;
+    host.querySelector('[data-lim-ok]').disabled = true;
+    secPostar(SEC.dados.urlSede.replace('/XX/', '/' + uf + '/'), { endereco: v('[data-sede-endereco]'), telefone: v('[data-sede-telefone]'), site: v('[data-sede-site]') }, () => {
+      fecharModal(); window.__bjSeccionaisRecarregar();
+    }, erro => { if (host.querySelector('[data-sede]')) secAtualizarEdicao(erro || 'Não foi possível salvar agora. Recarregue a página.'); });
+  }
+
+  // POST JSON com o token no header (o controller lê X-CSRF-Token), com o mesmo critério do postar() do painel.
+  function secPostar(url, corpo, aoDarCerto, aoFalhar) {
+    fetch(url, { method: 'POST', body: JSON.stringify(corpo), credentials: 'same-origin', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-Token': SEC.dados.token } })
+      .then(r => r.json().catch(() => null).then(j => ({ r, j })))
+      .then(({ r, j }) => { const json = !r.redirected && j !== null && typeof j === 'object'; if (json && r.ok && j.mensagem) return aoDarCerto(j); aoFalhar(json && !r.ok ? j.erro : null); })
+      .catch(() => aoFalhar(null));
+  }
+
+  // Eventos do bloco: ouvintes próprios (não passam pelos da seção nem pelos das janelas de limite e plano).
+  elSecao.addEventListener('click', e => {
+    if (!e.target.closest('[data-sec-oab]')) return;
+    const chip = e.target.closest('[data-sec-uf]');
+    if (chip) { SEC.aberta = SEC.aberta === chip.dataset.secUf ? null : chip.dataset.secUf; return renderMapa(); }
+    if (e.target.closest('[data-sec-fechar]')) { SEC.aberta = null; return renderMapa(); }
+    if (e.target.closest('[data-sec-todas]')) return secTodas();
+    if (e.target.closest('[data-sec-editar]') && secDe(SEC.aberta)) return secAbrirEdicao(secDe(SEC.aberta));
+  });
+  elSecao.addEventListener('contextmenu', e => {
+    const chip = e.target.closest('[data-sec-oab] [data-sec-uf]'); if (!chip) return;
+    e.preventDefault(); secAlternar(chip.dataset.secUf);
+  });
+  (host => {
+    if (!host) return;
+    host.addEventListener('click', e => { if (host.querySelector('[data-sede]') && e.target.closest('[data-lim-ok]')) secSalvarEdicao(); });
+    host.addEventListener('input', () => { if (host.querySelector('[data-sede]')) secAtualizarEdicao(null); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && host.querySelector('[data-sede]')) fecharModal(); });
+  })(document.getElementById('mp-modal'));
+  // Outra aba (ou o iframe) mudou o que fica visível: o bloco acompanha.
+  window.addEventListener('storage', e => { if (e.key === SEC_CHAVE && SEC.dados && document.getElementById('mp-uf-tab')) renderMapa(); });
 
   function renderIdades() {
     const I = D.visao.idades, F = I.faixas, tot = F.reduce((a, x) => a + x.n, 0), mx = Math.max(1, ...F.map(x => x.n));
