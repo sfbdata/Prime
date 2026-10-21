@@ -262,6 +262,7 @@
             enviando = true; btn.disabled = true;
             var corpo = new URLSearchParams(new FormData(form));
             corpo.set('_token', veu.dataset.csrf);
+            corpo.set('tipo', veu.dataset.tipo); // sem ele o Novo cliente "Empresa" era criado como pessoa física
             if (veu.dataset.pasta) { corpo.set('pasta', veu.dataset.pasta); }
             fetch(veu.dataset.urlSalvar, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: corpo })
                 .then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); })
