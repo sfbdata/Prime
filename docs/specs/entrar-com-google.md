@@ -39,7 +39,10 @@ Ordem de casamento, na volta do Google:
 - Usuário inativo, conta suspensa ou em quarentena de exclusão: mesmas barreiras do login por senha
   (`UserChecker` do firewall e `TenantContextValidatorListener`).
 
-## 3. Conta nova pelo Google **[dono]**
+## 3. Conta nova pelo Google
+
+**Decidido pelo dono (21/10/2026): (B), em duas entregas.** Entrega 1: login de quem já tem conta; quem não
+tem conta age como (A). Entrega 2: criação de conta e escritório pelo Google.
 
 E-mail do Google que não tem conta no BlueJus. Duas opções:
 
