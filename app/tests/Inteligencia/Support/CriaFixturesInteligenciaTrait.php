@@ -15,9 +15,11 @@ use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Inteligencia\Entity\AnaliseDeInteligencia;
 use App\Inteligencia\Entity\ConfiguracaoDeInteligencia;
+use App\Inteligencia\Entity\PerguntaDaConversa;
 use App\Inteligencia\Enum\Agente;
 use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\TipoDeAnalise;
+use App\Inteligencia\Prompt\PromptDaPergunta;
 use App\Inteligencia\Prompt\PromptDoAgente;
 use App\Inteligencia\Prompt\PromptResumoDoPush;
 use App\Pasta\Entity\Pasta;
@@ -179,6 +181,39 @@ trait CriaFixturesInteligenciaTrait
         $this->em()->flush();
 
         return $analise;
+    }
+
+    /**
+     * Pergunta da aba Perguntar (F3) com a análise `pergunta_livre` pendente do Gestor, como o
+     * `PerguntarSobreAPastaUseCase` grava (financeiro e abas ocultas decididos em `contexto_resumo`).
+     *
+     * @param list<string> $abasOcultas
+     */
+    private function criarPergunta(
+        Tenant $tenant,
+        User $autor,
+        Pasta $pasta,
+        string $texto = 'O que falta fazer?',
+        bool $financeiro = true,
+        array $abasOcultas = [],
+    ): PerguntaDaConversa {
+        $analise = new AnaliseDeInteligencia(
+            tenant: $tenant,
+            solicitante: $autor,
+            tipo: TipoDeAnalise::PerguntaLivre,
+            alvoTipo: AnaliseDeInteligencia::ALVO_PASTA,
+            alvoId: (int) $pasta->getId(),
+            versaoDoPrompt: PromptDaPergunta::VERSAO,
+            contextoHash: hash('sha256', 'pergunta' . uniqid()),
+            contextoResumo: ['agente' => Agente::Gestor->value, 'secoes' => [], 'omitidas' => [], 'total' => 0, 'processos' => [], 'financeiro' => $financeiro, 'abasOcultas' => $abasOcultas],
+            agente: Agente::Gestor,
+        );
+        $pergunta = new PerguntaDaConversa($tenant, (int) $pasta->getId(), $autor, $texto, $analise);
+        $this->em()->persist($analise);
+        $this->em()->persist($pergunta);
+        $this->em()->flush();
+
+        return $pergunta;
     }
 
     private function criarMeta(Tenant $tenant, Pasta $pasta, User $responsavel, string $titulo, string $prazo = '+3 days', string $descricao = ''): Tarefa

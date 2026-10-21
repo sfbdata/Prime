@@ -46,6 +46,12 @@
     --ia-rodape-bg:     #fbfcfd;
     --ia-escolhido-bg:  #eef6fa;  /* comando/relatório escolhido e fundo do ícone (dc L1043, L5970) */
     --ia-descricao:     #6b8494;
+    /* Aba Perguntar (F3, dc L1077, L1087-1089, L1127-1129). */
+    --ia-sugestao-tx:   #0b5f86;
+    --ia-sugestao-hover:#e0eef6;
+    --ia-campo-bg:      #f1f6f9;
+    --ia-shim-1:        #eef3f6;
+    --ia-shim-2:        #dfeaf1;
     /* Selo, marca e chips do cartão: os mesmos roxos do Push. */
     --ia-roxo:          #5b3fb0;
     --ia-roxo-2:        #6a4bc4;
@@ -91,6 +97,11 @@
     --ia-rodape-bg:     var(--bs-tertiary-bg);
     --ia-escolhido-bg:  rgba(111, 195, 224, .12);
     --ia-descricao:     var(--bs-secondary-color);
+    --ia-sugestao-tx:   #8fcbe8;
+    --ia-sugestao-hover:rgba(111, 195, 224, .2);
+    --ia-campo-bg:      var(--bs-tertiary-bg);
+    --ia-shim-1:        rgba(255, 255, 255, .05);
+    --ia-shim-2:        rgba(255, 255, 255, .12);
     --ia-roxo:          #b9a6f2;
     --ia-roxo-2:        #b9a6f2;
     --ia-roxo-icone:    #a99bd0;
@@ -115,6 +126,8 @@
 @keyframes iaPulse { 0%, 100% { opacity: .55; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.08); } }
 @keyframes iaEstrela { 0%, 100% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 0 rgba(31, 166, 204, 0)); } 45% { transform: scale(1.12) rotate(8deg); filter: drop-shadow(0 0 3px rgba(31, 166, 204, .65)); } }
 @keyframes iaBrilho { 0%, 100% { opacity: .35; transform: scale(.7); } 45% { opacity: 1; transform: scale(1.15); } }
+/* Brilho do "carregando" da aba Perguntar, valores do desenho (dc L52). */
+@keyframes iaShim { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @keyframes iaCartaoEntra { 0% { opacity: 0; transform: translate3d(0, -8px, 0); } 60% { opacity: 1; transform: none; } }
 
 /* ── Botão do cabeçalho (dc L.1139) ── */
@@ -693,6 +706,111 @@ a.ia-icone { text-decoration: none; }
 .ia-relatorio-nome { font-size: 12.5px; font-weight: 700; color: var(--ia-texto); }
 .ia-relatorio-desc { font-size: 11px; color: var(--ia-descricao); line-height: 1.35; }
 
+/* ── Aba Perguntar (F3): conversa, sugestões, "carregando" e rodapé com o campo.
+   Valores do desenho: mensagens dc L5972 (`msgs`), texto vazio L1077, sugestões
+   L1080, cartão "Consultando os dados desta pasta" L1086-1092, rodapé L1126-1131. */
+.ia-conversa { display: grid; gap: 12px; }
+.ia-conversa-msgs { display: flex; flex-direction: column; gap: 8px; }
+.ia-conversa-msg {
+    max-width: 88%;
+    padding: 9px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.ia-conversa-msg--eu {
+    align-self: flex-end;
+    background: linear-gradient(135deg, var(--ia-azul-claro), var(--ia-azul));
+    color: #fff;
+}
+.ia-conversa-msg--ia {
+    align-self: flex-start;
+    background: var(--ia-cartao);
+    color: var(--ia-texto-2);
+    box-shadow: inset 0 0 0 1px var(--ia-anel);
+}
+.ia-conversa-msg--ia.is-falha { color: var(--ia-perigo); }
+.ia-conversa-vazia { margin: 0; font-size: 12.5px; color: var(--ia-texto-4); line-height: 1.5; }
+.ia-conversa-sugestoes { display: flex; flex-wrap: wrap; gap: 6px; }
+.ia-conversa-sugestao {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ia-escolhido-bg);
+    color: var(--ia-sugestao-tx);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ia-conversa-sugestao:hover:not(:disabled),
+.ia-conversa-sugestao:focus-visible { background: var(--ia-sugestao-hover); }
+.ia-conversa-sugestao:disabled { opacity: .5; cursor: default; }
+.ia-conversa-carregando {
+    background: var(--ia-cartao);
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 1px var(--ia-anel);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.ia-conversa-etapa { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--ia-azul-txt); }
+.ia-conversa-etapa > i { font-size: 14px; animation: iaPulse 1.2s ease-in-out infinite; }
+.ia-conversa-shim {
+    height: 9px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--ia-shim-1) 25%, var(--ia-shim-2) 50%, var(--ia-shim-1) 75%);
+    background-size: 200% 100%;
+    animation: iaShim 1.2s linear infinite;
+}
+.ia-conversa-shim--curto { width: 78%; }
+.ia-conversa-rodape {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--ia-anel);
+    background: var(--ia-cartao);
+}
+.ia-conversa-rodape[hidden] { display: none; }
+.ia-conversa-aviso { margin: 0; font-size: 12px; line-height: 1.4; color: var(--ia-texto-4); }
+.ia-conversa-aviso.is-erro { color: var(--ia-perigo); }
+.ia-conversa-campo { display: flex; gap: 8px; align-items: center; }
+.ia-conversa-input {
+    flex: 1;
+    min-width: 0;
+    height: 40px;
+    padding: 0 13px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ia-campo-bg);
+    font-family: inherit;
+    font-size: 13.5px;
+    color: var(--ia-texto);
+    outline: none;
+}
+.ia-conversa-input:focus-visible { box-shadow: inset 0 0 0 1.5px var(--ia-anel-cta); }
+.ia-conversa-input:disabled { opacity: .6; cursor: not-allowed; }
+.ia-conversa-enviar {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: linear-gradient(135deg, var(--ia-azul-claro), var(--ia-azul));
+    cursor: pointer;
+}
+.ia-conversa-enviar > i { font-size: 14px; }
+.ia-conversa-enviar:disabled { opacity: .5; cursor: default; }
+
 @media (max-width: 520px) {
     .ia-drawer { width: 100vw; }
     .ps-cab-ia-rotulo { display: none; }
@@ -706,6 +824,8 @@ a.ia-icone { text-decoration: none; }
     .ia-comando-btn.is-andamento .ia-comando-ico > i,
     .ia-relatorio-btn.is-andamento .ia-relatorio-ico,
     .ia-andamento-ico,
+    .ia-conversa-etapa > i,
+    .ia-conversa-shim,
     .ps-cab-ia-estrela-g,
     .ps-cab-ia-estrela-p,
     .ps-cab-ia-estrela-c { animation: none; }

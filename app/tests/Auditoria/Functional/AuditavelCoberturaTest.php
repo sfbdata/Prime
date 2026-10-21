@@ -168,6 +168,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Agenda\Entity\PrazoNoGoogle::class,
         \App\Agenda\Entity\ExclusaoNoGoogle::class,
         \App\Agenda\Entity\VarreduraDoGoogle::class,
+        // Pergunta da aba Perguntar da BlueJus IA (drawer, F3, 19/10): a conversa é da pessoa, e o AuditLogSubscriber
+        // gravaria o texto da pergunta no audit_log, que quem administra o escritório lê (mesmo motivo da Central).
+        // A análise da pergunta continua auditada, sem o texto do modelo (ConteudoParticular).
+        \App\Inteligencia\Entity\PerguntaDaConversa::class,
 
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,
