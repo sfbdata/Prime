@@ -24,6 +24,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
@@ -84,10 +85,13 @@ final class ComercialDoMasterController extends AbstractController
      * quantos foram barrados; recusa em 422 com `{erro}`.
      */
     #[Route('/master/comercial/contatos', name: 'master_comercial_contatos_cadastrar', methods: ['POST'])]
-    public function cadastrarContatos(Request $request, CadastrarContatoDoMasterUseCase $cadastrar): JsonResponse
+    public function cadastrarContatos(Request $request, CadastrarContatoDoMasterUseCase $cadastrar, RateLimiterFactoryInterface $comercialContatosMasterLimiter): JsonResponse
     {
         if (!$this->isCsrfTokenValid(self::TOKEN, (string) $request->headers->get('X-CSRF-Token', ''))) {
             return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
+        }
+        if (!$comercialContatosMasterLimiter->create($request->getClientIp() ?? 'desconhecido')->consume()->isAccepted()) {
+            return $this->json(['erro' => 'Muitos cadastros em pouco tempo. Tente de novo mais tarde.'], Response::HTTP_TOO_MANY_REQUESTS);
         }
         $corpo = json_decode($request->getContent(), true);
         $usuario = $this->getUser();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Functional;
 
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Comercial\Campanha\ChaveDasCampanhas;
 use App\Comercial\Campanha\ModelosDeCampanha;
 use App\Comercial\Controller\CampanhaDoMasterController;
@@ -61,6 +62,19 @@ final class ModoVendaDoMasterControllerTest extends JusPrimeWebTestCase
         $client->request('POST', self::CONTATOS, [], [], ['CONTENT_TYPE' => 'application/json'], '{"emails":"ana@exemplo.com"}');
 
         self::assertResponseStatusCodeSame(403);
+        self::assertSame(0, $this->contar('comercial_consentimento'));
+    }
+
+    #[TestDox('Cota do IP estourada: 429 com o texto e nenhum pedido de confirmação')]
+    public function testLimitePorIp(): void
+    {
+        $client = $this->clienteMaster();
+        static::getContainer()->set('limiter.comercial_contatos_master', new RateLimiterFactoryEspiao(aceita: false));
+
+        $this->postar($client, self::CONTATOS, ['emails' => 'ana@exemplo.com']);
+
+        self::assertResponseStatusCodeSame(429);
+        self::assertSame(['erro' => 'Muitos cadastros em pouco tempo. Tente de novo mais tarde.'], $this->json($client));
         self::assertSame(0, $this->contar('comercial_consentimento'));
     }
 
