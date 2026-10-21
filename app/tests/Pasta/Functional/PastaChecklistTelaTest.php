@@ -228,7 +228,7 @@ final class PastaChecklistTelaTest extends JusPrimeWebTestCase
         $aba = $crawler->filter('#pastaTabs > #documentos-tab.ps-aba--pend');
         self::assertSame(1, $aba->count(), 'a aba Documentos carrega a marca de pendência');
         self::assertSame(1, $crawler->filter('#documentos-tab > .ps-aba-pend')->count());
-        self::assertStringContainsString('2 itens do checklist marcados sem anexo', (string) $aba->attr('title'), 'o pendente sem arquivo não conta');
+        self::assertStringContainsString('2 itens marcados sem anexo', (string) $aba->attr('title'), 'o pendente sem arquivo não conta');
     }
 
     #[TestDox('pendência da aba Documentos: some quando todo item marcado tem arquivo (o filtro remove tudo)')]

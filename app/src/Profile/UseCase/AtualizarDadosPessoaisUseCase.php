@@ -16,7 +16,8 @@ use App\Profile\Repository\VinculoNoEscritorioRepository;
  * "Editar informações" do Meu Perfil (desenho "07 - Meu Perfil", VS 18.10.26; spec
  * docs/specs/meu-perfil-pagina.md §2). Quem: a própria pessoa, no escritório da sessão.
  *
- * - Dados da pessoa (nome, frase, telefone, CPF, nascimento, CTPS, série) vão para o UserProfile.
+ * - Dados da pessoa (nome, frase, telefone, CPF, nascimento, gênero, atuação, CTPS, série) vão para o UserProfile.
+ *   Gênero e atuação são só declarados pela pessoa (spec docs/specs/meu-perfil-genero-atuacao.md).
  * - O TIPO de vínculo só muda se `$podeAlterarVinculo` (primário do escritório ou Master); para os
  *   demais o que vier no formulário é ignorado e o tipo gravado continua.
  * - As datas valem conforme o tipo: CLT grava a admissão no UserTenant (o espelho de ponto lê
@@ -50,6 +51,8 @@ final class AtualizarDadosPessoaisUseCase
         // Como digitado (o espelho de ponto imprime o CPF gravado); a tela formata ao exibir.
         $perfil->setCpf(self::textoOuNulo($input->cpf));
         $perfil->setDataNascimento($input->dataNascimento);
+        $perfil->setGenero($input->genero);
+        $perfil->setAtuacao($input->atuacao);
         $perfil->setCtps(self::textoOuNulo($input->ctps));
         $perfil->setSerie(self::textoOuNulo($input->serie));
     }

@@ -1,6 +1,23 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "2.10.0"
+  data: "2026-10-21"
+  itens:
+    - "Quem conecta o Google Agenda passa a ver lá também os prazos e audiências das pastas, se o perfil tiver \"Ver prazos na agenda\"."
+    - "Agora dá para ligar a Agenda do BlueJus ao seu Google Agenda: o BlueJus cria no seu Google uma agenda com o nome do escritório, e o que você cria, edita ou exclui aqui aparece lá, e vice-versa. A sua agenda pessoal do Google não é lida. Os compromissos em que você é participante também aparecem lá, só para consulta. Para conectar, use \"Sincronizar com o Google Agenda\" na lateral da Agenda; para parar, \"Desconectar\"."
+    - "Em Editar perfil, a nova opção \"Ver prazos na agenda\" escolhe quem vê os prazos e audiências das pastas na Agenda. Ela já vem ligada em todos os perfis que veem as pastas."
+    - "Quem está com o acesso suspenso não aparece mais para receber tarefas novas, e o que já estava com essa pessoa continua com ela até alguém trocar."
+    - "O usuário primário agora vê a equipe do escritório numa janela só e pode suspender ou reativar o acesso de cada pessoa, sem apagar os dados dela."
+    - "A BlueJus IA da pasta ganhou uma gaveta com comandos prontos (Raio-X, prazos, próximos passos, relatórios) que rodam com um clique e guardam o histórico de cada um."
+    - "Agora você pode cadastrar mais de uma inscrição na OAB (a principal e as suplementares de outros estados) direto no seu perfil."
+    - "O checklist de documentos da pasta agora cobra sozinho o responsável pelos documentos que faltam, todo dia útil, até que sejam anexados."
+    - "Em Meu Perfil, desligar \"Sons de alerta\" deixa o sistema em silêncio: sem toque de mensagem, sem aviso sonoro de quem entrou ou saiu e sem o som do calendário."
+    - "Na aba Processo da pasta, vincule processos apensados (embargos, agravo, execução e outros); eles aparecem também em Dados da pasta e no Push processual, onde dá para filtrar as movimentações por processo."
+    - "Agora dá para completar os dados do processo direto no cartão, e as marcas (justiça gratuita, tutela, prioridade, segredo, 100% digital) aparecem em destaque."
+    - "Nada muda na tela por enquanto; o sistema passa a guardar a data em que cada pessoa deixou o escritório."
+    - "Agora dá para compartilhar as vagas da Central por WhatsApp, e-mail ou LinkedIn, com uma página pública que mostra só o essencial. Escritórios e convidados também podem divulgar as vagas abertas que veem."
+    - "O Trabalho Externo ganhou a aba Vagas: o seu escritório pode divulgar vagas na Central BlueJus, que revisa e publica."
 - versao: "2.9.0"
   data: "2026-10-20"
   itens:

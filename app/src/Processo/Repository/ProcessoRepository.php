@@ -2,7 +2,9 @@
 
 namespace App\Processo\Repository;
 
+use App\Entity\Audit\AuditLog;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\PastaProcesso;
 use App\Processo\Entity\Processo;
 use App\Twig\NumeroProcessoExtension;
 use Doctrine\DBAL\ArrayParameterType;
@@ -90,6 +92,37 @@ class ProcessoRepository extends ServiceEntityRepository
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.dataBaixa IS NULL')
             ->andWhere('p.monitoramentoPausadoEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Grava o processo e a linha de auditoria da mesma ação num flush só (P5b: dados manuais do
+     * cartão; o `Processo` não é Auditavel, senão cada sincronização do Datajud viraria log).
+     */
+    public function salvarComAuditoria(Processo $processo, AuditLog $registro): void
+    {
+        $em = $this->getEntityManager();
+        $em->persist($processo);
+        $em->persist($registro);
+        $em->flush();
+    }
+
+    /**
+     * Em quantas pastas vivas (fora da lápide) do escritório este processo está vinculado (P5b: o aviso "Valem para todas
+     * as pastas com este processo"). Tenant explícito: não depende do filtro de sessão.
+     */
+    public function contarPastasDoProcesso(Processo $processo, Tenant $tenant): int
+    {
+        return (int) $this->getEntityManager()->createQueryBuilder()
+            ->select('COUNT(DISTINCT pa.id)')
+            ->from(PastaProcesso::class, 'pp')
+            ->join('pp.pasta', 'pa')
+            ->andWhere('pp.processo = :processo')
+            ->andWhere('pa.tenant = :tenant')
+            ->andWhere('pa.excluidaEm IS NULL')
+            ->setParameter('processo', $processo)
             ->setParameter('tenant', $tenant)
             ->getQuery()
             ->getSingleScalarResult();

@@ -5,12 +5,20 @@ namespace App\EventListener;
 
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Repository\UserTenantRepository;
+use App\Security\PedidoDeNavegacao;
 use App\Service\Tenant\TenantContext;
 use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tenant\Service\AvisoDeContaSuspensa;
+use App\Tenant\Service\BloqueioPorPedidoDeExclusao;
+use App\Tenant\Service\RegraDosPrimarios;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\RouterInterface;
@@ -74,12 +82,18 @@ final class TenantContextValidatorListener
      */
     private const PREFIXO_SEM_ESCRITORIO = 'trabalho_externo_';
 
+    /** Rotas do painel do Master: funcionam sem escritório na sessão. */
+    private const PREFIXOS_DO_PAINEL_DO_MASTER = ['admin_', 'master_', 'inteligencia_admin_', 'auth_suporte_'];
+
     private const ACESSO_INDISPONIVEL = 'Seu acesso a este escritório não está mais disponível. Selecione outro escritório.';
 
     public function __construct(
         private readonly Security $security,
         private readonly TenantContext $tenantContext,
         private readonly RouterInterface $router,
+        private readonly BloqueioPorPedidoDeExclusao $bloqueioPorPedido,
+        private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly UserTenantRepository $userTenantRepository,
     ) {}
 
     public function __invoke(RequestEvent $event): void
@@ -101,7 +115,7 @@ final class TenantContextValidatorListener
         }
 
         if (!$this->tenantContext->hasCurrentTenant()) {
-            if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+            if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true) && !$this->masterPrecisaDaSelecao($event->getRequest(), $route, $user)) {
                 return;
             }
             // Só no ramo SEM escritório: com escritório na sessão, o vínculo continua conferido
@@ -120,7 +134,11 @@ final class TenantContextValidatorListener
         // consumidores de getCurrentTenant() que não rechecam isActive (RS06/RS07).
         $userTenant = $this->tenantContext->getCurrentUserTenant();
         $recusa = $this->barreiraDaConta($userTenant);
-        // (b) pedido de exclusão pendente: entra aqui (frente 7d, PR 5).
+        // (b) pedido de exclusão pendente (PR 5): o primário fica no Meu Perfil; a equipe sai.
+        if ($recusa === null && $this->primarioNaContaSuspensaAPedido($userTenant, $event)) {
+            return;
+        }
+        $recusa ??= $this->barreiraDoPedidoDeExclusao($userTenant);
         $recusa ??= $this->barreiraDoVinculo($userTenant);
         $recusa ??= $this->barreiraDaSituacao($userTenant, $user);
 
@@ -153,6 +171,54 @@ final class TenantContextValidatorListener
             : AvisoDeContaSuspensa::paraExcluida((string) $conta->getName());
     }
 
+    /**
+     * (b) Pedido de exclusão pendente ("suspensa a pedido", PR 5): quem não é primário não entra
+     * ({@see BloqueioPorPedidoDeExclusao}). O primário é tratado antes, em
+     * {@see primarioNaContaSuspensaAPedido()}.
+     */
+    private function barreiraDoPedidoDeExclusao(?UserTenant $userTenant): ?string
+    {
+        return $userTenant !== null && $userTenant->isActive() && $this->bloqueioPorPedido->bloqueia($userTenant)
+            ? BloqueioPorPedidoDeExclusao::MENSAGEM
+            : null;
+    }
+
+    /**
+     * O primário de uma conta "suspensa a pedido" continua no escritório, mas só no Meu Perfil (onde
+     * desiste) e no sair: qualquer outra rota volta ao Meu Perfil. Devolve true quando a requisição já foi
+     * resolvida aqui (liberada ou redirecionada). Só vale com o vínculo ATIVO: o primário em análise ou suspenso
+     * pela equipe (vínculo inativo) segue para a (c) e a (d), como qualquer pessoa.
+     */
+    private function primarioNaContaSuspensaAPedido(?UserTenant $userTenant, RequestEvent $event): bool
+    {
+        if ($userTenant === null || !$userTenant->isActive() || !$this->regraDosPrimarios->ehPrimario($userTenant)) {
+            return false;
+        }
+        $tenantId = $userTenant->getTenant()->getId();
+        if ($tenantId === null || !$this->bloqueioPorPedido->suspensaAPedido($tenantId)) {
+            return false;
+        }
+        if (str_starts_with($event->getRequest()->getPathInfo(), '/perfil')) {
+            return true;
+        }
+
+        // Chamada de fundo (sino, contadores, polling sem o cabeçalho XHR): recusa curta, sem flash acumulando
+        // para a próxima página. Só a navegação de verdade (aceita HTML) vai ao Meu Perfil.
+        $requisicao = $event->getRequest();
+        if ($requisicao->isXmlHttpRequest() || !str_contains((string) $requisicao->headers->get('Accept'), 'text/html')) {
+            $event->setResponse(new JsonResponse(['erro' => BloqueioPorPedidoDeExclusao::MENSAGEM], Response::HTTP_FORBIDDEN));
+
+            return true;
+        }
+        $sessao = $event->getRequest()->getSession();
+        if ($sessao instanceof FlashBagAwareSessionInterface) {
+            $sessao->getFlashBag()->add('warning', BloqueioPorPedidoDeExclusao::MENSAGEM);
+        }
+        $event->setResponse(new RedirectResponse($this->router->generate('app_profile')));
+
+        return true;
+    }
+
     /** (c) O vínculo: removido, ou inativo de legado (inativo sem ser por causa da situação na equipe). */
     private function barreiraDoVinculo(?UserTenant $userTenant): ?string
     {
@@ -174,6 +240,41 @@ final class TenantContextValidatorListener
         }
 
         return $userTenant->getSituacao()->mensagemDeAcesso((string) $userTenant->getTenant()->getName());
+    }
+
+    /**
+     * O Master sem escritório na sessão usa o painel dele livremente. Fora do painel, se tem vínculo ativo, escolhe
+     * o escritório antes: sem isso, quem entrava pelo "lembrar-me" ou pelo véu com vários escritórios caía no
+     * Expediente sem escritório e levava 403 (v2.9.0). Sem vínculo nenhum (ou só com escritório suspenso a
+     * pedido), continua passando. Só a navegação de
+     * página é desviada: o sino, o avatar e os outros pedidos de dados das telas do painel seguem como antes (sem
+     * escolher escritório por baixo e sem uma consulta a cada sondagem).
+     */
+    private function masterPrecisaDaSelecao(Request $request, string $route, User $user): bool
+    {
+        if (!self::eAberturaDePagina($request)) {
+            return false;
+        }
+
+        foreach (self::PREFIXOS_DO_PAINEL_DO_MASTER as $prefixo) {
+            if (str_starts_with($route, $prefixo)) {
+                return false;
+            }
+        }
+
+        // Escritório "suspenso a pedido" (PR 5) não conta: a seleção não o oferece, e o Master cairia de volta no painel.
+        return $this->bloqueioPorPedido->permitidos($this->userTenantRepository->findActiveByUser($user)) !== [];
+    }
+
+    /**
+     * Só a abertura de página pelo navegador: GET que pede HTML (`text/html` no Accept), sem XHR e sem cara de pedido
+     * de dados. POST, PUT e DELETE, sondagem, XHR e pedido sem Accept (os testes do KernelBrowser) seguem como antes.
+     */
+    private static function eAberturaDePagina(Request $request): bool
+    {
+        return $request->isMethod('GET')
+            && PedidoDeNavegacao::eNavegacao($request)
+            && str_contains(strtolower((string) $request->headers->get('Accept', '')), 'text/html');
     }
 
     private function deveIgnorar(string $route): bool

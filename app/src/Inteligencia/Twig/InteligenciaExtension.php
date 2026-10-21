@@ -6,6 +6,7 @@ namespace App\Inteligencia\Twig;
 
 use App\Entity\Auth\User;
 use App\Inteligencia\Enum\Agente;
+use App\Inteligencia\Enum\Comando;
 use App\Inteligencia\Enum\Disponibilidade;
 use App\Inteligencia\Service\DisponibilidadeDeInteligencia;
 use App\Inteligencia\UseCase\ObterAnalisesRecolhidasUseCase;
@@ -21,6 +22,9 @@ use Twig\TwigFunction;
  *
  * `ia_agentes()` — os sete agentes da pasta (enum `Agente`), para o drawer do cabeçalho
  * desenhar a lista sem depender do controller da pasta (legado, fora desta frente).
+ *
+ * `ia_comandos()` e `ia_relatorios()` — os 10 comandos (aba Análise) e os 5 relatórios (aba
+ * Relatórios) do drawer (enum `Comando`, spec inteligencia-drawer-da-pasta F1/F2), pelo mesmo motivo.
  *
  * `ia_push_recolhidas()` — ids das análises do Push que o usuário logado recolheu neste escritório
  * (IA-010, `preferencia_usuario`). Função, e não variável do controller, pelo mesmo motivo: o
@@ -41,6 +45,8 @@ final class InteligenciaExtension extends AbstractExtension
         return [
             new TwigFunction('ia_disponibilidade', $this->iaDisponibilidade(...)),
             new TwigFunction('ia_agentes', $this->iaAgentes(...)),
+            new TwigFunction('ia_comandos', $this->iaComandos(...)),
+            new TwigFunction('ia_relatorios', $this->iaRelatorios(...)),
             new TwigFunction('ia_push_recolhidas', $this->iaPushRecolhidas(...)),
         ];
     }
@@ -49,6 +55,18 @@ final class InteligenciaExtension extends AbstractExtension
     public function iaAgentes(): array
     {
         return Agente::cases();
+    }
+
+    /** @return list<Comando> */
+    public function iaComandos(): array
+    {
+        return Comando::comandos();
+    }
+
+    /** @return list<Comando> */
+    public function iaRelatorios(): array
+    {
+        return Comando::relatorios();
     }
 
     /** @return list<int> */
