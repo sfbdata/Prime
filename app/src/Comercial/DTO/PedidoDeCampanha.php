@@ -10,7 +10,8 @@ use App\Comercial\Exception\CampanhaRecusada;
 /**
  * O "Enviar campanha" confirmado na tela (dc L.560; spec §8.1 e §8.4): a chave de idempotência gerada pela tela, o
  * modelo em edição (a cópia que a campanha congela), o público, a frequência (dc L.253) e a data de "Agendar" ou
- * "Primeiro envio" (dc L.254, `datetime-local`, hora local).
+ * "Primeiro envio" (dc L.254, `datetime-local`, hora local). `rastrearLeitura` é a chave "Confirmação de leitura" (F3g,
+ * dc L291): ausente = não; só rastreia de fato com as duas chaves globais.
  */
 final class PedidoDeCampanha
 {
@@ -23,6 +24,7 @@ final class PedidoDeCampanha
         public readonly PedidoDePublico $publico,
         public readonly string $frequencia,
         public readonly ?\DateTimeImmutable $agendarPara,
+        public readonly bool $rastrearLeitura = false,
     ) {
         if (preg_match(self::PADRAO_DA_CHAVE, $chave) !== 1) {
             throw new CampanhaRecusada('Pedido inválido.');
@@ -43,6 +45,7 @@ final class PedidoDeCampanha
             PedidoDePublico::deArray($dados),
             \is_string($dados['frequencia'] ?? null) ? $dados['frequencia'] : CampanhaDeEmail::UNICA,
             self::data($dados['agendar'] ?? ''),
+            ($dados['rastrearLeitura'] ?? false) === true,
         );
     }
 

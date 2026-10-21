@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Functional;
 
+use App\Comercial\Service\RastreioDaLeitura;
 use App\Comercial\Controller\RelatorioDoMasterController;
 use App\Comercial\Repository\RelatorioDeCampanhasRepository;
 use App\Comercial\UseCase\AbrirCampanhaDoRelatorioUseCase;
@@ -79,7 +80,9 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
         $this->campanha(['a@exemplo.com'], ['estado' => 'agendada', 'agendada_para' => new \DateTimeImmutable('+2 days')]);
         $this->campanha(['a@exemplo.com'], ['estado' => 'recorrente', 'frequencia' => 'mensal']);
         $teste = $this->campanha(['a@exemplo.com'], ['estado' => 'teste']);
-        $enviada = $this->campanha(['a@exemplo.com'], ['estado' => 'enviada', 'total' => 5]);
+        // F3g: com a confirmação de leitura escolhida e as duas chaves globais ligadas, a leitura aparece (✓✓ e %).
+        $this->ligarRastreio();
+        $enviada = $this->campanha(['a@exemplo.com'], ['estado' => 'enviada', 'total' => 5, 'rastrear_leitura' => true]);
         $this->destino($enviada, 'lido@exemplo.com', 'enviado', aberto: true);
         $this->destino($enviada, 'entregue@exemplo.com', 'enviado');
         $this->destino($enviada, 'com.erro@exemplo.com', 'enviado', erro: 'aviso do SMTP');
@@ -140,7 +143,8 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
     public function testDetalhe(): void
     {
         $client = $this->clienteMaster();
-        $id = $this->campanha(['a@exemplo.com'], ['estado' => 'enviada', 'publico' => 'prim', 'total' => 3]);
+        $this->ligarRastreio();
+        $id = $this->campanha(['a@exemplo.com'], ['estado' => 'enviada', 'publico' => 'prim', 'total' => 3, 'rastrear_leitura' => true]);
         $this->destino($id, 'lido@exemplo.com', 'enviado', aberto: true);
         $this->destino($id, 'entregue@exemplo.com', 'enviado');
         $this->destino($id, 'fila@exemplo.com', null);
@@ -237,6 +241,31 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
     private function json(KernelBrowser $client): array
     {
         return (array) json_decode((string) $client->getResponse()->getContent(), true);
+    }
+
+    #[TestDox('F3g: leitura não rastreada (o padrão, com o rastreio global desligado): ✓ sem %, Lidos e Taxa "não rastreada" e a dica do dc')]
+    public function testLeituraNaoRastreada(): void
+    {
+        $client = $this->clienteMaster();
+        $id = $this->campanha(['a@exemplo.com'], ['estado' => 'enviada', 'total' => 2, 'rastrear_leitura' => true]);
+        $this->destino($id, 'lido@exemplo.com', 'enviado', aberto: true);
+        $this->destino($id, 'entregue@exemplo.com', 'enviado');
+
+        $client->request('GET', '/master/comercial/relatorio');
+        $m = $this->json($client)['campanhas'][0]['metricas'];
+        self::assertSame(['entregue', '', false], [$m['leitura'], $m['percentual'], $m['rastreiaLeitura']], 'a escolha sozinha não rastreia: faltam as chaves globais');
+        self::assertStringContainsString('Leitura: não rastreada nesta campanha', $m['dica']);
+        self::assertStringNotContainsString('Abertos e lidos', $m['dica']);
+
+        $client->request('GET', '/master/comercial/campanhas/' . $id);
+        $kpis = array_column($this->json($client)['kpis'], 'valor', 'rotulo');
+        self::assertSame(['não rastreada', 'não rastreada'], [$kpis['Lidos'], $kpis['Taxa de leitura']]);
+    }
+
+    /** As duas chaves globais do rastreio ligadas (a configuração e a Política), só neste teste. */
+    private function ligarRastreio(): void
+    {
+        static::getContainer()->set(RastreioDaLeitura::class, new RastreioDaLeitura(true, true));
     }
 
     private function clienteMaster(): KernelBrowser
