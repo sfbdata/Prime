@@ -564,7 +564,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('E5c (dc L104-118): trilho com "X de Y", legenda fixa com "(s)" e "em aberto" (decisão do dono) e "Título · Pasta NNN" no "Precisa de atenção"')]
+    #[TestDox('E5c (dc L104-118): trilho com "X de Y", legenda fixa de três itens com "(s)", sem "em aberto" (desenho 04, P:177; dono 21/10) e "Título · Pasta NNN" no "Precisa de atenção"')]
     public function testTrilhoComTextosDoDesenho(): void
     {
         $client             = static::createClient();
@@ -578,8 +578,13 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
 
         self::assertSame('0 de 1', trim($c->filter('.mm-trilho-andamento .mm-progresso-numero')->text()));
         self::assertSame(
-            ['0 concluída(s)', '0 em aberto', '1 atrasada(s)', '0 em revisão'],
+            ['0 concluída(s)', '1 atrasada(s)', '0 em revisão'],
             $c->filter('.mm-trilho-andamento .mm-fatias > .mm-fatia')->each(static fn ($f): string => trim(preg_replace('/\s+/', ' ', $f->text()) ?? '')),
+        );
+        self::assertSame(
+            ['mm-fatia tom-ok', 'mm-fatia tom-danger', 'mm-fatia tom-accent'],
+            $c->filter('.mm-trilho-andamento .mm-fatias > .mm-fatia')->each(static fn ($f): string => (string) $f->attr('class')),
+            'verde, vermelho e azul do desenho, nesta ordem',
         );
         self::assertSame(
             'Atrasada · Pasta ' . $atrasada->getPasta()->getNup(),
@@ -601,7 +606,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         $this->criarMeta($tenant, $colega, 'Só do colega')->setPrazo(new \DateTimeImmutable('-4 days'));
         $em->flush();
 
-        $esperado = ['1 concluída(s)', '1 em aberto', '1 atrasada(s)', '1 em revisão'];
+        $esperado = ['1 concluída(s)', '1 atrasada(s)', '1 em revisão'];
         foreach (['criei', 'responsavel', 'acompanhando'] as $aba) {
             $client->request('GET', '/tarefas/minhas', ['aba' => $aba, 'busca' => 'nada-casa-com-isto', 'prazo' => 'sem']);
             self::assertResponseIsSuccessful();
@@ -1053,7 +1058,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
             $client->request('GET', '/tarefas/minhas?aba=' . $aba);
             self::assertResponseIsSuccessful();
             $c = $client->getCrawler();
-            $this->assertAndamento($c, '0 de 1', ['0 concluída(s)', '0 em aberto', '1 atrasada(s)', '0 em revisão'], $aba);
+            $this->assertAndamento($c, '0 de 1', ['0 concluída(s)', '1 atrasada(s)', '0 em revisão'], $aba);
             self::assertSame(
                 ['Minha atrasada'],
                 $c->filter('.mm-trilho > .mm-cartao.mm-trilho-atencao > a.mm-atencao-item .mm-atencao-titulo')->each(static fn ($t): string => trim((string) preg_replace('/ · Pasta .*$/', '', trim($t->text())))),

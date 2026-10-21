@@ -1146,6 +1146,10 @@ metas:
         x_de_y: '{concluidas} de {total}'
         concluidas: concluídas
         percentual_concluidas: Percentual de metas concluídas
+        legenda:
+            concluidas: '{total} concluída(s)'
+            atrasadas: '{total} atrasada(s)'
+            em_revisao: '{total} em revisão'
     atencao:
         titulo: Precisa de atenção
         titulo_e_pasta: '{titulo} · Pasta {nup}'

@@ -95,7 +95,7 @@
                     {% for fatia in painel.fatiasDoAndamento %}
                         <span class="mm-fatia tom-{{ fatia.tom }}">
                             <span class="mm-dot"></span>
-                            {{ fatia.total }} {{ fatia.rotulo }}
+                            {{ fatia.chave|trans({total: fatia.total ~ ''}) }}
                         </span>
                     {% endfor %}
                 </div>
