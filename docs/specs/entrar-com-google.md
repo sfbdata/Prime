@@ -20,6 +20,21 @@ Google Agenda (#78, #182, #183), que já tem cliente OAuth próprio. **Esta subs
   (`/login/google/callback`).
 - **Entrega 2** (cadastro pelo Google): depois do merge da 1.
 
+## STANDBY (21/10/2026, ordem do dono)
+
+Parado até o "Conectar Google Agenda" estar em produção funcionando. Sem PR; a branch `entrar-com-google` fica no
+GitHub como está (entrega 1 implementada, revisada, com os acertos da revisão; falta aplicar as decisões 9 e 10 e a
+re-revisão). Ao voltar: trazer o master, aplicar 9 e 10, re-revisar, PR.
+
+- **Decisão 9 (achado da revisão: conta "a confirmar" com dois donos).** O dono corrige pela raiz: conta criada pelo
+  cadastro com e-mail só usa o sistema depois de confirmar pelo link do e-mail, como era antes (a 9b faz isso no
+  cadastro). Com isso, a conta "a confirmar" não é usada por ninguém antes da prova do e-mail. Ao voltar, conferir
+  como a 9b implementou e decidir com ela o que o Google faz com uma conta ainda não confirmada.
+- **Decisão 10 (primeiro casamento por e-mail).** Segue o padrão do Google
+  (developers.google.com/identity/account-linking/oauth-with-sign-in-linking): só e-mail `@gmail.com`, ou
+  `email_verified` com `hd` (conta Workspace); os outros recebem "Entre com e-mail e senha." Depois de ligada, a
+  conta é achada sempre pelo `sub`.
+
 ## Decisões do dono (21/10/2026)
 
 | Ponto | Decisão |
