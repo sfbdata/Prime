@@ -6,7 +6,7 @@
    Parâmetro: `momento` (DateTimeInterface).
 #}
 {%- if momento|date('Y-m-d') == 'now'|date('Y-m-d') -%}
-    {{ momento|date('H:i') }}
+    {{ momento|hora }}
 {%- else -%}
     {{ momento|data_hora }}
 {%- endif -%}

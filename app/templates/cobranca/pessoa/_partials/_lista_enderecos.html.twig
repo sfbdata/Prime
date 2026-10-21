@@ -18,7 +18,7 @@
                 <i class="bi {{ e.atual ? 'bi-geo-alt-fill text-success' : 'bi-geo-alt text-secondary' }} mt-1" aria-hidden="true"></i>
                 <div class="flex-grow-1" style="min-width: 0;">
                     <div>{{ e.logradouro }}, {{ e.numero }}{% if e.complemento %}, {{ e.complemento }}{% endif %}</div>
-                    <div class="small text-secondary">{{ e.bairro }} · {{ e.cidade }}/{{ e.uf }} · {{ 'cobranca_pessoa.enderecos.cep'|trans({cep: e.cep ~ ''}) }} · {{ 'cobranca_pessoa.comum.desde'|trans({data: e.criadoEm|date('d/m/Y')}) }}</div>
+                    <div class="small text-secondary">{{ e.bairro }} · {{ e.cidade }}/{{ e.uf }} · {{ 'cobranca_pessoa.enderecos.cep'|trans({cep: e.cep ~ ''}) }} · {{ 'cobranca_pessoa.comum.desde'|trans({data: e.criadoEm|data}) }}</div>
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
                     {% if e.atual %}
