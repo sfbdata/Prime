@@ -196,6 +196,47 @@ final class SeccionaisOabJanelaDaOabTest extends JusPrimeWebTestCase
         self::assertSame([], self::uf($this->seccionais(), 'AP')['notasCidades']);
     }
 
+    #[TestDox('nota da cidade: "macapa" grava como a capital canônica "Macapá" (a mesma nota); cidade que não é a capital da UF dá 422')]
+    public function testNotaDaCidadeSoNaCapital(): void
+    {
+        $this->entrar($this->master);
+
+        $this->postar('/master/seccionais/AP/nota', ['texto' => 'Primeira', 'cidade' => 'Macapá']);
+        $this->postar('/master/seccionais/AP/nota', ['texto' => 'Pela grafia simples', 'cidade' => ' MACAPA ']);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['mensagem' => 'Nota de Macapá salva.'], $this->json());
+        self::assertSame(['Macapá' => 'Pela grafia simples'], array_map(static fn (array $n): string => $n['texto'], self::uf($this->seccionais(), 'AP')['notasCidades']));
+
+        $this->postar('/master/seccionais/AP/nota', ['texto' => 'x', 'cidade' => 'Oiapoque']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('A nota por cidade vale só para a capital do estado.', $this->json()['erro']);
+        $this->postar('/master/seccionais/AP/nota', ['texto' => 'x', 'cidade' => 'Belém']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['Macapá'], array_keys(self::uf($this->seccionais(), 'AP')['notasCidades']));
+    }
+
+    #[TestDox('trilha "Segurança e auditoria": nota da capital gravada, alterada e apagada aparecem como "Plataforma (sem conta)"')]
+    public function testTrilhaDaNotaDaCidade(): void
+    {
+        $this->entrar($this->master);
+        $this->postar('/master/seccionais/RO/nota', ['texto' => 'Primeira', 'cidade' => 'Porto Velho']);
+        $this->postar('/master/seccionais/RO/nota', ['texto' => 'Segunda', 'cidade' => 'Porto Velho']);
+        $this->postar('/master/seccionais/RO/nota', ['texto' => '', 'cidade' => 'Porto Velho']);
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', '/master/dados/auditoria', server: ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseIsSuccessful();
+        $registros = $this->json()['registros'];
+
+        foreach (['Nota da cidade gravada', 'Nota da cidade alterada', 'Nota da cidade apagada'] as $acao) {
+            $achados = array_values(array_filter($registros, static fn (array $r): bool => $r['acao'] === $acao));
+            self::assertNotEmpty($achados, 'a trilha mostra "' . $acao . '"');
+            self::assertSame('Plataforma (sem conta)', $achados[0]['conta']);
+            self::assertNull($achados[0]['contaId']);
+            self::assertSame('Master da Janela', $achados[0]['quem']);
+        }
+    }
+
     #[TestDox('salvar nota: acima de 1000 caracteres dá 422 com a mensagem e nada é gravado')]
     public function testSalvarNota422(): void
     {

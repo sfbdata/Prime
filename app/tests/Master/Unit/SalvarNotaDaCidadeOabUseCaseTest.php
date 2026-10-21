@@ -61,6 +61,21 @@ final class SalvarNotaDaCidadeOabUseCaseTest extends TestCase
         self::assertSame('2026-10-21 09:00', $gravada->getAtualizadaEm()->format('Y-m-d H:i'));
     }
 
+    #[TestDox('a capital chega sem acento e em outra caixa ("  manaus "): grava o nome canônico "Manaus"')]
+    public function testNomeCanonico(): void
+    {
+        $this->travaEntrega('Manaus', null);
+        $gravada = null;
+        $this->notas->expects($this->once())->method('salvar')
+            ->willReturnCallback(function (NotaDaCidadeOab $nota) use (&$gravada): void {
+                $gravada = $nota;
+            });
+
+        self::assertSame('Manaus', $this->useCase()->executar(SalvarNotaDaSeccionalInput::doJson($this->master, 'AM', ['texto' => 'x', 'cidade' => '  MANAUS '])));
+
+        self::assertSame('Manaus', $gravada?->getCidade());
+    }
+
     #[TestDox('com nota da cidade: reescreve a mesma nota (uma por UF e cidade), sem criar outra')]
     public function testReescreve(): void
     {
@@ -85,13 +100,15 @@ final class SalvarNotaDaCidadeOabUseCaseTest extends TestCase
         $this->useCase()->executar(SalvarNotaDaSeccionalInput::doJson($this->master, 'AM', ['texto' => '   ', 'cidade' => 'Manaus']));
     }
 
-    #[TestDox('sem cidade, cidade longa ou texto longo: recusa (422) e não toca no banco')]
+    #[TestDox('sem cidade, cidade que não é a capital da UF (inclusive capital de outra UF) ou texto longo: recusa (422) e não toca no banco')]
     public function testRecusas(): void
     {
         $this->notas->expects($this->never())->method('gravarComTrava');
         $casos = [
             [['texto' => 'x'], SeccionalRecusada::RECUSA_CIDADE_DA_NOTA_OBRIGATORIA],
-            [['texto' => 'x', 'cidade' => str_repeat('a', 121)], SeccionalRecusada::RECUSA_CIDADE_LONGA],
+            [['texto' => 'x', 'cidade' => 'Parintins'], SeccionalRecusada::RECUSA_CIDADE_DA_NOTA_FORA_DAS_CAPITAIS],
+            [['texto' => 'x', 'cidade' => 'Belém'], SeccionalRecusada::RECUSA_CIDADE_DA_NOTA_FORA_DAS_CAPITAIS],
+            [['texto' => 'x', 'cidade' => str_repeat('a', 121)], SeccionalRecusada::RECUSA_CIDADE_DA_NOTA_FORA_DAS_CAPITAIS],
             [['texto' => str_repeat('a', 1001), 'cidade' => 'Manaus'], SeccionalRecusada::RECUSA_NOTA_LONGA],
         ];
 

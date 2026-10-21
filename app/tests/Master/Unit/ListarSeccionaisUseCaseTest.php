@@ -31,7 +31,7 @@ final class ListarSeccionaisUseCaseTest extends TestCase
         $sp->editarSede('Praça da Sé', '(11) 0000-0000', 'https://exemplo.test', null, new \DateTimeImmutable('2026-10-20'));
         $sp->marcar(StatusDaDivulgacao::Negociacao, '#fca5a5', new \DateTimeImmutable('2026-10-20'));
         $ac = new SeccionalOab('AC', 'OAB Seccional Acre');
-        $ac->alternarVisibilidade();
+        $ac->definirVisibilidade(false);
 
         $linhas = $this->useCase([$ac, $sp], ['SP' => 3])->executar();
 

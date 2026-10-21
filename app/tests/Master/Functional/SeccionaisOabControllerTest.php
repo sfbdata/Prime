@@ -89,7 +89,7 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
         $this->postar('/master/seccionais/SP/divulgacoes', ['status' => 'env', 'cor' => '#e53935']);
         self::assertResponseStatusCodeSame(403);
-        $this->postar('/master/seccionais/SP/visibilidade', []);
+        $this->postar('/master/seccionais/SP/visibilidade', ['visivel' => false]);
         self::assertResponseStatusCodeSame(403);
         $this->postar('/master/seccionais/mostrar-todas', []);
         self::assertResponseStatusCodeSame(403);
@@ -112,7 +112,7 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
         $this->postar('/master/seccionais/sp/divulgacoes', ['status' => 'env', 'cor' => '#e53935']);
         self::assertResponseStatusCodeSame(404);
-        $this->postar('/master/seccionais/XX/visibilidade', []);
+        $this->postar('/master/seccionais/XX/visibilidade', ['visivel' => false]);
         self::assertResponseStatusCodeSame(404);
     }
 
@@ -126,7 +126,7 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
         self::assertSame('Token CSRF inválido. Recarregue a página.', $this->json()['erro']);
         $this->postar('/master/seccionais/SP/divulgacoes', ['status' => 'env', 'cor' => '#e53935'], token: '');
         self::assertResponseStatusCodeSame(403);
-        $this->postar('/master/seccionais/SP/visibilidade', [], token: 'errado');
+        $this->postar('/master/seccionais/SP/visibilidade', ['visivel' => false], token: 'errado');
         self::assertResponseStatusCodeSame(403);
         $this->postar('/master/seccionais/mostrar-todas', [], token: 'errado');
         self::assertResponseStatusCodeSame(403);
@@ -218,30 +218,46 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
         self::assertNull($this->seccional('MG')->getMarcaStatus());
     }
 
-    #[TestDox('clique direito: alterna a visibilidade da seccional (oculta, depois visível) com a mensagem, e o GET reflete')]
-    public function testAlternarVisibilidade(): void
+    #[TestDox('clique direito: grava o estado pedido (oculta, depois visível) com a mensagem, o GET reflete e repetir não inverte')]
+    public function testDefinirVisibilidade(): void
+    {
+        $this->entrar($this->master);
+
+        $this->postar('/master/seccionais/GO/visibilidade', ['visivel' => false]);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['mensagem' => 'OAB Seccional Goiás oculta no mapa.'], $this->json());
+        $this->postar('/master/seccionais/GO/visibilidade', ['visivel' => false]);
+        self::assertResponseIsSuccessful();
+        self::assertFalse($this->seccional('GO')->isVisivel(), 'idempotente: o mesmo pedido duas vezes continua oculta');
+        $this->client->request('GET', '/master/dados/seccionais', server: ['HTTP_ACCEPT' => 'application/json']);
+        self::assertFalse($this->daUf('GO')['visivel']);
+
+        $this->postar('/master/seccionais/GO/visibilidade', ['visivel' => true]);
+        self::assertSame(['mensagem' => 'OAB Seccional Goiás aparece no mapa.'], $this->json());
+        self::assertTrue($this->seccional('GO')->isVisivel());
+        $this->assertAuditoriaDePlataforma(SeccionalOab::class);
+    }
+
+    #[TestDox('visibilidade sem booleano (vazio, texto): 422 com a mensagem e nada muda')]
+    public function testVisibilidade422(): void
     {
         $this->entrar($this->master);
 
         $this->postar('/master/seccionais/GO/visibilidade', []);
-        self::assertResponseIsSuccessful();
-        self::assertSame(['mensagem' => 'OAB Seccional Goiás oculta no mapa.'], $this->json());
-        self::assertFalse($this->seccional('GO')->isVisivel());
-        $this->client->request('GET', '/master/dados/seccionais', server: ['HTTP_ACCEPT' => 'application/json']);
-        self::assertFalse($this->daUf('GO')['visivel']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Informe se a seccional aparece no mapa.', $this->json()['erro']);
+        $this->postar('/master/seccionais/GO/visibilidade', ['visivel' => 'false']);
+        self::assertResponseStatusCodeSame(422);
 
-        $this->postar('/master/seccionais/GO/visibilidade', []);
-        self::assertSame(['mensagem' => 'OAB Seccional Goiás aparece no mapa.'], $this->json());
         self::assertTrue($this->seccional('GO')->isVisivel());
-        $this->assertAuditoriaDePlataforma(SeccionalOab::class);
     }
 
     #[TestDox('"Mostrar todas": limpa o filtro, todas as 27 voltam a aparecer')]
     public function testMostrarTodas(): void
     {
         $this->entrar($this->master);
-        $this->postar('/master/seccionais/GO/visibilidade', []);
-        $this->postar('/master/seccionais/TO/visibilidade', []);
+        $this->postar('/master/seccionais/GO/visibilidade', ['visivel' => false]);
+        $this->postar('/master/seccionais/TO/visibilidade', ['visivel' => false]);
         self::assertFalse($this->seccional('TO')->isVisivel());
 
         $this->postar('/master/seccionais/mostrar-todas', []);
@@ -286,6 +302,28 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
         $divulgacao = self::registro($registros, 'Campos alterados: cor da marca, status da divulgação, data da divulgação');
         self::assertSame('Plataforma (sem conta)', $divulgacao['conta']);
         self::assertNull($divulgacao['contaId']);
+    }
+
+    #[TestDox('trilha: ocultar no mapa e "Mostrar todas" aparecem como "Plataforma (sem conta)" com o campo visibilidade')]
+    public function testTrilhaDaVisibilidade(): void
+    {
+        $this->entrar($this->master);
+        $this->postar('/master/seccionais/PB/visibilidade', ['visivel' => false]);
+        self::assertResponseIsSuccessful();
+        $this->postar('/master/seccionais/mostrar-todas', []);
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', '/master/dados/auditoria', server: ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseIsSuccessful();
+        $achados = array_values(array_filter($this->json()['registros'], static fn (array $r): bool => $r['detalhe'] === 'Campos alterados: visibilidade no mapa'));
+
+        self::assertGreaterThanOrEqual(2, count($achados), 'ocultar e mostrar todas, um registro cada');
+        foreach (array_slice($achados, 0, 2) as $registro) {
+            self::assertSame('Sede da seccional alterada', $registro['acao']);
+            self::assertSame('Plataforma (sem conta)', $registro['conta']);
+            self::assertNull($registro['contaId']);
+            self::assertSame('Master das Seccionais', $registro['quem']);
+        }
     }
 
     /**

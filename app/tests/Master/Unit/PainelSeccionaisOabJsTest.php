@@ -144,7 +144,7 @@ final class PainelSeccionaisOabJsTest extends TestCase
         $chip = self::funcao('secChip');
 
         self::assertStringContainsString("elSecao.addEventListener('contextmenu', e => {\n    const chip = e.target.closest('[data-sec-oab] [data-sec-uf]');", $bloco);
-        self::assertStringContainsString("secPostar(SEC.dados.urlVisibilidade.replace('/XX/', '/' + uf + '/'), {}, secAvisarMapa,", self::funcao('secAlternar'));
+        self::assertStringContainsString("secPostar(SEC.dados.urlVisibilidade.replace('/XX/', '/' + uf + '/'), { visivel: s.visivel }, secAvisarMapa,", self::funcao('secAlternar'), 'manda o estado desejado, não um alternar');
         self::assertStringContainsString("SEC.dados.seccionais.forEach(s => { s.visivel = true; }); renderMapa();\n    secPostar(SEC.dados.urlMostrarTodas, {}, secAvisarMapa,", self::funcao('secTodas'));
         self::assertStringContainsString("if (e.target.closest('[data-sec-todas]')) return secTodas();", $bloco);
         self::assertStringNotContainsString('localStorage', $bloco);

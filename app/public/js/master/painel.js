@@ -389,11 +389,13 @@
       + '<button type="button" data-sec-editar><i class="bi bi-pencil"></i> ' + T('master.js.seccionais.editar_sede') + '</button></div></div></div>';
   }
 
-  // Botão direito no chip (x.tgCtx): a tela muda na hora e o servidor grava; na recusa, volta e avisa.
+  // Botão direito no chip (x.tgCtx): a tela muda na hora e o servidor grava o estado pedido (idempotente); na recusa,
+  // volta ao anterior e avisa.
   function secAlternar(uf) {
     const s = secDe(uf); if (!s) return;
-    s.visivel = !s.visivel; renderMapa();
-    secPostar(SEC.dados.urlVisibilidade.replace('/XX/', '/' + uf + '/'), {}, secAvisarMapa, erro => { s.visivel = !s.visivel; avisarNoMapa(erro || SEC_ERRO_SALVAR); });
+    const antes = s.visivel;
+    s.visivel = !antes; renderMapa();
+    secPostar(SEC.dados.urlVisibilidade.replace('/XX/', '/' + uf + '/'), { visivel: s.visivel }, secAvisarMapa, erro => { s.visivel = antes; renderMapa(); avisarNoMapa(erro || SEC_ERRO_SALVAR); });
   }
 
   // "Mostrar todas" / "Todas visíveis" (secTodas): o clique sempre limpa o filtro.

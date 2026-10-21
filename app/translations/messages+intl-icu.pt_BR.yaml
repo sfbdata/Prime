@@ -1367,6 +1367,8 @@ master:
             nota_longa: 'A nota passa de {limite} caracteres.'
             cidade_obrigatoria: Informe a cidade da subseção.
             cidade_da_nota_obrigatoria: Informe a cidade da nota.
+            cidade_da_nota_fora_das_capitais: A nota por cidade vale só para a capital do estado.
+            visibilidade: Informe se a seccional aparece no mapa.
             cidade_longa: 'A cidade passa de {limite} caracteres.'
             endereco_obrigatorio: Informe o endereço da subseção.
             nome_longo: 'O nome passa de {limite} caracteres.'

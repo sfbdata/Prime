@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Master\Unit;
 
+use App\Master\Service\CapitaisDosEstados;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Yaml\Yaml;
@@ -127,6 +128,8 @@ final class PainelOabEstadosQueFaltamJsTest extends TestCase
         self::assertSame(['os {n} estados', 'as {n} capitais', '{feitos} de {total} ({pct}%)'], array_map(self::texto(...), ['master.js.faltam.meta_estados', 'master.js.faltam.meta_capitais', 'master.js.faltam.cobertura_valor']));
         self::assertStringContainsString("const temCidade = (C, uf, cidade) => Object.keys(C[uf] || {}).some(k => semAcento(k) === semAcento(cidade));", $js);
         self::assertSame(27, preg_match_all("/\\b[A-Z]{2}: '[^']+'/", (string) strstr(strstr($js, 'const CAP = {'), "\n", true)), 'as 27 capitais');
+        preg_match_all("/\\b([A-Z]{2}): '([^']+)'/", (string) strstr(strstr($js, 'const CAP = {'), "\n", true), $m);
+        self::assertSame(CapitaisDosEstados::CAPITAIS, array_combine($m[1], $m[2]), 'a mesma lista do servidor (nota por cidade)');
         self::assertStringContainsString("abrirOab(alvo.dataset.oabUf, alvo.dataset.oabCidade);", self::funcao('mapaPeloAlvo'), 'a capital abre a janela da cidade');
     }
 

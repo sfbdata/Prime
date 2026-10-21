@@ -38,6 +38,11 @@ divulgações e o GET `/master/dados/seccionais`. Esta frente reaproveita a sede
   as cores do desenho, subseções por cidade (cidade obrigatória, nome preenchido), busca do Google no vazio, nota do
   estado ou da cidade com "Nota salva em dd/mm/aaaa, hh:mm" (Brasília), "Salvar nota" fecha a janela, Mundo sem
   ação. Falta: revisão e o smoke do dono na tela.
+- 21/10, revisão da frente `oab-desenho-05`: a nota por cidade vale só para a capital da UF (lista das 27 no servidor,
+  `CapitaisDosEstados`, a mesma do painel); o nome é comparado sem acento e sem caixa e gravado na forma canônica
+  ("macapa" vira "Macapá"); outra cidade dá 422. A subseção continua aceitando qualquer cidade. A nota da cidade entra
+  na trilha "Segurança e auditoria". Site com esquema inválido no "Editar" dá 422 com mensagem (convenção do sistema;
+  o protótipo deixava vazio).
 
 ## O que o desenho mostra
 

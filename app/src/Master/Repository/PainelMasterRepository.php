@@ -16,6 +16,7 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Master\Entity\DivulgacaoNaSeccional;
+use App\Master\Entity\NotaDaCidadeOab;
 use App\Master\Entity\NotaDaSeccional;
 use App\Master\Entity\RecursoEstado;
 use App\Master\Entity\SeccionalOab;
@@ -69,7 +70,9 @@ class PainelMasterRepository
      * limites da conta, o catálogo de planos e as faixas de alerta (spec perfis-1.2-planos-e-limites P7).
      * As duas das seccionais da OAB são a sede editada e a divulgação registrada pelo Master (spec
      * master-seccionais-oab), gravadas sem escritório ("Plataforma (sem conta)"). A subseção e a nota da janela da
-     * OAB (spec master-oab-estados-que-faltam) entram do mesmo jeito.
+     * OAB (spec master-oab-estados-que-faltam), do estado e da capital, entram do mesmo jeito. A visibilidade no mapa e a
+     * marca da divulgação (desenho 05) gravam na própria seccional e aparecem como "Sede da seccional alterada", com os
+     * campos alterados.
      */
     public const ENTIDADES_AUDITADAS = [
         Tenant::class,
@@ -87,6 +90,7 @@ class PainelMasterRepository
         DivulgacaoNaSeccional::class,
         SubsecaoOab::class,
         NotaDaSeccional::class,
+        NotaDaCidadeOab::class,
     ];
 
     /** Linha própria do alerta de consumo (`action` cabe em 10 caracteres). */

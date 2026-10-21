@@ -12,6 +12,7 @@ use App\Master\Exception\SeccionalNaoEncontrada;
 use App\Master\Exception\SeccionalRecusada;
 use App\Master\Repository\NotaDaCidadeOabRepository;
 use App\Master\Repository\SeccionalOabRepository;
+use App\Master\Service\CapitaisDosEstados;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use Psr\Clock\ClockInterface;
 
@@ -23,12 +24,12 @@ use Psr\Clock\ClockInterface;
  * Quem dispara: o Master, no "Salvar nota" da janela aberta por uma capital que falta (ROLE_SUPER_ADMIN no controller).
  * Objetivo: deixar para os outros Masters o que já se sabe daquela cidade.
  * Pré-condições: a UF é uma das 27 (o controller recusa as outras com 404), a linha da seccional existe e o pedido
- * traz a cidade.
+ * traz a cidade, que é a capital da UF (comparada sem acento e sem caixa; grava o nome canônico).
  * Fluxo principal: carrega a seccional; dentro do escopo de plataforma e com a seccional travada
  * ({@see NotaDaCidadeOabRepository::gravarComTrava()}), lê a nota da cidade; com texto, cria ou reescreve com quem e
  * quando; sem texto, apaga a nota que houver.
- * Fluxos alternativos: linha ausente é 404; texto acima de 1000 ou cidade acima de 120 caracteres são recusados (422)
- * e nada muda; texto vazio sem nota gravada não faz nada; duas gravações ao mesmo tempo ficam em fila e a última vence.
+ * Fluxos alternativos: linha ausente é 404; cidade que não é a capital da UF e texto acima de 1000 caracteres são
+ * recusados (422) e nada muda; texto vazio sem nota gravada não faz nada; duas gravações ao mesmo tempo ficam em fila e a última vence.
  * Pós-condições: a nota (uma por seccional e cidade) vale para todos os Masters e a capital que falta mostra o ícone.
  * Auditoria: NotaDaCidadeOab é Auditavel; a linha do audit_log fica sem escritório (trilha do Master).
  */
@@ -42,11 +43,14 @@ final class SalvarNotaDaCidadeOabUseCase
     ) {
     }
 
-    public function executar(SalvarNotaDaSeccionalInput $input): SeccionalOab
+    /** @return string o nome canônico da capital, para a resposta */
+    public function executar(SalvarNotaDaSeccionalInput $input): string
     {
         $seccional = $this->seccionais->buscarPorUf($input->uf) ?? throw new SeccionalNaoEncontrada('Seccional não encontrada.');
-        $cidade = $input->cidade ?? throw new SeccionalRecusada(SeccionalRecusada::RECUSA_CIDADE_DA_NOTA_OBRIGATORIA);
-        $this->exigirTamanhos($cidade, $input->texto);
+        $cidade = $this->capital($input);
+        if (mb_strlen((string) $input->texto) > NotaDaSeccional::TEXTO_MAXIMO) {
+            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_NOTA_LONGA, ['limite' => NotaDaSeccional::TEXTO_MAXIMO]);
+        }
 
         $agora = $this->relogio->now();
         $this->escopoDePlataforma->executar(fn () => $this->notas->gravarComTrava(
@@ -55,18 +59,15 @@ final class SalvarNotaDaCidadeOabUseCase
             fn (?NotaDaCidadeOab $nota) => $this->aplicar($nota, $seccional, $cidade, $input, $agora),
         ));
 
-        return $seccional;
+        return $cidade;
     }
 
-    private function exigirTamanhos(string $cidade, ?string $texto): void
+    /** A nota por cidade vale só para a capital da UF (a lista dos que faltam, modo Capitais); grava o nome canônico. */
+    private function capital(SalvarNotaDaSeccionalInput $input): string
     {
-        if (mb_strlen($cidade) > NotaDaCidadeOab::CIDADE_MAXIMA) {
-            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_CIDADE_LONGA, ['limite' => NotaDaCidadeOab::CIDADE_MAXIMA]);
-        }
+        $cidade = $input->cidade ?? throw new SeccionalRecusada(SeccionalRecusada::RECUSA_CIDADE_DA_NOTA_OBRIGATORIA);
 
-        if (mb_strlen((string) $texto) > NotaDaSeccional::TEXTO_MAXIMO) {
-            throw new SeccionalRecusada(SeccionalRecusada::RECUSA_NOTA_LONGA, ['limite' => NotaDaSeccional::TEXTO_MAXIMO]);
-        }
+        return CapitaisDosEstados::canonica($input->uf, $cidade) ?? throw new SeccionalRecusada(SeccionalRecusada::RECUSA_CIDADE_DA_NOTA_FORA_DAS_CAPITAIS);
     }
 
     /** A nota que vale é a lida DEPOIS da trava da seccional: se outra gravação a criou antes, ela é reescrita. */

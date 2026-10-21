@@ -20,6 +20,9 @@ abaixo da tabela de UFs), lógica L898-905. Desenho conferido inteiro em 21/10/2
   banco, intocada; entidade, enum e repositório marcados como obsoletos. Divergências: site com esquema inválido é
   recusado (422) em vez de ficar vazio; no iframe do modo OAB as cidades vêm das pessoas. Falta: revisão e o smoke
   do dono na tela.
+- 21/10, revisão: o botão direito no chip manda o estado desejado (`{visivel: true|false}`), o POST é idempotente
+  (`DefinirVisibilidadeDaSeccionalUseCase`); ocultar e "Mostrar todas" aparecem na trilha como "Sede da seccional
+  alterada", campo "visibilidade no mapa".
 
 ## O que o desenho mostra (template L116-127)
 

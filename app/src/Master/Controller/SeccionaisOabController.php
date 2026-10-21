@@ -6,7 +6,7 @@ namespace App\Master\Controller;
 
 use App\Entity\Auth\User;
 use App\Master\DTO\AdicionarSubsecaoNaSeccionalInput;
-use App\Master\DTO\AlternarVisibilidadeDaSeccionalInput;
+use App\Master\DTO\DefinirVisibilidadeDaSeccionalInput;
 use App\Master\DTO\EditarSedeDaSeccionalInput;
 use App\Master\DTO\RegistrarDivulgacaoNaSeccionalInput;
 use App\Master\DTO\RemoverSubsecaoDaSeccionalInput;
@@ -18,7 +18,7 @@ use App\Master\Exception\SeccionalRecusada;
 use App\Master\Exception\SubsecaoNaoEncontrada;
 use App\Master\Service\LocalizacaoDaPessoa;
 use App\Master\UseCase\AdicionarSubsecaoNaSeccionalUseCase;
-use App\Master\UseCase\AlternarVisibilidadeDaSeccionalUseCase;
+use App\Master\UseCase\DefinirVisibilidadeDaSeccionalUseCase;
 use App\Master\UseCase\EditarSedeDaSeccionalUseCase;
 use App\Master\UseCase\ListarSeccionaisUseCase;
 use App\Master\UseCase\MostrarTodasAsSeccionaisUseCase;
@@ -48,7 +48,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * subseção, remover subseção, salvar nota) seguem o mesmo contrato dos de cima.
  *
  * Desenho 05 inteiro (conferência de 21/10/2026): a divulgação grava a marca da UF (status, cor e data); o botão
- * direito no chip alterna a visibilidade no mapa e "Mostrar todas" volta todas (POST de plataforma, como os outros);
+ * direito no chip mostra ou oculta no mapa (o corpo leva o estado desejado) e "Mostrar todas" volta todas (POST de plataforma, como os outros);
  * a nota leva a cidade quando é a da janela de uma cidade.
  *
  * Idioma (spec idioma-do-sistema, P2a da b5): a resposta e a recusa do próprio controller saem do catálogo
@@ -109,9 +109,9 @@ final class SeccionaisOabController extends AbstractController
         return $this->gravar($uf, $request, function (array $corpo) use ($uf, $doEstado, $daCidade): string {
             $input = SalvarNotaDaSeccionalInput::doJson($this->ator(), $uf, $corpo);
             if ($input->cidade !== null) {
-                $daCidade->executar($input);
+                $capital = $daCidade->executar($input);
 
-                return $this->tradutor->trans($input->texto === null ? 'master.seccionais.nota_cidade_apagada' : 'master.seccionais.nota_cidade_salva', ['cidade' => $input->cidade]);
+                return $this->tradutor->trans($input->texto === null ? 'master.seccionais.nota_cidade_apagada' : 'master.seccionais.nota_cidade_salva', ['cidade' => $capital]);
             }
             $seccional = $doEstado->executar($input);
 
@@ -140,10 +140,10 @@ final class SeccionaisOabController extends AbstractController
     }
 
     #[Route('/master/seccionais/{uf}/visibilidade', name: 'master_seccional_visibilidade', requirements: ['uf' => '[A-Z]{2}'], methods: ['POST'])]
-    public function alternarVisibilidade(string $uf, Request $request, AlternarVisibilidadeDaSeccionalUseCase $alternar): JsonResponse
+    public function definirVisibilidade(string $uf, Request $request, DefinirVisibilidadeDaSeccionalUseCase $definir): JsonResponse
     {
-        return $this->gravar($uf, $request, function () use ($uf, $alternar): string {
-            $seccional = $alternar->executar(new AlternarVisibilidadeDaSeccionalInput($this->ator(), $uf));
+        return $this->gravar($uf, $request, function (array $corpo) use ($uf, $definir): string {
+            $seccional = $definir->executar(DefinirVisibilidadeDaSeccionalInput::doJson($this->ator(), $uf, $corpo));
 
             return $this->tradutor->trans($seccional->isVisivel() ? 'master.seccionais.visivel' : 'master.seccionais.oculta', ['seccional' => $seccional->getNome()]);
         });

@@ -89,9 +89,9 @@ class SeccionalOab implements Auditavel
     }
 
     /** Botão direito no chip: mostra a oculta e oculta a visível. */
-    public function alternarVisibilidade(): void
+    public function definirVisibilidade(bool $visivel): void
     {
-        $this->visivel = !$this->visivel;
+        $this->visivel = $visivel;
     }
 
     public function mostrar(): void

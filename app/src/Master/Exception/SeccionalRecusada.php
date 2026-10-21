@@ -19,6 +19,8 @@ final class SeccionalRecusada extends RecusaDaSeccional
     public const RECUSA_NOTA_LONGA = 'A nota passa de %d caracteres.';
     public const RECUSA_CIDADE_OBRIGATORIA = 'Informe a cidade da subseção.';
     public const RECUSA_CIDADE_DA_NOTA_OBRIGATORIA = 'Informe a cidade da nota.';
+    public const RECUSA_CIDADE_DA_NOTA_FORA_DAS_CAPITAIS = 'A nota por cidade vale só para a capital do estado.';
+    public const RECUSA_VISIBILIDADE = 'Informe se a seccional aparece no mapa.';
     public const RECUSA_CIDADE_LONGA = 'A cidade passa de %d caracteres.';
     public const RECUSA_ENDERECO_OBRIGATORIO = 'Informe o endereço da subseção.';
     public const RECUSA_NOME_LONGO = 'O nome passa de %d caracteres.';
@@ -35,6 +37,8 @@ final class SeccionalRecusada extends RecusaDaSeccional
         self::RECUSA_NOTA_LONGA => 'master.seccionais.recusa.nota_longa',
         self::RECUSA_CIDADE_OBRIGATORIA => 'master.seccionais.recusa.cidade_obrigatoria',
         self::RECUSA_CIDADE_DA_NOTA_OBRIGATORIA => 'master.seccionais.recusa.cidade_da_nota_obrigatoria',
+        self::RECUSA_CIDADE_DA_NOTA_FORA_DAS_CAPITAIS => 'master.seccionais.recusa.cidade_da_nota_fora_das_capitais',
+        self::RECUSA_VISIBILIDADE => 'master.seccionais.recusa.visibilidade',
         self::RECUSA_CIDADE_LONGA => 'master.seccionais.recusa.cidade_longa',
         self::RECUSA_ENDERECO_OBRIGATORIO => 'master.seccionais.recusa.endereco_obrigatorio',
         self::RECUSA_NOME_LONGO => 'master.seccionais.recusa.nome_longo',
