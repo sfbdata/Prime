@@ -9,6 +9,9 @@ use App\Cliente\Entity\Cliente;
 use App\Cliente\Exception\ClienteNaoEncontradoException;
 use App\Cliente\Exception\ContatoInvalidoException;
 use App\Cliente\Repository\ClienteRepository;
+use App\Cliente\Service\CamposDoCadastro;
+use App\Cliente\Service\HistoricoDoCliente;
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
@@ -31,7 +34,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  *    `(DD) 9XXXX-XXXX` / `(DD) XXXX-XXXX`. Vazio REMOVE (vira nulo);
  *  - e-mail: obrigatório no cadastro (coluna não nula, campo obrigatório na
  *    ficha) — não se remove, só se troca; validado e gravado em minúsculas;
- *  - a permissão (ACTION_EDIT) é do controller, que conhece o usuário.
+ *  - a permissão (ACTION_EDIT) é do controller, que conhece o usuário;
+ *  - contato que mudou entra no Histórico do cadastro ("Ana Souza alterou telefone"), só com o rótulo.
  */
 final class AtualizarContatoDoClienteUseCase
 {
@@ -41,12 +45,20 @@ final class AtualizarContatoDoClienteUseCase
 
     public const CAMPOS = [self::CAMPO_CELULAR, self::CAMPO_FIXO, self::CAMPO_EMAIL];
 
+    /** Slot => rótulo do Histórico (o mesmo do cadastro). */
+    private const ROTULOS = [
+        self::CAMPO_CELULAR => CamposDoCadastro::ROTULOS['telefone'],
+        self::CAMPO_FIXO    => CamposDoCadastro::ROTULOS_FORA_DA_JANELA['telefone_fixo'],
+        self::CAMPO_EMAIL   => CamposDoCadastro::ROTULOS['email'],
+    ];
+
     public function __construct(
         private readonly ClienteRepository $clienteRepository,
         private readonly ValidatorInterface $validator,
+        private readonly HistoricoDoCliente $historico,
     ) {}
 
-    public function executar(AtualizarContatoDoClienteInput $input, Tenant $tenant): void
+    public function executar(AtualizarContatoDoClienteInput $input, Tenant $tenant, User $autor): void
     {
         $cliente = $this->clienteRepository->find($input->clienteId);
         if (!$cliente instanceof Cliente || $cliente->getTenant()?->getId() !== $tenant->getId()) {
@@ -54,6 +66,7 @@ final class AtualizarContatoDoClienteUseCase
         }
 
         $valor = trim($input->valor);
+        $antes = [$cliente->getTelefoneCelular(), $cliente->getTelefoneFixo(), $cliente->getEmail()];
 
         match ($input->campo) {
             self::CAMPO_CELULAR => $cliente->setTelefoneCelular($this->telefone($valor)),
@@ -61,6 +74,10 @@ final class AtualizarContatoDoClienteUseCase
             self::CAMPO_EMAIL   => $cliente->setEmail($this->email($valor)),
             default             => throw new ContatoInvalidoException('Contato desconhecido.'),
         };
+
+        if ($antes !== [$cliente->getTelefoneCelular(), $cliente->getTelefoneFixo(), $cliente->getEmail()]) {
+            $this->historico->camposAlterados($cliente, $autor, $tenant, [self::ROTULOS[$input->campo]]);
+        }
 
         $this->clienteRepository->save($cliente, true);
     }

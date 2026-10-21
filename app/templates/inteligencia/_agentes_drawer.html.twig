@@ -4,10 +4,11 @@
    Desenho 02 - EXPEDIENTES - VS 18.10.26 (dc L938-957): painel fixo à direita,
    460px, cabeçalho em degradê com a estrela, "BLUEJUS IA / Assistente jurídica
    do escritório", X, chips do contexto carregado desta tela e as abas (spec
-   inteligencia-drawer-da-pasta, F1/F2). Das quatro abas do desenho, só Análise e
-   Relatórios aparecem: Documentos e Perguntar ainda não funcionam (F3/F4), e aba
-   que não funciona é mentira na tela. Os painéis das abas moram no
-   `_agentes_painel.html.twig`.
+   inteligencia-drawer-da-pasta, F1/F2/F3). Das quatro abas do desenho, aparecem
+   Análise, Relatórios e Perguntar: Documentos ainda não funciona (F4), e aba que
+   não funciona é mentira na tela. Os painéis de Análise e Relatórios moram no
+   `_agentes_painel.html.twig`; o de Perguntar mora aqui, fora do painel que o JS
+   troca inteiro, com o rodapé do campo (dc L1126-1131), que só aparece nessa aba.
 
    Incluído pelo `pasta/_cabecalho.html.twig` logo depois do botão, só para quem
    tem `modules.inteligencia.view`. Nasce `hidden`; o `pasta-ia-agentes.js` abre,
@@ -58,6 +59,10 @@
                     aria-selected="false" aria-controls="ia-aba-relatorios" tabindex="-1">
                 <i class="bi bi-bar-chart-line" aria-hidden="true"></i>Relatórios
             </button>
+            <button type="button" class="ia-aba" role="tab" id="ia-aba-btn-perguntar" data-ia-aba="perguntar"
+                    aria-selected="false" aria-controls="ia-aba-perguntar" tabindex="-1">
+                <i class="bi bi-chat-dots" aria-hidden="true"></i>Perguntar
+            </button>
         </div>
         {% if not ia.estaDisponivel %}
             {# O motivo REAL, uma vez, no topo; cada comando repete no lugar do botão. #}
@@ -69,10 +74,18 @@
     <div class="ia-drawer-corpo">
         <p class="ia-msg" data-ia-msg role="status" hidden></p>
         {{ include('inteligencia/_agentes_painel.html.twig', {painel: null, pastaId: pasta.id}) }}
+        {# Aba Perguntar (F3, dc L1072-1092): a conversa nasce "carregando"; o
+           pasta-ia-conversa.js busca `inteligencia_conversa_listar` quando a aba aparece. #}
+        <div class="ia-aba-painel" id="ia-aba-perguntar" role="tabpanel" aria-labelledby="ia-aba-btn-perguntar" data-ia-aba-painel="perguntar" hidden
+             data-ia-conversa-url="{{ path('inteligencia_conversa_listar', {id: pasta.id}) }}">
+            {{ include('inteligencia/_conversa.html.twig', {conversa: null, pastaId: pasta.id}, with_context = false) }}
+        </div>
     </div>
+    {{ include('inteligencia/_conversa_rodape.html.twig', {pastaId: pasta.id, ia: ia}, with_context = false) }}
     {# Rodapé "Registro de auditoria (N)" (dc L1030-1035): nasce sem dados; o JS busca
        `inteligencia_auditoria_da_pasta` ao abrir o drawer e troca o rodapé inteiro. #}
     {{ include('inteligencia/_auditoria.html.twig', {auditoria: null, pastaId: pasta.id}) }}
 </aside>
 <link rel="stylesheet" href="/css/pasta-ia-agentes.css">
 <script src="/js/pasta-ia-agentes.js" defer></script>
+<script src="/js/pasta-ia-conversa.js" defer></script>

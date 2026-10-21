@@ -341,7 +341,7 @@ razão social, CNPJ, nome fantasia, inscrições, representante, CPF, RG e cargo
 - Lista do Expediente e CSV: o réu cadastrado manda ("NOME e outros"); sem cadastro, as partes do Datajud.
 - Corrigido de passagem (3a): subtítulo da janela e aviso de CPF repetido mostravam só "CPF", sem o número.
 - Testes: `PastaReuControllerTest` (6; mutação na preferência da Lista derruba o seu), janela com e sem pasta.
-- Próxima: 3d Histórico.
+- Próxima: 3d Histórico (feita, §18).
 - Revisão read-only (nada bloqueava), aplicado: a pasta de contexto da janela só vale para quem pode VER a pasta
   (sem isso, quem via só o cliente lia os réus); pasta excluída mostra a lista sem formulário e a recusa da lápide
   aparece com a mensagem dela; botão Adicionar trava durante o envio; teste novo prova "cadastro manda, Datajud de
@@ -385,3 +385,20 @@ cartões no alto do trilho (L.1420-1445) e o carimbo da situação mora no mesmo
   Processo vinculado no trilho ✓; carimbo à direita da linha do tempo ✓. Medida na tela: do dono.
 - Testes: seletores e arranjo de 19 testes antigos atualizados para os lugares novos (a regra mudou por decisão do
   dono); ordem do trilho agora `processo · prazos · clientes · documentos`.
+
+## 18. E12k: Cadastro, fatia 3d, aba Histórico (19/10/2026, branch `cliente-historico`)
+
+Pedido do dono (§16): histórico próprio do cadastro. Feito nesta branch.
+
+- Entrou: tabela própria `cliente_historico` (quando, quem, texto; some com o cliente por CASCADE e entra na purga),
+  sem tornar o Cliente auditável (o audit_log poria CPF e RG em claro). O texto leva só rótulos de campo e o tipo do
+  documento, nunca valores nem nome de arquivo (`HistoricoDoCliente`). Grava ao salvar a janela ("<quem> alterou
+  nome, CPF"), ao criar pela janela, pelo "Cadastrar cliente" antigo da pasta e pela judicialização da Cobrança
+  (`ResolvedorClienteDoResponsavel`, autor = quem judicializa; cliente reusado não ganha linha) ("<quem> criou o
+  cadastro"), na ficha antiga `cliente_edit`, no contato da janela Detalhes do cliente, e ao anexar, editar ou
+  remover documento ("<quem> alterou documento de identificação", o verbo do desenho, uma linha por ação). Data "dd/mm/aaaa, hh:mm".
+  Aba Histórico como última aba (lista invertida, as 40 mais novas, vazio "Nenhuma alteração registrada ainda."),
+  Pendências some nela, e a aba é relida depois de salvar. Sem ponto final nos textos, como o desenho.
+- Ficou fora: sugestão de IA aceita ou aplicada (L.3378-3401) e documento vinculado a partir do menu Documentos
+  (L.3387), que não existem no sistema.
+

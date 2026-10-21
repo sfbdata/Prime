@@ -96,6 +96,8 @@ final class PurgarEscritorioUseCase
         ['bloco_jornada', 'jornada_tenant_id IN (SELECT id FROM jornada_tenant WHERE tenant_id = :tenant)'],
         ['tenant_role_permission', 'tenant_role_id IN (SELECT id FROM tenant_role WHERE tenant_id = :tenant)'],
         ['cliente_documento', 'tenant_id = :tenant'],
+        // Histórico do cadastro (E12 3d): cairia pela CASCADE de `cliente`, mas a FK de tenant é NO ACTION.
+        ['cliente_historico', 'tenant_id = :tenant'],
         // Favoritos de arquivo/subpasta da aba Documentos (por usuário): cairiam pela CASCADE de
         // `pasta_documento`/`pasta_secao`, mas a FK de tenant é NO ACTION — deleção explícita
         // ANTES do documento, para a cobertura ficar visível aqui.
@@ -123,7 +125,9 @@ final class PurgarEscritorioUseCase
         // (bloqueia apagar o tenant) + tenant_id direto → deleção explícita. Apaga o segredo junto.
         ['sync_drive_conexao', 'tenant_id = :tenant'],
         // BlueJus IA — análises e configuração do escritório (tenant_id direto; FK tenant NO ACTION,
-        // FKs a "user" SET NULL; nada as referencia). Deleção explícita antes de apagar o tenant.
+        // FKs a "user" SET NULL). Deleção explícita antes de apagar o tenant. As perguntas da aba
+        // Perguntar (F3) referenciam a análise (CASCADE) e o tenant (NO ACTION): saem ANTES dela.
+        ['inteligencia_pergunta', 'tenant_id = :tenant'],
         ['inteligencia_analise', 'tenant_id = :tenant'],
         ['inteligencia_configuracao', 'tenant_id = :tenant'],
         // Contribua — plano e limites de espaço do escritório (tenant_id direto; FK tenant NO ACTION, nada a
@@ -231,6 +235,10 @@ final class PurgarEscritorioUseCase
         // Relatório de pastas paradas (spec pastas-paradas): o envio do mês cairia pela CASCADE de
         // tenant, mas a purga apaga explicitamente, como o histórico do relatório irmão.
         ['relatorio_pastas_paradas_envio', 'tenant_id = :tenant'],
+        // Pedido de exclusão da conta e os códigos da etapa 2 (PR 5): FKs de tenant NO ACTION. O histórico
+        // do pedido fica no audit_log (retido); o motivo é texto do cliente e sai com o escritório.
+        ['codigo_exclusao_conta', 'tenant_id = :tenant'],
+        ['pedido_exclusao_conta', 'tenant_id = :tenant'],
         // Preferências pessoais de tela (menu ⋮ do Dashboard): a FK de usuário é CASCADE, mas o
         // usuário não é apagado na purga e a de tenant é NO ACTION — sai aqui, explicitamente.
         ['preferencia_usuario', 'tenant_id = :tenant'],

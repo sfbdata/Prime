@@ -21,8 +21,11 @@ use App\Shared\Service\DigitoVerificador;
  */
 final class CamposDoCadastro
 {
-    /** Chave do formulário => rótulo na lista de alterados do cartão. */
-    private const ROTULOS = [
+    /**
+     * Chave do formulário => rótulo na lista de alterados do cartão. Público porque o Histórico do cadastro só aceita
+     * estes rótulos (nunca valores; {@see HistoricoDoCliente}).
+     */
+    public const ROTULOS = [
         'nome' => 'nome', 'cpf' => 'CPF', 'rg' => 'RG', 'rg_orgao' => 'órgão emissor', 'nascimento' => 'nascimento',
         'estado_civil' => 'estado civil', 'profissao' => 'profissão', 'nacionalidade' => 'nacionalidade', 'genero' => 'gênero',
         'razao_social' => 'razão social', 'cnpj' => 'CNPJ', 'nome_fantasia' => 'nome fantasia',
@@ -32,6 +35,14 @@ final class CamposDoCadastro
         'cep' => 'CEP', 'logradouro' => 'logradouro', 'numero' => 'número', 'complemento' => 'complemento',
         'bairro' => 'bairro', 'cidade' => 'cidade', 'uf' => 'UF', 'telefone' => 'telefone', 'whatsapp' => 'WhatsApp',
         'email' => 'e-mail',
+    ];
+
+    /**
+     * Campos que só a ficha antiga (`cliente_edit`) e a janela de contatos editam: entram na comparação do Histórico
+     * ({@see self::fotografar()}), não no Salvar da janela de Cadastro.
+     */
+    public const ROTULOS_FORA_DA_JANELA = [
+        'telefone_fixo' => 'telefone fixo', 'rg_emissao' => 'emissão do RG', 'endereco_sede' => 'endereço da sede',
     ];
 
     /** Tamanho das colunas: passar disso viraria erro do banco (500) em vez de mensagem. */
@@ -231,6 +242,46 @@ final class CamposDoCadastro
         if (array_key_exists('email', $c) && mb_strtolower($c['email']) !== mb_strtolower($cliente->getEmail())) {
             $cliente->setEmail(mb_strtolower($c['email']));
         }
+    }
+
+    /**
+     * O valor de cada campo do cadastro, para comparar antes e depois de uma edição que não passa por
+     * {@see self::aplicar()} (ficha antiga). Só serve para achar QUAIS campos mudaram: o valor não sai daqui.
+     *
+     * @return array<string, string>
+     */
+    public function fotografar(Cliente $c): array
+    {
+        $extra = ['telefone_fixo' => (string) $c->getTelefoneFixo()];
+        if ($c instanceof ClientePF) {
+            $extra['rg_emissao'] = (string) $c->getRgDataEmissao()?->format('Y-m-d');
+        }
+        if ($c instanceof ClientePJ) {
+            $extra['endereco_sede'] = $c->getEnderecSede();
+        }
+
+        return $this->retrato($c) + $extra;
+    }
+
+    /**
+     * Rótulos dos campos que mudaram entre duas fotografias ({@see self::fotografar()}), na ordem das abas.
+     *
+     * @param array<string, string> $antes
+     * @param array<string, string> $depois
+     *
+     * @return list<string>
+     */
+    public static function rotulosAlterados(array $antes, array $depois): array
+    {
+        $rotulos = self::ROTULOS + self::ROTULOS_FORA_DA_JANELA;
+        $alterados = [];
+        foreach ($depois as $chave => $valor) {
+            if (($antes[$chave] ?? '') !== $valor && isset($rotulos[$chave])) {
+                $alterados[] = $rotulos[$chave];
+            }
+        }
+
+        return $alterados;
     }
 
     /** @return array<string, string> o valor de cada campo, na ordem das abas (Cliente, Endereço, Contato) */

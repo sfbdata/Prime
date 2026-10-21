@@ -15,10 +15,10 @@ use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * O botão "BlueJus Intelligence" no cabeçalho da pasta e o drawer da BlueJus IA (specs
- * inteligencia-agentes-da-pasta §5 e inteligencia-drawer-da-pasta F1/F2). O botão nunca finge:
- * carrega o motivo REAL da `Disponibilidade`; dentro do drawer, as abas Análise e Relatórios do
- * desenho, e cada comando/relatório mostra "Gerar análise" (ou "Gerar <relatório>") habilitado ou
- * o motivo, desabilitado. Documentos e Perguntar ainda não funcionam e não aparecem. Sem
+ * inteligencia-agentes-da-pasta §5 e inteligencia-drawer-da-pasta F1/F2/F3). O botão nunca finge:
+ * carrega o motivo REAL da `Disponibilidade`; dentro do drawer, as abas Análise, Relatórios e
+ * Perguntar do desenho, e cada comando/relatório mostra "Gerar análise" (ou "Gerar <relatório>")
+ * habilitado ou o motivo, desabilitado. Documentos ainda não funciona e não aparece. Sem
  * `modules.inteligencia.view`, nada de IA no cabeçalho.
  *
  * Arranjo com combinador de FILHO DIRETO (`.ps-cabecalho > .ps-cab-cliente > .ps-cab-ia`): "existe
@@ -209,7 +209,7 @@ final class PastaCabecalhoIaTelaTest extends JusPrimeWebTestCase
     // Abas, comandos e relatórios (spec inteligencia-drawer-da-pasta, F1/F2)
     // =========================================================================
 
-    #[TestDox('Abas do desenho no cabeçalho do drawer (filho direto): só Análise e Relatórios, com ícones; sem Documentos nem Perguntar')]
+    #[TestDox('Abas do desenho no cabeçalho do drawer (filho direto): Análise, Relatórios e Perguntar, com ícones; sem Documentos')]
     public function testAbas(): void
     {
         $client = $this->cliente();
@@ -221,15 +221,18 @@ final class PastaCabecalhoIaTelaTest extends JusPrimeWebTestCase
         $crawler = $this->abrirPasta($client, (int) $pasta->getId());
 
         $abas = $crawler->filter(self::DRAWER . ' > .ia-drawer-cab > .ia-abas[role="tablist"] > button.ia-aba[role="tab"]');
-        self::assertSame(2, $abas->count());
-        self::assertSame(['Análise', 'Relatórios'], $abas->each(static fn (Crawler $a): string => trim($a->text())));
-        self::assertSame(['analise', 'relatorios'], $abas->each(static fn (Crawler $a): ?string => $a->attr('data-ia-aba')));
+        self::assertSame(3, $abas->count());
+        self::assertSame(['Análise', 'Relatórios', 'Perguntar'], $abas->each(static fn (Crawler $a): string => trim($a->text())));
+        self::assertSame(['analise', 'relatorios', 'perguntar'], $abas->each(static fn (Crawler $a): ?string => $a->attr('data-ia-aba')));
         self::assertSame(1, $abas->eq(0)->filter('i.bi-activity')->count());
         self::assertSame(1, $abas->eq(1)->filter('i.bi-bar-chart-line')->count());
+        self::assertSame(1, $abas->eq(2)->filter('i.bi-chat-dots')->count());
         self::assertSame('true', $abas->eq(0)->attr('aria-selected'));
         self::assertSame('false', $abas->eq(1)->attr('aria-selected'));
+        self::assertSame('false', $abas->eq(2)->attr('aria-selected'));
         self::assertSame('ia-aba-analise', $abas->eq(0)->attr('aria-controls'));
         self::assertSame('ia-aba-relatorios', $abas->eq(1)->attr('aria-controls'));
+        self::assertSame('ia-aba-perguntar', $abas->eq(2)->attr('aria-controls'));
 
         // Os painéis das abas, filhos diretos do painel; Relatórios nasce oculto.
         self::assertSame(1, $crawler->filter(self::ANALISE . '#ia-aba-analise[role="tabpanel"]')->count());
@@ -239,9 +242,7 @@ final class PastaCabecalhoIaTelaTest extends JusPrimeWebTestCase
 
         $html = (string) $client->getResponse()->getContent();
         $drawer = $crawler->filter(self::DRAWER);
-        self::assertSame(0, $drawer->filter('[data-ia-aba="docs"], [data-ia-aba="documentos"], [data-ia-aba="perguntar"], [data-ia-aba="chat"]')->count());
-        self::assertStringNotContainsString('Perguntar', $drawer->text());
-        self::assertStringNotContainsString('bi-chat-dots', $drawer->html());
+        self::assertSame(0, $drawer->filter('[data-ia-aba="docs"], [data-ia-aba="documentos"], [data-ia-aba="chat"]')->count(), 'Documentos espera a F4');
         self::assertStringNotContainsString('Relatório do cliente', $html, 'D12: espera a decisão do dono');
     }
 

@@ -26,7 +26,8 @@ risco **MÉDIO** (limites e preços; nada de identidade) · aberta em 19/10/2026
   - #52, #59, #72 e #77 já estão no master;
   - #56 está com CI verde, na vez da fila de migrations (migration `Version20261019172536`).
 - **Próximo:**
-  - C6, saídas na tendência: espera o PR da 7d com a `saida_da_equipe`;
+  - C6, saídas na tendência: implementado em 21/10 na branch `master-saidas-tendencia` (sobre o #161, sem
+    migration). Decisões em §5;
   - bloco "Pedidos de exclusão", lado Master: espera o PR 5 da 7d.
 
 ### Para o dono
@@ -122,6 +123,23 @@ Contrato com a 7d (19/10):
 - A b5 só lê: saídas por UF da pessoa (mesmo critério das entradas; se não houver usuário, vale a UF do escritório)
   nos últimos 30 dias e nos 30 anteriores, com o filtro "Só primários" por `era_primario`.
 - Isso troca o title "só entradas: saídas ainda não são medidas" pela tendência completa do desenho.
+
+Implementação (21/10, branch `master-saidas-tendencia`; decisões aprovadas pela coordenação):
+- leitura: `PainelMasterRepository::saidasRecentes($desde, $ate)`, SQL direto em `saida_da_equipe` pelo índice
+  `(saiu_em)`, com `saiu_em >= desde AND saiu_em < ate` (60 dias até o segundo seguinte ao de agora), as bordas
+  formatadas no fuso padrão do PHP (o mesmo em que `saiu_em` é gravado);
+- a seta é o SALDO: `ag` = entradas menos saídas até 30 dias; `an` = de 30 a 60 dias. As bordas são as mesmas das
+  entradas (até 30 inclusive; acima de 30 até 60 inclusive), num único método (`MapaDeAtuacao::janela`). O JSON
+  continua `{ag, an}`, agora podendo ser negativo;
+- (a) quem sai de um escritório e continua ATIVO em outro (está nas pessoas do mapa) não conta como saída;
+- (b) escritório na quarentena fica fora, como nas entradas; escritório suspenso conta, como nas entradas;
+- (c) UF da saída pela mesma `LocalizacaoDaPessoa`: OAB, depois o estado do escritório de onde saiu (a lotação do
+  vínculo removido não existe mais). Com `user_id` nulo, vale a UF do escritório. Sem UF, a saída é ignorada;
+- (d) "Só primários" conta só `era_primario = true`;
+- (e) confirmada pela b5 (21/10): a mesma pessoa conta UMA saída por modo (a mais
+  recente), como a entrada conta uma vez; quem é removido de dois escritórios deixou a plataforma uma vez. Linhas
+  com `user_id` nulo não se agrupam e contam uma a uma;
+- title da seta como no desenho (L721): `+N nos últimos 30 dias · +N nos 30 anteriores`, com o sinal do número.
 - "sem limite" no modal só no armazenamento (o `semLimite` do contrato libera espaço e usuários); no modal de
   usuários, vazio não volta ao limite do plano (o contrato aceita nulo, a tela não oferece);
 - conta em quarentena: sem os itens de limite no menu e recusada no servidor; na lista, "uso não medido";

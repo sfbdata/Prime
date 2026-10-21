@@ -8,6 +8,71 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [2.10.0] - 2026-10-21
+
+### Adicionado
+
+- Google Agenda: os prazos e audiências abertos das pastas vão também à agenda do escritório no Google de quem tem a permissão "Ver prazos na agenda" (de 30 dias atrás a um ano à frente, respeitando o cadeado da pasta). Lá são só leitura: o que for mudado volta como está no BlueJus, e o que for apagado fica apagado até o prazo mudar. Saem do Google quando são cumpridos, excluídos ou quando a pessoa perde a permissão. Tabela nova `agenda_google_prazo`.
+- Agenda: sincronia com o Google Agenda nos dois sentidos, numa agenda com o nome do escritório criada na conta Google de cada pessoa (escopo `calendar.app.created`: a agenda principal não é lida nem escrita). OAuth com PKCE, refresh token cifrado, e-mail da conta pelo `id_token`, o do cadastro só sugerido; rotas `/agenda/google/conectar`, `/agenda/google/retorno` e `/agenda/google/desconectar`; sincronia a cada 5 minutos pelo Messenger e logo depois de cada mudança; comando `app:agenda:google-varredura`.
+- O compromisso vai também à agenda do escritório de cada participante conectado (cópia só de leitura); criado no Google entra visível à equipe, com os convidados da equipe como participantes; cancelado no Google fica aqui como "cancelado". A mesma conta Google pode ser ligada em vários escritórios.
+- Desconectar pergunta se apaga também a agenda do escritório no Google ("Não, manter" marcado) e revoga a autorização quando a conta não está ligada em outro escritório.
+- Tabelas `agenda_google_conexao`, `agenda_google_ligacao`, `agenda_google_exclusao` e `agenda_google_varredura`; coluna `evento.importado_do_google` ("Importado do Google Agenda." no detalhe).
+- Agenda: permissão de perfil "Ver prazos na agenda" (`resources.agenda.ver_prazos`). Os prazos e audiências das pastas na grade, nos lembretes, no push e no "Avisar no Chat" do prazo passam a seguir essa permissão, e não mais o módulo Pastas; vincular e mostrar a pasta de um compromisso continua com o módulo Pastas. A migration concede a permissão a todo perfil que vê pastas e aos perfis de sistema.
+- Aba "Minha conta" no modal "Conta do escritório" (desenho bj-contas.js, VS 18.10.26), só para o usuário primário ou o Master: equipe da conta com PRIMÁRIO/SECUNDÁRIO e a situação de cada pessoa (APROVADO, EM ANÁLISE, SUSPENSO), menu pelo ⋮ ou botão direito para aprovar, voltar para análise, suspender o acesso e demitir (a mesma remoção da tela de equipe), e o formulário de convite. "Convites do escritório" no menu e nas abas do Meu Perfil abre essa aba.
+- Coluna nova user_tenant.situacao (migration Version20261020132000); quem está em análise ou suspenso não entra no escritório e vê o motivo na tela de seleção. O acesso passa a conferir as barreiras em ordem (escritório, pedido de exclusão, vínculo, situação). O primário e o Master não têm a situação alterada.
+- Drawer da BlueJus IA na pasta com as abas Análise e Relatórios: dez comandos (Raio-X, Prazos, Próximos passos e os demais do desenho 02) e cinco relatórios, cada um rodando no clique e guardando o próprio histórico.
+- Cada comando tem a própria fila: pedir de novo com uma análise em andamento ou sem nada novo desde a última não cria outra nem gasta o limite de pedidos.
+- As análises dos agentes antigos aparecem no histórico do comando que os substituiu; as rotas por agente continuam funcionando sem misturar com as dos comandos.
+- Várias inscrições na OAB por pessoa (desenho 07, VS 18.10.26): uma principal e suplementares, no máximo uma por seccional; card "Registro OAB" com o tipo e a situação de cada uma (Pendente, Confirmada, Não confirmada) e modal "Inscrição na OAB" para adicionar, editar, trocar a principal e remover suplementares.
+- Tabela nova inscricao_oab com backfill da OAB atual como principal (migration Version20261020131500); os campos de OAB do usuário passam a ser a cópia da principal. A revisão de OAB do Master continua igual e também atualiza a principal; leitor e UseCases por inscrição prontos para a fila do Master mostrar as suplementares.
+- Pasta, aba Documentos: cobrança automática do checklist (desenho 02). Todo dia útil o responsável é cobrado dos documentos pendentes, com no máximo 2 avisos por pasta por dia; procuração e contrato são urgentes; o tom sobe a cada aviso e a controladoria acompanha a partir do 4º.
+- Item marcado como entregue sem o documento anexado avisa quem marcou e a controladoria (auditoria).
+- Desativar o checklist avisa a controladoria; desativado há 30 dias, o responsável recebe o lembrete de revisar.
+- Selo "cobrado Nx" nos itens e a pendência da aba conta os documentos cobrados e ainda não anexados.
+- Rotina diária `app:pasta:cobrar-checklist` (cron no `DEPLOY.md`).
+- Meu Perfil: a preferência "Sons de alerta" (`perfil.sons`) passa a valer. Desligada, silencia o toque da Central flutuante, o bipe de entrada e saída da presença no cabeçalho e o som do calendário do Dashboard. Ligada, continuam valendo as opções de som de cada um.
+- Profile: função Twig `perfil_sons()` (padrão ligado, por usuário e escritório, memória por requisição) e atributo `data-perfil-sons` no elemento raiz de cada um dos três componentes.
+- Meu Perfil: ponto de inclusão do selo de apoiador do Contribua (`contribua/_selo_apoiador.html.twig`, opcional).
+- Pasta, aba Processo: botão "Vincular apensado" abre o modal de vínculo em modo apenso, com o "Tipo de apenso" (Embargos, Agravo de instrumento, Cumprimento de sentença, Execução, Impugnação, Recurso, Cautelar, Outro); o cartão do apensado mostra "Apensado · Tipo" e o X que o desvincula, com confirmação (desenho 02 VS 18.10.26).
+- Pasta: nova coluna `pasta_processo.tipo_apenso`; o vínculo que não é o principal é apensado (sem tipo gravado, "Outro") e apensado nunca vira principal por omissão.
+- Pasta, timeline de Dados: cartões do sistema "apensado X (Tipo) vinculado ao processo principal Y." e "apensado X desvinculado.".
+- Pasta, aba Dados: a pílula do Processo vinculado passa a contar e listar os apensados, com o tipo, a ação e "classe · tribunal · situação".
+- Pasta, aba Push: chips por processo (Todos os processos, Principal e um por apensado, com contagem) antes de Todas/Novas/Geram prazo, e a fonte da movimentação de apensado ganha " · Apensado · Tipo número".
+- Pasta: a confirmação de marcar "Administrativo sem processo" com processo vinculado avisa que o andamento passa para a via administrativa.
+- Aba Processo: "Editar dados do processo" no próprio cartão (classe, assuntos, jurisdição, órgão julgador, última distribuição, valor da causa e as flags Sim/Não/Não informado de segredo de justiça, juízo 100% digital, justiça gratuita, tutela/liminar e prioridade). O valor manual prevalece sobre o do Datajud, com o selo "manual"; as flags "Sim" viram marcas no cartão; a linha de fonte diz que a integração com o PJe não está configurada. Colunas `*_manual` no `processo` (o Datajud não as sobrescreve) e registro no `audit_log`.
+- Segredo de justiça marcado como "Sim" no cartão bloqueia a IA e o link externo do Push, como o sigilo informado pelo tribunal.
+- Tabela saida_da_equipe (migration Version20261020136500): toda remoção de pessoa do escritório (tela de equipe, "Demitir" da equipe da conta e "Sair do escritório") grava a data, o motivo e se ela era primária, na mesma transação. Suspender não conta. É a base das saídas do painel do Master.
+- Trabalho Externo: "Compartilhar vagas" gera um link público (`/vagas-juridicas/{token}`, só o hash do token é gravado) com as vagas abertas escolhidas, e o modal monta a mensagem para WhatsApp, e-mail, LinkedIn ou copiar.
+- Página pública de vagas, sem login: mostra só cargo, local, tipo e áreas das vagas abertas do link; remuneração, escritório, contatos e requisitos não saem do servidor. Visões "Procuro vaga" e "Quero contratar", perguntas frequentes.
+- Inscrição "Receba vagas da sua área por e-mail" com consentimento LGPD (data e versão do texto), CSRF e limite de tentativas por IP. Nenhum e-mail é enviado por esta entrega.
+- `security.yaml`: `^/vagas-juridicas` com `PUBLIC_ACCESS`. `framework.yaml`: limitador `vagas_alertas`. Migration `Version20261019160801`: tabelas `trabalho_externo_link_vagas` e `trabalho_externo_interessado`.
+- "Divulgar vaga(s)": qualquer pessoa que vê a vaga aberta divulga; "Indicadas por" leva o primeiro nome de quem gerou o link. Cada canal usado (WhatsApp, E-mail, LinkedIn, mensagem copiada, link) soma uma divulgação e entra no histórico da vaga (`POST /trabalho-externo/api/vagas/divulgacao`).
+- Trabalho Externo: aba Vagas, ao lado de Demandas. A Central publica vagas na hora; o escritório usa "Divulgar uma vaga" e a vaga espera a aprovação da Central (aprovar, não aprovar com motivo, pausar, retomar, marcar como preenchida, encerrar), com histórico da oferta.
+- Trabalho Externo: oferta relâmpago com prazo em minutos e cronômetro, visível só para a Central; o período de divulgação e a oferta vencem sozinhos, sem tarefa agendada.
+- Trabalho Externo: quem oferece pode esconder dados de contato da vaga; o que fica escondido não sai para os outros escritórios.
+- Trabalho Externo: configuração interna das vagas (tempo padrão, divulgação máxima de vagas de escritório, mínimo de candidatos enviados e avisos).
+- Migration `Version20261019132051`: tabelas `trabalho_externo_vaga` e `trabalho_externo_vaga_historico` e a coluna `trabalho_externo_configuracao.vagas`.
+
+### Alterado
+
+- Revisão de OAB do Master (`/admin/platform/oab`) passa a listar por inscrição (principal e suplementares), com o selo PRINCIPAL ou SUPLEMENTAR, número/UF, usuário, situação e data da verificação.
+- Confirmar, reverter e re-verificar agem pelo id da inscrição (`ConfirmarInscricaoOabUseCase`, `ReverterInscricaoOabUseCase`, `VerificarInscricaoOabUseCase`); a principal segue espelhada no usuário. Id inexistente devolve 404.
+- Confirmar e reverter valem para o número e a UF exibidos na fila: se a inscrição mudou depois, a ação é recusada com aviso.
+- Ficam sem uso, para remover depois: `UserRepository::buscarParaRevisaoOab` e `contarParaRevisaoOab`, `ConfirmarOabManualmenteUseCase` e `ReverterOabUseCase`.
+- Pasta: os prazos estimados lidos dos registros ("prazo de N dias") passam a usar o calendário do sistema (`CalendarioDoSistema` da Agenda) e a UF do escritório (`Tenant::estado`), pelo serviço `DiasUteisDoEscritorio`. Não é dia útil: fim de semana, feriado nacional (inclui Sexta-feira Santa, que faltava), feriado estadual da UF e o recesso. Ponto facultativo (Carnaval, Corpus Christi), dias de tribunal, eleições e comemorativas continuam úteis.
+- Prazo em dias corridos que termina em dia não útil passa para o próximo dia útil (CPC art. 224, §1º). Data escrita pelo advogado, audiência, "amanhã" e "hoje" não mudam.
+- A regra nova só vale para registros criados a partir de `PRAZOS_CALENDARIO_DESDE` (variável de ambiente, data `AAAA-MM-DD`). Vazia ou inválida, nada muda: o cálculo é o de antes, inclusive na releitura automática dos prazos já gravados. Parâmetro `prazos_calendario_desde` em `config/services.yaml`; linha comentada no `.env`. Sem migration.
+- Só passa a valer quando `PRAZOS_CALENDARIO_DESDE` for definida no deploy (o dia seguinte ao deploy); valor inválido desliga e avisa no log.
+
+### Corrigido
+
+- Seletores de responsável (Chamado, Pasta, Meta e Kanban) passam pelo ColaboradoresAtribuiveis: quem está suspenso ou em análise na equipe da conta não é oferecido nem aceito como atribuição nova, e editar um registro mantém quem já estava atribuído (antes o chamado perdia a responsável suspensa ao salvar, e a meta e o Kanban ofereciam suspensos).
+- Login: o Master com mais de um escritório volta a cair na seleção do escritório depois de entrar (pelo formulário ou pelo lembrar-me), em vez de receber acesso negado no Expediente.
+
+### Segurança
+
+- Google Agenda: a conexão pede só os escopos da agenda (sem herdar outras autorizações) e recusa e revoga token com permissões além das pedidas; o `id_token` tem cliente, emissor e validade conferidos; sem a chave que cifra o token a integração fica desligada e um retorno sem como guardar revoga a autorização em vez de dar erro; desconectar respeita a trava da sincronia; limitador nas rotas `/agenda/google/*`.
+
 ## [2.9.0] - 2026-10-20
 
 ### Adicionado
@@ -431,7 +496,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.9.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v2.10.0...HEAD
+[2.10.0]: https://github.com/sfbdata/Prime/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/sfbdata/Prime/compare/v2.8.0...v2.9.0
 [2.8.0]: https://github.com/sfbdata/Prime/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/sfbdata/Prime/compare/v2.6.0...v2.7.0

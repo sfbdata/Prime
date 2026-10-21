@@ -13,6 +13,7 @@ use App\Master\Exception\OperacaoDeContaRecusada;
 use App\Master\Repository\ContasDoSistemaRepository;
 use App\Master\Service\RegraDosMasters;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
+use App\Tenant\Repository\PedidoDeExclusaoDeContaRepository;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -44,6 +45,7 @@ final class ExcluirContaPeloMasterUseCase
         private readonly RegraDosMasters $regraDosMasters,
         private readonly EscopoDeAuditoriaDePlataforma $escopoDeAuditoria,
         private readonly ClockInterface $relogio,
+        private readonly PedidoDeExclusaoDeContaRepository $pedidos,
         private readonly int $carenciaPurgaDias,
     ) {
     }
@@ -57,9 +59,16 @@ final class ExcluirContaPeloMasterUseCase
 
         $conta->setIsActive(false);
         $conta->setExcluidoEm($this->relogio->now());
-        // Ponto de extensão do contrato com a frente 7d (PR 5): com pedido de exclusão PENDENTE para esta
-        // conta, chamar aqui `$pedido->marcarExcluida($input->ator)`, antes do flush (mesma transação).
-        $this->escopoDeAuditoria->executarComoConta((int) $conta->getId(), fn () => $this->contas->salvar($conta, flush: true));
+        // Pedido de exclusão PENDENTE (PR 5, C4): decidido aqui, na mesma transação da conta (o flush abaixo).
+        $gravar = fn () => $this->escopoDeAuditoria->executarComoConta((int) $conta->getId(), fn () => $this->contas->salvar($conta, flush: true));
+        $pedido = $this->pedidos->pendenteDoEscritorio($conta);
+        if ($pedido === null) {
+            $gravar();
+        } else {
+            // Decisão e desistência do primário ao mesmo tempo: quem chega depois recebe 409.
+            $pedido->marcarExcluida($input->ator, $this->relogio->now());
+            $this->pedidos->gravarDecisaoSePendente($pedido, $gravar);
+        }
 
         return ContaAlteradaOutput::fromEntity($conta, $this->carenciaPurgaDias);
     }
