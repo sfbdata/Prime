@@ -1,19 +1,19 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Cobranças · Carteiras{% endblock %}
+{% block title %}{{ 'cobranca_carteira.lista.titulo_pagina'|trans }}{% endblock %}
 
 {% block body %}
 <div class="cobrancas-page">
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h1 class="m-0 d-flex align-items-center gap-2">
-            <i class="bi bi-cash-coin"></i>Cobranças
+            <i class="bi bi-cash-coin"></i>{{ 'cobranca_carteira.comum.cobrancas'|trans }}
         </h1>
         <div class="d-flex align-items-center gap-2 flex-wrap">
             {{ include('cobranca/_partials/_subnav.html.twig', { ativo: 'carteiras' }) }}
             {% if formCriarCarteira is defined and formCriarCarteira is not null %}
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCriarCarteira">
-                <i class="bi bi-plus-lg me-1"></i>Nova carteira
+                <i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_carteira.lista.nova_carteira'|trans }}
             </button>
             {% endif %}
         </div>
@@ -26,8 +26,8 @@
         <div class="modal-content">
             {{ form_start(formCriarCarteira, {action: path('cobranca_carteira_criar')}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloCriarCarteira"><i class="bi bi-plus-circle me-1"></i>Nova carteira</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <h5 class="modal-title" id="tituloCriarCarteira"><i class="bi bi-plus-circle me-1"></i>{{ 'cobranca_carteira.lista.nova_carteira'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'cobranca_carteira.comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
                 {{ form_row(formCriarCarteira.nome) }}
@@ -35,16 +35,16 @@
                 {# Credor ainda sem cadastro (decisão do dono, 21/10/2026): abre a janela de Cadastro sem pasta
                    (cliente-cadastro.js); ao fechar depois de salvar, a página recarrega com o cliente no select. #}
                 <p class="small mt-n2 mb-3">
-                    Cliente não está na lista?
+                    {{ 'cobranca_carteira.lista.cliente_fora_da_lista'|trans }}
                     <a href="#" class="js-cad-abrir" data-url="{{ path('cliente_cadastro_novo') }}" data-bs-dismiss="modal">
-                        <i class="bi bi-person-plus me-1" aria-hidden="true"></i>Cadastrar cliente
+                        <i class="bi bi-person-plus me-1" aria-hidden="true"></i>{{ 'cobranca_carteira.lista.cadastrar_cliente'|trans }}
                     </a>
                 </p>
                 {{ include('cobranca/carteira/_campos_config.html.twig', { form: formCriarCarteira }) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Criar carteira</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'cobranca_carteira.comum.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_carteira.lista.criar_carteira'|trans }}</button>
             </div>
             {{ form_end(formCriarCarteira) }}
         </div>
@@ -56,12 +56,12 @@
     <div class="container-fluid">
         <div data-filtro-root data-filtro-endpoint="{{ path('cobranca_carteira_index') }}">
             {{ include('_partials/_filtro_barra.html.twig', {
-                busca_placeholder: 'Buscar carteira pelo nome…',
+                busca_placeholder: 'cobranca_carteira.lista.busca_placeholder'|trans,
                 filtros: filtros,
                 facetas: [
-                    { name: 'modo', rotulo: 'Modo', tipo: 'select', opcoes: [
-                        { valor: 'unico', label: 'Uma cobrança por objeto' },
-                        { valor: 'multiplo', label: 'Várias cobranças por objeto' }
+                    { name: 'modo', rotulo: 'cobranca_carteira.lista.faceta_modo'|trans, tipo: 'select', opcoes: [
+                        { valor: 'unico', label: 'cobranca_carteira.lista.modo_unico'|trans },
+                        { valor: 'multiplo', label: 'cobranca_carteira.lista.modo_multiplo'|trans }
                     ] }
                 ]
             }) }}

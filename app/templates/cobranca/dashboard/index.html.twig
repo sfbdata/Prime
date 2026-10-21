@@ -1,12 +1,12 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Cobranças · Painel{% endblock %}
+{% block title %}{{ 'cobranca_carteira.painel.titulo_pagina'|trans }}{% endblock %}
 
 {% block body %}
 <div class="cobrancas-page">
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-speedometer2"></i>Cobranças</h1>
+        <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-speedometer2"></i>{{ 'cobranca_carteira.comum.cobrancas'|trans }}</h1>
         {{ include('cobranca/_partials/_subnav.html.twig', { ativo: 'painel' }) }}
     </div>
 </section>
@@ -16,58 +16,58 @@
         {# ── Filtros (carteira + período) ─────────────────────── #}
         <form method="get" action="{{ path('cobranca_dashboard') }}" class="row g-2 align-items-end mb-3">
             <div class="col-12 col-md-4">
-                <label class="form-label small mb-1" for="filtroCarteira">Carteira</label>
+                <label class="form-label small mb-1" for="filtroCarteira">{{ 'cobranca_carteira.comum.carteira'|trans }}</label>
                 <select class="form-select form-select-sm" id="filtroCarteira" name="carteira">
-                    <option value="">Todas as carteiras</option>
+                    <option value="">{{ 'cobranca_carteira.comum.todas_as_carteiras'|trans }}</option>
                     {% for c in carteiras %}
                     <option value="{{ c.id }}" {{ carteiraId == c.id ? 'selected' : '' }}>{{ c.nome }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div class="col-6 col-md-3">
-                <label class="form-label small mb-1" for="filtroInicio">Início do período</label>
+                <label class="form-label small mb-1" for="filtroInicio">{{ 'cobranca_carteira.painel.inicio_periodo'|trans }}</label>
                 <input type="date" class="form-control form-control-sm" id="filtroInicio" name="inicio" value="{{ inicio }}">
             </div>
             <div class="col-6 col-md-3">
-                <label class="form-label small mb-1" for="filtroFim">Fim do período</label>
+                <label class="form-label small mb-1" for="filtroFim">{{ 'cobranca_carteira.painel.fim_periodo'|trans }}</label>
                 <input type="date" class="form-control form-control-sm" id="filtroFim" name="fim" value="{{ fim }}">
             </div>
             <div class="col-12 col-md-2">
-                <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-funnel me-1"></i>Aplicar</button>
+                <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-funnel me-1"></i>{{ 'cobranca_carteira.painel.aplicar'|trans }}</button>
             </div>
         </form>
 
         {% if dashboard.totalCasos == 0 %}
             <div class="cobranca-empty">
                 <div class="empty-ico"><i class="bi bi-cash-stack"></i></div>
-                <div class="empty-title">Nenhuma cobrança para exibir</div>
+                <div class="empty-title">{{ 'cobranca_carteira.painel.vazio_titulo'|trans }}</div>
                 <div class="text-muted">
-                    {% if carteiraId %}Esta carteira ainda não tem cobranças.{% else %}Cadastre uma carteira e crie cobranças para ver o painel.{% endif %}
+                    {% if carteiraId %}{{ 'cobranca_carteira.painel.vazio_carteira'|trans }}{% else %}{{ 'cobranca_carteira.painel.vazio_texto'|trans }}{% endif %}
                 </div>
             </div>
         {% else %}
             {# ── Visão financeira ─────────────────────────────── #}
             <div class="dash-section">
-                <p class="dash-section-titulo"><i class="bi bi-cash-coin"></i>Visão financeira</p>
+                <p class="dash-section-titulo"><i class="bi bi-cash-coin"></i>{{ 'cobranca_carteira.painel.financeira'|trans }}</p>
                 <div class="dash-grid">
                     <div class="dash-card">
-                        <div class="dash-card-label">Saldo em aberto</div>
+                        <div class="dash-card-label">{{ 'cobranca_carteira.painel.saldo_em_aberto'|trans }}</div>
                         <div class="dash-card-valor">{{ dashboard.saldoEmAberto|centavos }}</div>
                     </div>
                     <div class="dash-card">
-                        <div class="dash-card-label">Saldo vencido</div>
-                        <div class="dash-card-valor {{ dashboard.saldoVencido > 0 ? 'is-vencido' : '' }}">{{ dashboard.saldoVencido|centavos }}</div>
+                        <div class="dash-card-label">{{ 'cobranca_carteira.painel.saldo_vencido'|trans }}</div>
+                        <div class="dash-card-valor {{ 0 < dashboard.saldoVencido ? 'is-vencido' : '' }}">{{ dashboard.saldoVencido|centavos }}</div>
                     </div>
                     <div class="dash-card">
-                        <div class="dash-card-label">Recuperado no período</div>
-                        <div class="dash-card-valor {{ dashboard.valorRecuperadoNoPeriodo > 0 ? 'is-ok' : '' }}">{{ dashboard.valorRecuperadoNoPeriodo|centavos }}</div>
+                        <div class="dash-card-label">{{ 'cobranca_carteira.painel.recuperado_periodo'|trans }}</div>
+                        <div class="dash-card-valor {{ 0 < dashboard.valorRecuperadoNoPeriodo ? 'is-ok' : '' }}">{{ dashboard.valorRecuperadoNoPeriodo|centavos }}</div>
                     </div>
                     <div class="dash-card">
-                        <div class="dash-card-label" data-bs-toggle="tooltip" title="Honorários estimados sobre o saldo ainda em aberto (SPEC §18)">Honorários projetados</div>
+                        <div class="dash-card-label" data-bs-toggle="tooltip" title="{{ 'cobranca_carteira.painel.honorarios_projetados_dica'|trans }}">{{ 'cobranca_carteira.painel.honorarios_projetados'|trans }}</div>
                         <div class="dash-card-valor">{{ dashboard.honorariosProjetados|centavos }}</div>
                     </div>
                     <div class="dash-card">
-                        <div class="dash-card-label" data-bs-toggle="tooltip" title="Honorários realizados no período conforme a forma de cada cobrança (SPEC §18)">Honorários realizados</div>
+                        <div class="dash-card-label" data-bs-toggle="tooltip" title="{{ 'cobranca_carteira.painel.honorarios_realizados_dica'|trans }}">{{ 'cobranca_carteira.painel.honorarios_realizados'|trans }}</div>
                         <div class="dash-card-valor">{{ dashboard.honorariosRealizadosNoPeriodo|centavos }}</div>
                     </div>
                 </div>
@@ -75,55 +75,55 @@
 
             {# ── Visão operacional ────────────────────────────── #}
             <div class="dash-section">
-                <p class="dash-section-titulo"><i class="bi bi-list-check"></i>Visão operacional</p>
+                <p class="dash-section-titulo"><i class="bi bi-list-check"></i>{{ 'cobranca_carteira.painel.operacional'|trans }}</p>
                 <div class="dash-grid">
                     <a class="dash-card" href="{{ path('cobranca_alertas', carteiraId ? {carteira: carteiraId} : {}) }}">
-                        <div class="dash-card-label" data-bs-toggle="tooltip" title="Cobranças com obrigação vencida a verificar (SPEC §14)">Pagamentos a verificar</div>
-                        <div class="dash-card-valor {{ dashboard.pagamentosAVerificar > 0 ? 'is-alerta' : 'is-zero' }}">{{ dashboard.pagamentosAVerificar }}</div>
+                        <div class="dash-card-label" data-bs-toggle="tooltip" title="{{ 'cobranca_carteira.painel.pagamentos_verificar_dica'|trans }}">{{ 'cobranca_carteira.painel.pagamentos_verificar'|trans }}</div>
+                        <div class="dash-card-valor {{ 0 < dashboard.pagamentosAVerificar ? 'is-alerta' : 'is-zero' }}">{{ dashboard.pagamentosAVerificar }}</div>
                     </a>
                     <a class="dash-card" href="{{ path('cobranca_alertas', carteiraId ? {carteira: carteiraId} : {}) }}">
-                        <div class="dash-card-label">Ações atrasadas</div>
-                        <div class="dash-card-valor {{ dashboard.proximasAcoesAtrasadas > 0 ? 'is-alerta' : 'is-zero' }}">{{ dashboard.proximasAcoesAtrasadas }}</div>
+                        <div class="dash-card-label">{{ 'cobranca_carteira.painel.acoes_atrasadas'|trans }}</div>
+                        <div class="dash-card-valor {{ 0 < dashboard.proximasAcoesAtrasadas ? 'is-alerta' : 'is-zero' }}">{{ dashboard.proximasAcoesAtrasadas }}</div>
                     </a>
                     <a class="dash-card" href="{{ path('cobranca_alertas', carteiraId ? {carteira: carteiraId} : {}) }}">
-                        <div class="dash-card-label">Parcelas de acordo vencidas</div>
-                        <div class="dash-card-valor {{ dashboard.parcelasAcordoVencidas > 0 ? 'is-alerta' : 'is-zero' }}">{{ dashboard.parcelasAcordoVencidas }}</div>
+                        <div class="dash-card-label">{{ 'cobranca_carteira.painel.parcelas_vencidas'|trans }}</div>
+                        <div class="dash-card-valor {{ 0 < dashboard.parcelasAcordoVencidas ? 'is-alerta' : 'is-zero' }}">{{ dashboard.parcelasAcordoVencidas }}</div>
                     </a>
                     <a class="dash-card" href="{{ path('cobranca_caso_index', carteiraId ? {status: 'judicializado', carteira: carteiraId} : {status: 'judicializado'}) }}">
-                        <div class="dash-card-label">Cobranças judicializadas</div>
-                        <div class="dash-card-valor {{ dashboard.casosJudicializados > 0 ? '' : 'is-zero' }}">{{ dashboard.casosJudicializados }}</div>
+                        <div class="dash-card-label">{{ 'cobranca_carteira.painel.judicializadas'|trans }}</div>
+                        <div class="dash-card-valor {{ 0 < dashboard.casosJudicializados ? '' : 'is-zero' }}">{{ dashboard.casosJudicializados }}</div>
                     </a>
                 </div>
             </div>
 
             {# ── Resultado ────────────────────────────────────── #}
             <div class="dash-section">
-                <p class="dash-section-titulo"><i class="bi bi-graph-up-arrow"></i>Resultado</p>
+                <p class="dash-section-titulo"><i class="bi bi-graph-up-arrow"></i>{{ 'cobranca_carteira.painel.resultado'|trans }}</p>
                 <div class="row g-3">
                     <div class="col-12 col-lg-5">
                         <div class="dash-taxa-wrap h-100">
-                            <div class="dash-card-label">Taxa de recuperação</div>
+                            <div class="dash-card-label">{{ 'cobranca_carteira.painel.taxa'|trans }}</div>
                             <div class="dash-taxa-num">{{ (dashboard.taxaRecuperacaoBasisPoints / 100)|number_format(2, ',', '.') }}%</div>
                             <div class="dash-taxa-bar">
                                 <div class="dash-taxa-fill" style="width: {{ min(dashboard.taxaRecuperacaoBasisPoints / 100, 100) }}%"></div>
                             </div>
-                            <div class="dash-card-sub">Recuperado sobre o total (recuperado + em aberto).</div>
+                            <div class="dash-card-sub">{{ 'cobranca_carteira.painel.taxa_sub'|trans }}</div>
                         </div>
                     </div>
                     <div class="col-12 col-lg-7">
                         <div class="dash-grid h-100">
                             <div class="dash-card">
-                                <div class="dash-card-label">Valor total recuperado</div>
+                                <div class="dash-card-label">{{ 'cobranca_carteira.painel.total_recuperado'|trans }}</div>
                                 <div class="dash-card-valor is-ok">{{ dashboard.valorTotalRecuperado|centavos }}</div>
                             </div>
                             <div class="dash-card">
-                                <div class="dash-card-label">Valor ainda em aberto</div>
+                                <div class="dash-card-label">{{ 'cobranca_carteira.painel.ainda_em_aberto'|trans }}</div>
                                 <div class="dash-card-valor">{{ dashboard.valorEmAberto|centavos }}</div>
                             </div>
                             <div class="dash-card">
-                                <div class="dash-card-label">Objetos inadimplentes</div>
+                                <div class="dash-card-label">{{ 'cobranca_carteira.painel.objetos_inadimplentes'|trans }}</div>
                                 <div class="dash-card-valor">{{ dashboard.objetosInadimplentes }}</div>
-                                <div class="dash-card-sub">Cobranças ativas: {{ dashboard.casosAtivos }}</div>
+                                <div class="dash-card-sub">{{ 'cobranca_carteira.painel.casos_ativos'|trans({total: dashboard.casosAtivos ~ ''}) }}</div>
                             </div>
                         </div>
                     </div>

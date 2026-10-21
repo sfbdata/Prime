@@ -1902,4 +1902,287 @@ termos:
     pasta: pasta
     processo: processo
 
+# ---- Cobrança: carteiras, painel, alertas e importação (cobranca/carteira, dashboard, alertas, importacao)
+cobranca_carteira:
+    comum:
+        cobrancas: Cobranças
+        carteira: Carteira
+        todas_as_carteiras: Todas as carteiras
+        fechar: Fechar
+        cancelar: Cancelar
+        nao_informado: Não informado
+        dia: '{dias} dia'
+        dias: '{dias} dias'
+    lista:
+        titulo_pagina: 'Cobranças · Carteiras'
+        nova_carteira: Nova carteira
+        cliente_fora_da_lista: Cliente não está na lista?
+        cadastrar_cliente: Cadastrar cliente
+        criar_carteira: Criar carteira
+        busca_placeholder: Buscar carteira pelo nome…
+        faceta_modo: Modo
+        modo_unico: Uma cobrança por objeto
+        modo_multiplo: Várias cobranças por objeto
+        contagem: carteira(s)
+        coluna:
+            carteira: Carteira
+            cliente_credor: Cliente credor
+            modo: Modo
+            honorarios: Honorários
+            modificado: Modificado
+        sem_registro: Sem registro
+        vazio_filtro_titulo: Nenhuma carteira encontrada
+        vazio_filtro_texto: Ajuste ou limpe os filtros aplicados.
+        vazio_titulo: Nenhuma carteira cadastrada
+        vazio_texto: As carteiras de cobrança aparecerão aqui.
+    paginacao:
+        rotulo: Paginação da lista
+        anterior: Página anterior
+        pagina: 'Página {numero}'
+        proxima: Próxima página
+    campos:
+        secao_operacao: Operação
+        modo_titulo: Modo de operação
+        modo_ajuda: Ajuda sobre o modo de operação
+        secao_honorarios: Honorários
+        honorarios_titulo: Forma de honorários
+        honorarios_ajuda: Ajuda sobre a forma de honorários
+        secao_encargos: Encargos por atraso
+        # Frase partida em volta dos <strong> (spec §8, "Frase partida").
+        encargos_nota:
+            inicio: Estas taxas valem
+            ao_vivo: ao vivo
+            alterar: ': alterar aqui'
+            recalcula: recalcula na hora
+            encargos: os encargos de toda obrigação
+            em_aberto: em aberto
+            meio: 'que herda desta carteira. Não muda o que já está congelado (obrigação paga/liquidada ou substituída por acordo) nem o que tem taxa própria no objeto ou na obrigação. Deixe a carência dos honorários'
+            vazia: vazia
+            fim: para usar a tolerância de atraso configurada acima.
+        dias: dias
+    modais:
+        configuracao_titulo: Configuração da carteira
+        configuracao_sub: Vale para os casos desta carteira. Encargos já gravados não são recalculados.
+        exige_permissao: Exige a permissão
+        salvar_configuracao: Salvar configuração
+        novo_objeto: Novo objeto
+        novo_objeto_rotulo: 'Nova {rotulo}'
+        objeto_sub: Criar o objeto já abre a cobrança e leva para a página dela.
+        criar_e_abrir: Criar e abrir cobrança
+        documento_titulo: Adicionar documento
+        documento_sub: Atas de assembleia e o contrato de honorários ficam na carteira.
+        soltar_titulo: Arraste o arquivo ou clique para escolher
+        soltar_dica: PDF ou planilha até 10 MB · imagem até 3 MB
+        categoria: Categoria
+        observacao: Observação
+        opcional: (opcional)
+        observacao_exemplo: 'Ex.: assembleia que autorizou a cobrança judicial'
+        adicionar: Adicionar
+    show:
+        titulo_pagina: 'Cobranças · {carteira}'
+        voltar: Carteiras
+        migalhas: Você está aqui
+        inicio: Home
+        novo_objeto: Novo objeto
+        importar_relatorio: Importar relatório
+        mais_acoes: Mais ações
+        editar_configuracao: Editar configuração
+        exportar_lista: Exportar lista (.xlsx)
+        selo_carteira: 'Carteira {id}'
+        credor: 'Credor:'
+        objeto: Objeto
+        frescor:
+            atualizados_ate: 'Dados atualizados até {data}'
+            hoje: '· hoje'
+            ha_um_dia: '· há 1 dia'
+            ha_dias: '· há {dias} dias'
+            titulo: Emissão por relatório
+            tipo:
+                inadimplencia: Inadimplência
+                acordos: Acordos detalhados
+                receitas: Receitas
+                cadastro: Dados cadastrais
+            importar_qual:
+                inadimplencia: a inadimplência
+                acordos: os acordos detalhados
+                receitas: as receitas
+                cadastro: o cadastro
+                outro: 'o relatório de {tipo}'
+            nota: A carteira só está em dia até a emissão
+            nota_mais_antiga: mais antiga
+            importe: Importe
+            para_fechar: para fechar a defasagem.
+            desconhecida_dica: A data de emissão passou a ser registrada em 07/08/2026. O que foi importado antes disso ficou sem ela.
+            desconhecida: Data dos relatórios desconhecida
+            nenhum: Nenhum relatório importado ainda
+        kpi:
+            saldo: Saldo consolidado
+            saldo_sub: carteira inteira, não a página
+            vencido: Vencido
+            com_atraso_um: '{total} caso com atraso'
+            com_atraso: '{total} casos com atraso'
+            do_saldo: '· {percentual}% do saldo'
+            objetos: Objetos cobrados
+            rotulo: 'rótulo: {rotulo}'
+            casos_abertos: Casos abertos
+            tolerancia: 'tolerância de atraso: {duracao}'
+        filtro:
+            busca: Busca
+            busca_placeholder: 'Buscar {rotulo} ou pessoa cobrada…'
+            estado: Estado
+            filtrar_por_estado: Filtrar por estado
+            todos_os_estados: Todos os estados
+        configuracao:
+            titulo: Configuração
+            editar: Editar
+            modo: Modo
+            honorarios: Honorários
+            tolerancia: Tolerância de atraso
+            juros: Juros
+            multa: Multa
+            vinculo: Vínculo preferido
+            rotulo_objeto: Rótulo do objeto
+        documentos:
+            titulo: Documentos
+            adicionar: Adicionar documento
+            baixar: 'Baixar {nome}'
+            excluir: 'Excluir {nome}'
+            confirmar_excluir: Excluir este documento?
+            vazio: Nenhum documento na carteira. Atas de assembleia e o contrato de honorários ficam aqui.
+    casos:
+        contagem_um: '{total} caso'
+        contagem: '{total} casos'
+        contagem_filtrada: '{total} de {carteira} casos'
+        coluna:
+            pessoa: Pessoa cobrada
+            estado: Estado
+            saldo: Saldo
+            anexos: Anexos
+        pronto_dica: 'Saldo exigível zerado: o caso pode ser encerrado'
+        pronto: Pronto p/ encerrar
+        tudo_vencido: tudo vencido
+        vencido: '{valor} vencido'
+        tem_documentos: O objeto tem documentos
+        faixa: 'Mostrando {primeiro} a {ultimo} de {total}'
+        busca_vazia_titulo: 'Nenhum caso casa “{busca}”'
+        busca_vazia_texto_objeto: A busca cobre a identificação do objeto e o nome da pessoa cobrada. Os valores do cabeçalho continuam sendo os da carteira inteira.
+        busca_vazia_texto: 'A busca cobre a identificação da {rotulo} e o nome da pessoa cobrada. Os valores do cabeçalho continuam sendo os da carteira inteira.'
+        limpar_busca: Limpar busca
+        estado_vazio_titulo: Nenhum caso neste recorte
+        estado_vazio_texto: 'A carteira tem {casos}, mas nenhum no estado escolhido. Os valores do cabeçalho continuam sendo os da carteira inteira.'
+        limpar_filtro: Limpar filtro
+        vazio_titulo: Nenhuma cobrança nesta carteira
+        vazio_texto_objeto: As cobranças aparecem aqui depois de importar um relatório ou de criar um objeto à mão.
+        vazio_texto: 'As cobranças aparecem aqui depois de importar um relatório ou de criar uma {rotulo} à mão.'
+    painel:
+        titulo_pagina: 'Cobranças · Painel'
+        inicio_periodo: Início do período
+        fim_periodo: Fim do período
+        aplicar: Aplicar
+        vazio_titulo: Nenhuma cobrança para exibir
+        vazio_carteira: Esta carteira ainda não tem cobranças.
+        vazio_texto: Cadastre uma carteira e crie cobranças para ver o painel.
+        financeira: Visão financeira
+        saldo_em_aberto: Saldo em aberto
+        saldo_vencido: Saldo vencido
+        recuperado_periodo: Recuperado no período
+        honorarios_projetados: Honorários projetados
+        honorarios_projetados_dica: Honorários estimados sobre o saldo ainda em aberto (SPEC §18)
+        honorarios_realizados: Honorários realizados
+        honorarios_realizados_dica: Honorários realizados no período conforme a forma de cada cobrança (SPEC §18)
+        operacional: Visão operacional
+        pagamentos_verificar: Pagamentos a verificar
+        pagamentos_verificar_dica: Cobranças com obrigação vencida a verificar (SPEC §14)
+        acoes_atrasadas: Ações atrasadas
+        parcelas_vencidas: Parcelas de acordo vencidas
+        judicializadas: Cobranças judicializadas
+        resultado: Resultado
+        taxa: Taxa de recuperação
+        taxa_sub: Recuperado sobre o total (recuperado + em aberto).
+        total_recuperado: Valor total recuperado
+        ainda_em_aberto: Valor ainda em aberto
+        objetos_inadimplentes: Objetos inadimplentes
+        casos_ativos: 'Cobranças ativas: {total}'
+    alertas:
+        titulo_pagina: 'Cobranças · Alertas'
+        vazio_titulo: Nenhum alerta pendente
+        vazio_carteira: Esta carteira não tem alertas operacionais no momento.
+        vazio_texto: Nenhuma cobrança do escritório exige atenção agora.
+        total: '{total} alerta(s)'
+    importacao:
+        titulo_pagina: 'Cobranças · Importar · {carteira}'
+        titulo: Importar relatório
+        inadimplencia: Relatório de inadimplência
+        # Frase partida em volta dos <strong> (spec §8, "Frase partida").
+        aviso:
+            inicio: O relatório será apenas
+            pre_visualizado: pré-visualizado
+            primeiro: primeiro. Nada é gravado até você confirmar. Linhas
+            sem_principal: sem valor principal
+            apenas: (apenas encargos/honorários) são
+            rejeitadas: rejeitadas
+            motivo: com o motivo. Nenhuma obrigação é criada para elas. A reimportação do mesmo relatório
+            nao_duplica: não duplica
+            fim: ': apenas atualiza os encargos.'
+        pre_visualizar: Pré-visualizar
+    previa:
+        titulo_pagina_importado: 'Cobranças · Importado · {carteira}'
+        titulo_pagina_previa: 'Cobranças · Prévia · {carteira}'
+        concluida: Importação concluída
+        titulo: Prévia da importação
+        aviso:
+            inicio: Esta é uma
+            previa: prévia
+            fim: . Nada foi gravado ainda. Confira os números e confirme para importar de verdade.
+        obrigacoes_importadas: Obrigações importadas
+        serao_importadas: Serão importadas
+        atualizadas: Atualizadas
+        serao_atualizadas: Serão atualizadas
+        rejeitadas: Rejeitadas
+        ignoradas: Ignoradas
+        novos: 'Novos: {objetos} objeto(s) · {pessoas} pessoa(s) · {casos} caso(s).'
+        sem_boleto:
+            titulo: Dívida que nunca teve boleto
+            resumo_criadas: ': {total} obrigação(ões) ({novas} criada(s), {atualizadas} atualizada(s)), somando'
+            resumo_a_criar: ': {total} obrigação(ões) ({novas} a criar, {atualizadas} atualizada(s)), somando'
+            valor: 'R$ {valor}'
+            de_principal: de principal e encargos.
+            nota: São lançamentos antigos que a contabilidade nunca emitiu em boleto. Entram pela chave substituta
+            nota_fim: ', e o valor acima é o da planilha. Em obrigação que já existia, o valor lançado é preservado.'
+            chave: 'SNN:<vencimento>'
+        reutilizado:
+            titulo: Nosso Número reutilizado
+            em: 'em {total} boleto(s): a contábil repetiu um número que já existe neste caso, mas em'
+            outra_competencia: outra competência
+            e: ': é'
+            outra_divida: outra dívida
+            nasceu: ', e nasceu separada, sem sobrescrever a anterior. Confira se é mesmo cobrança nova.'
+            vai_nascer: ', e vai nascer separada, sem sobrescrever a anterior. Confira se é mesmo cobrança nova.'
+        nossos_numeros: 'Nossos Números: {lista}.'
+        vencimento:
+            titulo: Vencimento alterado
+            em: 'em {total} boleto(s): mesma dívida (mesma competência) com data nova no relatório, o padrão do'
+            reemitido: boleto reemitido
+            lancado: . O vencimento lançado
+            nao_sobrescrito: não é sobrescrito
+            fim: '; só os encargos são recalculados.'
+        sacado:
+            titulo: Sacado divergente
+            em: 'em {total} objeto(s): o devedor do relatório difere da pessoa cobrada atual do caso. Uma nova pessoa foi vinculada, mas a'
+            nao_trocada: pessoa cobrada não foi trocada automaticamente
+            decisao: (decisão do gestor).
+            objetos: 'Objetos: {lista}.'
+        rejeitadas_total: 'Rejeitadas ({total})'
+        referencia: Referência
+        motivo: Motivo
+        nenhuma_rejeitada: Nenhuma linha rejeitada.
+        boletos: Boletos
+        importadas: Importadas
+        a_importar: A importar
+        a_atualizar: A atualizar
+        nenhuma: Nenhuma
+        concluir: Concluir
+        trocar_arquivo: Trocar arquivo
+        confirmar: Confirmar importação
+
 # ---- fim
