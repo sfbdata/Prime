@@ -47,8 +47,12 @@
     config: ['bi-gear', 'Configurações globais', 'Parâmetros que valem para todas as contas. Cada alteração exige confirmação e fica na auditoria.', ['Faixas de alerta padrão', 'Período de teste', 'Política de excedente', 'Exceções temporárias', 'Autenticação reforçada', 'Retenção de auditoria']]
   };
   const NM = { RO: 'Rondônia', AC: 'Acre', AM: 'Amazonas', RR: 'Roraima', PA: 'Pará', AP: 'Amapá', TO: 'Tocantins', MA: 'Maranhão', PI: 'Piauí', CE: 'Ceará', RN: 'Rio Grande do Norte', PB: 'Paraíba', PE: 'Pernambuco', AL: 'Alagoas', SE: 'Sergipe', BA: 'Bahia', MG: 'Minas Gerais', ES: 'Espírito Santo', RJ: 'Rio de Janeiro', SP: 'São Paulo', PR: 'Paraná', SC: 'Santa Catarina', RS: 'Rio Grande do Sul', MS: 'Mato Grosso do Sul', MT: 'Mato Grosso', GO: 'Goiás', DF: 'Distrito Federal' };
-  const ST = { Ativa: '#1e7b45', Suspensa: '#a3232b', 'Em quarentena': '#5b7383' };
+  const ST = { Ativa: '#1e7b45', Suspensa: '#a3232b', 'Suspensa a pedido': '#a3232b', 'Em quarentena': '#5b7383' };
   const QUARENTENA = 'Em quarentena';
+  // Pedido de exclusão pendente (o Tenant segue ativo): a tabela mostra "Suspensa a pedido", não "Ativa" (desvio pelo
+  // dado: o protótipo mostrava Ativa). Só o rótulo muda; filtro e menu seguem a situação gravada da conta.
+  const A_PEDIDO = 'Suspensa a pedido';
+  const situacaoVisivel = c => (c.pedidoPendente && c.situacao === 'Ativa' ? A_PEDIDO : c.situacao);
   const dataBr = ymd => { const p = String(ymd || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : ''; };
   // Faixa do RetratoDoEspaco (Contribua) com o rótulo e a cor da função faixa() do desenho (linha 593).
   const FAIXA = { livre: ['Normal', '#1e7b45'], atencao: ['Atenção', '#c08a12'], alerta: ['Alerta', '#c0392b'], critico: ['Crítico', '#a3232b'], bloqueio: ['Limite atingido', '#7a1b22'] };
@@ -281,7 +285,9 @@
   };
 
   function montarContas() {
-    elSecao.innerHTML = '<div class="mp-card mp-contas"><div class="mp-cab-cinza"><b>Contas e escritórios <span id="mp-contas-n"></span></b>'
+    // O bloco "Pedidos de exclusão de conta" (desenho 1.2, linha 148) vem antes da tabela. Escondido (hidden,
+    // sem pedidos), ele não ocupa lugar nem abre o espaçamento da seção.
+    elSecao.innerHTML = '<div id="mp-pedidos-exclusao" hidden></div><div class="mp-card mp-contas"><div class="mp-cab-cinza"><b>Contas e escritórios <span id="mp-contas-n"></span></b>'
       + '<a class="mp-btn-cinza" href="' + esc(URLS.convites) + '"><i class="bi bi-envelope-paper"></i>Convites</a>'
       + '<select class="mp-select mp-select-34" data-f-sit><option value="">Todas as situações</option><option value="Ativa"' + (S.fSit === 'Ativa' ? ' selected' : '') + '>Ativa</option><option value="Suspensa"' + (S.fSit === 'Suspensa' ? ' selected' : '') + '>Suspensa</option>'
       // C4b: as contas excluídas só aparecem nesta opção, com a data da purga.
@@ -291,8 +297,35 @@
       + '<div id="mp-contas-lista"></div></div></div></div>'
       // O menu da conta mora FORA do card e da rolagem (overflow), em posição fixa na janela: nunca é cortado.
       + '<div id="mp-menu-conta"></div>';
+    renderPedidosDeExclusao();
     renderContasLista();
   }
+
+  // Pedidos de exclusão de conta (desenho 1.2, linhas 148 e 679), de /master/dados/contas (`pedidosExclusao`).
+  // Só aparece com pedido pendente. Reativar e Excluir abrem as MESMAS confirmações do menu da conta (regra do
+  // dono: a exclusão é a quarentena, então o confirm/prompt do desenho, que diz que não dá para desfazer, não entra).
+  // Os UseCases decidem o pedido junto; aqui a linha só sai da lista depois da resposta de sucesso.
+  const pedidosDeExclusao = () => (D.contas && D.contas.pedidosExclusao) || [];
+  const quemPediu = p => (p.pedidoPorNome
+    ? p.pedidoPorNome + (p.pedidoPorEmail ? ' (' + p.pedidoPorEmail + ')' : '')
+    : (p.pedidoPorEmail || 'autor não registrado'));
+  function renderPedidosDeExclusao() {
+    const host = document.getElementById('mp-pedidos-exclusao'); if (!host) return;
+    const peds = pedidosDeExclusao();
+    host.hidden = peds.length === 0;
+    host.innerHTML = peds.length === 0 ? '' : '<div class="mp-pedidos" id="pedidos-exclusao" data-mp-pedidos>'
+      + '<div class="mp-pedidos-cab"><i class="bi bi-trash3"></i><b>Pedidos de exclusão de conta · ' + num(peds.length) + '</b><span>contas suspensas aguardando sua decisão</span></div>'
+      + peds.map(p => '<div class="mp-pedido" data-mp-pedido="' + p.contaId + '"><span class="mp-pedido-id"><b>' + esc(p.escritorio) + '</b>'
+        + '<span>' + esc(quemPediu(p)) + ' · ' + esc(dataHora(p.criadoEm)) + ' · ' + esc(p.motivo) + '</span></span>'
+        + '<button type="button" class="mp-pedido-reativar" data-pedido-op="reativar" data-conta-id="' + p.contaId + '">Reativar</button>'
+        + '<button type="button" class="mp-pedido-excluir" data-pedido-op="excluir" data-conta-id="' + p.contaId + '">Excluir conta</button></div>').join('')
+      + '</div>';
+  }
+  // Conta do pedido fora da lista (não deveria acontecer): monta o mínimo para a confirmação com o token do pedido.
+  const contaDoPedido = id => {
+    const p = pedidosDeExclusao().find(x => x.contaId === id);
+    return p ? { id: p.contaId, nome: p.escritorio, token: p.token, situacao: 'Ativa', purgaEm: null } : null;
+  };
 
   // Menu da conta (desenho 1.2, linha 735), na ordem: Editar limite de armazenamento, Definir limite de usuários,
   // Estatísticas, Histórico, Suspender OU Reativar (conforme a situação) e Excluir conta (oculto na conta do Master, C5).
@@ -346,7 +379,7 @@
   const URL_ACAO = { suspender: () => URLS.contaSuspender, reativar: () => URLS.contaReativar, excluir: () => URLS.contaExcluir };
 
   function pedirAcaoNaConta(tipo, id) {
-    const c = D.contas.contas.find(x => x.id === id);
+    const c = D.contas.contas.find(x => x.id === id) || contaDoPedido(id);
     if (!c || !window.BJMasterConf) return;
     window.BJMasterConf.abrir(Object.assign(CONF_CONTA[tipo](c), { aoConfirmar: digitado => enviarAcaoNaConta(tipo, c, digitado) }));
   }
@@ -365,6 +398,9 @@
         if (json && r.ok && j.conta) {
           // Excluída vira "Em quarentena": sai da lista padrão e passa a aparecer só nessa opção do filtro.
           c.situacao = j.conta.situacao; c.purgaEm = j.conta.purgaEm || null;
+          // Reativar e excluir decidem o pedido de exclusão da conta (no servidor, na mesma transação): sai do bloco.
+          // Suspender não decide (o pedido continua pendente).
+          if (tipo !== 'suspender') { D.contas.pedidosExclusao = pedidosDeExclusao().filter(p => p.contaId !== c.id); c.pedidoPendente = false; }
           // KPIs (suspensas) e trilha mudaram: recarregam quando a seção for aberta de novo.
           D.visao = null; D.audit = null; ERRO.visao = null; ERRO.audit = null;
           return avisar(true, j.mensagem);
@@ -378,7 +414,7 @@
     if (window.BJMasterConf) window.BJMasterConf.fechar();
     S.aviso = { ok, msg: msg || (ok ? 'Situação da conta atualizada.' : 'Não foi possível concluir a ação. Recarregue a página.') };
     renderSecs();
-    if (S.sec === 'contas') renderContasLista();
+    if (S.sec === 'contas') { renderPedidosDeExclusao(); renderContasLista(); }
     if (S.sec === 'arm') renderRanking();
   }
 
@@ -406,7 +442,7 @@
     // Resultado de suspender/reativar: uma linha acima da tabela, até trocar de seção.
     document.getElementById('mp-contas-aviso').innerHTML = avisoHtml();
     document.getElementById('mp-contas-lista').innerHTML = contas.length ? contas.map(c => {
-      const cor = ST[c.situacao] || '#4a6373';
+      const sit = situacaoVisivel(c), cor = ST[sit] || '#4a6373';
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
         + '<div class="mp-conta-nome mp-hv"><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b><span>desde ' + esc(c.desde) + ' · último acesso ' + esc(acessoRelativo(c.ultimoAcesso)) + '</span></div>'
         + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || 'titular não registrado') + '</span><span>' + esc(c.espaco.planoNome) + '</span></div>'
@@ -419,7 +455,7 @@
           // Quarentena: a situação e, abaixo, a data da purga em duas linhas curtas que não quebram (coluna de 100px).
           ? '<div class="mp-conta-st-bloco"><span class="mp-conta-sit" style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span>'
             + '<span class="mp-conta-purga" title="A purga automática roda às 03h, a partir desta data">apagada a partir de<br>' + esc(dataBr(c.purgaEm)) + '</span></div>'
-          : '<span style="--cor:' + cor + '"><i></i>' + esc(c.situacao) + '</span>') + '</div>'
+          : '<span style="--cor:' + cor + '"><i></i>' + esc(sit) + '</span>') + '</div>'
         + '<div class="mp-conta-acoes mp-hv"><button type="button" class="mp-btn-icone" data-menu="' + c.id + '" title="Ações da conta" aria-label="Ações da conta"><i class="bi bi-three-dots-vertical"></i></button></div>'
         + '</div>';
     }).join('') : '<div class="mp-vazio-linha">Nenhuma conta encontrada.</div>';
@@ -738,6 +774,7 @@
   elSecao.addEventListener('click', e => {
     const t = e.target;
     const kpi = t.closest('[data-ir]'); if (kpi) return irPara(kpi.dataset.ir);
+    const ped = t.closest('[data-pedido-op]'); if (ped) { e.stopPropagation(); fecharMenuDaConta(); return pedirAcaoNaConta(ped.dataset.pedidoOp, +ped.dataset.contaId); }
     if (t.closest('[data-parar]') && !t.closest('[data-op]')) return e.stopPropagation();
     const vis = t.closest('[data-gr-vis]'); if (vis) { S.grVis = vis.dataset.grVis; return renderGrafico(); }
     const mod = t.closest('[data-gr-mod]'); if (mod) { S.grMod = mod.dataset.grMod; return renderGrafico(); }
