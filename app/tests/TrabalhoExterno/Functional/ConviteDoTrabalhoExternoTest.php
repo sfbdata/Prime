@@ -766,7 +766,9 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
 
         $this->entrarPeloFormulario($client, (string) $pessoa->getEmail(), 'senha123');
 
-        self::assertResponseRedirects('/escritorio/selecionar');
+        // O login passa pela tela "entrando" do desenho 10 com o destino em `para`: o destino é a seleção, não o TE.
+        self::assertResponseRedirects();
+        self::assertStringEndsWith('/escritorio/selecionar', (string) $client->getResponse()->headers->get('Location'));
     }
 
     #[TestDox('avisos à equipe: escritório fora do ar não recebe ninguém')]
