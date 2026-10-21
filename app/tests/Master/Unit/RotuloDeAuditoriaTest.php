@@ -102,4 +102,13 @@ final class RotuloDeAuditoriaTest extends TestCase
         self::assertSame('Sede da seccional alterada', RotuloDeAuditoria::traduzir('update', SeccionalOab::class, null)['acao']);
         self::assertSame('Divulgação registrada na seccional', RotuloDeAuditoria::traduzir('create', DivulgacaoNaSeccional::class, null)['acao']);
     }
+
+    #[TestDox('Sede da seccional: o detalhe nomeia endereço, telefone e site, sem o carimbo de quem e quando')]
+    public function testDetalheDaSede(): void
+    {
+        $r = RotuloDeAuditoria::traduzir('update', SeccionalOab::class, '{"diff":{"changes":{"endereco":{"from":null,"to":"Rua"},"telefone":{"from":null,"to":"1"},"site":{"from":null,"to":"https://x.test"},"atualizadoEm":{"from":null,"to":"2026-10-21"},"atualizadoPor":{"from":null,"to":1}}}}');
+
+        self::assertSame('Sede da seccional alterada', $r['acao']);
+        self::assertSame('Campos alterados: endereço, telefone, site', $r['detalhe']);
+    }
 }

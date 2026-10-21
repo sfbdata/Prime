@@ -187,6 +187,56 @@ final class SeccionaisOabControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->divulgacoesDe('MG'));
     }
 
+    #[TestDox('token válido de OUTRA ação (master_fontes): 403 nas duas escritas e nada é gravado')]
+    public function testTokenDeOutraAcao(): void
+    {
+        $this->entrar($this->master);
+
+        $this->postar('/master/seccionais/SP/sede', ['endereco' => 'Rua'], token: 'TOKEN_master_fontes');
+        self::assertResponseStatusCodeSame(403);
+        $this->postar('/master/seccionais/SP/divulgacoes', ['tipo' => 'material'], token: 'TOKEN_master_fontes');
+        self::assertResponseStatusCodeSame(403);
+
+        self::assertNull($this->seccional('SP')->getAtualizadoEm());
+        self::assertSame(0, $this->divulgacoesDe('SP'));
+    }
+
+    #[TestDox('trilha "Segurança e auditoria": sede alterada e divulgação registrada aparecem como "Plataforma (sem conta)"')]
+    public function testTrilhaDoMaster(): void
+    {
+        $this->entrar($this->master);
+        $this->postar('/master/seccionais/PE/sede', ['endereco' => 'Rua da Sede, 1', 'site' => 'https://sede.exemplo.test']);
+        self::assertResponseIsSuccessful();
+        $this->postar('/master/seccionais/PE/divulgacoes', ['tipo' => 'reuniao']);
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', '/master/dados/auditoria', server: ['HTTP_ACCEPT' => 'application/json']);
+        self::assertResponseIsSuccessful();
+        $registros = $this->json()['registros'];
+
+        $sede = self::registro($registros, 'Sede da seccional alterada');
+        self::assertSame('Plataforma (sem conta)', $sede['conta']);
+        self::assertNull($sede['contaId']);
+        self::assertSame('Master das Seccionais', $sede['quem']);
+        self::assertSame('Campos alterados: endereço, site', $sede['detalhe']);
+        $divulgacao = self::registro($registros, 'Divulgação registrada na seccional');
+        self::assertSame('Plataforma (sem conta)', $divulgacao['conta']);
+        self::assertNull($divulgacao['contaId']);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $registros
+     *
+     * @return array<string, mixed>
+     */
+    private static function registro(array $registros, string $acao): array
+    {
+        $achados = array_values(array_filter($registros, static fn (array $r): bool => $r['acao'] === $acao));
+        self::assertNotEmpty($achados, 'a trilha mostra "' . $acao . '"');
+
+        return $achados[0];
+    }
+
     private function assertAuditoriaDePlataforma(string $classe): void
     {
         $linhas = $this->em->getRepository(AuditLog::class)->findBy(['entityClass' => $classe]);

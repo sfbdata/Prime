@@ -134,9 +134,11 @@ setTimeout(aplicarTudo,800);})();
 /* Seccionais da OAB (spec docs/specs/master-seccionais-oab.md; desenho 05, Perfis 1.2, VS 21.10.26, L116-127).
    Um marcador por seccional no centroide da UF (d3.geoCentroid; DONO: a posição exata da sede), escondido quando o
    Master oculta a seccional no painel (mesma chave de localStorage do painel.js; o evento storage sincroniza), e
-   "Registrar divulgação" no menu do botão direito sobre a UF, acima das cores, que continuam como estão.
-   Depois de gravar, avisa o painel (window.parent, como o __bjFontesAuto do mapa-dados.js) para recarregar. */
-(()=>{const KEY='bj-mapa-seccionais-ocultas',COR={material:'#0a6fa0',reuniao:'#b7791f',parceria:'#2f855a'},TIPOS=[['material','Material enviado'],['reuniao','Reunião'],['parceria','Parceria']];
+   "Registrar divulgação" no menu do botão direito sobre a UF, acima das cores, que continuam como estão. Só na
+   visão Pessoas (quem=pes), como o bloco do painel. Depois de gravar, avisa o painel (window.parent, como o __bjFontesAuto do mapa-dados.js) para recarregar. */
+(()=>{// Mesmo recorte do bloco do painel (Brasil + Pessoas): com quem=esc não há marcador nem divulgação. Leitura igual à do mapa-agregado.js.
+if((new URLSearchParams(location.search).get('quem')==='esc'?'esc':'pes')!=='pes')return;
+const KEY='bj-mapa-seccionais-ocultas',COR={material:'#0a6fa0',reuniao:'#b7791f',parceria:'#2f855a'},TIPOS=[['material','Material enviado'],['reuniao','Reunião'],['parceria','Parceria']];
 const mk=document.getElementById('mk'),uZ=document.getElementById('uZoom'),secG=zoomG.append('g').attr('id','secMk');let SEC={};
 const ocultas=()=>{try{const v=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(v)?v:[]}catch(e){return[]}};
 const dataBr=d=>{const p=String(d||'').split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:''};

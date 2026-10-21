@@ -117,6 +117,9 @@ final class PainelSeccionaisOabJsTest extends TestCase
         $tpl = self::arquivo('templates/master/mapa_brasil.html.twig');
 
         self::assertStringContainsString("KEY='bj-mapa-seccionais-ocultas'", $mapa, 'a mesma chave do painel');
+        $inicio = strpos($mapa, '/* Seccionais da OAB');
+        self::assertNotFalse($inicio);
+        self::assertMatchesRegularExpression("/^\(\(\)=>\{[^\n]*\n\s*if\(\(new URLSearchParams\(location\.search\)\.get\('quem'\)==='esc'\?'esc':'pes'\)!=='pes'\)return;/m", substr($mapa, $inicio), 'com Escritórios, nada de marcador nem de divulgação');
         self::assertStringContainsString('proj(d3.geoCentroid(f))', $mapa);
         self::assertStringContainsString("addEventListener('storage',e=>{if(e.key===KEY)desenhar()})", $mapa);
         self::assertStringContainsString("TIPOS=[['material','Material enviado'],['reuniao','Reunião'],['parceria','Parceria']]", $mapa);
@@ -144,6 +147,8 @@ final class PainelSeccionaisOabJsTest extends TestCase
             self::assertStringContainsString($token, $css);
         }
         self::assertStringContainsString('grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 3px;', $css);
+        self::assertStringContainsString('.mp-sec-card-corpo > span > .bi { color: var(--sec-icone); }', $css, 'ícone inline, como no desenho (L122)');
+        self::assertStringNotContainsString('width: 16px', $css);
         self::assertMatchesRegularExpression('/\.mp-sec-chip \{\s*height: 22px;/', $css);
         self::assertStringContainsString('.mp-sec-oab-nota { display: block; font-size: 10.5px; color: var(--sec-nota); margin-top: 6px; line-height: 1.4; }', $css);
     }

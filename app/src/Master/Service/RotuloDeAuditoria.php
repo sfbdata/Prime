@@ -54,6 +54,13 @@ final class RotuloDeAuditoria
         'permission'     => 'permissão',
         'codigoFuncionario' => 'código de funcionário',
         'dataAdmissao'   => 'data de admissão',
+        // Seccionais da OAB (spec master-seccionais-oab): sede editada e divulgação registrada pelo Master.
+        'endereco'       => 'endereço',
+        'telefone'       => 'telefone',
+        'site'           => 'site',
+        'nota'           => 'nota',
+        'tipo'           => 'tipo',
+        'data'           => 'data',
     ];
 
     private const ENTIDADE = [
@@ -302,7 +309,8 @@ final class RotuloDeAuditoria
     private static function camposAlterados(array $mudancas): array
     {
         $diff = self::diff($mudancas);
-        unset($diff['updatedAt'], $diff['lastLoginAt']);
+        // Carimbos técnicos (quando e por quem): não são o que mudou. `atualizadoEm`/`atualizadoPor` são da SeccionalOab.
+        unset($diff['updatedAt'], $diff['lastLoginAt'], $diff['atualizadoEm'], $diff['atualizadoPor']);
 
         return array_map('strval', array_keys($diff));
     }
