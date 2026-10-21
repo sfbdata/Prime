@@ -16,6 +16,7 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tenant\Service\HierarquiaDePerfis;
 use App\Tenant\UseCase\PedirAcessoAosPerfisUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -360,6 +361,8 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
         self::assertSame($this->perfilAmplo->getId(), $this->recarregarVinculo($acima)->getTenantRole()?->getId());
 
         $this->submeterEditRole($acima, null);
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Seu perfil não pode mexer em quem tem permissões que ele não tem.', (string) $this->client->getResponse()->getContent());
         self::assertSame($this->perfilAmplo->getId(), $this->recarregarVinculo($acima)->getTenantRole()?->getId(), 'nem sem perfil');
     }
 
@@ -379,6 +382,76 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
         $this->submeterEditRole($this->colega, $this->perfilRestrito, 'SenhaNova#2026');
         self::assertResponseRedirects();
         self::assertTrue($this->senhaConfere($this->colega, 'SenhaNova#2026'));
+    }
+
+    #[TestDox('C8: quem não é Master não troca a senha de quem tem vínculo ativo em outro escritório (secundário e primário recusados; senha intacta)')]
+    public function testSenhaDeQuemUsaOutroEscritorio(): void
+    {
+        $alvo = $this->criarUsuario('Primária em B', $this->perfilRestrito);
+        $this->em->flush();
+        $this->vincularEmOutroEscritorio($alvo, true);
+        $mensagem = 'Esta pessoa também usa outro escritório. A senha só pode ser trocada por ela, em Meu Perfil, ou pelo suporte.';
+
+        foreach ([$this->gestor, $this->titular] as $ator) {
+            $this->logarComTenant($this->client, $ator, $this->tenant);
+            $this->submeterEditRole($alvo, $this->perfilRestrito, 'SenhaNova#2026');
+            self::assertResponseIsSuccessful();
+            self::assertStringContainsString($mensagem, (string) $this->client->getResponse()->getContent());
+            self::assertTrue($this->senhaConfere($alvo, 'senha123'), (string) $ator->getFullName());
+        }
+    }
+
+    #[TestDox('C8: vínculo INATIVO em outro escritório não bloqueia; o Master troca a senha de quem usa outro escritório')]
+    public function testSenhaComVinculoInativoEPeloMaster(): void
+    {
+        $inativo = $this->criarUsuario('Ex de B', $this->perfilRestrito);
+        $ativo   = $this->criarUsuario('Primária em B', $this->perfilRestrito);
+        $master  = $this->criarUsuario('Master Senha', $this->perfilRestrito, ['ROLE_SUPER_ADMIN']);
+        $this->em->flush();
+        $this->vincularEmOutroEscritorio($inativo, false);
+        $this->vincularEmOutroEscritorio($ativo, true);
+
+        $this->logarComTenant($this->client, $this->gestor, $this->tenant);
+        $this->submeterEditRole($inativo, $this->perfilRestrito, 'SenhaNova#2026');
+        self::assertResponseRedirects();
+        self::assertTrue($this->senhaConfere($inativo, 'SenhaNova#2026'));
+
+        $this->logarComTenant($this->client, $master, $this->tenant);
+        $this->submeterEditRole($ativo, $this->perfilRestrito, 'SenhaDoMaster#2026');
+        self::assertResponseRedirects();
+        self::assertTrue($this->senhaConfere($ativo, 'SenhaDoMaster#2026'));
+    }
+
+    #[TestDox('C5 (remover): o secundário com admin.users.manage não remove do escritório quem tem perfil fora do subconjunto dele (POST direto)')]
+    public function testNaoRemoveQuemEstaAcima(): void
+    {
+        $acima = $this->criarUsuario('Colega Ampla', $this->perfilAmplo);
+        $this->em->flush();
+        $this->logarComTenant($this->client, $this->gestor, $this->tenant);
+
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/remover', $this->tenant->getId(), $acima->getId()), [
+            '_token' => $this->tokenCsrf('remover_' . $acima->getId()),
+        ]);
+
+        self::assertResponseRedirects(sprintf('/tenant/%d/users', $this->tenant->getId()));
+        self::assertTrue($this->recarregarVinculo($acima)->isActive(), 'continua no escritório');
+        $this->client->followRedirect();
+        self::assertStringContainsString('Seu perfil não pode mexer em quem tem permissões que ele não tem.', (string) $this->client->getResponse()->getContent());
+    }
+
+    #[TestDox('C5 (remover): o secundário remove quem tem perfil contido no dele')]
+    public function testRemoveQuemCabe(): void
+    {
+        $this->logarComTenant($this->client, $this->gestor, $this->tenant);
+
+        $this->client->request('POST', sprintf('/tenant/%d/user/%d/remover', $this->tenant->getId(), $this->colega->getId()), [
+            '_token' => $this->tokenCsrf('remover_' . $this->colega->getId()),
+        ]);
+
+        self::assertResponseRedirects(sprintf('/tenant/%d/users', $this->tenant->getId()));
+        $this->em->clear();
+        $vinculo = $this->em->getRepository(UserTenant::class)->findOneBy(['user' => $this->colega->getId(), 'tenant' => $this->tenant->getId()]);
+        self::assertTrue($vinculo === null || !$vinculo->isActive(), 'saiu do escritório');
     }
 
     #[TestDox('C5: no edit-role, o primário atribui qualquer secundário, inclusive acima do perfil de quem pede')]
@@ -474,6 +547,26 @@ final class HierarquiaDePerfisControllerTest extends JusPrimeWebTestCase
             'SELECT p.code FROM tenant_role_permission trp JOIN permission p ON p.id = trp.permission_id WHERE trp.tenant_role_id = :r ORDER BY p.code',
             ['r' => $perfil->getId()]
         ));
+    }
+
+    /** Vínculo do usuário num escritório B, onde ele é primário; ativo ou não. */
+    private function vincularEmOutroEscritorio(User $user, bool $ativo): void
+    {
+        $outro = new Tenant();
+        $outro->setName('Escritório B ' . uniqid());
+        $this->em->persist($outro);
+        $sistemaDeB = new TenantRole();
+        $sistemaDeB->setTenant($outro);
+        $sistemaDeB->setName('Administrador do Escritório');
+        $sistemaDeB->setIsSystem(true);
+        $this->em->persist($sistemaDeB);
+        $vinculo = new UserTenant($user, $outro);
+        $vinculo->setTenantRole($sistemaDeB);
+        if (!$ativo) {
+            $vinculo->alterarSituacao(SituacaoNaEquipe::Suspenso);
+        }
+        $this->em->persist($vinculo);
+        $this->em->flush();
     }
 
     private function senhaConfere(User $user, string $senha): bool

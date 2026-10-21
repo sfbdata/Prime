@@ -34,6 +34,11 @@ Migration reservada: `Version20261020148000` (só na parte B, número dado pela 
     subconjunto dele (nem rebaixa, nem deixa sem perfil);
   - busca do painel: só dígitos (com ou sem "nº"/"n°") casa o número exato; nome e primário por trecho;
   - o nível do ator sai uma vez por requisição (`HierarquiaDePerfis` guarda por usuário e escritório, `reset`).
+- 21/10 (segunda rodada da revisão): C8 (senha de quem usa outro escritório) e a barreira do subconjunto ao
+  remover do escritório (C5).
+  - Limites conhecidos, por decisão: os outros campos do edit-role (cargo, lotação, código do colaborador, data
+    de admissão) seguem editáveis por quem tem `admin.users.manage`, sem a hierarquia; a regra do subconjunto
+    olha só o PERFIL do alvo, não os acessos por recurso (`ResourceAccess`) dele.
 
 ## 1. Fontes
 
@@ -80,6 +85,16 @@ o convite (`admin.users.invite`) atribuem qualquer perfil secundário.
 - C4. O `isSystem` continua só pela gestão de primários (`podeGerirPrimarios`), sem mudança.
 - C5. Mesma barreira no `edit-role` e no convite: quem não é primário nem Master não troca o próprio perfil e só
   atribui perfis cujas permissões estão contidas nas dele (subconjunto). Primário e Master atribuem qualquer secundário.
+  No edit-role, também não mexe em quem tem o perfil atual FORA do subconjunto dele: não troca o perfil (nem
+  rebaixa, nem deixa sem perfil) e não troca a senha. A mesma barreira vale ao remover do escritório
+  (`app_tenant_user_remover`), com a mesma mensagem ("Seu perfil não pode mexer em quem tem permissões que ele
+  não tem.").
+- C8. Senha de quem usa outro escritório: no edit-role, quem NÃO é Master não troca a senha de quem tem vínculo
+  ATIVO em outro escritório (qualquer perfil). Motivo: a senha é da conta (`User`) e vale em todos os escritórios,
+  mas as barreiras do edit-role só olham o vínculo do escritório da URL; um secundário pequeno em A que é
+  primário em B teria a senha trocada por alguém de A, que entraria em B. Mensagem: "Esta pessoa também usa outro
+  escritório. A senha só pode ser trocada por ela, em Meu Perfil, ou pelo suporte." Vínculo inativo não bloqueia;
+  a própria pessoa e o Master, sem mudança. Decisão da coordenação, 21/10.
 - C6. Mensagens do desenho: "Seu perfil não pode editar um perfil do mesmo nível ou acima." (sem travessão).
 - C7. Testes: secundário com `admin.roles.manage` recebe 403 ao editar, excluir e criar, inclusive no próprio perfil;
   primário edita secundário; Master edita tudo; "Acesso restrito" para quem não tem acesso; `edit-role` e convite

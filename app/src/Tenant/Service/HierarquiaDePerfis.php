@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tenant\Service;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Master\Service\RegraDosMasters;
@@ -34,6 +35,7 @@ final class HierarquiaDePerfis implements ResetInterface
     public const RECUSA_PROPRIO_PERFIL = 'Seu perfil não pode trocar o próprio perfil. Peça ao usuário primário do escritório.';
     public const RECUSA_PERFIL_ACIMA_DO_SEU = 'Seu perfil só pode atribuir perfis com permissões que ele também tem.';
     public const RECUSA_ALVO_ACIMA_DO_SEU = 'Seu perfil não pode mexer em quem tem permissões que ele não tem.';
+    public const RECUSA_SENHA_DE_OUTRO_ESCRITORIO = 'Esta pessoa também usa outro escritório. A senha só pode ser trocada por ela, em Meu Perfil, ou pelo suporte.';
 
     /** @var array<string, int> nível do ator por "usuário:escritório", calculado uma vez por requisição */
     private array $niveis = [];
@@ -193,6 +195,35 @@ final class HierarquiaDePerfis implements ResetInterface
         }
 
         return $novo !== null && !$this->podeAtribuirPerfil($ator, $tenant, $novo) ? self::RECUSA_PERFIL_ACIMA_DO_SEU : null;
+    }
+
+    /**
+     * Senha no edit-role: a `RegraDosPrimarios::podeTrocarSenhaDe()` (sem mudança) somada às barreiras desta frente
+     * (`recusaDaSenha`).
+     */
+    public function podeTrocarSenha(User $ator, Tenant $tenant, UserTenant $alvo): bool
+    {
+        return $this->regraDosPrimarios->podeTrocarSenhaDe($ator, $alvo) && $this->recusaDaSenha($ator, $tenant, $alvo) === null;
+    }
+
+    /**
+     * As barreiras desta frente para a senha no edit-role, ou nulo quando passa:
+     *  - C8: a senha é da CONTA (vale em todos os escritórios), mas quem a troca aqui só responde por este. Quem não é
+     *    Master não troca a senha de quem tem vínculo ativo em outro escritório (qualquer perfil), senão um gestor
+     *    deste escritório entraria, com a senha nova, num escritório onde a pessoa é primária. A própria pessoa troca
+     *    a dela;
+     *  - C5: quem não é primário nem Master não troca a senha de quem tem perfil fora do subconjunto dele.
+     */
+    public function recusaDaSenha(User $ator, Tenant $tenant, UserTenant $alvo): ?string
+    {
+        if ($this->regraDosMasters->ehMaster($ator) || self::mesmoUsuario($ator, $alvo->getUser())) {
+            return null;
+        }
+        if ($this->userTenantRepository->existeVinculoAtivoEmOutroEscritorio($alvo->getUser(), $tenant)) {
+            return self::RECUSA_SENHA_DE_OUTRO_ESCRITORIO;
+        }
+
+        return $this->podeMexerNoAlvo($ator, $tenant, $alvo->getTenantRole()) ? null : self::RECUSA_ALVO_ACIMA_DO_SEU;
     }
 
     /** Por id só quando os dois têm id: sem id, null === null daria "mesmo usuário" para qualquer um. */

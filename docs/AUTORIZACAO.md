@@ -191,7 +191,16 @@ tela de seleção de escritório.
     cabe. Manter o perfil atual do alvo não é atribuir. No edit-role, também não mexe em quem tem o perfil atual
     FORA do subconjunto dele (`podeMexerNoAlvo`): não troca o perfil (nem rebaixa, nem deixa sem perfil) e não troca
     a senha ("Seu perfil não pode mexer em quem tem permissões que ele não tem."); alvo sem perfil passa. A senha
-    soma essa barreira à `RegraDosPrimarios::podeTrocarSenhaDe()`, sem mudá-la. Primário e Master atribuem
+    soma essa barreira à `RegraDosPrimarios::podeTrocarSenhaDe()`, sem mudá-la (`HierarquiaDePerfis::podeTrocarSenha`).
+    A mesma barreira vale ao remover do escritório (`TenantController::removerColaborador`, rota
+    `app_tenant_user_remover`): flash com a mensagem e nada muda.
+  - **senha de quem usa outro escritório** (C8, `HierarquiaDePerfis::recusaDaSenha`): a senha é da CONTA (`User`) e
+    vale em todos os escritórios, mas o edit-role só olha o vínculo do escritório da URL. Quem NÃO é Master
+    (secundário ou primário) não troca, pelo edit-role, a senha de quem tem vínculo ATIVO em outro escritório
+    (qualquer perfil, com o escritório no ar ou não): "Esta pessoa também usa outro escritório. A senha só pode
+    ser trocada por ela, em Meu Perfil, ou pelo suporte." Sem isso, um gestor de A trocaria a senha de quem é
+    primário em B e entraria em B. Vínculo inativo em outro escritório não bloqueia; a própria pessoa e o Master
+    passam. Primário e Master atribuem
     qualquer secundário e trocam senhas como antes; o perfil
     de sistema segue a regra dos primários acima. O select esconde o que não pode e o POST forjado é recusado.
     **Não cobre:** o aceite do convite não revalida o subconjunto (só a regra dos primários); o convite do

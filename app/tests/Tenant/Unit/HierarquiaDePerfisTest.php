@@ -34,12 +34,17 @@ final class HierarquiaDePerfisTest extends TestCase
     private TenantRole $perfilDoSistema;
     /** @var array<int, UserTenant> vínculos ativos por id do objeto do usuário */
     private array $vinculosAtivos = [];
+    /** @var array<int, true> usuários com vínculo ativo em outro escritório */
+    private array $emOutroEscritorio = [];
 
     protected function setUp(): void
     {
         $this->vinculos = $this->createMock(UserTenantRepository::class);
         $this->vinculos->method('findAtivoPorUserETenant')->willReturnCallback(
             fn (User $u): ?UserTenant => $this->vinculosAtivos[spl_object_id($u)] ?? null
+        );
+        $this->vinculos->method('existeVinculoAtivoEmOutroEscritorio')->willReturnCallback(
+            fn (User $u): bool => isset($this->emOutroEscritorio[spl_object_id($u)])
         );
         $this->checker  = $this->createMock(PermissionChecker::class);
         $this->hierarquia = new HierarquiaDePerfis(
@@ -176,6 +181,30 @@ final class HierarquiaDePerfisTest extends TestCase
         self::assertFalse($this->hierarquia->podeMexerNoAlvo($secundario, $this->tenant, $acima));
         self::assertTrue($this->hierarquia->podeMexerNoAlvo($secundario, $this->tenant, null));
         self::assertNull($this->hierarquia->recusaAoAtribuir($this->primario(), $this->tenant, $this->primario(), $this->perfilDoSistema, $acima));
+    }
+
+    #[TestDox('C8/C5 na senha: quem não é Master não troca a de quem usa outro escritório nem a de quem está acima; a própria e o Master passam')]
+    public function testRecusaDaSenha(): void
+    {
+        [$secundario, $proprio] = $this->secundario(['modules.clientes.view']);
+        $primario = $this->primario();
+        $alvo = $this->usuario();
+        $vinculoDoAlvo = (new UserTenant($alvo, $this->tenant))->setTenantRole($this->perfil(['modules.clientes.view']));
+        $vinculoAcima  = (new UserTenant($this->usuario(), $this->tenant))->setTenantRole($this->perfil(['admin.roles.manage']));
+
+        self::assertNull($this->hierarquia->recusaDaSenha($secundario, $this->tenant, $vinculoDoAlvo));
+        self::assertSame(HierarquiaDePerfis::RECUSA_ALVO_ACIMA_DO_SEU, $this->hierarquia->recusaDaSenha($secundario, $this->tenant, $vinculoAcima));
+        self::assertNull($this->hierarquia->recusaDaSenha($primario, $this->tenant, $vinculoAcima));
+
+        $this->emOutroEscritorio[spl_object_id($alvo)] = true;
+        foreach ([$secundario, $primario] as $ator) {
+            self::assertSame(HierarquiaDePerfis::RECUSA_SENHA_DE_OUTRO_ESCRITORIO, $this->hierarquia->recusaDaSenha($ator, $this->tenant, $vinculoDoAlvo));
+        }
+        self::assertNull($this->hierarquia->recusaDaSenha($this->master(), $this->tenant, $vinculoDoAlvo));
+
+        $this->emOutroEscritorio[spl_object_id($secundario)] = true;
+        $vinculoProprio = (new UserTenant($secundario, $this->tenant))->setTenantRole($proprio);
+        self::assertNull($this->hierarquia->recusaDaSenha($secundario, $this->tenant, $vinculoProprio), 'a própria senha passa');
     }
 
     #[TestDox('A9: o nível do ator sai uma vez por requisição (por usuário e escritório) e o reset do kernel zera')]
