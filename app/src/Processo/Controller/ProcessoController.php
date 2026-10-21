@@ -17,6 +17,7 @@ use App\Processo\Enum\MotivoFalhaDatajud;
 use App\Processo\Exception\ConsultaDatajudException;
 use App\Processo\Exception\TribunalNaoIdentificadoException;
 use App\Processo\Service\DatajudClient;
+use App\Processo\Service\ConsultasDoCnjGuardadas;
 use App\Processo\Service\DatajudProcessoMapper;
 use App\Processo\Service\TribunalCnjResolver;
 use App\Processo\Service\ValidadorNumeroCnj;
@@ -52,6 +53,9 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/processos')]
 class ProcessoController extends AbstractController
 {
+    /** Atributo da sub-requisição da pasta (`PastaController::buscarProcessoNoCnj`): o id da pasta autorizada. */
+    public const CNJ_PELA_PASTA = '_cnj_pela_pasta';
+
     use ResourceAccessTrait;
 
     private const PER_PAGE = 25;
@@ -288,13 +292,13 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/api/search', name: 'api_datajud_search', methods: ['POST'])]
-    public function datajudSearch(Request $request, DatajudClient $datajudClient, DatajudProcessoMapper $mapper, EntityManagerInterface $em, PermissionChecker $permissionChecker, LoggerInterface $logger, ValidadorNumeroCnj $validadorNumeroCnj): JsonResponse
+    public function datajudSearch(Request $request, DatajudClient $datajudClient, DatajudProcessoMapper $mapper, EntityManagerInterface $em, PermissionChecker $permissionChecker, LoggerInterface $logger, ValidadorNumeroCnj $validadorNumeroCnj, ConsultasDoCnjGuardadas $consultasDoCnj): JsonResponse
     {
         // Gateia pela permissão do módulo: a action dispara consulta à API externa do CNJ — sem
         // guard, qualquer logado abusaria do custo/rate-limit. Não persiste nada (B8).
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
-        if (!$permissionChecker->canAccessModule($user, $this->tenantContext->getCurrentTenant(), 'processos')) {
+        if (!$this->podeConsultarCnj($request, $permissionChecker, $user)) {
             return $this->erroDatajud('Você não tem permissão para consultar processos no CNJ.', Response::HTTP_FORBIDDEN);
         }
 
@@ -325,6 +329,7 @@ class ProcessoController extends AbstractController
             }
 
             $processData = $hits[0]['_source'] ?? [];
+            $this->guardarConsulta($consultasDoCnj, $request, $user, $numeroProcesso, $processData);
 
             // Criar um processo temporário para mapping
             $processo = new Processo();
@@ -399,6 +404,29 @@ class ProcessoController extends AbstractController
                 'Não conseguimos concluir a consulta agora. Tente novamente; se persistir, avise o suporte.',
                 500
             );
+        }
+    }
+
+    /**
+     * O módulo `processos`, ou a consulta encaminhada pela pasta (a4, spec processo-cadastro-pela-pasta): a rota
+     * da pasta já exigiu EDIT nela e passa o atributo no `forward`. O atributo só nasce no servidor: esta rota não
+     * tem parâmetro de caminho, e query e corpo não viram atributo.
+     */
+    private function podeConsultarCnj(Request $request, PermissionChecker $permissionChecker, \App\Entity\Auth\User $usuario): bool
+    {
+        return $request->attributes->getInt(self::CNJ_PELA_PASTA) > 0
+            || $permissionChecker->canAccessModule($usuario, $this->tenantContext->getCurrentTenant(), 'processos');
+    }
+
+    /**
+     * Guarda o `_source` no servidor (30 min, por escritório, pessoa, sessão e número) para o cadastro pela janela
+     * da pasta aplicar o que a resposta não leva de volta (a1). O navegador nunca devolve esses dados.
+     */
+    private function guardarConsulta(ConsultasDoCnjGuardadas $consultasDoCnj, Request $request, \App\Entity\Auth\User $usuario, string $numeroSoDigitos, mixed $source): void
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant !== null && is_array($source)) {
+            $consultasDoCnj->guardar($tenant, $usuario, $request->getSession()->getId(), $numeroSoDigitos, $source);
         }
     }
 

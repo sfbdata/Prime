@@ -15,7 +15,9 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Master\Entity\DivulgacaoNaSeccional;
 use App\Master\Entity\RecursoEstado;
+use App\Master\Entity\SeccionalOab;
 use App\Master\Service\RegraDosMasters;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
@@ -63,6 +65,8 @@ class PainelMasterRepository
     /**
      * Entidades administrativas que entram na trilha "Segurança e auditoria". As três da Contribua são os
      * limites da conta, o catálogo de planos e as faixas de alerta (spec perfis-1.2-planos-e-limites P7).
+     * As duas das seccionais da OAB são a sede editada e a divulgação registrada pelo Master (spec
+     * master-seccionais-oab), gravadas sem escritório ("Plataforma (sem conta)").
      */
     public const ENTIDADES_AUDITADAS = [
         Tenant::class,
@@ -76,6 +80,8 @@ class PainelMasterRepository
         Plano::class,
         ConfiguracaoDoEspaco::class,
         RecursoEstado::class,
+        SeccionalOab::class,
+        DivulgacaoNaSeccional::class,
     ];
 
     /** Linha própria do alerta de consumo (`action` cabe em 10 caracteres). */

@@ -11,6 +11,7 @@
 
 {% block stylesheets %}
     <link rel="stylesheet" href="{{ asset('css/master.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/master-seccionais.css') }}">
 {% endblock %}
 
 {% block body %}
@@ -30,6 +31,7 @@
     faixas: path('master_faixas_configurar'),
     mapaBrasil: path('master_mapa_brasil'),
     mapaMundo: path('master_mapa_mundo'),
+    seccionais: path('master_dados_seccionais'),
     revisaoOab: path('admin_platform_oab_index'),
     convites: path('admin_platform_convite_index'),
     logo: asset('images/logo/bluejus-logo-nav.png')
