@@ -176,7 +176,7 @@
 
         if (lido.erro !== null) {
             input.classList.add('is-erro');
-            alert(lido.erro);
+            (window.avisarErroPs || window.alert)(lido.erro);
             input.focus();
             return;
         }
@@ -201,20 +201,21 @@
             if (status === 409) {
                 // Nada foi gravado. O card volta relido do servidor, já com o
                 // valor que vale agora; a caixa de correção fecha junto.
-                alert(data.erro ?? 'O valor foi alterado por outra pessoa. Recarregue e confira antes de corrigir.');
+                /* Fica o alert do navegador: a página pode recarregar logo em seguida, e o aviso sumiria antes de ser lido. */
+                window.alert(data.erro ?? 'O valor foi alterado por outra pessoa. Recarregue e confira antes de corrigir.');
                 corrigindo = null;
                 if (data.resumo) { aplicarResumo(data.resumo); } else { window.location.reload(); }
                 return;
             }
             if (!ok) {
                 input.classList.add('is-erro');
-                alert(data.erro ?? data.mensagem ?? 'Erro ao corrigir o valor.');
+                (window.avisarErroPs || window.alert)(data.erro ?? data.mensagem ?? 'Erro ao corrigir o valor.');
                 return;
             }
             corrigindo = null;
             aplicarResumo(data.resumo);
         } catch (_) {
-            alert('Erro de rede. Tente novamente.');
+            (window.avisarErroPs || window.alert)('Erro de rede. Tente novamente.');
         } finally {
             botao.disabled = false;
         }
@@ -241,10 +242,10 @@
             alvo.disabled = true;
             try {
                 const { ok, data } = await postar(url, alvo.dataset.csrf);
-                if (!ok) { alert(data.erro ?? data.mensagem ?? 'Erro ao alterar o pagamento.'); return; }
+                if (!ok) { (window.avisarErroPs || window.alert)(data.erro ?? data.mensagem ?? 'Erro ao alterar o pagamento.'); return; }
                 aplicarResumo(data.resumo);
             } catch (_) {
-                alert('Erro de rede. Tente novamente.');
+                (window.avisarErroPs || window.alert)('Erro de rede. Tente novamente.');
             } finally {
                 alvo.disabled = false;
             }
@@ -269,10 +270,10 @@
             const url = cartao.dataset.baseUrlExcluir.replace('__ID__', id);
             try {
                 const { ok, data } = await postar(url, alvo.dataset.csrf);
-                if (!ok) { alert(data.erro ?? data.mensagem ?? 'Erro ao excluir.'); return; }
+                if (!ok) { (window.avisarErroPs || window.alert)(data.erro ?? data.mensagem ?? 'Erro ao excluir.'); return; }
                 aplicarResumo(data.resumo);
             } catch (_) {
-                alert('Erro de rede. Tente novamente.');
+                (window.avisarErroPs || window.alert)('Erro de rede. Tente novamente.');
             }
         }
     });

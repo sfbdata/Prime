@@ -50,8 +50,25 @@
     --ia-sugestao-tx:   #0b5f86;
     --ia-sugestao-hover:#e0eef6;
     --ia-campo-bg:      #f1f6f9;
+    --ia-acao-hover:    #e3f0f8;  /* ações do resultado (F5, dc L1101-1105) */
     --ia-shim-1:        #eef3f6;
     --ia-shim-2:        #dfeaf1;
+    /* Aba Documentos (F4, dc L1043-1058, `chk` L5918, `fi` L3216-3230). */
+    --ia-doc-hover:     #f1f7fb;
+    --ia-doc-divisoria: #eef2f5;
+    --ia-doc-nome:      #1d3441;
+    --ia-check-bg:      #eef3f6;
+    --ia-check-anel:    #c9d6de;
+    --ia-fi-pdf:        #d93025;
+    --ia-fi-word:       #185abd;
+    --ia-fi-excel:      #107c41;
+    --ia-fi-ppt:        #c43e1c;
+    --ia-fi-zip:        #c99a06;
+    --ia-fi-rar:        #7d3c98;
+    --ia-fi-imagem:     #0f7b8c;
+    --ia-fi-texto:      #5f7684;
+    --ia-fi-video:      #6b3fa0;
+    --ia-fi-outro:      #6b8494;
     /* Selo, marca e chips do cartão: os mesmos roxos do Push. */
     --ia-roxo:          #5b3fb0;
     --ia-roxo-2:        #6a4bc4;
@@ -100,8 +117,14 @@
     --ia-sugestao-tx:   #8fcbe8;
     --ia-sugestao-hover:rgba(111, 195, 224, .2);
     --ia-campo-bg:      var(--bs-tertiary-bg);
+    --ia-acao-hover:    rgba(111, 195, 224, .2);
     --ia-shim-1:        rgba(255, 255, 255, .05);
     --ia-shim-2:        rgba(255, 255, 255, .12);
+    --ia-doc-hover:     rgba(111, 195, 224, .1);
+    --ia-doc-divisoria: var(--bs-border-color);
+    --ia-doc-nome:      var(--bs-body-color);
+    --ia-check-bg:      var(--bs-tertiary-bg);
+    --ia-check-anel:    var(--bs-border-color);
     --ia-roxo:          #b9a6f2;
     --ia-roxo-2:        #b9a6f2;
     --ia-roxo-icone:    #a99bd0;
@@ -706,6 +729,75 @@ a.ia-icone { text-decoration: none; }
 .ia-relatorio-nome { font-size: 12.5px; font-weight: 700; color: var(--ia-texto); }
 .ia-relatorio-desc { font-size: 11px; color: var(--ia-descricao); line-height: 1.35; }
 
+/* ── Aba Documentos (F4, dc L1041-1058): cartão da lista, "Selecionar todos", linhas
+   com a caixa (`chk`, L5918), o ícone do arquivo pelo tipo (`fi` com 30px, L3220-3223)
+   e o "Índice inteligente" no estilo secundário (`cta(dis, true)`, `ia.indiceSt`). */
+.ia-docs { padding: 6px; border-radius: 4px; background: var(--ia-cartao); box-shadow: inset 0 0 0 1px var(--ia-anel); }
+.ia-docs-aviso { padding: 7px 8px; }
+.ia-docs-divisoria { height: 1px; margin: 2px 8px; background: var(--ia-doc-divisoria); }
+.ia-doc {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: background .15s;
+}
+.ia-doc--todos { padding: 7px 8px; }
+.ia-doc:hover,
+.ia-doc:focus-visible { background: var(--ia-doc-hover); }
+.ia-doc-check {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    color: transparent;
+    background: var(--ia-check-bg);
+    box-shadow: inset 0 0 0 1.5px var(--ia-check-anel);
+    transition: background .2s;
+}
+.ia-doc-check > i { font-size: 12px; }
+.ia-doc[aria-pressed="true"] > .ia-doc-check {
+    color: #fff;
+    background: linear-gradient(135deg, var(--ia-azul-claro), var(--ia-azul-txt));
+    box-shadow: none;
+}
+.ia-doc-todos-rotulo { flex: 1; font-size: 12.5px; font-weight: 700; color: var(--ia-texto); }
+.ia-doc-contagem { font-size: 11.5px; color: var(--ia-descricao); }
+.ia-doc-ico { position: relative; width: 30px; height: 30px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+.ia-doc-ico > i { font-size: 30px; line-height: 1; color: var(--ia-fi-outro); }
+.ia-doc-ico--pdf > i    { color: var(--ia-fi-pdf); }
+.ia-doc-ico--word > i   { color: var(--ia-fi-word); }
+.ia-doc-ico--excel > i  { color: var(--ia-fi-excel); }
+.ia-doc-ico--ppt > i    { color: var(--ia-fi-ppt); }
+.ia-doc-ico--zip > i    { color: var(--ia-fi-zip); }
+.ia-doc-ico--rar > i    { color: var(--ia-fi-rar); }
+.ia-doc-ico--imagem > i { color: var(--ia-fi-imagem); }
+.ia-doc-ico--texto > i  { color: var(--ia-fi-texto); }
+.ia-doc-ico--video > i  { color: var(--ia-fi-video); }
+.ia-doc-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ia-doc-nome { font-size: 13px; font-weight: 600; color: var(--ia-doc-nome); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ia-doc-dados { font-size: 11.5px; color: var(--ia-descricao); }
+/* O Índice não tem cartão: o botão fica direto na aba, como no desenho, e a lista embaixo. */
+.ia-comando.ia-comando--indice { padding: 0; background: transparent; box-shadow: none; }
+.ia-cta--secundario {
+    width: 100%;
+    color: var(--ia-azul);
+    background: var(--ia-cartao);
+    box-shadow: inset 0 0 0 1.5px var(--ia-anel-cta);
+}
+[data-bs-theme="dark"] .ia-drawer .ia-cta--secundario { color: var(--ia-azul-txt); }
+.ia-cta--secundario.ia-cta--indisponivel { color: var(--ia-off); box-shadow: inset 0 0 0 1.5px var(--ia-anel); }
+
 /* ── Aba Perguntar (F3): conversa, sugestões, "carregando" e rodapé com o campo.
    Valores do desenho: mensagens dc L5972 (`msgs`), texto vazio L1077, sugestões
    L1080, cartão "Consultando os dados desta pasta" L1086-1092, rodapé L1126-1131. */
@@ -830,3 +922,24 @@ a.ia-icone { text-decoration: none; }
     .ps-cab-ia-estrela-p,
     .ps-cab-ia-estrela-c { animation: none; }
 }
+
+/* ── Ações do resultado (F5, dc L1101-1105): botão claro, 30px, ícone + rótulo ── */
+.ia-res-acoes { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
+.ia-res-acao {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 4px;
+    background: var(--ia-campo-bg);
+    color: var(--ia-sugestao-tx);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s;
+}
+.ia-res-acao:hover, .ia-res-acao:focus-visible { background: var(--ia-acao-hover); }
+.ia-res-acao i { font-size: 12px; }

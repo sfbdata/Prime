@@ -167,4 +167,68 @@ class ClienteRepository extends ServiceEntityRepository
         }
         return $celulares;
     }
+
+    /** Nome comparável no SQL: sem acento, sem caixa, pontuação vira espaço, espaços únicos (como {@see \App\Cliente\Service\NomeNormalizado}). */
+    private const NOME_NORMALIZADO_SQL = "trim(regexp_replace(lower(unaccent(%s)), '[^a-z0-9]+', ' ', 'g'))";
+
+    /**
+     * Inteligência cadastral (F-A): quantos OUTROS clientes do mesmo tipo (PF ou PJ), DESTE escritório, têm o nome
+     * normalizado igual ao do cliente e documento (em dígitos) diferente: os homônimos. Contado no banco, sem teto.
+     * Tenant explícito: não depende do TenantFilter.
+     */
+    public function contarHomonimos(Cliente $cliente, Tenant $tenant, string $digitos): int
+    {
+        [$tabela, $colNome, $colDoc] = self::colunasDoTipo($cliente);
+        $sql = sprintf(
+            "SELECT COUNT(*) FROM cliente c JOIN %s x ON x.id = c.id WHERE c.tenant_id = :tenant AND c.id <> :id AND %s = %s AND regexp_replace(x.%s, '\\D', '', 'g') <> :digitos",
+            $tabela,
+            sprintf(self::NOME_NORMALIZADO_SQL, 'x.' . $colNome),
+            sprintf(self::NOME_NORMALIZADO_SQL, ':nome'),
+            $colDoc,
+        );
+
+        return (int) $this->getEntityManager()->getConnection()->fetchOne($sql, [
+            'tenant' => $tenant->getId(), 'id' => (int) $cliente->getId(), 'nome' => $cliente->getNomeExibicao(), 'digitos' => $digitos,
+        ]);
+    }
+
+    /**
+     * Os OUTROS clientes do mesmo tipo, DESTE escritório, com o mesmo documento em dígitos (o banco guarda com e sem
+     * máscara). Quem chama separa os de nome diferente.
+     *
+     * @return list<array{id: int, nome: string, documento: string}>
+     */
+    public function comOMesmoDocumento(Cliente $cliente, Tenant $tenant, string $digitos): array
+    {
+        [$tabela, $colNome, $colDoc] = self::colunasDoTipo($cliente);
+        $condicao = sprintf("regexp_replace(x.%s, '\\D', '', 'g') = :digitos", $colDoc);
+
+        return $this->outrosDoEscritorio($cliente, $tenant, $tabela, $colNome, $colDoc, $condicao, ['digitos' => $digitos]);
+    }
+
+    /**
+     * @param array<string, string> $parametros
+     *
+     * @return list<array{id: int, nome: string, documento: string}>
+     */
+    private function outrosDoEscritorio(Cliente $cliente, Tenant $tenant, string $tabela, string $colNome, string $colDoc, string $condicao, array $parametros): array
+    {
+        $sql = sprintf(
+            'SELECT c.id, x.%s AS nome, x.%s AS documento FROM cliente c JOIN %s x ON x.id = c.id'
+            . ' WHERE c.tenant_id = :tenant AND c.id <> :id AND %s ORDER BY c.id ASC LIMIT 50',
+            $colNome, $colDoc, $tabela, $condicao,
+        );
+        $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            $sql,
+            ['tenant' => $tenant->getId(), 'id' => (int) $cliente->getId()] + $parametros,
+        );
+
+        return array_map(static fn (array $l): array => ['id' => (int) $l['id'], 'nome' => (string) $l['nome'], 'documento' => (string) $l['documento']], $linhas);
+    }
+
+    /** @return array{0: string, 1: string, 2: string} tabela, coluna do nome, coluna do documento */
+    private static function colunasDoTipo(Cliente $cliente): array
+    {
+        return $cliente instanceof ClientePJ ? ['cliente_pj', 'razao_social', 'cnpj'] : ['cliente_pf', 'nome_completo', 'cpf'];
+    }
 }

@@ -27,22 +27,23 @@ final class FiltroDeCurriculos
      * @param list<Curriculo>                $curriculos
      * @param array<int, MarcacaoDoUsuario>  $marcas     id do currículo → marcação de quem filtra
      * @param array<string, string>          $filtros    filtro, busca, area, situacao, uf, termo
+     * @param array<int, int>                $candidaturas id do currículo → candidaturas (pesa na aba Importantes)
      *
      * @return list<Curriculo>
      */
-    public function aplicar(array $curriculos, array $marcas, array $filtros, \DateTimeImmutable $agora): array
+    public function aplicar(array $curriculos, array $marcas, array $filtros, \DateTimeImmutable $agora, array $candidaturas = []): array
     {
         $aba = in_array($filtros['filtro'] ?? '', self::ABAS, true) ? $filtros['filtro'] : 'ativos';
 
         return array_values(array_filter(
             $curriculos,
-            fn (Curriculo $cv): bool => $this->passaNaAba($cv, $marcas[(int) $cv->getId()] ?? null, $aba, $agora)
+            fn (Curriculo $cv): bool => $this->passaNaAba($cv, $marcas[(int) $cv->getId()] ?? null, $aba, $agora, $candidaturas[(int) $cv->getId()] ?? 0)
                 && $this->passaNosCampos($cv, $filtros),
         ));
     }
 
     /** `espF` e o filtro de aba (l.995): a marcação pessoal manda nas abas especiais. */
-    private function passaNaAba(Curriculo $cv, ?MarcacaoDoUsuario $m, string $aba, \DateTimeImmutable $agora): bool
+    private function passaNaAba(Curriculo $cv, ?MarcacaoDoUsuario $m, string $aba, \DateTimeImmutable $agora, int $candidaturas): bool
     {
         if ($m?->excluida() === true || ($aba === 'lix') !== ($m?->naLixeira() ?? false)) {
             return false;
@@ -51,7 +52,7 @@ final class FiltroDeCurriculos
         return match ($aba) {
             'lix' => true,
             'estrela' => $m?->temEstrela() ?? false,
-            'imp' => $this->importancia->calcular($cv, $m?->getImportante(), $agora)['nivel'] >= 2,
+            'imp' => $this->importancia->calcular($cv, $m?->getImportante(), $agora, $candidaturas)['nivel'] >= 2,
             'ativos' => $cv->getStatus() !== StatusCurriculo::Arquivado,
             'voluntarios' => $cv->texto('vol') === 'sim' && $cv->getStatus() !== StatusCurriculo::Arquivado,
             default => $cv->getStatus()->value === $aba,

@@ -698,6 +698,8 @@
         fecharMenuObs(false);
         document.dispatchEvent(new CustomEvent('ps:fechar-popovers'));
         pintarJanelaObs(menu, gatilho.closest('.detalhes-obs-item'));
+        // "Destacar" e "Remover destaque" (dc L6305), só para quem edita: pasta-destaque.js.
+        if (window.PastaDestaque) { window.PastaDestaque.pintarMenu(menu, gatilho.closest('.detalhes-obs-item'), 'detalhes'); }
         menu.hidden = false;
         const r = gatilho.getBoundingClientRect();
         let x = r.right - menu.offsetWidth;

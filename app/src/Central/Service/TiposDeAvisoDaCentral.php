@@ -34,11 +34,29 @@ final class TiposDeAvisoDaCentral
     private const VERDE = '#1f9d61';
     private const AMBAR = '#c8952a';
 
+    /** Trabalho Externo (F4): avisos de vagas e candidaturas, fora do `match` para ele caber no limite de linhas. */
+    private const DO_TRABALHO_EXTERNO = [
+        Notificacao::TIPO_TRABALHO_EXTERNO_PEDIDO_DE_VAGA => ['grupo' => 'atencao', 'rotulo' => 'Pedido de vaga', 'icone' => 'bi-inbox', 'cor' => self::AMBAR, 'nivel' => 2],
+        Notificacao::TIPO_TRABALHO_EXTERNO_CANDIDATURA => ['grupo' => 'atencao', 'rotulo' => 'Candidatura', 'icone' => 'bi-send-check', 'cor' => self::AZUL, 'nivel' => 1],
+        Notificacao::TIPO_TRABALHO_EXTERNO_OFERTA_ACEITA => ['grupo' => 'atencao', 'rotulo' => 'Oferta aceita', 'icone' => 'bi-hand-thumbs-up', 'cor' => self::VERDE, 'nivel' => 2],
+        Notificacao::TIPO_TRABALHO_EXTERNO_CANDIDATOS_ENVIADOS => ['grupo' => 'atencao', 'rotulo' => 'Candidatos', 'icone' => 'bi-people', 'cor' => self::AZUL, 'nivel' => 2],
+        Notificacao::TIPO_TRABALHO_EXTERNO_VAGA_APROVADA => ['grupo' => 'atencao', 'rotulo' => 'Vaga aprovada', 'icone' => 'bi-check2-circle', 'cor' => self::VERDE, 'nivel' => 1],
+        Notificacao::TIPO_TRABALHO_EXTERNO_VAGA_REPROVADA => ['grupo' => 'atencao', 'rotulo' => 'Vaga não aprovada', 'icone' => 'bi-x-circle', 'cor' => self::AMBAR, 'nivel' => 2],
+        Notificacao::TIPO_TRABALHO_EXTERNO_CANDIDATURA_STATUS => ['grupo' => 'atencao', 'rotulo' => 'Andamento', 'icone' => 'bi-arrow-repeat', 'cor' => self::PETROLEO, 'nivel' => 1],
+        Notificacao::TIPO_TRABALHO_EXTERNO_VAGA_NA_AREA => ['grupo' => 'atencao', 'rotulo' => 'Vaga nova', 'icone' => 'bi-megaphone', 'cor' => self::AZUL, 'nivel' => 1],
+        Notificacao::TIPO_TRABALHO_EXTERNO_DEMANDA_INFORMACOES => ['grupo' => 'atencao', 'rotulo' => 'Pedido de informações', 'icone' => 'bi-question-circle', 'cor' => self::AMBAR, 'nivel' => 2],
+    ];
+
     /** @return array{grupo: ?string, rotulo: string, icone: string, cor: string, nivel: int} */
     public function para(string $tipo): array
     {
         // O legado tem tipos gravados em maiúsculas (ex.: EVENTO_CRIADO): o mapa compara sem diferenciar.
-        return match (strtolower($tipo)) {
+        $tipo = strtolower($tipo);
+        if (isset(self::DO_TRABALHO_EXTERNO[$tipo])) {
+            return self::DO_TRABALHO_EXTERNO[$tipo];
+        }
+
+        return match ($tipo) {
             AlertarResponsavelDaMetaUseCase::TIPO_NOTIFICACAO,
             // "Disparo alto de convites" do Indicar o BlueJus: no desenho é o tipo 'alerta' (bj-contas.js L126).
             AvisoDeDisparoAlto::TIPO_NOTIFICACAO => ['grupo' => 'urgente', 'rotulo' => 'Alerta', 'icone' => 'bi-bell-fill', 'cor' => '#e8590c', 'nivel' => 3],

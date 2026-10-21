@@ -78,6 +78,20 @@ final class HistoricoDoCliente
     }
 
     /**
+     * Documento da pasta vinculado ao cadastro pela Inteligência cadastral (F-A): "<quem> vinculou documento de
+     * identificação a partir do menu Documentos". Sem o nome do arquivo nem a pasta, como os outros.
+     */
+    public function documentoVinculado(ClienteDocumento $documento, User $autor): void
+    {
+        $cliente = $documento->getCliente();
+        $tenant = $documento->getTenant();
+        if ($cliente === null || $tenant === null) {
+            throw new \DomainException('Documento sem cliente ou sem escritório.');
+        }
+        $this->gravar($cliente, $autor, $tenant, self::nomeDe($autor) . ' vinculou ' . self::documento($documento->getCategoria()) . ' a partir do menu Documentos');
+    }
+
+    /**
      * A lista da aba, já pronta para a tela: mais nova primeiro, `q` = "dd/mm/aaaa, hh:mm" (o `toLocaleString` pt-BR do desenho) no fuso da aplicação.
      *
      * @return list<array{q: string, t: string}>

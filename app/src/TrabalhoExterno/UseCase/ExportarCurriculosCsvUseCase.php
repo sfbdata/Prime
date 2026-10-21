@@ -7,6 +7,7 @@ namespace App\TrabalhoExterno\UseCase;
 use App\TrabalhoExterno\Entity\Curriculo;
 use App\TrabalhoExterno\Enum\TipoItemMarcado;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
+use App\TrabalhoExterno\Repository\CandidaturaRepository;
 use App\TrabalhoExterno\Repository\MarcacaoDoUsuarioRepository;
 use App\TrabalhoExterno\Service\Contexto;
 use App\TrabalhoExterno\Service\FiltroDeCurriculos;
@@ -29,6 +30,7 @@ final class ExportarCurriculosCsvUseCase
         private readonly PoliticaDoCurriculo $politica,
         private readonly MarcacaoDoUsuarioRepository $marcacoes,
         private readonly FiltroDeCurriculos $filtro,
+        private readonly CandidaturaRepository $candidaturas,
     ) {
     }
 
@@ -39,9 +41,10 @@ final class ExportarCurriculosCsvUseCase
             throw new AcaoNaoPermitida('Só a Central com acesso ao banco de talentos exporta os currículos.');
         }
         $todos = $this->localizador->visiveis($ctx);
-        $marcas = $this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Curriculo, array_map(static fn (Curriculo $c): int => (int) $c->getId(), $todos));
+        $ids = array_map(static fn (Curriculo $c): int => (int) $c->getId(), $todos);
+        $marcas = $this->marcacoes->doUsuario($ctx->usuario, TipoItemMarcado::Curriculo, $ids);
         $linhas = [self::linha(self::CABECALHO)];
-        foreach ($this->filtro->aplicar($todos, $marcas, $filtros, new \DateTimeImmutable()) as $cv) {
+        foreach ($this->filtro->aplicar($todos, $marcas, $filtros, new \DateTimeImmutable(), $this->candidaturas->contarPorCurriculo($ids)) as $cv) {
             $linhas[] = self::linha(self::colunas($cv));
         }
 

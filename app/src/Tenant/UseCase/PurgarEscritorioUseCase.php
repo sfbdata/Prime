@@ -196,6 +196,8 @@ final class PurgarEscritorioUseCase
         ['pasta_favorita', 'tenant_id = :tenant'],
         // Destaque de linha da Lista do Expediente (por usuário, E12): mesmo caso do favorito.
         ['pasta_destaque', 'tenant_id = :tenant'],
+        // Destaque de comentário da pasta (spec pasta-destacar-comentario.md): FK de tenant NO ACTION; nada o referencia.
+        ['pasta_comentario_destaque', 'tenant_id = :tenant'],
         // Chaves do "Avisar quando chegar" do Push (por pasta): cairiam pela CASCADE de `pasta`, mas a FK
         // de tenant é NO ACTION; deleção explícita aqui.
         ['pasta_aviso_push', 'tenant_id = :tenant'],
@@ -266,6 +268,8 @@ final class PurgarEscritorioUseCase
         ['comercial_envio', 'tenant_id = :tenant'],
         ['comercial_confirmacao_endereco', 'tenant_id = :tenant'],
         ['comercial_ciclo_conta', 'tenant_id = :tenant'],
+        // A vez dos avisos de espaço do escritório (comercial-e-emails.md §4): FK NO ACTION, nada a referencia.
+        ['comercial_aviso_espaco', 'tenant_id = :tenant'],
         // Central de Notificações do Master (docs/specs/master-central-de-notificacoes.md, D3): estado por Master e
         // respostas de mensagens deste escritório. `tenant_id` sem FK (o Master lê todos os escritórios, as tabelas
         // não são TenantAware); sai explicitamente para não ficar órfão.
@@ -334,12 +338,14 @@ final class PurgarEscritorioUseCase
      * @var array<string, array{0: CategoriaDeArquivo, 1: string}>
      */
     private const ARQUIVOS_POR_REGISTRO = [
+        // O documento VINCULADO do cadastro (pasta_documento_id) não tem arquivo próprio: o arquivo é o da pasta.
         'cliente_documento' => [
             CategoriaDeArquivo::CLIENTE_DOCUMENTO,
             'SELECT d.caminho_arquivo AS nome, bool_or(o.id IS NOT NULL) AS compartilhado
              FROM cliente_documento d
              LEFT JOIN cliente_documento o ON o.caminho_arquivo = d.caminho_arquivo AND o.tenant_id IS DISTINCT FROM d.tenant_id
-             WHERE d.tenant_id = :tenant
+                                           AND o.pasta_documento_id IS NULL
+             WHERE d.tenant_id = :tenant AND d.pasta_documento_id IS NULL
              GROUP BY d.caminho_arquivo',
         ],
         'pasta_documento' => [
