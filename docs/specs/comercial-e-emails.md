@@ -946,9 +946,9 @@ Escrita depois da F3a, em cima do código dela; a 5d revisa.
   `ConfirmacaoDeEnderecoInterface::pedir(...)` para a lista `comercial_campanhas` (`ComposicaoDaCampanha::LISTA`): a
   confirmação dupla da 1a, com os limitadores (e-mail, IP, global). Quem se descadastrou da lista NÃO recebe o pedido
   por aqui, nem depois de 30 dias (LGPD, coordenação 21/10): conta à parte na resposta, sem o endereço.
-  Origem "Cadastro manual (Master)", com o rótulo em `RotulosDoConsentimento`. Vários e-mails separados por vírgula,
-  espaço ou ponto e vírgula; a resposta diz quantos pedidos saíram, quantos já existiam e quantos foram barrados, sem
-  travessão. O texto do dc ("Só cadastre quem autorizou receber (LGPD)") aparece no campo.
+  Origem `cadastro-manual-master` (rótulo "pela equipe do BlueJus, em um cadastro manual" em `RotulosDoConsentimento`).
+  Vários e-mails separados por vírgula, espaço ou ponto e vírgula; a resposta diz quantos pedidos saíram, quantos já
+  existiam, quantos foram barrados e quantos são descadastrados (`descadastrados`), sem travessão. O texto do dc ("Só cadastre quem autorizou receber (LGPD)") aparece no campo.
 - `modo: 'venda'` no pedido de contagem e de envio, validado no `PedidoDePublico` e no `PedidoDeCampanha`: público fora
   de `leads`/`csv`/`indiv` ou modelo fora dos quatro (e dos do usuário) é recusado (422). É coerência, não barreira:
   `modo` e o `cu<id>` são rótulos que o próprio cliente manda (o Master pode enviar pela seção Comercial de qualquer

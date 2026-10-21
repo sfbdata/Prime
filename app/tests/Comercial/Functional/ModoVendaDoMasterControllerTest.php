@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Functional;
 
-use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
-use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Comercial\Campanha\ChaveDasCampanhas;
 use App\Comercial\Campanha\ModelosDeCampanha;
 use App\Comercial\Controller\CampanhaDoMasterController;
 use App\Comercial\Controller\ComercialDoMasterController;
+use App\Comercial\Repository\FatoDeConsentimentoRepository;
 use App\Comercial\UseCase\CadastrarContatoDoMasterUseCase;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Comercial\Support\CriaCampanhas;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\DBAL\Connection;
@@ -73,6 +74,10 @@ final class ModoVendaDoMasterControllerTest extends JusPrimeWebTestCase
         /** @var DescadastroDeEmailInterface $descadastro */
         $descadastro = static::getContainer()->get(DescadastroDeEmailInterface::class);
         $descadastro->descadastrar(null, 'saiu@exemplo.com', 'comercial_campanhas', 'link');
+        // O último pedido foi há 40 dias: o limite de 30 dias da confirmação já não seguraria; a trava da F3h segura.
+        /** @var FatoDeConsentimentoRepository $fatos */
+        $fatos = static::getContainer()->get(FatoDeConsentimentoRepository::class);
+        $fatos->registrar(null, 'pedido', 'comercial_campanhas', 'saiu@exemplo.com', ['origem' => 'pagina-publica-vagas', 'versao' => 'v1', 'texto' => 'Pedido antigo.'], null, null, new \DateTimeImmutable('-40 days'));
 
         $this->postar($client, self::CONTATOS, ['emails' => 'saiu@exemplo.com']);
 
@@ -80,7 +85,7 @@ final class ModoVendaDoMasterControllerTest extends JusPrimeWebTestCase
         $saida = $this->json($client);
         self::assertSame([0, 1], [$saida['pedidos'], $saida['descadastrados']]);
         self::assertStringNotContainsString('saiu@', $saida['mensagem']);
-        self::assertSame(0, $this->contar('comercial_consentimento'));
+        self::assertSame(1, $this->contar('comercial_consentimento'), 'só o pedido antigo: nenhum pedido novo');
     }
 
     #[TestDox('Cota do IP estourada: 429 com o texto e nenhum pedido de confirmação')]
