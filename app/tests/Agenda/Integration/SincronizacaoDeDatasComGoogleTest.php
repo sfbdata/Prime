@@ -13,6 +13,7 @@ use App\Agenda\Service\LevarDatasAoGoogle;
 use App\Agenda\UseCase\SincronizarGoogleAgendaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Profile\Entity\UserProfile;
@@ -112,6 +113,85 @@ final class SincronizacaoDeDatasComGoogleTest extends KernelTestCase
         $this->sincronizar($conexao);
 
         self::assertCount($antes, $this->google->eventos[$this->agendaDe($conexao)]);
+    }
+
+    /**
+     * Só a parte da lotação: o código soma a UF do escritório à da lotação (como a grade), e a spec §9 diz "lotação
+     * dela; senão o estado do escritório". A divergência está com o orquestrador; o feriado de SP vai hoje.
+     */
+    #[TestDox('UF da lotação da pessoa: o feriado estadual da lotação vai, mesmo com o escritório em outra UF')]
+    public function testUfDaLotacao(): void
+    {
+        [$tenant, $eu, $conexao] = $this->cenario();
+        $escritorio = $this->em()->find(Tenant::class, $tenant->getId())->setEstado('SP');
+        $lotacao = (new Lotacao())->setNome('Porto Alegre/RS')->setTenant($escritorio);
+        $this->em()->persist($lotacao);
+        $this->em()->getRepository(UserTenant::class)->findOneBy(['user' => $eu->getId(), 'tenant' => $tenant->getId()])?->setLotacao($lotacao);
+        $this->em()->flush();
+
+        $this->sincronizar($conexao);
+
+        $titulos = array_keys($this->porTitulo($conexao));
+        $doRs = array_filter($titulos, static fn (string $t): bool => str_starts_with($t, 'Revolução Farroupilha'));
+        self::assertNotEmpty($doRs, 'o feriado da UF da lotação (RS, ' . $this->proximo('09-20') . ') vai');
+    }
+
+    #[TestDox('O id de data que vem do Google nunca vira compromisso, com linha ou sem linha aqui')]
+    public function testIdDeDataNuncaViraCompromisso(): void
+    {
+        [$tenant, , $conexao] = $this->cenario();
+        $this->sincronizar($conexao);
+        $agenda = $this->agendaDe($conexao);
+        $traducao = new DataParaOGoogle();
+        $comLinha = $traducao->idPara((int) $tenant->getId(), 'fer-' . $this->proximo('12-25') . '-natal');
+        $semLinha = $traducao->idPara((int) $tenant->getId(), 'chave-inexistente');
+        $natal = $this->google->eventos[$agenda][$comLinha];
+
+        $this->google->paraTrazer[$agenda] = [
+            ['summary' => 'Mexi aqui'] + $natal,
+            ['id' => $semLinha, 'summary' => 'Inventada no Google'] + $natal,
+        ];
+        $this->sincronizar($conexao);
+        $this->sincronizar($conexao);
+
+        self::assertSame(0, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM evento WHERE tenant_id = :t', ['t' => $tenant->getId()]));
+        self::assertSame('Natal', $this->google->eventos[$agenda][$comLinha]['summary']);
+    }
+
+    #[TestDox('Aniversário oculto pelo escritório não vai ao Google')]
+    public function testAniversarioOcultoNaoVai(): void
+    {
+        [$tenant, $eu, $conexao] = $this->cenario();
+        $dia = $this->proximo('03-15');
+        $this->aniversario($eu, $dia);
+        $this->em()->persist(AjusteDeData::ocultar($this->em()->find(Tenant::class, $tenant->getId()), 'aniv-' . $eu->getId() . '-' . $dia, $this->em()->find(User::class, $eu->getId())));
+        $this->em()->flush();
+
+        $this->sincronizar($conexao);
+
+        $titulos = array_keys($this->porTitulo($conexao));
+        self::assertArrayHasKey('Natal', $this->porTitulo($conexao), 'as outras datas vão');
+        self::assertSame([], array_values(array_filter($titulos, static fn (string $t): bool => str_starts_with($t, '🎂 Aniversário de'))));
+    }
+
+    #[TestDox('Apagada no Google volta quando a data muda aqui, com o nome novo')]
+    public function testApagadaLaVoltaQuandoMudaAqui(): void
+    {
+        [$tenant, $eu, $conexao] = $this->cenario();
+        $this->sincronizar($conexao);
+        $agenda = $this->agendaDe($conexao);
+        $chave = 'fer-' . $this->proximo('12-25') . '-natal';
+        $id = (new DataParaOGoogle())->idPara((int) $tenant->getId(), $chave);
+        unset($this->google->eventos[$agenda][$id]);
+        $this->google->paraTrazer[$agenda] = [['id' => $id, 'status' => 'cancelled']];
+        $this->sincronizar($conexao);
+        self::assertArrayNotHasKey($id, $this->google->eventos[$agenda], 'apagada lá, fica apagada');
+
+        $this->em()->persist(AjusteDeData::renomear($this->em()->find(Tenant::class, $tenant->getId()), $chave, 'Natal (recesso do escritório)', $this->em()->find(User::class, $eu->getId())));
+        $this->em()->flush();
+        $this->sincronizar($conexao);
+
+        self::assertSame('Natal (recesso do escritório)', $this->google->eventos[$agenda][$id]['summary'] ?? null);
     }
 
     /** O próximo dia/mês dentro da janela (de 30 dias atrás em diante), em Y-m-d. */
