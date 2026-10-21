@@ -12,6 +12,7 @@
 {# Editor rico (barra de formatação). Quill auto-hospedado — sem CDN externo. #}
 <link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
 <link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
+<link rel="stylesheet" href="{{ asset('css/meta-numero-global.css') }}">
 <script src="{{ asset('js/quill/quill.js') }}"></script>
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
 
@@ -51,7 +52,7 @@
 
         <div class="card card-primary card-outline">
             <div class="card-header">
-                <h3 class="card-title fw-semibold">{{ tarefa.titulo }}</h3>
+                <h3 class="card-title fw-semibold">{{ tarefa.titulo }}{{ include('tarefa/_numero_global.html.twig', {numero: tarefa.numero, local: numeroNaPasta}) }}</h3>
                 <div class="card-tools d-flex align-items-center gap-2">
                     <span class="badge {{ statusBadge[tarefa.status] ?? 'text-bg-secondary' }}">
                         {{ statusLabels[tarefa.status] ?? tarefa.status }}

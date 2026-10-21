@@ -23,6 +23,7 @@ use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Service\SanitizadorTextoRico;
 use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
 use App\Tarefa\UseCase\ExcluirTarefaUseCase;
+use App\Tarefa\UseCase\GravarMetaNovaUseCase;
 use App\Tarefa\UseCase\ListarMinhasMetasUseCase;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
@@ -150,7 +151,7 @@ final class TarefaController extends AbstractController
         Request $request,
         PastaRepository $pastaRepository,
         ColaboradoresAtribuiveis $atribuiveis,
-        EntityManagerInterface $entityManager
+        GravarMetaNovaUseCase $gravarMeta
     ): JsonResponse {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -206,8 +207,8 @@ final class TarefaController extends AbstractController
             $tarefa->addResponsavel($responsavel);
         }
 
-        $entityManager->persist($tarefa);
-        $entityManager->flush();
+        // Grava já com o número da meta no escritório ("Nº 0001"), sob a trava da sequência.
+        $gravarMeta->executar($tarefa);
 
         $this->notificacaoService->notificarTarefaCriada($tarefa);
 
@@ -225,7 +226,7 @@ final class TarefaController extends AbstractController
      * Detalhe da tarefa.
      */
     #[Route('/{id}', name: 'tarefa_show', methods: ['GET'])]
-    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, ExcluirTarefaUseCase $excluirUseCase, AtualizarPrazoTarefaUseCase $prazoUseCase): Response
+    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, ExcluirTarefaUseCase $excluirUseCase, AtualizarPrazoTarefaUseCase $prazoUseCase, TarefaRepository $tarefaRepository): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -245,6 +246,8 @@ final class TarefaController extends AbstractController
             'users'          => $users,
             'podeExcluirMeta' => $excluirUseCase->podeExcluir($tarefa, $usuario, $tenant),
             'podeEditarPrazo' => $prazoUseCase->podeEditarPrazo($tarefa, $usuario, $tenant),
+            // Só para a dica do selo "Nº 0001" ("Meta N desta pasta · nº ..."); sem número global, nem consulta.
+            'numeroNaPasta'   => $tarefa->getNumero() === null ? null : ($tarefaRepository->numerosNaPasta([(int) $tarefa->getId()])[(int) $tarefa->getId()] ?? null),
         ]);
     }
 
