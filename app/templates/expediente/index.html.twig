@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Expediente{% endblock %}
+{% block title %}{{ 'expediente.titulo'|trans }}{% endblock %}
 
 {# E8 (fidelidade ao desenho de 13/10): o visual da Lista mora em /css/expediente-lista.css, todo sob
    `.exp-body` — nenhuma regra vaza para outra tela. #}
@@ -10,7 +10,7 @@
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
         {# Título do desenho (dc L.57): 40px, pasta azul que fecha e abre ao carregar. #}
-        <h1 class="exp-titulo"><span class="exp-titulo-icone" aria-hidden="true"><i class="bi bi-folder-fill"></i><i class="bi bi-folder2-open"></i></span>Expediente</h1>
+        <h1 class="exp-titulo"><span class="exp-titulo-icone" aria-hidden="true"><i class="bi bi-folder-fill"></i><i class="bi bi-folder2-open"></i></span>{{ 'expediente.titulo'|trans }}</h1>
     </div>
 </section>
 
@@ -23,7 +23,7 @@
 
         {# ── Botão pull-tab mobile (fixo na borda esquerda) ── #}
         <button type="button" class="btn-expediente-pull-tab d-md-none" id="btnAbrirDrawer"
-                aria-label="Abrir menu de navegação" aria-expanded="false">
+                aria-label="{{ 'expediente.lista.drawer_abrir'|trans }}" aria-expanded="false">
             <i class="bi bi-chevron-right" id="iconePullTab"></i>
         </button>
 
@@ -36,8 +36,8 @@
             <div class="col-auto expediente-sidebar" id="expedienteSidebar">
                 {# Header do drawer — visível apenas em mobile #}
                 <div class="drawer-header d-md-none">
-                    <span><i class="bi bi-layout-sidebar me-1"></i> Expediente</span>
-                    <button type="button" class="drawer-header-close" id="btnFecharDrawer" aria-label="Fechar menu">
+                    <span><i class="bi bi-layout-sidebar me-1"></i> {{ 'expediente.titulo'|trans }}</span>
+                    <button type="button" class="drawer-header-close" id="btnFecharDrawer" aria-label="{{ 'expediente.lista.drawer_fechar_menu'|trans }}">
                         <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
@@ -59,7 +59,7 @@
                 <div id="expediente-painel"{% if painelInicial ?? null %} data-painel-inicial="{{ painelInicial }}"{% endif %}>
                     <div class="expediente-content-placeholder">
                         <i class="bi bi-inbox text-muted" style="font-size: 3rem; opacity: 0.3;"></i>
-                        <p class="text-muted mt-3">Selecione um grupo para visualizar os expedientes</p>
+                        <p class="text-muted mt-3">{{ 'expediente.lista.placeholder'|trans }}</p>
                     </div>
                 </div>
             </div>
@@ -257,18 +257,18 @@ document.addEventListener('dblclick', function (e) {
     .then(function (res) {
         badge.dataset.ocupado = '';
         if (!res.ok || !res.data.sucesso) {
-            avisarOuAlertar(res.data.erro || 'Não foi possível alterar a situação');
+            avisarOuAlertar(res.data.erro || BJ_T.t('expediente.js.lista.situacao.erro'));
             return;
         }
         var eAtivo = res.data.novaSituacao === 'ativo';
         badge.classList.remove('text-bg-success', 'text-bg-secondary');
         badge.classList.add(eAtivo ? 'text-bg-success' : 'text-bg-secondary');
-        badge.textContent      = eAtivo ? 'Ativo' : 'Arquivado';
+        badge.textContent      = eAtivo ? BJ_T.t('expediente.js.lista.situacao.ativo') : BJ_T.t('expediente.js.lista.situacao.arquivado');
         badge.dataset.situacao = res.data.novaSituacao;
     })
     .catch(function () {
         badge.dataset.ocupado = '';
-        avisarOuAlertar('Falha de conexão ao alterar a situação');
+        avisarOuAlertar(BJ_T.t('expediente.js.lista.situacao.falha_conexao'));
     });
 });
 
@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (btnAbrir) {
             btnAbrir.classList.add('drawer-aberto');
             btnAbrir.setAttribute('aria-expanded', 'true');
-            btnAbrir.setAttribute('aria-label', 'Fechar menu de navegação');
+            btnAbrir.setAttribute('aria-label', BJ_T.t('expediente.js.lista.drawer_fechar'));
         }
         if (iconePullTab) {
             iconePullTab.className = 'bi bi-chevron-left';
@@ -303,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (btnAbrir) {
             btnAbrir.classList.remove('drawer-aberto');
             btnAbrir.setAttribute('aria-expanded', 'false');
-            btnAbrir.setAttribute('aria-label', 'Abrir menu de navegação');
+            btnAbrir.setAttribute('aria-label', BJ_T.t('expediente.js.lista.drawer_abrir'));
         }
         if (iconePullTab) {
             iconePullTab.className = 'bi bi-chevron-right';
@@ -428,7 +428,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!url) return false;
 
         var linkAcervo = document.querySelector('.exp-tri-todas[data-painel]');
-        carregarPainel(url, 'Todas as pastas');
+        carregarPainel(url, BJ_T.t('expediente.js.lista.todas_as_pastas'));
         if (linkAcervo) reacenderSidebarPainel(linkAcervo.dataset.painel, filtroDoSistemaNaUrl(url));
         consumirParametrosDoDeepLink();
 
@@ -472,7 +472,7 @@ document.addEventListener('DOMContentLoaded', function () {
         campo.value = valor;
         // js-pasta-filtro: o "Limpar tudo" zera junto com os outros filtros.
         campo.className = 'js-pasta-filtro';
-        campo.dataset.rotulo = 'Criado por';
+        campo.dataset.rotulo = BJ_T.t('expediente.js.lista.criado_por');
         form.appendChild(campo);
     }
 
@@ -488,7 +488,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var linkTodasPastas = document.querySelector('.exp-tri-todas[data-painel]');
         if (linkTodasPastas) {
             marcarNoTrilho(linkTodasPastas);
-            carregarPainel(linkTodasPastas.dataset.painel, 'Todas as pastas');
+            carregarPainel(linkTodasPastas.dataset.painel, BJ_T.t('expediente.js.lista.todas_as_pastas'));
         }
     })();
 
@@ -514,7 +514,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* E12: com `opcoes.efeito`, o efeito do desenho (dc `bxFx`, 1,3 s) "Só um instante, estamos buscando em todo
        o sistema…" fica no lugar da tabela até o tempo dele passar, mesmo que a resposta chegue antes. */
-    var EFEITO_BUSCA = '<div class="exp-busca-efeito" role="status"><span class="exp-busca-efeito-txt"><i class="bi bi-stars" aria-hidden="true"></i>Só um instante, estamos buscando em todo o sistema…</span><span class="exp-busca-efeito-barra" aria-hidden="true"><span></span></span></div>';
+    var EFEITO_BUSCA = '<div class="exp-busca-efeito" role="status"><span class="exp-busca-efeito-txt"><i class="bi bi-stars" aria-hidden="true"></i>' + escHtmlChip(BJ_T.t('expediente.js.lista.buscando')) + '</span><span class="exp-busca-efeito-barra" aria-hidden="true"><span></span></span></div>';
 
     function carregarPainel(url, nomeAtivo, opcoes) {
         var efeito = !!(opcoes && opcoes.efeito);
@@ -523,7 +523,7 @@ document.addEventListener('DOMContentLoaded', function () {
         try { pp = localStorage.getItem('expediente_por_pagina'); } catch (e) { /* indisponível */ }
         if (pp && url.indexOf('por_pagina=') === -1) url += (url.indexOf('?') === -1 ? '?' : '&') + 'por_pagina=' + encodeURIComponent(pp);
         var inicio = Date.now();
-        painel.innerHTML = efeito ? EFEITO_BUSCA : '<div class="p-4 text-center text-muted"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
+        painel.innerHTML = efeito ? EFEITO_BUSCA : '<div class="p-4 text-center text-muted"><i class="bi bi-hourglass-split"></i> ' + escHtmlChip(BJ_T.t('expediente.js.lista.carregando')) + '</div>';
         if (labelPainel && nomeAtivo) labelPainel.textContent = nomeAtivo;
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) {
@@ -544,7 +544,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 try { construirChipsPastas(); } catch (e) { /* ignora */ }
             })
             .catch(function () {
-                painel.innerHTML = '<div class="p-4 alert alert-danger">Erro ao carregar o conteúdo.</div>';
+                painel.innerHTML = '<div class="p-4 alert alert-danger">' + escHtmlChip(BJ_T.t('expediente.js.lista.erro_carregar')) + '</div>';
             });
     }
 
@@ -584,16 +584,16 @@ document.addEventListener('DOMContentLoaded', function () {
             // (colaboradores ativos, opcionalmente de um cargo; `__sem__` = sem cargo).
             var valorCriador;
             if (criadoPor.value === 'equipe') {
-                valorCriador = 'Equipe';
+                valorCriador = BJ_T.t('expediente.js.lista.equipe');
             } else if (criadoPor.value.indexOf('equipe:') === 0) {
                 var cargoCriador = criadoPor.value.slice('equipe:'.length);
-                valorCriador = 'Equipe · ' + (cargoCriador === '__sem__' ? 'Sem cargo' : cargoCriador);
+                valorCriador = BJ_T.t('expediente.js.lista.equipe_cargo', {cargo: (cargoCriador === '__sem__' ? BJ_T.t('expediente.js.lista.sem_cargo') : cargoCriador)});
             } else {
-                valorCriador = optResp ? optResp.textContent.trim() : ('colaborador #' + criadoPor.value);
+                valorCriador = optResp ? optResp.textContent.trim() : BJ_T.t('expediente.js.lista.colaborador_id', {id: criadoPor.value});
             }
             chips.push({
                 campo: 'criado_por',
-                rotulo: criadoPor.dataset.rotulo || 'Criado por',
+                rotulo: criadoPor.dataset.rotulo || BJ_T.t('expediente.js.lista.criado_por'),
                 valor: valorCriador
             });
         }
@@ -604,11 +604,11 @@ document.addEventListener('DOMContentLoaded', function () {
             return '<span class="pasta-chip">' +
                 (c.rotulo ? '<span class="pasta-chip-rotulo">' + escHtmlChip(c.rotulo) + ':</span> ' : '') +
                 '<span class="pasta-chip-valor">' + escHtmlChip(c.valor) + '</span>' +
-                '<button type="button" class="pasta-chip-remover js-chip-remover" data-campo="' + escHtmlChip(c.campo) + '" title="Remover" aria-label="Remover filtro">' +
+                '<button type="button" class="pasta-chip-remover js-chip-remover" data-campo="' + escHtmlChip(c.campo) + '" title="' + escHtmlChip(BJ_T.t('expediente.js.lista.chip_remover')) + '" aria-label="' + escHtmlChip(BJ_T.t('expediente.js.lista.chip_remover_filtro')) + '">' +
                 '<i class="bi bi-x"></i></button>' +
                 '</span>';
         }).join('');
-        html += '<button type="button" class="pasta-chips-limpar js-pasta-limpar">Limpar tudo</button>';
+        html += '<button type="button" class="pasta-chips-limpar js-pasta-limpar">' + escHtmlChip(BJ_T.t('expediente.js.lista.limpar_tudo')) + '</button>';
         box.innerHTML = html;
     }
 
@@ -621,7 +621,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (ord) ord.value = 'nup';
         if (dir) dir.value = 'desc';
         recarregarResultadosPastas({ page: 1 });
-        avisarOuAlertar('Pasta ' + e.detail.nup + ' aberta para ' + e.detail.cliente);
+        avisarOuAlertar(BJ_T.t('expediente.js.lista.pasta_criada', {nup: e.detail.nup, cliente: e.detail.cliente}));
     });
 
     function recarregarResultadosPastas(extraParams) {
@@ -843,6 +843,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 });
 </script>
+{{ catalogo_js('expediente.js') }}
 <script src="{{ asset('js/pasta-dialogos.js') }}"></script>
 <script src="{{ asset('js/expediente-lista.js') }}"></script>
 <script src="{{ asset('js/expediente-trilho.js') }}"></script>

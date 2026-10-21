@@ -7,8 +7,8 @@ namespace App\Comercial\DTO;
 use App\Comercial\Repository\RelatorioDeCampanhasRepository;
 
 /**
- * O pedido da lista do Relatório (desenho 05 VS 21.10.26, L300-305): a aba (`env`, `ag` ou `rec`; fora disso,
- * `env`), a busca por campanha ou e-mail (aparada, até 120 caracteres) e a página (a partir de 1).
+ * O pedido da lista do Relatório (desenho 05 VS 21.10.26, L300-305): a aba (`env`, `ag`, `rec`, `est` ou `arq`; fora
+ * disso, `env`), a busca por campanha ou e-mail (aparada, até 120 caracteres) e a página (a partir de 1).
  */
 final class PedidoDoRelatorio
 {

@@ -15,8 +15,9 @@ use App\Comercial\Repository\RelatorioDeCampanhasRepository;
 
 /**
  * A lista do "Relatório como caixa de entrada" da Central de envios (desenho 05 VS 21.10.26, L300-305 e L698-717;
- * spec `comercial-relatorio.md`): a contagem das 3 abas (Enviadas, Agendadas, Recorrentes), a busca por campanha ou
- * e-mail, a página de 50 (no SQL) e as métricas de cada linha, numa consulta só para a página inteira.
+ * spec `comercial-relatorio.md`): a contagem das abas (Enviadas, Agendadas, Recorrentes e, da F3e, Com estrela e
+ * Arquivadas, pelas marcas do Master logado; spec `comercial-marcas.md`), a busca por campanha ou e-mail, a página de
+ * 50 (no SQL) e as métricas de cada linha, numa consulta só para a página inteira.
  *
  * O estado `teste` (a 5d grava o "Enviar teste" como campanha) cai em Enviadas com o selo "Teste"; sem ele, nada muda.
  *
@@ -39,12 +40,12 @@ final class ListarRelatorioDeCampanhasUseCase
     ) {
     }
 
-    public function executar(PedidoDoRelatorio $pedido): RelatorioDeCampanhas
+    public function executar(PedidoDoRelatorio $pedido, int $masterId): RelatorioDeCampanhas
     {
-        $abas = $this->relatorio->contarPorAba();
-        $total = $this->relatorio->contar($pedido->aba, $pedido->busca);
+        $abas = $this->relatorio->contarPorAba($masterId);
+        $total = $this->relatorio->contar($masterId, $pedido->aba, $pedido->busca);
         $pagina = min($pedido->pagina, max(1, (int) ceil($total / self::POR_PAGINA)));
-        $linhas = $total === 0 ? [] : $this->relatorio->pagina($pedido->aba, $pedido->busca, self::POR_PAGINA, ($pagina - 1) * self::POR_PAGINA);
+        $linhas = $total === 0 ? [] : $this->relatorio->pagina($masterId, $pedido->aba, $pedido->busca, self::POR_PAGINA, ($pagina - 1) * self::POR_PAGINA);
         $metricas = $this->relatorio->metricas(array_map(static fn (array $l): int => $l['id'], $linhas));
 
         return new RelatorioDeCampanhas(
@@ -69,6 +70,12 @@ final class ListarRelatorioDeCampanhasUseCase
         return MetricasDaCampanha::deArray($m, $c['execucoes'] === 0 ? $c['total'] : 0, $rastreiaLeitura);
     }
 
+    /** O público como a lista e o visualizador mostram; o teste (F3f, dc L669/L709/L717) diz quantos e-mails. */
+    public static function rotuloDoPublico(string $publico, int $total): string
+    {
+        return $publico === self::TESTE ? 'Teste · ' . $total . ' e-mail(s)' : (PublicosDaCampanha::ROTULOS[$publico] ?? $publico);
+    }
+
     /**
      * @param LinhaDaCampanha $c
      * @param array{destinatarios: int, na_fila: int, enviados: int, entregues: int, lidos: int, rejeitados: int, clicaram: int}|null $m
@@ -82,12 +89,13 @@ final class ListarRelatorioDeCampanhasUseCase
             $c['id'],
             $c['nome'],
             $sub,
-            PublicosDaCampanha::ROTULOS[$c['publico']] ?? $c['publico'],
+            self::rotuloDoPublico($c['publico'], $c['total']),
             $c['total'],
             $c['estado'],
             self::ROTULOS[$c['estado']] ?? $c['estado'],
             $data,
             self::metricas($c, $m, $rastreiaLeitura),
+            $c['estrela'],
         );
     }
 }
