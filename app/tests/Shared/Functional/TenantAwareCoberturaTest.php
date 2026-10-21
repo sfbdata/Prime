@@ -180,6 +180,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // PLATAFORMA, ligada e desligada só pelo Master e válida para todas as contas ao mesmo tempo.
         // Uma linha por chave do catálogo, sem dado de escritório nem de cliente.
         RecursoEstado::class,
+        // Temas comemorativos (docs/specs/temas-comemorativos.md): linha única de configuração da PLATAFORMA (id 1),
+        // escrita só pelo Master; a cor vale para todas as contas ao mesmo tempo. Sem dado de escritório nem de cliente.
+        \App\Master\Entity\TemaConfig::class,
 
         // Indicar o BlueJus (docs/specs/indicar-bluejus.md): plataforma. A indicação é da pessoa (quem indica), não do
         // escritório: ela indica com ou sem escritório, e o Master lê todas. O escritório de origem é só para mostrar
@@ -218,7 +221,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 46 → 47 com as inscrições na OAB do Meu Perfil (19/10/2026): InscricaoOab é da pessoa, não do escritório.
     // 47 → 50 com as vagas e as preferências do usuário do Trabalho Externo (19/10/2026): Vaga, HistoricoVaga e PreferenciaDoUsuario, justificadas acima.
     // 50 → 52 com a página pública de vagas do Trabalho Externo (19/10/2026): LinkDeVagas e InteressadoEmVagas, justificados acima.
-    private const MAX_FORA_DO_ESCOPO = 52;
+    // 52 → 53 com os temas comemorativos (21/10/2026): TemaConfig, configuração global da plataforma, justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 53;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado
