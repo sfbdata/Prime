@@ -112,7 +112,7 @@ final class MetaNumeroGlobalTelaTest extends JusPrimeWebTestCase
         $selo = $topos->filter('.mm-meta-topo > span.meta-num-global');
         self::assertCount(1, $selo, 'filho direto do topo, fora do link (o título corta com reticências)');
         self::assertSame('Nº 0008', trim($selo->text()));
-        self::assertSame('Meta 2 desta pasta · nº 8 na sequência geral do sistema', $selo->attr('title'));
+        self::assertSame('Meta 2 desta pasta · nº 8 na sequência do escritório', $selo->attr('title'));
         self::assertSame('meta-num-global', $topos->filter('.mm-meta-topo > .mm-meta-titulo + span')->attr('class'), 'logo depois do título');
     }
 
@@ -143,7 +143,7 @@ final class MetaNumeroGlobalTelaTest extends JusPrimeWebTestCase
         $selo = $crawler->filter('.card-header > h3.card-title > span.meta-num-global');
         self::assertCount(1, $selo);
         self::assertSame('Nº 0003', trim($selo->text()));
-        self::assertSame('Meta 1 desta pasta · nº 3 na sequência geral do sistema', $selo->attr('title'));
+        self::assertSame('Meta 1 desta pasta · nº 3 na sequência do escritório', $selo->attr('title'));
         self::assertStringStartsWith('Elaborar parecer', $crawler->filter('.card-header > h3.card-title')->first()->text());
         self::assertCount(1, $crawler->filter('link[rel="stylesheet"][href$="/css/meta-numero-global.css"]'));
     }

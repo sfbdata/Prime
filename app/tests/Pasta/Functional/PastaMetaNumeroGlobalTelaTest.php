@@ -60,7 +60,7 @@ final class PastaMetaNumeroGlobalTelaTest extends JusPrimeWebTestCase
         $selo = $crawler->filter(sprintf(self::SELO, $segunda->getId()));
         self::assertCount(1, $selo, 'o selo é filho direto do texto do título');
         self::assertSame('Nº 0012', trim($selo->text()));
-        self::assertSame('Meta 2 desta pasta · nº 12 na sequência geral do sistema', $selo->attr('title'));
+        self::assertSame('Meta 2 desta pasta · nº 12 na sequência do escritório', $selo->attr('title'));
 
         // Depois do título, não antes: o texto do título vem primeiro e o selo é o último filho.
         $titulo = $crawler->filter(sprintf('.ps-metas-lista > article.ps-meta[data-meta-id="%d"] .ps-meta-titulo > .ps-meta-titulo-tx', $segunda->getId()));
