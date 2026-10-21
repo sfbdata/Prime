@@ -297,3 +297,30 @@
 [data-bs-theme="dark"] .pf-page .pf-selo-master { color: #d2a8e6; }
 [data-bs-theme="dark"] .pf-page .pf-selo-secundario { color: var(--bs-body-color); }
 [data-bs-theme="dark"] .pf-page .pf-acao-excluir { color: #f08a90; }
+
+/* Hierarquia (spec perfis-1.2-permissoes-e-hierarquia C3/C6; desenho L823): o que o perfil não pode mexer não abre;
+   o clique mostra o aviso "Seu perfil não pode editar um perfil do mesmo nível ou acima." (o toast do desenho). */
+.pf-page .pf-aviso {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 9900; max-width: 92vw;
+    background: #12242f; color: #fff; border-radius: 4px; padding: 10px 16px; font-size: 13.5px;
+    box-shadow: 0 6px 20px rgba(18,36,47,.25);
+}
+.pf-page .pf-aviso[hidden] { display: none; }
+
+/* "Acesso restrito" (desenho L496): a tela cobre tudo abaixo da barra superior, com o cartão no centro. */
+.pf-page .pf-restrito { position: fixed; inset: 58px 0 0 0; z-index: 9800; background: #f3f6f8; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.pf-page .pf-restrito-cartao { max-width: 440px; text-align: center; background: #fff; border: 1px solid #d3dde4; border-radius: 4px; padding: 30px 26px; }
+.pf-page .pf-restrito-icone { width: 58px; height: 58px; margin: 0 auto 12px; border-radius: 50%; background: #e5f1f7; color: #0a6fa0; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+.pf-page .pf-restrito-titulo { font-size: 18px; font-weight: bold; margin-bottom: 6px; color: #12242f; }
+.pf-page .pf-restrito-texto { font-size: 14px; color: #4a6373; line-height: 1.55; }
+.pf-page .pf-restrito-acoes { display: flex; gap: 8px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+.pf-page .pf-restrito-acoes > form { margin: 0; }
+.pf-page .pf-restrito-voltar { height: 36px; padding: 0 14px; border: 1px solid #d3dde4; border-radius: 3px; display: inline-flex; align-items: center; color: #34505f; text-decoration: none; font-size: 14px; }
+.pf-page .pf-restrito-voltar:hover { color: #34505f; text-decoration: none; background: #f5f8fa; }
+.pf-page .pf-restrito-enviado { height: 36px; display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: #1e7b45; font-weight: bold; }
+.pf-page .pf-restrito-pedir { height: 36px; padding: 0 16px; border: none; border-radius: 3px; background: #0a6fa0; color: #fff; font: inherit; font-size: 14px; font-weight: bold; cursor: pointer; }
+.pf-page .pf-restrito-pedir:hover { background: #0b5f86; }
+[data-bs-theme="dark"] .pf-page .pf-restrito { background: var(--bs-body-bg); }
+[data-bs-theme="dark"] .pf-page .pf-restrito-cartao { background: var(--bs-tertiary-bg); border-color: var(--bs-border-color); }
+[data-bs-theme="dark"] .pf-page .pf-restrito-titulo { color: var(--bs-body-color); }
+[data-bs-theme="dark"] .pf-page .pf-restrito-texto, [data-bs-theme="dark"] .pf-page .pf-restrito-voltar { color: var(--bs-secondary-color); }

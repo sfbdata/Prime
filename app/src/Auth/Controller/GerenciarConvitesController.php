@@ -17,6 +17,7 @@ use App\Repository\InvitationRepository;
 use App\Repository\TenantRoleRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Tenant\Service\HierarquiaDePerfis;
 use App\Tenant\Service\RegraDosPrimarios;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -41,6 +42,7 @@ final class GerenciarConvitesController extends AbstractController
         private readonly ConviteMailer $mailer,
         private readonly RateLimiterFactory $conviteCriarLimiter,
         private readonly RegraDosPrimarios $regraDosPrimarios,
+        private readonly HierarquiaDePerfis $hierarquia,
     ) {}
 
     #[Route('', name: 'auth_gerenciar_convites', methods: ['GET'])]
@@ -55,6 +57,9 @@ final class GerenciarConvitesController extends AbstractController
         if (!$this->regraDosPrimarios->podeGerirPrimarios($this->getUser(), $tenant)) {
             $roles = array_values(array_filter($roles, static fn ($r): bool => !$r->isSystem()));
         }
+        // C5: quem não é primário nem Master só vê os perfis que cabem nas permissões dele (o UseCase revalida).
+        $ator  = $this->getUser();
+        $roles = array_values(array_filter($roles, fn ($r): bool => $ator instanceof User && $this->hierarquia->podeAtribuirPerfil($ator, $tenant, $r)));
         $convites = array_map(
             ConviteAdminOutput::fromInvitation(...),
             $this->invitationRepository->listarPorTenant($tenant)
