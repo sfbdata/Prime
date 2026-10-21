@@ -1,7 +1,12 @@
 # Idioma do sistema (bj-idioma)
 
-Sessão 0d, 21/10/2026. Proposta para aprovação do coordenador (bluejus-84) e do dono. **Nada implementado.**
-Itens marcados **DONO** são decisões dele; o resto segue a convenção do sistema.
+Sessão 0d, 21/10/2026. Itens marcados **DONO** são decisões dele; o resto segue a convenção do sistema.
+
+## Estado
+
+- Proposta aprovada pelo coordenador (21/10): catálogo fixo e revisado, sem IA na tela.
+- Entregas 1 e 2 no PR desta branch (migration `Version20261020148600`), com só o português liberado.
+- Entrega 3 em diante espera as respostas do dono (§6).
 
 ## 1. O que o desenho mostra
 
@@ -73,7 +78,7 @@ seletor próprio nem escolha no painel do Master (confirmado pela b5, 21/10).
 | PR | Conteúdo | Migration |
 |---|---|---|
 | 1 | Idioma no perfil, listener de locale, `enabled_locales`, modal grava e recarrega, `lang`/`dir` no base. O seletor continua só com o Português ativo. | sim (1 coluna; número pedido ao coordenador na hora) |
-| 2 | Formatos de data e valor por idioma (Twig e JS), trocando os formatos fixos; em português a tela não muda. | não |
+| 2 | Formatos de data e valor por idioma: filtros `|data`, `|data_hora`, `|hora` e `|numero` (Twig) e `BJFormato` (JS), iguais aos de hoje em português. A troca dos formatos fixos (272 no Twig, 41 no JS) vai em cada PR de área (4..N), junto com a extração dos textos, para não mexer em ~150 templates de uma vez. | não |
 | 3 | Extração da moldura: base, barra lateral, menu do usuário, Meu Perfil, avisos comuns e o modal de idioma. | não |
 | 4..N | Extração por área, uma por PR (Expediente, Pasta por aba, Agenda, Clientes, Cobrança, Painel do Master...), com o PHP (flash e exceção) da área junto. | não |
 | E | E-mails no idioma do destinatário. | não |
