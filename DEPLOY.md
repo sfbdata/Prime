@@ -307,6 +307,10 @@ O `--dry-run` lista quantas metas cada escritório teria numeradas e não grava 
 escritório, em ordem de criação, a partir do próximo número livre; rodar de novo não muda nada. Para um
 escritório só: `--escritorio=ID`. Não vai para o cron.
 
+Rode logo depois da publicação: as metas criadas entre a publicação e o comando já nascem com 1, 2, 3... e as
+antigas ficam com os números seguintes (não há colisão, só a ordem fica trocada). O comando grava por SQL direto,
+então a numeração das antigas não aparece na trilha de auditoria (só o número muda; nada mais na meta).
+
 ### Personalizar configuração
 
 Variáveis de ambiente que sobrescrevem os padrões do script:
