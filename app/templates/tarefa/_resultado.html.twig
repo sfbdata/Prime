@@ -75,14 +75,15 @@
     {% if not semTrilho %}
         <div class="mm-trilho">
 
-            {# ── Andamento ── #}
+            {# ── Andamento ── (dc L112-118: sempre "Seu andamento", sobre TODAS as metas da pessoa; não muda
+               com a aba nem com os filtros da tela) #}
             <div class="mm-cartao mm-trilho-bloco mm-trilho-andamento">
                 <div class="d-flex align-items-baseline gap-2 mb-3">
-                    <h2 class="mm-cartao-titulo">{{ aba.value == 'criei' ? 'O que você delegou' : 'Seu andamento' }}</h2>
+                    <h2 class="mm-cartao-titulo">Seu andamento</h2>
                     <span class="mm-grupo-nota">últimos 30 dias</span>
                 </div>
                 <div class="d-flex align-items-baseline gap-2">
-                    <span class="mm-progresso-numero">{{ painel.totalConcluidas }} de {{ painel.totalExibido }}</span>
+                    <span class="mm-progresso-numero">{{ painel.totalConcluidas }} de {{ painel.totalDoAndamento }}</span>
                     <span class="mm-kpi-sub">concluídas</span>
                 </div>
                 <div class="mm-progresso-barra" role="progressbar"
@@ -100,9 +101,10 @@
                 </div>
             </div>
 
-            {# ── Precisa de atenção ── #}
+            {# ── Precisa de atenção ── (dc L119-127: as atrasadas de todas as metas da pessoa, no máximo 4,
+               sem "Ver todas") #}
             {% set atencao = painel.metasQuePrecisamDeAtencao %}
-            {# Sempre visível (dc L119): sem atrasadas na lista, o cartão diz que nada pede atenção. #}
+            {# Sempre visível (dc L119): sem atrasadas, o cartão diz que nada pede atenção. #}
             <div class="mm-cartao mm-trilho-atencao">
                 <div class="mm-cartao-cabeca">
                     <h2 class="mm-cartao-titulo">Precisa de atenção</h2>
@@ -118,24 +120,14 @@
                             <span class="mm-atencao-titulo">{{ meta.titulo }} · Pasta {{ meta.pasta.nup }}</span>
                             <span class="mm-atencao-meta">
                                 prazo {{ meta.prazo ? meta.prazo|date('d/m/Y') : 'não informado' }} · {{ info.texto }}
-                                {%- if aba.value == 'criei' and meta.responsaveis|length > 0 %} · {{ (meta.responsaveis|first).fullName }}
-                                {%- elseif meta.criadoPor %} · de {{ meta.criadoPor.fullName }}{% endif %}
+                                {#- dc `atencao` (P:178): sempre "de <criador>", em qualquer aba; a lista não depende da aba. #}
+                                {%- if meta.criadoPor %} · de {{ meta.criadoPor.fullName }}{% endif %}
                             </span>
                         </span>
                     </a>
                 {% else %}
-                    <div class="mm-atencao-vazio">Nada pedindo atenção nesta lista.</div>
+                    <div class="mm-atencao-vazio">Nada pedindo atenção.</div>
                 {% endfor %}
-                {% if atencao|length > 0 %}
-                    <div class="mm-trilho-rodape">
-                        {% if painel.atrasadasOcultas > 0 %}
-                            <a href="{{ path('tarefa_minhas', {aba: aba.value, prazo: 'vencidas'}) }}" class="fw-semibold">
-                                Ver todas as {{ painel.atrasadasOcultas + 5 }} atrasadas
-                            </a> ·
-                        {% endif %}
-                        Metas atrasadas continuam contando dias até serem concluídas.
-                    </div>
-                {% endif %}
             </div>
 
             {# ── Pessoas ── #}

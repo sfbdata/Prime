@@ -167,9 +167,15 @@
    `restante` é 0 e o modal sugeriria R$ 0,00. #}
 {% set acordaveis = caso.obrigacoesAvulsasEmAberto|filter(o => o.acordoOrigemId is null and not o.substituidaPorAcordo) %}
 
+{# Contador e rodapé do desenho Objeto 1A (L152, L227): a fila desta seção (avulsas em aberto). A lista fica
+   COMPLETA, sem o "Mostrando N de M" nem o "Carregar mais 20" do desenho: desvio pela decisão do dono de 28/08
+   para o Histórico (objeto/show.html.twig, "paginar tiraria do Ctrl+F o que ficasse de fora"), aplicada aqui
+   pela coordenação em 21/10. O dono revê. #}
+{% set nEmAberto = caso.obrigacoesAvulsasEmAberto|length %}
 <div class="jp-secao" id="secao-divida">
     <div class="jp-secao-head">
         <h2 class="jp-secao-titulo"><i class="bi bi-receipt"></i>Dívida em aberto</h2>
+        {% if nEmAberto > 0 %}<span class="jp-secao-contador">{{ nEmAberto }} {{ nEmAberto == 1 ? 'obrigação' : 'obrigações' }}</span>{% endif %}
         <span class="jp-ordem" data-bs-toggle="tooltip"
               title="É nesta ordem que o pagamento abate a dívida: sempre a mais antiga primeiro.">
             <i class="bi bi-sort-down-alt"></i>Da mais antiga para a mais nova
@@ -429,6 +435,9 @@
                     <p class="jp-vazio-dica">As parcelas do acordo são a dívida agora. As obrigações que ele trocou saíram do total em aberto.</p>
                 </div>
             {% endfor %}
+            {% if nEmAberto > 0 %}
+                <div class="jp-lista-rodape">{{ nEmAberto }} {{ nEmAberto == 1 ? 'obrigação em aberto' : 'obrigações em aberto' }}</div>
+            {% endif %}
         </div>
     {% endif %}
 

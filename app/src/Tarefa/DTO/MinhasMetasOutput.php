@@ -5,18 +5,20 @@ declare(strict_types=1);
 namespace App\Tarefa\DTO;
 
 use App\Entity\Tarefa\Tarefa;
-
 use App\Tarefa\Enum\AbaMetas;
-use App\Tarefa\Service\AgrupadorDeMetas;
 
 /**
  * Tudo o que a tela "Minhas Metas" precisa para desenhar uma aba: os blocos da lista, o
- * número de cada aba e os quatro KPIs do topo.
+ * número de cada aba, os quatro KPIs do topo e o trilho. "Seu andamento" e "Precisa de atenção"
+ * olham todas as metas da pessoa (`$andamento`, `$atencao`), não a aba nem os filtros.
  */
 final class MinhasMetasOutput
 {
     /** Teto de linhas dos blocos do trilho — além disso a coluna vira uma segunda lista. */
     private const TETO_TRILHO = 5;
+
+    /** Teto do "Precisa de atenção" (desenho 04, dc `atencao`: `.slice(0, 4)`), sem "Ver todas". */
+    public const TETO_ATENCAO = 4;
 
     /**
      * @param GrupoDeMetasOutput[]                                                      $grupos
@@ -27,6 +29,7 @@ final class MinhasMetasOutput
      * @param int[]                                                                     $acompanhadas
      * @param array<int, int>                                                           $mensagensPorMeta
      * @param array<int, int>                                                           $numerosNaPasta
+     * @param Tarefa[]                                                                  $atencao
      */
     public function __construct(
         public readonly AbaMetas $aba,
@@ -39,6 +42,8 @@ final class MinhasMetasOutput
         public readonly array $acompanhadas = [],
         public readonly array $mensagensPorMeta = [],
         public readonly array $numerosNaPasta = [],
+        public readonly AndamentoDasMetasOutput $andamento = new AndamentoDasMetasOutput(),
+        public readonly array $atencao = [],
     ) {
     }
 
@@ -98,91 +103,54 @@ final class MinhasMetasOutput
     }
 
     /**
-     * As metas do bloco "Precisa de atenção": as atrasadas da aba, com teto.
-     *
-     * Atrasadas pela REGRA (`AgrupadorDeMetas::classificar`), não pelo grupo, como no desenho
-     * (`atencao: M.filter(m => classe(m) === 'atr')`): a aba Criei agrupa por etapa e não tem grupo
-     * "Atrasadas", mas as delegadas atrasadas existem e precisam aparecer aqui.
+     * As metas do bloco "Precisa de atenção" (desenho 04, dc `atencao`): as atrasadas de TODAS as metas
+     * da pessoa, da que venceu primeiro, no máximo `TETO_ATENCAO`. Não dependem da aba nem dos filtros:
+     * vêm prontas de `TarefaRepository::findAtrasadasParaAtencao`. O desenho não tem "Ver todas".
      *
      * @return Tarefa[]
      */
     public function metasQuePrecisamDeAtencao(): array
     {
-        return array_slice($this->atrasadasPelaRegra(), 0, self::TETO_TRILHO);
-    }
-
-    public function atrasadasOcultas(): int
-    {
-        return max(0, count($this->atrasadasPelaRegra()) - self::TETO_TRILHO);
+        return array_slice($this->atencao, 0, self::TETO_ATENCAO);
     }
 
     /**
-     * Todas as metas da aba que a regra classifica como atrasadas, da que venceu primeiro para a
-     * última (a mesma ordem do grupo "Atrasadas"; empate fica na ordem em que vieram).
-     *
-     * @return Tarefa[]
-     */
-    private function atrasadasPelaRegra(): array
-    {
-        $atrasadas = [];
-        foreach ($this->grupos as $grupo) {
-            foreach ($grupo->metas as $meta) {
-                if (AgrupadorDeMetas::classificar($meta) === 'atrasadas') {
-                    $atrasadas[] = $meta;
-                }
-            }
-        }
-        usort($atrasadas, static fn (Tarefa $a, Tarefa $b): int => $a->getPrazo() <=> $b->getPrazo());
-
-        return $atrasadas;
-    }
-
-    /**
-     * Legenda de "Seu andamento". Sai das metas que a aba exibe, pela mesma regra que escolhe o grupo
-     * (`AgrupadorDeMetas::classificar`), e não de contagens independentes.
+     * Legenda de "Seu andamento" (desenho 04, dc `andLeg`), sobre TODAS as metas da pessoa, como o
+     * "X de Y" acima dela: não muda com a aba nem com os filtros da tela.
      *
      * @return array<int, array{rotulo: string, total: int, tom: string}>
      */
     public function fatiasDoAndamento(): array
     {
-        // Legenda do desenho de 13/10 (dc `andLeg`): sempre os mesmos itens, na mesma ordem, inclusive
-        // zerados — o leitor procura o número no mesmo lugar toda vez. "em aberto" não está no desenho:
-        // é do BlueJus e foi mantido por decisão do dono (14/10). É o que sobra do "X de Y" depois de
-        // tirar concluídas, atrasadas e em revisão — cada meta conta numa fatia só, e as quatro somam Y.
-        // Atrasadas pela regra, não pelo grupo: a aba Criei agrupa por etapa e não tem grupo
-        // "Atrasadas", mas as delegadas atrasadas existem e o desenho as conta em qualquer aba.
-        $concluidas = $this->totalConcluidas();
-        $atrasadas  = $this->totalAtrasadas();
-        $emRevisao  = $this->totalEmRevisao();
+        // Sempre os mesmos itens, na mesma ordem, inclusive zerados: o leitor procura o número no mesmo
+        // lugar toda vez. "em aberto" não está no desenho: é do BlueJus e foi mantido por decisão do dono
+        // (14/10). É o que sobra do "X de Y" depois de tirar concluídas, atrasadas e em revisão. Cada meta
+        // conta numa fatia só, e as quatro somam Y.
+        $a = $this->andamento;
 
         return [
-            ['rotulo' => 'concluída(s)', 'total' => $concluidas, 'tom' => 'ok'],
-            ['rotulo' => 'em aberto', 'total' => max(0, $this->totalExibido() - $concluidas - $atrasadas - $emRevisao), 'tom' => 'warn'],
-            ['rotulo' => 'atrasada(s)', 'total' => $atrasadas, 'tom' => 'danger'],
-            ['rotulo' => 'em revisão', 'total' => $emRevisao, 'tom' => 'accent'],
+            ['rotulo' => 'concluída(s)', 'total' => $a->concluidas, 'tom' => 'ok'],
+            ['rotulo' => 'em aberto', 'total' => $a->emAberto(), 'tom' => 'warn'],
+            ['rotulo' => 'atrasada(s)', 'total' => $a->atrasadas, 'tom' => 'danger'],
+            ['rotulo' => 'em revisão', 'total' => $a->emRevisao, 'tom' => 'accent'],
         ];
     }
 
+    /** O "X" do "X de Y concluídas" do trilho, sobre todas as metas da pessoa. */
     public function totalConcluidas(): int
     {
-        return $this->grupo('concluidas')?->total() ?? 0;
+        return $this->andamento->concluidas;
+    }
+
+    /** O "Y" do "X de Y concluídas" do trilho: todas as metas da pessoa, concluídas dos últimos 30 dias inclusive. */
+    public function totalDoAndamento(): int
+    {
+        return $this->andamento->total;
     }
 
     public function percentualConcluido(): int
     {
-        $total = $this->totalExibido();
-
-        return $total === 0 ? 0 : (int) round($this->totalConcluidas() / $total * 100);
-    }
-
-    private function totalAtrasadas(): int
-    {
-        return count($this->atrasadasPelaRegra());
-    }
-
-    private function totalEmRevisao(): int
-    {
-        return ($this->grupo('em_revisao')?->total() ?? 0) + ($this->grupo('aguardando')?->total() ?? 0);
+        return $this->andamento->percentualConcluido();
     }
 
     /** Quantas metas a aba está mostrando agora — soma dos blocos, concluídas incluídas. */
