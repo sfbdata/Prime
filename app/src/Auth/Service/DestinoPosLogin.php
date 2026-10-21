@@ -35,11 +35,15 @@ final class DestinoPosLogin
      * Na dúvida, a rota fica de fora e o login vai à home (o Expediente). Não entram: sondagem e endpoint de
      * dados (JSON), pedaço de tela carregado por `fetch` (os templates `_*.html.twig`), exportação e download (pdf,
      * xlsx, csv, zip, anexo, visualizar documento), iframe, telas de entrada (login, senha, cadastro, convite,
-     * termos, seleção de escritório) e as rotas públicas. Página nova entra aqui com o nome da rota.
+     * termos) e as rotas públicas. Página nova entra aqui com o nome da rota.
+     *
+     * A seleção de escritório ENTRA: é o destino que o próprio `UserAuthenticator` calcula para quem tem vários
+     * escritórios. Fora da lista, o véu levava ao Expediente sem escritório na sessão (403 em produção na v2.9.0).
      */
     private const PAGINAS = [
         // Início
         'homepage',
+        'tenant_selecionar',
         'dashboard_index',
         // Expediente e pastas
         'expediente_index',

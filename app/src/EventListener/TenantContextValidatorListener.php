@@ -5,12 +5,15 @@ namespace App\EventListener;
 
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Repository\UserTenantRepository;
+use App\Security\PedidoDeNavegacao;
 use App\Service\Tenant\TenantContext;
 use App\Tenant\Enum\SituacaoNaEquipe;
 use App\Tenant\Service\AvisoDeContaSuspensa;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\RouterInterface;
@@ -74,12 +77,16 @@ final class TenantContextValidatorListener
      */
     private const PREFIXO_SEM_ESCRITORIO = 'trabalho_externo_';
 
+    /** Rotas do painel do Master: funcionam sem escritório na sessão. */
+    private const PREFIXOS_DO_PAINEL_DO_MASTER = ['admin_', 'master_', 'inteligencia_admin_', 'auth_suporte_'];
+
     private const ACESSO_INDISPONIVEL = 'Seu acesso a este escritório não está mais disponível. Selecione outro escritório.';
 
     public function __construct(
         private readonly Security $security,
         private readonly TenantContext $tenantContext,
         private readonly RouterInterface $router,
+        private readonly UserTenantRepository $userTenantRepository,
     ) {}
 
     public function __invoke(RequestEvent $event): void
@@ -101,7 +108,7 @@ final class TenantContextValidatorListener
         }
 
         if (!$this->tenantContext->hasCurrentTenant()) {
-            if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+            if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true) && !$this->masterPrecisaDaSelecao($event->getRequest(), $route, $user)) {
                 return;
             }
             // Só no ramo SEM escritório: com escritório na sessão, o vínculo continua conferido
@@ -174,6 +181,39 @@ final class TenantContextValidatorListener
         }
 
         return $userTenant->getSituacao()->mensagemDeAcesso((string) $userTenant->getTenant()->getName());
+    }
+
+    /**
+     * O Master sem escritório na sessão usa o painel dele livremente. Fora do painel, se tem vínculo ativo, escolhe
+     * o escritório antes: sem isso, quem entrava pelo "lembrar-me" ou pelo véu com vários escritórios caía no
+     * Expediente sem escritório e levava 403 (v2.9.0). Sem vínculo nenhum, continua passando. Só a navegação de
+     * página é desviada: o sino, o avatar e os outros pedidos de dados das telas do painel seguem como antes (sem
+     * escolher escritório por baixo e sem uma consulta a cada sondagem).
+     */
+    private function masterPrecisaDaSelecao(Request $request, string $route, User $user): bool
+    {
+        if (!self::eAberturaDePagina($request)) {
+            return false;
+        }
+
+        foreach (self::PREFIXOS_DO_PAINEL_DO_MASTER as $prefixo) {
+            if (str_starts_with($route, $prefixo)) {
+                return false;
+            }
+        }
+
+        return $this->userTenantRepository->findActiveByUser($user) !== [];
+    }
+
+    /**
+     * Só a abertura de página pelo navegador: GET que pede HTML (`text/html` no Accept), sem XHR e sem cara de pedido
+     * de dados. POST, PUT e DELETE, sondagem, XHR e pedido sem Accept (os testes do KernelBrowser) seguem como antes.
+     */
+    private static function eAberturaDePagina(Request $request): bool
+    {
+        return $request->isMethod('GET')
+            && PedidoDeNavegacao::eNavegacao($request)
+            && str_contains(strtolower((string) $request->headers->get('Accept', '')), 'text/html');
     }
 
     private function deveIgnorar(string $route): bool
