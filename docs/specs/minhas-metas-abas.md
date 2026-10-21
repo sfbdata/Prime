@@ -194,8 +194,10 @@ pasta. Uma meta normal numa pasta urgente não entra em "Urgente".
   toca meta ainda `normal`. Roda uma vez depois da publicação (`DEPLOY.md`).
 - O valor antigo `prioridade` na URL é ignorado; o join da pasta fica só para a busca.
 - O cartão não mostra mais a prioridade da pasta (o desenho 04 não mostra prioridade na linha).
-- **Pendente com o dono:** onde a pessoa escolhe a prioridade da meta. O desenho 04 não tem esse
-  ponto e o 02 a faz nascer da análise da I.A., que está travada; até lá a meta só herda da pasta.
+- **Decisão do dono (21/10):** prioridade herdada da pasta, sem campo de escolha, até a I.A. definir.
+  O desenho 04 não tem onde escolher e o 02 faz a prioridade nascer da análise da I.A., que está
+  travada. A herança só vale enquanto a meta está `normal`: quem um dia escolher antes de gravar não é
+  sobrescrito.
 
 ## Testes (o que precisa ficar provado)
 
