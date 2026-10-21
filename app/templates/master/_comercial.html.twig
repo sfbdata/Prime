@@ -57,6 +57,48 @@
                         <button type="button" class="mc-cp-publico" data-mc-cp-publico="{{ p[0] }}" aria-pressed="{{ loop.first ? 'true' : 'false' }}"><i class="bi {{ p[2] }}" aria-hidden="true"></i><span class="mc-cp-publico-texto"><span class="mc-cp-publico-rot">{{ p[1] }}</span><span class="mc-cp-publico-desc">{{ p[3] }}</span></span><b class="mc-cp-publico-n" data-mc-cp-n></b></button>
                     {% endfor %}
                 </div>
+                {# Filtrar destinatários (desenho 05 VS 21.10.26, L260-264; spec §9): fechado, mostra o selo com quantos
+                   campos estão preenchidos e "N de M com filtro" ou "Todos (M)"; aberto, a busca, os atalhos (L664), os
+                   selects e a linha "N de M atendem ao filtro". Quem conta é o servidor (F2). #}
+                <div class="mc-cf" data-mc-cf>
+                    <button type="button" class="mc-cf-cabeca" data-mc-cf-abrir aria-expanded="false" aria-controls="mc-cf-painel">
+                        <i class="bi bi-funnel" aria-hidden="true"></i><b class="mc-cf-titulo">FILTRAR DESTINATÁRIOS</b>
+                        <span class="mc-cf-selo" data-mc-cf-selo hidden></span>
+                        <span class="mc-cf-espaco"></span>
+                        <span class="mc-cf-curto" data-mc-cf-curto></span>
+                        <i class="bi bi-chevron-down mc-cf-seta" data-mc-cf-seta aria-hidden="true"></i>
+                    </button>
+                    <div class="mc-cf-painel" id="mc-cf-painel" data-mc-cf-painel hidden>
+                        <label class="mc-cf-busca"><i class="bi bi-envelope" aria-hidden="true"></i><input type="text" data-mc-cf-campo="q" maxlength="500" placeholder="E-mail ou nome específico (separe vários por vírgula)" aria-label="E-mail ou nome específico"></label>
+                        <div class="mc-cf-atalhos" data-mc-cf-atalhos>
+                            {% for a in [
+                                ['Todos', {}], ['Só mulheres', {gen: 'F'}], ['Só homens', {gen: 'M'}], ['Advogados', {cargo: 'adv'}],
+                                ['Estagiários', {cargo: 'est'}], ['Primários', {papel: 'prim'}], ['Aniversariantes do mês', {aniv: 'mes'}],
+                            ] %}
+                                <button type="button" class="mc-cf-atalho" data-mc-cf-atalho="{{ a[1]|json_encode|e('html_attr') }}" aria-pressed="false">{{ a[0] }}</button>
+                            {% endfor %}
+                        </div>
+                        <div class="mc-cf-selects">
+                            {% set selects = [
+                                ['gen', 'Gênero: todos', [['F', 'Feminino'], ['M', 'Masculino']]],
+                                ['id', 'Idade: todas', [['a', '18 a 24'], ['b', '25 a 34'], ['c', '35 a 44'], ['d', '45 a 54'], ['e', '55 ou mais']]],
+                                ['uf', 'Estado: todos', comercial_ufs_do_filtro()|map(u => [u, u])],
+                                ['papel', 'Perfil: todos', [['prim', 'Usuário primário'], ['sec', 'Usuário secundário']]],
+                                ['cargo', 'Cargo: todos', [['adv', 'Advogado(a)'], ['est', 'Estagiário(a)'], ['ctl', 'Controladoria'], ['fin', 'Financeiro'], ['adm', 'Administrativo / assistente'], ['out', 'Outros']]],
+                                ['oab', 'OAB: todas', [['conf', 'OAB confirmada'], ['pend', 'OAB pendente'], ['sem', 'Sem OAB']]],
+                                ['plano', 'Plano: todos', comercial_planos_do_filtro()|map(p => [p.codigo, p.nome])],
+                                ['aniv', 'Aniversário: todos', [['mes', 'Aniversariantes deste mês'], ['prox', 'Aniversariantes do próximo mês']]],
+                            ] %}
+                            {% for s in selects %}
+                                <select class="mc-cf-select" data-mc-cf-campo="{{ s[0] }}" aria-label="{{ s[1]|split(':')|first }}">
+                                    <option value="">{{ s[1] }}</option>
+                                    {% for o in s[2] %}<option value="{{ o[0] }}">{{ o[1] }}</option>{% endfor %}
+                                </select>
+                            {% endfor %}
+                        </div>
+                        <div class="mc-cf-resultado"><i class="bi bi-people" aria-hidden="true"></i><span data-mc-cf-resultado></span><button type="button" class="mc-cf-limpar" data-mc-cf-limpar hidden>Limpar filtro</button></div>
+                    </div>
+                </div>
                 <label class="mc-cp-csv" data-mc-cp-csv hidden><i class="bi bi-upload" aria-hidden="true"></i><span class="mc-cp-csv-txt" data-mc-cp-csv-txt>Selecionar arquivo .csv</span><input type="file" accept=".csv,.txt" class="mc-cp-arquivo" data-mc-cp-csv-arquivo></label>
                 <textarea class="mc-cp-individual" rows="2" placeholder="E-mails separados por vírgula" aria-label="E-mails separados por vírgula" data-mc-cp-individual hidden></textarea>
                 <div class="mc-cp-passo mc-cp-passo-seguinte">3 · MENSAGEM</div>
