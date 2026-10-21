@@ -1,0 +1,32 @@
+/* Seção "Indicações do BlueJus" do /master (desenho 05 VS 21.10.26, L234-242). Valores do dc em tokens, com par escuro. */
+.mi {
+    --mi-fundo: #fff; --mi-borda: #dde5eb; --mi-cabeca: #f7f9fb; --mi-div: #e6edf2; --mi-div-limites: #eef2f5;
+    --mi-azul: #0a6fa0; --mi-sub: #5b7383; --mi-rotulo: #4a6373; --mi-ic: #7a8e9b; --mi-campo-borda: #d3dde4;
+    --mi-botao-tx: #243845; --mi-chave-off: #c9d3da; --mi-chave-on: #a3232b; --mi-bola: #fff; --mi-msg: #fdecee; --mi-msg-tx: #a3232b;
+}
+[data-bs-theme="dark"] .mi {
+    --mi-fundo: var(--bs-body-bg); --mi-borda: var(--bs-border-color); --mi-cabeca: var(--bs-tertiary-bg);
+    --mi-div: var(--bs-border-color); --mi-div-limites: var(--bs-border-color); --mi-azul: #4da3ea;
+    --mi-sub: var(--bs-secondary-color); --mi-rotulo: var(--bs-secondary-color); --mi-ic: var(--bs-secondary-color);
+    --mi-campo-borda: var(--bs-border-color); --mi-botao-tx: var(--bs-body-color); --mi-chave-off: #4a5a66;
+    --mi-chave-on: #d0525b; --mi-msg: rgba(208, 82, 91, .18); --mi-msg-tx: #f0a2a8;
+}
+.mi-caixa { background: var(--mi-fundo); border: 1px solid var(--mi-borda); border-radius: 4px; overflow: hidden; margin-bottom: 14px; }
+.mi-cabeca { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 18px; background: var(--mi-cabeca); border-bottom: 1px solid var(--mi-div); }
+.mi-cabeca-ic { color: var(--mi-azul); font-size: 17px; }
+.mi-cabeca-titulo { font-size: 15px; flex: 1; }
+.mi-cabeca-sub { font-size: 12px; color: var(--mi-sub); }
+.mi-chave { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid var(--mi-campo-borda); border-radius: 3px; background: var(--mi-fundo); font: inherit; font-size: 12.5px; color: var(--mi-botao-tx); cursor: pointer; }
+.mi-chave:disabled { cursor: progress; opacity: .75; }
+.mi-chave-trilho { width: 32px; height: 18px; border-radius: 9px; background: var(--mi-chave-off); position: relative; }
+.mi-chave-bola { position: absolute; top: 2px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--mi-bola); transition: left .2s; }
+.mi-chave[aria-checked="true"] .mi-chave-trilho { background: var(--mi-chave-on); }
+.mi-chave[aria-checked="true"] .mi-chave-bola { left: 19px; }
+.mi-limites { padding: 12px 18px; display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; border-bottom: 1px solid var(--mi-div-limites); }
+.mi-campo { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; font-weight: bold; color: var(--mi-rotulo); margin: 0; }
+.mi-campo-ic { color: var(--mi-ic); font-weight: normal; cursor: help; }
+.mi-entrada { width: 120px; height: 32px; border: 1px solid var(--mi-campo-borda); border-radius: 3px; padding: 0 8px; font: inherit; font-size: 13.5px; font-weight: normal; background: var(--mi-fundo); color: inherit; }
+.mi-entrada-larga { width: 150px; }
+.mi-regras { flex: 1; min-width: 200px; font-size: 12px; color: var(--mi-sub); cursor: help; display: flex; align-items: center; gap: 6px; }
+.mi-regras > .bi { color: var(--mi-azul); }
+.mi-msg { margin: 10px 18px; padding: 8px 12px; border-radius: 4px; background: var(--mi-msg); color: var(--mi-msg-tx); font-size: 12.5px; }

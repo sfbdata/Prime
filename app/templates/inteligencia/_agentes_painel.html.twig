@@ -13,9 +13,11 @@
      (ícone, nome e descrição, `MOD`, dc L5906-5913) e o "Gerar <nome>" do
      relatório escolhido, com a lista dele.
 
-   As abas Documentos e Perguntar do desenho NÃO aparecem: ainda não funcionam
-   (F3/F4), e aba que não funciona é mentira na tela. O "Relatório do cliente"
-   (todas as pastas do cliente) espera a D12.
+   A aba Perguntar (F3) mora no `_agentes_drawer.html.twig`, fora deste painel
+   (que o JS troca inteiro), com a conversa em `_conversa.html.twig`. A aba
+   Documentos do desenho NÃO aparece: ainda não funciona (F4), e aba que não
+   funciona é mentira na tela. O "Relatório do cliente" (todas as pastas do
+   cliente) espera a D12.
 
    Renderizado em dois lugares: dentro do drawer, no HTML da pasta, com
    `painel = null` (comandos sem análises, listas "carregando"); e sozinho por
