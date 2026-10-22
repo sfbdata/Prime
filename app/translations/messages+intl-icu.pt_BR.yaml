@@ -1287,7 +1287,7 @@ expediente:
             arquivar: Arquivar
             responsavel_pela_decisao: 'Responsável pela decisão: ____________________'
 
-# ---- Minhas Metas (tarefa/minhas, _metas_lista, _meta_cartao, _resultado, equipe, _numero_global)
+# ---- Minhas Metas (tarefa/minhas, _metas_lista, _meta_cartao, _resultado, equipe, _numero_global, show)
 metas:
     titulo: Minhas Metas
     subtitulo: O que está com você, o que você delegou e o que você acompanha.
@@ -1419,6 +1419,59 @@ metas:
         paginacao: Paginação das metas
         pagina_anterior: Página anterior
         proxima_pagina: Próxima página
+    detalhe:
+        titulo: 'Meta #{id}'
+        migalha: Meta
+        criada_em: Criada em
+        autor: Autor
+        responsaveis: Responsáveis
+        editar_responsaveis: Editar responsáveis
+        prazo: Prazo
+        alterar_prazo: Alterar prazo
+        sem_prazo: Sem prazo
+        pasta: 'Pasta:'
+        descricao: Descrição
+        concluida_em: 'Concluída em {data}'
+        historico: Histórico
+        observacao_placeholder: Escreva uma observação… (Ctrl+Enter para enviar)
+        enviar_para_revisao: Enviar para Revisão
+        so_comentar: Só comentar
+        devolver: Devolver
+        sem_eventos: Nenhum evento registrado ainda.
+        editar_mensagem: Editar mensagem
+        editado: '(editado)'
+        visualizar_arquivo: Visualizar arquivo
+        inicio_do_historico: Início do histórico
+        atualizado: 'Atualizado {data}'
+        acompanhando: Acompanhando
+        acompanhar: Acompanhar
+        so_voce_ve: Só você vê esta marcação.
+        confirmar_conclusao: Confirma a conclusão desta meta?
+        concluir_meta: Concluir Meta
+        confirmar_exclusao: Excluir esta meta? Esta ação não pode ser desfeita.
+        excluir_meta: Excluir Meta
+        voltar_a_pasta: Voltar à Pasta
+        responsaveis_titulo: Responsáveis pela Meta
+        responsaveis_sub: Pesquise e selecione os membros da equipe
+        fechar: Fechar
+        buscar_membro: Buscar membro…
+        sem_membro: Nenhum membro encontrado.
+        responsaveis_selecionados: responsável(is) selecionado(s)
+        cancelar: Cancelar
+        salvar_responsaveis: Salvar Responsáveis
+        prazo_titulo: Prazo da Meta
+        prazo_sub: Deixe em branco para remover o prazo
+        salvar_prazo: Salvar Prazo
+        baixar: Baixar
+        js:
+            salvar: Salvar
+            cancelar: Cancelar
+            mensagem_vazia: A mensagem não pode ser vazia.
+            erro_editar: Erro ao editar.
+            editado: '(editado)'
+            erro_rede: Erro de rede. Tente novamente.
+            acompanhando: Acompanhando
+            acompanhar: Acompanhar
     js:
         parar_de_acompanhar: Parar de acompanhar
         acompanhar_esta_meta: Acompanhar esta meta
@@ -5334,6 +5387,88 @@ cobranca_pessoa:
         erro_cadastro: não foi possível carregar
         erro_detalhe: Não foi possível carregar o detalhe. Tente de novo.
 
+# ---- Kanban (kanban/index, board, _partials/_card_mini, _card_modal_body, _comentario; JS inline em kanban.js)
+kanban:
+    nome: Kanban
+    comum:
+        participantes: Participantes
+        cancelar: Cancelar
+        criar: Criar
+        salvar: Salvar
+    index:
+        titulo_aba: 'Kanban | BlueJus'
+        criar_mural: Criar Mural
+        vazio_titulo: Nenhum mural ainda
+        vazio_texto: Crie seu primeiro mural para organizar tarefas em colunas e acompanhar o progresso do time.
+        criar_primeiro: Criar primeiro mural
+        cards_um: '{total} card'
+        cards_varios: '{total} cards'
+        novo_mural: Novo mural
+    modal_criar:
+        titulo: Novo Mural
+        cor: Cor do mural
+        participantes_ajuda: Quem terá acesso a este mural.
+    mural:
+        titulo_aba: '{nome} | Kanban'
+        titulo_card_placeholder: Título do card...
+        adicionar: Adicionar
+        adicionar_card: Adicionar card
+    modal_checklist:
+        titulo: Nova Checklist
+        campo_titulo: Título
+        placeholder: 'Ex.: Documentos necessários'
+    modal_editar:
+        titulo: Configurações do Mural
+        zona_de_perigo: Zona de perigo
+        excluir_mural: Excluir mural
+    card:
+        editar_titulo: Editar título
+        descricao: Descrição
+        checklists: Checklists
+        excluir_checklist: Excluir checklist
+        remover_item: Remover item
+        novo_item: Novo item...
+        adicionar_item: Adicionar item
+        comentarios: Comentários
+        sem_comentarios: Sem comentários ainda.
+        comentar: Comentar
+        responsaveis: Responsáveis
+        nenhum_responsavel: Nenhum responsável
+        gerenciar: Gerenciar
+        marcadores: Marcadores
+        sem_marcadores: Sem marcadores criados
+        criar_marcador: Criar marcador
+        nome_marcador: Nome...
+        vencimento: Vencimento
+        vencido: Vencido
+        anexos: Anexos
+        remover_anexo: Remover
+        nenhum_anexo: Nenhum anexo
+        adicionar_arquivo: Adicionar arquivo
+        checklist: Checklist
+        adicionar_checklist: Adicionar checklist
+        criado_em: 'Criado em {data}'
+        excluir_card: Excluir card
+    comentario:
+        editado: '(editado)'
+        editar: Editar
+        excluir: Excluir
+    js:
+        selecionar_participantes: Selecionar participantes...
+        erro_criar_mural: Erro ao criar mural.
+        erro_comunicacao: Erro de comunicação. Tente novamente.
+        erro_carregar_card: Erro ao carregar o card.
+        confirmar_excluir_mural: Tem certeza que deseja excluir este mural? Todos os cards serão removidos permanentemente.
+        erro_salvar: Erro ao salvar.
+        descricao_placeholder: Adicionar descrição...
+        comentario_placeholder: Escrever comentário...
+        confirmar_excluir_comentario: Excluir comentário?
+        confirmar_excluir_checklist: Excluir esta checklist?
+        informe_titulo_checklist: Informe um título para a checklist.
+        erro_criar_checklist: Erro ao criar checklist. Tente novamente.
+        confirmar_excluir_anexo: Excluir anexo?
+        confirmar_excluir_card: Excluir este card permanentemente?
+
 # ---- Auth: convites, link de confirmação, senha e mensagens de suporte (auth/*, auth/criar-senha.js)
 auth:
     comum:
@@ -5585,5 +5720,111 @@ sync:
         desconectar_confirmar: Desconectar o Drive deste escritório? A sincronização para até reconectar.
         desconectar: Desconectar
         conectar: Conectar conta Google
+
+# ---- Pasta: avisos, cadeado e telas simples (pasta/_cadeado_*, _aviso_duplicada_*, ...)
+pasta_avisos:
+    fechar: Fechar
+    cancelar: Cancelar
+    abas_ocultas:
+        fechar_dica: Fechar (Esc)
+        ocultar_todos: Ocultar para toda a equipe
+        ocultar_para: Ocultar para…
+        mostrar_todos: Mostrar para todos
+        titulo: Ocultar aba
+        subtitulo: Quem estiver marcado deixa de ver esta aba
+        toda_equipe: 'Toda a equipe ({total})'
+        equipe: Equipe
+        carregando: Carregando…
+        vazio: Ninguém da equipe para ocultar esta aba.
+        salvar: Salvar
+        selo_oculta: Oculta
+    andamento:
+        avancar: Avançar
+        ignorar: Ignorar
+    duplicada:
+        titulo: Já existe uma pasta parecida
+        encontramos_uma: 'Encontramos {total} pasta já cadastrada'
+        encontramos_varias: 'Encontramos {total} pastas já cadastradas'
+        para: para
+        em: em
+        mostrando: 'Mostrando {total} mais recentes:'
+        confira: 'Confira antes de criar outra:'
+        numero: Número
+        cliente: Cliente
+        acao: Ação
+        criada_em: Criada em
+        nao_informado: Não informado
+        sem_registro: Sem registro
+        abrir: Abrir
+        caso_novo: 'Se este for mesmo um caso novo, pode criar: o sistema atribuirá um número próprio.'
+        criar_mesmo_assim: Criar mesmo assim
+    cadeado_faixa:
+        so_ver: 'Pasta trancada pelo usuário primário: você pode visualizar, mas não alterar.'
+        pedir_editar: Pedir para editar
+        pedido_enviado: Pedido enviado
+    cadeado_menu:
+        secao: Acesso · Primário
+        cadeado: Cadeado
+    cadeado_modal:
+        rotulo: Cadeado da pasta
+        titulo: 'Cadeado da pasta {pasta}'
+        subtitulo: Exclusivo do usuário primário · vale para toda a equipe
+        por_pessoa: Escolher por pessoa
+        por_pessoa_dica: Defina quem oculta, visualiza ou edita
+        todos: Ocultar para todos
+        todos_dica: Só o nome do cliente e o CPF ficam visíveis
+        colaborador: Colaborador
+        ocultar: Ocultar
+        visualizar: Visualizar
+        editar: Editar
+        aplicar_todos: Aplicar a todos
+        marcar_todos: 'Marcar {nivel} para todos'
+        nivel_para: '{nivel} para {nome}'
+        sem_equipe: Não há colaboradores na equipe além do usuário primário.
+        todos_ocultos: 'Ninguém além do usuário primário verá a pasta. A equipe enxerga só o nome do cliente e o CPF; abas, documentos, processo, Push, financeiro e a BlueJus IA ficam bloqueados.'
+        remover: Remover cadeado
+        trancar: Trancar
+    cadeado_pedidos:
+        liberar_editar: Liberar para editar
+        liberar_visualizar: Liberar só visualizar
+        recusar: Recusar
+    trancada:
+        titulo: 'Pasta {pasta}'
+        voltar_dica: Voltar à lista de pastas
+        voltar: Voltar
+        cliente_nao_informado: Cliente não informado
+        titulo_veu: Pasta trancada
+        texto: 'O usuário primário restringiu o acesso a esta pasta. Você vê apenas o nome do cliente e o CPF. Se precisar trabalhar nela, peça a liberação ao usuário primário.'
+        motivo: Motivo (opcional)
+        pedir: Pedir acesso ao primário
+        aguardando: 'Pedido enviado às {hora}. Aguardando o usuário primário.'
+    zip:
+        titulo: Não foi possível baixar o .zip
+        dica: Se a aba não fechar, feche-a pelo navegador e volte à pasta.
+    js:
+        abas_so_primario: Só o usuário primário pode ocultar abas
+        abas_erro_geral: Não foi possível falar com o servidor. Tente de novo.
+        abas_toda_equipe: 'Toda a equipe ({total})'
+        abas_ocultar_aba: 'Ocultar aba {aba}'
+        andamento_erro: Não foi possível mudar a fase
+        andamento_sem_conexao: Falha de conexão. Tente de novo.
+        andamento_reativar_titulo: Reativar pasta
+        andamento_reativar_texto: 'A pasta está finalizada. Reativar abre duas novas etapas: "Em andamento" (reativada) e um novo "Finalizada". O histórico anterior é mantido.'
+        andamento_reativar: Reativar
+        andamento_finalizar_titulo: Finalizar pasta
+        andamento_avancar_titulo: Avançar fase da pasta
+        andamento_voltar_titulo: Voltar fase da pasta
+        andamento_pulam: 'Atenção: {total} fase(s) intermediária(s) ficarão marcadas em vermelho como puladas.'
+        andamento_finalizar_texto: 'Marcar a pasta como finalizada? Depois, se precisar, clique em "Finalizada" para reativar.'
+        andamento_mudar_texto: 'Mudar de "{de}" para "{para}"? A mudança fica registrada no Registro dos expedientes com data e hora.'
+        andamento_finalizar: Finalizar
+        andamento_avancar: Avançar
+        andamento_voltar: Voltar
+        andamento_sugestao: 'Avançar para "{fase}"?'
+        cadeado_resumo_todos: O usuário primário continua vendo e editando tudo. A regra fica registrada no histórico da pasta.
+        cadeado_resumo: '{editar} editam, {visualizar} só visualizam, {oculto} não veem. O usuário primário sempre vê e edita tudo.'
+        pedidos_decidido: Pedido decidido
+        pedidos_falhou: Não foi possível decidir o pedido
+        pedidos_sem_conexao: Falha de conexão ao decidir o pedido
 
 # ---- fim

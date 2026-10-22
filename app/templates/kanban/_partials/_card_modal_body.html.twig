@@ -21,7 +21,7 @@
                         <h5 class="mb-0 fw-semibold" id="cardTituloDisplay" style="font-size:1rem;">{{ card.titulo }}</h5>
                         <button class="btn btn-link btn-sm p-0 text-muted"
                                 onclick="editarTituloCard({{ card.id }}, {{ card.titulo|json_encode }})"
-                                title="Editar título">
+                                title="{{ 'kanban.card.editar_titulo'|trans }}">
                             <i class="bi bi-pencil" style="font-size:.78rem;"></i>
                         </button>
                     </div>
@@ -32,7 +32,7 @@
         {# Descrição #}
         <div class="kb-modal-section">
             <div class="kb-modal-section-title">
-                <i class="bi bi-text-left"></i> Descrição
+                <i class="bi bi-text-left"></i> {{ 'kanban.card.descricao'|trans }}
             </div>
             <div id="quillDescricao" style="min-height:80px;">{% if card.descricao %}{{ card.descricao|texto_kanban }}{% endif %}</div>
         </div>
@@ -41,7 +41,7 @@
         {% if card.checklists %}
         <div class="kb-modal-section" id="checklistsContainer">
             <div class="kb-modal-section-title">
-                <i class="bi bi-check-square"></i> Checklists
+                <i class="bi bi-check-square"></i> {{ 'kanban.card.checklists'|trans }}
                 {% set totalGlobal = 0 %}
                 {% set concluidosGlobal = 0 %}
                 {% for cl in card.checklists %}
@@ -68,7 +68,7 @@
                     <strong class="small">{{ checklist.titulo }}</strong>
                     <button class="btn btn-link btn-sm p-0 text-danger"
                             onclick="excluirChecklist({{ checklist.id }}, {{ card.id }}, '{{ csrf_token('kanban_checklist_excluir_' ~ checklist.id) }}')"
-                            title="Excluir checklist">
+                            title="{{ 'kanban.card.excluir_checklist'|trans }}">
                         <i class="bi bi-trash" style="font-size:.8rem;"></i>
                     </button>
                 </div>
@@ -85,7 +85,7 @@
                                for="checkItem-{{ item.id }}">{{ item.texto }}</label>
                         <button class="btn btn-link btn-sm p-0 text-danger flex-shrink-0"
                                 onclick="excluirItemChecklist({{ item.id }}, {{ card.id }}, '{{ csrf_token('kanban_item_excluir_' ~ item.id) }}')"
-                                title="Remover item">
+                                title="{{ 'kanban.card.remover_item'|trans }}">
                             <i class="bi bi-x" style="font-size:.9rem;"></i>
                         </button>
                     </div>
@@ -96,7 +96,7 @@
                     <div class="input-group input-group-sm">
                         <input type="text" class="form-control form-control-sm"
                                id="inputAddItem-{{ checklist.id }}"
-                               placeholder="Novo item..."
+                               placeholder="{{ 'kanban.card.novo_item'|trans }}"
                                onkeydown="if(event.key==='Enter'){adicionarItemChecklist({{ checklist.id }}, {{ card.id }});} if(event.key==='Escape'){cancelarFormItem({{ checklist.id }});}">
                         <button class="btn btn-primary btn-sm" onclick="adicionarItemChecklist({{ checklist.id }}, {{ card.id }})">
                             <i class="bi bi-plus"></i>
@@ -109,7 +109,7 @@
                 <button class="btn btn-link btn-sm p-0 text-secondary mt-1"
                         onclick="mostrarFormItem({{ checklist.id }})"
                         style="font-size:.8rem;">
-                    <i class="bi bi-plus me-1"></i>Adicionar item
+                    <i class="bi bi-plus me-1"></i>{{ 'kanban.card.adicionar_item'|trans }}
                 </button>
             </div>
             {% endfor %}
@@ -119,7 +119,7 @@
         {# Comentários #}
         <div class="kb-modal-section">
             <div class="kb-modal-section-title">
-                <i class="bi bi-chat-text"></i> Comentários
+                <i class="bi bi-chat-text"></i> {{ 'kanban.card.comentarios'|trans }}
             </div>
 
             <div id="comentariosLista">
@@ -127,7 +127,7 @@
                     {% include 'kanban/_partials/_comentario.html.twig' with {comentario: comentario} %}
                 {% endfor %}
                 {% if card.comentarios is empty %}
-                <p class="text-muted small mb-3">Sem comentários ainda.</p>
+                <p class="text-muted small mb-3">{{ 'kanban.card.sem_comentarios'|trans }}</p>
                 {% endif %}
             </div>
 
@@ -135,7 +135,7 @@
                 <div id="quillComentario" style="min-height:60px;"></div>
                 <div class="mt-2 d-flex justify-content-end">
                     <button class="btn btn-primary btn-sm" onclick="enviarComentario({{ card.id }})">
-                        <i class="bi bi-send me-1"></i>Comentar
+                        <i class="bi bi-send me-1"></i>{{ 'kanban.card.comentar'|trans }}
                     </button>
                 </div>
             </div>
@@ -146,11 +146,11 @@
     {# ── Sidebar direita ── #}
     <div>
 
-        {# Responsáveis #}
+        {# Responsáveis #}{% set idsDosResponsaveis = card.responsaveis|map(r => r.id)|json_encode %}
         <div class="kb-sidebar-section"
              id="responsaveisContainer"
-             data-responsaveis-ids="{{ card.responsaveis|map(r => r.id)|json_encode|e('html_attr') }}">
-            <div class="kb-sidebar-label">Responsáveis</div>
+             data-responsaveis-ids="{{ idsDosResponsaveis|e('html_attr') }}">
+            <div class="kb-sidebar-label">{{ 'kanban.card.responsaveis'|trans }}</div>
             <div class="d-flex flex-wrap gap-1 mb-2">
                 {% for resp in card.responsaveis %}
                 <span class="badge d-flex align-items-center gap-1"
@@ -161,24 +161,24 @@
                 </span>
                 {% endfor %}
                 {% if card.responsaveis is empty %}
-                <span class="text-muted small">Nenhum responsável</span>
+                <span class="text-muted small">{{ 'kanban.card.nenhum_responsavel'|trans }}</span>
                 {% endif %}
             </div>
             {% if card.participantesDisponiveis %}
             <div class="dropdown">
                 <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
                         data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-person-plus"></i> Gerenciar
+                    <i class="bi bi-person-plus"></i> {{ 'kanban.card.gerenciar'|trans }}
                 </button>
                 <ul class="dropdown-menu" style="min-width:220px;">
-                    {% for p in card.participantesDisponiveis %}
+                    {% for p in card.participantesDisponiveis %}{% set ehResponsavel = card.responsaveis|filter(r => r.id == p.id)|length > 0 %}
                     <li>
                         <button class="dropdown-item d-flex align-items-center gap-2 py-1"
                                 onclick="toggleResponsavelCard({{ card.id }}, {{ p.id }}, this)"
                                 data-user-id="{{ p.id }}">
                             <span class="kb-avatar" style="width:20px;height:20px;font-size:.6rem;flex-shrink:0;">{{ p.iniciais }}</span>
                             <span class="flex-grow-1">{{ p.nome }}</span>
-                            <i class="bi bi-check resp-check-{{ p.id }}{{ card.responsaveis|filter(r => r.id == p.id)|length > 0 ? '' : ' d-none' }}"></i>
+                            <i class="bi bi-check resp-check-{{ p.id }}{{ ehResponsavel ? '' : ' d-none' }}"></i>
                         </button>
                     </li>
                     {% endfor %}
@@ -189,13 +189,13 @@
 
         {# Marcadores #}
         <div class="kb-sidebar-section">
-            <div class="kb-sidebar-label">Marcadores</div>
+            <div class="kb-sidebar-label">{{ 'kanban.card.marcadores'|trans }}</div>
             <div class="d-flex flex-wrap gap-1 mb-2">
-                {% for marcador in card.marcadoresDisponiveis %}
+                {% for marcador in card.marcadoresDisponiveis %}{% set marcadorAtivo = card.marcadores|filter(m => m.id == marcador.id)|length > 0 %}
                 <button type="button"
-                        class="btn btn-sm kb-marcador-btn{{ card.marcadores|filter(m => m.id == marcador.id)|length > 0 ? ' ativo' : '' }}"
-                        style="background: {{ marcador.cor|e('html_attr') }}{{ card.marcadores|filter(m => m.id == marcador.id)|length == 0 ? '33' : '' }};
-                               color: {{ card.marcadores|filter(m => m.id == marcador.id)|length > 0 ? '#fff' : marcador.cor|e('html_attr') }};
+                        class="btn btn-sm kb-marcador-btn{{ marcadorAtivo ? ' ativo' : '' }}"
+                        style="background: {{ marcador.cor|e('html_attr') }}{{ marcadorAtivo ? '' : '33' }};
+                               color: {{ marcadorAtivo ? '#fff' : marcador.cor|e('html_attr') }};
                                border: 1px solid {{ marcador.cor|e('html_attr') }};
                                font-size:.75rem; padding:.2rem .6rem;"
                         onclick="toggleMarcador({{ card.id }}, {{ marcador.id }}, this)">
@@ -203,16 +203,16 @@
                 </button>
                 {% endfor %}
                 {% if card.marcadoresDisponiveis is empty %}
-                <span class="text-muted small">Sem marcadores criados</span>
+                <span class="text-muted small">{{ 'kanban.card.sem_marcadores'|trans }}</span>
                 {% endif %}
             </div>
             <button class="btn btn-outline-secondary btn-sm" style="font-size:.78rem;"
                     onclick="mostrarFormCriarMarcador({{ card.boardId }}, {{ card.id }})">
-                <i class="bi bi-plus me-1"></i>Criar marcador
+                <i class="bi bi-plus me-1"></i>{{ 'kanban.card.criar_marcador'|trans }}
             </button>
             <div id="formCriarMarcador" class="d-none mt-2">
                 <div class="input-group input-group-sm mb-1">
-                    <input type="text" id="novoMarcadorNome" class="form-control form-control-sm" placeholder="Nome...">
+                    <input type="text" id="novoMarcadorNome" class="form-control form-control-sm" placeholder="{{ 'kanban.card.nome_marcador'|trans }}">
                 </div>
                 <div class="d-flex gap-1 flex-wrap mb-1" id="marcadorCores">
                     {% for cor in ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#f97316'] %}
@@ -225,28 +225,28 @@
                 </div>
                 <input type="hidden" id="novoMarcadorCor" value="#3b82f6">
                 <div class="d-flex gap-1">
-                    <button class="btn btn-primary btn-sm" onclick="criarMarcador({{ card.boardId }}, {{ card.id }})">Criar</button>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('formCriarMarcador').classList.add('d-none')">Cancelar</button>
+                    <button class="btn btn-primary btn-sm" onclick="criarMarcador({{ card.boardId }}, {{ card.id }})">{{ 'kanban.comum.criar'|trans }}</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('formCriarMarcador').classList.add('d-none')">{{ 'kanban.comum.cancelar'|trans }}</button>
                 </div>
             </div>
         </div>
 
         {# Data de vencimento #}
         <div class="kb-sidebar-section">
-            <div class="kb-sidebar-label">Vencimento</div>
+            <div class="kb-sidebar-label">{{ 'kanban.card.vencimento'|trans }}</div>
             <input type="date" class="form-control form-control-sm"
                    id="cardDataVencimento"
                    value="{{ card.dataVencimento ? card.dataVencimento|date('Y-m-d') : '' }}"
                    onchange="atualizarVencimento({{ card.id }}, this.value)"
                    style="max-width:160px;">
             {% if card.dataVencimento and card.estaVencido %}
-            <small class="text-danger d-block mt-1"><i class="bi bi-exclamation-triangle me-1"></i>Vencido</small>
+            <small class="text-danger d-block mt-1"><i class="bi bi-exclamation-triangle me-1"></i>{{ 'kanban.card.vencido'|trans }}</small>
             {% endif %}
         </div>
 
         {# Anexos #}
         <div class="kb-sidebar-section">
-            <div class="kb-sidebar-label">Anexos</div>
+            <div class="kb-sidebar-label">{{ 'kanban.card.anexos'|trans }}</div>
             <div id="anexosLista">
                 {% for anexo in card.anexos %}
                 <div class="d-flex align-items-center gap-2 py-1" id="anexo-{{ anexo.id }}" style="border-bottom:1px solid #f3f4f6;">
@@ -259,39 +259,39 @@
                     <span class="text-muted flex-shrink-0" style="font-size:.7rem;">{{ anexo.tamanhoFormatado }}</span>
                     <button class="btn btn-link btn-sm p-0 text-danger flex-shrink-0"
                             onclick="excluirAnexo({{ anexo.id }}, {{ card.id }}, '{{ csrf_token('kanban_anexo_excluir_' ~ anexo.id) }}')"
-                            title="Remover">
+                            title="{{ 'kanban.card.remover_anexo'|trans }}">
                         <i class="bi bi-x" style="font-size:.9rem;"></i>
                     </button>
                 </div>
                 {% endfor %}
                 {% if card.anexos is empty %}
-                <p class="text-muted small mb-2">Nenhum anexo</p>
+                <p class="text-muted small mb-2">{{ 'kanban.card.nenhum_anexo'|trans }}</p>
                 {% endif %}
             </div>
 
             <label class="btn btn-outline-secondary btn-sm mt-1" style="font-size:.78rem; cursor:pointer;">
-                <i class="bi bi-paperclip me-1"></i>Adicionar arquivo
+                <i class="bi bi-paperclip me-1"></i>{{ 'kanban.card.adicionar_arquivo'|trans }}
                 <input type="file" class="d-none" onchange="uploadAnexo({{ card.id }}, this)">
             </label>
         </div>
 
         {# Criar checklist #}
         <div class="kb-sidebar-section">
-            <div class="kb-sidebar-label">Checklist</div>
+            <div class="kb-sidebar-label">{{ 'kanban.card.checklist'|trans }}</div>
             <button class="btn btn-outline-secondary btn-sm" style="font-size:.78rem;"
                     onclick="criarChecklist({{ card.id }})">
-                <i class="bi bi-check-square me-1"></i>Adicionar checklist
+                <i class="bi bi-check-square me-1"></i>{{ 'kanban.card.adicionar_checklist'|trans }}
             </button>
         </div>
 
         {# Meta #}
         <div class="kb-sidebar-section border-top pt-3 mt-2">
             <div class="text-muted" style="font-size:.72rem;">
-                <div>Criado em {{ card.criadoEm|date('d/m/Y H:i') }}</div>
+                <div>{{ 'kanban.card.criado_em'|trans({data: card.criadoEm|data_hora}) }}</div>
                 <button class="btn btn-link btn-sm p-0 text-danger mt-2"
                         onclick="excluirCard({{ card.id }}, '{{ csrf_token('kanban_card_excluir_' ~ card.id) }}')"
                         style="font-size:.78rem;">
-                    <i class="bi bi-trash me-1"></i>Excluir card
+                    <i class="bi bi-trash me-1"></i>{{ 'kanban.card.excluir_card'|trans }}
                 </button>
             </div>
         </div>

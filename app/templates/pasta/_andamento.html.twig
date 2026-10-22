@@ -35,8 +35,8 @@
     <div class="ps-and-sug" hidden data-sugestoes="{{ andamento.sugestoes|json_encode|e('html_attr') }}">
         <i class="bi js-and-sug-ic" aria-hidden="true"></i>
         <span class="ps-and-sug-txt"><b class="js-and-sug-titulo"></b> <span class="js-and-sug-motivo"></span></span>
-        <button type="button" class="ps-and-sug-ok js-and-sug-ok">Avançar</button>
-        <button type="button" class="ps-and-sug-ign js-and-sug-ign">Ignorar</button>
+        <button type="button" class="ps-and-sug-ok js-and-sug-ok">{{ 'pasta_avisos.andamento.avancar'|trans }}</button>
+        <button type="button" class="ps-and-sug-ign js-and-sug-ign">{{ 'pasta_avisos.andamento.ignorar'|trans }}</button>
     </div>
 {% endif %}
 {% endif %}

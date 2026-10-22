@@ -589,6 +589,28 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   idioma do destinatário, não o da requisição (entrega E do §5, com o locale de quem lê, §4), o que pede o idioma
   gravado no perfil de quem recebe na hora de montar a mensagem; fica para a entrega dos e-mails.
 
+## 22. Extração do Kanban e do que faltava em Tarefa (f6, 21/10)
+
+Bloco `kanban` do catálogo, 70 chaves: 56 do Twig (`comum`, `index`, `modal_criar`, `mural`, `modal_checklist`,
+`modal_editar`, `card`, `comentario`) e 14 dos scripts inline do `index` e do `board` (`kanban.js`, entregue pelos
+dois antes do `<script>`; o corpo do card, que chega por fetch, usa o catálogo do `board`). O `tarefa/show` entrou no
+bloco `metas` (o do Minhas Metas): 43 chaves em `metas.detalhe` (Twig) e 8 em `metas.detalhe.js` (fora de `metas.js`,
+para o catálogo que o Minhas Metas entrega não mudar), com `metas.migalha.home` e `metas.comum.nao_informado`
+reaproveitadas; os scripts dele ficam no corpo (antes do `bj-traducao.js`) e só pedem texto dentro dos eventos. O `#`
+da meta entra como texto (`tarefa.id ~ ''`), para o ICU não pôr separador de milhar; a contagem de cards do mural
+virou duas chaves (`cards_um`, `cards_varios`) escolhidas pelo mesmo `!= 1` de antes. Os dois `confirm()` dos
+formulários do detalhe usam `|trans|e('js')`, como na Agenda. Para a guarda enxergar as tags, os `filter(x =>
+...)|length > 0` de dentro dos atributos foram para um `{% set %}` antes da tag. Formatos: `|data` na criação do
+mural, na criação e no prazo da meta e no dia do histórico; `|data_hora` no comentário, na criação do card, na
+conclusão e na alteração da meta; `|hora` na hora do histórico. Ficaram `dataVencimento|date('d/m')` do cartão (sem
+filtro de dia e mês) e os `Y-m-d` dos campos de data. Ficou de fora o texto que vem do PHP: os rótulos dos campos dos
+Form types do mural (`form_row`), `tamanhoFormatado` do anexo, as respostas e erros dos controllers do Kanban,
+`Tarefa::STATUS_LABELS`, `prazoInfo.texto`, o título e o detalhe dos eventos do histórico (`TarefaTimelineAssembler`) e os
+flashes; também as mensagens de `console.error` do `board` (só para quem depura). O HTML do Kanban (lista vazia e
+cheia, mural do criador e do participante, card cheio, magro e de mural sem marcadores, cartão do mural e comentário
+novo) e do detalhe da meta (vazia, nova, pendente com anexo, em revisão para os dois lados, concluída) foi comparado
+antes e depois, sem diferença; o texto dos scripts foi conferido chave por chave contra o literal removido.
+
 ## 23. Extração de Feriados e da conexão do Drive (4b, 21/10)
 
 - **Escopo:** `templates/feriado/index`, `new`, `edit` e `_form` (Feriados e Folgas do escritório) e
@@ -723,6 +745,37 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
 - **Ficou para depois:** o estado "Sem OAB" do chip não apareceu na foto (a fila só lista inscrições, que sempre têm
   status); a chave existe e a troca é a mesma das outras três. O `pasta/peticionar.html.twig` (o conteúdo do Peticionar) e os outros templates que
   incluem estes quatro ficam para a extração das áreas deles.
+
+## 20. O resto da Pasta (0d, 21/10)
+
+### 20.1 Avisos, cadeado e telas simples
+
+- **Escopo:** os parciais `pasta/_abas_ocultas`, `_andamento`, `_aviso_duplicada_conteudo`, `_aviso_duplicada_modal`,
+  `_cadeado_faixa`, `_cadeado_icone` (sem texto), `_cadeado_menu`, `_cadeado_modal` e `_cadeado_pedidos`, as páginas
+  `confirmar_duplicada`, `trancada` e `zip_recusado`, e os JS `pasta-abas-ocultas.js`, `pasta-andamento.js`,
+  `pasta-cadeado.js` e `pasta-cadeado-pedidos.js`. Bloco de topo `pasta_avisos` do catálogo, 93 chaves, com
+  `pasta_avisos.js.*` (24) para os quatro JS.
+- **Catálogo do JS:** os quatro scripts são carregados pelo `pasta/show.html.twig`, sem `defer`. O
+  `catalogo_js('pasta_avisos.js')` mora no `_abas_ocultas`, que o show inclui sempre (fora de condição) e antes dos
+  scripts; o show não foi tocado.
+- **Sem mudança visível:** o HTML da tela trancada (com o pedido e aguardando), da faixa de somente visualização (pedir
+  e pedido enviado), da pasta vista pelo primário (menu e modal do cadeado com e sem cadeado, pedidos pendentes, abas
+  ocultas e andamento com a faixa de sugestão), do aviso de duplicada (página e modal, uma pasta e seis com ação) e do
+  zip recusado saiu igual. Mudaram só tokens CSRF, quebras de linha (o "Encontramos N pasta(s) já cadastrada(s)" virou
+  uma linha) e o `<script data-bj-t>`. Não foram renderizados, e foram conferidos lendo: "Sem registro" (pasta sem data
+  de criação), "Não há colaboradores…" (equipe vazia no modal) e "Cliente não informado" na tela trancada.
+- **Formatos:** o `criadoEm` do aviso de duplicada (sob guarda de nulo) passou a `|data`.
+- **Escolhas:** "N pasta(s) já cadastrada(s)" virou duas chaves (`encontramos_uma`, `encontramos_varias`) pelo mesmo
+  `== 1` de antes, sem plural ICU; a frase com `<strong>` ficou uma chave por pedaço (`para`, `em`). O "PASTA" da tela
+  trancada usa `termos.pasta|upper` e o selo "OCULTA", `selo_oculta|upper`. Os rótulos dos níveis do cadeado e dos
+  botões de pedido viraram chaves dentro dos arrays do Twig, traduzidas no uso. O "fase(s) intermediária(s)" do JS
+  continua com "(s)", como no §8. Ficaram nos permitidos a classe `ps-body`, a marca em "· BlueJus" e as teclas e
+  cabeçalhos HTTP dos JS.
+- **Ficou de fora:** o texto do PHP (rótulo, dica, dia, intervalo e total das fases e o motivo das sugestões do
+  `AndamentoDaPasta`; selo, `texto` dos pedidos, `horaDoPedido` e `recusadoTexto` do `CadeadoNaTelaOutput`; o
+  `documento_br_rotulo`; a mensagem do zip recusado; a `funcao` da equipe e as mensagens JSON dos controllers do cadeado,
+  das abas ocultas e do andamento); o `data-screen-label` do andamento (marca do desenho, ninguém lê); e o
+  `lang="pt-BR"` fixo do `zip_recusado`.
 
 ## 27. Extração do Escritório e da Plataforma (b5, 22/10)
 
