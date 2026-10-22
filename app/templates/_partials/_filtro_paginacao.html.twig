@@ -6,14 +6,14 @@
    Parâmetros: pagina (1-based), total_paginas
 ─────────────────────────────────────────────────────────────────────────── #}
 {% if total_paginas|default(1) > 1 %}
-    <nav class="filtro-paginacao" aria-label="Paginação">
+    <nav class="filtro-paginacao" aria-label="{{ 'comum.paginacao.rotulo'|trans }}">
         <button type="button" class="btn btn-sm btn-outline-secondary js-filtro-pagina"
-                data-page="{{ pagina - 1 }}" {{ pagina <= 1 ? 'disabled' : '' }} aria-label="Página anterior">
+                data-page="{{ pagina - 1 }}" {{ pagina <= 1 ? 'disabled' : '' }} aria-label="{{ 'comum.paginacao.anterior'|trans }}">
             <i class="bi bi-chevron-left"></i>
         </button>
         <span class="filtro-paginacao-info">{{ pagina }} / {{ total_paginas }}</span>
         <button type="button" class="btn btn-sm btn-outline-secondary js-filtro-pagina"
-                data-page="{{ pagina + 1 }}" {{ pagina >= total_paginas ? 'disabled' : '' }} aria-label="Próxima página">
+                data-page="{{ pagina + 1 }}" {{ pagina >= total_paginas ? 'disabled' : '' }} aria-label="{{ 'comum.paginacao.proxima'|trans }}">
             <i class="bi bi-chevron-right"></i>
         </button>
     </nav>

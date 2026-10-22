@@ -554,6 +554,41 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   rótulos de desfecho e canal, o nome "Sem responsável" da linha órfã, flashes e mensagens das rotas da ficha); o
   `telefone-mascara.js` (sem texto) não entrou na guarda.
 
+## 21. Extração do Auth (9b, 21/10)
+
+- **Escopo:** `templates/auth/` (12 dos 13 arquivos: `meus_convites`, `cadastro/confirmar_email` e `erro`,
+  `conta/_reenviar_confirmacao`, `convite/ver`, `ver_logado`, `nao_pertence` e `erro`, `convites/gerenciar`,
+  `senha/redefinir` e `erro`, `suporte/mensagens`) e `auth/criar-senha.js` (a régua de força do "Crie sua senha"). Bloco
+  `auth` do catálogo, 108 chaves (`comum` 7, `meus_convites` 7, `cadastro` 2, `link` 11, `reenviar_confirmacao` 1,
+  `convite` 34, `gerenciar` 21, `senha` 7, `suporte` 14, `js` 4). Os rótulos da força ficam em `auth.js.forca.*`,
+  entregues por `{{ catalogo_js('auth.js') }}` no `confirmar_email`, só quando o formulário aparece, antes do script
+  (que roda com `defer`, depois do `bj-traducao.js`); o `entrada.js` pode reusar as mesmas chaves no PR dele.
+- **Sem mudança visível:** o HTML de 22 respostas (Meus convites vazio e cheio; link de confirmação com motivo, "Crie
+  sua senha" com erro, já confirmado e senha criada; erro do cadastro; botão de reenviar; os três erros do convite;
+  convite de outra conta; convite do escritório com nome e da plataforma sem nome; convite logado com e sem dados;
+  link de senha inválido; Criar nova senha; Gerenciar convites vazio e com as seis situações, com e sem reenvio;
+  mensagens de suporte vazia e com e sem nome e assunto) foi comparado antes e depois. Mudou só o
+  `<script data-bj-t>` do "Crie sua senha" (e o recuo da linha do script seguinte); tokens CSRF foram ignorados.
+- **Formatos:** `expiresAt` do convite e da lista viraram `|data`; a hora do convite, `|hora`; `createdAt` dos convites
+  enviados e `criadaEm` das mensagens de suporte, `|data_hora` (nenhum pode ser nulo ali).
+- **Frase partida:** "Li e aceito os Termos de uso e a Política de privacidade.", "Ao criar a conta você declara
+  ciência da Política de Privacidade.", "Este convite foi enviado para <email>.", "colaborar em <escritório>" e o
+  subtítulo das mensagens de suporte (com as aspas retas de "Falar com suporte") foram divididos em chaves, com o
+  link, o `<strong>` e as aspas no template, como no §9. Os `confirm()` de reenviar e revogar convite seguem com o
+  e-mail fora da chave (`|e('html_attr')`, como antes), só o texto em volta é chave, para o HTML sair idêntico.
+- **Guarda:** as comparações com o nome do caso do enum (`situacao.name == 'Pendente'`, `'SenhaCriada'`) passaram a
+  `situacao.name|lower == 'pendente'` (mesmo resultado), para o detector não ler o nome do caso como frase. Em
+  `permitidos`: `BlueJus` (alt do logo) e os nomes das duas constantes PHP lidas por `constant()`
+  (`CadastroController::CSRF_CRIAR_SENHA` e `CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR`).
+- **Ficou de fora:** o texto que vem do PHP: o `motivo` dos erros (exceções), os flashes, o `erro` do "Crie sua
+  senha", a recusa `RECUSA_EMAIL_A_CONFIRMAR` do aviso de e-mail a confirmar, os rótulos e a mensagem de validação do
+  `RedefinirSenhaType` e o `nomeExibido` do perfil; a situação crua do convite quando não é uma das cinco conhecidas
+  (`convite.status`) e a origem crua da mensagem de suporte (dado). O `_fundo_auth.html.twig` (fora de `auth/`, também
+  da tela de entrada) e o `entrada.js` vão com o PR da tela de entrada. O e-mail
+  `auth/cadastro/email_confirmacao.html.twig` não entrou: nenhuma área extraiu e-mail até aqui, e o e-mail segue o
+  idioma do destinatário, não o da requisição (entrega E do §5, com o locale de quem lê, §4), o que pede o idioma
+  gravado no perfil de quem recebe na hora de montar a mensagem; fica para a entrega dos e-mails.
+
 ## 23. Extração de Feriados e da conexão do Drive (4b, 21/10)
 
 - **Escopo:** `templates/feriado/index`, `new`, `edit` e `_form` (Feriados e Folgas do escritório) e
@@ -574,6 +609,120 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   ano (feriado fixo)", "O nome é obrigatório."); os flashes do `FeriadoController` e do `DriveConexaoController`
   (inclusive a mensagem de exceção do `DefinirRootFolderDriveUseCase` repassada em flash) e as mensagens dos 403/404,
   como na §18; o `|date('d/m')` acima.
+
+### 23b. Processo (4b, 21/10)
+
+- **Escopo:** `templates/processo/index`, `_resultado`, `new` (novo e editar), `show`, `_notas_tecnicas` e
+  `_nota_tecnica_item` (as notas técnicas aparecem também na aba Processo e no teor do Push da pasta, e o cartão volta
+  pronto do `processo_nota_tecnica_criar`). Nenhum JS em `public/js` é só destas telas (o `nota-tecnica.js` é carregado
+  pela pasta); o script inline do `new` passou a ler `processo.form.js.*` pelo `catalogo_js`, e o texto do catálogo que
+  entra no HTML montado passa por um `esc()` local. Bloco `processo` com 190 chaves (`comum` 23, `situacao` 7, `index`
+  7, `resultado` 7, `show` 44, `form` 73, dos quais 30 em `form.js`, `notas` 11, `nota` 18), logo depois do
+  `pasta_processo`; área `processo` no `templates-extraidos.json`, sem permitidos. Nenhuma chave `pasta_processo.*` foi
+  reaproveitada: o domínio Processo tem o próprio bloco, e as notas técnicas (que a §11 deixou de fora) entram aqui.
+- **Sem mudança visível:** o HTML de 12 situações (lista vazia, com processos e ordenada; Novo; Editar com partes,
+  movimentações e assuntos e Editar vazio; detalhe completo, com tarefa, pasta principal e lápide, e detalhe vazio; a
+  pasta com notas técnicas próprias, alheias, antigas, editadas e de movimentação do Push; a pasta lápide; o cartão
+  devolvido ao criar uma nota), com dados que têm apóstrofo, aspas, `&` e `<b>`, foi gravado antes e depois e
+  comparado com tokens, ids e dígitos normalizados; o script inline do `new` foi comparado com as chamadas ao catálogo
+  trocadas pelo texto que a página entrega. Saiu igual. Mudou só o `confirm()` do excluir processo, agora
+  `|trans|e('js')` (o mesmo texto, escapado para JS). A conta `length > 1` dos botões Remover saiu do atributo `style`
+  para um `{% set %}` antes do laço (o detector lia o `>` como fim de tag); o valor é o mesmo.
+- **Formatos:** no detalhe, datas viraram `|data` (distribuição, baixa, movimentação, prazo da tarefa) e `|data_hora`
+  (última atualização, criado, modificado, tarefa, exclusão da pasta), todas já com guarda de nulo ou com data sempre
+  presente; na nota técnica, `|data_hora` no `title` e no "Editada em", `hoje, {hora}` e `{data}, {hora}` com `|data`
+  e `|hora`. O total da lista, os minutos da janela da nota e o tempo da tarefa entram como texto (`~ ''`) para o ICU
+  não pôr separador de milhar. Ficaram os `|date('Y-m-d')` dos campos `type="date"` (valor do campo, não texto) e o da
+  comparação "é hoje".
+- **Ficou para depois:** a situação crua do processo e da tarefa (`situacaoProcesso|replace`, `statusAtual|upper` e o
+  mesmo no modal), a situação da pasta (`|capitalize`), o "-" de vazio e o nome do tipo da parte (`parte.tipo`), que são
+  dado; os flashes e as recusas do `ProcessoController` e do `NotaTecnicaController` e o `error` que o
+  `api_datajud_search` devolve ao modal; o `nota-tecnica.js` (área da pasta); o `aria-label="Close"` do modal de
+  mensagem, que continua em inglês como estava (agora numa chave).
+
+### 23c. DJEN (4b, 21/10)
+
+- **Escopo:** `templates/djen/index` (Push Processual: Publicações), `oabs` (OABs monitoradas) e `show` (a
+  publicação). Nenhum JS em `public/js` é destas telas, e elas não têm script inline. Bloco `djen` com 65 chaves
+  (`comum` 10, `index` 26, `oabs` 15, `show` 14), logo antes do `feriado`; área `djen` no `templates-extraidos.json`,
+  sem permitidos. Não havia chave `djen.*` no catálogo para reaproveitar (o `pasta_push` é da aba Push da pasta).
+- **Sem mudança visível:** o HTML de 9 situações (publicações vazia, com 28 publicações nas páginas 1 e 2, com todos os
+  filtros preenchidos e com o filtro de vinculadas; OABs vazia e com uma ativa e uma pausada; a publicação completa,
+  avulsa, com destinatários, link, teor e OAB, e a vinculada com campos vazios e `?voltar=`), com dados que têm
+  apóstrofo, aspas, `&` e `<b>`, foi gravado antes e depois e comparado com tokens, nomes gerados e dígitos
+  normalizados: saiu igual. Mudaram só as aspas do texto de lista vazia, agora `&quot;` (o navegador mostra igual), e o
+  `confirm()` do remover OAB, agora `|trans|e('js')` (o mesmo texto, escapado para JS). O total e as páginas da
+  paginação entram como texto (`~ ''`) para o ICU não pôr separador de milhar.
+- **Formatos:** nenhum filtro de data nestas telas: a data de disponibilização e o "Desde" da OAB chegam já formatados
+  (`d/m/Y`) pelos DTOs `PublicacaoDjenListaItem`, `PublicacaoDjenOutput` e `OabMonitoradaOutput`.
+- **Ficou para depois:** as datas formatadas em PHP nos DTOs acima (passar a data e usar `|data` na tela muda o
+  contrato do DTO); o rótulo do meio (`Diário Eletrônico`, `Edital`) e do polo (`Ativo`, `Passivo`, `Terceiro
+  interessado`) montados no `PublicacaoDjenOutput`; os rótulos, placeholders e mensagens do `OabMonitoradaType` e do
+  `OabMonitoradaInput`; os flashes do `DjenController` (inclusive o resumo da sincronização e as mensagens de exceção
+  dos UseCases repassadas em flash) e as mensagens dos 404, como na §18.
+
+## 24. Extração dos parciais comuns, da raiz e das telas avulsas (7d, 21/10)
+
+### 24.1 Parciais comuns (_partials)
+
+- **Escopo:** `_partials/_avatar_usuario` (sem texto: só as iniciais, que são dado), `_filtro_barra`,
+  `_filtro_paginacao`, `_janela_confirmacao`, `modal_access_request`, `modal_mover_marcador` e `modal_nova_pasta`, com os
+  scripts inline deles, mais `filtro-tabela.js` (motor do filtro de Processos, Demandas, Cobrança, Dashboard e Minhas
+  Metas) e `pasta-dialogos.js` (a janela de confirmação, com os responsáveis e o calendário da Nova meta). Bloco `comum`
+  do catálogo, 71 chaves, 45 delas em `comum.js.*`. O `base.html.twig` passou a entregar `comum.js` no mesmo
+  `catalogo_js` da moldura, para o JS ter o texto em qualquer tela que inclua um parcial.
+- **A interface dos parciais não mudou:** os mesmos parâmetros do `with {...}`. O placeholder padrão do `_filtro_barra`
+  (`Buscar…`) virou `comum.filtro.buscar`, mas só vale quando o incluidor não passa `busca_placeholder` (hoje todos passam).
+  O "Filtrar por X" recebe o rótulo da faceta por parâmetro. Na Nova Pasta do desenho 1.1 os rótulos em caixa alta são
+  as mesmas chaves da variante antiga com `|upper`.
+- **Ordem de carga:** os scripts inline dos parciais rodam no `body`, antes do `bj-traducao.js` do base; por isso só
+  chamam `BJ_T.t` em evento, `DOMContentLoaded` ou resposta de `fetch` (o pedido de acesso guarda as chaves das ações e
+  dos recursos, `termos.pasta` e `termos.processo`, e lê o texto na hora). Os nomes dos meses do calendário passaram a
+  ser chaves inteiras (`comum.js.dialogos.mes.*`), lidas ao desenhar. O `aria-label` do botão de fechar do aviso do
+  pedido de acesso entra por `setAttribute` depois da inserção, sem texto do catálogo dentro de HTML.
+- **Sem mudança visível:** o HTML de 16 respostas (Expediente; acervo nas páginas 1 e 2 com 55 pastas; Pasta com
+  marcadores; Processos com 27 processos, página 2, busca com faceta e busca vazia; Minhas Metas; Demandas nas páginas
+  1 e 2; Casos e Carteiras da Cobrança; Dashboard; `/pasta`, que redireciona) foi comparado antes e depois. Sobraram só
+  o token CSRF do pedido de acesso, a cor do avatar do Dashboard (calculada pelo id do usuário, que muda entre as
+  rodadas) e as linhas de JS que agora leem o catálogo.
+- **Formatos:** no `pasta-dialogos.js`, o dia escolhido no calendário (`toLocaleDateString('pt-BR')`) virou
+  `BJFormato.data`. Ficaram: o rótulo longo do dia (`weekday: 'long'`, sem equivalente no `BJFormato`) e o
+  `formatarData` do `filtro-tabela.js`, que monta dd/mm/aaaa à mão para o chip de data.
+- **Guarda:** nos permitidos ficaram o pedaço do `_filtro_paginacao` que o detector lê como texto (o `<=` e o `>=` da
+  expressão Twig parecem uma tag), a constante `CoresDoMarcador::DESENHO` e os nomes de tecla (`Enter`, `Escape`,
+  `ArrowDown`). `PastaDialogosJsTest` e `PastaConfirmacaoDoDesenhoJsTest` conferem agora a chave no código e o texto
+  exato no catálogo.
+- **Ficou de fora:** as mensagens que vêm do servidor (`data.error`/`data.message` do pedido de acesso, `json.mensagem`
+  da Nova Pasta, `erro`/`mensagem` dos marcadores) e o HTML do aviso de pasta parecida, que o `PastaController` monta.
+  O aviso do pedido de acesso continua pondo a mensagem do servidor em `innerHTML`, como antes (não é texto do catálogo).
+
+### 24.2 Templates da raiz (7d, 21/10)
+
+- **Escopo:** os quatro templates soltos na raiz de `templates/`: `_fundo_auth` (fundo do login e da redefinição de
+  senha), `_oab_status` (chip de status da OAB, usado na fila de OAB do Master), `_recurso_faixa_master` (faixa do
+  Master numa tela desligada, incluída pelo base, pelo `layout_peticionar` e pelo `push_compartilhado/show`) e
+  `layout_peticionar` (o layout próprio do Peticionar, que não herda o base). 15 chaves novas: `oab_status` (4),
+  `peticionar` (10, em `peticionar.cabecalho.*` e `peticionar.processo.*`, antes do `# ---- termos`) e
+  `moldura.faixa_master.aviso` (1, dentro do bloco `moldura`, sem repetir a chave de topo). O cabeçalho do Peticionar
+  repete o do base e reaproveita 9 chaves que já existiam com o mesmo rótulo e sentido (`moldura.notificacoes.rotulo`,
+  `contagem_sufixo`, `nenhuma`, `ver_todas`; `moldura.cabecalho.tela_cheia` e `menu_usuario`;
+  `menu.usuario.dropdown.meu_perfil`, `privacidade` e `sair`). O `_fundo_auth` só tem CSS e comentário: nenhuma
+  chave, mas entra na lista para o guarda pegar texto novo. Área `raiz` no `templates-extraidos.json`, com "BlueJus"
+  e o "| BlueJus" do `<title>` do Peticionar nos permitidos. Nenhum dos quatro tem script inline, então o
+  `layout_peticionar` não precisou do `catalogo_js` nem do `bj-traducao.js`.
+- **Sem mudança visível:** o HTML de 10 telas (redefinir senha com token válido e com token inválido; a fila de OAB do
+  Master com inscrições confirmada, divergente e não verificada, nos filtros "todas" e padrão, e vazia; Minhas Metas
+  como Master com a tela ligada e desligada, isto é, com a faixa; o link público do Push com a tela `pushpub`
+  desligada, com a faixa; o Peticionar de uma pasta vazia e de uma com cliente, nome da ação e processo com partes e
+  todos os campos do cartão) foi gravado antes e depois e comparado com tokens e ids normalizados: 7 telas saíram
+  iguais e as outras 3 diferem só nos ids das inscrições (nos `action` dos formulários), no token CSRF e no minuto da
+  marca-d'água do link público (o relógio).
+- **Formatos:** a data de distribuição do cartão do processo (`|date('d/m/Y')`) virou `|data` (só aparece quando há
+  data, então o `|date(null)` não entra em jogo).
+  O "X" entre os polos do processo também virou chave (`peticionar.processo.contra`).
+- **Ficou para depois:** o estado "Sem OAB" do chip não apareceu na foto (a fila só lista inscrições, que sempre têm
+  status); a chave existe e a troca é a mesma das outras três. O `pasta/peticionar.html.twig` (o conteúdo do Peticionar) e os outros templates que
+  incluem estes quatro ficam para a extração das áreas deles.
 
 ## 26. Extração do Trabalho Externo, Central e ServiceDesk (a7, 21/10)
 
