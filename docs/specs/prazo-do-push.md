@@ -5,9 +5,9 @@
 - Branch `prazo-do-push`, a partir do master. Risco **MÉDIO**: grava uma data de prazo processual em pasta
   real, e um prazo errado pode levar a perder o prazo de verdade.
 - **Origem da decisão:** pergunta 13 da 0d, decidida à noite pelo coordenador (bluejus-72) com base no
-  desenho 03 (Expediente, L626). **O dono revê na manhã de 22/10.** Até lá, nada desta spec é decisão do dono.
-- **Sem migration:** `pasta_prazo.origem` é `varchar(20)` e `registro_ref` é `varchar(40)`. A 149800 fica
-  reservada caso a revisão do dono peça um campo novo.
+  desenho 03 (Expediente, L626). **O dono revisou em 22/10:** as decisões estão no §6.
+- **Migration `Version20261020150000`:** acrescenta `pasta_prazo.pode_ser_em_dobro` (boolean, padrão false), que é o
+  sinal do aviso de prazo em dobro (§6, item 4). A origem `push` cabe no `varchar(20)` e o `push:<id>` no `registro_ref`.
 
 ## 1. Antes
 
@@ -47,8 +47,8 @@ tenha uma determinação com prazo explícito em **dias**.
 - **Dias corridos:** só quando o teor diz "corridos". Os dias do recesso (20/12 a 20/01) não contam, porque a
   suspensão do CPC art. 220 vale para todo prazo processual. Se o fim cair em dia não útil, passa para o próximo dia
   útil (CPC art. 224, § 1º).
-- **Corte do histórico (decisão da 0d, à espera do dono):** a sincronização só cria prazos que vencem a partir de
-  hoje menos 10 dias, a janela do "findou", e audiências de hoje em diante. Sem esse corte, a primeira publicação
+- **Corte do histórico (decisão do dono, 22/10):** a sincronização só cria prazos que vencem a partir de hoje menos
+  30 dias, e audiências de hoje em diante. Sem esse corte, a primeira publicação
   nova encheria a pasta de prazos vencidos que ninguém consegue tirar. O que já foi gravado e saiu da janela não é
   apagado.
 - **Desvincular** o processo sincroniza a pasta, e os prazos do Push daquele processo saem, menos os cumpridos.
@@ -113,19 +113,18 @@ tenha uma determinação com prazo explícito em **dias**.
 - **Funcional:** o filtro "Expediente com prazo" conta a pasta com prazo do Push, e o selo "prazo calculado,
   confira" aparece na pasta.
 
-## 6. Para o dono revisar (manhã de 22/10)
+## 6. Decisões do dono (22/10)
 
-1. Gerar o prazo automático, mesmo marcado "confira", ou só sugerir e deixar a pessoa confirmar?
-2. O título "Prazo do Push: {ato} ({destinatário})" serve?
-3. Rodar o comando no histórico (prazos passados entram no "Prazo findou 10 dias") ou só daqui para a frente?
-   Hoje há um corte: só entram prazos vencidos há no máximo 10 dias e audiências futuras (§2). Ampliar ou tirar o
-   corte é uma linha de código.
-7. O calendário da UF trata Carnaval e Corpus Christi como dias úteis; o nacional, não. Agora o prazo do Push usa só
-   o da UF. É a mesma pergunta pendente na spec `prazo-feriado-calendario.md`.
-5. O prazo do Push ainda não pode ser marcado como cumprido pela tela: o `CumprirPrazoDaPastaUseCase` só aceita o
-   manual. Liberar o "cumprido" para o Push? Hoje ele sai do "com prazo" só quando vence e do "findou" depois de
-   10 dias ou quando há ação na pasta.
-6. A Agenda, o Google Agenda e o resumo diário recebem o prazo do Push pelo mesmo caminho dos prazos lidos dos
-   registros. Fica assim?
-4. Prazo em dobro: aplicar quando a parte do escritório for Fazenda, MP ou Defensoria (exige saber o polo do
-   cliente)?
+1. **(a)** O prazo é criado automaticamente, marcado "prazo calculado, confira".
+2. O título "Prazo do Push: {ato} ({destinatário})" fica como está.
+3. O corte do histórico passa a 30 dias para os prazos vencidos. As audiências continuam só de hoje em diante.
+4. **(b)** O prazo é criado normal, **sem dobrar**. Quando a parte parecer Fazenda Pública, MP ou Defensoria (nomes
+   das partes do processo ou frase da determinação, sem acento e em minúsculas), a linha ganha o sinal
+   `pode_ser_em_dobro`, e o selo diz "prazo calculado, confira; pode ser prazo em dobro". Quem confere decide.
+   - A detecção é conservadora: "estado de/do/da" só casa seguido do nome de uma UF. "União estável",
+     "município de residência" e "Construtora Estado Novo" não casam.
+   - O sinal entra na chave da sincronização: a linha aberta é trocada, e a cumprida fica como está.
+5. O prazo do Push pode ser marcado como cumprido pela tela (`CumprirPrazoDaPastaUseCase`), e uma nova sincronização
+   não o "descumpre". Editar e excluir continuam só para o prazo manual.
+6. A Agenda, o Google Agenda e o resumo diário continuam recebendo o prazo do Push.
+7. O calendário é o da UF do escritório.
