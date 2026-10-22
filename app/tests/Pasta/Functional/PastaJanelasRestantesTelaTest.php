@@ -9,6 +9,7 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote S6-JS do Ciclo 6 na página renderizada: o X (PAS-022r) e o arraste (PAS-023r) moram em
@@ -54,17 +55,25 @@ final class PastaJanelasRestantesTelaTest extends JusPrimeWebTestCase
         $client          = static::createClient();
         [$user, $tenant] = $this->criarAdmin();
         $pasta           = $this->criarPasta($tenant);
+        $pasta->setNomeCliente('Fulano de Tal');
+        $this->em()->flush();
 
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertResponseIsSuccessful();
 
-        $onsubmit = (string) $crawler->filter('#psMenuAcoes > form.js-excluir-pasta')->attr('onsubmit');
+        // Os textos vêm do catálogo escapados para JS (`|e('js')`): desfaz o `\uXXXX` para ler a frase.
+        $onsubmit = (string) preg_replace_callback(
+            '/\\\\u([0-9A-Fa-f]{4})/',
+            static fn (array $m): string => (string) mb_chr((int) hexdec($m[1]), 'UTF-8'),
+            (string) $crawler->filter('#psMenuAcoes > form.js-excluir-pasta')->attr('onsubmit'),
+        );
         self::assertStringContainsString("window.avisarPs('Número não confere. A pasta não foi excluída.');", $onsubmit);
         self::assertStringNotContainsString('alert(', $onsubmit);
         // C7-PAS-03: "Excluir a pasta N (cliente)?" como o desenho (dc L.4336)
-        self::assertStringContainsString("'Excluir a pasta ' + n + (c ? ' (' + c + ')' : '') + '?", $onsubmit);
+        self::assertStringContainsString("window.prompt('Excluir a pasta " . $pasta->getNup() . ' (FULANO DE TAL)?\\nA exclusão fica registrada no histórico.\\n\\nPara confirmar, digite o número da pasta:\')', $onsubmit);
         self::assertSame((string) $pasta->getNomeCliente(), $crawler->filter('#psMenuAcoes > form.js-excluir-pasta')->attr('data-cliente'));
+        self::assertSame('Excluir a pasta {nup} ({cliente})?', self::catalogoDoMenu()['excluir_pergunta_cliente']);
 
         self::assertCount(1, $crawler->filter('#psAviso.ps-aviso'));
         self::assertCount(1, $crawler->filter('#psConfirmar.ps-cf-fundo'));
@@ -72,5 +81,34 @@ final class PastaJanelasRestantesTelaTest extends JusPrimeWebTestCase
         $html = (string) $client->getResponse()->getContent();
         self::assertStringNotContainsString("window.alert('Erro de comunicação. Tente novamente.')", $html, 'Favoritos');
         self::assertStringNotContainsString("window.confirm('Descartar as alterações não salvas dos dados da pasta?')", $html, 'Editar dados');
+    }
+
+    #[TestDox('C7-PAS-03: pasta sem cliente pergunta "Excluir a pasta N?", sem os parênteses do cliente')]
+    public function testExcluirSemClientePerguntaSoONumero(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
+        self::assertResponseIsSuccessful();
+
+        $form = $crawler->filter('#psMenuAcoes > form.js-excluir-pasta');
+        self::assertSame('', $form->attr('data-cliente'));
+        // Os textos vêm do catálogo escapados para JS (`|e('js')`): desfaz o `\uXXXX` para ler a frase.
+        $onsubmit = (string) preg_replace_callback(
+            '/\\\\u([0-9A-Fa-f]{4})/',
+            static fn (array $m): string => (string) mb_chr((int) hexdec($m[1]), 'UTF-8'),
+            (string) $form->attr('onsubmit'),
+        );
+        self::assertStringContainsString("window.prompt('Excluir a pasta " . $pasta->getNup() . '?\\nA exclusão fica registrada no histórico.\\n\\nPara confirmar, digite o número da pasta:\')', $onsubmit);
+        self::assertSame('Excluir a pasta {nup}?', self::catalogoDoMenu()['excluir_pergunta']);
+    }
+
+    /** @return array<string, string> */
+    private static function catalogoDoMenu(): array
+    {
+        return Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_cabecalho']['cabecalho']['menu'];
     }
 }

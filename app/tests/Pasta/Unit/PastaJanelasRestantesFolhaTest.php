@@ -143,6 +143,7 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
     public function testCabecalhoSemConfirmNemAlert(): void
     {
         $cab = self::ler(self::CABECALHO);
+        $catalogo = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_cabecalho'];
 
         // Restaurar: o form não pergunta no onsubmit; o script segura e pergunta na janela.
         $form = self::trecho($cab, "<form method=\"post\" action=\"{{ path('pasta_restaurar'", '</form>');
@@ -151,27 +152,32 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
         $restaurar = self::trecho($cab, "var form = document.querySelector('form.js-restaurar-pasta');", '})();');
         self::assertStringContainsString('e.preventDefault();', $restaurar);
         self::assertStringContainsString('window.confirmarPs({', $restaurar);
-        self::assertStringContainsString("titulo: 'Restaurar a pasta ' + form.dataset.nup + '?',", $restaurar);
+        self::assertStringContainsString("titulo: BJ_T.t('pasta_cabecalho.js.cabecalho.restaurar_pergunta', { nup: form.dataset.nup }),", $restaurar);
+        self::assertSame('Restaurar a pasta {nup}?', $catalogo['js']['cabecalho']['restaurar_pergunta']);
         self::assertStringContainsString('if (sim) { form.submit(); }', $restaurar);
         self::assertStringNotContainsString('confirm(', str_replace('confirmarPs(', '', $restaurar));
 
         // Excluir: o prompt fica (é o do desenho); o número errado vira o aviso da tela.
         $excluir = self::trecho($cab, 'class="js-excluir-pasta"', '</form>');
-        self::assertStringContainsString("window.avisarPs('Número não confere. A pasta não foi excluída.');", $excluir);
+        self::assertStringContainsString("window.avisarPs('{{ 'pasta_cabecalho.cabecalho.menu.excluir_nao_confere'|trans|e('js') }}');", $excluir);
+        self::assertSame('Número não confere. A pasta não foi excluída.', $catalogo['cabecalho']['menu']['excluir_nao_confere']);
         self::assertStringNotContainsString('alert(', $excluir);
         self::assertStringContainsString('window.prompt(', $excluir, 'o prompt é o do desenho (dc L.4335) e fica');
 
         // Favoritos: as duas falhas pelo aviso.
         $fav = self::trecho($cab, "var item = document.querySelector('.js-pasta-favorito');", '})();');
         self::assertStringContainsString("if (window.avisarPs) { window.avisarPs(mensagem, 'erro'); }", $fav);
-        self::assertStringContainsString("avisarErro((r.dados && (r.dados.erro || r.dados.mensagem)) || 'Não foi possível alterar os favoritos.');", $fav);
-        self::assertStringContainsString(".catch(function () { avisarErro('Erro de comunicação. Tente novamente.'); })", $fav);
+        self::assertStringContainsString("avisarErro((r.dados && (r.dados.erro || r.dados.mensagem)) || BJ_T.t('pasta_cabecalho.js.cabecalho.favoritos_erro'));", $fav);
+        self::assertStringContainsString(".catch(function () { avisarErro(BJ_T.t('pasta_cabecalho.js.cabecalho.erro_comunicacao')); })", $fav);
+        self::assertSame('Não foi possível alterar os favoritos.', $catalogo['js']['cabecalho']['favoritos_erro']);
+        self::assertSame('Erro de comunicação. Tente novamente.', $catalogo['js']['cabecalho']['erro_comunicacao']);
         self::assertStringNotContainsString('alert(', $fav);
 
         // O Duplicar era o confirm do desenho de 05/10 (L.4324); o de 13/10 o passou para a janela
         // azul (`confirmarUI`, L.4511) — E7: `data-ps-cf`, com o confirm só de reserva.
         self::assertStringContainsString('class="js-duplicar-pasta" data-nup="{{ pasta.nup }}"', $cab);
-        self::assertStringContainsString("data-ps-cf=\"{{ 'Duplicar a pasta ' ~ pasta.nup ~ '? A cópia leva", $cab);
+        self::assertStringContainsString("data-ps-cf=\"{{ 'pasta_cabecalho.cabecalho.menu.duplicar_confirmar'|trans({nup: pasta.nup}) }}\"", $cab);
+        self::assertStringStartsWith('Duplicar a pasta {nup}? A cópia leva', $catalogo['cabecalho']['menu']['duplicar_confirmar']);
         self::assertStringContainsString('onsubmit="return !!window.confirmarUIPs || window.confirm(this.dataset.psCf);"', $cab);
     }
 
