@@ -14,6 +14,7 @@ use App\Processo\Exception\DadosDoProcessoInvalidosException;
 use App\Processo\UseCase\SalvarDadosManuaisDoProcessoUseCase;
 use App\Twig\NumeroProcessoExtension;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 /**
@@ -39,7 +40,8 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * ({@see DadosDoProcessoInvalidosException}) sobe para o controller responder 422 com a mensagem.
  *
  * Prazos do Push (docs/specs/prazo-do-push.md §3): o vínculo novo acerta os prazos calculados das publicações que o
- * processo já tinha, no mesmo flush.
+ * processo já tinha, no mesmo flush. Falha no cálculo vai ao log e não derruba o vínculo (o prazo volta na próxima
+ * publicação ou no `app:pastas:prazos-do-push`).
  */
 final class VincularProcessoUseCase
 {
@@ -49,6 +51,7 @@ final class VincularProcessoUseCase
         private readonly NumeroProcessoExtension $numero = new NumeroProcessoExtension(),
         private readonly ?SalvarDadosManuaisDoProcessoUseCase $dadosManuais = null,
         private readonly ?PrazosDoPush $prazosDoPush = null,
+        private readonly ?LoggerInterface $logger = null,
     ) {
     }
 
@@ -82,9 +85,20 @@ final class VincularProcessoUseCase
         $pasta->vincularProcesso($processo, $usuario);
         if (!$jaEstava) {
             $this->registro?->registrar($pasta, $usuario, 'proc', self::textoDoRegistro($processo, $this->numero->numeroCnj($processo->getNumeroProcesso())));
-            $this->prazosDoPush?->sincronizar($pasta);
+            $this->sincronizarPrazosDoPush($pasta);
         }
         $this->em->flush();
+    }
+
+    private function sincronizarPrazosDoPush(Pasta $pasta): void
+    {
+        try {
+            $this->prazosDoPush?->sincronizar($pasta);
+        } catch (\Throwable $e) {
+            $this->logger?->error('Prazos do Push: falha ao calcular ao vincular processo à pasta {pasta} ({classe}).', [
+                'pasta' => $pasta->getId(), 'classe' => $e::class,
+            ]);
+        }
     }
 
     /**

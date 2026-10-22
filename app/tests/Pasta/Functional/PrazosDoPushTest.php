@@ -4,7 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use App\Djen\DTO\ConsultaComunicacoesQuery;
+use App\Djen\DTO\PeriodoConsulta;
+use App\Djen\DTO\RespostaComunicacoes;
 use App\Djen\Entity\PublicacaoDjen;
+use App\Djen\Repository\PublicacaoDjenRepository;
+use App\Djen\Service\DjenClient;
+use App\Djen\Service\DjenClientInterface;
+use App\Djen\UseCase\SincronizarPublicacoesDjenUseCase;
 use App\Djen\Service\AvisoDePublicacoesNovasInterface;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Command\PrazosDoPushCommand;
@@ -12,6 +19,7 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Service\AvisoDoPushNaCaptacao;
 use App\Pasta\Service\PrazosDoPush;
+use App\Pasta\UseCase\DesvincularProcessoUseCase;
 use App\Pasta\UseCase\SincronizarPrazosDoPushUseCase;
 use App\Pasta\UseCase\VincularProcessoUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -19,6 +27,9 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Clock\Clock;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Clock\NativeClock;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**
@@ -30,6 +41,8 @@ use Symfony\Component\Console\Tester\CommandTester;
 #[CoversClass(SincronizarPrazosDoPushUseCase::class)]
 #[CoversClass(PrazosDoPushCommand::class)]
 #[CoversClass(AvisoDoPushNaCaptacao::class)]
+#[CoversClass(VincularProcessoUseCase::class)]
+#[CoversClass(DesvincularProcessoUseCase::class)]
 #[Group('pasta')]
 final class PrazosDoPushTest extends KernelTestCase
 {
@@ -39,12 +52,22 @@ final class PrazosDoPushTest extends KernelTestCase
     private const COM_PRAZO = 'Intime-se a parte autora para apresentar réplica no prazo de 15 dias.';
     private const SEM_PRAZO = 'Intimem-se as partes para ciência da decisão.';
 
+    /** "Hoje" fixo: o corte do histórico depende dele. */
+    private const HOJE = '2026-10-21 10:00:00';
+
     protected function setUp(): void
     {
+        Clock::set(new MockClock(self::HOJE));
         self::bootKernel();
         if ($this->em()->getFilters()->isEnabled('tenant')) {
             $this->em()->getFilters()->disable('tenant');
         }
+    }
+
+    protected function tearDown(): void
+    {
+        Clock::set(new NativeClock());
+        parent::tearDown();
     }
 
     #[TestDox('cria uma linha origem push, push:<id>, prazo estimado, com o título do ato e do destinatário e a data da disponibilização como criação')]
@@ -203,6 +226,119 @@ final class PrazosDoPushTest extends KernelTestCase
         $comando->execute(['--pasta' => (string) $pasta->getId(), '--aplicar' => true]);
         self::assertStringNotContainsString('simulação', $comando->getDisplay());
         self::assertCount(1, $this->linhasPush($pasta));
+    }
+
+    #[TestDox('corte do histórico: prazo vencido há 30 dias não nasce; vencido há 5 dias nasce (janela do "findou")')]
+    public function testCorteDoPrazo(): void
+    {
+        [$tenant, $pasta] = $this->pastaComProcesso();
+        // 1 dia: disponibilizado qui 17/09, publica sex 18/09, vence seg 21/09 (30 dias antes de 21/10).
+        $this->publicar($tenant, 'Intime-se a parte autora para se manifestar no prazo de 1 dia.', '2026-09-17');
+        // 1 dia: disponibilizado qua 14/10, publica qui 15/10, vence sex 16/10 (5 dias antes de 21/10).
+        $this->publicar($tenant, 'Intime-se a parte ré para se manifestar no prazo de 1 dia.', '2026-10-14');
+
+        self::assertSame(['criados' => 1, 'apagados' => 0], $this->sincronizar($pasta));
+        self::assertSame(['2026-10-16'], array_column($this->linhasPush($pasta), 'data'));
+    }
+
+    #[TestDox('corte do histórico: audiência passada não nasce; a futura nasce')]
+    public function testCorteDaAudiencia(): void
+    {
+        [$tenant, $pasta] = $this->pastaComProcesso();
+        $this->publicar($tenant, 'Designo audiência de conciliação para o dia 20/10/2026, às 14h. Intimem-se as partes.', '2026-10-01');
+        $this->publicar($tenant, 'Designo audiência de instrução para o dia 20/11/2026, às 14h. Intimem-se as partes.', '2026-10-01');
+
+        $this->sincronizar($pasta);
+
+        self::assertSame(['2026-11-20'], array_column($this->linhasPush($pasta), 'data'));
+    }
+
+    #[TestDox('a linha já gravada que ficou fora da janela continua: o corte não apaga')]
+    public function testCorteNaoApagaOQueJaExiste(): void
+    {
+        [$tenant, $pasta] = $this->pastaComProcesso();
+        $pub = $this->publicar($tenant, 'Intime-se a parte autora para se manifestar no prazo de 1 dia.', '2026-09-17');
+        $this->em()->persist(PastaPrazo::doPush(
+            $tenant,
+            $pasta,
+            (int) $pub->getId(),
+            new \DateTimeImmutable('2026-09-17'),
+            PastaPrazo::TIPO_PRAZO,
+            'Prazo do Push: Manifestação (parte autora)',
+            new \DateTimeImmutable('2026-09-21'),
+            null,
+            true
+        ));
+        $this->em()->flush();
+
+        self::assertSame(['criados' => 0, 'apagados' => 0], $this->sincronizar($pasta));
+        self::assertSame(['2026-09-21'], array_column($this->linhasPush($pasta), 'data'));
+    }
+
+    #[TestDox('desvincular o processo apaga os prazos do Push dele, menos o cumprido')]
+    public function testAoDesvincular(): void
+    {
+        [$tenant, $pasta, $user, $processo] = $this->pastaComProcesso();
+        $this->publicar($tenant, self::COM_PRAZO, '2026-09-25');
+        $this->publicar($tenant, 'Intime-se a parte ré para se manifestar no prazo de 5 dias.', '2026-10-14');
+        $this->sincronizar($pasta);
+        self::assertCount(2, $this->linhasPush($pasta));
+        $cumprida = $this->em()->getRepository(PastaPrazo::class)->findOneBy(['pasta' => $pasta, 'origem' => PastaPrazo::ORIGEM_PUSH, 'data' => new \DateTimeImmutable('2026-10-20')]);
+        self::assertNotNull($cumprida);
+        $cumprida->cumprir($user);
+        $this->em()->flush();
+
+        static::getContainer()->get(DesvincularProcessoUseCase::class)->executar($pasta, $processo, $user);
+
+        $linhas = $this->linhasPush($pasta);
+        self::assertSame(['2026-10-20'], array_column($linhas, 'data'));
+        self::assertNotNull($linhas[0]['cumprido_em']);
+    }
+
+    #[TestDox('falha no cálculo não derruba o vínculo: o processo fica vinculado e o erro vai ao log')]
+    public function testFalhaNoCalculoNaoDerrubaOVinculo(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $processo = $this->criarProcesso($tenant, self::NUMERO);
+        $this->publicar($tenant, self::COM_PRAZO, '2026-10-14');
+        $this->falharOCalculo();
+
+        static::getContainer()->get(VincularProcessoUseCase::class)->executar($pasta, $processo, $user);
+
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne('SELECT COUNT(*) FROM pasta_processo WHERE pasta_id = ?', [$pasta->getId()]));
+        self::assertSame([], $this->linhasPush($pasta), 'sem a falha, a publicação acima geraria um prazo');
+    }
+
+    #[TestDox('falha no cálculo não derruba a captação: a publicação nova é gravada e a chamada termina')]
+    public function testFalhaNoCalculoNaoDerrubaACaptacao(): void
+    {
+        [$tenant, $pasta] = $this->pastaComProcesso();
+        $this->falharOCalculo();
+        $mock = $this->createMock(DjenClientInterface::class);
+        $mock->method('consultarComunicacoes')->willReturnCallback(static fn (ConsultaComunicacoesQuery $q): RespostaComunicacoes => $q->numeroProcesso === self::NUMERO
+            ? new RespostaComunicacoes(1, [['id' => 880201, 'numero_processo' => self::NUMERO, 'siglaTribunal' => 'TJDFT', 'tipoComunicacao' => 'Intimação',
+                'nomeOrgao' => '1ª Vara Cível de Brasília', 'texto' => self::COM_PRAZO, 'data_disponibilizacao' => '2026-10-14']])
+            : new RespostaComunicacoes(0, []));
+        static::getContainer()->set(DjenClient::class, $mock);
+
+        $resultado = static::getContainer()->get(SincronizarPublicacoesDjenUseCase::class)
+            ->sincronizarNumeros($tenant, PeriodoConsulta::ultimosDias(30, new \DateTimeImmutable('2026-10-21')), [self::NUMERO]);
+
+        self::assertSame(1, $resultado->getNovas());
+        self::assertSame(1, (int) $this->em()->getConnection()->fetchOne("SELECT COUNT(*) FROM publicacao_djen WHERE djen_id = 880201 AND tenant_id = ?", [$tenant->getId()]));
+        self::assertSame([], $this->linhasPush($pasta), 'sem a falha, a publicação nova geraria um prazo');
+    }
+
+    /** O repositório de verdade, com o `findBy` (a leitura das publicações da pasta no cálculo) lançando. */
+    private function falharOCalculo(): void
+    {
+        $repositorio = $this->getMockBuilder(PublicacaoDjenRepository::class)
+            ->setConstructorArgs([static::getContainer()->get('doctrine')])
+            ->onlyMethods(['findBy'])
+            ->getMock();
+        $repositorio->method('findBy')->willThrowException(new \RuntimeException('falha simulada no cálculo'));
+        static::getContainer()->set(PublicacaoDjenRepository::class, $repositorio);
     }
 
     /** @return array{0: Tenant, 1: Pasta, 2: \App\Entity\Auth\User, 3: \App\Processo\Entity\Processo} */
