@@ -20,6 +20,8 @@ use App\Tarefa\Entity\AprendizadoDoDespacho;
 use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Enum\NaturezaDoDespacho;
 use App\Tarefa\Enum\TipoDeDemanda;
+use App\Tarefa\Repository\AprendizadoDaPendenciaRepository;
+use App\Tarefa\Repository\AprendizadoDoDespachoRepository;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -164,6 +166,54 @@ final class AprendizadoDaMetaTest extends JusPrimeWebTestCase
         self::assertSame(['documentacao' => ['RG', 'Procuração']], $dados['costumaPedir'], 'sem as linhas de outra pessoa; no empate, a mais recente primeiro');
     }
 
+    #[TestDox('Chave desligada no Meu Perfil (D4): passar a etapa não grava as pendências e o modal não recebe nada')]
+    public function testPassagemComAChaveDesligada(): void
+    {
+        $this->em->persist(new AprendizadoDaPendencia($this->escritorio, $this->responsavel, EtapaDaPasta::Documentacao, 'Antiga'));
+        $this->em->flush();
+        static::getContainer()->get(PreferenciaDoUsuarioRepository::class)->gravar($this->escritorio, $this->responsavel, CatalogoDePreferenciasDoPerfil::SUGESTOES_DESPACHOS, false);
+        $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
+
+        $this->client->request('GET', '/tarefas/' . $this->meta->getId() . '/passagem');
+        $dados = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertSame([], $dados['costumaPedir']);
+
+        $this->client->request('POST', '/tarefas/' . $this->meta->getId() . '/passar', ['_token' => 'TOKEN_passar_etapa_' . $this->meta->getId(), 'tipo' => 'judicial', 'pendencias' => "Procuração\nRG"]);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['Antiga'], $this->linhasNoBanco($this->responsavel), 'só a antiga');
+    }
+
+    #[TestDox('Melhor esforço: o aprendizado que falha (e fecha o EntityManager) não derruba o despacho, que fica gravado, e a resposta segue de sucesso')]
+    public function testFalhaNoDespachoNaoDerruba(): void
+    {
+        $this->quebrarOAprendizado();
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+
+        $this->despachar('Junte a procuração.', '');
+
+        self::assertResponseRedirects('/tarefas/' . $this->meta->getId());
+        $conexao = static::getContainer()->get('doctrine.dbal.default_connection');
+        self::assertSame(1, (int) $conexao->fetchOne('SELECT COUNT(*) FROM tarefa_mensagem WHERE tarefa_id = ?', [$this->meta->getId()]));
+        self::assertSame(0, (int) $conexao->fetchOne('SELECT COUNT(*) FROM tarefa_aprendizado_despacho'));
+    }
+
+    #[TestDox('Melhor esforço: o aprendizado das pendências que falha não derruba a passagem, que fica gravada, e o JSON segue ok')]
+    public function testFalhaNaPassagemNaoDerruba(): void
+    {
+        $this->quebrarOAprendizado();
+        $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
+
+        $this->client->request('POST', '/tarefas/' . $this->meta->getId() . '/passar', ['_token' => 'TOKEN_passar_etapa_' . $this->meta->getId(), 'tipo' => 'judicial', 'pendencias' => 'RG']);
+
+        self::assertResponseIsSuccessful();
+        $dados = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertTrue($dados['ok']);
+        self::assertIsInt($dados['novaMeta']);
+        $conexao = static::getContainer()->get('doctrine.dbal.default_connection');
+        self::assertSame(1, (int) $conexao->fetchOne('SELECT COUNT(*) FROM tarefa WHERE id = ?', [$dados['novaMeta']]));
+        self::assertSame([], $this->linhasNoBanco($this->responsavel));
+    }
+
     #[TestDox('Página da meta: o modal da passagem tem o "Você costuma pedir:" embaixo do campo das pendências')]
     public function testModalComOVoceCostumaPedir(): void
     {
@@ -221,6 +271,29 @@ final class AprendizadoDaMetaTest extends JusPrimeWebTestCase
     private function textosNoBanco(User $pessoa): array
     {
         return array_map('strval', $this->em->getConnection()->fetchFirstColumn('SELECT texto FROM tarefa_aprendizado_despacho WHERE usuario_id = ? ORDER BY texto', [$pessoa->getId()]));
+    }
+
+    /** Os repositórios do aprendizado passam a fechar o EntityManager e lançar, como uma falha de banco no flush. */
+    private function quebrarOAprendizado(): void
+    {
+        $em = $this->em;
+        $falhar = static function () use ($em): never {
+            $em->close();
+
+            throw new \RuntimeException('falha simulada do aprendizado');
+        };
+        $despachos = $this->createMock(AprendizadoDoDespachoRepository::class);
+        $despachos->method('salvar')->willReturnCallback($falhar);
+        $pendencias = $this->createMock(AprendizadoDaPendenciaRepository::class);
+        $pendencias->method('salvar')->willReturnCallback($falhar);
+        static::getContainer()->set(AprendizadoDoDespachoRepository::class, $despachos);
+        static::getContainer()->set(AprendizadoDaPendenciaRepository::class, $pendencias);
+    }
+
+    /** @return list<string> */
+    private function linhasNoBanco(User $pessoa): array
+    {
+        return array_map('strval', $this->em->getConnection()->fetchFirstColumn('SELECT linha FROM tarefa_aprendizado_pendencia WHERE usuario_id = ? ORDER BY linha', [$pessoa->getId()]));
     }
 
     private function aprendido(User $pessoa, Tenant $escritorio, string $texto, int $dias): void

@@ -6,9 +6,6 @@ namespace App\Tests\Tarefa\Unit;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
-use App\Tarefa\Entity\AprendizadoDaPendencia;
-use App\Tarefa\Entity\AprendizadoDoDespacho;
-use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Repository\AprendizadoDaPendenciaRepository;
 use App\Tarefa\Repository\AprendizadoDoDespachoRepository;
 use App\Tarefa\UseCase\ApagarAprendizadoUseCase;
@@ -22,21 +19,19 @@ use PHPUnit\Framework\TestCase;
 #[Group('tarefa')]
 final class ApagarAprendizadoUseCaseTest extends TestCase
 {
-    #[TestDox('Remove os despachos e as pendências da pessoa no escritório e confirma uma vez')]
+    #[TestDox('Apaga em lote os despachos e as pendências da pessoa no escritório, sem carregar entidade por entidade')]
     public function testApagaTudoDaPessoa(): void
     {
         $escritorio = new Tenant();
         $pessoa = new User();
-        $despacho = new AprendizadoDoDespacho($escritorio, $pessoa, EtapaDaPasta::Juridico, null, 'Texto', 0);
-        $pendencia = new AprendizadoDaPendencia($escritorio, $pessoa, EtapaDaPasta::Juridico, 'RG');
         $despachos = $this->createMock(AprendizadoDoDespachoRepository::class);
-        $despachos->expects(self::once())->method('doUsuario')->with($escritorio, $pessoa)->willReturn([$despacho]);
-        $despachos->expects(self::once())->method('remover')->with($despacho);
-        $despachos->expects(self::once())->method('confirmar');
+        $despachos->expects(self::once())->method('apagarDoUsuario')->with($escritorio, $pessoa)->willReturn(3);
+        $despachos->expects(self::never())->method('doUsuario');
+        $despachos->expects(self::never())->method('remover');
         $pendencias = $this->createMock(AprendizadoDaPendenciaRepository::class);
-        $pendencias->expects(self::once())->method('doUsuario')->with($escritorio, $pessoa)->willReturn([$pendencia]);
-        $pendencias->expects(self::once())->method('remover')->with($pendencia);
+        $pendencias->expects(self::once())->method('apagarDoUsuario')->with($escritorio, $pessoa)->willReturn(2);
+        $pendencias->expects(self::never())->method('remover');
 
-        self::assertSame(2, (new ApagarAprendizadoUseCase($despachos, $pendencias))->executar($escritorio, $pessoa));
+        self::assertSame(5, (new ApagarAprendizadoUseCase($despachos, $pendencias))->executar($escritorio, $pessoa));
     }
 }

@@ -6,8 +6,6 @@ namespace App\Tarefa\Entity;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
-use App\Shared\Contract\Auditavel;
-use App\Shared\Contract\ConteudoParticular;
 use App\Shared\Contract\TenantAware;
 use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Repository\AprendizadoDaPendenciaRepository;
@@ -16,13 +14,13 @@ use Doctrine\ORM\Mapping as ORM;
 /**
  * Uma linha das pendências que a pessoa pediu ao passar a etapa adiante (desenho 04B de 22/10, L157-158 e L173;
  * spec `minhas-metas-esteira-2210.md`, 1.1 item 2 e Fase 4), pela etapa destino. Alimenta o "Você costuma pedir:" do
- * modal. Por usuário e escritório (C2). A linha não vai para a auditoria ({@see ConteudoParticular}) e sai quando a
+ * modal. Por usuário e escritório (C2). A linha fica fora da auditoria (AuditavelCoberturaTest) e sai quando a
  * pessoa apaga o que foi aprendido (D4).
  */
 #[ORM\Entity(repositoryClass: AprendizadoDaPendenciaRepository::class)]
 #[ORM\Table(name: 'tarefa_aprendizado_pendencia')]
 #[ORM\Index(name: 'idx_tarefa_aprendizado_pendencia_dono', columns: ['tenant_id', 'usuario_id', 'criado_em'])]
-class AprendizadoDaPendencia implements Auditavel, TenantAware, ConteudoParticular
+class AprendizadoDaPendencia implements TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -76,15 +74,5 @@ class AprendizadoDaPendencia implements Auditavel, TenantAware, ConteudoParticul
     public function getCriadoEm(): \DateTimeImmutable
     {
         return $this->criadoEm;
-    }
-
-    public function ehParticular(array $mudancas = []): bool
-    {
-        return true;
-    }
-
-    public function camposParticulares(): array
-    {
-        return ['linha'];
     }
 }

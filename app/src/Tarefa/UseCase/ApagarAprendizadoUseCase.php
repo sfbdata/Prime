@@ -21,20 +21,10 @@ final class ApagarAprendizadoUseCase
     ) {
     }
 
-    /** @return int quantos registros saíram */
+    /** @return int quantos registros saíram (DELETE em lote, filtrado por escritório e pessoa) */
     public function executar(Tenant $escritorio, User $usuario): int
     {
-        $apagados = 0;
-        foreach ($this->despachos->doUsuario($escritorio, $usuario) as $registro) {
-            $this->despachos->remover($registro);
-            ++$apagados;
-        }
-        foreach ($this->pendencias->doUsuario($escritorio, $usuario) as $registro) {
-            $this->pendencias->remover($registro);
-            ++$apagados;
-        }
-        $this->despachos->confirmar();
-
-        return $apagados;
+        return $this->despachos->apagarDoUsuario($escritorio, $usuario)
+            + $this->pendencias->apagarDoUsuario($escritorio, $usuario);
     }
 }

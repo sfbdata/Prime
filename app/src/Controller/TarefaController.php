@@ -50,6 +50,7 @@ use App\Tarefa\Controller\RecusaDeQuemNaoCuidaDaMeta;
 use App\Tarefa\UseCase\ConcluirMetaUseCase;
 use App\Tenant\Service\ColaboradoresAtribuiveis;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -375,7 +376,7 @@ final class TarefaController extends AbstractController
      * Responsável envia → Para Revisão. Gestor devolve → Pendente.
      */
     #[Route('/{id}/mensagem', name: 'tarefa_mensagem', methods: ['POST'])]
-    public function mensagem(Tarefa $tarefa, Request $request, DespacharNaMetaUseCase $useCase, ValidatorInterface $validator, AprenderComAMetaUseCase $aprender): Response
+    public function mensagem(Tarefa $tarefa, Request $request, DespacharNaMetaUseCase $useCase, ValidatorInterface $validator, AprenderComAMetaUseCase $aprender, LoggerInterface $logger): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -398,13 +399,29 @@ final class TarefaController extends AbstractController
         try {
             // O anexo vai aos documentos da pasta pela regra de chaves (C4); recusado, nada fica.
             $useCase->executar($tarefa, $usuario, $tenant, $input, $anexo instanceof UploadedFile && $anexo->isValid() ? $anexo : null);
-            // Aprendizado (Fase 4): só depois do despacho gravado, e só se a pessoa não desligou no Meu Perfil (D4).
-            $aprender->doDespacho($tarefa, $usuario, $tenant, $input, new \DateTimeImmutable('today'));
         } catch (DespachoRecusadoException $e) {
             $this->addFlash('danger', $e->getMessage());
-        }
 
-        return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
+            return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
+        }
+        $url = $this->generateUrl('tarefa_show', ['id' => $tarefa->getId()]);
+        $this->aprenderDoDespacho($aprender, $logger, $tarefa, $usuario, $tenant, $input);
+
+        return $this->redirect($url);
+    }
+
+    /**
+     * Aprendizado (Fase 4) é melhor esforço: roda só depois do despacho gravado (e só se a pessoa não desligou no Meu
+     * Perfil, D4). Uma falha aqui não desfaz nem esconde o despacho: vai para o log (meta e pessoa, sem o texto) e a
+     * resposta segue de sucesso, montada antes, sem depender do EntityManager.
+     */
+    private function aprenderDoDespacho(AprenderComAMetaUseCase $aprender, LoggerInterface $logger, Tarefa $tarefa, User $usuario, Tenant $tenant, DespacharNaMetaInput $input): void
+    {
+        try {
+            $aprender->doDespacho($tarefa, $usuario, $tenant, $input, new \DateTimeImmutable('today'));
+        } catch (\Throwable $e) {
+            $logger->error('Aprendizado do despacho falhou; o despacho ficou gravado.', ['meta' => $tarefa->getId(), 'usuario' => $usuario->getId(), 'erro' => $e::class]);
+        }
     }
 
     /** Campo simples (C10): quebras normalizadas antes da validação, para o limite contar o que a pessoa escreveu. */

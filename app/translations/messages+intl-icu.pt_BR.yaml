@@ -322,6 +322,7 @@ perfil:
         apagar_aprendizado_rotulo: Apagar o que foi aprendido
         apagar_aprendizado_sub: Os despachos e as pendências guardados neste escritório
         apagar_aprendizado_confirmar: Apagar tudo o que foi aprendido com seus despachos neste escritório? As sugestões começam do zero.
+        apagar_aprendizado_feito: O que foi aprendido com seus despachos foi apagado.
     seguranca:
         titulo: Segurança
         sub: Senha de acesso à sua conta

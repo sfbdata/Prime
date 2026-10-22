@@ -70,6 +70,11 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Contador da sequência de metas do escritório: estado operacional (o último número entregue), gravado
         // só por SQL. O número que vale fica na própria meta, que é Auditavel e já entra na trilha ao nascer.
         \App\Tarefa\Entity\NumeracaoDeMetas::class,
+        // Aprendizado de Minhas Metas (Fase 4, D4): texto de despacho e linhas de pendência guardados só para as
+        // sugestões da própria pessoa. Auditar daria uma linha por despacho e deixaria metadados no audit_log depois do
+        // "Apagar o que foi aprendido"; o ato que importa (o despacho, a passagem) já é auditado na meta.
+        \App\Tarefa\Entity\AprendizadoDoDespacho::class,
+        \App\Tarefa\Entity\AprendizadoDaPendencia::class,
 
         // Preferência pessoal de tela (densidade, animações, setas, colunas ocultas do Dashboard):
         // estilo de quem olha, sem efeito sobre dado nenhum do escritório. Auditar cada clique no

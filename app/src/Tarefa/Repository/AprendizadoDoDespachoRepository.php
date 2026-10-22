@@ -56,6 +56,19 @@ class AprendizadoDoDespachoRepository extends ServiceEntityRepository
         $this->getEntityManager()->remove($registro);
     }
 
+    /** DELETE em lote do que é da pessoa naquele escritório (D4); devolve quantos saíram. */
+    public function apagarDoUsuario(Tenant $tenant, User $usuario): int
+    {
+        return (int) $this->createQueryBuilder('a')
+            ->delete()
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.usuario = :usuario')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('usuario', $usuario)
+            ->getQuery()
+            ->execute();
+    }
+
     public function confirmar(): void
     {
         $this->getEntityManager()->flush();

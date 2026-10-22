@@ -6,8 +6,6 @@ namespace App\Tarefa\Entity;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
-use App\Shared\Contract\Auditavel;
-use App\Shared\Contract\ConteudoParticular;
 use App\Shared\Contract\TenantAware;
 use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Enum\NaturezaDoDespacho;
@@ -20,13 +18,13 @@ use Doctrine\ORM\Mapping as ORM;
  * natureza, o texto e os dias úteis do prazo (0 sem prazo). Fica no servidor, por usuário e escritório.
  *
  * Só o necessário: nada da meta nem da pasta. O texto é o que a pessoa escreveu (as @menções viram "@Nome", sem o id)
- * e não vai para a auditoria ({@see ConteudoParticular}); sai quando a pessoa apaga o que foi aprendido (D4). O
+ * e fica fora da auditoria (AuditavelCoberturaTest); sai quando a pessoa apaga o que foi aprendido (D4). O
  * usuário apagado leva junto (CASCADE); o escritório purgado, pela `PurgarEscritorioUseCase::ORDEM_DELECAO`.
  */
 #[ORM\Entity(repositoryClass: AprendizadoDoDespachoRepository::class)]
 #[ORM\Table(name: 'tarefa_aprendizado_despacho')]
 #[ORM\Index(name: 'idx_tarefa_aprendizado_despacho_dono', columns: ['tenant_id', 'usuario_id', 'criado_em'])]
-class AprendizadoDoDespacho implements Auditavel, TenantAware, ConteudoParticular
+class AprendizadoDoDespacho implements TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -94,15 +92,5 @@ class AprendizadoDoDespacho implements Auditavel, TenantAware, ConteudoParticula
     public function getCriadoEm(): \DateTimeImmutable
     {
         return $this->criadoEm;
-    }
-
-    public function ehParticular(array $mudancas = []): bool
-    {
-        return true;
-    }
-
-    public function camposParticulares(): array
-    {
-        return ['texto'];
     }
 }
