@@ -108,7 +108,7 @@ class Tarefa implements Auditavel, TenantAware
     private Collection $acompanhantes;
 
     #[ORM\OneToMany(mappedBy: 'tarefa', targetEntity: TarefaMensagem::class, orphanRemoval: true, cascade: ['persist', 'remove'])]
-    #[ORM\OrderBy(['criadoEm' => 'ASC'])]
+    #[ORM\OrderBy(['criadoEm' => 'ASC', 'id' => 'ASC'])]
     private Collection $mensagens;
 
     public function __construct()

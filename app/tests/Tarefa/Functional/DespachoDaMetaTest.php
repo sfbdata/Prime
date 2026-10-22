@@ -412,7 +412,7 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
     {
         $this->em->clear();
 
-        return $this->em->getRepository(TarefaMensagem::class)->findBy(['tarefa' => $this->meta->getId()]);
+        return $this->em->getRepository(TarefaMensagem::class)->findBy(['tarefa' => $this->meta->getId()], ['id' => 'ASC']);
     }
 
     private function unicoDespacho(): TarefaMensagem
