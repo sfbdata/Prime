@@ -6,6 +6,7 @@ namespace App\Tests\Pasta\Unit;
 
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * PMC-038 — moldura do modal "Nova meta" (desenho 1.2.3, `salvarSt`/`faltaTxt`/`recolher`/
@@ -76,8 +77,10 @@ final class PastaModalNovaMetaMolduraJsTest extends TestCase
     public function testRotuloDepoisDoErro(): void
     {
         $show = (string) file_get_contents(self::SHOW);
-        self::assertStringContainsString("var ROTULO_CRIAR = '<i class=\"bi bi-send\" aria-hidden=\"true\"></i>Criar meta';", $show);
-        self::assertSame(2, substr_count($show, 'btn.innerHTML = ROTULO_CRIAR;'), 'erro do servidor e falha de comunicação');
+        // O ícone fica no script e o texto vem do catálogo do idioma, na hora do uso (`pasta_show.js.meta.criar`).
+        self::assertStringContainsString("var ICONE_CRIAR = '<i class=\"bi bi-send\" aria-hidden=\"true\"></i>';", $show);
+        self::assertSame(2, substr_count($show, "rotular(btn, ICONE_CRIAR, BJ_T.t('pasta_show.js.meta.criar'));"), 'erro do servidor e falha de comunicação');
+        self::assertSame('Criar meta', Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['meta']['criar']);
         self::assertStringNotContainsString('Criar Tarefa', $show);
     }
 }
