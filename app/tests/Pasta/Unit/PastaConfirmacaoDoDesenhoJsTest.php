@@ -51,7 +51,10 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         $c = self::funcao('confirmarPs');
         self::assertStringContainsString("var azul = o.variante === 'azul';", $c);
         self::assertStringContainsString("caixa.classList.toggle('is-azul', azul);", $c, 'a classe sai também no perigo — a janela é reaproveitada');
-        self::assertStringContainsString("o.rotulo || (azul ? 'Confirmar' : 'Excluir')", $c);
+        self::assertStringContainsString("o.rotulo || (azul ? BJ_T.t('comum.js.dialogos.confirmar') : BJ_T.t('comum.js.dialogos.excluir'))", $c);
+        $cat = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['comum']['js']['dialogos'];
+        self::assertSame('Confirmar', $cat['confirmar']);
+        self::assertSame('Excluir', $cat['excluir']);
         self::assertStringContainsString("o.icone || (azul ? 'bi-check2' : 'bi-trash3')", $c);
     }
 
@@ -61,8 +64,11 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         $f = self::funcao('opcoesDaMensagem');
         self::assertStringContainsString("var i = t.indexOf('\\n');", $f);
         self::assertStringContainsString('var temTitulo = i > 0 && i < 90;', $f);
-        self::assertStringContainsString("(perigo ? 'Confirmar exclusão' : 'Confirmar')", $f);
-        self::assertStringContainsString("rotulo: 'Confirmar',", $f);
+        self::assertStringContainsString("(perigo ? BJ_T.t('comum.js.dialogos.confirmar_exclusao') : BJ_T.t('comum.js.dialogos.confirmar'))", $f);
+        self::assertStringContainsString("rotulo: BJ_T.t('comum.js.dialogos.confirmar'),", $f);
+        $cat = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['comum']['js']['dialogos'];
+        self::assertSame('Confirmar exclusão', $cat['confirmar_exclusao']);
+        self::assertSame('Confirmar', $cat['confirmar']);
         self::assertStringContainsString("icone: perigo ? 'bi-exclamation-triangle' : 'bi-check2',", $f);
         self::assertStringContainsString("variante: perigo ? 'perigo' : 'azul'", $f);
 

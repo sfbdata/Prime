@@ -639,3 +639,38 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   dado; os flashes e as recusas do `ProcessoController` e do `NotaTecnicaController` e o `error` que o
   `api_datajud_search` devolve ao modal; o `nota-tecnica.js` (área da pasta); o `aria-label="Close"` do modal de
   mensagem, que continua em inglês como estava (agora numa chave).
+
+## 24. Extração dos parciais comuns, da raiz e das telas avulsas (7d, 21/10)
+
+### 24.1 Parciais comuns (_partials)
+
+- **Escopo:** `_partials/_avatar_usuario` (sem texto: só as iniciais, que são dado), `_filtro_barra`,
+  `_filtro_paginacao`, `_janela_confirmacao`, `modal_access_request`, `modal_mover_marcador` e `modal_nova_pasta`, com os
+  scripts inline deles, mais `filtro-tabela.js` (motor do filtro de Processos, Demandas, Cobrança, Dashboard e Minhas
+  Metas) e `pasta-dialogos.js` (a janela de confirmação, com os responsáveis e o calendário da Nova meta). Bloco `comum`
+  do catálogo, 71 chaves, 45 delas em `comum.js.*`. O `base.html.twig` passou a entregar `comum.js` no mesmo
+  `catalogo_js` da moldura, para o JS ter o texto em qualquer tela que inclua um parcial.
+- **A interface dos parciais não mudou:** os mesmos parâmetros do `with {...}`. O placeholder padrão do `_filtro_barra`
+  (`Buscar…`) virou `comum.filtro.buscar`, mas só vale quando o incluidor não passa `busca_placeholder` (hoje todos passam).
+  O "Filtrar por X" recebe o rótulo da faceta por parâmetro. Na Nova Pasta do desenho 1.1 os rótulos em caixa alta são
+  as mesmas chaves da variante antiga com `|upper`.
+- **Ordem de carga:** os scripts inline dos parciais rodam no `body`, antes do `bj-traducao.js` do base; por isso só
+  chamam `BJ_T.t` em evento, `DOMContentLoaded` ou resposta de `fetch` (o pedido de acesso guarda as chaves das ações e
+  dos recursos, `termos.pasta` e `termos.processo`, e lê o texto na hora). Os nomes dos meses do calendário passaram a
+  ser chaves inteiras (`comum.js.dialogos.mes.*`), lidas ao desenhar. O `aria-label` do botão de fechar do aviso do
+  pedido de acesso entra por `setAttribute` depois da inserção, sem texto do catálogo dentro de HTML.
+- **Sem mudança visível:** o HTML de 16 respostas (Expediente; acervo nas páginas 1 e 2 com 55 pastas; Pasta com
+  marcadores; Processos com 27 processos, página 2, busca com faceta e busca vazia; Minhas Metas; Demandas nas páginas
+  1 e 2; Casos e Carteiras da Cobrança; Dashboard; `/pasta`, que redireciona) foi comparado antes e depois. Sobraram só
+  o token CSRF do pedido de acesso, a cor do avatar do Dashboard (calculada pelo id do usuário, que muda entre as
+  rodadas) e as linhas de JS que agora leem o catálogo.
+- **Formatos:** no `pasta-dialogos.js`, o dia escolhido no calendário (`toLocaleDateString('pt-BR')`) virou
+  `BJFormato.data`. Ficaram: o rótulo longo do dia (`weekday: 'long'`, sem equivalente no `BJFormato`) e o
+  `formatarData` do `filtro-tabela.js`, que monta dd/mm/aaaa à mão para o chip de data.
+- **Guarda:** nos permitidos ficaram o pedaço do `_filtro_paginacao` que o detector lê como texto (o `<=` e o `>=` da
+  expressão Twig parecem uma tag), a constante `CoresDoMarcador::DESENHO` e os nomes de tecla (`Enter`, `Escape`,
+  `ArrowDown`). `PastaDialogosJsTest` e `PastaConfirmacaoDoDesenhoJsTest` conferem agora a chave no código e o texto
+  exato no catálogo.
+- **Ficou de fora:** as mensagens que vêm do servidor (`data.error`/`data.message` do pedido de acesso, `json.mensagem`
+  da Nova Pasta, `erro`/`mensagem` dos marcadores) e o HTML do aviso de pasta parecida, que o `PastaController` monta.
+  O aviso do pedido de acesso continua pondo a mensagem do servidor em `innerHTML`, como antes (não é texto do catálogo).
