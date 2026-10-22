@@ -822,3 +822,21 @@ antes e depois, sem diferença; o texto dos scripts foi conferido chave por chav
   `d/m/Y, H:i:s` do "Impresso em" (não há filtro de dia e mês nem de hora com segundos); o `lang="pt-BR"` fixo da folha
   e do `srcdoc` do iframe de impressão; o `documento_br_rotulo`.
 
+## 25. E-mails e as páginas que eles abrem (5d, 21/10)
+
+Três PRs, um aberto por vez, sem migration e com o português idêntico:
+- **A (páginas públicas):** `comercial/confirmacao/*`, `email_descadastro/*`, `indicacao/_janela` (mais o `indicacao.js`)
+  e `invitation/index`, no bloco `publicas:`;
+- **B (e-mails do sistema):** cadastro, senha, exclusão de conta, convites, Push, resumo diário e Trabalho Externo;
+- **C (e-mails do Comercial):** `email/comercial/*`.
+
+Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicacao`, `.convite` e `.js.indicacao`).
+- A página sem login sai em pt_BR, pelo `IdiomaDaRequisicaoListener`, e as 5 páginas avulsas não têm JS.
+- A frase com `<b>` ou `<strong>` no meio foi partida em chaves, com a marcação no template.
+- **Ficam como estão:**
+  - o texto que o servidor manda à janela de Indicações (controller e UseCases);
+  - os rótulos do FormType do convite;
+  - o `lang="pt-BR"` fixo das páginas avulsas.
+- **Para decidir:** `invitation/index.html.twig` não é renderizado por nenhum controller e parece morto.
+- **Prova:** 12 renderizações antes e depois, cobrindo os ramos, saíram iguais. A janela só ganhou o bloco do catálogo
+  JS.

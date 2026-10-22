@@ -716,5 +716,25 @@
             "AbortError",
             "Escape"
         ]
+    },
+
+    "publicas": {
+        "templates": [
+            "comercial/confirmacao/confirmado.html.twig",
+            "comercial/confirmacao/confirmar.html.twig",
+            "comercial/confirmacao/vencido.html.twig",
+            "email_descadastro/confirmado.html.twig",
+            "email_descadastro/confirmar.html.twig",
+            "indicacao/_janela.html.twig",
+            "invitation/index.html.twig"
+        ],
+        "js": [
+            "indicacao.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "WhatsApp",
+            "Content-Type"
+        ]
     }
 }
