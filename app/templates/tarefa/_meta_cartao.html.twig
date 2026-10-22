@@ -48,6 +48,21 @@
                 </span>
             {% endif %}
         </div>
+
+        {# Etapa da pasta (desenho 22/10, dc L95): "i/T · Etapa" e, enquanto não concluída, a próxima com o setor.
+           Etapa fora da sequência do tipo de demanda (consultoria em Acompanhamento) mostra só o nome. #}
+        {% set et = painel.etapaDaMeta(meta) %}
+        {% set nomeDaEtapa = et.nome ?? et.etapa.rotulo|trans %}
+        <div class="mm-meta-etapa">
+            <span class="mm-meta-etapa-chip" title="{{ 'metas.cartao.etapa_dica'|trans }}">
+                <i class="bi {{ et.etapa.icone }}" aria-hidden="true"></i>{{ et.posicao ? 'metas.cartao.etapa'|trans({posicao: et.posicao, total: et.total, etapa: nomeDaEtapa}) : nomeDaEtapa }}
+            </span>
+            {% if et.proxima %}
+                <span class="mm-meta-etapa-proximo">
+                    <i class="bi bi-arrow-right" aria-hidden="true"></i>{{ 'metas.cartao.proximo'|trans({etapa: et.nomeDaProxima ?? et.proxima.rotulo|trans, setor: et.proxima.setor|trans}) }}
+                </span>
+            {% endif %}
+        </div>
     </div>
 
     <div class="mm-meta-lado">

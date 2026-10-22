@@ -115,6 +115,37 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Protocolar contestação', (string) $client->getResponse()->getContent());
     }
 
+    #[TestDox('A página mostra a esteira com as 8 caixas, o divisor individual e a etapa no cartão da meta')]
+    public function testEsteiraECartaoComEtapa(): void
+    {
+        $client            = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $this->criarMeta($tenant, $usuario, 'Protocolar contestação');
+
+        $crawler = $client->request('GET', '/tarefas/minhas');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(8, $crawler->filter('.mm-esteira-caixas > .mm-caixa-celula'));
+        self::assertCount(7, $crawler->filter('.mm-caixa-celula > .mm-caixa-seta'));
+        self::assertCount(1, $crawler->filter('.mm-esteira + .mm-divisor-suas'));
+        $etapa = $crawler->filter('.mm-meta-corpo > .mm-meta-etapa');
+        self::assertStringContainsString('6/8 · Protocolo', $etapa->text());
+        self::assertStringContainsString('próximo: Acompanhamento · Advogado(a)', $etapa->text());
+    }
+
+    #[TestDox('Clicar na caixa filtra a etapa: a página mostra o chip "Só a etapa" e a caixa ativa')]
+    public function testFiltroPelaEtapaDaEsteira(): void
+    {
+        $client = static::createClient();
+        $this->autenticar($client);
+
+        $crawler = $client->request('GET', '/tarefas/minhas?aba=todas&etapa=protocolo');
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Só a etapa Protocolo', $crawler->filter('.mm-esteira-chip')->text());
+        self::assertCount(1, $crawler->filter('.mm-caixa.is-ativa'));
+    }
+
     #[TestDox('XHR em /tarefas/minhas devolve só o fragmento, sem o layout nem a barra')]
     public function testXhrRetornaFragmentoSemLayout(): void
     {

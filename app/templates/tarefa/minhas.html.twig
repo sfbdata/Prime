@@ -41,6 +41,11 @@
 <section class="content">
     <div class="container-fluid">
 
+        {# ── Esteira da pasta (geral do escritório) e o divisor "Suas metas" (desenho 22/10, dc L61-63) ── #}
+        {% if esteira is defined %}
+            {{ include('tarefa/_esteira.html.twig', {comModo: painel.modoLista ? filtros|filter(v => v != '')|merge({modo: 'lista', aba: aba.value}) : filtros|filter(v => v != '')|merge({aba: aba.value})}) }}
+        {% endif %}
+
         {# ── KPIs: atalhos, não resumo do filtro ── #}
         {% set kpis = painel.kpis %}
         {% set atalhos = [
@@ -142,8 +147,9 @@
 {{ parent() }}
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
 {{ catalogo_js('metas.js') }}
+{% if esteira is defined and esteira.podeConfigurar %}<script src="{{ asset('js/esteira-da-pasta.js') }}"></script>{% endif %}
 <script>
-// A aba e o modo são estado da tela, não filtro: entram no form de filtro como campos
+// A aba, o modo e a etapa da esteira são estado da tela, não filtro: entram no form de filtro como campos
 // ocultos para sobreviverem à recarga parcial. Sem isso, filtrar dentro de "Criei" jogaria
 // o usuário de volta em "Sou responsável" — o mesmo modo de falha já registrado no
 // Expediente, quando um filtro não representável no form se perdia na primeira interação.
@@ -153,7 +159,7 @@
     var form = raiz.querySelector('[data-filtro-form]');
     if (!form) { return; }
 
-    [['aba', {{ aba.value|json_encode|raw }}], ['modo', {{ (painel.modoLista ? 'lista' : '')|json_encode|raw }}]]
+    [['aba', {{ aba.value|json_encode|raw }}], ['modo', {{ (painel.modoLista ? 'lista' : '')|json_encode|raw }}], ['etapa', {{ filtros.etapa|default('')|json_encode|raw }}]]
         .forEach(function (par) {
             if (!par[1]) { return; }
             var campo = document.createElement('input');

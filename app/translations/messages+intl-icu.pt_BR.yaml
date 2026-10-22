@@ -1375,6 +1375,9 @@ metas:
             ir_para_aba_metas: Ir para a aba Metas da pasta
             editar_nome: Editar nome
             encaminhar_chat_ia: Encaminhar via Chat I.A
+        etapa: '{posicao}/{total} · {etapa}'
+        etapa_dica: Etapa da pasta em que esta meta está
+        proximo: 'próximo: {etapa} · {setor}'
     numero:
         dica: 'Meta {local} desta pasta · nº {numero} na sequência do escritório'
         selo: 'Nº {numero}'
@@ -1472,6 +1475,73 @@ metas:
             erro_rede: Erro de rede. Tente novamente.
             acompanhando: Acompanhando
             acompanhar: Acompanhar
+    etapa:
+        comercial:
+            nome: Comercial
+            setor: Comercial
+            descricao: Contrato assinado e honorários definidos
+        abertura:
+            nome: Abertura e relatório
+            setor: Atendimento
+            descricao: Pasta aberta, relato inicial e objetivo do cliente
+        controladoria:
+            nome: Controladoria
+            setor: Controladoria
+            descricao: Conferir pasta, cadastro e listar pendências
+        documentacao:
+            nome: Documentação
+            setor: Secretaria
+            descricao: Reunir documentos e procuração que faltam
+        juridico:
+            nome: Jurídico
+            setor: Advogado(a)
+            descricao: Análise, estratégia e elaboração da peça ou parecer
+        protocolo:
+            nome: Protocolo
+            setor: Advogado(a)
+            descricao: Ajuizar, protocolar requerimento ou entregar parecer
+        acompanhamento:
+            nome: Acompanhamento
+            setor: Advogado(a)
+            descricao: Prazos, publicações, audiências e diligências
+        encerramento:
+            nome: Encerramento
+            setor: Controladoria
+            descricao: Resultado, prestação de contas e arquivamento
+    tipo_de_demanda:
+        judicial: Judicial
+        administrativo: Administrativo
+        consultoria: Consultoria
+    esteira:
+        titulo: Esteira da pasta
+        geral: Geral do escritório
+        geral_dica: 'A esteira é única do escritório: todos veem as mesmas caixas e números, de toda a equipe.'
+        resumo: '{abertas, plural, one {# meta aberta} other {# metas abertas}} no escritório{atrasadas, plural, =0 {} one { · # atrasada} other { · # atrasadas}}. Clique numa caixa para ver as metas dela de toda a equipe.'
+        so_a_etapa: Só a etapa {etapa}
+        limpar_etapa: Mostrar todas as etapas
+        caixa_padrao: CAIXA {numero}
+        caixa_dica: '{descricao} · responsável: {setor}'
+        gargalo: Gargalo
+        gargalo_dica: Etapa com mais metas atrasadas
+        atrasadas: '{n, plural, one {# atrasada} other {# atrasadas}}'
+        avisados_dica: 'Avisados quando chega demanda: {nomes}'
+        renomear: Renomear caixa e etapa
+        suas_metas: Suas metas
+        individual: Individual
+        individual_dica: Estes números contam só as metas em que você é responsável ou que você criou.
+        modal:
+            titulo: Configurar caixa
+            fechar: Fechar
+            nome_da_caixa: Nome da caixa
+            nome_da_etapa: Nome da etapa
+            avisar: Avisar quando chegar demanda
+            avisar_ajuda: digite @ para marcar membros da equipe
+            avisar_placeholder: '@nome'
+            remover: Remover {nome}
+            nota: Quem for marcado como responsável na passagem recebe só um aviso.
+            restaurar: Restaurar padrão
+            cancelar: Cancelar
+            salvar: Salvar
     js:
         parar_de_acompanhar: Parar de acompanhar
         acompanhar_esta_meta: Acompanhar esta meta

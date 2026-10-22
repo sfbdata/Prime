@@ -13,6 +13,7 @@ use App\Processo\Entity\Processo;
 use App\Tarefa\DTO\AndamentoDasMetasOutput;
 use App\Tarefa\DTO\PessoaNoTrilhoOutput;
 use App\Tarefa\Enum\AbaMetas;
+use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Enum\PrioridadeDaMeta;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
@@ -64,15 +65,26 @@ class TarefaRepository extends ServiceEntityRepository
      * `$pastasOcultas`: ids das pastas ocultas pelo cadeado para o usuário (spec pasta-cadeado D3); as metas
      * delas não entram aqui nem nas contagens abaixo.
      *
-     * @param array<string, string> $filtros  busca, prioridade (da meta), prazo
+     * `etapa` (o clique numa caixa da esteira, desenho 04 de 22/10): a esteira é do escritório, então a lista
+     * passa a ser a das metas ABERTAS daquela etapa de toda a equipe ("Clique numa caixa para ver as metas dela
+     * de toda a equipe"), no lugar do papel da aba. Só com o `$escritorio` explícito: o escopo deixa de ser o
+     * usuário, e o filtro de tenant não fica só a cargo do TenantFilter.
+     *
+     * @param array<string, string> $filtros  busca, prioridade (da meta), prazo, etapa
      * @param list<int>             $pastasOcultas
      * @return Tarefa[]
      */
-    public function findParaMinhasMetas(User $usuario, AbaMetas $aba, array $filtros, array $pastasOcultas = []): array
+    public function findParaMinhasMetas(User $usuario, AbaMetas $aba, array $filtros, array $pastasOcultas = [], ?Tenant $escritorio = null): array
     {
-        $qb = $this->createQueryBuilder('t')->setParameter('usuario', $usuario);
+        $qb = $this->createQueryBuilder('t');
 
-        $this->escoparPelaAba($qb, $aba);
+        $etapa = EtapaDaPasta::tryFrom((string) ($filtros['etapa'] ?? ''));
+        if ($etapa !== null && $escritorio !== null) {
+            $this->escoparPelaEtapa($qb, $etapa, $escritorio);
+        } else {
+            $qb->setParameter('usuario', $usuario);
+            $this->escoparPelaAba($qb, $aba);
+        }
         $this->semPastasOcultas($qb, $pastasOcultas);
         $this->cortarConcluidasAntigas($qb);
         $this->aplicarFiltrosDaTela($qb, $filtros);
@@ -449,6 +461,52 @@ class TarefaRepository extends ServiceEntityRepository
             $qb->andWhere('IDENTITY(t.pasta) NOT IN (:pastasOcultas)')
                ->setParameter('pastasOcultas', $pastasOcultas);
         }
+    }
+
+    /** As metas abertas de uma caixa da esteira, de todo o escritório. */
+    private function escoparPelaEtapa(QueryBuilder $qb, EtapaDaPasta $etapa, Tenant $escritorio): void
+    {
+        // Pasta excluída (lápide) fica fora, como na contagem da caixa e no Dashboard.
+        $qb->innerJoin('t.pasta', 'pastaDaEtapa', 'WITH', 'pastaDaEtapa.excluidaEm IS NULL')
+           ->andWhere('t.tenant = :escritorioDaEtapa')
+           ->andWhere('t.etapa = :etapaDaEsteira')
+           ->andWhere('t.status != :concluidaDaEtapa')
+           ->setParameter('escritorioDaEtapa', $escritorio)
+           ->setParameter('etapaDaEsteira', $etapa)
+           ->setParameter('concluidaDaEtapa', Tarefa::STATUS_CONCLUIDA);
+    }
+
+    /**
+     * A esteira da pasta (desenho 04 de 22/10, dc L163-167): por caixa, quantas metas ABERTAS o escritório tem
+     * (em revisão conta) e quantas delas estão atrasadas, pelo mesmo recorte dos KPIs (`FORA_DA_FILA`, prazo
+     * antes de hoje), sem pasta excluída. Uma consulta agregada; caixa sem meta não vem (quem lê completa com zero).
+     *
+     * @param list<int> $pastasOcultas
+     * @return array<string, array{total: int, atrasadas: int}> chave = valor de `EtapaDaPasta`
+     */
+    public function contarEsteira(Tenant $escritorio, \DateTimeImmutable $hoje, array $pastasOcultas = []): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->select('t.etapa AS etapa')
+            ->addSelect('COUNT(t.id) AS total')
+            ->addSelect('COALESCE(SUM(CASE WHEN t.status NOT IN (:foraDaFila) AND t.prazo IS NOT NULL AND t.prazo < :hoje THEN 1 ELSE 0 END), 0) AS atrasadas')
+            ->innerJoin('t.pasta', 'p', 'WITH', 'p.excluidaEm IS NULL') // pasta excluída (lápide) não conta, como no Dashboard
+            ->andWhere('t.tenant = :escritorio')
+            ->andWhere('t.status != :concluida')
+            ->setParameter('escritorio', $escritorio)
+            ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+            ->setParameter('foraDaFila', self::FORA_DA_FILA)
+            ->setParameter('hoje', $hoje->setTime(0, 0))
+            ->groupBy('t.etapa');
+        $this->semPastasOcultas($qb, $pastasOcultas);
+
+        $porEtapa = [];
+        foreach ($qb->getQuery()->getArrayResult() as $linha) {
+            $etapa = $linha['etapa'] instanceof EtapaDaPasta ? $linha['etapa']->value : (string) $linha['etapa'];
+            $porEtapa[$etapa] = ['total' => (int) $linha['total'], 'atrasadas' => (int) $linha['atrasadas']];
+        }
+
+        return $porEtapa;
     }
 
     /**

@@ -6,6 +6,7 @@ namespace App\Tarefa\DTO;
 
 use App\Entity\Tarefa\Tarefa;
 use App\Tarefa\Enum\AbaMetas;
+use App\Tarefa\Enum\EtapaDaPasta;
 
 /**
  * Tudo o que a tela "Minhas Metas" precisa para desenhar uma aba: os blocos da lista, o
@@ -30,6 +31,7 @@ final class MinhasMetasOutput
      * @param array<int, int>                                                           $mensagensPorMeta
      * @param array<int, int>                                                           $numerosNaPasta
      * @param Tarefa[]                                                                  $atencao
+     * @param array<string, string>                                                     $nomesDasEtapas etapa → nome dado pelo escritório
      */
     public function __construct(
         public readonly AbaMetas $aba,
@@ -44,7 +46,31 @@ final class MinhasMetasOutput
         public readonly array $numerosNaPasta = [],
         public readonly AndamentoDasMetasOutput $andamento = new AndamentoDasMetasOutput(),
         public readonly array $atencao = [],
+        public readonly array $nomesDasEtapas = [],
     ) {
+    }
+
+    /**
+     * Chip "i/T · Etapa" e "→ próximo: Etapa · Setor" da linha (desenho 04 de 22/10, dc L218 `faseItem`).
+     * `posicao` é nula quando o tipo de demanda não passa por essa etapa; `proxima` é nula na última e na
+     * concluída (o desenho esconde o "próximo" da concluída). `nome`/`nomeDaProxima` nulos = o do catálogo.
+     *
+     * @return array{etapa: EtapaDaPasta, posicao: ?int, total: int, nome: ?string, proxima: ?EtapaDaPasta, nomeDaProxima: ?string}
+     */
+    public function etapaDaMeta(Tarefa $meta): array
+    {
+        $etapa   = $meta->getEtapa();
+        $tipo    = $meta->getTipoDeDemanda();
+        $proxima = $meta->getStatus() === Tarefa::STATUS_CONCLUIDA ? null : $tipo->proximaDepoisDe($etapa);
+
+        return [
+            'etapa'         => $etapa,
+            'posicao'       => $tipo->posicaoDe($etapa),
+            'total'         => count($tipo->sequencia()),
+            'nome'          => $this->nomesDasEtapas[$etapa->value] ?? null,
+            'proxima'       => $proxima,
+            'nomeDaProxima' => $proxima === null ? null : ($this->nomesDasEtapas[$proxima->value] ?? null),
+        ];
     }
 
     /**
@@ -165,7 +191,7 @@ final class MinhasMetasOutput
     /** Verdadeiro quando o vazio veio de um filtro, e não de a aba não ter nada. */
     public function temFiltroAtivo(): bool
     {
-        foreach (['busca', 'prioridade', 'prazo'] as $campo) {
+        foreach (['busca', 'prioridade', 'prazo', 'etapa'] as $campo) {
             if (($this->filtros[$campo] ?? '') !== '') {
                 return true;
             }

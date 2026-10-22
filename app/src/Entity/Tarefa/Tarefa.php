@@ -11,7 +11,9 @@ use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use App\Shared\Prazo\RegraDoPrazo;
+use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Enum\PrioridadeDaMeta;
+use App\Tarefa\Enum\TipoDeDemanda;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TarefaRepository::class)]
@@ -58,6 +60,18 @@ class Tarefa implements Auditavel, TenantAware
     #[ORM\Column(length: 20, enumType: PrioridadeDaMeta::class, options: ['default' => 'normal'])]
     private PrioridadeDaMeta $prioridade = PrioridadeDaMeta::Normal;
 
+    /**
+     * Caixa da esteira em que a meta está (desenho 04 de 22/10). Sem etapa escolhida, a meta nasce na etapa
+     * deduzida do título (`EtapaDaPasta::deduzirDoTitulo`, no `definirEtapaPeloTitulo`).
+     */
+    #[ORM\Column(length: 20, enumType: EtapaDaPasta::class, options: ['default' => 'juridico'])]
+    // Nula só entre o `new` e o PrePersist; no banco é NOT NULL, com Jurídico para INSERT feito por SQL.
+    private ?EtapaDaPasta $etapa = null; // @phpstan-ignore doctrine.columnType
+
+    /** Decide a sequência de caixas por onde a pasta passa (`TipoDeDemanda::sequencia`). */
+    #[ORM\Column(name: 'tipo_de_demanda', length: 20, enumType: TipoDeDemanda::class, options: ['default' => 'judicial'])]
+    private TipoDeDemanda $tipoDeDemanda = TipoDeDemanda::Judicial;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $dataCriacao;
 
@@ -103,6 +117,12 @@ class Tarefa implements Auditavel, TenantAware
         $this->mensagens   = new ArrayCollection();
         $this->responsaveis = new ArrayCollection();
         $this->acompanhantes = new ArrayCollection();
+    }
+
+    #[ORM\PrePersist]
+    public function definirEtapaPeloTitulo(): void
+    {
+        $this->etapa ??= EtapaDaPasta::deduzirDoTitulo($this->titulo);
     }
 
     #[ORM\PreUpdate]
@@ -188,6 +208,30 @@ class Tarefa implements Auditavel, TenantAware
     public function setPrioridade(PrioridadeDaMeta $prioridade): self
     {
         $this->prioridade = $prioridade;
+
+        return $this;
+    }
+
+    public function getEtapa(): EtapaDaPasta
+    {
+        return $this->etapa ?? EtapaDaPasta::deduzirDoTitulo($this->titulo);
+    }
+
+    public function setEtapa(EtapaDaPasta $etapa): self
+    {
+        $this->etapa = $etapa;
+
+        return $this;
+    }
+
+    public function getTipoDeDemanda(): TipoDeDemanda
+    {
+        return $this->tipoDeDemanda;
+    }
+
+    public function setTipoDeDemanda(TipoDeDemanda $tipoDeDemanda): self
+    {
+        $this->tipoDeDemanda = $tipoDeDemanda;
 
         return $this;
     }
