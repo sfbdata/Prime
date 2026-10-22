@@ -5,7 +5,7 @@
  * pelo duplo clique no "CAIXA N"; o clique simples no rótulo continua filtrando a etapa, como o
  * resto da caixa. O modal é um POST comum (sem fetch): o servidor grava e volta com o aviso.
  * A janela é a do desenho (dc L133), não o modal do Bootstrap: abre tirando o `hidden` e fecha no fundo, no X, no
- * Cancelar e no Esc.
+ * Cancelar e no Esc. Aberta, o Tab fica preso dentro dela e a página não rola; ao fechar, o foco volta a quem a abriu.
  *
  * Nome igual ao padrão sai vazio, para a caixa voltar a ser a padrão em vez de gravar o texto do catálogo.
  * Os avisados vão como `avisados[]`; o @ sugere membros ativos da equipe (no máximo 6, como o protótipo).
@@ -96,7 +96,17 @@
         });
     }
 
-    function abrir(caixa) {
+    var FOCAVEIS = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    var origem   = null;
+
+    function travarRolagem(travar) {
+        [document.documentElement, document.body, document.querySelector('.app-main')].forEach(function (el) {
+            if (el) { el.style.overflow = travar ? 'hidden' : ''; }
+        });
+    }
+
+    function abrir(caixa, quemAbriu) {
+        origem = quemAbriu || document.activeElement;
         caixaAtual = caixa;
         form.action = caixa.getAttribute('data-salvar');
         restaurar.setAttribute('formaction', caixa.getAttribute('data-restaurar'));
@@ -108,12 +118,35 @@
         desenharChips();
         desenharSugestoes();
         modalEl.hidden = false;
+        travarRolagem(true);
         campoCx.focus();
     }
 
     function fechar() {
+        if (modalEl.hidden) { return; }
         modalEl.hidden = true;
         caixaAtual = null;
+        travarRolagem(false);
+        if (origem && typeof origem.focus === 'function') { origem.focus(); }
+        origem = null;
+    }
+
+    // O Tab e o Shift+Tab dão a volta dentro da janela aberta, sem sair para a página de trás.
+    function prenderTab(e) {
+        var focaveis = Array.prototype.filter.call(modalEl.querySelectorAll(FOCAVEIS), function (el) {
+            return el.getClientRects().length > 0;
+        });
+        if (!focaveis.length) { e.preventDefault(); return; }
+        var primeiro = focaveis[0];
+        var ultimo   = focaveis[focaveis.length - 1];
+        var dentro   = modalEl.contains(document.activeElement);
+        if (e.shiftKey && (!dentro || document.activeElement === primeiro)) {
+            e.preventDefault();
+            ultimo.focus();
+        } else if (!e.shiftKey && (!dentro || document.activeElement === ultimo)) {
+            e.preventDefault();
+            primeiro.focus();
+        }
     }
 
     modalEl.addEventListener('click', function (e) {
@@ -121,6 +154,7 @@
     });
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && !modalEl.hidden) { fechar(); }
+        if (e.key === 'Tab' && !modalEl.hidden) { prenderTab(e); }
     });
 
     // Nome igual ao padrão vai vazio: a caixa continua a padrão.
@@ -149,10 +183,10 @@
         var link   = caixa.querySelector('.mm-caixa-link');
         var espera = null;
 
-        if (menu) { menu.addEventListener('click', function () { abrir(caixa); }); }
+        if (menu) { menu.addEventListener('click', function () { abrir(caixa, menu); }); }
         if (!rotulo || !link) { return; }
         // Clique direito só no "CAIXA N" (dc L61): na caixa, o menu do navegador (abrir em nova aba) continua.
-        rotulo.addEventListener('contextmenu', function (e) { e.preventDefault(); abrir(caixa); });
+        rotulo.addEventListener('contextmenu', function (e) { e.preventDefault(); abrir(caixa, menu || link); });
         // Clique simples no rótulo filtra (depois de uma pausa curta); o duplo abre o modal.
         rotulo.addEventListener('click', function () {
             clearTimeout(espera);
@@ -160,7 +194,7 @@
         });
         rotulo.addEventListener('dblclick', function () {
             clearTimeout(espera);
-            abrir(caixa);
+            abrir(caixa, menu || link);
         });
     });
 }());

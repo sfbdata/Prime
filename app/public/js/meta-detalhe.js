@@ -1,22 +1,62 @@
 /* BlueJus · Página da meta (desenho 04B de 22/10). Template: templates/tarefa/show.html.twig.
    - Janelas (.md-modal): abrem pelo [data-md-abrir="id"] (clique, Enter ou espaço) e fecham no [data-md-fechar] e no
      Esc. Ao abrir, a janela recebe o evento 'md:abrir' com o elemento que a abriu (o Certificar usa, em meta-despacho.js).
+     Aberta, o Tab fica preso dentro dela e a página não rola; ao fechar, o foco volta a quem a abriu.
    - Responsáveis: busca na lista, pílulas dos escolhidos e a contagem.
+   - Anexo antigo do despacho: o clique simples abre no visualizador único (#previewDocModal); Ctrl, Cmd, Shift e o
+     botão do meio seguem o link para outra aba.
    - Acompanhar (L83-84): alterna sem sair da página; marcação PESSOAL, sem confirmação nem recarga.
-   - Avisos (flash) do sistema: saem no aviso do desenho (L176), embaixo no centro, e somem em 3 segundos. */
+   - Avisos (flash) do sistema: embaixo no centro, empilhados. Só o de sucesso é o aviso do desenho (L176) e some em 3
+     segundos (.is-toast); o de erro fica, com a cor de erro, até a pessoa fechar no X. */
 (function () {
   'use strict';
 
   /* ── Janelas ── */
+  var FOCAVEIS = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  var origemDaJanela = null;
+
+  function travarRolagem(travar) {
+    [document.documentElement, document.body, document.querySelector('.app-main')].forEach(function (el) {
+      if (el) el.style.overflow = travar ? 'hidden' : '';
+    });
+  }
+
   function abrirJanela(janela, origem) {
+    origemDaJanela = origem || document.activeElement;
     janela.hidden = false;
+    travarRolagem(true);
     janela.dispatchEvent(new CustomEvent('md:abrir', { detail: { origem: origem } }));
     var campo = janela.querySelector('input:not([type="hidden"]), textarea');
     if (campo) campo.focus();
   }
 
   function fecharJanela(janela) {
+    if (!janela || janela.hidden) return;
     janela.hidden = true;
+    if (document.querySelector('.md-modal:not([hidden])')) return;
+    travarRolagem(false);
+    if (origemDaJanela && typeof origemDaJanela.focus === 'function') origemDaJanela.focus();
+    origemDaJanela = null;
+  }
+
+  /* O Tab e o Shift+Tab dão a volta dentro da janela aberta, sem sair para a página de trás. */
+  function prenderTab(e) {
+    var janela = document.querySelector('.md-modal:not([hidden])');
+    if (!janela) return;
+    var focaveis = Array.prototype.filter.call(janela.querySelectorAll(FOCAVEIS), function (el) {
+      return el.getClientRects().length > 0;
+    });
+    if (!focaveis.length) { e.preventDefault(); return; }
+    var primeiro = focaveis[0];
+    var ultimo = focaveis[focaveis.length - 1];
+    var dentro = janela.contains(document.activeElement);
+    if (e.shiftKey && (!dentro || document.activeElement === primeiro)) {
+      e.preventDefault();
+      ultimo.focus();
+    } else if (!e.shiftKey && (!dentro || document.activeElement === ultimo)) {
+      e.preventDefault();
+      primeiro.focus();
+    }
   }
 
   function iniciarJanelas() {
@@ -33,6 +73,10 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
         document.querySelectorAll('.md-modal:not([hidden])').forEach(fecharJanela);
+        return;
+      }
+      if (e.key === 'Tab') {
+        prenderTab(e);
         return;
       }
       var gatilho = e.target.closest && e.target.closest('[data-md-abrir][role="button"]');
@@ -96,6 +140,18 @@
     });
   }
 
+  /* ── Anexo antigo no visualizador único ── */
+  function iniciarVisualizador() {
+    var modal = document.getElementById('previewDocModal');
+    if (!modal || !window.bootstrap) return;
+    document.addEventListener('click', function (e) {
+      var link = e.target.closest('a[data-md-visualizar]');
+      if (!link || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      e.preventDefault();
+      bootstrap.Modal.getOrCreateInstance(modal).show(link);
+    });
+  }
+
   /* ── Acompanhar ── */
   function iniciarAcompanhar() {
     var botaoAc = document.getElementById('btnAcompanharMeta');
@@ -118,12 +174,15 @@
     });
   }
 
-  /* ── Avisos do sistema no aviso do desenho (L176) ── */
+  /* ── Avisos do sistema: sucesso no aviso do desenho (L176), erro fica até fechar ── */
   function iniciarAvisosDoSistema() {
     document.querySelectorAll('.app-content-header .alert').forEach(function (aviso) {
+      var sucesso = aviso.classList.contains('alert-success');
       var icone = document.createElement('i');
-      icone.className = aviso.classList.contains('alert-success') ? 'bi bi-check-circle' : 'bi bi-exclamation-circle';
+      icone.className = sucesso ? 'bi bi-check-circle' : 'bi bi-exclamation-circle';
       aviso.prepend(icone);
+      if (!sucesso) return;
+      aviso.classList.add('is-toast');
       setTimeout(function () { aviso.remove(); }, 3000);
     });
   }
@@ -131,6 +190,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     iniciarJanelas();
     iniciarResponsaveis();
+    iniciarVisualizador();
     iniciarAcompanhar();
     iniciarAvisosDoSistema();
   });

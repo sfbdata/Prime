@@ -50,6 +50,16 @@
     color: var(--despacho-titulo);
 }
 
+/* Classes próprias no lugar do flex-grow-1 e do d-none do Bootstrap: o espaço que empurra o resto para a direita e o
+   campo de arquivo escondido (o clipe abre o seletor). */
+.despacho-espaco {
+    flex: 1;
+}
+
+.despacho-anexo-campo {
+    display: none;
+}
+
 /* ── Formulário (L58-66): 12px 18px, sem divisa embaixo ── */
 .despacho-bloco {
     padding: 12px 18px;

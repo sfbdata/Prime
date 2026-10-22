@@ -63,8 +63,7 @@
     padding: 0;
 }
 
-.meta-body .app-content > .container-fluid,
-.meta-body .app-content-header > .container-fluid {
+.meta-body .app-content > .container-fluid {
     padding-left: 0;
     padding-right: 0;
 }
@@ -581,31 +580,64 @@
     margin-right: 6px;
 }
 
-/* Os avisos (flash) do sistema nesta página saem no mesmo aviso do desenho (L176); o meta-detalhe.js põe o ícone e
-   os tira em 3 segundos. */
-.meta-body .app-content-header .alert {
+/* Os avisos (flash) do sistema nesta página ficam embaixo, no centro, empilhados sem sobrepor (a pilha é o
+   .container-fluid do base.html.twig, que só tem os avisos). O de sucesso é o aviso do desenho (L176) e some em 3
+   segundos; o de erro (danger/warning) fica com a cor de erro do dc (#a3232b sobre #fbe7e7) e o X, até a pessoa fechar. */
+.meta-body .app-content-header > .container-fluid {
     position: fixed;
     z-index: 9500;
     left: 50%;
     bottom: 22px;
     transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.meta-body .app-content-header .alert {
+    position: relative;
     margin: 0;
     border: none;
-    background: #12242f;
-    color: #fff;
     font-size: 13.5px;
     padding: 10px 16px;
     border-radius: 3px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+    pointer-events: auto;
 }
 
-.meta-body .app-content-header .alert > .btn-close {
+.meta-body .app-content-header .alert-success {
+    background: #12242f;
+    color: #fff;
+}
+
+.meta-body .app-content-header .alert-success > .btn-close {
     display: none;
 }
 
-.meta-body .app-content-header .alert > .bi {
+.meta-body .app-content-header .alert-success > .bi {
     color: #7fe0a8;
     margin-right: 6px;
+}
+
+.meta-body .app-content-header .alert:not(.alert-success) {
+    background: #fbe7e7;
+    color: #a3232b;
+    padding-right: 44px;
+}
+
+.meta-body .app-content-header .alert:not(.alert-success) > .bi {
+    color: #a3232b;
+    margin-right: 6px;
+}
+
+.meta-body .app-content-header .alert:not(.alert-success) > .btn-close {
+    padding: 13px 14px;
+    filter: none;
 }
 
 /* ── Janelas (o componente da devolução, L106): fundo .35, caixa de 480px, cabeçalho #0a6fa0, cantos de 3px ── */

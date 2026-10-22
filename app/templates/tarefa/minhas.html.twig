@@ -253,11 +253,15 @@ function abrirMetaPelaLinha(e) {
 document.addEventListener('click', abrirMetaPelaLinha);
 document.addEventListener('auxclick', abrirMetaPelaLinha);
 
-// Avisos (flash) do sistema nesta tela saem no aviso do desenho (dc L132): embaixo no centro, e somem em 3 segundos.
+// Avisos (flash) do sistema nesta tela: embaixo no centro, empilhados. Só o de sucesso é o aviso do desenho (dc L132)
+// e some em 3 segundos (.is-toast); o de erro fica, com a cor de erro, até a pessoa fechar no X.
 document.querySelectorAll('.mm-body .app-content-header .alert').forEach(function (aviso) {
+    var sucesso = aviso.classList.contains('alert-success');
     var icone = document.createElement('i');
-    icone.className = aviso.classList.contains('alert-success') ? 'bi bi-check-circle' : 'bi bi-exclamation-circle';
+    icone.className = sucesso ? 'bi bi-check-circle' : 'bi bi-exclamation-circle';
     aviso.prepend(icone);
+    if (!sucesso) return;
+    aviso.classList.add('is-toast');
     window.setTimeout(function () { aviso.remove(); }, 3000);
 });
 </script>

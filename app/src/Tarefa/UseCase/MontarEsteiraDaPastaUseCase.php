@@ -16,7 +16,6 @@ use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Repository\CaixaDaEsteiraRepository;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Service\QuemConfiguraACaixa;
-use App\Tarefa\Service\TratamentoDoAvisado;
 
 /**
  * Monta a esteira da pasta do topo de Minhas Metas (desenho 04 de 22/10, dc L61 e L163-167).
@@ -30,8 +29,8 @@ use App\Tarefa\Service\TratamentoDoAvisado;
  * **Regras:** GARGALO é a caixa com MAIS atrasadas, só se houver alguma; no empate, a primeira da esteira
  * (dc L165). Meta de pasta oculta pelo cadeado para quem olha não entra nos números (spec pasta-cadeado D3).
  * A equipe para o @ do modal só vem para quem pode configurar caixa (D2): os outros nem recebem a lista.
- * O avisado aparece como no desenho (dc L61, `trat()`): "Primeiro Último", com "Dr." ou "Dra." para advogado
- * (função de advogado ou sócio, ou OAB). A função vem do vínculo, lido uma vez e só se alguma caixa tem avisado.
+ * O avisado aparece como "Primeiro Último", sem o "Dr./Dra." do protótipo (spec C7: o `trat()` deduz o gênero
+ * pelo nome e erra).
  *
  * **Erros:** não lança; é leitura.
  */
@@ -53,9 +52,8 @@ final class MontarEsteiraDaPastaUseCase
         $gargalo       = $this->gargalo($contagens);
         $podeConfigurar = $this->quemConfigura->pode($usuario, $escritorio);
 
-        $funcoes = $this->funcoesDosAvisados($escritorio, $configuradas);
         $caixas = array_map(
-            fn (EtapaDaPasta $etapa): CaixaNaEsteiraOutput => $this->caixa($etapa, $contagens, $configuradas[$etapa->value] ?? null, $gargalo, $funcoes),
+            fn (EtapaDaPasta $etapa): CaixaNaEsteiraOutput => $this->caixa($etapa, $contagens, $configuradas[$etapa->value] ?? null, $gargalo),
             EtapaDaPasta::cases(),
         );
 
@@ -82,32 +80,8 @@ final class MontarEsteiraDaPastaUseCase
         return $gargalo;
     }
 
-    /**
-     * A função de cada pessoa da equipe, por id; vazio (e sem consulta) quando nenhuma caixa tem avisado.
-     *
-     * @param array<string, CaixaDaEsteira> $configuradas
-     *
-     * @return array<int, ?string>
-     */
-    private function funcoesDosAvisados(Tenant $escritorio, array $configuradas): array
-    {
-        $temAvisado = array_filter($configuradas, static fn (CaixaDaEsteira $c): bool => !$c->getAvisados()->isEmpty());
-        if ($temAvisado === []) {
-            return [];
-        }
-        $funcoes = [];
-        foreach ($this->vinculos->findAtivosComCargoELotacaoPorTenant($escritorio) as $vinculo) {
-            $funcoes[(int) $vinculo->getUser()->getId()] = $vinculo->getCargo()?->getNome();
-        }
-
-        return $funcoes;
-    }
-
-    /**
-     * @param array<string, array{total: int, atrasadas: int}> $contagens
-     * @param array<int, ?string>                              $funcoes
-     */
-    private function caixa(EtapaDaPasta $etapa, array $contagens, ?CaixaDaEsteira $configurada, ?EtapaDaPasta $gargalo, array $funcoes): CaixaNaEsteiraOutput
+    /** @param array<string, array{total: int, atrasadas: int}> $contagens */
+    private function caixa(EtapaDaPasta $etapa, array $contagens, ?CaixaDaEsteira $configurada, ?EtapaDaPasta $gargalo): CaixaNaEsteiraOutput
     {
         $avisados = $configurada === null ? [] : $configurada->getAvisados()->toArray();
 
@@ -119,11 +93,23 @@ final class MontarEsteiraDaPastaUseCase
             nomeDaCaixa: $configurada?->getNomeDaCaixa(),
             nomeDaEtapa: $configurada?->getNomeDaEtapa(),
             avisados: array_values(array_map(
-                static fn (User $u): string => TratamentoDoAvisado::de((string) $u->getFullName(), $funcoes[(int) $u->getId()] ?? null, (string) $u->getOabNumero() !== ''),
+                static fn (User $u): string => self::nomeCurto((string) $u->getFullName()),
                 $avisados,
             )),
             idsDosAvisados: array_values(array_map(static fn (User $u): int => (int) $u->getId(), $avisados)),
         );
+    }
+
+    /** "Primeiro Último" com as iniciais maiúsculas (spec C7: nome simples, sem título). */
+    private static function nomeCurto(string $nome): string
+    {
+        $partes = preg_split('/\s+/u', trim($nome), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if ($partes === []) {
+            return '';
+        }
+        $maiuscula = static fn (string $p): string => mb_strtoupper(mb_substr($p, 0, 1)) . mb_strtolower(mb_substr($p, 1));
+
+        return $maiuscula($partes[0]) . (count($partes) > 1 ? ' ' . $maiuscula($partes[count($partes) - 1]) : '');
     }
 
     /** @return list<MembroDaEquipeOutput> */

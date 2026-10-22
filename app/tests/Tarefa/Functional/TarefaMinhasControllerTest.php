@@ -146,6 +146,39 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('.mm-caixa.is-ativa'));
     }
 
+    #[TestDox('"Limpar filtros" com a etapa: o campo oculto da etapa leva js-filtro-campo e a tela recarrega em ?aba=X, sem filtro')]
+    public function testLimparFiltrosComAEtapa(): void
+    {
+        $client = static::createClient();
+        $this->autenticar($client);
+
+        $client->request('GET', '/tarefas/minhas?aba=todas&etapa=protocolo');
+        self::assertResponseIsSuccessful();
+        $corpo = (string) $client->getResponse()->getContent();
+
+        self::assertStringContainsString("[['aba', \"todas\", ''], ['etapa', \"protocolo\", 'js-filtro-campo']]", $corpo, 'a etapa entra como filtro que o motor conta');
+        self::assertStringContainsString('campo.className = par[2];', $corpo);
+        self::assertMatchesRegularExpression(
+            "/var etapa = form\\.querySelector\\('input\\[name=\"etapa\"\\]'\\);\\s*if \\(!e\\.target\\.closest\\('\\.js-filtro-limpar'\\) \\|\\| !etapa \\|\\| etapa\\.value === ''\\) \\{ return; \\}\\s*e\\.stopPropagation\\(\\);\\s*window\\.location\\.href = \"\\\\\\/tarefas\\\\\\/minhas\\?aba=todas\";/",
+            $corpo,
+            'o Limpar com a etapa recarrega a tela inteira na mesma aba',
+        );
+    }
+
+    #[TestDox('Avisos da tela: só o de sucesso vira o aviso do desenho (.is-toast) e some em 3 segundos; o de erro fica até fechar')]
+    public function testSoOSucessoViraToast(): void
+    {
+        $client = static::createClient();
+        $this->autenticar($client);
+        $client->request('GET', '/tarefas/minhas');
+        self::assertResponseIsSuccessful();
+
+        self::assertMatchesRegularExpression(
+            "/var sucesso = aviso\\.classList\\.contains\\('alert-success'\\);[\\s\\S]*?if \\(!sucesso\\) return;\\s*aviso\\.classList\\.add\\('is-toast'\\);\\s*window\\.setTimeout\\(function \\(\\) \\{ aviso\\.remove\\(\\); \\}, 3000\\);/",
+            (string) $client->getResponse()->getContent(),
+        );
+    }
+
     #[TestDox('XHR em /tarefas/minhas devolve só o fragmento, sem o layout nem a barra')]
     public function testXhrRetornaFragmentoSemLayout(): void
     {
@@ -738,6 +771,15 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
             'de ' . $usuario->getFullName(),
             trim($linha->filter('.mm-meta-linha2 > a.mm-meta-pasta + span.mm-meta-info > i.bi-person')->closest('span')->text()),
         );
+    }
+
+    #[TestDox('Desenho de 19/10 (LIS-15): o clique na linha delega para o título; o meio, o Ctrl, o Cmd e o Shift abrem em outra aba; o marcador troca a dica')]
+    public function testCliqueDaLinhaDelegaParaOTitulo(): void
+    {
+        $client = static::createClient();
+        $this->autenticar($client);
+        $client->request('GET', '/tarefas/minhas');
+        self::assertResponseIsSuccessful();
 
         // A delegação do clique: ignora os controles internos e repassa para o título.
         $corpo = (string) $client->getResponse()->getContent();

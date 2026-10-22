@@ -80,7 +80,7 @@ final class PaginaDaMetaTest extends JusPrimeWebTestCase
         self::assertCount(1, $c->filter('.meta-moldura > .meta-colunas > section.meta-principal + aside.meta-lateral'), 'a lateral vem depois: desce na tela estreita');
         $principal = $c->filter('.meta-colunas > section.meta-principal')->children()->each(static fn (Crawler $n): string => explode(' ', (string) $n->attr('class'))[0]);
         self::assertSame(['meta-principal-titulo', 'meta-aguardando', 'meta-demanda', 'meta-historico'], $principal, 'título, aguardando, demanda e DESPACHO no mesmo cartão');
-        self::assertCount(0, $c->filter('.card, .card-outline, .row, [class*="col-lg"], .content-header'), 'nada do card e das colunas do sistema');
+        self::assertCount(0, $c->filter('.card, .card-outline, .row, [class*="col-lg"], .content-header, .meta-moldura .flex-grow-1, .meta-moldura .d-none'), 'nada do card, das colunas nem dos utilitários do sistema');
         self::assertCount(1, $c->filter('.meta-historico > .despacho-cabeca-bloco + .despacho-bloco > form[data-despacho]'), 'DESPACHO é faixa do cartão, com o formulário logo abaixo');
         self::assertCount(0, $c->filter('.meta-num-global'), 'sem o selo Nº (decisão do dono)');
     }
@@ -269,6 +269,22 @@ final class PaginaDaMetaTest extends JusPrimeWebTestCase
         self::assertCount(1, $mensagens, 'só o despacho; o envio recusado não grava');
         self::assertSame(AcaoDoDespacho::Despacho, $mensagens[0]->getAcao());
         self::assertSame(Tarefa::STATUS_CONCLUIDA, $this->em->find(Tarefa::class, $id)?->getStatus());
+    }
+
+    #[TestDox('Erro de prazo ("Prazo inválido.") fica até fechar: alert-danger com o X, sem a classe do aviso de sucesso (o timer é só do sucesso, em meta-detalhe.js)')]
+    public function testErroDePrazoNaoEhToast(): void
+    {
+        $id = (int) $this->meta->getId();
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+        $this->client->request('POST', '/tarefas/' . $id . '/prazo', ['_token' => 'TOKEN_atualizar_prazo_tarefa_' . $id, 'prazo' => 'não é data']);
+        $c = $this->client->followRedirect();
+
+        $aviso = $c->filter('.app-content-header > .container-fluid > .alert.alert-danger');
+        self::assertCount(1, $aviso);
+        self::assertSame('Prazo inválido.', self::texto($aviso));
+        self::assertCount(1, $aviso->filter('.alert > button.btn-close'), 'o erro tem o X para fechar');
+        self::assertStringNotContainsString('is-toast', (string) $aviso->attr('class'));
+        self::assertCount(0, $c->filter('.app-content-header .alert-success'));
     }
 
     #[TestDox('Lateral na ordem do dc (L77-85): situação, Concluir e passar (Fase 3), Acompanhar e DETALHES; sem Excluir meta nem Voltar à Pasta')]

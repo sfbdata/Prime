@@ -191,7 +191,7 @@
             "tarefa/extrato.html.twig"
         ],
         "js": ["meta-despacho.js", "meta-detalhe.js"],
-        "permitidos": ["Enter", "Escape", "meta-body", "mm-body"]
+        "permitidos": ["Enter", "Escape", "Tab", "meta-body", "mm-body"]
     },
 
     "perfis": {

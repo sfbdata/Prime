@@ -61,6 +61,13 @@ final class MinhasMetas2210CssTest extends TestCase
     /** @return iterable<string, array{string, list<string>}> */
     public static function regras(): iterable
     {
+        yield from self::regrasDoTopoEDaLista();
+        yield from self::regrasDoTrilhoDaJanelaEDoAviso();
+    }
+
+    /** @return iterable<string, array{string, list<string>}> */
+    private static function regrasDoTopoEDaLista(): iterable
+    {
         yield 'moldura (L49)' => ['.mm-body .mm-page', ['padding: 24px 22px 32px;', 'flex-direction: column;', 'gap: 16px;', 'max-width: 1600px;', 'margin: 0 auto;']];
         yield 'cabeçalho (L50)' => ['.mm-topo', ['display: flex;', 'align-items: flex-end;', 'gap: 16px;']];
         yield 'coluna do título (L51)' => ['.mm-topo > .mm-cabecalho', ['flex: 1;', 'min-width: 260px;', 'flex-direction: column;', 'gap: 8px;']];
@@ -91,6 +98,11 @@ final class MinhasMetas2210CssTest extends TestCase
         yield 'EM REVISÃO' => ['.mm-meta-lado > .mm-pilula.tom-accent', ['color: var(--mm-pilula-revisao);', 'background: var(--mm-pilula-revisao-bg);']];
         yield 'NO PRAZO e CONCLUÍDA' => ['.mm-meta-lado > .mm-pilula.tom-ok', ['color: var(--mm-pilula-prazo);', 'background: var(--mm-pilula-prazo-bg);']];
         yield 'vazio (L107)' => ['.mm-vazio-caixa', ['padding: 40px;', 'text-align: center;', 'font-size: 16px;']];
+    }
+
+    /** @return iterable<string, array{string, list<string>}> */
+    private static function regrasDoTrilhoDaJanelaEDoAviso(): iterable
+    {
         yield 'trilho (L111)' => ['.mm-trilho', ['flex-direction: column;', 'gap: 16px;', 'position: sticky;']];
         yield 'cartões do trilho (L112, L119)' => ['.mm-trilho > .mm-cartao', ['border: 1px solid var(--mm-grupo-borda);', 'box-shadow: 0 2px 10px rgba(18,36,47,.05);']];
         yield '"últimos 30 dias" (L113)' => ['.mm-andamento-periodo', ['font-size: 12px;', 'color: var(--mm-subtitulo);']];
@@ -104,8 +116,12 @@ final class MinhasMetas2210CssTest extends TestCase
         yield 'fundo da janela (L133)' => ['.mm-cx-modal > .mm-cx-fundo', ['position: fixed;', 'z-index: 9100;', 'background: rgba(18, 36, 47, .38);']];
         yield 'centro da janela (L133)' => ['.mm-cx-modal > .mm-cx-centro', ['z-index: 9101;', 'padding: 12px;', 'pointer-events: none;']];
         yield 'caixa da janela (L133)' => ['.mm-cx-centro > .mm-cx-caixa', ['width: min(460px, 100%);', 'border-radius: 4px;', 'box-shadow: 0 20px 50px rgba(18, 36, 47, .28);']];
-        yield 'aviso do sistema (L132)' => ['.mm-body .app-content-header .alert', ['position: fixed;', 'left: 50%;', 'bottom: 22px;', 'background: #12242f;', 'font-size: 13.5px;', 'padding: 10px 16px;', 'border-radius: 3px;']];
-        yield 'ícone do aviso (L132)' => ['.mm-body .app-content-header .alert > .bi', ['color: #7fe0a8;', 'margin-right: 6px;']];
+        yield 'pilha dos avisos (L132)' => ['.mm-body .app-content-header > .container-fluid', ['position: fixed;', 'left: 50%;', 'bottom: 22px;', 'flex-direction: column;', 'gap: 8px;']];
+        yield 'aviso do sistema (L132)' => ['.mm-body .app-content-header .alert', ['position: relative;', 'font-size: 13.5px;', 'padding: 10px 16px;', 'border-radius: 3px;']];
+        yield 'aviso de sucesso (L132)' => ['.mm-body .app-content-header .alert-success', ['background: #12242f;', 'color: #fff;']];
+        yield 'ícone do aviso de sucesso (L132)' => ['.mm-body .app-content-header .alert-success > .bi', ['color: #7fe0a8;', 'margin-right: 6px;']];
+        yield 'aviso de erro (paleta do dc)' => ['.mm-body .app-content-header .alert:not(.alert-success)', ['background: #fbe7e7;', 'color: #a3232b;']];
+        yield 'ícone do aviso de erro' => ['.mm-body .app-content-header .alert:not(.alert-success) > .bi', ['color: #a3232b;']];
     }
 
     /** @param list<string> $declaracoes */
@@ -117,6 +133,13 @@ final class MinhasMetas2210CssTest extends TestCase
         foreach ($declaracoes as $d) {
             self::assertStringContainsString($d, $regra, $seletor);
         }
+    }
+
+    #[TestDox('O X do aviso só some no de sucesso; o de erro fica até a pessoa fechar')]
+    public function testSoOSucessoEscondeOX(): void
+    {
+        self::assertStringContainsString('display: none;', self::regra('.mm-body .app-content-header .alert-success > .btn-close'));
+        self::assertSame(0, preg_match('/^\.mm-body \.app-content-header \.alert > \.btn-close/m', self::css()), 'o X não pode sumir de todo aviso');
     }
 
     #[TestDox('O que o desenho não tem saiu da folha: alternância cartões/lista, ⋮ do cartão, Pessoas, halo e ícone do indicador, risco da concluída, borda sumida no último item de atenção')]

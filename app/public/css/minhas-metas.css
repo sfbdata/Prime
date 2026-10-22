@@ -215,8 +215,7 @@
 [data-bs-theme="dark"] .mm-body .app-main { background: var(--bs-body-bg); }
 .mm-body .app-content,
 .mm-body .app-content-header { background: transparent; padding: 0; }
-.mm-body .app-content > .container-fluid,
-.mm-body .app-content-header > .container-fluid { padding-left: 0; padding-right: 0; }
+.mm-body .app-content > .container-fluid { padding-left: 0; padding-right: 0; }
 .mm-body .mm-page {
     padding: 24px 22px 32px;
     display: flex;
@@ -232,25 +231,17 @@
 .mm-topo > .mm-cabecalho { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 8px; }
 .mm-filtro { display: flex; flex-direction: column; gap: 16px; }
 
-/* Avisos (flash) do sistema nesta tela saem no aviso do desenho (dc L132); o script da tela põe o ícone e os tira
-   em 3 segundos. */
-.mm-body .app-content-header .alert {
-    position: fixed;
-    z-index: 9500;
-    left: 50%;
-    bottom: 22px;
-    transform: translateX(-50%);
-    margin: 0;
-    border: none;
-    background: #12242f;
-    color: #fff;
-    font-size: 13.5px;
-    padding: 10px 16px;
-    border-radius: 3px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
-}
-.mm-body .app-content-header .alert > .btn-close { display: none; }
-.mm-body .app-content-header .alert > .bi { color: #7fe0a8; margin-right: 6px; }
+/* Avisos (flash) do sistema nesta tela: embaixo, no centro, empilhados sem sobrepor (a pilha é o .container-fluid do
+   base.html.twig, que só tem os avisos). O de sucesso é o aviso do desenho (dc L132) e some em 3 segundos; o de erro
+   (danger/warning) fica com a cor de erro do dc (#a3232b sobre #fbe7e7) e o X, até a pessoa fechar. */
+.mm-body .app-content-header > .container-fluid { position: fixed; z-index: 9500; left: 50%; bottom: 22px; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 32px); padding: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+.mm-body .app-content-header .alert { position: relative; margin: 0; border: none; font-size: 13.5px; padding: 10px 16px; border-radius: 3px; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); pointer-events: auto; }
+.mm-body .app-content-header .alert-success { background: #12242f; color: #fff; }
+.mm-body .app-content-header .alert-success > .btn-close { display: none; }
+.mm-body .app-content-header .alert-success > .bi { color: #7fe0a8; margin-right: 6px; }
+.mm-body .app-content-header .alert:not(.alert-success) { background: #fbe7e7; color: #a3232b; padding-right: 44px; }
+.mm-body .app-content-header .alert:not(.alert-success) > .bi { color: #a3232b; margin-right: 6px; }
+.mm-body .app-content-header .alert:not(.alert-success) > .btn-close { padding: 13px 14px; filter: none; }
 
 /* ── Cabeçalho ────────────────────────────────────────────────────────────── */
 .mm-page .mm-titulo {

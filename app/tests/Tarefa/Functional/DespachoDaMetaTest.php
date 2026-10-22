@@ -243,6 +243,28 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
         self::assertSame('Antiga', $this->em->find(TarefaMensagem::class, $id)?->getMensagem());
     }
 
+    #[TestDox('Anexo antigo do despacho abre no visualizador único: o link leva url, nome e MIME para o #previewDocModal, e sem JS abre em outra aba')]
+    public function testAnexoAntigoAbreNoVisualizador(): void
+    {
+        $antiga = (new TarefaMensagem())->setUsuario($this->criador)->setTenant($this->escritorio)->setMensagem('Segue.')->setArquivoAnexo('/tarefas/antigo/contrato.pdf');
+        $this->meta->addMensagem($antiga);
+        $this->em->persist($antiga);
+        $this->em->flush();
+        $id = (int) $antiga->getId();
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+
+        $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
+        $link    = $crawler->filter('#despacho-' . $id . ' .despacho-juntado > a[data-md-visualizar]');
+        self::assertCount(1, $link);
+        self::assertStringContainsString('/mensagem/' . $id . '/', (string) $link->attr('href'));
+        self::assertSame($link->attr('href'), $link->attr('data-url'));
+        self::assertSame('contrato.pdf', $link->attr('data-nome'));
+        self::assertSame('application/pdf', $link->attr('data-mime'));
+        self::assertSame('_blank', $link->attr('target'));
+        self::assertCount(1, $crawler->filter('body #previewDocModal #previewDocConteudo'));
+        self::assertCount(0, $crawler->filter('.meta-moldura #previewDocModal'), 'o modal do módulo fica fora da moldura do desenho');
+    }
+
     #[TestDox('Em revisão, o criador despacha "Para providência: falta X" e a meta volta pendente, com o histórico e o aviso')]
     public function testCriadorDespachaEmRevisaoDevolve(): void
     {

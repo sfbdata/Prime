@@ -128,22 +128,15 @@ final class MontarEsteiraDaPastaUseCaseTest extends TestCase
         self::assertSame([], $saida->caixa(EtapaDaPasta::Juridico)?->avisados);
     }
 
-    #[TestDox('Avisado como no desenho (trat): advogada pela função vira "Dra. Ana Lima"; sem função de advogado, "Primeiro Último"')]
-    public function testAvisadosComTratamento(): void
+    #[TestDox('Avisado com nome simples, "Primeiro Último", sem "Dr./Dra." mesmo com função de advogada (spec C7)')]
+    public function testAvisadosComNomeSimples(): void
     {
-        $cargo = new Cargo();
-        $cargo->setNome('Advogada');
-        $ana = $this->usuario(7, 'ANA MARIA LIMA');
-        $vinculo = new UserTenant($ana, $this->escritorio);
-        $vinculo->setCargo($cargo);
-        $vinculos = $this->createMock(UserTenantRepository::class);
-        $vinculos->expects(self::once())->method('findAtivosComCargoELotacaoPorTenant')->willReturn([$vinculo]);
         $caixa = new CaixaDaEsteira($this->escritorio, EtapaDaPasta::Juridico);
-        $caixa->configurar(null, null, [$ana, $this->usuario(9, 'bruno de souza')]);
+        $caixa->configurar(null, null, [$this->usuario(7, 'ANA MARIA LIMA'), $this->usuario(9, 'bruno de souza')]);
 
-        $saida = $this->montar([], ['juridico' => $caixa], false, $vinculos);
+        $saida = $this->montar([], ['juridico' => $caixa]);
 
-        self::assertSame(['Dra. Ana Lima', 'Bruno Souza'], $saida->caixa(EtapaDaPasta::Juridico)?->avisados);
+        self::assertSame(['Ana Lima', 'Bruno Souza'], $saida->caixa(EtapaDaPasta::Juridico)?->avisados);
         self::assertSame([7, 9], $saida->caixa(EtapaDaPasta::Juridico)?->idsDosAvisados);
     }
 

@@ -22,7 +22,7 @@
                         data-natureza="{{ n.valor }}"
                         data-inicio="{{ n.inicio|trans|e('html_attr') }}">{{ n.rotulo|trans }}</button>
             {% endfor %}
-            <span class="flex-grow-1"></span>
+            <span class="despacho-espaco"></span>
             <label class="despacho-prazo" title="{{ 'metas.despacho.prazo_dica'|trans }}">
                 <i class="bi bi-calendar-event"></i>{{ 'metas.despacho.prazo_rotulo'|trans }}
                 <input type="date" name="prazo" id="despachoPrazo"
@@ -43,9 +43,9 @@
         <div class="despacho-linha despacho-acoes">
             <label class="despacho-anexo">
                 <i class="bi bi-paperclip"></i><span id="despachoAnexoNome" data-vazio="{{ 'metas.despacho.anexar'|trans|e('html_attr') }}">{{ 'metas.despacho.anexar'|trans }}</span>
-                <input type="file" name="arquivo_mensagem" id="despachoAnexo" class="d-none">
+                <input type="file" name="arquivo_mensagem" id="despachoAnexo" class="despacho-anexo-campo">
             </label>
-            <span class="flex-grow-1"></span>
+            <span class="despacho-espaco"></span>
             <span class="despacho-contador" id="despachoContador">{{ 'metas.despacho.contador'|trans({n: '0'}) }}</span>
 
             {# Botões (04B L65-66): Despachar e Enviar para revisão sempre; fora da pendente, o servidor recusa o

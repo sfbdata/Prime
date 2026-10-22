@@ -19,7 +19,7 @@
             <b class="despacho-numero">{{ 'metas.despacho.numero'|trans({n: l.numero}) }}</b>
             <span class="despacho-tipo">· {{ l.tipo|trans }}</span>
             {% if l.maisRecente %}<span class="despacho-recente">{{ 'metas.despacho.mais_recente'|trans }}</span>{% endif %}
-            <span class="flex-grow-1"></span>
+            <span class="despacho-espaco"></span>
             <small class="despacho-em">
                 {% set em = d ? d.registradoEm : item.dataHora %}{{ 'metas.despacho.quando'|trans({data: em|data, hora: em|hora}) }}
                 {% if item.editadoEm %}<span class="ms-1 fst-italic tarefa-msg-editado">{{ 'metas.detalhe.editado'|trans }}</span>{% endif %}
@@ -56,9 +56,14 @@
                     <span class="despacho-juntado-onde">· {{ 'metas.despacho.juntado_a_pasta'|trans }}</span>
                 </div>
             {% elseif item.arquivoAnexo and item.arquivoAnexo starts with '/' %}
+                {# O anexo antigo abre no visualizador único (#previewDocModal, VisualizadorDocumento) pelo meta-detalhe.js;
+                   sem JS, ou com Ctrl/Cmd/Shift/meio, o link abre o arquivo em outra aba. #}
+                {% set ext  = item.arquivoAnexo|split('.')|last|lower %}
+                {% set mime = {pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', mp3: 'audio/mpeg', mp4: 'video/mp4', webm: 'video/webm'}[ext] ?? 'application/octet-stream' %}
                 <div class="despacho-juntado">
                     <i class="bi bi-paperclip"></i>
-                    <a href="{{ path('tarefa_mensagem_arquivo_view', {id: item.mensagemId}) }}" target="_blank" rel="noopener" title="{{ 'metas.detalhe.visualizar_arquivo'|trans }}">{{ item.arquivoAnexo|split('/')|last }}</a>
+                    <a href="{{ path('tarefa_mensagem_arquivo_view', {id: item.mensagemId}) }}" target="_blank" rel="noopener" title="{{ 'metas.detalhe.visualizar_arquivo'|trans }}"
+                       data-md-visualizar data-url="{{ path('tarefa_mensagem_arquivo_view', {id: item.mensagemId}) }}" data-nome="{{ item.arquivoAnexo|split('/')|last }}" data-mime="{{ mime }}">{{ item.arquivoAnexo|split('/')|last }}</a>
                 </div>
             {% endif %}
 
@@ -75,7 +80,7 @@
                 {% if d.ciente %}
                     <span class="despacho-ciente"><i class="bi bi-eye"></i> {{ 'metas.despacho.ciente'|trans({nome: d.ciente, quando: 'metas.despacho.quando'|trans({data: d.cienteEm|data, hora: d.cienteEm|hora})}) }}</span>
                 {% endif %}
-                <span class="flex-grow-1"></span>
+                <span class="despacho-espaco"></span>
                 {% if d.podeCertificar %}
                     <button type="button" class="despacho-certificar"
                             data-md-abrir="modalCertificarDespacho"

@@ -54,6 +54,13 @@ final class MetaDetalheCssTest extends TestCase
     /** @return iterable<string, array{string, string, list<string>}> */
     public static function regras(): iterable
     {
+        yield from self::regrasDaPagina();
+        yield from self::regrasDasJanelasDoAvisoEDoDespacho();
+    }
+
+    /** @return iterable<string, array{string, string, list<string>}> */
+    private static function regrasDaPagina(): iterable
+    {
         yield 'moldura (L34)' => [self::DETALHE, '.meta-moldura', ['max-width: 1280px;', 'margin: 0 auto;', 'padding: 18px 18px 40px;', 'flex-direction: column;', 'gap: 14px;']];
         yield 'título h1 (L37)' => [self::DETALHE, '.meta-titulo', ['margin: 0;', 'font-size: 28px;', 'font-weight: normal;', 'gap: 10px;']];
         yield 'link da trilha (L22, L39)' => [self::DETALHE, '.meta-trilha > a', ['color: var(--meta-azul);', 'text-decoration: none;']];
@@ -73,13 +80,23 @@ final class MetaDetalheCssTest extends TestCase
         yield 'só você vê (L84)' => [self::DETALHE, '.meta-lateral > .meta-so-voce', ['font-size: 11.5px;', 'color: var(--meta-mudo);', 'padding: 0 2px;', 'margin-top: -4px;']];
         yield 'hover do prazo em todo estado (L85)' => [self::DETALHE, '.meta-detalhes-prazo[role="button"]:hover', ['filter: brightness(.96);']];
         yield 'hover dos responsáveis (L85)' => [self::DETALHE, '.meta-detalhes-responsaveis[role="button"]:hover', ['background: var(--meta-hover-item);']];
+    }
+
+    /** @return iterable<string, array{string, string, list<string>}> */
+    private static function regrasDasJanelasDoAvisoEDoDespacho(): iterable
+    {
         yield 'fundo da janela (L106)' => [self::DETALHE, '.md-modal > .md-modal-fundo', ['position: fixed;', 'background: rgba(18, 36, 47, .35);']];
         yield 'caixa da janela (L106)' => [self::DETALHE, '.md-modal-centro > .md-modal-caixa', ['width: min(480px, 100%);', 'border-radius: 3px;', 'box-shadow: 0 20px 50px rgba(18, 36, 47, .25);']];
         yield 'cabeçalho da janela (L106)' => [self::DETALHE, '.md-modal-caixa > .md-modal-cabeca', ['background: #0a6fa0;', 'color: #fff;', 'padding: 12px 16px;', 'gap: 8px;']];
         yield 'X da janela (L106)' => [self::DETALHE, '.md-modal-cabeca > .md-modal-x', ['width: 28px;', 'height: 28px;', 'background: rgba(255, 255, 255, .15);']];
         yield 'rodapé da janela (L106)' => [self::DETALHE, '.md-modal-caixa > .md-modal-pe', ['padding: 10px 16px;', 'border-top: 1px solid var(--meta-divisa);', 'justify-content: flex-end;', 'gap: 8px;']];
         yield 'confirmar da janela (L106)' => [self::DETALHE, '.md-modal-pe > .md-confirmar', ['height: 34px;', 'border-radius: 3px;', 'background: #0a6fa0;', 'font-size: 13.5px;', 'font-weight: bold;']];
-        yield 'aviso do sistema (L176)' => [self::DETALHE, '.meta-body .app-content-header .alert', ['position: fixed;', 'left: 50%;', 'bottom: 22px;', 'background: #12242f;', 'font-size: 13.5px;', 'padding: 10px 16px;', 'border-radius: 3px;']];
+        yield 'pilha dos avisos (L176)' => [self::DETALHE, '.meta-body .app-content-header > .container-fluid', ['position: fixed;', 'left: 50%;', 'bottom: 22px;', 'flex-direction: column;', 'gap: 8px;']];
+        yield 'aviso do sistema (L176)' => [self::DETALHE, '.meta-body .app-content-header .alert', ['position: relative;', 'font-size: 13.5px;', 'padding: 10px 16px;', 'border-radius: 3px;']];
+        yield 'aviso de sucesso (L176)' => [self::DETALHE, '.meta-body .app-content-header .alert-success', ['background: #12242f;', 'color: #fff;']];
+        yield 'X só some no sucesso' => [self::DETALHE, '.meta-body .app-content-header .alert-success > .btn-close', ['display: none;']];
+        yield 'aviso de erro (paleta do dc)' => [self::DETALHE, '.meta-body .app-content-header .alert:not(.alert-success)', ['background: #fbe7e7;', 'color: #a3232b;']];
+        yield 'ícone do aviso de erro' => [self::DETALHE, '.meta-body .app-content-header .alert:not(.alert-success) > .bi', ['color: #a3232b;']];
         yield 'faixa DESPACHO (L57)' => [self::DESPACHO, '.despacho-cabeca-bloco', ['padding: 12px 18px;', 'background: var(--despacho-fundo-cabeca);', 'border-bottom: 1px solid var(--despacho-divisa);', 'gap: 8px;']];
         yield 'formulário (L58)' => [self::DESPACHO, '.despacho-bloco', ['padding: 12px 18px;']];
         yield 'campo do despacho (L60)' => [self::DESPACHO, '.despacho-texto-campo', ['border: 1px solid var(--despacho-borda);', 'padding: 10px 11px;', 'color: var(--despacho-titulo);', 'font-size: 14px;', 'line-height: 1.5;']];
