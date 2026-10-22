@@ -65,7 +65,8 @@ class Tarefa implements Auditavel, TenantAware
      * deduzida do título (`EtapaDaPasta::deduzirDoTitulo`, no `definirEtapaPeloTitulo`).
      */
     #[ORM\Column(length: 20, enumType: EtapaDaPasta::class)]
-    private ?EtapaDaPasta $etapa = null;
+    // Nula só entre o `new` e o PrePersist; no banco é NOT NULL.
+    private ?EtapaDaPasta $etapa = null; // @phpstan-ignore doctrine.columnType
 
     /** Decide a sequência de caixas por onde a pasta passa (`TipoDeDemanda::sequencia`). */
     #[ORM\Column(name: 'tipo_de_demanda', length: 20, enumType: TipoDeDemanda::class, options: ['default' => 'judicial'])]

@@ -466,7 +466,9 @@ class TarefaRepository extends ServiceEntityRepository
     /** As metas abertas de uma caixa da esteira, de todo o escritório. */
     private function escoparPelaEtapa(QueryBuilder $qb, EtapaDaPasta $etapa, Tenant $escritorio): void
     {
-        $qb->andWhere('t.tenant = :escritorioDaEtapa')
+        // Pasta excluída (lápide) fica fora, como na contagem da caixa e no Dashboard.
+        $qb->innerJoin('t.pasta', 'pastaDaEtapa', 'WITH', 'pastaDaEtapa.excluidaEm IS NULL')
+           ->andWhere('t.tenant = :escritorioDaEtapa')
            ->andWhere('t.etapa = :etapaDaEsteira')
            ->andWhere('t.status != :concluidaDaEtapa')
            ->setParameter('escritorioDaEtapa', $escritorio)
@@ -477,7 +479,7 @@ class TarefaRepository extends ServiceEntityRepository
     /**
      * A esteira da pasta (desenho 04 de 22/10, dc L163-167): por caixa, quantas metas ABERTAS o escritório tem
      * (em revisão conta) e quantas delas estão atrasadas, pelo mesmo recorte dos KPIs (`FORA_DA_FILA`, prazo
-     * antes de hoje). Uma consulta agregada; caixa sem meta não vem (quem lê completa com zero).
+     * antes de hoje), sem pasta excluída. Uma consulta agregada; caixa sem meta não vem (quem lê completa com zero).
      *
      * @param list<int> $pastasOcultas
      * @return array<string, array{total: int, atrasadas: int}> chave = valor de `EtapaDaPasta`
@@ -488,6 +490,7 @@ class TarefaRepository extends ServiceEntityRepository
             ->select('t.etapa AS etapa')
             ->addSelect('COUNT(t.id) AS total')
             ->addSelect('COALESCE(SUM(CASE WHEN t.status NOT IN (:foraDaFila) AND t.prazo IS NOT NULL AND t.prazo < :hoje THEN 1 ELSE 0 END), 0) AS atrasadas')
+            ->innerJoin('t.pasta', 'p', 'WITH', 'p.excluidaEm IS NULL') // pasta excluída (lápide) não conta, como no Dashboard
             ->andWhere('t.tenant = :escritorio')
             ->andWhere('t.status != :concluida')
             ->setParameter('escritorio', $escritorio)

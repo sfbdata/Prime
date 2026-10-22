@@ -8,7 +8,12 @@ CLAUDE.md, tratado como MÉDIO porque mexe no modelo da meta, em prazo e em text
 
 - 22/10: inventário do desenho e do código feito (seções 1 e 2). Nada implementado ainda.
 - 22/10: o dono decidiu D1 a D4 (repassado pelo coordenador, bluejus-72). Migration da Fase 1: 149900.
-- Em andamento: Fase 1 (seção 4).
+- 22/10: Fase 1 implementada na branch `metas-esteira` (esteira, caixas configuráveis, etapa no cartão). Arrastar
+  meta entre caixas (protótipo, `mover`) fica para a Fase 3, junto da passagem de etapa.
+  Também ficam para a Fase 3: as "etapas saltadas" da meta e o AVISO aos marcados na caixa. No protótipo o aviso sai
+  na passagem de etapa (04 L180-181), que é a Fase 3; até lá a caixa guarda quem será avisado, mas ninguém recebe
+  nada. A esteira e a lista por etapa deixam de fora metas de pasta excluída (lápide), como o Dashboard.
+  Avisado que saiu do escritório continua gravado na caixa até o próximo "Salvar" (o modal só oferece a equipe ativa).
 
 ### Decisões do dono (22/10)
 
@@ -104,7 +109,10 @@ Legenda: ✓ existe · ≈ parcial · ∅ não existe.
 ### 2.1 Configurações internas e o que está desligado
 
 - **Liga/desliga do Master:** o recurso `metas` (`Master/Service/CatalogoDeRecursos.php` L36, L70) bloqueia só a rota
-  `tarefa_minhas`. Com Metas desligado, `tarefa_show`, `/tarefas/equipe` e os POST continuam abertos. Corrigir na Fase 1.
+  `tarefa_minhas`. Com Metas desligado, `tarefa_show`, `/tarefas/equipe` e os POST continuam abertos. **Revisto na
+  Fase 1:** não bloquear. Essas rotas servem também à aba Metas da pasta (Expedientes), e o recurso `metas` é o
+  liga/desliga da TELA Minhas Metas (`'tela' => true`). As rotas novas da esteira (`tarefa_minhas_caixa_*`) caem
+  no prefixo e desligam junto. Desligar as metas da pasta inteira seria outro recurso, decisão do dono.
 - **Motor `AnaliseDoPrazoDaMeta`:** pronto e testado, sem tela, travado pelo dono (rótulo I.A. e prazo legal visível).
   Não entra nesta frente.
 - **Enum `EstadoDoPrazoJuridico`:** sem uso. Fica com o motor.
@@ -131,6 +139,11 @@ Por convenção (desenho omisso), registradas aqui:
 - **C4.** Anexo do despacho entra nos documentos da pasta pela regra de chaves (`armazenamento-de-arquivos`).
 - **C5.** Etapa das metas antigas: deduzida pelo título, com a mesma regra do desenho (`faseDe`, 04 L151); o que não casar
   vai para Jurídico. Metas concluídas também recebem etapa, para a esteira contar certo.
+- **C6.** Clicar numa caixa lista as metas abertas daquela etapa de TODA a equipe do escritório (texto do desenho: "ver
+  as metas dela de toda a equipe"), na aba Todas; o cadeado de pasta oculta continua valendo. Os KPIs e as abas
+  continuam individuais ("SUAS METAS · INDIVIDUAL").
+- **C7.** Nomes dos avisados aparecem sem o "Dr./Dra." do protótipo: ele deduz o gênero pelo nome. Nome simples.
+- **C8.** Duplo clique no "CAIXA N": o clique simples no rótulo espera 250 ms antes de filtrar, para o duplo abrir o modal.
 
 Para o dono (Farlei), antes da fase indicada:
 

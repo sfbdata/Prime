@@ -17,6 +17,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Routing\Requirement\EnumRequirement;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
@@ -30,15 +31,13 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 #[Route('/tarefas/minhas/caixas')]
 final class CaixaDaEsteiraController extends AbstractController
 {
-    private const ETAPAS = 'comercial|abertura|controladoria|documentacao|juridico|protocolo|acompanhamento|encerramento';
-
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
     ) {
     }
 
-    #[Route('/{etapa}', name: 'tarefa_minhas_caixa_salvar', requirements: ['etapa' => self::ETAPAS], methods: ['POST'])]
+    #[Route('/{etapa}', name: 'tarefa_minhas_caixa_salvar', requirements: ['etapa' => new EnumRequirement(EtapaDaPasta::class)], methods: ['POST'])]
     public function salvar(string $etapa, Request $request, ConfigurarCaixaDaEsteiraUseCase $useCase, ValidatorInterface $validator): Response
     {
         [$usuario, $tenant] = $this->acesso();
@@ -67,7 +66,7 @@ final class CaixaDaEsteiraController extends AbstractController
         return $this->redirectToRoute('tarefa_minhas');
     }
 
-    #[Route('/{etapa}/restaurar', name: 'tarefa_minhas_caixa_restaurar', requirements: ['etapa' => self::ETAPAS], methods: ['POST'])]
+    #[Route('/{etapa}/restaurar', name: 'tarefa_minhas_caixa_restaurar', requirements: ['etapa' => new EnumRequirement(EtapaDaPasta::class)], methods: ['POST'])]
     public function restaurar(string $etapa, Request $request, RestaurarCaixaDaEsteiraUseCase $useCase): Response
     {
         [$usuario, $tenant] = $this->acesso();

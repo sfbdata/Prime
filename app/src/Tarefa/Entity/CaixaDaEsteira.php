@@ -37,7 +37,11 @@ class CaixaDaEsteira implements TenantAware
     #[ORM\Column(name: 'nome_da_etapa', length: self::TAMANHO_MAXIMO_DO_NOME, nullable: true)]
     private ?string $nomeDaEtapa = null;
 
-    /** Quem é avisado quando chega demanda na caixa. Sem tenant próprio: o escopo vem da caixa. */
+    /**
+     * Quem é avisado quando chega demanda na caixa. Sem tenant próprio: o escopo vem da caixa.
+     *
+     * @var Collection<int, User>
+     */
     #[ORM\ManyToMany(targetEntity: User::class)]
     #[ORM\JoinTable(name: 'tarefa_caixa_esteira_avisado')]
     #[ORM\JoinColumn(name: 'caixa_id', onDelete: 'CASCADE')]
