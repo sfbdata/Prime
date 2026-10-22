@@ -23,6 +23,28 @@ use App\Tenant\Exception\OperacaoDePrimarioRecusada;
  */
 final class RegraDosPrimarios
 {
+    public const RECUSA_GERIR_PRIMARIOS = 'Só o primário do escritório ou o Master pode dar ou tirar o perfil de usuário primário.';
+    public const RECUSA_CONTA_DO_MASTER = 'A conta do Master só pode ser alterada pelo próprio Master.';
+    public const RECUSA_TITULAR = 'O primário titular (quem abriu a conta) não pode deixar de ser primário.';
+    public const RECUSA_ULTIMO_PRIMARIO = 'Este é o último primário do escritório. Promova outro primário antes de removê-lo.';
+    /** Dita pelo edit-role do TenantController quando podeTrocarSenhaDe() recusa. */
+    public const RECUSA_SENHA_DE_PRIMARIO = 'A senha de um primário só pode ser trocada por um primário ou pelo Master; '
+        . 'a do primário titular, só por ele mesmo ou pelo Master.';
+
+    /**
+     * A chave de cada recusa no catálogo (spec idioma-do-sistema §27, no padrão da HierarquiaDePerfis): o texto acima
+     * continua sendo o português, a fonte (e o que os testes e as outras telas comparam); quem leva a recusa à tela
+     * traduz pela chave. O CatalogoDoEscritorioTest garante que o português do catálogo é igual ao daqui. A recusa do
+     * convite (garantirQueConviteDePrimarioValeNoAceite) fica fora: não é dita nas telas de usuários.
+     */
+    public const CHAVE_DA_RECUSA = [
+        self::RECUSA_GERIR_PRIMARIOS => 'escritorio.editar_usuario.recusa.gerir_primarios',
+        self::RECUSA_CONTA_DO_MASTER => 'escritorio.editar_usuario.recusa.conta_do_master',
+        self::RECUSA_TITULAR => 'escritorio.editar_usuario.recusa.titular',
+        self::RECUSA_ULTIMO_PRIMARIO => 'escritorio.editar_usuario.recusa.ultimo_primario',
+        self::RECUSA_SENHA_DE_PRIMARIO => 'escritorio.editar_usuario.recusa.troca_de_primario',
+    ];
+
     public function __construct(
         private readonly UserTenantRepository $userTenantRepository,
     ) {}
@@ -58,9 +80,7 @@ final class RegraDosPrimarios
     public function garantirQuePodeGerirPrimarios(User $ator, Tenant $tenant): void
     {
         if (!$this->podeGerirPrimarios($ator, $tenant)) {
-            throw new OperacaoDePrimarioRecusada(
-                'Só o primário do escritório ou o Master pode dar ou tirar o perfil de usuário primário.'
-            );
+            throw new OperacaoDePrimarioRecusada(self::RECUSA_GERIR_PRIMARIOS);
         }
     }
 
@@ -81,7 +101,7 @@ final class RegraDosPrimarios
     public function garantirQuePodeAlterarConta(User $ator, User $alvo): void
     {
         if (!$this->podeAlterarConta($ator, $alvo)) {
-            throw new OperacaoDePrimarioRecusada('A conta do Master só pode ser alterada pelo próprio Master.');
+            throw new OperacaoDePrimarioRecusada(self::RECUSA_CONTA_DO_MASTER);
         }
     }
 
@@ -173,9 +193,7 @@ final class RegraDosPrimarios
     public function garantirQuePodeDeixarDeSerPrimario(UserTenant $vinculo): void
     {
         if ($this->ehTitular($vinculo)) {
-            throw new OperacaoDePrimarioRecusada(
-                'O primário titular (quem abriu a conta) não pode deixar de ser primário.'
-            );
+            throw new OperacaoDePrimarioRecusada(self::RECUSA_TITULAR);
         }
 
         // Conta desativada não é contada como primário: rebaixá-la não diminui a contagem, então a
@@ -183,9 +201,7 @@ final class RegraDosPrimarios
         // no edit-role o form já trocou o perfil em memória antes desta checagem.
         $contaComoPrimario = $vinculo->isActive() && $vinculo->getUser()->isActive();
         if ($contaComoPrimario && $this->userTenantRepository->contarAdminsAtivos($vinculo->getTenant()) <= 1) {
-            throw new OperacaoDePrimarioRecusada(
-                'Este é o último primário do escritório. Promova outro primário antes de removê-lo.'
-            );
+            throw new OperacaoDePrimarioRecusada(self::RECUSA_ULTIMO_PRIMARIO);
         }
     }
 }
