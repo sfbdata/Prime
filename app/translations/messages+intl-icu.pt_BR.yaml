@@ -8230,6 +8230,8 @@ pasta_show:
         buscar_existente: Buscar processo existente
         cadastrar_novo: Cadastrar novo (CNJ)
         ja_cadastrado: Processo já cadastrado
+        busca_placeholder: Digite número, classe, assunto ou tribunal…
+        trocar: Trocar
         busque_dica: Busque por número, classe, assunto ou tribunal e selecione um processo do escritório.
         aba_informacoes: Informações
         aba_partes: Partes
@@ -8291,7 +8293,6 @@ pasta_show:
         tipo_movimento: Tipo de movimento
         orgao: Órgão
         movimentacoes_nota: '"Buscar no CNJ" (aba Informações) importa as movimentações do PJe e dos diários oficiais. Depois de vinculado, o Push processual passa a monitorar o processo.'
-        buscando: Buscando…
     preview:
         baixar: Baixar
     editar:
@@ -8387,11 +8388,20 @@ pasta_show:
             desvincular_pergunta: Desvincular o processo desta pasta?
             erro_desvincular: Erro ao desvincular processo.
             erro_principal: Erro ao definir o processo principal.
-            select_placeholder: Digite número, classe, assunto ou tribunal…
             nenhum_encontrado: 'Nenhum processo encontrado. Use "Cadastrar novo (CNJ)".'
             buscando: Buscando…
-            digite_dois: Digite ao menos 2 caracteres
+            buscar_cnj: Buscar no CNJ
             selecione: Selecione um processo para vincular.
+            origem_pasta: 'Pasta {pasta}'
+            origem_apensado: 'Apensado · pasta {pasta}'
+            origem_push: Push processual
+            dados_a_completar: Dados a completar
+            preencha: 'Preencha: {campos}.'
+            falta_numero: número do processo
+            falta_orgao: órgão julgador
+            falta_classe: classe processual
+            falta_assunto: assunto processual
+            vinculado_aviso: Processo vinculado · Ação e Processo vinculado atualizados em Dados da pasta
             erro_vincular: Erro ao vincular processo.
             erro_comunicacao: Erro de comunicação. Tente novamente.
             numero_completo: Informe o número completo no formato NNNNNNN-DD.AAAA.J.TT.OOOO.
