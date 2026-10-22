@@ -553,3 +553,25 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   `AdicionarEmailType` e `EditarQualificacaoPessoaType`, `TipoTelefone::label()`, `tipoLabel` e `descricao` dos eventos,
   rótulos de desfecho e canal, o nome "Sem responsável" da linha órfã, flashes e mensagens das rotas da ficha); o
   `telefone-mascara.js` (sem texto) não entrou na guarda.
+
+## 22. Extração do Kanban e do que faltava em Tarefa (f6, 21/10)
+
+Bloco `kanban` do catálogo, 70 chaves: 56 do Twig (`comum`, `index`, `modal_criar`, `mural`, `modal_checklist`,
+`modal_editar`, `card`, `comentario`) e 14 dos scripts inline do `index` e do `board` (`kanban.js`, entregue pelos
+dois antes do `<script>`; o corpo do card, que chega por fetch, usa o catálogo do `board`). O `tarefa/show` entrou no
+bloco `metas` (o do Minhas Metas): 43 chaves em `metas.detalhe` (Twig) e 8 em `metas.detalhe.js` (fora de `metas.js`,
+para o catálogo que o Minhas Metas entrega não mudar), com `metas.migalha.home` e `metas.comum.nao_informado`
+reaproveitadas; os scripts dele ficam no corpo (antes do `bj-traducao.js`) e só pedem texto dentro dos eventos. O `#`
+da meta entra como texto (`tarefa.id ~ ''`), para o ICU não pôr separador de milhar; a contagem de cards do mural
+virou duas chaves (`cards_um`, `cards_varios`) escolhidas pelo mesmo `!= 1` de antes. Os dois `confirm()` dos
+formulários do detalhe usam `|trans|e('js')`, como na Agenda. Para a guarda enxergar as tags, os `filter(x =>
+...)|length > 0` de dentro dos atributos foram para um `{% set %}` antes da tag. Formatos: `|data` na criação do
+mural, na criação e no prazo da meta e no dia do histórico; `|data_hora` no comentário, na criação do card, na
+conclusão e na alteração da meta; `|hora` na hora do histórico. Ficaram `dataVencimento|date('d/m')` do cartão (sem
+filtro de dia e mês) e os `Y-m-d` dos campos de data. Ficou de fora o texto que vem do PHP: os rótulos dos campos dos
+Form types do mural (`form_row`), `tamanhoFormatado` do anexo, as respostas e erros dos controllers do Kanban,
+`Tarefa::STATUS_LABELS`, `prazoInfo.texto`, o título e o detalhe dos eventos do histórico (`TarefaTimelineAssembler`) e os
+flashes; também as mensagens de `console.error` do `board` (só para quem depura). O HTML do Kanban (lista vazia e
+cheia, mural do criador e do participante, card cheio, magro e de mural sem marcadores, cartão do mural e comentário
+novo) e do detalhe da meta (vazia, nova, pendente com anexo, em revisão para os dois lados, concluída) foi comparado
+antes e depois, sem diferença; o texto dos scripts foi conferido chave por chave contra o literal removido.
