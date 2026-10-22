@@ -122,6 +122,9 @@ moldura:
             exemplo_reuniao: Reunião de equipe semanal
             exemplo_prazo: Prazo de contestação · Pasta 1180
             exemplo_compromisso: Atendimento ao cliente
+    # Faixa do Master numa tela desligada (_recurso_faixa_master, incluída pelo base, layout_peticionar e push_compartilhado/show)
+    faixa_master:
+        aviso: Esta tela está desativada para os usuários. Só o Master está vendo.
 
 # ---- menu do usuário (menu_usuario/*, menu-usuario.js)
 menu:
@@ -507,6 +510,218 @@ pasta_processo:
         administrativa_sem_comunicacao: Erro de comunicação. A marcação pode não ter sido salva. Recarregue a página.
         dados_falhou: Não foi possível salvar os dados do processo.
         dados_sem_comunicacao: Erro de comunicação. Os dados podem não ter sido salvos. Recarregue a página.
+
+# ---- Processo (processo/index, _resultado, new, show, _notas_tecnicas, _nota_tecnica_item; o JS do formulário em
+# processo.form.js, entregue pelo new). A situação gravada (EM_ANDAMENTO...) continua o valor; só o rótulo sai daqui.
+processo:
+    comum:
+        home: Home
+        push: Push Processual
+        processos: Processos
+        numero: Número do Processo
+        tribunal: Tribunal
+        situacao: Situação
+        instancia: Instância
+        informacoes: Informações
+        partes: Partes
+        movimentacoes: Movimentações
+        orgao_julgador: Órgão Julgador
+        classe_processual: Classe Processual
+        data_baixa: Data de Baixa
+        tipo: Tipo
+        nome: Nome
+        documento: Documento
+        papel: Papel
+        data: Data
+        descricao: Descrição
+        orgao: Órgão
+        editar: Editar
+        editar_processo: Editar processo
+        fechar: Fechar
+    situacao:
+        em_andamento: Em Andamento
+        encerrado: Encerrado
+        suspenso: Suspenso
+        arquivado: Arquivado
+        baixado: Baixado
+        transitado_em_julgado: Transitado em julgado
+        paralisado: Paralisado
+    index:
+        titulo: Processos Judiciais
+        cadastrar: Cadastrar Processo
+        busca: Buscar por número, classe, assunto ou tribunal…
+        filtro:
+            tribunal: Tribunal
+            situacao: Situação
+            de: De
+            ate: Até
+    resultado:
+        total: '{total} resultado(s) encontrado(s)'
+        classe: Classe
+        assunto: Assunto
+        acoes: Ações
+        visualizar: Visualizar processo
+        vazio: Nenhum processo encontrado.
+        criar: Criar novo processo
+    show:
+        titulo: 'Processo {numero}'
+        detalhes: Detalhes
+        distribuicao: Distribuição
+        tarefas: Tarefas
+        assunto: Assunto
+        assuntos: Assuntos
+        ultima_atualizacao: Última Atualização
+        sem_partes: Nenhuma parte cadastrada.
+        sem_movimentacoes: Nenhuma movimentação cadastrada.
+        criado_em: Criado em
+        modificado_em: Modificado em
+        criado_por: Criado por
+        dados_cnj: Dados do CNJ (Datajud)
+        sistema_origem: Sistema de origem
+        formato: Formato
+        nivel_sigilo: Nível de sigilo
+        codigo_orgao: Código do órgão
+        municipio_ibge: Município (IBGE)
+        id_datajud: ID Datajud
+        atividades_recentes: Atividades Recentes
+        tempo: '{horas}h {minutos}min'
+        prazo_em: 'Prazo: {data}'
+        sem_tarefas: Não há tarefas vinculadas a este processo.
+        vinculos: Vínculos
+        pastas: Pastas
+        sem_pastas: Este processo não está vinculado a nenhuma pasta.
+        pasta_trancada_dica: Pasta trancada pelo usuário primário
+        pasta_trancada: Pasta trancada
+        principal_dica: Este processo é o principal da pasta
+        principal: Principal
+        excluida_em: 'Excluída em {data}'
+        excluida: Excluída
+        voltar: Voltar aos Processos
+        excluir_confirmar: Tem certeza que deseja excluir este processo?
+        excluir_processo: Excluir processo
+        excluir: Excluir Processo
+        modal:
+            status: Status
+            atribuido: Atribuído a
+            criada_em: Criada em
+            prazo: Prazo
+            tempo_total: Tempo Total
+            ultima_revisao: Última Revisão
+            conclusao: Conclusão
+            abrir_tarefa: Abrir Tarefa
+    form:
+        titulo_novo: Novo Processo
+        titulo_editar: Editar Processo
+        novo: Novo
+        cliente: Cliente
+        assuntos: Assuntos
+        numero_exemplo: 'Ex: 1234567-89.2024.1.23.4567'
+        numero_formato: 'Formato: NNNNNNN-DD.AAAA.J.TT.OOOO'
+        buscar_cnj: Buscar no CNJ
+        buscar_cnj_dica: Busca o processo na base de dados do CNJ
+        tribunal_placeholder: Detectado pelo número do processo
+        tribunal_ajuda: Preenchido automaticamente pelo número do processo.
+        assunto_processual: Assunto Processual
+        instancia:
+            g1: G1 - Primeira Instância
+            g2: G2 - Segunda Instância
+            st: ST - Superior Tribunal
+        data_distribuicao: Data de Distribuição
+        cliente_vinculado: Cliente vinculado
+        nenhum_cliente: Nenhum cliente
+        adicionar_parte: Adicionar Parte
+        adicionar_movimentacao: Adicionar Movimentação
+        adicionar_assunto: Adicionar Assunto
+        assuntos_ajuda: Todos os assuntos do processo (o assunto principal fica na aba Informações).
+        remover: Remover
+        parte:
+            parte: Parte
+            advogado: Advogado
+            juiz: Juiz
+            promotor: Promotor
+            nome_placeholder: Nome da parte
+            documento_placeholder: CPF/CNPJ
+            papel_placeholder: Polo ativo/passivo
+        movimentacao:
+            descricao_placeholder: Descrição da movimentação
+            tipo_placeholder: Tipo de movimento
+        assunto:
+            assunto: Assunto
+            codigo: Código (TPU)
+            nome_placeholder: Descrição do assunto
+            codigo_placeholder: 'Ex.: 10433'
+        cancelar: Cancelar
+        salvar: Salvar Alterações
+        criar: Criar Processo
+        buscando: Buscando...
+        buscando_datajud: Buscando processo no DataJud...
+        mensagem: Mensagem
+        close: Close
+        js:
+            nenhum_cliente: Nenhum cliente
+            nenhum_cliente_encontrado: Nenhum cliente encontrado
+            tipo: Tipo
+            nome: Nome
+            documento: Documento
+            papel: Papel
+            data: Data
+            descricao: Descrição
+            orgao: Órgão
+            remover: Remover
+            parte:
+                parte: Parte
+                advogado: Advogado
+                juiz: Juiz
+                promotor: Promotor
+                nome_placeholder: Nome da parte
+                documento_placeholder: CPF/CNPJ
+                papel_placeholder: Polo ativo/passivo
+            movimentacao:
+                descricao_placeholder: Descrição da movimentação
+                tipo_placeholder: Tipo de movimento
+            assunto:
+                assunto: Assunto
+                codigo: Código (TPU)
+                nome_placeholder: Descrição do assunto
+                codigo_placeholder: 'Ex.: 10433'
+            sucesso: Sucesso
+            atencao: Atenção
+            erro: Erro
+            informe_numero: Informe o número do processo.
+            erro_busca: Erro ao buscar processo no CNJ/DataJud.
+            erro_busca_tente: Erro ao buscar processo no CNJ/DataJud. Tente novamente em instantes.
+            carregado: Processo carregado com sucesso! Os dados foram preenchidos no formulário. Você pode editá-los antes de salvar.
+    notas:
+        titulo: Notas técnicas
+        sobre_movimentacao: Sobre esta movimentação.
+        aviso: 'A nota é do processo: aparece em toda pasta que o vincula.'
+        adicionar: Adicionar nota técnica
+        nova: Nova nota técnica
+        texto: Texto da nota técnica
+        placeholder_despacho: 'Explique o despacho: o que significa, o que precisa ser feito, prazo… Use @ para mencionar alguém.'
+        placeholder_processo: 'Explique o processo ou o despacho: o que significa, o que precisa ser feito, prazo… Use @ para mencionar alguém.'
+        cancelar: Cancelar
+        salvar: Salvar nota
+        salvar_dica: Salvar (Ctrl+Enter)
+    nota:
+        selo: Nota técnica
+        hoje: 'hoje, {hora}'
+        quando: '{data}, {hora}'
+        editada_em: 'Editada em {data}'
+        editada: editada
+        movimentacao_dica: Nota sobre uma movimentação do Push Processual
+        opcoes: Opções da nota
+        menu_titulo: 'Nota técnica · {autor}'
+        responder: Responder com outra nota
+        copiar: Copiar texto
+        edicao_liberada: 'Edição liberada por mais {minutos} min'
+        editar_min: 'Editar · {minutos} min'
+        exclusao_liberada: 'Exclusão liberada por mais {minutos} min'
+        excluir_min: 'Excluir · {minutos} min'
+        so_autor_edita: Só o autor edita a nota, em até 15 minutos
+        so_autor_exclui: Só o autor exclui a nota, em até 15 minutos
+        editar_bloqueado: Editar · bloqueado
+        excluir_bloqueado: Excluir · bloqueado
 
 # ---- Relatório da Central de envios do /master (master/_comercial_relatorio, master/comercial-relatorio.js)
 # O que vem do PHP (rótulos de estado, KPIs, dica e leitura da MetricasDaCampanha, recusas) fica fora.
@@ -1072,7 +1287,7 @@ expediente:
             arquivar: Arquivar
             responsavel_pela_decisao: 'Responsável pela decisão: ____________________'
 
-# ---- Minhas Metas (tarefa/minhas, _metas_lista, _meta_cartao, _resultado, equipe, _numero_global)
+# ---- Minhas Metas (tarefa/minhas, _metas_lista, _meta_cartao, _resultado, equipe, _numero_global, show)
 metas:
     titulo: Minhas Metas
     subtitulo: O que está com você, o que você delegou e o que você acompanha.
@@ -1204,6 +1419,59 @@ metas:
         paginacao: Paginação das metas
         pagina_anterior: Página anterior
         proxima_pagina: Próxima página
+    detalhe:
+        titulo: 'Meta #{id}'
+        migalha: Meta
+        criada_em: Criada em
+        autor: Autor
+        responsaveis: Responsáveis
+        editar_responsaveis: Editar responsáveis
+        prazo: Prazo
+        alterar_prazo: Alterar prazo
+        sem_prazo: Sem prazo
+        pasta: 'Pasta:'
+        descricao: Descrição
+        concluida_em: 'Concluída em {data}'
+        historico: Histórico
+        observacao_placeholder: Escreva uma observação… (Ctrl+Enter para enviar)
+        enviar_para_revisao: Enviar para Revisão
+        so_comentar: Só comentar
+        devolver: Devolver
+        sem_eventos: Nenhum evento registrado ainda.
+        editar_mensagem: Editar mensagem
+        editado: '(editado)'
+        visualizar_arquivo: Visualizar arquivo
+        inicio_do_historico: Início do histórico
+        atualizado: 'Atualizado {data}'
+        acompanhando: Acompanhando
+        acompanhar: Acompanhar
+        so_voce_ve: Só você vê esta marcação.
+        confirmar_conclusao: Confirma a conclusão desta meta?
+        concluir_meta: Concluir Meta
+        confirmar_exclusao: Excluir esta meta? Esta ação não pode ser desfeita.
+        excluir_meta: Excluir Meta
+        voltar_a_pasta: Voltar à Pasta
+        responsaveis_titulo: Responsáveis pela Meta
+        responsaveis_sub: Pesquise e selecione os membros da equipe
+        fechar: Fechar
+        buscar_membro: Buscar membro…
+        sem_membro: Nenhum membro encontrado.
+        responsaveis_selecionados: responsável(is) selecionado(s)
+        cancelar: Cancelar
+        salvar_responsaveis: Salvar Responsáveis
+        prazo_titulo: Prazo da Meta
+        prazo_sub: Deixe em branco para remover o prazo
+        salvar_prazo: Salvar Prazo
+        baixar: Baixar
+        js:
+            salvar: Salvar
+            cancelar: Cancelar
+            mensagem_vazia: A mensagem não pode ser vazia.
+            erro_editar: Erro ao editar.
+            editado: '(editado)'
+            erro_rede: Erro de rede. Tente novamente.
+            acompanhando: Acompanhando
+            acompanhar: Acompanhar
     js:
         parar_de_acompanhar: Parar de acompanhar
         acompanhar_esta_meta: Acompanhar esta meta
@@ -3311,6 +3579,196 @@ comercial:
         dsc_confirmar_excluir: 'Excluir {email} da lista de descadastrados? Ele volta a poder receber e-mails. Faça isso só se o próprio contato pediu (LGPD).'
         dsc_registrar_pergunta: 'E-mail que pediu para não receber (por telefone, WhatsApp etc.):'
 
+# ---- Parciais comuns (_partials/_avatar_usuario, _filtro_barra, _filtro_paginacao, _janela_confirmacao,
+# modal_access_request, modal_mover_marcador, modal_nova_pasta; filtro-tabela.js, pasta-dialogos.js). O JS lê comum.js,
+# entregue pelo base para qualquer tela.
+comum:
+    cancelar: Cancelar
+    salvar: Salvar
+    fechar: Fechar
+    excluir: Excluir
+    filtro:
+        busca: Busca
+        buscar: Buscar…
+        filtrar_por: 'Filtrar por {rotulo}'
+        abrir_calendario: Abrir calendário
+    paginacao:
+        rotulo: Paginação
+        anterior: Página anterior
+        proxima: Próxima página
+    acesso:
+        titulo: Solicitar Acesso
+        explicacao: Você não tem permissão para acessar este item. Descreva o motivo da sua solicitação para que o administrador possa avaliá-la.
+        motivo: Motivo da solicitação
+        motivo_placeholder: Descreva por que você precisa acessar este item...
+        enviar: Enviar Solicitação
+    nova_pasta:
+        titulo: Nova Pasta
+        numero_automatico: O número da pasta é gerado automaticamente pelo sistema.
+        nome_cliente: Nome do cliente
+        nome_acao: Nome da Ação
+        cliente_placeholder: Digite o nome do cliente
+        acao_placeholder: Informe primeiro o nome do cliente
+    mover_marcador:
+        titulo: Marcadores da pasta
+        buscar: Buscar marcador…
+        limpar_busca: Limpar busca
+        nenhum_criado: Nenhum marcador criado ainda.
+    js:
+        fechar: Fechar
+        # filtro-tabela.js
+        filtro:
+            busca: Busca
+            remover: Remover
+            limpar_tudo: Limpar tudo
+        # modal_access_request (script inline)
+        acesso:
+            acao_visualizar: visualizar
+            acao_editar: editar
+            acao_excluir: excluir
+            recurso_cliente: cliente
+            descricao_padrao: 'Solicito {acao} o {recurso}{identificador}.'
+            enviando: Enviando...
+            enviar: Enviar Solicitação
+            descreva_motivo: Por favor, descreva o motivo da solicitação.
+            enviada: Solicitação enviada.
+            erro_enviar: Erro ao enviar solicitação. Tente novamente.
+        # modal_nova_pasta (script inline)
+        nova_pasta:
+            erro_criar: Não foi possível criar a pasta.
+            erro_conexao: Falha de conexão ao criar a pasta. Tente de novo.
+        # modal_mover_marcador (script inline)
+        mover_marcador:
+            selecionado: '{n} selecionado'
+            selecionados: '{n} selecionados'
+            nenhum_encontrado: 'Nenhum marcador encontrado para "{busca}".'
+            nenhum_criado: Nenhum marcador criado ainda.
+            criar: 'Criar marcador "{nome}"'
+            resposta_invalida: Resposta inválida do servidor.
+            erro_criar: Não foi possível criar o marcador.
+            erro_salvar: Erro ao salvar.
+            erro_comunicacao: Erro de comunicação.
+        # pasta-dialogos.js (janela de confirmação, responsáveis e calendário da Nova meta)
+        dialogos:
+            remover: Remover
+            remover_nome: 'Remover {nome}'
+            data_vazia: dd/mm/aaaa
+            mes_ano: '{mes} de {ano}'
+            dia_indisponivel: '{dia}, indisponível'
+            confirmar: Confirmar
+            excluir: Excluir
+            confirmar_exclusao: Confirmar exclusão
+            mes:
+                janeiro: janeiro
+                fevereiro: fevereiro
+                marco: março
+                abril: abril
+                maio: maio
+                junho: junho
+                julho: julho
+                agosto: agosto
+                setembro: setembro
+                outubro: outubro
+                novembro: novembro
+                dezembro: dezembro
+
+# ---- Templates da raiz: chip de OAB e layout do Peticionar (_oab_status, layout_peticionar). O cabeçalho do
+# Peticionar reaproveita moldura.notificacoes/cabecalho e menu.usuario.dropdown (mesmo rótulo, mesmo sentido).
+oab_status:
+    confirmada: Confirmada
+    divergente: Divergente
+    nao_verificada: Não verificada
+    sem_oab: Sem OAB
+peticionar:
+    titulo: Peticionar
+    cabecalho:
+        numero_pasta: 'Número da Pasta: {nup}'
+        cliente: 'Cliente: {cliente}'
+    processo:
+        contra: X
+        classe: Classe judicial
+        assunto: Assunto
+        jurisdicao: Jurisdição
+        distribuicao: Distribuição
+        instancia: Instância
+        situacao: Situação
+
+# ---- publicas: páginas abertas pelos e-mails (comercial/confirmacao, email_descadastro, indicacao/_janela, invitation)
+# Abrem sem login: o locale é o português (IdiomaDaRequisicaoListener). Frase com <b>/<strong> no meio vai partida
+# em chaves, com a marcação no template (spec §9, "Frase partida").
+publicas:
+    confirmacao:
+        confirmado:
+            titulo: Endereço confirmado
+            texto: 'Endereço confirmado. Você vai receber {lista}.'
+            mudou_de_ideia: Mudou de ideia?
+            nao_quero_mais: Não quero mais receber
+        confirmar:
+            titulo: Confirme seu e-mail
+            csrf_invalido: Não foi possível confirmar. Clique em Confirmar de novo.
+            texto: Clique no botão abaixo para confirmar que quer receber os e-mails que você pediu.
+            botao: Confirmar
+            nao_foi_voce: Se não foi você quem pediu, é só fechar esta página.
+        vencido:
+            titulo: Não foi possível confirmar
+            texto: Este link venceu ou já foi usado. Peça a confirmação de novo.
+    descadastro:
+        confirmado:
+            titulo: Descadastro confirmado
+            todos: 'Você não vai mais receber nenhum e-mail de {remetente}.'
+            estes_avisos: 'Você não vai mais receber estes avisos por e-mail de {remetente}.'
+            pode_fechar: Pode fechar esta página.
+            demais: 'Os demais e-mails de {remetente} continuam chegando.'
+        confirmar:
+            titulo: Não quero mais receber estes avisos
+            # O endereço <strong>{email}</strong> deixará de receber...
+            endereco: O endereço
+            deixara: 'deixará de receber estes avisos por e-mail de {remetente}.'
+            nenhum: 'Não quero receber nenhum e-mail de {remetente}'
+            botao: Confirmar
+            fechar: Se não quiser deixar de receber, é só fechar esta página.
+    indicacao:
+        titulo: Indicar o BlueJus
+        fechar: Fechar
+        dica:
+            # Convide colegas e outros escritórios para <b>criar a própria conta</b> no BlueJus. Quem aceitar...
+            inicio: Convide colegas e outros escritórios para
+            negrito: criar a própria conta
+            fim: no BlueJus. Quem aceitar abre um escritório novo e não entra na sua equipe.
+            # Para chamar alguém para a <b>sua equipe</b>, use <b>Convites do escritório</b>.
+            equipe_inicio: Para chamar alguém para a
+            equipe_negrito: sua equipe
+            equipe_use: ', use'
+            equipe_convites: Convites do escritório
+            secundario: Quem chama pessoas para a equipe deste escritório é o usuário primário.
+        pendencias:
+            titulo: Complete seu cadastro para enviar convites
+            completar: Completar meu cadastro
+        envio:
+            em_seu_nome: 'O convite é enviado em seu nome:'
+            link_curto: link curto
+            nome: Nome (opcional)
+            email: E-mail
+            mensagem: Mensagem do convite
+            por_email: Enviar convite por e-mail
+            copiar: Copiar link curto
+        lista:
+            titulo: SUAS INDICAÇÕES
+            vazio: Nenhuma indicação ainda.
+    convite:
+        titulo: Convite de Usuário
+        enviar: Enviar Convite
+        placeholder_nome: Digite o nome completo
+        placeholder_email: Digite o e-mail
+    js:
+        # indicacao.js
+        indicacao:
+            conta_criada: CONTA CRIADA
+            enviada: ENVIADA
+            vazio: Nenhuma indicação ainda.
+            falhou: Não foi possível concluir agora. Recarregue a página e tente de novo.
+            abrir_falhou: Não foi possível abrir a janela agora. Recarregue a página e tente de novo.
+
 # ---- escritorio: Meu Escritório (tenant/index, new, criar, show, edit, _form, _delete_form, selecionar,
 # escritorio_indisponivel; no T2, tenant/users e edit_user_role), com os flashes do TenantController, do EscritorioController e do TenantSelecaoController
 # e o título da página de escritório indisponível. Frase curta com o termo dentro recebe termos.escritorio por
@@ -5093,6 +5551,287 @@ cobranca_pessoa:
         erro_cadastro: não foi possível carregar
         erro_detalhe: Não foi possível carregar o detalhe. Tente de novo.
 
+# ---- Kanban (kanban/index, board, _partials/_card_mini, _card_modal_body, _comentario; JS inline em kanban.js)
+kanban:
+    nome: Kanban
+    comum:
+        participantes: Participantes
+        cancelar: Cancelar
+        criar: Criar
+        salvar: Salvar
+    index:
+        titulo_aba: 'Kanban | BlueJus'
+        criar_mural: Criar Mural
+        vazio_titulo: Nenhum mural ainda
+        vazio_texto: Crie seu primeiro mural para organizar tarefas em colunas e acompanhar o progresso do time.
+        criar_primeiro: Criar primeiro mural
+        cards_um: '{total} card'
+        cards_varios: '{total} cards'
+        novo_mural: Novo mural
+    modal_criar:
+        titulo: Novo Mural
+        cor: Cor do mural
+        participantes_ajuda: Quem terá acesso a este mural.
+    mural:
+        titulo_aba: '{nome} | Kanban'
+        titulo_card_placeholder: Título do card...
+        adicionar: Adicionar
+        adicionar_card: Adicionar card
+    modal_checklist:
+        titulo: Nova Checklist
+        campo_titulo: Título
+        placeholder: 'Ex.: Documentos necessários'
+    modal_editar:
+        titulo: Configurações do Mural
+        zona_de_perigo: Zona de perigo
+        excluir_mural: Excluir mural
+    card:
+        editar_titulo: Editar título
+        descricao: Descrição
+        checklists: Checklists
+        excluir_checklist: Excluir checklist
+        remover_item: Remover item
+        novo_item: Novo item...
+        adicionar_item: Adicionar item
+        comentarios: Comentários
+        sem_comentarios: Sem comentários ainda.
+        comentar: Comentar
+        responsaveis: Responsáveis
+        nenhum_responsavel: Nenhum responsável
+        gerenciar: Gerenciar
+        marcadores: Marcadores
+        sem_marcadores: Sem marcadores criados
+        criar_marcador: Criar marcador
+        nome_marcador: Nome...
+        vencimento: Vencimento
+        vencido: Vencido
+        anexos: Anexos
+        remover_anexo: Remover
+        nenhum_anexo: Nenhum anexo
+        adicionar_arquivo: Adicionar arquivo
+        checklist: Checklist
+        adicionar_checklist: Adicionar checklist
+        criado_em: 'Criado em {data}'
+        excluir_card: Excluir card
+    comentario:
+        editado: '(editado)'
+        editar: Editar
+        excluir: Excluir
+    js:
+        selecionar_participantes: Selecionar participantes...
+        erro_criar_mural: Erro ao criar mural.
+        erro_comunicacao: Erro de comunicação. Tente novamente.
+        erro_carregar_card: Erro ao carregar o card.
+        confirmar_excluir_mural: Tem certeza que deseja excluir este mural? Todos os cards serão removidos permanentemente.
+        erro_salvar: Erro ao salvar.
+        descricao_placeholder: Adicionar descrição...
+        comentario_placeholder: Escrever comentário...
+        confirmar_excluir_comentario: Excluir comentário?
+        confirmar_excluir_checklist: Excluir esta checklist?
+        informe_titulo_checklist: Informe um título para a checklist.
+        erro_criar_checklist: Erro ao criar checklist. Tente novamente.
+        confirmar_excluir_anexo: Excluir anexo?
+        confirmar_excluir_card: Excluir este card permanentemente?
+
+# ---- Auth: convites, link de confirmação, senha e mensagens de suporte (auth/*, auth/criar-senha.js)
+auth:
+    comum:
+        nao_foi_possivel_confirmar: Não foi possível confirmar
+        ir_para_login: Ir para o login
+        entrar: Entrar
+        li_e_aceito_os: Li e aceito os
+        expira_em: Expira em
+        email: E-mail
+        nome: Nome
+    meus_convites:
+        titulo: Meus Convites
+        cabecalho: Meus Convites Pendentes
+        vazio: Nenhum convite pendente.
+        escritorio: Escritório
+        convidado_por: Convidado por
+        nao_informado: Não informado
+        ver_convite: Ver convite
+    cadastro:
+        titulo: Cadastro
+        refazer: Refazer cadastro
+    link:
+        titulo_criar: Crie sua senha
+        titulo_confirmacao: Confirmação de e-mail
+        nova_senha: Nova senha
+        minimo_caracteres: Mínimo de 8 caracteres
+        confirmacao_da_nova: Confirmar nova senha
+        termos_de_uso: Termos de uso
+        e_a: e a
+        politica: Política de privacidade
+        criar_e_confirmar: Criar senha e confirmar
+        confirmado: E-mail confirmado.
+        senha_criada: Sua senha foi criada.
+    reenviar_confirmacao: Reenviar o link de confirmação
+    convite:
+        erro:
+            titulo: Convite inválido
+            expirado_titulo: Convite expirado
+            expirado_texto: 'Este convite não é mais válido: o prazo encerrou. Solicite um novo convite ao administrador do escritório.'
+            usado_titulo: Convite já utilizado
+            usado_texto: Este convite já foi aceito, recusado ou revogado e não pode ser usado novamente.
+            nao_encontrado_titulo: Convite não encontrado
+            nao_encontrado_texto: O link que você usou é inválido ou não existe. Verifique se copiou o link completo do e-mail.
+        nao_pertence:
+            titulo: Convite de outra conta
+            enviado_para: Este convite foi enviado para
+            outra_conta: Você está logado com uma conta diferente. Para aceitar este convite, saia e entre com o e-mail correto.
+            sair: Sair desta conta
+        ver:
+            titulo: Aceitar Convite
+            para_escritorio: 'Convite para {escritorio}'
+            para_bluejus: Convite para o BlueJus
+            te_convidou: '{nome} te convidou para colaborar'
+            em: em
+            expira: 'Convite expira em {data} às {hora}'
+            nome_completo: Nome completo
+            senha: Senha
+            oab_numero: Número da OAB
+            oab_numero_exemplo: 'Ex: 123456'
+            oab_uf: UF da OAB
+            oab_uf_exemplo: 'Ex: SP'
+            termos: Termos e Condições Gerais de Uso
+            ciencia: Ao criar a conta você declara ciência da
+            politica: Política de Privacidade
+            criar_e_aceitar: Criar conta e aceitar
+        ver_logado:
+            titulo: Convite de Escritório
+            cabecalho: Convite de escritório
+            colaborar_em: Você foi convidado para colaborar em
+            convidado_por: 'Convidado por: {nome}'
+            expira: 'Expira em {data}'
+            aceitar: Aceitar convite
+            recusar: Recusar
+    gerenciar:
+        titulo: Gerenciar Convites
+        novo: Novo convite
+        nome_opcional: Nome (opcional)
+        perfil: Perfil
+        selecione: Selecione...
+        convidar: Convidar
+        enviados: Convites enviados
+        status: Status
+        enviado_em: Enviado em
+        reenvios: Reenvios
+        sem_informacao: sem informação
+        situacao:
+            pendente: Pendente
+            aceito: Aceito
+            recusado: Recusado
+            revogado: Revogado
+            expirado: Expirado
+        reenviar: Reenviar
+        confirmar_reenviar: Reenviar convite para
+        revogar: Revogar
+        confirmar_revogar: Revogar convite de
+        vazio: Nenhum convite enviado ainda.
+    senha:
+        erro:
+            titulo: Link inválido
+            cabecalho: Não foi possível usar este link
+            recuperar: Recuperar a senha por código
+            voltar: Voltar ao login
+        redefinir:
+            titulo: Criar nova senha
+            subtitulo: Use no mínimo 8 caracteres. Ao salvar, você sairá das outras sessões.
+            salvar: Salvar nova senha
+    suporte:
+        titulo: Mensagens de suporte
+        subtitulo_antes: Enviadas pelo
+        falar_com_suporte: Falar com suporte
+        subtitulo_depois: da tela de entrada. Responda pelo e-mail informado.
+        vazio: Nenhuma mensagem de suporte por enquanto.
+        data: Data
+        assunto: Assunto
+        mensagem: Mensagem
+        origem: Origem
+        sem_nome: (sem nome)
+        sem_assunto: Mensagem
+        responder: Responder por e-mail
+        assunto_do_email: Suporte BlueJus
+        origem_login: Tela de entrada
+    js:
+        forca:
+            fraca: Fraca
+            media: Média
+            boa: Boa
+            forte: Forte
+
+# ---- Push Processual: publicações, OABs monitoradas e publicação (djen/index, oabs, show)
+djen:
+    comum:
+        nao_informado: Não informado
+        sem_registro: Sem registro
+        avulsa: Avulsa
+        tribunal: Tribunal
+        tipo: Tipo
+        processo: Processo
+        orgao: Órgão
+        meio: Meio
+        acoes: Ações
+    index:
+        titulo_pagina: 'Push Processual | Publicações'
+        titulo: 'Push Processual: Publicações'
+        processos_monitorados: Processos monitorados
+        cadastrar_processo: Cadastrar processo
+        sincronizar: Sincronizar agora
+        filtros: Filtros
+        busca: Busca
+        busca_placeholder: Nº processo, tribunal, tipo...
+        todos: Todos
+        todas: Todas
+        diario: Diário
+        edital: Edital
+        vinculo: Vínculo
+        vinculadas: Vinculadas
+        avulsas: Avulsas
+        de: De
+        ate: Até
+        filtrar: Filtrar
+        limpar: Limpar
+        data: Data
+        vinculada: Vinculada
+        ver: Ver
+        vazio: 'Nenhuma publicação encontrada. Cadastre uma OAB ou um processo e clique em "Sincronizar agora".'
+        paginacao: '{total} publicação(ões) · página {pagina} de {paginas}'
+        anterior: Anterior
+        proxima: Próxima
+    oabs:
+        titulo_pagina: 'Push Processual | OABs monitoradas'
+        titulo: OABs monitoradas
+        voltar: Voltar às publicações
+        adicionar_oab: Adicionar OAB
+        adicionar: Adicionar
+        oab: OAB
+        apelido: Apelido
+        status: Status
+        desde: Desde
+        ativa: Ativa
+        pausada: Pausada
+        pausar: Pausar
+        reativar: Reativar
+        remover_confirmar: Remover esta OAB do monitoramento?
+        vazio: Nenhuma OAB monitorada ainda. Adicione uma acima para captar as publicações.
+    show:
+        titulo_pagina: 'Push Processual | Publicação'
+        titulo: 'Push Processual: Publicação'
+        voltar: Voltar
+        voltar_publicacoes: Voltar para as publicações
+        disponibilizacao: Disponibilização
+        ver_processo: Ver processo
+        classe: Classe
+        captada_pela_oab: Captada pela OAB
+        destinatarios: Destinatários
+        nome: Nome
+        polo: Polo
+        teor: Teor da comunicação
+        inteiro_teor: Inteiro teor na origem
+        sem_teor: Sem teor textual disponível.
+
 # ---- Feriados e folgas do escritório (feriado/index, new, edit, _form)
 feriado:
     comum:
@@ -5145,5 +5884,947 @@ sync:
         desconectar_confirmar: Desconectar o Drive deste escritório? A sincronização para até reconectar.
         desconectar: Desconectar
         conectar: Conectar conta Google
+
+# ---- BlueJus IA: drawer da pasta, análises do Push e configuração (inteligencia/*, pasta-ia-*.js)
+inteligencia:
+    comum:
+        hoje: hoje
+        lido: lido
+        analise_gerada_por_ia: Análise gerada por IA
+        dica_interna_sim: 'Análise interna: não aparece no link compartilhado com o cliente. Clique para liberar.'
+        dica_interna_nao: Visível no link compartilhado. Clique para tornar interna do escritório.
+        cadeado: 'Interna do escritório: não vai a links compartilhados'
+        mais_opcoes: Mais opções da análise
+        marcar_lido: Marcar como lido
+        marcar_nao_lido: Marcar como não lido
+        excluir_analise: Excluir análise
+        excluir: Excluir
+        quem_deve_agir: 'Quem deve agir:'
+        falhou: Não foi possível gerar a análise agora. Tente novamente.
+        motivo_tecnico: 'Motivo técnico: {motivo}'
+        nao_configurada: IA não configurada nesta instalação.
+    drawer:
+        assistente: Assistente jurídica do escritório
+        fechar: Fechar
+        chips_dica: Contexto carregado automaticamente desta tela
+        chip_pasta: 'Pasta {nup}'
+        sem_cliente: Sem cliente
+        sem_processo: Sem processo
+        sem_responsavel: Sem responsável
+        abas: Seções da BlueJus IA
+        aba_analise: Análise
+        aba_documentos: Documentos
+        aba_relatorios: Relatórios
+        aba_perguntar: Perguntar
+    painel:
+        sabe: O que a IA sabe desta pasta
+        comandos: Comandos para esta pasta
+        relatorios_intro: Relatórios executivos montados com os dados autorizados desta pasta e do cliente.
+        relatorios: Relatórios
+    comando:
+        gerar_analise: Gerar análise
+        gerar_nova: Gerar nova análise
+        le: '{agente}. Lê: dados da pasta, processos, {secoes}.'
+        em_andamento: Análise em andamento
+        dica_indice: Marque os documentos do índice
+        dica_nova: Nova análise considerando o histórico
+        dica_primeira: 'O {agente} lê os dados desta pasta e responde'
+        analisando: Analisando…
+        carregando: Carregando as análises…
+    documentos:
+        intro: 'A IA monta o índice pelos dados de cada arquivo: nome, título, categoria e data. O conteúdo dos arquivos não é lido.'
+        grupo: Documentos desta pasta
+        carregando: Carregando os documentos…
+        vazio: Nenhum documento nesta pasta.
+        selecionar_todos: Selecionar todos
+        contagem: '0 de {total}'
+    cartao:
+        aviso: Gerado por IA · não é ato oficial do processo
+        selo_padrao: Análise IA
+        copiar: Copiar
+        baixar_dica: Baixar .txt
+        baixar: Baixar
+        imprimir_dica: Imprimir ou salvar em PDF
+        imprimir: Imprimir
+        confirmar_excluir: Excluir esta análise da IA? Os dados da pasta não são alterados.
+        andamento_um: 'Analisando… (lendo {n} item da pasta)'
+        andamento_varios: 'Analisando… (lendo {n} itens da pasta)'
+        completa: Análise completa
+        meta_titulo: 'Providência indicada pelo {agente}'
+        agente_da_ia: agente da IA
+        criar_tarefa: Criar tarefa
+        criar_tarefa_dica: Abre a nova meta desta pasta preenchida com esta análise
+        base_um: 'Base: {n} item desta pasta. Confira os documentos originais antes de agir.'
+        base_varios: 'Base: {n} itens desta pasta. Confira os documentos originais antes de agir.'
+    lista:
+        vazia_agente: Nenhuma análise deste agente ainda.
+        vazia_relatorio: Nenhum relatório gerado ainda.
+        vazia_indice: Nenhum índice gerado ainda.
+        vazia_comando: Nenhuma análise deste comando ainda.
+    push:
+        recolher: Recolher a análise
+        expandir: Expandir a análise
+        selo: Análise IA
+        aviso: Gerado por IA · não é movimentação oficial
+        editado_por: 'Editado por {nome} em {dia} às {hora}'
+        editado_em: 'Editado em {dia} às {hora}'
+        editado: editado
+        liberar: Liberar para compartilhamento
+        tornar_interna: Tornar interna do escritório
+        editar: Editar
+        meta_titulo: Providência indicada pela análise IA
+        criar_tarefa: Criar tarefa da providência
+        confirmar_excluir: Excluir esta análise da IA? As movimentações oficiais não são alteradas.
+        pontos: '{n} ponto(s)'
+        andamento_um: 'Analisando… (lendo {n} movimentação)'
+        andamento_varios: 'Analisando… (lendo {n} movimentações)'
+        base_um: 'Base: {n} movimentação. Confira o documento original antes de agir.'
+        base_varios: 'Base: {n} movimentações. Confira o documento original antes de agir.'
+        resumo_rotulo: Resumo da análise
+        ponto_rotulo: Ponto da análise
+        remover_ponto: Remover ponto
+        nota_edicao: 'Conteúdo originalmente gerado por IA. Sua edição fica registrada como "{editado}".'
+        salvar: Salvar
+        cancelar: Cancelar
+        interna_bloqueia: 'Análise interna do escritório: libere o cadeado para enviar ao cliente.'
+        reenviar: Reenviar ao cliente
+        enviar: Enviar ao cliente
+        vazia: Nenhuma análise por IA ainda para esta pasta.
+    conversa:
+        sugestao_parado: Esse processo está parado?
+        sugestao_falta: O que falta fazer?
+        sugestao_prazo: Veja se existe prazo
+        sugestao_risco: Existe algum risco?
+        carregando: Carregando a conversa…
+        vazia: Pergunte sobre esta pasta. A IA já conhece o cliente, o processo, os prazos, as metas, os registros e os documentos.
+        sugestoes: Sugestões de pergunta
+        consultando: Consultando os dados desta pasta
+        placeholder: Pergunte sobre esta pasta...
+        campo: Pergunta para a IA
+        enviar: Enviar
+    auditoria:
+        rotulo: Registro de auditoria
+        carregando: Carregando o registro…
+        download: 'Download: {oque}'
+        impressao: 'Impressão: {oque}'
+        pedida_por: 'pedida por {nome}'
+        excluida: excluída da tela
+        vazia: Nenhuma ação da IA nesta pasta ainda.
+        mostrando: 'Mostrando as {n} mais recentes de {total}.'
+    admin:
+        estado: Estado da plataforma
+        provedor: Provedor de IA
+        configurado: configurado
+        nao_configurado: não configurado
+        flag: Flag da plataforma (IA_HABILITADA)
+        ligada: ligada
+        desligada: desligada
+        uso: Uso deste escritório
+        uso_hoje: hoje
+        uso_mes: no mês
+        aviso_plataforma: IA não configurada nesta instalação. Ligar aqui não ativa nada até a plataforma ter um provedor configurado.
+        operacional: BlueJus IA operacional neste escritório.
+        configuracao: Configuração do escritório
+        envio:
+            intro: 'Ao ligar, o escritório aceita enviar a um provedor externo de IA, nos termos do Anexo I da Política de Privacidade:'
+            pasta: 'dados da pasta:'
+            pasta_numero: número
+            pasta_situacao: situação
+            pasta_prioridade: prioridade
+            pasta_abertura: data de abertura
+            pasta_acao: ação
+            pasta_responsavel: responsável
+            pasta_equipe: nomes da equipe
+            e: e
+            processos: 'processos vinculados:'
+            processo_numero: número
+            processo_classe: classe
+            processo_assunto: assunto
+            processo_tribunal: tribunal
+            processo_orgao: órgão
+            processo_situacao: situação do processo
+            agentes: 'o que os agentes leem da pasta:'
+            push: 'no Resumir com IA do Push: as publicações do DJEN e as movimentações do Datajud dos processos vinculados (data, tipo, tribunal, órgão e texto);'
+            analise_anterior: o resumo da análise anterior feita pela própria IA na mesma pasta, reenviado para que ela não se repita.
+            fim: 'O financeiro só é enviado quando quem pede a análise pode vê-lo. Dados pessoais (CPF, CNPJ, telefone e e-mail) são mascarados por padrão. Processos em segredo de justiça nunca são enviados.'
+        consentimento: 'Aceite registrado em {quando}.'
+        consentimento_por: 'Aceite registrado em {quando} por {nome}.'
+        cotas: As cotas contam todo pedido feito no escritório, inclusive os que falharam.
+        mascarar: Recomendado. O número do processo nunca é mascarado.
+        salvar: Salvar
+    js:
+        agentes:
+            falha_atualizar: Não foi possível atualizar as análises.
+            falha_carregar: Não foi possível carregar as análises.
+            analisando: Analisando…
+            em_andamento: Análise em andamento
+            gerar_analise: Gerar análise
+            gerar_nova: Gerar nova análise
+            dica_nova: Nova análise considerando o histórico
+            dica_primeira: Lê os dados desta pasta e responde
+            demorando: A análise está demorando mais que o normal. Recarregue a página mais tarde para ver o resultado.
+            dica_indice_marque: Marque os documentos do índice
+            dica_indice_monta: Monta o índice dos documentos marcados
+            contagem: '{marcados} de {total}'
+            falha_pedir: Não foi possível pedir a análise agora. Tente novamente.
+            falha_atualizar_analise: Não foi possível atualizar a análise.
+            falha_ler: Não foi possível ler a análise.
+            sem_copiar: Este navegador não deixa copiar daqui.
+            falha_copiar: Não foi possível copiar a análise.
+            popup_bloqueado: O navegador bloqueou a janela de impressão. Libere as janelas pop-up deste site.
+            falha_imprimir: Não foi possível imprimir a análise.
+            meta_linha: 'Providência indicada pelo {agente} da BlueJus IA em {quando}.'
+            meta_agente: agente
+            meta_aviso: Gerado por IA · não é ato oficial do processo. Confira os documentos originais antes de agir.
+            meta_quem: 'Quem deve agir: {quem}'
+            meta_resumo: 'Resumo: {resumo}'
+            meta_titulo: Providência indicada pela análise IA
+        conversa:
+            falha_enviar: Não foi possível enviar a pergunta agora. Tente novamente.
+            falha_carregar: Não foi possível carregar a conversa.
+            demorando: A resposta está demorando mais que o normal. Recarregue a página mais tarde para ver o resultado.
+        push:
+            analisando: Analisando…
+            gerar_nova: Gerar nova análise
+            resumir: Resumir com IA
+            dica_primeira: A IA lê as movimentações e indica prazos e providências
+            dica_nao_analisadas: '{n} movimentação(ões) ainda não analisada(s)'
+            dica_nova: Nova análise considerando o histórico
+            falha_atualizar: Não foi possível atualizar as análises.
+            demorando: A análise está demorando mais que o normal. Recarregue a página mais tarde para ver o resultado.
+            falha_pedir: Não foi possível pedir a análise agora. Tente novamente.
+            falha_atualizar_analise: Não foi possível atualizar a análise.
+            expandir: Expandir a análise
+            recolher: Recolher a análise
+            falha_guardar: Não foi possível guardar a sua escolha.
+            meta_linha: 'Providência indicada pela análise da BlueJus IA de {quando}.'
+            meta_aviso: Gerado por IA · não é movimentação oficial. Confira o documento original antes de agir.
+            meta_quem: 'Quem deve agir: {quem}'
+            meta_resumo: 'Resumo: {resumo}'
+            meta_titulo: Providência indicada pela análise IA
+
+# ---- Pasta: avisos, cadeado e telas simples (pasta/_cadeado_*, _aviso_duplicada_*, ...)
+pasta_avisos:
+    fechar: Fechar
+    cancelar: Cancelar
+    abas_ocultas:
+        fechar_dica: Fechar (Esc)
+        ocultar_todos: Ocultar para toda a equipe
+        ocultar_para: Ocultar para…
+        mostrar_todos: Mostrar para todos
+        titulo: Ocultar aba
+        subtitulo: Quem estiver marcado deixa de ver esta aba
+        toda_equipe: 'Toda a equipe ({total})'
+        equipe: Equipe
+        carregando: Carregando…
+        vazio: Ninguém da equipe para ocultar esta aba.
+        salvar: Salvar
+        selo_oculta: Oculta
+    andamento:
+        avancar: Avançar
+        ignorar: Ignorar
+    duplicada:
+        titulo: Já existe uma pasta parecida
+        encontramos_uma: 'Encontramos {total} pasta já cadastrada'
+        encontramos_varias: 'Encontramos {total} pastas já cadastradas'
+        para: para
+        em: em
+        mostrando: 'Mostrando {total} mais recentes:'
+        confira: 'Confira antes de criar outra:'
+        numero: Número
+        cliente: Cliente
+        acao: Ação
+        criada_em: Criada em
+        nao_informado: Não informado
+        sem_registro: Sem registro
+        abrir: Abrir
+        caso_novo: 'Se este for mesmo um caso novo, pode criar: o sistema atribuirá um número próprio.'
+        criar_mesmo_assim: Criar mesmo assim
+    cadeado_faixa:
+        so_ver: 'Pasta trancada pelo usuário primário: você pode visualizar, mas não alterar.'
+        pedir_editar: Pedir para editar
+        pedido_enviado: Pedido enviado
+    cadeado_menu:
+        secao: Acesso · Primário
+        cadeado: Cadeado
+    cadeado_modal:
+        rotulo: Cadeado da pasta
+        titulo: 'Cadeado da pasta {pasta}'
+        subtitulo: Exclusivo do usuário primário · vale para toda a equipe
+        por_pessoa: Escolher por pessoa
+        por_pessoa_dica: Defina quem oculta, visualiza ou edita
+        todos: Ocultar para todos
+        todos_dica: Só o nome do cliente e o CPF ficam visíveis
+        colaborador: Colaborador
+        ocultar: Ocultar
+        visualizar: Visualizar
+        editar: Editar
+        aplicar_todos: Aplicar a todos
+        marcar_todos: 'Marcar {nivel} para todos'
+        nivel_para: '{nivel} para {nome}'
+        sem_equipe: Não há colaboradores na equipe além do usuário primário.
+        todos_ocultos: 'Ninguém além do usuário primário verá a pasta. A equipe enxerga só o nome do cliente e o CPF; abas, documentos, processo, Push, financeiro e a BlueJus IA ficam bloqueados.'
+        remover: Remover cadeado
+        trancar: Trancar
+    cadeado_pedidos:
+        liberar_editar: Liberar para editar
+        liberar_visualizar: Liberar só visualizar
+        recusar: Recusar
+    trancada:
+        titulo: 'Pasta {pasta}'
+        voltar_dica: Voltar à lista de pastas
+        voltar: Voltar
+        cliente_nao_informado: Cliente não informado
+        titulo_veu: Pasta trancada
+        texto: 'O usuário primário restringiu o acesso a esta pasta. Você vê apenas o nome do cliente e o CPF. Se precisar trabalhar nela, peça a liberação ao usuário primário.'
+        motivo: Motivo (opcional)
+        pedir: Pedir acesso ao primário
+        aguardando: 'Pedido enviado às {hora}. Aguardando o usuário primário.'
+    zip:
+        titulo: Não foi possível baixar o .zip
+        dica: Se a aba não fechar, feche-a pelo navegador e volte à pasta.
+    js:
+        abas_so_primario: Só o usuário primário pode ocultar abas
+        abas_erro_geral: Não foi possível falar com o servidor. Tente de novo.
+        abas_toda_equipe: 'Toda a equipe ({total})'
+        abas_ocultar_aba: 'Ocultar aba {aba}'
+        andamento_erro: Não foi possível mudar a fase
+        andamento_sem_conexao: Falha de conexão. Tente de novo.
+        andamento_reativar_titulo: Reativar pasta
+        andamento_reativar_texto: 'A pasta está finalizada. Reativar abre duas novas etapas: "Em andamento" (reativada) e um novo "Finalizada". O histórico anterior é mantido.'
+        andamento_reativar: Reativar
+        andamento_finalizar_titulo: Finalizar pasta
+        andamento_avancar_titulo: Avançar fase da pasta
+        andamento_voltar_titulo: Voltar fase da pasta
+        andamento_pulam: 'Atenção: {total} fase(s) intermediária(s) ficarão marcadas em vermelho como puladas.'
+        andamento_finalizar_texto: 'Marcar a pasta como finalizada? Depois, se precisar, clique em "Finalizada" para reativar.'
+        andamento_mudar_texto: 'Mudar de "{de}" para "{para}"? A mudança fica registrada no Registro dos expedientes com data e hora.'
+        andamento_finalizar: Finalizar
+        andamento_avancar: Avançar
+        andamento_voltar: Voltar
+        andamento_sugestao: 'Avançar para "{fase}"?'
+        cadeado_resumo_todos: O usuário primário continua vendo e editando tudo. A regra fica registrada no histórico da pasta.
+        cadeado_resumo: '{editar} editam, {visualizar} só visualizam, {oculto} não veem. O usuário primário sempre vê e edita tudo.'
+        pedidos_decidido: Pedido decidido
+        pedidos_falhou: Não foi possível decidir o pedido
+        pedidos_sem_conexao: Falha de conexão ao decidir o pedido
+
+# ---- Pasta: responsável, histórico, impressão e relatórios (pasta/_resp_*, _historico_drawer, _impressao_modal, ...)
+pasta_resp:
+    fechar: Fechar
+    imprimir: Imprimir
+    resp:
+        sem_responsavel: Sem responsável
+        definir: Definir responsável
+        dica_alterar: '{nome} · clique para alterar'
+        dica_atribuir: Clique para atribuir um responsável
+        escolher: Escolher responsável
+        filtrar: Filtrar responsável
+        nenhum_colaborador: Nenhum colaborador encontrado
+        nenhum_responsavel: Nenhum responsável encontrado
+    historico:
+        titulo: Histórico do sistema
+        nenhuma_alteracao: Nenhuma alteração registrada
+        alteracoes_uma: '{total} alteração registrada automaticamente'
+        alteracoes_varias: '{total} alterações registradas automaticamente'
+        fechar_historico: Fechar histórico
+        vazio_titulo: Nenhum evento registrado
+        vazio_nota: O sistema anota aqui cada alteração da pasta.
+        hoje: 'Hoje, {dia}'
+    impressao:
+        incluir: Incluir na folha
+        opcao_cabecalho: Cabeçalho do escritório
+        opcao_dados: Dados da pasta e do processo
+        opcao_autor: Autor, data e tipo do registro
+        opcao_financeiro: Financeiro
+        tamanho: Tamanho do texto
+        diminuir: Diminuir
+        aumentar: Aumentar
+        fonte: '{tamanho} pt'
+        nota: 'Papel A4. Para gerar PDF, escolha "Salvar como PDF" na janela de impressão.'
+        baixar_pdf: Baixar PDF
+        copiar: Copiar texto
+    timeline:
+        titulo: Timeline inteligente
+        subtitulo: 'Pasta {pasta}'
+        fechar_dica: Fechar (Esc)
+        busca: 'Buscar: "quando falaram sobre o contrato", "Jéssica", "telefone"…'
+        busca_rotulo: Buscar na timeline
+        filtrar_tipo: Filtrar por tipo
+        periodo: Período
+        pessoa: Pessoa
+        periodo_tudo: Todo o período
+        hoje: Hoje
+        ontem: Ontem
+        semana: Esta semana
+        mes: Este mês
+        todas_pessoas: Todas as pessoas
+        resumir: Resumir atividade
+        rodape: Montada por regras fixas a partir do que o sistema registrou.
+        carregar_mais: Carregar mais
+    pontos:
+        titulo: Pontos do relatório inicial
+        completar: Completar no relatório
+    folha:
+        gestao: Gestão jurídica
+        impresso: 'Impresso em {quando}'
+        impresso_por: 'Impresso em {quando} por {nome}'
+        pasta: Pasta
+        cliente: Cliente
+        processo: Processo
+        autor_desconhecido: Autor desconhecido
+        observacao: Observação
+        dados_pasta: Dados da pasta
+        responsavel: Responsável
+        situacao: Situação
+        acao: Ação
+        orgao: Órgão
+        clientes: 'Clientes ({total})'
+        nome: Nome
+        documento: Documento
+        principal: principal
+        processos: 'Processos ({total})'
+        numero: Número
+        classe: Classe
+        nao_informado: Não informado
+        nao_informada: Não informada
+        pendencias: Pendências
+        metas: 'Metas abertas ({total})'
+        meta: Meta
+        prazo: Prazo
+        sem_prazo: Sem prazo
+        atraso: '({dias}d atraso)'
+        mais_metas: 'e mais {total}. A lista completa está na aba Metas.'
+        nenhuma_meta: Nenhuma meta aberta.
+        movimentacoes: Últimas movimentações
+        sem_registro: Sem registro
+        publicacao: Publicação
+        financeiro: Financeiro
+        valor_causa: Valor da causa
+        recebido: Recebido
+        recebido_de: '{recebido} de {previsto}'
+        lancamentos: Lançamentos
+        recebidos_de: recebidos de
+        fin_linha: '{contrato} · Contratado {contratado} · Recebido {recebido} · A receber {receber}'
+        lancamento: Lançamento
+        vencimento: Vencimento
+        valor: Valor
+        rodape: Documento interno do escritório · BlueJus
+        barra: Impressão do resumo
+        incluir_financeiro: Incluir financeiro
+        voltar: Voltar à pasta
+    js:
+        resp:
+            sem_responsavel: Sem responsável
+            definir: Definir responsável
+            dica_alterar: '{nome} · clique para alterar'
+            dica_atribuir: Clique para atribuir um responsável
+            erro_alterar: Erro ao alterar responsável.
+        pontos:
+            completar: Completar no relatório
+            detalhes: Detalhes
+        impressao:
+            imprimir: Imprimir
+            imprimir_de: 'Imprimir · {titulo}'
+            fonte: '{tamanho} pt'
+            montando: Montando a folha…
+            erro_montar: Não foi possível montar a folha. Feche e tente de novo.
+            preparando: Preparando a impressão…
+            iframe_titulo: Impressão
+            erro_imprimir: Não foi possível imprimir.
+            gerando_pdf: Gerando PDF…
+            copiado: Texto copiado
+            erro_copiar: Não foi possível copiar
+            registro_titulo: Registro do expediente
+        timeline:
+            hoje: Hoje
+            ontem: Ontem
+            amanha: Amanhã
+            futuro: '{data} (futuro)'
+            erro_carregar: Não foi possível carregar a timeline. Tente de novo.
+            vazio_pasta: Nenhum acontecimento registrado nesta pasta.
+            nada_encontrado: 'Nada encontrado para "{busca}".'
+            vazio_filtros: Nenhum evento com esses filtros.
+            mostrando: 'Mostrando os {total} acontecimentos mais recentes.'
+            mostrando_maximo: 'Mostrando os {total} acontecimentos mais recentes (o máximo desta tela).'
+            chip_tudo: Tudo
+            chip_pendencias: ⚠ Pendências
+            chip_marcos: Marcos
+            fora_titulo: 'Enquanto você estava fora: {total} acontecimento(s)'
+            ver_resumo: Ver resumo
+            resumo_desde: 'O que aconteceu desde {quando}'
+            resumo_titulo: Resumo da atividade
+            resumo_nota: Contagem por regras fixas, sobre os acontecimentos filtrados.
+            atencao: ⚠ Precisa de atenção
+            grupo_n: '{total} {rotulo} · toque para ver'
+            marco: 'Marco · {marco}'
+            editado: editado
+            abrir: Abrir
+            ver_alteracao: Ver alteração
+            ocultar_alteracao: Ocultar alteração
+            ver_tudo: Ver tudo
+            mostrar_menos: Mostrar menos
+            antes: 'Antes:'
+            depois: 'Depois:'
+            alterado_em: 'Alterado em {quando}'
+
+# ---- Trabalho Externo (a7, spec idioma-do-sistema §26): casca do painel, convite, sem acesso, currículo formatado e
+# a página pública de vagas. O que o trabalho-externo.js e o vagas-publicas.js desenham ainda é fixo no JS.
+trabalho_externo:
+    painel:
+        titulo_pagina: Trabalho Externo · BlueJus
+        nome: Trabalho Externo
+        subtitulo: Central de demandas, vagas e talentos jurídicos
+        busca_placeholder: Buscar demanda, cidade, processo
+        vagas_busca_placeholder: Buscar vaga, cargo, área ou cidade
+        coluna:
+            id: ID
+            servico: SERVIÇO
+            origem_execucao: ORIGEM → EXECUÇÃO
+            prazo: PRAZO
+            responsavel: RESPONSÁVEL
+            situacao: SITUAÇÃO
+            chat: CHAT
+    sem_acesso:
+        titulo_pagina: Sem acesso · Trabalho Externo
+        titulo: Você não tem acesso ao Trabalho Externo
+        sem_escritorio: Esta conta não tem escritório nem convite vigente. Se você recebeu um convite por e-mail, abra o link do convite para entrar na demanda.
+        sem_permissao: O seu perfil não tem permissão para este módulo. Se precisar dele, peça ao administrador do seu escritório para liberar o acesso.
+    convite:
+        titulo_pagina: Convite · Trabalho Externo
+        indisponivel: Convite indisponível
+        indisponivel_texto: Este convite não existe, foi revogado ou passou da validade. Peça um novo convite a quem enviou.
+        titulo: Convite para trabalho externo
+        # Frase partida em volta dos <strong> do serviço e do local (spec §8).
+        convidado_para: Você foi convidado para executar
+        em: em
+        acesso_somente: 'O acesso é somente a esta demanda: instruções, documentos autorizados, checklist e chat.'
+        para_validade: Convite para {email}, válido até {validade}.
+        nome_completo: Nome completo
+        senha: Senha (mínimo de 8 caracteres)
+        # Frases partidas em volta dos links (spec §8).
+        li_e_aceito: Li e aceito os
+        termos_de_uso: Termos e Condições Gerais de Uso
+        declara_ciencia: Ao criar a conta você declara ciência da
+        politica_de_privacidade: Política de Privacidade
+        criar_conta_e_aceitar: Criar conta e aceitar
+        conta_existente: Já existe uma conta no BlueJus para este e-mail. Entre com ela e depois abra este link de novo para aceitar o convite.
+        entrar: Entrar
+        outro_email: Este convite é para outro e-mail. Saia da conta atual e entre com {email}.
+        sair: Sair
+        aceitar: Aceitar convite
+    curriculo:
+        titulo_pagina: Currículo · {nome}
+        contato: Contato
+        habilidades: Habilidades
+        idiomas: Idiomas
+        disponibilidade: Disponibilidade
+        gerado_no_bluejus: Currículo gerado no BlueJus
+        perfil_profissional: Perfil profissional
+        experiencia: Experiência
+        formacao: Formação
+        areas_de_atuacao: Áreas de atuação
+    vagas_publicas:
+        titulo_pagina: Vagas para Advogados e área Jurídica · BlueJus
+        og_descricao: Vagas abertas para advogados, estagiários, correspondentes e equipe jurídica. Crie sua conta grátis e candidate-se.
+        entrar: Entrar
+        criar_conta_gratis: Criar conta grátis
+        procuro_vaga: Procuro vaga
+        quero_contratar: Quero contratar
+        quero_divulgar_vaga: Quero divulgar vaga
+        selo:
+            vagas_abertas: '{total} vaga(s) aberta(s)'
+            atualizado_em: atualizado em {data}
+            central: Central de vagas jurídicas
+            escritorios: Para escritórios · divulgação gratuita
+        h1:
+            com_vagas: Vagas para Advogados e área Jurídica
+            sem_vagas: Sua próxima vaga na área jurídica começa aqui
+            escritorios: Encontre advogados e profissionais jurídicos sem gastar com anúncio
+        sub:
+            contratando: Escritórios da rede BlueJus estão contratando {cargos}
+            profissionais: profissionais da área jurídica
+            em_ufs: em {ufs}
+            ver_detalhes: Crie sua conta grátis para ver os detalhes e se candidatar em 1 clique.
+            sem_vagas: Vagas para advogados, estagiários, correspondentes e equipe jurídica. Crie sua conta grátis para acompanhar.
+            escritorios: Divulgue grátis para advogados, estagiários, correspondentes e equipe jurídica de todo o Brasil. A equipe BlueJus revisa a vaga e entrega a você uma seleção dos candidatos mais compatíveis.
+        cta:
+            candidatar: Criar conta grátis e me candidatar
+            receber_por_email: Receber vagas por e-mail
+            divulgar: Divulgar minha vaga grátis
+            como_funciona: Como funciona
+        # Números do topo: valor e legenda de cada caixinha.
+        num:
+            vaga_aberta: vaga aberta
+            vagas_abertas: vagas abertas
+            cargo: cargo
+            cargos: cargos
+            estado: estado
+            estados: estados
+            gratis: Grátis
+            para_se_candidatar: para se candidatar
+            um_clique: 1 clique
+            pdf: PDF
+            curriculo_profissional: currículo profissional
+            avisos: Avisos
+            de_vaga_nova: de vaga nova
+            sem_pegadinha: sem pegadinha
+            rs_zero: R$ 0
+            para_divulgar: para divulgar
+            selecao: Seleção
+            melhores_candidatos: dos melhores candidatos
+            revisada: Revisada
+            pela_equipe: pela equipe BlueJus
+            rede: Rede
+            canais: WhatsApp, e-mail e LinkedIn
+        preenchidas:
+            titulo: As vagas deste link já foram preenchidas
+            texto: Novas vagas entram na Central o tempo todo. Crie sua conta e ative os avisos para chegar primeiro na próxima.
+        lista:
+            vaga_compartilhada: Vaga compartilhada com você
+            vagas_compartilhadas: Vagas compartilhadas com você
+            indicadas_por: Indicadas por {nome}
+        card:
+            qtd_vagas: '{qtd} vagas'
+            # Bloco borrado de enfeite (sem dado da vaga), uma chave por linha.
+            borrado_remuneracao: 'Remuneração: R$ ●●●●'
+            borrado_escritorio: 'Escritório: ●●●●●●●● ●●●●●'
+            borrado_requisitos: Requisitos e atividades da vaga ●●●●●●
+            ver_detalhes: Crie sua conta para ver os detalhes
+            candidatar: Quero me candidatar
+        escritorios:
+            chapeu: PARA ESCRITÓRIOS DE ADVOCACIA
+            titulo: Divulgue sua vaga grátis e receba os melhores candidatos
+            texto: Você envia a vaga, a equipe BlueJus revisa, divulga para advogados, estagiários e correspondentes e entrega uma seleção dos candidatos mais compatíveis. Sem anúncio pago, sem triagem de centenas de currículos.
+        passo:
+            conta: Crie a conta do escritório
+            conta_texto: Leva 2 minutos e é gratuito.
+            envie: Envie a vaga
+            envie_texto: 'Formulário padrão: cargo, local, requisitos e por quanto tempo divulgar.'
+            revisa: BlueJus revisa e divulga
+            revisa_texto: Publicada na Central e compartilhada com a rede.
+            receba: Receba os melhores candidatos
+            receba_texto: A equipe seleciona os mais compatíveis e envia para você.
+        beneficios:
+            titulo: Por que criar sua conta no BlueJus
+            subtitulo: É grátis e leva poucos minutos.
+            um_clique: Candidatura em 1 clique
+            um_clique_texto: Cadastre o currículo uma vez e use em todas as vagas.
+            curriculo: Currículo profissional grátis
+            curriculo_texto: Gere seu currículo formatado em PDF, pronto para enviar.
+            avisos: Avisos de vaga nova
+            avisos_texto: Receba primeiro as vagas da sua área e da sua cidade.
+            rede: Rede de escritórios
+            rede_texto: Vagas de escritórios revisadas pela equipe BlueJus.
+        alertas:
+            pronto: Pronto! Você vai receber as vagas por e-mail
+            criar_conta_agora: Criar conta agora
+            titulo: Receba vagas da sua área por e-mail
+            subtitulo: Seja um dos primeiros a saber. Você pode cancelar quando quiser.
+            email_placeholder: Seu e-mail
+            todo_o_brasil: Todo o Brasil
+            areas_de_interesse: ÁREAS DE INTERESSE
+            quero_receber: Quero receber as vagas
+        compartilhar:
+            titulo: Conhece alguém que procura vaga jurídica?
+            texto: Compartilhe estas vagas com colegas, grupos da faculdade e da OAB.
+            # Texto da mensagem do WhatsApp (vai na URL do wa.me).
+            whatsapp_com_vagas: '⚖️ Vagas para Advogados e área Jurídica disponíveis no BlueJus! {total} vaga(s): {cargos}. Veja: {url}'
+            whatsapp_sem_vagas: '⚖️ Vagas para Advogados e área Jurídica disponíveis no BlueJus! Veja: {url}'
+            enviar_whatsapp: Enviar no WhatsApp
+        sistema:
+            chapeu: MAIS QUE UMA CENTRAL DE VAGAS
+            titulo: O sistema que organiza o escritório inteiro
+            texto: Pastas e expedientes, prazos e publicações do PJe, metas da equipe, financeiro e um assistente com inteligência artificial que avisa o que precisa de atenção. Tudo em um só lugar.
+            criar_conta: Criar conta e conhecer
+            pastas: Pastas e expedientes
+            pastas_texto: Tudo do cliente em um lugar.
+            prazos: Prazos e PJe
+            prazos_texto: Publicações e prazos sob controle.
+            assistente: Assistente com IA
+            assistente_texto: Avisa o que precisa de atenção.
+            metas: Metas e financeiro
+            metas_texto: Produtividade e honorários.
+        faq:
+            titulo: Perguntas frequentes
+            gratis: É grátis mesmo?
+            gratis_resposta: Sim. Criar a conta, cadastrar o currículo, gerar o PDF, se candidatar e divulgar vagas não tem custo.
+            oab: Preciso ter OAB?
+            oab_resposta: Não para todas as vagas. Há vagas para advogados, estagiários, estudantes, bacharéis e equipe administrativa. Cada vaga informa se exige OAB ativa.
+            divulgar: Como meu escritório divulga uma vaga?
+            divulgar_resposta: Crie a conta, clique em Divulgar uma vaga e preencha os dados. A equipe BlueJus revisa, publica e envia ao escritório uma seleção dos candidatos mais compatíveis.
+            dados: Meus dados ficam protegidos?
+            dados_resposta: 'Sim. Seguimos a LGPD: o currículo só é compartilhado com o escritório da vaga a que você se candidatar, e você pode excluir tudo quando quiser.'
+            sistema: O que mais o BlueJus faz?
+            sistema_resposta: 'É um sistema completo de gestão para escritórios: pastas, prazos, publicações, metas, financeiro e assistente com inteligência artificial.'
+        rodape: BlueJus · gestão para escritórios de advocacia · As vagas são publicadas por escritórios da rede e revisadas pela equipe BlueJus.
+
+# ---- Central de Comunicação (a7, spec idioma-do-sistema §26): a página /central, a janela e o lançador flutuante.
+# O texto montado pelo central.js (conversas, painel, avisos, grupos, despacho) ainda é fixo no JS.
+central:
+    comum:
+        nome: Central de Comunicação
+    flutuante:
+        lancador_aria: Central de Comunicação, tudo em dia
+        lancador_title: Central de Comunicação · tudo em dia
+    janela:
+        voltar_aria: Voltar para as conversas
+        voltar: Voltar
+        info_aria: Informações do grupo
+        ver_info: Ver informações
+        mais_opcoes: Mais opções
+        destacar_title: 'Destacar: levar o chat para qualquer lugar da tela'
+        destacar: Destacar
+        minimizar_title: 'Minimizar: recolher para o ícone de conversas'
+        minimizar: Minimizar
+        maximizar: Maximizar
+        fechar: Fechar
+        busca_placeholder: Pesquisar usuário...
+        busca_aria: Pesquisar usuário
+        aba_entrada: Caixa de entrada
+        aba_painel: Painel
+        filtrar: 'Filtrar: {rotulo}'
+        filtro:
+            tudo: Tudo
+            conversas: Conversas
+            urgente: Urgente
+            atencao: Atenção
+            mencoes: Menções
+            metas: Metas
+        mostrando_arquivadas: Mostrando arquivadas
+        ocultar: Ocultar
+        cancelar_resposta: Cancelar resposta
+        cancelar: Cancelar
+        mencionar: Mencionar
+        mensagem_placeholder: Digite uma mensagem…
+        mensagem: Mensagem
+        enviar: Enviar
+        enviar_title: Enviar (Enter)
+
+# ---- Service Desk (a7, spec idioma-do-sistema §26): painel, meus chamados, abrir chamado e detalhe.
+# Rótulos de status, prioridade, categoria e tipo vêm do PHP (statusLabel, prioridadeLabel...) e ficam como estão.
+servicedesk:
+    comum:
+        abertos: Abertos
+        em_andamento: Em Andamento
+        resolvidos: Resolvidos
+        fechados: Fechados
+        titulo: Título
+        solicitante: Solicitante
+        categoria: Categoria
+        prioridade: Prioridade
+        status: Status
+        responsavel: Responsável
+        aberto_em: Aberto em
+        acoes: Ações
+        nao_atribuido: Não atribuído
+        visualizar_chamado: Visualizar chamado
+        meus_chamados: Meus Chamados
+        abrir_chamado: Abrir Chamado
+        voltar: Voltar
+        horas: '{valor} horas'
+    index:
+        titulo_pagina: Service Desk - Dashboard
+        service_desk: Service Desk
+        urgentes: Urgentes
+        # Frase partida em volta do <strong> com o número (spec §8).
+        aguardando_atribuicao: chamado(s) aguardando atribuição.
+        todos: Todos
+        todas: Todas
+        busca: Busca
+        busca_placeholder: Título, descrição...
+        filtrar: Filtrar
+        chamados: Chamados ({total})
+        nenhum_chamado: Nenhum chamado encontrado.
+        por_categoria: Chamados por Categoria
+        tempo_medio: 'Tempo médio de resolução:'
+    meus_chamados:
+        ultima_atualizacao: Última atualização
+        vazio_titulo: Você ainda não abriu nenhum chamado
+        vazio_texto: Precisa de ajuda com algo? Abra um chamado e nossa equipe de TI irá auxiliá-lo.
+        primeiro_chamado: Abrir meu primeiro chamado
+    novo:
+        dados_do_chamado: Dados do Chamado
+        # Legenda das prioridades: frases partidas em volta dos <b> (spec §8).
+        prioridade_critica: 'Crítica:'
+        prioridade_critica_ajuda: Sistema parado
+        prioridade_alta: 'Alta:'
+        prioridade_alta_ajuda: Impacto significativo
+        prioridade_media: 'Média:'
+        prioridade_media_ajuda: Problema comum
+        prioridade_baixa: 'Baixa:'
+        prioridade_baixa_ajuda: Pode aguardar
+        descricao_ajuda: 'Descreva o problema com o máximo de detalhes possível: o que estava fazendo, mensagens de erro, quando começou, etc.'
+        anexos_ajuda: 'Arquivos permitidos: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF, ZIP, TXT (máx. 10MB cada)'
+        cancelar: Cancelar
+        dicas: Dicas
+        dica_especifico: Seja específico
+        dica_especifico_texto: Descreva exatamente o que aconteceu e quando o problema começou.
+        dica_detalhes: Inclua detalhes
+        dica_detalhes_texto: Mensagens de erro, nome do programa, horário do problema, etc.
+        dica_imagens: Anexe imagens
+        dica_imagens_texto: Capturas de tela ajudam muito a identificar o problema.
+        dica_prioridade: Prioridade adequada
+        dica_prioridade_texto: Use prioridade crítica apenas para problemas que pararam o trabalho completamente.
+        categorias: Categorias
+        categoria:
+            software: Software
+            software_ajuda: Programas, sistemas, aplicativos
+            hardware: Hardware
+            hardware_ajuda: Computador, monitor, teclado, mouse
+            impressora: Impressora
+            impressora_ajuda: Impressão, scanner, toner
+            rede: Rede/Internet
+            rede_ajuda: Conexão, VPN, lentidão
+            acesso: Acesso/Permissões
+            acesso_ajuda: Login, senhas, liberações
+            email: E-mail
+            email_ajuda: Outlook, caixa postal, calendário
+    show:
+        chamado: 'Chamado #{id}'
+        voltar_dashboard: Voltar ao Dashboard
+        descricao: Descrição
+        anexos: Anexos
+        historico: Histórico ({total})
+        interno: Interno
+        sistema: Sistema
+        nenhuma_interacao: Nenhuma interação ainda.
+        adicionar_resposta: Adicionar Resposta
+        mensagem_placeholder: Digite sua mensagem...
+        interno_ajuda: Comentários internos são visíveis apenas para a equipe de TI.
+        enviar: Enviar
+        informacoes: Informações
+        departamento: Departamento
+        resolvido_em: Resolvido em
+        fechado_em: Fechado em
+        tempo_resolucao: Tempo de resolução
+        atribuir_para: Atribuir para
+        alterar_status: Alterar Status
+        acoes_rapidas: Ações Rápidas
+        iniciar_atendimento: Iniciar Atendimento
+        marcar_resolvido: Marcar como Resolvido
+        fechar_chamado: Fechar Chamado
+        reabrir: Reabrir
+        reabrir_chamado: Reabrir Chamado
+
+# ---- Pasta: lista de pastas e demandas (pasta/index, _tabela, _card, _filtros, demandas...)
+pasta_lista:
+    nao_informado: Não informado
+    hoje: Hoje
+    ativo: Ativo
+    arquivado: Arquivado
+    nup: NUP
+    cliente: Cliente
+    acao: Ação
+    prioridade: Prioridade
+    metas: Metas
+    mover_para: Mover para…
+    excluida: Excluída
+    excluida_em: 'Excluída em {data}'
+    excluida_em_por: 'Excluída em {data} por {nome}'
+    alternar_situacao: Dê duplo-clique para alternar entre ativo e arquivado
+    metas_resumo: '{total} meta(s) · {ativas} ativa(s)'
+    fixada_favoritos: Fixada nos favoritos
+    tirar_favoritos: Tirar dos favoritos
+    marcar_favorito: Marcar como favorito
+    index:
+        titulo: Pastas
+        nova: Nova Pasta
+    tabela:
+        ordenar_por: Ordenar por
+        ordenar_por_opcao: Ordenar por…
+        nup_crescente: NUP (crescente)
+        nup_decrescente: NUP (decrescente)
+        cliente_az: Cliente (A-Z)
+        cliente_za: Cliente (Z-A)
+        prioridade_maior: Prioridade (maior primeiro)
+        prioridade_menor: Prioridade (menor primeiro)
+        acao_az: Ação (A-Z)
+        responsavel_az: Responsável (A-Z)
+        situacao: Situação
+        visualizar_dica: Escolher como exibir as pastas
+        visualizar: Visualizar
+        detalhes_dica: Tabela com todas as colunas
+        detalhes: Detalhes
+        cartoes_dica: Pastas em cartões
+        cartoes: Cartões
+        painel_marcadores: Painel de marcadores
+        intervalo: '{primeira} de {ultima}'
+        total_uma: 'Total: {total} pasta'
+        total_varias: 'Total: {total} pastas'
+        contagem_uma: '{total} pasta'
+        contagem_varias: '{total} pastas'
+        responsavel: Responsável
+        marcadores: Marcadores
+        sem_metas: Sem metas
+        vazio_filtro: Nenhuma pasta encontrada com esses filtros.
+        vazio: Nenhuma pasta cadastrada.
+    card:
+        dias: '{dias}d'
+    cliente_linha:
+        cad_completo: Cadastro completo · abrir detalhes do cliente
+        cad_incompleto_uma: 'Cadastro incompleto: {total} pendência · abrir detalhes do cliente'
+        cad_incompleto_varias: 'Cadastro incompleto: {total} pendências · abrir detalhes do cliente'
+        duplicado_dica: 'Outro cliente vinculado tem o mesmo {doc}'
+        duplicado: '{doc} duplicado'
+        principal: Principal
+        principal_dica: Cliente principal desta pasta. A Média por CPF é dele
+        principal_dica_trocar: Cliente principal desta pasta. A Média por CPF é dele. Clique na estrela de outro para trocar
+        tornar_principal: Tornar cliente principal (a Média por CPF passa a ser dele)
+        abrir_dica: Abrir ficha do cliente (documentos e anexos ficam lá)
+        abrir_rotulo: 'Abrir cliente {nome}'
+        desvincular: Desvincular cliente da pasta
+    filtro_situacao:
+        dica: Filtrar pela situação da pasta
+        rotulo: Situação
+        todas: Todas
+        suspenso: Suspenso
+        cancelado: Cancelado
+    filtros:
+        busca_dica: Buscar por número da pasta, nome do cliente, ação ou número do processo
+        busca_placeholder: Buscar pasta, cliente, ação ou processo
+        responsavel_dica: Filtrar pelo responsável da pasta
+        responsavel: Responsável
+        responsavel_rotulo: Filtrar por responsável
+        sem_responsavel: Sem responsável
+        prioridade_dica: 'Prioridade: Normal, Alta ou Urgente'
+        prioridade_rotulo: Filtrar por prioridade
+        normal: Normal
+        alta: Alta
+        urgente: Urgente
+        periodo_dica: Período de abertura da pasta
+        de: De
+        de_rotulo: Aberta a partir de
+        ate: Até
+        ate_rotulo: Aberta até
+        periodo_sep: a
+        abrir_calendario: Abrir calendário
+        limpar: Limpar todos os filtros
+    demandas:
+        titulo: Minhas Demandas
+        busca_placeholder: Buscar por cliente, ação, NUP ou processo…
+        status: Status
+        normal: Normal
+        urgente: Urgente
+        de: De
+        ate: Até
+    resultado:
+        encontradas: demanda(s) encontrada(s)
+        modificada: Mod.
+        nenhuma: Nenhuma
+        sem_registro: Sem registro
+        um_dia: 1 dia atrás
+        dias: '{dias}d atrás'
+        ver: Ver
+        vazio_filtro_titulo: Nenhuma demanda encontrada
+        vazio_filtro_texto: Tente ajustar ou limpar os filtros aplicados.
+        vazio_titulo: Tudo em dia por aqui
+        vazio_texto: Você não possui demandas no momento.
+    js:
+        favoritos_erro: Não foi possível alterar os favoritos.
+        tirar_favoritos: Tirar dos favoritos
+        marcar_favorito: Marcar como favorito
+        fixada_favoritos: Fixada nos favoritos
+        erro_comunicacao: Erro de comunicação. Tente novamente.
 
 # ---- fim

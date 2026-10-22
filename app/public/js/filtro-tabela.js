@@ -67,7 +67,7 @@
 
             var busca = form.querySelector('.js-filtro-busca');
             if (busca && busca.value.trim() !== '') {
-                chips.push({ campo: busca.name, rotulo: busca.dataset.rotulo || 'Busca', valor: busca.value.trim() });
+                chips.push({ campo: busca.name, rotulo: busca.dataset.rotulo || BJ_T.t('comum.js.filtro.busca'), valor: busca.value.trim() });
             }
 
             form.querySelectorAll('.js-filtro-campo').forEach(function (el) {
@@ -99,11 +99,11 @@
                     + (c.rotulo ? '<span class="filtro-chip-rotulo">' + escHtml(c.rotulo) + ':</span> ' : '')
                     + '<span class="filtro-chip-valor">' + escHtml(c.valor) + '</span>'
                     + '<button type="button" class="filtro-chip-remover js-filtro-chip-remover" data-campo="'
-                    + escHtml(c.campo) + '" aria-label="Remover"><i class="bi bi-x"></i></button></span>';
+                    + escHtml(c.campo) + '" aria-label="' + escHtml(BJ_T.t('comum.js.filtro.remover')) + '"><i class="bi bi-x"></i></button></span>';
             }).join('');
             // Opt-in: `data-ft-rotulo-limpar` no root troca o texto do botão; sem o
-            // atributo, o comportamento é o de sempre ("Limpar tudo").
-            var rotuloLimpar = root.getAttribute('data-ft-rotulo-limpar') || 'Limpar tudo';
+            // atributo, o comportamento é o de sempre (o "Limpar tudo" do catálogo).
+            var rotuloLimpar = root.getAttribute('data-ft-rotulo-limpar') || BJ_T.t('comum.js.filtro.limpar_tudo');
             html += '<button type="button" class="filtro-limpar js-filtro-limpar">' + escHtml(rotuloLimpar) + '</button>';
             box.innerHTML = html;
         }

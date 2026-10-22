@@ -16,6 +16,8 @@
    Contexto: `pasta`, `abasDaPasta` (App\Pasta\DTO\AbasDaPastaOutput ou null).
    ============================================================================ #}
 {% set configura = abasDaPasta is not null and abasDaPasta.podeConfigurar %}
+{# Textos do pasta-abas-ocultas.js, pasta-cadeado*.js e pasta-andamento.js: este parcial está sempre na pasta, antes dos scripts. #}
+{{ catalogo_js('pasta_avisos.js') }}
 <div id="paoRaiz" hidden
      data-pode-configurar="{{ configura ? '1' : '0' }}"
      {%- if configura %}
@@ -31,16 +33,16 @@
     <div class="ppl-menu" id="abaOcultaMenu" role="menu" aria-labelledby="abaOcultaMenuTitulo" hidden>
         <div class="ppl-menu-cab">
             <span class="ppl-menu-titulo" id="abaOcultaMenuTitulo"></span>
-            <button type="button" class="ppl-menu-x js-pao-menu-fechar" title="Fechar (Esc)" aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            <button type="button" class="ppl-menu-x js-pao-menu-fechar" title="{{ 'pasta_avisos.abas_ocultas.fechar_dica'|trans }}" aria-label="{{ 'pasta_avisos.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
         </div>
         <button type="button" class="ppl-menu-item js-pao-ocultar-todos" role="menuitem">
-            <i class="bi bi-eye-slash" aria-hidden="true"></i><span>Ocultar para toda a equipe</span>
+            <i class="bi bi-eye-slash" aria-hidden="true"></i><span>{{ 'pasta_avisos.abas_ocultas.ocultar_todos'|trans }}</span>
         </button>
         <button type="button" class="ppl-menu-item js-pao-ocultar-para" role="menuitem" aria-haspopup="dialog" aria-controls="paoModal">
-            <i class="bi bi-people" aria-hidden="true"></i><span>Ocultar para…</span>
+            <i class="bi bi-people" aria-hidden="true"></i><span>{{ 'pasta_avisos.abas_ocultas.ocultar_para'|trans }}</span>
         </button>
         <button type="button" class="ppl-menu-item js-pao-mostrar" role="menuitem" hidden>
-            <i class="bi bi-eye" aria-hidden="true"></i><span>Mostrar para todos</span>
+            <i class="bi bi-eye" aria-hidden="true"></i><span>{{ 'pasta_avisos.abas_ocultas.mostrar_todos'|trans }}</span>
         </button>
     </div>
 
@@ -50,21 +52,21 @@
             <div class="pao-cab">
                 <i class="bi bi-eye-slash pao-cab-icone" aria-hidden="true"></i>
                 <div class="pao-cab-textos">
-                    <div class="pao-cab-titulo" id="paoTitulo">Ocultar aba</div>
-                    <div class="pao-cab-sub">Quem estiver marcado deixa de ver esta aba</div>
+                    <div class="pao-cab-titulo" id="paoTitulo">{{ 'pasta_avisos.abas_ocultas.titulo'|trans }}</div>
+                    <div class="pao-cab-sub">{{ 'pasta_avisos.abas_ocultas.subtitulo'|trans }}</div>
                 </div>
-                <button type="button" class="pao-cab-x js-pao-fechar" aria-label="Fechar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                <button type="button" class="pao-cab-x js-pao-fechar" aria-label="{{ 'pasta_avisos.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
             </div>
             <button type="button" class="pao-todos js-pao-todos" role="checkbox" aria-checked="false" disabled>
-                <i class="bi bi-square pao-marca js-pao-todos-marca" aria-hidden="true"></i><span class="js-pao-todos-texto">Toda a equipe (0)</span>
+                <i class="bi bi-square pao-marca js-pao-todos-marca" aria-hidden="true"></i><span class="js-pao-todos-texto">{{ 'pasta_avisos.abas_ocultas.toda_equipe'|trans({total: '0'}) }}</span>
             </button>
-            <div class="pao-lista js-pao-lista" role="group" aria-label="Equipe">
-                <div class="pao-lista-aviso js-pao-carregando">Carregando…</div>
-                <div class="pao-lista-aviso js-pao-vazio" hidden>Ninguém da equipe para ocultar esta aba.</div>
+            <div class="pao-lista js-pao-lista" role="group" aria-label="{{ 'pasta_avisos.abas_ocultas.equipe'|trans }}">
+                <div class="pao-lista-aviso js-pao-carregando">{{ 'pasta_avisos.abas_ocultas.carregando'|trans }}</div>
+                <div class="pao-lista-aviso js-pao-vazio" hidden>{{ 'pasta_avisos.abas_ocultas.vazio'|trans }}</div>
             </div>
             <div class="pao-rodape">
-                <button type="button" class="pao-btn pao-btn--cancelar js-pao-fechar">Cancelar</button>
-                <button type="button" class="pao-btn pao-btn--salvar js-pao-salvar" disabled>Salvar</button>
+                <button type="button" class="pao-btn pao-btn--cancelar js-pao-fechar">{{ 'pasta_avisos.cancelar'|trans }}</button>
+                <button type="button" class="pao-btn pao-btn--salvar js-pao-salvar" disabled>{{ 'pasta_avisos.abas_ocultas.salvar'|trans }}</button>
             </div>
         </div>
     </div>
@@ -72,7 +74,7 @@
         <button type="button" class="pao-linha" role="checkbox" aria-checked="false">
             <i class="bi bi-square pao-marca" aria-hidden="true"></i>
             <span class="pao-linha-textos"><span class="pao-linha-nome"></span><span class="pao-linha-funcao"></span></span>
-            <span class="pao-selo" hidden>OCULTA</span>
+            <span class="pao-selo" hidden>{{ 'pasta_avisos.abas_ocultas.selo_oculta'|trans|upper }}</span>
         </button>
     </template>
 {% endif %}

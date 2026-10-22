@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Peticionar{% endblock %} | BlueJus</title>
+    <title>{% block title %}{{ 'peticionar.titulo'|trans }}{% endblock %} | BlueJus</title>
 
     {# Favicon #}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -693,9 +693,9 @@
                 </a>
                 <span class="navtop-page-sep">|</span>
                 <div class="petic-navtop-info">
-                    <span class="petic-navtop-nup">Número da Pasta: {{ pastaInfoNup }}</span>
+                    <span class="petic-navtop-nup">{{ 'peticionar.cabecalho.numero_pasta'|trans({nup: pastaInfoNup}) }}</span>
                     {% set sub = [] %}
-                    {% if pastaInfoCliente %}{% set sub = sub|merge(['Cliente: ' ~ pastaInfoCliente]) %}{% endif %}
+                    {% if pastaInfoCliente %}{% set sub = sub|merge(['peticionar.cabecalho.cliente'|trans({cliente: pastaInfoCliente})]) %}{% endif %}
                     {% if pasta.nomeAcao %}{% set sub = sub|merge([pasta.nomeAcao]) %}{% endif %}
                     {% if sub %}
                         <span class="petic-navtop-sub">{{ sub|join(' · ') }}</span>
@@ -726,7 +726,7 @@
                                 {% if poloAtivo|length or poloPassivo|length %}
                                     <span class="petic-proc-partes">
                                         {% if poloAtivo|length %}{{ poloAtivo|first.nome }}{% endif %}
-                                        {% if poloAtivo|length and poloPassivo|length %} X {% endif %}
+                                        {% if poloAtivo|length and poloPassivo|length %} {{ 'peticionar.processo.contra'|trans }} {% endif %}
                                         {% if poloPassivo|length %}{{ poloPassivo|first.nome }}{% endif %}
                                     </span>
                                 {% endif %}
@@ -735,37 +735,37 @@
                             <div class="petic-proc-body">
                                 {% if proc.classeProcessual %}
                                     <div class="petic-proc-row">
-                                        <span class="petic-proc-label">Classe judicial</span>
+                                        <span class="petic-proc-label">{{ 'peticionar.processo.classe'|trans }}</span>
                                         <span class="petic-proc-value">{{ proc.classeProcessual }}</span>
                                     </div>
                                 {% endif %}
                                 {% if proc.assuntoProcessual %}
                                     <div class="petic-proc-row">
-                                        <span class="petic-proc-label">Assunto</span>
+                                        <span class="petic-proc-label">{{ 'peticionar.processo.assunto'|trans }}</span>
                                         <span class="petic-proc-value">{{ proc.assuntoProcessual }}</span>
                                     </div>
                                 {% endif %}
                                 {% if proc.orgaoJulgador %}
                                     <div class="petic-proc-row">
-                                        <span class="petic-proc-label">Jurisdição</span>
+                                        <span class="petic-proc-label">{{ 'peticionar.processo.jurisdicao'|trans }}</span>
                                         <span class="petic-proc-value">{{ proc.orgaoJulgador }}</span>
                                     </div>
                                 {% endif %}
                                 {% if proc.dataDistribuicao %}
                                     <div class="petic-proc-row">
-                                        <span class="petic-proc-label">Distribuição</span>
-                                        <span class="petic-proc-value">{{ proc.dataDistribuicao|date('d/m/Y') }}</span>
+                                        <span class="petic-proc-label">{{ 'peticionar.processo.distribuicao'|trans }}</span>
+                                        <span class="petic-proc-value">{{ proc.dataDistribuicao|data }}</span>
                                     </div>
                                 {% endif %}
                                 {% if proc.instancia %}
                                     <div class="petic-proc-row">
-                                        <span class="petic-proc-label">Instância</span>
+                                        <span class="petic-proc-label">{{ 'peticionar.processo.instancia'|trans }}</span>
                                         <span class="petic-proc-value">{{ proc.instancia }}</span>
                                     </div>
                                 {% endif %}
                                 {% if proc.situacaoProcesso %}
                                     <div class="petic-proc-row">
-                                        <span class="petic-proc-label">Situação</span>
+                                        <span class="petic-proc-label">{{ 'peticionar.processo.situacao'|trans }}</span>
                                         <span class="petic-proc-value">{{ proc.situacaoProcesso }}</span>
                                     </div>
                                 {% endif %}
@@ -782,7 +782,7 @@
                 <div class="navtop-action dropdown">
                     <a href="#" class="navtop-action-btn"
                        data-bs-toggle="dropdown" id="notificacaoDropdownToggle"
-                       aria-label="Notificações">
+                       aria-label="{{ 'moldura.notificacoes.rotulo'|trans }}">
                         <i class="bi bi-bell"></i>
                         <span class="navtop-badge" id="notificacaoBadge"
                               style="{% if notificacoesCount == 0 %}display:none;{% endif %}">
@@ -793,7 +793,7 @@
                          id="notificacaoDropdownMenu">
                         <div class="notif-header">
                             <i class="bi bi-bell me-1"></i>
-                            <span id="notificacaoCountText">{{ notificacoesCount }}</span> notificação(ões)
+                            <span id="notificacaoCountText">{{ notificacoesCount }}</span> {{ 'moldura.notificacoes.contagem_sufixo'|trans }}
                         </div>
                         <div class="dropdown-divider m-0"></div>
                         <div id="notificacaoListContainer">
@@ -812,19 +812,19 @@
                                 {% endfor %}
                             {% else %}
                                 <a href="#" class="dropdown-item text-center text-muted py-3" id="notificacaoEmpty">
-                                    <i class="bi bi-check-circle me-2"></i> Nenhuma notificação
+                                    <i class="bi bi-check-circle me-2"></i> {{ 'moldura.notificacoes.nenhuma'|trans }}
                                 </a>
                             {% endif %}
                         </div>
                         <a href="{{ path('notificacao_index') }}" class="dropdown-item text-center notif-footer">
-                            <i class="bi bi-list-ul me-1"></i> Ver todas as notificações
+                            <i class="bi bi-list-ul me-1"></i> {{ 'moldura.notificacoes.ver_todas'|trans }}
                         </a>
                     </div>
                 </div>
 
                 {# Fullscreen #}
                 <a href="#" class="navtop-action-btn" data-lte-toggle="fullscreen"
-                   aria-label="Tela cheia">
+                   aria-label="{{ 'moldura.cabecalho.tela_cheia'|trans }}">
                     <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>
                     <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display:none"></i>
                 </a>
@@ -833,7 +833,7 @@
                 <div class="navtop-action dropdown menu-usuario">
                     <a href="#" class="navtop-avatar-btn dropdown-toggle"
                        data-bs-toggle="dropdown" aria-expanded="false"
-                       aria-label="Menu do usuário">
+                       aria-label="{{ 'moldura.cabecalho.menu_usuario'|trans }}">
                         <div class="navtop-user-info d-none d-md-flex">
                             <span class="navtop-username">{{ app.user.fullName }}</span>
                         </div>
@@ -866,20 +866,20 @@
                         <li><hr class="dropdown-divider my-0"></li>
                         <li>
                             <a href="{{ path('app_profile') }}" class="dropdown-item d-flex align-items-center gap-2">
-                                <i class="bi bi-person"></i> Meu Perfil
+                                <i class="bi bi-person"></i> {{ 'menu.usuario.dropdown.meu_perfil'|trans }}
                             </a>
                         </li>
                         <li>
                             <a href="{{ path('legal_politica_privacidade') }}"
                                class="dropdown-item d-flex align-items-center gap-2"
                                target="_blank" rel="noopener">
-                                <i class="bi bi-shield-lock"></i> Política de Privacidade
+                                <i class="bi bi-shield-lock"></i> {{ 'menu.usuario.dropdown.privacidade'|trans }}
                             </a>
                         </li>
                         <li><hr class="dropdown-divider my-0"></li>
                         <li>
                             <a href="{{ path('app_logout') }}" class="dropdown-item d-flex align-items-center gap-2 text-danger">
-                                <i class="bi bi-box-arrow-right"></i> Sair
+                                <i class="bi bi-box-arrow-right"></i> {{ 'menu.usuario.dropdown.sair'|trans }}
                             </a>
                         </li>
                     </ul>
