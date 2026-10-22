@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Aceitar Convite{% endblock %}
+{% block title %}{{ 'auth.convite.ver.titulo'|trans }}{% endblock %}
 
 {% block head_meta %}<meta name="referrer" content="no-referrer">{% endblock %}
 
@@ -9,18 +9,18 @@
     <div class="login-container">
         <h1>
             {% if convite.tenantNome %}
-                Convite para {{ convite.tenantNome }}
+                {{ 'auth.convite.ver.para_escritorio'|trans({escritorio: convite.tenantNome}) }}
             {% else %}
-                Convite para o BlueJus
+                {{ 'auth.convite.ver.para_bluejus'|trans }}
             {% endif %}
         </h1>
 
         {% if convite.criadorNome %}
-            <p>{{ convite.criadorNome }} te convidou para colaborar{% if convite.tenantNome %} em <strong>{{ convite.tenantNome }}</strong>{% endif %}.</p>
+            <p>{{ 'auth.convite.ver.te_convidou'|trans({nome: convite.criadorNome}) }}{% if convite.tenantNome %} {{ 'auth.convite.ver.em'|trans }} <strong>{{ convite.tenantNome }}</strong>{% endif %}.</p>
         {% endif %}
 
         <p class="text-muted small">
-            Convite expira em {{ convite.expiresAt|date('d/m/Y') }} às {{ convite.expiresAt|date('H:i') }}
+            {{ 'auth.convite.ver.expira'|trans({data: convite.expiresAt|data, hora: convite.expiresAt|hora}) }}
         </p>
 
         {% for message in app.flashes('erro') %}
@@ -30,46 +30,46 @@
         <form method="post" action="{% if tipo_form == 'plataforma' %}{{ path('auth_aceite_convite_plataforma', {token: convite.token}) }}{% else %}{{ path('auth_aceite_convite_criar_conta', {token: convite.token}) }}{% endif %}">
 
             <div class="mb-3">
-                <label for="full_name" class="form-label">Nome completo</label>
+                <label for="full_name" class="form-label">{{ 'auth.convite.ver.nome_completo'|trans }}</label>
                 <input type="text" id="full_name" name="full_name" class="form-control"
                        value="{{ convite.nomeConvidado is not null ? convite.nomeConvidado|e('html_attr') : '' }}"
                        required autocomplete="name">
             </div>
 
             <div class="mb-3">
-                <label for="senha" class="form-label">Senha</label>
+                <label for="senha" class="form-label">{{ 'auth.convite.ver.senha'|trans }}</label>
                 <input type="password" id="senha" name="senha" class="form-control" required autocomplete="new-password">
             </div>
 
             {% if tipo_form == 'plataforma' %}
                 <div class="mb-3">
-                    <label for="oab_numero" class="form-label">Número da OAB</label>
+                    <label for="oab_numero" class="form-label">{{ 'auth.convite.ver.oab_numero'|trans }}</label>
                     <input type="text" id="oab_numero" name="oab_numero" class="form-control"
-                           placeholder="Ex: 123456" inputmode="numeric" required>
+                           placeholder="{{ 'auth.convite.ver.oab_numero_exemplo'|trans }}" inputmode="numeric" required>
                 </div>
                 <div class="mb-3">
-                    <label for="oab_uf" class="form-label">UF da OAB</label>
+                    <label for="oab_uf" class="form-label">{{ 'auth.convite.ver.oab_uf'|trans }}</label>
                     <input type="text" id="oab_uf" name="oab_uf" class="form-control"
-                           placeholder="Ex: SP" maxlength="2" style="text-transform:uppercase" required>
+                           placeholder="{{ 'auth.convite.ver.oab_uf_exemplo'|trans }}" maxlength="2" style="text-transform:uppercase" required>
                 </div>
             {% endif %}
 
             <div class="mb-3 form-check">
                 <input type="checkbox" class="form-check-input" id="aceite_termos" name="aceite_termos" value="1" required>
                 <label class="form-check-label" for="aceite_termos">
-                    Li e aceito os
-                    <a href="/termos/termos-de-uso.pdf" target="_blank" rel="noopener">Termos e Condições Gerais de Uso</a>.
+                    {{ 'auth.comum.li_e_aceito_os'|trans }}
+                    <a href="/termos/termos-de-uso.pdf" target="_blank" rel="noopener">{{ 'auth.convite.ver.termos'|trans }}</a>.
                 </label>
             </div>
 
             {# Mesma razão do cadastro: ciência, não aceite (item 1.3 da Política). #}
             <p class="form-text mb-3">
-                Ao criar a conta você declara ciência da
-                <a href="{{ path('legal_politica_privacidade') }}" target="_blank" rel="noopener">Política de Privacidade</a>.
+                {{ 'auth.convite.ver.ciencia'|trans }}
+                <a href="{{ path('legal_politica_privacidade') }}" target="_blank" rel="noopener">{{ 'auth.convite.ver.politica'|trans }}</a>.
             </p>
 
             <input type="hidden" name="_token" value="{{ csrf_token('convite_' ~ convite.token) }}">
-            <button class="btn-login" type="submit">Criar conta e aceitar</button>
+            <button class="btn-login" type="submit">{{ 'auth.convite.ver.criar_e_aceitar'|trans }}</button>
         </form>
     </div>
 </div>

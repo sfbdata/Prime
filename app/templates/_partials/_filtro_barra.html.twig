@@ -25,14 +25,14 @@
                 <div class="filtro-busca">
                     <i class="bi bi-search"></i>
                     <input type="text" name="{{ busca_campo }}" class="form-control form-control-sm js-filtro-busca"
-                           data-rotulo="Busca" placeholder="{{ busca_placeholder|default('Buscar…') }}"
+                           data-rotulo="{{ 'comum.filtro.busca'|trans }}" placeholder="{{ busca_placeholder|default('comum.filtro.buscar'|trans) }}"
                            autocomplete="off" value="{{ filtros[busca_campo]|default('') }}">
                 </div>
             {% endif %}
             {% for f in facetas %}
                 {% if f.tipo == 'select' %}
                     <select name="{{ f.name }}" class="form-select form-select-sm filtro-select js-filtro-campo"
-                            data-rotulo="{{ f.rotulo }}" aria-label="Filtrar por {{ f.rotulo }}">
+                            data-rotulo="{{ f.rotulo }}" aria-label="{{ 'comum.filtro.filtrar_por'|trans({rotulo: f.rotulo}) }}">
                         <option value="">{{ f.rotulo }}</option>
                         {% for o in f.opcoes %}
                             <option value="{{ o.valor }}" {{ (filtros[f.name]|default('')) == (o.valor ~ '') ? 'selected' : '' }}>{{ o.label }}</option>
@@ -43,7 +43,7 @@
                         <input type="date" name="{{ f.name }}" class="form-control form-control-sm js-filtro-campo"
                                data-rotulo="{{ f.rotulo }}" aria-label="{{ f.rotulo }}" value="{{ filtros[f.name]|default('') }}">
                         <button type="button" class="filtro-data-btn js-filtro-calendario" tabindex="-1"
-                                aria-label="Abrir calendário"><i class="bi bi-calendar3"></i></button>
+                                aria-label="{{ 'comum.filtro.abrir_calendario'|trans }}"><i class="bi bi-calendar3"></i></button>
                     </span>
                 {% endif %}
             {% endfor %}
