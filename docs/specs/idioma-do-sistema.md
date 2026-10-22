@@ -1187,3 +1187,73 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   `RemoverColaboradorDoEscritorioUseCase` ("Para deixar o escritório...", criador, último administrador, substituto),
   que precisam de chave na exceção; a recusa do convite de primário da `RegraDosPrimarios` (não é dita nestas telas);
   as mensagens das 403 e 404; o `resourceType` cru (`cliente`, `pasta`) do selo dos acessos específicos, que é dado.
+- **T4 sedes** (branch `idioma-tenant-4`, sobre o T2): a parte Twig de `tenant/sedes` (até o `{% block javascripts %}`),
+  dentro do bloco `escritorio:`, com `escritorio.sedes.*` (30 chaves) e 5 flashes novos em `escritorio.flash.sede_*`.
+  "Sedes" serve ao `<title>` e ao cabeçalho (`titulo`), com o ` | nome do escritório` fora da chave, como hoje. A
+  contagem do selo é um plural ICU com o número já como texto (`{n, plural, one {{qtd} sede} other {{qtd} sedes}}`,
+  como o `escritorio.usuarios.itens`), e o raio da cerca é `'{raio}m'` com o inteiro como texto (sem separador de
+  milhar). As siglas das UFs do `<select>` são dado: saíram do HTML para uma lista no próprio template, num
+  `{% for %}` em pares (`|batch(2)`) que reproduz a quebra de linha de antes; só o "UF" da primeira opção tem chave.
+  As coordenadas do selo (`|round(5)`) e os `data-sede-*` que o script lê ficam como estão: são dado, e um `|numero`
+  trocaria o ponto pela vírgula. A página não tem `|date` nem `number_format`.
+- **Texto do PHP (T4):** no `TenantController` (edição cirúrgica), os cinco flashes das ações `manageSedes`,
+  `editSede` e `deleteSede` vão pelo tradutor; o "N registro(s) de ponto foram desvinculados..." recebe o total como
+  texto (`{qtd}`), igual ao `%d` de antes. As sedes não têm UseCase próprio nem constante de recusa que teste compare.
+  O laço de flashes do próprio `sedes.html.twig` fica como está e, na prática, não mostra nada: o `base` consome os
+  flashes antes do bloco `body`.
+- **Sem mudança visível (T4):** um teste temporário (apagado antes do commit) gravou o HTML de 9 casos com o código da
+  HEAD e com o novo, normalizando tokens CSRF, nonces e ids: a lista vazia, com uma sede (selo no singular), com três
+  (plural, nome com aspas, `&` e `<`, raio de 1500), criar com sucesso (flash), criar com erro de validação, editar com
+  erro (o formulário em modo edição, título e botão de editar), editar com sucesso, excluir e excluir com dois
+  registros de ponto desvinculados (os dois flashes). Os 9 ficaram iguais byte a byte. O "Sem coordenadas" não foi
+  renderizado: `latitude` e `longitude` são não nulas no banco e o decimal volta como texto não vazio.
+- **JS inline com texto (fica como está, o teste não cobre `<script>` nem `onsubmit`):** o `confirm('Excluir a sede
+  ...permanentemente?')` do `onsubmit` da exclusão; no `<script>` do mapa, o título e o botão do modo edição e do modo
+  novo ("Editar Sede", "Atualizar Sede", "Nova Sede", "Salvar Sede", montados por `innerHTML` com o mesmo texto do
+  Twig, sem ler do HTML), os retornos da busca de CEP e endereço ("Localização encontrada: ...", "(aproximado pelo
+  bairro)", "(aproximado pela cidade)", "Não foi possível localizar automaticamente...", "Informe pelo menos um
+  endereço para buscar.", "Nenhum resultado encontrado...", "Digite um CEP ou endereço para buscar.", "Nenhum
+  resultado. Clique em ✎...", "Erro ao buscar endereço..."), os `alert` do GPS ("Geolocalização não suportada neste
+  navegador.", permissão negada, posição indisponível, tempo esgotado, "Erro ao obter localização."), o "Brasil" das
+  buscas, a atribuição "OpenStreetMap contributors" e o `accept-language=pt-BR` do Nominatim. O JS é a frente dos
+  scripts (com o `t()` do catálogo no navegador).
+- **Ficou fora do T4:** os rótulos e as mensagens do `SedeType` (latitude e longitude obrigatórias, faixas de
+  latitude, longitude e raio), como na P1; as mensagens das 403 e 404 das três ações ("Você não tem permissão para
+  gerenciar sedes.", "Sede não encontrada." etc.); o `<script>` do mapa (acima). Achado fora do escopo, não
+  consertado: editar uma sede com a longitude vazia dá 500 (`InvalidTypeException` no
+  `Sede::setLongitude(string)`), em vez do erro de validação; criar com os campos vazios mostra o erro.
+
+## 26b. Extração de recurso, legal e termo (a7, 22/10)
+
+- **Escopo:** 7 templates. `templates/recurso/` `_layout_simples` e `em_preparacao` (a página que o guarda de rota
+  `BloqueioDeRecursoDesativado` mostra quando o Master desliga uma tela); `templates/legal/` `politica_privacidade`
+  (página pública), `politica_privacidade_pdf` (casca do PDF) e `_politica_privacidade_texto`; `templates/termo/`
+  `aceite` e `_texto`. Blocos novos do catálogo: `recurso` (2 chaves), `legal` (6) e `termo` (11). Nenhum JS entrou.
+- **Decisão sobre o texto jurídico:** o corpo da Política (`legal/_politica_privacidade_texto`) e o dos Termos
+  (`termo/_texto`) **não** foram extraídos e ficam fixos no template, fora do `templates-extraidos.json`. Nenhum hash
+  é calculado do texto, mas a prova jurídica depende do arquivo: o aceite (`aceite_termo`) e a ciência
+  (`ciencia_politica`) gravam só a versão (`TermoVigente::VERSAO`, `PoliticaPrivacidadeVigente::VERSAO`), e as duas
+  classes amarram essa versão ao partial ("troque a constante e, no mesmo commit, atualize o texto"; a Política ainda
+  guarda o histórico de versões no Anexo III do próprio arquivo). O texto que a pessoa aceitou numa versão é o
+  partial no commit daquela versão. No catálogo, o texto passaria a poder mudar (revisão de idioma, varredura) sem a
+  versão subir, e um segundo idioma faria a pessoa aceitar uma tradução que a versão gravada não distingue. Traduzir
+  a Política ou os Termos é decisão jurídica, com versão própria. Foi extraída só a moldura: títulos de página,
+  cabeçalho da tela de aceite, a declaração do checkbox, os links, os botões, o "Voltar ao topo" e o rodapé do PDF.
+- **Sem mudança visível:** com o mesmo `FOUNDRY_FAKER_SEED`, as 123 respostas comparadas saíram iguais antes e depois:
+  118 respostas HTML dos functionals de `tests/Legal`, `tests/Termo`, `Master/Functional/TelasERecursosTest`,
+  `Pasta/Functional/PushLinkComTelaDesligadaTest` e `Auth/Functional/LoginDeContaAConfirmarTest` (página da Política,
+  aceite com e sem a declaração da Política, tela em preparação, login e cadastro que passam pelo aceite),
+  comparadas com espaços normalizados e tokens, ids e números trocados por marcador, e 5 renderizações diretas
+  (HTML do PDF da Política, os dois partiais jurídicos e a tela em preparação com e sem previsão), iguais byte a byte.
+- **Frase partida:** a declaração do aceite com a Política ("Li e aceito ... do BlueJus e a <link>.") virou
+  `termo.aceite.declaracao_com_politica_antes` e `declaracao_com_politica_link`, com o espaço, o link e o ponto no
+  template, como no §8. A variante sem a Política é uma chave inteira (`termo.aceite.declaracao`).
+- **Guarda/permitidos:** `recurso` permite `BlueJus | BlueJus` (o título padrão do layout, marca, mais o sufixo de
+  marca); `termo` permite `BlueJus` (o `alt` do logotipo); `legal` não tem permitidos. Os dois partiais jurídicos não
+  entram na lista do teste, pela decisão acima.
+- **Formatos:** nenhum filtro de data mudou. A previsão da tela em preparação (`previsao`), a versão e a data de
+  publicação da Política (`data_publicacao`) chegam do PHP já como texto e entram como `{data}`/`{versao}`.
+- **Ficou para depois:** o corpo jurídico (decisão acima); o PDF estático dos Termos (`public/termos/termos-de-uso.pdf`);
+  o `lang="pt-BR"` fixo do `_layout_simples`, do `aceite` e da casca do PDF (páginas soltas, sem o base); o título e
+  o motivo da tela em preparação, que vêm do PHP (`BloqueioDeRecursoDesativado`, catálogo de recursos do Master); o
+  flash de erro do aceite (`TermoController`); e o JS inline do `aceite` (sem texto visível).

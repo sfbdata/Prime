@@ -11,7 +11,7 @@
     <div class="bj-recurso-preparo-icone" aria-hidden="true"><i class="bi bi-tools"></i></div>
     <h1 class="bj-recurso-preparo-titulo">{{ titulo }}</h1>
     {# Como no bj-recursos.js: a previsão fica no mesmo bloco do texto, depois de uma quebra. #}
-    <div class="bj-recurso-preparo-texto"><span class="bj-recurso-preparo-motivo">{{ mensagem }}</span>{% if previsao %}<br><span class="bj-recurso-preparo-previsao">Previsão: {{ previsao }}</span>{% endif %}</div>
-    <a class="bj-recurso-preparo-voltar" href="{{ path('expediente_index') }}">Voltar ao Expediente</a>
+    <div class="bj-recurso-preparo-texto"><span class="bj-recurso-preparo-motivo">{{ mensagem }}</span>{% if previsao %}<br><span class="bj-recurso-preparo-previsao">{{ 'recurso.em_preparacao.previsao'|trans({data: previsao}) }}</span>{% endif %}</div>
+    <a class="bj-recurso-preparo-voltar" href="{{ path('expediente_index') }}">{{ 'recurso.em_preparacao.voltar'|trans }}</a>
 </main>
 {% endblock %}

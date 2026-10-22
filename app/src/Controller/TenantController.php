@@ -1794,7 +1794,7 @@ final class TenantController extends AbstractController
             $entityManager->persist($sede);
             $entityManager->flush();
 
-            $this->addFlash('success', 'Sede cadastrada com sucesso!');
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.sede_cadastrada'));
             return $this->redirectToRoute('app_tenant_sedes', ['tenantId' => $tenant->getId()]);
         }
 
@@ -1849,7 +1849,7 @@ final class TenantController extends AbstractController
 
         if ($editForm->isSubmitted() && $editForm->isValid()) {
             $entityManager->flush();
-            $this->addFlash('success', 'Sede atualizada com sucesso!');
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.sede_atualizada'));
 
             return $this->redirectToRoute('app_tenant_sedes', ['tenantId' => $tenantId]);
         }
@@ -1923,17 +1923,17 @@ final class TenantController extends AbstractController
             $entityManager->flush();
             $connection->commit();
 
-            $this->addFlash('success', 'Sede removida com sucesso.');
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.sede_removida'));
 
             if ($totalDesvinculados > 0) {
-                $this->addFlash('info', sprintf('%d registro(s) de ponto foram desvinculados automaticamente da sede removida.', $totalDesvinculados));
+                $this->addFlash('info', $this->tradutor->trans('escritorio.flash.sede_registros_desvinculados', ['qtd' => (string) $totalDesvinculados]));
             }
         } catch (\Throwable) {
             if ($connection->isTransactionActive()) {
                 $connection->rollBack();
             }
 
-            $this->addFlash('danger', 'Não foi possível remover a sede neste momento. Tente novamente.');
+            $this->addFlash('danger', $this->tradutor->trans('escritorio.flash.sede_nao_removida'));
         }
 
         return $this->redirectToRoute('app_tenant_sedes', ['tenantId' => $tenantId]);
