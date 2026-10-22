@@ -95,6 +95,7 @@ use App\Pasta\UseCase\EditarPastaUseCase;
 use App\Pasta\UseCase\VincularProcessoUseCase;
 use App\Pasta\UseCase\VincularApensadoUseCase;
 use App\Pasta\UseCase\BuscarProcessosParaVincularUseCase;
+use App\Processo\Service\TribunalCnjResolver;
 use App\Pasta\DTO\ProcessoParaVincularOutput;
 use App\Pasta\Entity\TipoDeApenso;
 use App\Pasta\Exception\ApensadoInvalidoException;
@@ -342,6 +343,7 @@ class PastaController extends AbstractController
         VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
         MontarPainelDoPushUseCase $montarPainelDoPush,
         ColaboradoresAtribuiveis $atribuiveis,
+        TribunalCnjResolver $tribunalCnjResolver,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -492,6 +494,8 @@ class PastaController extends AbstractController
 
         return $this->render('pasta/show.html.twig', [
             'pasta'                       => $pasta,
+            // Janela "Vincular processo": a sigla do tribunal enquanto se digita sai da tabela do servidor.
+            'tribunaisCnj'                => $tribunalCnjResolver->tabelaDeSiglas(),
             'vizinhas'                    => $vizinhas,
             'documentTypeOptions'         => self::DOCUMENT_TYPES,
             'documentosPorTipo'           => $this->groupDocumentsByType($pasta),
@@ -1413,7 +1417,9 @@ class PastaController extends AbstractController
         }
 
         try {
-            $itens = $buscarProcessos->executar($pasta, (string) $request->query->get('q', ''), $tenant);
+            /** @var \App\Entity\Auth\User $usuario */
+            $usuario = $this->getUser();
+            $itens = $buscarProcessos->executar($pasta, (string) $request->query->get('q', ''), $tenant, $usuario);
         } catch (PastaDeOutroEscritorioException) {
             throw $this->createNotFoundException();
         }

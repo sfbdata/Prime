@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Functional;
 use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Permission\ResourceAccess;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\TipoDeApenso;
@@ -22,6 +23,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(PastaController::class)]
 final class VincularProcessoControllerTest extends JusPrimeWebTestCase
 {
+    use CriaUsuarioComPermissoesTrait;
+
     private const XHR = ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'];
 
     /** Obrigatórios do cadastro novo pela janela (desenho 02, `procSalvarVinc`: "Preencha: ..."). */
@@ -632,6 +635,35 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         self::assertSame('ORIGEMTESTE', $porId[$daPasta->getId()]['classe']);
     }
 
+    #[TestDox('Origem de pasta que o usuário não pode VER: "Outra pasta" (sem o número); com acesso à pasta, o número')]
+    public function testOrigemSoComONumeroDaPastaQueOUsuarioVe(): void
+    {
+        $client          = static::createClient();
+        $client->disableReboot();
+        [, $tenant]      = $this->criarUsuarioAdmin();
+        $pastaA          = $this->criarPasta($tenant);
+        $pastaB          = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, '70000000000000000007', 'ORIGEMRESTRITA');
+        $this->vincular($pastaB, $processo, principal: true);
+        // Papel sem `resources.pasta.view`: vê só a pasta A, por acesso ao recurso.
+        $usuario = $this->criarUsuarioComPermissoes($tenant, []);
+        $this->darAcessoDeLeitura($usuario, $tenant, $pastaA);
+
+        $this->autenticar($client, $usuario, $tenant);
+        $client->request('GET', "/pasta/{$pastaA->getId()}/processo/buscar?q=origemrestrita", [], [], self::XHR);
+        self::assertResponseIsSuccessful();
+        $item = json_decode((string) $client->getResponse()->getContent(), true)['results'][0];
+        self::assertSame($processo->getId(), $item['id']);
+        self::assertSame(['tipo' => 'pasta', 'pasta' => null], $item['origem']);
+        self::assertStringNotContainsString((string) $pastaB->getNup(), (string) $client->getResponse()->getContent());
+
+        // A prova do guarda: só o acesso à pasta B muda.
+        $this->darAcessoDeLeitura($usuario, $tenant, $pastaB);
+        $client->request('GET', "/pasta/{$pastaA->getId()}/processo/buscar?q=origemrestrita", [], [], self::XHR);
+        $item = json_decode((string) $client->getResponse()->getContent(), true)['results'][0];
+        self::assertSame(['tipo' => 'pasta', 'pasta' => $pastaB->getNup()], $item['origem']);
+    }
+
     #[TestDox('Outro escritório não busca pela pasta alheia: nenhum processo dela vaza')]
     public function testBuscarNaoVazaOutroEscritorio(): void
     {
@@ -649,6 +681,23 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
     }
 
     // ── Helpers ──
+
+    private function em(): EntityManagerInterface
+    {
+        return static::getContainer()->get(EntityManagerInterface::class);
+    }
+
+    private function darAcessoDeLeitura(User $user, Tenant $tenant, Pasta $pasta): void
+    {
+        $acesso = new ResourceAccess();
+        $acesso->setUser($user);
+        $acesso->setTenant($tenant);
+        $acesso->setResourceType(ResourceAccess::RESOURCE_PASTA);
+        $acesso->setResourceId((int) $pasta->getId());
+        $acesso->setCanView(true);
+        $this->em()->persist($acesso);
+        $this->em()->flush();
+    }
 
     private function autenticar($client, User $user, Tenant $tenant): void
     {

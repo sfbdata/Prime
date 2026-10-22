@@ -137,6 +137,17 @@ final class TribunalCnjResolver
     }
 
     /**
+     * O mapa segmento J → tribunal TR → sigla, para a tela mostrar enquanto se digita a MESMA sigla que
+     * {@see self::resolverSigla()} grava (janela "Vincular processo", desenho 02 `procTrib`).
+     *
+     * @return array<string, array<string, string>>
+     */
+    public function tabelaDeSiglas(): array
+    {
+        return array_map(static fn (array $segmento): array => $segmento['tribunais'], self::MAPA);
+    }
+
+    /**
      * Alias do índice da API pública do Datajud (ex.: "tjsp", "tre-df"), usado para montar
      * a URL api_publica_<alias>. É a sigla em minúsculas.
      *

@@ -1761,7 +1761,7 @@
 {# Janela "Vincular processo": a do desenho 02 de 18/10 (N:289-354, estados `pvVals` N:3135-3151), não o modal
    do Bootstrap. Sobreposição própria (N:290), caixa de min(860px, 100%) (N:291), cabeçalho (N:292), corpo (N:293)
    e rodapé (N:351). Abre pelos botões `[data-vp-abrir]`; fecha no X, no Cancelar, no clique fora e no Esc. #}
-<div class="vp-sobre" id="modalVincularProcesso" hidden>
+<div class="vp-sobre" id="modalVincularProcesso" hidden data-tribunais="{{ (tribunaisCnj ?? {})|json_encode|e('html_attr') }}">
         <div class="vp-caixa" role="dialog" aria-modal="true" aria-labelledby="modalVincularProcessoLabel">
             <div class="vp-cab">
                 <i class="bi bi-briefcase" aria-hidden="true"></i>
@@ -3298,6 +3298,17 @@ document.addEventListener('DOMContentLoaded', function () {
         return d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
     }
 
+    /* Sigla do tribunal pelo número (desenho `procTrib`, N:4509), pela tabela do TribunalCnjResolver que a página
+       entrega: a mesma sigla que o servidor grava. Número incompleto ou par J/TR desconhecido: vazio. */
+    var mpTribunais = {};
+    try { mpTribunais = JSON.parse(modalEl.dataset.tribunais || '{}') || {}; } catch (_) { mpTribunais = {}; }
+    function mpProcTrib(numero) {
+        var d = String(numero || '').replace(/\D/g, '');
+        if (d.length !== 20) return '';
+        var segmento = mpTribunais[d.charAt(13)] || {};
+        return segmento[d.slice(14, 16)] || '';
+    }
+
     /* O número gravado tem só os dígitos; na tela, com a máscara quando tem os 20. */
     function mpNumeroVisivel(numero) {
         return /^\d{20}$/.test(String(numero || '')) ? mpProcMask(numero) : String(numero || '');
@@ -3397,7 +3408,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function mpOrigem(origem) {
         if (!origem || origem.tipo === 'push') return T('origem_push');
-        return T(origem.tipo === 'apensado' ? 'origem_apensado' : 'origem_pasta', { pasta: origem.pasta || '' });
+        // Sem permissão de ver a pasta de origem, o servidor não manda o número: "Outra pasta".
+        if (!origem.pasta) return T(origem.tipo === 'apensado' ? 'origem_apensado_outra' : 'origem_outra_pasta');
+        return T(origem.tipo === 'apensado' ? 'origem_apensado' : 'origem_pasta', { pasta: origem.pasta });
     }
 
     function mpFecharLista() {
@@ -3610,6 +3623,7 @@ document.addEventListener('DOMContentLoaded', function () {
     /* Número: máscara do CNJ; a confirmação da busca anterior já não vale (desenho: `up('numero')` zera o cnj). */
     numeroEl.addEventListener('input', function () {
         numeroEl.value = mpProcMask(numeroEl.value);
+        document.getElementById('mp-siglaTribunal').value = mpProcTrib(numeroEl.value);
         cnjOk.classList.add('d-none');
         if (mpCnjNada) { mpCnjNada = ''; mpAtualizarAviso(); }
     });

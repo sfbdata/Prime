@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Functional;
 
 use App\Controller\PastaController;
+use App\Processo\Service\TribunalCnjResolver;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -160,6 +161,21 @@ final class VincularProcessoJanelaTelaTest extends JusPrimeWebTestCase
             '[data-bs-theme="dark"] #modalVincularProcesso .mp-linha { background: var(--bs-tertiary-bg);',
         ] as $regra) {
             self::assertStringContainsString($regra, $css);
+        }
+    }
+
+    #[TestDox('Tribunal enquanto digita (procTrib): a janela leva a tabela do TribunalCnjResolver e ela dá a mesma sigla que o servidor grava')]
+    public function testTabelaDosTribunaisDoServidor(): void
+    {
+        $tabela = json_decode((string) $this->janela()->attr('data-tribunais'), true, 512, JSON_THROW_ON_ERROR);
+        $resolver = static::getContainer()->get(TribunalCnjResolver::class);
+        self::assertSame($resolver->tabelaDeSiglas(), $tabela);
+
+        // A mesma conta do JS (`mpProcTrib`): J no 14º dígito, TR nos dois seguintes.
+        $doJs = static fn (string $n): string => (string) ($tabela[$n[13]][substr($n, 14, 2)] ?? '');
+        foreach (['07069580320218070018' => 'TJDFT', '10701670520244013400' => 'TRF1', '00000011220245100001' => 'TRT10', '00000011220246070001' => 'TRE-DF'] as $numero => $sigla) {
+            self::assertSame($sigla, $resolver->resolverSigla($numero));
+            self::assertSame($sigla, $doJs((string) $numero), $numero);
         }
     }
 }

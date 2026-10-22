@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
+use App\Entity\Auth\User;
+use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\ProcessoParaVincularOutput;
 use App\Pasta\Entity\Pasta;
@@ -12,6 +14,7 @@ use App\Pasta\Exception\PastaDeOutroEscritorioException;
 use App\Pasta\Repository\PastaRepository;
 use App\Processo\Entity\Processo;
 use App\Processo\Repository\ProcessoRepository;
+use App\Service\PermissionChecker;
 
 /**
  * A lista "Processo já cadastrado" da janela "Vincular processo" (desenho 02, N:299-302 e `pvVals.cat`):
@@ -21,6 +24,10 @@ use App\Processo\Repository\ProcessoRepository;
  * Cada item leva a origem do processo no escritório, como `procCatalogo` (N:4513-4518): "Pasta N" quando
  * ele é o processo de uma pasta, "Apensado · pasta N" quando só aparece como apensado, "Push processual"
  * quando não está em pasta nenhuma (o Push monitora todo processo do escritório).
+ *
+ * O número da pasta de origem só aparece para quem pode VER aquela pasta (a mesma guarda de recurso do
+ * sistema, com o cadeado); para os outros, o item diz só "Outra pasta" (`pasta` nulo). Uma consulta de
+ * permissão por pasta distinta, não por item.
  *
  * Guarda: a pasta é do escritório da sessão, senão {@see PastaDeOutroEscritorioException}. A busca e os
  * vínculos filtram pelo tenant; quem chama já conferiu a permissão de VER a pasta.
@@ -32,11 +39,12 @@ final class BuscarProcessosParaVincularUseCase
     public function __construct(
         private readonly ProcessoRepository $processoRepository,
         private readonly PastaRepository $pastaRepository,
+        private readonly PermissionChecker $permissionChecker,
     ) {
     }
 
     /** @return list<ProcessoParaVincularOutput> */
-    public function executar(Pasta $pasta, string $termo, Tenant $tenant): array
+    public function executar(Pasta $pasta, string $termo, Tenant $tenant, User $usuario): array
     {
         if ($pasta->getTenant() !== $tenant) {
             throw new PastaDeOutroEscritorioException('Pasta não encontrada.');
@@ -49,7 +57,7 @@ final class BuscarProcessosParaVincularUseCase
 
         $processos = array_values($this->processoRepository->buscarPorTermoDoTenant(trim($termo), $tenant, $idsVinculados, self::LIMITE));
         $ids = array_values(array_filter(array_map(static fn (Processo $p): ?int => $p->getId(), $processos)));
-        $origens = $this->origens($this->pastaRepository->vinculosDosProcessos($ids, $tenant));
+        $origens = $this->origens($this->pastaRepository->vinculosDosProcessos($ids, $tenant), $tenant, $usuario);
 
         return array_map(static function (Processo $processo) use ($origens): ProcessoParaVincularOutput {
             [$origem, $nup] = $origens[(int) $processo->getId()] ?? [ProcessoParaVincularOutput::ORIGEM_PUSH, null];
@@ -63,11 +71,12 @@ final class BuscarProcessosParaVincularUseCase
      *
      * @param list<PastaProcesso> $vinculos
      *
-     * @return array<int, array{0: string, 1: string}>
+     * @return array<int, array{0: string, 1: ?string}>
      */
-    private function origens(array $vinculos): array
+    private function origens(array $vinculos, Tenant $tenant, User $usuario): array
     {
         $origens = [];
+        $podeVer = [];
         foreach ($vinculos as $vinculo) {
             $id = (int) $vinculo->getProcesso()->getId();
             $apensado = !$vinculo->isPrincipal() && $vinculo->getTipoApenso() !== null;
@@ -75,9 +84,12 @@ final class BuscarProcessosParaVincularUseCase
             if ($atual === ProcessoParaVincularOutput::ORIGEM_PASTA || ($atual !== null && $apensado)) {
                 continue;
             }
+            $outra = $vinculo->getPasta();
+            $idPasta = (int) $outra->getId();
+            $podeVer[$idPasta] ??= $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, $idPasta, AccessRequest::ACTION_VIEW);
             $origens[$id] = [
                 $apensado ? ProcessoParaVincularOutput::ORIGEM_APENSADO : ProcessoParaVincularOutput::ORIGEM_PASTA,
-                self::numeroDaPasta($vinculo->getPasta()),
+                $podeVer[$idPasta] ? self::numeroDaPasta($outra) : null,
             ];
         }
 

@@ -10,7 +10,8 @@ use App\Processo\Entity\Processo;
  * Um item da lista "Processo já cadastrado" da janela "Vincular processo" (desenho 02, N:299-302 e
  * `procCatalogo` N:4513-4518): o número, a linha "classe · ação · tribunal" e a ORIGEM do processo no
  * escritório. A origem é estruturada (`pasta`, `apensado` ou `push`, com o número da pasta); o texto da
- * tela ("Pasta N", "Apensado · pasta N", "Push processual") sai do catálogo no JS.
+ * tela ("Pasta N", "Apensado · pasta N", "Push processual") sai do catálogo no JS. Sem permissão de ver a pasta
+ * de origem, `pasta` vem nulo e a tela diz "Outra pasta".
  */
 final readonly class ProcessoParaVincularOutput
 {

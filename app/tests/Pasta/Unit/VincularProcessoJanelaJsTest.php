@@ -169,4 +169,23 @@ final class VincularProcessoJanelaJsTest extends TestCase
         self::assertStringContainsString("'mp-aviso' + (erro ? ' mp-aviso--erro' : '')", $this->funcao('mpAtualizarAviso'));
         self::assertStringNotContainsString("'alert ", $js);
     }
+
+    #[TestDox('Tribunal enquanto digita: a sigla sai da tabela do servidor (data-tribunais), não de uma cópia no JS')]
+    public function testTribunalEnquantoDigita(): void
+    {
+        $js = $this->script();
+        self::assertStringContainsString("JSON.parse(modalEl.dataset.tribunais || '{}')", $js);
+        $trib = $this->funcao('mpProcTrib');
+        self::assertStringContainsString('mpTribunais[d.charAt(13)]', $trib);
+        self::assertStringContainsString('segmento[d.slice(14, 16)]', $trib);
+        self::assertStringContainsString("document.getElementById('mp-siglaTribunal').value = mpProcTrib(numeroEl.value);", $js);
+        self::assertStringNotContainsString("'TJDFT'", $js, 'sem tabela copiada à mão');
+    }
+
+    #[TestDox('Origem sem número (pasta que o usuário não vê): "Outra pasta" e "Apensado · outra pasta"')]
+    public function testOrigemOutraPasta(): void
+    {
+        $origem = $this->funcao('mpOrigem');
+        self::assertStringContainsString("if (!origem.pasta) return T(origem.tipo === 'apensado' ? 'origem_apensado_outra' : 'origem_outra_pasta');", $origem);
+    }
 }

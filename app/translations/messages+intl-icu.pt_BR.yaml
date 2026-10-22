@@ -8395,6 +8395,8 @@ pasta_show:
             origem_pasta: 'Pasta {pasta}'
             origem_apensado: 'Apensado · pasta {pasta}'
             origem_push: Push processual
+            origem_outra_pasta: Outra pasta
+            origem_apensado_outra: Apensado · outra pasta
             dados_a_completar: Dados a completar
             preencha: 'Preencha: {campos}.'
             falta_numero: número do processo

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\DTO\ProcessoParaVincularOutput;
 use App\Pasta\Entity\Pasta;
@@ -14,6 +15,7 @@ use App\Pasta\Repository\PastaRepository;
 use App\Pasta\UseCase\BuscarProcessosParaVincularUseCase;
 use App\Processo\Entity\Processo;
 use App\Processo\Repository\ProcessoRepository;
+use App\Service\PermissionChecker;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -25,6 +27,8 @@ final class BuscarProcessosParaVincularUseCaseTest extends TestCase
 {
     private ProcessoRepository&MockObject $processos;
     private PastaRepository&MockObject $pastas;
+    private PermissionChecker&MockObject $permissoes;
+    private User $usuario;
     private BuscarProcessosParaVincularUseCase $useCase;
     private Tenant $tenant;
 
@@ -32,7 +36,9 @@ final class BuscarProcessosParaVincularUseCaseTest extends TestCase
     {
         $this->processos = $this->createMock(ProcessoRepository::class);
         $this->pastas    = $this->createMock(PastaRepository::class);
-        $this->useCase   = new BuscarProcessosParaVincularUseCase($this->processos, $this->pastas);
+        $this->permissoes = $this->createMock(PermissionChecker::class);
+        $this->useCase   = new BuscarProcessosParaVincularUseCase($this->processos, $this->pastas, $this->permissoes);
+        $this->usuario   = new User();
         $this->tenant    = new Tenant();
     }
 
@@ -48,7 +54,7 @@ final class BuscarProcessosParaVincularUseCaseTest extends TestCase
             ->willReturn([]);
         $this->pastas->expects(self::once())->method('vinculosDosProcessos')->with([], $this->tenant)->willReturn([]);
 
-        self::assertSame([], $this->useCase->executar($pasta, '  execução ', $this->tenant));
+        self::assertSame([], $this->useCase->executar($pasta, '  execução ', $this->tenant, $this->usuario));
     }
 
     #[TestDox('Origem: "pasta" quando é processo de uma pasta, "apensado" quando só é apensado, "push" fora de pasta')]
@@ -71,8 +77,10 @@ final class BuscarProcessosParaVincularUseCaseTest extends TestCase
 
         $this->processos->method('buscarPorTermoDoTenant')->willReturn([$daPasta, $soApensado, $doPush, $emAmbas]);
         $this->pastas->method('vinculosDosProcessos')->with([1, 2, 3, 4], $this->tenant)->willReturn($vinculos);
+        // Uma consulta por pasta distinta (0200 e a sem número), não por item.
+        $this->permissoes->expects(self::exactly(2))->method('canAccessResource')->willReturn(true);
 
-        $itens = array_map(static fn (ProcessoParaVincularOutput $i): array => $i->paraJson(), $this->useCase->executar($pasta, '', $this->tenant));
+        $itens = array_map(static fn (ProcessoParaVincularOutput $i): array => $i->paraJson(), $this->useCase->executar($pasta, '', $this->tenant, $this->usuario));
 
         self::assertSame(['tipo' => 'pasta', 'pasta' => '0200'], $itens[0]['origem']);
         self::assertSame(['tipo' => 'apensado', 'pasta' => '0200'], $itens[1]['origem']);
@@ -97,7 +105,27 @@ final class BuscarProcessosParaVincularUseCaseTest extends TestCase
         $this->processos->expects(self::never())->method('buscarPorTermoDoTenant');
         $this->expectException(PastaDeOutroEscritorioException::class);
 
-        $this->useCase->executar($pasta, '', $this->tenant);
+        $this->useCase->executar($pasta, '', $this->tenant, $this->usuario);
+    }
+
+    #[TestDox('Sem permissão de VER a pasta de origem, o número não vai: "Outra pasta" / "Apensado · outra pasta"')]
+    public function testOrigemSemPermissaoEscondeONumero(): void
+    {
+        $pasta = $this->pasta('0100');
+        $daOutra = $this->processo(1, '00000010120248070001');
+        $apensado = $this->processo(2, '00000020120248070001');
+        $outra = $this->pasta('0300');
+
+        $this->processos->method('buscarPorTermoDoTenant')->willReturn([$daOutra, $apensado]);
+        $this->pastas->method('vinculosDosProcessos')->willReturn([new PastaProcesso($outra, $daOutra), $this->apensado($outra, $apensado)]);
+        $this->permissoes->expects(self::once())->method('canAccessResource')
+            ->with($this->usuario, $this->tenant, 'pasta', $outra->getId(), 'view')
+            ->willReturn(false);
+
+        $itens = array_map(static fn (ProcessoParaVincularOutput $i): array => $i->paraJson(), $this->useCase->executar($pasta, '', $this->tenant, $this->usuario));
+
+        self::assertSame(['tipo' => 'pasta', 'pasta' => null], $itens[0]['origem']);
+        self::assertSame(['tipo' => 'apensado', 'pasta' => null], $itens[1]['origem']);
     }
 
     private function pasta(string $nup): Pasta
