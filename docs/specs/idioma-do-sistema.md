@@ -1061,6 +1061,43 @@ antes e depois, sem diferença; o texto dos scripts foi conferido chave por chav
   `lang="pt-BR"` fixo do `layout_peticionar`; e o `'Falha ao carregar o documento'` do script inline, que só vai ao
   console.
 
+### 20.8 A tela principal (show)
+
+- **Escopo:** `pasta/show.html.twig`, o que é dele (o registro da pasta na aba Detalhes e as janelas Adicionar
+  pagamento, Mover para, Editar documento, Adicionar cliente, Vincular processo, Prévia de documento, Editar dados e
+  Nova meta) e os sete scripts inline (cliente, envio de arquivo, registro da aba Dados, vincular processo, editar
+  dados, situação e prioridade, nova meta). Bloco de topo `pasta_show` do catálogo, 344 chaves: 224 do Twig (`registro`
+  9, `pagamento` 32, `documento` 12, `cliente` 37, `processo` 68, `editar` 23, `meta` 37 e as comuns) e
+  `pasta_show.js.*` (120) para os scripts inline. Área `pasta_show` no `templates-extraidos.json`.
+- **Catálogo do JS:** um `{{ catalogo_js('pasta_show.js') }}` antes do primeiro script inline (o do cliente), fora de
+  condição. Os scripts rodam antes do `bj-traducao.js` (fim do corpo do base), então só pedem texto dentro de funções:
+  as constantes `ROTULO_ORFA`, `REG_MOTIVO_PRAZO`, `REG_MOTIVO_AUTOR` e `ROTULO_CRIAR` viraram `rotuloOrfa()`, a
+  chamada no uso e `rotular(btn, ICONE_CRIAR, ...)`. Os scripts foram rodados num ambiente sem `BJ_T` e nenhum o pede
+  ao carregar. Texto do catálogo que entra em HTML montado passa pelo `esc`/`escHtml`/`mpEsc` do próprio script.
+- **Sem mudança visível:** o HTML da pasta cheia (processo, cliente, metas, documentos, anotações e relatório), vazia,
+  excluída, vista por quem só lê e com abas ocultas (para a colaboradora e para o primário) foi gravado antes e
+  depois e comparado com tokens CSRF, dígitos e espaços normalizados: saiu igual. Mudaram só o `<script data-bj-t>`,
+  as quebras de linha e as linhas dos scripts inline, comparadas trocando cada `BJ_T.t` pelo texto do catálogo (as
+  com parâmetro, conferidas uma a uma). O `"Buscar no CNJ"` da nota das movimentações sai como `&quot;` (mesmo texto
+  na tela). Não foram renderizados, e foram conferidos lendo: o "Sem registro" (pasta sem modificação), o
+  identificador montado da cobrança ("Montado a partir do credor..."), o "Nenhuma aba disponível" (todas ocultas) e a
+  pasta sem número na Nova meta.
+- **Formatos:** o `modificadoEm` do Registro da pasta (sob guarda de nulo) passou a `|data_hora`; o `criadoEm`, sem
+  guarda, ficou com `|date`. A dica do "editado" do cartão montado no JS passou de `toLocale*('pt-BR')` a
+  `BJFormato.data` e `BJFormato.hora`.
+- **Escolhas:** "Vincular 1 Cliente" e "Vincular N Clientes" viraram duas chaves pelo mesmo teste de antes; o
+  "movimentação(ões)" continua com "(s)", como no §8. A frase com `<strong>` do identificador montado ficou uma chave
+  por pedaço. As perguntas do processo (segredo, 100% digital, gratuita, tutela, prioridade) viraram chaves no array
+  do Twig, traduzidas no uso. As letras dos dias da semana do calendário da Nova meta são uma chave cada. Ficaram nos
+  permitidos as siglas (`CPF`, `CNPJ`, `RG`, `CEP`, `UF`), os exemplos (`SSP/SP`, `SP`, `R$ 0,00`), a classe
+  `ps-body`, o enum `TipoDeApenso` e a constante `Pasta::ROTULOS_SITUACAO`.
+- **Ficou de fora:** o texto do PHP (rótulos do `TipoDeApenso` e de `Pasta::ROTULOS_SITUACAO`, `documentTypeOptions`,
+  `identificador_pasta`, `documento_br_rotulo`, `cliente_qualificacao`, as mensagens `erro`/`error`/`aviso` das
+  rotas que os scripts mostram); os parciais incluídos pelo show (de outras frentes ou já extraídos); os JS externos
+  (`pasta-explorador.js`, `pasta-checklist.js`, `pasta-metas.js`, `pasta-apensado.js`, `pasta-destaque.js` e os
+  demais); o `formatBytesPeca` do envio (`toFixed` com ponto) e os meses abreviados (`MESES`) da pílula do dia do
+  cartão montado no JS, como no §20.6.
+
 ## 25. E-mails e as páginas que eles abrem (5d, 21/10)
 
 Três PRs, um aberto por vez, sem migration e com o português idêntico:
