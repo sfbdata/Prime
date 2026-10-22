@@ -555,7 +555,8 @@
             "tenant/selecionar.html.twig",
             "tenant/escritorio_indisponivel.html.twig",
             "tenant/users.html.twig",
-            "tenant/edit_user_role.html.twig"
+            "tenant/edit_user_role.html.twig",
+            "tenant/sedes.html.twig"
         ],
         "js": [],
         "permitidos": [

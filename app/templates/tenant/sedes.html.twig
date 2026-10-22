@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Sedes | {{ tenant.name }}{% endblock %}
+{% block title %}{{ 'escritorio.sedes.titulo'|trans }} | {{ tenant.name }}{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}
@@ -428,12 +428,12 @@
                 <i class="bi bi-building-fill"></i>
             </div>
             <div>
-                <div class="sedes-page-title">Sedes</div>
+                <div class="sedes-page-title">{{ 'escritorio.sedes.titulo'|trans }}</div>
                 <div class="sedes-page-subtitle">{{ tenant.name }}</div>
             </div>
         </div>
         <a href="{{ path('app_tenant_edit', {'tenantId': tenant.id}) }}" class="btn-back">
-            <i class="bi bi-arrow-left"></i> Voltar
+            <i class="bi bi-arrow-left"></i> {{ 'escritorio.sedes.voltar'|trans }}
         </a>
     </div>
 
@@ -458,7 +458,7 @@
                         <span class="card-icon card-icon-blue">
                             <i class="bi bi-{{ editSede is defined ? 'pencil-fill' : 'plus-lg' }}"></i>
                         </span>
-                        {{ editSede is defined ? 'Editar Sede' : 'Nova Sede' }}
+                        {{ (editSede is defined ? 'escritorio.sedes.editar_sede' : 'escritorio.sedes.nova_sede')|trans }}
                     </h3>
                 </div>
 
@@ -472,30 +472,30 @@
 
                     {# ── Seção: Identificação ── #}
                     <div class="form-section">
-                        <div class="form-section-label"><i class="bi bi-tag me-1"></i>Identificação</div>
+                        <div class="form-section-label"><i class="bi bi-tag me-1"></i>{{ 'escritorio.sedes.identificacao'|trans }}</div>
                         <label class="sedes-label" for="{{ activeForm.nome.vars.id }}">
-                            Nome da Sede
+                            {{ 'escritorio.sedes.nome'|trans }}
                         </label>
-                        {{ form_widget(activeForm.nome, {'attr': {'class': 'form-control sedes-input', 'placeholder': 'Ex: Escritório Centro'}}) }}
+                        {{ form_widget(activeForm.nome, {'attr': {'class': 'form-control sedes-input', 'placeholder': 'escritorio.sedes.nome_exemplo'|trans}}) }}
                         {{ form_errors(activeForm.nome) }}
                     </div>
 
                     {# ── Seção: Localização ── #}
                     <div class="form-section">
-                        <div class="form-section-label"><i class="bi bi-geo-alt me-1"></i>Localização no Mapa</div>
+                        <div class="form-section-label"><i class="bi bi-geo-alt me-1"></i>{{ 'escritorio.sedes.localizacao'|trans }}</div>
 
                         {# Busca de endereço #}
                         <div class="address-search-row mb-2">
                             <input type="text"
                                    id="cep-search-input"
                                    class="form-control sedes-input"
-                                   placeholder="CEP ou endereço"
+                                   placeholder="{{ 'escritorio.sedes.cep_ou_endereco'|trans }}"
                                    maxlength="9"
-                                   aria-label="CEP ou endereço">
+                                   aria-label="{{ 'escritorio.sedes.cep_ou_endereco'|trans }}">
                             <button class="btn btn-outline-secondary btn-search" type="button" id="btn-cep-search">
-                                <i class="bi bi-search"></i> Buscar
+                                <i class="bi bi-search"></i> {{ 'escritorio.sedes.buscar'|trans }}
                             </button>
-                            <button class="btn btn-outline-secondary btn-icon-only" type="button" id="btn-toggle-fields" title="Preencher manualmente">
+                            <button class="btn btn-outline-secondary btn-icon-only" type="button" id="btn-toggle-fields" title="{{ 'escritorio.sedes.preencher_manualmente'|trans }}">
                                 <i class="bi bi-pencil-square"></i>
                             </button>
                         </div>
@@ -503,31 +503,21 @@
                         <div id="address-extra-fields" class="address-extra-fields" style="display:none">
                             <div class="row g-2">
                                 <div class="col-8">
-                                    <input type="text" id="search-logradouro" class="form-control sedes-input" placeholder="Logradouro">
+                                    <input type="text" id="search-logradouro" class="form-control sedes-input" placeholder="{{ 'escritorio.sedes.logradouro'|trans }}">
                                 </div>
                                 <div class="col-4">
-                                    <input type="text" id="search-numero" class="form-control sedes-input" placeholder="Número">
+                                    <input type="text" id="search-numero" class="form-control sedes-input" placeholder="{{ 'escritorio.sedes.numero'|trans }}">
                                 </div>
                                 <div class="col-7">
-                                    <input type="text" id="search-cidade" class="form-control sedes-input" placeholder="Cidade">
+                                    <input type="text" id="search-cidade" class="form-control sedes-input" placeholder="{{ 'escritorio.sedes.cidade'|trans }}">
                                 </div>
                                 <div class="col-5">
                                     <select id="search-estado" class="form-select sedes-input">
-                                        <option value="">UF</option>
-                                        <option value="AC">AC</option><option value="AL">AL</option>
-                                        <option value="AP">AP</option><option value="AM">AM</option>
-                                        <option value="BA">BA</option><option value="CE">CE</option>
-                                        <option value="DF">DF</option><option value="ES">ES</option>
-                                        <option value="GO">GO</option><option value="MA">MA</option>
-                                        <option value="MT">MT</option><option value="MS">MS</option>
-                                        <option value="MG">MG</option><option value="PA">PA</option>
-                                        <option value="PB">PB</option><option value="PR">PR</option>
-                                        <option value="PE">PE</option><option value="PI">PI</option>
-                                        <option value="RJ">RJ</option><option value="RN">RN</option>
-                                        <option value="RS">RS</option><option value="RO">RO</option>
-                                        <option value="RR">RR</option><option value="SC">SC</option>
-                                        <option value="SP">SP</option><option value="SE">SE</option>
-                                        <option value="TO">TO</option>
+                                        <option value="">{{ 'escritorio.sedes.uf'|trans }}</option>
+{# As siglas das UFs são dado. A linha em branco dentro do for repõe a quebra que o endif come. #}{% for par in ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']|batch(2) %}
+                                        <option value="{{ par|first }}">{{ par|first }}</option>{% if par|length > 1 %}<option value="{{ par|last }}">{{ par|last }}</option>{% endif %}
+
+{% endfor %}
                                     </select>
                                 </div>
                             </div>
@@ -537,13 +527,13 @@
 
                         <div class="map-wrapper">
                             <div id="sede-map"></div>
-                            <button type="button" id="btn-gps-locate" class="map-locate-btn" title="Usar minha localização">
+                            <button type="button" id="btn-gps-locate" class="map-locate-btn" title="{{ 'escritorio.sedes.usar_localizacao'|trans }}">
                                 <i class="bi bi-geo-alt-fill"></i>
                             </button>
                         </div>
                         <div class="map-tip">
                             <i class="bi bi-cursor-fill" style="font-size:.7rem"></i>
-                            Clique no mapa para marcar a localização exata da sede.
+                            {{ 'escritorio.sedes.dica_mapa'|trans }}
                         </div>
 
                         {{ form_widget(activeForm.latitude) }}
@@ -554,25 +544,25 @@
 
                     {# ── Seção: Raio ── #}
                     <div class="form-section" style="margin-bottom:0">
-                        <div class="form-section-label"><i class="bi bi-arrows-angle-expand me-1"></i>Raio de Validação</div>
+                        <div class="form-section-label"><i class="bi bi-arrows-angle-expand me-1"></i>{{ 'escritorio.sedes.raio'|trans }}</div>
                         {{ form_widget(activeForm.raioPermitido, {'attr': {'class': 'form-control sedes-input'}}) }}
                         <div class="form-hint">
                             <i class="bi bi-info-circle" style="font-size:.74rem"></i>
-                            Distância máxima da sede para validar o ponto via GPS (metros).
+                            {{ 'escritorio.sedes.raio_dica'|trans }}
                         </div>
                     </div>
 
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary btn-submit" id="btn-salvar">
                             {% if editSede is defined %}
-                                <i class="bi bi-pencil me-1"></i> Atualizar Sede
+                                <i class="bi bi-pencil me-1"></i> {{ 'escritorio.sedes.atualizar'|trans }}
                             {% else %}
-                                <i class="bi bi-plus-lg me-1"></i> Salvar Sede
+                                <i class="bi bi-plus-lg me-1"></i> {{ 'escritorio.sedes.salvar'|trans }}
                             {% endif %}
                         </button>
                         <button type="button" id="btn-cancelar-sede" class="btn btn-cancel-edit"
                                 style="{{ editSede is defined ? '' : 'display:none' }}">
-                            Cancelar
+                            {{ 'escritorio.sedes.cancelar'|trans }}
                         </button>
                     </div>
 
@@ -589,11 +579,11 @@
                         <span class="card-icon card-icon-green">
                             <i class="bi bi-building"></i>
                         </span>
-                        Sedes Cadastradas
+                        {{ 'escritorio.sedes.cadastradas'|trans }}
                     </h3>
                     {% if sedes|length > 0 %}
                         <span class="badge rounded-pill" style="background:#eff6ff;color:#1a56a4;font-size:.75rem;font-weight:700;padding:.3rem .65rem;font-family:'DM Sans',sans-serif">
-                            {{ sedes|length }} {{ sedes|length == 1 ? 'sede' : 'sedes' }}
+                            {{ 'escritorio.sedes.contagem'|trans({n: sedes|length, qtd: sedes|length ~ ''}) }}
                         </span>
                     {% endif %}
                 </div>
@@ -619,12 +609,12 @@
                                             </span>
                                         {% else %}
                                             <span class="sede-badge sede-badge-nocoords">
-                                                <i class="bi bi-geo-alt"></i> Sem coordenadas
+                                                <i class="bi bi-geo-alt"></i> {{ 'escritorio.sedes.sem_coordenadas'|trans }}
                                             </span>
                                         {% endif %}
                                         <span class="sede-badge sede-badge-raio">
                                             <i class="bi bi-arrows-angle-expand"></i>
-                                            {{ sede.raioPermitido }}m
+                                            {{ 'escritorio.sedes.raio_metros'|trans({raio: sede.raioPermitido ~ ''}) }}
                                         </span>
                                     </div>
                                 </div>
@@ -632,7 +622,7 @@
                                     <button type="button"
                                             class="btn btn-sede-edit btn-editar-sede"
                                             data-sede-id="{{ sede.id }}"
-                                            title="Editar sede">
+                                            title="{{ 'escritorio.sedes.editar_dica'|trans }}">
                                         <i class="bi bi-pencil"></i>
                                     </button>
                                     <form method="post"
@@ -640,7 +630,7 @@
                                           class="d-inline-block"
                                           onsubmit="return confirm('Excluir a sede \'{{ sede.nome|e('js') }}\' permanentemente?');">
                                         <input type="hidden" name="_token" value="{{ csrf_token('delete_sede_' ~ sede.id) }}">
-                                        <button type="submit" class="btn btn-sede-del" title="Excluir sede">
+                                        <button type="submit" class="btn btn-sede-del" title="{{ 'escritorio.sedes.excluir_dica'|trans }}">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
@@ -652,8 +642,8 @@
                             <div class="sedes-empty-icon">
                                 <i class="bi bi-building-add"></i>
                             </div>
-                            <div class="sedes-empty-title">Nenhuma sede cadastrada</div>
-                            <div class="sedes-empty-sub">Crie a primeira sede usando o formulário ao lado.</div>
+                            <div class="sedes-empty-title">{{ 'escritorio.sedes.vazio_titulo'|trans }}</div>
+                            <div class="sedes-empty-sub">{{ 'escritorio.sedes.vazio_sub'|trans }}</div>
                         </div>
                     {% endfor %}
                 </div>

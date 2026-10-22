@@ -3312,7 +3312,7 @@ comercial:
         dsc_registrar_pergunta: 'E-mail que pediu para não receber (por telefone, WhatsApp etc.):'
 
 # ---- escritorio: Meu Escritório (tenant/index, new, criar, show, edit, _form, _delete_form, selecionar,
-# escritorio_indisponivel; no T2, tenant/users e edit_user_role), com os flashes do TenantController, do EscritorioController e do TenantSelecaoController
+# escritorio_indisponivel; no T2, tenant/users e edit_user_role; no T4, tenant/sedes), com os flashes do TenantController, do EscritorioController e do TenantSelecaoController
 # e o título da página de escritório indisponível. Frase curta com o termo dentro recebe termos.escritorio por
 # parâmetro ({termo}); "(s)" fica como está.
 escritorio:
@@ -3467,6 +3467,40 @@ escritorio:
             titular: O primário titular (quem abriu a conta) não pode deixar de ser primário.
             ultimo_primario: Este é o último primário do escritório. Promova outro primário antes de removê-lo.
             troca_de_primario: 'A senha de um primário só pode ser trocada por um primário ou pelo Master; a do primário titular, só por ele mesmo ou pelo Master.'
+    # T4: tenant/sedes (o Twig; o <script> do mapa fica com o texto dele, §27). As siglas das UFs são dado.
+    sedes:
+        titulo: Sedes
+        voltar: Voltar
+        nova_sede: Nova Sede
+        editar_sede: Editar Sede
+        identificacao: Identificação
+        nome: Nome da Sede
+        nome_exemplo: 'Ex: Escritório Centro'
+        localizacao: Localização no Mapa
+        cep_ou_endereco: CEP ou endereço
+        buscar: Buscar
+        preencher_manualmente: Preencher manualmente
+        logradouro: Logradouro
+        numero: Número
+        cidade: Cidade
+        uf: UF
+        usar_localizacao: Usar minha localização
+        dica_mapa: Clique no mapa para marcar a localização exata da sede.
+        raio: Raio de Validação
+        raio_dica: Distância máxima da sede para validar o ponto via GPS (metros).
+        atualizar: Atualizar Sede
+        salvar: Salvar Sede
+        cancelar: Cancelar
+        cadastradas: Sedes Cadastradas
+        # {qtd} é o número já como texto: o # do ICU agruparia o milhar ("1.000").
+        contagem: '{n, plural, one {{qtd} sede} other {{qtd} sedes}}'
+        sem_coordenadas: Sem coordenadas
+        # Raio da cerca colado na unidade, como hoje ("100m"); {raio} já vem como texto.
+        raio_metros: '{raio}m'
+        editar_dica: Editar sede
+        excluir_dica: Excluir sede
+        vazio_titulo: Nenhuma sede cadastrada
+        vazio_sub: Crie a primeira sede usando o formulário ao lado.
     flash:
         email_em_uso: Este e-mail já está em uso. Informe outro e-mail para o administrador.
         email_cadastrado: Este e-mail já está cadastrado. Informe outro e-mail para o administrador.
@@ -3488,6 +3522,12 @@ escritorio:
         nome_do_usuario_atualizado: Nome atualizado com sucesso!
         colaborador_removido: '{nome} foi removido do escritório.'
         acesso_removido: Acesso específico removido com sucesso.
+        # T4: as ações das sedes do TenantController. {qtd} é o número já como texto (sem separador de milhar).
+        sede_cadastrada: Sede cadastrada com sucesso!
+        sede_atualizada: Sede atualizada com sucesso!
+        sede_removida: Sede removida com sucesso.
+        sede_registros_desvinculados: '{qtd} registro(s) de ponto foram desvinculados automaticamente da sede removida.'
+        sede_nao_removida: Não foi possível remover a sede neste momento. Tente novamente.
 
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro

@@ -664,3 +664,38 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   `RemoverColaboradorDoEscritorioUseCase` ("Para deixar o escritório...", criador, último administrador, substituto),
   que precisam de chave na exceção; a recusa do convite de primário da `RegraDosPrimarios` (não é dita nestas telas);
   as mensagens das 403 e 404; o `resourceType` cru (`cliente`, `pasta`) do selo dos acessos específicos, que é dado.
+- **T4 sedes** (branch `idioma-tenant-4`, sobre o T2): a parte Twig de `tenant/sedes` (até o `{% block javascripts %}`),
+  dentro do bloco `escritorio:`, com `escritorio.sedes.*` (30 chaves) e 5 flashes novos em `escritorio.flash.sede_*`.
+  "Sedes" serve ao `<title>` e ao cabeçalho (`titulo`), com o ` | nome do escritório` fora da chave, como hoje. A
+  contagem do selo é um plural ICU com o número já como texto (`{n, plural, one {{qtd} sede} other {{qtd} sedes}}`,
+  como o `escritorio.usuarios.itens`), e o raio da cerca é `'{raio}m'` com o inteiro como texto (sem separador de
+  milhar). As siglas das UFs do `<select>` são dado: saíram do HTML para uma lista no próprio template, num
+  `{% for %}` em pares (`|batch(2)`) que reproduz a quebra de linha de antes; só o "UF" da primeira opção tem chave.
+  As coordenadas do selo (`|round(5)`) e os `data-sede-*` que o script lê ficam como estão: são dado, e um `|numero`
+  trocaria o ponto pela vírgula. A página não tem `|date` nem `number_format`.
+- **Texto do PHP (T4):** no `TenantController` (edição cirúrgica), os cinco flashes das ações `manageSedes`,
+  `editSede` e `deleteSede` vão pelo tradutor; o "N registro(s) de ponto foram desvinculados..." recebe o total como
+  texto (`{qtd}`), igual ao `%d` de antes. As sedes não têm UseCase próprio nem constante de recusa que teste compare.
+  O laço de flashes do próprio `sedes.html.twig` fica como está e, na prática, não mostra nada: o `base` consome os
+  flashes antes do bloco `body`.
+- **Sem mudança visível (T4):** um teste temporário (apagado antes do commit) gravou o HTML de 9 casos com o código da
+  HEAD e com o novo, normalizando tokens CSRF, nonces e ids: a lista vazia, com uma sede (selo no singular), com três
+  (plural, nome com aspas, `&` e `<`, raio de 1500), criar com sucesso (flash), criar com erro de validação, editar com
+  erro (o formulário em modo edição, título e botão de editar), editar com sucesso, excluir e excluir com dois
+  registros de ponto desvinculados (os dois flashes). Os 9 ficaram iguais byte a byte. O "Sem coordenadas" não foi
+  renderizado: `latitude` e `longitude` são não nulas no banco e o decimal volta como texto não vazio.
+- **JS inline com texto (fica como está, o teste não cobre `<script>` nem `onsubmit`):** o `confirm('Excluir a sede
+  ...permanentemente?')` do `onsubmit` da exclusão; no `<script>` do mapa, o título e o botão do modo edição e do modo
+  novo ("Editar Sede", "Atualizar Sede", "Nova Sede", "Salvar Sede", montados por `innerHTML` com o mesmo texto do
+  Twig, sem ler do HTML), os retornos da busca de CEP e endereço ("Localização encontrada: ...", "(aproximado pelo
+  bairro)", "(aproximado pela cidade)", "Não foi possível localizar automaticamente...", "Informe pelo menos um
+  endereço para buscar.", "Nenhum resultado encontrado...", "Digite um CEP ou endereço para buscar.", "Nenhum
+  resultado. Clique em ✎...", "Erro ao buscar endereço..."), os `alert` do GPS ("Geolocalização não suportada neste
+  navegador.", permissão negada, posição indisponível, tempo esgotado, "Erro ao obter localização."), o "Brasil" das
+  buscas, a atribuição "OpenStreetMap contributors" e o `accept-language=pt-BR` do Nominatim. O JS é a frente dos
+  scripts (com o `t()` do catálogo no navegador).
+- **Ficou fora do T4:** os rótulos e as mensagens do `SedeType` (latitude e longitude obrigatórias, faixas de
+  latitude, longitude e raio), como na P1; as mensagens das 403 e 404 das três ações ("Você não tem permissão para
+  gerenciar sedes.", "Sede não encontrada." etc.); o `<script>` do mapa (acima). Achado fora do escopo, não
+  consertado: editar uma sede com a longitude vazia dá 500 (`InvalidTypeException` no
+  `Sede::setLongitude(string)`), em vez do erro de validação; criar com os campos vazios mostra o erro.
