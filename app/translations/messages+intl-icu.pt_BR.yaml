@@ -1545,6 +1545,7 @@ metas:
             despacho: Comentário
             envio: Enviado para revisão
             devolucao: Devolvida
+            etapa: Etapa concluída
         mais_recente: MAIS RECENTE
         local_e_data: '{cidade}, {data, date, ::yMMMMd}.'
         registrado_por: Registrado por
@@ -1621,8 +1622,72 @@ metas:
             descricao: Resultado, prestação de contas e arquivamento
     tipo_de_demanda:
         judicial: Judicial
-        administrativo: Administrativo
+        administrativo: Administrativo / Previdenciário
         consultoria: Consultoria
+    # Passagem de etapa e devolução (desenhos 04 e 04B de 22/10, Fase 3): trilho, lateral, modais e cartão.
+    passagem:
+        trilho:
+            rotulo: ETAPA DA PASTA
+            dica_saltada: etapa saltada, sem registro
+            dica_concluida: concluída
+            saltadas: '{n, plural, one {# etapa saltada} other {# etapas saltadas}}: {nomes}'
+        concluir_e_passar: 'Concluir e passar para {etapa}'
+        concluir_meta: Concluir meta
+        proximo_passo: 'Próximo passo: {etapa} ({setor}). Você escolhe o responsável, o prazo e as pendências.'
+        ultima_etapa: 'Última etapa: a pasta será encerrada.'
+        devolver_para: 'Devolver para {nome}'
+        cartao:
+            concluir_etapa: Concluir etapa
+            dica_passar: 'Concluir esta etapa e passar para {etapa}'
+            dica_encerrar: Concluir e encerrar a pasta
+        modal:
+            titulo: Concluir etapa e passar adiante
+            concluida: CONCLUÍDA
+            proximo_passo: PRÓXIMO PASSO
+            tipo: TIPO DE DEMANDA
+            responsavel: PASSAR PARA RESPONSÁVEL
+            prazo: PRAZO DA PRÓXIMA ETAPA
+            pendencias: PENDÊNCIAS PARA O PRÓXIMO SETOR
+            pendencias_placeholder: 'Uma por linha: falta procuração, comprovante de residência...'
+            feito: O QUE FOI FEITO
+            feito_placeholder: Resumo para o registro da pasta
+            menu_dica: Escolher outra etapa (saltar)
+            menu_titulo: PASSAR PARA A ETAPA
+            cancelar: Cancelar
+            fechar: Fechar
+        devolucao:
+            explicacao: A meta volta para quem enviou, com o motivo registrado no histórico. A etapa da pasta não muda.
+            motivo: MOTIVO
+            o_que_falta: O QUE FALTA PARA AVANÇAR
+            placeholder: 'Ex.: preciso do contrato assinado e do comprovante de endereço'
+            cancelar: Cancelar
+            devolver: Devolver
+            fechar: Fechar
+        js:
+            pasta: 'Pasta {pasta} · {cliente}'
+            pasta_sem_cliente: 'Pasta {pasta}'
+            proximo_passo: PRÓXIMO PASSO
+            saltar_para: SALTAR PARA
+            voltar_para: VOLTAR PARA
+            encerramento: Encerramento da pasta
+            sem_proxima: Nenhuma etapa depois desta.
+            responsavel_placeholder: 'Escolha um membro da equipe ({setor})'
+            saltando: 'Saltando: {nomes}. As etapas saltadas ficam marcadas na esteira da pasta.'
+            voltando: 'Voltando para {etapa}. A meta volta para essa etapa e o motivo deve ir nas pendências.'
+            salta: salta
+            volta: volta
+            botao_passar: 'Concluir e passar para {etapa}'
+            botao_voltar: 'Voltar para {etapa}'
+            botao_encerrar: Concluir e encerrar
+            botao_concluir_meta: Concluir meta
+            toast_passou: 'Etapa concluída. Pasta {pasta} passou para {etapa}.'
+            toast_encerrou: 'Pasta {pasta} encerrada.'
+            toast_meta_concluida: Meta concluída.
+            toast_devolvida: 'Meta devolvida para {nome}. O aviso foi enviado no Chat I.A.'
+            erro_motivo: Escolha o motivo da devolução.
+            erro_falta: Explique o que falta para conseguir avançar.
+            erro_rede: Não foi possível gravar. Tente de novo.
+            erro_responsavel: Escolha um membro da equipe para o responsável.
     esteira:
         titulo: Esteira da pasta
         geral: Geral do escritório

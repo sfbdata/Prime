@@ -72,6 +72,16 @@ class Tarefa implements Auditavel, TenantAware
     #[ORM\Column(name: 'tipo_de_demanda', length: 20, enumType: TipoDeDemanda::class, options: ['default' => 'judicial'])]
     private TipoDeDemanda $tipoDeDemanda = TipoDeDemanda::Judicial;
 
+    /**
+     * Etapas da esteira que a pasta saltou até chegar a esta meta (desenho 04B L44: riscadas no trilho, "N etapa(s)
+     * saltada(s): X, Y"). Lista dos valores de `EtapaDaPasta`, na ordem da esteira; a meta da etapa seguinte herda a
+     * lista e soma o que a passagem saltou (04B L175 `pul`).
+     *
+     * @var list<string>
+     */
+    #[ORM\Column(name: 'etapas_saltadas', type: 'json', options: ['default' => '[]'])]
+    private array $etapasSaltadas = [];
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $dataCriacao;
 
@@ -232,6 +242,27 @@ class Tarefa implements Auditavel, TenantAware
     public function setTipoDeDemanda(TipoDeDemanda $tipoDeDemanda): self
     {
         $this->tipoDeDemanda = $tipoDeDemanda;
+
+        return $this;
+    }
+
+    /** @return list<EtapaDaPasta> na ordem da esteira, sem repetir; valor desconhecido no banco é ignorado */
+    public function getEtapasSaltadas(): array
+    {
+        $etapas = array_values(array_filter(array_map(EtapaDaPasta::tryFrom(...), $this->etapasSaltadas)));
+        usort($etapas, static fn (EtapaDaPasta $a, EtapaDaPasta $b): int => $a->posicao() <=> $b->posicao());
+
+        return $etapas;
+    }
+
+    /** @param iterable<EtapaDaPasta> $etapas */
+    public function setEtapasSaltadas(iterable $etapas): self
+    {
+        $valores = [];
+        foreach ($etapas as $etapa) {
+            $valores[$etapa->value] = $etapa->value;
+        }
+        $this->etapasSaltadas = array_values($valores);
 
         return $this;
     }

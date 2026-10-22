@@ -43,7 +43,8 @@ final class DespacharNaMetaInputTest extends TestCase
     #[TestDox('Natureza fora do enum e ação desconhecida são recusadas')]
     public function testNaturezaEAcao(): void
     {
-        self::assertCount(0, $this->validador->validate(new DespacharNaMetaInput('Ok', 'devolver', 'cumpra_se', hoje: $this->hoje)));
+        self::assertCount(0, $this->validador->validate(new DespacharNaMetaInput('Ok', 'enviar', 'cumpra_se', hoje: $this->hoje)));
+        self::assertCount(1, $this->validador->validate(new DespacharNaMetaInput('Ok', 'devolver', hoje: $this->hoje)), 'Devolver tem modal próprio desde a Fase 3');
         self::assertCount(1, $this->validador->validate(new DespacharNaMetaInput('Ok', natureza: 'urgente', hoje: $this->hoje)));
         self::assertCount(1, $this->validador->validate(new DespacharNaMetaInput('Ok', 'apagar', hoje: $this->hoje)));
     }

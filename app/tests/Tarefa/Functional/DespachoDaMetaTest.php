@@ -246,12 +246,15 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
     #[TestDox('Envio para revisão e devolução: cabeçalho com o rótulo da ação (L127), marcador âmbar e sem Certificar')]
     public function testEnvioEDevolucaoNaLinhaDoTempo(): void
     {
+        // Devolver é o modal da lateral desde a Fase 3: o responsável devolve a meta pendente para quem enviou.
         $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
-        $this->despachar(['mensagem' => 'Pronto para revisão.', 'acao' => 'enviar']);
+        $id = (int) $this->meta->getId();
+        $this->client->request('POST', '/tarefas/' . $id . '/devolver', ['_token' => 'TOKEN_devolver_meta_' . $id, 'motivo' => 'Falta documento', 'o_que_falta' => 'Ajustar a peça.']);
+        self::assertResponseIsSuccessful();
         $this->logarComTenant($this->client, $this->criador, $this->escritorio);
-        $this->despachar(['mensagem' => 'Ajustar a peça.', 'acao' => 'devolver', 'natureza' => 'providencia']);
+        $this->despachar(['mensagem' => 'Pronto para revisão.', 'acao' => 'enviar']);
         $this->despachar(['mensagem' => 'Comentário solto.']);
-        [$envio, $devolucao, $comentario] = $this->despachosDaMeta();
+        [$devolucao, $envio, $comentario] = $this->despachosDaMeta();
         self::assertSame(AcaoDoDespacho::Envio, $envio->getAcao());
         self::assertSame(AcaoDoDespacho::Devolucao, $devolucao->getAcao());
         self::assertSame(AcaoDoDespacho::Despacho, $comentario->getAcao());
@@ -262,7 +265,7 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Enviado para revisão', $crawler->filter($linha($envio) . ' .despacho-tipo')->text());
         self::assertCount(1, $crawler->filter($linha($envio) . '.despacho-item--ambar .despacho-icone .bi-send'));
         self::assertCount(0, $crawler->filter($linha($envio) . ' .despacho-certificar'));
-        self::assertStringContainsString('Para providência', $crawler->filter($linha($devolucao) . ' .despacho-tipo')->text());
+        self::assertStringContainsString('Devolvida', $crawler->filter($linha($devolucao) . ' .despacho-tipo')->text());
         self::assertCount(1, $crawler->filter($linha($devolucao) . '.despacho-item--ambar .despacho-icone .bi-arrow-return-left'));
         self::assertCount(0, $crawler->filter($linha($devolucao) . ' .despacho-certificar'));
         self::assertStringContainsString('Comentário', $crawler->filter($linha($comentario) . ' .despacho-tipo')->text());

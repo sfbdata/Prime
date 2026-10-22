@@ -1,0 +1,58 @@
+{# Modal "Concluir etapa e passar adiante" (desenho 04 L131 e L195-197, com o menu de salto e volta do 04B L93-94;
+   spec Fase 3, L11 a L14). Um só esqueleto para a lista e a meta: `contexto` ('lista' ou 'meta') muda o botão e o
+   aviso de quando não há próxima etapa (04 "Concluir e encerrar"; 04B "Concluir meta"). O meta-passagem.js pede os
+   dados da meta (rota tarefa_passagem) ao abrir e preenche faixa, tipos, menu e equipe. #}
+<div class="mp-modal mp-passagem" id="mpPassagem" data-contexto="{{ contexto }}" hidden>
+    <div class="mp-modal-fundo" data-mp-fechar></div>
+    <div class="mp-modal-centro">
+        <div class="mp-modal-caixa" role="dialog" aria-modal="true" aria-labelledby="mpPassagemTitulo">
+            <div class="mp-modal-cabeca">
+                <i class="bi bi-arrow-left-right" aria-hidden="true"></i>
+                <span class="mp-modal-cabeca-texto"><b id="mpPassagemTitulo">{{ 'metas.passagem.modal.titulo'|trans }}</b><span data-mp="pasta"></span></span>
+                <button type="button" class="mp-modal-x" data-mp-fechar aria-label="{{ 'metas.passagem.modal.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="mp-modal-corpo">
+                <div class="mp-seq" data-mp="seq"></div>
+                <div class="mp-caixas">
+                    <div class="mp-caixa-concluida">
+                        <span class="mp-caixa-rotulo">{{ 'metas.passagem.modal.concluida'|trans }}</span>
+                        <b data-mp="atual"></b>
+                        <span class="mp-caixa-texto" data-mp="titulo"></span>
+                    </div>
+                    <i class="bi bi-arrow-right mp-caixas-seta" aria-hidden="true"></i>
+                    <div class="mp-caixa-proxima" data-mp="caixaProxima">
+                        <span class="mp-caixa-rotulo" data-mp="rotuloProxima">{{ 'metas.passagem.modal.proximo_passo'|trans }}</span>
+                        <b data-mp="proxima"></b>
+                        <span class="mp-caixa-texto" data-mp="descProxima"></span>
+                        <button type="button" class="mp-menu-botao" data-mp="menuBotao" title="{{ 'metas.passagem.modal.menu_dica'|trans }}" aria-label="{{ 'metas.passagem.modal.menu_dica'|trans }}" aria-expanded="false" hidden><i class="bi bi-chevron-down"></i></button>
+                        <div class="mp-menu" data-mp="menu" hidden>
+                            <div class="mp-menu-fundo" data-mp="menuFundo"></div>
+                            <div class="mp-menu-caixa">
+                                <div class="mp-menu-titulo">{{ 'metas.passagem.modal.menu_titulo'|trans }}</div>
+                                <div class="mp-menu-lista" data-mp="menuLista" data-hoscroll="1"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mp-salto" data-mp="salto" hidden><i class="bi" aria-hidden="true"></i><span></span></div>
+                <div class="mp-tipo">
+                    <span class="mp-rotulo">{{ 'metas.passagem.modal.tipo'|trans }}</span>
+                    <div class="mp-tipos" data-mp="tipos" role="group" aria-label="{{ 'metas.passagem.modal.tipo'|trans }}"></div>
+                </div>
+                <div class="mp-com-proxima" data-mp="comProxima">
+                    <div class="mp-resp-prazo">
+                        <label class="mp-campo mp-campo-resp">{{ 'metas.passagem.modal.responsavel'|trans }}<input type="text" data-mp="resp" autocomplete="off"><div class="mp-membros" data-mp="membros" hidden></div></label>
+                        <label class="mp-campo">{{ 'metas.passagem.modal.prazo'|trans }}<input type="date" data-mp="prazo"></label>
+                    </div>
+                    <label class="mp-campo">{{ 'metas.passagem.modal.pendencias'|trans }}<textarea rows="3" data-mp="pend" maxlength="2000" placeholder="{{ 'metas.passagem.modal.pendencias_placeholder'|trans }}"></textarea></label>
+                </div>
+                <label class="mp-campo">{{ 'metas.passagem.modal.feito'|trans }}<textarea rows="2" data-mp="feito" maxlength="2000" placeholder="{{ 'metas.passagem.modal.feito_placeholder'|trans }}"></textarea></label>
+                <div class="mp-erro" data-mp="erro" role="alert" hidden></div>
+            </div>
+            <div class="mp-modal-pe">
+                <button type="button" class="mp-cancelar" data-mp-fechar>{{ 'metas.passagem.modal.cancelar'|trans }}</button>
+                <button type="button" class="mp-confirmar" data-mp="ok"><i class="bi bi-check2-circle" aria-hidden="true"></i><span data-mp="okTexto"></span></button>
+            </div>
+        </div>
+    </div>
+</div>

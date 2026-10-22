@@ -49,15 +49,10 @@
             <span class="despacho-contador" id="despachoContador">{{ 'metas.despacho.contador'|trans({n: '0'}) }}</span>
 
             {# Botões (04B L65-66): Despachar e Enviar para revisão sempre; fora da pendente, o servidor recusa o
-               envio com aviso. O Devolver, só na em revisão, fica aqui até a Fase 3. #}
+               envio com aviso. O Devolver saiu daqui: é o "Devolver para X" da lateral (L81, Fase 3). #}
             <button type="button" class="despacho-botao" data-acao="">
                 <i class="bi bi-chat-left-text"></i>{{ 'metas.despacho.despachar'|trans }}
             </button>
-            {% if tarefa.status == 'em_revisao' %}
-                <button type="button" class="despacho-botao" data-acao="devolver">
-                    <i class="bi bi-arrow-return-left"></i>{{ 'metas.detalhe.devolver'|trans }}
-                </button>
-            {% endif %}
             <button type="button" class="despacho-botao despacho-botao--principal" data-acao="enviar">
                 <i class="bi bi-send"></i>{{ 'metas.despacho.enviar_para_revisao'|trans }}
             </button>

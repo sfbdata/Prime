@@ -43,6 +43,7 @@ final class MontarLinhaDoTempoDaMetaUseCase
     private const DESPACHOS = [
         'envio'     => ['bi-send', 'ambar'],
         'devolucao' => ['bi-arrow-return-left', 'ambar'],
+        'etapa'     => ['bi-check2-circle', 'verde'],
     ];
 
     /**
@@ -75,7 +76,7 @@ final class MontarLinhaDoTempoDaMetaUseCase
 
     private function ehOMesmoAtoDeUmDespacho(TimelineItemDTO $item, DespachosDaMetaOutput $despachos): bool
     {
-        $acao = ['revisao' => 'envio', 'devolvida' => 'devolucao'][(string) $item->sistema] ?? null;
+        $acao = ['revisao' => 'envio', 'devolvida' => 'devolucao', 'concluida' => 'etapa'][(string) $item->sistema] ?? null;
         if ($item->tipo !== TimelineItemType::EVENTO || $acao === null) {
             return false;
         }

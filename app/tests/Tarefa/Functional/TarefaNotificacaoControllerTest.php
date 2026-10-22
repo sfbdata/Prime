@@ -182,28 +182,29 @@ final class TarefaNotificacaoControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $this->notificacoesDe((int) $resp1->getId(), Notificacao::TIPO_TAREFA_CRIADA), 'quem já era responsável não recebe de novo');
     }
 
-    #[TestDox('Devolver meta para ajustes gera notificação TAREFA_PENDENTE')]
-    public function testDevolverNotificaResponsaveis(): void
+    #[TestDox('Devolver para quem enviou (Fase 3) avisa o criador com TAREFA_PENDENTE')]
+    public function testDevolverNotificaCriador(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $autor  = $this->criarUsuario($tenant, 'autor_');
         $resp   = $this->criarUsuario($tenant, 'resp_');
         $pasta  = $this->criarPasta($tenant, $autor);
-        $tarefa = $this->criarTarefa($pasta, $autor, [$resp], Tarefa::STATUS_EM_REVISAO);
+        $tarefa = $this->criarTarefa($pasta, $autor, [$resp], Tarefa::STATUS_PENDENTE);
         $tarefaId = (int) $tarefa->getId();
 
         $this->instalarCsrfStorage();
-        $this->logarComTenant($client, $autor, $tenant);
+        // Quem devolve é o responsável (D3), para quem enviou.
+        $this->logarComTenant($client, $resp, $tenant);
 
-        $client->request('POST', "/tarefas/{$tarefaId}/mensagem", [
-            '_token'   => $this->gerarCsrf('mensagem_tarefa_' . $tarefaId),
-            'mensagem' => 'Precisa ajustar isso aqui',
-            'acao'     => 'devolver',
+        $client->request('POST', "/tarefas/{$tarefaId}/devolver", [
+            '_token'      => $this->gerarCsrf('devolver_meta_' . $tarefaId),
+            'motivo'      => 'Falta documento',
+            'o_que_falta' => 'Preciso do contrato assinado.',
         ]);
 
-        self::assertResponseRedirects();
-        self::assertCount(1, $this->notificacoesDe((int) $resp->getId(), Notificacao::TIPO_TAREFA_PENDENTE));
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $this->notificacoesDe((int) $autor->getId(), Notificacao::TIPO_TAREFA_PENDENTE));
     }
 
     #[TestDox('Enviar meta para revisão notifica o criador com TAREFA_EM_REVISAO')]

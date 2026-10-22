@@ -117,10 +117,26 @@ final class MontarDespachosDaMetaUseCase
             certificadoPor: $d->getCertificadoPor()?->getFullName(),
             certificadoEm: $d->getCertificadoEm(),
             podeCertificar: $podeCertificar && $d->getAcao() === AcaoDoDespacho::Despacho && !$d->temCertidao(),
-            para: self::mencionados($d->getMensagem()),
+            para: self::para($d),
             anexoNome: $juntado?->getNomeOriginal(),
             anexoDocumentoId: $juntado?->getId(),
         );
+    }
+
+    /**
+     * O "quem → para" (L161): o destinatário do ato (a passagem de etapa e a devolução, Fase 3) e os mencionados.
+     *
+     * @return list<string>
+     */
+    private static function para(TarefaMensagem $d): array
+    {
+        $destinatario = $d->getDestinatario();
+        if ($destinatario === null) {
+            return self::mencionados($d->getMensagem());
+        }
+        $palavras = preg_split('/\s+/u', mb_convert_case(trim((string) ($destinatario->getFullName() ?? $destinatario->getEmail())), MB_CASE_TITLE), -1, \PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return array_values(array_unique([implode(' ', array_slice($palavras, 0, 2)), ...self::mencionados($d->getMensagem())]));
     }
 
     /**

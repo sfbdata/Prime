@@ -216,17 +216,17 @@ final class PaginaDaMetaTest extends JusPrimeWebTestCase
         self::assertSame(Tarefa::STATUS_CONCLUIDA, $this->em->find(Tarefa::class, $id)?->getStatus());
     }
 
-    #[TestDox('Lateral na ordem do dc (L77-85): situação, Concluir meta, Acompanhar e DETALHES; sem Excluir meta nem Voltar à Pasta')]
+    #[TestDox('Lateral na ordem do dc (L77-85): situação, Concluir e passar (Fase 3), Acompanhar e DETALHES; sem Excluir meta nem Voltar à Pasta')]
     public function testLateralNaOrdemDoDesenho(): void
     {
         $c = $this->abrir($this->criador);
 
         $blocos = $c->filter('.col-lg-4 > .mb-3');
-        self::assertCount(4, $blocos);
+        self::assertCount(3, $blocos);
         self::assertCount(1, $blocos->eq(0)->filter('.mb-3 > .meta-situacao'));
-        self::assertSame('Concluir meta', self::texto($blocos->eq(1)->filter('.mb-3 > form[action$="/concluir"] > button.meta-concluir')));
-        self::assertCount(1, $blocos->eq(2)->filter('.mb-3 > #btnAcompanharMeta + .form-text'));
-        self::assertCount(1, $blocos->eq(3)->filter('.mb-3 > .meta-detalhes'));
+        self::assertStringStartsWith('Concluir', self::texto($c->filter('.col-lg-4 > .mb-3 + .mp-lateral > button.mp-concluir')));
+        self::assertCount(1, $c->filter('.col-lg-4 > .mp-lateral + .mb-3 > #btnAcompanharMeta + .form-text'));
+        self::assertCount(1, $blocos->eq(2)->filter('.mb-3 > .meta-detalhes'));
         self::assertCount(0, $c->filter('form[action$="/excluir"]'), 'Excluir meta saiu da página (decisão do dono)');
         self::assertCount(0, $c->filter('a[href$="#tarefas"]'), 'Voltar à Pasta saiu; o voltar é pela seta e pela trilha');
         self::assertStringNotContainsString('Excluir meta', $c->filter('.col-lg-4')->text());

@@ -12,13 +12,13 @@ use Symfony\Component\Validator\Constraints as Assert;
  *
  * `texto` chega já normalizado ({@see \App\Tarefa\Service\TextoDoDespacho::normalizar()}): o limite de 5.000 conta o
  * texto puro que a pessoa escreveu, não o HTML guardado. `acao` é a do ciclo de vida da meta: vazia (Despachar),
- * `enviar` (Enviar para revisão) ou `devolver`. O anexo não passa por aqui: vai à parte para o
+ * `enviar` (Enviar para revisão). Devolver tem modal próprio desde a Fase 3 (`DevolverMetaUseCase`). O anexo não passa por aqui: vai à parte para o
  * `DespacharNaMetaUseCase`, que o junta aos documentos da pasta dentro da transação do despacho (C4).
  */
 final class DespacharNaMetaInput
 {
     public const LIMITE_DO_TEXTO = 5000;
-    public const ACOES = ['', 'enviar', 'devolver'];
+    public const ACOES = ['', 'enviar'];
 
     public function __construct(
         #[Assert\Length(max: self::LIMITE_DO_TEXTO, maxMessage: 'O despacho pode ter até 5.000 caracteres.')]

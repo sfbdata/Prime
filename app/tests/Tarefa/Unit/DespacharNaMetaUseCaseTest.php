@@ -357,8 +357,6 @@ final class DespacharNaMetaUseCaseTest extends TestCase
     {
         yield 'enviar em revisão' => [Tarefa::STATUS_EM_REVISAO, 'enviar', DespachoRecusadoException::envioForaDePendente()];
         yield 'enviar concluída' => [Tarefa::STATUS_CONCLUIDA, 'enviar', DespachoRecusadoException::envioForaDePendente()];
-        yield 'devolver pendente' => [Tarefa::STATUS_PENDENTE, 'devolver', DespachoRecusadoException::devolucaoForaDeRevisao()];
-        yield 'devolver concluída' => [Tarefa::STATUS_CONCLUIDA, 'devolver', DespachoRecusadoException::devolucaoForaDeRevisao()];
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('acoesForaDoStatus')]
@@ -393,20 +391,19 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         self::assertSame(Tarefa::STATUS_CONCLUIDA, $this->meta->getStatus());
     }
 
-    #[TestDox('Devolver: em revisão volta a pendente e avisa os responsáveis')]
-    public function testDevolver(): void
+    #[TestDox('"Devolver" saiu do despacho (Fase 3: modal próprio): a ação não muda o status nem avisa')]
+    public function testDevolverNaoEhMaisDoDespacho(): void
     {
         $this->meta->setStatus(Tarefa::STATUS_EM_REVISAO);
         $this->sorteio->method('sortear')->willReturn('1234.5678');
         $this->codigosOcupados();
-        $this->notificacoes->expects(self::once())->method('notificarTarefaPendente')->with($this->meta);
+        $this->notificacoes->expects(self::never())->method('notificarTarefaPendente');
 
         $saida = $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Ajustar.', 'devolver', 'providencia'));
 
-        self::assertTrue($saida->devolvida);
-        self::assertSame(Tarefa::STATUS_PENDENTE, $this->meta->getStatus());
-        self::assertSame(NaturezaDoDespacho::Providencia, $this->unicoDespacho()->getNatureza());
-        self::assertSame(AcaoDoDespacho::Devolucao, $this->unicoDespacho()->getAcao());
+        self::assertFalse($saida->enviada);
+        self::assertSame(Tarefa::STATUS_EM_REVISAO, $this->meta->getStatus());
+        self::assertSame(AcaoDoDespacho::Despacho, $this->unicoDespacho()->getAcao());
     }
 
     #[TestDox('Meta de outro escritório: recusa, nada gravado')]
