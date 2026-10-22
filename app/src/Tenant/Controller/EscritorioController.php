@@ -20,10 +20,11 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class EscritorioController extends AbstractController
 {
-    private const CONFIRMACAO_NAO_CONFERE = 'A confirmação não confere com o nome do escritório.';
+    private const CHAVE_CONFIRMACAO_NAO_CONFERE = 'escritorio.flash.confirmacao_nao_confere';
 
     public function __construct(
         private readonly SairDoEscritorioUseCase $sairDoEscritorio,
@@ -31,6 +32,7 @@ final class EscritorioController extends AbstractController
         private readonly ExcluirEscritorioUseCase $excluirEscritorio,
         private readonly TenantContext $tenantContext,
         private readonly RegraDosMasters $regraDosMasters,
+        private readonly TranslatorInterface $tradutor,
     ) {}
 
     /**
@@ -46,7 +48,7 @@ final class EscritorioController extends AbstractController
     ): Response {
         $usuario = $this->exigirQuemPodeExcluir($tenant, $request, $permissionChecker, $userTenantRepository);
 
-        $recusa = $this->regraDosMasters->recusaParaExcluir($tenant) ?? ($request->request->getString('confirmar_nome') !== (string) $tenant->getName() ? self::CONFIRMACAO_NAO_CONFERE : null);
+        $recusa = $this->regraDosMasters->recusaParaExcluir($tenant) ?? ($request->request->getString('confirmar_nome') !== (string) $tenant->getName() ? $this->tradutor->trans(self::CHAVE_CONFIRMACAO_NAO_CONFERE) : null);
         if ($recusa !== null) {
             $this->addFlash('danger', $recusa);
 
@@ -66,7 +68,7 @@ final class EscritorioController extends AbstractController
             $this->tenantContext->clearCurrentTenant();
         }
 
-        $this->addFlash('success', 'Escritório excluído. Os dados ficam em quarentena e podem ser recuperados.');
+        $this->addFlash('success', $this->tradutor->trans('escritorio.flash.escritorio_excluido'));
 
         return $this->redirectToRoute('tenant_selecionar');
     }
@@ -111,7 +113,7 @@ final class EscritorioController extends AbstractController
             try {
                 $tenant = $this->criarEscritorio->executar($input, $usuario);
                 $this->tenantContext->setCurrentTenant($tenant->getId());
-                $this->addFlash('success', 'Escritório criado com sucesso. Você já está dentro dele.');
+                $this->addFlash('success', $this->tradutor->trans('escritorio.flash.escritorio_criado'));
 
                 return $this->redirectToRoute('expediente_index');
             } catch (\DomainException | \InvalidArgumentException $e) {

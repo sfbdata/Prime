@@ -3769,6 +3769,96 @@ publicas:
             falhou: Não foi possível concluir agora. Recarregue a página e tente de novo.
             abrir_falhou: Não foi possível abrir a janela agora. Recarregue a página e tente de novo.
 
+# ---- escritorio: Meu Escritório (tenant/index, new, criar, show, edit, _form, _delete_form, selecionar,
+# escritorio_indisponivel), com os flashes do TenantController, do EscritorioController e do TenantSelecaoController
+# e o título da página de escritório indisponível. Frase curta com o termo dentro recebe termos.escritorio por
+# parâmetro ({termo}); "(s)" fica como está.
+escritorio:
+    lista:
+        titulo_pagina: Tenants
+        titulo: Meu Escritório
+        id: ID
+        nome: Nome
+        criado_em: Criado em
+        status: Status
+        acoes: Ações
+        ativo: Ativo
+        inativo: Inativo
+        editar: 'Editar {termo}'
+        sem_permissoes: Sem permissões
+    novo:
+        titulo_pagina: Novo Tenant
+        titulo: Criar novo escritório
+        nome: Nome do Escritório
+        email_admin: Email do Administrador
+        criar: Criar Escritório
+        voltar: Voltar
+    criar:
+        titulo: 'Criar {termo}'
+        subtitulo: Você será o administrador do novo escritório.
+        oab_titulo: Sua OAB
+        oab_dica: Necessária para abrir um escritório.
+        cancelar: Cancelar
+    ver:
+        titulo: Meu Escritório
+        informacoes: Informações do Escritório
+        drive: Conectar meu Drive
+        perfis: Perfis
+        editar: Editar
+        perigo: Zona de perigo
+        # O destaque vai em <strong>, entre as duas partes (sem |raw).
+        perigo_antes: Excluir o escritório
+        perigo_destaque: desativa o acesso de todos os colaboradores imediatamente
+        perigo_depois: Os dados ficam em quarentena e podem ser recuperados por um período antes da remoção definitiva.
+        # "Digite <strong>nome</strong> para confirmar:", o nome do escritório no meio.
+        confirmar_antes: Digite
+        confirmar_depois: 'para confirmar:'
+        excluir: 'Excluir {termo}'
+    editar:
+        titulo: Editar Escritório
+        aba_dados: Dados do Escritório
+        aba_cargos: Cargos
+        aba_lotacoes: Lotações
+        endereco: Endereço
+        salvar_dados: Salvar Dados
+        cargos_dica: Defina os cargos disponíveis para os funcionários deste escritório.
+        remover: Remover
+        adicionar_cargo: Adicionar Cargo
+        salvar_cargos: Salvar Cargos
+        lotacoes_dica: Defina as lotações (setores, filiais, departamentos) disponíveis para os funcionários.
+        adicionar_lotacao: Adicionar Lotação
+        salvar_lotacoes: Salvar Lotações
+        voltar: Voltar
+    form:
+        salvar: Salvar
+        excluir: Excluir
+    selecionar:
+        titulo_pagina: 'Selecionar {termo}'
+        titulo: Selecione um escritório
+        acesso: 'Você tem acesso a {n} escritório(s).'
+        nenhum: Você ainda não faz parte de nenhum escritório.
+        peca_convite: Peça a um administrador para te convidar.
+        convites: 'Você tem {n} convite(s) pendente(s):'
+        ver_convite: Ver convite
+        criar: Criar meu escritório
+    indisponivel:
+        titulo: Escritório indisponível
+        outro: Selecionar outro escritório
+    flash:
+        email_em_uso: Este e-mail já está em uso. Informe outro e-mail para o administrador.
+        email_cadastrado: Este e-mail já está cadastrado. Informe outro e-mail para o administrador.
+        criado_sem_email: Tenant criado, mas não foi possível enviar o e-mail de ativação do administrador agora. Verifique SMTP e reenvie o convite.
+        link_dev: 'Link de confirmação (dev): {link}'
+        criado: Tenant criado com sucesso! O administrador receberá um e-mail para criar a senha.
+        nome_atualizado: Nome do Tenant atualizado com sucesso!
+        cargos_atualizados: Cargos atualizados com sucesso!
+        lotacoes_atualizadas: Lotações atualizadas com sucesso!
+        escritorio_criado: Escritório criado com sucesso. Você já está dentro dele.
+        escritorio_excluido: Escritório excluído. Os dados ficam em quarentena e podem ser recuperados.
+        confirmacao_nao_confere: A confirmação não confere com o nome do escritório.
+        selecione_valido: Selecione um escritório válido.
+        sem_acesso: Você não tem acesso a este escritório.
+
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro
 # ('perfis.x'|trans({papel: 'termos.master'|trans})).

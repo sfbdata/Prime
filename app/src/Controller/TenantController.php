@@ -70,6 +70,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/tenant')]
 final class TenantController extends AbstractController
@@ -80,6 +81,7 @@ final class TenantController extends AbstractController
         private readonly EntregaDeArquivo $entrega,
         private readonly TenantContext $tenantContext,
         private readonly InicioContagemResolver $inicioContagemResolver,
+        private readonly TranslatorInterface $tradutor,
     ) {}
 
     #[Route(name: 'app_tenant_index', methods: ['GET'])]
@@ -122,7 +124,7 @@ final class TenantController extends AbstractController
             $existingUser = $entityManager->getRepository(User::class)->findOneBy(['email' => $adminEmail]);
 
             if ($existingUser) {
-                $form->get('adminEmail')->addError(new FormError('Este e-mail já está em uso. Informe outro e-mail para o administrador.'));
+                $form->get('adminEmail')->addError(new FormError($this->tradutor->trans('escritorio.flash.email_em_uso')));
 
                 return $this->render('tenant/new.html.twig', [
                     'tenant' => $tenant,
@@ -147,7 +149,7 @@ final class TenantController extends AbstractController
                 $entityManager->remove($tenant);
                 $entityManager->flush();
 
-                $form->get('adminEmail')->addError(new FormError('Este e-mail já está cadastrado. Informe outro e-mail para o administrador.'));
+                $form->get('adminEmail')->addError(new FormError($this->tradutor->trans('escritorio.flash.email_cadastrado')));
 
                 return $this->render('tenant/new.html.twig', [
                     'tenant' => $tenant,
@@ -156,16 +158,16 @@ final class TenantController extends AbstractController
             }
 
             if (!$result['sent']) {
-                $this->addFlash('warning', 'Tenant criado, mas não foi possível enviar o e-mail de ativação do administrador agora. Verifique SMTP e reenvie o convite.');
+                $this->addFlash('warning', $this->tradutor->trans('escritorio.flash.criado_sem_email'));
 
                 if ($this->getParameter('kernel.environment') === 'dev') {
-                    $this->addFlash('info', sprintf('Link de confirmação (dev): %s', $result['link']));
+                    $this->addFlash('info', $this->tradutor->trans('escritorio.flash.link_dev', ['link' => $result['link']]));
                 }
 
                 return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);
             }
 
-            $this->addFlash('success', 'Tenant criado com sucesso! O administrador receberá um e-mail para criar a senha.');
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.criado'));
 
             return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);
         }
@@ -221,7 +223,7 @@ final class TenantController extends AbstractController
         $nameForm->handleRequest($request);
         if ($nameForm->isSubmitted() && $nameForm->isValid()) {
             $entityManager->flush();
-            $this->addFlash('success', 'Nome do Tenant atualizado com sucesso!');
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.nome_atualizado'));
             return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId()]);
         }
 
@@ -230,7 +232,7 @@ final class TenantController extends AbstractController
         $cargosForm->handleRequest($request);
         if ($cargosForm->isSubmitted() && $cargosForm->isValid()) {
             $entityManager->flush();
-            $this->addFlash('success', 'Cargos atualizados com sucesso!');
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.cargos_atualizados'));
             return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId(), '_fragment' => 'tab-cargos']);
         }
 
@@ -256,7 +258,7 @@ final class TenantController extends AbstractController
                 }
             }
             $entityManager->flush();
-            $this->addFlash('success', 'Lotações atualizadas com sucesso!');
+            $this->addFlash('success', $this->tradutor->trans('escritorio.flash.lotacoes_atualizadas'));
             return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId(), '_fragment' => 'tab-lotacoes']);
         }
 

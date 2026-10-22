@@ -872,3 +872,58 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   disponibilidade, situação, período), `pagina.consentimento` e as áreas das vagas, os rótulos de status, prioridade,
   categoria e tipo do ServiceDesk (`statusLabel`, `prioridadeLabel`, `categoriaLabel`, `tipoLabel`, `statusList`,
   `categorias`), os rótulos do `ChamadoType`/`InteracaoType` e os flashes dos controllers.
+
+## 27. Extração do Escritório e da Plataforma (b5, 22/10)
+
+- **Plano da frente** (um PR por etapa, sem idioma novo liberado, sem mudança visível):
+  - **T1 escritório** (branch `idioma-tenant-1`): `tenant/index`, `new`, `criar`, `show`, `edit`, `_form`,
+    `_delete_form`, `selecionar` e `escritorio_indisponivel`, com os flashes dessas ações.
+  - **T2 usuários:** `tenant/users` e `tenant/edit_user_role` (a ação `editUserRole` e as de usuários do
+    `TenantController`).
+  - **T3 ponto:** `tenant/_jornada_colaborador_tab`, `_modal_jornada_tenant`, `_home_office_tab`, `_horas_pagas_tab`,
+    `_justificativas_tab` e `ponto_edit`.
+  - **T4 sedes:** `tenant/sedes`.
+  - **A1 admin/platform:** os 5 templates de `admin/platform/`.
+- **Catálogo (T1):** bloco de topo `escritorio:` (`# ---- escritorio`, antes do `# ---- termos`), 73 chaves:
+  `lista` 11, `novo` 6, `criar` 5, `ver` 12, `editar` 14, `form` 2, `selecionar` 8, `indisponivel` 2, `flash` 13
+  (`escritorio.form.*` é dos parciais `_form` e `_delete_form`, que nenhuma tela inclui hoje). A tela Ver reaproveita as
+  colunas e o Ativo/Inativo de `escritorio.lista.*`. "Criar escritório", "Excluir escritório", "Editar escritório" e
+  "Selecionar escritório" recebem `termos.escritorio` por parâmetro (`'Criar {termo}'`); as frases com "Escritório" em
+  maiúscula ("Meu Escritório", "Dados do Escritório") ficam inteiras na chave. As contagens com "(s)" ("N escritório(s)",
+  "N convite(s) pendente(s)") continuam como estão, com `{n}`.
+- **Destaque sem `|raw`:** o aviso da Zona de perigo e o "Digite <nome> para confirmar:" são partes da frase em chaves
+  separadas em volta do `<strong>` (`perigo_antes`, `perigo_destaque`, `perigo_depois`; `confirmar_antes`,
+  `confirmar_depois`). O tradutor vê a ordem pelo comentário no catálogo; se outro idioma pedir outra ordem, a frase
+  vira uma chave com marcação e `|raw` revisado (decisão para a entrega L).
+- **Texto do PHP (T1):** traduzem no ponto de saída (`TranslatorInterface`): no `TenantController` (legado, edição
+  cirúrgica), os dois erros de e-mail do Novo Tenant (`FormError`), os três flashes da criação (com o link de dev por
+  `{link}`) e os três da edição (nome, cargos, lotações); no `EscritorioController`, "Escritório criado...",
+  "Escritório excluído..." e a confirmação com o nome errado (a constante virou a chave
+  `CHAVE_CONFIRMACAO_NAO_CONFERE`; nenhum teste comparava o texto); no `TenantSelecaoController`, os dois flashes do
+  POST; na `BarreiraDoEscritorioInativoNaRota`, o título da página (o `ROTULO` continua o português e a chave fica ao
+  lado, `CHAVE_DO_ROTULO`; o `CatalogoDoEscritorioTest` amarra os dois). A barreira roda depois do listener do idioma
+  (prioridade 3 contra 7), então já lê o idioma de quem pede.
+- **Formatos (T1):** na lista, `createdAt|date('d/m/Y H:i')` virou `|data_hora` (o `createdAt` sempre vem preenchido,
+  o `|date` de nulo não entra). Na tela Ver, `|date('d/m/Y H:i:s')` fica como está: não há filtro com segundos (mesmo
+  caso do `impressoEm` do Expediente, §9).
+- **Permitidos (T1):** só `· BlueJus` (a marca no `<title>` da página de indisponível).
+- **Sem mudança visível (T1):** um teste temporário (apagado antes do commit) gravou o HTML de 20 telas, com os
+  templates e o PHP da HEAD e depois com os novos, normalizando tokens CSRF, nonces, ids, e-mails e datas: lista,
+  Ver, Ver com o flash da confirmação errada, Editar, Editar com os três flashes, Criar com e sem OAB, Novo Tenant e
+  Novo Tenant com o e-mail em uso, Selecionar com dois escritórios, vazio, com convite e com os dois flashes do POST,
+  a página de escritório indisponível (403) e os parciais `_form` (com e sem `button_label`) e `_delete_form`. As 20
+  ficaram iguais byte a byte.
+- **JS inline com texto (fica como está, o teste não cobre `<script>` nem `onsubmit`):** no `edit`, o
+  `removeBtn.title = 'Remover'` do botão de remover cargo ou lotação criado pelo script (o do HTML já usa
+  `escritorio.editar.remover`); no `_delete_form`, o `confirm('Tem certeza que deseja excluir este Tenant?')` do
+  `onsubmit`. Os templates do T1 não carregam JS próprio (`<script src>`).
+- **Ficou fora do T1:** os rótulos, placeholders e mensagens dos Form types (`TenantType`, `TenantNameType`,
+  `TenantCargosType`, `TenantLotacoesType`, `CriarEscritorioType`), como na P1; as recusas do
+  `CriarEscritorioUseCase` (OAB obrigatória e limite de escritórios com `%d`) e do validador de OAB, que o
+  `EscritorioController` repassa (precisam de chave na exceção, e a do validador é compartilhada com o Meu Perfil); os
+  avisos de conta suspensa, excluída e suspensa a pedido (`AvisoDeContaSuspensa`, `BloqueioPorPedidoDeExclusao::MENSAGEM`)
+  e as mensagens de acesso bloqueado (`EquipeDoEscritorioRepository`), que a seleção compara com o flash posto pelas
+  barreiras e que a página de indisponível e o JSON 403 também usam; as recusas da `RegraDosMasters` e a
+  `PedidoDeExclusaoRecusado` na exclusão (outros domínios, como na P2b); as mensagens das 403 (página de erro padrão);
+  o `|date` com segundos da tela Ver; o `lang="pt-BR"` fixo do `escritorio_indisponivel` (página solta, sem o base);
+  e a ação `sair` do `EscritorioController` (não é tela do T1).
