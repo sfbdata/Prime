@@ -1095,6 +1095,18 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   pt_BR.
 - **Prova:** 17 renderizações, com `&`, aspas, apóstrofo, acento e `<b>` nos valores, saíram iguais byte a byte.
 
+### 25.C Os e-mails do Comercial (5d, 22/10)
+- **Escopo:** `email/comercial/**`: o layout, a confirmação de endereço e as 6 automações, mais os macros `_blocos`. São
+  55 chaves em `emails.comercial.*`, dentro do bloco `emails:`, e a área nova é `emails_comercial`. O conteúdo das
+  campanhas do Master, escrito pelo usuário, não é traduzido. Só o texto fixo do layout vai ao catálogo.
+- **Formatos:** o `{limite}%` do aviso de 90% entra como texto, e o `{escritorio}` continua escapado.
+- **Ficam no PHP:** o `ModelosDeAutomacao::MODELOS` (assunto, selo e título), o `ConfirmacaoDeEndereco::ASSUNTO`, o
+  `RotulosDoConsentimento`, o "colega" e o "o escritório" do `MontadorDeEmail`, e os textos da `ComposicaoDaCampanha`
+  e do `RenderizadorDeBlocos`.
+- **Prova:** 39 renderizações completas, com o layout e sem requisição, saíram iguais byte a byte: as 8 automações
+  nos três envelopes, a confirmação com duas origens, as campanhas simples, de blocos e html (normal, com rastreio e
+  na prévia), o envelope cru e o envelope com motivo.
+
 ## 26. Extração do Trabalho Externo, Central e ServiceDesk (a7, 21/10)
 
 - **Escopo:** 12 templates. `templates/trabalho_externo/` `index` (casca do painel: título, buscas e cabeçalho da
