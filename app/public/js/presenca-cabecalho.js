@@ -137,8 +137,9 @@
     }
 
     /* ── Equipe (nomes e cargos), na sessão do navegador ─────────────────────── */
-    var CHAVE_EQUIPE = 'presenca-equipe:' + chave;
-    var equipe = ler(window.sessionStorage, CHAVE_EQUIPE, null);   // [{id, nome, cargo}]
+    // `v2`: a equipe guardada passou a levar a foto; a cópia antiga da sessão (sem foto) não é reaproveitada.
+    var CHAVE_EQUIPE = 'presenca-equipe:v2:' + chave;
+    var equipe = ler(window.sessionStorage, CHAVE_EQUIPE, null);   // [{id, nome, cargo, foto}]
     var pedindo = null;
     function carregarEquipe() {
         if (pedindo || !urlEquipe) { return pedindo || Promise.resolve(); }
@@ -146,7 +147,7 @@
             .then(function (r) { return r.ok && (r.headers.get('Content-Type') || '').indexOf('application/json') !== -1 ? r.json() : null; })
             .then(function (d) {
                 if (d && d.equipe) {
-                    equipe = d.equipe.map(function (m) { return { id: m.id, nome: m.nome, cargo: m.cargo || '', vistoEm: m.vistoEm || null }; });
+                    equipe = d.equipe.map(function (m) { return { id: m.id, nome: m.nome, cargo: m.cargo || '', foto: m.foto || null, vistoEm: m.vistoEm || null }; });
                     gravar(window.sessionStorage, CHAVE_EQUIPE, equipe);
                 }
             })
@@ -267,6 +268,18 @@
     }
 
     /* ── Painel (dc L.300-308) ──────────────────────────────────────────── */
+    // A foto do perfil (a mesma URL `app_profile_foto_serve` do avatar do topo, vinda de `central_equipe`) ou as iniciais.
+    function avatar(m) {
+        var av = el('span', 'presenca-av', m.foto ? null : iniciais(m.nome));
+        if (m.foto) {
+            var img = el('img');
+            img.src = m.foto;
+            img.alt = '';
+            av.appendChild(img);
+        }
+        return av;
+    }
+
     function linha(x, i, lista) {
         var frag = document.createDocumentFragment();
         if (i === 0 || lista[i - 1].k !== x.k) {
@@ -274,7 +287,7 @@
             frag.appendChild(el('div', 'presenca-grupo', ST[x.k][0].toUpperCase() + ' · ' + n));
         }
         var l = el('div', 'presenca-linha' + (x.k === 'off' ? ' is-off' : ''));
-        var av = el('span', 'presenca-av', iniciais(x.m.nome));
+        var av = avatar(x.m);
         var pt = el('span', 'presenca-av-ponto');
         pt.style.background = ST[x.k][1];
         pt.title = ST[x.k][0];
