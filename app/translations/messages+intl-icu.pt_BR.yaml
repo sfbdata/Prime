@@ -3693,6 +3693,82 @@ peticionar:
         instancia: Instância
         situacao: Situação
 
+# ---- publicas: páginas abertas pelos e-mails (comercial/confirmacao, email_descadastro, indicacao/_janela, invitation)
+# Abrem sem login: o locale é o português (IdiomaDaRequisicaoListener). Frase com <b>/<strong> no meio vai partida
+# em chaves, com a marcação no template (spec §9, "Frase partida").
+publicas:
+    confirmacao:
+        confirmado:
+            titulo: Endereço confirmado
+            texto: 'Endereço confirmado. Você vai receber {lista}.'
+            mudou_de_ideia: Mudou de ideia?
+            nao_quero_mais: Não quero mais receber
+        confirmar:
+            titulo: Confirme seu e-mail
+            csrf_invalido: Não foi possível confirmar. Clique em Confirmar de novo.
+            texto: Clique no botão abaixo para confirmar que quer receber os e-mails que você pediu.
+            botao: Confirmar
+            nao_foi_voce: Se não foi você quem pediu, é só fechar esta página.
+        vencido:
+            titulo: Não foi possível confirmar
+            texto: Este link venceu ou já foi usado. Peça a confirmação de novo.
+    descadastro:
+        confirmado:
+            titulo: Descadastro confirmado
+            todos: 'Você não vai mais receber nenhum e-mail de {remetente}.'
+            estes_avisos: 'Você não vai mais receber estes avisos por e-mail de {remetente}.'
+            pode_fechar: Pode fechar esta página.
+            demais: 'Os demais e-mails de {remetente} continuam chegando.'
+        confirmar:
+            titulo: Não quero mais receber estes avisos
+            # O endereço <strong>{email}</strong> deixará de receber...
+            endereco: O endereço
+            deixara: 'deixará de receber estes avisos por e-mail de {remetente}.'
+            nenhum: 'Não quero receber nenhum e-mail de {remetente}'
+            botao: Confirmar
+            fechar: Se não quiser deixar de receber, é só fechar esta página.
+    indicacao:
+        titulo: Indicar o BlueJus
+        fechar: Fechar
+        dica:
+            # Convide colegas e outros escritórios para <b>criar a própria conta</b> no BlueJus. Quem aceitar...
+            inicio: Convide colegas e outros escritórios para
+            negrito: criar a própria conta
+            fim: no BlueJus. Quem aceitar abre um escritório novo e não entra na sua equipe.
+            # Para chamar alguém para a <b>sua equipe</b>, use <b>Convites do escritório</b>.
+            equipe_inicio: Para chamar alguém para a
+            equipe_negrito: sua equipe
+            equipe_use: ', use'
+            equipe_convites: Convites do escritório
+            secundario: Quem chama pessoas para a equipe deste escritório é o usuário primário.
+        pendencias:
+            titulo: Complete seu cadastro para enviar convites
+            completar: Completar meu cadastro
+        envio:
+            em_seu_nome: 'O convite é enviado em seu nome:'
+            link_curto: link curto
+            nome: Nome (opcional)
+            email: E-mail
+            mensagem: Mensagem do convite
+            por_email: Enviar convite por e-mail
+            copiar: Copiar link curto
+        lista:
+            titulo: SUAS INDICAÇÕES
+            vazio: Nenhuma indicação ainda.
+    convite:
+        titulo: Convite de Usuário
+        enviar: Enviar Convite
+        placeholder_nome: Digite o nome completo
+        placeholder_email: Digite o e-mail
+    js:
+        # indicacao.js
+        indicacao:
+            conta_criada: CONTA CRIADA
+            enviada: ENVIADA
+            vazio: Nenhuma indicação ainda.
+            falhou: Não foi possível concluir agora. Recarregue a página e tente de novo.
+            abrir_falhou: Não foi possível abrir a janela agora. Recarregue a página e tente de novo.
+
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro
 # ('perfis.x'|trans({papel: 'termos.master'|trans})).
@@ -5736,5 +5812,164 @@ pasta_avisos:
         pedidos_decidido: Pedido decidido
         pedidos_falhou: Não foi possível decidir o pedido
         pedidos_sem_conexao: Falha de conexão ao decidir o pedido
+
+# ---- Pasta: responsável, histórico, impressão e relatórios (pasta/_resp_*, _historico_drawer, _impressao_modal, ...)
+pasta_resp:
+    fechar: Fechar
+    imprimir: Imprimir
+    resp:
+        sem_responsavel: Sem responsável
+        definir: Definir responsável
+        dica_alterar: '{nome} · clique para alterar'
+        dica_atribuir: Clique para atribuir um responsável
+        escolher: Escolher responsável
+        filtrar: Filtrar responsável
+        nenhum_colaborador: Nenhum colaborador encontrado
+        nenhum_responsavel: Nenhum responsável encontrado
+    historico:
+        titulo: Histórico do sistema
+        nenhuma_alteracao: Nenhuma alteração registrada
+        alteracoes_uma: '{total} alteração registrada automaticamente'
+        alteracoes_varias: '{total} alterações registradas automaticamente'
+        fechar_historico: Fechar histórico
+        vazio_titulo: Nenhum evento registrado
+        vazio_nota: O sistema anota aqui cada alteração da pasta.
+        hoje: 'Hoje, {dia}'
+    impressao:
+        incluir: Incluir na folha
+        opcao_cabecalho: Cabeçalho do escritório
+        opcao_dados: Dados da pasta e do processo
+        opcao_autor: Autor, data e tipo do registro
+        opcao_financeiro: Financeiro
+        tamanho: Tamanho do texto
+        diminuir: Diminuir
+        aumentar: Aumentar
+        fonte: '{tamanho} pt'
+        nota: 'Papel A4. Para gerar PDF, escolha "Salvar como PDF" na janela de impressão.'
+        baixar_pdf: Baixar PDF
+        copiar: Copiar texto
+    timeline:
+        titulo: Timeline inteligente
+        subtitulo: 'Pasta {pasta}'
+        fechar_dica: Fechar (Esc)
+        busca: 'Buscar: "quando falaram sobre o contrato", "Jéssica", "telefone"…'
+        busca_rotulo: Buscar na timeline
+        filtrar_tipo: Filtrar por tipo
+        periodo: Período
+        pessoa: Pessoa
+        periodo_tudo: Todo o período
+        hoje: Hoje
+        ontem: Ontem
+        semana: Esta semana
+        mes: Este mês
+        todas_pessoas: Todas as pessoas
+        resumir: Resumir atividade
+        rodape: Montada por regras fixas a partir do que o sistema registrou.
+        carregar_mais: Carregar mais
+    pontos:
+        titulo: Pontos do relatório inicial
+        completar: Completar no relatório
+    folha:
+        gestao: Gestão jurídica
+        impresso: 'Impresso em {quando}'
+        impresso_por: 'Impresso em {quando} por {nome}'
+        pasta: Pasta
+        cliente: Cliente
+        processo: Processo
+        autor_desconhecido: Autor desconhecido
+        observacao: Observação
+        dados_pasta: Dados da pasta
+        responsavel: Responsável
+        situacao: Situação
+        acao: Ação
+        orgao: Órgão
+        clientes: 'Clientes ({total})'
+        nome: Nome
+        documento: Documento
+        principal: principal
+        processos: 'Processos ({total})'
+        numero: Número
+        classe: Classe
+        nao_informado: Não informado
+        nao_informada: Não informada
+        pendencias: Pendências
+        metas: 'Metas abertas ({total})'
+        meta: Meta
+        prazo: Prazo
+        sem_prazo: Sem prazo
+        atraso: '({dias}d atraso)'
+        mais_metas: 'e mais {total}. A lista completa está na aba Metas.'
+        nenhuma_meta: Nenhuma meta aberta.
+        movimentacoes: Últimas movimentações
+        sem_registro: Sem registro
+        publicacao: Publicação
+        financeiro: Financeiro
+        valor_causa: Valor da causa
+        recebido: Recebido
+        recebido_de: '{recebido} de {previsto}'
+        lancamentos: Lançamentos
+        recebidos_de: recebidos de
+        fin_linha: '{contrato} · Contratado {contratado} · Recebido {recebido} · A receber {receber}'
+        lancamento: Lançamento
+        vencimento: Vencimento
+        valor: Valor
+        rodape: Documento interno do escritório · BlueJus
+        barra: Impressão do resumo
+        incluir_financeiro: Incluir financeiro
+        voltar: Voltar à pasta
+    js:
+        resp:
+            sem_responsavel: Sem responsável
+            definir: Definir responsável
+            dica_alterar: '{nome} · clique para alterar'
+            dica_atribuir: Clique para atribuir um responsável
+            erro_alterar: Erro ao alterar responsável.
+        pontos:
+            completar: Completar no relatório
+            detalhes: Detalhes
+        impressao:
+            imprimir: Imprimir
+            imprimir_de: 'Imprimir · {titulo}'
+            fonte: '{tamanho} pt'
+            montando: Montando a folha…
+            erro_montar: Não foi possível montar a folha. Feche e tente de novo.
+            preparando: Preparando a impressão…
+            iframe_titulo: Impressão
+            erro_imprimir: Não foi possível imprimir.
+            gerando_pdf: Gerando PDF…
+            copiado: Texto copiado
+            erro_copiar: Não foi possível copiar
+            registro_titulo: Registro do expediente
+        timeline:
+            hoje: Hoje
+            ontem: Ontem
+            amanha: Amanhã
+            futuro: '{data} (futuro)'
+            erro_carregar: Não foi possível carregar a timeline. Tente de novo.
+            vazio_pasta: Nenhum acontecimento registrado nesta pasta.
+            nada_encontrado: 'Nada encontrado para "{busca}".'
+            vazio_filtros: Nenhum evento com esses filtros.
+            mostrando: 'Mostrando os {total} acontecimentos mais recentes.'
+            mostrando_maximo: 'Mostrando os {total} acontecimentos mais recentes (o máximo desta tela).'
+            chip_tudo: Tudo
+            chip_pendencias: ⚠ Pendências
+            chip_marcos: Marcos
+            fora_titulo: 'Enquanto você estava fora: {total} acontecimento(s)'
+            ver_resumo: Ver resumo
+            resumo_desde: 'O que aconteceu desde {quando}'
+            resumo_titulo: Resumo da atividade
+            resumo_nota: Contagem por regras fixas, sobre os acontecimentos filtrados.
+            atencao: ⚠ Precisa de atenção
+            grupo_n: '{total} {rotulo} · toque para ver'
+            marco: 'Marco · {marco}'
+            editado: editado
+            abrir: Abrir
+            ver_alteracao: Ver alteração
+            ocultar_alteracao: Ocultar alteração
+            ver_tudo: Ver tudo
+            mostrar_menos: Mostrar menos
+            antes: 'Antes:'
+            depois: 'Depois:'
+            alterado_em: 'Alterado em {quando}'
 
 # ---- fim

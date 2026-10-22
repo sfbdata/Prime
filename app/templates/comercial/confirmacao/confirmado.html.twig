@@ -7,7 +7,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex">
-    <title>Endereço confirmado</title>
+    <title>{{ 'publicas.confirmacao.confirmado.titulo'|trans }}</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
     <main style="max-width:520px;margin:48px auto;padding:0 16px;">
@@ -16,12 +16,12 @@
                 <p style="margin:0;font-size:20px;font-weight:bold;color:#ffffff;">BlueJus</p>
             </div>
             <div style="padding:28px;">
-                <h1 style="margin:0 0 12px;font-size:18px;color:#1a1a2e;">Endereço confirmado</h1>
+                <h1 style="margin:0 0 12px;font-size:18px;color:#1a1a2e;">{{ 'publicas.confirmacao.confirmado.titulo'|trans }}</h1>
                 <p style="margin:0 0 12px;font-size:15px;color:#444444;line-height:1.6;">
-                    Endereço confirmado. Você vai receber {{ nomeDaLista }}.
+                    {{ 'publicas.confirmacao.confirmado.texto'|trans({lista: nomeDaLista}) }}
                 </p>
                 <p style="margin:0;font-size:13px;color:#888888;line-height:1.5;">
-                    Mudou de ideia? <a class="descadastro" href="{{ linkDeDescadastro }}" style="color:#0a6fa0;">Não quero mais receber</a>
+                    {{ 'publicas.confirmacao.confirmado.mudou_de_ideia'|trans }} <a class="descadastro" href="{{ linkDeDescadastro }}" style="color:#0a6fa0;">{{ 'publicas.confirmacao.confirmado.nao_quero_mais'|trans }}</a>
                 </p>
             </div>
         </div>
