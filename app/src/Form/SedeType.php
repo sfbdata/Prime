@@ -21,22 +21,27 @@ class SedeType extends AbstractType
             ])
             ->add('latitude', HiddenType::class, [
                 'required' => true,
+                // HiddenType sobe o erro para o form raiz, que a tela não mostra; fica no campo.
+                'error_bubbling' => false,
                 'constraints' => [
                     new Assert\NotNull(message: 'Latitude é obrigatória.'),
-                    new Assert\Range(min: -90, max: 90, notInRangeMessage: 'Latitude deve estar entre -90 e 90.'),
+                    new Assert\Range(min: -90, max: 90, notInRangeMessage: 'Latitude deve estar entre -90 e 90.', invalidMessage: 'Latitude deve ser um número.'),
                 ],
             ])
             ->add('longitude', HiddenType::class, [
                 'required' => true,
+                // HiddenType sobe o erro para o form raiz, que a tela não mostra; fica no campo.
+                'error_bubbling' => false,
                 'constraints' => [
                     new Assert\NotNull(message: 'Longitude é obrigatória.'),
-                    new Assert\Range(min: -180, max: 180, notInRangeMessage: 'Longitude deve estar entre -180 e 180.'),
+                    new Assert\Range(min: -180, max: 180, notInRangeMessage: 'Longitude deve estar entre -180 e 180.', invalidMessage: 'Longitude deve ser um número.'),
                 ],
             ])
             ->add('raioPermitido', NumberType::class, [
                 'label' => 'Raio Permitido (metros)',
                 'required' => true,
                 'empty_data' => '100',
+                'invalid_message' => 'Raio permitido deve ser um número.',
                 'attr' => ['min' => 10, 'max' => 500, 'step' => 10],
                 'constraints' => [
                     new Assert\Range(min: 10, max: 500, notInRangeMessage: 'Raio permitido deve estar entre 10 e 500 metros.'),

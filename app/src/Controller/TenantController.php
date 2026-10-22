@@ -1841,7 +1841,12 @@ final class TenantController extends AbstractController
             return $this->redirectToRoute('app_tenant_sedes', ['tenantId' => $tenantId]);
         }
 
-        // Falha de validação: re-renderizar a página com o form de edição com erros
+        // Falha de validação: re-renderizar a página com o form de edição com erros.
+        // O form já escreveu o valor inválido na entidade gerenciada; o refresh devolve a
+        // cerca gravada para a lista da tela (nada foi gravado, sem flush).
+        if ($editForm->isSubmitted()) {
+            $entityManager->refresh($sede);
+        }
         $newSede  = new Sede();
         $form     = $this->createForm(SedeType::class, $newSede);
         $sedes    = $sedeRepository->findBy(['tenant' => $tenant]);
