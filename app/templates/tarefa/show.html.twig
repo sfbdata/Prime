@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ 'metas.detalhe.titulo'|trans({id: tarefa.id ~ ''}) }}{% endblock %}
+{% block title %}{{ 'metas.detalhe.titulo'|trans({id: (tarefa.numero ?? tarefa.id) ~ ''}) }}{% endblock %}
 
 {% set statusBadge = {
     'pendente':    'text-bg-secondary',
@@ -13,8 +13,10 @@
 <link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
 <link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
 <link rel="stylesheet" href="{{ asset('css/meta-numero-global.css') }}">
+<link rel="stylesheet" href="{{ asset('css/meta-despacho.css') }}">
 <script src="{{ asset('js/quill/quill.js') }}"></script>
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
+<script src="{{ asset('js/meta-despacho.js') }}" defer></script>
 
 
 <div class="content-header">
@@ -22,7 +24,8 @@
         <div class="row mb-2">
             <div class="col-sm-6">
                 <h1 class="m-0">
-                    <i class="bi bi-list-task me-2"></i>{{ 'metas.detalhe.titulo'|trans({id: tarefa.id ~ ''}) }}
+                    {# "Meta #N" com o número da meta no escritório (desenho 04B L37); meta sem número cai no id. #}
+                    <i class="bi bi-list-check me-2"></i>{{ 'metas.detalhe.titulo'|trans({id: (tarefa.numero ?? tarefa.id) ~ ''}) }}
                 </h1>
             </div>
             <div class="col-sm-6">
@@ -152,53 +155,14 @@
 
                                 <div class="card mt-4" id="tarefa-timeline-card">
                                     <div class="card-header">
-                                        <h3 class="card-title mb-0 d-flex align-items-center gap-2">
-                                            <i class="bi bi-clock-history me-1"></i>{{ 'metas.detalhe.historico'|trans }}
-                                            <span class="badge text-bg-secondary" id="timeline-count">{{ timelineItems|length }}</span>
-                                        </h3>
+                                        {# Bloco DESPACHO do desenho 04B (L57); o Extrato é da Fase 2b. #}
+                                        <h3 class="card-title mb-0 despacho-titulo">{{ 'metas.detalhe.despacho_titulo'|trans }}</h3>
                                     </div>
 
-                                    {# Campo de mensagem + ação #}
+                                    {# Campo do despacho + ação (desenho 04B L58-66; C10 a C12) #}
                                     {% if tarefa.status != 'concluida' %}
-                                    <div class="card-body border-bottom pb-3">
-                                    <form id="formTarefaMensagem" method="post"
-                                          action="{{ path('tarefa_mensagem', {id: tarefa.id}) }}"
-                                          enctype="multipart/form-data">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('mensagem_tarefa_' ~ tarefa.id) }}">
-                                        <input type="hidden" name="acao" id="acaoMensagem" value="">
-
-                                        <textarea name="mensagem" id="tarefaMensagemConteudo" data-editor-rico
-                                                  class="form-control form-control-sm mb-2"
-                                                  rows="2" maxlength="5000"
-                                                  placeholder="{{ 'metas.detalhe.observacao_placeholder'|trans }}"></textarea>
-
-                                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                                            <input type="file" name="arquivo_mensagem" class="form-control form-control-sm" style="max-width:260px;">
-
-                                            {# Botões contextuais pelo ciclo de vida #}
-                                            {% if tarefa.status == 'pendente' %}
-                                                <button type="button" class="btn btn-warning btn-sm ms-auto flex-shrink-0"
-                                                        onclick="submeterMensagem('enviar')">
-                                                    <i class="bi bi-send me-1"></i>{{ 'metas.detalhe.enviar_para_revisao'|trans }}
-                                                </button>
-                                                <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0"
-                                                        onclick="submeterMensagem('')">
-                                                    <i class="bi bi-chat me-1"></i>{{ 'metas.detalhe.so_comentar'|trans }}
-                                                </button>
-                                            {% elseif tarefa.status == 'em_revisao' %}
-                                                <button type="button" class="btn btn-secondary btn-sm ms-auto flex-shrink-0"
-                                                        onclick="submeterMensagem('devolver')">
-                                                    <i class="bi bi-arrow-return-left me-1"></i>{{ 'metas.detalhe.devolver'|trans }}
-                                                </button>
-                                                <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0"
-                                                        onclick="submeterMensagem('')">
-                                                    <i class="bi bi-chat me-1"></i>{{ 'metas.detalhe.so_comentar'|trans }}
-                                                </button>
-                                            {% endif %}
-                                        </div>
-                                    </form>
-                                </div>
-                                {% endif %}
+                                        {{ include('tarefa/_despacho_formulario.html.twig', {formulario: despachos.formulario}) }}
+                                    {% endif %}
 
                                 {# Timeline #}
                                 <div class="card-body p-2">
@@ -223,6 +187,9 @@
                                                 {% set lastDate = currentDate %}
                                             {% endif %}
 
+                                            {% if item.tipo.value == 'mensagem' and item.mensagemId and despachos.linhas[item.mensagemId] is defined %}
+                                                {{ include('tarefa/_despacho.html.twig', {item: item, d: despachos.linhas[item.mensagemId]}) }}
+                                            {% else %}
                                             <div class="d-flex gap-2 mb-2 tarefa-timeline-entry{% if item.tipo.value == 'mensagem' %} tarefa-timeline-entry--mensagem{% endif %}">
                                                 <div class="flex-shrink-0 pt-1">
                                                     <span class="badge rounded-circle tarefa-timeline-icon {{ item.badgeCss }}">
@@ -307,6 +274,7 @@
                                                     {% endif %}
                                                 </div>
                                             </div>
+                                            {% endif %}
                                         {% endfor %}
                                         <div class="text-center py-2">
                                             <span class="badge bg-body-tertiary text-body-secondary border text-muted small fw-normal">
@@ -776,7 +744,7 @@
 }
 </style>
 
-{{ catalogo_js('metas.detalhe.js') }}
+{{ catalogo_js('metas.detalhe.js', 'metas.despacho.js') }}
 <script>
 /* ── Modal Responsáveis — lista nativa ── */
 (function () {
@@ -859,22 +827,8 @@
     });
 })();
 
-function submeterMensagem(acao) {
-    document.getElementById('acaoMensagem').value = acao;
-    document.getElementById('formTarefaMensagem').submit();
-}
-
+// O bloco DESPACHO (chips, prazo, contador, Ctrl+Enter e botões) mora em public/js/meta-despacho.js.
 document.addEventListener('DOMContentLoaded', function () {
-    var textarea = document.getElementById('tarefaMensagemConteudo');
-    if (textarea) {
-        textarea.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                submeterMensagem('');
-            }
-        });
-    }
-
     // Scroll timeline ao final
     var tl = document.getElementById('timelineList');
     if (tl) tl.scrollTop = tl.scrollHeight;
@@ -993,6 +947,29 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 })();
 </script>
+
+{# Modal: Certificar cumprimento de um despacho (desenho 04B L161, C15). O action e o token vêm do botão do despacho. #}
+<div class="modal fade" id="modalCertificarDespacho" tabindex="-1" aria-labelledby="modalCertificarDespachoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content" method="post" action="" id="formCertificarDespacho">
+            <input type="hidden" name="_token" value="">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCertificarDespachoLabel">{{ 'metas.despacho.certificar'|trans }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'metas.detalhe.fechar'|trans }}"></button>
+            </div>
+            <div class="modal-body">
+                <label for="certidaoTexto" class="form-label">{{ 'metas.despacho.certidao_rotulo'|trans }}</label>
+                <textarea class="form-control" id="certidaoTexto" name="certidao" rows="4" maxlength="1000" required
+                          data-inicio="{{ 'metas.despacho.certidao_inicio'|trans|e('html_attr') }}"></textarea>
+                <div class="form-text">{{ 'metas.despacho.certidao_dica'|trans }}</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">{{ 'metas.detalhe.cancelar'|trans }}</button>
+                <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-patch-check me-1"></i>{{ 'metas.despacho.certificar'|trans }}</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 {# Modal: Preview de arquivo do chat #}
 <link rel="stylesheet" href="{{ asset('css/visualizador-documento.css') }}">

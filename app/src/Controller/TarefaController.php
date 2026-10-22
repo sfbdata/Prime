@@ -21,6 +21,12 @@ use App\Tarefa\Exception\MetaNaoExcluivelException;
 use App\Tarefa\Exception\PrazoNaoEditavelException;
 use App\Tarefa\UseCase\AtualizarPrazoTarefaUseCase;
 use App\Tarefa\UseCase\DesfazerReaberturaDaMetaUseCase;
+use App\Tarefa\DTO\DespacharNaMetaInput;
+use App\Tarefa\Exception\DespachoRecusadoException;
+use App\Tarefa\Service\TextoDoDespacho;
+use App\Tarefa\UseCase\DarCienciaDosDespachosUseCase;
+use App\Tarefa\UseCase\DespacharNaMetaUseCase;
+use App\Tarefa\UseCase\MontarDespachosDaMetaUseCase;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Service\SanitizadorTextoRico;
 use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
@@ -47,6 +53,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route('/tarefas')]
 final class TarefaController extends AbstractController
@@ -245,12 +252,16 @@ final class TarefaController extends AbstractController
      * Detalhe da tarefa.
      */
     #[Route('/{id}', name: 'tarefa_show', methods: ['GET'])]
-    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, ExcluirTarefaUseCase $excluirUseCase, AtualizarPrazoTarefaUseCase $prazoUseCase, TarefaRepository $tarefaRepository): Response
+    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, ExcluirTarefaUseCase $excluirUseCase, AtualizarPrazoTarefaUseCase $prazoUseCase, TarefaRepository $tarefaRepository, DarCienciaDosDespachosUseCase $ciencia, MontarDespachosDaMetaUseCase $despachos): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
         $tenant = $this->assertAccess($usuario);
         $this->verificarAcessoTarefa($usuario, $tarefa, $tenant);
+
+        // Ciência automática (C14) ANTES de montar a tela, para o "Ciente" já aparecer nesta abertura.
+        $agora = new \DateTimeImmutable();
+        $ciencia->executar($tarefa, $usuario, $tenant, $agora);
 
         $tenantId = (int) $tenant->getId();
         $timelineItems = $this->timelineAssembler->montar($tarefa, $tenantId);
@@ -261,6 +272,7 @@ final class TarefaController extends AbstractController
             'tarefa'         => $tarefa,
             'statusLabels'   => Tarefa::STATUS_LABELS,
             'timelineItems'  => $timelineItems,
+            'despachos'      => $despachos->executar($tarefa, $usuario, $tenant, $agora),
             'usuarioAtual'   => $usuario,
             'users'          => $users,
             'podeExcluirMeta' => $excluirUseCase->podeExcluir($tarefa, $usuario, $tenant),
@@ -354,11 +366,12 @@ final class TarefaController extends AbstractController
     }
 
     /**
-     * Envia mensagem e avança status conforme o ciclo de vida.
+     * Despachar na meta (desenho 04B de 22/10; spec `minhas-metas-esteira-2210.md`, Fase 2a). O controller só monta
+     * o Input; a regra (texto ou anexo, código do registro, ciclo de vida e avisos) é do `DespacharNaMetaUseCase`.
      * Responsável envia → Para Revisão. Gestor devolve → Pendente.
      */
     #[Route('/{id}/mensagem', name: 'tarefa_mensagem', methods: ['POST'])]
-    public function mensagem(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager, SanitizadorTextoRico $sanitizador): Response
+    public function mensagem(Tarefa $tarefa, Request $request, DespacharNaMetaUseCase $useCase, ValidatorInterface $validator): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -369,53 +382,46 @@ final class TarefaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        // Vem do editor rico (HTML): limpo ANTES de persistir. Texto puro atravessa intacto.
-        $texto = $sanitizador->limpar(trim((string) $request->request->get('mensagem', ''))) ?? '';
-        $acao  = (string) $request->request->get('acao', '');
+        $input = $this->entradaDoDespacho($request);
+        $erros = $validator->validate($input);
+        if (count($erros) > 0) {
+            $this->addFlash('danger', (string) $erros->get(0)->getMessage());
 
-        $arquivoMensagem = $request->files->get('arquivo_mensagem');
-        $arquivoAnexoPath = null;
-
-        if ($arquivoMensagem instanceof UploadedFile && $arquivoMensagem->isValid()) {
-            $uploaded = $this->uploadFiles([$arquivoMensagem], 'public/uploads/tarefas/chat');
-            $arquivoAnexoPath = $uploaded[0] ?? null;
+            return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
         }
 
-        // `estaVazio` e não `!== ''`: o editor entrega `<p><br></p>` quando nada foi digitado.
-        $temTexto = !$sanitizador->estaVazio($texto);
-
-        if ($temTexto || $arquivoAnexoPath !== null) {
-            $mensagem = new TarefaMensagem();
-            $mensagem->setUsuario($usuario);
-            $mensagem->setMensagem($temTexto ? $texto : '[Arquivo anexado]');
-            $mensagem->setArquivoAnexo($arquivoAnexoPath);
-            $mensagem->setTenant($tarefa->getTenant());
-            $tarefa->addMensagem($mensagem);
-            $entityManager->persist($mensagem);
-        }
-
-        // Transições de status pelo ciclo de vida
-        $enviada   = false;
-        $devolvida = false;
-        if ($acao === 'enviar' && $tarefa->getStatus() === Tarefa::STATUS_PENDENTE) {
-            $tarefa->setStatus(Tarefa::STATUS_EM_REVISAO);
-            $enviada = true;
-        } elseif ($acao === 'devolver' && $tarefa->getStatus() === Tarefa::STATUS_EM_REVISAO) {
-            $tarefa->setStatus(Tarefa::STATUS_PENDENTE);
-            $devolvida = true;
-        }
-
-        $entityManager->flush();
-
-        if ($enviada) {
-            $this->notificacaoService->notificarTarefaEmRevisao($tarefa);
-        }
-
-        if ($devolvida) {
-            $this->notificacaoService->notificarTarefaPendente($tarefa);
+        try {
+            $useCase->executar($tarefa, $usuario, $tenant, $input->comAnexo($this->anexoDoDespacho($request)));
+        } catch (DespachoRecusadoException $e) {
+            $this->addFlash('danger', $e->getMessage());
         }
 
         return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
+    }
+
+    /** Campo simples (C10): quebras normalizadas antes da validação, para o limite contar o que a pessoa escreveu. */
+    private function entradaDoDespacho(Request $request): DespacharNaMetaInput
+    {
+        $natureza = trim((string) $request->request->get('natureza', ''));
+        $prazo    = trim((string) $request->request->get('prazo', ''));
+
+        return new DespacharNaMetaInput(
+            texto: TextoDoDespacho::normalizar((string) $request->request->get('mensagem', '')),
+            acao: (string) $request->request->get('acao', ''),
+            natureza: $natureza === '' ? null : $natureza,
+            prazo: $prazo === '' ? null : $prazo,
+        );
+    }
+
+    /** O anexo continua no caminho de hoje (`public/uploads/tarefas/chat`); a regra de chaves é a Fase 2b (C4). */
+    private function anexoDoDespacho(Request $request): ?string
+    {
+        $arquivo = $request->files->get('arquivo_mensagem');
+        if (!$arquivo instanceof UploadedFile || !$arquivo->isValid()) {
+            return null;
+        }
+
+        return $this->uploadFiles([$arquivo], 'public/uploads/tarefas/chat')[0] ?? null;
     }
 
     /**

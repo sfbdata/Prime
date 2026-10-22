@@ -1,0 +1,62 @@
+{#
+    Bloco DESPACHO da meta (desenho 04B de 22/10, L58-66; spec minhas-metas-esteira-2210, C10 a C12).
+    Recebe `formulario` (FormularioDoDespachoOutput) e `tarefa`. Natureza em seleção única (clicar de novo desmarca),
+    prazo padrão de 5 dias úteis calculado no servidor e "N dias úteis" recontado no navegador pela lista de dias não
+    úteis (`data-nao-uteis`). O comportamento é do public/js/meta-despacho.js.
+#}
+<div class="card-body border-bottom pb-3 despacho-bloco">
+    <form id="formTarefaMensagem" method="post"
+          action="{{ path('tarefa_mensagem', {id: tarefa.id}) }}"
+          enctype="multipart/form-data"
+          data-despacho
+          data-hoje="{{ formulario.hoje }}"
+          data-nao-uteis="{{ formulario.naoUteis|json_encode|e('html_attr') }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('mensagem_tarefa_' ~ tarefa.id) }}">
+        <input type="hidden" name="acao" id="acaoMensagem" value="">
+        <input type="hidden" name="natureza" id="despachoNatureza" value="">
+
+        <div class="despacho-linha">
+            <span class="despacho-rotulo">{{ 'metas.despacho.natureza_rotulo'|trans }}</span>
+            {% for n in formulario.naturezas %}
+                <button type="button" class="despacho-chip" aria-pressed="false"
+                        data-natureza="{{ n.valor }}"
+                        data-inicio="{{ n.inicio|trans|e('html_attr') }}">{{ n.rotulo|trans }}</button>
+            {% endfor %}
+            <span class="flex-grow-1"></span>
+            <label class="despacho-prazo" title="{{ 'metas.despacho.prazo_dica'|trans }}">
+                <i class="bi bi-calendar-event"></i>{{ 'metas.despacho.prazo_rotulo'|trans }}
+                <input type="date" name="prazo" id="despachoPrazo"
+                       value="{{ formulario.prazoPadrao }}" min="{{ formulario.hoje }}">
+                <span id="despachoUteis">{{ 'metas.despacho.dias_uteis'|trans({n: formulario.uteisDoPrazoPadrao}) }}</span>
+            </label>
+        </div>
+
+        <textarea name="mensagem" id="tarefaMensagemConteudo"
+                  class="form-control despacho-texto-campo"
+                  rows="3" maxlength="5000"
+                  placeholder="{{ 'metas.despacho.placeholder'|trans }}"></textarea>
+
+        <div class="despacho-linha despacho-acoes">
+            <label class="despacho-anexo">
+                <i class="bi bi-paperclip"></i><span id="despachoAnexoNome" data-vazio="{{ 'metas.despacho.anexar'|trans|e('html_attr') }}">{{ 'metas.despacho.anexar'|trans }}</span>
+                <input type="file" name="arquivo_mensagem" id="despachoAnexo" class="d-none">
+            </label>
+            <span class="flex-grow-1"></span>
+            <span class="despacho-contador" id="despachoContador">{{ 'metas.despacho.contador'|trans({n: '0'}) }}</span>
+
+            {# Botões pelo ciclo de vida: Despachar sempre; Enviar para revisão na pendente; Devolver na em revisão. #}
+            <button type="button" class="despacho-botao" data-acao="">
+                <i class="bi bi-chat-left-text"></i>{{ 'metas.despacho.despachar'|trans }}
+            </button>
+            {% if tarefa.status == 'pendente' %}
+                <button type="button" class="despacho-botao despacho-botao--principal" data-acao="enviar">
+                    <i class="bi bi-send"></i>{{ 'metas.despacho.enviar_para_revisao'|trans }}
+                </button>
+            {% elseif tarefa.status == 'em_revisao' %}
+                <button type="button" class="despacho-botao" data-acao="devolver">
+                    <i class="bi bi-arrow-return-left"></i>{{ 'metas.detalhe.devolver'|trans }}
+                </button>
+            {% endif %}
+        </div>
+    </form>
+</div>

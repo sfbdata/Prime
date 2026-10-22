@@ -182,10 +182,13 @@
             "tarefa/_resultado.html.twig",
             "tarefa/equipe.html.twig",
             "tarefa/_numero_global.html.twig",
-            "tarefa/show.html.twig"
+            "tarefa/show.html.twig",
+            "tarefa/_despacho.html.twig",
+            "tarefa/_despacho_formulario.html.twig",
+            "tarefa/registro.html.twig"
         ],
-        "js": [],
-        "permitidos": []
+        "js": ["meta-despacho.js"],
+        "permitidos": ["Enter"]
     },
 
     "perfis": {

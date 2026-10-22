@@ -1466,6 +1466,7 @@ metas:
         prazo_sub: Deixe em branco para remover o prazo
         salvar_prazo: Salvar Prazo
         baixar: Baixar
+        despacho_titulo: DESPACHO
         js:
             salvar: Salvar
             cancelar: Cancelar
@@ -1475,6 +1476,62 @@ metas:
             erro_rede: Erro de rede. Tente novamente.
             acompanhando: Acompanhando
             acompanhar: Acompanhar
+    despacho:
+        natureza_rotulo: Natureza
+        prazo_rotulo: Prazo
+        prazo_dica: Prazo para cumprimento
+        dias_uteis: '{n, plural, one {# dia útil} other {# dias úteis}}'
+        placeholder: Escreva o despacho.
+        contador: '{n} / 5.000'
+        anexar: Anexar arquivo
+        despachar: Despachar
+        enviar_para_revisao: Enviar para revisão
+        natureza:
+            ciencia: Para ciência
+            providencia: Para providência
+            manifestacao: Para manifestação
+            conferencia: Para conferência
+            cumpra_se: Cumpra-se
+        inicio:
+            ciencia: 'Para ciência: '
+            providencia: 'Encaminho para providência quanto a '
+            manifestacao: 'Encaminho para manifestação sobre '
+            conferencia: 'Para conferência: '
+            cumpra_se: 'Cumpra-se: '
+        numero: 'DESPACHO {n}'
+        comentario: Comentário
+        mais_recente: MAIS RECENTE
+        local_e_data: '{cidade}, {data, date, ::yMMMMd}.'
+        registrado_por: Registrado por
+        registrado_em: 'em {data} às {hora}'
+        codigo: 'Cód. {codigo}'
+        conferir_registro: Conferir o registro deste despacho
+        cumprir_ate: 'Cumprir até {data}'
+        ciente: 'Ciente · {nome}, {quando}'
+        certificar: Certificar cumprimento
+        certidao_assinatura: '{nome}, {quando}'
+        certidao_rotulo: 'Certidão de cumprimento (o que foi feito):'
+        certidao_inicio: 'Certifico que '
+        certidao_dica: 'Comece por "Certifico que" e diga o que foi feito. Até 1.000 caracteres.'
+        registro:
+            titulo: Registro do despacho
+            confere: 'O código {codigo} confere com este despacho.'
+            meta: Meta
+            meta_numero: 'Meta #{numero}'
+            autor: Registrado por
+            cargo: Cargo
+            data: Data
+            data_hora: '{data} às {hora}'
+            natureza: Natureza
+            sem_natureza: Sem natureza
+            sem_texto: O texto do despacho não aparece aqui. Abra a meta para lê-lo.
+            abrir_meta: Abrir a meta
+            nao_encontrado_titulo: Registro não encontrado
+            nao_encontrado: 'Nenhum despacho deste escritório tem o código {codigo}.'
+        js:
+            um_dia_util: 1 dia útil
+            dias_uteis: '{n} dias úteis'
+            contador: '{n} / 5.000'
     etapa:
         comercial:
             nome: Comercial
