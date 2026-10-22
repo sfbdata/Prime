@@ -644,3 +644,39 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
 - **Ficou de fora:** as mensagens que vêm do servidor (`data.error`/`data.message` do pedido de acesso, `json.mensagem`
   da Nova Pasta, `erro`/`mensagem` dos marcadores) e o HTML do aviso de pasta parecida, que o `PastaController` monta.
   O aviso do pedido de acesso continua pondo a mensagem do servidor em `innerHTML`, como antes (não é texto do catálogo).
+
+### 24.3 Telas avulsas: notificações, novidades, pedidos de acesso e auditoria (7d, 21/10)
+
+- **Escopo:** `notificacao/index` (Central de notificações, com o script inline da seleção, do marcar como lida e da
+  exclusão), `novidades/index` (só a moldura: o texto das versões vem do `config/novidades.yaml`, é dado e não passa
+  pelo catálogo), `access_request/index` (Solicitações de Acesso Pendentes, com o modal de aprovação) e `audit/index`
+  (Trilha de Auditoria, com o script inline do select2). Nenhuma das quatro carrega JS próprio em arquivo. Blocos
+  `notificacao` (22 chaves, 3 em `notificacao.js.*`), `novidades` (4), `access_request` (19) e `auditoria` (39, 1 em
+  `auditoria.js.*`), 84 ao todo, antes do `# ---- termos` (não havia bloco de auditoria no catálogo). "Excluir" e
+  "Cancelar" reaproveitam `comum.excluir` e `comum.cancelar`. Área `avulsas` no `templates-extraidos.json`.
+- **Scripts inline:** cada tela entrega `{{ catalogo_js('<bloco>.js') }}` logo antes do `<script>`; o texto só é lido em
+  evento ou no `ready`. O "Lida" que troca a coluna depois de marcar como lida deixou o `innerHTML` e é montado com
+  `createElement`/`textContent` (o tempo relativo entra por `textContent`).
+- **Auditoria:** as frases dos eventos de associação têm a referência da entidade (macro `entityRef`, rótulo ou
+  "Classe #id") no template, em volta dos pedaços `auditoria.evento.*` (`foi removido de {campo} de`...): passar a saída
+  da macro como parâmetro do `|trans` escaparia o rótulo duas vezes. O "Entidade" de reserva da macro virou chave.
+- **Sem mudança visível:** o HTML de 12 respostas (notificações vazia, só pessoais com lida e não lida, com as abas
+  Minhas e Gestão, a aba Gestão aberta e a página 2; Novidades; pedidos de acesso vazio e com três pendentes, nome com
+  apóstrofo e aspas, descrição longa, curta e vazia, mais dois decididos que não aparecem; auditoria vazia por filtro,
+  cheia com update, create, delete, sem diff, ação desconhecida, eventos de associação, rota e IP, filtrada por
+  entidade, usuário e data, e a página 2 com 61 registros) foi comparado antes e depois com tokens e ids normalizados.
+  Sobraram só as linhas de JS que agora leem o catálogo, a montagem do "Lida" acima e os `confirm()` dos `onsubmit`
+  (Negar o acesso e Desfazer), agora `|trans|e('js')`: o mesmo texto, escapado para JS. No Negar isso conserta de
+  passagem um defeito: o nome do solicitante entrava só com escape de HTML e um apóstrofo no nome quebrava o JS do
+  `confirm` (o formulário seguia sem perguntar); agora o nome entra por `{nome}` e escapado.
+- **Formatos:** a data da versão nas Novidades (`|date('d/m/Y')`) virou `|data` e o "Solicitado em" (`|date('d/m/Y
+  H:i')`), `|data_hora` (os dois sempre têm valor). Ficou o `|date('d/m/Y H:i:s')` da Data/Hora da auditoria: não há
+  filtro com segundos.
+- **Guarda:** nos permitidos ficaram o "| BlueJus" do título das Novidades, os pedaços das expressões de paginação que
+  o detector lê como texto, os códigos de ação `view`/`edit`/`delete` dos selos do modal, o `true`/`false` com que a
+  auditoria mostra valores booleanos e as classes `text-bg-*` da macro do selo de ação.
+- **Ficou para depois:** o texto que vem do PHP: o título, a mensagem e o tempo relativo da notificação
+  (`Notificacao::getTempoRelativo`), `data.error` da exclusão, os flashes do `AccessRequestController` e do desfazer da
+  auditoria, as mensagens dos 403; o tipo de recurso e a ação do pedido (`req.resourceType`, `req.action`) e a ação da
+  auditoria (`log.action|upper`), que saem como o código gravado; os rótulos das opções de entidade e usuário dos
+  filtros (montados no `AuditLogController`); e o `|date` com segundos.

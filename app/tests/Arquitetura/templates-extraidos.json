@@ -608,5 +608,29 @@
             "Escape",
             "ArrowDown"
         ]
+    },
+
+    "avulsas": {
+        "templates": [
+            "notificacao/index.html.twig",
+            "novidades/index.html.twig",
+            "access_request/index.html.twig",
+            "audit/index.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "| BlueJus",
+            "= pag.total_pages ? 'disabled' : '' }}\">",
+            "= pagination.total_pages ? 'disabled' : '' }}\">",
+            "view",
+            "edit",
+            "delete",
+            "true",
+            "false",
+            "text-bg-success",
+            "text-bg-primary",
+            "text-bg-danger",
+            "text-bg-secondary"
+        ]
     }
 }
