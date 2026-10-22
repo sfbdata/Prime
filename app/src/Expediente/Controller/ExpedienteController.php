@@ -7,10 +7,13 @@ namespace App\Expediente\Controller;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\DTO\CriarMarcadorDTO;
+use App\Expediente\Exception\ColunasDoExpedienteInvalidasException;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Expediente\UseCase\CriarMarcadorUseCase;
 use App\Expediente\UseCase\EditarMarcadorUseCase;
 use App\Expediente\UseCase\ExcluirMarcadorUseCase;
+use App\Expediente\UseCase\GravarColunasDoExpedienteUseCase;
+use App\Expediente\UseCase\ObterColunasDoExpedienteUseCase;
 use App\Expediente\UseCase\ReordenarMarcadorUseCase;
 use App\Expediente\UseCase\SincronizarMarcadoresDaPastaUseCase;
 use App\Expediente\Service\CsvDaListaDoExpediente;
@@ -32,6 +35,7 @@ use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Exception\JsonException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -69,6 +73,8 @@ final class ExpedienteController extends AbstractController
         private readonly NumeracaoDePastaInterface $numeracaoDePasta,
         private readonly CsvDaListaDoExpediente $csvDaLista,
         private readonly AcessoAPasta $acessoAPasta,
+        private readonly GravarColunasDoExpedienteUseCase $gravarColunasUseCase,
+        private readonly ObterColunasDoExpedienteUseCase $obterColunasUseCase,
     ) {
     }
 
@@ -451,6 +457,46 @@ final class ExpedienteController extends AbstractController
     }
 
     /**
+     * Menu "Colunas da tabela": guarda o ajuste do usuário logado neste escritório (corpo JSON
+     * `{colunas: {id: bool}|null}`; `null` volta ao padrão). Token da Lista no cabeçalho `X-CSRF-Token`.
+     */
+    #[Route('/expediente/colunas', name: 'expediente_colunas_gravar', methods: ['POST'])]
+    public function gravarColunas(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
+        if (!$this->isCsrfTokenValid(self::CSRF_LISTA, (string) $request->headers->get('X-CSRF-Token', ''))) {
+            return $this->json(['erro' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $this->gravarColunasUseCase->executar($tenant, $user, $this->colunasDoCorpo($request));
+        } catch (ColunasDoExpedienteInvalidasException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json(['ok' => true]);
+    }
+
+    /** O campo `colunas` do corpo JSON; corpo que não é objeto JSON ou sem o campo é recusado. */
+    private function colunasDoCorpo(Request $request): mixed
+    {
+        try {
+            $corpo = $request->toArray();
+        } catch (JsonException) {
+            throw new ColunasDoExpedienteInvalidasException();
+        }
+
+        if (!array_key_exists('colunas', $corpo)) {
+            throw new ColunasDoExpedienteInvalidasException();
+        }
+
+        return $corpo['colunas'];
+    }
+
+    /**
      * "Exportar colunas visíveis (CSV)" (E12): todas as pastas da consulta (não só a página), com os mesmos
      * filtros, a mesma ordem e só as colunas pedidas. `marcador` restringe ao painel de um marcador.
      */
@@ -611,6 +657,7 @@ final class ExpedienteController extends AbstractController
             'souAdministrador'  => $this->acessoAPasta->podeConfigurar($user, $tenant),
             'cadeados'          => $this->cadeadosDaPagina($pastas, $user, $tenant),
             'csrfLista'         => $this->csrfTokenManager->getToken(self::CSRF_LISTA)->getValue(),
+            'colunasSalvas'     => $this->obterColunasUseCase->executar($tenant, $user),
         ];
     }
 
