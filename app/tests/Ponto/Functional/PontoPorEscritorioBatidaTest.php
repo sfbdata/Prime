@@ -13,6 +13,7 @@ use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Ponto\Controller\PontoController;
 use App\Ponto\Entity\HomeOfficeConfig;
+use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Enum\TipoJustificativa;
@@ -320,11 +321,19 @@ final class PontoPorEscritorioBatidaTest extends JusPrimeWebTestCase
         );
     }
 
+    /**
+     * O escritório do teste nasce sem jornada, e sem jornada o ponto usa o padrão (repouso mínimo de 60 minutos
+     * ligado). Antes este método voltava sem fazer nada nesse caso, e o "retorno" logo depois do repouso de
+     * hoje cedo era recusado até perto de 01:00 (o teste falhava de 00:05 a 01:00). Agora cria a jornada de X
+     * já com a validação do repouso desligada.
+     */
     private function desligarRepousoMinimoEmX(): void
     {
         $jornada = $this->x->getJornadaTenant();
         if ($jornada === null) {
-            return;
+            $jornada = (new JornadaTenant())->setTenant($this->x);
+            $this->x->setJornadaTenant($jornada);
+            $this->em()->persist($jornada);
         }
         $jornada->setValidacaoRepousoHabilitada(false);
         $this->em()->flush();

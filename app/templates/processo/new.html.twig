@@ -476,7 +476,8 @@
 <script>
 $(document).ready(function () {
 
-    // Texto do catálogo que entra em HTML montado (rótulo, placeholder, title).
+    // Escapa & < > " ' de todo texto que entra em HTML montado: catálogo (rótulo, placeholder,
+    // title) e dado externo (resposta do DataJud, mensagem de erro do servidor).
     function esc(texto) {
         return String(texto).replace(/[&<>\x22\x27]/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; });
     }
@@ -719,7 +720,7 @@ $(document).ready(function () {
                 modal.hide();
 
                 if (!response.ok || !data.success) {
-                    showFeedbackModal('error', data.error || esc(BJ_T.t('processo.form.js.erro_busca')));
+                    showFeedbackModal('error', esc(data.error || BJ_T.t('processo.form.js.erro_busca')));
                     return;
                 }
 
@@ -763,17 +764,17 @@ $(document).ready(function () {
                                 <div class="col-md-5">
                                     <label class="form-label">${esc(BJ_T.t('processo.form.js.nome'))}</label>
                                     <input type="text" name="partes[${idx}][nome]" class="form-control parte-nome"
-                                           value="${parte.nome || ''}" placeholder="${esc(BJ_T.t('processo.form.js.parte.nome_placeholder'))}">
+                                           value="${esc(parte.nome || '')}" placeholder="${esc(BJ_T.t('processo.form.js.parte.nome_placeholder'))}">
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label">${esc(BJ_T.t('processo.form.js.documento'))}</label>
                                     <input type="text" name="partes[${idx}][documento]" class="form-control"
-                                           value="${parte.documento || ''}" placeholder="${esc(BJ_T.t('processo.form.js.parte.documento_placeholder'))}">
+                                           value="${esc(parte.documento || '')}" placeholder="${esc(BJ_T.t('processo.form.js.parte.documento_placeholder'))}">
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label">${esc(BJ_T.t('processo.form.js.papel'))}</label>
                                     <input type="text" name="partes[${idx}][papel]" class="form-control"
-                                           value="${parte.papel || ''}" placeholder="${esc(BJ_T.t('processo.form.js.parte.papel_placeholder'))}">
+                                           value="${esc(parte.papel || '')}" placeholder="${esc(BJ_T.t('processo.form.js.parte.papel_placeholder'))}">
                                 </div>
                             </div>
                             <button type="button" class="btn btn-outline-danger btn-sm remove-parte"
@@ -793,22 +794,22 @@ $(document).ready(function () {
                                 <div class="col-md-3">
                                     <label class="form-label">${esc(BJ_T.t('processo.form.js.data'))}</label>
                                     <input type="date" name="movimentacoes[${idx}][dataMovimentacao]" class="form-control"
-                                           value="${mov.dataMovimentacao || ''}">
+                                           value="${esc(mov.dataMovimentacao || '')}">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">${esc(BJ_T.t('processo.form.js.descricao'))}</label>
                                     <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control mov-descricao"
-                                           value="${mov.descricao || ''}" placeholder="${esc(BJ_T.t('processo.form.js.movimentacao.descricao_placeholder'))}" required>
+                                           value="${esc(mov.descricao || '')}" placeholder="${esc(BJ_T.t('processo.form.js.movimentacao.descricao_placeholder'))}" required>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">${esc(BJ_T.t('processo.form.js.tipo'))}</label>
                                     <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control"
-                                           value="${mov.tipo || ''}" placeholder="${esc(BJ_T.t('processo.form.js.movimentacao.tipo_placeholder'))}">
+                                           value="${esc(mov.tipo || '')}" placeholder="${esc(BJ_T.t('processo.form.js.movimentacao.tipo_placeholder'))}">
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label">${esc(BJ_T.t('processo.form.js.orgao'))}</label>
                                     <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control"
-                                           value="${mov.orgao || ''}" placeholder="${esc(BJ_T.t('processo.form.js.orgao'))}">
+                                           value="${esc(mov.orgao || '')}" placeholder="${esc(BJ_T.t('processo.form.js.orgao'))}">
                                 </div>
                             </div>
                             <button type="button" class="btn btn-outline-danger btn-sm remove-movimentacao"
@@ -828,12 +829,12 @@ $(document).ready(function () {
                                 <div class="col-md-9">
                                     <label class="form-label">${esc(BJ_T.t('processo.form.js.assunto.assunto'))}</label>
                                     <input type="text" name="assuntos[${idx}][nome]" class="form-control assunto-nome"
-                                           value="${assunto.nome || ''}" placeholder="${esc(BJ_T.t('processo.form.js.assunto.nome_placeholder'))}">
+                                           value="${esc(assunto.nome || '')}" placeholder="${esc(BJ_T.t('processo.form.js.assunto.nome_placeholder'))}">
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">${esc(BJ_T.t('processo.form.js.assunto.codigo'))}</label>
                                     <input type="number" name="assuntos[${idx}][codigo]" class="form-control"
-                                           value="${assunto.codigo ?? ''}" placeholder="${esc(BJ_T.t('processo.form.js.assunto.codigo_placeholder'))}">
+                                           value="${esc(assunto.codigo ?? '')}" placeholder="${esc(BJ_T.t('processo.form.js.assunto.codigo_placeholder'))}">
                                 </div>
                             </div>
                             <button type="button" class="btn btn-outline-danger btn-sm remove-assunto"

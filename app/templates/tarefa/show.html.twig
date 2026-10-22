@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Meta #{{ tarefa.id }}{% endblock %}
+{% block title %}{{ 'metas.detalhe.titulo'|trans({id: tarefa.id ~ ''}) }}{% endblock %}
 
 {% set statusBadge = {
     'pendente':    'text-bg-secondary',
@@ -22,16 +22,16 @@
         <div class="row mb-2">
             <div class="col-sm-6">
                 <h1 class="m-0">
-                    <i class="bi bi-list-task me-2"></i>Meta #{{ tarefa.id }}
+                    <i class="bi bi-list-task me-2"></i>{{ 'metas.detalhe.titulo'|trans({id: tarefa.id ~ ''}) }}
                 </h1>
             </div>
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-end">
-                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">{{ 'metas.migalha.home'|trans }}</a></li>
                     <li class="breadcrumb-item">
                         <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}">{{ tarefa.pasta.nup }}</a>
                     </li>
-                    <li class="breadcrumb-item active">Meta</li>
+                    <li class="breadcrumb-item active">{{ 'metas.detalhe.migalha'|trans }}</li>
                 </ol>
             </div>
         </div>
@@ -70,23 +70,23 @@
                         <div class="row mb-4 g-2">
                             <div class="col-6 col-md-3">
                                 <div class="tarefa-meta-box">
-                                    <span class="tarefa-meta-label">Criada em</span>
-                                    <span class="tarefa-meta-value">{{ tarefa.dataCriacao|date('d/m/Y') }}</span>
+                                    <span class="tarefa-meta-label">{{ 'metas.detalhe.criada_em'|trans }}</span>
+                                    <span class="tarefa-meta-value">{{ tarefa.dataCriacao|data }}</span>
                                 </div>
                             </div>
                             <div class="col-6 col-md-3">
                                 <div class="tarefa-meta-box">
-                                    <span class="tarefa-meta-label">Autor</span>
+                                    <span class="tarefa-meta-label">{{ 'metas.detalhe.autor'|trans }}</span>
                                     <span class="tarefa-meta-value text-truncate">
-                                        {% if tarefa.criadoPor %}{{ tarefa.criadoPor.fullName }}{% else %}<span class="text-muted small">Não informado</span>{% endif %}
+                                        {% if tarefa.criadoPor %}{{ tarefa.criadoPor.fullName }}{% else %}<span class="text-muted small">{{ 'metas.comum.nao_informado'|trans }}</span>{% endif %}
                                     </span>
                                 </div>
                             </div>
                             <div class="col-6 col-md-3">
                                 <div class="tarefa-meta-box">
                                     <span class="tarefa-meta-label d-flex align-items-center">
-                                        Responsáveis
-                                        <button type="button" class="btn btn-sm btn-link p-0 ms-1 text-muted" data-bs-toggle="modal" data-bs-target="#modalEditarResponsaveis" title="Editar responsáveis">
+                                        {{ 'metas.detalhe.responsaveis'|trans }}
+                                        <button type="button" class="btn btn-sm btn-link p-0 ms-1 text-muted" data-bs-toggle="modal" data-bs-target="#modalEditarResponsaveis" title="{{ 'metas.detalhe.editar_responsaveis'|trans }}">
                                             <i class="bi bi-pencil"></i>
                                         </button>
                                     </span>
@@ -96,7 +96,7 @@
                                                 <div class="text-truncate">{{ resp.fullName }}</div>
                                             {% endfor %}
                                         {% else %}
-                                            <span class="text-muted small">Não informado</span>
+                                            <span class="text-muted small">{{ 'metas.comum.nao_informado'|trans }}</span>
                                         {% endif %}
                                     </span>
                                 </div>
@@ -105,11 +105,11 @@
                                 {% set prazoInfo = tarefa.prazoInfo %}
                                 <div class="tarefa-meta-box">
                                     <span class="tarefa-meta-label">
-                                        Prazo
+                                        {{ 'metas.detalhe.prazo'|trans }}
                                         {% if podeEditarPrazo %}
                                             <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline"
                                                     data-bs-toggle="modal" data-bs-target="#modalEditarPrazo"
-                                                    title="Alterar prazo">
+                                                    title="{{ 'metas.detalhe.alterar_prazo'|trans }}">
                                                 <i class="bi bi-pencil-square"></i>
                                             </button>
                                         {% endif %}
@@ -117,9 +117,9 @@
                                     <span class="tarefa-meta-value">
                                         {% if prazoInfo.dias is not null %}
                                             <span class="badge text-bg-{{ prazoInfo.cor }}">{{ prazoInfo.texto }}</span>
-                                            <small class="d-block text-muted" style="font-size:.7em;">{{ tarefa.prazo|date('d/m/Y') }}</small>
+                                            <small class="d-block text-muted" style="font-size:.7em;">{{ tarefa.prazo|data }}</small>
                                         {% else %}
-                                            <span class="text-muted small">Sem prazo</span>
+                                            <span class="text-muted small">{{ 'metas.detalhe.sem_prazo'|trans }}</span>
                                         {% endif %}
                                     </span>
                                 </div>
@@ -130,11 +130,11 @@
                         <div class="mt-3">
                                 <div class="mb-3">
                                     <p class="text-sm text-muted mb-1">
-                                        <i class="bi bi-folder me-1"></i>Pasta: 
+                                        <i class="bi bi-folder me-1"></i>{{ 'metas.detalhe.pasta'|trans }} 
                                         <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}" class="text-decoration-none">{{ tarefa.pasta.nup }}</a>
                                     </p>
                                     <p class="text-sm fw-semibold text-muted mb-1">
-                                        <i class="bi bi-card-text me-1"></i>Descrição
+                                        <i class="bi bi-card-text me-1"></i>{{ 'metas.detalhe.descricao'|trans }}
                                     </p>
                                     <div class="ps-2 text-body">{{ tarefa.descricao|nl2br }}</div>
                                 </div>
@@ -145,7 +145,7 @@
                                 <div class="mt-3 p-2 rounded bg-success bg-opacity-10 border border-success border-opacity-25">
                                     <i class="bi bi-check-circle text-success me-1"></i>
                                     <span class="small text-success fw-semibold">
-                                        Concluída em {{ tarefa.dataConclusao|date('d/m/Y H:i') }}
+                                        {{ 'metas.detalhe.concluida_em'|trans({data: tarefa.dataConclusao|data_hora}) }}
                                     </span>
                                 </div>
                                 {% endif %}
@@ -153,7 +153,7 @@
                                 <div class="card mt-4" id="tarefa-timeline-card">
                                     <div class="card-header">
                                         <h3 class="card-title mb-0 d-flex align-items-center gap-2">
-                                            <i class="bi bi-clock-history me-1"></i>Histórico
+                                            <i class="bi bi-clock-history me-1"></i>{{ 'metas.detalhe.historico'|trans }}
                                             <span class="badge text-bg-secondary" id="timeline-count">{{ timelineItems|length }}</span>
                                         </h3>
                                     </div>
@@ -170,7 +170,7 @@
                                         <textarea name="mensagem" id="tarefaMensagemConteudo" data-editor-rico
                                                   class="form-control form-control-sm mb-2"
                                                   rows="2" maxlength="5000"
-                                                  placeholder="Escreva uma observação… (Ctrl+Enter para enviar)"></textarea>
+                                                  placeholder="{{ 'metas.detalhe.observacao_placeholder'|trans }}"></textarea>
 
                                         <div class="d-flex align-items-center gap-2 flex-wrap">
                                             <input type="file" name="arquivo_mensagem" class="form-control form-control-sm" style="max-width:260px;">
@@ -179,20 +179,20 @@
                                             {% if tarefa.status == 'pendente' %}
                                                 <button type="button" class="btn btn-warning btn-sm ms-auto flex-shrink-0"
                                                         onclick="submeterMensagem('enviar')">
-                                                    <i class="bi bi-send me-1"></i>Enviar para Revisão
+                                                    <i class="bi bi-send me-1"></i>{{ 'metas.detalhe.enviar_para_revisao'|trans }}
                                                 </button>
                                                 <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0"
                                                         onclick="submeterMensagem('')">
-                                                    <i class="bi bi-chat me-1"></i>Só comentar
+                                                    <i class="bi bi-chat me-1"></i>{{ 'metas.detalhe.so_comentar'|trans }}
                                                 </button>
                                             {% elseif tarefa.status == 'em_revisao' %}
                                                 <button type="button" class="btn btn-secondary btn-sm ms-auto flex-shrink-0"
                                                         onclick="submeterMensagem('devolver')">
-                                                    <i class="bi bi-arrow-return-left me-1"></i>Devolver
+                                                    <i class="bi bi-arrow-return-left me-1"></i>{{ 'metas.detalhe.devolver'|trans }}
                                                 </button>
                                                 <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0"
                                                         onclick="submeterMensagem('')">
-                                                    <i class="bi bi-chat me-1"></i>Só comentar
+                                                    <i class="bi bi-chat me-1"></i>{{ 'metas.detalhe.so_comentar'|trans }}
                                                 </button>
                                             {% endif %}
                                         </div>
@@ -206,7 +206,7 @@
                                     {% if timelineItems|length == 0 %}
                                         <div class="text-center text-muted py-5">
                                             <i class="bi bi-clock-history fs-1 d-block mb-2 opacity-25"></i>
-                                            <span class="small">Nenhum evento registrado ainda.</span>
+                                            <span class="small">{{ 'metas.detalhe.sem_eventos'|trans }}</span>
                                         </div>
                                     {% else %}
                                         {% set lastDate = null %}
@@ -216,7 +216,7 @@
                                                 <div class="d-flex align-items-center gap-2 my-2">
                                                     <hr class="flex-grow-1 my-0 opacity-25">
                                                     <span class="badge bg-body-tertiary text-body-secondary border text-muted small fw-normal px-2">
-                                                        {{ item.dataHora|date('d/m/Y') }}
+                                                        {{ item.dataHora|data }}
                                                     </span>
                                                     <hr class="flex-grow-1 my-0 opacity-25">
                                                 </div>
@@ -236,7 +236,7 @@
                                                             {% if item.tipo.value == 'mensagem' and item.detalhe and item.usuarioId == app.user.id and tarefa.status != 'concluida' %}
                                                                 <button type="button"
                                                                         class="btn btn-link btn-sm p-0 text-secondary btn-editar-msg"
-                                                                        title="Editar mensagem"
+                                                                        title="{{ 'metas.detalhe.editar_mensagem'|trans }}"
                                                                         data-msg-id="{{ item.mensagemId }}"
                                                                         data-conteudo="{{ item.detalhe|e('html_attr') }}"
                                                                         data-conteudo-html="{{ item.detalhe|texto_rico|e('html_attr') }}"
@@ -246,8 +246,8 @@
                                                                 </button>
                                                             {% endif %}
                                                             <small class="text-muted">
-                                                                {{ item.dataHora|date('H:i') }}
-                                                                {% if item.editadoEm %}<span class="ms-1 fst-italic tarefa-msg-editado">(editado)</span>{% endif %}
+                                                                {{ item.dataHora|hora }}
+                                                                {% if item.editadoEm %}<span class="ms-1 fst-italic tarefa-msg-editado">{{ 'metas.detalhe.editado'|trans }}</span>{% endif %}
                                                             </small>
                                                         </div>
                                                     </div>
@@ -287,7 +287,7 @@
                                                                 <span class="tarefa-anexo-nome">{{ item.arquivoAnexo|split('/')|last }}</span>
                                                                 <button type="button"
                                                                         class="tarefa-anexo-btn"
-                                                                        title="Visualizar arquivo"
+                                                                        title="{{ 'metas.detalhe.visualizar_arquivo'|trans }}"
                                                                         data-bs-toggle="modal"
                                                                         data-bs-target="#previewDocModal"
                                                                         data-url="{{ urlView }}"
@@ -310,7 +310,7 @@
                                         {% endfor %}
                                         <div class="text-center py-2">
                                             <span class="badge bg-body-tertiary text-body-secondary border text-muted small fw-normal">
-                                                <i class="bi bi-check2-all me-1"></i>Início do histórico
+                                                <i class="bi bi-check2-all me-1"></i>{{ 'metas.detalhe.inicio_do_historico'|trans }}
                                             </span>
                                         </div>
                                     {% endif %}
@@ -341,7 +341,7 @@
                             <div>
                                 <div class="tarefa-status-titulo">{{ statusLabels[tarefa.status] ?? tarefa.status }}</div>
                                 {% if tarefa.dataAlteracao %}
-                                    <div class="tarefa-status-sub">Atualizado {{ tarefa.dataAlteracao|date('d/m/Y H:i') }}</div>
+                                    <div class="tarefa-status-sub">{{ 'metas.detalhe.atualizado'|trans({data: tarefa.dataAlteracao|data_hora}) }}</div>
                                 {% endif %}
                             </div>
                         </div>
@@ -356,19 +356,19 @@
                                     data-token="{{ csrf_token('acompanhar_tarefa_' ~ tarefa.id) }}"
                                     aria-pressed="{{ acompanhando ? 'true' : 'false' }}">
                                 <i class="bi {{ acompanhando ? 'bi-bookmark-fill' : 'bi-bookmark' }} me-1"></i>
-                                <span>{{ acompanhando ? 'Acompanhando' : 'Acompanhar' }}</span>
+                                <span>{{ (acompanhando ? 'metas.detalhe.acompanhando' : 'metas.detalhe.acompanhar')|trans }}</span>
                             </button>
-                            <div class="form-text small">Só você vê esta marcação.</div>
+                            <div class="form-text small">{{ 'metas.detalhe.so_voce_ve'|trans }}</div>
                         </div>
 
                         {# Concluir tarefa #}
                         {% if tarefa.status != 'concluida' %}
                         <div class="mb-3">
                             <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}"
-                                  onsubmit="return confirm('Confirma a conclusão desta meta?');">
+                                  onsubmit="return confirm('{{ 'metas.detalhe.confirmar_conclusao'|trans|e('js') }}');">
                                 <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">
                                 <button type="submit" class="btn btn-success btn-sm w-100">
-                                    <i class="bi bi-check2-circle me-1"></i>Concluir Meta
+                                    <i class="bi bi-check2-circle me-1"></i>{{ 'metas.detalhe.concluir_meta'|trans }}
                                 </button>
                             </form>
                         </div>
@@ -378,10 +378,10 @@
                         {% if podeExcluirMeta %}
                         <div class="mb-3">
                             <form method="post" action="{{ path('tarefa_excluir', {id: tarefa.id}) }}"
-                                  onsubmit="return confirm('Excluir esta meta? Esta ação não pode ser desfeita.');">
+                                  onsubmit="return confirm('{{ 'metas.detalhe.confirmar_exclusao'|trans|e('js') }}');">
                                 <input type="hidden" name="_token" value="{{ csrf_token('excluir_tarefa_' ~ tarefa.id) }}">
                                 <button type="submit" class="btn btn-outline-danger btn-sm w-100">
-                                    <i class="bi bi-trash me-1"></i>Excluir Meta
+                                    <i class="bi bi-trash me-1"></i>{{ 'metas.detalhe.excluir_meta'|trans }}
                                 </button>
                             </form>
                         </div>
@@ -391,7 +391,7 @@
                         <div class="d-grid">
                             <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}#tarefas"
                                class="btn btn-outline-secondary btn-sm">
-                                <i class="bi bi-arrow-left me-1"></i>Voltar à Pasta
+                                <i class="bi bi-arrow-left me-1"></i>{{ 'metas.detalhe.voltar_a_pasta'|trans }}
                             </a>
                         </div>
 
@@ -411,11 +411,11 @@
             <div class="modal-header border-bottom-0 pb-0">
                 <div>
                     <h5 class="modal-title fw-semibold mb-0" id="modalEditarResponsaveisLabel">
-                        <i class="bi bi-people-fill me-2 text-primary"></i>Responsáveis pela Meta
+                        <i class="bi bi-people-fill me-2 text-primary"></i>{{ 'metas.detalhe.responsaveis_titulo'|trans }}
                     </h5>
-                    <p class="text-muted small mb-0 mt-1">Pesquise e selecione os membros da equipe</p>
+                    <p class="text-muted small mb-0 mt-1">{{ 'metas.detalhe.responsaveis_sub'|trans }}</p>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'metas.detalhe.fechar'|trans }}"></button>
             </div>
             <form method="post" action="{{ path('tarefa_update_responsaveis', {id: tarefa.id}) }}">
                 <div class="modal-body pt-2 pb-2">
@@ -425,7 +425,7 @@
                     <div class="resp-search-wrap mb-2">
                         <i class="bi bi-search resp-search-icon"></i>
                         <input type="text" id="buscaResponsavel" class="resp-search-input"
-                               placeholder="Buscar membro…" autocomplete="off">
+                               placeholder="{{ 'metas.detalhe.buscar_membro'|trans }}" autocomplete="off">
                     </div>
 
                     {# Lista de usuários #}
@@ -445,7 +445,7 @@
                             </label>
                         {% endfor %}
                         <div id="respSemResultado" class="resp-sem-resultado d-none">
-                            <i class="bi bi-person-x"></i> Nenhum membro encontrado.
+                            <i class="bi bi-person-x"></i> {{ 'metas.detalhe.sem_membro'|trans }}
                         </div>
                     </div>
 
@@ -457,16 +457,16 @@
                     <div class="mt-2 d-flex align-items-center gap-2">
                         <i class="bi bi-info-circle text-muted" style="font-size:.8rem;"></i>
                         <span class="text-muted" style="font-size:.8rem;">
-                            <span id="contadorSelecionados">0</span> responsável(is) selecionado(s)
+                            <span id="contadorSelecionados">0</span> {{ 'metas.detalhe.responsaveis_selecionados'|trans }}
                         </span>
                     </div>
                 </div>
                 <div class="modal-footer border-top-0 pt-0">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">
-                        <i class="bi bi-x me-1"></i>Cancelar
+                        <i class="bi bi-x me-1"></i>{{ 'metas.detalhe.cancelar'|trans }}
                     </button>
                     <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check2 me-1"></i>Salvar Responsáveis
+                        <i class="bi bi-check2 me-1"></i>{{ 'metas.detalhe.salvar_responsaveis'|trans }}
                     </button>
                 </div>
             </form>
@@ -482,25 +482,25 @@
             <div class="modal-header border-bottom-0 pb-0">
                 <div>
                     <h5 class="modal-title fw-semibold mb-0" id="modalEditarPrazoLabel">
-                        <i class="bi bi-calendar-event me-2 text-primary"></i>Prazo da Meta
+                        <i class="bi bi-calendar-event me-2 text-primary"></i>{{ 'metas.detalhe.prazo_titulo'|trans }}
                     </h5>
-                    <p class="text-muted small mb-0 mt-1">Deixe em branco para remover o prazo</p>
+                    <p class="text-muted small mb-0 mt-1">{{ 'metas.detalhe.prazo_sub'|trans }}</p>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'metas.detalhe.fechar'|trans }}"></button>
             </div>
             <form method="post" action="{{ path('tarefa_atualizar_prazo', {id: tarefa.id}) }}">
                 <div class="modal-body pt-2 pb-2">
                     <input type="hidden" name="_token" value="{{ csrf_token('atualizar_prazo_tarefa_' ~ tarefa.id) }}">
-                    <label for="campoPrazo" class="form-label form-label-sm fw-semibold">Prazo</label>
+                    <label for="campoPrazo" class="form-label form-label-sm fw-semibold">{{ 'metas.detalhe.prazo'|trans }}</label>
                     <input type="date" id="campoPrazo" name="prazo" class="form-control form-control-sm"
                            value="{{ tarefa.prazo ? tarefa.prazo|date('Y-m-d') : '' }}">
                 </div>
                 <div class="modal-footer border-top-0 pt-0">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">
-                        <i class="bi bi-x me-1"></i>Cancelar
+                        <i class="bi bi-x me-1"></i>{{ 'metas.detalhe.cancelar'|trans }}
                     </button>
                     <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check2 me-1"></i>Salvar Prazo
+                        <i class="bi bi-check2 me-1"></i>{{ 'metas.detalhe.salvar_prazo'|trans }}
                     </button>
                 </div>
             </form>
@@ -776,6 +776,7 @@
 }
 </style>
 
+{{ catalogo_js('metas.detalhe.js') }}
 <script>
 /* ── Modal Responsáveis — lista nativa ── */
 (function () {
@@ -912,12 +913,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const btnConfirmar = document.createElement('button');
         btnConfirmar.type = 'button';
         btnConfirmar.className = 'btn btn-sm btn-success me-1';
-        btnConfirmar.textContent = 'Salvar';
+        btnConfirmar.textContent = BJ_T.t('metas.detalhe.js.salvar');
 
         const btnCancelar = document.createElement('button');
         btnCancelar.type = 'button';
         btnCancelar.className = 'btn btn-sm btn-outline-secondary';
-        btnCancelar.textContent = 'Cancelar';
+        btnCancelar.textContent = BJ_T.t('metas.detalhe.js.cancelar');
 
         const acoesBtns = document.createElement('div');
         acoesBtns.className = 'mb-1';
@@ -947,7 +948,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         btnConfirmar.addEventListener('click', async function () {
             const novoConteudo = textarea.value.trim();
-            if (novoConteudo === '') { alert('A mensagem não pode ser vazia.'); return; }
+            if (novoConteudo === '') { alert(BJ_T.t('metas.detalhe.js.mensagem_vazia')); return; }
 
             const fd = new FormData();
             fd.append('_token', btnEditar.dataset.csrf);
@@ -964,7 +965,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const data = await resp.json();
                 if (!resp.ok) {
                     btnConfirmar.disabled = false;
-                    alert(data.erro ?? data.mensagem ?? 'Erro ao editar.');
+                    alert(data.erro ?? data.mensagem ?? BJ_T.t('metas.detalhe.js.erro_editar'));
                     return;
                 }
 
@@ -979,14 +980,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (small && !small.querySelector('.tarefa-msg-editado')) {
                     const marca = document.createElement('span');
                     marca.className = 'ms-1 fst-italic tarefa-msg-editado';
-                    marca.textContent = '(editado)';
+                    marca.textContent = BJ_T.t('metas.detalhe.js.editado');
                     small.appendChild(marca);
                 }
 
                 encerrarEdicao();
             } catch (_) {
                 btnConfirmar.disabled = false;
-                alert('Erro de rede. Tente novamente.');
+                alert(BJ_T.t('metas.detalhe.js.erro_rede'));
             }
         });
     });
@@ -1002,16 +1003,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 <h5 class="modal-title" id="previewDocModalLabel">
                     <i class="bi bi-eye me-1"></i> <span id="previewDocNome"></span>
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'metas.detalhe.fechar'|trans }}"></button>
             </div>
             <div class="modal-body p-0 d-flex align-items-center justify-content-center" style="min-height: 70vh;">
                 <div id="previewDocConteudo" class="w-100 h-100"></div>
             </div>
             <div class="modal-footer">
                 <a id="previewDocDownload" href="#" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-download me-1"></i> Baixar
+                    <i class="bi bi-download me-1"></i> {{ 'metas.detalhe.baixar'|trans }}
                 </a>
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'metas.detalhe.fechar'|trans }}</button>
             </div>
         </div>
     </div>
@@ -1051,7 +1052,7 @@ document.addEventListener('DOMContentLoaded', function () {
             botao.classList.toggle('btn-outline-secondary', !d.acompanhando);
             botao.setAttribute('aria-pressed', d.acompanhando ? 'true' : 'false');
             botao.querySelector('i').className = (d.acompanhando ? 'bi bi-bookmark-fill' : 'bi bi-bookmark') + ' me-1';
-            botao.querySelector('span').textContent = d.acompanhando ? 'Acompanhando' : 'Acompanhar';
+            botao.querySelector('span').textContent = d.acompanhando ? BJ_T.t('metas.detalhe.js.acompanhando') : BJ_T.t('metas.detalhe.js.acompanhar');
         })
         .finally(function () { botao.disabled = false; });
     });

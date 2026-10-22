@@ -1,11 +1,11 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Editar Permissões{% endblock %}
+{% block title %}{{ 'escritorio.editar_usuario.titulo_pagina'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid">
-        <h1 class="m-0"><i class="bi bi-shield-lock me-2"></i>Editar Permissões: {{ user.fullName }}</h1>
+        <h1 class="m-0"><i class="bi bi-shield-lock me-2"></i>{{ 'escritorio.editar_usuario.titulo'|trans({nome: user.fullName}) }}</h1>
     </div>
 </section>
 
@@ -17,37 +17,37 @@
                 <ul class="nav nav-tabs mb-3" id="editUserTabs" role="tablist">
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="tab-perfil-btn" data-bs-toggle="tab" data-bs-target="#tab-perfil" type="button" role="tab">
-                            <i class="bi bi-person me-1"></i>Perfil e Senha
+                            <i class="bi bi-person me-1"></i>{{ 'escritorio.editar_usuario.aba_perfil'|trans }}
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-dados-pessoais-btn" data-bs-toggle="tab" data-bs-target="#tab-dados-pessoais" type="button" role="tab">
-                            <i class="bi bi-person-vcard me-1"></i>Dados Pessoais
+                            <i class="bi bi-person-vcard me-1"></i>{{ 'escritorio.editar_usuario.aba_dados'|trans }}
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-acessos-btn" data-bs-toggle="tab" data-bs-target="#tab-acessos" type="button" role="tab">
-                            <i class="bi bi-unlock me-1"></i>Acessos Específicos
+                            <i class="bi bi-unlock me-1"></i>{{ 'escritorio.editar_usuario.aba_acessos'|trans }}
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-escala-btn" data-bs-toggle="tab" data-bs-target="#tab-escala" type="button" role="tab">
-                            <i class="bi bi-clock me-1"></i>Jornada Personalizada
+                            <i class="bi bi-clock me-1"></i>{{ 'escritorio.editar_usuario.aba_jornada'|trans }}
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-home-office-btn" data-bs-toggle="tab" data-bs-target="#tab-home-office" type="button" role="tab">
-                            <i class="bi bi-house-laptop me-1"></i>Home Office
+                            <i class="bi bi-house-laptop me-1"></i>{{ 'escritorio.editar_usuario.aba_home_office'|trans }}
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-ponto-btn" data-bs-toggle="tab" data-bs-target="#tab-ponto" type="button" role="tab">
-                            <i class="bi bi-calendar-check me-1"></i>Batidas de Ponto
+                            <i class="bi bi-calendar-check me-1"></i>{{ 'escritorio.editar_usuario.aba_ponto'|trans }}
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-justificativas-btn" data-bs-toggle="tab" data-bs-target="#tab-justificativas" type="button" role="tab">
-                            <i class="bi bi-calendar-x me-1"></i>Justificativas
+                            <i class="bi bi-calendar-x me-1"></i>{{ 'escritorio.editar_usuario.aba_justificativas'|trans }}
                             {% set qtdPendentes = justificativas|filter(j => j.status == 'pendente')|length %}
                             {% if qtdPendentes > 0 %}
                                 <span class="badge text-bg-warning text-dark ms-1">{{ qtdPendentes }}</span>
@@ -56,7 +56,7 @@
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-horas-pagas-btn" data-bs-toggle="tab" data-bs-target="#tab-horas-pagas" type="button" role="tab">
-                            <i class="bi bi-cash-coin me-1"></i>Horas pagas
+                            <i class="bi bi-cash-coin me-1"></i>{{ 'escritorio.editar_usuario.aba_horas_pagas'|trans }}
                         </button>
                     </li>
                 </ul>
@@ -69,7 +69,7 @@
                             <div class="card-header">
                                 <h3 class="card-title">
                                     <i class="bi bi-person me-2"></i>{{ user.fullName }}
-                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1 align-baseline text-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarNome" title="Alterar nome">
+                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1 align-baseline text-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarNome" title="{{ 'escritorio.editar_usuario.alterar_nome'|trans }}">
                                         <i class="bi bi-pencil"></i>
                                     </button>
                                 </h3>
@@ -79,7 +79,7 @@
                                     <div class="mb-4">
                                         {{ form_label(form.codigoFuncionario, null, {'label_attr': {'class': 'form-label fw-bold'}}) }}
                                         {{ form_widget(form.codigoFuncionario) }}
-                                        <div class="form-text text-muted">Gerado automaticamente. Pode ser editado (letras e números).</div>
+                                        <div class="form-text text-muted">{{ 'escritorio.editar_usuario.codigo_dica'|trans }}</div>
                                         {{ form_errors(form.codigoFuncionario) }}
                                     </div>
 
@@ -92,21 +92,21 @@
                                     <div class="mb-4">
                                         {{ form_label(form.cargo, null, {'label_attr': {'class': 'form-label fw-bold'}}) }}
                                         {{ form_widget(form.cargo) }}
-                                        <div class="form-text text-muted">Usado na folha de ponto.</div>
+                                        <div class="form-text text-muted">{{ 'escritorio.editar_usuario.folha_dica'|trans }}</div>
                                         {{ form_errors(form.cargo) }}
                                     </div>
 
                                     <div class="mb-4">
                                         {{ form_label(form.lotacao, null, {'label_attr': {'class': 'form-label fw-bold'}}) }}
                                         {{ form_widget(form.lotacao) }}
-                                        <div class="form-text text-muted">Usado na folha de ponto.</div>
+                                        <div class="form-text text-muted">{{ 'escritorio.editar_usuario.folha_dica'|trans }}</div>
                                         {{ form_errors(form.lotacao) }}
                                     </div>
 
                                     <div class="mb-4">
                                         {{ form_label(form.dataAdmissao, null, {'label_attr': {'class': 'form-label fw-bold'}}) }}
                                         {{ form_widget(form.dataAdmissao) }}
-                                        <div class="form-text text-muted">Usado na folha de ponto.</div>
+                                        <div class="form-text text-muted">{{ 'escritorio.editar_usuario.folha_dica'|trans }}</div>
                                         {{ form_errors(form.dataAdmissao) }}
                                     </div>
 
@@ -126,8 +126,8 @@
 
                                     <hr class="my-4">
 
-                                    <h6 class="mb-3"><i class="bi bi-key me-1"></i>Alterar Senha (opcional)</h6>
-                                    <p class="text-muted small">Preencha os campos abaixo apenas se desejar alterar a senha.</p>
+                                    <h6 class="mb-3"><i class="bi bi-key me-1"></i>{{ 'escritorio.editar_usuario.troca_titulo'|trans }}</h6>
+                                    <p class="text-muted small">{{ 'escritorio.editar_usuario.troca_dica'|trans }}</p>
 
                                     <div class="mb-3">
                                         {{ form_label(form.newPassword.first, null, {'label_attr': {'class': 'form-label'}}) }}
@@ -150,14 +150,14 @@
                                                 class="btn btn-danger"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#modalConfirmarRemocao">
-                                            <i class="bi bi-person-x me-1"></i>Remover do escritório
+                                            <i class="bi bi-person-x me-1"></i>{{ 'escritorio.editar_usuario.remover'|trans({termo: 'termos.escritorio'|trans}) }}
                                         </button>
                                         <a href="{{ path('app_tenant_users', {tenantId: tenantId}) }}" class="btn btn-outline-secondary">
-                                            <i class="bi bi-arrow-left me-1"></i>Voltar
+                                            <i class="bi bi-arrow-left me-1"></i>{{ 'escritorio.editar_usuario.voltar'|trans }}
                                         </a>
                                     </div>
                                     <button class="btn btn-primary">
-                                        <i class="bi bi-check-lg me-1"></i>Salvar
+                                        <i class="bi bi-check-lg me-1"></i>{{ 'escritorio.editar_usuario.salvar'|trans }}
                                     </button>
                                 </div>
                             </div>
@@ -169,7 +169,7 @@
                     <div class="tab-pane fade" id="tab-dados-pessoais" role="tabpanel">
                         <div class="card card-outline card-info mb-3">
                             <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-person-vcard me-2"></i>Dados Pessoais</h3>
+                                <h3 class="card-title"><i class="bi bi-person-vcard me-2"></i>{{ 'escritorio.editar_usuario.aba_dados'|trans }}</h3>
                             </div>
                             {{ form_start(formDadosPessoais, {action: path('app_tenant_user_dados_pessoais', {tenantId: tenantId, id: user.id})}) }}
                             <div class="card-body">
@@ -194,7 +194,7 @@
                             </div>
                             <div class="card-footer d-flex justify-content-end">
                                 <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-check-lg me-1"></i>Salvar Dados Pessoais
+                                    <i class="bi bi-check-lg me-1"></i>{{ 'escritorio.editar_usuario.salvar_dados'|trans }}
                                 </button>
                             </div>
                             {{ form_end(formDadosPessoais) }}
@@ -205,19 +205,19 @@
                     <div class="tab-pane fade" id="tab-acessos" role="tabpanel">
                         <div class="card card-outline card-secondary mb-3">
                             <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-unlock me-2"></i>Acessos específicos por item</h3>
+                                <h3 class="card-title"><i class="bi bi-unlock me-2"></i>{{ 'escritorio.editar_usuario.acessos_titulo'|trans }}</h3>
                             </div>
                             <div class="card-body p-0">
                                 {% if userAccesses is empty %}
-                                    <p class="text-muted small p-3 mb-0">Nenhum acesso específico concedido a este usuário.</p>
+                                    <p class="text-muted small p-3 mb-0">{{ 'escritorio.editar_usuario.acessos_vazio'|trans }}</p>
                                 {% else %}
                                     <table class="table table-hover mb-0">
                                         <thead>
                                             <tr>
-                                                <th>Tipo</th>
-                                                <th>Item</th>
-                                                <th>Permissões</th>
-                                                <th>Concedido por</th>
+                                                <th>{{ 'escritorio.editar_usuario.tipo'|trans }}</th>
+                                                <th>{{ 'escritorio.editar_usuario.item'|trans }}</th>
+                                                <th>{{ 'escritorio.editar_usuario.permissoes'|trans }}</th>
+                                                <th>{{ 'escritorio.usuarios.concedido_por'|trans }}</th>
                                                 <th></th>
                                             </tr>
                                         </thead>
@@ -231,20 +231,20 @@
                                                     <td class="align-middle">{{ label }}</td>
                                                     <td class="align-middle">
                                                         {% if ra.canView %}
-                                                            <span class="badge text-bg-info me-1">Ver</span>
+                                                            <span class="badge text-bg-info me-1">{{ 'escritorio.usuarios.ver'|trans }}</span>
                                                         {% endif %}
                                                         {% if ra.canEdit %}
-                                                            <span class="badge text-bg-warning text-dark me-1">Editar</span>
+                                                            <span class="badge text-bg-warning text-dark me-1">{{ 'escritorio.usuarios.editar'|trans }}</span>
                                                         {% endif %}
                                                         {% if ra.canDelete %}
-                                                            <span class="badge text-bg-danger me-1">Excluir</span>
+                                                            <span class="badge text-bg-danger me-1">{{ 'escritorio.usuarios.excluir'|trans }}</span>
                                                         {% endif %}
                                                     </td>
                                                     <td class="align-middle small text-muted">
                                                         {% if ra.grantedBy %}
                                                             {{ ra.grantedBy.fullName }}
                                                         {% else %}
-                                                            Não informado
+                                                            {{ 'escritorio.usuarios.nao_informado'|trans }}
                                                         {% endif %}
                                                     </td>
                                                     <td class="align-middle text-end">
@@ -252,7 +252,7 @@
                                                               action="{{ path('app_tenant_user_resource_access_remove', {tenantId: tenantId, userId: user.id, raId: ra.id}) }}"
                                                               onsubmit="return confirm('Remover este acesso específico?')">
                                                             <input type="hidden" name="_token" value="{{ csrf_token('remove_resource_access_' ~ ra.id) }}">
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Remover acesso">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="{{ 'escritorio.editar_usuario.remover_acesso'|trans }}">
                                                                 <i class="bi bi-trash"></i>
                                                             </button>
                                                         </form>
@@ -286,7 +286,7 @@
                     {# Aba: Batidas de Ponto #}
                     <div class="tab-pane fade" id="tab-ponto" role="tabpanel">
                         {% include 'ponto/_folha_table.html.twig' with {
-                            titulo: 'Batidas de ponto' ~ (
+                            titulo: 'escritorio.editar_usuario.batidas_titulo'|trans ~ (
                                 mesCompetenciaPonto and anoCompetenciaPonto
                                     ? ' - ' ~ ('%02d'|format(mesCompetenciaPonto)) ~ '/' ~ anoCompetenciaPonto
                                     : ''
@@ -344,36 +344,36 @@
             <form method="post" action="{{ path('app_tenant_user_ponto_add', {tenantId: tenantId, id: user.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('ponto_manual_add') }}">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="modalAddBatidaLabel"><i class="bi bi-plus-circle me-2"></i>Adicionar Batida</h5>
+                    <h5 class="modal-title" id="modalAddBatidaLabel"><i class="bi bi-plus-circle me-2"></i>{{ 'escritorio.editar_usuario.batida_titulo'|trans }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" name="competencia" id="modalAddCompetencia" value="{{ competenciaSelecionada }}">
                     <div class="mb-3">
-                        <label class="form-label">Data</label>
+                        <label class="form-label">{{ 'escritorio.editar_usuario.batida_data'|trans }}</label>
                         <input type="date" name="registro_ponto_manual[data]" id="modalAddData" class="form-control" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Hora</label>
+                        <label class="form-label">{{ 'escritorio.editar_usuario.batida_hora'|trans }}</label>
                         <input type="time" name="registro_ponto_manual[hora]" id="modalAddHora" class="form-control" required step="1">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Tipo</label>
+                        <label class="form-label">{{ 'escritorio.editar_usuario.batida_tipo'|trans }}</label>
                         <select name="registro_ponto_manual[tipo]" id="modalAddTipo" class="form-select" required>
-                            <option value="entrada">Entrada</option>
-                            <option value="repouso">Repouso</option>
-                            <option value="retorno">Retorno</option>
-                            <option value="saida">Saída</option>
+                            <option value="entrada">{{ 'escritorio.editar_usuario.batida_entrada'|trans }}</option>
+                            <option value="repouso">{{ 'escritorio.editar_usuario.batida_repouso'|trans }}</option>
+                            <option value="retorno">{{ 'escritorio.editar_usuario.batida_retorno'|trans }}</option>
+                            <option value="saida">{{ 'escritorio.editar_usuario.batida_saida'|trans }}</option>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Observação <span class="text-muted small">(opcional)</span></label>
-                        <textarea name="registro_ponto_manual[observacao]" class="form-control" rows="2" placeholder="Motivo do lançamento manual"></textarea>
+                        <label class="form-label">{{ 'escritorio.editar_usuario.batida_observacao'|trans }} <span class="text-muted small">{{ 'escritorio.editar_usuario.opcional'|trans }}</span></label>
+                        <textarea name="registro_ponto_manual[observacao]" class="form-control" rows="2" placeholder="{{ 'escritorio.editar_usuario.batida_observacao_dica'|trans }}"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Salvar</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'escritorio.editar_usuario.cancelar'|trans }}</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>{{ 'escritorio.editar_usuario.salvar'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -387,16 +387,16 @@
             <form method="post" action="{{ path('app_tenant_user_edit_name', {tenantId: tenantId, id: user.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('edit_user_name_' ~ user.id) }}">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="modalEditarNomeLabel"><i class="bi bi-pencil me-2"></i>Alterar nome</h5>
+                    <h5 class="modal-title" id="modalEditarNomeLabel"><i class="bi bi-pencil me-2"></i>{{ 'escritorio.editar_usuario.alterar_nome'|trans }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <label for="inputFullName" class="form-label fw-bold">Nome completo</label>
+                    <label for="inputFullName" class="form-label fw-bold">{{ 'escritorio.editar_usuario.nome_completo'|trans }}</label>
                     <input type="text" class="form-control" id="inputFullName" name="fullName" value="{{ user.fullName }}" required maxlength="255" autofocus>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-lg me-1"></i>Salvar</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">{{ 'escritorio.editar_usuario.cancelar'|trans }}</button>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-lg me-1"></i>{{ 'escritorio.editar_usuario.salvar'|trans }}</button>
                 </div>
             </form>
         </div>
@@ -408,7 +408,7 @@
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
                 <h5 class="modal-title" id="labelModalRemocao">
-                    <i class="bi bi-person-x me-2"></i>Remover do escritório
+                    <i class="bi bi-person-x me-2"></i>{{ 'escritorio.editar_usuario.remover'|trans({termo: 'termos.escritorio'|trans}) }}
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -418,18 +418,16 @@
                     <div class="alert alert-warning d-flex gap-2 align-items-start mb-4">
                         <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
                         <div>
-                            Ao remover <strong>{{ user.fullName }}</strong>, ela perde o acesso a este escritório e
-                            sai da sua lista de colaboradores. A conta dela continua existindo, e ela pode ser
-                            convidada de volta, voltando sem os acessos de antes.
+                            {{ 'escritorio.editar_usuario.remocao_antes'|trans }} <strong>{{ user.fullName }}</strong>{{ 'escritorio.editar_usuario.remocao_depois'|trans }}
                         </div>
                     </div>
                     <div class="mb-1">
                         <label for="substitutoSelect" class="form-label fw-bold">
-                            Quem assume o que era dela?
-                            <span class="text-muted fw-normal">(opcional)</span>
+                            {{ 'escritorio.editar_usuario.substituto'|trans }}
+                            <span class="text-muted fw-normal">{{ 'escritorio.editar_usuario.opcional'|trans }}</span>
                         </label>
                         <select name="substituto_id" id="substitutoSelect" class="form-select">
-                            <option value="">Deixar sem responsável</option>
+                            <option value="">{{ 'escritorio.editar_usuario.sem_responsavel'|trans }}</option>
                             {% for colega in colegas %}
                                 <option value="{{ colega.user.id }}">
                                     {% if colega.codigoFuncionario %}[{{ colega.codigoFuncionario }}] {% endif %}{{ colega.user.fullName }}
@@ -437,14 +435,14 @@
                             {% endfor %}
                         </select>
                         <div class="form-text text-muted">
-                            Se selecionado, esse colaborador assumirá todas as responsabilidades ativas de quem sair.
+                            {{ 'escritorio.editar_usuario.substituto_dica'|trans }}
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ 'escritorio.editar_usuario.cancelar'|trans }}</button>
                     <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-person-x me-1"></i>Remover do escritório
+                        <i class="bi bi-person-x me-1"></i>{{ 'escritorio.editar_usuario.remover'|trans({termo: 'termos.escritorio'|trans}) }}
                     </button>
                 </div>
             </form>
