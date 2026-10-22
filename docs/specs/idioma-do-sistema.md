@@ -610,7 +610,7 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   (inclusive a mensagem de exceção do `DefinirRootFolderDriveUseCase` repassada em flash) e as mensagens dos 403/404,
   como na §18; o `|date('d/m')` acima.
 
-## 25. Extração da Inteligência (f6, 21/10)
+### 22.2. Extração da Inteligência (f6, 21/10)
 
 - **Escopo:** os 12 templates de `templates/inteligencia/` (drawer, painel, seção do comando, índice de documentos,
   cartão e listas das análises, análises do Push, conversa e rodapé, auditoria e `admin/configuracao`) e os três JS
