@@ -36,10 +36,10 @@ use App\Tarefa\UseCase\ExcluirTarefaUseCase;
 use App\Tarefa\UseCase\GravarMetaNovaUseCase;
 use App\Tarefa\UseCase\ListarMinhasMetasUseCase;
 use App\Tarefa\UseCase\MontarEsteiraDaPastaUseCase;
-use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Tarefa\Service\AcessoAMeta;
 use App\Tarefa\Service\CaminhoDeAnexoDeTarefa;
 use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
 use App\Tarefa\Service\ReaberturaDesfazivelDaMeta;
@@ -54,20 +54,18 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route('/tarefas')]
 final class TarefaController extends AbstractController
 {
     public function __construct(
-        private readonly ParameterBagInterface $parameterBag,
         private readonly CaminhoDeAnexoDeTarefa $caminhoDeAnexo,
         private readonly TarefaTimelineAssembler $timelineAssembler,
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
-        private readonly UserTenantRepository $userTenantRepo,
         private readonly NotificacaoService $notificacaoService,
+        private readonly AcessoAMeta $acessoAMeta,
     ) {
     }
 
@@ -393,30 +391,15 @@ final class TarefaController extends AbstractController
             return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
         }
 
-        $anexo = $this->anexoDoDespacho($request);
+        $anexo = $request->files->get('arquivo_mensagem');
         try {
-            $useCase->executar($tarefa, $usuario, $tenant, $input->comAnexo($anexo));
-        } catch (\Throwable $e) {
-            // Nada foi gravado (a transação voltou): o arquivo enviado não pode ficar órfão no disco.
-            $this->apagarAnexoSolto($anexo);
-            if (!$e instanceof DespachoRecusadoException) {
-                throw $e;
-            }
+            // O anexo vai aos documentos da pasta pela regra de chaves (C4); recusado, nada fica.
+            $useCase->executar($tarefa, $usuario, $tenant, $input, $anexo instanceof UploadedFile && $anexo->isValid() ? $anexo : null);
+        } catch (DespachoRecusadoException $e) {
             $this->addFlash('danger', $e->getMessage());
         }
 
         return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
-    }
-
-    private function apagarAnexoSolto(?string $anexo): void
-    {
-        if ($anexo === null) {
-            return;
-        }
-        $caminho = rtrim((string) $this->parameterBag->get('kernel.project_dir'), '/') . '/public' . $anexo;
-        if (is_file($caminho)) {
-            @unlink($caminho);
-        }
     }
 
     /** Campo simples (C10): quebras normalizadas antes da validação, para o limite contar o que a pessoa escreveu. */
@@ -431,17 +414,6 @@ final class TarefaController extends AbstractController
             natureza: $natureza === '' ? null : $natureza,
             prazo: $prazo === '' ? null : $prazo,
         );
-    }
-
-    /** O anexo continua no caminho de hoje (`public/uploads/tarefas/chat`); a regra de chaves é a Fase 2b (C4). */
-    private function anexoDoDespacho(Request $request): ?string
-    {
-        $arquivo = $request->files->get('arquivo_mensagem');
-        if (!$arquivo instanceof UploadedFile || !$arquivo->isValid()) {
-            return null;
-        }
-
-        return $this->uploadFiles([$arquivo], 'public/uploads/tarefas/chat')[0] ?? null;
     }
 
     /**
@@ -659,27 +631,10 @@ final class TarefaController extends AbstractController
         return $tenant;
     }
 
+    /** A guarda da tela da meta mora no `AcessoAMeta` (SEC-013), a mesma do Extrato e do Lembrar. */
     private function verificarAcessoTarefa(User $usuario, Tarefa $tarefa, Tenant $tenant): void
     {
-        // SEC-013: a posse vem ANTES do vínculo. Conferir só se o criador ou o responsável da
-        // pasta tem vínculo com o escritório da sessão deixa passar a meta de OUTRO escritório
-        // quando essa pessoa está nos dois (e o TenantFilter falhou). Fora do escritório: 404,
-        // como todo recurso cross-tenant — 403 confirmaria que o id existe em algum lugar.
-        if ($tarefa->getTenant()?->getId() !== $tenant->getId()) {
-            throw $this->createNotFoundException('Meta não encontrada.');
-        }
-
-        $pasta = $tarefa->getPasta();
-        $criador = $pasta->getCriadoPor();
-        $responsavel = $pasta->getResponsavel();
-        $criadorPertence = $criador !== null
-            && $this->userTenantRepo->existeVinculoAtivo($criador, $tenant);
-        $responsavelPertence = $responsavel !== null
-            && $this->userTenantRepo->existeVinculoAtivo($responsavel, $tenant);
-
-        if (!$criadorPertence && !$responsavelPertence) {
-            throw $this->createAccessDeniedException('Acesso negado.');
-        }
+        $this->acessoAMeta->exigir($tarefa, $tenant);
     }
 
     /**
@@ -691,38 +646,5 @@ final class TarefaController extends AbstractController
     private function resolverCaminhoArquivo(string $caminhoPublico): ?string
     {
         return $this->caminhoDeAnexo->resolver($caminhoPublico);
-    }
-
-    /**
-     * @param mixed[] $files
-     * @return string[]
-     */
-    private function uploadFiles(array $files, string $relativeTargetDir): array
-    {
-        $projectDir = rtrim((string) $this->parameterBag->get('kernel.project_dir'), '/');
-        $relativeTargetDir = ltrim($relativeTargetDir, '/');
-        $targetDir = $projectDir . '/' . $relativeTargetDir;
-
-        if (!is_dir($targetDir)) {
-            if (!mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
-                throw new \RuntimeException('Não foi possível criar o diretório de upload: ' . $targetDir);
-            }
-        }
-
-        $paths = [];
-
-        foreach ($files as $file) {
-            if (!$file instanceof UploadedFile || !$file->isValid()) {
-                continue;
-            }
-
-            $extension = $file->guessExtension() ?: 'bin';
-            $filename  = uniqid('arquivo_', true) . '.' . $extension;
-            $file->move($targetDir, $filename);
-            $publicBase = $projectDir . '/public';
-            $paths[] = str_replace($publicBase, '', $targetDir) . '/' . $filename;
-        }
-
-        return $paths;
     }
 }

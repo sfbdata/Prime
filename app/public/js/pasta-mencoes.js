@@ -23,6 +23,10 @@
  *   PastaMencoes.esquecer(textarea)                → zera as menções (depois de enviar)
  *   PastaMencoes.listaAberta(quill?)               → a lista de @ está aberta (neste editor)?
  *
+ * Campo simples (despacho da meta, C3): a textarea marcada com `data-mencoes-simples` não tem editor Quill; o
+ * `campoSimples` imita, sobre a própria textarea, só o pedaço do Quill que esta lista usa (seleção, texto, troca do
+ * trecho e eventos), e o resto do mecanismo é o mesmo. A lista abre logo abaixo do campo.
+ *
  * Prioridade das teclas: com a lista aberta, ↑/↓, Enter, Tab e Esc são DELA — inclusive sobre a
  * sugestão de palavras do editor (EDT-015), que também usa Tab. A garantia é dupla: esta lista
  * ouve em captura no contêiner do Quill e para a propagação (o editor ouve na raiz, mais abaixo),
@@ -249,9 +253,44 @@
         buscar(textarea, quill, sel.index - m[1].length - 1, m[1]);
     }
 
+    /** O pedaço da API do Quill que esta lista usa, sobre uma textarea sem editor (campo simples). */
+    function campoSimples(textarea) {
+        function trocar(valor, cursor) {
+            textarea.value = valor;
+            textarea.setSelectionRange(cursor, cursor);
+            textarea.dispatchEvent(new Event('input'));
+        }
+
+        return {
+            container: textarea,
+            getSelection: function (focar) {
+                if (!focar && document.activeElement !== textarea) { return null; }
+
+                return { index: textarea.selectionStart, length: textarea.selectionEnd - textarea.selectionStart };
+            },
+            getBounds: function () { return { left: 12, top: textarea.offsetHeight - 20, height: 20 }; },
+            getText: function (inicio, tamanho) { return textarea.value.substr(inicio, tamanho); },
+            deleteText: function (inicio, tamanho) {
+                trocar(textarea.value.slice(0, inicio) + textarea.value.slice(inicio + tamanho), inicio);
+            },
+            insertText: function (inicio, texto) {
+                trocar(textarea.value.slice(0, inicio) + texto + textarea.value.slice(inicio), inicio + texto.length);
+            },
+            setSelection: function (indice) { textarea.focus(); textarea.setSelectionRange(indice, indice); },
+            on: function (evento, fn) {
+                if (evento === 'text-change') {
+                    textarea.addEventListener('input', function (ev) { if (ev.isTrusted) { fn(null, null, 'user'); } });
+                } else if (evento === 'selection-change') {
+                    textarea.addEventListener('blur', function () { fn(null); });
+                }
+            },
+        };
+    }
+
     function ligar(textarea, mencoesIniciais) {
         if (!textarea || textarea._mencoesLigado) { return; }
         var quill = window.EditorRico && EditorRico.instancia ? EditorRico.instancia(textarea) : null;
+        if (!quill && textarea.hasAttribute('data-mencoes-simples')) { quill = campoSimples(textarea); }
         if (!quill) { return; }
 
         textarea._mencoesLigado = true;
@@ -297,7 +336,7 @@
         document.querySelectorAll('[data-mencionaveis-url]').forEach(function (caixa) {
             var textarea = caixa.querySelector('textarea');
             if (!textarea || textarea._mencoesLigado) { return; }
-            if (window.EditorRico && EditorRico.instancia(textarea)) {
+            if (textarea.hasAttribute('data-mencoes-simples') || (window.EditorRico && EditorRico.instancia(textarea))) {
                 textarea._mencoesUrl = caixa.getAttribute('data-mencionaveis-url');
                 ligar(textarea);
 

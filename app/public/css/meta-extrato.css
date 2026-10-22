@@ -1,0 +1,93 @@
+/* Extrato de tramitação da meta (desenho 04B de 22/10, L150): os valores da folha do desenho.
+   Template: tarefa/extrato.html.twig. */
+body {
+    font: 12.5px/1.55 Arial, Helvetica, sans-serif;
+    color: #12242f;
+    margin: 28px 36px;
+}
+
+h1 {
+    font-size: 17px;
+    margin: 0;
+}
+
+.ext-barra {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+}
+
+.ext-barra button {
+    height: 30px;
+    padding: 0 14px;
+    border: 1px solid #0a6fa0;
+    border-radius: 3px;
+    background: #0a6fa0;
+    color: #fff;
+    font: inherit;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.ext-topo {
+    border-bottom: 3px solid #0a6fa0;
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.ext-m {
+    color: #5b7383;
+    font-size: 11.5px;
+}
+
+.ext-d {
+    border: 1px solid #dfe7ed;
+    border-left: 3px solid #0a6fa0;
+    padding: 9px 12px;
+    margin: 0 0 10px;
+    page-break-inside: avoid;
+}
+
+.ext-h {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #4a6373;
+    margin-bottom: 4px;
+}
+
+.ext-h b {
+    color: #12242f;
+    letter-spacing: .6px;
+}
+
+.ext-texto p {
+    margin: 0;
+}
+
+.ext-texto .ps-mencao {
+    font-weight: bold;
+}
+
+.ext-c {
+    margin-top: 6px;
+    padding: 6px 9px;
+    border-left: 2px solid #1e7b45;
+    background: #f6fbf8;
+    font-size: 11.5px;
+}
+
+@media print {
+    .ext-barra {
+        display: none;
+    }
+
+    .ext-d,
+    .ext-c {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}

@@ -9,6 +9,9 @@ use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Service\DiasUteisDoEscritorio;
 use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Enum\NaturezaDoDespacho;
@@ -27,6 +30,10 @@ final class MontarDespachosDaMetaUseCaseTest extends TestCase
     private User $criador;
     private User $responsavel;
     private Tarefa $meta;
+    /** @var list<PastaDocumento> o que o repositório devolve na consulta dos juntados */
+    private array $documentosDaPasta = [];
+    /** @var array<string, mixed>|null o filtro da última consulta dos juntados */
+    private ?array $filtroDosJuntados = null;
 
     protected function setUp(): void
     {
@@ -121,9 +128,48 @@ final class MontarDespachosDaMetaUseCaseTest extends TestCase
         self::assertSame(['metas.despacho.tipo.despacho', 'despacho', true], [$linhas[14]->tipo, $linhas[14]->acao, $linhas[14]->podeCertificar]);
     }
 
+    #[TestDox('"quem → para" (L161): os mencionados do texto, pelo nome curto, sem repetir; sem menção, lista vazia')]
+    public function testParaSaiDasMencoes(): void
+    {
+        $this->despacho(10, $this->criador, '2026-10-01 09:00')->setMensagem('<p>&#64;[RUI PRADO NETO](user:2) e @[Lia Mota](user:3), de novo &#64;[RUI PRADO NETO](user:2)</p>');
+        $this->despacho(11, $this->criador, '2026-10-02 09:00');
+
+        $linhas = $this->useCase()->executar($this->meta, $this->criador, $this->escritorio, new \DateTimeImmutable('2026-10-22'))->linhas;
+
+        self::assertSame(['Rui Prado', 'Lia Mota'], $linhas[10]->para);
+        self::assertSame([], $linhas[11]->para);
+    }
+
+    #[TestDox('Anexo juntado à pasta (C4): nome e id do documento, lidos numa consulta presa ao escritório e à pasta; anexo antigo fica de fora')]
+    public function testAnexoJuntado(): void
+    {
+        $pasta = new Pasta();
+        $this->meta->setPasta($pasta);
+        $documento = (new PastaDocumento())->setNomeOriginal('peticao.pdf');
+        (new \ReflectionProperty(PastaDocumento::class, 'id'))->setValue($documento, 55);
+        $this->documentosDaPasta = [$documento];
+        $this->despacho(10, $this->criador, '2026-10-01 09:00')->juntarDocumentoDaPasta(55);
+        $this->despacho(11, $this->criador, '2026-10-02 09:00')->setArquivoAnexo('/uploads/tarefas/chat/a.pdf');
+        $this->despacho(12, $this->criador, '2026-10-03 09:00')->juntarDocumentoDaPasta(99);
+
+        $linhas = $this->useCase()->executar($this->meta, $this->criador, $this->escritorio, new \DateTimeImmutable('2026-10-22'))->linhas;
+
+        self::assertSame(['peticao.pdf', 55], [$linhas[10]->anexoNome, $linhas[10]->anexoDocumentoId]);
+        self::assertSame([null, null], [$linhas[11]->anexoNome, $linhas[11]->anexoDocumentoId]);
+        self::assertNull($linhas[12]->anexoNome, 'documento que não é desta pasta e deste escritório não aparece');
+        self::assertSame(['id' => [55, 99], 'tenant' => $this->escritorio, 'pasta' => $pasta], $this->filtroDosJuntados);
+    }
+
     private function useCase(): MontarDespachosDaMetaUseCase
     {
-        return new MontarDespachosDaMetaUseCase(new DiasUteisDoEscritorio(new CalendarioDoSistema()), new QuemCuidaDaMeta());
+        $documentos = $this->createStub(PastaDocumentoRepository::class);
+        $documentos->method('findBy')->willReturnCallback(function (array $filtro): array {
+            $this->filtroDosJuntados = $filtro;
+
+            return $this->documentosDaPasta;
+        });
+
+        return new MontarDespachosDaMetaUseCase(new DiasUteisDoEscritorio(new CalendarioDoSistema()), new QuemCuidaDaMeta(), $documentos);
     }
 
     private function despacho(int $id, User $autor, string $em): TarefaMensagem

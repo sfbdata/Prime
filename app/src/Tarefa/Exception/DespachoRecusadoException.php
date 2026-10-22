@@ -32,4 +32,10 @@ final class DespachoRecusadoException extends \DomainException
     {
         return new self('Não foi possível registrar o despacho agora. Tente de novo.');
     }
+
+    /** Tipo ou tamanho do anexo recusado pela regra dos documentos da pasta (C4): nada é gravado. */
+    public static function anexoRecusado(string $motivo): self
+    {
+        return new self($motivo . ' Nada foi gravado.');
+    }
 }
