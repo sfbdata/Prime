@@ -3202,6 +3202,11 @@ comercial:
         ok_para: Para
         ok_resto: . Confira a caixa de entrada (e o spam) em instantes.
         ok: Ok
+    datas:
+        titulo: Datas comemorativas
+        sub: mensagens automáticas nas datas nacionais
+        ativas: ativas
+        chave_desligada: 'O envio de campanhas está desligado nesta instalação: nenhuma data comemorativa sai até ele ser ligado.'
     leitura:
         ligada: Confirmação de leitura
         desligada: Sem confirmação de leitura
@@ -3276,6 +3281,30 @@ comercial:
         # comercial-teste.js
         teste_sem_modelo: Abra um modelo no editor antes de enviar o teste.
         teste_erro: Não foi possível enviar o teste.
+        # comercial-datas.js (Datas comemorativas)
+        datas_hoje: hoje
+        datas_amanha: amanhã
+        datas_em_dias: 'em {n} dias'
+        datas_envio: 'envio {data} às 9h'
+        datas_alternar: Ligar ou desligar
+        datas_quando: Quando enviar
+        datas_ant_0: No dia
+        datas_ant_1: 1 dia antes
+        datas_ant_3: 3 dias antes
+        datas_para_quem: Para quem
+        datas_pub_todos: Todos
+        datas_pub_prim: Primários
+        datas_pub_leads: Base de contatos
+        datas_ver: Ver mensagem
+        datas_previa: 'Prévia da mensagem de {nome}. Use Duplicar para personalizar o texto.'
+        datas_erro_carregar: Não foi possível carregar as datas comemorativas. Recarregue a página.
+        datas_sem_0: dom
+        datas_sem_1: seg
+        datas_sem_2: ter
+        datas_sem_3: qua
+        datas_sem_4: qui
+        datas_sem_5: sex
+        datas_sem_6: sáb
         # comercial-descadastrados.js
         dsc_erro: Não foi possível concluir. Tente de novo.
         dsc_excluir: Excluir

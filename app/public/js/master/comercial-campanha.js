@@ -621,6 +621,22 @@
         // F3g (0d): funções que devolvem um objeto para mesclar no corpo do "Enviar campanha".
         extrasDoEnvio: (window.McCampanha && window.McCampanha.extrasDoEnvio) || [],
       });
+      /* F4 (dc 05 VS 21.10.26 L680): o "Ver mensagem" das Datas comemorativas abre o modelo `data-<id>` aqui, com o
+         aviso, como o `cmM` + `cmMsg` do dc. Antes da grade carregar, carrega já com ele escolhido. */
+      document.addEventListener('mc:modelo-abrir', e => {
+        const d = e.detail || {};
+        if (typeof d.chave !== 'string' || !d.chave) return;
+        const abrir = () => {
+          if (!modelos.some(m => m.chave === d.chave)) return;
+          mk = d.chave;
+          ed = null;
+          desenhar();
+          contar();
+          avisar(String(d.aviso || ''));
+          raiz.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        if (carregado) abrir(); else carregar(d.chave).then(abrir);
+      });
     }
 
     // dc L258/L268: os números dos passos do modo (o Twig já escreve os mesmos; aqui a tabela manda).

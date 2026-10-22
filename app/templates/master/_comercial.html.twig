@@ -8,7 +8,7 @@
    na posição do dc: 1 · MODELO, 3 · MENSAGEM, a PRÉVIA DO E-MAIL, "Baixar HTML" e "Enviar teste" (ao Master logado).
    Fatia 2b: "2 · PARA QUEM" (dc L.236-239), a linha de destinatários (L.252), a Frequência (L.253), "Agendar" ou
    "Primeiro envio" e "Enviar campanha" (L.254), e o bloco Monitoramento com a lista de campanhas (L.282-286), sem as
-   métricas (fatia 3). Descadastrados, indicações e datas vêm nas seguintes.
+   métricas (fatia 3). Descadastrados e indicações vêm nas seguintes. F4: as Datas comemorativas depois das Automações.
    F3h (spec §10, "F3h: modo venda"): `modo` = 'com' (padrão, esta seção) ou 'venda' (a mesma Central de envios na seção
    Indicações, incluída pelo _indicacoes.html.twig; dc 05 VS 21.10.26 L627-645 e L846). A raiz leva `data-modo`. No
    modo venda: sem o seletor de modelo (`cmMostraModelo`), passos 1 PARA QUEM e 2 MENSAGEM (`cmNPara`/`cmNMsg`), só
@@ -253,6 +253,8 @@
             <iframe class="mc-previa-quadro" data-mc-previa-quadro title="{{ 'comercial.campanha.previa_titulo'|trans }}" sandbox></iframe>
         </div>
     </section>
+    {# F4 (dc 05 VS 21.10.26 L335-339): as Datas comemorativas logo depois das Automações, só na seção Comercial. #}
+    {{ include('master/_comercial_datas.html.twig') }}
     {% endif %}
     {# O Relatório da Central de envios nas duas seções (dc `secCom` e `secCentral`; spec comercial-relatorio-venda.md),
        dentro da raiz de cada modo e depois da Central. Os recursos (<link>, <script> e catálogo) vêm só com a da
@@ -263,6 +265,7 @@
 </div>
 {% if not venda %}
 <script src="{{ asset('js/master/comercial.js') }}"></script>
+<script src="{{ asset('js/master/comercial-datas.js') }}"></script>
 {% endif %}
 {# Carregado nos dois modos: cada execução só inicia as raízes ainda não iniciadas (a da venda vem depois no HTML). #}
 <script src="{{ asset('js/master/comercial-campanha.js') }}"></script>

@@ -186,6 +186,9 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         // F3i (§12): as imagens das campanhas do Master são da plataforma, sem escritório; a rota pública /e/i/ as
         // entrega sem sessão, pelo token.
         \App\Comercial\Entity\ImagemDaCampanha::class,
+        // F4 (comercial-e-emails.md §13): o estado das 17 datas comemorativas é configuração da PLATAFORMA, do Master,
+        // sem escritório (a tabela não tem `tenant_id`), lido pelo passo `datas` da varredura, que roda sem sessão.
+        \App\Comercial\Entity\DataComemorativa::class,
         // Marca da varredura do push da Agenda (entrega 5b): uma linha só, global, que garante uma cadeia
         // única de envio para todos os escritórios. Não guarda dado de escritório nenhum.
         \App\Agenda\Entity\VarreduraDePush::class,
@@ -268,7 +271,8 @@ final class TenantAwareCoberturaTest extends KernelTestCase
     // 63 → 64 com a métrica anônima da página pública do Trabalho Externo (19/10/2026): MetricaPublica, justificada acima.
     // 64 → 65 com a nota por cidade da janela da OAB (21/10/2026): NotaDaCidadeOab (plataforma), justificada acima.
     // 65 → 66 com as imagens das campanhas do Master (21/10/2026, F3i): ImagemDaCampanha (plataforma), justificada acima.
-    private const MAX_FORA_DO_ESCOPO = 66;
+    // 66 → 67 com as datas comemorativas do Comercial (21/10/2026, F4): DataComemorativa (plataforma), justificada acima.
+    private const MAX_FORA_DO_ESCOPO = 67;
 
     /**
      * Furos conhecidos, cada um endereçado a uma fatia da spec. Esta lista SÓ ENCOLHE — cobrado

@@ -1,0 +1,18 @@
+{# Bloco "Datas comemorativas" da seção Comercial (desenho 05 VS 21.10.26, L335-339 e L678-682; spec comercial-e-emails
+   §13, F4), logo depois das Automações e só fora do modo venda. As 17 linhas vêm por JSON (comercial-datas.js), na
+   ordem da próxima data: o interruptor, o selo com o dia da semana e o dd/mm, o ícone, o nome com "em N dias · envio
+   dd/mm às 9h" (laranja a 7 dias ou menos), a antecedência, o "Para quem" e o "Ver mensagem", que abre o modelo
+   `data-<id>` na Central de envios. O token é o da raiz [data-mc] (`master_comercial`). O aviso da chave geral
+   desligada aparece quando o servidor diz que ela está desligada (nada sai em massa até o Master ligá-la). #}
+<section class="mc-caixa mc-dt" data-mc-datas aria-labelledby="mc-dt-titulo"
+         data-url-lista="{{ path('master_comercial_datas') }}"
+         data-url-alterar="{{ path('master_comercial_data', {chave: 'xchavex'}) }}">
+    <div class="mc-cabeca">
+        <i class="bi bi-calendar-heart mc-dt-ic" aria-hidden="true"></i>
+        <b class="mc-cabeca-titulo" id="mc-dt-titulo">{{ 'comercial.datas.titulo'|trans }}</b>
+        <span class="mc-cabeca-sub">{{ 'comercial.datas.sub'|trans }} · <span data-mc-dt-n>0</span> {{ 'comercial.datas.ativas'|trans }}</span>
+    </div>
+    <div class="mc-msg" role="status" data-mc-dt-desligada hidden><i class="bi bi-pause-circle" aria-hidden="true"></i> {{ 'comercial.datas.chave_desligada'|trans }}</div>
+    <div class="mc-msg" role="status" data-mc-dt-msg hidden></div>
+    <div class="mc-dt-lista" data-mc-dt-lista aria-busy="true"></div>
+</section>

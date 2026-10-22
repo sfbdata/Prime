@@ -73,6 +73,7 @@
     "comercial": {
         "templates": [
             "master/_comercial.html.twig",
+            "master/_comercial_datas.html.twig",
             "master/_comercial_descadastrados.html.twig",
             "master/_comercial_kpis.html.twig",
             "master/_comercial_leitura.html.twig",
@@ -81,6 +82,7 @@
         "js": [
             "master/comercial.js",
             "master/comercial-campanha.js",
+            "master/comercial-datas.js",
             "master/comercial-descadastrados.js",
             "master/comercial-leitura.js",
             "master/comercial-teste.js"
