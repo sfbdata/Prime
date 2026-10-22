@@ -319,7 +319,7 @@ final class PassagemDeEtapaTest extends JusPrimeWebTestCase
         self::assertSame(Tarefa::STATUS_CONCLUIDA, $this->em->find(Tarefa::class, $this->meta->getId())->getStatus());
     }
 
-    #[TestDox('Página da meta: trilho de largura total antes do cartão, com as etapas como filhas diretas')]
+    #[TestDox('Página da meta: trilho de largura total entre o cabeçalho e as colunas, com as etapas como filhas diretas')]
     public function testArranjoDoTrilho(): void
     {
         $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
@@ -327,8 +327,8 @@ final class PassagemDeEtapaTest extends JusPrimeWebTestCase
         $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
 
         self::assertResponseIsSuccessful();
-        $trilho = 'section.content > .container-fluid > section.mp-trilho';
-        self::assertCount(1, $crawler->filter($trilho . ' + .card'));
+        $trilho = '.meta-moldura > .meta-cabeca + section.mp-trilho';
+        self::assertCount(1, $crawler->filter($trilho . ' + .meta-colunas'));
         self::assertSame('ETAPA DA PASTA', $crawler->filter($trilho . ' > b.mp-trilho-rotulo')->text());
         self::assertCount(8, $crawler->filter($trilho . ' > span.mp-trilho-etapa'));
         self::assertSame(['Comercial', 'Abertura e relatório'], $crawler->filter($trilho . ' > .mp-trilho-etapa.is-passada')->each(static fn ($n) => $n->text()));
@@ -348,7 +348,7 @@ final class PassagemDeEtapaTest extends JusPrimeWebTestCase
 
         $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
 
-        $trilho = 'section.content > .container-fluid > section.mp-trilho';
+        $trilho = '.meta-moldura > .meta-cabeca + section.mp-trilho';
         self::assertSame('Documentação', $crawler->filter($trilho . ' > .mp-trilho-etapa.is-saltada')->text());
         self::assertSame('Documentação · Secretaria · etapa saltada, sem registro', $crawler->filter($trilho . ' > .mp-trilho-etapa.is-saltada')->attr('title'));
         self::assertSame('1 etapa saltada: Documentação', $crawler->filter($trilho . ' > .mp-trilho-saltadas')->text());
@@ -361,12 +361,12 @@ final class PassagemDeEtapaTest extends JusPrimeWebTestCase
 
         $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
 
-        $lateral = '.row > .col-lg-4';
+        $lateral = '.meta-colunas > aside.meta-lateral';
         self::assertSame('Concluir e passar para Documentação', trim($crawler->filter($lateral . ' > .mp-lateral > button.mp-concluir')->text()));
         self::assertSame('Próximo passo: Documentação (Secretaria). Você escolhe o responsável, o prazo e as pendências.', $crawler->filter($lateral . ' > .mp-lateral > .mp-concluir + .mp-lateral-proximo')->text());
         self::assertSame('Devolver para Thâmara Thays', trim($crawler->filter($lateral . ' > .mp-lateral > .mp-lateral-proximo + button.mp-devolver')->text()));
         self::assertCount(1, $crawler->filter($lateral . ' > .mp-lateral > .mp-devolver > i.bi-arrow-return-left'));
-        self::assertCount(1, $crawler->filter($lateral . ' > .mb-3 + .mp-lateral + .mb-3 #btnAcompanharMeta'), 'situação antes, Acompanhar depois');
+        self::assertCount(1, $crawler->filter($lateral . ' > .meta-situacao + .mp-lateral + #btnAcompanharMeta'), 'situação antes, Acompanhar depois');
         self::assertCount(0, $crawler->filter('form[action$="/concluir"]'), 'o Concluir meta antigo saiu da lateral');
         self::assertCount(0, $crawler->filter('[data-acao="devolver"]'), 'Devolver saiu do formulário de despacho');
     }

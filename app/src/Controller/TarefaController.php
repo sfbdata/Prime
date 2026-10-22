@@ -256,7 +256,7 @@ final class TarefaController extends AbstractController
      * Detalhe da tarefa.
      */
     #[Route('/{id}', name: 'tarefa_show', methods: ['GET'])]
-    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, AtualizarPrazoTarefaUseCase $prazoUseCase, TarefaRepository $tarefaRepository, DarCienciaDosDespachosUseCase $ciencia, MontarDespachosDaMetaUseCase $despachos, MontarSituacaoDaMetaUseCase $situacao, MontarLinhaDoTempoDaMetaUseCase $linhaDoTempo, MontarEtapaDaMetaUseCase $etapa): Response
+    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, AtualizarPrazoTarefaUseCase $prazoUseCase, DarCienciaDosDespachosUseCase $ciencia, MontarDespachosDaMetaUseCase $despachos, MontarSituacaoDaMetaUseCase $situacao, MontarLinhaDoTempoDaMetaUseCase $linhaDoTempo, MontarEtapaDaMetaUseCase $etapa): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -283,8 +283,6 @@ final class TarefaController extends AbstractController
             'usuarioAtual'   => $usuario,
             'users'          => $users,
             'podeEditarPrazo' => $prazoUseCase->podeEditarPrazo($tarefa, $usuario, $tenant),
-            // Só para a dica do selo "Nº 0001" ("Meta N desta pasta · nº ..."); sem número global, nem consulta.
-            'numeroNaPasta'   => $tarefa->getNumero() === null ? null : ($tarefaRepository->numerosNaPasta([(int) $tarefa->getId()])[(int) $tarefa->getId()] ?? null),
         ]);
     }
 

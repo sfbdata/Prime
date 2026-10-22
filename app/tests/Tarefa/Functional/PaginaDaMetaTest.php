@@ -61,12 +61,67 @@ final class PaginaDaMetaTest extends JusPrimeWebTestCase
     {
         $c = $this->abrir($this->criador);
 
-        self::assertCount(1, $c->filter('.content-header > .container-fluid > .meta-cabeca > a.meta-voltar[href="/tarefas/minhas"][title="Voltar às metas"] > i.bi-arrow-left'));
+        self::assertCount(1, $c->filter('.app-content > .container-fluid > .meta-moldura > .meta-cabeca > a.meta-voltar[href="/tarefas/minhas"][title="Voltar às metas"] > i.bi-arrow-left'));
         self::assertCount(1, $c->filter('.meta-cabeca > a.meta-voltar + h1.meta-titulo'));
         $trilha = $c->filter('.meta-cabeca > nav.meta-trilha');
         self::assertSame('Expediente / Pasta ' . $this->meta->getPasta()->getNup() . ' / Meta', self::texto($trilha));
         self::assertCount(1, $trilha->filter('nav.meta-trilha > a[href="/expediente"]'));
         self::assertCount(1, $trilha->filter('nav.meta-trilha > a[href="/pasta/' . $this->meta->getPasta()->getId() . '"]'));
+    }
+
+    #[TestDox('Moldura do 04B (L34, L47-48): blocos soltos (cabeçalho, trilho, colunas), meta e lateral lado a lado, sem card do AdminLTE nem colunas do Bootstrap; fundo só com .meta-body')]
+    public function testMolduraDoDesenho(): void
+    {
+        $c = $this->abrir($this->criador);
+
+        self::assertStringContainsString('meta-body', (string) $c->filter('body')->attr('class'));
+        $blocos = $c->filter('.app-content > .container-fluid > .meta-moldura')->children()->each(static fn (Crawler $n): string => (string) $n->attr('class'));
+        self::assertSame(['meta-cabeca', 'mp-trilho', 'meta-colunas'], $blocos);
+        self::assertCount(1, $c->filter('.meta-moldura > .meta-colunas > section.meta-principal + aside.meta-lateral'), 'a lateral vem depois: desce na tela estreita');
+        $principal = $c->filter('.meta-colunas > section.meta-principal')->children()->each(static fn (Crawler $n): string => explode(' ', (string) $n->attr('class'))[0]);
+        self::assertSame(['meta-principal-titulo', 'meta-aguardando', 'meta-demanda', 'meta-historico'], $principal, 'título, aguardando, demanda e DESPACHO no mesmo cartão');
+        self::assertCount(0, $c->filter('.card, .card-outline, .row, [class*="col-lg"], .content-header'), 'nada do card e das colunas do sistema');
+        self::assertCount(1, $c->filter('.meta-historico > .despacho-cabeca-bloco + .despacho-bloco > form[data-despacho]'), 'DESPACHO é faixa do cartão, com o formulário logo abaixo');
+        self::assertCount(0, $c->filter('.meta-num-global'), 'sem o selo Nº (decisão do dono)');
+    }
+
+    #[TestDox('Janelas de prazo, responsáveis e certidão no componente do desenho (L106), sem o modal do Bootstrap; abrem pelo data-md-abrir')]
+    public function testJanelasDoDesenho(): void
+    {
+        $this->meta->setPrazo(new \DateTimeImmutable('+5 days'));
+        $this->em->flush();
+        $c = $this->abrir($this->criador);
+
+        foreach (['modalEditarPrazo', 'modalEditarResponsaveis', 'modalCertificarDespacho'] as $id) {
+            $janela = $c->filter('body div.md-modal#' . $id . '[hidden]');
+            self::assertCount(1, $janela, $id);
+            self::assertCount(1, $janela->filter('.md-modal > .md-modal-fundo[data-md-fechar] + .md-modal-centro > form.md-modal-caixa[role="dialog"] > .md-modal-cabeca + .md-modal-corpo + .md-modal-pe'), $id);
+            self::assertCount(1, $janela->filter('.md-modal-cabeca > i.bi + b + button.md-modal-x[data-md-fechar]'), $id);
+            self::assertCount(1, $janela->filter('.md-modal-pe > button.md-cancelar[data-md-fechar] + button.md-confirmar[type="submit"]'), $id);
+        }
+        self::assertCount(0, $c->filter('.meta-moldura .modal, .meta-moldura [data-bs-toggle], .meta-moldura .btn, .meta-moldura .form-control, .md-modal .btn, .md-modal .form-control, .md-modal.modal'), 'nada do Bootstrap na página nem nas janelas');
+        self::assertCount(1, $c->filter('.meta-detalhes > .meta-detalhes-prazo[data-md-abrir="modalEditarPrazo"][role="button"]'));
+        self::assertCount(1, $c->filter('.meta-detalhes > .meta-detalhes-responsaveis[data-md-abrir="modalEditarResponsaveis"][role="button"]'));
+        self::assertCount(1, $c->filter('#modalEditarPrazo .md-modal-corpo > input#campoPrazo.md-campo[name="prazo"]'));
+        self::assertCount(1, $c->filter('#modalEditarResponsaveis .md-modal-corpo > #listaResponsaveis.md-lista > label.md-pessoa.is-ativo > input.md-pessoa-marca[name="responsaveis[]"][checked]'));
+        self::assertCount(1, $c->filter('#modalCertificarDespacho .md-modal-corpo > textarea#certidaoTexto.md-campo-texto[name="certidao"]'));
+        self::assertCount(1, $c->filter('script[src$="/js/meta-detalhe.js"]'));
+    }
+
+    #[TestDox('Acompanhar (L83-84) no botão do desenho, não no do Bootstrap; marcado, ganha .is-ativo e o ícone cheio')]
+    public function testAcompanharDoDesenho(): void
+    {
+        $c = $this->abrir($this->criador);
+        $botao = $c->filter('.meta-lateral > button#btnAcompanharMeta.meta-acompanhar[aria-pressed="false"]');
+        self::assertCount(1, $botao);
+        self::assertSame('meta-acompanhar', $botao->attr('class'));
+        self::assertCount(1, $botao->filter('button > i.bi-bookmark + span'));
+        self::assertSame('Só você vê esta marcação.', self::texto($c->filter('.meta-lateral > #btnAcompanharMeta + .meta-so-voce')));
+
+        $this->meta->alternarAcompanhamento($this->criador);
+        $this->em->flush();
+        $c = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
+        self::assertCount(1, $c->filter('.meta-lateral > button#btnAcompanharMeta.meta-acompanhar.is-ativo[aria-pressed="true"] > i.bi-bookmark-fill'));
     }
 
     #[TestDox('L2: faixa AGUARDANDO DESPACHO DE com iniciais, nome curto e "hoje / com a demanda"; vermelha se atrasada')]
@@ -77,7 +132,7 @@ final class PaginaDaMetaTest extends JusPrimeWebTestCase
 
         $c = $this->abrir($this->criador);
 
-        $faixa = $c->filter('.col-lg-8 > .meta-aguardando.meta-aguardando--atrasada');
+        $faixa = $c->filter('.meta-principal > .meta-principal-titulo + .meta-aguardando.meta-aguardando--atrasada');
         self::assertCount(1, $faixa);
         self::assertSame('AGUARDANDO DESPACHO DE', self::texto($faixa->filter('.meta-aguardando > .meta-aguardando-quem > .meta-aguardando-rotulo')));
         self::assertSame('RP', self::texto($faixa->filter('.meta-aguardando-pessoas > .meta-aguardando-pessoa > .meta-aguardando-iniciais')));
@@ -103,12 +158,12 @@ final class PaginaDaMetaTest extends JusPrimeWebTestCase
         self::assertNotNull($mensagens[0]->getCodigo());
 
         $c = $this->client->request('GET', '/tarefas/' . $id);
-        $faixa = $c->filter('.col-lg-8 > .meta-aguardando.meta-aguardando--revisao');
+        $faixa = $c->filter('.meta-principal > .meta-aguardando.meta-aguardando--revisao');
         self::assertSame('AGUARDANDO REVISÃO DE', self::texto($faixa->filter('.meta-aguardando-quem > .meta-aguardando-rotulo')));
         self::assertSame('FAFarlei Rocha', self::texto($faixa->filter('.meta-aguardando-pessoas > .meta-aguardando-pessoa')));
         self::assertSame('desde o envio para revisão', self::texto($faixa->filter('.meta-aguardando-tempo > .meta-aguardando-desde')));
         self::assertStringContainsString('Meta enviada para revisão do autor.', self::texto($c->filter('#despacho-' . $mensagens[0]->getId())));
-        self::assertSame('Aguardando revisão', self::texto($c->filter('.col-lg-4 > .mb-3 > .meta-situacao.meta-situacao--revisao > .meta-situacao-texto > b.meta-situacao-titulo')));
+        self::assertSame('Aguardando revisão', self::texto($c->filter('.meta-lateral > .meta-situacao.meta-situacao--revisao > .meta-situacao-texto > b.meta-situacao-titulo')));
     }
 
     #[TestDox('L3: painel de situação "Atrasada · N dia(s)" vermelho e "Etapa i/n · Nome"')]
@@ -119,7 +174,7 @@ final class PaginaDaMetaTest extends JusPrimeWebTestCase
 
         $c = $this->abrir($this->criador);
 
-        $painel = $c->filter('.col-lg-4 > .mb-3 > .meta-situacao.meta-situacao--atrasada');
+        $painel = $c->filter('.meta-lateral > .meta-situacao.meta-situacao--atrasada');
         self::assertCount(1, $painel);
         self::assertCount(1, $painel->filter('.meta-situacao > i.bi-exclamation-octagon.meta-situacao-icone + .meta-situacao-texto'));
         self::assertSame('Atrasada · 2 dia(s)', self::texto($painel->filter('.meta-situacao-texto > b.meta-situacao-titulo')));
@@ -135,10 +190,10 @@ final class PaginaDaMetaTest extends JusPrimeWebTestCase
         $c = $this->abrir($this->criador);
 
         self::assertCount(0, $c->filter('.tarefa-meta-box'), 'as 4 caixas do topo saíram');
-        $d = $c->filter('.col-lg-4 > .mb-3 > .meta-detalhes');
+        $d = $c->filter('.meta-lateral > .meta-detalhes');
         self::assertCount(1, $d);
         self::assertSame('DETALHES DA META', self::texto($d->filter('.meta-detalhes > .meta-detalhes-cabeca')));
-        $prazo = $d->filter('.meta-detalhes > .meta-detalhes-cabeca + .meta-detalhes-item.meta-detalhes-prazo.meta-detalhes-prazo--atrasada[data-bs-target="#modalEditarPrazo"]');
+        $prazo = $d->filter('.meta-detalhes > .meta-detalhes-cabeca + .meta-detalhes-item.meta-detalhes-prazo.meta-detalhes-prazo--atrasada[data-md-abrir="modalEditarPrazo"]');
         self::assertCount(1, $prazo);
         self::assertSame('PRAZOAlterar', self::texto($prazo->filter('.meta-detalhes-prazo > .meta-detalhes-rotulo')));
         self::assertSame('Atrasada venceu em ' . (new \DateTimeImmutable('-4 days'))->format('d/m/Y'), self::texto($prazo->filter('.meta-detalhes-atraso > .meta-detalhes-atraso-texto')));
@@ -173,15 +228,15 @@ final class PaginaDaMetaTest extends JusPrimeWebTestCase
 
         $c = $this->abrir($this->criador);
 
-        self::assertCount(0, $c->filter('.card-primary > .card-header .badge'), 'o status está no painel, não no cabeçalho');
-        $pasta = $c->filter('.col-lg-8 > .meta-demanda > a.meta-pasta[title="Abrir a pasta"]');
+        self::assertCount(0, $c->filter('.meta-principal-titulo .badge'), 'o status está no painel, não no cabeçalho');
+        $pasta = $c->filter('.meta-principal > .meta-demanda > a.meta-pasta[title="Abrir a pasta"]');
         self::assertCount(1, $pasta);
         self::assertSame('/pasta/' . $this->meta->getPasta()->getId(), $pasta->attr('href'));
         self::assertCount(1, $pasta->filter('a.meta-pasta > i.bi-folder2-open'));
         self::assertSame('Pasta: ' . $this->meta->getPasta()->getNup() . '· MARIA DA SILVA', self::texto($pasta));
         self::assertSame('DEMANDA', self::texto($c->filter('.meta-demanda > a.meta-pasta + .meta-demanda-rotulo')));
         self::assertSame('Juntar a procuração.', self::texto($c->filter('.meta-demanda > .meta-demanda-rotulo + .meta-demanda-texto')));
-        self::assertCount(0, $c->filter('.col-lg-8 hr'));
+        self::assertCount(0, $c->filter('.meta-principal hr'));
     }
 
     #[TestDox('Cartão: descrição vazia mostra "Sem descrição."')]
@@ -202,7 +257,7 @@ final class PaginaDaMetaTest extends JusPrimeWebTestCase
 
         $c = $this->abrir($this->criador);
         self::assertCount(1, $c->filter('#tarefa-timeline-card form[data-despacho] button.despacho-botao--principal[data-acao="enviar"]'));
-        self::assertCount(0, $c->filter('.col-lg-4 form[action$="/concluir"]'), 'concluída não se conclui de novo');
+        self::assertCount(0, $c->filter('.meta-lateral form[action$="/concluir"]'), 'concluída não se conclui de novo');
 
         $this->client->request('POST', '/tarefas/' . $id . '/mensagem', ['_token' => 'TOKEN_mensagem_tarefa_' . $id, 'acao' => '', 'mensagem' => 'Arquivado na pasta.']);
         $this->client->request('POST', '/tarefas/' . $id . '/mensagem', ['_token' => 'TOKEN_mensagem_tarefa_' . $id, 'acao' => 'enviar', 'mensagem' => 'Revisar de novo.']);
@@ -221,15 +276,31 @@ final class PaginaDaMetaTest extends JusPrimeWebTestCase
     {
         $c = $this->abrir($this->criador);
 
-        $blocos = $c->filter('.col-lg-4 > .mb-3');
-        self::assertCount(3, $blocos);
-        self::assertCount(1, $blocos->eq(0)->filter('.mb-3 > .meta-situacao'));
-        self::assertStringStartsWith('Concluir', self::texto($c->filter('.col-lg-4 > .mb-3 + .mp-lateral > button.mp-concluir')));
-        self::assertCount(1, $c->filter('.col-lg-4 > .mp-lateral + .mb-3 > #btnAcompanharMeta + .form-text'));
-        self::assertCount(1, $blocos->eq(2)->filter('.mb-3 > .meta-detalhes'));
+        $filhos = $c->filter('.meta-colunas > aside.meta-lateral')->children()->each(static fn (Crawler $n): string => (string) $n->attr('class'));
+        self::assertSame(['meta-situacao meta-situacao--pendente', 'mp-lateral', 'meta-acompanhar', 'meta-so-voce', 'meta-detalhes'], $filhos, 'blocos soltos, sem invólucro mb-3');
+        self::assertStringStartsWith('Concluir', self::texto($c->filter('.meta-lateral > .meta-situacao + .mp-lateral > button.mp-concluir')));
+        self::assertCount(1, $c->filter('.meta-lateral > .mp-lateral + button#btnAcompanharMeta.meta-acompanhar + .meta-so-voce + .meta-detalhes'));
         self::assertCount(0, $c->filter('form[action$="/excluir"]'), 'Excluir meta saiu da página (decisão do dono)');
         self::assertCount(0, $c->filter('a[href$="#tarefas"]'), 'Voltar à Pasta saiu; o voltar é pela seta e pela trilha');
-        self::assertStringNotContainsString('Excluir meta', $c->filter('.col-lg-4')->text());
+        self::assertStringNotContainsString('Excluir meta', $c->filter('.meta-lateral')->text());
+    }
+
+    #[TestDox('Linha do tempo (L71): traço vertical em todo marcador menos o último; data "dd/mm/aaaa, hh:mm" com vírgula')]
+    public function testTracoEDataDaLinhaDoTempo(): void
+    {
+        $id = (int) $this->meta->getId();
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+        $this->client->request('POST', '/tarefas/' . $id . '/mensagem', ['_token' => 'TOKEN_mensagem_tarefa_' . $id, 'acao' => '', 'mensagem' => 'Primeiro.']);
+        $this->client->request('POST', '/tarefas/' . $id . '/mensagem', ['_token' => 'TOKEN_mensagem_tarefa_' . $id, 'acao' => '', 'mensagem' => 'Segundo.']);
+
+        $c = $this->client->request('GET', '/tarefas/' . $id);
+
+        $itens = $c->filter('#timelineList > .despacho-item');
+        self::assertGreaterThanOrEqual(2, $itens->count());
+        self::assertCount($itens->count() - 1, $c->filter('#timelineList > .despacho-item > .despacho-marca > .despacho-icone + .despacho-traco'));
+        self::assertCount(0, $itens->last()->filter('.despacho-traco'), 'o último não tem traço');
+        self::assertMatchesRegularExpression('/^\d{2}\/\d{2}\/\d{4}, \d{2}:\d{2}$/', self::texto($itens->eq(0)->filter('.despacho-cabeca > .despacho-em')));
+        self::assertCount(0, $c->filter('#timelineList .despacho-vazio'));
     }
 
     #[TestDox('Linha do tempo no formato único: todo item é cartão "DESPACHO N · tipo", sem separador de data nem "Início do histórico"')]
@@ -246,7 +317,7 @@ final class PaginaDaMetaTest extends JusPrimeWebTestCase
 
         $c = $this->client->request('GET', '/tarefas/' . $id);
 
-        $lista = $c->filter('#tarefa-timeline-card > .card-body > #timelineList.despacho-lista');
+        $lista = $c->filter('.meta-principal > #tarefa-timeline-card.meta-historico > .despacho-bloco + #timelineList.despacho-lista');
         self::assertCount(1, $lista);
         self::assertNull($lista->attr('style'), 'sem max-height');
         $itens = $lista->filter('#timelineList > .despacho-item');

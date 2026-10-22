@@ -4,7 +4,7 @@
     prazo padrão de 5 dias úteis calculado no servidor e "N dias úteis" recontado no navegador pela lista de dias não
     úteis (`data-nao-uteis`). O comportamento é do public/js/meta-despacho.js.
 #}
-<div class="card-body border-bottom pb-3 despacho-bloco">
+<div class="despacho-bloco">
     <form id="formTarefaMensagem" method="post"
           action="{{ path('tarefa_mensagem', {id: tarefa.id}) }}"
           enctype="multipart/form-data"
@@ -35,7 +35,7 @@
            lista vem dos colegas que veem a pasta da meta. #}
         <div class="despacho-campo" data-mencionaveis-url="{{ path('pasta_mencionaveis', {id: tarefa.pasta.id}) }}">
             <textarea name="mensagem" id="tarefaMensagemConteudo"
-                      class="form-control despacho-texto-campo"
+                      class="despacho-texto-campo"
                       rows="3" maxlength="5000" data-mencoes-simples
                       placeholder="{{ 'metas.despacho.placeholder'|trans }}"></textarea>
         </div>

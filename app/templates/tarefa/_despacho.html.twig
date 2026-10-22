@@ -6,12 +6,14 @@
     página de validação. Mensagem antiga (sem código) fica sem a linha de local e data e sem a de registro, e é a
     única que se edita (o lembrete, também sem código, não se edita).
     Fase 2b: "quem → para" com os mencionados (L161), a @menção como destaque (`registro_texto`, nunca o token cru)
-    e o anexo juntado aos documentos da pasta como "nome · juntado à pasta" (L161); anexo antigo segue no chip.
+    e o anexo juntado aos documentos da pasta como "nome · juntado à pasta" (L161); o anexo antigo sai na mesma linha do
+    clipe, com o link que abre o arquivo. `ultimo` (o último da lista) não leva o traço vertical do marcador (L71).
+    Datas como no desenho: "dd/mm/aaaa, hh:mm" (`metas.despacho.quando`).
 #}
 {% set item = l.item %}
 {% set d = l.despacho %}
 <div class="despacho-item despacho-item--{{ l.tom }} tarefa-timeline-entry{% if d %} tarefa-timeline-entry--mensagem{% endif %}" id="{{ d ? 'despacho-' ~ item.mensagemId : 'evento-' ~ l.numero }}">
-    <div class="despacho-marca"><span class="despacho-icone"><i class="bi {{ l.icone }}"></i></span></div>
+    <div class="despacho-marca"><span class="despacho-icone"><i class="bi {{ l.icone }}"></i></span>{% if not (ultimo ?? false) %}<span class="despacho-traco"></span>{% endif %}</div>
     <div class="despacho-cartao">
         <div class="despacho-cabeca">
             <b class="despacho-numero">{{ 'metas.despacho.numero'|trans({n: l.numero}) }}</b>
@@ -32,7 +34,7 @@
                 </button>
             {% endif %}
             <small class="despacho-em">
-                {{ (d ? d.registradoEm : item.dataHora)|data_hora }}
+                {% set em = d ? d.registradoEm : item.dataHora %}{{ 'metas.despacho.quando'|trans({data: em|data, hora: em|hora}) }}
                 {% if item.editadoEm %}<span class="ms-1 fst-italic tarefa-msg-editado">{{ 'metas.detalhe.editado'|trans }}</span>{% endif %}
             </small>
         </div>
@@ -67,43 +69,15 @@
                     <span class="despacho-juntado-onde">· {{ 'metas.despacho.juntado_a_pasta'|trans }}</span>
                 </div>
             {% elseif item.arquivoAnexo and item.arquivoAnexo starts with '/' %}
-                {% set ext      = item.arquivoAnexo|split('.')|last|lower %}
-                {% set mimeMap  = {
-                    'pdf':  'application/pdf',
-                    'jpg':  'image/jpeg',
-                    'jpeg': 'image/jpeg',
-                    'png':  'image/png',
-                    'gif':  'image/gif',
-                    'webp': 'image/webp',
-                    'svg':  'image/svg+xml',
-                    'mp3':  'audio/mpeg',
-                    'mp4':  'video/mp4',
-                    'webm': 'video/webm',
-                } %}
-                {% set mime     = mimeMap[ext] ?? 'application/octet-stream' %}
-                {% set ehImagem = mime starts with 'image/' %}
-                {% set ehPdf    = mime == 'application/pdf' %}
-                <div class="mt-2 tarefa-anexo-wrap">
-                    <span class="tarefa-anexo-chip">
-                        <i class="bi {% if ehImagem %}bi-image{% elseif ehPdf %}bi-file-pdf{% else %}bi-file-earmark{% endif %} me-1"></i>
-                        <span class="tarefa-anexo-nome">{{ item.arquivoAnexo|split('/')|last }}</span>
-                        <button type="button"
-                                class="tarefa-anexo-btn"
-                                title="{{ 'metas.detalhe.visualizar_arquivo'|trans }}"
-                                data-bs-toggle="modal"
-                                data-bs-target="#previewDocModal"
-                                data-url="{{ path('tarefa_mensagem_arquivo_view', {id: item.mensagemId}) }}"
-                                data-nome="{{ item.arquivoAnexo|split('/')|last }}"
-                                data-mime="{{ mime }}">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                    </span>
+                <div class="despacho-juntado">
+                    <i class="bi bi-paperclip"></i>
+                    <a href="{{ path('tarefa_mensagem_arquivo_view', {id: item.mensagemId}) }}" target="_blank" rel="noopener" title="{{ 'metas.detalhe.visualizar_arquivo'|trans }}">{{ item.arquivoAnexo|split('/')|last }}</a>
                 </div>
             {% endif %}
 
             {% if d.certidao %}
                 <div class="despacho-certidao">
-                    <i class="bi bi-patch-check"></i> {{ d.certidao }} · {{ 'metas.despacho.certidao_assinatura'|trans({nome: d.certificadoPor ?? '', quando: d.certificadoEm|data_hora}) }}
+                    <i class="bi bi-patch-check"></i> {{ d.certidao }} · {{ 'metas.despacho.certidao_assinatura'|trans({nome: d.certificadoPor ?? '', quando: 'metas.despacho.quando'|trans({data: d.certificadoEm|data, hora: d.certificadoEm|hora})}) }}
                 </div>
             {% endif %}
 
@@ -112,12 +86,12 @@
                     <span class="despacho-cumprir{% if d.prazoVencido %} despacho-cumprir--vencido{% endif %}"><i class="bi bi-calendar-event"></i> {{ 'metas.despacho.cumprir_ate'|trans({data: d.prazo|data}) }}</span>
                 {% endif %}
                 {% if d.ciente %}
-                    <span class="despacho-ciente"><i class="bi bi-eye"></i> {{ 'metas.despacho.ciente'|trans({nome: d.ciente, quando: d.cienteEm|data_hora}) }}</span>
+                    <span class="despacho-ciente"><i class="bi bi-eye"></i> {{ 'metas.despacho.ciente'|trans({nome: d.ciente, quando: 'metas.despacho.quando'|trans({data: d.cienteEm|data, hora: d.cienteEm|hora})}) }}</span>
                 {% endif %}
                 <span class="flex-grow-1"></span>
                 {% if d.podeCertificar %}
                     <button type="button" class="despacho-certificar"
-                            data-bs-toggle="modal" data-bs-target="#modalCertificarDespacho"
+                            data-md-abrir="modalCertificarDespacho"
                             data-url="{{ path('tarefa_mensagem_certificar', {id: item.mensagemId}) }}"
                             data-token="{{ csrf_token('certificar_despacho_' ~ item.mensagemId) }}">{{ 'metas.despacho.certificar'|trans }}</button>
                 {% endif %}

@@ -191,8 +191,8 @@
             "tarefa/registro.html.twig",
             "tarefa/extrato.html.twig"
         ],
-        "js": ["meta-despacho.js"],
-        "permitidos": ["Enter"]
+        "js": ["meta-despacho.js", "meta-detalhe.js"],
+        "permitidos": ["Enter", "Escape", "meta-body"]
     },
 
     "perfis": {

@@ -2,761 +2,227 @@
 
 {% block title %}{{ 'metas.detalhe.titulo'|trans({id: (tarefa.numero ?? tarefa.id) ~ ''}) }}{% endblock %}
 
+{# O fundo #f3f6f8 e o respiro da página (desenho 04B L17 e L34) valem só aqui: meta-detalhe.css pendura tudo em .meta-body. #}
+{% block body_class %}meta-body{% endblock %}
+
 {% block body %}
 {# Editor rico (barra de formatação). Quill auto-hospedado — sem CDN externo. #}
 <link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
 <link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
-<link rel="stylesheet" href="{{ asset('css/meta-numero-global.css') }}">
 <link rel="stylesheet" href="{{ asset('css/meta-despacho.css') }}">
 <link rel="stylesheet" href="{{ asset('css/meta-detalhe.css') }}">
 <link rel="stylesheet" href="{{ asset('css/meta-passagem.css') }}">
 <script src="{{ asset('js/quill/quill.js') }}"></script>
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
 <script src="{{ asset('js/pasta-mencoes.js') }}" defer></script>
+<script src="{{ asset('js/meta-detalhe.js') }}" defer></script>
 <script src="{{ asset('js/meta-despacho.js') }}" defer></script>
 <script src="{{ asset('js/meta-passagem.js') }}" defer></script>
 
+{# Moldura do desenho 04B (L34): blocos soltos, até 1280px no centro, 14px entre eles. #}
+<div class="meta-moldura">
 
-{# Cabeçalho (desenho 04B L35-39; spec L5): seta de voltar às metas, "Meta #N" e a trilha
-   "Expediente / Pasta X / Meta". #}
-<div class="content-header">
-    <div class="container-fluid">
-        <div class="meta-cabeca mb-2">
-            <a href="{{ path('tarefa_minhas') }}" class="meta-voltar" title="{{ 'metas.detalhe.voltar_as_metas'|trans }}" aria-label="{{ 'metas.detalhe.voltar_as_metas'|trans }}"><i class="bi bi-arrow-left"></i></a>
-            {# "Meta #N" com o número da meta no escritório (desenho 04B L37); meta sem número cai no id. #}
-            <h1 class="m-0 meta-titulo"><i class="bi bi-list-check"></i>{{ 'metas.detalhe.titulo'|trans({id: (tarefa.numero ?? tarefa.id) ~ ''}) }}</h1>
-            <span class="meta-cabeca-espaco"></span>
-            <nav class="meta-trilha" aria-label="{{ 'metas.detalhe.trilha.rotulo'|trans }}"><a href="{{ path('expediente_index') }}">{{ 'metas.detalhe.trilha.expediente'|trans }}</a> / <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}">{{ 'metas.detalhe.trilha.pasta'|trans({nup: tarefa.pasta.nup ~ ''}) }}</a> / {{ 'metas.detalhe.trilha.meta'|trans }}</nav>
-        </div>
+    {# Cabeçalho (L35-39): seta de voltar às metas, "Meta #N" (número da meta no escritório; sem número, o id) e a
+       trilha "Expediente / Pasta X / Meta". #}
+    <div class="meta-cabeca">
+        <a href="{{ path('tarefa_minhas') }}" class="meta-voltar" title="{{ 'metas.detalhe.voltar_as_metas'|trans }}" aria-label="{{ 'metas.detalhe.voltar_as_metas'|trans }}"><i class="bi bi-arrow-left"></i></a>
+        <h1 class="meta-titulo"><i class="bi bi-list-check"></i>{{ 'metas.detalhe.titulo'|trans({id: (tarefa.numero ?? tarefa.id) ~ ''}) }}</h1>
+        <span class="meta-cabeca-espaco"></span>
+        <nav class="meta-trilha" aria-label="{{ 'metas.detalhe.trilha.rotulo'|trans }}"><a href="{{ path('expediente_index') }}">{{ 'metas.detalhe.trilha.expediente'|trans }}</a> / <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}">{{ 'metas.detalhe.trilha.pasta'|trans({nup: tarefa.pasta.nup ~ ''}) }}</a> / {{ 'metas.detalhe.trilha.meta'|trans }}</nav>
+    </div>
+
+    {# Trilho ETAPA DA PASTA (L42-44), entre o cabeçalho e as colunas. #}
+    {{ include('tarefa/_meta_etapa_trilho.html.twig') }}
+
+    {# Colunas (L47): a meta (flex 999 1 520px) e a lateral (flex 1 1 300px); na tela estreita a lateral desce. #}
+    <div class="meta-colunas">
+
+        <section class="meta-principal">
+            {# Título da meta (L49) #}
+            <div class="meta-principal-titulo"><b>{{ tarefa.titulo }}</b></div>
+
+            {# Faixa "Aguardando" (L50) #}
+            {{ include('tarefa/_meta_aguardando.html.twig') }}
+
+            {# Pasta e DEMANDA (L52-54) #}
+            <div class="meta-demanda">
+                <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}" class="meta-pasta" title="{{ 'metas.detalhe.abrir_a_pasta'|trans }}"><i class="bi bi-folder2-open"></i>{{ 'metas.detalhe.pasta'|trans({nup: tarefa.pasta.nup ~ ''}) }}{% if tarefa.pasta.nomeCliente %}<span class="meta-pasta-cliente">· {{ tarefa.pasta.nomeCliente }}</span>{% endif %}</a>
+                <div class="meta-demanda-rotulo">{{ 'metas.detalhe.demanda'|trans }}</div>
+                <div class="meta-demanda-texto">{{ tarefa.descricao|trim is not empty ? tarefa.descricao|nl2br : 'metas.detalhe.sem_descricao'|trans }}</div>
+            </div>
+
+            {# DESPACHO (L56-71): faixa do mesmo cartão, com o Extrato à direita (L150). A folha abre em janela nova e
+               já pede a impressão; sem JS, o link abre a folha do mesmo jeito. #}
+            <div class="meta-historico" id="tarefa-timeline-card">
+                <div class="despacho-cabeca-bloco">
+                    <b class="despacho-titulo">{{ 'metas.detalhe.despacho_titulo'|trans }}</b>
+                    <a href="{{ path('tarefa_extrato', {id: tarefa.id}) }}" target="_blank" rel="noopener" class="despacho-extrato" data-extrato
+                       title="{{ 'metas.despacho.extrato_dica'|trans }}"><i class="bi bi-printer"></i>{{ 'metas.despacho.extrato'|trans }}</a>
+                </div>
+
+                {# Campo do despacho + ação (L58-66), sempre visível, também na meta concluída: lá o despacho entra
+                   como registro, sem mudar o status. #}
+                {{ include('tarefa/_despacho_formulario.html.twig', {formulario: despachos.formulario}) }}
+
+                {# Linha do tempo (L69-71): sem separador por data, sem rolagem própria; "DESPACHO N" do mais antigo
+                   ao mais novo; o traço vertical liga cada marcador ao seguinte. #}
+                {% if linhaDoTempo is empty %}
+                    <div class="despacho-vazio"><i class="bi bi-clock"></i>{{ 'metas.detalhe.sem_eventos'|trans }}</div>
+                {% endif %}
+                <div id="timelineList" class="despacho-lista">
+                    {% for l in linhaDoTempo %}
+                        {{ include('tarefa/_despacho.html.twig', {ultimo: loop.last}) }}
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        {# Lateral (L76-85): situação, Concluir e passar adiante, Acompanhar e DETALHES, 10px entre eles. #}
+        <aside class="meta-lateral">
+
+            {{ include('tarefa/_meta_situacao.html.twig') }}
+
+            {# Concluir e passar adiante, Próximo passo e Devolver para X (L78-82; D3). Concluir, do responsável ou do
+               criador; Devolver, só do responsável que não criou a meta, na meta pendente. #}
+            {% if etapa.podeConcluir or etapa.podeDevolver %}
+            <div class="mp-lateral">
+                {% if etapa.podeConcluir %}
+                <button type="button" class="mp-concluir" data-mp-abrir="{{ path('tarefa_passagem', {id: tarefa.id}) }}">
+                    <i class="bi bi-check2-circle"></i>{{ etapa.proxima ? 'metas.passagem.concluir_e_passar'|trans({etapa: etapa.proxima}) : 'metas.passagem.concluir_meta'|trans }}
+                </button>
+                <div class="mp-lateral-proximo">{{ etapa.proxima ? 'metas.passagem.proximo_passo'|trans({etapa: etapa.proxima, setor: etapa.setorDaProxima}) : 'metas.passagem.ultima_etapa'|trans }}</div>
+                {% endif %}
+                {% if etapa.podeDevolver %}
+                <button type="button" class="mp-devolver" data-mp-devolver>
+                    <i class="bi bi-arrow-return-left"></i>{{ 'metas.passagem.devolver_para'|trans({nome: etapa.devolverPara}) }}
+                </button>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {# Acompanhar (L83-84): marcação PESSOAL, não muda a meta para os colegas. #}
+            {% set acompanhando = tarefa.ehAcompanhadaPor(app.user) %}
+            <button type="button"
+                    id="btnAcompanharMeta"
+                    class="meta-acompanhar{% if acompanhando %} is-ativo{% endif %}"
+                    data-url="{{ path('tarefa_acompanhar', {id: tarefa.id}) }}"
+                    data-token="{{ csrf_token('acompanhar_tarefa_' ~ tarefa.id) }}"
+                    aria-pressed="{{ acompanhando ? 'true' : 'false' }}">
+                <i class="bi {{ acompanhando ? 'bi-bookmark-fill' : 'bi-bookmark' }}"></i><span>{{ (acompanhando ? 'metas.detalhe.acompanhando' : 'metas.detalhe.acompanhar')|trans }}</span>
+            </button>
+            <div class="meta-so-voce">{{ 'metas.detalhe.so_voce_ve'|trans }}</div>
+
+            {# DETALHES DA META (L85). A lateral termina aqui: o voltar é pela seta e pela trilha do cabeçalho. #}
+            {{ include('tarefa/_meta_detalhes.html.twig') }}
+
+        </aside>
     </div>
 </div>
 
-<section class="content">
-    <div class="container-fluid">
-
-        {% for type, msgs in app.flashes %}
-            {% for msg in msgs %}
-                <div class="alert alert-{{ type == 'success' ? 'success' : 'danger' }} alert-dismissible fade show mb-3" role="alert">
-                    {{ msg }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            {% endfor %}
-        {% endfor %}
-
-        {# O aviso (toast) do desenho (04B L176) depois do Lembrar (L133). Vem na URL, não em flash: o base.html.twig
-           consome todos os flashes como alerta. O meta-despacho.js tira o parâmetro da barra de endereço. #}
-        {% if app.request.query.get('lembrete') == 'enviado' %}
-            <div class="meta-toast" role="status" data-meta-toast><i class="bi bi-check-circle"></i>{{ 'metas.detalhe.aguardando.lembrete_enviado'|trans }}</div>
-        {% endif %}
-
-        {# Trilho ETAPA DA PASTA (desenho 04B L42-44), cartão de largura total entre o cabeçalho e a meta. #}
-        {{ include('tarefa/_meta_etapa_trilho.html.twig') }}
-
-        <div class="card card-primary card-outline">
-            <div class="card-header">
-                {# Título da meta (desenho 04B L49); o selo de status saiu porque repete o painel de situação. #}
-                <h3 class="card-title fw-semibold meta-cartao-titulo">{{ tarefa.titulo }}{{ include('tarefa/_numero_global.html.twig', {numero: tarefa.numero, local: numeroNaPasta}) }}</h3>
-            </div>
-
-            <div class="card-body">
-                <div class="row">
-
-                    {# ── Coluna principal ── #}
-                    <div class="col-12 col-lg-8 order-2 order-lg-1">
-
-                        {# Faixa "Aguardando" (desenho 04B L50; spec L2). As 4 caixas que ficavam aqui viraram o bloco
-                           DETALHES DA META da lateral (L85; spec L4). #}
-                        {{ include('tarefa/_meta_aguardando.html.twig') }}
-
-                        {# Pasta e DEMANDA (desenho 04B L52-54) #}
-                        <div class="meta-demanda">
-                            <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}" class="meta-pasta" title="{{ 'metas.detalhe.abrir_a_pasta'|trans }}"><i class="bi bi-folder2-open"></i>{{ 'metas.detalhe.pasta'|trans({nup: tarefa.pasta.nup ~ ''}) }}{% if tarefa.pasta.nomeCliente %}<span class="meta-pasta-cliente">· {{ tarefa.pasta.nomeCliente }}</span>{% endif %}</a>
-                            <div class="meta-demanda-rotulo">{{ 'metas.detalhe.demanda'|trans }}</div>
-                            <div class="meta-demanda-texto">{{ tarefa.descricao|trim is not empty ? tarefa.descricao|nl2br : 'metas.detalhe.sem_descricao'|trans }}</div>
-                        </div>
-
-                        <div class="card mt-4" id="tarefa-timeline-card">
-                            <div class="card-header despacho-cabeca-bloco">
-                                {# Bloco DESPACHO do desenho 04B (L57), com o Extrato à direita (L150): a folha abre em janela
-                                   nova e já pede a impressão; sem JS, o link abre a folha do mesmo jeito. #}
-                                <h3 class="card-title mb-0 despacho-titulo">{{ 'metas.detalhe.despacho_titulo'|trans }}</h3>
-                                <a href="{{ path('tarefa_extrato', {id: tarefa.id}) }}" target="_blank" rel="noopener" class="despacho-extrato" data-extrato
-                                   title="{{ 'metas.despacho.extrato_dica'|trans }}"><i class="bi bi-printer"></i>{{ 'metas.despacho.extrato'|trans }}</a>
-                            </div>
-
-                            {# Campo do despacho + ação (desenho 04B L58-66; C10 a C12), sempre visível, também na
-                               meta concluída: lá o despacho entra como registro, sem mudar o status. #}
-                            {{ include('tarefa/_despacho_formulario.html.twig', {formulario: despachos.formulario}) }}
-
-                            {# Linha do tempo no formato único (desenho 04B L69-71, L127): sem separador por data,
-                               sem rolagem própria; "DESPACHO N" do mais antigo ao mais novo. #}
-                            <div class="card-body p-2">
-                                <div id="timelineList" class="despacho-lista">
-                                    {% for l in linhaDoTempo %}
-                                        {{ include('tarefa/_despacho.html.twig') }}
-                                    {% else %}
-                                        <div class="despacho-vazio"><i class="bi bi-clock"></i>{{ 'metas.detalhe.sem_eventos'|trans }}</div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>{# /col principal #}
-
-                    {# ── Sidebar (desenho 04B L76-85): situação, Concluir meta, Acompanhar e DETALHES ── #}
-                    <div class="col-12 col-lg-4 order-1 order-lg-2">
-
-                        {# Painel de situação (desenho 04B L77; spec L3) #}
-                        <div class="mb-3">{{ include('tarefa/_meta_situacao.html.twig') }}</div>
-
-                        {# Concluir e passar adiante, Próximo passo e Devolver para X (04B L78-82; D3): o modal da passagem
-                           e o da devolução. Concluir, do responsável ou do criador; Devolver, só do responsável que não
-                           criou a meta, na meta pendente. #}
-                        {% if etapa.podeConcluir or etapa.podeDevolver %}
-                        <div class="mp-lateral">
-                            {% if etapa.podeConcluir %}
-                            <button type="button" class="mp-concluir" data-mp-abrir="{{ path('tarefa_passagem', {id: tarefa.id}) }}">
-                                <i class="bi bi-check2-circle"></i>{{ etapa.proxima ? 'metas.passagem.concluir_e_passar'|trans({etapa: etapa.proxima}) : 'metas.passagem.concluir_meta'|trans }}
-                            </button>
-                            <div class="mp-lateral-proximo">{{ etapa.proxima ? 'metas.passagem.proximo_passo'|trans({etapa: etapa.proxima, setor: etapa.setorDaProxima}) : 'metas.passagem.ultima_etapa'|trans }}</div>
-                            {% endif %}
-                            {% if etapa.podeDevolver %}
-                            <button type="button" class="mp-devolver" data-mp-devolver>
-                                <i class="bi bi-arrow-return-left"></i>{{ 'metas.passagem.devolver_para'|trans({nome: etapa.devolverPara}) }}
-                            </button>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-
-                        {# Acompanhar (L83-84): marcação PESSOAL, não muda a meta para os colegas. #}
-                        {% set acompanhando = tarefa.ehAcompanhadaPor(app.user) %}
-                        <div class="mb-3">
-                            <button type="button"
-                                    id="btnAcompanharMeta"
-                                    class="btn btn-sm w-100 {{ acompanhando ? 'btn-primary' : 'btn-outline-secondary' }}"
-                                    data-url="{{ path('tarefa_acompanhar', {id: tarefa.id}) }}"
-                                    data-token="{{ csrf_token('acompanhar_tarefa_' ~ tarefa.id) }}"
-                                    aria-pressed="{{ acompanhando ? 'true' : 'false' }}">
-                                <i class="bi {{ acompanhando ? 'bi-bookmark-fill' : 'bi-bookmark' }} me-1"></i>
-                                <span>{{ (acompanhando ? 'metas.detalhe.acompanhando' : 'metas.detalhe.acompanhar')|trans }}</span>
-                            </button>
-                            <div class="form-text small">{{ 'metas.detalhe.so_voce_ve'|trans }}</div>
-                        </div>
-
-                        {# DETALHES DA META (desenho 04B L85; spec L4). A lateral termina aqui, como no desenho: o
-                           voltar é pela seta e pela trilha do cabeçalho. #}
-                        <div class="mb-3">{{ include('tarefa/_meta_detalhes.html.twig') }}</div>
-
-                    </div>{# /sidebar #}
-
-                </div>{# /row #}
-            </div>{# /card-body #}
-        </div>{# /card #}
-
-    </div>
-</section>
-
-{# Modal para editar responsáveis #}
-<div class="modal fade" id="modalEditarResponsaveis" tabindex="-1" aria-labelledby="modalEditarResponsaveisLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header border-bottom-0 pb-0">
-                <div>
-                    <h5 class="modal-title fw-semibold mb-0" id="modalEditarResponsaveisLabel">
-                        <i class="bi bi-people-fill me-2 text-primary"></i>{{ 'metas.detalhe.responsaveis_titulo'|trans }}
-                    </h5>
-                    <p class="text-muted small mb-0 mt-1">{{ 'metas.detalhe.responsaveis_sub'|trans }}</p>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'metas.detalhe.fechar'|trans }}"></button>
-            </div>
-            <form method="post" action="{{ path('tarefa_update_responsaveis', {id: tarefa.id}) }}">
-                <div class="modal-body pt-2 pb-2">
-                    <input type="hidden" name="_token" value="{{ csrf_token('update_responsaveis_' ~ tarefa.id) }}">
-
-                    {# Campo de busca #}
-                    <div class="resp-search-wrap mb-2">
-                        <i class="bi bi-search resp-search-icon"></i>
-                        <input type="text" id="buscaResponsavel" class="resp-search-input"
-                               placeholder="{{ 'metas.detalhe.buscar_membro'|trans }}" autocomplete="off">
-                    </div>
-
-                    {# Lista de usuários #}
-                    <div id="listaResponsaveis" class="resp-lista">
-                        {% for user in users %}
-                            {% set iniciais = user.fullName|split(' ')|map(n => n|slice(0,1))|join('')|upper|slice(0,2) %}
-                            {% set selecionado = tarefa.responsaveis.contains(user) %}
-                            <label class="resp-item{% if selecionado %} resp-item--ativo{% endif %}"
-                                   data-nome="{{ user.fullName|lower }}">
-                                <input type="checkbox" name="responsaveis[]"
-                                       value="{{ user.id }}"
-                                       class="resp-checkbox"
-                                       {% if selecionado %}checked{% endif %}>
-                                <span class="resp-avatar-md">{{ iniciais }}</span>
-                                <span class="resp-nome">{{ user.fullName }}</span>
-                                <i class="bi bi-check2 resp-check-icon"></i>
-                            </label>
-                        {% endfor %}
-                        <div id="respSemResultado" class="resp-sem-resultado d-none">
-                            <i class="bi bi-person-x"></i> {{ 'metas.detalhe.sem_membro'|trans }}
-                        </div>
-                    </div>
-
-                    {# Chips dos selecionados #}
-                    <div id="responsaveisSelecionados" class="resp-chips-wrap d-flex flex-wrap gap-2 mt-3">
-                        {# preenchido por JS #}
-                    </div>
-
-                    <div class="mt-2 d-flex align-items-center gap-2">
-                        <i class="bi bi-info-circle text-muted" style="font-size:.8rem;"></i>
-                        <span class="text-muted" style="font-size:.8rem;">
-                            <span id="contadorSelecionados">0</span> {{ 'metas.detalhe.responsaveis_selecionados'|trans }}
-                        </span>
-                    </div>
-                </div>
-                <div class="modal-footer border-top-0 pt-0">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">
-                        <i class="bi bi-x me-1"></i>{{ 'metas.detalhe.cancelar'|trans }}
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check2 me-1"></i>{{ 'metas.detalhe.salvar_responsaveis'|trans }}
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-{% if podeEditarPrazo %}
-{# Modal para alterar o prazo (apenas o criador) #}
-<div class="modal fade" id="modalEditarPrazo" tabindex="-1" aria-labelledby="modalEditarPrazoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header border-bottom-0 pb-0">
-                <div>
-                    <h5 class="modal-title fw-semibold mb-0" id="modalEditarPrazoLabel">
-                        <i class="bi bi-calendar-event me-2 text-primary"></i>{{ 'metas.detalhe.prazo_titulo'|trans }}
-                    </h5>
-                    <p class="text-muted small mb-0 mt-1">{{ 'metas.detalhe.prazo_sub'|trans }}</p>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'metas.detalhe.fechar'|trans }}"></button>
-            </div>
-            <form method="post" action="{{ path('tarefa_atualizar_prazo', {id: tarefa.id}) }}">
-                <div class="modal-body pt-2 pb-2">
-                    <input type="hidden" name="_token" value="{{ csrf_token('atualizar_prazo_tarefa_' ~ tarefa.id) }}">
-                    <label for="campoPrazo" class="form-label form-label-sm fw-semibold">{{ 'metas.detalhe.prazo'|trans }}</label>
-                    <input type="date" id="campoPrazo" name="prazo" class="form-control form-control-sm"
-                           value="{{ tarefa.prazo ? tarefa.prazo|date('Y-m-d') : '' }}">
-                </div>
-                <div class="modal-footer border-top-0 pt-0">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">
-                        <i class="bi bi-x me-1"></i>{{ 'metas.detalhe.cancelar'|trans }}
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check2 me-1"></i>{{ 'metas.detalhe.salvar_prazo'|trans }}
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+{# O aviso (toast) do desenho (L176) depois do Lembrar (L133). Vem na URL, não em flash: o base.html.twig consome os
+   flashes (e o meta-detalhe.js os mostra neste mesmo aviso). O meta-despacho.js tira o parâmetro da barra de endereço. #}
+{% if app.request.query.get('lembrete') == 'enviado' %}
+    <div class="meta-toast" role="status" data-meta-toast><i class="bi bi-check-circle"></i>{{ 'metas.detalhe.aguardando.lembrete_enviado'|trans }}</div>
 {% endif %}
 
-<style>
-/* ── Modal Responsáveis — lista nativa ── */
+{# Janelas da página. O desenho usa prompt(); aqui vão no componente de janela do próprio desenho, o da devolução
+   (L106): cabeçalho #0a6fa0, cantos de 3px. Abrem pelo data-md-abrir; fecham no X, no Cancelar, no fundo e no Esc
+   (meta-detalhe.js). #}
 
-/* Campo de busca */
-.resp-search-wrap {
-    position: relative;
-}
-.resp-search-icon {
-    position: absolute;
-    left: 11px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--bs-secondary-color);
-    font-size: .9rem;
-    pointer-events: none;
-}
-.resp-search-input {
-    width: 100%;
-    border: 1.5px solid var(--bs-border-color);
-    border-radius: 8px;
-    padding: 8px 12px 8px 34px;
-    font-size: .88rem;
-    outline: none;
-    transition: border-color .15s, box-shadow .15s;
-    box-sizing: border-box;
-    background: var(--bs-body-bg);
-}
-.resp-search-input:focus {
-    border-color: #0d6efd;
-    box-shadow: 0 0 0 3px rgba(13,110,253,.1);
-}
-
-/* Lista scrollável */
-.resp-lista {
-    max-height: 260px;
-    overflow-y: auto;
-    border: 1.5px solid var(--bs-border-color);
-    border-radius: 8px;
-    background: var(--bs-body-bg);
-}
-.resp-lista::-webkit-scrollbar { width: 5px; }
-.resp-lista::-webkit-scrollbar-track { background: transparent; }
-.resp-lista::-webkit-scrollbar-thumb { background: var(--bs-border-color); border-radius: 4px; }
-
-/* Cada linha de usuário */
-.resp-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 14px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--bs-border-color);
-    transition: background .12s;
-    user-select: none;
-    margin: 0;
-}
-.resp-item:last-of-type { border-bottom: none; }
-.resp-item:hover { background: var(--bs-secondary-bg); }
-.resp-item--ativo { background: var(--bs-secondary-bg); }
-.resp-item--ativo:hover { background: var(--bs-secondary-bg); }
-
-/* Esconde o checkbox nativo */
-.resp-checkbox { display: none; }
-
-/* Avatar médio */
-.resp-avatar-md {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #4f8ef7, #6c5ce7);
-    color: #fff;
-    font-size: .72rem;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    text-transform: uppercase;
-    letter-spacing: .02em;
-}
-.resp-item--ativo .resp-avatar-md {
-    background: linear-gradient(135deg, #1a6ef5, #5b21b6);
-}
-
-/* Nome */
-.resp-nome {
-    flex: 1;
-    font-size: .88rem;
-    color: var(--bs-body-color);
-    font-weight: 400;
-    min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.resp-item--ativo .resp-nome { font-weight: 500; color: #1a3a6b; }
-
-/* Ícone de check à direita */
-.resp-check-icon {
-    font-size: .9rem;
-    color: #198754;
-    opacity: 0;
-    transition: opacity .12s;
-    flex-shrink: 0;
-}
-.resp-item--ativo .resp-check-icon { opacity: 1; }
-
-/* Sem resultado */
-.resp-sem-resultado {
-    padding: 20px 14px;
-    text-align: center;
-    font-size: .85rem;
-    color: var(--bs-secondary-color);
-}
-
-/* Chips de resumo (avatar sm) */
-.resp-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--bs-secondary-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: 20px;
-    padding: 3px 10px 3px 4px;
-    font-size: .8rem;
-    color: #1a3a6b;
-}
-.resp-avatar-sm {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #4f8ef7, #6c5ce7);
-    color: #fff;
-    font-size: .62rem;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    text-transform: uppercase;
-}
-
-/* ── Timeline ── */
-.tarefa-timeline-icon {
-    width: 28px;
-    height: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: .78rem;
-    flex-shrink: 0;
-}
-.tarefa-timeline-body {
-    border: 1px solid var(--bs-border-color);
-    border-radius: 6px;
-    padding: 6px 10px;
-    background: var(--bs-tertiary-bg);
-    min-width: 0;
-}
-.tarefa-timeline-body--mensagem {
-    border-left: 3px solid #0dcaf0;
-    background: rgba(13,202,240,.04);
-    border-radius: 0 6px 6px 0;
-}
-
-/* ── Chip de arquivo anexado ── */
-.tarefa-anexo-wrap {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-.tarefa-anexo-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: var(--bs-secondary-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: 20px;
-    padding: 3px 8px 3px 10px;
-    font-size: .78rem;
-    color: #1a3a6b;
-    max-width: 100%;
-}
-.tarefa-anexo-nome {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 180px;
-}
-.tarefa-anexo-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: #0d6efd;
-    color: #fff;
-    font-size: .75rem;
-    flex-shrink: 0;
-    text-decoration: none;
-    transition: background .15s;
-}
-.tarefa-anexo-btn:hover {
-    background: #0a58ca;
-    color: #fff;
-}
-</style>
-
-{% if etapa.podeConcluir %}{{ include('tarefa/_meta_passagem_modal.html.twig', {contexto: 'meta'}) }}{% endif %}
-{% if etapa.podeDevolver %}{{ include('tarefa/_meta_devolucao_modal.html.twig') }}{% endif %}
-{{ catalogo_js('metas.detalhe.js', 'metas.despacho.js', 'metas.passagem.js') }}
-<script>
-/* ── Modal Responsáveis — lista nativa ── */
-(function () {
-    function iniciaisDeNome(nome) {
-        return nome.split(' ').filter(Boolean)
-            .map(function (p) { return p[0].toUpperCase(); })
-            .slice(0, 2).join('');
-    }
-
-    function atualizarResumo() {
-        var checks   = document.querySelectorAll('.resp-checkbox:checked');
-        var container = document.getElementById('responsaveisSelecionados');
-        var contador  = document.getElementById('contadorSelecionados');
-        if (!container || !contador) return;
-
-        container.innerHTML = '';
-        contador.textContent = checks.length;
-
-        checks.forEach(function (cb) {
-            var item     = cb.closest('.resp-item');
-            var nomeEl   = item ? item.querySelector('.resp-nome') : null;
-            var nome     = nomeEl ? nomeEl.textContent.trim() : '';
-            var iniciais = iniciaisDeNome(nome);
-
-            var chip = document.createElement('div');
-            chip.className = 'resp-chip';
-
-            var av = document.createElement('span');
-            av.className = 'resp-avatar-sm';
-            av.textContent = iniciais;
-
-            var lbl = document.createElement('span');
-            lbl.textContent = nome;
-
-            chip.appendChild(av);
-            chip.appendChild(lbl);
-            container.appendChild(chip);
-        });
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-        var modalEl = document.getElementById('modalEditarResponsaveis');
-        if (!modalEl) return;
-
-        /* Inicializa estado visual ao abrir */
-        modalEl.addEventListener('shown.bs.modal', function () {
-            atualizarResumo();
-            var busca = document.getElementById('buscaResponsavel');
-            if (busca) { busca.value = ''; busca.focus(); }
-        });
-
-        /* Toggle ao clicar na linha */
-        var lista = document.getElementById('listaResponsaveis');
-        if (lista) {
-            lista.addEventListener('change', function (e) {
-                if (!e.target.classList.contains('resp-checkbox')) return;
-                var item = e.target.closest('.resp-item');
-                if (item) item.classList.toggle('resp-item--ativo', e.target.checked);
-                atualizarResumo();
-            });
-        }
-
-        /* Filtro de busca */
-        var busca = document.getElementById('buscaResponsavel');
-        if (busca) {
-            busca.addEventListener('input', function () {
-                var q = this.value.toLowerCase().trim();
-                var items = document.querySelectorAll('#listaResponsaveis .resp-item');
-                var visiveis = 0;
-                items.forEach(function (item) {
-                    var nome = (item.dataset.nome || '');
-                    var visivel = !q || nome.includes(q);
-                    item.style.display = visivel ? '' : 'none';
-                    if (visivel) visiveis++;
-                });
-                var semResult = document.getElementById('respSemResultado');
-                if (semResult) semResult.classList.toggle('d-none', visiveis > 0);
-            });
-        }
-    });
-})();
-
-// O bloco DESPACHO (chips, prazo, contador, Ctrl+Enter e botões) mora em public/js/meta-despacho.js.
-
-// Edição inline de mensagem do histórico (apenas o autor; espelha _detalhes_obs)
-(function () {
-    'use strict';
-
-    function esc(str) {
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
-
-    const timeline = document.getElementById('timelineList');
-    if (!timeline) { return; }
-
-    timeline.addEventListener('click', function (e) {
-        const btnEditar = e.target.closest('.btn-editar-msg');
-        if (!btnEditar) { return; }
-
-        const msgId        = btnEditar.dataset.msgId;
-        const conteudoDiv  = document.getElementById('tarefa-msg-conteudo-' + msgId);
-        if (!conteudoDiv) { return; }
-        const conteudoAtual = btnEditar.dataset.conteudo;
-
-        const textarea = document.createElement('textarea');
-        textarea.className = 'form-control form-control-sm w-100 mb-2';
-        textarea.rows = 3;
-        textarea.maxLength = 5000;
-        textarea.value = conteudoAtual;
-
-        const btnConfirmar = document.createElement('button');
-        btnConfirmar.type = 'button';
-        btnConfirmar.className = 'btn btn-sm btn-success me-1';
-        btnConfirmar.textContent = BJ_T.t('metas.detalhe.js.salvar');
-
-        const btnCancelar = document.createElement('button');
-        btnCancelar.type = 'button';
-        btnCancelar.className = 'btn btn-sm btn-outline-secondary';
-        btnCancelar.textContent = BJ_T.t('metas.detalhe.js.cancelar');
-
-        const acoesBtns = document.createElement('div');
-        acoesBtns.className = 'mb-1';
-        acoesBtns.appendChild(btnConfirmar);
-        acoesBtns.appendChild(btnCancelar);
-
-        conteudoDiv.style.display = 'none';
-        conteudoDiv.after(textarea);
-        textarea.after(acoesBtns);
-
-        // Transforma a textarea recem-criada em editor (o auto-init so pega o DOM inicial).
-        if (window.EditorRico) {
-            const quillEd = EditorRico.montar(textarea);
-            if (quillEd) { quillEd.focus(); }
-        }
-        textarea.focus();
-        btnEditar.disabled = true;
-
-        function encerrarEdicao() {
-            textarea.remove();
-            acoesBtns.remove();
-            conteudoDiv.style.display = '';
-            btnEditar.disabled = false;
-        }
-
-        btnCancelar.addEventListener('click', encerrarEdicao);
-
-        btnConfirmar.addEventListener('click', async function () {
-            const novoConteudo = textarea.value.trim();
-            if (novoConteudo === '') { alert(BJ_T.t('metas.detalhe.js.mensagem_vazia')); return; }
-
-            const fd = new FormData();
-            fd.append('_token', btnEditar.dataset.csrf);
-            fd.append('conteudo', novoConteudo);
-
-            btnConfirmar.disabled = true;
-
-            try {
-                const resp = await fetch(btnEditar.dataset.url, {
-                    method: 'POST',
-                    body: fd,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                });
-                const data = await resp.json();
-                if (!resp.ok) {
-                    btnConfirmar.disabled = false;
-                    alert(data.erro ?? data.mensagem ?? BJ_T.t('metas.detalhe.js.erro_editar'));
-                    return;
-                }
-
-                // `conteudoHtml` vem SANITIZADO do servidor.
-                conteudoDiv.innerHTML = '<span class="editor-rico-conteudo"><span class="ql-editor">'
-                    + (data.conteudoHtml ?? '') + '</span></span>';
-                btnEditar.dataset.conteudo     = data.conteudo;
-                btnEditar.dataset.conteudoHtml = data.conteudoHtml ?? '';
-
-                // Injeta a marca "(editado)" ao lado da hora, se ainda não houver
-                const small = btnEditar.parentElement.querySelector('small.text-muted');
-                if (small && !small.querySelector('.tarefa-msg-editado')) {
-                    const marca = document.createElement('span');
-                    marca.className = 'ms-1 fst-italic tarefa-msg-editado';
-                    marca.textContent = BJ_T.t('metas.detalhe.js.editado');
-                    small.appendChild(marca);
-                }
-
-                encerrarEdicao();
-            } catch (_) {
-                btnConfirmar.disabled = false;
-                alert(BJ_T.t('metas.detalhe.js.erro_rede'));
-            }
-        });
-    });
-})();
-</script>
-
-{# Modal: Certificar cumprimento de um despacho (desenho 04B L161, C15). O action e o token vêm do botão do despacho. #}
-<div class="modal fade" id="modalCertificarDespacho" tabindex="-1" aria-labelledby="modalCertificarDespachoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <form class="modal-content" method="post" action="" id="formCertificarDespacho">
-            <input type="hidden" name="_token" value="">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalCertificarDespachoLabel">{{ 'metas.despacho.certificar'|trans }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'metas.detalhe.fechar'|trans }}"></button>
+{# Responsáveis (L85, "Alterar" de RESPONSÁVEIS) #}
+<div class="md-modal" id="modalEditarResponsaveis" hidden>
+    <div class="md-modal-fundo" data-md-fechar></div>
+    <div class="md-modal-centro">
+        <form class="md-modal-caixa" role="dialog" aria-modal="true" aria-labelledby="modalEditarResponsaveisLabel"
+              method="post" action="{{ path('tarefa_update_responsaveis', {id: tarefa.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('update_responsaveis_' ~ tarefa.id) }}">
+            <div class="md-modal-cabeca">
+                <i class="bi bi-people" aria-hidden="true"></i>
+                <b id="modalEditarResponsaveisLabel">{{ 'metas.detalhe.responsaveis_titulo'|trans }}</b>
+                <button type="button" class="md-modal-x" data-md-fechar aria-label="{{ 'metas.detalhe.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
-            <div class="modal-body">
-                <label for="certidaoTexto" class="form-label">{{ 'metas.despacho.certidao_rotulo'|trans }}</label>
-                <textarea class="form-control" id="certidaoTexto" name="certidao" rows="4" maxlength="1000" required
-                          data-inicio="{{ 'metas.despacho.certidao_inicio'|trans|e('html_attr') }}"></textarea>
-                <div class="form-text">{{ 'metas.despacho.certidao_dica'|trans }}</div>
+            <div class="md-modal-corpo">
+                <div class="md-texto">{{ 'metas.detalhe.responsaveis_sub'|trans }}</div>
+                <input type="text" id="buscaResponsavel" class="md-campo" placeholder="{{ 'metas.detalhe.buscar_membro'|trans }}" autocomplete="off" aria-label="{{ 'metas.detalhe.buscar_membro'|trans }}">
+                <div id="listaResponsaveis" class="md-lista">
+                    {% for user in users %}
+                        {% set iniciais = user.fullName|split(' ')|map(n => n|slice(0,1))|join('')|upper|slice(0,2) %}
+                        {% set selecionado = tarefa.responsaveis.contains(user) %}
+                        <label class="md-pessoa{% if selecionado %} is-ativo{% endif %}" data-nome="{{ user.fullName|lower }}">
+                            <input type="checkbox" name="responsaveis[]" value="{{ user.id }}" class="md-pessoa-marca"{% if selecionado %} checked{% endif %}>
+                            <span class="md-pessoa-iniciais">{{ iniciais }}</span>
+                            <span class="md-pessoa-nome">{{ user.fullName }}</span>
+                            <i class="bi bi-check2 md-pessoa-check" aria-hidden="true"></i>
+                        </label>
+                    {% endfor %}
+                    <div id="respSemResultado" class="md-lista-vazia" hidden>{{ 'metas.detalhe.sem_membro'|trans }}</div>
+                </div>
+                <div id="responsaveisSelecionados" class="md-escolhidos"></div>
+                <div class="md-contagem"><span id="contadorSelecionados">0</span> {{ 'metas.detalhe.responsaveis_selecionados'|trans }}</div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">{{ 'metas.detalhe.cancelar'|trans }}</button>
-                <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-patch-check me-1"></i>{{ 'metas.despacho.certificar'|trans }}</button>
+            <div class="md-modal-pe">
+                <button type="button" class="md-cancelar" data-md-fechar>{{ 'metas.detalhe.cancelar'|trans }}</button>
+                <button type="submit" class="md-confirmar"><i class="bi bi-check2" aria-hidden="true"></i>{{ 'metas.detalhe.salvar_responsaveis'|trans }}</button>
             </div>
         </form>
     </div>
 </div>
 
-{# Modal: Preview de arquivo do chat #}
-<link rel="stylesheet" href="{{ asset('css/visualizador-documento.css') }}">
-<div class="modal fade" id="previewDocModal" tabindex="-1" aria-labelledby="previewDocModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="previewDocModalLabel">
-                    <i class="bi bi-eye me-1"></i> <span id="previewDocNome"></span>
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'metas.detalhe.fechar'|trans }}"></button>
+{% if podeEditarPrazo %}
+{# Prazo (L85, "Alterar" de PRAZO; só quem pode) #}
+<div class="md-modal" id="modalEditarPrazo" hidden>
+    <div class="md-modal-fundo" data-md-fechar></div>
+    <div class="md-modal-centro">
+        <form class="md-modal-caixa" role="dialog" aria-modal="true" aria-labelledby="modalEditarPrazoLabel"
+              method="post" action="{{ path('tarefa_atualizar_prazo', {id: tarefa.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('atualizar_prazo_tarefa_' ~ tarefa.id) }}">
+            <div class="md-modal-cabeca">
+                <i class="bi bi-calendar-event" aria-hidden="true"></i>
+                <b id="modalEditarPrazoLabel">{{ 'metas.detalhe.prazo_titulo'|trans }}</b>
+                <button type="button" class="md-modal-x" data-md-fechar aria-label="{{ 'metas.detalhe.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
-            <div class="modal-body p-0 d-flex align-items-center justify-content-center" style="min-height: 70vh;">
-                <div id="previewDocConteudo" class="w-100 h-100"></div>
+            <div class="md-modal-corpo">
+                <label for="campoPrazo" class="md-rotulo">{{ 'metas.detalhe.detalhes.prazo'|trans }}</label>
+                <input type="date" id="campoPrazo" name="prazo" class="md-campo" value="{{ tarefa.prazo ? tarefa.prazo|date('Y-m-d') : '' }}">
+                <div class="md-texto">{{ 'metas.detalhe.prazo_sub'|trans }}</div>
             </div>
-            <div class="modal-footer">
-                <a id="previewDocDownload" href="#" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-download me-1"></i> {{ 'metas.detalhe.baixar'|trans }}
-                </a>
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'metas.detalhe.fechar'|trans }}</button>
+            <div class="md-modal-pe">
+                <button type="button" class="md-cancelar" data-md-fechar>{{ 'metas.detalhe.cancelar'|trans }}</button>
+                <button type="submit" class="md-confirmar"><i class="bi bi-check2" aria-hidden="true"></i>{{ 'metas.detalhe.salvar_prazo'|trans }}</button>
             </div>
-        </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{# Certificar cumprimento de um despacho (L161, C15). O action e o token vêm do botão do despacho (meta-despacho.js). #}
+<div class="md-modal" id="modalCertificarDespacho" hidden>
+    <div class="md-modal-fundo" data-md-fechar></div>
+    <div class="md-modal-centro">
+        <form class="md-modal-caixa" role="dialog" aria-modal="true" aria-labelledby="modalCertificarDespachoLabel"
+              method="post" action="" id="formCertificarDespacho">
+            <input type="hidden" name="_token" value="">
+            <div class="md-modal-cabeca">
+                <i class="bi bi-patch-check" aria-hidden="true"></i>
+                <b id="modalCertificarDespachoLabel">{{ 'metas.despacho.certificar'|trans }}</b>
+                <button type="button" class="md-modal-x" data-md-fechar aria-label="{{ 'metas.detalhe.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="md-modal-corpo">
+                <label for="certidaoTexto" class="md-rotulo">{{ 'metas.despacho.certidao_rotulo'|trans }}</label>
+                <textarea class="md-campo-texto" id="certidaoTexto" name="certidao" rows="4" maxlength="1000" required
+                          data-inicio="{{ 'metas.despacho.certidao_inicio'|trans|e('html_attr') }}"></textarea>
+                <div class="md-texto">{{ 'metas.despacho.certidao_dica'|trans }}</div>
+            </div>
+            <div class="md-modal-pe">
+                <button type="button" class="md-cancelar" data-md-fechar>{{ 'metas.detalhe.cancelar'|trans }}</button>
+                <button type="submit" class="md-confirmar"><i class="bi bi-patch-check" aria-hidden="true"></i>{{ 'metas.despacho.certificar'|trans }}</button>
+            </div>
+        </form>
     </div>
 </div>
 
-<script src="{{ asset('js/visualizador-documento.js') }}"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    /* Conteúdo do preview montado por public/js/visualizador-documento.js */
-    VisualizadorDocumento.ligarModal(document.getElementById('previewDocModal'));
-});
-</script>
-
-<script>
-// Marcador de acompanhamento — alterna sem sair da página. Marcação PESSOAL: nada muda para
-// os colegas, então não há confirmação nem recarga.
-(function () {
-    var botao = document.getElementById('btnAcompanharMeta');
-    if (!botao) { return; }
-
-    botao.addEventListener('click', function () {
-        if (botao.disabled) { return; }
-        botao.disabled = true;
-
-        var dados = new FormData();
-        dados.append('_token', botao.dataset.token);
-
-        fetch(botao.dataset.url, {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            body: dados,
-        })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-            if (!d.sucesso) { return; }
-            botao.classList.toggle('btn-primary', d.acompanhando);
-            botao.classList.toggle('btn-outline-secondary', !d.acompanhando);
-            botao.setAttribute('aria-pressed', d.acompanhando ? 'true' : 'false');
-            botao.querySelector('i').className = (d.acompanhando ? 'bi bi-bookmark-fill' : 'bi bi-bookmark') + ' me-1';
-            botao.querySelector('span').textContent = d.acompanhando ? BJ_T.t('metas.detalhe.js.acompanhando') : BJ_T.t('metas.detalhe.js.acompanhar');
-        })
-        .finally(function () { botao.disabled = false; });
-    });
-}());
-</script>
+{% if etapa.podeConcluir %}{{ include('tarefa/_meta_passagem_modal.html.twig', {contexto: 'meta'}) }}{% endif %}
+{% if etapa.podeDevolver %}{{ include('tarefa/_meta_devolucao_modal.html.twig') }}{% endif %}
+{{ catalogo_js('metas.detalhe.js', 'metas.despacho.js', 'metas.passagem.js') }}
 
 {% endblock %}

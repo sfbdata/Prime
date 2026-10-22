@@ -120,6 +120,7 @@ final class MontarDespachosDaMetaUseCase
             para: self::para($d),
             anexoNome: $juntado?->getNomeOriginal(),
             anexoDocumentoId: $juntado?->getId(),
+            cumprirAte: $d->getPrazoCumprimento(),
         );
     }
 

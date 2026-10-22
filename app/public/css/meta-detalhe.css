@@ -1,6 +1,9 @@
-/* Página da meta: cabeçalho com seta e trilha (desenho 04B de 22/10, L35-39), faixa "Aguardando" (L50), painel de
-   situação (L77) e bloco DETALHES DA META (L85). Templates: tarefa/show.html.twig, _meta_aguardando, _meta_situacao
-   e _meta_detalhes. Valores do desenho em token; o tema escuro troca só as cores. */
+/* Página da meta (desenho 04B de 22/10): moldura e colunas (L34, L47-48, L76), cabeçalho com seta e trilha (L35-39),
+   cartão da meta (L48-54), faixa "Aguardando" (L50), painel de situação (L77), Acompanhar (L83-84), DETALHES DA META
+   (L85), as janelas (componente da devolução, L106) e o aviso (L176). Templates: tarefa/show.html.twig,
+   _meta_aguardando, _meta_situacao e _meta_detalhes. Valores do desenho em token; o tema escuro troca só as cores.
+   Tudo o que mexe na moldura do sistema (fundo, respiro, avisos) fica sob .meta-body, a classe do <body> desta
+   página: nada vaza para as outras telas. */
 :root {
     --meta-azul: #0a6fa0;
     --meta-ambar: #9a5b00;
@@ -16,6 +19,14 @@
     --meta-fundo-cabeca: #f7f9fb;
     --meta-hover: #eef2f5;
     --meta-iniciais-fundo: #e2e9ee;
+    --meta-pagina: #f3f6f8;
+    --meta-divisa-forte: #e6edf2;
+    --meta-campo-borda: #d3dde4;
+    --meta-demanda-texto: #243845;
+    --meta-demanda-fundo: #f9fbfc;
+    --meta-hover-item: #f5f8fa;
+    --meta-rotulo: #4a6373;
+    --meta-escolhido: #e5f1f7;
 }
 
 [data-bs-theme="dark"] {
@@ -29,6 +40,78 @@
     --meta-fundo-cabeca: var(--bs-tertiary-bg);
     --meta-hover: var(--bs-tertiary-bg);
     --meta-iniciais-fundo: var(--bs-secondary-bg);
+    --meta-pagina: var(--bs-tertiary-bg);
+    --meta-divisa-forte: var(--bs-border-color-translucent);
+    --meta-campo-borda: var(--bs-border-color);
+    --meta-demanda-texto: var(--bs-body-color);
+    --meta-demanda-fundo: var(--bs-tertiary-bg);
+    --meta-hover-item: var(--bs-tertiary-bg);
+    --meta-rotulo: var(--bs-body-color);
+    --meta-escolhido: rgba(10, 111, 160, .2);
+}
+
+/* ── Página (L17, L34): fundo #f3f6f8 e Arial só nesta tela; a moldura do sistema não soma respiro ── */
+.meta-body .app-main {
+    background: var(--meta-pagina);
+    font-family: Arial, Helvetica, sans-serif;
+    color: var(--meta-titulo);
+}
+
+.meta-body .app-content,
+.meta-body .app-content-header {
+    background: transparent;
+    padding: 0;
+}
+
+.meta-body .app-content > .container-fluid,
+.meta-body .app-content-header > .container-fluid {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.meta-moldura {
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 18px 18px 40px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* O trilho (meta-passagem.css) traz 14px de margem para o layout antigo; aqui quem dá o espaço é o gap. */
+.meta-moldura > .mp-trilho {
+    margin-bottom: 0;
+}
+
+/* ── Colunas (L47-48, L76): a meta cresce, a lateral tem 300px de base e desce quando não cabe ── */
+.meta-colunas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: flex-start;
+}
+
+.meta-colunas > .meta-principal {
+    flex: 999 1 520px;
+    background: var(--meta-fundo);
+    border: 1px solid var(--meta-borda);
+    border-radius: 3px;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.meta-colunas > .meta-lateral {
+    flex: 1 1 300px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.meta-lateral > .mp-lateral {
+    margin-bottom: 0;
 }
 
 /* ── Cabeçalho: seta, "Meta #N" e trilha (L35-39) ── */
@@ -58,6 +141,9 @@
 }
 
 .meta-titulo {
+    margin: 0;
+    font-size: 28px;
+    font-weight: normal;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -76,6 +162,16 @@
     color: var(--meta-suave);
 }
 
+.meta-trilha > a {
+    color: var(--meta-azul);
+    text-decoration: none;
+}
+
+.meta-trilha > a:hover {
+    color: #0b5f86;
+    text-decoration: underline;
+}
+
 /* ── Faixa "Aguardando" (L50, L132) ── */
 .meta-aguardando {
     --meta-tom: var(--meta-azul);
@@ -83,7 +179,7 @@
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
-    margin-bottom: 14px;
+    margin: 14px 18px 0;
     padding: 12px 14px;
     border: 1px solid var(--meta-borda);
     border-left: 4px solid var(--meta-tom);
@@ -243,7 +339,12 @@
 }
 
 .meta-detalhes-responsaveis[role="button"]:hover {
-    background: var(--meta-fundo-cabeca);
+    background: var(--meta-hover-item);
+}
+
+/* L85: o PRAZO escurece um pouco no hover em qualquer estado (no prazo, atrasado ou sem prazo). */
+.meta-detalhes-prazo[role="button"]:hover {
+    filter: brightness(.96);
 }
 
 .meta-detalhes-rotulo {
@@ -289,10 +390,6 @@
 .meta-detalhes-prazo--atrasada {
     background: var(--meta-vermelho);
     color: #fff;
-}
-
-.meta-detalhes-prazo--atrasada[role="button"]:hover {
-    filter: brightness(.96);
 }
 
 .meta-detalhes-prazo--atrasada .meta-detalhes-rotulo,
@@ -341,13 +438,24 @@
 }
 
 /* ── Cartão da meta: título, pasta e DEMANDA (L49-54) ── */
-.meta-cartao-titulo {
+.meta-principal > .meta-principal-titulo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--meta-divisa-forte);
+}
+
+.meta-principal-titulo > b {
+    flex: 1;
+    min-width: 0;
     font-size: 16px;
     letter-spacing: .3px;
     text-transform: uppercase;
 }
 
 .meta-demanda {
+    padding: 14px 18px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -389,33 +497,47 @@
 .meta-demanda-texto {
     font-size: 14px;
     line-height: 1.6;
-    color: var(--meta-texto);
-    background: var(--meta-fundo-cabeca);
+    color: var(--meta-demanda-texto);
+    background: var(--meta-demanda-fundo);
     border: 1px solid var(--meta-divisa);
     border-radius: 3px;
     padding: 12px 14px;
 }
 
-/* ── Concluir meta (L79) ── */
-.meta-concluir {
-    width: 100%;
-    height: 40px;
-    border: none;
+/* ── DESPACHO: faixa do mesmo cartão (L56) ── */
+.meta-principal > .meta-historico {
+    border-top: 1px solid var(--meta-divisa-forte);
+}
+
+/* ── Acompanhar (L83): branco, borda #d3dde4; marcado, o texto e o ícone ficam azuis ── */
+.meta-lateral > .meta-acompanhar {
+    height: 36px;
+    border: 1px solid var(--meta-campo-borda);
     border-radius: 3px;
-    background: var(--meta-azul);
-    color: #fff;
+    background: var(--meta-fundo);
+    color: var(--meta-texto);
     font: inherit;
-    font-size: 14.5px;
-    font-weight: bold;
+    font-size: 13.5px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 7px;
 }
 
-.meta-concluir:hover {
-    background: #0b5f86;
+.meta-lateral > .meta-acompanhar.is-ativo {
+    color: var(--meta-azul);
+}
+
+.meta-lateral > .meta-acompanhar:hover {
+    border-color: var(--meta-azul);
+}
+
+.meta-lateral > .meta-so-voce {
+    font-size: 11.5px;
+    color: var(--meta-mudo);
+    padding: 0 2px;
+    margin-top: -4px;
 }
 
 /* ── "Lembrar" da faixa Aguardando (L50): borda da faixa, fundo branco, cor do tom ── */
@@ -457,4 +579,278 @@
 .meta-toast .bi {
     color: #7fe0a8;
     margin-right: 6px;
+}
+
+/* Os avisos (flash) do sistema nesta página saem no mesmo aviso do desenho (L176); o meta-detalhe.js põe o ícone e
+   os tira em 3 segundos. */
+.meta-body .app-content-header .alert {
+    position: fixed;
+    z-index: 9500;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%);
+    margin: 0;
+    border: none;
+    background: #12242f;
+    color: #fff;
+    font-size: 13.5px;
+    padding: 10px 16px;
+    border-radius: 3px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+}
+
+.meta-body .app-content-header .alert > .btn-close {
+    display: none;
+}
+
+.meta-body .app-content-header .alert > .bi {
+    color: #7fe0a8;
+    margin-right: 6px;
+}
+
+/* ── Janelas (o componente da devolução, L106): fundo .35, caixa de 480px, cabeçalho #0a6fa0, cantos de 3px ── */
+.md-modal[hidden] {
+    display: none;
+}
+
+.md-modal > .md-modal-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 9400;
+    background: rgba(18, 36, 47, .35);
+}
+
+.md-modal > .md-modal-centro {
+    position: fixed;
+    inset: 0;
+    z-index: 9401;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    pointer-events: none;
+}
+
+.md-modal-centro > .md-modal-caixa {
+    pointer-events: auto;
+    width: min(480px, 100%);
+    margin: 0;
+    background: var(--meta-fundo);
+    border-radius: 3px;
+    box-shadow: 0 20px 50px rgba(18, 36, 47, .25);
+    overflow: hidden;
+    color: var(--meta-titulo);
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.md-modal-caixa > .md-modal-cabeca {
+    background: #0a6fa0;
+    color: #fff;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.md-modal-cabeca > b {
+    flex: 1;
+}
+
+.md-modal-cabeca > .md-modal-x {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, .15);
+    color: #fff;
+    cursor: pointer;
+}
+
+.md-modal-caixa > .md-modal-corpo {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.md-modal-corpo > .md-texto {
+    font-size: 13px;
+    color: var(--meta-rotulo);
+    line-height: 1.5;
+}
+
+.md-modal-corpo > .md-rotulo {
+    margin: 0;
+    font-size: 11.5px;
+    font-weight: bold;
+    letter-spacing: .5px;
+    color: var(--meta-rotulo);
+}
+
+.md-modal-corpo > .md-campo {
+    height: 36px;
+    border: 1px solid var(--meta-campo-borda);
+    border-radius: 3px;
+    padding: 0 10px;
+    background: var(--meta-fundo);
+    color: var(--meta-titulo);
+    font: inherit;
+    font-size: 14px;
+}
+
+.md-modal-corpo > .md-campo-texto {
+    border: 1px solid var(--meta-campo-borda);
+    border-radius: 3px;
+    padding: 8px 9px;
+    background: var(--meta-fundo);
+    color: var(--meta-titulo);
+    font: inherit;
+    font-size: 13.5px;
+    resize: vertical;
+}
+
+/* Lista de pessoas (a lista de membros da passagem, 04B L97) */
+.md-modal-corpo > .md-lista {
+    max-height: 240px;
+    overflow: auto;
+    border: 1px solid var(--meta-campo-borda);
+    border-radius: 3px;
+}
+
+.md-lista > .md-pessoa {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 7px 10px;
+    font-size: 13.5px;
+    color: var(--meta-titulo);
+    cursor: pointer;
+    user-select: none;
+}
+
+.md-lista > .md-pessoa[hidden] {
+    display: none;
+}
+
+.md-lista > .md-pessoa:hover {
+    background: var(--meta-hover-item);
+}
+
+.md-lista > .md-pessoa.is-ativo {
+    background: var(--meta-escolhido);
+}
+
+.md-pessoa > .md-pessoa-marca {
+    display: none;
+}
+
+.md-pessoa > .md-pessoa-iniciais {
+    width: 22px;
+    height: 22px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--meta-iniciais-fundo);
+    color: var(--meta-texto);
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.md-pessoa > .md-pessoa-nome {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.md-pessoa > .md-pessoa-check {
+    color: var(--meta-azul);
+    visibility: hidden;
+}
+
+.md-pessoa.is-ativo > .md-pessoa-check {
+    visibility: visible;
+}
+
+.md-lista > .md-lista-vazia {
+    padding: 7px 10px;
+    font-size: 12.5px;
+    color: var(--meta-mudo);
+}
+
+.md-lista > .md-lista-vazia[hidden] {
+    display: none;
+}
+
+/* Escolhidos: as pílulas de pessoa da faixa Aguardando (L50) */
+.md-modal-corpo > .md-escolhidos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.md-escolhidos:empty {
+    display: none;
+}
+
+.md-escolhidos > .md-escolhido {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 28px;
+    padding: 0 10px 0 4px;
+    border: 1px solid var(--meta-borda);
+    border-radius: 3px;
+    background: var(--meta-fundo);
+    font-size: 13.5px;
+    font-weight: bold;
+    color: var(--meta-titulo);
+}
+
+.md-modal-corpo > .md-contagem {
+    font-size: 11.5px;
+    color: var(--meta-mudo);
+}
+
+.md-modal-caixa > .md-modal-pe {
+    padding: 10px 16px;
+    border-top: 1px solid var(--meta-divisa);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.md-modal-pe > .md-cancelar {
+    height: 34px;
+    padding: 0 13px;
+    border: 1px solid var(--meta-campo-borda);
+    border-radius: 3px;
+    background: var(--meta-fundo);
+    color: var(--meta-texto);
+    font: inherit;
+    font-size: 13.5px;
+    cursor: pointer;
+}
+
+.md-modal-pe > .md-confirmar {
+    height: 34px;
+    padding: 0 15px;
+    border: none;
+    border-radius: 3px;
+    background: #0a6fa0;
+    color: #fff;
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.md-modal-pe > .md-confirmar:hover {
+    background: #0b5f86;
 }

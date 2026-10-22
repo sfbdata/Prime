@@ -130,8 +130,8 @@ final class MetaNumeroGlobalTelaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Nº 0000', (string) $client->getResponse()->getContent());
     }
 
-    #[TestDox('Detalhe da meta: o selo vem dentro do título do cartão, depois do texto, e o estilo é carregado')]
-    public function testSeloNoDetalheDaMeta(): void
+    #[TestDox('Detalhe da meta: sem o selo "Nº 0003" (o desenho 04B L49 não tem; decisão do dono de 22/10); o número fica no "Meta #3" do cabeçalho')]
+    public function testSemSeloNoDetalheDaMeta(): void
     {
         $client            = static::createClient();
         [$usuario, $tenant] = $this->autenticar($client);
@@ -140,12 +140,11 @@ final class MetaNumeroGlobalTelaTest extends JusPrimeWebTestCase
         $crawler = $client->request('GET', '/tarefas/' . $meta->getId());
         self::assertResponseIsSuccessful();
 
-        $selo = $crawler->filter('.card-header > h3.card-title > span.meta-num-global');
-        self::assertCount(1, $selo);
-        self::assertSame('Nº 0003', trim($selo->text()));
-        self::assertSame('Meta 1 desta pasta · nº 3 na sequência do escritório', $selo->attr('title'));
-        self::assertStringStartsWith('Elaborar parecer', $crawler->filter('.card-header > h3.card-title')->first()->text());
-        self::assertCount(1, $crawler->filter('link[rel="stylesheet"][href$="/css/meta-numero-global.css"]'));
+        self::assertCount(0, $crawler->filter('.meta-num-global'));
+        self::assertStringNotContainsString('Nº 0003', (string) $client->getResponse()->getContent());
+        self::assertSame('Elaborar parecer', trim($crawler->filter('.meta-principal > .meta-principal-titulo > b')->text()));
+        self::assertSame('Meta #3', trim($crawler->filter('.meta-cabeca > h1.meta-titulo')->text()));
+        self::assertCount(0, $crawler->filter('link[rel="stylesheet"][href$="/css/meta-numero-global.css"]'));
     }
 
     #[TestDox('Detalhe da meta sem número: sem selo')]
