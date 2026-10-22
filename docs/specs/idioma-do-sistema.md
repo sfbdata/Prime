@@ -991,3 +991,18 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   `PedidoDeExclusaoRecusado` na exclusão (outros domínios, como na P2b); as mensagens das 403 (página de erro padrão);
   o `|date` com segundos da tela Ver; o `lang="pt-BR"` fixo do `escritorio_indisponivel` (página solta, sem o base);
   e a ação `sair` do `EscritorioController` (não é tela do T1).
+
+### 25.B Os e-mails do sistema (5d, 22/10)
+- **Escopo:** os 11 templates de `email/` fora de `email/comercial/`, no bloco `emails:` (85 chaves,
+  `emails.<template>.*`). A frase com marcação no meio foi partida, e a pontuação entre as tags ficou no template.
+- **Formatos:** `|date('d/m/Y')` virou `|data` (em `convite_escritorio`, `convite_plataforma`,
+  `trabalho_externo_convite` e `resumo_diario`), e `d/m/Y H:i` virou `{data} às {hora}`. O fuso é o mesmo. As
+  contagens entram no ICU como texto, sem separador de milhar.
+- **Fora de requisição:** worker e comandos saem em pt_BR pelo `default_locale`. A prova rodou sem requisição.
+- **Ficam no PHP:** os assuntos dos mailers (`RedefinicaoSenhaMailer`, `ConviteMailer`, `CadastroMailer`,
+  `CodigoDeExclusaoMailer`, `TrabalhoExternoMailer`, `AvisoDoPushMailer`, `EnvioDeEmailAoClientePeloMailer`,
+  `IndicarPorEmailUseCase` e `EnviarResumoDiarioDoEscritorioUseCase`) e o `MovimentacaoDoAvisoOutput::TEXTO_SIGILOSA`.
+- **Entrega E (idioma do destinatário):** os convites de escritório, de plataforma, do Trabalho Externo e da
+  Indicação, o push ao cliente e o aviso do Push à equipe. Hoje saem no locale de quem dispara, e sem requisição, em
+  pt_BR.
+- **Prova:** 17 renderizações, com `&`, aspas, apóstrofo, acento e `<b>` nos valores, saíram iguais byte a byte.
