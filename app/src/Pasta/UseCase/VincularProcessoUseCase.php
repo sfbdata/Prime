@@ -6,6 +6,7 @@ namespace App\Pasta\UseCase;
 
 use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Service\PrazosDoPush;
 use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use App\Processo\DTO\DadosDoProcessoInput;
 use App\Processo\Entity\Processo;
@@ -36,6 +37,9 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * cinco flags entram como dados MANUAIS do processo (P5b), na mesma transação do vínculo. Dado que não passa
  * não some calado: a transação volta (nem vínculo, nem processo novo, nem registro) e a recusa
  * ({@see DadosDoProcessoInvalidosException}) sobe para o controller responder 422 com a mensagem.
+ *
+ * Prazos do Push (docs/specs/prazo-do-push.md §3): o vínculo novo acerta os prazos calculados das publicações que o
+ * processo já tinha, no mesmo flush.
  */
 final class VincularProcessoUseCase
 {
@@ -44,6 +48,7 @@ final class VincularProcessoUseCase
         private readonly ?RegistroDoSistemaNaPasta $registro = null,
         private readonly NumeroProcessoExtension $numero = new NumeroProcessoExtension(),
         private readonly ?SalvarDadosManuaisDoProcessoUseCase $dadosManuais = null,
+        private readonly ?PrazosDoPush $prazosDoPush = null,
     ) {
     }
 
@@ -77,6 +82,7 @@ final class VincularProcessoUseCase
         $pasta->vincularProcesso($processo, $usuario);
         if (!$jaEstava) {
             $this->registro?->registrar($pasta, $usuario, 'proc', self::textoDoRegistro($processo, $this->numero->numeroCnj($processo->getNumeroProcesso())));
+            $this->prazosDoPush?->sincronizar($pasta);
         }
         $this->em->flush();
     }
