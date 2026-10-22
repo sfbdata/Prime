@@ -13,6 +13,12 @@ CLAUDE.md, tratado como MÉDIO porque mexe no modelo da meta, em prazo e em text
   na passagem de etapa (04 L180-181), que é a Fase 3; até lá a caixa guarda quem será avisado, mas ninguém recebe
   nada. A esteira e a lista por etapa deixam de fora metas de pasta excluída (lápide), como o Dashboard.
   Avisado que saiu do escritório continua gravado na caixa até o próximo "Salvar" (o modal só oferece a equipe ativa).
+- 22/10: Fase 2a (#302) e 2b (#305) no master. Fase 3 implementada na branch `metas-passagem` (migration 150200).
+- 22/10: o dono exige a aparência EXATAMENTE igual ao desenho, com os componentes do desenho e nunca os do sistema.
+  A auditoria do que já entrou (#298, #302, #305) virou a lista do PR de acerto visual, que vem antes da Fase 4.
+  O que o desenho não tem sai das telas de Metas: traço vermelho do título, migalha, alternância cartões/lista,
+  menu ⋮ do cartão, selo "Nº", número da meta na pasta (vira o índice no grupo), contador de comentários e bloco
+  "Pessoas". Na caixa ativa da esteira, os números ficam brancos (o dc os deixa quase invisíveis).
 
 ### Decisões do dono (22/10)
 
@@ -242,6 +248,28 @@ e página da meta), porque o desenho não tem a opção em lugar nenhum.
 - L15. Devolução: motivos fixos (Faltam informações / Falta documento / Não é da minha competência / Prazo inviável /
   Outro motivo); erros "Escolha o motivo da devolução." e "Explique o que falta..." (mínimo 5); texto "A meta volta
   para quem enviou... A etapa da pasta não muda." (04B L166-167).
+
+Convenções e decisões da Fase 3 (22/10):
+- Cada tela tem o modal do seu desenho: a página da meta usa o do 04B (L92-102, com menu salta/volta e sem tipo,
+  faixa e "o que foi feito"); a lista usa o do 04 (L131, com tipo, faixa, foto no seletor e sem menu). O servidor é o
+  mesmo. "Você costuma pedir" (04B L99) é da Fase 4.
+- **Decisão do dono:** o Devolver fica só na lateral, para o responsável que não criou a meta, com a meta pendente.
+  Em revisão, o despacho (texto ou anexo) de quem criou devolve a meta para pendente, grava a ação "devolução" com
+  código e avisa os responsáveis; o despacho de outra pessoa só registra.
+- **Decisão do dono:** a regra do D3 vale também para o "Concluir" (e o Desfazer) da aba Metas da pasta. Só o
+  responsável ou quem criou; o botão some para os outros. O "Reabrir" da mesma aba segue a mesma regra.
+- **Decisão do dono:** reabrir uma meta concluída pela passagem (inclusive a que encerrou a pasta) é bloqueado com
+  "Esta meta foi concluída na passagem de etapa e não pode ser reaberta."; para corrigir, usa-se o "voltar etapa".
+  O marcador é o ato "Etapa concluída" que a passagem grava (sem coluna nova).
+- **Decisão do dono:** ao voltar de etapa, a meta nova herda todas as etapas saltadas, como no desenho (04B L175),
+  inclusive as que ficam depois do destino (`RotaDaPassagem::herdadasQueFicam`).
+- A passagem e a devolução travam a meta (lock pessimista) e conferem de novo o status dentro da transação: duas
+  passagens ao mesmo tempo não criam duas metas.
+- A descrição da meta nova é o "o que foi feito" mais as pendências (04 L178). Ao encerrar a pasta não há meta nova, e
+  o "o que foi feito" fica no histórico da meta concluída. Sem responsável, o histórico mostra o setor da etapa destino.
+- Avisos com os tipos que já existem: `tarefa_criada` na passagem e `tarefa_pendente` na devolução. Quem passa não é
+  avisado. O toast da devolução só diz que avisou quando avisou, e sem gênero.
+- Os botões da passagem e da devolução não aparecem em pasta excluída (lápide).
 
 ## 4. Fases (um PR por fase, uma migration por vez)
 

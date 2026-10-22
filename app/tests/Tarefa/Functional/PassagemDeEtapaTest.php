@@ -299,7 +299,7 @@ final class PassagemDeEtapaTest extends JusPrimeWebTestCase
         self::assertSame(Tarefa::STATUS_PENDENTE, $this->em->find(Tarefa::class, $outra->getId())->getStatus());
     }
 
-    #[TestDox('Meta já passada adiante: sem o Reabrir na aba Metas e recusa 422 com "Esta meta já seguiu para a próxima etapa."')]
+    #[TestDox('Meta já passada adiante: sem o Reabrir na aba Metas e recusa 422 com "Esta meta foi concluída na passagem de etapa e não pode ser reaberta."')]
     public function testMetaPassadaAdianteNaoReabre(): void
     {
         $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
@@ -313,8 +313,8 @@ final class PassagemDeEtapaTest extends JusPrimeWebTestCase
         $this->reabrirPelaPasta($this->meta);
         self::assertResponseStatusCodeSame(422);
         $resposta = json_decode((string) $this->client->getResponse()->getContent(), true);
-        self::assertSame('Esta meta já seguiu para a próxima etapa.', $resposta['erro']);
-        self::assertSame('Esta meta já seguiu para a próxima etapa.', $resposta['mensagem']);
+        self::assertSame('Esta meta foi concluída na passagem de etapa e não pode ser reaberta.', $resposta['erro']);
+        self::assertSame('Esta meta foi concluída na passagem de etapa e não pode ser reaberta.', $resposta['mensagem']);
         $this->em->clear();
         self::assertSame(Tarefa::STATUS_CONCLUIDA, $this->em->find(Tarefa::class, $this->meta->getId())->getStatus());
     }

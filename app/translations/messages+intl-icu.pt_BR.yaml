@@ -1636,7 +1636,7 @@ metas:
         proximo_passo: 'Próximo passo: {etapa} ({setor}). Você escolhe o responsável, o prazo e as pendências.'
         ultima_etapa: 'Última etapa: a pasta será encerrada.'
         devolver_para: 'Devolver para {nome}'
-        ja_seguiu_adiante: Esta meta já seguiu para a próxima etapa.
+        ja_seguiu_adiante: Esta meta foi concluída na passagem de etapa e não pode ser reaberta.
         cartao:
             concluir_etapa: Concluir etapa
             dica_passar: 'Concluir esta etapa e passar para {etapa}'
@@ -1687,7 +1687,7 @@ metas:
             toast_passou: 'Etapa concluída. Pasta {pasta} passou para {etapa}.'
             toast_encerrou: 'Pasta {pasta} encerrada.'
             toast_meta_concluida: Meta concluída.
-            toast_devolvida: 'Meta devolvida para {nome}. Ela recebeu o aviso no Chat I.A.'
+            toast_devolvida: 'Meta devolvida para {nome}. O aviso foi enviado no Chat I.A.'
             toast_devolvida_sem_aviso: 'Meta devolvida para {nome}.'
             erro_motivo: Escolha o motivo da devolução.
             erro_falta: Explique o que falta para conseguir avançar.
