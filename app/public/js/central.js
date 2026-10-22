@@ -1165,14 +1165,16 @@
         }
 
         /**
-         * A conversa aberta acompanha a lista: nome e participantes do grupo mudam; e, se ela sumiu da minha lista
-         * (fui removido ou saí em outra aba), deixa de dar para escrever.
+         * A conversa aberta acompanha a lista: nome e participantes do grupo mudam; e, se o GRUPO sumiu da minha lista
+         * (fui removido ou saí em outra aba), deixa de dar para escrever. A conversa 1:1 não tem saída (sair e remover
+         * só valem para grupo, no servidor): se ela não está na lista, é porque eu a excluí da minha caixa
+         * (`limpa_ate_id`) e ainda não chegou mensagem nova. Sigo participando e posso escrever de novo.
          */
         function sincronizarAberta() {
             if (!estado.aberta) { return; }
             var atual = estado.conversas.filter(function (c) { return c.id === estado.aberta.id; })[0];
             if (!atual) {
-                estado.aberta.fora = true;
+                estado.aberta.fora = estado.aberta.grupo;
             } else {
                 estado.aberta.fora = false;
                 estado.aberta.nome = nomeDaConversa(atual);

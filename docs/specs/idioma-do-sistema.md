@@ -1004,6 +1004,49 @@ antes e depois, sem diferença; o texto dos scripts foi conferido chave por chav
   `abasOcultas`); `pasta-mencoes.js` e `editor-rico.js`, usados também fora da Pasta; e o `lang="pt-BR"` e o
   `toLocaleString('pt-BR')` da impressão do visor.
 
+### 20.5 Cabeçalho e trilho da aba Dados
+
+- **Escopo:** `pasta/_cabecalho` (com o script inline de restaurar, favoritos e carimbo ATIVO), `_dados_trilho` e
+  `_dados_trilho_topo`, e os JS `pasta-prazos.js`, `pasta-clientes.js` e `pasta-clientes-busca.js`, que só servem a
+  esses parciais. Bloco de topo `pasta_cabecalho` do catálogo, 180 chaves, em sub-blocos por arquivo (`cabecalho` 83,
+  `trilho` 46, `topo` 19) e `pasta_cabecalho.js.*` (32: `cabecalho` 4, `prazos` 7, `clientes` 15, `busca` 6). Área
+  `pasta_cabecalho` no `templates-extraidos.json`. Os textos do prazo do Push (`pasta_dados.prazos.*`, do #264)
+  ficaram onde estavam, sem cópia.
+- **Catálogo do JS:** um `{{ catalogo_js('pasta_cabecalho.js') }}` no `_cabecalho`, logo antes do script inline e fora
+  de condição. O show inclui o cabeçalho sempre e antes de tudo, então o catálogo já está na página quando roda o
+  `pasta-prazos.js` (carregado pelo show sem `defer`) e os dois `defer` do trilho. O script inline e o
+  `pasta-prazos.js` só pedem texto em evento; a constante `CT_SESSAO_EXPIRADA` do `pasta-clientes.js` virou a função
+  `ctSessaoExpirada()`, e o `SELO` da busca guarda a chave, traduzida no uso.
+- **Sem mudança visível:** o HTML da página inteira foi gravado antes e depois em cinco casos (pasta cheia com cliente
+  com apóstrofo e `&`, dois processos, marcadores com e sem cor, meta com outro responsável, prazo e audiência manuais e
+  dois do Push, com e sem dobro, e documento; pasta vazia; pasta excluída; a pasta cheia vista por quem só lê; pasta
+  administrativa suspensa) e comparado com tokens CSRF, dígitos, espaços e entidades normalizados, trocando cada
+  `BJ_T.t` pelo texto do catálogo: saiu igual. Mudaram só o `<script data-bj-t>`, a linha do script inline (a chamada
+  com parâmetro, conferida à mão) e o `onsubmit` do Excluir, que foi rodado antes e depois com o número certo, o
+  errado e o cancelar, com e sem cliente: mesma pergunta, mesmo aviso, mesmo retorno. Os três JS foram comparados com
+  o arquivo de antes trocando cada `BJ_T.t` pelo texto. Não foram renderizados, e foram conferidos lendo: o "Cadastro
+  completo" e o "1 pendência", o "N apensados", o "Movimentado em" (pasta mexida em outro dia), a exclusão sem autor,
+  o selo Cancelado e o do cadeado, o ícone da aba oculta, a dica da IA disponível, a ação "Extraído do processo" e
+  "Não informada", a Cobrança e o Desarquivar.
+- **Formatos:** com guarda de nulo, a "Última movimentação" passou a `|data_hora`, o "Movimentado hoje" a `|hora` e o
+  "Movimentado em" a `|data`; a data e a hora da exclusão (sob `pasta.estaExcluida`) a `|data` e `|hora`. Ficou com
+  `|date` a data do documento no trilho, sem guarda.
+- **Escolhas:** a pergunta do Excluir é montada no Twig (com e sem cliente, duas chaves, mais a nota e o pedido do
+  número) e entra no `window.prompt` com `|e('js')`, como o aviso do número errado. O "N apensado(s)" e o "Cadastro
+  incompleto: N pendência(s)" viraram duas chaves pelo mesmo teste de antes. Os rótulos das abas, das situações e dos
+  selos viraram chaves no array do Twig, traduzidas no uso; o "Arquivar/Desarquivar pasta" virou duas chaves. O texto
+  que o Copiar do prazo leva (`data-ps-copiar`) e o resumo e o responsável do `.ics` viraram frases com parâmetro. O
+  `map()` dos marcadores saiu do atributo para um `{% set %}`. Nos permitidos: a marca (`BLUEJUS`, `Intelligence`),
+  as teclas do menu (`E`, `H`, `T`) e do `keydown`, e o `Content-Type`.
+- **Ficou de fora:** o texto do PHP (`prioridadeLabel`, `situacaoRotulo`, os rótulos das setas `vizinhas`, o
+  `pend.txt` das pendências, as dicas e sufixos de `abasDaPasta`, o `seloTitulo` do cadeado, o `mensagem` do
+  `ia_disponibilidade`, `documento_br_rotulo`, `tipoApensoRotulo`, `situacao_processo`, o `rotulo` do `arquivo_icone`,
+  `identificacao` e `credor` da unidade cobrada, `titulo`, `meta` e `selo` do `PastaPrazoOutput` e as mensagens
+  `erro`/`aviso` das rotas); os parciais incluídos (`_resp_chip`, `_cadeado_*`, `_andamento`, `_cliente_linha`,
+  `inteligencia/_agentes_drawer`); os JS do show que também servem ao cabeçalho (`pasta-show.js`,
+  `pasta-timeline.js`, `pasta-push-link.js`, `pasta-abas-ocultas.js`, `pasta-clientes-duplicados.js`); o
+  `PRODID` e o nome do arquivo `prazo-<pasta>.ics`.
+
 ### 20.6 Detalhes (4b, 21/10)
 
 - **Escopo:** `pasta/_detalhes_obs.html.twig` (o painel "Relatório inicial de Atendimento", o macro `observacao` e o

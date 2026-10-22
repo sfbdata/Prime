@@ -1074,5 +1074,27 @@
             "Erro ao editar item:",
             "Erro ao excluir item:"
         ]
+    },
+    "pasta_cabecalho": {
+        "templates": [
+            "pasta/_cabecalho.html.twig",
+            "pasta/_dados_trilho.html.twig",
+            "pasta/_dados_trilho_topo.html.twig"
+        ],
+        "js": [
+            "pasta-prazos.js",
+            "pasta-clientes.js",
+            "pasta-clientes-busca.js"
+        ],
+        "permitidos": [
+            "BLUEJUS",
+            "Intelligence",
+            "E",
+            "H",
+            "T",
+            "Content-Type",
+            "Escape",
+            "Enter"
+        ]
     }
 }
