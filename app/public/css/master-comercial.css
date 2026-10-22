@@ -195,6 +195,12 @@
 .mc-cp-emojis-rot { font-size: 11.5px; color: var(--mc-cp-dica); }
 .mc-cp-emoji { width: 30px; height: 30px; border: none; border-radius: 50%; background: transparent; font-size: 16px; cursor: pointer; }
 .mc-cp-emoji:hover, .mc-cp-emoji:focus-visible { background: var(--mc-a-icone-hv); }
+/* F3i (dc 21.10 L274): "Adicionar imagem" / "Trocar imagem", o "Remover" e o traço antes do "Inserir:". */
+.mc-cp-img { height: 30px; padding: 0 10px; border: 1px solid var(--mc-a-pop-bd); border-radius: 15px; background: var(--mc-fundo); color: var(--mc-cp-texto); font-size: 12.5px; font-weight: normal; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+.mc-cp-img:hover, .mc-cp-img:focus-within { border-color: var(--mc-azul); color: var(--mc-azul); }
+.mc-cp-img-rm { height: 30px; padding: 0 9px; border: none; border-radius: 15px; background: transparent; color: var(--mc-a-descad-tx); font: inherit; font-size: 12px; cursor: pointer; }
+.mc-cp-img-rm[hidden] { display: none; }
+.mc-cp-emojis-sep { width: 1px; height: 20px; background: var(--mc-a-traco); margin: 0 4px; }
 .mc-cp-ag { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 11px; background: var(--mc-a-ag-bg); color: var(--mc-a-ag-tx); font-size: 11.5px; font-weight: bold; margin-left: auto; }
 .mc-cp-ag[hidden] { display: none; }
 .mc-cp-dest { display: flex; align-items: center; gap: 8px; }

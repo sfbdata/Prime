@@ -52,6 +52,7 @@ final class ConfirmarCampanhaConcorrenteTest extends KernelTestCase
             $c->get(SementeDoExpansor::class),
             $c->get(MontadorDeEmail::class),
             $c->get(ClockInterface::class),
+            $c->get(\App\Comercial\Campanha\ImagensDaCampanha::class),
         );
         $pedido = PedidoDeCampanha::deArray([
             'chave' => $chave, 'modelo' => (array) (new ModelosDeCampanha())->fixo('convite'),

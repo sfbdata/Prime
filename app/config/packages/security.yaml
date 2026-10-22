@@ -49,6 +49,7 @@ security:
         - { path: ^/email/descadastro, roles: PUBLIC_ACCESS }  # "Não quero mais receber estes avisos": link assinado, sem login
         - { path: ^/e/a/,             roles: PUBLIC_ACCESS }  # Comercial: pixel de abertura dos e-mails (sem login, sem sessão)
         - { path: ^/e/c/,             roles: PUBLIC_ACCESS }  # Comercial: link rastreado dos e-mails (assinado; sem login)
+        - { path: ^/e/i/,             roles: PUBLIC_ACCESS }  # Comercial: imagem da campanha do modo simples (token; sem login, sem sessão)
         - { path: ^/e/confirmar/,     roles: PUBLIC_ACCESS }  # Comercial: confirmação de endereço (double opt-in; GET mostra, POST grava)
 
         # A partir daqui: apenas usuário autenticado.

@@ -7,6 +7,7 @@ namespace App\Tests\Arquitetura;
 use App\Cliente\Armazenamento\ChavesDeCliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cobranca\Armazenamento\ChavesDeCobranca;
+use App\Comercial\Armazenamento\ChavesDeComercial;
 use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
@@ -181,12 +182,23 @@ final class FabricasDeArquivoNovoTest extends TestCase
         self::assertSame('pdf', $novo->extensao);
     }
 
+    #[TestDox('imagem nova da campanha do Comercial: escopo global (D1), categoria própria')]
+    public function testImagemNovaDaCampanhaEhGlobal(): void
+    {
+        $novo = ChavesDeComercial::novaImagem('jpg');
+
+        self::assertSame(CategoriaDeArquivo::COMERCIAL_IMAGEM, $novo->categoria);
+        self::assertTrue($novo->escopo->ehGlobal());
+        self::assertSame('jpg', $novo->extensao);
+    }
+
     #[TestDox('toda fábrica de arquivo novo tem caso neste teste, e só as documentadas recebem Tenant')]
     public function testInventarioDasFabricas(): void
     {
         $cobertas = array_keys(iterator_to_array(self::fabricas()));
         $cobertas[] = ChavesDePerfil::class . '::novaFoto';
         $cobertas[] = ChavesDeTrabalhoExterno::class . '::novoArquivoDoCurriculo';
+        $cobertas[] = ChavesDeComercial::class . '::novaImagem';
 
         $encontradas = [];
 

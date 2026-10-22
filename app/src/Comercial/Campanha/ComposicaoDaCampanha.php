@@ -23,6 +23,9 @@ use App\Comercial\Service\MontadorDeEmail;
  * sem público, ou sem nome, os de exemplo do dc ("Dra. Ana", teste@bluejus.com.br). Sai do mesmo montador do envio,
  * com o rodapé legal: o que se vê é o que sai. O nome de exemplo entra inteiro, como no dc.
  *
+ * F3i (§12): a imagem do simples entra pelo endereço público que {@see ImagensDaCampanha} monta do token; vencida, o
+ * e-mail sai sem ela (quem recusa a mensagem com imagem vencida são os casos de uso, antes de chegar aqui).
+ *
  * A campanha (2b) congela uma cópia do conteúdo ({@see self::congelar()}) e o expansor a descongela a cada lote
  * ({@see self::descongelar()}): editar ou excluir o modelo depois não muda o que sai.
  *
@@ -41,6 +44,7 @@ final class ComposicaoDaCampanha
         private readonly RenderizadorDeBlocos $renderizador,
         private readonly SanitizadorDeHtmlDeEmail $sanitizador,
         private readonly MontadorDeEmail $montador,
+        private readonly ImagensDaCampanha $imagens,
     ) {
     }
 
@@ -152,7 +156,7 @@ final class ComposicaoDaCampanha
         return match ($m->modo) {
             'blocos' => $this->renderizador->blocos($m->blocos),
             'html' => $this->sanitizador->sanitizar($m->html),
-            default => $this->renderizador->simples($m->corpo, $m->itens, $m->cta, $m->link),
+            default => $this->renderizador->simples($m->corpo, $m->itens, $m->cta, $m->link, $this->imagens->url($m->imagem), $m->titulo),
         };
     }
 
