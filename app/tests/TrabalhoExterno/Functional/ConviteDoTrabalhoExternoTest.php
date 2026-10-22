@@ -683,6 +683,139 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertFalse($this->json($client)['demanda']['mostraConvites']);
     }
 
+    #[TestDox('escritório dono fora do ar (suspenso ou excluído): o convidado só lê e vê "pausada"; a Central segue agindo; reativado, volta a agir')]
+    public function testConvidadoDeEscritorioForaDoArSoLe(): void
+    {
+        [$client, $codigo, $master, $central, , $escritorio] = $this->demandaEmExecucao();
+        $this->logarComTenant($client, $master, $central);
+        $this->anexar($client, $codigo, 'instrucoes.pdf');
+        $token = $this->convidar($client, $codigo, 'pausa@test.com', array_fill_keys(array_keys(ConviteDemanda::PERMISSOES), true));
+        $convidado = $this->contaDoConvidado($client, $token, 'pausa@test.com');
+
+        foreach (['suspenso' => null, 'excluído' => new \DateTimeImmutable()] as $caso => $excluidoEm) {
+            $this->colocarForaDoAr($escritorio, $excluidoEm);
+            $this->logarComoConvidado($client, $convidado);
+
+            $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+            self::assertResponseIsSuccessful($caso);
+            $d = $this->json($client)['demanda'];
+            self::assertSame('Esta demanda está pausada. Fale com a Central.', $d['pausada'], $caso);
+            self::assertSame([], $d['botoes'], $caso);
+            self::assertFalse($d['podeConversar'], $caso);
+            self::assertFalse($d['podeAnexar'], $caso);
+            self::assertFalse($d['podeAndamento'], $caso);
+            self::assertStringNotContainsString('Solicitante', (string) $d['pausada'], 'sem o nome do escritório');
+
+            foreach ([
+                "/trabalho-externo/api/demandas/$codigo/mensagens" => ['texto' => 'olá'],
+                "/trabalho-externo/api/demandas/$codigo/andamentos" => ['texto' => 'Cheguei'],
+                "/trabalho-externo/api/demandas/$codigo/checklist/0" => [],
+                "/trabalho-externo/api/demandas/$codigo/acoes/impedimento" => ['motivo' => 'Fórum fechado'],
+                "/trabalho-externo/api/demandas/$codigo/acoes/prorrogar" => ['motivo' => 'Mais um dia'],
+            ] as $url => $corpo) {
+                $this->postarJson($client, $url, $corpo);
+                self::assertResponseStatusCodeSame(403, "$caso: $url");
+            }
+            $arquivo = tempnam(sys_get_temp_dir(), 'te');
+            file_put_contents($arquivo, '%PDF-1.4 x');
+            $client->request('POST', "/trabalho-externo/api/demandas/$codigo/documentos", [], ['documentos' => [new \Symfony\Component\HttpFoundation\File\UploadedFile($arquivo, 'novo.pdf', 'application/pdf', null, true)]], ['HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax']);
+            self::assertResponseStatusCodeSame(403, "$caso: documento");
+
+            $client->request('GET', "/trabalho-externo/demandas/$codigo/documentos/" . $d['documentos'][0]['id']);
+            self::assertResponseIsSuccessful("$caso: o download continua");
+            $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/lida");
+            self::assertResponseIsSuccessful("$caso: marcar como lida continua");
+
+            $this->logarComTenant($client, $master, $central);
+            $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => "A Central segue ($caso)"]);
+            self::assertResponseIsSuccessful("$caso: a Central segue agindo");
+        }
+
+        $this->colocarForaDoAr($escritorio, null, true);
+        $this->logarComoConvidado($client, $convidado);
+        $d = $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'voltei'])['demanda'];
+        self::assertResponseIsSuccessful('reativado, volta a agir');
+        self::assertNull($d['pausada']);
+    }
+
+    #[TestDox('escritório fora do ar: o link do convite mostra "indisponível" como o vencido, e nem aceitar logado nem criar a conta gravam o aceite')]
+    public function testConviteDeEscritorioForaDoAr(): void
+    {
+        [$client, $codigo, $master, $central, , $escritorio] = $this->demandaEmExecucao();
+        $comConta = $this->criarUsuario($this->criarTenant('Correspondente'));
+        $this->logarComTenant($client, $master, $central);
+        $tokenComConta = $this->convidar($client, $codigo, (string) $comConta->getEmail());
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo"); // o registro de e-mails recomeça a cada requisição
+        $tokenNovo = $this->convidar($client, $codigo, 'novo-fora@test.com', array_fill_keys(array_keys(ConviteDemanda::PERMISSOES), true));
+        $this->colocarForaDoAr($escritorio, null);
+
+        // Logado com a conta do convite: a mesma página do convite vencido, sem formulário.
+        $this->logarComoConvidado($client, $comConta);
+        $crawler = $client->request('GET', "/trabalho-externo/convite/$tokenComConta");
+        self::assertSelectorTextContains('h1', 'Convite indisponível');
+        self::assertCount(0, $crawler->filter('form[action$="/aceitar"]'));
+        $client->request('POST', "/trabalho-externo/convite/$tokenComConta/aceitar", ['_token' => 'TOKEN_te_convite_' . $tokenComConta]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('h1', 'Convite indisponível');
+
+        // Sem conta: nem o formulário de criar conta aparece, e o POST montado à mão não cria nada.
+        $client->getCookieJar()->clear();
+        $crawler = $client->request('GET', "/trabalho-externo/convite/$tokenNovo");
+        self::assertSelectorTextContains('h1', 'Convite indisponível');
+        self::assertCount(0, $crawler->filter('form[action$="/criar-conta"]'));
+        $client->request('POST', "/trabalho-externo/convite/$tokenNovo/criar-conta", ['full_name' => 'Novo', 'senha' => 'senha-forte-1', 'aceite_termos' => '1', '_token' => 'TOKEN_te_convite_' . $tokenNovo]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('h1', 'Convite indisponível');
+
+        $this->em()->clear();
+        $convites = $this->em()->getRepository(ConviteDemanda::class);
+        self::assertNull($convites->peloToken($tokenComConta)?->getConvidado());
+        self::assertNull($convites->peloToken($tokenNovo)?->getConvidado(), 'o convite não ganha convidado');
+        self::assertNull($this->em()->getRepository(User::class)->findOneBy(['email' => 'novo-fora@test.com']), 'nenhuma conta criada');
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        self::assertNotSame(200, $client->getResponse()->getStatusCode(), 'ninguém ficou logado lendo a demanda');
+    }
+
+    #[TestDox('login de quem só tem escritório fora do ar e um convite: vai para a seleção de escritório e vê o aviso da conta')]
+    public function testEntradaComEscritorioForaDoArNaoDesvia(): void
+    {
+        [$client, $codigo, $master, $central] = $this->demandaEmExecucao();
+        $suspenso = $this->criarTenant('Escritório suspenso');
+        $pessoa = $this->criarUsuario($suspenso);
+        $this->logarComTenant($client, $master, $central);
+        $token = $this->convidar($client, $codigo, (string) $pessoa->getEmail());
+        $this->aceitarLogado($client, $pessoa, $token);
+        $this->colocarForaDoAr($suspenso, null);
+
+        $this->entrarPeloFormulario($client, (string) $pessoa->getEmail(), 'senha123');
+
+        // O login passa pela tela "entrando" do desenho 10 com o destino em `para`: o destino é a seleção, não o TE.
+        self::assertResponseRedirects();
+        self::assertStringEndsWith('/escritorio/selecionar', (string) $client->getResponse()->headers->get('Location'));
+    }
+
+    #[TestDox('avisos à equipe: escritório fora do ar não recebe ninguém')]
+    public function testAvisosNaoSaemParaEscritorioForaDoAr(): void
+    {
+        static::createClient();
+        $escritorio = $this->criarTenant('Avisos');
+        $this->criarUsuario($escritorio);
+        $repositorio = static::getContainer()->get(\App\TrabalhoExterno\Repository\DestinatariosDosAvisosRepository::class);
+        self::assertCount(1, $repositorio->ativosDoEscritorio($escritorio), 'premissa: no ar, a equipe recebe');
+
+        $this->colocarForaDoAr($escritorio, null);
+
+        self::assertSame([], $repositorio->ativosDoEscritorio($escritorio));
+    }
+
+    private function colocarForaDoAr(\App\Entity\Tenant\Tenant $escritorio, ?\DateTimeImmutable $excluidoEm, bool $reativar = false): void
+    {
+        $escritorio = $this->em()->find(\App\Entity\Tenant\Tenant::class, $escritorio->getId());
+        $escritorio->setIsActive($reativar);
+        $escritorio->setExcluidoEm($reativar ? null : $excluidoEm);
+        $this->em()->flush();
+    }
+
     private function aceitarLogado(KernelBrowser $client, User $usuario, string $token): void
     {
         $client->getCookieJar()->clear();

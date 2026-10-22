@@ -125,6 +125,7 @@ final class ApresentadorDeDemanda
             'tipo' => $d->getTipoServico(),
             'destino' => $this->local($d->getCidadeExecucao(), $d->getUfExecucao()) . ($d->getOrgao() !== null ? ' · ' . $d->getOrgao() : ''),
             'botoes' => $this->politica->botoes($ctx, $d),
+            'pausada' => $ctx->donoForaDoAr ? 'Esta demanda está pausada. Fale com a Central.' : null,
             'abas' => $this->abas($ctx),
             'campos' => $this->campos($ctx, $d),
             // "Ver instruções" do convite: sem ele, o Convidado não lê descrição, objetivo nem instruções.

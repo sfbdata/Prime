@@ -1243,6 +1243,9 @@
     function renderCorpo() {
         var dz = S.dz, alvo = limpar($('teDzCorpo'));
         var botoes = (dz.botoes || []).filter(function (b) { return !(b.k === 'proposta' && S.aba === 'proposta') && !(b.k === 'convidar' && S.aba === 'exec'); });
+        if (dz.pausada) {
+            alvo.appendChild(el('div', { class: 'te-previa', attrs: { role: 'status' } }, [ic('bi-pause-circle'), el('span', { text: dz.pausada })]));
+        }
         if (botoes.length) {
             alvo.appendChild(el('div', { class: 'te-acoes' }, botoes.map(function (b) {
                 return el('button', {

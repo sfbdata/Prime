@@ -11,6 +11,7 @@ use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
 use App\TrabalhoExterno\Exception\DadosInvalidos;
 use App\TrabalhoExterno\Exception\DemandaNaoEncontrada;
 use App\TrabalhoExterno\Repository\ConviteDemandaRepository;
+use App\TrabalhoExterno\Service\ConviteDisponivel;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -19,7 +20,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * Criar a conta de quem recebeu o convite e ainda não tem conta no BlueJus (D3, spec §8).
  *
  * Quem: anônimo com o link do convite. O e-mail da conta é o do convite (não é digitado).
- * Pré-condições: convite aceitável; nenhuma conta com esse e-mail (sem diferenciar caixa); nome;
+ * Pré-condições: convite disponível ({@see ConviteDisponivel}: aceitável e escritório da demanda no ar); nenhuma conta com esse e-mail (sem diferenciar caixa); nome;
  * senha de 8+ caracteres; aceite dos Termos.
  * Fluxo: cria o usuário (só `ROLE_USER`, SEM escritório), aceita o convite e registra o aceite do
  * termo sem escritório (o `AceiteTermo` aceita tenant nulo).
@@ -35,6 +36,7 @@ final class CriarContaDeConvidadoUseCase
         private readonly UserPasswordHasherInterface $hasher,
         private readonly RegistrarAceiteTermoUseCase $registrarAceite,
         private readonly EntityManagerInterface $em,
+        private readonly ConviteDisponivel $disponivel,
     ) {
     }
 
@@ -42,7 +44,7 @@ final class CriarContaDeConvidadoUseCase
     {
         $convite = $this->convites->peloToken($token) ?? throw new DemandaNaoEncontrada();
         $hoje = new \DateTimeImmutable('today');
-        if (!$convite->aceitavel($hoje)) {
+        if (!$this->disponivel->para($convite, $hoje)) {
             throw new DadosInvalidos('Este convite não está mais disponível.');
         }
         if ($this->usuarios->encontrarPorEmailIgnorandoCaixa($convite->getEmail()) !== []) {

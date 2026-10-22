@@ -40,7 +40,8 @@ class DestinatariosDosAvisosRepository
     }
 
     /**
-     * Quem tem vínculo ativo no escritório, com a conta ativa, na ordem de id. Quem chama confere a
+     * Quem tem vínculo ativo no escritório, com a conta ativa, na ordem de id. Escritório fora do ar (suspenso
+     * ou excluído) não recebe aviso (docs/specs/te-convidado-escritorio-fora-do-ar.md). Quem chama confere a
      * permissão do módulo de cada um.
      *
      * @return list<User>
@@ -51,6 +52,7 @@ class DestinatariosDosAvisosRepository
             ->select('u')
             ->from(User::class, 'u')
             ->join(UserTenant::class, 'ut', 'WITH', 'ut.user = u AND ut.tenant = :tenant AND ut.isActive = true')
+            ->join('ut.tenant', 't', 'WITH', 't.isActive = true AND t.excluidoEm IS NULL')
             ->andWhere('u.isActive = true')
             ->setParameter('tenant', $escritorio)
             ->orderBy('u.id', 'ASC')
@@ -66,7 +68,7 @@ class DestinatariosDosAvisosRepository
             ->from(Tenant::class, 't')
             ->join(UserTenant::class, 'ut', 'WITH', 'ut.tenant = t AND ut.user = :usuario AND ut.isActive = true')
             ->andWhere('t.id = :id')
-            ->andWhere('t.isActive = true')
+            ->andWhere('t.isActive = true AND t.excluidoEm IS NULL')
             ->setParameter('usuario', $usuario)
             ->setParameter('id', $escritorioId)
             ->getQuery()
@@ -80,7 +82,7 @@ class DestinatariosDosAvisosRepository
             ->select('t')
             ->from(Tenant::class, 't')
             ->join(UserTenant::class, 'ut', 'WITH', 'ut.tenant = t AND ut.user = :usuario AND ut.isActive = true')
-            ->andWhere('t.isActive = true')
+            ->andWhere('t.isActive = true AND t.excluidoEm IS NULL')
             ->setParameter('usuario', $usuario)
             ->orderBy('t.id', 'ASC')
             ->setMaxResults(1)
