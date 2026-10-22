@@ -1,4 +1,4 @@
 {# Modelo "Espaço esgotado" do desenho 05 (dc L.508-513): `e100`. #}
 {% import 'email/comercial/automacao/_blocos.html.twig' as b %}
-{{ b.texto('O armazenamento chegou a 100%. Seus arquivos continuam guardados e disponíveis para consulta e download, mas novos envios ficam pausados até ampliar o espaço.') }}
-{{ b.botao('Solicitar mais espaço', urlDoEspaco) }}
+{{ b.texto('emails.comercial.espaco_100.texto'|trans) }}
+{{ b.botao('emails.comercial.espaco_100.botao'|trans, urlDoEspaco) }}
