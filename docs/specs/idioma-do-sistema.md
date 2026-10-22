@@ -554,7 +554,61 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   rótulos de desfecho e canal, o nome "Sem responsável" da linha órfã, flashes e mensagens das rotas da ficha); o
   `telefone-mascara.js` (sem texto) não entrou na guarda.
 
-## 23. (continua: ver o PR #266 para a abertura da seção)
+## 21. Extração do Auth (9b, 21/10)
+
+- **Escopo:** `templates/auth/` (12 dos 13 arquivos: `meus_convites`, `cadastro/confirmar_email` e `erro`,
+  `conta/_reenviar_confirmacao`, `convite/ver`, `ver_logado`, `nao_pertence` e `erro`, `convites/gerenciar`,
+  `senha/redefinir` e `erro`, `suporte/mensagens`) e `auth/criar-senha.js` (a régua de força do "Crie sua senha"). Bloco
+  `auth` do catálogo, 108 chaves (`comum` 7, `meus_convites` 7, `cadastro` 2, `link` 11, `reenviar_confirmacao` 1,
+  `convite` 34, `gerenciar` 21, `senha` 7, `suporte` 14, `js` 4). Os rótulos da força ficam em `auth.js.forca.*`,
+  entregues por `{{ catalogo_js('auth.js') }}` no `confirmar_email`, só quando o formulário aparece, antes do script
+  (que roda com `defer`, depois do `bj-traducao.js`); o `entrada.js` pode reusar as mesmas chaves no PR dele.
+- **Sem mudança visível:** o HTML de 22 respostas (Meus convites vazio e cheio; link de confirmação com motivo, "Crie
+  sua senha" com erro, já confirmado e senha criada; erro do cadastro; botão de reenviar; os três erros do convite;
+  convite de outra conta; convite do escritório com nome e da plataforma sem nome; convite logado com e sem dados;
+  link de senha inválido; Criar nova senha; Gerenciar convites vazio e com as seis situações, com e sem reenvio;
+  mensagens de suporte vazia e com e sem nome e assunto) foi comparado antes e depois. Mudou só o
+  `<script data-bj-t>` do "Crie sua senha" (e o recuo da linha do script seguinte); tokens CSRF foram ignorados.
+- **Formatos:** `expiresAt` do convite e da lista viraram `|data`; a hora do convite, `|hora`; `createdAt` dos convites
+  enviados e `criadaEm` das mensagens de suporte, `|data_hora` (nenhum pode ser nulo ali).
+- **Frase partida:** "Li e aceito os Termos de uso e a Política de privacidade.", "Ao criar a conta você declara
+  ciência da Política de Privacidade.", "Este convite foi enviado para <email>.", "colaborar em <escritório>" e o
+  subtítulo das mensagens de suporte (com as aspas retas de "Falar com suporte") foram divididos em chaves, com o
+  link, o `<strong>` e as aspas no template, como no §9. Os `confirm()` de reenviar e revogar convite seguem com o
+  e-mail fora da chave (`|e('html_attr')`, como antes), só o texto em volta é chave, para o HTML sair idêntico.
+- **Guarda:** as comparações com o nome do caso do enum (`situacao.name == 'Pendente'`, `'SenhaCriada'`) passaram a
+  `situacao.name|lower == 'pendente'` (mesmo resultado), para o detector não ler o nome do caso como frase. Em
+  `permitidos`: `BlueJus` (alt do logo) e os nomes das duas constantes PHP lidas por `constant()`
+  (`CadastroController::CSRF_CRIAR_SENHA` e `CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR`).
+- **Ficou de fora:** o texto que vem do PHP: o `motivo` dos erros (exceções), os flashes, o `erro` do "Crie sua
+  senha", a recusa `RECUSA_EMAIL_A_CONFIRMAR` do aviso de e-mail a confirmar, os rótulos e a mensagem de validação do
+  `RedefinirSenhaType` e o `nomeExibido` do perfil; a situação crua do convite quando não é uma das cinco conhecidas
+  (`convite.status`) e a origem crua da mensagem de suporte (dado). O `_fundo_auth.html.twig` (fora de `auth/`, também
+  da tela de entrada) e o `entrada.js` vão com o PR da tela de entrada. O e-mail
+  `auth/cadastro/email_confirmacao.html.twig` não entrou: nenhuma área extraiu e-mail até aqui, e o e-mail segue o
+  idioma do destinatário, não o da requisição (entrega E do §5, com o locale de quem lê, §4), o que pede o idioma
+  gravado no perfil de quem recebe na hora de montar a mensagem; fica para a entrega dos e-mails.
+
+## 23. Extração de Feriados e da conexão do Drive (4b, 21/10)
+
+- **Escopo:** `templates/feriado/index`, `new`, `edit` e `_form` (Feriados e Folgas do escritório) e
+  `templates/sync/drive_conexao` (Conectar meu Drive). Nenhuma das telas tem JS próprio. Blocos `feriado` (23 chaves)
+  e `sync` (18 chaves, em `sync.drive.*`), os dois antes do `# ---- fim`; áreas `feriado` e `sync` no
+  `templates-extraidos.json`, com o exemplo de link do Drive (`placeholder`) nos permitidos. As telas de `processo/` e
+  de `djen/` vêm em PRs seguintes desta mesma §23.
+- **Sem mudança visível:** o HTML de 9 telas (Feriados vazio, com feriado recorrente e pontual e depois de excluir;
+  Novo feriado, Novo com erro de validação e Editar, com nome com apóstrofo, aspas, `&` e tag; Conectar meu Drive sem
+  conexão, conectada sem e-mail e sem pasta-raiz, e ativa) foi gravado antes e depois e comparado com tokens e ids
+  normalizados: saiu igual. Mudaram só a quebra de linha dentro de três parágrafos (o texto de duas linhas virou uma
+  chave de uma linha; o navegador mostra igual) e os dois `confirm()` dos `onsubmit`, agora `|trans|e('js')` (o mesmo
+  texto, escapado para JS). O nome do feriado entra no confirm por `{nome}`, com o apóstrofo do ICU escrito `''`.
+- **Formatos:** a data do feriado pontual (`|date('d/m/Y')`) virou `|data` e o "Conectado em" (`|date('d/m/Y H:i')`),
+  `|data_hora` (a conexão sempre tem a data, então o `|data_hora` de nulo não muda nada). Ficou o `|date('d/m')` do
+  feriado recorrente: não há filtro de dia e mês (o mesmo caso do dd/mm do próximo feriado da §18).
+- **Ficou para depois:** os rótulos, o placeholder e a mensagem de validação do `FeriadoType` (Nome, Data, "Repete todo
+  ano (feriado fixo)", "O nome é obrigatório."); os flashes do `FeriadoController` e do `DriveConexaoController`
+  (inclusive a mensagem de exceção do `DefinirRootFolderDriveUseCase` repassada em flash) e as mensagens dos 403/404,
+  como na §18; o `|date('d/m')` acima.
 
 ### 23b. Processo (4b, 21/10)
 

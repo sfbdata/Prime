@@ -20,7 +20,7 @@
                 </div>
             {% endif %}
             <div class="form-text text-muted">
-                Para feriados recorrentes, o ano da data é ignorado: apenas o dia e o mês importam.
+                {{ 'feriado.form.ajuda_data'|trans }}
             </div>
         </div>
 
@@ -30,8 +30,7 @@
                 {{ form_label(form.recorrente, null, {label_attr: {class: 'form-check-label'}}) }}
             </div>
             <div class="form-text text-muted">
-                Marque para feriados que caem sempre na mesma data todo ano (ex: Natal, Tiradentes).
-                Deixe desmarcado para folgas e dispensas pontuais.
+                {{ 'feriado.form.ajuda_recorrente'|trans }}
             </div>
         </div>
 

@@ -554,5 +554,49 @@
         "permitidos": [
             "App\\\\Cobranca\\\\Enum\\\\TipoTelefone"
         ]
+    },
+
+    "auth": {
+        "templates": [
+            "auth/meus_convites.html.twig",
+            "auth/cadastro/confirmar_email.html.twig",
+            "auth/cadastro/erro.html.twig",
+            "auth/conta/_reenviar_confirmacao.html.twig",
+            "auth/convite/erro.html.twig",
+            "auth/convite/nao_pertence.html.twig",
+            "auth/convite/ver.html.twig",
+            "auth/convite/ver_logado.html.twig",
+            "auth/convites/gerenciar.html.twig",
+            "auth/senha/erro.html.twig",
+            "auth/senha/redefinir.html.twig",
+            "auth/suporte/mensagens.html.twig"
+        ],
+        "js": [
+            "auth/criar-senha.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "App\\\\Auth\\\\Controller\\\\CadastroController::CSRF_CRIAR_SENHA",
+            "App\\\\Auth\\\\UseCase\\\\CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR"
+        ]
+    },
+
+    "feriado": {
+        "templates": [
+            "feriado/index.html.twig",
+            "feriado/new.html.twig",
+            "feriado/edit.html.twig",
+            "feriado/_form.html.twig"
+        ],
+        "permitidos": []
+    },
+
+    "sync": {
+        "templates": [
+            "sync/drive_conexao.html.twig"
+        ],
+        "permitidos": [
+            "https://drive.google.com/drive/folders/…"
+        ]
     }
 }
