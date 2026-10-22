@@ -46,7 +46,8 @@ use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
 use App\Tarefa\Service\ReaberturaDesfazivelDaMeta;
 use App\Tarefa\Service\QuemCuidaDaMeta;
 use App\Tarefa\Service\TarefaTimelineAssembler;
-use App\Tarefa\Exception\PassagemRecusadaException;
+use App\Tarefa\Controller\RecusaDeQuemNaoCuidaDaMeta;
+use App\Tarefa\UseCase\ConcluirMetaUseCase;
 use App\Tenant\Service\ColaboradoresAtribuiveis;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -453,17 +454,6 @@ final class TarefaController extends AbstractController
         ]);
     }
 
-    /** D3: a mesma recusa (403) da passagem de etapa, em `erro`; e em `mensagem`, que é o que o pasta-metas.js lê. */
-    private function recusarQuemNaoCuida(Request $request): JsonResponse
-    {
-        $recusa = PassagemRecusadaException::semPermissaoParaPassar()->getMessage();
-        if (!$request->isXmlHttpRequest()) {
-            throw $this->createAccessDeniedException($recusa);
-        }
-
-        return new JsonResponse(['ok' => false, 'erro' => $recusa, 'sucesso' => false, 'mensagem' => $recusa], Response::HTTP_FORBIDDEN);
-    }
-
     /**
      * Conclui a meta (aba Metas da pasta). D3 (spec `minhas-metas-esteira-2210.md`, decisão do dono 22/10): só o
      * responsável ou quem criou a meta conclui, pela mesma regra e com a mesma recusa (403) da passagem de etapa.
@@ -473,11 +463,11 @@ final class TarefaController extends AbstractController
     public function concluir(
         Tarefa $tarefa,
         Request $request,
-        EntityManagerInterface $entityManager,
         ListaDeMetasDaPastaEmJson $listaEmJson,
         ReaberturaDesfazivelDaMeta $reaberturaDesfazivel,
         DesfazerReaberturaDaMetaUseCase $desfazerReabertura,
         QuemCuidaDaMeta $quemCuida,
+        ConcluirMetaUseCase $concluirMeta,
     ): Response {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -488,7 +478,7 @@ final class TarefaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
         if (!$quemCuida->ehResponsavelOuCriador($tarefa, $usuario)) {
-            return $this->recusarQuemNaoCuida($request);
+            return RecusaDeQuemNaoCuidaDaMeta::responder($request);
         }
 
         $agora = new \DateTimeImmutable();
@@ -524,13 +514,9 @@ final class TarefaController extends AbstractController
         // Concluir de verdade encerra qualquer "Desfazer" pendente desta meta.
         $reaberturaDesfazivel->esquecer($request->getSession(), $tarefa, $tenant, $agora);
 
-        $concluiu = false;
-        if ($tarefa->getStatus() !== Tarefa::STATUS_CONCLUIDA) {
-            $tarefa->setStatus(Tarefa::STATUS_CONCLUIDA);
-            $tarefa->setDataConclusao($agora);
-            $entityManager->flush();
-            $concluiu = true;
-
+        // Trava e relê a meta: a passagem de etapa pode tê-la concluído depois que esta tela a leu.
+        $concluiu = $concluirMeta->executar($tarefa, $agora);
+        if ($concluiu) {
             $this->notificacaoService->notificarTarefaConcluida($tarefa);
         }
 

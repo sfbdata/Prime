@@ -425,7 +425,9 @@ final class AlternarMetaPorXhrTest extends JusPrimeWebTestCase
         $id = (int) $this->criarMeta($pasta, $autor, Tarefa::STATUS_CONCLUIDA)->getId();
         $this->criarMeta($pasta, $autor, Tarefa::STATUS_PENDENTE, 'Meta sigilosa da pasta');
 
-        $this->logarComTenant($client, $this->criarUsuarioComPermissoes($tenant, 'Só edita', ['modules.tarefas.view', 'resources.pasta.edit']), $tenant);
+        $quem = $this->criarUsuarioComPermissoes($tenant, 'Só edita', ['modules.tarefas.view', 'resources.pasta.edit']);
+        $this->tornarResponsavel($id, $quem); // D3: só quem cuida da meta reabre
+        $this->logarComTenant($client, $quem, $tenant);
         $client->xmlHttpRequest('POST', '/tarefas/' . $id . '/reabrir', ['_token' => 'TOKEN_reabrir_tarefa_' . $id]);
         $dados = $this->json($client);
 

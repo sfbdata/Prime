@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tarefa\Exception;
 
+use App\Entity\Tarefa\Tarefa;
+
 /** Lançada quando o Despachar não pode gravar. A mensagem é a que o usuário lê. */
 final class DespachoRecusadoException extends \DomainException
 {
@@ -21,6 +23,14 @@ final class DespachoRecusadoException extends \DomainException
     public static function envioForaDePendente(): self
     {
         return new self('Só a meta pendente pode ser enviada para revisão. Nada foi gravado.');
+    }
+
+    /** A meta mudou de status no banco (outra aba, a passagem de etapa) depois que esta tela a leu. */
+    public static function metaMudou(string $statusNoBanco): self
+    {
+        return new self($statusNoBanco === Tarefa::STATUS_CONCLUIDA
+            ? 'Esta meta já está concluída. Nada foi gravado.'
+            : 'A situação desta meta mudou. Recarregue a página. Nada foi gravado.');
     }
 
     public static function semCodigoLivre(): self

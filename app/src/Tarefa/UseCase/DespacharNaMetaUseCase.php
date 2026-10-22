@@ -23,6 +23,7 @@ use App\Tarefa\Service\AnexoDoDespacho;
 use App\Tarefa\Service\CodigoDoRegistro;
 use App\Tarefa\Service\TextoDoDespacho;
 use App\Tarefa\Service\TransacaoDoDespacho;
+use App\Tarefa\Service\TravaDaMeta;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -69,6 +70,7 @@ final class DespacharNaMetaUseCase
         private readonly AnexoDoDespacho $anexos,
         private readonly TransacaoDoDespacho $transacao,
         private readonly UrlGeneratorInterface $urls,
+        private readonly TravaDaMeta $trava,
     ) {
     }
 
@@ -81,12 +83,21 @@ final class DespacharNaMetaUseCase
             throw DespachoRecusadoException::semConteudo();
         }
         self::exigirStatusDaAcao($meta, $input->acao);
+        $statusLido = $meta->getStatus();
 
         /** @var \ArrayObject<int, ChaveDeArquivo> $gravados chaves do anexo, preenchidas assim que o arquivo é gravado */
         $gravados = new \ArrayObject();
         /** @var array{0: ?TarefaMensagem, 1: bool} $feito */
         $feito = $this->transacao->executar(
-            fn (): array => $this->gravar($meta, $autor, $escritorio, $input, $anexo, $gravados),
+            function () use ($meta, $autor, $escritorio, $input, $anexo, $gravados, $statusLido): array {
+                // A meta travada e relida: se outra gravação mudou o status depois desta tela, nada é gravado.
+                $this->trava->travarERecarregar($meta);
+                if ($meta->getStatus() !== $statusLido) {
+                    throw DespachoRecusadoException::metaMudou($meta->getStatus());
+                }
+
+                return $this->gravar($meta, $autor, $escritorio, $input, $anexo, $gravados);
+            },
             static fn (): array => array_values($gravados->getArrayCopy()),
         );
         if ($feito[1]) {

@@ -27,6 +27,7 @@ use App\Tarefa\Service\CodigoDoRegistro;
 use App\Tarefa\Service\SorteioDeCodigoDoDespacho;
 use App\Tarefa\Service\TextoDoDespacho;
 use App\Tarefa\Service\TransacaoDoDespacho;
+use App\Tarefa\Service\TravaDaMeta;
 use App\Tarefa\UseCase\DespacharNaMetaUseCase;
 use App\Tests\Processo\Unit\CriaResolucaoDeMencoesDaNota;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
@@ -57,6 +58,9 @@ final class DespacharNaMetaUseCaseTest extends TestCase
     private SorteioDeCodigoDoDespacho&MockObject $sorteio;
     /** @var TransacaoDoDespacho&object{naFalha: list<ChaveDeArquivo>|null} */
     private TransacaoDoDespacho $transacao;
+
+    /** O que outra requisição já gravou no banco: a trava aplica na releitura da meta. */
+    private ?\Closure $noBanco = null;
 
     protected function setUp(): void
     {
@@ -92,6 +96,50 @@ final class DespacharNaMetaUseCaseTest extends TestCase
                 }
             }
         };
+    }
+
+    private function trava(): TravaDaMeta
+    {
+        $trava = $this->createStub(TravaDaMeta::class);
+        $trava->method('travarERecarregar')->willReturnCallback(function (Tarefa $meta): void {
+            if ($this->noBanco !== null) {
+                ($this->noBanco)($meta);
+            }
+        });
+
+        return $trava;
+    }
+
+    #[TestDox('Corrida: a passagem concluiu a meta depois que esta tela a leu; o envio é recusado e nada é gravado')]
+    public function testCorridaComAMetaVelhaEmMemoria(): void
+    {
+        $this->noBanco = static function (Tarefa $meta): void {
+            $meta->setStatus(Tarefa::STATUS_CONCLUIDA);
+        };
+        $this->mensagens->expects(self::never())->method('salvar');
+        $this->notificacoes->expects(self::never())->method(self::anything());
+
+        try {
+            $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Segue.', 'enviar'));
+            self::fail('Devia recusar.');
+        } catch (DespachoRecusadoException $e) {
+            self::assertSame('Esta meta já está concluída. Nada foi gravado.', $e->getMessage());
+        }
+        self::assertCount(0, $this->meta->getMensagens());
+        self::assertSame(Tarefa::STATUS_CONCLUIDA, $this->meta->getStatus(), 'não volta para em revisão');
+    }
+
+    #[TestDox('Corrida: o criador devolveria a meta que já voltou para pendente; recusa sem gravar')]
+    public function testCorridaNaDevolucaoDoCriador(): void
+    {
+        $this->meta->setStatus(Tarefa::STATUS_EM_REVISAO);
+        $this->noBanco = static function (Tarefa $meta): void {
+            $meta->setStatus(Tarefa::STATUS_PENDENTE);
+        };
+        $this->mensagens->expects(self::never())->method('salvar');
+
+        $this->expectExceptionObject(DespachoRecusadoException::metaMudou(Tarefa::STATUS_PENDENTE));
+        $this->useCase()->executar($this->meta, $this->meta->getCriadoPor() ?? $this->autor, $this->escritorio, $this->input('Refaça.'));
     }
 
     /** Uma chave de documento da pasta, como a que o upload entrega a `$aoGravar`. */
@@ -476,6 +524,7 @@ final class DespacharNaMetaUseCaseTest extends TestCase
             $this->anexos,
             $this->transacao,
             $urls,
+            $this->trava(),
         );
     }
 

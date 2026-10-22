@@ -231,12 +231,15 @@
                                 {% if not metaEditavel %}
                                     {# Lápide: nada de concluir, reabrir nem editar o nome (PMC-060). #}
                                 {% elseif concluida %}
-                                    <form method="post" action="{{ path('tarefa_reabrir', {id: tarefa.id}) }}" class="ps-meta-reabrir">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">
-                                        <button type="submit" class="ps-pop-item" role="menuitem">
-                                            <i class="bi bi-arrow-counterclockwise"></i><span>{{ 'pasta_documentos.metas.reabrir'|trans }}</span>
-                                        </button>
-                                    </form>
+                                    {# D3: só quem cuida da meta reabre; a que já seguiu para a próxima etapa não reabre (volta-se a etapa). #}
+                                    {% if cuida_da_meta(tarefa, app.user) and not meta_seguiu_adiante(tarefa) %}
+                                        <form method="post" action="{{ path('tarefa_reabrir', {id: tarefa.id}) }}" class="ps-meta-reabrir">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">
+                                            <button type="submit" class="ps-pop-item" role="menuitem">
+                                                <i class="bi bi-arrow-counterclockwise"></i><span>{{ 'pasta_documentos.metas.reabrir'|trans }}</span>
+                                            </button>
+                                        </form>
+                                    {% endif %}
                                 {% elseif cuida_da_meta(tarefa, app.user) %}
                                     {# D3: só o responsável ou quem criou a meta conclui; o servidor confere de novo. #}
                                     <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}" class="ps-meta-concluir">
@@ -445,10 +448,12 @@
                     {# Mesmas rotas, tokens e guarda do ⋮ da linha; na lápide, só "Abrir em Metas" (PMC-060). #}
                     {% if metaEditavel %}
                         {% if rel.tom == 'concluida' %}
+                            {% if cuida_da_meta(tarefa, app.user) and not meta_seguiu_adiante(tarefa) %}
                             <form method="post" action="{{ path('tarefa_reabrir', {id: tarefa.id}) }}" class="ps-mrel-alternar-form">
                                 <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">
                                 <button type="submit" class="ps-mrel-alternar ps-mrel-alternar--reabrir"><i class="bi bi-arrow-counterclockwise"></i>{{ 'pasta_documentos.metas.reabrir'|trans }}</button>
                             </form>
+                            {% endif %}
                         {% elseif cuida_da_meta(tarefa, app.user) %}
                             <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}" class="ps-mrel-alternar-form">
                                 <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">

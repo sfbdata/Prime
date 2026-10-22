@@ -13,6 +13,7 @@ use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Pasta\Entity\Pasta;
+use App\Tarefa\Controller\MetaNaListaController;
 use App\Tarefa\Controller\PassagemDeEtapaController;
 use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Enum\EtapaDaPasta;
@@ -32,6 +33,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  */
 #[CoversClass(PassagemDeEtapaController::class)]
 #[CoversClass(TarefaController::class)]
+#[CoversClass(MetaNaListaController::class)]
 #[Group('tarefa')]
 final class PassagemDeEtapaTest extends JusPrimeWebTestCase
 {
@@ -265,6 +267,58 @@ final class PassagemDeEtapaTest extends JusPrimeWebTestCase
         self::assertNotSame('', (string) (json_decode((string) $this->client->getResponse()->getContent(), true)['mensagem'] ?? ''), 'o JS mostra este texto');
     }
 
+    #[TestDox('D3 no reabrir da aba Metas da pasta: o terceiro não vê o botão e recebe 403; quem cuida reabre a meta concluída pelo concluir simples')]
+    public function testReabrirDaPastaSoQuemCuida(): void
+    {
+        $outra = $this->criarMeta($this->escritorio, $this->criador, $this->responsavel);
+        foreach ([$this->meta, $outra] as $meta) {
+            $meta->setStatus(Tarefa::STATUS_CONCLUIDA)->setDataConclusao(new \DateTimeImmutable('-1 hour'));
+        }
+        $this->em->flush();
+
+        $this->logarComTenant($this->client, $this->colega, $this->escritorio);
+        $pagina = $this->client->request('GET', '/pasta/' . $this->meta->getPasta()->getId());
+        self::assertCount(0, $pagina->filter('#psMetaMenu' . $this->meta->getId() . ' form.ps-meta-reabrir'));
+        $this->reabrirPelaPasta($this->meta);
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Só o responsável pela etapa ou quem criou a meta conclui e passa adiante.', json_decode((string) $this->client->getResponse()->getContent(), true)['mensagem']);
+        $this->em->clear();
+        self::assertSame(Tarefa::STATUS_CONCLUIDA, $this->em->find(Tarefa::class, $this->meta->getId())->getStatus());
+
+        $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
+        $pagina = $this->client->request('GET', '/pasta/' . $this->meta->getPasta()->getId());
+        self::assertCount(1, $pagina->filter('#psMetaMenu' . $this->meta->getId() . ' form.ps-meta-reabrir'));
+        $this->reabrirPelaPasta($this->meta);
+        self::assertResponseIsSuccessful();
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+        $this->reabrirPelaPasta($outra);
+        self::assertResponseIsSuccessful();
+
+        $this->em->clear();
+        self::assertSame(Tarefa::STATUS_PENDENTE, $this->em->find(Tarefa::class, $this->meta->getId())->getStatus());
+        self::assertSame(Tarefa::STATUS_PENDENTE, $this->em->find(Tarefa::class, $outra->getId())->getStatus());
+    }
+
+    #[TestDox('Meta já passada adiante: sem o Reabrir na aba Metas e recusa 422 com "Esta meta já seguiu para a próxima etapa."')]
+    public function testMetaPassadaAdianteNaoReabre(): void
+    {
+        $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
+        $this->passar(['responsavel' => (string) $this->colega->getId()]);
+        self::assertResponseIsSuccessful();
+
+        $pagina = $this->client->request('GET', '/pasta/' . $this->meta->getPasta()->getId());
+        self::assertCount(0, $pagina->filter('#psMetaMenu' . $this->meta->getId() . ' form.ps-meta-reabrir'));
+        self::assertCount(0, $pagina->filter('form.ps-mrel-alternar-form[action="' . $this->rota('reabrir') . '"]'));
+
+        $this->reabrirPelaPasta($this->meta);
+        self::assertResponseStatusCodeSame(422);
+        $resposta = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertSame('Esta meta já seguiu para a próxima etapa.', $resposta['erro']);
+        self::assertSame('Esta meta já seguiu para a próxima etapa.', $resposta['mensagem']);
+        $this->em->clear();
+        self::assertSame(Tarefa::STATUS_CONCLUIDA, $this->em->find(Tarefa::class, $this->meta->getId())->getStatus());
+    }
+
     #[TestDox('Página da meta: trilho de largura total antes do cartão, com as etapas como filhas diretas')]
     public function testArranjoDoTrilho(): void
     {
@@ -410,6 +464,11 @@ final class PassagemDeEtapaTest extends JusPrimeWebTestCase
     private function concluirPelaPasta(Tarefa $meta): void
     {
         $this->client->request('POST', '/tarefas/' . $meta->getId() . '/concluir', ['_token' => 'TOKEN_concluir_tarefa_' . $meta->getId()], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+    }
+
+    private function reabrirPelaPasta(Tarefa $meta): void
+    {
+        $this->client->request('POST', '/tarefas/' . $meta->getId() . '/reabrir', ['_token' => 'TOKEN_reabrir_tarefa_' . $meta->getId()], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
     }
 
     private function rota(string $acao): string
