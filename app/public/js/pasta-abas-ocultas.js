@@ -24,8 +24,8 @@
     if (!raiz) { return; }
 
     var CONFIGURA = raiz.getAttribute('data-pode-configurar') === '1';
-    var AVISO_SO_PRIMARIO = 'Só o usuário primário pode ocultar abas';
-    var ERRO_GERAL = 'Não foi possível falar com o servidor. Tente de novo.';
+    var AVISO_SO_PRIMARIO = BJ_T.t('pasta_avisos.js.abas_so_primario');
+    var ERRO_GERAL = BJ_T.t('pasta_avisos.js.abas_erro_geral');
     var CHAVE_AVISO = 'pao-aviso';
 
     var menu = document.getElementById('abaOcultaMenu');
@@ -215,7 +215,7 @@
         var total = estado.pessoas.length;
         var n = quantosMarcados();
         var todos = q('.js-pao-todos', modal);
-        q('.js-pao-todos-texto', modal).textContent = 'Toda a equipe (' + total + ')';
+        q('.js-pao-todos-texto', modal).textContent = BJ_T.t('pasta_avisos.js.abas_toda_equipe', { total: total });
         desenharMarca(todos, q('.js-pao-todos-marca', modal), total > 0 && n === total ? 'true' : n > 0 ? 'mixed' : 'false');
         todos.disabled = total === 0;
 
@@ -246,7 +246,7 @@
         estado.gatilhoModal = gatilho;
         estado.pessoas = [];
         estado.selecionados = {};
-        q('#paoTitulo', modal).textContent = 'Ocultar aba ' + rotuloDa(aba);
+        q('#paoTitulo', modal).textContent = BJ_T.t('pasta_avisos.js.abas_ocultar_aba', { aba: rotuloDa(aba) });
         q('.js-pao-carregando', modal).hidden = false;
         q('.js-pao-vazio', modal).hidden = true;
         q('.js-pao-salvar', modal).disabled = true;

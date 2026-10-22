@@ -7,6 +7,7 @@ namespace App\Tests\Inteligencia\Unit;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Aba Documentos do drawer (spec inteligencia-drawer-da-pasta, F4) no `pasta-ia-agentes.js`. Regex não
@@ -16,6 +17,7 @@ use PHPUnit\Framework\TestCase;
 final class PastaIaDocumentosJsTest extends TestCase
 {
     private const JS = __DIR__ . '/../../../public/js/pasta-ia-agentes.js';
+    private const CATALOGO = __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml';
 
     private function js(): string
     {
@@ -53,8 +55,14 @@ final class PastaIaDocumentosJsTest extends TestCase
         $titulo = $this->funcao('tituloDoIndice');
 
         self::assertStringContainsString("if (botao.hasAttribute('data-ia-exige-selecao')) { botao.title = tituloDoIndice(botao); }", $sincronizar);
-        self::assertGreaterThan(strpos($sincronizar, "'Nova análise considerando o histórico'"), strpos($sincronizar, 'tituloDoIndice(botao)'), 'o title do Índice sobrescreve o do histórico');
-        self::assertStringContainsString("semSelecao(botao) ? 'Marque os documentos do índice'", $titulo);
+        $historico = strpos($sincronizar, "BJ_T.t('inteligencia.js.agentes.dica_nova')");
+        self::assertNotFalse($historico);
+        self::assertGreaterThan($historico, strpos($sincronizar, 'tituloDoIndice(botao)'), 'o title do Índice sobrescreve o do histórico');
+        self::assertStringContainsString("semSelecao(botao) ? BJ_T.t('inteligencia.js.agentes.dica_indice_marque')", $titulo);
+        // O texto mora no catálogo (spec idioma-do-sistema, §25).
+        $js = Yaml::parseFile(self::CATALOGO)['inteligencia']['js']['agentes'];
+        self::assertSame('Nova análise considerando o histórico', $js['dica_nova']);
+        self::assertSame('Marque os documentos do índice', $js['dica_indice_marque']);
         self::assertStringContainsString('botao.title = tituloDoIndice(botao);', $this->funcao('atualizarSelecao'));
     }
 }

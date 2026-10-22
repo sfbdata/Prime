@@ -546,6 +546,7 @@
                     <div class="form-section" style="margin-bottom:0">
                         <div class="form-section-label"><i class="bi bi-arrows-angle-expand me-1"></i>{{ 'escritorio.sedes.raio'|trans }}</div>
                         {{ form_widget(activeForm.raioPermitido, {'attr': {'class': 'form-control sedes-input'}}) }}
+                        {{ form_errors(activeForm.raioPermitido) }}
                         <div class="form-hint">
                             <i class="bi bi-info-circle" style="font-size:.74rem"></i>
                             {{ 'escritorio.sedes.raio_dica'|trans }}

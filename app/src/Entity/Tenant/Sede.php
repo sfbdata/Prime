@@ -54,7 +54,8 @@ class Sede implements Auditavel
         return $this->latitude;
     }
 
-    public function setLatitude(string $latitude): static
+    /** Aceita null: o form mapeia o campo vazio antes de validar; o NotNull do SedeType barra o flush. */
+    public function setLatitude(?string $latitude): static
     {
         $this->latitude = $latitude;
         return $this;
@@ -65,7 +66,8 @@ class Sede implements Auditavel
         return $this->longitude;
     }
 
-    public function setLongitude(string $longitude): static
+    /** Aceita null: o form mapeia o campo vazio antes de validar; o NotNull do SedeType barra o flush. */
+    public function setLongitude(?string $longitude): static
     {
         $this->longitude = $longitude;
         return $this;
@@ -76,9 +78,10 @@ class Sede implements Auditavel
         return $this->raioPermitido;
     }
 
-    public function setRaioPermitido(int $raioPermitido): static
+    /** O form entrega o número como veio (10.5); a validação do SedeType recusa o fracionado antes de gravar. */
+    public function setRaioPermitido(int|float $raioPermitido): static
     {
-        $this->raioPermitido = $raioPermitido;
+        $this->raioPermitido = (int) $raioPermitido;
         return $this;
     }
 

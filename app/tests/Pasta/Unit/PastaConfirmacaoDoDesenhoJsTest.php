@@ -51,7 +51,10 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         $c = self::funcao('confirmarPs');
         self::assertStringContainsString("var azul = o.variante === 'azul';", $c);
         self::assertStringContainsString("caixa.classList.toggle('is-azul', azul);", $c, 'a classe sai também no perigo — a janela é reaproveitada');
-        self::assertStringContainsString("o.rotulo || (azul ? 'Confirmar' : 'Excluir')", $c);
+        self::assertStringContainsString("o.rotulo || (azul ? BJ_T.t('comum.js.dialogos.confirmar') : BJ_T.t('comum.js.dialogos.excluir'))", $c);
+        $cat = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['comum']['js']['dialogos'];
+        self::assertSame('Confirmar', $cat['confirmar']);
+        self::assertSame('Excluir', $cat['excluir']);
         self::assertStringContainsString("o.icone || (azul ? 'bi-check2' : 'bi-trash3')", $c);
     }
 
@@ -61,8 +64,11 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         $f = self::funcao('opcoesDaMensagem');
         self::assertStringContainsString("var i = t.indexOf('\\n');", $f);
         self::assertStringContainsString('var temTitulo = i > 0 && i < 90;', $f);
-        self::assertStringContainsString("(perigo ? 'Confirmar exclusão' : 'Confirmar')", $f);
-        self::assertStringContainsString("rotulo: 'Confirmar',", $f);
+        self::assertStringContainsString("(perigo ? BJ_T.t('comum.js.dialogos.confirmar_exclusao') : BJ_T.t('comum.js.dialogos.confirmar'))", $f);
+        self::assertStringContainsString("rotulo: BJ_T.t('comum.js.dialogos.confirmar'),", $f);
+        $cat = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['comum']['js']['dialogos'];
+        self::assertSame('Confirmar exclusão', $cat['confirmar_exclusao']);
+        self::assertSame('Confirmar', $cat['confirmar']);
         self::assertStringContainsString("icone: perigo ? 'bi-exclamation-triangle' : 'bi-check2',", $f);
         self::assertStringContainsString("variante: perigo ? 'perigo' : 'azul'", $f);
 
@@ -170,7 +176,7 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         yield 'excluir lançamento — vermelho (dc L.3573)' => ['templates/pasta/_financeiro_pagamentos_script.html.twig', "await window.confirmarUIPs(BJ_T.t('pasta_financeiro.js.excluir_lancamento_titulo') + '\\n' + perguntaEx, true)"];
         yield 'excluir comentário do Financeiro — vermelho "Excluir" (dc comExcluir)' => ['templates/pasta/_financeiro_obs_script.html.twig', 'await window.confirmarPs({ titulo: partesObs[0]'];
         yield 'excluir arquivo do Financeiro — vermelho (dc L.6839)' => ['templates/pasta/_financeiro.html.twig', 'await window.confirmarUIPs(perguntaArq, true)'];
-        yield 'excluir meta — vermelho' => ['templates/pasta/_metas.html.twig', 'data-ps-cf="Excluir esta meta? Esta ação não pode ser desfeita." data-ps-cf-perigo'];
+        yield 'excluir meta — vermelho' => ['templates/pasta/_metas.html.twig', "data-ps-cf=\"{{ 'pasta_documentos.metas.excluir_confirmar'|trans }}\" data-ps-cf-perigo"];
         yield 'excluir item do checklist — vermelho' => ['public/js/pasta-checklist.js', "perguntar('Excluir este item do checklist?', true)"];
         yield 'substituir modelo do checklist — vermelho (apaga os itens do modelo)' => ['public/js/pasta-checklist.js', "perguntar('Substituir modelo\\nJá existe o modelo \"' + data.nome"];
         yield 'excluir modelo do checklist — vermelho' => ['public/js/pasta-checklist.js', "perguntar('Excluir o modelo \"' + nome + '\"? Os checklists já aplicados nas pastas não mudam.', true)"];
@@ -188,6 +194,13 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         $js = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['pasta_financeiro']['js'];
         self::assertSame('Excluir lançamento', $js['excluir_lancamento_titulo']);
         self::assertSame('Excluir o arquivo "{nome}" do Financeiro?', $js['excluir_arquivo_nome']);
+    }
+
+    #[TestDox('Metas: a pergunta de excluir meta mora no catálogo, com o texto de antes')]
+    public function testPerguntaDeExcluirMetaNoCatalogo(): void
+    {
+        $metas = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['pasta_documentos']['metas'];
+        self::assertSame('Excluir esta meta? Esta ação não pode ser desfeita.', $metas['excluir_confirmar']);
     }
 
     #[DataProvider('perguntas')]

@@ -44,24 +44,23 @@
     <div class="ds-sug-cab">
         <i class="bi bi-list-check ds-sug-icone" aria-hidden="true"></i>
         <div class="ds-sug-titulos">
-            <h6 id="documentosSugeridosTitulo">Documentos sugeridos</h6>
-            <span class="ds-sug-sub">Sugestões pelo catálogo de documentos da fase e do tipo de ação
-                {%- if sugestao.leuOProcesso %} e pelas determinações lidas no Push Processual{% endif %} · por regras</span>
+            <h6 id="documentosSugeridosTitulo">{{ 'pasta_documentos.sugeridos.titulo'|trans }}</h6>
+            <span class="ds-sug-sub">{{ (sugestao.leuOProcesso ? 'pasta_documentos.sugeridos.sub_push' : 'pasta_documentos.sugeridos.sub')|trans }}</span>
             {% if sugestao.temCatalogo %}
                 <span class="ds-sug-ident">
                     {% if sugestao.numeroProcesso %}
-                        Processo {{ sugestao.numeroProcesso }} · vinculado à pasta
+                        {{ 'pasta_documentos.sugeridos.processo_vinculado'|trans({numero: sugestao.numeroProcesso ~ ''}) }}
                     {% else %}
-                        Processo não identificado: vincule um processo à pasta
+                        {{ 'pasta_documentos.sugeridos.processo_nao_identificado'|trans }}
                     {% endif %}
                 </span>
             {% endif %}
         </div>
         <button type="button" class="ds-sug-atualizar" id="btnDocumentosSugeridosAtualizar"
-                title="Recalcula as sugestões com os documentos e o checklist de agora (recarrega a aba)">
-            <i class="bi bi-arrow-repeat" aria-hidden="true"></i>Atualizar
+                title="{{ 'pasta_documentos.sugeridos.atualizar_dica'|trans }}">
+            <i class="bi bi-arrow-repeat" aria-hidden="true"></i>{{ 'pasta_documentos.sugeridos.atualizar'|trans }}
         </button>
-        <button type="button" class="ds-sug-fechar" id="btnDocumentosSugeridosFechar" aria-label="Fechar sugestões" title="Fechar">
+        <button type="button" class="ds-sug-fechar" id="btnDocumentosSugeridosFechar" aria-label="{{ 'pasta_documentos.sugeridos.fechar_sugestoes'|trans }}" title="{{ 'pasta_documentos.fechar'|trans }}">
             <i class="bi bi-x-lg" aria-hidden="true"></i>
         </button>
     </div>
@@ -78,54 +77,53 @@
         {% if not sugestao.temCatalogo %}
             <p class="ds-sug-sem-catalogo">
                 <i class="bi bi-info-circle" aria-hidden="true"></i>
-                Não há catálogo de documentos para esta pasta: ela não tem ação cadastrada nem processo
-                com classe processual. Cadastre a ação ou vincule o processo para ver as sugestões.
+                {{ 'pasta_documentos.sugeridos.sem_catalogo'|trans }}
             </p>
         {% else %}
             <div class="ds-sug-contexto">
                 <div class="ds-sug-contexto-linha">
                     {# DOC-107: o rótulo do desenho (dc L2132). #}
-                    <span class="ds-sug-rotulo">Contexto do processo</span>
+                    <span class="ds-sug-rotulo">{{ 'pasta_documentos.sugeridos.contexto'|trans }}</span>
                     <span class="ds-sug-fase">{{ sugestao.faseNome }}</span>
                     {% if sugestao.leuOProcesso %}
-                        <span class="ds-sug-conf ds-sug-conf--media" title="Só o teor das publicações do Push foi lido, por regras; o PDF do processo não">Confiança média</span>
+                        <span class="ds-sug-conf ds-sug-conf--media" title="{{ 'pasta_documentos.sugeridos.confianca_media_dica'|trans }}">{{ 'pasta_documentos.sugeridos.confianca_media'|trans }}</span>
                     {% else %}
-                        <span class="ds-sug-conf" title="O processo não foi lido: a fase vem da classe processual e a lista, do catálogo">Confiança baixa</span>
+                        <span class="ds-sug-conf" title="{{ 'pasta_documentos.sugeridos.confianca_baixa_dica'|trans }}">{{ 'pasta_documentos.sugeridos.confianca_baixa'|trans }}</span>
                     {% endif %}
                 </div>
                 <span class="ds-sug-resumo">
-                    {%- if sugestao.acao %}Ação: {{ sugestao.acao|lower }}{% else %}Ação não cadastrada{% endif -%}
+                    {%- if sugestao.acao %}{{ 'pasta_documentos.sugeridos.resumo_acao'|trans({acao: sugestao.acao|lower}) }}{% else %}{{ 'pasta_documentos.sugeridos.resumo_sem_acao'|trans }}{% endif -%}
                     {%- if sugestao.classe %} ({{ sugestao.classe|lower }}){% endif -%}
-                    . Fase: {{ sugestao.faseNome }} ({{ sugestao.base }}).
+                    . {{ 'pasta_documentos.sugeridos.resumo_fase'|trans({fase: sugestao.faseNome ~ '', base: sugestao.base ~ ''}) }}
                 </span>
                 {% if sugestao.prazosEmCurso is not empty %}
                     {# DOC-82 (dc L2134): só prazo escrito no teor e que certamente ainda corre. #}
                     <span class="ds-sug-prazos" id="documentosSugeridosPrazos"
-                          title="Prazo escrito no teor da publicação. Conta-se da publicação; confira o termo final no processo.">
-                        <i class="bi bi-hourglass-split" aria-hidden="true"></i> Prazos em curso: {{ sugestao.prazosEmCurso|join('; ') }}
+                          title="{{ 'pasta_documentos.sugeridos.prazos_dica'|trans }}">
+                        <i class="bi bi-hourglass-split" aria-hidden="true"></i> {{ 'pasta_documentos.sugeridos.prazos'|trans({prazos: sugestao.prazosEmCurso|join('; ')}) }}
                     </span>
                 {% endif %}
                 {% if sugestao.leuOProcesso %}
-                    <span class="ds-sug-motivo">Lido por regras o teor de {{ sugestao.publicacoesLidas }} {{ sugestao.publicacoesLidas == 1 ? 'publicação' : 'publicações' }} do Push Processual; o PDF do processo não foi lido.</span>
+                    <span class="ds-sug-motivo">{{ (sugestao.publicacoesLidas == 1 ? 'pasta_documentos.sugeridos.motivo_lido_uma' : 'pasta_documentos.sugeridos.motivo_lido_varias')|trans({total: sugestao.publicacoesLidas ~ ''}) }}</span>
                 {% else %}
-                    <span class="ds-sug-motivo">Catálogo fixo, sem leitura das decisões: nada aqui é exigência do juízo.</span>
+                    <span class="ds-sug-motivo">{{ 'pasta_documentos.sugeridos.motivo_catalogo'|trans }}</span>
                 {% endif %}
             </div>
 
             {% set grupos = [
-                {status: 'juizo',  ic: '🔴', titulo: 'Exigido pelo juízo', sub: 'determinação expressa em decisão ou despacho'},
-                {status: 'req',    ic: '🟠', titulo: 'Obrigatório',     sub: 'requisito legal para o próximo ato'},
-                {status: 'rec',    ic: '🟡', titulo: 'Recomendável',    sub: 'prática usual desta fase, não é exigência'},
-                {status: 'opc',    ic: '⚪', titulo: 'Opcional',        sub: 'só se a situação pedir'},
-                {status: 'existe', ic: '🟢', titulo: 'Já existente',    sub: sugestao.leuOProcesso ? 'localizado na pasta ou no processo' : 'localizado nos documentos da pasta'},
-                {status: 'na',     ic: '⚫', titulo: 'Não aplicável',   sub: sugestao.leuOProcesso ? 'depende de documento do processo que não apareceu nas publicações lidas' : 'depende da leitura do processo, que não foi feita'},
+                {status: 'juizo',  ic: '🔴', titulo: 'pasta_documentos.sugeridos.grupo.juizo', sub: 'pasta_documentos.sugeridos.grupo.juizo_sub'},
+                {status: 'req',    ic: '🟠', titulo: 'pasta_documentos.sugeridos.grupo.req',   sub: 'pasta_documentos.sugeridos.grupo.req_sub'},
+                {status: 'rec',    ic: '🟡', titulo: 'pasta_documentos.sugeridos.grupo.rec',   sub: 'pasta_documentos.sugeridos.grupo.rec_sub'},
+                {status: 'opc',    ic: '⚪', titulo: 'pasta_documentos.sugeridos.grupo.opc',   sub: 'pasta_documentos.sugeridos.grupo.opc_sub'},
+                {status: 'existe', ic: '🟢', titulo: 'pasta_documentos.sugeridos.grupo.existe', sub: sugestao.leuOProcesso ? 'pasta_documentos.sugeridos.grupo.existe_sub_lido' : 'pasta_documentos.sugeridos.grupo.existe_sub'},
+                {status: 'na',     ic: '⚫', titulo: 'pasta_documentos.sugeridos.grupo.na',    sub: sugestao.leuOProcesso ? 'pasta_documentos.sugeridos.grupo.na_sub_lido' : 'pasta_documentos.sugeridos.grupo.na_sub'},
             ] %}
 
             <div class="ds-sug-chips">
                 {% for g in grupos|filter(g => g.status in ['juizo', 'req', 'rec', 'existe']) %}
                     {% set n = sugestao.comStatus(g.status)|length %}
                     {% if n > 0 %}
-                        <span class="ds-sug-chip ds-sug-chip-{{ g.status }}" title="{{ g.sub }}">{{ g.ic }} {{ n }} {{ g.titulo|lower }}</span>
+                        <span class="ds-sug-chip ds-sug-chip-{{ g.status }}" title="{{ g.sub|trans }}">{{ g.ic }} {{ n }} {{ g.titulo|trans|lower }}</span>
                     {% endif %}
                 {% endfor %}
             </div>
@@ -134,10 +132,10 @@
                 {% set doGrupo = sugestao.comStatus(g.status) %}
                 {% if doGrupo is not empty %}
                     <div class="ds-sug-grupo" data-status="{{ g.status }}">
-                        <div class="ds-sug-grupo-titulo" title="{{ g.sub }}">
+                        <div class="ds-sug-grupo-titulo" title="{{ g.sub|trans }}">
                             <span aria-hidden="true">{{ g.ic }}</span>
-                            <span class="ds-sug-grupo-nome">{{ g.titulo }}</span>
-                            <span class="ds-sug-grupo-sub">· {{ g.sub }}</span>
+                            <span class="ds-sug-grupo-nome">{{ g.titulo|trans }}</span>
+                            <span class="ds-sug-grupo-sub">· {{ g.sub|trans }}</span>
                         </div>
                         {% for it in doGrupo %}
                             <div class="ds-sug-item" data-chave="{{ it.chave }}">
@@ -154,17 +152,17 @@
                                            Push. Sem JS, o link leva à aba Push da própria pasta. #}
                                         <a class="ds-sug-origem" href="{{ path('pasta_show', {id: pasta.id}) }}#push"
                                            data-push-id="{{ it.origemPublicacaoId }}"
-                                           title="Abrir o teor desta publicação na aba Push Processual">
+                                           title="{{ 'pasta_documentos.sugeridos.origem_dica'|trans }}">
                                             <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>{{ it.origemTexto }}
                                         </a>
                                     {% endif %}
                                 </div>
                                 {% if it.podeIrAoChecklist and sugPodeEscrever %}
-                                    <button type="button" class="ds-sug-add-um" data-titulo="{{ it.nome }}" title="Adicionar ao checklist">
-                                        <i class="bi bi-plus-lg" aria-hidden="true"></i>Checklist
+                                    <button type="button" class="ds-sug-add-um" data-titulo="{{ it.nome }}" title="{{ 'pasta_documentos.sugeridos.adicionar_um_dica'|trans }}">
+                                        <i class="bi bi-plus-lg" aria-hidden="true"></i>{{ 'pasta_documentos.sugeridos.adicionar_um'|trans }}
                                     </button>
                                 {% elseif it.noChecklist %}
-                                    <span class="ds-sug-no-ck">{{ it.conferidoNoChecklist ? 'conferido no checklist' : 'já no checklist' }}</span>
+                                    <span class="ds-sug-no-ck">{{ (it.conferidoNoChecklist ? 'pasta_documentos.sugeridos.conferido_no_checklist' : 'pasta_documentos.sugeridos.ja_no_checklist')|trans }}</span>
                                 {% endif %}
                             </div>
                         {% endfor %}
@@ -178,15 +176,15 @@
                TODOS os arquivos vivos da pasta. Só aparece quando há par — e não depende do
                catálogo. É aviso: o painel não oferece excluir. #}
             <div class="ds-sug-dup" id="documentosSugeridosDuplicados">
-                <span class="ds-sug-dup-titulo"><i class="bi bi-files" aria-hidden="true"></i> Possíveis arquivos duplicados</span>
+                <span class="ds-sug-dup-titulo"><i class="bi bi-files" aria-hidden="true"></i> {{ 'pasta_documentos.sugeridos.duplicados_titulo'|trans }}</span>
                 {% for d in sugestao.duplicados %}
-                    <span class="ds-sug-dup-par">{{ d.a }}  ≈  {{ d.b }} ({{ d.percentual }}% parecido; confira se é o mesmo documento)</span>
+                    <span class="ds-sug-dup-par">{{ 'pasta_documentos.sugeridos.duplicado_par'|trans({a: d.a ~ '', b: d.b ~ '', percentual: d.percentual ~ ''}) }}</span>
                 {% endfor %}
                 {# DOC-106b: o servidor manda só os primeiros pares (maior % primeiro); o resto vira a
                    contagem. Texto neutro: não há tela com a lista inteira, e não se promete uma.
                    O teto é convenção do sistema (o desenho é omisso), a ratificar com o Samuel. #}
                 {% if sugestao.duplicadosAlem > 0 %}
-                    <span class="ds-sug-dup-mais">e mais {{ sugestao.duplicadosAlem }} {{ sugestao.duplicadosAlem == 1 ? 'par parecido' : 'pares parecidos' }}</span>
+                    <span class="ds-sug-dup-mais">{{ (sugestao.duplicadosAlem == 1 ? 'pasta_documentos.sugeridos.duplicados_mais_um' : 'pasta_documentos.sugeridos.duplicados_mais_varios')|trans({total: sugestao.duplicadosAlem ~ ''}) }}</span>
                 {% endif %}
             </div>
         {% endif %}
@@ -198,8 +196,8 @@
                 <div class="ds-sug-org" id="documentosSugeridosOrganizacao">
                     <button type="button" class="ds-sug-org-alternar" id="btnDocumentosSugeridosOrganizacao"
                             aria-expanded="false" aria-controls="documentosSugeridosPastas">
-                        <i class="bi bi-chevron-right" aria-hidden="true"></i>Organização sugerida para esta fase
-                        <span class="ds-sug-org-regra">· por regras</span>
+                        <i class="bi bi-chevron-right" aria-hidden="true"></i>{{ 'pasta_documentos.sugeridos.organizacao'|trans }}
+                        <span class="ds-sug-org-regra">{{ 'pasta_documentos.sugeridos.por_regras'|trans }}</span>
                     </button>
                     <div class="ds-sug-org-pastas" id="documentosSugeridosPastas" hidden>
                         {% for nomePasta in pastasDaFase %}
@@ -214,13 +212,13 @@
                 {% if faltantes is not empty and sugPodeEscrever %}
                     <button type="button" class="ds-sug-add-todos" id="btnDocumentosSugeridosFaltantes"
                             data-titulos="{{ faltantes|json_encode|e('html_attr') }}">
-                        Adicionar {{ faltantes|length }} faltante(s) ao checklist
+                        {{ 'pasta_documentos.sugeridos.adicionar_faltantes'|trans({total: faltantes|length ~ ''}) }}
                     </button>
                 {% endif %}
                 {% if sugestao.leuOProcesso %}
-                    <span class="ds-sug-nota">Exigido pelo juízo vem de regra sobre o teor das publicações (verbos de determinação): confira na origem. Obrigatório vem de lei; recomendável e opcional são prática da fase.</span>
+                    <span class="ds-sug-nota">{{ 'pasta_documentos.sugeridos.nota_lido'|trans }}</span>
                 {% else %}
-                    <span class="ds-sug-nota">Obrigatório vem de lei; recomendável e opcional são prática da fase. Catálogo fixo de documentos: o conteúdo do processo não é lido.</span>
+                    <span class="ds-sug-nota">{{ 'pasta_documentos.sugeridos.nota'|trans }}</span>
                 {% endif %}
             </div>
             <div class="ds-sug-erro d-none" id="documentosSugeridosErro" role="alert"></div>

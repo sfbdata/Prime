@@ -7,6 +7,7 @@ namespace App\Tests\Shared\Unit;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * EDT-021/022 (docs/specs/engineering-loop/inventario-editor.md): o Enviar dos compositores fica
@@ -107,7 +108,10 @@ final class EditorRicoEnvioTest extends TestCase
 
         self::assertStringNotContainsString("'<i class=\"bi bi-send me-1\"></i> Enviar'", $show);
         self::assertStringContainsString("btnEnviar.textContent = 'Enviar';", $show);
-        self::assertStringContainsString('title="Enviar (Ctrl+Enter)">Enviar</button>', $this->ler(self::APP . '/templates/pasta/_dados_anotacoes.html.twig'));
+        self::assertStringContainsString("title=\"{{ 'pasta_documentos.anotacoes.enviar_dica'|trans }}\">{{ 'pasta_documentos.anotacoes.enviar'|trans }}</button>", $this->ler(self::APP . '/templates/pasta/_dados_anotacoes.html.twig'));
+        $anotacoes = Yaml::parseFile(self::APP . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_documentos']['anotacoes'];
+        self::assertSame('Enviar (Ctrl+Enter)', $anotacoes['enviar_dica']);
+        self::assertSame('Enviar', $anotacoes['enviar']);
     }
 
     #[TestDox('o Enviar apagado tem a cor do desenho (#a9c7e2) e cursor padrão')]

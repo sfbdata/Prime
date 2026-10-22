@@ -19,6 +19,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote P13 — resto da fidelidade da Pasta (3ª passada, `pendencias-pos-documentos.md` §3.1)
@@ -257,16 +258,20 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         $citar  = strpos($montador, 'class="ps-processo-menu-item js-obs-citar" role="menuitem"');
         self::assertNotFalse($citar, 'o cartão do JS não tem "Citar no novo registro"');
         self::assertLessThan($citar, $copiar, 'Citar vem depois de Copiar texto, como no Twig');
-        self::assertStringContainsString('<i class="bi bi-quote"></i><span>Citar no novo registro</span>', $montador);
+        self::assertStringContainsString('<i class="bi bi-quote"></i><span>${esc(BJ_T.t(\'pasta_detalhes.js.citar\'))}</span>', $montador);
 
         // EDT-003: o cartão do JS também tem "Imprimir", depois de Citar, com os mesmos data-*.
         $imprimir = strpos($montador, 'class="ps-processo-menu-item js-obs-imprimir" role="menuitem"');
         self::assertNotFalse($imprimir, 'o cartão do JS não tem "Imprimir"');
         self::assertLessThan($imprimir, $citar);
-        self::assertStringContainsString('<i class="bi bi-printer"></i><span>Imprimir</span>', $montador);
-        foreach (['data-autor="${esc(', 'data-quando="${esc(', 'data-tipo="Observação"'] as $atributo) {
+        self::assertStringContainsString('<i class="bi bi-printer"></i><span>${esc(BJ_T.t(\'pasta_detalhes.js.imprimir\'))}</span>', $montador);
+        foreach (['data-autor="${esc(', 'data-quando="${esc(', 'data-tipo="${esc(BJ_T.t(\'pasta_detalhes.js.tag\'))}"'] as $atributo) {
             self::assertStringContainsString($atributo, $montador);
         }
+        $catalogo = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js'];
+        self::assertSame('Citar no novo registro', $catalogo['citar']);
+        self::assertSame('Imprimir', $catalogo['imprimir']);
+        self::assertSame('Observação', $catalogo['tag']);
     }
 
     // =========================================================================
