@@ -303,6 +303,36 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Vínculos pasta-processo dos processos dados, só em pastas do escritório que não foram excluídas: dão a
+     * ORIGEM de cada processo na busca da janela "Vincular processo" (desenho 02, `procCatalogo`). O principal
+     * vem primeiro; depois, a ordem em que foram vinculados.
+     *
+     * @param list<int> $idsProcesso
+     *
+     * @return list<PastaProcesso>
+     */
+    public function vinculosDosProcessos(array $idsProcesso, Tenant $tenant): array
+    {
+        if ($idsProcesso === []) {
+            return [];
+        }
+
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('v', 'pa')
+            ->from(PastaProcesso::class, 'v')
+            ->join('v.pasta', 'pa')
+            ->andWhere('pa.tenant = :tenant')
+            ->andWhere('pa.excluidaEm IS NULL')
+            ->andWhere('IDENTITY(v.processo) IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $idsProcesso)
+            ->orderBy('v.principal', 'DESC')
+            ->addOrderBy('v.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Pastas do escritório que casam com o termo — alimenta a busca do modal "Vincular uma pasta
      * existente" da judicialização.
      *

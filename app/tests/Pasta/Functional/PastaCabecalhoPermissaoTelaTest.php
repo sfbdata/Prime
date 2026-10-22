@@ -57,7 +57,7 @@ final class PastaCabecalhoPermissaoTelaTest extends JusPrimeWebTestCase
 
         self::assertCount(1, $menu);
         self::assertCount(1, $menu->filter('#psMenuAcoes > button[data-bs-target="#modalEditarPasta"]'));
-        self::assertCount(1, $menu->filter('#psMenuAcoes > button[data-bs-target="#modalVincularProcesso"]'));
+        self::assertCount(1, $menu->filter('#psMenuAcoes > button[data-vp-abrir][aria-controls="modalVincularProcesso"]'));
         self::assertCount(1, $menu->filter('#psMenuAcoes > #psMenuTrocarResponsavel'));
         self::assertCount(1, $menu->filter('#psMenuAcoes > .js-situacao-alternar'));
         self::assertCount(1, $menu->filter('#psMenuAcoes > form.js-excluir-pasta'));
@@ -82,7 +82,7 @@ final class PastaCabecalhoPermissaoTelaTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('[data-bs-target="#modalEditarPasta"]'), 'sem Editar dados');
         self::assertCount(0, $menu->filter('[data-ps-atalho="e"]'), 'sem o atalho E');
         self::assertCount(0, $crawler->filter('.js-excluir-pasta'), 'sem Excluir pasta');
-        self::assertCount(0, $menu->filter('[data-bs-target="#modalVincularProcesso"]'));
+        self::assertCount(0, $menu->filter('[data-vp-abrir][aria-controls="modalVincularProcesso"]'));
         self::assertCount(0, $crawler->filter('#psMenuTrocarResponsavel'));
         self::assertCount(0, $crawler->filter('.js-situacao-alternar'));
         self::assertCount(0, $crawler->filter('[data-trilho="processo"] .ps-link-btn--vincular'), 'sem o "vincular" da faixa');

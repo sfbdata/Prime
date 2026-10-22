@@ -43,8 +43,9 @@
             salvar.textContent = apenso ? 'Vincular apensado' : salvarPadrao;
         }
 
-        modal.addEventListener('show.bs.modal', function (e) {
-            var gatilho = e.relatedTarget;
+        // A janela do desenho (show.html.twig) avisa a abertura com o botão que a abriu.
+        modal.addEventListener('vp:abrir', function (e) {
+            var gatilho = e.detail && e.detail.gatilho;
             aplicar(!!(gatilho && gatilho.getAttribute('data-vincular-modo') === 'apenso'));
         });
 
