@@ -1098,6 +1098,36 @@ antes e depois, sem diferença; o texto dos scripts foi conferido chave por chav
   demais); o `formatBytesPeca` do envio (`toFixed` com ponto) e os meses abreviados (`MESES`) da pílula do dia do
   cartão montado no JS, como no §20.6.
 
+### 20.9 Scripts do explorador, do checklist e das metas
+
+- **Escopo:** os JS `pasta-explorador.js`, `pasta-checklist.js` e `pasta-metas.js`, que o §20.4 deixou de fora. Bloco de
+  topo `pasta_scripts` do catálogo, só com `pasta_scripts.js.*`: 319 chaves (`explorador` 262, `checklist` 37,
+  `metas` 20). Área `pasta_scripts` no `templates-extraidos.json`, com `templates` vazio.
+- **Catálogo do JS:** os três são carregados pelo `pasta/show.html.twig` sem `defer` (o das metas e o do checklist no
+  corpo, o do explorador no bloco `javascripts`). A única mudança no show é a linha
+  `{{ catalogo_js('pasta_scripts.js') }}` logo antes do `pasta-metas.js`, fora de condição; nenhum outro template
+  carrega esses scripts. O `bj-traducao.js` vem no fim do base, depois dos scripts do corpo: o `pasta-metas.js` só monta
+  a tela no `DOMContentLoaded` e a constante `FALTA_NENHUMA` virou a função `faltaNenhuma()`; o `pasta-checklist.js` só
+  pede texto em evento. O explorador roda depois do `bj-traducao.js`, então as constantes de topo (`TIPOS`,
+  `COLUNAS_ROTULO`, `SELO_SUGESTAO`, `COPIAR_SO_PASTAS`, `AVISO_LIXEIRA`) leem o catálogo na carga.
+- **Sem mudança visível:** não há HTML a comparar (o texto nasce no navegador). Cada `BJ_T.t` foi trocado pelo texto do
+  catálogo, com os parâmetros como expressão, e o resultado comparado com o arquivo de antes: deu o mesmo texto. O
+  `PastaMetasListaTelaTest` confere o catálogo na página antes do `pasta-metas.js`.
+- **Escolhas:** o `pluralizar(n, 'arquivo', 'arquivos')` virou `qtdArquivos(n)` (e `qtdPastas`, `qtdSubpastas`,
+  `qtdItens`, `qtdResultados`, `qtdFavoritos`), cada um com duas chaves pelo mesmo `n === 1`; o mesmo nos rótulos das
+  regras da limpeza, nos itens dos modelos do checklist, no "N item(ns) adicionado(s)" e nos toasts de mover, copiar,
+  favoritar e restaurar. Frase com pedaço opcional virou duas chaves (com e sem o pedaço: o prazo da meta repetida, o
+  "(nome diferente)", o "(pastas não são copiadas)", as pastas do .zip) ou uma chave que embrulha a outra
+  (`prazo_fim_de_semana`, `ignorados_*`, `lix_excluido_por`, `lix_restaurado_na_raiz`). O " e " da contagem de
+  exclusão virou `lista_e` (`{a} e {b}`). O "(s)" de "selecionado(s)" e "arquivo(s)" ficou como está, como no §8. Os
+  espaços antes do rótulo dos botões da lixeira (depois do ícone) ficaram no JS. Os atalhos mostrados no menu de
+  contexto viraram `atalho_*` (`Ctrl+A`, `Ctrl+C`, `Ctrl+V`, `Ctrl+X`, `Del`, `Enter`, `F2`, `Espaço`). Nos permitidos:
+  as teclas do `keydown`, os cabeçalhos HTTP, o `Files` do arrastar e as quatro mensagens do checklist que só vão ao
+  `console.error`.
+- **Ficou de fora:** as mensagens `erro`/`mensagem` que o servidor devolve no JSON (o JS só tem o texto de reserva);
+  o `toLocaleDateString('pt-BR')` do prazo da meta e os `toLocaleString('pt-BR')` do explorador (data, número e
+  tamanho com unidade fixa); e os rótulos dos filtros de tipo, que o explorador lê do HTML (`pasta_documentos`).
+
 ## 25. E-mails e as páginas que eles abrem (5d, 21/10)
 
 Três PRs, um aberto por vez, sem migration e com o português idêntico:

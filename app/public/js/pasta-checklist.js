@@ -108,7 +108,7 @@
         var completo = total > 0 && concluidos === total;
 
         if (badge) {
-            badge.textContent = concluidos + '/' + total + ' itens';
+            badge.textContent = BJ_T.t('pasta_scripts.js.checklist.selo_itens', { concluidos: concluidos, total: total });
             badge.className   = 'pex-ck-selo ' + (completo ? 'completo' : 'incompleto');
         }
 
@@ -131,7 +131,7 @@
         li.classList.toggle('concluido', concluido);
         if (toggle) {
             toggle.setAttribute('aria-pressed', concluido ? 'true' : 'false');
-            toggle.title = concluido ? 'Marcar como pendente' : 'Marcar como concluído';
+            toggle.title = concluido ? BJ_T.t('pasta_scripts.js.checklist.marcar_pendente') : BJ_T.t('pasta_scripts.js.checklist.marcar_concluido');
         }
         // O selo só existe quando o servidor conferiu e não achou arquivo; aparece com o item marcado.
         var selo = li.querySelector('.pex-ck-sem-anexo');
@@ -142,9 +142,9 @@
         if (lista.querySelector('.checklist-item') || document.getElementById('checklistVazio')) { return; }
         var vazio = el('li', 'pex-ck-vazio');
         vazio.id = 'checklistVazio';
-        vazio.appendChild(document.createTextNode('Nenhum item. Clique em '));
+        vazio.appendChild(document.createTextNode(BJ_T.t('pasta_scripts.js.checklist.vazio_antes')));
         vazio.appendChild(icone('bi-plus-lg'));
-        vazio.appendChild(document.createTextNode(' para adicionar.'));
+        vazio.appendChild(document.createTextNode(BJ_T.t('pasta_scripts.js.checklist.vazio_depois')));
         lista.appendChild(vazio);
     }
 
@@ -175,7 +175,7 @@
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-            if (!data.ok) { throw new Error(data.erro || 'Erro'); }
+            if (!data.ok) { throw new Error(data.erro || BJ_T.t('pasta_scripts.js.checklist.erro')); }
             aplicarEstado(li, !!data.concluido);
             atualizarBadge();
         })
@@ -194,7 +194,7 @@
         modoEdicao = !modoEdicao;
         btnEditar.classList.toggle('active', modoEdicao);
         btnEditar.setAttribute('aria-pressed', modoEdicao ? 'true' : 'false');
-        btnEditar.title = modoEdicao ? 'Concluir edição' : 'Editar checklist (remover, renomear e reordenar itens)';
+        btnEditar.title = modoEdicao ? BJ_T.t('pasta_scripts.js.checklist.concluir_edicao') : BJ_T.t('pasta_scripts.js.checklist.editar_checklist');
         lista.classList.toggle('editando', modoEdicao);
 
         itens().forEach(aplicarModoEdicaoNoItem);
@@ -275,7 +275,7 @@
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-            if (!data.ok) { throw new Error(data.erro || 'Erro'); }
+            if (!data.ok) { throw new Error(data.erro || BJ_T.t('pasta_scripts.js.checklist.erro')); }
             li.querySelector('.checklist-item-titulo').textContent = data.titulo;
             input.value = data.titulo;
             cancelarEdicaoItem(input);
@@ -299,7 +299,7 @@
         var btn = e.target.closest('.js-checklist-excluir');
         if (!btn || !lista.contains(btn)) { return; }
 
-        perguntar('Excluir este item do checklist?', true).then(function (sim) {
+        perguntar(BJ_T.t('pasta_scripts.js.checklist.excluir_item_pergunta'), true).then(function (sim) {
             if (sim && document.contains(btn)) { excluirItem(btn); }
         });
     });
@@ -316,7 +316,7 @@
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-            if (!data.ok) { throw new Error(data.erro || 'Erro'); }
+            if (!data.ok) { throw new Error(data.erro || BJ_T.t('pasta_scripts.js.checklist.erro')); }
             li.remove();
             atualizarBadge();
             mostrarVazio();
@@ -351,7 +351,7 @@
     function salvarNovoItem() {
         var titulo = inputNovo.value.trim();
         if (titulo === '') {
-            erroNovo.textContent = 'O título não pode ser vazio.';
+            erroNovo.textContent = BJ_T.t('pasta_scripts.js.checklist.titulo_vazio');
             erroNovo.classList.remove('d-none');
             return;
         }
@@ -370,14 +370,14 @@
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-            if (!data.ok) { throw new Error(data.erro || 'Erro'); }
+            if (!data.ok) { throw new Error(data.erro || BJ_T.t('pasta_scripts.js.checklist.erro')); }
             removerVazio();
             lista.appendChild(criarItemLi(data));
             abrirAdicionar(false);
             atualizarBadge();
         })
         .catch(function (err) {
-            erroNovo.textContent = err.message || 'Erro ao adicionar item.';
+            erroNovo.textContent = err.message || BJ_T.t('pasta_scripts.js.checklist.erro_adicionar');
             erroNovo.classList.remove('d-none');
         })
         .finally(function () { btnSalvarNovo.disabled = false; });
@@ -391,7 +391,7 @@
         li.dataset.concluido = '0';
 
         var alca = el('span', 'checklist-drag-handle pex-ck-alca d-none');
-        alca.title = 'Arrastar para reordenar';
+        alca.title = BJ_T.t('pasta_scripts.js.checklist.arrastar');
         alca.setAttribute('aria-hidden', 'true');
         alca.appendChild(icone('bi-grip-vertical'));
 
@@ -407,12 +407,12 @@
         input.type      = 'text';
         input.value     = data.titulo;
         input.maxLength = 255;
-        input.setAttribute('aria-label', 'Renomear item do checklist');
+        input.setAttribute('aria-label', BJ_T.t('pasta_scripts.js.checklist.renomear_item'));
 
         var remover = el('button', 'pex-ck-remover js-checklist-excluir d-none');
         remover.type  = 'button';
-        remover.title = 'Remover item';
-        remover.setAttribute('aria-label', 'Remover item');
+        remover.title = BJ_T.t('pasta_scripts.js.checklist.remover_item');
+        remover.setAttribute('aria-label', BJ_T.t('pasta_scripts.js.checklist.remover_item'));
         remover.appendChild(icone('bi-trash3'));
 
         li.appendChild(alca);
@@ -476,9 +476,9 @@
     // Erro do servidor vem como JSON com `erro`; fora isso, a mensagem genérica.
     function lerResposta(r) {
         return r.json()
-            .catch(function () { throw new Error('Erro de comunicação.'); })
+            .catch(function () { throw new Error(BJ_T.t('pasta_scripts.js.checklist.erro_comunicacao')); })
             .then(function (data) {
-                if (!r.ok) { throw new Error(data.erro || data.mensagem || 'Erro.'); }
+                if (!r.ok) { throw new Error(data.erro || data.mensagem || BJ_T.t('pasta_scripts.js.checklist.erro_ponto')); }
                 return data;
             });
     }
@@ -504,7 +504,7 @@
             var info = el('div', 'pex-modelo-info');
             var nome = el('span', 'pex-modelo-nome', modelo.nome);
             nome.title = (modelo.itens || []).join(' · ');
-            var qtd = el('span', 'pex-modelo-qtd', modelo.totalItens + ' ' + (modelo.totalItens === 1 ? 'item' : 'itens'));
+            var qtd = el('span', 'pex-modelo-qtd', modelo.totalItens === 1 ? BJ_T.t('pasta_scripts.js.checklist.modelo_itens_um', { total: modelo.totalItens }) : BJ_T.t('pasta_scripts.js.checklist.modelo_itens_varios', { total: modelo.totalItens }));
             var input = el('input', 'pex-modelo-input form-control form-control-sm d-none');
             input.type      = 'text';
             input.value     = modelo.nome;
@@ -514,9 +514,9 @@
             info.appendChild(input);
 
             var acoes = el('div', 'pex-modelo-acoes');
-            acoes.appendChild(botaoModelo('pex-modelo-aplicar js-modelo-aplicar', 'Aplicar', null, null));
-            acoes.appendChild(botaoModelo('pex-modelo-icone js-modelo-renomear', null, 'Renomear modelo', 'bi-pencil'));
-            acoes.appendChild(botaoModelo('pex-modelo-icone perigo js-modelo-excluir', null, 'Excluir modelo', 'bi-trash'));
+            acoes.appendChild(botaoModelo('pex-modelo-aplicar js-modelo-aplicar', BJ_T.t('pasta_scripts.js.checklist.aplicar'), null, null));
+            acoes.appendChild(botaoModelo('pex-modelo-icone js-modelo-renomear', null, BJ_T.t('pasta_scripts.js.checklist.renomear_modelo'), 'bi-pencil'));
+            acoes.appendChild(botaoModelo('pex-modelo-icone perigo js-modelo-excluir', null, BJ_T.t('pasta_scripts.js.checklist.excluir_modelo'), 'bi-trash'));
 
             li.appendChild(info);
             li.appendChild(acoes);
@@ -534,7 +534,7 @@
                 renderModelos(data.modelos || []);
                 modelosCarregados = true;
             })
-            .catch(function (err) { mostrarErroModelos(err.message || 'Erro ao carregar os modelos.'); })
+            .catch(function (err) { mostrarErroModelos(err.message || BJ_T.t('pasta_scripts.js.checklist.erro_carregar_modelos')); })
             .finally(function () { modelosCarregando.classList.add('d-none'); });
     }
 
@@ -560,7 +560,7 @@
         var nome = inputNomeModelo.value.trim();
 
         if (nome === '') {
-            mostrarErroModelos('Dê um nome ao modelo.');
+            mostrarErroModelos(BJ_T.t('pasta_scripts.js.checklist.modelo_sem_nome'));
             return;
         }
 
@@ -584,7 +584,7 @@
             if (r.status === 409) {
                 return r.json().then(function (data) {
                     // Substituir apaga os itens do modelo existente: janela vermelha, com título próprio.
-                    perguntar('Substituir modelo\nJá existe o modelo "' + data.nome + '". Substituir os itens dele pelo checklist desta pasta?', true)
+                    perguntar(BJ_T.t('pasta_scripts.js.checklist.substituir_pergunta', { nome: data.nome }), true)
                         .then(function (sim) { if (sim) { salvarModelo(true); } });
                     return null;
                 });
@@ -594,10 +594,10 @@
         .then(function (data) {
             if (!data) { return; }
             inputNomeModelo.value = '';
-            mostrarAvisoModelos('Modelo "' + data.modelo.nome + '" salvo com ' + data.modelo.totalItens + ' itens.');
+            mostrarAvisoModelos(BJ_T.t('pasta_scripts.js.checklist.modelo_salvo', { nome: data.modelo.nome, total: data.modelo.totalItens }));
             return carregarModelos();
         })
-        .catch(function (err) { mostrarErroModelos(err.message || 'Erro ao salvar o modelo.'); })
+        .catch(function (err) { mostrarErroModelos(err.message || BJ_T.t('pasta_scripts.js.checklist.erro_salvar_modelo')); })
         .finally(function () { btnSalvarModelo.disabled = false; });
     }
 
@@ -640,7 +640,7 @@
 
             mostrarAvisoModelos(recadoDoAplicar(data));
         })
-        .catch(function (err) { mostrarErroModelos(err.message || 'Erro ao aplicar o modelo.'); })
+        .catch(function (err) { mostrarErroModelos(err.message || BJ_T.t('pasta_scripts.js.checklist.erro_aplicar_modelo')); })
         .finally(function () { btn.disabled = false; });
     }
 
@@ -648,16 +648,20 @@
     // cujos itens a pasta já tinha pareceria um botão que não fez nada.
     function recadoDoAplicar(data) {
         if (data.totalCriados === 0 && data.totalIgnorados > 0) {
-            return 'Nada a adicionar: esta pasta já tinha todos os itens de "' + data.nome + '".';
+            return BJ_T.t('pasta_scripts.js.checklist.nada_a_adicionar', { nome: data.nome });
         }
 
-        var recado = data.totalCriados + (data.totalCriados === 1 ? ' item adicionado' : ' itens adicionados');
+        var recado = data.totalCriados === 1
+            ? BJ_T.t('pasta_scripts.js.checklist.criados_um', { total: data.totalCriados })
+            : BJ_T.t('pasta_scripts.js.checklist.criados_varios', { total: data.totalCriados });
 
         if (data.totalIgnorados > 0) {
-            recado += ', ' + data.totalIgnorados + (data.totalIgnorados === 1 ? ' já existia' : ' já existiam');
+            recado = data.totalIgnorados === 1
+                ? BJ_T.t('pasta_scripts.js.checklist.ignorados_um', { recado: recado, total: data.totalIgnorados })
+                : BJ_T.t('pasta_scripts.js.checklist.ignorados_varios', { recado: recado, total: data.totalIgnorados });
         }
 
-        return recado + '.';
+        return BJ_T.t('pasta_scripts.js.checklist.recado_fim', { recado: recado });
     }
 
     function abrirRenomear(li) {
@@ -708,7 +712,7 @@
             fecharRenomear(li);
         })
         .catch(function (err) {
-            mostrarErroModelos(err.message || 'Erro ao renomear o modelo.');
+            mostrarErroModelos(err.message || BJ_T.t('pasta_scripts.js.checklist.erro_renomear_modelo'));
             fecharRenomear(li);
         });
     }
@@ -716,7 +720,7 @@
     function excluirModelo(li) {
         var nome = li.querySelector('.pex-modelo-nome').textContent.trim();
 
-        perguntar('Excluir o modelo "' + nome + '"? Os checklists já aplicados nas pastas não mudam.', true).then(function (sim) {
+        perguntar(BJ_T.t('pasta_scripts.js.checklist.excluir_modelo_pergunta', { nome: nome }), true).then(function (sim) {
             if (sim && document.contains(li)) { excluirModeloConfirmado(li); }
         });
     }
@@ -737,7 +741,7 @@
             li.remove();
             modelosVazio.classList.toggle('d-none', listaModelos.children.length > 0);
         })
-        .catch(function (err) { mostrarErroModelos(err.message || 'Erro ao excluir o modelo.'); });
+        .catch(function (err) { mostrarErroModelos(err.message || BJ_T.t('pasta_scripts.js.checklist.erro_excluir_modelo')); });
     }
 }());
 
@@ -813,7 +817,7 @@
             return r.json().catch(function () { return {}; }).then(function (dados) {
                 if (!r.ok || !dados.sucesso) {
                     // O listener de somente-leitura (lápide) responde `mensagem`, não `erro`.
-                    throw new Error(dados.erro || dados.mensagem || 'Não foi possível alterar o checklist.');
+                    throw new Error(dados.erro || dados.mensagem || BJ_T.t('pasta_scripts.js.checklist.erro_alterar_checklist'));
                 }
                 recarregarNaAbaDocumentos();
             });

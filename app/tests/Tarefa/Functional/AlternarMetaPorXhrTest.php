@@ -16,6 +16,7 @@ use App\Pasta\Entity\Pasta;
 use App\Tarefa\Controller\MetaNaListaController;
 use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
 use App\Tests\Functional\JusPrimeWebTestCase;
+use App\Tests\Pasta\Unit\TextoDosScriptsDaPasta;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -45,6 +46,8 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[Group('tarefa')]
 final class AlternarMetaPorXhrTest extends JusPrimeWebTestCase
 {
+    use TextoDosScriptsDaPasta;
+
     // =========================================================================
     // Fixtures
     // =========================================================================
@@ -658,7 +661,7 @@ final class AlternarMetaPorXhrTest extends JusPrimeWebTestCase
 
         self::assertStringContainsString("'form.ps-meta-concluir, form.ps-meta-reabrir, form.ps-mrel-alternar-form'", $js);
         self::assertStringContainsString("'X-Requested-With': 'XMLHttpRequest'", $js);
-        self::assertStringContainsString("'Desfazer'", $js);
+        self::assertTextoDoScript('Desfazer', 'metas.desfazer', $js);
         self::assertStringContainsString('ps-metas-aviso', $js);
         // PMC-061: o Desfazer de um reabrir pede ao servidor a data original; nenhuma data sai do JS.
         self::assertStringContainsString("if (ehDesfazer && form.matches('form.ps-meta-concluir')) { corpo.append('desfazer', '1'); }", $js);

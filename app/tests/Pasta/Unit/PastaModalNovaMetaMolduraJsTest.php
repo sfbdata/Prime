@@ -17,13 +17,15 @@ use Symfony\Component\Yaml\Yaml;
  */
 final class PastaModalNovaMetaMolduraJsTest extends TestCase
 {
+    use TextoDosScriptsDaPasta;
+
     private const JS_METAS = __DIR__ . '/../../../public/js/pasta-metas.js';
     private const SHOW     = __DIR__ . '/../../../templates/pasta/show.html.twig';
 
     private function bloco(): string
     {
         $js     = (string) file_get_contents(self::JS_METAS);
-        $inicio = strpos($js, "var FALTA_NENHUMA = ");
+        $inicio = strpos($js, 'function faltaNenhuma() {');
         self::assertNotFalse($inicio);
 
         return substr($js, $inicio);
@@ -36,8 +38,11 @@ final class PastaModalNovaMetaMolduraJsTest extends TestCase
         self::assertMatchesRegularExpression('/function iniciar\(\) \{[^}]*molduraDoModalDeMeta\(\);/', $js);
 
         $bloco = $this->bloco();
-        self::assertStringContainsString("var FALTA_NENHUMA = 'Criar meta e notificar os responsáveis';", $bloco);
-        self::assertStringContainsString("botao.title = falta.length > 0 ? 'Preencha: ' + falta.join(', ') : FALTA_NENHUMA;", $bloco);
+        // Função, não constante: o script roda no parse, antes do bj-traducao.js (spec idioma-do-sistema §20.9).
+        self::assertStringContainsString("function faltaNenhuma() { return BJ_T.t('pasta_scripts.js.metas.criar_e_notificar'); }", $bloco);
+        self::assertStringContainsString("botao.title = falta.length > 0 ? BJ_T.t('pasta_scripts.js.metas.preencha', { campos: falta.join(', ') }) : faltaNenhuma();", $bloco);
+        self::assertTextoDoScript('Criar meta e notificar os responsáveis', 'metas.criar_e_notificar', $bloco);
+        self::assertTextoDoScript('Preencha: {campos}', 'metas.preencha', $bloco);
         self::assertStringContainsString('botao.disabled = falta.length > 0;', $bloco);
     }
 
@@ -46,8 +51,10 @@ final class PastaModalNovaMetaMolduraJsTest extends TestCase
     {
         $bloco  = $this->bloco();
         $funcao = substr($bloco, (int) strpos($bloco, 'function faltaNaMeta('), 400);
-        self::assertStringContainsString("titulo.value.trim() === '') { falta.push('título'); }", $funcao);
-        self::assertStringContainsString("descricao.value.trim() === '') { falta.push('descrição'); }", $funcao);
+        self::assertStringContainsString("titulo.value.trim() === '') { falta.push(BJ_T.t('pasta_scripts.js.metas.falta_titulo')); }", $funcao);
+        self::assertStringContainsString("descricao.value.trim() === '') { falta.push(BJ_T.t('pasta_scripts.js.metas.falta_descricao')); }", $funcao);
+        self::assertTextoDoScript('título', 'metas.falta_titulo', $funcao);
+        self::assertTextoDoScript('descrição', 'metas.falta_descricao', $funcao);
         self::assertSame(2, substr_count($funcao, 'falta.push('), 'nada além dos dois');
     }
 
@@ -64,7 +71,9 @@ final class PastaModalNovaMetaMolduraJsTest extends TestCase
     public function testRecolherEFechar(): void
     {
         $bloco = $this->bloco();
-        self::assertStringContainsString("var dica = rec ? 'Expandir' : 'Recolher (continue vendo a lista)';", $bloco);
+        self::assertStringContainsString("var dica = rec ? BJ_T.t('pasta_scripts.js.metas.expandir') : BJ_T.t('pasta_scripts.js.metas.recolher');", $bloco);
+        self::assertTextoDoScript('Expandir', 'metas.expandir', $bloco);
+        self::assertTextoDoScript('Recolher (continue vendo a lista)', 'metas.recolher', $bloco);
         self::assertStringContainsString("icone.className = rec ? 'bi bi-chevron-bar-expand' : 'bi bi-dash-lg';", $bloco);
         self::assertStringContainsString("alca.addEventListener('dblclick'", $bloco);
         $fechar = substr($bloco, (int) strpos($bloco, "modal.addEventListener('hidden.bs.modal'"));
