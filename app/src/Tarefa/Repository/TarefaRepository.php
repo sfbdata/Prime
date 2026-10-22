@@ -203,6 +203,8 @@ class TarefaRepository extends ServiceEntityRepository
     {
         $ids = $this->universoDoAndamento($usuario, $pastasOcultas)
             ->select('t.id')
+            // Pasta excluída (lápide) não pede atenção: o item abre a pasta, e ela não existe mais na tela.
+            ->innerJoin('t.pasta', 'pastaDaAtencao', 'WITH', 'pastaDaAtencao.excluidaEm IS NULL')
             ->andWhere('t.status NOT IN (:foraDaFila)')
             ->andWhere('t.prazo IS NOT NULL AND t.prazo < :hoje')
             ->setParameter('foraDaFila', self::FORA_DA_FILA)

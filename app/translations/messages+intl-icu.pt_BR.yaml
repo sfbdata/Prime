@@ -1423,19 +1423,58 @@ metas:
         paginacao: Paginação das metas
         pagina_anterior: Página anterior
         proxima_pagina: Próxima página
+    linha:
+        tipo:
+            prazo: Prazo alterado
+            responsaveis: Responsáveis alterados
+            concluida: Meta concluída
+            criada: Meta criada
+            reaberta: Meta reaberta
+            removida: Meta removida
+            atualizada: Meta atualizada
+            evento: Evento registrado
     detalhe:
         titulo: 'Meta #{id}'
-        migalha: Meta
-        criada_em: Criada em
-        autor: Autor
+        voltar_as_metas: Voltar às metas
+        trilha:
+            rotulo: Trilha
+            expediente: Expediente
+            pasta: 'Pasta {nup}'
+            meta: Meta
+        aguardando:
+            despacho: AGUARDANDO DESPACHO DE
+            revisao: AGUARDANDO REVISÃO DE
+            hoje: hoje
+            dias: '{n, plural, one {# dia} other {# dias}}'
+            com_a_demanda: com a demanda
+            desde_o_envio: desde o envio para revisão
+        situacao:
+            pendente: Pendente
+            revisao: Aguardando revisão
+            atrasada: 'Atrasada · {n} dia(s)'
+            concluida: Concluída
+            etapa: 'Etapa {posicao}/{total} · {etapa}'
+        detalhes:
+            titulo: DETALHES DA META
+            prazo: PRAZO
+            alterar: Alterar
+            alterar_prazo_dica: Clique para alterar o prazo
+            atrasada: Atrasada
+            venceu_em: 'venceu em {data}'
+            dias: '{n, plural, one {dia} other {dias}}'
+            sem_prazo: Sem prazo
+            responsaveis: RESPONSÁVEIS
+            alterar_responsaveis_dica: Clique para alterar os responsáveis
+            criada_em: CRIADA EM
+            criada_hoje: hoje
+            criada_ha: '{n, plural, one {há 1 dia} other {há # dias}}'
+            despachante: DESPACHANTE
         responsaveis: Responsáveis
-        editar_responsaveis: Editar responsáveis
         prazo: Prazo
-        alterar_prazo: Alterar prazo
-        sem_prazo: Sem prazo
-        pasta: 'Pasta:'
-        descricao: Descrição
-        concluida_em: 'Concluída em {data}'
+        pasta: 'Pasta: {nup}'
+        abrir_a_pasta: Abrir a pasta
+        demanda: DEMANDA
+        sem_descricao: Sem descrição.
         historico: Histórico
         observacao_placeholder: Escreva uma observação… (Ctrl+Enter para enviar)
         enviar_para_revisao: Enviar para Revisão
@@ -1445,16 +1484,11 @@ metas:
         editar_mensagem: Editar mensagem
         editado: '(editado)'
         visualizar_arquivo: Visualizar arquivo
-        inicio_do_historico: Início do histórico
-        atualizado: 'Atualizado {data}'
         acompanhando: Acompanhando
         acompanhar: Acompanhar
         so_voce_ve: Só você vê esta marcação.
         confirmar_conclusao: Confirma a conclusão desta meta?
-        concluir_meta: Concluir Meta
-        confirmar_exclusao: Excluir esta meta? Esta ação não pode ser desfeita.
-        excluir_meta: Excluir Meta
-        voltar_a_pasta: Voltar à Pasta
+        concluir_meta: Concluir meta
         responsaveis_titulo: Responsáveis pela Meta
         responsaveis_sub: Pesquise e selecione os membros da equipe
         fechar: Fechar
@@ -1467,6 +1501,7 @@ metas:
         prazo_sub: Deixe em branco para remover o prazo
         salvar_prazo: Salvar Prazo
         baixar: Baixar
+        despacho_titulo: DESPACHO
         js:
             salvar: Salvar
             cancelar: Cancelar
@@ -1476,6 +1511,65 @@ metas:
             erro_rede: Erro de rede. Tente novamente.
             acompanhando: Acompanhando
             acompanhar: Acompanhar
+    despacho:
+        natureza_rotulo: Natureza
+        prazo_rotulo: Prazo
+        prazo_dica: Prazo para cumprimento
+        dias_uteis: '{n, plural, one {# dia útil} other {# dias úteis}}'
+        placeholder: Escreva o despacho.
+        contador: '{n} / 5.000'
+        anexar: Anexar arquivo
+        despachar: Despachar
+        enviar_para_revisao: Enviar para revisão
+        natureza:
+            ciencia: Para ciência
+            providencia: Para providência
+            manifestacao: Para manifestação
+            conferencia: Para conferência
+            cumpra_se: Cumpra-se
+        inicio:
+            ciencia: 'Para ciência: '
+            providencia: 'Encaminho para providência quanto a '
+            manifestacao: 'Encaminho para manifestação sobre '
+            conferencia: 'Para conferência: '
+            cumpra_se: 'Cumpra-se: '
+        numero: 'DESPACHO {n}'
+        tipo:
+            despacho: Comentário
+            envio: Enviado para revisão
+            devolucao: Devolvida
+        mais_recente: MAIS RECENTE
+        local_e_data: '{cidade}, {data, date, ::yMMMMd}.'
+        registrado_por: Registrado por
+        registrado_em: 'em {data} às {hora}'
+        codigo: 'Cód. {codigo}'
+        conferir_registro: Conferir o registro deste despacho
+        cumprir_ate: 'Cumprir até {data}'
+        ciente: 'Ciente · {nome}, {quando}'
+        certificar: Certificar cumprimento
+        certidao_assinatura: '{nome}, {quando}'
+        certidao_rotulo: 'Certidão de cumprimento (o que foi feito):'
+        certidao_inicio: 'Certifico que '
+        certidao_dica: 'Comece por "Certifico que" e diga o que foi feito. Até 1.000 caracteres.'
+        registro:
+            titulo: Registro do despacho
+            confere: 'O código {codigo} confere com este despacho.'
+            meta: Meta
+            meta_numero: 'Meta #{numero}'
+            autor: Registrado por
+            cargo: Cargo
+            data: Data
+            data_hora: '{data} às {hora}'
+            natureza: Natureza
+            sem_natureza: Sem natureza
+            sem_texto: O texto do despacho não aparece aqui. Abra a meta para lê-lo.
+            abrir_meta: Abrir a meta
+            nao_encontrado_titulo: Registro não encontrado
+            nao_encontrado: 'Nenhum despacho deste escritório tem o código {codigo}.'
+        js:
+            um_dia_util: 1 dia útil
+            dias_uteis: '{n} dias úteis'
+            contador: '{n} / 5.000'
     etapa:
         comercial:
             nome: Comercial

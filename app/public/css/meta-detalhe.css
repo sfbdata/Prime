@@ -1,0 +1,419 @@
+/* Página da meta: cabeçalho com seta e trilha (desenho 04B de 22/10, L35-39), faixa "Aguardando" (L50), painel de
+   situação (L77) e bloco DETALHES DA META (L85). Templates: tarefa/show.html.twig, _meta_aguardando, _meta_situacao
+   e _meta_detalhes. Valores do desenho em token; o tema escuro troca só as cores. */
+:root {
+    --meta-azul: #0a6fa0;
+    --meta-ambar: #9a5b00;
+    --meta-verde: #1e7b45;
+    --meta-vermelho: #a3232b;
+    --meta-titulo: #12242f;
+    --meta-texto: #34505f;
+    --meta-suave: #5b7383;
+    --meta-mudo: #7a8e9b;
+    --meta-borda: #dfe7ed;
+    --meta-divisa: #eef2f5;
+    --meta-fundo: #fff;
+    --meta-fundo-cabeca: #f7f9fb;
+    --meta-hover: #eef2f5;
+    --meta-iniciais-fundo: #e2e9ee;
+}
+
+[data-bs-theme="dark"] {
+    --meta-titulo: var(--bs-emphasis-color);
+    --meta-texto: var(--bs-body-color);
+    --meta-suave: var(--bs-secondary-color);
+    --meta-mudo: var(--bs-secondary-color);
+    --meta-borda: var(--bs-border-color);
+    --meta-divisa: var(--bs-border-color-translucent);
+    --meta-fundo: var(--bs-body-bg);
+    --meta-fundo-cabeca: var(--bs-tertiary-bg);
+    --meta-hover: var(--bs-tertiary-bg);
+    --meta-iniciais-fundo: var(--bs-secondary-bg);
+}
+
+/* ── Cabeçalho: seta, "Meta #N" e trilha (L35-39) ── */
+.meta-cabeca {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.meta-voltar {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: var(--meta-mudo);
+    font-size: 17px;
+    text-decoration: none;
+    transition: background .15s, color .15s;
+}
+
+.meta-voltar:hover {
+    background: var(--meta-hover);
+    color: var(--meta-azul);
+}
+
+.meta-titulo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.meta-titulo .bi {
+    color: var(--meta-azul);
+}
+
+.meta-cabeca-espaco {
+    flex: 1;
+}
+
+.meta-trilha {
+    font-size: 12.5px;
+    color: var(--meta-suave);
+}
+
+/* ── Faixa "Aguardando" (L50, L132) ── */
+.meta-aguardando {
+    --meta-tom: var(--meta-azul);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--meta-borda);
+    border-left: 4px solid var(--meta-tom);
+    border-radius: 3px;
+    background: var(--meta-fundo-cabeca);
+}
+
+.meta-aguardando--revisao {
+    --meta-tom: var(--meta-ambar);
+}
+
+.meta-aguardando--atrasada {
+    --meta-tom: var(--meta-vermelho);
+}
+
+.meta-aguardando-quem {
+    flex: 1;
+    min-width: 200px;
+}
+
+.meta-aguardando-rotulo {
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: .8px;
+    color: var(--meta-tom);
+}
+
+.meta-aguardando-pessoas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 5px;
+}
+
+.meta-aguardando-pessoa {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 28px;
+    padding: 0 10px 0 4px;
+    border: 1px solid var(--meta-borda);
+    border-radius: 3px;
+    background: var(--meta-fundo);
+    font-size: 13.5px;
+    font-weight: bold;
+    color: var(--meta-titulo);
+}
+
+.meta-aguardando-iniciais {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--meta-iniciais-fundo);
+    color: var(--meta-texto);
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.meta-aguardando-tempo {
+    text-align: right;
+}
+
+.meta-aguardando-dias {
+    display: block;
+    font-size: 18px;
+    color: var(--meta-tom);
+}
+
+.meta-aguardando-desde {
+    font-size: 11.5px;
+    color: var(--meta-suave);
+}
+
+/* ── Painel de situação (L77, L136) ── */
+.meta-situacao {
+    --meta-tom: var(--meta-azul);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--meta-borda);
+    border-left: 3px solid var(--meta-tom);
+    border-radius: 3px;
+    background: var(--meta-fundo);
+    color: var(--meta-titulo);
+}
+
+.meta-situacao--revisao {
+    --meta-tom: var(--meta-ambar);
+}
+
+.meta-situacao--concluida {
+    --meta-tom: var(--meta-verde);
+}
+
+.meta-situacao--atrasada {
+    --meta-tom: var(--meta-vermelho);
+    border-color: var(--meta-vermelho);
+    background: var(--meta-vermelho);
+    color: #fff;
+}
+
+.meta-situacao-icone {
+    font-size: 18px;
+    color: var(--meta-tom);
+}
+
+.meta-situacao--atrasada .meta-situacao-icone {
+    color: #fff;
+}
+
+.meta-situacao-titulo {
+    display: block;
+    font-size: 15px;
+}
+
+.meta-situacao-etapa {
+    font-size: 12px;
+    color: var(--meta-suave);
+}
+
+.meta-situacao--atrasada .meta-situacao-etapa {
+    color: rgba(255, 255, 255, .85);
+}
+
+/* ── DETALHES DA META (L85, L162-164) ── */
+.meta-detalhes {
+    border: 1px solid var(--meta-borda);
+    border-radius: 4px;
+    background: var(--meta-fundo);
+    overflow: hidden;
+}
+
+.meta-detalhes-cabeca {
+    padding: 10px 14px;
+    font-size: 11.5px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    color: var(--meta-texto);
+    background: var(--meta-fundo-cabeca);
+}
+
+.meta-detalhes-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--meta-divisa);
+    color: var(--meta-titulo);
+}
+
+.meta-detalhes-item[role="button"] {
+    cursor: pointer;
+    transition: background .15s, filter .15s;
+}
+
+.meta-detalhes-responsaveis[role="button"]:hover {
+    background: var(--meta-fundo-cabeca);
+}
+
+.meta-detalhes-rotulo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    font-weight: bold;
+    letter-spacing: .8px;
+    color: var(--meta-suave);
+}
+
+.meta-detalhes-alterar {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: normal;
+    letter-spacing: 0;
+    color: var(--meta-azul);
+    text-decoration: underline;
+}
+
+.meta-detalhes-prazo-data {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.meta-detalhes-valor {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 13.5px;
+}
+
+.meta-detalhes-vazio {
+    color: var(--meta-mudo);
+}
+
+.meta-detalhes-ha {
+    font-size: 12px;
+    color: var(--meta-mudo);
+}
+
+.meta-detalhes-prazo--atrasada {
+    background: var(--meta-vermelho);
+    color: #fff;
+}
+
+.meta-detalhes-prazo--atrasada[role="button"]:hover {
+    filter: brightness(.96);
+}
+
+.meta-detalhes-prazo--atrasada .meta-detalhes-rotulo,
+.meta-detalhes-prazo--atrasada .meta-detalhes-alterar {
+    color: rgba(255, 255, 255, .85);
+}
+
+.meta-detalhes-atraso {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.meta-detalhes-atraso-texto {
+    flex: 1;
+    min-width: 0;
+}
+
+.meta-detalhes-atraso-texto b {
+    display: block;
+    font-size: 15px;
+}
+
+.meta-detalhes-atraso-texto span {
+    font-size: 12px;
+    opacity: .88;
+}
+
+.meta-detalhes-atraso-dias {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    flex: none;
+    margin-top: -6px;
+    font-size: 13px;
+}
+
+.meta-detalhes-atraso-n {
+    font-size: 28px;
+    line-height: 1;
+}
+
+.meta-detalhes-prazo .meta-detalhes-alterar {
+    color: inherit;
+    opacity: .85;
+}
+
+/* ── Cartão da meta: título, pasta e DEMANDA (L49-54) ── */
+.meta-cartao-titulo {
+    font-size: 16px;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+}
+
+.meta-demanda {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.meta-pasta {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--meta-azul);
+    text-decoration: none;
+}
+
+.meta-pasta:hover {
+    text-decoration: underline;
+}
+
+.meta-pasta .bi {
+    font-size: 16px;
+}
+
+.meta-pasta-cliente {
+    font-size: 13px;
+    font-weight: normal;
+    color: var(--meta-texto);
+}
+
+.meta-demanda-rotulo {
+    margin-top: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: .3px;
+    color: var(--meta-titulo);
+}
+
+.meta-demanda-texto {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--meta-texto);
+    background: var(--meta-fundo-cabeca);
+    border: 1px solid var(--meta-divisa);
+    border-radius: 3px;
+    padding: 12px 14px;
+}
+
+/* ── Concluir meta (L79) ── */
+.meta-concluir {
+    width: 100%;
+    height: 40px;
+    border: none;
+    border-radius: 3px;
+    background: var(--meta-azul);
+    color: #fff;
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.meta-concluir:hover {
+    background: #0b5f86;
+}

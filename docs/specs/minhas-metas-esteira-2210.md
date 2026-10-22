@@ -8,9 +8,8 @@ CLAUDE.md, tratado como MÉDIO porque mexe no modelo da meta, em prazo e em text
 
 - 22/10: inventário do desenho e do código feito (seções 1 e 2). Nada implementado ainda.
 - 22/10: o dono decidiu D1 a D4 (repassado pelo coordenador, bluejus-72). Migration da Fase 1: 149900.
-- 22/10: Fase 1 implementada na branch `metas-esteira` (esteira, caixas configuráveis, etapa no cartão). Arrastar
-  meta entre caixas (protótipo, `mover`) fica para a Fase 3, junto da passagem de etapa.
-  Também ficam para a Fase 3: as "etapas saltadas" da meta e o AVISO aos marcados na caixa. No protótipo o aviso sai
+- 22/10: Fase 1 implementada na branch `metas-esteira` (esteira, caixas configuráveis, etapa no cartão; #298).
+  Arrastar meta entre caixas não entra (seção 3.2). Ficam para a Fase 3: as "etapas saltadas" da meta e o AVISO aos marcados na caixa. No protótipo o aviso sai
   na passagem de etapa (04 L180-181), que é a Fase 3; até lá a caixa guarda quem será avisado, mas ninguém recebe
   nada. A esteira e a lista por etapa deixam de fora metas de pasta excluída (lápide), como o Dashboard.
   Avisado que saiu do escritório continua gravado na caixa até o próximo "Salvar" (o modal só oferece a equipe ativa).
@@ -157,6 +156,84 @@ Para o dono (Farlei), antes da fase indicada:
   criador; devolver, só o responsável (não o próprio criador); prazo, como hoje (só o criador).
 - **D4 (Fase 4). Liga/desliga do aprendizado.** O desenho não tem. Proposta: chave "Sugestões a partir dos meus despachos"
   no Meu Perfil, ligada por padrão, com "Apagar o que foi aprendido".
+
+### 3.1 Convenções da Fase 2 (desenho omisso, 22/10)
+
+- **C9. Duas entregas.** 2a (migration 150100): natureza, prazo de cumprimento, ciência, certidão, registro com código
+  (D1), validação de 5.000 no servidor, prazo padrão, "Meta # N". 2b (sem migration nova, se der): @menção, anexo do
+  despacho nos documentos da pasta, Extrato em PDF, Lembrar.
+- **C10. Texto do despacho.** O desenho troca o editor rico por um campo simples. O texto continua guardado como HTML
+  saneado (parágrafos e quebras), para as mensagens antigas e as novas aparecerem iguais na linha do tempo.
+- **C11. Natureza.** Para ciência, Para providência, Para manifestação, Para conferência, Cumpra-se (04B L159), opcional.
+  O chip preenche o começo do texto só com o campo vazio, como no desenho.
+- **C12. Prazo de cumprimento.** Padrão de 5 dias úteis pela regra do escritório (C1: feriados nacionais, da UF e
+  recesso), opcional, nunca antes de hoje. O "N dias úteis" ao lado conta pela mesma regra (lista de dias não úteis
+  enviada pela página).
+- **C13. Registro (D1).** Cada despacho guarda um código de 8 dígitos (XXXX.XXXX) sorteado, único no escritório. A linha
+  mostra "<Cidade>, D de mês de AAAA." e "Registrado por NOME (Cargo) em DD/MM/AAAA às HH:MM · Cód. XXXX.XXXX". O link de
+  validação abre uma página **só para quem é do escritório** (logado), que confirma meta, autor, data e natureza, sem
+  o texto. **Decidido pelo dono (22/10):** a validação é só para quem é do mesmo escritório e está logado; não há
+  página pública.
+- **C14. Ciência automática.** Abrir a meta marca "Ciente" nos despachos de outra pessoa ainda sem ciência, só quando
+  quem abre é responsável ou criador da meta (quem só olha, como um administrador, não dá ciência).
+  Só despachos registrados (com código) e fora de pasta excluída; a primeira ciência vale (com dois responsáveis,
+  quem abrir primeiro dá a ciência do despacho, como o desenho mostra uma só). Gravação condicional, sem sobrescrever.
+- **C15. Certificar cumprimento.** Responsável ou criador; texto obrigatório começando por "Certifico que", até 1.000
+  caracteres; grava quem e quando; some o "Cumprir até". Uma certidão por despacho, e só em despacho (envio, devolução
+  e mensagem antiga são recusados também no servidor). Ciência e certidão são gravadas por UPDATE condicional: quem e
+  quando ficam na própria linha do despacho, não no log de auditoria.
+- **C16. Registro imutável.** Despacho com código não pode ser editado (o "Registrado por ... · Cód." deixaria de valer
+  para o texto). Mensagens antigas, sem código, continuam editáveis.
+- **C17. Quem registrou fica congelado.** Nome e cargo da linha de registro são os do momento do despacho, não os de
+  hoje.
+- **C18. Enviar para revisão** não grava natureza nem prazo (04B L146): o prazo padrão viraria "Cumprir até" na entrega.
+  A mensagem guarda a ação (despacho, envio, devolução) para o rótulo do 04B L127 ("Enviado para revisão", "Devolvida")
+  e para "Certificar cumprimento" aparecer só em despacho (04B L161).
+- **C19. Placeholder** sem "Digite @ para marcar alguém da equipe." até a 2b trazer a @menção; "quem → para" também
+  espera a 2b (menção) ou a Fase 3 (passagem).
+
+### 3.2 Itens do desenho que faltavam (conferência do coordenador, 22/10)
+
+Regra do dono: tudo que está no desenho entra. Arrastar meta entre caixas NÃO entra: o protótipo tem a função `mover`
+(04 L168-172), mas nada a aciona.
+
+**Fase 2a**
+- L1. "Precisa de atenção" abre a pasta no Expediente, não a meta (04 L236; `_resultado.html.twig` L99).
+- L2. Faixa "AGUARDANDO DESPACHO DE" / "AGUARDANDO REVISÃO DE": iniciais e nome, "N dias com a demanda" / "desde o envio
+  para revisão", vermelha se atrasada (04B L50, L131-132). O botão "Lembrar" da faixa é da 2b.
+- L3. Painel lateral de situação: Pendente / Aguardando revisão / Atrasada · N dia(s) / Concluída, fundo vermelho se
+  atrasada, "Etapa i/n · Nome" (04B L77, L136).
+- L4. Bloco lateral DETALHES DA META: prazo com "Alterar" e quadro "Atrasada · venceu em X · N dias"; "CRIADA EM ... · há
+  N dias"; rótulo "DESPACHANTE" (hoje "Autor"); substitui as 4 caixas do topo (04B L85).
+- L5. Seta de voltar para Minhas Metas (04B L36) e trilha "Expediente / Pasta X / Meta" (04B L39).
+- L6. Linha do tempo: "DESPACHO N" numerado, "MAIS RECENTE", "Cumprir até" vermelho quando vencido (04B L71, L161).
+- L7. Cmd+Enter no Mac, junto do Ctrl+Enter (04B L144). Despachar só com anexo, sem texto (04B L145).
+- L8. "Enviar para revisão" sem texto grava "Meta enviada para revisão do autor." e avisa o autor (04B L146).
+
+Convenções desta parte: "desde o envio para revisão" conta do envio mais recente gravado (o dc usa o último evento
+de qualquer tipo, que mudaria com uma troca de prazo); sem envio gravado (metas antigas), da última alteração. Os
+"N dias" são períodos de 24h, como no dc. "Alterar" do prazo só para o criador (D3). "Devolver" fica dentro do
+formulário até a Fase 3 levá-lo para a lateral (04B L81). **Decisão do dono (22/10):** a lateral termina em DETALHES;
+"Voltar à Pasta" sai (o voltar é a seta e a trilha) e "Excluir meta" deixa de existir nas telas de Metas (Minhas Metas
+e página da meta), porque o desenho não tem a opção em lugar nenhum.
+
+**Fase 2b**
+- L9. Extrato: Demanda no topo; cada despacho numerado com natureza, quem → para, Cumprir até, Ciente, certidão;
+  "Emitido em"; aviso "Permita pop-ups para gerar o extrato." se bloqueado (04B L150).
+- L10. Lembrar grava "Lembrete enviado para X, Y." no histórico; em revisão, avisa o autor (04B L115, L133).
+
+**Fase 3**
+- L11. Modal Concluir etapa: TIPO DE DEMANDA (Judicial / Administrativo-Previdenciário / Consultoria), que muda a
+  sequência (04 L131, L196); "O QUE FOI FEITO" ("Resumo para o registro da pasta"); faixa da sequência (atual verde,
+  próxima azul, passadas cinza) e PRÓXIMO PASSO com a descrição da etapa (L197).
+- L12. Seletor de responsável com iniciais/foto, ordenado pelo setor da etapa destino (04 L195).
+- L13. Menu salta/volta rola até a próxima etapa e tem separador (04B L101, L169).
+- L14. Passagem: nova meta com título "Etapa: primeira linha das pendências" (60 caracteres, 04 L175); herda prioridade
+  e etapas saltadas; histórico "X concluída → Y (Resp)" e "Pendências: ..." (L178). Linha de registro também em "Etapa
+  concluída" (04B L161).
+- L15. Devolução: motivos fixos (Faltam informações / Falta documento / Não é da minha competência / Prazo inviável /
+  Outro motivo); erros "Escolha o motivo da devolução." e "Explique o que falta..." (mínimo 5); texto "A meta volta
+  para quem enviou... A etapa da pasta não muda." (04B L166-167).
 
 ## 4. Fases (um PR por fase, uma migration por vez)
 

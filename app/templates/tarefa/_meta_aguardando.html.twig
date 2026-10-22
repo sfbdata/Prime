@@ -1,0 +1,22 @@
+{#
+    Faixa "AGUARDANDO DESPACHO DE" / "AGUARDANDO REVISÃO DE" (desenho 04B de 22/10, L50 e L131-132; spec L2).
+    Recebe `situacao` (SituacaoDaMetaOutput). Some na meta concluída e na meta sem ninguém a esperar.
+    O botão "Lembrar" do desenho é da Fase 2b.
+#}
+{% set a = situacao.aguardando %}
+{% if a %}
+    <div class="meta-aguardando meta-aguardando--{{ a.tom }}" data-aguardando>
+        <div class="meta-aguardando-quem">
+            <div class="meta-aguardando-rotulo">{{ (a.emRevisao ? 'metas.detalhe.aguardando.revisao' : 'metas.detalhe.aguardando.despacho')|trans }}</div>
+            <div class="meta-aguardando-pessoas">
+                {% for p in a.pessoas %}
+                    <span class="meta-aguardando-pessoa"><span class="meta-aguardando-iniciais">{{ p.iniciais }}</span>{{ p.nome }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="meta-aguardando-tempo">
+            <b class="meta-aguardando-dias">{{ a.dias == 0 ? 'metas.detalhe.aguardando.hoje'|trans : 'metas.detalhe.aguardando.dias'|trans({n: a.dias}) }}</b>
+            <span class="meta-aguardando-desde">{{ (a.emRevisao ? 'metas.detalhe.aguardando.desde_o_envio' : 'metas.detalhe.aguardando.com_a_demanda')|trans }}</span>
+        </div>
+    </div>
+{% endif %}
