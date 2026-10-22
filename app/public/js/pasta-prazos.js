@@ -47,7 +47,7 @@
     function abrir(dados) {
         if (!janela) { return; }
         editando = dados && dados.id ? dados.id : null;
-        document.getElementById('psPrazoTitulo').textContent = editando ? 'Editar prazo' : 'Novo prazo ou audiência';
+        document.getElementById('psPrazoTitulo').textContent = editando ? BJ_T.t('pasta_cabecalho.js.prazos.titulo_editar') : BJ_T.t('pasta_cabecalho.js.prazos.titulo_novo');
         document.getElementById('psPzTitulo').value = (dados && dados.titulo) || '';
         document.getElementById('psPzData').value = (dados && dados.data) || '';
         document.getElementById('psPzHora').value = (dados && dados.hora) || '';
@@ -64,7 +64,7 @@
         var titulo = document.getElementById('psPzTitulo').value.trim();
         var data = document.getElementById('psPzData').value;
         var erro = document.getElementById('psPzErro');
-        if (!titulo || !data) { erro.textContent = 'Informe a descrição e a data'; return; }
+        if (!titulo || !data) { erro.textContent = BJ_T.t('pasta_cabecalho.js.prazos.informe'); return; }
         var botao = janela.querySelector('.js-pz-salvar');
         botao.disabled = true;
         postar(cartao.getAttribute('data-url-prazos'), {
@@ -72,9 +72,9 @@
             hora: document.getElementById('psPzHora').value, responsavel: document.getElementById('psPzResp').value.trim()
         }).then(function (r) {
             botao.disabled = false;
-            if (!r.ok) { erro.textContent = r.j.erro || 'Não foi possível salvar'; return; }
-            recarregar(r.j.aviso || 'Prazo registrado');
-        }, function () { botao.disabled = false; erro.textContent = 'Falha de conexão. Tente de novo.'; });
+            if (!r.ok) { erro.textContent = r.j.erro || BJ_T.t('pasta_cabecalho.js.prazos.erro_salvar'); return; }
+            recarregar(r.j.aviso || BJ_T.t('pasta_cabecalho.js.prazos.registrado'));
+        }, function () { botao.disabled = false; erro.textContent = BJ_T.t('pasta_cabecalho.js.prazos.falha_conexao'); });
     }
 
     document.addEventListener('click', function (e) {
@@ -90,9 +90,9 @@
         if (acao) {
             e.preventDefault();
             postar(acao.getAttribute('data-url')).then(function (r) {
-                if (!r.ok) { avisar(r.j.erro || 'Não foi possível alterar o prazo', true); return; }
+                if (!r.ok) { avisar(r.j.erro || BJ_T.t('pasta_cabecalho.js.prazos.erro_alterar'), true); return; }
                 recarregar(r.j.aviso);
-            }, function () { avisar('Falha de conexão. Tente de novo.', true); });
+            }, function () { avisar(BJ_T.t('pasta_cabecalho.js.prazos.falha_conexao'), true); });
             return;
         }
         if (!janela || janela.hidden) { return; }

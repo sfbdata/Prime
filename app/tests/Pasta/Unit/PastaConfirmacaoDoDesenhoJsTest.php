@@ -167,7 +167,7 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
      */
     public static function perguntas(): iterable
     {
-        yield 'duplicar pasta — azul (dc L.4511)' => ['templates/pasta/_cabecalho.html.twig', "data-ps-cf=\"{{ 'Duplicar a pasta ' ~ pasta.nup"];
+        yield 'duplicar pasta — azul (dc L.4511)' => ['templates/pasta/_cabecalho.html.twig', "data-ps-cf=\"{{ 'pasta_cabecalho.cabecalho.menu.duplicar_confirmar'|trans({nup: pasta.nup}) }}\""];
         yield 'restaurar pasta — azul (convenção do dc)' => ['templates/pasta/_cabecalho.html.twig', "variante: 'azul'"];
         yield 'alterar número — azul (dc L.4416)' => ['templates/pasta/show.html.twig', "mensagem: BJ_T.t('pasta_show.js.editar.numero_titulo') + '\\n' + BJ_T.t('pasta_show.js.editar.numero_pergunta'"];
         yield 'desvincular processo — vermelho (dc L.3031)' => ['templates/pasta/show.html.twig', 'await window.confirmarUIPs(perguntaDesv, true)'];
@@ -233,6 +233,7 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
         $catalogo = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml');
 
         self::assertSame('Marcar como administrativo', $catalogo['pasta_processo']['js']['administrativa_titulo']);
+        self::assertSame('Duplicar a pasta {nup}? A cópia leva cliente, ação, responsável e checklist; documentos, metas e financeiro não são copiados.', $catalogo['pasta_cabecalho']['cabecalho']['menu']['duplicar_confirmar']);
     }
 
     /** @return iterable<string, array{string}> */
