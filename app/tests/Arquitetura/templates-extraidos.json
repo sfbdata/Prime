@@ -181,7 +181,8 @@
             "tarefa/_meta_cartao.html.twig",
             "tarefa/_resultado.html.twig",
             "tarefa/equipe.html.twig",
-            "tarefa/_numero_global.html.twig"
+            "tarefa/_numero_global.html.twig",
+            "tarefa/show.html.twig"
         ],
         "js": [],
         "permitidos": []
@@ -554,6 +555,17 @@
         "permitidos": [
             "App\\\\Cobranca\\\\Enum\\\\TipoTelefone"
         ]
+    },
+
+    "kanban": {
+        "templates": [
+            "kanban/index.html.twig",
+            "kanban/board.html.twig",
+            "kanban/_partials/_card_mini.html.twig",
+            "kanban/_partials/_card_modal_body.html.twig",
+            "kanban/_partials/_comentario.html.twig"
+        ],
+        "permitidos": []
     },
 
     "auth": {
