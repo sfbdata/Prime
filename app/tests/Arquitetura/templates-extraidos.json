@@ -758,6 +758,27 @@
         ]
     },
 
+    "emails": {
+        "templates": [
+            "email/cadastro_confirmacao.html.twig",
+            "email/codigo_exclusao_conta.html.twig",
+            "email/codigo_senha.html.twig",
+            "email/convite_escritorio.html.twig",
+            "email/convite_plataforma.html.twig",
+            "email/indicacao/convite.html.twig",
+            "email/perfil/resumo_diario.html.twig",
+            "email/push_aviso_equipe.html.twig",
+            "email/push_cliente.html.twig",
+            "email/redefinicao_senha.html.twig",
+            "email/trabalho_externo_convite.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "BlueJus",
+            "App\\\\Pasta\\\\DTO\\\\MovimentacaoDoAvisoOutput::TEXTO_SIGILOSA"
+        ]
+    },
+
     "trabalho_externo": {
         "templates": [
             "trabalho_externo/convite.html.twig",

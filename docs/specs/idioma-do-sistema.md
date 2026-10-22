@@ -1005,6 +1005,21 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
 - **Prova:** 12 renderizações antes e depois, cobrindo os ramos, saíram iguais. A janela só ganhou o bloco do catálogo
   JS.
 
+### 25.B Os e-mails do sistema (5d, 22/10)
+- **Escopo:** os 11 templates de `email/` fora de `email/comercial/`, no bloco `emails:` (85 chaves,
+  `emails.<template>.*`). A frase com marcação no meio foi partida, e a pontuação entre as tags ficou no template.
+- **Formatos:** `|date('d/m/Y')` virou `|data` (em `convite_escritorio`, `convite_plataforma`,
+  `trabalho_externo_convite` e `resumo_diario`), e `d/m/Y H:i` virou `{data} às {hora}`. O fuso é o mesmo. As
+  contagens entram no ICU como texto, sem separador de milhar.
+- **Fora de requisição:** worker e comandos saem em pt_BR pelo `default_locale`. A prova rodou sem requisição.
+- **Ficam no PHP:** os assuntos dos mailers (`RedefinicaoSenhaMailer`, `ConviteMailer`, `CadastroMailer`,
+  `CodigoDeExclusaoMailer`, `TrabalhoExternoMailer`, `AvisoDoPushMailer`, `EnvioDeEmailAoClientePeloMailer`,
+  `IndicarPorEmailUseCase` e `EnviarResumoDiarioDoEscritorioUseCase`) e o `MovimentacaoDoAvisoOutput::TEXTO_SIGILOSA`.
+- **Entrega E (idioma do destinatário):** os convites de escritório, de plataforma, do Trabalho Externo e da
+  Indicação, o push ao cliente e o aviso do Push à equipe. Hoje saem no locale de quem dispara, e sem requisição, em
+  pt_BR.
+- **Prova:** 17 renderizações, com `&`, aspas, apóstrofo, acento e `<b>` nos valores, saíram iguais byte a byte.
+
 ## 26. Extração do Trabalho Externo, Central e ServiceDesk (a7, 21/10)
 
 - **Escopo:** 12 templates. `templates/trabalho_externo/` `index` (casca do painel: título, buscas e cabeçalho da
