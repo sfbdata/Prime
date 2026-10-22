@@ -78,7 +78,8 @@ class TarefaTimelineAssembler
             }
         }
 
-        usort($items, static fn(TimelineItemDTO $a, TimelineItemDTO $b) => $b->dataHora <=> $a->dataHora);
+        // Mesmo segundo (envio e devolução em sequência): desempata pelo id da mensagem, o mais novo primeiro.
+        usort($items, static fn(TimelineItemDTO $a, TimelineItemDTO $b) => [$b->dataHora, $b->mensagemId ?? 0] <=> [$a->dataHora, $a->mensagemId ?? 0]);
 
         return array_slice($items, 0, $limit);
     }
