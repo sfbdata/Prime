@@ -4,6 +4,8 @@
  * Só carrega para quem configura as caixas. Abre o modal "Configurar caixa" pelo ⋮, pelo clique direito ou
  * pelo duplo clique no "CAIXA N"; o clique simples no rótulo continua filtrando a etapa, como o
  * resto da caixa. O modal é um POST comum (sem fetch): o servidor grava e volta com o aviso.
+ * A janela é a do desenho (dc L133), não o modal do Bootstrap: abre tirando o `hidden` e fecha no fundo, no X, no
+ * Cancelar e no Esc.
  *
  * Nome igual ao padrão sai vazio, para a caixa voltar a ser a padrão em vez de gravar o texto do catálogo.
  * Os avisados vão como `avisados[]`; o @ sugere membros ativos da equipe (no máximo 6, como o protótipo).
@@ -12,7 +14,7 @@
     'use strict';
 
     var modalEl = document.querySelector('[data-mm-cx-modal]');
-    if (!modalEl || !window.bootstrap) { return; }
+    if (!modalEl) { return; }
 
     var form      = modalEl.querySelector('[data-mm-cx-form]');
     var campoCx   = modalEl.querySelector('[data-mm-cx-caixa]');
@@ -23,7 +25,6 @@
     var restaurar = modalEl.querySelector('[data-mm-cx-restaurar]');
     var membros   = lerJson(modalEl.getAttribute('data-membros'));
     var rotuloRemover = modalEl.getAttribute('data-rotulo-remover') || '';
-    var modal     = window.bootstrap.Modal.getOrCreateInstance(modalEl);
     var caixaAtual = null;
     var marcados  = [];
 
@@ -106,8 +107,21 @@
         busca.value = '';
         desenharChips();
         desenharSugestoes();
-        modal.show();
+        modalEl.hidden = false;
+        campoCx.focus();
     }
+
+    function fechar() {
+        modalEl.hidden = true;
+        caixaAtual = null;
+    }
+
+    modalEl.addEventListener('click', function (e) {
+        if (e.target.closest('[data-mm-cx-fechar]')) { fechar(); }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modalEl.hidden) { fechar(); }
+    });
 
     // Nome igual ao padrão vai vazio: a caixa continua a padrão.
     form.addEventListener('submit', function () {

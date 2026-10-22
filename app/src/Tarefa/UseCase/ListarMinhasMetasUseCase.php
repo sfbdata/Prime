@@ -7,7 +7,6 @@ namespace App\Tarefa\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
-use App\Tarefa\DTO\AndamentoDasMetasOutput;
 use App\Tarefa\DTO\MinhasMetasOutput;
 use App\Tarefa\Enum\AbaMetas;
 use App\Tarefa\Repository\CaixaDaEsteiraRepository;
@@ -61,7 +60,6 @@ final class ListarMinhasMetasUseCase
         User $usuario,
         AbaMetas $aba,
         array $filtros,
-        bool $modoLista = false,
         bool $soAListagem = false,
         array $pastasOcultas = [],
         ?Tenant $escritorio = null,
@@ -77,16 +75,11 @@ final class ListarMinhasMetasUseCase
             contagensPorAba: $soAListagem ? [] : $this->repository->contarPorAba($usuario, $pastasOcultas),
             kpis: $soAListagem ? self::KPIS_VAZIOS : $this->repository->contarPainelMinhasMetas($usuario, $pastasOcultas),
             filtros: $filtros,
-            modoLista: $modoLista,
-            // O trilho não é desenhado no modo lista — não vale pagar duas consultas por ele.
-            pessoas: $modoLista ? [] : $this->repository->contarPessoasDoTrilho($usuario, $aba, $pastasOcultas),
             acompanhadas: $marcadores['acompanhadas'],
-            mensagensPorMeta: $marcadores['mensagens'],
-            numerosNaPasta: $this->repository->numerosNaPasta($ids),
-            // O trilho também é redesenhado na recarga parcial (ele mora no fragmento), então estes
-            // dois não dependem de `$soAListagem`: só o modo lista, que não desenha trilho, os dispensa.
-            andamento: $modoLista ? new AndamentoDasMetasOutput() : $this->repository->contarAndamento($usuario, $pastasOcultas),
-            atencao: $modoLista ? [] : $this->repository->findAtrasadasParaAtencao($usuario, MinhasMetasOutput::TETO_ATENCAO, $pastasOcultas),
+            // O trilho também é redesenhado na recarga parcial (ele mora no fragmento), então estes dois não
+            // dependem de `$soAListagem`.
+            andamento: $this->repository->contarAndamento($usuario, $pastasOcultas),
+            atencao: $this->repository->findAtrasadasParaAtencao($usuario, MinhasMetasOutput::TETO_ATENCAO, $pastasOcultas),
             nomesDasEtapas: $this->nomesDasEtapas($escritorio),
         );
     }

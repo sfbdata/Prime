@@ -16,6 +16,7 @@ use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Repository\CaixaDaEsteiraRepository;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Service\QuemConfiguraACaixa;
+use App\Tarefa\Service\TratamentoDoAvisado;
 
 /**
  * Monta a esteira da pasta do topo de Minhas Metas (desenho 04 de 22/10, dc L61 e L163-167).
@@ -29,6 +30,8 @@ use App\Tarefa\Service\QuemConfiguraACaixa;
  * **Regras:** GARGALO é a caixa com MAIS atrasadas, só se houver alguma; no empate, a primeira da esteira
  * (dc L165). Meta de pasta oculta pelo cadeado para quem olha não entra nos números (spec pasta-cadeado D3).
  * A equipe para o @ do modal só vem para quem pode configurar caixa (D2): os outros nem recebem a lista.
+ * O avisado aparece como no desenho (dc L61, `trat()`): "Primeiro Último", com "Dr." ou "Dra." para advogado
+ * (função de advogado ou sócio, ou OAB). A função vem do vínculo, lido uma vez e só se alguma caixa tem avisado.
  *
  * **Erros:** não lança; é leitura.
  */
@@ -50,8 +53,9 @@ final class MontarEsteiraDaPastaUseCase
         $gargalo       = $this->gargalo($contagens);
         $podeConfigurar = $this->quemConfigura->pode($usuario, $escritorio);
 
+        $funcoes = $this->funcoesDosAvisados($escritorio, $configuradas);
         $caixas = array_map(
-            fn (EtapaDaPasta $etapa): CaixaNaEsteiraOutput => $this->caixa($etapa, $contagens, $configuradas[$etapa->value] ?? null, $gargalo),
+            fn (EtapaDaPasta $etapa): CaixaNaEsteiraOutput => $this->caixa($etapa, $contagens, $configuradas[$etapa->value] ?? null, $gargalo, $funcoes),
             EtapaDaPasta::cases(),
         );
 
@@ -78,8 +82,32 @@ final class MontarEsteiraDaPastaUseCase
         return $gargalo;
     }
 
-    /** @param array<string, array{total: int, atrasadas: int}> $contagens */
-    private function caixa(EtapaDaPasta $etapa, array $contagens, ?CaixaDaEsteira $configurada, ?EtapaDaPasta $gargalo): CaixaNaEsteiraOutput
+    /**
+     * A função de cada pessoa da equipe, por id; vazio (e sem consulta) quando nenhuma caixa tem avisado.
+     *
+     * @param array<string, CaixaDaEsteira> $configuradas
+     *
+     * @return array<int, ?string>
+     */
+    private function funcoesDosAvisados(Tenant $escritorio, array $configuradas): array
+    {
+        $temAvisado = array_filter($configuradas, static fn (CaixaDaEsteira $c): bool => !$c->getAvisados()->isEmpty());
+        if ($temAvisado === []) {
+            return [];
+        }
+        $funcoes = [];
+        foreach ($this->vinculos->findAtivosComCargoELotacaoPorTenant($escritorio) as $vinculo) {
+            $funcoes[(int) $vinculo->getUser()->getId()] = $vinculo->getCargo()?->getNome();
+        }
+
+        return $funcoes;
+    }
+
+    /**
+     * @param array<string, array{total: int, atrasadas: int}> $contagens
+     * @param array<int, ?string>                              $funcoes
+     */
+    private function caixa(EtapaDaPasta $etapa, array $contagens, ?CaixaDaEsteira $configurada, ?EtapaDaPasta $gargalo, array $funcoes): CaixaNaEsteiraOutput
     {
         $avisados = $configurada === null ? [] : $configurada->getAvisados()->toArray();
 
@@ -90,7 +118,10 @@ final class MontarEsteiraDaPastaUseCase
             gargalo: $gargalo === $etapa,
             nomeDaCaixa: $configurada?->getNomeDaCaixa(),
             nomeDaEtapa: $configurada?->getNomeDaEtapa(),
-            avisados: array_values(array_map(static fn (User $u): string => (string) $u->getFullName(), $avisados)),
+            avisados: array_values(array_map(
+                static fn (User $u): string => TratamentoDoAvisado::de((string) $u->getFullName(), $funcoes[(int) $u->getId()] ?? null, (string) $u->getOabNumero() !== ''),
+                $avisados,
+            )),
             idsDosAvisados: array_values(array_map(static fn (User $u): int => (int) $u->getId(), $avisados)),
         );
     }

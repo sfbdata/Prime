@@ -76,7 +76,7 @@ final class TarefaController extends AbstractController
     /**
      * Tela "Minhas Metas": as metas do usuário logado, separadas pelo PAPEL dele (a aba).
      *
-     * A aba e o modo vêm da query string porque precisam ser linkáveis — os KPIs do topo são
+     * A aba e os filtros vêm da query string porque precisam ser linkáveis — os KPIs do topo são
      * atalhos que apontam para uma aba já filtrada, e o usuário precisa poder guardar o link.
      */
     #[Route('/minhas', name: 'tarefa_minhas', methods: ['GET'])]
@@ -96,7 +96,6 @@ final class TarefaController extends AbstractController
                 $usuario,
                 $aba,
                 $filtros,
-                $request->query->get('modo') === 'lista',
                 // Na recarga parcial só o fragmento da lista é redesenhado; calcular as
                 // contagens do topo ali seria pagar 8 consultas por tecla digitada na busca.
                 $soAListagem,

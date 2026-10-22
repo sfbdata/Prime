@@ -15,9 +15,6 @@ use App\Tarefa\Enum\EtapaDaPasta;
  */
 final class MinhasMetasOutput
 {
-    /** Teto de linhas dos blocos do trilho — além disso a coluna vira uma segunda lista. */
-    private const TETO_TRILHO = 5;
-
     /** Teto do "Precisa de atenção" (desenho 04, dc `atencao`: `.slice(0, 4)`), sem "Ver todas". */
     public const TETO_ATENCAO = 4;
 
@@ -26,10 +23,7 @@ final class MinhasMetasOutput
      * @param array<string, int>                                                        $contagensPorAba
      * @param array{atrasadas: int, proximas: int, sem_prazo: int, aguardando_revisao: int} $kpis
      * @param array<string, string>                                                     $filtros
-     * @param PessoaNoTrilhoOutput[]                                                    $pessoas
      * @param int[]                                                                     $acompanhadas
-     * @param array<int, int>                                                           $mensagensPorMeta
-     * @param array<int, int>                                                           $numerosNaPasta
      * @param Tarefa[]                                                                  $atencao
      * @param array<string, string>                                                     $nomesDasEtapas etapa → nome dado pelo escritório
      */
@@ -39,11 +33,7 @@ final class MinhasMetasOutput
         public readonly array $contagensPorAba,
         public readonly array $kpis,
         public readonly array $filtros,
-        public readonly bool $modoLista,
-        public readonly array $pessoas = [],
         public readonly array $acompanhadas = [],
-        public readonly array $mensagensPorMeta = [],
-        public readonly array $numerosNaPasta = [],
         public readonly AndamentoDasMetasOutput $andamento = new AndamentoDasMetasOutput(),
         public readonly array $atencao = [],
         public readonly array $nomesDasEtapas = [],
@@ -74,19 +64,12 @@ final class MinhasMetasOutput
     }
 
     /**
-     * Estes dois vêm pré-carregados do repositório, em duas consultas para a lista inteira.
-     * Perguntar à entidade (`meta.ehAcompanhadaPor`, `meta.mensagens|length`) custaria uma ida
-     * ao banco por linha, porque as coleções são lazy.
+     * Vem pré-carregado do repositório, numa consulta para a lista inteira. Perguntar à entidade
+     * (`meta.ehAcompanhadaPor`) custaria uma ida ao banco por linha, porque a coleção é lazy.
      */
     public function estaAcompanhando(int $metaId): bool
     {
         return in_array($metaId, $this->acompanhadas, true);
-    }
-
-    /** Número da meta na sua pasta (R239); `null` se não veio pré-carregado — a tela não inventa. */
-    public function numeroNaPasta(int $metaId): ?int
-    {
-        return $this->numerosNaPasta[$metaId] ?? null;
     }
 
     /** Pílula de status derivada do dado real, pela mesma regra que escolhe o grupo. */
@@ -99,22 +82,6 @@ final class MinhasMetasOutput
     public function prazoDaMeta(Tarefa $meta): TextoDoPrazoDaMeta
     {
         return TextoDoPrazoDaMeta::de($meta);
-    }
-
-    public function totalDeMensagens(int $metaId): int
-    {
-        return $this->mensagensPorMeta[$metaId] ?? 0;
-    }
-
-    /** @return PessoaNoTrilhoOutput[] */
-    public function pessoasVisiveis(): array
-    {
-        return array_slice($this->pessoas, 0, self::TETO_TRILHO);
-    }
-
-    public function pessoasOcultas(): int
-    {
-        return max(0, count($this->pessoas) - self::TETO_TRILHO);
     }
 
     public function grupo(string $chave): ?GrupoDeMetasOutput
@@ -177,26 +144,8 @@ final class MinhasMetasOutput
         return $this->andamento->percentualConcluido();
     }
 
-    /** Quantas metas a aba está mostrando agora — soma dos blocos, concluídas incluídas. */
-    public function totalExibido(): int
-    {
-        return array_sum(array_map(static fn (GrupoDeMetasOutput $g): int => $g->total(), $this->grupos));
-    }
-
     public function estaVazia(): bool
     {
         return $this->grupos === [];
-    }
-
-    /** Verdadeiro quando o vazio veio de um filtro, e não de a aba não ter nada. */
-    public function temFiltroAtivo(): bool
-    {
-        foreach (['busca', 'prioridade', 'prazo', 'etapa'] as $campo) {
-            if (($this->filtros[$campo] ?? '') !== '') {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

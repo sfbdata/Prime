@@ -428,7 +428,7 @@ final class PassagemDeEtapaTest extends JusPrimeWebTestCase
         $crawler = $this->client->request('GET', '/tarefas/minhas');
 
         self::assertResponseIsSuccessful();
-        $botao = $crawler->filter('article.mm-meta > .mm-meta-acoes > .mm-marcador + button.mp-cartao-concluir');
+        $botao = $crawler->filter('article.mm-meta > .mm-meta-lado + .mm-marcador + button.mp-cartao-concluir');
         self::assertCount(1, $botao);
         self::assertSame('Concluir etapa', trim($botao->text()));
         self::assertSame('Concluir esta etapa e passar para Documentação', $botao->attr('title'));

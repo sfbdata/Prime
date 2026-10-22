@@ -33,15 +33,14 @@ final class ListarMinhasMetasUseCaseTest extends TestCase
     {
         $this->repo = $this->createMock(TarefaRepository::class);
         $this->repo->method('findParaMinhasMetas')->willReturn([]);
-        $this->repo->method('carregarMarcadoresDaLista')->willReturn(['acompanhadas' => [], 'mensagens' => []]);
-        $this->repo->method('numerosNaPasta')->willReturn([]);
+        $this->repo->method('carregarMarcadoresDaLista')->willReturn(['acompanhadas' => []]);
     }
 
-    private function executar(bool $modoLista, bool $soAListagem): MinhasMetasOutput
+    private function executar(bool $soAListagem): MinhasMetasOutput
     {
         $useCase = new ListarMinhasMetasUseCase($this->repo, new AgrupadorDeMetas());
 
-        return $useCase->executar(new User(), AbaMetas::CRIEI, ['busca' => 'x', 'prazo' => 'sem'], $modoLista, $soAListagem, [7]);
+        return $useCase->executar(new User(), AbaMetas::CRIEI, ['busca' => 'x', 'prazo' => 'sem'], $soAListagem, [7]);
     }
 
     #[TestDox('Na recarga parcial (XHR do filtro) o andamento e a atenção continuam vindo de todas as metas, com o cadeado e o teto de 4')]
@@ -55,21 +54,9 @@ final class ListarMinhasMetasUseCaseTest extends TestCase
             ->willReturn([$atrasada]);
         $this->repo->expects(self::never())->method('contarPorAba');
 
-        $painel = $this->executar(modoLista: false, soAListagem: true);
+        $painel = $this->executar(soAListagem: true);
 
         self::assertSame($andamento, $painel->andamento);
         self::assertSame([$atrasada], $painel->metasQuePrecisamDeAtencao());
-    }
-
-    #[TestDox('O modo lista não desenha o trilho e não paga as duas consultas dele')]
-    public function testModoListaDispensaOTrilho(): void
-    {
-        $this->repo->expects(self::never())->method('contarAndamento');
-        $this->repo->expects(self::never())->method('findAtrasadasParaAtencao');
-
-        $painel = $this->executar(modoLista: true, soAListagem: false);
-
-        self::assertSame(0, $painel->totalDoAndamento());
-        self::assertSame([], $painel->metasQuePrecisamDeAtencao());
     }
 }

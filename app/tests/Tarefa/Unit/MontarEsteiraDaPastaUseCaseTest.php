@@ -128,6 +128,25 @@ final class MontarEsteiraDaPastaUseCaseTest extends TestCase
         self::assertSame([], $saida->caixa(EtapaDaPasta::Juridico)?->avisados);
     }
 
+    #[TestDox('Avisado como no desenho (trat): advogada pela função vira "Dra. Ana Lima"; sem função de advogado, "Primeiro Último"')]
+    public function testAvisadosComTratamento(): void
+    {
+        $cargo = new Cargo();
+        $cargo->setNome('Advogada');
+        $ana = $this->usuario(7, 'ANA MARIA LIMA');
+        $vinculo = new UserTenant($ana, $this->escritorio);
+        $vinculo->setCargo($cargo);
+        $vinculos = $this->createMock(UserTenantRepository::class);
+        $vinculos->expects(self::once())->method('findAtivosComCargoELotacaoPorTenant')->willReturn([$vinculo]);
+        $caixa = new CaixaDaEsteira($this->escritorio, EtapaDaPasta::Juridico);
+        $caixa->configurar(null, null, [$ana, $this->usuario(9, 'bruno de souza')]);
+
+        $saida = $this->montar([], ['juridico' => $caixa], false, $vinculos);
+
+        self::assertSame(['Dra. Ana Lima', 'Bruno Souza'], $saida->caixa(EtapaDaPasta::Juridico)?->avisados);
+        self::assertSame([7, 9], $saida->caixa(EtapaDaPasta::Juridico)?->idsDosAvisados);
+    }
+
     #[TestDox('As pastas ocultas pelo cadeado seguem para a contagem')]
     public function testRepassaPastasOcultas(): void
     {
