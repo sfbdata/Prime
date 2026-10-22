@@ -25,6 +25,14 @@ class FeriadoType extends AbstractType
                 'label' => 'Data',
                 'widget' => 'single_text',
                 'html5' => true,
+                'constraints' => [new NotBlank(message: 'Informe a data do feriado.')],
+                // Data vazia não chega à entidade: Feriado::setData() exige data e o
+                // TypeError virava 500. O NotBlank acima devolve o erro no campo.
+                'setter' => static function (Feriado $feriado, ?\DateTimeInterface $data): void {
+                    if ($data !== null) {
+                        $feriado->setData($data);
+                    }
+                },
             ])
             ->add('recorrente', CheckboxType::class, [
                 'label' => 'Repete todo ano (feriado fixo)',
