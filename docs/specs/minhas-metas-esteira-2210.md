@@ -8,9 +8,8 @@ CLAUDE.md, tratado como MÉDIO porque mexe no modelo da meta, em prazo e em text
 
 - 22/10: inventário do desenho e do código feito (seções 1 e 2). Nada implementado ainda.
 - 22/10: o dono decidiu D1 a D4 (repassado pelo coordenador, bluejus-72). Migration da Fase 1: 149900.
-- 22/10: Fase 1 implementada na branch `metas-esteira` (esteira, caixas configuráveis, etapa no cartão). Arrastar
-  meta entre caixas (protótipo, `mover`) fica para a Fase 3, junto da passagem de etapa.
-  Também ficam para a Fase 3: as "etapas saltadas" da meta e o AVISO aos marcados na caixa. No protótipo o aviso sai
+- 22/10: Fase 1 implementada na branch `metas-esteira` (esteira, caixas configuráveis, etapa no cartão; #298).
+  Arrastar meta entre caixas não entra (seção 3.2). Ficam para a Fase 3: as "etapas saltadas" da meta e o AVISO aos marcados na caixa. No protótipo o aviso sai
   na passagem de etapa (04 L180-181), que é a Fase 3; até lá a caixa guarda quem será avisado, mas ninguém recebe
   nada. A esteira e a lista por etapa deixam de fora metas de pasta excluída (lápide), como o Dashboard.
   Avisado que saiu do escritório continua gravado na caixa até o próximo "Salvar" (o modal só oferece a equipe ativa).
@@ -192,6 +191,42 @@ Para o dono (Farlei), antes da fase indicada:
   e para "Certificar cumprimento" aparecer só em despacho (04B L161).
 - **C19. Placeholder** sem "Digite @ para marcar alguém da equipe." até a 2b trazer a @menção; "quem → para" também
   espera a 2b (menção) ou a Fase 3 (passagem).
+
+### 3.2 Itens do desenho que faltavam (conferência do coordenador, 22/10)
+
+Regra do dono: tudo que está no desenho entra. Arrastar meta entre caixas NÃO entra: o protótipo tem a função `mover`
+(04 L168-172), mas nada a aciona.
+
+**Fase 2a**
+- L1. "Precisa de atenção" abre a pasta no Expediente, não a meta (04 L236; `_resultado.html.twig` L99).
+- L2. Faixa "AGUARDANDO DESPACHO DE" / "AGUARDANDO REVISÃO DE": iniciais e nome, "N dias com a demanda" / "desde o envio
+  para revisão", vermelha se atrasada (04B L50, L131-132). O botão "Lembrar" da faixa é da 2b.
+- L3. Painel lateral de situação: Pendente / Aguardando revisão / Atrasada · N dia(s) / Concluída, fundo vermelho se
+  atrasada, "Etapa i/n · Nome" (04B L77, L136).
+- L4. Bloco lateral DETALHES DA META: prazo com "Alterar" e quadro "Atrasada · venceu em X · N dias"; "CRIADA EM ... · há
+  N dias"; rótulo "DESPACHANTE" (hoje "Autor"); substitui as 4 caixas do topo (04B L85).
+- L5. Seta de voltar para Minhas Metas (04B L36) e trilha "Expediente / Pasta X / Meta" (04B L39).
+- L6. Linha do tempo: "DESPACHO N" numerado, "MAIS RECENTE", "Cumprir até" vermelho quando vencido (04B L71, L161).
+- L7. Cmd+Enter no Mac, junto do Ctrl+Enter (04B L144). Despachar só com anexo, sem texto (04B L145).
+- L8. "Enviar para revisão" sem texto grava "Meta enviada para revisão do autor." e avisa o autor (04B L146).
+
+**Fase 2b**
+- L9. Extrato: Demanda no topo; cada despacho numerado com natureza, quem → para, Cumprir até, Ciente, certidão;
+  "Emitido em"; aviso "Permita pop-ups para gerar o extrato." se bloqueado (04B L150).
+- L10. Lembrar grava "Lembrete enviado para X, Y." no histórico; em revisão, avisa o autor (04B L115, L133).
+
+**Fase 3**
+- L11. Modal Concluir etapa: TIPO DE DEMANDA (Judicial / Administrativo-Previdenciário / Consultoria), que muda a
+  sequência (04 L131, L196); "O QUE FOI FEITO" ("Resumo para o registro da pasta"); faixa da sequência (atual verde,
+  próxima azul, passadas cinza) e PRÓXIMO PASSO com a descrição da etapa (L197).
+- L12. Seletor de responsável com iniciais/foto, ordenado pelo setor da etapa destino (04 L195).
+- L13. Menu salta/volta rola até a próxima etapa e tem separador (04B L101, L169).
+- L14. Passagem: nova meta com título "Etapa: primeira linha das pendências" (60 caracteres, 04 L175); herda prioridade
+  e etapas saltadas; histórico "X concluída → Y (Resp)" e "Pendências: ..." (L178). Linha de registro também em "Etapa
+  concluída" (04B L161).
+- L15. Devolução: motivos fixos (Faltam informações / Falta documento / Não é da minha competência / Prazo inviável /
+  Outro motivo); erros "Escolha o motivo da devolução." e "Explique o que falta..." (mínimo 5); texto "A meta volta
+  para quem enviou... A etapa da pasta não muda." (04B L166-167).
 
 ## 4. Fases (um PR por fase, uma migration por vez)
 
