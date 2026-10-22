@@ -158,6 +158,28 @@ Para o dono (Farlei), antes da fase indicada:
 - **D4 (Fase 4). Liga/desliga do aprendizado.** O desenho não tem. Proposta: chave "Sugestões a partir dos meus despachos"
   no Meu Perfil, ligada por padrão, com "Apagar o que foi aprendido".
 
+### 3.1 Convenções da Fase 2 (desenho omisso, 22/10)
+
+- **C9. Duas entregas.** 2a (migration 150100): natureza, prazo de cumprimento, ciência, certidão, registro com código
+  (D1), validação de 5.000 no servidor, prazo padrão, "Meta # N". 2b (sem migration nova, se der): @menção, anexo do
+  despacho nos documentos da pasta, Extrato em PDF, Lembrar.
+- **C10. Texto do despacho.** O desenho troca o editor rico por um campo simples. O texto continua guardado como HTML
+  saneado (parágrafos e quebras), para as mensagens antigas e as novas aparecerem iguais na linha do tempo.
+- **C11. Natureza.** Para ciência, Para providência, Para manifestação, Para conferência, Cumpra-se (04B L159), opcional.
+  O chip preenche o começo do texto só com o campo vazio, como no desenho.
+- **C12. Prazo de cumprimento.** Padrão de 5 dias úteis pela regra do escritório (C1: feriados nacionais, da UF e
+  recesso), opcional, nunca antes de hoje. O "N dias úteis" ao lado conta pela mesma regra (lista de dias não úteis
+  enviada pela página).
+- **C13. Registro (D1).** Cada despacho guarda um código de 8 dígitos (XXXX.XXXX) sorteado, único no escritório. A linha
+  mostra "<Cidade>, D de mês de AAAA." e "Registrado por NOME (Cargo) em DD/MM/AAAA às HH:MM · Cód. XXXX.XXXX". O link de
+  validação abre uma página **só para quem é do escritório** (logado), que confirma meta, autor, data e natureza, sem
+  o texto. Página pública de validação fica para decisão do dono: exporia o nome do escritório e de quem despachou a
+  quem tiver o código.
+- **C14. Ciência automática.** Abrir a meta marca "Ciente" nos despachos de outra pessoa ainda sem ciência, só quando
+  quem abre é responsável ou criador da meta (quem só olha, como um administrador, não dá ciência).
+- **C15. Certificar cumprimento.** Responsável ou criador; texto obrigatório começando por "Certifico que", até 1.000
+  caracteres; grava quem e quando; some o "Cumprir até". Uma certidão por despacho.
+
 ## 4. Fases (um PR por fase, uma migration por vez)
 
 1. **Esteira.** Enum `EtapaDaPasta` e `TipoDeDemanda`; `Tarefa` ganha etapa, tipo de demanda e etapas saltadas;
