@@ -169,7 +169,7 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
     {
         yield 'duplicar pasta — azul (dc L.4511)' => ['templates/pasta/_cabecalho.html.twig', "data-ps-cf=\"{{ 'Duplicar a pasta ' ~ pasta.nup"];
         yield 'restaurar pasta — azul (convenção do dc)' => ['templates/pasta/_cabecalho.html.twig', "variante: 'azul'"];
-        yield 'alterar número — azul (dc L.4416)' => ['templates/pasta/show.html.twig', "mensagem: 'Alterar número da pasta\\nAlterar o número da pasta de '"];
+        yield 'alterar número — azul (dc L.4416)' => ['templates/pasta/show.html.twig', "mensagem: BJ_T.t('pasta_show.js.editar.numero_titulo') + '\\n' + BJ_T.t('pasta_show.js.editar.numero_pergunta'"];
         yield 'desvincular processo — vermelho (dc L.3031)' => ['templates/pasta/show.html.twig', 'await window.confirmarUIPs(perguntaDesv, true)'];
         yield 'administrativo sem processo — azul (dc L.6878)' => ['public/js/pasta-processo.js', "window.confirmarUIPs(BJ_T.t('pasta_processo.js.administrativa_titulo') + '\\n' + texto.replace(/\\s*\\n\\s*/g, ' '), false)"];
         yield 'corrigir valor — azul (dc L.3563)' => ['templates/pasta/_financeiro_pagamentos_script.html.twig', 'await window.confirmarUIPs(pergunta, false)'];
@@ -210,6 +210,14 @@ final class PastaConfirmacaoDoDesenhoJsTest extends TestCase
     {
         $metas = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['pasta_documentos']['metas'];
         self::assertSame('Excluir esta meta? Esta ação não pode ser desfeita.', $metas['excluir_confirmar']);
+    }
+
+    #[TestDox('Editar dados: a pergunta de alterar o número mora no catálogo, com o texto de antes')]
+    public function testPerguntaDeAlterarNumeroNoCatalogo(): void
+    {
+        $editar = Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['editar'];
+        self::assertSame('Alterar número da pasta', $editar['numero_titulo']);
+        self::assertSame('Alterar o número da pasta de {antes} para {depois}? Links e referências antigas passam a apontar para o novo número.', $editar['numero_pergunta']);
     }
 
     #[DataProvider('perguntas')]

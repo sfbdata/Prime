@@ -1,8 +1,8 @@
 {# Modelo "Primeiros passos (7 dias)" do desenho 05 (dc L.510): `dica`. #}
 {% import 'email/comercial/automacao/_blocos.html.twig' as b %}
 {{ b.noticias([
-    ['Prazos lidos das pastas', 'Escreva a data no registro e ela vira prazo automaticamente.'],
-    ['Chat I.A', 'Pergunte quais pastas estão paradas ou o que vence hoje.'],
-    ['Meu Perfil', 'Cadastre sua OAB principal e as suplementares.'],
+    ['emails.comercial.primeiros_passos.prazos_titulo'|trans, 'emails.comercial.primeiros_passos.prazos_resumo'|trans],
+    ['emails.comercial.primeiros_passos.chat_titulo'|trans, 'emails.comercial.primeiros_passos.chat_resumo'|trans],
+    ['emails.comercial.primeiros_passos.perfil_titulo'|trans, 'emails.comercial.primeiros_passos.perfil_resumo'|trans],
 ]) }}
-{{ b.botao('Continuar no BlueJus', urlDoApp) }}
+{{ b.botao('emails.comercial.primeiros_passos.botao'|trans, urlDoApp) }}

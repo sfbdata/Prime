@@ -107,7 +107,8 @@ final class EditorRicoEnvioTest extends TestCase
         $show = $this->ler(self::APP . '/templates/pasta/show.html.twig');
 
         self::assertStringNotContainsString("'<i class=\"bi bi-send me-1\"></i> Enviar'", $show);
-        self::assertStringContainsString("btnEnviar.textContent = 'Enviar';", $show);
+        self::assertStringContainsString("btnEnviar.textContent = BJ_T.t('pasta_show.js.registro.enviar');", $show);
+        self::assertSame('Enviar', Yaml::parseFile(self::APP . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['registro']['enviar']);
         self::assertStringContainsString("title=\"{{ 'pasta_documentos.anotacoes.enviar_dica'|trans }}\">{{ 'pasta_documentos.anotacoes.enviar'|trans }}</button>", $this->ler(self::APP . '/templates/pasta/_dados_anotacoes.html.twig'));
         $anotacoes = Yaml::parseFile(self::APP . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_documentos']['anotacoes'];
         self::assertSame('Enviar (Ctrl+Enter)', $anotacoes['enviar_dica']);

@@ -11,6 +11,7 @@ use App\Comercial\Exception\CampanhaRecusada;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /** Os fixos do desenho 05 (dc L.504-515, spec §8.2) e a validação do que a tela manda. */
 #[CoversClass(ModelosDeCampanha::class)]
@@ -49,8 +50,13 @@ final class ModelosDeCampanhaTest extends TestCase
     {
         self::assertSame('+7 days', ConfirmacaoEmail::VALIDADE, 'mudou a validade do link: troque o "7 dias" no modelo validar e no lembrete_confirmacao');
         $lembrete = (string) file_get_contents(__DIR__ . '/../../../templates/email/comercial/automacao/lembrete_confirmacao.html.twig');
-        self::assertStringContainsString('O link vale por 7 dias.', $lembrete);
-        self::assertStringContainsString("b.botao('Confirmar e criar minha senha', urlDeConfirmacao)", $lembrete);
+        // O texto do lembrete mora no catálogo (emails.comercial.lembrete_confirmacao, spec idioma-do-sistema §25.C).
+        $catalogo = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml');
+        $textos = $catalogo['emails']['comercial']['lembrete_confirmacao'] ?? [];
+        self::assertStringContainsString("b.texto('emails.comercial.lembrete_confirmacao.validade'|trans)", $lembrete);
+        self::assertStringStartsWith('O link vale por 7 dias.', $textos['validade'] ?? '');
+        self::assertStringContainsString("b.botao('emails.comercial.lembrete_confirmacao.botao'|trans, urlDeConfirmacao)", $lembrete);
+        self::assertSame('Confirmar e criar minha senha', $textos['botao'] ?? null);
     }
 
     #[TestDox('F4 (dc 05 VS 21.10.26 L626): o modelo de cada data, literal: assunto + " · BlueJus", selo em maiúsculas, título sem o "!" + ", {nome}!", texto e o botão para o app')]
