@@ -1251,7 +1251,6 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   gerenciar sedes.", "Sede não encontrada." etc.); o `<script>` do mapa (acima). Achado fora do escopo, não
   consertado: editar uma sede com a longitude vazia dá 500 (`InvalidTypeException` no
   `Sede::setLongitude(string)`), em vez do erro de validação; criar com os campos vazios mostra o erro.
-<<<<<<< HEAD
 - **A1 admin/platform** (branch `idioma-admin`, sobre o T4): bloco de topo novo `plataforma:` (`# ---- plataforma`,
   antes do `# ---- termos`), 72 chaves: `menu` 5, `painel` 6, `convites` 19, `oab` 31 (com `filtro` 5) e `flash` 11. O
   `_base_platform` só tem CSS e o bloco `platform_body`: não ganhou chave (não há `plataforma.base.*`), mas entrou na
@@ -1293,7 +1292,6 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   (dado); e o comentário do CSS do `_base_platform`, que tem travessão mas não é texto de tela. O laço de flashes do
   próprio `convites.html.twig` fica como está e não mostra nada: o `base` consome os flashes antes (o que se vê é o
   aviso do `base`, com `alert-sucesso` e `alert-erro`).
-=======
 
 ## 26b. Extração de recurso, legal e termo (a7, 22/10)
 
@@ -1329,4 +1327,3 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   o `lang="pt-BR"` fixo do `_layout_simples`, do `aceite` e da casca do PDF (páginas soltas, sem o base); o título e
   o motivo da tela em preparação, que vêm do PHP (`BloqueioDeRecursoDesativado`, catálogo de recursos do Master); o
   flash de erro do aceite (`TermoController`); e o JS inline do `aceite` (sem texto visível).
->>>>>>> origin/master

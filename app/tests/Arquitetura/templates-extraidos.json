@@ -578,7 +578,6 @@
         ]
     },
 
-<<<<<<< HEAD
     "plataforma": {
         "templates": [
             "admin/platform/_base_platform.html.twig",
@@ -588,7 +587,9 @@
             "admin/platform/oab.html.twig"
         ],
         "js": [],
-=======
+        "permitidos": []
+    },
+
     "kanban": {
         "templates": [
             "kanban/index.html.twig",
@@ -653,7 +654,6 @@
             "djen/oabs.html.twig",
             "djen/show.html.twig"
         ],
->>>>>>> origin/master
         "permitidos": []
     },
 
