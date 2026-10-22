@@ -640,6 +640,27 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   `api_datajud_search` devolve ao modal; o `nota-tecnica.js` (área da pasta); o `aria-label="Close"` do modal de
   mensagem, que continua em inglês como estava (agora numa chave).
 
+### 23c. DJEN (4b, 21/10)
+
+- **Escopo:** `templates/djen/index` (Push Processual: Publicações), `oabs` (OABs monitoradas) e `show` (a
+  publicação). Nenhum JS em `public/js` é destas telas, e elas não têm script inline. Bloco `djen` com 65 chaves
+  (`comum` 10, `index` 26, `oabs` 15, `show` 14), logo antes do `feriado`; área `djen` no `templates-extraidos.json`,
+  sem permitidos. Não havia chave `djen.*` no catálogo para reaproveitar (o `pasta_push` é da aba Push da pasta).
+- **Sem mudança visível:** o HTML de 9 situações (publicações vazia, com 28 publicações nas páginas 1 e 2, com todos os
+  filtros preenchidos e com o filtro de vinculadas; OABs vazia e com uma ativa e uma pausada; a publicação completa,
+  avulsa, com destinatários, link, teor e OAB, e a vinculada com campos vazios e `?voltar=`), com dados que têm
+  apóstrofo, aspas, `&` e `<b>`, foi gravado antes e depois e comparado com tokens, nomes gerados e dígitos
+  normalizados: saiu igual. Mudaram só as aspas do texto de lista vazia, agora `&quot;` (o navegador mostra igual), e o
+  `confirm()` do remover OAB, agora `|trans|e('js')` (o mesmo texto, escapado para JS). O total e as páginas da
+  paginação entram como texto (`~ ''`) para o ICU não pôr separador de milhar.
+- **Formatos:** nenhum filtro de data nestas telas: a data de disponibilização e o "Desde" da OAB chegam já formatados
+  (`d/m/Y`) pelos DTOs `PublicacaoDjenListaItem`, `PublicacaoDjenOutput` e `OabMonitoradaOutput`.
+- **Ficou para depois:** as datas formatadas em PHP nos DTOs acima (passar a data e usar `|data` na tela muda o
+  contrato do DTO); o rótulo do meio (`Diário Eletrônico`, `Edital`) e do polo (`Ativo`, `Passivo`, `Terceiro
+  interessado`) montados no `PublicacaoDjenOutput`; os rótulos, placeholders e mensagens do `OabMonitoradaType` e do
+  `OabMonitoradaInput`; os flashes do `DjenController` (inclusive o resumo da sincronização e as mensagens de exceção
+  dos UseCases repassadas em flash) e as mensagens dos 404, como na §18.
+
 ## 24. Extração dos parciais comuns, da raiz e das telas avulsas (7d, 21/10)
 
 ### 24.1 Parciais comuns (_partials)
