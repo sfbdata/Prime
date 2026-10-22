@@ -20,14 +20,11 @@ use App\TrabalhoExterno\Enum\StatusCurriculo;
  * (lacuna 2); COM OAB conta e filtra advogado(a) e estagiário(a) com OAB (lacuna 1).
  *
  * `ir` diz à tela para onde o clique leva: `{mod: "cv", filtro: {cf?, cs?, ca?, cu?, busca?}}` (a Lista
- * com o filtro), `{mod: "vagas", vf}` ou `{acao: "alertasCsv"}`.
+ * com o filtro), `{mod: "vagas", vf}` ou `{acao: "campanha"}` (o modal da campanha por e-mail, §4.10).
  */
 final class PainelDoBancoDeTalentos
 {
-    /**
-     * Subtítulo de ALERTAS POR E-MAIL, exato do desenho (l.1146). O "clique para campanha" depende da
-     * campanha (5d); enquanto o clique baixa o CSV, a troca do texto espera a decisão do coordenador.
-     */
+    /** Subtítulo de ALERTAS POR E-MAIL, exato do desenho (l.1146): o clique abre a campanha (§4.10). */
     public const SUB_DOS_ALERTAS = '%d visita(s) pelo link · %d clique(s) em criar conta · clique para campanha';
     /** Subtítulo de VOLUNTÁRIOS (l.1146): fica 0/0 até o Termo de Voluntariado (F3b-2). */
     public const SUB_DOS_TERMOS = '%d termo(s) aceito(s) · %d aguardando';
@@ -77,7 +74,7 @@ final class PainelDoBancoDeTalentos
 
         return [
             self::kpi('vagas', 'VAGAS ABERTAS', 'bi-megaphone', '#1e7b45', $abertas, count($r->candidaturas) . ' candidatura(s) no total', ['mod' => 'vagas', 'vf' => 'aberta']),
-            self::kpi('alertas', 'ALERTAS POR E-MAIL', 'bi-envelope-paper', '#0a6fa0', $r->inscritos, sprintf(self::SUB_DOS_ALERTAS, $r->visitas, $r->cliques), ['acao' => 'alertasCsv']),
+            self::kpi('alertas', 'ALERTAS POR E-MAIL', 'bi-envelope-paper', '#0a6fa0', $r->inscritos, sprintf(self::SUB_DOS_ALERTAS, $r->visitas, $r->cliques), ['acao' => 'campanha']),
             self::kpi('compartilhadas', 'VAGAS COMPARTILHADAS', 'bi-share', '#1e7b45', $divulgacoes, count($divulgadas) . ' vaga(s) divulgada(s)', ['mod' => 'vagas', 'vf' => 'todas']),
             $this->kpiDasOfertas($r),
         ];

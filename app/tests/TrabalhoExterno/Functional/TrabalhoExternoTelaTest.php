@@ -119,6 +119,10 @@ final class TrabalhoExternoTelaTest extends JusPrimeWebTestCase
             'data-url-vaga-editar' => '/trabalho-externo/api/vagas/VG-0/editar',
             'data-url-vaga-excluir' => '/trabalho-externo/api/vagas/VG-0/excluir',
             'data-url-vagas-visita' => '/trabalho-externo/api/vagas/visita',
+            'data-url-campanha' => '/trabalho-externo/api/campanha',
+            'data-url-campanha-csv' => '/trabalho-externo/campanha/destinatarios.csv',
+            'data-url-campanha-html' => '/trabalho-externo/campanha/email.html',
+            'data-url-campanha-registro' => '/trabalho-externo/api/campanha/registro',
         ];
         foreach ($esperadas as $atributo => $url) {
             self::assertSame($url, $raiz->attr($atributo), $atributo);
