@@ -16,6 +16,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * PAS-013: menu e chip do responsável seguem o desenho NA PASTA — dica "Filtrar
@@ -135,7 +136,8 @@ final class PastaRespMenuDesenhoTelaTest extends JusPrimeWebTestCase
 
         self::assertStringContainsString("var naPasta = chip.dataset.contexto === 'pasta';", $render);
         self::assertStringContainsString("<i class=\"bi ' + (naPasta ? 'bi-person-dash' : 'bi-person') + '\"></i></span>'", $render);
-        self::assertStringContainsString("'<span class=\"pasta-resp-nome' + (naPasta ? '' : ' text-muted') + '\">Sem responsável</span>'", $render);
+        self::assertStringContainsString("'<span class=\"pasta-resp-nome' + (naPasta ? '' : ' text-muted') + '\">' + escResp(BJ_T.t('pasta_resp.js.resp.sem_responsavel')) + '</span>'", $render);
+        self::assertSame('Sem responsável', Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_resp']['js']['resp']['sem_responsavel']);
         // O desenho antigo, fixo, não pode voltar: era ele que desfazia o chip da pasta.
         self::assertStringNotContainsString('<i class="bi bi-person"></i>', $render);
         self::assertStringNotContainsString('<span class="pasta-resp-nome text-muted">Sem responsável</span>', $render);

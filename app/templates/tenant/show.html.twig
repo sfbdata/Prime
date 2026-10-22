@@ -1,11 +1,11 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Meu Escritório{% endblock %}
+{% block title %}{{ 'escritorio.ver.titulo'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid">
-        <h1 class="m-0"><i class="bi bi-building me-2"></i>Meu Escritório</h1>
+        <h1 class="m-0"><i class="bi bi-building me-2"></i>{{ 'escritorio.ver.titulo'|trans }}</h1>
     </div>
 </section>
 
@@ -15,19 +15,19 @@
             <div class="col-lg-6 col-md-8">
                 <div class="card card-outline card-primary">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-info-circle me-2"></i>Informações do Escritório</h3>
+                        <h3 class="card-title"><i class="bi bi-info-circle me-2"></i>{{ 'escritorio.ver.informacoes'|trans }}</h3>
                     </div>
                     <div class="card-body p-0">
                         <table class="table table-striped mb-0">
                             <tbody>
-                                <tr><th style="width:40%"><i class="bi bi-hash me-1"></i>ID</th><td>{{ tenant.id }}</td></tr>
-                                <tr><th><i class="bi bi-building me-1"></i>Nome</th><td>{{ tenant.name }}</td></tr>
-                                <tr><th><i class="bi bi-calendar-event me-1"></i>Criado em</th><td>{{ tenant.createdAt ? tenant.createdAt|date('d/m/Y H:i:s') : '-' }}</td></tr>
-                                <tr><th><i class="bi bi-toggle-on me-1"></i>Status</th><td>
+                                <tr><th style="width:40%"><i class="bi bi-hash me-1"></i>{{ 'escritorio.lista.id'|trans }}</th><td>{{ tenant.id }}</td></tr>
+                                <tr><th><i class="bi bi-building me-1"></i>{{ 'escritorio.lista.nome'|trans }}</th><td>{{ tenant.name }}</td></tr>
+                                <tr><th><i class="bi bi-calendar-event me-1"></i>{{ 'escritorio.lista.criado_em'|trans }}</th><td>{{ tenant.createdAt ? tenant.createdAt|date('d/m/Y H:i:s') : '-' }}</td></tr>
+                                <tr><th><i class="bi bi-toggle-on me-1"></i>{{ 'escritorio.lista.status'|trans }}</th><td>
                                     {% if tenant.isActive %}
-                                        <span class="badge text-bg-success">Ativo</span>
+                                        <span class="badge text-bg-success">{{ 'escritorio.lista.ativo'|trans }}</span>
                                     {% else %}
-                                        <span class="badge text-bg-secondary">Inativo</span>
+                                        <span class="badge text-bg-secondary">{{ 'escritorio.lista.inativo'|trans }}</span>
                                     {% endif %}
                                 </td></tr>
                             </tbody>
@@ -37,13 +37,13 @@
                         <div class="d-flex gap-2 justify-content-end">
                             {% if can_administer('admin.tenant.settings.manage') %}
                                 <a href="{{ path('app_sync_drive_conexao') }}" class="btn btn-outline-secondary">
-                                    <i class="bi bi-google me-1"></i>Conectar meu Drive
+                                    <i class="bi bi-google me-1"></i>{{ 'escritorio.ver.drive'|trans }}
                                 </a>
                                 <a href="{{ path('app_tenant_role_index', {'tenantId': tenant.id}) }}" class="btn btn-outline-primary">
-                                    <i class="bi bi-shield-lock me-1"></i>Perfis
+                                    <i class="bi bi-shield-lock me-1"></i>{{ 'escritorio.ver.perfis'|trans }}
                                 </a>
                                 <a href="{{ path('app_tenant_edit', {'tenantId': tenant.id}) }}" class="btn btn-primary">
-                                    <i class="bi bi-pencil me-1"></i>Editar
+                                    <i class="bi bi-pencil me-1"></i>{{ 'escritorio.ver.editar'|trans }}
                                 </a>
                             {% endif %}
                         </div>
@@ -53,21 +53,21 @@
                 {% if can_administer('admin.tenant.settings.manage') and tenant.isActive %}
                     <div class="card card-outline card-danger mt-3">
                         <div class="card-header">
-                            <h3 class="card-title text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Zona de perigo</h3>
+                            <h3 class="card-title text-danger"><i class="bi bi-exclamation-triangle me-2"></i>{{ 'escritorio.ver.perigo'|trans }}</h3>
                         </div>
                         <div class="card-body">
                             <p class="small mb-3">
-                                Excluir o escritório <strong>desativa o acesso de todos os colaboradores imediatamente</strong>.
-                                Os dados ficam em quarentena e podem ser recuperados por um período antes da remoção definitiva.
+                                {{ 'escritorio.ver.perigo_antes'|trans }} <strong>{{ 'escritorio.ver.perigo_destaque'|trans }}</strong>.
+                                {{ 'escritorio.ver.perigo_depois'|trans }}
                             </p>
                             <form method="post" action="{{ path('escritorio_excluir', {id: tenant.id}) }}">
                                 <input type="hidden" name="_token" value="{{ csrf_token('excluir_' ~ tenant.id) }}">
-                                <label class="form-label small mb-1">Digite <strong>{{ tenant.name }}</strong> para confirmar:</label>
+                                <label class="form-label small mb-1">{{ 'escritorio.ver.confirmar_antes'|trans }} <strong>{{ tenant.name }}</strong> {{ 'escritorio.ver.confirmar_depois'|trans }}</label>
                                 <div class="input-group">
                                     <input type="text" name="confirmar_nome" class="form-control" autocomplete="off"
                                            id="confirmarNomeExclusao" data-nome="{{ tenant.name|e('html_attr') }}">
                                     <button type="submit" class="btn btn-danger" id="btnExcluirEscritorio" disabled>
-                                        <i class="bi bi-trash me-1"></i>Excluir escritório
+                                        <i class="bi bi-trash me-1"></i>{{ 'escritorio.ver.excluir'|trans({termo: 'termos.escritorio'|trans}) }}
                                     </button>
                                 </div>
                             </form>

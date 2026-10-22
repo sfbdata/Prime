@@ -23,6 +23,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Cartões do sistema que faltavam no Registro da pasta (desenho 02, `autoReg` dc L6169-6172 e `Component.SYS`
@@ -263,9 +264,12 @@ final class PastaCartoesDoSistemaTest extends JusPrimeWebTestCase
         $topo = '#molde > article.ps-anotacao > .ps-anotacao-topo';
         $tag = $molde->filter($topo . ' > .ps-anotacao-autor + span.detalhes-obs-tag');
         self::assertCount(1, $tag);
-        self::assertSame('Observação', trim($tag->text()));
-        self::assertStringEndsWith(' · Observação', trim($molde->filter($topo . ' > .ps-obs-menu > .ps-processo-menu-titulo')->text()));
-        self::assertSame('Observação', $molde->filter($topo . ' > .ps-obs-menu > button.js-obs-imprimir')->attr('data-tipo'));
+        // O texto vem do catálogo do idioma (`pasta_detalhes.js.tag`), lido na hora de montar o cartão.
+        $doCatalogo = '${esc(BJ_T.t(\'pasta_detalhes.js.tag\'))}';
+        self::assertSame($doCatalogo, trim($tag->text()));
+        self::assertStringEndsWith(' · ' . $doCatalogo, trim($molde->filter($topo . ' > .ps-obs-menu > .ps-processo-menu-titulo')->text()));
+        self::assertSame($doCatalogo, $molde->filter($topo . ' > .ps-obs-menu > button.js-obs-imprimir')->attr('data-tipo'));
+        self::assertSame('Observação', Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js']['tag']);
     }
 
     // ── helpers ─────────────────────────────────────────────────────────
