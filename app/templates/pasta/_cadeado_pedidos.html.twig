@@ -17,14 +17,14 @@
             <i class="bi bi-key"></i>
             <span style="flex:1;min-width:0">{{ p.texto }}</span>
             {% for d in [
-                {v: 'editar', l: 'Liberar para editar', st: 'background:#0a7aad;color:#fff'},
-                {v: 'visualizar', l: 'Liberar só visualizar', st: 'background:#e3f0f8;color:#0b5f86'},
-                {v: 'recusar', l: 'Recusar', st: 'background:transparent;color:#a3232b'},
+                {v: 'editar', l: 'pasta_avisos.cadeado_pedidos.liberar_editar', st: 'background:#0a7aad;color:#fff'},
+                {v: 'visualizar', l: 'pasta_avisos.cadeado_pedidos.liberar_visualizar', st: 'background:#e3f0f8;color:#0b5f86'},
+                {v: 'recusar', l: 'pasta_avisos.cadeado_pedidos.recusar', st: 'background:transparent;color:#a3232b'},
             ] %}
                 <form method="post" action="{{ path('pasta_acesso_decidir', {id: pasta.id, pedidoId: p.id}) }}" class="js-cadeado-decidir" style="display:contents">
                     <input type="hidden" name="_token" value="{{ csrf_token('pasta_cadeado_' ~ pasta.id) }}">
                     <input type="hidden" name="decisao" value="{{ d.v }}">
-                    <button type="submit" style="flex-shrink:0;height:28px;padding:0 12px;border:none;border-radius:4px;{{ d.st }};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">{{ d.l }}</button>
+                    <button type="submit" style="flex-shrink:0;height:28px;padding:0 12px;border:none;border-radius:4px;{{ d.st }};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer">{{ d.l|trans }}</button>
                 </form>
             {% endfor %}
         </div>

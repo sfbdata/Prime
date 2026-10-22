@@ -541,5 +541,40 @@
         "permitidos": [
             "App\\\\Cobranca\\\\Enum\\\\TipoTelefone"
         ]
+    },
+
+    "pasta_avisos": {
+        "templates": [
+            "pasta/_abas_ocultas.html.twig",
+            "pasta/_andamento.html.twig",
+            "pasta/_aviso_duplicada_conteudo.html.twig",
+            "pasta/_aviso_duplicada_modal.html.twig",
+            "pasta/_cadeado_faixa.html.twig",
+            "pasta/_cadeado_icone.html.twig",
+            "pasta/_cadeado_menu.html.twig",
+            "pasta/_cadeado_modal.html.twig",
+            "pasta/_cadeado_pedidos.html.twig",
+            "pasta/confirmar_duplicada.html.twig",
+            "pasta/trancada.html.twig",
+            "pasta/zip_recusado.html.twig"
+        ],
+        "js": [
+            "pasta-abas-ocultas.js",
+            "pasta-andamento.js",
+            "pasta-cadeado.js",
+            "pasta-cadeado-pedidos.js"
+        ],
+        "permitidos": [
+            "ps-body",
+            "· BlueJus",
+            "Accept",
+            "Content-Type",
+            "ContextMenu",
+            "Escape",
+            "Enter",
+            "ArrowDown",
+            "ArrowUp",
+            "Tab"
+        ]
     }
 }

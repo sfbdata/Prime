@@ -4915,4 +4915,110 @@ cobranca_pessoa:
         erro_cadastro: não foi possível carregar
         erro_detalhe: Não foi possível carregar o detalhe. Tente de novo.
 
+# ---- Pasta: avisos, cadeado e telas simples (pasta/_cadeado_*, _aviso_duplicada_*, ...)
+pasta_avisos:
+    fechar: Fechar
+    cancelar: Cancelar
+    abas_ocultas:
+        fechar_dica: Fechar (Esc)
+        ocultar_todos: Ocultar para toda a equipe
+        ocultar_para: Ocultar para…
+        mostrar_todos: Mostrar para todos
+        titulo: Ocultar aba
+        subtitulo: Quem estiver marcado deixa de ver esta aba
+        toda_equipe: 'Toda a equipe ({total})'
+        equipe: Equipe
+        carregando: Carregando…
+        vazio: Ninguém da equipe para ocultar esta aba.
+        salvar: Salvar
+        selo_oculta: Oculta
+    andamento:
+        avancar: Avançar
+        ignorar: Ignorar
+    duplicada:
+        titulo: Já existe uma pasta parecida
+        encontramos_uma: 'Encontramos {total} pasta já cadastrada'
+        encontramos_varias: 'Encontramos {total} pastas já cadastradas'
+        para: para
+        em: em
+        mostrando: 'Mostrando {total} mais recentes:'
+        confira: 'Confira antes de criar outra:'
+        numero: Número
+        cliente: Cliente
+        acao: Ação
+        criada_em: Criada em
+        nao_informado: Não informado
+        sem_registro: Sem registro
+        abrir: Abrir
+        caso_novo: 'Se este for mesmo um caso novo, pode criar: o sistema atribuirá um número próprio.'
+        criar_mesmo_assim: Criar mesmo assim
+    cadeado_faixa:
+        so_ver: 'Pasta trancada pelo usuário primário: você pode visualizar, mas não alterar.'
+        pedir_editar: Pedir para editar
+        pedido_enviado: Pedido enviado
+    cadeado_menu:
+        secao: Acesso · Primário
+        cadeado: Cadeado
+    cadeado_modal:
+        rotulo: Cadeado da pasta
+        titulo: 'Cadeado da pasta {pasta}'
+        subtitulo: Exclusivo do usuário primário · vale para toda a equipe
+        por_pessoa: Escolher por pessoa
+        por_pessoa_dica: Defina quem oculta, visualiza ou edita
+        todos: Ocultar para todos
+        todos_dica: Só o nome do cliente e o CPF ficam visíveis
+        colaborador: Colaborador
+        ocultar: Ocultar
+        visualizar: Visualizar
+        editar: Editar
+        aplicar_todos: Aplicar a todos
+        marcar_todos: 'Marcar {nivel} para todos'
+        nivel_para: '{nivel} para {nome}'
+        sem_equipe: Não há colaboradores na equipe além do usuário primário.
+        todos_ocultos: 'Ninguém além do usuário primário verá a pasta. A equipe enxerga só o nome do cliente e o CPF; abas, documentos, processo, Push, financeiro e a BlueJus IA ficam bloqueados.'
+        remover: Remover cadeado
+        trancar: Trancar
+    cadeado_pedidos:
+        liberar_editar: Liberar para editar
+        liberar_visualizar: Liberar só visualizar
+        recusar: Recusar
+    trancada:
+        titulo: 'Pasta {pasta}'
+        voltar_dica: Voltar à lista de pastas
+        voltar: Voltar
+        cliente_nao_informado: Cliente não informado
+        titulo_veu: Pasta trancada
+        texto: 'O usuário primário restringiu o acesso a esta pasta. Você vê apenas o nome do cliente e o CPF. Se precisar trabalhar nela, peça a liberação ao usuário primário.'
+        motivo: Motivo (opcional)
+        pedir: Pedir acesso ao primário
+        aguardando: 'Pedido enviado às {hora}. Aguardando o usuário primário.'
+    zip:
+        titulo: Não foi possível baixar o .zip
+        dica: Se a aba não fechar, feche-a pelo navegador e volte à pasta.
+    js:
+        abas_so_primario: Só o usuário primário pode ocultar abas
+        abas_erro_geral: Não foi possível falar com o servidor. Tente de novo.
+        abas_toda_equipe: 'Toda a equipe ({total})'
+        abas_ocultar_aba: 'Ocultar aba {aba}'
+        andamento_erro: Não foi possível mudar a fase
+        andamento_sem_conexao: Falha de conexão. Tente de novo.
+        andamento_reativar_titulo: Reativar pasta
+        andamento_reativar_texto: 'A pasta está finalizada. Reativar abre duas novas etapas: "Em andamento" (reativada) e um novo "Finalizada". O histórico anterior é mantido.'
+        andamento_reativar: Reativar
+        andamento_finalizar_titulo: Finalizar pasta
+        andamento_avancar_titulo: Avançar fase da pasta
+        andamento_voltar_titulo: Voltar fase da pasta
+        andamento_pulam: 'Atenção: {total} fase(s) intermediária(s) ficarão marcadas em vermelho como puladas.'
+        andamento_finalizar_texto: 'Marcar a pasta como finalizada? Depois, se precisar, clique em "Finalizada" para reativar.'
+        andamento_mudar_texto: 'Mudar de "{de}" para "{para}"? A mudança fica registrada no Registro dos expedientes com data e hora.'
+        andamento_finalizar: Finalizar
+        andamento_avancar: Avançar
+        andamento_voltar: Voltar
+        andamento_sugestao: 'Avançar para "{fase}"?'
+        cadeado_resumo_todos: O usuário primário continua vendo e editando tudo. A regra fica registrada no histórico da pasta.
+        cadeado_resumo: '{editar} editam, {visualizar} só visualizam, {oculto} não veem. O usuário primário sempre vê e edita tudo.'
+        pedidos_decidido: Pedido decidido
+        pedidos_falhou: Não foi possível decidir o pedido
+        pedidos_sem_conexao: Falha de conexão ao decidir o pedido
+
 # ---- fim
