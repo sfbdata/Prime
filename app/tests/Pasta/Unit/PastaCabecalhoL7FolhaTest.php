@@ -113,7 +113,8 @@ final class PastaCabecalhoL7FolhaTest extends TestCase
         self::assertSame('Vincular processo', $catalogo['pasta_processo']['cabecalho']['vincular']);
         self::assertSame('Peticionar na pasta', $catalogo['pasta_processo']['cabecalho']['peticionar']);
         $metas = self::ler(__DIR__ . '/../../../templates/pasta/_metas.html.twig');
-        self::assertStringContainsString('<i class="bi bi-plus-lg"></i><span>Nova meta</span>', $metas);
+        self::assertStringContainsString("<i class=\"bi bi-plus-lg\"></i><span>{{ 'pasta_documentos.metas.nova'|trans }}</span>", $metas);
+        self::assertSame('Nova meta', $catalogo['pasta_documentos']['metas']['nova']);
     }
 
     #[TestDox('PMC-026: o interruptor Administrativo saiu do <style> do parcial e usa tokens com par escuro')]

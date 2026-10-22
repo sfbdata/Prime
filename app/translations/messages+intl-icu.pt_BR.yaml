@@ -3770,7 +3770,7 @@ publicas:
             abrir_falhou: Não foi possível abrir a janela agora. Recarregue a página e tente de novo.
 
 # ---- escritorio: Meu Escritório (tenant/index, new, criar, show, edit, _form, _delete_form, selecionar,
-# escritorio_indisponivel), com os flashes do TenantController, do EscritorioController e do TenantSelecaoController
+# escritorio_indisponivel; no T2, tenant/users e edit_user_role), com os flashes do TenantController, do EscritorioController e do TenantSelecaoController
 # e o título da página de escritório indisponível. Frase curta com o termo dentro recebe termos.escritorio por
 # parâmetro ({termo}); "(s)" fica como está.
 escritorio:
@@ -3844,6 +3844,87 @@ escritorio:
     indisponivel:
         titulo: Escritório indisponível
         outro: Selecionar outro escritório
+    # T2: lista de colaboradores (tenant/users).
+    usuarios:
+        titulo_pagina: Colaboradores
+        titulo: 'Colaboradores - {nome}'
+        jornada: Configurar Jornada
+        voltar: Voltar
+        codigo: Código
+        nome: Nome
+        email: Email
+        perfil: Perfil
+        acessos: Acessos específicos
+        criado_em: Criado em
+        acoes: Ações
+        nao_informado: Não informado
+        nenhum: Nenhum
+        # Contagem dos acessos específicos no botão que abre a lista (sempre 1 ou mais). "items" é o texto de hoje.
+        # {qtd} é o número já como texto: o # do ICU agruparia o milhar ("1.000"), e a tela mostra "1000".
+        itens: '{n, plural, one {{qtd} item} other {{qtd} items}}'
+        ver_dica: Visualizar
+        ver: Ver
+        editar: Editar
+        excluir: Excluir
+        concedido_por: Concedido por
+        editar_dica: Editar roles do usuário
+        vazio: Nenhum colaborador encontrado.
+    # T2: edição do colaborador (tenant/edit_user_role). As abas de jornada, home office, ponto, justificativas e horas
+    # pagas são parciais do T3; os rótulos dos campos vêm do EditUserTenantRoleType e do DadosPessoaisType.
+    editar_usuario:
+        titulo_pagina: Editar Permissões
+        titulo: 'Editar Permissões: {nome}'
+        aba_perfil: Perfil e Senha
+        aba_dados: Dados Pessoais
+        aba_acessos: Acessos Específicos
+        aba_jornada: Jornada Personalizada
+        aba_home_office: Home Office
+        aba_ponto: Batidas de Ponto
+        aba_justificativas: Justificativas
+        aba_horas_pagas: Horas pagas
+        alterar_nome: Alterar nome
+        codigo_dica: Gerado automaticamente. Pode ser editado (letras e números).
+        folha_dica: Usado na folha de ponto.
+        troca_titulo: Alterar Senha (opcional)
+        troca_dica: Preencha os campos abaixo apenas se desejar alterar a senha.
+        remover: 'Remover do {termo}'
+        voltar: Voltar
+        salvar: Salvar
+        salvar_dados: Salvar Dados Pessoais
+        acessos_titulo: Acessos específicos por item
+        acessos_vazio: Nenhum acesso específico concedido a este usuário.
+        tipo: Tipo
+        item: Item
+        permissoes: Permissões
+        remover_acesso: Remover acesso
+        # Título da tabela da aba de ponto; o mês e o ano entram depois, como hoje.
+        batidas_titulo: Batidas de ponto
+        batida_titulo: Adicionar Batida
+        batida_data: Data
+        batida_hora: Hora
+        batida_tipo: Tipo
+        batida_entrada: Entrada
+        batida_repouso: Repouso
+        batida_retorno: Retorno
+        batida_saida: Saída
+        batida_observacao: Observação
+        opcional: (opcional)
+        batida_observacao_dica: Motivo do lançamento manual
+        cancelar: Cancelar
+        nome_completo: Nome completo
+        # "Ao remover <strong>nome</strong>, ela perde...": o nome em <strong> entre as duas partes (sem |raw).
+        remocao_antes: Ao remover
+        remocao_depois: ', ela perde o acesso a este escritório e sai da sua lista de colaboradores. A conta dela continua existindo, e ela pode ser convidada de volta, voltando sem os acessos de antes.'
+        substituto: Quem assume o que era dela?
+        sem_responsavel: Deixar sem responsável
+        substituto_dica: Se selecionado, esse colaborador assumirá todas as responsabilidades ativas de quem sair.
+        # As recusas da RegraDosPrimarios (CHAVE_DA_RECUSA de lá; o português tem de ser igual ao da constante).
+        recusa:
+            gerir_primarios: Só o primário do escritório ou o Master pode dar ou tirar o perfil de usuário primário.
+            conta_do_master: A conta do Master só pode ser alterada pelo próprio Master.
+            titular: O primário titular (quem abriu a conta) não pode deixar de ser primário.
+            ultimo_primario: Este é o último primário do escritório. Promova outro primário antes de removê-lo.
+            troca_de_primario: 'A senha de um primário só pode ser trocada por um primário ou pelo Master; a do primário titular, só por ele mesmo ou pelo Master.'
     flash:
         email_em_uso: Este e-mail já está em uso. Informe outro e-mail para o administrador.
         email_cadastrado: Este e-mail já está cadastrado. Informe outro e-mail para o administrador.
@@ -3858,6 +3939,112 @@ escritorio:
         confirmacao_nao_confere: A confirmação não confere com o nome do escritório.
         selecione_valido: Selecione um escritório válido.
         sem_acesso: Você não tem acesso a este escritório.
+        # T2: as ações de usuários do TenantController.
+        usuario_atualizado: Usuário atualizado com sucesso!
+        token_invalido: Token inválido.
+        nome_vazio: O nome não pode ser vazio.
+        nome_do_usuario_atualizado: Nome atualizado com sucesso!
+        colaborador_removido: '{nome} foi removido do escritório.'
+        acesso_removido: Acesso específico removido com sucesso.
+
+# ---- Telas avulsas: Notificações (notificacao/index, com o script inline em notificacao.js), Novidades (novidades/index;
+# o conteúdo das versões vem do config/novidades.yaml e não passa pelo catálogo), Solicitações de Acesso
+# (access_request/index) e Trilha de Auditoria (audit/index, com o script inline em auditoria.js)
+notificacao:
+    titulo: Notificações
+    inicio: Home
+    central: Central de notificações
+    subtitulo: Acompanhe demandas, prazos e atualizações do escritório
+    aba_minhas: Minhas
+    aba_gestao: Gestão
+    selecionar: Selecionar notificação
+    tarefa_numero: 'Tarefa #{id}'
+    ver_detalhes: Ver detalhes
+    nova: Nova
+    marcar_lida: Marcar como lida
+    lida: Lida
+    paginacao: Paginação das notificações
+    anterior: Anterior
+    proxima: Próxima
+    selecionar_todos: Selecionar todos
+    marcar_todas_lidas: Marcar todas como lidas
+    vazio_titulo: Tudo em dia por aqui
+    vazio_texto: Você não tem notificações nesta aba.
+    js:
+        lida: Lida
+        confirmar_exclusao: 'Excluir {n} notificação(ões)? Esta ação não pode ser desfeita.'
+        erro_excluir: Erro ao excluir notificações.
+
+novidades:
+    titulo: Novidades
+    intro: 'O que mudou no BlueJus a cada versão. Você está na versão {versao}.'
+    versao: 'Versão {versao}'
+    vazio: Ainda não há novidades registradas.
+
+access_request:
+    titulo: Solicitações de Acesso
+    titulo_pendentes: Solicitações de Acesso Pendentes
+    nenhuma: Nenhuma solicitação pendente no momento.
+    col_solicitante: Solicitante
+    col_recurso: Recurso
+    col_id: ID
+    col_acao: Ação Solicitada
+    col_solicitado_em: Solicitado em
+    col_decisao: Decisão
+    aprovar: Aprovar
+    negar: Negar
+    confirmar_negar: 'Negar o acesso de {nome} ao {recurso} #{id}?'
+    modal_titulo: Aprovar Acesso
+    solicitante: 'Solicitante:'
+    recurso: 'Recurso:'
+    instrucao: Selecione as ações que serão concedidas. Pelo menos uma deve ser marcada.
+    visualizar: Visualizar
+    editar: Editar
+    confirmar_aprovacao: Confirmar Aprovação
+
+auditoria:
+    titulo: Trilha de Auditoria
+    filtros: Filtros
+    entidade: Entidade
+    todas: Todas
+    usuario: Usuário
+    todos: Todos
+    data_inicial: Data inicial
+    data_final: Data final
+    filtrar: Filtrar
+    limpar: Limpar
+    resultados_pagina: '{n} resultado(s) nesta página'
+    resultados_total: '({total} total)'
+    col_data_hora: Data/Hora
+    col_acao: Ação
+    col_resumo: Resumo
+    col_alteracoes: Alterações
+    id_usuario: 'ID {id}'
+    campos_alterados: '{n} campo(s) alterado(s)'
+    campos_inicializados: '{n} campo(s) inicializado(s)'
+    campos_removidos: '{n} campo(s) removido(s)'
+    pasta_trancada: Pasta trancada pelo usuário primário
+    sem_diff: Sem diff detalhado
+    ver_detalhes: Ver detalhes
+    ver_detalhes_log: Ver detalhes do log
+    confirmar_desfazer: Desfazer esta alteração? A entidade voltará ao estado anterior.
+    desfazer: Desfazer esta alteração
+    rota: 'Rota:'
+    ip: 'IP:'
+    # As referências às entidades (rótulo ou Classe #id) ficam no template, em volta destes pedaços.
+    evento:
+        removido_de: 'foi removido de {campo} de'
+        associado_em: 'foi associado em {campo} com'
+        alterada_entre: Associação alterada entre
+        e: e
+        associacao: associação
+    sem_alteracoes: Sem alterações detalhadas.
+    nenhum_registro: Nenhum registro encontrado para os filtros informados.
+    paginacao: Paginação da trilha de auditoria
+    anterior: Anterior
+    proxima: Próxima
+    js:
+        selecione: Selecione...
 
 # ---- emails: e-mails do sistema (email/*, fora email/comercial)
 # Renderizados também fora de requisição (worker do Messenger, comandos): o tradutor cai no default_locale (pt_BR).
@@ -6856,5 +7043,438 @@ pasta_lista:
         marcar_favorito: Marcar como favorito
         fixada_favoritos: Fixada nos favoritos
         erro_comunicacao: Erro de comunicação. Tente novamente.
+
+# ---- Pasta: documentos, metas e anotações (pasta/_documentos_*, _metas, _dados_anotacoes)
+pasta_documentos:
+    fechar: Fechar
+    sugeridos:
+        titulo: Documentos sugeridos
+        sub: Sugestões pelo catálogo de documentos da fase e do tipo de ação · por regras
+        sub_push: Sugestões pelo catálogo de documentos da fase e do tipo de ação e pelas determinações lidas no Push Processual · por regras
+        processo_vinculado: 'Processo {numero} · vinculado à pasta'
+        processo_nao_identificado: 'Processo não identificado: vincule um processo à pasta'
+        atualizar_dica: Recalcula as sugestões com os documentos e o checklist de agora (recarrega a aba)
+        atualizar: Atualizar
+        fechar_sugestoes: Fechar sugestões
+        sem_catalogo: 'Não há catálogo de documentos para esta pasta: ela não tem ação cadastrada nem processo com classe processual. Cadastre a ação ou vincule o processo para ver as sugestões.'
+        contexto: Contexto do processo
+        confianca_media_dica: 'Só o teor das publicações do Push foi lido, por regras; o PDF do processo não'
+        confianca_media: Confiança média
+        confianca_baixa_dica: 'O processo não foi lido: a fase vem da classe processual e a lista, do catálogo'
+        confianca_baixa: Confiança baixa
+        resumo_acao: 'Ação: {acao}'
+        resumo_sem_acao: Ação não cadastrada
+        resumo_fase: 'Fase: {fase} ({base}).'
+        prazos_dica: Prazo escrito no teor da publicação. Conta-se da publicação; confira o termo final no processo.
+        prazos: 'Prazos em curso: {prazos}'
+        motivo_lido_uma: 'Lido por regras o teor de {total} publicação do Push Processual; o PDF do processo não foi lido.'
+        motivo_lido_varias: 'Lido por regras o teor de {total} publicações do Push Processual; o PDF do processo não foi lido.'
+        motivo_catalogo: 'Catálogo fixo, sem leitura das decisões: nada aqui é exigência do juízo.'
+        grupo:
+            juizo: Exigido pelo juízo
+            juizo_sub: determinação expressa em decisão ou despacho
+            req: Obrigatório
+            req_sub: requisito legal para o próximo ato
+            rec: Recomendável
+            rec_sub: 'prática usual desta fase, não é exigência'
+            opc: Opcional
+            opc_sub: só se a situação pedir
+            existe: Já existente
+            existe_sub_lido: localizado na pasta ou no processo
+            existe_sub: localizado nos documentos da pasta
+            na: Não aplicável
+            na_sub_lido: depende de documento do processo que não apareceu nas publicações lidas
+            na_sub: 'depende da leitura do processo, que não foi feita'
+        origem_dica: Abrir o teor desta publicação na aba Push Processual
+        adicionar_um_dica: Adicionar ao checklist
+        adicionar_um: Checklist
+        conferido_no_checklist: conferido no checklist
+        ja_no_checklist: já no checklist
+        duplicados_titulo: Possíveis arquivos duplicados
+        duplicado_par: '{a}  ≈  {b} ({percentual}% parecido; confira se é o mesmo documento)'
+        duplicados_mais_um: 'e mais {total} par parecido'
+        duplicados_mais_varios: 'e mais {total} pares parecidos'
+        organizacao: Organização sugerida para esta fase
+        por_regras: '· por regras'
+        adicionar_faltantes: 'Adicionar {total} faltante(s) ao checklist'
+        nota_lido: 'Exigido pelo juízo vem de regra sobre o teor das publicações (verbos de determinação): confira na origem. Obrigatório vem de lei; recomendável e opcional são prática da fase.'
+        nota: 'Obrigatório vem de lei; recomendável e opcional são prática da fase. Catálogo fixo de documentos: o conteúdo do processo não é lido.'
+    explorador:
+        titulo: Documentos
+        buscar_placeholder: Buscar arquivos e pastas…
+        buscar: Buscar arquivos e pastas
+        limpar_busca: Limpar busca
+        nova_pasta: Nova pasta
+        anexar: Anexar
+        organizar_dica: Organizar colunas e filtrar por tipo
+        organizar: Organizar
+        um_filtro_ativo: 1 filtro ativo
+        ordem_colunas: Ordem das colunas
+        ordem_colunas_nota: Também é possível arrastar o título da coluna para os lados.
+        classificar_por: Classificar por
+        manual: Manual
+        nome: Nome
+        tipo: Tipo
+        tamanho: Tamanho
+        modificado: Modificado
+        categoria: Categoria
+        colunas: Colunas
+        categoria_dica: 'Mostra a categoria jurídica do documento (Procuração, Identificação…) como 5ª coluna'
+        tipo_documento: Tipo de documento
+        filtro:
+            todos: Todos os itens
+            pastas: Pastas
+            pdf: PDF
+            word: Word
+            excel: Excel
+            img: Imagens
+            zip: Compactados
+            outros: Outros
+        restaurar_padrao: Restaurar padrão
+        lixeira: Lixeira
+        visualizar: Visualizar
+        modo_exibicao: Modo de exibição
+        modo:
+            xg: Ícones extra grandes
+            g: Ícones grandes
+            m: Ícones médios
+            p: Ícones pequenos
+            lista: Lista
+            det: Detalhes
+            blocos: Blocos
+            cont: Conteúdo
+        painel_detalhes: Painel de detalhes
+        progresso_upload: Progresso do upload
+        duplicado_aviso: Arquivo idêntico já existe no escritório.
+        mostrando_somente: Mostrando somente
+        mostrar_todos: Mostrar todos
+        remover_filtro: Remover filtro
+        acoes_selecao: Ações da seleção
+        limpar_selecao_dica: Limpar seleção (Esc)
+        limpar_selecao: Limpar seleção
+        selecao:
+            baixar_dica: Baixar o arquivo
+            baixar: Baixar
+            copiar_dica: Copiar (Ctrl+C)
+            copiar: Copiar
+            recortar_dica: Recortar (Ctrl+X)
+            recortar: Recortar
+            renomear_dica: Renomear (F2)
+            renomear: Renomear
+            selecionar_tudo_dica: Selecionar tudo (Ctrl+A)
+            selecionar_tudo: Selecionar tudo
+            excluir_dica: Excluir (Del)
+            excluir: Excluir
+        subir_dica: Voltar à pasta anterior (Backspace)
+        subir: Voltar à pasta anterior
+        selecionar_visiveis: Selecionar todos os itens visíveis
+        selecionar_todos: Selecionar todos
+        classificar:
+            nome: Classificar por nome
+            tipo: Classificar por tipo
+            tamanho: Classificar por tamanho
+            data: Classificar por data de modificação
+        limpeza:
+            regiao: Sugestões de limpeza por regras
+            dica: 'Regras fixas: cópia de conteúdo idêntico, arquivo vazio, cópia do processo com mais de 100 páginas ou 50 MB e arquivo com mais de 100 MB. Não é inteligência artificial.'
+            titulo: Sugestões de limpeza (por regras)
+            revisar: Revisar
+            agora_nao: Agora não
+            dispensar: Dispensar sugestão
+            nota: Nada é excluído sem você confirmar. A exclusão pode ser desfeita.
+        lista: Arquivos e pastas
+        painel: Detalhes do item selecionado
+        painel_vazio: Selecione uma pasta ou arquivo para ver os detalhes.
+        acoes: Ações
+        desfazer: Desfazer
+        visor:
+            rotulo: Visualizar arquivo
+            anterior_dica: Arquivo anterior (←)
+            anterior: Arquivo anterior
+            proximo_dica: Próximo arquivo (→)
+            proximo: Próximo arquivo
+            menos_dica: Diminuir zoom (−)
+            menos: Diminuir zoom
+            mais_dica: Aumentar zoom (+)
+            mais: Aumentar zoom
+            zoom_dica: 'Voltar a 100%'
+            zoom: 'Zoom atual; clique para voltar a 100%'
+            imprimir: Imprimir
+            nova_aba: Abrir em nova aba
+            fechar_dica: Fechar (Esc)
+        sem_arquivos: Nenhum arquivo nesta pasta.
+    checklist:
+        titulo: Checklist de documentação
+        selo: '{concluidos}/{total} itens'
+        barra: Itens concluídos do checklist
+        sugerir_dica: Compara o catálogo de documentos da fase e do tipo de ação com o que a pasta já tem
+        sugerir: Sugerir documentos
+        modelos_dica: Modelos de checklist
+        editar_dica: 'Editar checklist (remover, renomear e reordenar itens)'
+        adicionar_item: Adicionar item
+        desativar_dica: Desativar checklist desta pasta
+        reativar_dica: Reativar checklist
+        ativo: Ativo
+        desativado: Desativado
+        desativar_texto: 'O checklist é o que garante que a pasta tem os documentos para instruir o processo. Com ele desativado, a cobrança dos pendentes, a auditoria de itens marcados sem anexo e o alerta da aba Documentos ficam pausados.'
+        pendentes_um: 'Hoje há {total} documento pendente nesta pasta.'
+        pendentes_varios: 'Hoje há {total} documentos pendentes nesta pasta.'
+        desativar_preferir: Prefira atualizar os itens em vez de desativar.
+        motivo: Motivo da desativação
+        atualizar: Atualizar o checklist
+        manter_ativo: Manter ativo
+        desativar: Desativar
+        modelos_titulo: Modelos do escritório
+        carregando: Carregando…
+        modelos_vazio: Nenhum modelo salvo ainda. Monte o checklist desta pasta e salve abaixo para reaproveitá-lo nas próximas.
+        salvar_modelo_rotulo: Salvar o checklist desta pasta como modelo
+        nome_modelo: Nome do modelo...
+        salvar_modelo: Salvar como modelo
+        novo_placeholder: 'Nome do documento, ex.: Certidão de casamento'
+        novo_rotulo: Novo item do checklist
+        adicionar: Adicionar
+        arrastar: Arrastar para reordenar
+        marcar_pendente: Marcar como pendente
+        marcar_concluido: Marcar como concluído
+        sem_anexo_dica: 'Marcado como entregue, mas nenhum arquivo da pasta tem nome correspondente a este item (conferência por regras: nome do arquivo × título do item).'
+        sem_anexo: sem anexo
+        renomear_rotulo: Renomear item do checklist
+        remover_item: Remover item
+        vazio_antes: Nenhum item. Clique em
+        vazio_depois: para adicionar.
+        desativado_titulo: Checklist desativado
+        usuario_removido: usuário removido
+        desativado_em: 'em {data}'
+        desativado_nota: 'Cobranças, auditoria e alerta da aba pausados. O sistema lembra de revisar a cada 30 dias.'
+        reativar: Reativar
+    metas:
+        status:
+            pendente: Pendente
+            em_revisao: Para Revisão
+            concluida: Concluída
+            atrasada: Atrasada
+        titulo: Metas da pasta
+        filtrar: Filtrar metas
+        filtro:
+            abertas: Abertas
+            atrasadas: Atrasadas
+            concluidas: Concluídas
+            todas: Todas
+        nova_dica: Nova meta para esta pasta
+        nova: Nova meta
+        abrir_relatorio_dica: Abrir o relatório da meta
+        meta_concluida: Meta concluída
+        numero_dica: 'Meta {numero} desta pasta'
+        autor: Autor
+        nao_informado: Não informado
+        responsaveis: Responsáveis
+        responsavel: Responsável
+        prazo_concluida_em: 'Prazo: {prazo} · concluída em {data}'
+        prazo_dica: 'Prazo: {prazo}'
+        atraso_um: '{total} dia em atraso'
+        atraso_varios: '{total} dias em atraso'
+        vence_hoje: vence hoje
+        vence: 'vence {data}'
+        prazo: Prazo
+        criada_em: Criada em
+        ultima_alteracao: última alteração
+        modificada: 'mod. {data}'
+        alertar: Alertar para verificar
+        alertar_meta: 'Alertar para verificar a meta {numero}'
+        alertar_responsavel: '{nome} · responsável'
+        mais_acoes: Mais ações da meta
+        acoes_meta: 'Ações da meta {numero}'
+        abrir_relatorio: Abrir relatório
+        reabrir: Reabrir meta
+        concluir: Marcar como concluída
+        editar_nome: Editar nome
+        encaminhar: Encaminhar via Chat I.A
+        link_copiado: Link da meta copiado
+        copiar_link: Copiar link
+        abrir_em_metas: Abrir em Metas
+        excluir_confirmar: 'Excluir esta meta? Esta ação não pode ser desfeita.'
+        excluir: Excluir
+        nome: Nome da meta
+        salvar: Salvar
+        cancelar: Cancelar
+        filtro_vazio: Nenhuma meta neste filtro
+        filtro_vazio_nota: Troque o filtro acima ou crie uma nova meta.
+        vazio: Nenhuma meta criada para esta pasta
+        vazio_nota: Crie a primeira pelo botão acima.
+        andamento: Andamento das metas
+        concluidas: concluídas
+        legenda:
+            concluida_um: '{total} concluída'
+            concluida_varios: '{total} concluídas'
+            pendente_um: '{total} pendente'
+            pendente_varios: '{total} pendentes'
+            atrasada_um: '{total} atrasada'
+            atrasada_varios: '{total} atrasadas'
+        atencao: Precisa de atenção
+        atencao_um: 'prazo {prazo} · {total} dia em atraso'
+        atencao_varios: 'prazo {prazo} · {total} dias em atraso'
+        atencao_vazio: Nenhuma meta atrasada nesta pasta.
+        atencao_nota: Metas atrasadas continuam contando dias até serem concluídas.
+        pessoas: Responsáveis nas metas
+        conversar: 'Conversar com {nome} no chat'
+        pessoas_vazio: Nenhuma meta com responsável.
+        relatorio: Relatório da meta
+        anterior: Meta anterior
+        proxima: Próxima meta
+        historico: Histórico
+        outras: Outras metas desta pasta
+    anotacoes:
+        mes:
+            jan: jan
+            fev: fev
+            mar: mar
+            abr: abr
+            mai: mai
+            jun: jun
+            jul: jul
+            ago: ago
+            set: set
+            out: out
+            nov: nov
+            dez: dez
+        titulo: Registro dos expedientes
+        contagem_dica: Registros principais (respostas não contam)
+        somente_leitura: 'Pasta excluída: o registro fica só para leitura.'
+        placeholder: Adicionar…
+        visivel_equipe: Visível para a equipe
+        enviar_dica: Enviar (Ctrl+Enter)
+        enviar: Enviar
+        vazio: Nenhum registro ainda
+        vazio_nota: 'Registre acima o que foi combinado, ligado ou andado no caso.'
+        ver_anteriores: 'Ver anotações anteriores ({total})'
+        responder: Responder
+        copiar_texto: Copiar texto
+        encaminhar: Encaminhar via Chat I.A
+        editar: Editar
+        excluir_comentario: Excluir comentário
+        resposta_a: 'Resposta a {nome}'
+        resposta_excluida: Resposta a uma mensagem excluída
+        autor_desconhecido: Autor desconhecido
+        editado_dica: 'Publicado às {hora} · última edição {data} às {hora_edicao}'
+        editado: editado
+        editavel_um: 'Editável por mais {total} minuto'
+        editavel_varios: 'Editável por mais {total} minutos'
+        editar_registro: Editar registro
+        excluir_registro: Excluir registro
+        mais_acoes: Mais ações do registro
+    js:
+        visor_pasta: 'Pasta {pasta}'
+        visor_preparando: Preparando impressão…
+        visor_sem_impressao: Este tipo de arquivo não tem conteúdo para imprimir daqui. Baixe o arquivo para imprimir.
+        visor_abra_conteudo: Abra o conteúdo do arquivo para imprimir
+        visor_falha_impressao: Não foi possível imprimir neste navegador. Baixe o arquivo para imprimir.
+        visor_posicao: '{n} de {total}'
+        visor_imprimir: Imprimir
+        visor_imprimir_indisponivel: 'Imprimir (indisponível): {motivo}'
+        visor_sem_previa: Não foi possível abrir a pré-visualização deste arquivo.
+        visor_baixar_arquivo: Baixar arquivo
+        visor_tarja: 'BlueJus · Pasta {pasta} · {nome} · impresso em {quando}'
+        visor_impressao_de: 'Impressão de {nome}'
+        visor_falha_imagem: Não foi possível carregar a imagem para imprimir.
+        sugeridos_erro_adicionar: 'Não foi possível adicionar "{titulo}" ao checklist.'
+
+# ---- Pasta, aba Detalhes: Relatório inicial de Atendimento (pasta/_detalhes_obs, o script dele e pasta-ler-mais.js)
+pasta_detalhes:
+    titulo: Relatório inicial de Atendimento
+    contagem_dica: Observações principais (respostas não contam)
+    lapide_nota: 'Pasta excluída: o relatório fica só para leitura.'
+    placeholder: Adicionar observação…
+    visivel_equipe: Visível para a equipe
+    enviar: Enviar
+    enviar_dica: Enviar (Ctrl+Enter)
+    vazio_titulo: Nenhuma observação registrada
+    vazio_nota: Registre acima o relato do cliente, o resumo da demanda, a tese e os resultados esperados.
+    motivo_prazo: O prazo de 15 minutos para editar ou excluir terminou.
+    motivo_autor: Só o autor pode editar ou excluir, nos 15 minutos após publicar.
+    cartao:
+        resposta_a: 'Resposta a {nome}'
+        resposta_orfa: Resposta a uma mensagem excluída
+        autor_desconhecido: Autor desconhecido
+        tag: Observação
+        editado: editado
+        editado_dica: 'Publicado às {hora} · última edição {data} às {hora_edicao}'
+        editavel_um: 'Editável por mais {minutos} minuto'
+        editavel_varios: 'Editável por mais {minutos} minutos'
+        editar: Editar observação
+        excluir: Excluir observação
+        responder: Responder
+        encaminhar: Encaminhar via Chat I.A
+        mais_acoes: Mais ações da observação
+    menu:
+        copiar: Copiar texto
+        citar: Citar no novo registro
+        criar_meta: Criar meta a partir deste registro
+        enviar_chat: Enviar no Chat I.A
+        imprimir: Imprimir
+        editar_min: 'Editar · {minutos} min'
+        excluir_min: 'Excluir comentário · {minutos} min'
+        editar_dica: 'Edição liberada por mais {minutos} min'
+        excluir_dica: 'Exclusão liberada por mais {minutos} min'
+        editar_bloqueado: Editar · bloqueado
+        excluir_bloqueado: Excluir · bloqueado
+    js:
+        # compositor, envio e exclusão
+        vazia: A observação não pode ser vazia.
+        enviar: Enviar
+        enviando: Enviando…
+        erro_enviar: Erro ao enviar.
+        erro_enviar_resposta: Erro ao enviar a resposta.
+        erro_editar: Erro ao editar.
+        erro_excluir: Erro ao excluir.
+        erro_rede: Erro de rede.
+        erro_rede_tente: Erro de rede. Tente novamente.
+        excluir_titulo: 'Excluir o comentário de {autor}?'
+        excluir_texto: '"{trecho}". Ele some para toda a equipe e a exclusão fica registrada no histórico.'
+        colaborador: colaborador
+        vazio_titulo: Nenhuma observação registrada
+        vazio_nota: Registre acima o relato do cliente, o resumo da demanda, a tese e os resultados esperados.
+        # cartão montado no JS (o mesmo do Twig)
+        autor_desconhecido: Autor desconhecido
+        resposta_a: 'Resposta a {nome}'
+        resposta_orfa: Resposta a uma mensagem excluída
+        tag: Observação
+        editado: editado
+        editado_quando: '{data} às {hora}'
+        editado_dica: 'Publicado às {hora} · última edição {quando}'
+        editado_dica_sem_hora: 'última edição {quando}'
+        editavel_um: 'Editável por mais {minutos} minuto'
+        editavel_varios: 'Editável por mais {minutos} minutos'
+        editar: Editar observação
+        excluir: Excluir observação
+        responder: Responder
+        encaminhar: Encaminhar via Chat I.A
+        mais_acoes: Mais ações da observação
+        # ⋮ da observação
+        copiar: Copiar texto
+        citar: Citar no novo registro
+        criar_meta: Criar meta a partir deste registro
+        enviar_chat: Enviar no Chat I.A
+        imprimir: Imprimir
+        editar_min: 'Editar · {minutos} min'
+        excluir_min: 'Excluir comentário · {minutos} min'
+        editar_dica: 'Edição liberada por mais {minutos} min'
+        excluir_dica: 'Exclusão liberada por mais {minutos} min'
+        editar_bloqueado: Editar · bloqueado
+        excluir_bloqueado: Excluir · bloqueado
+        texto_copiado: Texto copiado
+        nao_copiou: Não foi possível copiar
+        chat_texto: 'Pasta {pasta} · {cabecalho}'
+        chat_copiado: Chat I.A aberto. Texto copiado para colar na conversa
+        chat_nao_copiou: Chat I.A aberto. Não foi possível copiar o texto
+        # Responder e editar
+        respondendo_a: 'Respondendo a {nome}'
+        resposta_placeholder: Escreva a resposta…
+        cancelar: Cancelar
+        salvar: Salvar
+        visivel_equipe: Visível para a equipe
+        # pasta-ler-mais.js
+        ler_mais_um: 'continuar lendo ({total} parágrafo)'
+        ler_mais_varios: 'continuar lendo ({total} parágrafos)'
+        ler_menos: mostrar menos
 
 # ---- fim

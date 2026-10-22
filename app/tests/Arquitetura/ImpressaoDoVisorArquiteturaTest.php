@@ -7,6 +7,7 @@ namespace App\Tests\Arquitetura;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * DOC-108: o visor da aba Documentos imprime o conteúdo JÁ desenhado (DOCX, planilha, texto,
@@ -28,6 +29,7 @@ final class ImpressaoDoVisorArquiteturaTest extends TestCase
 {
     private const VISOR        = 'public/js/pasta-explorador-visor.js';
     private const VISUALIZADOR = 'public/js/visualizador-documento.js';
+    private const CATALOGO     = __DIR__ . '/../../translations/messages+intl-icu.pt_BR.yaml';
 
     private static function ler(string $arquivo): string
     {
@@ -94,8 +96,8 @@ final class ImpressaoDoVisorArquiteturaTest extends TestCase
         $js     = self::ler(self::VISOR);
         $tarja  = self::funcao($js, 'tarjaDeImpressao');
 
-        self::assertStringContainsString("cab.textContent = 'BlueJus · Pasta ' + (visor.dataset.pastaRotulo || '') + ' · ' + a.nome", $tarja);
-        self::assertStringContainsString("+ ' · impresso em ' + new Date().toLocaleString('pt-BR');", $tarja);
+        self::assertStringContainsString("cab.textContent = BJ_T.t('pasta_documentos.js.visor_tarja', { pasta: visor.dataset.pastaRotulo || '', nome: a.nome, quando: new Date().toLocaleString('pt-BR') });", $tarja);
+        self::assertSame('BlueJus · Pasta {pasta} · {nome} · impresso em {quando}', Yaml::parseFile(self::CATALOGO)['pasta_documentos']['js']['visor_tarja']);
         self::assertStringContainsString("const CSS_TARJA = '.cab{font-size:9pt;color:#6b8494;border-bottom:1px solid #c9d6de;padding-bottom:4px;margin-bottom:10px}';", $js);
 
         $imprimir = self::funcao($js, 'imprimir');
