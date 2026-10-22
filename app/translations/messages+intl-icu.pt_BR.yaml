@@ -1110,6 +1110,7 @@ expediente:
                 exportar_csv: Exportar colunas visíveis (CSV)
                 titulo: Colunas da tabela · {n} visíveis
                 ajuste_seu: 'Ajuste só seu: não muda para o resto da equipe'
+                falha_gravar: Falha de conexão ao guardar as colunas
             marcador:
                 titulo: MARCADOR
                 nenhum: Nenhum marcador
