@@ -9,6 +9,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\TipoDeApenso;
 use App\Processo\Entity\Processo;
 use App\Processo\Service\DatajudClient;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -562,6 +563,89 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         self::assertContains($disponivel->getId(), $ids);
         self::assertNotContains($vinculado->getId(), $ids);
         self::assertNotContains($alheio->getId(), $ids);
+    }
+
+    #[TestDox('Desenho N:299-302: sem termo, a busca devolve os 8 primeiros do escritório (a lista abre ao focar), sem os de outro escritório')]
+    public function testBuscarSemTermoDevolveOitoDoTenant(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        for ($i = 0; $i < 10; ++$i) {
+            $this->criarProcesso($tenant, '3' . sprintf('%019d', $i));
+        }
+        $alheio = $this->criarProcesso($this->criarTenant(), '40404040404040404040');
+
+        $this->autenticar($client, $user, $tenant);
+        $client->request('GET', "/pasta/{$pasta->getId()}/processo/buscar", [], [], self::XHR);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertCount(8, $data['results']);
+        self::assertNotContains($alheio->getId(), array_column($data['results'], 'id'));
+    }
+
+    #[TestDox('Com termo, a busca filtra; o número digitado com a máscara do CNJ casa pelos dígitos')]
+    public function testBuscarComTermoFiltra(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $alvo            = $this->criarProcesso($tenant, '07069580320218070018', 'MONITORIA');
+        $outro           = $this->criarProcesso($tenant, '10701670520244013400', 'USUCAPIAO');
+
+        $this->autenticar($client, $user, $tenant);
+
+        $client->request('GET', "/pasta/{$pasta->getId()}/processo/buscar?q=monit", [], [], self::XHR);
+        $ids = array_column(json_decode((string) $client->getResponse()->getContent(), true)['results'], 'id');
+        self::assertSame([$alvo->getId()], $ids);
+
+        $client->request('GET', "/pasta/{$pasta->getId()}/processo/buscar?q=" . rawurlencode('0706958-03.2021'), [], [], self::XHR);
+        $ids = array_column(json_decode((string) $client->getResponse()->getContent(), true)['results'], 'id');
+        self::assertSame([$alvo->getId()], $ids);
+        self::assertNotContains($outro->getId(), $ids);
+    }
+
+    #[TestDox('Cada item traz número, classe, tribunal e a origem: pasta N, apensado da pasta N ou Push processual')]
+    public function testBuscarTrazAOrigem(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $outraPasta      = $this->criarPasta($tenant);
+        $daPasta         = $this->criarProcesso($tenant, '50000000000000000001', 'ORIGEMTESTE');
+        $apensado        = $this->criarProcesso($tenant, '50000000000000000002', 'ORIGEMTESTE');
+        $soPush          = $this->criarProcesso($tenant, '50000000000000000003', 'ORIGEMTESTE');
+        $this->vincular($outraPasta, $daPasta, principal: true);
+        $outraPasta->vincularApensado($apensado, TipoDeApenso::Embargos);
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $this->autenticar($client, $user, $tenant);
+        $client->request('GET', "/pasta/{$pasta->getId()}/processo/buscar?q=origemteste", [], [], self::XHR);
+
+        self::assertResponseIsSuccessful();
+        $porId = array_column(json_decode((string) $client->getResponse()->getContent(), true)['results'], null, 'id');
+        self::assertSame(['tipo' => 'pasta', 'pasta' => $outraPasta->getNup()], $porId[$daPasta->getId()]['origem']);
+        self::assertSame(['tipo' => 'apensado', 'pasta' => $outraPasta->getNup()], $porId[$apensado->getId()]['origem']);
+        self::assertSame(['tipo' => 'push', 'pasta' => null], $porId[$soPush->getId()]['origem']);
+        self::assertSame('50000000000000000001', $porId[$daPasta->getId()]['numero']);
+        self::assertSame('ORIGEMTESTE', $porId[$daPasta->getId()]['classe']);
+    }
+
+    #[TestDox('Outro escritório não busca pela pasta alheia: nenhum processo dela vaza')]
+    public function testBuscarNaoVazaOutroEscritorio(): void
+    {
+        $client             = static::createClient();
+        [, $tenantA]         = $this->criarUsuarioAdmin();
+        $pastaA              = $this->criarPasta($tenantA);
+        $this->criarProcesso($tenantA, '60000000000000000006', 'SIGILOSO');
+        [$intruso, $tenantB] = $this->criarUsuarioAdmin();
+
+        $this->autenticar($client, $intruso, $tenantB);
+        $client->request('GET', "/pasta/{$pastaA->getId()}/processo/buscar", [], [], self::XHR);
+
+        self::assertNotSame(200, $client->getResponse()->getStatusCode());
+        self::assertStringNotContainsString('60000000000000000006', (string) $client->getResponse()->getContent());
     }
 
     // ── Helpers ──
