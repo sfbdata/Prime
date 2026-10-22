@@ -164,4 +164,24 @@ final class BuscarProcessosParaVincularUseCaseTest extends TestCase
         $prop = new \ReflectionProperty($entidade, 'id');
         $prop->setValue($entidade, $id);
     }
+
+    #[TestDox('Processo em duas pastas, a principal invisível e a outra visível: a origem traz o número da visível')]
+    public function testPrefereAPastaQueOUsuarioVe(): void
+    {
+        $pasta = $this->pasta('0100');
+        $processo = $this->processo(1, '00000010120248070001');
+        $invisivel = $this->pasta('0400');
+        $visivel = $this->pasta('0500');
+        $principal = (new PastaProcesso($invisivel, $processo))->setPrincipal(true);
+
+        $this->processos->method('buscarPorTermoDoTenant')->willReturn([$processo]);
+        $this->pastas->method('vinculosDosProcessos')->willReturn([$principal, new PastaProcesso($visivel, $processo)]);
+        $this->permissoes->method('canAccessResource')->willReturnCallback(
+            static fn (User $u, Tenant $t, string $tipo, int $id): bool => $id === $visivel->getId(),
+        );
+
+        $item = $this->useCase->executar($pasta, '', $this->tenant, $this->usuario)[0]->paraJson();
+
+        self::assertSame(['tipo' => 'pasta', 'pasta' => '0500'], $item['origem']);
+    }
 }

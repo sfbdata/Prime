@@ -664,6 +664,30 @@ final class VincularProcessoControllerTest extends JusPrimeWebTestCase
         self::assertSame(['tipo' => 'pasta', 'pasta' => $pastaB->getNup()], $item['origem']);
     }
 
+    #[TestDox('Processo em duas pastas, a principal invisível ao usuário e a outra visível: a origem mostra o número da visível')]
+    public function testOrigemPrefereAPastaVisivel(): void
+    {
+        $client          = static::createClient();
+        [, $tenant]      = $this->criarUsuarioAdmin();
+        $pastaA          = $this->criarPasta($tenant);
+        $invisivel       = $this->criarPasta($tenant);
+        $visivel         = $this->criarPasta($tenant);
+        $processo        = $this->criarProcesso($tenant, '80000000000000000008', 'ORIGEMDUPLA');
+        $this->vincular($invisivel, $processo, principal: true);
+        $this->vincular($visivel, $processo, principal: true);
+        $usuario = $this->criarUsuarioComPermissoes($tenant, []);
+        $this->darAcessoDeLeitura($usuario, $tenant, $pastaA);
+        $this->darAcessoDeLeitura($usuario, $tenant, $visivel);
+
+        $this->autenticar($client, $usuario, $tenant);
+        $client->request('GET', "/pasta/{$pastaA->getId()}/processo/buscar?q=origemdupla", [], [], self::XHR);
+
+        self::assertResponseIsSuccessful();
+        $item = json_decode((string) $client->getResponse()->getContent(), true)['results'][0];
+        self::assertSame(['tipo' => 'pasta', 'pasta' => $visivel->getNup()], $item['origem']);
+        self::assertStringNotContainsString((string) $invisivel->getNup(), (string) $client->getResponse()->getContent());
+    }
+
     #[TestDox('Outro escritório não busca pela pasta alheia: nenhum processo dela vaza')]
     public function testBuscarNaoVazaOutroEscritorio(): void
     {

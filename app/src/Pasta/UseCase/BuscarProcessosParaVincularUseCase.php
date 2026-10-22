@@ -67,7 +67,9 @@ final class BuscarProcessosParaVincularUseCase
     }
 
     /**
-     * Por processo, a primeira pasta em que ele não é apensado; não havendo, a primeira em que é.
+     * Por processo, o vínculo de uma pasta que o usuário pode VER; entre esses, o de pasta em que ele não é
+     * apensado e, empatando, o principal primeiro (a ordem da consulta). "Outra pasta" (`null`) só quando o
+     * usuário não vê nenhuma das pastas do processo.
      *
      * @param list<PastaProcesso> $vinculos
      *
@@ -76,17 +78,19 @@ final class BuscarProcessosParaVincularUseCase
     private function origens(array $vinculos, Tenant $tenant, User $usuario): array
     {
         $origens = [];
+        $pontos = [];
         $podeVer = [];
         foreach ($vinculos as $vinculo) {
             $id = (int) $vinculo->getProcesso()->getId();
             $apensado = !$vinculo->isPrincipal() && $vinculo->getTipoApenso() !== null;
-            $atual = $origens[$id][0] ?? null;
-            if ($atual === ProcessoParaVincularOutput::ORIGEM_PASTA || ($atual !== null && $apensado)) {
-                continue;
-            }
             $outra = $vinculo->getPasta();
             $idPasta = (int) $outra->getId();
             $podeVer[$idPasta] ??= $this->permissionChecker->canAccessResource($usuario, $tenant, AccessRequest::RESOURCE_PASTA, $idPasta, AccessRequest::ACTION_VIEW);
+            $ponto = ($podeVer[$idPasta] ? 2 : 0) + ($apensado ? 0 : 1);
+            if (isset($pontos[$id]) && $pontos[$id] >= $ponto) {
+                continue;
+            }
+            $pontos[$id] = $ponto;
             $origens[$id] = [
                 $apensado ? ProcessoParaVincularOutput::ORIGEM_APENSADO : ProcessoParaVincularOutput::ORIGEM_PASTA,
                 $podeVer[$idPasta] ? self::numeroDaPasta($outra) : null,
