@@ -1032,6 +1032,35 @@ antes e depois, sem diferença; o texto dos scripts foi conferido chave por chav
   Cobrança e pela tarefa); as mensagens `erro` que o `PastaController` devolve no JSON das rotas de observação; e os
   comentários do arquivo, que não vão à tela.
 
+### 20.7 Peticionar (4b, 21/10)
+
+- **Escopo:** `pasta/peticionar` (com os dois scripts inline) e o `peticionar-documentos.js` (carregado só pelo
+  Peticionar). O `layout_peticionar` ficou com a extração da raiz (§24, chaves `peticionar.*`, `moldura.*` e
+  `menu.usuario.*`); daqui só entrou nele o `bj-traducao.js` (abaixo). Bloco de topo
+  `pasta_peticionar` do catálogo, 89 chaves (`lista` 8, `barra` 5, `preview` 3, `salvar_texto` 3,
+  `envio` 10, `descarte` 4, comuns 12), com `pasta_peticionar.js.*` (44) para o script inline e o JS. Área
+  `pasta_peticionar` no `templates-extraidos.json`, com a marca (`BlueJus`, `| BlueJus`), a constante das categorias,
+  as teclas, o `Content-Type`, o `Files` do arrastar e dois pedaços do `map(ext => ...)` do `accept` que o detector
+  lê como texto (o `=>` parece fim de tag) nos permitidos.
+- **Catálogo do JS:** o `layout_peticionar` não estende o base e não tinha o `bj-traducao.js`; passou a carregá-lo
+  (sem `defer`) logo antes do bloco `javascripts`, como o base. O `catalogo_js('pasta_peticionar.js')` abre o bloco
+  `javascripts` da tela, antes do script inline e do `peticionar-documentos.js`.
+- **Sem mudança visível:** o HTML de 5 situações (quem edita com pasta cheia, com cliente, ação, processo completo com
+  polo ativo e passivo, seção, notificação e quatro tipos de documento; pasta vazia sem cliente nem processo; pasta
+  excluída; quem só vê, com a pasta cheia e a vazia), com dados que têm apóstrofo, aspas, `&` e `<b>`, foi gravado
+  antes e depois e comparado com tokens, dígitos e espaços normalizados: saiu igual. Mudaram só o `<script data-bj-t>`
+  e o `bj-traducao.js` que entraram, as aspas da dica da lista vazia (`"Adicionar peça"` agora sai como `&quot;`, o
+  mesmo texto na tela) e os literais dos scripts inline, trocados por `BJ_T.t()`; cada chave nova foi conferida contra
+  o texto que ela substituiu.
+- **Formatos:** o dia do separador da lista e o `|date('d/m/Y')` da distribuição viraram `|data`, o
+  `data-carregado-em`, `|data_hora`, e a hora da linha, `|hora` (todos com data sempre presente).
+- **Ficou para depois:** os rótulos das categorias (`categoriaLabels` do `PeticionarController`), o `uploadedAt` e as
+  mensagens (`mensagem`, `error`, `erro`) que as rotas de envio, texto e exclusão devolvem ao JS; o tamanho do arquivo
+  (`number_format(1, ',', '.')` no Twig e `toFixed(1).replace('.', ',')` no JS, que precisam mudar juntos, e o
+  `formatarBytes` do aviso de redução, que escreve `1.5 MB` com ponto); o `language: 'pt_BR'` do TinyMCE; o
+  `lang="pt-BR"` fixo do `layout_peticionar`; e o `'Falha ao carregar o documento'` do script inline, que só vai ao
+  console.
+
 ## 25. E-mails e as páginas que eles abrem (5d, 21/10)
 
 Três PRs, um aberto por vez, sem migration e com o português idêntico:
