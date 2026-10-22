@@ -621,5 +621,31 @@
             "Escape",
             "ArrowDown"
         ]
+    },
+
+    "pasta_resp": {
+        "templates": [
+            "pasta/_historico_drawer.html.twig",
+            "pasta/_impressao_modal.html.twig",
+            "pasta/_pontos_relatorio.html.twig",
+            "pasta/_resp_chip.html.twig",
+            "pasta/_resp_estilo.html.twig",
+            "pasta/_resp_menu.html.twig",
+            "pasta/_resp_script.html.twig",
+            "pasta/_timeline_inteligente.html.twig",
+            "pasta/resumo_impressao.html.twig"
+        ],
+        "js": [
+            "pasta-impressao.js",
+            "pasta-timeline.js"
+        ],
+        "permitidos": [
+            "BLUEJUS",
+            "BlueJus",
+            "App\\\\Pasta\\\\DTO\\\\PastaFinanceiroOutput::SEM_DADO",
+            "Accept",
+            "AbortError",
+            "Escape"
+        ]
     }
 }
