@@ -736,5 +736,44 @@
             "WhatsApp",
             "Content-Type"
         ]
+    },
+
+    "trabalho_externo": {
+        "templates": [
+            "trabalho_externo/convite.html.twig",
+            "trabalho_externo/curriculo_documento.html.twig",
+            "trabalho_externo/index.html.twig",
+            "trabalho_externo/sem_acesso.html.twig",
+            "trabalho_externo/vagas_publicas.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "BlueJus",
+            "te-body",
+            "App\\\\Auth\\\\UseCase\\\\CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR"
+        ]
+    },
+
+    "central": {
+        "templates": [
+            "central/_flutuante.html.twig",
+            "central/_janela.html.twig",
+            "central/index.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "App\\\\Central\\\\Entity\\\\Mensagem::TAMANHO_MAXIMO"
+        ]
+    },
+
+    "servicedesk": {
+        "templates": [
+            "servicedesk/index.html.twig",
+            "servicedesk/meus_chamados.html.twig",
+            "servicedesk/novo.html.twig",
+            "servicedesk/show.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
     }
 }

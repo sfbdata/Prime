@@ -4,21 +4,19 @@
    módulo talvez também fechado para a pessoa (e aí à página técnica 403). Sem link para outro
    módulo: não sabemos qual ela pode abrir. `semEscritorio`: conta sem escritório escolhido. #}
 
-{% block title %}Sem acesso · Trabalho Externo{% endblock %}
+{% block title %}{{ 'trabalho_externo.sem_acesso.titulo_pagina'|trans }}{% endblock %}
 
 {% block body %}
 <div class="te-sem-acesso container py-5" style="max-width: 640px;">
     <div class="card shadow-sm">
         <div class="card-body p-4 text-center">
             <i class="bi bi-shield-lock fs-1 text-secondary" aria-hidden="true"></i>
-            <h1 class="h4 mt-3">Você não tem acesso ao Trabalho Externo</h1>
+            <h1 class="h4 mt-3">{{ 'trabalho_externo.sem_acesso.titulo'|trans }}</h1>
             <p class="text-muted mb-0">
                 {% if semEscritorio %}
-                    Esta conta não tem escritório nem convite vigente. Se você recebeu um convite por e-mail,
-                    abra o link do convite para entrar na demanda.
+                    {{ 'trabalho_externo.sem_acesso.sem_escritorio'|trans }}
                 {% else %}
-                    O seu perfil não tem permissão para este módulo. Se precisar dele, peça ao
-                    administrador do seu escritório para liberar o acesso.
+                    {{ 'trabalho_externo.sem_acesso.sem_permissao'|trans }}
                 {% endif %}
             </p>
         </div>
