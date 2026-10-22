@@ -60,13 +60,15 @@
                 ? tarefaDoPrazo.responsaveis.toArray|filter(r => app.user is null or r.id != app.user.id)
                 : [] %}
             {% set chave = prazo.prazoId ? 'm' ~ prazo.prazoId : prazo.tarefaId %}
+            {# Calculado do Push (docs/specs/prazo-do-push.md): a origem e o selo "confira" vêm do catálogo. #}
+            {% set metaDoPrazo = prazo.push ? prazo.meta ~ ' · ' ~ 'pasta_dados.prazos.origem_push'|trans : prazo.meta %}
             <div class="ps-linha ps-prazo" data-prazo-id="{{ prazo.tarefaId }}"{% if prazo.prazoId and prazo.manual %} data-prazo-manual="{{ prazo.prazoId }}"{% endif %}>
                 <span class="ps-pip ps-pip--{{ prazo.tom }}"></span>
                 <div class="ps-linha-corpo">
                     <div class="ps-linha-titulo">
                         {% if prazo.tarefaId %}<a href="{{ path('tarefa_show', {id: prazo.tarefaId}) }}">{{ prazo.titulo }}</a>{% else %}{{ prazo.titulo }}{% endif %}
                     </div>
-                    <div class="ps-linha-meta">{{ prazo.meta }}</div>
+                    <div class="ps-linha-meta">{{ metaDoPrazo }}{% if prazo.push %} <span class="ps-prazo-calculado{{ prazo.podeSerEmDobro ? ' ps-prazo-calculado--dobro' }}" title="{{ (prazo.podeSerEmDobro ? 'pasta_dados.prazos.selo_push_dobro_dica' : 'pasta_dados.prazos.selo_push_dica')|trans }}">{{ (prazo.podeSerEmDobro ? 'pasta_dados.prazos.selo_push_dobro' : 'pasta_dados.prazos.selo_push')|trans }}</span>{% endif %}</div>
                 </div>
                 <span class="ps-selo ps-selo--{{ prazo.tom }}">{{ prazo.selo }}</span>
                 <div class="ps-pop-wrap ps-prazo-mais-wrap">
@@ -75,11 +77,13 @@
                             title="Mais opções" aria-label="Mais opções do prazo"><i class="bi bi-three-dots-vertical"></i></button>
                     <div class="ps-pop ps-pop--menu ps-pop--prazo" id="psPrazoMenu{{ chave }}" role="menu">
                         <div class="ps-pop-secao ps-prazo-menu-titulo" title="{{ prazo.titulo }}">{{ prazo.titulo }}</div>
-                        {% if prazo.prazoId and prazo.manual and podeRegistrarPrazo %}
+                        {% if prazo.prazoId and (prazo.manual or prazo.push) and podeRegistrarPrazo %}
                             <button type="button" class="ps-pop-item js-prazo-cumprir" role="menuitem"
                                     data-url="{{ path('pasta_prazo_cumprir', {id: pasta.id, prazoId: prazo.prazoId}) }}">
                                 <i class="bi bi-check2-circle"></i><span>Marcar como cumprido</span>
                             </button>
+                            {# O calculado do Push só se cumpre: editar e excluir são do manual. #}
+                            {% if prazo.manual %}
                             <button type="button" class="ps-pop-item js-prazo-editar" role="menuitem"
                                     data-prazo-id="{{ prazo.prazoId }}" data-tipo="{{ prazo.tipo }}"
                                     data-titulo="{{ prazo.descricao }}" data-data="{{ prazo.dataIso }}"
@@ -90,6 +94,7 @@
                                     data-url="{{ path('pasta_prazo_excluir', {id: pasta.id, prazoId: prazo.prazoId}) }}">
                                 <i class="bi bi-trash3"></i><span>Excluir</span>
                             </button>
+                            {% endif %}
                             <div class="ps-pop-sep"></div>
                         {% endif %}
                         <button type="button" class="ps-pop-item" role="menuitem" data-ps-ir-aba="tarefas-tab">
@@ -124,7 +129,7 @@
                             </button>
                         {% endif %}
                         <button type="button" class="ps-pop-item js-ps-copiar" role="menuitem"
-                                data-ps-copiar="{{ (prazo.titulo ~ ' · ' ~ prazo.selo ~ ' · ' ~ prazo.meta ~ ' · Pasta ' ~ pasta.nup)|e('html_attr') }}"
+                                data-ps-copiar="{{ (prazo.titulo ~ ' · ' ~ prazo.selo ~ ' · ' ~ metaDoPrazo ~ ' · Pasta ' ~ pasta.nup)|e('html_attr') }}"
                                 data-ps-copiado="Prazo copiado">
                             <i class="bi bi-clipboard"></i><span>Copiar</span>
                         </button>
