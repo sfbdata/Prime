@@ -42,7 +42,9 @@ final class CumprirPrazoDaPastaUseCase
         if ($prazo === null) {
             throw new \DomainException('Prazo não encontrado.');
         }
-        if (!$prazo->isManual()) {
+        // O calculado do Push se cumpre (a sincronização preserva o cumprido), mas não se exclui: some quando a
+        // publicação deixa de gerar o prazo. O lido de um registro não se cumpre nem se exclui.
+        if (!$prazo->isManual() && ($excluir || !$prazo->isPush())) {
             throw new \DomainException('Prazo lido de um registro muda quando o registro muda.');
         }
 

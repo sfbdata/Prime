@@ -16,7 +16,7 @@ use App\Shared\Prazo\RegraDoPrazo;
  * não cumpridos) e as metas ABERTAS com prazo (origem "Meta"), do mais próximo ao mais distante. Meta sem prazo
  * não entra: ela não tem posição numa lista ordenada por data. Os prazos lidos das datas escritas nos registros
  * (E12c, origem "Registro dos expedientes", "Detalhes" ou "Financeiro") entram como os manuais, mas sem as ações:
- * mudam quando o registro muda. Os calculados do Push (docs/specs/prazo-do-push.md) também entram sem as ações; a
+ * mudam quando o registro muda. Os calculados do Push (docs/specs/prazo-do-push.md) entram só com o cumprir; a
  * origem "Push processual" e o selo "prazo calculado, confira" a tela escreve pelo catálogo (`push`).
  */
 final readonly class PastaPrazoOutput
@@ -47,7 +47,7 @@ final readonly class PastaPrazoOutput
         /** Descrição sem o prefixo de audiência (o que se edita). */
         public string $descricao = '',
         public int $dias = 0,
-        /** Prazo do "+" do trilho: só esse se cumpre, edita e exclui. */
+        /** Prazo do "+" do trilho: só esse se edita e exclui (cumprir também vale para o do Push). */
         public bool $manual = false,
         /** Calculado do Push: a `meta` vem sem a origem, que a tela escreve junto com o selo. */
         public bool $push = false,

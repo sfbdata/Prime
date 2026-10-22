@@ -72,8 +72,8 @@ class PastaPrazo implements TenantAware, Auditavel
 
     /**
      * `manual` (o "+" do trilho), `registro` (lido de uma data escrita num registro da pasta pelo LeitorDeDatas,
-     * E12c) ou `push` (calculado da publicação do Push). O lido e o calculado não se editam: mudam quando a origem
-     * muda.
+     * E12c) ou `push` (calculado da publicação do Push, que se cumpre). O lido e o calculado não se editam: mudam
+     * quando a origem muda.
      */
     #[ORM\Column(length: 20, options: ['default' => self::ORIGEM_MANUAL])]
     private string $origem = self::ORIGEM_MANUAL;

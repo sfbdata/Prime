@@ -8,15 +8,18 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Pasta\Controller\PastaPrazoController;
 use App\Pasta\DTO\PastaPrazoOutput;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPrazo;
+use App\Pasta\UseCase\CumprirPrazoDaPastaUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * O prazo calculado do Push na tela (docs/specs/prazo-do-push.md §2 e §4): no trilho da pasta com a origem "Push
@@ -24,6 +27,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  */
 #[CoversClass(PastaPrazoOutput::class)]
 #[CoversClass(PastaPrazo::class)]
+#[CoversClass(CumprirPrazoDaPastaUseCase::class)]
 final class PrazoDoPushNaTelaTest extends JusPrimeWebTestCase
 {
     private KernelBrowser $client;
@@ -35,7 +39,7 @@ final class PrazoDoPushNaTelaTest extends JusPrimeWebTestCase
         $this->client->disableReboot();
     }
 
-    #[TestDox('o trilho mostra o prazo do Push com a origem "Push processual", o selo "prazo calculado, confira" e sem as ações do manual')]
+    #[TestDox('o trilho mostra o prazo do Push com a origem "Push processual", o selo "prazo calculado, confira" e só o cumprir')]
     public function testTrilhoMostraOSelo(): void
     {
         [$user, $tenant] = $this->criarAdmin();
@@ -50,8 +54,42 @@ final class PrazoDoPushNaTelaTest extends JusPrimeWebTestCase
         self::assertSame('Prazo do Push: Réplica (parte autora)', trim($linha->filter('.ps-linha-titulo')->text()));
         self::assertStringContainsString('Sem responsável · ' . $this->dia('+2 days')->format('d/m') . ' · Push processual', $linha->filter('.ps-linha-meta')->text());
         self::assertSame('prazo calculado, confira', trim($linha->filter('.ps-linha-meta > .ps-prazo-calculado')->text()));
-        self::assertCount(0, $linha->filter('.js-prazo-cumprir, .js-prazo-editar, .js-prazo-excluir'));
+        self::assertCount(1, $linha->filter('.js-prazo-cumprir'), 'o prazo do Push se cumpre pela tela');
+        self::assertCount(0, $linha->filter('.js-prazo-editar, .js-prazo-excluir'), 'editar e excluir são só do manual');
         self::assertStringContainsString('· Push processual · Pasta', (string) $linha->filter('.js-ps-copiar')->attr('data-ps-copiar'));
+    }
+
+    #[TestDox('pela rota: o prazo do Push e o manual se cumprem; o do Push não se exclui; o lido de um registro continua recusado')]
+    public function testCumprirPelaRota(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->prazoDoPush($tenant, $pasta, PastaPrazo::TIPO_PRAZO, $this->dia('+2 days'), $this->dia('-5 days'));
+        $push = (int) $this->em()->getConnection()->fetchOne("SELECT id FROM pasta_prazo WHERE pasta_id = ? AND origem = 'push'", [$pasta->getId()]);
+        $manual = new PastaPrazo($tenant, $pasta, $user);
+        $manual->definir(PastaPrazo::TIPO_PRAZO, 'Prazo do cliente', $this->dia('+3 days'), null, null);
+        $lido = PastaPrazo::doRegistro($tenant, $pasta, 'expedientes:1', $this->dia('-1 day'), $user, PastaPrazo::TIPO_PRAZO, 'Lido', $this->dia('+4 days'), null, false);
+        $this->em()->persist($manual);
+        $this->em()->persist($lido);
+        $this->em()->flush();
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        // O lido primeiro: o cartão do sistema dos outros cumprir relê os registros e a linha lida de mentira some.
+        $this->postarNoPrazo($pasta, (int) $lido->getId(), 'cumprir');
+        self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode(), 'o lido continua recusado');
+        self::assertNull($this->em()->getConnection()->fetchOne('SELECT cumprido_em FROM pasta_prazo WHERE id = ?', [$lido->getId()]));
+        $this->postarNoPrazo($pasta, $push, 'excluir');
+        self::assertGreaterThanOrEqual(400, $this->client->getResponse()->getStatusCode(), 'o do Push não se exclui');
+        $this->postarNoPrazo($pasta, $push, 'cumprir');
+        self::assertResponseIsSuccessful();
+        $this->postarNoPrazo($pasta, (int) $manual->getId(), 'cumprir');
+        self::assertResponseIsSuccessful();
+
+        self::assertSame(['manual', 'push'], $this->em()->getConnection()->fetchFirstColumn(
+            'SELECT origem FROM pasta_prazo WHERE pasta_id = ? AND cumprido_em IS NOT NULL ORDER BY origem',
+            [$pasta->getId()],
+        ));
     }
 
     #[TestDox('prazo manual não ganha o selo do Push')]
@@ -157,6 +195,40 @@ final class PrazoDoPushNaTelaTest extends JusPrimeWebTestCase
         $titulo = $tipo === PastaPrazo::TIPO_AUDIENCIA ? 'Audiência do Push' : 'Prazo do Push: Réplica (parte autora)';
         $this->em()->persist(PastaPrazo::doPush($tenant, $pasta, 1, $disponibilizadaEm, $tipo, $titulo, $data, null, $tipo === PastaPrazo::TIPO_PRAZO));
         $this->em()->flush();
+    }
+
+    private function postarNoPrazo(Pasta $pasta, int $prazoId, string $acao): void
+    {
+        $this->client->xmlHttpRequest('POST', '/pasta/' . $pasta->getId() . '/prazos/' . $prazoId . '/' . $acao, ['_token' => 'TOKEN_' . PastaPrazoController::idDoToken((int) $pasta->getId())]);
+    }
+
+    private function instalarCsrfStorage(): void
+    {
+        $storage = new class () implements ClearableTokenStorageInterface {
+            public function getToken(string $tokenId): string
+            {
+                return 'TOKEN_' . $tokenId;
+            }
+
+            public function setToken(string $tokenId, string $token): void
+            {
+            }
+
+            public function removeToken(string $tokenId): ?string
+            {
+                return null;
+            }
+
+            public function hasToken(string $tokenId): bool
+            {
+                return true;
+            }
+
+            public function clear(): void
+            {
+            }
+        };
+        static::getContainer()->set('security.csrf.token_storage', $storage);
     }
 
     private function painel(string $query): string

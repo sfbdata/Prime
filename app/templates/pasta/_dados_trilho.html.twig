@@ -77,11 +77,13 @@
                             title="Mais opções" aria-label="Mais opções do prazo"><i class="bi bi-three-dots-vertical"></i></button>
                     <div class="ps-pop ps-pop--menu ps-pop--prazo" id="psPrazoMenu{{ chave }}" role="menu">
                         <div class="ps-pop-secao ps-prazo-menu-titulo" title="{{ prazo.titulo }}">{{ prazo.titulo }}</div>
-                        {% if prazo.prazoId and prazo.manual and podeRegistrarPrazo %}
+                        {% if prazo.prazoId and (prazo.manual or prazo.push) and podeRegistrarPrazo %}
                             <button type="button" class="ps-pop-item js-prazo-cumprir" role="menuitem"
                                     data-url="{{ path('pasta_prazo_cumprir', {id: pasta.id, prazoId: prazo.prazoId}) }}">
                                 <i class="bi bi-check2-circle"></i><span>Marcar como cumprido</span>
                             </button>
+                            {# O calculado do Push só se cumpre: editar e excluir são do manual. #}
+                            {% if prazo.manual %}
                             <button type="button" class="ps-pop-item js-prazo-editar" role="menuitem"
                                     data-prazo-id="{{ prazo.prazoId }}" data-tipo="{{ prazo.tipo }}"
                                     data-titulo="{{ prazo.descricao }}" data-data="{{ prazo.dataIso }}"
@@ -92,6 +94,7 @@
                                     data-url="{{ path('pasta_prazo_excluir', {id: pasta.id, prazoId: prazo.prazoId}) }}">
                                 <i class="bi bi-trash3"></i><span>Excluir</span>
                             </button>
+                            {% endif %}
                             <div class="ps-pop-sep"></div>
                         {% endif %}
                         <button type="button" class="ps-pop-item" role="menuitem" data-ps-ir-aba="tarefas-tab">
