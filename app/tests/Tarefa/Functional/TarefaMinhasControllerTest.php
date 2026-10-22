@@ -146,6 +146,39 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('.mm-caixa.is-ativa'));
     }
 
+    #[TestDox('"Limpar filtros" com a etapa: o campo oculto da etapa leva js-filtro-campo e a tela recarrega em ?aba=X, sem filtro')]
+    public function testLimparFiltrosComAEtapa(): void
+    {
+        $client = static::createClient();
+        $this->autenticar($client);
+
+        $client->request('GET', '/tarefas/minhas?aba=todas&etapa=protocolo');
+        self::assertResponseIsSuccessful();
+        $corpo = (string) $client->getResponse()->getContent();
+
+        self::assertStringContainsString("[['aba', \"todas\", ''], ['etapa', \"protocolo\", 'js-filtro-campo']]", $corpo, 'a etapa entra como filtro que o motor conta');
+        self::assertStringContainsString('campo.className = par[2];', $corpo);
+        self::assertMatchesRegularExpression(
+            "/var etapa = form\\.querySelector\\('input\\[name=\"etapa\"\\]'\\);\\s*if \\(!e\\.target\\.closest\\('\\.js-filtro-limpar'\\) \\|\\| !etapa \\|\\| etapa\\.value === ''\\) \\{ return; \\}\\s*e\\.stopPropagation\\(\\);\\s*window\\.location\\.href = \"\\\\\\/tarefas\\\\\\/minhas\\?aba=todas\";/",
+            $corpo,
+            'o Limpar com a etapa recarrega a tela inteira na mesma aba',
+        );
+    }
+
+    #[TestDox('Avisos da tela: só o de sucesso vira o aviso do desenho (.is-toast) e some em 3 segundos; o de erro fica até fechar')]
+    public function testSoOSucessoViraToast(): void
+    {
+        $client = static::createClient();
+        $this->autenticar($client);
+        $client->request('GET', '/tarefas/minhas');
+        self::assertResponseIsSuccessful();
+
+        self::assertMatchesRegularExpression(
+            "/var sucesso = aviso\\.classList\\.contains\\('alert-success'\\);[\\s\\S]*?if \\(!sucesso\\) return;\\s*aviso\\.classList\\.add\\('is-toast'\\);\\s*window\\.setTimeout\\(function \\(\\) \\{ aviso\\.remove\\(\\); \\}, 3000\\);/",
+            (string) $client->getResponse()->getContent(),
+        );
+    }
+
     #[TestDox('XHR em /tarefas/minhas devolve só o fragmento, sem o layout nem a barra')]
     public function testXhrRetornaFragmentoSemLayout(): void
     {
@@ -288,66 +321,33 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $crawler->filter('.mm-arranjo > .mm-coluna-lista > .mm-cartao'), 'os grupos não moram mais num cartão só (LIS-02)');
     }
 
-    #[TestDox('R239 (P5): antes do título vai o número da meta NA PASTA — o mesmo da aba Metas da pasta —, não a posição no grupo; número global não aparece (não existe por escritório)')]
-    public function testNumeroDaMetaNaPastaComoNaAbaMetas(): void
+    #[TestDox('Desenho 04 de 22/10 (dc `m.num`): o número antes do título é a posição da meta no grupo e recomeça em 1 a cada grupo; sem o selo "Nº" (decisão do dono de 22/10)')]
+    public function testNumeroDaMetaEhAPosicaoNoGrupo(): void
     {
         $client             = static::createClient();
         [$usuario, $tenant] = $this->autenticar($client);
-        $em                 = static::getContainer()->get(EntityManagerInterface::class);
-
-        // Pasta A: a 1ª meta é de outra pessoa; o usuário responde pela 2ª e pela 3ª.
-        $outro = new User();
-        $outro->setEmail('outro_' . uniqid() . '@test.com');
-        $outro->setFullName('Outra Pessoa');
-        $outro->setRoles(['ROLE_USER']);
-        $outro->setIsActive(true);
-        $outro->setPassword('x');
-        $em->persist($outro);
-        $primeira = $this->criarMeta($tenant, $outro, 'Primeira da pasta');
-        $pastaA   = $primeira->getPasta();
-        $titulosA = ['Segunda da pasta' => '2.', 'Terceira da pasta' => '3.'];
-        foreach (array_keys($titulosA) as $titulo) {
-            $meta = new Tarefa();
-            $meta->setTitulo($titulo);
-            $meta->setDescricao('');
-            $meta->setPasta($pastaA);
-            $meta->setTenant($tenant);
-            $meta->addResponsavel($usuario);
-            $em->persist($meta);
-            $em->flush();
+        foreach (['Folgada um', 'Folgada dois', 'Folgada tres'] as $titulo) {
+            $this->criarMeta($tenant, $usuario, $titulo)->setPrazo(new \DateTimeImmutable('+30 days'));
         }
-        // Pasta B: uma meta só.
-        $this->criarMeta($tenant, $usuario, 'Sozinha na pasta');
+        $this->criarMeta($tenant, $usuario, 'Sem data um');
+        $this->criarMeta($tenant, $usuario, 'Sem data dois');
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
 
         $client->request('GET', '/tarefas/minhas');
         self::assertResponseIsSuccessful();
-        $naLista = [];
-        $client->getCrawler()->filter('.mm-grupo article.mm-meta .mm-meta-topo > .mm-meta-titulo')->each(
-            static function ($a) use (&$naLista): void {
-                $num = $a->filter('.mm-meta-num');
-                $naLista[mb_strtoupper(trim(str_replace($num->count() ? $num->text() : '', '', $a->text())))] = $num->count() ? trim($num->text()) : null;
-            },
-        );
+        $c = $client->getCrawler();
 
-        self::assertSame('2.', $naLista['SEGUNDA DA PASTA'] ?? null);
-        self::assertSame('3.', $naLista['TERCEIRA DA PASTA'] ?? null);
-        self::assertSame('1.', $naLista['SOZINHA NA PASTA'] ?? null);
-        self::assertArrayNotHasKey('PRIMEIRA DA PASTA', $naLista, 'a meta da outra pessoa não é do usuário');
-        self::assertStringNotContainsString('Nº ', (string) $client->getResponse()->getContent(), 'sem número global: não existe sequência por escritório');
-
-        // O mesmo número que a aba Metas da pasta mostra (regra única: ordem de criação na pasta).
-        $client->request('GET', '/pasta/' . $pastaA->getId());
-        self::assertResponseIsSuccessful();
-        $naPasta = [];
-        $client->getCrawler()->filter('.ps-meta-titulo')->each(static function ($t) use (&$naPasta): void {
-            $naPasta[mb_strtoupper(trim($t->filter('.ps-meta-titulo-tx')->text()))] = trim($t->filter('.ps-meta-num')->text());
-        });
-        self::assertSame($naPasta['SEGUNDA DA PASTA'] ?? null, $naLista['SEGUNDA DA PASTA']);
-        self::assertSame($naPasta['TERCEIRA DA PASTA'] ?? null, $naLista['TERCEIRA DA PASTA']);
+        $numeros = static fn (string $grupo): array => $c->filter('section.mm-grupo.mm-grupo-' . $grupo . ' > .mm-grupo-itens > article.mm-meta > .mm-meta-corpo > a.mm-meta-titulo > span.mm-meta-num:first-child')
+            ->each(static fn ($n): string => trim($n->text()));
+        self::assertSame(['1.', '2.', '3.'], $numeros('depois'));
+        self::assertSame(['1.', '2.'], $numeros('sem_prazo'), 'recomeça em 1 no grupo seguinte');
+        self::assertCount(0, $c->filter('.mm-meta .mp-numero-global, .mm-meta [class*="numero-global"]'), 'sem o selo "Nº" no cartão');
+        self::assertStringNotContainsString('Nº ', (string) $client->getResponse()->getContent());
+        self::assertStringNotContainsString('meta-numero-global.css', (string) $client->getResponse()->getContent());
     }
 
-    #[TestDox('Status de prazo derivados do dado real e iguais nos dois modos; a meta que vence hoje é "Vence em breve" (tom warn) em cartões e em lista')]
-    public function testStatusDePrazoIguaisNosDoisModos(): void
+    #[TestDox('Status de prazo derivados do dado real; a meta que vence hoje é "Vence em breve" (tom warn)')]
+    public function testStatusDePrazoDerivadosDoDado(): void
     {
         $client             = static::createClient();
         [$usuario, $tenant] = $this->autenticar($client);
@@ -366,29 +366,37 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         }
         $em->flush();
 
-        $pilulas = function (string $url, string $linha, string $titulo) use ($client): array {
-            $client->request('GET', $url);
-            self::assertResponseIsSuccessful();
-            $mapa = [];
-            $client->getCrawler()->filter($linha)->each(static function ($l) use (&$mapa, $titulo): void {
-                $t = trim(preg_replace('/^\d+\.\s*/', '', $l->filter($titulo)->text()) ?? '');
-                $p = $l->filter('.mm-pilula');
-                $mapa[mb_strtoupper($t)] = [trim($p->text()), preg_replace('/^.*(tom-[a-z]+).*$/', '$1', (string) $p->attr('class'))];
-            });
-
-            return $mapa;
-        };
-
-        $cartoes = $pilulas('/tarefas/minhas', '.mm-grupo article.mm-meta', '.mm-meta-titulo');
-        $lista   = $pilulas('/tarefas/minhas?modo=lista', '.mm-tabela .mm-linha:not(.mm-linha-cabeca)', '.mm-linha-titulo');
+        $client->request('GET', '/tarefas/minhas');
+        self::assertResponseIsSuccessful();
+        $cartoes = [];
+        $client->getCrawler()->filter('.mm-grupo article.mm-meta')->each(static function ($l) use (&$cartoes): void {
+            $t = trim(preg_replace('/^\d+\.\s*/', '', $l->filter('.mm-meta-titulo')->text()) ?? '');
+            $p = $l->filter('article.mm-meta > .mm-meta-lado > .mm-pilula');
+            $cartoes[mb_strtoupper($t)] = [trim($p->text()), preg_replace('/^.*(tom-[a-z]+).*$/', '$1', (string) $p->attr('class'))];
+        });
 
         foreach ($esperado as $titulo => [, $rotulo, $tom]) {
-            self::assertSame([$rotulo, $tom], $cartoes[$titulo] ?? null, 'cartões: ' . $titulo);
-            self::assertSame([$rotulo, $tom], $lista[$titulo] ?? null, 'lista: ' . $titulo);
+            self::assertSame([$rotulo, $tom], $cartoes[$titulo] ?? null, $titulo);
         }
     }
 
-    #[TestDox('E5b (dc de 13/10): abas no MESMO cartão da barra de filtros, com separador e a alternância de modo; a barra de filtros continua dentro da raiz do filtro')]
+    #[TestDox('Sem o modo lista (o desenho não tem a alternância; dono, 22/10): `modo=lista` na URL é ignorado e a tela segue nos cartões, com o trilho')]
+    public function testSemModoLista(): void
+    {
+        $client             = static::createClient();
+        [$usuario, $tenant] = $this->autenticar($client);
+        $this->criarMeta($tenant, $usuario, 'Meta qualquer');
+
+        $client->request('GET', '/tarefas/minhas?modo=lista');
+        self::assertResponseIsSuccessful();
+        $c = $client->getCrawler();
+        self::assertCount(0, $c->filter('.mm-tabela, .mm-modos, .mm-modo'));
+        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo > .mm-grupo-itens > article.mm-meta'));
+        self::assertCount(1, $c->filter('.mm-arranjo > aside.mm-trilho'));
+        self::assertStringNotContainsString('jusprime.minhasMetas.modo', (string) $client->getResponse()->getContent(), 'a preferência do modo saiu do navegador');
+    }
+
+    #[TestDox('Desenho 04 (dc L66-79): abas no MESMO cartão da barra de filtros, com separador e sem a alternância de modo; a barra de filtros continua dentro da raiz do filtro')]
     public function testAbasDentroDoCartaoDosFiltros(): void
     {
         $client             = static::createClient();
@@ -401,25 +409,28 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
 
         self::assertCount(1, $c->filter('[data-filtro-root] > .mm-barra-cartao > .mm-abas > a.mm-aba[data-aba="responsavel"]'));
         self::assertCount(1, $c->filter('[data-filtro-root] > .mm-barra-cartao > .mm-abas + .mm-barra-sep + form[data-filtro-form]'));
-        self::assertCount(1, $c->filter('[data-filtro-root] > .mm-barra-cartao > .mm-modos'));
+        self::assertCount(0, $c->filter('.mm-modos'), 'a alternância cartões/lista saiu (dono, 22/10)');
         self::assertCount(1, $c->filter('[data-filtro-root] > [data-filtro-resultado]'), 'o resultado continua irmão da barra');
         self::assertCount(0, $c->filter('.mm-barra-abas'), 'a faixa solta de abas saiu');
     }
 
-    #[TestDox('E5b: indicadores com ícone, halo e faixa do desenho; o número das atrasadas fica em alerta só quando há atrasadas')]
-    public function testIndicadoresComIconeEHalo(): void
+    #[TestDox('Indicadores do desenho (dc L64): rótulo e descrição à esquerda, número à direita; sem ícone nem halo (decisão do dono de 22/10); alerta só com atrasadas; sem estado ativo')]
+    public function testIndicadoresSemIconeNemHalo(): void
     {
         $client             = static::createClient();
         [$usuario, $tenant] = $this->autenticar($client);
 
-        $client->request('GET', '/tarefas/minhas');
-        $kpis = $client->getCrawler()->filter('.mm-kpis > a.mm-kpi');
+        $client->request('GET', '/tarefas/minhas', ['aba' => 'responsavel', 'prazo' => 'vencidas']);
+        $kpis = $client->getCrawler()->filter('.mm-page > .mm-kpis > a.mm-kpi');
+        self::assertCount(4, $kpis);
+        self::assertSame(4, $kpis->filter('a.mm-kpi > .mm-kpi-texto > .mm-kpi-rotulo + .mm-kpi-sub')->count());
+        self::assertSame(4, $kpis->filter('a.mm-kpi > .mm-kpi-texto + b.mm-kpi-valor:last-child')->count());
+        self::assertSame(0, $kpis->filter('i, .mm-kpi-icone, .mm-kpi-halo, .mm-kpi-faixa')->count(), 'o cartão não renderiza o ícone nem o halo');
         self::assertSame(
-            ['bi-exclamation-octagon', 'bi-hourglass-split', 'bi-clipboard2-check', 'bi-calendar-x'],
-            $kpis->each(static fn ($k): string => trim(str_replace('bi ', '', (string) $k->filter('.mm-kpi > .mm-kpi-icone > i.bi')->attr('class')))),
+            ['ATRASADAS', 'VENCEM EM 7 DIAS', 'AGUARDANDO SUA REVISÃO', 'SEM PRAZO'],
+            $kpis->each(static fn ($k): string => mb_strtoupper(trim($k->filter('.mm-kpi-rotulo')->text()))),
         );
-        self::assertSame(4, $kpis->filter('.mm-kpi > .mm-kpi-halo')->count());
-        self::assertSame(4, $kpis->filter('.mm-kpi > .mm-kpi-faixa')->count());
+        self::assertSame(0, $kpis->filter('.is-ativo')->count() + count(array_filter($kpis->each(static fn ($k): bool => str_contains((string) $k->attr('class'), 'is-ativo')))), 'sem estado ativo');
         self::assertStringNotContainsString('is-alerta', (string) $kpis->eq(0)->filter('.mm-kpi-valor')->attr('class'), 'zero atrasadas: número normal');
 
         $this->criarMeta($tenant, $usuario, 'Atrasada')->setPrazo(new \DateTimeImmutable('-3 days'));
@@ -496,105 +507,27 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         }
     }
 
-    #[TestDox('E5c (R118/R236/R223): ⋮ "Opções" no lugar da seta, só com ações que já existem: relatório completo, aba Metas da pasta com a meta realçada, Editar nome e "Encaminhar via Chat I.A" por último')]
-    public function testMenuDaMetaComAcoesQueJaExistem(): void
+    #[TestDox('Desenho 04 (dc L87-103): o cartão não tem o ⋮ nem o contador de comentários; filhos diretos: corpo, lado, marcador e "Concluir etapa"')]
+    public function testCartaoSemMenuNemComentarios(): void
     {
         $client             = static::createClient();
         [$usuario, $tenant] = $this->autenticar($client);
-        $meta               = $this->criarMeta($tenant, $usuario, 'Meta com menu');
-        $id                 = $meta->getId();
-        $pastaId            = $meta->getPasta()->getId();
+        $meta               = $this->criarMeta($tenant, $usuario, 'Meta sem menu');
+        $em                 = static::getContainer()->get(EntityManagerInterface::class);
+        $mensagem           = new \App\Entity\Tarefa\TarefaMensagem();
+        $mensagem->setTarefa($meta);
+        $mensagem->setUsuario($usuario);
+        $mensagem->setMensagem('Um comentário');
+        $mensagem->setTenant($tenant);
+        $em->persist($mensagem);
+        $em->flush();
 
         $client->request('GET', '/tarefas/minhas');
         self::assertResponseIsSuccessful();
-        $acoes = $client->getCrawler()->filter('.mm-grupo article.mm-meta > .mm-meta-acoes');
-        self::assertCount(1, $acoes);
-
-        self::assertCount(0, $acoes->filter('.bi-chevron-right'), 'a seta "Abrir a meta" saiu');
-        $botao = $acoes->filter('.mm-menu > button.mm-acao-icone[data-bs-toggle="dropdown"]');
-        self::assertCount(1, $botao);
-        self::assertSame('Opções', $botao->attr('title'));
-        self::assertCount(1, $botao->filter('i.bi-three-dots-vertical'));
-        self::assertSame('false', $botao->attr('aria-expanded'));
-
-        $itens = $acoes->filter('.mm-menu > .dropdown-menu .mm-menu-item');
-        self::assertSame(
-            ['Abrir relatório completo', 'Ir para a aba Metas da pasta', 'Editar nome', 'Encaminhar via Chat I.A'],
-            $itens->each(static fn ($i): string => trim($i->text())),
-        );
-        self::assertSame(
-            [
-                '/tarefas/' . $id,
-                '/pasta/' . $pastaId . '?meta=' . $id . '#tarefas',
-                '/pasta/' . $pastaId . '?meta=' . $id . '&acao=renomear#tarefas',
-            ],
-            $acoes->filter('.mm-menu > .dropdown-menu a.mm-menu-item')->each(static fn ($i): string => (string) $i->attr('href')),
-        );
-    }
-
-    #[TestDox('R223: "Encaminhar via Chat I.A" é o último item do ⋮, com bi-send e só ids em data-* (a pasta da meta e a meta, tipo meta)')]
-    public function testEncaminharNoMenuDaMeta(): void
-    {
-        $client             = static::createClient();
-        [$usuario, $tenant] = $this->autenticar($client);
-        $meta               = $this->criarMeta($tenant, $usuario, 'Meta para encaminhar');
-
-        $client->request('GET', '/tarefas/minhas');
-        self::assertResponseIsSuccessful();
-        $item = $client->getCrawler()->filter('.mm-grupo article.mm-meta > .mm-meta-acoes > .mm-menu > .dropdown-menu > li:last-child > button.js-mm-encaminhar');
-        self::assertCount(1, $item);
-        self::assertSame('button', $item->attr('type'));
-        self::assertSame('Encaminhar via Chat I.A', trim($item->text()));
-        self::assertCount(1, $item->filter('button > i.bi.bi-send'));
-        self::assertSame('meta', $item->attr('data-encaminhar-tipo'));
-        self::assertSame((string) $meta->getId(), $item->attr('data-encaminhar-id'));
-        self::assertSame((string) $meta->getPasta()->getId(), $item->attr('data-encaminhar-pasta'));
-
-        // O clique dispara o evento da janela da Central só com os ids (script da página).
-        $html = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString("closest('.js-mm-encaminhar')", $html);
-        self::assertStringContainsString("detail: { pastaId: pastaId, tipo: 'meta', itemId: itemId }", $html);
-    }
-
-    #[TestDox('R223: sem a Central (vínculo inativo) o ⋮ não tem "Encaminhar via Chat I.A"')]
-    public function testEncaminharAusenteSemCentral(): void
-    {
-        $client             = static::createClient();
-        [$usuario, $tenant] = $this->autenticar($client);
-        $this->criarMeta($tenant, $usuario, 'Meta sem Central');
-        // O portão da Central é o vínculo ATIVO (`central_disponivel()`); o papel de sistema segue vendo as metas.
-        static::getContainer()->get(EntityManagerInterface::class)->getConnection()->executeStatement(
-            'UPDATE user_tenant SET is_active = false WHERE user_id = ? AND tenant_id = ?',
-            [$usuario->getId(), $tenant->getId()],
-        );
-
-        $client->request('GET', '/tarefas/minhas');
-        self::assertResponseIsSuccessful();
-        $menus = $client->getCrawler()->filter('.mm-grupo article.mm-meta .mm-menu');
-        self::assertCount(1, $menus);
-        self::assertCount(0, $menus->filter('.js-mm-encaminhar'));
-        self::assertStringNotContainsString('Encaminhar', $menus->text());
-    }
-
-    #[TestDox('E5c: meta de pasta excluída (somente leitura) não oferece "Editar nome" nem "Encaminhar via Chat I.A" no ⋮, mesma regra da aba Metas da pasta')]
-    public function testMenuSemEditarNomeNaPastaExcluida(): void
-    {
-        $client             = static::createClient();
-        [$usuario, $tenant] = $this->autenticar($client);
-        $meta               = $this->criarMeta($tenant, $usuario, 'Meta da pasta excluida');
-        $meta->getPasta()->marcarExcluida($usuario, new \DateTimeImmutable());
-        static::getContainer()->get(EntityManagerInterface::class)->flush();
-
-        $client->request('GET', '/tarefas/minhas?aba=todas');
-        self::assertResponseIsSuccessful();
-        // Hoje Minhas Metas lista a meta de pasta excluída. Se um dia deixar de listar, este teste
-        // falha de propósito — para alguém decidir, e não para virar skip silencioso.
-        $menus = $client->getCrawler()->filter('.mm-grupo article.mm-meta .mm-menu');
-        self::assertCount(1, $menus, 'a meta da pasta excluída aparece na aba Todas');
-        self::assertSame(
-            ['Abrir relatório completo', 'Ir para a aba Metas da pasta'],
-            $menus->filter('.mm-menu-item')->each(static fn ($i): string => trim($i->text())),
-        );
+        $c = $client->getCrawler();
+        self::assertCount(1, $c->filter('.mm-grupo-itens > article.mm-meta > .mm-meta-corpo + .mm-meta-lado + button.mm-marcador + button.mp-cartao-concluir:last-child'));
+        self::assertCount(0, $c->filter('.mm-meta .dropdown, .mm-meta [data-bs-toggle], .mm-meta .bi-three-dots-vertical, .mm-meta .bi-chat, .js-mm-encaminhar'));
+        self::assertStringNotContainsString('bj-central:despachar', (string) $client->getResponse()->getContent(), 'o encaminhar do ⋮ saiu desta tela');
     }
 
     #[TestDox('E5c (dc L104-118): trilho com "X de Y", legenda fixa de três itens com "(s)", sem "em aberto" (desenho 04, P:177; dono 21/10) e "Título · Pasta NNN" no "Precisa de atenção"')]
@@ -687,60 +620,10 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
             ['Atrasadas', 'Vencem em 7 dias', 'Aguardando revisão', 'No prazo', 'Sem prazo', 'Concluídas'],
             $c->filter('.mm-arranjo > .mm-coluna-lista > section.mm-grupo > .mm-grupo-cabeca > .mm-grupo-nome')->each(static fn ($n): string => trim($n->text())),
         );
-        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-atrasadas > article.mm-meta.tom-danger'));
-        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-concluidas > div.mm-grupo-cabeca + article.mm-meta'), 'Concluídas aberta, como os outros grupos (desenho 04, P:163)');
+        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-atrasadas > .mm-grupo-itens > article.mm-meta.tom-danger'));
+        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-concluidas > div.mm-grupo-cabeca + .mm-grupo-itens > article.mm-meta'), 'Concluídas aberta, como os outros grupos (desenho 04, P:163)');
         self::assertCount(0, $c->filter('.mm-coluna-lista .collapse, .mm-coluna-lista button.mm-grupo-cabeca, .mm-grupo-seta, .mm-grupo-cabeca > .mm-grupo-nota'), 'sem recolhimento, seta nem nota em nenhum grupo');
         self::assertCount(0, $c->filter('.mm-grupo-aguardando, .mm-grupo-andamento'), 'os grupos por etapa saíram');
-    }
-
-    #[TestDox('O modo lista troca os cartões pela tabela e dispensa o trilho')]
-    public function testModoLista(): void
-    {
-        $client             = static::createClient();
-        [$usuario, $tenant] = $this->autenticar($client);
-        $this->criarMeta($tenant, $usuario, 'Meta em lista');
-
-        $client->request('GET', '/tarefas/minhas?modo=lista');
-
-        self::assertResponseIsSuccessful();
-        $crawler = $client->getCrawler();
-        self::assertGreaterThan(0, $crawler->filter('.mm-tabela')->count());
-        self::assertCount(0, $crawler->filter('.mm-trilho'), 'O modo lista não desenha o trilho.');
-        self::assertStringContainsString('Meta em lista', (string) $client->getResponse()->getContent());
-    }
-
-    #[TestDox('Modo lista (desenho 04, P:154): cada separador leva `mm-grupo-<chave>` e o rótulo traduzido, na ordem do desenho')]
-    public function testModoListaSeparadoresDosGrupos(): void
-    {
-        $client             = static::createClient();
-        [$usuario, $tenant] = $this->autenticar($client);
-        $this->criarMeta($tenant, $usuario, 'Folgada')->setPrazo(new \DateTimeImmutable('+30 days'));
-        $this->criarMeta($tenant, $usuario, 'Sem data');
-        $this->criarMeta($tenant, $usuario, 'Entregue', Tarefa::STATUS_EM_REVISAO);
-        $this->criarMeta($tenant, $usuario, 'Atrasada')->setPrazo(new \DateTimeImmutable('-2 days'));
-        $this->criarMeta($tenant, $usuario, 'Feita', Tarefa::STATUS_CONCLUIDA)->setDataConclusao(new \DateTimeImmutable());
-        $this->criarMeta($tenant, $usuario, 'Vence logo')->setPrazo(new \DateTimeImmutable('+2 days'));
-        static::getContainer()->get(EntityManagerInterface::class)->flush();
-
-        $client->request('GET', '/tarefas/minhas', ['modo' => 'lista']);
-        self::assertResponseIsSuccessful();
-        $separadores = $client->getCrawler()->filter('.mm-tabela > .mm-separador');
-
-        self::assertSame(
-            [
-                ['mm-grupo-atrasadas', 'Atrasadas'],
-                ['mm-grupo-proximas', 'Vencem em 7 dias'],
-                ['mm-grupo-em_revisao', 'Aguardando revisão'],
-                ['mm-grupo-depois', 'No prazo'],
-                ['mm-grupo-sem_prazo', 'Sem prazo'],
-                ['mm-grupo-concluidas', 'Concluídas'],
-            ],
-            $separadores->each(static fn ($s): array => [
-                trim(str_replace('mm-separador', '', (string) $s->attr('class'))),
-                trim($s->filter('.mm-grupo-nome')->text()),
-            ]),
-        );
-        self::assertStringNotContainsString('metas.grupos.', (string) $client->getResponse()->getContent(), 'nenhuma chave crua do catálogo');
     }
 
     #[TestDox('Os quatro KPIs aparecem no topo com as contagens do usuário')]
@@ -845,10 +728,10 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
             $grupos->each(static fn ($g): string => trim($g->filter('section.mm-grupo > .mm-grupo-cabeca > .mm-grupo-nome')->text())),
         );
         self::assertStringNotContainsString('Próximos 7 dias', (string) $client->getResponse()->getContent());
-        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-atrasadas > article.mm-meta.tom-danger'));
-        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-proximas > article.mm-meta.tom-warn'));
+        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-atrasadas > .mm-grupo-itens > article.mm-meta.tom-danger'));
+        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-proximas > .mm-grupo-itens > article.mm-meta.tom-warn'));
         self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-proximas > .mm-grupo-cabeca > .mm-dot + .mm-grupo-nome + .mm-grupo-contagem'));
-        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-concluidas > div.mm-grupo-cabeca + article.mm-meta'), 'Concluídas aberta, dentro do próprio cartão');
+        self::assertCount(1, $c->filter('.mm-coluna-lista > section.mm-grupo.mm-grupo-concluidas > div.mm-grupo-cabeca + .mm-grupo-itens > article.mm-meta'), 'Concluídas aberta, dentro do próprio cartão');
     }
 
     #[TestDox('Desenho de 19/10 (LIS-15/18/33, MENU-02): linha inteira clicável que delega para o título; pasta com bi-folder2, nº em negrito e cliente inteiro; "criada" sem "mod."; dica do marcador do desenho')]
@@ -861,6 +744,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         $cliente            = 'CONDOMÍNIO RESIDENCIAL JARDIM DAS ACÁCIAS BLOCO B ADMINISTRAÇÃO';
         $meta->getPasta()->setNomeCliente($cliente);
         $meta->setDescricao('Descrição alterada');   // o PreUpdate grava dataAlteracao: antes saía "· mod."
+        $meta->setCriadoPor($usuario);
         $em->flush();
         self::assertNotNull($meta->getDataAlteracao());
 
@@ -868,9 +752,9 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $c = $client->getCrawler();
 
-        $linha = $c->filter('section.mm-grupo > article.mm-meta[data-mm-linha-clicavel]');
+        $linha = $c->filter('section.mm-grupo > .mm-grupo-itens > article.mm-meta[data-mm-linha-clicavel]');
         self::assertCount(1, $linha);
-        self::assertSame('/tarefas/' . $meta->getId(), $linha->filter('article.mm-meta > .mm-meta-corpo > .mm-meta-topo > a.mm-meta-titulo')->attr('href'), 'o título é o link real da linha');
+        self::assertSame('/tarefas/' . $meta->getId(), $linha->filter('article.mm-meta > .mm-meta-corpo > a.mm-meta-titulo:first-child')->attr('href'), 'o título é o link real da linha');
 
         $pasta = $linha->filter('.mm-meta-corpo > .mm-meta-linha2 > a.mm-meta-pasta');
         self::assertSame('/pasta/' . $meta->getPasta()->getId(), $pasta->attr('href'), 'o link da pasta continua');
@@ -881,12 +765,26 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         $datas = trim($linha->filter('article.mm-meta > .mm-meta-lado > .mm-meta-datas')->text());
         self::assertMatchesRegularExpression('#^criada \d{2}/\d{2}/\d{4}$#', $datas);
 
-        self::assertSame('Acompanhar esta meta', $linha->filter('.mm-meta-acoes > button.mm-marcador')->attr('title'));
+        self::assertSame('Acompanhar esta meta', $linha->filter('article.mm-meta > button.mm-marcador')->attr('title'));
+        // Sempre "de {quem criou}" (dc L92), em qualquer aba.
+        self::assertSame(
+            'de ' . $usuario->getFullName(),
+            trim($linha->filter('.mm-meta-linha2 > a.mm-meta-pasta + span.mm-meta-info > i.bi-person')->closest('span')->text()),
+        );
+    }
+
+    #[TestDox('Desenho de 19/10 (LIS-15): o clique na linha delega para o título; o meio, o Ctrl, o Cmd e o Shift abrem em outra aba; o marcador troca a dica')]
+    public function testCliqueDaLinhaDelegaParaOTitulo(): void
+    {
+        $client = static::createClient();
+        $this->autenticar($client);
+        $client->request('GET', '/tarefas/minhas');
+        self::assertResponseIsSuccessful();
 
         // A delegação do clique: ignora os controles internos e repassa para o título.
         $corpo = (string) $client->getResponse()->getContent();
         self::assertStringContainsString("closest('[data-mm-linha-clicavel]')", $corpo);
-        self::assertStringContainsString("closest('a, button, input, select, textarea, label, .dropdown-menu')", $corpo);
+        self::assertStringContainsString("closest('a, button, input, select, textarea, label')", $corpo);
         self::assertStringContainsString("querySelector('a.mm-meta-titulo')", $corpo);
         self::assertStringContainsString("document.addEventListener('auxclick', abrirMetaPelaLinha)", $corpo, 'botão do meio abre em outra aba');
         self::assertStringContainsString("meio || e.ctrlKey || e.metaKey || e.shiftKey", $corpo);
@@ -896,7 +794,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('"metas.js.acompanhar_esta_meta":"Acompanhar esta meta","metas.js.parar_de_acompanhar":"Parar de acompanhar"', $corpo);
     }
 
-    #[TestDox('MENU-02: meta acompanhada mostra "Parar de acompanhar" no marcador, nos cartões e na lista')]
+    #[TestDox('MENU-02: meta acompanhada mostra "Parar de acompanhar" no marcador do cartão')]
     public function testDicaDoMarcadorLigado(): void
     {
         $client             = static::createClient();
@@ -909,30 +807,28 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
 
         $client->request('GET', '/tarefas/minhas');
-        self::assertSame('Parar de acompanhar', $client->getCrawler()->filter('section.mm-grupo > article.mm-meta button.mm-marcador.is-marcada')->attr('title'));
-        $client->request('GET', '/tarefas/minhas?modo=lista');
-        self::assertSame('Parar de acompanhar', $client->getCrawler()->filter('.mm-tabela > .mm-linha > button.mm-marcador.is-marcada')->attr('title'));
+        self::assertSame('Parar de acompanhar', $client->getCrawler()->filter('section.mm-grupo > .mm-grupo-itens > article.mm-meta > button.mm-marcador.is-marcada')->attr('title'));
     }
 
-    #[TestDox('LIS-34: aba vazia sem filtro mantém o texto que orienta, na mesma caixa do desenho, sem ícone, com o trilho ao lado')]
-    public function testVazioDaAbaSemFiltro(): void
+    #[TestDox('Desenho 04 (dc L107): o vazio é sempre "Nenhuma meta com esses filtros.", numa caixa sem ícone, com o trilho ao lado')]
+    public function testVazioDoDesenho(): void
     {
         $client = static::createClient();
         $this->autenticar($client);
 
-        $client->request('GET', '/tarefas/minhas');
-        self::assertResponseIsSuccessful();
-        $c     = $client->getCrawler();
-        $caixa = $c->filter('.mm-arranjo > .mm-coluna-lista > .mm-vazio-caixa');
-        self::assertCount(1, $caixa);
-        self::assertStringStartsWith('Nenhuma meta atribuída a você.', trim($caixa->text()));
-        self::assertCount(0, $caixa->filter('i.bi-check2-all'));
-        self::assertCount(0, $c->filter('.mm-coluna-lista .mm-vazio'), 'o vazio antigo (com ícone grande) saiu');
-        self::assertCount(1, $c->filter('.mm-arranjo > .mm-trilho > .mm-cartao.mm-trilho-andamento'));
+        foreach (['responsavel', 'criei', 'acompanhando', 'todas'] as $aba) {
+            $client->request('GET', '/tarefas/minhas', ['aba' => $aba]);
+            self::assertResponseIsSuccessful();
+            $c     = $client->getCrawler();
+            $caixa = $c->filter('.mm-arranjo > .mm-coluna-lista > .mm-vazio-caixa');
+            self::assertSame('Nenhuma meta com esses filtros.', trim($caixa->text()), $aba);
+            self::assertCount(0, $caixa->filter('i'), $aba);
+            self::assertCount(1, $c->filter('.mm-arranjo > .mm-trilho > .mm-cartao.mm-trilho-andamento'), $aba);
+        }
     }
 
-    #[TestDox('TRI-14: sem atrasadas o cartão "Precisa de atenção" continua no trilho, com um texto curto')]
-    public function testPrecisaDeAtencaoSempreVisivel(): void
+    #[TestDox('Desenho 04 (dc L119-120): sem atrasadas o cartão "Precisa de atenção" fica só com o cabeçalho, sem frase de vazio')]
+    public function testPrecisaDeAtencaoSoComOCabecalho(): void
     {
         $client             = static::createClient();
         [$usuario, $tenant] = $this->autenticar($client);
@@ -941,9 +837,9 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/tarefas/minhas');
         self::assertResponseIsSuccessful();
         $c = $client->getCrawler();
-        self::assertCount(1, $c->filter('.mm-arranjo > .mm-trilho > .mm-cartao.mm-trilho-atencao > .mm-cartao-cabeca > h2.mm-cartao-titulo'));
-        self::assertSame('Nada pedindo atenção.', trim($c->filter('.mm-trilho > .mm-trilho-atencao > .mm-atencao-vazio')->text()));
-        self::assertCount(0, $c->filter('.mm-trilho-atencao > .mm-trilho-rodape'));
+        $cartao = $c->filter('.mm-arranjo > .mm-trilho > .mm-cartao.mm-trilho-atencao');
+        self::assertCount(1, $cartao->filter('.mm-trilho-atencao > .mm-cartao-cabeca:only-child > h2.mm-cartao-titulo'));
+        self::assertStringNotContainsString('Nada pedindo atenção', (string) $client->getResponse()->getContent());
     }
 
     #[TestDox('TRI-09: cada item de "Precisa de atenção" é um link de largura inteira para a pasta no Expediente (04 L236, spec L1)')]
@@ -1146,12 +1042,6 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         );
         self::assertCount(1, $c->filter('.mm-coluna-lista article.mm-meta'), 'a meta aberta continua na lista: o status da URL não filtra');
 
-        // Lista vazia (ninguém marcou nada para acompanhar) com `status` na URL: o vazio é o da aba, não o "com filtro".
-        $client->request('GET', '/tarefas/minhas', ['aba' => 'acompanhando', 'status' => 'x']);
-        self::assertResponseIsSuccessful();
-        $caixa = trim(preg_replace('/\s+/', ' ', $client->getCrawler()->filter('.mm-vazio-caixa')->text()) ?? '');
-        self::assertStringStartsWith('Nenhuma meta em acompanhamento.', $caixa, '`status` não conta como filtro ativo');
-        self::assertStringNotContainsString('com esses filtros', $caixa);
     }
 
     #[TestDox('Isolamento: meta ATRASADA do escritório B com o usuário de A como responsável não entra no "X de Y", na legenda nem no "Precisa de atenção" de A')]

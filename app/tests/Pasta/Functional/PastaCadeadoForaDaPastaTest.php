@@ -458,8 +458,6 @@ final class PastaCadeadoForaDaPastaTest extends JusPrimeWebTestCase
         self::assertSame(1, $metas->contarPorAba($ana, $ocultas)[\App\Tarefa\Enum\AbaMetas::RESPONSAVEL->value]);
         self::assertSame(2, $metas->contarPorAba($ana)[\App\Tarefa\Enum\AbaMetas::RESPONSAVEL->value], 'sem o cadeado seriam duas');
         self::assertSame(1, $metas->contarPainelMinhasMetas($ana, $ocultas)['sem_prazo']);
-        $trilho = $metas->contarPessoasDoTrilho($ana, \App\Tarefa\Enum\AbaMetas::RESPONSAVEL, $ocultas);
-        self::assertSame(1, $trilho[0]->abertas);
     }
 
     #[TestDox('D3 metas da equipe: a meta da pasta oculta para quem olha não entra na lista nem no total')]

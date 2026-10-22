@@ -19,6 +19,9 @@ CLAUDE.md, tratado como MÉDIO porque mexe no modelo da meta, em prazo e em text
   O que o desenho não tem sai das telas de Metas: traço vermelho do título, migalha, alternância cartões/lista,
   menu ⋮ do cartão, selo "Nº", número da meta na pasta (vira o índice no grupo), contador de comentários e bloco
   "Pessoas". Na caixa ativa da esteira, os números ficam brancos (o dc os deixa quase invisíveis).
+- 22/10: Fase 3 no master (#309). PR de acerto visual na branch `metas-acerto-visual`: além da lista acima, saem os
+  ícones dos KPIs (decisão do dono) e o lápis de editar mensagem antiga na página da meta (o "(editado)" fica). Os
+  avisados da esteira seguem com nome simples (C7). Próximo: Fase 4.
 
 ### Decisões do dono (22/10)
 

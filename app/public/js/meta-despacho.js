@@ -1,9 +1,9 @@
 /* BlueJus · Bloco DESPACHO da meta (desenho 04B de 22/10, L59-66, L143-145, L159-161; spec minhas-metas-esteira-2210,
-   C10 a C15). Template: templates/tarefa/_despacho_formulario.html.twig e o modal #modalCertificarDespacho do show.
+   C10 a C15). Template: templates/tarefa/_despacho_formulario.html.twig e a janela #modalCertificarDespacho do show.
    - Natureza: seleção única; clicar de novo desmarca; com o campo vazio, o chip escreve o começo do texto.
    - Prazo: "N dias úteis" recontado a cada troca de data pela lista de dias não úteis que o servidor manda
      (data-nao-uteis, regra do escritório com feriados); fora da lista, conta só o fim de semana.
-   - Contador "N / 5.000", nome do anexo, Ctrl+Enter (Cmd+Enter no Mac) = Despachar e os botões de ação.
+   - Contador "N / 5.000" (N sem separador de milhar, como no desenho L64), nome do anexo, Ctrl+Enter (Cmd+Enter no Mac) = Despachar e os botões de ação.
    - Certificar cumprimento: o modal recebe o endereço e o token do despacho clicado e começa com "Certifico que ".
    - @menção (C3): o pasta-mencoes.js liga a lista ao campo; ao enviar, cada "@Nome" escolhido vira o token
      `@[Nome](user:ID)` (PastaMencoes.paraEnvio), que o servidor confere.
@@ -84,7 +84,7 @@
     var anexo = form.querySelector('#despachoAnexo');
     var nome = form.querySelector('#despachoAnexoNome');
     function contar() {
-      contador.textContent = BJ_T.t('metas.despacho.js.contador', { n: campo.value.length.toLocaleString('pt-BR') });
+      contador.textContent = BJ_T.t('metas.despacho.js.contador', { n: String(campo.value.length) });
     }
     campo.addEventListener('input', contar);
     contar();
@@ -123,14 +123,13 @@
     if (!modal) return;
     var form = modal.querySelector('form');
     var texto = modal.querySelector('#certidaoTexto');
-    modal.addEventListener('show.bs.modal', function (e) {
-      var botao = e.relatedTarget;
+    /* A janela é do meta-detalhe.js: 'md:abrir' traz o botão "Certificar cumprimento" que a abriu. */
+    modal.addEventListener('md:abrir', function (e) {
+      var botao = e.detail && e.detail.origem;
       if (!botao) return;
       form.action = botao.dataset.url;
       form.querySelector('input[name="_token"]').value = botao.dataset.token;
       texto.value = texto.dataset.inicio || '';
-    });
-    modal.addEventListener('shown.bs.modal', function () {
       texto.focus();
       texto.setSelectionRange(texto.value.length, texto.value.length);
     });

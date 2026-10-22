@@ -45,12 +45,26 @@
 /* ── Cabeçalho do card: "DESPACHO" (L57) ── */
 .despacho-titulo {
     font-size: 16px;
-    font-weight: 700;
+    font-weight: bold;
     letter-spacing: .3px;
     color: var(--despacho-titulo);
 }
 
-/* ── Formulário (L58-66) ── */
+/* Classes próprias no lugar do flex-grow-1 e do d-none do Bootstrap: o espaço que empurra o resto para a direita e o
+   campo de arquivo escondido (o clipe abre o seletor). */
+.despacho-espaco {
+    flex: 1;
+}
+
+.despacho-anexo-campo {
+    display: none;
+}
+
+/* ── Formulário (L58-66): 12px 18px, sem divisa embaixo ── */
+.despacho-bloco {
+    padding: 12px 18px;
+}
+
 .despacho-bloco form {
     display: flex;
     flex-direction: column;
@@ -112,10 +126,15 @@
 }
 
 .despacho-texto-campo {
+    display: block;
     width: 100%;
+    box-sizing: border-box;
     border: 1px solid var(--despacho-borda);
     border-radius: 3px;
     padding: 10px 11px;
+    background: var(--despacho-fundo);
+    color: var(--despacho-titulo);
+    font: inherit;
     font-size: 14px;
     line-height: 1.5;
     resize: vertical;
@@ -213,11 +232,25 @@
 }
 
 .despacho-marca {
+    position: relative;
     width: 30px;
     flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Traço que liga o marcador ao do despacho seguinte (L71); o último não tem. */
+.despacho-marca > .despacho-traco {
+    flex: 1;
+    width: 2px;
+    background: var(--despacho-chip-borda);
+    margin-top: 2px;
 }
 
 .despacho-icone {
+    flex: none;
+    z-index: 1;
     width: 30px;
     height: 30px;
     border-radius: 50%;
@@ -381,7 +414,7 @@
 .despacho-lista {
     display: flex;
     flex-direction: column;
-    padding: 4px 8px;
+    padding: 0 18px 14px;
 }
 
 .despacho-vazio {
@@ -400,15 +433,14 @@
 
 /* ── Fase 2b ── */
 
-/* Cabeçalho "DESPACHO" com o Extrato à direita (L57). O clearfix do AdminLTE (::after) viraria item do flex. */
+/* Faixa "DESPACHO" com o Extrato à direita (L57): fundo #f7f9fb, divisa embaixo. */
 .despacho-cabeca-bloco {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-
-.despacho-cabeca-bloco::after {
-    display: none;
+    padding: 12px 18px;
+    background: var(--despacho-fundo-cabeca);
+    border-bottom: 1px solid var(--despacho-divisa);
 }
 
 .despacho-extrato {

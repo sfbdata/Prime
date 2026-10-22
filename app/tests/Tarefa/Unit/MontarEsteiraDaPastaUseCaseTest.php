@@ -128,6 +128,18 @@ final class MontarEsteiraDaPastaUseCaseTest extends TestCase
         self::assertSame([], $saida->caixa(EtapaDaPasta::Juridico)?->avisados);
     }
 
+    #[TestDox('Avisado com nome simples, "Primeiro Último", sem "Dr./Dra." mesmo com função de advogada (spec C7)')]
+    public function testAvisadosComNomeSimples(): void
+    {
+        $caixa = new CaixaDaEsteira($this->escritorio, EtapaDaPasta::Juridico);
+        $caixa->configurar(null, null, [$this->usuario(7, 'ANA MARIA LIMA'), $this->usuario(9, 'bruno de souza')]);
+
+        $saida = $this->montar([], ['juridico' => $caixa]);
+
+        self::assertSame(['Ana Lima', 'Bruno Souza'], $saida->caixa(EtapaDaPasta::Juridico)?->avisados);
+        self::assertSame([7, 9], $saida->caixa(EtapaDaPasta::Juridico)?->idsDosAvisados);
+    }
+
     #[TestDox('As pastas ocultas pelo cadeado seguem para a contagem')]
     public function testRepassaPastasOcultas(): void
     {

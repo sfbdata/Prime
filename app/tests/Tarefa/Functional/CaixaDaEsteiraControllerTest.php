@@ -74,6 +74,29 @@ final class CaixaDaEsteiraControllerTest extends JusPrimeWebTestCase
         self::assertNull($caixa?->getNomeDaEtapa());
     }
 
+    #[TestDox('Desenho 04 (dc L132-133): a janela "Configurar caixa" é a do desenho, sem o modal do Bootstrap, e o "Caixa salva." sai no aviso de baixo da página, sob .mm-body')]
+    public function testJanelaEAvisoDoDesenho(): void
+    {
+        $tenant   = $this->tenant();
+        $primario = $this->usuario($tenant, true);
+        $this->logarComTenant($this->client, $primario, $tenant);
+
+        $this->postar('protocolo', ['nome_da_caixa' => 'Fila do protocolo', 'nome_da_etapa' => '']);
+        $crawler = $this->client->followRedirect();
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('mm-body', (string) $crawler->filter('body')->attr('class'));
+        self::assertSame('Caixa salva.', trim($crawler->filter('.app-content-header .alert.alert-success')->text()));
+        $janela = $crawler->filter('#mm-cx-modal');
+        self::assertCount(1, $janela);
+        self::assertNotNull($janela->attr('hidden'), 'fechada até o clique');
+        self::assertStringNotContainsString('modal fade', (string) $janela->attr('class'));
+        self::assertCount(1, $crawler->filter('#mm-cx-modal > .mm-cx-fundo[data-mm-cx-fechar] + .mm-cx-centro > form.mm-cx-caixa[role="dialog"][data-mm-cx-form]'));
+        self::assertCount(1, $crawler->filter('form.mm-cx-caixa > .mm-cx-cabecalho + .mm-cx-corpo + .mm-cx-rodape'));
+        self::assertCount(0, $janela->filter('.modal-dialog, .modal-content, [data-bs-dismiss]'));
+        self::assertCount(2, $janela->filter('.mm-cx-cabecalho > .mm-cx-fechar[data-mm-cx-fechar], .mm-cx-rodape > .mm-cx-cancelar[data-mm-cx-fechar]'));
+    }
+
     #[TestDox('Com avisado da equipe, o aviso diz quantas pessoas serão avisadas')]
     public function testSalvaComAvisado(): void
     {

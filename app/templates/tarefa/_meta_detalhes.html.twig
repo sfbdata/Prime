@@ -1,12 +1,12 @@
 {#
     Bloco lateral DETALHES DA META (desenho 04B de 22/10, L85 e L162-164; spec L4), no lugar das 4 caixas do topo.
     Recebe `situacao` (SituacaoDaMetaOutput), `tarefa` e `podeEditarPrazo`. O "Alterar" do prazo abre o modal de
-    prazo de sempre (só para quem pode); o de responsáveis, o modal de responsáveis.
+    prazo (só para quem pode); o de responsáveis, o de responsáveis. As duas janelas são as do show (meta-detalhe.js).
 #}
 <div class="meta-detalhes" data-detalhes>
     <div class="meta-detalhes-cabeca"><i class="bi bi-info-circle" aria-hidden="true"></i> {{ 'metas.detalhe.detalhes.titulo'|trans }}</div>
     <div class="meta-detalhes-item meta-detalhes-prazo{% if situacao.atrasada %} meta-detalhes-prazo--atrasada{% endif %}"
-         {% if podeEditarPrazo %}role="button" tabindex="0" data-bs-toggle="modal" data-bs-target="#modalEditarPrazo" title="{{ 'metas.detalhe.detalhes.alterar_prazo_dica'|trans }}"{% endif %}>
+         {% if podeEditarPrazo %}role="button" tabindex="0" data-md-abrir="modalEditarPrazo" title="{{ 'metas.detalhe.detalhes.alterar_prazo_dica'|trans }}"{% endif %}>
         <div class="meta-detalhes-rotulo">{{ 'metas.detalhe.detalhes.prazo'|trans }}{% if podeEditarPrazo %}<span class="meta-detalhes-alterar">{{ 'metas.detalhe.detalhes.alterar'|trans }}</span>{% endif %}</div>
         {% if situacao.atrasada %}
             <div class="meta-detalhes-atraso">
@@ -24,7 +24,7 @@
         {% endif %}
     </div>
     <div class="meta-detalhes-item meta-detalhes-responsaveis" role="button" tabindex="0"
-         data-bs-toggle="modal" data-bs-target="#modalEditarResponsaveis" title="{{ 'metas.detalhe.detalhes.alterar_responsaveis_dica'|trans }}">
+         data-md-abrir="modalEditarResponsaveis" title="{{ 'metas.detalhe.detalhes.alterar_responsaveis_dica'|trans }}">
         <div class="meta-detalhes-rotulo">{{ 'metas.detalhe.detalhes.responsaveis'|trans }}<span class="meta-detalhes-alterar">{{ 'metas.detalhe.detalhes.alterar'|trans }}</span></div>
         {% for resp in tarefa.responsaveis %}
             <div class="meta-detalhes-valor">{{ resp.fullName }}</div>

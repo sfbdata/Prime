@@ -29,6 +29,8 @@ use App\Tarefa\Service\QuemConfiguraACaixa;
  * **Regras:** GARGALO é a caixa com MAIS atrasadas, só se houver alguma; no empate, a primeira da esteira
  * (dc L165). Meta de pasta oculta pelo cadeado para quem olha não entra nos números (spec pasta-cadeado D3).
  * A equipe para o @ do modal só vem para quem pode configurar caixa (D2): os outros nem recebem a lista.
+ * O avisado aparece como "Primeiro Último", sem o "Dr./Dra." do protótipo (spec C7: o `trat()` deduz o gênero
+ * pelo nome e erra).
  *
  * **Erros:** não lança; é leitura.
  */
@@ -90,9 +92,24 @@ final class MontarEsteiraDaPastaUseCase
             gargalo: $gargalo === $etapa,
             nomeDaCaixa: $configurada?->getNomeDaCaixa(),
             nomeDaEtapa: $configurada?->getNomeDaEtapa(),
-            avisados: array_values(array_map(static fn (User $u): string => (string) $u->getFullName(), $avisados)),
+            avisados: array_values(array_map(
+                static fn (User $u): string => self::nomeCurto((string) $u->getFullName()),
+                $avisados,
+            )),
             idsDosAvisados: array_values(array_map(static fn (User $u): int => (int) $u->getId(), $avisados)),
         );
+    }
+
+    /** "Primeiro Último" com as iniciais maiúsculas (spec C7: nome simples, sem título). */
+    private static function nomeCurto(string $nome): string
+    {
+        $partes = preg_split('/\s+/u', trim($nome), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if ($partes === []) {
+            return '';
+        }
+        $maiuscula = static fn (string $p): string => mb_strtoupper(mb_substr($p, 0, 1)) . mb_strtolower(mb_substr($p, 1));
+
+        return $maiuscula($partes[0]) . (count($partes) > 1 ? ' ' . $maiuscula($partes[count($partes) - 1]) : '');
     }
 
     /** @return list<MembroDaEquipeOutput> */

@@ -1344,38 +1344,19 @@ metas:
         busca_placeholder: Buscar por título, pasta ou cliente
         prioridade: Prioridade
         prazo: Prazo
-    modos:
-        rotulo: Modo de exibição
-        cartoes: Cartões
-        lista: Lista
     lista:
         cabecalho:
             meta: Meta
-            delegada_por: Delegada por
             responsavel: Responsável
             prazo: Prazo
             status: Status
-            atualizada: Atualizada
             criada: Criada
-        mostrando_uma: 'Mostrando {total} meta nesta aba.'
-        mostrando_varias: 'Mostrando {total} metas nesta aba.'
     cartao:
-        num_na_pasta_dica: 'Meta {numero} da pasta {nup}'
         abrir_a_pasta: Abrir a pasta
         quem_delegou: Quem delegou esta meta
         sem_criador: sem criador
-        responsaveis_dica: 'Responsáveis: {nomes}'
-        sem_responsavel: sem responsável
         prazo_dica: 'Prazo: {data}'
-        comentarios: Comentários na meta
         criada_em: 'criada {data}'
-        opcoes: Opções
-        opcoes_da_meta: Opções da meta
-        menu:
-            abrir_relatorio: Abrir relatório completo
-            ir_para_aba_metas: Ir para a aba Metas da pasta
-            editar_nome: Editar nome
-            encaminhar_chat_ia: Encaminhar via Chat I.A
         etapa: '{posicao}/{total} · {etapa}'
         etapa_dica: Etapa da pasta em que esta meta está
         proximo: 'próximo: {etapa} · {setor}'
@@ -1384,11 +1365,6 @@ metas:
         selo: 'Nº {numero}'
     vazio:
         com_filtro: Nenhuma meta com esses filtros.
-        responsavel: Nenhuma meta atribuída a você. Quando alguém delegar uma meta para você, ela aparece aqui.
-        criei: Você ainda não criou nenhuma meta. Metas são criadas de dentro da pasta, na aba Metas.
-        acompanhando_antes: Nenhuma meta em acompanhamento. Use o marcador
-        acompanhando_depois: em qualquer meta para acompanhá-la aqui.
-        todas: Nenhuma meta por aqui. Nada atribuído, criado ou marcado por você.
     trilho:
         seu_andamento: Seu andamento
         ultimos_30_dias: últimos 30 dias
@@ -1404,15 +1380,6 @@ metas:
         titulo_e_pasta: '{titulo} · Pasta {nup}'
         prazo: 'prazo {data}'
         prazo_nao_informado: não informado
-        vazio: Nada pedindo atenção.
-    pessoas:
-        quem_delegou: Quem delegou para você
-        com_quem_estao: Com quem estão
-        abertas: '{total} abertas'
-        atrasadas_uma: '{total} atrasada'
-        atrasadas_varias: '{total} atrasadas'
-        e_mais_uma: 'e mais {total} pessoa'
-        e_mais_varias: 'e mais {total} pessoas'
     equipe:
         migalha_dashboard: Dashboard
         migalha_atual: Metas da equipe
@@ -1473,7 +1440,6 @@ metas:
             criada_ha: '{n, plural, one {há 1 dia} other {há # dias}}'
             despachante: DESPACHANTE
         responsaveis: Responsáveis
-        prazo: Prazo
         pasta: 'Pasta: {nup}'
         abrir_a_pasta: Abrir a pasta
         demanda: DEMANDA
@@ -1484,9 +1450,9 @@ metas:
         so_comentar: Só comentar
         devolver: Devolver
         sem_eventos: Nenhum evento registrado ainda.
-        editar_mensagem: Editar mensagem
         editado: '(editado)'
         visualizar_arquivo: Visualizar arquivo
+        baixar: Baixar
         acompanhando: Acompanhando
         acompanhar: Acompanhar
         so_voce_ve: Só você vê esta marcação.
@@ -1503,15 +1469,8 @@ metas:
         prazo_titulo: Prazo da Meta
         prazo_sub: Deixe em branco para remover o prazo
         salvar_prazo: Salvar Prazo
-        baixar: Baixar
         despacho_titulo: DESPACHO
         js:
-            salvar: Salvar
-            cancelar: Cancelar
-            mensagem_vazia: A mensagem não pode ser vazia.
-            erro_editar: Erro ao editar.
-            editado: '(editado)'
-            erro_rede: Erro de rede. Tente novamente.
             acompanhando: Acompanhando
             acompanhar: Acompanhar
             permita_popups: Permita pop-ups para gerar o extrato.
@@ -1554,6 +1513,7 @@ metas:
         conferir_registro: Conferir o registro deste despacho
         cumprir_ate: 'Cumprir até {data}'
         ciente: 'Ciente · {nome}, {quando}'
+        quando: '{data}, {hora}'
         certificar: Certificar cumprimento
         certidao_assinatura: '{nome}, {quando}'
         certidao_rotulo: 'Certidão de cumprimento (o que foi feito):'

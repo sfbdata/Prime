@@ -2,7 +2,7 @@
 
 {#
    Tela "Minhas Metas" — reorganizada por PAPEL (abas).
-   Desenho-alvo: docs/design/redesign-19-10-26/04 - Minhas Metas 1.0.dc.html (dono, 21/10) · Spec: docs/specs/minhas-metas-abas.md
+   Desenho-alvo: docs/design/minhas-metas/vs-22-10-26/04 - Minhas Metas 22.10.26.dc.html · Spec: docs/specs/minhas-metas-abas.md
 
    O que fica FORA de [data-filtro-resultado] (título, KPIs, abas, barra de filtro) não recarrega
    ao filtrar — é o que mantém o foco no campo de busca, padrão do Expediente.
@@ -12,100 +12,84 @@
 
 {% set aba = painel.aba %}
 
+{% block body_class %}mm-body{% endblock %}
+
 {% block body %}
+{# Moldura do desenho (dc L49): 24/22/32, coluna com 16px entre os blocos, até 1600px. O fundo #f3f6f8 e o respiro
+   zerado da moldura do sistema ficam presos em `.mm-body` (decisão do dono de 22/10: nada muda nas outras telas). #}
 <div class="mm-page">
-<div class="content-header">
-    <div class="container-fluid">
-        <div class="d-flex align-items-end gap-3 flex-wrap mb-2">
-            {# Cabeçalho do desenho (dc L46-51): H1 36px sem ícone, 18px até "Atualizado às" e o
-               subtítulo 8px abaixo. `.mm-cabecalho` escopa o tamanho: a tela de Equipe usa o mesmo
-               `.mm-titulo` e não muda. #}
-            <div class="mm-cabecalho min-w-0">
-                <div class="mm-cabecalho-linha">
-                    <h1 class="mm-titulo">{{ 'metas.titulo'|trans }}</h1>
-                    {# Hora em que o servidor leu as metas — informação real; a recarga parcial do filtro
-                       traz a hora da nova leitura (`data-mm-lido-as` no fragmento) e o script abaixo a copia. #}
-                    <span class="mm-atualizado"><span class="mm-atualizado-ponto" aria-hidden="true"></span>{{ 'metas.atualizado_as'|trans }} <span data-mm-atualizado-hora>{{ 'now'|hora }}</span></span>
-                </div>
-                <p class="mm-subtitulo">{{ 'metas.subtitulo'|trans }}</p>
+    <header class="mm-topo">
+        {# Cabeçalho do desenho (dc L50-56): H1 36px com o traço azul, 18px até "Atualizado às" e o subtítulo 8px
+           abaixo. Sem migalha (o desenho não tem). `.mm-cabecalho` escopa o tamanho: a Equipe usa o mesmo `.mm-titulo`. #}
+        <div class="mm-cabecalho">
+            <div class="mm-cabecalho-linha">
+                <h1 class="mm-titulo">{{ 'metas.titulo'|trans }}</h1>
+                {# Hora em que o servidor leu as metas; a recarga parcial do filtro traz a hora da nova leitura
+                   (`data-mm-lido-as` no fragmento) e o script abaixo a copia. #}
+                <span class="mm-atualizado"><span class="mm-atualizado-ponto" aria-hidden="true"></span>{{ 'metas.atualizado_as'|trans }} <span data-mm-atualizado-hora>{{ 'now'|hora }}</span></span>
             </div>
-            <div class="flex-grow-1"></div>
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="{{ path('homepage') }}">{{ 'metas.migalha.home'|trans }}</a></li>
-                <li class="breadcrumb-item active">{{ 'metas.titulo'|trans }}</li>
-            </ol>
+            <p class="mm-subtitulo">{{ 'metas.subtitulo'|trans }}</p>
         </div>
-    </div>
-</div>
+    </header>
 
-<section class="content">
-    <div class="container-fluid">
+    {# Só filtros preenchidos entram na URL: parâmetro vazio na barra de endereço é ruído. #}
+    {% set base = filtros|filter(v => v != '') %}
 
-        {# ── Esteira da pasta (geral do escritório) e o divisor "Suas metas" (desenho 22/10, dc L61-63) ── #}
-        {% if esteira is defined %}
-            {{ include('tarefa/_esteira.html.twig', {comModo: painel.modoLista ? filtros|filter(v => v != '')|merge({modo: 'lista', aba: aba.value}) : filtros|filter(v => v != '')|merge({aba: aba.value})}) }}
-        {% endif %}
+    {# ── Esteira da pasta (geral do escritório) e o divisor "Suas metas" (desenho 22/10, dc L58-61) ── #}
+    {% if esteira is defined %}
+        {{ include('tarefa/_esteira.html.twig', {comModo: base|merge({aba: aba.value})}) }}
+    {% endif %}
 
-        {# ── KPIs: atalhos, não resumo do filtro ── #}
-        {% set kpis = painel.kpis %}
-        {% set atalhos = [
-            { chave: 'atrasadas',  rotulo: 'metas.prazo.atrasadas'|trans, valor: kpis.atrasadas,          sub: 'metas.kpis.sob_sua_responsabilidade'|trans, tom: 'danger', icone: 'bi-exclamation-octagon', destino: { aba: 'responsavel', prazo: 'vencidas' } },
-            { chave: 'proximas',   rotulo: 'metas.prazo.vencem_em_7_dias'|trans, valor: kpis.proximas,           sub: 'metas.kpis.ainda_da_tempo'|trans, tom: 'warn',   icone: 'bi-hourglass-split',     destino: { aba: 'responsavel', prazo: 'proximas' } },
-            { chave: 'revisao',    rotulo: 'metas.kpis.aguardando_sua_revisao'|trans, valor: kpis.aguardando_revisao, sub: 'metas.kpis.criadas_por_voce'|trans, tom: 'accent', icone: 'bi-clipboard2-check',    destino: { aba: 'criei' } },
-            { chave: 'sem_prazo',  rotulo: 'metas.prazo.sem_prazo'|trans, valor: kpis.sem_prazo,          sub: 'metas.kpis.abertas_sem_data'|trans, tom: 'cinza',  icone: 'bi-calendar-x',          destino: { aba: 'responsavel', prazo: 'sem' } }
-        ] %}
-        <div class="mm-kpis mb-3">
-            {% for k in atalhos %}
-                {% set ativo = (k.destino.aba == aba.value) and ((k.destino.prazo|default('')) == filtros.prazo) and (k.destino.prazo is defined or filtros.prazo == '') %}
-                <a href="{{ path('tarefa_minhas', k.destino) }}"
-                   class="mm-kpi tom-{{ k.tom }} {{ ativo and k.destino.prazo is defined ? 'is-ativo' : '' }}"
-                   title="{{ 'metas.kpis.ver'|trans({rotulo: k.rotulo|lower}) }}">
-                    {# Indicador do desenho (dc L54-61): halo, ícone, rótulo sublinhado na cor, número
-                       grande e faixa inferior. O número das atrasadas só fica vermelho se houver atrasadas. #}
-                    <span class="mm-kpi-halo" aria-hidden="true"></span>
-                    <span class="mm-kpi-icone" aria-hidden="true"><i class="bi {{ k.icone }}"></i></span>
+    {# ── KPIs (dc L62-64): atalhos, não resumo do filtro. Rótulo e descrição à esquerda, número à direita, borda
+       esquerda na cor do indicador. Sem ícone nem halo (decisão do dono de 22/10, vale contra o desenho). ── #}
+    {% set kpis = painel.kpis %}
+    {% set atalhos = [
+        { chave: 'atrasadas', rotulo: 'metas.prazo.atrasadas'|trans, valor: kpis.atrasadas, sub: 'metas.kpis.sob_sua_responsabilidade'|trans, tom: 'danger', destino: { aba: 'responsavel', prazo: 'vencidas' } },
+        { chave: 'proximas', rotulo: 'metas.prazo.vencem_em_7_dias'|trans, valor: kpis.proximas, sub: 'metas.kpis.ainda_da_tempo'|trans, tom: 'warn', destino: { aba: 'responsavel', prazo: 'proximas' } },
+        { chave: 'revisao', rotulo: 'metas.kpis.aguardando_sua_revisao'|trans, valor: kpis.aguardando_revisao, sub: 'metas.kpis.criadas_por_voce'|trans, tom: 'accent', destino: { aba: 'criei' } },
+        { chave: 'sem_prazo', rotulo: 'metas.prazo.sem_prazo'|trans, valor: kpis.sem_prazo, sub: 'metas.kpis.abertas_sem_data'|trans, tom: 'cinza', destino: { aba: 'responsavel', prazo: 'sem' } }
+    ] %}
+    <div class="mm-kpis">
+        {% for k in atalhos %}
+            <a href="{{ path('tarefa_minhas', k.destino) }}" class="mm-kpi tom-{{ k.tom }}"
+               title="{{ 'metas.kpis.ver'|trans({rotulo: k.rotulo|lower}) }}">
+                <span class="mm-kpi-texto">
                     <span class="mm-kpi-rotulo">{{ k.rotulo }}</span>
-                    <span class="mm-kpi-valor{{ k.chave == 'atrasadas' and 0 < k.valor ? ' is-alerta' : '' }}">{{ k.valor }}</span>
                     <span class="mm-kpi-sub">{{ k.sub }}</span>
-                    <span class="mm-kpi-faixa" aria-hidden="true"></span>
-                </a>
-            {% endfor %}
-        </div>
+                </span>
+                {# O número das atrasadas só fica vermelho se houver atrasadas (dc `numCor`). #}
+                <b class="mm-kpi-valor{{ k.chave == 'atrasadas' and 0 < k.valor ? ' is-alerta' : '' }}">{{ k.valor }}</b>
+            </a>
+        {% endfor %}
+    </div>
 
-        {# ── Abas (papel) + modo de exibição ── #}
-        {% set contagens = painel.contagensPorAba %}
-        {% set abas = [
-            { valor: 'responsavel',  rotulo: 'metas.abas.responsavel'|trans, icone: 'bi-person-check' },
-            { valor: 'criei',        rotulo: 'metas.abas.criei'|trans, icone: 'bi-send' },
-            { valor: 'acompanhando', rotulo: 'metas.abas.acompanhando'|trans, icone: 'bi-bookmark' },
-            { valor: 'todas',        rotulo: 'metas.abas.todas'|trans, icone: 'bi-layers' }
-        ] %}
-        {# Só filtros preenchidos entram na URL — parâmetro vazio na barra de endereço é ruído,
-           e `modo` só aparece quando não é o padrão (cartões). #}
-        {% set base = filtros|filter(v => v != '') %}
-        {% set comModo = painel.modoLista ? base|merge({modo: 'lista'}) : base %}
-        {# ── Abas + filtros + modo, num cartão só (dc L65-75), e o resultado ──
-           As abas moram dentro da raiz do filtro só pela caixa visual: o filtro-tabela.js reage a
-           campos e às classes `js-filtro-*`, não a elas.
-           Prioridade: a da META (desenho 04, P:77), valores normal/alta/urgente, não a da pasta.
-           Rótulos do prazo do desenho (dc L78); os valores `vencidas`/`proximas`/`sem` não mudam (KPIs).
-           "Limpar filtros" (dc L79): o motor só desenha o botão com filtro ativo e zera busca e selects,
-           não a aba (campo oculto sem `js-filtro-campo`). #}
-        <div data-filtro-root data-filtro-endpoint="{{ path('tarefa_minhas') }}" data-ft-rotulo-limpar="{{ 'metas.filtros.limpar'|trans }}">
-            <div class="mm-barra-cartao">
-                <div class="mm-abas" role="tablist" aria-label="{{ 'metas.abas.rotulo'|trans }}">
-                    {% for a in abas %}
-                        <a href="{{ path('tarefa_minhas', comModo|merge({aba: a.valor})) }}"
-                           class="mm-aba {{ aba.value == a.valor ? 'is-ativa' : '' }}"
-                           role="tab" aria-selected="{{ aba.value == a.valor ? 'true' : 'false' }}"
-                           data-aba="{{ a.valor }}">
-                            <i class="bi {{ a.icone }}"></i>
-                            <span>{{ a.rotulo }}</span>
-                            <span class="mm-aba-badge">{{ contagens[a.valor] ?? 0 }}</span>
-                        </a>
-                    {% endfor %}
-                </div>
-                <span class="mm-barra-sep" aria-hidden="true"></span>
+    {# ── Abas + filtros num cartão só (dc L66-79) e o resultado ──
+       As abas moram dentro da raiz do filtro só pela caixa visual: o filtro-tabela.js reage a campos e às classes
+       `js-filtro-*`, não a elas. Prioridade: a da META (normal/alta/urgente). Rótulos do prazo do desenho (dc L77);
+       os valores `vencidas`/`proximas`/`sem` não mudam (KPIs). "Limpar filtros" (dc L78): o motor só desenha o
+       botão com filtro ativo; a etapa da esteira conta como filtro e sai junto (script abaixo). #}
+    {% set contagens = painel.contagensPorAba %}
+    {% set abas = [
+        { valor: 'responsavel', rotulo: 'metas.abas.responsavel'|trans, icone: 'bi-person-check' },
+        { valor: 'criei', rotulo: 'metas.abas.criei'|trans, icone: 'bi-send' },
+        { valor: 'acompanhando', rotulo: 'metas.abas.acompanhando'|trans, icone: 'bi-bookmark' },
+        { valor: 'todas', rotulo: 'metas.abas.todas'|trans, icone: 'bi-layers' }
+    ] %}
+    <div class="mm-filtro" data-filtro-root data-filtro-endpoint="{{ path('tarefa_minhas') }}" data-ft-rotulo-limpar="{{ 'metas.filtros.limpar'|trans }}">
+        <div class="mm-barra-cartao">
+            <div class="mm-abas" role="tablist" aria-label="{{ 'metas.abas.rotulo'|trans }}">
+                {% for a in abas %}
+                    <a href="{{ path('tarefa_minhas', base|merge({aba: a.valor})) }}"
+                       class="mm-aba {{ aba.value == a.valor ? 'is-ativa' : '' }}"
+                       role="tab" aria-selected="{{ aba.value == a.valor ? 'true' : 'false' }}"
+                       data-aba="{{ a.valor }}">
+                        <i class="bi {{ a.icone }}"></i>
+                        <span>{{ a.rotulo }}</span>
+                        <span class="mm-aba-badge">{{ contagens[a.valor] ?? 0 }}</span>
+                    </a>
+                {% endfor %}
+            </div>
+            <span class="mm-barra-sep" aria-hidden="true"></span>
             {{ include('_partials/_filtro_barra.html.twig', {
                 busca_placeholder: 'metas.filtros.busca_placeholder'|trans,
                 filtros: filtros,
@@ -122,24 +106,12 @@
                     ] }
                 ]
             }) }}
-                <div class="mm-modos" role="group" aria-label="{{ 'metas.modos.rotulo'|trans }}">
-                    <a href="{{ path('tarefa_minhas', base|merge({aba: aba.value})) }}"
-                       class="mm-modo {{ painel.modoLista ? '' : 'is-ativo' }}" title="{{ 'metas.modos.cartoes'|trans }}" aria-label="{{ 'metas.modos.cartoes'|trans }}">
-                        <i class="bi bi-grid-1x2"></i>
-                    </a>
-                    <a href="{{ path('tarefa_minhas', base|merge({aba: aba.value, modo: 'lista'})) }}"
-                       class="mm-modo {{ painel.modoLista ? 'is-ativo' : '' }}" title="{{ 'metas.modos.lista'|trans }}" aria-label="{{ 'metas.modos.lista'|trans }}">
-                        <i class="bi bi-list-ul"></i>
-                    </a>
-                </div>
-            </div>
+        </div>
 
-            <div data-filtro-resultado>
-                {{ include('tarefa/_resultado.html.twig') }}
-            </div>
+        <div data-filtro-resultado>
+            {{ include('tarefa/_resultado.html.twig') }}
         </div>
     </div>
-</section>
 </div>
 {# Modal "Concluir etapa e passar adiante" do botão do cartão (desenho 04 L131; spec Fase 3). #}
 {{ include('tarefa/_meta_passagem_modal.html.twig', {contexto: 'lista'}) }}
@@ -152,25 +124,34 @@
 <script src="{{ asset('js/meta-passagem.js') }}"></script>
 {% if esteira is defined and esteira.podeConfigurar %}<script src="{{ asset('js/esteira-da-pasta.js') }}"></script>{% endif %}
 <script>
-// A aba, o modo e a etapa da esteira são estado da tela, não filtro: entram no form de filtro como campos
-// ocultos para sobreviverem à recarga parcial. Sem isso, filtrar dentro de "Criei" jogaria
-// o usuário de volta em "Sou responsável" — o mesmo modo de falha já registrado no
-// Expediente, quando um filtro não representável no form se perdia na primeira interação.
+// A aba e a etapa da esteira são estado da tela: entram no form de filtro como campos ocultos para sobreviverem à
+// recarga parcial. Sem isso, filtrar dentro de "Criei" jogaria o usuário de volta em "Sou responsável". A etapa é
+// também filtro (dc L232): leva `js-filtro-campo` para o motor contá-la e mostrar o "Limpar filtros".
 (function () {
     var raiz = document.querySelector('[data-filtro-root]');
     if (!raiz) { return; }
     var form = raiz.querySelector('[data-filtro-form]');
     if (!form) { return; }
 
-    [['aba', {{ aba.value|json_encode|raw }}], ['modo', {{ (painel.modoLista ? 'lista' : '')|json_encode|raw }}], ['etapa', {{ filtros.etapa|default('')|json_encode|raw }}]]
+    [['aba', {{ aba.value|json_encode|raw }}, ''], ['etapa', {{ filtros.etapa|default('')|json_encode|raw }}, 'js-filtro-campo']]
         .forEach(function (par) {
             if (!par[1]) { return; }
             var campo = document.createElement('input');
-            campo.type  = 'hidden';
-            campo.name  = par[0];
-            campo.value = par[1];
+            campo.type      = 'hidden';
+            campo.name      = par[0];
+            campo.value     = par[1];
+            campo.className = par[2];
             form.appendChild(campo);
         });
+
+    // "Limpar filtros" com a etapa ligada: a esteira (fora do fragmento) também tem de apagar a caixa ativa, então a
+    // tela recarrega inteira, na mesma aba e sem filtro nenhum. Sem a etapa, o motor limpa só o fragmento.
+    raiz.addEventListener('click', function (e) {
+        var etapa = form.querySelector('input[name="etapa"]');
+        if (!e.target.closest('.js-filtro-limpar') || !etapa || etapa.value === '') { return; }
+        e.stopPropagation();
+        window.location.href = {{ path('tarefa_minhas', {aba: aba.value})|json_encode|raw }};
+    }, true);
 }());
 
 // "Atualizado às": o fragmento recarregado pelo filtro traz a hora da nova leitura em
@@ -183,28 +164,6 @@
         var lido = alvo.querySelector('[data-mm-lido-as]');
         if (lido) { relogio.textContent = lido.getAttribute('data-mm-lido-as'); }
     }).observe(alvo, { childList: true });
-}());
-
-// O modo (cartões/lista) é preferência de tela, não dado do escritório: fica no navegador de
-// quem escolheu. Guardado só quando veio explícito na URL, e reaplicado na próxima visita —
-// nunca no servidor, e nunca sobrescrevendo uma escolha que o usuário acabou de fazer.
-(function () {
-    var CHAVE = 'jusprime.minhasMetas.modo';
-    var url   = new URL(window.location.href);
-    var naUrl = url.searchParams.get('modo');
-
-    try {
-        if (naUrl !== null) {
-            window.localStorage.setItem(CHAVE, naUrl === 'lista' ? 'lista' : 'cartoes');
-            return;
-        }
-        if (window.localStorage.getItem(CHAVE) === 'lista') {
-            url.searchParams.set('modo', 'lista');
-            window.location.replace(url.toString());
-        }
-    } catch (e) {
-        // Navegador com armazenamento bloqueado: a tela segue no modo padrão, sem quebrar.
-    }
 }());
 
 // Marcador de acompanhamento — alterna sem recarregar a página.
@@ -249,14 +208,10 @@ document.addEventListener('click', function (e) {
         // olhando. Some com a linha e acerta o contador do grupo, em vez de deixar na tela
         // um item que não pertence mais ali.
         if (!d.acompanhando && ABA_ATUAL === 'acompanhando') {
-            var linha = botao.closest('.mm-meta, .mm-linha');
+            var linha = botao.closest('.mm-meta');
             if (linha) {
-                // Todos os grupos ficam abertos (Concluídas inclusive, desenho 04): o cabeçalho é irmão da linha.
-                var grupo  = linha.previousElementSibling;
-                while (grupo && !grupo.matches('.mm-grupo-cabeca, .mm-separador')) {
-                    grupo = grupo.previousElementSibling;
-                }
-                // Cada grupo é uma <section> própria (dc L83): o cabeçalho segue irmão das linhas.
+                // O contador fica no cabeçalho da <section> do grupo (dc L85); as linhas moram na faixa abaixo dele.
+                var grupo    = linha.closest('.mm-grupo');
                 var contador = grupo ? grupo.querySelector('.mm-grupo-contagem') : null;
                 if (contador) {
                     contador.textContent = Math.max(0, parseInt(contador.textContent, 10) - 1);
@@ -274,7 +229,7 @@ document.addEventListener('click', function (e) {
 // Linha inteira clicável (dc L88, LIS-15): o clique em qualquer ponto da linha abre a META, o
 // mesmo destino do título (decisão do dono de 14/10: a pasta não). O título continua sendo o
 // link real, focável pelo teclado e lido pelo leitor de tela; a linha só delega o clique para
-// ele. Controles internos (marcador, ⋮, link da pasta, itens do menu) seguem com a ação deles,
+// ele. Controles internos (marcador, Concluir etapa, link da pasta) seguem com a ação deles,
 // e quem está selecionando texto não é levado para outra página. Como num link: Ctrl, Cmd,
 // Shift ou o botão do meio (que chega como `auxclick`) abrem em outra aba ou janela.
 function abrirMetaPelaLinha(e) {
@@ -282,7 +237,7 @@ function abrirMetaPelaLinha(e) {
     if (!linha || e.defaultPrevented) { return; }
     var meio = e.type === 'auxclick';
     if (meio ? e.button !== 1 : e.button !== 0) { return; }
-    if (e.target.closest('a, button, input, select, textarea, label, .dropdown-menu')) { return; }
+    if (e.target.closest('a, button, input, select, textarea, label')) { return; }
     var selecao = window.getSelection ? String(window.getSelection()) : '';
     if (selecao !== '') { return; }
 
@@ -298,18 +253,16 @@ function abrirMetaPelaLinha(e) {
 document.addEventListener('click', abrirMetaPelaLinha);
 document.addEventListener('auxclick', abrirMetaPelaLinha);
 
-/* "Encaminhar via Chat I.A" no ⋮ do cartão (R223): só ids, lidos dos `data-*` que o Twig renderizou; o despacho é da
-   janela da Central (`bj-central:despachar`, spec encaminhar-via-chat-ia §4.1). O dropdown fecha sozinho. */
-document.addEventListener('click', function (e) {
-    var item = e.target.closest('.js-mm-encaminhar');
-    if (!item) { return; }
-    var pastaId = Number(item.getAttribute('data-encaminhar-pasta'));
-    var itemId  = Number(item.getAttribute('data-encaminhar-id'));
-    if (!pastaId || !itemId || item.getAttribute('data-encaminhar-tipo') !== 'meta') { return; }
-    e.preventDefault();
-    document.dispatchEvent(new CustomEvent('bj-central:despachar', {
-        detail: { pastaId: pastaId, tipo: 'meta', itemId: itemId }
-    }));
+// Avisos (flash) do sistema nesta tela: embaixo no centro, empilhados. Só o de sucesso é o aviso do desenho (dc L132)
+// e some em 3 segundos (.is-toast); o de erro fica, com a cor de erro, até a pessoa fechar no X.
+document.querySelectorAll('.mm-body .app-content-header .alert').forEach(function (aviso) {
+    var sucesso = aviso.classList.contains('alert-success');
+    var icone = document.createElement('i');
+    icone.className = sucesso ? 'bi bi-check-circle' : 'bi bi-exclamation-circle';
+    aviso.prepend(icone);
+    if (!sucesso) return;
+    aviso.classList.add('is-toast');
+    window.setTimeout(function () { aviso.remove(); }, 3000);
 });
 </script>
 {% endblock %}
@@ -318,6 +271,5 @@ document.addEventListener('click', function (e) {
 {{ parent() }}
 <link rel="stylesheet" href="{{ asset('css/filtro-tabela.css') }}">
 <link rel="stylesheet" href="{{ asset('css/minhas-metas.css') }}">
-<link rel="stylesheet" href="{{ asset('css/meta-numero-global.css') }}">
 <link rel="stylesheet" href="{{ asset('css/meta-passagem.css') }}">
 {% endblock %}

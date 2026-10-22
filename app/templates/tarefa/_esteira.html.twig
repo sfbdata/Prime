@@ -9,7 +9,7 @@
 #}
 {% set etapaAtiva = filtros.etapa|default('') %}
 {% set semEtapa = comModo|filter((v, k) => k != 'etapa') %}
-<div class="mm-esteira mb-3" data-mm-esteira>
+<div class="mm-esteira" data-mm-esteira>
     <div class="mm-esteira-cabecalho">
         <i class="bi bi-diagram-3 mm-esteira-icone" aria-hidden="true"></i>
         <b class="mm-esteira-titulo">{{ 'metas.esteira.titulo'|trans }}</b>

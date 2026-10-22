@@ -308,8 +308,10 @@ final class TramitacaoDaMetaTest extends JusPrimeWebTestCase
         self::assertMatchesRegularExpression('/^Ciente: Rui( Prado)?$/u', trim($ciente->text()), 'só o nome, sem a hora (04B L150)');
         self::assertCount(0, $crawler->filter('button, [data-imprimir]'), 'sem botão Imprimir: a impressão é automática');
         self::assertStringNotContainsString('juntado à pasta', $crawler->filter('body')->text(), 'sem a linha do anexo');
-        self::assertStringContainsString('Certifico que juntei. · Rui Prado,', $ultimo->filter('.ext-c')->text());
-        self::assertCount(0, $ultimo->filter('.ext-m:contains("Cumprir até")'), 'com certidão o "Cumprir até" some, como na tela');
+        self::assertStringContainsString('Certifico que juntei. · Rui Prado, 21/10/2026, 11:00', $ultimo->filter('.ext-c')->text(), 'data com vírgula (04B L150)');
+        // No extrato o "Cumprir até" fica mesmo com certidão (04B L150: h.venc sem condição); só a tela o esconde (L161).
+        self::assertSame('Cumprir até ' . $prazo->format('d/m/Y'), trim($ultimo->filter('.ext-m:contains("Cumprir até")')->text()));
+        self::assertMatchesRegularExpression('/Emitido em \d{2}\/\d{2}\/\d{4}, \d{2}:\d{2}/', $crawler->filter('.ext-topo')->text());
     }
 
     #[TestDox('Extrato: só leitura (abrir não dá ciência); outro escritório 404; sem o módulo Metas 403; a página tem o botão no cabeçalho DESPACHO')]

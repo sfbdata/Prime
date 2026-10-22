@@ -1,46 +1,46 @@
 {#
-   Modal "Configurar caixa" (desenho 04 de 22/10, dc L133). Um só para as 8 caixas: o esteira-da-pasta.js
+   Janela "Configurar caixa" (desenho 04 de 22/10, dc L133), com os componentes do desenho (fundo .38, caixa de 460px),
+   não o modal do Bootstrap. Uma só para as 8 caixas: o esteira-da-pasta.js
    preenche os campos, a ação e o token a partir dos `data-*` da caixa clicada. "Salvar" e "Restaurar padrão"
    são POST comuns que voltam para Minhas Metas com o aviso. Os membros da equipe (para o @) vêm em JSON.
 #}
-<div class="modal fade mm-cx-modal" id="mm-cx-modal" tabindex="-1" aria-labelledby="mm-cx-modal-titulo" aria-hidden="true"
+<div class="mm-cx-modal" id="mm-cx-modal" hidden
      data-mm-cx-modal
      data-membros="{{ esteira.membros|map(m => {id: m.id, nome: m.nome, funcao: m.funcao})|json_encode|e('html_attr') }}"
      data-rotulo-remover="{{ 'metas.esteira.modal.remover'|trans({nome: '__nome__'}) }}">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form method="post" data-mm-cx-form>
-                <input type="hidden" name="_token" value="">
-                <div class="mm-cx-cabecalho">
-                    <i class="bi bi-inbox" aria-hidden="true"></i>
-                    <b class="mm-cx-titulo" id="mm-cx-modal-titulo">{{ 'metas.esteira.modal.titulo'|trans }}</b>
-                    <button type="button" class="mm-cx-fechar" data-bs-dismiss="modal" aria-label="{{ 'metas.esteira.modal.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    <div class="mm-cx-fundo" data-mm-cx-fechar></div>
+    <div class="mm-cx-centro">
+        <form method="post" class="mm-cx-caixa" role="dialog" aria-modal="true" aria-labelledby="mm-cx-modal-titulo" data-mm-cx-form>
+            <input type="hidden" name="_token" value="">
+            <div class="mm-cx-cabecalho">
+                <i class="bi bi-inbox" aria-hidden="true"></i>
+                <b class="mm-cx-titulo" id="mm-cx-modal-titulo">{{ 'metas.esteira.modal.titulo'|trans }}</b>
+                <button type="button" class="mm-cx-fechar" data-mm-cx-fechar aria-label="{{ 'metas.esteira.modal.fechar'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="mm-cx-corpo">
+                <div class="mm-cx-nomes">
+                    <label class="mm-cx-rotulo">{{ 'metas.esteira.modal.nome_da_caixa'|trans }}
+                        <input type="text" name="nome_da_caixa" maxlength="60" class="mm-cx-campo" data-mm-cx-caixa>
+                    </label>
+                    <label class="mm-cx-rotulo">{{ 'metas.esteira.modal.nome_da_etapa'|trans }}
+                        <input type="text" name="nome_da_etapa" maxlength="60" class="mm-cx-campo" data-mm-cx-etapa>
+                    </label>
                 </div>
-                <div class="mm-cx-corpo">
-                    <div class="mm-cx-nomes">
-                        <label class="mm-cx-rotulo">{{ 'metas.esteira.modal.nome_da_caixa'|trans }}
-                            <input type="text" name="nome_da_caixa" maxlength="60" class="mm-cx-campo" data-mm-cx-caixa>
-                        </label>
-                        <label class="mm-cx-rotulo">{{ 'metas.esteira.modal.nome_da_etapa'|trans }}
-                            <input type="text" name="nome_da_etapa" maxlength="60" class="mm-cx-campo" data-mm-cx-etapa>
-                        </label>
+                <div class="mm-cx-rotulo mm-cx-avisar">
+                    <span>{{ 'metas.esteira.modal.avisar'|trans }} <span class="mm-cx-ajuda">{{ 'metas.esteira.modal.avisar_ajuda'|trans }}</span></span>
+                    <div class="mm-cx-chips" data-mm-cx-chips>
+                        <input type="text" class="mm-cx-busca" placeholder="{{ 'metas.esteira.modal.avisar_placeholder'|trans }}" autocomplete="off" data-mm-cx-busca aria-label="{{ 'metas.esteira.modal.avisar'|trans }}">
                     </div>
-                    <div class="mm-cx-rotulo mm-cx-avisar">
-                        <span>{{ 'metas.esteira.modal.avisar'|trans }} <span class="mm-cx-ajuda">{{ 'metas.esteira.modal.avisar_ajuda'|trans }}</span></span>
-                        <div class="mm-cx-chips" data-mm-cx-chips>
-                            <input type="text" class="mm-cx-busca" placeholder="{{ 'metas.esteira.modal.avisar_placeholder'|trans }}" autocomplete="off" data-mm-cx-busca aria-label="{{ 'metas.esteira.modal.avisar'|trans }}">
-                        </div>
-                        <div class="mm-cx-sugestoes" data-mm-cx-sugestoes hidden></div>
-                        <span class="mm-cx-nota">{{ 'metas.esteira.modal.nota'|trans }}</span>
-                    </div>
+                    <div class="mm-cx-sugestoes" data-mm-cx-sugestoes hidden></div>
+                    <span class="mm-cx-nota">{{ 'metas.esteira.modal.nota'|trans }}</span>
                 </div>
-                <div class="mm-cx-rodape">
-                    <button type="submit" class="mm-cx-restaurar" data-mm-cx-restaurar formnovalidate>{{ 'metas.esteira.modal.restaurar'|trans }}</button>
-                    <span class="flex-grow-1"></span>
-                    <button type="button" class="mm-cx-cancelar" data-bs-dismiss="modal">{{ 'metas.esteira.modal.cancelar'|trans }}</button>
-                    <button type="submit" class="mm-cx-salvar">{{ 'metas.esteira.modal.salvar'|trans }}</button>
-                </div>
-            </form>
-        </div>
+            </div>
+            <div class="mm-cx-rodape">
+                <button type="submit" class="mm-cx-restaurar" data-mm-cx-restaurar formnovalidate>{{ 'metas.esteira.modal.restaurar'|trans }}</button>
+                <span class="mm-cx-espaco"></span>
+                <button type="button" class="mm-cx-cancelar" data-mm-cx-fechar>{{ 'metas.esteira.modal.cancelar'|trans }}</button>
+                <button type="submit" class="mm-cx-salvar">{{ 'metas.esteira.modal.salvar'|trans }}</button>
+            </div>
+        </form>
     </div>
 </div>

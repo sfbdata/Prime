@@ -21,7 +21,7 @@
             <h1>{{ (m ~ 'titulo')|trans }}</h1>
             <div class="ext-m">{{ (m ~ 'cabeca')|trans({numero: extrato.numero ~ '', titulo: extrato.titulo, pasta: extrato.pasta}) }}</div>
         </div>
-        <div class="ext-m">{{ (m ~ 'emitido_em')|trans({quando: extrato.emitidoEm|data_hora}) }}</div>
+        <div class="ext-m">{{ (m ~ 'emitido_em')|trans({quando: 'metas.despacho.quando'|trans({data: extrato.emitidoEm|data, hora: extrato.emitidoEm|hora})}) }}</div>
     </div>
 
     <div class="ext-d">
@@ -35,15 +35,15 @@
         <div class="ext-d">
             <div class="ext-h">
                 <span><b>{{ 'metas.despacho.numero'|trans({n: l.numero}) }}</b> · {{ l.tipo|trans }}</span>
-                <span>{{ (d ? d.registradoEm : item.dataHora)|data_hora }}</span>
+                {% set em = d ? d.registradoEm : item.dataHora %}<span>{{ 'metas.despacho.quando'|trans({data: em|data, hora: em|hora}) }}</span>
             </div>
             {% set quem = d ? d.autor : (item.autorNome ?? item.autorEmail) %}
             {% if quem %}<div><b>{{ quem }}</b>{% if d and d.para %} → <b>{{ d.para|join(', ') }}</b>{% endif %}</div>{% endif %}
             {% if d %}
                 {% if item.detalhe %}<div class="ext-texto">{{ item.detalhe|registro_texto }}</div>{% endif %}
-                {% if d.prazo %}<div class="ext-m">{{ (m ~ 'cumprir_ate')|trans({data: d.prazo|data}) }}</div>{% endif %}
+                {% if d.cumprirAte %}<div class="ext-m">{{ (m ~ 'cumprir_ate')|trans({data: d.cumprirAte|data}) }}</div>{% endif %}
                 {% if d.ciente %}<div class="ext-m">{{ (m ~ 'ciente')|trans({nome: d.ciente}) }}</div>{% endif %}
-                {% if d.certidao %}<div class="ext-c">{{ (m ~ 'certidao')|trans({texto: d.certidao, nome: d.certificadoPor ?? '', quando: d.certificadoEm|data_hora}) }}</div>{% endif %}
+                {% if d.certidao %}<div class="ext-c">{{ (m ~ 'certidao')|trans({texto: d.certidao, nome: d.certificadoPor ?? '', quando: 'metas.despacho.quando'|trans({data: d.certificadoEm|data, hora: d.certificadoEm|hora})}) }}</div>{% endif %}
             {% elseif item.detalhe %}
                 <div>{{ item.detalhe|nl2br }}</div>
             {% endif %}

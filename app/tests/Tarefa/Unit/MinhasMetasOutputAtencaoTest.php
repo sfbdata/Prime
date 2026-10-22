@@ -44,7 +44,6 @@ final class MinhasMetasOutputAtencaoTest extends TestCase
             [],
             ['atrasadas' => 0, 'proximas' => 0, 'sem_prazo' => 0, 'aguardando_revisao' => 0],
             [],
-            false,
             andamento: $andamento ?? new AndamentoDasMetasOutput(),
             atencao: $atencao,
         );
@@ -93,7 +92,6 @@ final class MinhasMetasOutputAtencaoTest extends TestCase
             [['metas.trilho.legenda.concluidas', 2, 'ok'], ['metas.trilho.legenda.atrasadas', 3, 'danger'], ['metas.trilho.legenda.em_revisao', 1, 'accent']],
             array_map(static fn (array $f): array => [$f['chave'], $f['total'], $f['tom']], $painel->fatiasDoAndamento()),
         );
-        self::assertSame(1, $painel->totalExibido(), 'o modo lista continua contando o que a aba mostra');
     }
 
     #[TestDox('Sem metas o andamento fica zerado, sem divisão por zero, e a atenção vazia')]

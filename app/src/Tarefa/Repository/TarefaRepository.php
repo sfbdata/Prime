@@ -11,7 +11,6 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Processo\Entity\Processo;
 use App\Tarefa\DTO\AndamentoDasMetasOutput;
-use App\Tarefa\DTO\PessoaNoTrilhoOutput;
 use App\Tarefa\Enum\AbaMetas;
 use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Enum\PrioridadeDaMeta;
@@ -249,23 +248,22 @@ class TarefaRepository extends ServiceEntityRepository
     }
 
     /**
-     * Quais destas metas o usuário acompanha, e quantas mensagens cada uma tem.
+     * Quais destas metas o usuário acompanha.
      *
-     * Existe para matar dois N+1 do template: `meta.ehAcompanhadaPor(app.user)` e
-     * `meta.mensagens|length` inicializavam a coleção meta a meta — com 87 linhas na tela isso
-     * era 174 idas ao banco. Aqui são duas, e o Twig só consulta arrays.
+     * Existe para matar o N+1 do template: `meta.ehAcompanhadaPor(app.user)` inicializava a coleção meta a
+     * meta. Aqui é uma consulta, e o Twig só consulta o array.
      *
      * @param int[] $metaIds
-     * @return array{acompanhadas: int[], mensagens: array<int, int>}
+     * @return array{acompanhadas: int[]}
      */
     public function carregarMarcadoresDaLista(User $usuario, array $metaIds): array
     {
         if ($metaIds === []) {
-            return ['acompanhadas' => [], 'mensagens' => []];
+            return ['acompanhadas' => []];
         }
 
-        // A raiz das duas consultas é `Tarefa` (TenantAware) de propósito: assim o TenantFilter
-        // prende o escopo, e um id forjado na lista não alcançaria meta de outro escritório.
+        // A raiz da consulta é `Tarefa` (TenantAware) de propósito: assim o TenantFilter prende o escopo, e um id
+        // forjado na lista não alcançaria meta de outro escritório.
         $acompanhadas = $this->createQueryBuilder('t')
             ->select('t.id')
             ->andWhere('t.id IN (:ids)')
@@ -275,148 +273,9 @@ class TarefaRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleColumnResult();
 
-        $linhas = $this->createQueryBuilder('t')
-            ->select('t.id AS id, COUNT(m.id) AS total')
-            ->join('t.mensagens', 'm')
-            ->andWhere('t.id IN (:ids)')
-            ->setParameter('ids', $metaIds)
-            ->groupBy('t.id')
-            ->getQuery()
-            ->getArrayResult();
-
-        $mensagens = [];
-        foreach ($linhas as $linha) {
-            $mensagens[(int) $linha['id']] = (int) $linha['total'];
-        }
-
         return [
             'acompanhadas' => array_map('intval', $acompanhadas),
-            'mensagens'    => $mensagens,
         ];
-    }
-
-    /**
-     * Número de cada meta DENTRO da sua pasta (R239: `{nº na pasta} Título`), pela mesma regra da aba
-     * Metas da pasta (`PastaMetasResumoOutput::emOrdemDeCriacao`): ordem de criação, id como desempate.
-     * Não há campo gravado — o número é a posição, e é a mesma nas duas telas.
-     *
-     * Raiz e junção em `Tarefa` (TenantAware): o TenantFilter prende as duas pontas ao escritório, e a
-     * junção só olha metas da MESMA pasta. Uma consulta para a lista inteira.
-     *
-     * @param int[] $metaIds
-     * @return array<int, int> id da meta => número na pasta
-     */
-    public function numerosNaPasta(array $metaIds): array
-    {
-        if ($metaIds === []) {
-            return [];
-        }
-
-        $linhas = $this->createQueryBuilder('t')
-            ->select('t.id AS id, COUNT(o.id) AS numero')
-            ->join(
-                Tarefa::class,
-                'o',
-                'WITH',
-                'o.pasta = t.pasta AND (o.dataCriacao < t.dataCriacao OR (o.dataCriacao = t.dataCriacao AND o.id <= t.id))',
-            )
-            ->andWhere('t.id IN (:ids)')
-            ->setParameter('ids', $metaIds)
-            ->groupBy('t.id')
-            ->getQuery()
-            ->getArrayResult();
-
-        $numeros = [];
-        foreach ($linhas as $linha) {
-            $numeros[(int) $linha['id']] = (int) $linha['numero'];
-        }
-
-        return $numeros;
-    }
-
-    /**
-     * As pessoas do trilho lateral, com quantas metas em aberto e quantas atrasadas cada uma.
-     *
-     * A pergunta muda com a aba, e é essa a razão de o trilho existir:
-     *  - "Sou responsável" → QUEM DELEGOU para mim (agrupa pelo criador);
-     *  - as demais         → COM QUEM ESTÃO as metas (agrupa pelo responsável).
-     *
-     * Concluída não entra: o bloco mede carga de hoje. Meta com dois responsáveis conta para
-     * os dois — é o que o usuário espera ao ler "com quem estão".
-     *
-     * @param list<int> $pastasOcultas
-     * @return PessoaNoTrilhoOutput[]  em ordem decrescente de metas em aberto
-     */
-    public function contarPessoasDoTrilho(User $usuario, AbaMetas $aba, array $pastasOcultas = []): array
-    {
-        $porCriador = $aba === AbaMetas::RESPONSAVEL;
-
-        $qb = $this->createQueryBuilder('t')
-            ->andWhere('t.status != :concluida')
-            ->setParameter('usuario', $usuario)
-            ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA);
-
-        if ($porCriador) {
-            $qb->select('u.id AS id, u.fullName AS nome, COUNT(DISTINCT t.id) AS abertas')
-               ->join('t.criadoPor', 'u')
-               ->andWhere(':usuario MEMBER OF t.responsaveis');
-        } else {
-            $qb->select('u.id AS id, u.fullName AS nome, COUNT(DISTINCT t.id) AS abertas')
-               ->join('t.responsaveis', 'u');
-            $this->escoparPelaAba($qb, $aba);
-        }
-        $this->semPastasOcultas($qb, $pastasOcultas);
-
-        $linhas = $qb->groupBy('u.id, u.fullName')
-            ->orderBy('abertas', 'DESC')
-            ->getQuery()
-            ->getArrayResult();
-
-        $atrasadas = $this->contarAtrasadasPorPessoa($usuario, $aba, $porCriador, $pastasOcultas);
-
-        return array_map(
-            static fn (array $l): PessoaNoTrilhoOutput => new PessoaNoTrilhoOutput(
-                id: (int) $l['id'],
-                nome: (string) $l['nome'],
-                abertas: (int) $l['abertas'],
-                atrasadas: $atrasadas[(int) $l['id']] ?? 0,
-            ),
-            $linhas,
-        );
-    }
-
-    /**
-     * Companheira da consulta acima — sai em query própria porque contar duas condições
-     * diferentes no mesmo GROUP BY exigiria CASE dentro do COUNT, que o DQL não expressa
-     * bem e que ficaria ilegível para quem vier depois.
-     *
-     * @return array<int, int>  userId => atrasadas
-     */
-    /** @param list<int> $pastasOcultas */
-    private function contarAtrasadasPorPessoa(User $usuario, AbaMetas $aba, bool $porCriador, array $pastasOcultas = []): array
-    {
-        $qb = $this->createQueryBuilder('t')
-            ->select('u.id AS id, COUNT(DISTINCT t.id) AS total')
-            ->andWhere('t.status NOT IN (:foraDaFila)')
-            ->andWhere('t.prazo IS NOT NULL AND t.prazo < :hoje')
-            ->setParameter('usuario', $usuario)
-            ->setParameter('foraDaFila', self::FORA_DA_FILA)
-            ->setParameter('hoje', new \DateTimeImmutable('today'));
-
-        if ($porCriador) {
-            $qb->join('t.criadoPor', 'u')->andWhere(':usuario MEMBER OF t.responsaveis');
-        } else {
-            $qb->join('t.responsaveis', 'u');
-            $this->escoparPelaAba($qb, $aba);
-        }
-        $this->semPastasOcultas($qb, $pastasOcultas);
-
-        $contagens = [];
-        foreach ($qb->groupBy('u.id')->getQuery()->getArrayResult() as $linha) {
-            $contagens[(int) $linha['id']] = (int) $linha['total'];
-        }
-
-        return $contagens;
     }
 
     /**

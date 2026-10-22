@@ -177,7 +177,6 @@
     "metas": {
         "templates": [
             "tarefa/minhas.html.twig",
-            "tarefa/_metas_lista.html.twig",
             "tarefa/_meta_cartao.html.twig",
             "tarefa/_resultado.html.twig",
             "tarefa/equipe.html.twig",
@@ -191,8 +190,8 @@
             "tarefa/registro.html.twig",
             "tarefa/extrato.html.twig"
         ],
-        "js": ["meta-despacho.js"],
-        "permitidos": ["Enter"]
+        "js": ["meta-despacho.js", "meta-detalhe.js"],
+        "permitidos": ["Enter", "Escape", "Tab", "meta-body", "mm-body"]
     },
 
     "perfis": {

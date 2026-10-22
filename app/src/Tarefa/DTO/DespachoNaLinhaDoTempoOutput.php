@@ -19,6 +19,9 @@ namespace App\Tarefa\DTO;
  * `para` são as pessoas mencionadas com @ (C3), pelo nome curto do desenho (L161: as duas primeiras palavras), para
  * o "quem → para". `anexoNome`/`anexoDocumentoId` são do anexo juntado aos documentos da pasta (C4, "nome · juntado à
  * pasta"); anexo antigo, no caminho de `uploads/tarefas`, deixa os dois nulos e segue no `TimelineItemDTO`.
+ *
+ * `prazo` some quando o despacho é certificado (a página só mostra o "Cumprir até" pendente, L71); `cumprirAte` é o
+ * prazo marcado no despacho, certificado ou não, que o extrato mostra sempre (L150).
  */
 final class DespachoNaLinhaDoTempoOutput
 {
@@ -44,6 +47,7 @@ final class DespachoNaLinhaDoTempoOutput
         public readonly array $para = [],
         public readonly ?string $anexoNome = null,
         public readonly ?int $anexoDocumentoId = null,
+        public readonly ?\DateTimeImmutable $cumprirAte = null,
     ) {
     }
 }
