@@ -122,6 +122,9 @@ moldura:
             exemplo_reuniao: Reunião de equipe semanal
             exemplo_prazo: Prazo de contestação · Pasta 1180
             exemplo_compromisso: Atendimento ao cliente
+    # Faixa do Master numa tela desligada (_recurso_faixa_master, incluída pelo base, layout_peticionar e push_compartilhado/show)
+    faixa_master:
+        aviso: Esta tela está desativada para os usuários. Só o Master está vendo.
 
 # ---- menu do usuário (menu_usuario/*, menu-usuario.js)
 menu:
@@ -3615,6 +3618,27 @@ comum:
                 outubro: outubro
                 novembro: novembro
                 dezembro: dezembro
+
+# ---- Templates da raiz: chip de OAB e layout do Peticionar (_oab_status, layout_peticionar). O cabeçalho do
+# Peticionar reaproveita moldura.notificacoes/cabecalho e menu.usuario.dropdown (mesmo rótulo, mesmo sentido).
+oab_status:
+    confirmada: Confirmada
+    divergente: Divergente
+    nao_verificada: Não verificada
+    sem_oab: Sem OAB
+peticionar:
+    titulo: Peticionar
+    cabecalho:
+        numero_pasta: 'Número da Pasta: {nup}'
+        cliente: 'Cliente: {cliente}'
+    processo:
+        contra: X
+        classe: Classe judicial
+        assunto: Assunto
+        jurisdicao: Jurisdição
+        distribuicao: Distribuição
+        instancia: Instância
+        situacao: Situação
 
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro
