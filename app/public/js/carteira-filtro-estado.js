@@ -17,7 +17,7 @@
             return;
         }
 
-        var padrao = caixa.getAttribute('data-estado-padrao') || 'Estado';
+        var padrao = caixa.getAttribute('data-estado-padrao') || BJ_T.t('cobranca_carteira.js.estado');
         var opcoes = caixa.querySelectorAll('[data-estado-valor]');
 
         // Só agora o <select> sai de cena. Fora da ordem de tabulação e fora da árvore de

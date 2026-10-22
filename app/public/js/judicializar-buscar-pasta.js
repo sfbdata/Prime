@@ -61,7 +61,7 @@
         campo.value = '';
         limparLista();
         if (escolhida) {
-            escolhida.textContent = 'Pasta escolhida: ' + texto;
+            escolhida.textContent = BJ_T.t('cobranca_objeto.js.pasta_escolhida', { pasta: texto });
             escolhida.hidden = false;
         }
         // Escolher a pasta implica querer vincular: marca o rádio para quem clicou aqui direto.
@@ -79,7 +79,7 @@
         if (!resultados.length) {
             var vazio = document.createElement('div');
             vazio.className = 'list-group-item text-secondary small';
-            vazio.textContent = 'Nenhuma pasta encontrada.';
+            vazio.textContent = BJ_T.t('cobranca_objeto.js.nenhuma_pasta');
             lista.appendChild(vazio);
             lista.classList.remove('d-none');
             return;

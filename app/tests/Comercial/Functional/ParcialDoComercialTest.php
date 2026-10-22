@@ -187,7 +187,7 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertSame(['leads', 'prim', 'sec', 'todos', 'csv', 'indiv'], $this->doc->filter($botoes)->each(static fn (Crawler $c): string => (string) $c->attr('data-mc-cp-publico')));
         self::assertSame(['Base de contatos', 'Usuários primários', 'Usuários secundários', 'Todos os cadastrados', 'Importar lista (CSV)', 'Individual'], $this->textos($botoes . ' > .mc-cp-publico-texto > .mc-cp-publico-rot'));
         self::assertSame([
-            'Inscritos pela página de vagas e campanhas', 'Quem abriu conta, em todas as contas', 'Convidados de todas as contas',
+            'Contatos que autorizaram campanhas', 'Quem abriu conta, em todas as contas', 'Convidados de todas as contas',
             'Primários e secundários', 'Planilha com e-mail e nome', 'Digite um ou mais e-mails',
         ], $this->textos($botoes . ' > .mc-cp-publico-texto > .mc-cp-publico-desc'));
         self::assertSame(['bi-person-lines-fill', 'bi-person-badge', 'bi-people', 'bi-buildings', 'bi-filetype-csv', 'bi-person'], $this->doc->filter($botoes . ' > i')->each(static fn (Crawler $c): string => trim(str_replace('bi ', '', (string) $c->attr('class')))));

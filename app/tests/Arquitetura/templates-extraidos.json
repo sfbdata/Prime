@@ -418,8 +418,17 @@
             "cobranca/caso/_acoes_modais_financeiro.html.twig",
             "cobranca/acordo/show.html.twig"
         ],
+        "js": [
+            "objeto-linha-menu.js",
+            "judicializar-buscar-pasta.js"
+        ],
         "permitidos": [
-            "App\\\\Cobranca\\\\Enum\\\\TipoTelefone"
+            "App\\\\Cobranca\\\\Enum\\\\TipoTelefone",
+            "Escape",
+            "ArrowDown",
+            "ArrowUp",
+            "Tab",
+            "Enter"
         ]
     },
 
@@ -485,5 +494,50 @@
         ],
         "js": [],
         "permitidos": []
+    },
+
+    "cobranca_carteira": {
+        "templates": [
+            "cobranca/carteira/index.html.twig",
+            "cobranca/carteira/_resultado.html.twig",
+            "cobranca/carteira/_paginacao.html.twig",
+            "cobranca/carteira/show.html.twig",
+            "cobranca/carteira/_resultado_casos.html.twig",
+            "cobranca/carteira/_acoes_modais.html.twig",
+            "cobranca/carteira/_campos_config.html.twig",
+            "cobranca/dashboard/index.html.twig",
+            "cobranca/alertas/index.html.twig",
+            "cobranca/importacao/upload.html.twig",
+            "cobranca/importacao/preview.html.twig"
+        ],
+        "js": [
+            "cobranca-carteira-form.js",
+            "cobranca-soltar-arquivo.js",
+            "carteira-filtro-estado.js"
+        ],
+        "permitidos": [
+            "cs-body",
+            "resources.carteira.gerenciar"
+        ]
+    },
+
+    "cobranca_pessoa": {
+        "templates": [
+            "cobranca/pessoa/show.html.twig",
+            "cobranca/pessoa/_partials/_ficha_abas.html.twig",
+            "cobranca/pessoa/_partials/_qualificacao.html.twig",
+            "cobranca/pessoa/_partials/_lista_enderecos.html.twig",
+            "cobranca/pessoa/_partials/_lista_telefones.html.twig",
+            "cobranca/pessoa/_partials/_lista_emails.html.twig",
+            "cobranca/central/index.html.twig",
+            "cobranca/central/_aba_atividade.html.twig",
+            "cobranca/central/_detalhe_pessoa.html.twig",
+            "cobranca/central/_lista_eventos.html.twig",
+            "cobranca/central/_momento.html.twig",
+            "cobranca/_partials/_subnav.html.twig"
+        ],
+        "permitidos": [
+            "App\\\\Cobranca\\\\Enum\\\\TipoTelefone"
+        ]
     }
 }

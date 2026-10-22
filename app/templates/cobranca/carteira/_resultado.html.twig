@@ -7,7 +7,7 @@
 
 <div class="cobranca-resultado-head">
     <div class="cobranca-count">
-        <i class="bi bi-folder2-open"></i> <strong>{{ total }}</strong>&nbsp;carteira(s)
+        <i class="bi bi-folder2-open"></i> <strong>{{ total }}</strong>&nbsp;{{ 'cobranca_carteira.lista.contagem'|trans }}
     </div>
     {{ include('_partials/_filtro_paginacao.html.twig', { pagina: pagina, total_paginas: total_paginas }) }}
 </div>
@@ -18,11 +18,11 @@
             <table class="table mb-0">
                 <thead>
                     <tr>
-                        <th class="sortable ps-3{{ filtros.ordenar == 'nome' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="nome"><i class="bi bi-folder2 me-1"></i>Carteira <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                        <th><i class="bi bi-person-badge me-1"></i>Cliente credor</th>
-                        <th style="width:120px"><i class="bi bi-diagram-3 me-1"></i>Modo</th>
-                        <th style="width:180px"><i class="bi bi-percent me-1"></i>Honorários</th>
-                        <th class="sortable{{ filtros.ordenar == 'atualizacao' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="atualizacao" style="width:110px"><i class="bi bi-clock-history me-1"></i>Modificado <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th class="sortable ps-3{{ filtros.ordenar == 'nome' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="nome"><i class="bi bi-folder2 me-1"></i>{{ 'cobranca_carteira.lista.coluna.carteira'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th><i class="bi bi-person-badge me-1"></i>{{ 'cobranca_carteira.lista.coluna.cliente_credor'|trans }}</th>
+                        <th style="width:120px"><i class="bi bi-diagram-3 me-1"></i>{{ 'cobranca_carteira.lista.coluna.modo'|trans }}</th>
+                        <th style="width:180px"><i class="bi bi-percent me-1"></i>{{ 'cobranca_carteira.lista.coluna.honorarios'|trans }}</th>
+                        <th class="sortable{{ filtros.ordenar == 'atualizacao' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="atualizacao" style="width:110px"><i class="bi bi-clock-history me-1"></i>{{ 'cobranca_carteira.lista.coluna.modificado'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -34,7 +34,7 @@
                         <td class="align-middle">
                             {{ c.formaHonorariosLabel }}{% if c.percentualHonorarios %} <span class="text-muted">({{ c.percentualHonorarios }}%)</span>{% endif %}
                         </td>
-                        <td class="align-middle text-muted" style="font-size:.82rem;">{{ c.atualizadoEm ? c.atualizadoEm|date('d/m/Y') : 'Sem registro' }}</td>
+                        <td class="align-middle text-muted" style="font-size:.82rem;">{{ c.atualizadoEm ? c.atualizadoEm|data : 'cobranca_carteira.lista.sem_registro'|trans }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -59,11 +59,11 @@
         <div class="cobranca-empty">
             <div class="empty-ico"><i class="bi bi-folder-x"></i></div>
             {% if temFiltro %}
-                <p class="empty-title">Nenhuma carteira encontrada</p>
-                <p class="text-muted small mb-0">Ajuste ou limpe os filtros aplicados.</p>
+                <p class="empty-title">{{ 'cobranca_carteira.lista.vazio_filtro_titulo'|trans }}</p>
+                <p class="text-muted small mb-0">{{ 'cobranca_carteira.lista.vazio_filtro_texto'|trans }}</p>
             {% else %}
-                <p class="empty-title">Nenhuma carteira cadastrada</p>
-                <p class="text-muted small mb-0">As carteiras de cobrança aparecerão aqui.</p>
+                <p class="empty-title">{{ 'cobranca_carteira.lista.vazio_titulo'|trans }}</p>
+                <p class="text-muted small mb-0">{{ 'cobranca_carteira.lista.vazio_texto'|trans }}</p>
             {% endif %}
         </div>
     </div>
