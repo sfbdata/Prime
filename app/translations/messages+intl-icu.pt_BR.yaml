@@ -3312,7 +3312,7 @@ comercial:
         dsc_registrar_pergunta: 'E-mail que pediu para não receber (por telefone, WhatsApp etc.):'
 
 # ---- escritorio: Meu Escritório (tenant/index, new, criar, show, edit, _form, _delete_form, selecionar,
-# escritorio_indisponivel), com os flashes do TenantController, do EscritorioController e do TenantSelecaoController
+# escritorio_indisponivel; no T2, tenant/users e edit_user_role), com os flashes do TenantController, do EscritorioController e do TenantSelecaoController
 # e o título da página de escritório indisponível. Frase curta com o termo dentro recebe termos.escritorio por
 # parâmetro ({termo}); "(s)" fica como está.
 escritorio:
@@ -3386,6 +3386,86 @@ escritorio:
     indisponivel:
         titulo: Escritório indisponível
         outro: Selecionar outro escritório
+    # T2: lista de colaboradores (tenant/users).
+    usuarios:
+        titulo_pagina: Colaboradores
+        titulo: 'Colaboradores - {nome}'
+        jornada: Configurar Jornada
+        voltar: Voltar
+        codigo: Código
+        nome: Nome
+        email: Email
+        perfil: Perfil
+        acessos: Acessos específicos
+        criado_em: Criado em
+        acoes: Ações
+        nao_informado: Não informado
+        nenhum: Nenhum
+        # Contagem dos acessos específicos no botão que abre a lista (sempre 1 ou mais). "items" é o texto de hoje.
+        itens: '{n, plural, one {# item} other {# items}}'
+        ver_dica: Visualizar
+        ver: Ver
+        editar: Editar
+        excluir: Excluir
+        concedido_por: Concedido por
+        editar_dica: Editar roles do usuário
+        vazio: Nenhum colaborador encontrado.
+    # T2: edição do colaborador (tenant/edit_user_role). As abas de jornada, home office, ponto, justificativas e horas
+    # pagas são parciais do T3; os rótulos dos campos vêm do EditUserTenantRoleType e do DadosPessoaisType.
+    editar_usuario:
+        titulo_pagina: Editar Permissões
+        titulo: 'Editar Permissões: {nome}'
+        aba_perfil: Perfil e Senha
+        aba_dados: Dados Pessoais
+        aba_acessos: Acessos Específicos
+        aba_jornada: Jornada Personalizada
+        aba_home_office: Home Office
+        aba_ponto: Batidas de Ponto
+        aba_justificativas: Justificativas
+        aba_horas_pagas: Horas pagas
+        alterar_nome: Alterar nome
+        codigo_dica: Gerado automaticamente. Pode ser editado (letras e números).
+        folha_dica: Usado na folha de ponto.
+        troca_titulo: Alterar Senha (opcional)
+        troca_dica: Preencha os campos abaixo apenas se desejar alterar a senha.
+        remover: 'Remover do {termo}'
+        voltar: Voltar
+        salvar: Salvar
+        salvar_dados: Salvar Dados Pessoais
+        acessos_titulo: Acessos específicos por item
+        acessos_vazio: Nenhum acesso específico concedido a este usuário.
+        tipo: Tipo
+        item: Item
+        permissoes: Permissões
+        remover_acesso: Remover acesso
+        # Título da tabela da aba de ponto; o mês e o ano entram depois, como hoje.
+        batidas_titulo: Batidas de ponto
+        batida_titulo: Adicionar Batida
+        batida_data: Data
+        batida_hora: Hora
+        batida_tipo: Tipo
+        batida_entrada: Entrada
+        batida_repouso: Repouso
+        batida_retorno: Retorno
+        batida_saida: Saída
+        batida_observacao: Observação
+        opcional: (opcional)
+        batida_observacao_dica: Motivo do lançamento manual
+        cancelar: Cancelar
+        nome_completo: Nome completo
+        # "Ao remover <strong>nome</strong>, ela perde...": o nome em <strong> entre as duas partes (sem |raw).
+        remocao_antes: Ao remover
+        remocao_depois: ', ela perde o acesso a este escritório e sai da sua lista de colaboradores. A conta dela continua existindo, e ela pode ser convidada de volta, voltando sem os acessos de antes.'
+        substituto: Quem assume o que era dela?
+        sem_responsavel: Deixar sem responsável
+        substituto_dica: Se selecionado, esse colaborador assumirá todas as responsabilidades ativas de quem sair.
+        # As recusas da RegraDosPrimarios (CHAVE_DA_RECUSA de lá; o português tem de ser igual ao da constante).
+        recusa:
+            gerir_primarios: Só o primário do escritório ou o Master pode dar ou tirar o perfil de usuário primário.
+            conta_do_master: A conta do Master só pode ser alterada pelo próprio Master.
+            titular: O primário titular (quem abriu a conta) não pode deixar de ser primário.
+            ultimo_primario: Este é o último primário do escritório. Promova outro primário antes de removê-lo.
+            troca_de_primario: 'A senha de um primário só pode ser trocada por um primário ou pelo Master; a do primário titular, só por ele mesmo ou pelo Master.'
     flash:
         email_em_uso: Este e-mail já está em uso. Informe outro e-mail para o administrador.
         email_cadastrado: Este e-mail já está cadastrado. Informe outro e-mail para o administrador.
@@ -3400,6 +3480,13 @@ escritorio:
         confirmacao_nao_confere: A confirmação não confere com o nome do escritório.
         selecione_valido: Selecione um escritório válido.
         sem_acesso: Você não tem acesso a este escritório.
+        # T2: as ações de usuários do TenantController.
+        usuario_atualizado: Usuário atualizado com sucesso!
+        token_invalido: Token inválido.
+        nome_vazio: O nome não pode ser vazio.
+        nome_do_usuario_atualizado: Nome atualizado com sucesso!
+        colaborador_removido: '{nome} foi removido do escritório.'
+        acesso_removido: Acesso específico removido com sucesso.
 
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro

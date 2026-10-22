@@ -629,3 +629,38 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   `PedidoDeExclusaoRecusado` na exclusão (outros domínios, como na P2b); as mensagens das 403 (página de erro padrão);
   o `|date` com segundos da tela Ver; o `lang="pt-BR"` fixo do `escritorio_indisponivel` (página solta, sem o base);
   e a ação `sair` do `EscritorioController` (não é tela do T1).
+- **T2 usuários** (branch `idioma-tenant-2`, sobre o T1): `tenant/users` e `tenant/edit_user_role`, dentro do mesmo
+  bloco `escritorio:`, com `escritorio.usuarios.*` (21 chaves), `escritorio.editar_usuario.*` (49, com as 5 de
+  `recusa.*`) e 6 flashes novos em `escritorio.flash.*`. "Remover do escritório" recebe `termos.escritorio` por
+  parâmetro; a contagem de acessos específicos é um plural ICU (`{n, plural, one {# item} other {# items}}`), com o
+  "items" de hoje. O aviso da remoção ("Ao remover <strong>nome</strong>, ela perde...") é o mesmo molde do T1, em duas
+  chaves em volta do `<strong>`. A lista usa `|data_hora` no `createdAt` (coluna não nula, preenchida no construtor).
+- **Texto do PHP (T2):** no `TenantController` (edição cirúrgica, nenhuma condição mexida), os flashes de salvar o
+  colaborador, do nome (token inválido, vazio, atualizado), de remover o colaborador (com `{nome}`) e de remover acesso
+  específico vão pelo tradutor. As recusas do edit-role e da remoção passam por um `traduzirRecusa()`: a constante
+  continua o português (o que as regras devolvem e os testes comparam, inclusive C5 e C8) e a tela traduz pela
+  `CHAVE_DA_RECUSA` da `HierarquiaDePerfis` (do #231) ou da `RegraDosPrimarios`. Na `RegraDosPrimarios` as quatro
+  recusas que o edit-role diz (gerir primários, conta do Master, titular, último primário) viraram constantes `RECUSA_*`
+  (o texto é o mesmo, então os outros consumidores, Equipe, convites e o `RemoverColaboradorDoEscritorioUseCase`, não
+  mudam), mais a `RECUSA_SENHA_DE_PRIMARIO`, que era uma string só do controller. O `CatalogoDoEscritorioTest` amarra
+  constante e catálogo. A recusa que não tem chave sai como veio.
+- **Sem mudança visível (T2):** um teste temporário (apagado antes do commit) gravou o HTML de 29 casos com o código da
+  HEAD e com o novo, normalizando tokens, nonces, e-mails e números (as datas foram conferidas à parte, sem
+  normalizar): a lista como primário e como secundário com `admin.users.manage` (com acessos específicos de 1 e 2
+  itens), o edit-role de uma secundária, do titular e do sócio pelo titular, do sócio, de quem está acima e de quem usa
+  outro escritório pelo secundário; as recusas do titular rebaixado, C8 (pelo titular e pelo secundário), C5 (alvo
+  acima, com e sem senha), próprio perfil, perfil acima do seu, primário forjado, senha de primário, conta do Master
+  (perfil e senha); os flashes de salvar, da recusa C5 na remoção, de remover, de remover a si mesmo e de remover o
+  Master, de nome (token, vazio, ok) e de acesso removido. Os 29 ficaram iguais byte a byte, menos o aviso do modal de
+  remoção, que era um parágrafo quebrado em três linhas e virou uma linha só: iguais com o espaço colapsado.
+- **JS inline com texto (fica como está):** no `users`, o `localeCompare(..., 'pt-BR')` da ordenação da tabela; no
+  `edit_user_role`, o `<script>` das abas não tem texto, e o `confirm('Remover este acesso específico?')` do `onsubmit`
+  fica fixo (como o do `_delete_form` no T1).
+- **Ficou fora do T2:** os rótulos e as mensagens do `EditUserTenantRoleType` e do `DadosPessoaisType` (como na P1),
+  incluindo o "Selecione um perfil" e a ajuda da Controladoria; as parciais das abas (`_jornada_colaborador_tab`,
+  `_home_office_tab`, `_justificativas_tab`, `_horas_pagas_tab`, `_modal_jornada_tenant`, do T3, e
+  `ponto/_folha_table`); os flashes das ações de ponto e de justificativas que voltam ao edit-role (T3, risco ALTO); o
+  flash dos dados pessoais (`TenantUserProfileController`, fora do `TenantController`); as recusas próprias do
+  `RemoverColaboradorDoEscritorioUseCase` ("Para deixar o escritório...", criador, último administrador, substituto),
+  que precisam de chave na exceção; a recusa do convite de primário da `RegraDosPrimarios` (não é dita nestas telas);
+  as mensagens das 403 e 404; o `resourceType` cru (`cliente`, `pasta`) do selo dos acessos específicos, que é dado.
