@@ -1004,5 +1004,24 @@
             "Enter",
             "Files"
         ]
+    },
+
+    "pasta_show": {
+        "templates": [
+            "pasta/show.html.twig"
+        ],
+        "permitidos": [
+            "ps-body",
+            "CPF",
+            "CNPJ",
+            "RG",
+            "CEP",
+            "UF",
+            "SSP/SP",
+            "SP",
+            "R$ 0,00",
+            "App\\\\Pasta\\\\Entity\\\\TipoDeApenso",
+            "App\\\\Pasta\\\\Entity\\\\Pasta::ROTULOS_SITUACAO"
+        ]
     }
 }

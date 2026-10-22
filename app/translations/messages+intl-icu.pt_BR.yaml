@@ -7884,4 +7884,368 @@ pasta_peticionar:
         arquivo_sem_conexao: '{arquivo}: erro de comunicação.'
         adicionadas: '{total} peça(s) adicionada(s)'
 
+# ---- Pasta: a tela principal (pasta/show)
+pasta_show:
+    titulo: 'Pasta {nup}'
+    fechar: Fechar
+    cancelar: Cancelar
+    salvar: Salvar
+    abas:
+        nenhuma: Nenhuma aba disponível para você nesta pasta.
+    registro:
+        titulo: Registro da pasta
+        criada_em: Criada em
+        modificada_em: Modificada em
+        hoje: 'hoje,'
+        sem_registro: Sem registro
+        criada_por: Criada por
+        nao_informado: Não informado
+        historico_dica: Histórico do sistema
+        ver_historico: Ver histórico do sistema
+    pagamento:
+        titulo: Adicionar pagamento
+        valor_da_causa: Valor da causa
+        calculo_automatico: '· cálculo automático'
+        tipo: Tipo
+        tipo_rotulo: Tipo do pagamento
+        nota_contratuais: Honorários combinados com o cliente. Pode ser valor fixo ou % do valor da causa, com entrada, parcelas e juros.
+        contratuais: Contratuais
+        nota_exito: 'Participação no proveito econômico: % sobre o valor da causa, recebido só se houver resultado. Ainda não disponível.'
+        exito: Êxito
+        nota_sucumbencia: Fixada pelo juízo, em regra entre 10% e 20% (art. 85 CPC). Ainda não disponível.
+        sucumbencia: Sucumbência
+        nota_custas: Custas e despesas adiantadas a reembolsar pelo cliente.
+        custas: Custas
+        base: Base do valor
+        valor_fixo: Valor fixo
+        pct_da_causa: '% da causa'
+        valor_total: Valor total (R$)
+        pct_do_valor: '% do valor da causa'
+        entrada: Entrada (R$)
+        opcional: opcional
+        parcelas: Parcelas
+        primeiro_vencimento: 1º vencimento
+        juros: Juros
+        sem_juros: Sem juros
+        com_juros: Com juros
+        juros_ao_mes: Juros ao mês (%)
+        descricao: Descrição
+        opcional_parenteses: (opcional)
+        descricao_exemplo: 'Ex.: Honorários do contrato de março'
+        previa: Prévia
+        previa_vazia: Preencha o valor para ver as parcelas calculadas.
+        adicionar: Adicionar
+    documento:
+        mover_para: Mover para…
+        pasta_de_destino: Pasta de destino
+        mover: Mover
+        editar: Editar documento
+        nome_do_arquivo: Nome do arquivo
+        extensao_a: A extensão
+        extensao_preservada: é preservada automaticamente.
+        tipo: Tipo de documento
+        descricao: Descrição
+        descricao_opcional: Descrição (opcional)
+        numero_opcional: Número (opcional)
+        numero: Número
+    cliente:
+        titulo: Adicionar Cliente
+        escolha_tipo: 'Selecione o tipo de cliente para continuar:'
+        pf: Pessoa Física
+        pj: Pessoa Jurídica
+        ou_selecione: ou selecione um cliente já cadastrado
+        buscar: Buscar por nome, CPF ou CNPJ…
+        dados_pessoais: Dados Pessoais
+        contato: Contato
+        endereco: Endereço
+        dados_empresa: Dados da Empresa
+        representante_legal: Representante Legal
+        nome_completo: Nome Completo
+        data_nascimento: Data de Nascimento
+        estado_civil: Estado Civil
+        selecione: Selecione
+        solteiro: Solteiro(a)
+        casado: Casado(a)
+        divorciado: Divorciado(a)
+        viuvo: Viúvo(a)
+        uniao_estavel: União estável
+        profissao: Profissão
+        orgao_expedidor: Órgão Expedidor
+        data_emissao_rg: Data de Emissão do RG
+        email: E-mail
+        celular: Celular
+        telefone_fixo: Telefone Fixo
+        complemento: Complemento
+        cidade: Cidade
+        razao_social: Razão Social
+        nome_fantasia: Nome Fantasia
+        inscricao_estadual: Inscrição Estadual
+        inscricao_municipal: Inscrição Municipal
+        endereco_sede: Endereço da Sede
+        nome: Nome
+        cargo: Cargo
+        salvar: Salvar Cliente
+        vincular: Vincular Cliente
+    processo:
+        vincular: Vincular processo
+        tipo_apenso: Tipo de apenso
+        modo_rotulo: Modo de vínculo de processo
+        buscar_existente: Buscar processo existente
+        cadastrar_novo: Cadastrar novo (CNJ)
+        ja_cadastrado: Processo já cadastrado
+        busque_dica: Busque por número, classe, assunto ou tribunal e selecione um processo do escritório.
+        aba_informacoes: Informações
+        aba_partes: Partes
+        aba_movimentacoes: Movimentações
+        numero: Número do processo
+        numero_exemplo: 'Ex.: 1234567-89.2024.1.23.4567'
+        numero_formato: 'Formato: NNNNNNN-DD.AAAA.J.TT.OOOO'
+        buscar_cnj_dica: Busca o processo na base de dados do CNJ
+        buscar_cnj: Buscar no CNJ
+        dados_localizados: 'Dados localizados ·'
+        movimentacoes_contagem: movimentação(ões)
+        tribunal: Tribunal
+        tribunal_placeholder: Detectado pelo número do processo
+        tribunal_dica: Preenchido automaticamente pelo número do processo.
+        orgao_julgador: Órgão julgador
+        classe: Classe processual
+        assunto: Assunto processual
+        situacao: Situação
+        situacao_em_andamento: Em andamento
+        situacao_suspenso: Suspenso
+        situacao_arquivado: Arquivado
+        situacao_baixado: Baixado
+        situacao_transitado: Transitado em julgado
+        instancia: Instância
+        instancia_g1: G1 - Primeira Instância
+        instancia_g2: G2 - Segunda Instância
+        instancia_tr: Turma Recursal
+        instancia_st: Tribunal Superior
+        data_distribuicao: Data de distribuição
+        valor_causa: Valor da causa
+        jurisdicao: Jurisdição
+        jurisdicao_exemplo: 'Ex.: Brasília · Fórum Des. Joaquim Sousa Neto'
+        flag_segredo: Segredo de justiça?
+        flag_digital: Juízo 100% digital?
+        flag_gratuita: Justiça gratuita?
+        flag_tutela: Tutela/liminar?
+        flag_prioridade: Prioridade?
+        nao_informado: Não informado
+        sim: Sim
+        nao: Não
+        adicionar_parte: Adicionar parte
+        tipo: Tipo
+        parte_parte: Parte
+        parte_advogado: Advogado
+        parte_terceiro: Terceiro interessado
+        parte_mp: Ministério Público
+        parte_perito: Perito
+        nome: Nome
+        nome_da_parte: Nome da parte
+        documento: Documento
+        documento_placeholder: CPF/CNPJ
+        papel: Papel
+        papel_placeholder: Polo ativo/passivo
+        remover_linha: Remover linha
+        adicionar_movimentacao: Adicionar movimentação
+        data: Data
+        descricao: Descrição
+        descricao_movimentacao: Descrição da movimentação
+        tipo_movimento: Tipo de movimento
+        orgao: Órgão
+        movimentacoes_nota: '"Buscar no CNJ" (aba Informações) importa as movimentações do PJe e dos diários oficiais. Depois de vinculado, o Push processual passa a monitorar o processo.'
+        buscando: Buscando…
+    preview:
+        baixar: Baixar
+    editar:
+        editar_dados_da: Editar dados da
+        dados_da_pasta: Dados da pasta
+        atalhos: Atalhos da pasta
+        ir_cliente_dica: Fechar e abrir o cadastro do cliente
+        aba_cliente: Cliente
+        ir_processo_dica: Fechar e ir à aba Processo
+        aba_processo: Processo
+        ir_historico_dica: Fechar e abrir o histórico
+        aba_historico: Histórico
+        numero: Número da pasta
+        nome_cliente: Nome do cliente
+        montado: Montado a partir do credor da carteira e do responsável cobrado.
+        para_mudar: Para mudar, altere o
+        cadastro_do_cliente: cadastro do cliente
+        ou_responsavel: ou o responsável do caso.
+        clientes_dica: Clientes cadastrados da pasta. Para alterá-los, use a seção de Clientes na aba Dados.
+        responsavel: Responsável
+        sem_responsavel: Sem responsável
+        trocar: Trocar
+        acao: Ação
+        situacao: Situação
+        pendencias: Pendências
+        cadastro_cliente_botao: Cadastro do cliente
+    meta:
+        alca_dica: Arraste para mover · duplo clique recolhe
+        titulo: Nova meta
+        recolher: Recolher (continue vendo a lista)
+        fechar_esc: Fechar (Esc)
+        titulo_campo: Título
+        titulo_placeholder: Resumo objetivo da meta
+        descricao: Descrição
+        descricao_placeholder: Descreva o que precisa ser feito…
+        prazo: Prazo
+        escolher_prazo: Escolher prazo
+        data_vazia: dd/mm/aaaa
+        hoje: Hoje
+        amanha: Amanhã
+        uteis5: +5 úteis
+        uteis15: +15 úteis
+        mes_anterior: Mês anterior
+        proximo_mes: Próximo mês
+        sem_dom: D
+        sem_seg: S
+        sem_ter: T
+        sem_qua: Q
+        sem_qui: Q
+        sem_sex: S
+        sem_sab: S
+        limpar: Limpar
+        legenda_fds: Fim de semana em cinza
+        escolha_data: Escolha a data limite.
+        abrir_existente: Abrir meta existente
+        responsaveis: Responsáveis
+        selecionar_responsaveis: Selecionar responsáveis
+        responsaveis_dica: Selecione um ou mais responsáveis pela meta.
+        filtrar: Filtrar…
+        filtrar_responsaveis: Filtrar responsáveis
+        ninguem: Ninguém encontrado
+        concluir: Concluir
+        criar_dica: Criar meta e notificar os responsáveis
+        criar: Criar meta
+    js:
+        cancelar: Cancelar
+        salvar: Salvar
+        erro_rede: Erro de rede.
+        erro_rede_tente: Erro de rede. Tente novamente.
+        erro_comunicacao_tente: Erro de comunicação. Tente novamente.
+        cliente:
+            nao_vinculado: não vinculado
+            nenhum_vinculado: Nenhum cliente vinculado
+            vincule_para_media: Vincule o cliente para calcular a média por CPF.
+            erro_salvar: Erro ao salvar cliente.
+            salvo_sem_lista: Cliente salvo, mas não foi possível atualizar a lista.
+            erro_comunicacao: Erro de comunicação. Tente novamente.
+            vincular_um: Vincular 1 Cliente
+            vincular_varios: 'Vincular {n} Clientes'
+            remover: Remover
+            remover_nome: 'Remover {nome}'
+            nenhum_encontrado: Nenhum cliente encontrado.
+            principal_dica: Cliente principal desta pasta. A Média por CPF é dele. Clique na estrela de outro para trocar
+            tornar_principal: Tornar cliente principal (a Média por CPF passa a ser dele)
+            principal: Principal
+            erro_desvincular: Erro ao desvincular cliente.
+            erro_principal: Erro ao definir o cliente principal.
+            erro_comunicacao_marcacao: Erro de comunicação. A marcação pode não ter sido salva. Recarregue a página.
+            erro_vincular: 'Erro ao vincular "{nome}".'
+            vinculado_sem_lista: '"{nome}" vinculado, mas não foi possível atualizar a lista.'
+            erro_comunicacao_vincular: 'Erro de comunicação ao vincular "{nome}".'
+        processo:
+            desvincular_pergunta: Desvincular o processo desta pasta?
+            erro_desvincular: Erro ao desvincular processo.
+            erro_principal: Erro ao definir o processo principal.
+            select_placeholder: Digite número, classe, assunto ou tribunal…
+            nenhum_encontrado: 'Nenhum processo encontrado. Use "Cadastrar novo (CNJ)".'
+            buscando: Buscando…
+            digite_dois: Digite ao menos 2 caracteres
+            selecione: Selecione um processo para vincular.
+            erro_vincular: Erro ao vincular processo.
+            erro_comunicacao: Erro de comunicação. Tente novamente.
+            numero_completo: Informe o número completo no formato NNNNNNN-DD.AAAA.J.TT.OOOO.
+            nao_localizado: Processo não localizado no CNJ/diário. Preencha os dados manualmente.
+            erro_buscar_cnj: Erro ao buscar processo no CNJ/DataJud.
+            erro_buscar_cnj_tente: Erro ao buscar processo no CNJ/DataJud. Tente novamente em instantes.
+            tipo: Tipo
+            parte_parte: Parte
+            parte_advogado: Advogado
+            parte_terceiro: Terceiro interessado
+            parte_mp: Ministério Público
+            parte_perito: Perito
+            nome: Nome
+            nome_da_parte: Nome da parte
+            documento: Documento
+            documento_placeholder: CPF/CNPJ
+            papel: Papel
+            papel_placeholder: Polo ativo/passivo
+            remover_linha: Remover linha
+            data: Data
+            descricao: Descrição
+            descricao_movimentacao: Descrição da movimentação
+            tipo_movimento: Tipo de movimento
+            orgao: Órgão
+        upload:
+            duplicado_nesta: '«{nome}» tem o mesmo conteúdo de «{titulo}» nesta pasta.'
+            duplicado_na_pasta: '«{nome}» tem o mesmo conteúdo de «{titulo}» na pasta {nup}.'
+            abrir_pasta: 'Abrir pasta {nup}'
+            erro_enviar: Erro ao enviar o arquivo.
+            erro_comunicacao: Erro de comunicação.
+            enviando: 'Enviando… {pct}%'
+            comprimindo: Comprimindo…
+            processando: Processando…
+            reduzido: 'Reduzido de {de} para {para}.'
+            pdf_assinado: 'Atenção: PDF assinado. A assinatura pode ter sido invalidada.'
+            nao_reduziu: Não foi possível reduzir. Enviado no tamanho original.
+            enviado: Enviado.
+            ja_existe: 'Já existe arquivo idêntico:'
+            identico_nesta: '«{titulo}» (nesta pasta)'
+            identico_pasta: '«{titulo}» (pasta {nup})'
+        registro:
+            orfa: Resposta a uma mensagem excluída
+            resposta_a: 'Resposta a {nome}'
+            colaborador: colaborador
+            excluir_titulo: 'Excluir o comentário de {autor}?'
+            excluir_texto: '"{trecho}". Ele some para toda a equipe e a exclusão fica registrada no histórico.'
+            respondendo_a: 'Respondendo a {nome}'
+            autor_desconhecido: Autor desconhecido
+            escreva_resposta: Escreva a resposta…
+            responder: Responder
+            erro_resposta: Erro ao enviar a resposta.
+            motivo_prazo: O prazo de 15 minutos para editar ou excluir terminou.
+            motivo_autor: Só o autor pode editar ou excluir, nos 15 minutos após publicar.
+            menu_editar: 'Editar · {min} min'
+            menu_excluir: 'Excluir comentário · {min} min'
+            menu_editar_bloqueado: Editar · bloqueado
+            menu_excluir_bloqueado: Excluir · bloqueado
+            copiado: Texto copiado
+            nao_copiou: Não foi possível copiar
+            visivel_equipe: Visível para a equipe
+            vazia: A mensagem não pode ser vazia.
+            erro_editar: Erro ao editar.
+            erro_excluir: Erro ao excluir.
+            editado: editado
+            publicado_as: 'Publicado às {hora}'
+            ultima_edicao: 'última edição {data} às {hora}'
+            enviando: Enviando…
+            erro_enviar: Erro ao enviar mensagem.
+            enviar: Enviar
+            encaminhar: Encaminhar via Chat I.A
+            editavel: 'Editável por mais {minutos} minutos'
+            editar: Editar registro
+            excluir: Excluir registro
+            mais_acoes: Mais ações do registro
+        editar:
+            informe_numero: Informe o número da pasta.
+            nao_salvas: Alterações não salvas
+            dados_da_pasta: Dados da pasta
+            nenhuma_alteracao: Nenhuma alteração para salvar
+            numero_titulo: Alterar número da pasta
+            numero_pergunta: 'Alterar o número da pasta de {antes} para {depois}? Links e referências antigas passam a apontar para o novo número.'
+            descartar_titulo: Descartar as alterações?
+            descartar_texto: As alterações não salvas dos dados da pasta serão perdidas.
+            descartar: Descartar
+        cabecalho:
+            erro_situacao: Erro ao alterar situação.
+            erro_comunicacao: Erro de comunicação com o servidor.
+            erro_prioridade: Erro ao alterar prioridade.
+        meta:
+            criar: Criar meta
+            enviando: Enviando…
+            erro_criar: Erro ao criar meta.
+
 # ---- fim
