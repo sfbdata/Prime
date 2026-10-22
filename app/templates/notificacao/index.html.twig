@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Notificações{% endblock %}
+{% block title %}{{ 'notificacao.titulo'|trans }}{% endblock %}
 
 {% block stylesheets %}
 {{ parent() }}
@@ -150,7 +150,7 @@ html[data-bs-theme="dark"] .notif-page {
         <div class="form-check flex-shrink-0">
             <input class="form-check-input notif-check" type="checkbox"
                    value="{{ notif.id }}" data-notif-id="{{ notif.id }}"
-                   aria-label="Selecionar notificação">
+                   aria-label="{{ 'notificacao.selecionar'|trans }}">
         </div>
         <span class="notif-ico"><i class="bi {{ notif.icone }}"></i></span>
         <a href="{{ notif.url ?? (notif.tarefa ? path('tarefa_show', {id: notif.tarefa.id}) : '#') }}"
@@ -160,21 +160,21 @@ html[data-bs-theme="dark"] .notif-page {
                 <p class="notif-text">{{ notif.mensagem }}</p>
             {% endif %}
             {% if notif.tarefa %}
-                <span class="notif-meta"><i class="bi bi-list-task me-1"></i>Tarefa #{{ notif.tarefa.id }}</span>
+                <span class="notif-meta"><i class="bi bi-list-task me-1"></i>{{ 'notificacao.tarefa_numero'|trans({id: notif.tarefa.id ~ ''}) }}</span>
             {% elseif notif.url %}
-                <span class="notif-meta"><i class="bi bi-box-arrow-up-right me-1"></i>Ver detalhes</span>
+                <span class="notif-meta"><i class="bi bi-box-arrow-up-right me-1"></i>{{ 'notificacao.ver_detalhes'|trans }}</span>
             {% endif %}
         </a>
         <div class="notif-aside">
             <small class="notif-time d-block">{{ notif.tempoRelativo }}</small>
             {% if not notif.lida %}
-                <span class="notif-tag notif-tag-nova">Nova</span>
+                <span class="notif-tag notif-tag-nova">{{ 'notificacao.nova'|trans }}</span>
                 <button type="button" class="btn btn-sm btn-outline-secondary btn-marcar-lida"
-                        data-notif-id="{{ notif.id }}" title="Marcar como lida">
+                        data-notif-id="{{ notif.id }}" title="{{ 'notificacao.marcar_lida'|trans }}">
                     <i class="bi bi-check2"></i>
                 </button>
             {% else %}
-                <span class="notif-tag notif-tag-lida">Lida</span>
+                <span class="notif-tag notif-tag-lida">{{ 'notificacao.lida'|trans }}</span>
             {% endif %}
         </div>
     </div>
@@ -184,10 +184,10 @@ html[data-bs-theme="dark"] .notif-page {
     {% if pag and pag.total_pages > 1 %}
         {% set inicio = max(1, pag.current_page - 3) %}
         {% set fim = min(pag.total_pages, pag.current_page + 3) %}
-        <nav aria-label="Paginação das notificações" class="notif-pager">
+        <nav aria-label="{{ 'notificacao.paginacao'|trans }}" class="notif-pager">
             <ul class="pagination pagination-sm justify-content-center mb-0">
                 <li class="page-item {{ pag.current_page <= 1 ? 'disabled' : '' }}">
-                    <a class="page-link" href="{{ path('notificacao_index', {tab: categoria, page: pag.current_page - 1}) }}" aria-label="Anterior">
+                    <a class="page-link" href="{{ path('notificacao_index', {tab: categoria, page: pag.current_page - 1}) }}" aria-label="{{ 'notificacao.anterior'|trans }}">
                         <i class="bi bi-chevron-left"></i>
                     </a>
                 </li>
@@ -197,7 +197,7 @@ html[data-bs-theme="dark"] .notif-page {
                     </li>
                 {% endfor %}
                 <li class="page-item {{ pag.current_page >= pag.total_pages ? 'disabled' : '' }}">
-                    <a class="page-link" href="{{ path('notificacao_index', {tab: categoria, page: pag.current_page + 1}) }}" aria-label="Próxima">
+                    <a class="page-link" href="{{ path('notificacao_index', {tab: categoria, page: pag.current_page + 1}) }}" aria-label="{{ 'notificacao.proxima'|trans }}">
                         <i class="bi bi-chevron-right"></i>
                     </a>
                 </li>
@@ -213,7 +213,7 @@ html[data-bs-theme="dark"] .notif-page {
             <div class="form-check">
                 <input class="form-check-input selecionar-todos" type="checkbox"
                        id="selecionarTodos-{{ categoria }}" data-categoria="{{ categoria }}">
-                <label class="form-check-label" for="selecionarTodos-{{ categoria }}">Selecionar todos</label>
+                <label class="form-check-label" for="selecionarTodos-{{ categoria }}">{{ 'notificacao.selecionar_todos'|trans }}</label>
             </div>
             <div class="d-flex align-items-center gap-2">
                 {% if itens|filter(n => not n.lida)|length > 0 %}
@@ -221,14 +221,14 @@ html[data-bs-theme="dark"] .notif-page {
                         <input type="hidden" name="_token" value="{{ csrf_token('marcar_todas_lidas') }}">
                         <input type="hidden" name="categoria" value="{{ categoria }}">
                         <button type="submit" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-check-all me-1"></i> Marcar todas como lidas
+                            <i class="bi bi-check-all me-1"></i> {{ 'notificacao.marcar_todas_lidas'|trans }}
                         </button>
                     </form>
                 {% endif %}
                 <button type="button" class="btn btn-sm btn-outline-danger btn-excluir-selecionadas" disabled
                         data-categoria="{{ categoria }}" data-csrf="{{ csrf_token('excluir_notificacoes') }}"
                         data-pagina="{{ pag ? pag.current_page : 1 }}">
-                    <i class="bi bi-trash me-1"></i> Excluir<span class="contador-selecionadas"></span>
+                    <i class="bi bi-trash me-1"></i> {{ 'comum.excluir'|trans }}<span class="contador-selecionadas"></span>
                 </button>
             </div>
         </div>
@@ -239,8 +239,8 @@ html[data-bs-theme="dark"] .notif-page {
     {% else %}
         <div class="notif-empty">
             <div class="empty-ico"><i class="bi bi-bell-slash"></i></div>
-            <p class="empty-title">Tudo em dia por aqui</p>
-            <p class="text-muted small mb-0">Você não tem notificações nesta aba.</p>
+            <p class="empty-title">{{ 'notificacao.vazio_titulo'|trans }}</p>
+            <p class="text-muted small mb-0">{{ 'notificacao.vazio_texto'|trans }}</p>
         </div>
     {% endif %}
 {% endmacro %}
@@ -252,12 +252,12 @@ html[data-bs-theme="dark"] .notif-page {
         <div class="container-fluid">
             <div class="row mb-2">
                 <div class="col-sm-6">
-                    <h1 class="m-0"><i class="bi bi-bell me-2"></i>Notificações</h1>
+                    <h1 class="m-0"><i class="bi bi-bell me-2"></i>{{ 'notificacao.titulo'|trans }}</h1>
                 </div>
                 <div class="col-sm-6">
                     <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
-                        <li class="breadcrumb-item active">Notificações</li>
+                        <li class="breadcrumb-item"><a href="{{ path('homepage') }}">{{ 'notificacao.inicio'|trans }}</a></li>
+                        <li class="breadcrumb-item active">{{ 'notificacao.titulo'|trans }}</li>
                     </ol>
                 </div>
             </div>
@@ -270,8 +270,8 @@ html[data-bs-theme="dark"] .notif-page {
                 <div class="notif-card-head">
                     <span class="head-ico"><i class="bi bi-bell-fill"></i></span>
                     <div>
-                        <h2>Central de notificações</h2>
-                        <p class="sub">Acompanhe demandas, prazos e atualizações do escritório</p>
+                        <h2>{{ 'notificacao.central'|trans }}</h2>
+                        <p class="sub">{{ 'notificacao.subtitulo'|trans }}</p>
                     </div>
                 </div>
                 <div class="card-body p-0">
@@ -280,7 +280,7 @@ html[data-bs-theme="dark"] .notif-page {
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link {{ abaAtiva == 'gestao' ? '' : 'active' }}" type="button" role="tab"
                                         data-bs-toggle="tab" data-bs-target="#tabPessoal">
-                                    <i class="bi bi-person"></i> Minhas
+                                    <i class="bi bi-person"></i> {{ 'notificacao.aba_minhas'|trans }}
                                     {% if paginacaoPessoal and paginacaoPessoal.total_items > 0 %}
                                         <span class="tab-count">{{ paginacaoPessoal.total_items }}</span>
                                     {% endif %}
@@ -289,7 +289,7 @@ html[data-bs-theme="dark"] .notif-page {
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link {{ abaAtiva == 'gestao' ? 'active' : '' }}" type="button" role="tab"
                                         data-bs-toggle="tab" data-bs-target="#tabGestao">
-                                    <i class="bi bi-people"></i> Gestão
+                                    <i class="bi bi-people"></i> {{ 'notificacao.aba_gestao'|trans }}
                                     {% if paginacaoGestao and paginacaoGestao.total_items > 0 %}
                                         <span class="tab-count">{{ paginacaoGestao.total_items }}</span>
                                     {% endif %}
@@ -316,6 +316,7 @@ html[data-bs-theme="dark"] .notif-page {
 
 {% block javascripts %}
 {{ parent() }}
+{{ catalogo_js('notificacao.js') }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Marcar notificação individual como lida
@@ -343,9 +344,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     const aside = btnElement.parentElement;
                     const tempo = aside.querySelector('small') ? aside.querySelector('small').textContent : '';
-                    aside.innerHTML =
-                        '<small class="notif-time d-block">' + tempo + '</small>' +
-                        '<span class="notif-tag notif-tag-lida">Lida</span>';
+                    const small = document.createElement('small');
+                    small.className = 'notif-time d-block';
+                    small.textContent = tempo;
+                    const tag = document.createElement('span');
+                    tag.className = 'notif-tag notif-tag-lida';
+                    tag.textContent = BJ_T.t('notificacao.js.lida');
+                    aside.replaceChildren(small, tag);
                 }
             })
             .catch(err => console.log('Erro ao marcar como lida:', err));
@@ -400,7 +405,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .map(c => c.value);
 
             if (ids.length === 0) return;
-            if (!confirm('Excluir ' + ids.length + ' notificação(ões)? Esta ação não pode ser desfeita.')) {
+            if (!confirm(BJ_T.t('notificacao.js.confirmar_exclusao', {n: ids.length}))) {
                 return;
             }
 
@@ -423,12 +428,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.location = '{{ path('notificacao_index') }}?tab=' + categoria + '&page=' + pagina;
                     return;
                 }
-                alert(data.error || 'Erro ao excluir notificações.');
+                alert(data.error || BJ_T.t('notificacao.js.erro_excluir'));
                 btn.disabled = false;
             })
             .catch(err => {
                 console.log('Erro ao excluir:', err);
-                alert('Erro ao excluir notificações.');
+                alert(BJ_T.t('notificacao.js.erro_excluir'));
                 btn.disabled = false;
             });
         });

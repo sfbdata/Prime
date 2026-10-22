@@ -3947,6 +3947,105 @@ escritorio:
         colaborador_removido: '{nome} foi removido do escritório.'
         acesso_removido: Acesso específico removido com sucesso.
 
+# ---- Telas avulsas: Notificações (notificacao/index, com o script inline em notificacao.js), Novidades (novidades/index;
+# o conteúdo das versões vem do config/novidades.yaml e não passa pelo catálogo), Solicitações de Acesso
+# (access_request/index) e Trilha de Auditoria (audit/index, com o script inline em auditoria.js)
+notificacao:
+    titulo: Notificações
+    inicio: Home
+    central: Central de notificações
+    subtitulo: Acompanhe demandas, prazos e atualizações do escritório
+    aba_minhas: Minhas
+    aba_gestao: Gestão
+    selecionar: Selecionar notificação
+    tarefa_numero: 'Tarefa #{id}'
+    ver_detalhes: Ver detalhes
+    nova: Nova
+    marcar_lida: Marcar como lida
+    lida: Lida
+    paginacao: Paginação das notificações
+    anterior: Anterior
+    proxima: Próxima
+    selecionar_todos: Selecionar todos
+    marcar_todas_lidas: Marcar todas como lidas
+    vazio_titulo: Tudo em dia por aqui
+    vazio_texto: Você não tem notificações nesta aba.
+    js:
+        lida: Lida
+        confirmar_exclusao: 'Excluir {n} notificação(ões)? Esta ação não pode ser desfeita.'
+        erro_excluir: Erro ao excluir notificações.
+
+novidades:
+    titulo: Novidades
+    intro: 'O que mudou no BlueJus a cada versão. Você está na versão {versao}.'
+    versao: 'Versão {versao}'
+    vazio: Ainda não há novidades registradas.
+
+access_request:
+    titulo: Solicitações de Acesso
+    titulo_pendentes: Solicitações de Acesso Pendentes
+    nenhuma: Nenhuma solicitação pendente no momento.
+    col_solicitante: Solicitante
+    col_recurso: Recurso
+    col_id: ID
+    col_acao: Ação Solicitada
+    col_solicitado_em: Solicitado em
+    col_decisao: Decisão
+    aprovar: Aprovar
+    negar: Negar
+    confirmar_negar: 'Negar o acesso de {nome} ao {recurso} #{id}?'
+    modal_titulo: Aprovar Acesso
+    solicitante: 'Solicitante:'
+    recurso: 'Recurso:'
+    instrucao: Selecione as ações que serão concedidas. Pelo menos uma deve ser marcada.
+    visualizar: Visualizar
+    editar: Editar
+    confirmar_aprovacao: Confirmar Aprovação
+
+auditoria:
+    titulo: Trilha de Auditoria
+    filtros: Filtros
+    entidade: Entidade
+    todas: Todas
+    usuario: Usuário
+    todos: Todos
+    data_inicial: Data inicial
+    data_final: Data final
+    filtrar: Filtrar
+    limpar: Limpar
+    resultados_pagina: '{n} resultado(s) nesta página'
+    resultados_total: '({total} total)'
+    col_data_hora: Data/Hora
+    col_acao: Ação
+    col_resumo: Resumo
+    col_alteracoes: Alterações
+    id_usuario: 'ID {id}'
+    campos_alterados: '{n} campo(s) alterado(s)'
+    campos_inicializados: '{n} campo(s) inicializado(s)'
+    campos_removidos: '{n} campo(s) removido(s)'
+    pasta_trancada: Pasta trancada pelo usuário primário
+    sem_diff: Sem diff detalhado
+    ver_detalhes: Ver detalhes
+    ver_detalhes_log: Ver detalhes do log
+    confirmar_desfazer: Desfazer esta alteração? A entidade voltará ao estado anterior.
+    desfazer: Desfazer esta alteração
+    rota: 'Rota:'
+    ip: 'IP:'
+    # As referências às entidades (rótulo ou Classe #id) ficam no template, em volta destes pedaços.
+    evento:
+        removido_de: 'foi removido de {campo} de'
+        associado_em: 'foi associado em {campo} com'
+        alterada_entre: Associação alterada entre
+        e: e
+        associacao: associação
+    sem_alteracoes: Sem alterações detalhadas.
+    nenhum_registro: Nenhum registro encontrado para os filtros informados.
+    paginacao: Paginação da trilha de auditoria
+    anterior: Anterior
+    proxima: Próxima
+    js:
+        selecione: Selecione...
+
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro
 # ('perfis.x'|trans({papel: 'termos.master'|trans})).
