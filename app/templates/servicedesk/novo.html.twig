@@ -1,14 +1,14 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Abrir Chamado{% endblock %}
+{% block title %}{{ 'servicedesk.comum.abrir_chamado'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid">
         <div class="d-flex justify-content-between align-items-center">
-            <h1 class="m-0"><i class="bi bi-plus-circle me-2"></i>Abrir Chamado</h1>
+            <h1 class="m-0"><i class="bi bi-plus-circle me-2"></i>{{ 'servicedesk.comum.abrir_chamado'|trans }}</h1>
             <a href="{{ path('servicedesk_meus_chamados') }}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left me-1"></i> Voltar
+                <i class="bi bi-arrow-left me-1"></i> {{ 'servicedesk.comum.voltar'|trans }}
             </a>
         </div>
     </div>
@@ -20,7 +20,7 @@
             <div class="col-lg-8">
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-pencil-square me-2"></i>Dados do Chamado</h3>
+                        <h3 class="card-title"><i class="bi bi-pencil-square me-2"></i>{{ 'servicedesk.novo.dados_do_chamado'|trans }}</h3>
                     </div>
                     {{ form_start(form, {'attr': {'enctype': 'multipart/form-data'}}) }}
                     <div class="card-body">
@@ -41,7 +41,7 @@
                                 {{ form_widget(form.prioridade, {'attr': {'class': 'form-select'}}) }}
                                 {{ form_errors(form.prioridade) }}
                                 <small class="text-muted">
-                                    <b>Crítica:</b> Sistema parado | <b>Alta:</b> Impacto significativo | <b>Média:</b> Problema comum | <b>Baixa:</b> Pode aguardar
+                                    <b>{{ 'servicedesk.novo.prioridade_critica'|trans }}</b> {{ 'servicedesk.novo.prioridade_critica_ajuda'|trans }} | <b>{{ 'servicedesk.novo.prioridade_alta'|trans }}</b> {{ 'servicedesk.novo.prioridade_alta_ajuda'|trans }} | <b>{{ 'servicedesk.novo.prioridade_media'|trans }}</b> {{ 'servicedesk.novo.prioridade_media_ajuda'|trans }} | <b>{{ 'servicedesk.novo.prioridade_baixa'|trans }}</b> {{ 'servicedesk.novo.prioridade_baixa_ajuda'|trans }}
                                 </small>
                             </div>
                         </div>
@@ -57,8 +57,7 @@
                             {{ form_widget(form.descricao, {'attr': {'class': 'form-control'}}) }}
                             {{ form_errors(form.descricao) }}
                             <small class="text-muted">
-                                Descreva o problema com o máximo de detalhes possível: o que estava fazendo, 
-                                mensagens de erro, quando começou, etc.
+                                {{ 'servicedesk.novo.descricao_ajuda'|trans }}
                             </small>
                         </div>
 
@@ -67,16 +66,16 @@
                             {{ form_widget(form.anexos, {'attr': {'class': 'form-control', 'multiple': 'multiple'}}) }}
                             {{ form_errors(form.anexos) }}
                             <small class="text-muted">
-                                Arquivos permitidos: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF, ZIP, TXT (máx. 10MB cada)
+                                {{ 'servicedesk.novo.anexos_ajuda'|trans }}
                             </small>
                         </div>
                     </div>
                     <div class="card-footer">
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-send me-1"></i> Abrir Chamado
+                            <i class="bi bi-send me-1"></i> {{ 'servicedesk.comum.abrir_chamado'|trans }}
                         </button>
                         <a href="{{ path('servicedesk_meus_chamados') }}" class="btn btn-outline-secondary">
-                            Cancelar
+                            {{ 'servicedesk.novo.cancelar'|trans }}
                         </a>
                     </div>
                     {{ form_end(form) }}
@@ -86,58 +85,58 @@
             <div class="col-lg-4">
                 <div class="card bg-body-tertiary text-body-secondary">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-info-circle me-2"></i>Dicas</h3>
+                        <h3 class="card-title"><i class="bi bi-info-circle me-2"></i>{{ 'servicedesk.novo.dicas'|trans }}</h3>
                     </div>
                     <div class="card-body">
-                        <h6><i class="bi bi-1-circle text-primary me-2"></i>Seja específico</h6>
-                        <p class="small text-muted">Descreva exatamente o que aconteceu e quando o problema começou.</p>
+                        <h6><i class="bi bi-1-circle text-primary me-2"></i>{{ 'servicedesk.novo.dica_especifico'|trans }}</h6>
+                        <p class="small text-muted">{{ 'servicedesk.novo.dica_especifico_texto'|trans }}</p>
 
-                        <h6><i class="bi bi-2-circle text-primary me-2"></i>Inclua detalhes</h6>
-                        <p class="small text-muted">Mensagens de erro, nome do programa, horário do problema, etc.</p>
+                        <h6><i class="bi bi-2-circle text-primary me-2"></i>{{ 'servicedesk.novo.dica_detalhes'|trans }}</h6>
+                        <p class="small text-muted">{{ 'servicedesk.novo.dica_detalhes_texto'|trans }}</p>
 
-                        <h6><i class="bi bi-3-circle text-primary me-2"></i>Anexe imagens</h6>
-                        <p class="small text-muted">Capturas de tela ajudam muito a identificar o problema.</p>
+                        <h6><i class="bi bi-3-circle text-primary me-2"></i>{{ 'servicedesk.novo.dica_imagens'|trans }}</h6>
+                        <p class="small text-muted">{{ 'servicedesk.novo.dica_imagens_texto'|trans }}</p>
 
-                        <h6><i class="bi bi-4-circle text-primary me-2"></i>Prioridade adequada</h6>
-                        <p class="small text-muted">Use prioridade crítica apenas para problemas que pararam o trabalho completamente.</p>
+                        <h6><i class="bi bi-4-circle text-primary me-2"></i>{{ 'servicedesk.novo.dica_prioridade'|trans }}</h6>
+                        <p class="small text-muted">{{ 'servicedesk.novo.dica_prioridade_texto'|trans }}</p>
                     </div>
                 </div>
 
                 <div class="card mt-3">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-book me-2"></i>Categorias</h3>
+                        <h3 class="card-title"><i class="bi bi-book me-2"></i>{{ 'servicedesk.novo.categorias'|trans }}</h3>
                     </div>
                     <div class="card-body p-0">
                         <ul class="list-group list-group-flush">
                             <li class="list-group-item">
                                 <i class="bi bi-pc-display text-primary me-2"></i>
-                                <strong>Software</strong>
-                                <small class="d-block text-muted">Programas, sistemas, aplicativos</small>
+                                <strong>{{ 'servicedesk.novo.categoria.software'|trans }}</strong>
+                                <small class="d-block text-muted">{{ 'servicedesk.novo.categoria.software_ajuda'|trans }}</small>
                             </li>
                             <li class="list-group-item">
                                 <i class="bi bi-motherboard text-success me-2"></i>
-                                <strong>Hardware</strong>
-                                <small class="d-block text-muted">Computador, monitor, teclado, mouse</small>
+                                <strong>{{ 'servicedesk.novo.categoria.hardware'|trans }}</strong>
+                                <small class="d-block text-muted">{{ 'servicedesk.novo.categoria.hardware_ajuda'|trans }}</small>
                             </li>
                             <li class="list-group-item">
                                 <i class="bi bi-printer text-warning me-2"></i>
-                                <strong>Impressora</strong>
-                                <small class="d-block text-muted">Impressão, scanner, toner</small>
+                                <strong>{{ 'servicedesk.novo.categoria.impressora'|trans }}</strong>
+                                <small class="d-block text-muted">{{ 'servicedesk.novo.categoria.impressora_ajuda'|trans }}</small>
                             </li>
                             <li class="list-group-item">
                                 <i class="bi bi-wifi text-danger me-2"></i>
-                                <strong>Rede/Internet</strong>
-                                <small class="d-block text-muted">Conexão, VPN, lentidão</small>
+                                <strong>{{ 'servicedesk.novo.categoria.rede'|trans }}</strong>
+                                <small class="d-block text-muted">{{ 'servicedesk.novo.categoria.rede_ajuda'|trans }}</small>
                             </li>
                             <li class="list-group-item">
                                 <i class="bi bi-key text-info me-2"></i>
-                                <strong>Acesso/Permissões</strong>
-                                <small class="d-block text-muted">Login, senhas, liberações</small>
+                                <strong>{{ 'servicedesk.novo.categoria.acesso'|trans }}</strong>
+                                <small class="d-block text-muted">{{ 'servicedesk.novo.categoria.acesso_ajuda'|trans }}</small>
                             </li>
                             <li class="list-group-item">
                                 <i class="bi bi-envelope text-secondary me-2"></i>
-                                <strong>E-mail</strong>
-                                <small class="d-block text-muted">Outlook, caixa postal, calendário</small>
+                                <strong>{{ 'servicedesk.novo.categoria.email'|trans }}</strong>
+                                <small class="d-block text-muted">{{ 'servicedesk.novo.categoria.email_ajuda'|trans }}</small>
                             </li>
                         </ul>
                     </div>
