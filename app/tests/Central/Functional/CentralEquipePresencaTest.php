@@ -10,6 +10,7 @@ use App\Central\UseCase\RegistrarPresencaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
 use App\Entity\Tenant\Tenant;
+use App\Profile\Entity\UserProfile;
 use App\Tests\Central\Support\CentralHttpTrait;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use App\Tests\Inteligencia\Support\CriaFixturesInteligenciaTrait;
@@ -160,6 +161,31 @@ final class CentralEquipePresencaTest extends JusPrimeWebTestCase
         foreach (['primeira', 'segunda', 'resposta', 'Aviso'] as $texto) {
             self::assertStringNotContainsString($texto, $bruto);
         }
+    }
+
+    #[TestDox('Equipe do painel de presença: a URL da foto do perfil de quem tem foto (a do avatar do topo), null para quem não tem; quem é de outro escritório não aparece')]
+    public function testFotoNaEquipe(): void
+    {
+        $client = $this->cliente();
+        [, $tenant] = $this->criarAdmin();
+        [, $outro] = $this->criarAdmin();
+        $ana = $this->colega($tenant, 'ana');
+        $bia = $this->colega($tenant, 'bia');
+        $deFora = $this->colega($outro, 'fora');
+        foreach ([[$ana, 'foto_ana.jpg'], [$deFora, 'foto_fora.jpg']] as [$u, $arquivo]) {
+            $this->em()->persist((new UserProfile($this->em()->getReference(User::class, $u->getId())))->setFotoUrl($arquivo));
+        }
+        $this->em()->flush();
+
+        $this->logarComTenant($client, $ana, $tenant);
+        $client->request('GET', '/central/equipe');
+        self::assertResponseIsSuccessful();
+        $porNome = array_column($this->json($client)['equipe'], null, 'nome');
+
+        self::assertSame(static::getContainer()->get('router')->generate('app_profile_foto_serve', ['nome' => 'foto_ana.jpg']), $porNome[(string) $ana->getFullName()]['foto'], 'a própria foto, como no avatar do topo');
+        self::assertNull($porNome[(string) $bia->getFullName()]['foto'], 'sem foto: as iniciais ficam com a tela');
+        self::assertArrayNotHasKey((string) $deFora->getFullName(), $porNome);
+        self::assertStringNotContainsString('foto_fora.jpg', (string) $client->getResponse()->getContent(), 'foto de outro escritório não vaza');
     }
 
     #[TestDox('On-line é o batimento dos últimos 60 s: 50 s atrás está on-line, 70 s atrás está off-line')]
