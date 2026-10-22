@@ -94,6 +94,9 @@ use App\Pasta\UseCase\DesvincularProcessoUseCase;
 use App\Pasta\UseCase\EditarPastaUseCase;
 use App\Pasta\UseCase\VincularProcessoUseCase;
 use App\Pasta\UseCase\VincularApensadoUseCase;
+use App\Pasta\UseCase\BuscarProcessosParaVincularUseCase;
+use App\Processo\Service\TribunalCnjResolver;
+use App\Pasta\DTO\ProcessoParaVincularOutput;
 use App\Pasta\Entity\TipoDeApenso;
 use App\Pasta\Exception\ApensadoInvalidoException;
 use App\Pasta\UseCase\AlterarPrioridadeUseCase;
@@ -340,6 +343,7 @@ class PastaController extends AbstractController
         VisibilidadeDasAbasDaPasta $visibilidadeDasAbas,
         MontarPainelDoPushUseCase $montarPainelDoPush,
         ColaboradoresAtribuiveis $atribuiveis,
+        TribunalCnjResolver $tribunalCnjResolver,
     ): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
@@ -490,6 +494,8 @@ class PastaController extends AbstractController
 
         return $this->render('pasta/show.html.twig', [
             'pasta'                       => $pasta,
+            // Janela "Vincular processo": a sigla do tribunal enquanto se digita sai da tabela do servidor.
+            'tribunaisCnj'                => $tribunalCnjResolver->tabelaDeSiglas(),
             'vizinhas'                    => $vizinhas,
             'documentTypeOptions'         => self::DOCUMENT_TYPES,
             'documentosPorTipo'           => $this->groupDocumentsByType($pasta),
@@ -1393,8 +1399,12 @@ class PastaController extends AbstractController
         return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
     }
 
+    /**
+     * Lista "Processo já cadastrado" da janela "Vincular processo" (desenho 02, N:299-302): sem termo, os 8
+     * primeiros do escritório (a lista abre ao focar); com termo, filtra. Cada item traz a origem.
+     */
     #[Route('/{id}/processo/buscar', name: 'pasta_buscar_processos', methods: ['GET'])]
-    public function buscarProcessos(Pasta $pasta, Request $request): Response
+    public function buscarProcessos(Pasta $pasta, Request $request, BuscarProcessosParaVincularUseCase $buscarProcessos): Response
     {
         $pastaId = (int) $pasta->getId();
         if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
@@ -1402,21 +1412,19 @@ class PastaController extends AbstractController
         }
 
         $tenant = $this->tenantContext->getCurrentTenant();
-        $termo  = trim((string) $request->query->get('q', ''));
+        if ($tenant === null) {
+            throw $this->createNotFoundException();
+        }
 
-        $idsVinculados = array_values(array_filter(array_map(
-            static fn (Processo $p): ?int => $p->getId(),
-            $pasta->getProcessos(),
-        )));
+        try {
+            /** @var \App\Entity\Auth\User $usuario */
+            $usuario = $this->getUser();
+            $itens = $buscarProcessos->executar($pasta, (string) $request->query->get('q', ''), $tenant, $usuario);
+        } catch (PastaDeOutroEscritorioException) {
+            throw $this->createNotFoundException();
+        }
 
-        $processos = $this->processoRepository->buscarPorTermoDoTenant($termo, $tenant, $idsVinculados);
-
-        $results = array_map(fn (Processo $p): array => [
-            'id'   => $p->getId(),
-            'text' => $this->rotuloProcesso($p),
-        ], $processos);
-
-        return $this->json(['results' => $results]);
+        return $this->json(['results' => array_map(static fn (ProcessoParaVincularOutput $item): array => $item->paraJson(), $itens)]);
     }
 
     /**
@@ -1507,17 +1515,6 @@ class PastaController extends AbstractController
         $this->addFlash('danger', $mensagem);
 
         return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
-    }
-
-    private function rotuloProcesso(Processo $processo): string
-    {
-        $partes = array_filter([
-            $processo->getNumeroProcesso(),
-            $processo->getClasseProcessual() ?: $processo->getAssuntoProcessual(),
-            $processo->getSiglaTribunal(),
-        ]);
-
-        return implode(' · ', $partes);
     }
 
     /**

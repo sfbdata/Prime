@@ -214,12 +214,17 @@ class ProcessoRepository extends ServiceEntityRepository
 
         $termo = trim($termo);
         if ($termo !== '') {
+            // O número fica gravado só com dígitos; digitado com a máscara do CNJ ("1234567-89.2024..."),
+            // casa pelos dígitos.
+            $digitos = (string) preg_replace('/\D/', '', $termo);
+            $numero = $digitos !== '' && preg_match('/^[\d.\-\s]+$/', $termo) === 1 ? $digitos : $termo;
             $qb->andWhere(
-                'UNACCENT(LOWER(p.numeroProcesso)) LIKE UNACCENT(LOWER(:termo))'
+                'UNACCENT(LOWER(p.numeroProcesso)) LIKE UNACCENT(LOWER(:numero))'
                 . ' OR UNACCENT(LOWER(p.classeProcessual)) LIKE UNACCENT(LOWER(:termo))'
                 . ' OR UNACCENT(LOWER(p.assuntoProcessual)) LIKE UNACCENT(LOWER(:termo))'
                 . ' OR UNACCENT(LOWER(p.siglaTribunal)) LIKE UNACCENT(LOWER(:termo))'
-            )->setParameter('termo', '%' . $termo . '%');
+            )->setParameter('termo', '%' . $termo . '%')
+             ->setParameter('numero', '%' . $numero . '%');
         }
 
         if ($idsExcluir !== []) {

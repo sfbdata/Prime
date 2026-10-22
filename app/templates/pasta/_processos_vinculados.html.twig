@@ -116,13 +116,13 @@
             <i class="bi bi-three-dots-vertical"></i>
         </button>
         <button type="button" class="ps-btn ps-btn--suave" title="{{ 'pasta_processo.cabecalho.vincular'|trans }}" aria-label="{{ 'pasta_processo.cabecalho.vincular'|trans }}"
-                data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">
+                data-vp-abrir aria-haspopup="dialog" aria-controls="modalVincularProcesso">
             <i class="bi bi-link-45deg"></i><span>{{ 'pasta_processo.cabecalho.vincular'|trans }}</span>
         </button>
         {# P4f (desenho N:1710, `procAbrirApenso` N:4517): abre o MESMO modal em modo apenso
            (pasta-apensado.js lê o `data-vincular-modo` do botão que abriu). #}
         <button type="button" class="ps-btn ps-btn--suave ps-btn--apenso" title="{{ 'pasta_processo.cabecalho.vincular_apensado_dica'|trans }}"
-                aria-label="{{ 'pasta_processo.cabecalho.vincular_apensado'|trans }}" data-bs-toggle="modal" data-bs-target="#modalVincularProcesso" data-vincular-modo="apenso">
+                aria-label="{{ 'pasta_processo.cabecalho.vincular_apensado'|trans }}" data-vp-abrir aria-haspopup="dialog" aria-controls="modalVincularProcesso" data-vincular-modo="apenso">
             <i class="bi bi-paperclip"></i><span>{{ 'pasta_processo.cabecalho.vincular_apensado'|trans }}</span>
         </button>
         {% endif %}

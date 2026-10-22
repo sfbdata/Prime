@@ -1758,24 +1758,26 @@
 }());
 </script>
 
-{# Modal: Vincular Processo #}
-<div class="modal fade" id="modalVincularProcesso" tabindex="-1" aria-labelledby="modalVincularProcessoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header py-2">
-                <h6 class="modal-title" id="modalVincularProcessoLabel">
-                    <i class="bi bi-briefcase me-1"></i> <span id="mp-titulo-texto">{{ 'pasta_show.processo.vincular'|trans }}</span>
-                </h6>
-                {# Desenho N:292: X branco num quadrado translúcido (pasta-apensados.css). #}
-                <button type="button" class="mp-fechar" data-bs-dismiss="modal" aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
+{# Janela "Vincular processo": a do desenho 02 de 18/10 (N:289-354, estados `pvVals` N:3135-3151), não o modal
+   do Bootstrap. Sobreposição própria (N:290), caixa de min(860px, 100%) (N:291), cabeçalho (N:292), corpo (N:293)
+   e rodapé (N:351). Abre pelos botões `[data-vp-abrir]`; fecha no X, no Cancelar, no clique fora e no Esc. #}
+<div class="vp-sobre" id="modalVincularProcesso" hidden data-tribunais="{{ (tribunaisCnj ?? {})|json_encode|e('html_attr') }}">
+        <div class="vp-caixa" role="dialog" aria-modal="true" aria-labelledby="modalVincularProcessoLabel">
+            <div class="vp-cab">
+                <i class="bi bi-briefcase" aria-hidden="true"></i>
+                <b class="vp-titulo" id="modalVincularProcessoLabel"><span id="mp-titulo-texto">{{ 'pasta_show.processo.vincular'|trans }}</span></b>
+                {# Desenho N:292: X branco num quadrado translúcido. #}
+                <button type="button" class="mp-fechar" data-vp-fechar aria-label="{{ 'pasta_show.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
-            <form method="POST" id="formVincularProcesso"
+            {# novalidate: os obrigatórios são conferidos no clique ("Preencha: ...", desenho `procSalvarVinc`), sem o
+               balão do navegador; o servidor confere de novo. #}
+            <form method="POST" id="formVincularProcesso" class="vp-form" novalidate
                   action="{{ path('pasta_vincular_processo', {id: pasta.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('vincular_processo_' ~ pasta.id) }}">
                 {# P4f: o mesmo modal vincula APENSADO (`modo=apenso`); pasta-apensado.js troca o modo pelo
                    botão que abriu e mostra o "Tipo de apenso" (desenho N:294, padrão Embargos). #}
                 <input type="hidden" name="modo" id="mp-modo" value="principal">
-                <div class="modal-body py-3">
+                <div class="vp-corpo">
                     <label class="mp-apenso-tipo" id="mp-apenso-tipo" hidden>
                         <span class="mp-apenso-tipo-rotulo">{{ 'pasta_show.processo.tipo_apenso'|trans }} <span class="mp-apenso-obrig">*</span></span>
                         <select name="tipo_apenso" id="mp-tipoApenso" class="mp-apenso-select" disabled>
@@ -1785,89 +1787,86 @@
                         </select>
                     </label>
 
-                    {# Seletor de modo: buscar processo existente x cadastrar novo via CNJ #}
-                    <div class="btn-group w-100 mb-3 mp-abas" role="group" aria-label="{{ 'pasta_show.processo.modo_rotulo'|trans }}">
-                        <input type="radio" class="btn-check" name="mp-modo" id="mp-modo-existente" autocomplete="off" checked>
-                        <label class="btn btn-outline-primary btn-sm" for="mp-modo-existente"><i class="bi bi-search me-1"></i> {{ 'pasta_show.processo.buscar_existente'|trans }}</label>
-                        <input type="radio" class="btn-check" name="mp-modo" id="mp-modo-novo" autocomplete="off">
-                        <label class="btn btn-outline-primary btn-sm" for="mp-modo-novo"><i class="bi bi-plus-lg me-1"></i> {{ 'pasta_show.processo.cadastrar_novo'|trans }}</label>
+                    {# Seletor de modo: buscar processo existente x cadastrar novo via CNJ (N:295, `tabSt` N:3136) #}
+                    <div class="mp-abas" role="tablist" aria-label="{{ 'pasta_show.processo.modo_rotulo'|trans }}">
+                        <button type="button" class="mp-aba is-ativa" id="mp-modo-existente" data-vp-modo="existente" role="tab" aria-selected="true"><i class="bi bi-search"></i>{{ 'pasta_show.processo.buscar_existente'|trans }}</button>
+                        <button type="button" class="mp-aba" id="mp-modo-novo" data-vp-modo="novo" role="tab" aria-selected="false"><i class="bi bi-plus-lg"></i>{{ 'pasta_show.processo.cadastrar_novo'|trans }}</button>
                     </div>
 
-                    {# MODO: buscar processo já cadastrado #}
-                    <div id="modal-modo-existente">
-                        <label for="mp-processoExistente" class="form-label">
-                            {{ 'pasta_show.processo.ja_cadastrado'|trans }} <span class="text-danger">*</span>
-                        </label>
-                        <select id="mp-processoExistente" name="processo_id" class="form-select" style="width:100%"></select>
-                        <div class="form-text">{{ 'pasta_show.processo.busque_dica'|trans }}</div>
+                    {# MODO: buscar processo já cadastrado (N:296-304). A lista abre ao focar, com até 8 processos do
+                       escritório, e filtra enquanto se digita; o escolhido vai no `processo_id`. #}
+                    <div id="modal-modo-existente" class="mp-campo mp-busca">
+                        <label for="mp-busca-input" class="mp-rotulo">{{ 'pasta_show.processo.ja_cadastrado'|trans }} <span class="mp-obrig">*</span></label>
+                        <input type="hidden" id="mp-processoExistente" name="processo_id" value="">
+                        <div class="mp-busca-sel" id="mp-busca-sel" hidden>
+                            <i class="bi bi-check2-circle"></i>
+                            <span class="mp-busca-sel-txt" id="mp-busca-sel-txt"></span>
+                            <button type="button" class="mp-busca-trocar" id="mp-busca-trocar" title="{{ 'pasta_show.processo.trocar'|trans }}" aria-label="{{ 'pasta_show.processo.trocar'|trans }}"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                        <div class="mp-busca-caixa">
+                            <input type="text" id="mp-busca-input" class="mp-ctrl mp-busca-input" autocomplete="off"
+                                   placeholder="{{ 'pasta_show.processo.busca_placeholder'|trans }}"
+                                   role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="mp-busca-lista">
+                            <i class="bi bi-caret-down-fill mp-busca-seta" aria-hidden="true"></i>
+                            <div class="mp-busca-lista" id="mp-busca-lista" role="listbox" hidden></div>
+                        </div>
+                        <span class="mp-dica-busca">{{ 'pasta_show.processo.busque_dica'|trans }}</span>
                     </div>
 
-                    {# MODO: cadastrar novo processo via CNJ #}
-                    <div id="modal-modo-novo" class="d-none">
+                    {# MODO: cadastrar novo processo via CNJ (N:306-345) #}
+                    <div id="modal-modo-novo" class="mp-novo" hidden>
 
-                    {# Abas do formulário de processo #}
-                    <div class="processo-modal-tabs d-flex border-bottom mb-0">
-                        <button type="button" class="processo-modal-tab active" data-modal-tab="modal-proc-info">
-                            <i class="bi bi-info-circle me-1"></i> {{ 'pasta_show.processo.aba_informacoes'|trans }}
+                    {# Sub-abas do formulário de processo (N:306, `subSt` N:3137) #}
+                    <div class="processo-modal-tabs" role="tablist">
+                        <button type="button" class="processo-modal-tab active" data-modal-tab="modal-proc-info" role="tab" aria-selected="true">
+                            <i class="bi bi-info-circle"></i> {{ 'pasta_show.processo.aba_informacoes'|trans }}
                         </button>
-                        <button type="button" class="processo-modal-tab" data-modal-tab="modal-proc-partes">
-                            <i class="bi bi-people me-1"></i> {{ 'pasta_show.processo.aba_partes'|trans }}
+                        <button type="button" class="processo-modal-tab" data-modal-tab="modal-proc-partes" role="tab" aria-selected="false">
+                            <i class="bi bi-people"></i> {{ 'pasta_show.processo.aba_partes'|trans }}
                         </button>
-                        <button type="button" class="processo-modal-tab" data-modal-tab="modal-proc-movimentacoes">
-                            <i class="bi bi-clock-history me-1"></i> {{ 'pasta_show.processo.aba_movimentacoes'|trans }}
+                        <button type="button" class="processo-modal-tab" data-modal-tab="modal-proc-movimentacoes" role="tab" aria-selected="false">
+                            <i class="bi bi-clock-history"></i> {{ 'pasta_show.processo.aba_movimentacoes'|trans }}
                         </button>
                     </div>
 
-                    {# ABA: Informações #}
-                    <div class="processo-modal-tab-content active pt-3" id="tab-modal-proc-info">
-                        <div class="row g-3">
-                            <div class="col-md-8">
-                                <label for="mp-numeroProcesso" class="form-label">
-                                    {{ 'pasta_show.processo.numero'|trans }} <span class="text-danger">*</span>
-                                </label>
-                                <input type="text" id="mp-numeroProcesso" name="numeroProcesso" class="form-control"
-                                       placeholder="{{ 'pasta_show.processo.numero_exemplo'|trans }}" required>
-                                <div class="form-text">{{ 'pasta_show.processo.numero_formato'|trans }}</div>
-                            </div>
-                            <div class="col-md-4 d-flex align-items-end">
-                                <button id="mp-btn-datajud" type="button" class="btn btn-info w-100"
-                                        data-bs-toggle="tooltip" title="{{ 'pasta_show.processo.buscar_cnj_dica'|trans }}">
-                                    <i class="bi bi-search me-1"></i> {{ 'pasta_show.processo.buscar_cnj'|trans }}
+                    {# ABA: Informações (N:307-327): grade de 6 colunas #}
+                    <div class="processo-modal-tab-content active" id="tab-modal-proc-info">
+                        <div class="mp-grade">
+                            <label class="mp-campo mp-col-4" for="mp-numeroProcesso">
+                                <span class="mp-rotulo">{{ 'pasta_show.processo.numero'|trans }} <span class="mp-obrig">*</span></span>
+                                <input type="text" id="mp-numeroProcesso" name="numeroProcesso" class="mp-ctrl mp-ctrl--num" inputmode="numeric" autocomplete="off"
+                                       placeholder="{{ 'pasta_show.processo.numero_exemplo'|trans }}">
+                                <span class="mp-dica">{{ 'pasta_show.processo.numero_formato'|trans }}</span>
+                            </label>
+                            {# N:310: o botão alinhado ao input (padding-top 20px) e, embaixo, "Dados localizados". #}
+                            <div class="mp-cnj mp-col-2">
+                                <button id="mp-btn-datajud" type="button" class="mp-cnj-btn"
+                                        title="{{ 'pasta_show.processo.buscar_cnj_dica'|trans }}">
+                                    <i class="bi bi-search"></i><span id="mp-cnj-texto">{{ 'pasta_show.processo.buscar_cnj'|trans }}</span>
                                 </button>
+                                <span class="mp-cnj-ok" id="mp-cnj-ok" hidden><i class="bi bi-check2"></i> {{ 'pasta_show.processo.dados_localizados'|trans }} <span data-mp-cnj-movs>0</span> {{ 'pasta_show.processo.movimentacoes_contagem'|trans }}</span>
                             </div>
-                            {# Desenho N:315: confirmação depois da busca (o JS preenche o número). #}
-                            <div class="col-12 d-none" id="mp-cnj-ok">
-                                <span class="text-success small"><i class="bi bi-check2"></i> {{ 'pasta_show.processo.dados_localizados'|trans }} <span data-mp-cnj-movs>0</span> {{ 'pasta_show.processo.movimentacoes_contagem'|trans }}</span>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="mp-siglaTribunal" class="form-label">
-                                    {{ 'pasta_show.processo.tribunal'|trans }}
-                                </label>
-                                <input type="text" id="mp-siglaTribunal" name="siglaTribunal" class="form-control"
+                            <label class="mp-campo mp-col-3" for="mp-siglaTribunal">
+                                <span class="mp-rotulo">{{ 'pasta_show.processo.tribunal'|trans }}</span>
+                                <input type="text" id="mp-siglaTribunal" name="siglaTribunal" class="mp-ctrl mp-ctrl--leitura"
                                        readonly placeholder="{{ 'pasta_show.processo.tribunal_placeholder'|trans }}">
-                                <div class="form-text">{{ 'pasta_show.processo.tribunal_dica'|trans }}</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="mp-orgaoJulgador" class="form-label">
-                                    {{ 'pasta_show.processo.orgao_julgador'|trans }} <span class="text-danger">*</span>
-                                </label>
-                                <input type="text" id="mp-orgaoJulgador" name="orgaoJulgador" class="form-control" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="mp-classeProcessual" class="form-label">
-                                    {{ 'pasta_show.processo.classe'|trans }} <span class="text-danger">*</span>
-                                </label>
-                                <input type="text" id="mp-classeProcessual" name="classeProcessual" class="form-control" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="mp-assuntoProcessual" class="form-label">
-                                    {{ 'pasta_show.processo.assunto'|trans }} <span class="text-danger">*</span>
-                                </label>
-                                <input type="text" id="mp-assuntoProcessual" name="assuntoProcessual" class="form-control" required>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="mp-situacaoProcesso" class="form-label">{{ 'pasta_show.processo.situacao'|trans }} <span class="text-danger">*</span></label>
-                                <select id="mp-situacaoProcesso" name="situacaoProcesso" class="form-select" required>
+                                <span class="mp-dica">{{ 'pasta_show.processo.tribunal_dica'|trans }}</span>
+                            </label>
+                            <label class="mp-campo mp-col-3" for="mp-orgaoJulgador">
+                                <span class="mp-rotulo">{{ 'pasta_show.processo.orgao_julgador'|trans }} <span class="mp-obrig">*</span></span>
+                                <input type="text" id="mp-orgaoJulgador" name="orgaoJulgador" class="mp-ctrl">
+                            </label>
+                            <label class="mp-campo mp-col-3" for="mp-classeProcessual">
+                                <span class="mp-rotulo">{{ 'pasta_show.processo.classe'|trans }} <span class="mp-obrig">*</span></span>
+                                <input type="text" id="mp-classeProcessual" name="classeProcessual" class="mp-ctrl">
+                            </label>
+                            <label class="mp-campo mp-col-3" for="mp-assuntoProcessual">
+                                <span class="mp-rotulo">{{ 'pasta_show.processo.assunto'|trans }} <span class="mp-obrig">*</span></span>
+                                <input type="text" id="mp-assuntoProcessual" name="assuntoProcessual" class="mp-ctrl">
+                            </label>
+                            <label class="mp-campo mp-col-2" for="mp-situacaoProcesso">
+                                <span class="mp-rotulo">{{ 'pasta_show.processo.situacao'|trans }} <span class="mp-obrig">*</span></span>
+                                <select id="mp-situacaoProcesso" name="situacaoProcesso" class="mp-ctrl">
                                     {# Opções do desenho 02 (P5d); o código gravado tem rótulo em SituacaoProcessoRotulo. #}
                                     <option value="EM_ANDAMENTO" selected>{{ 'pasta_show.processo.situacao_em_andamento'|trans }}</option>
                                     <option value="SUSPENSO">{{ 'pasta_show.processo.situacao_suspenso'|trans }}</option>
@@ -1875,140 +1874,125 @@
                                     <option value="BAIXADO">{{ 'pasta_show.processo.situacao_baixado'|trans }}</option>
                                     <option value="TRANSITADO_EM_JULGADO">{{ 'pasta_show.processo.situacao_transitado'|trans }}</option>
                                 </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="mp-instancia" class="form-label">{{ 'pasta_show.processo.instancia'|trans }} <span class="text-danger">*</span></label>
-                                <select id="mp-instancia" name="instancia" class="form-select" required>
+                            </label>
+                            <label class="mp-campo mp-col-2" for="mp-instancia">
+                                <span class="mp-rotulo">{{ 'pasta_show.processo.instancia'|trans }} <span class="mp-obrig">*</span></span>
+                                <select id="mp-instancia" name="instancia" class="mp-ctrl">
                                     <option value="G1" selected>{{ 'pasta_show.processo.instancia_g1'|trans }}</option>
                                     <option value="G2">{{ 'pasta_show.processo.instancia_g2'|trans }}</option>
                                     <option value="TR">{{ 'pasta_show.processo.instancia_tr'|trans }}</option>
                                     <option value="ST">{{ 'pasta_show.processo.instancia_st'|trans }}</option>
                                 </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="mp-dataDistribuicao" class="form-label">{{ 'pasta_show.processo.data_distribuicao'|trans }}</label>
-                                <input type="date" id="mp-dataDistribuicao" name="dataDistribuicao" class="form-control">
-                            </div>
+                            </label>
+                            <label class="mp-campo mp-col-2" for="mp-dataDistribuicao">
+                                <span class="mp-rotulo">{{ 'pasta_show.processo.data_distribuicao'|trans }}</span>
+                                <input type="date" id="mp-dataDistribuicao" name="dataDistribuicao" class="mp-ctrl">
+                            </label>
                             {# Desenho N:322-327 (P5d): gravados como dados MANUAIS do processo (selo "manual" no cartão). #}
-                            <div class="col-md-4">
-                                <label for="mp-valorCausa" class="form-label">{{ 'pasta_show.processo.valor_causa'|trans }}</label>
-                                <input type="text" id="mp-valorCausa" name="valorCausa" class="form-control" placeholder="R$ 0,00" inputmode="numeric" autocomplete="off" maxlength="22">
+                            <label class="mp-campo mp-col-2" for="mp-valorCausa">
+                                <span class="mp-rotulo">{{ 'pasta_show.processo.valor_causa'|trans }}</span>
+                                <input type="text" id="mp-valorCausa" name="valorCausa" class="mp-ctrl mp-ctrl--num" placeholder="R$ 0,00" inputmode="numeric" autocomplete="off" maxlength="22">
+                            </label>
+                            <label class="mp-campo mp-col-4" for="mp-jurisdicao">
+                                <span class="mp-rotulo">{{ 'pasta_show.processo.jurisdicao'|trans }}</span>
+                                <input type="text" id="mp-jurisdicao" name="jurisdicao" class="mp-ctrl" placeholder="{{ 'pasta_show.processo.jurisdicao_exemplo'|trans }}" maxlength="255">
+                            </label>
+                            <div class="mp-flags">
+                                {% for flag in [['segredo', 'pasta_show.processo.flag_segredo'], ['digital', 'pasta_show.processo.flag_digital'], ['gratuita', 'pasta_show.processo.flag_gratuita'], ['tutela', 'pasta_show.processo.flag_tutela'], ['prioridade', 'pasta_show.processo.flag_prioridade']] %}
+                                    <label class="mp-campo" for="mp-flag-{{ flag[0] }}">
+                                        <span class="mp-rotulo">{{ flag[1]|trans }}</span>
+                                        <select id="mp-flag-{{ flag[0] }}" name="{{ flag[0] }}" class="mp-ctrl">
+                                            <option value="" selected>{{ 'pasta_show.processo.nao_informado'|trans }}</option>
+                                            <option value="1">{{ 'pasta_show.processo.sim'|trans }}</option>
+                                            <option value="0">{{ 'pasta_show.processo.nao'|trans }}</option>
+                                        </select>
+                                    </label>
+                                {% endfor %}
                             </div>
-                            <div class="col-md-8">
-                                <label for="mp-jurisdicao" class="form-label">{{ 'pasta_show.processo.jurisdicao'|trans }}</label>
-                                <input type="text" id="mp-jurisdicao" name="jurisdicao" class="form-control" placeholder="{{ 'pasta_show.processo.jurisdicao_exemplo'|trans }}" maxlength="255">
-                            </div>
-                            {% for flag in [['segredo', 'pasta_show.processo.flag_segredo'], ['digital', 'pasta_show.processo.flag_digital'], ['gratuita', 'pasta_show.processo.flag_gratuita'], ['tutela', 'pasta_show.processo.flag_tutela'], ['prioridade', 'pasta_show.processo.flag_prioridade']] %}
-                                <div class="col-md">
-                                    <label for="mp-flag-{{ flag[0] }}" class="form-label">{{ flag[1]|trans }}</label>
-                                    <select id="mp-flag-{{ flag[0] }}" name="{{ flag[0] }}" class="form-select">
-                                        <option value="" selected>{{ 'pasta_show.processo.nao_informado'|trans }}</option>
-                                        <option value="1">{{ 'pasta_show.processo.sim'|trans }}</option>
-                                        <option value="0">{{ 'pasta_show.processo.nao'|trans }}</option>
-                                    </select>
-                                </div>
-                            {% endfor %}
                         </div>
                     </div>{# fim tab-modal-proc-info #}
 
-                    {# ABA: Partes #}
-                    <div class="processo-modal-tab-content pt-3" id="tab-modal-proc-partes">
-                        <div class="d-flex justify-content-end mb-2">
-                            <button type="button" id="mp-btn-add-parte" class="btn btn-sm btn-warning">
-                                <i class="bi bi-plus-lg me-1"></i> {{ 'pasta_show.processo.adicionar_parte'|trans }}
+                    {# ABA: Partes (N:329-337). A lixeira fica na linha e só remove quando há mais de uma. #}
+                    <div class="processo-modal-tab-content" id="tab-modal-proc-partes">
+                        <div class="mp-add-linha">
+                            <button type="button" id="mp-btn-add-parte" class="mp-btn-add">
+                                <i class="bi bi-plus-lg"></i> {{ 'pasta_show.processo.adicionar_parte'|trans }}
                             </button>
                         </div>
-                        <div id="mp-partesContainer">
-                            <div class="mp-parte-row card mb-2 p-3" style="position: relative;">
-                                <div class="row g-2">
-                                    <div class="col-md-3">
-                                        <label class="form-label">{{ 'pasta_show.processo.tipo'|trans }}</label>
-                                        <select name="partes[0][tipo]" class="form-select">
-                                            <option value="PARTE">{{ 'pasta_show.processo.parte_parte'|trans }}</option>
-                                            <option value="ADVOGADO">{{ 'pasta_show.processo.parte_advogado'|trans }}</option>
-                                            <option value="TERCEIRO">{{ 'pasta_show.processo.parte_terceiro'|trans }}</option>
-                                            <option value="MINISTERIO_PUBLICO">{{ 'pasta_show.processo.parte_mp'|trans }}</option>
-                                            <option value="PERITO">{{ 'pasta_show.processo.parte_perito'|trans }}</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-5">
-                                        <label class="form-label">{{ 'pasta_show.processo.nome'|trans }}</label>
-                                        <input type="text" name="partes[0][nome]" class="form-control" placeholder="{{ 'pasta_show.processo.nome_da_parte'|trans }}">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">{{ 'pasta_show.processo.documento'|trans }}</label>
-                                        <input type="text" name="partes[0][documento]" class="form-control" placeholder="{{ 'pasta_show.processo.documento_placeholder'|trans }}">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">{{ 'pasta_show.processo.papel'|trans }}</label>
-                                        <input type="text" name="partes[0][papel]" class="form-control" placeholder="{{ 'pasta_show.processo.papel_placeholder'|trans }}">
-                                    </div>
-                                </div>
-                                <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
-                                        style="display: none; position: absolute; top: 8px; right: 12px;"
-                                        title="{{ 'pasta_show.processo.remover_linha'|trans }}"><i class="bi bi-trash"></i></button>
+                        <div id="mp-partesContainer" class="mp-linhas">
+                            <div class="mp-parte-row mp-linha mp-linha--parte">
+                                <label class="mp-campo">
+                                    <span class="mp-rotulo">{{ 'pasta_show.processo.tipo'|trans }}</span>
+                                    <select name="partes[0][tipo]" class="mp-ctrl">
+                                        <option value="PARTE">{{ 'pasta_show.processo.parte_parte'|trans }}</option>
+                                        <option value="ADVOGADO">{{ 'pasta_show.processo.parte_advogado'|trans }}</option>
+                                        <option value="TERCEIRO">{{ 'pasta_show.processo.parte_terceiro'|trans }}</option>
+                                        <option value="MINISTERIO_PUBLICO">{{ 'pasta_show.processo.parte_mp'|trans }}</option>
+                                        <option value="PERITO">{{ 'pasta_show.processo.parte_perito'|trans }}</option>
+                                    </select>
+                                </label>
+                                <label class="mp-campo">
+                                    <span class="mp-rotulo">{{ 'pasta_show.processo.nome'|trans }}</span>
+                                    <input type="text" name="partes[0][nome]" class="mp-ctrl" placeholder="{{ 'pasta_show.processo.nome_da_parte'|trans }}">
+                                </label>
+                                <label class="mp-campo">
+                                    <span class="mp-rotulo">{{ 'pasta_show.processo.documento'|trans }}</span>
+                                    <input type="text" name="partes[0][documento]" class="mp-ctrl mp-ctrl--num mp-doc" inputmode="numeric" placeholder="{{ 'pasta_show.processo.documento_placeholder'|trans }}">
+                                </label>
+                                <label class="mp-campo">
+                                    <span class="mp-rotulo">{{ 'pasta_show.processo.papel'|trans }}</span>
+                                    <input type="text" name="partes[0][papel]" class="mp-ctrl" placeholder="{{ 'pasta_show.processo.papel_placeholder'|trans }}">
+                                </label>
+                                <button type="button" class="mp-lixeira mp-remove-parte" disabled
+                                        title="{{ 'pasta_show.processo.remover_linha'|trans }}" aria-label="{{ 'pasta_show.processo.remover_linha'|trans }}"><i class="bi bi-trash3"></i></button>
                             </div>
                         </div>
                     </div>{# fim tab-modal-proc-partes #}
 
-                    {# ABA: Movimentações #}
-                    <div class="processo-modal-tab-content pt-3" id="tab-modal-proc-movimentacoes">
-                        <div class="d-flex justify-content-end mb-2">
-                            <button type="button" id="mp-btn-add-movimentacao" class="btn btn-sm btn-info">
-                                <i class="bi bi-plus-lg me-1"></i> {{ 'pasta_show.processo.adicionar_movimentacao'|trans }}
+                    {# ABA: Movimentações (N:339-345). A nova entra no topo. #}
+                    <div class="processo-modal-tab-content" id="tab-modal-proc-movimentacoes">
+                        <div class="mp-add-linha">
+                            <button type="button" id="mp-btn-add-movimentacao" class="mp-btn-add">
+                                <i class="bi bi-plus-lg"></i> {{ 'pasta_show.processo.adicionar_movimentacao'|trans }}
                             </button>
                         </div>
-                        <div id="mp-movimentacoesContainer">
-                            <div class="mp-movimentacao-row card mb-2 p-3" style="position: relative;">
-                                <div class="row g-2">
-                                    <div class="col-md-3">
-                                        <label class="form-label">{{ 'pasta_show.processo.data'|trans }}</label>
-                                        <input type="date" name="movimentacoes[0][dataMovimentacao]" class="form-control">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">{{ 'pasta_show.processo.descricao'|trans }}</label>
-                                        <input type="text" name="movimentacoes[0][descricao]" class="form-control" placeholder="{{ 'pasta_show.processo.descricao_movimentacao'|trans }}">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label">{{ 'pasta_show.processo.tipo'|trans }}</label>
-                                        <input type="text" name="movimentacoes[0][tipo]" class="form-control" placeholder="{{ 'pasta_show.processo.tipo_movimento'|trans }}">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">{{ 'pasta_show.processo.orgao'|trans }}</label>
-                                        <input type="text" name="movimentacoes[0][orgao]" class="form-control" placeholder="{{ 'pasta_show.processo.orgao'|trans }}">
-                                    </div>
-                                </div>
-                                <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
-                                        style="display: none; position: absolute; top: 8px; right: 12px;"
-                                        title="{{ 'pasta_show.processo.remover_linha'|trans }}"><i class="bi bi-trash"></i></button>
+                        <div id="mp-movimentacoesContainer" class="mp-linhas">
+                            <div class="mp-movimentacao-row mp-linha mp-linha--mov">
+                                <label class="mp-campo">
+                                    <span class="mp-rotulo">{{ 'pasta_show.processo.data'|trans }}</span>
+                                    <input type="date" name="movimentacoes[0][dataMovimentacao]" class="mp-ctrl">
+                                </label>
+                                <label class="mp-campo">
+                                    <span class="mp-rotulo">{{ 'pasta_show.processo.descricao'|trans }}</span>
+                                    <input type="text" name="movimentacoes[0][descricao]" class="mp-ctrl" placeholder="{{ 'pasta_show.processo.descricao_movimentacao'|trans }}">
+                                </label>
+                                <label class="mp-campo">
+                                    <span class="mp-rotulo">{{ 'pasta_show.processo.tipo'|trans }}</span>
+                                    <input type="text" name="movimentacoes[0][tipo]" class="mp-ctrl" placeholder="{{ 'pasta_show.processo.tipo_movimento'|trans }}">
+                                </label>
+                                <label class="mp-campo">
+                                    <span class="mp-rotulo">{{ 'pasta_show.processo.orgao'|trans }}</span>
+                                    <input type="text" name="movimentacoes[0][orgao]" class="mp-ctrl" placeholder="{{ 'pasta_show.processo.orgao'|trans }}">
+                                </label>
+                                <button type="button" class="mp-lixeira mp-remove-movimentacao" disabled
+                                        title="{{ 'pasta_show.processo.remover_linha'|trans }}" aria-label="{{ 'pasta_show.processo.remover_linha'|trans }}"><i class="bi bi-trash3"></i></button>
                             </div>
                         </div>
-                        <p class="small text-muted mb-0">{{ 'pasta_show.processo.movimentacoes_nota'|trans }}</p>
+                        <p class="mp-nota">{{ 'pasta_show.processo.movimentacoes_nota'|trans }}</p>
                     </div>{# fim tab-modal-proc-movimentacoes #}
-
-                    {# Modal de carregamento DataJud (interno ao modal de processo) #}
-                    <div id="mp-loadingOverlay" class="d-none text-center py-3">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">{{ 'pasta_show.processo.buscando'|trans }}</span>
-                        </div>
-                        <p class="mt-2 mb-0 small">{{ 'pasta_show.processo.buscando'|trans }}</p>
-                    </div>
 
                     </div>{# fim modal-modo-novo #}
 
                     {# Fora do bloco "Cadastrar novo": o aviso "Selecione um processo para vincular." (desenho
                        N:347, `pvVals.aviso`) também aparece na aba "Buscar processo existente". #}
-                    <div id="mp-feedbackAlerta" class="d-none mt-3"></div>
+                    <div id="mp-feedbackAlerta" class="mp-aviso" role="status" hidden></div>
                 </div>
-                <div class="modal-footer py-2">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'pasta_show.cancelar'|trans }}</button>
-                    <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="bi bi-check-lg me-1"></i> <span id="mp-salvar-texto">{{ 'pasta_show.processo.vincular'|trans }}</span>
-                    </button>
+                <div class="vp-rodape">
+                    <button type="button" class="vp-btn vp-btn--cancelar" data-vp-fechar>{{ 'pasta_show.cancelar'|trans }}</button>
+                    <button type="submit" class="vp-btn vp-btn--ok"><i class="bi bi-check2"></i><span id="mp-salvar-texto">{{ 'pasta_show.processo.vincular'|trans }}</span></button>
                 </div>
             </form>
         </div>
-    </div>
 </div>
 
 {# P4f: modo apenso do modal acima, X do apensado e a dica da pílula da aba Dados. #}
@@ -3258,307 +3242,33 @@ document.addEventListener('DOMContentLoaded', function () {
 }());
 </script>
 
-<style>
-.processo-modal-tabs {
-    border-bottom: 3px solid #1a6fa3;
-    background: var(--bs-body-bg);
-    margin-bottom: 0;
-}
-.processo-modal-tab {
-    background: none;
-    border: none;
-    border-bottom: 3px solid transparent;
-    margin-bottom: -3px;
-    padding: 8px 16px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    color: var(--bs-secondary-color);
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
-    outline: none;
-}
-.processo-modal-tab:hover { color: #1a6fa3; }
-.processo-modal-tab.active { color: #1a6fa3; border-bottom-color: #1a6fa3; }
-.processo-modal-tab-content { display: none; }
-.processo-modal-tab-content.active { display: block; }
-/* Autocomplete de processo em tema escuro: o select2 usa fundo branco, mas os textos
-   herdavam a cor clara do tema (sumindo sobre o branco). Fixa esquema claro + textos escuros,
-   preservando o contraste da opção destacada (branco sobre azul). */
-.mp-proc-dropdown { color-scheme: light; }
-.mp-proc-dropdown .select2-search__field {
-    background-color: #fff;
-    color: #212529;
-}
-.mp-proc-dropdown .select2-results__option { color: #212529; }
-.mp-proc-dropdown .select2-results__option--highlighted { color: #fff; }
-/* Caixa de seleção do autocomplete (fica dentro de #modal-modo-existente): texto/placeholder
-   escuros sobre o fundo branco do select2. */
-#modal-modo-existente .select2-selection__rendered { color: #212529; }
-#modal-modo-existente .select2-selection__placeholder { color: #6c757d; }
-</style>
-
 <script>
+/* Janela "Vincular processo" (desenho 02, N:289-354; estados `pvVals` N:3135-3151; `procMask`, `pvBuscarCNJ`,
+   `docMask` e `procSalvarVinc` N:4507-4564). O modo apenso (título, "Tipo de apenso" e o aviso do apensado)
+   é do pasta-apensado.js. */
 (function () {
-    var pastaId                 = '{{ pasta.id }}';
-    var csrfDesvincularProcesso = '{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}';
-
-    /* ── Abas do modal de processo ── */
-    document.querySelectorAll('.processo-modal-tab').forEach(function (tab) {
-        tab.addEventListener('click', function () {
-            document.querySelectorAll('.processo-modal-tab').forEach(function (t) { t.classList.remove('active'); });
-            document.querySelectorAll('.processo-modal-tab-content').forEach(function (c) { c.classList.remove('active'); });
-            tab.classList.add('active');
-            var painel = document.getElementById('tab-' + tab.dataset.modalTab);
-            if (painel) painel.classList.add('active');
-        });
-    });
-
-    /* ── Modo (buscar existente x cadastrar novo) e Select2 no modal ── */
     var modalEl = document.getElementById('modalVincularProcesso');
+    var form    = document.getElementById('formVincularProcesso');
+    if (!modalEl || !form) return;
 
-    function mpAplicarModo(modo) {
-        var blocoExistente = document.getElementById('modal-modo-existente');
-        var blocoNovo      = document.getElementById('modal-modo-novo');
-        var selExistente   = document.getElementById('mp-processoExistente');
-        var ehNovo         = (modo === 'novo');
+    var URL_BUSCA = '{{ path('pasta_buscar_processos', {id: pasta.id}) }}';
+    var URL_CNJ   = '{{ path("pasta_processo_buscar_cnj", {id: pasta.id}) }}';
+    var NUM_CNJ   = /^\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}$/;
 
-        blocoExistente.classList.toggle('d-none', ehNovo);
-        blocoNovo.classList.toggle('d-none', !ehNovo);
+    var feedbackEl    = document.getElementById('mp-feedbackAlerta');
+    var campoProcesso = document.getElementById('mp-processoExistente');
+    var numeroEl      = document.getElementById('mp-numeroProcesso');
+    var btnCnj        = document.getElementById('mp-btn-datajud');
+    var cnjOk         = document.getElementById('mp-cnj-ok');
 
-        // Campos required do CNJ não podem bloquear o submit quando ocultos (o
-        // navegador não consegue focar um required escondido). Suspende o required
-        // no modo "existente" e o restaura no modo "novo".
-        blocoNovo.querySelectorAll('input, select, textarea').forEach(function (el) {
-            if (ehNovo) {
-                if (el.dataset.reqSuspenso) {
-                    el.required = true;
-                    delete el.dataset.reqSuspenso;
-                }
-            } else if (el.required) {
-                el.required = false;
-                el.dataset.reqSuspenso = '1';
-            }
-        });
+    /* Índice das linhas novas de parte e movimentação: sempre crescente, para dois `name` nunca colidirem. */
+    var mpProxIdx = 1;
+    /* Estado do aviso (desenho `pvVals.aviso`): o erro em vermelho vence; sem erro, o amarelo do modo. */
+    var mpErro = '';
+    var mpCnjNada = '';
+    var mpCnjBuscando = false;
 
-        if (selExistente) selExistente.disabled = ehNovo; // não submete processo_id no modo novo
-    }
-
-    document.getElementById('mp-modo-existente').addEventListener('change', function () { mpAplicarModo('existente'); });
-    document.getElementById('mp-modo-novo').addEventListener('change', function () { mpAplicarModo('novo'); });
-    mpAplicarModo('existente');
-
-    modalEl.addEventListener('shown.bs.modal', function () {
-        if (window.$ && $.fn.select2) {
-            // Tribunal é campo somente-leitura, derivado do número do processo (padrão CNJ).
-            if (!$('#mp-processoExistente').hasClass('select2-hidden-accessible')) {
-                $('#mp-processoExistente').select2({
-                    width: '100%',
-                    placeholder: BJ_T.t('pasta_show.js.processo.select_placeholder'),
-                    allowClear: true,
-                    dropdownParent: $('#modalVincularProcesso'),
-                    dropdownCssClass: 'mp-proc-dropdown',
-                    minimumInputLength: 2,
-                    ajax: {
-                        url: '{{ path('pasta_buscar_processos', {id: pasta.id}) }}',
-                        dataType: 'json',
-                        delay: 250,
-                        data: function (params) { return { q: params.term }; },
-                        processResults: function (data) { return { results: data.results || [] }; }
-                    },
-                    language: {
-                        noResults: function () { return BJ_T.t('pasta_show.js.processo.nenhum_encontrado'); },
-                        searching: function () { return BJ_T.t('pasta_show.js.processo.buscando'); },
-                        inputTooShort: function () { return BJ_T.t('pasta_show.js.processo.digite_dois'); }
-                    }
-                });
-            }
-        }
-        mpAplicarModo(document.getElementById('mp-modo-novo').checked ? 'novo' : 'existente');
-    });
-
-    function escapeHtml(value) {
-        return String(value ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    /* ── Submit via AJAX ── */
-    document.getElementById('formVincularProcesso').addEventListener('submit', async function (e) {
-        e.preventDefault();
-        var feedbackEl = document.getElementById('mp-feedbackAlerta');
-        var btnSalvar  = this.querySelector('button[type="submit"]');
-        var icone      = btnSalvar.querySelector('i');
-        var modoNovo   = document.getElementById('mp-modo-novo').checked;
-
-        feedbackEl.className = 'd-none mt-3';
-        feedbackEl.innerHTML = '';
-
-        if (!modoNovo) {
-            var selExistente = document.getElementById('mp-processoExistente');
-            if (!selExistente.value) {
-                feedbackEl.className = 'alert alert-warning mt-3';
-                feedbackEl.textContent = BJ_T.t('pasta_show.js.processo.selecione');
-                return;
-            }
-        }
-
-        btnSalvar.disabled = true;
-        if (icone) icone.className = 'bi bi-hourglass-split me-1';
-
-        try {
-            var resp = await fetch(this.action, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: new FormData(this),
-            });
-            var dados = await resp.json().catch(function () { return {}; });
-
-            if (resp.ok && dados.sucesso) {
-                window.mpSwapProcessos(dados.html);
-                document.dispatchEvent(new CustomEvent('mp:processo-vinculado')); // P4f: aviso do apensado (pasta-apensado.js)
-                // Número que já era do escritório: vinculou o existente e avisa que o digitado não foi aplicado.
-                if (dados.aviso && window.avisarPs) { window.avisarPs(dados.aviso); }
-                bootstrap.Modal.getInstance(modalEl)?.hide();
-                return;
-            }
-
-            feedbackEl.className = 'alert alert-danger mt-3';
-            feedbackEl.textContent = dados.erro ?? BJ_T.t('pasta_show.js.processo.erro_vincular');
-        } catch (_) {
-            feedbackEl.className = 'alert alert-danger mt-3';
-            feedbackEl.textContent = BJ_T.t('pasta_show.js.processo.erro_comunicacao');
-        } finally {
-            btnSalvar.disabled = false;
-            if (icone) icone.className = 'bi bi-check-lg me-1';
-        }
-    });
-
-    /* ── Fechar modal limpa o formulário ── */
-    modalEl.addEventListener('hidden.bs.modal', function () {
-        document.getElementById('formVincularProcesso').reset();
-        var partesContainer = document.getElementById('mp-partesContainer');
-        partesContainer.innerHTML = mpParteRowHtml(0);
-        var movContainer = document.getElementById('mp-movimentacoesContainer');
-        movContainer.innerHTML = mpMovRowHtml(0);
-        mpUpdateRemoveButtons();
-        document.getElementById('mp-feedbackAlerta').className = 'd-none mt-3';
-        document.getElementById('mp-feedbackAlerta').innerHTML = '';
-        document.getElementById('mp-cnj-ok').classList.add('d-none'); // a confirmação da busca é desta abertura
-        document.querySelectorAll('.processo-modal-tab').forEach(function (t) { t.classList.remove('active'); });
-        document.querySelectorAll('.processo-modal-tab-content').forEach(function (c) { c.classList.remove('active'); });
-        document.querySelector('.processo-modal-tab[data-modal-tab="modal-proc-info"]').classList.add('active');
-        document.getElementById('tab-modal-proc-info').classList.add('active');
-        document.getElementById('mp-siglaTribunal').value = '';
-        document.getElementById('mp-modo-existente').checked = true;
-        if (window.$ && $.fn.select2 && $('#mp-processoExistente').hasClass('select2-hidden-accessible')) {
-            $('#mp-processoExistente').val(null).trigger('change');
-        }
-        mpAplicarModo('existente');
-    });
-
-    /* ── Templates de linha ── */
-    function mpParteRowHtml(idx) {
-        return `<div class="mp-parte-row card mb-2 p-3" style="position: relative;">
-            <div class="row g-2">
-                <div class="col-md-3">
-                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.tipo'))}</label>
-                    <select name="partes[${idx}][tipo]" class="form-select">
-                        <option value="PARTE">${mpEsc(BJ_T.t('pasta_show.js.processo.parte_parte'))}</option>
-                        <option value="ADVOGADO">${mpEsc(BJ_T.t('pasta_show.js.processo.parte_advogado'))}</option>
-                        <option value="TERCEIRO">${mpEsc(BJ_T.t('pasta_show.js.processo.parte_terceiro'))}</option>
-                        <option value="MINISTERIO_PUBLICO">${mpEsc(BJ_T.t('pasta_show.js.processo.parte_mp'))}</option>
-                        <option value="PERITO">${mpEsc(BJ_T.t('pasta_show.js.processo.parte_perito'))}</option>
-                    </select>
-                </div>
-                <div class="col-md-5">
-                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.nome'))}</label>
-                    <input type="text" name="partes[${idx}][nome]" class="form-control" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.nome_da_parte'))}">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.documento'))}</label>
-                    <input type="text" name="partes[${idx}][documento]" class="form-control" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.documento_placeholder'))}">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.papel'))}</label>
-                    <input type="text" name="partes[${idx}][papel]" class="form-control" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.papel_placeholder'))}">
-                </div>
-            </div>
-            <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
-                    style="display: none; position: absolute; top: 8px; right: 12px;"
-                    title="${mpEsc(BJ_T.t('pasta_show.js.processo.remover_linha'))}"><i class="bi bi-trash"></i></button>
-        </div>`;
-    }
-
-    function mpMovRowHtml(idx) {
-        return `<div class="mp-movimentacao-row card mb-2 p-3" style="position: relative;">
-            <div class="row g-2">
-                <div class="col-md-3">
-                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.data'))}</label>
-                    <input type="date" name="movimentacoes[${idx}][dataMovimentacao]" class="form-control">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.descricao'))}</label>
-                    <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.descricao_movimentacao'))}">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.tipo'))}</label>
-                    <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.tipo_movimento'))}">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.orgao'))}</label>
-                    <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.orgao'))}">
-                </div>
-            </div>
-            <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
-                    style="display: none; position: absolute; top: 8px; right: 12px;"
-                    title="${mpEsc(BJ_T.t('pasta_show.js.processo.remover_linha'))}"><i class="bi bi-trash"></i></button>
-        </div>`;
-    }
-
-    /* ── Adicionar / remover partes ── */
-    document.getElementById('mp-btn-add-parte').addEventListener('click', function () {
-        var container = document.getElementById('mp-partesContainer');
-        var idx = container.querySelectorAll('.mp-parte-row').length;
-        container.insertAdjacentHTML('beforeend', mpParteRowHtml(idx));
-        mpAttachRemovePartes();
-    });
-
-    function mpAttachRemovePartes() {
-        document.querySelectorAll('#mp-partesContainer .mp-remove-parte').forEach(function (btn) {
-            btn.onclick = function () { btn.closest('.mp-parte-row').remove(); mpUpdateRemoveButtons(); };
-        });
-        mpUpdateRemoveButtons();
-    }
-
-    /* ── Adicionar / remover movimentações ── */
-    document.getElementById('mp-btn-add-movimentacao').addEventListener('click', function () {
-        var container = document.getElementById('mp-movimentacoesContainer');
-        var idx = container.querySelectorAll('.mp-movimentacao-row').length;
-        container.insertAdjacentHTML('beforeend', mpMovRowHtml(idx));
-        mpAttachRemoveMovimentacoes();
-    });
-
-    function mpAttachRemoveMovimentacoes() {
-        document.querySelectorAll('#mp-movimentacoesContainer .mp-remove-movimentacao').forEach(function (btn) {
-            btn.onclick = function () { btn.closest('.mp-movimentacao-row').remove(); mpUpdateRemoveButtons(); };
-        });
-        mpUpdateRemoveButtons();
-    }
-
-    function mpUpdateRemoveButtons() {
-        var partes = document.querySelectorAll('#mp-partesContainer .mp-parte-row').length;
-        document.querySelectorAll('#mp-partesContainer .mp-remove-parte').forEach(function (btn) {
-            btn.style.display = partes > 1 ? 'block' : 'none';
-        });
-        var movs = document.querySelectorAll('#mp-movimentacoesContainer .mp-movimentacao-row').length;
-        document.querySelectorAll('#mp-movimentacoesContainer .mp-remove-movimentacao').forEach(function (btn) {
-            btn.style.display = movs > 1 ? 'block' : 'none';
-        });
-    }
+    function T(chave, params) { return BJ_T.t('pasta_show.js.processo.' + chave, params); }
 
     /* O que vem do Datajud é texto de fora: escapado antes de entrar no HTML das linhas (P5d). */
     function mpEsc(valor) {
@@ -3567,58 +3277,415 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    /* Valor da causa: máscara "R$ 1.234,56" (desenho `onValor`, N:3145). */
-    var mpValor = document.getElementById('mp-valorCausa');
-    if (mpValor) {
-        mpValor.addEventListener('input', function () {
-            var d = mpValor.value.replace(/\D/g, '');
-            mpValor.value = d ? 'R$ ' + (Number(d) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '';
+    /* Máscara do número CNJ enquanto digita (desenho `procMask`, N:4510). */
+    function mpProcMask(v) {
+        var d = String(v || '').replace(/\D/g, '').slice(0, 20);
+        var s = d.slice(0, 7);
+        if (d.length > 7) s += '-' + d.slice(7, 9);
+        if (d.length > 9) s += '.' + d.slice(9, 13);
+        if (d.length > 13) s += '.' + d.slice(13, 14);
+        if (d.length > 14) s += '.' + d.slice(14, 16);
+        if (d.length > 16) s += '.' + d.slice(16, 20);
+        return s;
+    }
+
+    /* Máscara de CPF/CNPJ do documento da parte (desenho `docMask`, N:4532). */
+    function mpDocMask(x) {
+        var d = String(x || '').replace(/\D/g, '').slice(0, 14);
+        if (d.length <= 11) {
+            return d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+        }
+        return d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
+    }
+
+    /* Sigla do tribunal pelo número (desenho `procTrib`, N:4509), pela tabela do TribunalCnjResolver que a página
+       entrega: a mesma sigla que o servidor grava. Número incompleto ou par J/TR desconhecido: vazio. */
+    var mpTribunais = {};
+    try { mpTribunais = JSON.parse(modalEl.dataset.tribunais || '{}') || {}; } catch (_) { mpTribunais = {}; }
+    function mpProcTrib(numero) {
+        var d = String(numero || '').replace(/\D/g, '');
+        if (d.length !== 20) return '';
+        var segmento = mpTribunais[d.charAt(13)] || {};
+        return segmento[d.slice(14, 16)] || '';
+    }
+
+    /* O número gravado tem só os dígitos; na tela, com a máscara quando tem os 20. */
+    function mpNumeroVisivel(numero) {
+        return /^\d{20}$/.test(String(numero || '')) ? mpProcMask(numero) : String(numero || '');
+    }
+
+    var mpModo = 'existente';
+    function mpModoNovo() { return mpModo === 'novo'; }
+
+    /* ── Aviso (N:347, `avisoSt` N:3148) ── */
+    function mpAtualizarAviso() {
+        var texto = mpErro;
+        var erro  = !!texto;
+        if (!texto) {
+            texto = mpModoNovo() ? mpCnjNada : (campoProcesso.value ? '' : T('selecione'));
+        }
+        feedbackEl.className   = 'mp-aviso' + (erro ? ' mp-aviso--erro' : '');
+        feedbackEl.hidden      = !texto;
+        feedbackEl.textContent = texto;
+    }
+
+    function mpDefinirErro(texto) { mpErro = texto || ''; mpAtualizarAviso(); }
+
+    /* Como o `set()` do desenho: mexer num campo apaga o erro. */
+    form.addEventListener('input', function () { if (mpErro) mpDefinirErro(''); });
+    form.addEventListener('change', function () { if (mpErro) mpDefinirErro(''); });
+
+    /* ── Abrir e fechar (desenho N:290-291: `fechar` no clique fora, `parar` na caixa, Esc em `tecla`) ── */
+    var mpGatilho = null;
+
+    function mpAbrir(gatilho) {
+        mpGatilho = gatilho || null;
+        // pasta-apensado.js escuta para pôr o modo apenso (o botão "Vincular apensado" tem data-vincular-modo).
+        modalEl.dispatchEvent(new CustomEvent('vp:abrir', { detail: { gatilho: mpGatilho } }));
+        modalEl.hidden = false;
+        mpAtualizarAviso();
+        // `autofocus` do desenho no campo de busca (N:299).
+        buscaInput.focus();
+    }
+
+    function mpFechar() {
+        if (modalEl.hidden) return;
+        modalEl.hidden = true;
+        mpLimpar();
+        var destino = mpDestinoDoFoco(mpGatilho);
+        if (destino) destino.focus();
+        mpGatilho = null;
+    }
+
+    /* O foco volta ao botão que abriu. Se ele sumiu (item do menu ⋮, fechado junto), volta ao botão que abre
+       aquele menu (`data-ps-pop` ou `aria-controls` com o id do menu). Sem prisão de foco: o desenho não tem. */
+    function mpDestinoDoFoco(gatilho) {
+        if (!gatilho || !document.contains(gatilho)) return null;
+        if (gatilho.getClientRects().length) return gatilho;
+        var menu = gatilho.parentElement ? gatilho.parentElement.closest('[id]') : null;
+        while (menu) {
+            var id = CSS.escape(menu.id);
+            var abre = document.querySelector('[data-ps-pop="' + id + '"], [aria-controls="' + id + '"]');
+            if (abre && abre.getClientRects().length) return abre;
+            menu = menu.parentElement ? menu.parentElement.closest('[id]') : null;
+        }
+        return null;
+    }
+
+    document.addEventListener('click', function (e) {
+        var gatilho = e.target.closest('[data-vp-abrir]');
+        if (gatilho) { e.preventDefault(); mpAbrir(gatilho); }
+    });
+    modalEl.addEventListener('click', function (e) {
+        if (e.target === modalEl || e.target.closest('[data-vp-fechar]')) mpFechar();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modalEl.hidden) mpFechar();
+    });
+    window.mpVincularProcesso = { abrir: mpAbrir, fechar: mpFechar };
+
+    /* ── Sub-abas do cadastro novo ── */
+    function mpIrSubaba(nome) {
+        modalEl.querySelectorAll('.processo-modal-tab').forEach(function (t) {
+            var ativa = t.dataset.modalTab === nome;
+            t.classList.toggle('active', ativa);
+            t.setAttribute('aria-selected', ativa ? 'true' : 'false');
+        });
+        modalEl.querySelectorAll('.processo-modal-tab-content').forEach(function (c) { c.classList.toggle('active', c.id === 'tab-' + nome); });
+    }
+    modalEl.querySelectorAll('.processo-modal-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () { mpIrSubaba(tab.dataset.modalTab); });
+    });
+
+    /* ── Modo (buscar existente x cadastrar novo) ── */
+    function mpAplicarModo(modo) {
+        var ehNovo = (modo === 'novo');
+        mpModo = ehNovo ? 'novo' : 'existente';
+        modalEl.querySelectorAll('.mp-aba').forEach(function (aba) {
+            var ativa = aba.dataset.vpModo === mpModo;
+            aba.classList.toggle('is-ativa', ativa);
+            aba.setAttribute('aria-selected', ativa ? 'true' : 'false');
+        });
+        document.getElementById('modal-modo-existente').hidden = ehNovo;
+        document.getElementById('modal-modo-novo').hidden = !ehNovo;
+        campoProcesso.disabled = ehNovo; // não submete processo_id no modo novo
+        mpErro = '';
+        mpAtualizarAviso();
+    }
+    modalEl.querySelectorAll('.mp-aba').forEach(function (aba) {
+        aba.addEventListener('click', function () { mpAplicarModo(aba.dataset.vpModo); });
+    });
+
+    /* ── Busca de processo existente (N:299-302, `pvVals.cat`) ── */
+    var buscaInput  = document.getElementById('mp-busca-input');
+    var buscaLista  = document.getElementById('mp-busca-lista');
+    var buscaSel    = document.getElementById('mp-busca-sel');
+    var buscaSelTxt = document.getElementById('mp-busca-sel-txt');
+    var buscaItens  = [];
+    var buscaAtivo  = -1;
+    var buscaSeq    = 0;
+    var buscaTimer  = null;
+    var buscaQuer   = false; // a lista deve aparecer assim que chegar a resposta
+
+    function mpOrigem(origem) {
+        if (!origem || origem.tipo === 'push') return T('origem_push');
+        // Sem permissão de ver a pasta de origem, o servidor não manda o número: "Outra pasta".
+        if (!origem.pasta) return T(origem.tipo === 'apensado' ? 'origem_apensado_outra' : 'origem_outra_pasta');
+        return T(origem.tipo === 'apensado' ? 'origem_apensado' : 'origem_pasta', { pasta: origem.pasta });
+    }
+
+    function mpFecharLista() {
+        buscaLista.hidden = true;
+        buscaAtivo = -1;
+        buscaInput.setAttribute('aria-expanded', 'false');
+        buscaInput.removeAttribute('aria-activedescendant');
+    }
+
+    function mpMostrarLista() {
+        // Com um processo escolhido, a lista não abre (desenho: `listaOn && !sel`).
+        if (!buscaQuer || campoProcesso.value) { mpFecharLista(); return; }
+        buscaLista.textContent = '';
+        if (!buscaItens.length) {
+            var vazio = document.createElement('div');
+            vazio.className = 'mp-busca-vazio';
+            vazio.textContent = T('nenhum_encontrado');
+            buscaLista.appendChild(vazio);
+        }
+        buscaItens.forEach(function (p, i) {
+            var item = document.createElement('button');
+            item.type = 'button';
+            item.id = 'mp-busca-item-' + i;
+            item.className = 'mp-busca-item' + (i === buscaAtivo ? ' is-ativo' : '');
+            item.tabIndex = -1;
+            item.setAttribute('role', 'option');
+            item.setAttribute('aria-selected', i === buscaAtivo ? 'true' : 'false');
+            var num = document.createElement('b');
+            num.className = 'mp-busca-num';
+            num.textContent = mpNumeroVisivel(p.numero);
+            var sub = document.createElement('span');
+            sub.className = 'mp-busca-sub';
+            sub.textContent = ([p.classe, p.acao, p.tribunal].filter(Boolean).join(' · ') || T('dados_a_completar')) + ' · ' + mpOrigem(p.origem);
+            item.appendChild(num);
+            item.appendChild(sub);
+            // mousedown sem padrão: o foco fica no input e o blur não fecha a lista antes do clique.
+            item.addEventListener('mousedown', function (e) { e.preventDefault(); });
+            item.addEventListener('click', function () { mpSelecionar(p); });
+            buscaLista.appendChild(item);
+        });
+        buscaLista.hidden = false;
+        buscaInput.setAttribute('aria-expanded', 'true');
+        if (buscaAtivo >= 0) {
+            buscaInput.setAttribute('aria-activedescendant', 'mp-busca-item-' + buscaAtivo);
+            var ativo = document.getElementById('mp-busca-item-' + buscaAtivo);
+            if (ativo) ativo.scrollIntoView({ block: 'nearest' });
+        } else {
+            buscaInput.removeAttribute('aria-activedescendant');
+        }
+    }
+
+    function mpBuscar(imediato) {
+        clearTimeout(buscaTimer);
+        buscaTimer = setTimeout(async function () {
+            var seq = ++buscaSeq;
+            var itens = [];
+            try {
+                var resp = await fetch(URL_BUSCA + '?q=' + encodeURIComponent(buscaInput.value.trim()), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                });
+                var dados = await resp.json().catch(function () { return {}; });
+                itens = resp.ok ? (dados.results || []).slice(0, 8) : [];
+            } catch (_) { itens = []; }
+            if (seq !== buscaSeq) return; // chegou depois de uma busca mais nova
+            buscaItens = itens;
+            buscaAtivo = -1;
+            mpMostrarLista();
+        }, imediato ? 0 : 250);
+    }
+
+    function mpSelecionar(p) {
+        campoProcesso.value = String(p.id);
+        buscaSelTxt.textContent = [mpNumeroVisivel(p.numero), p.classe, p.tribunal].filter(Boolean).join(' · ');
+        buscaSel.hidden = false;
+        buscaQuer = false;
+        mpFecharLista();
+        mpErro = '';
+        mpAtualizarAviso();
+    }
+
+    function mpLimparSelecao() {
+        campoProcesso.value = '';
+        buscaSelTxt.textContent = '';
+        buscaSel.hidden = true;
+        buscaInput.value = '';
+        buscaItens = [];
+        mpAtualizarAviso();
+    }
+
+    buscaInput.addEventListener('focus', function () { buscaQuer = true; mpBuscar(true); });
+    buscaInput.addEventListener('click', function () {
+        if (buscaLista.hidden) { buscaQuer = true; mpBuscar(true); }
+    });
+    buscaInput.addEventListener('input', function () { buscaQuer = true; mpBuscar(false); });
+    buscaInput.addEventListener('blur', function () { buscaQuer = false; mpFecharLista(); });
+    buscaInput.addEventListener('keydown', function (e) {
+        var aberta = !buscaLista.hidden;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (!aberta) { buscaQuer = true; mpBuscar(true); return; }
+            if (!buscaItens.length) return;
+            buscaAtivo = e.key === 'ArrowDown'
+                ? Math.min(buscaItens.length - 1, buscaAtivo + 1)
+                : Math.max(0, buscaAtivo - 1);
+            mpMostrarLista();
+        } else if (e.key === 'Enter') {
+            e.preventDefault(); // Enter escolhe o item; não envia a janela
+            if (aberta && buscaAtivo >= 0 && buscaItens[buscaAtivo]) mpSelecionar(buscaItens[buscaAtivo]);
+        }
+        // Esc não para aqui: como no desenho (`pvVals.tecla`, N:3151), um Esc fecha a janela inteira, mesmo com
+        // a lista aberta (o keydown do documento chama mpFechar, que também fecha a lista).
+    });
+    document.getElementById('mp-busca-trocar').addEventListener('click', function () {
+        mpLimparSelecao();
+        buscaInput.focus();
+    });
+
+    /* ── Linhas de parte e de movimentação (N:331-342) ── */
+    function mpParteRowHtml(idx, parte) {
+        parte = parte || {};
+        var tipo = parte.tipo || '';
+        var opcoes = [['PARTE', 'parte_parte'], ['ADVOGADO', 'parte_advogado'], ['TERCEIRO', 'parte_terceiro'], ['MINISTERIO_PUBLICO', 'parte_mp'], ['PERITO', 'parte_perito']]
+            .map(function (o) { return '<option value="' + o[0] + '"' + (tipo === o[0] ? ' selected' : '') + '>' + mpEsc(T(o[1])) + '</option>'; })
+            .join('');
+        return `<div class="mp-parte-row mp-linha mp-linha--parte">
+            <label class="mp-campo"><span class="mp-rotulo">${mpEsc(T('tipo'))}</span>
+                <select name="partes[${idx}][tipo]" class="mp-ctrl">${opcoes}</select></label>
+            <label class="mp-campo"><span class="mp-rotulo">${mpEsc(T('nome'))}</span>
+                <input type="text" name="partes[${idx}][nome]" class="mp-ctrl" value="${mpEsc(parte.nome)}" placeholder="${mpEsc(T('nome_da_parte'))}"></label>
+            <label class="mp-campo"><span class="mp-rotulo">${mpEsc(T('documento'))}</span>
+                <input type="text" name="partes[${idx}][documento]" class="mp-ctrl mp-ctrl--num mp-doc" inputmode="numeric" value="${mpEsc(parte.documento)}" placeholder="${mpEsc(T('documento_placeholder'))}"></label>
+            <label class="mp-campo"><span class="mp-rotulo">${mpEsc(T('papel'))}</span>
+                <input type="text" name="partes[${idx}][papel]" class="mp-ctrl" value="${mpEsc(parte.papel)}" placeholder="${mpEsc(T('papel_placeholder'))}"></label>
+            <button type="button" class="mp-lixeira mp-remove-parte" title="${mpEsc(T('remover_linha'))}" aria-label="${mpEsc(T('remover_linha'))}"><i class="bi bi-trash3"></i></button>
+        </div>`;
+    }
+
+    function mpMovRowHtml(idx, mov) {
+        mov = mov || {};
+        return `<div class="mp-movimentacao-row mp-linha mp-linha--mov">
+            <label class="mp-campo"><span class="mp-rotulo">${mpEsc(T('data'))}</span>
+                <input type="date" name="movimentacoes[${idx}][dataMovimentacao]" class="mp-ctrl" value="${mpEsc(mov.dataMovimentacao)}"></label>
+            <label class="mp-campo"><span class="mp-rotulo">${mpEsc(T('descricao'))}</span>
+                <input type="text" name="movimentacoes[${idx}][descricao]" class="mp-ctrl" value="${mpEsc(mov.descricao)}" placeholder="${mpEsc(T('descricao_movimentacao'))}"></label>
+            <label class="mp-campo"><span class="mp-rotulo">${mpEsc(T('tipo'))}</span>
+                <input type="text" name="movimentacoes[${idx}][tipo]" class="mp-ctrl" value="${mpEsc(mov.tipo)}" placeholder="${mpEsc(T('tipo_movimento'))}"></label>
+            <label class="mp-campo"><span class="mp-rotulo">${mpEsc(T('orgao'))}</span>
+                <input type="text" name="movimentacoes[${idx}][orgao]" class="mp-ctrl" value="${mpEsc(mov.orgao)}" placeholder="${mpEsc(T('orgao'))}"></label>
+            <button type="button" class="mp-lixeira mp-remove-movimentacao" title="${mpEsc(T('remover_linha'))}" aria-label="${mpEsc(T('remover_linha'))}"><i class="bi bi-trash3"></i></button>
+        </div>`;
+    }
+
+    /* A lixeira fica desabilitada quando há uma linha só (desenho `semRem`). */
+    function mpUpdateRemoveButtons() {
+        [['#mp-partesContainer', '.mp-parte-row', '.mp-remove-parte'], ['#mp-movimentacoesContainer', '.mp-movimentacao-row', '.mp-remove-movimentacao']].forEach(function (g) {
+            var linhas = modalEl.querySelectorAll(g[0] + ' ' + g[1]).length;
+            modalEl.querySelectorAll(g[0] + ' ' + g[2]).forEach(function (btn) { btn.disabled = linhas < 2; });
         });
     }
 
-    /* Número editado: a confirmação da busca anterior já não vale (desenho: `up('numero')` zera o cnj). */
-    document.getElementById('mp-numeroProcesso').addEventListener('input', function () {
-        document.getElementById('mp-cnj-ok').classList.add('d-none');
+    function mpPreencherLinhas(partes, movs) {
+        var partesContainer = document.getElementById('mp-partesContainer');
+        var movContainer    = document.getElementById('mp-movimentacoesContainer');
+        partesContainer.innerHTML = '';
+        movContainer.innerHTML = '';
+        (partes && partes.length ? partes : [{}]).forEach(function (parte) {
+            partesContainer.insertAdjacentHTML('beforeend', mpParteRowHtml(mpProxIdx++, parte));
+        });
+        (movs && movs.length ? movs : [{}]).forEach(function (mov) {
+            movContainer.insertAdjacentHTML('beforeend', mpMovRowHtml(mpProxIdx++, mov));
+        });
+        mpUpdateRemoveButtons();
+    }
+
+    document.getElementById('mp-btn-add-parte').addEventListener('click', function () {
+        document.getElementById('mp-partesContainer').insertAdjacentHTML('beforeend', mpParteRowHtml(mpProxIdx++));
+        mpUpdateRemoveButtons();
     });
 
-    /* ── Busca DataJud ── */
-    document.getElementById('mp-btn-datajud').addEventListener('click', async function () {
-        var numeroProcesso = document.getElementById('mp-numeroProcesso').value;
-        var feedbackEl     = document.getElementById('mp-feedbackAlerta');
-        var loadingEl      = document.getElementById('mp-loadingOverlay');
+    /* A movimentação nova entra no TOPO da lista (desenho `addMov`). */
+    document.getElementById('mp-btn-add-movimentacao').addEventListener('click', function () {
+        document.getElementById('mp-movimentacoesContainer').insertAdjacentHTML('afterbegin', mpMovRowHtml(mpProxIdx++));
+        mpUpdateRemoveButtons();
+    });
 
-        feedbackEl.className = 'd-none mt-3';
-        feedbackEl.innerHTML = '';
+    modalEl.addEventListener('click', function (e) {
+        var lixeira = e.target.closest('.mp-lixeira');
+        if (!lixeira || lixeira.disabled) return;
+        var linha = lixeira.closest('.mp-linha');
+        if (linha) linha.remove();
+        mpUpdateRemoveButtons();
+    });
 
-        var cnjOk = document.getElementById('mp-cnj-ok');
-        if (cnjOk) { cnjOk.classList.add('d-none'); }
-        // Desenho (P5d): o número inteiro (20 dígitos) antes de buscar.
-        if (numeroProcesso.replace(/\D/g, '').length !== 20) {
-            feedbackEl.className = 'alert alert-warning mt-3';
-            feedbackEl.textContent = BJ_T.t('pasta_show.js.processo.numero_completo');
+    /* Documento da parte: máscara de CPF/CNPJ enquanto digita. */
+    form.addEventListener('input', function (e) {
+        if (e.target.classList && e.target.classList.contains('mp-doc')) e.target.value = mpDocMask(e.target.value);
+    });
+
+    /* Valor da causa: máscara "R$ 1.234,56" (desenho `onValor`, N:3145). */
+    var mpValor = document.getElementById('mp-valorCausa');
+    mpValor.addEventListener('input', function () {
+        var d = mpValor.value.replace(/\D/g, '');
+        mpValor.value = d ? 'R$ ' + (Number(d) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '';
+    });
+
+    /* Número: máscara do CNJ; a confirmação da busca anterior já não vale (desenho: `up('numero')` zera o cnj). */
+    numeroEl.addEventListener('input', function () {
+        numeroEl.value = mpProcMask(numeroEl.value);
+        document.getElementById('mp-siglaTribunal').value = mpProcTrib(numeroEl.value);
+        cnjOk.hidden = true;
+        if (mpCnjNada) { mpCnjNada = ''; mpAtualizarAviso(); }
+    });
+
+    /* ── Buscar no CNJ (desenho `pvBuscarCNJ`, N:4521): "Buscando…" com bi-arrow-repeat no próprio botão ── */
+    function mpCnjEstado(buscando) {
+        mpCnjBuscando = buscando;
+        btnCnj.querySelector('i').className = buscando ? 'bi bi-arrow-repeat' : 'bi bi-search';
+        document.getElementById('mp-cnj-texto').textContent = T(buscando ? 'buscando' : 'buscar_cnj');
+        btnCnj.setAttribute('aria-busy', buscando ? 'true' : 'false');
+    }
+
+    btnCnj.addEventListener('click', async function () {
+        if (mpCnjBuscando) return;
+        var numeroProcesso = mpProcMask(numeroEl.value);
+        numeroEl.value = numeroProcesso;
+        cnjOk.hidden = true;
+        mpCnjNada = '';
+        // Número incompleto: erro vermelho (desenho `erro`, N:4523).
+        if (!NUM_CNJ.test(numeroProcesso)) {
+            mpDefinirErro(T('numero_completo'));
             return;
         }
+        mpDefinirErro('');
 
-        loadingEl.classList.remove('d-none');
+        mpCnjEstado(true);
         try {
-            // O tribunal é derivado do número no servidor — não enviamos mais a sigla.
             // a4: a consulta pela pasta vale para quem edita a pasta, mesmo sem o módulo de processos.
-            var response = await fetch('{{ path("pasta_processo_buscar_cnj", {id: pasta.id}) }}', {
+            var response = await fetch(URL_CNJ, {
                 method: 'POST',
                 // X-Requested-With: as barreiras da pasta (cadeado, aba oculta, lápide) respondem 403 em JSON, não redirecionam.
                 headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 body: JSON.stringify({ numeroProcesso: numeroProcesso })
             });
             var data = await response.json();
-            loadingEl.classList.add('d-none');
 
             if (!response.ok || !data.success) {
-                feedbackEl.className = response.status === 404 ? 'alert alert-warning mt-3' : 'alert alert-danger mt-3';
-                // 404: o texto do desenho e, depois, o motivo do servidor (dígito verificador, atraso da base,
-                // segredo ou arquivado), que ajuda a achar número mal digitado.
-                feedbackEl.textContent = response.status === 404
-                    ? BJ_T.t('pasta_show.js.processo.nao_localizado') + (data.error ? ' ' + data.error : '')
-                    : (data.error || data.erro || data.mensagem || BJ_T.t('pasta_show.js.processo.erro_buscar_cnj')); // erro/mensagem: barreiras da pasta
+                if (response.status === 404) {
+                    // O texto do desenho (amarelo) e o motivo do servidor (dígito verificador, atraso da base,
+                    // segredo ou arquivado), que ajuda a achar número mal digitado.
+                    mpCnjNada = T('nao_localizado') + (data.error ? ' ' + data.error : '');
+                    mpAtualizarAviso();
+                } else {
+                    mpDefinirErro(data.error || data.erro || data.mensagem || T('erro_buscar_cnj')); // erro/mensagem: barreiras da pasta
+                }
                 return;
             }
 
@@ -3630,73 +3697,100 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('mp-situacaoProcesso').value  = pd.situacaoProcesso  || 'EM_ANDAMENTO';
             document.getElementById('mp-instancia').value         = pd.instancia         || 'G1';
             document.getElementById('mp-dataDistribuicao').value  = pd.dataDistribuicao  || '';
-
-            var partesContainer = document.getElementById('mp-partesContainer');
-            partesContainer.innerHTML = '';
-            var partesList = (pd.partes && pd.partes.length > 0) ? pd.partes : [{}];
-            partesList.forEach(function (parte, idx) {
-                partesContainer.insertAdjacentHTML('beforeend', `<div class="mp-parte-row card mb-2 p-3" style="position: relative;">
-                    <div class="row g-2">
-                        <div class="col-md-3"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.tipo'))}</label>
-                            <select name="partes[${idx}][tipo]" class="form-select">
-                                <option value="PARTE" ${(parte.tipo||'')==='PARTE'?'selected':''}>${mpEsc(BJ_T.t('pasta_show.js.processo.parte_parte'))}</option>
-                                <option value="ADVOGADO" ${(parte.tipo||'')==='ADVOGADO'?'selected':''}>${mpEsc(BJ_T.t('pasta_show.js.processo.parte_advogado'))}</option>
-                                <option value="TERCEIRO" ${(parte.tipo||'')==='TERCEIRO'?'selected':''}>${mpEsc(BJ_T.t('pasta_show.js.processo.parte_terceiro'))}</option>
-                                <option value="MINISTERIO_PUBLICO" ${(parte.tipo||'')==='MINISTERIO_PUBLICO'?'selected':''}>${mpEsc(BJ_T.t('pasta_show.js.processo.parte_mp'))}</option>
-                                <option value="PERITO" ${(parte.tipo||'')==='PERITO'?'selected':''}>${mpEsc(BJ_T.t('pasta_show.js.processo.parte_perito'))}</option>
-                            </select></div>
-                        <div class="col-md-5"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.nome'))}</label>
-                            <input type="text" name="partes[${idx}][nome]" class="form-control" value="${mpEsc(parte.nome)}" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.nome_da_parte'))}"></div>
-                        <div class="col-md-2"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.documento'))}</label>
-                            <input type="text" name="partes[${idx}][documento]" class="form-control" value="${mpEsc(parte.documento)}" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.documento_placeholder'))}"></div>
-                        <div class="col-md-2"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.papel'))}</label>
-                            <input type="text" name="partes[${idx}][papel]" class="form-control" value="${mpEsc(parte.papel)}" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.papel_placeholder'))}"></div>
-                    </div>
-                    <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
-                            style="display: ${partesList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
-                            title="${mpEsc(BJ_T.t('pasta_show.js.processo.remover_linha'))}"><i class="bi bi-trash"></i></button>
-                </div>`);
-            });
-
-            var movContainer = document.getElementById('mp-movimentacoesContainer');
-            movContainer.innerHTML = '';
-            var movsList = (pd.movimentacoes && pd.movimentacoes.length > 0) ? pd.movimentacoes : [{}];
-            movsList.forEach(function (mov, idx) {
-                movContainer.insertAdjacentHTML('beforeend', `<div class="mp-movimentacao-row card mb-2 p-3" style="position: relative;">
-                    <div class="row g-2">
-                        <div class="col-md-3"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.data'))}</label>
-                            <input type="date" name="movimentacoes[${idx}][dataMovimentacao]" class="form-control" value="${mpEsc(mov.dataMovimentacao)}"></div>
-                        <div class="col-md-4"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.descricao'))}</label>
-                            <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control" value="${mpEsc(mov.descricao)}" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.descricao_movimentacao'))}"></div>
-                        <div class="col-md-3"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.tipo'))}</label>
-                            <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control" value="${mpEsc(mov.tipo)}" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.tipo_movimento'))}"></div>
-                        <div class="col-md-2"><label class="form-label">${mpEsc(BJ_T.t('pasta_show.js.processo.orgao'))}</label>
-                            <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control" value="${mpEsc(mov.orgao)}" placeholder="${mpEsc(BJ_T.t('pasta_show.js.processo.orgao'))}"></div>
-                    </div>
-                    <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
-                            style="display: ${movsList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
-                            title="${mpEsc(BJ_T.t('pasta_show.js.processo.remover_linha'))}"><i class="bi bi-trash"></i></button>
-                </div>`);
-            });
-
-            mpAttachRemovePartes();
-            mpAttachRemoveMovimentacoes();
+            mpPreencherLinhas(pd.partes, pd.movimentacoes);
 
             // Desenho N:315: "Dados localizados · N movimentação(ões)".
-            if (cnjOk) {
-                cnjOk.querySelector('[data-mp-cnj-movs]').textContent = String((pd.movimentacoes || []).length);
-                cnjOk.classList.remove('d-none');
-            }
-
+            cnjOk.querySelector('[data-mp-cnj-movs]').textContent = String((pd.movimentacoes || []).length);
+            cnjOk.hidden = false;
         } catch (e) {
-            loadingEl.classList.add('d-none');
-            feedbackEl.className = 'alert alert-danger mt-3';
-            feedbackEl.textContent = BJ_T.t('pasta_show.js.processo.erro_buscar_cnj_tente');
+            mpDefinirErro(T('erro_buscar_cnj_tente'));
+        } finally {
+            mpCnjEstado(false);
         }
     });
 
-    mpAttachRemovePartes();
-    mpAttachRemoveMovimentacoes();
+    /* "Preencha: ..." no clique, como o desenho (`procSalvarVinc`, N:4538): volta para a aba Informações. */
+    function mpFaltando() {
+        var falta = [];
+        if (!NUM_CNJ.test(mpProcMask(numeroEl.value))) falta.push(T('falta_numero'));
+        if (!document.getElementById('mp-orgaoJulgador').value.trim()) falta.push(T('falta_orgao'));
+        if (!document.getElementById('mp-classeProcessual').value.trim()) falta.push(T('falta_classe'));
+        if (!document.getElementById('mp-assuntoProcessual').value.trim()) falta.push(T('falta_assunto'));
+        return falta;
+    }
+
+    /* ── Envio via AJAX ── */
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var btnSalvar = form.querySelector('button[type="submit"]');
+        var icone     = btnSalvar.querySelector('i');
+        var modoNovo  = mpModoNovo();
+
+        if (!modoNovo && !campoProcesso.value) {
+            mpDefinirErro(T('selecione')); // o amarelo da aba vira erro no clique (desenho `procSalvarVinc`)
+            return;
+        }
+        if (modoNovo) {
+            var falta = mpFaltando();
+            if (falta.length) {
+                mpIrSubaba('modal-proc-info');
+                mpDefinirErro(T('preencha', { campos: falta.join(', ') }));
+                return;
+            }
+        }
+
+        btnSalvar.disabled = true;
+        if (icone) icone.className = 'bi bi-hourglass-split';
+
+        try {
+            var resp = await fetch(form.action, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new FormData(form),
+            });
+            var dados = await resp.json().catch(function () { return {}; });
+
+            if (resp.ok && dados.sucesso) {
+                var principal = document.getElementById('mp-modo').value !== 'apenso';
+                window.mpSwapProcessos(dados.html);
+                document.dispatchEvent(new CustomEvent('mp:processo-vinculado')); // P4f: aviso do apensado (pasta-apensado.js)
+                if (window.avisarPs) {
+                    // Número que já era do escritório: vinculou o existente e avisa que o digitado não foi aplicado.
+                    if (dados.aviso) { window.avisarPs(dados.aviso); }
+                    // Desenho N:4564: o aviso do processo principal (o do apensado é do pasta-apensado.js).
+                    else if (principal) { window.avisarPs(T('vinculado_aviso')); }
+                }
+                mpFechar();
+                return;
+            }
+
+            mpDefinirErro(dados.erro ?? T('erro_vincular'));
+        } catch (_) {
+            mpDefinirErro(T('erro_comunicacao'));
+        } finally {
+            btnSalvar.disabled = false;
+            if (icone) icone.className = 'bi bi-check2';
+        }
+    });
+
+    /* ── Fechar a janela limpa o formulário ── */
+    function mpLimpar() {
+        form.reset();
+        mpProxIdx = 0;
+        mpPreencherLinhas([], []);
+        cnjOk.hidden = true; // a confirmação da busca é desta abertura
+        mpCnjNada = '';
+        mpCnjEstado(false);
+        mpIrSubaba('modal-proc-info');
+        document.getElementById('mp-siglaTribunal').value = '';
+        buscaQuer = false;
+        mpFecharLista();
+        mpLimparSelecao();
+        mpAplicarModo('existente');
+    }
+
+    mpAplicarModo('existente');
+    mpUpdateRemoveButtons();
 }());
 </script>
 
@@ -4516,6 +4610,11 @@ document.addEventListener('DOMContentLoaded', function () {
         box-shadow: 0 14px 30px -12px rgba(0,0,0,.5);
     }
     .ps-aviso[hidden] { display: none; }
+    /* Entrada `pcIn` do desenho (dc L.46 e L.671: .25s, sobe 10px e aparece), mantendo o translateX(-50%) que
+       centra o aviso: no desenho o `transform: none` final do pcIn tirava o centro. */
+    .ps-aviso { animation: psAvisoEntra .25s both; }
+    @keyframes psAvisoEntra { from { opacity: 0; transform: translate3d(-50%, 10px, 0); } to { opacity: 1; transform: translate3d(-50%, 0, 0); } }
+    @media (prefers-reduced-motion: reduce) { .ps-aviso { animation: none; } }
     .ps-aviso > i { color: var(--ps-aviso-ok); }
     .ps-aviso.is-erro > i { color: var(--ps-aviso-erro); }
 </style>

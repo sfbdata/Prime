@@ -98,7 +98,7 @@ final class PastaFidelidadeRestanteTelaTest extends JusPrimeWebTestCase
         $cab = '#processo .ps-processos > .ps-card-cab--painel';
         self::assertCount(
             1,
-            $crawler->filter($cab . ' > form.js-pasta-administrativa + button.js-proc-menu-gatilho[aria-label="Mais opções de processos"] + button[data-bs-target="#modalVincularProcesso"]'),
+            $crawler->filter($cab . ' > form.js-pasta-administrativa + button.js-proc-menu-gatilho[aria-label="Mais opções de processos"] + button[data-vp-abrir][aria-controls="modalVincularProcesso"]'),
             'interruptor · ⋮ · Vincular, nessa ordem e como filhos diretos do cabeçalho'
         );
 
