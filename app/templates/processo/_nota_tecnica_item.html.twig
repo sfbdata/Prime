@@ -54,32 +54,32 @@
 {% set podeGerenciar = not somenteLeitura and nota.autorId and app.user and nota.autorId == app.user.id and comentario_editavel(nota.criadaEm) %}
 <article class="ps-nota" id="nota-tecnica-{{ nota.id }}{{ idSufixo }}" data-nota-id="{{ nota.id }}">
     <div class="ps-nota-topo">
-        <span class="ps-nota-selo"><i class="bi bi-journal-text" aria-hidden="true"></i>Nota técnica</span>
+        <span class="ps-nota-selo"><i class="bi bi-journal-text" aria-hidden="true"></i>{{ 'processo.nota.selo'|trans }}</span>
         <span class="ps-nota-avatar" aria-hidden="true">{{ iniciais }}</span>
         <span class="ps-nota-autor">{{ nota.autorNome }}</span>
-        <span class="ps-nota-quando ps-num" title="{{ nota.criadaEm|date('d/m/Y H:i') }}">
-            {{- ehHoje ? 'hoje, ' ~ nota.criadaEm|date('H:i') : nota.criadaEm|date('d/m/Y, H:i') -}}
-            {%- if nota.editadaEm %} · <span class="ps-nota-editada" title="Editada em {{ nota.editadaEm|date('d/m/Y H:i') }}">editada</span>{% endif -%}
+        <span class="ps-nota-quando ps-num" title="{{ nota.criadaEm|data_hora }}">
+            {{- ehHoje ? 'processo.nota.hoje'|trans({hora: nota.criadaEm|hora}) : 'processo.nota.quando'|trans({data: nota.criadaEm|data, hora: nota.criadaEm|hora}) -}}
+            {%- if nota.editadaEm %} · <span class="ps-nota-editada" title="{{ 'processo.nota.editada_em'|trans({data: nota.editadaEm|data_hora}) }}">{{ 'processo.nota.editada'|trans }}</span>{% endif -%}
         </span>
         {% if mostrarMovimentacao and nota.movimentacaoRotulo %}
-            <span class="ps-nota-mov" title="Nota sobre uma movimentação do Push Processual">
+            <span class="ps-nota-mov" title="{{ 'processo.nota.movimentacao_dica'|trans }}">
                 <i class="bi bi-megaphone-fill" aria-hidden="true"></i>{{ nota.movimentacaoRotulo }}
             </span>
         {% endif %}
-        <button type="button" class="ps-nota-menu-btn js-nota-menu" title="Opções da nota"
-                aria-label="Opções da nota" aria-haspopup="menu" aria-expanded="false"
+        <button type="button" class="ps-nota-menu-btn js-nota-menu" title="{{ 'processo.nota.opcoes'|trans }}"
+                aria-label="{{ 'processo.nota.opcoes'|trans }}" aria-haspopup="menu" aria-expanded="false"
                 aria-controls="psNotaMenu{{ nota.id }}{{ idSufixo }}">
             <i class="bi bi-three-dots" aria-hidden="true"></i>
         </button>
         <div class="ps-nota-menu" id="psNotaMenu{{ nota.id }}{{ idSufixo }}" role="menu" hidden>
-            <div class="ps-processo-menu-titulo">Nota técnica · {{ nota.autorNome }}</div>
+            <div class="ps-processo-menu-titulo">{{ 'processo.nota.menu_titulo'|trans({autor: nota.autorNome}) }}</div>
             {% if podeEscreverNota %}
                 <button type="button" class="ps-processo-menu-item js-nota-responder" role="menuitem">
-                    <i class="bi bi-reply" aria-hidden="true"></i><span>Responder com outra nota</span>
+                    <i class="bi bi-reply" aria-hidden="true"></i><span>{{ 'processo.nota.responder'|trans }}</span>
                 </button>
             {% endif %}
             <button type="button" class="ps-processo-menu-item js-nota-copiar" role="menuitem">
-                <i class="bi bi-clipboard" aria-hidden="true"></i><span>Copiar texto</span>
+                <i class="bi bi-clipboard" aria-hidden="true"></i><span>{{ 'processo.nota.copiar'|trans }}</span>
             </button>
             {% if not somenteLeitura %}
                 <div class="ps-processo-menu-sep" role="separator"></div>
@@ -87,22 +87,22 @@
                     {% set minRest = comentario_minutos_restantes(nota.criadaEm) %}
                     <button type="button"
                             class="ps-processo-menu-item js-nota-editar" role="menuitem"
-                            title="Edição liberada por mais {{ minRest }} min"
+                            title="{{ 'processo.nota.edicao_liberada'|trans({minutos: minRest ~ ''}) }}"
                             data-nota-id="{{ nota.id }}"
                             {# `conteudo` volta para dentro do editor; `conteudo-html` restaura a exibição ao cancelar. #}
                             data-conteudo="{{ nota.conteudo|e('html_attr') }}"
                             data-conteudo-html="{{ nota.conteudo|registro_texto|e('html_attr') }}"
                             data-csrf="{{ csrf_token('processo_nota_tecnica_editar_' ~ nota.id) }}"
                             data-url="{{ path('processo_nota_tecnica_editar', {id: nota.processoId, notaId: nota.id}) }}">
-                        <i class="bi bi-pencil" aria-hidden="true"></i><span>Editar · {{ minRest }} min</span>
+                        <i class="bi bi-pencil" aria-hidden="true"></i><span>{{ 'processo.nota.editar_min'|trans({minutos: minRest ~ ''}) }}</span>
                     </button>
                     <button type="button"
                             class="ps-processo-menu-item js-nota-excluir" role="menuitem"
-                            title="Exclusão liberada por mais {{ minRest }} min"
+                            title="{{ 'processo.nota.exclusao_liberada'|trans({minutos: minRest ~ ''}) }}"
                             data-nota-id="{{ nota.id }}"
                             data-csrf="{{ csrf_token('processo_nota_tecnica_excluir_' ~ nota.id) }}"
                             data-url="{{ path('processo_nota_tecnica_excluir', {id: nota.processoId, notaId: nota.id}) }}">
-                        <i class="bi bi-trash" aria-hidden="true"></i><span>Excluir · {{ minRest }} min</span>
+                        <i class="bi bi-trash" aria-hidden="true"></i><span>{{ 'processo.nota.excluir_min'|trans({minutos: minRest ~ ''}) }}</span>
                     </button>
                 {% else %}
                     {# Desenho (dc:5405-5406): o item bloqueado é CLICÁVEL e mostra o aviso
@@ -111,14 +111,14 @@
                        no aviso da tela. Sem `data-url`/`data-csrf`: não há o que acionar. O
                        "(o usuário primário não tem limite)" do desenho fica de fora (D-MASTER). #}
                     <button type="button" class="ps-processo-menu-item ps-nota-menu-bloqueado js-nota-bloqueado" role="menuitem"
-                            aria-disabled="true" title="Só o autor edita a nota, em até 15 minutos"
-                            data-aviso="Só o autor edita a nota, em até 15 minutos">
-                        <i class="bi bi-lock" aria-hidden="true"></i><span>Editar · bloqueado</span>
+                            aria-disabled="true" title="{{ 'processo.nota.so_autor_edita'|trans }}"
+                            data-aviso="{{ 'processo.nota.so_autor_edita'|trans }}">
+                        <i class="bi bi-lock" aria-hidden="true"></i><span>{{ 'processo.nota.editar_bloqueado'|trans }}</span>
                     </button>
                     <button type="button" class="ps-processo-menu-item ps-nota-menu-bloqueado js-nota-bloqueado" role="menuitem"
-                            aria-disabled="true" title="Só o autor exclui a nota, em até 15 minutos"
-                            data-aviso="Só o autor exclui a nota, em até 15 minutos">
-                        <i class="bi bi-lock" aria-hidden="true"></i><span>Excluir · bloqueado</span>
+                            aria-disabled="true" title="{{ 'processo.nota.so_autor_exclui'|trans }}"
+                            data-aviso="{{ 'processo.nota.so_autor_exclui'|trans }}">
+                        <i class="bi bi-lock" aria-hidden="true"></i><span>{{ 'processo.nota.excluir_bloqueado'|trans }}</span>
                     </button>
                 {% endif %}
             {% endif %}
