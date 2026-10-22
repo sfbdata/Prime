@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
+use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -18,6 +19,12 @@ class NotificacaoRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Notificacao::class);
+    }
+
+    /** O aviso mais recente deste tipo para a pessoa sobre a meta (o intervalo do Lembrar, L10). */
+    public function ultimaDoTipoNaTarefa(Tarefa $tarefa, User $usuario, string $tipo): ?Notificacao
+    {
+        return $this->findOneBy(['tarefa' => $tarefa, 'usuario' => $usuario, 'tipo' => $tipo], ['criadaEm' => 'DESC']);
     }
 
     /**

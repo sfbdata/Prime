@@ -16,10 +16,23 @@ use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
+use App\Repository\TarefaMensagemRepository;
+use App\Shared\Doctrine\Transacao\DestinoDaTransacao;
+use App\Shared\Doctrine\Transacao\TransacaoComArquivoNovo;
+use App\Tests\Shared\Doubles\ArmazenamentoEmMemoriaNoContainer;
+use App\Tests\Shared\Doubles\ConsultaDeDestinoFixa;
+use App\Tests\Shared\Doubles\FalhaDeCommitArmavel;
+use Doctrine\ORM\Event\OnFlushEventArgs;
+use Doctrine\ORM\Events;
+use Psr\Log\NullLogger;
 use App\Pasta\Entity\PastaDocumento;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
+use App\Tarefa\Controller\DespachoDaMetaController;
 use App\Tarefa\Controller\TramitacaoDaMetaController;
 use App\Tarefa\Enum\AcaoDoDespacho;
+use App\Tarefa\Service\AcessoAMeta;
 use App\Tarefa\Enum\NaturezaDoDespacho;
 use App\Tarefa\UseCase\LembrarMetaUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -29,6 +42,7 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
@@ -37,6 +51,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
  */
 #[CoversClass(TarefaController::class)]
 #[CoversClass(TramitacaoDaMetaController::class)]
+#[CoversClass(DespachoDaMetaController::class)]
 #[Group('tarefa')]
 final class TramitacaoDaMetaTest extends JusPrimeWebTestCase
 {
@@ -68,6 +83,7 @@ final class TramitacaoDaMetaTest extends JusPrimeWebTestCase
 
     protected function tearDown(): void
     {
+        FalhaDeCommitArmavel::desarmar();
         foreach ($this->temporarios as $caminho) {
             @unlink($caminho);
         }
@@ -115,6 +131,20 @@ final class TramitacaoDaMetaTest extends JusPrimeWebTestCase
         self::assertCount(0, $this->avisos($estranho, Notificacao::TIPO_PASTA_MENCAO_REGISTRO));
         $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
         self::assertCount(0, $crawler->filter('.despacho-para'));
+    }
+
+    #[TestDox('@menção de nome com "&" no campo simples: vira token, o mencionado é avisado e a tela mostra o nome do banco')]
+    public function testMencaoDeNomeComEComercial(): void
+    {
+        $socios = $this->criarPessoa($this->escritorio, 'Ana & Bia <Sócias>');
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+
+        // O que o pasta-mencoes.js manda do campo simples: o rótulo sem "<>" e sem escape (o servidor escapa).
+        $this->despachar(['mensagem' => 'Veja @[Ana & Bia Sócias](user:' . $socios->getId() . ').']);
+
+        self::assertCount(1, $this->avisos($socios, Notificacao::TIPO_PASTA_MENCAO_REGISTRO));
+        $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
+        self::assertSame('@Ana & Bia Sócias', $crawler->filter('#timelineList .despacho-texto .ps-mencao')->text());
     }
 
     #[TestDox('XSS: o texto do despacho sai escapado; marcação no rótulo da menção é trocada pelo nome do banco')]
@@ -167,6 +197,68 @@ final class TramitacaoDaMetaTest extends JusPrimeWebTestCase
         }
     }
 
+    #[TestDox('Anexo: falha dentro do upload DEPOIS de gravar o arquivo (o flush do documento): nada no banco e o arquivo sai do storage')]
+    public function testFalhaDentroDoUploadApagaOArquivo(): void
+    {
+        $duble = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        $this->bancoRecusaDocumentos();
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+
+        $this->postarDespacho(['mensagem' => 'Segue.'], $this->arquivo('peticao.pdf', self::PDF_MINIMO, 'application/pdf'));
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertCount(1, $duble->memoria->chavesGravadas, 'o arquivo chegou a ser gravado antes da falha');
+        self::assertFalse($duble->memoria->existe($duble->memoria->ultimaGravada()), 'falha antes do COMMIT: o arquivo novo sai');
+        self::assertSame(0, $this->contarNoBanco('pasta_documento', 'pasta_id', (int) $this->meta->getPasta()->getId()));
+        self::assertSame(0, $this->contarNoBanco('tarefa_mensagem', 'tarefa_id', (int) $this->meta->getId()));
+    }
+
+    #[TestDox('Anexo: COMMIT recusado e o banco PROVA que não confirmou: o arquivo sai')]
+    public function testCommitRecusadoComProvaApagaOArquivo(): void
+    {
+        $duble = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        $consulta = $this->bancoResponde(DestinoDaTransacao::NaoConfirmada);
+        FalhaDeCommitArmavel::recusarProximoCommit();
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+
+        $this->postarDespacho(['mensagem' => 'Segue.'], $this->arquivo('peticao.pdf', self::PDF_MINIMO, 'application/pdf'));
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertSame(1, FalhaDeCommitArmavel::$disparos, 'o COMMIT do despacho é que falhou');
+        self::assertCount(1, $consulta->perguntados, 'o destino foi perguntado ao banco');
+        self::assertFalse($duble->memoria->existe($duble->memoria->ultimaGravada()));
+        self::assertSame(0, $this->contarNoBanco('pasta_documento', 'pasta_id', (int) $this->meta->getPasta()->getId()));
+    }
+
+    #[TestDox('Anexo: COMMIT com a resposta perdida e sem prova do destino: o documento pode ter ficado, e o arquivo FICA')]
+    public function testCommitIncertoPreservaOArquivo(): void
+    {
+        $duble = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        FalhaDeCommitArmavel::perderRespostaDoProximoCommit();
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+
+        $this->postarDespacho(['mensagem' => 'Segue.'], $this->arquivo('peticao.pdf', self::PDF_MINIMO, 'application/pdf'));
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertSame(1, FalhaDeCommitArmavel::$disparos);
+        self::assertTrue($duble->memoria->existe($duble->memoria->ultimaGravada()), 'sem prova de que o COMMIT não aconteceu, o arquivo não sai');
+        self::assertSame(1, $this->contarNoBanco('pasta_documento', 'pasta_id', (int) $this->meta->getPasta()->getId()), 'o banco confirmou: o documento aponta para o arquivo');
+    }
+
+    #[TestDox('Anexo: com o despacho gravado, o arquivo continua no storage (nada é apagado no caminho feliz)')]
+    public function testAnexoGravadoFicaNoStorage(): void
+    {
+        $duble = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+
+        $this->despachar(['mensagem' => ''], $this->arquivo('peticao.pdf', self::PDF_MINIMO, 'application/pdf'));
+
+        $documento = $this->em->find(PastaDocumento::class, (int) $this->unicoDespacho()->getDocumentoJuntadoId());
+        self::assertInstanceOf(PastaDocumento::class, $documento);
+        self::assertTrue($duble->memoria->existe(ChavesDePasta::documento($documento)));
+        self::assertSame([], $duble->memoria->excluidas);
+    }
+
     #[TestDox('Anexo de tipo recusado pela regra dos documentos: aviso, nenhum despacho e nenhum documento')]
     public function testAnexoRecusado(): void
     {
@@ -211,7 +303,11 @@ final class TramitacaoDaMetaTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Carla Dias → Rui Prado', (string) preg_replace('/\s+/u', ' ', $ultimo->text()));
         self::assertStringContainsString('@Rui Prado', $ultimo->text());
         self::assertStringNotContainsString('(user:', $ultimo->html());
-        self::assertStringContainsString('Ciente: Rui,', $ultimo->text());
+        $ciente = $ultimo->filter('.ext-m')->reduce(static fn ($n): bool => str_starts_with(trim($n->text()), 'Ciente:'));
+        self::assertCount(1, $ciente);
+        self::assertMatchesRegularExpression('/^Ciente: Rui( Prado)?$/u', trim($ciente->text()), 'só o nome, sem a hora (04B L150)');
+        self::assertCount(0, $crawler->filter('button, [data-imprimir]'), 'sem botão Imprimir: a impressão é automática');
+        self::assertStringNotContainsString('juntado à pasta', $crawler->filter('body')->text(), 'sem a linha do anexo');
         self::assertStringContainsString('Certifico que juntei. · Rui Prado,', $ultimo->filter('.ext-c')->text());
         self::assertCount(0, $ultimo->filter('.ext-m:contains("Cumprir até")'), 'com certidão o "Cumprir até" some, como na tela');
     }
@@ -288,6 +384,19 @@ final class TramitacaoDaMetaTest extends JusPrimeWebTestCase
         self::assertSelectorTextContains('.alert-danger', 'Aguarde uma hora para lembrar de novo.');
     }
 
+    #[TestDox('Lembrar: o trabalho roda sob a trava advisory da meta (4718)')]
+    public function testLembrarRodaSobATravaDaMeta(): void
+    {
+        $repositorio = static::getContainer()->get(TarefaMensagemRepository::class);
+        $metaId = (int) $this->meta->getId();
+
+        self::assertSame(0, $this->travasDoLembrete($metaId));
+        $durante = $repositorio->emTransacaoTravadaPelaMeta($metaId, fn (): int => $this->travasDoLembrete($metaId));
+
+        // Sob o DAMA o COMMIT não acontece de verdade, então a soltura da trava não é observável aqui.
+        self::assertSame(1, $durante);
+    }
+
     #[TestDox('Lembrar: CSRF inválido 403; outro escritório 404; nada gravado. O botão fica na faixa Aguardando')]
     public function testLembrarGuardas(): void
     {
@@ -312,7 +421,111 @@ final class TramitacaoDaMetaTest extends JusPrimeWebTestCase
         self::assertCount(1, $botao->filter('i.bi-bell'));
     }
 
+    // ── Cadeado da pasta ──
+
+    #[TestDox('Cadeado: pasta da meta oculta para quem acessa recusa a página, o Extrato, o Lembrar, o despacho com anexo e o certificar; nada gravado')]
+    public function testCadeadoEscondeAMeta(): void
+    {
+        $duble = ArmazenamentoEmMemoriaNoContainer::instalarEm(static::getContainer());
+        $despacho = $this->despachoGravado($this->criador, NaturezaDoDespacho::Providencia);
+        $this->trancarAPasta();
+        $id = (int) $this->meta->getId();
+        $trancada = '/pasta/' . $this->meta->getPasta()->getId();
+        $this->logarComTenant($this->client, $this->colega, $this->escritorio);
+
+        // A barreira do cadeado (`BarreiraDoCadeadoListener`) chega antes do controller: leitura 403, escrita volta
+        // para a tela da pasta trancada. O 404 do `AcessoAMeta` é a segunda camada (teste abaixo).
+        $this->client->request('GET', '/tarefas/' . $id);
+        self::assertResponseStatusCodeSame(403);
+        $this->client->request('GET', '/tarefas/' . $id . '/extrato');
+        self::assertResponseStatusCodeSame(403);
+        $this->lembrar();
+        self::assertResponseRedirects($trancada);
+        $this->postarDespacho(['mensagem' => 'Segue.'], $this->arquivo('peticao.pdf', self::PDF_MINIMO, 'application/pdf'));
+        self::assertResponseRedirects($trancada);
+        $this->client->request('POST', '/tarefas/mensagem/' . $despacho->getId() . '/certificar', ['_token' => 'TOKEN_certificar_despacho_' . $despacho->getId(), 'certidao' => 'Certifico que fiz.']);
+        self::assertResponseRedirects($trancada);
+
+        self::assertSame([], $duble->memoria->chavesGravadas, 'o anexo nem chegou ao storage');
+        self::assertSame(1, $this->contarNoBanco('tarefa_mensagem', 'tarefa_id', $id), 'só o despacho de antes');
+        self::assertSame(0, $this->contarNoBanco('pasta_documento', 'pasta_id', (int) $this->meta->getPasta()->getId()));
+        self::assertNull($this->em->getConnection()->fetchOne('SELECT certidao FROM tarefa_mensagem WHERE id = :id', ['id' => $despacho->getId()]));
+        self::assertCount(0, $this->avisos($this->responsavel, LembrarMetaUseCase::TIPO_NOTIFICACAO));
+
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+        $this->client->request('GET', '/tarefas/' . $id);
+        self::assertResponseIsSuccessful('o primário segue vendo');
+    }
+
+    #[TestDox('Cadeado: a guarda da meta (AcessoAMeta) responde 404 para a pasta oculta, como a lista; quem vê a pasta passa')]
+    public function testGuardaDaMetaDa404NaPastaOculta(): void
+    {
+        $this->trancarAPasta();
+        $guarda = static::getContainer()->get(AcessoAMeta::class);
+
+        $guarda->exigir($this->meta, $this->escritorio, $this->criador);
+        $this->expectException(NotFoundHttpException::class);
+        $guarda->exigir($this->meta, $this->escritorio, $this->colega);
+    }
+
+    private function trancarAPasta(): void
+    {
+        $this->em->persist(new CadeadoDaPasta($this->escritorio, $this->meta->getPasta(), ModoDoCadeado::Todos, $this->criador, new \DateTimeImmutable()));
+        $this->em->flush();
+    }
+
     // ── Apoio ──
+
+    /** @param array<string, string> $campos */
+    private function postarDespacho(array $campos, ?UploadedFile $arquivo = null): void
+    {
+        $id = (int) $this->meta->getId();
+        $this->client->request('POST', '/tarefas/' . $id . '/mensagem', $campos + ['_token' => 'TOKEN_mensagem_tarefa_' . $id, 'acao' => ''], $arquivo === null ? [] : ['arquivo_mensagem' => $arquivo]);
+    }
+
+    /** Pela conexão: depois de uma transação que falhou, o EntityManager está fechado. */
+    private function contarNoBanco(string $tabela, string $coluna, int $valor): int
+    {
+        return (int) $this->em->getConnection()->fetchOne(sprintf('SELECT count(*) FROM %s WHERE %s = :v', $tabela, $coluna), ['v' => $valor]);
+    }
+
+    private function travasDoLembrete(int $metaId): int
+    {
+        return (int) $this->em->getConnection()->fetchOne(
+            "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND pid = pg_backend_pid() AND granted AND classid = :classe AND objid::bigint = :objid AND objsubid = 2",
+            ['classe' => TarefaMensagemRepository::CLASSE_TRAVA_DO_LEMBRETE, 'objid' => $metaId],
+        );
+    }
+
+    /** O flush que insere o documento da pasta (dentro do upload, depois de gravar o arquivo) falha. */
+    private function bancoRecusaDocumentos(): void
+    {
+        $listener = new class () {
+            public function onFlush(OnFlushEventArgs $args): void
+            {
+                foreach ($args->getObjectManager()->getUnitOfWork()->getScheduledEntityInsertions() as $entidade) {
+                    if ($entidade instanceof PastaDocumento) {
+                        throw new \RuntimeException('banco recusou o documento');
+                    }
+                }
+            }
+        };
+        $this->em->getEventManager()->addEventListener([Events::onFlush], $listener);
+    }
+
+    private function bancoResponde(DestinoDaTransacao $destino): ConsultaDeDestinoFixa
+    {
+        $container = static::getContainer();
+        $consulta = new ConsultaDeDestinoFixa($destino);
+        $container->set(TransacaoComArquivoNovo::class, new TransacaoComArquivoNovo(
+            $container->get(EntityManagerInterface::class),
+            $consulta,
+            $container->get(RemocaoAposTransacao::class),
+            new NullLogger(),
+        ));
+
+        return $consulta;
+    }
 
     /** @param array<string, string> $campos */
     private function despachar(array $campos, ?UploadedFile $arquivo = null): void

@@ -11,11 +11,13 @@ use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Cargo;
 use App\Entity\Notificacao;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Repository\TarefaMensagemRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Tarefa\DTO\DespacharNaMetaInput;
 use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Enum\NaturezaDoDespacho;
@@ -23,6 +25,7 @@ use App\Tarefa\Exception\DespachoRecusadoException;
 use App\Tarefa\Service\AnexoDoDespacho;
 use App\Tarefa\Service\SorteioDeCodigoDoDespacho;
 use App\Tarefa\Service\TextoDoDespacho;
+use App\Tarefa\Service\TransacaoDoDespacho;
 use App\Tarefa\UseCase\DespacharNaMetaUseCase;
 use App\Tests\Processo\Unit\CriaResolucaoDeMencoesDaNota;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
@@ -50,6 +53,8 @@ final class DespacharNaMetaUseCaseTest extends TestCase
     private TarefaMensagemRepository&MockObject $mensagens;
     private NotificacaoService&MockObject $notificacoes;
     private SorteioDeCodigoDoDespacho&MockObject $sorteio;
+    /** @var TransacaoDoDespacho&object{naFalha: list<ChaveDeArquivo>|null} */
+    private TransacaoDoDespacho $transacao;
 
     protected function setUp(): void
     {
@@ -70,7 +75,40 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         $this->mensagens = $this->createMock(TarefaMensagemRepository::class);
         $this->notificacoes = $this->createMock(NotificacaoService::class);
         $this->sorteio = $this->createMock(SorteioDeCodigoDoDespacho::class);
-        $this->mensagens->method('emTransacao')->willReturnCallback(static fn (\Closure $passos): mixed => $passos());
+        $this->transacao = new class () implements TransacaoDoDespacho {
+            /** @var list<ChaveDeArquivo>|null as chaves que a transação recebeu na falha; null se não falhou */
+            public ?array $naFalha = null;
+
+            public function executar(\Closure $passos, \Closure $arquivosNovos): mixed
+            {
+                try {
+                    return $passos();
+                } catch (\Throwable $e) {
+                    $this->naFalha = $arquivosNovos();
+
+                    throw $e;
+                }
+            }
+        };
+    }
+
+    /** Uma chave de documento da pasta, como a que o upload entrega a `$aoGravar`. */
+    private static function chaveGravada(): ChaveDeArquivo
+    {
+        return ChavesDePasta::documentoPorNome(7, str_repeat('a', 32) . '.pdf');
+    }
+
+    /** O dublê do anexo grava (entrega a chave) e depois devolve o documento ou falha. */
+    private function anexoGrava(PastaDocumento|\Throwable $resultado): void
+    {
+        $this->anexos->method('juntar')->willReturnCallback(static function (Tarefa $m, UploadedFile $a, User $u, Tenant $t, \Closure $aoGravar) use ($resultado): PastaDocumento {
+            $aoGravar(self::chaveGravada());
+            if ($resultado instanceof \Throwable) {
+                throw $resultado;
+            }
+
+            return $resultado;
+        });
     }
 
     /** O repositório de verdade grava o código por UPDATE condicional; aqui, código "ocupado" devolve false. */
@@ -155,9 +193,10 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         $this->anexos->expects(self::once())->method('juntar')
             ->with($this->identicalTo($this->meta), $this->identicalTo($arquivo), $this->identicalTo($this->autor), $this->identicalTo($this->escritorio))
             ->willReturn(self::comId(new PastaDocumento(), 55));
-        $this->anexos->expects(self::never())->method('descartar');
 
         $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input(''), $arquivo);
+
+        self::assertNull($this->transacao->naFalha, 'a transação não falhou');
 
         self::assertSame('[Arquivo anexado]', $this->unicoDespacho()->getMensagem());
         self::assertSame(55, $this->unicoDespacho()->getDocumentoJuntadoId());
@@ -168,7 +207,6 @@ final class DespacharNaMetaUseCaseTest extends TestCase
     public function testAnexoRecusado(): void
     {
         $this->anexos->method('juntar')->willThrowException(new \InvalidArgumentException('Tipo de arquivo não permitido: application/x-dosexec.'));
-        $this->anexos->expects(self::never())->method('descartar');
         $this->mensagens->expects(self::never())->method('salvar');
         $this->notificacoes->expects(self::never())->method(self::anything());
 
@@ -180,20 +218,39 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         }
         self::assertCount(0, $this->meta->getMensagens());
         self::assertSame(Tarefa::STATUS_PENDENTE, $this->meta->getStatus());
+        self::assertSame([], $this->transacao->naFalha, 'recusado antes de gravar: não há arquivo novo');
     }
 
-    #[TestDox('A transação volta depois do anexo gravado (sem código livre): o arquivo do documento sai do storage')]
-    public function testFalhaDepoisDoAnexoDescartaOArquivo(): void
+    #[TestDox('A transação volta depois do anexo gravado (sem código livre): a chave do arquivo chega à transação, que decide o destino')]
+    public function testFalhaDepoisDoAnexoEntregaAChave(): void
     {
-        $documento = self::comId(new PastaDocumento(), 55);
-        $this->anexos->method('juntar')->willReturn($documento);
-        $this->anexos->expects(self::once())->method('descartar')->with($this->identicalTo($documento));
+        $this->anexoGrava(self::comId(new PastaDocumento(), 55));
         $this->sorteio->method('sortear')->willReturn('1111.1111');
         $this->codigosOcupados('1111.1111');
 
-        $this->expectExceptionObject(DespachoRecusadoException::semCodigoLivre());
+        try {
+            $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Segue.'), $this->arquivo());
+            self::fail('Devia recusar sem código livre.');
+        } catch (DespachoRecusadoException $e) {
+            self::assertEquals(DespachoRecusadoException::semCodigoLivre(), $e);
+        }
+        self::assertEquals([self::chaveGravada()], $this->transacao->naFalha);
+    }
 
-        $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Segue.'), $this->arquivo());
+    #[TestDox('Falha dentro do upload depois de gravar o arquivo: a chave já chegou à transação e a falha original sobe')]
+    public function testFalhaDentroDoUploadEntregaAChave(): void
+    {
+        $falha = new \RuntimeException('flush do documento falhou');
+        $this->anexoGrava($falha);
+        $this->mensagens->expects(self::never())->method('salvar');
+
+        try {
+            $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Segue.'), $this->arquivo());
+            self::fail('Devia subir a falha do upload.');
+        } catch (\RuntimeException $e) {
+            self::assertSame($falha, $e, 'a falha original não é trocada');
+        }
+        self::assertEquals([self::chaveGravada()], $this->transacao->naFalha);
     }
 
     #[TestDox('@menção válida (C3): o rótulo vira o nome do banco e o mencionado que vê a pasta é avisado na Central')]
@@ -375,6 +432,7 @@ final class DespacharNaMetaUseCaseTest extends TestCase
             $vinculos,
             $this->resolucao,
             $this->anexos,
+            $this->transacao,
         );
     }
 

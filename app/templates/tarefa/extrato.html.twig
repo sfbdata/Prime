@@ -2,7 +2,8 @@
     Extrato de tramitação da meta (desenho 04B de 22/10, L150; spec minhas-metas-esteira-2210, L9). Folha própria:
     abre em janela nova e já pede a impressão (public/js/meta-extrato.js); "Salvar como PDF" é do diálogo do navegador.
     Recebe `extrato` (ExtratoDaMetaOutput). Cada item usa a mesma linha do tempo da tela: "DESPACHO N · tipo", data,
-    "quem → para", texto (a @menção como texto legível, nunca o token), "Cumprir até", ciência e a certidão em destaque.
+    "quem → para", texto (a @menção como texto legível, nunca o token), "Cumprir até", "Ciente: nome" e a certidão em
+    destaque. Como no desenho: sem linha de anexo, sem hora na ciência e sem botão de imprimir (a impressão é automática).
 #}
 {% set m = 'metas.despacho.extrato_folha.' %}
 <!DOCTYPE html>
@@ -15,8 +16,6 @@
     <script src="{{ asset('js/meta-extrato.js') }}" defer></script>
 </head>
 <body>
-    <div class="ext-barra"><button type="button" data-imprimir>{{ (m ~ 'imprimir')|trans }}</button></div>
-
     <div class="ext-topo">
         <div>
             <h1>{{ (m ~ 'titulo')|trans }}</h1>
@@ -42,9 +41,8 @@
             {% if quem %}<div><b>{{ quem }}</b>{% if d and d.para %} → <b>{{ d.para|join(', ') }}</b>{% endif %}</div>{% endif %}
             {% if d %}
                 {% if item.detalhe %}<div class="ext-texto">{{ item.detalhe|registro_texto }}</div>{% endif %}
-                {% if d.anexoNome %}<div class="ext-m">{{ (m ~ 'anexo')|trans({nome: d.anexoNome}) }}</div>{% endif %}
                 {% if d.prazo %}<div class="ext-m">{{ (m ~ 'cumprir_ate')|trans({data: d.prazo|data}) }}</div>{% endif %}
-                {% if d.ciente %}<div class="ext-m">{{ (m ~ 'ciente')|trans({nome: d.ciente, quando: d.cienteEm|data_hora}) }}</div>{% endif %}
+                {% if d.ciente %}<div class="ext-m">{{ (m ~ 'ciente')|trans({nome: d.ciente}) }}</div>{% endif %}
                 {% if d.certidao %}<div class="ext-c">{{ (m ~ 'certidao')|trans({texto: d.certidao, nome: d.certificadoPor ?? '', quando: d.certificadoEm|data_hora}) }}</div>{% endif %}
             {% elseif item.detalhe %}
                 <div>{{ item.detalhe|nl2br }}</div>

@@ -13,6 +13,7 @@ use App\Pasta\Service\ResolucaoDeMencoesDoRegistro;
 use App\Repository\TarefaMensagemRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Tarefa\DTO\DespachoRegistradoOutput;
 use App\Tarefa\DTO\DespacharNaMetaInput;
 use App\Tarefa\Enum\AcaoDoDespacho;
@@ -20,6 +21,7 @@ use App\Tarefa\Exception\DespachoRecusadoException;
 use App\Tarefa\Service\AnexoDoDespacho;
 use App\Tarefa\Service\SorteioDeCodigoDoDespacho;
 use App\Tarefa\Service\TextoDoDespacho;
+use App\Tarefa\Service\TransacaoDoDespacho;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
@@ -45,8 +47,10 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  * Anexo (C4): entra nos documentos da pasta pela regra de chaves ({@see AnexoDoDespacho}); a mensagem guarda só a
  * referência ao documento. Tipo ou tamanho recusado: nada é gravado.
  *
- * Tudo numa transação: o anexo e o despacho são gravados, e o código é gravado depois, com até 3 sorteios contra a
- * colisão no índice único. Sem código livre, nada fica (nem a troca de status) e o arquivo do anexo sai do storage.
+ * Tudo numa transação ({@see TransacaoDoDespacho}, a `TransacaoComArquivoNovo` da casa): o anexo e o despacho são
+ * gravados, e o código é gravado depois, com até 3 sorteios contra a colisão no índice único. Sem código livre, nada
+ * fica (nem a troca de status). O arquivo do anexo só sai do storage quando o COMMIT comprovadamente não aconteceu;
+ * COMMIT de resultado incerto preserva o arquivo (o documento pode ter ficado apontando para ele).
  */
 final class DespacharNaMetaUseCase
 {
@@ -64,6 +68,7 @@ final class DespacharNaMetaUseCase
         private readonly UserTenantRepository $vinculos,
         private readonly ResolucaoDeMencoesDoRegistro $mencoes,
         private readonly AnexoDoDespacho $anexos,
+        private readonly TransacaoDoDespacho $transacao,
     ) {
     }
 
@@ -77,36 +82,29 @@ final class DespacharNaMetaUseCase
         }
         self::exigirStatusDaAcao($meta, $input->acao);
 
-        $juntado = new \ArrayObject();
-        try {
-            /** @var array{0: ?TarefaMensagem, 1: bool, 2: bool} $feito */
-            $feito = $this->mensagens->emTransacao(fn (): array => $this->gravar($meta, $autor, $escritorio, $input, $anexo, $juntado));
-        } catch (\Throwable $e) {
-            // A transação voltou: o documento não ficou, e o arquivo dele não pode ficar órfão no storage.
-            foreach ($juntado as $documento) {
-                $this->anexos->descartar($documento);
-            }
-            throw $e;
-        }
+        /** @var \ArrayObject<int, ChaveDeArquivo> $gravados chaves do anexo, preenchidas assim que o arquivo é gravado */
+        $gravados = new \ArrayObject();
+        /** @var array{0: ?TarefaMensagem, 1: bool, 2: bool} $feito */
+        $feito = $this->transacao->executar(
+            fn (): array => $this->gravar($meta, $autor, $escritorio, $input, $anexo, $gravados),
+            static fn (): array => array_values($gravados->getArrayCopy()),
+        );
         $this->avisar($meta, $feito[1], $feito[2]);
 
         return new DespachoRegistradoOutput($feito[0]?->getCodigo(), $feito[1], $feito[2]);
     }
 
     /**
-     * Os passos dentro da transação. O documento juntado vai para `$juntado` assim que existe, para quem chama poder
-     * descartar o arquivo se a transação voltar.
+     * Os passos dentro da transação. A chave do anexo vai para `$gravados` assim que o arquivo é gravado (mesmo que o
+     * upload falhe depois), para a transação decidir o destino dele se o COMMIT não acontecer.
      *
-     * @param \ArrayObject<int, PastaDocumento> $juntado
+     * @param \ArrayObject<int, ChaveDeArquivo> $gravados
      *
      * @return array{0: ?TarefaMensagem, 1: bool, 2: bool}
      */
-    private function gravar(Tarefa $meta, User $autor, Tenant $escritorio, DespacharNaMetaInput $input, ?UploadedFile $anexo, \ArrayObject $juntado): array
+    private function gravar(Tarefa $meta, User $autor, Tenant $escritorio, DespacharNaMetaInput $input, ?UploadedFile $anexo, \ArrayObject $gravados): array
     {
-        $documento = $anexo === null ? null : $this->juntar($meta, $anexo, $autor, $escritorio);
-        if ($documento !== null) {
-            $juntado->append($documento);
-        }
+        $documento = $anexo === null ? null : $this->juntar($meta, $anexo, $autor, $escritorio, $gravados);
         [$enviada, $devolvida] = $this->mudarStatus($meta, $input->acao);
         $despacho = null;
         $mencionados = [];
@@ -125,10 +123,13 @@ final class DespacharNaMetaUseCase
         return [$despacho, $enviada, $devolvida];
     }
 
-    private function juntar(Tarefa $meta, UploadedFile $anexo, User $autor, Tenant $escritorio): PastaDocumento
+    /** @param \ArrayObject<int, ChaveDeArquivo> $gravados */
+    private function juntar(Tarefa $meta, UploadedFile $anexo, User $autor, Tenant $escritorio, \ArrayObject $gravados): PastaDocumento
     {
         try {
-            return $this->anexos->juntar($meta, $anexo, $autor, $escritorio);
+            return $this->anexos->juntar($meta, $anexo, $autor, $escritorio, static function (ChaveDeArquivo $chave) use ($gravados): void {
+                $gravados->append($chave);
+            });
         } catch (\InvalidArgumentException $e) {
             throw DespachoRecusadoException::anexoRecusado($e->getMessage());
         }

@@ -84,22 +84,35 @@
         }
     }
 
-    /** Troca, só nos trechos de TEXTO do HTML, cada "@Nome" escolhido pelo token. */
+    /**
+     * Troca cada "@Nome" escolhido pelo token. No editor rico, só nos trechos de TEXTO do HTML, onde o nome está
+     * escapado ("&" é "&amp;"). No campo simples (`data-mencoes-simples`) o valor é texto puro: nada de corte por
+     * tag nem de escape, senão um nome com "&" ou "<" não casaria (o servidor escapa o texto inteiro depois).
+     */
     function paraEnvio(textarea, html) {
         var lista = mencoesDe(textarea).slice().sort(function (a, b) { return b.nome.length - a.nome.length; });
         if (!html || lista.length === 0) { return html; }
+        if (textarea.hasAttribute && textarea.hasAttribute('data-mencoes-simples')) {
+            return trocarMencoes(String(html), lista, function (s) { return String(s); });
+        }
 
         return String(html).split(/(<[^>]*>)/).map(function (parte) {
             if (parte === '' || parte.charAt(0) === '<') { return parte; }
-            lista.forEach(function (m) {
-                var re = new RegExp('@' + escRegex(escHtml(m.nome)) + '(?![A-Za-zÀ-ÿ0-9\\]])', 'g');
-                parte = parte.replace(re, function () {
-                    return '@[' + escHtml(rotulo(m.nome)) + '](user:' + m.id + ')';
-                });
-            });
 
-            return parte;
+            return trocarMencoes(parte, lista, escHtml);
         }).join('');
+    }
+
+    /** `esc` é o escape do meio: `escHtml` no HTML do editor, identidade no texto puro do campo simples. */
+    function trocarMencoes(parte, lista, esc) {
+        lista.forEach(function (m) {
+            var re = new RegExp('@' + escRegex(esc(m.nome)) + '(?![A-Za-zÀ-ÿ0-9\\]])', 'g');
+            parte = parte.replace(re, function () {
+                return '@[' + esc(rotulo(m.nome)) + '](user:' + m.id + ')';
+            });
+        });
+
+        return parte;
     }
 
     function paraEdicao(conteudo) {

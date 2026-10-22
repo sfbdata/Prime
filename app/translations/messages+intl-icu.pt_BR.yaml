@@ -1580,10 +1580,8 @@ metas:
             demanda: DEMANDA
             demanda_quem: '{data} · {autor}'
             cumprir_ate: 'Cumprir até {data}'
-            ciente: 'Ciente: {nome}, {quando}'
+            ciente: 'Ciente: {nome}'
             certidao: '{texto} · {nome}, {quando}'
-            anexo: 'Anexo: {nome} (juntado à pasta)'
-            imprimir: Imprimir
         js:
             um_dia_util: 1 dia útil
             dias_uteis: '{n} dias úteis'

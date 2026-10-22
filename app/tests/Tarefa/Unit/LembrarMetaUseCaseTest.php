@@ -11,6 +11,7 @@ use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Repository\NotificacaoRepository;
+use App\Repository\TarefaMensagemRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Tarefa\Enum\AcaoDoDespacho;
@@ -18,7 +19,6 @@ use App\Tarefa\Exception\LembreteRecusadoException;
 use App\Tarefa\Service\TextoDoDespacho;
 use App\Tarefa\UseCase\LembrarMetaUseCase;
 use App\Tests\Shared\CriaSanitizadorTextoRico;
-use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -37,7 +37,11 @@ final class LembrarMetaUseCaseTest extends TestCase
 
     private const AGORA = '2026-10-22 15:00:00';
 
-    private EntityManagerInterface&MockObject $em;
+    private TarefaMensagemRepository&MockObject $mensagens;
+    /** @var list<int> metas cuja trava foi pedida, na ordem */
+    private array $travas = [];
+    /** Quantas vezes o trabalho rodou dentro da trava (0 = nada gravado). */
+    private int $dentroDaTrava = 0;
     private NotificacaoService&MockObject $notificacoes;
     private NotificacaoRepository&MockObject $notificacaoRepository;
     /** @var list<int> ids sem vínculo ativo com o escritório */
@@ -54,7 +58,13 @@ final class LembrarMetaUseCaseTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->em = $this->createMock(EntityManagerInterface::class);
+        $this->mensagens = $this->createMock(TarefaMensagemRepository::class);
+        $this->mensagens->method('emTransacaoTravadaPelaMeta')->willReturnCallback(function (int $metaId, \Closure $trabalho): mixed {
+            $this->travas[] = $metaId;
+            ++$this->dentroDaTrava;
+
+            return $trabalho();
+        });
         $this->notificacaoRepository = $this->createMock(NotificacaoRepository::class);
         $this->notificacoes = $this->createMock(NotificacaoService::class);
         $this->notificacoes->method('veAPastaDaMeta')->willReturnCallback(fn (Tarefa $t, User $u): bool => !in_array($u->getId(), $this->semVerAPasta, true));
@@ -86,12 +96,12 @@ final class LembrarMetaUseCaseTest extends TestCase
     #[TestDox('Pendente: avisa cada responsável na Central (título e texto do desenho) e grava "Lembrete enviado para A, B." no histórico')]
     public function testPendenteAvisaOsResponsaveis(): void
     {
-        $this->em->expects(self::once())->method('persist')->with(self::isInstanceOf(TarefaMensagem::class));
-        $this->em->expects(self::once())->method('flush');
+        $this->mensagens->expects(self::once())->method('salvar')->with(self::isInstanceOf(TarefaMensagem::class));
 
         $nomes = $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, new \DateTimeImmutable(self::AGORA));
 
         self::assertSame(['Mariana Costa', 'Thâmara Thays Silva'], $nomes);
+        self::assertSame([30], $this->travas, 'gravado sob a trava da meta');
         self::assertCount(2, $this->avisos);
         self::assertSame([$this->mariana, $this->thamara], array_column($this->avisos, 'usuario'));
         self::assertSame(LembrarMetaUseCase::TIPO_NOTIFICACAO, $this->avisos[0]['tipo']);
@@ -135,16 +145,34 @@ final class LembrarMetaUseCaseTest extends TestCase
         self::assertSame(['Thâmara Thays Silva'], $nomes);
     }
 
-    #[TestDox('A meta só com quem pede: recusa, nada gravado')]
+    #[TestDox('A meta só com quem pede: recusa com "a meta está só com você", nada gravado')]
     public function testSoComQuemPedeRecusa(): void
     {
         $this->meta->removeResponsavel($this->thamara);
-        $this->em->expects(self::never())->method('flush');
+        $this->mensagens->expects(self::never())->method('salvar');
 
-        $this->expectException(LembreteRecusadoException::class);
-        $this->expectExceptionMessage('Não há a quem lembrar: a meta está só com você.');
+        $this->assertRecusa('Não há a quem lembrar: a meta está só com você.', $this->mariana);
+        self::assertSame(0, $this->dentroDaTrava);
+    }
 
-        $this->useCase()->executar($this->meta, $this->mariana, $this->escritorio, new \DateTimeImmutable(self::AGORA));
+    #[TestDox('Os outros saíram do escritório ou não veem a pasta: a recusa diz isso, não "só com você"')]
+    public function testOutrosFiltradosRecusaComOMotivoCerto(): void
+    {
+        $this->semVinculo = [2];
+        $this->semVerAPasta = [3];
+        $this->mensagens->expects(self::never())->method('salvar');
+
+        $this->assertRecusa('Não há a quem lembrar: quem está com a meta saiu do escritório ou não vê a pasta.', $this->autor);
+        self::assertSame([], $this->avisos);
+    }
+
+    #[TestDox('Meta sem responsável: a recusa diz isso')]
+    public function testSemResponsavelRecusa(): void
+    {
+        $this->meta->removeResponsavel($this->mariana);
+        $this->meta->removeResponsavel($this->thamara);
+
+        $this->assertRecusa('Não há a quem lembrar: a meta está sem responsável.', $this->autor);
     }
 
     #[TestDox('Lembrete repetido em menos de uma hora para a mesma pessoa: recusa com a hora do anterior, nada gravado')]
@@ -152,10 +180,10 @@ final class LembrarMetaUseCaseTest extends TestCase
     {
         $anterior = new Notificacao();
         (new \ReflectionProperty(Notificacao::class, 'criadaEm'))->setValue($anterior, new \DateTimeImmutable('2026-10-22 14:20'));
-        $this->notificacaoRepository->method('findOneBy')->willReturnCallback(
-            fn (array $criterio): ?Notificacao => $criterio['usuario'] === $this->thamara && $criterio['tipo'] === LembrarMetaUseCase::TIPO_NOTIFICACAO && $criterio['tarefa'] === $this->meta ? $anterior : null,
+        $this->notificacaoRepository->method('ultimaDoTipoNaTarefa')->willReturnCallback(
+            fn (Tarefa $t, User $u, string $tipo): ?Notificacao => $u === $this->thamara && $tipo === LembrarMetaUseCase::TIPO_NOTIFICACAO && $t === $this->meta ? $anterior : null,
         );
-        $this->em->expects(self::never())->method('flush');
+        $this->mensagens->expects(self::never())->method('salvar');
 
         try {
             $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, new \DateTimeImmutable(self::AGORA));
@@ -163,6 +191,7 @@ final class LembrarMetaUseCaseTest extends TestCase
         } catch (LembreteRecusadoException $e) {
             self::assertSame('Thâmara Thays Silva já recebeu um lembrete desta meta às 14:20. Aguarde uma hora para lembrar de novo.', $e->getMessage());
         }
+        self::assertSame([30], $this->travas, 'o intervalo é lido DENTRO da trava: dois pedidos simultâneos não passam os dois');
         self::assertSame([], $this->avisos);
     }
 
@@ -171,7 +200,7 @@ final class LembrarMetaUseCaseTest extends TestCase
     {
         $anterior = new Notificacao();
         (new \ReflectionProperty(Notificacao::class, 'criadaEm'))->setValue($anterior, new \DateTimeImmutable('2026-10-22 13:59'));
-        $this->notificacaoRepository->method('findOneBy')->willReturn($anterior);
+        $this->notificacaoRepository->method('ultimaDoTipoNaTarefa')->willReturn($anterior);
 
         $nomes = $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, new \DateTimeImmutable(self::AGORA));
 
@@ -201,13 +230,23 @@ final class LembrarMetaUseCaseTest extends TestCase
         $urls->method('generate')->willReturnCallback(static fn (string $rota, array $p = []): string => '/tarefas/' . $p['id']);
 
         return new LembrarMetaUseCase(
-            $this->em,
+            $this->mensagens,
             $this->notificacoes,
             $this->notificacaoRepository,
             $vinculos,
             new TextoDoDespacho($this->criarSanitizadorTextoRico()),
             $urls,
         );
+    }
+
+    private function assertRecusa(string $mensagem, User $quemPede): void
+    {
+        try {
+            $this->useCase()->executar($this->meta, $quemPede, $this->escritorio, new \DateTimeImmutable(self::AGORA));
+            self::fail('Devia recusar.');
+        } catch (LembreteRecusadoException $e) {
+            self::assertSame($mensagem, $e->getMessage());
+        }
     }
 
     private static function pessoa(int $id, string $nome): User

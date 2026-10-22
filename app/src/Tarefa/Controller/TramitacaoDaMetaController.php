@@ -80,7 +80,7 @@ final class TramitacaoDaMetaController extends AbstractController
         if (!$this->permissionChecker->canAccessModule($usuario, $tenant, 'tarefas')) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Tarefas.');
         }
-        $this->acessoAMeta->exigir($meta, $tenant);
+        $this->acessoAMeta->exigir($meta, $tenant, $usuario);
 
         return [$usuario, $tenant];
     }

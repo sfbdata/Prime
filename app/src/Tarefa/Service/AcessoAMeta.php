@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tarefa\Service;
 
+use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\NivelDeAcesso;
+use App\Pasta\Service\AcessoAPasta;
 use App\Repository\UserTenantRepository;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -16,25 +19,34 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
  * SEC-013: a posse vem ANTES do vínculo. Conferir só se o criador ou o responsável da pasta tem vínculo com o
  * escritório da sessão deixa passar a meta de OUTRO escritório quando essa pessoa está nos dois (e o TenantFilter
  * falhou). Fora do escritório: 404, como todo recurso cross-tenant (403 confirmaria que o id existe em algum lugar).
+ *
+ * Cadeado (spec pasta-cadeado D3): a meta de pasta OCULTA para quem acessa também é 404, a mesma regra da lista
+ * (`AcessoAPasta::idsOcultosPara`, nível `Oculto`). Vale para tudo que passa por aqui: a página da meta, o despacho
+ * (com ou sem anexo), a ciência, a certidão, o Extrato e o Lembrar.
  */
 final class AcessoAMeta
 {
     public function __construct(
         private readonly UserTenantRepository $vinculos,
+        private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
 
     /**
-     * @throws NotFoundHttpException meta de outro escritório
+     * @throws NotFoundHttpException meta de outro escritório, ou de pasta oculta pelo cadeado para quem acessa
      * @throws AccessDeniedException nem o criador nem o responsável da pasta têm vínculo ativo com o escritório
      */
-    public function exigir(Tarefa $meta, Tenant $escritorio): void
+    public function exigir(Tarefa $meta, Tenant $escritorio, User $quemAcessa): void
     {
         if ($meta->getTenant()?->getId() !== $escritorio->getId()) {
             throw new NotFoundHttpException('Meta não encontrada.');
         }
 
         $pasta = $meta->getPasta();
+        if ($this->acessoAPasta->nivel($quemAcessa, $pasta) === NivelDeAcesso::Oculto) {
+            throw new NotFoundHttpException('Meta não encontrada.');
+        }
+
         $criador = $pasta->getCriadoPor();
         $responsavel = $pasta->getResponsavel();
         $criadorPertence = $criador !== null && $this->vinculos->existeVinculoAtivo($criador, $escritorio);

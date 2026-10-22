@@ -631,10 +631,10 @@ final class TarefaController extends AbstractController
         return $tenant;
     }
 
-    /** A guarda da tela da meta mora no `AcessoAMeta` (SEC-013), a mesma do Extrato e do Lembrar. */
+    /** A guarda da tela da meta mora no `AcessoAMeta` (SEC-013 e o cadeado da pasta), a mesma do Extrato e do Lembrar. */
     private function verificarAcessoTarefa(User $usuario, Tarefa $tarefa, Tenant $tenant): void
     {
-        $this->acessoAMeta->exigir($tarefa, $tenant);
+        $this->acessoAMeta->exigir($tarefa, $tenant, $usuario);
     }
 
     /**

@@ -7,10 +7,8 @@ namespace App\Tarefa\Service;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
-use App\Pasta\Armazenamento\ChavesDePasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\UseCase\UploadPecaUseCase;
-use App\Shared\Armazenamento\RemocaoAposTransacao;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
@@ -24,11 +22,10 @@ final class AnexoDoDespachoNaPasta implements AnexoDoDespacho
 
     public function __construct(
         private readonly UploadPecaUseCase $upload,
-        private readonly RemocaoAposTransacao $remocao,
     ) {
     }
 
-    public function juntar(Tarefa $meta, UploadedFile $arquivo, User $autor, Tenant $escritorio): PastaDocumento
+    public function juntar(Tarefa $meta, UploadedFile $arquivo, User $autor, Tenant $escritorio, \Closure $aoGravar): PastaDocumento
     {
         return $this->upload->executar(
             $meta->getPasta(),
@@ -40,11 +37,7 @@ final class AnexoDoDespachoNaPasta implements AnexoDoDespacho
             $escritorio,
             false,
             $autor,
+            $aoGravar,
         )->documento;
-    }
-
-    public function descartar(PastaDocumento $documento): void
-    {
-        $this->remocao->remover([ChavesDePasta::documento($documento)], 'despacho da meta recusado depois do anexo');
     }
 }

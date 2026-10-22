@@ -9,12 +9,12 @@ use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Repository\NotificacaoRepository;
+use App\Repository\TarefaMensagemRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Exception\LembreteRecusadoException;
 use App\Tarefa\Service\TextoDoDespacho;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
@@ -28,7 +28,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  *
  * Regras, as do sino "Alertar para verificar" (`AlertarResponsavelDaMetaUseCase`): só meta aberta; só quem tem vínculo
  * ativo no escritório e vê a pasta da meta; nunca quem pede; e no máximo um lembrete por hora para a mesma pessoa
- * sobre a mesma meta, lido da própria `notificacao` (sem coluna nova).
+ * sobre a mesma meta, lido da própria `notificacao` (sem coluna nova), sob a trava advisory da meta
+ * ({@see TarefaMensagemRepository::emTransacaoTravadaPelaMeta()}): dois pedidos simultâneos não passam os dois.
  */
 final class LembrarMetaUseCase
 {
@@ -38,7 +39,7 @@ final class LembrarMetaUseCase
     public const INTERVALO_MINIMO = 'PT1H';
 
     public function __construct(
-        private readonly EntityManagerInterface $em,
+        private readonly TarefaMensagemRepository $mensagens,
         private readonly NotificacaoService $notificacoes,
         private readonly NotificacaoRepository $notificacaoRepository,
         private readonly UserTenantRepository $vinculos,
@@ -58,8 +59,28 @@ final class LembrarMetaUseCase
         }
 
         $destinatarios = $this->destinatarios($meta, $quemPede, $escritorio);
-        $this->exigirIntervalo($meta, $destinatarios, $agora);
 
+        // A trava por meta serializa dois pedidos simultâneos: o segundo lê o aviso que o primeiro gravou. A recusa
+        // volta como valor, para a transação terminar limpa (uma exceção dentro dela fecharia o EntityManager).
+        $resultado = $this->mensagens->emTransacaoTravadaPelaMeta(
+            (int) $meta->getId(),
+            fn (): array|LembreteRecusadoException => $this->recusaPeloIntervalo($meta, $destinatarios, $agora)
+                ?? $this->lembrar($meta, $quemPede, $escritorio, $destinatarios, $agora),
+        );
+        if ($resultado instanceof LembreteRecusadoException) {
+            throw $resultado;
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * @param list<User> $destinatarios
+     *
+     * @return list<string>
+     */
+    private function lembrar(Tarefa $meta, User $quemPede, Tenant $escritorio, array $destinatarios, \DateTimeImmutable $agora): array
+    {
         $emRevisao = $meta->getStatus() === Tarefa::STATUS_EM_REVISAO;
         $titulo = sprintf('Lembrete: meta aguardando %s · Pasta %s', $emRevisao ? 'revisão' : 'despacho', $meta->getPasta()->getNup() ?? '#' . $meta->getPasta()->getId());
         $texto = sprintf('%s está com você há %d dia(s).', $meta->getTitulo(), MontarSituacaoDaMetaUseCase::diasAguardando($meta, $agora));
@@ -70,44 +91,55 @@ final class LembrarMetaUseCase
 
         $nomes = array_map(self::nome(...), $destinatarios);
         $this->registrarNoHistorico($meta, $quemPede, $escritorio, $nomes, $agora);
-        $this->em->flush();
 
         return $nomes;
     }
 
-    /** @return list<User> com quem a meta está, menos quem pede, quem saiu do escritório e quem não vê a pasta */
+    /**
+     * Com quem a meta está, menos quem pede, quem saiu do escritório e quem não vê a pasta (cadeado). A recusa diz o
+     * motivo certo: a meta só com quem pede não é o mesmo que os outros não poderem receber.
+     *
+     * @return list<User>
+     */
     private function destinatarios(Tarefa $meta, User $quemPede, Tenant $escritorio): array
     {
-        $quem = array_values(array_filter(
+        $outros = array_values(array_filter(
             MontarSituacaoDaMetaUseCase::quemAguarda($meta),
-            fn (User $p): bool => $p->getId() !== $quemPede->getId()
-                && $this->vinculos->existeVinculoAtivo($p, $escritorio)
-                && $this->notificacoes->veAPastaDaMeta($meta, $p),
+            static fn (User $p): bool => $p->getId() !== $quemPede->getId(),
+        ));
+        if ($outros === []) {
+            throw new LembreteRecusadoException(MontarSituacaoDaMetaUseCase::quemAguarda($meta) === []
+                ? 'Não há a quem lembrar: a meta está sem responsável.'
+                : 'Não há a quem lembrar: a meta está só com você.');
+        }
+
+        $quem = array_values(array_filter(
+            $outros,
+            fn (User $p): bool => $this->vinculos->existeVinculoAtivo($p, $escritorio) && $this->notificacoes->veAPastaDaMeta($meta, $p),
         ));
         if ($quem === []) {
-            throw new LembreteRecusadoException('Não há a quem lembrar: a meta está só com você.');
+            throw new LembreteRecusadoException('Não há a quem lembrar: quem está com a meta saiu do escritório ou não vê a pasta.');
         }
 
         return $quem;
     }
 
     /** @param list<User> $destinatarios */
-    private function exigirIntervalo(Tarefa $meta, array $destinatarios, \DateTimeImmutable $agora): void
+    private function recusaPeloIntervalo(Tarefa $meta, array $destinatarios, \DateTimeImmutable $agora): ?LembreteRecusadoException
     {
         $limite = $agora->sub(new \DateInterval(self::INTERVALO_MINIMO));
         foreach ($destinatarios as $pessoa) {
-            $ultimo = $this->notificacaoRepository->findOneBy(
-                ['tarefa' => $meta, 'usuario' => $pessoa, 'tipo' => self::TIPO_NOTIFICACAO],
-                ['criadaEm' => 'DESC'],
-            );
+            $ultimo = $this->notificacaoRepository->ultimaDoTipoNaTarefa($meta, $pessoa, self::TIPO_NOTIFICACAO);
             if ($ultimo !== null && $ultimo->getCriadaEm() > $limite) {
-                throw new LembreteRecusadoException(sprintf(
+                return new LembreteRecusadoException(sprintf(
                     '%s já recebeu um lembrete desta meta às %s. Aguarde uma hora para lembrar de novo.',
                     self::nome($pessoa),
                     $ultimo->getCriadaEm()->format('H:i'),
                 ));
             }
         }
+
+        return null;
     }
 
     /** @param list<string> $nomes */
@@ -120,7 +152,7 @@ final class LembrarMetaUseCase
             ->setAcao(AcaoDoDespacho::Lembrete)
             ->setCriadoEm($agora);
         $meta->addMensagem($lembrete);
-        $this->em->persist($lembrete);
+        $this->mensagens->salvar($lembrete);
     }
 
     /** O nome com as iniciais maiúsculas, como o `cap` do desenho (L131). */
