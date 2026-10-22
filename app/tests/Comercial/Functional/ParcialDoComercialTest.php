@@ -126,7 +126,7 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertSame('.html,.htm', $this->doc->filter('.mc-cp-acoes > label > input[type="file"]')->attr('accept'));
     }
 
-    #[TestDox('F3a: Selo e Nome na prévia entre Assunto e Título (dc 21.10 L270); os 10 emojis no texto simples (L274), sem a imagem (com o dono)')]
+    #[TestDox('F3a: Selo e Nome na prévia entre Assunto e Título (dc 21.10 L270); os 10 emojis no texto simples (L274), depois da imagem (F3i)')]
     public function testSeloNomeEEmojis(): void
     {
         $editor = '.mc-cp-grade > .mc-cp-editor';
@@ -138,7 +138,23 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertStringStartsWith('ASSUNTO', $this->doc->filter($editor . ' > *')->eq($par - 1)->text());
         self::assertStringStartsWith('TÍTULO', $this->doc->filter($editor . ' > *')->eq($par + 1)->text());
         self::assertSame(['⚖️', '📅', '✅', '📌', '🎉', '💼', '📈', '🔒', '👉', '🙏'], $this->textos($editor . ' > [data-mc-cp-simples] > .mc-cp-emojis > .mc-cp-emoji'));
-        self::assertSame(0, $this->doc->filter('input[type="file"][accept="image/*"]')->count(), 'a imagem do modo simples está com o dono');
+        self::assertSame(1, $this->doc->filter($editor . ' > [data-mc-cp-simples] > .mc-cp-emojis > label.mc-cp-img > input[type="file"][accept="image/jpeg,image/png"]')->count());
+    }
+
+    #[TestDox('F3i: na linha do "Inserir:" (dc 21.10 L274), "Adicionar imagem" com o arquivo escondido, o "Remover" (escondido sem imagem), o traço e os emojis, nessa ordem')]
+    public function testImagemDoModoSimples(): void
+    {
+        $linha = '.mc-cp-editor > [data-mc-cp-simples] > .mc-cp-emojis';
+        $filhos = $this->doc->filter($linha . ' > *')->each(static fn (Crawler $c): string => (string) $c->attr('class'));
+        self::assertSame(['mc-cp-img', 'mc-cp-img-rm', 'mc-cp-emojis-sep', 'mc-cp-emojis-rot'], \array_slice($filhos, 0, 4));
+        self::assertSame(['Adicionar imagem'], $this->textos($linha . ' > label.mc-cp-img > [data-mc-cp-img-txt]'));
+        self::assertSame(1, $this->doc->filter($linha . ' > label.mc-cp-img > i.bi-image')->count());
+        $arquivo = $this->doc->filter($linha . ' > label.mc-cp-img > input[type="file"][data-mc-cp-img-arquivo]');
+        self::assertSame(['image/jpeg,image/png', 'mc-cp-arquivo'], [$arquivo->attr('accept'), $arquivo->attr('class')]);
+        $remover = $this->doc->filter($linha . ' > button.mc-cp-img-rm[data-mc-cp-img-rm]');
+        self::assertSame(['Remover', 'Remover imagem', ''], [trim($remover->text()), $remover->attr('title'), $remover->attr('hidden')]);
+        self::assertSame(1, $this->doc->filter($linha . ' > button.mc-cp-img-rm > i.bi-x-circle')->count());
+        self::assertSame('/master/comercial/imagens', $this->doc->filter('section.mc-cp[data-mc-campanha]')->attr('data-url-imagem'));
     }
 
     #[TestDox('Os campos da mensagem (L.242-247) com os rótulos e as dicas literais')]

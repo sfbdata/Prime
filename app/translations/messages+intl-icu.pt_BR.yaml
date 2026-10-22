@@ -3078,6 +3078,9 @@ comercial:
         texto: TEXTO
         texto_dica: "use '{nome}' para o primeiro nome"
         inserir: 'Inserir:'
+        imagem_adicionar: Adicionar imagem
+        imagem_remover: Remover
+        imagem_remover_dica: Remover imagem
         emoji:
             balanca: Balança
             agenda: Agenda
@@ -3262,6 +3265,9 @@ comercial:
         bloco_subir: Subir
         bloco_descer: Descer
         bloco_remover: Remover
+        imagem_adicionar: Adicionar imagem
+        imagem_trocar: Trocar imagem
+        imagem_invalida: Envie uma imagem JPG ou PNG.
         # comercial-leitura.js
         leitura_ligada: Confirmação de leitura
         leitura_desligada: Sem confirmação de leitura
