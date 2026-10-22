@@ -621,5 +621,15 @@
             "Escape",
             "ArrowDown"
         ]
+    },
+
+    "pasta_detalhes": {
+        "templates": [
+            "pasta/_detalhes_obs.html.twig"
+        ],
+        "js": [
+            "pasta-ler-mais.js"
+        ],
+        "permitidos": []
     }
 }
