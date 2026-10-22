@@ -177,13 +177,19 @@ Para o dono (Farlei), antes da fase indicada:
   página pública.
 - **C14. Ciência automática.** Abrir a meta marca "Ciente" nos despachos de outra pessoa ainda sem ciência, só quando
   quem abre é responsável ou criador da meta (quem só olha, como um administrador, não dá ciência).
+  Só despachos registrados (com código) e fora de pasta excluída; a primeira ciência vale (com dois responsáveis,
+  quem abrir primeiro dá a ciência do despacho, como o desenho mostra uma só). Gravação condicional, sem sobrescrever.
 - **C15. Certificar cumprimento.** Responsável ou criador; texto obrigatório começando por "Certifico que", até 1.000
-  caracteres; grava quem e quando; some o "Cumprir até". Uma certidão por despacho.
+  caracteres; grava quem e quando; some o "Cumprir até". Uma certidão por despacho, e só em despacho (envio, devolução
+  e mensagem antiga são recusados também no servidor). Ciência e certidão são gravadas por UPDATE condicional: quem e
+  quando ficam na própria linha do despacho, não no log de auditoria.
 - **C16. Registro imutável.** Despacho com código não pode ser editado (o "Registrado por ... · Cód." deixaria de valer
   para o texto). Mensagens antigas, sem código, continuam editáveis.
 - **C17. Quem registrou fica congelado.** Nome e cargo da linha de registro são os do momento do despacho, não os de
   hoje.
 - **C18. Enviar para revisão** não grava natureza nem prazo (04B L146): o prazo padrão viraria "Cumprir até" na entrega.
+  A mensagem guarda a ação (despacho, envio, devolução) para o rótulo do 04B L127 ("Enviado para revisão", "Devolvida")
+  e para "Certificar cumprimento" aparecer só em despacho (04B L161).
 - **C19. Placeholder** sem "Digite @ para marcar alguém da equipe." até a 2b trazer a @menção; "quem → para" também
   espera a 2b (menção) ou a Fase 3 (passagem).
 
