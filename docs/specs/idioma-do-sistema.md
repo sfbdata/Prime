@@ -611,6 +611,37 @@ cheia, mural do criador e do participante, card cheio, magro e de mural sem marc
 novo) e do detalhe da meta (vazia, nova, pendente com anexo, em revisão para os dois lados, concluída) foi comparado
 antes e depois, sem diferença; o texto dos scripts foi conferido chave por chave contra o literal removido.
 
+### 22.2. Extração da Inteligência (f6, 21/10)
+
+- **Escopo:** os 12 templates de `templates/inteligencia/` (drawer, painel, seção do comando, índice de documentos,
+  cartão e listas das análises, análises do Push, conversa e rodapé, auditoria e `admin/configuracao`) e os três JS
+  (`pasta-ia-agentes.js`, `pasta-ia-conversa.js`, `pasta-ia-push.js`). Bloco `inteligencia` do catálogo, 199 chaves: 153
+  do Twig (`comum`, `drawer`, `painel`, `comando`, `documentos`, `cartao`, `lista`, `push`, `conversa`, `auditoria`,
+  `admin`) e 46 dos scripts (`js.agentes`, `js.conversa`, `js.push`). O drawer entrega
+  `catalogo_js('inteligencia.js.agentes', 'inteligencia.js.conversa')` uma vez, antes dos dois scripts (ele só existe
+  no cabeçalho da pasta); o `_push_processual` entrega `inteligencia.js.push` junto do `pasta-ia-push.js`. Os scripts
+  são `defer` e só pedem texto na hora do uso (a constante `FALHA_AO_ENVIAR` da conversa virou função).
+- **Sem mudança visível:** o HTML de 46 respostas (pasta, painel, listas por comando, relatório, índice e agente,
+  Push, conversa, auditoria e configuração, nos estados vazio, sem provedor, cheio com concluída, lida, interna,
+  editada, recolhida, falha com motivo técnico, em andamento, conversa com resposta, falha e pergunta em andamento,
+  download e impressão na trilha, leitor sem edição nem Financeiro e aba Documentos oculta) foi gravado com os
+  templates da HEAD e com os novos na mesma execução e comparado com tokens normalizados: igual, fora o
+  `<script data-bj-t>`. O texto dos scripts foi conferido chave por chave contra o literal removido. A nota de edição
+  do Push é uma chave só, com a frase inteira e `{editado}`; as aspas saem como `&quot;` no HTML, iguais na tela.
+  Ficam partidas, sem como reordenar por idioma, as listas de envio do admin (`envio.e`, por causa dos
+  `<span data-ia-envio>`) e o `uso_hoje`/`uso_mes` (número fora da chave).
+- **Formatos:** dia e hora do aviso dos cartões viraram `|data` e `|hora`; o "quando" do Criar tarefa e o aceite da
+  configuração, `|data_hora`; a hora do "Editado em", `|hora` (nenhum nulo ali). Ficaram os `|date('d/m')` (marca do
+  dia, "Editado em" e trilha `d/m H:i`): não há filtro de dia e mês. Contagens entram como texto (`~ ''`); "item/itens"
+  e "movimentação/movimentações" viraram duas chaves pela mesma condição `== 1`; "ponto(s)" e "movimentação(ões)"
+  ficam como estão.
+- **Ficou de fora (vem do PHP):** a mensagem da `Disponibilidade` (`ia.mensagem`), rótulo, ícone e descrição de
+  `Comando`, nome e seções de `Agente` (`rotuloCurto`), os itens da grade "O que a IA sabe" (`rotulo`, `corte`), os
+  dados de documento (`dados`), o rótulo dos pontos, `statusRotulo` e `oQue` da auditoria, o `quando` e a `dica` do
+  envio ao cliente e o texto do `avisar_cliente()`, os rótulos e erros do `ConfiguracaoType`, os flashes e as
+  respostas JSON (`mensagem`, `aviso`) dos controllers e UseCases, o texto do `.txt` exportado e todo prompt. "BlueJus
+  IA" e "BLUEJUS IA" (marca) e o nome do enum lido por `enum_cases()` estão nos `permitidos`.
+
 ## 23. Extração de Feriados e da conexão do Drive (4b, 21/10)
 
 - **Escopo:** `templates/feriado/index`, `new`, `edit` e `_form` (Feriados e Folgas do escritório) e
