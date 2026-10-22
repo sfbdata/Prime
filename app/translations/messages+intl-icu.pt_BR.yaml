@@ -7477,4 +7477,40 @@ pasta_detalhes:
         ler_mais_varios: 'continuar lendo ({total} parágrafos)'
         ler_menos: mostrar menos
 
+# ---- Recurso em preparação (a7, spec idioma-do-sistema §26b): a página que o guarda de rota mostra quando o Master
+# desliga uma tela. O título e o motivo chegam do PHP (BloqueioDeRecursoDesativado).
+recurso:
+    em_preparacao:
+        previsao: 'Previsão: {data}'
+        voltar: Voltar ao Expediente
+
+# ---- Política de Privacidade (a7, spec idioma-do-sistema §26b): só a moldura da página e do PDF. O corpo da Política
+# (legal/_politica_privacidade_texto) fica fixo no template, de propósito: é o texto jurídico versionado (§26b).
+legal:
+    politica:
+        titulo_pagina: Política de Privacidade | BlueJus
+        abrir_pdf: Abrir em PDF
+        termos: Termos e Condições de Uso
+        voltar_topo: Voltar ao topo
+    pdf:
+        titulo_pagina: 'Política de Privacidade | BlueJus (versão {versao})'
+        rodape: 'BlueJus · Política de Privacidade · versão {versao} · publicada em {data}'
+
+# ---- Aceite dos Termos de Uso (a7, spec idioma-do-sistema §26b): só a moldura da tela de aceite. O corpo dos Termos
+# (termo/_texto) fica fixo no template, de propósito: é o texto jurídico versionado (§26b).
+termo:
+    aceite:
+        titulo_pagina: Termos e Condições de Uso | BlueJus
+        titulo: Termos e Condições Gerais de Uso
+        instrucao: Para continuar, leia e aceite os termos abaixo.
+        versao: 'Versão {versao}'
+        declaracao: Li e aceito os Termos e Condições Gerais de Uso do BlueJus.
+        # Frase partida em volta do link da Política: "<antes> <link>." (pontuação e link no template).
+        declaracao_com_politica_antes: Li e aceito os Termos e Condições Gerais de Uso do BlueJus e a
+        declaracao_com_politica_link: Política de privacidade
+        baixar_pdf: Baixar em PDF
+        politica: Política de Privacidade
+        sair: Sair
+        aceitar: Aceitar e continuar
+
 # ---- fim

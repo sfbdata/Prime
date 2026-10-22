@@ -922,5 +922,30 @@
             "text-bg-danger",
             "text-bg-secondary"
         ]
+    },
+
+    "recurso": {
+        "templates": [
+            "recurso/_layout_simples.html.twig",
+            "recurso/em_preparacao.html.twig"
+        ],
+        "permitidos": [
+            "BlueJus | BlueJus"
+        ]
+    },
+    "legal": {
+        "templates": [
+            "legal/politica_privacidade.html.twig",
+            "legal/politica_privacidade_pdf.html.twig"
+        ],
+        "permitidos": []
+    },
+    "termo": {
+        "templates": [
+            "termo/aceite.html.twig"
+        ],
+        "permitidos": [
+            "BlueJus"
+        ]
     }
 }
