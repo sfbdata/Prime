@@ -6,6 +6,7 @@ namespace App\Tests\Pasta\Unit;
 
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote L9 da aba Documentos: duplicados e limpeza na tela (DOC-62..66; desenho 02 - EXPEDIENTES
@@ -20,6 +21,13 @@ final class PastaExploradorLimpezaTest extends TestCase
     private const JS   = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const CSS  = __DIR__ . '/../../../public/css/pasta-explorador.css';
     private const TWIG = __DIR__ . '/../../../templates/pasta/_documentos_explorador.html.twig';
+    private const CATALOGO = __DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml';
+
+    /** @return array<string, mixed> o bloco `pasta_documentos.explorador` do catálogo */
+    private function catalogo(): array
+    {
+        return Yaml::parseFile(self::CATALOGO)['pasta_documentos']['explorador'];
+    }
 
     private function js(): string
     {
@@ -67,9 +75,16 @@ final class PastaExploradorLimpezaTest extends TestCase
         self::assertNotFalse($ini);
         $faixa = substr($twig, $ini, strpos($twig, '{# A lista é o alvo do teclado', $ini) - $ini);
 
-        self::assertStringContainsString('Sugestões de limpeza (por regras)', $faixa);
-        self::assertStringContainsString('aria-label="Sugestões de limpeza por regras"', $faixa);
-        self::assertStringContainsString('Não é inteligência artificial.', $faixa, 'o título explica que são regras');
+        self::assertStringContainsString("{{ 'pasta_documentos.explorador.limpeza.titulo'|trans }}", $faixa);
+        self::assertStringContainsString("aria-label=\"{{ 'pasta_documentos.explorador.limpeza.regiao'|trans }}\"", $faixa);
+        self::assertStringContainsString("title=\"{{ 'pasta_documentos.explorador.limpeza.dica'|trans }}\"", $faixa);
+        $limpeza = $this->catalogo()['limpeza'];
+        self::assertSame('Sugestões de limpeza (por regras)', $limpeza['titulo']);
+        self::assertSame('Sugestões de limpeza por regras', $limpeza['regiao']);
+        self::assertStringEndsWith('Não é inteligência artificial.', $limpeza['dica'], 'o título explica que são regras');
+        foreach ($limpeza as $texto) {
+            self::assertDoesNotMatchRegularExpression('/\bI\.?A\b/u', $texto);
+        }
         self::assertStringNotContainsString('bi-stars', $faixa);
         self::assertStringNotContainsString('✦', $faixa);
         self::assertDoesNotMatchRegularExpression('/\bI\.?A\b/u', $faixa);
@@ -143,7 +158,8 @@ final class PastaExploradorLimpezaTest extends TestCase
     #[TestDox('DOC-102/103: nota, confirmação e aviso da limpeza com o texto do desenho (dc L2235/L4952), sem prazo de lixeira; os demais Excluir seguem com o confirm e o toast genéricos')]
     public function testTextosDaLimpezaDoDesenho(): void
     {
-        self::assertStringContainsString('<span class="pex-limpeza-nota">Nada é excluído sem você confirmar. A exclusão pode ser desfeita.</span>', $this->twig());
+        self::assertStringContainsString("<span class=\"pex-limpeza-nota\">{{ 'pasta_documentos.explorador.limpeza.nota'|trans }}</span>", $this->twig());
+        self::assertSame('Nada é excluído sem você confirmar. A exclusão pode ser desfeita.', $this->catalogo()['limpeza']['nota']);
 
         $l9 = $this->secaoDoL9();
         self::assertStringContainsString("confirmacao: 'Excluir ' + itens.length + ' arquivo(s) sugerido(s)? Você pode desfazer logo em seguida.',", $l9);
@@ -220,8 +236,10 @@ final class PastaExploradorLimpezaTest extends TestCase
         self::assertNotFalse($faix);
         self::assertNotFalse($lis);
         self::assertTrue($cab < $faix && $faix < $lis);
-        self::assertStringContainsString('id="pexLimpezaRevisar" aria-expanded="false" aria-controls="pexLimpezaLista">Revisar</button>', $twig);
-        self::assertStringContainsString('aria-label="Dispensar sugestão"', $twig);
+        self::assertStringContainsString("id=\"pexLimpezaRevisar\" aria-expanded=\"false\" aria-controls=\"pexLimpezaLista\">{{ 'pasta_documentos.explorador.limpeza.revisar'|trans }}</button>", $twig);
+        self::assertStringContainsString("aria-label=\"{{ 'pasta_documentos.explorador.limpeza.dispensar'|trans }}\"", $twig);
+        self::assertSame('Revisar', $this->catalogo()['limpeza']['revisar']);
+        self::assertSame('Dispensar sugestão', $this->catalogo()['limpeza']['dispensar']);
         self::assertStringContainsString('<div class="pex-limpeza-lista" id="pexLimpezaLista" hidden>', $twig);
     }
 

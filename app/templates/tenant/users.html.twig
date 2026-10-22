@@ -1,11 +1,11 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Colaboradores{% endblock %}
+{% block title %}{{ 'escritorio.usuarios.titulo_pagina'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0">Colaboradores - {{ tenant.name }}</h1>
+        <h1 class="m-0">{{ 'escritorio.usuarios.titulo'|trans({nome: tenant.name}) }}</h1>
         <div class="d-flex gap-2">
             <button type="button"
                     class="btn btn-outline-secondary"
@@ -13,10 +13,10 @@
                     data-bs-target="#modalJornadaTenant"
                     data-tenant-id="{{ tenant.id }}"
                     data-jornada-url="{{ path('app_jornada_tenant_get', {id: tenant.id}) }}">
-                <i class="bi bi-clock-history me-1"></i> Configurar Jornada
+                <i class="bi bi-clock-history me-1"></i> {{ 'escritorio.usuarios.jornada'|trans }}
             </button>
             <a href="{{ path('app_tenant_show', {tenantId: tenant.id}) }}" class="btn btn-secondary">
-                <i class="bi bi-arrow-left me-1"></i> Voltar
+                <i class="bi bi-arrow-left me-1"></i> {{ 'escritorio.usuarios.voltar'|trans }}
             </a>
         </div>
     </div>
@@ -29,13 +29,13 @@
                 <table class="table table-hover mb-0" id="tabelaUsuarios">
                     <thead class="table-light">
                         <tr>
-                            <th class="sortable ps-3" data-col="0" style="width:80px"><i class="bi bi-hash me-1"></i>Código <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable" data-col="1"><i class="bi bi-person me-1"></i>Nome <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable" data-col="2"><i class="bi bi-envelope me-1"></i>Email <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable" data-col="3"><i class="bi bi-shield-check me-1"></i>Perfil <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th><i class="bi bi-key me-1"></i>Acessos específicos</th>
-                            <th class="sortable" data-col="5"><i class="bi bi-calendar-plus me-1"></i>Criado em <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th><i class="bi bi-gear me-1"></i>Ações</th>
+                            <th class="sortable ps-3" data-col="0" style="width:80px"><i class="bi bi-hash me-1"></i>{{ 'escritorio.usuarios.codigo'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="1"><i class="bi bi-person me-1"></i>{{ 'escritorio.usuarios.nome'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="2"><i class="bi bi-envelope me-1"></i>{{ 'escritorio.usuarios.email'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="3"><i class="bi bi-shield-check me-1"></i>{{ 'escritorio.usuarios.perfil'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th><i class="bi bi-key me-1"></i>{{ 'escritorio.usuarios.acessos'|trans }}</th>
+                            <th class="sortable" data-col="5"><i class="bi bi-calendar-plus me-1"></i>{{ 'escritorio.usuarios.criado_em'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th><i class="bi bi-gear me-1"></i>{{ 'escritorio.usuarios.acoes'|trans }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -43,19 +43,19 @@
                             {% set ut = userTenantByUserId[user.id] ?? null %}
                             {% set userAccesses = accessByUser[user.id] ?? [] %}
                             <tr>
-                                <td class="align-middle ps-3 text-muted fw-semibold" style="font-size:.82rem;">{{ ut ? ut.codigoFuncionario ?? 'Não informado' : 'Não informado' }}</td>
+                                <td class="align-middle ps-3 text-muted fw-semibold" style="font-size:.82rem;">{{ ut ? ut.codigoFuncionario ?? 'escritorio.usuarios.nao_informado'|trans : 'escritorio.usuarios.nao_informado'|trans }}</td>
                                 <td class="align-middle">{{ user.fullName }}</td>
                                 <td class="align-middle">{{ user.email }}</td>
                                 <td class="align-middle">
                                     {% if ut and ut.tenantRole %}
                                         <span class="badge text-bg-secondary">{{ ut.tenantRole.nomeExibido }}</span>
                                     {% else %}
-                                        <span class="text-muted">Não informado</span>
+                                        <span class="text-muted">{{ 'escritorio.usuarios.nao_informado'|trans }}</span>
                                     {% endif %}
                                 </td>
                                 <td class="align-middle">
                                     {% if userAccesses is empty %}
-                                        <span class="text-muted small">Nenhum</span>
+                                        <span class="text-muted small">{{ 'escritorio.usuarios.nenhum'|trans }}</span>
                                     {% else %}
                                         <button
                                             class="btn btn-sm btn-outline-secondary"
@@ -64,7 +64,7 @@
                                             data-bs-target="#accesses-{{ user.id }}"
                                             aria-expanded="false">
                                             <i class="bi bi-unlock me-1"></i>
-                                            {{ userAccesses|length }} item{{ userAccesses|length > 1 ? 's' : '' }}
+                                            {{ 'escritorio.usuarios.itens'|trans({n: userAccesses|length, qtd: userAccesses|length ~ ''}) }}
                                         </button>
                                         <div class="collapse mt-2" id="accesses-{{ user.id }}">
                                             <ul class="list-unstyled mb-0 small">
@@ -75,17 +75,17 @@
                                                         <span>{{ label }}</span>
                                                         <span class="ms-1">
                                                             {% if ra.canView %}
-                                                                <span class="badge text-bg-info" title="Visualizar">Ver</span>
+                                                                <span class="badge text-bg-info" title="{{ 'escritorio.usuarios.ver_dica'|trans }}">{{ 'escritorio.usuarios.ver'|trans }}</span>
                                                             {% endif %}
                                                             {% if ra.canEdit %}
-                                                                <span class="badge text-bg-warning text-dark" title="Editar">Editar</span>
+                                                                <span class="badge text-bg-warning text-dark" title="{{ 'escritorio.usuarios.editar'|trans }}">{{ 'escritorio.usuarios.editar'|trans }}</span>
                                                             {% endif %}
                                                             {% if ra.canDelete %}
-                                                                <span class="badge text-bg-danger" title="Excluir">Excluir</span>
+                                                                <span class="badge text-bg-danger" title="{{ 'escritorio.usuarios.excluir'|trans }}">{{ 'escritorio.usuarios.excluir'|trans }}</span>
                                                             {% endif %}
                                                         </span>
                                                         {% if ra.grantedBy %}
-                                                            <span class="text-muted" title="Concedido por">
+                                                            <span class="text-muted" title="{{ 'escritorio.usuarios.concedido_por'|trans }}">
                                                                 <i class="bi bi-person-check"></i> {{ ra.grantedBy.fullName }}
                                                             </span>
                                                         {% endif %}
@@ -95,19 +95,19 @@
                                         </div>
                                     {% endif %}
                                 </td>
-                                <td class="align-middle text-muted" style="font-size:.82rem;">{{ user.createdAt|date('d/m/Y H:i') }}</td>
+                                <td class="align-middle text-muted" style="font-size:.82rem;">{{ user.createdAt|data_hora }}</td>
                                 <td class="align-middle">
                                     <a href="{{ path('app_tenant_user_edit_role', {tenantId: tenant.id, id: user.id}) }}"
                                        class="btn btn-sm btn-outline-primary"
-                                       title="Editar roles do usuário"
-                                       aria-label="Editar roles do usuário">
-                                        <i class="bi bi-pencil me-1"></i> Editar
+                                       title="{{ 'escritorio.usuarios.editar_dica'|trans }}"
+                                       aria-label="{{ 'escritorio.usuarios.editar_dica'|trans }}">
+                                        <i class="bi bi-pencil me-1"></i> {{ 'escritorio.usuarios.editar'|trans }}
                                     </a>
                                 </td>
                             </tr>
                         {% else %}
                             <tr>
-                                <td colspan="8" class="text-center">Nenhum colaborador encontrado.</td>
+                                <td colspan="8" class="text-center">{{ 'escritorio.usuarios.vazio'|trans }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>

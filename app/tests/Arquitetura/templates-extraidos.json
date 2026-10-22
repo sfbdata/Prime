@@ -567,7 +567,9 @@
             "tenant/_form.html.twig",
             "tenant/_delete_form.html.twig",
             "tenant/selecionar.html.twig",
-            "tenant/escritorio_indisponivel.html.twig"
+            "tenant/escritorio_indisponivel.html.twig",
+            "tenant/users.html.twig",
+            "tenant/edit_user_role.html.twig"
         ],
         "js": [],
         "permitidos": [
@@ -756,6 +758,27 @@
         ]
     },
 
+    "emails": {
+        "templates": [
+            "email/cadastro_confirmacao.html.twig",
+            "email/codigo_exclusao_conta.html.twig",
+            "email/codigo_senha.html.twig",
+            "email/convite_escritorio.html.twig",
+            "email/convite_plataforma.html.twig",
+            "email/indicacao/convite.html.twig",
+            "email/perfil/resumo_diario.html.twig",
+            "email/push_aviso_equipe.html.twig",
+            "email/push_cliente.html.twig",
+            "email/redefinicao_senha.html.twig",
+            "email/trabalho_externo_convite.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "BlueJus",
+            "App\\\\Pasta\\\\DTO\\\\MovimentacaoDoAvisoOutput::TEXTO_SIGILOSA"
+        ]
+    },
+
     "trabalho_externo": {
         "templates": [
             "trabalho_externo/convite.html.twig",
@@ -844,6 +867,63 @@
             "End"
         ]
     },
+
+    "pasta_documentos": {
+        "templates": [
+            "pasta/_dados_anotacoes.html.twig",
+            "pasta/_documentos_checklist.html.twig",
+            "pasta/_documentos_explorador.html.twig",
+            "pasta/_documentos_sugeridos.html.twig",
+            "pasta/_metas.html.twig"
+        ],
+        "js": [
+            "pasta-documentos-sugeridos.js",
+            "pasta-explorador-visor.js"
+        ],
+        "permitidos": [
+            "App\\\\Pasta\\\\Entity\\\\MotivoDesativacaoChecklist",
+            "App\\\\Tarefa\\\\UseCase\\\\RenomearMetaUseCase::TAMANHO_MAXIMO",
+            "Escape",
+            "Tab",
+            "ArrowLeft",
+            "ArrowRight"
+        ]
+    },
+
+    "pasta_detalhes": {
+        "templates": [
+            "pasta/_detalhes_obs.html.twig"
+        ],
+        "js": [
+            "pasta-ler-mais.js"
+        ],
+        "permitidos": []
+    },
+
+    "avulsas": {
+        "templates": [
+            "notificacao/index.html.twig",
+            "novidades/index.html.twig",
+            "access_request/index.html.twig",
+            "audit/index.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "| BlueJus",
+            "= pag.total_pages ? 'disabled' : '' }}\">",
+            "= pagination.total_pages ? 'disabled' : '' }}\">",
+            "view",
+            "edit",
+            "delete",
+            "true",
+            "false",
+            "text-bg-success",
+            "text-bg-primary",
+            "text-bg-danger",
+            "text-bg-secondary"
+        ]
+    },
+
     "recurso": {
         "templates": [
             "recurso/_layout_simples.html.twig",

@@ -777,6 +777,42 @@ antes e depois, sem diferença; o texto dos scripts foi conferido chave por chav
   status); a chave existe e a troca é a mesma das outras três. O `pasta/peticionar.html.twig` (o conteúdo do Peticionar) e os outros templates que
   incluem estes quatro ficam para a extração das áreas deles.
 
+### 24.3 Telas avulsas: notificações, novidades, pedidos de acesso e auditoria (7d, 21/10)
+
+- **Escopo:** `notificacao/index` (Central de notificações, com o script inline da seleção, do marcar como lida e da
+  exclusão), `novidades/index` (só a moldura: o texto das versões vem do `config/novidades.yaml`, é dado e não passa
+  pelo catálogo), `access_request/index` (Solicitações de Acesso Pendentes, com o modal de aprovação) e `audit/index`
+  (Trilha de Auditoria, com o script inline do select2). Nenhuma das quatro carrega JS próprio em arquivo. Blocos
+  `notificacao` (22 chaves, 3 em `notificacao.js.*`), `novidades` (4), `access_request` (19) e `auditoria` (39, 1 em
+  `auditoria.js.*`), 84 ao todo, antes do `# ---- termos` (não havia bloco de auditoria no catálogo). "Excluir" e
+  "Cancelar" reaproveitam `comum.excluir` e `comum.cancelar`. Área `avulsas` no `templates-extraidos.json`.
+- **Scripts inline:** cada tela entrega `{{ catalogo_js('<bloco>.js') }}` logo antes do `<script>`; o texto só é lido em
+  evento ou no `ready`. O "Lida" que troca a coluna depois de marcar como lida deixou o `innerHTML` e é montado com
+  `createElement`/`textContent` (o tempo relativo entra por `textContent`).
+- **Auditoria:** as frases dos eventos de associação têm a referência da entidade (macro `entityRef`, rótulo ou
+  "Classe #id") no template, em volta dos pedaços `auditoria.evento.*` (`foi removido de {campo} de`...): passar a saída
+  da macro como parâmetro do `|trans` escaparia o rótulo duas vezes. O "Entidade" de reserva da macro virou chave.
+- **Sem mudança visível:** o HTML de 12 respostas (notificações vazia, só pessoais com lida e não lida, com as abas
+  Minhas e Gestão, a aba Gestão aberta e a página 2; Novidades; pedidos de acesso vazio e com três pendentes, nome com
+  apóstrofo e aspas, descrição longa, curta e vazia, mais dois decididos que não aparecem; auditoria vazia por filtro,
+  cheia com update, create, delete, sem diff, ação desconhecida, eventos de associação, rota e IP, filtrada por
+  entidade, usuário e data, e a página 2 com 61 registros) foi comparado antes e depois com tokens e ids normalizados.
+  Sobraram só as linhas de JS que agora leem o catálogo, a montagem do "Lida" acima e os `confirm()` dos `onsubmit`
+  (Negar o acesso e Desfazer), agora `|trans|e('js')`: o mesmo texto, escapado para JS. No Negar isso conserta de
+  passagem um defeito: o nome do solicitante entrava só com escape de HTML e um apóstrofo no nome quebrava o JS do
+  `confirm` (o formulário seguia sem perguntar); agora o nome entra por `{nome}` e escapado.
+- **Formatos:** a data da versão nas Novidades (`|date('d/m/Y')`) virou `|data` e o "Solicitado em" (`|date('d/m/Y
+  H:i')`), `|data_hora` (os dois sempre têm valor). Ficou o `|date('d/m/Y H:i:s')` da Data/Hora da auditoria: não há
+  filtro com segundos.
+- **Guarda:** nos permitidos ficaram o "| BlueJus" do título das Novidades, os pedaços das expressões de paginação que
+  o detector lê como texto, os códigos de ação `view`/`edit`/`delete` dos selos do modal, o `true`/`false` com que a
+  auditoria mostra valores booleanos e as classes `text-bg-*` da macro do selo de ação.
+- **Ficou para depois:** o texto que vem do PHP: o título, a mensagem e o tempo relativo da notificação
+  (`Notificacao::getTempoRelativo`), `data.error` da exclusão, os flashes do `AccessRequestController` e do desfazer da
+  auditoria, as mensagens dos 403; o tipo de recurso e a ação do pedido (`req.resourceType`, `req.action`) e a ação da
+  auditoria (`log.action|upper`), que saem como o código gravado; os rótulos das opções de entidade e usuário dos
+  filtros (montados no `AuditLogController`); e o `|date` com segundos.
+
 ## 20. O resto da Pasta (0d, 21/10)
 
 ### 20.1 Avisos, cadeado e telas simples
@@ -886,6 +922,70 @@ antes e depois, sem diferença; o texto dos scripts foi conferido chave por chav
   `d/m/Y, H:i:s` do "Impresso em" (não há filtro de dia e mês nem de hora com segundos); o `lang="pt-BR"` fixo da folha
   e do `srcdoc` do iframe de impressão; o `documento_br_rotulo`.
 
+### 20.4 Documentos, metas e anotações
+
+- **Escopo:** os parciais `pasta/_documentos_checklist`, `_documentos_explorador`, `_documentos_sugeridos`, `_metas` e
+  `_dados_anotacoes`, e os JS `pasta-explorador-visor.js` e `pasta-documentos-sugeridos.js`. Bloco de topo
+  `pasta_documentos` do catálogo, 314 chaves, em sub-blocos por arquivo (`sugeridos` 50, `explorador` 97, `checklist`
+  43, `metas` 72, `anotacoes` 37, mais o `fechar` comum) e `pasta_documentos.js.*` (14) para os dois JS.
+- **Catálogo do JS:** os dois scripts nascem dentro do próprio lote (`defer`, no `_documentos_explorador` e no
+  `_documentos_sugeridos`, que só é incluído pelo explorador). O `catalogo_js('pasta_documentos.js')` mora no
+  `_documentos_explorador`, logo antes do visor e fora de condição dentro dele; o show não foi tocado.
+- **Sem mudança visível:** o HTML da pasta vazia (checklist, metas e registro vazios, sem catálogo de documentos), da
+  pasta cheia (checklist com itens marcados e pendentes, explorador com seção e arquivos, sugestões pelo catálogo,
+  metas atrasada, aberta, em revisão e concluídas no prazo e com atraso, sete registros com "ver anteriores"), das
+  sugestões com um documento já existente e do checklist completo saiu igual. Mudaram só tokens CSRF, quebras de linha
+  (frases que ocupavam várias linhas viraram uma) e o `<script data-bj-t>`; na foto cheia, a ordem de dois arquivos com o
+  mesmo horário no trilho da aba Dados (fora deste lote) variou entre as rodadas. O texto dos dois JS foi conferido trocando
+  cada `BJ_T.t` pelo texto do catálogo. Não foram renderizados, e foram conferidos lendo: o painel com leitura do Push
+  (confiança média, exigido pelo juízo, prazos em curso, origem e as notas "lido"), o conflito de número de processo,
+  os duplicados, o checklist desativado e a confirmação com um pendente só, a pasta excluída (nota de só leitura do
+  registro, metas e checklist sem escrita), a resposta, o "editado", o sino de alertar e a meta com um dia de atraso.
+- **Formatos:** com guarda de nulo, `checklistDesativadoEm`, o `data-meta-prazo`, a conclusão e a última alteração da
+  meta passaram a `|data`, e a edição do registro a `|data` e `|hora`. Ficaram com `|date` os que não têm guarda
+  explícita (prazo da meta nos títulos e no "vence", a data da coluna da meta, a hora e o dia do registro).
+- **Escolhas:** singular e plural viraram duas chaves pelo mesmo teste de antes (publicações lidas, pares parecidos,
+  documentos pendentes, dias em atraso, minutos da edição, a legenda do andamento e a "atenção" das metas); o
+  "Adicionar N faltante(s)" continua com "(s)", como no §8. O "Nenhum item. Clique em [+] para adicionar." ficou uma
+  chave por pedaço, em volta do ícone. Os rótulos dos grupos de sugestão, dos filtros e modos do explorador, dos filtros
+  e status das metas e os meses da pílula do registro viraram chaves nos arrays do Twig, traduzidas no uso. Ficaram nos
+  permitidos o enum `MotivoDesativacaoChecklist`, a constante `RenomearMetaUseCase::TAMANHO_MAXIMO` e as teclas do visor.
+- **Ficou de fora:** o texto do PHP (o `rotulo` do `MotivoDesativacaoChecklist`; selo e dica de `cobrancas_do_checklist`;
+  fase, base, nomes, porquê, origem, prazos, conflito e pastas sugeridas de `documentos_sugeridos`; o `#pexDados` do
+  `ExploradorDeDocumentosOutput`; `prazoConcluida`, a atenção e o relatório da meta do `PastaMetasResumoOutput`; o
+  título do alerta de `metas_ultimos_alertas`; o `registro_texto`); os JS `pasta-explorador.js`, `pasta-checklist.js` e
+  `pasta-metas.js` (o show os carrega sem `defer`, e nenhum parcial do lote é incluído sempre: os três ficam sob
+  `abasOcultas`); `pasta-mencoes.js` e `editor-rico.js`, usados também fora da Pasta; e o `lang="pt-BR"` e o
+  `toLocaleString('pt-BR')` da impressão do visor.
+
+### 20.6 Detalhes (4b, 21/10)
+
+- **Escopo:** `pasta/_detalhes_obs.html.twig` (o painel "Relatório inicial de Atendimento", o macro `observacao` e o
+  script inline que monta o cartão novo, a caixa de resposta, a edição, o ⋮ e a exclusão) e o `pasta-ler-mais.js`, que
+  só este parcial carrega. Bloco de topo `pasta_detalhes` do catálogo, 88 chaves: 11 na raiz, `cartao` 13, `menu` 11 e
+  `pasta_detalhes.js.*` (53) para o script inline e o `pasta-ler-mais.js`.
+- **Catálogo do JS:** o `catalogo_js('pasta_detalhes.js')` mora no próprio `_detalhes_obs`, antes dos `<script>` dele; o
+  show não foi tocado. O script inline roda antes do `bj-traducao.js` (fim do corpo), então só pede texto na hora do
+  uso: a constante `ROTULO_ORFA` virou a função `rotuloOrfa()`. O `pasta-ler-mais.js` é `defer` e roda depois do
+  `bj-traducao.js`. O cartão montado no JS passa o texto do catálogo por `esc()`, como o do Financeiro.
+- **Sem mudança visível:** o HTML da aba foi comparado antes e depois em seis casos (vazia e cheia, para quem edita,
+  quem só vê e na lápide; a cheia com raiz, resposta de outro dia, órfã, observação editada, de outro autor, sem nome,
+  com 1 minuto de janela e com nome e texto com apóstrofo, aspas, `&` e `<b>`), sem diferença além de tokens CSRF e do
+  `<script data-bj-t>`. O script inline foi rodado num DOM falso, antes e depois, montando o cartão (raiz, resposta,
+  órfã, sem autor, com e sem o encaminhar), a caixa de resposta, a edição, a dica do "editado", a janela do ⋮, a
+  confirmação de exclusão, os avisos de copiar e do Chat I.A e os erros de envio, edição e exclusão: mesma saída. O
+  rótulo do "continuar lendo" deu o mesmo texto para 1, 2 e 7 parágrafos.
+- **Formatos:** a hora do cartão e a dica do "editado" passaram a `|hora` e `|data`. Ficaram fixos o `title` da hora
+  (`d/m/Y H:i`, que o JS lê para comparar o dia da resposta), o `d/m` da resposta de outro dia, o `d/m/Y, H:i` do
+  cabeçalho do ⋮ e do `data-quando` da impressão, e a pílula do dia com os meses abreviados (`meses` no Twig e `MESES`
+  no JS), como no Financeiro (§17).
+- **Escolhas:** "Editável por mais N minuto(s)" virou duas chaves (`editavel_um`, `editavel_varios`) pelo mesmo `== 1`
+  de antes, no Twig e no JS; o mesmo no "continuar lendo (N parágrafo/parágrafos)". Os motivos do bloqueio
+  (`motivo_prazo`, `motivo_autor`) seguem com o "15 minutos" no texto, como antes. Sem permitidos na guarda.
+- **Ficou para depois:** o `editor-rico.js` (carregado também pelo Financeiro, pelos Dados da pasta, pelo objeto da
+  Cobrança e pela tarefa); as mensagens `erro` que o `PastaController` devolve no JSON das rotas de observação; e os
+  comentários do arquivo, que não vão à tela.
+
 ## 25. E-mails e as páginas que eles abrem (5d, 21/10)
 
 Três PRs, um aberto por vez, sem migration e com o português idêntico:
@@ -904,6 +1004,21 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
 - **Para decidir:** `invitation/index.html.twig` não é renderizado por nenhum controller e parece morto.
 - **Prova:** 12 renderizações antes e depois, cobrindo os ramos, saíram iguais. A janela só ganhou o bloco do catálogo
   JS.
+
+### 25.B Os e-mails do sistema (5d, 22/10)
+- **Escopo:** os 11 templates de `email/` fora de `email/comercial/`, no bloco `emails:` (85 chaves,
+  `emails.<template>.*`). A frase com marcação no meio foi partida, e a pontuação entre as tags ficou no template.
+- **Formatos:** `|date('d/m/Y')` virou `|data` (em `convite_escritorio`, `convite_plataforma`,
+  `trabalho_externo_convite` e `resumo_diario`), e `d/m/Y H:i` virou `{data} às {hora}`. O fuso é o mesmo. As
+  contagens entram no ICU como texto, sem separador de milhar.
+- **Fora de requisição:** worker e comandos saem em pt_BR pelo `default_locale`. A prova rodou sem requisição.
+- **Ficam no PHP:** os assuntos dos mailers (`RedefinicaoSenhaMailer`, `ConviteMailer`, `CadastroMailer`,
+  `CodigoDeExclusaoMailer`, `TrabalhoExternoMailer`, `AvisoDoPushMailer`, `EnvioDeEmailAoClientePeloMailer`,
+  `IndicarPorEmailUseCase` e `EnviarResumoDiarioDoEscritorioUseCase`) e o `MovimentacaoDoAvisoOutput::TEXTO_SIGILOSA`.
+- **Entrega E (idioma do destinatário):** os convites de escritório, de plataforma, do Trabalho Externo e da
+  Indicação, o push ao cliente e o aviso do Push à equipe. Hoje saem no locale de quem dispara, e sem requisição, em
+  pt_BR.
+- **Prova:** 17 renderizações, com `&`, aspas, apóstrofo, acento e `<b>` nos valores, saíram iguais byte a byte.
 
 ## 26. Extração do Trabalho Externo, Central e ServiceDesk (a7, 21/10)
 
@@ -991,6 +1106,41 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   `PedidoDeExclusaoRecusado` na exclusão (outros domínios, como na P2b); as mensagens das 403 (página de erro padrão);
   o `|date` com segundos da tela Ver; o `lang="pt-BR"` fixo do `escritorio_indisponivel` (página solta, sem o base);
   e a ação `sair` do `EscritorioController` (não é tela do T1).
+- **T2 usuários** (branch `idioma-tenant-2`, sobre o T1): `tenant/users` e `tenant/edit_user_role`, dentro do mesmo
+  bloco `escritorio:`, com `escritorio.usuarios.*` (21 chaves), `escritorio.editar_usuario.*` (49, com as 5 de
+  `recusa.*`) e 6 flashes novos em `escritorio.flash.*`. "Remover do escritório" recebe `termos.escritorio` por
+  parâmetro; a contagem de acessos específicos é um plural ICU (`{n, plural, one {# item} other {# items}}`), com o
+  "items" de hoje. O aviso da remoção ("Ao remover <strong>nome</strong>, ela perde...") é o mesmo molde do T1, em duas
+  chaves em volta do `<strong>`. A lista usa `|data_hora` no `createdAt` (coluna não nula, preenchida no construtor).
+- **Texto do PHP (T2):** no `TenantController` (edição cirúrgica, nenhuma condição mexida), os flashes de salvar o
+  colaborador, do nome (token inválido, vazio, atualizado), de remover o colaborador (com `{nome}`) e de remover acesso
+  específico vão pelo tradutor. As recusas do edit-role e da remoção passam por um `traduzirRecusa()`: a constante
+  continua o português (o que as regras devolvem e os testes comparam, inclusive C5 e C8) e a tela traduz pela
+  `CHAVE_DA_RECUSA` da `HierarquiaDePerfis` (do #231) ou da `RegraDosPrimarios`. Na `RegraDosPrimarios` as quatro
+  recusas que o edit-role diz (gerir primários, conta do Master, titular, último primário) viraram constantes `RECUSA_*`
+  (o texto é o mesmo, então os outros consumidores, Equipe, convites e o `RemoverColaboradorDoEscritorioUseCase`, não
+  mudam), mais a `RECUSA_SENHA_DE_PRIMARIO`, que era uma string só do controller. O `CatalogoDoEscritorioTest` amarra
+  constante e catálogo. A recusa que não tem chave sai como veio.
+- **Sem mudança visível (T2):** um teste temporário (apagado antes do commit) gravou o HTML de 29 casos com o código da
+  HEAD e com o novo, normalizando tokens, nonces, e-mails e números (as datas foram conferidas à parte, sem
+  normalizar): a lista como primário e como secundário com `admin.users.manage` (com acessos específicos de 1 e 2
+  itens), o edit-role de uma secundária, do titular e do sócio pelo titular, do sócio, de quem está acima e de quem usa
+  outro escritório pelo secundário; as recusas do titular rebaixado, C8 (pelo titular e pelo secundário), C5 (alvo
+  acima, com e sem senha), próprio perfil, perfil acima do seu, primário forjado, senha de primário, conta do Master
+  (perfil e senha); os flashes de salvar, da recusa C5 na remoção, de remover, de remover a si mesmo e de remover o
+  Master, de nome (token, vazio, ok) e de acesso removido. Os 29 ficaram iguais byte a byte, menos o aviso do modal de
+  remoção, que era um parágrafo quebrado em três linhas e virou uma linha só: iguais com o espaço colapsado.
+- **JS inline com texto (fica como está):** no `users`, o `localeCompare(..., 'pt-BR')` da ordenação da tabela; no
+  `edit_user_role`, o `<script>` das abas não tem texto, e o `confirm('Remover este acesso específico?')` do `onsubmit`
+  fica fixo (como o do `_delete_form` no T1).
+- **Ficou fora do T2:** os rótulos e as mensagens do `EditUserTenantRoleType` e do `DadosPessoaisType` (como na P1),
+  incluindo o "Selecione um perfil" e a ajuda da Controladoria; as parciais das abas (`_jornada_colaborador_tab`,
+  `_home_office_tab`, `_justificativas_tab`, `_horas_pagas_tab`, `_modal_jornada_tenant`, do T3, e
+  `ponto/_folha_table`); os flashes das ações de ponto e de justificativas que voltam ao edit-role (T3, risco ALTO); o
+  flash dos dados pessoais (`TenantUserProfileController`, fora do `TenantController`); as recusas próprias do
+  `RemoverColaboradorDoEscritorioUseCase` ("Para deixar o escritório...", criador, último administrador, substituto),
+  que precisam de chave na exceção; a recusa do convite de primário da `RegraDosPrimarios` (não é dita nestas telas);
+  as mensagens das 403 e 404; o `resourceType` cru (`cliente`, `pasta`) do selo dos acessos específicos, que é dado.
 
 ## 26b. Extração de recurso, legal e termo (a7, 22/10)
 
