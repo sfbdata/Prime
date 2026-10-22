@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Convite de Escritório{% endblock %}
+{% block title %}{{ 'auth.convite.ver_logado.titulo'|trans }}{% endblock %}
 
 {% block head_meta %}<meta name="referrer" content="no-referrer">{% endblock %}
 
@@ -9,17 +9,17 @@
     <div class="col-12 col-md-8 col-lg-6">
         <div class="card shadow-sm">
             <div class="card-body p-4">
-                <h2 class="card-title mb-3">Convite de escritório</h2>
+                <h2 class="card-title mb-3">{{ 'auth.convite.ver_logado.cabecalho'|trans }}</h2>
 
                 {% if convite.tenantNome %}
-                    <p class="fs-5">Você foi convidado para colaborar em <strong>{{ convite.tenantNome }}</strong>.</p>
+                    <p class="fs-5">{{ 'auth.convite.ver_logado.colaborar_em'|trans }} <strong>{{ convite.tenantNome }}</strong>.</p>
                 {% endif %}
 
                 {% if convite.criadorNome %}
-                    <p class="text-muted">Convidado por: {{ convite.criadorNome }}</p>
+                    <p class="text-muted">{{ 'auth.convite.ver_logado.convidado_por'|trans({nome: convite.criadorNome}) }}</p>
                 {% endif %}
 
-                <p class="text-muted small">Expira em {{ convite.expiresAt|date('d/m/Y') }}</p>
+                <p class="text-muted small">{{ 'auth.convite.ver_logado.expira'|trans({data: convite.expiresAt|data}) }}</p>
 
                 {% for label, messages in app.flashes %}
                     {% for message in messages %}
@@ -33,12 +33,12 @@
                     <form method="post" action="{{ path('auth_aceite_convite_aceitar', {token: convite.token}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('convite_' ~ convite.token) }}">
                         <button type="submit" class="btn btn-success">
-                            <i class="bi bi-check-lg me-1"></i> Aceitar convite
+                            <i class="bi bi-check-lg me-1"></i> {{ 'auth.convite.ver_logado.aceitar'|trans }}
                         </button>
                     </form>
                     <form method="post" action="{{ path('auth_aceite_convite_recusar', {token: convite.token}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('convite_' ~ convite.token) }}">
-                        <button type="submit" class="btn btn-outline-secondary">Recusar</button>
+                        <button type="submit" class="btn btn-outline-secondary">{{ 'auth.convite.ver_logado.recusar'|trans }}</button>
                     </form>
                 </div>
             </div>

@@ -1,10 +1,10 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Gerenciar Convites{% endblock %}
+{% block title %}{{ 'auth.gerenciar.titulo'|trans }}{% endblock %}
 
 {% block body %}
 <div class="container py-4">
-    <h1 class="h3 mb-4">Gerenciar Convites</h1>
+    <h1 class="h3 mb-4">{{ 'auth.gerenciar.titulo'|trans }}</h1>
 
     {% for type, messages in app.flashes %}
         {% for message in messages %}
@@ -23,30 +23,30 @@
     {% endif %}
 
     <div class="card mb-4">
-        <div class="card-header fw-semibold">Novo convite</div>
+        <div class="card-header fw-semibold">{{ 'auth.gerenciar.novo'|trans }}</div>
         <div class="card-body">
             <form method="post" action="{{ path('auth_gerenciar_convites_criar') }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('convite_novo') }}">
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <label class="form-label" for="email">E-mail <span class="text-danger">*</span></label>
+                        <label class="form-label" for="email">{{ 'auth.comum.email'|trans }} <span class="text-danger">*</span></label>
                         <input type="email" id="email" name="email" class="form-control" required maxlength="180">
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label" for="full_name">Nome (opcional)</label>
+                        <label class="form-label" for="full_name">{{ 'auth.gerenciar.nome_opcional'|trans }}</label>
                         <input type="text" id="full_name" name="full_name" class="form-control" maxlength="255">
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label" for="tenant_role_id">Perfil <span class="text-danger">*</span></label>
+                        <label class="form-label" for="tenant_role_id">{{ 'auth.gerenciar.perfil'|trans }} <span class="text-danger">*</span></label>
                         <select id="tenant_role_id" name="tenant_role_id" class="form-select" required>
-                            <option value="">Selecione...</option>
+                            <option value="">{{ 'auth.gerenciar.selecione'|trans }}</option>
                             {% for role in roles %}
                                 <option value="{{ role.id }}">{{ role.nomeExibido }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">Convidar</button>
+                        <button type="submit" class="btn btn-primary w-100">{{ 'auth.gerenciar.convidar'|trans }}</button>
                     </div>
                 </div>
             </form>
@@ -54,18 +54,18 @@
     </div>
 
     <div class="card">
-        <div class="card-header fw-semibold">Convites enviados</div>
+        <div class="card-header fw-semibold">{{ 'auth.gerenciar.enviados'|trans }}</div>
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th>E-mail</th>
-                        <th>Nome</th>
-                        <th>Perfil</th>
-                        <th>Status</th>
-                        <th>Enviado em</th>
-                        <th>Expira em</th>
-                        <th>Reenvios</th>
+                        <th>{{ 'auth.comum.email'|trans }}</th>
+                        <th>{{ 'auth.comum.nome'|trans }}</th>
+                        <th>{{ 'auth.gerenciar.perfil'|trans }}</th>
+                        <th>{{ 'auth.gerenciar.status'|trans }}</th>
+                        <th>{{ 'auth.gerenciar.enviado_em'|trans }}</th>
+                        <th>{{ 'auth.comum.expira_em'|trans }}</th>
+                        <th>{{ 'auth.gerenciar.reenvios'|trans }}</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -73,25 +73,25 @@
                 {% for convite in convites %}
                     <tr>
                         <td>{{ convite.email }}</td>
-                        <td>{{ convite.nomeConvidado ?? 'sem informação' }}</td>
-                        <td>{{ convite.roleName ?? 'sem informação' }}</td>
+                        <td>{{ convite.nomeConvidado ?? 'auth.gerenciar.sem_informacao'|trans }}</td>
+                        <td>{{ convite.roleName ?? 'auth.gerenciar.sem_informacao'|trans }}</td>
                         <td>
                             {% if convite.status == 'pending' %}
-                                <span class="badge bg-warning text-dark">Pendente</span>
+                                <span class="badge bg-warning text-dark">{{ 'auth.gerenciar.situacao.pendente'|trans }}</span>
                             {% elseif convite.status == 'accepted' %}
-                                <span class="badge bg-success">Aceito</span>
+                                <span class="badge bg-success">{{ 'auth.gerenciar.situacao.aceito'|trans }}</span>
                             {% elseif convite.status == 'rejected' %}
-                                <span class="badge bg-danger">Recusado</span>
+                                <span class="badge bg-danger">{{ 'auth.gerenciar.situacao.recusado'|trans }}</span>
                             {% elseif convite.status == 'revoked' %}
-                                <span class="badge bg-secondary">Revogado</span>
+                                <span class="badge bg-secondary">{{ 'auth.gerenciar.situacao.revogado'|trans }}</span>
                             {% elseif convite.status == 'expired' %}
-                                <span class="badge bg-dark">Expirado</span>
+                                <span class="badge bg-dark">{{ 'auth.gerenciar.situacao.expirado'|trans }}</span>
                             {% else %}
                                 <span class="badge bg-body-tertiary text-dark">{{ convite.status }}</span>
                             {% endif %}
                         </td>
-                        <td>{{ convite.createdAt|date('d/m/Y H:i') }}</td>
-                        <td>{{ convite.expiresAt|date('d/m/Y') }}</td>
+                        <td>{{ convite.createdAt|data_hora }}</td>
+                        <td>{{ convite.expiresAt|data }}</td>
                         <td>{{ convite.reenvioCount }}/3</td>
                         <td class="text-end">
                             {% if convite.status == 'pending' %}
@@ -99,16 +99,16 @@
                                     <form method="post" action="{{ path('auth_gerenciar_convites_reenviar', {token: convite.token}) }}" class="d-inline">
                                         <input type="hidden" name="_token" value="{{ csrf_token('convite_reenviar_' ~ convite.token) }}">
                                         <button type="submit" class="btn btn-sm btn-outline-secondary me-1"
-                                                onclick="return confirm('Reenviar convite para {{ convite.email|e('html_attr') }}?')">
-                                            Reenviar
+                                                onclick="return confirm('{{ 'auth.gerenciar.confirmar_reenviar'|trans }} {{ convite.email|e('html_attr') }}?')">
+                                            {{ 'auth.gerenciar.reenviar'|trans }}
                                         </button>
                                     </form>
                                 {% endif %}
                                 <form method="post" action="{{ path('auth_gerenciar_convites_revogar', {token: convite.token}) }}" class="d-inline">
                                     <input type="hidden" name="_token" value="{{ csrf_token('convite_revogar_' ~ convite.token) }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger"
-                                            onclick="return confirm('Revogar convite de {{ convite.email|e('html_attr') }}?')">
-                                        Revogar
+                                            onclick="return confirm('{{ 'auth.gerenciar.confirmar_revogar'|trans }} {{ convite.email|e('html_attr') }}?')">
+                                        {{ 'auth.gerenciar.revogar'|trans }}
                                     </button>
                                 </form>
                             {% endif %}
@@ -116,7 +116,7 @@
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="8" class="text-center text-muted py-4">Nenhum convite enviado ainda.</td>
+                        <td colspan="8" class="text-center text-muted py-4">{{ 'auth.gerenciar.vazio'|trans }}</td>
                     </tr>
                 {% endfor %}
                 </tbody>
