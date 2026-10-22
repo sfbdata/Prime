@@ -181,7 +181,8 @@
             "tarefa/_meta_cartao.html.twig",
             "tarefa/_resultado.html.twig",
             "tarefa/equipe.html.twig",
-            "tarefa/_numero_global.html.twig"
+            "tarefa/_numero_global.html.twig",
+            "tarefa/show.html.twig"
         ],
         "js": [],
         "permitidos": []
@@ -556,6 +557,17 @@
         ]
     },
 
+    "kanban": {
+        "templates": [
+            "kanban/index.html.twig",
+            "kanban/board.html.twig",
+            "kanban/_partials/_card_mini.html.twig",
+            "kanban/_partials/_card_modal_body.html.twig",
+            "kanban/_partials/_comentario.html.twig"
+        ],
+        "permitidos": []
+    },
+
     "auth": {
         "templates": [
             "auth/meus_convites.html.twig",
@@ -642,6 +654,87 @@
         "permitidos": [
             "BlueJus",
             "| BlueJus"
+        ]
+    },
+
+    "pasta_avisos": {
+        "templates": [
+            "pasta/_abas_ocultas.html.twig",
+            "pasta/_andamento.html.twig",
+            "pasta/_aviso_duplicada_conteudo.html.twig",
+            "pasta/_aviso_duplicada_modal.html.twig",
+            "pasta/_cadeado_faixa.html.twig",
+            "pasta/_cadeado_icone.html.twig",
+            "pasta/_cadeado_menu.html.twig",
+            "pasta/_cadeado_modal.html.twig",
+            "pasta/_cadeado_pedidos.html.twig",
+            "pasta/confirmar_duplicada.html.twig",
+            "pasta/trancada.html.twig",
+            "pasta/zip_recusado.html.twig"
+        ],
+        "js": [
+            "pasta-abas-ocultas.js",
+            "pasta-andamento.js",
+            "pasta-cadeado.js",
+            "pasta-cadeado-pedidos.js"
+        ],
+        "permitidos": [
+            "ps-body",
+            "· BlueJus",
+            "Accept",
+            "Content-Type",
+            "ContextMenu",
+            "Escape",
+            "Enter",
+            "ArrowDown",
+            "ArrowUp",
+            "Tab"
+        ]
+    },
+
+    "pasta_resp": {
+        "templates": [
+            "pasta/_historico_drawer.html.twig",
+            "pasta/_impressao_modal.html.twig",
+            "pasta/_pontos_relatorio.html.twig",
+            "pasta/_resp_chip.html.twig",
+            "pasta/_resp_estilo.html.twig",
+            "pasta/_resp_menu.html.twig",
+            "pasta/_resp_script.html.twig",
+            "pasta/_timeline_inteligente.html.twig",
+            "pasta/resumo_impressao.html.twig"
+        ],
+        "js": [
+            "pasta-impressao.js",
+            "pasta-timeline.js"
+        ],
+        "permitidos": [
+            "BLUEJUS",
+            "BlueJus",
+            "App\\\\Pasta\\\\DTO\\\\PastaFinanceiroOutput::SEM_DADO",
+            "Accept",
+            "AbortError",
+            "Escape"
+        ]
+    },
+
+    "publicas": {
+        "templates": [
+            "comercial/confirmacao/confirmado.html.twig",
+            "comercial/confirmacao/confirmar.html.twig",
+            "comercial/confirmacao/vencido.html.twig",
+            "email_descadastro/confirmado.html.twig",
+            "email_descadastro/confirmar.html.twig",
+            "indicacao/_janela.html.twig",
+            "invitation/index.html.twig"
+        ],
+        "js": [
+            "indicacao.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "WhatsApp",
+            "Content-Type"
         ]
     },
 

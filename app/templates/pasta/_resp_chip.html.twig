@@ -17,13 +17,13 @@
         data-csrf="{{ csrf_token('pasta_responsavel_' ~ pasta.id) }}"
         data-resp-id="{{ resp ? resp.id : '' }}"
         {# No Expediente a dica é a do desenho 03 (dc `respTip`), pelo sistema de dicas da lista; na pasta, o title. #}
-        {% if naPasta %}title="{{ resp ? resp.fullName : 'Definir responsável' }}"{% else %}data-tip="{{ resp ? resp.fullName ~ ' · clique para alterar' : 'Clique para atribuir um responsável' }}"{% endif %}>
+        {% if naPasta %}title="{{ resp ? resp.fullName : 'pasta_resp.resp.definir'|trans }}"{% else %}data-tip="{{ resp ? 'pasta_resp.resp.dica_alterar'|trans({nome: resp.fullName}) : 'pasta_resp.resp.dica_atribuir'|trans }}"{% endif %}>
     {% if resp %}
         {{ av.avatar(resp.fullName, fotos[resp.id]|default(null), 24) }}
         <span class="pasta-resp-nome">{{ resp.fullName }}</span>
     {% else %}
         <span class="resp-avatar resp-avatar-vazio" style="width:24px;height:24px;"><i class="bi {{ naPasta ? 'bi-person-dash' : 'bi-person' }}"></i></span>
-        <span class="pasta-resp-nome{{ naPasta ? '' : ' text-muted' }}">Sem responsável</span>
+        <span class="pasta-resp-nome{{ naPasta ? '' : ' text-muted' }}">{{ 'pasta_resp.resp.sem_responsavel'|trans }}</span>
     {% endif %}
     <i class="bi bi-chevron-down pasta-resp-caret"></i>
 </button>
