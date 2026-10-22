@@ -79,7 +79,7 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame('Modelo não encontrado.', $this->json($client)['erro']);
     }
 
-    #[TestDox('A grade traz os 11 fixos do dc e os próprios depois; "Novo modelo" grava e audita só {nome, modo}')]
+    #[TestDox('A grade traz os 11 fixos do dc, as 17 datas e os próprios depois; "Novo modelo" grava e audita só {nome, modo}')]
     public function testListaENovo(): void
     {
         $client = $this->clienteMaster();
@@ -90,9 +90,10 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
 
         $client->request('GET', '/master/comercial/modelos');
         $modelos = $this->json($client)['modelos'];
-        self::assertCount(12, $modelos);
+        self::assertCount(29, $modelos, 'os 11 fixos, as 17 datas comemorativas (F4) e o próprio');
         self::assertSame('convite', $modelos[0]['chave']);
-        self::assertSame(['cu' . $novo['modelo']['id'], true], [$modelos[11]['chave'], $modelos[11]['proprio']]);
+        self::assertCount(17, array_filter(\array_slice($modelos, 11, 17), static fn (array $m): bool => str_starts_with($m['chave'], 'data-') && $m['proprio'] === false));
+        self::assertSame(['cu' . $novo['modelo']['id'], true], [$modelos[28]['chave'], $modelos[28]['proprio']]);
         self::assertSame(['nome' => 'Novo modelo', 'modo' => 'blocos'], $this->trilha('modelo_new', (int) $novo['modelo']['id']));
     }
 

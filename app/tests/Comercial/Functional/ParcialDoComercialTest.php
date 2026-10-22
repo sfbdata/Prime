@@ -84,7 +84,7 @@ final class ParcialDoComercialTest extends KernelTestCase
     #[TestDox('F3a: a Central vem antes das Automações, com o cabeçalho do dc 21.10 (L251) e o botão "Descadastrados (N)"')]
     public function testPosicaoECabecalho(): void
     {
-        self::assertSame(['mc-cp-titulo', 'mc-auto-titulo', 'relatorio'], $this->doc->filter('[data-mc] > section')->each(static fn (Crawler $c): string => $c->attr('data-mc-relatorio') !== null ? 'relatorio' : (string) $c->attr('aria-labelledby')));
+        self::assertSame(['mc-cp-titulo', 'mc-auto-titulo', 'mc-dt-titulo', 'relatorio'], $this->doc->filter('[data-mc] > section')->each(static fn (Crawler $c): string => $c->attr('data-mc-relatorio') !== null ? 'relatorio' : (string) $c->attr('aria-labelledby')));
         self::assertSame(1, $this->doc->filter('section.mc-cp > .mc-cabeca > i.bi-megaphone')->count());
         self::assertSame(['Central de envios · nova campanha'], $this->textos('section.mc-cp > .mc-cabeca > b'));
         self::assertSame(['Descadastrados (0)'], $this->textos('section.mc-cp > .mc-cabeca > button.mc-cp-descad'));

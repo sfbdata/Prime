@@ -52,7 +52,8 @@ final class MensagemDaCampanha
         $chave = self::texto($dados, 'chave', 40);
 
         return new self(
-            preg_match('/^[a-z0-9]{1,40}$/', $chave) === 1 ? $chave : 'campanha',
+            // A chave do modelo, ou `data-<id>` de uma data comemorativa (F4).
+            preg_match('/^(?:[a-z0-9]{1,40}|data-[a-z]{1,30})$/', $chave) === 1 ? $chave : 'campanha',
             $modo,
             self::texto($dados, 'assunto', 255),
             self::texto($dados, 'selo', 120),

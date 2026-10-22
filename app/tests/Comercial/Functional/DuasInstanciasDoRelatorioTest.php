@@ -68,11 +68,12 @@ final class DuasInstanciasDoRelatorioTest extends KernelTestCase
         self::assertCount(1, $this->doc->filter(self::IND . ' > section.mc-rl[data-mc-relatorio="ind"]'));
     }
 
-    #[TestDox('Na seção Indicações o Relatório vem logo depois da Central; na Comercial, depois das Automações e do <link> dele')]
+    #[TestDox('Na seção Indicações o Relatório vem logo depois da Central; na Comercial, depois das Automações, das Datas comemorativas e do <link> dele')]
     public function testPosicao(): void
     {
         self::assertCount(1, $this->doc->filter(self::IND . ' > section.mc-cp[data-mc-campanha] + section.mc-rl[data-mc-relatorio="ind"]'));
-        self::assertCount(1, $this->doc->filter(self::COM . ' > section[aria-labelledby="mc-auto-titulo"] + link + section.mc-rl[data-mc-relatorio="com"]'));
+        // F4: as Datas comemorativas ficam entre as Automações e o Relatório (dc 05 VS 21.10.26 L334).
+        self::assertCount(1, $this->doc->filter(self::COM . ' > section[aria-labelledby="mc-auto-titulo"] + section[data-mc-datas] + link + section.mc-rl[data-mc-relatorio="com"]'));
     }
 
     #[TestDox('As duas instâncias têm as mesmas rotas e o mesmo arranjo (abas, barra, visualizador e menu)')]

@@ -60,14 +60,16 @@ final class ParcialDoRelatorioTest extends KernelTestCase
         return $this->doc->filter($seletor)->each(static fn (Crawler $c): string => trim((string) preg_replace('/\s+/', ' ', $c->text())));
     }
 
-    #[TestDox('O Relatório substitui o Monitoramento: é a última caixa do [data-mc], depois das Automações, e o Monitoramento sumiu')]
+    #[TestDox('O Relatório substitui o Monitoramento: é a última caixa do [data-mc], depois das Automações e das Datas comemorativas, e o Monitoramento sumiu')]
     public function testSubstituiOMonitoramento(): void
     {
         $caixas = $this->doc->filter('[data-mc] > section');
-        self::assertSame(3, $caixas->count());
+        // F4: as Datas comemorativas entre as Automações e o Relatório (dc 05 VS 21.10.26 L334).
+        self::assertSame(4, $caixas->count());
         self::assertSame('mc-auto-titulo', $caixas->eq(1)->attr('aria-labelledby'));
-        self::assertNotNull($caixas->eq(2)->attr('data-mc-relatorio'));
-        self::assertSame('Relatório de campanhas', $caixas->eq(2)->attr('aria-label'));
+        self::assertSame('mc-dt-titulo', $caixas->eq(2)->attr('aria-labelledby'));
+        self::assertNotNull($caixas->eq(3)->attr('data-mc-relatorio'));
+        self::assertSame('Relatório de campanhas', $caixas->eq(3)->attr('aria-label'));
         self::assertSame(0, $this->doc->filter('[data-mc-monitoramento], section.mc-mon, [data-mc-camps]')->count());
         self::assertStringNotContainsString('Monitoramento', $this->doc->filter('[data-mc]')->text());
         self::assertSame(1, $this->doc->filter('link[href*="css/master-comercial-relatorio.css"]')->count());
