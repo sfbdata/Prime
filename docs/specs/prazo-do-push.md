@@ -36,12 +36,26 @@ tenha uma determinação com prazo explícito em **dias**.
 
 - **Uma linha por determinação com prazo**, em cada pasta que tem o processo:
   `pasta_prazo` com `origem = push`, `registro_ref = push:<id da publicação>`, `tipo = prazo` e `estimado = true`.
-- **Termo inicial:** `publicacaoDe(dataDisponibilizacao)`, isto é, o 1º dia útil depois da disponibilização.
-  A contagem começa no dia útil seguinte.
+- **Termo inicial:** o 1º dia útil depois da disponibilização, pelo **mesmo calendário da UF** usado na contagem.
+  A contagem começa no dia útil seguinte. Termo inicial e contagem nunca usam calendários diferentes. Isso foi
+  corrigido na revisão: antes o termo inicial usava o calendário nacional.
+- **Narração não gera prazo:** "A parte autora, intimada para emendar no prazo de 15 dias, quedou-se inerte" conta o
+  que já passou e não é ordem. O particípio (intimada, citada, notificada) com "quedou-se", "deixou transcorrer",
+  "permaneceu inerte" ou "decorreu o prazo" barra a frase.
 - **Dias úteis:** quando o teor diz "úteis" ou não diz nada (CPC art. 219). A contagem usa o calendário da UF do
   escritório (`DiasUteisDoEscritorio`): fim de semana, feriados nacionais e estaduais e recesso de 20/12 a 20/01.
-- **Dias corridos:** só quando o teor diz "corridos". Se o fim cair em dia não útil, passa para o próximo dia útil
-  (CPC art. 224, § 1º).
+- **Dias corridos:** só quando o teor diz "corridos". Os dias do recesso (20/12 a 20/01) não contam, porque a
+  suspensão do CPC art. 220 vale para todo prazo processual. Se o fim cair em dia não útil, passa para o próximo dia
+  útil (CPC art. 224, § 1º).
+- **Corte do histórico (decisão da 0d, à espera do dono):** a sincronização só cria prazos que vencem a partir de
+  hoje menos 10 dias, a janela do "findou", e audiências de hoje em diante. Sem esse corte, a primeira publicação
+  nova encheria a pasta de prazos vencidos que ninguém consegue tirar. O que já foi gravado e saiu da janela não é
+  apagado.
+- **Desvincular** o processo sincroniza a pasta, e os prazos do Push daquele processo saem, menos os cumpridos.
+- **O vínculo não cai pelo prazo:** uma falha no cálculo é registrada no log, e o vínculo é gravado. A captação do
+  DJEN segue a mesma regra.
+  Limite conhecido: no vínculo com cadastro novo, que roda em transação explícita, uma falha de **SQL** dentro do
+  cálculo invalida a transação do Postgres, e o try/catch não salva esse caso. Uma falha fora do banco é salva.
 - **Prazo em horas:** não gera linha nesta entrega. É raro, e a contagem é outra.
 - **Título:** "Prazo do Push: {ato} ({destinatário})" quando o extrator acha o destinatário. Sem ele, fica só
   "Prazo do Push", porque o ato sempre existe (o extrator cai em "Manifestação"). O título é dado gravado, em
@@ -104,9 +118,10 @@ tenha uma determinação com prazo explícito em **dias**.
 1. Gerar o prazo automático, mesmo marcado "confira", ou só sugerir e deixar a pessoa confirmar?
 2. O título "Prazo do Push: {ato} ({destinatário})" serve?
 3. Rodar o comando no histórico (prazos passados entram no "Prazo findou 10 dias") ou só daqui para a frente?
-   Atenção: a sincronização é feita por pasta. Quando chega a primeira publicação nova, ou quando um processo é
-   vinculado, ela já calcula o histórico daquela pasta, mesmo sem o comando. Se a resposta for "só daqui para a
-   frente", é preciso acrescentar um corte por data.
+   Hoje há um corte: só entram prazos vencidos há no máximo 10 dias e audiências futuras (§2). Ampliar ou tirar o
+   corte é uma linha de código.
+7. O calendário da UF trata Carnaval e Corpus Christi como dias úteis; o nacional, não. Agora o prazo do Push usa só
+   o da UF. É a mesma pergunta pendente na spec `prazo-feriado-calendario.md`.
 5. O prazo do Push ainda não pode ser marcado como cumprido pela tela: o `CumprirPrazoDaPastaUseCase` só aceita o
    manual. Liberar o "cumprido" para o Push? Hoje ele sai do "com prazo" só quando vence e do "findou" depois de
    10 dias ou quando há ação na pasta.
