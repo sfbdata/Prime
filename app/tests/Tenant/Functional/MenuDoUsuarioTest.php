@@ -78,7 +78,7 @@ final class MenuDoUsuarioTest extends JusPrimeWebTestCase
         self::assertCount(0, $menu->filter('.mu-grupo-master'));
     }
 
-    #[TestDox('Master: selo MASTER e seção com 8 itens; 6 levam ao painel, a Central de vagas ao Trabalho Externo e 1 abre "em preparação"')]
+    #[TestDox('Master: selo MASTER e seção com 8 itens; 6 levam ao painel, a Central de vagas e a Campanha por e-mail ao Trabalho Externo')]
     public function testMenuDoMaster(): void
     {
         $master = $this->criarUsuario('Master Menu', ['ROLE_SUPER_ADMIN']);
@@ -91,13 +91,13 @@ final class MenuDoUsuarioTest extends JusPrimeWebTestCase
         self::assertCount(1, $menu->filter('.mu-selos > .mu-selo-master'));
         self::assertCount(8, $itens);
         self::assertCount(6, $menu->filter('.mu-grupo-master > a[data-item-master][href^="/master#aba="]'));
-        self::assertSame(
-            ['Campanha por e-mail'],
-            $menu->filter('.mu-grupo-master > button[data-em-preparacao]')->each(static fn (Crawler $b): string => (string) $b->attr('data-em-preparacao'))
-        );
+        self::assertCount(0, $menu->filter('.mu-grupo-master > button[data-em-preparacao]'), 'nenhum item do Master fica "em preparação"');
         // Desenho 03 L330 e 07 L209: a Central de vagas leva ao Trabalho Externo, aba de vagas.
         $vagas = $menu->filter('.mu-grupo-master > a[data-item-master]')->reduce(static fn (Crawler $a): bool => str_contains($a->text(), 'Central de vagas'));
         self::assertSame('/trabalho-externo#mod=vagas', $vagas->attr('href'));
+        // Desenho 06 l.1078: a Campanha por e-mail abre o modal da campanha no Trabalho Externo.
+        $campanha = $menu->filter('.mu-grupo-master > a[data-item-master]')->reduce(static fn (Crawler $a): bool => str_contains($a->text(), 'Campanha por e-mail'));
+        self::assertSame('/trabalho-externo#camp=1', $campanha->attr('href'));
         self::assertCount(1, $menu->filter('[data-mu-convites]'), 'o Master vê Convites mesmo com vínculo secundário');
     }
 

@@ -65,7 +65,7 @@ final class PainelDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertSame(['ativos', 'novos', 'oab', 'vol', 'vagas', 'alertas', 'compartilhadas', 'ofertas'], array_column($p['kpis'], 'k'));
         self::assertSame([1, 1, 1, 1], array_slice(array_column($p['kpis'], 'n'), 0, 4));
         self::assertSame(['mod' => 'cv', 'filtro' => ['cs' => 'oab']], $p['kpis'][2]['ir']);
-        self::assertSame(['acao' => 'alertasCsv'], $p['kpis'][5]['ir']);
+        self::assertSame(['acao' => 'campanha'], $p['kpis'][5]['ir'], 'o clique em ALERTAS POR E-MAIL abre a campanha (§4.10)');
         self::assertCount(6, $p['barras']);
         self::assertSame([['rot' => 'Cível', 'n' => 1, 'cor' => '#0a6fa0', 'ir' => ['mod' => 'cv', 'filtro' => ['ca' => 'Cível']]]], $p['barras'][0]['itens']);
         $mes = (new \DateTimeImmutable('now', new \DateTimeZone('America/Sao_Paulo')))->format('Y-m');

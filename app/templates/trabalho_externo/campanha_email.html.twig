@@ -1,0 +1,39 @@
+{#- O e-mail da campanha do Master (`emailHTML`, desenho 06 l.940 a 957; spec VS 18.10.26 §4.10): tabelas e
+    estilos no próprio HTML, o formato que Gmail, Outlook e celulares aceitam. O rodapé leva o marcador
+    {{descadastrar}} literal, para a ferramenta de envio em massa trocar pelo link de cancelar inscrição.
+    Variáveis: e (o modelo do EmailDaCampanha) com pub, assunto, preheader, titulo, texto, cta, link,
+    logo, vagas (no máximo 6) e totalDeVagas. -#}
+{%- set F = 'font-family:Arial,Helvetica,sans-serif;' -%}
+{%- set esc = e.pub == 'esc' -%}
+{%- macro botao(t, u, bg, cor, margem) -%}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:{{ margem }};"><tr><td bgcolor="{{ bg }}" style="border-radius:4px;"><a href="{{ u }}" target="_blank" style="display:inline-block; padding:14px 26px; font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:bold; color:{{ cor }}; text-decoration:none; border-radius:4px;">{{ t }}</a></td></tr></table>
+{%- endmacro -%}
+{%- set itens = esc
+    ? [['R$ 0', 'para divulgar'], ['Seleção', 'dos melhores candidatos'], ['Revisada', 'pela equipe BlueJus'], ['Rede', 'WhatsApp, e-mail e LinkedIn']]
+    : [['1 clique', 'para se candidatar'], ['PDF', 'currículo profissional'], ['Avisos', 'de vaga nova'], ['Grátis', 'sem pegadinha']] -%}
+{%- set passos = esc
+    ? [['1', 'Crie a conta do escritório', 'Leva 2 minutos e é gratuito.'], ['2', 'Envie a vaga', 'Cargo, local, requisitos e por quanto tempo divulgar.'], ['3', 'BlueJus revisa e divulga', 'Publicada na Central e compartilhada com a rede.'], ['4', 'Receba os melhores candidatos', 'A equipe seleciona os mais compatíveis e envia para você.']]
+    : [] -%}
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ e.assunto }}</title></head><body style="margin:0; padding:0; background:#eef3f6;">
+<div style="display:none; max-height:0; overflow:hidden;">{{ e.preheader }}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eef3f6"><tr><td align="center" style="padding:24px 12px;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:100%; background:#ffffff; border-radius:6px; overflow:hidden;">
+<tr><td bgcolor="#0a6fa0" style="padding:16px 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td><img src="{{ e.logo }}" alt="BlueJus" height="28" style="display:block; height:28px; border:0;"></td><td align="right" style="{{ F }} font-size:13px;"><a href="{{ e.link }}" style="color:#ffffff; text-decoration:none; font-weight:bold;">Criar conta grátis</a></td></tr></table></td></tr>
+<tr><td bgcolor="#0b4f75" style="background:#0b4f75; background-image:linear-gradient(135deg,#0a6fa0,#0b4f75); padding:30px 28px 26px; {{ F }}"><div style="display:inline-block; background:#ffffff22; color:#ffffff; font-size:12px; font-weight:bold; padding:5px 10px; border-radius:3px;">&#9679; {{ esc ? 'Para escritórios · divulgação gratuita' : e.totalDeVagas ~ ' vaga(s) aberta(s) agora' }}</div><div style="font-size:28px; line-height:1.2; font-weight:bold; color:#ffffff; padding:14px 0 10px;">{{ e.titulo }}</div><div style="font-size:15px; line-height:1.55; color:#e3eef5;">{{ e.texto }}</div><div style="padding-top:20px; text-align:left;">{{ _self.botao(e.cta, e.link, '#ffffff', '#0a6fa0', '0') }}</div></td></tr>
+<tr><td bgcolor="#0b4f75" style="padding:4px 20px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>{% for i in itens %}<td width="25%" align="center" valign="top" style="padding:8px 4px; {{ F }}"><div style="font-size:17px; font-weight:bold; color:#ffffff;">{{ i[0] }}</div><div style="font-size:11.5px; color:#cfe3f0; padding-top:3px;">{{ i[1] }}</div></td>{% endfor %}</tr></table></td></tr>
+{% if e.vagas is not empty %}
+<tr><td style="padding:24px 24px 6px; {{ F }}"><div style="font-size:18px; font-weight:bold; color:#12242f; padding-bottom:12px;">Vagas abertas na Central BlueJus</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+{%- for v in e.vagas %}
+<tr><td style="padding:0 0 10px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #dde5eb; border-radius:4px;"><tr><td style="padding:14px 16px; {{ F }}"><div style="font-size:15px; font-weight:bold; color:#12242f;">{{ v.titulo }}</div><div style="font-size:13px; color:#5b7383; padding-top:4px;">{{ v.cargoEContrato }}</div><div style="font-size:13px; color:#34505f; padding-top:2px;">&#128205; {{ v.local }}</div></td><td width="110" align="right" style="padding:14px 16px 14px 0;"><a href="{{ e.link }}" target="_blank" style="{{ F }} font-size:13px; font-weight:bold; color:#0a6fa0; text-decoration:none;">Ver vaga &rarr;</a></td></tr></table></td></tr>
+{%- endfor %}
+</table><div style="font-size:12.5px; color:#5b7383; padding-top:2px;">&#128274; Remuneração, escritório e requisitos ficam visíveis depois de criar a conta.</div></td></tr>
+{% endif %}
+{% if passos is not empty %}
+<tr><td style="padding:24px 24px 8px; {{ F }}"><div style="font-size:18px; font-weight:bold; color:#12242f; padding-bottom:14px;">Como funciona</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+{%- for p in passos %}
+<tr><td width="40" valign="top" style="padding:0 0 12px;"><div style="width:30px; height:30px; line-height:30px; border-radius:15px; background:#e9f6ee; color:#1e7b45; text-align:center; {{ F }} font-size:13px; font-weight:bold;">{{ p[0] }}</div></td><td valign="top" style="padding:0 0 12px; {{ F }}"><div style="font-size:14px; font-weight:bold; color:#12242f;">{{ p[1] }}</div><div style="font-size:13px; color:#5b7383;">{{ p[2] }}</div></td></tr>
+{%- endfor %}
+</table></td></tr>
+{% endif %}
+<tr><td align="center" style="padding:18px 24px 28px;">{{ _self.botao(e.cta, e.link, esc ? '#1e7b45' : '#0a6fa0', '#ffffff', '0 auto') }}</td></tr>
+<tr><td bgcolor="#0b3550" style="padding:18px 24px; {{ F }} font-size:12px; line-height:1.55; color:#c9d6df; text-align:center;">BlueJus · gestão para escritórios de advocacia<br>Você recebe este e-mail porque se cadastrou para receber vagas ou usa o BlueJus. <a href="{% verbatim %}{{descadastrar}}{% endverbatim %}" style="color:#8fd0f2;">Cancelar inscrição</a></td></tr>
+</table></td></tr></table></body></html>

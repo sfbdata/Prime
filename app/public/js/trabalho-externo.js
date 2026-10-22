@@ -122,6 +122,8 @@
         grModo: 'mes',
         grAno: null,
         grOn: {},
+        // Campanha por e-mail do Master (spec VS 18.10.26 §4.10)
+        cp: null,
         // Candidatura (spec VS 18.10.26 §4.6, fatia F2b)
         candSel: null,
         mcFiltro: '',
@@ -432,10 +434,11 @@
         [['on', 'Disponível', 'bi-circle-fill'], ['rest', 'Disponível com restrições', 'bi-circle-half'], ['off', 'Temporariamente suspensa', 'bi-pause-circle']].forEach(function (o) {
             item(o[1], o[2], c.disponibilidade === o[0], function () { fecharHm(); gravarCfg({ disponibilidade: o[0] }); });
         });
-        // Configuração das vagas (desenho, l.1265). "Campanha por e-mail…" fica fora da F4: depende da frente da 5d.
+        // Configuração das vagas e a campanha por e-mail (desenho, l.1265; campanha na spec §4.10).
         if (veVagas() && vgMaster() && cfgVagas()) {
             sec('VAGAS E CURRÍCULOS');
             item('Ofertas, avisos e mensagens…', 'bi-sliders', false, function () { fecharHm(); abrirCfgVagas(); });
+            item('Campanha por e-mail…', 'bi-envelope-paper', false, function () { fecharHm(); abrirCampanha(); });
         }
         sec('CONFIGURAÇÕES');
         item('Equipe e privacidade…', 'bi-shield-lock', false, function () { fecharHm(); abrirCfg(); });
@@ -3395,6 +3398,7 @@
         S.cvF = null;
         S.cvDoc = null;
         S.cvDel = null;
+        S.cp = null;
         relogiosDetalhe = [];
         limpar($('teVagaModal'));
         if (recarregarCv) {
@@ -4078,6 +4082,257 @@
     }
 
     /* =============================================================================
+       CAMPANHA POR E-MAIL DO MASTER (spec VS 18.10.26 §4.10)
+       Desenho "06 - Trabalho Externo - VS 18.10.26": modal `tmCamp` (l.330 a 341), `campDe` e o
+       rodapé (l.1082 a 1097), título e largura (l.1155 e 1156), públicos (l.1168 e 1169). Monta, mostra
+       e exporta; não envia. O servidor decide quem recebe (LGPD), monta o e-mail e grava o log de cada
+       exportação; a tela só escolhe público, filtros e assunto e pinta a prévia (iframe sem scripts).
+       Entradas: menu ⋮ do Master (l.1265), `#camp=1` (l.1078) e o KPI ALERTAS POR E-MAIL (l.1146).
+       ============================================================================= */
+
+    var CAMP_ASSUNTO_MS = 400;
+    var campTemporizador = null;
+
+    function abrirCampanha() {
+        if (!vgMaster() || previa() || !D.urlCampanha) {
+            return;
+        }
+        fecharMenu();
+        S.tlm = 'camp';
+        S.vgDet = null;
+        S.vf = null;
+        S.vgDel = null;
+        relogiosDetalhe = [];
+        S.cp = { pub: 'cand', uf: '', area: '', assunto: null, dados: null, seq: 0 };
+        limpar($('teVagaModal'));
+        carregarCampanha();
+    }
+
+    /** `pub`, `uf`, `area` e, se o Master escreveu, `assunto`: a query do GET da campanha (os POST levam no corpo). */
+    function campParams() {
+        var cp = S.cp, q = new URLSearchParams({ pub: cp.pub, uf: cp.uf, area: cp.area });
+        if (cp.assunto !== null && !vazio(cp.assunto)) {
+            q.set('assunto', cp.assunto);
+        }
+        return q;
+    }
+
+    function campUrl(base) {
+        var u = String(base || '');
+        return u + (u.indexOf('?') >= 0 ? '&' : '?') + campParams().toString();
+    }
+
+    /** A resposta de um pedido antigo (filtro trocado no meio) é descartada. */
+    function carregarCampanha() {
+        var cp = S.cp, seq = ++cp.seq;
+        pedir('GET', campUrl(D.urlCampanha)).then(function (r) {
+            if (S.cp !== cp || S.tlm !== 'camp' || seq !== cp.seq) {
+                return;
+            }
+            if (!r.ok) {
+                toastErro(r.mensagem);
+                if (!cp.dados) {
+                    fecharTlm();
+                }
+                return;
+            }
+            cp.dados = r;
+            renderCampanha();
+        });
+    }
+
+    function campTrocar(mudanca) {
+        Object.keys(mudanca).forEach(function (k) { S.cp[k] = mudanca[k]; });
+        carregarCampanha();
+    }
+
+    /** O assunto refaz a prévia depois de uma pausa na digitação; o campo guarda o cursor. */
+    function campAssunto(e) {
+        S.cp.assunto = e.target.value;
+        clearTimeout(campTemporizador);
+        campTemporizador = setTimeout(function () {
+            if (S.cp && S.tlm === 'camp') {
+                carregarCampanha();
+            }
+        }, CAMP_ASSUNTO_MS);
+    }
+
+    /** Os botões de público (`cpPubs`, l.1169): o indisponível fica desabilitado, com a dica do servidor. */
+    function campPublicos(K) {
+        return (Array.isArray(K.publicos) ? K.publicos : []).map(function (u) {
+            var on = S.cp.pub === u.k, livre = u.disponivel === true;
+            return el('button', {
+                type: 'button', class: 'te-cp-pub' + (on ? ' is-on' : ''), disabled: !livre,
+                attrs: livre ? { 'aria-pressed': on ? 'true' : 'false' } : { 'aria-pressed': 'false', title: String(u.dica || '') },
+                onclick: function () {
+                    if (livre && !on) {
+                        campTrocar({ pub: u.k, assunto: null });
+                    }
+                }
+            }, [
+                ic(String(u.ic || 'bi-people')),
+                el('span', { class: 'te-flex1' }, [el('b', { text: u.rot }), el('span', { class: 'te-cp-pub-sub', text: u.sub })]),
+                !livre && !vazio(u.dica) ? el('span', { class: 'te-cp-dica', text: u.dica }) : null,
+                on ? ic('bi-check-circle-fill', { color: '#0a6fa0' }) : null
+            ]);
+        });
+    }
+
+    function campSelect(valor, rotuloTodos, opcoes, chave) {
+        return el('select', {
+            class: 'te-cp-sel', value: valor, attrs: { 'aria-label': rotuloTodos },
+            onchange: function (e) { var m = {}; m[chave] = e.target.value; campTrocar(m); }
+        }, [el('option', { value: '', text: rotuloTodos })].concat((Array.isArray(opcoes) ? opcoes : []).map(function (o) {
+            return el('option', { value: String(o), text: String(o) });
+        })));
+    }
+
+    /** A coluna da esquerda (l.332 a 338): público, filtros, assunto, resumo, quem fica de fora e a nota. */
+    function campColunaDosDados(K) {
+        var cp = S.cp, resumo = K.resumo || {};
+        var assunto = el('input', { class: 'te-cp-assunto', id: 'teCpAssunto', value: cp.assunto !== null ? cp.assunto : String(K.assunto || ''), oninput: campAssunto });
+        var foras = (Array.isArray(K.deFora) ? K.deFora : []).map(function (f) {
+            return el('span', { class: 'te-cp-fora' }, [ic('bi-person-dash'), ' ', el('span', { text: f.motivo })]);
+        });
+        return el('div', { class: 'te-cp-col' }, [
+            el('div', { class: 'te-sh-rot', text: 'PÚBLICO' })
+        ].concat(campPublicos(K)).concat([
+            el('div', { class: 'te-cp-filtros' }, [campSelect(cp.uf, 'Todas as UFs', K.ufs, 'uf'), campSelect(cp.area, 'Todas as áreas', K.areas, 'area')]),
+            el('label', { class: 'te-cp-rot-campo' }, ['ASSUNTO DO E-MAIL', assunto]),
+            el('div', { class: 'te-cp-resumo' }, [
+                el('span', null, [ic('bi-people', { color: '#0a6fa0' }), ' ', el('b', { text: resumo.destinatarios || '' })]),
+                el('span', null, [ic('bi-briefcase', { color: '#0a6fa0' }), ' ', resumo.vagas || ''])
+            ].concat(foras)),
+            el('div', { class: 'te-cp-nota' }, [ic('bi-info-circle', { color: '#0a6fa0' }), ' O e-mail é feito em tabelas com estilos no próprio HTML, o formato aceito por Gmail, Outlook e celulares. Baixe o HTML e a lista e envie pela sua ferramenta de e-mail em massa (Brevo, Mailchimp, Amazon SES). O rodapé já traz o link de cancelar inscrição: troque o marcador pelo link da ferramenta.'])
+        ]));
+    }
+
+    /** "PRÉVIA DO E-MAIL" (l.340): o HTML do servidor num iframe sem scripts. */
+    function campPrevia(K) {
+        return el('div', { class: 'te-cp-col' }, [
+            el('div', { class: 'te-sh-rot', text: 'PRÉVIA DO E-MAIL' }),
+            el('iframe', { class: 'te-cp-previa', srcdoc: String(K.html || ''), attrs: { title: 'Prévia do e-mail', sandbox: '' } })
+        ]);
+    }
+
+    /** `tmCamp`, 960px (l.1155), com o rodapé do desenho (l.1097). */
+    function renderCampanha() {
+        var cp = S.cp;
+        if (!cp || !cp.dados || S.tlm !== 'camp') {
+            return;
+        }
+        var ativo = document.activeElement, noAssunto = !!(ativo && ativo.id === 'teCpAssunto');
+        var ini = noAssunto ? ativo.selectionStart : null, fim = noAssunto ? ativo.selectionEnd : null;
+        modalVaga({
+            icone: 'bi-envelope-paper', titulo: 'Campanha por e-mail · Master', largura: '960px',
+            corpo: [el('div', { class: 'te-cp' }, [campColunaDosDados(cp.dados), campPrevia(cp.dados)])],
+            botoes: [
+                botaoTlm('Fechar', 'bi-x', '', fecharTlm),
+                botaoTlm('Lista de destinatários (CSV)', 'bi-filetype-csv', '', campBaixarCsv),
+                botaoTlm('Copiar HTML', 'bi-code-slash', '', campCopiarHtml),
+                botaoTlm('Baixar HTML do e-mail', 'bi-download', 'pri', campBaixarHtml)
+            ]
+        });
+        var novo = $('teCpAssunto');
+        if (noAssunto && novo) {
+            novo.focus();
+            novo.setSelectionRange(ini, fim);
+        }
+    }
+
+    function campSemDestinatarios() {
+        mostrarToast({ tit: 'Sem destinatários', txt: 'Ainda não há e-mails autorizados para este público.', hora: '' });
+    }
+
+    function campBaixarCsv() {
+        if (!S.cp || !S.cp.dados) {
+            return;
+        }
+        if (!(+S.cp.dados.destinatarios > 0)) {
+            campSemDestinatarios();
+            return;
+        }
+        campBaixar(D.urlCampanhaCsv, 'destinatarios-campanha.csv', function () {});
+    }
+
+    function campBaixarHtml() {
+        if (!S.cp || !S.cp.dados) {
+            return;
+        }
+        var n = +S.cp.dados.destinatarios || 0;
+        campBaixar(D.urlCampanhaHtml, 'email-campanha-bluejus.html', function () {
+            mostrarToast({ tit: 'E-mail pronto', txt: 'Envie para ' + n + ' destinatário(s) pela sua ferramenta de e-mail em massa.', hora: '' });
+        });
+    }
+
+    /**
+     * "Copiar HTML": o servidor registra a exportação e devolve o HTML com o link de vagas próprio; a
+     * área de transferência recebe esse HTML (toasts da l.1097).
+     */
+    function campCopiarHtml() {
+        if (!S.cp || !S.cp.dados) {
+            return;
+        }
+        var corpo = campCorpo();
+        corpo.acao = 'copiar';
+        pedir('POST', String(D.urlCampanhaRegistro || ''), corpo).then(function (r) {
+            if (!r.ok || typeof r.html !== 'string') {
+                toastErro(r.mensagem);
+                return;
+            }
+            (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(r.html) : Promise.reject()).then(function () {
+                mostrarToast({ tit: 'HTML copiado', txt: 'Cole no editor de e-mail da sua ferramenta de envio.', hora: '' });
+            }, function () {
+                mostrarToast({ tit: 'Não foi possível copiar', txt: 'Use Baixar HTML.', hora: '' });
+            });
+        });
+    }
+
+    /** Os filtros no corpo dos POST (CSV, HTML e registro do "Copiar HTML"). */
+    function campCorpo() {
+        var cp = S.cp, corpo = { pub: cp.pub, uf: cp.uf, area: cp.area };
+        if (cp.assunto !== null && !vazio(cp.assunto)) {
+            corpo.assunto = cp.assunto;
+        }
+        return corpo;
+    }
+
+    /**
+     * O download por `fetch` em POST (a exportação grava o log; o CSRF vai no header pelo interceptador do
+     * base.html.twig): a recusa e a lista vazia chegam em JSON (403 e 404) e viram toast; o arquivo vem
+     * como blob, com o nome do Content-Disposition.
+     */
+    function campBaixar(url, nomePadrao, pronto) {
+        fetch(String(url || ''), {
+            method: 'POST', credentials: 'same-origin', body: JSON.stringify(campCorpo()),
+            headers: { 'Accept': 'text/csv, text/html, application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        }).then(function (r) {
+            var tipo = (r.headers.get('Content-Type') || '').toLowerCase();
+            if (!r.ok || tipo.indexOf('json') >= 0) {
+                return r.json().then(function (j) { return j; }, function () { return null; }).then(function (j) {
+                    if (r.status === 404 && j && typeof j === 'object') {
+                        campSemDestinatarios();
+                        return;
+                    }
+                    toastErro(j && j.mensagem);
+                });
+            }
+            var nome = nomeDoAnexo(r.headers.get('Content-Disposition')) || nomePadrao;
+            return r.blob().then(function (blob) {
+                var u = URL.createObjectURL(blob);
+                var a = el('a', { href: u, attrs: { download: nome } });
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(function () { URL.revokeObjectURL(u); }, 1000);
+                pronto();
+            });
+        }).then(null, function () {
+            toastErro();
+        });
+    }
+
+    /* =============================================================================
        CURRÍCULOS E BANCO DE TALENTOS (spec VS 18.10.26 §4.5, fatia F3a)
        Desenho "06 - Trabalho Externo - VS 18.10.26": banco interno (l.170 a 213), "Meu currículo"
        do externo (l.214 a 224), formulário `tmCvForm` (l.254 a 283), detalhe `tmCv` (l.301 a 312),
@@ -4580,10 +4835,15 @@
 
     /**
      * Clique num KPI ou numa barra (`ir` do servidor): filtro nos currículos e a Lista; `mod: vagas`
-     * com o filtro `vf`; `acao: alertasCsv` baixa a lista de alertas (l.1137).
+     * com o filtro `vf`; `acao: campanha` abre a campanha por e-mail (l.1146, §4.10); `acao: alertasCsv`
+     * (o clique de antes da campanha) ainda baixa a lista de alertas (l.1137).
      */
     function irDoPainel(ir) {
         if (!ir || typeof ir !== 'object') {
+            return;
+        }
+        if (ir.acao === 'campanha') {
+            abrirCampanha();
             return;
         }
         if (ir.acao === 'alertasCsv') {
@@ -7396,11 +7656,12 @@
         }
     }
 
-    /* ---------------------------------------------------------------- endereços (#mod=, #vaga=, #cv=) */
+    /* ---------------------------------------------------------------- endereços (#mod=, #vaga=, #cv=, #camp=) */
 
     /**
      * `#mod=vagas|cv|dem` abre a aba; `#vaga=VG-n` a vaga; `#cv=CV-n` o currículo (interno) ou
-     * "Meu currículo" (externo). Usados pelos avisos do sino. O hash sai do endereço depois de usado.
+     * "Meu currículo" (externo). Usados pelos avisos do sino. `#camp=1` abre a aba Vagas com a campanha
+     * por e-mail do Master (l.1078; para os outros perfis, só a aba). O hash sai do endereço depois de usado.
      * `inicial`: na carga a aba só é escolhida (as listas ainda vão chegar) e o item espera as listas.
      */
     function lerHash() {
@@ -7409,10 +7670,10 @@
             return null;
         }
         var p = new URLSearchParams(h);
-        var r = { mod: moduloDaChave(p.get('mod')), vaga: p.get('vaga'), cv: p.get('cv') };
+        var r = { mod: moduloDaChave(p.get('mod')), vaga: p.get('vaga'), cv: p.get('cv'), camp: p.get('camp') === '1' };
         r.vaga = r.vaga && /^VG-\d{1,9}$/.test(r.vaga) ? r.vaga : null;
         r.cv = r.cv && /^CV-\d{1,9}$/.test(r.cv) ? r.cv : null;
-        if (!r.mod && !r.vaga && !r.cv) {
+        if (!r.mod && !r.vaga && !r.cv && !r.camp) {
             return null;
         }
         try {
@@ -7424,7 +7685,7 @@
     }
 
     function modDoHash(H) {
-        return H.mod || (H.vaga ? 'vagas' : H.cv ? 'cv' : null);
+        return H.mod || (H.vaga || H.camp ? 'vagas' : H.cv ? 'cv' : null);
     }
 
     function abrirItemDoHash(H) {
@@ -7432,6 +7693,8 @@
             abrirVaga(H.vaga);
         } else if (H.cv && perfil().interno) {
             abrirCv(H.cv);
+        } else if (H.camp) {
+            abrirCampanha();
         }
     }
 

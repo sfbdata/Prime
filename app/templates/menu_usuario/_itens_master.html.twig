@@ -3,8 +3,8 @@
     Usado no menu do usuário e na aba "Master" do Meu Perfil; quem inclui já conferiu ROLE_SUPER_ADMIN.
     As âncoras abrem a seção certa do Painel do Master (public/js/master/painel.js lê #aba e #sec).
     Central de vagas abre o Trabalho Externo na aba de vagas (#mod=vagas, que o trabalho-externo.js lê), como no
-    desenho; até ter tela ela abria "em preparação" (decisão do dono, 19/10/2026). Campanha por e-mail ainda não
-    tem tela: abre o aviso "em preparação".
+    desenho; até ter tela ela abria "em preparação" (decisão do dono, 19/10/2026). Campanha por e-mail abre o modal
+    da campanha no Trabalho Externo (#camp=1, desenho 06 l.1078).
     Variáveis: `classe_item` (classe do <a>/<button> de cada linha) e `papel` (role ARIA, opcional).
 #}
 {% set _painel = path('master_painel') %}
@@ -15,7 +15,7 @@
     {icone: 'bi-journal-check', titulo: 'menu.usuario.master.auditoria.titulo'|trans, sub: 'menu.usuario.master.auditoria.sub'|trans, href: _painel ~ '#aba=painel&sec=audit'},
     {icone: 'bi-key',           titulo: 'menu.usuario.master.permissoes.titulo'|trans, sub: 'menu.usuario.master.permissoes.sub'|trans, href: _painel ~ '#aba=perm'},
     {icone: 'bi-briefcase',     titulo: 'menu.usuario.master.vagas.titulo'|trans, sub: 'menu.usuario.master.vagas.sub'|trans, href: path('trabalho_externo_index') ~ '#mod=vagas'},
-    {icone: 'bi-send',          titulo: 'menu.usuario.master.campanha.titulo'|trans, sub: 'menu.usuario.master.campanha.sub'|trans, href: null},
+    {icone: 'bi-send',          titulo: 'menu.usuario.master.campanha.titulo'|trans, sub: 'menu.usuario.master.campanha.sub'|trans, href: path('trabalho_externo_index') ~ '#camp=1'},
     {icone: 'bi-sliders',       titulo: 'menu.usuario.master.configuracoes.titulo'|trans, sub: 'menu.usuario.master.configuracoes.sub'|trans, href: _painel ~ '#aba=painel&sec=config'},
 ] %}
 {% for item in _itensMaster %}

@@ -44,7 +44,7 @@ final class PainelDoBancoDeTalentosTest extends TestCase
             ['k' => 'oab', 'rot' => 'COM OAB', 'ic' => 'bi-award', 'cor' => '#5b3f9e', 'n' => 2, 'sub' => '1 estudantes · 0 bacharéis', 'ir' => ['mod' => 'cv', 'filtro' => ['cs' => 'oab']]],
             ['k' => 'vol', 'rot' => 'VOLUNTÁRIOS', 'ic' => 'bi-heart', 'cor' => '#a3235f', 'n' => 1, 'sub' => '0 termo(s) aceito(s) · 0 aguardando', 'ir' => ['mod' => 'cv', 'filtro' => ['cf' => 'vol']]],
             ['k' => 'vagas', 'rot' => 'VAGAS ABERTAS', 'ic' => 'bi-megaphone', 'cor' => '#1e7b45', 'n' => 2, 'sub' => '4 candidatura(s) no total', 'ir' => ['mod' => 'vagas', 'vf' => 'aberta']],
-            ['k' => 'alertas', 'rot' => 'ALERTAS POR E-MAIL', 'ic' => 'bi-envelope-paper', 'cor' => '#0a6fa0', 'n' => 5, 'sub' => '7 visita(s) pelo link · 3 clique(s) em criar conta · clique para campanha', 'ir' => ['acao' => 'alertasCsv']],
+            ['k' => 'alertas', 'rot' => 'ALERTAS POR E-MAIL', 'ic' => 'bi-envelope-paper', 'cor' => '#0a6fa0', 'n' => 5, 'sub' => '7 visita(s) pelo link · 3 clique(s) em criar conta · clique para campanha', 'ir' => ['acao' => 'campanha']],
             ['k' => 'compartilhadas', 'rot' => 'VAGAS COMPARTILHADAS', 'ic' => 'bi-share', 'cor' => '#1e7b45', 'n' => 4, 'sub' => '2 vaga(s) divulgada(s)', 'ir' => ['mod' => 'vagas', 'vf' => 'todas']],
             ['k' => 'ofertas', 'rot' => 'OFERTAS COM TEMPO', 'ic' => 'bi-stopwatch', 'cor' => '#c76a12', 'n' => 2, 'sub' => '50% aceitas · 2,5 min em média', 'ir' => ['mod' => 'vagas', 'vf' => 'todas']],
         ], $kpis);
