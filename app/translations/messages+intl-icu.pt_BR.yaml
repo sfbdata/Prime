@@ -508,6 +508,218 @@ pasta_processo:
         dados_falhou: Não foi possível salvar os dados do processo.
         dados_sem_comunicacao: Erro de comunicação. Os dados podem não ter sido salvos. Recarregue a página.
 
+# ---- Processo (processo/index, _resultado, new, show, _notas_tecnicas, _nota_tecnica_item; o JS do formulário em
+# processo.form.js, entregue pelo new). A situação gravada (EM_ANDAMENTO...) continua o valor; só o rótulo sai daqui.
+processo:
+    comum:
+        home: Home
+        push: Push Processual
+        processos: Processos
+        numero: Número do Processo
+        tribunal: Tribunal
+        situacao: Situação
+        instancia: Instância
+        informacoes: Informações
+        partes: Partes
+        movimentacoes: Movimentações
+        orgao_julgador: Órgão Julgador
+        classe_processual: Classe Processual
+        data_baixa: Data de Baixa
+        tipo: Tipo
+        nome: Nome
+        documento: Documento
+        papel: Papel
+        data: Data
+        descricao: Descrição
+        orgao: Órgão
+        editar: Editar
+        editar_processo: Editar processo
+        fechar: Fechar
+    situacao:
+        em_andamento: Em Andamento
+        encerrado: Encerrado
+        suspenso: Suspenso
+        arquivado: Arquivado
+        baixado: Baixado
+        transitado_em_julgado: Transitado em julgado
+        paralisado: Paralisado
+    index:
+        titulo: Processos Judiciais
+        cadastrar: Cadastrar Processo
+        busca: Buscar por número, classe, assunto ou tribunal…
+        filtro:
+            tribunal: Tribunal
+            situacao: Situação
+            de: De
+            ate: Até
+    resultado:
+        total: '{total} resultado(s) encontrado(s)'
+        classe: Classe
+        assunto: Assunto
+        acoes: Ações
+        visualizar: Visualizar processo
+        vazio: Nenhum processo encontrado.
+        criar: Criar novo processo
+    show:
+        titulo: 'Processo {numero}'
+        detalhes: Detalhes
+        distribuicao: Distribuição
+        tarefas: Tarefas
+        assunto: Assunto
+        assuntos: Assuntos
+        ultima_atualizacao: Última Atualização
+        sem_partes: Nenhuma parte cadastrada.
+        sem_movimentacoes: Nenhuma movimentação cadastrada.
+        criado_em: Criado em
+        modificado_em: Modificado em
+        criado_por: Criado por
+        dados_cnj: Dados do CNJ (Datajud)
+        sistema_origem: Sistema de origem
+        formato: Formato
+        nivel_sigilo: Nível de sigilo
+        codigo_orgao: Código do órgão
+        municipio_ibge: Município (IBGE)
+        id_datajud: ID Datajud
+        atividades_recentes: Atividades Recentes
+        tempo: '{horas}h {minutos}min'
+        prazo_em: 'Prazo: {data}'
+        sem_tarefas: Não há tarefas vinculadas a este processo.
+        vinculos: Vínculos
+        pastas: Pastas
+        sem_pastas: Este processo não está vinculado a nenhuma pasta.
+        pasta_trancada_dica: Pasta trancada pelo usuário primário
+        pasta_trancada: Pasta trancada
+        principal_dica: Este processo é o principal da pasta
+        principal: Principal
+        excluida_em: 'Excluída em {data}'
+        excluida: Excluída
+        voltar: Voltar aos Processos
+        excluir_confirmar: Tem certeza que deseja excluir este processo?
+        excluir_processo: Excluir processo
+        excluir: Excluir Processo
+        modal:
+            status: Status
+            atribuido: Atribuído a
+            criada_em: Criada em
+            prazo: Prazo
+            tempo_total: Tempo Total
+            ultima_revisao: Última Revisão
+            conclusao: Conclusão
+            abrir_tarefa: Abrir Tarefa
+    form:
+        titulo_novo: Novo Processo
+        titulo_editar: Editar Processo
+        novo: Novo
+        cliente: Cliente
+        assuntos: Assuntos
+        numero_exemplo: 'Ex: 1234567-89.2024.1.23.4567'
+        numero_formato: 'Formato: NNNNNNN-DD.AAAA.J.TT.OOOO'
+        buscar_cnj: Buscar no CNJ
+        buscar_cnj_dica: Busca o processo na base de dados do CNJ
+        tribunal_placeholder: Detectado pelo número do processo
+        tribunal_ajuda: Preenchido automaticamente pelo número do processo.
+        assunto_processual: Assunto Processual
+        instancia:
+            g1: G1 - Primeira Instância
+            g2: G2 - Segunda Instância
+            st: ST - Superior Tribunal
+        data_distribuicao: Data de Distribuição
+        cliente_vinculado: Cliente vinculado
+        nenhum_cliente: Nenhum cliente
+        adicionar_parte: Adicionar Parte
+        adicionar_movimentacao: Adicionar Movimentação
+        adicionar_assunto: Adicionar Assunto
+        assuntos_ajuda: Todos os assuntos do processo (o assunto principal fica na aba Informações).
+        remover: Remover
+        parte:
+            parte: Parte
+            advogado: Advogado
+            juiz: Juiz
+            promotor: Promotor
+            nome_placeholder: Nome da parte
+            documento_placeholder: CPF/CNPJ
+            papel_placeholder: Polo ativo/passivo
+        movimentacao:
+            descricao_placeholder: Descrição da movimentação
+            tipo_placeholder: Tipo de movimento
+        assunto:
+            assunto: Assunto
+            codigo: Código (TPU)
+            nome_placeholder: Descrição do assunto
+            codigo_placeholder: 'Ex.: 10433'
+        cancelar: Cancelar
+        salvar: Salvar Alterações
+        criar: Criar Processo
+        buscando: Buscando...
+        buscando_datajud: Buscando processo no DataJud...
+        mensagem: Mensagem
+        close: Close
+        js:
+            nenhum_cliente: Nenhum cliente
+            nenhum_cliente_encontrado: Nenhum cliente encontrado
+            tipo: Tipo
+            nome: Nome
+            documento: Documento
+            papel: Papel
+            data: Data
+            descricao: Descrição
+            orgao: Órgão
+            remover: Remover
+            parte:
+                parte: Parte
+                advogado: Advogado
+                juiz: Juiz
+                promotor: Promotor
+                nome_placeholder: Nome da parte
+                documento_placeholder: CPF/CNPJ
+                papel_placeholder: Polo ativo/passivo
+            movimentacao:
+                descricao_placeholder: Descrição da movimentação
+                tipo_placeholder: Tipo de movimento
+            assunto:
+                assunto: Assunto
+                codigo: Código (TPU)
+                nome_placeholder: Descrição do assunto
+                codigo_placeholder: 'Ex.: 10433'
+            sucesso: Sucesso
+            atencao: Atenção
+            erro: Erro
+            informe_numero: Informe o número do processo.
+            erro_busca: Erro ao buscar processo no CNJ/DataJud.
+            erro_busca_tente: Erro ao buscar processo no CNJ/DataJud. Tente novamente em instantes.
+            carregado: Processo carregado com sucesso! Os dados foram preenchidos no formulário. Você pode editá-los antes de salvar.
+    notas:
+        titulo: Notas técnicas
+        sobre_movimentacao: Sobre esta movimentação.
+        aviso: 'A nota é do processo: aparece em toda pasta que o vincula.'
+        adicionar: Adicionar nota técnica
+        nova: Nova nota técnica
+        texto: Texto da nota técnica
+        placeholder_despacho: 'Explique o despacho: o que significa, o que precisa ser feito, prazo… Use @ para mencionar alguém.'
+        placeholder_processo: 'Explique o processo ou o despacho: o que significa, o que precisa ser feito, prazo… Use @ para mencionar alguém.'
+        cancelar: Cancelar
+        salvar: Salvar nota
+        salvar_dica: Salvar (Ctrl+Enter)
+    nota:
+        selo: Nota técnica
+        hoje: 'hoje, {hora}'
+        quando: '{data}, {hora}'
+        editada_em: 'Editada em {data}'
+        editada: editada
+        movimentacao_dica: Nota sobre uma movimentação do Push Processual
+        opcoes: Opções da nota
+        menu_titulo: 'Nota técnica · {autor}'
+        responder: Responder com outra nota
+        copiar: Copiar texto
+        edicao_liberada: 'Edição liberada por mais {minutos} min'
+        editar_min: 'Editar · {minutos} min'
+        exclusao_liberada: 'Exclusão liberada por mais {minutos} min'
+        excluir_min: 'Excluir · {minutos} min'
+        so_autor_edita: Só o autor edita a nota, em até 15 minutos
+        so_autor_exclui: Só o autor exclui a nota, em até 15 minutos
+        editar_bloqueado: Editar · bloqueado
+        excluir_bloqueado: Excluir · bloqueado
+
 # ---- Relatório da Central de envios do /master (master/_comercial_relatorio, master/comercial-relatorio.js)
 # O que vem do PHP (rótulos de estado, KPIs, dica e leitura da MetricasDaCampanha, recusas) fica fora.
 comercial_relatorio:

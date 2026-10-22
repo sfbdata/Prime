@@ -610,6 +610,36 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   (inclusive a mensagem de exceção do `DefinirRootFolderDriveUseCase` repassada em flash) e as mensagens dos 403/404,
   como na §18; o `|date('d/m')` acima.
 
+### 23b. Processo (4b, 21/10)
+
+- **Escopo:** `templates/processo/index`, `_resultado`, `new` (novo e editar), `show`, `_notas_tecnicas` e
+  `_nota_tecnica_item` (as notas técnicas aparecem também na aba Processo e no teor do Push da pasta, e o cartão volta
+  pronto do `processo_nota_tecnica_criar`). Nenhum JS em `public/js` é só destas telas (o `nota-tecnica.js` é carregado
+  pela pasta); o script inline do `new` passou a ler `processo.form.js.*` pelo `catalogo_js`, e o texto do catálogo que
+  entra no HTML montado passa por um `esc()` local. Bloco `processo` com 190 chaves (`comum` 23, `situacao` 7, `index`
+  7, `resultado` 7, `show` 44, `form` 73, dos quais 30 em `form.js`, `notas` 11, `nota` 18), logo depois do
+  `pasta_processo`; área `processo` no `templates-extraidos.json`, sem permitidos. Nenhuma chave `pasta_processo.*` foi
+  reaproveitada: o domínio Processo tem o próprio bloco, e as notas técnicas (que a §11 deixou de fora) entram aqui.
+- **Sem mudança visível:** o HTML de 12 situações (lista vazia, com processos e ordenada; Novo; Editar com partes,
+  movimentações e assuntos e Editar vazio; detalhe completo, com tarefa, pasta principal e lápide, e detalhe vazio; a
+  pasta com notas técnicas próprias, alheias, antigas, editadas e de movimentação do Push; a pasta lápide; o cartão
+  devolvido ao criar uma nota), com dados que têm apóstrofo, aspas, `&` e `<b>`, foi gravado antes e depois e
+  comparado com tokens, ids e dígitos normalizados; o script inline do `new` foi comparado com as chamadas ao catálogo
+  trocadas pelo texto que a página entrega. Saiu igual. Mudou só o `confirm()` do excluir processo, agora
+  `|trans|e('js')` (o mesmo texto, escapado para JS). A conta `length > 1` dos botões Remover saiu do atributo `style`
+  para um `{% set %}` antes do laço (o detector lia o `>` como fim de tag); o valor é o mesmo.
+- **Formatos:** no detalhe, datas viraram `|data` (distribuição, baixa, movimentação, prazo da tarefa) e `|data_hora`
+  (última atualização, criado, modificado, tarefa, exclusão da pasta), todas já com guarda de nulo ou com data sempre
+  presente; na nota técnica, `|data_hora` no `title` e no "Editada em", `hoje, {hora}` e `{data}, {hora}` com `|data`
+  e `|hora`. O total da lista, os minutos da janela da nota e o tempo da tarefa entram como texto (`~ ''`) para o ICU
+  não pôr separador de milhar. Ficaram os `|date('Y-m-d')` dos campos `type="date"` (valor do campo, não texto) e o da
+  comparação "é hoje".
+- **Ficou para depois:** a situação crua do processo e da tarefa (`situacaoProcesso|replace`, `statusAtual|upper` e o
+  mesmo no modal), a situação da pasta (`|capitalize`), o "-" de vazio e o nome do tipo da parte (`parte.tipo`), que são
+  dado; os flashes e as recusas do `ProcessoController` e do `NotaTecnicaController` e o `error` que o
+  `api_datajud_search` devolve ao modal; o `nota-tecnica.js` (área da pasta); o `aria-label="Close"` do modal de
+  mensagem, que continua em inglês como estava (agora numa chave).
+
 ## 24. Extração dos parciais comuns, da raiz e das telas avulsas (7d, 21/10)
 
 ### 24.1 Parciais comuns (_partials)
