@@ -3859,6 +3859,124 @@ escritorio:
         selecione_valido: Selecione um escritório válido.
         sem_acesso: Você não tem acesso a este escritório.
 
+# ---- emails: e-mails do sistema (email/*, fora email/comercial)
+# Renderizados também fora de requisição (worker do Messenger, comandos): o tradutor cai no default_locale (pt_BR).
+# Hoje saem no idioma da requisição de quem disparou; o idioma do destinatário é a entrega E (spec §5). Frase com
+# <b>/<strong>/link no meio vai partida em chaves, com a marcação no template. Contagem entra como texto (sem
+# separador de milhar, como antes). Os assuntos montados no PHP ficam com o PHP da área.
+emails:
+    cadastro_confirmacao:
+        titulo: Confirme seu cadastro no BlueJus
+        ola: 'Olá, {nome}!'
+        # Recebemos o seu cadastro no <strong>BlueJus</strong> para o escritório <strong>{escritório}</strong>. Falta só...
+        recebemos: Recebemos o seu cadastro no
+        para_o_escritorio: para o escritório
+        falta_confirmar: Falta só confirmar seu e-mail para ativar a conta.
+        clique: Clique no botão abaixo para confirmar. O link expira em 24 horas.
+        botao: Confirmar meu cadastro
+        nao_funcionar: 'Se o botão não funcionar, copie e cole este endereço no navegador:'
+        ignore: Se você não fez este cadastro, ignore este e-mail.
+    codigo_exclusao_conta:
+        titulo: Código para excluir a conta
+        ola: 'Olá, {nome}!'
+        # Recebemos um pedido para excluir a conta do escritório <strong>{escritório}</strong> no BlueJus.
+        pedido_inicio: Recebemos um pedido para excluir a conta do escritório
+        pedido_fim: no BlueJus.
+        use_codigo: 'Para confirmar, use este código:'
+        vale: O código vale por 15 minutos.
+        digite: Digite-o no Meu Perfil, com a palavra EXCLUIR.
+        nao_foi_voce: 'Se não foi você, ignore este e-mail: a conta continua como está.'
+    codigo_senha:
+        titulo: 'Seu código BlueJus: {codigo}'
+        ola: 'Olá, {nome}!'
+        # Use este código para criar uma nova senha no <strong>BlueJus</strong>:
+        use_codigo: Use este código para criar uma nova senha no
+        vale: Ele vale por 15 minutos.
+        nao_pediu: Se você não pediu uma nova senha, ignore este e-mail. Sua senha atual continua valendo.
+    convite_escritorio:
+        titulo: Convite para colaborar no BlueJus
+        ola_nome: 'Olá, {nome}!'
+        ola: Olá!
+        # <strong>{escritório}</strong> convidou você...; sem escritório, <strong>Um escritório</strong>
+        um_escritorio: Um escritório
+        convidou: convidou você para colaborar como membro no BlueJus.
+        # Convite enviado por <strong>{nome}</strong>.; sem quem criou, <strong>um administrador</strong>
+        enviado_por: Convite enviado por
+        um_administrador: um administrador
+        ver_convite: Ver convite
+        # Este convite expira em <strong>{data}</strong>.
+        expira: Este convite expira em
+        nao_funcionar: 'Se o botão não funcionar, copie e cole este link no seu navegador:'
+        nao_esperava: Se você não esperava este convite, pode ignorá-lo com segurança. Nenhuma ação será realizada sem sua confirmação.
+    convite_plataforma:
+        titulo: Convite para o BlueJus
+        ola_nome: 'Olá, {nome}!'
+        ola: Olá!
+        # Você foi convidado para criar sua conta no <strong>BlueJus</strong>, a plataforma...
+        convidado_inicio: Você foi convidado para criar sua conta no
+        convidado_fim: ', a plataforma de gestão jurídica para advogados e escritórios.'
+        oab: Para concluir seu cadastro, você precisará informar seu número de inscrição na OAB.
+        criar_conta: Criar minha conta
+        # Este convite expira em <strong>{data} às {hora}</strong>.
+        expira: Este convite expira em
+        data_as_hora: '{data} às {hora}'
+        nao_funcionar: 'Se o botão não funcionar, copie e cole este link no seu navegador:'
+        nao_solicitou: Se você não solicitou este convite, ignore este e-mail. Nenhuma conta será criada sem que você clique no link acima.
+    indicacao:
+        convite:
+            ola: Olá!
+            # <b>{quem indica}</b> indicou o BlueJus para você...
+            indicou: indicou o BlueJus para você. O BlueJus reúne prazos, processos e documentos do escritório em um só lugar, e é grátis para começar.
+            crie: Crie a sua conta pelo convite. Você abre o seu próprio escritório no BlueJus.
+            criar_conta: Criar minha conta
+            nao_funcionar: 'Se o botão não funcionar, copie e cole este endereço no navegador:'
+    perfil:
+        resumo_diario:
+            bom_dia_nome: 'Bom dia, {nome}.'
+            bom_dia: Bom dia.
+            seu_dia: 'Este é o seu dia em {escritorio}, {dia}.'
+            prazos: 'Prazos e audiências de hoje ({quantos})'
+            metas: 'Metas que vencem hoje ({quantos})'
+            pasta: 'Pasta {pasta}'
+            agenda: Agenda
+            abrir: Abrir o BlueJus
+    push_aviso_equipe:
+        ola: 'Olá, {nome}!'
+        tipo_de_data: '{tipo} de {data}'
+        restantes: 'E mais {quantas} movimentação(ões) na pasta.'
+        abrir_pasta: Abrir a pasta
+        motivo: Você recebe este aviso porque é o responsável pela pasta e o aviso por e-mail está ligado na aba Push.
+        descadastro: Não quero mais receber estes avisos
+    push_cliente:
+        motivo: 'Você recebe este e-mail porque é cliente de {escritorio}. Para responder, use o botão Responder do seu e-mail.'
+        um_escritorio: um escritório
+        descadastro: Não quero mais receber estes avisos
+    redefinicao_senha:
+        titulo: Redefinição de senha no BlueJus
+        ola: 'Olá, {nome}!'
+        # Recebemos um pedido para redefinir a senha da sua conta no <strong>BlueJus</strong>.
+        recebemos: Recebemos um pedido para redefinir a senha da sua conta no
+        # Clique no botão abaixo para criar uma nova senha. <strong>O link vale por 1 hora</strong> e só pode ser usado uma vez.
+        clique: Clique no botão abaixo para criar uma nova senha.
+        vale: O link vale por 1 hora
+        uma_vez: e só pode ser usado uma vez.
+        botao: Criar nova senha
+        nao_funcionar: 'Se o botão não funcionar, copie e cole este endereço no navegador:'
+        nao_pediu: Se você não pediu a redefinição, ignore este e-mail. Sua senha atual continua valendo.
+    trabalho_externo_convite:
+        titulo: Convite para uma demanda de trabalho externo
+        ola: 'Olá, {nome}!'
+        # A Central... convidou você para executar <strong>{serviço}</strong> em <strong>{local}</strong>, como {função}.
+        convidou: A Central de Trabalho Externo do BlueJus convidou você para executar
+        em: em
+        como: ', como {funcao}'
+        acesso: 'Você terá acesso somente a esta demanda: instruções, documentos autorizados, checklist e chat. Se ainda não tem conta no BlueJus, poderá criar uma ao abrir o convite.'
+        ver_convite: Ver convite
+        # Este convite vale até <strong>{data}</strong>.
+        vale: Este convite vale até
+        nao_funcionar: 'Se o botão não funcionar, copie e cole este link no seu navegador:'
+        nao_esperava: Se você não esperava este convite, pode ignorá-lo com segurança. Nenhuma ação será realizada sem sua confirmação.
+
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro
 # ('perfis.x'|trans({papel: 'termos.master'|trans})).

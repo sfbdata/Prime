@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Código para excluir a conta</title>
+    <title>{{ 'emails.codigo_exclusao_conta.titulo'|trans }}</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
     <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:32px 0;">
@@ -17,17 +17,17 @@
                     </tr>
                     <tr>
                         <td style="padding:32px;">
-                            <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">Olá, {{ nome }}!</p>
+                            <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">{{ 'emails.codigo_exclusao_conta.ola'|trans({nome: nome}) }}</p>
                             <p style="margin:0 0 16px;font-size:15px;color:#444444;line-height:1.6;">
-                                Recebemos um pedido para excluir a conta do escritório <strong>{{ escritorio }}</strong> no BlueJus.
-                                Para confirmar, use este código:
+                                {{ 'emails.codigo_exclusao_conta.pedido_inicio'|trans }} <strong>{{ escritorio }}</strong> {{ 'emails.codigo_exclusao_conta.pedido_fim'|trans }}
+                                {{ 'emails.codigo_exclusao_conta.use_codigo'|trans }}
                             </p>
                             <p style="margin:0 0 24px;font-size:32px;font-weight:bold;letter-spacing:8px;color:#a3232b;">{{ codigo }}</p>
                             <p style="margin:0 0 16px;font-size:15px;color:#444444;line-height:1.6;">
-                                <strong>O código vale por 15 minutos.</strong> Digite-o no Meu Perfil, com a palavra EXCLUIR.
+                                <strong>{{ 'emails.codigo_exclusao_conta.vale'|trans }}</strong> {{ 'emails.codigo_exclusao_conta.digite'|trans }}
                             </p>
                             <p style="margin:0;font-size:13px;color:#888888;line-height:1.6;">
-                                Se não foi você, ignore este e-mail: a conta continua como está.
+                                {{ 'emails.codigo_exclusao_conta.nao_foi_voce'|trans }}
                             </p>
                         </td>
                     </tr>
