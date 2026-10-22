@@ -24,13 +24,13 @@
             {% set idsFavoritas = favoritasIds ?? pastas_favoritas_ids() %}
             {% set eFavorita = idsFavoritas[pasta.id] is defined %}
             {% if pasta.estaExcluida %}
-                {% if eFavorita %}<i class="bi bi-star-fill pasta-favorita-estrela" title="Fixada nos favoritos" aria-label="Fixada nos favoritos"></i>{% endif %}
+                {% if eFavorita %}<i class="bi bi-star-fill pasta-favorita-estrela" title="{{ 'pasta_lista.fixada_favoritos'|trans }}" aria-label="{{ 'pasta_lista.fixada_favoritos'|trans }}"></i>{% endif %}
             {% else %}
             <button type="button"
                     class="pasta-card-fav js-pasta-card-favorito{{ eFavorita ? ' is-favorita' : '' }}"
                     aria-pressed="{{ eFavorita ? 'true' : 'false' }}"
-                    aria-label="{{ eFavorita ? 'Tirar dos favoritos' : 'Marcar como favorito' }}"
-                    title="{{ eFavorita ? 'Tirar dos favoritos' : 'Marcar como favorito' }}"
+                    aria-label="{{ (eFavorita ? 'pasta_lista.tirar_favoritos' : 'pasta_lista.marcar_favorito')|trans }}"
+                    title="{{ (eFavorita ? 'pasta_lista.tirar_favoritos' : 'pasta_lista.marcar_favorito')|trans }}"
                     data-pasta-id="{{ pasta.id }}"
                     data-url="{{ path('pasta_favorito_alternar', {id: pasta.id}) }}"
                     data-csrf="{{ csrf_token('pasta_favorito_' ~ pasta.id) }}">
@@ -48,14 +48,15 @@
                     {% if pasta.clientes|length == 1 %}
                         {{ pasta.clientes[0].nomeExibicao }}
                     {% else %}
+                        {% set nomesClientes = pasta.clientes|map(c => c.nomeExibicao)|join('||') %}
                         <span class="clientes-resumo" data-bs-placement="bottom"
-                              data-clientes="{{ pasta.clientes|map(c => c.nomeExibicao)|join('||') }}">
+                              data-clientes="{{ nomesClientes }}">
                             {{ pasta.clientes[0].nomeExibicao }}
                             <span class="badge text-bg-secondary ms-1" style="font-size:.6rem;">+{{ pasta.clientes|length - 1 }}</span>
                         </span>
                     {% endif %}
                 {% else %}
-                    <span class="text-muted">Não informado</span>
+                    <span class="text-muted">{{ 'pasta_lista.nao_informado'|trans }}</span>
                 {% endif %}
             </span>
         </div>
@@ -66,8 +67,8 @@
             {% if pasta.estaExcluida %}
             {# Rótulo inerte: sem js-toggle-situacao, o duplo-clique não ressuscita a pasta. #}
             <span class="badge text-bg-danger pasta-badge-excluida"
-                  title="Excluída em {{ pasta.excluidaEm|date('d/m/Y H:i') }}{% if pasta.excluidaPor %} por {{ pasta.excluidaPor.fullName }}{% endif %}">
-                Excluída
+                  title="{% if pasta.excluidaPor %}{{ 'pasta_lista.excluida_em_por'|trans({data: pasta.excluidaEm ? pasta.excluidaEm|data_hora : '', nome: pasta.excluidaPor.fullName}) }}{% else %}{{ 'pasta_lista.excluida_em'|trans({data: pasta.excluidaEm ? pasta.excluidaEm|data_hora : ''}) }}{% endif %}">
+                {{ 'pasta_lista.excluida'|trans }}
             </span>
             {% elseif pasta.situacao in ['ativo', 'arquivado'] %}
             <span class="badge js-toggle-situacao {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}"
@@ -75,8 +76,8 @@
                   data-situacao="{{ pasta.situacao }}"
                   data-url="{{ path('pasta_alternar_situacao', {id: pasta.id}) }}"
                   data-csrf="{{ csrf_token('pasta_alternar_situacao_' ~ pasta.id) }}"
-                  title="Dê duplo-clique para alternar entre ativo e arquivado">
-                {{ pasta.situacao == 'ativo' ? 'Ativo' : 'Arquivado' }}
+                  title="{{ 'pasta_lista.alternar_situacao'|trans }}">
+                {{ (pasta.situacao == 'ativo' ? 'pasta_lista.ativo' : 'pasta_lista.arquivado')|trans }}
             </span>
             {% else %}
             {# Suspenso e Cancelado: selo fixo, como na Lista do Expediente. O duplo clique alternava para
@@ -106,21 +107,23 @@
                         {{ primeiro.nome }}
                     </span>
                     {% if pasta.marcadores|length > 1 %}
+                        {% set marcadoresExtra = pasta.marcadores|slice(1)|map(m => {nome: m.nome, cor: m.cor})|json_encode %}
                         <span class="badge rounded-pill px-2 marcadores-extra"
                               style="background:var(--bs-tertiary-bg);color:var(--bs-body-color);font-size:.68rem;cursor:default;"
-                              data-marcadores-json="{{ pasta.marcadores|slice(1)|map(m => {nome: m.nome, cor: m.cor})|json_encode }}">
+                              data-marcadores-json="{{ marcadoresExtra }}">
                             +{{ pasta.marcadores|length - 1 }}
                         </span>
                     {% endif %}
                 {% endif %}
+                {% set marcadoresAtivos = pasta.marcadores|map(m => m.id)|join(',') %}
                 <button type="button"
                         class="btn btn-xs py-0 px-1 btn-outline-secondary js-mover-para"
                         style="font-size:.7rem;line-height:1.4;"
                         data-pasta-id="{{ pasta.id }}"
                         data-pasta-nome="{{ pasta.nup }}"
-                        data-marcadores-ativos="{{ pasta.marcadores|map(m => m.id)|join(',') }}"
+                        data-marcadores-ativos="{{ marcadoresAtivos }}"
                         data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}"
-                        title="Mover para…">
+                        title="{{ 'pasta_lista.mover_para'|trans }}">
                     <i class="bi bi-tags"></i>
                 </button>
             </div>
@@ -132,15 +135,15 @@
             {% if totalTarefas > 0 %}
                 {% set temRevisao = pasta.tarefas|filter(t => t.status == 'em_revisao')|length > 0 %}
                 <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas"
-                   class="badge {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
-                   title="{{ totalTarefas }} meta(s) · {{ tarefasAtivas|length }} ativa(s)">
+                   class="badge {{ temRevisao ? 'text-bg-warning' : (0 < tarefasAtivas|length ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
+                   title="{{ 'pasta_lista.metas_resumo'|trans({total: totalTarefas ~ '', ativas: tarefasAtivas|length ~ ''}) }}">
                     <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
                 </a>
             {% endif %}
         </div>
 
         <span class="pasta-card-dias text-muted ms-auto">
-            {% if dias == 0 %}Hoje{% elseif dias == 1 %}1d{% else %}{{ dias }}d{% endif %}
+            {% if dias == 0 %}{{ 'pasta_lista.hoje'|trans }}{% elseif dias == 1 %}{{ 'pasta_lista.card.dias'|trans({dias: '1'}) }}{% else %}{{ 'pasta_lista.card.dias'|trans({dias: dias ~ ''}) }}{% endif %}
         </span>
     </div>
 </div>

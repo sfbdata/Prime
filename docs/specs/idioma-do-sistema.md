@@ -777,6 +777,39 @@ antes e depois, sem diferença; o texto dos scripts foi conferido chave por chav
   das abas ocultas e do andamento); o `data-screen-label` do andamento (marca do desenho, ninguém lê); e o
   `lang="pt-BR"` fixo do `zip_recusado`.
 
+### 20.2 Lista de pastas e demandas
+
+- **Escopo:** `pasta/index`, `_tabela`, `_card`, `_cliente_linha`, `_filtros`, `_filtro_situacao`, `demandas` e
+  `demandas/_resultado`. Bloco de topo `pasta_lista` do catálogo, 108 chaves, com `pasta_lista.js.*` (5) para o script
+  inline da estrela de favorito do `_tabela`. Nenhum JS de `public/js` entrou: não existe `pasta-lista*` nem
+  `pasta-filtros*`, e o único JS das demandas, o `filtro-tabela.js`, serve também o painel, a cobrança e o dashboard.
+- **Catálogo do JS:** o `catalogo_js('pasta_lista.js')` fica no próprio `_tabela`, logo antes do `<script>` que usa as
+  chaves.
+- **Onde aparece:** o `_filtros` e o `_filtro_situacao` são do acervo do Expediente (`_acervo_geral` e
+  `_painel_marcador`); o `_cliente_linha`, do trilho da pasta e da resposta do vincular/cadastrar cliente. O
+  `pasta/index` não é renderizado por rota nenhuma (o `pasta_index` redireciona ao Expediente), e com ele o `_tabela` e
+  o `_card`: foram extraídos assim mesmo, porque estão no lote.
+- **Sem mudança visível:** o HTML do acervo (vazio, com dados e com filtros), das demandas (vazia, vazia com filtro, com
+  dados e o fragmento do XHR), das linhas de cliente da pasta (principal com cadastro completo e segundo cliente com
+  pendência e CPF duplicado) e do `_tabela`, `_card` e `_filtros` renderizados direto pelo Twig (com e sem paginação,
+  vazio com e sem filtro, pasta favorita, excluída, arquivada e cancelada) saiu igual. Mudaram só tokens CSRF, quebras de
+  linha, o `<script data-bj-t>` e a forma do `aria-label` do "Abrir cliente", que passou a ser escapado inteiro pelo
+  `html_attr` (o espaço sai como `&#x20;`, mesmo texto). Não foram renderizados, e foram conferidos lendo: "Sem
+  registro" das demandas (pasta sem data de abertura), "Cadastro completo" e "Cadastro incompleto" com uma pendência
+  só, "Total: 1 pasta" e "N pastas" sem paginação, e "Excluída em" sem quem excluiu.
+- **Formatos:** o `excluidaEm` do selo "Excluída" (sob guarda de nulo) passou a `|data_hora` no `_tabela` e no `_card`.
+  Os `number_format` do resumo da tabela ficaram como estavam.
+- **Escolhas:** "N pasta(s)" do resumo e "N pendência(s)" do cadastro viraram duas chaves cada (`_uma`, `_varias`)
+  pelo mesmo teste de antes; "Excluída em … por …" virou duas chaves, com e sem quem excluiu; a dica da estrela do
+  principal, duas (com e sem "Clique na estrela de outro para trocar"). O "meta(s) · ativa(s)" e o "demanda(s)
+  encontrada(s)" continuam com "(s)", como no §8. Os `map(x => ...)` que estavam dentro de atributos foram para um
+  `{% set %}` antes da tag, e o `x > 0` em atributo virou `0 < x`. "CPF" e "CNPJ" seguem como sigla, parâmetro do
+  selo de duplicado. Ficou nos permitidos só o `aria-sort=""` do macro de ordenação, como no Expediente.
+- **Ficou de fora:** o texto do PHP (`prioridadeLabel`, `situacaoRotulo`, `identificador_pasta`, `documento_br_rotulo`,
+  as pendências do `cliente_pendencias` e as mensagens JSON da estrela de favorito e do alternar situação); os parciais
+  compartilhados `_partials/_filtro_barra`, `_partials/_filtro_paginacao` e `expediente/_paginacao`; e o
+  `filtro-tabela.js`.
+
 ### 20.3 Responsável, histórico, impressão e relatórios (4b, 21/10)
 
 - **Escopo:** os parciais `pasta/_resp_chip`, `_resp_estilo` (sem texto), `_resp_menu` e `_resp_script` (o chip e o menu

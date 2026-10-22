@@ -6401,4 +6401,124 @@ servicedesk:
         reabrir: Reabrir
         reabrir_chamado: Reabrir Chamado
 
+# ---- Pasta: lista de pastas e demandas (pasta/index, _tabela, _card, _filtros, demandas...)
+pasta_lista:
+    nao_informado: Não informado
+    hoje: Hoje
+    ativo: Ativo
+    arquivado: Arquivado
+    nup: NUP
+    cliente: Cliente
+    acao: Ação
+    prioridade: Prioridade
+    metas: Metas
+    mover_para: Mover para…
+    excluida: Excluída
+    excluida_em: 'Excluída em {data}'
+    excluida_em_por: 'Excluída em {data} por {nome}'
+    alternar_situacao: Dê duplo-clique para alternar entre ativo e arquivado
+    metas_resumo: '{total} meta(s) · {ativas} ativa(s)'
+    fixada_favoritos: Fixada nos favoritos
+    tirar_favoritos: Tirar dos favoritos
+    marcar_favorito: Marcar como favorito
+    index:
+        titulo: Pastas
+        nova: Nova Pasta
+    tabela:
+        ordenar_por: Ordenar por
+        ordenar_por_opcao: Ordenar por…
+        nup_crescente: NUP (crescente)
+        nup_decrescente: NUP (decrescente)
+        cliente_az: Cliente (A-Z)
+        cliente_za: Cliente (Z-A)
+        prioridade_maior: Prioridade (maior primeiro)
+        prioridade_menor: Prioridade (menor primeiro)
+        acao_az: Ação (A-Z)
+        responsavel_az: Responsável (A-Z)
+        situacao: Situação
+        visualizar_dica: Escolher como exibir as pastas
+        visualizar: Visualizar
+        detalhes_dica: Tabela com todas as colunas
+        detalhes: Detalhes
+        cartoes_dica: Pastas em cartões
+        cartoes: Cartões
+        painel_marcadores: Painel de marcadores
+        intervalo: '{primeira} de {ultima}'
+        total_uma: 'Total: {total} pasta'
+        total_varias: 'Total: {total} pastas'
+        contagem_uma: '{total} pasta'
+        contagem_varias: '{total} pastas'
+        responsavel: Responsável
+        marcadores: Marcadores
+        sem_metas: Sem metas
+        vazio_filtro: Nenhuma pasta encontrada com esses filtros.
+        vazio: Nenhuma pasta cadastrada.
+    card:
+        dias: '{dias}d'
+    cliente_linha:
+        cad_completo: Cadastro completo · abrir detalhes do cliente
+        cad_incompleto_uma: 'Cadastro incompleto: {total} pendência · abrir detalhes do cliente'
+        cad_incompleto_varias: 'Cadastro incompleto: {total} pendências · abrir detalhes do cliente'
+        duplicado_dica: 'Outro cliente vinculado tem o mesmo {doc}'
+        duplicado: '{doc} duplicado'
+        principal: Principal
+        principal_dica: Cliente principal desta pasta. A Média por CPF é dele
+        principal_dica_trocar: Cliente principal desta pasta. A Média por CPF é dele. Clique na estrela de outro para trocar
+        tornar_principal: Tornar cliente principal (a Média por CPF passa a ser dele)
+        abrir_dica: Abrir ficha do cliente (documentos e anexos ficam lá)
+        abrir_rotulo: 'Abrir cliente {nome}'
+        desvincular: Desvincular cliente da pasta
+    filtro_situacao:
+        dica: Filtrar pela situação da pasta
+        rotulo: Situação
+        todas: Todas
+        suspenso: Suspenso
+        cancelado: Cancelado
+    filtros:
+        busca_dica: Buscar por número da pasta, nome do cliente, ação ou número do processo
+        busca_placeholder: Buscar pasta, cliente, ação ou processo
+        responsavel_dica: Filtrar pelo responsável da pasta
+        responsavel: Responsável
+        responsavel_rotulo: Filtrar por responsável
+        sem_responsavel: Sem responsável
+        prioridade_dica: 'Prioridade: Normal, Alta ou Urgente'
+        prioridade_rotulo: Filtrar por prioridade
+        normal: Normal
+        alta: Alta
+        urgente: Urgente
+        periodo_dica: Período de abertura da pasta
+        de: De
+        de_rotulo: Aberta a partir de
+        ate: Até
+        ate_rotulo: Aberta até
+        periodo_sep: a
+        abrir_calendario: Abrir calendário
+        limpar: Limpar todos os filtros
+    demandas:
+        titulo: Minhas Demandas
+        busca_placeholder: Buscar por cliente, ação, NUP ou processo…
+        status: Status
+        normal: Normal
+        urgente: Urgente
+        de: De
+        ate: Até
+    resultado:
+        encontradas: demanda(s) encontrada(s)
+        modificada: Mod.
+        nenhuma: Nenhuma
+        sem_registro: Sem registro
+        um_dia: 1 dia atrás
+        dias: '{dias}d atrás'
+        ver: Ver
+        vazio_filtro_titulo: Nenhuma demanda encontrada
+        vazio_filtro_texto: Tente ajustar ou limpar os filtros aplicados.
+        vazio_titulo: Tudo em dia por aqui
+        vazio_texto: Você não possui demandas no momento.
+    js:
+        favoritos_erro: Não foi possível alterar os favoritos.
+        tirar_favoritos: Tirar dos favoritos
+        marcar_favorito: Marcar como favorito
+        fixada_favoritos: Fixada nos favoritos
+        erro_comunicacao: Erro de comunicação. Tente novamente.
+
 # ---- fim
