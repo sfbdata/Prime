@@ -74,8 +74,13 @@ final class PassarEtapaDaMetaUseCaseTest extends TestCase
     private User $bia;
     private Tarefa $meta;
 
+    /** O que outra requisição já gravou no banco: a transação aplica na releitura da meta. */
+    private \Closure $noBanco;
+
     protected function setUp(): void
     {
+        $this->noBanco = static function (Tarefa $meta): void {
+        };
         $this->mensagens = $this->createMock(TarefaMensagemRepository::class);
         $this->mensagens->method('gravarCodigoSeLivre')->willReturnCallback(function (TarefaMensagem $m, string $codigo): bool {
             if ($this->codigoLivre) {
@@ -123,7 +128,7 @@ final class PassarEtapaDaMetaUseCaseTest extends TestCase
         self::assertSame(self::AGORA, $this->meta->getDataConclusao()?->format('Y-m-d H:i:s'));
         $nova = $this->unicaGravada();
         self::assertSame('Documentação: Falta procuração', $nova->getTitulo());
-        self::assertSame("Falta procuração\nComprovante de residência", $nova->getDescricao());
+        self::assertSame("Pendências:\nFalta procuração\nComprovante de residência", $nova->getDescricao(), '04 L218');
         self::assertSame(EtapaDaPasta::Documentacao, $nova->getEtapa());
         self::assertSame(TipoDeDemanda::Judicial, $nova->getTipoDeDemanda());
         self::assertSame(PrioridadeDaMeta::Alta, $nova->getPrioridade());
@@ -140,7 +145,7 @@ final class PassarEtapaDaMetaUseCaseTest extends TestCase
         self::assertSame(99, $saida->novaMetaId);
     }
 
-    #[TestDox('Histórico da meta concluída: "X concluída → Y (Resp)", pendências e o que foi feito, como ato registrado com código')]
+    #[TestDox('Histórico da meta concluída: "X concluída → Y (Resp)" e pendências, como ato registrado com código; o que foi feito vai na meta nova')]
     public function testHistoricoRegistrado(): void
     {
         $this->passar($this->responsavel, new PassarEtapaInput('judicial', pendencias: 'Falta procuração', feito: 'Conferi os dados.'), $this->ana);
@@ -148,7 +153,8 @@ final class PassarEtapaDaMetaUseCaseTest extends TestCase
         $ato = $this->meta->getMensagens()->last();
         self::assertInstanceOf(TarefaMensagem::class, $ato);
         self::assertSame(AcaoDoDespacho::Etapa, $ato->getAcao());
-        self::assertSame('<p>Controladoria concluída → Documentação (Ana Souza Lima)<br />Pendências: Falta procuração<br />O que foi feito: Conferi os dados.</p>', $ato->getMensagem());
+        self::assertSame('<p>Controladoria concluída → Documentação (Ana Souza Lima)<br />Pendências: Falta procuração</p>', $ato->getMensagem());
+        self::assertSame("Conferi os dados.\n\nPendências:\nFalta procuração", $this->unicaGravada()->getDescricao(), '04 L178: o "obs" vai na meta nova');
         self::assertSame($this->ana, $ato->getDestinatario());
         self::assertSame($this->responsavel, $ato->getUsuario());
         self::assertSame('RUI PRADO', $ato->getRegistradoPorNome());
@@ -184,7 +190,7 @@ final class PassarEtapaDaMetaUseCaseTest extends TestCase
         self::assertSame([], $this->avisos);
         self::assertSame([], $this->unicaGravada()->getResponsaveis()->toArray());
         self::assertSame('Documentação', $this->unicaGravada()->getTitulo());
-        self::assertSame('<p>Controladoria concluída → Documentação</p>', $this->meta->getMensagens()->last()->getMensagem());
+        self::assertSame('<p>Controladoria concluída → Documentação (Secretaria)</p>', $this->meta->getMensagens()->last()->getMensagem());
     }
 
     #[TestDox('Saltar: as etapas do meio ficam marcadas como saltadas na meta nova, junto das herdadas')]
@@ -199,10 +205,10 @@ final class PassarEtapaDaMetaUseCaseTest extends TestCase
         self::assertSame([EtapaDaPasta::Abertura, EtapaDaPasta::Documentacao, EtapaDaPasta::Juridico], $nova->getEtapasSaltadas());
     }
 
-    #[TestDox('Voltar exige o motivo nas pendências; com ele, a meta volta e as saltadas depois do destino deixam de valer')]
+    #[TestDox('Voltar exige o motivo nas pendências; com ele, a meta volta e herda as saltadas como estão (04B L175)')]
     public function testVoltar(): void
     {
-        $this->meta->setEtapasSaltadas([EtapaDaPasta::Abertura]);
+        $this->meta->setEtapasSaltadas([EtapaDaPasta::Abertura, EtapaDaPasta::Juridico]);
         try {
             $this->passar($this->responsavel, new PassarEtapaInput('judicial', destino: 'comercial'), null);
             self::fail('Devia recusar.');
@@ -214,7 +220,7 @@ final class PassarEtapaDaMetaUseCaseTest extends TestCase
         $this->passar($this->responsavel, new PassarEtapaInput('judicial', destino: 'comercial', pendencias: 'Contrato sem assinatura'), null);
 
         self::assertSame(EtapaDaPasta::Comercial, $this->unicaGravada()->getEtapa());
-        self::assertSame([], $this->unicaGravada()->getEtapasSaltadas());
+        self::assertSame([EtapaDaPasta::Abertura, EtapaDaPasta::Juridico], $this->unicaGravada()->getEtapasSaltadas(), 'até a saltada depois do destino fica');
     }
 
     #[TestDox('Consultoria muda a sequência: depois do Jurídico vem o Protocolo e Documentação não é destino')]
@@ -328,6 +334,45 @@ final class PassarEtapaDaMetaUseCaseTest extends TestCase
         $this->passar($this->responsavel, new PassarEtapaInput('judicial'), null);
     }
 
+    #[TestDox('Corrida: a segunda passagem, com a meta velha em memória, é recusada como já concluída e não cria meta')]
+    public function testCorridaComAMetaVelhaEmMemoria(): void
+    {
+        $this->noBanco = function (Tarefa $meta): void {
+            $meta->setStatus(Tarefa::STATUS_CONCLUIDA);
+        };
+
+        try {
+            $this->passar($this->responsavel, new PassarEtapaInput('judicial'), $this->ana);
+            self::fail('Devia recusar.');
+        } catch (PassagemRecusadaException $e) {
+            self::assertSame(PassagemRecusadaException::jaConcluida()->getMessage(), $e->getMessage());
+        }
+        self::assertSame(0, $this->transacoes);
+        self::assertSame([], $this->gravadas);
+        self::assertSame([], $this->avisos);
+        self::assertCount(0, $this->meta->getMensagens());
+    }
+
+    #[TestDox('Corrida: quem deixou de cuidar da meta enquanto a tela estava aberta é recusado na releitura')]
+    public function testCorridaQuemDeixouDeCuidar(): void
+    {
+        $this->noBanco = function (Tarefa $meta): void {
+            $meta->removeResponsavel($this->responsavel);
+        };
+
+        $this->expectExceptionObject(PassagemRecusadaException::semPermissaoParaPassar());
+        $this->passar($this->responsavel, new PassarEtapaInput('judicial'), $this->ana);
+    }
+
+    #[TestDox('Sem responsável, o histórico põe o setor da etapa destino no lugar dele (04 L178)')]
+    public function testHistoricoSemResponsavelUsaOSetor(): void
+    {
+        $this->passar($this->responsavel, new PassarEtapaInput('judicial'), null);
+
+        self::assertSame('<p>Controladoria concluída → Documentação (Secretaria)</p>', $this->meta->getMensagens()->last()->getMensagem());
+        self::assertSame('', $this->unicaGravada()->getDescricao());
+    }
+
     private function passar(User $quem, PassarEtapaInput $input, ?User $responsavel): \App\Tarefa\DTO\PassagemFeitaOutput
     {
         return $this->useCase()->executar($this->meta, $quem, $this->escritorio, $input, $responsavel, new \DateTimeImmutable(self::AGORA));
@@ -363,6 +408,11 @@ final class PassarEtapaDaMetaUseCaseTest extends TestCase
                 return $resultado;
             }
 
+            public function travarERecarregar(Tarefa $meta): void
+            {
+                $this->teste->releu($meta);
+            }
+
             public function gravarMetaNova(Tarefa $nova): void
             {
                 $this->teste->gravou($nova);
@@ -389,6 +439,12 @@ final class PassarEtapaDaMetaUseCaseTest extends TestCase
             $urls,
             new QuemCuidaDaMeta(),
         );
+    }
+
+    /** @internal chamado pela transação falsa: aplica o que outra requisição já gravou no banco */
+    public function releu(Tarefa $meta): void
+    {
+        ($this->noBanco)($meta);
     }
 
     /** @internal chamado pela transação falsa */

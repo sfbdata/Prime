@@ -12,6 +12,7 @@ use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Service\DiasUteisDoEscritorio;
+use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Enum\TipoDeDemanda;
@@ -24,6 +25,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Trilho "ETAPA DA PASTA", ações da lateral e dados do modal (desenho 04B L43-44, L78-82, L138; 04 L195-197).
@@ -37,6 +39,8 @@ final class MontarEtapaDaMetaUseCaseTest extends TestCase
     private User $criador;
     private User $responsavel;
     private Tarefa $meta;
+    /** @var array<int, string|null> foto do perfil por usuário, como o `UserRepository` devolve */
+    private array $fotos = [];
 
     protected function setUp(): void
     {
@@ -117,8 +121,30 @@ final class MontarEtapaDaMetaUseCaseTest extends TestCase
         self::assertSame('Documentação', $dados['etapas']['documentacao']['nome']);
         self::assertSame(4, $dados['etapas']['documentacao']['posicao']);
         self::assertSame(['comercial', 'abertura', 'controladoria', 'juridico', 'protocolo', 'encerramento'], $dados['tipos'][2]['sequencia']);
-        self::assertSame([['id' => 1, 'nome' => 'Thâmara Thays Silva Carvalho', 'iniciais' => 'TT', 'funcao' => 'Secretária']], $dados['membros']);
+        self::assertSame([['id' => 1, 'nome' => 'Thâmara Thays Silva Carvalho', 'iniciais' => 'TT', 'funcao' => 'Secretária', 'foto' => null]], $dados['membros']);
         self::assertSame('2026-10-26', $dados['prazo']);
+    }
+
+    #[TestDox('Foto no seletor (04 L195): o endereço do avatar do sistema quando há foto; sem ela, null e o JS mostra as iniciais')]
+    public function testFotoDosMembros(): void
+    {
+        $this->fotos = [1 => 'abc123.jpg'];
+
+        $dados = $this->useCase()->dadosDoModal($this->meta, $this->escritorio, new \DateTimeImmutable('2026-10-22 15:00'));
+
+        self::assertSame('/app_profile_foto_serve/abc123.jpg', $dados['membros'][0]['foto']);
+        self::assertSame('TT', $dados['membros'][0]['iniciais']);
+    }
+
+    #[TestDox('Pasta na lápide (excluída): sem Concluir nem Devolver, mesmo para o responsável')]
+    public function testLapide(): void
+    {
+        $this->meta->getPasta()->marcarExcluida($this->criador, new \DateTimeImmutable('2026-10-20'));
+
+        $saida = $this->useCase()->executar($this->meta, $this->responsavel, $this->escritorio);
+
+        self::assertFalse($saida->podeConcluir);
+        self::assertFalse($saida->podeDevolver);
     }
 
     #[TestDox('Rota: próxima pela posição, mesmo com a etapa fora da sequência do tipo')]
@@ -141,6 +167,10 @@ final class MontarEtapaDaMetaUseCaseTest extends TestCase
         $vinculos = $this->createStub(UserTenantRepository::class);
         $vinculos->method('findAtivosComCargoELotacaoPorTenant')->willReturn([$vinculo]);
         $tradutor = PassarEtapaDaMetaUseCaseTest::tradutor();
+        $usuarios = $this->createStub(UserRepository::class);
+        $usuarios->method('findFotoPorColaboradores')->willReturnCallback(fn (): array => $this->fotos);
+        $urls = $this->createStub(UrlGeneratorInterface::class);
+        $urls->method('generate')->willReturnCallback(static fn (string $rota, array $p = []): string => '/' . $rota . '/' . $p['nome']);
 
         return new MontarEtapaDaMetaUseCase(
             new NomesDasEtapas($caixas, $tradutor),
@@ -166,6 +196,8 @@ final class MontarEtapaDaMetaUseCaseTest extends TestCase
                     return 'pt_BR';
                 }
             },
+            $usuarios,
+            $urls,
         );
     }
 

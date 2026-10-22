@@ -56,10 +56,8 @@ final class RotaDaPassagem
     public static function saltadas(array $herdadas, TipoDeDemanda $tipo, EtapaDaPasta $atual, EtapaDaPasta $destino): array
     {
         $saltadas = [];
-        foreach ($herdadas as $etapa) {
-            if ($etapa->posicao() < $destino->posicao()) {
-                $saltadas[$etapa->value] = $etapa;
-            }
+        foreach (self::herdadasQueFicam($herdadas, $destino) as $etapa) {
+            $saltadas[$etapa->value] = $etapa;
         }
         foreach ($tipo->sequencia() as $etapa) {
             if ($etapa->posicao() > $atual->posicao() && $etapa->posicao() < $destino->posicao()) {
@@ -70,5 +68,24 @@ final class RotaDaPassagem
         usort($lista, static fn (EtapaDaPasta $a, EtapaDaPasta $b): int => $a->posicao() <=> $b->posicao());
 
         return $lista;
+    }
+
+    /**
+     * As saltadas que a meta nova herda da atual. Regra do desenho (04B L175, `pul: (m.pul || []).concat(pulL)`):
+     * herda todas, mesmo numa volta, sem tirar as que ficam depois do destino. Está aqui sozinha porque o dono
+     * ainda pode decidir outra coisa (por exemplo, a volta limpar as saltadas adiante do destino); a troca é só aqui.
+     *
+     * @param iterable<EtapaDaPasta> $herdadas
+     *
+     * @return list<EtapaDaPasta>
+     */
+    public static function herdadasQueFicam(iterable $herdadas, EtapaDaPasta $destino): array
+    {
+        $ficam = [];
+        foreach ($herdadas as $etapa) {
+            $ficam[] = $etapa;
+        }
+
+        return $ficam;
     }
 }

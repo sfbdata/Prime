@@ -1,10 +1,10 @@
 /* Passagem de etapa e devolução da meta (desenhos 04 e 04B de Minhas Metas de 22/10; spec
    minhas-metas-esteira-2210.md, Fase 3).
 
-   - Modal "Concluir etapa e passar adiante" (04 L131, L174-197; menu de salto e volta do 04B L93-94): abre pelos
-     botões [data-mp-abrir] (o "Concluir etapa" do cartão e o "Concluir e passar para X" da lateral da meta), pede os
-     dados à rota tarefa_passagem e monta faixa da sequência, CONCLUÍDA → PRÓXIMO PASSO, menu PASSAR PARA A ETAPA,
-     TIPO DE DEMANDA e o seletor de responsável ordenado pelo setor da etapa destino.
+   - Modal "Concluir etapa e passar adiante": abre pelos botões [data-mp-abrir] (o "Concluir etapa" do cartão e o
+     "Concluir e passar para X" da lateral da meta) e pede os dados à rota tarefa_passagem. Na lista é o 04 (L131,
+     L174-197: faixa da sequência, TIPO DE DEMANDA, seletor com foto); na meta é o 04B (L92-102: menu PASSAR PARA A
+     ETAPA, seletor sem avatar). O template só traz as partes do seu desenho; aqui cada montagem pula a que falta.
    - Modal "Devolver para X" (04B L106, L165-167): motivo fixo e o que falta, com os erros do desenho.
    O servidor confere tudo de novo (PassarEtapaDaMetaUseCase, DevolverMetaUseCase). Depois de gravar, a tela recarrega
    e o aviso (toast) aparece pelo sessionStorage: o base.html.twig consome os flashes como alerta. */
@@ -55,6 +55,11 @@
     if (guardado && guardado.texto) { avisar(guardado.texto, guardado.ms); }
   }
 
+  /* A recusa das rotas da passagem vem em `erro`; a da pasta na lápide (PastaSomenteLeituraListener, 403) em `mensagem`. */
+  function mensagemDeErro(resposta) {
+    return (resposta && (resposta.erro || resposta.mensagem)) || t('metas.passagem.js.erro_rede');
+  }
+
   function postar(url, campos) {
     var corpo = new FormData();
     Object.keys(campos).forEach(function (k) { corpo.append(k, campos[k]); });
@@ -86,6 +91,7 @@
 
   function montarFaixa() {
     var faixa = parte('seq');
+    if (!faixa) { return; }
     var atual = estado.dados.meta.etapa;
     var dest = destino();
     faixa.replaceChildren();
@@ -108,12 +114,14 @@
     caixa.classList.toggle('is-salta', !!estado.destino && !volta);
     parte('rotuloProxima').textContent = !estado.destino ? t('metas.passagem.js.proximo_passo') : volta ? t('metas.passagem.js.voltar_para') : t('metas.passagem.js.saltar_para');
     parte('proxima').textContent = dest ? estado.dados.etapas[dest].nome : t('metas.passagem.js.encerramento');
-    parte('descProxima').textContent = dest ? estado.dados.etapas[dest].descricao : t('metas.passagem.js.sem_proxima');
+    var desc = parte('descProxima');
+    if (desc) { desc.textContent = dest ? estado.dados.etapas[dest].descricao : t('metas.passagem.js.sem_proxima'); }
     montarSalto();
   }
 
   function montarSalto() {
     var salto = parte('salto');
+    if (!salto) { return; }
     salto.hidden = !estado.destino;
     if (!estado.destino) { return; }
     var volta = ehVolta();
@@ -136,8 +144,9 @@
   }
 
   function montarMenu() {
-    var opcoes = opcoesDoMenu();
     var lista = parte('menuLista');
+    if (!lista) { return; }
+    var opcoes = opcoesDoMenu();
     parte('menuBotao').hidden = opcoes.length < 2;
     lista.replaceChildren();
     opcoes.forEach(function (o, i) {
@@ -163,6 +172,7 @@
   /* Abre o menu já rolado até a próxima etapa (04B L169). */
   function alternarMenu(abrir) {
     var menu = parte('menu');
+    if (!menu) { return; }
     menu.hidden = !abrir;
     parte('menuBotao').setAttribute('aria-expanded', abrir ? 'true' : 'false');
     if (!abrir) { return; }
@@ -173,6 +183,7 @@
 
   function montarTipos() {
     var tipos = parte('tipos');
+    if (!tipos) { return; }
     tipos.replaceChildren();
     estado.dados.tipos.forEach(function (tp) {
       var botao = elemento('button', 'mp-tipo-botao' + (tp.valor === estado.tipo ? ' is-ativo' : ''), tp.rotulo);
@@ -200,18 +211,34 @@
       .slice(0, 8);
   }
 
+  /* 04 L131 e L195: a foto do perfil sobre o círculo azul; sem foto, as iniciais. */
+  function membroComFoto(m) {
+    var botao = elemento('button', 'mp-membro');
+    var foto = elemento('span', 'mp-membro-foto', m.foto ? '' : m.iniciais);
+    foto.style.backgroundImage = m.foto ? 'url(' + JSON.stringify(m.foto) + ')' : 'none';
+    botao.appendChild(foto);
+    var texto = elemento('span', 'mp-membro-texto');
+    texto.appendChild(elemento('b', null, m.nome));
+    texto.appendChild(elemento('span', null, m.funcao));
+    botao.appendChild(texto);
+    return botao;
+  }
+
+  /* 04B L97: sem avatar, o nome em negrito e a função embaixo. */
+  function membroEmColuna(m) {
+    var botao = elemento('button', 'mp-membro is-coluna');
+    botao.appendChild(elemento('b', null, m.nome));
+    botao.appendChild(elemento('span', null, m.funcao));
+    return botao;
+  }
+
   function montarMembros() {
     var caixa = parte('membros');
     var lista = membrosFiltrados();
     caixa.replaceChildren();
     lista.forEach(function (m) {
-      var botao = elemento('button', 'mp-membro');
+      var botao = estado.contexto === 'meta' ? membroEmColuna(m) : membroComFoto(m);
       botao.type = 'button';
-      botao.appendChild(elemento('span', 'mp-membro-foto', m.iniciais));
-      var texto = elemento('span', 'mp-membro-texto');
-      texto.appendChild(elemento('b', null, m.nome));
-      texto.appendChild(elemento('span', null, m.funcao));
-      botao.appendChild(texto);
       botao.addEventListener('mousedown', function (ev) {
         ev.preventDefault();
         estado.respId = m.id;
@@ -226,7 +253,9 @@
   function montarCampos() {
     var dest = destino();
     parte('comProxima').hidden = !dest;
-    parte('resp').placeholder = dest ? t('metas.passagem.js.responsavel_placeholder', { setor: estado.dados.etapas[dest].setor }) : '';
+    if (estado.contexto !== 'meta') {
+      parte('resp').placeholder = dest ? t('metas.passagem.js.responsavel_placeholder', { setor: estado.dados.etapas[dest].setor }) : '';
+    }
     var semProxima = estado.contexto === 'lista' ? t('metas.passagem.js.botao_encerrar') : t('metas.passagem.js.botao_concluir_meta');
     parte('okTexto').textContent = !dest ? semProxima
       : ehVolta() ? t('metas.passagem.js.botao_voltar', { etapa: estado.dados.etapas[dest].nome })
@@ -252,16 +281,17 @@
     fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
-        if (!res.ok) { avisar(res.j.erro || t('metas.passagem.js.erro_rede')); return; }
+        if (!res.ok) { avisar(mensagemDeErro(res.j)); return; }
         estado = { dados: res.j, tipo: res.j.meta.tipo, destino: '', respId: null, listaAberta: false, contexto: modal.dataset.contexto };
         var meta = res.j.meta;
-        parte('pasta').textContent = meta.cliente ? t('metas.passagem.js.pasta', { pasta: meta.pasta, cliente: meta.cliente }) : t('metas.passagem.js.pasta_sem_cliente', { pasta: meta.pasta });
+        var pasta = parte('pasta');
+        if (pasta) { pasta.textContent = meta.cliente ? t('metas.passagem.js.pasta', { pasta: meta.pasta, cliente: meta.cliente }) : t('metas.passagem.js.pasta_sem_cliente', { pasta: meta.pasta }); }
         parte('atual').textContent = res.j.etapas[meta.etapa].nome;
-        parte('titulo').textContent = meta.titulo;
+        if (parte('titulo')) { parte('titulo').textContent = meta.titulo; }
         parte('resp').value = '';
         parte('prazo').value = res.j.prazo;
         parte('pend').value = '';
-        parte('feito').value = '';
+        if (parte('feito')) { parte('feito').value = ''; }
         erroDaPassagem('');
         alternarMenu(false);
         montarTudo();
@@ -281,11 +311,11 @@
       destino: estado.destino,
       prazo: dest ? parte('prazo').value : '',
       pendencias: dest ? parte('pend').value : '',
-      feito: parte('feito').value,
+      feito: parte('feito') ? parte('feito').value : '',
       responsavel: dest && estado.respId ? String(estado.respId) : ''
     }).then(function (res) {
       ok.disabled = false;
-      if (!res.ok) { erroDaPassagem(res.erro || t('metas.passagem.js.erro_rede')); return; }
+      if (!res.ok) { erroDaPassagem(mensagemDeErro(res)); return; }
       var lista = estado.contexto === 'lista';
       var texto = res.proxima ? t('metas.passagem.js.toast_passou', { pasta: res.pasta, etapa: res.proxima })
         : lista ? t('metas.passagem.js.toast_encerrou', { pasta: res.pasta }) : t('metas.passagem.js.toast_meta_concluida');
@@ -303,8 +333,10 @@
       abrirPassagem(botao.dataset.mpAbrir);
     }, true);
     modal.querySelectorAll('[data-mp-fechar]').forEach(function (b) { b.addEventListener('click', function () { modal.hidden = true; }); });
-    parte('menuBotao').addEventListener('click', function (ev) { ev.stopPropagation(); alternarMenu(parte('menu').hidden); });
-    parte('menuFundo').addEventListener('click', function () { alternarMenu(false); });
+    if (parte('menuBotao')) {
+      parte('menuBotao').addEventListener('click', function (ev) { ev.stopPropagation(); alternarMenu(parte('menu').hidden); });
+      parte('menuFundo').addEventListener('click', function () { alternarMenu(false); });
+    }
     var resp = parte('resp');
     resp.addEventListener('focus', function () { estado.listaAberta = true; montarMembros(); });
     resp.addEventListener('input', function () { estado.respId = null; estado.listaAberta = true; montarMembros(); });
@@ -339,8 +371,10 @@
     ok.disabled = true;
     postar(devolucao.dataset.url, { _token: devolucao.dataset.token, motivo: motivo, o_que_falta: falta }).then(function (res) {
       ok.disabled = false;
-      if (!res.ok) { erroDaDevolucao(res.erro || t('metas.passagem.js.erro_rede')); return; }
-      avisarDepoisDeRecarregar(t('metas.passagem.js.toast_devolvida', { nome: String(res.para || '').split(' ')[0] }), 3000);
+      if (!res.ok) { erroDaDevolucao(mensagemDeErro(res)); return; }
+      /* Só diz que avisou quando o aviso foi mesmo mandado (quem saiu do escritório ou não vê a pasta não recebe). */
+      var nome = { nome: String(res.para || '').split(' ')[0] };
+      avisarDepoisDeRecarregar(res.avisado ? t('metas.passagem.js.toast_devolvida', nome) : t('metas.passagem.js.toast_devolvida_sem_aviso', nome), 3000);
     }).catch(function () { ok.disabled = false; erroDaDevolucao(t('metas.passagem.js.erro_rede')); });
   }
 

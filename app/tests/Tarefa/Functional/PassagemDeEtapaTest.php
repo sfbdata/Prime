@@ -187,11 +187,82 @@ final class PassagemDeEtapaTest extends JusPrimeWebTestCase
 
         $this->devolver([]);
         self::assertResponseIsSuccessful();
-        self::assertSame('Thâmara Thays Silva', json_decode((string) $this->client->getResponse()->getContent(), true)['para']);
+        $resposta = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertSame('Thâmara Thays Silva', $resposta['para']);
+        self::assertTrue($resposta['avisado'], 'a tela só diz que avisou quando o aviso foi mandado');
         $this->em->clear();
         $meta = $this->em->find(Tarefa::class, $this->meta->getId());
         self::assertSame([$this->criador->getId()], $meta->getResponsaveis()->map(static fn (User $u) => $u->getId())->getValues());
         self::assertCount(1, $this->em->getRepository(Notificacao::class)->findBy(['usuario' => $this->criador->getId(), 'tipo' => Notificacao::TIPO_TAREFA_PENDENTE]));
+    }
+
+    #[TestDox('Corrida: outra aba concluiu a meta e esta ainda a tem velha em memória; passar e devolver são recusados sem criar meta')]
+    public function testCorridaComAMetaVelhaEmMemoria(): void
+    {
+        $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
+        $antes = $this->em->getRepository(Tarefa::class)->count(['tenant' => $this->escritorio]);
+        // A outra requisição gravou direto no banco; a entidade gerenciada aqui continua "pendente".
+        $this->em->getConnection()->executeStatement('UPDATE tarefa SET status = ? WHERE id = ?', [Tarefa::STATUS_CONCLUIDA, $this->meta->getId()]);
+        self::assertSame(Tarefa::STATUS_PENDENTE, $this->meta->getStatus());
+
+        $this->passar(['responsavel' => (string) $this->colega->getId()]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Esta meta já está concluída.', json_decode((string) $this->client->getResponse()->getContent(), true)['erro']);
+        $this->devolver([]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Esta meta já está concluída.', json_decode((string) $this->client->getResponse()->getContent(), true)['erro']);
+
+        $this->em->clear();
+        self::assertSame($antes, $this->em->getRepository(Tarefa::class)->count(['tenant' => $this->escritorio]));
+        self::assertSame(0, $this->em->getRepository(TarefaMensagem::class)->count(['tarefa' => $this->meta->getId()]));
+    }
+
+    #[TestDox('D3 no concluir da aba Metas da pasta: um terceiro com acesso é recusado (403, a recusa da passagem) e não vê o botão; responsável e criador concluem')]
+    public function testConcluirDaPastaSoQuemCuida(): void
+    {
+        $outra = $this->criarMeta($this->escritorio, $this->criador, $this->responsavel);
+        $this->logarComTenant($this->client, $this->colega, $this->escritorio);
+        $pagina = $this->client->request('GET', '/pasta/' . $this->meta->getPasta()->getId());
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $pagina->filter('#psMetaMenu' . $this->meta->getId() . ' form.ps-meta-concluir'));
+        self::assertCount(0, $pagina->filter('form.ps-mrel-alternar-form[action="' . $this->rota('concluir') . '"]'));
+
+        $this->concluirPelaPasta($this->meta);
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame('Só o responsável pela etapa ou quem criou a meta conclui e passa adiante.', json_decode((string) $this->client->getResponse()->getContent(), true)['erro']);
+        $this->em->clear();
+        self::assertSame(Tarefa::STATUS_PENDENTE, $this->em->find(Tarefa::class, $this->meta->getId())->getStatus());
+
+        $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
+        $pagina = $this->client->request('GET', '/pasta/' . $this->meta->getPasta()->getId());
+        self::assertCount(1, $pagina->filter('#psMetaMenu' . $this->meta->getId() . ' form.ps-meta-concluir'));
+        $this->concluirPelaPasta($this->meta);
+        self::assertResponseIsSuccessful();
+
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+        $this->concluirPelaPasta($outra);
+        self::assertResponseIsSuccessful();
+
+        $this->em->clear();
+        self::assertSame(Tarefa::STATUS_CONCLUIDA, $this->em->find(Tarefa::class, $this->meta->getId())->getStatus());
+        self::assertSame(Tarefa::STATUS_CONCLUIDA, $this->em->find(Tarefa::class, $outra->getId())->getStatus());
+    }
+
+    #[TestDox('Pasta na lápide: a página da meta não mostra Concluir nem Devolver, e o POST é recusado com a mensagem em JSON')]
+    public function testLapide(): void
+    {
+        $this->meta->getPasta()->marcarExcluida($this->criador, new \DateTimeImmutable());
+        $this->em->flush();
+        $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
+
+        $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('.mp-lateral > .mp-concluir, .mp-lateral > .mp-devolver'));
+
+        // Como o meta-passagem.js manda: com X-Requested-With, o listener da lápide responde JSON.
+        $this->client->xmlHttpRequest('POST', $this->rota('passar'), ['_token' => 'TOKEN_passar_etapa_' . $this->meta->getId(), 'tipo' => 'judicial']);
+        self::assertResponseStatusCodeSame(403);
+        self::assertNotSame('', (string) (json_decode((string) $this->client->getResponse()->getContent(), true)['mensagem'] ?? ''), 'o JS mostra este texto');
     }
 
     #[TestDox('Página da meta: trilho de largura total antes do cartão, com as etapas como filhas diretas')]
@@ -253,16 +324,23 @@ final class PassagemDeEtapaTest extends JusPrimeWebTestCase
 
         $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
 
-        $caixa = '#mpPassagem > .mp-modal-centro > .mp-modal-caixa';
+        // 04B L92-102: cabeçalho só com o título, sem faixa, sem tipo e sem o que foi feito; menu salta/volta.
+        $caixa = '#mpPassagem.mp-passagem--meta > .mp-modal-centro > .mp-modal-caixa';
         self::assertSame('meta', $crawler->filter('#mpPassagem')->attr('data-contexto'));
-        self::assertSame('Concluir etapa e passar adiante', $crawler->filter($caixa . ' > .mp-modal-cabeca > .mp-modal-cabeca-texto > b')->text());
-        self::assertCount(1, $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-seq'));
+        self::assertSame('Concluir etapa e passar adiante', $crawler->filter($caixa . ' > .mp-modal-cabeca > b.mp-modal-cabeca-titulo')->text());
+        self::assertCount(0, $crawler->filter('#mpPassagem [data-mp="pasta"]'), 'sem "Pasta X · Cliente"');
+        self::assertCount(0, $crawler->filter('#mpPassagem .mp-seq'));
+        self::assertCount(0, $crawler->filter('#mpPassagem .mp-tipo'));
+        self::assertCount(0, $crawler->filter('#mpPassagem [data-mp="feito"]'));
+        self::assertCount(0, $crawler->filter('#mpPassagem [data-mp="titulo"], #mpPassagem [data-mp="descProxima"]'), 'CONCLUÍDA sem o título; próxima sem descrição');
         self::assertCount(1, $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-caixas > .mp-caixa-concluida + i.bi-arrow-right + .mp-caixa-proxima > .mp-menu-botao'));
         self::assertSame('PASSAR PARA A ETAPA', $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-caixas > .mp-caixa-proxima > .mp-menu > .mp-menu-caixa > .mp-menu-titulo')->text());
-        self::assertSame('TIPO DE DEMANDA', $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-tipo > .mp-rotulo')->text());
-        self::assertCount(1, $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-com-proxima > .mp-resp-prazo > .mp-campo-resp > input + .mp-membros'));
-        self::assertSame('Uma por linha: falta procuração, comprovante de residência...', $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-com-proxima > .mp-campo > textarea')->attr('placeholder'));
-        self::assertSame('Resumo para o registro da pasta', $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-campo > textarea')->attr('placeholder'));
+        self::assertCount(1, $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-caixas + .mp-salto + .mp-com-proxima'));
+        $resp = $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-com-proxima > .mp-resp-prazo > .mp-campo-resp > input + .mp-membros')->previousAll();
+        self::assertSame('Membro da equipe', $resp->attr('placeholder'));
+        self::assertSame('PRAZO', trim($crawler->filter($caixa . ' > .mp-modal-corpo > .mp-com-proxima > .mp-resp-prazo > .mp-campo-resp + .mp-campo')->text()));
+        self::assertSame('Uma por linha', $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-com-proxima > .mp-campo > textarea')->attr('placeholder'));
+        self::assertCount(1, $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-com-proxima + .mp-erro'));
         self::assertCount(1, $crawler->filter($caixa . ' > .mp-modal-pe > .mp-cancelar + .mp-confirmar'));
 
         $dev = '#mpDevolucao > .mp-modal-centro > .mp-modal-caixa';
@@ -302,6 +380,19 @@ final class PassagemDeEtapaTest extends JusPrimeWebTestCase
         self::assertSame('Concluir esta etapa e passar para Documentação', $botao->attr('title'));
         self::assertSame($this->rota('passagem'), $botao->attr('data-mp-abrir'));
         self::assertSame('lista', $crawler->filter('#mpPassagem')->attr('data-contexto'));
+
+        // 04 L131: faixa, CONCLUÍDA com o título, próxima com a descrição, tipo, prazo da próxima etapa e o que foi
+        // feito; "Pasta X · Cliente" no cabeçalho; sem o menu salta/volta.
+        $caixa = '#mpPassagem.mp-passagem--lista > .mp-modal-centro > .mp-modal-caixa';
+        self::assertCount(1, $crawler->filter($caixa . ' > .mp-modal-cabeca > .mp-modal-cabeca-texto > b + span[data-mp="pasta"]'));
+        self::assertCount(1, $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-seq + .mp-caixas + .mp-tipo + .mp-com-proxima + .mp-campo + .mp-erro'));
+        self::assertCount(1, $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-caixas > .mp-caixa-concluida > b + .mp-caixa-texto[data-mp="titulo"]'));
+        self::assertCount(1, $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-caixas > .mp-caixa-proxima > b + .mp-caixa-texto[data-mp="descProxima"]'));
+        self::assertCount(0, $crawler->filter('#mpPassagem .mp-menu-botao, #mpPassagem .mp-menu, #mpPassagem .mp-salto'));
+        self::assertSame('TIPO DE DEMANDA', $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-tipo > .mp-rotulo')->text());
+        self::assertSame('PRAZO DA PRÓXIMA ETAPA', trim($crawler->filter($caixa . ' > .mp-modal-corpo > .mp-com-proxima > .mp-resp-prazo > .mp-campo-resp + .mp-campo')->text()));
+        self::assertSame('Uma por linha: falta procuração, comprovante de residência...', $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-com-proxima > .mp-campo > textarea')->attr('placeholder'));
+        self::assertSame('Resumo para o registro da pasta', $crawler->filter($caixa . ' > .mp-modal-corpo > .mp-com-proxima + .mp-campo > textarea')->attr('placeholder'));
     }
 
     /** @param array<string, string> $campos */
@@ -314,6 +405,11 @@ final class PassagemDeEtapaTest extends JusPrimeWebTestCase
     private function devolver(array $campos): void
     {
         $this->client->request('POST', $this->rota('devolver'), $campos + ['_token' => 'TOKEN_devolver_meta_' . $this->meta->getId(), 'motivo' => 'Falta documento', 'o_que_falta' => 'Preciso do contrato assinado.']);
+    }
+
+    private function concluirPelaPasta(Tarefa $meta): void
+    {
+        $this->client->request('POST', '/tarefas/' . $meta->getId() . '/concluir', ['_token' => 'TOKEN_concluir_tarefa_' . $meta->getId()], [], ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
     }
 
     private function rota(string $acao): string

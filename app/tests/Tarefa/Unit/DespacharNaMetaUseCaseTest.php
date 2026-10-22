@@ -23,6 +23,7 @@ use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Enum\NaturezaDoDespacho;
 use App\Tarefa\Exception\DespachoRecusadoException;
 use App\Tarefa\Service\AnexoDoDespacho;
+use App\Tarefa\Service\CodigoDoRegistro;
 use App\Tarefa\Service\SorteioDeCodigoDoDespacho;
 use App\Tarefa\Service\TextoDoDespacho;
 use App\Tarefa\Service\TransacaoDoDespacho;
@@ -468,7 +469,7 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         return new DespacharNaMetaUseCase(
             $this->mensagens,
             new TextoDoDespacho($this->criarSanitizadorTextoRico()),
-            $this->sorteio,
+            new CodigoDoRegistro($this->mensagens, $this->sorteio),
             $this->notificacoes,
             $vinculos,
             $this->resolucao,

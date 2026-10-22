@@ -237,7 +237,8 @@
                                             <i class="bi bi-arrow-counterclockwise"></i><span>{{ 'pasta_documentos.metas.reabrir'|trans }}</span>
                                         </button>
                                     </form>
-                                {% else %}
+                                {% elseif cuida_da_meta(tarefa, app.user) %}
+                                    {# D3: só o responsável ou quem criou a meta conclui; o servidor confere de novo. #}
                                     <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}" class="ps-meta-concluir">
                                         <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">
                                         <button type="submit" class="ps-pop-item" role="menuitem">
@@ -448,7 +449,7 @@
                                 <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">
                                 <button type="submit" class="ps-mrel-alternar ps-mrel-alternar--reabrir"><i class="bi bi-arrow-counterclockwise"></i>{{ 'pasta_documentos.metas.reabrir'|trans }}</button>
                             </form>
-                        {% else %}
+                        {% elseif cuida_da_meta(tarefa, app.user) %}
                             <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}" class="ps-mrel-alternar-form">
                                 <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">
                                 <button type="submit" class="ps-mrel-alternar ps-mrel-alternar--concluir"><i class="bi bi-check2-circle"></i>{{ 'pasta_documentos.metas.concluir'|trans }}</button>

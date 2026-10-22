@@ -20,7 +20,7 @@ use App\Tarefa\DTO\DespacharNaMetaInput;
 use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Exception\DespachoRecusadoException;
 use App\Tarefa\Service\AnexoDoDespacho;
-use App\Tarefa\Service\SorteioDeCodigoDoDespacho;
+use App\Tarefa\Service\CodigoDoRegistro;
 use App\Tarefa\Service\TextoDoDespacho;
 use App\Tarefa\Service\TransacaoDoDespacho;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -50,22 +50,19 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  * referência ao documento. Tipo ou tamanho recusado: nada é gravado.
  *
  * Tudo numa transação ({@see TransacaoDoDespacho}, a `TransacaoComArquivoNovo` da casa): o anexo e o despacho são
- * gravados, e o código é gravado depois, com até 3 sorteios contra a colisão no índice único. Sem código livre, nada
+ * gravados, e o código é gravado depois pelo {@see CodigoDoRegistro} (até 3 sorteios contra a colisão no índice único). Sem código livre, nada
  * fica (nem a troca de status). O arquivo do anexo só sai do storage quando o COMMIT comprovadamente não aconteceu;
  * COMMIT de resultado incerto preserva o arquivo (o documento pode ter ficado apontando para ele).
  */
 final class DespacharNaMetaUseCase
 {
-    /** Sorteios contra a colisão no índice único do código (C13). */
-    private const TENTATIVAS_DO_CODIGO = 3;
-
     /** Texto do "Enviar para revisão" sem texto (desenho 04B L146). */
     public const ENVIO_SEM_TEXTO = 'Meta enviada para revisão do autor.';
 
     public function __construct(
         private readonly TarefaMensagemRepository $mensagens,
         private readonly TextoDoDespacho $textoDoDespacho,
-        private readonly SorteioDeCodigoDoDespacho $sorteio,
+        private readonly CodigoDoRegistro $codigo,
         private readonly NotificacaoService $notificacoes,
         private readonly UserTenantRepository $vinculos,
         private readonly ResolucaoDeMencoesDoRegistro $mencoes,
@@ -118,7 +115,7 @@ final class DespacharNaMetaUseCase
         }
         $this->mensagens->confirmar();
         if ($despacho !== null) {
-            $this->gravarCodigo($despacho);
+            $this->codigo->gravar($despacho);
         }
         if ($despacho !== null && $mencionados !== []) {
             $this->mencoes->notificarNoDespacho($mencionados, $despacho, $meta, $autor, $escritorio);
@@ -204,18 +201,6 @@ final class DespacharNaMetaUseCase
         $this->mensagens->salvar($despacho);
 
         return [$despacho, $mencionados];
-    }
-
-    /** Sorteia e grava; colidiu no índice único, sorteia de novo (C13). Sem código livre, a transação inteira volta. */
-    private function gravarCodigo(TarefaMensagem $despacho): void
-    {
-        for ($tentativa = 0; $tentativa < self::TENTATIVAS_DO_CODIGO; ++$tentativa) {
-            if ($this->mensagens->gravarCodigoSeLivre($despacho, $this->sorteio->sortear())) {
-                return;
-            }
-        }
-
-        throw DespachoRecusadoException::semCodigoLivre();
     }
 
     /** Enviar só da pendente; fora dela, recusa antes de gravar qualquer coisa. */

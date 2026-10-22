@@ -80,6 +80,9 @@ final class PassarEtapaDaMetaUseCase
         $prazo = $destino === null ? null : $this->prazo($input->prazo, $escritorio, $agora);
 
         $nova = $this->transacao->emTransacao(function () use ($meta, $quem, $escritorio, $input, $responsavel, $agora, $tipo, $destino, $prazo): ?Tarefa {
+            // A conferência de fora só poupa trabalho; a que vale é esta, com a meta travada e relida do banco.
+            $this->transacao->travarERecarregar($meta);
+            $this->exigirQuePodePassar($meta, $quem, $escritorio);
             $nova = $destino === null ? null : $this->criarMetaNova($meta, $quem, $input, $responsavel, $tipo, $destino, $prazo);
             $meta->setStatus(Tarefa::STATUS_CONCLUIDA)->setDataConclusao($agora);
             if ($nova !== null) {
@@ -138,7 +141,7 @@ final class PassarEtapaDaMetaUseCase
         $linha = trim(explode("\n", TextoDoDespacho::normalizar($input->pendencias))[0]);
         $nova = (new Tarefa())
             ->setTitulo($this->nomes->nome($escritorio, $destino) . ($linha === '' ? '' : ': ' . mb_substr($linha, 0, self::LIMITE_DA_LINHA_NO_TITULO)))
-            ->setDescricao(TextoDoDespacho::normalizar($input->pendencias))
+            ->setDescricao(self::descricaoDaNova($input))
             ->setStatus(Tarefa::STATUS_PENDENTE)
             ->setPrioridade($meta->getPrioridade())
             ->setPasta($meta->getPasta())
@@ -153,6 +156,23 @@ final class PassarEtapaDaMetaUseCase
         }
 
         return $nova;
+    }
+
+    /**
+     * A descrição da meta nova como o desenho a mostra (04 L178 grava `obs` e `pend`; 04 L218 abre com
+     * `m.obs || 'Pendências:\n' + m.pend`): o que foi feito, quando escrito, e as pendências para o próximo setor
+     * logo abaixo, para não se perderem (a meta só tem um campo de descrição).
+     */
+    private static function descricaoDaNova(PassarEtapaInput $input): string
+    {
+        $feito = TextoDoDespacho::normalizar($input->feito);
+        $pendencias = TextoDoDespacho::normalizar($input->pendencias);
+        $blocoDasPendencias = $pendencias === '' ? '' : "Pendências:\n" . $pendencias;
+        if ($feito === '') {
+            return $blocoDasPendencias;
+        }
+
+        return $blocoDasPendencias === '' ? $feito : $feito . "\n\n" . $blocoDasPendencias;
     }
 
     /** O ato no histórico da meta concluída (04B L178), registrado com autoria e código (D1). */
@@ -179,12 +199,14 @@ final class PassarEtapaDaMetaUseCase
     {
         $texto = $this->nomes->nome($escritorio, $meta->getEtapa()) . ' concluída' . ($destino === null
             ? ' · pasta encerrada'
-            : ' → ' . $this->nomes->nome($escritorio, $destino) . ($responsavel === null ? '' : ' (' . self::nome($responsavel) . ')'));
+            : ' → ' . $this->nomes->nome($escritorio, $destino) . ' (' . ($responsavel === null ? $this->nomes->setor($destino) : self::nome($responsavel)) . ')');
+        // Sem responsável, quem cuida é o setor da etapa (04 L178, `dest: Fh.resp || Hp[3]`).
         $pendencias = TextoDoDespacho::normalizar($input->pendencias);
         if ($pendencias !== '') {
             $texto .= "\nPendências: " . $pendencias;
         }
-        $feito = TextoDoDespacho::normalizar($input->feito);
+        // O que foi feito vai na meta nova; sem ela (pasta encerrada), fica aqui para não se perder.
+        $feito = $destino === null ? TextoDoDespacho::normalizar($input->feito) : '';
 
         return $feito === '' ? $texto : $texto . "\nO que foi feito: " . $feito;
     }

@@ -96,12 +96,12 @@ final class PassagemDeEtapaController extends AbstractController
         $input = new DevolverMetaInput((string) $request->request->get('motivo', ''), (string) $request->request->get('o_que_falta', ''));
 
         try {
-            $para = $useCase->executar($tarefa, $usuario, $tenant, $input, new \DateTimeImmutable());
+            $feito = $useCase->executar($tarefa, $usuario, $tenant, $input, new \DateTimeImmutable());
         } catch (PassagemRecusadaException|DespachoRecusadoException $e) {
             return $this->erro($e);
         }
 
-        return $this->json(['ok' => true, 'para' => $para]);
+        return $this->json(['ok' => true, 'para' => $feito->para, 'avisado' => $feito->avisado]);
     }
 
     private function erro(PassagemRecusadaException|DespachoRecusadoException $e): JsonResponse

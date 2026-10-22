@@ -10,8 +10,8 @@ use App\Tarefa\Exception\DespachoRecusadoException;
 
 /**
  * Grava o código do registro (D1, C13) num ato já gravado: sorteia e grava; colidiu no índice único, sorteia de
- * novo, até 3 vezes. Sem código livre, lança, e a transação de quem chama volta inteira. A mesma regra do
- * `DespacharNaMetaUseCase`, para a passagem de etapa e a devolução.
+ * novo, até 3 vezes. Sem código livre, lança, e a transação de quem chama volta inteira. Usado pelo despacho, pela
+ * passagem de etapa e pela devolução.
  */
 final class CodigoDoRegistro
 {

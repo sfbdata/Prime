@@ -24,6 +24,12 @@ interface TransacaoDaPassagem
      */
     public function emTransacao(\Closure $trabalho): mixed;
 
+    /**
+     * Trava a meta até o fim da transação e a relê do banco (só dentro de `emTransacao`): duas passagens ou
+     * devoluções ao mesmo tempo ficam em fila, e a segunda vê o status que a primeira gravou.
+     */
+    public function travarERecarregar(Tarefa $meta): void;
+
     /** Reserva o número da meta nova na sequência do escritório e a grava (só dentro de `emTransacao`). */
     public function gravarMetaNova(Tarefa $nova): void;
 }

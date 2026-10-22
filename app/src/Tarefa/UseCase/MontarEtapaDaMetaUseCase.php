@@ -9,6 +9,7 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\DiasUteisDoEscritorio;
+use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Tarefa\DTO\EtapaDaMetaOutput;
 use App\Tarefa\Enum\EtapaDaPasta;
@@ -16,6 +17,7 @@ use App\Tarefa\Enum\TipoDeDemanda;
 use App\Tarefa\Service\NomesDasEtapas;
 use App\Tarefa\Service\QuemCuidaDaMeta;
 use App\Tarefa\Service\RotaDaPassagem;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
@@ -31,6 +33,8 @@ final class MontarEtapaDaMetaUseCase
         private readonly UserTenantRepository $vinculos,
         private readonly DiasUteisDoEscritorio $diasUteis,
         private readonly TranslatorInterface $tradutor,
+        private readonly UserRepository $usuarios,
+        private readonly UrlGeneratorInterface $urls,
     ) {
     }
 
@@ -41,13 +45,15 @@ final class MontarEtapaDaMetaUseCase
         $proxima = $aberta ? RotaDaPassagem::proximaPadrao($tipo, $meta->getEtapa()) : null;
         [$trilho, $saltadas] = $this->trilho($meta, $escritorio, $proxima);
         $criador = $meta->getCriadoPor();
+        // Pasta na lápide é somente leitura: sem Concluir nem Devolver (o listener recusaria o POST de todo jeito).
+        $mexe = $aberta && !$meta->getPasta()->estaExcluida();
 
         return new EtapaDaMetaOutput(
             $trilho,
             $saltadas,
             $aberta,
-            $aberta && $this->quemCuida->ehResponsavelOuCriador($meta, $quem),
-            $aberta && $meta->getStatus() === Tarefa::STATUS_PENDENTE && $criador !== null && DevolverMetaUseCase::podeDevolver($meta, $quem),
+            $mexe && $this->quemCuida->ehResponsavelOuCriador($meta, $quem),
+            $mexe && $meta->getStatus() === Tarefa::STATUS_PENDENTE && $criador !== null && DevolverMetaUseCase::podeDevolver($meta, $quem),
             $proxima === null ? null : $this->nomes->nome($escritorio, $proxima),
             $proxima === null ? null : $this->nomes->setor($proxima),
             $criador === null ? '' : self::doisNomes($criador),
@@ -89,7 +95,7 @@ final class MontarEtapaDaMetaUseCase
                 'rotulo'    => $this->tradutor->trans($t->rotulo()),
                 'sequencia' => array_map(static fn (EtapaDaPasta $e): string => $e->value, $t->sequencia()),
             ], TipoDeDemanda::cases()),
-            'membros' => array_map(self::membro(...), $this->vinculos->findAtivosComCargoELotacaoPorTenant($escritorio)),
+            'membros' => $this->membros($escritorio),
             'prazo'   => $this->diasUteis->somarUteis($agora->setTime(0, 0), PassarEtapaDaMetaUseCase::PRAZO_PADRAO_EM_DIAS_UTEIS, $escritorio->getEstado())->format('Y-m-d'),
         ];
     }
@@ -142,6 +148,26 @@ final class MontarEtapaDaMetaUseCase
             'passada' => $dica . ' · ' . $this->tradutor->trans('metas.passagem.trilho.dica_concluida'),
             default   => $dica,
         };
+    }
+
+    /**
+     * A equipe do seletor do responsável: nome, iniciais, "cargo · lotação" e a foto do perfil pelo mesmo caminho do
+     * avatar do sistema (`app_profile_foto_serve`); sem foto, as iniciais (04 L195).
+     *
+     * @return list<array{id: ?int, nome: string, iniciais: string, funcao: string, foto: ?string}>
+     */
+    private function membros(Tenant $escritorio): array
+    {
+        $fotos = $this->usuarios->findFotoPorColaboradores($escritorio);
+        $membros = [];
+        foreach ($this->vinculos->findAtivosComCargoELotacaoPorTenant($escritorio) as $vinculo) {
+            $foto = $fotos[(int) $vinculo->getUser()->getId()] ?? null;
+            $membros[] = self::membro($vinculo) + [
+                'foto' => $foto === null || $foto === '' ? null : $this->urls->generate('app_profile_foto_serve', ['nome' => $foto]),
+            ];
+        }
+
+        return $membros;
     }
 
     /** @return array{id: ?int, nome: string, iniciais: string, funcao: string} */

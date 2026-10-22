@@ -12,6 +12,7 @@ use App\Entity\Tenant\Tenant;
 use App\Repository\TarefaMensagemRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
+use App\Tarefa\DTO\DevolucaoFeitaOutput;
 use App\Tarefa\DTO\DevolverMetaInput;
 use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Exception\PassagemRecusadaException;
@@ -46,10 +47,9 @@ final class DevolverMetaUseCase
     ) {
     }
 
-    /** @return string o nome de quem recebeu a meta de volta, para o aviso da tela */
-    public function executar(Tarefa $meta, User $quem, Tenant $escritorio, DevolverMetaInput $input, \DateTimeImmutable $agora): string
+    public function executar(Tarefa $meta, User $quem, Tenant $escritorio, DevolverMetaInput $input, \DateTimeImmutable $agora): DevolucaoFeitaOutput
     {
-        $criador = $this->exigirQuePodeDevolver($meta, $quem, $escritorio);
+        $this->exigirQuePodeDevolver($meta, $quem, $escritorio);
         $oQueFalta = TextoDoDespacho::normalizar($input->oQueFalta);
         if (!in_array($input->motivo, DevolverMetaInput::MOTIVOS, true)) {
             throw PassagemRecusadaException::semMotivo();
@@ -61,16 +61,19 @@ final class DevolverMetaUseCase
             throw PassagemRecusadaException::textoLongo();
         }
 
-        $this->transacao->emTransacao(function () use ($meta, $quem, $escritorio, $criador, $input, $oQueFalta, $agora): void {
+        return $this->transacao->emTransacao(function () use ($meta, $quem, $escritorio, $input, $oQueFalta, $agora): DevolucaoFeitaOutput {
+            // A conferência de fora só poupa trabalho; a que vale é esta, com a meta travada e relida do banco.
+            $this->transacao->travarERecarregar($meta);
+            $criador = $this->exigirQuePodeDevolver($meta, $quem, $escritorio);
             foreach ($meta->getResponsaveis()->toArray() as $responsavel) {
                 $meta->removeResponsavel($responsavel);
             }
             $meta->addResponsavel($criador)->setStatus(Tarefa::STATUS_PENDENTE);
             $this->registrar($meta, $quem, $escritorio, $criador, $input->motivo . ': ' . $oQueFalta, $agora);
-            $this->avisar($meta, $quem, $escritorio, $criador, $input->motivo, $oQueFalta);
-        });
+            $avisado = $this->avisar($meta, $quem, $escritorio, $criador, $input->motivo, $oQueFalta);
 
-        return self::nome($criador);
+            return new DevolucaoFeitaOutput(self::nome($criador), $avisado);
+        });
     }
 
     /** @return User quem criou a meta, que a recebe de volta */
@@ -81,6 +84,9 @@ final class DevolverMetaUseCase
         }
         if (!self::podeDevolver($meta, $quem)) {
             throw PassagemRecusadaException::semPermissaoParaDevolver();
+        }
+        if ($meta->getStatus() === Tarefa::STATUS_CONCLUIDA) {
+            throw PassagemRecusadaException::jaConcluida();
         }
         if ($meta->getStatus() !== Tarefa::STATUS_PENDENTE) {
             throw PassagemRecusadaException::devolucaoForaDePendente();
@@ -123,11 +129,11 @@ final class DevolverMetaUseCase
         $this->codigo->gravar($ato);
     }
 
-    /** O aviso do desenho (04B L167), no tipo "tarefa pendente" da Central (spec 2.2). */
-    private function avisar(Tarefa $meta, User $quem, Tenant $escritorio, User $criador, string $motivo, string $oQueFalta): void
+    /** O aviso do desenho (04B L167), no tipo "tarefa pendente" da Central (spec 2.2). Diz se ele foi mandado. */
+    private function avisar(Tarefa $meta, User $quem, Tenant $escritorio, User $criador, string $motivo, string $oQueFalta): bool
     {
         if (!$this->vinculos->existeVinculoAtivo($criador, $escritorio) || !$this->notificacoes->veAPastaDaMeta($meta, $criador)) {
-            return;
+            return false;
         }
         $this->notificacoes->criar(
             $criador,
@@ -137,6 +143,8 @@ final class DevolverMetaUseCase
             sprintf('%s devolveu "%s": %s. %s', self::nome($quem), $meta->getTitulo(), $motivo, $oQueFalta),
             $meta,
         )->setUrl($this->urls->generate('tarefa_show', ['id' => $meta->getId()]));
+
+        return true;
     }
 
     private static function nome(User $pessoa): string

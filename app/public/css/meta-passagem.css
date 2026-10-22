@@ -242,6 +242,12 @@
     opacity: .85;
 }
 
+/* 04B L93: o cabeçalho da página da meta só tem o título */
+.mp-modal-cabeca > .mp-modal-cabeca-titulo {
+    flex: 1;
+    font-size: 15px;
+}
+
 .mp-modal-cabeca > .mp-modal-x {
     width: 30px;
     height: 30px;
@@ -267,6 +273,34 @@
 
 .mp-modal-corpo > .mp-com-proxima[hidden] {
     display: none;
+}
+
+/* ── Página da meta (04B L92-102): 560px sem altura máxima, 12px entre os blocos ── */
+.mp-passagem--meta .mp-modal-centro > .mp-modal-caixa {
+    width: min(560px, 100%);
+    max-height: none;
+    overflow: visible;
+}
+
+.mp-passagem--meta .mp-modal-caixa > .mp-modal-corpo,
+.mp-passagem--meta .mp-modal-corpo > .mp-com-proxima {
+    gap: 12px;
+}
+
+.mp-passagem--meta .mp-campo > input {
+    font-size: 14px;
+}
+
+.mp-passagem--meta .mp-campo-resp > .mp-membros {
+    max-height: 220px;
+}
+
+.mp-passagem--meta .mp-modal-caixa > .mp-modal-pe {
+    flex-wrap: nowrap;
+}
+
+.mp-passagem--meta .mp-modal-pe > .mp-confirmar {
+    display: inline-block;
 }
 
 /* Faixa da sequência (04 L131, hoSeq L197) */
@@ -329,10 +363,15 @@
 }
 
 .mp-caixas > .mp-caixa-proxima {
-    position: relative;
     border: 1px solid #cfe3f0;
     background: #f2f8fc;
     border-radius: 4px;
+    padding: 10px 12px;
+}
+
+/* 04B L95: na página da meta a caixa guarda 40px à direita para o botão do menu */
+.mp-passagem--meta .mp-caixas > .mp-caixa-proxima {
+    position: relative;
     padding: 10px 40px 10px 12px;
 }
 
@@ -663,6 +702,7 @@
     flex: none;
     border-radius: 50%;
     background: #0a6fa0;
+    background-size: cover;
     color: #fff;
     font-size: 11px;
     font-weight: bold;
@@ -681,6 +721,24 @@
 }
 
 .mp-membro-texto > span {
+    font-size: 11.5px;
+    color: var(--mp-suave);
+}
+
+/* 04B L97: sem avatar, nome em negrito e função em coluna; o texto herda a cor do rótulo */
+.mp-membros > .mp-membro.is-coluna {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    font-size: inherit;
+    color: var(--mp-texto-2);
+}
+
+.mp-membro.is-coluna > b {
+    font-size: 13px;
+}
+
+.mp-membro.is-coluna > span {
     font-size: 11.5px;
     color: var(--mp-suave);
 }

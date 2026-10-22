@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tarefa\Service;
 
 use App\Entity\Tarefa\Tarefa;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -22,6 +23,11 @@ final class TransacaoDaPassagemNoDoctrine implements TransacaoDaPassagem
     public function emTransacao(\Closure $trabalho): mixed
     {
         return $this->em->wrapInTransaction(static fn (): mixed => $trabalho());
+    }
+
+    public function travarERecarregar(Tarefa $meta): void
+    {
+        $this->em->refresh($meta, LockMode::PESSIMISTIC_WRITE);
     }
 
     public function gravarMetaNova(Tarefa $nova): void

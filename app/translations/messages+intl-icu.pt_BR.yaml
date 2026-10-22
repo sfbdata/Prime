@@ -1647,8 +1647,11 @@ metas:
             tipo: TIPO DE DEMANDA
             responsavel: PASSAR PARA RESPONSÁVEL
             prazo: PRAZO DA PRÓXIMA ETAPA
+            prazo_meta: PRAZO
+            responsavel_placeholder_meta: Membro da equipe
             pendencias: PENDÊNCIAS PARA O PRÓXIMO SETOR
             pendencias_placeholder: 'Uma por linha: falta procuração, comprovante de residência...'
+            pendencias_placeholder_meta: Uma por linha
             feito: O QUE FOI FEITO
             feito_placeholder: Resumo para o registro da pasta
             menu_dica: Escolher outra etapa (saltar)
@@ -1683,7 +1686,8 @@ metas:
             toast_passou: 'Etapa concluída. Pasta {pasta} passou para {etapa}.'
             toast_encerrou: 'Pasta {pasta} encerrada.'
             toast_meta_concluida: Meta concluída.
-            toast_devolvida: 'Meta devolvida para {nome}. O aviso foi enviado no Chat I.A.'
+            toast_devolvida: 'Meta devolvida para {nome}. Ela recebeu o aviso no Chat I.A.'
+            toast_devolvida_sem_aviso: 'Meta devolvida para {nome}.'
             erro_motivo: Escolha o motivo da devolução.
             erro_falta: Explique o que falta para conseguir avançar.
             erro_rede: Não foi possível gravar. Tente de novo.

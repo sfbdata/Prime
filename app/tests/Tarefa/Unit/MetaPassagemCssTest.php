@@ -55,6 +55,14 @@ final class MetaPassagemCssTest extends TestCase
         yield 'botão do cartão (04 L102)' => ['.mp-cartao-concluir', ['height: 30px;', 'padding: 0 10px;', 'border: 1px solid #bfe3cc;', 'color: #1e7b45;', 'font-size: 12px;', 'gap: 5px;']];
         yield 'hover do botão do cartão' => ['.mp-cartao-concluir:hover', ['background: #e9f6ee;']];
         yield 'caixa do modal (04 L131)' => ['.mp-modal-centro > .mp-modal-caixa', ['width: min(600px, 100%);', 'max-height: 94vh;', 'border-radius: 4px;', 'box-shadow: 0 20px 50px rgba(18, 36, 47, .28);']];
+        yield 'caixa do modal na meta (04B L92)' => ['.mp-passagem--meta .mp-modal-centro > .mp-modal-caixa', ['width: min(560px, 100%);', 'max-height: none;']];
+        yield 'blocos do modal na meta (04B L94)' => ['.mp-passagem--meta .mp-modal-corpo > .mp-com-proxima', ['gap: 12px;']];
+        yield 'próximo passo na lista, sem menu (04 L131)' => ['.mp-caixas > .mp-caixa-proxima', ['padding: 10px 12px;', 'border: 1px solid #cfe3f0;', 'background: #f2f8fc;']];
+        yield 'próximo passo na meta, com menu (04B L95)' => ['.mp-passagem--meta .mp-caixas > .mp-caixa-proxima', ['position: relative;', 'padding: 10px 40px 10px 12px;']];
+        yield 'campos na meta (04B L98)' => ['.mp-passagem--meta .mp-campo > input', ['font-size: 14px;']];
+        yield 'seletor na meta (04B L97)' => ['.mp-passagem--meta .mp-campo-resp > .mp-membros', ['max-height: 220px;']];
+        yield 'membro sem avatar (04B L97)' => ['.mp-membros > .mp-membro.is-coluna', ['flex-direction: column;', 'align-items: flex-start;']];
+        yield 'foto do membro (04 L131)' => ['.mp-membro > .mp-membro-foto', ['width: 28px;', 'border-radius: 50%;', 'background: #0a6fa0;', 'background-size: cover;']];
         yield 'faixa atual (04 L197)' => ['.mp-seq > .mp-seq-etapa.is-atual', ['background: #1e7b45;']];
         yield 'faixa próxima (04 L197)' => ['.mp-seq > .mp-seq-etapa.is-proxima', ['background: #0a6fa0;']];
         yield 'faixa passada (04 L197)' => ['.mp-seq > .mp-seq-etapa.is-passada', ['background: #c9d3da;']];
