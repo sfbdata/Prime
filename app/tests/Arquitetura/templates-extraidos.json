@@ -585,5 +585,28 @@
         "permitidos": [
             "https://drive.google.com/drive/folders/…"
         ]
+    },
+
+    "comum": {
+        "templates": [
+            "_partials/_avatar_usuario.html.twig",
+            "_partials/_filtro_barra.html.twig",
+            "_partials/_filtro_paginacao.html.twig",
+            "_partials/_janela_confirmacao.html.twig",
+            "_partials/modal_access_request.html.twig",
+            "_partials/modal_mover_marcador.html.twig",
+            "_partials/modal_nova_pasta.html.twig"
+        ],
+        "js": [
+            "filtro-tabela.js",
+            "pasta-dialogos.js"
+        ],
+        "permitidos": [
+            "= total_paginas ? 'disabled' : '' }} aria-label=\"\">",
+            "App\\\\Expediente\\\\Service\\\\CoresDoMarcador::DESENHO",
+            "Enter",
+            "Escape",
+            "ArrowDown"
+        ]
     }
 }
