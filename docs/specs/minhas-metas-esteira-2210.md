@@ -22,6 +22,13 @@ CLAUDE.md, tratado como MÉDIO porque mexe no modelo da meta, em prazo e em text
 - 22/10: Fase 3 no master (#309). PR de acerto visual na branch `metas-acerto-visual`: além da lista acima, saem os
   ícones dos KPIs (decisão do dono) e o lápis de editar mensagem antiga na página da meta (o "(editado)" fica). Os
   avisados da esteira seguem com nome simples (C7). Próximo: Fase 4.
+- 22/10: acerto visual no master (#310). Fase 4 (aprendizado) na branch `metas-aprendizado` (migration 150400).
+  Convenções da Fase 4: a chave D4 vale por pessoa dentro do escritório (como as outras preferências do Meu Perfil) e
+  o "Apagar" limpa só ali; o aprendizado é melhor esforço (uma falha nele não desfaz nem esconde o despacho ou a
+  passagem); despacho só com anexo e "Enviar para revisão" não gravam; a passagem que encerra a pasta não grava
+  pendências (não há etapa destino); o histórico guarda até 400 despachos e 300 linhas de pendência por pessoa (o dc
+  conta 300 passagens); "Você costuma pedir" só no modal da meta (o 04 não o tem), mas a passagem pela lista também
+  grava; as tabelas do aprendizado ficam fora da auditoria.
 
 ### Decisões do dono (22/10)
 
