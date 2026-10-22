@@ -260,10 +260,10 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
 
         $linha = static fn (TarefaMensagem $d): string => '#despacho-' . $d->getId();
         self::assertStringContainsString('Enviado para revisão', $crawler->filter($linha($envio) . ' .despacho-tipo')->text());
-        self::assertCount(1, $crawler->filter($linha($envio) . '.despacho-item--envio .despacho-icone .bi-send'));
+        self::assertCount(1, $crawler->filter($linha($envio) . '.despacho-item--ambar .despacho-icone .bi-send'));
         self::assertCount(0, $crawler->filter($linha($envio) . ' .despacho-certificar'));
         self::assertStringContainsString('Para providência', $crawler->filter($linha($devolucao) . ' .despacho-tipo')->text());
-        self::assertCount(1, $crawler->filter($linha($devolucao) . '.despacho-item--devolucao .despacho-icone .bi-arrow-return-left'));
+        self::assertCount(1, $crawler->filter($linha($devolucao) . '.despacho-item--ambar .despacho-icone .bi-arrow-return-left'));
         self::assertCount(0, $crawler->filter($linha($devolucao) . ' .despacho-certificar'));
         self::assertStringContainsString('Comentário', $crawler->filter($linha($comentario) . ' .despacho-tipo')->text());
         self::assertCount(1, $crawler->filter($linha($comentario) . ' .despacho-certificar'));

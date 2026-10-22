@@ -12,14 +12,13 @@ namespace App\Tarefa\DTO;
  * "Comentário", "Enviado para revisão" ou "Devolvida"). `acao` (valor de `AcaoDoDespacho`, nulo nas antigas)
  * escolhe o ícone e a cor do marcador.
  *
- * `codigo` nulo é mensagem de antes da Fase 2a: sem linha de local e data nem linha de registro (D1), e editável.
+ * O número ("DESPACHO N") e o "MAIS RECENTE" valem para o histórico inteiro e moram no
+ * `ItemDaLinhaDoTempoOutput`. `codigo` nulo é mensagem de antes da Fase 2a: sem linha de local e data nem linha de registro (D1), e editável.
  * `registradoPor` e `cargo` são os do registro, congelados no momento do despacho.
  */
 final class DespachoNaLinhaDoTempoOutput
 {
     public function __construct(
-        public readonly int $numero,
-        public readonly bool $maisRecente,
         public readonly ?string $natureza,
         public readonly string $tipo,
         public readonly ?string $acao,

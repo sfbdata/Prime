@@ -180,10 +180,36 @@
     color: #fff;
 }
 
-/* ── Despacho na linha do tempo (L71) ── */
+/* ── Item da linha do tempo (L71, L127): o tom (cor e fundo do tipo) vem do modificador ── */
 .despacho-item {
+    --despacho-tom: var(--despacho-azul);
+    --despacho-tom-fundo: var(--despacho-azul-fundo);
     display: flex;
     gap: 12px;
+}
+
+/* Envio para revisão e devolução: âmbar. */
+.despacho-item--ambar {
+    --despacho-tom: #9a5b00;
+    --despacho-tom-fundo: #fff4d6;
+}
+
+/* Prazo e responsáveis alterados: roxo. */
+.despacho-item--roxo {
+    --despacho-tom: #5b3f9e;
+    --despacho-tom-fundo: #efeaf8;
+}
+
+/* Etapa e meta concluídas: verde. */
+.despacho-item--verde {
+    --despacho-tom: #1e7b45;
+    --despacho-tom-fundo: #e9f6ee;
+}
+
+/* Demais eventos da auditoria (criada, atualizada, reaberta): cinza. */
+.despacho-item--cinza {
+    --despacho-tom: var(--despacho-suave);
+    --despacho-tom-fundo: var(--despacho-fundo-cabeca);
 }
 
 .despacho-marca {
@@ -195,22 +221,14 @@
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: var(--despacho-azul-fundo);
-    color: var(--despacho-azul);
+    background: var(--despacho-tom-fundo);
+    color: var(--despacho-tom);
     border: 2px solid var(--despacho-fundo);
-    box-shadow: 0 0 0 1px var(--despacho-azul);
+    box-shadow: 0 0 0 1px var(--despacho-tom);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 13px;
-}
-
-/* Envio para revisão e devolução (L127): marcador âmbar. */
-.despacho-item--envio .despacho-icone,
-.despacho-item--devolucao .despacho-icone {
-    background: #fff4d6;
-    color: #9a5b00;
-    box-shadow: 0 0 0 1px #9a5b00;
 }
 
 .despacho-cartao {
@@ -218,7 +236,7 @@
     min-width: 0;
     margin-bottom: 12px;
     border: 1px solid var(--despacho-borda-leve);
-    border-left: 3px solid var(--despacho-azul);
+    border-left: 3px solid var(--despacho-tom);
     border-radius: 3px;
     background: var(--despacho-fundo);
     overflow: hidden;
@@ -243,7 +261,7 @@
 .despacho-tipo {
     font-size: 11.5px;
     font-weight: 700;
-    color: var(--despacho-azul);
+    color: var(--despacho-tom);
 }
 
 .despacho-recente {
@@ -357,4 +375,25 @@
 
 .despacho-certificar:hover {
     text-decoration: underline;
+}
+
+/* ── Lista da linha do tempo (L69-70): sem rolagem própria; vazia, o aviso do desenho ── */
+.despacho-lista {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 8px;
+}
+
+.despacho-vazio {
+    padding: 26px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--despacho-mudo);
+}
+
+.despacho-vazio .bi {
+    display: block;
+    font-size: 26px;
+    color: #b7c6d1;
+    margin-bottom: 6px;
 }

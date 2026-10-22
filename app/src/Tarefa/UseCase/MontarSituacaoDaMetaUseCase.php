@@ -21,7 +21,8 @@ use App\Tarefa\Repository\CaixaDaEsteiraRepository;
  * - atrasada = prazo vencido (hoje depois do prazo) em meta não concluída; os dias de atraso são corridos (L125);
  * - painel: Concluída, senão Aguardando revisão, senão Atrasada, senão Pendente (L136);
  * - faixa: some na concluída; em revisão aguarda o criador desde o envio para revisão, senão aguarda os
- *   responsáveis desde a criação; vermelha só se atrasada fora da revisão (L131-132);
+ *   responsáveis desde a criação (à 00:00); vermelha só se atrasada fora da revisão (L131-132). Os "N dias" da faixa
+ *   são períodos de 24h a partir desse momento (`Math.floor((agora - base) / 86400s)`), não dias de calendário;
  * - "Etapa i/n · Nome" usa o nome que o escritório deu à etapa na caixa, como na lista (`MinhasMetasOutput`).
  */
 final class MontarSituacaoDaMetaUseCase
@@ -54,7 +55,7 @@ final class MontarSituacaoDaMetaUseCase
             posicao: $tipo->posicaoDe($etapa),
             total: count($tipo->sequencia()),
             nomeDaEtapa: $this->caixas->daEtapa($escritorio, $etapa)?->getNomeDaEtapa(),
-            aguardando: $concluida ? null : self::aguardando($meta, $emRevisao, $atrasada && !$emRevisao, $hoje),
+            aguardando: $concluida ? null : self::aguardando($meta, $emRevisao, $atrasada && !$emRevisao, $agora),
             prazo: $prazo,
             criadaEm: $meta->getDataCriacao(),
             diasDesdeACriacao: max(0, self::diasEntre($meta->getDataCriacao(), $hoje)),
@@ -62,18 +63,18 @@ final class MontarSituacaoDaMetaUseCase
         );
     }
 
-    private static function aguardando(Tarefa $meta, bool $emRevisao, bool $atrasada, \DateTimeImmutable $hoje): ?AguardandoNaMetaOutput
+    private static function aguardando(Tarefa $meta, bool $emRevisao, bool $atrasada, \DateTimeImmutable $agora): ?AguardandoNaMetaOutput
     {
         $quem = $emRevisao ? array_filter([$meta->getCriadoPor()]) : $meta->getResponsaveis()->toArray();
         if ($quem === []) {
             return null;
         }
-        $desde = $emRevisao ? self::envioParaRevisao($meta) : $meta->getDataCriacao();
+        $desde = $emRevisao ? self::envioParaRevisao($meta) : $meta->getDataCriacao()->setTime(0, 0);
 
         return new AguardandoNaMetaOutput(
             emRevisao: $emRevisao,
             pessoas: array_values(array_map(self::pessoa(...), $quem)),
-            dias: max(0, self::diasEntre($desde, $hoje)),
+            dias: max(0, intdiv($agora->getTimestamp() - $desde->getTimestamp(), 86400)),
             atrasada: $atrasada,
         );
     }

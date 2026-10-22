@@ -27,6 +27,7 @@ use App\Tarefa\Service\TextoDoDespacho;
 use App\Tarefa\UseCase\DarCienciaDosDespachosUseCase;
 use App\Tarefa\UseCase\DespacharNaMetaUseCase;
 use App\Tarefa\UseCase\MontarDespachosDaMetaUseCase;
+use App\Tarefa\UseCase\MontarLinhaDoTempoDaMetaUseCase;
 use App\Tarefa\UseCase\MontarSituacaoDaMetaUseCase;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Service\SanitizadorTextoRico;
@@ -253,7 +254,7 @@ final class TarefaController extends AbstractController
      * Detalhe da tarefa.
      */
     #[Route('/{id}', name: 'tarefa_show', methods: ['GET'])]
-    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, ExcluirTarefaUseCase $excluirUseCase, AtualizarPrazoTarefaUseCase $prazoUseCase, TarefaRepository $tarefaRepository, DarCienciaDosDespachosUseCase $ciencia, MontarDespachosDaMetaUseCase $despachos, MontarSituacaoDaMetaUseCase $situacao): Response
+    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, AtualizarPrazoTarefaUseCase $prazoUseCase, TarefaRepository $tarefaRepository, DarCienciaDosDespachosUseCase $ciencia, MontarDespachosDaMetaUseCase $despachos, MontarSituacaoDaMetaUseCase $situacao, MontarLinhaDoTempoDaMetaUseCase $linhaDoTempo): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -269,15 +270,15 @@ final class TarefaController extends AbstractController
 
         $users = $atribuiveis->doEscritorio($tenant, $tarefa->getResponsaveis());
 
+        $despachosDaMeta = $despachos->executar($tarefa, $usuario, $tenant, $agora);
+
         return $this->render('tarefa/show.html.twig', [
             'tarefa'         => $tarefa,
-            'statusLabels'   => Tarefa::STATUS_LABELS,
-            'timelineItems'  => $timelineItems,
-            'despachos'      => $despachos->executar($tarefa, $usuario, $tenant, $agora),
+            'linhaDoTempo'   => $linhaDoTempo->executar($timelineItems, $despachosDaMeta),
+            'despachos'      => $despachosDaMeta,
             'situacao'       => $situacao->executar($tarefa, $tenant, $agora),
             'usuarioAtual'   => $usuario,
             'users'          => $users,
-            'podeExcluirMeta' => $excluirUseCase->podeExcluir($tarefa, $usuario, $tenant),
             'podeEditarPrazo' => $prazoUseCase->podeEditarPrazo($tarefa, $usuario, $tenant),
             // Só para a dica do selo "Nº 0001" ("Meta N desta pasta · nº ..."); sem número global, nem consulta.
             'numeroNaPasta'   => $tarefa->getNumero() === null ? null : ($tarefaRepository->numerosNaPasta([(int) $tarefa->getId()])[(int) $tarefa->getId()] ?? null),

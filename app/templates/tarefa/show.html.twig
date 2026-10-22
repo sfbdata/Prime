@@ -2,12 +2,6 @@
 
 {% block title %}{{ 'metas.detalhe.titulo'|trans({id: (tarefa.numero ?? tarefa.id) ~ ''}) }}{% endblock %}
 
-{% set statusBadge = {
-    'pendente':    'text-bg-secondary',
-    'em_revisao':  'text-bg-warning',
-    'concluida':   'text-bg-success',
-} %}
-
 {% block body %}
 {# Editor rico (barra de formatação). Quill auto-hospedado — sem CDN externo. #}
 <link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
@@ -48,12 +42,8 @@
 
         <div class="card card-primary card-outline">
             <div class="card-header">
-                <h3 class="card-title fw-semibold">{{ tarefa.titulo }}{{ include('tarefa/_numero_global.html.twig', {numero: tarefa.numero, local: numeroNaPasta}) }}</h3>
-                <div class="card-tools d-flex align-items-center gap-2">
-                    <span class="badge {{ statusBadge[tarefa.status] ?? 'text-bg-secondary' }}">
-                        {{ statusLabels[tarefa.status] ?? tarefa.status }}
-                    </span>
-                </div>
+                {# Título da meta (desenho 04B L49); o selo de status saiu porque repete o painel de situação. #}
+                <h3 class="card-title fw-semibold meta-cartao-titulo">{{ tarefa.titulo }}{{ include('tarefa/_numero_global.html.twig', {numero: tarefa.numero, local: numeroNaPasta}) }}</h3>
             </div>
 
             <div class="card-body">
@@ -66,176 +56,58 @@
                            DETALHES DA META da lateral (L85; spec L4). #}
                         {{ include('tarefa/_meta_aguardando.html.twig') }}
 
-                        {# ── Detalhes ── #}
-                        <div class="mt-3">
-                                <div class="mb-3">
-                                    <p class="text-sm text-muted mb-1">
-                                        <i class="bi bi-folder me-1"></i>{{ 'metas.detalhe.pasta'|trans }} 
-                                        <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}" class="text-decoration-none">{{ tarefa.pasta.nup }}</a>
-                                    </p>
-                                    <p class="text-sm fw-semibold text-muted mb-1">
-                                        <i class="bi bi-card-text me-1"></i>{{ 'metas.detalhe.descricao'|trans }}
-                                    </p>
-                                    <div class="ps-2 text-body">{{ tarefa.descricao|nl2br }}</div>
-                                </div>
-
-                                <hr class="my-4">
-
-                                {% if tarefa.dataConclusao %}
-                                <div class="mt-3 p-2 rounded bg-success bg-opacity-10 border border-success border-opacity-25">
-                                    <i class="bi bi-check-circle text-success me-1"></i>
-                                    <span class="small text-success fw-semibold">
-                                        {{ 'metas.detalhe.concluida_em'|trans({data: tarefa.dataConclusao|data_hora}) }}
-                                    </span>
-                                </div>
-                                {% endif %}
-
-                                <div class="card mt-4" id="tarefa-timeline-card">
-                                    <div class="card-header">
-                                        {# Bloco DESPACHO do desenho 04B (L57); o Extrato é da Fase 2b. #}
-                                        <h3 class="card-title mb-0 despacho-titulo">{{ 'metas.detalhe.despacho_titulo'|trans }}</h3>
-                                    </div>
-
-                                    {# Campo do despacho + ação (desenho 04B L58-66; C10 a C12) #}
-                                    {% if tarefa.status != 'concluida' %}
-                                        {{ include('tarefa/_despacho_formulario.html.twig', {formulario: despachos.formulario}) }}
-                                    {% endif %}
-
-                                {# Timeline #}
-                                <div class="card-body p-2">
-                                    <div id="timelineList" style="max-height: 480px; overflow-y: auto; padding: 4px 8px;">
-                                    {% if timelineItems|length == 0 %}
-                                        <div class="text-center text-muted py-5">
-                                            <i class="bi bi-clock-history fs-1 d-block mb-2 opacity-25"></i>
-                                            <span class="small">{{ 'metas.detalhe.sem_eventos'|trans }}</span>
-                                        </div>
-                                    {% else %}
-                                        {% set lastDate = null %}
-                                        {% for item in timelineItems %}
-                                            {% set currentDate = item.dataHora|date('Y-m-d') %}
-                                            {% if currentDate != lastDate %}
-                                                <div class="d-flex align-items-center gap-2 my-2">
-                                                    <hr class="flex-grow-1 my-0 opacity-25">
-                                                    <span class="badge bg-body-tertiary text-body-secondary border text-muted small fw-normal px-2">
-                                                        {{ item.dataHora|data }}
-                                                    </span>
-                                                    <hr class="flex-grow-1 my-0 opacity-25">
-                                                </div>
-                                                {% set lastDate = currentDate %}
-                                            {% endif %}
-
-                                            {% if item.tipo.value == 'mensagem' and item.mensagemId and despachos.linhas[item.mensagemId] is defined %}
-                                                {{ include('tarefa/_despacho.html.twig', {item: item, d: despachos.linhas[item.mensagemId]}) }}
-                                            {% else %}
-                                            <div class="d-flex gap-2 mb-2 tarefa-timeline-entry{% if item.tipo.value == 'mensagem' %} tarefa-timeline-entry--mensagem{% endif %}">
-                                                <div class="flex-shrink-0 pt-1">
-                                                    <span class="badge rounded-circle tarefa-timeline-icon {{ item.badgeCss }}">
-                                                        <i class="bi {{ item.icone }}"></i>
-                                                    </span>
-                                                </div>
-                                                <div class="flex-grow-1 tarefa-timeline-body{% if item.tipo.value == 'mensagem' %} tarefa-timeline-body--mensagem{% endif %}">
-                                                    <div class="d-flex justify-content-between align-items-start gap-1">
-                                                        <span class="fw-semibold small">{{ item.titulo }}</span>
-                                                        <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                                                            {% if item.tipo.value == 'mensagem' and item.detalhe and item.usuarioId == app.user.id and tarefa.status != 'concluida' %}
-                                                                <button type="button"
-                                                                        class="btn btn-link btn-sm p-0 text-secondary btn-editar-msg"
-                                                                        title="{{ 'metas.detalhe.editar_mensagem'|trans }}"
-                                                                        data-msg-id="{{ item.mensagemId }}"
-                                                                        data-conteudo="{{ item.detalhe|e('html_attr') }}"
-                                                                        data-conteudo-html="{{ item.detalhe|texto_rico|e('html_attr') }}"
-                                                                        data-csrf="{{ csrf_token('editar_mensagem_tarefa_' ~ item.mensagemId) }}"
-                                                                        data-url="{{ path('tarefa_mensagem_editar', {id: item.mensagemId}) }}">
-                                                                    <i class="bi bi-pencil"></i>
-                                                                </button>
-                                                            {% endif %}
-                                                            <small class="text-muted">
-                                                                {{ item.dataHora|hora }}
-                                                                {% if item.editadoEm %}<span class="ms-1 fst-italic tarefa-msg-editado">{{ 'metas.detalhe.editado'|trans }}</span>{% endif %}
-                                                            </small>
-                                                        </div>
-                                                    </div>
-                                                    {% if item.detalhe %}
-                                                        <div class="mt-1 small tarefa-msg-conteudo {% if item.tipo.value == 'mensagem' %}text-body{% else %}text-muted{% endif %}"
-                                                             {% if item.mensagemId %}id="tarefa-msg-conteudo-{{ item.mensagemId }}"{% endif %}>
-                                                            {% if item.tipo.value == 'mensagem' %}
-                                                                {# Escrito por uma pessoa: passa pelo editor rico. #}
-                                                                <span class="editor-rico-conteudo"><span class="ql-editor">{{ item.detalhe|texto_rico }}</span></span>
-                                                            {% else %}
-                                                                {# Texto do sistema: segue escapado. #}
-                                                                {{ item.detalhe|nl2br }}
-                                                            {% endif %}
-                                                        </div>
-                                                    {% endif %}
-                                                    {% if item.arquivoAnexo and item.mensagemId %}
-                                                        {% set ext      = item.arquivoAnexo|split('.')|last|lower %}
-                                                        {% set mimeMap  = {
-                                                            'pdf':  'application/pdf',
-                                                            'jpg':  'image/jpeg',
-                                                            'jpeg': 'image/jpeg',
-                                                            'png':  'image/png',
-                                                            'gif':  'image/gif',
-                                                            'webp': 'image/webp',
-                                                            'svg':  'image/svg+xml',
-                                                            'mp3':  'audio/mpeg',
-                                                            'mp4':  'video/mp4',
-                                                            'webm': 'video/webm',
-                                                        } %}
-                                                        {% set mime     = mimeMap[ext] ?? 'application/octet-stream' %}
-                                                        {% set ehImagem = mime starts with 'image/' %}
-                                                        {% set ehPdf    = mime == 'application/pdf' %}
-                                                        {% set urlView  = path('tarefa_mensagem_arquivo_view', {id: item.mensagemId}) %}
-                                                        <div class="mt-2 tarefa-anexo-wrap">
-                                                            <span class="tarefa-anexo-chip">
-                                                                <i class="bi {% if ehImagem %}bi-image{% elseif ehPdf %}bi-file-pdf{% else %}bi-file-earmark{% endif %} me-1"></i>
-                                                                <span class="tarefa-anexo-nome">{{ item.arquivoAnexo|split('/')|last }}</span>
-                                                                <button type="button"
-                                                                        class="tarefa-anexo-btn"
-                                                                        title="{{ 'metas.detalhe.visualizar_arquivo'|trans }}"
-                                                                        data-bs-toggle="modal"
-                                                                        data-bs-target="#previewDocModal"
-                                                                        data-url="{{ urlView }}"
-                                                                        data-nome="{{ item.arquivoAnexo|split('/')|last }}"
-                                                                        data-mime="{{ mime }}">
-                                                                    <i class="bi bi-eye"></i>
-                                                                </button>
-                                                            </span>
-                                                        </div>
-                                                    {% endif %}
-                                                    {% if item.autorNome or item.autorEmail %}
-                                                        <div class="mt-1">
-                                                            <small class="text-muted">
-                                                                <i class="bi bi-person me-1"></i>{{ item.autorNome ?? item.autorEmail }}
-                                                            </small>
-                                                        </div>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                        <div class="text-center py-2">
-                                            <span class="badge bg-body-tertiary text-body-secondary border text-muted small fw-normal">
-                                                <i class="bi bi-check2-all me-1"></i>{{ 'metas.detalhe.inicio_do_historico'|trans }}
-                                            </span>
-                                        </div>
-                                    {% endif %}
-                                </div>
-
-                            </div>
-
+                        {# Pasta e DEMANDA (desenho 04B L52-54) #}
+                        <div class="meta-demanda">
+                            <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}" class="meta-pasta" title="{{ 'metas.detalhe.abrir_a_pasta'|trans }}"><i class="bi bi-folder2-open"></i>{{ 'metas.detalhe.pasta'|trans({nup: tarefa.pasta.nup ~ ''}) }}{% if tarefa.pasta.nomeCliente %}<span class="meta-pasta-cliente">· {{ tarefa.pasta.nomeCliente }}</span>{% endif %}</a>
+                            <div class="meta-demanda-rotulo">{{ 'metas.detalhe.demanda'|trans }}</div>
+                            <div class="meta-demanda-texto">{{ tarefa.descricao|trim is not empty ? tarefa.descricao|nl2br : 'metas.detalhe.sem_descricao'|trans }}</div>
                         </div>
 
+                        <div class="card mt-4" id="tarefa-timeline-card">
+                            <div class="card-header">
+                                {# Bloco DESPACHO do desenho 04B (L57); o Extrato é da Fase 2b. #}
+                                <h3 class="card-title mb-0 despacho-titulo">{{ 'metas.detalhe.despacho_titulo'|trans }}</h3>
+                            </div>
+
+                            {# Campo do despacho + ação (desenho 04B L58-66; C10 a C12), sempre visível, também na
+                               meta concluída: lá o despacho entra como registro, sem mudar o status. #}
+                            {{ include('tarefa/_despacho_formulario.html.twig', {formulario: despachos.formulario}) }}
+
+                            {# Linha do tempo no formato único (desenho 04B L69-71, L127): sem separador por data,
+                               sem rolagem própria; "DESPACHO N" do mais antigo ao mais novo. #}
+                            <div class="card-body p-2">
+                                <div id="timelineList" class="despacho-lista">
+                                    {% for l in linhaDoTempo %}
+                                        {{ include('tarefa/_despacho.html.twig') }}
+                                    {% else %}
+                                        <div class="despacho-vazio"><i class="bi bi-clock"></i>{{ 'metas.detalhe.sem_eventos'|trans }}</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
                         </div>
 
                     </div>{# /col principal #}
 
-                    {# ── Sidebar ── #}
+                    {# ── Sidebar (desenho 04B L76-85): situação, Concluir meta, Acompanhar e DETALHES ── #}
                     <div class="col-12 col-lg-4 order-1 order-lg-2">
 
                         {# Painel de situação (desenho 04B L77; spec L3) #}
                         <div class="mb-3">{{ include('tarefa/_meta_situacao.html.twig') }}</div>
 
-                        {# Acompanhar — marcação PESSOAL: não muda a meta para os colegas. #}
+                        {# Concluir meta (L79, L141); o "Devolver" segue no formulário até a Fase 3. #}
+                        {% if tarefa.status != 'concluida' %}
+                        <div class="mb-3">
+                            <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}"
+                                  onsubmit="return confirm('{{ 'metas.detalhe.confirmar_conclusao'|trans|e('js') }}');">
+                                <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">
+                                <button type="submit" class="meta-concluir">
+                                    <i class="bi bi-check2-circle"></i>{{ 'metas.detalhe.concluir_meta'|trans }}
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+
+                        {# Acompanhar (L83-84): marcação PESSOAL, não muda a meta para os colegas. #}
                         {% set acompanhando = tarefa.ehAcompanhadaPor(app.user) %}
                         <div class="mb-3">
                             <button type="button"
@@ -250,42 +122,9 @@
                             <div class="form-text small">{{ 'metas.detalhe.so_voce_ve'|trans }}</div>
                         </div>
 
-                        {# Concluir tarefa #}
-                        {% if tarefa.status != 'concluida' %}
-                        <div class="mb-3">
-                            <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}"
-                                  onsubmit="return confirm('{{ 'metas.detalhe.confirmar_conclusao'|trans|e('js') }}');">
-                                <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">
-                                <button type="submit" class="btn btn-success btn-sm w-100">
-                                    <i class="bi bi-check2-circle me-1"></i>{{ 'metas.detalhe.concluir_meta'|trans }}
-                                </button>
-                            </form>
-                        </div>
-                        {% endif %}
-
-                        {# Excluir meta (somente criador, dentro da janela) #}
-                        {% if podeExcluirMeta %}
-                        <div class="mb-3">
-                            <form method="post" action="{{ path('tarefa_excluir', {id: tarefa.id}) }}"
-                                  onsubmit="return confirm('{{ 'metas.detalhe.confirmar_exclusao'|trans|e('js') }}');">
-                                <input type="hidden" name="_token" value="{{ csrf_token('excluir_tarefa_' ~ tarefa.id) }}">
-                                <button type="submit" class="btn btn-outline-danger btn-sm w-100">
-                                    <i class="bi bi-trash me-1"></i>{{ 'metas.detalhe.excluir_meta'|trans }}
-                                </button>
-                            </form>
-                        </div>
-                        {% endif %}
-
-                        {# DETALHES DA META (desenho 04B L85; spec L4) #}
+                        {# DETALHES DA META (desenho 04B L85; spec L4). A lateral termina aqui, como no desenho: o
+                           voltar é pela seta e pela trilha do cabeçalho. #}
                         <div class="mb-3">{{ include('tarefa/_meta_detalhes.html.twig') }}</div>
-
-                        {# Voltar #}
-                        <div class="d-grid">
-                            <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}#tarefas"
-                               class="btn btn-outline-secondary btn-sm">
-                                <i class="bi bi-arrow-left me-1"></i>{{ 'metas.detalhe.voltar_a_pasta'|trans }}
-                            </a>
-                        </div>
 
                     </div>{# /sidebar #}
 
@@ -694,11 +533,6 @@
 })();
 
 // O bloco DESPACHO (chips, prazo, contador, Ctrl+Enter e botões) mora em public/js/meta-despacho.js.
-document.addEventListener('DOMContentLoaded', function () {
-    // Scroll timeline ao final
-    var tl = document.getElementById('timelineList');
-    if (tl) tl.scrollTop = tl.scrollHeight;
-});
 
 // Edição inline de mensagem do histórico (apenas o autor; espelha _detalhes_obs)
 (function () {

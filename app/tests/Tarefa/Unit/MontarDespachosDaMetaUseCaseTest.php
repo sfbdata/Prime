@@ -65,11 +65,7 @@ final class MontarDespachosDaMetaUseCaseTest extends TestCase
 
         $linhas = $this->useCase()->executar($this->meta, $this->criador, $this->escritorio, new \DateTimeImmutable('2026-10-22'))->linhas;
 
-        self::assertSame(1, $linhas[10]->numero);
-        self::assertFalse($linhas[10]->maisRecente);
         self::assertNull($linhas[10]->codigo, 'mensagem antiga, sem registro');
-        self::assertSame(2, $linhas[11]->numero);
-        self::assertTrue($linhas[11]->maisRecente);
         self::assertSame('metas.despacho.natureza.ciencia', $linhas[11]->natureza);
         self::assertSame('Rui Prado', $linhas[11]->registradoPor, 'nome congelado no registro');
         self::assertSame('Advogado', $linhas[11]->cargo);

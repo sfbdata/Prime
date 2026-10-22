@@ -31,6 +31,9 @@ use App\Tarefa\Service\TextoDoDespacho;
  * prazo padrão, sempre preenchido na tela, viraria um "Cumprir até" na mensagem de quem entrega o trabalho. Enviar
  * para revisão sem texto grava "Meta enviada para revisão do autor." (L146), e o aviso ao autor é o de sempre.
  *
+ * "Enviar para revisão" só vale na meta pendente e "Devolver" só na em revisão; fora disso, recusa sem gravar. Na
+ * meta concluída, o despacho entra como registro, sem mudar o status.
+ *
  * Tudo numa transação: o despacho é gravado, e o código é gravado depois, com até 3 sorteios contra a colisão no
  * índice único. Sem código livre, nada fica (nem a troca de status); quem enviou o anexo apaga o arquivo.
  */
@@ -60,6 +63,7 @@ final class DespacharNaMetaUseCase
         if (!$temConteudo && $input->acao === '') {
             throw DespachoRecusadoException::semConteudo();
         }
+        self::exigirStatusDaAcao($meta, $input->acao);
 
         /** @var array{0: ?TarefaMensagem, 1: bool, 2: bool} $feito */
         $feito = $this->mensagens->emTransacao(function () use ($meta, $autor, $escritorio, $input, $temConteudo): array {
@@ -113,6 +117,17 @@ final class DespacharNaMetaUseCase
         }
 
         throw DespachoRecusadoException::semCodigoLivre();
+    }
+
+    /** Enviar só da pendente e devolver só da em revisão; fora disso, recusa antes de gravar qualquer coisa. */
+    private static function exigirStatusDaAcao(Tarefa $meta, string $acao): void
+    {
+        if ($acao === 'enviar' && $meta->getStatus() !== Tarefa::STATUS_PENDENTE) {
+            throw DespachoRecusadoException::envioForaDePendente();
+        }
+        if ($acao === 'devolver' && $meta->getStatus() !== Tarefa::STATUS_EM_REVISAO) {
+            throw DespachoRecusadoException::devolucaoForaDeRevisao();
+        }
     }
 
     private static function acao(bool $enviada, bool $devolvida): AcaoDoDespacho

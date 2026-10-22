@@ -1423,6 +1423,16 @@ metas:
         paginacao: Paginação das metas
         pagina_anterior: Página anterior
         proxima_pagina: Próxima página
+    linha:
+        tipo:
+            prazo: Prazo alterado
+            responsaveis: Responsáveis alterados
+            concluida: Meta concluída
+            criada: Meta criada
+            reaberta: Meta reaberta
+            removida: Meta removida
+            atualizada: Meta atualizada
+            evento: Evento registrado
     detalhe:
         titulo: 'Meta #{id}'
         voltar_as_metas: Voltar às metas
@@ -1459,17 +1469,12 @@ metas:
             criada_hoje: hoje
             criada_ha: '{n, plural, one {há 1 dia} other {há # dias}}'
             despachante: DESPACHANTE
-        migalha: Meta
-        criada_em: Criada em
-        autor: Autor
         responsaveis: Responsáveis
-        editar_responsaveis: Editar responsáveis
         prazo: Prazo
-        alterar_prazo: Alterar prazo
-        sem_prazo: Sem prazo
-        pasta: 'Pasta:'
-        descricao: Descrição
-        concluida_em: 'Concluída em {data}'
+        pasta: 'Pasta: {nup}'
+        abrir_a_pasta: Abrir a pasta
+        demanda: DEMANDA
+        sem_descricao: Sem descrição.
         historico: Histórico
         observacao_placeholder: Escreva uma observação… (Ctrl+Enter para enviar)
         enviar_para_revisao: Enviar para Revisão
@@ -1479,16 +1484,11 @@ metas:
         editar_mensagem: Editar mensagem
         editado: '(editado)'
         visualizar_arquivo: Visualizar arquivo
-        inicio_do_historico: Início do histórico
-        atualizado: 'Atualizado {data}'
         acompanhando: Acompanhando
         acompanhar: Acompanhar
         so_voce_ve: Só você vê esta marcação.
         confirmar_conclusao: Confirma a conclusão desta meta?
-        concluir_meta: Concluir Meta
-        confirmar_exclusao: Excluir esta meta? Esta ação não pode ser desfeita.
-        excluir_meta: Excluir Meta
-        voltar_a_pasta: Voltar à Pasta
+        concluir_meta: Concluir meta
         responsaveis_titulo: Responsáveis pela Meta
         responsaveis_sub: Pesquise e selecione os membros da equipe
         fechar: Fechar

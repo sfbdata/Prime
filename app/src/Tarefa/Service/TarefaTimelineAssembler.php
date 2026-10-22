@@ -112,7 +112,76 @@ class TarefaTimelineAssembler
             autorEmail: isset($row['actor_email']) && $row['actor_email'] !== '' ? (string) $row['actor_email'] : null,
             icone:      $icone,
             badgeCss:   $badgeCss,
+            sistema:    $this->tipoDoEvento($entityClass, $action, $changes),
         );
+    }
+
+    /**
+     * Tipo do evento para a linha do tempo da meta (desenho 04B L127): `criada`, `removida`, `revisao`, `concluida`,
+     * `devolvida`, `reaberta`, `prazo`, `responsaveis`, `atualizada` ou `evento` (outra entidade). Quem traduz em
+     * rótulo, ícone e cor é o `MontarLinhaDoTempoDaMetaUseCase`.
+     */
+    private function tipoDoEvento(string $entityClass, string $action, ?array $changes): string
+    {
+        if (!str_ends_with($entityClass, '\Tarefa')) {
+            return 'evento';
+        }
+        if ($action !== 'update') {
+            return $action === 'create' ? 'criada' : 'removida';
+        }
+        $diff   = is_array($changes['diff']['changes'] ?? null) ? $changes['diff']['changes'] : [];
+        $campos = array_map('strval', array_keys($diff));
+        if (in_array('status', $campos, true)) {
+            return match ((string) ($diff['status']['to'] ?? '')) {
+                'em_revisao' => 'revisao',
+                'concluida'  => 'concluida',
+                'pendente'   => 'devolvida',
+                'reaberta'   => 'reaberta',
+                default      => 'atualizada',
+            };
+        }
+        if (in_array('prazo', $campos, true)) {
+            return 'prazo';
+        }
+
+        return self::mexeNosResponsaveis($campos) ? 'responsaveis' : 'atualizada';
+    }
+
+    /** @param list<string> $campos */
+    private static function mexeNosResponsaveis(array $campos): bool
+    {
+        foreach ($campos as $campo) {
+            if (str_starts_with($campo, 'responsaveis[')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Os nomes, como o desenho mostra a lista nova (04B L147), a partir dos itens da coleção na auditoria
+     * (`responsaveis[+:id]` com o rótulo em `to`). A tela de responsáveis limpa e refaz a lista, então os incluídos
+     * são a lista nova inteira; uma retirada sem reinclusão aparece como "Retirado: Z".
+     */
+    private static function resumoDosResponsaveis(array $diff): ?string
+    {
+        $entraram = [];
+        $sairam   = [];
+        foreach ($diff as $campo => $mudanca) {
+            $campo = (string) $campo;
+            if (str_starts_with($campo, 'responsaveis[+:') && is_string($mudanca['to']['label'] ?? null)) {
+                $entraram[] = $mudanca['to']['label'];
+            } elseif (str_starts_with($campo, 'responsaveis[-:') && is_string($mudanca['from']['label'] ?? null)) {
+                $sairam[] = $mudanca['from']['label'];
+            }
+        }
+        $partes = array_filter([
+            $entraram === [] ? null : implode(', ', $entraram),
+            $sairam === [] ? null : 'Retirado: ' . implode(', ', $sairam),
+        ]);
+
+        return $partes === [] ? null : implode(' · ', $partes);
     }
 
     /**
@@ -182,6 +251,10 @@ class TarefaTimelineAssembler
             if ((string) $field === 'prazo') {
                 return ['Prazo alterado', 'bi-calendar-event', 'text-bg-warning', $this->extractChangeSummary($changes)];
             }
+        }
+
+        if (self::mexeNosResponsaveis(array_map('strval', array_keys($diff)))) {
+            return ['Responsáveis alterados', 'bi-people', 'text-bg-secondary', self::resumoDosResponsaveis($diff)];
         }
 
         $detalhe = $this->extractChangeSummary($changes);

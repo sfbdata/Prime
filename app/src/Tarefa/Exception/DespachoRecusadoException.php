@@ -17,6 +17,17 @@ final class DespachoRecusadoException extends \DomainException
         return new self('Meta não encontrada.');
     }
 
+    /** "Enviar para revisão" aparece sempre (04B L66); fora da meta pendente, o servidor recusa sem mudar nada. */
+    public static function envioForaDePendente(): self
+    {
+        return new self('Só a meta pendente pode ser enviada para revisão. Nada foi gravado.');
+    }
+
+    public static function devolucaoForaDeRevisao(): self
+    {
+        return new self('Só a meta em revisão pode ser devolvida. Nada foi gravado.');
+    }
+
     public static function semCodigoLivre(): self
     {
         return new self('Não foi possível registrar o despacho agora. Tente de novo.');

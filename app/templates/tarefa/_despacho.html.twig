@@ -1,21 +1,23 @@
 {#
-    Um despacho na linha do tempo da meta (desenho 04B de 22/10, L71 e L161; spec minhas-metas-esteira-2210, C11 a C15).
-    Recebe `item` (TimelineItemDTO: texto, anexo, edição) e `d` (DespachoNaLinhaDoTempoOutput), além de `tarefa`.
-    Registro (D1): "Registrado por NOME (Cargo) em ... · Cód. XXXX.XXXX", com o código ligado à página de validação.
-    Mensagem antiga (sem código) fica sem a linha de local e data e sem a de registro.
-    Envio para revisão e devolução (L127) trocam o ícone e a cor do marcador; só o despacho se certifica.
+    Um item da linha do tempo da meta no formato único do desenho 04B de 22/10 (L70-71, L127 e L161; spec
+    minhas-metas-esteira-2210, C11 a C15 e L6). Recebe `l` (ItemDaLinhaDoTempoOutput) e `tarefa`. Todo item, despacho
+    ou evento, é um cartão "DESPACHO N · tipo"; `l.tom` dá a cor. Só o despacho (`d`) tem registro, anexo, prazo,
+    ciência e certidão. Registro (D1): "Registrado por NOME (Cargo) em ... · Cód. XXXX.XXXX", com o código ligado à
+    página de validação. Mensagem antiga (sem código) fica sem a linha de local e data e sem a de registro, e é a
+    única que se edita.
 #}
-{% set icone = {envio: 'bi-send', devolucao: 'bi-arrow-return-left'}[d.acao] ?? 'bi-chat-left-text' %}
-<div class="despacho-item tarefa-timeline-entry tarefa-timeline-entry--mensagem{{ d.acao ? ' despacho-item--' ~ d.acao }}" id="despacho-{{ item.mensagemId }}">
-    <div class="despacho-marca"><span class="despacho-icone"><i class="bi {{ icone }}"></i></span></div>
+{% set item = l.item %}
+{% set d = l.despacho %}
+<div class="despacho-item despacho-item--{{ l.tom }} tarefa-timeline-entry{% if d %} tarefa-timeline-entry--mensagem{% endif %}" id="{{ d ? 'despacho-' ~ item.mensagemId : 'evento-' ~ l.numero }}">
+    <div class="despacho-marca"><span class="despacho-icone"><i class="bi {{ l.icone }}"></i></span></div>
     <div class="despacho-cartao">
         <div class="despacho-cabeca">
-            <b class="despacho-numero">{{ 'metas.despacho.numero'|trans({n: d.numero}) }}</b>
-            <span class="despacho-tipo">· {{ d.tipo|trans }}</span>
-            {% if d.maisRecente %}<span class="despacho-recente">{{ 'metas.despacho.mais_recente'|trans }}</span>{% endif %}
+            <b class="despacho-numero">{{ 'metas.despacho.numero'|trans({n: l.numero}) }}</b>
+            <span class="despacho-tipo">· {{ l.tipo|trans }}</span>
+            {% if l.maisRecente %}<span class="despacho-recente">{{ 'metas.despacho.mais_recente'|trans }}</span>{% endif %}
             <span class="flex-grow-1"></span>
             {# Despacho registrado (com código) não se edita; só a mensagem antiga, do próprio autor. #}
-            {% if d.codigo is null and item.detalhe and item.usuarioId == app.user.id and tarefa.status != 'concluida' %}
+            {% if d and d.codigo is null and item.detalhe and item.usuarioId == app.user.id and tarefa.status != 'concluida' %}
                 <button type="button"
                         class="btn btn-link btn-sm p-0 text-secondary btn-editar-msg"
                         title="{{ 'metas.detalhe.editar_mensagem'|trans }}"
@@ -28,12 +30,17 @@
                 </button>
             {% endif %}
             <small class="despacho-em">
-                {{ d.registradoEm|data_hora }}
+                {{ (d ? d.registradoEm : item.dataHora)|data_hora }}
                 {% if item.editadoEm %}<span class="ms-1 fst-italic tarefa-msg-editado">{{ 'metas.detalhe.editado'|trans }}</span>{% endif %}
             </small>
         </div>
 
         <div class="despacho-corpo">
+            {% if not d %}
+                {% if item.autorNome or item.autorEmail %}<div class="despacho-quem"><b>{{ item.autorNome ?? item.autorEmail }}</b></div>{% endif %}
+                {# Texto do sistema (auditoria): segue escapado. #}
+                {% if item.detalhe %}<div class="despacho-texto">{{ item.detalhe|nl2br }}</div>{% endif %}
+            {% else %}
             <div class="despacho-quem"><b>{{ d.autor }}</b></div>
             {% if item.detalhe %}
                 <div class="tarefa-msg-conteudo despacho-texto" id="tarefa-msg-conteudo-{{ item.mensagemId }}">
@@ -107,6 +114,7 @@
                             data-token="{{ csrf_token('certificar_despacho_' ~ item.mensagemId) }}">{{ 'metas.despacho.certificar'|trans }}</button>
                 {% endif %}
             </div>
+            {% endif %}
         </div>
     </div>
 </div>

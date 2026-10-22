@@ -63,7 +63,7 @@ final class MontarSituacaoDaMetaUseCaseTest extends TestCase
         self::assertNotNull($s->aguardando);
         self::assertFalse($s->aguardando->emRevisao);
         self::assertSame('despacho', $s->aguardando->tom());
-        self::assertSame(10, $s->aguardando->dias, 'dias corridos pela data, sem a hora');
+        self::assertSame(10, $s->aguardando->dias, 'períodos de 24h desde a criação à 00:00 (12/10 00:00 a 22/10 09:30)');
         self::assertSame([['iniciais' => 'TT', 'nome' => 'Thâmara Santos'], ['iniciais' => 'M', 'nome' => 'Mariana']], $s->aguardando->pessoas);
         self::assertSame(10, $s->diasDesdeACriacao);
         self::assertSame('FARLEI ASSIS DA ROCHA', $s->despachante);
@@ -100,8 +100,17 @@ final class MontarSituacaoDaMetaUseCaseTest extends TestCase
         self::assertNotNull($s->aguardando);
         self::assertTrue($s->aguardando->emRevisao);
         self::assertSame('revisao', $s->aguardando->tom());
-        self::assertSame(2, $s->aguardando->dias, 'desde o envio mais recente');
+        self::assertSame(1, $s->aguardando->dias, 'períodos de 24h desde o envio mais recente (20/10 18:00 a 22/10 09:30 = 39h30)');
         self::assertSame([['iniciais' => 'FA', 'nome' => 'Farlei Rocha']], $s->aguardando->pessoas);
+    }
+
+    #[TestDox('Faixa em períodos de 24h, não em dias de calendário: enviada ontem às 10h, às 9h30 de hoje ainda é "hoje"')]
+    public function testFaixaEmPeriodosDe24h(): void
+    {
+        $this->meta->setStatus(Tarefa::STATUS_EM_REVISAO);
+        $this->meta->addMensagem((new TarefaMensagem())->setMensagem('Pronto.')->setAcao(AcaoDoDespacho::Envio)->setCriadoEm(new \DateTimeImmutable('2026-10-21 10:00')));
+
+        self::assertSame(0, $this->executar()->aguardando?->dias);
     }
 
     #[TestDox('Concluída: sem faixa e sem atraso, mesmo com o prazo no passado')]

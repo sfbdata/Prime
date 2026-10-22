@@ -22,7 +22,7 @@ use App\Tarefa\Service\QuemCuidaDaMeta;
  *
  * Prazo padrão: 5 dias úteis depois de hoje pela regra do escritório (C1, C12), com a UF do escritório. A lista
  * de dias não úteis cobre {@see JANELA_EM_DIAS} dias, para o navegador recontar o "N dias úteis" pela mesma regra.
- * Os despachos são numerados do mais antigo (DESPACHO 1) ao mais recente.
+ * A numeração ("DESPACHO N") é do histórico inteiro, no `MontarLinhaDoTempoDaMetaUseCase`.
  */
 final class MontarDespachosDaMetaUseCase
 {
@@ -39,12 +39,11 @@ final class MontarDespachosDaMetaUseCase
     {
         $hoje = $hoje->setTime(0, 0);
         $podeCertificar = $this->quemCuida->ehResponsavelOuCriador($meta, $quemVe);
-        $despachos = array_values($meta->getMensagens()->toArray());
-        usort($despachos, static fn (TarefaMensagem $a, TarefaMensagem $b): int => $a->getCriadoEm() <=> $b->getCriadoEm());
+        $despachos = $meta->getMensagens()->toArray();
 
         $linhas = [];
-        foreach ($despachos as $i => $despacho) {
-            $linhas[(int) $despacho->getId()] = $this->linha($despacho, $i + 1, $i === count($despachos) - 1, $escritorio, $hoje, $podeCertificar);
+        foreach ($despachos as $despacho) {
+            $linhas[(int) $despacho->getId()] = $this->linha($despacho, $escritorio, $hoje, $podeCertificar);
         }
 
         return new DespachosDaMetaOutput($this->formulario($escritorio, $hoje), $linhas);
@@ -66,14 +65,12 @@ final class MontarDespachosDaMetaUseCase
         );
     }
 
-    private function linha(TarefaMensagem $d, int $numero, bool $maisRecente, Tenant $escritorio, \DateTimeImmutable $hoje, bool $podeCertificar): DespachoNaLinhaDoTempoOutput
+    private function linha(TarefaMensagem $d, Tenant $escritorio, \DateTimeImmutable $hoje, bool $podeCertificar): DespachoNaLinhaDoTempoOutput
     {
         $prazo = $d->temCertidao() ? null : $d->getPrazoCumprimento();
         $cidade = trim((string) $escritorio->getCidade());
 
         return new DespachoNaLinhaDoTempoOutput(
-            numero: $numero,
-            maisRecente: $maisRecente,
             natureza: $d->getNatureza()?->rotulo(),
             tipo: $d->getNatureza()?->rotulo() ?? ($d->getAcao() ?? AcaoDoDespacho::Despacho)->rotulo(),
             acao: $d->getAcao()?->value,

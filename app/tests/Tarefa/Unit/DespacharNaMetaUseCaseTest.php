@@ -186,17 +186,45 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         self::assertSame('/uploads/tarefas/chat/a.pdf', $this->unicoDespacho()->getArquivoAnexo());
     }
 
-    #[TestDox('Enviar sem texto com a meta já em revisão: nada muda e nada é gravado')]
-    public function testEnviarSemTextoJaEmRevisao(): void
+    /** @return iterable<string, array{string, string, DespachoRecusadoException}> */
+    public static function acoesForaDoStatus(): iterable
     {
-        $this->meta->setStatus(Tarefa::STATUS_EM_REVISAO);
+        yield 'enviar em revisão' => [Tarefa::STATUS_EM_REVISAO, 'enviar', DespachoRecusadoException::envioForaDePendente()];
+        yield 'enviar concluída' => [Tarefa::STATUS_CONCLUIDA, 'enviar', DespachoRecusadoException::envioForaDePendente()];
+        yield 'devolver pendente' => [Tarefa::STATUS_PENDENTE, 'devolver', DespachoRecusadoException::devolucaoForaDeRevisao()];
+        yield 'devolver concluída' => [Tarefa::STATUS_CONCLUIDA, 'devolver', DespachoRecusadoException::devolucaoForaDeRevisao()];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('acoesForaDoStatus')]
+    #[TestDox('Ação fora do status ($_dataName): recusa com aviso, nada gravado e o status não muda')]
+    public function testAcaoForaDoStatusRecusa(string $status, string $acao, DespachoRecusadoException $esperada): void
+    {
+        $this->meta->setStatus($status);
         $this->mensagens->expects(self::never())->method('salvar');
         $this->notificacoes->expects(self::never())->method(self::anything());
 
-        $saida = $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('', 'enviar'));
-
-        self::assertNull($saida->codigo);
+        try {
+            $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Com texto.', $acao));
+            self::fail('Deveria recusar.');
+        } catch (DespachoRecusadoException $e) {
+            self::assertSame($esperada->getMessage(), $e->getMessage());
+        }
+        self::assertSame($status, $this->meta->getStatus());
         self::assertCount(0, $this->meta->getMensagens());
+    }
+
+    #[TestDox('Meta concluída: o despacho entra como registro, sem mudar o status')]
+    public function testDespachoEmMetaConcluida(): void
+    {
+        $this->meta->setStatus(Tarefa::STATUS_CONCLUIDA);
+        $this->sorteio->method('sortear')->willReturn('1234.5678');
+        $this->codigosOcupados();
+
+        $saida = $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Arquivado.'));
+
+        self::assertSame('1234.5678', $saida->codigo);
+        self::assertSame(AcaoDoDespacho::Despacho, $this->unicoDespacho()->getAcao());
+        self::assertSame(Tarefa::STATUS_CONCLUIDA, $this->meta->getStatus());
     }
 
     #[TestDox('Devolver: em revisão volta a pendente e avisa os responsáveis')]
