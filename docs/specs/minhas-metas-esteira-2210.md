@@ -222,6 +222,10 @@ e página da meta), porque o desenho não tem a opção em lugar nenhum.
   como "Comentário", sem código de registro, como no desenho; a menção avisa com o tipo de menção da pasta e o lembrete
   com o tipo novo `tarefa_lembrete`; o Extrato é a janela de impressão do navegador (salvar em PDF por ela); juntar o
   anexo à pasta exige só o acesso à meta, como o anexo já exigia; os tokens de menção contam nos 5.000 caracteres.
+  O cadeado da pasta já valia dentro da meta (`BarreiraDoCadeadoListener`, 403 na leitura); a guarda da meta
+  (`AcessoAMeta`) passa a conferir também, como segunda camada, na página, no Extrato, no Lembrar, no despacho e na
+  certidão. O limite de 1 lembrete por hora tem trava por meta. O Extrato
+  mostra só o que o 04B L150 mostra ("Ciente: nome", sem hora; sem a linha do anexo; sem botão Imprimir).
 - L9. Extrato: Demanda no topo; cada despacho numerado com natureza, quem → para, Cumprir até, Ciente, certidão;
   "Emitido em"; aviso "Permita pop-ups para gerar o extrato." se bloqueado (04B L150).
 - L10. Lembrar grava "Lembrete enviado para X, Y." no histórico; em revisão, avisa o autor (04B L115, L133).
