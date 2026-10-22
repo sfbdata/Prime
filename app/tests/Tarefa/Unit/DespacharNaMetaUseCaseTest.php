@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Tarefa\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
+use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Tenant;
 use App\Repository\TarefaMensagemRepository;
+use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Tarefa\DTO\DespacharNaMetaInput;
 use App\Tarefa\Enum\NaturezaDoDespacho;
@@ -50,7 +53,7 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         $this->sorteio = $this->createMock(SorteioDeCodigoDoDespacho::class);
     }
 
-    #[TestDox('Despachar grava texto em HTML, natureza, prazo e o código sorteado, sem mudar o status')]
+    #[TestDox('Despachar grava texto em HTML, natureza, prazo, o código sorteado e quem assinou, sem mudar o status')]
     public function testDespacharGravaODespacho(): void
     {
         $this->sorteio->method('sortear')->willReturn('1234.5678');
@@ -68,6 +71,9 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         self::assertSame(NaturezaDoDespacho::CumpraSe, $despacho->getNatureza());
         self::assertSame('2026-10-29', $despacho->getPrazoCumprimento()?->format('Y-m-d'));
         self::assertSame($this->escritorio, $despacho->getTenant());
+        self::assertSame('Ana Souza', $despacho->getRegistradoPorNome());
+        self::assertSame('Advogada', $despacho->getRegistradoPorCargo());
+        self::assertFalse($despacho->podeSerEditado());
         self::assertSame(Tarefa::STATUS_PENDENTE, $this->meta->getStatus());
         self::assertFalse($saida->enviada);
     }
@@ -171,11 +177,15 @@ final class DespacharNaMetaUseCaseTest extends TestCase
 
     private function useCase(): DespacharNaMetaUseCase
     {
+        $vinculos = $this->createStub(UserTenantRepository::class);
+        $vinculos->method('findPorUserETenant')->willReturn((new UserTenant($this->autor, $this->escritorio))->setCargo((new Cargo())->setNome('Advogada')));
+
         return new DespacharNaMetaUseCase(
             $this->mensagens,
             new TextoDoDespacho($this->criarSanitizadorTextoRico()),
             $this->sorteio,
             $this->notificacoes,
+            $vinculos,
         );
     }
 

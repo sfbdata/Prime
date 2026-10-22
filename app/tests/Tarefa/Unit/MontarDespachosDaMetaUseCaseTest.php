@@ -6,13 +6,10 @@ namespace App\Tests\Tarefa\Unit;
 
 use App\Agenda\Service\CalendarioDoSistema;
 use App\Entity\Auth\User;
-use App\Entity\Auth\UserTenant;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
-use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\DiasUteisDoEscritorio;
-use App\Repository\UserTenantRepository;
 use App\Tarefa\Enum\NaturezaDoDespacho;
 use App\Tarefa\Service\QuemCuidaDaMeta;
 use App\Tarefa\UseCase\MontarDespachosDaMetaUseCase;
@@ -57,12 +54,13 @@ final class MontarDespachosDaMetaUseCaseTest extends TestCase
         self::assertSame(['valor' => 'ciencia', 'rotulo' => 'metas.despacho.natureza.ciencia', 'inicio' => 'metas.despacho.inicio.ciencia'], $saida->formulario->naturezas[0]);
     }
 
-    #[TestDox('Linhas: numeradas do mais antigo, a última é a mais recente, com cargo, cidade e natureza')]
+    #[TestDox('Linhas: numeradas do mais antigo, a última é a mais recente; nome e cargo do registro congelados')]
     public function testLinhas(): void
     {
         $antigo = $this->despacho(10, $this->criador, '2026-10-01 09:00');
         $novo = $this->despacho(11, $this->responsavel, '2026-10-02 09:00');
-        $novo->setNatureza(NaturezaDoDespacho::Ciencia)->registrarCodigo('1234.5678');
+        $novo->setNatureza(NaturezaDoDespacho::Ciencia)->registrar('1234.5678', 'Rui Prado', 'Advogado');
+        $this->responsavel->setFullName('Rui Prado Neto');
 
         $linhas = $this->useCase()->executar($this->meta, $this->criador, $this->escritorio, new \DateTimeImmutable('2026-10-22'))->linhas;
 
@@ -72,9 +70,10 @@ final class MontarDespachosDaMetaUseCaseTest extends TestCase
         self::assertSame(2, $linhas[11]->numero);
         self::assertTrue($linhas[11]->maisRecente);
         self::assertSame('metas.despacho.natureza.ciencia', $linhas[11]->natureza);
+        self::assertSame('Rui Prado', $linhas[11]->registradoPor, 'nome congelado no registro');
         self::assertSame('Advogado', $linhas[11]->cargo);
         self::assertSame('Maceió', $linhas[11]->cidade);
-        self::assertSame('Rui Prado', $linhas[11]->autor);
+        self::assertSame('Rui Prado Neto', $linhas[11]->autor, 'o cabeçalho usa o nome de hoje');
     }
 
     #[TestDox('Prazo vencido fica marcado; com certidão o "Cumprir até" some e não se certifica de novo')]
@@ -98,7 +97,7 @@ final class MontarDespachosDaMetaUseCaseTest extends TestCase
     #[TestDox('Quem não cuida da meta não vê o Certificar; escritório sem cidade, sem linha de local')]
     public function testSemPermissaoESemCidade(): void
     {
-        $this->despacho(10, $this->criador, '2026-10-01 09:00')->registrarCodigo('1234.5678');
+        $this->despacho(10, $this->criador, '2026-10-01 09:00')->registrar('1234.5678', 'Carla Dias', null);
         $this->escritorio->setCidade(null);
 
         $linhas = $this->useCase()->executar($this->meta, self::pessoa(9, 'Olga'), $this->escritorio, new \DateTimeImmutable('2026-10-22'))->linhas;
@@ -109,17 +108,7 @@ final class MontarDespachosDaMetaUseCaseTest extends TestCase
 
     private function useCase(): MontarDespachosDaMetaUseCase
     {
-        $vinculos = $this->createStub(UserTenantRepository::class);
-        $vinculos->method('findPorUserETenant')->willReturnCallback(function (User $u, Tenant $t): UserTenant {
-            $vinculo = new UserTenant($u, $t);
-            if ($u === $this->responsavel) {
-                $vinculo->setCargo((new Cargo())->setNome('Advogado'));
-            }
-
-            return $vinculo;
-        });
-
-        return new MontarDespachosDaMetaUseCase(new DiasUteisDoEscritorio(new CalendarioDoSistema()), $vinculos, new QuemCuidaDaMeta());
+        return new MontarDespachosDaMetaUseCase(new DiasUteisDoEscritorio(new CalendarioDoSistema()), new QuemCuidaDaMeta());
     }
 
     private function despacho(int $id, User $autor, string $em): TarefaMensagem

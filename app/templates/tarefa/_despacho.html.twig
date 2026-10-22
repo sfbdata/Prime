@@ -12,7 +12,8 @@
             <span class="despacho-tipo">· {{ (d.natureza ?? 'metas.despacho.comentario')|trans }}</span>
             {% if d.maisRecente %}<span class="despacho-recente">{{ 'metas.despacho.mais_recente'|trans }}</span>{% endif %}
             <span class="flex-grow-1"></span>
-            {% if item.detalhe and item.usuarioId == app.user.id and tarefa.status != 'concluida' %}
+            {# Despacho registrado (com código) não se edita; só a mensagem antiga, do próprio autor. #}
+            {% if d.codigo is null and item.detalhe and item.usuarioId == app.user.id and tarefa.status != 'concluida' %}
                 <button type="button"
                         class="btn btn-link btn-sm p-0 text-secondary btn-editar-msg"
                         title="{{ 'metas.detalhe.editar_mensagem'|trans }}"
@@ -44,7 +45,7 @@
                 {% endif %}
                 <div class="despacho-registro">
                     <i class="bi bi-patch-check"></i>
-                    <span>{{ 'metas.despacho.registrado_por'|trans }} <b>{{ d.autor|upper }}</b>{% if d.cargo %} ({{ d.cargo }}){% endif %} {{ 'metas.despacho.registrado_em'|trans({data: d.registradoEm|data, hora: d.registradoEm|hora}) }} · <a href="{{ path('tarefa_registro_validar', {codigo: d.codigo}) }}" title="{{ 'metas.despacho.conferir_registro'|trans }}">{{ 'metas.despacho.codigo'|trans({codigo: d.codigo}) }}</a></span>
+                    <span>{{ 'metas.despacho.registrado_por'|trans }} <b>{{ (d.registradoPor ?? d.autor)|upper }}</b>{% if d.cargo %} ({{ d.cargo }}){% endif %} {{ 'metas.despacho.registrado_em'|trans({data: d.registradoEm|data, hora: d.registradoEm|hora}) }} · <a href="{{ path('tarefa_registro_validar', {codigo: d.codigo}) }}" title="{{ 'metas.despacho.conferir_registro'|trans }}">{{ 'metas.despacho.codigo'|trans({codigo: d.codigo}) }}</a></span>
                 </div>
             {% endif %}
 

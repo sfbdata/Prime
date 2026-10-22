@@ -8,7 +8,8 @@ namespace App\Tarefa\DTO;
  * Um despacho na linha do tempo da meta (desenho 04B de 22/10, L71 e L161), além do que o `TimelineItemDTO` já
  * traz (texto, autor, anexo). Os rótulos (`natureza`) são chaves do catálogo; a tela aplica `|trans`.
  *
- * `codigo` nulo é mensagem de antes da Fase 2a: sem linha de local e data nem linha de registro (D1).
+ * `codigo` nulo é mensagem de antes da Fase 2a: sem linha de local e data nem linha de registro (D1), e editável.
+ * `registradoPor` e `cargo` são os do registro, congelados no momento do despacho.
  */
 final class DespachoNaLinhaDoTempoOutput
 {
@@ -18,6 +19,7 @@ final class DespachoNaLinhaDoTempoOutput
         public readonly ?string $natureza,
         public readonly ?string $codigo,
         public readonly string $autor,
+        public readonly ?string $registradoPor,
         public readonly ?string $cargo,
         public readonly \DateTimeImmutable $registradoEm,
         public readonly ?string $cidade,

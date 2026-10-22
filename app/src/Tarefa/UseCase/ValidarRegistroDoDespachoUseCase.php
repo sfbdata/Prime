@@ -9,7 +9,6 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\NivelDeAcesso;
 use App\Pasta\Service\AcessoAPasta;
 use App\Repository\TarefaMensagemRepository;
-use App\Repository\UserTenantRepository;
 use App\Tarefa\DTO\RegistroDoDespachoOutput;
 
 /**
@@ -21,7 +20,6 @@ final class ValidarRegistroDoDespachoUseCase
 {
     public function __construct(
         private readonly TarefaMensagemRepository $mensagens,
-        private readonly UserTenantRepository $vinculos,
         private readonly AcessoAPasta $acessoAPasta,
     ) {
     }
@@ -41,9 +39,6 @@ final class ValidarRegistroDoDespachoUseCase
             return null;
         }
 
-        $autor = $despacho->getUsuario();
-        $cargo = $autor === null ? null : $this->vinculos->findPorUserETenant($autor, $escritorio)?->getCargo()?->getNome();
-
-        return RegistroDoDespachoOutput::fromEntity($despacho, $cargo);
+        return RegistroDoDespachoOutput::fromEntity($despacho);
     }
 }

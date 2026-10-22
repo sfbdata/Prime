@@ -24,7 +24,8 @@ final class RegistroDoDespachoOutput
     ) {
     }
 
-    public static function fromEntity(TarefaMensagem $despacho, ?string $cargo): self
+    /** Autor e cargo são os congelados no registro, não os de hoje. */
+    public static function fromEntity(TarefaMensagem $despacho): self
     {
         $meta = $despacho->getTarefa();
 
@@ -33,8 +34,8 @@ final class RegistroDoDespachoOutput
             metaId: (int) $meta?->getId(),
             metaNumero: (int) ($meta?->getNumero() ?? $meta?->getId()),
             metaTitulo: (string) $meta?->getTitulo(),
-            autor: (string) ($despacho->getUsuario()?->getFullName() ?? $despacho->getUsuario()?->getEmail()),
-            cargo: $cargo,
+            autor: (string) $despacho->getRegistradoPorNome(),
+            cargo: $despacho->getRegistradoPorCargo(),
             registradoEm: $despacho->getCriadoEm(),
             natureza: $despacho->getNatureza()?->rotulo(),
         );

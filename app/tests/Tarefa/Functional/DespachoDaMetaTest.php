@@ -170,6 +170,7 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('[data-registro-encontrado]', 'Carla Dias');
         self::assertSelectorTextContains('[data-registro-encontrado]', 'Para providência');
+        self::assertSelectorTextContains('[data-registro-encontrado]', 'Sócia');
         self::assertSelectorTextNotContains('[data-registro-encontrado]', 'Texto secreto do despacho');
 
         $this->client->request('GET', '/tarefas/registro/0000.0000');
@@ -183,6 +184,57 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404);
         self::assertSelectorExists('[data-registro-nao-encontrado]');
         self::assertSelectorTextNotContains('body', 'Carla Dias');
+    }
+
+    #[TestDox('O registro congela o nome: renomear quem despachou não muda a linha nem a validação')]
+    public function testRegistroCongelaONome(): void
+    {
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+        $this->despachar(['mensagem' => 'Ok.']);
+        $codigo = (string) $this->unicoDespacho()->getCodigo();
+        $criador = $this->em->find(User::class, $this->criador->getId());
+        $criador?->setFullName('Carla Dias Mendes');
+        $this->em->flush();
+
+        $this->client->request('GET', '/tarefas/' . $this->meta->getId());
+        self::assertSelectorTextContains('.despacho-registro', 'Registrado por CARLA DIAS em');
+
+        $this->client->request('GET', '/tarefas/registro/' . $codigo);
+        self::assertSelectorTextContains('[data-registro-encontrado]', 'Carla Dias');
+        self::assertSelectorTextNotContains('[data-registro-encontrado]', 'Mendes');
+    }
+
+    #[TestDox('Despacho registrado não se edita: sem botão na tela e 422 no POST; o texto não muda')]
+    public function testRegistradoNaoEdita(): void
+    {
+        $despacho = $this->despachoGravado($this->criador);
+        $id = (int) $despacho->getId();
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+
+        $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
+        self::assertCount(0, $crawler->filter('#despacho-' . $id . ' .btn-editar-msg'));
+
+        $this->client->request('POST', '/tarefas/mensagem/' . $id . '/editar', [
+            '_token'   => 'TOKEN_editar_mensagem_tarefa_' . $id,
+            'conteudo' => 'Texto trocado',
+        ]);
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('Despacho registrado não pode ser editado.', (string) json_decode((string) $this->client->getResponse()->getContent(), true)['erro']);
+        self::assertSame('<p>Texto secreto do despacho</p>', $this->despacho($id)->getMensagem());
+    }
+
+    #[TestDox('Mensagem antiga, sem código, continua com o botão de editar')]
+    public function testAntigaContinuaEditavel(): void
+    {
+        $antiga = (new TarefaMensagem())->setUsuario($this->criador)->setTenant($this->escritorio)->setMensagem('Antiga');
+        $this->meta->addMensagem($antiga);
+        $this->em->persist($antiga);
+        $this->em->flush();
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+
+        $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
+
+        self::assertCount(1, $crawler->filter('#despacho-' . $antiga->getId() . ' .btn-editar-msg'));
     }
 
     /** @param array<string, string> $campos */
@@ -203,7 +255,7 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
     private function despachoGravado(User $autor, ?NaturezaDoDespacho $natureza = null): TarefaMensagem
     {
         $despacho = (new TarefaMensagem())->setUsuario($autor)->setTenant($this->escritorio)->setMensagem('<p>Texto secreto do despacho</p>');
-        $despacho->setNatureza($natureza)->registrarCodigo(sprintf('%04d.%04d', random_int(0, 9999), random_int(0, 9999)));
+        $despacho->setNatureza($natureza)->registrar(sprintf('%04d.%04d', random_int(0, 9999), random_int(0, 9999)), (string) $autor->getFullName(), 'Sócia');
         $this->meta->addMensagem($despacho);
         $this->em->persist($despacho);
         $this->em->flush();

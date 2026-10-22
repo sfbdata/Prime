@@ -9,7 +9,6 @@ use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\DiasUteisDoEscritorio;
-use App\Repository\UserTenantRepository;
 use App\Tarefa\DTO\DespachoNaLinhaDoTempoOutput;
 use App\Tarefa\DTO\DespachosDaMetaOutput;
 use App\Tarefa\DTO\FormularioDoDespachoOutput;
@@ -29,12 +28,8 @@ final class MontarDespachosDaMetaUseCase
     public const UTEIS_DO_PRAZO_PADRAO = 5;
     public const JANELA_EM_DIAS = 180;
 
-    /** @var array<int, ?string> cargo por id da pessoa, nesta montagem */
-    private array $cargos = [];
-
     public function __construct(
         private readonly DiasUteisDoEscritorio $diasUteis,
-        private readonly UserTenantRepository $vinculos,
         private readonly QuemCuidaDaMeta $quemCuida,
     ) {
     }
@@ -42,7 +37,6 @@ final class MontarDespachosDaMetaUseCase
     public function executar(Tarefa $meta, User $quemVe, Tenant $escritorio, \DateTimeImmutable $hoje): DespachosDaMetaOutput
     {
         $hoje = $hoje->setTime(0, 0);
-        $this->cargos = [];
         $podeCertificar = $this->quemCuida->ehResponsavelOuCriador($meta, $quemVe);
         $despachos = array_values($meta->getMensagens()->toArray());
         usort($despachos, static fn (TarefaMensagem $a, TarefaMensagem $b): int => $a->getCriadoEm() <=> $b->getCriadoEm());
@@ -82,7 +76,8 @@ final class MontarDespachosDaMetaUseCase
             natureza: $d->getNatureza()?->rotulo(),
             codigo: $d->getCodigo(),
             autor: (string) ($d->getUsuario()?->getFullName() ?? $d->getUsuario()?->getEmail()),
-            cargo: $this->cargo($d->getUsuario(), $escritorio),
+            registradoPor: $d->getRegistradoPorNome(),
+            cargo: $d->getRegistradoPorCargo(),
             registradoEm: $d->getCriadoEm(),
             cidade: $cidade === '' ? null : $cidade,
             prazo: $prazo,
@@ -94,19 +89,6 @@ final class MontarDespachosDaMetaUseCase
             certificadoEm: $d->getCertificadoEm(),
             podeCertificar: $podeCertificar && !$d->temCertidao(),
         );
-    }
-
-    private function cargo(?User $pessoa, Tenant $escritorio): ?string
-    {
-        if ($pessoa === null || $pessoa->getId() === null) {
-            return null;
-        }
-        $id = $pessoa->getId();
-        if (!array_key_exists($id, $this->cargos)) {
-            $this->cargos[$id] = $this->vinculos->findPorUserETenant($pessoa, $escritorio)?->getCargo()?->getNome();
-        }
-
-        return $this->cargos[$id];
     }
 
     private static function primeiroNome(?User $pessoa): ?string

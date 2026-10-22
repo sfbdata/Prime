@@ -75,6 +75,13 @@ class TarefaMensagem implements Auditavel, TenantAware
     #[ORM\Column(length: 9, nullable: true)]
     private ?string $codigo = null;
 
+    /** Quem assinou o registro, congelado no momento do despacho (troca de nome ou de cargo não muda o registro). */
+    #[ORM\Column(name: 'registrado_por_nome', length: 180, nullable: true)]
+    private ?string $registradoPorNome = null;
+
+    #[ORM\Column(name: 'registrado_por_cargo', length: 120, nullable: true)]
+    private ?string $registradoPorCargo = null;
+
     public function __construct()
     {
         $this->criadoEm = new \DateTimeImmutable();
@@ -191,8 +198,11 @@ class TarefaMensagem implements Auditavel, TenantAware
         return $this->codigo;
     }
 
-    /** O código é dado uma vez só: trocar o de um despacho já registrado invalidaria o que foi conferido. */
-    public function registrarCodigo(string $codigo): self
+    /**
+     * Registro do despacho (D1): o código e quem assinou, com nome e cargo congelados agora. É dado uma vez só:
+     * trocar o de um despacho já registrado invalidaria o que foi conferido.
+     */
+    public function registrar(string $codigo, string $nome, ?string $cargo): self
     {
         if ($this->codigo !== null) {
             throw new \LogicException('Este despacho já tem código de registro.');
@@ -201,9 +211,28 @@ class TarefaMensagem implements Auditavel, TenantAware
             throw new \InvalidArgumentException('Código de registro fora do formato XXXX.XXXX.');
         }
 
-        $this->codigo = $codigo;
+        $this->codigo             = $codigo;
+        $this->registradoPorNome  = mb_substr(trim($nome), 0, 180);
+        $cargo                    = trim((string) $cargo);
+        $this->registradoPorCargo = $cargo === '' ? null : mb_substr($cargo, 0, 120);
 
         return $this;
+    }
+
+    public function getRegistradoPorNome(): ?string
+    {
+        return $this->registradoPorNome;
+    }
+
+    public function getRegistradoPorCargo(): ?string
+    {
+        return $this->registradoPorCargo;
+    }
+
+    /** Despacho registrado (com código) não se edita; mensagem antiga, sem código, continua editável. */
+    public function podeSerEditado(): bool
+    {
+        return $this->codigo === null;
     }
 
     public function getCientePor(): ?User

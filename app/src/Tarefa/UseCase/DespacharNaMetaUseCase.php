@@ -9,6 +9,7 @@ use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Repository\TarefaMensagemRepository;
+use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Tarefa\DTO\DespachoRegistradoOutput;
 use App\Tarefa\DTO\DespacharNaMetaInput;
@@ -21,7 +22,8 @@ use App\Tarefa\Service\TextoDoDespacho;
  *
  * Quem tem acesso à meta escreve um despacho (texto ou anexo) e, junto, pode mudar o status pelo ciclo de vida:
  * "Enviar para revisão" (pendente para em revisão, avisa o criador) ou "Devolver" (em revisão para pendente, avisa
- * os responsáveis). Cada despacho gravado recebe o código do registro (D1, C13), sorteado e único no escritório.
+ * os responsáveis). Cada despacho gravado recebe o código do registro (D1, C13), sorteado e único no escritório,
+ * com o nome e o cargo de quem despachou congelados no registro.
  *
  * Natureza e prazo de cumprimento valem para Despachar e Devolver. O "Enviar para revisão" do desenho (L146) não
  * leva nenhum dos dois: o prazo padrão, sempre preenchido na tela, viraria um "Cumprir até" na mensagem de quem
@@ -36,6 +38,7 @@ final class DespacharNaMetaUseCase
         private readonly TextoDoDespacho $textoDoDespacho,
         private readonly SorteioDeCodigoDoDespacho $sorteio,
         private readonly NotificacaoService $notificacoes,
+        private readonly UserTenantRepository $vinculos,
     ) {
     }
 
@@ -64,7 +67,11 @@ final class DespacharNaMetaUseCase
         $despacho->setTenant($escritorio);
         $despacho->setMensagem($input->texto !== '' ? $this->textoDoDespacho->paraHtml($input->texto) : '[Arquivo anexado]');
         $despacho->setArquivoAnexo($input->arquivoAnexo);
-        $despacho->registrarCodigo($this->codigoLivre($escritorio));
+        $despacho->registrar(
+            $this->codigoLivre($escritorio),
+            (string) ($autor->getFullName() ?? $autor->getEmail()),
+            $this->vinculos->findPorUserETenant($autor, $escritorio)?->getCargo()?->getNome(),
+        );
         if ($input->acao !== 'enviar') {
             $despacho->setNatureza($input->naturezaEscolhida());
             $despacho->setPrazoCumprimento($input->prazoComoData());
