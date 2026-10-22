@@ -589,6 +589,28 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   idioma do destinatário, não o da requisição (entrega E do §5, com o locale de quem lê, §4), o que pede o idioma
   gravado no perfil de quem recebe na hora de montar a mensagem; fica para a entrega dos e-mails.
 
+## 22. Extração do Kanban e do que faltava em Tarefa (f6, 21/10)
+
+Bloco `kanban` do catálogo, 70 chaves: 56 do Twig (`comum`, `index`, `modal_criar`, `mural`, `modal_checklist`,
+`modal_editar`, `card`, `comentario`) e 14 dos scripts inline do `index` e do `board` (`kanban.js`, entregue pelos
+dois antes do `<script>`; o corpo do card, que chega por fetch, usa o catálogo do `board`). O `tarefa/show` entrou no
+bloco `metas` (o do Minhas Metas): 43 chaves em `metas.detalhe` (Twig) e 8 em `metas.detalhe.js` (fora de `metas.js`,
+para o catálogo que o Minhas Metas entrega não mudar), com `metas.migalha.home` e `metas.comum.nao_informado`
+reaproveitadas; os scripts dele ficam no corpo (antes do `bj-traducao.js`) e só pedem texto dentro dos eventos. O `#`
+da meta entra como texto (`tarefa.id ~ ''`), para o ICU não pôr separador de milhar; a contagem de cards do mural
+virou duas chaves (`cards_um`, `cards_varios`) escolhidas pelo mesmo `!= 1` de antes. Os dois `confirm()` dos
+formulários do detalhe usam `|trans|e('js')`, como na Agenda. Para a guarda enxergar as tags, os `filter(x =>
+...)|length > 0` de dentro dos atributos foram para um `{% set %}` antes da tag. Formatos: `|data` na criação do
+mural, na criação e no prazo da meta e no dia do histórico; `|data_hora` no comentário, na criação do card, na
+conclusão e na alteração da meta; `|hora` na hora do histórico. Ficaram `dataVencimento|date('d/m')` do cartão (sem
+filtro de dia e mês) e os `Y-m-d` dos campos de data. Ficou de fora o texto que vem do PHP: os rótulos dos campos dos
+Form types do mural (`form_row`), `tamanhoFormatado` do anexo, as respostas e erros dos controllers do Kanban,
+`Tarefa::STATUS_LABELS`, `prazoInfo.texto`, o título e o detalhe dos eventos do histórico (`TarefaTimelineAssembler`) e os
+flashes; também as mensagens de `console.error` do `board` (só para quem depura). O HTML do Kanban (lista vazia e
+cheia, mural do criador e do participante, card cheio, magro e de mural sem marcadores, cartão do mural e comentário
+novo) e do detalhe da meta (vazia, nova, pendente com anexo, em revisão para os dois lados, concluída) foi comparado
+antes e depois, sem diferença; o texto dos scripts foi conferido chave por chave contra o literal removido.
+
 ## 23. Extração de Feriados e da conexão do Drive (4b, 21/10)
 
 - **Escopo:** `templates/feriado/index`, `new`, `edit` e `_form` (Feriados e Folgas do escritório) e
@@ -723,6 +745,82 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
 - **Ficou para depois:** o estado "Sem OAB" do chip não apareceu na foto (a fila só lista inscrições, que sempre têm
   status); a chave existe e a troca é a mesma das outras três. O `pasta/peticionar.html.twig` (o conteúdo do Peticionar) e os outros templates que
   incluem estes quatro ficam para a extração das áreas deles.
+
+## 20. O resto da Pasta (0d, 21/10)
+
+### 20.1 Avisos, cadeado e telas simples
+
+- **Escopo:** os parciais `pasta/_abas_ocultas`, `_andamento`, `_aviso_duplicada_conteudo`, `_aviso_duplicada_modal`,
+  `_cadeado_faixa`, `_cadeado_icone` (sem texto), `_cadeado_menu`, `_cadeado_modal` e `_cadeado_pedidos`, as páginas
+  `confirmar_duplicada`, `trancada` e `zip_recusado`, e os JS `pasta-abas-ocultas.js`, `pasta-andamento.js`,
+  `pasta-cadeado.js` e `pasta-cadeado-pedidos.js`. Bloco de topo `pasta_avisos` do catálogo, 93 chaves, com
+  `pasta_avisos.js.*` (24) para os quatro JS.
+- **Catálogo do JS:** os quatro scripts são carregados pelo `pasta/show.html.twig`, sem `defer`. O
+  `catalogo_js('pasta_avisos.js')` mora no `_abas_ocultas`, que o show inclui sempre (fora de condição) e antes dos
+  scripts; o show não foi tocado.
+- **Sem mudança visível:** o HTML da tela trancada (com o pedido e aguardando), da faixa de somente visualização (pedir
+  e pedido enviado), da pasta vista pelo primário (menu e modal do cadeado com e sem cadeado, pedidos pendentes, abas
+  ocultas e andamento com a faixa de sugestão), do aviso de duplicada (página e modal, uma pasta e seis com ação) e do
+  zip recusado saiu igual. Mudaram só tokens CSRF, quebras de linha (o "Encontramos N pasta(s) já cadastrada(s)" virou
+  uma linha) e o `<script data-bj-t>`. Não foram renderizados, e foram conferidos lendo: "Sem registro" (pasta sem data
+  de criação), "Não há colaboradores…" (equipe vazia no modal) e "Cliente não informado" na tela trancada.
+- **Formatos:** o `criadoEm` do aviso de duplicada (sob guarda de nulo) passou a `|data`.
+- **Escolhas:** "N pasta(s) já cadastrada(s)" virou duas chaves (`encontramos_uma`, `encontramos_varias`) pelo mesmo
+  `== 1` de antes, sem plural ICU; a frase com `<strong>` ficou uma chave por pedaço (`para`, `em`). O "PASTA" da tela
+  trancada usa `termos.pasta|upper` e o selo "OCULTA", `selo_oculta|upper`. Os rótulos dos níveis do cadeado e dos
+  botões de pedido viraram chaves dentro dos arrays do Twig, traduzidas no uso. O "fase(s) intermediária(s)" do JS
+  continua com "(s)", como no §8. Ficaram nos permitidos a classe `ps-body`, a marca em "· BlueJus" e as teclas e
+  cabeçalhos HTTP dos JS.
+- **Ficou de fora:** o texto do PHP (rótulo, dica, dia, intervalo e total das fases e o motivo das sugestões do
+  `AndamentoDaPasta`; selo, `texto` dos pedidos, `horaDoPedido` e `recusadoTexto` do `CadeadoNaTelaOutput`; o
+  `documento_br_rotulo`; a mensagem do zip recusado; a `funcao` da equipe e as mensagens JSON dos controllers do cadeado,
+  das abas ocultas e do andamento); o `data-screen-label` do andamento (marca do desenho, ninguém lê); e o
+  `lang="pt-BR"` fixo do `zip_recusado`.
+
+### 20.3 Responsável, histórico, impressão e relatórios (4b, 21/10)
+
+- **Escopo:** os parciais `pasta/_resp_chip`, `_resp_estilo` (sem texto), `_resp_menu` e `_resp_script` (o chip e o menu
+  de responsável, que servem também ao Expediente), `_historico_drawer`, `_impressao_modal`, `_timeline_inteligente` e
+  `_pontos_relatorio`, a folha `resumo_impressao` (modos página, fragmento e PDF) e os JS `pasta-impressao.js` e
+  `pasta-timeline.js`, com os scripts inline do `_resp_script` e do `_pontos_relatorio`. Bloco de topo `pasta_resp` do
+  catálogo, 145 chaves, 49 delas em `pasta_resp.js.*` (`resp` 5, `pontos` 2, `impressao` 12, `timeline` 30); área
+  `pasta_resp` no `templates-extraidos.json`.
+- **Catálogo do JS:** cada parcial entrega o sub-bloco do próprio script, antes dele: `_resp_script`
+  (`pasta_resp.js.resp`, vale para a pasta e para o Expediente), `_pontos_relatorio` (`pasta_resp.js.pontos`),
+  `_impressao_modal` (`pasta_resp.js.impressao`, é ele que carrega o `pasta-impressao.js`) e `_timeline_inteligente`
+  (`pasta_resp.js.timeline`; o show inclui o parcial sempre, antes do `pasta-timeline.js`). O show não foi tocado. Os
+  scripts inline só chamam `BJ_T.t` em clique ou depois de `fetch`, quando o `bj-traducao.js` do base já carregou; o
+  "Sem responsável" que o `_resp_script` monta em HTML passa pelo `escResp()` dele.
+- **Sem mudança visível:** o HTML de 51 situações foi gravado antes e depois e comparado com tokens CSRF, dígitos, NUP,
+  nome do escritório e espaços normalizados: chip com e sem responsável na pasta e no Expediente, menu nos dois
+  contextos, histórico vazio, com um e com vários eventos (hoje, outro dia, meta com e sem link, detalhe com quebra de
+  linha), janela Imprimir, timeline com e sem cliente e processo, pontos do relatório vazio, parcial e completo com e
+  sem permissão de escrever, a folha nos três modos (resumo cheio e vazio, sem as partes opcionais, observação com
+  autor e sem autor, processo, extrato e moldura) e as páginas da pasta (com e sem responsável), do resumo e dos fragmentos,
+  com nome de pessoa e cliente com apóstrofo, aspas, `&` e `<b>`. Saiu igual. Mudaram só o `<script data-bj-t>` e as
+  linhas de JS que agora leem o catálogo (as chamadas simples foram comparadas trocadas pelo texto que a página
+  entrega). O `"` do aviso "Salvar como PDF" sai agora como `&quot;` (o navegador mostra igual). As contas `>` do
+  atraso das metas e o `map(f => f.rot)` dos pontos saíram para um `{% set %}` (o detector lia o `>` como fim de
+  tag); o valor é o mesmo.
+- **Formatos:** no histórico, o dia de outra data (`|date('d/m/Y')`) virou `|data` e a hora, `|hora`; na linha do
+  autor da observação impressa, `d/m/Y, H:i` virou `{{ |data }}, {{ |hora }}`. O "11,5 pt" da janela vem de
+  `11.5|numero(1)` e, no JS, de `toLocaleString(BJFormato.idioma())` (antes um `replace('.', ',')`). Na timeline, a data
+  futura passou a `BJFormato.data`, e o rótulo com dia da semana, o "desde" e o "Alterado em" usam
+  `BJFormato.idioma()` no lugar do `'pt-BR'` fixo, com as mesmas opções. Totais e contagens entram como texto
+  (`~ ''`) para o ICU não pôr separador de milhar.
+- **Escolhas:** "1 alteração" e "N alterações" viraram duas chaves (`alteracoes_uma`, `alteracoes_varias`) pelo mesmo
+  `== 1`, sem plural ICU; "acontecimento(s)" da timeline continua com "(s)", como no §8. "Impresso em … por …" virou
+  duas chaves, com e sem quem imprimiu. O "· principal" e o "<strong>… recebidos de <strong>…" do extrato ficaram com
+  uma chave por pedaço. Ficaram nos permitidos a marca (`BLUEJUS` da folha e o título `BlueJus` do iframe de
+  impressão), a constante `PastaFinanceiroOutput::SEM_DADO` e os nomes de tecla e cabeçalho HTTP dos JS (`Accept`,
+  `Escape`, `AbortError`). `PastaImpressaoJsTest`, `PastaTimelineArranjoTelaTest`, `PastaRespMenuDesenhoTelaTest` e
+  `PastaJanelasRestantesFolhaTest` conferem agora a chave no código e o texto exato no catálogo.
+- **Ficou para depois:** o texto do PHP (selo, rótulos e dicas do `PontosDoRelatorioInicial` e a pendência da aba que
+  ele devolve; título, detalhe e autor dos eventos do histórico; categorias, prioridades, resumos e `rotuloLink` da
+  timeline, que vêm do `pasta_timeline`; o `titulo`, a situação e os valores da folha impressa, montados pelo
+  `PastaResumoController` e pelos DTOs; a mensagem de erro do salvar responsável); o "Hoje, dd/mm" do histórico e o
+  `d/m/Y, H:i:s` do "Impresso em" (não há filtro de dia e mês nem de hora com segundos); o `lang="pt-BR"` fixo da folha
+  e do `srcdoc` do iframe de impressão; o `documento_br_rotulo`.
 
 ## 25. E-mails e as páginas que eles abrem (5d, 21/10)
 
