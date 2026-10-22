@@ -140,7 +140,9 @@ final class TribunalCnjResolver
      * O mapa segmento J → tribunal TR → sigla, para a tela mostrar enquanto se digita a MESMA sigla que
      * {@see self::resolverSigla()} grava (janela "Vincular processo", desenho 02 `procTrib`).
      *
-     * @return array<string, array<string, string>>
+     * As chaves numéricas ("8", "10") viram int no PHP; no JSON da tela continuam texto.
+     *
+     * @return array<int|string, array<int|string, string>>
      */
     public function tabelaDeSiglas(): array
     {
