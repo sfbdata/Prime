@@ -777,6 +777,102 @@ antes e depois, sem diferença; o texto dos scripts foi conferido chave por chav
   das abas ocultas e do andamento); o `data-screen-label` do andamento (marca do desenho, ninguém lê); e o
   `lang="pt-BR"` fixo do `zip_recusado`.
 
+### 20.3 Responsável, histórico, impressão e relatórios (4b, 21/10)
+
+- **Escopo:** os parciais `pasta/_resp_chip`, `_resp_estilo` (sem texto), `_resp_menu` e `_resp_script` (o chip e o menu
+  de responsável, que servem também ao Expediente), `_historico_drawer`, `_impressao_modal`, `_timeline_inteligente` e
+  `_pontos_relatorio`, a folha `resumo_impressao` (modos página, fragmento e PDF) e os JS `pasta-impressao.js` e
+  `pasta-timeline.js`, com os scripts inline do `_resp_script` e do `_pontos_relatorio`. Bloco de topo `pasta_resp` do
+  catálogo, 145 chaves, 49 delas em `pasta_resp.js.*` (`resp` 5, `pontos` 2, `impressao` 12, `timeline` 30); área
+  `pasta_resp` no `templates-extraidos.json`.
+- **Catálogo do JS:** cada parcial entrega o sub-bloco do próprio script, antes dele: `_resp_script`
+  (`pasta_resp.js.resp`, vale para a pasta e para o Expediente), `_pontos_relatorio` (`pasta_resp.js.pontos`),
+  `_impressao_modal` (`pasta_resp.js.impressao`, é ele que carrega o `pasta-impressao.js`) e `_timeline_inteligente`
+  (`pasta_resp.js.timeline`; o show inclui o parcial sempre, antes do `pasta-timeline.js`). O show não foi tocado. Os
+  scripts inline só chamam `BJ_T.t` em clique ou depois de `fetch`, quando o `bj-traducao.js` do base já carregou; o
+  "Sem responsável" que o `_resp_script` monta em HTML passa pelo `escResp()` dele.
+- **Sem mudança visível:** o HTML de 51 situações foi gravado antes e depois e comparado com tokens CSRF, dígitos, NUP,
+  nome do escritório e espaços normalizados: chip com e sem responsável na pasta e no Expediente, menu nos dois
+  contextos, histórico vazio, com um e com vários eventos (hoje, outro dia, meta com e sem link, detalhe com quebra de
+  linha), janela Imprimir, timeline com e sem cliente e processo, pontos do relatório vazio, parcial e completo com e
+  sem permissão de escrever, a folha nos três modos (resumo cheio e vazio, sem as partes opcionais, observação com
+  autor e sem autor, processo, extrato e moldura) e as páginas da pasta (com e sem responsável), do resumo e dos fragmentos,
+  com nome de pessoa e cliente com apóstrofo, aspas, `&` e `<b>`. Saiu igual. Mudaram só o `<script data-bj-t>` e as
+  linhas de JS que agora leem o catálogo (as chamadas simples foram comparadas trocadas pelo texto que a página
+  entrega). O `"` do aviso "Salvar como PDF" sai agora como `&quot;` (o navegador mostra igual). As contas `>` do
+  atraso das metas e o `map(f => f.rot)` dos pontos saíram para um `{% set %}` (o detector lia o `>` como fim de
+  tag); o valor é o mesmo.
+- **Formatos:** no histórico, o dia de outra data (`|date('d/m/Y')`) virou `|data` e a hora, `|hora`; na linha do
+  autor da observação impressa, `d/m/Y, H:i` virou `{{ |data }}, {{ |hora }}`. O "11,5 pt" da janela vem de
+  `11.5|numero(1)` e, no JS, de `toLocaleString(BJFormato.idioma())` (antes um `replace('.', ',')`). Na timeline, a data
+  futura passou a `BJFormato.data`, e o rótulo com dia da semana, o "desde" e o "Alterado em" usam
+  `BJFormato.idioma()` no lugar do `'pt-BR'` fixo, com as mesmas opções. Totais e contagens entram como texto
+  (`~ ''`) para o ICU não pôr separador de milhar.
+- **Escolhas:** "1 alteração" e "N alterações" viraram duas chaves (`alteracoes_uma`, `alteracoes_varias`) pelo mesmo
+  `== 1`, sem plural ICU; "acontecimento(s)" da timeline continua com "(s)", como no §8. "Impresso em … por …" virou
+  duas chaves, com e sem quem imprimiu. O "· principal" e o "<strong>… recebidos de <strong>…" do extrato ficaram com
+  uma chave por pedaço. Ficaram nos permitidos a marca (`BLUEJUS` da folha e o título `BlueJus` do iframe de
+  impressão), a constante `PastaFinanceiroOutput::SEM_DADO` e os nomes de tecla e cabeçalho HTTP dos JS (`Accept`,
+  `Escape`, `AbortError`). `PastaImpressaoJsTest`, `PastaTimelineArranjoTelaTest`, `PastaRespMenuDesenhoTelaTest` e
+  `PastaJanelasRestantesFolhaTest` conferem agora a chave no código e o texto exato no catálogo.
+- **Ficou para depois:** o texto do PHP (selo, rótulos e dicas do `PontosDoRelatorioInicial` e a pendência da aba que
+  ele devolve; título, detalhe e autor dos eventos do histórico; categorias, prioridades, resumos e `rotuloLink` da
+  timeline, que vêm do `pasta_timeline`; o `titulo`, a situação e os valores da folha impressa, montados pelo
+  `PastaResumoController` e pelos DTOs; a mensagem de erro do salvar responsável); o "Hoje, dd/mm" do histórico e o
+  `d/m/Y, H:i:s` do "Impresso em" (não há filtro de dia e mês nem de hora com segundos); o `lang="pt-BR"` fixo da folha
+  e do `srcdoc` do iframe de impressão; o `documento_br_rotulo`.
+
+## 25. E-mails e as páginas que eles abrem (5d, 21/10)
+
+Três PRs, um aberto por vez, sem migration e com o português idêntico:
+- **A (páginas públicas):** `comercial/confirmacao/*`, `email_descadastro/*`, `indicacao/_janela` (mais o `indicacao.js`)
+  e `invitation/index`, no bloco `publicas:`;
+- **B (e-mails do sistema):** cadastro, senha, exclusão de conta, convites, Push, resumo diário e Trabalho Externo;
+- **C (e-mails do Comercial):** `email/comercial/*`.
+
+Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicacao`, `.convite` e `.js.indicacao`).
+- A página sem login sai em pt_BR, pelo `IdiomaDaRequisicaoListener`, e as 5 páginas avulsas não têm JS.
+- A frase com `<b>` ou `<strong>` no meio foi partida em chaves, com a marcação no template.
+- **Ficam como estão:**
+  - o texto que o servidor manda à janela de Indicações (controller e UseCases);
+  - os rótulos do FormType do convite;
+  - o `lang="pt-BR"` fixo das páginas avulsas.
+- **Para decidir:** `invitation/index.html.twig` não é renderizado por nenhum controller e parece morto.
+- **Prova:** 12 renderizações antes e depois, cobrindo os ramos, saíram iguais. A janela só ganhou o bloco do catálogo
+  JS.
+
+## 26. Extração do Trabalho Externo, Central e ServiceDesk (a7, 21/10)
+
+- **Escopo:** 12 templates. `templates/trabalho_externo/` `index` (casca do painel: título, buscas e cabeçalho da
+  tabela), `convite`, `sem_acesso`, `curriculo_documento` (pré-visualização e PDF) e `vagas_publicas` (página pública,
+  incluindo `<title>`, `og:title`/`og:description` e o texto da mensagem do WhatsApp); `templates/central/` `index`,
+  `_janela` e `_flutuante`; `templates/servicedesk/` `index`, `meus_chamados`, `novo` e `show`. Blocos novos do
+  catálogo: `trabalho_externo` (161 chaves), `central` (34) e `servicedesk` (94). Nenhum JS entrou.
+- **Sem mudança visível:** com o mesmo `FOUNDRY_FAKER_SEED`, as 160 respostas HTML dos functionals de
+  `tests/TrabalhoExterno`, `tests/Central` e `tests/ServiceDesk` (painel, convite nos 5 estados, sem acesso, currículo
+  formatado, vagas públicas com e sem vagas e pelo link, Central em página e flutuante em toda tela, painel, meus
+  chamados, abrir e detalhe do chamado) saíram iguais antes e depois, comparadas com espaços normalizados e números e
+  tokens trocados por marcador. Os números que entram em frase (`Chamado #{id}`, `Chamados ({total})`,
+  `{total} vaga(s) aberta(s)`, `{qtd} vagas`) vão como texto (`~ ''`), para o ICU não pôr separador de milhar.
+- **Frase partida:** as frases com `<strong>`, `<b>` ou link no meio (convite: serviço e local, termos de uso,
+  política de privacidade; ServiceDesk: "N chamado(s) aguardando atribuição" e a legenda das prioridades do `novo`)
+  foram divididas em chaves, como no §8, com a pontuação e a marcação no template. A mensagem do WhatsApp das vagas
+  virou duas chaves inteiras (com e sem vagas) com `{total}`, `{cargos}` e `{url}`; a URL foi para um `{% set %}`.
+- **Guarda/permitidos:** `BlueJus` (alt e marca do rodapé do currículo), `te-body` (classe do `body_class`) e os nomes
+  de constante lidos por `constant()` (`CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR` no painel,
+  `Mensagem::TAMANHO_MAXIMO` na janela da Central). Os `data-screen-label` da página de vagas (rótulos do desenho,
+  ninguém lê na tela) ficaram como estão.
+- **Formatos:** no ServiceDesk, `|date('d/m/Y H:i')` virou `|data_hora`, e o `d/m/Y`/`H:i` da linha do tempo do
+  detalhe, `|data`/`|hora`. Ficaram: `|number_format(1)` do tempo médio e do tempo de resolução (o padrão do Twig
+  escreve "2.5"; o `|numero(1)` escreveria "2,5", mudança visível), que entram como `{valor}` em `servicedesk.comum.horas`.
+  As datas do convite (`convite.validade`) e das vagas (`pagina.geradoEm`) já chegam formatadas do PHP.
+- **Ficou para depois:** o `trabalho-externo.js` (lista, KPIs, chips, painel lateral, modais, vagas, currículos), o
+  `vagas-publicas.js`, o `central.js`, o `central-flutuante.js` e o `central-dica.js`; o texto que vem do PHP: erros
+  do convite (`erro`), `convite.servico`/`local`, os blocos do `DocumentoDoCurriculo` (rótulos de contato e de
+  disponibilidade, situação, período), `pagina.consentimento` e as áreas das vagas, os rótulos de status, prioridade,
+  categoria e tipo do ServiceDesk (`statusLabel`, `prioridadeLabel`, `categoriaLabel`, `tipoLabel`, `statusList`,
+  `categorias`), os rótulos do `ChamadoType`/`InteracaoType` e os flashes dos controllers.
+
 ## 27. Extração do Escritório e da Plataforma (b5, 22/10)
 
 - **Plano da frente** (um PR por etapa, sem idioma novo liberado, sem mudança visível):

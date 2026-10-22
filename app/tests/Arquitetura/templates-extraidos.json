@@ -708,5 +708,90 @@
             "ArrowUp",
             "Tab"
         ]
+    },
+
+    "pasta_resp": {
+        "templates": [
+            "pasta/_historico_drawer.html.twig",
+            "pasta/_impressao_modal.html.twig",
+            "pasta/_pontos_relatorio.html.twig",
+            "pasta/_resp_chip.html.twig",
+            "pasta/_resp_estilo.html.twig",
+            "pasta/_resp_menu.html.twig",
+            "pasta/_resp_script.html.twig",
+            "pasta/_timeline_inteligente.html.twig",
+            "pasta/resumo_impressao.html.twig"
+        ],
+        "js": [
+            "pasta-impressao.js",
+            "pasta-timeline.js"
+        ],
+        "permitidos": [
+            "BLUEJUS",
+            "BlueJus",
+            "App\\\\Pasta\\\\DTO\\\\PastaFinanceiroOutput::SEM_DADO",
+            "Accept",
+            "AbortError",
+            "Escape"
+        ]
+    },
+
+    "publicas": {
+        "templates": [
+            "comercial/confirmacao/confirmado.html.twig",
+            "comercial/confirmacao/confirmar.html.twig",
+            "comercial/confirmacao/vencido.html.twig",
+            "email_descadastro/confirmado.html.twig",
+            "email_descadastro/confirmar.html.twig",
+            "indicacao/_janela.html.twig",
+            "invitation/index.html.twig"
+        ],
+        "js": [
+            "indicacao.js"
+        ],
+        "permitidos": [
+            "BlueJus",
+            "WhatsApp",
+            "Content-Type"
+        ]
+    },
+
+    "trabalho_externo": {
+        "templates": [
+            "trabalho_externo/convite.html.twig",
+            "trabalho_externo/curriculo_documento.html.twig",
+            "trabalho_externo/index.html.twig",
+            "trabalho_externo/sem_acesso.html.twig",
+            "trabalho_externo/vagas_publicas.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "BlueJus",
+            "te-body",
+            "App\\\\Auth\\\\UseCase\\\\CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR"
+        ]
+    },
+
+    "central": {
+        "templates": [
+            "central/_flutuante.html.twig",
+            "central/_janela.html.twig",
+            "central/index.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "App\\\\Central\\\\Entity\\\\Mensagem::TAMANHO_MAXIMO"
+        ]
+    },
+
+    "servicedesk": {
+        "templates": [
+            "servicedesk/index.html.twig",
+            "servicedesk/meus_chamados.html.twig",
+            "servicedesk/novo.html.twig",
+            "servicedesk/show.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
     }
 }

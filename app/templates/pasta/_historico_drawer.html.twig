@@ -19,26 +19,26 @@
     {% set totalEventos = eventosHistorico|length %}
     <div class="ps-drawer-cab">
         <div class="flex-grow-1">
-            <h2 id="psHistoricoTitulo">Histórico do sistema</h2>
+            <h2 id="psHistoricoTitulo">{{ 'pasta_resp.historico.titulo'|trans }}</h2>
             <div class="ps-hist-sub">
                 {%- if totalEventos == 0 -%}
-                    Nenhuma alteração registrada
+                    {{ 'pasta_resp.historico.nenhuma_alteracao'|trans }}
                 {%- elseif totalEventos == 1 -%}
-                    1 alteração registrada automaticamente
+                    {{ 'pasta_resp.historico.alteracoes_uma'|trans({total: totalEventos ~ ''}) }}
                 {%- else -%}
-                    {{ totalEventos }} alterações registradas automaticamente
+                    {{ 'pasta_resp.historico.alteracoes_varias'|trans({total: totalEventos ~ ''}) }}
                 {%- endif -%}
             </div>
         </div>
-        <button type="button" class="ps-drawer-fechar ps-hist-fechar" aria-label="Fechar histórico" title="Fechar">×</button>
+        <button type="button" class="ps-drawer-fechar ps-hist-fechar" aria-label="{{ 'pasta_resp.historico.fechar_historico'|trans }}" title="{{ 'pasta_resp.fechar'|trans }}">×</button>
     </div>
 
     <div class="ps-drawer-corpo">
         {% if eventosHistorico|length == 0 %}
             <div class="ps-vazio">
                 <i class="bi bi-clock-history"></i>
-                <div class="ps-vazio-titulo">Nenhum evento registrado</div>
-                <div class="ps-vazio-nota">O sistema anota aqui cada alteração da pasta.</div>
+                <div class="ps-vazio-titulo">{{ 'pasta_resp.historico.vazio_titulo'|trans }}</div>
+                <div class="ps-vazio-nota">{{ 'pasta_resp.historico.vazio_nota'|trans }}</div>
             </div>
         {% else %}
             {% set diaAnterior = null %}
@@ -47,9 +47,9 @@
                 {% if dia != diaAnterior %}
                     <div class="ps-hist-dia">
                         {%- if dia == 'now'|date('Y-m-d') -%}
-                            Hoje, {{ evento.dataHora|date('d/m') }}
+                            {{ 'pasta_resp.historico.hoje'|trans({dia: evento.dataHora|date('d/m')}) }}
                         {%- else -%}
-                            {{ evento.dataHora|date('d/m/Y') }}
+                            {{ evento.dataHora|data }}
                         {%- endif -%}
                     </div>
                     {% set diaAnterior = dia %}
@@ -78,7 +78,7 @@
                             <div class="ps-hist-detalhe">{{ evento.detalhe|nl2br }}</div>
                         {% endif %}
                         {# Hora EMBAIXO do texto (dc 2775, auditoria 2 D4). #}
-                        <div class="ps-hist-hora">{{ evento.dataHora|date('H:i') }}</div>
+                        <div class="ps-hist-hora">{{ evento.dataHora|hora }}</div>
                     </div>
                 </div>
             {% endfor %}
