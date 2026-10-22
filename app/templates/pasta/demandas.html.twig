@@ -1,13 +1,13 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Minhas Demandas{% endblock %}
+{% block title %}{{ 'pasta_lista.demandas.titulo'|trans }}{% endblock %}
 
 {% block body %}
 <div class="demandas-page">
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
         <h1 class="m-0 d-flex align-items-center gap-2">
-            <i class="bi bi-inbox-fill"></i>Minhas Demandas
+            <i class="bi bi-inbox-fill"></i>{{ 'pasta_lista.demandas.titulo'|trans }}
         </h1>
     </div>
 </section>
@@ -16,20 +16,20 @@
     <div class="container-fluid">
         <div data-filtro-root data-filtro-endpoint="{{ path('demandas_index') }}">
             {{ include('_partials/_filtro_barra.html.twig', {
-                busca_placeholder: 'Buscar por cliente, ação, NUP ou processo…',
+                busca_placeholder: 'pasta_lista.demandas.busca_placeholder'|trans,
                 filtros: filtros,
                 facetas: [
-                    { name: 'status', rotulo: 'Status', tipo: 'select', opcoes: [
-                        { valor: 'ativo', label: 'Ativo' },
-                        { valor: 'arquivado', label: 'Arquivado' }
+                    { name: 'status', rotulo: 'pasta_lista.demandas.status'|trans, tipo: 'select', opcoes: [
+                        { valor: 'ativo', label: 'pasta_lista.ativo'|trans },
+                        { valor: 'arquivado', label: 'pasta_lista.arquivado'|trans }
                     ] },
-                    { name: 'prioridade', rotulo: 'Prioridade', tipo: 'select', opcoes: [
-                        { valor: 'normal', label: 'Normal' },
-                        { valor: 'prioridade', label: 'Prioridade' },
-                        { valor: 'urgente', label: 'Urgente' }
+                    { name: 'prioridade', rotulo: 'pasta_lista.prioridade'|trans, tipo: 'select', opcoes: [
+                        { valor: 'normal', label: 'pasta_lista.demandas.normal'|trans },
+                        { valor: 'prioridade', label: 'pasta_lista.prioridade'|trans },
+                        { valor: 'urgente', label: 'pasta_lista.demandas.urgente'|trans }
                     ] },
-                    { name: 'data_de', rotulo: 'De', tipo: 'date' },
-                    { name: 'data_ate', rotulo: 'Até', tipo: 'date' }
+                    { name: 'data_de', rotulo: 'pasta_lista.demandas.de'|trans, tipo: 'date' },
+                    { name: 'data_ate', rotulo: 'pasta_lista.demandas.ate'|trans, tipo: 'date' }
                 ]
             }) }}
 

@@ -608,5 +608,22 @@
             "Escape",
             "ArrowDown"
         ]
+    },
+
+    "pasta_lista": {
+        "templates": [
+            "pasta/index.html.twig",
+            "pasta/_tabela.html.twig",
+            "pasta/_card.html.twig",
+            "pasta/_cliente_linha.html.twig",
+            "pasta/_filtros.html.twig",
+            "pasta/_filtro_situacao.html.twig",
+            "pasta/demandas.html.twig",
+            "pasta/demandas/_resultado.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "aria-sort=\"\""
+        ]
     }
 }

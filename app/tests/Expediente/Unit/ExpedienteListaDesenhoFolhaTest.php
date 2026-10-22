@@ -7,6 +7,7 @@ namespace App\Tests\Expediente\Unit;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * E8 da frente de fidelidade — folha do CSS e do JS da Lista do Expediente contra o desenho de 13/10
@@ -122,7 +123,8 @@ final class ExpedienteListaDesenhoFolhaTest extends TestCase
     public function testSeparadorDoPeriodo(): void
     {
         $f = self::ler('templates/pasta/_filtros.html.twig');
-        self::assertStringContainsString('<span class="pasta-filtros-periodo-sep" aria-hidden="true">a</span>', $f);
+        self::assertStringContainsString('<span class="pasta-filtros-periodo-sep" aria-hidden="true">{{ \'pasta_lista.filtros.periodo_sep\'|trans }}</span>', $f);
+        self::assertSame('a', Yaml::parseFile(self::DIR . 'translations/messages+intl-icu.pt_BR.yaml')['pasta_lista']['filtros']['periodo_sep']);
         self::assertStringNotContainsString('pasta-filtros-periodo-sep">–', $f);
     }
 
