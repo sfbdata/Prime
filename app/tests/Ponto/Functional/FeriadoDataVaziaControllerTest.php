@@ -100,6 +100,55 @@ final class FeriadoDataVaziaControllerTest extends JusPrimeWebTestCase
         self::assertSame('2026-08-15', $salvo->getData()?->format('Y-m-d'));
     }
 
+    #[TestDox('Novo feriado com o nome vazio volta 422 e não grava')]
+    public function testNovoComNomeVazioNaoGrava(): void
+    {
+        [$client, $tenant] = $this->prepararAdminLogado();
+
+        $crawler = $client->request('GET', '/tenant/' . $tenant->getId() . '/feriados/novo');
+        $form = $crawler->selectButton('Salvar Feriado')->form([
+            'feriado[nome]' => '',
+            'feriado[data]' => '2026-09-07',
+        ]);
+        $client->submit($form);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('#feriado_nome + .invalid-feedback', 'O nome é obrigatório.');
+        self::assertSame([], $this->repositorio()->findBy(['tenant' => $tenant]));
+    }
+
+    #[TestDox('Editar feriado com o nome vazio volta 422 e o feriado fica como estava')]
+    public function testEditarComNomeVazioMantemFeriado(): void
+    {
+        [$client, $tenant] = $this->prepararAdminLogado();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $feriado = new Feriado();
+        $feriado->setTenant($tenant);
+        $feriado->setNome('Natal');
+        $feriado->setData(new \DateTime('2026-12-25'));
+        $feriado->setRecorrente(true);
+        $em->persist($feriado);
+        $em->flush();
+        $id = $feriado->getId();
+
+        $crawler = $client->request('GET', '/tenant/' . $tenant->getId() . '/feriados/' . $id . '/editar');
+        $form = $crawler->filter('form[name="feriado"]')->form([
+            'feriado[nome]' => '',
+            'feriado[data]' => '2026-12-31',
+        ]);
+        $client->submit($form);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('#feriado_nome + .invalid-feedback', 'O nome é obrigatório.');
+
+        $em->clear();
+        $salvo = $this->repositorio()->find($id);
+        self::assertNotNull($salvo);
+        self::assertSame('Natal', $salvo->getNome());
+        self::assertSame('2026-12-25', $salvo->getData()?->format('Y-m-d'));
+    }
+
     /** @return array{0: KernelBrowser, 1: Tenant} */
     private function prepararAdminLogado(): array
     {

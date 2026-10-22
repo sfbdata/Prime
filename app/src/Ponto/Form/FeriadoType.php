@@ -20,6 +20,13 @@ class FeriadoType extends AbstractType
                 'label' => 'Nome',
                 'attr' => ['placeholder' => 'Ex: Natal, Carnaval, Feriado Municipal'],
                 'constraints' => [new NotBlank(message: 'O nome é obrigatório.')],
+                // Nome vazio não chega à entidade: Feriado::setNome() exige texto e o
+                // TypeError virava 500 no editar. O NotBlank acima devolve o erro no campo.
+                'setter' => static function (Feriado $feriado, ?string $nome): void {
+                    if ($nome !== null) {
+                        $feriado->setNome($nome);
+                    }
+                },
             ])
             ->add('data', DateType::class, [
                 'label' => 'Data',
