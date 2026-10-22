@@ -16,7 +16,8 @@ Migration reservada: `Version20261020148000` (só na parte B, número dado pela 
     edit-role e no convite (subconjunto). Tela "Acesso restrito" (`tenant_role/acesso_restrito.html.twig`, 403) com
     "Pedir acesso" (`PedirAcessoAosPerfisUseCase`, rota `app_tenant_role_pedir_acesso`): o teto de 1 por pessoa por
     dia é o próprio aviso (link = edit-role de quem pediu), sem tabela nova.
-  - Decisões dentro do escopo, a confirmar: (1) a tela do perfil primário continua aberta ao primário (C4, gestão
+  - Decisões dentro do escopo, a confirmar (a (1) foi aprovada pelo dono em 21/10, ver "Desvio aprovado" abaixo): (1)
+    a tela do perfil primário continua aberta ao primário (C4, gestão
     de primários), embora o `podeMexer` do desenho (L723) dê nível igual ao primário sobre o perfil primário;
     (2) na lista, a lixeira de quem não pode aparece DESABILITADA (pedido da coordenação), onde o desenho (L65) a
     esconde; (3) "Novo Perfil" desabilitado para nível 1, com a mesma mensagem C6 (o desenho é omisso); (4) o aviso
@@ -41,6 +42,11 @@ Migration reservada: `Version20261020148000` (só na parte B, número dado pela 
     olha só o PERFIL do alvo, não os acessos por recurso (`ResourceAccess`) dele; e o nome da conta
     (`app_tenant_user_edit_name`, `User::fullName`, vale em todos os escritórios) segue editável por quem tem
     `admin.users.manage` e pode alterar a conta, sem a hierarquia e sem a C8 (não dá acesso).
+- **Desvio aprovado (dono, 21/10/2026), desenho L723:** o primário abre a tela do perfil primário (opção (a)), como o
+  #198 já faz: é nela que ele promove e remove sócios. Pelo `podeMexer` do desenho (nível do perfil menor que o meu,
+  ou Master), só o Master abriria. A regra do servidor fica como está: o `isSystem` segue pela gestão de primários
+  (`podeGerirPrimarios`, C4) e o restante da hierarquia (C3) não muda. Esta decisão não muda o D5 (as permissões do
+  perfil primário seguem marcadas e travadas na tela; liberar a edição delas é outra decisão do dono).
 
 ## 1. Fontes
 

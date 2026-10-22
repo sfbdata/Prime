@@ -36,6 +36,7 @@ final class ProcessoDeTesteParalelo
         'chamados',
         'clientes',
         'cobrancas',
+        'comercial-imagens',
         'justificativas',
         'kanban',
         'pastas',

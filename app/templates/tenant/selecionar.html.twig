@@ -1,13 +1,13 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Selecionar escritório{% endblock %}
+{% block title %}{{ 'escritorio.selecionar.titulo_pagina'|trans({termo: 'termos.escritorio'|trans}) }}{% endblock %}
 
 {% block body %}
 <div class="container py-5" style="max-width: 600px">
     <div class="text-center mb-4">
-        <h3>Selecione um escritório</h3>
+        <h3>{{ 'escritorio.selecionar.titulo'|trans }}</h3>
         {% if vinculos|length > 0 %}
-            <p class="text-muted">Você tem acesso a {{ vinculos|length }} escritório(s).</p>
+            <p class="text-muted">{{ 'escritorio.selecionar.acesso'|trans({n: vinculos|length}) }}</p>
         {% endif %}
     </div>
 
@@ -40,14 +40,14 @@
             {% if bloqueados|default([]) is empty and avisosDePedido|default([]) is empty %}
             <div class="alert alert-warning text-center">
                 <i class="bi bi-building-x d-block fs-3 mb-2"></i>
-                Você ainda não faz parte de nenhum escritório.<br>
-                <small class="text-muted">Peça a um administrador para te convidar.</small>
+                {{ 'escritorio.selecionar.nenhum'|trans }}<br>
+                <small class="text-muted">{{ 'escritorio.selecionar.peca_convite'|trans }}</small>
             </div>
             {% endif %}
         {% else %}
             <p class="text-center text-muted mb-3">
                 <i class="bi bi-envelope-paper me-1"></i>
-                Você tem {{ convites_escritorio|length }} convite(s) pendente(s):
+                {{ 'escritorio.selecionar.convites'|trans({n: convites_escritorio|length}) }}
             </p>
             {% for convite in convites_escritorio %}
                 <a href="{{ path('auth_aceite_convite', {token: convite.token}) }}"
@@ -60,7 +60,7 @@
                                 <small class="text-muted">{{ convite.tenantRole.nomeExibido }}</small>
                             {% endif %}
                         </div>
-                        <span class="btn btn-sm btn-outline-primary">Ver convite</span>
+                        <span class="btn btn-sm btn-outline-primary">{{ 'escritorio.selecionar.ver_convite'|trans }}</span>
                     </div>
                 </a>
             {% endfor %}
@@ -68,7 +68,7 @@
 
         <div class="text-center mt-4">
             <a href="{{ path('escritorio_criar') }}" class="btn btn-primary">
-                <i class="bi bi-building-add me-1"></i> Criar meu escritório
+                <i class="bi bi-building-add me-1"></i> {{ 'escritorio.selecionar.criar'|trans }}
             </a>
         </div>
     {% else %}

@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 namespace App\Tests\Comercial\Unit;
 
+use App\Comercial\Campanha\ImagensDaCampanha;
 use App\Comercial\Campanha\ModelosDeCampanha;
 use App\Comercial\Campanha\SanitizadorDeHtmlDeEmail;
 use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\DTO\ModeloDaGrade;
+use App\Comercial\Entity\ImagemDaCampanha;
 use App\Comercial\Entity\ModeloDeCampanha;
 use App\Comercial\Exception\CampanhaRecusada;
+use App\Comercial\Repository\ImagemDaCampanhaRepository;
 use App\Comercial\Repository\ModeloDeCampanhaRepository;
 use App\Comercial\UseCase\CriarModeloDeCampanhaUseCase;
 use App\Comercial\UseCase\DuplicarModeloDeCampanhaUseCase;
 use App\Comercial\UseCase\ExcluirModeloDeCampanhaUseCase;
 use App\Comercial\UseCase\ImportarModeloHtmlUseCase;
+use App\Comercial\UseCase\SalvarComoMeuModeloUseCase;
 use App\Comercial\UseCase\SalvarModeloDeCampanhaUseCase;
 use App\Entity\Auth\User;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -22,6 +26,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Os modelos próprios (dc L.549-553, spec §8.2): novo, duplicar (o simples vira blocos), importar (sanitizado, até
@@ -32,6 +37,7 @@ use Symfony\Component\Clock\MockClock;
 #[CoversClass(DuplicarModeloDeCampanhaUseCase::class)]
 #[CoversClass(ImportarModeloHtmlUseCase::class)]
 #[CoversClass(SalvarModeloDeCampanhaUseCase::class)]
+#[CoversClass(SalvarComoMeuModeloUseCase::class)]
 #[CoversClass(ExcluirModeloDeCampanhaUseCase::class)]
 #[CoversClass(ModeloDeCampanha::class)]
 #[CoversClass(ModeloDaGrade::class)]
@@ -139,6 +145,49 @@ final class ModelosProprioUseCasesTest extends TestCase
         $this->salvar()->executar('7', MensagemDaCampanha::deArray(['modo' => 'html', 'html' => '<p>x</p>']), $this->master);
     }
 
+    #[TestDox('F3i: salvar o próprio com a imagem do simples leva a validade a 1 ano; a vencida é recusada antes de gravar')]
+    public function testSalvarComImagem(): void
+    {
+        $modelo = new ModeloDeCampanha('Meu', 'bi-stars', 'simples', $this->master, $this->relogio->now());
+        $this->repositorio->method('porId')->with(7)->willReturn($modelo);
+        $agora = $this->relogio->now();
+        $imagem = new ImagemDaCampanha('a.jpg', 'image/jpeg', 1, str_repeat('0', 64), 1, 1, $this->master, $agora, $agora->modify('+30 days'));
+        $imagens = $this->createMock(ImagemDaCampanhaRepository::class);
+        $imagens->method('vigente')->willReturnCallback(static fn (string $t): ?ImagemDaCampanha => $t === $imagem->getToken() ? $imagem : null);
+        $imagens->expects(self::once())->method('prolongar')->with($imagem->getToken(), $agora->modify('+1 year'), null);
+        $salvar = new SalvarModeloDeCampanhaUseCase($this->repositorio, new ModelosDeCampanha(), new SanitizadorDeHtmlDeEmail(), $this->relogio, $this->imagens($imagens));
+
+        $salvar->executar('7', MensagemDaCampanha::deArray(['modo' => 'simples', 'corpo' => 'Oi', 'imagem' => $imagem->getToken()]), $this->master);
+        self::assertSame($imagem->getToken(), json_decode($modelo->getConteudo(), true)['imagem']);
+
+        $this->gravado = null;
+        try {
+            $salvar->executar('7', MensagemDaCampanha::deArray(['modo' => 'simples', 'corpo' => 'Oi', 'imagem' => str_repeat('f', 32)]), $this->master);
+            self::fail('a imagem vencida deveria ser recusada');
+        } catch (CampanhaRecusada $e) {
+            self::assertSame('A imagem expirou; envie de novo.', $e->getMessage());
+        }
+        self::assertNull($this->gravado, 'nada gravado com a imagem vencida');
+    }
+
+    #[TestDox('F3i: "Salvar como meu modelo" leva a imagem do simples e a renova por 1 ano; a vencida é recusada')]
+    public function testSalvarComoComImagem(): void
+    {
+        $agora = $this->relogio->now();
+        $imagem = new ImagemDaCampanha('a.jpg', 'image/jpeg', 1, str_repeat('0', 64), 1, 1, $this->master, $agora, $agora->modify('+30 days'));
+        $imagens = $this->createMock(ImagemDaCampanhaRepository::class);
+        $imagens->method('vigente')->willReturnCallback(static fn (string $t): ?ImagemDaCampanha => $t === $imagem->getToken() ? $imagem : null);
+        $imagens->expects(self::once())->method('prolongar')->with($imagem->getToken(), $agora->modify('+1 year'), null);
+        $salvarComo = new SalvarComoMeuModeloUseCase($this->repositorio, new SanitizadorDeHtmlDeEmail(), $this->relogio, $this->imagens($imagens));
+        $base = (array) (new ModelosDeCampanha())->fixo('convite');
+
+        $saida = $salvarComo->executar(MensagemDaCampanha::deArray(['imagem' => $imagem->getToken()] + $base), 'Convite com foto', $this->master);
+        self::assertSame($imagem->getToken(), $saida->modelo['imagem']);
+
+        $this->expectExceptionMessage('A imagem expirou; envie de novo.');
+        $salvarComo->executar(MensagemDaCampanha::deArray(['imagem' => str_repeat('f', 32)] + $base), 'Outro', $this->master);
+    }
+
     #[TestDox('"Excluir": só o próprio; fixo e id desconhecido são recusados')]
     public function testExcluir(): void
     {
@@ -168,8 +217,15 @@ final class ModelosProprioUseCasesTest extends TestCase
         return new ImportarModeloHtmlUseCase($this->repositorio, new SanitizadorDeHtmlDeEmail(), $this->relogio);
     }
 
+    private function imagens(ImagemDaCampanhaRepository $repositorio): ImagensDaCampanha
+    {
+        return new ImagensDaCampanha($repositorio, $this->createStub(UrlGeneratorInterface::class), $this->relogio);
+    }
+
     private function salvar(): SalvarModeloDeCampanhaUseCase
     {
-        return new SalvarModeloDeCampanhaUseCase($this->repositorio, new ModelosDeCampanha(), new SanitizadorDeHtmlDeEmail(), $this->relogio);
+        $imagens = new ImagensDaCampanha($this->createStub(ImagemDaCampanhaRepository::class), $this->createStub(UrlGeneratorInterface::class), $this->relogio);
+
+        return new SalvarModeloDeCampanhaUseCase($this->repositorio, new ModelosDeCampanha(), new SanitizadorDeHtmlDeEmail(), $this->relogio, $imagens);
     }
 }

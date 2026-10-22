@@ -87,7 +87,7 @@
         }).then(function (r) {
             return r.json().catch(function () { return {}; }).then(function (dados) {
                 if (!r.ok || !dados.ok) {
-                    throw new Error(dados.erro || 'Não foi possível adicionar "' + titulo + '" ao checklist.');
+                    throw new Error(dados.erro || BJ_T.t('pasta_documentos.js.sugeridos_erro_adicionar', { titulo: titulo }));
                 }
                 return dados;
             });

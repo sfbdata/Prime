@@ -19,6 +19,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class PastaExploradorFavoritosTest extends TestCase
 {
+    use TextoDosScriptsDaPasta;
+
     private const JS  = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const CSS = __DIR__ . '/../../../public/css/pasta-explorador.css';
 
@@ -72,9 +74,12 @@ final class PastaExploradorFavoritosTest extends TestCase
         $botao  = $this->funcao('botaoFavorito');
         $pintar = $this->funcao('pintarEstrela');
 
-        self::assertStringContainsString("h('button', { type: 'button', class: 'pex-fav', 'aria-label': 'Favorito', tabindex: '-1', draggable: 'false' }", $botao, 'rótulo fixo; sem uma parada de Tab por linha dentro do role=option');
+        self::assertStringContainsString("h('button', { type: 'button', class: 'pex-fav', 'aria-label': BJ_T.t('pasta_scripts.js.explorador.favorito'), tabindex: '-1', draggable: 'false' }", $botao, 'rótulo fixo; sem uma parada de Tab por linha dentro do role=option');
+        self::assertTextoDoScript('Favorito', 'explorador.favorito', $botao);
         self::assertStringContainsString("b.setAttribute('aria-pressed', on ? 'true' : 'false');", $pintar);
-        self::assertStringContainsString("b.title = on ? 'Tirar dos favoritos' : 'Marcar como favorito';", $pintar, 'títulos do desenho (dc L4743)');
+        self::assertStringContainsString("b.title = on ? BJ_T.t('pasta_scripts.js.explorador.tirar_favorito') : BJ_T.t('pasta_scripts.js.explorador.marcar_favorito');", $pintar);
+        self::assertTextoDoScript('Tirar dos favoritos', 'explorador.tirar_favorito', $pintar); // títulos do desenho (dc L4743)
+        self::assertTextoDoScript('Marcar como favorito', 'explorador.marcar_favorito', $pintar);
         self::assertStringContainsString("b.firstChild.className = 'bi ' + (on ? 'bi-star-fill' : 'bi-star');", $pintar);
 
         // Na célula do nome, ANTES do ícone (dc L2246) — o montarItem é o mesmo para os oito modos.
@@ -151,8 +156,12 @@ final class PastaExploradorFavoritosTest extends TestCase
         self::assertStringContainsString('return Promise.all(trabalhadores).then(function () {', $corpo);
         self::assertStringContainsString('if (acimaDoTeto(alvos.length)) return Promise.resolve(false);', $corpo);
         // Textos do desenho (dc L4442).
-        self::assertStringContainsString("'★ ' + nome + (alvos.length === 1 ? ' foi para o topo da lista' : ' foram para o topo da lista')", $corpo);
-        self::assertStringContainsString("nome + (alvos.length === 1 ? ' saiu dos favoritos' : ' saíram dos favoritos')", $corpo);
+        self::assertStringContainsString("(um ? BJ_T.t('pasta_scripts.js.explorador.favorito_topo_um', { nome: alvos[0].nome }) : BJ_T.t('pasta_scripts.js.explorador.favorito_topo_varios', { n: alvos.length }))", $corpo);
+        self::assertStringContainsString("(um ? BJ_T.t('pasta_scripts.js.explorador.favorito_saiu_um', { nome: alvos[0].nome }) : BJ_T.t('pasta_scripts.js.explorador.favorito_saiu_varios', { n: alvos.length }))", $corpo);
+        self::assertTextoDoScript('★ "{nome}" foi para o topo da lista', 'explorador.favorito_topo_um', $corpo);
+        self::assertTextoDoScript('★ {n} itens foram para o topo da lista', 'explorador.favorito_topo_varios', $corpo);
+        self::assertTextoDoScript('"{nome}" saiu dos favoritos', 'explorador.favorito_saiu_um', $corpo);
+        self::assertTextoDoScript('{n} itens saíram dos favoritos', 'explorador.favorito_saiu_varios', $corpo);
     }
 
     #[TestDox('menu de contexto: um item e vários; rótulos e ícones do desenho; com vários, "Tirar" só quando todos já são favoritos')]
@@ -161,7 +170,8 @@ final class PastaExploradorFavoritosTest extends TestCase
         $op = $this->funcao('opFavorito');
 
         self::assertStringContainsString('const todos = itens.length > 0 && itens.every(ehFavorito);', $op);
-        self::assertStringContainsString("todos ? 'Tirar dos favoritos' : (itens.length > 1 ? 'Marcar como favoritos' : 'Marcar como favorito')", $op);
+        self::assertStringContainsString("todos ? BJ_T.t('pasta_scripts.js.explorador.tirar_favorito') : (itens.length > 1 ? BJ_T.t('pasta_scripts.js.explorador.marcar_favoritos') : BJ_T.t('pasta_scripts.js.explorador.marcar_favorito'))", $op);
+        self::assertTextoDoScript('Marcar como favoritos', 'explorador.marcar_favoritos', $op);
         self::assertStringContainsString("todos ? 'bi-star' : 'bi-star-fill'", $op, 'ícones do desenho (dc L4820)');
         self::assertStringContainsString('alternarFavoritos(itens, !todos);', $op);
 

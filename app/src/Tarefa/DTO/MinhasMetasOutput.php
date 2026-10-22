@@ -6,6 +6,7 @@ namespace App\Tarefa\DTO;
 
 use App\Entity\Tarefa\Tarefa;
 use App\Tarefa\Enum\AbaMetas;
+use App\Tarefa\Enum\EtapaDaPasta;
 
 /**
  * Tudo o que a tela "Minhas Metas" precisa para desenhar uma aba: os blocos da lista, o
@@ -30,6 +31,7 @@ final class MinhasMetasOutput
      * @param array<int, int>                                                           $mensagensPorMeta
      * @param array<int, int>                                                           $numerosNaPasta
      * @param Tarefa[]                                                                  $atencao
+     * @param array<string, string>                                                     $nomesDasEtapas etapa → nome dado pelo escritório
      */
     public function __construct(
         public readonly AbaMetas $aba,
@@ -44,7 +46,31 @@ final class MinhasMetasOutput
         public readonly array $numerosNaPasta = [],
         public readonly AndamentoDasMetasOutput $andamento = new AndamentoDasMetasOutput(),
         public readonly array $atencao = [],
+        public readonly array $nomesDasEtapas = [],
     ) {
+    }
+
+    /**
+     * Chip "i/T · Etapa" e "→ próximo: Etapa · Setor" da linha (desenho 04 de 22/10, dc L218 `faseItem`).
+     * `posicao` é nula quando o tipo de demanda não passa por essa etapa; `proxima` é nula na última e na
+     * concluída (o desenho esconde o "próximo" da concluída). `nome`/`nomeDaProxima` nulos = o do catálogo.
+     *
+     * @return array{etapa: EtapaDaPasta, posicao: ?int, total: int, nome: ?string, proxima: ?EtapaDaPasta, nomeDaProxima: ?string}
+     */
+    public function etapaDaMeta(Tarefa $meta): array
+    {
+        $etapa   = $meta->getEtapa();
+        $tipo    = $meta->getTipoDeDemanda();
+        $proxima = $meta->getStatus() === Tarefa::STATUS_CONCLUIDA ? null : $tipo->proximaDepoisDe($etapa);
+
+        return [
+            'etapa'         => $etapa,
+            'posicao'       => $tipo->posicaoDe($etapa),
+            'total'         => count($tipo->sequencia()),
+            'nome'          => $this->nomesDasEtapas[$etapa->value] ?? null,
+            'proxima'       => $proxima,
+            'nomeDaProxima' => $proxima === null ? null : ($this->nomesDasEtapas[$proxima->value] ?? null),
+        ];
     }
 
     /**
@@ -115,24 +141,22 @@ final class MinhasMetasOutput
     }
 
     /**
-     * Legenda de "Seu andamento" (desenho 04, dc `andLeg`), sobre TODAS as metas da pessoa, como o
-     * "X de Y" acima dela: não muda com a aba nem com os filtros da tela.
+     * Legenda de "Seu andamento" (desenho 04, dc `andLeg`, P:111-117 e P:177), sobre TODAS as metas da
+     * pessoa, como o "X de Y" acima dela: não muda com a aba nem com os filtros da tela.
      *
-     * @return array<int, array{rotulo: string, total: int, tom: string}>
+     * @return array<int, array{chave: string, total: int, tom: string}>  `chave` é do catálogo (ICU, `{total}`)
      */
     public function fatiasDoAndamento(): array
     {
-        // Sempre os mesmos itens, na mesma ordem, inclusive zerados: o leitor procura o número no mesmo
-        // lugar toda vez. "em aberto" não está no desenho: é do BlueJus e foi mantido por decisão do dono
-        // (14/10). É o que sobra do "X de Y" depois de tirar concluídas, atrasadas e em revisão. Cada meta
-        // conta numa fatia só, e as quatro somam Y.
+        // Os três itens do desenho, na ordem dele, inclusive zerados: o leitor procura o número no mesmo
+        // lugar toda vez. "em aberto" saiu por decisão do dono de 21/10 (revoga a de 14/10); por isso a
+        // legenda não soma o "Y".
         $a = $this->andamento;
 
         return [
-            ['rotulo' => 'concluída(s)', 'total' => $a->concluidas, 'tom' => 'ok'],
-            ['rotulo' => 'em aberto', 'total' => $a->emAberto(), 'tom' => 'warn'],
-            ['rotulo' => 'atrasada(s)', 'total' => $a->atrasadas, 'tom' => 'danger'],
-            ['rotulo' => 'em revisão', 'total' => $a->emRevisao, 'tom' => 'accent'],
+            ['chave' => 'metas.trilho.legenda.concluidas', 'total' => $a->concluidas, 'tom' => 'ok'],
+            ['chave' => 'metas.trilho.legenda.atrasadas', 'total' => $a->atrasadas, 'tom' => 'danger'],
+            ['chave' => 'metas.trilho.legenda.em_revisao', 'total' => $a->emRevisao, 'tom' => 'accent'],
         ];
     }
 
@@ -167,7 +191,7 @@ final class MinhasMetasOutput
     /** Verdadeiro quando o vazio veio de um filtro, e não de a aba não ter nada. */
     public function temFiltroAtivo(): bool
     {
-        foreach (['busca', 'status', 'prioridade', 'prazo'] as $campo) {
+        foreach (['busca', 'prioridade', 'prazo', 'etapa'] as $campo) {
             if (($this->filtros[$campo] ?? '') !== '') {
                 return true;
             }

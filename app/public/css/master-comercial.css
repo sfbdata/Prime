@@ -195,6 +195,12 @@
 .mc-cp-emojis-rot { font-size: 11.5px; color: var(--mc-cp-dica); }
 .mc-cp-emoji { width: 30px; height: 30px; border: none; border-radius: 50%; background: transparent; font-size: 16px; cursor: pointer; }
 .mc-cp-emoji:hover, .mc-cp-emoji:focus-visible { background: var(--mc-a-icone-hv); }
+/* F3i (dc 21.10 L274): "Adicionar imagem" / "Trocar imagem", o "Remover" e o traço antes do "Inserir:". */
+.mc-cp-img { height: 30px; padding: 0 10px; border: 1px solid var(--mc-a-pop-bd); border-radius: 15px; background: var(--mc-fundo); color: var(--mc-cp-texto); font-size: 12.5px; font-weight: normal; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+.mc-cp-img:hover, .mc-cp-img:focus-within { border-color: var(--mc-azul); color: var(--mc-azul); }
+.mc-cp-img-rm { height: 30px; padding: 0 9px; border: none; border-radius: 15px; background: transparent; color: var(--mc-a-descad-tx); font: inherit; font-size: 12px; cursor: pointer; }
+.mc-cp-img-rm[hidden] { display: none; }
+.mc-cp-emojis-sep { width: 1px; height: 20px; background: var(--mc-a-traco); margin: 0 4px; }
 .mc-cp-ag { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 11px; background: var(--mc-a-ag-bg); color: var(--mc-a-ag-tx); font-size: 11.5px; font-weight: bold; margin-left: auto; }
 .mc-cp-ag[hidden] { display: none; }
 .mc-cp-dest { display: flex; align-items: center; gap: 8px; }
@@ -310,3 +316,32 @@
 .mc-tst-ok b { display: block; font-size: 16px; margin: 6px 0 4px; }
 .mc-tst-ok-texto { font-size: 13.5px; color: var(--mc-sub); line-height: 1.5; }
 .mc-tst-ok .mc-tst-enviar { margin-top: 14px; padding: 0 16px; }
+
+/* F4, dc 05 VS 21.10.26 L335-339 e L680: "Datas comemorativas". O interruptor e a antecedência são os das Automações
+   (.mc-chave, .mc-atrasos/.mc-atraso, mesmos valores do dc); o resto em tokens, com par escuro. */
+.mc {
+    --mc-dt-ic: #c0392b; --mc-dt-selo-borda: #dbe6ee; --mc-dt-campo: #d3dde4; --mc-dt-ver-bg: #e5f1f7;
+}
+[data-bs-theme="dark"] .mc {
+    --mc-dt-ic: #f08a7e; --mc-dt-selo-borda: var(--bs-border-color); --mc-dt-campo: var(--bs-border-color); --mc-dt-ver-bg: var(--mc-trilho);
+}
+/* L335: o ícone vermelho do cabeçalho */
+.mc-dt-ic { color: var(--mc-dt-ic); font-size: 17px; }
+/* L336: a lista com rolagem própria */
+.mc-dt-lista { padding: 12px 18px 14px; display: flex; flex-direction: column; gap: 8px; max-height: 520px; overflow: auto; }
+/* L337: a linha (desligada a 60%) */
+.mc-dt-linha { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border: 1px solid var(--mc-div); border-radius: 4px; padding: 10px 12px; opacity: 1; transition: opacity .2s; }
+.mc-dt-linha.is-desligada { opacity: .6; }
+/* O selo: dia da semana na faixa azul e o dd/mm embaixo */
+.mc-dt-selo { width: 46px; flex: none; border: 1px solid var(--mc-dt-selo-borda); border-radius: 4px; text-align: center; overflow: hidden; }
+.mc-dt-sem { display: block; background: #0a6fa0; color: #fff; font-size: 10px; font-weight: bold; text-transform: uppercase; padding: 2px 0; }
+.mc-dt-dia { display: block; font-size: 13px; padding: 3px 0; color: var(--mc-texto); }
+.mc-dt-icone { color: var(--mc-azul); font-size: 17px; }
+.mc-dt-texto { flex: 1; min-width: 170px; }
+.mc-dt-nome { display: block; font-size: 13.5px; }
+/* L680: laranja a 7 dias ou menos */
+.mc-dt-quando { font-size: 12px; color: var(--mc-sub); }
+.mc-dt-quando.is-perto { color: var(--mc-raio); }
+.mc-dt-publico { height: 28px; border: 1px solid var(--mc-dt-campo); border-radius: 3px; font: inherit; font-size: 12px; background: var(--mc-fundo); color: var(--mc-texto); }
+.mc-dt-ver { height: 28px; padding: 0 10px; border: 1px solid var(--mc-dt-campo); border-radius: 3px; background: var(--mc-fundo); color: var(--mc-azul); font: inherit; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.mc-dt-ver:hover, .mc-dt-ver:focus-visible { background: var(--mc-dt-ver-bg); }

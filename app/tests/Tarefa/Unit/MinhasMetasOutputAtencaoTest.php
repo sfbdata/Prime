@@ -80,18 +80,18 @@ final class MinhasMetasOutputAtencaoTest extends TestCase
         self::assertSame([], $painel->metasQuePrecisamDeAtencao());
     }
 
-    #[TestDox('"X de Y" e a legenda (com "em aberto") vêm do andamento de todas as metas, não dos grupos da aba')]
+    #[TestDox('"X de Y" e a legenda de três itens (desenho 04, P:177, sem "em aberto") vêm do andamento de todas as metas, não dos grupos da aba')]
     public function testAndamentoVemDeTodasAsMetas(): void
     {
-        $grupos = [new GrupoDeMetasOutput('depois', 'Depois', 'cinza', [$this->meta('Folgada', '+20 days')])];
+        $grupos = [new GrupoDeMetasOutput('depois', 'metas.grupos.depois', 'cinza', [$this->meta('Folgada', '+20 days')])];
         $painel = $this->painel(AbaMetas::CRIEI, $grupos, new AndamentoDasMetasOutput(concluidas: 2, total: 10, atrasadas: 3, emRevisao: 1));
 
         self::assertSame(2, $painel->totalConcluidas());
         self::assertSame(10, $painel->totalDoAndamento());
         self::assertSame(20, $painel->percentualConcluido());
         self::assertSame(
-            [['concluída(s)', 2], ['em aberto', 4], ['atrasada(s)', 3], ['em revisão', 1]],
-            array_map(static fn (array $f): array => [$f['rotulo'], $f['total']], $painel->fatiasDoAndamento()),
+            [['metas.trilho.legenda.concluidas', 2, 'ok'], ['metas.trilho.legenda.atrasadas', 3, 'danger'], ['metas.trilho.legenda.em_revisao', 1, 'accent']],
+            array_map(static fn (array $f): array => [$f['chave'], $f['total'], $f['tom']], $painel->fatiasDoAndamento()),
         );
         self::assertSame(1, $painel->totalExibido(), 'o modo lista continua contando o que a aba mostra');
     }
@@ -102,7 +102,7 @@ final class MinhasMetasOutputAtencaoTest extends TestCase
         $painel = $this->painel(AbaMetas::RESPONSAVEL, []);
 
         self::assertSame(0, $painel->percentualConcluido());
-        self::assertSame([0, 0, 0, 0], array_column($painel->fatiasDoAndamento(), 'total'));
+        self::assertSame([0, 0, 0], array_column($painel->fatiasDoAndamento(), 'total'));
         self::assertSame([], $painel->metasQuePrecisamDeAtencao());
     }
 }

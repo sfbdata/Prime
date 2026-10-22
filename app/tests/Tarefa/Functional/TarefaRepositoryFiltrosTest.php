@@ -7,6 +7,7 @@ namespace App\Tests\Tarefa\Functional;
 use App\Entity\Tarefa\Tarefa;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Tarefa\Enum\AbaMetas;
+use App\Tarefa\Enum\PrioridadeDaMeta;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tests\Factory\Auth\UserFactory;
 use App\Tests\Factory\Pasta\PastaFactory;
@@ -101,8 +102,8 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
         self::assertSame($achavel->getId(), $resultado[0]->getId());
     }
 
-    #[TestDox('Faceta de status estreita para o status pedido')]
-    public function testFacetaStatus(): void
+    #[TestDox('Sem faceta de status (desenho 04, dono 21/10): `status` nos filtros é ignorado')]
+    public function testStatusNosFiltrosEhIgnorado(): void
     {
         $tenant = TenantFactory::createOne()->_real();
         $pasta  = PastaFactory::createOne(['tenant' => $tenant])->_real();
@@ -113,32 +114,34 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
         $concluida = TarefaFactory::createOne(['pasta' => $pasta, 'status' => Tarefa::STATUS_CONCLUIDA])->_real();
         $concluida->addResponsavel($eu);
         // A tela corta concluídas com mais de 30 dias, e usa `dataConclusao` como referência.
-        // O fluxo real (ExcluirTarefa/concluir) sempre grava essa data; a factory não.
         $concluida->setDataConclusao(new \DateTimeImmutable('-1 day'));
         $this->em->flush();
 
-        self::assertCount(1, $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['status' => Tarefa::STATUS_CONCLUIDA]));
-        self::assertCount(1, $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['status' => Tarefa::STATUS_PENDENTE]));
+        self::assertCount(2, $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['status' => Tarefa::STATUS_CONCLUIDA]));
     }
 
-    #[TestDox('Faceta de prioridade filtra pela prioridade da pasta vinculada')]
-    public function testFacetaPrioridadeDaPasta(): void
+    #[TestDox('Faceta de prioridade filtra pela prioridade DA META (desenho 04): meta normal em pasta urgente não entra em "Urgente"')]
+    public function testFacetaPrioridadeDaMeta(): void
     {
-        $tenant   = TenantFactory::createOne()->_real();
-        $urgente  = PastaFactory::createOne(['tenant' => $tenant, 'prioridade' => PrioridadePasta::Urgente])->_real();
-        $normal   = PastaFactory::createOne(['tenant' => $tenant, 'prioridade' => PrioridadePasta::Normal])->_real();
-        $eu       = UserFactory::createOne()->_real();
+        $tenant  = TenantFactory::createOne()->_real();
+        $urgente = PastaFactory::createOne(['tenant' => $tenant, 'prioridade' => PrioridadePasta::Urgente])->_real();
+        $normal  = PastaFactory::createOne(['tenant' => $tenant, 'prioridade' => PrioridadePasta::Normal])->_real();
+        $eu      = UserFactory::createOne()->_real();
 
-        $tUrg = TarefaFactory::createOne(['pasta' => $urgente])->_real();
-        $tUrg->addResponsavel($eu);
-        $tNor = TarefaFactory::createOne(['pasta' => $normal])->_real();
-        $tNor->addResponsavel($eu);
+        $metaUrgente = TarefaFactory::createOne(['pasta' => $normal, 'prioridade' => PrioridadeDaMeta::Urgente])->_real();
+        $metaUrgente->addResponsavel($eu);
+        $metaAlta = TarefaFactory::createOne(['pasta' => $normal, 'prioridade' => PrioridadeDaMeta::Alta])->_real();
+        $metaAlta->addResponsavel($eu);
+        $normalNaUrgente = TarefaFactory::createOne(['pasta' => $urgente, 'prioridade' => PrioridadeDaMeta::Normal])->_real();
+        $normalNaUrgente->addResponsavel($eu);
         $this->em->flush();
 
-        $resultado = $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['prioridade' => 'urgente']);
+        $ids = fn (string $valor): array => array_map(static fn (Tarefa $t): ?int => $t->getId(), $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['prioridade' => $valor]));
 
-        self::assertCount(1, $resultado);
-        self::assertSame($tUrg->getId(), $resultado[0]->getId());
+        self::assertSame([$metaUrgente->getId()], $ids('urgente'), 'a meta normal da pasta urgente fica de fora');
+        self::assertSame([$metaAlta->getId()], $ids('alta'));
+        self::assertSame([$normalNaUrgente->getId()], $ids('normal'));
+        self::assertCount(3, $ids('prioridade'), 'o valor antigo (da pasta) é ignorado: não filtra');
     }
 
     #[TestDox('Faceta de prazo separa vencidas, próximas e sem prazo')]
@@ -233,7 +236,7 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
         self::assertSame($esperado, $ids);
     }
 
-    #[TestDox('Busca pela pasta combinada com a faceta de prioridade usa um join só e respeita as duas')]
+    #[TestDox('Busca pela pasta combinada com a faceta de prioridade da meta respeita as duas')]
     public function testBuscaPelaPastaComPrioridade(): void
     {
         $tenant  = TenantFactory::createOne()->_real();
@@ -242,11 +245,11 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
         $outro   = PastaFactory::createOne(['tenant' => $tenant, 'prioridade' => PrioridadePasta::Urgente, 'nomeCliente' => 'Wellington'])->_real();
         $eu      = UserFactory::createOne()->_real();
 
-        $certa = TarefaFactory::createOne(['pasta' => $urgente, 'titulo' => 'Meta um', 'descricao' => ''])->_real();
+        $certa = TarefaFactory::createOne(['pasta' => $normal, 'titulo' => 'Meta um', 'descricao' => '', 'prioridade' => PrioridadeDaMeta::Urgente])->_real();
         $certa->addResponsavel($eu);
-        foreach ([$normal, $outro] as $p) {
-            TarefaFactory::createOne(['pasta' => $p, 'titulo' => 'Meta outra', 'descricao' => ''])->_real()->addResponsavel($eu);
-        }
+        // Pasta casa a busca, mas a meta é normal; e meta urgente cuja pasta não casa a busca.
+        TarefaFactory::createOne(['pasta' => $urgente, 'titulo' => 'Meta outra', 'descricao' => ''])->_real()->addResponsavel($eu);
+        TarefaFactory::createOne(['pasta' => $outro, 'titulo' => 'Meta outra', 'descricao' => '', 'prioridade' => PrioridadeDaMeta::Urgente])->_real()->addResponsavel($eu);
         $this->em->flush();
 
         $resultado = $this->repo->findParaMinhasMetas($eu, AbaMetas::RESPONSAVEL, ['busca' => 'francisca', 'prioridade' => 'urgente']);

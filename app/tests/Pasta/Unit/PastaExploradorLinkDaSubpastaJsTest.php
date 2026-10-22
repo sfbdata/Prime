@@ -15,6 +15,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class PastaExploradorLinkDaSubpastaJsTest extends TestCase
 {
+    use TextoDosScriptsDaPasta;
+
     private const JS  = __DIR__ . '/../../../public/js/pasta-explorador.js';
     private const TPL = __DIR__ . '/../../../templates/pasta/_documentos_explorador.html.twig';
 
@@ -37,8 +39,8 @@ final class PastaExploradorLinkDaSubpastaJsTest extends TestCase
     public function testMenuDaPasta(): void
     {
         $menu = $this->funcao('opcoesDoMenu');
-        $zip  = strpos($menu, "op('Baixar como .zip', 'bi-download', function () { baixarZip([alvo]); }),");
-        $link = strpos($menu, "op('Copiar link', 'bi-link-45deg', function () { copiarLinks([alvo]); }),", (int) $zip);
+        $zip  = strpos($menu, "op(BJ_T.t('pasta_scripts.js.explorador.menu_baixar_zip'), 'bi-download', function () { baixarZip([alvo]); }),");
+        $link = strpos($menu, "op(BJ_T.t('pasta_scripts.js.explorador.menu_copiar_link'), 'bi-link-45deg', function () { copiarLinks([alvo]); }),", (int) $zip);
         self::assertNotFalse($zip);
         self::assertNotFalse($link);
         self::assertLessThan(strpos($menu, '] : [', (int) $zip), $link, 'no ramo da pasta (ehPasta ? [ … ] : [ … ])');
@@ -63,7 +65,9 @@ final class PastaExploradorLinkDaSubpastaJsTest extends TestCase
         $copiar = $this->funcao('copiarLinks');
         self::assertStringContainsString('arqs.map(function (it) { return linkAbsoluto(it.dado); })', $copiar);
         self::assertStringContainsString('.concat(itens.filter(ehPastaItem).map(function (it) { return linkDaSubpasta(it.id); }));', $copiar);
-        self::assertStringContainsString("toast(links.length === 1 ? 'Link copiado' : 'Links copiados')", $copiar);
+        self::assertStringContainsString("toast(links.length === 1 ? BJ_T.t('pasta_scripts.js.explorador.link_copiado') : BJ_T.t('pasta_scripts.js.explorador.links_copiados'))", $copiar);
+        self::assertTextoDoScript('Link copiado', 'explorador.link_copiado', $copiar);
+        self::assertTextoDoScript('Links copiados', 'explorador.links_copiados', $copiar);
     }
 
     #[TestDox('?pex: só id inteiro positivo e só se a seção está em `pastas` (o #pexDados); senão NULL em silêncio. O parâmetro sai da barra de endereço')]

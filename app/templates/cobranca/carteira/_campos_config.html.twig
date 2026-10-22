@@ -13,15 +13,15 @@
 {# As três seções são as do desenho 1B (Operação · Honorários · Encargos por atraso). Este partial
    também alimenta o modal "Nova carteira" da listagem — os títulos aparecem lá igualmente, que é
    o comportamento desejado: é o mesmo formulário. #}
-<h6 class="cs-secao">Operação</h6>
+<h6 class="cs-secao">{{ 'cobranca_carteira.campos.secao_operacao'|trans }}</h6>
 
 <div class="mb-3">
     <label class="form-label" for="{{ form.modo.vars.id }}">
         {{ form.modo.vars.label }}
         <a href="#" class="text-muted ms-1 cobranca-ajuda" role="button" tabindex="0" onclick="return false;"
            data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-html="true"
-           data-bs-title="Modo de operação" data-bs-content="{{ modoConteudo|e('html_attr') }}"
-           aria-label="Ajuda sobre o modo de operação"><i class="bi bi-question-circle"></i></a>
+           data-bs-title="{{ 'cobranca_carteira.campos.modo_titulo'|trans }}" data-bs-content="{{ modoConteudo|e('html_attr') }}"
+           aria-label="{{ 'cobranca_carteira.campos.modo_ajuda'|trans }}"><i class="bi bi-question-circle"></i></a>
     </label>
     {{ form_widget(form.modo) }}
     {{ form_errors(form.modo) }}
@@ -31,15 +31,15 @@
 {{ form_row(form.tipoVinculoPreferido) }}
 {{ form_row(form.rotuloObjeto) }}
 
-<h6 class="cs-secao mt-4">Honorários</h6>
+<h6 class="cs-secao mt-4">{{ 'cobranca_carteira.campos.secao_honorarios'|trans }}</h6>
 
 <div class="mb-3">
     <label class="form-label" for="{{ form.formaHonorarios.vars.id }}">
         {{ form.formaHonorarios.vars.label }}
         <a href="#" class="text-muted ms-1 cobranca-ajuda" role="button" tabindex="0" onclick="return false;"
            data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-html="true"
-           data-bs-title="Forma de honorários" data-bs-content="{{ honorariosConteudo|e('html_attr') }}"
-           aria-label="Ajuda sobre a forma de honorários"><i class="bi bi-question-circle"></i></a>
+           data-bs-title="{{ 'cobranca_carteira.campos.honorarios_titulo'|trans }}" data-bs-content="{{ honorariosConteudo|e('html_attr') }}"
+           aria-label="{{ 'cobranca_carteira.campos.honorarios_ajuda'|trans }}"><i class="bi bi-question-circle"></i></a>
     </label>
     {{ form_widget(form.formaHonorarios, {attr: {'data-forma-honorarios': '1'}}) }}
     {{ form_errors(form.formaHonorarios) }}
@@ -59,13 +59,11 @@
    Obrigação, resolvido NA LEITURA (spec #9): não há mais snapshot no caso, então editar aqui move ao
    vivo tudo que herda e não está congelado. Por isso não há guarda `is defined` aqui — campo faltando
    vira erro de template, que é o que se quer, em vez de sumir calado da tela. #}
-<h6 class="cs-secao mt-4">Encargos por atraso</h6>
+<h6 class="cs-secao mt-4">{{ 'cobranca_carteira.campos.secao_encargos'|trans }}</h6>
 <div class="form-text mb-3">
-    Estas taxas valem <strong>ao vivo</strong>: alterar aqui <strong>recalcula na hora</strong> os
-    encargos de toda obrigação <strong>em aberto</strong> que herda desta carteira. Não muda o que já
-    está congelado (obrigação paga/liquidada ou substituída por acordo) nem o que tem taxa própria
-    no objeto ou na obrigação. Deixe a carência dos honorários <strong>vazia</strong> para usar a
-    tolerância de atraso configurada acima.
+    {{ 'cobranca_carteira.campos.encargos_nota.inicio'|trans }} <strong>{{ 'cobranca_carteira.campos.encargos_nota.ao_vivo'|trans }}</strong>{{ 'cobranca_carteira.campos.encargos_nota.alterar'|trans }} <strong>{{ 'cobranca_carteira.campos.encargos_nota.recalcula'|trans }}</strong>
+    {{ 'cobranca_carteira.campos.encargos_nota.encargos'|trans }} <strong>{{ 'cobranca_carteira.campos.encargos_nota.em_aberto'|trans }}</strong> {{ 'cobranca_carteira.campos.encargos_nota.meio'|trans }}
+    <strong>{{ 'cobranca_carteira.campos.encargos_nota.vazia'|trans }}</strong> {{ 'cobranca_carteira.campos.encargos_nota.fim'|trans }}
 </div>
 
 <div class="row g-3">
@@ -116,7 +114,7 @@
         <label class="form-label" for="{{ form.carenciaHonorariosDias.vars.id }}">{{ form.carenciaHonorariosDias.vars.label }}</label>
         <div class="input-group">
             {{ form_widget(form.carenciaHonorariosDias) }}
-            <span class="input-group-text">dias</span>
+            <span class="input-group-text">{{ 'cobranca_carteira.campos.dias'|trans }}</span>
         </div>
         {{ form_errors(form.carenciaHonorariosDias) }}
     </div>
@@ -125,7 +123,7 @@
         <label class="form-label" for="{{ form.toleranciaJurosMultaDias.vars.id }}">{{ form.toleranciaJurosMultaDias.vars.label }}</label>
         <div class="input-group">
             {{ form_widget(form.toleranciaJurosMultaDias) }}
-            <span class="input-group-text">dias</span>
+            <span class="input-group-text">{{ 'cobranca_carteira.campos.dias'|trans }}</span>
         </div>
         {{ form_errors(form.toleranciaJurosMultaDias) }}
     </div>

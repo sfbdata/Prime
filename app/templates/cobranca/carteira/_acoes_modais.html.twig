@@ -18,18 +18,18 @@
             {{ form_start(forms.editarConfiguracao, {action: path('cobranca_carteira_configurar', {id: carteira.id})}) }}
             <div class="modal-header">
                 <div>
-                    <h5 class="modal-title" id="tituloEditarConfiguracao">Configuração da carteira</h5>
-                    <div class="cs-modal-sub">Vale para os casos desta carteira. Encargos já gravados não são recalculados.</div>
+                    <h5 class="modal-title" id="tituloEditarConfiguracao">{{ 'cobranca_carteira.modais.configuracao_titulo'|trans }}</h5>
+                    <div class="cs-modal-sub">{{ 'cobranca_carteira.modais.configuracao_sub'|trans }}</div>
                 </div>
-                <button type="button" class="cs-modal-fechar" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+                <button type="button" class="cs-modal-fechar" data-bs-dismiss="modal" aria-label="{{ 'cobranca_carteira.comum.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="modal-body">
                 {{ include('cobranca/carteira/_campos_config.html.twig', { form: forms.editarConfiguracao }) }}
             </div>
             <div class="modal-footer">
-                <span class="cs-modal-nota">Exige a permissão <code>resources.carteira.gerenciar</code></span>
-                <button type="button" class="cs-btn" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="cs-btn cs-btn-verde">Salvar configuração</button>
+                <span class="cs-modal-nota">{{ 'cobranca_carteira.modais.exige_permissao'|trans }} <code>resources.carteira.gerenciar</code></span>
+                <button type="button" class="cs-btn" data-bs-dismiss="modal">{{ 'cobranca_carteira.comum.cancelar'|trans }}</button>
+                <button type="submit" class="cs-btn cs-btn-verde">{{ 'cobranca_carteira.modais.salvar_configuracao'|trans }}</button>
             </div>
             {{ form_end(forms.editarConfiguracao) }}
         </div>
@@ -45,10 +45,10 @@
             {{ form_start(forms.criarObjeto, {action: path('cobranca_objeto_criar', {id: carteira.id})}) }}
             <div class="modal-header">
                 <div>
-                    <h5 class="modal-title" id="tituloCriarObjeto">{{ carteira.rotuloObjeto ? 'Nova ' ~ carteira.rotuloObjeto|lower : 'Novo objeto' }}</h5>
-                    <div class="cs-modal-sub">Criar o objeto já abre a cobrança e leva para a página dela.</div>
+                    <h5 class="modal-title" id="tituloCriarObjeto">{{ carteira.rotuloObjeto ? 'cobranca_carteira.modais.novo_objeto_rotulo'|trans({rotulo: carteira.rotuloObjeto|lower}) : 'cobranca_carteira.modais.novo_objeto'|trans }}</h5>
+                    <div class="cs-modal-sub">{{ 'cobranca_carteira.modais.objeto_sub'|trans }}</div>
                 </div>
-                <button type="button" class="cs-modal-fechar" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+                <button type="button" class="cs-modal-fechar" data-bs-dismiss="modal" aria-label="{{ 'cobranca_carteira.comum.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
             </div>
             <div class="modal-body">
                 {# O desenho mostra dois campos (identificação e descrição). O nome de quem será cobrado
@@ -60,8 +60,8 @@
                 {{ form_row(forms.criarObjeto.referenciaExterna) }}
             </div>
             <div class="modal-footer">
-                <button type="button" class="cs-btn" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="cs-btn cs-btn-verde">Criar e abrir cobrança</button>
+                <button type="button" class="cs-btn" data-bs-dismiss="modal">{{ 'cobranca_carteira.comum.cancelar'|trans }}</button>
+                <button type="submit" class="cs-btn cs-btn-verde">{{ 'cobranca_carteira.modais.criar_e_abrir'|trans }}</button>
             </div>
             {{ form_end(forms.criarObjeto) }}
         </div>
@@ -78,10 +78,10 @@
                 <input type="hidden" name="_token" value="{{ csrf_token('cobranca_carteira_documento_upload_' ~ carteira.id) }}">
                 <div class="modal-header">
                     <div>
-                        <h5 class="modal-title" id="tituloAdicionarDocumentoCarteira">Adicionar documento</h5>
-                        <div class="cs-modal-sub">Atas de assembleia e o contrato de honorários ficam na carteira.</div>
+                        <h5 class="modal-title" id="tituloAdicionarDocumentoCarteira">{{ 'cobranca_carteira.modais.documento_titulo'|trans }}</h5>
+                        <div class="cs-modal-sub">{{ 'cobranca_carteira.modais.documento_sub'|trans }}</div>
                     </div>
-                    <button type="button" class="cs-modal-fechar" data-bs-dismiss="modal" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+                    <button type="button" class="cs-modal-fechar" data-bs-dismiss="modal" aria-label="{{ 'cobranca_carteira.comum.fechar'|trans }}"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="modal-body">
                     {# Desenho Carteira 1B L457-461: área de arrastar ou clicar (cobranca-soltar-arquivo.js); o input
@@ -91,14 +91,14 @@
                     <div class="mb-3">
                         <label class="cs-soltar" for="carteiraDocumentoArquivo" data-soltar-arquivo>
                             <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
-                            <span class="cs-soltar-titulo">Arraste o arquivo ou clique para escolher</span>
-                            <span class="cs-soltar-dica">PDF ou planilha até 10 MB · imagem até 3 MB</span>
+                            <span class="cs-soltar-titulo">{{ 'cobranca_carteira.modais.soltar_titulo'|trans }}</span>
+                            <span class="cs-soltar-dica">{{ 'cobranca_carteira.modais.soltar_dica'|trans }}</span>
                             <span class="cs-soltar-nome" data-soltar-nome hidden></span>
                             <input type="file" class="cs-soltar-input" id="carteiraDocumentoArquivo" name="arquivo" required>
                         </label>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="carteiraDocumentoCategoria">Categoria</label>
+                        <label class="form-label" for="carteiraDocumentoCategoria">{{ 'cobranca_carteira.modais.categoria'|trans }}</label>
                         <select class="form-select" id="carteiraDocumentoCategoria" name="categoria">
                             {% for c in categoriasCarteira %}
                             <option value="{{ c.value }}">{{ c.rotulo }}</option>
@@ -106,14 +106,14 @@
                         </select>
                     </div>
                     <div class="mb-0">
-                        <label class="form-label" for="carteiraDocumentoObservacao">Observação <span class="cs-modal-opcional">(opcional)</span></label>
+                        <label class="form-label" for="carteiraDocumentoObservacao">{{ 'cobranca_carteira.modais.observacao'|trans }} <span class="cs-modal-opcional">{{ 'cobranca_carteira.modais.opcional'|trans }}</span></label>
                         <textarea class="form-control" id="carteiraDocumentoObservacao" name="observacao" rows="3"
-                                  placeholder="Ex.: assembleia que autorizou a cobrança judicial"></textarea>
+                                  placeholder="{{ 'cobranca_carteira.modais.observacao_exemplo'|trans }}"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="cs-btn" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="cs-btn cs-btn-verde">Adicionar</button>
+                    <button type="button" class="cs-btn" data-bs-dismiss="modal">{{ 'cobranca_carteira.comum.cancelar'|trans }}</button>
+                    <button type="submit" class="cs-btn cs-btn-verde">{{ 'cobranca_carteira.modais.adicionar'|trans }}</button>
                 </div>
             </form>
         </div>

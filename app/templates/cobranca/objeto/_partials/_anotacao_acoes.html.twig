@@ -20,20 +20,20 @@
 {% if e.editavel and podeGerenciar %}
 <span class="ms-auto d-flex gap-1">
     <button type="button" class="btn btn-link btn-sm p-0 text-secondary js-editar-anotacao"
-            title="Corrigir esta anotação (até 48h)"
+            title="{{ 'cobranca_objeto.anotacao.corrigir_dica'|trans }}"
             data-url="{{ path('cobranca_anotacao_editar', {eventoId: e.id}) }}"
             data-texto="{{ e.descricao|e('html_attr') }}">
-        <i class="bi bi-pencil"></i><span class="visually-hidden">Editar anotação</span>
+        <i class="bi bi-pencil"></i><span class="visually-hidden">{{ 'cobranca_objeto.anotacao.editar'|trans }}</span>
     </button>
     {# Excluir não dispara mais o `confirm()` do navegador: a confirmação passou a MOSTRAR um trecho da
        anotação, para o usuário saber qual vai embora (SPEC UX §10). O POST, a rota e o CSRF são os
        mesmos — só o passo de confirmação mudou. #}
     <button type="button" class="btn btn-link btn-sm p-0 text-danger js-excluir-anotacao"
-            title="Excluir esta anotação (até 48h)"
+            title="{{ 'cobranca_objeto.anotacao.excluir_dica'|trans }}"
             data-url="{{ path('cobranca_anotacao_excluir', {eventoId: e.id}) }}"
             data-token="{{ csrf_token('excluir_anotacao_' ~ e.id) }}"
             data-trecho="{{ e.descricao|striptags|slice(0, 140)|e('html_attr') }}">
-        <i class="bi bi-trash"></i><span class="visually-hidden">Excluir anotação</span>
+        <i class="bi bi-trash"></i><span class="visually-hidden">{{ 'cobranca_objeto.anotacao.excluir'|trans }}</span>
     </button>
 </span>
 {% endif %}

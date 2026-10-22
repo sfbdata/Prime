@@ -20,8 +20,8 @@
    `podeGerenciar` (capacidade E caso aberto) e `podeQualificarDesfazer` (só a capacidade).
 ─────────────────────────────────────────────────────────────────────────── #}
 <div class="cob-qualif jp-secao" data-painel="qualificacao">
-    <h6 class="cob-qualif-titulo mb-1"><i class="bi bi-tag me-1"></i>Qualificação de contato</h6>
-    <p class="text-secondary small mb-3">Um clique registra no histórico da cobrança.</p>
+    <h6 class="cob-qualif-titulo mb-1"><i class="bi bi-tag me-1"></i>{{ 'cobranca_objeto.qualificacao.titulo'|trans }}</h6>
+    <p class="text-secondary small mb-3">{{ 'cobranca_objeto.qualificacao.subtitulo'|trans }}</p>
 
     {% if podeGerenciar %}
     <div class="cob-qualif-botoes d-grid gap-2">
@@ -40,7 +40,7 @@
         {% endfor %}
     </div>
     {% elseif caso.encerrado %}
-    <p class="text-secondary small mb-0"><i class="bi bi-lock me-1"></i>Cobrança encerrada. Não há novo lançamento.</p>
+    <p class="text-secondary small mb-0"><i class="bi bi-lock me-1"></i>{{ 'cobranca_objeto.qualificacao.encerrada'|trans }}</p>
     {% endif %}
 
     {# ── Listinha (§3.4): só as qualificações, mais recente primeiro. "Nada além disso" — o dono pediu
@@ -66,7 +66,7 @@
                       class="ms-auto" data-disable-on-submit="true">
                     <input type="hidden" name="_token" value="{{ csrf_token('desfazer_qualificacao_' ~ linha.eventoId) }}">
                     <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none" data-acao="desfazer-qualificacao">
-                        desfazer
+                        {{ 'cobranca_objeto.qualificacao.desfazer'|trans }}
                     </button>
                 </form>
                 {% endif %}
@@ -74,7 +74,7 @@
             {% endfor %}
         </ul>
         {% else %}
-        <p class="text-muted small mb-0">Nenhuma qualificação registrada.</p>
+        <p class="text-muted small mb-0">{{ 'cobranca_objeto.qualificacao.vazio'|trans }}</p>
         {% endif %}
     </div>
 </div>

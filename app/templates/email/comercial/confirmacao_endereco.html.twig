@@ -3,22 +3,22 @@
    Contexto: `nomeDaLista` e `rotuloDaOrigem` (nomes legíveis de RotulosDoConsentimento, nunca o identificador cru) e
    `link` (URL absoluta do GET /e/confirmar/{token}, que só mostra o botão; quem grava é o POST).
    A frase "Este endereço foi informado em ..." vai no rodapé, pelo `motivoDoEnvio` da MensagemDeEmail (§3.7). #}
-<p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">Confirme que quer receber {{ nomeDaLista }}</p>
+<p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">{{ 'emails.comercial.confirmacao_endereco.confirme'|trans({lista: nomeDaLista}) }}</p>
 
 <p style="margin:0 0 24px;font-size:15px;color:#444444;line-height:1.6;">
-    Clique no botão abaixo para confirmar seu e-mail. O link vale por 7 dias.
+    {{ 'emails.comercial.confirmacao_endereco.clique'|trans }}
 </p>
 
 <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
     <tr>
         <td style="background-color:#1a56db;border-radius:6px;">
-            <a href="{{ link }}" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;">Confirmar meu e-mail</a>
+            <a href="{{ link }}" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;">{{ 'emails.comercial.confirmacao_endereco.botao'|trans }}</a>
         </td>
     </tr>
 </table>
 
 <p style="margin:0 0 8px;font-size:13px;color:#888888;line-height:1.6;">
-    Se o botão não funcionar, copie e cole este endereço no navegador:
+    {{ 'emails.comercial.confirmacao_endereco.nao_funcionar'|trans }}
 </p>
 <p style="margin:0 0 16px;font-size:13px;color:#1a56db;word-break:break-all;">{{ link }}</p>
 

@@ -6,10 +6,12 @@ namespace App\Pasta\UseCase;
 
 use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Service\PrazosDoPush;
 use App\Pasta\Service\RegistroDoSistemaNaPasta;
 use App\Processo\Entity\Processo;
 use App\Twig\NumeroProcessoExtension;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Desvincula um processo específico de uma pasta.
@@ -27,6 +29,10 @@ use Doctrine\ORM\EntityManagerInterface;
  * Os demais (P5d, desenho `autoReg('proc', 'processo N desvinculado da pasta.')`): o cartão do sistema
  * "processo N desvinculado da pasta." na timeline, em nome de quem desvinculou. Os dois cartões são
  * auditados pelo AuditLogSubscriber (PastaMensagem).
+ *
+ * Prazos do Push (docs/specs/prazo-do-push.md): a pasta é ressincronizada no mesmo flush, e os prazos calculados das
+ * publicações do processo que saiu são apagados (salvo os cumpridos). Falha no cálculo vai ao log e não impede o
+ * desvínculo.
  */
 final class DesvincularProcessoUseCase
 {
@@ -34,6 +40,8 @@ final class DesvincularProcessoUseCase
         private readonly EntityManagerInterface $em,
         private readonly ?RegistroDoSistemaNaPasta $registro = null,
         private readonly NumeroProcessoExtension $numero = new NumeroProcessoExtension(),
+        private readonly ?PrazosDoPush $prazosDoPush = null,
+        private readonly ?LoggerInterface $logger = null,
     ) {
     }
 
@@ -49,6 +57,20 @@ final class DesvincularProcessoUseCase
             $texto = $eraApensado ? 'apensado ' . $numero . ' desvinculado.' : 'processo ' . $numero . ' desvinculado da pasta.';
             $this->registro?->registrar($pasta, $usuario, 'proc', $texto);
         }
+        if ($estava) {
+            $this->sincronizarPrazosDoPush($pasta);
+        }
         $this->em->flush();
+    }
+
+    private function sincronizarPrazosDoPush(Pasta $pasta): void
+    {
+        try {
+            $this->prazosDoPush?->sincronizar($pasta);
+        } catch (\Throwable $e) {
+            $this->logger?->error('Prazos do Push: falha ao calcular ao desvincular processo da pasta {pasta} ({classe}).', [
+                'pasta' => $pasta->getId(), 'classe' => $e::class,
+            ]);
+        }
     }
 }

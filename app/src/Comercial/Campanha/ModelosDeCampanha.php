@@ -12,7 +12,11 @@ namespace App\Comercial\Campanha;
  *  - as cópias em blocos dos 6 modelos de automação (dc L.508-513). São independentes dos templates Twig das
  *    automações da 1a: o que as automações enviam não muda. Do `validar` sai a frase "Ou use o código 482 917 na tela
  *    de confirmação." (Q5, o código é da frente do desenho 10), e o botão `validar` vira `app` no renderizador.
- * As datas comemorativas (dc L.517-521, L.529) entram com a fatia 4. Os próprios do Master vêm de `comercial_modelo`.
+ * As 17 datas comemorativas (F4, spec §13; desenho 05 VS 21.10.26 L626) são os modelos `data-<id>`, montados do
+ * {@see CalendarioDasDatasComemorativas}: assunto = título + " · BlueJus", selo = o nome em maiúsculas, título = o
+ * título sem o "!" final + ", {nome}!", e os blocos = o texto e o botão "Abrir o BlueJus" para o app. Na grade vêm
+ * depois dos fixos, na ordem da próxima data (dc L627, `Object.assign({}, MODELOS, DM, CU)`). Os próprios do Master
+ * vêm de `comercial_modelo`.
  *
  * @phpstan-type Bloco array{t: string, a?: string, b?: string}
  * @phpstan-type Modelo array{
@@ -72,20 +76,58 @@ final class ModelosDeCampanha
             'itens' => ['Marcadores com submarcadores e colunas personalizáveis', 'Prazos e audiências lidos dos registros da pasta', 'Meu Perfil com inscrições OAB principal e suplementar'], 'cta' => 'Abrir o BlueJus', 'link' => 'app'],
     ];
 
-    /** @return list<Modelo> na ordem do dc */
+    public const PREFIXO_DE_DATA = 'data-';
+
+    /** @return list<Modelo> na ordem do dc (sem as datas comemorativas: {@see self::datas()}) */
     public function fixos(): array
     {
         return array_values(self::FIXOS);
     }
 
+    /**
+     * Os 17 modelos das datas comemorativas: na ordem da próxima data a partir de `$hoje` (dc L626) ou, sem ele, na
+     * ordem do calendário do dc.
+     *
+     * @return list<Modelo>
+     */
+    public function datas(?\DateTimeImmutable $hoje = null): array
+    {
+        $chaves = CalendarioDasDatasComemorativas::chaves();
+        if ($hoje !== null) {
+            $quando = array_map(static fn (string $c): string => CalendarioDasDatasComemorativas::proxima($c, $hoje)->format('Y-m-d'), $chaves);
+            array_multisort($quando, SORT_ASC, SORT_STRING, range(0, \count($chaves) - 1), SORT_ASC, $chaves);
+        }
+
+        return array_map(self::modeloDaData(...), $chaves);
+    }
+
     /** @return Modelo|null */
     public function fixo(string $chave): ?array
     {
+        if (str_starts_with($chave, self::PREFIXO_DE_DATA)) {
+            $data = substr($chave, \strlen(self::PREFIXO_DE_DATA));
+
+            return CalendarioDasDatasComemorativas::existe($data) ? self::modeloDaData($data) : null;
+        }
+
         return self::FIXOS[$chave] ?? null;
     }
 
     public function ehFixo(string $chave): bool
     {
-        return isset(self::FIXOS[$chave]);
+        return $this->fixo($chave) !== null;
+    }
+
+    /** @return Modelo o modelo da data (dc L626) */
+    private static function modeloDaData(string $data): array
+    {
+        $d = CalendarioDasDatasComemorativas::data($data);
+
+        return [
+            'chave' => self::PREFIXO_DE_DATA . $data, 'nome' => $d['nome'], 'icone' => $d['icone'], 'modo' => 'blocos',
+            'assunto' => $d['titulo'] . ' · BlueJus', 'selo' => mb_strtoupper($d['nome']),
+            'titulo' => (string) preg_replace('/!$/u', '', $d['titulo']) . ', {nome}!',
+            'blocos' => [['t' => 'texto', 'a' => $d['texto']], ['t' => 'botao', 'a' => 'Abrir o BlueJus', 'b' => 'app']],
+        ];
     }
 }

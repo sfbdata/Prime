@@ -15,9 +15,9 @@
 {% set tiposDeTelefone = enum_cases('App\\Cobranca\\Enum\\TipoTelefone') %}
 <div class="card cobranca-card mb-3">
     <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
-        <span><i class="bi bi-telephone me-1"></i>Telefones <span class="badge text-bg-secondary">{{ pessoa.telefones|length }}</span></span>
+        <span><i class="bi bi-telephone me-1"></i>{{ 'cobranca_pessoa.telefones.titulo'|trans }} <span class="badge text-bg-secondary">{{ pessoa.telefones|length }}</span></span>
         <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="collapse" data-bs-target="#formAdicionarTelefone" aria-expanded="false" aria-controls="formAdicionarTelefone">
-            <i class="bi bi-plus-lg me-1"></i>Adicionar
+            <i class="bi bi-plus-lg me-1"></i>{{ 'cobranca_pessoa.comum.adicionar'|trans }}
         </button>
     </div>
     <div class="card-body">
@@ -35,16 +35,16 @@
                     {% set destino = t.numero|telefone_url(t.tipo) %}
                     <a href="{{ destino }}"
                        {% if destino starts with 'https:' %}target="_blank" rel="noopener"{% endif %}
-                       title="{{ t.tipo ? t.tipo.label() : 'Telefone' }}">{{ t.numero|telefone_br }}</a>
-                    <span class="small text-secondary">· desde {{ t.criadoEm|date('d/m/Y') }}</span>
+                       title="{{ t.tipo ? t.tipo.label() : 'cobranca_pessoa.telefones.telefone'|trans }}">{{ t.numero|telefone_br }}</a>
+                    <span class="small text-secondary">· {{ 'cobranca_pessoa.comum.desde'|trans({data: t.criadoEm|data}) }}</span>
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
                     {% if t.atual %}
-                        <span class="badge text-bg-success">Atual</span>
+                        <span class="badge text-bg-success">{{ 'cobranca_pessoa.comum.atual'|trans }}</span>
                     {% else %}
                         <form method="POST" action="{{ path('cobranca_pessoa_telefone_atual', {id: pessoa.id, itemId: t.id}) }}" data-disable-on-submit="true">
                             <input type="hidden" name="_token" value="{{ csrf_token('marcar_telefone_atual_' ~ t.id) }}">
-                            <button type="submit" class="btn btn-sm btn-outline-secondary">Marcar como atual</button>
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">{{ 'cobranca_pessoa.comum.marcar_atual'|trans }}</button>
                         </form>
                     {% endif %}
                     {# Corrigir e excluir (2026-07-28): as MESMAS ações da aba Responsáveis do objeto,
@@ -53,7 +53,7 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary"
                             data-bs-toggle="collapse" data-bs-target="#editarTelefoneFicha{{ t.id }}"
                             aria-expanded="false" aria-controls="editarTelefoneFicha{{ t.id }}"
-                            data-acao="editar-telefone" aria-label="Editar telefone" title="Corrigir este número">
+                            data-acao="editar-telefone" aria-label="{{ 'cobranca_pessoa.telefones.editar'|trans }}" title="{{ 'cobranca_pessoa.telefones.corrigir_dica'|trans }}">
                         <i class="bi bi-pencil"></i>
                     </button>
                     {# `onsubmit` com confirm() nativo: a ficha não tem o modal compartilhado do `show`,
@@ -62,10 +62,10 @@
                     <form method="POST" action="{{ path('cobranca_pessoa_telefone_excluir', {id: pessoa.id, itemId: t.id}) }}"
                           data-disable-on-submit="true"
                           onsubmit="return confirm({{ (t.atual
-                              ? 'Excluir ' ~ t.numero ~ '? Este é o telefone atual. O mais recente que sobrar passa a ser o atual.'
-                              : 'Excluir ' ~ t.numero ~ '? Não dá para desfazer.')|json_encode }});">
+                              ? 'cobranca_pessoa.telefones.excluir_confirmar_atual'|trans({numero: t.numero ~ ''})
+                              : 'cobranca_pessoa.telefones.excluir_confirmar'|trans({numero: t.numero ~ ''}))|json_encode }});">
                         <input type="hidden" name="_token" value="{{ csrf_token('excluir_telefone_' ~ t.id) }}">
-                        <button type="submit" class="btn btn-sm btn-outline-danger" data-acao="excluir-telefone" aria-label="Excluir telefone" title="Excluir este número">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" data-acao="excluir-telefone" aria-label="{{ 'cobranca_pessoa.telefones.excluir'|trans }}" title="{{ 'cobranca_pessoa.telefones.excluir_dica'|trans }}">
                             <i class="bi bi-trash"></i>
                         </button>
                     </form>
@@ -76,10 +76,10 @@
                         <input type="hidden" name="_token" value="{{ csrf_token('editar_telefone_' ~ t.id) }}">
                         <input type="text" name="numero" value="{{ t.numero|telefone_br }}" maxlength="20"
                                inputmode="tel" data-mascara="telefone" placeholder="(00) 00000-0000"
-                               class="form-control form-control-sm" style="max-width: 12rem;" aria-label="Número do telefone">
+                               class="form-control form-control-sm" style="max-width: 12rem;" aria-label="{{ 'cobranca_pessoa.telefones.numero'|trans }}">
                         {# Nenhum tipo vem marcado no telefone LEGADO (tipo nulo): corrigir um dígito não
                            pode virar declaração de tipo. Sem `tipo` no POST, o UseCase não mexe nele. #}
-                        <div class="btn-group btn-group-sm" role="group" aria-label="Tipo do telefone">
+                        <div class="btn-group btn-group-sm" role="group" aria-label="{{ 'cobranca_pessoa.telefones.tipo'|trans }}">
                             {% for opcao in tiposDeTelefone %}
                             <input type="radio" class="btn-check" name="tipo" value="{{ opcao.value }}"
                                    id="tipoTelFicha{{ t.id }}{{ opcao.value }}" autocomplete="off"
@@ -89,9 +89,9 @@
                             </label>
                             {% endfor %}
                         </div>
-                        <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Salvar</button>
+                        <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_pessoa.comum.salvar'|trans }}</button>
                         <button type="button" class="btn btn-sm btn-outline-secondary"
-                                data-bs-toggle="collapse" data-bs-target="#editarTelefoneFicha{{ t.id }}">Cancelar</button>
+                                data-bs-toggle="collapse" data-bs-target="#editarTelefoneFicha{{ t.id }}">{{ 'cobranca_pessoa.comum.cancelar'|trans }}</button>
                     </form>
                 </div>
             </li>
@@ -100,7 +100,7 @@
         {% else %}
         <div class="jp-vazio py-3">
             <i class="bi bi-telephone"></i>
-            <div class="jp-vazio-titulo">Nenhum telefone cadastrado</div>
+            <div class="jp-vazio-titulo">{{ 'cobranca_pessoa.telefones.vazio'|trans }}</div>
         </div>
         {% endif %}
 
@@ -112,7 +112,7 @@
             {# `form_row` traz rótulo + margem do tema; os `attr` do Form Type (máscara, inputmode)
                atravessam intactos porque aqui nada é sobrescrito — ao contrário do widget da aba. #}
             {{ form_row(formTelefone.numero) }}
-            <div class="btn-group btn-group-sm" role="group" aria-label="Tipo do telefone">
+            <div class="btn-group btn-group-sm" role="group" aria-label="{{ 'cobranca_pessoa.telefones.tipo'|trans }}">
                 {% for opcao in formTelefone.tipo %}
                 {% set caso = tiposDeTelefone|filter(c => c.value == opcao.vars.value)|first %}
                 {{ form_widget(opcao, {attr: {'class': 'btn-check', 'autocomplete': 'off'}}) }}
@@ -122,7 +122,7 @@
                 {% endfor %}
             </div>
             <div class="mt-2">
-                <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Salvar telefone</button>
+                <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-check-lg me-1"></i>{{ 'cobranca_pessoa.telefones.salvar'|trans }}</button>
             </div>
             {{ form_end(formTelefone) }}
         </div>

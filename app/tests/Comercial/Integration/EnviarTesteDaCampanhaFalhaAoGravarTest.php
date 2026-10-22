@@ -46,6 +46,7 @@ final class EnviarTesteDaCampanhaFalhaAoGravarTest extends KernelTestCase
             new MockClock(),
             $campanhas,
             $this->createStub(DestinoDaCampanhaRepository::class),
+            static::getContainer()->get(\App\Comercial\Campanha\ImagensDaCampanha::class),
         );
 
         $this->expectException(CampanhaRecusada::class);
