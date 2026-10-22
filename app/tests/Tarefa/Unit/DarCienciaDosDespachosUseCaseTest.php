@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Repository\TarefaMensagemRepository;
 use App\Tarefa\Service\QuemCuidaDaMeta;
 use App\Tarefa\UseCase\DarCienciaDosDespachosUseCase;
@@ -40,10 +41,20 @@ final class DarCienciaDosDespachosUseCaseTest extends TestCase
         $this->outro = self::pessoa(3, 'Olga Lima');
         $this->meta = new Tarefa();
         $this->meta->setTenant($this->escritorio);
+        $this->meta->setPasta(new Pasta());
         $this->meta->setCriadoPor($this->criador);
         $this->meta->addResponsavel($this->responsavel);
         $this->mensagens = $this->createMock(TarefaMensagemRepository::class);
         $this->agora = new \DateTimeImmutable('2026-10-22 10:00');
+        // O repositório grava por UPDATE condicional (`ciente_em IS NULL`); aqui, a primeira ciência vence.
+        $this->mensagens->method('darCienciaSeAinda')->willReturnCallback(static function (TarefaMensagem $d, User $quem, \DateTimeImmutable $em): bool {
+            if ($d->temCiencia()) {
+                return false;
+            }
+            $d->darCiencia($quem, $em);
+
+            return true;
+        });
     }
 
     #[TestDox('Responsável abre: marca os despachos do criador; os dele mesmo ficam sem ciência')]
@@ -51,7 +62,6 @@ final class DarCienciaDosDespachosUseCaseTest extends TestCase
     {
         $doCriador = $this->despachoDe($this->criador);
         $dele = $this->despachoDe($this->responsavel);
-        $this->mensagens->expects(self::once())->method('confirmar');
 
         self::assertSame(1, $this->useCase()->executar($this->meta, $this->responsavel, $this->escritorio, $this->agora));
         self::assertSame($this->responsavel, $doCriador->getCientePor());
@@ -63,7 +73,7 @@ final class DarCienciaDosDespachosUseCaseTest extends TestCase
     public function testQuemSoOlhaNaoDaCiencia(): void
     {
         $despacho = $this->despachoDe($this->criador);
-        $this->mensagens->expects(self::never())->method('confirmar');
+        $this->mensagens->expects(self::never())->method('darCienciaSeAinda');
 
         self::assertSame(0, $this->useCase()->executar($this->meta, $this->outro, $this->escritorio, $this->agora));
         self::assertFalse($despacho->temCiencia());
@@ -77,6 +87,37 @@ final class DarCienciaDosDespachosUseCaseTest extends TestCase
 
         self::assertSame(0, $this->useCase()->executar($this->meta, $this->criador, $this->escritorio, $this->agora->modify('+1 hour')));
         self::assertSame($this->responsavel, $despacho->getCientePor());
+    }
+
+    #[TestDox('Mensagem antiga (sem código do registro) não recebe ciência')]
+    public function testMensagemAntigaSemCiencia(): void
+    {
+        $antiga = $this->despachoDe($this->criador, null);
+        $this->mensagens->expects(self::never())->method('darCienciaSeAinda');
+
+        self::assertSame(0, $this->useCase()->executar($this->meta, $this->responsavel, $this->escritorio, $this->agora));
+        self::assertFalse($antiga->temCiencia());
+    }
+
+    #[TestDox('Pasta excluída: abrir a meta não dá ciência')]
+    public function testPastaExcluidaSemCiencia(): void
+    {
+        $despacho = $this->despachoDe($this->criador);
+        $this->meta->getPasta()->marcarExcluida($this->criador, $this->agora);
+        $this->mensagens->expects(self::never())->method('darCienciaSeAinda');
+
+        self::assertSame(0, $this->useCase()->executar($this->meta, $this->responsavel, $this->escritorio, $this->agora));
+        self::assertFalse($despacho->temCiencia());
+    }
+
+    #[TestDox('Outra pessoa deu ciência no meio do caminho (UPDATE não pegou linha): não conta')]
+    public function testCienciaConcorrenteNaoConta(): void
+    {
+        $this->despachoDe($this->criador);
+        $mensagens = $this->createStub(TarefaMensagemRepository::class);
+        $mensagens->method('darCienciaSeAinda')->willReturn(false);
+
+        self::assertSame(0, (new DarCienciaDosDespachosUseCase($mensagens, new QuemCuidaDaMeta()))->executar($this->meta, $this->responsavel, $this->escritorio, $this->agora));
     }
 
     #[TestDox('Meta de outro escritório: nada marcado')]
@@ -94,9 +135,12 @@ final class DarCienciaDosDespachosUseCaseTest extends TestCase
         return new DarCienciaDosDespachosUseCase($this->mensagens, new QuemCuidaDaMeta());
     }
 
-    private function despachoDe(User $autor): TarefaMensagem
+    private function despachoDe(User $autor, ?string $codigo = '1234.5678'): TarefaMensagem
     {
         $despacho = (new TarefaMensagem())->setUsuario($autor)->setMensagem('Texto');
+        if ($codigo !== null) {
+            $despacho->registrar($codigo, (string) $autor->getFullName(), null);
+        }
         $this->meta->addMensagem($despacho);
 
         return $despacho;

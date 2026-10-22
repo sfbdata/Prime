@@ -390,13 +390,30 @@ final class TarefaController extends AbstractController
             return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
         }
 
+        $anexo = $this->anexoDoDespacho($request);
         try {
-            $useCase->executar($tarefa, $usuario, $tenant, $input->comAnexo($this->anexoDoDespacho($request)));
-        } catch (DespachoRecusadoException $e) {
+            $useCase->executar($tarefa, $usuario, $tenant, $input->comAnexo($anexo));
+        } catch (\Throwable $e) {
+            // Nada foi gravado (a transação voltou): o arquivo enviado não pode ficar órfão no disco.
+            $this->apagarAnexoSolto($anexo);
+            if (!$e instanceof DespachoRecusadoException) {
+                throw $e;
+            }
             $this->addFlash('danger', $e->getMessage());
         }
 
         return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
+    }
+
+    private function apagarAnexoSolto(?string $anexo): void
+    {
+        if ($anexo === null) {
+            return;
+        }
+        $caminho = rtrim((string) $this->parameterBag->get('kernel.project_dir'), '/') . '/public' . $anexo;
+        if (is_file($caminho)) {
+            @unlink($caminho);
+        }
     }
 
     /** Campo simples (C10): quebras normalizadas antes da validação, para o limite contar o que a pessoa escreveu. */

@@ -10,6 +10,7 @@ use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Repository\TarefaMensagemRepository;
 use App\Tarefa\DTO\CertificarCumprimentoInput;
+use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Exception\CertidaoRecusadaException;
 use App\Tarefa\Service\QuemCuidaDaMeta;
 use App\Tarefa\UseCase\CertificarCumprimentoUseCase;
@@ -44,15 +45,24 @@ final class CertificarCumprimentoUseCaseTest extends TestCase
         $meta->addResponsavel($this->responsavel);
         $this->despacho = (new TarefaMensagem())->setUsuario($this->criador)->setMensagem('Cumpra-se.')->setTenant($this->escritorio);
         $this->despacho->setPrazoCumprimento(new \DateTimeImmutable('2026-10-29'));
+        $this->despacho->setAcao(AcaoDoDespacho::Despacho);
         $meta->addMensagem($this->despacho);
         $this->mensagens = $this->createMock(TarefaMensagemRepository::class);
+        // O repositório grava por UPDATE condicional (`certidao IS NULL`); aqui, a primeira certidão vence.
+        $this->mensagens->method('certificarSeAinda')->willReturnCallback(static function (TarefaMensagem $d, User $quem, string $texto, \DateTimeImmutable $em): bool {
+            if ($d->temCertidao()) {
+                return false;
+            }
+            $d->certificar($quem, $texto, $em);
+
+            return true;
+        });
     }
 
     #[TestDox('Responsável certifica: grava texto, quem e quando')]
     public function testResponsavelCertifica(): void
     {
         $agora = new \DateTimeImmutable('2026-10-23 09:00');
-        $this->mensagens->expects(self::once())->method('confirmar');
 
         $this->useCase()->executar($this->despacho, $this->responsavel, $this->escritorio, new CertificarCumprimentoInput('Certifico que juntei a procuração.'), $agora);
 
@@ -64,7 +74,7 @@ final class CertificarCumprimentoUseCaseTest extends TestCase
     #[TestDox('Quem não é responsável nem criador: semPermissao, nada gravado')]
     public function testSemPermissao(): void
     {
-        $this->mensagens->expects(self::never())->method('confirmar');
+        $this->mensagens->expects(self::never())->method('certificarSeAinda');
 
         try {
             $this->useCase()->executar($this->despacho, self::pessoa(9), $this->escritorio, new CertificarCumprimentoInput('Certifico que fiz.'), new \DateTimeImmutable());
@@ -83,6 +93,30 @@ final class CertificarCumprimentoUseCaseTest extends TestCase
         $this->expectExceptionObject(CertidaoRecusadaException::jaCertificado());
 
         $this->useCase()->executar($this->despacho, $this->responsavel, $this->escritorio, new CertificarCumprimentoInput('Certifico que refiz.'), new \DateTimeImmutable());
+    }
+
+    #[TestDox('Outra pessoa certificou no meio do caminho (UPDATE não pegou linha): "Este despacho já tem certidão."')]
+    public function testCertidaoConcorrente(): void
+    {
+        $mensagens = $this->createStub(TarefaMensagemRepository::class);
+        $mensagens->method('certificarSeAinda')->willReturn(false);
+
+        $this->expectExceptionMessage('Este despacho já tem certidão.');
+
+        (new CertificarCumprimentoUseCase($mensagens, new QuemCuidaDaMeta()))
+            ->executar($this->despacho, $this->criador, $this->escritorio, new CertificarCumprimentoInput('Certifico que fiz.'), new \DateTimeImmutable());
+    }
+
+    #[TestDox('Envio, devolução ou mensagem antiga (sem ação de despacho): não se certifica')]
+    public function testSoDespachoSeCertifica(): void
+    {
+        $antiga = (new TarefaMensagem())->setUsuario($this->criador)->setMensagem('Antiga.')->setTenant($this->escritorio);
+        $this->despacho->getTarefa()?->addMensagem($antiga);
+        $this->mensagens->expects(self::never())->method('certificarSeAinda');
+
+        $this->expectExceptionObject(CertidaoRecusadaException::naoCertificavel());
+
+        $this->useCase()->executar($antiga, $this->criador, $this->escritorio, new CertificarCumprimentoInput('Certifico que fiz.'), new \DateTimeImmutable());
     }
 
     #[TestDox('Despacho de outro escritório: foraDoEscritorio')]

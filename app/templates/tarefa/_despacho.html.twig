@@ -3,13 +3,15 @@
     Recebe `item` (TimelineItemDTO: texto, anexo, edição) e `d` (DespachoNaLinhaDoTempoOutput), além de `tarefa`.
     Registro (D1): "Registrado por NOME (Cargo) em ... · Cód. XXXX.XXXX", com o código ligado à página de validação.
     Mensagem antiga (sem código) fica sem a linha de local e data e sem a de registro.
+    Envio para revisão e devolução (L127) trocam o ícone e a cor do marcador; só o despacho se certifica.
 #}
-<div class="despacho-item tarefa-timeline-entry tarefa-timeline-entry--mensagem" id="despacho-{{ item.mensagemId }}">
-    <div class="despacho-marca"><span class="despacho-icone"><i class="bi bi-chat-left-text"></i></span></div>
+{% set icone = {envio: 'bi-send', devolucao: 'bi-arrow-return-left'}[d.acao] ?? 'bi-chat-left-text' %}
+<div class="despacho-item tarefa-timeline-entry tarefa-timeline-entry--mensagem{{ d.acao ? ' despacho-item--' ~ d.acao }}" id="despacho-{{ item.mensagemId }}">
+    <div class="despacho-marca"><span class="despacho-icone"><i class="bi {{ icone }}"></i></span></div>
     <div class="despacho-cartao">
         <div class="despacho-cabeca">
             <b class="despacho-numero">{{ 'metas.despacho.numero'|trans({n: d.numero}) }}</b>
-            <span class="despacho-tipo">· {{ (d.natureza ?? 'metas.despacho.comentario')|trans }}</span>
+            <span class="despacho-tipo">· {{ d.tipo|trans }}</span>
             {% if d.maisRecente %}<span class="despacho-recente">{{ 'metas.despacho.mais_recente'|trans }}</span>{% endif %}
             <span class="flex-grow-1"></span>
             {# Despacho registrado (com código) não se edita; só a mensagem antiga, do próprio autor. #}

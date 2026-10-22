@@ -12,6 +12,7 @@ use App\Pasta\Service\DiasUteisDoEscritorio;
 use App\Tarefa\DTO\DespachoNaLinhaDoTempoOutput;
 use App\Tarefa\DTO\DespachosDaMetaOutput;
 use App\Tarefa\DTO\FormularioDoDespachoOutput;
+use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Enum\NaturezaDoDespacho;
 use App\Tarefa\Service\QuemCuidaDaMeta;
 
@@ -74,6 +75,8 @@ final class MontarDespachosDaMetaUseCase
             numero: $numero,
             maisRecente: $maisRecente,
             natureza: $d->getNatureza()?->rotulo(),
+            tipo: $d->getNatureza()?->rotulo() ?? ($d->getAcao() ?? AcaoDoDespacho::Despacho)->rotulo(),
+            acao: $d->getAcao()?->value,
             codigo: $d->getCodigo(),
             autor: (string) ($d->getUsuario()?->getFullName() ?? $d->getUsuario()?->getEmail()),
             registradoPor: $d->getRegistradoPorNome(),
@@ -87,7 +90,7 @@ final class MontarDespachosDaMetaUseCase
             certidao: $d->getCertidao(),
             certificadoPor: $d->getCertificadoPor()?->getFullName(),
             certificadoEm: $d->getCertificadoEm(),
-            podeCertificar: $podeCertificar && !$d->temCertidao(),
+            podeCertificar: $podeCertificar && $d->getAcao() === AcaoDoDespacho::Despacho && !$d->temCertidao(),
         );
     }
 

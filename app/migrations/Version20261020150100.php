@@ -9,9 +9,9 @@ use Doctrine\Migrations\AbstractMigration;
 
 /**
  * Despacho da meta (desenho 04B de Minhas Metas de 22/10; spec `docs/specs/minhas-metas-esteira-2210.md`, Fase 2a):
- * `tarefa_mensagem` ganha natureza, prazo de cumprimento, ciência (quem e quando), certidão (texto, quem e quando) e
- * o código do registro (D1, C13), único no escritório, com o nome e o cargo de quem registrou congelados no
- * momento. As mensagens existentes ficam sem código e sem os demais campos: nada é preenchido para trás.
+ * `tarefa_mensagem` ganha a ação (despacho, envio, devolução), natureza, prazo de cumprimento, ciência (quem e
+ * quando), certidão (texto, quem e quando) e o código do registro (D1, C13), único no escritório, com o nome e o
+ * cargo de quem registrou congelados no momento. As mensagens existentes ficam sem código e sem os demais campos: nada é preenchido para trás.
  */
 final class Version20261020150100 extends AbstractMigration
 {
@@ -28,6 +28,7 @@ final class Version20261020150100 extends AbstractMigration
         $this->addSql('ALTER TABLE tarefa_mensagem ADD certidao TEXT DEFAULT NULL');
         $this->addSql('ALTER TABLE tarefa_mensagem ADD certificado_em TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL');
         $this->addSql('ALTER TABLE tarefa_mensagem ADD codigo VARCHAR(9) DEFAULT NULL');
+        $this->addSql('ALTER TABLE tarefa_mensagem ADD acao VARCHAR(20) DEFAULT NULL');
         $this->addSql('ALTER TABLE tarefa_mensagem ADD registrado_por_nome VARCHAR(180) DEFAULT NULL');
         $this->addSql('ALTER TABLE tarefa_mensagem ADD registrado_por_cargo VARCHAR(120) DEFAULT NULL');
         $this->addSql('ALTER TABLE tarefa_mensagem ADD ciente_por_id INT DEFAULT NULL');
@@ -47,6 +48,6 @@ final class Version20261020150100 extends AbstractMigration
         $this->addSql('ALTER TABLE tarefa_mensagem DROP CONSTRAINT FK_F0B050EB622196C5');
         $this->addSql('DROP INDEX IDX_F0B050EB4FB49402');
         $this->addSql('DROP INDEX IDX_F0B050EB622196C5');
-        $this->addSql('ALTER TABLE tarefa_mensagem DROP natureza, DROP prazo_cumprimento, DROP ciente_em, DROP certidao, DROP certificado_em, DROP codigo, DROP registrado_por_nome, DROP registrado_por_cargo, DROP ciente_por_id, DROP certificado_por_id');
+        $this->addSql('ALTER TABLE tarefa_mensagem DROP natureza, DROP prazo_cumprimento, DROP ciente_em, DROP certidao, DROP certificado_em, DROP codigo, DROP acao, DROP registrado_por_nome, DROP registrado_por_cargo, DROP ciente_por_id, DROP certificado_por_id');
     }
 }

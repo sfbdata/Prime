@@ -14,6 +14,7 @@ use App\Repository\TarefaMensagemRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Tarefa\DTO\DespacharNaMetaInput;
+use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Enum\NaturezaDoDespacho;
 use App\Tarefa\Exception\DespachoRecusadoException;
 use App\Tarefa\Service\SorteioDeCodigoDoDespacho;
@@ -51,13 +52,27 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         $this->mensagens = $this->createMock(TarefaMensagemRepository::class);
         $this->notificacoes = $this->createMock(NotificacaoService::class);
         $this->sorteio = $this->createMock(SorteioDeCodigoDoDespacho::class);
+        $this->mensagens->method('emTransacao')->willReturnCallback(static fn (\Closure $passos): mixed => $passos());
+    }
+
+    /** O repositório de verdade grava o código por UPDATE condicional; aqui, código "ocupado" devolve false. */
+    private function codigosOcupados(string ...$ocupados): void
+    {
+        $this->mensagens->method('gravarCodigoSeLivre')->willReturnCallback(static function (TarefaMensagem $d, string $codigo) use ($ocupados): bool {
+            if (in_array($codigo, $ocupados, true)) {
+                return false;
+            }
+            (new \ReflectionProperty(TarefaMensagem::class, 'codigo'))->setValue($d, $codigo);
+
+            return true;
+        });
     }
 
     #[TestDox('Despachar grava texto em HTML, natureza, prazo, o código sorteado e quem assinou, sem mudar o status')]
     public function testDespacharGravaODespacho(): void
     {
         $this->sorteio->method('sortear')->willReturn('1234.5678');
-        $this->mensagens->method('codigoJaUsado')->willReturn(false);
+        $this->codigosOcupados();
         $this->mensagens->expects(self::once())->method('salvar');
         $this->mensagens->expects(self::once())->method('confirmar');
         $this->notificacoes->expects(self::never())->method(self::anything());
@@ -74,27 +89,28 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         self::assertSame('Ana Souza', $despacho->getRegistradoPorNome());
         self::assertSame('Advogada', $despacho->getRegistradoPorCargo());
         self::assertFalse($despacho->podeSerEditado());
+        self::assertSame(AcaoDoDespacho::Despacho, $despacho->getAcao());
         self::assertSame(Tarefa::STATUS_PENDENTE, $this->meta->getStatus());
         self::assertFalse($saida->enviada);
     }
 
-    #[TestDox('Código já usado no escritório: sorteia de novo até achar um livre')]
+    #[TestDox('Código colidiu no índice único: sorteia de novo, até 3 vezes')]
     public function testColisaoSorteiaDeNovo(): void
     {
         $this->sorteio->expects(self::exactly(3))->method('sortear')->willReturnOnConsecutiveCalls('1111.1111', '2222.2222', '3333.3333');
-        $this->mensagens->method('codigoJaUsado')->willReturnCallback(fn (Tenant $t, string $c): bool => $c !== '3333.3333');
+        $this->codigosOcupados('1111.1111', '2222.2222');
 
         $saida = $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Ok.'));
 
         self::assertSame('3333.3333', $saida->codigo);
     }
 
-    #[TestDox('Sem código livre depois das tentativas: recusa e não grava')]
+    #[TestDox('Sem código livre depois de 3 sorteios: recusa dentro da transação (que volta) e não avisa ninguém')]
     public function testSemCodigoLivre(): void
     {
-        $this->sorteio->method('sortear')->willReturn('1111.1111');
-        $this->mensagens->method('codigoJaUsado')->willReturn(true);
-        $this->mensagens->expects(self::never())->method('confirmar');
+        $this->sorteio->expects(self::exactly(3))->method('sortear')->willReturn('1111.1111');
+        $this->codigosOcupados('1111.1111');
+        $this->notificacoes->expects(self::never())->method(self::anything());
 
         $this->expectExceptionObject(DespachoRecusadoException::semCodigoLivre());
 
@@ -116,6 +132,7 @@ final class DespacharNaMetaUseCaseTest extends TestCase
     public function testSoAnexo(): void
     {
         $this->sorteio->method('sortear')->willReturn('1234.5678');
+        $this->codigosOcupados();
 
         $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('')->comAnexo('/uploads/tarefas/chat/a.pdf'));
 
@@ -127,6 +144,7 @@ final class DespacharNaMetaUseCaseTest extends TestCase
     public function testEnviarParaRevisao(): void
     {
         $this->sorteio->method('sortear')->willReturn('1234.5678');
+        $this->codigosOcupados();
         $this->notificacoes->expects(self::once())->method('notificarTarefaEmRevisao')->with($this->meta);
 
         $saida = $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Pronto.', 'enviar', 'ciencia', '2026-10-29'));
@@ -135,6 +153,8 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         self::assertSame(Tarefa::STATUS_EM_REVISAO, $this->meta->getStatus());
         self::assertNull($this->unicoDespacho()->getNatureza());
         self::assertNull($this->unicoDespacho()->getPrazoCumprimento());
+        self::assertSame(AcaoDoDespacho::Envio, $this->unicoDespacho()->getAcao());
+        self::assertSame('1234.5678', $this->unicoDespacho()->getCodigo());
     }
 
     #[TestDox('Enviar para revisão sem texto: só muda o status, sem despacho (como antes)')]
@@ -156,6 +176,7 @@ final class DespacharNaMetaUseCaseTest extends TestCase
     {
         $this->meta->setStatus(Tarefa::STATUS_EM_REVISAO);
         $this->sorteio->method('sortear')->willReturn('1234.5678');
+        $this->codigosOcupados();
         $this->notificacoes->expects(self::once())->method('notificarTarefaPendente')->with($this->meta);
 
         $saida = $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Ajustar.', 'devolver', 'providencia'));
@@ -163,6 +184,7 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         self::assertTrue($saida->devolvida);
         self::assertSame(Tarefa::STATUS_PENDENTE, $this->meta->getStatus());
         self::assertSame(NaturezaDoDespacho::Providencia, $this->unicoDespacho()->getNatureza());
+        self::assertSame(AcaoDoDespacho::Devolucao, $this->unicoDespacho()->getAcao());
     }
 
     #[TestDox('Meta de outro escritório: recusa, nada gravado')]

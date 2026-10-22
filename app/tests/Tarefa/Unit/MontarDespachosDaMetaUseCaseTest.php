@@ -10,6 +10,7 @@ use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Service\DiasUteisDoEscritorio;
+use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Enum\NaturezaDoDespacho;
 use App\Tarefa\Service\QuemCuidaDaMeta;
 use App\Tarefa\UseCase\MontarDespachosDaMetaUseCase;
@@ -79,7 +80,7 @@ final class MontarDespachosDaMetaUseCaseTest extends TestCase
     #[TestDox('Prazo vencido fica marcado; com certidão o "Cumprir até" some e não se certifica de novo')]
     public function testPrazoECertidao(): void
     {
-        $vencido = $this->despacho(10, $this->criador, '2026-10-01 09:00')->setPrazoCumprimento(new \DateTimeImmutable('2026-10-21'));
+        $vencido = $this->despacho(10, $this->criador, '2026-10-01 09:00')->setPrazoCumprimento(new \DateTimeImmutable('2026-10-21'))->setAcao(AcaoDoDespacho::Despacho);
         $certificado = $this->despacho(11, $this->criador, '2026-10-02 09:00')->setPrazoCumprimento(new \DateTimeImmutable('2026-10-21'));
         $certificado->certificar($this->responsavel, 'Certifico que fiz.', new \DateTimeImmutable('2026-10-20 10:00'));
         $vencido->darCiencia($this->responsavel, new \DateTimeImmutable('2026-10-01 10:00'));
@@ -97,13 +98,31 @@ final class MontarDespachosDaMetaUseCaseTest extends TestCase
     #[TestDox('Quem não cuida da meta não vê o Certificar; escritório sem cidade, sem linha de local')]
     public function testSemPermissaoESemCidade(): void
     {
-        $this->despacho(10, $this->criador, '2026-10-01 09:00')->registrar('1234.5678', 'Carla Dias', null);
+        $this->despacho(10, $this->criador, '2026-10-01 09:00')->setAcao(AcaoDoDespacho::Despacho)->registrar('1234.5678', 'Carla Dias', null);
         $this->escritorio->setCidade(null);
 
         $linhas = $this->useCase()->executar($this->meta, self::pessoa(9, 'Olga'), $this->escritorio, new \DateTimeImmutable('2026-10-22'))->linhas;
 
         self::assertFalse($linhas[10]->podeCertificar);
         self::assertNull($linhas[10]->cidade);
+    }
+
+    #[TestDox('Tipo no cabeçalho: natureza, senão o rótulo da ação (L127); só a ação despacho se certifica')]
+    public function testTipoECertificarPorAcao(): void
+    {
+        $this->despacho(10, $this->criador, '2026-10-01 09:00');
+        $this->despacho(11, $this->criador, '2026-10-02 09:00')->setAcao(AcaoDoDespacho::Envio);
+        $this->despacho(12, $this->criador, '2026-10-03 09:00')->setAcao(AcaoDoDespacho::Devolucao)->setNatureza(NaturezaDoDespacho::Providencia);
+        $this->despacho(13, $this->criador, '2026-10-04 09:00')->setAcao(AcaoDoDespacho::Devolucao);
+        $this->despacho(14, $this->criador, '2026-10-05 09:00')->setAcao(AcaoDoDespacho::Despacho);
+
+        $linhas = $this->useCase()->executar($this->meta, $this->responsavel, $this->escritorio, new \DateTimeImmutable('2026-10-22'))->linhas;
+
+        self::assertSame(['metas.despacho.tipo.despacho', null, false], [$linhas[10]->tipo, $linhas[10]->acao, $linhas[10]->podeCertificar]);
+        self::assertSame(['metas.despacho.tipo.envio', 'envio', false], [$linhas[11]->tipo, $linhas[11]->acao, $linhas[11]->podeCertificar]);
+        self::assertSame(['metas.despacho.natureza.providencia', 'devolucao', false], [$linhas[12]->tipo, $linhas[12]->acao, $linhas[12]->podeCertificar]);
+        self::assertSame('metas.despacho.tipo.devolucao', $linhas[13]->tipo);
+        self::assertSame(['metas.despacho.tipo.despacho', 'despacho', true], [$linhas[14]->tipo, $linhas[14]->acao, $linhas[14]->podeCertificar]);
     }
 
     private function useCase(): MontarDespachosDaMetaUseCase

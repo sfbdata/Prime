@@ -7,12 +7,18 @@ namespace App\Tests\Tarefa\Functional;
 use App\Controller\TarefaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
+use App\Entity\Permission\Permission;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Entity\Tenant\TenantRolePermission;
+use App\Pasta\Entity\CadeadoDaPasta;
+use App\Pasta\Entity\ModoDoCadeado;
 use App\Pasta\Entity\Pasta;
+use App\Repository\TarefaMensagemRepository;
 use App\Tarefa\Controller\DespachoDaMetaController;
+use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Enum\NaturezaDoDespacho;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -237,11 +243,149 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('#despacho-' . $antiga->getId() . ' .btn-editar-msg'));
     }
 
+    #[TestDox('Envio para revisão e devolução: cabeçalho com o rótulo da ação (L127), marcador âmbar e sem Certificar')]
+    public function testEnvioEDevolucaoNaLinhaDoTempo(): void
+    {
+        $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
+        $this->despachar(['mensagem' => 'Pronto para revisão.', 'acao' => 'enviar']);
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+        $this->despachar(['mensagem' => 'Ajustar a peça.', 'acao' => 'devolver', 'natureza' => 'providencia']);
+        $this->despachar(['mensagem' => 'Comentário solto.']);
+        [$envio, $devolucao, $comentario] = $this->despachosDaMeta();
+        self::assertSame(AcaoDoDespacho::Envio, $envio->getAcao());
+        self::assertSame(AcaoDoDespacho::Devolucao, $devolucao->getAcao());
+        self::assertSame(AcaoDoDespacho::Despacho, $comentario->getAcao());
+
+        $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
+
+        $linha = static fn (TarefaMensagem $d): string => '#despacho-' . $d->getId();
+        self::assertStringContainsString('Enviado para revisão', $crawler->filter($linha($envio) . ' .despacho-tipo')->text());
+        self::assertCount(1, $crawler->filter($linha($envio) . '.despacho-item--envio .despacho-icone .bi-send'));
+        self::assertCount(0, $crawler->filter($linha($envio) . ' .despacho-certificar'));
+        self::assertStringContainsString('Para providência', $crawler->filter($linha($devolucao) . ' .despacho-tipo')->text());
+        self::assertCount(1, $crawler->filter($linha($devolucao) . '.despacho-item--devolucao .despacho-icone .bi-arrow-return-left'));
+        self::assertCount(0, $crawler->filter($linha($devolucao) . ' .despacho-certificar'));
+        self::assertStringContainsString('Comentário', $crawler->filter($linha($comentario) . ' .despacho-tipo')->text());
+        self::assertCount(1, $crawler->filter($linha($comentario) . ' .despacho-certificar'));
+    }
+
+    #[TestDox('Mensagem antiga (sem ação nem código): rótulo "Comentário", sem Certificar e sem ciência ao abrir')]
+    public function testAntigaSemCertificarESemCiencia(): void
+    {
+        $antiga = (new TarefaMensagem())->setUsuario($this->criador)->setTenant($this->escritorio)->setMensagem('Antiga');
+        $this->meta->addMensagem($antiga);
+        $this->em->persist($antiga);
+        $this->em->flush();
+        $id = (int) $antiga->getId();
+        $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
+
+        $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
+
+        self::assertStringContainsString('Comentário', $crawler->filter('#despacho-' . $id . ' .despacho-tipo')->text());
+        self::assertCount(0, $crawler->filter('#despacho-' . $id . ' .despacho-certificar'));
+        self::assertNull($this->despacho($id)->getCienteEm());
+        $this->certificar($id, 'Certifico que fiz.');
+        self::assertNull($this->despacho($id)->getCertidao(), 'mensagem antiga não se certifica');
+    }
+
+    #[TestDox('Segunda certidão no mesmo despacho: recusa com "Este despacho já tem certidão." e mantém a primeira')]
+    public function testSegundaCertidaoRecusada(): void
+    {
+        $id = (int) $this->despachoGravado($this->criador)->getId();
+        $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
+        $this->certificar($id, 'Certifico que fiz primeiro.');
+
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+        $this->certificar($id, 'Certifico que fiz depois.');
+        $this->client->followRedirect();
+
+        self::assertSelectorTextContains('body', 'Este despacho já tem certidão.');
+        self::assertSame('Certifico que fiz primeiro.', $this->despacho($id)->getCertidao());
+    }
+
+    #[TestDox('Validação do código: pasta com cadeado que esconde dela dá 404 a quem consulta; o primário vê')]
+    public function testValidacaoComPastaOculta(): void
+    {
+        $codigo = (string) $this->despachoGravado($this->criador)->getCodigo();
+        $semPrimazia = $this->criarPessoa($this->escritorio, 'Lia Moura', false);
+        $pasta = $this->meta->getPasta();
+        $this->em->persist(new CadeadoDaPasta($this->escritorio, $pasta, ModoDoCadeado::Todos, $this->criador, new \DateTimeImmutable()));
+        $this->em->flush();
+
+        $this->logarComTenant($this->client, $semPrimazia, $this->escritorio);
+        $this->client->request('GET', '/tarefas/registro/' . $codigo);
+        self::assertResponseStatusCodeSame(404);
+        self::assertSelectorTextNotContains('body', 'Carla Dias');
+
+        $this->logarComTenant($this->client, $this->colega, $this->escritorio);
+        $this->client->request('GET', '/tarefas/registro/' . $codigo);
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('Pasta excluída: abrir a meta não dá ciência')]
+    public function testPastaExcluidaSemCiencia(): void
+    {
+        $id = (int) $this->despachoGravado($this->criador)->getId();
+        $this->meta->getPasta()->marcarExcluida($this->criador, new \DateTimeImmutable());
+        $this->em->flush();
+        $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
+
+        $this->client->request('GET', '/tarefas/' . $this->meta->getId());
+
+        self::assertNull($this->despacho($id)->getCienteEm());
+    }
+
+    #[TestDox('Repositório: ciência e certidão por UPDATE condicional; a entidade desatualizada não sobrescreve a primeira')]
+    public function testCienciaECertidaoAtomicas(): void
+    {
+        $repositorio = $this->em->getRepository(TarefaMensagem::class);
+        self::assertInstanceOf(TarefaMensagemRepository::class, $repositorio);
+        $id = (int) $this->despachoGravado($this->criador)->getId();
+        $outroId = (int) $this->despachoGravado($this->criador)->getId();
+        $desatualizado = $this->despacho($id);
+        $conexao = $this->em->getConnection();
+        // Outra requisição gravou primeiro; a entidade em memória ainda não sabe.
+        $conexao->executeStatement('UPDATE tarefa_mensagem SET ciente_em = NOW(), ciente_por_id = :p, certidao = :c WHERE id = :id', [
+            'p' => $this->responsavel->getId(), 'c' => 'Certifico que fiz primeiro.', 'id' => $id,
+        ]);
+        self::assertFalse($desatualizado->temCiencia());
+
+        $colega = $this->em->find(User::class, $this->colega->getId()) ?? throw new \LogicException('Colega sumiu.');
+        self::assertFalse($repositorio->darCienciaSeAinda($desatualizado, $colega, new \DateTimeImmutable()));
+        self::assertFalse($repositorio->certificarSeAinda($desatualizado, $colega, 'Certifico que fiz depois.', new \DateTimeImmutable()));
+        self::assertSame($this->responsavel->getId(), $this->despacho($id)->getCientePor()?->getId());
+        self::assertSame('Certifico que fiz primeiro.', $this->despacho($id)->getCertidao());
+
+        $outro = $this->despacho($outroId);
+        $colega = $this->em->find(User::class, $this->colega->getId()) ?? throw new \LogicException('Colega sumiu.');
+        self::assertTrue($repositorio->darCienciaSeAinda($outro, $colega, new \DateTimeImmutable()));
+        self::assertSame($this->colega->getId(), $outro->getCientePor()?->getId(), 'a entidade volta atualizada');
+    }
+
+    #[TestDox('Repositório: código já usado no escritório não grava (índice único) e a transação segue viva')]
+    public function testCodigoColididoNaoGrava(): void
+    {
+        $repositorio = $this->em->getRepository(TarefaMensagem::class);
+        self::assertInstanceOf(TarefaMensagemRepository::class, $repositorio);
+        $codigo = (string) $this->despachoGravado($this->criador)->getCodigo();
+        $novo = (new TarefaMensagem())->setUsuario($this->criador)->setTenant($this->escritorio)->setMensagem('Novo');
+        $this->meta->addMensagem($novo);
+        $this->em->persist($novo);
+        $this->em->flush();
+
+        self::assertFalse($repositorio->gravarCodigoSeLivre($novo, $codigo));
+        self::assertNull($novo->getCodigo());
+        self::assertTrue($repositorio->gravarCodigoSeLivre($novo, '0000.0001'));
+        self::assertSame('0000.0001', $novo->getCodigo());
+        self::assertFalse($repositorio->gravarCodigoSeLivre($novo, '0000.0002'), 'quem já tem código não troca');
+    }
+
     /** @param array<string, string> $campos */
     private function despachar(array $campos): void
     {
         $id = (int) $this->meta->getId();
         $this->client->request('POST', '/tarefas/' . $id . '/mensagem', $campos + ['_token' => 'TOKEN_mensagem_tarefa_' . $id, 'acao' => '']);
+        self::assertResponseRedirects();
     }
 
     private function certificar(int $despachoId, string $texto): void
@@ -255,7 +399,7 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
     private function despachoGravado(User $autor, ?NaturezaDoDespacho $natureza = null): TarefaMensagem
     {
         $despacho = (new TarefaMensagem())->setUsuario($autor)->setTenant($this->escritorio)->setMensagem('<p>Texto secreto do despacho</p>');
-        $despacho->setNatureza($natureza)->registrar(sprintf('%04d.%04d', random_int(0, 9999), random_int(0, 9999)), (string) $autor->getFullName(), 'Sócia');
+        $despacho->setNatureza($natureza)->setAcao(AcaoDoDespacho::Despacho)->registrar(sprintf('%04d.%04d', random_int(0, 9999), random_int(0, 9999)), (string) $autor->getFullName(), 'Sócia');
         $this->meta->addMensagem($despacho);
         $this->em->persist($despacho);
         $this->em->flush();
@@ -296,7 +440,7 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
         return $tenant;
     }
 
-    private function criarPessoa(Tenant $tenant, string $nome): User
+    private function criarPessoa(Tenant $tenant, string $nome, bool $primario = true): User
     {
         $user = new User();
         $user->setEmail('despacho_' . uniqid() . '@test.com');
@@ -309,8 +453,11 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
         $role = new TenantRole();
         $role->setTenant($tenant);
         $role->setName('Papel ' . uniqid());
-        $role->setIsSystem(true);
+        $role->setIsSystem($primario);
         $this->em->persist($role);
+        if (!$primario) {
+            $this->darPermissao($role, 'modules.tarefas.view');
+        }
 
         $vinculo = new UserTenant($user, $tenant);
         $vinculo->setTenantRole($role);
@@ -318,6 +465,23 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
         $this->em->flush();
 
         return $user;
+    }
+
+    private function darPermissao(TenantRole $role, string $codigo): void
+    {
+        $permissao = $this->em->getRepository(Permission::class)->findOneBy(['code' => $codigo]);
+        if ($permissao === null) {
+            $permissao = new Permission();
+            $permissao->setCode($codigo);
+            $permissao->setDescription($codigo);
+            $permissao->setGroup('modules');
+            $this->em->persist($permissao);
+        }
+        $vinculo = new TenantRolePermission();
+        $vinculo->setTenantRole($role);
+        $vinculo->setPermission($permissao);
+        $this->em->persist($vinculo);
+        $role->getTenantRolePermissions()->add($vinculo);
     }
 
     private function criarMeta(Tenant $tenant, User $criador, User $responsavel): Tarefa

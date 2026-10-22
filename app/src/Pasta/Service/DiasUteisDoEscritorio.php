@@ -64,20 +64,6 @@ final class DiasUteisDoEscritorio
         return $d;
     }
 
-    /** Quantos dias úteis há DEPOIS de `$de` até `$ate`, inclusive (o "N dias úteis" ao lado do prazo, L160). */
-    public function uteisEntre(\DateTimeImmutable $de, \DateTimeImmutable $ate, ?string $uf): int
-    {
-        $n = 0;
-        $fim = $ate->setTime(0, 0);
-        for ($d = $de->setTime(0, 0)->modify('+1 day'); $d <= $fim; $d = $d->modify('+1 day')) {
-            if ($this->ehUtil($d, $uf)) {
-                ++$n;
-            }
-        }
-
-        return $n;
-    }
-
     /**
      * Os dias NÃO úteis de `$de` a `$ate`, inclusive, em `Y-m-d` (fins de semana incluídos): a lista que a tela
      * usa para recontar os dias úteis no navegador pela mesma regra (C12).

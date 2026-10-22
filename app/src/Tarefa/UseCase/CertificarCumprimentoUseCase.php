@@ -9,13 +9,16 @@ use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Repository\TarefaMensagemRepository;
 use App\Tarefa\DTO\CertificarCumprimentoInput;
+use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Exception\CertidaoRecusadaException;
 use App\Tarefa\Service\QuemCuidaDaMeta;
 
 /**
  * Certificar o cumprimento de um despacho (desenho 04B de 22/10, L71 e L161; spec `minhas-metas-esteira-2210.md`,
  * C15). Responsável ou criador da meta escreve "Certifico que ..."; grava quem e quando, e o "Cumprir até" some da
- * linha do tempo. Uma certidão por despacho. O texto já chega validado pelo Input (início e limite de 1.000).
+ * linha do tempo. Só o despacho se certifica (não o envio para revisão, a devolução nem a
+ * mensagem antiga). Uma certidão por despacho, gravada por UPDATE condicional
+ * (`certidao IS NULL`): se outra pessoa certificou no meio do caminho, recusa. O texto já chega validado pelo Input (início e limite de 1.000).
  */
 final class CertificarCumprimentoUseCase
 {
@@ -34,11 +37,15 @@ final class CertificarCumprimentoUseCase
         if (!$this->quemCuida->ehResponsavelOuCriador($meta, $quem)) {
             throw CertidaoRecusadaException::semPermissao();
         }
+        if ($despacho->getAcao() !== AcaoDoDespacho::Despacho) {
+            throw CertidaoRecusadaException::naoCertificavel();
+        }
         if ($despacho->temCertidao()) {
             throw CertidaoRecusadaException::jaCertificado();
         }
 
-        $despacho->certificar($quem, trim($input->texto), $agora);
-        $this->mensagens->confirmar();
+        if (!$this->mensagens->certificarSeAinda($despacho, $quem, trim($input->texto), $agora)) {
+            throw CertidaoRecusadaException::jaCertificado();
+        }
     }
 }

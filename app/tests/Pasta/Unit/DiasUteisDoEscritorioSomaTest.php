@@ -43,14 +43,6 @@ final class DiasUteisDoEscritorioSomaTest extends TestCase
         self::assertSame($esperado, $this->dias->somarUteis(new \DateTimeImmutable($inicio . ' 15:30'), $dias, $uf)->format('Y-m-d'));
     }
 
-    #[TestDox('uteisEntre conta os úteis depois do início até o fim, inclusive, e é o inverso de somarUteis')]
-    public function testUteisEntre(): void
-    {
-        self::assertSame(5, $this->dias->uteisEntre(new \DateTimeImmutable('2026-03-30 09:00'), new \DateTimeImmutable('2026-04-07'), null));
-        self::assertSame(0, $this->dias->uteisEntre(new \DateTimeImmutable('2026-04-03'), new \DateTimeImmutable('2026-04-05'), null));
-        self::assertSame(0, $this->dias->uteisEntre(new \DateTimeImmutable('2026-04-07'), new \DateTimeImmutable('2026-04-01'), null), 'fim antes do início: zero');
-    }
-
     #[TestDox('naoUteisEntre lista fim de semana, feriado da UF e Sexta-feira Santa, nos dois limites')]
     public function testNaoUteisEntre(): void
     {

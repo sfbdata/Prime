@@ -7,7 +7,9 @@ use App\Entity\Tenant\Tenant;
 use App\Repository\TarefaMensagemRepository;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
+use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Enum\NaturezaDoDespacho;
+use App\Tarefa\Exception\DespachoRegistradoException;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -76,6 +78,9 @@ class TarefaMensagem implements Auditavel, TenantAware
     private ?string $codigo = null;
 
     /** Quem assinou o registro, congelado no momento do despacho (troca de nome ou de cargo não muda o registro). */
+    #[ORM\Column(length: 20, nullable: true, enumType: AcaoDoDespacho::class)]
+    private ?AcaoDoDespacho $acao = null;
+
     #[ORM\Column(name: 'registrado_por_nome', length: 180, nullable: true)]
     private ?string $registradoPorNome = null;
 
@@ -130,8 +135,10 @@ class TarefaMensagem implements Auditavel, TenantAware
         return $this->mensagem;
     }
 
+    /** Despacho registrado não muda de texto (D1, C16): nem pela tela, nem pelo desfazer da auditoria. */
     public function setMensagem(string $mensagem): self
     {
+        $this->exigirNaoRegistrado();
         $this->mensagem = $mensagem;
         return $this;
     }
@@ -176,6 +183,7 @@ class TarefaMensagem implements Auditavel, TenantAware
 
     public function setNatureza(?NaturezaDoDespacho $natureza): self
     {
+        $this->exigirNaoRegistrado();
         $this->natureza = $natureza;
 
         return $this;
@@ -188,6 +196,7 @@ class TarefaMensagem implements Auditavel, TenantAware
 
     public function setPrazoCumprimento(?\DateTimeImmutable $prazoCumprimento): self
     {
+        $this->exigirNaoRegistrado();
         $this->prazoCumprimento = $prazoCumprimento?->setTime(0, 0);
 
         return $this;
@@ -200,7 +209,9 @@ class TarefaMensagem implements Auditavel, TenantAware
 
     /**
      * Registro do despacho (D1): o código e quem assinou, com nome e cargo congelados agora. É dado uma vez só:
-     * trocar o de um despacho já registrado invalidaria o que foi conferido.
+     * trocar o de um despacho já registrado invalidaria o que foi conferido. O `DespacharNaMetaUseCase` grava o
+     * código direto no banco ({@see \App\Repository\TarefaMensagemRepository::gravarCodigoSeLivre()}), para
+     * a colisão no índice único ser tratada; aqui é o mesmo registro em memória.
      */
     public function registrar(string $codigo, string $nome, ?string $cargo): self
     {
@@ -211,12 +222,41 @@ class TarefaMensagem implements Auditavel, TenantAware
             throw new \InvalidArgumentException('Código de registro fora do formato XXXX.XXXX.');
         }
 
-        $this->codigo             = $codigo;
+        $this->registrarAutoria($nome, $cargo);
+        $this->codigo = $codigo;
+
+        return $this;
+    }
+
+    /** Nome e cargo de quem despacha, congelados antes do código. */
+    public function registrarAutoria(string $nome, ?string $cargo): self
+    {
+        $this->exigirNaoRegistrado();
         $this->registradoPorNome  = mb_substr(trim($nome), 0, 180);
         $cargo                    = trim((string) $cargo);
         $this->registradoPorCargo = $cargo === '' ? null : mb_substr($cargo, 0, 120);
 
         return $this;
+    }
+
+    public function getAcao(): ?AcaoDoDespacho
+    {
+        return $this->acao;
+    }
+
+    public function setAcao(?AcaoDoDespacho $acao): self
+    {
+        $this->exigirNaoRegistrado();
+        $this->acao = $acao;
+
+        return $this;
+    }
+
+    private function exigirNaoRegistrado(): void
+    {
+        if ($this->codigo !== null) {
+            throw DespachoRegistradoException::imutavel();
+        }
     }
 
     public function getRegistradoPorNome(): ?string
@@ -250,7 +290,10 @@ class TarefaMensagem implements Auditavel, TenantAware
         return $this->cienteEm !== null;
     }
 
-    /** Ciência automática (C14): a primeira vale; as seguintes não mudam nada. */
+    /**
+     * Ciência automática (C14) em memória: a primeira vale. A gravação concorrente é o UPDATE condicional de
+     * {@see \App\Repository\TarefaMensagemRepository::darCienciaSeAinda()}.
+     */
     public function darCiencia(User $quem, \DateTimeImmutable $quando): void
     {
         if ($this->cienteEm !== null) {
@@ -281,7 +324,10 @@ class TarefaMensagem implements Auditavel, TenantAware
         return $this->certidao !== null;
     }
 
-    /** Certidão de cumprimento (C15): uma por despacho. */
+    /**
+     * Certidão de cumprimento (C15) em memória: uma por despacho. A gravação concorrente é o UPDATE condicional de
+     * {@see \App\Repository\TarefaMensagemRepository::certificarSeAinda()}.
+     */
     public function certificar(User $quem, string $texto, \DateTimeImmutable $quando): void
     {
         if ($this->certidao !== null) {

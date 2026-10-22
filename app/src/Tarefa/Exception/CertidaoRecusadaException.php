@@ -25,7 +25,13 @@ final class CertidaoRecusadaException extends \DomainException
 
     public static function jaCertificado(): self
     {
-        return new self('Este despacho já tem certidão de cumprimento.');
+        return new self('Este despacho já tem certidão.');
+    }
+
+    /** Envio para revisão, devolução e mensagem antiga não têm o que cumprir (L127). */
+    public static function naoCertificavel(): self
+    {
+        return new self('Só o despacho recebe certidão de cumprimento.');
     }
 
     public static function foraDoEscritorio(): self

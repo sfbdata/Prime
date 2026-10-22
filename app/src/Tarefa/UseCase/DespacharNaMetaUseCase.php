@@ -13,6 +13,7 @@ use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Tarefa\DTO\DespachoRegistradoOutput;
 use App\Tarefa\DTO\DespacharNaMetaInput;
+use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Exception\DespachoRecusadoException;
 use App\Tarefa\Service\SorteioDeCodigoDoDespacho;
 use App\Tarefa\Service\TextoDoDespacho;
@@ -25,13 +26,17 @@ use App\Tarefa\Service\TextoDoDespacho;
  * os responsáveis). Cada despacho gravado recebe o código do registro (D1, C13), sorteado e único no escritório,
  * com o nome e o cargo de quem despachou congelados no registro.
  *
- * Natureza e prazo de cumprimento valem para Despachar e Devolver. O "Enviar para revisão" do desenho (L146) não
- * leva nenhum dos dois: o prazo padrão, sempre preenchido na tela, viraria um "Cumprir até" na mensagem de quem
- * entrega o trabalho.
+ * A mensagem guarda a ação que de fato aconteceu (despacho, envio ou devolução, L127). Natureza e prazo de
+ * cumprimento valem para despacho e devolução. O envio para revisão do desenho (L146) não leva nenhum dos dois: o
+ * prazo padrão, sempre preenchido na tela, viraria um "Cumprir até" na mensagem de quem entrega o trabalho.
+ *
+ * Tudo numa transação: o despacho é gravado, e o código é gravado depois, com até 3 sorteios contra a colisão no
+ * índice único. Sem código livre, nada fica (nem a troca de status); quem enviou o anexo apaga o arquivo.
  */
 final class DespacharNaMetaUseCase
 {
-    private const TENTATIVAS_DO_SORTEIO = 10;
+    /** Sorteios contra a colisão no índice único do código (C13). */
+    private const TENTATIVAS_DO_CODIGO = 3;
 
     public function __construct(
         private readonly TarefaMensagemRepository $mensagens,
@@ -52,47 +57,63 @@ final class DespacharNaMetaUseCase
             throw DespachoRecusadoException::semConteudo();
         }
 
-        $despacho = $temConteudo ? $this->registrar($meta, $autor, $escritorio, $input) : null;
-        [$enviada, $devolvida] = $this->mudarStatus($meta, $input->acao);
-        $this->mensagens->confirmar();
-        $this->avisar($meta, $enviada, $devolvida);
+        /** @var array{0: ?TarefaMensagem, 1: bool, 2: bool} $feito */
+        $feito = $this->mensagens->emTransacao(function () use ($meta, $autor, $escritorio, $input, $temConteudo): array {
+            [$enviada, $devolvida] = $this->mudarStatus($meta, $input->acao);
+            $despacho = $temConteudo ? $this->registrar($meta, $autor, $escritorio, $input, self::acao($enviada, $devolvida)) : null;
+            $this->mensagens->confirmar();
+            if ($despacho !== null) {
+                $this->gravarCodigo($despacho);
+            }
 
-        return new DespachoRegistradoOutput($despacho?->getCodigo(), $enviada, $devolvida);
+            return [$despacho, $enviada, $devolvida];
+        });
+        $this->avisar($meta, $feito[1], $feito[2]);
+
+        return new DespachoRegistradoOutput($feito[0]?->getCodigo(), $feito[1], $feito[2]);
     }
 
-    private function registrar(Tarefa $meta, User $autor, Tenant $escritorio, DespacharNaMetaInput $input): TarefaMensagem
+    private function registrar(Tarefa $meta, User $autor, Tenant $escritorio, DespacharNaMetaInput $input, AcaoDoDespacho $acao): TarefaMensagem
     {
         $despacho = new TarefaMensagem();
         $despacho->setUsuario($autor);
         $despacho->setTenant($escritorio);
         $despacho->setMensagem($input->texto !== '' ? $this->textoDoDespacho->paraHtml($input->texto) : '[Arquivo anexado]');
         $despacho->setArquivoAnexo($input->arquivoAnexo);
-        $despacho->registrar(
-            $this->codigoLivre($escritorio),
-            (string) ($autor->getFullName() ?? $autor->getEmail()),
-            $this->vinculos->findPorUserETenant($autor, $escritorio)?->getCargo()?->getNome(),
-        );
-        if ($input->acao !== 'enviar') {
+        $despacho->setAcao($acao);
+        if ($acao !== AcaoDoDespacho::Envio) {
             $despacho->setNatureza($input->naturezaEscolhida());
             $despacho->setPrazoCumprimento($input->prazoComoData());
         }
+        $despacho->registrarAutoria(
+            (string) ($autor->getFullName() ?? $autor->getEmail()),
+            $this->vinculos->findPorUserETenant($autor, $escritorio)?->getCargo()?->getNome(),
+        );
         $meta->addMensagem($despacho);
         $this->mensagens->salvar($despacho);
 
         return $despacho;
     }
 
-    /** Sorteia até achar um código que o escritório ainda não usou (C13). */
-    private function codigoLivre(Tenant $escritorio): string
+    /** Sorteia e grava; colidiu no índice único, sorteia de novo (C13). Sem código livre, a transação inteira volta. */
+    private function gravarCodigo(TarefaMensagem $despacho): void
     {
-        for ($tentativa = 0; $tentativa < self::TENTATIVAS_DO_SORTEIO; ++$tentativa) {
-            $codigo = $this->sorteio->sortear();
-            if (!$this->mensagens->codigoJaUsado($escritorio, $codigo)) {
-                return $codigo;
+        for ($tentativa = 0; $tentativa < self::TENTATIVAS_DO_CODIGO; ++$tentativa) {
+            if ($this->mensagens->gravarCodigoSeLivre($despacho, $this->sorteio->sortear())) {
+                return;
             }
         }
 
         throw DespachoRecusadoException::semCodigoLivre();
+    }
+
+    private static function acao(bool $enviada, bool $devolvida): AcaoDoDespacho
+    {
+        return match (true) {
+            $enviada   => AcaoDoDespacho::Envio,
+            $devolvida => AcaoDoDespacho::Devolucao,
+            default    => AcaoDoDespacho::Despacho,
+        };
     }
 
     /** @return array{bool, bool} enviada para revisão, devolvida */

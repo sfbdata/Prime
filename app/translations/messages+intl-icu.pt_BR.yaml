@@ -1499,7 +1499,10 @@ metas:
             conferencia: 'Para conferência: '
             cumpra_se: 'Cumpra-se: '
         numero: 'DESPACHO {n}'
-        comentario: Comentário
+        tipo:
+            despacho: Comentário
+            envio: Enviado para revisão
+            devolucao: Devolvida
         mais_recente: MAIS RECENTE
         local_e_data: '{cidade}, {data, date, ::yMMMMd}.'
         registrado_por: Registrado por
