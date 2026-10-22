@@ -19,7 +19,8 @@ use App\TrabalhoExterno\Repository\DemandaExternaRepository;
  * O perfil Convidado é POR DEMANDA (spec §8): se a demanda não está no escopo do perfil de quem
  * pede, mas ele tem convite vigente para ela, o contexto devolvido é o de Convidado daquela demanda.
  * Por isso os dois métodos devolvem a demanda junto com o contexto que vale para ela. Se o escritório dono
- * está fora do ar, o contexto de Convidado vem marcado como só leitura (`Contexto::donoForaDoAr`).
+ * está suspenso, o contexto de Convidado vem marcado como só leitura (`Contexto::donoForaDoAr`); se foi excluído,
+ * o convite não conta e a demanda some para o Convidado (decisão do dono, 22/10).
  */
 final class LocalizadorDeDemanda
 {
@@ -101,9 +102,21 @@ final class LocalizadorDeDemanda
         return $ctx->comoConvidado($convite, $this->situacao->foraDoAr($convite->getDemanda()->getTenant()));
     }
 
-    /** @return list<ConviteDemanda> */
+    /**
+     * Os convites que dão acesso hoje. O de demanda de escritório excluído não dá nem leitura
+     * (docs/specs/te-convidado-escritorio-fora-do-ar.md, pergunta (ii) respondida pelo dono em 22/10).
+     *
+     * @return list<ConviteDemanda>
+     */
     private function convitesVigentes(Contexto $ctx): array
     {
-        return $ctx->ehInterno() ? [] : $this->convites->vigentesDo($ctx->usuario, new \DateTimeImmutable('today'));
+        if ($ctx->ehInterno()) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $this->convites->vigentesDo($ctx->usuario, new \DateTimeImmutable('today')),
+            fn (ConviteDemanda $c): bool => !$this->situacao->excluida($c->getDemanda()->getTenant()),
+        ));
     }
 }

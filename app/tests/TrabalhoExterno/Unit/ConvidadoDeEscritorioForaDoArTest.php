@@ -40,6 +40,18 @@ final class ConvidadoDeEscritorioForaDoArTest extends TestCase
         self::assertTrue($situacao->foraDoAr($conta), 'excluído conta mesmo se o isActive ficou ligado');
     }
 
+    #[TestDox('excluída: só com excluidoEm; o suspenso (inativo) não é excluído')]
+    public function testExcluida(): void
+    {
+        $situacao = new SituacaoDaConta();
+        $conta = Apoio::tenant(1);
+
+        $conta->setIsActive(false);
+        self::assertFalse($situacao->excluida($conta), 'suspenso não é excluído');
+        $conta->setExcluidoEm(new \DateTimeImmutable());
+        self::assertTrue($situacao->excluida($conta));
+    }
+
     #[TestDox('Convidado com todas as permissões e dono fora do ar: vê e baixa, mas não age, não conversa, não registra, não anexa nem apaga')]
     public function testConvidadoSoLe(): void
     {

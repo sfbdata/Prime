@@ -683,7 +683,7 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         self::assertFalse($this->json($client)['demanda']['mostraConvites']);
     }
 
-    #[TestDox('escritório dono fora do ar (suspenso ou excluído): o convidado só lê e vê "pausada"; a Central segue agindo; reativado, volta a agir')]
+    #[TestDox('escritório dono suspenso: o convidado só lê e vê "pausada"; a Central segue agindo; reativado, volta a agir')]
     public function testConvidadoDeEscritorioForaDoArSoLe(): void
     {
         [$client, $codigo, $master, $central, , $escritorio] = $this->demandaEmExecucao();
@@ -692,7 +692,7 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $token = $this->convidar($client, $codigo, 'pausa@test.com', array_fill_keys(array_keys(ConviteDemanda::PERMISSOES), true));
         $convidado = $this->contaDoConvidado($client, $token, 'pausa@test.com');
 
-        foreach (['suspenso' => null, 'excluído' => new \DateTimeImmutable()] as $caso => $excluidoEm) {
+        foreach (['suspenso' => null] as $caso => $excluidoEm) {
             $this->colocarForaDoAr($escritorio, $excluidoEm);
             $this->logarComoConvidado($client, $convidado);
 
@@ -736,6 +736,42 @@ final class ConviteDoTrabalhoExternoTest extends JusPrimeWebTestCase
         $d = $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'voltei'])['demanda'];
         self::assertResponseIsSuccessful('reativado, volta a agir');
         self::assertNull($d['pausada']);
+    }
+
+    #[TestDox('escritório dono excluído: o convidado perde também a leitura (a demanda é 404 e some do painel); a Central segue agindo; reativado, volta')]
+    public function testConvidadoDeEscritorioExcluidoNaoLe(): void
+    {
+        [$client, $codigo, $master, $central, , $escritorio] = $this->demandaEmExecucao();
+        $this->logarComTenant($client, $master, $central);
+        $this->anexar($client, $codigo, 'instrucoes.pdf');
+        $token = $this->convidar($client, $codigo, 'excluido@test.com', array_fill_keys(array_keys(ConviteDemanda::PERMISSOES), true));
+        $convidado = $this->contaDoConvidado($client, $token, 'excluido@test.com');
+        $this->logarComoConvidado($client, $convidado);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        $documento = $this->json($client)['demanda']['documentos'][0]['id'];
+
+        $this->colocarForaDoAr($escritorio, new \DateTimeImmutable());
+        $this->logarComoConvidado($client, $convidado);
+
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        self::assertResponseStatusCodeSame(404);
+        $client->request('GET', "/trabalho-externo/demandas/$codigo/documentos/$documento");
+        self::assertResponseStatusCodeSame(404, 'nem o download');
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/lida");
+        self::assertResponseStatusCodeSame(404, 'nem marcar como lida');
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'olá']);
+        self::assertResponseStatusCodeSame(404);
+        $client->request('GET', '/trabalho-externo/api/painel');
+        self::assertStringNotContainsString($codigo, (string) $client->getResponse()->getContent(), 'some do painel');
+
+        $this->logarComTenant($client, $master, $central);
+        $this->postarJson($client, "/trabalho-externo/api/demandas/$codigo/mensagens", ['texto' => 'A Central segue']);
+        self::assertResponseIsSuccessful('a Central segue agindo');
+
+        $this->colocarForaDoAr($escritorio, null, true);
+        $this->logarComoConvidado($client, $convidado);
+        $client->request('GET', "/trabalho-externo/api/demandas/$codigo");
+        self::assertResponseIsSuccessful('reativado, volta a ver');
     }
 
     #[TestDox('escritório fora do ar: o link do convite mostra "indisponível" como o vencido, e nem aceitar logado nem criar a conta gravam o aceite')]
