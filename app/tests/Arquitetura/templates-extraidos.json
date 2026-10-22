@@ -621,5 +621,28 @@
             "Escape",
             "ArrowDown"
         ]
+    },
+
+    "pasta_peticionar": {
+        "templates": [
+            "pasta/peticionar.html.twig",
+            "layout_peticionar.html.twig"
+        ],
+        "js": [
+            "peticionar-documentos.js"
+        ],
+        "permitidos": [
+            "'.' ~ ext)|join(',') }}\"",
+            "required>",
+            "App\\\\Pasta\\\\DTO\\\\ExploradorDeDocumentosOutput::CATEGORIAS",
+            "BlueJus",
+            "| BlueJus",
+            "Content-Type",
+            "Escape",
+            "ArrowDown",
+            "ArrowUp",
+            "Enter",
+            "Files"
+        ]
     }
 }

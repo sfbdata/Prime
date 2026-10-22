@@ -5401,4 +5401,123 @@ sync:
         desconectar: Desconectar
         conectar: Conectar conta Google
 
+# ---- Pasta: Peticionar (pasta/peticionar, layout_peticionar, peticionar-documentos.js)
+pasta_peticionar:
+    titulo: 'Peticionar | {nup}'
+    fechar: Fechar
+    cancelar: Cancelar
+    salvar: Salvar
+    categoria: Categoria
+    secao: Seção
+    area_geral: (área geral)
+    opcional: (opcional)
+    texto: Texto
+    adicionar_peca: Adicionar Peça
+    salvar_na_pasta: Salvar na pasta
+    novo_documento: Novo documento
+    layout:
+        titulo_padrao: Peticionar
+        numero_da_pasta: 'Número da Pasta: {nup}'
+        cliente: 'Cliente: {cliente}'
+        versus: X
+        classe: Classe judicial
+        assunto: Assunto
+        jurisdicao: Jurisdição
+        distribuicao: Distribuição
+        instancia: Instância
+        situacao: Situação
+        notificacoes_rotulo: Notificações
+        notificacoes: notificação(ões)
+        sem_notificacao: Nenhuma notificação
+        ver_todas: Ver todas as notificações
+        tela_cheia: Tela cheia
+        menu_usuario: Menu do usuário
+        meu_perfil: Meu Perfil
+        privacidade: Política de Privacidade
+        sair: Sair
+    lista:
+        voltar_dica: Voltar para a pasta
+        voltar: Voltar à pasta
+        documentos: Documentos
+        pesquisar: Pesquisar documentos…
+        mais_opcoes: Mais opções
+        vazio: Nenhum documento na pasta.
+        vazio_dica: 'Use "Adicionar peça" ou arraste arquivos para cá.'
+        anexo: Anexo
+    barra:
+        renomear_dica: Clique duas vezes para renomear
+        editar_dica: Editar texto
+        editar: Editar
+        baixar: Baixar
+        excluir: Excluir peça
+    preview:
+        selecione: Selecione um documento na lista para visualizar
+        visualizador: Visualizador de documento
+        baixar_arquivo: Baixar arquivo
+    salvar_texto:
+        titulo: Salvar peça na pasta
+        campo_titulo: Título
+        exemplo: 'Ex.: Petição Inicial, Recurso de Apelação…'
+    envio:
+        arquivo: Arquivo
+        limites: PDF até 10 MB · Imagens até 3 MB · DOC/XLS até 10 MB
+        descricao: Descrição
+        descricao_exemplo: Descreva brevemente o documento…
+        numero: Número
+        numero_exemplo: 'Ex.: 001/2026'
+        reduzir: Reduzir tamanho do arquivo
+        reduzir_dica: Economiza espaço comprimindo imagens e PDFs. Mantenha desligado para preservar a qualidade original.
+        reduzir_assinatura: PDFs assinados digitalmente podem ter a assinatura invalidada ao reduzir o tamanho.
+        enviar: Enviar
+    descarte:
+        titulo: Salvar alterações?
+        texto: O documento contém alterações não salvas.
+        pergunta: Deseja salvar as alterações antes de continuar?
+        nao_salvar: Não salvar
+    js:
+        compressao_reduzido: 'Arquivo reduzido de {de} para {para}.'
+        compressao_assinado: 'Atenção: este PDF estava assinado digitalmente. A assinatura pode ter sido invalidada.'
+        compressao_nao_reduziu: Não foi possível reduzir o arquivo; mantida a qualidade original.
+        selecione_arquivo: Selecione um arquivo antes de enviar.
+        erro_enviar: Erro ao enviar o arquivo.
+        erro_comunicacao: Erro de comunicação. Tente novamente.
+        menu_arquivo: Arquivo
+        menu_editar: Editar
+        menu_inserir: Inserir
+        erro_imagem: Erro ao fazer upload da imagem.
+        novo_documento: Novo documento
+        salvar_na_pasta: Salvar na pasta
+        exportar_como: 'Exportar como {formato}'
+        salve_antes_exportar: Salve o documento primeiro para exportar.
+        salvar_alteracoes: Salvar alterações
+        editar_titulo_dica: Clique para editar o título
+        erro_abrir: Erro ao abrir o documento para edição.
+        erro_salvar: Erro ao salvar.
+        sem_titulo: Sem título
+        informe_titulo: Informe um título para a peça.
+        vazio: Nenhum documento na pasta.
+        vazio_dica: 'Use "Adicionar peça" ou arraste arquivos para cá.'
+        mais_opcoes: Mais opções
+        abrir: Abrir
+        renomear: Renomear
+        baixar: Baixar
+        classificar: 'Classificar: {categoria}'
+        excluir: Excluir
+        erro_salvar_nome: Não foi possível salvar.
+        novo_nome: Novo nome
+        erro_comunicacao_curto: Erro de comunicação.
+        classificado: 'Classificado como {categoria}'
+        excluir_pergunta: 'Excluir a peça "{nome}"? Ela vai para a lixeira e pode ser restaurada na aba Documentos da pasta.'
+        erro_excluir: Não foi possível excluir.
+        peca_excluida: Peça excluída
+        texto: Texto
+        nenhum_encontrado: Nenhum documento encontrado.
+        aguarde_envio: Aguarde o envio em andamento.
+        formato_nao_aceito: '{arquivo}: formato não aceito.'
+        enviando: 'Enviando {total} arquivo(s)...'
+        arquivo_erro: '{arquivo}: {erro}'
+        erro_ao_enviar: erro ao enviar.
+        arquivo_sem_conexao: '{arquivo}: erro de comunicação.'
+        adicionadas: '{total} peça(s) adicionada(s)'
+
 # ---- fim
