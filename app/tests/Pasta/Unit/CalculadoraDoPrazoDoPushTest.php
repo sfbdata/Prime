@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Agenda\Service\CalendarioDoSistema;
-use App\Agenda\Service\DiasUteisNacionais;
 use App\Djen\Repository\PublicacaoDjenRepository;
 use App\Pasta\DTO\TeorDePublicacaoInput;
 use App\Pasta\Service\CalculadoraDoPrazoDoPush;
@@ -29,12 +28,8 @@ final class CalculadoraDoPrazoDoPushTest extends TestCase
 
     protected function setUp(): void
     {
-        $calendario = new CalendarioDoSistema();
-        $this->dias = new DiasUteisDoEscritorio($calendario);
-        $this->calculadora = new CalculadoraDoPrazoDoPush(
-            new DeterminacoesDoJuizo($this->createStub(PublicacaoDjenRepository::class)),
-            new DiasUteisNacionais($calendario),
-        );
+        $this->dias = new DiasUteisDoEscritorio(new CalendarioDoSistema());
+        $this->calculadora = new CalculadoraDoPrazoDoPush(new DeterminacoesDoJuizo($this->createStub(PublicacaoDjenRepository::class)));
     }
 
     /** @return iterable<string, array{0: string, 1: string, 2: string, 3: string}> teor, disponibilização, UF, vencimento */
@@ -52,6 +47,16 @@ final class CalculadoraDoPrazoDoPushTest extends TestCase
             'Intime-se a parte autora para se manifestar no prazo de 5 dias.', '2026-12-18', 'SP', '2027-01-28'];
         yield 'dias corridos que terminam no sábado vão à segunda' => [
             'Intime-se a parte ré para pagar no prazo de 4 (quatro) dias corridos.', '2026-10-19', 'SP', '2026-10-26'];
+        // Disponibilizado qua 10/12/2025; publicação qui 11/12; dia 1 = sex 12/12. Conta 12 a 19/12 (8 dias, sábado e
+        // domingo contam em corridos); 20/12 a 20/01 é recesso e não conta; retoma em 21/01/2026: 21 (9), 22 (10),
+        // 23 (11), 24 (12), 25 (13), 26 (14), 27 (15). Ter 27/01/2026 é dia útil, então fica nele.
+        yield 'recesso suspende os dias corridos: 15 corridos de 10/12/2025 vencem em 27/01/2026' => [
+            'Intime-se a parte ré para pagar no prazo de 15 dias corridos.', '2025-12-10', 'SP', '2026-01-27'];
+        // 09/07 é feriado em SP: a publicação vai à sex 10/07 e a contagem começa na seg 13/07: 13 (1), 14 (2), 15 (3).
+        yield 'termo inicial pelo calendário da UF: 09/07 em SP adia a publicação' => [
+            'Intime-se a parte autora para se manifestar no prazo de 3 dias.', '2026-07-08', 'SP', '2026-07-15'];
+        yield 'prazo de 1 dia vence no 1º dia útil depois da publicação' => [
+            'Intime-se a parte autora para se manifestar no prazo de 1 (um) dia.', '2026-09-25', 'SP', '2026-09-29'];
         yield 'dias corridos que terminam em dia útil ficam nele' => [
             'Intime-se a parte ré para pagar no prazo de 3 dias corridos.', '2026-10-19', 'SP', '2026-10-23'];
     }
@@ -67,6 +72,38 @@ final class CalculadoraDoPrazoDoPushTest extends TestCase
         self::assertSame($vencimento, $prazos[0]['data']->format('Y-m-d'));
         self::assertTrue($prazos[0]['estimado']);
         self::assertNull($prazos[0]['hora']);
+    }
+
+    #[TestDox('escritório sem UF conta pelos feriados nacionais')]
+    public function testEscritorioSemUf(): void
+    {
+        $prazos = $this->calcular('Intime-se a parte autora para se manifestar no prazo de 5 dias.', '2026-10-07', $this->dias->daUf(null));
+
+        self::assertSame(['2026-10-16'], array_map(static fn (array $p): string => $p['data']->format('Y-m-d'), $prazos));
+    }
+
+    #[TestDox('frase que narra o passado ("intimada ... quedou-se inerte") não gera prazo; a mesma ordem no imperativo gera')]
+    public function testNarracaoNaoGeraPrazo(): void
+    {
+        $narracao = 'A parte autora, intimada para emendar a inicial no prazo de 15 dias, quedou-se inerte.';
+        $teor = new TeorDePublicacaoInput(1, 'Despacho', 'Intimação', new \DateTimeImmutable('2026-09-25'), '123', $narracao);
+        $leitura = (new DeterminacoesDoJuizo($this->createStub(PublicacaoDjenRepository::class)))->determinacoesDoTeor($teor);
+        self::assertSame([15], array_map(static fn ($d): ?int => $d->prazoQuantidade, $leitura), 'a leitura do juízo continua igual');
+
+        self::assertSame([], $this->calcular($narracao, '2026-09-25'));
+        self::assertCount(1, $this->calcular('Intime-se a parte autora para emendar a inicial no prazo de 15 dias.', '2026-09-25'));
+    }
+
+    #[TestDox('as outras formas de narração também não geram prazo')]
+    public function testOutrasNarracoes(): void
+    {
+        $leitor = new DeterminacoesDoJuizo($this->createStub(PublicacaoDjenRepository::class));
+        foreach (['O réu, citado para contestar no prazo de 15 dias, deixou transcorrer o prazo.',
+            'A parte autora, intimada a se manifestar no prazo de 5 dias, não se manifestou.'] as $narracao) {
+            $teor = new TeorDePublicacaoInput(1, 'Despacho', 'Intimação', new \DateTimeImmutable('2026-09-25'), '123', $narracao);
+            self::assertNotSame([], $leitor->determinacoesDoTeor($teor), 'a leitura do juízo acha a frase: ' . $narracao);
+            self::assertSame([], $this->calcular($narracao, '2026-09-25'), $narracao);
+        }
     }
 
     #[TestDox('teor sem prazo explícito não gera nada (nada presumido)')]
