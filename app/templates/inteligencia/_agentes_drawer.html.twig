@@ -38,38 +38,38 @@
             <span class="ia-drawer-ico" aria-hidden="true"><i class="bi bi-stars"></i></span>
             <span class="ia-drawer-marca">
                 <span class="ia-drawer-marca-sup">BLUEJUS IA</span>
-                <span class="ia-drawer-marca-sub">Assistente jurídica do escritório</span>
+                <span class="ia-drawer-marca-sub">{{ 'inteligencia.drawer.assistente'|trans }}</span>
             </span>
-            <button type="button" class="ia-drawer-fechar" data-ia-fechar aria-label="Fechar" title="Fechar">
+            <button type="button" class="ia-drawer-fechar" data-ia-fechar aria-label="{{ 'inteligencia.drawer.fechar'|trans }}" title="{{ 'inteligencia.drawer.fechar'|trans }}">
                 <i class="bi bi-x-lg" aria-hidden="true"></i>
             </button>
         </div>
-        <div class="ia-drawer-chips" title="Contexto carregado automaticamente desta tela">
-            <span class="ia-chip" data-ia-chip="pasta"><i class="bi bi-folder2-open" aria-hidden="true"></i>Pasta {{ pasta.nup }}</span>
-            <span class="ia-chip" data-ia-chip="cliente"><i class="bi bi-person" aria-hidden="true"></i>{{ iaCliente ? iaCliente.nomeExibicao : 'Sem cliente' }}</span>
-            <span class="ia-chip" data-ia-chip="processo"><i class="bi bi-diagram-3" aria-hidden="true"></i>{{ iaProcesso ? iaProcesso.numeroProcesso|numero_cnj : 'Sem processo' }}</span>
-            <span class="ia-chip" data-ia-chip="responsavel"><i class="bi bi-person-badge" aria-hidden="true"></i>{{ iaResponsavel and iaResponsavel.fullName ? iaResponsavel.fullName : 'Sem responsável' }}</span>
+        <div class="ia-drawer-chips" title="{{ 'inteligencia.drawer.chips_dica'|trans }}">
+            <span class="ia-chip" data-ia-chip="pasta"><i class="bi bi-folder2-open" aria-hidden="true"></i>{{ 'inteligencia.drawer.chip_pasta'|trans({nup: pasta.nup ~ ''}) }}</span>
+            <span class="ia-chip" data-ia-chip="cliente"><i class="bi bi-person" aria-hidden="true"></i>{{ iaCliente ? iaCliente.nomeExibicao : 'inteligencia.drawer.sem_cliente'|trans }}</span>
+            <span class="ia-chip" data-ia-chip="processo"><i class="bi bi-diagram-3" aria-hidden="true"></i>{{ iaProcesso ? iaProcesso.numeroProcesso|numero_cnj : 'inteligencia.drawer.sem_processo'|trans }}</span>
+            <span class="ia-chip" data-ia-chip="responsavel"><i class="bi bi-person-badge" aria-hidden="true"></i>{{ iaResponsavel and iaResponsavel.fullName ? iaResponsavel.fullName : 'inteligencia.drawer.sem_responsavel'|trans }}</span>
         </div>
         {# Abas do desenho (dc L955-956, `tab`): ícone + rótulo; a ativa fica branca. O
            pasta-ia-agentes.js troca o painel visível (`data-ia-aba-painel`). #}
-        <div class="ia-abas" role="tablist" aria-label="Seções da BlueJus IA">
+        <div class="ia-abas" role="tablist" aria-label="{{ 'inteligencia.drawer.abas'|trans }}">
             <button type="button" class="ia-aba is-ativa" role="tab" id="ia-aba-btn-analise" data-ia-aba="analise"
                     aria-selected="true" aria-controls="ia-aba-analise">
-                <i class="bi bi-activity" aria-hidden="true"></i>Análise
+                <i class="bi bi-activity" aria-hidden="true"></i>{{ 'inteligencia.drawer.aba_analise'|trans }}
             </button>
             {% if iaDocsVisivel %}
                 <button type="button" class="ia-aba" role="tab" id="ia-aba-btn-documentos" data-ia-aba="documentos"
                         aria-selected="false" aria-controls="ia-aba-documentos" tabindex="-1">
-                    <i class="bi bi-file-earmark-text" aria-hidden="true"></i>Documentos
+                    <i class="bi bi-file-earmark-text" aria-hidden="true"></i>{{ 'inteligencia.drawer.aba_documentos'|trans }}
                 </button>
             {% endif %}
             <button type="button" class="ia-aba" role="tab" id="ia-aba-btn-relatorios" data-ia-aba="relatorios"
                     aria-selected="false" aria-controls="ia-aba-relatorios" tabindex="-1">
-                <i class="bi bi-bar-chart-line" aria-hidden="true"></i>Relatórios
+                <i class="bi bi-bar-chart-line" aria-hidden="true"></i>{{ 'inteligencia.drawer.aba_relatorios'|trans }}
             </button>
             <button type="button" class="ia-aba" role="tab" id="ia-aba-btn-perguntar" data-ia-aba="perguntar"
                     aria-selected="false" aria-controls="ia-aba-perguntar" tabindex="-1">
-                <i class="bi bi-chat-dots" aria-hidden="true"></i>Perguntar
+                <i class="bi bi-chat-dots" aria-hidden="true"></i>{{ 'inteligencia.drawer.aba_perguntar'|trans }}
             </button>
         </div>
         {% if not ia.estaDisponivel %}
@@ -95,5 +95,7 @@
     {{ include('inteligencia/_auditoria.html.twig', {auditoria: null, pastaId: pasta.id}) }}
 </aside>
 <link rel="stylesheet" href="/css/pasta-ia-agentes.css">
+{# Textos do pasta-ia-agentes.js e do pasta-ia-conversa.js (o drawer só existe aqui, uma vez por página). #}
+{{ catalogo_js('inteligencia.js.agentes', 'inteligencia.js.conversa') }}
 <script src="/js/pasta-ia-agentes.js" defer></script>
 <script src="/js/pasta-ia-conversa.js" defer></script>

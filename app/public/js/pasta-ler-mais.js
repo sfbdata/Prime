@@ -90,8 +90,12 @@
         u.nos.forEach(function (no) { span.appendChild(no); });
     }
 
+    /* Texto do catálogo (`pasta_detalhes.js.*`, entregue pelo _detalhes_obs), pedido na hora do uso. */
     function rotulo(ocultos, aberto) {
-        return aberto ? 'mostrar menos' : 'continuar lendo (' + ocultos + (ocultos === 1 ? ' parágrafo)' : ' parágrafos)');
+        if (aberto) { return BJ_T.t('pasta_detalhes.js.ler_menos'); }
+        return ocultos === 1
+            ? BJ_T.t('pasta_detalhes.js.ler_mais_um', { total: ocultos })
+            : BJ_T.t('pasta_detalhes.js.ler_mais_varios', { total: ocultos });
     }
 
     function preparar(texto) {

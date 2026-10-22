@@ -27,30 +27,30 @@
         data-ia-carregado="{{ auditoria is null ? '0' : '1' }}">
     <button type="button" class="ia-audit-botao" data-ia-audit-alternar aria-expanded="false" aria-controls="psIaAuditLista">
         <i class="bi bi-journal-check" aria-hidden="true"></i>
-        <span class="ia-audit-rotulo">Registro de auditoria{% if auditoria is not null %} ({{ auditoria.total }}){% endif %}</span>
+        <span class="ia-audit-rotulo">{{ 'inteligencia.auditoria.rotulo'|trans }}{% if auditoria is not null %} ({{ auditoria.total }}){% endif %}</span>
         <i class="bi bi-chevron-up ia-audit-seta" aria-hidden="true"></i>
     </button>
     <div class="ia-audit-lista" id="psIaAuditLista" hidden>
         {% if auditoria is null %}
-            <p class="ia-audit-vazio" data-ia-carregando>Carregando o registro…</p>
+            <p class="ia-audit-vazio" data-ia-carregando>{{ 'inteligencia.auditoria.carregando'|trans }}</p>
         {% else %}
             {% for r in auditoria.registros %}
                 {% if r.ehDownload or r.ehImpressao %}
                     <div class="ia-audit-linha" data-ia-audit-exportacao="{{ r.analiseId }}" data-ia-audit-acao="{{ r.acao }}">
                         <time class="ia-audit-hora" datetime="{{ r.quando|date('c') }}">{{ r.quando|date('d/m H:i') }}</time>
-                        <span class="ia-audit-txt">{{ r.ehDownload ? 'Download' : 'Impressão' }}: {{ r.oQue }}</span>
+                        <span class="ia-audit-txt">{{ r.ehDownload ? 'inteligencia.auditoria.download'|trans({oque: r.oQue}) : 'inteligencia.auditoria.impressao'|trans({oque: r.oQue}) }}</span>
                     </div>
                 {% else %}
                     <div class="ia-audit-linha" data-ia-audit-analise="{{ r.analiseId }}">
                         <time class="ia-audit-hora" datetime="{{ r.quando|date('c') }}">{{ r.quando|date('d/m H:i') }}</time>
-                        <span class="ia-audit-txt">{{ r.oQue }} · {{ r.statusRotulo }}{% if r.solicitanteNome %} · pedida por {{ r.solicitanteNome }}{% endif %}{% if r.excluida %} · excluída da tela{% endif %}</span>
+                        <span class="ia-audit-txt">{{ r.oQue }} · {{ r.statusRotulo }}{% if r.solicitanteNome %} · {{ 'inteligencia.auditoria.pedida_por'|trans({nome: r.solicitanteNome}) }}{% endif %}{% if r.excluida %} · {{ 'inteligencia.auditoria.excluida'|trans }}{% endif %}</span>
                     </div>
                 {% endif %}
             {% else %}
-                <p class="ia-audit-vazio">Nenhuma ação da IA nesta pasta ainda.</p>
+                <p class="ia-audit-vazio">{{ 'inteligencia.auditoria.vazia'|trans }}</p>
             {% endfor %}
             {% if auditoria.temMaisQueOsListados %}
-                <p class="ia-audit-vazio">Mostrando as {{ auditoria.registros|length }} mais recentes de {{ auditoria.total }}.</p>
+                <p class="ia-audit-vazio">{{ 'inteligencia.auditoria.mostrando'|trans({n: auditoria.registros|length ~ '', total: auditoria.total ~ ''}) }}</p>
             {% endif %}
         {% endif %}
     </div>

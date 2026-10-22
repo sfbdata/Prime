@@ -1,11 +1,11 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Service Desk - Dashboard{% endblock %}
+{% block title %}{{ 'servicedesk.index.titulo_pagina'|trans }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0"><i class="bi bi-headset me-2"></i>Service Desk</h1>
+        <h1 class="m-0"><i class="bi bi-headset me-2"></i>{{ 'servicedesk.index.service_desk'|trans }}</h1>
     </div>
 </section>
 
@@ -17,7 +17,7 @@
                 <div class="small-box text-bg-warning">
                     <div class="inner">
                         <h3>{{ stats.abertos }}</h3>
-                        <p>Abertos</p>
+                        <p>{{ 'servicedesk.comum.abertos'|trans }}</p>
                     </div>
                     <div class="icon">
                         <i class="bi bi-inbox"></i>
@@ -28,7 +28,7 @@
                 <div class="small-box text-bg-primary">
                     <div class="inner">
                         <h3>{{ stats.em_andamento }}</h3>
-                        <p>Em Andamento</p>
+                        <p>{{ 'servicedesk.comum.em_andamento'|trans }}</p>
                     </div>
                     <div class="icon">
                         <i class="bi bi-gear-wide-connected"></i>
@@ -39,7 +39,7 @@
                 <div class="small-box text-bg-success">
                     <div class="inner">
                         <h3>{{ stats.resolvidos }}</h3>
-                        <p>Resolvidos</p>
+                        <p>{{ 'servicedesk.comum.resolvidos'|trans }}</p>
                     </div>
                     <div class="icon">
                         <i class="bi bi-check-circle"></i>
@@ -50,7 +50,7 @@
                 <div class="small-box text-bg-danger">
                     <div class="inner">
                         <h3>{{ stats.urgentes }}</h3>
-                        <p>Urgentes</p>
+                        <p>{{ 'servicedesk.index.urgentes'|trans }}</p>
                     </div>
                     <div class="icon">
                         <i class="bi bi-exclamation-triangle"></i>
@@ -63,7 +63,7 @@
         {% if stats.nao_atribuidos > 0 %}
         <div class="alert alert-warning">
             <i class="bi bi-exclamation-circle me-2"></i>
-            <strong>{{ stats.nao_atribuidos }}</strong> chamado(s) aguardando atribuição.
+            <strong>{{ stats.nao_atribuidos }}</strong> {{ 'servicedesk.index.aguardando_atribuicao'|trans }}
         </div>
         {% endif %}
 
@@ -72,50 +72,50 @@
             <div class="card-body">
                 <form method="GET" action="{{ path('servicedesk_index') }}" class="row g-2 align-items-end">
                     <div class="col-md-2">
-                        <label class="form-label">Status</label>
+                        <label class="form-label">{{ 'servicedesk.comum.status'|trans }}</label>
                         <select name="status" class="form-select form-select-sm">
-                            <option value="">Todos</option>
+                            <option value="">{{ 'servicedesk.index.todos'|trans }}</option>
                             {% for value, label in statusList %}
                                 <option value="{{ value }}" {{ filtros.status == value ? 'selected' : '' }}>{{ label }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label">Categoria</label>
+                        <label class="form-label">{{ 'servicedesk.comum.categoria'|trans }}</label>
                         <select name="categoria" class="form-select form-select-sm">
-                            <option value="">Todas</option>
+                            <option value="">{{ 'servicedesk.index.todas'|trans }}</option>
                             {% for value, label in categorias %}
                                 <option value="{{ value }}" {{ filtros.categoria == value ? 'selected' : '' }}>{{ label }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label">Prioridade</label>
+                        <label class="form-label">{{ 'servicedesk.comum.prioridade'|trans }}</label>
                         <select name="prioridade" class="form-select form-select-sm">
-                            <option value="">Todas</option>
+                            <option value="">{{ 'servicedesk.index.todas'|trans }}</option>
                             {% for value, label in prioridades %}
                                 <option value="{{ value }}" {{ filtros.prioridade == value ? 'selected' : '' }}>{{ label }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label">Responsável</label>
+                        <label class="form-label">{{ 'servicedesk.comum.responsavel'|trans }}</label>
                         <select name="responsavel" class="form-select form-select-sm">
-                            <option value="">Todos</option>
+                            <option value="">{{ 'servicedesk.index.todos'|trans }}</option>
                             {% for tecnico in tecnicos %}
                                 <option value="{{ tecnico.id }}" {{ filtros.responsavel == tecnico.id ? 'selected' : '' }}>{{ tecnico.fullName }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label">Busca</label>
-                        <input type="text" name="busca" class="form-control form-control-sm" placeholder="Título, descrição..." value="{{ filtros.busca }}">
+                        <label class="form-label">{{ 'servicedesk.index.busca'|trans }}</label>
+                        <input type="text" name="busca" class="form-control form-control-sm" placeholder="{{ 'servicedesk.index.busca_placeholder'|trans }}" value="{{ filtros.busca }}">
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">&nbsp;</label>
                         <div>
                             <button type="submit" class="btn btn-primary btn-sm">
-                                <i class="bi bi-search me-1"></i> Filtrar
+                                <i class="bi bi-search me-1"></i> {{ 'servicedesk.index.filtrar'|trans }}
                             </button>
                             <a href="{{ path('servicedesk_index') }}" class="btn btn-secondary btn-sm">
                                 <i class="bi bi-x-lg"></i>
@@ -129,7 +129,7 @@
         {# Lista de chamados #}
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title"><i class="bi bi-list-task me-2"></i>Chamados ({{ stats.total }})</h3>
+                <h3 class="card-title"><i class="bi bi-list-task me-2"></i>{{ 'servicedesk.index.chamados'|trans({total: stats.total ~ ''}) }}</h3>
             </div>
             <div class="card-body table-responsive p-0">
                 {% if chamados|length > 0 %}
@@ -137,14 +137,14 @@
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Título</th>
-                            <th>Solicitante</th>
-                            <th>Categoria</th>
-                            <th>Prioridade</th>
-                            <th>Status</th>
-                            <th>Responsável</th>
-                            <th>Aberto em</th>
-                            <th>Ações</th>
+                            <th>{{ 'servicedesk.comum.titulo'|trans }}</th>
+                            <th>{{ 'servicedesk.comum.solicitante'|trans }}</th>
+                            <th>{{ 'servicedesk.comum.categoria'|trans }}</th>
+                            <th>{{ 'servicedesk.comum.prioridade'|trans }}</th>
+                            <th>{{ 'servicedesk.comum.status'|trans }}</th>
+                            <th>{{ 'servicedesk.comum.responsavel'|trans }}</th>
+                            <th>{{ 'servicedesk.comum.aberto_em'|trans }}</th>
+                            <th>{{ 'servicedesk.comum.acoes'|trans }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -172,17 +172,17 @@
                                 {% if chamado.responsavel %}
                                     {{ chamado.responsavel.fullName }}
                                 {% else %}
-                                    <span class="text-muted">Não atribuído</span>
+                                    <span class="text-muted">{{ 'servicedesk.comum.nao_atribuido'|trans }}</span>
                                 {% endif %}
                             </td>
                             <td>
-                                <small>{{ chamado.criadoEm|date('d/m/Y H:i') }}</small>
+                                <small>{{ chamado.criadoEm|data_hora }}</small>
                             </td>
                             <td>
                                 <a href="{{ path('servicedesk_show', {id: chamado.id}) }}"
                                    class="btn-action btn-action-view"
-                                   title="Visualizar chamado"
-                                   aria-label="Visualizar chamado">
+                                   title="{{ 'servicedesk.comum.visualizar_chamado'|trans }}"
+                                   aria-label="{{ 'servicedesk.comum.visualizar_chamado'|trans }}">
                                     <i class="bi bi-eye"></i>
                                 </a>
                             </td>
@@ -193,7 +193,7 @@
                 {% else %}
                 <div class="p-4 text-center">
                     <i class="bi bi-inbox display-4 text-muted"></i>
-                    <p class="mt-2 text-muted">Nenhum chamado encontrado.</p>
+                    <p class="mt-2 text-muted">{{ 'servicedesk.index.nenhum_chamado'|trans }}</p>
                 </div>
                 {% endif %}
             </div>
@@ -203,7 +203,7 @@
         {% if stats.por_categoria|length > 0 %}
         <div class="card mt-4">
             <div class="card-header">
-                <h3 class="card-title"><i class="bi bi-bar-chart me-2"></i>Chamados por Categoria</h3>
+                <h3 class="card-title"><i class="bi bi-bar-chart me-2"></i>{{ 'servicedesk.index.por_categoria'|trans }}</h3>
             </div>
             <div class="card-body">
                 <div class="row">
@@ -223,7 +223,7 @@
         {% if stats.tempo_medio %}
         <div class="alert alert-info mt-3">
             <i class="bi bi-clock-history me-2"></i>
-            <strong>Tempo médio de resolução:</strong> {{ stats.tempo_medio|number_format(1) }} horas
+            <strong>{{ 'servicedesk.index.tempo_medio'|trans }}</strong> {{ 'servicedesk.comum.horas'|trans({valor: stats.tempo_medio|number_format(1)}) }}
         </div>
         {% endif %}
     </div>

@@ -23,17 +23,17 @@
    Comando), `saida` (AnalisesDoComandoOutput ou null), `pastaId` (int), `ia`
    (enum Disponibilidade).
    ============================================================================ #}
-<p class="ia-aba-intro">A IA monta o índice pelos dados de cada arquivo: nome, título, categoria e data. O conteúdo dos arquivos não é lido.</p>
-<div class="ia-docs" role="group" aria-label="Documentos desta pasta" data-ia-docs>
+<p class="ia-aba-intro">{{ 'inteligencia.documentos.intro'|trans }}</p>
+<div class="ia-docs" role="group" aria-label="{{ 'inteligencia.documentos.grupo'|trans }}" data-ia-docs>
     {% if documentos is null %}
-        <p class="ia-ag-vazio ia-docs-aviso" data-ia-docs-carregando>Carregando os documentos…</p>
+        <p class="ia-ag-vazio ia-docs-aviso" data-ia-docs-carregando>{{ 'inteligencia.documentos.carregando'|trans }}</p>
     {% elseif documentos.vazia %}
-        <p class="ia-ag-vazio ia-docs-aviso" data-ia-docs-vazio>Nenhum documento nesta pasta.</p>
+        <p class="ia-ag-vazio ia-docs-aviso" data-ia-docs-vazio>{{ 'inteligencia.documentos.vazio'|trans }}</p>
     {% else %}
         <button type="button" class="ia-doc ia-doc--todos" data-ia-docs-todos aria-pressed="false">
             <span class="ia-doc-check" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
-            <span class="ia-doc-todos-rotulo">Selecionar todos</span>
-            <span class="ia-doc-contagem" data-ia-docs-contagem data-ia-docs-total="{{ documentos.total }}">0 de {{ documentos.total }}</span>
+            <span class="ia-doc-todos-rotulo">{{ 'inteligencia.documentos.selecionar_todos'|trans }}</span>
+            <span class="ia-doc-contagem" data-ia-docs-contagem data-ia-docs-total="{{ documentos.total }}">{{ 'inteligencia.documentos.contagem'|trans({total: documentos.total ~ ''}) }}</span>
         </button>
         <div class="ia-docs-divisoria" aria-hidden="true"></div>
         {% for d in documentos.documentos %}

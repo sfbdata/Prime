@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Unit;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote P13, lido como FOLHA (não há navegador no PHPUnit): o CSS de N10/N11 e o JS das duas
@@ -98,7 +99,8 @@ final class PastaFidelidadeRestanteFolhaTest extends TestCase
         self::assertStringContainsString(".querySelector('.obs-conteudo-det .ql-editor')", $copiar);
         self::assertStringContainsString('corpo.innerText.trim()', $copiar, 'texto da tela, sem a marcação do editor');
         self::assertStringContainsString('navigator.clipboard.writeText(texto)', $copiar);
-        self::assertStringContainsString("avisar('Texto copiado')", $copiar);
+        self::assertStringContainsString("avisar(BJ_T.t('pasta_detalhes.js.texto_copiado'))", $copiar);
+        self::assertSame('Texto copiado', Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js']['texto_copiado']);
         self::assertStringContainsString("e.target.closest('.js-obs-copiar')", $fonte);
         self::assertStringContainsString("e.target.closest('.js-obs-menu')", $fonte);
     }
