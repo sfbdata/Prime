@@ -3523,6 +3523,99 @@ comercial:
         dsc_confirmar_excluir: 'Excluir {email} da lista de descadastrados? Ele volta a poder receber e-mails. Faça isso só se o próprio contato pediu (LGPD).'
         dsc_registrar_pergunta: 'E-mail que pediu para não receber (por telefone, WhatsApp etc.):'
 
+# ---- Parciais comuns (_partials/_avatar_usuario, _filtro_barra, _filtro_paginacao, _janela_confirmacao,
+# modal_access_request, modal_mover_marcador, modal_nova_pasta; filtro-tabela.js, pasta-dialogos.js). O JS lê comum.js,
+# entregue pelo base para qualquer tela.
+comum:
+    cancelar: Cancelar
+    salvar: Salvar
+    fechar: Fechar
+    excluir: Excluir
+    filtro:
+        busca: Busca
+        buscar: Buscar…
+        filtrar_por: 'Filtrar por {rotulo}'
+        abrir_calendario: Abrir calendário
+    paginacao:
+        rotulo: Paginação
+        anterior: Página anterior
+        proxima: Próxima página
+    acesso:
+        titulo: Solicitar Acesso
+        explicacao: Você não tem permissão para acessar este item. Descreva o motivo da sua solicitação para que o administrador possa avaliá-la.
+        motivo: Motivo da solicitação
+        motivo_placeholder: Descreva por que você precisa acessar este item...
+        enviar: Enviar Solicitação
+    nova_pasta:
+        titulo: Nova Pasta
+        numero_automatico: O número da pasta é gerado automaticamente pelo sistema.
+        nome_cliente: Nome do cliente
+        nome_acao: Nome da Ação
+        cliente_placeholder: Digite o nome do cliente
+        acao_placeholder: Informe primeiro o nome do cliente
+    mover_marcador:
+        titulo: Marcadores da pasta
+        buscar: Buscar marcador…
+        limpar_busca: Limpar busca
+        nenhum_criado: Nenhum marcador criado ainda.
+    js:
+        fechar: Fechar
+        # filtro-tabela.js
+        filtro:
+            busca: Busca
+            remover: Remover
+            limpar_tudo: Limpar tudo
+        # modal_access_request (script inline)
+        acesso:
+            acao_visualizar: visualizar
+            acao_editar: editar
+            acao_excluir: excluir
+            recurso_cliente: cliente
+            descricao_padrao: 'Solicito {acao} o {recurso}{identificador}.'
+            enviando: Enviando...
+            enviar: Enviar Solicitação
+            descreva_motivo: Por favor, descreva o motivo da solicitação.
+            enviada: Solicitação enviada.
+            erro_enviar: Erro ao enviar solicitação. Tente novamente.
+        # modal_nova_pasta (script inline)
+        nova_pasta:
+            erro_criar: Não foi possível criar a pasta.
+            erro_conexao: Falha de conexão ao criar a pasta. Tente de novo.
+        # modal_mover_marcador (script inline)
+        mover_marcador:
+            selecionado: '{n} selecionado'
+            selecionados: '{n} selecionados'
+            nenhum_encontrado: 'Nenhum marcador encontrado para "{busca}".'
+            nenhum_criado: Nenhum marcador criado ainda.
+            criar: 'Criar marcador "{nome}"'
+            resposta_invalida: Resposta inválida do servidor.
+            erro_criar: Não foi possível criar o marcador.
+            erro_salvar: Erro ao salvar.
+            erro_comunicacao: Erro de comunicação.
+        # pasta-dialogos.js (janela de confirmação, responsáveis e calendário da Nova meta)
+        dialogos:
+            remover: Remover
+            remover_nome: 'Remover {nome}'
+            data_vazia: dd/mm/aaaa
+            mes_ano: '{mes} de {ano}'
+            dia_indisponivel: '{dia}, indisponível'
+            confirmar: Confirmar
+            excluir: Excluir
+            confirmar_exclusao: Confirmar exclusão
+            mes:
+                janeiro: janeiro
+                fevereiro: fevereiro
+                marco: março
+                abril: abril
+                maio: maio
+                junho: junho
+                julho: julho
+                agosto: agosto
+                setembro: setembro
+                outubro: outubro
+                novembro: novembro
+                dezembro: dezembro
+
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro
 # ('perfis.x'|trans({papel: 'termos.master'|trans})).
