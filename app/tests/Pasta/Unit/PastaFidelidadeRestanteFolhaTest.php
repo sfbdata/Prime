@@ -164,7 +164,8 @@ final class PastaFidelidadeRestanteFolhaTest extends TestCase
         $trilho = self::ler(__DIR__ . '/../../../templates/pasta/_dados_trilho.html.twig');
         self::assertStringContainsString('<div id="clientesPlaceholder" class="ps-vazio">', $trilho);
         self::assertStringContainsString('<div id="clientesPlaceholder" class="ps-cliente">', $trilho);
-        self::assertStringContainsString('<div class="ps-vazio-titulo">Nenhum cliente vinculado</div>', $trilho);
+        self::assertStringContainsString('<div class="ps-vazio-titulo">{{ \'pasta_cabecalho.trilho.clientes.nenhum\'|trans }}</div>', $trilho);
+        self::assertSame('Nenhum cliente vinculado', Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_cabecalho']['trilho']['clientes']['nenhum']);
     }
 
     #[TestDox('(b) trocar o principal pela estrela move o selo "Principal" e a linha para o bloco do principal')]

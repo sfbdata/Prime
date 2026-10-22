@@ -54,16 +54,23 @@ final class PastaJanelasRestantesTelaTest extends JusPrimeWebTestCase
         $client          = static::createClient();
         [$user, $tenant] = $this->criarAdmin();
         $pasta           = $this->criarPasta($tenant);
+        $pasta->setNomeCliente('Fulano de Tal');
+        $this->em()->flush();
 
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/pasta/' . $pasta->getId());
         self::assertResponseIsSuccessful();
 
-        $onsubmit = (string) $crawler->filter('#psMenuAcoes > form.js-excluir-pasta')->attr('onsubmit');
+        // Os textos vêm do catálogo escapados para JS (`|e('js')`): desfaz o `\uXXXX` para ler a frase.
+        $onsubmit = (string) preg_replace_callback(
+            '/\\\\u([0-9A-Fa-f]{4})/',
+            static fn (array $m): string => (string) mb_chr((int) hexdec($m[1]), 'UTF-8'),
+            (string) $crawler->filter('#psMenuAcoes > form.js-excluir-pasta')->attr('onsubmit'),
+        );
         self::assertStringContainsString("window.avisarPs('Número não confere. A pasta não foi excluída.');", $onsubmit);
         self::assertStringNotContainsString('alert(', $onsubmit);
         // C7-PAS-03: "Excluir a pasta N (cliente)?" como o desenho (dc L.4336)
-        self::assertStringContainsString("'Excluir a pasta ' + n + (c ? ' (' + c + ')' : '') + '?", $onsubmit);
+        self::assertStringContainsString("window.prompt('Excluir a pasta " . $pasta->getNup() . ' (FULANO DE TAL)?\\nA exclusão fica registrada no histórico.\\n\\nPara confirmar, digite o número da pasta:\')', $onsubmit);
         self::assertSame((string) $pasta->getNomeCliente(), $crawler->filter('#psMenuAcoes > form.js-excluir-pasta')->attr('data-cliente'));
 
         self::assertCount(1, $crawler->filter('#psAviso.ps-aviso'));

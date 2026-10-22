@@ -8709,4 +8709,207 @@ pasta_dados:
         selo_push_dobro: 'prazo calculado, confira; pode ser prazo em dobro'
         selo_push_dobro_dica: 'A parte parece ser Fazenda Pública, Ministério Público ou Defensoria Pública. O prazo foi contado simples: confira se vale em dobro (CPC, arts. 180, 183 e 186). Também não considera feriado municipal ou da comarca nem suspensão de expediente do tribunal.'
 
+# ---- Pasta: cabeçalho e trilho da aba Dados (pasta/_cabecalho, _dados_trilho, _dados_trilho_topo)
+pasta_cabecalho:
+    cabecalho:
+        voltar: Voltar
+        voltar_dica: Voltar à lista de pastas
+        pasta: PASTA
+        prioridade:
+            alterar: Alterar prioridade
+            dica: Prioridade
+            normal: Normal
+            prioridade: Prioridade
+            urgente: Urgente
+        marcadores_editar: Editar marcadores da pasta
+        marcadores: Marcadores da pasta
+        navegar: Navegar entre pastas do acervo
+        posicao: '{posicao} de {total}'
+        restaurar: Restaurar
+        restaurar_dica: Restaurar pasta excluída
+        historico: Histórico
+        historico_sistema: Histórico do sistema
+        menu:
+            mais_acoes: Mais ações
+            tarja: 'Pasta {nup}'
+            editar: Editar dados
+            editar_dica: Editar dados (E)
+            historico_dica: Histórico (H)
+            timeline: Timeline inteligente
+            timeline_dica: Timeline inteligente (T)
+            duplicar: Duplicar pasta
+            duplicar_confirmar: 'Duplicar a pasta {nup}? A cópia leva cliente, ação, responsável e checklist; documentos, metas e financeiro não são copiados.'
+            vincular_processo: Vincular processo
+            trocar_responsavel: Trocar responsável
+            compartilhar: Compartilhar
+            copiar_link: Copiar link da pasta
+            link_push: Link externo do Push
+            imprimir: Imprimir resumo
+            preferencias: Preferências
+            favoritos: Fixar nos favoritos
+            arquivar: Arquivar pasta
+            desarquivar: Desarquivar pasta
+            excluir: Excluir pasta
+            excluir_pergunta: 'Excluir a pasta {nup}?'
+            excluir_pergunta_cliente: 'Excluir a pasta {nup} ({cliente})?'
+            excluir_registro: A exclusão fica registrada no histórico.
+            excluir_digite: 'Para confirmar, digite o número da pasta:'
+            excluir_nao_confere: Número não confere. A pasta não foi excluída.
+        excluida:
+            titulo: Pasta excluída
+            quando: 'em {data} às {hora}.'
+            quando_por: 'em {data} às {hora} por {nome}.'
+            motivo: 'Ela continua aqui porque o número {nup} não pode ser reaproveitado: já existem pastas posteriores. Somente leitura até ser restaurada.'
+        cliente_nao_informado: Cliente não informado
+        movimentacao:
+            dica: 'Última movimentação: {quando}'
+            hoje: 'Movimentado hoje, {hora}'
+            em: 'Movimentado em {data}'
+        nao_vinculado: não vinculado ao cadastro de clientes
+        dica_cliente: 'Detalhes: clique com o botão direito'
+        ia_dica: 'BlueJus IA: análises desta pasta por agente'
+        selo:
+            arquivado: ARQUIVADO
+            suspenso: SUSPENSO
+            cancelado: CANCELADO
+            ativo: ATIVO
+            aria_arquivado: Pasta arquivada
+            aria_suspenso: Pasta suspensa
+            aria_cancelado: Pasta cancelada
+            aria_ativo: Pasta ativa
+        cadeado: Cadeado da pasta
+        abas:
+            dados: Dados da pasta
+            tarefas: Metas
+            processo: Processo
+            financeiro: Financeiro
+            detalhes: Detalhes
+            documentos: Documentos
+            push: Push Processual
+        cadastro:
+            rotulo: Cadastro
+            completo: Cadastro completo · abrir qualificação do cliente
+            incompleto_um: 'Cadastro incompleto: {n} pendência · clique para completar'
+            incompleto_varios: 'Cadastro incompleto: {n} pendências · clique para completar'
+            sem_cliente: Sem cliente cadastrado · clique para cadastrar
+        situacao:
+            titulo: Situação da pasta
+            dica: 'Situação da pasta: {situacao}'
+            ativo: Ativo
+            suspenso: Suspenso
+            cancelado: Cancelado
+            arquivado: Arquivado
+            desc_ativo: Pasta em andamento
+            desc_suspenso: Pausada temporariamente
+            desc_cancelado: Encerrada sem conclusão
+            desc_arquivado: Sai das listas de trabalho
+    topo:
+        acao: Ação
+        extraido_dica: Extraído do processo vinculado
+        nao_informada: Não informada
+        vincule: Vincule um processo para definir
+        processo_vinculado: Processo vinculado
+        abrir_processo: Abrir processo
+        copiar: Copiar
+        ir_aba_processo: Ir à aba Processo
+        trocar: trocar
+        apensados_ver: Ver processos apensados
+        apensados_recolher: Recolher processos apensados
+        apensado_um: '{n} apensado'
+        apensado_varios: '{n} apensados'
+        apensado_tipo: 'Apensado · {tipo}'
+        abrir_apensado: Abrir processo apensado
+        nenhum_processo: Nenhum processo.
+        vincular: vincular
+        cobranca: Cobrança
+        abrir_cobrada: Abrir a unidade cobrada
+    trilho:
+        prazos:
+            titulo: Próximos prazos
+            adicionar: Adicionar prazo ou audiência
+            abrir_metas: Abrir metas em aberto
+            vazio: Nenhum prazo ou audiência. Use + para registrar ou aguarde a leitura do Push processual.
+            mais_opcoes: Mais opções
+            mais_opcoes_rotulo: Mais opções do prazo
+            cumprir: Marcar como cumprido
+            editar: Editar
+            excluir: Excluir
+            ver_metas: Ver nas metas
+            encaminhar: Encaminhar via Chat I.A
+            alertar: 'Alertar {nome}'
+            alertar_dica: 'Alertar {nome} para verificar a meta'
+            ics: Adicionar à agenda (.ics)
+            copiar: Copiar
+            copiar_texto: '{titulo} · {selo} · {meta} · Pasta {nup}'
+            copiado: Prazo copiado
+        janela:
+            novo: Novo prazo ou audiência
+            fechar: Fechar
+            tipo: Tipo
+            prazo: Prazo
+            audiencia: Audiência
+            descricao: DESCRIÇÃO
+            descricao_exemplo: 'Ex.: Protocolar contestação'
+            data: DATA
+            hora: HORA
+            opcional: (opcional)
+            responsavel: RESPONSÁVEL
+            responsavel_exemplo: Nome do responsável
+            nota: Prazos do Push processual e das Metas entram sozinhos nesta lista.
+            cancelar: Cancelar
+            salvar: Salvar
+        clientes:
+            titulo: Clientes
+            vincular: Vincular cliente
+            busca: Nome ou CPF do cliente
+            busca_rotulo: Buscar cliente por nome ou CPF
+            encontrados: Clientes encontrados
+            nao_cadastrado: Cliente ainda não cadastrado.
+            cadastrar: Cadastrar cliente
+            nao_vinculado: não vinculado
+            nenhum: Nenhum cliente vinculado
+            nenhum_nota: Vincule o cliente para calcular a média por CPF.
+        documentos:
+            titulo: Documentos
+            abrir_todos: Abrir todos os documentos
+            nenhum: Nenhum documento
+            nenhum_nota: Envie arquivos pela aba Documentos.
+    js:
+        cabecalho:
+            restaurar_pergunta: 'Restaurar a pasta {nup}?'
+            restaurar: Restaurar
+            favoritos_erro: Não foi possível alterar os favoritos.
+            erro_comunicacao: Erro de comunicação. Tente novamente.
+        prazos:
+            titulo_novo: Novo prazo ou audiência
+            titulo_editar: Editar prazo
+            informe: Informe a descrição e a data
+            erro_salvar: Não foi possível salvar
+            registrado: Prazo registrado
+            falha_conexao: Falha de conexão. Tente de novo.
+            erro_alterar: Não foi possível alterar o prazo
+        clientes:
+            copiar_erro: Não foi possível copiar
+            sem_data: Prazo sem data
+            ics_resumo: '{titulo} (Pasta {pasta})'
+            ics_responsavel: 'Responsável: {nome}'
+            detalhes_erro: Não foi possível abrir os detalhes do cliente
+            telefone: Telefone com DDD
+            email: E-mail
+            salvar: Salvar
+            remover: Remover
+            cancelar: Cancelar
+            sessao_expirada: Sua sessão expirou; recarregue a página
+            email_obrigatorio: O e-mail é obrigatório no cadastro
+            contato_erro: Não foi possível salvar o contato
+            contato_removido: Contato removido
+            contato_salvo: Contato salvo
+        busca:
+            selo_completo: Completo
+            selo_incompleto: Incompleto
+            selo_ja_vinculado: Já vinculado
+            documento: Documento
+            erro_busca: Não foi possível buscar agora. Tente de novo.
+            erro_vincular: Não foi possível vincular o cliente.
+
 # ---- fim
