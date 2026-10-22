@@ -118,6 +118,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // Marcas do Relatório (comercial-marcas.md): estrela, arquivo e "remover" de cada Master, só organizam a lista
         // dele e não mudam campanha nem envio. O que importa já tem trilha manual (camp_csv na exportação).
         \App\Comercial\Entity\CampanhaMarca::class,
+        // Imagem da campanha do modo simples (comercial-e-emails.md §12, F3i): a própria linha diz quem enviou e quando, e
+        // a validade é renovada pelo worker, sem sessão (não há autor).
+        \App\Comercial\Entity\ImagemDaCampanha::class,
         // E-mails do cliente do "Avisar cliente" (push-avisar-cliente §1): dado pessoal que acompanha a decisão
         // do Cliente (não auditado). Auditar copiaria cada endereço para o audit_log, onde ele ficaria mesmo
         // depois de o escritório removê-lo; o cadastro já fica no histórico de envios da pasta.

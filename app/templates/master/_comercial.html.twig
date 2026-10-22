@@ -48,7 +48,8 @@
              data-url-previa="{{ path('master_comercial_previa_campanha') }}"
              data-url-teste="{{ path('master_comercial_teste') }}"
              data-url-contagem="{{ path('master_comercial_publicos_contagem') }}"
-             data-url-campanha="{{ path('master_comercial_campanha_confirmar') }}"{% if venda %}
+             data-url-campanha="{{ path('master_comercial_campanha_confirmar') }}"
+             data-url-imagem="{{ path('master_comercial_imagem_enviar') }}"{% if venda %}
              data-url-contatos="{{ path('master_comercial_contatos_cadastrar') }}"{% endif %}>
         <div class="mc-cabeca mc-cp-cabeca">
             <i class="bi bi-megaphone mc-cp-cabeca-ic" aria-hidden="true"></i>
@@ -157,8 +158,13 @@
                 <label class="mc-cp-campo" data-mc-cp-so-proprio hidden>{{ 'comercial.campanha.nome_modelo'|trans }}<input type="text" class="mc-cp-entrada" data-mc-cp-campo="nome" maxlength="40"></label>
                 <div class="mc-cp-modo" data-mc-cp-simples>
                     <label class="mc-cp-campo">{{ 'comercial.campanha.texto'|trans }} <span class="mc-cp-dica">{{ 'comercial.campanha.texto_dica'|trans }}</span><textarea class="mc-cp-texto" rows="5" data-mc-cp-campo="corpo"></textarea></label>
-                    {# dc 21.10 L274: os emojis que entram no fim do texto. A imagem do mesmo trecho está com o dono (spec §10). #}
-                    <div class="mc-cp-emojis"><span class="mc-cp-emojis-rot">{{ 'comercial.campanha.inserir'|trans }}</span>
+                    {# dc 21.10 L274: na mesma linha, a imagem (F3i, spec §12: "Adicionar imagem", que vira "Trocar imagem", e o
+                       "Remover") e os emojis que entram no fim do texto. O navegador reduz e converte; o servidor confere e regrava. #}
+                    <div class="mc-cp-emojis">
+                        <label class="mc-cp-img"><i class="bi bi-image" aria-hidden="true"></i><span data-mc-cp-img-txt>{{ 'comercial.campanha.imagem_adicionar'|trans }}</span><input type="file" accept="image/jpeg,image/png" class="mc-cp-arquivo" data-mc-cp-img-arquivo></label>
+                        <button type="button" class="mc-cp-img-rm" data-mc-cp-img-rm title="{{ 'comercial.campanha.imagem_remover_dica'|trans }}" hidden><i class="bi bi-x-circle" aria-hidden="true"></i> {{ 'comercial.campanha.imagem_remover'|trans }}</button>
+                        <span class="mc-cp-emojis-sep" aria-hidden="true"></span>
+                        <span class="mc-cp-emojis-rot">{{ 'comercial.campanha.inserir'|trans }}</span>
                         {% for e in [['⚖️', 'comercial.campanha.emoji.balanca'|trans], ['📅', 'comercial.campanha.emoji.agenda'|trans], ['✅', 'comercial.campanha.emoji.confirmado'|trans], ['📌', 'comercial.campanha.emoji.destaque'|trans], ['🎉', 'comercial.campanha.emoji.comemoracao'|trans], ['💼', 'comercial.campanha.emoji.trabalho'|trans], ['📈', 'comercial.campanha.emoji.crescimento'|trans], ['🔒', 'comercial.campanha.emoji.seguranca'|trans], ['👉', 'comercial.campanha.emoji.indicacao'|trans], ['🙏', 'comercial.campanha.emoji.agradecimento'|trans]] %}
                             <button type="button" class="mc-cp-emoji" data-mc-cp-emoji="{{ e[0] }}" title="{{ e[1] }}" aria-label="{{ e[1] }}">{{ e[0] }}</button>
                         {% endfor %}
