@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tarefa\UseCase;
 
 use App\Entity\Auth\User;
+use App\Entity\Notificacao;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
@@ -23,15 +24,17 @@ use App\Tarefa\Service\SorteioDeCodigoDoDespacho;
 use App\Tarefa\Service\TextoDoDespacho;
 use App\Tarefa\Service\TransacaoDoDespacho;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Despachar na meta (desenho 04B de 22/10, L57-66 e L145; spec `minhas-metas-esteira-2210.md`, Fase 2a).
  *
  * Quem tem acesso à meta escreve um despacho (texto ou anexo) e, junto, pode "Enviar para revisão" (pendente para em
- * revisão, avisa o criador). Devolver tem modal próprio desde a Fase 3 ({@see DevolverMetaUseCase}). Cada despacho gravado recebe o código do registro (D1, C13), sorteado e único no escritório,
+ * revisão, avisa o criador). O despacho do criador na meta em revisão a devolve para pendente e avisa os responsáveis
+ * (decisão do dono, 22/10); o "Devolver para X" do responsável é o modal da Fase 3 ({@see DevolverMetaUseCase}). Cada despacho gravado recebe o código do registro (D1, C13), sorteado e único no escritório,
  * com o nome e o cargo de quem despachou congelados no registro.
  *
- * A mensagem guarda a ação que de fato aconteceu (despacho ou envio, L127). Natureza e prazo de
+ * A mensagem guarda a ação que de fato aconteceu (despacho, envio ou devolução, L127). Natureza e prazo de
  * cumprimento valem para despacho e devolução. O envio para revisão do desenho (L146) não leva nenhum dos dois: o
  * prazo padrão, sempre preenchido na tela, viraria um "Cumprir até" na mensagem de quem entrega o trabalho. Enviar
  * para revisão sem texto grava "Meta enviada para revisão do autor." (L146), e o aviso ao autor é o de sempre.
@@ -68,6 +71,7 @@ final class DespacharNaMetaUseCase
         private readonly ResolucaoDeMencoesDoRegistro $mencoes,
         private readonly AnexoDoDespacho $anexos,
         private readonly TransacaoDoDespacho $transacao,
+        private readonly UrlGeneratorInterface $urls,
     ) {
     }
 
@@ -101,19 +105,16 @@ final class DespacharNaMetaUseCase
      *
      * @param \ArrayObject<int, ChaveDeArquivo> $gravados
      *
-     * @return array{0: ?TarefaMensagem, 1: bool}
+     * @return array{0: ?TarefaMensagem, 1: bool} o despacho e se foi enviada para revisão
      */
     private function gravar(Tarefa $meta, User $autor, Tenant $escritorio, DespacharNaMetaInput $input, ?UploadedFile $anexo, \ArrayObject $gravados): array
     {
         $documento = $anexo === null ? null : $this->juntar($meta, $anexo, $autor, $escritorio, $gravados);
-        $enviada = $input->acao === 'enviar' && $meta->getStatus() === Tarefa::STATUS_PENDENTE;
-        if ($enviada) {
-            $meta->setStatus(Tarefa::STATUS_EM_REVISAO);
-        }
+        $acao = $this->mudarStatus($meta, $autor, $input, $documento !== null);
         $despacho = null;
         $mencionados = [];
-        if ($input->texto !== '' || $documento !== null || $enviada) {
-            [$despacho, $mencionados] = $this->registrar($meta, $autor, $escritorio, $input, $enviada ? AcaoDoDespacho::Envio : AcaoDoDespacho::Despacho, $documento);
+        if ($input->texto !== '' || $documento !== null || $acao === AcaoDoDespacho::Envio) {
+            [$despacho, $mencionados] = $this->registrar($meta, $autor, $escritorio, $input, $acao, $documento);
         }
         $this->mensagens->confirmar();
         if ($despacho !== null) {
@@ -123,8 +124,48 @@ final class DespacharNaMetaUseCase
             $this->mencoes->notificarNoDespacho($mencionados, $despacho, $meta, $autor, $escritorio);
             $this->mensagens->confirmar();
         }
+        if ($acao === AcaoDoDespacho::Devolucao) {
+            $this->avisarDevolucao($meta, $autor, $escritorio);
+        }
 
-        return [$despacho, $enviada];
+        return [$despacho, $acao === AcaoDoDespacho::Envio];
+    }
+
+    /**
+     * O ciclo de vida junto do despacho: "Enviar para revisão" leva a pendente para em revisão; o despacho do criador
+     * (texto ou anexo) na meta em revisão a devolve para pendente (decisão do dono, 22/10). O de outra pessoa só
+     * registra.
+     */
+    private function mudarStatus(Tarefa $meta, User $autor, DespacharNaMetaInput $input, bool $temAnexo): AcaoDoDespacho
+    {
+        if ($input->acao === 'enviar' && $meta->getStatus() === Tarefa::STATUS_PENDENTE) {
+            $meta->setStatus(Tarefa::STATUS_EM_REVISAO);
+
+            return AcaoDoDespacho::Envio;
+        }
+        $doCriador = $meta->getCriadoPor() !== null && $meta->getCriadoPor()->getId() === $autor->getId();
+        if ($doCriador && $meta->getStatus() === Tarefa::STATUS_EM_REVISAO && ($input->texto !== '' || $temAnexo)) {
+            $meta->setStatus(Tarefa::STATUS_PENDENTE);
+
+            return AcaoDoDespacho::Devolucao;
+        }
+
+        return AcaoDoDespacho::Despacho;
+    }
+
+    /** Avisa os responsáveis da devolução (tipo "tarefa pendente", como o Devolver da Fase 3), nunca o próprio autor. */
+    private function avisarDevolucao(Tarefa $meta, User $autor, Tenant $escritorio): void
+    {
+        $titulo = sprintf('Meta devolvida · Pasta %s', $meta->getPasta()->getNup() ?? '#' . $meta->getPasta()->getId());
+        $texto = sprintf('%s devolveu "%s".', mb_convert_case(trim((string) ($autor->getFullName() ?? $autor->getEmail())), MB_CASE_TITLE), $meta->getTitulo());
+        foreach ($meta->getResponsaveis() as $pessoa) {
+            if ($pessoa->getId() === $autor->getId() || !$this->vinculos->existeVinculoAtivo($pessoa, $escritorio) || !$this->notificacoes->veAPastaDaMeta($meta, $pessoa)) {
+                continue;
+            }
+            $this->notificacoes->criar($pessoa, $escritorio, Notificacao::TIPO_TAREFA_PENDENTE, $titulo, $texto, $meta)
+                ->setUrl($this->urls->generate('tarefa_show', ['id' => $meta->getId()]));
+        }
+        $this->mensagens->confirmar();
     }
 
     /** @param \ArrayObject<int, ChaveDeArquivo> $gravados */

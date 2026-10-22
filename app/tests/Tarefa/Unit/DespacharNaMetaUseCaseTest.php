@@ -34,6 +34,7 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 #[CoversClass(DespacharNaMetaUseCase::class)]
@@ -406,6 +407,46 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         self::assertSame(AcaoDoDespacho::Despacho, $this->unicoDespacho()->getAcao());
     }
 
+    #[TestDox('Em revisão, o despacho do criador devolve a meta para pendente e avisa os responsáveis, não o autor')]
+    public function testDespachoDoCriadorEmRevisaoDevolve(): void
+    {
+        $responsavel = self::comId((new User())->setFullName('Rui Prado'), 2);
+        $this->meta->setCriadoPor($this->autor)->setStatus(Tarefa::STATUS_EM_REVISAO);
+        $this->meta->addResponsavel($responsavel)->addResponsavel($this->autor);
+        $this->sorteio->method('sortear')->willReturn('1234.5678');
+        $this->codigosOcupados();
+        $avisados = [];
+        $this->notificacoes->method('veAPastaDaMeta')->willReturn(true);
+        $this->notificacoes->expects(self::once())->method('criar')->willReturnCallback(function (User $u, Tenant $t, string $tipo, string $titulo) use (&$avisados): Notificacao {
+            $avisados[] = [$u, $tipo, $titulo];
+
+            return new Notificacao();
+        });
+
+        $saida = $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Para providência: falta a procuração.', '', 'providencia'));
+
+        self::assertFalse($saida->enviada);
+        self::assertSame('1234.5678', $saida->codigo);
+        self::assertSame(Tarefa::STATUS_PENDENTE, $this->meta->getStatus());
+        self::assertSame(AcaoDoDespacho::Devolucao, $this->unicoDespacho()->getAcao());
+        self::assertSame(NaturezaDoDespacho::Providencia, $this->unicoDespacho()->getNatureza());
+        self::assertSame([[$responsavel, Notificacao::TIPO_TAREFA_PENDENTE, 'Meta devolvida · Pasta 2026.0042']], $avisados);
+    }
+
+    #[TestDox('Em revisão, o despacho de um terceiro só registra: o status não muda e ninguém é avisado da devolução')]
+    public function testDespachoDeTerceiroEmRevisaoSoRegistra(): void
+    {
+        $this->meta->setCriadoPor(self::comId((new User())->setFullName('Criador'), 5))->setStatus(Tarefa::STATUS_EM_REVISAO);
+        $this->sorteio->method('sortear')->willReturn('1234.5678');
+        $this->codigosOcupados();
+        $this->notificacoes->expects(self::never())->method('criar');
+
+        $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('Comentário.'));
+
+        self::assertSame(Tarefa::STATUS_EM_REVISAO, $this->meta->getStatus());
+        self::assertSame(AcaoDoDespacho::Despacho, $this->unicoDespacho()->getAcao());
+    }
+
     #[TestDox('Meta de outro escritório: recusa, nada gravado')]
     public function testOutroEscritorio(): void
     {
@@ -420,6 +461,9 @@ final class DespacharNaMetaUseCaseTest extends TestCase
     {
         $vinculos = $this->createStub(UserTenantRepository::class);
         $vinculos->method('findPorUserETenant')->willReturn((new UserTenant($this->autor, $this->escritorio))->setCargo((new Cargo())->setNome('Advogada')));
+        $vinculos->method('existeVinculoAtivo')->willReturn(true);
+        $urls = $this->createStub(UrlGeneratorInterface::class);
+        $urls->method('generate')->willReturnCallback(static fn (string $rota, array $p = []): string => '/tarefas/' . $p['id']);
 
         return new DespacharNaMetaUseCase(
             $this->mensagens,
@@ -430,6 +474,7 @@ final class DespacharNaMetaUseCaseTest extends TestCase
             $this->resolucao,
             $this->anexos,
             $this->transacao,
+            $urls,
         );
     }
 
