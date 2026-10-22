@@ -989,7 +989,8 @@ class PastaRepository extends ServiceEntityRepository
      * - aud: audiência registrada na pasta, não cumprida, de hoje em diante.
      * - protocolar: pasta ativa, não administrativa, que ainda não passou pela fase Protocolo do andamento.
      * Prazo = meta com prazo ou linha do `pasta_prazo` de qualquer origem: registrado à mão, lido dos registros ou
-     * calculado do Push processual (origem `push`, docs/specs/prazo-do-push.md), todos pelo mesmo caminho.
+     * calculado do Push processual (origem `push`, docs/specs/prazo-do-push.md), todos pelo mesmo caminho. Como
+     * ATIVIDADE (resp10 e o "depois da data" do findou), a linha do Push não conta: é publicação do juízo, não resposta.
      */
     private function aplicarFiltroDoExpediente(QueryBuilder $qb, string $filtro): void
     {
@@ -1003,7 +1004,7 @@ class PastaRepository extends ServiceEntityRepository
             . ' OR EXISTS (SELECT 1 FROM %3$s of_%6$s WHERE of_%6$s.pasta = p AND of_%6$s.criadaEm > %7$s)'
             . ' OR EXISTS (SELECT 1 FROM %4$s t_%6$s WHERE t_%6$s.pasta = p AND (t_%6$s.dataCriacao > %7$s OR t_%6$s.dataConclusao > %7$s))'
             . ' OR EXISTS (SELECT 1 FROM %5$s tm_%6$s JOIN tm_%6$s.tarefa tt_%6$s WHERE tt_%6$s.pasta = p AND tm_%6$s.criadoEm > %7$s)'
-            . ' OR EXISTS (SELECT 1 FROM %8$s zp_%6$s WHERE zp_%6$s.pasta = p AND (zp_%6$s.criadoEm > %7$s OR zp_%6$s.cumpridoEm > %7$s)))',
+            . ' OR EXISTS (SELECT 1 FROM %8$s zp_%6$s WHERE zp_%6$s.pasta = p AND zp_%6$s.origem <> \'%9$s\' AND (zp_%6$s.criadoEm > %7$s OR zp_%6$s.cumpridoEm > %7$s)))',
             PastaMensagem::class,
             PastaObservacaoDetalhes::class,
             PastaObservacaoFinanceira::class,
@@ -1012,6 +1013,7 @@ class PastaRepository extends ServiceEntityRepository
             $sufixo,
             $limite,
             PastaPrazo::class,
+            PastaPrazo::ORIGEM_PUSH, // a publicação do juízo não é resposta do escritório
         );
 
         switch ($filtro) {

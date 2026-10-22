@@ -97,6 +97,45 @@ final class PrazoDoPushNaTelaTest extends JusPrimeWebTestCase
         self::assertStringContainsString($vencido->getNup(), $this->painel('?expediente=findou'));
     }
 
+    #[TestDox('outra publicação do Push depois da data não é resposta: o prazo do Push vencido continua em "findou"')]
+    public function testPublicacaoDepoisNaoTiraDoFindou(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant, 'FIND');
+        $this->prazoDoPush($tenant, $pasta, PastaPrazo::TIPO_PRAZO, $this->dia('-3 days'), $this->dia('-20 days'));
+        $this->prazoDoPush($tenant, $pasta, PastaPrazo::TIPO_PRAZO, $this->dia('+10 days'), $this->dia('-1 day'));
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        self::assertStringContainsString($pasta->getNup(), $this->painel('?expediente=findou'));
+    }
+
+    #[TestDox('a pasta só com prazo do Push não entra em "Respondidos nos últimos 10 dias"')]
+    public function testPushNaoERespostaEmResp10(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant, 'R10');
+        $this->prazoDoPush($tenant, $pasta, PastaPrazo::TIPO_PRAZO, $this->dia('+5 days'), $this->dia('-2 days'));
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        self::assertStringNotContainsString($pasta->getNup(), $this->painel('?expediente=resp10'));
+    }
+
+    #[TestDox('o prazo manual criado depois da data continua contando como atividade: tira do "findou" e entra em "Respondidos"')]
+    public function testManualDepoisContinuaSendoAtividade(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant, 'MAN');
+        $this->prazoDoPush($tenant, $pasta, PastaPrazo::TIPO_PRAZO, $this->dia('-3 days'), $this->dia('-20 days'));
+        $manual = new PastaPrazo($tenant, $pasta, $user);
+        $manual->definir(PastaPrazo::TIPO_PRAZO, 'Prazo do cliente', $this->dia('+5 days'), null, null);
+        $this->em()->persist($manual);
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        self::assertStringNotContainsString($pasta->getNup(), $this->painel('?expediente=findou'));
+        self::assertStringContainsString($pasta->getNup(), $this->painel('?expediente=resp10'));
+    }
+
     #[TestDox('a audiência lida do Push entra no filtro Audiência')]
     public function testFiltroAudiencia(): void
     {
