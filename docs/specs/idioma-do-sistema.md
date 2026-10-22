@@ -745,3 +745,43 @@ antes e depois, sem diferença; o texto dos scripts foi conferido chave por chav
 - **Ficou para depois:** o estado "Sem OAB" do chip não apareceu na foto (a fila só lista inscrições, que sempre têm
   status); a chave existe e a troca é a mesma das outras três. O `pasta/peticionar.html.twig` (o conteúdo do Peticionar) e os outros templates que
   incluem estes quatro ficam para a extração das áreas deles.
+
+## 20. O resto da Pasta (0d, 21/10)
+
+A extração da Pasta foi dividida em lotes por área da tela; cada subseção registra o escopo, a prova e o que ficou de fora.
+
+### 20.4 Documentos, metas e anotações
+
+- **Escopo:** os parciais `pasta/_documentos_checklist`, `_documentos_explorador`, `_documentos_sugeridos`, `_metas` e
+  `_dados_anotacoes`, e os JS `pasta-explorador-visor.js` e `pasta-documentos-sugeridos.js`. Bloco de topo
+  `pasta_documentos` do catálogo, 314 chaves, em sub-blocos por arquivo (`sugeridos` 50, `explorador` 97, `checklist`
+  43, `metas` 72, `anotacoes` 37, mais o `fechar` comum) e `pasta_documentos.js.*` (14) para os dois JS.
+- **Catálogo do JS:** os dois scripts nascem dentro do próprio lote (`defer`, no `_documentos_explorador` e no
+  `_documentos_sugeridos`, que só é incluído pelo explorador). O `catalogo_js('pasta_documentos.js')` mora no
+  `_documentos_explorador`, logo antes do visor e fora de condição dentro dele; o show não foi tocado.
+- **Sem mudança visível:** o HTML da pasta vazia (checklist, metas e registro vazios, sem catálogo de documentos), da
+  pasta cheia (checklist com itens marcados e pendentes, explorador com seção e arquivos, sugestões pelo catálogo,
+  metas atrasada, aberta, em revisão e concluídas no prazo e com atraso, sete registros com "ver anteriores"), das
+  sugestões com um documento já existente e do checklist completo saiu igual. Mudaram só tokens CSRF, quebras de linha
+  (frases que ocupavam várias linhas viraram uma) e o `<script data-bj-t>`; na foto cheia, a ordem de dois arquivos com o
+  mesmo horário no trilho da aba Dados (fora deste lote) variou entre as rodadas. O texto dos dois JS foi conferido trocando
+  cada `BJ_T.t` pelo texto do catálogo. Não foram renderizados, e foram conferidos lendo: o painel com leitura do Push
+  (confiança média, exigido pelo juízo, prazos em curso, origem e as notas "lido"), o conflito de número de processo,
+  os duplicados, o checklist desativado e a confirmação com um pendente só, a pasta excluída (nota de só leitura do
+  registro, metas e checklist sem escrita), a resposta, o "editado", o sino de alertar e a meta com um dia de atraso.
+- **Formatos:** com guarda de nulo, `checklistDesativadoEm`, o `data-meta-prazo`, a conclusão e a última alteração da
+  meta passaram a `|data`, e a edição do registro a `|data` e `|hora`. Ficaram com `|date` os que não têm guarda
+  explícita (prazo da meta nos títulos e no "vence", a data da coluna da meta, a hora e o dia do registro).
+- **Escolhas:** singular e plural viraram duas chaves pelo mesmo teste de antes (publicações lidas, pares parecidos,
+  documentos pendentes, dias em atraso, minutos da edição, a legenda do andamento e a "atenção" das metas); o
+  "Adicionar N faltante(s)" continua com "(s)", como no §8. O "Nenhum item. Clique em [+] para adicionar." ficou uma
+  chave por pedaço, em volta do ícone. Os rótulos dos grupos de sugestão, dos filtros e modos do explorador, dos filtros
+  e status das metas e os meses da pílula do registro viraram chaves nos arrays do Twig, traduzidas no uso. Ficaram nos
+  permitidos o enum `MotivoDesativacaoChecklist`, a constante `RenomearMetaUseCase::TAMANHO_MAXIMO` e as teclas do visor.
+- **Ficou de fora:** o texto do PHP (o `rotulo` do `MotivoDesativacaoChecklist`; selo e dica de `cobrancas_do_checklist`;
+  fase, base, nomes, porquê, origem, prazos, conflito e pastas sugeridas de `documentos_sugeridos`; o `#pexDados` do
+  `ExploradorDeDocumentosOutput`; `prazoConcluida`, a atenção e o relatório da meta do `PastaMetasResumoOutput`; o
+  título do alerta de `metas_ultimos_alertas`; o `registro_texto`); os JS `pasta-explorador.js`, `pasta-checklist.js` e
+  `pasta-metas.js` (o show os carrega sem `defer`, e nenhum parcial do lote é incluído sempre: os três ficam sob
+  `abasOcultas`); `pasta-mencoes.js` e `editor-rico.js`, usados também fora da Pasta; e o `lang="pt-BR"` e o
+  `toLocaleString('pt-BR')` da impressão do visor.

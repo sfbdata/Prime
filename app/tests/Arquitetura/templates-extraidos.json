@@ -655,5 +655,27 @@
             "BlueJus",
             "| BlueJus"
         ]
+    },
+
+    "pasta_documentos": {
+        "templates": [
+            "pasta/_dados_anotacoes.html.twig",
+            "pasta/_documentos_checklist.html.twig",
+            "pasta/_documentos_explorador.html.twig",
+            "pasta/_documentos_sugeridos.html.twig",
+            "pasta/_metas.html.twig"
+        ],
+        "js": [
+            "pasta-documentos-sugeridos.js",
+            "pasta-explorador-visor.js"
+        ],
+        "permitidos": [
+            "App\\\\Pasta\\\\Entity\\\\MotivoDesativacaoChecklist",
+            "App\\\\Tarefa\\\\UseCase\\\\RenomearMetaUseCase::TAMANHO_MAXIMO",
+            "Escape",
+            "Tab",
+            "ArrowLeft",
+            "ArrowRight"
+        ]
     }
 }
