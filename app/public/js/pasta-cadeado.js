@@ -10,7 +10,7 @@
         visualizar: ['#0b5f86', '#e3f0f8'],
         editar: ['#1e7b45', '#e4f4ea']
     };
-    var RESUMO_TODOS = 'O usuário primário continua vendo e editando tudo. A regra fica registrada no histórico da pasta.';
+    var RESUMO_TODOS = BJ_T.t('pasta_avisos.js.cadeado_resumo_todos');
 
     function modal() { return document.getElementById('psCadeadoModal'); }
 
@@ -46,7 +46,7 @@
         });
         m.querySelector('.js-cadeado-resumo').textContent = modo === 'todos'
             ? RESUMO_TODOS
-            : cont.editar + ' editam, ' + cont.visualizar + ' só visualizam, ' + cont.oculto + ' não veem. O usuário primário sempre vê e edita tudo.';
+            : BJ_T.t('pasta_avisos.js.cadeado_resumo', { editar: cont.editar, visualizar: cont.visualizar, oculto: cont.oculto });
     }
 
     function abrir() {

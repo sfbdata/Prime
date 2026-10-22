@@ -3,9 +3,9 @@
    Todos com o estilo do desenho (`cd.menuTagSt`). Contexto: `cad` (CadeadoNaTelaOutput). #}
 {% if cad and cad.podeConfigurar %}
 {# Alturas do desenho (cabeçalho 23px, item 32px, selo 14px): só nestes elementos, sem mexer no .ps-pop-item dos outros. #}
-<div class="ps-pop-secao" style="height:23px;box-sizing:border-box;line-height:normal">Acesso · Primário</div>
+<div class="ps-pop-secao" style="height:23px;box-sizing:border-box;line-height:normal">{{ 'pasta_avisos.cadeado_menu.secao'|trans }}</div>
 <button type="button" class="ps-pop-item js-cadeado-abrir" role="menuitem" aria-haspopup="dialog" aria-controls="psCadeadoModal" style="height:32px;box-sizing:border-box;line-height:normal">
-    <i class="{{ cad.menuIcone }}" style="color:#0b5f86"></i><span style="flex:1">Cadeado</span><span class="js-cadeado-selo" style="{{ cad.menuSeloEstilo }};line-height:12px">{{ cad.selo }}</span>
+    <i class="{{ cad.menuIcone }}" style="color:#0b5f86"></i><span style="flex:1">{{ 'pasta_avisos.cadeado_menu.cadeado'|trans }}</span><span class="js-cadeado-selo" style="{{ cad.menuSeloEstilo }};line-height:12px">{{ cad.selo }}</span>
 </button>
 <div class="ps-pop-sep"></div>
 {% endif %}

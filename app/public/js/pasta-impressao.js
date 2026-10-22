@@ -75,6 +75,10 @@
 
     function palco() { return el('psImpressaoPalco'); }
 
+    function tituloDaJanela(titulo) {
+        return titulo ? BJ_T.t('pasta_resp.js.impressao.imprimir_de', { titulo: titulo }) : BJ_T.t('pasta_resp.js.impressao.imprimir');
+    }
+
     function mensagemNoPalco(texto) {
         var p = palco();
         var msg = document.createElement('div');
@@ -83,7 +87,7 @@
         p.replaceChildren(msg);
     }
 
-    function rotuloFonte(n) { return String(n).replace('.', ',') + ' pt'; }
+    function rotuloFonte(n) { return BJ_T.t('pasta_resp.js.impressao.fonte', { tamanho: Number(n).toLocaleString(BJFormato.idioma()) }); }
 
     /* ── Estado da janela → prévia ─────────────────────────────────────── */
     function aplicar() {
@@ -162,11 +166,11 @@
             pdf: cfg.pdf || null,
         };
 
-        el('psImpressaoTitulo').textContent = 'Imprimir' + (estado.titulo ? ' · ' + estado.titulo : '');
+        el('psImpressaoTitulo').textContent = tituloDaJanela(estado.titulo);
         // Baixar PDF: as folhas que o servidor monta — pela seção ou, na moldura, pelo id.
         raiz.querySelector('.js-psi-baixar').hidden = cfg.secao === 'moldura' && !cfg.pdf;
         raiz.querySelector('.js-psi-opcao[data-opcao="financeiro"]').hidden = true;
-        mensagemNoPalco('Montando a folha…');
+        mensagemNoPalco(BJ_T.t('pasta_resp.js.impressao.montando'));
         prontos(false);
         aplicar();
         raiz.hidden = false;
@@ -185,7 +189,7 @@
             montar(texto, cfg);
         }).catch(function () {
             if (meu !== pedido || !estado) { return; }
-            mensagemNoPalco('Não foi possível montar a folha. Feche e tente de novo.');
+            mensagemNoPalco(BJ_T.t('pasta_resp.js.impressao.erro_montar'));
         });
 
         return true;
@@ -199,7 +203,7 @@
         var folha = documento ? documento.querySelector('main.rp-folha') : null;
         var estilo = documento ? documento.querySelector('style') : null;
         if (!folha) {
-            mensagemNoPalco('Não foi possível montar a folha. Feche e tente de novo.');
+            mensagemNoPalco(BJ_T.t('pasta_resp.js.impressao.erro_montar'));
             return;
         }
         doc.querySelectorAll('script').forEach(function (s) { s.remove(); });
@@ -216,7 +220,7 @@
             if (corpo && cfg.corpo) { corpo.replaceChildren(cfg.corpo); }
         } else if (!estado.titulo) {
             estado.titulo = novaFolha.getAttribute('data-rp-titulo') || '';
-            el('psImpressaoTitulo').textContent = 'Imprimir' + (estado.titulo ? ' · ' + estado.titulo : '');
+            el('psImpressaoTitulo').textContent = tituloDaJanela(estado.titulo);
         }
 
         var p = palco();
@@ -250,7 +254,7 @@
 
     function imprimir() {
         if (!estado || !estado.folha) { return; }
-        if (imprimindo) { avisar('Preparando a impressão…'); return; }
+        if (imprimindo) { avisar(BJ_T.t('pasta_resp.js.impressao.preparando')); return; }
         imprimindo = true;
         setTimeout(function () { imprimindo = false; }, 3000);
 
@@ -263,7 +267,7 @@
         fr.setAttribute('aria-hidden', 'true');
         fr.setAttribute('sandbox', SANDBOX_IMPRESSAO);
         fr.tabIndex = -1;
-        fr.title = 'Impressão';
+        fr.title = BJ_T.t('pasta_resp.js.impressao.iframe_titulo');
 
         var removido = false;
         function remover() {
@@ -274,7 +278,7 @@
 
         fr.addEventListener('load', function () {
             var d = fr.contentDocument;
-            if (!d || !d.body) { remover(); avisar('Não foi possível imprimir.'); return; }
+            if (!d || !d.body) { remover(); avisar(BJ_T.t('pasta_resp.js.impressao.erro_imprimir')); return; }
             d.title = titulo;
             if (estilo) { d.head.appendChild(d.importNode(estilo, true)); }
             d.body.appendChild(d.importNode(copia, true));
@@ -286,7 +290,7 @@
                         w.focus();
                         w.print();
                     } catch (e) {
-                        avisar('Não foi possível imprimir.');
+                        avisar(BJ_T.t('pasta_resp.js.impressao.erro_imprimir'));
                         remover();
                         return;
                     }
@@ -330,7 +334,7 @@
         u.searchParams.set('fonte', String(estado.fonte));
         // Anexo (Content-Disposition: attachment): o navegador baixa e a tela fica onde está.
         window.location.assign(u.toString());
-        avisar('Gerando PDF…');
+        avisar(BJ_T.t('pasta_resp.js.impressao.gerando_pdf'));
     }
 
     /* ── Copiar texto ─────────────────────────────────────────────────── */
@@ -340,11 +344,11 @@
         var texto = estado.folha.innerText.trim();
         if (texto && navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(texto).then(
-                function () { avisar('Texto copiado'); },
-                function () { avisar('Não foi possível copiar'); }
+                function () { avisar(BJ_T.t('pasta_resp.js.impressao.copiado')); },
+                function () { avisar(BJ_T.t('pasta_resp.js.impressao.erro_copiar')); }
             );
         } else {
-            avisar('Não foi possível copiar');
+            avisar(BJ_T.t('pasta_resp.js.impressao.erro_copiar'));
         }
     }
 
@@ -406,7 +410,7 @@
         var id = artigo ? /^detalhes-obs-(\d+)$/.exec(artigo.id || '') : null;
         var pdf = id ? { secao: 'observacao', obs: id[1] } : null;
 
-        return abrir({ secao: 'moldura', titulo: 'Registro do expediente', autor: linha, corpo: corpo, pdf: pdf });
+        return abrir({ secao: 'moldura', titulo: BJ_T.t('pasta_resp.js.impressao.registro_titulo'), autor: linha, corpo: corpo, pdf: pdf });
     }
 
     document.addEventListener('click', function (e) {

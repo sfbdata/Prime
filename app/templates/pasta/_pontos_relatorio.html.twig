@@ -20,11 +20,12 @@
 
    Contexto: `pasta` (para a URL), `pontos` (PontosDoRelatorioInicial), `podeEscrever` (bool). #}
 {% set faltam = pontos.faltam() %}
+{% set rotulosFaltam = faltam|map(f => f.rot) %}
 <section class="ps-card ps-pontos-relatorio" data-trilho="pontos-relatorio"
          data-url="{{ path('pasta_detalhes_pontos_relatorio', {id: pasta.id}) }}"
          data-pode-escrever="{{ podeEscrever ? '1' : '0' }}">
     <div class="ps-pontos-relatorio-cab">
-        <h2>Pontos do relatório inicial</h2>
+        <h2>{{ 'pasta_resp.pontos.titulo'|trans }}</h2>
         <span class="ps-pontos-relatorio-selo {{ pontos.completo() ? 'is-completo' : 'is-pendente' }}">{{ pontos.selo() }}</span>
     </div>
     <ul class="ps-pontos-relatorio-lista">
@@ -40,11 +41,13 @@
     </ul>
     {% if faltam is not empty and podeEscrever %}
         <button type="button" class="ps-pontos-relatorio-completar js-ri-completar"
-                data-faltam="{{ faltam|map(f => f.rot)|json_encode|e('html_attr') }}">
-            <i class="bi bi-pencil-square" aria-hidden="true"></i>Completar no relatório
+                data-faltam="{{ rotulosFaltam|json_encode|e('html_attr') }}">
+            <i class="bi bi-pencil-square" aria-hidden="true"></i>{{ 'pasta_resp.pontos.completar'|trans }}
         </button>
     {% endif %}
 </section>
+{# Textos do script abaixo (o botão refeito ao redesenhar). #}
+{{ catalogo_js('pasta_resp.js.pontos') }}
 <script>
 (function () {
     var card = document.querySelector('.ps-pontos-relatorio[data-url]');
@@ -119,7 +122,7 @@
         ic.className = 'bi bi-pencil-square';
         ic.setAttribute('aria-hidden', 'true');
         btn.appendChild(ic);
-        btn.appendChild(document.createTextNode('Completar no relatório'));
+        btn.appendChild(document.createTextNode(BJ_T.t('pasta_resp.js.pontos.completar')));
         btn.dataset.faltam = JSON.stringify(faltam);
 
         return btn;
@@ -131,7 +134,7 @@
         var aba = document.getElementById('detalhes-tab');
         if (!aba) { return; }
         var rotuloEl = aba.querySelector(':scope > i + span');
-        var rotulo = rotuloEl ? rotuloEl.textContent : 'Detalhes';
+        var rotulo = rotuloEl ? rotuloEl.textContent : BJ_T.t('pasta_resp.js.pontos.detalhes');
         var barra = aba.querySelector(':scope > .ps-aba-pend');
         aba.classList.toggle('ps-aba--pend', !!pendencia);
         aba.title = pendencia ? rotulo + ' · ' + String(pendencia.txt) : rotulo;

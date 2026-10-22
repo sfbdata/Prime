@@ -66,11 +66,11 @@
         var d = new Date(+p[0], +p[1] - 1, +p[2]);
         var h = new Date(); h.setHours(0, 0, 0, 0);
         var k = Math.round((h - d) / 864e5);
-        if (k === 0) { return 'Hoje'; }
-        if (k === 1) { return 'Ontem'; }
-        if (k === -1) { return 'Amanhã'; }
-        if (k < 0) { return d.toLocaleDateString('pt-BR') + ' (futuro)'; }
-        return d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+        if (k === 0) { return BJ_T.t('pasta_resp.js.timeline.hoje'); }
+        if (k === 1) { return BJ_T.t('pasta_resp.js.timeline.ontem'); }
+        if (k === -1) { return BJ_T.t('pasta_resp.js.timeline.amanha'); }
+        if (k < 0) { return BJ_T.t('pasta_resp.js.timeline.futuro', { data: BJFormato.data(d) }); }
+        return d.toLocaleDateString(BJFormato.idioma(), { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
     }
 
     /* ── abrir / fechar ─────────────────────────────────────────────────── */
@@ -181,7 +181,7 @@
                 if (erro && erro.name === 'AbortError') { return; }
                 lista.setAttribute('aria-busy', 'false');
                 lista.textContent = '';
-                lista.appendChild(el('div', 'ps-tl-vazio', 'Não foi possível carregar a timeline. Tente de novo.'));
+                lista.appendChild(el('div', 'ps-tl-vazio', BJ_T.t('pasta_resp.js.timeline.erro_carregar')));
             });
     }
 
@@ -203,16 +203,18 @@
 
         if (!d.eventos.length) {
             var vazio = d.contagens && d.contagens.tudo === 0
-                ? 'Nenhum acontecimento registrado nesta pasta.'
-                : (estado.q.trim() ? 'Nada encontrado para "' + estado.q.trim() + '".' : 'Nenhum evento com esses filtros.');
+                ? BJ_T.t('pasta_resp.js.timeline.vazio_pasta')
+                : (estado.q.trim() ? BJ_T.t('pasta_resp.js.timeline.nada_encontrado', { busca: estado.q.trim() }) : BJ_T.t('pasta_resp.js.timeline.vazio_filtros'));
             lista.appendChild(el('div', 'ps-tl-vazio', vazio));
         } else {
             desenharEventos(d);
         }
 
         if (d.truncado) {
-            lista.appendChild(el('div', 'ps-tl-aviso', 'Mostrando os ' + d.eventos.length + ' acontecimentos mais recentes'
-                + (d.limite >= LIMITE_MAXIMO ? ' (o máximo desta tela).' : '.')));
+            lista.appendChild(el('div', 'ps-tl-aviso', BJ_T.t(
+                d.limite >= LIMITE_MAXIMO ? 'pasta_resp.js.timeline.mostrando_maximo' : 'pasta_resp.js.timeline.mostrando',
+                { total: d.eventos.length }
+            )));
         }
         if (mais) { mais.hidden = !(d.truncado && d.limite < LIMITE_MAXIMO); }
 
@@ -222,11 +224,11 @@
     function desenharChips(d) {
         chips.textContent = '';
         var c = d.contagens || {};
-        var itens = [['tudo', 'Tudo', null], ['pendente', '⚠ Pendências', c.pendente || 0]];
+        var itens = [['tudo', BJ_T.t('pasta_resp.js.timeline.chip_tudo'), null], ['pendente', BJ_T.t('pasta_resp.js.timeline.chip_pendencias'), c.pendente || 0]];
         Object.keys(d.categorias || {}).forEach(function (k) {
             if (c[k]) { itens.push([k, d.categorias[k].rotulo, c[k]]); }
         });
-        if (c.marco) { itens.push(['marco', 'Marcos', c.marco]); }
+        if (c.marco) { itens.push(['marco', BJ_T.t('pasta_resp.js.timeline.chip_marcos'), c.marco]); }
 
         itens.forEach(function (it) {
             var b = el('button', 'ps-tl-chip' + (estado.categoria === it[0] ? ' is-ativo' : ''), it[1] + (it[2] ? ' ' + it[2] : ''));
@@ -254,14 +256,14 @@
     // ("2 registros · 1 documentos") e "Ver resumo", que abre o resumo a partir da visita.
     function caixaForaDesde(d) {
         var caixa = el('div', 'ps-tl-fora');
-        caixa.appendChild(el('div', 'ps-tl-fora-tit', 'Enquanto você estava fora: ' + d.novos + ' acontecimento(s)'));
+        caixa.appendChild(el('div', 'ps-tl-fora-tit', BJ_T.t('pasta_resp.js.timeline.fora_titulo', { total: d.novos })));
         var partes = [];
         Object.keys(d.novosPorCategoria || {}).forEach(function (k) {
             var cat = d.categorias[k];
             partes.push(d.novosPorCategoria[k] + ' ' + (cat ? cat.rotulo : k).toLowerCase());
         });
         caixa.appendChild(el('div', '', partes.join(' · ')));
-        var bt = el('button', 'ps-tl-fora-bt', 'Ver resumo');
+        var bt = el('button', 'ps-tl-fora-bt', BJ_T.t('pasta_resp.js.timeline.ver_resumo'));
         bt.type = 'button';
         bt.addEventListener('click', function () {
             estado.resumo = true;
@@ -277,16 +279,16 @@
         var desde = estado.resumoDesde && d.foraDesde && d.resumoDesde !== null;
         var caixa = el('div', 'ps-tl-resumo');
         caixa.appendChild(el('div', 'ps-tl-resumo-tit', desde
-            ? 'O que aconteceu desde ' + new Date(d.foraDesde).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-            : 'Resumo da atividade'));
+            ? BJ_T.t('pasta_resp.js.timeline.resumo_desde', { quando: new Date(d.foraDesde).toLocaleString(BJFormato.idioma(), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) })
+            : BJ_T.t('pasta_resp.js.timeline.resumo_titulo')));
         caixa.appendChild(el('div', '', desde ? d.resumoDesde : d.resumo));
-        caixa.appendChild(el('div', 'ps-tl-resumo-nota', 'Contagem por regras fixas, sobre os acontecimentos filtrados.'));
+        caixa.appendChild(el('div', 'ps-tl-resumo-nota', BJ_T.t('pasta_resp.js.timeline.resumo_nota')));
         return caixa;
     }
 
     function caixaAtencao(d) {
         var caixa = el('div', 'ps-tl-atencao');
-        caixa.appendChild(el('div', 'ps-tl-atencao-tit', '⚠ Precisa de atenção'));
+        caixa.appendChild(el('div', 'ps-tl-atencao-tit', BJ_T.t('pasta_resp.js.timeline.atencao')));
         d.atencao.forEach(function (e) {
             var linha = el('div', 'ps-tl-atencao-item');
             var pip = el('span', 'ps-tl-pip');
@@ -337,7 +339,7 @@
         b.appendChild(bola);
         var corpo = el('span', 'ps-tl-grupo-corpo');
         corpo.appendChild(el('span', 'ps-tl-grupo-tit', (e.hora ? e.hora + ' · ' : '') + cat.rotulo));
-        corpo.appendChild(el('span', 'ps-tl-grupo-n', n + ' ' + cat.rotulo.toLowerCase() + ' · toque para ver'));
+        corpo.appendChild(el('span', 'ps-tl-grupo-n', BJ_T.t('pasta_resp.js.timeline.grupo_n', { total: n, rotulo: cat.rotulo.toLowerCase() })));
         b.appendChild(corpo);
         b.appendChild(icone('bi-chevron-down'));
         b.addEventListener('click', function () { estado.abertos[chave] = 1; desenhar(); });
@@ -367,8 +369,8 @@
             cor(selo, prio.cor);
             topo.appendChild(selo);
         }
-        if (e.marco) { topo.appendChild(el('span', 'ps-tl-marco', 'Marco · ' + e.marco)); }
-        if (e.editado) { topo.appendChild(el('span', 'ps-tl-editado', 'editado')); }
+        if (e.marco) { topo.appendChild(el('span', 'ps-tl-marco', BJ_T.t('pasta_resp.js.timeline.marco', { marco: e.marco }))); }
+        if (e.editado) { topo.appendChild(el('span', 'ps-tl-editado', BJ_T.t('pasta_resp.js.timeline.editado'))); }
         corpo.appendChild(topo);
 
         var texto = e.texto ? String(e.texto) : '';
@@ -384,19 +386,19 @@
 
         var acoes = el('div', 'ps-tl-acoes');
         if (e.link) {
-            var a = el('a', 'ps-tl-acao', e.rotuloLink || 'Abrir');
+            var a = el('a', 'ps-tl-acao', e.rotuloLink || BJ_T.t('pasta_resp.js.timeline.abrir'));
             a.href = e.link;
             a.addEventListener('click', function (ev) { irPara(ev, e.link); });
             acoes.appendChild(a);
         }
         if (e.antes) {
-            var btAlt = el('button', 'ps-tl-acao', alteracao ? 'Ocultar alteração' : 'Ver alteração');
+            var btAlt = el('button', 'ps-tl-acao', alteracao ? BJ_T.t('pasta_resp.js.timeline.ocultar_alteracao') : BJ_T.t('pasta_resp.js.timeline.ver_alteracao'));
             btAlt.type = 'button';
             btAlt.addEventListener('click', function () { estado.abertos[e.id] = alteracao ? 0 : 'h'; desenhar(); });
             acoes.appendChild(btAlt);
         }
         if (longo) {
-            var bt = el('button', 'ps-tl-acao', aberto ? 'Mostrar menos' : 'Ver tudo');
+            var bt = el('button', 'ps-tl-acao', aberto ? BJ_T.t('pasta_resp.js.timeline.mostrar_menos') : BJ_T.t('pasta_resp.js.timeline.ver_tudo'));
             bt.type = 'button';
             bt.addEventListener('click', function () { estado.abertos[e.id] = aberto ? 0 : 1; desenhar(); });
             acoes.appendChild(bt);
@@ -410,14 +412,14 @@
     // "Ver alteração" (desenho `tlCard`): Antes, Depois (o texto inteiro) e "Alterado em".
     function caixaAlteracao(e, depois) {
         var caixa = el('div', 'ps-tl-alteracao');
-        [['Antes:', String(e.antes)], ['Depois:', depois]].forEach(function (par) {
+        [[BJ_T.t('pasta_resp.js.timeline.antes'), String(e.antes)], [BJ_T.t('pasta_resp.js.timeline.depois'), depois]].forEach(function (par) {
             var linha = el('div', '');
             linha.appendChild(el('b', '', par[0]));
             linha.appendChild(document.createTextNode(' ' + par[1]));
             caixa.appendChild(linha);
         });
         if (e.alteradoEm) {
-            caixa.appendChild(el('div', 'ps-tl-alteracao-em', 'Alterado em ' + new Date(e.alteradoEm).toLocaleString('pt-BR')));
+            caixa.appendChild(el('div', 'ps-tl-alteracao-em', BJ_T.t('pasta_resp.js.timeline.alterado_em', { quando: new Date(e.alteradoEm).toLocaleString(BJFormato.idioma()) })));
         }
         return caixa;
     }

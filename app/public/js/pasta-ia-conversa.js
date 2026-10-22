@@ -25,7 +25,8 @@
     var BACKOFF = [[30000, 2000], [120000, 5000], [Infinity, 10000]];
     var LIMITE_MS = 600000;
     var MOTIVOS_QUE_TRAVAM = ['nao_configurada_na_plataforma', 'desligada_no_escritorio', 'sem_permissao', 'limite_atingido'];
-    var FALHA_AO_ENVIAR = 'Não foi possível enviar a pergunta agora. Tente novamente.';
+    // O texto sai do catálogo na hora do uso (o bj-traducao.js carrega no fim da página).
+    function falhaAoEnviar() { return BJ_T.t('inteligencia.js.conversa.falha_enviar'); }
 
     function intervaloPara(decorrido) {
         for (var i = 0; i < BACKOFF.length; i++) {
@@ -106,11 +107,11 @@
 
             return fetch(aba.getAttribute('data-ia-conversa-url'), { headers: { 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
                 .then(function (r) {
-                    if (!r.ok) { throw new Error('Não foi possível carregar a conversa.'); }
+                    if (!r.ok) { throw new Error(BJ_T.t('inteligencia.js.conversa.falha_carregar')); }
                     return r.text();
                 })
                 .then(trocarConversa)
-                .catch(function (falha) { avisar(falha && falha.message ? falha.message : 'Não foi possível carregar a conversa.', true); })
+                .catch(function (falha) { avisar(falha && falha.message ? falha.message : BJ_T.t('inteligencia.js.conversa.falha_carregar'), true); })
                 .then(function () {
                     carregando = false;
                     sincronizar();
@@ -135,7 +136,7 @@
             if (Date.now() - inicio > LIMITE_MS) {
                 if (!limiteAvisado) {
                     limiteAvisado = true;
-                    avisar('A resposta está demorando mais que o normal. Recarregue a página mais tarde para ver o resultado.', true);
+                    avisar(BJ_T.t('inteligencia.js.conversa.demorando'), true);
                 }
                 return;
             }
@@ -173,7 +174,7 @@
             enviando = false;
             var d = res.dados;
             if (!res.ok) {
-                var texto = d.mensagem || FALHA_AO_ENVIAR;
+                var texto = d.mensagem || falhaAoEnviar();
                 if (MOTIVOS_QUE_TRAVAM.indexOf(d.motivo) !== -1) { travar(texto); return; }
                 avisar(texto, true);
                 sincronizar();
@@ -207,7 +208,7 @@
                 .then(aposEnviar)
                 .catch(function () {
                     enviando = false;
-                    avisar(FALHA_AO_ENVIAR, true);
+                    avisar(falhaAoEnviar(), true);
                     sincronizar();
                 });
         }

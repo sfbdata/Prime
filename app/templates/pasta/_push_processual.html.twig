@@ -356,5 +356,6 @@
 {% if analisesIa is not null %}
     {# BlueJus IA: pedir, acompanhar (polling 2 s), recarregar a lista e as ações de cada análise. #}
     <link rel="stylesheet" href="{{ asset('css/pasta-ia.css') }}">
+    {{ catalogo_js('inteligencia.js.push') }}
     <script src="{{ asset('js/pasta-ia-push.js') }}" defer></script>
 {% endif %}
