@@ -4593,6 +4593,11 @@ document.addEventListener('DOMContentLoaded', function () {
         box-shadow: 0 14px 30px -12px rgba(0,0,0,.5);
     }
     .ps-aviso[hidden] { display: none; }
+    /* Entrada `pcIn` do desenho (dc L.46 e L.671: .25s, sobe 10px e aparece), mantendo o translateX(-50%) que
+       centra o aviso: no desenho o `transform: none` final do pcIn tirava o centro. */
+    .ps-aviso { animation: psAvisoEntra .25s both; }
+    @keyframes psAvisoEntra { from { opacity: 0; transform: translate3d(-50%, 10px, 0); } to { opacity: 1; transform: translate3d(-50%, 0, 0); } }
+    @media (prefers-reduced-motion: reduce) { .ps-aviso { animation: none; } }
     .ps-aviso > i { color: var(--ps-aviso-ok); }
     .ps-aviso.is-erro > i { color: var(--ps-aviso-erro); }
 </style>

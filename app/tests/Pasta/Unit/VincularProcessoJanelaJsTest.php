@@ -188,4 +188,12 @@ final class VincularProcessoJanelaJsTest extends TestCase
         $origem = $this->funcao('mpOrigem');
         self::assertStringContainsString("if (!origem.pasta) return T(origem.tipo === 'apensado' ? 'origem_apensado_outra' : 'origem_outra_pasta');", $origem);
     }
+
+    #[TestDox('Aviso da pasta (o gmAviso do desenho): entra com o pcIn de N:46/671 (.25s, sobe 10px), sem perder o centro')]
+    public function testEntradaDoAviso(): void
+    {
+        $twig = (string) file_get_contents(self::TEMPLATE);
+        self::assertStringContainsString('.ps-aviso { animation: psAvisoEntra .25s both; }', $twig);
+        self::assertStringContainsString('@keyframes psAvisoEntra { from { opacity: 0; transform: translate3d(-50%, 10px, 0); } to { opacity: 1; transform: translate3d(-50%, 0, 0); } }', $twig);
+    }
 }
