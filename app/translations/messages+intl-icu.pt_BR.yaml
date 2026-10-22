@@ -8636,5 +8636,7 @@ pasta_dados:
         origem_push: Push processual
         selo_push: prazo calculado, confira
         selo_push_dica: 'Contado da publicação no DJEN, em dias úteis pelo calendário da UF do escritório. Não considera feriado municipal ou da comarca, suspensão de expediente do tribunal, prazo em dobro nem intimação fora do DJEN.'
+        selo_push_dobro: 'prazo calculado, confira; pode ser prazo em dobro'
+        selo_push_dobro_dica: 'A parte parece ser Fazenda Pública, Ministério Público ou Defensoria Pública. O prazo foi contado simples: confira se vale em dobro (CPC, arts. 180, 183 e 186). Também não considera feriado municipal ou da comarca nem suspensão de expediente do tribunal.'
 
 # ---- fim

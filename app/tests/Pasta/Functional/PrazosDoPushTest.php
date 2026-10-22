@@ -20,6 +20,7 @@ use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Service\AvisoDoPushNaCaptacao;
 use App\Pasta\Service\PrazosDoPush;
 use App\Pasta\UseCase\CumprirPrazoDaPastaUseCase;
+use App\Processo\Entity\ParteProcesso;
 use App\Pasta\UseCase\DesvincularProcessoUseCase;
 use App\Pasta\UseCase\SincronizarPrazosDoPushUseCase;
 use App\Pasta\UseCase\VincularProcessoUseCase;
@@ -149,6 +150,48 @@ final class PrazosDoPushTest extends KernelTestCase
         $linhas = $this->linhasPush($pasta);
         self::assertCount(1, $linhas);
         self::assertNotNull($linhas[0]['cumprido_em']);
+    }
+
+    #[TestDox('prazo em dobro: a parte "INSS" liga o sinal na linha, sem dobrar o prazo; a pasta sem ente fica sem o sinal')]
+    public function testSinalDoDobroPelaParte(): void
+    {
+        [$tenant, $pasta, , $processo] = $this->pastaComProcesso();
+        $this->publicar($tenant, self::COM_PRAZO, '2026-09-25');
+        $this->sincronizar($pasta);
+        self::assertSame([[false, '2026-10-20']], $this->sinais($pasta));
+
+        $this->parte($tenant, $processo, 'Instituto Nacional do Seguro Social - INSS');
+        self::assertSame(['criados' => 1, 'apagados' => 1], $this->sincronizar($pasta), 'o sinal mudou: a linha aberta é trocada');
+        self::assertSame([[true, '2026-10-20']], $this->sinais($pasta), 'mesmo vencimento: o prazo não é dobrado');
+        self::assertSame(['criados' => 0, 'apagados' => 0], $this->sincronizar($pasta));
+    }
+
+    #[TestDox('prazo em dobro: a frase da determinação ("intime-se a Fazenda Pública") também liga o sinal')]
+    public function testSinalDoDobroPelaFrase(): void
+    {
+        [$tenant, $pasta] = $this->pastaComProcesso();
+        $this->publicar($tenant, 'Intime-se a Fazenda Pública para se manifestar no prazo de 15 dias.', '2026-09-25');
+
+        $this->sincronizar($pasta);
+
+        self::assertSame([[true, '2026-10-20']], $this->sinais($pasta));
+    }
+
+    #[TestDox('prazo em dobro: a linha cumprida não renasce aberta quando o sinal muda')]
+    public function testSinalDoDobroNaoDescumpre(): void
+    {
+        [$tenant, $pasta, $user, $processo] = $this->pastaComProcesso();
+        $this->publicar($tenant, self::COM_PRAZO, '2026-09-25');
+        $this->sincronizar($pasta);
+        $linha = $this->em()->getRepository(PastaPrazo::class)->findOneBy(['pasta' => $pasta, 'origem' => PastaPrazo::ORIGEM_PUSH]);
+        self::assertNotNull($linha);
+        $linha->cumprir($user);
+        $this->em()->flush();
+
+        $this->parte($tenant, $processo, 'União Federal');
+
+        self::assertSame(['criados' => 0, 'apagados' => 0], $this->sincronizar($pasta));
+        self::assertCount(1, $this->linhasPush($pasta));
     }
 
     #[TestDox('o prazo manual e o lido dos registros não são tocados')]
@@ -359,6 +402,26 @@ final class PrazosDoPushTest extends KernelTestCase
             ->getMock();
         $repositorio->method('findBy')->willThrowException(new \RuntimeException('falha simulada no cálculo'));
         static::getContainer()->set(PublicacaoDjenRepository::class, $repositorio);
+    }
+
+    private function parte(Tenant $tenant, \App\Processo\Entity\Processo $processo, string $nome): void
+    {
+        $parte = new ParteProcesso();
+        $parte->setTenant($tenant);
+        $parte->setTipo('REU');
+        $parte->setNome($nome);
+        $processo->addParte($parte);
+        $this->em()->persist($parte);
+        $this->em()->flush();
+    }
+
+    /** @return list<array{0: bool, 1: string}> */
+    private function sinais(Pasta $pasta): array
+    {
+        return array_map(static fn (array $l): array => [(bool) $l['pode_ser_em_dobro'], (string) $l['data']], $this->em()->getConnection()->fetchAllAssociative(
+            "SELECT pode_ser_em_dobro, data FROM pasta_prazo WHERE pasta_id = ? AND origem = 'push' ORDER BY data",
+            [$pasta->getId()],
+        ));
     }
 
     /** @return array{0: Tenant, 1: Pasta, 2: \App\Entity\Auth\User, 3: \App\Processo\Entity\Processo} */

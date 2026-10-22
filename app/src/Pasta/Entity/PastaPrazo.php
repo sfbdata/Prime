@@ -86,6 +86,13 @@ class PastaPrazo implements TenantAware, Auditavel
     #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $estimado = false;
 
+    /**
+     * Do Push: a parte parece Fazenda Pública, MP ou Defensoria ({@see \App\Pasta\Service\SinalDePrazoEmDobro}). O
+     * prazo NÃO é dobrado; a tela só avisa que pode ser prazo em dobro.
+     */
+    #[ORM\Column(name: 'pode_ser_em_dobro', type: 'boolean', options: ['default' => false])]
+    private bool $podeSerEmDobro = false;
+
     public function __construct(
         #[ORM\ManyToOne(targetEntity: Tenant::class)]
         #[ORM\JoinColumn(name: 'tenant_id', nullable: false)]
@@ -141,13 +148,14 @@ class PastaPrazo implements TenantAware, Auditavel
      * Prazo calculado da publicação do Push: sem autor nem responsável, e a data de criação é a da disponibilização
      * no DJEN (a publicação não é atividade nova da pasta só porque a sincronização rodou agora).
      */
-    public static function doPush(Tenant $tenant, Pasta $pasta, int $publicacaoId, \DateTimeImmutable $disponibilizadaEm, string $tipo, string $titulo, \DateTimeImmutable $data, ?string $hora, bool $estimado): self
+    public static function doPush(Tenant $tenant, Pasta $pasta, int $publicacaoId, \DateTimeImmutable $disponibilizadaEm, string $tipo, string $titulo, \DateTimeImmutable $data, ?string $hora, bool $estimado, bool $podeSerEmDobro = false): self
     {
         $prazo = new self($tenant, $pasta, null);
         $prazo->definir($tipo, $titulo, $data, $hora, null);
         $prazo->origem = self::ORIGEM_PUSH;
         $prazo->registroRef = self::REF_PUSH . $publicacaoId;
         $prazo->estimado = $estimado;
+        $prazo->podeSerEmDobro = $podeSerEmDobro;
         $prazo->criadoEm = $disponibilizadaEm;
 
         return $prazo;
@@ -158,6 +166,7 @@ class PastaPrazo implements TenantAware, Auditavel
     public function getOrigem(): string { return $this->origem; }
     public function getRegistroRef(): ?string { return $this->registroRef; }
     public function isEstimado(): bool { return $this->estimado; }
+    public function podeSerEmDobro(): bool { return $this->podeSerEmDobro; }
 
     /**
      * "Manual", "Push processual", ou de onde foi lido, com " (estimado: conferir)" quando a data foi contada (desenho

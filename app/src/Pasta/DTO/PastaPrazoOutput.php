@@ -51,6 +51,8 @@ final readonly class PastaPrazoOutput
         public bool $manual = false,
         /** Calculado do Push: a `meta` vem sem a origem, que a tela escreve junto com o selo. */
         public bool $push = false,
+        /** Do Push: a parte parece Fazenda Pública, MP ou Defensoria; o selo avisa que pode ser prazo em dobro. */
+        public bool $podeSerEmDobro = false,
     ) {}
 
     /**
@@ -102,6 +104,7 @@ final readonly class PastaPrazoOutput
             dias: $dias,
             manual: $prazo->isManual(),
             push: $prazo->isPush(),
+            podeSerEmDobro: $prazo->podeSerEmDobro(),
         );
     }
 

@@ -92,6 +92,24 @@ final class PrazoDoPushNaTelaTest extends JusPrimeWebTestCase
         ));
     }
 
+    #[TestDox('o selo diz "pode ser prazo em dobro" só na linha com o sinal ligado')]
+    public function testSeloDoDobro(): void
+    {
+        [$user, $tenant] = $this->criarAdmin();
+        $pasta = $this->criarPasta($tenant);
+        $this->prazoDoPush($tenant, $pasta, PastaPrazo::TIPO_PRAZO, $this->dia('+2 days'), $this->dia('-5 days'));
+        $this->em()->persist(PastaPrazo::doPush($tenant, $pasta, 2, $this->dia('-5 days'), PastaPrazo::TIPO_PRAZO, 'Prazo do Push: Contestação (parte ré)', $this->dia('+3 days'), null, true, true));
+        $this->em()->flush();
+        $this->logarComTenant($this->client, $user, $tenant);
+
+        $c = $this->client->request('GET', '/pasta/' . $pasta->getId());
+
+        $selos = $c->filter('[data-trilho="prazos"] .ps-prazo .ps-linha-meta > .ps-prazo-calculado');
+        self::assertSame(['prazo calculado, confira', 'prazo calculado, confira; pode ser prazo em dobro'], $selos->each(static fn ($n): string => trim($n->text())));
+        self::assertStringContainsString('Ministério Público', (string) $selos->eq(1)->attr('title'));
+        self::assertStringNotContainsString('Ministério Público', (string) $selos->eq(0)->attr('title'));
+    }
+
     #[TestDox('prazo manual não ganha o selo do Push')]
     public function testManualSemSelo(): void
     {

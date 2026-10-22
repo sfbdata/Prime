@@ -51,7 +51,7 @@ final class CalculadoraDoPrazoDoPush
     }
 
     /**
-     * @return list<array{tipo: string, titulo: string, data: \DateTimeImmutable, hora: ?string, estimado: bool}>
+     * @return list<array{tipo: string, titulo: string, data: \DateTimeImmutable, hora: ?string, estimado: bool, trecho: string}>
      */
     public function daPublicacao(TeorDePublicacaoInput $teor, DiasUteisDaUf $calendario): array
     {
@@ -71,6 +71,7 @@ final class CalculadoraDoPrazoDoPush
                 'data'     => $this->vencimento($teor->data, $d->prazoQuantidade, $d->prazoContagem === 'corridos', $calendario),
                 'hora'     => null,
                 'estimado' => true,
+                'trecho'   => $d->trecho,
             ];
         }
 
@@ -122,7 +123,7 @@ final class CalculadoraDoPrazoDoPush
     /**
      * @param list<DeterminacaoDoJuizoOutput> $determinacoes
      *
-     * @return list<array{tipo: string, titulo: string, data: \DateTimeImmutable, hora: ?string, estimado: bool}>
+     * @return list<array{tipo: string, titulo: string, data: \DateTimeImmutable, hora: ?string, estimado: bool, trecho: string}>
      */
     private static function audiencias(TeorDePublicacaoInput $teor, \DateTimeImmutable $disponibilizacao, array $determinacoes): array
     {
@@ -143,6 +144,7 @@ final class CalculadoraDoPrazoDoPush
                 'data'     => new \DateTimeImmutable($lida['data']),
                 'hora'     => $lida['hora'] !== '' ? $lida['hora'] : null,
                 'estimado' => false,
+                'trecho'   => $lida['frase'],
             ];
         }
 

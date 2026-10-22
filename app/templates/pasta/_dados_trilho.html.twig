@@ -68,7 +68,7 @@
                     <div class="ps-linha-titulo">
                         {% if prazo.tarefaId %}<a href="{{ path('tarefa_show', {id: prazo.tarefaId}) }}">{{ prazo.titulo }}</a>{% else %}{{ prazo.titulo }}{% endif %}
                     </div>
-                    <div class="ps-linha-meta">{{ metaDoPrazo }}{% if prazo.push %} <span class="ps-prazo-calculado" title="{{ 'pasta_dados.prazos.selo_push_dica'|trans }}">{{ 'pasta_dados.prazos.selo_push'|trans }}</span>{% endif %}</div>
+                    <div class="ps-linha-meta">{{ metaDoPrazo }}{% if prazo.push %} <span class="ps-prazo-calculado{{ prazo.podeSerEmDobro ? ' ps-prazo-calculado--dobro' }}" title="{{ (prazo.podeSerEmDobro ? 'pasta_dados.prazos.selo_push_dobro_dica' : 'pasta_dados.prazos.selo_push_dica')|trans }}">{{ (prazo.podeSerEmDobro ? 'pasta_dados.prazos.selo_push_dobro' : 'pasta_dados.prazos.selo_push')|trans }}</span>{% endif %}</div>
                 </div>
                 <span class="ps-selo ps-selo--{{ prazo.tom }}">{{ prazo.selo }}</span>
                 <div class="ps-pop-wrap ps-prazo-mais-wrap">
