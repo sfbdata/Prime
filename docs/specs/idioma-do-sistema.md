@@ -553,3 +553,35 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   `AdicionarEmailType` e `EditarQualificacaoPessoaType`, `TipoTelefone::label()`, `tipoLabel` e `descricao` dos eventos,
   rótulos de desfecho e canal, o nome "Sem responsável" da linha órfã, flashes e mensagens das rotas da ficha); o
   `telefone-mascara.js` (sem texto) não entrou na guarda.
+
+## 26. Extração do Trabalho Externo, Central e ServiceDesk (a7, 21/10)
+
+- **Escopo:** 12 templates. `templates/trabalho_externo/` `index` (casca do painel: título, buscas e cabeçalho da
+  tabela), `convite`, `sem_acesso`, `curriculo_documento` (pré-visualização e PDF) e `vagas_publicas` (página pública,
+  incluindo `<title>`, `og:title`/`og:description` e o texto da mensagem do WhatsApp); `templates/central/` `index`,
+  `_janela` e `_flutuante`; `templates/servicedesk/` `index`, `meus_chamados`, `novo` e `show`. Blocos novos do
+  catálogo: `trabalho_externo` (161 chaves), `central` (34) e `servicedesk` (94). Nenhum JS entrou.
+- **Sem mudança visível:** com o mesmo `FOUNDRY_FAKER_SEED`, as 160 respostas HTML dos functionals de
+  `tests/TrabalhoExterno`, `tests/Central` e `tests/ServiceDesk` (painel, convite nos 5 estados, sem acesso, currículo
+  formatado, vagas públicas com e sem vagas e pelo link, Central em página e flutuante em toda tela, painel, meus
+  chamados, abrir e detalhe do chamado) saíram iguais antes e depois, comparadas com espaços normalizados e números e
+  tokens trocados por marcador. Os números que entram em frase (`Chamado #{id}`, `Chamados ({total})`,
+  `{total} vaga(s) aberta(s)`, `{qtd} vagas`) vão como texto (`~ ''`), para o ICU não pôr separador de milhar.
+- **Frase partida:** as frases com `<strong>`, `<b>` ou link no meio (convite: serviço e local, termos de uso,
+  política de privacidade; ServiceDesk: "N chamado(s) aguardando atribuição" e a legenda das prioridades do `novo`)
+  foram divididas em chaves, como no §8, com a pontuação e a marcação no template. A mensagem do WhatsApp das vagas
+  virou duas chaves inteiras (com e sem vagas) com `{total}`, `{cargos}` e `{url}`; a URL foi para um `{% set %}`.
+- **Guarda/permitidos:** `BlueJus` (alt e marca do rodapé do currículo), `te-body` (classe do `body_class`) e os nomes
+  de constante lidos por `constant()` (`CriarConviteEscritorioUseCase::RECUSA_EMAIL_A_CONFIRMAR` no painel,
+  `Mensagem::TAMANHO_MAXIMO` na janela da Central). Os `data-screen-label` da página de vagas (rótulos do desenho,
+  ninguém lê na tela) ficaram como estão.
+- **Formatos:** no ServiceDesk, `|date('d/m/Y H:i')` virou `|data_hora`, e o `d/m/Y`/`H:i` da linha do tempo do
+  detalhe, `|data`/`|hora`. Ficaram: `|number_format(1)` do tempo médio e do tempo de resolução (o padrão do Twig
+  escreve "2.5"; o `|numero(1)` escreveria "2,5", mudança visível), que entram como `{valor}` em `servicedesk.comum.horas`.
+  As datas do convite (`convite.validade`) e das vagas (`pagina.geradoEm`) já chegam formatadas do PHP.
+- **Ficou para depois:** o `trabalho-externo.js` (lista, KPIs, chips, painel lateral, modais, vagas, currículos), o
+  `vagas-publicas.js`, o `central.js`, o `central-flutuante.js` e o `central-dica.js`; o texto que vem do PHP: erros
+  do convite (`erro`), `convite.servico`/`local`, os blocos do `DocumentoDoCurriculo` (rótulos de contato e de
+  disponibilidade, situação, período), `pagina.consentimento` e as áreas das vagas, os rótulos de status, prioridade,
+  categoria e tipo do ServiceDesk (`statusLabel`, `prioridadeLabel`, `categoriaLabel`, `tipoLabel`, `statusList`,
+  `categorias`), os rótulos do `ChamadoType`/`InteracaoType` e os flashes dos controllers.

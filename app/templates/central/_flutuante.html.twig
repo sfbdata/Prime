@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="{{ asset('css/central.css') }}">
 <link rel="stylesheet" href="{{ asset('css/central-flutuante.css') }}">
 
-<div class="bj-flutuante-janela" data-flutuante-janela data-modo="normal" role="dialog" aria-label="Central de Comunicação" hidden>
+<div class="bj-flutuante-janela" data-flutuante-janela data-modo="normal" role="dialog" aria-label="{{ 'central.comum.nome'|trans }}" hidden>
     {# `only`: a janela flutuante não herda nada da página (ex.: um `abrirConversa` que só vale na /central). #}
     {% include 'central/_janela.html.twig' with {eu: app.user, modo: 'flutuante'} only %}
 </div>
@@ -13,8 +13,8 @@
 {# `data-perfil-sons`: "Sons de alerta" do Meu Perfil; com "0" o central-flutuante.js não toca som nenhum. #}
 <div class="bj-flutuante {{ recurso_marca('chat') }}" data-recurso="chat" data-central-flutuante data-eu-id="{{ app.user.id }}" data-perfil-sons="{{ perfil_sons() ? '1' : '0' }}" data-print="hide">
     <button type="button" class="bj-flutuante-lancador" data-flutuante-lancador data-estado="calmo"
-            aria-expanded="false" aria-label="Central de Comunicação, tudo em dia"
-            title="Central de Comunicação · tudo em dia">
+            aria-expanded="false" aria-label="{{ 'central.flutuante.lancador_aria'|trans }}"
+            title="{{ 'central.flutuante.lancador_title'|trans }}">
         <span class="bj-flutuante-icone" aria-hidden="true">
             {# calmo: um balão com check (L6404) #}
             <svg class="bj-flutuante-svg-calmo" viewBox="0 0 66 54" width="66" height="54" focusable="false">
