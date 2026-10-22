@@ -1,10 +1,10 @@
 {# Modelo "Boas-vindas" do desenho 05 (dc L.509): `val` e `conv`. #}
 {% import 'email/comercial/automacao/_blocos.html.twig' as b %}
-{{ b.texto('Seu e-mail foi confirmado e a sua conta está pronta. A partir de agora, prazos, processos, documentos e equipe ficam em um só lugar.') }}
-{{ b.titulo('Comece por aqui') }}
+{{ b.texto('emails.comercial.boas_vindas.texto'|trans) }}
+{{ b.titulo('emails.comercial.boas_vindas.comece'|trans) }}
 {{ b.noticias([
-    ['1. Abra sua primeira pasta', 'Cadastre o cliente e o sistema numera a pasta automaticamente.'],
-    ['2. Vincule o processo', 'O Push processual passa a acompanhar os andamentos.'],
-    ['3. Convide sua equipe', 'Cada pessoa entra como secundária e você define as permissões.'],
+    ['emails.comercial.boas_vindas.pasta_titulo'|trans, 'emails.comercial.boas_vindas.pasta_resumo'|trans],
+    ['emails.comercial.boas_vindas.processo_titulo'|trans, 'emails.comercial.boas_vindas.processo_resumo'|trans],
+    ['emails.comercial.boas_vindas.equipe_titulo'|trans, 'emails.comercial.boas_vindas.equipe_resumo'|trans],
 ]) }}
-{{ b.botao('Abrir o BlueJus', urlDoApp) }}
+{{ b.botao('emails.comercial.boas_vindas.botao'|trans, urlDoApp) }}

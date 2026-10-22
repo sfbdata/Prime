@@ -4086,7 +4086,7 @@ auditoria:
     js:
         selecione: Selecione...
 
-# ---- emails: e-mails do sistema (email/*, fora email/comercial)
+# ---- emails: e-mails do sistema (email/*; os de email/comercial no sub-bloco emails.comercial)
 # Renderizados também fora de requisição (worker do Messenger, comandos): o tradutor cai no default_locale (pt_BR).
 # Hoje saem no idioma da requisição de quem disparou; o idioma do destinatário é a entrega E (spec §5). Frase com
 # <b>/<strong>/link no meio vai partida em chaves, com a marcação no template. Contagem entra como texto (sem
@@ -4203,6 +4203,62 @@ emails:
         vale: Este convite vale até
         nao_funcionar: 'Se o botão não funcionar, copie e cole este link no seu navegador:'
         nao_esperava: Se você não esperava este convite, pode ignorá-lo com segurança. Nenhuma ação será realizada sem sua confirmação.
+    # Os e-mails do Comercial (email/comercial/*, spec idioma-do-sistema §25.C). O layout serve a todo e-mail do
+    # Carteiro, inclusive às campanhas do Master: só o texto fixo dele está aqui; o conteúdo da campanha é do usuário.
+    # Assunto, selo e título das automações (ModelosDeAutomacao), o assunto da confirmação e as frases do
+    # RotulosDoConsentimento ficam no PHP. O texto passado aos macros de _blocos é escapado no macro, como antes.
+    comercial:
+        layout:
+            enviado_por: 'Enviado por {escritorio} por meio do BlueJus.'
+            razao_social: BlueJus Gestão e Tecnologia LTDA · CNPJ 66.803.163/0001-10 · Brasília/DF
+            motivo_lista: Você recebeu este e-mail porque se cadastrou no BlueJus ou autorizou o envio de novidades.
+            motivo_conta: Você recebeu este e-mail por causa da sua conta no BlueJus.
+            descadastro_lista: Não quero mais receber
+            descadastro_escritorio: 'Não quero mais receber e-mails de {escritorio}'
+            descadastro_plataforma: Não quero receber novidades do BlueJus
+            politica: Política de Privacidade
+        confirmacao_endereco:
+            confirme: 'Confirme que quer receber {lista}'
+            clique: Clique no botão abaixo para confirmar seu e-mail. O link vale por 7 dias.
+            botao: Confirmar meu e-mail
+            nao_funcionar: 'Se o botão não funcionar, copie e cole este endereço no navegador:'
+        boas_vindas:
+            texto: Seu e-mail foi confirmado e a sua conta está pronta. A partir de agora, prazos, processos, documentos e equipe ficam em um só lugar.
+            comece: Comece por aqui
+            pasta_titulo: 1. Abra sua primeira pasta
+            pasta_resumo: Cadastre o cliente e o sistema numera a pasta automaticamente.
+            processo_titulo: 2. Vincule o processo
+            processo_resumo: O Push processual passa a acompanhar os andamentos.
+            equipe_titulo: 3. Convide sua equipe
+            equipe_resumo: Cada pessoa entra como secundária e você define as permissões.
+            botao: Abrir o BlueJus
+        espaco_100:
+            texto: O armazenamento chegou a 100%. Seus arquivos continuam guardados e disponíveis para consulta e download, mas novos envios ficam pausados até ampliar o espaço.
+            botao: Solicitar mais espaço
+        espaco_90:
+            # {limite} é o percentual escolhido na automação (80, 85 ou 90), como texto.
+            texto: 'O armazenamento do seu escritório no BlueJus está com {limite}% ocupado. Quando chegar a 100%, o envio de novos documentos fica pausado (consultar e baixar continua liberado).'
+            aumente_titulo: Aumente o espaço
+            aumente_resumo: Mude para um plano maior em poucos cliques, sem perder nada.
+            libere_titulo: Ou libere espaço
+            libere_resumo: Use a sugestão de exclusão de documentos repetidos e vazios dentro das pastas.
+            botao: Aumentar meu espaço
+        lembrete_confirmacao:
+            texto: Recebemos o cadastro da sua conta no BlueJus. Para proteger o acesso e liberar todas as funções, confirme que este e-mail é seu.
+            botao: Confirmar e criar minha senha
+            # A linha em branco (\n\n) separa os parágrafos: o macro texto de _blocos parte por ela.
+            validade: "O link vale por 7 dias.\n\nSe você não criou esta conta, ignore este e-mail."
+        pedido_espaco:
+            texto: Recebemos o seu pedido para ampliar o espaço da conta. A equipe BlueJus vai confirmar o novo plano com você, e nenhum arquivo é apagado enquanto isso.
+            botao: Abrir o BlueJus
+        primeiros_passos:
+            prazos_titulo: Prazos lidos das pastas
+            prazos_resumo: Escreva a data no registro e ela vira prazo automaticamente.
+            chat_titulo: Chat I.A
+            chat_resumo: Pergunte quais pastas estão paradas ou o que vence hoje.
+            perfil_titulo: Meu Perfil
+            perfil_resumo: Cadastre sua OAB principal e as suplementares.
+            botao: Continuar no BlueJus
 
 # ---- plataforma: área do Master fora de escritório (admin/platform/_base_platform, _sidebar_platform, convites,
 # dashboard, oab), com os flashes do AdminConviteController e do OabReviewController. Frase com "Master" recebe

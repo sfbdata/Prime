@@ -1,4 +1,4 @@
 {# Modelo "Pedido de espaço recebido" do desenho 05 (dc L.508-513): `ped`. #}
 {% import 'email/comercial/automacao/_blocos.html.twig' as b %}
-{{ b.texto('Recebemos o seu pedido para ampliar o espaço da conta. A equipe BlueJus vai confirmar o novo plano com você, e nenhum arquivo é apagado enquanto isso.') }}
-{{ b.botao('Abrir o BlueJus', urlDoApp) }}
+{{ b.texto('emails.comercial.pedido_espaco.texto'|trans) }}
+{{ b.botao('emails.comercial.pedido_espaco.botao'|trans, urlDoApp) }}
