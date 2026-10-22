@@ -53,7 +53,7 @@
            Cada número é o que o contexto LEVA (teto da seção no montador), não o total da pasta.
            Quatro dos cinco do desenho: "fontes" é heurística do protótipo e fica de fora. #}
         {% if sabe|default(null) is not null %}
-            <div class="ia-sabe" title="O que a IA sabe desta pasta" data-ia-sabe>
+            <div class="ia-sabe" title="{{ 'inteligencia.painel.sabe'|trans }}" data-ia-sabe>
                 {% for k in sabe.itens %}
                     <div class="ia-sabe-item" data-ia-sabe-item="{{ k.chave }}">
                         <span class="ia-sabe-v">{{ k.valor }}</span>
@@ -66,8 +66,8 @@
                 {% endfor %}
             </div>
         {% endif %}
-        <p class="ia-secao-titulo">Comandos para esta pasta</p>
-        <div class="ia-comandos" role="group" aria-label="Comandos para esta pasta" data-ia-grade>
+        <p class="ia-secao-titulo">{{ 'inteligencia.painel.comandos'|trans }}</p>
+        <div class="ia-comandos" role="group" aria-label="{{ 'inteligencia.painel.comandos'|trans }}" data-ia-grade>
             {% for c in comandos %}
                 {% set saidaDoBotao = painel is not null ? painel.de(c) : null %}
                 <button type="button"
@@ -89,8 +89,8 @@
         </div>
     {% endif %}
     <div class="ia-aba-painel" id="ia-aba-relatorios" role="tabpanel" aria-labelledby="ia-aba-btn-relatorios" data-ia-aba-painel="relatorios" hidden>
-        <p class="ia-aba-intro">Relatórios executivos montados com os dados autorizados desta pasta e do cliente.</p>
-        <div class="ia-relatorios" role="group" aria-label="Relatórios" data-ia-grade>
+        <p class="ia-aba-intro">{{ 'inteligencia.painel.relatorios_intro'|trans }}</p>
+        <div class="ia-relatorios" role="group" aria-label="{{ 'inteligencia.painel.relatorios'|trans }}" data-ia-grade>
             {% for r in relatorios %}
                 {% set saidaDoBotao = painel is not null ? painel.de(r) : null %}
                 <button type="button"

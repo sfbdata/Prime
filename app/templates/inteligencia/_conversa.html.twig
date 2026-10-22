@@ -22,12 +22,12 @@
    ============================================================================ #}
 {% set ia = ia_disponibilidade() %}
 {% set emAndamento = conversa is not null and conversa.temEmAndamento %}
-{% set sugestoes = ['Esse processo está parado?', 'O que falta fazer?', 'Veja se existe prazo', 'Existe algum risco?'] %}
+{% set sugestoes = ['inteligencia.conversa.sugestao_parado'|trans, 'inteligencia.conversa.sugestao_falta'|trans, 'inteligencia.conversa.sugestao_prazo'|trans, 'inteligencia.conversa.sugestao_risco'|trans] %}
 <div class="ia-conversa" data-ia-conversa
      data-ia-carregado="{{ conversa is null ? '0' : '1' }}"
      data-ia-em-andamento="{{ emAndamento ? '1' : '0' }}">
     {% if conversa is null %}
-        <p class="ia-ag-vazio" data-ia-carregando>Carregando a conversa…</p>
+        <p class="ia-ag-vazio" data-ia-carregando>{{ 'inteligencia.conversa.carregando'|trans }}</p>
     {% else %}
         <div class="ia-conversa-msgs" data-ia-mensagens>
             {% for m in conversa.mensagens %}
@@ -39,9 +39,9 @@
                 {% endif %}
             {% endfor %}
             {% if conversa.vazia %}
-                <p class="ia-conversa-vazia">Pergunte sobre esta pasta. A IA já conhece o cliente, o processo, os prazos, as metas, os registros e os documentos.</p>
+                <p class="ia-conversa-vazia">{{ 'inteligencia.conversa.vazia'|trans }}</p>
             {% endif %}
-            <div class="ia-conversa-sugestoes" role="group" aria-label="Sugestões de pergunta">
+            <div class="ia-conversa-sugestoes" role="group" aria-label="{{ 'inteligencia.conversa.sugestoes'|trans }}">
                 {% for s in sugestoes %}
                     <button type="button" class="ia-conversa-sugestao" data-ia-sugestao="{{ s }}"{{ emAndamento or not ia.estaDisponivel ? ' disabled' : '' }}>{{ s }}</button>
                 {% endfor %}
@@ -49,7 +49,7 @@
         </div>
         {% if emAndamento %}
             <div class="ia-conversa-carregando" role="status" data-ia-consultando>
-                <div class="ia-conversa-etapa"><i class="bi bi-stars" aria-hidden="true"></i>Consultando os dados desta pasta</div>
+                <div class="ia-conversa-etapa"><i class="bi bi-stars" aria-hidden="true"></i>{{ 'inteligencia.conversa.consultando'|trans }}</div>
                 <div class="ia-conversa-shim" aria-hidden="true"></div>
                 <div class="ia-conversa-shim ia-conversa-shim--curto" aria-hidden="true"></div>
             </div>

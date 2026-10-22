@@ -58,40 +58,40 @@
         {% set aberta = not recolhivel or a.id not in recolhidasIa %}
         {# P4h: editar segue a regra do "Criar tarefa da providência" (EDIT e pasta viva). #}
         {% set podeEditarIa = a.status == 'concluida' and iaPodeCriarTarefa %}
-        {% set dicaAberta = aberta ? 'Recolher a análise' : 'Expandir a análise' %}
+        {% set dicaAberta = aberta ? 'inteligencia.push.recolher'|trans : 'inteligencia.push.expandir'|trans %}
         <article class="ps-ia-cartao ps-ia-cartao--{{ a.status }}{{ a.lida ? ' ps-ia-cartao--lida' : '' }}{{ aberta ? '' : ' ps-ia-cartao--recolhida' }}"
-                 aria-label="Análise gerada por IA"
+                 aria-label="{{ 'inteligencia.comum.analise_gerada_por_ia'|trans }}"
                  data-ia-analise="{{ a.id }}"
                  data-ia-status="{{ a.status }}"
                  data-ia-status-url="{{ path('inteligencia_analise_status', {id: pastaId, analiseId: a.id}) }}">
             <div class="ps-ia-marca" aria-hidden="true">
                 <span class="ps-ia-marca-ico">✦</span>
-                <span class="ps-ia-marca-dia">{{ ehHoje ? 'hoje' : a.criadaEm|date('d/m') }}</span>
+                <span class="ps-ia-marca-dia">{{ ehHoje ? 'inteligencia.comum.hoje'|trans : a.criadaEm|date('d/m') }}</span>
             </div>
             <div class="ps-ia-corpo">
                 <header class="ps-ia-cab">
-                    <span class="ps-ia-selo">✦ Análise IA</span>
-                    <span class="ps-ia-aviso">Gerado por IA · não é movimentação oficial · <time class="ps-ia-quando ps-num" datetime="{{ a.criadaEm|date('c') }}">{{ ehHoje ? 'hoje' : a.criadaEm|date('d/m/Y') }}, {{ a.criadaEm|date('H:i') }}</time></span>
+                    <span class="ps-ia-selo">✦ {{ 'inteligencia.push.selo'|trans }}</span>
+                    <span class="ps-ia-aviso">{{ 'inteligencia.push.aviso'|trans }} · <time class="ps-ia-quando ps-num" datetime="{{ a.criadaEm|date('c') }}">{{ ehHoje ? 'inteligencia.comum.hoje'|trans : a.criadaEm|data }}, {{ a.criadaEm|hora }}</time></span>
                     {% if a.editada %}
-                        <span class="ps-ia-editado"{% if a.editadaEm %} title="Editado{{ a.editadaPorNome ? ' por ' ~ a.editadaPorNome : '' }} em {{ a.editadaEm|date('d/m') }} às {{ a.editadaEm|date('H:i') }}"{% endif %}>editado</span>
+                        <span class="ps-ia-editado"{% if a.editadaEm %} title="{{ a.editadaPorNome ? 'inteligencia.push.editado_por'|trans({nome: a.editadaPorNome, dia: a.editadaEm|date('d/m'), hora: a.editadaEm|hora}) : 'inteligencia.push.editado_em'|trans({dia: a.editadaEm|date('d/m'), hora: a.editadaEm|hora}) }}"{% endif %}>{{ 'inteligencia.push.editado'|trans }}</span>
                     {% endif %}
                     {% if a.lida %}
-                        <span class="ps-ia-lido"><i class="bi bi-check2-all" aria-hidden="true"></i>lido</span>
+                        <span class="ps-ia-lido"><i class="bi bi-check2-all" aria-hidden="true"></i>{{ 'inteligencia.comum.lido'|trans }}</span>
                     {% endif %}
                     <span class="ps-ia-cab-espaco"></span>
                     {% if a.terminal %}
                         {% set dicaInterna = a.internaDoEscritorio
-                            ? 'Análise interna: não aparece no link compartilhado com o cliente. Clique para liberar.'
-                            : 'Visível no link compartilhado. Clique para tornar interna do escritório.' %}
+                            ? 'inteligencia.comum.dica_interna_sim'|trans
+                            : 'inteligencia.comum.dica_interna_nao'|trans %}
                         <form method="post" action="{{ path('inteligencia_analise_interna', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="interna">
                             <input type="hidden" name="_token" value="{{ csrfAnalise }}">
                             <button type="submit" class="ps-ia-icone{{ a.internaDoEscritorio ? ' is-interna' : '' }}" title="{{ dicaInterna }}" aria-label="{{ dicaInterna }}">
                                 <i class="bi {{ a.internaDoEscritorio ? 'bi-lock-fill' : 'bi-unlock' }}" aria-hidden="true"></i>
-                                <span class="visually-hidden">{{ a.internaDoEscritorio ? 'Liberar para compartilhamento' : 'Tornar interna do escritório' }}</span>
+                                <span class="visually-hidden">{{ a.internaDoEscritorio ? 'inteligencia.push.liberar'|trans : 'inteligencia.push.tornar_interna'|trans }}</span>
                             </button>
                         </form>
                     {% elseif a.internaDoEscritorio %}
-                        <span class="ps-ia-cadeado" title="Interna do escritório: não vai a links compartilhados"><i class="bi bi-lock-fill" aria-hidden="true"></i></span>
+                        <span class="ps-ia-cadeado" title="{{ 'inteligencia.comum.cadeado'|trans }}"><i class="bi bi-lock-fill" aria-hidden="true"></i></span>
                     {% endif %}
                     {% if recolhivel %}
                         {# Chevron do desenho (dc L2440), entre o cadeado e o ⋮. Envia o formulário
@@ -102,41 +102,41 @@
                         </button>
                     {% endif %}
                     <div class="ps-ia-menu-wrap">
-                        <button type="button" class="ps-ia-icone" data-ia-menu aria-haspopup="menu" aria-expanded="false" aria-label="Mais opções da análise" title="Mais opções da análise">
+                        <button type="button" class="ps-ia-icone" data-ia-menu aria-haspopup="menu" aria-expanded="false" aria-label="{{ 'inteligencia.comum.mais_opcoes'|trans }}" title="{{ 'inteligencia.comum.mais_opcoes'|trans }}">
                             <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
                         </button>
                         <div class="ps-ia-menu" role="menu" hidden>
                             {% if podeEditarIa %}
-                                <button type="button" class="ps-ia-menu-item" role="menuitem" data-ia-editar><i class="bi bi-pencil" aria-hidden="true"></i>Editar</button>
+                                <button type="button" class="ps-ia-menu-item" role="menuitem" data-ia-editar><i class="bi bi-pencil" aria-hidden="true"></i>{{ 'inteligencia.push.editar'|trans }}</button>
                             {% endif %}
                             {% if a.terminal and not a.lida %}
                                 <form method="post" action="{{ path('inteligencia_analise_lida', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="lida">
                                     <input type="hidden" name="_token" value="{{ csrfAnalise }}">
-                                    <button type="submit" class="ps-ia-menu-item" role="menuitem"><i class="bi bi-check2-all" aria-hidden="true"></i>Marcar como lido</button>
+                                    <button type="submit" class="ps-ia-menu-item" role="menuitem"><i class="bi bi-check2-all" aria-hidden="true"></i>{{ 'inteligencia.comum.marcar_lido'|trans }}</button>
                                 </form>
                             {% elseif a.lida %}
                                 {# IA-011 (dc L5159-5160): lida, a opção vira "Marcar como não lido". #}
                                 <form method="post" action="{{ path('inteligencia_analise_nao_lida', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="nao-lida">
                                     <input type="hidden" name="_token" value="{{ csrfAnalise }}">
-                                    <button type="submit" class="ps-ia-menu-item" role="menuitem"><i class="bi bi-check2-all" aria-hidden="true"></i>Marcar como não lido</button>
+                                    <button type="submit" class="ps-ia-menu-item" role="menuitem"><i class="bi bi-check2-all" aria-hidden="true"></i>{{ 'inteligencia.comum.marcar_nao_lido'|trans }}</button>
                                 </form>
                             {% endif %}
                             {% if a.status == 'concluida' and iaPodeCriarTarefa %}
                                 <button type="button" class="ps-ia-menu-item" role="menuitem"
                                         data-ia-criar-meta
-                                        data-meta-titulo="{{ pontoDeAcao ? pontoDeAcao.texto|slice(0, 90) : 'Providência indicada pela análise IA' }}"
+                                        data-meta-titulo="{{ pontoDeAcao ? pontoDeAcao.texto|slice(0, 90) : 'inteligencia.push.meta_titulo'|trans }}"
                                         data-meta-rotulo="{{ pontoDeAcao ? pontoDeAcao.rotulo : '' }}"
                                         data-meta-ponto="{{ pontoDeAcao ? pontoDeAcao.texto : '' }}"
                                         data-meta-resumo="{{ a.resumo }}"
                                         data-meta-quem="{{ a.quemAge }}"
-                                        data-meta-quando="{{ a.criadaEm|date('d/m/Y H:i') }}">
-                                    <i class="bi bi-check2-square" aria-hidden="true"></i>Criar tarefa da providência
+                                        data-meta-quando="{{ a.criadaEm|data_hora }}">
+                                    <i class="bi bi-check2-square" aria-hidden="true"></i>{{ 'inteligencia.push.criar_tarefa'|trans }}
                                 </button>
                             {% endif %}
                             <form method="post" action="{{ path('inteligencia_analise_excluir', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="excluir"
-                                  data-ia-confirmar="Excluir esta análise da IA? As movimentações oficiais não são alteradas.">
+                                  data-ia-confirmar="{{ 'inteligencia.push.confirmar_excluir'|trans }}">
                                 <input type="hidden" name="_token" value="{{ csrfAnalise }}">
-                                <button type="submit" class="ps-ia-menu-item ps-ia-menu-item--perigo" role="menuitem"><i class="bi bi-trash3" aria-hidden="true"></i>Excluir análise</button>
+                                <button type="submit" class="ps-ia-menu-item ps-ia-menu-item--perigo" role="menuitem"><i class="bi bi-trash3" aria-hidden="true"></i>{{ 'inteligencia.comum.excluir_analise'|trans }}</button>
                             </form>
                         </div>
                     </div>
@@ -144,13 +144,13 @@
 
                 {% if recolhivel %}
                     {# Prévia de uma linha da análise recolhida (dc L2452-2454): clicar expande. #}
-                    <button type="submit" form="ps-ia-recolher-{{ a.id }}" class="ps-ia-previa" data-ia-previa{{ aberta ? ' hidden' : '' }}>{{ a.resumo }}{{ a.pontos is not empty ? ' · ' ~ a.pontos|length ~ ' ponto(s)' : '' }}</button>
+                    <button type="submit" form="ps-ia-recolher-{{ a.id }}" class="ps-ia-previa" data-ia-previa{{ aberta ? ' hidden' : '' }}>{{ a.resumo }}{{ a.pontos is not empty ? ' · ' ~ 'inteligencia.push.pontos'|trans({n: a.pontos|length ~ ''}) : '' }}</button>
                 {% endif %}
 
                 {% if a.emAndamento %}
                     <p class="ps-ia-andamento" role="status">
                         <span class="ps-ia-andamento-ico" aria-hidden="true">✦</span>
-                        Analisando… (lendo {{ a.totalMovimentacoes }} {{ a.totalMovimentacoes == 1 ? 'movimentação' : 'movimentações' }})
+                        {{ a.totalMovimentacoes == 1 ? 'inteligencia.push.andamento_um'|trans({n: '1'}) : 'inteligencia.push.andamento_varios'|trans({n: a.totalMovimentacoes ~ ''}) }}
                     </p>
                 {% elseif a.status == 'concluida' %}
                     <p class="ps-ia-resumo">{{ a.resumo }}</p>
@@ -165,9 +165,9 @@
                         </ul>
                     {% endif %}
                     {% if a.quemAge %}
-                        <p class="ps-ia-quem"><i class="bi bi-person-check" aria-hidden="true"></i><strong>Quem deve agir:</strong> {{ a.quemAge }}</p>
+                        <p class="ps-ia-quem"><i class="bi bi-person-check" aria-hidden="true"></i><strong>{{ 'inteligencia.comum.quem_deve_agir'|trans }}</strong> {{ a.quemAge }}</p>
                     {% endif %}
-                    <p class="ps-ia-base">Base: {{ a.totalMovimentacoes }} {{ a.totalMovimentacoes == 1 ? 'movimentação' : 'movimentações' }}. Confira o documento original antes de agir.</p>
+                    <p class="ps-ia-base">{{ a.totalMovimentacoes == 1 ? 'inteligencia.push.base_um'|trans({n: '1'}) : 'inteligencia.push.base_varios'|trans({n: a.totalMovimentacoes ~ ''}) }}</p>
                     {% if podeEditarIa %}
                         {# Modo edição (desenho N:2602-2612 e N:2621-2624). `pontos[i]`: i = posição na lista
                            exibida; o X tira a linha e o ponto sai. Sem incluir ponto nem trocar o tipo. #}
@@ -176,48 +176,48 @@
                             <input type="hidden" name="_token" value="{{ csrfAnalise }}">
                             {# A edição que esta tela viu: se outra pessoa salvar antes, o servidor recusa. #}
                             <input type="hidden" name="versao" value="{{ a.editadaEm ? a.editadaEm|date('U') : '' }}">
-                            <textarea name="resumo" class="ps-ia-ed-resumo" rows="3" maxlength="2000" aria-label="Resumo da análise">{{ a.resumo }}</textarea>
+                            <textarea name="resumo" class="ps-ia-ed-resumo" rows="3" maxlength="2000" aria-label="{{ 'inteligencia.push.resumo_rotulo'|trans }}">{{ a.resumo }}</textarea>
                             {% for p in a.pontos %}
                                 <div class="ps-ia-ed-ponto" data-ia-ed-ponto>
                                     <span class="ps-ia-chip ps-ia-chip--{{ p.tipo }}">{{ p.rotulo }}</span>
-                                    <input type="text" name="pontos[{{ loop.index0 }}]" value="{{ p.texto }}" maxlength="500" class="ps-ia-ed-ponto-txt" aria-label="Ponto da análise">
-                                    <button type="button" class="ps-ia-icone ps-ia-ed-remover" data-ia-ed-remover aria-label="Remover ponto" title="Remover ponto"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                                    <input type="text" name="pontos[{{ loop.index0 }}]" value="{{ p.texto }}" maxlength="500" class="ps-ia-ed-ponto-txt" aria-label="{{ 'inteligencia.push.ponto_rotulo'|trans }}">
+                                    <button type="button" class="ps-ia-icone ps-ia-ed-remover" data-ia-ed-remover aria-label="{{ 'inteligencia.push.remover_ponto'|trans }}" title="{{ 'inteligencia.push.remover_ponto'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
                                 </div>
                             {% endfor %}
-                            <p class="ps-ia-ed-nota">Conteúdo originalmente gerado por IA. Sua edição fica registrada como "editado".</p>
+                            <p class="ps-ia-ed-nota">{{ 'inteligencia.push.nota_edicao'|trans }} "{{ 'inteligencia.push.editado'|trans }}".</p>
                             <div class="ps-ia-acoes">
-                                <button type="submit" class="ps-ia-botao ps-ia-botao--salvar"><i class="bi bi-check2" aria-hidden="true"></i> Salvar</button>
-                                <button type="button" class="ps-ia-botao" data-ia-ed-cancelar>Cancelar</button>
+                                <button type="submit" class="ps-ia-botao ps-ia-botao--salvar"><i class="bi bi-check2" aria-hidden="true"></i> {{ 'inteligencia.push.salvar'|trans }}</button>
+                                <button type="button" class="ps-ia-botao" data-ia-ed-cancelar>{{ 'inteligencia.push.cancelar'|trans }}</button>
                             </div>
                         </form>
                     {% endif %}
                 {% elseif a.status == 'falhou' %}
-                    <p class="ps-ia-erro">Não foi possível gerar a análise agora. Tente novamente.</p>
+                    <p class="ps-ia-erro">{{ 'inteligencia.comum.falhou'|trans }}</p>
                     {% if podeVerMotivoTecnico and a.erroMotivo %}
-                        <p class="ps-ia-erro-tecnico"><small>Motivo técnico: {{ a.erroMotivo }}</small></p>
+                        <p class="ps-ia-erro-tecnico"><small>{{ 'inteligencia.comum.motivo_tecnico'|trans({motivo: a.erroMotivo}) }}</small></p>
                     {% endif %}
                 {% else %}
-                    <p class="ps-ia-erro">IA não configurada nesta instalação.</p>
+                    <p class="ps-ia-erro">{{ 'inteligencia.comum.nao_configurada'|trans }}</p>
                 {% endif %}
 
                 <footer class="ps-ia-acoes" data-ia-rodape>
                     {% if podeEditarIa %}
-                        <button type="button" class="ps-ia-botao ps-ia-botao--editar" data-ia-editar><i class="bi bi-pencil" aria-hidden="true"></i> Editar</button>
+                        <button type="button" class="ps-ia-botao ps-ia-botao--editar" data-ia-editar><i class="bi bi-pencil" aria-hidden="true"></i> {{ 'inteligencia.push.editar'|trans }}</button>
                     {% endif %}
                     <form method="post" action="{{ path('inteligencia_analise_excluir', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="excluir"
-                          data-ia-confirmar="Excluir esta análise da IA? As movimentações oficiais não são alteradas.">
+                          data-ia-confirmar="{{ 'inteligencia.push.confirmar_excluir'|trans }}">
                         <input type="hidden" name="_token" value="{{ csrfAnalise }}">
-                        <button type="submit" class="ps-ia-botao ps-ia-botao--perigo"><i class="bi bi-trash3" aria-hidden="true"></i> Excluir</button>
+                        <button type="submit" class="ps-ia-botao ps-ia-botao--perigo"><i class="bi bi-trash3" aria-hidden="true"></i> {{ 'inteligencia.comum.excluir'|trans }}</button>
                     </form>
                     {% if a.terminal and not a.lida %}
                         <form method="post" action="{{ path('inteligencia_analise_lida', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="lida">
                             <input type="hidden" name="_token" value="{{ csrfAnalise }}">
-                            <button type="submit" class="ps-ia-botao"><i class="bi bi-check2-all" aria-hidden="true"></i> Marcar como lido</button>
+                            <button type="submit" class="ps-ia-botao"><i class="bi bi-check2-all" aria-hidden="true"></i> {{ 'inteligencia.comum.marcar_lido'|trans }}</button>
                         </form>
                     {% elseif a.lida %}
                         <form method="post" action="{{ path('inteligencia_analise_nao_lida', {id: pastaId, analiseId: a.id}) }}" class="ps-ia-acao" data-ia-acao="nao-lida">
                             <input type="hidden" name="_token" value="{{ csrfAnalise }}">
-                            <button type="submit" class="ps-ia-botao"><i class="bi bi-envelope" aria-hidden="true"></i> Marcar como não lido</button>
+                            <button type="submit" class="ps-ia-botao"><i class="bi bi-envelope" aria-hidden="true"></i> {{ 'inteligencia.comum.marcar_nao_lido'|trans }}</button>
                         </form>
                     {% endif %}
                     {% if a.status == 'concluida' and avisarClienteIa is not null %}
@@ -228,8 +228,8 @@
                                 data-corpo="{{ avisarClienteIa.corpoPadrao(a) }}"
                                 data-sub="{{ avisarClienteIa.subDoModal }}"
                                 {% if a.internaDoEscritorio %}aria-disabled="true" data-cliente-interna="1"{% endif %}
-                                title="{{ a.internaDoEscritorio ? 'Análise interna do escritório: libere o cadeado para enviar ao cliente.' : avisarClienteIa.dicaDoEnvio }}">
-                            <i class="bi bi-envelope-paper" aria-hidden="true"></i><span data-cliente-enviar-txt>{{ envioIa ? 'Reenviar ao cliente' : 'Enviar ao cliente' }}</span>
+                                title="{{ a.internaDoEscritorio ? 'inteligencia.push.interna_bloqueia'|trans : avisarClienteIa.dicaDoEnvio }}">
+                            <i class="bi bi-envelope-paper" aria-hidden="true"></i><span data-cliente-enviar-txt>{{ envioIa ? 'inteligencia.push.reenviar'|trans : 'inteligencia.push.enviar'|trans }}</span>
                         </button>
                         <span class="ps-ia-enviado" data-cliente-enviado title="{{ envioIa ? envioIa.dica : '' }}"{{ envioIa ? '' : ' hidden' }}>
                             <i class="bi bi-envelope-check" aria-hidden="true"></i><span data-cliente-enviado-txt>{{ envioIa ? envioIa.quando : '' }}</span>
@@ -250,6 +250,6 @@
     {% else %}
         {# O desenho não mostra nada quando ainda não há análise (dc L.2427, lista vazia): o texto
            fica no markup, escondido, como gancho do `data-ia-vazio`. #}
-        <p class="ps-ia-vazio" data-ia-vazio hidden>Nenhuma análise por IA ainda para esta pasta.</p>
+        <p class="ps-ia-vazio" data-ia-vazio hidden>{{ 'inteligencia.push.vazia'|trans }}</p>
     {% endfor %}
 </div>

@@ -5096,4 +5096,222 @@ sync:
         desconectar: Desconectar
         conectar: Conectar conta Google
 
+# ---- BlueJus IA: drawer da pasta, análises do Push e configuração (inteligencia/*, pasta-ia-*.js)
+inteligencia:
+    comum:
+        hoje: hoje
+        lido: lido
+        analise_gerada_por_ia: Análise gerada por IA
+        dica_interna_sim: 'Análise interna: não aparece no link compartilhado com o cliente. Clique para liberar.'
+        dica_interna_nao: Visível no link compartilhado. Clique para tornar interna do escritório.
+        cadeado: 'Interna do escritório: não vai a links compartilhados'
+        mais_opcoes: Mais opções da análise
+        marcar_lido: Marcar como lido
+        marcar_nao_lido: Marcar como não lido
+        excluir_analise: Excluir análise
+        excluir: Excluir
+        quem_deve_agir: 'Quem deve agir:'
+        falhou: Não foi possível gerar a análise agora. Tente novamente.
+        motivo_tecnico: 'Motivo técnico: {motivo}'
+        nao_configurada: IA não configurada nesta instalação.
+    drawer:
+        assistente: Assistente jurídica do escritório
+        fechar: Fechar
+        chips_dica: Contexto carregado automaticamente desta tela
+        chip_pasta: 'Pasta {nup}'
+        sem_cliente: Sem cliente
+        sem_processo: Sem processo
+        sem_responsavel: Sem responsável
+        abas: Seções da BlueJus IA
+        aba_analise: Análise
+        aba_documentos: Documentos
+        aba_relatorios: Relatórios
+        aba_perguntar: Perguntar
+    painel:
+        sabe: O que a IA sabe desta pasta
+        comandos: Comandos para esta pasta
+        relatorios_intro: Relatórios executivos montados com os dados autorizados desta pasta e do cliente.
+        relatorios: Relatórios
+    comando:
+        gerar_analise: Gerar análise
+        gerar_nova: Gerar nova análise
+        le: '{agente}. Lê: dados da pasta, processos, {secoes}.'
+        em_andamento: Análise em andamento
+        dica_indice: Marque os documentos do índice
+        dica_nova: Nova análise considerando o histórico
+        dica_primeira: 'O {agente} lê os dados desta pasta e responde'
+        analisando: Analisando…
+        carregando: Carregando as análises…
+    documentos:
+        intro: 'A IA monta o índice pelos dados de cada arquivo: nome, título, categoria e data. O conteúdo dos arquivos não é lido.'
+        grupo: Documentos desta pasta
+        carregando: Carregando os documentos…
+        vazio: Nenhum documento nesta pasta.
+        selecionar_todos: Selecionar todos
+        contagem: '0 de {total}'
+    cartao:
+        aviso: Gerado por IA · não é ato oficial do processo
+        selo_padrao: Análise IA
+        copiar: Copiar
+        baixar_dica: Baixar .txt
+        baixar: Baixar
+        imprimir_dica: Imprimir ou salvar em PDF
+        imprimir: Imprimir
+        confirmar_excluir: Excluir esta análise da IA? Os dados da pasta não são alterados.
+        andamento_um: 'Analisando… (lendo {n} item da pasta)'
+        andamento_varios: 'Analisando… (lendo {n} itens da pasta)'
+        completa: Análise completa
+        meta_titulo: 'Providência indicada pelo {agente}'
+        agente_da_ia: agente da IA
+        criar_tarefa: Criar tarefa
+        criar_tarefa_dica: Abre a nova meta desta pasta preenchida com esta análise
+        base_um: 'Base: {n} item desta pasta. Confira os documentos originais antes de agir.'
+        base_varios: 'Base: {n} itens desta pasta. Confira os documentos originais antes de agir.'
+    lista:
+        vazia_agente: Nenhuma análise deste agente ainda.
+        vazia_relatorio: Nenhum relatório gerado ainda.
+        vazia_indice: Nenhum índice gerado ainda.
+        vazia_comando: Nenhuma análise deste comando ainda.
+    push:
+        recolher: Recolher a análise
+        expandir: Expandir a análise
+        selo: Análise IA
+        aviso: Gerado por IA · não é movimentação oficial
+        editado_por: 'Editado por {nome} em {dia} às {hora}'
+        editado_em: 'Editado em {dia} às {hora}'
+        editado: editado
+        liberar: Liberar para compartilhamento
+        tornar_interna: Tornar interna do escritório
+        editar: Editar
+        meta_titulo: Providência indicada pela análise IA
+        criar_tarefa: Criar tarefa da providência
+        confirmar_excluir: Excluir esta análise da IA? As movimentações oficiais não são alteradas.
+        pontos: '{n} ponto(s)'
+        andamento_um: 'Analisando… (lendo {n} movimentação)'
+        andamento_varios: 'Analisando… (lendo {n} movimentações)'
+        base_um: 'Base: {n} movimentação. Confira o documento original antes de agir.'
+        base_varios: 'Base: {n} movimentações. Confira o documento original antes de agir.'
+        resumo_rotulo: Resumo da análise
+        ponto_rotulo: Ponto da análise
+        remover_ponto: Remover ponto
+        nota_edicao: Conteúdo originalmente gerado por IA. Sua edição fica registrada como
+        salvar: Salvar
+        cancelar: Cancelar
+        interna_bloqueia: 'Análise interna do escritório: libere o cadeado para enviar ao cliente.'
+        reenviar: Reenviar ao cliente
+        enviar: Enviar ao cliente
+        vazia: Nenhuma análise por IA ainda para esta pasta.
+    conversa:
+        sugestao_parado: Esse processo está parado?
+        sugestao_falta: O que falta fazer?
+        sugestao_prazo: Veja se existe prazo
+        sugestao_risco: Existe algum risco?
+        carregando: Carregando a conversa…
+        vazia: Pergunte sobre esta pasta. A IA já conhece o cliente, o processo, os prazos, as metas, os registros e os documentos.
+        sugestoes: Sugestões de pergunta
+        consultando: Consultando os dados desta pasta
+        placeholder: Pergunte sobre esta pasta...
+        campo: Pergunta para a IA
+        enviar: Enviar
+    auditoria:
+        rotulo: Registro de auditoria
+        carregando: Carregando o registro…
+        download: 'Download: {oque}'
+        impressao: 'Impressão: {oque}'
+        pedida_por: 'pedida por {nome}'
+        excluida: excluída da tela
+        vazia: Nenhuma ação da IA nesta pasta ainda.
+        mostrando: 'Mostrando as {n} mais recentes de {total}.'
+    admin:
+        estado: Estado da plataforma
+        provedor: Provedor de IA
+        configurado: configurado
+        nao_configurado: não configurado
+        flag: Flag da plataforma (IA_HABILITADA)
+        ligada: ligada
+        desligada: desligada
+        uso: Uso deste escritório
+        uso_hoje: hoje
+        uso_mes: no mês
+        aviso_plataforma: IA não configurada nesta instalação. Ligar aqui não ativa nada até a plataforma ter um provedor configurado.
+        operacional: BlueJus IA operacional neste escritório.
+        configuracao: Configuração do escritório
+        envio:
+            intro: 'Ao ligar, o escritório aceita enviar a um provedor externo de IA, nos termos do Anexo I da Política de Privacidade:'
+            pasta: 'dados da pasta:'
+            pasta_numero: número
+            pasta_situacao: situação
+            pasta_prioridade: prioridade
+            pasta_abertura: data de abertura
+            pasta_acao: ação
+            pasta_responsavel: responsável
+            pasta_equipe: nomes da equipe
+            e: e
+            processos: 'processos vinculados:'
+            processo_numero: número
+            processo_classe: classe
+            processo_assunto: assunto
+            processo_tribunal: tribunal
+            processo_orgao: órgão
+            processo_situacao: situação do processo
+            agentes: 'o que os agentes leem da pasta:'
+            push: 'no Resumir com IA do Push: as publicações do DJEN e as movimentações do Datajud dos processos vinculados (data, tipo, tribunal, órgão e texto);'
+            analise_anterior: o resumo da análise anterior feita pela própria IA na mesma pasta, reenviado para que ela não se repita.
+            fim: 'O financeiro só é enviado quando quem pede a análise pode vê-lo. Dados pessoais (CPF, CNPJ, telefone e e-mail) são mascarados por padrão. Processos em segredo de justiça nunca são enviados.'
+        consentimento: 'Aceite registrado em {quando}.'
+        consentimento_por: 'Aceite registrado em {quando} por {nome}.'
+        cotas: As cotas contam todo pedido feito no escritório, inclusive os que falharam.
+        mascarar: Recomendado. O número do processo nunca é mascarado.
+        salvar: Salvar
+    js:
+        agentes:
+            falha_atualizar: Não foi possível atualizar as análises.
+            falha_carregar: Não foi possível carregar as análises.
+            analisando: Analisando…
+            em_andamento: Análise em andamento
+            gerar_analise: Gerar análise
+            gerar_nova: Gerar nova análise
+            dica_nova: Nova análise considerando o histórico
+            dica_primeira: Lê os dados desta pasta e responde
+            demorando: A análise está demorando mais que o normal. Recarregue a página mais tarde para ver o resultado.
+            dica_indice_marque: Marque os documentos do índice
+            dica_indice_monta: Monta o índice dos documentos marcados
+            contagem: '{marcados} de {total}'
+            falha_pedir: Não foi possível pedir a análise agora. Tente novamente.
+            falha_atualizar_analise: Não foi possível atualizar a análise.
+            falha_ler: Não foi possível ler a análise.
+            sem_copiar: Este navegador não deixa copiar daqui.
+            falha_copiar: Não foi possível copiar a análise.
+            popup_bloqueado: O navegador bloqueou a janela de impressão. Libere as janelas pop-up deste site.
+            falha_imprimir: Não foi possível imprimir a análise.
+            meta_linha: 'Providência indicada pelo {agente} da BlueJus IA em {quando}.'
+            meta_agente: agente
+            meta_aviso: Gerado por IA · não é ato oficial do processo. Confira os documentos originais antes de agir.
+            meta_quem: 'Quem deve agir: {quem}'
+            meta_resumo: 'Resumo: {resumo}'
+            meta_titulo: Providência indicada pela análise IA
+        conversa:
+            falha_enviar: Não foi possível enviar a pergunta agora. Tente novamente.
+            falha_carregar: Não foi possível carregar a conversa.
+            demorando: A resposta está demorando mais que o normal. Recarregue a página mais tarde para ver o resultado.
+        push:
+            analisando: Analisando…
+            gerar_nova: Gerar nova análise
+            resumir: Resumir com IA
+            dica_primeira: A IA lê as movimentações e indica prazos e providências
+            dica_nao_analisadas: '{n} movimentação(ões) ainda não analisada(s)'
+            dica_nova: Nova análise considerando o histórico
+            falha_atualizar: Não foi possível atualizar as análises.
+            demorando: A análise está demorando mais que o normal. Recarregue a página mais tarde para ver o resultado.
+            falha_pedir: Não foi possível pedir a análise agora. Tente novamente.
+            falha_atualizar_analise: Não foi possível atualizar a análise.
+            expandir: Expandir a análise
+            recolher: Recolher a análise
+            falha_guardar: Não foi possível guardar a sua escolha.
+            meta_linha: 'Providência indicada pela análise da BlueJus IA de {quando}.'
+            meta_aviso: Gerado por IA · não é movimentação oficial. Confira o documento original antes de agir.
+            meta_quem: 'Quem deve agir: {quem}'
+            meta_resumo: 'Resumo: {resumo}'
+            meta_titulo: Providência indicada pela análise IA
+
 # ---- fim

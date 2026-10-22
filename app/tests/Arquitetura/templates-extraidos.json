@@ -585,5 +585,38 @@
         "permitidos": [
             "https://drive.google.com/drive/folders/…"
         ]
+    },
+
+    "inteligencia": {
+        "templates": [
+            "inteligencia/_agentes_drawer.html.twig",
+            "inteligencia/_agentes_painel.html.twig",
+            "inteligencia/_comando_secao.html.twig",
+            "inteligencia/_documentos_indice.html.twig",
+            "inteligencia/_analise_cartao_agente.html.twig",
+            "inteligencia/_analises_agente.html.twig",
+            "inteligencia/_analises_comando.html.twig",
+            "inteligencia/_analises_push.html.twig",
+            "inteligencia/_conversa.html.twig",
+            "inteligencia/_conversa_rodape.html.twig",
+            "inteligencia/_auditoria.html.twig",
+            "inteligencia/admin/configuracao.html.twig"
+        ],
+        "js": [
+            "pasta-ia-agentes.js",
+            "pasta-ia-conversa.js",
+            "pasta-ia-push.js"
+        ],
+        "permitidos": [
+            "BlueJus IA",
+            "BLUEJUS IA",
+            "App\\\\Inteligencia\\\\Enum\\\\SecaoDoContexto",
+            "Escape",
+            "Enter",
+            "ArrowRight",
+            "ArrowLeft",
+            "Home",
+            "End"
+        ]
     }
 }
