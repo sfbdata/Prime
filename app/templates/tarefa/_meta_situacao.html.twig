@@ -1,0 +1,13 @@
+{#
+    Painel lateral de situação (desenho 04B de 22/10, L77 e L136; spec L3). Recebe `situacao`
+    (SituacaoDaMetaOutput): Pendente, Aguardando revisão, "Atrasada · N dia(s)" (fundo vermelho) ou Concluída,
+    e "Etapa i/n · Nome" com o nome que o escritório deu à etapa na caixa.
+#}
+{% set nomeDaEtapa = situacao.nomeDaEtapa ?? situacao.etapa.rotulo|trans %}
+<div class="meta-situacao meta-situacao--{{ situacao.estado }}" data-situacao="{{ situacao.estado }}">
+    <i class="bi {{ situacao.icone }} meta-situacao-icone" aria-hidden="true"></i>
+    <span class="meta-situacao-texto">
+        <b class="meta-situacao-titulo">{{ ('metas.detalhe.situacao.' ~ situacao.estado)|trans({n: situacao.diasDeAtraso}) }}</b>
+        <span class="meta-situacao-etapa">{{ situacao.posicao ? 'metas.detalhe.situacao.etapa'|trans({posicao: situacao.posicao, total: situacao.total, etapa: nomeDaEtapa}) : nomeDaEtapa }}</span>
+    </span>
+</div>

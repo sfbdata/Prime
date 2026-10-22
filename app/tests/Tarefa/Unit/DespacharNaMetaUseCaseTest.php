@@ -157,18 +157,46 @@ final class DespacharNaMetaUseCaseTest extends TestCase
         self::assertSame('1234.5678', $this->unicoDespacho()->getCodigo());
     }
 
-    #[TestDox('Enviar para revisão sem texto: só muda o status, sem despacho (como antes)')]
+    #[TestDox('Enviar para revisão sem texto: grava "Meta enviada para revisão do autor." e avisa o autor uma vez (04B L146)')]
     public function testEnviarSemTexto(): void
     {
+        $this->sorteio->method('sortear')->willReturn('1234.5678');
+        $this->codigosOcupados();
+        $this->mensagens->expects(self::once())->method('salvar');
+        $this->notificacoes->expects(self::once())->method('notificarTarefaEmRevisao')->with($this->meta);
+
+        $saida = $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('', 'enviar'));
+
+        self::assertSame('1234.5678', $saida->codigo);
+        self::assertSame('<p>Meta enviada para revisão do autor.</p>', $this->unicoDespacho()->getMensagem());
+        self::assertSame(AcaoDoDespacho::Envio, $this->unicoDespacho()->getAcao());
+        self::assertNull($this->unicoDespacho()->getNatureza());
+        self::assertSame(Tarefa::STATUS_EM_REVISAO, $this->meta->getStatus());
+    }
+
+    #[TestDox('Enviar para revisão só com anexo: o texto é o do envio e o anexo vai junto')]
+    public function testEnviarSoComAnexo(): void
+    {
+        $this->sorteio->method('sortear')->willReturn('1234.5678');
+        $this->codigosOcupados();
+
+        $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('', 'enviar')->comAnexo('/uploads/tarefas/chat/a.pdf'));
+
+        self::assertSame('<p>Meta enviada para revisão do autor.</p>', $this->unicoDespacho()->getMensagem());
+        self::assertSame('/uploads/tarefas/chat/a.pdf', $this->unicoDespacho()->getArquivoAnexo());
+    }
+
+    #[TestDox('Enviar sem texto com a meta já em revisão: nada muda e nada é gravado')]
+    public function testEnviarSemTextoJaEmRevisao(): void
+    {
+        $this->meta->setStatus(Tarefa::STATUS_EM_REVISAO);
         $this->mensagens->expects(self::never())->method('salvar');
-        $this->mensagens->expects(self::once())->method('confirmar');
-        $this->sorteio->expects(self::never())->method('sortear');
+        $this->notificacoes->expects(self::never())->method(self::anything());
 
         $saida = $this->useCase()->executar($this->meta, $this->autor, $this->escritorio, $this->input('', 'enviar'));
 
         self::assertNull($saida->codigo);
         self::assertCount(0, $this->meta->getMensagens());
-        self::assertSame(Tarefa::STATUS_EM_REVISAO, $this->meta->getStatus());
     }
 
     #[TestDox('Devolver: em revisão volta a pendente e avisa os responsáveis')]

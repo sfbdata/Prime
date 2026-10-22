@@ -185,6 +185,9 @@
             "tarefa/show.html.twig",
             "tarefa/_despacho.html.twig",
             "tarefa/_despacho_formulario.html.twig",
+            "tarefa/_meta_aguardando.html.twig",
+            "tarefa/_meta_situacao.html.twig",
+            "tarefa/_meta_detalhes.html.twig",
             "tarefa/registro.html.twig"
         ],
         "js": ["meta-despacho.js"],

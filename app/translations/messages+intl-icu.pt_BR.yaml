@@ -1425,6 +1425,40 @@ metas:
         proxima_pagina: Próxima página
     detalhe:
         titulo: 'Meta #{id}'
+        voltar_as_metas: Voltar às metas
+        trilha:
+            rotulo: Trilha
+            expediente: Expediente
+            pasta: 'Pasta {nup}'
+            meta: Meta
+        aguardando:
+            despacho: AGUARDANDO DESPACHO DE
+            revisao: AGUARDANDO REVISÃO DE
+            hoje: hoje
+            dias: '{n, plural, one {# dia} other {# dias}}'
+            com_a_demanda: com a demanda
+            desde_o_envio: desde o envio para revisão
+        situacao:
+            pendente: Pendente
+            revisao: Aguardando revisão
+            atrasada: 'Atrasada · {n} dia(s)'
+            concluida: Concluída
+            etapa: 'Etapa {posicao}/{total} · {etapa}'
+        detalhes:
+            titulo: DETALHES DA META
+            prazo: PRAZO
+            alterar: Alterar
+            alterar_prazo_dica: Clique para alterar o prazo
+            atrasada: Atrasada
+            venceu_em: 'venceu em {data}'
+            dias: '{n, plural, one {dia} other {dias}}'
+            sem_prazo: Sem prazo
+            responsaveis: RESPONSÁVEIS
+            alterar_responsaveis_dica: Clique para alterar os responsáveis
+            criada_em: CRIADA EM
+            criada_hoje: hoje
+            criada_ha: '{n, plural, one {há 1 dia} other {há # dias}}'
+            despachante: DESPACHANTE
         migalha: Meta
         criada_em: Criada em
         autor: Autor

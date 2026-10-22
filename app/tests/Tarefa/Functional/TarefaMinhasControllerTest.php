@@ -946,8 +946,8 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $c->filter('.mm-trilho-atencao > .mm-trilho-rodape'));
     }
 
-    #[TestDox('TRI-09: cada item de "Precisa de atenção" é um link de largura inteira para a página da META (decisão do dono de 14/10)')]
-    public function testItemDeAtencaoAbreAMeta(): void
+    #[TestDox('TRI-09: cada item de "Precisa de atenção" é um link de largura inteira para a pasta no Expediente (04 L236, spec L1)')]
+    public function testItemDeAtencaoAbreAPasta(): void
     {
         $client             = static::createClient();
         [$usuario, $tenant] = $this->autenticar($client);
@@ -959,7 +959,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         $c    = $client->getCrawler();
         $item = $c->filter('.mm-trilho > .mm-cartao.mm-trilho-atencao > a.mm-atencao-item');
         self::assertCount(1, $item);
-        self::assertSame('/tarefas/' . $atrasada->getId(), $item->attr('href'));
+        self::assertSame('/pasta/' . $atrasada->getPasta()->getId(), $item->attr('href'), 'abre a pasta no Expediente (04 L236)');
         self::assertCount(1, $item->filter('a.mm-atencao-item > i.mm-atencao-icone + .mm-atencao-texto > .mm-atencao-titulo + .mm-atencao-meta'));
         self::assertCount(0, $item->filter('a.mm-atencao-item a'), 'sem link dentro de link');
         self::assertCount(0, $c->filter('.mm-trilho-atencao > .mm-atencao-vazio'));
@@ -1024,7 +1024,7 @@ final class TarefaMinhasControllerTest extends JusPrimeWebTestCase
         $c     = $client->getCrawler();
         $itens = $c->filter('.mm-trilho > .mm-cartao.mm-trilho-atencao > a.mm-atencao-item');
         self::assertCount(1, $itens);
-        self::assertSame('/tarefas/' . $atrasada->getId(), $itens->attr('href'));
+        self::assertSame('/pasta/' . $atrasada->getPasta()->getId(), $itens->attr('href'));
         self::assertSame('Delegada atrasada · Pasta ' . $atrasada->getPasta()->getNup(), trim(preg_replace('/\s+/', ' ', $itens->filter('.mm-atencao-titulo')->text()) ?? ''));
         self::assertStringEndsWith('· de Usuário Metas', trim(preg_replace('/\s+/', ' ', $itens->filter('.mm-atencao-meta')->text()) ?? ''), 'dc P:178: sempre "de <criador>", também na aba Criei');
         $client->request('GET', '/tarefas/minhas?aba=responsavel');

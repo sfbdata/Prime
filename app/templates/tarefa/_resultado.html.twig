@@ -94,9 +94,9 @@
                 </div>
                 {% for meta in atencao %}
                     {% set info = meta.prazoInfo %}
-                    {# Item de largura inteira (dc L122). Abre a página da META, não a pasta do desenho
-                       (decisão do dono de 14/10, checklist §16). #}
-                    <a href="{{ path('tarefa_show', {id: meta.id}) }}" class="mm-atencao-item">
+                    {# Item de largura inteira (dc L122). Abre a pasta no Expediente, como no desenho de 22/10
+                       (04 L236; spec minhas-metas-esteira-2210, L1). #}
+                    <a href="{{ path('pasta_show', {id: meta.pasta.id}) }}" class="mm-atencao-item">
                         <i class="bi bi-exclamation-triangle-fill mm-atencao-icone" aria-hidden="true"></i>
                         <span class="mm-atencao-texto">
                             {# "Título · Pasta NNN" (dc `atencao`): a pasta da meta atrasada sem abrir nada. #}

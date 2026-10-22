@@ -3,7 +3,7 @@
    - Natureza: seleção única; clicar de novo desmarca; com o campo vazio, o chip escreve o começo do texto.
    - Prazo: "N dias úteis" recontado a cada troca de data pela lista de dias não úteis que o servidor manda
      (data-nao-uteis, regra do escritório com feriados); fora da lista, conta só o fim de semana.
-   - Contador "N / 5.000", nome do anexo, Ctrl+Enter = Despachar e os botões de ação.
+   - Contador "N / 5.000", nome do anexo, Ctrl+Enter (Cmd+Enter no Mac) = Despachar e os botões de ação.
    - Certificar cumprimento: o modal recebe o endereço e o token do despacho clicado e começa com "Certifico que ". */
 (function () {
   'use strict';
@@ -94,7 +94,11 @@
 
   function iniciarEnvio(form, campo) {
     var acao = form.querySelector('#acaoMensagem');
+    var anexo = form.querySelector('#despachoAnexo');
     function enviar(valor) {
+      /* Despachar pede texto ou anexo; só com anexo, sem texto, vale (04B L145). */
+      var temAnexo = !!(anexo && anexo.files && anexo.files.length);
+      if (valor === '' && campo.value.trim() === '' && !temAnexo) return;
       acao.value = valor;
       form.submit();
     }

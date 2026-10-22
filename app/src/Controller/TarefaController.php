@@ -27,6 +27,7 @@ use App\Tarefa\Service\TextoDoDespacho;
 use App\Tarefa\UseCase\DarCienciaDosDespachosUseCase;
 use App\Tarefa\UseCase\DespacharNaMetaUseCase;
 use App\Tarefa\UseCase\MontarDespachosDaMetaUseCase;
+use App\Tarefa\UseCase\MontarSituacaoDaMetaUseCase;
 use App\Shared\Http\EntregaDeArquivo;
 use App\Shared\Service\SanitizadorTextoRico;
 use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
@@ -252,7 +253,7 @@ final class TarefaController extends AbstractController
      * Detalhe da tarefa.
      */
     #[Route('/{id}', name: 'tarefa_show', methods: ['GET'])]
-    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, ExcluirTarefaUseCase $excluirUseCase, AtualizarPrazoTarefaUseCase $prazoUseCase, TarefaRepository $tarefaRepository, DarCienciaDosDespachosUseCase $ciencia, MontarDespachosDaMetaUseCase $despachos): Response
+    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, ExcluirTarefaUseCase $excluirUseCase, AtualizarPrazoTarefaUseCase $prazoUseCase, TarefaRepository $tarefaRepository, DarCienciaDosDespachosUseCase $ciencia, MontarDespachosDaMetaUseCase $despachos, MontarSituacaoDaMetaUseCase $situacao): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -273,6 +274,7 @@ final class TarefaController extends AbstractController
             'statusLabels'   => Tarefa::STATUS_LABELS,
             'timelineItems'  => $timelineItems,
             'despachos'      => $despachos->executar($tarefa, $usuario, $tenant, $agora),
+            'situacao'       => $situacao->executar($tarefa, $tenant, $agora),
             'usuarioAtual'   => $usuario,
             'users'          => $users,
             'podeExcluirMeta' => $excluirUseCase->podeExcluir($tarefa, $usuario, $tenant),

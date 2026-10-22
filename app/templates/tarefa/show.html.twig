@@ -14,29 +14,22 @@
 <link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
 <link rel="stylesheet" href="{{ asset('css/meta-numero-global.css') }}">
 <link rel="stylesheet" href="{{ asset('css/meta-despacho.css') }}">
+<link rel="stylesheet" href="{{ asset('css/meta-detalhe.css') }}">
 <script src="{{ asset('js/quill/quill.js') }}"></script>
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
 <script src="{{ asset('js/meta-despacho.js') }}" defer></script>
 
 
+{# Cabeçalho (desenho 04B L35-39; spec L5): seta de voltar às metas, "Meta #N" e a trilha
+   "Expediente / Pasta X / Meta". #}
 <div class="content-header">
     <div class="container-fluid">
-        <div class="row mb-2">
-            <div class="col-sm-6">
-                <h1 class="m-0">
-                    {# "Meta #N" com o número da meta no escritório (desenho 04B L37); meta sem número cai no id. #}
-                    <i class="bi bi-list-check me-2"></i>{{ 'metas.detalhe.titulo'|trans({id: (tarefa.numero ?? tarefa.id) ~ ''}) }}
-                </h1>
-            </div>
-            <div class="col-sm-6">
-                <ol class="breadcrumb float-sm-end">
-                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">{{ 'metas.migalha.home'|trans }}</a></li>
-                    <li class="breadcrumb-item">
-                        <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}">{{ tarefa.pasta.nup }}</a>
-                    </li>
-                    <li class="breadcrumb-item active">{{ 'metas.detalhe.migalha'|trans }}</li>
-                </ol>
-            </div>
+        <div class="meta-cabeca mb-2">
+            <a href="{{ path('tarefa_minhas') }}" class="meta-voltar" title="{{ 'metas.detalhe.voltar_as_metas'|trans }}" aria-label="{{ 'metas.detalhe.voltar_as_metas'|trans }}"><i class="bi bi-arrow-left"></i></a>
+            {# "Meta #N" com o número da meta no escritório (desenho 04B L37); meta sem número cai no id. #}
+            <h1 class="m-0 meta-titulo"><i class="bi bi-list-check"></i>{{ 'metas.detalhe.titulo'|trans({id: (tarefa.numero ?? tarefa.id) ~ ''}) }}</h1>
+            <span class="meta-cabeca-espaco"></span>
+            <nav class="meta-trilha" aria-label="{{ 'metas.detalhe.trilha.rotulo'|trans }}"><a href="{{ path('expediente_index') }}">{{ 'metas.detalhe.trilha.expediente'|trans }}</a> / <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}">{{ 'metas.detalhe.trilha.pasta'|trans({nup: tarefa.pasta.nup ~ ''}) }}</a> / {{ 'metas.detalhe.trilha.meta'|trans }}</nav>
         </div>
     </div>
 </div>
@@ -69,65 +62,9 @@
                     {# ── Coluna principal ── #}
                     <div class="col-12 col-lg-8 order-2 order-lg-1">
 
-                        {# Info boxes #}
-                        <div class="row mb-4 g-2">
-                            <div class="col-6 col-md-3">
-                                <div class="tarefa-meta-box">
-                                    <span class="tarefa-meta-label">{{ 'metas.detalhe.criada_em'|trans }}</span>
-                                    <span class="tarefa-meta-value">{{ tarefa.dataCriacao|data }}</span>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <div class="tarefa-meta-box">
-                                    <span class="tarefa-meta-label">{{ 'metas.detalhe.autor'|trans }}</span>
-                                    <span class="tarefa-meta-value text-truncate">
-                                        {% if tarefa.criadoPor %}{{ tarefa.criadoPor.fullName }}{% else %}<span class="text-muted small">{{ 'metas.comum.nao_informado'|trans }}</span>{% endif %}
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <div class="tarefa-meta-box">
-                                    <span class="tarefa-meta-label d-flex align-items-center">
-                                        {{ 'metas.detalhe.responsaveis'|trans }}
-                                        <button type="button" class="btn btn-sm btn-link p-0 ms-1 text-muted" data-bs-toggle="modal" data-bs-target="#modalEditarResponsaveis" title="{{ 'metas.detalhe.editar_responsaveis'|trans }}">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                    </span>
-                                    <span class="tarefa-meta-value">
-                                        {% if tarefa.responsaveis|length > 0 %}
-                                            {% for resp in tarefa.responsaveis %}
-                                                <div class="text-truncate">{{ resp.fullName }}</div>
-                                            {% endfor %}
-                                        {% else %}
-                                            <span class="text-muted small">{{ 'metas.comum.nao_informado'|trans }}</span>
-                                        {% endif %}
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                {% set prazoInfo = tarefa.prazoInfo %}
-                                <div class="tarefa-meta-box">
-                                    <span class="tarefa-meta-label">
-                                        {{ 'metas.detalhe.prazo'|trans }}
-                                        {% if podeEditarPrazo %}
-                                            <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline"
-                                                    data-bs-toggle="modal" data-bs-target="#modalEditarPrazo"
-                                                    title="{{ 'metas.detalhe.alterar_prazo'|trans }}">
-                                                <i class="bi bi-pencil-square"></i>
-                                            </button>
-                                        {% endif %}
-                                    </span>
-                                    <span class="tarefa-meta-value">
-                                        {% if prazoInfo.dias is not null %}
-                                            <span class="badge text-bg-{{ prazoInfo.cor }}">{{ prazoInfo.texto }}</span>
-                                            <small class="d-block text-muted" style="font-size:.7em;">{{ tarefa.prazo|data }}</small>
-                                        {% else %}
-                                            <span class="text-muted small">{{ 'metas.detalhe.sem_prazo'|trans }}</span>
-                                        {% endif %}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
+                        {# Faixa "Aguardando" (desenho 04B L50; spec L2). As 4 caixas que ficavam aqui viraram o bloco
+                           DETALHES DA META da lateral (L85; spec L4). #}
+                        {{ include('tarefa/_meta_aguardando.html.twig') }}
 
                         {# ── Detalhes ── #}
                         <div class="mt-3">
@@ -295,24 +232,8 @@
                     {# ── Sidebar ── #}
                     <div class="col-12 col-lg-4 order-1 order-lg-2">
 
-                        {# Status visual #}
-                        <div class="tarefa-status-card mb-3 status-{{ tarefa.status }}">
-                            <div class="tarefa-status-icon">
-                                {% if tarefa.status == 'pendente' %}
-                                    <i class="bi bi-hourglass-split"></i>
-                                {% elseif tarefa.status == 'em_revisao' %}
-                                    <i class="bi bi-eye"></i>
-                                {% else %}
-                                    <i class="bi bi-check-circle-fill"></i>
-                                {% endif %}
-                            </div>
-                            <div>
-                                <div class="tarefa-status-titulo">{{ statusLabels[tarefa.status] ?? tarefa.status }}</div>
-                                {% if tarefa.dataAlteracao %}
-                                    <div class="tarefa-status-sub">{{ 'metas.detalhe.atualizado'|trans({data: tarefa.dataAlteracao|data_hora}) }}</div>
-                                {% endif %}
-                            </div>
-                        </div>
+                        {# Painel de situação (desenho 04B L77; spec L3) #}
+                        <div class="mb-3">{{ include('tarefa/_meta_situacao.html.twig') }}</div>
 
                         {# Acompanhar — marcação PESSOAL: não muda a meta para os colegas. #}
                         {% set acompanhando = tarefa.ehAcompanhadaPor(app.user) %}
@@ -354,6 +275,9 @@
                             </form>
                         </div>
                         {% endif %}
+
+                        {# DETALHES DA META (desenho 04B L85; spec L4) #}
+                        <div class="mb-3">{{ include('tarefa/_meta_detalhes.html.twig') }}</div>
 
                         {# Voltar #}
                         <div class="d-grid">
@@ -617,64 +541,6 @@
     justify-content: center;
     flex-shrink: 0;
     text-transform: uppercase;
-}
-
-/* ── Meta boxes ── */
-.tarefa-meta-box {
-    border: 1px solid var(--bs-border-color);
-    border-radius: 8px;
-    padding: 10px 12px;
-    background: var(--bs-tertiary-bg);
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-.tarefa-meta-label {
-    font-size: .72rem;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    color: var(--bs-secondary-color);
-    font-weight: 600;
-}
-.tarefa-meta-value {
-    font-size: .88rem;
-    color: var(--bs-body-color);
-    font-weight: 500;
-    display: block;
-}
-
-/* ── Status card ── */
-.tarefa-status-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    border-radius: 10px;
-    border: 1px solid var(--bs-border-color);
-    background: var(--bs-tertiary-bg);
-}
-.tarefa-status-card.status-pendente { border-color: var(--bs-secondary-color); background: var(--bs-tertiary-bg); }
-.tarefa-status-card.status-em_revisao { border-color: #ffc107; background: rgba(255, 193, 7, 0.10); }
-.tarefa-status-card.status-concluida { border-color: #198754; background: rgba(25, 135, 84, 0.10); }
-
-.tarefa-status-icon {
-    font-size: 1.5rem;
-    flex-shrink: 0;
-}
-.status-pendente .tarefa-status-icon { color: var(--bs-secondary-color); }
-.status-em_revisao .tarefa-status-icon { color: #e6a500; }
-.status-concluida .tarefa-status-icon { color: #198754; }
-
-.tarefa-status-titulo {
-    font-size: .9rem;
-    font-weight: 600;
-    color: var(--bs-body-color);
-}
-.tarefa-status-sub {
-    font-size: .75rem;
-    color: var(--bs-secondary-color);
-    margin-top: 2px;
 }
 
 /* ── Timeline ── */
