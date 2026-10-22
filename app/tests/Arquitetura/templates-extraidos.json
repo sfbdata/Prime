@@ -418,8 +418,17 @@
             "cobranca/caso/_acoes_modais_financeiro.html.twig",
             "cobranca/acordo/show.html.twig"
         ],
+        "js": [
+            "objeto-linha-menu.js",
+            "judicializar-buscar-pasta.js"
+        ],
         "permitidos": [
-            "App\\\\Cobranca\\\\Enum\\\\TipoTelefone"
+            "App\\\\Cobranca\\\\Enum\\\\TipoTelefone",
+            "Escape",
+            "ArrowDown",
+            "ArrowUp",
+            "Tab",
+            "Enter"
         ]
     },
 
@@ -503,7 +512,8 @@
         ],
         "js": [
             "cobranca-carteira-form.js",
-            "cobranca-soltar-arquivo.js"
+            "cobranca-soltar-arquivo.js",
+            "carteira-filtro-estado.js"
         ],
         "permitidos": [
             "cs-body",
