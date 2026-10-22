@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tarefa\UseCase;
 
 use App\Entity\Auth\User;
+use App\Entity\Notificacao;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
@@ -19,17 +20,19 @@ use App\Tarefa\DTO\DespacharNaMetaInput;
 use App\Tarefa\Enum\AcaoDoDespacho;
 use App\Tarefa\Exception\DespachoRecusadoException;
 use App\Tarefa\Service\AnexoDoDespacho;
-use App\Tarefa\Service\SorteioDeCodigoDoDespacho;
+use App\Tarefa\Service\CodigoDoRegistro;
 use App\Tarefa\Service\TextoDoDespacho;
 use App\Tarefa\Service\TransacaoDoDespacho;
+use App\Tarefa\Service\TravaDaMeta;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Despachar na meta (desenho 04B de 22/10, L57-66 e L145; spec `minhas-metas-esteira-2210.md`, Fase 2a).
  *
- * Quem tem acesso à meta escreve um despacho (texto ou anexo) e, junto, pode mudar o status pelo ciclo de vida:
- * "Enviar para revisão" (pendente para em revisão, avisa o criador) ou "Devolver" (em revisão para pendente, avisa
- * os responsáveis). Cada despacho gravado recebe o código do registro (D1, C13), sorteado e único no escritório,
+ * Quem tem acesso à meta escreve um despacho (texto ou anexo) e, junto, pode "Enviar para revisão" (pendente para em
+ * revisão, avisa o criador). O despacho do criador na meta em revisão a devolve para pendente e avisa os responsáveis
+ * (decisão do dono, 22/10); o "Devolver para X" do responsável é o modal da Fase 3 ({@see DevolverMetaUseCase}). Cada despacho gravado recebe o código do registro (D1, C13), sorteado e único no escritório,
  * com o nome e o cargo de quem despachou congelados no registro.
  *
  * A mensagem guarda a ação que de fato aconteceu (despacho, envio ou devolução, L127). Natureza e prazo de
@@ -37,7 +40,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  * prazo padrão, sempre preenchido na tela, viraria um "Cumprir até" na mensagem de quem entrega o trabalho. Enviar
  * para revisão sem texto grava "Meta enviada para revisão do autor." (L146), e o aviso ao autor é o de sempre.
  *
- * "Enviar para revisão" só vale na meta pendente e "Devolver" só na em revisão; fora disso, recusa sem gravar. Na
+ * "Enviar para revisão" só vale na meta pendente; fora dela, recusa sem gravar. Na
  * meta concluída, o despacho entra como registro, sem mudar o status.
  *
  * @menção (C3): o texto chega com os tokens `@[Nome](user:ID)` do `pasta-mencoes.js`; o mesmo mecanismo do Registro
@@ -48,27 +51,26 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  * referência ao documento. Tipo ou tamanho recusado: nada é gravado.
  *
  * Tudo numa transação ({@see TransacaoDoDespacho}, a `TransacaoComArquivoNovo` da casa): o anexo e o despacho são
- * gravados, e o código é gravado depois, com até 3 sorteios contra a colisão no índice único. Sem código livre, nada
+ * gravados, e o código é gravado depois pelo {@see CodigoDoRegistro} (até 3 sorteios contra a colisão no índice único). Sem código livre, nada
  * fica (nem a troca de status). O arquivo do anexo só sai do storage quando o COMMIT comprovadamente não aconteceu;
  * COMMIT de resultado incerto preserva o arquivo (o documento pode ter ficado apontando para ele).
  */
 final class DespacharNaMetaUseCase
 {
-    /** Sorteios contra a colisão no índice único do código (C13). */
-    private const TENTATIVAS_DO_CODIGO = 3;
-
     /** Texto do "Enviar para revisão" sem texto (desenho 04B L146). */
     public const ENVIO_SEM_TEXTO = 'Meta enviada para revisão do autor.';
 
     public function __construct(
         private readonly TarefaMensagemRepository $mensagens,
         private readonly TextoDoDespacho $textoDoDespacho,
-        private readonly SorteioDeCodigoDoDespacho $sorteio,
+        private readonly CodigoDoRegistro $codigo,
         private readonly NotificacaoService $notificacoes,
         private readonly UserTenantRepository $vinculos,
         private readonly ResolucaoDeMencoesDoRegistro $mencoes,
         private readonly AnexoDoDespacho $anexos,
         private readonly TransacaoDoDespacho $transacao,
+        private readonly UrlGeneratorInterface $urls,
+        private readonly TravaDaMeta $trava,
     ) {
     }
 
@@ -81,17 +83,28 @@ final class DespacharNaMetaUseCase
             throw DespachoRecusadoException::semConteudo();
         }
         self::exigirStatusDaAcao($meta, $input->acao);
+        $statusLido = $meta->getStatus();
 
         /** @var \ArrayObject<int, ChaveDeArquivo> $gravados chaves do anexo, preenchidas assim que o arquivo é gravado */
         $gravados = new \ArrayObject();
-        /** @var array{0: ?TarefaMensagem, 1: bool, 2: bool} $feito */
+        /** @var array{0: ?TarefaMensagem, 1: bool} $feito */
         $feito = $this->transacao->executar(
-            fn (): array => $this->gravar($meta, $autor, $escritorio, $input, $anexo, $gravados),
+            function () use ($meta, $autor, $escritorio, $input, $anexo, $gravados, $statusLido): array {
+                // A meta travada e relida: se outra gravação mudou o status depois desta tela, nada é gravado.
+                $this->trava->travarERecarregar($meta);
+                if ($meta->getStatus() !== $statusLido) {
+                    throw DespachoRecusadoException::metaMudou($meta->getStatus());
+                }
+
+                return $this->gravar($meta, $autor, $escritorio, $input, $anexo, $gravados);
+            },
             static fn (): array => array_values($gravados->getArrayCopy()),
         );
-        $this->avisar($meta, $feito[1], $feito[2]);
+        if ($feito[1]) {
+            $this->notificacoes->notificarTarefaEmRevisao($meta);
+        }
 
-        return new DespachoRegistradoOutput($feito[0]?->getCodigo(), $feito[1], $feito[2]);
+        return new DespachoRegistradoOutput($feito[0]?->getCodigo(), $feito[1]);
     }
 
     /**
@@ -100,27 +113,67 @@ final class DespacharNaMetaUseCase
      *
      * @param \ArrayObject<int, ChaveDeArquivo> $gravados
      *
-     * @return array{0: ?TarefaMensagem, 1: bool, 2: bool}
+     * @return array{0: ?TarefaMensagem, 1: bool} o despacho e se foi enviada para revisão
      */
     private function gravar(Tarefa $meta, User $autor, Tenant $escritorio, DespacharNaMetaInput $input, ?UploadedFile $anexo, \ArrayObject $gravados): array
     {
         $documento = $anexo === null ? null : $this->juntar($meta, $anexo, $autor, $escritorio, $gravados);
-        [$enviada, $devolvida] = $this->mudarStatus($meta, $input->acao);
+        $acao = $this->mudarStatus($meta, $autor, $input, $documento !== null);
         $despacho = null;
         $mencionados = [];
-        if ($input->texto !== '' || $documento !== null || $enviada) {
-            [$despacho, $mencionados] = $this->registrar($meta, $autor, $escritorio, $input, self::acao($enviada, $devolvida), $documento);
+        if ($input->texto !== '' || $documento !== null || $acao === AcaoDoDespacho::Envio) {
+            [$despacho, $mencionados] = $this->registrar($meta, $autor, $escritorio, $input, $acao, $documento);
         }
         $this->mensagens->confirmar();
         if ($despacho !== null) {
-            $this->gravarCodigo($despacho);
+            $this->codigo->gravar($despacho);
         }
         if ($despacho !== null && $mencionados !== []) {
             $this->mencoes->notificarNoDespacho($mencionados, $despacho, $meta, $autor, $escritorio);
             $this->mensagens->confirmar();
         }
+        if ($acao === AcaoDoDespacho::Devolucao) {
+            $this->avisarDevolucao($meta, $autor, $escritorio);
+        }
 
-        return [$despacho, $enviada, $devolvida];
+        return [$despacho, $acao === AcaoDoDespacho::Envio];
+    }
+
+    /**
+     * O ciclo de vida junto do despacho: "Enviar para revisão" leva a pendente para em revisão; o despacho do criador
+     * (texto ou anexo) na meta em revisão a devolve para pendente (decisão do dono, 22/10). O de outra pessoa só
+     * registra.
+     */
+    private function mudarStatus(Tarefa $meta, User $autor, DespacharNaMetaInput $input, bool $temAnexo): AcaoDoDespacho
+    {
+        if ($input->acao === 'enviar' && $meta->getStatus() === Tarefa::STATUS_PENDENTE) {
+            $meta->setStatus(Tarefa::STATUS_EM_REVISAO);
+
+            return AcaoDoDespacho::Envio;
+        }
+        $doCriador = $meta->getCriadoPor() !== null && $meta->getCriadoPor()->getId() === $autor->getId();
+        if ($doCriador && $meta->getStatus() === Tarefa::STATUS_EM_REVISAO && ($input->texto !== '' || $temAnexo)) {
+            $meta->setStatus(Tarefa::STATUS_PENDENTE);
+
+            return AcaoDoDespacho::Devolucao;
+        }
+
+        return AcaoDoDespacho::Despacho;
+    }
+
+    /** Avisa os responsáveis da devolução (tipo "tarefa pendente", como o Devolver da Fase 3), nunca o próprio autor. */
+    private function avisarDevolucao(Tarefa $meta, User $autor, Tenant $escritorio): void
+    {
+        $titulo = sprintf('Meta devolvida · Pasta %s', $meta->getPasta()->getNup() ?? '#' . $meta->getPasta()->getId());
+        $texto = sprintf('%s devolveu "%s".', mb_convert_case(trim((string) ($autor->getFullName() ?? $autor->getEmail())), MB_CASE_TITLE), $meta->getTitulo());
+        foreach ($meta->getResponsaveis() as $pessoa) {
+            if ($pessoa->getId() === $autor->getId() || !$this->vinculos->existeVinculoAtivo($pessoa, $escritorio) || !$this->notificacoes->veAPastaDaMeta($meta, $pessoa)) {
+                continue;
+            }
+            $this->notificacoes->criar($pessoa, $escritorio, Notificacao::TIPO_TAREFA_PENDENTE, $titulo, $texto, $meta)
+                ->setUrl($this->urls->generate('tarefa_show', ['id' => $meta->getId()]));
+        }
+        $this->mensagens->confirmar();
     }
 
     /** @param \ArrayObject<int, ChaveDeArquivo> $gravados */
@@ -161,62 +214,11 @@ final class DespacharNaMetaUseCase
         return [$despacho, $mencionados];
     }
 
-    /** Sorteia e grava; colidiu no índice único, sorteia de novo (C13). Sem código livre, a transação inteira volta. */
-    private function gravarCodigo(TarefaMensagem $despacho): void
-    {
-        for ($tentativa = 0; $tentativa < self::TENTATIVAS_DO_CODIGO; ++$tentativa) {
-            if ($this->mensagens->gravarCodigoSeLivre($despacho, $this->sorteio->sortear())) {
-                return;
-            }
-        }
-
-        throw DespachoRecusadoException::semCodigoLivre();
-    }
-
-    /** Enviar só da pendente e devolver só da em revisão; fora disso, recusa antes de gravar qualquer coisa. */
+    /** Enviar só da pendente; fora dela, recusa antes de gravar qualquer coisa. */
     private static function exigirStatusDaAcao(Tarefa $meta, string $acao): void
     {
         if ($acao === 'enviar' && $meta->getStatus() !== Tarefa::STATUS_PENDENTE) {
             throw DespachoRecusadoException::envioForaDePendente();
-        }
-        if ($acao === 'devolver' && $meta->getStatus() !== Tarefa::STATUS_EM_REVISAO) {
-            throw DespachoRecusadoException::devolucaoForaDeRevisao();
-        }
-    }
-
-    private static function acao(bool $enviada, bool $devolvida): AcaoDoDespacho
-    {
-        return match (true) {
-            $enviada   => AcaoDoDespacho::Envio,
-            $devolvida => AcaoDoDespacho::Devolucao,
-            default    => AcaoDoDespacho::Despacho,
-        };
-    }
-
-    /** @return array{bool, bool} enviada para revisão, devolvida */
-    private function mudarStatus(Tarefa $meta, string $acao): array
-    {
-        if ($acao === 'enviar' && $meta->getStatus() === Tarefa::STATUS_PENDENTE) {
-            $meta->setStatus(Tarefa::STATUS_EM_REVISAO);
-
-            return [true, false];
-        }
-        if ($acao === 'devolver' && $meta->getStatus() === Tarefa::STATUS_EM_REVISAO) {
-            $meta->setStatus(Tarefa::STATUS_PENDENTE);
-
-            return [false, true];
-        }
-
-        return [false, false];
-    }
-
-    private function avisar(Tarefa $meta, bool $enviada, bool $devolvida): void
-    {
-        if ($enviada) {
-            $this->notificacoes->notificarTarefaEmRevisao($meta);
-        }
-        if ($devolvida) {
-            $this->notificacoes->notificarTarefaPendente($meta);
         }
     }
 }

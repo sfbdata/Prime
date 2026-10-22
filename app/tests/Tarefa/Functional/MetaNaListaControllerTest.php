@@ -520,8 +520,9 @@ final class MetaNaListaControllerTest extends JusPrimeWebTestCase
     {
         [$client, $tenant, $autor, $resp, $pasta] = $this->cenario();
         $aberta    = (int) $this->criarMeta($pasta, $autor, [$resp])->getId();
-        $concluida = (int) $this->criarMeta($pasta, $autor, [$resp], Tarefa::STATUS_CONCLUIDA)->getId();
         $comPasta  = $this->criarUsuarioComPermissoes($tenant, 'Com Pasta', ['modules.tarefas.view', 'resources.pasta.edit']);
+        // D3: só quem cuida da meta reabre (decisão do dono, 22/10).
+        $concluida = (int) $this->criarMeta($pasta, $autor, [$resp, $comPasta], Tarefa::STATUS_CONCLUIDA)->getId();
 
         $this->logarComTenant($client, $comPasta, $tenant);
 

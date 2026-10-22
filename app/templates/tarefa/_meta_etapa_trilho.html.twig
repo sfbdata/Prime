@@ -1,0 +1,11 @@
+{# Trilho "ETAPA DA PASTA" (desenho 04B L42-44; spec Fase 3): a sequência do tipo de demanda com a atual, as
+   passadas, a próxima e as saltadas (riscadas), e a linha "N etapas saltadas: X, Y". `etapa` = EtapaDaMetaOutput. #}
+<section class="mp-trilho" aria-label="{{ 'metas.passagem.trilho.rotulo'|trans }}">
+    <b class="mp-trilho-rotulo">{{ 'metas.passagem.trilho.rotulo'|trans }}</b>
+    {%- for q in etapa.trilho %}
+    <span class="mp-trilho-etapa is-{{ q.estado }}" title="{{ q.dica }}"><i class="bi {{ q.icone }}" aria-hidden="true"></i>{{ q.nome }}</span>
+    {%- endfor %}
+    {% if etapa.saltadas is not empty %}
+    <span class="mp-trilho-saltadas"><i class="bi bi-skip-forward" aria-hidden="true"></i>{{ 'metas.passagem.trilho.saltadas'|trans({n: etapa.saltadas|length, nomes: etapa.saltadas|join(', ')}) }}</span>
+    {% endif %}
+</section>

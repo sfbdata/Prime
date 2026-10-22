@@ -11,6 +11,9 @@ namespace App\Tarefa\Enum;
  * `Lembrete` é o "Lembrete enviado para X, Y." do botão Lembrar (04B L133): o desenho o grava no histórico como
  * comentário, então o rótulo é o do despacho. Não é ato do ciclo: não leva código de registro (D1), natureza,
  * prazo nem certidão, e não se edita.
+ *
+ * `Etapa` é o "Etapa concluída" da passagem de etapa (04B L178): "X concluída → Y (Resp)" e as pendências, com a
+ * linha de registro (D1) como o despacho (04B L161).
  */
 enum AcaoDoDespacho: string
 {
@@ -18,6 +21,7 @@ enum AcaoDoDespacho: string
     case Envio     = 'envio';
     case Devolucao = 'devolucao';
     case Lembrete  = 'lembrete';
+    case Etapa     = 'etapa';
 
     /** Chave do catálogo (`metas.despacho.tipo.*`), o rótulo da linha do tempo quando não há natureza. */
     public function rotulo(): string

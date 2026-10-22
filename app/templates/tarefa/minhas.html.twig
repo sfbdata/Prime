@@ -141,12 +141,15 @@
     </div>
 </section>
 </div>
+{# Modal "Concluir etapa e passar adiante" do botão do cartão (desenho 04 L131; spec Fase 3). #}
+{{ include('tarefa/_meta_passagem_modal.html.twig', {contexto: 'lista'}) }}
 {% endblock %}
 
 {% block javascripts %}
 {{ parent() }}
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
-{{ catalogo_js('metas.js') }}
+{{ catalogo_js('metas.js', 'metas.passagem.js') }}
+<script src="{{ asset('js/meta-passagem.js') }}"></script>
 {% if esteira is defined and esteira.podeConfigurar %}<script src="{{ asset('js/esteira-da-pasta.js') }}"></script>{% endif %}
 <script>
 // A aba, o modo e a etapa da esteira são estado da tela, não filtro: entram no form de filtro como campos
@@ -316,4 +319,5 @@ document.addEventListener('click', function (e) {
 <link rel="stylesheet" href="{{ asset('css/filtro-tabela.css') }}">
 <link rel="stylesheet" href="{{ asset('css/minhas-metas.css') }}">
 <link rel="stylesheet" href="{{ asset('css/meta-numero-global.css') }}">
+<link rel="stylesheet" href="{{ asset('css/meta-passagem.css') }}">
 {% endblock %}

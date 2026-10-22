@@ -27,6 +27,7 @@ use App\Tarefa\Service\TextoDoDespacho;
 use App\Tarefa\UseCase\DarCienciaDosDespachosUseCase;
 use App\Tarefa\UseCase\DespacharNaMetaUseCase;
 use App\Tarefa\UseCase\MontarDespachosDaMetaUseCase;
+use App\Tarefa\UseCase\MontarEtapaDaMetaUseCase;
 use App\Tarefa\UseCase\MontarLinhaDoTempoDaMetaUseCase;
 use App\Tarefa\UseCase\MontarSituacaoDaMetaUseCase;
 use App\Shared\Http\EntregaDeArquivo;
@@ -43,7 +44,10 @@ use App\Tarefa\Service\AcessoAMeta;
 use App\Tarefa\Service\CaminhoDeAnexoDeTarefa;
 use App\Tarefa\Service\ListaDeMetasDaPastaEmJson;
 use App\Tarefa\Service\ReaberturaDesfazivelDaMeta;
+use App\Tarefa\Service\QuemCuidaDaMeta;
 use App\Tarefa\Service\TarefaTimelineAssembler;
+use App\Tarefa\Controller\RecusaDeQuemNaoCuidaDaMeta;
+use App\Tarefa\UseCase\ConcluirMetaUseCase;
 use App\Tenant\Service\ColaboradoresAtribuiveis;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -252,7 +256,7 @@ final class TarefaController extends AbstractController
      * Detalhe da tarefa.
      */
     #[Route('/{id}', name: 'tarefa_show', methods: ['GET'])]
-    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, AtualizarPrazoTarefaUseCase $prazoUseCase, TarefaRepository $tarefaRepository, DarCienciaDosDespachosUseCase $ciencia, MontarDespachosDaMetaUseCase $despachos, MontarSituacaoDaMetaUseCase $situacao, MontarLinhaDoTempoDaMetaUseCase $linhaDoTempo): Response
+    public function show(Tarefa $tarefa, ColaboradoresAtribuiveis $atribuiveis, AtualizarPrazoTarefaUseCase $prazoUseCase, TarefaRepository $tarefaRepository, DarCienciaDosDespachosUseCase $ciencia, MontarDespachosDaMetaUseCase $despachos, MontarSituacaoDaMetaUseCase $situacao, MontarLinhaDoTempoDaMetaUseCase $linhaDoTempo, MontarEtapaDaMetaUseCase $etapa): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -275,6 +279,7 @@ final class TarefaController extends AbstractController
             'linhaDoTempo'   => $linhaDoTempo->executar($timelineItems, $despachosDaMeta),
             'despachos'      => $despachosDaMeta,
             'situacao'       => $situacao->executar($tarefa, $tenant, $agora),
+            'etapa'          => $etapa->executar($tarefa, $usuario, $tenant),
             'usuarioAtual'   => $usuario,
             'users'          => $users,
             'podeEditarPrazo' => $prazoUseCase->podeEditarPrazo($tarefa, $usuario, $tenant),
@@ -450,16 +455,19 @@ final class TarefaController extends AbstractController
     }
 
     /**
-     * Conclui a tarefa (qualquer usuário com acesso pode concluir).
+     * Conclui a meta (aba Metas da pasta). D3 (spec `minhas-metas-esteira-2210.md`, decisão do dono 22/10): só o
+     * responsável ou quem criou a meta conclui, pela mesma regra e com a mesma recusa (403) da passagem de etapa.
+     * Vale também para o "Desfazer" da reabertura, que conclui de novo.
      */
     #[Route('/{id}/concluir', name: 'tarefa_concluir', methods: ['POST'])]
     public function concluir(
         Tarefa $tarefa,
         Request $request,
-        EntityManagerInterface $entityManager,
         ListaDeMetasDaPastaEmJson $listaEmJson,
         ReaberturaDesfazivelDaMeta $reaberturaDesfazivel,
         DesfazerReaberturaDaMetaUseCase $desfazerReabertura,
+        QuemCuidaDaMeta $quemCuida,
+        ConcluirMetaUseCase $concluirMeta,
     ): Response {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -468,6 +476,9 @@ final class TarefaController extends AbstractController
 
         if (!$this->isCsrfTokenValid('concluir_tarefa_'.$tarefa->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+        if (!$quemCuida->ehResponsavelOuCriador($tarefa, $usuario)) {
+            return RecusaDeQuemNaoCuidaDaMeta::responder($request);
         }
 
         $agora = new \DateTimeImmutable();
@@ -503,13 +514,9 @@ final class TarefaController extends AbstractController
         // Concluir de verdade encerra qualquer "Desfazer" pendente desta meta.
         $reaberturaDesfazivel->esquecer($request->getSession(), $tarefa, $tenant, $agora);
 
-        $concluiu = false;
-        if ($tarefa->getStatus() !== Tarefa::STATUS_CONCLUIDA) {
-            $tarefa->setStatus(Tarefa::STATUS_CONCLUIDA);
-            $tarefa->setDataConclusao($agora);
-            $entityManager->flush();
-            $concluiu = true;
-
+        // Trava e relê a meta: a passagem de etapa pode tê-la concluído depois que esta tela a leu.
+        $concluiu = $concluirMeta->executar($tarefa, $agora);
+        if ($concluiu) {
             $this->notificacaoService->notificarTarefaConcluida($tarefa);
         }
 

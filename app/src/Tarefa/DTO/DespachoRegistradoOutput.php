@@ -10,7 +10,6 @@ final class DespachoRegistradoOutput
     public function __construct(
         public readonly ?string $codigo,
         public readonly bool $enviada,
-        public readonly bool $devolvida,
     ) {
     }
 }

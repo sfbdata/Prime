@@ -243,26 +243,62 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
         self::assertCount(1, $crawler->filter('#despacho-' . $antiga->getId() . ' .btn-editar-msg'));
     }
 
+    #[TestDox('Em revisão, o criador despacha "Para providência: falta X" e a meta volta pendente, com o histórico e o aviso')]
+    public function testCriadorDespachaEmRevisaoDevolve(): void
+    {
+        $this->meta->setStatus(Tarefa::STATUS_EM_REVISAO);
+        $this->em->flush();
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+
+        $this->despachar(['mensagem' => 'Para providência: falta a procuração.', 'natureza' => 'providencia']);
+
+        $despacho = $this->unicoDespacho();
+        self::assertSame(AcaoDoDespacho::Devolucao, $despacho->getAcao());
+        self::assertSame(NaturezaDoDespacho::Providencia, $despacho->getNatureza());
+        self::assertMatchesRegularExpression('/^\d{4}\.\d{4}$/', (string) $despacho->getCodigo());
+        self::assertSame(Tarefa::STATUS_PENDENTE, $this->em->find(Tarefa::class, $this->meta->getId())?->getStatus());
+        self::assertCount(1, $this->em->getRepository(\App\Entity\Notificacao::class)->findBy(['usuario' => $this->responsavel->getId(), 'tipo' => \App\Entity\Notificacao::TIPO_TAREFA_PENDENTE]));
+        self::assertCount(0, $this->em->getRepository(\App\Entity\Notificacao::class)->findBy(['usuario' => $this->criador->getId(), 'tipo' => \App\Entity\Notificacao::TIPO_TAREFA_PENDENTE]));
+    }
+
+    #[TestDox('Na meta pendente em que não é responsável, o criador despacha e o status não muda')]
+    public function testCriadorDespachaNaPendente(): void
+    {
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
+
+        $this->despachar(['mensagem' => 'Acompanhando.']);
+
+        self::assertSame(AcaoDoDespacho::Despacho, $this->unicoDespacho()->getAcao());
+        self::assertSame(Tarefa::STATUS_PENDENTE, $this->em->find(Tarefa::class, $this->meta->getId())?->getStatus());
+    }
+
     #[TestDox('Envio para revisão e devolução: cabeçalho com o rótulo da ação (L127), marcador âmbar e sem Certificar')]
     public function testEnvioEDevolucaoNaLinhaDoTempo(): void
     {
+        // Devolver é o modal da lateral desde a Fase 3: o responsável devolve a meta pendente para quem enviou.
         $this->logarComTenant($this->client, $this->responsavel, $this->escritorio);
-        $this->despachar(['mensagem' => 'Pronto para revisão.', 'acao' => 'enviar']);
+        $id = (int) $this->meta->getId();
+        $this->client->request('POST', '/tarefas/' . $id . '/devolver', ['_token' => 'TOKEN_devolver_meta_' . $id, 'motivo' => 'Falta documento', 'o_que_falta' => 'Ajustar a peça.']);
+        self::assertResponseIsSuccessful();
         $this->logarComTenant($this->client, $this->criador, $this->escritorio);
-        $this->despachar(['mensagem' => 'Ajustar a peça.', 'acao' => 'devolver', 'natureza' => 'providencia']);
+        $this->despachar(['mensagem' => 'Pronto para revisão.', 'acao' => 'enviar']);
+        // Em revisão, o despacho do criador devolveria a meta: o comentário solto é de outra pessoa.
+        $this->logarComTenant($this->client, $this->colega, $this->escritorio);
         $this->despachar(['mensagem' => 'Comentário solto.']);
-        [$envio, $devolucao, $comentario] = $this->despachosDaMeta();
+        [$devolucao, $envio, $comentario] = $this->despachosDaMeta();
         self::assertSame(AcaoDoDespacho::Envio, $envio->getAcao());
         self::assertSame(AcaoDoDespacho::Devolucao, $devolucao->getAcao());
         self::assertSame(AcaoDoDespacho::Despacho, $comentario->getAcao());
 
+        // Quem certifica é o responsável ou o criador: a tela é a do criador.
+        $this->logarComTenant($this->client, $this->criador, $this->escritorio);
         $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
 
         $linha = static fn (TarefaMensagem $d): string => '#despacho-' . $d->getId();
         self::assertStringContainsString('Enviado para revisão', $crawler->filter($linha($envio) . ' .despacho-tipo')->text());
         self::assertCount(1, $crawler->filter($linha($envio) . '.despacho-item--ambar .despacho-icone .bi-send'));
         self::assertCount(0, $crawler->filter($linha($envio) . ' .despacho-certificar'));
-        self::assertStringContainsString('Para providência', $crawler->filter($linha($devolucao) . ' .despacho-tipo')->text());
+        self::assertStringContainsString('Devolvida', $crawler->filter($linha($devolucao) . ' .despacho-tipo')->text());
         self::assertCount(1, $crawler->filter($linha($devolucao) . '.despacho-item--ambar .despacho-icone .bi-arrow-return-left'));
         self::assertCount(0, $crawler->filter($linha($devolucao) . ' .despacho-certificar'));
         self::assertStringContainsString('Comentário', $crawler->filter($linha($comentario) . ' .despacho-tipo')->text());

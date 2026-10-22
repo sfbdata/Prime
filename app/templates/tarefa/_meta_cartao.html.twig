@@ -81,6 +81,15 @@
                 title="{{ acompanhando ? 'metas.marcador.parar_de_acompanhar'|trans : 'metas.marcador.acompanhar_esta_meta'|trans }}">
             <i class="bi {{ acompanhando ? 'bi-bookmark-fill' : 'bi-bookmark' }}"></i>
         </button>
+        {# "Concluir etapa" (desenho 04 L102; spec Fase 3): abre o modal da passagem. Só na meta aberta (spec 2.2), fora
+           da lápide e para o responsável ou quem criou a meta (D3); o servidor confere de novo. #}
+        {% if meta.status != 'concluida' and not meta.pasta.estaExcluida and cuida_da_meta(meta, app.user) %}
+            {% set proximaDaMeta = et.proxima ? (et.nomeDaProxima ?? et.proxima.rotulo|trans) : null %}
+            <button type="button" class="mp-cartao-concluir" data-mp-abrir="{{ path('tarefa_passagem', {id: meta.id}) }}"
+                    title="{{ proximaDaMeta ? 'metas.passagem.cartao.dica_passar'|trans({etapa: proximaDaMeta}) : 'metas.passagem.cartao.dica_encerrar'|trans }}">
+                <i class="bi bi-check2-circle"></i>{{ 'metas.passagem.cartao.concluir_etapa'|trans }}
+            </button>
+        {% endif %}
         {# ⋮ "Opções" do desenho (dc L98) com os itens que a especificação pede (R118, R236) e que já
            existem no sistema — o ⋮ do protótipo só alternava o marcador, defeito não reproduzido.
            "Abrir relatório completo" mantém o acesso à meta que a antiga seta dava. Os outros dois

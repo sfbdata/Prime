@@ -177,6 +177,12 @@ final class AlternarMetaPorXhrTest extends JusPrimeWebTestCase
         return $meta;
     }
 
+    private function tornarResponsavel(int $metaId, User $quem): void
+    {
+        $this->em()->find(Tarefa::class, $metaId)?->addResponsavel($quem);
+        $this->em()->flush();
+    }
+
     /** Token CSRF previsível (`TOKEN_<id>`), para o POST direto provar a GUARDA e não o CSRF. */
     private function instalarCsrfPrevisivel(): void
     {
@@ -378,7 +384,9 @@ final class AlternarMetaPorXhrTest extends JusPrimeWebTestCase
         $id = (int) $this->criarMeta($pasta, $autor, Tarefa::STATUS_CONCLUIDA)->getId();
         $this->criarMeta($pasta, $autor, Tarefa::STATUS_PENDENTE, 'Meta sigilosa da pasta');
 
-        $this->logarComTenant($client, $this->criarUsuarioComPermissoes($tenant, 'Só Módulo', ['modules.tarefas.view']), $tenant);
+        $quem = $this->criarUsuarioComPermissoes($tenant, 'Só Módulo', ['modules.tarefas.view']);
+        $this->tornarResponsavel($id, $quem); // D3: só quem cuida da meta conclui
+        $this->logarComTenant($client, $quem, $tenant);
         $client->xmlHttpRequest('POST', '/tarefas/' . $id . '/concluir', ['_token' => 'TOKEN_concluir_tarefa_' . $id]);
         $dados = $this->json($client);
 
@@ -399,7 +407,9 @@ final class AlternarMetaPorXhrTest extends JusPrimeWebTestCase
         $id = (int) $this->criarMeta($pasta, $autor, Tarefa::STATUS_CONCLUIDA)->getId();
         $this->criarMeta($pasta, $autor, Tarefa::STATUS_PENDENTE, 'Meta visivel da pasta');
 
-        $this->logarComTenant($client, $this->criarUsuarioComPermissoes($tenant, 'Vê a pasta', ['modules.tarefas.view', 'resources.pasta.view']), $tenant);
+        $quem = $this->criarUsuarioComPermissoes($tenant, 'Vê a pasta', ['modules.tarefas.view', 'resources.pasta.view']);
+        $this->tornarResponsavel($id, $quem); // D3: só quem cuida da meta conclui
+        $this->logarComTenant($client, $quem, $tenant);
         $client->xmlHttpRequest('POST', '/tarefas/' . $id . '/concluir', ['_token' => 'TOKEN_concluir_tarefa_' . $id]);
         $dados = $this->json($client);
 
@@ -415,7 +425,9 @@ final class AlternarMetaPorXhrTest extends JusPrimeWebTestCase
         $id = (int) $this->criarMeta($pasta, $autor, Tarefa::STATUS_CONCLUIDA)->getId();
         $this->criarMeta($pasta, $autor, Tarefa::STATUS_PENDENTE, 'Meta sigilosa da pasta');
 
-        $this->logarComTenant($client, $this->criarUsuarioComPermissoes($tenant, 'Só edita', ['modules.tarefas.view', 'resources.pasta.edit']), $tenant);
+        $quem = $this->criarUsuarioComPermissoes($tenant, 'Só edita', ['modules.tarefas.view', 'resources.pasta.edit']);
+        $this->tornarResponsavel($id, $quem); // D3: só quem cuida da meta reabre
+        $this->logarComTenant($client, $quem, $tenant);
         $client->xmlHttpRequest('POST', '/tarefas/' . $id . '/reabrir', ['_token' => 'TOKEN_reabrir_tarefa_' . $id]);
         $dados = $this->json($client);
 

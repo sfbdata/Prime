@@ -9,10 +9,12 @@
 <link rel="stylesheet" href="{{ asset('css/meta-numero-global.css') }}">
 <link rel="stylesheet" href="{{ asset('css/meta-despacho.css') }}">
 <link rel="stylesheet" href="{{ asset('css/meta-detalhe.css') }}">
+<link rel="stylesheet" href="{{ asset('css/meta-passagem.css') }}">
 <script src="{{ asset('js/quill/quill.js') }}"></script>
 <script src="{{ asset('js/editor-rico.js') }}" defer></script>
 <script src="{{ asset('js/pasta-mencoes.js') }}" defer></script>
 <script src="{{ asset('js/meta-despacho.js') }}" defer></script>
+<script src="{{ asset('js/meta-passagem.js') }}" defer></script>
 
 
 {# Cabeçalho (desenho 04B L35-39; spec L5): seta de voltar às metas, "Meta #N" e a trilha
@@ -46,6 +48,9 @@
         {% if app.request.query.get('lembrete') == 'enviado' %}
             <div class="meta-toast" role="status" data-meta-toast><i class="bi bi-check-circle"></i>{{ 'metas.detalhe.aguardando.lembrete_enviado'|trans }}</div>
         {% endif %}
+
+        {# Trilho ETAPA DA PASTA (desenho 04B L42-44), cartão de largura total entre o cabeçalho e a meta. #}
+        {{ include('tarefa/_meta_etapa_trilho.html.twig') }}
 
         <div class="card card-primary card-outline">
             <div class="card-header">
@@ -104,16 +109,22 @@
                         {# Painel de situação (desenho 04B L77; spec L3) #}
                         <div class="mb-3">{{ include('tarefa/_meta_situacao.html.twig') }}</div>
 
-                        {# Concluir meta (L79, L141); o "Devolver" segue no formulário até a Fase 3. #}
-                        {% if tarefa.status != 'concluida' %}
-                        <div class="mb-3">
-                            <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}"
-                                  onsubmit="return confirm('{{ 'metas.detalhe.confirmar_conclusao'|trans|e('js') }}');">
-                                <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">
-                                <button type="submit" class="meta-concluir">
-                                    <i class="bi bi-check2-circle"></i>{{ 'metas.detalhe.concluir_meta'|trans }}
-                                </button>
-                            </form>
+                        {# Concluir e passar adiante, Próximo passo e Devolver para X (04B L78-82; D3): o modal da passagem
+                           e o da devolução. Concluir, do responsável ou do criador; Devolver, só do responsável que não
+                           criou a meta, na meta pendente. #}
+                        {% if etapa.podeConcluir or etapa.podeDevolver %}
+                        <div class="mp-lateral">
+                            {% if etapa.podeConcluir %}
+                            <button type="button" class="mp-concluir" data-mp-abrir="{{ path('tarefa_passagem', {id: tarefa.id}) }}">
+                                <i class="bi bi-check2-circle"></i>{{ etapa.proxima ? 'metas.passagem.concluir_e_passar'|trans({etapa: etapa.proxima}) : 'metas.passagem.concluir_meta'|trans }}
+                            </button>
+                            <div class="mp-lateral-proximo">{{ etapa.proxima ? 'metas.passagem.proximo_passo'|trans({etapa: etapa.proxima, setor: etapa.setorDaProxima}) : 'metas.passagem.ultima_etapa'|trans }}</div>
+                            {% endif %}
+                            {% if etapa.podeDevolver %}
+                            <button type="button" class="mp-devolver" data-mp-devolver>
+                                <i class="bi bi-arrow-return-left"></i>{{ 'metas.passagem.devolver_para'|trans({nome: etapa.devolverPara}) }}
+                            </button>
+                            {% endif %}
                         </div>
                         {% endif %}
 
@@ -459,7 +470,9 @@
 }
 </style>
 
-{{ catalogo_js('metas.detalhe.js', 'metas.despacho.js') }}
+{% if etapa.podeConcluir %}{{ include('tarefa/_meta_passagem_modal.html.twig', {contexto: 'meta'}) }}{% endif %}
+{% if etapa.podeDevolver %}{{ include('tarefa/_meta_devolucao_modal.html.twig') }}{% endif %}
+{{ catalogo_js('metas.detalhe.js', 'metas.despacho.js', 'metas.passagem.js') }}
 <script>
 /* ── Modal Responsáveis — lista nativa ── */
 (function () {

@@ -90,6 +90,14 @@ class TarefaMensagem implements Auditavel, TenantAware
     #[ORM\Column(name: 'registrado_por_cargo', length: 120, nullable: true)]
     private ?string $registradoPorCargo = null;
 
+    /**
+     * Para quem o ato foi (o "quem → para" do desenho 04B L161): o novo responsável na passagem de etapa e quem
+     * recebe a meta na devolução. No despacho comum o "para" sai das @menções do texto.
+     */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'destinatario_id', nullable: true, onDelete: 'SET NULL')]
+    private ?User $destinatario = null;
+
     public function __construct()
     {
         $this->criadoEm = new \DateTimeImmutable();
@@ -238,6 +246,19 @@ class TarefaMensagem implements Auditavel, TenantAware
         $this->registradoPorNome  = mb_substr(trim($nome), 0, 180);
         $cargo                    = trim((string) $cargo);
         $this->registradoPorCargo = $cargo === '' ? null : mb_substr($cargo, 0, 120);
+
+        return $this;
+    }
+
+    public function getDestinatario(): ?User
+    {
+        return $this->destinatario;
+    }
+
+    public function setDestinatario(?User $destinatario): self
+    {
+        $this->exigirNaoRegistrado();
+        $this->destinatario = $destinatario;
 
         return $this;
     }
