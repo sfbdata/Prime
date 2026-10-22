@@ -745,3 +745,34 @@ antes e depois, sem diferença; o texto dos scripts foi conferido chave por chav
 - **Ficou para depois:** o estado "Sem OAB" do chip não apareceu na foto (a fila só lista inscrições, que sempre têm
   status); a chave existe e a troca é a mesma das outras três. O `pasta/peticionar.html.twig` (o conteúdo do Peticionar) e os outros templates que
   incluem estes quatro ficam para a extração das áreas deles.
+
+## 20. O resto da Pasta (0d, 21/10)
+
+### 20.1 Avisos, cadeado e telas simples
+
+- **Escopo:** os parciais `pasta/_abas_ocultas`, `_andamento`, `_aviso_duplicada_conteudo`, `_aviso_duplicada_modal`,
+  `_cadeado_faixa`, `_cadeado_icone` (sem texto), `_cadeado_menu`, `_cadeado_modal` e `_cadeado_pedidos`, as páginas
+  `confirmar_duplicada`, `trancada` e `zip_recusado`, e os JS `pasta-abas-ocultas.js`, `pasta-andamento.js`,
+  `pasta-cadeado.js` e `pasta-cadeado-pedidos.js`. Bloco de topo `pasta_avisos` do catálogo, 93 chaves, com
+  `pasta_avisos.js.*` (24) para os quatro JS.
+- **Catálogo do JS:** os quatro scripts são carregados pelo `pasta/show.html.twig`, sem `defer`. O
+  `catalogo_js('pasta_avisos.js')` mora no `_abas_ocultas`, que o show inclui sempre (fora de condição) e antes dos
+  scripts; o show não foi tocado.
+- **Sem mudança visível:** o HTML da tela trancada (com o pedido e aguardando), da faixa de somente visualização (pedir
+  e pedido enviado), da pasta vista pelo primário (menu e modal do cadeado com e sem cadeado, pedidos pendentes, abas
+  ocultas e andamento com a faixa de sugestão), do aviso de duplicada (página e modal, uma pasta e seis com ação) e do
+  zip recusado saiu igual. Mudaram só tokens CSRF, quebras de linha (o "Encontramos N pasta(s) já cadastrada(s)" virou
+  uma linha) e o `<script data-bj-t>`. Não foram renderizados, e foram conferidos lendo: "Sem registro" (pasta sem data
+  de criação), "Não há colaboradores…" (equipe vazia no modal) e "Cliente não informado" na tela trancada.
+- **Formatos:** o `criadoEm` do aviso de duplicada (sob guarda de nulo) passou a `|data`.
+- **Escolhas:** "N pasta(s) já cadastrada(s)" virou duas chaves (`encontramos_uma`, `encontramos_varias`) pelo mesmo
+  `== 1` de antes, sem plural ICU; a frase com `<strong>` ficou uma chave por pedaço (`para`, `em`). O "PASTA" da tela
+  trancada usa `termos.pasta|upper` e o selo "OCULTA", `selo_oculta|upper`. Os rótulos dos níveis do cadeado e dos
+  botões de pedido viraram chaves dentro dos arrays do Twig, traduzidas no uso. O "fase(s) intermediária(s)" do JS
+  continua com "(s)", como no §8. Ficaram nos permitidos a classe `ps-body`, a marca em "· BlueJus" e as teclas e
+  cabeçalhos HTTP dos JS.
+- **Ficou de fora:** o texto do PHP (rótulo, dica, dia, intervalo e total das fases e o motivo das sugestões do
+  `AndamentoDaPasta`; selo, `texto` dos pedidos, `horaDoPedido` e `recusadoTexto` do `CadeadoNaTelaOutput`; o
+  `documento_br_rotulo`; a mensagem do zip recusado; a `funcao` da equipe e as mensagens JSON dos controllers do cadeado,
+  das abas ocultas e do andamento); o `data-screen-label` do andamento (marca do desenho, ninguém lê); e o
+  `lang="pt-BR"` fixo do `zip_recusado`.
