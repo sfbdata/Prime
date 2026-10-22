@@ -991,3 +991,38 @@ Na entrega A, são 52 chaves (`publicas.confirmacao`, `.descadastro`, `.indicaca
   `PedidoDeExclusaoRecusado` na exclusão (outros domínios, como na P2b); as mensagens das 403 (página de erro padrão);
   o `|date` com segundos da tela Ver; o `lang="pt-BR"` fixo do `escritorio_indisponivel` (página solta, sem o base);
   e a ação `sair` do `EscritorioController` (não é tela do T1).
+
+## 26b. Extração de recurso, legal e termo (a7, 22/10)
+
+- **Escopo:** 7 templates. `templates/recurso/` `_layout_simples` e `em_preparacao` (a página que o guarda de rota
+  `BloqueioDeRecursoDesativado` mostra quando o Master desliga uma tela); `templates/legal/` `politica_privacidade`
+  (página pública), `politica_privacidade_pdf` (casca do PDF) e `_politica_privacidade_texto`; `templates/termo/`
+  `aceite` e `_texto`. Blocos novos do catálogo: `recurso` (2 chaves), `legal` (6) e `termo` (11). Nenhum JS entrou.
+- **Decisão sobre o texto jurídico:** o corpo da Política (`legal/_politica_privacidade_texto`) e o dos Termos
+  (`termo/_texto`) **não** foram extraídos e ficam fixos no template, fora do `templates-extraidos.json`. Nenhum hash
+  é calculado do texto, mas a prova jurídica depende do arquivo: o aceite (`aceite_termo`) e a ciência
+  (`ciencia_politica`) gravam só a versão (`TermoVigente::VERSAO`, `PoliticaPrivacidadeVigente::VERSAO`), e as duas
+  classes amarram essa versão ao partial ("troque a constante e, no mesmo commit, atualize o texto"; a Política ainda
+  guarda o histórico de versões no Anexo III do próprio arquivo). O texto que a pessoa aceitou numa versão é o
+  partial no commit daquela versão. No catálogo, o texto passaria a poder mudar (revisão de idioma, varredura) sem a
+  versão subir, e um segundo idioma faria a pessoa aceitar uma tradução que a versão gravada não distingue. Traduzir
+  a Política ou os Termos é decisão jurídica, com versão própria. Foi extraída só a moldura: títulos de página,
+  cabeçalho da tela de aceite, a declaração do checkbox, os links, os botões, o "Voltar ao topo" e o rodapé do PDF.
+- **Sem mudança visível:** com o mesmo `FOUNDRY_FAKER_SEED`, as 123 respostas comparadas saíram iguais antes e depois:
+  118 respostas HTML dos functionals de `tests/Legal`, `tests/Termo`, `Master/Functional/TelasERecursosTest`,
+  `Pasta/Functional/PushLinkComTelaDesligadaTest` e `Auth/Functional/LoginDeContaAConfirmarTest` (página da Política,
+  aceite com e sem a declaração da Política, tela em preparação, login e cadastro que passam pelo aceite),
+  comparadas com espaços normalizados e tokens, ids e números trocados por marcador, e 5 renderizações diretas
+  (HTML do PDF da Política, os dois partiais jurídicos e a tela em preparação com e sem previsão), iguais byte a byte.
+- **Frase partida:** a declaração do aceite com a Política ("Li e aceito ... do BlueJus e a <link>.") virou
+  `termo.aceite.declaracao_com_politica_antes` e `declaracao_com_politica_link`, com o espaço, o link e o ponto no
+  template, como no §8. A variante sem a Política é uma chave inteira (`termo.aceite.declaracao`).
+- **Guarda/permitidos:** `recurso` permite `BlueJus | BlueJus` (o título padrão do layout, marca, mais o sufixo de
+  marca); `termo` permite `BlueJus` (o `alt` do logotipo); `legal` não tem permitidos. Os dois partiais jurídicos não
+  entram na lista do teste, pela decisão acima.
+- **Formatos:** nenhum filtro de data mudou. A previsão da tela em preparação (`previsao`), a versão e a data de
+  publicação da Política (`data_publicacao`) chegam do PHP já como texto e entram como `{data}`/`{versao}`.
+- **Ficou para depois:** o corpo jurídico (decisão acima); o PDF estático dos Termos (`public/termos/termos-de-uso.pdf`);
+  o `lang="pt-BR"` fixo do `_layout_simples`, do `aceite` e da casca do PDF (páginas soltas, sem o base); o título e
+  o motivo da tela em preparação, que vêm do PHP (`BloqueioDeRecursoDesativado`, catálogo de recursos do Master); o
+  flash de erro do aceite (`TermoController`); e o JS inline do `aceite` (sem texto visível).
