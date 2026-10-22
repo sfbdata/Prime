@@ -22,6 +22,7 @@ use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[IsGranted('ROLE_SUPER_ADMIN')]
 #[Route('/admin/platform/convites')]
@@ -34,6 +35,7 @@ final class AdminConviteController extends AbstractController
         private readonly ReenviarConviteUseCase $reenviarUseCase,
         private readonly ConviteMailer $mailer,
         private readonly RateLimiterFactory $conviteCriarLimiter,
+        private readonly TranslatorInterface $tradutor,
     ) {}
 
     #[Route('', name: 'admin_platform_convite_index', methods: ['GET'])]
@@ -66,12 +68,12 @@ final class AdminConviteController extends AbstractController
             try {
                 $this->mailer->enviarConvitePlataforma($invitation);
             } catch (\RuntimeException) {
-                $this->addFlash('erro', 'Convite criado, mas o email não foi enviado. Use o botão Reenviar.');
+                $this->addFlash('erro', $this->tradutor->trans('plataforma.flash.convite_criado_sem_email'));
 
                 return $this->redirectToRoute('admin_platform_convite_index');
             }
 
-            $this->addFlash('sucesso', sprintf('Convite enviado para %s.', $invitation->getEmail()));
+            $this->addFlash('sucesso', $this->tradutor->trans('plataforma.flash.convite_enviado', ['email' => $invitation->getEmail()]));
         } catch (\DomainException $e) {
             $this->addFlash('erro', $e->getMessage());
         }
@@ -94,7 +96,7 @@ final class AdminConviteController extends AbstractController
 
         try {
             $this->revogarUseCase->executar(new RevogarConviteInput($token));
-            $this->addFlash('sucesso', 'Convite revogado.');
+            $this->addFlash('sucesso', $this->tradutor->trans('plataforma.flash.convite_revogado'));
         } catch (\DomainException $e) {
             $this->addFlash('erro', $e->getMessage());
         }
@@ -128,12 +130,12 @@ final class AdminConviteController extends AbstractController
             try {
                 $this->mailer->enviarConvitePlataforma($invitation);
             } catch (\RuntimeException) {
-                $this->addFlash('erro', 'Não foi possível enviar o email. Tente novamente.');
+                $this->addFlash('erro', $this->tradutor->trans('plataforma.flash.convite_email_nao_enviado'));
 
                 return $this->redirectToRoute('admin_platform_convite_index');
             }
 
-            $this->addFlash('sucesso', 'Convite reenviado.');
+            $this->addFlash('sucesso', $this->tradutor->trans('plataforma.flash.convite_reenviado'));
         } catch (\DomainException $e) {
             $this->addFlash('erro', $e->getMessage());
         }
