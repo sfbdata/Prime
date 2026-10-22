@@ -6,6 +6,7 @@ namespace App\Tarefa\Entity;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use App\Tarefa\Enum\EtapaDaPasta;
 use App\Tarefa\Repository\CaixaDaEsteiraRepository;
@@ -22,7 +23,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: CaixaDaEsteiraRepository::class)]
 #[ORM\Table(name: 'tarefa_caixa_esteira')]
 #[ORM\UniqueConstraint(name: 'uniq_tarefa_caixa_esteira_tenant_etapa', columns: ['tenant_id', 'etapa'])]
-class CaixaDaEsteira implements TenantAware
+class CaixaDaEsteira implements Auditavel, TenantAware
 {
     public const TAMANHO_MAXIMO_DO_NOME = 60;
 

@@ -64,8 +64,8 @@ class Tarefa implements Auditavel, TenantAware
      * Caixa da esteira em que a meta está (desenho 04 de 22/10). Sem etapa escolhida, a meta nasce na etapa
      * deduzida do título (`EtapaDaPasta::deduzirDoTitulo`, no `definirEtapaPeloTitulo`).
      */
-    #[ORM\Column(length: 20, enumType: EtapaDaPasta::class)]
-    // Nula só entre o `new` e o PrePersist; no banco é NOT NULL.
+    #[ORM\Column(length: 20, enumType: EtapaDaPasta::class, options: ['default' => 'juridico'])]
+    // Nula só entre o `new` e o PrePersist; no banco é NOT NULL, com Jurídico para INSERT feito por SQL.
     private ?EtapaDaPasta $etapa = null; // @phpstan-ignore doctrine.columnType
 
     /** Decide a sequência de caixas por onde a pasta passa (`TipoDeDemanda::sequencia`). */
