@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="no-referrer">
-    <title>Termos e Condições de Uso | BlueJus</title>
+    <title>{{ 'termo.aceite.titulo_pagina'|trans }}</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <style>
         :root {
@@ -81,9 +81,9 @@
 
         <div class="termo-header">
             <img src="/images/logo/bluejus_logo.svg" alt="BlueJus">
-            <h1>Termos e Condições Gerais de Uso</h1>
-            <p>Para continuar, leia e aceite os termos abaixo.</p>
-            <span class="versao">Versão {{ versao }}</span>
+            <h1>{{ 'termo.aceite.titulo'|trans }}</h1>
+            <p>{{ 'termo.aceite.instrucao'|trans }}</p>
+            <span class="versao">{{ 'termo.aceite.versao'|trans({versao: versao}) }}</span>
         </div>
 
         <div class="termo-scroll">
@@ -100,9 +100,9 @@
                     <input type="checkbox" name="aceito" value="1" id="aceito" required>
                     {# D2b da spec cadastro-senha-no-link: a conta confirmada pelo código declara também a Política. #}
                     {% if pedirPolitica|default(false) %}
-                        <span>Li e aceito os Termos e Condições Gerais de Uso do BlueJus e a <a href="{{ path('legal_politica_privacidade') }}" target="_blank" rel="noopener">Política de privacidade</a>.</span>
+                        <span>{{ 'termo.aceite.declaracao_com_politica_antes'|trans }} <a href="{{ path('legal_politica_privacidade') }}" target="_blank" rel="noopener">{{ 'termo.aceite.declaracao_com_politica_link'|trans }}</a>.</span>
                     {% else %}
-                        <span>Li e aceito os Termos e Condições Gerais de Uso do BlueJus.</span>
+                        <span>{{ 'termo.aceite.declaracao'|trans }}</span>
                     {% endif %}
                 </label>
 
@@ -110,13 +110,13 @@
 
                 <div class="acoes">
                     <span class="links">
-                        <a href="/termos/termos-de-uso.pdf" target="_blank" rel="noopener">Baixar em PDF</a>
+                        <a href="/termos/termos-de-uso.pdf" target="_blank" rel="noopener">{{ 'termo.aceite.baixar_pdf'|trans }}</a>
                         <span class="sep">·</span>
-                        <a href="{{ path('legal_politica_privacidade') }}" target="_blank" rel="noopener">Política de Privacidade</a>
+                        <a href="{{ path('legal_politica_privacidade') }}" target="_blank" rel="noopener">{{ 'termo.aceite.politica'|trans }}</a>
                         <span class="sep">·</span>
-                        <a href="{{ path('app_logout') }}">Sair</a>
+                        <a href="{{ path('app_logout') }}">{{ 'termo.aceite.sair'|trans }}</a>
                     </span>
-                    <button type="submit" class="btn btn-primary" id="btnAceitar">Aceitar e continuar</button>
+                    <button type="submit" class="btn btn-primary" id="btnAceitar">{{ 'termo.aceite.aceitar'|trans }}</button>
                 </div>
             </form>
         </div>

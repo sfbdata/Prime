@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Comercial\UseCase;
 
 use App\Comercial\Campanha\ComposicaoDaCampanha;
+use App\Comercial\Campanha\ImagensDaCampanha;
 use App\Comercial\DTO\DestinatarioDaCampanha;
 use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\Entity\CampanhaDeEmail;
@@ -32,6 +33,7 @@ use Psr\Clock\ClockInterface;
  * `publico_parametros`: ali não haveria anonimização, e o destino já é anonimizado pela retenção). Assim o
  * Relatório mostra a linha com o selo "Teste" e o KPI "Campanhas" a conta. O destino continua só o Master logado (o
  * "qualquer endereço" está com o dono). Descadastrado: o Carteiro registra o bloqueio e não há linha de teste.
+ * F3i (§12): a imagem do modo simples tem de existir e não ter vencido; o teste não renova a validade.
  */
 final class EnviarTesteDaCampanhaUseCase
 {
@@ -50,6 +52,7 @@ final class EnviarTesteDaCampanhaUseCase
         private readonly ClockInterface $relogio,
         private readonly CampanhaDeEmailRepository $campanhas,
         private readonly DestinoDaCampanhaRepository $destinos,
+        private readonly ImagensDaCampanha $imagens,
     ) {
     }
 
@@ -61,6 +64,7 @@ final class EnviarTesteDaCampanhaUseCase
             throw new CampanhaRecusada(self::TETO_ATINGIDO);
         }
         ComposicaoDaCampanha::exigirAncoraDeVagas($mensagem);
+        $this->imagens->exigirVigente($mensagem);
         $teste = self::comPrefixo($mensagem);
         $email = $this->composicao->mensagemPara($teste, $para, $master->getFullName(), self::ORIGEM);
         $envio = $this->carteiro->enviar($email);
@@ -109,6 +113,6 @@ final class EnviarTesteDaCampanhaUseCase
     {
         $assunto = str_starts_with($m->assunto, self::PREFIXO) ? $m->assunto : mb_substr(self::PREFIXO . $m->assunto, 0, 255);
 
-        return new MensagemDaCampanha($m->chave, $m->modo, $assunto, $m->selo, $m->titulo, $m->corpo, $m->itens, $m->cta, $m->link, $m->blocos, $m->html, $m->nome, $m->icone);
+        return new MensagemDaCampanha($m->chave, $m->modo, $assunto, $m->selo, $m->titulo, $m->corpo, $m->itens, $m->cta, $m->link, $m->blocos, $m->html, $m->nome, $m->icone, $m->imagem);
     }
 }

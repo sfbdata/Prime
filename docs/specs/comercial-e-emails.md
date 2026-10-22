@@ -1010,3 +1010,94 @@ saídas: (a) já, (b) a caixa "aceito novidades" quando houver desenho; F3.9 (b)
 ### Para o dono (nota, sem bloquear)
 - Sair pelo link de uma campanha de vagas também desliga os alertas de vagas, porque é o mesmo consentimento.
 - Uma campanha recorrente de vagas cresce sozinha conforme a lista `vagas_alerta` cresce.
+
+## 12. F3i: imagem na campanha do modo simples (dono, 21/10 à noite; o dono pode rever)
+
+Decisão do dono, F3i (a): a imagem fica guardada no BlueJus com endereço público, até 1 MB, só JPG ou PNG, e é apagada
+1 ano depois da campanha. Desenho: dc 05 VS 21.10.26, L274 (controle), L596 (no e-mail) e L659 (JS). Risco MÉDIO
+(arquivo público, envio em massa). Uma migration (tabela `comercial_imagem`).
+
+### O que o desenho mostra (entra inteiro)
+- No modo simples, abaixo do TEXTO e na linha do "Inserir:", o botão "Adicionar imagem", que vira "Trocar imagem"
+  quando já há uma, e o "Remover". Uma imagem por e-mail.
+- No e-mail, a imagem vai logo abaixo do cabeçalho azul e antes dos parágrafos, com 540 px de largura e cantos de 6 px.
+  Com imagem, o espaço interno do texto cai de 28 para 18 px.
+- No navegador, a imagem é reduzida a no máximo 1080 px e convertida em JPEG (qualidade 0,85), como no desenho.
+
+### Regras
+- **Envio:** `POST /master/comercial/imagens`, só para o Master, com o CSRF da seção. O tipo é conferido pelo conteúdo,
+  só JPEG ou PNG, nunca pela extensão. O servidor recusa arquivo acima de 1 MB e dimensão acima de 4000 px. A imagem é
+  regravada no servidor para tirar EXIF e localização. O nome é aleatório e a URL usa um token próprio.
+- **Endereço público:** `GET /e/i/{token}.{jpg|png}`, sem login. Leva Content-Type exato, `nosniff`, cache de um dia e
+  `noindex`. Token inexistente ou vencido dá 404.
+- **Na campanha e no modelo:** a mensagem guarda só o token (`imagem`), nunca URL livre nem `data:`. Token desconhecido
+  ou vencido é recusado com "A imagem expirou; envie de novo."
+- **Alt:** o título do e-mail. O desenho usa um alt mas não tem campo para preenchê-lo; pela convenção, nenhum campo novo
+  entra na tela.
+- **Validade:**
+  - campanha: 1 ano a partir do último envio, o que inclui cada execução da recorrente;
+  - modelo salvo: 1 ano a partir do último salvamento;
+  - imagem enviada e nunca usada: 30 dias.
+  - A purga entra no `app:purgar-dados-expirados`, e o arquivo só é apagado depois do COMMIT.
+- **Escopo:** só o modo simples, como no desenho. O bloco "Imagem" do modo blocos continua com endereço `https://`.
+- **Efeito esperado:** um e-mail antigo perde a imagem depois de 1 ano.
+
+### Decisões técnicas (o dono pode rever)
+Contagem de 1 ano na recorrente pelo último envio; 30 dias para a imagem sem uso; o alt é o título; o JPEG do desenho é
+mantido.
+
+## 13. F4: datas comemorativas (dono, 21/10 à noite; o dono pode rever)
+
+Decisão do dono, F4 (a), como o desenho: as datas nascem LIGADAS e vão para todos. A chave geral das campanhas
+(`COMERCIAL_CAMPANHAS_LIGADAS`, F3.1) nasce desligada e segura tudo: nada sai em massa até o Master ligá-la. Isto
+substitui a A2. Desenho: dc 05 VS 21.10.26, L335-339 (tela), L614-618 (as 17 datas), L626-627 (modelo de cada data) e
+L678-682 (estado). Risco MÉDIO. Migration `Version20261020149800`.
+
+### O que o desenho mostra (entra inteiro)
+- A seção "Datas comemorativas", com o sub "mensagens automáticas nas datas nacionais · N ativas".
+- Uma linha por data, com:
+  - o interruptor;
+  - o selo com dia da semana, dd/mm e ícone;
+  - o nome e "em N dias · envio dd/mm às 9h", em laranja com 7 dias ou menos;
+  - a antecedência: No dia, 1 dia antes ou 3 dias antes;
+  - o "Para quem": Todos, Primários ou Base de contatos;
+  - o "Ver mensagem", com o aviso "Prévia da mensagem de X. Use Duplicar para personalizar o texto.".
+- As 17 datas:
+  - fixas: Ano Novo, Mulher, Tiradentes, Trabalho, Namorados, Advogado, Independência, Cliente, Crianças, Finados,
+    Consciência Negra, Natal e Réveillon;
+  - móveis: Carnaval (Páscoa menos 47), Páscoa, Mães (2º domingo de maio) e Pais (2º domingo de agosto).
+- Os textos são literais do dc. Padrão de cada data: ligada, no dia, para Todos.
+- O modelo de cada data:
+  - assunto: título + " · BlueJus";
+  - selo: o nome em maiúsculas;
+  - título: o título sem "!" + ", {nome}!";
+  - blocos: o texto mais o botão "Abrir o BlueJus".
+  As datas também entram na grade de modelos (dc L627), para o "Duplicar".
+
+### Regras
+- **Estado no servidor:** a tabela `comercial_data_comemorativa` (chave, ligada, antecedência 0/1/3, público
+  `todos|prim|leads`, `alterada_por` e `alterada_em`, auditável) nasce semeada com as 17 ligadas, no dia, para Todos.
+  O `localStorage` do dc vira servidor.
+- **Disparo:** o passo `datas` no `VarrerAutomacoesHandler`. Para cada data ligada cujo dia de envio é hoje e que já
+  passou das 9h (America/Sao_Paulo), cria uma campanha única do sistema (`criada_por` nulo, `modelo_chave =
+  data-<id>`, o público da data). Ela herda o expansor: vazão, teto, B1, descadastro, Relatório e Cancelar.
+- **Uma vez por ano:** `chave_idempotencia = data:<id>:<ano da data>`. O ano é o da data, então o Ano Novo "1 dia
+  antes" sai em 31/12 com o ano seguinte.
+- **Janela:** até 23:59 do dia de envio. Ligar a data nesse dia, depois das 9h, ainda manda. Passado o dia, nada é
+  recuperado.
+- **Chave geral desligada:** o passo não cria nada e não represa nada.
+- **Público:**
+  - Todos: primários mais secundários, ativos;
+  - Primários: só os primários;
+  - Base de contatos: os confirmados de `comercial_campanhas`.
+  A lista de envio e de descadastro é `comercial_campanhas`. A base legal de Todos e Primários é o legítimo interesse,
+  como o item 8 da §8.8, que esta decisão confirma na prática.
+- **Texto da tela:** pelo catálogo (`comercial.datas.*` e `comercial.js.datas_*`). Os nomes e os textos das datas
+  ficam no PHP, como os outros modelos fixos.
+
+### Para o dono (nota, sem bloquear)
+- Ligar a chave geral solta a próxima data para todos, sem confirmação nova.
+- Vazão: com o teto de 1.000 por dia, uma base maior que isso recebe o Natal em dois dias.
+- O Réveillon e o Ano Novo saem em dias seguidos.
+- As campanhas das datas aparecem no Relatório e no KPI "Campanhas". Um selo "Data comemorativa" no Relatório fica
+  para depois.

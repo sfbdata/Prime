@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Unit;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote P13, lido como FOLHA (não há navegador no PHPUnit): o CSS de N10/N11 e o JS das duas
@@ -98,7 +99,8 @@ final class PastaFidelidadeRestanteFolhaTest extends TestCase
         self::assertStringContainsString(".querySelector('.obs-conteudo-det .ql-editor')", $copiar);
         self::assertStringContainsString('corpo.innerText.trim()', $copiar, 'texto da tela, sem a marcação do editor');
         self::assertStringContainsString('navigator.clipboard.writeText(texto)', $copiar);
-        self::assertStringContainsString("avisar('Texto copiado')", $copiar);
+        self::assertStringContainsString("avisar(BJ_T.t('pasta_detalhes.js.texto_copiado'))", $copiar);
+        self::assertSame('Texto copiado', Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js']['texto_copiado']);
         self::assertStringContainsString("e.target.closest('.js-obs-copiar')", $fonte);
         self::assertStringContainsString("e.target.closest('.js-obs-menu')", $fonte);
     }
@@ -150,8 +152,10 @@ final class PastaFidelidadeRestanteFolhaTest extends TestCase
         self::assertStringContainsString("div.id = 'clientesPlaceholder';", $vazio);
         self::assertStringContainsString('clientesContainer.dataset.nomeCliente', $vazio);
         self::assertStringContainsString("div.className = 'ps-vazio';", $vazio);
-        self::assertStringContainsString("titulo.textContent = 'Nenhum cliente vinculado';", $vazio);
-        self::assertStringContainsString("nota.textContent = 'Vincule o cliente para calcular a média por CPF.';", $vazio);
+        self::assertStringContainsString("titulo.textContent = BJ_T.t('pasta_show.js.cliente.nenhum_vinculado');", $vazio);
+        self::assertStringContainsString("nota.textContent = BJ_T.t('pasta_show.js.cliente.vincule_para_media');", $vazio);
+        self::assertSame('Nenhum cliente vinculado', self::catalogoJs()['cliente']['nenhum_vinculado']);
+        self::assertSame('Vincule o cliente para calcular a média por CPF.', self::catalogoJs()['cliente']['vincule_para_media']);
         self::assertStringContainsString("div.className = 'ps-cliente';", $vazio);
         self::assertStringContainsString('nome.textContent = nomeSolto;', $vazio, 'dado do usuário só por textContent');
         self::assertStringNotContainsString('innerHTML', $vazio);
@@ -169,7 +173,8 @@ final class PastaFidelidadeRestanteFolhaTest extends TestCase
         $troca = self::funcao(self::blocoClientes(), 'trocaClientePrincipal');
 
         self::assertStringContainsString("novoSelo.className = 'ps-selo-principal';", $troca);
-        self::assertStringContainsString("novoSelo.textContent = 'Principal';", $troca);
+        self::assertStringContainsString("novoSelo.textContent = BJ_T.t('pasta_show.js.cliente.principal');", $troca);
+        self::assertSame('Principal', self::catalogoJs()['cliente']['principal']);
         self::assertStringContainsString('nome.appendChild(novoSelo);', $troca);
         self::assertStringContainsString('selo.remove();', $troca, 'quem perde o principal perde o selo');
         self::assertStringContainsString("!linhaNova.closest('.cliente-principal')", $troca);
@@ -189,8 +194,15 @@ final class PastaFidelidadeRestanteFolhaTest extends TestCase
     public function testConfirmacaoDeDesvincularLeOAtributo(): void
     {
         $show = self::ler(self::SHOW);
-        self::assertStringContainsString("const perguntaDesv = form.dataset.confirmar || 'Desvincular o processo desta pasta?';", $show);
+        self::assertStringContainsString("const perguntaDesv = form.dataset.confirmar || BJ_T.t('pasta_show.js.processo.desvincular_pergunta');", $show);
+        self::assertSame('Desvincular o processo desta pasta?', self::catalogoJs()['processo']['desvincular_pergunta']);
         // E7: janela vermelha da tela, como o dc (`confirmarUI(…, true)`, L.3031), esperada antes do fetch.
         self::assertStringContainsString('await window.confirmarUIPs(perguntaDesv, true)', $show);
+    }
+
+    /** @return array<string, mixed> os textos dos scripts inline do show, no catálogo do idioma (`pasta_show.js`) */
+    private static function catalogoJs(): array
+    {
+        return Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js'];
     }
 }

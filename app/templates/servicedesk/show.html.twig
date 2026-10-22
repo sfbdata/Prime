@@ -1,22 +1,22 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Chamado #{{ chamado.id }}{% endblock %}
+{% block title %}{{ 'servicedesk.show.chamado'|trans({id: chamado.id ~ ''}) }}{% endblock %}
 
 {% block body %}
 <section class="content-header">
     <div class="container-fluid">
         <div class="d-flex justify-content-between align-items-center">
             <h1 class="m-0">
-                <i class="bi bi-ticket-detailed me-2"></i>Chamado #{{ chamado.id }}
+                <i class="bi bi-ticket-detailed me-2"></i>{{ 'servicedesk.show.chamado'|trans({id: chamado.id ~ ''}) }}
                 <span class="badge {{ chamado.statusBadgeClass }} ms-2">{{ chamado.statusLabel }}</span>
             </h1>
             {% if isAdmin %}
                 <a href="{{ path('servicedesk_index') }}" class="btn btn-secondary">
-                    <i class="bi bi-arrow-left me-1"></i> Voltar ao Dashboard
+                    <i class="bi bi-arrow-left me-1"></i> {{ 'servicedesk.show.voltar_dashboard'|trans }}
                 </a>
             {% else %}
                 <a href="{{ path('servicedesk_meus_chamados') }}" class="btn btn-secondary">
-                    <i class="bi bi-arrow-left me-1"></i> Meus Chamados
+                    <i class="bi bi-arrow-left me-1"></i> {{ 'servicedesk.comum.meus_chamados'|trans }}
                 </a>
             {% endif %}
         </div>
@@ -38,7 +38,7 @@
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label class="form-label text-muted">Descrição</label>
+                            <label class="form-label text-muted">{{ 'servicedesk.show.descricao'|trans }}</label>
                             <div class="p-3 bg-body-tertiary rounded">
                                 {{ chamado.descricao|nl2br }}
                             </div>
@@ -47,7 +47,7 @@
                         {# Anexos #}
                         {% if chamado.anexos|length > 0 %}
                         <div class="mb-3">
-                            <label class="form-label text-muted">Anexos</label>
+                            <label class="form-label text-muted">{{ 'servicedesk.show.anexos'|trans }}</label>
                             <div class="list-group">
                                 {% for anexo in chamado.anexos %}
                                 <a href="{{ path('servicedesk_anexo', {id: chamado.id, anexoId: anexo.id}) }}"
@@ -69,26 +69,26 @@
                 {# Timeline de interações #}
                 <div class="card mb-3">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-chat-dots me-2"></i>Histórico ({{ chamado.interacoes|length }})</h3>
+                        <h3 class="card-title"><i class="bi bi-chat-dots me-2"></i>{{ 'servicedesk.show.historico'|trans({total: chamado.interacoes|length ~ ''}) }}</h3>
                     </div>
                     <div class="card-body">
                         {% if chamado.interacoes|length > 0 %}
                         <div class="timeline">
                             {% for interacao in chamado.interacoes %}
                             <div class="time-label">
-                                <span class="text-bg-secondary">{{ interacao.criadoEm|date('d/m/Y') }}</span>
+                                <span class="text-bg-secondary">{{ interacao.criadoEm|data }}</span>
                             </div>
                             <div>
                                 <i class="{{ interacao.icone }} {{ interacao.badgeClass }}"></i>
                                 <div class="timeline-item {% if interacao.interno %}border-warning{% endif %}">
                                     <span class="time">
-                                        <i class="bi bi-clock"></i> {{ interacao.criadoEm|date('H:i') }}
+                                        <i class="bi bi-clock"></i> {{ interacao.criadoEm|hora }}
                                         {% if interacao.interno %}
-                                            <span class="badge text-bg-warning ms-2">Interno</span>
+                                            <span class="badge text-bg-warning ms-2">{{ 'servicedesk.show.interno'|trans }}</span>
                                         {% endif %}
                                     </span>
                                     <h3 class="timeline-header">
-                                        <strong>{{ interacao.autor ? interacao.autor.fullName : 'Sistema' }}</strong>
+                                        <strong>{{ interacao.autor ? interacao.autor.fullName : 'servicedesk.show.sistema'|trans }}</strong>
                                         <small class="text-muted">- {{ interacao.tipoLabel }}</small>
                                     </h3>
                                     <div class="timeline-body">
@@ -104,7 +104,7 @@
                         {% else %}
                         <div class="text-center text-muted py-4">
                             <i class="bi bi-chat-dots display-4"></i>
-                            <p class="mt-2">Nenhuma interação ainda.</p>
+                            <p class="mt-2">{{ 'servicedesk.show.nenhuma_interacao'|trans }}</p>
                         </div>
                         {% endif %}
                     </div>
@@ -114,25 +114,25 @@
                 {% if chamado.status != 'fechado' %}
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-reply me-2"></i>Adicionar Resposta</h3>
+                        <h3 class="card-title"><i class="bi bi-reply me-2"></i>{{ 'servicedesk.show.adicionar_resposta'|trans }}</h3>
                     </div>
                     {{ form_start(interacaoForm) }}
                     <div class="card-body">
                         <div class="mb-3">
-                            {{ form_widget(interacaoForm.mensagem, {'attr': {'class': 'form-control', 'rows': 4, 'placeholder': 'Digite sua mensagem...'}}) }}
+                            {{ form_widget(interacaoForm.mensagem, {'attr': {'class': 'form-control', 'rows': 4, 'placeholder': 'servicedesk.show.mensagem_placeholder'|trans}}) }}
                             {{ form_errors(interacaoForm.mensagem) }}
                         </div>
                         {% if isAdmin and interacaoForm.interno is defined %}
                         <div class="form-check">
                             {{ form_widget(interacaoForm.interno, {'attr': {'class': 'form-check-input'}}) }}
                             {{ form_label(interacaoForm.interno, null, {'label_attr': {'class': 'form-check-label'}}) }}
-                            <small class="text-muted d-block">Comentários internos são visíveis apenas para a equipe de TI.</small>
+                            <small class="text-muted d-block">{{ 'servicedesk.show.interno_ajuda'|trans }}</small>
                         </div>
                         {% endif %}
                     </div>
                     <div class="card-footer">
                         <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-send me-1"></i> Enviar
+                            <i class="bi bi-send me-1"></i> {{ 'servicedesk.show.enviar'|trans }}
                         </button>
                     </div>
                     {{ form_end(interacaoForm) }}
@@ -145,54 +145,54 @@
                 {# Informações #}
                 <div class="card mb-3">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-info-circle me-2"></i>Informações</h3>
+                        <h3 class="card-title"><i class="bi bi-info-circle me-2"></i>{{ 'servicedesk.show.informacoes'|trans }}</h3>
                     </div>
                     <div class="card-body p-0">
                         <table class="table table-sm mb-0">
                             <tr>
-                                <th class="w-50">Solicitante</th>
+                                <th class="w-50">{{ 'servicedesk.comum.solicitante'|trans }}</th>
                                 <td>{{ chamado.solicitante.fullName }}</td>
                             </tr>
                             <tr>
-                                <th>Categoria</th>
+                                <th>{{ 'servicedesk.comum.categoria'|trans }}</th>
                                 <td>
                                     <span class="badge text-bg-secondary">{{ chamado.categoriaLabel }}</span>
                                 </td>
                             </tr>
                             <tr>
-                                <th>Departamento</th>
+                                <th>{{ 'servicedesk.show.departamento'|trans }}</th>
                                 <td>{{ chamado.departamento ?? '-' }}</td>
                             </tr>
                             <tr>
-                                <th>Responsável</th>
+                                <th>{{ 'servicedesk.comum.responsavel'|trans }}</th>
                                 <td>
                                     {% if chamado.responsavel %}
                                         {{ chamado.responsavel.fullName }}
                                     {% else %}
-                                        <span class="text-warning">Não atribuído</span>
+                                        <span class="text-warning">{{ 'servicedesk.comum.nao_atribuido'|trans }}</span>
                                     {% endif %}
                                 </td>
                             </tr>
                             <tr>
-                                <th>Aberto em</th>
-                                <td>{{ chamado.criadoEm|date('d/m/Y H:i') }}</td>
+                                <th>{{ 'servicedesk.comum.aberto_em'|trans }}</th>
+                                <td>{{ chamado.criadoEm|data_hora }}</td>
                             </tr>
                             {% if chamado.resolvidoEm %}
                             <tr>
-                                <th>Resolvido em</th>
-                                <td>{{ chamado.resolvidoEm|date('d/m/Y H:i') }}</td>
+                                <th>{{ 'servicedesk.show.resolvido_em'|trans }}</th>
+                                <td>{{ chamado.resolvidoEm|data_hora }}</td>
                             </tr>
                             {% endif %}
                             {% if chamado.fechadoEm %}
                             <tr>
-                                <th>Fechado em</th>
-                                <td>{{ chamado.fechadoEm|date('d/m/Y H:i') }}</td>
+                                <th>{{ 'servicedesk.show.fechado_em'|trans }}</th>
+                                <td>{{ chamado.fechadoEm|data_hora }}</td>
                             </tr>
                             {% endif %}
                             {% if chamado.tempoResolucaoHoras %}
                             <tr>
-                                <th>Tempo de resolução</th>
-                                <td>{{ chamado.tempoResolucaoHoras|number_format(1) }} horas</td>
+                                <th>{{ 'servicedesk.show.tempo_resolucao'|trans }}</th>
+                                <td>{{ 'servicedesk.comum.horas'|trans({valor: chamado.tempoResolucaoHoras|number_format(1)}) }}</td>
                             </tr>
                             {% endif %}
                         </table>
@@ -203,16 +203,16 @@
                 {% if isAdmin %}
                 <div class="card mb-3">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-gear me-2"></i>Ações</h3>
+                        <h3 class="card-title"><i class="bi bi-gear me-2"></i>{{ 'servicedesk.comum.acoes'|trans }}</h3>
                     </div>
                     <div class="card-body">
                         {# Atribuir responsável #}
                         <form action="{{ path('servicedesk_atribuir', {id: chamado.id}) }}" method="POST" class="mb-3">
                             <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_atribuir_' ~ chamado.id) }}">
-                            <label class="form-label">Atribuir para</label>
+                            <label class="form-label">{{ 'servicedesk.show.atribuir_para'|trans }}</label>
                             <div class="input-group">
                                 <select name="responsavel_id" class="form-select">
-                                    <option value="">Não atribuído</option>
+                                    <option value="">{{ 'servicedesk.comum.nao_atribuido'|trans }}</option>
                                     {% for tecnico in tecnicos %}
                                         <option value="{{ tecnico.id }}" 
                                                 {{ chamado.responsavel and chamado.responsavel.id == tecnico.id ? 'selected' : '' }}>
@@ -229,7 +229,7 @@
                         {# Alterar status #}
                         <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
                             <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
-                            <label class="form-label">Alterar Status</label>
+                            <label class="form-label">{{ 'servicedesk.show.alterar_status'|trans }}</label>
                             <div class="input-group">
                                 <select name="status" class="form-select">
                                     {% for value, label in statusList %}
@@ -249,7 +249,7 @@
                 {# Ações rápidas #}
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-lightning me-2"></i>Ações Rápidas</h3>
+                        <h3 class="card-title"><i class="bi bi-lightning me-2"></i>{{ 'servicedesk.show.acoes_rapidas'|trans }}</h3>
                     </div>
                     <div class="card-body d-grid gap-2">
                         {% if chamado.status == 'aberto' %}
@@ -257,7 +257,7 @@
                             <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="em_andamento">
                             <button type="submit" class="btn btn-primary w-100">
-                                <i class="bi bi-play-fill me-1"></i> Iniciar Atendimento
+                                <i class="bi bi-play-fill me-1"></i> {{ 'servicedesk.show.iniciar_atendimento'|trans }}
                             </button>
                         </form>
                         {% endif %}
@@ -267,7 +267,7 @@
                             <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="resolvido">
                             <button type="submit" class="btn btn-success w-100">
-                                <i class="bi bi-check-lg me-1"></i> Marcar como Resolvido
+                                <i class="bi bi-check-lg me-1"></i> {{ 'servicedesk.show.marcar_resolvido'|trans }}
                             </button>
                         </form>
                         {% endif %}
@@ -277,14 +277,14 @@
                             <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="fechado">
                             <button type="submit" class="btn btn-secondary w-100">
-                                <i class="bi bi-archive me-1"></i> Fechar Chamado
+                                <i class="bi bi-archive me-1"></i> {{ 'servicedesk.show.fechar_chamado'|trans }}
                             </button>
                         </form>
                         <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
                             <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="em_andamento">
                             <button type="submit" class="btn btn-outline-warning w-100">
-                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reabrir
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> {{ 'servicedesk.show.reabrir'|trans }}
                             </button>
                         </form>
                         {% endif %}
@@ -294,7 +294,7 @@
                             <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="aberto">
                             <button type="submit" class="btn btn-outline-primary w-100">
-                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reabrir Chamado
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> {{ 'servicedesk.show.reabrir_chamado'|trans }}
                             </button>
                         </form>
                         {% endif %}

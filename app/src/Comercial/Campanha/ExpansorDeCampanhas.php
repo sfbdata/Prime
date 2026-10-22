@@ -59,6 +59,7 @@ final class ExpansorDeCampanhas
         private readonly ChaveDasCampanhas $chave,
         private readonly LoggerInterface $logger,
         private readonly int $tetoDiarioDeCampanhas,
+        private readonly ImagensDaCampanha $imagens,
     ) {
     }
 
@@ -188,7 +189,22 @@ final class ExpansorDeCampanhas
             $recorrente = $campanha['estado'] === CampanhaDeEmail::RECORRENTE;
             $estado = $recorrente ? CampanhaDeEmail::RECORRENTE : ($publico->total() > 0 ? CampanhaDeEmail::ENVIANDO : CampanhaDeEmail::ENVIADA);
             $this->campanhas->registrarExecucao($campanha['id'], $execucao, $publico->total(), $estado, $recorrente ? $seguinte : null);
+            $this->renovarImagem($campanha, $agora);
         });
+    }
+
+    /**
+     * F3i (§12): cada execução (a única e cada vez da recorrente) leva a validade da imagem do simples a 1 ano depois
+     * deste envio e marca o uso. A cópia que não descongela não tem imagem a renovar (e não vira e-mail).
+     *
+     * @param Campanha $campanha
+     */
+    private function renovarImagem(array $campanha, \DateTimeImmutable $agora): void
+    {
+        try {
+            $this->imagens->renovarPeloEnvio($this->composicao->descongelar($campanha), $agora);
+        } catch (CampanhaRecusada) {
+        }
     }
 
     /**

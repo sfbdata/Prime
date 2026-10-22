@@ -594,6 +594,7 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
             new ChaveDasCampanhas($ligada),
             new NullLogger(),
             $teto,
+            $c->get(\App\Comercial\Campanha\ImagensDaCampanha::class),
         );
     }
 

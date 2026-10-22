@@ -91,7 +91,8 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
     {
         $tabela = self::ler('templates/pasta/_tabela.html.twig');
         self::assertStringContainsString('{%- set primeiraDaPagina = (pagination.current_page - 1) * pagination.per_page + 1 %}', $tabela);
-        self::assertStringContainsString("(primeiraDaPagina + pastas|length - 1)|number_format(0, ',', '.') }}&#8195;·&#8195;Total:", $tabela);
+        self::assertStringContainsString("ultima: (primeiraDaPagina + pastas|length - 1)|number_format(0, ',', '.')}) }}&#8195;·&#8195;{{ (pagination.total_items != 1 ? 'pasta_lista.tabela.total_varias'", $tabela);
+        self::assertSame(['{primeira} de {ultima}', 'Total: {total} pastas', 'Total: {total} pasta'], [self::texto('pasta_lista.tabela.intervalo'), self::texto('pasta_lista.tabela.total_varias'), self::texto('pasta_lista.tabela.total_uma')]);
         self::assertStringNotContainsString('{{ pagination.current_page }} de {{ max(pagination.total_pages, 1) }}', $tabela);
     }
 
@@ -269,6 +270,7 @@ final class ExpedienteListaDesenho11FolhaTest extends TestCase
         self::assertSame(['BlueJus I.A · {nome}', 'Assistente de pastas'], [self::texto('expediente.js.lista.ia.rotulo'), self::texto('expediente.js.lista.ia.assistente')]);
         $css = self::css();
         self::assertStringContainsString('> td .pasta-resp-chip:hover:not(.resp-avatar):not(.pasta-favorita-estrela) { background: rgba(255,255,255,.2) !important; border-color: rgba(255,255,255,.65) !important; }', $css);
-        self::assertStringContainsString('placeholder="Buscar pasta, cliente, ação ou processo"', self::ler('templates/pasta/_filtros.html.twig'));
+        self::assertStringContainsString('placeholder="{{ \'pasta_lista.filtros.busca_placeholder\'|trans }}"', self::ler('templates/pasta/_filtros.html.twig'));
+        self::assertSame('Buscar pasta, cliente, ação ou processo', self::texto('pasta_lista.filtros.busca_placeholder'));
     }
 }

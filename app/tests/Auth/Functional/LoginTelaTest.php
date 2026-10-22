@@ -440,7 +440,9 @@ final class LoginTelaTest extends JusPrimeWebTestCase
 
         self::assertCount(1, $crawler->filter('script[src*="/js/auth/entrada.js"]'));
         self::assertCount(1, $crawler->filter('link[href*="/css/auth/entrada.css"]'));
-        self::assertCount(0, $crawler->filter('script:not([src])'));
+        // O catálogo do idioma é dado (application/json), o navegador não executa (spec idioma-do-sistema §21.1).
+        self::assertCount(0, $crawler->filter('script:not([src]):not([type="application/json"])'));
+        self::assertCount(1, $crawler->filter('script[type="application/json"][data-bj-t]'));
     }
 
     #[TestDox('A mensagem que chega de outra tela (flash) continua visível no login')]

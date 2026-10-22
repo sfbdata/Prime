@@ -15,7 +15,10 @@
    F3h (spec §10, "F3h: modo venda"; dc 05 VS 21.10.26 L627-645 e L846): não é mais um singleton. Cada raiz
    [data-mc-campanha] roda à parte, com o modo da caixa [data-modo] em volta (`com` na seção Comercial, `venda` na seção
    Indicações), o token e as URLs dela e o estado só dela. O script entra nos dois parciais; cada execução só inicia as
-   raízes ainda não iniciadas. Os ganchos globais (window.McCampanha) são só da instância `com`. */
+   raízes ainda não iniciadas. Os ganchos globais (window.McCampanha) são só da instância `com`.
+   F3i (spec §12; dc 05 VS 21.10.26 L274, L596 e L659): a imagem do modo simples. O navegador reduz a no máximo 1080 px
+   e converte em JPEG 0,85 num canvas, como o dc, e envia por FormData; o servidor confere, regrava e devolve o token,
+   que fica no modelo em edição (`imagem`). A prévia mostra a imagem porque vem do servidor. */
 (() => {
   'use strict';
   /* A tabela única dos modos (dc L627-645): os modelos (null = todos; na venda os quatro do dc, mais os próprios), os
@@ -95,6 +98,48 @@
       agendarPrevia();
     }
 
+    /* dc 21.10 L659: "Trocar imagem" quando já há uma, e o "Remover" só então. */
+    function desenharImagem() {
+      const tem = !!atual().imagem;
+      const texto = el('[data-mc-cp-img-txt]');
+      if (texto) texto.textContent = tem ? BJ_T.t('comercial.js.imagem_trocar') : BJ_T.t('comercial.js.imagem_adicionar');
+      const remover = el('[data-mc-cp-img-rm]');
+      if (remover) remover.hidden = !tem;
+    }
+
+    function trocarImagem(token) {
+      editar('imagem', token);
+      desenharImagem();
+    }
+
+    /* dc 21.10 L659: no máximo 1080 px de largura, em JPEG 0,85, desenhado num canvas. */
+    function lerImagem(arquivo) {
+      const leitor = new FileReader();
+      leitor.onload = () => {
+        const im = new Image();
+        im.onload = () => {
+          const W = Math.min(1080, im.width), H = Math.round(im.height * W / im.width), cv = document.createElement('canvas');
+          cv.width = W;
+          cv.height = H;
+          cv.getContext('2d').drawImage(im, 0, 0, W, H);
+          cv.toBlob(blob => (blob ? enviarImagem(blob) : avisar(BJ_T.t('comercial.js.imagem_invalida'))), 'image/jpeg', 0.85);
+        };
+        im.onerror = () => avisar(BJ_T.t('comercial.js.imagem_invalida'));
+        im.src = String(leitor.result);
+      };
+      leitor.readAsDataURL(arquivo);
+    }
+
+    // O envio é multipart (o arquivo), com o mesmo CSRF no header; a recusa do servidor vai à mensagem.
+    function enviarImagem(blob) {
+      const dados = new FormData();
+      dados.append('imagem', blob, 'imagem.jpg');
+      fetch(ROTAS.urlImagem, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json', 'X-CSRF-Token': TOKEN }, body: dados })
+        .then(r => r.json().catch(() => ({})).then(j => (r.ok && j.token ? j : Promise.reject(new Error(j.erro || BJ_T.t('comercial.js.erro_concluir'))))))
+        .then(r => trocarImagem(r.token))
+        .catch(e => avisar(e.message));
+    }
+
     /* dc 21.10 L659: o emoji entra no fim do texto, com um espaço antes se faltar. */
     function inserirEmoji(emoji) {
       const corpo = String(atual().corpo || '');
@@ -118,6 +163,7 @@
       return {
         chave: m.chave, modo: m.modo, nome: m.nome, icone: m.icone, assunto: m.assunto || '', selo: m.selo || '', titulo: m.titulo || '',
         corpo: m.corpo || '', itens: m.itens || [], cta: m.cta || '', link: m.link || '', blocos: m.blocos || [], html: m.html || '',
+        imagem: m.modo === 'simples' ? m.imagem || '' : '',
       };
     }
 
@@ -368,6 +414,7 @@
       el('[data-mc-cp-simples]').hidden = m.modo !== 'simples';
       el('[data-mc-cp-blocos]').hidden = m.modo !== 'blocos';
       el('[data-mc-cp-html]').hidden = m.modo !== 'html';
+      desenharImagem();
       desenharBlocos();
     }
 
@@ -466,6 +513,7 @@
       if (e.target.closest('[data-mc-cp-enviar]')) { enviarCampanha(); return; }
       if (e.target.closest('[data-mc-cf-abrir]')) { abrirFiltro(); return; }
       if (e.target.closest('[data-mc-cp-descad]')) { document.dispatchEvent(new CustomEvent('mc:descadastrados-abrir')); return; }
+      if (e.target.closest('[data-mc-cp-img-rm]')) { trocarImagem(''); return; }
       const emoji = e.target.closest('[data-mc-cp-emoji]');
       if (emoji) { inserirEmoji(emoji.dataset.mcCpEmoji); return; }
       if (e.target.closest('[data-mc-cp-mais]')) { programar(el('[data-mc-cp-programar]').hidden); return; }
@@ -535,6 +583,12 @@
         csv.value = '';
         return;
       }
+      const imagem = e.target.closest('[data-mc-cp-img-arquivo]');
+      if (imagem) {
+        if (imagem.files && imagem.files[0]) lerImagem(imagem.files[0]);
+        imagem.value = '';
+        return;
+      }
       const entrada = e.target.closest('[data-mc-cp-importar]');
       if (!entrada || !entrada.files || !entrada.files[0]) return;
       importar(entrada.files[0]);
@@ -566,6 +620,22 @@
         modeloAtual: () => pedido(),
         // F3g (0d): funções que devolvem um objeto para mesclar no corpo do "Enviar campanha".
         extrasDoEnvio: (window.McCampanha && window.McCampanha.extrasDoEnvio) || [],
+      });
+      /* F4 (dc 05 VS 21.10.26 L680): o "Ver mensagem" das Datas comemorativas abre o modelo `data-<id>` aqui, com o
+         aviso, como o `cmM` + `cmMsg` do dc. Antes da grade carregar, carrega já com ele escolhido. */
+      document.addEventListener('mc:modelo-abrir', e => {
+        const d = e.detail || {};
+        if (typeof d.chave !== 'string' || !d.chave) return;
+        const abrir = () => {
+          if (!modelos.some(m => m.chave === d.chave)) return;
+          mk = d.chave;
+          ed = null;
+          desenhar();
+          contar();
+          avisar(String(d.aviso || ''));
+          raiz.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        if (carregado) abrir(); else carregar(d.chave).then(abrir);
       });
     }
 

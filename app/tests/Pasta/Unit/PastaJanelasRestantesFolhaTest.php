@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Unit;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Lote S6-JS do Ciclo 6, lido como FOLHA (não há navegador no PHPUnit): o que se prova é o
@@ -92,7 +93,7 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
         self::assertMatchesRegularExpression('/<div class="ps-obs-menu" id="psObsMenu\$\{data\.id\}" role="menu" hidden>\s*<div class="ps-processo-menu-titulo">/', $obs, 'o molde do JS');
         self::assertMatchesRegularExpression('/<div class="ps-obs-menu" id="psObsMenu\{\{ obs\.id \}\}" role="menu" hidden>\s*<div class="ps-processo-menu-titulo">/', $obs, 'o do servidor');
         self::assertMatchesRegularExpression(
-            '/<div class="pasta-resp-menu" id="pastaRespMenu" hidden(\{% if not naPasta %\} role="dialog" aria-label="Escolher responsável"\{% endif %\})?>\s*(\{#.*?#\}\s*)?<div class="pasta-resp-busca-wrap">/s',
+            '/<div class="pasta-resp-menu" id="pastaRespMenu" hidden(\{% if not naPasta %\} role="dialog" aria-label="\{\{ \'pasta_resp\.resp\.escolher\'\|trans \}\}"\{% endif %\})?>\s*(\{#.*?#\}\s*)?<div class="pasta-resp-busca-wrap">/s',
             self::ler(self::RESP_MENU),
         );
 
@@ -180,8 +181,11 @@ final class PastaJanelasRestantesFolhaTest extends TestCase
         $show = self::ler(self::SHOW);
         $bloco = self::trecho($show, "var gatilho = e.target.closest('.js-pe-ir');", '}());');
         self::assertStringNotContainsString('window.confirm(', $bloco);
-        self::assertStringContainsString("titulo: 'Descartar as alterações?',", $bloco);
-        self::assertStringContainsString("rotulo: 'Descartar',", $bloco);
+        self::assertStringContainsString("titulo: BJ_T.t('pasta_show.js.editar.descartar_titulo'),", $bloco);
+        self::assertStringContainsString("rotulo: BJ_T.t('pasta_show.js.editar.descartar'),", $bloco);
+        $editar = Yaml::parseFile(__DIR__ . '/../../../translations/messages+intl-icu.pt_BR.yaml')['pasta_show']['js']['editar'];
+        self::assertSame('Descartar as alterações?', $editar['descartar_titulo']);
+        self::assertSame('Descartar', $editar['descartar']);
         // Com o "sim": desfaz, reconfere e só então segue para o destino.
         $sim = self::trecho($bloco, '}).then(function (sim) {', '});');
         self::assertLessThan(strpos($sim, 'seguir();'), strpos($sim, 'form.reset();'));

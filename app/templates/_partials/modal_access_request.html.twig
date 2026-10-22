@@ -12,21 +12,21 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalSolicitarAcessoLabel">
-                    <i class="bi bi-lock me-2"></i>Solicitar Acesso
+                    <i class="bi bi-lock me-2"></i>{{ 'comum.acesso.titulo'|trans }}
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'comum.fechar'|trans }}"></button>
             </div>
             <div class="modal-body">
                 <p class="text-muted mb-3">
-                    Você não tem permissão para acessar este item. Descreva o motivo da sua solicitação para que o administrador possa avaliá-la.
+                    {{ 'comum.acesso.explicacao'|trans }}
                 </p>
                 <div class="mb-3">
-                    <label for="accessRequestDescription" class="form-label">Motivo da solicitação <span class="text-danger">*</span></label>
+                    <label for="accessRequestDescription" class="form-label">{{ 'comum.acesso.motivo'|trans }} <span class="text-danger">*</span></label>
                     <textarea
                         id="accessRequestDescription"
                         class="form-control"
                         rows="4"
-                        placeholder="Descreva por que você precisa acessar este item..."
+                        placeholder="{{ 'comum.acesso.motivo_placeholder'|trans }}"
                         maxlength="1000"
                     ></textarea>
                     <div class="invalid-feedback" id="accessRequestDescriptionError"></div>
@@ -37,9 +37,9 @@
                 <input type="hidden" id="accessRequestCsrfToken" value="{{ csrf_token('access_request_submit') }}">
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'comum.cancelar'|trans }}</button>
                 <button type="button" class="btn btn-primary" id="btnEnviarSolicitacao">
-                    <span id="btnEnviarSolicitacaoText">Enviar Solicitação</span>
+                    <span id="btnEnviarSolicitacaoText">{{ 'comum.acesso.enviar'|trans }}</span>
                     <span id="btnEnviarSolicitacaoSpinner" class="spinner-border spinner-border-sm ms-1 d-none" role="status"></span>
                 </button>
             </div>
@@ -55,23 +55,24 @@
         return new URLSearchParams(window.location.search).get(name);
     }
 
+    // Os rótulos são lidos do catálogo na hora do uso: este script roda antes do bj-traducao.js do base.
     const ACTION_LABELS = {
-        view:   'visualizar',
-        edit:   'editar',
-        delete: 'excluir',
+        view:   'comum.js.acesso.acao_visualizar',
+        edit:   'comum.js.acesso.acao_editar',
+        delete: 'comum.js.acesso.acao_excluir',
     };
 
     const RESOURCE_LABELS = {
-        cliente:  'cliente',
-        pasta:    'pasta',
-        processo: 'processo',
+        cliente:  'comum.js.acesso.recurso_cliente',
+        pasta:    'termos.pasta',
+        processo: 'termos.processo',
     };
 
     function buildDefaultDescription(resourceType, action, resourceLabel) {
-        const actionLabel   = ACTION_LABELS[action]   || action;
-        const resourceName  = RESOURCE_LABELS[resourceType] || resourceType;
+        const actionLabel   = ACTION_LABELS[action] ? BJ_T.t(ACTION_LABELS[action]) : action;
+        const resourceName  = RESOURCE_LABELS[resourceType] ? BJ_T.t(RESOURCE_LABELS[resourceType]) : resourceType;
         const identifier    = resourceLabel ? ' ' + resourceLabel : '';
-        return 'Solicito ' + actionLabel + ' o ' + resourceName + identifier + '.';
+        return BJ_T.t('comum.js.acesso.descricao_padrao', { acao: actionLabel, recurso: resourceName, identificador: identifier });
     }
 
     function showModal(resourceType, resourceId, action, resourceLabel) {
@@ -100,7 +101,7 @@
         const spinner = document.getElementById('btnEnviarSolicitacaoSpinner');
         btn.disabled = loading;
         spinner.classList.toggle('d-none', !loading);
-        text.textContent = loading ? 'Enviando...' : 'Enviar Solicitação';
+        text.textContent = loading ? BJ_T.t('comum.js.acesso.enviando') : BJ_T.t('comum.js.acesso.enviar');
     }
 
     document.getElementById('btnEnviarSolicitacao').addEventListener('click', function () {
@@ -110,7 +111,7 @@
 
         if (!description) {
             descField.classList.add('is-invalid');
-            descError.textContent = 'Por favor, descreva o motivo da solicitação.';
+            descError.textContent = BJ_T.t('comum.js.acesso.descreva_motivo');
             return;
         }
         descField.classList.remove('is-invalid');
@@ -136,12 +137,12 @@
                 bootstrap.Modal.getInstance(document.getElementById('modalSolicitarAcesso')).hide();
 
                 const type = data.error ? 'warning' : 'success';
-                const msg  = data.error || data.message || 'Solicitação enviada.';
+                const msg  = data.error || data.message || BJ_T.t('comum.js.acesso.enviada');
                 showToast(type, msg);
             })
             .catch(function () {
                 setLoading(false);
-                showToast('danger', 'Erro ao enviar solicitação. Tente novamente.');
+                showToast('danger', BJ_T.t('comum.js.acesso.erro_enviar'));
             });
     });
 
@@ -152,11 +153,12 @@
             <div id="${id}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
                 <div class="d-flex">
                     <div class="toast-body">${message}</div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
                 </div>
             </div>`;
         container.insertAdjacentHTML('beforeend', html);
         const toastEl = document.getElementById(id);
+        toastEl.querySelector('.btn-close').setAttribute('aria-label', BJ_T.t('comum.js.fechar'));
         new bootstrap.Toast(toastEl, { delay: 5000 }).show();
         toastEl.addEventListener('hidden.bs.toast', function () { toastEl.remove(); });
     }

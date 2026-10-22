@@ -21,7 +21,7 @@
                     </tr>
                     <tr>
                         <td style="padding:32px;">
-                            <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">Olá, {{ nome }}!</p>
+                            <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">{{ 'emails.push_aviso_equipe.ola'|trans({nome: nome}) }}</p>
 
                             <p style="margin:0 0 20px;font-size:15px;color:#444444;line-height:1.6;">
                                 {{ aviso.mensagemDoEmail }}.
@@ -36,7 +36,7 @@
                                                 <p style="margin:0;font-size:13px;color:#444444;line-height:1.5;">{{ constant('App\\Pasta\\DTO\\MovimentacaoDoAvisoOutput::TEXTO_SIGILOSA') }}</p>
                                             {% else %}
                                                 <p style="margin:0 0 4px;font-size:14px;font-weight:bold;color:#12242f;">
-                                                    {{ mov.tipo }}{% if mov.data %} de {{ mov.data }}{% endif %}
+                                                    {% if mov.data %}{{ 'emails.push_aviso_equipe.tipo_de_data'|trans({tipo: mov.tipo, data: mov.data}) }}{% else %}{{ mov.tipo }}{% endif %}
                                                 </p>
                                                 {% if mov.orgao %}
                                                     <p style="margin:0 0 6px;font-size:12px;color:#6b8494;">{{ mov.orgao }}</p>
@@ -50,28 +50,28 @@
                                 </table>
                             {% endfor %}
                             {% if aviso.restantesForaDoEmail > 0 %}
-                                <p style="margin:0 0 12px;font-size:13px;color:#6b8494;">E mais {{ aviso.restantesForaDoEmail }} movimentação(ões) na pasta.</p>
+                                <p style="margin:0 0 12px;font-size:13px;color:#6b8494;">{{ 'emails.push_aviso_equipe.restantes'|trans({quantas: aviso.restantesForaDoEmail ~ ''}) }}</p>
                             {% endif %}
 
                             <table cellpadding="0" cellspacing="0" style="margin:12px 0 24px;">
                                 <tr>
                                     <td style="border-radius:6px;background-color:#0a6fa0;">
                                         <a href="{{ linkDaPasta }}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">
-                                            Abrir a pasta
+                                            {{ 'emails.push_aviso_equipe.abrir_pasta'|trans }}
                                         </a>
                                     </td>
                                 </tr>
                             </table>
 
                             <p style="margin:0;font-size:13px;color:#888888;line-height:1.5;">
-                                Você recebe este aviso porque é o responsável pela pasta e o aviso por e-mail está ligado na aba Push.
+                                {{ 'emails.push_aviso_equipe.motivo'|trans }}
                             </p>
                         </td>
                     </tr>
                     <tr>
                         <td style="padding:16px 32px;background-color:#f9f9f9;border-top:1px solid #eeeeee;">
                             <p style="margin:0;font-size:12px;color:#aaaaaa;line-height:1.5;">
-                                <a href="{{ linkDescadastro }}" style="color:#888888;">Não quero mais receber estes avisos</a>
+                                <a href="{{ linkDescadastro }}" style="color:#888888;">{{ 'emails.push_aviso_equipe.descadastro'|trans }}</a>
                             </p>
                         </td>
                     </tr>

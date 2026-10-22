@@ -30,10 +30,10 @@
                     <tr>
                         <td style="padding:16px 32px;background-color:#f9f9f9;border-top:1px solid #eeeeee;">
                             <p style="margin:0 0 6px;font-size:12px;color:#888888;line-height:1.5;">
-                                Você recebe este e-mail porque é cliente de {{ escritorio ?: 'um escritório' }}. Para responder, use o botão Responder do seu e-mail.
+                                {{ 'emails.push_cliente.motivo'|trans({escritorio: escritorio ?: 'emails.push_cliente.um_escritorio'|trans}) }}
                             </p>
                             <p style="margin:0;font-size:12px;color:#aaaaaa;line-height:1.5;">
-                                <a href="{{ linkDescadastro }}" style="color:#888888;">Não quero mais receber estes avisos</a>
+                                <a href="{{ linkDescadastro }}" style="color:#888888;">{{ 'emails.push_cliente.descadastro'|trans }}</a>
                             </p>
                         </td>
                     </tr>

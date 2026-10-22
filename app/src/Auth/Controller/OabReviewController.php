@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Tela de revisão de OAB do super-admin (platform-level, fora de escritório). Lista as inscrições na OAB
@@ -44,6 +45,7 @@ final class OabReviewController extends AbstractController
         private readonly ConfirmarInscricaoOabUseCase $confirmar,
         private readonly ReverterInscricaoOabUseCase $reverter,
         private readonly VerificarInscricaoOabUseCase $verificar,
+        private readonly TranslatorInterface $tradutor,
     ) {
     }
 
@@ -82,7 +84,7 @@ final class OabReviewController extends AbstractController
             return $this->redirectParaLista($request);
         }
         $this->executarOu404(fn () => $this->confirmar->executar($id));
-        $this->addFlash('success', 'OAB confirmada.');
+        $this->addFlash('success', $this->tradutor->trans('plataforma.flash.oab_confirmada'));
 
         return $this->redirectParaLista($request);
     }
@@ -94,7 +96,7 @@ final class OabReviewController extends AbstractController
         $destino = StatusOab::tryFrom((string) $request->request->get('destino'));
 
         if ($destino === null) {
-            $this->addFlash('danger', 'Destino inválido.');
+            $this->addFlash('danger', $this->tradutor->trans('plataforma.flash.oab_destino_invalido'));
 
             return $this->redirectParaLista($request);
         }
@@ -104,7 +106,7 @@ final class OabReviewController extends AbstractController
 
         try {
             $this->executarOu404(fn () => $this->reverter->executar($id, $destino));
-            $this->addFlash('success', 'OAB revertida.');
+            $this->addFlash('success', $this->tradutor->trans('plataforma.flash.oab_revertida'));
         } catch (\InvalidArgumentException $e) {
             $this->addFlash('danger', $e->getMessage());
         }
@@ -119,9 +121,9 @@ final class OabReviewController extends AbstractController
         $inscricao = $this->executarOu404(fn () => $this->verificar->executar($id));
 
         if ($inscricao->getStatus() === StatusOab::NaoVerificada) {
-            $this->addFlash('info', 'Verificação executada. Backend automático indisponível, o status permanece não verificado.');
+            $this->addFlash('info', $this->tradutor->trans('plataforma.flash.oab_verificada_sem_automatico'));
         } else {
-            $this->addFlash('info', 'Verificação executada.');
+            $this->addFlash('info', $this->tradutor->trans('plataforma.flash.oab_verificada'));
         }
 
         return $this->redirectParaLista($request);
@@ -147,7 +149,7 @@ final class OabReviewController extends AbstractController
         if ($numero === $inscricao->getNumero() && $uf === $inscricao->getUf()) {
             return true;
         }
-        $this->addFlash('danger', 'A inscrição mudou depois que a fila foi aberta. Confira de novo.');
+        $this->addFlash('danger', $this->tradutor->trans('plataforma.flash.oab_inscricao_mudou'));
 
         return false;
     }

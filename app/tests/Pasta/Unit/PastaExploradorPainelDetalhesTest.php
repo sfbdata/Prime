@@ -19,6 +19,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class PastaExploradorPainelDetalhesTest extends TestCase
 {
+    use TextoDosScriptsDaPasta;
+
     private const JS = __DIR__ . '/../../../public/js/pasta-explorador.js';
 
     private function js(): string
@@ -50,7 +52,8 @@ final class PastaExploradorPainelDetalhesTest extends TestCase
     public function testColunaEClassificacaoUsamModificacao(): void
     {
         $js = $this->js();
-        self::assertStringContainsString("data: 'Modificado' }", $js, 'rótulo da coluna (dc COLS.data L3080)');
+        self::assertStringContainsString("data: BJ_T.t('pasta_scripts.js.explorador.col_data') }", $js);
+        self::assertTextoDoScript('Modificado', 'explorador.col_data', $js); // rótulo da coluna (dc COLS.data L3080)
 
         $linha = $this->funcao('linhaArquivo');
         self::assertStringContainsString("text: formatarData(dataModificacao(a)) })", $linha);
@@ -71,7 +74,7 @@ final class PastaExploradorPainelDetalhesTest extends TestCase
     public function testOrdemDoDesenhoNoPainel(): void
     {
         $f = $this->funcao('propriedadesDe');
-        $ordem = ["['Tipo', tipoDe(d.nome)[2]]", "['Categoria',", "['Tamanho',", "['Modificado',", "['Adicionado em',", "['Páginas',", "['Enviado por',", "['Número',", "['Local',"];
+        $ordem = ["[BJ_T.t('pasta_scripts.js.explorador.col_tipo'), tipoDe(d.nome)[2]]", "[BJ_T.t('pasta_scripts.js.explorador.col_cat'),", "[BJ_T.t('pasta_scripts.js.explorador.col_tam'),", "[BJ_T.t('pasta_scripts.js.explorador.col_data'),", "[BJ_T.t('pasta_scripts.js.explorador.prop_adicionado'),", "[BJ_T.t('pasta_scripts.js.explorador.prop_paginas'),", "[BJ_T.t('pasta_scripts.js.explorador.prop_enviado_por'),", "[BJ_T.t('pasta_scripts.js.explorador.prop_numero'),", "[BJ_T.t('pasta_scripts.js.explorador.prop_local'),"];
         // A busca segue de onde a anterior parou: o ramo da pasta (Tipo/Conteúdo/Local) vem antes.
         $pos = 0;
         foreach ($ordem as $rotulo) {
@@ -80,16 +83,19 @@ final class PastaExploradorPainelDetalhesTest extends TestCase
             $pos = $p + 1;
         }
         self::assertStringNotContainsString("'Modificado em'", $f, 'o desenho rotula "Modificado"');
+        foreach (['Tipo' => 'col_tipo', 'Categoria' => 'col_cat', 'Tamanho' => 'col_tam', 'Modificado' => 'col_data', 'Adicionado em' => 'prop_adicionado', 'Páginas' => 'prop_paginas', 'Enviado por' => 'prop_enviado_por', 'Número' => 'prop_numero', 'Local' => 'prop_local'] as $texto => $chave) {
+            self::assertTextoDoScript($texto, 'explorador.' . $chave, $f);
+        }
     }
 
     #[TestDox('campo NULL no #pexDados não vira linha: nada inventado (enviadoPor, paginas, modificadoEm)')]
     public function testLinhaOmitidaQuandoNull(): void
     {
         $f = $this->funcao('propriedadesDe');
-        self::assertStringContainsString("['Modificado', formatarDataHora(dataModificacao(d))],", $f);
-        self::assertStringContainsString("['Adicionado em', d.modificadoEm ? formatarDataHora(d.carregadoEm) : ''],", $f, 'sem edição o Modificado já é o upload: não repete');
-        self::assertStringContainsString("['Páginas', d.paginas != null ? formatarInteiro(d.paginas) : ''],", $f, '0 páginas é dado; só NULL some');
-        self::assertStringContainsString("['Enviado por', d.enviadoPor || ''],", $f);
+        self::assertStringContainsString("[BJ_T.t('pasta_scripts.js.explorador.col_data'), formatarDataHora(dataModificacao(d))],", $f);
+        self::assertStringContainsString("[BJ_T.t('pasta_scripts.js.explorador.prop_adicionado'), d.modificadoEm ? formatarDataHora(d.carregadoEm) : ''],", $f, 'sem edição o Modificado já é o upload: não repete');
+        self::assertStringContainsString("[BJ_T.t('pasta_scripts.js.explorador.prop_paginas'), d.paginas != null ? formatarInteiro(d.paginas) : ''],", $f, '0 páginas é dado; só NULL some');
+        self::assertStringContainsString("[BJ_T.t('pasta_scripts.js.explorador.prop_enviado_por'), d.enviadoPor || ''],", $f);
         // O filtro final é quem tira a linha: valor vazio = linha omitida.
         self::assertStringContainsString("].filter(function (p) { return p[1] !== ''; });", $f);
     }
@@ -105,10 +111,13 @@ final class PastaExploradorPainelDetalhesTest extends TestCase
         self::assertStringContainsString(': null;', $soma, 'um sem contagem → sem linha, nunca soma parcial');
 
         $sel = $this->funcao('propriedadesDaSelecao');
-        self::assertStringContainsString("if (paginas !== null) props.push(['Páginas', formatarInteiro(paginas)]);", $sel);
-        $p = strpos($sel, "['Pastas',");
-        $a = strpos($sel, "['Arquivos',");
-        $t = strpos($sel, "['Tamanho dos arquivos',");
+        self::assertStringContainsString("if (paginas !== null) props.push([BJ_T.t('pasta_scripts.js.explorador.prop_paginas'), formatarInteiro(paginas)]);", $sel);
+        $p = strpos($sel, "[BJ_T.t('pasta_scripts.js.explorador.prop_pastas'),");
+        $a = strpos($sel, "[BJ_T.t('pasta_scripts.js.explorador.prop_arquivos'),");
+        $t = strpos($sel, "[BJ_T.t('pasta_scripts.js.explorador.prop_tamanho_arquivos'),");
+        self::assertTextoDoScript('Pastas', 'explorador.prop_pastas', $sel);
+        self::assertTextoDoScript('Arquivos', 'explorador.prop_arquivos', $sel);
+        self::assertTextoDoScript('Tamanho dos arquivos', 'explorador.prop_tamanho_arquivos', $sel);
         self::assertTrue($p !== false && $p < $a && $a < $t, 'resumo do desenho: Pastas, Arquivos, Tamanho dos arquivos');
     }
 
