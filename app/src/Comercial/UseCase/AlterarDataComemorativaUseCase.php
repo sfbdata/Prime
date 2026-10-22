@@ -15,7 +15,8 @@ use Psr\Clock\ClockInterface;
 /**
  * O Master liga ou desliga uma data comemorativa, troca a antecedência (No dia, 1 dia antes, 3 dias antes) ou o "Para
  * quem" (Todos, Primários, Base de contatos) (desenho 05 VS 21.10.26 L337 e L681-682; spec §13, F4). Grava quem e
- * quando; auditado pela entidade. O resto é recusado.
+ * quando; auditado pela entidade. O resto é recusado. Uma das 17 sem linha no banco (que valia o
+ * {@see DataComemorativa::PADRAO}) ganha a linha aqui.
  */
 final class AlterarDataComemorativaUseCase
 {
@@ -40,7 +41,7 @@ final class AlterarDataComemorativaUseCase
         if (!\in_array($publico, DataComemorativa::PUBLICOS, true)) {
             throw new DataComemorativaRecusada(self::PUBLICO_INVALIDO);
         }
-        $data = $this->datas->porChave($chave) ?? throw new DataComemorativaRecusada(self::DESCONHECIDA);
+        $data = $this->datas->porChave($chave) ?? $this->datas->adicionar(new DataComemorativa($chave));
         $agora = $this->relogio->now();
         $data->alterar($ligada, $antecedencia, $publico, $por, $agora);
         $this->datas->salvar();

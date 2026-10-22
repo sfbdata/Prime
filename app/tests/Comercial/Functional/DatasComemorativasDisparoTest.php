@@ -84,7 +84,7 @@ final class DatasComemorativasDisparoTest extends KernelTestCase
         self::assertSame(['data:natal:2026'], $this->chaves());
     }
 
-    #[TestDox('Com a chave geral desligada, nada é criado (só o log), nem depois, quando ela liga noutro dia')]
+    #[TestDox('Com a chave geral desligada, nada é criado e nada vai ao log (a volta de 15 min repetiria), nem depois, noutro dia')]
     public function testChaveDesligada(): void
     {
         $log = new LogEmMemoria();
@@ -92,7 +92,7 @@ final class DatasComemorativasDisparoTest extends KernelTestCase
         self::assertSame(0, $this->disparo(false, $log)->disparar(new \DateTimeImmutable('2026-12-25 10:00')));
 
         self::assertSame([], $this->chaves());
-        self::assertStringContainsString('chave das campanhas desligada', $log->tudo);
+        self::assertSame('', $log->tudo, 'sem log repetido a cada volta');
         self::assertSame(0, $this->disparo()->disparar(new \DateTimeImmutable('2026-12-26 10:00')), 'não represa: no dia seguinte o Natal não sai');
         self::assertSame([], $this->chaves());
     }
@@ -104,6 +104,16 @@ final class DatasComemorativasDisparoTest extends KernelTestCase
 
         self::assertSame(0, $this->disparo()->disparar(new \DateTimeImmutable('2026-12-25 10:00')));
         self::assertSame([], $this->chaves());
+    }
+
+    #[TestDox('A data sem linha no banco vale o padrão (ligada, no dia, para Todos) e sai do mesmo jeito')]
+    public function testDataSemLinha(): void
+    {
+        $this->conexao->executeStatement("DELETE FROM comercial_data_comemorativa WHERE chave = 'natal'");
+
+        self::assertSame(1, $this->disparo()->disparar(new \DateTimeImmutable('2026-12-25 10:00')));
+        self::assertSame(['data:natal:2026'], $this->chaves());
+        self::assertSame('todos', $this->conexao->fetchOne("SELECT publico FROM comercial_campanha WHERE chave_idempotencia = 'data:natal:2026'"));
     }
 
     #[TestDox('3 dias antes sai no dia 22 (e não no dia 25); 1 dia antes da Páscoa de 2027 sai no sábado')]

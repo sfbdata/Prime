@@ -105,13 +105,43 @@ final class DatasComemorativasUseCasesTest extends TestCase
         $this->alterar()->executar($chave, true, $antecedencia, $publico, new User());
     }
 
-    #[TestDox('A data sem linha no banco é recusada como desconhecida')]
-    public function testSemLinha(): void
+    #[TestDox('Uma das 17 sem linha no banco ganha a linha na alteração, partindo do padrão')]
+    public function testSemLinhaCriaALinha(): void
     {
         $this->repositorio->method('porChave')->willReturn(null);
+        $criada = null;
+        $this->repositorio->expects(self::once())->method('adicionar')->willReturnCallback(static function (DataComemorativa $d) use (&$criada): DataComemorativa {
+            self::assertSame(['natal', true, 0, 'todos'], [$d->getChave(), $d->isLigada(), $d->getAntecedencia(), $d->getPublico()], 'nasce com o padrão');
+            $criada = $d;
+
+            return $d;
+        });
+        $this->repositorio->expects(self::once())->method('salvar');
+
+        $linha = $this->alterar()->executar('natal', true, 1, 'prim', new User());
+
+        self::assertInstanceOf(DataComemorativa::class, $criada);
+        self::assertSame([1, 'prim'], [$criada->getAntecedencia(), $criada->getPublico()]);
+        self::assertSame(['natal', 1, 'prim'], [$linha->chave, $linha->antecedencia, $linha->publico]);
+    }
+
+    #[TestDox('A chave fora das 17 não cria linha')]
+    public function testForaDoCalendarioNaoCria(): void
+    {
+        $this->repositorio->expects(self::never())->method('adicionar');
         $this->expectExceptionMessage(AlterarDataComemorativaUseCase::DESCONHECIDA);
 
-        $this->alterar()->executar('natal', true, 0, 'todos', new User());
+        $this->alterar()->executar('zzz', true, 0, 'todos', new User());
+    }
+
+    #[TestDox('O padrão das datas sem linha é o do dc, e é o mesmo dos valores iniciais da entidade')]
+    public function testPadraoUnico(): void
+    {
+        $nova = new DataComemorativa('ano');
+
+        self::assertSame(['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos'], DataComemorativa::PADRAO);
+        self::assertSame(DataComemorativa::PADRAO, ['ligada' => $nova->isLigada(), 'antecedencia' => $nova->getAntecedencia(), 'publico' => $nova->getPublico()]);
+        self::assertSame(DataComemorativa::PADRAO, DataComemorativa::estadoOuPadrao([], 'ano'));
     }
 
     private function alterar(): AlterarDataComemorativaUseCase

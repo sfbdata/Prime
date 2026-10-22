@@ -10,6 +10,7 @@ use App\Comercial\Campanha\ComposicaoDaCampanha;
 use App\Comercial\Campanha\ModelosDeCampanha;
 use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\Entity\CampanhaDeEmail;
+use App\Comercial\Entity\DataComemorativa;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\DataComemorativaRepository;
 use Psr\Log\LoggerInterface;
@@ -25,7 +26,8 @@ use Psr\Log\LoggerInterface;
  *    "1 dia antes" sai em 31/12 com o ano seguinte. As voltas seguintes do mesmo dia não criam outra.
  *  - Janela: das 9h às 23:59 do dia de envio. Ligar a data nesse dia, depois das 9h, ainda manda; passado o dia, nada
  *    é recuperado.
- *  - Chave geral (`COMERCIAL_CAMPANHAS_LIGADAS`) desligada: não cria nada e não represa nada (só o log).
+ *  - Chave geral (`COMERCIAL_CAMPANHAS_LIGADAS`) desligada: não cria nada, não represa nada e não registra log.
+ *  - As 17 do calendário, com o estado do banco ou, sem linha, o {@see DataComemorativa::PADRAO}.
  *
  * A trilha é a manual das campanhas (`camp_conf`, `{publico, frequencia, total}`), sem autor. O total nasce 0: quem
  * resolve o público é a execução do expansor, que grava o total real.
@@ -54,9 +56,8 @@ final class DisparoDasDatasComemorativas
         if ($devidas === []) {
             return 0;
         }
+        // Chave geral desligada: nada, e sem log (a volta de 15 min o repetiria o dia inteiro; a tela já avisa).
         if (!$this->chave->ligada()) {
-            $this->logger->info('Comercial: chave das campanhas desligada; datas comemorativas não criadas.', ['datas' => array_keys($devidas)]);
-
             return 0;
         }
         $criadas = 0;
@@ -74,8 +75,10 @@ final class DisparoDasDatasComemorativas
     private function devidasHoje(\DateTimeImmutable $local): array
     {
         $devidas = [];
-        foreach ($this->datas->estados() as $chave => $estado) {
-            $data = Calendario::existe($chave) && $estado['ligada'] ? Calendario::devidaEm($chave, $estado['antecedencia'], $local) : null;
+        $estados = $this->datas->estados();
+        foreach (Calendario::chaves() as $chave) {
+            $estado = DataComemorativa::estadoOuPadrao($estados, $chave);
+            $data = $estado['ligada'] ? Calendario::devidaEm($chave, $estado['antecedencia'], $local) : null;
             if ($data !== null) {
                 $devidas[$chave] = [$data, $estado['publico']];
             }

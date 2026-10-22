@@ -22,6 +22,11 @@ use Doctrine\ORM\Mapping as ORM;
 class DataComemorativa implements Auditavel
 {
     public const PUBLICOS = ['todos', 'prim', 'leads'];
+    /**
+     * A regra única da data do calendário sem linha no banco (a tela, o disparo e a alteração): o padrão do dc, ligada,
+     * no dia, para Todos. Os valores iniciais das propriedades são os mesmos.
+     */
+    public const PADRAO = ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos'];
 
     #[ORM\Id]
     #[ORM\Column(length: 20)]
@@ -49,6 +54,16 @@ class DataComemorativa implements Auditavel
     public function __construct(string $chave)
     {
         $this->chave = $chave;
+    }
+
+    /**
+     * @param array<string, array{ligada: bool, antecedencia: int, publico: string}> $estados os do banco, por chave
+     *
+     * @return array{ligada: bool, antecedencia: int, publico: string}
+     */
+    public static function estadoOuPadrao(array $estados, string $chave): array
+    {
+        return $estados[$chave] ?? self::PADRAO;
     }
 
     public function getChave(): string

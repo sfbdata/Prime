@@ -43,6 +43,14 @@ class DataComemorativaRepository extends ServiceEntityRepository
         return $this->find($chave);
     }
 
+    /** Põe na unidade de trabalho a linha de uma data que ainda não tinha (gravada no {@see self::salvar()}). */
+    public function adicionar(DataComemorativa $data): DataComemorativa
+    {
+        $this->getEntityManager()->persist($data);
+
+        return $data;
+    }
+
     public function salvar(): void
     {
         $this->getEntityManager()->flush();

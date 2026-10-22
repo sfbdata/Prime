@@ -14,12 +14,10 @@ use Psr\Clock\ClockInterface;
 /**
  * O bloco "Datas comemorativas" do Comercial (desenho 05 VS 21.10.26 L335-339 e L678-682; spec §13, F4): as 17 datas
  * na ordem da próxima ocorrência a partir de hoje (dc L626, `sort((a, b) => a.d - b.d)`), cada uma com o estado, e o
- * "N ativas". A data sem linha no banco vale o padrão do dc (ligada, no dia, para Todos).
+ * "N ativas". A data sem linha no banco vale o {@see DataComemorativa::PADRAO}.
  */
 final class ListarDatasComemorativasUseCase
 {
-    public const PADRAO = ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos'];
-
     public function __construct(
         private readonly DataComemorativaRepository $datas,
         private readonly ClockInterface $relogio,
@@ -31,7 +29,7 @@ final class ListarDatasComemorativasUseCase
         $hoje = $this->relogio->now();
         $estados = $this->datas->estados();
         $linhas = array_map(
-            static fn (string $chave): DataComemorativaOutput => DataComemorativaOutput::deEstado($chave, $estados[$chave] ?? self::PADRAO, $hoje),
+            static fn (string $chave): DataComemorativaOutput => DataComemorativaOutput::deEstado($chave, DataComemorativa::estadoOuPadrao($estados, $chave), $hoje),
             CalendarioDasDatasComemorativas::chaves(),
         );
         // Estável: duas datas no mesmo dia ficam na ordem do dc.
