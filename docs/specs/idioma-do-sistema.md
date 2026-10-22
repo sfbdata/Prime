@@ -553,3 +553,24 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   `AdicionarEmailType` e `EditarQualificacaoPessoaType`, `TipoTelefone::label()`, `tipoLabel` e `descricao` dos eventos,
   rótulos de desfecho e canal, o nome "Sem responsável" da linha órfã, flashes e mensagens das rotas da ficha); o
   `telefone-mascara.js` (sem texto) não entrou na guarda.
+
+## 23. Extração de Feriados e da conexão do Drive (4b, 21/10)
+
+- **Escopo:** `templates/feriado/index`, `new`, `edit` e `_form` (Feriados e Folgas do escritório) e
+  `templates/sync/drive_conexao` (Conectar meu Drive). Nenhuma das telas tem JS próprio. Blocos `feriado` (23 chaves)
+  e `sync` (18 chaves, em `sync.drive.*`), os dois antes do `# ---- fim`; áreas `feriado` e `sync` no
+  `templates-extraidos.json`, com o exemplo de link do Drive (`placeholder`) nos permitidos. As telas de `processo/` e
+  de `djen/` vêm em PRs seguintes desta mesma §23.
+- **Sem mudança visível:** o HTML de 9 telas (Feriados vazio, com feriado recorrente e pontual e depois de excluir;
+  Novo feriado, Novo com erro de validação e Editar, com nome com apóstrofo, aspas, `&` e tag; Conectar meu Drive sem
+  conexão, conectada sem e-mail e sem pasta-raiz, e ativa) foi gravado antes e depois e comparado com tokens e ids
+  normalizados: saiu igual. Mudaram só a quebra de linha dentro de três parágrafos (o texto de duas linhas virou uma
+  chave de uma linha; o navegador mostra igual) e os dois `confirm()` dos `onsubmit`, agora `|trans|e('js')` (o mesmo
+  texto, escapado para JS). O nome do feriado entra no confirm por `{nome}`, com o apóstrofo do ICU escrito `''`.
+- **Formatos:** a data do feriado pontual (`|date('d/m/Y')`) virou `|data` e o "Conectado em" (`|date('d/m/Y H:i')`),
+  `|data_hora` (a conexão sempre tem a data, então o `|data_hora` de nulo não muda nada). Ficou o `|date('d/m')` do
+  feriado recorrente: não há filtro de dia e mês (o mesmo caso do dd/mm do próximo feriado da §18).
+- **Ficou para depois:** os rótulos, o placeholder e a mensagem de validação do `FeriadoType` (Nome, Data, "Repete todo
+  ano (feriado fixo)", "O nome é obrigatório."); os flashes do `FeriadoController` e do `DriveConexaoController`
+  (inclusive a mensagem de exceção do `DefinirRootFolderDriveUseCase` repassada em flash) e as mensagens dos 403/404,
+  como na §18; o `|date('d/m')` acima.
