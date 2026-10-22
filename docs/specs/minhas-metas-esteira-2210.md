@@ -173,12 +173,19 @@ Para o dono (Farlei), antes da fase indicada:
 - **C13. Registro (D1).** Cada despacho guarda um código de 8 dígitos (XXXX.XXXX) sorteado, único no escritório. A linha
   mostra "<Cidade>, D de mês de AAAA." e "Registrado por NOME (Cargo) em DD/MM/AAAA às HH:MM · Cód. XXXX.XXXX". O link de
   validação abre uma página **só para quem é do escritório** (logado), que confirma meta, autor, data e natureza, sem
-  o texto. Página pública de validação fica para decisão do dono: exporia o nome do escritório e de quem despachou a
-  quem tiver o código.
+  o texto. **Decidido pelo dono (22/10):** a validação é só para quem é do mesmo escritório e está logado; não há
+  página pública.
 - **C14. Ciência automática.** Abrir a meta marca "Ciente" nos despachos de outra pessoa ainda sem ciência, só quando
   quem abre é responsável ou criador da meta (quem só olha, como um administrador, não dá ciência).
 - **C15. Certificar cumprimento.** Responsável ou criador; texto obrigatório começando por "Certifico que", até 1.000
   caracteres; grava quem e quando; some o "Cumprir até". Uma certidão por despacho.
+- **C16. Registro imutável.** Despacho com código não pode ser editado (o "Registrado por ... · Cód." deixaria de valer
+  para o texto). Mensagens antigas, sem código, continuam editáveis.
+- **C17. Quem registrou fica congelado.** Nome e cargo da linha de registro são os do momento do despacho, não os de
+  hoje.
+- **C18. Enviar para revisão** não grava natureza nem prazo (04B L146): o prazo padrão viraria "Cumprir até" na entrega.
+- **C19. Placeholder** sem "Digite @ para marcar alguém da equipe." até a 2b trazer a @menção; "quem → para" também
+  espera a 2b (menção) ou a Fase 3 (passagem).
 
 ## 4. Fases (um PR por fase, uma migration por vez)
 
