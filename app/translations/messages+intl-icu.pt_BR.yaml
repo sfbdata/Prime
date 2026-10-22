@@ -7161,4 +7161,103 @@ pasta_documentos:
         visor_falha_imagem: Não foi possível carregar a imagem para imprimir.
         sugeridos_erro_adicionar: 'Não foi possível adicionar "{titulo}" ao checklist.'
 
+# ---- Pasta, aba Detalhes: Relatório inicial de Atendimento (pasta/_detalhes_obs, o script dele e pasta-ler-mais.js)
+pasta_detalhes:
+    titulo: Relatório inicial de Atendimento
+    contagem_dica: Observações principais (respostas não contam)
+    lapide_nota: 'Pasta excluída: o relatório fica só para leitura.'
+    placeholder: Adicionar observação…
+    visivel_equipe: Visível para a equipe
+    enviar: Enviar
+    enviar_dica: Enviar (Ctrl+Enter)
+    vazio_titulo: Nenhuma observação registrada
+    vazio_nota: Registre acima o relato do cliente, o resumo da demanda, a tese e os resultados esperados.
+    motivo_prazo: O prazo de 15 minutos para editar ou excluir terminou.
+    motivo_autor: Só o autor pode editar ou excluir, nos 15 minutos após publicar.
+    cartao:
+        resposta_a: 'Resposta a {nome}'
+        resposta_orfa: Resposta a uma mensagem excluída
+        autor_desconhecido: Autor desconhecido
+        tag: Observação
+        editado: editado
+        editado_dica: 'Publicado às {hora} · última edição {data} às {hora_edicao}'
+        editavel_um: 'Editável por mais {minutos} minuto'
+        editavel_varios: 'Editável por mais {minutos} minutos'
+        editar: Editar observação
+        excluir: Excluir observação
+        responder: Responder
+        encaminhar: Encaminhar via Chat I.A
+        mais_acoes: Mais ações da observação
+    menu:
+        copiar: Copiar texto
+        citar: Citar no novo registro
+        criar_meta: Criar meta a partir deste registro
+        enviar_chat: Enviar no Chat I.A
+        imprimir: Imprimir
+        editar_min: 'Editar · {minutos} min'
+        excluir_min: 'Excluir comentário · {minutos} min'
+        editar_dica: 'Edição liberada por mais {minutos} min'
+        excluir_dica: 'Exclusão liberada por mais {minutos} min'
+        editar_bloqueado: Editar · bloqueado
+        excluir_bloqueado: Excluir · bloqueado
+    js:
+        # compositor, envio e exclusão
+        vazia: A observação não pode ser vazia.
+        enviar: Enviar
+        enviando: Enviando…
+        erro_enviar: Erro ao enviar.
+        erro_enviar_resposta: Erro ao enviar a resposta.
+        erro_editar: Erro ao editar.
+        erro_excluir: Erro ao excluir.
+        erro_rede: Erro de rede.
+        erro_rede_tente: Erro de rede. Tente novamente.
+        excluir_titulo: 'Excluir o comentário de {autor}?'
+        excluir_texto: '"{trecho}". Ele some para toda a equipe e a exclusão fica registrada no histórico.'
+        colaborador: colaborador
+        vazio_titulo: Nenhuma observação registrada
+        vazio_nota: Registre acima o relato do cliente, o resumo da demanda, a tese e os resultados esperados.
+        # cartão montado no JS (o mesmo do Twig)
+        autor_desconhecido: Autor desconhecido
+        resposta_a: 'Resposta a {nome}'
+        resposta_orfa: Resposta a uma mensagem excluída
+        tag: Observação
+        editado: editado
+        editado_quando: '{data} às {hora}'
+        editado_dica: 'Publicado às {hora} · última edição {quando}'
+        editado_dica_sem_hora: 'última edição {quando}'
+        editavel_um: 'Editável por mais {minutos} minuto'
+        editavel_varios: 'Editável por mais {minutos} minutos'
+        editar: Editar observação
+        excluir: Excluir observação
+        responder: Responder
+        encaminhar: Encaminhar via Chat I.A
+        mais_acoes: Mais ações da observação
+        # ⋮ da observação
+        copiar: Copiar texto
+        citar: Citar no novo registro
+        criar_meta: Criar meta a partir deste registro
+        enviar_chat: Enviar no Chat I.A
+        imprimir: Imprimir
+        editar_min: 'Editar · {minutos} min'
+        excluir_min: 'Excluir comentário · {minutos} min'
+        editar_dica: 'Edição liberada por mais {minutos} min'
+        excluir_dica: 'Exclusão liberada por mais {minutos} min'
+        editar_bloqueado: Editar · bloqueado
+        excluir_bloqueado: Excluir · bloqueado
+        texto_copiado: Texto copiado
+        nao_copiou: Não foi possível copiar
+        chat_texto: 'Pasta {pasta} · {cabecalho}'
+        chat_copiado: Chat I.A aberto. Texto copiado para colar na conversa
+        chat_nao_copiou: Chat I.A aberto. Não foi possível copiar o texto
+        # Responder e editar
+        respondendo_a: 'Respondendo a {nome}'
+        resposta_placeholder: Escreva a resposta…
+        cancelar: Cancelar
+        salvar: Salvar
+        visivel_equipe: Visível para a equipe
+        # pasta-ler-mais.js
+        ler_mais_um: 'continuar lendo ({total} parágrafo)'
+        ler_mais_varios: 'continuar lendo ({total} parágrafos)'
+        ler_menos: mostrar menos
+
 # ---- fim

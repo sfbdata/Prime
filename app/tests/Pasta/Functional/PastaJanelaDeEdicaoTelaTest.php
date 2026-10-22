@@ -137,6 +137,10 @@ final class PastaJanelaDeEdicaoTelaTest extends JusPrimeWebTestCase
         self::assertSame('· {minutos} min', $js['janela']);
         self::assertSame('Edição e exclusão liberadas por mais {minutos} min', $js['janela_dica']);
         self::assertSame(1, substr_count($html, 'title="Editável por mais 15 minutos" aria-label="Editar registro"'));
-        self::assertSame(1, substr_count($html, 'title="Editável por mais 15 minutos" aria-label="Editar observação"'));
+        // Detalhes (idioma, §20.6): a dica do lápis da observação também vem do catálogo do JS, com os minutos do servidor.
+        self::assertSame(1, substr_count($html, "title=\"\${esc(editavelDica(15))}\" aria-label=\"\${esc(BJ_T.t('pasta_detalhes.js.editar'))}\""));
+        $detalhes = Yaml::parseFile(static::getContainer()->getParameter('kernel.project_dir') . '/translations/messages+intl-icu.pt_BR.yaml')['pasta_detalhes']['js'];
+        self::assertSame('Editável por mais {minutos} minutos', $detalhes['editavel_varios']);
+        self::assertSame('Editar observação', $detalhes['editar']);
     }
 }

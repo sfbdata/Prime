@@ -922,6 +922,34 @@ antes e depois, sem diferença; o texto dos scripts foi conferido chave por chav
   `abasOcultas`); `pasta-mencoes.js` e `editor-rico.js`, usados também fora da Pasta; e o `lang="pt-BR"` e o
   `toLocaleString('pt-BR')` da impressão do visor.
 
+### 20.6 Detalhes (4b, 21/10)
+
+- **Escopo:** `pasta/_detalhes_obs.html.twig` (o painel "Relatório inicial de Atendimento", o macro `observacao` e o
+  script inline que monta o cartão novo, a caixa de resposta, a edição, o ⋮ e a exclusão) e o `pasta-ler-mais.js`, que
+  só este parcial carrega. Bloco de topo `pasta_detalhes` do catálogo, 88 chaves: 11 na raiz, `cartao` 13, `menu` 11 e
+  `pasta_detalhes.js.*` (53) para o script inline e o `pasta-ler-mais.js`.
+- **Catálogo do JS:** o `catalogo_js('pasta_detalhes.js')` mora no próprio `_detalhes_obs`, antes dos `<script>` dele; o
+  show não foi tocado. O script inline roda antes do `bj-traducao.js` (fim do corpo), então só pede texto na hora do
+  uso: a constante `ROTULO_ORFA` virou a função `rotuloOrfa()`. O `pasta-ler-mais.js` é `defer` e roda depois do
+  `bj-traducao.js`. O cartão montado no JS passa o texto do catálogo por `esc()`, como o do Financeiro.
+- **Sem mudança visível:** o HTML da aba foi comparado antes e depois em seis casos (vazia e cheia, para quem edita,
+  quem só vê e na lápide; a cheia com raiz, resposta de outro dia, órfã, observação editada, de outro autor, sem nome,
+  com 1 minuto de janela e com nome e texto com apóstrofo, aspas, `&` e `<b>`), sem diferença além de tokens CSRF e do
+  `<script data-bj-t>`. O script inline foi rodado num DOM falso, antes e depois, montando o cartão (raiz, resposta,
+  órfã, sem autor, com e sem o encaminhar), a caixa de resposta, a edição, a dica do "editado", a janela do ⋮, a
+  confirmação de exclusão, os avisos de copiar e do Chat I.A e os erros de envio, edição e exclusão: mesma saída. O
+  rótulo do "continuar lendo" deu o mesmo texto para 1, 2 e 7 parágrafos.
+- **Formatos:** a hora do cartão e a dica do "editado" passaram a `|hora` e `|data`. Ficaram fixos o `title` da hora
+  (`d/m/Y H:i`, que o JS lê para comparar o dia da resposta), o `d/m` da resposta de outro dia, o `d/m/Y, H:i` do
+  cabeçalho do ⋮ e do `data-quando` da impressão, e a pílula do dia com os meses abreviados (`meses` no Twig e `MESES`
+  no JS), como no Financeiro (§17).
+- **Escolhas:** "Editável por mais N minuto(s)" virou duas chaves (`editavel_um`, `editavel_varios`) pelo mesmo `== 1`
+  de antes, no Twig e no JS; o mesmo no "continuar lendo (N parágrafo/parágrafos)". Os motivos do bloqueio
+  (`motivo_prazo`, `motivo_autor`) seguem com o "15 minutos" no texto, como antes. Sem permitidos na guarda.
+- **Ficou para depois:** o `editor-rico.js` (carregado também pelo Financeiro, pelos Dados da pasta, pelo objeto da
+  Cobrança e pela tarefa); as mensagens `erro` que o `PastaController` devolve no JSON das rotas de observação; e os
+  comentários do arquivo, que não vão à tela.
+
 ## 25. E-mails e as páginas que eles abrem (5d, 21/10)
 
 Três PRs, um aberto por vez, sem migration e com o português idêntico:
