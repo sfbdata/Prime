@@ -504,7 +504,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             })
             .catch(function () {
-                body.innerHTML = '<div class="alert alert-danger">' + BJ_T.t('kanban.js.erro_carregar_card') + '</div>';
+                var alerta = document.createElement('div');
+                alerta.className = 'alert alert-danger';
+                alerta.textContent = BJ_T.t('kanban.js.erro_carregar_card');
+                body.replaceChildren(alerta);
             });
     });
 
