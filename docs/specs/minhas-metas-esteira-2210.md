@@ -66,7 +66,7 @@ Legenda: ✓ existe · ≈ parcial · ∅ não existe.
 |---|---|---|
 | Cartões (atrasadas, 7 dias, revisão, sem prazo) | ✓ | `TarefaRepository::contarPainelMinhasMetas`, `minhas.html.twig` L46-68 |
 | Abas, busca, limpar filtros | ✓ | `AbaMetas`, `TarefaRepository::aplicarFiltrosDaTela` |
-| Filtro de prioridade | ≈ usa a prioridade da PASTA (normal/prioridade/urgente); desenho: Normal/Alta/Urgente | `TarefaRepository` L503 |
+| Filtro de prioridade | ✓ desde o #252 (21/10): `PrioridadeDaMeta` na meta, herdada da pasta (decisão da coordenação) | `Tarefa/Enum/PrioridadeDaMeta.php` |
 | Seu andamento, Precisa de atenção, Atualizado às | ✓ | `_resultado.html.twig` |
 | Esteira de 8 caixas, contadores, gargalo, filtro "Só a etapa X" | ∅ | |
 | Configurar caixa e avisados | ∅ (menções da pasta são reaproveitáveis) | `Pasta/Service/MencoesDoRegistro.php` |
@@ -138,8 +138,9 @@ Para o dono (Farlei), antes da fase indicada:
 
 1. **Esteira.** Enum `EtapaDaPasta` e `TipoDeDemanda`; `Tarefa` ganha etapa, tipo de demanda e etapas saltadas;
    `ConfiguracaoDaCaixa` (tenant, etapa, nome da caixa, nome da etapa) e avisados; backfill C5. Tela: esteira com
-   contadores, atrasadas, gargalo, "Só a etapa X", modal Configurar caixa; chip "i/8 · Etapa" e "→ próximo" na linha;
-   filtro de prioridade da meta. Fecha o furo do recurso `metas` nas outras rotas.
+   contadores, atrasadas, gargalo, "Só a etapa X", modal Configurar caixa; chip "i/8 · Etapa" e "→ próximo" na linha.
+   Fecha o furo do recurso `metas` nas outras rotas. Migration: número pedido ao coordenador (próxima livre em 22/10:
+   149900).
 2. **Despacho.** `TarefaMensagem` ganha natureza, prazo de cumprimento, ciência, certidão e código; validação de 5.000 no
    servidor; prazo padrão de 5 dias úteis; @menção; anexo pela regra de chaves; Ctrl+Enter; linha do tempo nova com
    assinatura (D1); Extrato; Lembrar; título "Meta # N" pelo número do escritório.
