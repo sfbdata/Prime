@@ -23,7 +23,7 @@ use Psr\Clock\ClockInterface;
  * igual. A linha cumprida nunca é apagada. O prazo manual e o lido dos registros não são tocados. Quem chama dá o
  * flush.
  *
- * Corte do histórico: só NASCE prazo com vencimento de hoje menos 10 dias em diante (a janela do "findou") e audiência
+ * Corte do histórico (decisão do dono, 22/10): só NASCE prazo com vencimento de hoje menos 30 dias em diante e audiência
  * de hoje em diante. A comparação com o que existe usa tudo o que a publicação gera, sem o corte: a linha já gravada
  * que ficou fora da janela continua; só sai a que deixou de valer (teor mudou, processo saiu da pasta).
  */
@@ -69,7 +69,7 @@ final class PrazosDoPush
     private function criarNaJanela(Pasta $pasta, Tenant $tenant, array $faltando): int
     {
         $hoje = $this->relogio->now()->format('Y-m-d');
-        $desdePrazo = $this->relogio->now()->modify('-10 days')->format('Y-m-d');
+        $desdePrazo = $this->relogio->now()->modify('-30 days')->format('Y-m-d');
         $criados = 0;
         foreach ($faltando as [$publicacao, $p]) {
             $data = $p['data']->format('Y-m-d');

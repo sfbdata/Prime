@@ -19,6 +19,7 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaPrazo;
 use App\Pasta\Service\AvisoDoPushNaCaptacao;
 use App\Pasta\Service\PrazosDoPush;
+use App\Pasta\UseCase\CumprirPrazoDaPastaUseCase;
 use App\Pasta\UseCase\DesvincularProcessoUseCase;
 use App\Pasta\UseCase\SincronizarPrazosDoPushUseCase;
 use App\Pasta\UseCase\VincularProcessoUseCase;
@@ -133,6 +134,23 @@ final class PrazosDoPushTest extends KernelTestCase
         self::assertNotNull($linhas[0]['cumprido_em']);
     }
 
+    #[TestDox('cumprido pelo caso de uso da tela, o prazo do Push continua cumprido depois de ressincronizar e não renasce')]
+    public function testCumpridoPelaTelaSobreviveAResincronizacao(): void
+    {
+        [$tenant, $pasta, $user] = $this->pastaComProcesso();
+        $this->publicar($tenant, self::COM_PRAZO, '2026-09-25');
+        $this->sincronizar($pasta);
+        $id = (int) $this->em()->getConnection()->fetchOne("SELECT id FROM pasta_prazo WHERE pasta_id = ? AND origem = 'push'", [$pasta->getId()]);
+
+        static::getContainer()->get(CumprirPrazoDaPastaUseCase::class)->executar($pasta, $id, $user, $tenant);
+
+        self::assertSame(['criados' => 0, 'apagados' => 0], $this->sincronizar($pasta));
+        self::assertSame(['criados' => 0, 'apagados' => 0], $this->sincronizar($pasta));
+        $linhas = $this->linhasPush($pasta);
+        self::assertCount(1, $linhas);
+        self::assertNotNull($linhas[0]['cumprido_em']);
+    }
+
     #[TestDox('o prazo manual e o lido dos registros não são tocados')]
     public function testNaoTocaNoManual(): void
     {
@@ -228,17 +246,18 @@ final class PrazosDoPushTest extends KernelTestCase
         self::assertCount(1, $this->linhasPush($pasta));
     }
 
-    #[TestDox('corte do histórico: prazo vencido há 30 dias não nasce; vencido há 5 dias nasce (janela do "findou")')]
+    #[TestDox('corte do histórico (30 dias): prazo vencido há 40 dias não nasce; vencido há 25 dias nasce')]
     public function testCorteDoPrazo(): void
     {
+        Clock::set(new MockClock('2026-10-20 10:00:00'));
         [$tenant, $pasta] = $this->pastaComProcesso();
-        // 1 dia: disponibilizado qui 17/09, publica sex 18/09, vence seg 21/09 (30 dias antes de 21/10).
-        $this->publicar($tenant, 'Intime-se a parte autora para se manifestar no prazo de 1 dia.', '2026-09-17');
-        // 1 dia: disponibilizado qua 14/10, publica qui 15/10, vence sex 16/10 (5 dias antes de 21/10).
-        $this->publicar($tenant, 'Intime-se a parte ré para se manifestar no prazo de 1 dia.', '2026-10-14');
+        // 1 dia: disponibilizado ter 08/09, publica qua 09/09, vence qui 10/09 (40 dias antes de 20/10).
+        $this->publicar($tenant, 'Intime-se a parte autora para se manifestar no prazo de 1 dia.', '2026-09-08');
+        // 1 dia: disponibilizado qua 23/09, publica qui 24/09, vence sex 25/09 (25 dias antes de 20/10).
+        $this->publicar($tenant, 'Intime-se a parte ré para se manifestar no prazo de 1 dia.', '2026-09-23');
 
         self::assertSame(['criados' => 1, 'apagados' => 0], $this->sincronizar($pasta));
-        self::assertSame(['2026-10-16'], array_column($this->linhasPush($pasta), 'data'));
+        self::assertSame(['2026-09-25'], array_column($this->linhasPush($pasta), 'data'));
     }
 
     #[TestDox('corte do histórico: audiência passada não nasce; a futura nasce')]
@@ -257,22 +276,23 @@ final class PrazosDoPushTest extends KernelTestCase
     public function testCorteNaoApagaOQueJaExiste(): void
     {
         [$tenant, $pasta] = $this->pastaComProcesso();
-        $pub = $this->publicar($tenant, 'Intime-se a parte autora para se manifestar no prazo de 1 dia.', '2026-09-17');
+        // Vence qui 10/09: 41 dias antes de 21/10, fora da janela de 30.
+        $pub = $this->publicar($tenant, 'Intime-se a parte autora para se manifestar no prazo de 1 dia.', '2026-09-08');
         $this->em()->persist(PastaPrazo::doPush(
             $tenant,
             $pasta,
             (int) $pub->getId(),
-            new \DateTimeImmutable('2026-09-17'),
+            new \DateTimeImmutable('2026-09-08'),
             PastaPrazo::TIPO_PRAZO,
             'Prazo do Push: Manifestação (parte autora)',
-            new \DateTimeImmutable('2026-09-21'),
+            new \DateTimeImmutable('2026-09-10'),
             null,
             true
         ));
         $this->em()->flush();
 
         self::assertSame(['criados' => 0, 'apagados' => 0], $this->sincronizar($pasta));
-        self::assertSame(['2026-09-21'], array_column($this->linhasPush($pasta), 'data'));
+        self::assertSame(['2026-09-10'], array_column($this->linhasPush($pasta), 'data'));
     }
 
     #[TestDox('desvincular o processo apaga os prazos do Push dele, menos o cumprido')]
