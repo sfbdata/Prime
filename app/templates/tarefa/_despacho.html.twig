@@ -20,19 +20,6 @@
             <span class="despacho-tipo">· {{ l.tipo|trans }}</span>
             {% if l.maisRecente %}<span class="despacho-recente">{{ 'metas.despacho.mais_recente'|trans }}</span>{% endif %}
             <span class="flex-grow-1"></span>
-            {# Despacho registrado (com código) não se edita; só a mensagem antiga, do próprio autor. #}
-            {% if d and d.codigo is null and d.acao != 'lembrete' and item.detalhe and item.usuarioId == app.user.id and tarefa.status != 'concluida' %}
-                <button type="button"
-                        class="btn btn-link btn-sm p-0 text-secondary btn-editar-msg"
-                        title="{{ 'metas.detalhe.editar_mensagem'|trans }}"
-                        data-msg-id="{{ item.mensagemId }}"
-                        data-conteudo="{{ item.detalhe|e('html_attr') }}"
-                        data-conteudo-html="{{ item.detalhe|texto_rico|e('html_attr') }}"
-                        data-csrf="{{ csrf_token('editar_mensagem_tarefa_' ~ item.mensagemId) }}"
-                        data-url="{{ path('tarefa_mensagem_editar', {id: item.mensagemId}) }}">
-                    <i class="bi bi-pencil"></i>
-                </button>
-            {% endif %}
             <small class="despacho-em">
                 {% set em = d ? d.registradoEm : item.dataHora %}{{ 'metas.despacho.quando'|trans({data: em|data, hora: em|hora}) }}
                 {% if item.editadoEm %}<span class="ms-1 fst-italic tarefa-msg-editado">{{ 'metas.detalhe.editado'|trans }}</span>{% endif %}

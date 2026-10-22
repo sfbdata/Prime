@@ -1450,7 +1450,6 @@ metas:
         so_comentar: Só comentar
         devolver: Devolver
         sem_eventos: Nenhum evento registrado ainda.
-        editar_mensagem: Editar mensagem
         editado: '(editado)'
         visualizar_arquivo: Visualizar arquivo
         acompanhando: Acompanhando
@@ -1471,12 +1470,6 @@ metas:
         salvar_prazo: Salvar Prazo
         despacho_titulo: DESPACHO
         js:
-            salvar: Salvar
-            cancelar: Cancelar
-            mensagem_vazia: A mensagem não pode ser vazia.
-            erro_editar: Erro ao editar.
-            editado: '(editado)'
-            erro_rede: Erro de rede. Tente novamente.
             acompanhando: Acompanhando
             acompanhar: Acompanhar
             permita_popups: Permita pop-ups para gerar o extrato.

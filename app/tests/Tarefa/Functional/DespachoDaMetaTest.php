@@ -210,37 +210,37 @@ final class DespachoDaMetaTest extends JusPrimeWebTestCase
         self::assertSelectorTextNotContains('[data-registro-encontrado]', 'Mendes');
     }
 
-    #[TestDox('Despacho registrado não se edita: sem botão na tela e 422 no POST; o texto não muda')]
-    public function testRegistradoNaoEdita(): void
+    #[TestDox('Despacho registrado não tem botão de editar na página')]
+    public function testRegistradoSemBotaoDeEditar(): void
     {
         $despacho = $this->despachoGravado($this->criador);
-        $id = (int) $despacho->getId();
         $this->logarComTenant($this->client, $this->criador, $this->escritorio);
 
         $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
-        self::assertCount(0, $crawler->filter('#despacho-' . $id . ' .btn-editar-msg'));
-
-        $this->client->request('POST', '/tarefas/mensagem/' . $id . '/editar', [
-            '_token'   => 'TOKEN_editar_mensagem_tarefa_' . $id,
-            'conteudo' => 'Texto trocado',
-        ]);
-        self::assertResponseStatusCodeSame(422);
-        self::assertStringContainsString('Despacho registrado não pode ser editado.', (string) json_decode((string) $this->client->getResponse()->getContent(), true)['erro']);
-        self::assertSame('<p>Texto secreto do despacho</p>', $this->despacho($id)->getMensagem());
+        self::assertCount(1, $crawler->filter('#despacho-' . $despacho->getId()));
+        self::assertCount(0, $crawler->filter('#despacho-' . $despacho->getId() . ' .btn-editar-msg, #despacho-' . $despacho->getId() . ' .bi-pencil'));
     }
 
-    #[TestDox('Mensagem antiga, sem código, continua com o botão de editar')]
-    public function testAntigaContinuaEditavel(): void
+    #[TestDox('Mensagem antiga do próprio autor: sem botão nem link de edição (decisão do dono de 22/10), o "(editado)" continua, e a rota antiga não existe mais')]
+    public function testAntigaSemEdicaoComEditado(): void
     {
-        $antiga = (new TarefaMensagem())->setUsuario($this->criador)->setTenant($this->escritorio)->setMensagem('Antiga');
+        $antiga = (new TarefaMensagem())->setUsuario($this->criador)->setTenant($this->escritorio)->setMensagem('Antiga')->setEditadoEm(new \DateTimeImmutable('-1 day'));
         $this->meta->addMensagem($antiga);
         $this->em->persist($antiga);
         $this->em->flush();
+        $id = (int) $antiga->getId();
         $this->logarComTenant($this->client, $this->criador, $this->escritorio);
 
         $crawler = $this->client->request('GET', '/tarefas/' . $this->meta->getId());
+        $item    = $crawler->filter('#despacho-' . $id);
+        self::assertCount(1, $item);
+        self::assertCount(0, $item->filter('.btn-editar-msg, .bi-pencil, [data-url*="/editar"]'));
+        self::assertStringNotContainsString('/tarefas/mensagem/' . $id . '/editar', (string) $this->client->getResponse()->getContent());
+        self::assertSame('(editado)', trim($item->filter('.despacho-em > .tarefa-msg-editado')->text()));
 
-        self::assertCount(1, $crawler->filter('#despacho-' . $antiga->getId() . ' .btn-editar-msg'));
+        $this->client->request('POST', '/tarefas/mensagem/' . $id . '/editar', ['conteudo' => 'Texto trocado']);
+        self::assertContains($this->client->getResponse()->getStatusCode(), [404, 405]);
+        self::assertSame('Antiga', $this->em->find(TarefaMensagem::class, $id)?->getMensagem());
     }
 
     #[TestDox('Em revisão, o criador despacha "Para providência: falta X" e a meta volta pendente, com o histórico e o aviso')]
