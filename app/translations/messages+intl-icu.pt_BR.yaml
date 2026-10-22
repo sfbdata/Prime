@@ -3529,6 +3529,91 @@ escritorio:
         sede_registros_desvinculados: '{qtd} registro(s) de ponto foram desvinculados automaticamente da sede removida.'
         sede_nao_removida: Não foi possível remover a sede neste momento. Tente novamente.
 
+# ---- plataforma: área do Master fora de escritório (admin/platform/_base_platform, _sidebar_platform, convites,
+# dashboard, oab), com os flashes do AdminConviteController e do OabReviewController. Frase com "Master" recebe
+# termos.master por parâmetro ({termo}). O _base_platform só tem CSS e não tem chave. As contagens ICU usam =1 (no
+# pt_BR o "one" pega o zero também) e {qtd} é o número já como texto (sem separador de milhar).
+plataforma:
+    menu:
+        painel: Dashboard
+        convites: Convites
+        revisao_oab: Revisão de OAB
+        sistema: Sistema
+        voltar: Voltar ao sistema
+    painel:
+        titulo: 'Painel do {termo}'
+        subtitulo: Administração global, fora de qualquer escritório
+        oab_titulo: Revisão de OAB
+        oab_descricao: Confirmar, reverter e revisar as OABs dos usuários.
+        convites_titulo: Convites
+        convites_descricao: 'Convidar novas contas e acompanhar os convites do {termo}.'
+    convites:
+        titulo: 'Convites do {termo}'
+        novo: Novo convite
+        email: E-mail
+        nome_opcional: Nome (opcional)
+        convidar: Convidar
+        enviados: Convites enviados
+        nome: Nome
+        status: Status
+        enviado_em: Enviado em
+        expira_em: Expira em
+        reenvios: Reenvios
+        sem_informacao: sem informação
+        pendente: Pendente
+        aceito: Aceito
+        revogado: Revogado
+        expirado: Expirado
+        reenviar: Reenviar
+        revogar: Revogar
+        vazio: Nenhum convite enviado ainda.
+    oab:
+        titulo: Revisão de OAB
+        subtitulo: 'Identidade global: advogados de todos os escritórios'
+        contagem: '{n, plural, =1 {{qtd} inscrição} other {{qtd} inscrições}}'
+        filtro:
+            pendentes: Pendentes
+            divergente: Divergentes
+            nao_verificada: Não verificadas
+            confirmada: Confirmadas
+            todas: Todas
+        busca_placeholder: Nome, e-mail ou nº OAB
+        buscar: Buscar
+        nome: Nome
+        email: E-mail
+        oab: OAB
+        nome_cna: Nome no CNA
+        status: Status
+        verificada_em: Verificada em
+        acoes: Ações
+        # Selo do tipo da inscrição, em forma normal: a tela põe em caixa alta (|upper).
+        principal: Principal
+        suplementar: Suplementar
+        nao_informado: Não informado
+        sem_registro: Sem registro
+        confirmar_dica: Marcar como confirmada
+        reverter_dica: Reverter confirmação
+        reverter: Reverter
+        reverter_para: Reverter para…
+        nao_verificada: Não verificada
+        divergente: Divergente
+        reverificar_dica: Re-verificar (automático indisponível)
+        vazio_titulo: Nenhuma inscrição nesta fila
+        vazio_com_busca: Ajuste a busca ou troque o filtro.
+        vazio_sem_busca: Tente outro filtro acima.
+    flash:
+        convite_criado_sem_email: Convite criado, mas o email não foi enviado. Use o botão Reenviar.
+        convite_enviado: 'Convite enviado para {email}.'
+        convite_revogado: Convite revogado.
+        convite_email_nao_enviado: Não foi possível enviar o email. Tente novamente.
+        convite_reenviado: Convite reenviado.
+        oab_confirmada: OAB confirmada.
+        oab_destino_invalido: Destino inválido.
+        oab_revertida: OAB revertida.
+        oab_verificada_sem_automatico: Verificação executada. Backend automático indisponível, o status permanece não verificado.
+        oab_verificada: Verificação executada.
+        oab_inscricao_mudou: A inscrição mudou depois que a fila foi aberta. Confira de novo.
+
 # ---- termos: o glossário comum (spec §3, risco 3), em forma normal. A caixa alta fica no |upper ou no CSS de quem usa.
 # O ICU não referencia outra chave: frase com o termo dentro recebe o termo por parâmetro
 # ('perfis.x'|trans({papel: 'termos.master'|trans})).

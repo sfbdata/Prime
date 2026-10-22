@@ -699,3 +699,44 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   gerenciar sedes.", "Sede não encontrada." etc.); o `<script>` do mapa (acima). Achado fora do escopo, não
   consertado: editar uma sede com a longitude vazia dá 500 (`InvalidTypeException` no
   `Sede::setLongitude(string)`), em vez do erro de validação; criar com os campos vazios mostra o erro.
+- **A1 admin/platform** (branch `idioma-admin`, sobre o T4): bloco de topo novo `plataforma:` (`# ---- plataforma`,
+  antes do `# ---- termos`), 72 chaves: `menu` 5, `painel` 6, `convites` 19, `oab` 31 (com `filtro` 5) e `flash` 11. O
+  `_base_platform` só tem CSS e o bloco `platform_body`: não ganhou chave (não há `plataforma.base.*`), mas entrou na
+  lista dos extraídos. "Painel do Master", "Convites do Master" e "acompanhar os convites do Master" recebem
+  `termos.master` por parâmetro (`{termo}`); o separador "Master" da barra lateral e o selo do painel usam
+  `termos.master` direto. A contagem do selo da OAB é um plural ICU com `=1`
+  (`{n, plural, =1 {{qtd} inscrição} other {{qtd} inscrições}}`): no pt_BR o `one` do ICU pega o zero também, e a tela
+  de hoje diz "0 inscrições". O selo PRINCIPAL ou SUPLEMENTAR tem a chave em forma normal e a caixa alta no `|upper`.
+  Os rótulos dos filtros e dos cartões do painel são traduzidos dentro do próprio `{% set %}`.
+- **Formatos (A1):** os três `|date('d/m/Y H:i')` viraram `|data_hora`: o `createdAt` e o `expiresAt` do convite
+  (não nulos no DTO) e o `oabVerificadaEm` da OAB, que já vinha protegido pelo ternário ("Sem registro"). O
+  `reenvioCount` com o "/3" e os números da paginação são inteiros pequenos impressos crus, como antes.
+- **Texto do PHP (A1):** traduzem no ponto de saída (`TranslatorInterface` no construtor): no `AdminConviteController`,
+  os cinco flashes de criar, revogar e reenviar (o e-mail do convite vai por `{email}`); no `OabReviewController`, os
+  seis (confirmada, destino inválido, revertida, as duas verificações e a inscrição que mudou depois da fila). Nenhum
+  era constante: o `OabReviewTest` compara o texto do "A inscrição mudou..." na tela, que segue igual em português. O
+  `PlatformDashboardController` só redireciona para o Painel do Master (o `dashboard.html.twig` não tem rota que o
+  renderize hoje; foi extraído assim mesmo).
+- **Sem mudança visível (A1):** um teste temporário (apagado antes do commit) gravou o HTML de 26 casos com o código da
+  HEAD e com o novo, normalizando tokens CSRF, nonces, ids das inscrições, o token aleatório do convite criado pelo POST
+  e o minuto de "agora": o painel (renderizado direto pelo Twig, com a barra lateral) e o redirecionamento da rota; os
+  convites vazio e com itens (pendente com e sem reenvio, sem nome, aceito, revogado, expirado, e-mail com aspas e
+  `&`); os sete flashes do convite (enviado, e-mail existente, revogado, revogar o que não está pendente, reenviado e
+  as duas falhas de envio, com um mailer que falha); a OAB nos cinco filtros, com uma inscrição (selo no singular),
+  vazia com e sem busca (0 inscrições) e na segunda página; os seis flashes da OAB (confirmada, inscrição mudou,
+  destino inválido, destino `confirmada` pela recusa do UseCase, revertida, re-verificada). Os 26 ficaram iguais byte a
+  byte depois da normalização.
+- **JS inline com texto (fica como está, o teste não cobre `<script>` nem `onclick`):** nos convites, os
+  `confirm('Reenviar convite para ...?')` e `confirm('Revogar convite de ...?')` dos `onclick`, com o e-mail montado
+  pelo Twig. O `<script>` da OAB só liga os tooltips (sem texto). Nenhum dos 5 templates carrega `<script src>` próprio.
+- **Ficou fora da A1:** as recusas dos UseCases que os controllers repassam (`$e->getMessage()`): "Já existe uma conta
+  com este e-mail." do `CriarConvitePlataformaUseCase`; as do `RevogarConviteUseCase` e do `ReenviarConviteUseCase`
+  (convite não encontrado, só pendentes, expirado, limite de reenvios, e o `RECUSA_EMAIL_A_CONFIRMAR` do
+  `CriarConviteEscritorioUseCase`), que o convite do escritório (`GerenciarConvitesController`) também diz; o "Destino
+  inválido para reverter OAB: ..." do `ReverterInscricaoOabUseCase` (com o valor do enum). Precisam de chave na exceção,
+  como no T1. Também ficaram as mensagens das 403, 404 e 429 ("Token CSRF inválido.", "Convite de plataforma não
+  encontrado.", "Inscrição não encontrada.", "Muitas tentativas..."); o selo de status da OAB
+  (`_oab_status.html.twig`, compartilhado com o Meu Perfil); o `convite.status` cru do selo de status desconhecido
+  (dado); e o comentário do CSS do `_base_platform`, que tem travessão mas não é texto de tela. O laço de flashes do
+  próprio `convites.html.twig` fica como está e não mostra nada: o `base` consome os flashes antes (o que se vê é o
+  aviso do `base`, com `alert-sucesso` e `alert-erro`).

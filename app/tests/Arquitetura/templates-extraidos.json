@@ -564,6 +564,18 @@
         ]
     },
 
+    "plataforma": {
+        "templates": [
+            "admin/platform/_base_platform.html.twig",
+            "admin/platform/_sidebar_platform.html.twig",
+            "admin/platform/convites.html.twig",
+            "admin/platform/dashboard.html.twig",
+            "admin/platform/oab.html.twig"
+        ],
+        "js": [],
+        "permitidos": []
+    },
+
     "feriado": {
         "templates": [
             "feriado/index.html.twig",
