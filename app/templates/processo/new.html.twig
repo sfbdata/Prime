@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ isEdit ? 'Editar Processo' : 'Novo Processo' }}{% endblock %}
+{% block title %}{{ isEdit ? 'processo.form.titulo_editar'|trans : 'processo.form.titulo_novo'|trans }}{% endblock %}
 
 {% block body %}
 {# Content Header #}
@@ -10,22 +10,22 @@
             <div class="col-sm-6">
                 <h1 class="m-0">
                     <i class="bi bi-briefcase{{ isEdit ? '-fill' : '' }} me-2"></i>
-                    {{ isEdit ? 'Editar Processo' : 'Novo Processo' }}
+                    {{ isEdit ? 'processo.form.titulo_editar'|trans : 'processo.form.titulo_novo'|trans }}
                 </h1>
             </div>
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-end">
-                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">{{ 'processo.comum.home'|trans }}</a></li>
                     {% if can_access_module('djen') %}
-                        <li class="breadcrumb-item"><a href="{{ path('push_processual_index') }}">Push Processual</a></li>
+                        <li class="breadcrumb-item"><a href="{{ path('push_processual_index') }}">{{ 'processo.comum.push'|trans }}</a></li>
                     {% endif %}
-                    <li class="breadcrumb-item"><a href="{{ path('processo_index') }}">Processos</a></li>
+                    <li class="breadcrumb-item"><a href="{{ path('processo_index') }}">{{ 'processo.comum.processos'|trans }}</a></li>
                     {% if isEdit %}
                         <li class="breadcrumb-item">
                             <a href="{{ path('processo_show', {id: processo.id}) }}">{{ processo.numeroProcesso }}</a>
                         </li>
                     {% endif %}
-                    <li class="breadcrumb-item active">{{ isEdit ? 'Editar' : 'Novo' }}</li>
+                    <li class="breadcrumb-item active">{{ isEdit ? 'processo.comum.editar'|trans : 'processo.form.novo'|trans }}</li>
                 </ol>
             </div>
         </div>
@@ -41,19 +41,19 @@
             {# ── Barra de abas do processo ── #}
             <div class="processo-tabs">
                 <button type="button" class="processo-tab active" data-tab="proc-info">
-                    <i class="bi bi-info-circle me-1"></i> Informações
+                    <i class="bi bi-info-circle me-1"></i> {{ 'processo.comum.informacoes'|trans }}
                 </button>
                 <button type="button" class="processo-tab" data-tab="proc-cliente">
-                    <i class="bi bi-person me-1"></i> Cliente
+                    <i class="bi bi-person me-1"></i> {{ 'processo.form.cliente'|trans }}
                 </button>
                 <button type="button" class="processo-tab" data-tab="proc-partes">
-                    <i class="bi bi-people me-1"></i> Partes
+                    <i class="bi bi-people me-1"></i> {{ 'processo.comum.partes'|trans }}
                 </button>
                 <button type="button" class="processo-tab" data-tab="proc-movimentacoes">
-                    <i class="bi bi-clock-history me-1"></i> Movimentações
+                    <i class="bi bi-clock-history me-1"></i> {{ 'processo.comum.movimentacoes'|trans }}
                 </button>
                 <button type="button" class="processo-tab" data-tab="proc-assuntos">
-                    <i class="bi bi-tags me-1"></i> Assuntos
+                    <i class="bi bi-tags me-1"></i> {{ 'processo.form.assuntos'|trans }}
                 </button>
             </div>
 
@@ -64,77 +64,77 @@
                     <div class="row g-3">
                         <div class="col-md-8">
                             <label for="numeroProcesso" class="form-label">
-                                Número do Processo <span class="text-danger">*</span>
+                                {{ 'processo.comum.numero'|trans }} <span class="text-danger">*</span>
                             </label>
                             <input type="text" id="numeroProcesso" name="numeroProcesso" class="form-control"
-                                   placeholder="Ex: 1234567-89.2024.1.23.4567"
+                                   placeholder="{{ 'processo.form.numero_exemplo'|trans }}"
                                    value="{{ processo.numeroProcesso ?? '' }}" required>
-                            <div class="form-text">Formato: NNNNNNN-DD.AAAA.J.TT.OOOO</div>
+                            <div class="form-text">{{ 'processo.form.numero_formato'|trans }}</div>
                         </div>
                         <div class="col-md-4 d-flex align-items-end">
                             <button id="btn-datajud" type="button" class="btn btn-info w-100"
-                                    data-bs-toggle="tooltip" title="Busca o processo na base de dados do CNJ">
-                                <i class="bi bi-search me-1"></i> Buscar no CNJ
+                                    data-bs-toggle="tooltip" title="{{ 'processo.form.buscar_cnj_dica'|trans }}">
+                                <i class="bi bi-search me-1"></i> {{ 'processo.form.buscar_cnj'|trans }}
                             </button>
                         </div>
                         <div class="col-md-6">
                             <label for="siglaTribunal" class="form-label">
-                                Tribunal
+                                {{ 'processo.comum.tribunal'|trans }}
                             </label>
                             <input type="text" id="siglaTribunal" name="siglaTribunal" class="form-control"
                                    value="{{ processo.siglaTribunal ?? '' }}" readonly
-                                   placeholder="Detectado pelo número do processo">
-                            <div class="form-text">Preenchido automaticamente pelo número do processo.</div>
+                                   placeholder="{{ 'processo.form.tribunal_placeholder'|trans }}">
+                            <div class="form-text">{{ 'processo.form.tribunal_ajuda'|trans }}</div>
                         </div>
                         <div class="col-md-6">
                             <label for="orgaoJulgador" class="form-label">
-                                Órgão Julgador <span class="text-danger">*</span>
+                                {{ 'processo.comum.orgao_julgador'|trans }} <span class="text-danger">*</span>
                             </label>
                             <input type="text" id="orgaoJulgador" name="orgaoJulgador" class="form-control"
                                    value="{{ processo.orgaoJulgador ?? '' }}" required>
                         </div>
                         <div class="col-md-6">
                             <label for="classeProcessual" class="form-label">
-                                Classe Processual <span class="text-danger">*</span>
+                                {{ 'processo.comum.classe_processual'|trans }} <span class="text-danger">*</span>
                             </label>
                             <input type="text" id="classeProcessual" name="classeProcessual" class="form-control"
                                    value="{{ processo.classeProcessual ?? '' }}" required>
                         </div>
                         <div class="col-md-6">
                             <label for="assuntoProcessual" class="form-label">
-                                Assunto Processual <span class="text-danger">*</span>
+                                {{ 'processo.form.assunto_processual'|trans }} <span class="text-danger">*</span>
                             </label>
                             <input type="text" id="assuntoProcessual" name="assuntoProcessual" class="form-control"
                                    value="{{ processo.assuntoProcessual ?? '' }}" required>
                         </div>
                         <div class="col-md-4">
                             <label for="situacaoProcesso" class="form-label">
-                                Situação <span class="text-danger">*</span>
+                                {{ 'processo.comum.situacao'|trans }} <span class="text-danger">*</span>
                             </label>
                             <select id="situacaoProcesso" name="situacaoProcesso" class="form-select" required>
-                                <option value="EM_ANDAMENTO" {% if (processo.situacaoProcesso ?? 'EM_ANDAMENTO') == 'EM_ANDAMENTO' %}selected{% endif %}>Em Andamento</option>
-                                <option value="ENCERRADO" {% if (processo.situacaoProcesso ?? '') == 'ENCERRADO' %}selected{% endif %}>Encerrado</option>
-                                <option value="SUSPENSO" {% if (processo.situacaoProcesso ?? '') == 'SUSPENSO' %}selected{% endif %}>Suspenso</option>
-                                <option value="PARALISADO" {% if (processo.situacaoProcesso ?? '') == 'PARALISADO' %}selected{% endif %}>Paralisado</option>
+                                <option value="EM_ANDAMENTO" {% if (processo.situacaoProcesso ?? 'EM_ANDAMENTO') == 'EM_ANDAMENTO' %}selected{% endif %}>{{ 'processo.situacao.em_andamento'|trans }}</option>
+                                <option value="ENCERRADO" {% if (processo.situacaoProcesso ?? '') == 'ENCERRADO' %}selected{% endif %}>{{ 'processo.situacao.encerrado'|trans }}</option>
+                                <option value="SUSPENSO" {% if (processo.situacaoProcesso ?? '') == 'SUSPENSO' %}selected{% endif %}>{{ 'processo.situacao.suspenso'|trans }}</option>
+                                <option value="PARALISADO" {% if (processo.situacaoProcesso ?? '') == 'PARALISADO' %}selected{% endif %}>{{ 'processo.situacao.paralisado'|trans }}</option>
                             </select>
                         </div>
                         <div class="col-md-4">
                             <label for="instancia" class="form-label">
-                                Instância <span class="text-danger">*</span>
+                                {{ 'processo.comum.instancia'|trans }} <span class="text-danger">*</span>
                             </label>
                             <select id="instancia" name="instancia" class="form-select" required>
-                                <option value="G1" {% if (processo.instancia ?? 'G1') == 'G1' %}selected{% endif %}>G1 - Primeira Instância</option>
-                                <option value="G2" {% if (processo.instancia ?? '') == 'G2' %}selected{% endif %}>G2 - Segunda Instância</option>
-                                <option value="ST" {% if (processo.instancia ?? '') == 'ST' %}selected{% endif %}>ST - Superior Tribunal</option>
+                                <option value="G1" {% if (processo.instancia ?? 'G1') == 'G1' %}selected{% endif %}>{{ 'processo.form.instancia.g1'|trans }}</option>
+                                <option value="G2" {% if (processo.instancia ?? '') == 'G2' %}selected{% endif %}>{{ 'processo.form.instancia.g2'|trans }}</option>
+                                <option value="ST" {% if (processo.instancia ?? '') == 'ST' %}selected{% endif %}>{{ 'processo.form.instancia.st'|trans }}</option>
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label for="dataDistribuicao" class="form-label">Data de Distribuição</label>
+                            <label for="dataDistribuicao" class="form-label">{{ 'processo.form.data_distribuicao'|trans }}</label>
                             <input type="date" id="dataDistribuicao" name="dataDistribuicao" class="form-control"
                                    value="{{ processo.dataDistribuicao ? processo.dataDistribuicao|date('Y-m-d') : '' }}">
                         </div>
                         <div class="col-md-4">
-                            <label for="dataBaixa" class="form-label">Data de Baixa</label>
+                            <label for="dataBaixa" class="form-label">{{ 'processo.comum.data_baixa'|trans }}</label>
                             <input type="date" id="dataBaixa" name="dataBaixa" class="form-control"
                                    value="{{ processo.dataBaixa ? processo.dataBaixa|date('Y-m-d') : '' }}">
                         </div>
@@ -159,9 +159,9 @@
                 <div class="card card-outline card-success mb-0 border-top-0 rounded-top-0">
                 <div class="card-body">
                     <div class="col-md-8">
-                        <label for="cliente_id" class="form-label">Cliente vinculado</label>
+                        <label for="cliente_id" class="form-label">{{ 'processo.form.cliente_vinculado'|trans }}</label>
                         <select id="cliente_id" name="cliente_id" class="form-select select2-search">
-                            <option value="">Nenhum cliente</option>
+                            <option value="">{{ 'processo.form.nenhum_cliente'|trans }}</option>
                             {% for cliente in clientes %}
                                 <option value="{{ cliente.id }}"
                                     data-nome="{% if cliente.cpf is defined %}{{ cliente.nomeCompleto }}{% else %}{{ cliente.razaoSocial }}{% endif %}"
@@ -185,74 +185,76 @@
                 <div class="card card-outline card-warning mb-0 border-top-0 rounded-top-0">
                 <div class="card-header d-flex justify-content-between align-items-center border-top-0">
                     <button type="button" id="btn-add-parte" class="btn btn-sm btn-warning ms-auto">
-                        <i class="bi bi-plus-lg me-1"></i> Adicionar Parte
+                        <i class="bi bi-plus-lg me-1"></i> {{ 'processo.form.adicionar_parte'|trans }}
                     </button>
                 </div>
                 <div class="card-body">
                     <div id="partesContainer">
                         {% if isEdit and processo.partes|length > 0 %}
+                            {# O detector de texto fixo lê o ">" dentro do atributo como fim de tag; a conta fica aqui. #}
+                            {% set exibirRemover = processo.partes|length > 1 ? 'block' : 'none' %}
                             {% for parte in processo.partes %}
                                 <div class="parte-row card mb-2 p-3" style="position: relative;">
                                     <input type="hidden" name="partes[{{ loop.index0 }}][id]" value="{{ parte.id }}">
                                     <div class="row g-2">
                                         <div class="col-md-3">
-                                            <label class="form-label">Tipo</label>
+                                            <label class="form-label">{{ 'processo.comum.tipo'|trans }}</label>
                                             <select name="partes[{{ loop.index0 }}][tipo]" class="form-select">
-                                                <option value="PARTE" {% if parte.tipo == 'PARTE' %}selected{% endif %}>Parte</option>
-                                                <option value="ADVOGADO" {% if parte.tipo == 'ADVOGADO' %}selected{% endif %}>Advogado</option>
-                                                <option value="JUIZ" {% if parte.tipo == 'JUIZ' %}selected{% endif %}>Juiz</option>
-                                                <option value="PROMOTOR" {% if parte.tipo == 'PROMOTOR' %}selected{% endif %}>Promotor</option>
+                                                <option value="PARTE" {% if parte.tipo == 'PARTE' %}selected{% endif %}>{{ 'processo.form.parte.parte'|trans }}</option>
+                                                <option value="ADVOGADO" {% if parte.tipo == 'ADVOGADO' %}selected{% endif %}>{{ 'processo.form.parte.advogado'|trans }}</option>
+                                                <option value="JUIZ" {% if parte.tipo == 'JUIZ' %}selected{% endif %}>{{ 'processo.form.parte.juiz'|trans }}</option>
+                                                <option value="PROMOTOR" {% if parte.tipo == 'PROMOTOR' %}selected{% endif %}>{{ 'processo.form.parte.promotor'|trans }}</option>
                                             </select>
                                         </div>
                                         <div class="col-md-5">
-                                            <label class="form-label">Nome</label>
+                                            <label class="form-label">{{ 'processo.comum.nome'|trans }}</label>
                                             <input type="text" name="partes[{{ loop.index0 }}][nome]" class="form-control parte-nome"
-                                                   placeholder="Nome da parte" value="{{ parte.nome }}">
+                                                   placeholder="{{ 'processo.form.parte.nome_placeholder'|trans }}" value="{{ parte.nome }}">
                                         </div>
                                         <div class="col-md-2">
-                                            <label class="form-label">Documento</label>
+                                            <label class="form-label">{{ 'processo.comum.documento'|trans }}</label>
                                             <input type="text" name="partes[{{ loop.index0 }}][documento]" class="form-control"
-                                                   placeholder="CPF/CNPJ" value="{{ parte.documento ?: '' }}">
+                                                   placeholder="{{ 'processo.form.parte.documento_placeholder'|trans }}" value="{{ parte.documento ?: '' }}">
                                         </div>
                                         <div class="col-md-2">
-                                            <label class="form-label">Papel</label>
+                                            <label class="form-label">{{ 'processo.comum.papel'|trans }}</label>
                                             <input type="text" name="partes[{{ loop.index0 }}][papel]" class="form-control"
-                                                   placeholder="Polo ativo/passivo" value="{{ parte.papel ?: '' }}">
+                                                   placeholder="{{ 'processo.form.parte.papel_placeholder'|trans }}" value="{{ parte.papel ?: '' }}">
                                         </div>
                                     </div>
                                     <button type="button" class="btn btn-outline-danger btn-sm remove-parte"
-                                            style="display: {{ processo.partes|length > 1 ? 'block' : 'none' }}; position: absolute; top: 8px; right: 12px;"
-                                            title="Remover"><i class="bi bi-trash"></i></button>
+                                            style="display: {{ exibirRemover }}; position: absolute; top: 8px; right: 12px;"
+                                            title="{{ 'processo.form.remover'|trans }}"><i class="bi bi-trash"></i></button>
                                 </div>
                             {% endfor %}
                         {% else %}
                             <div class="parte-row card mb-2 p-3" style="position: relative;">
                                 <div class="row g-2">
                                     <div class="col-md-3">
-                                        <label class="form-label">Tipo</label>
+                                        <label class="form-label">{{ 'processo.comum.tipo'|trans }}</label>
                                         <select name="partes[0][tipo]" class="form-select">
-                                            <option value="PARTE">Parte</option>
-                                            <option value="ADVOGADO">Advogado</option>
-                                            <option value="JUIZ">Juiz</option>
-                                            <option value="PROMOTOR">Promotor</option>
+                                            <option value="PARTE">{{ 'processo.form.parte.parte'|trans }}</option>
+                                            <option value="ADVOGADO">{{ 'processo.form.parte.advogado'|trans }}</option>
+                                            <option value="JUIZ">{{ 'processo.form.parte.juiz'|trans }}</option>
+                                            <option value="PROMOTOR">{{ 'processo.form.parte.promotor'|trans }}</option>
                                         </select>
                                     </div>
                                     <div class="col-md-5">
-                                        <label class="form-label">Nome</label>
-                                        <input type="text" name="partes[0][nome]" class="form-control parte-nome" placeholder="Nome da parte">
+                                        <label class="form-label">{{ 'processo.comum.nome'|trans }}</label>
+                                        <input type="text" name="partes[0][nome]" class="form-control parte-nome" placeholder="{{ 'processo.form.parte.nome_placeholder'|trans }}">
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label">Documento</label>
-                                        <input type="text" name="partes[0][documento]" class="form-control" placeholder="CPF/CNPJ">
+                                        <label class="form-label">{{ 'processo.comum.documento'|trans }}</label>
+                                        <input type="text" name="partes[0][documento]" class="form-control" placeholder="{{ 'processo.form.parte.documento_placeholder'|trans }}">
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label">Papel</label>
-                                        <input type="text" name="partes[0][papel]" class="form-control" placeholder="Polo ativo/passivo">
+                                        <label class="form-label">{{ 'processo.comum.papel'|trans }}</label>
+                                        <input type="text" name="partes[0][papel]" class="form-control" placeholder="{{ 'processo.form.parte.papel_placeholder'|trans }}">
                                     </div>
                                 </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm remove-parte"
                                         style="display: none; position: absolute; top: 8px; right: 12px;"
-                                        title="Remover"><i class="bi bi-trash"></i></button>
+                                        title="{{ 'processo.form.remover'|trans }}"><i class="bi bi-trash"></i></button>
                             </div>
                         {% endif %}
                     </div>
@@ -265,67 +267,69 @@
                 <div class="card card-outline card-info mb-0 border-top-0 rounded-top-0">
                 <div class="card-header d-flex justify-content-between align-items-center border-top-0">
                     <button type="button" id="btn-add-movimentacao" class="btn btn-sm btn-info ms-auto">
-                        <i class="bi bi-plus-lg me-1"></i> Adicionar Movimentação
+                        <i class="bi bi-plus-lg me-1"></i> {{ 'processo.form.adicionar_movimentacao'|trans }}
                     </button>
                 </div>
                 <div class="card-body">
                     <div id="movimentacoesContainer">
                         {% if isEdit and processo.movimentacoes|length > 0 %}
+                            {# O detector de texto fixo lê o ">" dentro do atributo como fim de tag; a conta fica aqui. #}
+                            {% set exibirRemover = processo.movimentacoes|length > 1 ? 'block' : 'none' %}
                             {% set movimentacoesOrdenadas = processo.movimentacoes|sort((a, b) => b.dataMovimentacao <=> a.dataMovimentacao) %}
                             {% for mov in movimentacoesOrdenadas %}
                                 <div class="movimentacao-row card mb-2 p-3" style="position: relative;">
                                     <input type="hidden" name="movimentacoes[{{ loop.index0 }}][id]" value="{{ mov.id }}">
                                     <div class="row g-2">
                                         <div class="col-md-3">
-                                            <label class="form-label">Data</label>
+                                            <label class="form-label">{{ 'processo.comum.data'|trans }}</label>
                                             <input type="date" name="movimentacoes[{{ loop.index0 }}][dataMovimentacao]" class="form-control"
                                                    value="{{ mov.dataMovimentacao ? mov.dataMovimentacao|date('Y-m-d') : '' }}">
                                         </div>
                                         <div class="col-md-4">
-                                            <label class="form-label">Descrição</label>
+                                            <label class="form-label">{{ 'processo.comum.descricao'|trans }}</label>
                                             <input type="text" name="movimentacoes[{{ loop.index0 }}][descricao]" class="form-control mov-descricao"
-                                                   placeholder="Descrição da movimentação" value="{{ mov.descricao }}" required>
+                                                   placeholder="{{ 'processo.form.movimentacao.descricao_placeholder'|trans }}" value="{{ mov.descricao }}" required>
                                         </div>
                                         <div class="col-md-3">
-                                            <label class="form-label">Tipo</label>
+                                            <label class="form-label">{{ 'processo.comum.tipo'|trans }}</label>
                                             <input type="text" name="movimentacoes[{{ loop.index0 }}][tipo]" class="form-control"
-                                                   placeholder="Tipo de movimento" value="{{ mov.tipo ?: '' }}">
+                                                   placeholder="{{ 'processo.form.movimentacao.tipo_placeholder'|trans }}" value="{{ mov.tipo ?: '' }}">
                                         </div>
                                         <div class="col-md-2">
-                                            <label class="form-label">Órgão</label>
+                                            <label class="form-label">{{ 'processo.comum.orgao'|trans }}</label>
                                             <input type="text" name="movimentacoes[{{ loop.index0 }}][orgao]" class="form-control"
-                                                   placeholder="Órgão" value="{{ mov.orgao ?: '' }}">
+                                                   placeholder="{{ 'processo.comum.orgao'|trans }}" value="{{ mov.orgao ?: '' }}">
                                         </div>
                                     </div>
                                     <button type="button" class="btn btn-outline-danger btn-sm remove-movimentacao"
-                                            style="display: {{ processo.movimentacoes|length > 1 ? 'block' : 'none' }}; position: absolute; top: 8px; right: 12px;"
-                                            title="Remover"><i class="bi bi-trash"></i></button>
+                                            style="display: {{ exibirRemover }}; position: absolute; top: 8px; right: 12px;"
+                                            title="{{ 'processo.form.remover'|trans }}"><i class="bi bi-trash"></i></button>
                                 </div>
                             {% endfor %}
                         {% else %}
                             <div class="movimentacao-row card mb-2 p-3" style="position: relative;">
                                 <div class="row g-2">
                                     <div class="col-md-3">
-                                        <label class="form-label">Data</label>
+                                        <label class="form-label">{{ 'processo.comum.data'|trans }}</label>
                                         <input type="date" name="movimentacoes[0][dataMovimentacao]" class="form-control">
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="form-label">Descrição</label>
+                                        <label class="form-label">{{ 'processo.comum.descricao'|trans }}</label>
                                         <input type="text" name="movimentacoes[0][descricao]" class="form-control mov-descricao"
-                                               placeholder="Descrição da movimentação" required>
+                                               placeholder="{{ 'processo.form.movimentacao.descricao_placeholder'|trans }}" required>
                                     </div>
                                     <div class="col-md-3">
-                                        <label class="form-label">Tipo</label>
-                                        <input type="text" name="movimentacoes[0][tipo]" class="form-control" placeholder="Tipo de movimento">
+                                        <label class="form-label">{{ 'processo.comum.tipo'|trans }}</label>
+                                        <input type="text" name="movimentacoes[0][tipo]" class="form-control" placeholder="{{ 'processo.form.movimentacao.tipo_placeholder'|trans }}">
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label">Órgão</label>
-                                        <input type="text" name="movimentacoes[0][orgao]" class="form-control" placeholder="Órgão">
+                                        <label class="form-label">{{ 'processo.comum.orgao'|trans }}</label>
+                                        <input type="text" name="movimentacoes[0][orgao]" class="form-control" placeholder="{{ 'processo.comum.orgao'|trans }}">
                                     </div>
                                 </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm remove-movimentacao"
                                         style="display: none; position: absolute; top: 8px; right: 12px;"
-                                        title="Remover"><i class="bi bi-trash"></i></button>
+                                        title="{{ 'processo.form.remover'|trans }}"><i class="bi bi-trash"></i></button>
                             </div>
                         {% endif %}
                     </div>
@@ -337,49 +341,51 @@
             <div class="processo-tab-content" id="tab-proc-assuntos">
                 <div class="card card-outline card-primary mb-0 border-top-0 rounded-top-0">
                 <div class="card-header d-flex justify-content-between align-items-center border-top-0">
-                    <small class="text-muted">Todos os assuntos do processo (o assunto principal fica na aba Informações).</small>
+                    <small class="text-muted">{{ 'processo.form.assuntos_ajuda'|trans }}</small>
                     <button type="button" id="btn-add-assunto" class="btn btn-sm btn-primary ms-auto">
-                        <i class="bi bi-plus-lg me-1"></i> Adicionar Assunto
+                        <i class="bi bi-plus-lg me-1"></i> {{ 'processo.form.adicionar_assunto'|trans }}
                     </button>
                 </div>
                 <div class="card-body">
                     <div id="assuntosContainer">
                         {% if isEdit and processo.assuntos|length > 0 %}
+                            {# O detector de texto fixo lê o ">" dentro do atributo como fim de tag; a conta fica aqui. #}
+                            {% set exibirRemover = processo.assuntos|length > 1 ? 'block' : 'none' %}
                             {% for assunto in processo.assuntos %}
                                 <div class="assunto-row card mb-2 p-3" style="position: relative;">
                                     <input type="hidden" name="assuntos[{{ loop.index0 }}][id]" value="{{ assunto.id }}">
                                     <div class="row g-2">
                                         <div class="col-md-9">
-                                            <label class="form-label">Assunto</label>
+                                            <label class="form-label">{{ 'processo.form.assunto.assunto'|trans }}</label>
                                             <input type="text" name="assuntos[{{ loop.index0 }}][nome]" class="form-control assunto-nome"
-                                                   placeholder="Descrição do assunto" value="{{ assunto.nome }}">
+                                                   placeholder="{{ 'processo.form.assunto.nome_placeholder'|trans }}" value="{{ assunto.nome }}">
                                         </div>
                                         <div class="col-md-3">
-                                            <label class="form-label">Código (TPU)</label>
+                                            <label class="form-label">{{ 'processo.form.assunto.codigo'|trans }}</label>
                                             <input type="number" name="assuntos[{{ loop.index0 }}][codigo]" class="form-control"
-                                                   placeholder="Ex.: 10433" value="{{ assunto.codigo }}">
+                                                   placeholder="{{ 'processo.form.assunto.codigo_placeholder'|trans }}" value="{{ assunto.codigo }}">
                                         </div>
                                     </div>
                                     <button type="button" class="btn btn-outline-danger btn-sm remove-assunto"
-                                            style="display: {{ processo.assuntos|length > 1 ? 'block' : 'none' }}; position: absolute; top: 8px; right: 12px;"
-                                            title="Remover"><i class="bi bi-trash"></i></button>
+                                            style="display: {{ exibirRemover }}; position: absolute; top: 8px; right: 12px;"
+                                            title="{{ 'processo.form.remover'|trans }}"><i class="bi bi-trash"></i></button>
                                 </div>
                             {% endfor %}
                         {% else %}
                             <div class="assunto-row card mb-2 p-3" style="position: relative;">
                                 <div class="row g-2">
                                     <div class="col-md-9">
-                                        <label class="form-label">Assunto</label>
-                                        <input type="text" name="assuntos[0][nome]" class="form-control assunto-nome" placeholder="Descrição do assunto">
+                                        <label class="form-label">{{ 'processo.form.assunto.assunto'|trans }}</label>
+                                        <input type="text" name="assuntos[0][nome]" class="form-control assunto-nome" placeholder="{{ 'processo.form.assunto.nome_placeholder'|trans }}">
                                     </div>
                                     <div class="col-md-3">
-                                        <label class="form-label">Código (TPU)</label>
-                                        <input type="number" name="assuntos[0][codigo]" class="form-control" placeholder="Ex.: 10433">
+                                        <label class="form-label">{{ 'processo.form.assunto.codigo'|trans }}</label>
+                                        <input type="number" name="assuntos[0][codigo]" class="form-control" placeholder="{{ 'processo.form.assunto.codigo_placeholder'|trans }}">
                                     </div>
                                 </div>
                                 <button type="button" class="btn btn-outline-danger btn-sm remove-assunto"
                                         style="display: none; position: absolute; top: 8px; right: 12px;"
-                                        title="Remover"><i class="bi bi-trash"></i></button>
+                                        title="{{ 'processo.form.remover'|trans }}"><i class="bi bi-trash"></i></button>
                             </div>
                         {% endif %}
                     </div>
@@ -391,11 +397,11 @@
             <div class="d-flex justify-content-between mb-4">
                 <a href="{{ isEdit ? path('processo_show', {id: processo.id}) : path('processo_index') }}"
                    class="btn btn-secondary">
-                    <i class="bi bi-x-lg me-1"></i> Cancelar
+                    <i class="bi bi-x-lg me-1"></i> {{ 'processo.form.cancelar'|trans }}
                 </a>
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-check-lg me-1"></i>
-                    {{ isEdit ? 'Salvar Alterações' : 'Criar Processo' }}
+                    {{ isEdit ? 'processo.form.salvar'|trans : 'processo.form.criar'|trans }}
                 </button>
             </div>
 
@@ -409,9 +415,9 @@
         <div class="modal-content">
             <div class="modal-body text-center py-4">
                 <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Buscando...</span>
+                    <span class="visually-hidden">{{ 'processo.form.buscando'|trans }}</span>
                 </div>
-                <p class="mt-3">Buscando processo no DataJud...</p>
+                <p class="mt-3">{{ 'processo.form.buscando_datajud'|trans }}</p>
             </div>
         </div>
     </div>
@@ -422,8 +428,8 @@
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <div id="feedbackHeader" class="modal-header bg-secondary text-white">
-                <h5 id="feedbackTitle" class="modal-title">Mensagem</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 id="feedbackTitle" class="modal-title">{{ 'processo.form.mensagem'|trans }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{{ 'processo.form.close'|trans }}"></button>
             </div>
             <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
                 <p id="feedbackMessage" class="mb-0"></p>
@@ -466,8 +472,14 @@
 
 {% block javascripts %}
 {{ parent() }}
+{{ catalogo_js('processo.form.js') }}
 <script>
 $(document).ready(function () {
+
+    // Texto do catálogo que entra em HTML montado (rótulo, placeholder, title).
+    function esc(texto) {
+        return String(texto).replace(/[&<>\x22\x27]/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; });
+    }
 
     // ── Alternância de abas do processo ──
     document.querySelectorAll('.processo-tab').forEach(function(tab) {
@@ -483,9 +495,9 @@ $(document).ready(function () {
     // Select2 para cliente
     $('.select2-search').select2({
         width: '100%',
-        placeholder: 'Nenhum cliente',
+        placeholder: BJ_T.t('processo.form.js.nenhum_cliente'),
         allowClear: true,
-        language: { noResults: function() { return 'Nenhum cliente encontrado'; } }
+        language: { noResults: function() { return BJ_T.t('processo.form.js.nenhum_cliente_encontrado'); } }
     });
 
     // Tribunal é campo somente-leitura, derivado do número do processo (padrão CNJ).
@@ -498,29 +510,29 @@ $(document).ready(function () {
             <div class="parte-row card mb-2 p-3" style="position: relative;">
                 <div class="row g-2">
                     <div class="col-md-3">
-                        <label class="form-label">Tipo</label>
+                        <label class="form-label">${esc(BJ_T.t('processo.form.js.tipo'))}</label>
                         <select name="partes[${index}][tipo]" class="form-select">
-                            <option value="PARTE">Parte</option>
-                            <option value="ADVOGADO">Advogado</option>
-                            <option value="JUIZ">Juiz</option>
-                            <option value="PROMOTOR">Promotor</option>
+                            <option value="PARTE">${esc(BJ_T.t('processo.form.js.parte.parte'))}</option>
+                            <option value="ADVOGADO">${esc(BJ_T.t('processo.form.js.parte.advogado'))}</option>
+                            <option value="JUIZ">${esc(BJ_T.t('processo.form.js.parte.juiz'))}</option>
+                            <option value="PROMOTOR">${esc(BJ_T.t('processo.form.js.parte.promotor'))}</option>
                         </select>
                     </div>
                     <div class="col-md-5">
-                        <label class="form-label">Nome</label>
-                        <input type="text" name="partes[${index}][nome]" class="form-control parte-nome" placeholder="Nome da parte">
+                        <label class="form-label">${esc(BJ_T.t('processo.form.js.nome'))}</label>
+                        <input type="text" name="partes[${index}][nome]" class="form-control parte-nome" placeholder="${esc(BJ_T.t('processo.form.js.parte.nome_placeholder'))}">
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label">Documento</label>
-                        <input type="text" name="partes[${index}][documento]" class="form-control" placeholder="CPF/CNPJ">
+                        <label class="form-label">${esc(BJ_T.t('processo.form.js.documento'))}</label>
+                        <input type="text" name="partes[${index}][documento]" class="form-control" placeholder="${esc(BJ_T.t('processo.form.js.parte.documento_placeholder'))}">
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label">Papel</label>
-                        <input type="text" name="partes[${index}][papel]" class="form-control" placeholder="Polo ativo/passivo">
+                        <label class="form-label">${esc(BJ_T.t('processo.form.js.papel'))}</label>
+                        <input type="text" name="partes[${index}][papel]" class="form-control" placeholder="${esc(BJ_T.t('processo.form.js.parte.papel_placeholder'))}">
                     </div>
                 </div>
                 <button type="button" class="btn btn-outline-danger btn-sm remove-parte"
-                        style="position: absolute; top: 8px; right: 12px;" title="Remover">
+                        style="position: absolute; top: 8px; right: 12px;" title="${esc(BJ_T.t('processo.form.js.remover'))}">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
@@ -551,25 +563,25 @@ $(document).ready(function () {
             <div class="movimentacao-row card mb-2 p-3" style="position: relative;">
                 <div class="row g-2">
                     <div class="col-md-3">
-                        <label class="form-label">Data</label>
+                        <label class="form-label">${esc(BJ_T.t('processo.form.js.data'))}</label>
                         <input type="date" name="movimentacoes[${index}][dataMovimentacao]" class="form-control">
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">Descrição</label>
+                        <label class="form-label">${esc(BJ_T.t('processo.form.js.descricao'))}</label>
                         <input type="text" name="movimentacoes[${index}][descricao]" class="form-control mov-descricao"
-                               placeholder="Descrição da movimentação" required>
+                               placeholder="${esc(BJ_T.t('processo.form.js.movimentacao.descricao_placeholder'))}" required>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Tipo</label>
-                        <input type="text" name="movimentacoes[${index}][tipo]" class="form-control" placeholder="Tipo de movimento">
+                        <label class="form-label">${esc(BJ_T.t('processo.form.js.tipo'))}</label>
+                        <input type="text" name="movimentacoes[${index}][tipo]" class="form-control" placeholder="${esc(BJ_T.t('processo.form.js.movimentacao.tipo_placeholder'))}">
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label">Órgão</label>
-                        <input type="text" name="movimentacoes[${index}][orgao]" class="form-control" placeholder="Órgão">
+                        <label class="form-label">${esc(BJ_T.t('processo.form.js.orgao'))}</label>
+                        <input type="text" name="movimentacoes[${index}][orgao]" class="form-control" placeholder="${esc(BJ_T.t('processo.form.js.orgao'))}">
                     </div>
                 </div>
                 <button type="button" class="btn btn-outline-danger btn-sm remove-movimentacao"
-                        style="position: absolute; top: 8px; right: 12px;" title="Remover">
+                        style="position: absolute; top: 8px; right: 12px;" title="${esc(BJ_T.t('processo.form.js.remover'))}">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
@@ -601,16 +613,16 @@ $(document).ready(function () {
             <div class="assunto-row card mb-2 p-3" style="position: relative;">
                 <div class="row g-2">
                     <div class="col-md-9">
-                        <label class="form-label">Assunto</label>
-                        <input type="text" name="assuntos[${index}][nome]" class="form-control assunto-nome" placeholder="Descrição do assunto">
+                        <label class="form-label">${esc(BJ_T.t('processo.form.js.assunto.assunto'))}</label>
+                        <input type="text" name="assuntos[${index}][nome]" class="form-control assunto-nome" placeholder="${esc(BJ_T.t('processo.form.js.assunto.nome_placeholder'))}">
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Código (TPU)</label>
-                        <input type="number" name="assuntos[${index}][codigo]" class="form-control" placeholder="Ex.: 10433">
+                        <label class="form-label">${esc(BJ_T.t('processo.form.js.assunto.codigo'))}</label>
+                        <input type="number" name="assuntos[${index}][codigo]" class="form-control" placeholder="${esc(BJ_T.t('processo.form.js.assunto.codigo_placeholder'))}">
                     </div>
                 </div>
                 <button type="button" class="btn btn-outline-danger btn-sm remove-assunto"
-                        style="position: absolute; top: 8px; right: 12px;" title="Remover">
+                        style="position: absolute; top: 8px; right: 12px;" title="${esc(BJ_T.t('processo.form.js.remover'))}">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
@@ -674,9 +686,9 @@ $(document).ready(function () {
         const titleElement = document.getElementById('feedbackTitle');
         const messageElement = document.getElementById('feedbackMessage');
         const styles = {
-            success: { title: 'Sucesso', headerClass: 'modal-header bg-success text-white' },
-            warning: { title: 'Atenção', headerClass: 'modal-header bg-warning text-dark' },
-            error:   { title: 'Erro',    headerClass: 'modal-header bg-danger text-white' }
+            success: { title: BJ_T.t('processo.form.js.sucesso'), headerClass: 'modal-header bg-success text-white' },
+            warning: { title: BJ_T.t('processo.form.js.atencao'), headerClass: 'modal-header bg-warning text-dark' },
+            error:   { title: BJ_T.t('processo.form.js.erro'), headerClass: 'modal-header bg-danger text-white' }
         };
         const selectedStyle = styles[type] ?? styles.error;
         headerElement.className = selectedStyle.headerClass;
@@ -691,7 +703,7 @@ $(document).ready(function () {
         btnDataJud.addEventListener('click', async function(e) {
             e.preventDefault();
             const numeroProcesso = document.getElementById('numeroProcesso').value;
-            if (!numeroProcesso) { showFeedbackModal('warning', 'Informe o número do processo.'); return; }
+            if (!numeroProcesso) { showFeedbackModal('warning', esc(BJ_T.t('processo.form.js.informe_numero'))); return; }
 
             const modal = new bootstrap.Modal(document.getElementById('loadingModal'));
             modal.show();
@@ -707,7 +719,7 @@ $(document).ready(function () {
                 modal.hide();
 
                 if (!response.ok || !data.success) {
-                    showFeedbackModal('error', data.error || 'Erro ao buscar processo no CNJ/DataJud.');
+                    showFeedbackModal('error', data.error || esc(BJ_T.t('processo.form.js.erro_busca')));
                     return;
                 }
 
@@ -740,33 +752,33 @@ $(document).ready(function () {
                         <div class="parte-row card mb-2 p-3" style="position: relative;">
                             <div class="row g-2">
                                 <div class="col-md-3">
-                                    <label class="form-label">Tipo</label>
+                                    <label class="form-label">${esc(BJ_T.t('processo.form.js.tipo'))}</label>
                                     <select name="partes[${idx}][tipo]" class="form-select">
-                                        <option value="PARTE" ${(parte.tipo||'') === 'PARTE' ? 'selected' : ''}>Parte</option>
-                                        <option value="ADVOGADO" ${(parte.tipo||'') === 'ADVOGADO' ? 'selected' : ''}>Advogado</option>
-                                        <option value="JUIZ" ${(parte.tipo||'') === 'JUIZ' ? 'selected' : ''}>Juiz</option>
-                                        <option value="PROMOTOR" ${(parte.tipo||'') === 'PROMOTOR' ? 'selected' : ''}>Promotor</option>
+                                        <option value="PARTE" ${(parte.tipo||'') === 'PARTE' ? 'selected' : ''}>${esc(BJ_T.t('processo.form.js.parte.parte'))}</option>
+                                        <option value="ADVOGADO" ${(parte.tipo||'') === 'ADVOGADO' ? 'selected' : ''}>${esc(BJ_T.t('processo.form.js.parte.advogado'))}</option>
+                                        <option value="JUIZ" ${(parte.tipo||'') === 'JUIZ' ? 'selected' : ''}>${esc(BJ_T.t('processo.form.js.parte.juiz'))}</option>
+                                        <option value="PROMOTOR" ${(parte.tipo||'') === 'PROMOTOR' ? 'selected' : ''}>${esc(BJ_T.t('processo.form.js.parte.promotor'))}</option>
                                     </select>
                                 </div>
                                 <div class="col-md-5">
-                                    <label class="form-label">Nome</label>
+                                    <label class="form-label">${esc(BJ_T.t('processo.form.js.nome'))}</label>
                                     <input type="text" name="partes[${idx}][nome]" class="form-control parte-nome"
-                                           value="${parte.nome || ''}" placeholder="Nome da parte">
+                                           value="${parte.nome || ''}" placeholder="${esc(BJ_T.t('processo.form.js.parte.nome_placeholder'))}">
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label">Documento</label>
+                                    <label class="form-label">${esc(BJ_T.t('processo.form.js.documento'))}</label>
                                     <input type="text" name="partes[${idx}][documento]" class="form-control"
-                                           value="${parte.documento || ''}" placeholder="CPF/CNPJ">
+                                           value="${parte.documento || ''}" placeholder="${esc(BJ_T.t('processo.form.js.parte.documento_placeholder'))}">
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label">Papel</label>
+                                    <label class="form-label">${esc(BJ_T.t('processo.form.js.papel'))}</label>
                                     <input type="text" name="partes[${idx}][papel]" class="form-control"
-                                           value="${parte.papel || ''}" placeholder="Polo ativo/passivo">
+                                           value="${parte.papel || ''}" placeholder="${esc(BJ_T.t('processo.form.js.parte.papel_placeholder'))}">
                                 </div>
                             </div>
                             <button type="button" class="btn btn-outline-danger btn-sm remove-parte"
                                     style="display: ${partesList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
-                                    title="Remover"><i class="bi bi-trash"></i></button>
+                                    title="${esc(BJ_T.t('processo.form.js.remover'))}"><i class="bi bi-trash"></i></button>
                         </div>
                     `);
                 });
@@ -779,29 +791,29 @@ $(document).ready(function () {
                         <div class="movimentacao-row card mb-2 p-3" style="position: relative;">
                             <div class="row g-2">
                                 <div class="col-md-3">
-                                    <label class="form-label">Data</label>
+                                    <label class="form-label">${esc(BJ_T.t('processo.form.js.data'))}</label>
                                     <input type="date" name="movimentacoes[${idx}][dataMovimentacao]" class="form-control"
                                            value="${mov.dataMovimentacao || ''}">
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label">Descrição</label>
+                                    <label class="form-label">${esc(BJ_T.t('processo.form.js.descricao'))}</label>
                                     <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control mov-descricao"
-                                           value="${mov.descricao || ''}" placeholder="Descrição da movimentação" required>
+                                           value="${mov.descricao || ''}" placeholder="${esc(BJ_T.t('processo.form.js.movimentacao.descricao_placeholder'))}" required>
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label">Tipo</label>
+                                    <label class="form-label">${esc(BJ_T.t('processo.form.js.tipo'))}</label>
                                     <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control"
-                                           value="${mov.tipo || ''}" placeholder="Tipo de movimento">
+                                           value="${mov.tipo || ''}" placeholder="${esc(BJ_T.t('processo.form.js.movimentacao.tipo_placeholder'))}">
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label">Órgão</label>
+                                    <label class="form-label">${esc(BJ_T.t('processo.form.js.orgao'))}</label>
                                     <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control"
-                                           value="${mov.orgao || ''}" placeholder="Órgão">
+                                           value="${mov.orgao || ''}" placeholder="${esc(BJ_T.t('processo.form.js.orgao'))}">
                                 </div>
                             </div>
                             <button type="button" class="btn btn-outline-danger btn-sm remove-movimentacao"
                                     style="display: ${movsList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
-                                    title="Remover"><i class="bi bi-trash"></i></button>
+                                    title="${esc(BJ_T.t('processo.form.js.remover'))}"><i class="bi bi-trash"></i></button>
                         </div>
                     `);
                 });
@@ -814,19 +826,19 @@ $(document).ready(function () {
                         <div class="assunto-row card mb-2 p-3" style="position: relative;">
                             <div class="row g-2">
                                 <div class="col-md-9">
-                                    <label class="form-label">Assunto</label>
+                                    <label class="form-label">${esc(BJ_T.t('processo.form.js.assunto.assunto'))}</label>
                                     <input type="text" name="assuntos[${idx}][nome]" class="form-control assunto-nome"
-                                           value="${assunto.nome || ''}" placeholder="Descrição do assunto">
+                                           value="${assunto.nome || ''}" placeholder="${esc(BJ_T.t('processo.form.js.assunto.nome_placeholder'))}">
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label">Código (TPU)</label>
+                                    <label class="form-label">${esc(BJ_T.t('processo.form.js.assunto.codigo'))}</label>
                                     <input type="number" name="assuntos[${idx}][codigo]" class="form-control"
-                                           value="${assunto.codigo ?? ''}" placeholder="Ex.: 10433">
+                                           value="${assunto.codigo ?? ''}" placeholder="${esc(BJ_T.t('processo.form.js.assunto.codigo_placeholder'))}">
                                 </div>
                             </div>
                             <button type="button" class="btn btn-outline-danger btn-sm remove-assunto"
                                     style="display: ${assuntosList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
-                                    title="Remover"><i class="bi bi-trash"></i></button>
+                                    title="${esc(BJ_T.t('processo.form.js.remover'))}"><i class="bi bi-trash"></i></button>
                         </div>
                     `);
                 });
@@ -835,11 +847,11 @@ $(document).ready(function () {
                 attachRemoveMovimentacaoListener();
                 attachRemoveAssuntoListener();
                 sortarMovimentacoesPorData();
-                showFeedbackModal('success', 'Processo carregado com sucesso! Os dados foram preenchidos no formulário. Você pode editá-los antes de salvar.');
+                showFeedbackModal('success', esc(BJ_T.t('processo.form.js.carregado')));
 
             } catch (error) {
                 document.getElementById('loadingModal') && bootstrap.Modal.getInstance(document.getElementById('loadingModal'))?.hide();
-                showFeedbackModal('error', 'Erro ao buscar processo no CNJ/DataJud. Tente novamente em instantes.');
+                showFeedbackModal('error', esc(BJ_T.t('processo.form.js.erro_busca_tente')));
             }
         });
     }
