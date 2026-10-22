@@ -9,7 +9,7 @@
    Contexto: `pasta`, `cad` (CadeadoNaTelaOutput).
    ============================================================================ #}
 
-{% block title %}Pasta {{ pasta.nup }}{% endblock %}
+{% block title %}{{ 'pasta_avisos.trancada.titulo'|trans({pasta: pasta.nup ~ ''}) }}{% endblock %}
 
 {% block body_class %}ps-body{% endblock %}
 
@@ -26,10 +26,10 @@
     <header class="ps-card ps-cabecalho">
         <div class="ps-cab-linha1">
             <div class="ps-cab-identidade">
-                <a href="{{ path('expediente_index') }}" class="ps-btn ps-btn--voltar ps-cab-voltar" title="Voltar à lista de pastas">
-                    <i class="bi bi-arrow-left"></i><span>Voltar</span>
+                <a href="{{ path('expediente_index') }}" class="ps-btn ps-btn--voltar ps-cab-voltar" title="{{ 'pasta_avisos.trancada.voltar_dica'|trans }}">
+                    <i class="bi bi-arrow-left"></i><span>{{ 'pasta_avisos.trancada.voltar'|trans }}</span>
                 </a>
-                <span class="ps-cab-nup"><span>PASTA</span> <span class="ps-num">{{ pasta.nup }}</span></span>
+                <span class="ps-cab-nup"><span>{{ 'termos.pasta'|trans|upper }}</span> <span class="ps-num">{{ pasta.nup }}</span></span>
             </div>
         </div>
         <div class="ps-cab-cliente" data-cad-ate="1">
@@ -42,7 +42,7 @@
                         {%- elseif pasta.nomeCliente -%}
                             {{ pasta.nomeCliente }}
                         {%- else -%}
-                            <span class="ps-dado--vazio">Cliente não informado</span>
+                            <span class="ps-dado--vazio">{{ 'pasta_avisos.trancada.cliente_nao_informado'|trans }}</span>
                         {%- endif -%}
                     </h1>
                 </div>
@@ -58,18 +58,18 @@
         <div style="position:absolute;left:0;right:0;top:0;bottom:0;z-index:40;background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(234,238,241,.99) 220px);backdrop-filter:blur(6px);display:flex;justify-content:center;padding:28px 16px">
             <div style="position:sticky;top:90px;align-self:flex-start;max-width:440px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
                 <span data-cad-onda>{{ include('pasta/_cadeado_icone.html.twig', {px: 92, ondas: true}) }}</span>
-                <span style="font-size:17px;font-weight:700;color:#12242f">Pasta trancada</span>
-                <span style="font-size:13.5px;line-height:1.55;color:#4f6878;text-wrap:pretty">O usuário primário restringiu o acesso a esta pasta. Você vê apenas o nome do cliente e o CPF. Se precisar trabalhar nela, peça a liberação ao usuário primário.</span>
+                <span style="font-size:17px;font-weight:700;color:#12242f">{{ 'pasta_avisos.trancada.titulo_veu'|trans }}</span>
+                <span style="font-size:13.5px;line-height:1.55;color:#4f6878;text-wrap:pretty">{{ 'pasta_avisos.trancada.texto'|trans }}</span>
                 {% if cad.podePedir %}
                     <form method="post" action="{{ path('pasta_acesso_pedir', {id: pasta.id}) }}" style="display:contents">
                         <input type="hidden" name="_token" value="{{ csrf_token('pasta_acesso_' ~ pasta.id) }}">
                         <input type="hidden" name="nivel" value="editar">
-                        <textarea name="motivo" maxlength="300" placeholder="Motivo (opcional)" rows="2" style="width:min(360px,100%);box-sizing:border-box;padding:9px 11px;border:none;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px #d8e2e8;font-family:inherit;font-size:13px;color:#243845;resize:none;outline:none"></textarea>
-                        <button type="submit" style="display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 18px;border:none;border-radius:4px;background:#0a7aad;color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;transition:background .15s"><i class="bi bi-send"></i>Pedir acesso ao primário</button>
+                        <textarea name="motivo" maxlength="300" placeholder="{{ 'pasta_avisos.trancada.motivo'|trans }}" rows="2" style="width:min(360px,100%);box-sizing:border-box;padding:9px 11px;border:none;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px #d8e2e8;font-family:inherit;font-size:13px;color:#243845;resize:none;outline:none"></textarea>
+                        <button type="submit" style="display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 18px;border:none;border-radius:4px;background:#0a7aad;color:#fff;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;transition:background .15s"><i class="bi bi-send"></i>{{ 'pasta_avisos.trancada.pedir'|trans }}</button>
                     </form>
                 {% endif %}
                 {% if cad.aguardando %}
-                    <span style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:4px;background:#eef5fa;color:#0b5f86;font-size:13px;font-weight:600"><i class="bi bi-hourglass-split"></i>Pedido enviado às {{ cad.horaDoPedido }}. Aguardando o usuário primário.</span>
+                    <span style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:4px;background:#eef5fa;color:#0b5f86;font-size:13px;font-weight:600"><i class="bi bi-hourglass-split"></i>{{ 'pasta_avisos.trancada.aguardando'|trans({hora: cad.horaDoPedido ~ ''}) }}</span>
                 {% endif %}
                 {% if cad.recusado %}
                     <span style="font-size:12.5px;color:#a3232b">{{ cad.recusadoTexto }}</span>

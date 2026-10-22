@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ board.nome }} | Kanban{% endblock %}
+{% block title %}{{ 'kanban.mural.titulo_aba'|trans({nome: board.nome}) }}{% endblock %}
 
 {% block stylesheets %}
 <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet" crossorigin="anonymous">
@@ -283,7 +283,7 @@
             <div class="kb-board-dot"></div>
             <div>
                 <div class="kb-board-breadcrumb">
-                    <a href="{{ path('kanban_index') }}">Kanban</a> /
+                    <a href="{{ path('kanban_index') }}">{{ 'kanban.nome'|trans }}</a> /
                 </div>
                 <h1 class="kb-board-title">{{ board.nome }}</h1>
             </div>
@@ -320,9 +320,9 @@
 
             {# Formulário inline "adicionar card" #}
             <div class="kb-add-card-form" id="formAddCard-{{ coluna.id }}">
-                <textarea placeholder="Título do card..." rows="2" id="inputAddCard-{{ coluna.id }}"></textarea>
+                <textarea placeholder="{{ 'kanban.mural.titulo_card_placeholder'|trans }}" rows="2" id="inputAddCard-{{ coluna.id }}"></textarea>
                 <div class="kb-add-card-actions">
-                    <button class="btn btn-primary btn-sm" onclick="adicionarCard({{ coluna.id }})">Adicionar</button>
+                    <button class="btn btn-primary btn-sm" onclick="adicionarCard({{ coluna.id }})">{{ 'kanban.mural.adicionar'|trans }}</button>
                     <button class="btn btn-secondary btn-sm" onclick="cancelarAdd({{ coluna.id }})">
                         <i class="bi bi-x"></i>
                     </button>
@@ -330,7 +330,7 @@
             </div>
 
             <button class="kb-add-card-btn" onclick="mostrarFormAdd({{ coluna.id }})" id="btnAdd-{{ coluna.id }}">
-                <i class="bi bi-plus"></i> Adicionar card
+                <i class="bi bi-plus"></i> {{ 'kanban.mural.adicionar_card'|trans }}
             </button>
         </div>
         {% endfor %}
@@ -362,21 +362,21 @@
     <div class="modal-dialog modal-dialog-centered" style="max-width:400px;">
         <div class="modal-content">
             <div class="modal-header py-2">
-                <h6 class="modal-title"><i class="bi bi-check-square me-1 text-primary"></i> Nova Checklist</h6>
+                <h6 class="modal-title"><i class="bi bi-check-square me-1 text-primary"></i> {{ 'kanban.modal_checklist.titulo'|trans }}</h6>
                 <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body py-3">
-                <label class="form-label form-label-sm fw-semibold" for="checklistTituloInput">Título</label>
+                <label class="form-label form-label-sm fw-semibold" for="checklistTituloInput">{{ 'kanban.modal_checklist.campo_titulo'|trans }}</label>
                 <input type="text" class="form-control form-control-sm" id="checklistTituloInput"
-                       placeholder="Ex.: Documentos necessários"
+                       placeholder="{{ 'kanban.modal_checklist.placeholder'|trans }}"
                        maxlength="255"
                        autocomplete="off">
                 <div id="checklistTituloErro" class="text-danger small mt-1" style="display:none;"></div>
             </div>
             <div class="modal-footer py-2">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'kanban.comum.cancelar'|trans }}</button>
                 <button type="button" class="btn btn-primary btn-sm" id="btnConfirmarChecklist">
-                    <i class="bi bi-plus-lg me-1"></i> Criar
+                    <i class="bi bi-plus-lg me-1"></i> {{ 'kanban.comum.criar'|trans }}
                 </button>
             </div>
         </div>
@@ -388,7 +388,7 @@
     <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
         <div class="modal-content">
             <div class="modal-header py-2">
-                <h6 class="modal-title"><i class="bi bi-gear me-1"></i> Configurações do Mural</h6>
+                <h6 class="modal-title"><i class="bi bi-gear me-1"></i> {{ 'kanban.modal_editar.titulo'|trans }}</h6>
                 <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
             </div>
             <form id="formEditarBoard" method="post" action="{{ path('kanban_board_editar', {id: board.id}) }}">
@@ -397,11 +397,11 @@
                     {{ form_row(formEdit.descricao, {attr: {class: 'form-control form-control-sm', rows: 2}}) }}
 
                     <div class="mb-3">
-                        <label class="form-label form-label-sm fw-semibold">Participantes</label>
+                        <label class="form-label form-label-sm fw-semibold">{{ 'kanban.comum.participantes'|trans }}</label>
                         <select id="editParticipantesSelect" name="participantesIds[]" multiple class="form-select form-select-sm" style="width:100%;">
-                            {% for usuario in usuarios %}
+                            {% for usuario in usuarios %}{% set participa = board.participantes|filter(p => p.id == usuario.id)|length > 0 %}
                                 <option value="{{ usuario.id }}"
-                                    {% if board.participantes|filter(p => p.id == usuario.id)|length > 0 %}selected{% endif %}>
+                                    {% if participa %}selected{% endif %}>
                                     {{ usuario.fullName ?? usuario.email }}
                                 </option>
                             {% endfor %}
@@ -410,10 +410,10 @@
 
                     <hr>
                     <div>
-                        <p class="text-danger small mb-2"><i class="bi bi-exclamation-triangle me-1"></i> Zona de perigo</p>
+                        <p class="text-danger small mb-2"><i class="bi bi-exclamation-triangle me-1"></i> {{ 'kanban.modal_editar.zona_de_perigo'|trans }}</p>
                         <button type="button" class="btn btn-outline-danger btn-sm"
                                 onclick="excluirBoard({{ board.id }}, '{{ csrf_token('kanban_board_excluir_' ~ board.id) }}')">
-                            <i class="bi bi-trash me-1"></i> Excluir mural
+                            <i class="bi bi-trash me-1"></i> {{ 'kanban.modal_editar.excluir_mural'|trans }}
                         </button>
                     </div>
 
@@ -421,9 +421,9 @@
                     <div id="editarBoardErro" class="text-danger small mt-2" style="display:none;"></div>
                 </div>
                 <div class="modal-footer py-2">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'kanban.comum.cancelar'|trans }}</button>
                     <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="bi bi-check-lg me-1"></i> Salvar
+                        <i class="bi bi-check-lg me-1"></i> {{ 'kanban.comum.salvar'|trans }}
                     </button>
                 </div>
             </form>
@@ -436,6 +436,7 @@
 {% block javascripts %}
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" crossorigin="anonymous"></script>
+{{ catalogo_js('kanban.js') }}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     // ── Drag-and-drop ──
@@ -503,7 +504,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             })
             .catch(function () {
-                body.innerHTML = '<div class="alert alert-danger">Erro ao carregar o card.</div>';
+                var alerta = document.createElement('div');
+                alerta.className = 'alert alert-danger';
+                alerta.textContent = BJ_T.t('kanban.js.erro_carregar_card');
+                body.replaceChildren(alerta);
             });
     });
 
@@ -561,7 +565,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Excluir board ──
     window.excluirBoard = function (boardId, csrfToken) {
-        if (!confirm('Tem certeza que deseja excluir este mural? Todos os cards serão removidos permanentemente.')) return;
+        if (!confirm(BJ_T.t('kanban.js.confirmar_excluir_mural'))) return;
 
         const data = new FormData();
         data.append('_token', csrfToken);
@@ -578,7 +582,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (formEditar) {
         if (typeof $.fn !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
             $('#editParticipantesSelect').select2({
-                placeholder: 'Selecionar participantes...',
+                placeholder: BJ_T.t('kanban.js.selecionar_participantes'),
                 allowClear: true,
                 width: '100%',
                 dropdownParent: $('#modalEditarBoard'),
@@ -596,7 +600,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (res.sucesso) {
                         window.location.reload();
                     } else {
-                        erro.textContent = (res.erros || ['Erro ao salvar.']).join(', ');
+                        erro.textContent = (res.erros || [BJ_T.t('kanban.js.erro_salvar')]).join(', ');
                         erro.style.display = 'block';
                     }
                 });
@@ -611,7 +615,7 @@ function inicializarCardModal(cardId) {
     if (descEl && typeof Quill !== 'undefined') {
         const quillDesc = new Quill('#quillDescricao', {
             theme: 'snow',
-            placeholder: 'Adicionar descrição...',
+            placeholder: BJ_T.t('kanban.js.descricao_placeholder'),
             modules: {
                 toolbar: [
                     [{ header: [1, 2, 3, false] }],
@@ -637,7 +641,7 @@ function inicializarCardModal(cardId) {
     if (comentEl && typeof Quill !== 'undefined') {
         window.quillComentario = new Quill('#quillComentario', {
             theme: 'snow',
-            placeholder: 'Escrever comentário...',
+            placeholder: BJ_T.t('kanban.js.comentario_placeholder'),
             modules: {
                 toolbar: [
                     ['bold', 'italic', 'underline'],
@@ -717,7 +721,7 @@ window.toggleMarcador = function (cardId, marcadorId, btn) {
 
 // ── Excluir comentário ──
 window.excluirComentario = function (comentarioId, csrfToken) {
-    if (!confirm('Excluir comentário?')) return;
+    if (!confirm(BJ_T.t('kanban.js.confirmar_excluir_comentario'))) return;
     const data = new FormData();
     data.append('_token', csrfToken);
     fetch('/kanban/comentario/' + comentarioId + '/excluir', { method: 'POST', body: data })
@@ -823,7 +827,7 @@ window.excluirItemChecklist = function (itemId, cardId, csrfToken) {
 
 // ── Checklist: excluir checklist inteira ──
 window.excluirChecklist = function (checklistId, cardId, csrfToken) {
-    if (!confirm('Excluir esta checklist?')) return;
+    if (!confirm(BJ_T.t('kanban.js.confirmar_excluir_checklist'))) return;
     const data = new FormData();
     data.append('_token', csrfToken);
     fetch('/kanban/checklist/' + checklistId + '/excluir', { method: 'POST', body: data })
@@ -849,7 +853,7 @@ window.criarChecklist = function (cardId) {
     function executar() {
         const titulo = input.value.trim();
         if (!titulo) {
-            erro.textContent = 'Informe um título para a checklist.';
+            erro.textContent = BJ_T.t('kanban.js.informe_titulo_checklist');
             erro.style.display = 'block';
             input.focus();
             return;
@@ -870,7 +874,7 @@ window.criarChecklist = function (cardId) {
             }
         }).catch(function () {
             btnConf.disabled = false;
-            erro.textContent = 'Erro ao criar checklist. Tente novamente.';
+            erro.textContent = BJ_T.t('kanban.js.erro_criar_checklist');
             erro.style.display = 'block';
         });
     }
@@ -900,7 +904,7 @@ window.uploadAnexo = function (cardId, input) {
 
 // ── Anexos: excluir ──
 window.excluirAnexo = function (anexoId, cardId, csrfToken) {
-    if (!confirm('Excluir anexo?')) return;
+    if (!confirm(BJ_T.t('kanban.js.confirmar_excluir_anexo'))) return;
     const data = new FormData();
     data.append('_token', csrfToken);
     fetch('/kanban/anexo/' + anexoId + '/excluir', { method: 'POST', body: data })
@@ -941,7 +945,7 @@ window.atualizarVencimento = function (cardId, valor) {
 
 // ── Excluir card ──
 window.excluirCard = function (cardId, csrfToken) {
-    if (!confirm('Excluir este card permanentemente?')) return;
+    if (!confirm(BJ_T.t('kanban.js.confirmar_excluir_card'))) return;
     const data = new FormData();
     data.append('_token', csrfToken);
     fetch('/kanban/card/' + cardId + '/excluir', { method: 'POST', body: data })
