@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\UseCase;
 
+use App\Tenant\Service\SituacaoDaConta;
 use App\TrabalhoExterno\Entity\Vaga;
 use App\TrabalhoExterno\Enum\AcaoVaga;
 use App\TrabalhoExterno\Exception\AcaoNaoPermitida;
@@ -33,6 +34,7 @@ final class AplicarAcaoNaVagaUseCase
         private readonly VagaRepository $vagas,
         private readonly CandidaturaRepository $candidaturas,
         private readonly AvisosDoTrabalhoExterno $avisos,
+        private readonly SituacaoDaConta $situacao,
     ) {
     }
 
@@ -43,10 +45,24 @@ final class AplicarAcaoNaVagaUseCase
         if (!$this->politica->podeExecutar($ctx, $vaga, $acao)) {
             throw new AcaoNaoPermitida('Você não pode executar esta ação nesta vaga.');
         }
+        $this->exigirEscritorioNoArParaPublicar($vaga, $acao);
 
         $falha = $this->vagas->comAVagaTravada($vaga, fn (): ?TransicaoInvalida => $this->aplicar($ctx, $vaga, $acao, $motivo, $agora));
 
         return $falha !== null ? throw $falha : $vaga;
+    }
+
+    /**
+     * Aprovar, reabrir e ofertar de novo publicam a vaga (e avisam quem tem alerta na área): com o escritório que a
+     * divulgou fora do ar, não (decisão do coordenador em 20/10, até o dono responder; docs/specs/te-convidado-escritorio-fora-do-ar.md).
+     */
+    private function exigirEscritorioNoArParaPublicar(Vaga $vaga, AcaoVaga $acao): void
+    {
+        $dono = $vaga->getEscritorio();
+        if ($dono !== null && $this->situacao->foraDoAr($dono)
+            && in_array($acao, [AcaoVaga::Aprovar, AcaoVaga::Reabrir, AcaoVaga::OfertarNovamente], true)) {
+            throw new AcaoNaoPermitida('O escritório que divulgou esta vaga está fora do ar. A vaga não pode ser publicada agora.');
+        }
     }
 
     /** Dentro da trava: a recusa volta como valor, para não fechar o EntityManager. */

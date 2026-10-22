@@ -18,6 +18,8 @@ use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
  * para "selecionar escritório", e o Convidado (conta sem escritório, spec §8) ficaria parado numa
  * tela sem escritório nenhum para escolher. Aqui, e SÓ nesse caso (sem vínculo ativo, sem ser
  * super admin e com convite vigente), o destino vira o Trabalho Externo.
+ * Quem tem vínculo com escritório fora do ar (suspenso ou excluído) segue para a seleção, onde vê o aviso
+ * da conta (docs/specs/te-convidado-escritorio-fora-do-ar.md).
  *
  * Fica no módulo, como ouvinte do evento de login do firewall `main`, para não mexer no
  * autenticador de todos: quem tem escritório, o super admin e quem não tem convite seguem o
@@ -44,6 +46,7 @@ final class EntradaDoConvidadoListener
             || !$usuario instanceof User
             || in_array('ROLE_SUPER_ADMIN', $usuario->getRoles(), true)
             || $this->vinculos->findActiveByUser($usuario) !== []
+            || $this->vinculos->contasForaDoArDoUsuario($usuario) !== []
             || $this->convites->vigentesDo($usuario, new \DateTimeImmutable('today')) === []) {
             return;
         }

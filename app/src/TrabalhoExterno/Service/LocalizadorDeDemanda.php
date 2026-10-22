@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\TrabalhoExterno\Service;
 
+use App\Tenant\Service\SituacaoDaConta;
 use App\TrabalhoExterno\Entity\ConviteDemanda;
 use App\TrabalhoExterno\Entity\DemandaExterna;
 use App\TrabalhoExterno\Enum\Perfil;
@@ -17,7 +18,8 @@ use App\TrabalhoExterno\Repository\DemandaExternaRepository;
  *
  * O perfil Convidado é POR DEMANDA (spec §8): se a demanda não está no escopo do perfil de quem
  * pede, mas ele tem convite vigente para ela, o contexto devolvido é o de Convidado daquela demanda.
- * Por isso os dois métodos devolvem a demanda junto com o contexto que vale para ela.
+ * Por isso os dois métodos devolvem a demanda junto com o contexto que vale para ela. Se o escritório dono
+ * está fora do ar, o contexto de Convidado vem marcado como só leitura (`Contexto::donoForaDoAr`).
  */
 final class LocalizadorDeDemanda
 {
@@ -25,6 +27,7 @@ final class LocalizadorDeDemanda
         private readonly DemandaExternaRepository $repositorio,
         private readonly ConviteDemandaRepository $convites,
         private readonly PoliticaDaDemanda $politica,
+        private readonly SituacaoDaConta $situacao,
     ) {
     }
 
@@ -46,7 +49,7 @@ final class LocalizadorDeDemanda
         }
 
         foreach ($this->convitesVigentes($ctx) as $convite) {
-            $comoConvidado = $ctx->comoConvidado($convite);
+            $comoConvidado = $this->comoConvidado($ctx, $convite);
             if ($convite->getDemanda()->getId() === $id && $this->politica->podeVer($comoConvidado, $convite->getDemanda())) {
                 return [$convite->getDemanda(), $comoConvidado];
             }
@@ -82,7 +85,7 @@ final class LocalizadorDeDemanda
 
         foreach ($this->convitesVigentes($ctx) as $convite) {
             $d = $convite->getDemanda();
-            $comoConvidado = $ctx->comoConvidado($convite);
+            $comoConvidado = $this->comoConvidado($ctx, $convite);
             if (!isset($vistas[(int) $d->getId()]) && $this->politica->podeVer($comoConvidado, $d)) {
                 $pares[] = [$d, $comoConvidado];
                 $vistas[(int) $d->getId()] = true;
@@ -90,6 +93,12 @@ final class LocalizadorDeDemanda
         }
 
         return $pares;
+    }
+
+    /** O Convidado só lê a demanda de escritório fora do ar (docs/specs/te-convidado-escritorio-fora-do-ar.md). */
+    private function comoConvidado(Contexto $ctx, ConviteDemanda $convite): Contexto
+    {
+        return $ctx->comoConvidado($convite, $this->situacao->foraDoAr($convite->getDemanda()->getTenant()));
     }
 
     /** @return list<ConviteDemanda> */
