@@ -218,6 +218,10 @@ formulário até a Fase 3 levá-lo para a lateral (04B L81). **Decisão do dono 
 e página da meta), porque o desenho não tem a opção em lugar nenhum.
 
 **Fase 2b**
+- Convenções da 2b: o anexo novo fica em `arquivo_anexo` como `pasta_documento:<id>` (sem migration); o lembrete aparece
+  como "Comentário", sem código de registro, como no desenho; a menção avisa com o tipo de menção da pasta e o lembrete
+  com o tipo novo `tarefa_lembrete`; o Extrato é a janela de impressão do navegador (salvar em PDF por ela); juntar o
+  anexo à pasta exige só o acesso à meta, como o anexo já exigia; os tokens de menção contam nos 5.000 caracteres.
 - L9. Extrato: Demanda no topo; cada despacho numerado com natureza, quem → para, Cumprir até, Ciente, certidão;
   "Emitido em"; aviso "Permita pop-ups para gerar o extrato." se bloqueado (04B L150).
 - L10. Lembrar grava "Lembrete enviado para X, Y." no histórico; em revisão, avisa o autor (04B L115, L133).
