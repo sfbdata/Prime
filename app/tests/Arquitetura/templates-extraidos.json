@@ -814,6 +814,24 @@
         ]
     },
 
+    "emails_comercial": {
+        "templates": [
+            "email/comercial/_layout.html.twig",
+            "email/comercial/confirmacao_endereco.html.twig",
+            "email/comercial/automacao/_blocos.html.twig",
+            "email/comercial/automacao/boas_vindas.html.twig",
+            "email/comercial/automacao/espaco_100.html.twig",
+            "email/comercial/automacao/espaco_90.html.twig",
+            "email/comercial/automacao/lembrete_confirmacao.html.twig",
+            "email/comercial/automacao/pedido_espaco.html.twig",
+            "email/comercial/automacao/primeiros_passos.html.twig"
+        ],
+        "js": [],
+        "permitidos": [
+            "BlueJus"
+        ]
+    },
+
     "trabalho_externo": {
         "templates": [
             "trabalho_externo/convite.html.twig",

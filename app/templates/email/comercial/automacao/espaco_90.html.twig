@@ -1,8 +1,8 @@
 {# Modelo "Espaço em 90%" do desenho 05 (dc L.508-513): `e90`. O percentual é o limite escolhido na automação (80, 85 ou 90). #}
 {% import 'email/comercial/automacao/_blocos.html.twig' as b %}
-{{ b.texto('O armazenamento do seu escritório no BlueJus está com ' ~ limite ~ '% ocupado. Quando chegar a 100%, o envio de novos documentos fica pausado (consultar e baixar continua liberado).') }}
+{{ b.texto('emails.comercial.espaco_90.texto'|trans({limite: limite ~ ''})) }}
 {{ b.noticias([
-    ['Aumente o espaço', 'Mude para um plano maior em poucos cliques, sem perder nada.'],
-    ['Ou libere espaço', 'Use a sugestão de exclusão de documentos repetidos e vazios dentro das pastas.'],
+    ['emails.comercial.espaco_90.aumente_titulo'|trans, 'emails.comercial.espaco_90.aumente_resumo'|trans],
+    ['emails.comercial.espaco_90.libere_titulo'|trans, 'emails.comercial.espaco_90.libere_resumo'|trans],
 ]) }}
-{{ b.botao('Aumentar meu espaço', urlDoEspaco) }}
+{{ b.botao('emails.comercial.espaco_90.botao'|trans, urlDoEspaco) }}
