@@ -5005,4 +5005,57 @@ cobranca_pessoa:
         erro_cadastro: não foi possível carregar
         erro_detalhe: Não foi possível carregar o detalhe. Tente de novo.
 
+# ---- Feriados e folgas do escritório (feriado/index, new, edit, _form)
+feriado:
+    comum:
+        voltar: Voltar
+        cancelar: Cancelar
+    index:
+        titulo: Feriados e Folgas
+        data: Data
+        nome: Nome
+        recorrencia: Recorrência
+        acoes: Ações
+        todo_ano: (todo ano)
+        recorrente: Recorrente
+        pontual: Pontual
+        editar: Editar
+        editar_feriado: Editar feriado
+        excluir: Excluir
+        excluir_feriado: Excluir feriado
+        excluir_confirmar: "Excluir o feriado ''{nome}''?"
+        vazio: Nenhum feriado cadastrado.
+    novo:
+        titulo: Novo Feriado
+        salvar: Salvar Feriado
+    editar:
+        titulo_pagina: 'Editar Feriado | {nome}'
+        titulo: 'Editar:'
+        salvar: Salvar Alterações
+    form:
+        ajuda_data: 'Para feriados recorrentes, o ano da data é ignorado: apenas o dia e o mês importam.'
+        ajuda_recorrente: 'Marque para feriados que caem sempre na mesma data todo ano (ex: Natal, Tiradentes). Deixe desmarcado para folgas e dispensas pontuais.'
+
+# ---- Sincronização: conexão do Drive do escritório (sync/drive_conexao)
+sync:
+    drive:
+        titulo: Conectar meu Drive
+        cartao: Sincronização com o Google Drive
+        explicacao: Conecte a conta do Google do escritório para sincronizar as pastas e documentos com o seu Google Drive. Só administradores do escritório podem alterar esta conexão.
+        conta_conectada: Conta conectada
+        conta_padrao: conta Google
+        status: Status
+        ativa: Ativa
+        falta_pasta_raiz: Falta a pasta-raiz
+        pasta_raiz: Pasta-raiz
+        nao_informado: Não informado
+        conectado_em: Conectado em
+        pasta_raiz_rotulo: Pasta-raiz do acervo no Drive (ID ou link)
+        salvar_pasta: Salvar pasta
+        pasta_raiz_ajuda: Cole o link da pasta do Drive que é a raiz do acervo deste escritório.
+        reconectar: Reconectar conta
+        desconectar_confirmar: Desconectar o Drive deste escritório? A sincronização para até reconectar.
+        desconectar: Desconectar
+        conectar: Conectar conta Google
+
 # ---- fim
