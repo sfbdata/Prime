@@ -626,7 +626,9 @@ das respostas. O HTML da pasta (primário, quem só vê, lápide e estado vazio)
   download e impressão na trilha, leitor sem edição nem Financeiro e aba Documentos oculta) foi gravado com os
   templates da HEAD e com os novos na mesma execução e comparado com tokens normalizados: igual, fora o
   `<script data-bj-t>`. O texto dos scripts foi conferido chave por chave contra o literal removido. A nota de edição
-  do Push ficou com as aspas de "editado" no template (o `|trans` escaparia as aspas da chave).
+  do Push é uma chave só, com a frase inteira e `{editado}`; as aspas saem como `&quot;` no HTML, iguais na tela.
+  Ficam partidas, sem como reordenar por idioma, as listas de envio do admin (`envio.e`, por causa dos
+  `<span data-ia-envio>`) e o `uso_hoje`/`uso_mes` (número fora da chave).
 - **Formatos:** dia e hora do aviso dos cartões viraram `|data` e `|hora`; o "quando" do Criar tarefa e o aceite da
   configuração, `|data_hora`; a hora do "Editado em", `|hora` (nenhum nulo ali). Ficaram os `|date('d/m')` (marca do
   dia, "Editado em" e trilha `d/m H:i`): não há filtro de dia e mês. Contagens entram como texto (`~ ''`); "item/itens"

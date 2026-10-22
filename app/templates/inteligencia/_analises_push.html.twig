@@ -184,7 +184,7 @@
                                     <button type="button" class="ps-ia-icone ps-ia-ed-remover" data-ia-ed-remover aria-label="{{ 'inteligencia.push.remover_ponto'|trans }}" title="{{ 'inteligencia.push.remover_ponto'|trans }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
                                 </div>
                             {% endfor %}
-                            <p class="ps-ia-ed-nota">{{ 'inteligencia.push.nota_edicao'|trans }} "{{ 'inteligencia.push.editado'|trans }}".</p>
+                            <p class="ps-ia-ed-nota">{{ 'inteligencia.push.nota_edicao'|trans({editado: 'inteligencia.push.editado'|trans}) }}</p>
                             <div class="ps-ia-acoes">
                                 <button type="submit" class="ps-ia-botao ps-ia-botao--salvar"><i class="bi bi-check2" aria-hidden="true"></i> {{ 'inteligencia.push.salvar'|trans }}</button>
                                 <button type="button" class="ps-ia-botao" data-ia-ed-cancelar>{{ 'inteligencia.push.cancelar'|trans }}</button>

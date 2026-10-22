@@ -5194,7 +5194,7 @@ inteligencia:
         resumo_rotulo: Resumo da análise
         ponto_rotulo: Ponto da análise
         remover_ponto: Remover ponto
-        nota_edicao: Conteúdo originalmente gerado por IA. Sua edição fica registrada como
+        nota_edicao: 'Conteúdo originalmente gerado por IA. Sua edição fica registrada como "{editado}".'
         salvar: Salvar
         cancelar: Cancelar
         interna_bloqueia: 'Análise interna do escritório: libere o cadeado para enviar ao cliente.'
