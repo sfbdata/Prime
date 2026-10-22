@@ -3,7 +3,7 @@
    Reexecutado a cada filtro/página pelo motor public/js/filtro-tabela.js.
 ─────────────────────────────────────────────────────────────────────────── #}
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-    <span class="text-muted"><i class="bi bi-list-ul me-1"></i> {{ total }} resultado(s) encontrado(s)</span>
+    <span class="text-muted"><i class="bi bi-list-ul me-1"></i> {{ 'processo.resultado.total'|trans({total: total ~ ''}) }}</span>
     {{ include('_partials/_filtro_paginacao.html.twig', { pagina: pagina, total_paginas: total_paginas }) }}
 </div>
 
@@ -21,12 +21,12 @@
             </colgroup>
             <thead>
                 <tr>
-                    <th class="sortable{{ filtros.ordenar == 'numero' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="numero"><i class="bi bi-hash me-1"></i> Número do Processo <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable{{ filtros.ordenar == 'tribunal' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="tribunal"><i class="bi bi-building me-1"></i> Tribunal <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable{{ filtros.ordenar == 'classe' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="classe"><i class="bi bi-bookmark me-1"></i> Classe <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable{{ filtros.ordenar == 'assunto' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="assunto"><i class="bi bi-chat-left-text me-1"></i> Assunto <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable{{ filtros.ordenar == 'situacao' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="situacao"><i class="bi bi-flag me-1"></i> Situação <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="col-acoes"><i class="bi bi-gear me-1"></i> Ações</th>
+                    <th class="sortable{{ filtros.ordenar == 'numero' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="numero"><i class="bi bi-hash me-1"></i> {{ 'processo.comum.numero'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable{{ filtros.ordenar == 'tribunal' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="tribunal"><i class="bi bi-building me-1"></i> {{ 'processo.comum.tribunal'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable{{ filtros.ordenar == 'classe' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="classe"><i class="bi bi-bookmark me-1"></i> {{ 'processo.resultado.classe'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable{{ filtros.ordenar == 'assunto' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="assunto"><i class="bi bi-chat-left-text me-1"></i> {{ 'processo.resultado.assunto'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable{{ filtros.ordenar == 'situacao' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="situacao"><i class="bi bi-flag me-1"></i> {{ 'processo.comum.situacao'|trans }} <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="col-acoes"><i class="bi bi-gear me-1"></i> {{ 'processo.resultado.acoes'|trans }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -45,14 +45,14 @@
                             <div class="acoes-grupo">
                                 <a href="{{ path('processo_show', {id: processo.id}) }}"
                                    class="btn-action btn-action-view"
-                                   title="Visualizar processo"
-                                   aria-label="Visualizar processo">
+                                   title="{{ 'processo.resultado.visualizar'|trans }}"
+                                   aria-label="{{ 'processo.resultado.visualizar'|trans }}">
                                     <i class="bi bi-eye"></i>
                                 </a>
                                 <a href="{{ path('processo_edit', {id: processo.id}) }}"
                                    class="btn-action btn-action-edit"
-                                   title="Editar processo"
-                                   aria-label="Editar processo">
+                                   title="{{ 'processo.comum.editar_processo'|trans }}"
+                                   aria-label="{{ 'processo.comum.editar_processo'|trans }}">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                             </div>
@@ -65,6 +65,6 @@
 </div>
 {% else %}
 <div class="alert alert-info mb-0">
-    Nenhum processo encontrado. <a href="{{ path('processo_new') }}">Criar novo processo</a>
+    {{ 'processo.resultado.vazio'|trans }} <a href="{{ path('processo_new') }}">{{ 'processo.resultado.criar'|trans }}</a>
 </div>
 {% endif %}

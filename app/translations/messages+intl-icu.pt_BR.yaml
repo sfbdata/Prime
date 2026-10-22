@@ -122,6 +122,9 @@ moldura:
             exemplo_reuniao: Reunião de equipe semanal
             exemplo_prazo: Prazo de contestação · Pasta 1180
             exemplo_compromisso: Atendimento ao cliente
+    # Faixa do Master numa tela desligada (_recurso_faixa_master, incluída pelo base, layout_peticionar e push_compartilhado/show)
+    faixa_master:
+        aviso: Esta tela está desativada para os usuários. Só o Master está vendo.
 
 # ---- menu do usuário (menu_usuario/*, menu-usuario.js)
 menu:
@@ -507,6 +510,218 @@ pasta_processo:
         administrativa_sem_comunicacao: Erro de comunicação. A marcação pode não ter sido salva. Recarregue a página.
         dados_falhou: Não foi possível salvar os dados do processo.
         dados_sem_comunicacao: Erro de comunicação. Os dados podem não ter sido salvos. Recarregue a página.
+
+# ---- Processo (processo/index, _resultado, new, show, _notas_tecnicas, _nota_tecnica_item; o JS do formulário em
+# processo.form.js, entregue pelo new). A situação gravada (EM_ANDAMENTO...) continua o valor; só o rótulo sai daqui.
+processo:
+    comum:
+        home: Home
+        push: Push Processual
+        processos: Processos
+        numero: Número do Processo
+        tribunal: Tribunal
+        situacao: Situação
+        instancia: Instância
+        informacoes: Informações
+        partes: Partes
+        movimentacoes: Movimentações
+        orgao_julgador: Órgão Julgador
+        classe_processual: Classe Processual
+        data_baixa: Data de Baixa
+        tipo: Tipo
+        nome: Nome
+        documento: Documento
+        papel: Papel
+        data: Data
+        descricao: Descrição
+        orgao: Órgão
+        editar: Editar
+        editar_processo: Editar processo
+        fechar: Fechar
+    situacao:
+        em_andamento: Em Andamento
+        encerrado: Encerrado
+        suspenso: Suspenso
+        arquivado: Arquivado
+        baixado: Baixado
+        transitado_em_julgado: Transitado em julgado
+        paralisado: Paralisado
+    index:
+        titulo: Processos Judiciais
+        cadastrar: Cadastrar Processo
+        busca: Buscar por número, classe, assunto ou tribunal…
+        filtro:
+            tribunal: Tribunal
+            situacao: Situação
+            de: De
+            ate: Até
+    resultado:
+        total: '{total} resultado(s) encontrado(s)'
+        classe: Classe
+        assunto: Assunto
+        acoes: Ações
+        visualizar: Visualizar processo
+        vazio: Nenhum processo encontrado.
+        criar: Criar novo processo
+    show:
+        titulo: 'Processo {numero}'
+        detalhes: Detalhes
+        distribuicao: Distribuição
+        tarefas: Tarefas
+        assunto: Assunto
+        assuntos: Assuntos
+        ultima_atualizacao: Última Atualização
+        sem_partes: Nenhuma parte cadastrada.
+        sem_movimentacoes: Nenhuma movimentação cadastrada.
+        criado_em: Criado em
+        modificado_em: Modificado em
+        criado_por: Criado por
+        dados_cnj: Dados do CNJ (Datajud)
+        sistema_origem: Sistema de origem
+        formato: Formato
+        nivel_sigilo: Nível de sigilo
+        codigo_orgao: Código do órgão
+        municipio_ibge: Município (IBGE)
+        id_datajud: ID Datajud
+        atividades_recentes: Atividades Recentes
+        tempo: '{horas}h {minutos}min'
+        prazo_em: 'Prazo: {data}'
+        sem_tarefas: Não há tarefas vinculadas a este processo.
+        vinculos: Vínculos
+        pastas: Pastas
+        sem_pastas: Este processo não está vinculado a nenhuma pasta.
+        pasta_trancada_dica: Pasta trancada pelo usuário primário
+        pasta_trancada: Pasta trancada
+        principal_dica: Este processo é o principal da pasta
+        principal: Principal
+        excluida_em: 'Excluída em {data}'
+        excluida: Excluída
+        voltar: Voltar aos Processos
+        excluir_confirmar: Tem certeza que deseja excluir este processo?
+        excluir_processo: Excluir processo
+        excluir: Excluir Processo
+        modal:
+            status: Status
+            atribuido: Atribuído a
+            criada_em: Criada em
+            prazo: Prazo
+            tempo_total: Tempo Total
+            ultima_revisao: Última Revisão
+            conclusao: Conclusão
+            abrir_tarefa: Abrir Tarefa
+    form:
+        titulo_novo: Novo Processo
+        titulo_editar: Editar Processo
+        novo: Novo
+        cliente: Cliente
+        assuntos: Assuntos
+        numero_exemplo: 'Ex: 1234567-89.2024.1.23.4567'
+        numero_formato: 'Formato: NNNNNNN-DD.AAAA.J.TT.OOOO'
+        buscar_cnj: Buscar no CNJ
+        buscar_cnj_dica: Busca o processo na base de dados do CNJ
+        tribunal_placeholder: Detectado pelo número do processo
+        tribunal_ajuda: Preenchido automaticamente pelo número do processo.
+        assunto_processual: Assunto Processual
+        instancia:
+            g1: G1 - Primeira Instância
+            g2: G2 - Segunda Instância
+            st: ST - Superior Tribunal
+        data_distribuicao: Data de Distribuição
+        cliente_vinculado: Cliente vinculado
+        nenhum_cliente: Nenhum cliente
+        adicionar_parte: Adicionar Parte
+        adicionar_movimentacao: Adicionar Movimentação
+        adicionar_assunto: Adicionar Assunto
+        assuntos_ajuda: Todos os assuntos do processo (o assunto principal fica na aba Informações).
+        remover: Remover
+        parte:
+            parte: Parte
+            advogado: Advogado
+            juiz: Juiz
+            promotor: Promotor
+            nome_placeholder: Nome da parte
+            documento_placeholder: CPF/CNPJ
+            papel_placeholder: Polo ativo/passivo
+        movimentacao:
+            descricao_placeholder: Descrição da movimentação
+            tipo_placeholder: Tipo de movimento
+        assunto:
+            assunto: Assunto
+            codigo: Código (TPU)
+            nome_placeholder: Descrição do assunto
+            codigo_placeholder: 'Ex.: 10433'
+        cancelar: Cancelar
+        salvar: Salvar Alterações
+        criar: Criar Processo
+        buscando: Buscando...
+        buscando_datajud: Buscando processo no DataJud...
+        mensagem: Mensagem
+        close: Close
+        js:
+            nenhum_cliente: Nenhum cliente
+            nenhum_cliente_encontrado: Nenhum cliente encontrado
+            tipo: Tipo
+            nome: Nome
+            documento: Documento
+            papel: Papel
+            data: Data
+            descricao: Descrição
+            orgao: Órgão
+            remover: Remover
+            parte:
+                parte: Parte
+                advogado: Advogado
+                juiz: Juiz
+                promotor: Promotor
+                nome_placeholder: Nome da parte
+                documento_placeholder: CPF/CNPJ
+                papel_placeholder: Polo ativo/passivo
+            movimentacao:
+                descricao_placeholder: Descrição da movimentação
+                tipo_placeholder: Tipo de movimento
+            assunto:
+                assunto: Assunto
+                codigo: Código (TPU)
+                nome_placeholder: Descrição do assunto
+                codigo_placeholder: 'Ex.: 10433'
+            sucesso: Sucesso
+            atencao: Atenção
+            erro: Erro
+            informe_numero: Informe o número do processo.
+            erro_busca: Erro ao buscar processo no CNJ/DataJud.
+            erro_busca_tente: Erro ao buscar processo no CNJ/DataJud. Tente novamente em instantes.
+            carregado: Processo carregado com sucesso! Os dados foram preenchidos no formulário. Você pode editá-los antes de salvar.
+    notas:
+        titulo: Notas técnicas
+        sobre_movimentacao: Sobre esta movimentação.
+        aviso: 'A nota é do processo: aparece em toda pasta que o vincula.'
+        adicionar: Adicionar nota técnica
+        nova: Nova nota técnica
+        texto: Texto da nota técnica
+        placeholder_despacho: 'Explique o despacho: o que significa, o que precisa ser feito, prazo… Use @ para mencionar alguém.'
+        placeholder_processo: 'Explique o processo ou o despacho: o que significa, o que precisa ser feito, prazo… Use @ para mencionar alguém.'
+        cancelar: Cancelar
+        salvar: Salvar nota
+        salvar_dica: Salvar (Ctrl+Enter)
+    nota:
+        selo: Nota técnica
+        hoje: 'hoje, {hora}'
+        quando: '{data}, {hora}'
+        editada_em: 'Editada em {data}'
+        editada: editada
+        movimentacao_dica: Nota sobre uma movimentação do Push Processual
+        opcoes: Opções da nota
+        menu_titulo: 'Nota técnica · {autor}'
+        responder: Responder com outra nota
+        copiar: Copiar texto
+        edicao_liberada: 'Edição liberada por mais {minutos} min'
+        editar_min: 'Editar · {minutos} min'
+        exclusao_liberada: 'Exclusão liberada por mais {minutos} min'
+        excluir_min: 'Excluir · {minutos} min'
+        so_autor_edita: Só o autor edita a nota, em até 15 minutos
+        so_autor_exclui: Só o autor exclui a nota, em até 15 minutos
+        editar_bloqueado: Editar · bloqueado
+        excluir_bloqueado: Excluir · bloqueado
 
 # ---- Relatório da Central de envios do /master (master/_comercial_relatorio, master/comercial-relatorio.js)
 # O que vem do PHP (rótulos de estado, KPIs, dica e leitura da MetricasDaCampanha, recusas) fica fora.
@@ -3311,6 +3526,120 @@ comercial:
         dsc_confirmar_excluir: 'Excluir {email} da lista de descadastrados? Ele volta a poder receber e-mails. Faça isso só se o próprio contato pediu (LGPD).'
         dsc_registrar_pergunta: 'E-mail que pediu para não receber (por telefone, WhatsApp etc.):'
 
+# ---- Parciais comuns (_partials/_avatar_usuario, _filtro_barra, _filtro_paginacao, _janela_confirmacao,
+# modal_access_request, modal_mover_marcador, modal_nova_pasta; filtro-tabela.js, pasta-dialogos.js). O JS lê comum.js,
+# entregue pelo base para qualquer tela.
+comum:
+    cancelar: Cancelar
+    salvar: Salvar
+    fechar: Fechar
+    excluir: Excluir
+    filtro:
+        busca: Busca
+        buscar: Buscar…
+        filtrar_por: 'Filtrar por {rotulo}'
+        abrir_calendario: Abrir calendário
+    paginacao:
+        rotulo: Paginação
+        anterior: Página anterior
+        proxima: Próxima página
+    acesso:
+        titulo: Solicitar Acesso
+        explicacao: Você não tem permissão para acessar este item. Descreva o motivo da sua solicitação para que o administrador possa avaliá-la.
+        motivo: Motivo da solicitação
+        motivo_placeholder: Descreva por que você precisa acessar este item...
+        enviar: Enviar Solicitação
+    nova_pasta:
+        titulo: Nova Pasta
+        numero_automatico: O número da pasta é gerado automaticamente pelo sistema.
+        nome_cliente: Nome do cliente
+        nome_acao: Nome da Ação
+        cliente_placeholder: Digite o nome do cliente
+        acao_placeholder: Informe primeiro o nome do cliente
+    mover_marcador:
+        titulo: Marcadores da pasta
+        buscar: Buscar marcador…
+        limpar_busca: Limpar busca
+        nenhum_criado: Nenhum marcador criado ainda.
+    js:
+        fechar: Fechar
+        # filtro-tabela.js
+        filtro:
+            busca: Busca
+            remover: Remover
+            limpar_tudo: Limpar tudo
+        # modal_access_request (script inline)
+        acesso:
+            acao_visualizar: visualizar
+            acao_editar: editar
+            acao_excluir: excluir
+            recurso_cliente: cliente
+            descricao_padrao: 'Solicito {acao} o {recurso}{identificador}.'
+            enviando: Enviando...
+            enviar: Enviar Solicitação
+            descreva_motivo: Por favor, descreva o motivo da solicitação.
+            enviada: Solicitação enviada.
+            erro_enviar: Erro ao enviar solicitação. Tente novamente.
+        # modal_nova_pasta (script inline)
+        nova_pasta:
+            erro_criar: Não foi possível criar a pasta.
+            erro_conexao: Falha de conexão ao criar a pasta. Tente de novo.
+        # modal_mover_marcador (script inline)
+        mover_marcador:
+            selecionado: '{n} selecionado'
+            selecionados: '{n} selecionados'
+            nenhum_encontrado: 'Nenhum marcador encontrado para "{busca}".'
+            nenhum_criado: Nenhum marcador criado ainda.
+            criar: 'Criar marcador "{nome}"'
+            resposta_invalida: Resposta inválida do servidor.
+            erro_criar: Não foi possível criar o marcador.
+            erro_salvar: Erro ao salvar.
+            erro_comunicacao: Erro de comunicação.
+        # pasta-dialogos.js (janela de confirmação, responsáveis e calendário da Nova meta)
+        dialogos:
+            remover: Remover
+            remover_nome: 'Remover {nome}'
+            data_vazia: dd/mm/aaaa
+            mes_ano: '{mes} de {ano}'
+            dia_indisponivel: '{dia}, indisponível'
+            confirmar: Confirmar
+            excluir: Excluir
+            confirmar_exclusao: Confirmar exclusão
+            mes:
+                janeiro: janeiro
+                fevereiro: fevereiro
+                marco: março
+                abril: abril
+                maio: maio
+                junho: junho
+                julho: julho
+                agosto: agosto
+                setembro: setembro
+                outubro: outubro
+                novembro: novembro
+                dezembro: dezembro
+
+# ---- Templates da raiz: chip de OAB e layout do Peticionar (_oab_status, layout_peticionar). O cabeçalho do
+# Peticionar reaproveita moldura.notificacoes/cabecalho e menu.usuario.dropdown (mesmo rótulo, mesmo sentido).
+oab_status:
+    confirmada: Confirmada
+    divergente: Divergente
+    nao_verificada: Não verificada
+    sem_oab: Sem OAB
+peticionar:
+    titulo: Peticionar
+    cabecalho:
+        numero_pasta: 'Número da Pasta: {nup}'
+        cliente: 'Cliente: {cliente}'
+    processo:
+        contra: X
+        classe: Classe judicial
+        assunto: Assunto
+        jurisdicao: Jurisdição
+        distribuicao: Distribuição
+        instancia: Instância
+        situacao: Situação
+
 # ---- escritorio: Meu Escritório (tenant/index, new, criar, show, edit, _form, _delete_form, selecionar,
 # escritorio_indisponivel), com os flashes do TenantController, do EscritorioController e do TenantSelecaoController
 # e o título da página de escritório indisponível. Frase curta com o termo dentro recebe termos.escritorio por
@@ -5004,6 +5333,205 @@ cobranca_pessoa:
         carregando: Carregando…
         erro_cadastro: não foi possível carregar
         erro_detalhe: Não foi possível carregar o detalhe. Tente de novo.
+
+# ---- Auth: convites, link de confirmação, senha e mensagens de suporte (auth/*, auth/criar-senha.js)
+auth:
+    comum:
+        nao_foi_possivel_confirmar: Não foi possível confirmar
+        ir_para_login: Ir para o login
+        entrar: Entrar
+        li_e_aceito_os: Li e aceito os
+        expira_em: Expira em
+        email: E-mail
+        nome: Nome
+    meus_convites:
+        titulo: Meus Convites
+        cabecalho: Meus Convites Pendentes
+        vazio: Nenhum convite pendente.
+        escritorio: Escritório
+        convidado_por: Convidado por
+        nao_informado: Não informado
+        ver_convite: Ver convite
+    cadastro:
+        titulo: Cadastro
+        refazer: Refazer cadastro
+    link:
+        titulo_criar: Crie sua senha
+        titulo_confirmacao: Confirmação de e-mail
+        nova_senha: Nova senha
+        minimo_caracteres: Mínimo de 8 caracteres
+        confirmacao_da_nova: Confirmar nova senha
+        termos_de_uso: Termos de uso
+        e_a: e a
+        politica: Política de privacidade
+        criar_e_confirmar: Criar senha e confirmar
+        confirmado: E-mail confirmado.
+        senha_criada: Sua senha foi criada.
+    reenviar_confirmacao: Reenviar o link de confirmação
+    convite:
+        erro:
+            titulo: Convite inválido
+            expirado_titulo: Convite expirado
+            expirado_texto: 'Este convite não é mais válido: o prazo encerrou. Solicite um novo convite ao administrador do escritório.'
+            usado_titulo: Convite já utilizado
+            usado_texto: Este convite já foi aceito, recusado ou revogado e não pode ser usado novamente.
+            nao_encontrado_titulo: Convite não encontrado
+            nao_encontrado_texto: O link que você usou é inválido ou não existe. Verifique se copiou o link completo do e-mail.
+        nao_pertence:
+            titulo: Convite de outra conta
+            enviado_para: Este convite foi enviado para
+            outra_conta: Você está logado com uma conta diferente. Para aceitar este convite, saia e entre com o e-mail correto.
+            sair: Sair desta conta
+        ver:
+            titulo: Aceitar Convite
+            para_escritorio: 'Convite para {escritorio}'
+            para_bluejus: Convite para o BlueJus
+            te_convidou: '{nome} te convidou para colaborar'
+            em: em
+            expira: 'Convite expira em {data} às {hora}'
+            nome_completo: Nome completo
+            senha: Senha
+            oab_numero: Número da OAB
+            oab_numero_exemplo: 'Ex: 123456'
+            oab_uf: UF da OAB
+            oab_uf_exemplo: 'Ex: SP'
+            termos: Termos e Condições Gerais de Uso
+            ciencia: Ao criar a conta você declara ciência da
+            politica: Política de Privacidade
+            criar_e_aceitar: Criar conta e aceitar
+        ver_logado:
+            titulo: Convite de Escritório
+            cabecalho: Convite de escritório
+            colaborar_em: Você foi convidado para colaborar em
+            convidado_por: 'Convidado por: {nome}'
+            expira: 'Expira em {data}'
+            aceitar: Aceitar convite
+            recusar: Recusar
+    gerenciar:
+        titulo: Gerenciar Convites
+        novo: Novo convite
+        nome_opcional: Nome (opcional)
+        perfil: Perfil
+        selecione: Selecione...
+        convidar: Convidar
+        enviados: Convites enviados
+        status: Status
+        enviado_em: Enviado em
+        reenvios: Reenvios
+        sem_informacao: sem informação
+        situacao:
+            pendente: Pendente
+            aceito: Aceito
+            recusado: Recusado
+            revogado: Revogado
+            expirado: Expirado
+        reenviar: Reenviar
+        confirmar_reenviar: Reenviar convite para
+        revogar: Revogar
+        confirmar_revogar: Revogar convite de
+        vazio: Nenhum convite enviado ainda.
+    senha:
+        erro:
+            titulo: Link inválido
+            cabecalho: Não foi possível usar este link
+            recuperar: Recuperar a senha por código
+            voltar: Voltar ao login
+        redefinir:
+            titulo: Criar nova senha
+            subtitulo: Use no mínimo 8 caracteres. Ao salvar, você sairá das outras sessões.
+            salvar: Salvar nova senha
+    suporte:
+        titulo: Mensagens de suporte
+        subtitulo_antes: Enviadas pelo
+        falar_com_suporte: Falar com suporte
+        subtitulo_depois: da tela de entrada. Responda pelo e-mail informado.
+        vazio: Nenhuma mensagem de suporte por enquanto.
+        data: Data
+        assunto: Assunto
+        mensagem: Mensagem
+        origem: Origem
+        sem_nome: (sem nome)
+        sem_assunto: Mensagem
+        responder: Responder por e-mail
+        assunto_do_email: Suporte BlueJus
+        origem_login: Tela de entrada
+    js:
+        forca:
+            fraca: Fraca
+            media: Média
+            boa: Boa
+            forte: Forte
+
+# ---- Push Processual: publicações, OABs monitoradas e publicação (djen/index, oabs, show)
+djen:
+    comum:
+        nao_informado: Não informado
+        sem_registro: Sem registro
+        avulsa: Avulsa
+        tribunal: Tribunal
+        tipo: Tipo
+        processo: Processo
+        orgao: Órgão
+        meio: Meio
+        acoes: Ações
+    index:
+        titulo_pagina: 'Push Processual | Publicações'
+        titulo: 'Push Processual: Publicações'
+        processos_monitorados: Processos monitorados
+        cadastrar_processo: Cadastrar processo
+        sincronizar: Sincronizar agora
+        filtros: Filtros
+        busca: Busca
+        busca_placeholder: Nº processo, tribunal, tipo...
+        todos: Todos
+        todas: Todas
+        diario: Diário
+        edital: Edital
+        vinculo: Vínculo
+        vinculadas: Vinculadas
+        avulsas: Avulsas
+        de: De
+        ate: Até
+        filtrar: Filtrar
+        limpar: Limpar
+        data: Data
+        vinculada: Vinculada
+        ver: Ver
+        vazio: 'Nenhuma publicação encontrada. Cadastre uma OAB ou um processo e clique em "Sincronizar agora".'
+        paginacao: '{total} publicação(ões) · página {pagina} de {paginas}'
+        anterior: Anterior
+        proxima: Próxima
+    oabs:
+        titulo_pagina: 'Push Processual | OABs monitoradas'
+        titulo: OABs monitoradas
+        voltar: Voltar às publicações
+        adicionar_oab: Adicionar OAB
+        adicionar: Adicionar
+        oab: OAB
+        apelido: Apelido
+        status: Status
+        desde: Desde
+        ativa: Ativa
+        pausada: Pausada
+        pausar: Pausar
+        reativar: Reativar
+        remover_confirmar: Remover esta OAB do monitoramento?
+        vazio: Nenhuma OAB monitorada ainda. Adicione uma acima para captar as publicações.
+    show:
+        titulo_pagina: 'Push Processual | Publicação'
+        titulo: 'Push Processual: Publicação'
+        voltar: Voltar
+        voltar_publicacoes: Voltar para as publicações
+        disponibilizacao: Disponibilização
+        ver_processo: Ver processo
+        classe: Classe
+        captada_pela_oab: Captada pela OAB
+        destinatarios: Destinatários
+        nome: Nome
+        polo: Polo
+        teor: Teor da comunicação
+        inteiro_teor: Inteiro teor na origem
+        sem_teor: Sem teor textual disponível.
 
 # ---- Feriados e folgas do escritório (feriado/index, new, edit, _form)
 feriado:

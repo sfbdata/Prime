@@ -7,7 +7,14 @@
 (() => {
     'use strict';
 
-    const FORCA = [['', '#c9d3da', '0%'], ['Fraca', '#c0392b', '25%'], ['Média', '#c76a12', '50%'], ['Boa', '#0a63c9', '75%'], ['Forte', '#1e7b45', '100%']];
+    /* Rótulos do catálogo do idioma (auth.js, entregue pelo confirmar_email antes deste arquivo). */
+    const FORCA = [
+        ['', '#c9d3da', '0%'],
+        [window.BJ_T.t('auth.js.forca.fraca'), '#c0392b', '25%'],
+        [window.BJ_T.t('auth.js.forca.media'), '#c76a12', '50%'],
+        [window.BJ_T.t('auth.js.forca.boa'), '#0a63c9', '75%'],
+        [window.BJ_T.t('auth.js.forca.forte'), '#1e7b45', '100%'],
+    ];
     const tamanho = (p) => [...p].length; /* em caracteres, como o mb_strlen do servidor */
     const pontos = (p) => (!p ? 0 : (tamanho(p) >= 8) + (/[A-Z]/.test(p) && /[a-z]/.test(p)) + /\d/.test(p) + /[^A-Za-z0-9_]/.test(p));
 
